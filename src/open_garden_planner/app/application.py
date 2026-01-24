@@ -22,7 +22,7 @@ class GardenPlannerApp(QMainWindow):
 
         self.setWindowTitle("Open Garden Planner")
         self.setMinimumSize(800, 600)
-        self.resize(1200, 800)
+        self.showMaximized()
 
         # Set up UI components
         self._setup_menu_bar()
