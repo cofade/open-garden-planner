@@ -510,7 +510,8 @@ open_garden_planner/
 │   └── plant_cache.py      # Local SQLite cache
 ├── resources/
 │   ├── icons/
-│   │   ├── OGP_logo.png    # used for branding and UI iconography
+│   │   ├── banner.png      # banner used for loading / landing screens and Github
+│   │   ├── OGP_logo.png    # logo used for branding and UI iconography
 │   ├── textures/
 │   ├── styles/
 │   └── default_library.json
@@ -555,6 +556,7 @@ open_garden_planner/
 | US-1.6 | As a user, I can undo and redo my actions | Must |
 | US-1.7 | As a user, I can see my cursor coordinates in real-time | Must |
 | US-1.8 | As a developer, I want the application to display the OGP logo icon on startup so that the brand identity is visible from the beginning | Should |
+| US-1.9 | As a developer, I want the GitHub repository to display the banner image which makes it more appealing for users and contributors | Should |
 
 **Technical Milestones**:
 - [ ] Project structure setup, dependencies, build system
@@ -565,6 +567,7 @@ open_garden_planner/
 - [ ] JSON serialization/deserialization
 - [ ] Command pattern for undo/redo
 - [ ] Load and display `OGP_logo.png` (resolution 1024x1024, potentially make rescaled copies as needed) as the application icon (e.g. splash screen, window icon, executable icon, or about dialog)
+- [ ] Embed `banner.png` (resolution 1920x960) as banner at the top of the GitHub page's ReadMe
 
 
 ### Phase 2: Precision & Calibration (v0.2)
