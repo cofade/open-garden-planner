@@ -255,9 +255,9 @@ class CanvasView(QGraphicsView):
             event.accept()
         else:
             # Update coordinates display
+            # mapToScene with our Y-flip transform already gives CAD-style coords
             scene_pos = self.mapToScene(event.position().toPoint())
-            canvas_pos = self.scene_to_canvas(scene_pos)
-            self.coordinates_changed.emit(canvas_pos.x(), canvas_pos.y())
+            self.coordinates_changed.emit(scene_pos.x(), scene_pos.y())
             super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
