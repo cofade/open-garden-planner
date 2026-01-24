@@ -6,8 +6,10 @@ from PyQt6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMenu,
-    QWidget,
 )
+
+from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
 
 class GardenPlannerApp(QMainWindow):
@@ -159,18 +161,21 @@ class GardenPlannerApp(QMainWindow):
         zoom_in_action = QAction("Zoom &In", self)
         zoom_in_action.setShortcut(QKeySequence("Ctrl++"))
         zoom_in_action.setStatusTip("Zoom in on the canvas")
+        zoom_in_action.triggered.connect(self._on_zoom_in)
         menu.addAction(zoom_in_action)
 
         # Zoom Out
         zoom_out_action = QAction("Zoom &Out", self)
         zoom_out_action.setShortcut(QKeySequence("Ctrl+-"))
         zoom_out_action.setStatusTip("Zoom out on the canvas")
+        zoom_out_action.triggered.connect(self._on_zoom_out)
         menu.addAction(zoom_out_action)
 
         # Fit to Window
         fit_action = QAction("&Fit to Window", self)
         fit_action.setShortcut(QKeySequence("Ctrl+0"))
         fit_action.setStatusTip("Fit the entire canvas in the window")
+        fit_action.triggered.connect(self._on_fit_to_window)
         menu.addAction(fit_action)
 
         menu.addSeparator()
@@ -232,10 +237,24 @@ class GardenPlannerApp(QMainWindow):
         status_bar.showMessage("Ready")
 
     def _setup_central_widget(self) -> None:
-        """Set up the central widget area (placeholder for now)."""
-        # Placeholder - will be replaced with splitter containing canvas and panels
-        central = QWidget()
-        self.setCentralWidget(central)
+        """Set up the central widget area with canvas."""
+        # Create canvas scene and view
+        self.canvas_scene = CanvasScene(width_cm=5000, height_cm=3000)
+        self.canvas_view = CanvasView(self.canvas_scene)
+
+        # Connect canvas signals to status bar updates
+        self.canvas_view.coordinates_changed.connect(self.update_coordinates)
+        self.canvas_view.zoom_changed.connect(self.update_zoom)
+
+        # Connect view menu actions to canvas
+        self.grid_action.triggered.connect(self._on_toggle_grid)
+        self.snap_action.triggered.connect(self._on_toggle_snap)
+
+        # Set canvas as central widget (will add panels later with splitter)
+        self.setCentralWidget(self.canvas_view)
+
+        # Initial zoom display
+        self.update_zoom(self.canvas_view.zoom_percent)
 
     # Slot methods for menu actions
 
@@ -262,6 +281,26 @@ class GardenPlannerApp(QMainWindow):
     def _on_redo(self) -> None:
         """Handle Redo action."""
         self.statusBar().showMessage("Redo (not implemented yet)")
+
+    def _on_toggle_grid(self, checked: bool) -> None:
+        """Handle toggle grid action."""
+        self.canvas_view.set_grid_visible(checked)
+
+    def _on_toggle_snap(self, checked: bool) -> None:
+        """Handle toggle snap action."""
+        self.canvas_view.set_snap_enabled(checked)
+
+    def _on_zoom_in(self) -> None:
+        """Handle zoom in action."""
+        self.canvas_view.zoom_in()
+
+    def _on_zoom_out(self) -> None:
+        """Handle zoom out action."""
+        self.canvas_view.zoom_out()
+
+    def _on_fit_to_window(self) -> None:
+        """Handle fit to window action."""
+        self.canvas_view.fit_in_view()
 
     def _on_about(self) -> None:
         """Handle About action."""

@@ -1,0 +1,328 @@
+"""Canvas view for the garden planner.
+
+The view handles rendering, pan, zoom, and coordinate transformation.
+It flips the Y-axis to provide CAD-style coordinates (origin at bottom-left,
+Y increasing upward).
+"""
+
+from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QMouseEvent, QPainter, QPen, QTransform, QWheelEvent
+from PyQt6.QtWidgets import QGraphicsView
+
+from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+
+
+class CanvasView(QGraphicsView):
+    """Graphics view for the garden canvas.
+
+    Provides pan, zoom, and coordinate transformation.
+    Coordinates shown to user are in CAD convention (Y-up, origin bottom-left).
+
+    Signals:
+        coordinates_changed: Emitted when mouse moves, provides (x, y) in cm
+        zoom_changed: Emitted when zoom changes, provides zoom percentage
+    """
+
+    # Signals
+    coordinates_changed = pyqtSignal(float, float)
+    zoom_changed = pyqtSignal(float)
+
+    # Zoom limits
+    min_zoom: float = 0.01  # 1% - very zoomed out
+    max_zoom: float = 50.0  # 5000% - very zoomed in
+
+    def __init__(self, scene: CanvasScene, parent: object = None) -> None:
+        """Initialize the canvas view.
+
+        Args:
+            scene: The CanvasScene to display
+            parent: Parent widget
+        """
+        super().__init__(scene, parent)
+
+        self._canvas_scene = scene
+        self._zoom_factor = 1.0
+        self._grid_visible = False
+        self._snap_enabled = True
+        self._grid_size = 50.0  # 50cm default grid
+
+        # Pan state
+        self._panning = False
+        self._pan_start = QPointF()
+
+        # Set up view properties
+        self._setup_view()
+
+    def _setup_view(self) -> None:
+        """Configure view properties."""
+        # Rendering quality
+        self.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+
+        # View behavior
+        self.setDragMode(QGraphicsView.DragMode.NoDrag)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
+
+        # Scrollbars
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+        # Enable mouse tracking for coordinate updates
+        self.setMouseTracking(True)
+
+        # Flip Y-axis for CAD convention (origin bottom-left, Y up)
+        self._apply_transform()
+
+        # Viewport update mode for smooth rendering
+        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
+
+    def _apply_transform(self) -> None:
+        """Apply the current transform including Y-flip and zoom."""
+        transform = QTransform()
+        # Scale for zoom
+        transform.scale(self._zoom_factor, -self._zoom_factor)  # Negative Y for flip
+        # Translate to put origin at bottom-left after flip
+        transform.translate(0, -self._canvas_scene.height_cm)
+        self.setTransform(transform)
+
+    # Properties
+
+    @property
+    def zoom_factor(self) -> float:
+        """Current zoom factor (1.0 = 100%)."""
+        return self._zoom_factor
+
+    @property
+    def zoom_percent(self) -> float:
+        """Current zoom as percentage."""
+        return self._zoom_factor * 100.0
+
+    @property
+    def grid_visible(self) -> bool:
+        """Whether the grid is visible."""
+        return self._grid_visible
+
+    @property
+    def snap_enabled(self) -> bool:
+        """Whether snap to grid is enabled."""
+        return self._snap_enabled
+
+    @property
+    def grid_size(self) -> float:
+        """Current grid size in centimeters."""
+        return self._grid_size
+
+    # Zoom methods
+
+    def set_zoom(self, factor: float) -> None:
+        """Set zoom to a specific factor.
+
+        Args:
+            factor: Zoom factor (1.0 = 100%)
+        """
+        factor = max(self.min_zoom, min(self.max_zoom, factor))
+        self._zoom_factor = factor
+        self._apply_transform()
+        self.zoom_changed.emit(self.zoom_percent)
+
+    def zoom_in(self, factor: float = 1.25) -> None:
+        """Zoom in by the given factor."""
+        self.set_zoom(self._zoom_factor * factor)
+
+    def zoom_out(self, factor: float = 1.25) -> None:
+        """Zoom out by the given factor."""
+        self.set_zoom(self._zoom_factor / factor)
+
+    def reset_zoom(self) -> None:
+        """Reset zoom to 100%."""
+        self.set_zoom(1.0)
+
+    def fit_in_view(self) -> None:
+        """Fit the entire scene in the view."""
+        self.fitInView(self.scene().sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+        # Extract zoom factor from current transform
+        transform = self.transform()
+        self._zoom_factor = abs(transform.m11())  # m11 is the x scale factor
+        self.zoom_changed.emit(self.zoom_percent)
+
+    # Grid methods
+
+    def set_grid_visible(self, visible: bool) -> None:
+        """Set grid visibility."""
+        self._grid_visible = visible
+        self.viewport().update()
+
+    def set_snap_enabled(self, enabled: bool) -> None:
+        """Set snap to grid enabled."""
+        self._snap_enabled = enabled
+
+    def set_grid_size(self, size: float) -> None:
+        """Set grid size in centimeters."""
+        self._grid_size = size
+        if self._grid_visible:
+            self.viewport().update()
+
+    # Coordinate conversion
+
+    def scene_to_canvas(self, scene_point: QPointF) -> QPointF:
+        """Convert scene coordinates to canvas coordinates (Y-flip).
+
+        Scene: Y-down, origin top-left (Qt convention)
+        Canvas: Y-up, origin bottom-left (CAD convention)
+
+        Args:
+            scene_point: Point in scene coordinates
+
+        Returns:
+            Point in canvas coordinates (cm, Y-up)
+        """
+        return QPointF(
+            scene_point.x(),
+            self._canvas_scene.height_cm - scene_point.y(),
+        )
+
+    def canvas_to_scene(self, canvas_point: QPointF) -> QPointF:
+        """Convert canvas coordinates to scene coordinates (Y-flip).
+
+        Args:
+            canvas_point: Point in canvas coordinates (cm, Y-up)
+
+        Returns:
+            Point in scene coordinates (Qt convention)
+        """
+        return QPointF(
+            canvas_point.x(),
+            self._canvas_scene.height_cm - canvas_point.y(),
+        )
+
+    def snap_point(self, point: QPointF) -> QPointF:
+        """Snap a point to the grid if snap is enabled.
+
+        Args:
+            point: Point in canvas coordinates
+
+        Returns:
+            Snapped point if snap enabled, original point otherwise
+        """
+        if not self._snap_enabled:
+            return point
+
+        return QPointF(
+            round(point.x() / self._grid_size) * self._grid_size,
+            round(point.y() / self._grid_size) * self._grid_size,
+        )
+
+    # Event handlers
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        """Handle mouse wheel for zooming."""
+        # Get the scroll amount
+        delta = event.angleDelta().y()
+
+        if delta > 0:
+            self.zoom_in()
+        elif delta < 0:
+            self.zoom_out()
+
+        event.accept()
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        """Handle mouse press for panning."""
+        if event.button() == Qt.MouseButton.MiddleButton:
+            # Start panning
+            self._panning = True
+            self._pan_start = event.position()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        """Handle mouse move for panning and coordinate updates."""
+        if self._panning:
+            # Pan the view
+            delta = event.position() - self._pan_start
+            self._pan_start = event.position()
+
+            # Adjust scrollbars
+            self.horizontalScrollBar().setValue(
+                int(self.horizontalScrollBar().value() - delta.x())
+            )
+            self.verticalScrollBar().setValue(
+                int(self.verticalScrollBar().value() - delta.y())
+            )
+            event.accept()
+        else:
+            # Update coordinates display
+            scene_pos = self.mapToScene(event.position().toPoint())
+            canvas_pos = self.scene_to_canvas(scene_pos)
+            self.coordinates_changed.emit(canvas_pos.x(), canvas_pos.y())
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        """Handle mouse release to stop panning."""
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self._panning = False
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+    def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
+        """Draw the background including optional grid."""
+        super().drawBackground(painter, rect)
+
+        if self._grid_visible:
+            self._draw_grid(painter, rect)
+
+    def _draw_grid(self, painter: QPainter, rect: QRectF) -> None:
+        """Draw the grid overlay."""
+        # Determine grid line spacing based on zoom
+        grid_size = self._grid_size
+
+        # Make grid adaptive - show coarser grid when zoomed out
+        while grid_size * self._zoom_factor < 10:  # Less than 10 pixels
+            grid_size *= 2
+        while grid_size * self._zoom_factor > 100:  # More than 100 pixels
+            grid_size /= 2
+
+        # Set up pen for grid lines
+        pen = QPen(QColor(200, 200, 200, 100))
+        pen.setWidth(0)  # Cosmetic pen (1 pixel regardless of transform)
+        painter.setPen(pen)
+
+        # Calculate grid bounds
+        left = int(rect.left() / grid_size) * grid_size
+        top = int(rect.top() / grid_size) * grid_size
+        right = rect.right()
+        bottom = rect.bottom()
+
+        # Draw vertical lines
+        x = left
+        while x <= right:
+            painter.drawLine(QPointF(x, rect.top()), QPointF(x, rect.bottom()))
+            x += grid_size
+
+        # Draw horizontal lines
+        y = top
+        while y <= bottom:
+            painter.drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y))
+            y += grid_size
+
+        # Draw major grid lines (every 5th line) slightly darker
+        major_pen = QPen(QColor(180, 180, 180, 150))
+        major_pen.setWidth(0)
+        painter.setPen(major_pen)
+
+        major_grid = grid_size * 5
+
+        x = int(rect.left() / major_grid) * major_grid
+        while x <= right:
+            painter.drawLine(QPointF(x, rect.top()), QPointF(x, rect.bottom()))
+            x += major_grid
+
+        y = int(rect.top() / major_grid) * major_grid
+        while y <= bottom:
+            painter.drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y))
+            y += major_grid
