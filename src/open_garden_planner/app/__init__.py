@@ -1,0 +1,1 @@
+"""Application setup and configuration."""

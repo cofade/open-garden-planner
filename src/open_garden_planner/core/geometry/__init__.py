@@ -1,0 +1,1 @@
+"""Geometry primitives and calculations."""
