@@ -6,7 +6,7 @@ Y increasing upward).
 """
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QMouseEvent, QPainter, QPen, QTransform, QWheelEvent
+from PyQt6.QtGui import QBrush, QColor, QMouseEvent, QPainter, QPen, QTransform, QWheelEvent
 from PyQt6.QtWidgets import QGraphicsView
 
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -70,6 +70,9 @@ class CanvasView(QGraphicsView):
 
         # Enable mouse tracking for coordinate updates
         self.setMouseTracking(True)
+
+        # Set view background color (area outside the canvas)
+        self.setBackgroundBrush(QBrush(QColor("#e0e0e0")))  # Light gray
 
         # Flip Y-axis for CAD convention (origin bottom-left, Y up)
         self._apply_transform()
@@ -275,6 +278,27 @@ class CanvasView(QGraphicsView):
 
         if self._grid_visible:
             self._draw_grid(painter, rect)
+
+    def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
+        """Draw the foreground including canvas border."""
+        super().drawForeground(painter, rect)
+
+        # Draw canvas border
+        self._draw_canvas_border(painter)
+
+    def _draw_canvas_border(self, painter: QPainter) -> None:
+        """Draw a border around the canvas area."""
+        scene_rect = self._canvas_scene.sceneRect()
+
+        # Set up pen for border
+        border_pen = QPen(QColor("#666666"))  # Dark gray border
+        border_pen.setWidth(2)
+        border_pen.setCosmetic(True)  # Constant width regardless of zoom
+        painter.setPen(border_pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        # Draw rectangle around canvas
+        painter.drawRect(scene_rect)
 
     def _draw_grid(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the grid overlay."""
