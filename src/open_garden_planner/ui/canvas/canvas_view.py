@@ -5,7 +5,7 @@ It flips the Y-axis to provide CAD-style coordinates (origin at bottom-left,
 Y increasing upward).
 """
 
-from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
+from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QMouseEvent, QPainter, QPen, QTransform, QWheelEvent
 from PyQt6.QtWidgets import QGraphicsView
 
@@ -49,6 +49,14 @@ class CanvasView(QGraphicsView):
         # Pan state
         self._panning = False
         self._pan_start = QPointF()
+
+        # Smooth zoom state
+        self._target_zoom = 1.0
+        self._zoom_velocity = 0.0
+        self._zoom_anchor: QPointF | None = None
+        self._zoom_timer = QTimer(self)
+        self._zoom_timer.setInterval(16)  # ~60 FPS
+        self._zoom_timer.timeout.connect(self._animate_zoom)
 
         # Set up view properties
         self._setup_view()
@@ -229,16 +237,59 @@ class CanvasView(QGraphicsView):
     # Event handlers
 
     def wheelEvent(self, event: QWheelEvent) -> None:
-        """Handle mouse wheel for zooming."""
-        # Get the scroll amount
+        """Handle mouse wheel for smooth zooming."""
+        # Get the scroll amount (typically 120 per notch, but can vary)
         delta = event.angleDelta().y()
 
-        if delta > 0:
-            self.zoom_in()
-        elif delta < 0:
-            self.zoom_out()
+        if delta == 0:
+            event.accept()
+            return
+
+        # Store the zoom anchor point (where the mouse is)
+        self._zoom_anchor = self.mapToScene(event.position().toPoint())
+
+        # Calculate zoom velocity based on scroll delta
+        # Faster scrolling = faster zoom
+        zoom_speed = 0.001  # Sensitivity factor
+        self._zoom_velocity += delta * zoom_speed
+
+        # Clamp velocity to prevent extreme zooming
+        max_velocity = 0.5
+        self._zoom_velocity = max(-max_velocity, min(max_velocity, self._zoom_velocity))
+
+        # Start the animation timer if not already running
+        if not self._zoom_timer.isActive():
+            self._zoom_timer.start()
 
         event.accept()
+
+    def _animate_zoom(self) -> None:
+        """Animate smooth zoom towards target."""
+        # Apply velocity to zoom
+        if abs(self._zoom_velocity) < 0.001:
+            # Velocity too small, stop animation
+            self._zoom_velocity = 0.0
+            self._zoom_timer.stop()
+            return
+
+        # Calculate new zoom factor
+        new_zoom = self._zoom_factor * (1.0 + self._zoom_velocity)
+        new_zoom = max(self.min_zoom, min(self.max_zoom, new_zoom))
+
+        # Apply the new zoom
+        self._zoom_factor = new_zoom
+        self._apply_transform()
+        self.zoom_changed.emit(self.zoom_percent)
+
+        # Apply friction to slow down
+        friction = 0.85
+        self._zoom_velocity *= friction
+
+        # Stop if zoom reached limits
+        if (new_zoom <= self.min_zoom and self._zoom_velocity < 0) or \
+           (new_zoom >= self.max_zoom and self._zoom_velocity > 0):
+            self._zoom_velocity = 0.0
+            self._zoom_timer.stop()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         """Handle mouse press for panning."""
@@ -258,18 +309,18 @@ class CanvasView(QGraphicsView):
             delta = event.position() - self._pan_start
             self._pan_start = event.position()
 
-            # Convert delta to scene coordinates (accounting for zoom and Y-flip)
-            # We need to move the view in the opposite direction of the mouse
-            scale = self._zoom_factor
-            scene_delta_x = -delta.x() / scale
-            scene_delta_y = delta.y() / scale  # Y is flipped, so no negative
-
-            # Get current center and translate it
-            current_center = self.mapToScene(self.viewport().rect().center())
-            new_center = QPointF(
-                current_center.x() + scene_delta_x,
-                current_center.y() + scene_delta_y
+            # Map two points to scene to get proper delta in scene coordinates
+            # This correctly handles any transform (zoom, Y-flip, etc.)
+            center = self.viewport().rect().center()
+            scene_before = self.mapToScene(center)
+            scene_after = self.mapToScene(
+                center.x() + int(delta.x()),
+                center.y() + int(delta.y())
             )
+
+            # Move in opposite direction of mouse drag
+            scene_delta = scene_before - scene_after
+            new_center = self.mapToScene(center) + scene_delta
             self.centerOn(new_center)
             event.accept()
         else:

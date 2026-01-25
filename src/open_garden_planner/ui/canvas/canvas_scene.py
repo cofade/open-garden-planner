@@ -55,12 +55,18 @@ class CanvasScene(QGraphicsScene):
             self._height_cm + 2 * padding_y
         ))
 
+    # Background color for area outside canvas
+    OUTSIDE_COLOR = QColor("#d0d0d0")  # Light gray
+
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the scene background.
 
-        Only draws the canvas area in beige; outside is handled by the view.
+        Fills the visible area with gray, then draws the canvas area in beige.
         """
-        # Draw canvas area (beige rectangle)
+        # First fill the entire visible rect with gray (outside canvas area)
+        painter.fillRect(rect, QBrush(self.OUTSIDE_COLOR))
+
+        # Then draw canvas area (beige rectangle) on top
         canvas_rect = QRectF(0, 0, self._width_cm, self._height_cm)
         painter.fillRect(canvas_rect, QBrush(self.CANVAS_COLOR))
 
