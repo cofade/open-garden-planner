@@ -559,15 +559,15 @@ open_garden_planner/
 | US-1.9 | As a developer, I want the GitHub repository to display the banner image which makes it more appealing for users and contributors | Should |
 
 **Technical Milestones**:
-- [ ] Project structure setup, dependencies, build system
-- [ ] Main window with menu bar and status bar
-- [ ] QGraphicsView canvas with pan/zoom
+- [x] Project structure setup, dependencies, build system
+- [x] Main window with menu bar and status bar
+- [x] QGraphicsView canvas with pan/zoom
 - [ ] Basic shape rendering (rectangle, polygon)
 - [ ] Selection and transformation tools
 - [ ] JSON serialization/deserialization
 - [ ] Command pattern for undo/redo
-- [ ] Load and display `OGP_logo.png` (resolution 1024x1024, potentially make rescaled copies as needed) as the application icon (e.g. splash screen, window icon, executable icon, or about dialog)
-- [ ] Embed `banner.png` (resolution 1920x960) as banner at the top of the GitHub page's ReadMe
+- [x] Load and display `OGP_logo.png` (resolution 1024x1024, potentially make rescaled copies as needed) as the application icon (e.g. splash screen, window icon, executable icon, or about dialog)
+- [x] Embed `banner.png` (resolution 1920x960) as banner at the top of the GitHub page's ReadMe
 
 
 ### Phase 2: Precision & Calibration (v0.2)
