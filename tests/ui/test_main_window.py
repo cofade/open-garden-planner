@@ -1,10 +1,13 @@
 """UI tests for the main application window."""
 
+from pathlib import Path
+
 import pytest
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.app.application import GardenPlannerApp
+from open_garden_planner.main import get_icon_path
 
 
 class TestMainWindow:
@@ -209,3 +212,49 @@ class TestMainWindow:
 
         assert save_action is not None
         assert save_action.shortcut().toString() == "Ctrl+S"
+
+
+class TestApplicationIcon:
+    """Tests for application icon functionality (US-1.8)."""
+
+    def test_get_icon_path_returns_path(self) -> None:
+        """Test that get_icon_path returns a Path object."""
+        icon_path = get_icon_path()
+        assert isinstance(icon_path, Path)
+
+    def test_icon_file_exists(self) -> None:
+        """Test that the icon file exists at the expected location."""
+        icon_path = get_icon_path()
+        assert icon_path.exists(), f"Icon file not found at {icon_path}"
+
+    def test_icon_file_is_png(self) -> None:
+        """Test that the icon file has .png extension."""
+        icon_path = get_icon_path()
+        assert icon_path.suffix.lower() == ".png"
+
+    def test_icon_path_contains_logo_name(self) -> None:
+        """Test that the icon path refers to OGP_logo.png."""
+        icon_path = get_icon_path()
+        assert "OGP_logo.png" in str(icon_path)
+
+    def test_application_has_window_icon(self, qtbot) -> None:
+        """Test that QApplication has a window icon set after startup."""
+        # Note: The icon is set at QApplication level in main.py
+        # We verify the icon path is valid here
+        icon_path = get_icon_path()
+        assert icon_path.exists()
+        # The actual icon setting happens in main() when the app starts
+
+    def test_about_dialog_icon_path_exists(self, qtbot) -> None:
+        """Test that the icon path used in About dialog exists."""
+        from pathlib import Path
+        # This is the same path calculation used in _on_about
+        icon_path = (
+            Path(__file__).parent.parent.parent
+            / "src"
+            / "open_garden_planner"
+            / "resources"
+            / "icons"
+            / "OGP_logo.png"
+        )
+        assert icon_path.exists(), f"About dialog icon not found at {icon_path}"

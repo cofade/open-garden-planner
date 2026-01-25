@@ -304,18 +304,60 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_about(self) -> None:
         """Handle About action."""
-        from PyQt6.QtWidgets import QMessageBox
+        from pathlib import Path
 
-        QMessageBox.about(
-            self,
-            "About Open Garden Planner",
-            "<h3>Open Garden Planner</h3>"
-            "<p>Version 0.1.0</p>"
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QPixmap
+        from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout
+
+        # Create custom about dialog to show logo
+        dialog = QDialog(self)
+        dialog.setWindowTitle("About Open Garden Planner")
+        dialog.setFixedSize(450, 280)
+
+        layout = QHBoxLayout(dialog)
+
+        # Logo on the left
+        icon_path = Path(__file__).parent.parent / "resources" / "icons" / "OGP_logo.png"
+        if icon_path.exists():
+            logo_label = QLabel()
+            pixmap = QPixmap(str(icon_path))
+            scaled_pixmap = pixmap.scaled(
+                128, 128, Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            logo_label.setPixmap(scaled_pixmap)
+            logo_label.setAlignment(Qt.AlignmentFlag.AlignTop)
+            layout.addWidget(logo_label)
+
+        # Text on the right
+        text_layout = QVBoxLayout()
+        text_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        title_label = QLabel("<h2>Open Garden Planner</h2>")
+        text_layout.addWidget(title_label)
+
+        version_label = QLabel("<p>Version 0.1.0</p>")
+        text_layout.addWidget(version_label)
+
+        description_label = QLabel(
             "<p>Precision garden planning for passionate gardeners.</p>"
             "<p>Free and open source under GPLv3.</p>"
-            "<p><a href='https://github.com/cofade/open-garden-planner'>"
-            "github.com/cofade/open-garden-planner</a></p>",
         )
+        description_label.setWordWrap(True)
+        text_layout.addWidget(description_label)
+
+        link_label = QLabel(
+            "<p><a href='https://github.com/cofade/open-garden-planner'>"
+            "github.com/cofade/open-garden-planner</a></p>"
+        )
+        link_label.setOpenExternalLinks(True)
+        text_layout.addWidget(link_label)
+
+        text_layout.addStretch()
+        layout.addLayout(text_layout)
+
+        dialog.exec()
 
     # Public methods for updating status bar
 
