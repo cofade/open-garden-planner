@@ -16,12 +16,13 @@ Open Garden Planner is an open-source PyQt6 desktop application for precision ga
 ## Development Workflow
 
 1. Read the relevant user story from `prd.md`
-2. Implement the feature with proper type hints
-3. Write comprehensive tests (unit, integration, UI as appropriate)
-4. Run tests: `venv\Scripts\python.exe -m pytest tests/ -v`
-5. Run linter: `venv\Scripts\python.exe -m ruff check src/`
-6. Commit with conventional commit format: `feat(US-X.X): Description`
-7. Update checkboxes in `prd.md` when milestones are complete
+2. Interview me in detaiul using your `AskUserQuestion` tool about literally anything: technical implementation, UI & UX, concerns, tradeoffs, etc.
+3. Implement the feature with proper type hints
+4. Write comprehensive tests (unit, integration, UI as appropriate)
+5. Run tests: `venv\Scripts\python.exe -m pytest tests/ -v`
+6. Run linter: `venv\Scripts\python.exe -m ruff check src/`
+7. Commit with conventional commit format: `feat(US-X.X): Description`
+8. Update checkboxes in `prd.md` when milestones are complete
 
 ## Running the Application
 

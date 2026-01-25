@@ -6,7 +6,7 @@ Y increasing upward).
 """
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QMouseEvent, QPainter, QPen, QTransform, QWheelEvent
+from PyQt6.QtGui import QColor, QMouseEvent, QPainter, QPen, QTransform, QWheelEvent
 from PyQt6.QtWidgets import QGraphicsView
 
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -78,9 +78,6 @@ class CanvasView(QGraphicsView):
 
         # Enable mouse tracking for coordinate updates
         self.setMouseTracking(True)
-
-        # Set view background color (area outside the canvas)
-        self.setBackgroundBrush(QBrush(QColor("#e0e0e0")))  # Light gray
 
         # Flip Y-axis for CAD convention (origin bottom-left, Y up)
         self._apply_transform()
