@@ -250,11 +250,11 @@ class CanvasView(QGraphicsView):
 
         # Calculate zoom velocity based on scroll delta
         # Faster scrolling = faster zoom
-        zoom_speed = 0.001  # Sensitivity factor
+        zoom_speed = 0.0002  # Sensitivity factor (lower = more precise)
         self._zoom_velocity += delta * zoom_speed
 
         # Clamp velocity to prevent extreme zooming
-        max_velocity = 0.5
+        max_velocity = 0.08  # Maximum zoom speed (lower = more controlled)
         self._zoom_velocity = max(-max_velocity, min(max_velocity, self._zoom_velocity))
 
         # Start the animation timer if not already running

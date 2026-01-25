@@ -55,8 +55,8 @@ class CanvasScene(QGraphicsScene):
             self._height_cm + 2 * padding_y
         ))
 
-    # Background color for area outside canvas
-    OUTSIDE_COLOR = QColor("#d0d0d0")  # Light gray
+    # Background color for area outside canvas (darker for clear contrast)
+    OUTSIDE_COLOR = QColor("#707070")  # Medium-dark gray
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the scene background.
