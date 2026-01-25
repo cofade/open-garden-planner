@@ -129,12 +129,20 @@ class CanvasView(QGraphicsView):
         self._apply_transform()
         self.zoom_changed.emit(self.zoom_percent)
 
-    def zoom_in(self, factor: float = 1.25) -> None:
-        """Zoom in by the given factor."""
+    def zoom_in(self, factor: float = 1.1) -> None:
+        """Zoom in by the given factor.
+
+        Args:
+            factor: Zoom multiplier (default 1.1 for smooth zooming)
+        """
         self.set_zoom(self._zoom_factor * factor)
 
-    def zoom_out(self, factor: float = 1.25) -> None:
-        """Zoom out by the given factor."""
+    def zoom_out(self, factor: float = 1.1) -> None:
+        """Zoom out by the given factor.
+
+        Args:
+            factor: Zoom divisor (default 1.1 for smooth zooming)
+        """
         self.set_zoom(self._zoom_factor / factor)
 
     def reset_zoom(self) -> None:
@@ -142,8 +150,10 @@ class CanvasView(QGraphicsView):
         self.set_zoom(1.0)
 
     def fit_in_view(self) -> None:
-        """Fit the entire scene in the view."""
-        self.fitInView(self.scene().sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+        """Fit the canvas (not the padded scene) in the view."""
+        # Fit to the actual canvas rect, not the padded scene rect
+        canvas_rect = self._canvas_scene.canvas_rect
+        self.fitInView(canvas_rect, Qt.AspectRatioMode.KeepAspectRatio)
         # Extract zoom factor from current transform
         transform = self.transform()
         self._zoom_factor = abs(transform.m11())  # m11 is the x scale factor
@@ -244,17 +254,23 @@ class CanvasView(QGraphicsView):
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         """Handle mouse move for panning and coordinate updates."""
         if self._panning:
-            # Pan the view
+            # Pan the view by translating
             delta = event.position() - self._pan_start
             self._pan_start = event.position()
 
-            # Adjust scrollbars
-            self.horizontalScrollBar().setValue(
-                int(self.horizontalScrollBar().value() - delta.x())
+            # Convert delta to scene coordinates (accounting for zoom and Y-flip)
+            # We need to move the view in the opposite direction of the mouse
+            scale = self._zoom_factor
+            scene_delta_x = -delta.x() / scale
+            scene_delta_y = delta.y() / scale  # Y is flipped, so no negative
+
+            # Get current center and translate it
+            current_center = self.mapToScene(self.viewport().rect().center())
+            new_center = QPointF(
+                current_center.x() + scene_delta_x,
+                current_center.y() + scene_delta_y
             )
-            self.verticalScrollBar().setValue(
-                int(self.verticalScrollBar().value() - delta.y())
-            )
+            self.centerOn(new_center)
             event.accept()
         else:
             # Update coordinates display
@@ -288,7 +304,8 @@ class CanvasView(QGraphicsView):
 
     def _draw_canvas_border(self, painter: QPainter) -> None:
         """Draw a border around the canvas area."""
-        scene_rect = self._canvas_scene.sceneRect()
+        # Get the actual canvas rect (not the padded scene rect)
+        canvas_rect = self._canvas_scene.canvas_rect
 
         # Set up pen for border
         border_pen = QPen(QColor("#666666"))  # Dark gray border
@@ -298,7 +315,7 @@ class CanvasView(QGraphicsView):
         painter.setBrush(Qt.BrushStyle.NoBrush)
 
         # Draw rectangle around canvas
-        painter.drawRect(scene_rect)
+        painter.drawRect(canvas_rect)
 
     def _draw_grid(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the grid overlay."""

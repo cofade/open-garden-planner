@@ -6,7 +6,7 @@ The view handles the Y-flip for display.
 """
 
 from PyQt6.QtCore import QRectF
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QBrush, QColor, QPainter
 from PyQt6.QtWidgets import QGraphicsScene
 
 
@@ -17,6 +17,9 @@ class CanvasScene(QGraphicsScene):
     Origin is at top-left (Qt convention), with Y increasing downward.
     The CanvasView flips the Y-axis for display (CAD convention).
     """
+
+    # Canvas background color (beige/cream)
+    CANVAS_COLOR = QColor("#f5f5dc")
 
     def __init__(
         self,
@@ -37,10 +40,29 @@ class CanvasScene(QGraphicsScene):
         self._height_cm = height_cm
 
         # Set scene rectangle (0,0 at top-left, dimensions in cm)
-        self.setSceneRect(QRectF(0, 0, width_cm, height_cm))
+        # We use a larger rect to allow panning beyond canvas edges
+        self._update_scene_rect()
 
-        # Set background color
-        self.setBackgroundBrush(QColor("#f5f5dc"))  # Beige/cream color
+    def _update_scene_rect(self) -> None:
+        """Update the scene rect with padding for panning."""
+        # Add padding around canvas (50% of canvas size on each side)
+        padding_x = self._width_cm * 0.5
+        padding_y = self._height_cm * 0.5
+        self.setSceneRect(QRectF(
+            -padding_x,
+            -padding_y,
+            self._width_cm + 2 * padding_x,
+            self._height_cm + 2 * padding_y
+        ))
+
+    def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
+        """Draw the scene background.
+
+        Only draws the canvas area in beige; outside is handled by the view.
+        """
+        # Draw canvas area (beige rectangle)
+        canvas_rect = QRectF(0, 0, self._width_cm, self._height_cm)
+        painter.fillRect(canvas_rect, QBrush(self.CANVAS_COLOR))
 
     @property
     def width_cm(self) -> float:
@@ -52,6 +74,11 @@ class CanvasScene(QGraphicsScene):
         """Height of the canvas in centimeters."""
         return self._height_cm
 
+    @property
+    def canvas_rect(self) -> QRectF:
+        """Get the actual canvas rectangle (not the scene rect with padding)."""
+        return QRectF(0, 0, self._width_cm, self._height_cm)
+
     def resize_canvas(self, width_cm: float, height_cm: float) -> None:
         """Resize the canvas.
 
@@ -61,4 +88,5 @@ class CanvasScene(QGraphicsScene):
         """
         self._width_cm = width_cm
         self._height_cm = height_cm
-        self.setSceneRect(QRectF(0, 0, width_cm, height_cm))
+        self._update_scene_rect()
+        self.update()  # Trigger redraw

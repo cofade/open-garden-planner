@@ -17,17 +17,19 @@ class TestCanvasScene:
         assert scene is not None
 
     def test_default_size(self, qtbot) -> None:
-        """Test default scene size in centimeters."""
+        """Test default canvas size in centimeters."""
         scene = CanvasScene(width_cm=1000, height_cm=800)
-        rect = scene.sceneRect()
+        # Use canvas_rect which gives the actual canvas area (not padded scene rect)
+        rect = scene.canvas_rect
         assert rect.width() == 1000
         assert rect.height() == 800
 
     def test_scene_uses_cm_coordinates(self, qtbot) -> None:
-        """Test that scene coordinates are in centimeters."""
+        """Test that canvas coordinates are in centimeters."""
         scene = CanvasScene(width_cm=5000, height_cm=3000)
-        rect = scene.sceneRect()
-        # Scene rect should be in cm
+        # Use canvas_rect which gives the actual canvas area
+        rect = scene.canvas_rect
+        # Canvas rect should be in cm with origin at (0,0)
         assert rect.left() == 0
         assert rect.top() == 0
         assert rect.right() == 5000
