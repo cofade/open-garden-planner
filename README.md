@@ -1,3 +1,5 @@
+![Open Garden Planner Banner](src/open_garden_planner/resources/icons/banner.png)
+
 # Open Garden Planner
 
 **Precision garden planning for passionate gardeners who value independence and transparency.**
