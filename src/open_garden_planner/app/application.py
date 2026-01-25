@@ -260,7 +260,37 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_new_project(self) -> None:
         """Handle New Project action."""
-        self.statusBar().showMessage("New Project... (not implemented yet)")
+        from open_garden_planner.ui.dialogs import NewProjectDialog
+
+        dialog = NewProjectDialog(self)
+        # Pre-fill with current canvas dimensions
+        dialog.set_dimensions_cm(
+            self.canvas_scene.width_cm,
+            self.canvas_scene.height_cm
+        )
+
+        if dialog.exec():
+            # User clicked OK - create new project with specified dimensions
+            width_cm = dialog.width_cm
+            height_cm = dialog.height_cm
+
+            # Clear existing objects from scene
+            self.canvas_scene.clear()
+
+            # Resize the canvas
+            self.canvas_scene.resize_canvas(width_cm, height_cm)
+
+            # Fit the new canvas in view
+            self.canvas_view.fit_in_view()
+
+            # Update status bar
+            width_m = width_cm / 100.0
+            height_m = height_cm / 100.0
+            status_bar = self.statusBar()
+            if status_bar:
+                status_bar.showMessage(
+                    f"New project created: {width_m:.1f}m x {height_m:.1f}m"
+                )
 
     def _on_open_project(self) -> None:
         """Handle Open Project action."""
