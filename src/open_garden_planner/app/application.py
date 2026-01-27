@@ -111,18 +111,20 @@ class GardenPlannerApp(QMainWindow):
     def _setup_edit_menu(self, menu: QMenu) -> None:
         """Set up the Edit menu actions."""
         # Undo
-        undo_action = QAction("&Undo", self)
-        undo_action.setShortcut(QKeySequence("Ctrl+Z"))
-        undo_action.setStatusTip("Undo the last action")
-        undo_action.triggered.connect(self._on_undo)
-        menu.addAction(undo_action)
+        self._undo_action = QAction("&Undo", self)
+        self._undo_action.setShortcut(QKeySequence("Ctrl+Z"))
+        self._undo_action.setStatusTip("Undo the last action")
+        self._undo_action.setEnabled(False)  # Disabled until there's something to undo
+        self._undo_action.triggered.connect(self._on_undo)
+        menu.addAction(self._undo_action)
 
         # Redo
-        redo_action = QAction("&Redo", self)
-        redo_action.setShortcut(QKeySequence("Ctrl+Y"))
-        redo_action.setStatusTip("Redo the last undone action")
-        redo_action.triggered.connect(self._on_redo)
-        menu.addAction(redo_action)
+        self._redo_action = QAction("&Redo", self)
+        self._redo_action.setShortcut(QKeySequence("Ctrl+Y"))
+        self._redo_action.setStatusTip("Redo the last undone action")
+        self._redo_action.setEnabled(False)  # Disabled until there's something to redo
+        self._redo_action.triggered.connect(self._on_redo)
+        menu.addAction(self._redo_action)
 
         menu.addSeparator()
 
@@ -268,6 +270,11 @@ class GardenPlannerApp(QMainWindow):
         # Connect delete action to canvas
         self._delete_action.triggered.connect(self.canvas_view._delete_selected_items)
 
+        # Connect undo/redo action enable state to command manager
+        cmd_mgr = self.canvas_view.command_manager
+        cmd_mgr.can_undo_changed.connect(self._undo_action.setEnabled)
+        cmd_mgr.can_redo_changed.connect(self._redo_action.setEnabled)
+
         # Set canvas as central widget (will add panels later with splitter)
         self.setCentralWidget(self.canvas_view)
 
@@ -330,11 +337,23 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_undo(self) -> None:
         """Handle Undo action."""
-        self.statusBar().showMessage("Undo (not implemented yet)")
+        cmd_mgr = self.canvas_view.command_manager
+        if cmd_mgr.can_undo:
+            desc = cmd_mgr.undo_description
+            cmd_mgr.undo()
+            self.statusBar().showMessage(f"Undo: {desc}")
+        else:
+            self.statusBar().showMessage("Nothing to undo")
 
     def _on_redo(self) -> None:
         """Handle Redo action."""
-        self.statusBar().showMessage("Redo (not implemented yet)")
+        cmd_mgr = self.canvas_view.command_manager
+        if cmd_mgr.can_redo:
+            desc = cmd_mgr.redo_description
+            cmd_mgr.redo()
+            self.statusBar().showMessage(f"Redo: {desc}")
+        else:
+            self.statusBar().showMessage("Nothing to redo")
 
     def _on_toggle_grid(self, checked: bool) -> None:
         """Handle toggle grid action."""

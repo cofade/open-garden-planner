@@ -73,7 +73,7 @@ class RectangleTool(BaseTool):
         if rect.width() > 1 and rect.height() > 1:  # Minimum size
             from open_garden_planner.ui.canvas.items import RectangleItem
             item = RectangleItem(rect.x(), rect.y(), rect.width(), rect.height())
-            self._view.scene().addItem(item)
+            self._view.add_item(item, "rectangle")
 
         self._reset_state()
         return True

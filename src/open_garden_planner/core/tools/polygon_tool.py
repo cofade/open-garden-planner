@@ -188,7 +188,7 @@ class PolygonTool(BaseTool):
         if len(self._vertices) >= 3:
             from open_garden_planner.ui.canvas.items import PolygonItem
             item = PolygonItem(self._vertices)
-            self._view.scene().addItem(item)
+            self._view.add_item(item, "polygon")
 
         self._reset_state()
 

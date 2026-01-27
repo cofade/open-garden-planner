@@ -15,8 +15,14 @@ from PyQt6.QtGui import (
     QTransform,
     QWheelEvent,
 )
-from PyQt6.QtWidgets import QGraphicsView
+from PyQt6.QtWidgets import QGraphicsItem, QGraphicsView
 
+from open_garden_planner.core import (
+    CommandManager,
+    CreateItemCommand,
+    DeleteItemsCommand,
+    MoveItemsCommand,
+)
 from open_garden_planner.core.tools import (
     PolygonTool,
     RectangleTool,
@@ -73,6 +79,12 @@ class CanvasView(QGraphicsView):
         self._zoom_timer = QTimer(self)
         self._zoom_timer.setInterval(16)  # ~60 FPS
         self._zoom_timer.timeout.connect(self._animate_zoom)
+
+        # Command manager for undo/redo
+        self._command_manager = CommandManager(self)
+
+        # Drag tracking for undo support
+        self._drag_start_positions: dict[QGraphicsItem, QPointF] = {}
 
         # Tool manager
         self._tool_manager = ToolManager(self)
@@ -161,6 +173,21 @@ class CanvasView(QGraphicsView):
     def tool_manager(self) -> ToolManager:
         """The tool manager for this view."""
         return self._tool_manager
+
+    @property
+    def command_manager(self) -> CommandManager:
+        """The command manager for undo/redo."""
+        return self._command_manager
+
+    def add_item(self, item: QGraphicsItem, item_type: str = "item") -> None:
+        """Add an item to the scene with undo support.
+
+        Args:
+            item: The graphics item to add
+            item_type: Description for undo (e.g., "rectangle", "polygon")
+        """
+        command = CreateItemCommand(self.scene(), item, item_type)
+        self._command_manager.execute(command)
 
     def set_active_tool(self, tool_type: ToolType) -> None:
         """Set the active drawing tool.
@@ -360,6 +387,13 @@ class CanvasView(QGraphicsView):
 
         super().mousePressEvent(event)
 
+        # Store positions of selected items for drag undo tracking
+        # Must be AFTER super() so item selection is updated
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_start_positions = {
+                item: item.pos() for item in self.scene().selectedItems()
+            }
+
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         """Handle mouse move for panning, tool operations, and coordinate updates."""
         # Update coordinates display
@@ -414,9 +448,14 @@ class CanvasView(QGraphicsView):
             scene_pos = self.mapToScene(event.position().toPoint())
             if tool.mouse_release(event, scene_pos):
                 event.accept()
+                self._drag_start_positions.clear()
                 return
 
         super().mouseReleaseEvent(event)
+
+        # Check if items were dragged and create undo command
+        if event.button() == Qt.MouseButton.LeftButton and self._drag_start_positions:
+            self._finalize_drag_move()
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         """Handle mouse double click for tool operations."""
@@ -457,18 +496,23 @@ class CanvasView(QGraphicsView):
         super().keyPressEvent(event)
 
     def _delete_selected_items(self) -> None:
-        """Delete all selected items from the scene."""
-        scene = self.scene()
-        selected = scene.selectedItems()
-        for item in selected:
-            scene.removeItem(item)
+        """Delete all selected items from the scene with undo support."""
+        selected = self.scene().selectedItems()
+        if not selected:
+            return
+        command = DeleteItemsCommand(self.scene(), selected)
+        self._command_manager.execute(command)
 
     def _move_selected_items(self, event: QKeyEvent) -> None:
-        """Move selected items based on arrow key.
+        """Move selected items based on arrow key with undo support.
 
         Normal: move by grid size (default 50cm)
         Shift: move by 1cm (precision mode)
         """
+        selected = self.scene().selectedItems()
+        if not selected:
+            return
+
         # Determine move distance: 1cm precision with Shift, otherwise grid size
         distance = (
             1.0 if event.modifiers() & Qt.KeyboardModifier.ShiftModifier
@@ -487,9 +531,37 @@ class CanvasView(QGraphicsView):
         elif event.key() == Qt.Key.Key_Down:
             dy = -distance  # Down arrow = negative Y (down in our flipped view)
 
-        # Move all selected items
-        for item in self.scene().selectedItems():
-            item.moveBy(dx, dy)
+        # Move with undo support
+        command = MoveItemsCommand(selected, QPointF(dx, dy))
+        self._command_manager.execute(command)
+
+    def _finalize_drag_move(self) -> None:
+        """Create undo command for mouse drag movement if items moved."""
+        if not self._drag_start_positions:
+            return
+
+        # Find items that actually moved
+        moved_items = []
+        total_delta = QPointF(0, 0)
+
+        for item, start_pos in self._drag_start_positions.items():
+            current_pos = item.pos()
+            if start_pos != current_pos:
+                moved_items.append(item)
+                # Calculate delta (should be same for all items in a drag)
+                total_delta = current_pos - start_pos
+
+        if moved_items and (total_delta.x() != 0 or total_delta.y() != 0):
+            # Move items back to start, then execute command to move them
+            # This ensures the command captures the correct state
+            for item in moved_items:
+                start_pos = self._drag_start_positions[item]
+                item.setPos(start_pos)
+
+            command = MoveItemsCommand(moved_items, total_delta)
+            self._command_manager.execute(command)
+
+        self._drag_start_positions.clear()
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the background including optional grid."""
