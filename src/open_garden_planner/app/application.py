@@ -8,8 +8,10 @@ from PyQt6.QtWidgets import (
     QMenu,
 )
 
+from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.widgets import MainToolbar
 
 
 class GardenPlannerApp(QMainWindow):
@@ -28,6 +30,7 @@ class GardenPlannerApp(QMainWindow):
 
         # Set up UI components
         self._setup_menu_bar()
+        self._setup_toolbar()
         self._setup_status_bar()
         self._setup_central_widget()
 
@@ -142,10 +145,10 @@ class GardenPlannerApp(QMainWindow):
         menu.addAction(paste_action)
 
         # Delete
-        delete_action = QAction("&Delete", self)
-        delete_action.setShortcut(QKeySequence("Delete"))
-        delete_action.setStatusTip("Delete selected objects")
-        menu.addAction(delete_action)
+        self._delete_action = QAction("&Delete", self)
+        self._delete_action.setShortcut(QKeySequence("Delete"))
+        self._delete_action.setStatusTip("Delete selected objects")
+        menu.addAction(self._delete_action)
 
         menu.addSeparator()
 
@@ -209,6 +212,11 @@ class GardenPlannerApp(QMainWindow):
         about_qt_action.triggered.connect(QApplication.aboutQt)
         menu.addAction(about_qt_action)
 
+    def _setup_toolbar(self) -> None:
+        """Set up the main toolbar with tool buttons."""
+        self.toolbar = MainToolbar(self)
+        self.addToolBar(self.toolbar)
+
     def _setup_status_bar(self) -> None:
         """Set up the status bar with coordinate and zoom display."""
         status_bar = self.statusBar()
@@ -250,11 +258,27 @@ class GardenPlannerApp(QMainWindow):
         self.grid_action.triggered.connect(self._on_toggle_grid)
         self.snap_action.triggered.connect(self._on_toggle_snap)
 
+        # Connect toolbar to canvas view
+        self.toolbar.tool_selected.connect(self._on_tool_selected)
+        self.canvas_view.tool_changed.connect(self.update_tool)
+
+        # Connect scene selection changes to status bar
+        self.canvas_scene.selectionChanged.connect(self._on_selection_changed)
+
+        # Connect delete action to canvas
+        self._delete_action.triggered.connect(self.canvas_view._delete_selected_items)
+
         # Set canvas as central widget (will add panels later with splitter)
         self.setCentralWidget(self.canvas_view)
 
         # Initial zoom display
         self.update_zoom(self.canvas_view.zoom_percent)
+
+        # Initial tool display
+        self.update_tool("Select")
+
+        # Initial selection display
+        self.update_selection(0)
 
     # Slot methods for menu actions
 
@@ -331,6 +355,19 @@ class GardenPlannerApp(QMainWindow):
     def _on_fit_to_window(self) -> None:
         """Handle fit to window action."""
         self.canvas_view.fit_in_view()
+
+    def _on_tool_selected(self, tool_type: ToolType) -> None:
+        """Handle tool selection from toolbar.
+
+        Args:
+            tool_type: The selected tool type
+        """
+        self.canvas_view.set_active_tool(tool_type)
+
+    def _on_selection_changed(self) -> None:
+        """Handle selection changes in the canvas scene."""
+        count = len(self.canvas_scene.selectedItems())
+        self.update_selection(count)
 
     def _on_about(self) -> None:
         """Handle About action."""

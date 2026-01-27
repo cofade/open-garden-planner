@@ -6,9 +6,24 @@ Y increasing upward).
 """
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QMouseEvent, QPainter, QPen, QTransform, QWheelEvent
+from PyQt6.QtGui import (
+    QColor,
+    QKeyEvent,
+    QMouseEvent,
+    QPainter,
+    QPen,
+    QTransform,
+    QWheelEvent,
+)
 from PyQt6.QtWidgets import QGraphicsView
 
+from open_garden_planner.core.tools import (
+    PolygonTool,
+    RectangleTool,
+    SelectTool,
+    ToolManager,
+    ToolType,
+)
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
 
@@ -26,6 +41,7 @@ class CanvasView(QGraphicsView):
     # Signals
     coordinates_changed = pyqtSignal(float, float)
     zoom_changed = pyqtSignal(float)
+    tool_changed = pyqtSignal(str)  # Emitted when active tool changes
 
     # Zoom limits
     min_zoom: float = 0.01  # 1% - very zoomed out
@@ -58,8 +74,25 @@ class CanvasView(QGraphicsView):
         self._zoom_timer.setInterval(16)  # ~60 FPS
         self._zoom_timer.timeout.connect(self._animate_zoom)
 
+        # Tool manager
+        self._tool_manager = ToolManager(self)
+        self._setup_tools()
+
         # Set up view properties
         self._setup_view()
+
+    def _setup_tools(self) -> None:
+        """Register and initialize drawing tools."""
+        # Register tools
+        self._tool_manager.register_tool(SelectTool(self))
+        self._tool_manager.register_tool(RectangleTool(self))
+        self._tool_manager.register_tool(PolygonTool(self))
+
+        # Connect tool change signal
+        self._tool_manager.tool_changed.connect(self.tool_changed.emit)
+
+        # Set default tool
+        self._tool_manager.set_active_tool(ToolType.SELECT)
 
     def _setup_view(self) -> None:
         """Configure view properties."""
@@ -78,6 +111,9 @@ class CanvasView(QGraphicsView):
 
         # Enable mouse tracking for coordinate updates
         self.setMouseTracking(True)
+
+        # Enable keyboard focus for key events (arrows)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         # Flip Y-axis for CAD convention (origin bottom-left, Y up)
         self._apply_transform()
@@ -120,6 +156,19 @@ class CanvasView(QGraphicsView):
     def grid_size(self) -> float:
         """Current grid size in centimeters."""
         return self._grid_size
+
+    @property
+    def tool_manager(self) -> ToolManager:
+        """The tool manager for this view."""
+        return self._tool_manager
+
+    def set_active_tool(self, tool_type: ToolType) -> None:
+        """Set the active drawing tool.
+
+        Args:
+            tool_type: The tool type to activate
+        """
+        self._tool_manager.set_active_tool(tool_type)
 
     # Zoom methods
 
@@ -289,18 +338,34 @@ class CanvasView(QGraphicsView):
             self._zoom_timer.stop()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        """Handle mouse press for panning."""
+        """Handle mouse press for panning and tool operations."""
+        # Grab keyboard focus so Delete/arrow keys work
+        self.setFocus()
+
         if event.button() == Qt.MouseButton.MiddleButton:
             # Start panning
             self._panning = True
             self._pan_start = event.position()
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
             event.accept()
-        else:
-            super().mousePressEvent(event)
+            return
+
+        # Delegate to active tool
+        tool = self._tool_manager.active_tool
+        if tool:
+            scene_pos = self.mapToScene(event.position().toPoint())
+            if tool.mouse_press(event, scene_pos):
+                event.accept()
+                return
+
+        super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        """Handle mouse move for panning and coordinate updates."""
+        """Handle mouse move for panning, tool operations, and coordinate updates."""
+        # Update coordinates display
+        scene_pos = self.mapToScene(event.position().toPoint())
+        self.coordinates_changed.emit(scene_pos.x(), scene_pos.y())
+
         if self._panning:
             # Pan the view by translating
             delta = event.position() - self._pan_start
@@ -320,21 +385,111 @@ class CanvasView(QGraphicsView):
             new_center = self.mapToScene(center) + scene_delta
             self.centerOn(new_center)
             event.accept()
-        else:
-            # Update coordinates display
-            # mapToScene with our Y-flip transform already gives CAD-style coords
-            scene_pos = self.mapToScene(event.position().toPoint())
-            self.coordinates_changed.emit(scene_pos.x(), scene_pos.y())
-            super().mouseMoveEvent(event)
+            return
+
+        # Delegate to active tool
+        tool = self._tool_manager.active_tool
+        if tool and tool.mouse_move(event, scene_pos):
+            event.accept()
+            return
+
+        super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        """Handle mouse release to stop panning."""
+        """Handle mouse release to stop panning and finish tool operations."""
         if event.button() == Qt.MouseButton.MiddleButton:
             self._panning = False
-            self.setCursor(Qt.CursorShape.ArrowCursor)
+            # Restore tool cursor
+            tool = self._tool_manager.active_tool
+            if tool:
+                self.setCursor(tool.cursor)
+            else:
+                self.setCursor(Qt.CursorShape.ArrowCursor)
             event.accept()
-        else:
-            super().mouseReleaseEvent(event)
+            return
+
+        # Delegate to active tool
+        tool = self._tool_manager.active_tool
+        if tool:
+            scene_pos = self.mapToScene(event.position().toPoint())
+            if tool.mouse_release(event, scene_pos):
+                event.accept()
+                return
+
+        super().mouseReleaseEvent(event)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        """Handle mouse double click for tool operations."""
+        tool = self._tool_manager.active_tool
+        if tool:
+            scene_pos = self.mapToScene(event.position().toPoint())
+            if tool.mouse_double_click(event, scene_pos):
+                event.accept()
+                return
+
+        super().mouseDoubleClickEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Handle key press for tool operations and editing."""
+        # Delegate to active tool first
+        tool = self._tool_manager.active_tool
+        if tool and tool.key_press(event):
+            event.accept()
+            return
+
+        # Handle Delete key
+        if event.key() == Qt.Key.Key_Delete:
+            self._delete_selected_items()
+            event.accept()
+            return
+
+        # Handle arrow keys for moving selected items
+        if event.key() in (
+            Qt.Key.Key_Left,
+            Qt.Key.Key_Right,
+            Qt.Key.Key_Up,
+            Qt.Key.Key_Down,
+        ):
+            self._move_selected_items(event)
+            event.accept()
+            return
+
+        super().keyPressEvent(event)
+
+    def _delete_selected_items(self) -> None:
+        """Delete all selected items from the scene."""
+        scene = self.scene()
+        selected = scene.selectedItems()
+        for item in selected:
+            scene.removeItem(item)
+
+    def _move_selected_items(self, event: QKeyEvent) -> None:
+        """Move selected items based on arrow key.
+
+        Normal: move by grid size (default 50cm)
+        Shift: move by 1cm (precision mode)
+        """
+        # Determine move distance: 1cm precision with Shift, otherwise grid size
+        distance = (
+            1.0 if event.modifiers() & Qt.KeyboardModifier.ShiftModifier
+            else self._grid_size
+        )
+
+        # Determine direction (scene Y increases downward, but we want
+        # Up arrow to move items up visually, which means negative Y)
+        dx, dy = 0.0, 0.0
+        if event.key() == Qt.Key.Key_Left:
+            dx = -distance
+        elif event.key() == Qt.Key.Key_Right:
+            dx = distance
+        elif event.key() == Qt.Key.Key_Up:
+            dy = distance  # Up arrow = positive Y (up in our flipped view)
+        elif event.key() == Qt.Key.Key_Down:
+            dy = -distance  # Down arrow = negative Y (down in our flipped view)
+
+        # Move all selected items
+        for item in self.scene().selectedItems():
+            item.moveBy(dx, dy)
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the background including optional grid."""
