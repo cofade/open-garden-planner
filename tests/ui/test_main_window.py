@@ -17,7 +17,7 @@ class TestMainWindow:
         """Test that window has correct title."""
         window = GardenPlannerApp()
         qtbot.addWidget(window)
-        assert window.windowTitle() == "Open Garden Planner"
+        assert window.windowTitle() == "Untitled - Open Garden Planner"
 
     def test_window_minimum_size(self, qtbot) -> None:
         """Test that window has minimum size set."""

@@ -1,13 +1,18 @@
 """Main application window."""
 
-from PyQt6.QtGui import QAction, QKeySequence
+from pathlib import Path
+
+from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
+    QFileDialog,
     QLabel,
     QMainWindow,
     QMenu,
+    QMessageBox,
 )
 
+from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -24,15 +29,22 @@ class GardenPlannerApp(QMainWindow):
         """Initialize the main window."""
         super().__init__()
 
-        self.setWindowTitle("Open Garden Planner")
         self.setMinimumSize(800, 600)
         self.showMaximized()
+
+        # Project manager for save/load
+        self._project_manager = ProjectManager(self)
+        self._project_manager.project_changed.connect(self._update_window_title)
+        self._project_manager.dirty_changed.connect(self._update_window_title)
 
         # Set up UI components
         self._setup_menu_bar()
         self._setup_toolbar()
         self._setup_status_bar()
         self._setup_central_widget()
+
+        # Initial window title
+        self._update_window_title()
 
     def _setup_menu_bar(self) -> None:
         """Set up the menu bar with File, Edit, View, Help menus."""
@@ -275,6 +287,9 @@ class GardenPlannerApp(QMainWindow):
         cmd_mgr.can_undo_changed.connect(self._undo_action.setEnabled)
         cmd_mgr.can_redo_changed.connect(self._redo_action.setEnabled)
 
+        # Mark project dirty when commands are executed
+        cmd_mgr.command_executed.connect(lambda _: self._project_manager.mark_dirty())
+
         # Set canvas as central widget (will add panels later with splitter)
         self.setCentralWidget(self.canvas_view)
 
@@ -291,6 +306,9 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_new_project(self) -> None:
         """Handle New Project action."""
+        if not self._confirm_discard_changes():
+            return
+
         from open_garden_planner.ui.dialogs import NewProjectDialog
 
         dialog = NewProjectDialog(self)
@@ -314,6 +332,10 @@ class GardenPlannerApp(QMainWindow):
             # Fit the new canvas in view
             self.canvas_view.fit_in_view()
 
+            # Clear undo history and reset project state
+            self.canvas_view.command_manager.clear()
+            self._project_manager.new_project()
+
             # Update status bar
             width_m = width_cm / 100.0
             height_m = height_cm / 100.0
@@ -325,15 +347,86 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_open_project(self) -> None:
         """Handle Open Project action."""
-        self.statusBar().showMessage("Open Project... (not implemented yet)")
+        if not self._confirm_discard_changes():
+            return
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Project",
+            "",
+            "Open Garden Planner (*.ogp);;All Files (*)",
+        )
+        if file_path:
+            try:
+                self._project_manager.load(self.canvas_scene, Path(file_path))
+                self.canvas_view.command_manager.clear()
+                self.canvas_view.fit_in_view()
+                self.statusBar().showMessage(f"Opened: {file_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to open file:\n{e}")
 
     def _on_save(self) -> None:
         """Handle Save action."""
-        self.statusBar().showMessage("Save... (not implemented yet)")
+        if self._project_manager.current_file:
+            self._save_to_file(self._project_manager.current_file)
+        else:
+            self._on_save_as()
 
     def _on_save_as(self) -> None:
         """Handle Save As action."""
-        self.statusBar().showMessage("Save As... (not implemented yet)")
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Project As",
+            self._project_manager.project_name + ".ogp",
+            "Open Garden Planner (*.ogp);;All Files (*)",
+        )
+        if file_path:
+            self._save_to_file(Path(file_path))
+
+    def _save_to_file(self, file_path: Path) -> None:
+        """Save the project to a specific file."""
+        try:
+            self._project_manager.save(self.canvas_scene, file_path)
+            self.statusBar().showMessage(f"Saved: {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save file:\n{e}")
+
+    def _confirm_discard_changes(self) -> bool:
+        """Ask user to save if there are unsaved changes.
+
+        Returns:
+            True if it's OK to proceed (saved or discarded), False to cancel.
+        """
+        if not self._project_manager.is_dirty:
+            return True
+
+        result = QMessageBox.question(
+            self,
+            "Unsaved Changes",
+            "Do you want to save changes before proceeding?",
+            QMessageBox.StandardButton.Save
+            | QMessageBox.StandardButton.Discard
+            | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Save,
+        )
+
+        if result == QMessageBox.StandardButton.Save:
+            self._on_save()
+            return not self._project_manager.is_dirty  # True if save succeeded
+        return result == QMessageBox.StandardButton.Discard
+
+    def _update_window_title(self, _: object = None) -> None:
+        """Update the window title with project name and dirty indicator."""
+        name = self._project_manager.project_name
+        dirty = "*" if self._project_manager.is_dirty else ""
+        self.setWindowTitle(f"{name}{dirty} - Open Garden Planner")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Handle window close - prompt to save if dirty."""
+        if self._confirm_discard_changes():
+            event.accept()
+        else:
+            event.ignore()
 
     def _on_undo(self) -> None:
         """Handle Undo action."""

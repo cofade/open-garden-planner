@@ -25,7 +25,7 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 4. Write tests, run lint
 5. Launch GitHub sub-agent (Haiku-based, create if not available) for
   - commiting (format: `feat(US-X.X): Description`)
-    - commit only to feature branches
+    - commit not to master, only to feature branches
   - making PR
   - additional GitHub sub-agent instance for approving PR
 6. Update progress below and in `prd.md`
@@ -43,7 +43,7 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 | ✅ | 1.9 | README banner |
 | ✅ | 1.3 | Draw rectangles and polygons |
 | ✅ | 1.4 | Select, move, delete objects |
-| ⬚ | 1.5 | Save/load project files |
+| ✅ | 1.5 | Save/load project files |
 | ✅ | 1.6 | Undo/redo |
 
 ## Project Structure
@@ -55,6 +55,7 @@ src/open_garden_planner/
 ├── app/application.py            # Main window (GardenPlannerApp)
 ├── core/
 │   ├── commands.py               # Undo/redo command pattern
+│   ├── project.py                # Save/load, ProjectManager
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
 │   └── tools/                    # Drawing tools
 │       ├── base_tool.py          # ToolType enum, BaseTool ABC
@@ -77,7 +78,7 @@ tests/
 └── ui/                           # UI tests
 ```
 
-## Next Up: US-1.5 (Save/Load) - Last remaining Phase 1 story
+## Phase 1 Complete! Next: Phase 2 (Plants & Objects)
 
 ## Future Backlog
 1. Vertex coordinate annotations on selection

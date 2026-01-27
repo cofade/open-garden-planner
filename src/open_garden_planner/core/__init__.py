@@ -7,6 +7,10 @@ from open_garden_planner.core.commands import (
     DeleteItemsCommand,
     MoveItemsCommand,
 )
+from open_garden_planner.core.project import (
+    ProjectData,
+    ProjectManager,
+)
 
 __all__ = [
     "Command",
@@ -14,4 +18,6 @@ __all__ = [
     "CreateItemCommand",
     "DeleteItemsCommand",
     "MoveItemsCommand",
+    "ProjectData",
+    "ProjectManager",
 ]
