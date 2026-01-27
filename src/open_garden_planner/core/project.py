@@ -12,7 +12,11 @@ from typing import Any
 from PyQt6.QtCore import QObject, QPointF, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
-from open_garden_planner.ui.canvas.items import PolygonItem, RectangleItem
+from open_garden_planner.ui.canvas.items import (
+    BackgroundImageItem,
+    PolygonItem,
+    RectangleItem,
+)
 
 # File format version for backward compatibility
 FILE_VERSION = "1.0"
@@ -155,7 +159,9 @@ class ProjectManager(QObject):
 
     def _serialize_item(self, item: QGraphicsItem) -> dict[str, Any] | None:
         """Serialize a single graphics item."""
-        if isinstance(item, RectangleItem):
+        if isinstance(item, BackgroundImageItem):
+            return item.to_dict()
+        elif isinstance(item, RectangleItem):
             rect = item.rect()
             return {
                 "type": "rectangle",
@@ -183,9 +189,9 @@ class ProjectManager(QObject):
         self, scene: QGraphicsScene, data: ProjectData
     ) -> None:
         """Load objects from ProjectData into scene."""
-        # Clear existing items (except background)
+        # Clear existing items
         for item in list(scene.items()):
-            if isinstance(item, (RectangleItem, PolygonItem)):
+            if isinstance(item, (RectangleItem, PolygonItem, BackgroundImageItem)):
                 scene.removeItem(item)
 
         # Resize canvas if needed
@@ -202,7 +208,13 @@ class ProjectManager(QObject):
         """Deserialize a single object to a graphics item."""
         obj_type = obj.get("type")
 
-        if obj_type == "rectangle":
+        if obj_type == "background_image":
+            try:
+                return BackgroundImageItem.from_dict(obj)
+            except (ValueError, FileNotFoundError):
+                # Image file may have been moved/deleted
+                return None
+        elif obj_type == "rectangle":
             return RectangleItem(
                 obj["x"],
                 obj["y"],

@@ -100,6 +100,14 @@ class GardenPlannerApp(QMainWindow):
 
         menu.addSeparator()
 
+        # Import Background Image
+        import_image_action = QAction("&Import Background Image...", self)
+        import_image_action.setStatusTip("Import a background image (satellite photo, etc.)")
+        import_image_action.triggered.connect(self._on_import_background_image)
+        menu.addAction(import_image_action)
+
+        menu.addSeparator()
+
         # Export submenu
         export_menu = menu.addMenu("&Export")
 
@@ -577,3 +585,31 @@ class GardenPlannerApp(QMainWindow):
             tool_name: Name of the active tool
         """
         self.tool_label.setText(tool_name)
+
+    def _on_import_background_image(self) -> None:
+        """Handle Import Background Image action."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Background Image",
+            "",
+            "Images (*.png *.jpg *.jpeg *.tiff *.bmp);;All Files (*)",
+        )
+        if file_path:
+            try:
+                from open_garden_planner.ui.canvas.items import BackgroundImageItem
+
+                image_item = BackgroundImageItem(file_path)
+                self.canvas_scene.addItem(image_item)
+
+                # Center the image on the canvas
+                canvas_center = self.canvas_scene.canvas_rect.center()
+                image_rect = image_item.boundingRect()
+                image_item.setPos(
+                    canvas_center.x() - image_rect.width() / 2,
+                    canvas_center.y() - image_rect.height() / 2,
+                )
+
+                self._project_manager.mark_dirty()
+                self.statusBar().showMessage(f"Imported: {file_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to import image:\n{e}")
