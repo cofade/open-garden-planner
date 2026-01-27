@@ -1,72 +1,80 @@
-# Claude Code Project Instructions
+# Open Garden Planner - Claude Code Instructions
 
-This file provides context for Claude Code sessions working on Open Garden Planner.
+PyQt6 desktop app for precision garden planning with CAD-like metric accuracy.
 
-## Project Overview
-
-Open Garden Planner is an open-source PyQt6 desktop application for precision garden planning with CAD-like metric accuracy. See `prd.md` for the full Product Requirements Document.
-
-## Tech Stack
-
-- **Python 3.11+** with **PyQt6** for GUI
-- **QGraphicsView/Scene** for canvas with pan/zoom
-- **pytest + pytest-qt** for testing
-- **ruff** for linting, **mypy** for type checking
-
-## Development Workflow
-
-1. Read the relevant user story from `prd.md`
-2. Interview me in detaiul using your `AskUserQuestion` tool about literally anything: technical implementation, UI & UX, concerns, tradeoffs, etc.
-3. Implement the feature with proper type hints
-4. Write comprehensive tests (unit, integration, UI as appropriate)
-5. Run tests: `venv\Scripts\python.exe -m pytest tests/ -v`
-6. Run linter: `venv\Scripts\python.exe -m ruff check src/`
-7. Commit with conventional commit format: `feat(US-X.X): Description`
-8. Update checkboxes in `prd.md` when milestones are complete
-
-## Running the Application
+## Quick Reference
 
 ```bash
+# Run app
 venv\Scripts\python.exe -m open_garden_planner
+
+# Run tests
+venv\Scripts\python.exe -m pytest tests/ -v
+
+# Lint
+venv\Scripts\python.exe -m ruff check src/
 ```
 
-## Current Progress (Phase 1: Foundation)
+## Tech Stack
+Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 
-### Completed User Stories
-- [x] US-1.1: Create new project with specified dimensions
-- [x] US-1.2: Pan and zoom the canvas smoothly
-- [x] US-1.7: See cursor coordinates in real-time
-- [x] US-1.8: Display OGP logo icon on startup
-- [x] US-1.9: Display banner image in GitHub README
+## Workflow
+1. Read user story from `prd.md`
+2. Clarify with `AskUserQuestion` tool
+3. Implement with type hints
+4. Write tests, run lint
+5. Commit: `feat(US-X.X): Description`
+6. Update progress below and in `prd.md`
 
-### Remaining User Stories (Phase 1)
-- [ ] US-1.3: Draw rectangles and polygons on the canvas
-- [ ] US-1.4: Select, move, and delete objects
-- [ ] US-1.5: Save project to file and reopen it
-- [ ] US-1.6: Undo and redo actions
+**Important**: Stay in working mode (no plan mode). Commit after user confirms functionality works. After completing a US, `/clear` context.
 
-### Recommended Next Steps
-1. **US-1.3**: Implement drawing tools (rectangle, polygon)
-2. **US-1.4**: Implement selection and object manipulation
-3. **US-1.6**: Implement undo/redo with command pattern
-4. **US-1.5**: Implement JSON save/load
+## Progress (Phase 1)
 
-## Key Files
+| Status | US | Description |
+|--------|-----|-------------|
+| ✅ | 1.1 | Create new project with dimensions |
+| ✅ | 1.2 | Pan and zoom canvas |
+| ✅ | 1.7 | Cursor coordinates display |
+| ✅ | 1.8 | App icon |
+| ✅ | 1.9 | README banner |
+| ✅ | 1.3 | Draw rectangles and polygons |
+| ✅ | 1.4 | Select, move, delete objects |
+| ⬚ | 1.5 | Save/load project files |
+| ⬚ | 1.6 | Undo/redo |
 
-| File | Purpose |
-|------|---------|
-| `src/open_garden_planner/main.py` | Application entry point |
-| `src/open_garden_planner/app/application.py` | Main window (GardenPlannerApp) |
-| `src/open_garden_planner/ui/canvas/canvas_view.py` | Canvas view with pan/zoom |
-| `src/open_garden_planner/ui/canvas/canvas_scene.py` | Canvas scene (holds objects) |
-| `src/open_garden_planner/ui/dialogs/` | Dialog windows |
-| `src/open_garden_planner/core/geometry/` | Geometry primitives (Point, Polygon, etc.) |
-| `tests/` | Test suite (unit, integration, UI) |
+## Project Structure
+<!-- Keep this updated when adding/removing files -->
 
-## Code Conventions
+```
+src/open_garden_planner/
+├── __main__.py, main.py          # Entry points
+├── app/application.py            # Main window (GardenPlannerApp)
+├── core/
+│   ├── geometry/                 # Point, Polygon, Rectangle primitives
+│   └── tools/                    # Drawing tools
+│       ├── base_tool.py          # ToolType enum, BaseTool ABC
+│       ├── tool_manager.py       # ToolManager with signals
+│       ├── select_tool.py        # Selection + box select
+│       ├── rectangle_tool.py     # Rectangle drawing
+│       └── polygon_tool.py       # Polygon drawing
+├── ui/
+│   ├── canvas/
+│   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling
+│   │   ├── canvas_scene.py       # Scene (holds objects)
+│   │   └── items/                # GardenItem, RectangleItem, PolygonItem
+│   ├── dialogs/                  # NewProjectDialog, etc.
+│   └── widgets/toolbar.py        # MainToolbar
+└── resources/                    # Icons, images
 
-- Use type hints on all functions
-- Follow existing code patterns
-- Keep commits atomic with clear messages
-- All tests must pass before committing
-- Update `CLAUDE.md` progress when completing user stories
+tests/
+├── unit/                         # Unit tests
+├── integration/                  # Integration tests
+└── ui/                           # UI tests
+```
+
+## Next Up: US-1.5 (Save/Load) or US-1.6 (Undo/Redo)
+
+## Future Backlog
+1. Vertex coordinate annotations on selection
+2. Rotate objects (15° snap)
+3. Edit polygon vertices
