@@ -6,13 +6,13 @@ PyQt6 desktop app for precision garden planning with CAD-like metric accuracy.
 
 ```bash
 # Run app
-venv\Scripts\python.exe -m open_garden_planner
+venv/Scripts/python.exe -m open_garden_planner
 
 # Run tests
-venv\Scripts\python.exe -m pytest tests/ -v
+venv/Scripts/python.exe -m pytest tests/ -v
 
 # Lint
-venv\Scripts\python.exe -m ruff check src/
+venv/Scripts/python.exe -m ruff check src/
 ```
 
 ## Tech Stack
@@ -67,7 +67,7 @@ src/open_garden_planner/
 │   ├── canvas/
 │   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling
 │   │   ├── canvas_scene.py       # Scene (holds objects)
-│   │   └── items/                # GardenItem, RectangleItem, PolygonItem
+│   │   └── items/                # GardenItem, RectangleItem, PolygonItem, BackgroundImageItem
 │   ├── dialogs/                  # NewProjectDialog, etc.
 │   └── widgets/toolbar.py        # MainToolbar
 └── resources/                    # Icons, images
@@ -78,7 +78,20 @@ tests/
 └── ui/                           # UI tests
 ```
 
-## Phase 1 Complete! Next: Phase 2 (Plants & Objects)
+## Phase 1 Complete!
+
+## Progress (Phase 2: Precision & Calibration)
+
+| Status | US | Description |
+|--------|-----|-------------|
+| ✅ | 2.3 | Toggle grid overlay (was pre-implemented) |
+| ✅ | 2.4 | Snap to grid (was pre-implemented) |
+| 🔄 | 2.1 | Import background image |
+| 🔄 | 2.7 | Adjust background image opacity |
+| 🔄 | 2.8 | Lock background image |
+| ⬜ | 2.2 | Calibrate image (two-point) |
+| ⬜ | 2.5 | Measure distances |
+| ⬜ | 2.6 | Area/perimeter of selected polygons |
 
 ## Future Backlog
 1. Vertex coordinate annotations on selection
