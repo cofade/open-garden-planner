@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from PyQt6.QtCore import QObject, QPointF, pyqtSignal
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 # File format version for backward compatibility
@@ -179,6 +180,12 @@ class ProjectManager(QObject):
                 data["name"] = item.name
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
+            # Save custom fill and stroke colors (with alpha)
+            fill_color = item.brush().color()
+            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            stroke_color = item.pen().color()
+            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
+            data["stroke_width"] = item.pen().widthF()
             return data
         elif isinstance(item, CircleItem):
             data = {
@@ -193,6 +200,12 @@ class ProjectManager(QObject):
                 data["name"] = item.name
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
+            # Save custom fill and stroke colors (with alpha)
+            fill_color = item.brush().color()
+            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            stroke_color = item.pen().color()
+            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
+            data["stroke_width"] = item.pen().widthF()
             return data
         elif isinstance(item, PolylineItem):
             data = {
@@ -205,6 +218,10 @@ class ProjectManager(QObject):
                 data["name"] = item.name
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
+            # Save custom stroke color (polylines don't have fill, with alpha)
+            stroke_color = item.pen().color()
+            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
+            data["stroke_width"] = item.pen().widthF()
             return data
         elif isinstance(item, PolygonItem):
             polygon = item.polygon()
@@ -225,6 +242,12 @@ class ProjectManager(QObject):
                 data["name"] = item.name
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
+            # Save custom fill and stroke colors (with alpha)
+            fill_color = item.brush().color()
+            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            stroke_color = item.pen().color()
+            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
+            data["stroke_width"] = item.pen().widthF()
             return data
         return None
 
@@ -290,7 +313,7 @@ class ProjectManager(QObject):
                 # Image file may have been moved/deleted
                 return None
         elif obj_type == "rectangle":
-            return RectangleItem(
+            item = RectangleItem(
                 obj["x"],
                 obj["y"],
                 obj["width"],
@@ -299,8 +322,20 @@ class ProjectManager(QObject):
                 name=name,
                 metadata=metadata,
             )
+            # Restore custom colors if saved
+            if "fill_color" in obj:
+                brush = item.brush()
+                brush.setColor(QColor(obj["fill_color"]))
+                item.setBrush(brush)
+            if "stroke_color" in obj:
+                pen = item.pen()
+                pen.setColor(QColor(obj["stroke_color"]))
+                if "stroke_width" in obj:
+                    pen.setWidthF(obj["stroke_width"])
+                item.setPen(pen)
+            return item
         elif obj_type == "circle":
-            return CircleItem(
+            item = CircleItem(
                 obj["center_x"],
                 obj["center_y"],
                 obj["radius"],
@@ -308,21 +343,53 @@ class ProjectManager(QObject):
                 name=name,
                 metadata=metadata,
             )
+            # Restore custom colors if saved
+            if "fill_color" in obj:
+                brush = item.brush()
+                brush.setColor(QColor(obj["fill_color"]))
+                item.setBrush(brush)
+            if "stroke_color" in obj:
+                pen = item.pen()
+                pen.setColor(QColor(obj["stroke_color"]))
+                if "stroke_width" in obj:
+                    pen.setWidthF(obj["stroke_width"])
+                item.setPen(pen)
+            return item
         elif obj_type == "polyline":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
             if len(points) >= 2:
-                return PolylineItem(
+                item = PolylineItem(
                     points,
                     object_type=object_type or ObjectType.FENCE,
                     name=name,
                 )
+                # Restore custom stroke color if saved
+                if "stroke_color" in obj:
+                    pen = item.pen()
+                    pen.setColor(QColor(obj["stroke_color"]))
+                    if "stroke_width" in obj:
+                        pen.setWidthF(obj["stroke_width"])
+                    item.setPen(pen)
+                return item
         elif obj_type == "polygon":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
             if len(points) >= 3:
-                return PolygonItem(
+                item = PolygonItem(
                     points,
                     object_type=object_type or ObjectType.GENERIC_POLYGON,
                     name=name,
                     metadata=metadata,
                 )
+                # Restore custom colors if saved
+                if "fill_color" in obj:
+                    brush = item.brush()
+                    brush.setColor(QColor(obj["fill_color"]))
+                    item.setBrush(brush)
+                if "stroke_color" in obj:
+                    pen = item.pen()
+                    pen.setColor(QColor(obj["stroke_color"]))
+                    if "stroke_width" in obj:
+                        pen.setWidthF(obj["stroke_width"])
+                    item.setPen(pen)
+                return item
         return None

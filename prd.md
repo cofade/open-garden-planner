@@ -601,7 +601,7 @@ open_garden_planner/
 | ID | User Story | Priority |
 |----|------------|----------|
 | ~~US-3.1~~ | ~~As a user, I can add property objects (house, fence, path, etc.)~~ | ✅ Must |
-| US-3.2 | As a user, I can set fill color for objects | Must |
+| ~~US-3.2~~ | ~~As a user, I can set fill color for objects~~ | ✅ Must |
 | US-3.3 | As a user, I can apply textures/patterns to objects | Must |
 | US-3.4 | As a user, I can set stroke style (color, width, dash pattern) | Should |
 | US-3.5 | As a user, I can add labels to objects displayed on canvas | Should |

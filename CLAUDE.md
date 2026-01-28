@@ -148,3 +148,4 @@ tests/
 | Status | US | Description |
 |--------|-----|-------------|
 | ✅ | 3.1 | Add property objects (house, fence, path, etc.) |
+| ✅ | 3.2 | Set fill color for objects |

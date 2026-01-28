@@ -1,0 +1,234 @@
+"""Properties dialog for editing object attributes."""
+
+from PyQt6.QtGui import QColor
+from PyQt6.QtWidgets import (
+    QColorDialog,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QGraphicsItem,
+    QGroupBox,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from open_garden_planner.core.object_types import ObjectType, get_style
+from open_garden_planner.ui.canvas.items import (
+    CircleItem,
+    PolygonItem,
+    RectangleItem,
+)
+
+
+class ColorButton(QPushButton):
+    """A button that displays a color and opens a color picker when clicked."""
+
+    def __init__(self, color: QColor, parent: QWidget | None = None) -> None:
+        """Initialize the color button.
+
+        Args:
+            color: Initial color
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        self._color = color
+        self.setFixedSize(80, 30)
+        self._update_style()
+        self.clicked.connect(self._pick_color)
+
+    @property
+    def color(self) -> QColor:
+        """Get the current color."""
+        return self._color
+
+    def set_color(self, color: QColor) -> None:
+        """Set the button color.
+
+        Args:
+            color: New color
+        """
+        self._color = color
+        self._update_style()
+
+    def _update_style(self) -> None:
+        """Update the button style to show the current color."""
+        # Use rgba() to show color with alpha
+        self.setStyleSheet(
+            f"background-color: rgba({self._color.red()}, {self._color.green()}, "
+            f"{self._color.blue()}, {self._color.alpha() / 255.0}); "
+            f"border: 1px solid #888;"
+        )
+
+    def _pick_color(self) -> None:
+        """Open color picker dialog."""
+        # Create color dialog as top-level window (no parent) to avoid inheriting
+        # the colored background from this ColorButton
+        dialog = QColorDialog()
+        dialog.setCurrentColor(self._color)
+        dialog.setOption(QColorDialog.ColorDialogOption.ShowAlphaChannel, True)
+        dialog.setWindowTitle("Choose Color")
+
+        # Execute dialog
+        if dialog.exec():
+            color = dialog.selectedColor()
+            if color.isValid():
+                self.set_color(color)
+
+
+class PropertiesDialog(QDialog):
+    """Dialog for editing object properties."""
+
+    def __init__(self, item: QGraphicsItem, parent: QWidget | None = None) -> None:
+        """Initialize the properties dialog.
+
+        Args:
+            item: The graphics item to edit
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        self._item = item
+        self._fill_color_button: ColorButton | None = None
+        self._stroke_color_button: ColorButton | None = None
+
+        self.setWindowTitle("Object Properties")
+        self.setModal(True)
+        self.setMinimumWidth(400)
+
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        """Set up the dialog UI."""
+        layout = QVBoxLayout()
+
+        # Basic info section
+        layout.addWidget(self._create_basic_info_section())
+
+        # Appearance section
+        layout.addWidget(self._create_appearance_section())
+
+        # Metadata section (if available)
+        if hasattr(self._item, 'metadata') and self._item.metadata:
+            layout.addWidget(self._create_metadata_section())
+
+        # Dialog buttons
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+        self.setLayout(layout)
+
+    def _create_basic_info_section(self) -> QGroupBox:
+        """Create the basic information section."""
+        group = QGroupBox("Basic Information")
+        layout = QFormLayout()
+
+        # Object type dropdown
+        if hasattr(self._item, 'object_type'):
+            self._object_type_combo = QComboBox()
+
+            # Determine which object types are valid for this item
+            if isinstance(self._item, (RectangleItem, PolygonItem, CircleItem)):
+                # All filled shapes can be any polygon-based structure
+                valid_types = [
+                    ObjectType.GENERIC_RECTANGLE if isinstance(self._item, RectangleItem) else (
+                        ObjectType.GENERIC_CIRCLE if isinstance(self._item, CircleItem) else ObjectType.GENERIC_POLYGON
+                    ),
+                    ObjectType.HOUSE,
+                    ObjectType.GARAGE_SHED,
+                    ObjectType.TERRACE_PATIO,
+                    ObjectType.DRIVEWAY,
+                    ObjectType.POND_POOL,
+                    ObjectType.GREENHOUSE,
+                ]
+            else:
+                # Default to all types
+                valid_types = list(ObjectType)
+
+            # Populate combobox
+            current_idx = 0
+            for idx, obj_type in enumerate(valid_types):
+                style = get_style(obj_type)
+                self._object_type_combo.addItem(style.display_name, obj_type)
+                if self._item.object_type == obj_type:
+                    current_idx = idx
+
+            self._object_type_combo.setCurrentIndex(current_idx)
+            layout.addRow("Type:", self._object_type_combo)
+
+        # Name/label
+        if hasattr(self._item, 'name'):
+            self._name_edit = QLineEdit(self._item.name)
+            layout.addRow("Name:", self._name_edit)
+
+        group.setLayout(layout)
+        return group
+
+    def _create_appearance_section(self) -> QGroupBox:
+        """Create the appearance customization section."""
+        group = QGroupBox("Appearance")
+        layout = QFormLayout()
+
+        # Get current fill color
+        current_fill = self._get_current_fill_color()
+
+        # Fill color picker
+        self._fill_color_button = ColorButton(current_fill)
+        layout.addRow("Fill Color:", self._fill_color_button)
+
+        group.setLayout(layout)
+        return group
+
+    def _create_metadata_section(self) -> QGroupBox:
+        """Create metadata section."""
+        group = QGroupBox("Additional Information")
+        layout = QFormLayout()
+
+        if hasattr(self._item, 'metadata'):
+            for key, value in self._item.metadata.items():
+                layout.addRow(f"{key}:", QLabel(str(value)))
+
+        group.setLayout(layout)
+        return group
+
+    def _get_current_fill_color(self) -> QColor:
+        """Get the current fill color of the item."""
+        if isinstance(self._item, (RectangleItem, PolygonItem, CircleItem)):
+            return self._item.brush().color()
+        return QColor(200, 200, 200)  # Default gray
+
+    def get_object_type(self) -> ObjectType | None:
+        """Get the selected object type.
+
+        Returns:
+            Selected object type or None
+        """
+        if hasattr(self, '_object_type_combo'):
+            return self._object_type_combo.currentData()
+        return None
+
+    def get_fill_color(self) -> QColor:
+        """Get the selected fill color.
+
+        Returns:
+            Selected fill color
+        """
+        if self._fill_color_button:
+            return self._fill_color_button.color
+        return self._get_current_fill_color()
+
+    def get_name(self) -> str:
+        """Get the object name.
+
+        Returns:
+            Object name
+        """
+        if hasattr(self, '_name_edit'):
+            return self._name_edit.text()
+        return ""

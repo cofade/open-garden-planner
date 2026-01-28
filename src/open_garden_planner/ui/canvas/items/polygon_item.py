@@ -11,6 +11,38 @@ from open_garden_planner.core.object_types import ObjectType, get_style
 from .garden_item import GardenItemMixin
 
 
+def _show_properties_dialog(item: QGraphicsPolygonItem) -> None:
+    """Show properties dialog for an item (imported locally to avoid circular import)."""
+    from open_garden_planner.core.object_types import get_style
+    from open_garden_planner.ui.dialogs import PropertiesDialog
+
+    dialog = PropertiesDialog(item)
+    if dialog.exec():
+        # Apply name change
+        if hasattr(item, 'name'):
+            item.name = dialog.get_name()
+
+        # Apply object type change (updates styling)
+        new_object_type = dialog.get_object_type()
+        if new_object_type and hasattr(item, 'object_type'):
+            item.object_type = new_object_type
+            # Update to default styling for new type
+            style = get_style(new_object_type)
+            pen = item.pen()
+            pen.setColor(style.stroke_color)
+            pen.setWidthF(style.stroke_width)
+            item.setPen(pen)
+            brush = item.brush()
+            brush.setColor(style.fill_color)
+            item.setBrush(brush)
+
+        # Apply custom fill color (overrides type default)
+        fill_color = dialog.get_fill_color()
+        brush = item.brush()
+        brush.setColor(fill_color)
+        item.setBrush(brush)
+
+
 class PolygonItem(GardenItemMixin, QGraphicsPolygonItem):
     """A polygon shape on the garden canvas.
 
@@ -75,7 +107,6 @@ class PolygonItem(GardenItemMixin, QGraphicsPolygonItem):
         duplicate_action.setEnabled(False)  # Placeholder
 
         properties_action = menu.addAction("Properties...")
-        properties_action.setEnabled(False)  # Placeholder
 
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
@@ -85,6 +116,8 @@ class PolygonItem(GardenItemMixin, QGraphicsPolygonItem):
             scene = self.scene()
             for item in scene.selectedItems():
                 scene.removeItem(item)
+        elif action == properties_action:
+            _show_properties_dialog(self)
 
     @classmethod
     def from_polygon(cls, polygon: QPolygonF) -> "PolygonItem":
