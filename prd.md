@@ -229,8 +229,8 @@ Pre-defined object types for common property elements:
 
 - **FR-MEAS-01**: Distance tool: click two points, displays distance in chosen units
 - **FR-MEAS-02**: Persistent dimension annotations (add to plan, editable)
-- **FR-MEAS-03**: Area display for selected polygon objects
-- **FR-MEAS-04**: Perimeter display for selected polygon/polyline objects
+- **FR-MEAS-03**: Area display for selected polygon and circle objects
+- **FR-MEAS-04**: Perimeter/circumference display for selected polygon/polyline/circle objects
 - **FR-MEAS-05**: Ruler overlay option (along canvas edge)
 - **FR-MEAS-06**: Measurements snap to object vertices/edges
 
@@ -582,7 +582,7 @@ open_garden_planner/
 | US-2.3 | As a user, I can toggle a grid overlay | Must |
 | US-2.4 | As a user, I can snap objects to the grid | Should |
 | US-2.5 | As a user, I can measure distances between any two points | Must |
-| US-2.6 | As a user, I can see area/perimeter of selected polygons | Should |
+| US-2.6 | As a user, I can see area/perimeter of selected polygons and circles | Should |
 | US-2.7 | As a user, I can adjust background image opacity | Must |
 | US-2.8 | As a user, I can lock the background image to prevent moving it | Should |
 | US-2.9 | As a user, I can draw circles by clicking center then a rim point | Must |

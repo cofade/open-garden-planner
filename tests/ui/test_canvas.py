@@ -1,11 +1,10 @@
 """UI tests for the canvas widget."""
 
 import pytest
-from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import QPointF
 
-from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
 
 class TestCanvasScene:

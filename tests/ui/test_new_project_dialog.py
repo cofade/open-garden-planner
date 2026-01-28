@@ -1,7 +1,5 @@
 """UI tests for the New Project dialog (US-1.1)."""
 
-import pytest
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDialogButtonBox
 
 from open_garden_planner.ui.dialogs import NewProjectDialog

@@ -122,6 +122,8 @@ tests/
 
 ## Phase 1 Complete!
 
+## Phase 2 Complete!
+
 ## Progress (Phase 2: Precision & Calibration)
 
 | Status | US | Description |
@@ -134,7 +136,7 @@ tests/
 | ✅ | 2.2 | Calibrate image (two-point) |
 | ✅ | 2.5 | Measure distances |
 | ✅ | 2.9 | Draw circles (center + rim) |
-| ⬜ | 2.6 | Area/perimeter of selected polygons |
+| ✅ | 2.6 | Area/perimeter of selected polygons and circles |
 
 ## Future Backlog
 1. Vertex coordinate annotations on selection
