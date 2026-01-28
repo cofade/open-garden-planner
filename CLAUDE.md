@@ -23,14 +23,18 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 2. Clarify with `AskUserQuestion` tool
 3. Implement with type hints
 4. Write tests, run lint
-5. Launch GitHub sub-agent (Haiku-based, create if not available) for
-  - commiting (format: `feat(US-X.X): Description`)
-    - commit not to master, only to feature branches
-  - making PR
-  - additional GitHub sub-agent instance for approving PR
-6. Update progress below and in `prd.md`
+5. **Wait for user to manually test and approve the functionality**
+6. After user approval, launch GitHub sub-agent (Haiku-based, create if not available) for:
+   - Committing (format: `feat(US-X.X): Description`)
+     - Commit not to master, only to feature branches
+   - Making PR
+   - Additional GitHub sub-agent instance for approving PR
+7. Update progress below and in `prd.md`
 
-**Important**: Stay in working mode (no plan mode). Commit after user confirms functionality works. After completing a US, `/clear` context.
+**Important**:
+- Stay in working mode (no plan mode)
+- **NEVER commit before user manually tests and explicitly approves the functionality**
+- After completing a US, `/clear` context
 
 ## Testing Notes
 - PyQt6 tests require `qtbot` fixture parameter in test methods even when unused (needed for Qt initialization); configure ruff per-file ignore for ARG002 in test files
