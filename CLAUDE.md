@@ -133,6 +133,7 @@ tests/
 | ✅ | 2.8 | Lock background image |
 | ✅ | 2.2 | Calibrate image (two-point) |
 | ✅ | 2.5 | Measure distances |
+| ⬜ | 2.9 | Draw circles (center + rim) |
 | ⬜ | 2.6 | Area/perimeter of selected polygons |
 
 ## Future Backlog

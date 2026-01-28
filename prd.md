@@ -123,9 +123,10 @@ No existing tool combines:
 - **FR-DRAW-01**: Line tool (click-click or click-drag)
 - **FR-DRAW-02**: Rectangle tool (axis-aligned and rotated)
 - **FR-DRAW-03**: Polygon tool (click to add vertices, double-click/Enter to close)
-- **FR-DRAW-04**: Circle/Ellipse tool
-- **FR-DRAW-05**: Arc tool
-- **FR-DRAW-06**: Polyline tool (connected line segments, open path)
+- **FR-DRAW-04**: Circle tool (click center, then click rim point to define radius)
+- **FR-DRAW-05**: Ellipse tool (future enhancement)
+- **FR-DRAW-06**: Arc tool
+- **FR-DRAW-07**: Polyline tool (connected line segments, open path)
 
 #### 3.2.2 Shape Properties
 - **FR-DRAW-10**: Fill color (solid colors, predefined palette, custom color picker)
@@ -584,6 +585,7 @@ open_garden_planner/
 | US-2.6 | As a user, I can see area/perimeter of selected polygons | Should |
 | US-2.7 | As a user, I can adjust background image opacity | Must |
 | US-2.8 | As a user, I can lock the background image to prevent moving it | Should |
+| US-2.9 | As a user, I can draw circles by clicking center then a rim point | Must |
 
 **Technical Milestones**:
 - [x] Image layer with transformation matrix
