@@ -5,7 +5,6 @@ from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsScene
 
 from open_garden_planner.core.commands import (
-    Command,
     CommandManager,
     CreateItemCommand,
     DeleteItemsCommand,

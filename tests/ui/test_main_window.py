@@ -2,10 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication
-
 from open_garden_planner.app.application import GardenPlannerApp
 from open_garden_planner.main import get_icon_path
 

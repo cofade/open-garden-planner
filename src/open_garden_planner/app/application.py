@@ -12,7 +12,12 @@ from PyQt6.QtWidgets import (
     QMessageBox,
 )
 
-from open_garden_planner.core import ProjectManager
+from open_garden_planner.core import (
+    ProjectManager,
+    calculate_area_and_perimeter,
+    format_area,
+    format_length,
+)
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -308,7 +313,7 @@ class GardenPlannerApp(QMainWindow):
         self.update_tool("Select")
 
         # Initial selection display
-        self.update_selection(0)
+        self.update_selection(0, [])
 
     # Slot methods for menu actions
 
@@ -486,8 +491,9 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_selection_changed(self) -> None:
         """Handle selection changes in the canvas scene."""
-        count = len(self.canvas_scene.selectedItems())
-        self.update_selection(count)
+        selected_items = self.canvas_scene.selectedItems()
+        count = len(selected_items)
+        self.update_selection(count, selected_items)
 
     def _on_about(self) -> None:
         """Handle About action."""
@@ -565,18 +571,56 @@ class GardenPlannerApp(QMainWindow):
         """
         self.zoom_label.setText(f"{zoom_percent:.0f}%")
 
-    def update_selection(self, count: int) -> None:
+    def update_selection(self, count: int, selected_items: list | None = None) -> None:
         """Update the selection info in the status bar.
 
         Args:
             count: Number of selected objects
+            selected_items: List of selected QGraphicsItems (optional)
         """
         if count == 0:
             self.selection_label.setText("No selection")
         elif count == 1:
-            self.selection_label.setText("1 object selected")
+            # For single selection, show area and perimeter if available
+            if selected_items:
+                item = selected_items[0]
+                measurements = calculate_area_and_perimeter(item)
+                if measurements:
+                    area, perimeter = measurements
+                    area_str = format_area(area)
+                    length_str = format_length(perimeter)
+                    self.selection_label.setText(
+                        f"1 object | Area: {area_str} | Perimeter: {length_str}"
+                    )
+                else:
+                    self.selection_label.setText("1 object selected")
+            else:
+                self.selection_label.setText("1 object selected")
         else:
-            self.selection_label.setText(f"{count} objects selected")
+            # For multiple selection, show total area and perimeter
+            if selected_items:
+                total_area = 0.0
+                total_perimeter = 0.0
+                measurable_count = 0
+
+                for item in selected_items:
+                    measurements = calculate_area_and_perimeter(item)
+                    if measurements:
+                        area, perimeter = measurements
+                        total_area += area
+                        total_perimeter += perimeter
+                        measurable_count += 1
+
+                if measurable_count > 0:
+                    area_str = format_area(total_area)
+                    length_str = format_length(total_perimeter)
+                    self.selection_label.setText(
+                        f"{count} objects | Total Area: {area_str} | Total Perimeter: {length_str}"
+                    )
+                else:
+                    self.selection_label.setText(f"{count} objects selected")
+            else:
+                self.selection_label.setText(f"{count} objects selected")
 
     def update_tool(self, tool_name: str) -> None:
         """Update the current tool display in the status bar.

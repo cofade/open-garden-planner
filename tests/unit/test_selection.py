@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QMouseEvent
 from PyQt6.QtWidgets import QGraphicsRectItem
 
@@ -158,8 +158,8 @@ class TestCanvasViewKeyboard:
 
     def test_arrow_key_moves_selected_items(self, qtbot) -> None:
         """Test arrow keys move selected items."""
-        from PyQt6.QtGui import QKeyEvent
         from PyQt6.QtCore import QEvent
+        from PyQt6.QtGui import QKeyEvent
 
         from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
         from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -190,8 +190,8 @@ class TestCanvasViewKeyboard:
 
     def test_shift_arrow_moves_by_1cm(self, qtbot) -> None:
         """Test Shift+arrow moves by 1cm."""
-        from PyQt6.QtGui import QKeyEvent
         from PyQt6.QtCore import QEvent
+        from PyQt6.QtGui import QKeyEvent
 
         from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
         from open_garden_planner.ui.canvas.canvas_view import CanvasView
