@@ -64,6 +64,14 @@ class MainToolbar(QToolBar):
             "P",
         )
 
+        # Measure tool
+        self._add_tool_button(
+            ToolType.MEASURE,
+            "Measure",
+            "Measure distances (M)\nClick two points to measure",
+            "M",
+        )
+
         # Select tool is default
         self._buttons[ToolType.SELECT].setChecked(True)
 
