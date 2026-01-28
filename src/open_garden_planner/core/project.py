@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.ui.canvas.items import (
     BackgroundImageItem,
+    CircleItem,
     PolygonItem,
     RectangleItem,
 )
@@ -170,6 +171,13 @@ class ProjectManager(QObject):
                 "width": rect.width(),
                 "height": rect.height(),
             }
+        elif isinstance(item, CircleItem):
+            return {
+                "type": "circle",
+                "center_x": item.pos().x() + item.center.x(),
+                "center_y": item.pos().y() + item.center.y(),
+                "radius": item.radius,
+            }
         elif isinstance(item, PolygonItem):
             polygon = item.polygon()
             points = []
@@ -191,7 +199,9 @@ class ProjectManager(QObject):
         """Load objects from ProjectData into scene."""
         # Clear existing items
         for item in list(scene.items()):
-            if isinstance(item, (RectangleItem, PolygonItem, BackgroundImageItem)):
+            if isinstance(
+                item, (RectangleItem, CircleItem, PolygonItem, BackgroundImageItem)
+            ):
                 scene.removeItem(item)
 
         # Resize canvas if needed
@@ -220,6 +230,12 @@ class ProjectManager(QObject):
                 obj["y"],
                 obj["width"],
                 obj["height"],
+            )
+        elif obj_type == "circle":
+            return CircleItem(
+                obj["center_x"],
+                obj["center_y"],
+                obj["radius"],
             )
         elif obj_type == "polygon":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]

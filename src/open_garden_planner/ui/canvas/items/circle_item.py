@@ -1,6 +1,6 @@
 """Circle item for the garden canvas."""
 
-from PyQt6.QtCore import QPointF, QRectF
+from PyQt6.QtCore import QPointF
 from PyQt6.QtGui import QBrush, QColor, QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsSceneContextMenuEvent, QMenu
 

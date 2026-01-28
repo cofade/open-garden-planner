@@ -56,6 +56,14 @@ class MainToolbar(QToolBar):
             "R",
         )
 
+        # Circle tool
+        self._add_tool_button(
+            ToolType.CIRCLE,
+            "Circle",
+            "Draw circles (C)\nClick center, then click rim point",
+            "C",
+        )
+
         # Polygon tool
         self._add_tool_button(
             ToolType.POLYGON,

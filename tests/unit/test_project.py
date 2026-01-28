@@ -12,7 +12,7 @@ from open_garden_planner.core.project import (
     ProjectData,
     ProjectManager,
 )
-from open_garden_planner.ui.canvas.items import PolygonItem, RectangleItem
+from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 
 
 class TestProjectData:
@@ -165,6 +165,31 @@ class TestSerialization:
         loaded = items[0]
         loaded_poly = loaded.polygon()
         assert loaded_poly.count() == 3
+
+    def test_save_and_load_circle(self, manager, scene, tmp_path) -> None:
+        """Test saving and loading a circle."""
+        # Create a circle
+        circle = CircleItem(150, 200, 50)
+        scene.addItem(circle)
+
+        # Save
+        file_path = tmp_path / "test.ogp"
+        manager.save(scene, file_path)
+
+        # Clear scene
+        scene.clear()
+        assert len(scene.items()) == 0
+
+        # Load
+        manager.load(scene, file_path)
+
+        # Verify
+        items = [i for i in scene.items() if isinstance(i, CircleItem)]
+        assert len(items) == 1
+        loaded = items[0]
+        assert loaded.center.x() == 150
+        assert loaded.center.y() == 200
+        assert loaded.radius == 50
 
     def test_save_creates_ogp_extension(self, manager, scene, tmp_path) -> None:
         """Test that save adds .ogp extension."""
