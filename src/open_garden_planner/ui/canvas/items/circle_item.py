@@ -1,8 +1,12 @@
 """Circle item for the garden canvas."""
 
+from typing import Any
+
 from PyQt6.QtCore import QPointF
-from PyQt6.QtGui import QBrush, QColor, QPen
+from PyQt6.QtGui import QBrush, QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsSceneContextMenuEvent, QMenu
+
+from open_garden_planner.core.object_types import ObjectType, get_style
 
 from .garden_item import GardenItemMixin
 
@@ -10,20 +14,18 @@ from .garden_item import GardenItemMixin
 class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
     """A circle shape on the garden canvas.
 
-    Styled with green fill and darker green stroke.
+    Supports property object types with appropriate styling.
     Supports selection and movement.
     """
-
-    # Default styling
-    FILL_COLOR = QColor(144, 238, 144, 100)  # #90EE90 with alpha 100
-    STROKE_COLOR = QColor(34, 139, 34)  # #228B22
-    STROKE_WIDTH = 2
 
     def __init__(
         self,
         center_x: float,
         center_y: float,
         radius: float,
+        object_type: ObjectType = ObjectType.GENERIC_CIRCLE,
+        name: str = "",
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the circle item.
 
@@ -31,8 +33,11 @@ class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
             center_x: X coordinate of center
             center_y: Y coordinate of center
             radius: Radius of circle
+            object_type: Type of property object
+            name: Optional name/label for the object
+            metadata: Optional metadata dictionary
         """
-        GardenItemMixin.__init__(self)
+        GardenItemMixin.__init__(self, object_type=object_type, name=name, metadata=metadata)
         # QGraphicsEllipseItem uses bounding rect (top-left corner + width/height)
         # Convert center+radius to rect coordinates
         x = center_x - radius
@@ -47,12 +52,14 @@ class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
         self._setup_flags()
 
     def _setup_styling(self) -> None:
-        """Configure visual appearance."""
-        pen = QPen(self.STROKE_COLOR)
-        pen.setWidthF(self.STROKE_WIDTH)
+        """Configure visual appearance based on object type."""
+        style = get_style(self.object_type) if self.object_type else get_style(ObjectType.GENERIC_CIRCLE)
+
+        pen = QPen(style.stroke_color)
+        pen.setWidthF(style.stroke_width)
         self.setPen(pen)
 
-        brush = QBrush(self.FILL_COLOR)
+        brush = QBrush(style.fill_color)
         self.setBrush(brush)
 
     def _setup_flags(self) -> None:

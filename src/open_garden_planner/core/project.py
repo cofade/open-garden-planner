@@ -12,13 +12,6 @@ from typing import Any
 from PyQt6.QtCore import QObject, QPointF, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
-from open_garden_planner.ui.canvas.items import (
-    BackgroundImageItem,
-    CircleItem,
-    PolygonItem,
-    RectangleItem,
-)
-
 # File format version for backward compatibility
 FILE_VERSION = "1.0"
 
@@ -160,24 +153,59 @@ class ProjectManager(QObject):
 
     def _serialize_item(self, item: QGraphicsItem) -> dict[str, Any] | None:
         """Serialize a single graphics item."""
+        # Import here to avoid circular dependency
+        from open_garden_planner.ui.canvas.items import (
+            BackgroundImageItem,
+            CircleItem,
+            PolygonItem,
+            PolylineItem,
+            RectangleItem,
+        )
+
         if isinstance(item, BackgroundImageItem):
             return item.to_dict()
         elif isinstance(item, RectangleItem):
             rect = item.rect()
-            return {
+            data = {
                 "type": "rectangle",
                 "x": item.pos().x() + rect.x(),
                 "y": item.pos().y() + rect.y(),
                 "width": rect.width(),
                 "height": rect.height(),
             }
+            if hasattr(item, "object_type") and item.object_type:
+                data["object_type"] = item.object_type.name
+            if hasattr(item, "name") and item.name:
+                data["name"] = item.name
+            if hasattr(item, "metadata") and item.metadata:
+                data["metadata"] = item.metadata
+            return data
         elif isinstance(item, CircleItem):
-            return {
+            data = {
                 "type": "circle",
                 "center_x": item.pos().x() + item.center.x(),
                 "center_y": item.pos().y() + item.center.y(),
                 "radius": item.radius,
             }
+            if hasattr(item, "object_type") and item.object_type:
+                data["object_type"] = item.object_type.name
+            if hasattr(item, "name") and item.name:
+                data["name"] = item.name
+            if hasattr(item, "metadata") and item.metadata:
+                data["metadata"] = item.metadata
+            return data
+        elif isinstance(item, PolylineItem):
+            data = {
+                "type": "polyline",
+                "points": [{"x": item.pos().x() + p.x(), "y": item.pos().y() + p.y()} for p in item.points],
+            }
+            if hasattr(item, "object_type") and item.object_type:
+                data["object_type"] = item.object_type.name
+            if hasattr(item, "name") and item.name:
+                data["name"] = item.name
+            if hasattr(item, "metadata") and item.metadata:
+                data["metadata"] = item.metadata
+            return data
         elif isinstance(item, PolygonItem):
             polygon = item.polygon()
             points = []
@@ -187,20 +215,36 @@ class ProjectManager(QObject):
                     "x": item.pos().x() + pt.x(),
                     "y": item.pos().y() + pt.y(),
                 })
-            return {
+            data = {
                 "type": "polygon",
                 "points": points,
             }
+            if hasattr(item, "object_type") and item.object_type:
+                data["object_type"] = item.object_type.name
+            if hasattr(item, "name") and item.name:
+                data["name"] = item.name
+            if hasattr(item, "metadata") and item.metadata:
+                data["metadata"] = item.metadata
+            return data
         return None
 
     def _deserialize_to_scene(
         self, scene: QGraphicsScene, data: ProjectData
     ) -> None:
         """Load objects from ProjectData into scene."""
+        # Import here to avoid circular dependency
+        from open_garden_planner.ui.canvas.items import (
+            BackgroundImageItem,
+            CircleItem,
+            PolygonItem,
+            PolylineItem,
+            RectangleItem,
+        )
+
         # Clear existing items
         for item in list(scene.items()):
             if isinstance(
-                item, (RectangleItem, CircleItem, PolygonItem, BackgroundImageItem)
+                item, (RectangleItem, CircleItem, PolygonItem, PolylineItem, BackgroundImageItem)
             ):
                 scene.removeItem(item)
 
@@ -216,7 +260,28 @@ class ProjectManager(QObject):
 
     def _deserialize_item(self, obj: dict[str, Any]) -> QGraphicsItem | None:
         """Deserialize a single object to a graphics item."""
+        # Import here to avoid circular dependency
+        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.ui.canvas.items import (
+            BackgroundImageItem,
+            CircleItem,
+            PolygonItem,
+            PolylineItem,
+            RectangleItem,
+        )
+
         obj_type = obj.get("type")
+
+        # Extract common fields
+        object_type = None
+        if "object_type" in obj:
+            try:
+                object_type = ObjectType[obj["object_type"]]
+            except KeyError:
+                object_type = None
+
+        name = obj.get("name", "")
+        metadata = obj.get("metadata", {})
 
         if obj_type == "background_image":
             try:
@@ -230,15 +295,34 @@ class ProjectManager(QObject):
                 obj["y"],
                 obj["width"],
                 obj["height"],
+                object_type=object_type or ObjectType.GENERIC_RECTANGLE,
+                name=name,
+                metadata=metadata,
             )
         elif obj_type == "circle":
             return CircleItem(
                 obj["center_x"],
                 obj["center_y"],
                 obj["radius"],
+                object_type=object_type or ObjectType.GENERIC_CIRCLE,
+                name=name,
+                metadata=metadata,
             )
+        elif obj_type == "polyline":
+            points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
+            if len(points) >= 2:
+                return PolylineItem(
+                    points,
+                    object_type=object_type or ObjectType.FENCE,
+                    name=name,
+                )
         elif obj_type == "polygon":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
             if len(points) >= 3:
-                return PolygonItem(points)
+                return PolygonItem(
+                    points,
+                    object_type=object_type or ObjectType.GENERIC_POLYGON,
+                    name=name,
+                    metadata=metadata,
+                )
         return None

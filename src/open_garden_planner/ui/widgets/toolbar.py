@@ -48,29 +48,100 @@ class MainToolbar(QToolBar):
             "V",
         )
 
-        # Rectangle tool
+        self.addSeparator()
+
+        # Generic shapes
         self._add_tool_button(
             ToolType.RECTANGLE,
             "Rectangle",
-            "Draw rectangles (R)\nHold Shift for square",
+            "Draw rectangle (R)\nHold Shift for square",
             "R",
         )
 
-        # Circle tool
-        self._add_tool_button(
-            ToolType.CIRCLE,
-            "Circle",
-            "Draw circles (C)\nClick center, then click rim point",
-            "C",
-        )
-
-        # Polygon tool
         self._add_tool_button(
             ToolType.POLYGON,
             "Polygon",
-            "Draw polygons (P)\nClick to add vertices\nDouble-click or Enter to close",
-            "P",
+            "Draw polygon (G)\nClick to add vertices, double-click to close",
+            "G",
         )
+
+        self._add_tool_button(
+            ToolType.CIRCLE,
+            "Circle",
+            "Draw circle (C)\nClick center, then click rim point",
+            "C",
+        )
+
+        self.addSeparator()
+
+        # Property objects - Structures
+        self._add_tool_button(
+            ToolType.HOUSE,
+            "House",
+            "Draw house footprint (H)\nClick to add vertices, double-click to close",
+            "H",
+        )
+
+        self._add_tool_button(
+            ToolType.GARAGE_SHED,
+            "Garage/Shed",
+            "Draw garage/shed footprint\nClick to add vertices, double-click to close",
+            "",
+        )
+
+        self._add_tool_button(
+            ToolType.GREENHOUSE,
+            "Greenhouse",
+            "Draw greenhouse\nClick to add vertices, double-click to close",
+            "",
+        )
+
+        # Property objects - Hardscape
+        self._add_tool_button(
+            ToolType.TERRACE_PATIO,
+            "Terrace",
+            "Draw terrace/patio (T)\nClick to add vertices, double-click to close",
+            "T",
+        )
+
+        self._add_tool_button(
+            ToolType.DRIVEWAY,
+            "Driveway",
+            "Draw driveway (D)\nClick to add vertices, double-click to close",
+            "D",
+        )
+
+        # Property objects - Linear features
+        self._add_tool_button(
+            ToolType.FENCE,
+            "Fence",
+            "Draw fence (F)\nClick to add points, double-click to finish",
+            "F",
+        )
+
+        self._add_tool_button(
+            ToolType.WALL,
+            "Wall",
+            "Draw wall (W)\nClick to add points, double-click to finish",
+            "W",
+        )
+
+        self._add_tool_button(
+            ToolType.PATH,
+            "Path",
+            "Draw path (L)\nClick to add points, double-click to finish",
+            "L",
+        )
+
+        # Property objects - Water features
+        self._add_tool_button(
+            ToolType.POND_POOL,
+            "Pond/Pool",
+            "Draw pond or pool\nClick to add vertices, double-click to close",
+            "",
+        )
+
+        self.addSeparator()
 
         # Measure tool
         self._add_tool_button(

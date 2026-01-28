@@ -143,3 +143,8 @@ tests/
 1. Vertex coordinate annotations on selection
 2. Rotate objects (15° snap)
 3. Edit polygon vertices
+## Progress (Phase 3: Objects & Styling)
+
+| Status | US | Description |
+|--------|-----|-------------|
+| ✅ | 3.1 | Add property objects (house, fence, path, etc.) |

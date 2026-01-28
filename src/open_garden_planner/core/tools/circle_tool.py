@@ -6,6 +6,8 @@ from PyQt6.QtCore import QLineF, QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem
 
+from open_garden_planner.core.object_types import ObjectType
+
 from .base_tool import BaseTool, ToolType
 
 if TYPE_CHECKING:
@@ -23,11 +25,22 @@ class CircleTool(BaseTool):
 
     tool_type = ToolType.CIRCLE
     display_name = "Circle"
-    shortcut = "C"
+    shortcut = ""  # Will be set by specific instances
     cursor = Qt.CursorShape.CrossCursor
 
-    def __init__(self, view: "CanvasView") -> None:
+    def __init__(
+        self,
+        view: "CanvasView",
+        object_type: ObjectType = ObjectType.GENERIC_CIRCLE,
+    ) -> None:
+        """Initialize the circle tool.
+
+        Args:
+            view: The canvas view
+            object_type: Type of property object to create
+        """
         super().__init__(view)
+        self._object_type = object_type
         self._center_point: QPointF | None = None
         self._preview_circle: QGraphicsEllipseItem | None = None
         self._preview_line: QGraphicsLineItem | None = None
@@ -116,7 +129,10 @@ class CircleTool(BaseTool):
             from open_garden_planner.ui.canvas.items import CircleItem
 
             item = CircleItem(
-                self._center_point.x(), self._center_point.y(), radius
+                self._center_point.x(),
+                self._center_point.y(),
+                radius,
+                object_type=self._object_type,
             )
             self._view.add_item(item, "circle")
 
