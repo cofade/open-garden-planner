@@ -32,6 +32,9 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 
 **Important**: Stay in working mode (no plan mode). Commit after user confirms functionality works. After completing a US, `/clear` context.
 
+## Testing Notes
+- PyQt6 tests require `qtbot` fixture parameter in test methods even when unused (needed for Qt initialization); configure ruff per-file ignore for ARG002 in test files
+
 ## Progress (Phase 1)
 
 | Status | US | Description |
