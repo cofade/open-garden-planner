@@ -47,16 +47,17 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
    - Update progress in `CLAUDE.md` and `prd.md` in the same commit
 
 8. Push feature branch and create PR:
-   - **Use first GitHub sub-agent (Bash subagent_type):**
+   - **Note:** GitHub CLI is installed at `C:\Program Files\GitHub CLI\gh.exe` (not in PATH on Windows)
+   - **Use GitHub sub-agent (Bash subagent_type) to push and create PR:**
      - Push: `git push -u origin feature/US-X.X-short-description`
-     - Create PR: `gh pr create --title "feat(US-X.X): Title" --body "$(cat <<'EOF' ... EOF)"`
+     - Create PR: `"C:\Program Files\GitHub CLI\gh.exe" pr create --title "feat(US-X.X): Title" --body "$(cat <<'EOF' ... EOF)"`
      - Include summary, technical details, test plan in PR body
      - End body with: `🤖 Generated with [Claude Code](https://claude.com/claude-code)`
 
-   - **Use second GitHub sub-agent (Bash subagent_type, separate instance):**
-     - Review: `gh pr view <PR-NUMBER>`
-     - Approve: `gh pr review <PR-NUMBER> --approve --body "LGTM! All tests passing..."`
-     - Merge: `gh pr merge <PR-NUMBER> --squash --delete-branch`
+   - **Use second GitHub sub-agent (Bash subagent_type, separate instance) to review and merge:**
+     - Review: `"C:\Program Files\GitHub CLI\gh.exe" pr view <PR-NUMBER>`
+     - Approve: `"C:\Program Files\GitHub CLI\gh.exe" pr review <PR-NUMBER> --approve --body "LGTM! All tests passing..."`
+     - Merge: `"C:\Program Files\GitHub CLI\gh.exe" pr merge <PR-NUMBER> --squash --delete-branch`
      - Note: GitHub may prevent self-approval, but merge will succeed with passing tests
 
 9. After PR is merged, switch back to master:
