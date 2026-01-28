@@ -86,9 +86,9 @@ tests/
 |--------|-----|-------------|
 | ✅ | 2.3 | Toggle grid overlay (was pre-implemented) |
 | ✅ | 2.4 | Snap to grid (was pre-implemented) |
-| 🔄 | 2.1 | Import background image |
-| 🔄 | 2.7 | Adjust background image opacity |
-| 🔄 | 2.8 | Lock background image |
+| ✅ | 2.1 | Import background image |
+| ✅ | 2.7 | Adjust background image opacity |
+| ✅ | 2.8 | Lock background image |
 | ⬜ | 2.2 | Calibrate image (two-point) |
 | ⬜ | 2.5 | Measure distances |
 | ⬜ | 2.6 | Area/perimeter of selected polygons |

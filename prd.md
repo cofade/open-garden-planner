@@ -586,10 +586,10 @@ open_garden_planner/
 | US-2.8 | As a user, I can lock the background image to prevent moving it | Should |
 
 **Technical Milestones**:
-- [ ] Image layer with transformation matrix
+- [x] Image layer with transformation matrix
 - [ ] Two-point calibration algorithm
-- [ ] Grid rendering (adaptive to zoom level)
-- [ ] Snap-to-grid logic
+- [x] Grid rendering (adaptive to zoom level)
+- [x] Snap-to-grid logic
 - [ ] Measurement tool with persistent annotations
 
 ### Phase 3: Objects & Styling (v0.3)
