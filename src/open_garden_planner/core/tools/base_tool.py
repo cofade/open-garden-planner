@@ -15,10 +15,25 @@ class ToolType(Enum):
     """Enumeration of available tool types."""
 
     SELECT = auto()
+    MEASURE = auto()
+
+    # Property object types (polygon-based)
+    HOUSE = auto()
+    GARAGE_SHED = auto()
+    TERRACE_PATIO = auto()
+    DRIVEWAY = auto()
+    POND_POOL = auto()
+    GREENHOUSE = auto()
+
+    # Property object types (polyline-based)
+    FENCE = auto()
+    WALL = auto()
+    PATH = auto()
+
+    # Generic geometric shapes (backwards compatibility)
     RECTANGLE = auto()
     POLYGON = auto()
     CIRCLE = auto()
-    MEASURE = auto()
 
 
 class BaseTool(ABC):

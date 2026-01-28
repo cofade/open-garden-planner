@@ -6,6 +6,8 @@ from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen, QPolygonF
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsPolygonItem
 
+from open_garden_planner.core.object_types import ObjectType
+
 from .base_tool import BaseTool, ToolType
 
 if TYPE_CHECKING:
@@ -24,14 +26,25 @@ class PolygonTool(BaseTool):
 
     tool_type = ToolType.POLYGON
     display_name = "Polygon"
-    shortcut = "P"
+    shortcut = ""  # Will be set by specific instances
     cursor = Qt.CursorShape.CrossCursor
 
     CLOSE_THRESHOLD = 15.0  # Scene units (cm) for closing detection
     VERTEX_MARKER_SIZE = 8.0
 
-    def __init__(self, view: "CanvasView") -> None:
+    def __init__(
+        self,
+        view: "CanvasView",
+        object_type: ObjectType = ObjectType.GENERIC_POLYGON,
+    ) -> None:
+        """Initialize the polygon tool.
+
+        Args:
+            view: The canvas view
+            object_type: Type of property object to create
+        """
         super().__init__(view)
+        self._object_type = object_type
         self._vertices: list[QPointF] = []
         self._preview_line: QGraphicsLineItem | None = None
         self._preview_polygon: QGraphicsPolygonItem | None = None
@@ -187,7 +200,7 @@ class PolygonTool(BaseTool):
 
         if len(self._vertices) >= 3:
             from open_garden_planner.ui.canvas.items import PolygonItem
-            item = PolygonItem(self._vertices)
+            item = PolygonItem(self._vertices, object_type=self._object_type)
             self._view.add_item(item, "polygon")
 
         self._reset_state()

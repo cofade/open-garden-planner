@@ -23,10 +23,12 @@ from open_garden_planner.core import (
     DeleteItemsCommand,
     MoveItemsCommand,
 )
+from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.tools import (
     CircleTool,
     MeasureTool,
     PolygonTool,
+    PolylineTool,
     RectangleTool,
     SelectTool,
     ToolManager,
@@ -104,12 +106,75 @@ class CanvasView(QGraphicsView):
 
     def _setup_tools(self) -> None:
         """Register and initialize drawing tools."""
-        # Register tools
+        # Register basic tools
         self._tool_manager.register_tool(SelectTool(self))
-        self._tool_manager.register_tool(RectangleTool(self))
-        self._tool_manager.register_tool(CircleTool(self))
-        self._tool_manager.register_tool(PolygonTool(self))
         self._tool_manager.register_tool(MeasureTool(self))
+
+        # Register generic shape tools
+        rect_tool = RectangleTool(self, object_type=ObjectType.GENERIC_RECTANGLE)
+        rect_tool.shortcut = "R"
+        self._tool_manager.register_tool(rect_tool)
+
+        poly_tool = PolygonTool(self, object_type=ObjectType.GENERIC_POLYGON)
+        poly_tool.shortcut = "G"
+        self._tool_manager.register_tool(poly_tool)
+
+        circle_tool = CircleTool(self, object_type=ObjectType.GENERIC_CIRCLE)
+        circle_tool.shortcut = "C"
+        self._tool_manager.register_tool(circle_tool)
+
+        # Register property object tools (polygon-based)
+        house_tool = PolygonTool(self, object_type=ObjectType.HOUSE)
+        house_tool.tool_type = ToolType.HOUSE
+        house_tool.display_name = "House"
+        house_tool.shortcut = "H"
+        self._tool_manager.register_tool(house_tool)
+
+        garage_tool = PolygonTool(self, object_type=ObjectType.GARAGE_SHED)
+        garage_tool.tool_type = ToolType.GARAGE_SHED
+        garage_tool.display_name = "Garage/Shed"
+        self._tool_manager.register_tool(garage_tool)
+
+        terrace_tool = PolygonTool(self, object_type=ObjectType.TERRACE_PATIO)
+        terrace_tool.tool_type = ToolType.TERRACE_PATIO
+        terrace_tool.display_name = "Terrace/Patio"
+        terrace_tool.shortcut = "T"
+        self._tool_manager.register_tool(terrace_tool)
+
+        driveway_tool = PolygonTool(self, object_type=ObjectType.DRIVEWAY)
+        driveway_tool.tool_type = ToolType.DRIVEWAY
+        driveway_tool.display_name = "Driveway"
+        driveway_tool.shortcut = "D"
+        self._tool_manager.register_tool(driveway_tool)
+
+        pond_tool = PolygonTool(self, object_type=ObjectType.POND_POOL)
+        pond_tool.tool_type = ToolType.POND_POOL
+        pond_tool.display_name = "Pond/Pool"
+        self._tool_manager.register_tool(pond_tool)
+
+        greenhouse_tool = PolygonTool(self, object_type=ObjectType.GREENHOUSE)
+        greenhouse_tool.tool_type = ToolType.GREENHOUSE
+        greenhouse_tool.display_name = "Greenhouse"
+        self._tool_manager.register_tool(greenhouse_tool)
+
+        # Register property object tools (polyline-based)
+        fence_tool = PolylineTool(self, object_type=ObjectType.FENCE)
+        fence_tool.tool_type = ToolType.FENCE
+        fence_tool.display_name = "Fence"
+        fence_tool.shortcut = "F"
+        self._tool_manager.register_tool(fence_tool)
+
+        wall_tool = PolylineTool(self, object_type=ObjectType.WALL)
+        wall_tool.tool_type = ToolType.WALL
+        wall_tool.display_name = "Wall"
+        wall_tool.shortcut = "W"
+        self._tool_manager.register_tool(wall_tool)
+
+        path_tool = PolylineTool(self, object_type=ObjectType.PATH)
+        path_tool.tool_type = ToolType.PATH
+        path_tool.display_name = "Path"
+        path_tool.shortcut = "L"
+        self._tool_manager.register_tool(path_tool)
 
         # Connect tool change signal
         self._tool_manager.tool_changed.connect(self.tool_changed.emit)

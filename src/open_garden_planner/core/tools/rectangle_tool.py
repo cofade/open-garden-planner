@@ -6,6 +6,8 @@ from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsRectItem
 
+from open_garden_planner.core.object_types import ObjectType
+
 from .base_tool import BaseTool, ToolType
 
 if TYPE_CHECKING:
@@ -23,11 +25,22 @@ class RectangleTool(BaseTool):
 
     tool_type = ToolType.RECTANGLE
     display_name = "Rectangle"
-    shortcut = "R"
+    shortcut = ""  # Will be set by specific instances
     cursor = Qt.CursorShape.CrossCursor
 
-    def __init__(self, view: "CanvasView") -> None:
+    def __init__(
+        self,
+        view: "CanvasView",
+        object_type: ObjectType = ObjectType.GENERIC_RECTANGLE,
+    ) -> None:
+        """Initialize the rectangle tool.
+
+        Args:
+            view: The canvas view
+            object_type: Type of property object to create
+        """
         super().__init__(view)
+        self._object_type = object_type
         self._start_point: QPointF | None = None
         self._preview_item: QGraphicsRectItem | None = None
         self._is_drawing = False
@@ -72,7 +85,13 @@ class RectangleTool(BaseTool):
         rect = self._calculate_rect(self._start_point, scene_pos, event)
         if rect.width() > 1 and rect.height() > 1:  # Minimum size
             from open_garden_planner.ui.canvas.items import RectangleItem
-            item = RectangleItem(rect.x(), rect.y(), rect.width(), rect.height())
+            item = RectangleItem(
+                rect.x(),
+                rect.y(),
+                rect.width(),
+                rect.height(),
+                object_type=self._object_type,
+            )
             self._view.add_item(item, "rectangle")
 
         self._reset_state()

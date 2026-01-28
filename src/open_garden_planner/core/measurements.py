@@ -5,7 +5,6 @@ import math
 from PyQt6.QtWidgets import QGraphicsItem
 
 from open_garden_planner.core.geometry import Point, Polygon
-from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 
 
 def calculate_area_and_perimeter(item: QGraphicsItem) -> tuple[float, float] | None:
@@ -18,6 +17,9 @@ def calculate_area_and_perimeter(item: QGraphicsItem) -> tuple[float, float] | N
         Tuple of (area_cm2, perimeter_cm) or None if item type not supported.
         For circles, perimeter is the circumference.
     """
+    # Import here to avoid circular dependency
+    from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
+
     if isinstance(item, RectangleItem):
         rect = item.rect()
         width = rect.width()

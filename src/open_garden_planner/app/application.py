@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
@@ -35,7 +36,6 @@ class GardenPlannerApp(QMainWindow):
         super().__init__()
 
         self.setMinimumSize(800, 600)
-        self.showMaximized()
 
         # Project manager for save/load
         self._project_manager = ProjectManager(self)
@@ -50,6 +50,10 @@ class GardenPlannerApp(QMainWindow):
 
         # Initial window title
         self._update_window_title()
+
+        # Show maximized and fit canvas after window is fully displayed
+        self.showMaximized()
+        QTimer.singleShot(100, self.canvas_view.fit_in_view)
 
     def _setup_menu_bar(self) -> None:
         """Set up the menu bar with File, Edit, View, Help menus."""
