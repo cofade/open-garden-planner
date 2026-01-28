@@ -15,7 +15,7 @@ from PyQt6.QtGui import (
     QTransform,
     QWheelEvent,
 )
-from PyQt6.QtWidgets import QGraphicsItem, QGraphicsView
+from PyQt6.QtWidgets import QGraphicsItem, QGraphicsView, QLineEdit
 
 from open_garden_planner.core import (
     CommandManager,
@@ -89,6 +89,13 @@ class CanvasView(QGraphicsView):
         # Tool manager
         self._tool_manager = ToolManager(self)
         self._setup_tools()
+
+        # Calibration input widget (hidden by default)
+        self._calibration_input = QLineEdit(self)
+        self._calibration_input.setPlaceholderText("Distance in cm")
+        self._calibration_input.setFixedWidth(150)
+        self._calibration_input.hide()
+        self._calibration_input.returnPressed.connect(self._on_calibration_input_entered)
 
         # Set up view properties
         self._setup_view()
@@ -369,6 +376,13 @@ class CanvasView(QGraphicsView):
         # Grab keyboard focus so Delete/arrow keys work
         self.setFocus()
 
+        # Handle calibration mode
+        if self._canvas_scene.is_calibrating and event.button() == Qt.MouseButton.LeftButton:
+            scene_pos = self.mapToScene(event.position().toPoint())
+            self._canvas_scene.add_calibration_point(scene_pos)
+            event.accept()
+            return
+
         if event.button() == Qt.MouseButton.MiddleButton:
             # Start panning
             self._panning = True
@@ -470,6 +484,12 @@ class CanvasView(QGraphicsView):
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """Handle key press for tool operations and editing."""
+        # Handle ESC to cancel calibration
+        if event.key() == Qt.Key.Key_Escape and self._canvas_scene.is_calibrating:
+            self._canvas_scene.cancel_calibration()
+            event.accept()
+            return
+
         # Delegate to active tool first
         tool = self._tool_manager.active_tool
         if tool and tool.key_press(event):
@@ -642,3 +662,56 @@ class CanvasView(QGraphicsView):
         while y <= bottom:
             painter.drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y))
             y += major_grid
+
+    def show_calibration_input(self, scene_pos: QPointF) -> None:
+        """Show calibration input widget near the given scene position.
+
+        Args:
+            scene_pos: Position in scene coordinates
+        """
+        # Convert scene position to view coordinates
+        view_pos = self.mapFromScene(scene_pos)
+
+        # Position the input widget near the cursor (offset to the right and down)
+        x = view_pos.x() + 20
+        y = view_pos.y() + 20
+
+        # Keep within view bounds
+        if x + self._calibration_input.width() > self.width():
+            x = view_pos.x() - self._calibration_input.width() - 20
+        if y + self._calibration_input.height() > self.height():
+            y = view_pos.y() - self._calibration_input.height() - 20
+
+        self._calibration_input.move(int(x), int(y))
+        self._calibration_input.clear()
+        self._calibration_input.show()
+        self._calibration_input.setFocus()
+
+    def hide_calibration_input(self) -> None:
+        """Hide the calibration input widget."""
+        self._calibration_input.hide()
+
+    def _on_calibration_input_entered(self) -> None:
+        """Handle Enter key in calibration input."""
+        text = self._calibration_input.text().strip()
+        try:
+            distance_cm = float(text)
+            if distance_cm > 0:
+                self._canvas_scene.finish_calibration(distance_cm)
+            else:
+                self.set_status_message("Distance must be positive")
+        except ValueError:
+            self.set_status_message("Invalid distance. Enter a number in centimeters.")
+
+    def set_status_message(self, message: str) -> None:
+        """Set status message (to be picked up by main window).
+
+        Args:
+            message: The status message to display
+        """
+        # This will be picked up by the main window's status bar
+        # For now, we'll emit it as a signal if the parent has a status bar
+        if self.parent() and hasattr(self.parent(), 'statusBar'):
+            status_bar = self.parent().statusBar()
+            if status_bar:
+                status_bar.showMessage(message)

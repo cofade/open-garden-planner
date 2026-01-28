@@ -59,6 +59,28 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         # Transform origin at center for easier manipulation
         self.setTransformOriginPoint(self.boundingRect().center())
 
+        # Enable clipping to canvas bounds
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemClipsToShape, True)
+
+    def shape(self):
+        """Return the shape for clipping to canvas bounds."""
+        from PyQt6.QtGui import QPainterPath
+
+        path = QPainterPath()
+        if self.scene():
+            # Get canvas bounds from scene
+            from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+            if isinstance(self.scene(), CanvasScene):
+                canvas_rect = self.scene().canvas_rect
+                # Convert to item coordinates
+                item_rect = self.mapRectFromScene(canvas_rect)
+                path.addRect(item_rect)
+                return path
+
+        # Default: entire pixmap
+        path.addRect(self.boundingRect())
+        return path
+
     @property
     def image_path(self) -> str:
         """Path to the original image file."""
@@ -171,15 +193,12 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         menu.exec(event.screenPos())
 
     def _show_calibration_dialog(self) -> None:
-        """Show dialog to calibrate image scale."""
-        from open_garden_planner.ui.dialogs import CalibrationDialog
-
-        dialog = CalibrationDialog(self._original_pixmap)
-        if dialog.exec():
-            calibration_data = dialog.get_calibration_data()
-            if calibration_data:
-                pixels, centimeters = calibration_data
-                self.calibrate(pixels, centimeters)
+        """Start inline calibration mode."""
+        if self.scene():
+            # Import here to avoid circular dependency
+            from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+            if isinstance(self.scene(), CanvasScene):
+                self.scene().start_image_calibration(self)
 
     def _show_opacity_dialog(self) -> None:
         """Show dialog to set opacity."""
