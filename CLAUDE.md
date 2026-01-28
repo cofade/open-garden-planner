@@ -19,22 +19,47 @@ venv/Scripts/python.exe -m ruff check src/
 Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 
 ## Workflow
-1. Read user story from `prd.md`
-2. Clarify with `AskUserQuestion` tool
-3. Implement with type hints
-4. Write tests, run lint
-5. **Wait for user to manually test and approve the functionality**
-6. After user approval, launch GitHub sub-agent (Haiku-based, create if not available) for:
-   - Committing (format: `feat(US-X.X): Description`)
-     - Commit not to master, only to feature branches
-   - Making PR
-   - Additional GitHub sub-agent instance for approving PR
-7. Update progress below and in `prd.md`
 
-**Important**:
+### CRITICAL: Always Use Feature Branches
+**NEVER commit directly to master!** Always work on feature branches.
+
+### Step-by-Step Process
+1. **Create feature branch** FIRST (before any changes)
+   - Branch naming: `feature/US-X.X-short-description` (e.g., `feature/US-2.5-measure-distances`)
+   - Command: `git checkout -b feature/US-X.X-short-description`
+
+2. Read user story from `prd.md`
+
+3. Clarify with `AskUserQuestion` tool if needed
+
+4. Implement with type hints
+
+5. Write tests, run lint (`pytest tests/ -v && ruff check src/`)
+
+6. **WAIT for user to manually test and approve the functionality**
+   - Do NOT commit yet
+   - User will test the implementation
+   - Only proceed after explicit approval
+
+7. After user approval, commit changes:
+   - Use GitHub sub-agent (Bash) for committing
+   - Commit message format: `feat(US-X.X): Description`
+   - Update progress in `CLAUDE.md` and `prd.md` in the same commit
+
+8. Push feature branch and create PR:
+   - `git push -u origin feature/US-X.X-short-description`
+   - Use GitHub sub-agent to create PR to master
+   - Use separate GitHub sub-agent instance to approve PR
+   - Merge PR to master
+
+9. After completing a US, `/clear` context
+
+**Important Reminders**:
 - Stay in working mode (no plan mode)
-- **NEVER commit before user manually tests and explicitly approves the functionality**
-- After completing a US, `/clear` context
+- **NEVER commit directly to master branch**
+- **NEVER commit before user manually tests and explicitly approves**
+- Always create feature branch BEFORE making any changes
+- Only commit after user says "commit" or "looks good" or similar approval
 
 ## Testing Notes
 - PyQt6 tests require `qtbot` fixture parameter in test methods even when unused (needed for Qt initialization); configure ruff per-file ignore for ARG002 in test files
