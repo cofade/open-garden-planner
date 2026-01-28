@@ -587,7 +587,7 @@ open_garden_planner/
 
 **Technical Milestones**:
 - [x] Image layer with transformation matrix
-- [ ] Two-point calibration algorithm
+- [x] Two-point calibration algorithm
 - [x] Grid rendering (adaptive to zoom level)
 - [x] Snap-to-grid logic
 - [ ] Measurement tool with persistent annotations

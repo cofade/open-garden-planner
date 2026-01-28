@@ -147,6 +147,12 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         """Show context menu for background image options."""
         menu = QMenu()
 
+        # Calibrate action
+        calibrate_action = menu.addAction("Calibrate Scale...")
+        calibrate_action.triggered.connect(self._show_calibration_dialog)
+
+        menu.addSeparator()
+
         # Opacity action
         opacity_action = menu.addAction(f"Set Opacity ({int(self._opacity * 100)}%)...")
         opacity_action.triggered.connect(self._show_opacity_dialog)
@@ -163,6 +169,17 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         remove_action.triggered.connect(self._remove_self)
 
         menu.exec(event.screenPos())
+
+    def _show_calibration_dialog(self) -> None:
+        """Show dialog to calibrate image scale."""
+        from open_garden_planner.ui.dialogs import CalibrationDialog
+
+        dialog = CalibrationDialog(self._original_pixmap)
+        if dialog.exec():
+            calibration_data = dialog.get_calibration_data()
+            if calibration_data:
+                pixels, centimeters = calibration_data
+                self.calibrate(pixels, centimeters)
 
     def _show_opacity_dialog(self) -> None:
         """Show dialog to set opacity."""
