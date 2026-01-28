@@ -5,9 +5,10 @@ import uuid
 import pytest
 from PyQt6.QtCore import QPointF, QRectF
 from PyQt6.QtGui import QColor
-from PyQt6.QtWidgets import QGraphicsPolygonItem, QGraphicsRectItem
+from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsPolygonItem, QGraphicsRectItem
 
 from open_garden_planner.ui.canvas.items import (
+    CircleItem,
     GardenItemMixin,
     PolygonItem,
     RectangleItem,
@@ -161,3 +162,101 @@ class TestPolygonItem:
         """Test PolygonItem is movable."""
         item = PolygonItem(triangle_vertices)
         assert item.flags() & QGraphicsPolygonItem.GraphicsItemFlag.ItemIsMovable
+
+
+class TestCircleItem:
+    """Tests for the CircleItem class."""
+
+    def test_creation(self) -> None:
+        """Test CircleItem can be created."""
+        item = CircleItem(50, 50, 25)
+        assert item is not None
+
+    def test_inherits_qgraphicsellipseitem(self) -> None:
+        """Test CircleItem inherits from QGraphicsEllipseItem."""
+        item = CircleItem(50, 50, 25)
+        assert isinstance(item, QGraphicsEllipseItem)
+
+    def test_has_uuid(self) -> None:
+        """Test CircleItem has a UUID."""
+        item = CircleItem(50, 50, 25)
+        assert item.item_id is not None
+
+    def test_center_property(self) -> None:
+        """Test CircleItem stores correct center."""
+        item = CircleItem(100, 150, 25)
+        assert item.center.x() == 100
+        assert item.center.y() == 150
+
+    def test_radius_property(self) -> None:
+        """Test CircleItem stores correct radius."""
+        item = CircleItem(50, 50, 30)
+        assert item.radius == 30
+
+    def test_bounding_rect(self) -> None:
+        """Test CircleItem has correct bounding rectangle."""
+        # Center at (50, 50), radius 25 -> rect from (25, 25) with size 50x50
+        item = CircleItem(50, 50, 25)
+        rect = item.rect()
+        assert rect.x() == 25
+        assert rect.y() == 25
+        assert rect.width() == 50
+        assert rect.height() == 50
+
+    def test_fill_color(self) -> None:
+        """Test CircleItem has correct fill color."""
+        item = CircleItem(50, 50, 25)
+        # #90EE90 with alpha 100
+        expected = QColor(144, 238, 144, 100)
+        assert item.brush().color() == expected
+
+    def test_stroke_color(self) -> None:
+        """Test CircleItem has correct stroke color."""
+        item = CircleItem(50, 50, 25)
+        # #228B22
+        expected = QColor(34, 139, 34)
+        assert item.pen().color() == expected
+
+    def test_stroke_width(self) -> None:
+        """Test CircleItem has correct stroke width."""
+        item = CircleItem(50, 50, 25)
+        assert item.pen().widthF() == 2.0
+
+    def test_is_selectable(self) -> None:
+        """Test CircleItem is selectable."""
+        item = CircleItem(50, 50, 25)
+        assert item.flags() & QGraphicsEllipseItem.GraphicsItemFlag.ItemIsSelectable
+
+    def test_is_movable(self) -> None:
+        """Test CircleItem is movable."""
+        item = CircleItem(50, 50, 25)
+        assert item.flags() & QGraphicsEllipseItem.GraphicsItemFlag.ItemIsMovable
+
+    def test_to_dict(self) -> None:
+        """Test CircleItem serialization."""
+        item = CircleItem(100, 150, 25)
+        item.setPos(10, 20)
+        data = item.to_dict()
+        assert data["type"] == "circle"
+        assert data["center"]["x"] == 100
+        assert data["center"]["y"] == 150
+        assert data["radius"] == 25
+        assert data["position"]["x"] == 10
+        assert data["position"]["y"] == 20
+        assert "id" in data
+
+    def test_from_dict(self) -> None:
+        """Test CircleItem deserialization."""
+        data = {
+            "type": "circle",
+            "id": "test-id",
+            "center": {"x": 100, "y": 150},
+            "radius": 25,
+            "position": {"x": 10, "y": 20},
+        }
+        item = CircleItem.from_dict(data)
+        assert item.center.x() == 100
+        assert item.center.y() == 150
+        assert item.radius == 25
+        assert item.pos().x() == 10
+        assert item.pos().y() == 20

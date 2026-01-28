@@ -7,6 +7,7 @@ from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
 from open_garden_planner.core.tools import (
+    CircleTool,
     PolygonTool,
     RectangleTool,
     SelectTool,
@@ -28,6 +29,10 @@ class TestToolType:
     def test_polygon_exists(self) -> None:
         """Test POLYGON tool type exists."""
         assert ToolType.POLYGON is not None
+
+    def test_circle_exists(self) -> None:
+        """Test CIRCLE tool type exists."""
+        assert ToolType.CIRCLE is not None
 
     def test_unique_values(self) -> None:
         """Test all tool types have unique values."""
@@ -266,3 +271,135 @@ class TestPolygonTool:
         """Test close threshold constant."""
         tool = PolygonTool(mock_view)
         assert tool.CLOSE_THRESHOLD == 15.0
+
+
+class TestCircleTool:
+    """Tests for the CircleTool class."""
+
+    @pytest.fixture
+    def mock_view(self):
+        """Create a mock canvas view with scene."""
+        scene = MagicMock()
+        view = MagicMock()
+        view.scene.return_value = scene
+        view.setCursor = MagicMock()
+        return view
+
+    def test_tool_type(self, mock_view) -> None:
+        """Test CircleTool has correct tool type."""
+        tool = CircleTool(mock_view)
+        assert tool.tool_type == ToolType.CIRCLE
+
+    def test_display_name(self, mock_view) -> None:
+        """Test CircleTool has correct display name."""
+        tool = CircleTool(mock_view)
+        assert tool.display_name == "Circle"
+
+    def test_shortcut(self, mock_view) -> None:
+        """Test CircleTool has correct shortcut."""
+        tool = CircleTool(mock_view)
+        assert tool.shortcut == "C"
+
+    def test_cursor(self, mock_view) -> None:
+        """Test CircleTool has crosshair cursor."""
+        tool = CircleTool(mock_view)
+        assert tool.cursor == Qt.CursorShape.CrossCursor
+
+    def test_initial_state(self, mock_view) -> None:
+        """Test CircleTool starts in idle state."""
+        tool = CircleTool(mock_view)
+        assert not tool._is_drawing
+        assert tool._center_point is None
+        assert tool._preview_circle is None
+        assert tool._preview_line is None
+
+    def test_first_click_sets_center(self, mock_view) -> None:
+        """Test first click sets center point."""
+        tool = CircleTool(mock_view)
+        event = MagicMock(spec=QMouseEvent)
+        event.button.return_value = Qt.MouseButton.LeftButton
+        scene_pos = QPointF(100, 100)
+
+        result = tool.mouse_press(event, scene_pos)
+
+        assert result is True
+        assert tool._is_drawing is True
+        assert tool._center_point == scene_pos
+        assert tool._preview_circle is not None
+        assert tool._preview_line is not None
+
+    def test_mouse_press_ignores_right_click(self, mock_view) -> None:
+        """Test mouse press ignores non-left clicks."""
+        tool = CircleTool(mock_view)
+        event = MagicMock(spec=QMouseEvent)
+        event.button.return_value = Qt.MouseButton.RightButton
+        scene_pos = QPointF(100, 100)
+
+        result = tool.mouse_press(event, scene_pos)
+
+        assert result is False
+        assert tool._is_drawing is False
+
+    def test_mouse_move_updates_preview(self, mock_view) -> None:
+        """Test mouse move updates preview circle."""
+        tool = CircleTool(mock_view)
+        # Start drawing
+        event = MagicMock(spec=QMouseEvent)
+        event.button.return_value = Qt.MouseButton.LeftButton
+        tool.mouse_press(event, QPointF(100, 100))
+
+        # Move mouse
+        result = tool.mouse_move(event, QPointF(150, 100))
+
+        assert result is True
+        assert tool._preview_circle is not None
+
+    def test_mouse_move_idle_returns_false(self, mock_view) -> None:
+        """Test mouse move when not drawing returns false."""
+        tool = CircleTool(mock_view)
+        event = MagicMock(spec=QMouseEvent)
+
+        result = tool.mouse_move(event, QPointF(150, 100))
+
+        assert result is False
+
+    def test_cancel_resets_state(self, mock_view) -> None:
+        """Test cancel clears drawing state."""
+        tool = CircleTool(mock_view)
+        # Start drawing first
+        event = MagicMock(spec=QMouseEvent)
+        event.button.return_value = Qt.MouseButton.LeftButton
+        tool.mouse_press(event, QPointF(100, 100))
+
+        # Cancel
+        tool.cancel()
+
+        assert tool._is_drawing is False
+        assert tool._center_point is None
+        assert tool._preview_circle is None
+        assert tool._preview_line is None
+
+    def test_key_escape_cancels(self, mock_view) -> None:
+        """Test pressing Escape cancels drawing."""
+        tool = CircleTool(mock_view)
+        mouse_event = MagicMock(spec=QMouseEvent)
+        mouse_event.button.return_value = Qt.MouseButton.LeftButton
+        tool.mouse_press(mouse_event, QPointF(100, 100))
+
+        key_event = MagicMock(spec=QKeyEvent)
+        key_event.key.return_value = Qt.Key.Key_Escape
+
+        result = tool.key_press(key_event)
+
+        assert result is True
+        assert tool._is_drawing is False
+
+    def test_mouse_release_returns_false(self, mock_view) -> None:
+        """Test mouse_release is no-op for circle tool."""
+        tool = CircleTool(mock_view)
+        event = MagicMock(spec=QMouseEvent)
+        scene_pos = QPointF(100, 100)
+
+        result = tool.mouse_release(event, scene_pos)
+
+        assert result is False

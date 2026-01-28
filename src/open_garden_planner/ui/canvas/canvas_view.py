@@ -24,6 +24,7 @@ from open_garden_planner.core import (
     MoveItemsCommand,
 )
 from open_garden_planner.core.tools import (
+    CircleTool,
     MeasureTool,
     PolygonTool,
     RectangleTool,
@@ -106,6 +107,7 @@ class CanvasView(QGraphicsView):
         # Register tools
         self._tool_manager.register_tool(SelectTool(self))
         self._tool_manager.register_tool(RectangleTool(self))
+        self._tool_manager.register_tool(CircleTool(self))
         self._tool_manager.register_tool(PolygonTool(self))
         self._tool_manager.register_tool(MeasureTool(self))
 
