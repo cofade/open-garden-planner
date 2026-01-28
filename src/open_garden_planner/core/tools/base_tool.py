@@ -17,6 +17,7 @@ class ToolType(Enum):
     SELECT = auto()
     RECTANGLE = auto()
     POLYGON = auto()
+    MEASURE = auto()
 
 
 class BaseTool(ABC):

@@ -590,7 +590,7 @@ open_garden_planner/
 - [x] Two-point calibration algorithm
 - [x] Grid rendering (adaptive to zoom level)
 - [x] Snap-to-grid logic
-- [ ] Measurement tool with persistent annotations
+- [x] Measurement tool (non-persistent)
 
 ### Phase 3: Objects & Styling (v0.3)
 
