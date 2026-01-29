@@ -152,3 +152,4 @@ tests/
 | ✅ | 3.3 | Apply textures/patterns to objects |
 | ✅ | 3.4 | Set stroke style (color, width, dash pattern) |
 | ✅ | 3.5 | Add labels to objects displayed on canvas |
+| ✅ | 3.8 | Copy and paste objects |

@@ -607,7 +607,7 @@ open_garden_planner/
 | ~~US-3.5~~ | ~~As a user, I can add labels to objects displayed on canvas~~ | ✅ Should |
 | US-3.6 | As a user, I can organize objects into layers | Must |
 | US-3.7 | As a user, I can show/hide and lock layers | Must |
-| US-3.8 | As a user, I can copy and paste objects | Must |
+| ~~US-3.8~~ | ~~As a user, I can copy and paste objects~~ | ✅ Must |
 
 **Technical Milestones**:
 - [ ] Object type hierarchy (PropertyObject subclasses)
