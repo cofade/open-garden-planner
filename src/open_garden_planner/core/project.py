@@ -13,6 +13,8 @@ from PyQt6.QtCore import QObject, QPointF, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
+from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+
 # File format version for backward compatibility
 FILE_VERSION = "1.0"
 
@@ -181,11 +183,18 @@ class ProjectManager(QObject):
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
             # Save custom fill and stroke colors (with alpha)
-            fill_color = item.brush().color()
+            # Use stored fill_color if available (for textured brushes), otherwise get from brush
+            if hasattr(item, "fill_color") and item.fill_color:
+                fill_color = item.fill_color
+            else:
+                fill_color = item.brush().color()
             data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
+            # Save fill pattern
+            if hasattr(item, "fill_pattern") and item.fill_pattern:
+                data["fill_pattern"] = item.fill_pattern.name
             return data
         elif isinstance(item, CircleItem):
             data = {
@@ -201,11 +210,18 @@ class ProjectManager(QObject):
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
             # Save custom fill and stroke colors (with alpha)
-            fill_color = item.brush().color()
+            # Use stored fill_color if available (for textured brushes), otherwise get from brush
+            if hasattr(item, "fill_color") and item.fill_color:
+                fill_color = item.fill_color
+            else:
+                fill_color = item.brush().color()
             data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
+            # Save fill pattern
+            if hasattr(item, "fill_pattern") and item.fill_pattern:
+                data["fill_pattern"] = item.fill_pattern.name
             return data
         elif isinstance(item, PolylineItem):
             data = {
@@ -243,11 +259,18 @@ class ProjectManager(QObject):
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
             # Save custom fill and stroke colors (with alpha)
-            fill_color = item.brush().color()
+            # Use stored fill_color if available (for textured brushes), otherwise get from brush
+            if hasattr(item, "fill_color") and item.fill_color:
+                fill_color = item.fill_color
+            else:
+                fill_color = item.brush().color()
             data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
+            # Save fill pattern
+            if hasattr(item, "fill_pattern") and item.fill_pattern:
+                data["fill_pattern"] = item.fill_pattern.name
             return data
         return None
 
@@ -305,6 +328,12 @@ class ProjectManager(QObject):
 
         name = obj.get("name", "")
         metadata = obj.get("metadata", {})
+        fill_pattern = None
+        if "fill_pattern" in obj:
+            try:
+                fill_pattern = FillPattern[obj["fill_pattern"]]
+            except KeyError:
+                fill_pattern = None
 
         if obj_type == "background_image":
             try:
@@ -321,11 +350,16 @@ class ProjectManager(QObject):
                 object_type=object_type or ObjectType.GENERIC_RECTANGLE,
                 name=name,
                 metadata=metadata,
+                fill_pattern=fill_pattern,
             )
             # Restore custom colors if saved
             if "fill_color" in obj:
-                brush = item.brush()
-                brush.setColor(QColor(obj["fill_color"]))
+                # If we have a pattern, recreate the brush with both color and pattern
+                if fill_pattern:
+                    brush = create_pattern_brush(fill_pattern, QColor(obj["fill_color"]))
+                else:
+                    brush = item.brush()
+                    brush.setColor(QColor(obj["fill_color"]))
                 item.setBrush(brush)
             if "stroke_color" in obj:
                 pen = item.pen()
@@ -342,11 +376,20 @@ class ProjectManager(QObject):
                 object_type=object_type or ObjectType.GENERIC_CIRCLE,
                 name=name,
                 metadata=metadata,
+                fill_pattern=fill_pattern,
             )
             # Restore custom colors if saved
             if "fill_color" in obj:
-                brush = item.brush()
-                brush.setColor(QColor(obj["fill_color"]))
+                color = QColor(obj["fill_color"])
+                # Store the base color in the item
+                if hasattr(item, 'fill_color'):
+                    item.fill_color = color
+                # If we have a pattern, recreate the brush with both color and pattern
+                if fill_pattern:
+                    brush = create_pattern_brush(fill_pattern, color)
+                else:
+                    brush = item.brush()
+                    brush.setColor(color)
                 item.setBrush(brush)
             if "stroke_color" in obj:
                 pen = item.pen()
@@ -379,11 +422,20 @@ class ProjectManager(QObject):
                     object_type=object_type or ObjectType.GENERIC_POLYGON,
                     name=name,
                     metadata=metadata,
+                    fill_pattern=fill_pattern,
                 )
                 # Restore custom colors if saved
                 if "fill_color" in obj:
-                    brush = item.brush()
-                    brush.setColor(QColor(obj["fill_color"]))
+                    color = QColor(obj["fill_color"])
+                    # Store the base color in the item
+                    if hasattr(item, 'fill_color'):
+                        item.fill_color = color
+                    # If we have a pattern, recreate the brush with both color and pattern
+                    if fill_pattern:
+                        brush = create_pattern_brush(fill_pattern, color)
+                    else:
+                        brush = item.brush()
+                        brush.setColor(color)
                     item.setBrush(brush)
                 if "stroke_color" in obj:
                     pen = item.pen()

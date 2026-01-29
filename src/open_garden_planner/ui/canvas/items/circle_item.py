@@ -3,9 +3,10 @@
 from typing import Any
 
 from PyQt6.QtCore import QPointF
-from PyQt6.QtGui import QBrush, QPen
+from PyQt6.QtGui import QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsSceneContextMenuEvent, QMenu
 
+from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import ObjectType, get_style
 
 from .garden_item import GardenItemMixin
@@ -32,14 +33,21 @@ def _show_properties_dialog(item: QGraphicsEllipseItem) -> None:
             pen.setColor(style.stroke_color)
             pen.setWidthF(style.stroke_width)
             item.setPen(pen)
-            brush = item.brush()
-            brush.setColor(style.fill_color)
+            # Apply pattern brush and store pattern
+            if hasattr(item, 'fill_pattern'):
+                item.fill_pattern = style.fill_pattern
+            brush = create_pattern_brush(style.fill_pattern, style.fill_color)
             item.setBrush(brush)
 
-        # Apply custom fill color (overrides type default)
+        # Apply custom fill color and pattern (overrides type default)
         fill_color = dialog.get_fill_color()
-        brush = item.brush()
-        brush.setColor(fill_color)
+        fill_pattern = dialog.get_fill_pattern()
+        # Store the pattern and base color
+        if hasattr(item, 'fill_pattern'):
+            item.fill_pattern = fill_pattern
+        if hasattr(item, 'fill_color'):
+            item.fill_color = fill_color
+        brush = create_pattern_brush(fill_pattern, fill_color)
         item.setBrush(brush)
 
 
@@ -58,6 +66,7 @@ class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
         object_type: ObjectType = ObjectType.GENERIC_CIRCLE,
         name: str = "",
         metadata: dict[str, Any] | None = None,
+        fill_pattern: FillPattern | None = None,
     ) -> None:
         """Initialize the circle item.
 
@@ -68,8 +77,17 @@ class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
             object_type: Type of property object
             name: Optional name/label for the object
             metadata: Optional metadata dictionary
+            fill_pattern: Fill pattern (defaults to pattern from object type)
         """
-        GardenItemMixin.__init__(self, object_type=object_type, name=name, metadata=metadata)
+        # Get default pattern and color from object type if not provided
+        style = get_style(object_type)
+        if fill_pattern is None:
+            fill_pattern = style.fill_pattern
+
+        GardenItemMixin.__init__(
+            self, object_type=object_type, name=name, metadata=metadata,
+            fill_pattern=fill_pattern, fill_color=style.fill_color
+        )
         # QGraphicsEllipseItem uses bounding rect (top-left corner + width/height)
         # Convert center+radius to rect coordinates
         x = center_x - radius
@@ -91,7 +109,10 @@ class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
         pen.setWidthF(style.stroke_width)
         self.setPen(pen)
 
-        brush = QBrush(style.fill_color)
+        # Use stored fill_pattern and color if available, otherwise use style defaults
+        pattern = self.fill_pattern if self.fill_pattern is not None else style.fill_pattern
+        color = self.fill_color if self.fill_color is not None else style.fill_color
+        brush = create_pattern_brush(pattern, color)
         self.setBrush(brush)
 
     def _setup_flags(self) -> None:
