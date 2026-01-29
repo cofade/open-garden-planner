@@ -3,8 +3,10 @@
 import pytest
 from PyQt6.QtCore import QPointF
 
+from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.canvas.items import RectangleItem, PolygonItem, CircleItem
 
 
 class TestCanvasScene:
@@ -196,3 +198,222 @@ class TestCanvasView:
 
         view.set_grid_size(100.0)
         assert view.grid_size == 100.0
+
+
+class TestCopyPaste:
+    """Tests for copy/paste functionality."""
+
+    def test_copy_selected_items(self, qtbot) -> None:
+        """Test copying selected items to clipboard."""
+        scene = CanvasScene()
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+
+        # Create and add a rectangle
+        rect = RectangleItem(100, 200, 300, 400, object_type=ObjectType.GENERIC_RECTANGLE)
+        scene.addItem(rect)
+        rect.setSelected(True)
+
+        # Copy
+        view.copy_selected()
+
+        # Clipboard should have one item
+        assert len(view._clipboard) == 1
+        assert view._clipboard[0]["type"] == "rectangle"
+
+    def test_copy_empty_selection(self, qtbot) -> None:
+        """Test copying with no selection does nothing."""
+        scene = CanvasScene()
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+
+        # Copy with no selection
+        view.copy_selected()
+
+        # Clipboard should be empty
+        assert len(view._clipboard) == 0
+
+    def test_paste_items(self, qtbot) -> None:
+        """Test pasting items from clipboard."""
+        scene = CanvasScene()
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+
+        # Create, add, and copy a rectangle
+        rect = RectangleItem(100, 200, 300, 400, object_type=ObjectType.GENERIC_RECTANGLE)
+        scene.addItem(rect)
+        rect.setSelected(True)
+        view.copy_selected()
+
+        # Initial count
+        initial_count = len([item for item in scene.items() if isinstance(item, RectangleItem)])
+
+        # Paste
+        view.paste()
+
+        # Should have one more rectangle
+        final_count = len([item for item in scene.items() if isinstance(item, RectangleItem)])
+        assert final_count == initial_count + 1
+
+        # New item should be offset
+        items = [item for item in scene.items() if isinstance(item, RectangleItem)]
+        assert len(items) == 2
+
+    def test_paste_multiple_times(self, qtbot) -> None:
+        """Test pasting the same items multiple times."""
+        scene = CanvasScene()
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+
+        # Create, add, and copy a rectangle
+        rect = RectangleItem(100, 200, 300, 400, object_type=ObjectType.GENERIC_RECTANGLE)
+        scene.addItem(rect)
+        rect.setSelected(True)
+        view.copy_selected()
+
+        # Paste twice
+        view.paste()
+        view.paste()
+
+        # Should have 3 rectangles total
+        items = [item for item in scene.items() if isinstance(item, RectangleItem)]
+        assert len(items) == 3
+
+    def test_paste_empty_clipboard(self, qtbot) -> None:
+        """Test pasting with empty clipboard does nothing."""
+        scene = CanvasScene()
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+
+        initial_count = len(scene.items())
+
+        # Paste with empty clipboard
+        view.paste()
+
+        # No new items
+        assert len(scene.items()) == initial_count
+
+    def test_cut_selected_items(self, qtbot) -> None:
+        """Test cutting selected items."""
+        scene = CanvasScene()
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+
+        # Create and add a rectangle
+        rect = RectangleItem(100, 200, 300, 400, object_type=ObjectType.GENERIC_RECTANGLE)
+        scene.addItem(rect)
+        rect.setSelected(True)
+
+        # Cut
+        view.cut_selected()
+
+        # Clipboard should have the item
+        assert len(view._clipboard) == 1
+
+        # Rectangle should be removed from scene
+        items = [item for item in scene.items() if isinstance(item, RectangleItem)]
+        assert len(items) == 0
+
+    def test_cut_and_paste(self, qtbot) -> None:
+        """Test cutting and pasting items."""
+        scene = CanvasScene()
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+
+        # Create and add a rectangle
+        rect = RectangleItem(100, 200, 300, 400, object_type=ObjectType.GENERIC_RECTANGLE)
+        scene.addItem(rect)
+        rect.setSelected(True)
+
+        # Cut
+        view.cut_selected()
+
+        # Should have no rectangles
+        items = [item for item in scene.items() if isinstance(item, RectangleItem)]
+        assert len(items) == 0
+
+        # Paste
+        view.paste()
+
+        # Should have one rectangle again
+        items = [item for item in scene.items() if isinstance(item, RectangleItem)]
+        assert len(items) == 1
+
+    def test_copy_multiple_items(self, qtbot) -> None:
+        """Test copying multiple selected items."""
+        scene = CanvasScene()
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+
+        # Create and add multiple shapes
+        rect = RectangleItem(100, 200, 300, 400, object_type=ObjectType.GENERIC_RECTANGLE)
+        circle = CircleItem(500, 500, 100, object_type=ObjectType.GENERIC_CIRCLE)
+        polygon = PolygonItem(
+            [QPointF(700, 700), QPointF(800, 700), QPointF(750, 800)],
+            object_type=ObjectType.GENERIC_POLYGON
+        )
+
+        scene.addItem(rect)
+        scene.addItem(circle)
+        scene.addItem(polygon)
+
+        rect.setSelected(True)
+        circle.setSelected(True)
+        polygon.setSelected(True)
+
+        # Copy
+        view.copy_selected()
+
+        # Clipboard should have 3 items
+        assert len(view._clipboard) == 3
+
+    def test_paste_multiple_items(self, qtbot) -> None:
+        """Test pasting multiple items at once."""
+        scene = CanvasScene()
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+
+        # Create and add multiple shapes
+        rect = RectangleItem(100, 200, 300, 400, object_type=ObjectType.GENERIC_RECTANGLE)
+        circle = CircleItem(500, 500, 100, object_type=ObjectType.GENERIC_CIRCLE)
+
+        scene.addItem(rect)
+        scene.addItem(circle)
+
+        rect.setSelected(True)
+        circle.setSelected(True)
+
+        # Copy
+        view.copy_selected()
+
+        # Paste
+        view.paste()
+
+        # Should have 4 items total (2 original + 2 pasted)
+        items = [item for item in scene.items()
+                 if isinstance(item, (RectangleItem, CircleItem))]
+        assert len(items) == 4
+
+    def test_paste_with_undo(self, qtbot) -> None:
+        """Test that paste can be undone."""
+        scene = CanvasScene()
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+
+        # Create, add, and copy a rectangle
+        rect = RectangleItem(100, 200, 300, 400, object_type=ObjectType.GENERIC_RECTANGLE)
+        scene.addItem(rect)
+        rect.setSelected(True)
+        view.copy_selected()
+
+        # Paste
+        view.paste()
+        assert len([item for item in scene.items() if isinstance(item, RectangleItem)]) == 2
+
+        # Undo
+        view.command_manager.undo()
+        assert len([item for item in scene.items() if isinstance(item, RectangleItem)]) == 1
+
+        # Redo
+        view.command_manager.redo()
+        assert len([item for item in scene.items() if isinstance(item, RectangleItem)]) == 2

@@ -90,6 +90,10 @@ class CanvasView(QGraphicsView):
         # Drag tracking for undo support
         self._drag_start_positions: dict[QGraphicsItem, QPointF] = {}
 
+        # Clipboard for copy/paste
+        self._clipboard: list[dict] = []
+        self._paste_offset = 20.0  # Offset in cm for pasted items
+
         # Tool manager
         self._tool_manager = ToolManager(self)
         self._setup_tools()
@@ -559,6 +563,24 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
+        # Handle Copy (Ctrl+C)
+        if event.key() == Qt.Key.Key_C and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.copy_selected()
+            event.accept()
+            return
+
+        # Handle Cut (Ctrl+X)
+        if event.key() == Qt.Key.Key_X and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.cut_selected()
+            event.accept()
+            return
+
+        # Handle Paste (Ctrl+V)
+        if event.key() == Qt.Key.Key_V and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.paste()
+            event.accept()
+            return
+
         # Delegate to active tool first
         tool = self._tool_manager.active_tool
         if tool and tool.key_press(event):
@@ -731,6 +753,384 @@ class CanvasView(QGraphicsView):
         while y <= bottom:
             painter.drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y))
             y += major_grid
+
+    def copy_selected(self) -> None:
+        """Copy selected items to clipboard."""
+        selected = self.scene().selectedItems()
+        if not selected:
+            return
+
+        # Serialize selected items
+        self._clipboard = []
+        for item in selected:
+            obj_data = self._serialize_item(item)
+            if obj_data:
+                self._clipboard.append(obj_data)
+
+        # Show status message
+        if len(self._clipboard) > 0:
+            self.set_status_message(f"Copied {len(self._clipboard)} item(s)")
+
+    def cut_selected(self) -> None:
+        """Cut selected items (copy then delete)."""
+        selected = self.scene().selectedItems()
+        if not selected:
+            return
+
+        # Copy first
+        self.copy_selected()
+
+        # Then delete
+        if self._clipboard:
+            self._delete_selected_items()
+            self.set_status_message(f"Cut {len(self._clipboard)} item(s)")
+
+    def paste(self) -> None:
+        """Paste items from clipboard."""
+        if not self._clipboard:
+            self.set_status_message("Nothing to paste")
+            return
+
+        # Deselect all items
+        for item in self.scene().selectedItems():
+            item.setSelected(False)
+
+        # Create new items from clipboard
+        pasted_items = []
+        for obj_data in self._clipboard:
+            # Create a copy of the object data
+            obj_copy = obj_data.copy()
+
+            # Apply offset to position
+            if "x" in obj_copy:
+                obj_copy["x"] += self._paste_offset
+            if "y" in obj_copy:
+                obj_copy["y"] += self._paste_offset
+            if "center_x" in obj_copy:
+                obj_copy["center_x"] += self._paste_offset
+            if "center_y" in obj_copy:
+                obj_copy["center_y"] += self._paste_offset
+            if "points" in obj_copy:
+                obj_copy["points"] = [
+                    {"x": p["x"] + self._paste_offset, "y": p["y"] + self._paste_offset}
+                    for p in obj_copy["points"]
+                ]
+
+            # Deserialize the item
+            item = self._deserialize_item(obj_copy)
+            if item:
+                pasted_items.append(item)
+
+        # Add all pasted items to scene and select them
+        if pasted_items:
+            # Use command for undo support
+            from open_garden_planner.core import CreateItemsCommand
+
+            command = CreateItemsCommand(self.scene(), pasted_items, "pasted objects")
+            self._command_manager.execute(command)
+
+            # Select the pasted items
+            for item in pasted_items:
+                item.setSelected(True)
+
+            self.set_status_message(f"Pasted {len(pasted_items)} item(s)")
+
+    def _serialize_item(self, item: QGraphicsItem) -> dict | None:
+        """Serialize a single graphics item (reuses project manager logic).
+
+        Args:
+            item: The graphics item to serialize
+
+        Returns:
+            Dictionary representation of the item, or None if not serializable
+        """
+        from open_garden_planner.ui.canvas.items import (
+            BackgroundImageItem,
+            CircleItem,
+            PolygonItem,
+            PolylineItem,
+            RectangleItem,
+        )
+
+        if isinstance(item, BackgroundImageItem):
+            return item.to_dict()
+        elif isinstance(item, RectangleItem):
+            rect = item.rect()
+            data = {
+                "type": "rectangle",
+                "x": item.pos().x() + rect.x(),
+                "y": item.pos().y() + rect.y(),
+                "width": rect.width(),
+                "height": rect.height(),
+            }
+            if hasattr(item, "object_type") and item.object_type:
+                data["object_type"] = item.object_type.name
+            if hasattr(item, "name") and item.name:
+                data["name"] = item.name
+            if hasattr(item, "metadata") and item.metadata:
+                data["metadata"] = item.metadata
+            # Save custom fill and stroke colors (with alpha)
+            if hasattr(item, "fill_color") and item.fill_color:
+                fill_color = item.fill_color
+            else:
+                fill_color = item.brush().color()
+            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            stroke_color = item.pen().color()
+            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
+            data["stroke_width"] = item.pen().widthF()
+            # Save fill pattern
+            if hasattr(item, "fill_pattern") and item.fill_pattern:
+                data["fill_pattern"] = item.fill_pattern.name
+            # Save stroke style
+            if hasattr(item, "stroke_style") and item.stroke_style:
+                data["stroke_style"] = item.stroke_style.name
+            return data
+        elif isinstance(item, CircleItem):
+            data = {
+                "type": "circle",
+                "center_x": item.pos().x() + item.center.x(),
+                "center_y": item.pos().y() + item.center.y(),
+                "radius": item.radius,
+            }
+            if hasattr(item, "object_type") and item.object_type:
+                data["object_type"] = item.object_type.name
+            if hasattr(item, "name") and item.name:
+                data["name"] = item.name
+            if hasattr(item, "metadata") and item.metadata:
+                data["metadata"] = item.metadata
+            # Save custom fill and stroke colors (with alpha)
+            if hasattr(item, "fill_color") and item.fill_color:
+                fill_color = item.fill_color
+            else:
+                fill_color = item.brush().color()
+            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            stroke_color = item.pen().color()
+            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
+            data["stroke_width"] = item.pen().widthF()
+            # Save fill pattern
+            if hasattr(item, "fill_pattern") and item.fill_pattern:
+                data["fill_pattern"] = item.fill_pattern.name
+            # Save stroke style
+            if hasattr(item, "stroke_style") and item.stroke_style:
+                data["stroke_style"] = item.stroke_style.name
+            return data
+        elif isinstance(item, PolylineItem):
+            data = {
+                "type": "polyline",
+                "points": [{"x": item.pos().x() + p.x(), "y": item.pos().y() + p.y()} for p in item.points],
+            }
+            if hasattr(item, "object_type") and item.object_type:
+                data["object_type"] = item.object_type.name
+            if hasattr(item, "name") and item.name:
+                data["name"] = item.name
+            if hasattr(item, "metadata") and item.metadata:
+                data["metadata"] = item.metadata
+            # Save custom stroke color (polylines don't have fill, with alpha)
+            stroke_color = item.pen().color()
+            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
+            data["stroke_width"] = item.pen().widthF()
+            return data
+        elif isinstance(item, PolygonItem):
+            polygon = item.polygon()
+            points = []
+            for i in range(polygon.count()):
+                pt = polygon.at(i)
+                points.append({
+                    "x": item.pos().x() + pt.x(),
+                    "y": item.pos().y() + pt.y(),
+                })
+            data = {
+                "type": "polygon",
+                "points": points,
+            }
+            if hasattr(item, "object_type") and item.object_type:
+                data["object_type"] = item.object_type.name
+            if hasattr(item, "name") and item.name:
+                data["name"] = item.name
+            if hasattr(item, "metadata") and item.metadata:
+                data["metadata"] = item.metadata
+            # Save custom fill and stroke colors (with alpha)
+            if hasattr(item, "fill_color") and item.fill_color:
+                fill_color = item.fill_color
+            else:
+                fill_color = item.brush().color()
+            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            stroke_color = item.pen().color()
+            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
+            data["stroke_width"] = item.pen().widthF()
+            # Save fill pattern
+            if hasattr(item, "fill_pattern") and item.fill_pattern:
+                data["fill_pattern"] = item.fill_pattern.name
+            # Save stroke style
+            if hasattr(item, "stroke_style") and item.stroke_style:
+                data["stroke_style"] = item.stroke_style.name
+            return data
+        return None
+
+    def _deserialize_item(self, obj: dict) -> QGraphicsItem | None:
+        """Deserialize a single object to a graphics item.
+
+        Args:
+            obj: Dictionary representation of the item
+
+        Returns:
+            Graphics item, or None if deserialization failed
+        """
+        from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+        from open_garden_planner.core.object_types import ObjectType, StrokeStyle
+        from open_garden_planner.ui.canvas.items import (
+            BackgroundImageItem,
+            CircleItem,
+            PolygonItem,
+            PolylineItem,
+            RectangleItem,
+        )
+
+        obj_type = obj.get("type")
+
+        # Extract common fields
+        object_type = None
+        if "object_type" in obj:
+            try:
+                object_type = ObjectType[obj["object_type"]]
+            except KeyError:
+                object_type = None
+
+        name = obj.get("name", "")
+        metadata = obj.get("metadata", {})
+        fill_pattern = None
+        if "fill_pattern" in obj:
+            try:
+                fill_pattern = FillPattern[obj["fill_pattern"]]
+            except KeyError:
+                fill_pattern = None
+
+        stroke_style = None
+        if "stroke_style" in obj:
+            try:
+                stroke_style = StrokeStyle[obj["stroke_style"]]
+            except KeyError:
+                stroke_style = None
+
+        if obj_type == "background_image":
+            try:
+                return BackgroundImageItem.from_dict(obj)
+            except (ValueError, FileNotFoundError):
+                # Image file may have been moved/deleted
+                return None
+        elif obj_type == "rectangle":
+            item = RectangleItem(
+                obj["x"],
+                obj["y"],
+                obj["width"],
+                obj["height"],
+                object_type=object_type or ObjectType.GENERIC_RECTANGLE,
+                name=name,
+                metadata=metadata,
+                fill_pattern=fill_pattern,
+                stroke_style=stroke_style,
+            )
+            # Restore custom colors if saved
+            if "fill_color" in obj:
+                # If we have a pattern, recreate the brush with both color and pattern
+                if fill_pattern:
+                    brush = create_pattern_brush(fill_pattern, QColor(obj["fill_color"]))
+                else:
+                    brush = item.brush()
+                    brush.setColor(QColor(obj["fill_color"]))
+                item.setBrush(brush)
+            if "stroke_color" in obj:
+                pen = item.pen()
+                pen.setColor(QColor(obj["stroke_color"]))
+                if "stroke_width" in obj:
+                    pen.setWidthF(obj["stroke_width"])
+                if stroke_style:
+                    pen.setStyle(stroke_style.to_qt_pen_style())
+                item.setPen(pen)
+            return item
+        elif obj_type == "circle":
+            item = CircleItem(
+                obj["center_x"],
+                obj["center_y"],
+                obj["radius"],
+                object_type=object_type or ObjectType.GENERIC_CIRCLE,
+                name=name,
+                metadata=metadata,
+                fill_pattern=fill_pattern,
+                stroke_style=stroke_style,
+            )
+            # Restore custom colors if saved
+            if "fill_color" in obj:
+                color = QColor(obj["fill_color"])
+                # Store the base color in the item
+                if hasattr(item, 'fill_color'):
+                    item.fill_color = color
+                # If we have a pattern, recreate the brush with both color and pattern
+                if fill_pattern:
+                    brush = create_pattern_brush(fill_pattern, color)
+                else:
+                    brush = item.brush()
+                    brush.setColor(color)
+                item.setBrush(brush)
+            if "stroke_color" in obj:
+                pen = item.pen()
+                pen.setColor(QColor(obj["stroke_color"]))
+                if "stroke_width" in obj:
+                    pen.setWidthF(obj["stroke_width"])
+                if stroke_style:
+                    pen.setStyle(stroke_style.to_qt_pen_style())
+                item.setPen(pen)
+            return item
+        elif obj_type == "polyline":
+            points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
+            if len(points) >= 2:
+                item = PolylineItem(
+                    points,
+                    object_type=object_type or ObjectType.FENCE,
+                    name=name,
+                )
+                # Restore custom stroke color if saved
+                if "stroke_color" in obj:
+                    pen = item.pen()
+                    pen.setColor(QColor(obj["stroke_color"]))
+                    if "stroke_width" in obj:
+                        pen.setWidthF(obj["stroke_width"])
+                    item.setPen(pen)
+                return item
+        elif obj_type == "polygon":
+            points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
+            if len(points) >= 3:
+                item = PolygonItem(
+                    points,
+                    object_type=object_type or ObjectType.GENERIC_POLYGON,
+                    name=name,
+                    metadata=metadata,
+                    fill_pattern=fill_pattern,
+                    stroke_style=stroke_style,
+                )
+                # Restore custom colors if saved
+                if "fill_color" in obj:
+                    color = QColor(obj["fill_color"])
+                    # Store the base color in the item
+                    if hasattr(item, 'fill_color'):
+                        item.fill_color = color
+                    # If we have a pattern, recreate the brush with both color and pattern
+                    if fill_pattern:
+                        brush = create_pattern_brush(fill_pattern, color)
+                    else:
+                        brush = item.brush()
+                        brush.setColor(color)
+                    item.setBrush(brush)
+                if "stroke_color" in obj:
+                    pen = item.pen()
+                    pen.setColor(QColor(obj["stroke_color"]))
+                    if "stroke_width" in obj:
+                        pen.setWidthF(obj["stroke_width"])
+                    if stroke_style:
+                        pen.setStyle(stroke_style.to_qt_pen_style())
+                    item.setPen(pen)
+                return item
+        return None
 
     def show_calibration_input(self, scene_pos: QPointF) -> None:
         """Show calibration input widget near the given scene position.
