@@ -161,18 +161,21 @@ class GardenPlannerApp(QMainWindow):
         cut_action = QAction("Cu&t", self)
         cut_action.setShortcut(QKeySequence("Ctrl+X"))
         cut_action.setStatusTip("Cut selected objects")
+        cut_action.triggered.connect(self._on_cut)
         menu.addAction(cut_action)
 
         # Copy
         copy_action = QAction("&Copy", self)
         copy_action.setShortcut(QKeySequence("Ctrl+C"))
         copy_action.setStatusTip("Copy selected objects")
+        copy_action.triggered.connect(self._on_copy)
         menu.addAction(copy_action)
 
         # Paste
         paste_action = QAction("&Paste", self)
         paste_action.setShortcut(QKeySequence("Ctrl+V"))
         paste_action.setStatusTip("Paste objects from clipboard")
+        paste_action.triggered.connect(self._on_paste)
         menu.addAction(paste_action)
 
         # Delete
@@ -464,6 +467,18 @@ class GardenPlannerApp(QMainWindow):
             self.statusBar().showMessage(f"Redo: {desc}")
         else:
             self.statusBar().showMessage("Nothing to redo")
+
+    def _on_copy(self) -> None:
+        """Handle Copy action."""
+        self.canvas_view.copy_selected()
+
+    def _on_cut(self) -> None:
+        """Handle Cut action."""
+        self.canvas_view.cut_selected()
+
+    def _on_paste(self) -> None:
+        """Handle Paste action."""
+        self.canvas_view.paste()
 
     def _on_toggle_grid(self, checked: bool) -> None:
         """Handle toggle grid action."""

@@ -162,6 +162,47 @@ class CreateItemCommand(Command):
             self._scene.removeItem(self._item)
 
 
+class CreateItemsCommand(Command):
+    """Command for creating multiple items on the scene."""
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        items: list[QGraphicsItem],
+        item_type: str = "items",
+    ) -> None:
+        """Initialize the create items command.
+
+        Args:
+            scene: The scene to add the items to
+            items: List of items to add
+            item_type: Description of item type (e.g., "pasted objects")
+        """
+        self._scene = scene
+        self._items = list(items)  # Copy the list
+        self._item_type = item_type
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        count = len(self._items)
+        if count == 1:
+            return f"Create {self._item_type}"
+        return f"Create {count} {self._item_type}"
+
+    def execute(self) -> None:
+        """Add the items to the scene."""
+        for item in self._items:
+            if item.scene() is None:
+                self._scene.addItem(item)
+
+    def undo(self) -> None:
+        """Remove the items from the scene."""
+        for item in self._items:
+            if item.scene() is not None:
+                self._scene.removeItem(item)
+
+
 class DeleteItemsCommand(Command):
     """Command for deleting one or more items from the scene."""
 
