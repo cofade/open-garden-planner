@@ -1,14 +1,7 @@
 """Measurement tool for measuring distances between points."""
 
 from PyQt6.QtCore import QLineF, QPointF, Qt
-from PyQt6.QtGui import (
-    QCursor,
-    QFont,
-    QKeyEvent,
-    QMouseEvent,
-    QPen,
-    QTransform,
-)
+from PyQt6.QtGui import QCursor, QFont, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsTextItem
 
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
@@ -274,19 +267,20 @@ class MeasureTool(BaseTool):
 
         # Set larger font size (similar to menu text)
         font = QFont()
-        font.setPointSize(14)
+        font.setPointSize(12)
         font.setBold(True)
         text_item.setFont(font)
 
         # Position text at midpoint
         mid_x = (start.x() + end.x()) / 2
         mid_y = (start.y() + end.y()) / 2
-        text_item.setPos(mid_x + 20, mid_y + 30)  # Offset to the right and down
 
-        # Counter-flip the text to make it readable (Y-axis is flipped in view)
-        transform = QTransform()
-        transform.scale(1, -1)  # Flip vertically to counter view's Y-flip
-        text_item.setTransform(transform)
+        # Center the text at the midpoint
+        text_rect = text_item.boundingRect()
+        text_item.setPos(mid_x - text_rect.width() / 2, mid_y - text_rect.height() / 2)
+
+        # Make text zoom-independent (stays readable at all zoom levels)
+        text_item.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
 
         text_item.setZValue(1001)
 

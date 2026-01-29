@@ -22,6 +22,9 @@ def _show_properties_dialog(item: QGraphicsRectItem) -> None:
         # Apply name change
         if hasattr(item, 'name'):
             item.name = dialog.get_name()
+            # Update the label if it exists
+            if hasattr(item, '_update_label'):
+                item._update_label()  # type: ignore[attr-defined]
 
         # Apply object type change (updates styling)
         new_object_type = dialog.get_object_type()
@@ -118,6 +121,7 @@ class RectangleItem(GardenItemMixin, QGraphicsRectItem):
 
         self._setup_styling()
         self._setup_flags()
+        self.initialize_label()
 
     def _setup_styling(self) -> None:
         """Configure visual appearance based on object type."""
