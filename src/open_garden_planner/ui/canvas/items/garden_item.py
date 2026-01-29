@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 
 from open_garden_planner.core.fill_patterns import FillPattern
-from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.object_types import ObjectType, StrokeStyle
 
 
 class GardenItemMixin:
@@ -24,6 +24,9 @@ class GardenItemMixin:
         metadata: dict[str, Any] | None = None,
         fill_pattern: FillPattern | None = None,
         fill_color: Any = None,  # QColor, but avoiding import
+        stroke_color: Any = None,  # QColor, but avoiding import
+        stroke_width: float | None = None,
+        stroke_style: StrokeStyle | None = None,
     ) -> None:
         """Initialize the garden item mixin.
 
@@ -33,6 +36,9 @@ class GardenItemMixin:
             metadata: Optional metadata dictionary
             fill_pattern: Fill pattern (optional, defaults to pattern from object type)
             fill_color: Base fill color (optional, used with patterns)
+            stroke_color: Stroke/outline color (optional)
+            stroke_width: Stroke/outline width (optional)
+            stroke_style: Stroke/outline style (optional)
         """
         self._item_id = uuid.uuid4()
         self._object_type = object_type
@@ -40,6 +46,9 @@ class GardenItemMixin:
         self._metadata = metadata or {}
         self._fill_pattern = fill_pattern
         self._fill_color = fill_color  # Store base color for serialization
+        self._stroke_color = stroke_color
+        self._stroke_width = stroke_width
+        self._stroke_style = stroke_style
 
     @property
     def item_id(self) -> uuid.UUID:
@@ -95,6 +104,36 @@ class GardenItemMixin:
     def fill_color(self, value: Any) -> None:  # QColor, but avoiding import
         """Set the base fill color."""
         self._fill_color = value
+
+    @property
+    def stroke_color(self) -> Any | None:  # QColor, but avoiding import
+        """Stroke/outline color for this item."""
+        return self._stroke_color
+
+    @stroke_color.setter
+    def stroke_color(self, value: Any) -> None:  # QColor, but avoiding import
+        """Set the stroke/outline color."""
+        self._stroke_color = value
+
+    @property
+    def stroke_width(self) -> float | None:
+        """Stroke/outline width for this item."""
+        return self._stroke_width
+
+    @stroke_width.setter
+    def stroke_width(self, value: float) -> None:
+        """Set the stroke/outline width."""
+        self._stroke_width = value
+
+    @property
+    def stroke_style(self) -> StrokeStyle | None:
+        """Stroke/outline style for this item."""
+        return self._stroke_style
+
+    @stroke_style.setter
+    def stroke_style(self, value: StrokeStyle | None) -> None:
+        """Set the stroke/outline style."""
+        self._stroke_style = value
 
     def set_metadata(self, key: str, value: Any) -> None:
         """Set a metadata value.

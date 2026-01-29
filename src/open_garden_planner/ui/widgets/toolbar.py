@@ -61,8 +61,8 @@ class MainToolbar(QToolBar):
         self._add_tool_button(
             ToolType.POLYGON,
             "Polygon",
-            "Draw polygon (G)\nClick to add vertices, double-click to close",
-            "G",
+            "Draw polygon (P)\nClick to add vertices, double-click to close",
+            "P",
         )
 
         self._add_tool_button(

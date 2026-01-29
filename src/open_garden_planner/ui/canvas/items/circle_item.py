@@ -7,7 +7,7 @@ from PyQt6.QtGui import QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsSceneContextMenuEvent, QMenu
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.object_types import ObjectType, get_style
+from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 
 from .garden_item import GardenItemMixin
 
@@ -32,6 +32,7 @@ def _show_properties_dialog(item: QGraphicsEllipseItem) -> None:
             pen = item.pen()
             pen.setColor(style.stroke_color)
             pen.setWidthF(style.stroke_width)
+            pen.setStyle(style.stroke_style.to_qt_pen_style())
             item.setPen(pen)
             # Apply pattern brush and store pattern
             if hasattr(item, 'fill_pattern'):
@@ -50,6 +51,23 @@ def _show_properties_dialog(item: QGraphicsEllipseItem) -> None:
         brush = create_pattern_brush(fill_pattern, fill_color)
         item.setBrush(brush)
 
+        # Apply custom stroke properties (overrides type default)
+        stroke_color = dialog.get_stroke_color()
+        stroke_width = dialog.get_stroke_width()
+        stroke_style = dialog.get_stroke_style()
+        # Store stroke properties
+        if hasattr(item, 'stroke_color'):
+            item.stroke_color = stroke_color
+        if hasattr(item, 'stroke_width'):
+            item.stroke_width = stroke_width
+        if hasattr(item, 'stroke_style'):
+            item.stroke_style = stroke_style
+        pen = item.pen()
+        pen.setColor(stroke_color)
+        pen.setWidthF(stroke_width)
+        pen.setStyle(stroke_style.to_qt_pen_style())
+        item.setPen(pen)
+
 
 class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
     """A circle shape on the garden canvas.
@@ -67,6 +85,7 @@ class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
         name: str = "",
         metadata: dict[str, Any] | None = None,
         fill_pattern: FillPattern | None = None,
+        stroke_style: StrokeStyle | None = None,
     ) -> None:
         """Initialize the circle item.
 
@@ -78,15 +97,20 @@ class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
             name: Optional name/label for the object
             metadata: Optional metadata dictionary
             fill_pattern: Fill pattern (defaults to pattern from object type)
+            stroke_style: Stroke style (defaults to style from object type)
         """
         # Get default pattern and color from object type if not provided
         style = get_style(object_type)
         if fill_pattern is None:
             fill_pattern = style.fill_pattern
+        if stroke_style is None:
+            stroke_style = style.stroke_style
 
         GardenItemMixin.__init__(
             self, object_type=object_type, name=name, metadata=metadata,
-            fill_pattern=fill_pattern, fill_color=style.fill_color
+            fill_pattern=fill_pattern, fill_color=style.fill_color,
+            stroke_color=style.stroke_color, stroke_width=style.stroke_width,
+            stroke_style=stroke_style
         )
         # QGraphicsEllipseItem uses bounding rect (top-left corner + width/height)
         # Convert center+radius to rect coordinates
@@ -105,8 +129,14 @@ class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
         """Configure visual appearance based on object type."""
         style = get_style(self.object_type) if self.object_type else get_style(ObjectType.GENERIC_CIRCLE)
 
-        pen = QPen(style.stroke_color)
-        pen.setWidthF(style.stroke_width)
+        # Use stored stroke properties if available, otherwise use style defaults
+        stroke_color = self.stroke_color if self.stroke_color is not None else style.stroke_color
+        stroke_width = self.stroke_width if self.stroke_width is not None else style.stroke_width
+        stroke_style = self.stroke_style if self.stroke_style is not None else style.stroke_style
+
+        pen = QPen(stroke_color)
+        pen.setWidthF(stroke_width)
+        pen.setStyle(stroke_style.to_qt_pen_style())
         self.setPen(pen)
 
         # Use stored fill_pattern and color if available, otherwise use style defaults

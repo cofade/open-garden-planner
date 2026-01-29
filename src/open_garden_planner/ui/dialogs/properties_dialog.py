@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFormLayout,
     QGraphicsItem,
     QGroupBox,
@@ -17,7 +18,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.fill_patterns import FillPattern
-from open_garden_planner.core.object_types import ObjectType, get_style
+from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 from open_garden_planner.ui.canvas.items import (
     CircleItem,
     PolygonItem,
@@ -95,6 +96,8 @@ class PropertiesDialog(QDialog):
         self._fill_color_button: ColorButton | None = None
         self._stroke_color_button: ColorButton | None = None
         self._fill_pattern_combo: QComboBox | None = None
+        self._stroke_width_spin: QDoubleSpinBox | None = None
+        self._stroke_style_combo: QComboBox | None = None
 
         self.setWindowTitle("Object Properties")
         self.setModal(True)
@@ -202,6 +205,36 @@ class PropertiesDialog(QDialog):
 
         layout.addRow("Fill Pattern:", self._fill_pattern_combo)
 
+        # Stroke/outline controls
+        current_stroke = self._get_current_stroke_color()
+        self._stroke_color_button = ColorButton(current_stroke)
+        layout.addRow("Stroke Color:", self._stroke_color_button)
+
+        # Stroke width
+        self._stroke_width_spin = QDoubleSpinBox()
+        self._stroke_width_spin.setRange(0.5, 20.0)
+        self._stroke_width_spin.setSingleStep(0.5)
+        self._stroke_width_spin.setDecimals(1)
+        self._stroke_width_spin.setSuffix(" px")
+        self._stroke_width_spin.setValue(self._get_current_stroke_width())
+        layout.addRow("Stroke Width:", self._stroke_width_spin)
+
+        # Stroke style
+        self._stroke_style_combo = QComboBox()
+        for style in StrokeStyle:
+            # Format the style name for display
+            display_name = style.name.replace("_", " ").title()
+            self._stroke_style_combo.addItem(display_name, style)
+
+        # Set current stroke style
+        current_stroke_style = self._get_current_stroke_style()
+        for i in range(self._stroke_style_combo.count()):
+            if self._stroke_style_combo.itemData(i) == current_stroke_style:
+                self._stroke_style_combo.setCurrentIndex(i)
+                break
+
+        layout.addRow("Stroke Style:", self._stroke_style_combo)
+
         group.setLayout(layout)
         return group
 
@@ -219,6 +252,10 @@ class PropertiesDialog(QDialog):
 
     def _get_current_fill_color(self) -> QColor:
         """Get the current fill color of the item."""
+        # First check if item has a stored fill_color (important for patterned brushes)
+        if hasattr(self._item, 'fill_color') and self._item.fill_color is not None:
+            return self._item.fill_color
+        # Otherwise get it from the brush
         if isinstance(self._item, (RectangleItem, PolygonItem, CircleItem)):
             return self._item.brush().color()
         return QColor(200, 200, 200)  # Default gray
@@ -237,6 +274,41 @@ class PropertiesDialog(QDialog):
             style = get_style(self._item.object_type)
             return style.fill_pattern
         return FillPattern.SOLID
+
+    def _get_current_stroke_color(self) -> QColor:
+        """Get the current stroke color of the item."""
+        # First check if item has a stored stroke_color
+        if hasattr(self._item, 'stroke_color') and self._item.stroke_color is not None:
+            return self._item.stroke_color
+        # Otherwise get it from the pen
+        if isinstance(self._item, (RectangleItem, PolygonItem, CircleItem)):
+            return self._item.pen().color()
+        return QColor(0, 0, 0)  # Default black
+
+    def _get_current_stroke_width(self) -> float:
+        """Get the current stroke width of the item."""
+        # First check if item has a stored stroke_width
+        if hasattr(self._item, 'stroke_width') and self._item.stroke_width is not None:
+            return self._item.stroke_width
+        # Otherwise get it from the pen
+        if isinstance(self._item, (RectangleItem, PolygonItem, CircleItem)):
+            return self._item.pen().widthF()
+        return 2.0  # Default width
+
+    def _get_current_stroke_style(self) -> StrokeStyle:
+        """Get the current stroke style of the item.
+
+        Returns:
+            Current stroke style or SOLID as default
+        """
+        # First check if item has a stored stroke_style
+        if hasattr(self._item, 'stroke_style') and self._item.stroke_style is not None:
+            return self._item.stroke_style
+        # Otherwise try to get style from object type
+        if hasattr(self._item, 'object_type') and self._item.object_type:
+            style = get_style(self._item.object_type)
+            return style.stroke_style
+        return StrokeStyle.SOLID
 
     def get_object_type(self) -> ObjectType | None:
         """Get the selected object type.
@@ -278,6 +350,36 @@ class PropertiesDialog(QDialog):
             return self._name_edit.text()
         return ""
 
+    def get_stroke_color(self) -> QColor:
+        """Get the selected stroke color.
+
+        Returns:
+            Selected stroke color
+        """
+        if self._stroke_color_button:
+            return self._stroke_color_button.color
+        return self._get_current_stroke_color()
+
+    def get_stroke_width(self) -> float:
+        """Get the selected stroke width.
+
+        Returns:
+            Selected stroke width
+        """
+        if self._stroke_width_spin:
+            return self._stroke_width_spin.value()
+        return self._get_current_stroke_width()
+
+    def get_stroke_style(self) -> StrokeStyle:
+        """Get the selected stroke style.
+
+        Returns:
+            Selected stroke style
+        """
+        if self._stroke_style_combo:
+            return self._stroke_style_combo.currentData()
+        return StrokeStyle.SOLID
+
     def _on_object_type_changed(self, _index: int) -> None:
         """Handle object type change - update color and pattern to new type's defaults.
 
@@ -295,7 +397,7 @@ class PropertiesDialog(QDialog):
         # Get the style for the new type
         style = get_style(new_type)
 
-        # Update the color button to show the new default color
+        # Update the fill color button to show the new default color
         if self._fill_color_button:
             self._fill_color_button.set_color(style.fill_color)
 
@@ -304,4 +406,19 @@ class PropertiesDialog(QDialog):
             for i in range(self._fill_pattern_combo.count()):
                 if self._fill_pattern_combo.itemData(i) == style.fill_pattern:
                     self._fill_pattern_combo.setCurrentIndex(i)
+                    break
+
+        # Update the stroke color button to show the new default color
+        if self._stroke_color_button:
+            self._stroke_color_button.set_color(style.stroke_color)
+
+        # Update the stroke width
+        if self._stroke_width_spin:
+            self._stroke_width_spin.setValue(style.stroke_width)
+
+        # Update the stroke style selector to show the new default style
+        if self._stroke_style_combo:
+            for i in range(self._stroke_style_combo.count()):
+                if self._stroke_style_combo.itemData(i) == style.stroke_style:
+                    self._stroke_style_combo.setCurrentIndex(i)
                     break
