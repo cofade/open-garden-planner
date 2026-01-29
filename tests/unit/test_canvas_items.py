@@ -206,15 +206,15 @@ class TestCircleItem:
     def test_fill_color(self) -> None:
         """Test CircleItem has correct fill color."""
         item = CircleItem(50, 50, 25)
-        # #90EE90 with alpha 100
-        expected = QColor(144, 238, 144, 100)
+        # Light pink (#FFB6C1) with alpha 100
+        expected = QColor(255, 182, 193, 100)
         assert item.brush().color() == expected
 
     def test_stroke_color(self) -> None:
         """Test CircleItem has correct stroke color."""
         item = CircleItem(50, 50, 25)
-        # #228B22
-        expected = QColor(34, 139, 34)
+        # Pale violet red (#DB7093)
+        expected = QColor(219, 112, 147)
         assert item.pen().color() == expected
 
     def test_stroke_width(self) -> None:

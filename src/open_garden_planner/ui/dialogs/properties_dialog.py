@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType, get_style
 from open_garden_planner.ui.canvas.items import (
     CircleItem,
@@ -93,6 +94,7 @@ class PropertiesDialog(QDialog):
         self._item = item
         self._fill_color_button: ColorButton | None = None
         self._stroke_color_button: ColorButton | None = None
+        self._fill_pattern_combo: QComboBox | None = None
 
         self.setWindowTitle("Object Properties")
         self.setModal(True)
@@ -160,6 +162,8 @@ class PropertiesDialog(QDialog):
                     current_idx = idx
 
             self._object_type_combo.setCurrentIndex(current_idx)
+            # Connect to update colors/patterns when object type changes
+            self._object_type_combo.currentIndexChanged.connect(self._on_object_type_changed)
             layout.addRow("Type:", self._object_type_combo)
 
         # Name/label
@@ -182,6 +186,22 @@ class PropertiesDialog(QDialog):
         self._fill_color_button = ColorButton(current_fill)
         layout.addRow("Fill Color:", self._fill_color_button)
 
+        # Fill pattern selector
+        self._fill_pattern_combo = QComboBox()
+        for pattern in FillPattern:
+            # Format the pattern name for display (e.g., GRASS -> Grass)
+            display_name = pattern.name.replace("_", " ").title()
+            self._fill_pattern_combo.addItem(display_name, pattern)
+
+        # Set current pattern (default to SOLID if can't determine)
+        current_pattern = self._get_current_fill_pattern()
+        for i in range(self._fill_pattern_combo.count()):
+            if self._fill_pattern_combo.itemData(i) == current_pattern:
+                self._fill_pattern_combo.setCurrentIndex(i)
+                break
+
+        layout.addRow("Fill Pattern:", self._fill_pattern_combo)
+
         group.setLayout(layout)
         return group
 
@@ -203,6 +223,21 @@ class PropertiesDialog(QDialog):
             return self._item.brush().color()
         return QColor(200, 200, 200)  # Default gray
 
+    def _get_current_fill_pattern(self) -> FillPattern:
+        """Get the current fill pattern of the item.
+
+        Returns:
+            Current fill pattern or SOLID as default
+        """
+        # First check if item has a stored fill_pattern
+        if hasattr(self._item, 'fill_pattern') and self._item.fill_pattern is not None:
+            return self._item.fill_pattern
+        # Otherwise try to get pattern from object type style
+        if hasattr(self._item, 'object_type') and self._item.object_type:
+            style = get_style(self._item.object_type)
+            return style.fill_pattern
+        return FillPattern.SOLID
+
     def get_object_type(self) -> ObjectType | None:
         """Get the selected object type.
 
@@ -223,6 +258,16 @@ class PropertiesDialog(QDialog):
             return self._fill_color_button.color
         return self._get_current_fill_color()
 
+    def get_fill_pattern(self) -> FillPattern:
+        """Get the selected fill pattern.
+
+        Returns:
+            Selected fill pattern
+        """
+        if self._fill_pattern_combo:
+            return self._fill_pattern_combo.currentData()
+        return FillPattern.SOLID
+
     def get_name(self) -> str:
         """Get the object name.
 
@@ -232,3 +277,31 @@ class PropertiesDialog(QDialog):
         if hasattr(self, '_name_edit'):
             return self._name_edit.text()
         return ""
+
+    def _on_object_type_changed(self, _index: int) -> None:
+        """Handle object type change - update color and pattern to new type's defaults.
+
+        Args:
+            _index: The new combo box index (unused, but required by Qt signal)
+        """
+        if not hasattr(self, '_object_type_combo'):
+            return
+
+        # Get the new object type
+        new_type = self._object_type_combo.currentData()
+        if not new_type:
+            return
+
+        # Get the style for the new type
+        style = get_style(new_type)
+
+        # Update the color button to show the new default color
+        if self._fill_color_button:
+            self._fill_color_button.set_color(style.fill_color)
+
+        # Update the pattern selector to show the new default pattern
+        if self._fill_pattern_combo:
+            for i in range(self._fill_pattern_combo.count()):
+                if self._fill_pattern_combo.itemData(i) == style.fill_pattern:
+                    self._fill_pattern_combo.setCurrentIndex(i)
+                    break

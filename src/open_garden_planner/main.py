@@ -3,6 +3,16 @@
 import sys
 from pathlib import Path
 
+# Windows-specific imports for taskbar icon support
+try:
+    import ctypes
+    # Tell Windows this is a distinct app (not Python) for taskbar icon grouping
+    myappid = 'cofade.opengarden.planner.1.0'
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+except (AttributeError, ImportError):
+    # Not on Windows or ctypes not available
+    pass
+
 
 def get_icon_path() -> Path:
     """Get the path to the application icon."""
