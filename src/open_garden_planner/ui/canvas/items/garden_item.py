@@ -3,6 +3,9 @@
 import uuid
 from typing import Any
 
+from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtWidgets import QGraphicsTextItem
+
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
 
@@ -49,6 +52,7 @@ class GardenItemMixin:
         self._stroke_color = stroke_color
         self._stroke_width = stroke_width
         self._stroke_style = stroke_style
+        self._label_item: QGraphicsTextItem | None = None
 
     @property
     def item_id(self) -> uuid.UUID:
@@ -79,6 +83,7 @@ class GardenItemMixin:
     def name(self, value: str) -> None:
         """Set the name/label."""
         self._name = value
+        self._update_label()
 
     @property
     def metadata(self) -> dict[str, Any]:
@@ -155,3 +160,70 @@ class GardenItemMixin:
             Metadata value or default
         """
         return self._metadata.get(key, default)
+
+    def _create_label(self) -> None:
+        """Create the label text item if it doesn't exist."""
+        if self._label_item is None:
+            # Create label as a child item
+            # TYPE_CHECKING guard to help type checker understand self has QGraphicsItem methods
+            if not hasattr(self, 'boundingRect'):
+                return
+
+            self._label_item = QGraphicsTextItem(self._name, self)  # type: ignore[arg-type]
+
+            # Configure label appearance
+            font = QFont("Arial", 10)
+            font.setBold(True)
+            self._label_item.setFont(font)
+            self._label_item.setDefaultTextColor(QColor(0, 0, 0))  # Black text
+
+            # Add white background for readability
+            self._label_item.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
+
+            # Position the label
+            self._position_label()
+
+    def _update_label(self) -> None:
+        """Update or create label based on current name."""
+        if self._name:
+            if self._label_item is None:
+                self._create_label()
+            else:
+                self._label_item.setPlainText(self._name)
+                self._position_label()
+        else:
+            # Remove label if name is empty
+            if self._label_item is not None:
+                self._label_item.setParentItem(None)
+                if hasattr(self, 'scene') and callable(self.scene):  # type: ignore[attr-defined]
+                    scene = self.scene()  # type: ignore[attr-defined]
+                    if scene is not None:
+                        scene.removeItem(self._label_item)
+                self._label_item = None
+
+    def _position_label(self) -> None:
+        """Position the label at the center of the item's bounding rect."""
+        if self._label_item is None:
+            return
+
+        # TYPE_CHECKING guard to help type checker
+        if not hasattr(self, 'boundingRect'):
+            return
+
+        # Get the bounding rectangle
+        bounds = self.boundingRect()  # type: ignore[attr-defined]
+
+        # Position label at the center-bottom of the object
+        label_rect = self._label_item.boundingRect()
+        x = bounds.center().x() - label_rect.width() / 2
+        y = bounds.center().y() - label_rect.height() / 2
+
+        self._label_item.setPos(x, y)
+
+    def initialize_label(self) -> None:
+        """Initialize the label after the item is fully constructed.
+
+        This should be called by subclasses after they complete their initialization.
+        """
+        if self._name:
+            self._create_label()

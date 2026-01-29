@@ -43,6 +43,7 @@ class PolylineItem(GardenItemMixin, QGraphicsPathItem):
         self._points = points.copy()
         self._setup_styling()
         self._setup_flags()
+        self.initialize_label()
 
     @property
     def points(self) -> list[QPointF]:
@@ -102,3 +103,6 @@ class PolylineItem(GardenItemMixin, QGraphicsPathItem):
             if dialog.exec() and hasattr(self, 'name'):
                 # Apply changes
                 self.name = dialog.get_name()
+                # Update the label if it exists
+                if hasattr(self, '_update_label'):
+                    self._update_label()  # type: ignore[attr-defined]
