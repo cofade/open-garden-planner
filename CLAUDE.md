@@ -150,3 +150,4 @@ tests/
 | ✅ | 3.1 | Add property objects (house, fence, path, etc.) |
 | ✅ | 3.2 | Set fill color for objects |
 | ✅ | 3.3 | Apply textures/patterns to objects |
+| ✅ | 3.4 | Set stroke style (color, width, dash pattern) |

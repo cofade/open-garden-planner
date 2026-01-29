@@ -3,9 +3,33 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 
 from .fill_patterns import FillPattern
+
+
+class StrokeStyle(Enum):
+    """Stroke/line styles for object outlines."""
+
+    SOLID = auto()
+    DASHED = auto()
+    DOTTED = auto()
+    DASH_DOT = auto()
+
+    def to_qt_pen_style(self) -> Qt.PenStyle:
+        """Convert to Qt pen style.
+
+        Returns:
+            Corresponding Qt.PenStyle enum value
+        """
+        mapping = {
+            StrokeStyle.SOLID: Qt.PenStyle.SolidLine,
+            StrokeStyle.DASHED: Qt.PenStyle.DashLine,
+            StrokeStyle.DOTTED: Qt.PenStyle.DotLine,
+            StrokeStyle.DASH_DOT: Qt.PenStyle.DashDotLine,
+        }
+        return mapping[self]
 
 
 class ObjectType(Enum):
@@ -39,6 +63,7 @@ class ObjectStyle:
     stroke_width: float
     display_name: str
     fill_pattern: FillPattern = FillPattern.SOLID
+    stroke_style: StrokeStyle = StrokeStyle.SOLID
 
 
 # Default styles for each object type

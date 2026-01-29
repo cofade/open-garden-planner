@@ -26,7 +26,7 @@ class PolygonTool(BaseTool):
 
     tool_type = ToolType.POLYGON
     display_name = "Polygon"
-    shortcut = ""  # Will be set by specific instances
+    shortcut = "P"
     cursor = Qt.CursorShape.CrossCursor
 
     CLOSE_THRESHOLD = 15.0  # Scene units (cm) for closing detection

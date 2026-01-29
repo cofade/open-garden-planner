@@ -25,7 +25,7 @@ class CircleTool(BaseTool):
 
     tool_type = ToolType.CIRCLE
     display_name = "Circle"
-    shortcut = ""  # Will be set by specific instances
+    shortcut = "C"
     cursor = Qt.CursorShape.CrossCursor
 
     def __init__(

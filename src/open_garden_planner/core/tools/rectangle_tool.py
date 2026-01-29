@@ -25,7 +25,7 @@ class RectangleTool(BaseTool):
 
     tool_type = ToolType.RECTANGLE
     display_name = "Rectangle"
-    shortcut = ""  # Will be set by specific instances
+    shortcut = "R"
     cursor = Qt.CursorShape.CrossCursor
 
     def __init__(

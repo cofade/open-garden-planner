@@ -14,6 +14,7 @@ from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+from open_garden_planner.core.object_types import StrokeStyle
 
 # File format version for backward compatibility
 FILE_VERSION = "1.0"
@@ -195,6 +196,9 @@ class ProjectManager(QObject):
             # Save fill pattern
             if hasattr(item, "fill_pattern") and item.fill_pattern:
                 data["fill_pattern"] = item.fill_pattern.name
+            # Save stroke style
+            if hasattr(item, "stroke_style") and item.stroke_style:
+                data["stroke_style"] = item.stroke_style.name
             return data
         elif isinstance(item, CircleItem):
             data = {
@@ -222,6 +226,9 @@ class ProjectManager(QObject):
             # Save fill pattern
             if hasattr(item, "fill_pattern") and item.fill_pattern:
                 data["fill_pattern"] = item.fill_pattern.name
+            # Save stroke style
+            if hasattr(item, "stroke_style") and item.stroke_style:
+                data["stroke_style"] = item.stroke_style.name
             return data
         elif isinstance(item, PolylineItem):
             data = {
@@ -271,6 +278,9 @@ class ProjectManager(QObject):
             # Save fill pattern
             if hasattr(item, "fill_pattern") and item.fill_pattern:
                 data["fill_pattern"] = item.fill_pattern.name
+            # Save stroke style
+            if hasattr(item, "stroke_style") and item.stroke_style:
+                data["stroke_style"] = item.stroke_style.name
             return data
         return None
 
@@ -335,6 +345,13 @@ class ProjectManager(QObject):
             except KeyError:
                 fill_pattern = None
 
+        stroke_style = None
+        if "stroke_style" in obj:
+            try:
+                stroke_style = StrokeStyle[obj["stroke_style"]]
+            except KeyError:
+                stroke_style = None
+
         if obj_type == "background_image":
             try:
                 return BackgroundImageItem.from_dict(obj)
@@ -351,6 +368,7 @@ class ProjectManager(QObject):
                 name=name,
                 metadata=metadata,
                 fill_pattern=fill_pattern,
+                stroke_style=stroke_style,
             )
             # Restore custom colors if saved
             if "fill_color" in obj:
@@ -366,6 +384,8 @@ class ProjectManager(QObject):
                 pen.setColor(QColor(obj["stroke_color"]))
                 if "stroke_width" in obj:
                     pen.setWidthF(obj["stroke_width"])
+                if stroke_style:
+                    pen.setStyle(stroke_style.to_qt_pen_style())
                 item.setPen(pen)
             return item
         elif obj_type == "circle":
@@ -377,6 +397,7 @@ class ProjectManager(QObject):
                 name=name,
                 metadata=metadata,
                 fill_pattern=fill_pattern,
+                stroke_style=stroke_style,
             )
             # Restore custom colors if saved
             if "fill_color" in obj:
@@ -396,6 +417,8 @@ class ProjectManager(QObject):
                 pen.setColor(QColor(obj["stroke_color"]))
                 if "stroke_width" in obj:
                     pen.setWidthF(obj["stroke_width"])
+                if stroke_style:
+                    pen.setStyle(stroke_style.to_qt_pen_style())
                 item.setPen(pen)
             return item
         elif obj_type == "polyline":
@@ -423,6 +446,7 @@ class ProjectManager(QObject):
                     name=name,
                     metadata=metadata,
                     fill_pattern=fill_pattern,
+                    stroke_style=stroke_style,
                 )
                 # Restore custom colors if saved
                 if "fill_color" in obj:
@@ -442,6 +466,8 @@ class ProjectManager(QObject):
                     pen.setColor(QColor(obj["stroke_color"]))
                     if "stroke_width" in obj:
                         pen.setWidthF(obj["stroke_width"])
+                    if stroke_style:
+                        pen.setStyle(stroke_style.to_qt_pen_style())
                     item.setPen(pen)
                 return item
         return None
