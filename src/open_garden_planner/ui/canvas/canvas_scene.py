@@ -5,9 +5,13 @@ Coordinates are in centimeters with Y-axis pointing down (Qt convention).
 The view handles the Y-flip for display.
 """
 
-from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt
+from uuid import UUID
+
+from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
 from PyQt6.QtWidgets import QGraphicsLineItem, QGraphicsScene, QGraphicsTextItem
+
+from open_garden_planner.models.layer import Layer, create_default_layers
 
 
 class CanvasScene(QGraphicsScene):
@@ -16,10 +20,18 @@ class CanvasScene(QGraphicsScene):
     The scene uses centimeters as the coordinate unit.
     Origin is at top-left (Qt convention), with Y increasing downward.
     The CanvasView flips the Y-axis for display (CAD convention).
+
+    Signals:
+        layers_changed: Emitted when layers are added, removed, or reordered
+        active_layer_changed: Emitted when the active layer changes
     """
 
     # Canvas background color (beige/cream)
     CANVAS_COLOR = QColor("#f5f5dc")
+
+    # Signals
+    layers_changed = pyqtSignal()
+    active_layer_changed = pyqtSignal(object)  # Layer or None
 
     def __init__(
         self,
@@ -48,6 +60,10 @@ class CanvasScene(QGraphicsScene):
         self._calibration_image = None
         self._calibration_points: list[QPointF] = []
         self._calibration_markers: list[QGraphicsLineItem | QGraphicsTextItem] = []
+
+        # Layer management
+        self._layers: list[Layer] = create_default_layers()
+        self._active_layer: Layer | None = self._layers[0] if self._layers else None  # Default to first layer
 
     def _update_scene_rect(self) -> None:
         """Update the scene rect with padding for panning."""
@@ -230,3 +246,177 @@ class CanvasScene(QGraphicsScene):
     def is_calibrating(self) -> bool:
         """Whether calibration mode is active."""
         return self._calibration_mode
+
+    # Layer Management
+
+    @property
+    def layers(self) -> list[Layer]:
+        """Get all layers."""
+        return self._layers
+
+    def set_layers(self, layers: list[Layer]) -> None:
+        """Set the layers list.
+
+        Args:
+            layers: New list of layers
+        """
+        self._layers = layers
+        # Set active layer to first layer if not set or invalid
+        if not self._active_layer or self._active_layer not in self._layers:
+            self._active_layer = self._layers[0] if self._layers else None
+        self.layers_changed.emit()
+        self._update_items_visibility()
+
+    def add_layer(self, layer: Layer) -> None:
+        """Add a new layer.
+
+        Args:
+            layer: Layer to add
+        """
+        self._layers.append(layer)
+        self.layers_changed.emit()
+
+    def remove_layer(self, layer_id: UUID) -> bool:
+        """Remove a layer by ID.
+
+        Args:
+            layer_id: ID of layer to remove
+
+        Returns:
+            True if layer was removed, False if not found
+        """
+        for i, layer in enumerate(self._layers):
+            if layer.id == layer_id:
+                # Don't allow removing the last layer
+                if len(self._layers) <= 1:
+                    return False
+                # Move items from this layer to another layer
+                replacement_layer = self._layers[0] if i > 0 else self._layers[1]
+                self._move_items_to_layer(layer_id, replacement_layer.id)
+                # Remove the layer
+                del self._layers[i]
+                # Update active layer if needed
+                if self._active_layer and self._active_layer.id == layer_id:
+                    self._active_layer = replacement_layer
+                    self.active_layer_changed.emit(self._active_layer)
+                self.layers_changed.emit()
+                return True
+        return False
+
+    def _move_items_to_layer(self, from_layer_id: UUID, to_layer_id: UUID) -> None:
+        """Move all items from one layer to another.
+
+        Args:
+            from_layer_id: Source layer ID
+            to_layer_id: Destination layer ID
+        """
+        for item in self.items():
+            if hasattr(item, 'layer_id') and item.layer_id == from_layer_id:
+                item.layer_id = to_layer_id
+
+    def reorder_layers(self, new_order: list[Layer]) -> None:
+        """Reorder layers.
+
+        Args:
+            new_order: New layer order (first in list = bottom, last = top)
+        """
+        self._layers = new_order
+        # Update z_order values based on new position
+        # Reverse order: first item in list gets highest z_order (on top)
+        for i, layer in enumerate(self._layers):
+            layer.z_order = len(self._layers) - 1 - i
+        self.layers_changed.emit()
+        self._update_items_z_order()
+
+    def _update_items_z_order(self) -> None:
+        """Update Z-order of all items based on layer order."""
+        for item in self.items():
+            if hasattr(item, 'layer_id') and item.layer_id:
+                layer = self.get_layer_by_id(item.layer_id)
+                if layer:
+                    # Use z_order * 100 to leave room for ordering within layer
+                    item.setZValue(layer.z_order * 100)
+
+    def get_layer_by_id(self, layer_id: UUID) -> Layer | None:
+        """Get a layer by its ID.
+
+        Args:
+            layer_id: Layer ID to find
+
+        Returns:
+            Layer if found, None otherwise
+        """
+        for layer in self._layers:
+            if layer.id == layer_id:
+                return layer
+        return None
+
+    @property
+    def active_layer(self) -> Layer | None:
+        """Get the active layer."""
+        return self._active_layer
+
+    def set_active_layer(self, layer: Layer | None) -> None:
+        """Set the active layer.
+
+        Args:
+            layer: Layer to set as active
+        """
+        if layer != self._active_layer:
+            self._active_layer = layer
+            self.active_layer_changed.emit(layer)
+
+    def _update_items_visibility(self) -> None:
+        """Update visibility and interaction of all items based on layer state."""
+        for item in self.items():
+            if hasattr(item, 'layer_id') and item.layer_id:
+                layer = self.get_layer_by_id(item.layer_id)
+                if layer:
+                    # Set visibility
+                    item.setVisible(layer.visible)
+                    # Set opacity
+                    item.setOpacity(layer.opacity)
+                    # Set selectability based on lock state
+                    if hasattr(item, 'setFlag'):
+                        from PyQt6.QtWidgets import QGraphicsItem
+                        item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, not layer.locked)
+                        item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, not layer.locked)
+
+    def update_layer_visibility(self, layer_id: UUID, visible: bool) -> None:
+        """Update visibility of a layer and its items.
+
+        Args:
+            layer_id: Layer ID
+            visible: New visibility state
+        """
+        layer = self.get_layer_by_id(layer_id)
+        if layer:
+            layer.visible = visible
+            self._update_items_visibility()
+            self.layers_changed.emit()
+
+    def update_layer_lock(self, layer_id: UUID, locked: bool) -> None:
+        """Update lock state of a layer and its items.
+
+        Args:
+            layer_id: Layer ID
+            locked: New lock state
+        """
+        layer = self.get_layer_by_id(layer_id)
+        if layer:
+            layer.locked = locked
+            self._update_items_visibility()
+            self.layers_changed.emit()
+
+    def update_layer_opacity(self, layer_id: UUID, opacity: float) -> None:
+        """Update opacity of a layer and its items.
+
+        Args:
+            layer_id: Layer ID
+            opacity: New opacity (0.0 to 1.0)
+        """
+        layer = self.get_layer_by_id(layer_id)
+        if layer:
+            layer.opacity = max(0.0, min(1.0, opacity))
+            self._update_items_visibility()
+            self.layers_changed.emit()

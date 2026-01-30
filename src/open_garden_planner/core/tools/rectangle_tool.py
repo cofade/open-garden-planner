@@ -85,12 +85,16 @@ class RectangleTool(BaseTool):
         rect = self._calculate_rect(self._start_point, scene_pos, event)
         if rect.width() > 1 and rect.height() > 1:  # Minimum size
             from open_garden_planner.ui.canvas.items import RectangleItem
+            # Get active layer from scene
+            scene = self._view.scene()
+            layer_id = scene.active_layer.id if hasattr(scene, 'active_layer') and scene.active_layer else None
             item = RectangleItem(
                 rect.x(),
                 rect.y(),
                 rect.width(),
                 rect.height(),
                 object_type=self._object_type,
+                layer_id=layer_id,
             )
             self._view.add_item(item, "rectangle")
 

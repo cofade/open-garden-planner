@@ -675,18 +675,19 @@ class CanvasView(QGraphicsView):
         self._drag_start_positions.clear()
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
-        """Draw the background including optional grid."""
+        """Draw the background."""
         super().drawBackground(painter, rect)
 
-        if self._grid_visible:
-            self._draw_grid(painter, rect)
-
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
-        """Draw the foreground including canvas border."""
+        """Draw the foreground including canvas border and grid overlay."""
         super().drawForeground(painter, rect)
 
         # Draw canvas border
         self._draw_canvas_border(painter)
+
+        # Draw grid overlay on top of everything
+        if self._grid_visible:
+            self._draw_grid(painter, rect)
 
     def _draw_canvas_border(self, painter: QPainter) -> None:
         """Draw a border around the canvas area."""

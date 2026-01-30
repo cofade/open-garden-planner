@@ -170,7 +170,10 @@ class PolylineTool(BaseTool):
 
         if len(self._points) >= 2:
             from open_garden_planner.ui.canvas.items import PolylineItem
-            item = PolylineItem(self._points, object_type=self._object_type)
+            # Get active layer from scene
+            scene = self._view.scene()
+            layer_id = scene.active_layer.id if hasattr(scene, 'active_layer') and scene.active_layer else None
+            item = PolylineItem(self._points, object_type=self._object_type, layer_id=layer_id)
             self._view.add_item(item, "polyline")
 
         self._reset_state()

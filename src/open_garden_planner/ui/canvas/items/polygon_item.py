@@ -1,5 +1,6 @@
 """Polygon item for the garden canvas."""
 
+import uuid
 from typing import Any
 
 from PyQt6.QtCore import QPointF
@@ -25,6 +26,18 @@ def _show_properties_dialog(item: QGraphicsPolygonItem) -> None:
             # Update the label if it exists
             if hasattr(item, '_update_label'):
                 item._update_label()  # type: ignore[attr-defined]
+
+        # Apply layer change
+        if hasattr(item, 'layer_id'):
+            new_layer_id = dialog.get_layer_id()
+            if new_layer_id is not None:
+                item.layer_id = new_layer_id
+                # Update z-order based on new layer
+                scene = item.scene()
+                if scene and hasattr(scene, 'get_layer_by_id'):
+                    layer = scene.get_layer_by_id(new_layer_id)
+                    if layer:
+                        item.setZValue(layer.z_order * 100)
 
         # Apply object type change (updates styling)
         new_object_type = dialog.get_object_type()
@@ -87,6 +100,7 @@ class PolygonItem(GardenItemMixin, QGraphicsPolygonItem):
         metadata: dict[str, Any] | None = None,
         fill_pattern: FillPattern | None = None,
         stroke_style: StrokeStyle | None = None,
+        layer_id: uuid.UUID | None = None,
     ) -> None:
         """Initialize the polygon item.
 
@@ -97,6 +111,7 @@ class PolygonItem(GardenItemMixin, QGraphicsPolygonItem):
             metadata: Optional metadata dictionary
             fill_pattern: Fill pattern (defaults to pattern from object type)
             stroke_style: Stroke style (defaults to style from object type)
+            layer_id: Layer ID this item belongs to (optional)
         """
         # Get default pattern and color from object type if not provided
         style = get_style(object_type)
@@ -109,7 +124,7 @@ class PolygonItem(GardenItemMixin, QGraphicsPolygonItem):
             self, object_type=object_type, name=name, metadata=metadata,
             fill_pattern=fill_pattern, fill_color=style.fill_color,
             stroke_color=style.stroke_color, stroke_width=style.stroke_width,
-            stroke_style=stroke_style
+            stroke_style=stroke_style, layer_id=layer_id
         )
         polygon = QPolygonF(vertices)
         QGraphicsPolygonItem.__init__(self, polygon)

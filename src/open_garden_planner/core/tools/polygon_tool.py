@@ -200,7 +200,10 @@ class PolygonTool(BaseTool):
 
         if len(self._vertices) >= 3:
             from open_garden_planner.ui.canvas.items import PolygonItem
-            item = PolygonItem(self._vertices, object_type=self._object_type)
+            # Get active layer from scene
+            scene = self._view.scene()
+            layer_id = scene.active_layer.id if hasattr(scene, 'active_layer') and scene.active_layer else None
+            item = PolygonItem(self._vertices, object_type=self._object_type, layer_id=layer_id)
             self._view.add_item(item, "polygon")
 
         self._reset_state()

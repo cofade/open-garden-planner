@@ -17,6 +17,7 @@ class GardenItemMixin:
         - Unique identifier (UUID)
         - Object type classification
         - Name/label
+        - Layer assignment
         - Extensible metadata
     """
 
@@ -30,6 +31,7 @@ class GardenItemMixin:
         stroke_color: Any = None,  # QColor, but avoiding import
         stroke_width: float | None = None,
         stroke_style: StrokeStyle | None = None,
+        layer_id: uuid.UUID | None = None,
     ) -> None:
         """Initialize the garden item mixin.
 
@@ -42,6 +44,7 @@ class GardenItemMixin:
             stroke_color: Stroke/outline color (optional)
             stroke_width: Stroke/outline width (optional)
             stroke_style: Stroke/outline style (optional)
+            layer_id: Layer ID this item belongs to (optional)
         """
         self._item_id = uuid.uuid4()
         self._object_type = object_type
@@ -52,6 +55,7 @@ class GardenItemMixin:
         self._stroke_color = stroke_color
         self._stroke_width = stroke_width
         self._stroke_style = stroke_style
+        self._layer_id = layer_id
         self._label_item: QGraphicsTextItem | None = None
 
     @property
@@ -139,6 +143,16 @@ class GardenItemMixin:
     def stroke_style(self, value: StrokeStyle | None) -> None:
         """Set the stroke/outline style."""
         self._stroke_style = value
+
+    @property
+    def layer_id(self) -> uuid.UUID | None:
+        """Layer ID this item belongs to."""
+        return self._layer_id
+
+    @layer_id.setter
+    def layer_id(self, value: uuid.UUID | None) -> None:
+        """Set the layer ID."""
+        self._layer_id = value
 
     def set_metadata(self, key: str, value: Any) -> None:
         """Set a metadata value.
