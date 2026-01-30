@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QMenu,
     QMessageBox,
+    QSplitter,
 )
 
 from open_garden_planner.core import (
@@ -22,6 +23,7 @@ from open_garden_planner.core import (
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.panels.layers_panel import LayersPanel
 from open_garden_planner.ui.widgets import MainToolbar
 
 
@@ -279,10 +281,33 @@ class GardenPlannerApp(QMainWindow):
         status_bar.showMessage("Ready")
 
     def _setup_central_widget(self) -> None:
-        """Set up the central widget area with canvas."""
+        """Set up the central widget area with canvas and layers panel."""
         # Create canvas scene and view
         self.canvas_scene = CanvasScene(width_cm=5000, height_cm=3000)
         self.canvas_view = CanvasView(self.canvas_scene)
+
+        # Create layers panel
+        self.layers_panel = LayersPanel()
+        self.layers_panel.setFixedWidth(250)
+        self.layers_panel.set_layers(self.canvas_scene.layers)
+
+        # Connect layers panel signals to scene
+        self.layers_panel.active_layer_changed.connect(self._on_active_layer_changed)
+        self.layers_panel.layer_visibility_changed.connect(self.canvas_scene.update_layer_visibility)
+        self.layers_panel.layer_lock_changed.connect(self.canvas_scene.update_layer_lock)
+        self.layers_panel.layer_opacity_changed.connect(self.canvas_scene.update_layer_opacity)
+        self.layers_panel.layers_reordered.connect(self._on_layers_reordered)
+        self.layers_panel.layer_renamed.connect(self._on_layer_renamed)
+
+        # Connect scene layer changes to panel
+        self.canvas_scene.layers_changed.connect(lambda: self.layers_panel.set_layers(self.canvas_scene.layers))
+
+        # Create splitter for canvas and layers panel
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.addWidget(self.canvas_view)
+        splitter.addWidget(self.layers_panel)
+        splitter.setStretchFactor(0, 1)  # Canvas takes most space
+        splitter.setStretchFactor(1, 0)  # Layers panel fixed width
 
         # Connect canvas signals to status bar updates
         self.canvas_view.coordinates_changed.connect(self.update_coordinates)
@@ -310,8 +335,8 @@ class GardenPlannerApp(QMainWindow):
         # Mark project dirty when commands are executed
         cmd_mgr.command_executed.connect(lambda _: self._project_manager.mark_dirty())
 
-        # Set canvas as central widget (will add panels later with splitter)
-        self.setCentralWidget(self.canvas_view)
+        # Set splitter as central widget
+        self.setCentralWidget(splitter)
 
         # Initial zoom display
         self.update_zoom(self.canvas_view.zoom_percent)
@@ -348,6 +373,11 @@ class GardenPlannerApp(QMainWindow):
 
             # Resize the canvas
             self.canvas_scene.resize_canvas(width_cm, height_cm)
+
+            # Reset layers to default
+            from open_garden_planner.models.layer import create_default_layers
+            self.canvas_scene.set_layers(create_default_layers())
+            self.layers_panel.set_layers(self.canvas_scene.layers)
 
             # Fit the new canvas in view
             self.canvas_view.fit_in_view()
@@ -507,6 +537,34 @@ class GardenPlannerApp(QMainWindow):
             tool_type: The selected tool type
         """
         self.canvas_view.set_active_tool(tool_type)
+
+    def _on_active_layer_changed(self, layer_id) -> None:
+        """Handle active layer change from layers panel.
+
+        Args:
+            layer_id: UUID of the newly active layer
+        """
+        layer = self.canvas_scene.get_layer_by_id(layer_id)
+        if layer:
+            self.canvas_scene.set_active_layer(layer)
+
+    def _on_layers_reordered(self, new_order) -> None:
+        """Handle layer reordering from layers panel.
+
+        Args:
+            new_order: New list of layers in order
+        """
+        self.canvas_scene.reorder_layers(new_order)
+        self._project_manager.mark_dirty()
+
+    def _on_layer_renamed(self, _layer_id, _new_name) -> None:
+        """Handle layer rename from layers panel.
+
+        Args:
+            _layer_id: UUID of the renamed layer (unused)
+            _new_name: New layer name (unused)
+        """
+        self._project_manager.mark_dirty()
 
     def _on_selection_changed(self) -> None:
         """Handle selection changes in the canvas scene."""

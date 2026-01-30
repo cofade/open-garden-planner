@@ -127,12 +127,15 @@ class CircleTool(BaseTool):
         # Create final circle if it has a meaningful radius
         if radius > 1:  # Minimum radius in cm
             from open_garden_planner.ui.canvas.items import CircleItem
-
+            # Get active layer from scene
+            scene = self._view.scene()
+            layer_id = scene.active_layer.id if hasattr(scene, 'active_layer') and scene.active_layer else None
             item = CircleItem(
                 self._center_point.x(),
                 self._center_point.y(),
                 radius,
                 object_type=self._object_type,
+                layer_id=layer_id,
             )
             self._view.add_item(item, "circle")
 

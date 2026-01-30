@@ -98,6 +98,7 @@ class PropertiesDialog(QDialog):
         self._fill_pattern_combo: QComboBox | None = None
         self._stroke_width_spin: QDoubleSpinBox | None = None
         self._stroke_style_combo: QComboBox | None = None
+        self._layer_combo: QComboBox | None = None
 
         self.setWindowTitle("Object Properties")
         self.setModal(True)
@@ -173,6 +174,23 @@ class PropertiesDialog(QDialog):
         if hasattr(self._item, 'name'):
             self._name_edit = QLineEdit(self._item.name)
             layout.addRow("Name:", self._name_edit)
+
+        # Layer selection
+        if hasattr(self._item, 'layer_id'):
+            self._layer_combo = QComboBox()
+
+            # Get layers from scene
+            scene = self._item.scene()
+            if scene and hasattr(scene, 'layers'):
+                current_idx = 0
+                for idx, layer in enumerate(scene.layers):
+                    self._layer_combo.addItem(layer.name, layer.id)
+                    # Select current layer
+                    if hasattr(self._item, 'layer_id') and self._item.layer_id == layer.id:
+                        current_idx = idx
+
+                self._layer_combo.setCurrentIndex(current_idx)
+                layout.addRow("Layer:", self._layer_combo)
 
         group.setLayout(layout)
         return group
@@ -349,6 +367,16 @@ class PropertiesDialog(QDialog):
         if hasattr(self, '_name_edit'):
             return self._name_edit.text()
         return ""
+
+    def get_layer_id(self):
+        """Get the selected layer ID.
+
+        Returns:
+            Selected layer ID (UUID) or None
+        """
+        if self._layer_combo:
+            return self._layer_combo.currentData()
+        return None
 
     def get_stroke_color(self) -> QColor:
         """Get the selected stroke color.

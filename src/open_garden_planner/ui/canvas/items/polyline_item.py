@@ -1,5 +1,7 @@
 """Polyline item for the garden canvas."""
 
+import uuid
+
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QPainterPath, QPen
 from PyQt6.QtWidgets import QGraphicsPathItem, QGraphicsSceneContextMenuEvent, QMenu
@@ -21,6 +23,7 @@ class PolylineItem(GardenItemMixin, QGraphicsPathItem):
         points: list[QPointF],
         object_type: ObjectType = ObjectType.FENCE,
         name: str = "",
+        layer_id: uuid.UUID | None = None,
     ) -> None:
         """Initialize the polyline item.
 
@@ -28,8 +31,9 @@ class PolylineItem(GardenItemMixin, QGraphicsPathItem):
             points: List of points defining the polyline
             object_type: Type of property object
             name: Optional name/label for the object
+            layer_id: Layer ID this item belongs to (optional)
         """
-        GardenItemMixin.__init__(self, object_type=object_type, name=name)
+        GardenItemMixin.__init__(self, object_type=object_type, name=name, layer_id=layer_id)
 
         # Create path from points
         path = QPainterPath()

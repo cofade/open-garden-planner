@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from PyQt6.QtCore import QObject, QPointF, pyqtSignal
 from PyQt6.QtGui import QColor
@@ -15,9 +16,10 @@ from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import StrokeStyle
+from open_garden_planner.models.layer import Layer, create_default_layers
 
 # File format version for backward compatibility
-FILE_VERSION = "1.0"
+FILE_VERSION = "1.1"
 
 
 @dataclass
@@ -27,6 +29,7 @@ class ProjectData:
     canvas_width: float = 5000.0
     canvas_height: float = 3000.0
     objects: list[dict[str, Any]] = field(default_factory=list)
+    layers: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -39,6 +42,7 @@ class ProjectData:
                 "width": self.canvas_width,
                 "height": self.canvas_height,
             },
+            "layers": self.layers,
             "objects": self.objects,
         }
 
@@ -49,6 +53,7 @@ class ProjectData:
         return cls(
             canvas_width=canvas.get("width", 5000.0),
             canvas_height=canvas.get("height", 3000.0),
+            layers=data.get("layers", []),
             objects=data.get("objects", []),
         )
 
@@ -143,6 +148,11 @@ class ProjectManager(QObject):
     def _serialize_scene(self, scene: QGraphicsScene) -> ProjectData:
         """Convert scene objects to ProjectData."""
         objects = []
+        layers = []
+
+        # Serialize layers if the scene has them
+        if hasattr(scene, "layers"):
+            layers = [layer.to_dict() for layer in scene.layers]
 
         for item in scene.items():
             obj_data = self._serialize_item(item)
@@ -152,6 +162,7 @@ class ProjectManager(QObject):
         return ProjectData(
             canvas_width=scene.width_cm if hasattr(scene, "width_cm") else 5000.0,
             canvas_height=scene.height_cm if hasattr(scene, "height_cm") else 3000.0,
+            layers=layers,
             objects=objects,
         )
 
@@ -183,6 +194,8 @@ class ProjectManager(QObject):
                 data["name"] = item.name
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
+            if hasattr(item, "layer_id") and item.layer_id:
+                data["layer_id"] = str(item.layer_id)
             # Save custom fill and stroke colors (with alpha)
             # Use stored fill_color if available (for textured brushes), otherwise get from brush
             if hasattr(item, "fill_color") and item.fill_color:
@@ -213,6 +226,8 @@ class ProjectManager(QObject):
                 data["name"] = item.name
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
+            if hasattr(item, "layer_id") and item.layer_id:
+                data["layer_id"] = str(item.layer_id)
             # Save custom fill and stroke colors (with alpha)
             # Use stored fill_color if available (for textured brushes), otherwise get from brush
             if hasattr(item, "fill_color") and item.fill_color:
@@ -241,6 +256,8 @@ class ProjectManager(QObject):
                 data["name"] = item.name
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
+            if hasattr(item, "layer_id") and item.layer_id:
+                data["layer_id"] = str(item.layer_id)
             # Save custom stroke color (polylines don't have fill, with alpha)
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
@@ -265,6 +282,8 @@ class ProjectManager(QObject):
                 data["name"] = item.name
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
+            if hasattr(item, "layer_id") and item.layer_id:
+                data["layer_id"] = str(item.layer_id)
             # Save custom fill and stroke colors (with alpha)
             # Use stored fill_color if available (for textured brushes), otherwise get from brush
             if hasattr(item, "fill_color") and item.fill_color:
@@ -307,6 +326,15 @@ class ProjectManager(QObject):
         # Resize canvas if needed
         if hasattr(scene, "resize_canvas"):
             scene.resize_canvas(data.canvas_width, data.canvas_height)
+
+        # Load layers
+        if hasattr(scene, "set_layers"):
+            if data.layers:
+                layers = [Layer.from_dict(layer_data) for layer_data in data.layers]
+                scene.set_layers(layers)
+            else:
+                # Create default layers if none exist (for backward compatibility)
+                scene.set_layers(create_default_layers())
 
         # Create items
         for obj in data.objects:
@@ -352,6 +380,13 @@ class ProjectManager(QObject):
             except KeyError:
                 stroke_style = None
 
+        layer_id = None
+        if "layer_id" in obj:
+            try:
+                layer_id = UUID(obj["layer_id"])
+            except (ValueError, TypeError):
+                layer_id = None
+
         if obj_type == "background_image":
             try:
                 return BackgroundImageItem.from_dict(obj)
@@ -369,6 +404,7 @@ class ProjectManager(QObject):
                 metadata=metadata,
                 fill_pattern=fill_pattern,
                 stroke_style=stroke_style,
+                layer_id=layer_id,
             )
             # Restore custom colors if saved
             if "fill_color" in obj:
@@ -398,6 +434,7 @@ class ProjectManager(QObject):
                 metadata=metadata,
                 fill_pattern=fill_pattern,
                 stroke_style=stroke_style,
+                layer_id=layer_id,
             )
             # Restore custom colors if saved
             if "fill_color" in obj:
@@ -428,6 +465,7 @@ class ProjectManager(QObject):
                     points,
                     object_type=object_type or ObjectType.FENCE,
                     name=name,
+                    layer_id=layer_id,
                 )
                 # Restore custom stroke color if saved
                 if "stroke_color" in obj:
@@ -447,6 +485,7 @@ class ProjectManager(QObject):
                     metadata=metadata,
                     fill_pattern=fill_pattern,
                     stroke_style=stroke_style,
+                    layer_id=layer_id,
                 )
                 # Restore custom colors if saved
                 if "fill_color" in obj:
