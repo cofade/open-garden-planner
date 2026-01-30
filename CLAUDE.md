@@ -143,6 +143,8 @@ tests/
 1. Vertex coordinate annotations on selection
 2. Rotate objects (15° snap)
 3. Edit polygon vertices
+4. Drawing tools sidebar panel with icon buttons (similar to layers panel)
+
 ## Progress (Phase 3: Objects & Styling)
 
 | Status | US | Description |
