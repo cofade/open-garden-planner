@@ -299,8 +299,42 @@ Pre-defined object types for common property elements:
 - **FR-UI-09**: "What's New" popup shown after app update with release notes
 - **FR-UI-10**: Automatic update check on startup with notification if new version available
 - **FR-UI-11**: Remember window size, position, panel states, recent files between sessions
+- **FR-UI-12**: Organized right sidebar with multiple collapsible panels (US-4.8)
 
-#### 3.10.3 Accessibility
+#### 3.10.3 Sidebar Organization (US-4.8)
+
+The right sidebar consolidates all tool and object management into a well-organized panel structure:
+
+**Panel Structure (top to bottom)**:
+
+1. **Drawing Tools Panel**
+   - Icon-based buttons for all drawing tools (similar to layers panel design)
+   - Icons for: Rectangle, Polygon, Circle, Line, Arc, Polyline
+   - Icons for: Tree, Shrub, Perennial, and other plant types
+   - Icons for: Property objects (House, Fence, Path, etc.)
+   - Active tool highlighted with visual indicator
+   - Tooltips showing tool name and keyboard shortcut
+
+2. **Properties Panel**
+   - Shows properties of selected object(s)
+   - Live editing: changes apply immediately to canvas
+   - Sections for: Basic info (name, type), Geometry (dimensions, position), Styling (fill, stroke, pattern)
+   - Plant-specific fields when plant selected (species, variety, planting date)
+   - Multi-select support: shows common properties, batch editing
+
+3. **Layers Panel** (already implemented)
+   - Layer list with visibility/lock toggles
+   - Drag to reorder layers
+   - Object count per layer
+
+**Design Principles**:
+- Each panel is collapsible (click header to expand/collapse)
+- Panels remember their expand/collapse state
+- Consistent visual design across all panels
+- Icon buttons use clear, intuitive symbols
+- Tooltips provide context for all icons and buttons
+
+#### 3.10.4 Accessibility
 - **FR-UI-20**: Keyboard navigation for all functions
 - **FR-UI-21**: High contrast mode support
 - **FR-UI-22**: Configurable font sizes in UI
@@ -629,6 +663,7 @@ open_garden_planner/
 | US-4.5 | As a user, I can view plant details in a properties panel | Must |
 | US-4.6 | As a user, I can add garden beds with area calculation | Must |
 | US-4.7 | As a user, I can filter/search plants in my project | Should |
+| US-4.8 | As a user, I have a well-organized sidebar with icon-based tool panels | Must |
 
 **Technical Milestones**:
 - [ ] Plant model with full metadata schema
