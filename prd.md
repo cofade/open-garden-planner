@@ -622,7 +622,7 @@ open_garden_planner/
 
 | ID | User Story | Priority |
 |----|------------|----------|
-| US-4.1 | As a user, I can add plant objects (tree, shrub, perennial) | Must |
+| ~~US-4.1~~ | ~~As a user, I can add plant objects (tree, shrub, perennial)~~ | ✅ Must |
 | US-4.2 | As a user, I can set plant metadata (species, variety, dates) | Must |
 | US-4.3 | As a user, I can search for plant species from online database | Should |
 | US-4.4 | As a user, I can create custom plant species in my library | Must |

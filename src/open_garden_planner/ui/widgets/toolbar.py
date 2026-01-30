@@ -143,6 +143,30 @@ class MainToolbar(QToolBar):
 
         self.addSeparator()
 
+        # Plant objects
+        self._add_tool_button(
+            ToolType.TREE,
+            "Tree",
+            "Add tree (1)\nClick center, then click to set canopy size",
+            "1",
+        )
+
+        self._add_tool_button(
+            ToolType.SHRUB,
+            "Shrub",
+            "Add shrub (2)\nClick center, then click to set canopy size",
+            "2",
+        )
+
+        self._add_tool_button(
+            ToolType.PERENNIAL,
+            "Perennial",
+            "Add perennial (3)\nClick center, then click to set canopy size",
+            "3",
+        )
+
+        self.addSeparator()
+
         # Measure tool
         self._add_tool_button(
             ToolType.MEASURE,

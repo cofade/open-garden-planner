@@ -30,6 +30,11 @@ class ToolType(Enum):
     WALL = auto()
     PATH = auto()
 
+    # Plant types (circle-based)
+    TREE = auto()
+    SHRUB = auto()
+    PERENNIAL = auto()
+
     # Generic geometric shapes (backwards compatibility)
     RECTANGLE = auto()
     POLYGON = auto()

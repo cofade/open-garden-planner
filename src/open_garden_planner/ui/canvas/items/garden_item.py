@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 
 from PyQt6.QtGui import QColor, QFont
-from PyQt6.QtWidgets import QGraphicsTextItem
+from PyQt6.QtWidgets import QGraphicsSimpleTextItem
 
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
@@ -56,7 +56,7 @@ class GardenItemMixin:
         self._stroke_width = stroke_width
         self._stroke_style = stroke_style
         self._layer_id = layer_id
-        self._label_item: QGraphicsTextItem | None = None
+        self._label_item: QGraphicsSimpleTextItem | None = None
 
     @property
     def item_id(self) -> uuid.UUID:
@@ -183,16 +183,16 @@ class GardenItemMixin:
             if not hasattr(self, 'boundingRect'):
                 return
 
-            self._label_item = QGraphicsTextItem(self._name, self)  # type: ignore[arg-type]
+            self._label_item = QGraphicsSimpleTextItem(self._name, self)  # type: ignore[arg-type]
 
             # Configure label appearance
             font = QFont("Arial", 10)
             font.setBold(True)
             self._label_item.setFont(font)
-            self._label_item.setDefaultTextColor(QColor(0, 0, 0))  # Black text
+            self._label_item.setBrush(QColor(0, 0, 0))  # Black text
 
-            # Add white background for readability
-            self._label_item.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
+            # Make the label ignore transformations so it stays readable at any zoom
+            self._label_item.setFlag(QGraphicsSimpleTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
 
             # Position the label
             self._position_label()
@@ -203,7 +203,7 @@ class GardenItemMixin:
             if self._label_item is None:
                 self._create_label()
             else:
-                self._label_item.setPlainText(self._name)
+                self._label_item.setText(self._name)
                 self._position_label()
         else:
             # Remove label if name is empty
@@ -224,13 +224,18 @@ class GardenItemMixin:
         if not hasattr(self, 'boundingRect'):
             return
 
-        # Get the bounding rectangle
+        # Get the bounding rectangle of the parent item
         bounds = self.boundingRect()  # type: ignore[attr-defined]
+        center = bounds.center()
 
-        # Position label at the center-bottom of the object
-        label_rect = self._label_item.boundingRect()
-        x = bounds.center().x() - label_rect.width() / 2
-        y = bounds.center().y() - label_rect.height() / 2
+        # Get the label's bounding rect
+        label_bounds = self._label_item.boundingRect()
+
+        # Center the label precisely in both dimensions
+        # QGraphicsSimpleTextItem has a much simpler layout without document margins
+        # Position is the top-left corner, so we offset by half the size
+        x = center.x() - label_bounds.width() / 2
+        y = center.y() - label_bounds.height() / 2
 
         self._label_item.setPos(x, y)
 

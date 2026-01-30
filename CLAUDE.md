@@ -157,3 +157,9 @@ tests/
 | ✅ | 3.6 | Organize objects into layers |
 | ✅ | 3.7 | Show/hide and lock layers |
 | ✅ | 3.8 | Copy and paste objects |
+
+## Progress (Phase 4: Plants & Metadata)
+
+| Status | US | Description |
+|--------|-----|-------------|
+| ✅ | 4.1 | Add plant objects (tree, shrub, perennial) |
