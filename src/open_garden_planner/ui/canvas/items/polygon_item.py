@@ -3,9 +3,14 @@
 import uuid
 from typing import Any
 
-from PyQt6.QtCore import QPointF
+from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QPen, QPolygonF
-from PyQt6.QtWidgets import QGraphicsPolygonItem, QGraphicsSceneContextMenuEvent, QMenu
+from PyQt6.QtWidgets import (
+    QGraphicsPolygonItem,
+    QGraphicsSceneContextMenuEvent,
+    QGraphicsSceneMouseEvent,
+    QMenu,
+)
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
@@ -157,6 +162,14 @@ class PolygonItem(GardenItemMixin, QGraphicsPolygonItem):
         """Configure item interaction flags."""
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemIsMovable, True)
+
+    def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        """Handle double-click to edit label inline."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.start_label_edit()
+            event.accept()
+        else:
+            super().mouseDoubleClickEvent(event)
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show context menu on right-click."""

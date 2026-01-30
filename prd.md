@@ -610,11 +610,11 @@ open_garden_planner/
 | ~~US-3.8~~ | ~~As a user, I can copy and paste objects~~ | ✅ Must |
 
 **Technical Milestones**:
-- [ ] Object type hierarchy (PropertyObject subclasses)
-- [ ] Style system (fills, strokes, patterns)
-- [ ] Texture rendering with Qt
-- [ ] Layer model and UI panel
-- [ ] Clipboard integration
+- [x] Object type hierarchy (PropertyObject subclasses)
+- [x] Style system (fills, strokes, patterns)
+- [x] Texture rendering with Qt
+- [x] Layer model and UI panel
+- [x] Clipboard integration
 
 ### Phase 4: Plants & Metadata (v0.4)
 

@@ -3,8 +3,9 @@
 import uuid
 from typing import Any
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QFont
-from PyQt6.QtWidgets import QGraphicsSimpleTextItem
+from PyQt6.QtWidgets import QGraphicsSimpleTextItem, QGraphicsTextItem
 
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
@@ -57,6 +58,7 @@ class GardenItemMixin:
         self._stroke_style = stroke_style
         self._layer_id = layer_id
         self._label_item: QGraphicsSimpleTextItem | None = None
+        self._edit_label_item: QGraphicsTextItem | None = None
 
     @property
     def item_id(self) -> uuid.UUID:
@@ -216,7 +218,12 @@ class GardenItemMixin:
                 self._label_item = None
 
     def _position_label(self) -> None:
-        """Position the label at the center of the item's bounding rect."""
+        """Position the label at the center of the item's bounding rect.
+
+        Note: With ItemIgnoresTransformations, centering perfectly across all zoom levels
+        is challenging due to coordinate system mismatches between device and scene coords.
+        We position the text as close to center as possible by offsetting by half the text size.
+        """
         if self._label_item is None:
             return
 
@@ -224,20 +231,19 @@ class GardenItemMixin:
         if not hasattr(self, 'boundingRect'):
             return
 
-        # Get the bounding rectangle of the parent item
+        # Get the bounding rectangle of the parent item and its center in parent coords
         bounds = self.boundingRect()  # type: ignore[attr-defined]
         center = bounds.center()
 
-        # Get the label's bounding rect
+        # Get label dimensions
         label_bounds = self._label_item.boundingRect()
 
-        # Center the label precisely in both dimensions
-        # QGraphicsSimpleTextItem has a much simpler layout without document margins
-        # Position is the top-left corner, so we offset by half the size
-        x = center.x() - label_bounds.width() / 2
-        y = center.y() - label_bounds.height() / 2
+        # Offset by half the label size to approximate centering
+        # This is not perfect with ItemIgnoresTransformations but is close enough
+        offset_x = label_bounds.width() / 2.0
+        offset_y = label_bounds.height() / 2.0
 
-        self._label_item.setPos(x, y)
+        self._label_item.setPos(center.x() - offset_x, center.y() - offset_y)
 
     def initialize_label(self) -> None:
         """Initialize the label after the item is fully constructed.
@@ -246,3 +252,145 @@ class GardenItemMixin:
         """
         if self._name:
             self._create_label()
+
+    def start_label_edit(self) -> None:
+        """Start inline editing of the label."""
+        # Hide the static label
+        if self._label_item is not None:
+            self._label_item.hide()
+
+        # Create editable text item if it doesn't exist
+        if self._edit_label_item is None:
+            # TYPE_CHECKING guard
+            if not hasattr(self, 'boundingRect'):
+                return
+
+            # Create a custom QGraphicsTextItem subclass for handling events
+            class EditableLabel(QGraphicsTextItem):
+                def __init__(self, text: str, parent: Any) -> None:
+                    super().__init__(text, parent)
+                    self.parent_item = parent
+
+                def paint(self, painter: Any, option: Any, widget: Any = None) -> None:
+                    """Override paint to remove the dashed focus border."""
+                    from PyQt6.QtWidgets import QStyle
+                    # Remove the focus state to prevent dashed border
+                    option.state &= ~QStyle.StateFlag.State_HasFocus
+                    super().paint(painter, option, widget)
+
+                def focusOutEvent(self, event: Any) -> None:
+                    """Handle focus loss - commit changes."""
+                    super().focusOutEvent(event)
+                    if hasattr(self.parent_item, '_finish_label_edit'):
+                        self.parent_item._finish_label_edit()
+
+                def keyPressEvent(self, event: Any) -> None:
+                    """Handle key presses - Enter/Escape to finish editing."""
+                    from PyQt6.QtCore import Qt
+                    if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
+                        # Commit on Enter
+                        if hasattr(self.parent_item, '_finish_label_edit'):
+                            self.parent_item._finish_label_edit()
+                        self.clearFocus()
+                        event.accept()
+                    elif event.key() == Qt.Key.Key_Escape:
+                        # Cancel on Escape - restore original text
+                        if hasattr(self.parent_item, '_cancel_label_edit'):
+                            self.parent_item._cancel_label_edit()
+                        self.clearFocus()
+                        event.accept()
+                    else:
+                        super().keyPressEvent(event)
+
+            self._edit_label_item = EditableLabel(self._name, self)  # type: ignore[arg-type]
+
+            # Configure appearance to match the static label exactly
+            font = QFont("Arial", 10)
+            font.setBold(True)
+            self._edit_label_item.setDefaultTextColor(QColor(0, 0, 0))
+            self._edit_label_item.setFont(font)
+
+            # Remove ALL margins and padding to match QGraphicsSimpleTextItem
+            from PyQt6.QtGui import QTextFrameFormat
+            doc = self._edit_label_item.document()
+            doc.setDocumentMargin(0)  # Critical: remove document margins
+
+            frame_format = QTextFrameFormat()
+            frame_format.setBorder(0)
+            frame_format.setMargin(0)
+            frame_format.setPadding(0)
+            doc.rootFrame().setFrameFormat(frame_format)
+
+            # Make it editable
+            self._edit_label_item.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
+
+            # Make it ignore transformations like the static label
+            self._edit_label_item.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
+
+            # Position it exactly where the static label is
+            if self._label_item is not None:
+                # Copy the exact position from the static label
+                self._edit_label_item.setPos(self._label_item.pos())
+            else:
+                # Fallback positioning if no static label exists
+                bounds = self.boundingRect()  # type: ignore[attr-defined]
+                center = bounds.center()
+                label_bounds = self._edit_label_item.boundingRect()
+                offset_x = label_bounds.width() / 2.0
+                offset_y = label_bounds.height() / 2.0
+                self._edit_label_item.setPos(center.x() - offset_x, center.y() - offset_y)
+
+            # Connect signal to reposition as text changes
+            self._edit_label_item.document().contentsChanged.connect(self._reposition_edit_label)
+        else:
+            # Update text and show
+            self._edit_label_item.setPlainText(self._name)
+            self._edit_label_item.show()
+
+        # Give it focus and select all text
+        self._edit_label_item.setFocus()
+        cursor = self._edit_label_item.textCursor()
+        cursor.select(cursor.SelectionType.Document)
+        self._edit_label_item.setTextCursor(cursor)
+
+    def _reposition_edit_label(self) -> None:
+        """Reposition the edit label as text changes size."""
+        if self._edit_label_item is None or not hasattr(self, 'boundingRect'):
+            return
+
+        bounds = self.boundingRect()  # type: ignore[attr-defined]
+        center = bounds.center()
+        label_bounds = self._edit_label_item.boundingRect()
+        offset_x = label_bounds.width() / 2.0
+        offset_y = label_bounds.height() / 2.0
+        self._edit_label_item.setPos(center.x() - offset_x, center.y() - offset_y)
+
+    def _finish_label_edit(self) -> None:
+        """Finish editing the label and save changes."""
+        if self._edit_label_item is None or not self._edit_label_item.isVisible():
+            return
+
+        # Get the edited text
+        new_text = self._edit_label_item.toPlainText().strip()
+
+        # Hide the edit item
+        self._edit_label_item.hide()
+
+        # Update the name (this will update or remove the static label)
+        self.name = new_text
+
+        # Show the static label again if there's text
+        if self._label_item is not None:
+            self._label_item.show()
+
+    def _cancel_label_edit(self) -> None:
+        """Cancel editing the label without saving changes."""
+        if self._edit_label_item is None:
+            return
+
+        # Hide the edit item
+        self._edit_label_item.hide()
+
+        # Show the static label again
+        if self._label_item is not None:
+            self._label_item.show()
