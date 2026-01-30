@@ -48,6 +48,11 @@ class ObjectType(Enum):
     WALL = auto()
     PATH = auto()
 
+    # Plant types (circle-based)
+    TREE = auto()
+    SHRUB = auto()
+    PERENNIAL = auto()
+
     # Generic geometric shapes (for backwards compatibility)
     GENERIC_RECTANGLE = auto()
     GENERIC_POLYGON = auto()
@@ -108,6 +113,27 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         stroke_color=QColor(34, 139, 34),  # Forest green
         stroke_width=2.5,
         display_name="Greenhouse",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.TREE: ObjectStyle(
+        fill_color=QColor(34, 139, 34, 100),  # Forest green
+        stroke_color=QColor(85, 107, 47),  # Dark olive green
+        stroke_width=3.0,
+        display_name="Tree",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.SHRUB: ObjectStyle(
+        fill_color=QColor(107, 142, 35, 120),  # Olive drab
+        stroke_color=QColor(85, 107, 47),  # Dark olive green
+        stroke_width=2.5,
+        display_name="Shrub",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.PERENNIAL: ObjectStyle(
+        fill_color=QColor(154, 205, 50, 100),  # Yellow green
+        stroke_color=QColor(34, 139, 34),  # Forest green
+        stroke_width=2.0,
+        display_name="Perennial",
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.FENCE: ObjectStyle(

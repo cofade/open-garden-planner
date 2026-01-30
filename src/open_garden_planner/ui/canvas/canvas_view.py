@@ -180,6 +180,25 @@ class CanvasView(QGraphicsView):
         path_tool.shortcut = "L"
         self._tool_manager.register_tool(path_tool)
 
+        # Register plant tools (circle-based)
+        tree_tool = CircleTool(self, object_type=ObjectType.TREE)
+        tree_tool.tool_type = ToolType.TREE
+        tree_tool.display_name = "Tree"
+        tree_tool.shortcut = "1"
+        self._tool_manager.register_tool(tree_tool)
+
+        shrub_tool = CircleTool(self, object_type=ObjectType.SHRUB)
+        shrub_tool.tool_type = ToolType.SHRUB
+        shrub_tool.display_name = "Shrub"
+        shrub_tool.shortcut = "2"
+        self._tool_manager.register_tool(shrub_tool)
+
+        perennial_tool = CircleTool(self, object_type=ObjectType.PERENNIAL)
+        perennial_tool.tool_type = ToolType.PERENNIAL
+        perennial_tool.display_name = "Perennial"
+        perennial_tool.shortcut = "3"
+        self._tool_manager.register_tool(perennial_tool)
+
         # Connect tool change signal
         self._tool_manager.tool_changed.connect(self.tool_changed.emit)
 

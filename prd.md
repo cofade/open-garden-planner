@@ -610,11 +610,11 @@ open_garden_planner/
 | ~~US-3.8~~ | ~~As a user, I can copy and paste objects~~ | ✅ Must |
 
 **Technical Milestones**:
-- [ ] Object type hierarchy (PropertyObject subclasses)
-- [ ] Style system (fills, strokes, patterns)
-- [ ] Texture rendering with Qt
-- [ ] Layer model and UI panel
-- [ ] Clipboard integration
+- [x] Object type hierarchy (PropertyObject subclasses)
+- [x] Style system (fills, strokes, patterns)
+- [x] Texture rendering with Qt
+- [x] Layer model and UI panel
+- [x] Clipboard integration
 
 ### Phase 4: Plants & Metadata (v0.4)
 
@@ -622,7 +622,7 @@ open_garden_planner/
 
 | ID | User Story | Priority |
 |----|------------|----------|
-| US-4.1 | As a user, I can add plant objects (tree, shrub, perennial) | Must |
+| ~~US-4.1~~ | ~~As a user, I can add plant objects (tree, shrub, perennial)~~ | ✅ Must |
 | US-4.2 | As a user, I can set plant metadata (species, variety, dates) | Must |
 | US-4.3 | As a user, I can search for plant species from online database | Should |
 | US-4.4 | As a user, I can create custom plant species in my library | Must |
