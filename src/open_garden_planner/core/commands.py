@@ -322,3 +322,40 @@ class ChangePropertyCommand(Command):
             self._apply_func(self._item, self._old_value)
         elif hasattr(self._item, self._property_name):
             setattr(self._item, self._property_name, self._old_value)
+
+
+class ResizeItemCommand(Command):
+    """Command for resizing an item."""
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        old_geometry: dict[str, Any],
+        new_geometry: dict[str, Any],
+        apply_func: Callable[[QGraphicsItem, dict[str, Any]], None],
+    ) -> None:
+        """Initialize the resize command.
+
+        Args:
+            item: The item being resized
+            old_geometry: Dictionary containing old geometry data
+            new_geometry: Dictionary containing new geometry data
+            apply_func: Function to apply geometry to the item
+        """
+        self._item = item
+        self._old_geometry = old_geometry
+        self._new_geometry = new_geometry
+        self._apply_func = apply_func
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return "Resize item"
+
+    def execute(self) -> None:
+        """Apply the new geometry."""
+        self._apply_func(self._item, self._new_geometry)
+
+    def undo(self) -> None:
+        """Restore the old geometry."""
+        self._apply_func(self._item, self._old_geometry)

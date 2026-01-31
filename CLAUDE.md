@@ -141,7 +141,6 @@ tests/
 1. Vertex coordinate annotations on selection
 2. Rotate objects (15° snap)
 3. Edit polygon vertices
-4. Scale/resize objects (drag corners/edges)
 
 ## Progress (Phase 3: Objects & Styling)
 
@@ -163,3 +162,4 @@ tests/
 | ✅ | 4.1 | Add plant objects (tree, shrub, perennial) |
 | ✅ | 4.6 | Add garden beds with area calculation |
 | ✅ | 4.8 | Organized sidebar with tool panels |
+| ✅ | 4.9 | Resize objects by dragging handles |
