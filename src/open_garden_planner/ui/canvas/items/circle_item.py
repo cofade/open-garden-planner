@@ -207,10 +207,16 @@ class CircleItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsEllipseItem):
 
         return super().itemChange(change, value)
 
+    def _on_resize_start(self) -> None:
+        """Called when a resize operation starts. Store initial geometry."""
+        # Store the rect (not boundingRect) for accurate calculations
+        self._resize_initial_rect = self.rect()
+        self._resize_initial_pos = self.pos()
+
     def _apply_resize(
         self,
-        x: float,
-        y: float,
+        _x: float,
+        _y: float,
         width: float,
         height: float,
         pos_x: float,
@@ -222,38 +228,75 @@ class CircleItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsEllipseItem):
         minimum of width/height to determine the new radius.
 
         Args:
-            x: New x position of rect (in item coords)
-            y: New y position of rect (in item coords)
+            _x: New x position of rect (in item coords) - unused for circles
+            _y: New y position of rect (in item coords) - unused for circles
             width: New width
             height: New height
             pos_x: New scene x position
             pos_y: New scene y position
         """
+        # Get initial state (stored when resize started)
+        if not hasattr(self, '_resize_initial_rect') or self._resize_initial_rect is None:
+            self._resize_initial_rect = self.rect()
+        if not hasattr(self, '_resize_initial_pos') or self._resize_initial_pos is None:
+            self._resize_initial_pos = self.pos()
+
+        init_rect = self._resize_initial_rect
+        init_pos = self._resize_initial_pos
+
         # For circles, use the minimum dimension to maintain circular shape
         new_diameter = min(width, height)
         new_radius = new_diameter / 2.0
 
-        # Calculate the center offset from the original bounding rect
-        original_rect = self.rect()
-        original_center_x = original_rect.x() + original_rect.width() / 2.0
-        original_center_y = original_rect.y() + original_rect.height() / 2.0
+        # Determine which edges are fixed based on position change
+        # If pos_x stayed the same, left edge is fixed (we're dragging right)
+        # If pos_x changed, right edge is fixed (we're dragging left)
+        left_edge_fixed = abs(pos_x - init_pos.x()) < 0.01
+        top_edge_fixed = abs(pos_y - init_pos.y()) < 0.01
 
-        # Calculate new center based on resize direction
-        # Use the center of the requested resize rect
-        new_center_x = x + width / 2.0
-        new_center_y = y + height / 2.0
+        # Calculate new position to keep the appropriate edges fixed
+        if left_edge_fixed:  # Dragging right edge, keep left fixed
+            # Calculate left edge position in scene coords
+            left_edge_scene = init_pos.x() + init_rect.x()
+            # Position circle so its left edge stays at this position
+            new_pos_x = left_edge_scene
+        else:  # Dragging left edge, keep right fixed
+            # Calculate right edge position in scene coords
+            right_edge_scene = init_pos.x() + init_rect.x() + init_rect.width()
+            # Position circle so its right edge stays at this position
+            new_pos_x = right_edge_scene - new_diameter
 
-        # Update the ellipse rect (centered on new center)
-        new_x = new_center_x - new_radius
-        new_y = new_center_y - new_radius
-        self.setRect(new_x, new_y, new_diameter, new_diameter)
+        if top_edge_fixed:  # Dragging bottom edge, keep top fixed
+            # Calculate top edge position in scene coords
+            top_edge_scene = init_pos.y() + init_rect.y()
+            # Position circle so its top edge stays at this position
+            new_pos_y = top_edge_scene
+        else:  # Dragging top edge, keep bottom fixed
+            # Calculate bottom edge position in scene coords
+            bottom_edge_scene = init_pos.y() + init_rect.y() + init_rect.height()
+            # Position circle so its bottom edge stays at this position
+            new_pos_y = bottom_edge_scene - new_diameter
 
-        # Update internal center and radius
-        self._center = QPointF(new_center_x, new_center_y)
+        # Set the rect at origin in item coordinates
+        self.setRect(0, 0, new_diameter, new_diameter)
+
+        # Update internal center and radius (in item coordinates)
+        self._center = QPointF(new_radius, new_radius)
         self._radius = new_radius
 
         # Update position
-        self.setPos(pos_x, pos_y)
+        self.setPos(new_pos_x, new_pos_y)
+
+        # Update dimension display with actual circular dimensions
+        if hasattr(self, '_dimension_display') and self._dimension_display is not None:
+            # Use the actual constrained diameter (not the requested width/height)
+            # Get handle position for display positioning (approximate from center)
+            display_pos = self.scenePos() + QPointF(new_diameter, new_diameter)
+            self._dimension_display.update_dimensions(
+                new_diameter,
+                new_diameter,
+                display_pos,
+            )
 
         # Update resize handles
         self.update_resize_handles()

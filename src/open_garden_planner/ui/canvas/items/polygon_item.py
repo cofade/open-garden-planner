@@ -3,9 +3,10 @@
 import uuid
 from typing import Any
 
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QPen, QPolygonF
 from PyQt6.QtWidgets import (
+    QGraphicsItem,
     QGraphicsPolygonItem,
     QGraphicsSceneContextMenuEvent,
     QGraphicsSceneMouseEvent,
@@ -16,6 +17,7 @@ from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_b
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 
 from .garden_item import GardenItemMixin
+from .resize_handle import ResizeHandlesMixin
 
 
 def _show_properties_dialog(item: QGraphicsPolygonItem) -> None:
@@ -90,7 +92,7 @@ def _show_properties_dialog(item: QGraphicsPolygonItem) -> None:
         item.setPen(pen)
 
 
-class PolygonItem(GardenItemMixin, QGraphicsPolygonItem):
+class PolygonItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsPolygonItem):
     """A polygon shape on the garden canvas.
 
     Supports property object types with appropriate styling.
@@ -134,6 +136,10 @@ class PolygonItem(GardenItemMixin, QGraphicsPolygonItem):
         polygon = QPolygonF(vertices)
         QGraphicsPolygonItem.__init__(self, polygon)
 
+        # Initialize resize handles
+        self.init_resize_handles()
+        self._resize_initial_polygon: QPolygonF | None = None
+
         self._setup_styling()
         self._setup_flags()
         self.initialize_label()
@@ -162,6 +168,153 @@ class PolygonItem(GardenItemMixin, QGraphicsPolygonItem):
         """Configure item interaction flags."""
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemIsMovable, True)
+        self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+
+    def itemChange(
+        self,
+        change: QGraphicsItem.GraphicsItemChange,
+        value: Any,
+    ) -> Any:
+        """Handle item state changes.
+
+        Shows/hides resize handles based on selection state.
+        """
+        if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
+            if value:  # Being selected
+                self.show_resize_handles()
+            else:  # Being deselected
+                self.hide_resize_handles()
+
+        return super().itemChange(change, value)
+
+    def _on_resize_start(self) -> None:
+        """Called when a resize operation starts. Store initial polygon."""
+        super()._on_resize_start()
+        self._resize_initial_polygon = QPolygonF(self.polygon())
+
+    def _apply_resize(
+        self,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        pos_x: float,
+        pos_y: float,
+    ) -> None:
+        """Apply a resize transformation to this polygon.
+
+        Scales polygon vertices proportionally based on bounding box change.
+
+        Args:
+            x: New x position of rect (in item coords)
+            y: New y position of rect (in item coords)
+            width: New width
+            height: New height
+            pos_x: New scene x position
+            pos_y: New scene y position
+        """
+        # Get current polygon and bounding rect
+        current_poly = self.polygon()
+        old_rect = current_poly.boundingRect()
+
+        # Calculate scale factors
+        scale_x = width / old_rect.width() if old_rect.width() > 0 else 1.0
+        scale_y = height / old_rect.height() if old_rect.height() > 0 else 1.0
+
+        # Scale each vertex relative to the bounding rect's top-left
+        new_vertices = []
+        for i in range(current_poly.count()):
+            old_point = current_poly.at(i)
+            # Calculate relative position within bounding rect
+            rel_x = old_point.x() - old_rect.x()
+            rel_y = old_point.y() - old_rect.y()
+            # Scale and reposition
+            new_x = x + rel_x * scale_x
+            new_y = y + rel_y * scale_y
+            new_vertices.append(QPointF(new_x, new_y))
+
+        # Update polygon
+        self.setPolygon(QPolygonF(new_vertices))
+
+        # Update position
+        self.setPos(pos_x, pos_y)
+
+        # Update resize handles
+        self.update_resize_handles()
+
+        # Update label position
+        self._position_label()
+
+    def _on_resize_end(
+        self,
+        initial_rect: QRectF | None,
+        initial_pos: QPointF | None,
+    ) -> None:
+        """Called when resize operation completes. Registers undo command."""
+        if initial_rect is None or initial_pos is None or self._resize_initial_polygon is None:
+            return
+
+        scene = self.scene()
+        if scene is None or not hasattr(scene, 'get_command_manager'):
+            return
+
+        command_manager = scene.get_command_manager()
+        if command_manager is None:
+            return
+
+        # Get current geometry
+        current_pos = self.pos()
+        current_poly = self.polygon()
+
+        # Only register command if geometry actually changed
+        if (self._resize_initial_polygon == current_poly and initial_pos == current_pos):
+            self._resize_initial_polygon = None
+            return
+
+        from open_garden_planner.core.commands import ResizeItemCommand
+
+        def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
+            """Apply geometry to the item."""
+            if isinstance(item, PolygonItem):
+                # Reconstruct polygon from vertices
+                vertices = [QPointF(v['x'], v['y']) for v in geom['vertices']]
+                item.setPolygon(QPolygonF(vertices))
+                item.setPos(geom['pos_x'], geom['pos_y'])
+                item.update_resize_handles()
+                item._position_label()
+
+        # Convert polygon vertices to serializable format
+        def polygon_to_vertices(poly: QPolygonF) -> list[dict[str, float]]:
+            return [{'x': poly.at(i).x(), 'y': poly.at(i).y()} for i in range(poly.count())]
+
+        old_geometry = {
+            'vertices': polygon_to_vertices(self._resize_initial_polygon),
+            'pos_x': initial_pos.x(),
+            'pos_y': initial_pos.y(),
+        }
+
+        new_geometry = {
+            'vertices': polygon_to_vertices(current_poly),
+            'pos_x': current_pos.x(),
+            'pos_y': current_pos.y(),
+        }
+
+        command = ResizeItemCommand(
+            self,
+            old_geometry,
+            new_geometry,
+            apply_geometry,
+        )
+
+        # Add to undo stack without executing (geometry already applied)
+        command_manager._undo_stack.append(command)
+        command_manager._redo_stack.clear()
+        command_manager.can_undo_changed.emit(True)
+        command_manager.can_redo_changed.emit(False)
+        command_manager.command_executed.emit(command.description)
+
+        # Clear stored initial polygon
+        self._resize_initial_polygon = None
 
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Handle double-click to edit label inline."""

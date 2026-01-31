@@ -141,17 +141,6 @@ tests/
 1. Vertex coordinate annotations on selection
 2. Rotate objects (15° snap)
 3. Edit polygon vertices
-4. Scale/resize objects (drag corners/edges)
-  - Create ResizeHandle class for visual handles
-  - Create ResizeCommand for undo/redo support
-  - Add resize handles to RectangleItem
-  - Add resize handles to CircleItem
-  - Add resize handles to PolygonItem
-  - Implement cursor changes on handle hover
-  - Add dimension display during resize
-  - Enforce minimum size (1cm) constraint
-  - Write tests for resize functionality
-  - Run lint and tests
 
 ## Progress (Phase 3: Objects & Styling)
 
@@ -173,3 +162,4 @@ tests/
 | ✅ | 4.1 | Add plant objects (tree, shrub, perennial) |
 | ✅ | 4.6 | Add garden beds with area calculation |
 | ✅ | 4.8 | Organized sidebar with tool panels |
+| ✅ | 4.9 | Resize objects by dragging handles |

@@ -1,15 +1,17 @@
 """Resize handles for scaling garden items."""
 
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QPen
+from PyQt6.QtGui import QBrush, QColor, QFont, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QGraphicsItem,
+    QGraphicsPathItem,
     QGraphicsRectItem,
     QGraphicsSceneHoverEvent,
     QGraphicsSceneMouseEvent,
+    QGraphicsSimpleTextItem,
 )
 
 if TYPE_CHECKING:
@@ -49,6 +51,80 @@ HANDLE_SIZE = 8.0  # pixels (cosmetic)
 HANDLE_COLOR = QColor(0, 120, 215)  # Blue
 HANDLE_HOVER_COLOR = QColor(0, 180, 255)  # Lighter blue
 HANDLE_BORDER_COLOR = QColor(255, 255, 255)  # White border
+
+
+class DimensionDisplay(QGraphicsItem):
+    """Display widget showing dimensions during resize operation.
+
+    Shows width x height in a tooltip-like box near the cursor.
+    """
+
+    def __init__(self, parent: QGraphicsItem | None = None) -> None:
+        """Initialize dimension display."""
+        super().__init__(parent)
+
+        # Create background box
+        self._background = QGraphicsPathItem(self)
+        self._background.setPen(QPen(QColor(60, 60, 60), 1))
+        self._background.setBrush(QBrush(QColor(240, 240, 240, 230)))
+
+        # Create text item
+        self._text = QGraphicsSimpleTextItem(self)
+        font = QFont("Segoe UI", 9)
+        self._text.setFont(font)
+        self._text.setBrush(QBrush(QColor(0, 0, 0)))
+
+        # Make it render at fixed screen size
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        self.setZValue(2000)  # Above everything
+
+        self.hide()
+
+    def boundingRect(self) -> QRectF:
+        """Return bounding rectangle."""
+        return self.childrenBoundingRect()
+
+    def paint(self, painter, option, widget=None) -> None:
+        """Paint method (required by QGraphicsItem)."""
+        pass
+
+    def update_dimensions(self, width: float, height: float, pos: QPointF) -> None:
+        """Update the displayed dimensions.
+
+        Args:
+            width: Width in centimeters
+            height: Height in centimeters
+            pos: Position in scene coordinates to display near
+        """
+        # Format dimensions (convert cm to m if > 100cm)
+        width_str = f"{width / 100:.2f}m" if width >= 100 else f"{width:.1f}cm"
+        height_str = f"{height / 100:.2f}m" if height >= 100 else f"{height:.1f}cm"
+
+        # Set text
+        text = f"{width_str} × {height_str}"
+        self._text.setText(text)
+
+        # Update background size based on text
+        text_rect = self._text.boundingRect()
+        padding = 6
+        bg_rect = text_rect.adjusted(-padding, -padding, padding, padding)
+
+        path = QPainterPath()
+        path.addRoundedRect(bg_rect, 4, 4)
+        self._background.setPath(path)
+
+        # Position text within background
+        self._text.setPos(bg_rect.left() + padding, bg_rect.top() + padding)
+
+        # Position the display near the cursor
+        self.setPos(pos.x() + 15, pos.y() + 15)
+
+        # Show the display
+        self.show()
+
+    def hide_display(self) -> None:
+        """Hide the dimension display."""
+        self.hide()
 
 
 class ResizeHandle(QGraphicsRectItem):
@@ -179,6 +255,12 @@ class ResizeHandle(QGraphicsRectItem):
         if event.button() == Qt.MouseButton.LeftButton and self._is_dragging:
             self._is_dragging = False
 
+            # Hide dimension display
+            if (self._parent_item is not None and
+                hasattr(self._parent_item, '_dimension_display') and
+                self._parent_item._dimension_display is not None):
+                self._parent_item._dimension_display.hide_display()
+
             # Notify parent that resize is complete
             if self._parent_item is not None and hasattr(self._parent_item, '_on_resize_end'):
                 self._parent_item._on_resize_end(
@@ -218,14 +300,6 @@ class ResizeHandle(QGraphicsRectItem):
         pos_dy = 0.0
 
         # Determine what changes based on handle position
-        # For corners, check if proportional resize should be applied
-        is_corner = self._position in {
-            HandlePosition.TOP_LEFT,
-            HandlePosition.TOP_RIGHT,
-            HandlePosition.BOTTOM_LEFT,
-            HandlePosition.BOTTOM_RIGHT,
-        }
-
         if self._position in {
             HandlePosition.TOP_LEFT,
             HandlePosition.MIDDLE_LEFT,
@@ -276,6 +350,17 @@ class ResizeHandle(QGraphicsRectItem):
         new_width = max(new_width, MINIMUM_SIZE_CM)
         new_height = max(new_height, MINIMUM_SIZE_CM)
 
+        # Update dimension display
+        if (hasattr(self._parent_item, '_dimension_display') and
+            self._parent_item._dimension_display is not None):
+            # Get cursor position for display
+            cursor_pos = self.scenePos()
+            self._parent_item._dimension_display.update_dimensions(
+                new_width,
+                new_height,
+                cursor_pos,
+            )
+
         # Apply the resize to parent
         if hasattr(self._parent_item, '_apply_resize'):
             self._parent_item._apply_resize(
@@ -298,12 +383,14 @@ class ResizeHandlesMixin:
     _resize_handles: list[ResizeHandle]
     _resize_initial_rect: QRectF | None
     _resize_initial_pos: QPointF | None
+    _dimension_display: DimensionDisplay | None
 
     def init_resize_handles(self) -> None:
         """Initialize resize handles (call in subclass __init__)."""
         self._resize_handles = []
         self._resize_initial_rect = None
         self._resize_initial_pos = None
+        self._dimension_display = None
 
     def create_resize_handles(self) -> None:
         """Create all 8 resize handles as child items."""
@@ -319,6 +406,14 @@ class ResizeHandlesMixin:
             handle.update_position()
             self._resize_handles.append(handle)
 
+        # Create dimension display if it doesn't exist
+        if not hasattr(self, '_dimension_display') or self._dimension_display is None:
+            scene = getattr(self, 'scene', lambda: None)()
+            if scene is not None:
+                self._dimension_display = DimensionDisplay()
+                scene.addItem(self._dimension_display)
+                self._dimension_display.hide()
+
     def remove_resize_handles(self) -> None:
         """Remove all resize handles."""
         if not hasattr(self, '_resize_handles'):
@@ -328,6 +423,12 @@ class ResizeHandlesMixin:
             if handle.scene() is not None:
                 handle.scene().removeItem(handle)
         self._resize_handles = []
+
+        # Remove dimension display
+        if hasattr(self, '_dimension_display') and self._dimension_display is not None:
+            if self._dimension_display.scene() is not None:
+                self._dimension_display.scene().removeItem(self._dimension_display)
+            self._dimension_display = None
 
     def update_resize_handles(self) -> None:
         """Update positions of all resize handles."""
