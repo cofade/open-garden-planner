@@ -351,7 +351,9 @@ class GardenPlannerApp(QMainWindow):
         sidebar_layout.addWidget(tools_panel)
 
         # 2. Properties Panel (collapsible)
-        self.properties_panel = PropertiesPanel()
+        self.properties_panel = PropertiesPanel(
+            command_manager=self.canvas_view.command_manager
+        )
         props_panel = CollapsiblePanel("Properties", self.properties_panel, expanded=True)
         sidebar_layout.addWidget(props_panel)
 

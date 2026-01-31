@@ -42,6 +42,7 @@ class ObjectType(Enum):
     DRIVEWAY = auto()
     POND_POOL = auto()
     GREENHOUSE = auto()
+    GARDEN_BED = auto()
 
     # Polyline-based structures
     FENCE = auto()
@@ -114,6 +115,13 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         stroke_width=2.5,
         display_name="Greenhouse",
         fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.GARDEN_BED: ObjectStyle(
+        fill_color=QColor(139, 90, 43, 120),  # Brown soil
+        stroke_color=QColor(34, 139, 34),  # Forest green border
+        stroke_width=2.5,
+        display_name="Garden Bed",
+        fill_pattern=FillPattern.SOIL,
     ),
     ObjectType.TREE: ObjectStyle(
         fill_color=QColor(34, 139, 34, 100),  # Forest green

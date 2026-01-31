@@ -1,6 +1,6 @@
 """Properties panel for live editing of selected objects."""
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QPen
 from PyQt6.QtWidgets import (
     QColorDialog,
@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.commands import ChangePropertyCommand, CommandManager
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 from open_garden_planner.ui.canvas.items import (
@@ -81,19 +82,33 @@ class PropertiesPanel(QWidget):
     """Panel for live editing of selected object properties.
 
     Shows properties of currently selected objects and allows immediate editing.
-    Changes are applied in real-time to the canvas.
+    Changes are applied in real-time to the canvas with undo support.
     """
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        command_manager: CommandManager | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         """Initialize the properties panel.
 
         Args:
+            command_manager: Optional command manager for undo support
             parent: Parent widget
         """
         super().__init__(parent)
+        self._command_manager = command_manager
         self._current_items: list[QGraphicsItem] = []
         self._updating = False  # Prevent feedback loops
         self._setup_ui()
+
+    def set_command_manager(self, command_manager: CommandManager) -> None:
+        """Set the command manager for undo support.
+
+        Args:
+            command_manager: The command manager to use
+        """
+        self._command_manager = command_manager
 
     def _setup_ui(self) -> None:
         """Set up the UI components."""
@@ -236,6 +251,10 @@ class PropertiesPanel(QWidget):
                 ObjectType.DRIVEWAY,
                 ObjectType.POND_POOL,
                 ObjectType.GREENHOUSE,
+                ObjectType.GARDEN_BED,
+                ObjectType.TREE,
+                ObjectType.SHRUB,
+                ObjectType.PERENNIAL,
             ]
         elif isinstance(item, PolylineItem):
             valid_types = [
@@ -377,8 +396,90 @@ class PropertiesPanel(QWidget):
         plant_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._form_layout.addRow(plant_label)
 
+    def _capture_item_state(self, item: QGraphicsItem) -> dict:
+        """Capture the current state of an item for undo purposes.
+
+        Args:
+            item: The item to capture state from
+
+        Returns:
+            Dictionary with all relevant property values
+        """
+        state = {}
+        if hasattr(item, 'object_type'):
+            state['object_type'] = item.object_type
+        if hasattr(item, 'name'):
+            state['name'] = item.name
+        if hasattr(item, 'layer_id'):
+            state['layer_id'] = item.layer_id
+        if hasattr(item, 'fill_color'):
+            state['fill_color'] = QColor(item.fill_color) if item.fill_color else None
+        if hasattr(item, 'fill_pattern'):
+            state['fill_pattern'] = item.fill_pattern
+        if hasattr(item, 'stroke_color'):
+            state['stroke_color'] = QColor(item.stroke_color) if item.stroke_color else None
+        if hasattr(item, 'stroke_width'):
+            state['stroke_width'] = item.stroke_width
+        if hasattr(item, 'stroke_style'):
+            state['stroke_style'] = item.stroke_style
+        return state
+
+    def _apply_item_state(self, item: QGraphicsItem, state: dict) -> None:
+        """Apply a captured state to an item.
+
+        Args:
+            item: The item to apply state to
+            state: Dictionary with property values
+        """
+        if 'object_type' in state and hasattr(item, 'object_type'):
+            item.object_type = state['object_type']
+
+        if 'name' in state and hasattr(item, 'name'):
+            item.name = state['name']
+            if hasattr(item, '_update_label'):
+                item._update_label()
+
+        if 'layer_id' in state and hasattr(item, 'layer_id'):
+            item.layer_id = state['layer_id']
+            scene = item.scene()
+            if scene and hasattr(scene, 'get_layer_by_id'):
+                layer = scene.get_layer_by_id(state['layer_id'])
+                if layer:
+                    item.setZValue(layer.z_order * 100)
+
+        if 'fill_color' in state and hasattr(item, 'fill_color'):
+            item.fill_color = state['fill_color']
+        if 'fill_pattern' in state and hasattr(item, 'fill_pattern'):
+            item.fill_pattern = state['fill_pattern']
+        if 'stroke_color' in state and hasattr(item, 'stroke_color'):
+            item.stroke_color = state['stroke_color']
+        if 'stroke_width' in state and hasattr(item, 'stroke_width'):
+            item.stroke_width = state['stroke_width']
+        if 'stroke_style' in state and hasattr(item, 'stroke_style'):
+            item.stroke_style = state['stroke_style']
+
+        # Update visual appearance
+        if not isinstance(item, PolylineItem):
+            pattern = state.get('fill_pattern', FillPattern.SOLID)
+            color = state.get('fill_color') or item.brush().color()
+            brush = create_pattern_brush(pattern, color)
+            item.setBrush(brush)
+
+        stroke_color = state.get('stroke_color') or item.pen().color()
+        stroke_width = state.get('stroke_width', item.pen().widthF())
+        stroke_style = state.get('stroke_style', StrokeStyle.SOLID)
+        pen = QPen(stroke_color)
+        pen.setWidthF(stroke_width)
+        pen.setStyle(stroke_style.to_qt_pen_style())
+        item.setPen(pen)
+
+        # Update scene
+        scene = item.scene()
+        if scene:
+            scene.update()
+
     def _on_property_changed(self, item: QGraphicsItem, property_name: str, value) -> None:
-        """Handle property change.
+        """Handle property change with undo support.
 
         Args:
             item: Item being edited
@@ -388,74 +489,138 @@ class PropertiesPanel(QWidget):
         if self._updating:
             return
 
+        # Capture old state for undo
+        old_state = self._capture_item_state(item)
+
         # Apply the change to the item
         if property_name == 'object_type' and hasattr(item, 'object_type'):
-            item.object_type = value
-            # Apply default style for new type
+            # Object type change affects many properties
             style = get_style(value)
+            new_state = {
+                'object_type': value,
+                'fill_color': style.fill_color,
+                'fill_pattern': style.fill_pattern,
+                'stroke_color': style.stroke_color,
+                'stroke_width': style.stroke_width,
+                'stroke_style': style.stroke_style,
+            }
+            self._apply_item_state(item, new_state)
 
-            # Update stroke
-            pen = QPen(style.stroke_color)
-            pen.setWidthF(style.stroke_width)
-            pen.setStyle(style.stroke_style.to_qt_pen_style())
-            item.setPen(pen)
+            # Create undo command if we have a command manager
+            if self._command_manager:
+                def apply_func(itm, state):
+                    self._apply_item_state(itm, state)
+                cmd = ChangePropertyCommand(item, "type", old_state, new_state, apply_func)
+                # Don't execute - already applied, just add to stack
+                self._command_manager._undo_stack.append(cmd)
+                self._command_manager._redo_stack.clear()
+                self._command_manager.can_undo_changed.emit(True)
+                self._command_manager.can_redo_changed.emit(False)
 
-            # Update fill (not for polylines)
-            if not isinstance(item, PolylineItem):
-                if hasattr(item, 'fill_pattern'):
-                    item.fill_pattern = style.fill_pattern
-                if hasattr(item, 'fill_color'):
-                    item.fill_color = style.fill_color
-                brush = create_pattern_brush(style.fill_pattern, style.fill_color)
-                item.setBrush(brush)
-
-            # Store properties
-            if hasattr(item, 'stroke_color'):
-                item.stroke_color = style.stroke_color
-            if hasattr(item, 'stroke_width'):
-                item.stroke_width = style.stroke_width
-            if hasattr(item, 'stroke_style'):
-                item.stroke_style = style.stroke_style
-
-            # Refresh the panel to show updated properties
-            self.set_selected_items([item])
+            # Defer panel refresh to avoid destroying widgets while signal is processing
+            QTimer.singleShot(0, lambda: self.set_selected_items([item]))
 
         elif property_name == 'name' and hasattr(item, 'name'):
+            old_name = item.name
             item.name = value
-            # Update label if it exists
             if hasattr(item, '_update_label'):
                 item._update_label()
 
+            if self._command_manager:
+                def apply_name(itm, val):
+                    itm.name = val
+                    if hasattr(itm, '_update_label'):
+                        itm._update_label()
+                cmd = ChangePropertyCommand(item, "name", old_name, value, apply_name)
+                self._command_manager._undo_stack.append(cmd)
+                self._command_manager._redo_stack.clear()
+                self._command_manager.can_undo_changed.emit(True)
+                self._command_manager.can_redo_changed.emit(False)
+
         elif property_name == 'layer_id' and hasattr(item, 'layer_id'):
+            old_layer = item.layer_id
             item.layer_id = value
-            # Update z-order based on new layer
             scene = item.scene()
             if scene and hasattr(scene, 'get_layer_by_id'):
                 layer = scene.get_layer_by_id(value)
                 if layer:
                     item.setZValue(layer.z_order * 100)
 
+            if self._command_manager:
+                def apply_layer(itm, val):
+                    itm.layer_id = val
+                    sc = itm.scene()
+                    if sc and hasattr(sc, 'get_layer_by_id'):
+                        lyr = sc.get_layer_by_id(val)
+                        if lyr:
+                            itm.setZValue(lyr.z_order * 100)
+                cmd = ChangePropertyCommand(item, "layer", old_layer, value, apply_layer)
+                self._command_manager._undo_stack.append(cmd)
+                self._command_manager._redo_stack.clear()
+                self._command_manager.can_undo_changed.emit(True)
+                self._command_manager.can_redo_changed.emit(False)
+
         elif property_name == 'fill_pattern':
+            old_pattern = item.fill_pattern if hasattr(item, 'fill_pattern') else FillPattern.SOLID
             if hasattr(item, 'fill_pattern'):
                 item.fill_pattern = value
-            # Get current color
             color = item.fill_color if hasattr(item, 'fill_color') and item.fill_color else item.brush().color()
             brush = create_pattern_brush(value, color)
             item.setBrush(brush)
 
+            if self._command_manager:
+                def apply_pattern(itm, val):
+                    if hasattr(itm, 'fill_pattern'):
+                        itm.fill_pattern = val
+                    c = itm.fill_color if hasattr(itm, 'fill_color') and itm.fill_color else itm.brush().color()
+                    itm.setBrush(create_pattern_brush(val, c))
+                cmd = ChangePropertyCommand(item, "fill pattern", old_pattern, value, apply_pattern)
+                self._command_manager._undo_stack.append(cmd)
+                self._command_manager._redo_stack.clear()
+                self._command_manager.can_undo_changed.emit(True)
+                self._command_manager.can_redo_changed.emit(False)
+
         elif property_name == 'stroke_width':
+            old_width = item.stroke_width if hasattr(item, 'stroke_width') else item.pen().widthF()
             if hasattr(item, 'stroke_width'):
                 item.stroke_width = value
             pen = item.pen()
             pen.setWidthF(value)
             item.setPen(pen)
 
+            if self._command_manager:
+                def apply_width(itm, val):
+                    if hasattr(itm, 'stroke_width'):
+                        itm.stroke_width = val
+                    p = itm.pen()
+                    p.setWidthF(val)
+                    itm.setPen(p)
+                cmd = ChangePropertyCommand(item, "stroke width", old_width, value, apply_width)
+                self._command_manager._undo_stack.append(cmd)
+                self._command_manager._redo_stack.clear()
+                self._command_manager.can_undo_changed.emit(True)
+                self._command_manager.can_redo_changed.emit(False)
+
         elif property_name == 'stroke_style':
+            old_style = item.stroke_style if hasattr(item, 'stroke_style') else StrokeStyle.SOLID
             if hasattr(item, 'stroke_style'):
                 item.stroke_style = value
             pen = item.pen()
             pen.setStyle(value.to_qt_pen_style())
             item.setPen(pen)
+
+            if self._command_manager:
+                def apply_stroke_style(itm, val):
+                    if hasattr(itm, 'stroke_style'):
+                        itm.stroke_style = val
+                    p = itm.pen()
+                    p.setStyle(val.to_qt_pen_style())
+                    itm.setPen(p)
+                cmd = ChangePropertyCommand(item, "stroke style", old_style, value, apply_stroke_style)
+                self._command_manager._undo_stack.append(cmd)
+                self._command_manager._redo_stack.clear()
+                self._command_manager.can_undo_changed.emit(True)
+                self._command_manager.can_redo_changed.emit(False)
 
         # Mark scene as modified
         scene = item.scene()
@@ -463,7 +628,7 @@ class PropertiesPanel(QWidget):
             scene.update()
 
     def _on_color_changed(self, item: QGraphicsItem, property_name: str, button: ColorButton) -> None:
-        """Handle color button change.
+        """Handle color button change with undo support.
 
         Args:
             item: Item being edited
@@ -476,6 +641,9 @@ class PropertiesPanel(QWidget):
         color = button.color
 
         if property_name == 'fill_color':
+            # Capture old value for undo
+            old_color = QColor(item.fill_color) if hasattr(item, 'fill_color') and item.fill_color else item.brush().color()
+
             # Store the color
             if hasattr(item, 'fill_color'):
                 item.fill_color = color
@@ -484,7 +652,23 @@ class PropertiesPanel(QWidget):
             brush = create_pattern_brush(pattern, color)
             item.setBrush(brush)
 
+            # Create undo command
+            if self._command_manager:
+                def apply_fill_color(itm, val):
+                    if hasattr(itm, 'fill_color'):
+                        itm.fill_color = val
+                    p = itm.fill_pattern if hasattr(itm, 'fill_pattern') else FillPattern.SOLID
+                    itm.setBrush(create_pattern_brush(p, val))
+                cmd = ChangePropertyCommand(item, "fill color", old_color, color, apply_fill_color)
+                self._command_manager._undo_stack.append(cmd)
+                self._command_manager._redo_stack.clear()
+                self._command_manager.can_undo_changed.emit(True)
+                self._command_manager.can_redo_changed.emit(False)
+
         elif property_name == 'stroke_color':
+            # Capture old value for undo
+            old_color = QColor(item.stroke_color) if hasattr(item, 'stroke_color') and item.stroke_color else item.pen().color()
+
             # Store the color
             if hasattr(item, 'stroke_color'):
                 item.stroke_color = color
@@ -492,6 +676,20 @@ class PropertiesPanel(QWidget):
             pen = item.pen()
             pen.setColor(color)
             item.setPen(pen)
+
+            # Create undo command
+            if self._command_manager:
+                def apply_stroke_color(itm, val):
+                    if hasattr(itm, 'stroke_color'):
+                        itm.stroke_color = val
+                    p = itm.pen()
+                    p.setColor(val)
+                    itm.setPen(p)
+                cmd = ChangePropertyCommand(item, "stroke color", old_color, color, apply_stroke_color)
+                self._command_manager._undo_stack.append(cmd)
+                self._command_manager._redo_stack.clear()
+                self._command_manager.can_undo_changed.emit(True)
+                self._command_manager.can_redo_changed.emit(False)
 
         # Mark scene as modified
         scene = item.scene()

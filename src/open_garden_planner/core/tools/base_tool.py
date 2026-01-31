@@ -24,6 +24,7 @@ class ToolType(Enum):
     DRIVEWAY = auto()
     POND_POOL = auto()
     GREENHOUSE = auto()
+    GARDEN_BED = auto()
 
     # Property object types (polyline-based)
     FENCE = auto()

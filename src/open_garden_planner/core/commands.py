@@ -5,7 +5,8 @@ executed, undone, and redone.
 """
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import QObject, QPointF, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
@@ -275,3 +276,49 @@ class MoveItemsCommand(Command):
         """Move items back by negative delta."""
         for item in self._items:
             item.moveBy(-self._delta.x(), -self._delta.y())
+
+
+class ChangePropertyCommand(Command):
+    """Command for changing a property on an item."""
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        property_name: str,
+        old_value,
+        new_value,
+        apply_func: Callable[[Any, Any], None] | None = None,
+    ) -> None:
+        """Initialize the change property command.
+
+        Args:
+            item: The item to modify
+            property_name: Name of the property being changed
+            old_value: The previous value
+            new_value: The new value
+            apply_func: Optional function to apply the change (takes item and value)
+        """
+        self._item = item
+        self._property_name = property_name
+        self._old_value = old_value
+        self._new_value = new_value
+        self._apply_func = apply_func
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return f"Change {self._property_name}"
+
+    def execute(self) -> None:
+        """Apply the new value."""
+        if self._apply_func:
+            self._apply_func(self._item, self._new_value)
+        elif hasattr(self._item, self._property_name):
+            setattr(self._item, self._property_name, self._new_value)
+
+    def undo(self) -> None:
+        """Restore the old value."""
+        if self._apply_func:
+            self._apply_func(self._item, self._old_value)
+        elif hasattr(self._item, self._property_name):
+            setattr(self._item, self._property_name, self._old_value)

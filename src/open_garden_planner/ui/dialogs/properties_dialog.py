@@ -141,7 +141,7 @@ class PropertiesDialog(QDialog):
 
             # Determine which object types are valid for this item
             if isinstance(self._item, (RectangleItem, PolygonItem, CircleItem)):
-                # All filled shapes can be any polygon-based structure
+                # All filled shapes can be any structure type
                 valid_types = [
                     ObjectType.GENERIC_RECTANGLE if isinstance(self._item, RectangleItem) else (
                         ObjectType.GENERIC_CIRCLE if isinstance(self._item, CircleItem) else ObjectType.GENERIC_POLYGON
@@ -152,6 +152,10 @@ class PropertiesDialog(QDialog):
                     ObjectType.DRIVEWAY,
                     ObjectType.POND_POOL,
                     ObjectType.GREENHOUSE,
+                    ObjectType.GARDEN_BED,
+                    ObjectType.TREE,
+                    ObjectType.SHRUB,
+                    ObjectType.PERENNIAL,
                 ]
             else:
                 # Default to all types

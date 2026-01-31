@@ -115,14 +115,21 @@ class DrawingToolsPanel(QWidget):
         self._add_tool(grid5, 0, 2, ToolType.PATH, "path", "👣", "Path (L)", "L")
         layout.addLayout(grid5)
 
-        # PLANTS
-        self._add_category("Plants", layout)
+        # GARDEN
+        self._add_category("Garden", layout)
         grid6 = QGridLayout()
         grid6.setSpacing(0)
-        self._add_tool(grid6, 0, 0, ToolType.TREE, "tree", "🌳", "Tree (1)", "1")
-        self._add_tool(grid6, 0, 1, ToolType.SHRUB, "shrub", "🪴", "Shrub (2)", "2")
-        self._add_tool(grid6, 0, 2, ToolType.PERENNIAL, "flower", "🌸", "Perennial (3)", "3")
+        self._add_tool(grid6, 0, 0, ToolType.GARDEN_BED, "garden_bed", "🌱", "Garden Bed (B)", "B")
         layout.addLayout(grid6)
+
+        # PLANTS
+        self._add_category("Plants", layout)
+        grid7 = QGridLayout()
+        grid7.setSpacing(0)
+        self._add_tool(grid7, 0, 0, ToolType.TREE, "tree", "🌳", "Tree (1)", "1")
+        self._add_tool(grid7, 0, 1, ToolType.SHRUB, "shrub", "🪴", "Shrub (2)", "2")
+        self._add_tool(grid7, 0, 2, ToolType.PERENNIAL, "flower", "🌸", "Perennial (3)", "3")
+        layout.addLayout(grid7)
 
         layout.addStretch()
 
