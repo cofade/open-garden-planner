@@ -90,8 +90,6 @@ class PolylineItem(GardenItemMixin, QGraphicsPathItem):
         duplicate_action = menu.addAction("Duplicate")
         duplicate_action.setEnabled(False)
 
-        properties_action = menu.addAction("Properties...")
-
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
@@ -100,13 +98,3 @@ class PolylineItem(GardenItemMixin, QGraphicsPathItem):
             scene = self.scene()
             for item in scene.selectedItems():
                 scene.removeItem(item)
-        elif action == properties_action:
-            # Note: Polylines don't have fill, only stroke
-            from open_garden_planner.ui.dialogs import PropertiesDialog
-            dialog = PropertiesDialog(self)
-            if dialog.exec() and hasattr(self, 'name'):
-                # Apply changes
-                self.name = dialog.get_name()
-                # Update the label if it exists
-                if hasattr(self, '_update_label'):
-                    self._update_label()  # type: ignore[attr-defined]

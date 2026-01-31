@@ -163,3 +163,4 @@ tests/
 | Status | US | Description |
 |--------|-----|-------------|
 | ✅ | 4.1 | Add plant objects (tree, shrub, perennial) |
+| ✅ | 4.8 | Organized sidebar with tool panels |

@@ -12,6 +12,8 @@ from PyQt6.QtWidgets import (
     QMenu,
     QMessageBox,
     QSplitter,
+    QVBoxLayout,
+    QWidget,
 )
 
 from open_garden_planner.core import (
@@ -23,8 +25,12 @@ from open_garden_planner.core import (
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
-from open_garden_planner.ui.panels.layers_panel import LayersPanel
-from open_garden_planner.ui.widgets import MainToolbar
+from open_garden_planner.ui.panels import (
+    DrawingToolsPanel,
+    LayersPanel,
+    PropertiesPanel,
+)
+from open_garden_planner.ui.widgets import CollapsiblePanel
 
 
 class GardenPlannerApp(QMainWindow):
@@ -46,7 +52,6 @@ class GardenPlannerApp(QMainWindow):
 
         # Set up UI components
         self._setup_menu_bar()
-        self._setup_toolbar()
         self._setup_status_bar()
         self._setup_central_widget()
 
@@ -248,10 +253,6 @@ class GardenPlannerApp(QMainWindow):
         about_qt_action.triggered.connect(QApplication.aboutQt)
         menu.addAction(about_qt_action)
 
-    def _setup_toolbar(self) -> None:
-        """Set up the main toolbar with tool buttons."""
-        self.toolbar = MainToolbar(self)
-        self.addToolBar(self.toolbar)
 
     def _setup_status_bar(self) -> None:
         """Set up the status bar with coordinate and zoom display."""
@@ -281,33 +282,20 @@ class GardenPlannerApp(QMainWindow):
         status_bar.showMessage("Ready")
 
     def _setup_central_widget(self) -> None:
-        """Set up the central widget area with canvas and layers panel."""
+        """Set up the central widget area with canvas and sidebar panels."""
         # Create canvas scene and view
         self.canvas_scene = CanvasScene(width_cm=5000, height_cm=3000)
         self.canvas_view = CanvasView(self.canvas_scene)
 
-        # Create layers panel
-        self.layers_panel = LayersPanel()
-        self.layers_panel.setFixedWidth(250)
-        self.layers_panel.set_layers(self.canvas_scene.layers)
+        # Create sidebar panels
+        self._setup_sidebar()
 
-        # Connect layers panel signals to scene
-        self.layers_panel.active_layer_changed.connect(self._on_active_layer_changed)
-        self.layers_panel.layer_visibility_changed.connect(self.canvas_scene.update_layer_visibility)
-        self.layers_panel.layer_lock_changed.connect(self.canvas_scene.update_layer_lock)
-        self.layers_panel.layer_opacity_changed.connect(self.canvas_scene.update_layer_opacity)
-        self.layers_panel.layers_reordered.connect(self._on_layers_reordered)
-        self.layers_panel.layer_renamed.connect(self._on_layer_renamed)
-
-        # Connect scene layer changes to panel
-        self.canvas_scene.layers_changed.connect(lambda: self.layers_panel.set_layers(self.canvas_scene.layers))
-
-        # Create splitter for canvas and layers panel
+        # Create splitter for canvas and sidebar
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(self.canvas_view)
-        splitter.addWidget(self.layers_panel)
+        splitter.addWidget(self.sidebar)
         splitter.setStretchFactor(0, 1)  # Canvas takes most space
-        splitter.setStretchFactor(1, 0)  # Layers panel fixed width
+        splitter.setStretchFactor(1, 0)  # Sidebar fixed width
 
         # Connect canvas signals to status bar updates
         self.canvas_view.coordinates_changed.connect(self.update_coordinates)
@@ -317,12 +305,13 @@ class GardenPlannerApp(QMainWindow):
         self.grid_action.triggered.connect(self._on_toggle_grid)
         self.snap_action.triggered.connect(self._on_toggle_snap)
 
-        # Connect toolbar to canvas view
-        self.toolbar.tool_selected.connect(self._on_tool_selected)
+        # Connect tool panel to canvas view
+        self.drawing_tools_panel.tool_selected.connect(self._on_tool_selected)
         self.canvas_view.tool_changed.connect(self.update_tool)
 
-        # Connect scene selection changes to status bar
+        # Connect scene selection changes to status bar and properties panel
         self.canvas_scene.selectionChanged.connect(self._on_selection_changed)
+        self.canvas_scene.selectionChanged.connect(self._update_properties_panel)
 
         # Connect delete action to canvas
         self._delete_action.triggered.connect(self.canvas_view._delete_selected_items)
@@ -346,6 +335,51 @@ class GardenPlannerApp(QMainWindow):
 
         # Initial selection display
         self.update_selection(0, [])
+
+    def _setup_sidebar(self) -> None:
+        """Set up the right sidebar with collapsible panels."""
+        # Create sidebar container
+        self.sidebar = QWidget()
+        self.sidebar.setFixedWidth(280)
+        sidebar_layout = QVBoxLayout(self.sidebar)
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.setSpacing(4)
+
+        # 1. Drawing Tools Panel (collapsible)
+        self.drawing_tools_panel = DrawingToolsPanel()
+        tools_panel = CollapsiblePanel("Drawing Tools", self.drawing_tools_panel, expanded=True)
+        sidebar_layout.addWidget(tools_panel)
+
+        # 2. Properties Panel (collapsible)
+        self.properties_panel = PropertiesPanel()
+        props_panel = CollapsiblePanel("Properties", self.properties_panel, expanded=True)
+        sidebar_layout.addWidget(props_panel)
+
+        # 3. Layers Panel (collapsible)
+        self.layers_panel = LayersPanel()
+        self.layers_panel.set_layers(self.canvas_scene.layers)
+
+        # Connect layers panel signals to scene
+        self.layers_panel.active_layer_changed.connect(self._on_active_layer_changed)
+        self.layers_panel.layer_visibility_changed.connect(self.canvas_scene.update_layer_visibility)
+        self.layers_panel.layer_lock_changed.connect(self.canvas_scene.update_layer_lock)
+        self.layers_panel.layer_opacity_changed.connect(self.canvas_scene.update_layer_opacity)
+        self.layers_panel.layers_reordered.connect(self._on_layers_reordered)
+        self.layers_panel.layer_renamed.connect(self._on_layer_renamed)
+
+        # Connect scene layer changes to panel
+        self.canvas_scene.layers_changed.connect(lambda: self.layers_panel.set_layers(self.canvas_scene.layers))
+
+        layers_panel = CollapsiblePanel("Layers", self.layers_panel, expanded=True)
+        sidebar_layout.addWidget(layers_panel)
+
+        # Add stretch at the bottom to push panels to top
+        sidebar_layout.addStretch()
+
+    def _update_properties_panel(self) -> None:
+        """Update properties panel with current selection."""
+        selected_items = self.canvas_scene.selectedItems()
+        self.properties_panel.set_selected_items(selected_items)
 
     # Slot methods for menu actions
 

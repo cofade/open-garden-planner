@@ -172,7 +172,7 @@ class LayersPanel(QWidget):
 
         # Title
         title = QLabel("Layers")
-        title.setStyleSheet("font-weight: bold; font-size: 14px;")
+        title.setStyleSheet("font-weight: bold;")
         layout.addWidget(title)
 
         # Layer list with limited height
