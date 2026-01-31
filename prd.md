@@ -686,6 +686,7 @@ open_garden_planner/
 | US-5.5 | As a user, I can switch between light and dark mode | Should |
 | US-5.6 | As a user, I see a welcome screen with recent projects | Should |
 | US-5.7 | As a user, my work is auto-saved periodically | Must |
+| US-5.8 | As a user, I have professional, consistent SVG icons for all drawing tools | Should |
 
 **Technical Milestones**:
 - [ ] PNG export with DPI options
@@ -696,6 +697,15 @@ open_garden_planner/
 - [ ] Auto-save and crash recovery
 - [ ] Welcome/start screen
 - [ ] Windows installer (PyInstaller)
+- [ ] Professional SVG icon set (consistent style, appropriate colors)
+
+**US-5.8 Acceptance Criteria**:
+- All 17 tool icons have professional, custom-designed SVG versions
+- Icons have consistent visual style (line weight, color palette, level of detail)
+- Icons are colorful and immediately recognizable (not monochrome)
+- Icons work well on both light and dark backgrounds
+- Garden/plant icons use appropriate botanical/architectural styling
+- Sources: Custom design, IconScout premium, or curated free set (Tabler/Heroicons customized)
 
 ### Phase 6: Advanced Features (v0.6+)
 
