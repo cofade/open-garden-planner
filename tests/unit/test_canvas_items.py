@@ -7,6 +7,8 @@ from PyQt6.QtCore import QPointF, QRectF
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsPolygonItem, QGraphicsRectItem
 
+from open_garden_planner.core.fill_patterns import FillPattern
+from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.items import (
     CircleItem,
     GardenItemMixin,
@@ -260,3 +262,70 @@ class TestCircleItem:
         assert item.radius == 25
         assert item.pos().x() == 10
         assert item.pos().y() == 20
+
+
+class TestGardenBedItem:
+    """Tests for garden bed items (PolygonItem with ObjectType.GARDEN_BED)."""
+
+    @pytest.fixture
+    def bed_vertices(self):
+        """Create garden bed vertices (rectangular bed)."""
+        return [
+            QPointF(0, 0),
+            QPointF(200, 0),
+            QPointF(200, 100),
+            QPointF(0, 100),
+        ]
+
+    def test_garden_bed_creation(self, bed_vertices) -> None:
+        """Test garden bed can be created."""
+        item = PolygonItem(bed_vertices, object_type=ObjectType.GARDEN_BED)
+        assert item is not None
+        assert item.object_type == ObjectType.GARDEN_BED
+
+    def test_garden_bed_fill_color(self, bed_vertices) -> None:
+        """Test garden bed has correct brown soil fill color."""
+        item = PolygonItem(bed_vertices, object_type=ObjectType.GARDEN_BED)
+        # Brown soil color (139, 90, 43) with alpha 120
+        expected = QColor(139, 90, 43, 120)
+        assert item.fill_color == expected
+
+    def test_garden_bed_stroke_color(self, bed_vertices) -> None:
+        """Test garden bed has correct forest green stroke color."""
+        item = PolygonItem(bed_vertices, object_type=ObjectType.GARDEN_BED)
+        # Forest green (#228B22)
+        expected = QColor(34, 139, 34)
+        assert item.pen().color() == expected
+
+    def test_garden_bed_fill_pattern(self, bed_vertices) -> None:
+        """Test garden bed has soil fill pattern."""
+        item = PolygonItem(bed_vertices, object_type=ObjectType.GARDEN_BED)
+        assert item.fill_pattern == FillPattern.SOIL
+
+    def test_garden_bed_metadata(self, bed_vertices) -> None:
+        """Test garden bed can store metadata."""
+        metadata = {
+            "soil_type": "loam",
+            "is_raised": True,
+            "height_cm": 30,
+        }
+        item = PolygonItem(
+            bed_vertices,
+            object_type=ObjectType.GARDEN_BED,
+            name="Vegetable Bed",
+            metadata=metadata,
+        )
+        assert item.name == "Vegetable Bed"
+        assert item.metadata["soil_type"] == "loam"
+        assert item.metadata["is_raised"] is True
+        assert item.metadata["height_cm"] == 30
+
+    def test_garden_bed_is_selectable(self, bed_vertices) -> None:
+        """Test garden bed is selectable."""
+        item = PolygonItem(bed_vertices, object_type=ObjectType.GARDEN_BED)
+        assert item.flags() & QGraphicsPolygonItem.GraphicsItemFlag.ItemIsSelectable
+
+    def test_garden_bed_is_movable(self, bed_vertices) -> None:
+        """Test garden bed is movable."""
+        item = PolygonItem(bed_vertices, object_type=ObjectType.GARDEN_BED)
+        assert item.flags() & QGraphicsPolygonItem.GraphicsItemFlag.ItemIsMovable

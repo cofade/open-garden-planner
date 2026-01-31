@@ -161,6 +161,12 @@ class CanvasView(QGraphicsView):
         greenhouse_tool.display_name = "Greenhouse"
         self._tool_manager.register_tool(greenhouse_tool)
 
+        garden_bed_tool = PolygonTool(self, object_type=ObjectType.GARDEN_BED)
+        garden_bed_tool.tool_type = ToolType.GARDEN_BED
+        garden_bed_tool.display_name = "Garden Bed"
+        garden_bed_tool.shortcut = "B"
+        self._tool_manager.register_tool(garden_bed_tool)
+
         # Register property object tools (polyline-based)
         fence_tool = PolylineTool(self, object_type=ObjectType.FENCE)
         fence_tool.tool_type = ToolType.FENCE

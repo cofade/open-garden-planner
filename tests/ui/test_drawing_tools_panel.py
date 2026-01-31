@@ -27,6 +27,7 @@ def test_drawing_tools_panel_has_all_tools(qtbot):  # noqa: ARG001
         ToolType.POLYGON,
         ToolType.CIRCLE,
         ToolType.HOUSE,
+        ToolType.GARDEN_BED,
         ToolType.TREE,
         ToolType.SHRUB,
         ToolType.PERENNIAL,
