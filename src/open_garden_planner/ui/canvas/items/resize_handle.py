@@ -1,0 +1,396 @@
+"""Resize handles for scaling garden items."""
+
+from enum import Enum, auto
+from typing import TYPE_CHECKING, Any
+
+from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtGui import QBrush, QColor, QPen
+from PyQt6.QtWidgets import (
+    QGraphicsItem,
+    QGraphicsRectItem,
+    QGraphicsSceneHoverEvent,
+    QGraphicsSceneMouseEvent,
+)
+
+if TYPE_CHECKING:
+    from PyQt6.QtWidgets import QGraphicsItem as ParentItem
+
+
+class HandlePosition(Enum):
+    """Position of resize handle on an item's bounding rect."""
+
+    TOP_LEFT = auto()
+    TOP_CENTER = auto()
+    TOP_RIGHT = auto()
+    MIDDLE_LEFT = auto()
+    MIDDLE_RIGHT = auto()
+    BOTTOM_LEFT = auto()
+    BOTTOM_CENTER = auto()
+    BOTTOM_RIGHT = auto()
+
+
+# Map handle positions to cursor shapes
+HANDLE_CURSORS = {
+    HandlePosition.TOP_LEFT: Qt.CursorShape.SizeFDiagCursor,
+    HandlePosition.TOP_RIGHT: Qt.CursorShape.SizeBDiagCursor,
+    HandlePosition.BOTTOM_LEFT: Qt.CursorShape.SizeBDiagCursor,
+    HandlePosition.BOTTOM_RIGHT: Qt.CursorShape.SizeFDiagCursor,
+    HandlePosition.TOP_CENTER: Qt.CursorShape.SizeVerCursor,
+    HandlePosition.BOTTOM_CENTER: Qt.CursorShape.SizeVerCursor,
+    HandlePosition.MIDDLE_LEFT: Qt.CursorShape.SizeHorCursor,
+    HandlePosition.MIDDLE_RIGHT: Qt.CursorShape.SizeHorCursor,
+}
+
+# Minimum size in centimeters
+MINIMUM_SIZE_CM = 1.0
+
+# Handle visual settings
+HANDLE_SIZE = 8.0  # pixels (cosmetic)
+HANDLE_COLOR = QColor(0, 120, 215)  # Blue
+HANDLE_HOVER_COLOR = QColor(0, 180, 255)  # Lighter blue
+HANDLE_BORDER_COLOR = QColor(255, 255, 255)  # White border
+
+
+class ResizeHandle(QGraphicsRectItem):
+    """A draggable handle for resizing items.
+
+    Handles are displayed at corners and edges of selected items.
+    Corner handles resize proportionally, edge handles resize single dimension.
+    """
+
+    def __init__(
+        self,
+        position: HandlePosition,
+        parent: "ParentItem",
+    ) -> None:
+        """Initialize the resize handle.
+
+        Args:
+            position: Which position this handle occupies
+            parent: The parent item this handle belongs to
+        """
+        super().__init__(parent)
+        self._position = position
+        self._parent_item = parent
+        self._is_dragging = False
+        self._drag_start_pos: QPointF | None = None
+        self._initial_rect: QRectF | None = None
+        self._initial_parent_pos: QPointF | None = None
+
+        self._setup_appearance()
+        self._setup_flags()
+
+    def _setup_appearance(self) -> None:
+        """Configure the visual appearance of the handle."""
+        # Set size - uses scene coordinates but we want fixed visual size
+        half_size = HANDLE_SIZE / 2.0
+        self.setRect(-half_size, -half_size, HANDLE_SIZE, HANDLE_SIZE)
+
+        # Style
+        self.setPen(QPen(HANDLE_BORDER_COLOR, 1.0))
+        self.setBrush(QBrush(HANDLE_COLOR))
+
+        # Make handle render at fixed screen size regardless of zoom
+        self.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIgnoresTransformations)
+
+    def _setup_flags(self) -> None:
+        """Configure interaction flags."""
+        self.setAcceptHoverEvents(True)
+        self.setCursor(HANDLE_CURSORS.get(self._position, Qt.CursorShape.ArrowCursor))
+        # Z-value above parent
+        self.setZValue(1000)
+
+    @property
+    def handle_position(self) -> HandlePosition:
+        """Get the position of this handle."""
+        return self._position
+
+    def update_position(self) -> None:
+        """Update handle position based on parent's bounding rect."""
+        if self._parent_item is None:
+            return
+
+        rect = self._parent_item.boundingRect()
+
+        # Calculate position based on handle position
+        positions = {
+            HandlePosition.TOP_LEFT: QPointF(rect.left(), rect.top()),
+            HandlePosition.TOP_CENTER: QPointF(rect.center().x(), rect.top()),
+            HandlePosition.TOP_RIGHT: QPointF(rect.right(), rect.top()),
+            HandlePosition.MIDDLE_LEFT: QPointF(rect.left(), rect.center().y()),
+            HandlePosition.MIDDLE_RIGHT: QPointF(rect.right(), rect.center().y()),
+            HandlePosition.BOTTOM_LEFT: QPointF(rect.left(), rect.bottom()),
+            HandlePosition.BOTTOM_CENTER: QPointF(rect.center().x(), rect.bottom()),
+            HandlePosition.BOTTOM_RIGHT: QPointF(rect.right(), rect.bottom()),
+        }
+
+        pos = positions.get(self._position, QPointF(0, 0))
+        self.setPos(pos)
+
+    def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
+        """Highlight handle on hover."""
+        self.setBrush(QBrush(HANDLE_HOVER_COLOR))
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event: QGraphicsSceneHoverEvent) -> None:
+        """Remove highlight when hover ends."""
+        self.setBrush(QBrush(HANDLE_COLOR))
+        super().hoverLeaveEvent(event)
+
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        """Start resize operation."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._is_dragging = True
+            self._drag_start_pos = event.scenePos()
+
+            # Store initial geometry
+            if self._parent_item is not None:
+                self._initial_rect = self._parent_item.boundingRect()
+                self._initial_parent_pos = self._parent_item.pos()
+
+                # Notify parent that resize is starting
+                if hasattr(self._parent_item, '_on_resize_start'):
+                    self._parent_item._on_resize_start()
+
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        """Handle resize during drag."""
+        if not self._is_dragging or self._drag_start_pos is None:
+            super().mouseMoveEvent(event)
+            return
+
+        if self._parent_item is None or self._initial_rect is None:
+            return
+
+        # Calculate delta in scene coordinates
+        current_pos = event.scenePos()
+        delta = current_pos - self._drag_start_pos
+
+        # Apply resize based on handle position
+        self._apply_resize(delta)
+
+        event.accept()
+
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        """Complete resize operation."""
+        if event.button() == Qt.MouseButton.LeftButton and self._is_dragging:
+            self._is_dragging = False
+
+            # Notify parent that resize is complete
+            if self._parent_item is not None and hasattr(self._parent_item, '_on_resize_end'):
+                self._parent_item._on_resize_end(
+                    self._initial_rect,
+                    self._initial_parent_pos,
+                )
+
+            self._drag_start_pos = None
+            self._initial_rect = None
+            self._initial_parent_pos = None
+
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+    def _apply_resize(self, delta: QPointF) -> None:
+        """Apply the resize transformation based on handle position and delta.
+
+        Args:
+            delta: Movement delta in scene coordinates
+        """
+        if self._parent_item is None or self._initial_rect is None:
+            return
+        if self._initial_parent_pos is None:
+            return
+
+        # Get initial values
+        init_rect = self._initial_rect
+        init_pos = self._initial_parent_pos
+
+        # Calculate new rect based on which handle is being dragged
+        new_x = init_rect.x()
+        new_y = init_rect.y()
+        new_width = init_rect.width()
+        new_height = init_rect.height()
+        pos_dx = 0.0
+        pos_dy = 0.0
+
+        # Determine what changes based on handle position
+        # For corners, check if proportional resize should be applied
+        is_corner = self._position in {
+            HandlePosition.TOP_LEFT,
+            HandlePosition.TOP_RIGHT,
+            HandlePosition.BOTTOM_LEFT,
+            HandlePosition.BOTTOM_RIGHT,
+        }
+
+        if self._position in {
+            HandlePosition.TOP_LEFT,
+            HandlePosition.MIDDLE_LEFT,
+            HandlePosition.BOTTOM_LEFT,
+        }:
+            # Left handles: adjust x and width
+            new_width = init_rect.width() - delta.x()
+            if new_width >= MINIMUM_SIZE_CM:
+                pos_dx = delta.x()
+            else:
+                new_width = MINIMUM_SIZE_CM
+                pos_dx = init_rect.width() - MINIMUM_SIZE_CM
+
+        if self._position in {
+            HandlePosition.TOP_RIGHT,
+            HandlePosition.MIDDLE_RIGHT,
+            HandlePosition.BOTTOM_RIGHT,
+        }:
+            # Right handles: adjust width only
+            new_width = init_rect.width() + delta.x()
+            if new_width < MINIMUM_SIZE_CM:
+                new_width = MINIMUM_SIZE_CM
+
+        if self._position in {
+            HandlePosition.TOP_LEFT,
+            HandlePosition.TOP_CENTER,
+            HandlePosition.TOP_RIGHT,
+        }:
+            # Top handles: adjust y and height
+            new_height = init_rect.height() - delta.y()
+            if new_height >= MINIMUM_SIZE_CM:
+                pos_dy = delta.y()
+            else:
+                new_height = MINIMUM_SIZE_CM
+                pos_dy = init_rect.height() - MINIMUM_SIZE_CM
+
+        if self._position in {
+            HandlePosition.BOTTOM_LEFT,
+            HandlePosition.BOTTOM_CENTER,
+            HandlePosition.BOTTOM_RIGHT,
+        }:
+            # Bottom handles: adjust height only
+            new_height = init_rect.height() + delta.y()
+            if new_height < MINIMUM_SIZE_CM:
+                new_height = MINIMUM_SIZE_CM
+
+        # Ensure minimum size
+        new_width = max(new_width, MINIMUM_SIZE_CM)
+        new_height = max(new_height, MINIMUM_SIZE_CM)
+
+        # Apply the resize to parent
+        if hasattr(self._parent_item, '_apply_resize'):
+            self._parent_item._apply_resize(
+                new_x,
+                new_y,
+                new_width,
+                new_height,
+                init_pos.x() + pos_dx,
+                init_pos.y() + pos_dy,
+            )
+
+
+class ResizeHandlesMixin:
+    """Mixin that adds resize handle functionality to garden items.
+
+    This mixin provides methods to create, show, hide, and manage
+    resize handles for any item type.
+    """
+
+    _resize_handles: list[ResizeHandle]
+    _resize_initial_rect: QRectF | None
+    _resize_initial_pos: QPointF | None
+
+    def init_resize_handles(self) -> None:
+        """Initialize resize handles (call in subclass __init__)."""
+        self._resize_handles = []
+        self._resize_initial_rect = None
+        self._resize_initial_pos = None
+
+    def create_resize_handles(self) -> None:
+        """Create all 8 resize handles as child items."""
+        if not hasattr(self, '_resize_handles'):
+            self._resize_handles = []
+
+        # Remove any existing handles
+        self.remove_resize_handles()
+
+        # Create handles for all 8 positions
+        for position in HandlePosition:
+            handle = ResizeHandle(position, self)  # type: ignore[arg-type]
+            handle.update_position()
+            self._resize_handles.append(handle)
+
+    def remove_resize_handles(self) -> None:
+        """Remove all resize handles."""
+        if not hasattr(self, '_resize_handles'):
+            return
+
+        for handle in self._resize_handles:
+            if handle.scene() is not None:
+                handle.scene().removeItem(handle)
+        self._resize_handles = []
+
+    def update_resize_handles(self) -> None:
+        """Update positions of all resize handles."""
+        if not hasattr(self, '_resize_handles'):
+            return
+
+        for handle in self._resize_handles:
+            handle.update_position()
+
+    def show_resize_handles(self) -> None:
+        """Show all resize handles."""
+        if not hasattr(self, '_resize_handles') or not self._resize_handles:
+            self.create_resize_handles()
+
+        for handle in self._resize_handles:
+            handle.show()
+
+    def hide_resize_handles(self) -> None:
+        """Hide all resize handles."""
+        if not hasattr(self, '_resize_handles'):
+            return
+
+        for handle in self._resize_handles:
+            handle.hide()
+
+    def _on_resize_start(self) -> None:
+        """Called when a resize operation starts."""
+        # Store initial state for undo
+        if hasattr(self, 'boundingRect'):
+            self._resize_initial_rect = self.boundingRect()  # type: ignore[attr-defined]
+        if hasattr(self, 'pos'):
+            self._resize_initial_pos = self.pos()  # type: ignore[attr-defined]
+
+    def _on_resize_end(
+        self,
+        initial_rect: QRectF | None,
+        initial_pos: QPointF | None,
+    ) -> None:
+        """Called when a resize operation completes.
+
+        Override in subclass to register undo command.
+        """
+        pass
+
+    def _apply_resize(
+        self,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        pos_x: float,
+        pos_y: float,
+    ) -> None:
+        """Apply a resize transformation.
+
+        Override in subclass to implement type-specific resizing.
+
+        Args:
+            x: New x position of bounding rect (in item coords)
+            y: New y position of bounding rect (in item coords)
+            width: New width
+            height: New height
+            pos_x: New scene x position
+            pos_y: New scene y position
+        """
+        pass

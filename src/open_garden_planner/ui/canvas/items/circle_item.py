@@ -3,10 +3,11 @@
 import uuid
 from typing import Any
 
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
+    QGraphicsItem,
     QGraphicsSceneContextMenuEvent,
     QGraphicsSceneMouseEvent,
     QMenu,
@@ -16,6 +17,7 @@ from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_b
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 
 from .garden_item import GardenItemMixin
+from .resize_handle import ResizeHandlesMixin
 
 
 def _show_properties_dialog(item: QGraphicsEllipseItem) -> None:
@@ -90,11 +92,11 @@ def _show_properties_dialog(item: QGraphicsEllipseItem) -> None:
         item.setPen(pen)
 
 
-class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
+class CircleItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsEllipseItem):
     """A circle shape on the garden canvas.
 
     Supports property object types with appropriate styling.
-    Supports selection and movement.
+    Supports selection, movement, and resizing.
     """
 
     def __init__(
@@ -145,6 +147,9 @@ class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
         self._center = QPointF(center_x, center_y)
         self._radius = radius
 
+        # Initialize resize handles
+        self.init_resize_handles()
+
         self._setup_styling()
         self._setup_flags()
         self.initialize_label()
@@ -173,6 +178,7 @@ class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
         """Configure item interaction flags."""
         self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemIsMovable, True)
+        self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
 
     @property
     def center(self) -> QPointF:
@@ -183,6 +189,155 @@ class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
     def radius(self) -> float:
         """Get circle radius."""
         return self._radius
+
+    def itemChange(
+        self,
+        change: QGraphicsItem.GraphicsItemChange,
+        value: Any,
+    ) -> Any:
+        """Handle item state changes.
+
+        Shows/hides resize handles based on selection state.
+        """
+        if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
+            if value:  # Being selected
+                self.show_resize_handles()
+            else:  # Being deselected
+                self.hide_resize_handles()
+
+        return super().itemChange(change, value)
+
+    def _apply_resize(
+        self,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        pos_x: float,
+        pos_y: float,
+    ) -> None:
+        """Apply a resize transformation to this circle.
+
+        For circles, we maintain the circular shape by using the
+        minimum of width/height to determine the new radius.
+
+        Args:
+            x: New x position of rect (in item coords)
+            y: New y position of rect (in item coords)
+            width: New width
+            height: New height
+            pos_x: New scene x position
+            pos_y: New scene y position
+        """
+        # For circles, use the minimum dimension to maintain circular shape
+        new_diameter = min(width, height)
+        new_radius = new_diameter / 2.0
+
+        # Calculate the center offset from the original bounding rect
+        original_rect = self.rect()
+        original_center_x = original_rect.x() + original_rect.width() / 2.0
+        original_center_y = original_rect.y() + original_rect.height() / 2.0
+
+        # Calculate new center based on resize direction
+        # Use the center of the requested resize rect
+        new_center_x = x + width / 2.0
+        new_center_y = y + height / 2.0
+
+        # Update the ellipse rect (centered on new center)
+        new_x = new_center_x - new_radius
+        new_y = new_center_y - new_radius
+        self.setRect(new_x, new_y, new_diameter, new_diameter)
+
+        # Update internal center and radius
+        self._center = QPointF(new_center_x, new_center_y)
+        self._radius = new_radius
+
+        # Update position
+        self.setPos(pos_x, pos_y)
+
+        # Update resize handles
+        self.update_resize_handles()
+
+        # Update label position
+        self._position_label()
+
+    def _on_resize_end(
+        self,
+        initial_rect: QRectF | None,
+        initial_pos: QPointF | None,
+    ) -> None:
+        """Called when resize operation completes. Registers undo command."""
+        if initial_rect is None or initial_pos is None:
+            return
+
+        scene = self.scene()
+        if scene is None or not hasattr(scene, 'get_command_manager'):
+            return
+
+        command_manager = scene.get_command_manager()
+        if command_manager is None:
+            return
+
+        # Get current geometry
+        current_rect = self.rect()
+        current_pos = self.pos()
+
+        # Only register command if geometry actually changed
+        if (initial_rect == current_rect and initial_pos == current_pos):
+            return
+
+        from open_garden_planner.core.commands import ResizeItemCommand
+
+        def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
+            """Apply geometry to the item."""
+            if isinstance(item, CircleItem):
+                item.setRect(
+                    geom['rect_x'],
+                    geom['rect_y'],
+                    geom['diameter'],
+                    geom['diameter'],
+                )
+                item._center = QPointF(geom['center_x'], geom['center_y'])
+                item._radius = geom['radius']
+                item.setPos(geom['pos_x'], geom['pos_y'])
+                item.update_resize_handles()
+                item._position_label()
+
+        old_geometry = {
+            'rect_x': initial_rect.x(),
+            'rect_y': initial_rect.y(),
+            'diameter': initial_rect.width(),  # Circles have equal width/height
+            'center_x': initial_rect.x() + initial_rect.width() / 2.0,
+            'center_y': initial_rect.y() + initial_rect.height() / 2.0,
+            'radius': initial_rect.width() / 2.0,
+            'pos_x': initial_pos.x(),
+            'pos_y': initial_pos.y(),
+        }
+
+        new_geometry = {
+            'rect_x': current_rect.x(),
+            'rect_y': current_rect.y(),
+            'diameter': current_rect.width(),
+            'center_x': self._center.x(),
+            'center_y': self._center.y(),
+            'radius': self._radius,
+            'pos_x': current_pos.x(),
+            'pos_y': current_pos.y(),
+        }
+
+        command = ResizeItemCommand(
+            self,
+            old_geometry,
+            new_geometry,
+            apply_geometry,
+        )
+
+        # Add to undo stack without executing (geometry already applied)
+        command_manager._undo_stack.append(command)
+        command_manager._redo_stack.clear()
+        command_manager.can_undo_changed.emit(True)
+        command_manager.can_redo_changed.emit(False)
+        command_manager.command_executed.emit(command.description)
 
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Handle double-click to edit label inline."""
