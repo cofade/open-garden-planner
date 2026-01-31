@@ -139,7 +139,12 @@ No existing tool combines:
 - **FR-EDIT-01**: Select tool (click, box select, Shift+click for multi-select)
 - **FR-EDIT-02**: Move objects (drag or arrow keys with Shift for precision)
 - **FR-EDIT-03**: Rotate objects (free rotation and snap to 15° increments)
-- **FR-EDIT-04**: Scale objects (maintain aspect ratio with Shift)
+- **FR-EDIT-04**: Scale objects via resize handles:
+  - 8 handles when selected: 4 corners (proportional resize) + 4 edges (single dimension)
+  - Circles: drag rim/circumference OR use corner handles
+  - Live preview with dimensions displayed near cursor during resize
+  - Minimum size: 1 cm (objects cannot be smaller)
+  - Cursor changes when hovering over handles/rims (resize cursors)
 - **FR-EDIT-05**: Delete objects (Delete key, context menu)
 - **FR-EDIT-06**: Duplicate objects (Ctrl+D)
 - **FR-EDIT-07**: Undo/Redo (Ctrl+Z, Ctrl+Y) with unlimited history per session
@@ -661,9 +666,10 @@ open_garden_planner/
 | US-4.3 | As a user, I can search for plant species from online database | Should |
 | US-4.4 | As a user, I can create custom plant species in my library | Must |
 | US-4.5 | As a user, I can view plant details in a properties panel | Must |
-| US-4.6 | As a user, I can add garden beds with area calculation | Must |
+| ~~US-4.6~~ | ~~As a user, I can add garden beds with area calculation~~ | ✅ Must |
 | US-4.7 | As a user, I can filter/search plants in my project | Should |
 | ~~US-4.8~~ | ~~As a user, I have a well-organized sidebar with icon-based tool panels~~ | ✅ Must |
+| US-4.9 | As a user, I can resize objects by dragging handles or edges | Must |
 
 **Technical Milestones**:
 - [ ] Plant model with full metadata schema
