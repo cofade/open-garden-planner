@@ -210,15 +210,11 @@ class CircleItem(GardenItemMixin, QGraphicsEllipseItem):
         duplicate_action = menu.addAction("Duplicate")
         duplicate_action.setEnabled(False)  # Placeholder
 
-        properties_action = menu.addAction("Properties...")
-
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
         if action == delete_action:
             self.scene().removeItem(self)
-        elif action == properties_action:
-            _show_properties_dialog(self)
 
     def to_dict(self) -> dict:
         """Serialize the item to a dictionary for saving."""

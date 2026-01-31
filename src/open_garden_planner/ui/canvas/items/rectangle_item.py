@@ -194,8 +194,6 @@ class RectangleItem(GardenItemMixin, QGraphicsRectItem):
         duplicate_action = menu.addAction("Duplicate")
         duplicate_action.setEnabled(False)  # Placeholder
 
-        properties_action = menu.addAction("Properties...")
-
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
@@ -204,8 +202,6 @@ class RectangleItem(GardenItemMixin, QGraphicsRectItem):
             scene = self.scene()
             for item in scene.selectedItems():
                 scene.removeItem(item)
-        elif action == properties_action:
-            _show_properties_dialog(self)
 
     @classmethod
     def from_rect(cls, rect: QRectF) -> "RectangleItem":
