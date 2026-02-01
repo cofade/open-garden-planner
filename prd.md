@@ -663,7 +663,7 @@ open_garden_planner/
 |----|------------|----------|
 | ~~US-4.1~~ | ~~As a user, I can add plant objects (tree, shrub, perennial)~~ | ✅ Must |
 | US-4.2 | As a user, I can set plant metadata (species, variety, dates) | Must |
-| US-4.3 | As a user, I can search for plant species from online database | Should |
+| ~~US-4.3~~ | ~~As a user, I can search for plant species from online database~~ | ✅ Should |
 | US-4.4 | As a user, I can create custom plant species in my library | Must |
 | US-4.5 | As a user, I can view plant details in a properties panel | Must |
 | ~~US-4.6~~ | ~~As a user, I can add garden beds with area calculation~~ | ✅ Must |
@@ -672,8 +672,8 @@ open_garden_planner/
 | ~~US-4.9~~ | ~~As a user, I can resize objects by dragging handles or edges~~ | ✅ Must |
 
 **Technical Milestones**:
-- [ ] Plant model with full metadata schema
-- [ ] Trefle.io API integration
+- [x] Plant model with full metadata schema
+- [x] Trefle.io API integration
 - [ ] Local SQLite cache for plant data
 - [ ] Custom plant library storage
 - [ ] Properties panel for plant editing
