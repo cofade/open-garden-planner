@@ -1,6 +1,6 @@
 """Properties panel for live editing of selected objects."""
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QPen
 from PyQt6.QtWidgets import (
     QColorDialog,
@@ -84,6 +84,9 @@ class PropertiesPanel(QWidget):
     Shows properties of currently selected objects and allows immediate editing.
     Changes are applied in real-time to the canvas with undo support.
     """
+
+    # Signal emitted when an object's type changes (for updating other panels)
+    object_type_changed = pyqtSignal()
 
     def __init__(
         self,
@@ -225,10 +228,6 @@ class PropertiesPanel(QWidget):
 
         # Styling section
         self._add_styling_properties(item)
-
-        # Plant-specific fields
-        if hasattr(item, 'plant_type'):
-            self._add_plant_properties(item)
 
         self._updating = False
 
@@ -383,19 +382,6 @@ class PropertiesPanel(QWidget):
         )
         self._form_layout.addRow("Stroke Style:", style_combo)
 
-    def _add_plant_properties(self, item: QGraphicsItem) -> None:  # noqa: ARG002
-        """Add plant-specific property fields.
-
-        Args:
-            item: Plant item to show properties for
-        """
-        # TODO: Add plant metadata fields when plant metadata is implemented
-        # For now, just show a placeholder
-        plant_label = QLabel("Plant metadata\ncoming in US-4.2")
-        plant_label.setStyleSheet("color: gray; padding: 10px;")
-        plant_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._form_layout.addRow(plant_label)
-
     def _capture_item_state(self, item: QGraphicsItem) -> dict:
         """Capture the current state of an item for undo purposes.
 
@@ -519,6 +505,9 @@ class PropertiesPanel(QWidget):
 
             # Defer panel refresh to avoid destroying widgets while signal is processing
             QTimer.singleShot(0, lambda: self.set_selected_items([item]))
+
+            # Notify other panels that the object type changed
+            QTimer.singleShot(0, self.object_type_changed.emit)
 
         elif property_name == 'name' and hasattr(item, 'name'):
             old_name = item.name

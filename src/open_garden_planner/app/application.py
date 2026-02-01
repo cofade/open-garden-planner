@@ -310,6 +310,7 @@ class GardenPlannerApp(QMainWindow):
         splitter.addWidget(self.sidebar)
         splitter.setStretchFactor(0, 1)  # Canvas takes most space
         splitter.setStretchFactor(1, 0)  # Sidebar fixed width
+        splitter.setHandleWidth(1)  # Minimal splitter handle
 
         # Connect canvas signals to status bar updates
         self.canvas_view.coordinates_changed.connect(self.update_coordinates)
@@ -369,6 +370,8 @@ class GardenPlannerApp(QMainWindow):
         self.properties_panel = PropertiesPanel(
             command_manager=self.canvas_view.command_manager
         )
+        # Connect object type change to update plant details panel
+        self.properties_panel.object_type_changed.connect(self._update_plant_database_panel)
         props_panel = CollapsiblePanel("Properties", self.properties_panel, expanded=True)
         sidebar_layout.addWidget(props_panel)
 
@@ -390,11 +393,12 @@ class GardenPlannerApp(QMainWindow):
         layers_panel = CollapsiblePanel("Layers", self.layers_panel, expanded=True)
         sidebar_layout.addWidget(layers_panel)
 
-        # 4. Plant Database Panel (collapsible)
+        # 4. Plant Details Panel (collapsible) - only shown when a plant is selected
         self.plant_database_panel = PlantDatabasePanel()
         self.plant_database_panel.search_button.clicked.connect(self._on_search_plant_database)
-        plant_db_panel = CollapsiblePanel("Plant Database", self.plant_database_panel, expanded=True)
-        sidebar_layout.addWidget(plant_db_panel)
+        self.plant_details_collapsible = CollapsiblePanel("Plant Details", self.plant_database_panel, expanded=True)
+        self.plant_details_collapsible.setVisible(False)  # Hidden by default
+        sidebar_layout.addWidget(self.plant_details_collapsible)
 
         # Add stretch at the bottom to push panels to top
         sidebar_layout.addStretch()
@@ -406,8 +410,26 @@ class GardenPlannerApp(QMainWindow):
 
     def _update_plant_database_panel(self) -> None:
         """Update plant database panel with current selection."""
+        from open_garden_planner.core.object_types import ObjectType
+
         try:
             selected_items = self.canvas_scene.selectedItems()
+
+            # Check if exactly one plant item is selected
+            show_panel = False
+            if len(selected_items) == 1:
+                item = selected_items[0]
+                if hasattr(item, "object_type") and item.object_type in (
+                    ObjectType.TREE,
+                    ObjectType.SHRUB,
+                    ObjectType.PERENNIAL,
+                ):
+                    show_panel = True
+
+            # Show/hide the plant details collapsible panel
+            self.plant_details_collapsible.setVisible(show_panel)
+
+            # Update panel content
             self.plant_database_panel.set_selected_items(selected_items)
         except RuntimeError:
             # Scene has been deleted, ignore
