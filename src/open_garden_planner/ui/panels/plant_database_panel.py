@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -32,33 +33,59 @@ from open_garden_planner.services import get_plant_library
 
 
 class ClickableDateEdit(QDateEdit):
-    """A QDateEdit that opens calendar on click, is read-only, and defaults to current month."""
+    """A QDateEdit with a visible dropdown arrow for calendar popup.
+
+    Uses the standard Qt approach with a dropdown button to open the calendar.
+    """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Initialize the date edit."""
         super().__init__(parent)
         self.setCalendarPopup(True)
-        # Make the line edit read-only so users can only select via calendar
-        self.lineEdit().setReadOnly(True)
-        # Style to indicate it's clickable
-        self.setStyleSheet("QDateEdit { background-color: palette(base); }")
+        self._min_date = QDate(1900, 1, 1)
+        self.setMinimumDate(self._min_date)
 
-    def mousePressEvent(self, event) -> None:
-        """Open calendar popup on any click."""
-        if event.button() == Qt.MouseButton.LeftButton:
-            # If we're showing special value (no date set), show today's month
-            if self.date() == self.minimumDate():
-                calendar = self.calendarWidget()
-                if calendar:
-                    calendar.setSelectedDate(QDate.currentDate())
-            # Always show the calendar popup on left click
-            calendar = self.calendarWidget()
-            if calendar:
-                # Position calendar below the widget
-                self.setFocus()
-                calendar.show()
-                calendar.setFocus()
-        super().mousePressEvent(event)
+        # Make the line edit read-only
+        line_edit = self.lineEdit()
+        line_edit.setReadOnly(True)
+        line_edit.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
+        # Set cursor to indicate clickability
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        # Style with visible dropdown button
+        self.setStyleSheet("""
+            QDateEdit {
+                background-color: palette(base);
+                border: 1px solid palette(mid);
+                border-radius: 2px;
+                padding: 2px;
+                padding-right: 20px;
+            }
+            QDateEdit:hover {
+                border: 1px solid palette(highlight);
+                background-color: palette(light);
+            }
+            QDateEdit::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 20px;
+                border-left: 1px solid palette(mid);
+            }
+            QDateEdit::down-arrow {
+                image: none;
+                border: 2px solid palette(text);
+                border-top: none;
+                border-right: none;
+                width: 6px;
+                height: 6px;
+                transform: rotate(-45deg);
+                margin: 2px;
+            }
+        """)
+
+        # Initialize to today's date
+        self.setDate(QDate.currentDate())
 
 
 class EditableField(QWidget):
@@ -208,12 +235,13 @@ class PlantDatabasePanel(QWidget):
         super().__init__(parent)
         self._current_plant_data: PlantSpeciesData | None = None
         self._current_plant_item: QGraphicsItem | None = None
+
         self._setup_ui()
 
     def _setup_ui(self) -> None:
         """Set up the UI components."""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(2, 4, 2, 4)
         layout.setSpacing(8)
 
         # Button row at top
@@ -240,8 +268,11 @@ class PlantDatabasePanel(QWidget):
 
         # Container for plant info
         self.info_widget = QWidget()
+        self.info_widget.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
         self.info_layout = QVBoxLayout(self.info_widget)
-        self.info_layout.setContentsMargins(4, 4, 4, 4)
+        self.info_layout.setContentsMargins(2, 4, 2, 4)
         self.info_layout.setSpacing(4)
 
         # Info labels
@@ -253,6 +284,12 @@ class PlantDatabasePanel(QWidget):
         # Form layout for plant details (hidden initially)
         self.details_form = QFormLayout()
         self.details_form.setSpacing(4)
+        self.details_form.setContentsMargins(0, 0, 0, 0)
+        # Make form fields expand to fill available width
+        self.details_form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+        )
+        self.details_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.info_layout.addLayout(self.details_form)
 
         # Editable fields
@@ -267,99 +304,202 @@ class PlantDatabasePanel(QWidget):
         self._hide_details()
 
     def _create_editable_fields(self) -> None:
-        """Create editable fields for displaying plant information."""
-        # Scientific name
-        self.scientific_field = EditableField("text")
-        self.scientific_field.value_changed.connect(self._on_field_changed)
-        self.details_form.addRow("Scientific:", self.scientific_field)
+        """Create editable fields for displaying plant information.
+
+        Fields are ordered logically for gardeners:
+        1. Basic identity (common/scientific/family/variety)
+        2. Plant characteristics (cycle)
+        3. Care requirements (sun/water)
+        4. Growth information (heights/spread)
+        5. Edibility
+        6. Hardiness
+        7. Planting info
+        8. Notes
+        """
+        # Style for text fields to indicate they're editable
+        line_edit_style = """
+            QLineEdit {
+                background-color: palette(base);
+                border: 1px solid palette(mid);
+                border-radius: 2px;
+                padding: 2px;
+            }
+            QLineEdit:focus {
+                border: 1px solid palette(highlight);
+            }
+        """
+
+        # === BASIC IDENTITY ===
 
         # Common name
-        self.common_field = EditableField("text")
-        self.common_field.value_changed.connect(self._on_field_changed)
-        self.details_form.addRow("Common:", self.common_field)
+        self.common_edit = QLineEdit()
+        self.common_edit.setPlaceholderText("Enter common name...")
+        self.common_edit.setStyleSheet(line_edit_style)
+        self.common_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.common_edit.editingFinished.connect(self._on_field_changed)
+        self.details_form.addRow("Common Name:", self.common_edit)
+
+        # Scientific name
+        self.scientific_edit = QLineEdit()
+        self.scientific_edit.setPlaceholderText("Enter scientific name...")
+        self.scientific_edit.setStyleSheet(line_edit_style)
+        self.scientific_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.scientific_edit.editingFinished.connect(self._on_field_changed)
+        self.details_form.addRow("Scientific Name:", self.scientific_edit)
 
         # Family
-        self.family_field = EditableField("text")
-        self.family_field.value_changed.connect(self._on_field_changed)
-        self.details_form.addRow("Family:", self.family_field)
+        self.family_edit = QLineEdit()
+        self.family_edit.setPlaceholderText("Enter plant family...")
+        self.family_edit.setStyleSheet(line_edit_style)
+        self.family_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.family_edit.editingFinished.connect(self._on_field_changed)
+        self.details_form.addRow("Family:", self.family_edit)
 
-        # Cycle (annual/perennial) - direct dropdown
+        # Variety/Cultivar (instance-specific)
+        self.variety_edit = QLineEdit()
+        self.variety_edit.setPlaceholderText("Enter variety or cultivar...")
+        self.variety_edit.setStyleSheet(line_edit_style)
+        self.variety_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.variety_edit.editingFinished.connect(self._on_instance_field_changed)
+        self.details_form.addRow("Variety:", self.variety_edit)
+
+        # === PLANT CHARACTERISTICS ===
+
+        # Cycle (annual/perennial)
         self.cycle_combo = QComboBox()
         for item in PlantCycle:
-            self.cycle_combo.addItem(item.value.replace("_", " ").title(), item.value)
+            # Skip "unknown" - don't show it as an option
+            if item != PlantCycle.UNKNOWN:
+                self.cycle_combo.addItem(item.value.replace("_", " ").title(), item.value)
+        self.cycle_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.cycle_combo.currentIndexChanged.connect(self._on_field_changed)
         self.details_form.addRow("Cycle:", self.cycle_combo)
 
-        # Sun requirements - direct dropdown
+        # === CARE REQUIREMENTS ===
+
+        # Sun requirements
         self.sun_combo = QComboBox()
         for item in SunRequirement:
-            self.sun_combo.addItem(item.value.replace("_", " ").title(), item.value)
+            # Skip "unknown" - don't show it as an option
+            if item != SunRequirement.UNKNOWN:
+                self.sun_combo.addItem(item.value.replace("_", " ").title(), item.value)
+        self.sun_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.sun_combo.currentIndexChanged.connect(self._on_field_changed)
         self.details_form.addRow("Sun:", self.sun_combo)
 
-        # Water needs - direct dropdown
+        # Water needs
         self.water_combo = QComboBox()
         for item in WaterNeeds:
-            self.water_combo.addItem(item.value.replace("_", " ").title(), item.value)
+            # Skip "unknown" - don't show it as an option
+            if item != WaterNeeds.UNKNOWN:
+                self.water_combo.addItem(item.value.replace("_", " ").title(), item.value)
+        self.water_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.water_combo.currentIndexChanged.connect(self._on_field_changed)
         self.details_form.addRow("Water:", self.water_combo)
 
-        # Height (max)
-        self.height_field = EditableField("number")
-        self.height_field.value_changed.connect(self._on_field_changed)
-        self.details_form.addRow("Max Height (cm):", self.height_field)
+        # === GROWTH INFORMATION ===
 
-        # Hardiness zones
-        self.hardiness_min_field = EditableField("number")
-        self.hardiness_min_field.value_changed.connect(self._on_field_changed)
-        self.details_form.addRow("Hardiness Min:", self.hardiness_min_field)
+        # Max Height
+        self.max_height_spin = QDoubleSpinBox()
+        self.max_height_spin.setRange(0, 10000)
+        self.max_height_spin.setSingleStep(10)
+        self.max_height_spin.setDecimals(0)
+        self.max_height_spin.setSuffix(" cm")
+        self.max_height_spin.setSpecialValueText("")  # Empty when 0
+        self.max_height_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.max_height_spin.valueChanged.connect(self._on_field_changed)
+        self.details_form.addRow("Max Height:", self.max_height_spin)
 
-        self.hardiness_max_field = EditableField("number")
-        self.hardiness_max_field.value_changed.connect(self._on_field_changed)
-        self.details_form.addRow("Hardiness Max:", self.hardiness_max_field)
+        # Max Spread
+        self.max_spread_spin = QDoubleSpinBox()
+        self.max_spread_spin.setRange(0, 10000)
+        self.max_spread_spin.setSingleStep(10)
+        self.max_spread_spin.setDecimals(0)
+        self.max_spread_spin.setSuffix(" cm")
+        self.max_spread_spin.setSpecialValueText("")  # Empty when 0
+        self.max_spread_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.max_spread_spin.valueChanged.connect(self._on_field_changed)
+        self.details_form.addRow("Max Spread:", self.max_spread_spin)
 
-        # Edible
-        self.edible_field = EditableField("bool")
-        self.edible_field.value_changed.connect(self._on_field_changed)
-        self.details_form.addRow("Edible:", self.edible_field)
-
-        # Edible parts
-        self.edible_parts_field = EditableField("text")
-        self.edible_parts_field.value_changed.connect(self._on_field_changed)
-        self.details_form.addRow("Edible Parts:", self.edible_parts_field)
-
-        # Data source (read-only)
-        self.source_label = QLabel()
-        self.source_label.setStyleSheet("color: gray; font-size: 10pt;")
-        self.details_form.addRow("Source:", self.source_label)
-
-        # Variety/Cultivar
-        self.variety_field = EditableField("text")
-        self.variety_field.value_changed.connect(self._on_instance_field_changed)
-        self.details_form.addRow("Variety:", self.variety_field)
-
-        # Planting Date
-        self.planting_date_edit = ClickableDateEdit()
-        self.planting_date_edit.setDisplayFormat("yyyy-MM-dd")
-        self.planting_date_edit.setSpecialValueText("Not set")
-        self.planting_date_edit.setMinimumDate(self.planting_date_edit.minimumDate())
-        self.planting_date_edit.dateChanged.connect(self._on_planting_date_changed)
-        self.details_form.addRow("Planted:", self.planting_date_edit)
-
-        # Current Height
+        # Current Height (instance-specific)
         self.current_height_spin = QDoubleSpinBox()
         self.current_height_spin.setRange(0, 10000)
         self.current_height_spin.setSingleStep(10)
         self.current_height_spin.setDecimals(0)
         self.current_height_spin.setSuffix(" cm")
-        self.current_height_spin.setSpecialValueText("Unknown")
+        self.current_height_spin.setSpecialValueText("")  # Empty when 0
+        self.current_height_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.current_height_spin.valueChanged.connect(self._on_current_height_changed)
         self.details_form.addRow("Current Height:", self.current_height_spin)
 
-        # Notes
+        # === EDIBILITY ===
+
+        # Edible (simple checkbox)
+        self.edible_checkbox = QCheckBox()
+        self.edible_checkbox.stateChanged.connect(self._on_field_changed)
+        self.details_form.addRow("Edible:", self.edible_checkbox)
+
+        # Edible parts
+        self.edible_parts_edit = QLineEdit()
+        self.edible_parts_edit.setPlaceholderText("e.g., fruit, leaves, roots...")
+        self.edible_parts_edit.setStyleSheet(line_edit_style)
+        self.edible_parts_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.edible_parts_edit.editingFinished.connect(self._on_field_changed)
+        self.details_form.addRow("Edible Parts:", self.edible_parts_edit)
+
+        # === HARDINESS ===
+
+        # Hardiness zones (min/max on same row)
+        hardiness_layout = QHBoxLayout()
+        hardiness_layout.setSpacing(4)
+
+        # Min zone
+        min_label = QLabel("Min:")
+        hardiness_layout.addWidget(min_label)
+
+        self.hardiness_min_spin = QDoubleSpinBox()
+        self.hardiness_min_spin.setRange(0, 13)
+        self.hardiness_min_spin.setSingleStep(1)
+        self.hardiness_min_spin.setDecimals(0)
+        self.hardiness_min_spin.setSpecialValueText("")
+        self.hardiness_min_spin.setMinimumWidth(60)  # Ensure arrows are visible
+        self.hardiness_min_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.hardiness_min_spin.valueChanged.connect(self._on_field_changed)
+        hardiness_layout.addWidget(self.hardiness_min_spin, 1)  # stretch factor 1
+
+        # Max zone
+        max_label = QLabel("Max:")
+        hardiness_layout.addWidget(max_label)
+
+        self.hardiness_max_spin = QDoubleSpinBox()
+        self.hardiness_max_spin.setRange(0, 13)
+        self.hardiness_max_spin.setSingleStep(1)
+        self.hardiness_max_spin.setDecimals(0)
+        self.hardiness_max_spin.setSpecialValueText("")
+        self.hardiness_max_spin.setMinimumWidth(60)  # Ensure arrows are visible
+        self.hardiness_max_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.hardiness_max_spin.valueChanged.connect(self._on_field_changed)
+        hardiness_layout.addWidget(self.hardiness_max_spin, 1)  # stretch factor 1
+
+        self.details_form.addRow("Hardiness:", hardiness_layout)
+
+        # === PLANTING INFO ===
+
+        # Planting Date (instance-specific)
+        self.planting_date_edit = ClickableDateEdit()
+        self.planting_date_edit.setDisplayFormat("yyyy-MM-dd")
+        self.planting_date_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        # Date is already initialized to minimum date in __init__, shows as empty
+        self.planting_date_edit.dateChanged.connect(self._on_planting_date_changed)
+        self.details_form.addRow("Planted:", self.planting_date_edit)
+
+        # === NOTES ===
+
+        # Notes (instance-specific)
         self.notes_edit = QPlainTextEdit()
         self.notes_edit.setPlaceholderText("Notes about this plant...")
         self.notes_edit.setMaximumHeight(60)
+        self.notes_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.notes_edit.textChanged.connect(self._on_notes_changed)
         self.details_form.addRow("Notes:", self.notes_edit)
 
@@ -369,11 +509,11 @@ class PlantDatabasePanel(QWidget):
             return
 
         # Update the PlantSpeciesData object
+        self._current_plant_data.common_name = self.common_edit.text().strip() or ""
         self._current_plant_data.scientific_name = (
-            self.scientific_field.get_value() or "Unknown"
+            self.scientific_edit.text().strip() or "Unknown"
         )
-        self._current_plant_data.common_name = self.common_field.get_value() or ""
-        self._current_plant_data.family = self.family_field.get_value() or ""
+        self._current_plant_data.family = self.family_edit.text().strip() or ""
 
         # Enums from combo boxes
         cycle_val = self.cycle_combo.currentData()
@@ -388,28 +528,31 @@ class PlantDatabasePanel(QWidget):
         if water_val:
             self._current_plant_data.water_needs = WaterNeeds(water_val)
 
-        # Numbers
-        height_val = self.height_field.get_value()
-        self._current_plant_data.max_height_cm = float(height_val) if height_val else None
+        # Numbers from spinboxes
+        max_height = self.max_height_spin.value()
+        self._current_plant_data.max_height_cm = max_height if max_height > 0 else None
 
-        hardiness_min = self.hardiness_min_field.get_value()
+        max_spread = self.max_spread_spin.value()
+        self._current_plant_data.max_spread_cm = max_spread if max_spread > 0 else None
+
+        hardiness_min = self.hardiness_min_spin.value()
         self._current_plant_data.hardiness_zone_min = (
-            int(hardiness_min) if hardiness_min else None
+            int(hardiness_min) if hardiness_min > 0 else None
         )
 
-        hardiness_max = self.hardiness_max_field.get_value()
+        hardiness_max = self.hardiness_max_spin.value()
         self._current_plant_data.hardiness_zone_max = (
-            int(hardiness_max) if hardiness_max else None
+            int(hardiness_max) if hardiness_max > 0 else None
         )
 
-        # Boolean
-        self._current_plant_data.edible = bool(self.edible_field.get_value())
+        # Boolean from checkbox
+        self._current_plant_data.edible = self.edible_checkbox.isChecked()
 
         # Edible parts (comma-separated list)
-        edible_parts_str = self.edible_parts_field.get_value()
+        edible_parts_str = self.edible_parts_edit.text().strip()
         if edible_parts_str:
             self._current_plant_data.edible_parts = [
-                p.strip() for p in str(edible_parts_str).split(",") if p.strip()
+                p.strip() for p in edible_parts_str.split(",") if p.strip()
             ]
         else:
             self._current_plant_data.edible_parts = []
@@ -443,14 +586,16 @@ class PlantDatabasePanel(QWidget):
         """Handle variety field change."""
         if not self._current_plant_item:
             return
-        self._update_instance_metadata("variety_cultivar", self.variety_field.get_value())
+        variety = self.variety_edit.text().strip() or None
+        self._update_instance_metadata("variety_cultivar", variety)
 
     def _on_planting_date_changed(self) -> None:
         """Handle planting date change."""
         if not self._current_plant_item:
             return
         d = self.planting_date_edit.date()
-        value = d.toPyDate().isoformat() if d != self.planting_date_edit.minimumDate() else None
+        # Save the selected date
+        value = d.toPyDate().isoformat()
         self._update_instance_metadata("planting_date", value)
 
     def _on_current_height_changed(self) -> None:
@@ -562,8 +707,25 @@ class PlantDatabasePanel(QWidget):
             field_item = self.details_form.itemAt(i, QFormLayout.ItemRole.FieldRole)
             if label_item and label_item.widget():
                 label_item.widget().setVisible(False)
-            if field_item and field_item.widget():
-                field_item.widget().setVisible(False)
+            if field_item:
+                # Could be a widget or a layout
+                if field_item.widget():
+                    field_item.widget().setVisible(False)
+                elif field_item.layout():
+                    # Hide all widgets in the layout (e.g., hardiness min/max)
+                    layout = field_item.layout()
+                    for j in range(layout.count()):
+                        widget = layout.itemAt(j).widget()
+                        if widget:
+                            widget.setVisible(False)
+
+        # Clear the info tooltip
+        parent_widget = self.parent()
+        while parent_widget:
+            if hasattr(parent_widget, "set_info_tooltip"):
+                parent_widget.set_info_tooltip("")
+                break
+            parent_widget = parent_widget.parent()
 
     def _show_no_metadata(self) -> None:
         """Show message that selected plant has no metadata."""
@@ -583,8 +745,17 @@ class PlantDatabasePanel(QWidget):
             field_item = self.details_form.itemAt(i, QFormLayout.ItemRole.FieldRole)
             if label_item and label_item.widget():
                 label_item.widget().setVisible(False)
-            if field_item and field_item.widget():
-                field_item.widget().setVisible(False)
+            if field_item:
+                # Could be a widget or a layout
+                if field_item.widget():
+                    field_item.widget().setVisible(False)
+                elif field_item.layout():
+                    # Hide all widgets in the layout (e.g., hardiness min/max)
+                    layout = field_item.layout()
+                    for j in range(layout.count()):
+                        widget = layout.itemAt(j).widget()
+                        if widget:
+                            widget.setVisible(False)
 
     def _show_plant_data(
         self, plant_data: PlantSpeciesData, plant_item: QGraphicsItem
@@ -605,94 +776,150 @@ class PlantDatabasePanel(QWidget):
             field_item = self.details_form.itemAt(i, QFormLayout.ItemRole.FieldRole)
             if label_item and label_item.widget():
                 label_item.widget().setVisible(True)
-            if field_item and field_item.widget():
-                field_item.widget().setVisible(True)
+            if field_item:
+                # Could be a widget or a layout
+                if field_item.widget():
+                    field_item.widget().setVisible(True)
+                elif field_item.layout():
+                    # Show all widgets in the layout (e.g., hardiness min/max)
+                    layout = field_item.layout()
+                    for j in range(layout.count()):
+                        widget = layout.itemAt(j).widget()
+                        if widget:
+                            widget.setVisible(True)
 
-        # Update field values
-        self.scientific_field.set_value(plant_data.scientific_name)
-        self.common_field.set_value(plant_data.common_name or "N/A")
-        self.family_field.set_value(plant_data.family or "N/A")
+        # Scroll to top to show basic identity fields
+        # Find the scroll area parent
+        scroll_parent = self.info_widget.parent()
+        if scroll_parent and hasattr(scroll_parent, 'ensureVisible'):
+            scroll_parent.ensureVisible(0, 0)
 
-        # Enums - set combo box selections (block signals to avoid triggering changes)
+        # === BASIC IDENTITY ===
+
+        self.common_edit.setText(plant_data.common_name or "")
+        self.scientific_edit.setText(plant_data.scientific_name or "")
+        self.family_edit.setText(plant_data.family or "")
+
+        # === PLANT CHARACTERISTICS ===
+
+        # Cycle - set combo box selection (block signals to avoid triggering changes)
         self.cycle_combo.blockSignals(True)
         cycle_index = self.cycle_combo.findData(plant_data.cycle.value)
         if cycle_index >= 0:
             self.cycle_combo.setCurrentIndex(cycle_index)
+        else:
+            # If unknown or not found, default to first item
+            self.cycle_combo.setCurrentIndex(0)
         self.cycle_combo.blockSignals(False)
 
+        # === CARE REQUIREMENTS ===
+
+        # Sun
         self.sun_combo.blockSignals(True)
         sun_index = self.sun_combo.findData(plant_data.sun_requirement.value)
         if sun_index >= 0:
             self.sun_combo.setCurrentIndex(sun_index)
+        else:
+            # If unknown or not found, default to first item
+            self.sun_combo.setCurrentIndex(0)
         self.sun_combo.blockSignals(False)
 
+        # Water
         self.water_combo.blockSignals(True)
         water_index = self.water_combo.findData(plant_data.water_needs.value)
         if water_index >= 0:
             self.water_combo.setCurrentIndex(water_index)
+        else:
+            # If unknown or not found, default to first item
+            self.water_combo.setCurrentIndex(0)
         self.water_combo.blockSignals(False)
 
-        # Height
-        if plant_data.max_height_cm:
-            self.height_field.set_value(
-                f"{plant_data.max_height_cm:.0f} cm ({plant_data.max_height_cm/100:.1f} m)"
-            )
-            # Store raw value for editing
-            self.height_field._value = plant_data.max_height_cm
-        else:
-            self.height_field.set_value(None)
+        # === GROWTH INFORMATION ===
 
-        # Hardiness
-        self.hardiness_min_field.set_value(
-            plant_data.hardiness_zone_min if plant_data.hardiness_zone_min else None
-        )
-        self.hardiness_max_field.set_value(
-            plant_data.hardiness_zone_max if plant_data.hardiness_zone_max else None
-        )
+        # Max Height
+        self.max_height_spin.blockSignals(True)
+        self.max_height_spin.setValue(plant_data.max_height_cm or 0)
+        self.max_height_spin.blockSignals(False)
 
-        # Edible
-        self.edible_field.set_value("Yes" if plant_data.edible else "No")
-        self.edible_field._value = plant_data.edible
+        # Max Spread
+        self.max_spread_spin.blockSignals(True)
+        self.max_spread_spin.setValue(plant_data.max_spread_cm or 0)
+        self.max_spread_spin.blockSignals(False)
+
+        # === EDIBILITY ===
+
+        # Edible checkbox
+        self.edible_checkbox.blockSignals(True)
+        self.edible_checkbox.setChecked(plant_data.edible)
+        self.edible_checkbox.blockSignals(False)
 
         # Edible parts
         if plant_data.edible_parts:
             parts_text = ", ".join(plant_data.edible_parts)
-            self.edible_parts_field.set_value(parts_text)
+            self.edible_parts_edit.setText(parts_text)
         else:
-            self.edible_parts_field.set_value(None)
+            self.edible_parts_edit.setText("")
 
-        # Data source (read-only)
-        source_text = f"{plant_data.data_source.title()}"
-        if plant_data.source_id:
-            source_text += f" (ID: {plant_data.source_id})"
-        self.source_label.setText(source_text)
+        # === HARDINESS ===
 
-        # --- Plant Instance Fields ---
+        # Hardiness zones
+        self.hardiness_min_spin.blockSignals(True)
+        self.hardiness_min_spin.setValue(plant_data.hardiness_zone_min or 0)
+        self.hardiness_min_spin.blockSignals(False)
+
+        self.hardiness_max_spin.blockSignals(True)
+        self.hardiness_max_spin.setValue(plant_data.hardiness_zone_max or 0)
+        self.hardiness_max_spin.blockSignals(False)
+
+        # === PLANT INSTANCE FIELDS ===
+
         # Get instance data from item metadata
         instance_data = {}
         if hasattr(plant_item, "metadata") and plant_item.metadata:
             instance_data = plant_item.metadata.get("plant_instance", {})
 
         # Variety
-        self.variety_field.set_value(instance_data.get("variety_cultivar") or None)
+        self.variety_edit.setText(instance_data.get("variety_cultivar") or "")
 
         # Planting date
         planting_date_str = instance_data.get("planting_date")
+        self.planting_date_edit.blockSignals(True)
         if planting_date_str:
             try:
                 planting_date_val = date.fromisoformat(planting_date_str)
-                self.planting_date_edit.setDate(planting_date_val)
+                self.planting_date_edit.setDate(QDate(planting_date_val))
             except (ValueError, TypeError):
-                self.planting_date_edit.setDate(self.planting_date_edit.minimumDate())
+                # If invalid date, default to today
+                self.planting_date_edit.setDate(QDate.currentDate())
         else:
-            self.planting_date_edit.setDate(self.planting_date_edit.minimumDate())
+            # No date saved - default to today
+            self.planting_date_edit.setDate(QDate.currentDate())
+        self.planting_date_edit.blockSignals(False)
 
         # Current height
         current_height = instance_data.get("current_height_cm")
+        self.current_height_spin.blockSignals(True)
         self.current_height_spin.setValue(float(current_height) if current_height else 0)
+        self.current_height_spin.blockSignals(False)
 
         # Notes
+        self.notes_edit.blockSignals(True)
         self.notes_edit.setPlainText(instance_data.get("notes") or "")
+        self.notes_edit.blockSignals(False)
+
+        # === SOURCE INFO ===
+        # Set source info as tooltip on the panel header (via parent)
+        source_text = f"Data Source: {plant_data.data_source.title()}"
+        if plant_data.source_id:
+            source_text += f" (ID: {plant_data.source_id})"
+
+        # Find the CollapsiblePanel parent and set the info tooltip
+        parent_widget = self.parent()
+        while parent_widget:
+            if hasattr(parent_widget, "set_info_tooltip"):
+                parent_widget.set_info_tooltip(source_text)
+                break
+            parent_widget = parent_widget.parent()
 
     def _on_create_custom_plant(self) -> None:
         """Handle Create Custom Plant button click."""

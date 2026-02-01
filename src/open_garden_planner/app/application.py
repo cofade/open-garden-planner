@@ -311,6 +311,8 @@ class GardenPlannerApp(QMainWindow):
         splitter.setStretchFactor(0, 1)  # Canvas takes most space
         splitter.setStretchFactor(1, 0)  # Sidebar fixed width
         splitter.setHandleWidth(1)  # Minimal splitter handle
+        # Set initial sizes: give sidebar 450px, canvas gets the rest
+        splitter.setSizes([1000, 450])
 
         # Connect canvas signals to status bar updates
         self.canvas_view.coordinates_changed.connect(self.update_coordinates)
@@ -356,7 +358,6 @@ class GardenPlannerApp(QMainWindow):
         """Set up the right sidebar with collapsible panels."""
         # Create sidebar container
         self.sidebar = QWidget()
-        self.sidebar.setFixedWidth(280)
         sidebar_layout = QVBoxLayout(self.sidebar)
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(4)
@@ -405,8 +406,12 @@ class GardenPlannerApp(QMainWindow):
 
     def _update_properties_panel(self) -> None:
         """Update properties panel with current selection."""
-        selected_items = self.canvas_scene.selectedItems()
-        self.properties_panel.set_selected_items(selected_items)
+        try:
+            selected_items = self.canvas_scene.selectedItems()
+            self.properties_panel.set_selected_items(selected_items)
+        except RuntimeError:
+            # Canvas scene has been deleted (happens during app shutdown)
+            pass
 
     def _update_plant_database_panel(self) -> None:
         """Update plant database panel with current selection."""
