@@ -57,3 +57,8 @@ htmlcov/
 
 # Project specific
 *.ogp.backup
+
+# API keys and secrets
+.env
+.env.local
+api_keys.json

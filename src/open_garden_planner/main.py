@@ -3,6 +3,14 @@
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# Load environment variables from .env file in project root
+# Find the .env file relative to this source file
+_src_dir = Path(__file__).parent.parent.parent  # Go up to project root
+_env_file = _src_dir / ".env"
+load_dotenv(_env_file)
+
 # Windows-specific imports for taskbar icon support
 try:
     import ctypes

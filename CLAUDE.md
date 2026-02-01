@@ -16,14 +16,18 @@ venv/Scripts/python.exe -m ruff check src/
 ```
 
 ## Tech Stack
+
+Note: Use context7 as required for up-to-date documentation in any scenario where you require it.
 Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 
 ## Workflow
 
 ### CRITICAL: Always Use Feature Branches
+
 **NEVER commit directly to master!** Always work on feature branches.
 
 ### Step-by-Step Process
+
 1. **Create feature branch** FIRST (before any changes)
    - Branch naming: `feature/US-X.X-short-description` (e.g., `feature/US-2.5-measure-distances`)
    - Command: `git checkout -b feature/US-X.X-short-description`
@@ -64,6 +68,7 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 10. After completing a US, `/clear` context
 
 **Important Reminders**:
+
 - Stay in working mode (no plan mode)
 - **NEVER commit directly to master branch**
 - **NEVER commit before user manually tests and explicitly approves**
@@ -71,23 +76,25 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 - Only commit after user says "commit" or "looks good" or similar approval
 
 ## Testing Notes
+
 - PyQt6 tests require `qtbot` fixture parameter in test methods even when unused (needed for Qt initialization); configure ruff per-file ignore for ARG002 in test files
 
 ## Progress (Phase 1)
 
-| Status | US | Description |
-|--------|-----|-------------|
-| ✅ | 1.1 | Create new project with dimensions |
-| ✅ | 1.2 | Pan and zoom canvas |
-| ✅ | 1.7 | Cursor coordinates display |
-| ✅ | 1.8 | App icon |
-| ✅ | 1.9 | README banner |
-| ✅ | 1.3 | Draw rectangles and polygons |
-| ✅ | 1.4 | Select, move, delete objects |
-| ✅ | 1.5 | Save/load project files |
-| ✅ | 1.6 | Undo/redo |
+| Status | US  | Description                        |
+| ------ | --- | ---------------------------------- |
+| ✅     | 1.1 | Create new project with dimensions |
+| ✅     | 1.2 | Pan and zoom canvas                |
+| ✅     | 1.7 | Cursor coordinates display         |
+| ✅     | 1.8 | App icon                           |
+| ✅     | 1.9 | README banner                      |
+| ✅     | 1.3 | Draw rectangles and polygons       |
+| ✅     | 1.4 | Select, move, delete objects       |
+| ✅     | 1.5 | Save/load project files            |
+| ✅     | 1.6 | Undo/redo                          |
 
 ## Project Structure
+
 <!-- Keep this updated when adding/removing files -->
 
 ```
@@ -123,43 +130,20 @@ tests/
 
 ## Phase 2 Complete!
 
-## Progress (Phase 2: Precision & Calibration)
-
-| Status | US | Description |
-|--------|-----|-------------|
-| ✅ | 2.3 | Toggle grid overlay (was pre-implemented) |
-| ✅ | 2.4 | Snap to grid (was pre-implemented) |
-| ✅ | 2.1 | Import background image |
-| ✅ | 2.7 | Adjust background image opacity |
-| ✅ | 2.8 | Lock background image |
-| ✅ | 2.2 | Calibrate image (two-point) |
-| ✅ | 2.5 | Measure distances |
-| ✅ | 2.9 | Draw circles (center + rim) |
-| ✅ | 2.6 | Area/perimeter of selected polygons and circles |
-
-## Future Backlog
-1. Vertex coordinate annotations on selection
-2. Rotate objects (15° snap)
-3. Edit polygon vertices
-
-## Progress (Phase 3: Objects & Styling)
-
-| Status | US | Description |
-|--------|-----|-------------|
-| ✅ | 3.1 | Add property objects (house, fence, path, etc.) |
-| ✅ | 3.2 | Set fill color for objects |
-| ✅ | 3.3 | Apply textures/patterns to objects |
-| ✅ | 3.4 | Set stroke style (color, width, dash pattern) |
-| ✅ | 3.5 | Add labels to objects displayed on canvas |
-| ✅ | 3.6 | Organize objects into layers |
-| ✅ | 3.7 | Show/hide and lock layers |
-| ✅ | 3.8 | Copy and paste objects |
+## Phase 3 Complete!
 
 ## Progress (Phase 4: Plants & Metadata)
 
-| Status | US | Description |
-|--------|-----|-------------|
-| ✅ | 4.1 | Add plant objects (tree, shrub, perennial) |
-| ✅ | 4.6 | Add garden beds with area calculation |
-| ✅ | 4.8 | Organized sidebar with tool panels |
-| ✅ | 4.9 | Resize objects by dragging handles |
+| Status | US  | Description                                |
+| ------ | --- | ------------------------------------------ |
+| ✅     | 4.1 | Add plant objects (tree, shrub, perennial) |
+| ✅     | 4.3 | Search plant species from online database  |
+| ✅     | 4.6 | Add garden beds with area calculation      |
+| ✅     | 4.8 | Organized sidebar with tool panels         |
+| ✅     | 4.9 | Resize objects by dragging handles         |
+
+## Future Backlog
+
+1. Vertex coordinate annotations on selection
+2. Rotate objects (15° snap)
+3. Edit polygon vertices

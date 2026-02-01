@@ -28,6 +28,7 @@ from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.panels import (
     DrawingToolsPanel,
     LayersPanel,
+    PlantDatabasePanel,
     PropertiesPanel,
 )
 from open_garden_planner.ui.widgets import CollapsiblePanel
@@ -77,6 +78,10 @@ class GardenPlannerApp(QMainWindow):
         # View menu
         view_menu = menubar.addMenu("&View")
         self._setup_view_menu(view_menu)
+
+        # Plants menu
+        plants_menu = menubar.addMenu("&Plants")
+        self._setup_plants_menu(plants_menu)
 
         # Help menu
         help_menu = menubar.addMenu("&Help")
@@ -240,6 +245,15 @@ class GardenPlannerApp(QMainWindow):
         self.snap_action.setStatusTip("Toggle snap to grid")
         menu.addAction(self.snap_action)
 
+    def _setup_plants_menu(self, menu: QMenu) -> None:
+        """Set up the Plants menu actions."""
+        # Search Plant Database
+        search_action = QAction("&Search Plant Database", self)
+        search_action.setShortcut(QKeySequence("Ctrl+K"))
+        search_action.setStatusTip("Search for plant species in online databases")
+        search_action.triggered.connect(self._on_search_plant_database)
+        menu.addAction(search_action)
+
     def _setup_help_menu(self, menu: QMenu) -> None:
         """Set up the Help menu actions."""
         # About
@@ -309,9 +323,10 @@ class GardenPlannerApp(QMainWindow):
         self.drawing_tools_panel.tool_selected.connect(self._on_tool_selected)
         self.canvas_view.tool_changed.connect(self.update_tool)
 
-        # Connect scene selection changes to status bar and properties panel
+        # Connect scene selection changes to status bar and panels
         self.canvas_scene.selectionChanged.connect(self._on_selection_changed)
         self.canvas_scene.selectionChanged.connect(self._update_properties_panel)
+        self.canvas_scene.selectionChanged.connect(self._update_plant_database_panel)
 
         # Connect delete action to canvas
         self._delete_action.triggered.connect(self.canvas_view._delete_selected_items)
@@ -375,6 +390,12 @@ class GardenPlannerApp(QMainWindow):
         layers_panel = CollapsiblePanel("Layers", self.layers_panel, expanded=True)
         sidebar_layout.addWidget(layers_panel)
 
+        # 4. Plant Database Panel (collapsible)
+        self.plant_database_panel = PlantDatabasePanel()
+        self.plant_database_panel.search_button.clicked.connect(self._on_search_plant_database)
+        plant_db_panel = CollapsiblePanel("Plant Database", self.plant_database_panel, expanded=True)
+        sidebar_layout.addWidget(plant_db_panel)
+
         # Add stretch at the bottom to push panels to top
         sidebar_layout.addStretch()
 
@@ -382,6 +403,15 @@ class GardenPlannerApp(QMainWindow):
         """Update properties panel with current selection."""
         selected_items = self.canvas_scene.selectedItems()
         self.properties_panel.set_selected_items(selected_items)
+
+    def _update_plant_database_panel(self) -> None:
+        """Update plant database panel with current selection."""
+        try:
+            selected_items = self.canvas_scene.selectedItems()
+            self.plant_database_panel.set_selected_items(selected_items)
+        except RuntimeError:
+            # Scene has been deleted, ignore
+            pass
 
     # Slot methods for menu actions
 
@@ -580,9 +610,13 @@ class GardenPlannerApp(QMainWindow):
         Args:
             layer_id: UUID of the newly active layer
         """
-        layer = self.canvas_scene.get_layer_by_id(layer_id)
-        if layer:
-            self.canvas_scene.set_active_layer(layer)
+        try:
+            layer = self.canvas_scene.get_layer_by_id(layer_id)
+            if layer:
+                self.canvas_scene.set_active_layer(layer)
+        except RuntimeError:
+            # Scene has been deleted, ignore
+            pass
 
     def _on_layers_reordered(self, new_order) -> None:
         """Handle layer reordering from layers panel.
@@ -590,8 +624,12 @@ class GardenPlannerApp(QMainWindow):
         Args:
             new_order: New list of layers in order
         """
-        self.canvas_scene.reorder_layers(new_order)
-        self._project_manager.mark_dirty()
+        try:
+            self.canvas_scene.reorder_layers(new_order)
+            self._project_manager.mark_dirty()
+        except RuntimeError:
+            # Scene has been deleted, ignore
+            pass
 
     def _on_layer_renamed(self, _layer_id, _new_name) -> None:
         """Handle layer rename from layers panel.
@@ -604,9 +642,64 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_selection_changed(self) -> None:
         """Handle selection changes in the canvas scene."""
-        selected_items = self.canvas_scene.selectedItems()
-        count = len(selected_items)
-        self.update_selection(count, selected_items)
+        # Guard against accessing deleted scene (can happen during shutdown or dialog execution)
+        try:
+            selected_items = self.canvas_scene.selectedItems()
+            count = len(selected_items)
+            self.update_selection(count, selected_items)
+        except RuntimeError:
+            # Scene has been deleted, ignore
+            pass
+
+    def _on_search_plant_database(self) -> None:
+        """Handle Search Plant Database action."""
+        from open_garden_planner.services import PlantAPIManager
+        from open_garden_planner.ui.dialogs import PlantSearchDialog
+
+        # Initialize API manager (will use .env credentials)
+        api_manager = PlantAPIManager()
+
+        dialog = PlantSearchDialog(api_manager, self)
+        if dialog.exec():
+            # User selected a plant species
+            plant_data = dialog.selected_plant
+            if plant_data:
+                # Check if there's a selected plant item to update
+                selected_items = self.canvas_scene.selectedItems()
+                from open_garden_planner.core.object_types import ObjectType
+
+                # Find a plant item in selection
+                plant_item = None
+                for item in selected_items:
+                    if hasattr(item, 'object_type') and item.object_type in (
+                        ObjectType.TREE,
+                        ObjectType.SHRUB,
+                        ObjectType.PERENNIAL,
+                    ):
+                        plant_item = item
+                        break
+
+                if plant_item:
+                    # Update existing plant with species data
+                    if not hasattr(plant_item, 'metadata') or plant_item.metadata is None:
+                        plant_item.metadata = {}
+                    plant_item.metadata['plant_species'] = plant_data.to_dict()
+
+                    # Update the panel display
+                    self._update_plant_database_panel()
+
+                    # Mark project as dirty
+                    self._project_manager.mark_dirty()
+
+                    self.statusBar().showMessage(
+                        f"Updated plant with species: {plant_data.common_name}", 3000
+                    )
+                else:
+                    # No plant selected - show message
+                    self.statusBar().showMessage(
+                        "Select a plant object (tree, shrub, or perennial) to assign species data",
+                        5000,
+                    )
 
     def _on_about(self) -> None:
         """Handle About action."""
