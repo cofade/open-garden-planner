@@ -170,19 +170,13 @@ class LayersPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
 
-        # Title
-        title = QLabel("Layers")
-        title.setStyleSheet("font-weight: bold;")
-        layout.addWidget(title)
-
-        # Layer list with limited height
+        # Layer list - height adjusts to content, scrolls at 5+ layers
         self.layer_list = QListWidget()
         self.layer_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.layer_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
         self.layer_list.currentRowChanged.connect(self._on_layer_selected)
         self.layer_list.model().rowsMoved.connect(self._on_layers_reordered)
-        # Set maximum height to show ~5 layers, then scroll
-        self.layer_list.setMaximumHeight(165)
+        # Height will be adjusted dynamically in _refresh_list
         layout.addWidget(self.layer_list)
 
         # Opacity slider
@@ -242,6 +236,26 @@ class LayersPanel(QWidget):
             self.layer_list.setCurrentRow(current_row)
         elif self._layers:
             self.layer_list.setCurrentRow(0)
+
+        # Adjust height based on number of layers (max 5 visible, then scroll)
+        self._adjust_list_height()
+
+    def _adjust_list_height(self) -> None:
+        """Adjust the list height based on number of layers."""
+        # Calculate height per item (each layer item is about 33px)
+        item_height = 33
+        num_layers = len(self._layers)
+        max_visible = 5
+
+        if num_layers <= max_visible:
+            # Show all layers without scrolling
+            height = max(item_height, num_layers * item_height)
+            self.layer_list.setFixedHeight(height)
+        else:
+            # Limit to max_visible layers, enable scrolling
+            height = max_visible * item_height
+            self.layer_list.setMaximumHeight(height)
+            self.layer_list.setMinimumHeight(height)
 
     def _on_layer_selected(self, row: int) -> None:
         """Handle layer selection.

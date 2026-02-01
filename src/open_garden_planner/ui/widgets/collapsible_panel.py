@@ -37,6 +37,7 @@ class CollapsiblePanel(QWidget):
         self._title = title
         self._expanded = expanded
         self._content_widget = content
+        self._info_label: QLabel | None = None
 
         self._setup_ui()
         self.set_expanded(expanded, emit=False)
@@ -77,6 +78,24 @@ class CollapsiblePanel(QWidget):
         header_layout.addWidget(title_label)
 
         header_layout.addStretch()
+
+        # Info icon (hidden by default, shown when set_info_tooltip is called)
+        self._info_label = QLabel("ℹ️")
+        self._info_label.setStyleSheet("""
+            QLabel {
+                border: none;
+                font-size: 14pt;
+            }
+            QToolTip {
+                background-color: white;
+                color: black;
+                border: 1px solid palette(mid);
+                padding: 4px;
+                font-size: 10pt;
+            }
+        """)
+        self._info_label.setVisible(False)
+        header_layout.addWidget(self._info_label)
 
         layout.addWidget(self._header)
 
@@ -136,3 +155,16 @@ class CollapsiblePanel(QWidget):
     def collapse(self) -> None:
         """Collapse the panel."""
         self.set_expanded(False)
+
+    def set_info_tooltip(self, tooltip: str) -> None:
+        """Set tooltip text for the info icon.
+
+        Args:
+            tooltip: Tooltip text to display on hover. Empty string hides the icon.
+        """
+        if self._info_label:
+            if tooltip:
+                self._info_label.setToolTip(tooltip)
+                self._info_label.setVisible(True)
+            else:
+                self._info_label.setVisible(False)
