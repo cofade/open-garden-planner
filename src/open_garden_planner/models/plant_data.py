@@ -43,6 +43,32 @@ class GrowthRate(Enum):
     UNKNOWN = "unknown"
 
 
+class FlowerType(Enum):
+    """Plant sexual system / flower type.
+
+    Describes whether a plant has male/female parts together or separately.
+    """
+
+    HERMAPHRODITE = "hermaphrodite"  # Both male & female parts in same flower (most common)
+    MONOECIOUS = "monoecious"  # Separate male/female flowers on same plant
+    DIOECIOUS_MALE = "dioecious_male"  # Male plant only (needs female nearby for fruit)
+    DIOECIOUS_FEMALE = "dioecious_female"  # Female plant only (produces fruit)
+    UNKNOWN = "unknown"
+
+
+class PollinationType(Enum):
+    """Plant pollination/fertility type.
+
+    Describes whether a plant can self-pollinate or needs a partner.
+    """
+
+    SELF_FERTILE = "self_fertile"  # Can pollinate itself, no partner needed
+    PARTIALLY_SELF_FERTILE = "partially_self_fertile"  # Some fruit alone, more with partner
+    SELF_STERILE = "self_sterile"  # Requires pollination partner
+    TRIPLOID = "triploid"  # Sterile pollen, needs partner, cannot pollinate others
+    UNKNOWN = "unknown"
+
+
 @dataclass
 class PlantSpeciesData:
     """Botanical data for a plant species from external APIs.
@@ -61,6 +87,10 @@ class PlantSpeciesData:
     # Growth characteristics
     cycle: PlantCycle = PlantCycle.UNKNOWN
     growth_rate: GrowthRate = GrowthRate.UNKNOWN
+
+    # Reproductive characteristics
+    flower_type: FlowerType = FlowerType.UNKNOWN
+    pollination_type: PollinationType = PollinationType.UNKNOWN
 
     # Size (in centimeters)
     min_height_cm: float | None = None
@@ -112,6 +142,8 @@ class PlantSpeciesData:
             "genus": self.genus,
             "cycle": self.cycle.value,
             "growth_rate": self.growth_rate.value,
+            "flower_type": self.flower_type.value,
+            "pollination_type": self.pollination_type.value,
             "min_height_cm": self.min_height_cm,
             "max_height_cm": self.max_height_cm,
             "min_spread_cm": self.min_spread_cm,
@@ -150,6 +182,8 @@ class PlantSpeciesData:
         # Convert enum strings back to enums
         cycle = PlantCycle(data.get("cycle", "unknown"))
         growth_rate = GrowthRate(data.get("growth_rate", "unknown"))
+        flower_type = FlowerType(data.get("flower_type", "unknown"))
+        pollination_type = PollinationType(data.get("pollination_type", "unknown"))
         sun_requirement = SunRequirement(data.get("sun_requirement", "unknown"))
         water_needs = WaterNeeds(data.get("water_needs", "unknown"))
 
@@ -160,6 +194,8 @@ class PlantSpeciesData:
             genus=data.get("genus", ""),
             cycle=cycle,
             growth_rate=growth_rate,
+            flower_type=flower_type,
+            pollination_type=pollination_type,
             min_height_cm=data.get("min_height_cm"),
             max_height_cm=data.get("max_height_cm"),
             min_spread_cm=data.get("min_spread_cm"),
@@ -198,7 +234,7 @@ class PlantInstance:
     # Instance-specific data
     variety_cultivar: str = ""  # e.g., "Honeycrisp" for apple
     planting_date: date | None = None
-    current_diameter_cm: float | None = None
+    current_spread_cm: float | None = None  # Current canopy spread/diameter
     current_height_cm: float | None = None
     notes: str = ""
 
@@ -217,7 +253,7 @@ class PlantInstance:
         return {
             "variety_cultivar": self.variety_cultivar,
             "planting_date": self.planting_date.isoformat() if self.planting_date else None,
-            "current_diameter_cm": self.current_diameter_cm,
+            "current_spread_cm": self.current_spread_cm,
             "current_height_cm": self.current_height_cm,
             "notes": self.notes,
             "custom_fields": self.custom_fields,
@@ -242,10 +278,13 @@ class PlantInstance:
         if data.get("species_data"):
             species_data = PlantSpeciesData.from_dict(data["species_data"])
 
+        # Support both old (current_diameter_cm) and new (current_spread_cm) field names
+        current_spread = data.get("current_spread_cm") or data.get("current_diameter_cm")
+
         return cls(
             variety_cultivar=data.get("variety_cultivar", ""),
             planting_date=planting_date,
-            current_diameter_cm=data.get("current_diameter_cm"),
+            current_spread_cm=current_spread,
             current_height_cm=data.get("current_height_cm"),
             notes=data.get("notes", ""),
             custom_fields=data.get("custom_fields", {}),

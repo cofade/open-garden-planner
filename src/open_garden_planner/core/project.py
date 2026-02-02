@@ -141,9 +141,60 @@ class ProjectManager(QObject):
         data = ProjectData.from_dict(raw_data)
         self._deserialize_to_scene(scene, data)
 
+        # Sync custom plants from project to app library
+        self._sync_custom_plants(scene)
+
         self._current_file = file_path
         self.mark_clean()
         self.project_changed.emit(str(file_path))
+
+    def _sync_custom_plants(self, scene: QGraphicsScene) -> None:
+        """Sync custom plants from loaded project to app library.
+
+        Imports any custom plants from the project that don't already exist
+        in the global custom plant library.
+
+        Args:
+            scene: The scene with loaded items
+        """
+        try:
+            from open_garden_planner.services.plant_library import get_plant_library
+
+            library = get_plant_library()
+            plants_to_import: dict[str, dict] = {}
+
+            # Scan all items for custom plant metadata
+            for item in scene.items():
+                if not hasattr(item, "metadata") or not item.metadata:
+                    continue
+
+                plant_species = item.metadata.get("plant_species")
+                if not plant_species or not isinstance(plant_species, dict):
+                    continue
+
+                # Check if it's a custom plant
+                if plant_species.get("data_source") != "custom":
+                    continue
+
+                plant_id = plant_species.get("source_id")
+                if not plant_id:
+                    continue
+
+                # Check if it already exists in library
+                if library.get_plant(plant_id) is None:
+                    plants_to_import[plant_id] = plant_species
+
+            # Import plants that don't exist
+            if plants_to_import:
+                imported = library.import_from_dict(plants_to_import)
+                if imported > 0:
+                    import logging
+                    logging.getLogger(__name__).info(
+                        f"Imported {imported} custom plant(s) from project file"
+                    )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to sync custom plants: {e}")
 
     def _serialize_scene(self, scene: QGraphicsScene) -> ProjectData:
         """Convert scene objects to ProjectData."""
