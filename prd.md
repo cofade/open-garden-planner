@@ -667,7 +667,7 @@ open_garden_planner/
 | ~~US-4.4~~ | ~~As a user, I can create custom plant species in my library~~ | ✅ Must |
 | ~~US-4.5~~ | ~~As a user, I can view plant details in a properties panel~~ | ✅ Must |
 | ~~US-4.6~~ | ~~As a user, I can add garden beds with area calculation~~ | ✅ Must |
-| US-4.7 | As a user, I can filter/search plants in my project | Should |
+| ~~US-4.7~~ | ~~As a user, I can filter/search plants in my project~~ | ✅ Should |
 | ~~US-4.8~~ | ~~As a user, I have a well-organized sidebar with icon-based tool panels~~ | ✅ Must |
 | ~~US-4.9~~ | ~~As a user, I can resize objects by dragging handles or edges~~ | ✅ Must |
 

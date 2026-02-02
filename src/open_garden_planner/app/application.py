@@ -1,5 +1,6 @@
 """Main application window."""
 
+import contextlib
 from pathlib import Path
 
 from PyQt6.QtCore import Qt, QTimer
@@ -29,6 +30,7 @@ from open_garden_planner.ui.panels import (
     DrawingToolsPanel,
     LayersPanel,
     PlantDatabasePanel,
+    PlantSearchPanel,
     PropertiesPanel,
 )
 from open_garden_planner.ui.widgets import CollapsiblePanel
@@ -402,7 +404,17 @@ class GardenPlannerApp(QMainWindow):
         layers_panel = CollapsiblePanel("Layers", self.layers_panel, expanded=True)
         sidebar_layout.addWidget(layers_panel)
 
-        # 4. Plant Details Panel (collapsible) - only shown when a plant is selected
+        # 4. Plant Search Panel (collapsible) - for finding plants in the project
+        self.plant_search_panel = PlantSearchPanel()
+        self.plant_search_panel.set_canvas_scene(self.canvas_scene)
+
+        # Connect scene changes to refresh plant list
+        self.canvas_scene.changed.connect(self._on_scene_changed_for_plant_search)
+
+        plant_search_collapsible = CollapsiblePanel("Find Plants", self.plant_search_panel, expanded=False)
+        sidebar_layout.addWidget(plant_search_collapsible)
+
+        # 5. Plant Details Panel (collapsible) - only shown when a plant is selected
         self.plant_database_panel = PlantDatabasePanel()
         self.plant_database_panel.search_button.clicked.connect(self._on_search_plant_database)
         self.plant_details_collapsible = CollapsiblePanel("Plant Details", self.plant_database_panel, expanded=True)
@@ -674,6 +686,11 @@ class GardenPlannerApp(QMainWindow):
             _new_name: New layer name (unused)
         """
         self._project_manager.mark_dirty()
+
+    def _on_scene_changed_for_plant_search(self) -> None:
+        """Handle scene changes to refresh plant search panel."""
+        with contextlib.suppress(RuntimeError):
+            self.plant_search_panel.refresh_plant_list()
 
     def _on_selection_changed(self) -> None:
         """Handle selection changes in the canvas scene."""

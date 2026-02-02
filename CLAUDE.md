@@ -141,6 +141,7 @@ tests/
 | ✅     | 4.3 | Search plant species from online database  |
 | ✅     | 4.4 | Create custom plant species in library     |
 | ✅     | 4.6 | Add garden beds with area calculation      |
+| ✅     | 4.7 | Filter/search plants in project            |
 | ✅     | 4.8 | Organized sidebar with tool panels         |
 | ✅     | 4.9 | Resize objects by dragging handles         |
 
