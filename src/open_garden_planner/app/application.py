@@ -254,6 +254,14 @@ class GardenPlannerApp(QMainWindow):
         search_action.triggered.connect(self._on_search_plant_database)
         menu.addAction(search_action)
 
+        menu.addSeparator()
+
+        # Manage Custom Plants
+        manage_custom_action = QAction("&Manage Custom Plants...", self)
+        manage_custom_action.setStatusTip("View, edit, and delete your custom plant species")
+        manage_custom_action.triggered.connect(self._on_manage_custom_plants)
+        menu.addAction(manage_custom_action)
+
     def _setup_help_menu(self, menu: QMenu) -> None:
         """Set up the Help menu actions."""
         # About
@@ -677,6 +685,13 @@ class GardenPlannerApp(QMainWindow):
         except RuntimeError:
             # Scene has been deleted, ignore
             pass
+
+    def _on_manage_custom_plants(self) -> None:
+        """Handle Manage Custom Plants action."""
+        from open_garden_planner.ui.dialogs import CustomPlantsDialog
+
+        dialog = CustomPlantsDialog(self)
+        dialog.exec()
 
     def _on_search_plant_database(self) -> None:
         """Handle Search Plant Database action."""

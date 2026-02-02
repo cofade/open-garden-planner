@@ -137,7 +137,9 @@ tests/
 | Status | US  | Description                                |
 | ------ | --- | ------------------------------------------ |
 | ✅     | 4.1 | Add plant objects (tree, shrub, perennial) |
+| ✅     | 4.2 | Set plant metadata (species, variety, dates) |
 | ✅     | 4.3 | Search plant species from online database  |
+| ✅     | 4.4 | Create custom plant species in library     |
 | ✅     | 4.6 | Add garden beds with area calculation      |
 | ✅     | 4.8 | Organized sidebar with tool panels         |
 | ✅     | 4.9 | Resize objects by dragging handles         |

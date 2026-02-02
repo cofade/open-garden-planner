@@ -71,10 +71,10 @@ class PlantAPIManager:
         # TODO: Add bundled database client when implemented
 
     def search(self, query: str, limit: int = 10) -> list[PlantSpeciesData]:
-        """Search for plants across all available APIs with fallback.
+        """Search for plants across custom library and all available APIs.
 
-        Tries each API in order until one succeeds. Returns results from
-        the first successful API.
+        First searches the custom plant library, then tries each API in order
+        until one succeeds. Custom plants are shown first in the results.
 
         Args:
             query: Search term (plant name or partial name)
@@ -84,21 +84,42 @@ class PlantAPIManager:
             List of matching plant species data
 
         Raises:
-            PlantAPIError: If all APIs fail
+            PlantAPIError: If all APIs fail and no custom plants found
         """
         if not query or not query.strip():
             return []
 
+        results: list[PlantSpeciesData] = []
+
+        # First, search custom plant library
+        try:
+            from open_garden_planner.services.plant_library import get_plant_library
+
+            library = get_plant_library()
+            custom_results = library.search_plants(query)
+            if custom_results:
+                logger.info(f"Custom library returned {len(custom_results)} results")
+                results.extend(custom_results)
+        except Exception as e:
+            logger.warning(f"Custom library search failed: {e}")
+
+        # If we have enough results from custom library, return them
+        if len(results) >= limit:
+            return results[:limit]
+
+        # Try each API in order
         last_error: Exception | None = None
+        remaining_limit = limit - len(results)
 
         for client in self._clients:
             try:
                 logger.info(f"Trying {client.name} API for search: '{query}'")
-                results = client.search(query, limit)
+                api_results = client.search(query, remaining_limit)
 
-                if results:
-                    logger.info(f"{client.name} returned {len(results)} results")
-                    return results
+                if api_results:
+                    logger.info(f"{client.name} returned {len(api_results)} results")
+                    results.extend(api_results)
+                    break  # Got results from an API, stop trying others
                 else:
                     logger.info(f"{client.name} returned no results")
 
@@ -111,7 +132,11 @@ class PlantAPIManager:
                 last_error = e
                 continue
 
-        # All APIs failed
+        # If we have any results (custom or API), return them
+        if results:
+            return results[:limit]
+
+        # All APIs failed and no custom plants found
         error_msg = "All plant APIs failed"
         if last_error:
             error_msg += f": {last_error}"

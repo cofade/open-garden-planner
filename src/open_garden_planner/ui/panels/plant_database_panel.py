@@ -24,8 +24,10 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.plant_data import (
+    FlowerType,
     PlantCycle,
     PlantSpeciesData,
+    PollinationType,
     SunRequirement,
     WaterNeeds,
 )
@@ -259,6 +261,12 @@ class PlantDatabasePanel(QWidget):
         self.create_custom_button.clicked.connect(self._on_create_custom_plant)
         button_layout.addWidget(self.create_custom_button)
 
+        # Load from custom library button
+        self.load_custom_button = QPushButton("Load Custom")
+        self.load_custom_button.setToolTip("Load a plant from your custom library")
+        self.load_custom_button.clicked.connect(self._on_load_custom_plant)
+        button_layout.addWidget(self.load_custom_button)
+
         layout.addLayout(button_layout)
 
         # Scrollable area for plant info
@@ -375,6 +383,40 @@ class PlantDatabasePanel(QWidget):
         self.cycle_combo.currentIndexChanged.connect(self._on_field_changed)
         self.details_form.addRow("Cycle:", self.cycle_combo)
 
+        # === REPRODUCTIVE CHARACTERISTICS ===
+
+        # Flower Type (sexual system)
+        self.flower_type_combo = QComboBox()
+        flower_type_labels = {
+            FlowerType.HERMAPHRODITE: "Hermaphrodite (perfect flowers)",
+            FlowerType.MONOECIOUS: "Monoecious (separate ♂/♀ flowers)",
+            FlowerType.DIOECIOUS_MALE: "Dioecious Male (♂ only)",
+            FlowerType.DIOECIOUS_FEMALE: "Dioecious Female (♀ only)",
+        }
+        for item in FlowerType:
+            if item != FlowerType.UNKNOWN:
+                label = flower_type_labels.get(item, item.value.replace("_", " ").title())
+                self.flower_type_combo.addItem(label, item.value)
+        self.flower_type_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.flower_type_combo.currentIndexChanged.connect(self._on_field_changed)
+        self.details_form.addRow("Flower Type:", self.flower_type_combo)
+
+        # Pollination Type (self-fertility)
+        self.pollination_combo = QComboBox()
+        pollination_labels = {
+            PollinationType.SELF_FERTILE: "Self-fertile (no partner needed)",
+            PollinationType.PARTIALLY_SELF_FERTILE: "Partially self-fertile",
+            PollinationType.SELF_STERILE: "Self-sterile (needs partner)",
+            PollinationType.TRIPLOID: "Triploid (sterile pollen)",
+        }
+        for item in PollinationType:
+            if item != PollinationType.UNKNOWN:
+                label = pollination_labels.get(item, item.value.replace("_", " ").title())
+                self.pollination_combo.addItem(label, item.value)
+        self.pollination_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.pollination_combo.currentIndexChanged.connect(self._on_field_changed)
+        self.details_form.addRow("Pollination:", self.pollination_combo)
+
         # === CARE REQUIREMENTS ===
 
         # Sun requirements
@@ -432,6 +474,17 @@ class PlantDatabasePanel(QWidget):
         self.current_height_spin.valueChanged.connect(self._on_current_height_changed)
         self.details_form.addRow("Current Height:", self.current_height_spin)
 
+        # Current Spread (instance-specific)
+        self.current_spread_spin = QDoubleSpinBox()
+        self.current_spread_spin.setRange(0, 10000)
+        self.current_spread_spin.setSingleStep(10)
+        self.current_spread_spin.setDecimals(0)
+        self.current_spread_spin.setSuffix(" cm")
+        self.current_spread_spin.setSpecialValueText("")  # Empty when 0
+        self.current_spread_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.current_spread_spin.valueChanged.connect(self._on_current_spread_changed)
+        self.details_form.addRow("Current Spread:", self.current_spread_spin)
+
         # === EDIBILITY ===
 
         # Edible (simple checkbox)
@@ -485,13 +538,23 @@ class PlantDatabasePanel(QWidget):
 
         # === PLANTING INFO ===
 
-        # Planting Date (instance-specific)
+        # Planting Date with age display (instance-specific)
+        planting_layout = QHBoxLayout()
+        planting_layout.setSpacing(4)
+
         self.planting_date_edit = ClickableDateEdit()
         self.planting_date_edit.setDisplayFormat("yyyy-MM-dd")
         self.planting_date_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         # Date is already initialized to minimum date in __init__, shows as empty
         self.planting_date_edit.dateChanged.connect(self._on_planting_date_changed)
-        self.details_form.addRow("Planted:", self.planting_date_edit)
+        planting_layout.addWidget(self.planting_date_edit, 1)
+
+        # Age label (calculated from planting date)
+        self.age_label = QLabel("")
+        self.age_label.setStyleSheet("color: gray; font-style: italic;")
+        planting_layout.addWidget(self.age_label)
+
+        self.details_form.addRow("Planted:", planting_layout)
 
         # === NOTES ===
 
@@ -502,6 +565,22 @@ class PlantDatabasePanel(QWidget):
         self.notes_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.notes_edit.textChanged.connect(self._on_notes_changed)
         self.details_form.addRow("Notes:", self.notes_edit)
+
+        # === CUSTOM FIELDS ===
+
+        # Custom fields container
+        self.custom_fields_widget = QWidget()
+        self.custom_fields_layout = QVBoxLayout(self.custom_fields_widget)
+        self.custom_fields_layout.setContentsMargins(0, 0, 0, 0)
+        self.custom_fields_layout.setSpacing(4)
+
+        # Add custom field button
+        add_field_btn = QPushButton("+ Add Field")
+        add_field_btn.setToolTip("Add a custom metadata field")
+        add_field_btn.clicked.connect(self._on_add_custom_field)
+        self.custom_fields_layout.addWidget(add_field_btn)
+
+        self.details_form.addRow("Custom:", self.custom_fields_widget)
 
     def _on_field_changed(self) -> None:
         """Handle field value changes - update plant metadata."""
@@ -519,6 +598,14 @@ class PlantDatabasePanel(QWidget):
         cycle_val = self.cycle_combo.currentData()
         if cycle_val:
             self._current_plant_data.cycle = PlantCycle(cycle_val)
+
+        flower_type_val = self.flower_type_combo.currentData()
+        if flower_type_val:
+            self._current_plant_data.flower_type = FlowerType(flower_type_val)
+
+        pollination_val = self.pollination_combo.currentData()
+        if pollination_val:
+            self._current_plant_data.pollination_type = PollinationType(pollination_val)
 
         sun_val = self.sun_combo.currentData()
         if sun_val:
@@ -557,20 +644,28 @@ class PlantDatabasePanel(QWidget):
         else:
             self._current_plant_data.edible_parts = []
 
-        # Save back to item metadata
+        # Save back to item metadata and custom library
         if hasattr(self._current_plant_item, "metadata"):
             if not self._current_plant_item.metadata:
                 self._current_plant_item.metadata = {}
-            self._current_plant_item.metadata["plant_species"] = (
-                self._current_plant_data.to_dict()
-            )
 
-            # If this is a custom plant, update the library
+            library = get_plant_library()
+
             if self._current_plant_data.data_source == "custom":
-                library = get_plant_library()
+                # Already a custom plant - update it in the library
                 plant_id = self._current_plant_data.source_id
                 if plant_id:
                     library.update_plant(plant_id, self._current_plant_data)
+            else:
+                # API-sourced plant being modified - convert to custom
+                self._current_plant_data.data_source = "custom"
+                plant_id = library.add_plant(self._current_plant_data)
+                self._current_plant_data.source_id = plant_id
+
+            # Save updated data to item metadata
+            self._current_plant_item.metadata["plant_species"] = (
+                self._current_plant_data.to_dict()
+            )
 
             # Mark project as dirty
             scene = self._current_plant_item.scene()
@@ -597,6 +692,40 @@ class PlantDatabasePanel(QWidget):
         # Save the selected date
         value = d.toPyDate().isoformat()
         self._update_instance_metadata("planting_date", value)
+        # Update age display
+        self._update_age_label(d.toPyDate())
+
+    def _update_age_label(self, planting_date: date | None) -> None:
+        """Update the age label based on planting date.
+
+        Args:
+            planting_date: The planting date to calculate age from
+        """
+        if not planting_date:
+            self.age_label.setText("")
+            return
+
+        today = date.today()
+        if planting_date > today:
+            self.age_label.setText("(future)")
+            return
+
+        # Calculate age
+        delta = today - planting_date
+        days = delta.days
+
+        if days < 30:
+            self.age_label.setText(f"({days} days)")
+        elif days < 365:
+            months = days // 30
+            self.age_label.setText(f"({months} mo)")
+        else:
+            years = days // 365
+            remaining_months = (days % 365) // 30
+            if remaining_months > 0:
+                self.age_label.setText(f"({years}y {remaining_months}mo)")
+            else:
+                self.age_label.setText(f"({years}y)")
 
     def _on_current_height_changed(self) -> None:
         """Handle current height change."""
@@ -605,11 +734,102 @@ class PlantDatabasePanel(QWidget):
         val = self.current_height_spin.value()
         self._update_instance_metadata("current_height_cm", val if val > 0 else None)
 
+    def _on_current_spread_changed(self) -> None:
+        """Handle current spread change."""
+        if not self._current_plant_item:
+            return
+        val = self.current_spread_spin.value()
+        self._update_instance_metadata("current_spread_cm", val if val > 0 else None)
+
     def _on_notes_changed(self) -> None:
         """Handle notes change."""
         if not self._current_plant_item:
             return
         self._update_instance_metadata("notes", self.notes_edit.toPlainText() or None)
+
+    def _on_add_custom_field(self) -> None:
+        """Add a new custom field."""
+        if not self._current_plant_item:
+            return
+
+        # Create a new custom field row
+        self._add_custom_field_row("", "")
+
+    def _add_custom_field_row(self, key: str, value: str) -> QWidget:
+        """Add a custom field row widget.
+
+        Args:
+            key: Field name
+            value: Field value
+
+        Returns:
+            The created row widget
+        """
+        row_widget = QWidget()
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(4)
+
+        # Key input
+        key_edit = QLineEdit()
+        key_edit.setPlaceholderText("Field name")
+        key_edit.setText(key)
+        key_edit.setMaximumWidth(100)
+        key_edit.editingFinished.connect(lambda: self._on_custom_field_changed())
+        row_layout.addWidget(key_edit)
+
+        # Value input
+        value_edit = QLineEdit()
+        value_edit.setPlaceholderText("Value")
+        value_edit.setText(value)
+        value_edit.editingFinished.connect(lambda: self._on_custom_field_changed())
+        row_layout.addWidget(value_edit, 1)
+
+        # Remove button
+        remove_btn = QPushButton("×")
+        remove_btn.setFixedWidth(24)
+        remove_btn.setToolTip("Remove this field")
+        remove_btn.clicked.connect(lambda: self._on_remove_custom_field(row_widget))
+        row_layout.addWidget(remove_btn)
+
+        # Store references for later retrieval
+        row_widget.key_edit = key_edit
+        row_widget.value_edit = value_edit
+
+        # Insert before the "Add Field" button
+        insert_index = self.custom_fields_layout.count() - 1
+        self.custom_fields_layout.insertWidget(insert_index, row_widget)
+
+        return row_widget
+
+    def _on_remove_custom_field(self, row_widget: QWidget) -> None:
+        """Remove a custom field row.
+
+        Args:
+            row_widget: The row widget to remove
+        """
+        self.custom_fields_layout.removeWidget(row_widget)
+        row_widget.deleteLater()
+        self._on_custom_field_changed()
+
+    def _on_custom_field_changed(self) -> None:
+        """Handle custom field changes - update metadata."""
+        if not self._current_plant_item:
+            return
+
+        # Collect all custom fields
+        custom_fields = {}
+        for i in range(self.custom_fields_layout.count() - 1):  # -1 to skip Add button
+            item = self.custom_fields_layout.itemAt(i)
+            if item and item.widget():
+                row_widget = item.widget()
+                if hasattr(row_widget, "key_edit") and hasattr(row_widget, "value_edit"):
+                    key = row_widget.key_edit.text().strip()
+                    value = row_widget.value_edit.text().strip()
+                    if key:  # Only save if key is not empty
+                        custom_fields[key] = value
+
+        self._update_instance_metadata("custom_fields", custom_fields if custom_fields else None)
 
     def _update_instance_metadata(self, key: str, value) -> None:
         """Update plant instance metadata and mark project dirty.
@@ -812,6 +1032,26 @@ class PlantDatabasePanel(QWidget):
             self.cycle_combo.setCurrentIndex(0)
         self.cycle_combo.blockSignals(False)
 
+        # === REPRODUCTIVE CHARACTERISTICS ===
+
+        # Flower Type
+        self.flower_type_combo.blockSignals(True)
+        flower_type_index = self.flower_type_combo.findData(plant_data.flower_type.value)
+        if flower_type_index >= 0:
+            self.flower_type_combo.setCurrentIndex(flower_type_index)
+        else:
+            self.flower_type_combo.setCurrentIndex(0)
+        self.flower_type_combo.blockSignals(False)
+
+        # Pollination Type
+        self.pollination_combo.blockSignals(True)
+        pollination_index = self.pollination_combo.findData(plant_data.pollination_type.value)
+        if pollination_index >= 0:
+            self.pollination_combo.setCurrentIndex(pollination_index)
+        else:
+            self.pollination_combo.setCurrentIndex(0)
+        self.pollination_combo.blockSignals(False)
+
         # === CARE REQUIREMENTS ===
 
         # Sun
@@ -883,6 +1123,7 @@ class PlantDatabasePanel(QWidget):
 
         # Planting date
         planting_date_str = instance_data.get("planting_date")
+        planting_date_val = None
         self.planting_date_edit.blockSignals(True)
         if planting_date_str:
             try:
@@ -896,16 +1137,39 @@ class PlantDatabasePanel(QWidget):
             self.planting_date_edit.setDate(QDate.currentDate())
         self.planting_date_edit.blockSignals(False)
 
+        # Update age label
+        self._update_age_label(planting_date_val)
+
         # Current height
         current_height = instance_data.get("current_height_cm")
         self.current_height_spin.blockSignals(True)
         self.current_height_spin.setValue(float(current_height) if current_height else 0)
         self.current_height_spin.blockSignals(False)
 
+        # Current spread
+        current_spread = instance_data.get("current_spread_cm")
+        self.current_spread_spin.blockSignals(True)
+        self.current_spread_spin.setValue(float(current_spread) if current_spread else 0)
+        self.current_spread_spin.blockSignals(False)
+
         # Notes
         self.notes_edit.blockSignals(True)
         self.notes_edit.setPlainText(instance_data.get("notes") or "")
         self.notes_edit.blockSignals(False)
+
+        # === CUSTOM FIELDS ===
+
+        # Clear existing custom field rows
+        while self.custom_fields_layout.count() > 1:  # Keep the Add button
+            item = self.custom_fields_layout.takeAt(0)
+            if item and item.widget():
+                item.widget().deleteLater()
+
+        # Load custom fields from instance data
+        custom_fields = instance_data.get("custom_fields", {})
+        if custom_fields:
+            for key, value in custom_fields.items():
+                self._add_custom_field_row(key, str(value) if value else "")
 
         # === SOURCE INFO ===
         # Set source info as tooltip on the panel header (via parent)
@@ -920,6 +1184,56 @@ class PlantDatabasePanel(QWidget):
                 parent_widget.set_info_tooltip(source_text)
                 break
             parent_widget = parent_widget.parent()
+
+    def _on_load_custom_plant(self) -> None:
+        """Handle Load Custom Plant button click."""
+        # Check if we have a selected plant item
+        if not self._current_plant_item:
+            QMessageBox.information(
+                self,
+                "No Plant Selected",
+                "Please select a plant object (tree, shrub, or perennial) first.",
+            )
+            return
+
+        # Get custom plants from library
+        library = get_plant_library()
+        plants = library.get_all_plants()
+
+        if not plants:
+            QMessageBox.information(
+                self,
+                "No Custom Plants",
+                "Your custom plant library is empty.\n\n"
+                "Use 'Create Custom' to add plants, or use the Plants menu "
+                "to manage your custom plant library.",
+            )
+            return
+
+        # Show selection dialog
+        from open_garden_planner.ui.dialogs.custom_plants_dialog import CustomPlantsDialog
+
+        dialog = CustomPlantsDialog(self)
+        dialog.setWindowTitle("Select Custom Plant")
+        if dialog.exec() and dialog.selected_plant:
+            # Assign selected plant to the item
+            plant_item = self._current_plant_item
+            if not hasattr(plant_item, "metadata") or plant_item.metadata is None:
+                plant_item.metadata = {}
+            plant_item.metadata["plant_species"] = dialog.selected_plant.to_dict()
+
+            # Show the plant data for editing
+            self._show_plant_data(dialog.selected_plant, plant_item)
+
+            # Mark project as dirty
+            scene = plant_item.scene()
+            if scene and hasattr(scene, "views"):
+                for view in scene.views():
+                    if hasattr(view, "window"):
+                        window = view.window()
+                        if hasattr(window, "_project_manager"):
+                            window._project_manager.mark_dirty()
+                            break
 
     def _on_create_custom_plant(self) -> None:
         """Handle Create Custom Plant button click."""

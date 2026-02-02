@@ -153,13 +153,13 @@ class PlantLibrary:
         """
         return self._plants.get(plant_id)
 
-    def get_all_plants(self) -> list[PlantSpeciesData]:
-        """Get all plants in the library.
+    def get_all_plants(self) -> list[tuple[str, PlantSpeciesData]]:
+        """Get all plants in the library with their IDs.
 
         Returns:
-            List of all custom plant species
+            List of tuples (plant_id, plant_data) for all custom plants
         """
-        return list(self._plants.values())
+        return list(self._plants.items())
 
     def search_plants(self, query: str) -> list[PlantSpeciesData]:
         """Search for plants by name.
