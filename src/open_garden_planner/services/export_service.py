@@ -1,6 +1,8 @@
 """Export service for exporting garden plans to various formats."""
 
+import csv
 from pathlib import Path
+from typing import Any
 
 from PyQt6.QtCore import QRectF, QSize, Qt
 from PyQt6.QtGui import QColor, QFont, QImage, QPainter
@@ -265,3 +267,174 @@ class ExportService:
             Scale ratio (e.g., 0.01 means 1:100 scale)
         """
         return output_width_cm / canvas_width_cm
+
+    @staticmethod
+    def export_plant_list_to_csv(
+        scene: QGraphicsScene,
+        file_path: Path | str,
+        include_species_data: bool = True,
+    ) -> int:
+        """Export all plants in the scene to a CSV file.
+
+        Args:
+            scene: The QGraphicsScene containing plant items
+            file_path: Path to save the CSV file
+            include_species_data: Whether to include species-level botanical data
+
+        Returns:
+            Number of plants exported
+
+        Raises:
+            ValueError: If export fails
+        """
+        file_path = Path(file_path)
+
+        # Import here to avoid circular dependency
+        from open_garden_planner.core.object_types import ObjectType
+
+        # Collect all plant items from the scene
+        plant_items = []
+        for item in scene.items():
+            if not hasattr(item, "object_type") or not hasattr(item, "metadata"):
+                continue
+
+            # Check if this is a plant type
+            obj_type = item.object_type
+            if obj_type not in (ObjectType.TREE, ObjectType.SHRUB, ObjectType.PERENNIAL):
+                continue
+
+            plant_items.append(item)
+
+        if not plant_items:
+            # Create empty file with header if no plants
+            with open(file_path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(ExportService._get_csv_headers(include_species_data))
+            return 0
+
+        # Extract data from plant items
+        rows = []
+        for item in plant_items:
+            row_data = ExportService._extract_plant_data(item, include_species_data)
+            rows.append(row_data)
+
+        # Write to CSV
+        try:
+            with open(file_path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(
+                    f,
+                    fieldnames=ExportService._get_csv_headers(include_species_data),
+                    extrasaction="ignore",
+                )
+                writer.writeheader()
+                writer.writerows(rows)
+        except Exception as e:
+            raise ValueError(f"Failed to write CSV to {file_path}: {e}") from e
+
+        return len(plant_items)
+
+    @staticmethod
+    def _get_csv_headers(include_species_data: bool) -> list[str]:
+        """Get CSV column headers.
+
+        Args:
+            include_species_data: Whether to include species-level columns
+
+        Returns:
+            List of column names
+        """
+        # Instance-level columns (always included)
+        headers = [
+            "name",
+            "type",
+            "variety_cultivar",
+            "planting_date",
+            "current_spread_cm",
+            "current_height_cm",
+            "position_x_cm",
+            "position_y_cm",
+            "notes",
+        ]
+
+        # Species-level columns (optional)
+        if include_species_data:
+            headers.extend([
+                "scientific_name",
+                "common_name",
+                "family",
+                "cycle",
+                "flower_type",
+                "pollination_type",
+                "max_height_cm",
+                "max_spread_cm",
+                "sun_requirement",
+                "water_needs",
+                "hardiness_zone_min",
+                "hardiness_zone_max",
+                "edible",
+                "edible_parts",
+                "data_source",
+            ])
+
+        return headers
+
+    @staticmethod
+    def _extract_plant_data(item: Any, include_species_data: bool) -> dict[str, Any]:
+        """Extract plant data from a graphics item.
+
+        Args:
+            item: The QGraphicsItem with plant metadata
+            include_species_data: Whether to include species-level data
+
+        Returns:
+            Dictionary of plant data for CSV row
+        """
+        data: dict[str, Any] = {}
+
+        # Get item name and type
+        data["name"] = getattr(item, "name", "")
+        obj_type = getattr(item, "object_type", None)
+        if obj_type:
+            from open_garden_planner.core.object_types import get_style
+            style = get_style(obj_type)
+            data["type"] = style.display_name
+        else:
+            data["type"] = ""
+
+        # Get position
+        pos = item.pos()
+        data["position_x_cm"] = round(pos.x(), 2)
+        data["position_y_cm"] = round(pos.y(), 2)
+
+        # Extract plant instance data
+        metadata = getattr(item, "metadata", {})
+        plant_instance = metadata.get("plant_instance", {})
+
+        data["variety_cultivar"] = plant_instance.get("variety_cultivar", "")
+        data["planting_date"] = plant_instance.get("planting_date", "")
+        data["current_spread_cm"] = plant_instance.get("current_spread_cm") or plant_instance.get("current_diameter_cm", "")
+        data["current_height_cm"] = plant_instance.get("current_height_cm", "")
+        data["notes"] = plant_instance.get("notes", "")
+
+        # Extract plant species data if requested
+        if include_species_data:
+            plant_species = metadata.get("plant_species", {})
+
+            data["scientific_name"] = plant_species.get("scientific_name", "")
+            data["common_name"] = plant_species.get("common_name", "")
+            data["family"] = plant_species.get("family", "")
+            data["cycle"] = plant_species.get("cycle", "")
+            data["flower_type"] = plant_species.get("flower_type", "")
+            data["pollination_type"] = plant_species.get("pollination_type", "")
+            data["max_height_cm"] = plant_species.get("max_height_cm", "")
+            data["max_spread_cm"] = plant_species.get("max_spread_cm", "")
+            data["sun_requirement"] = plant_species.get("sun_requirement", "")
+            data["water_needs"] = plant_species.get("water_needs", "")
+            data["hardiness_zone_min"] = plant_species.get("hardiness_zone_min", "")
+            data["hardiness_zone_max"] = plant_species.get("hardiness_zone_max", "")
+            data["edible"] = plant_species.get("edible", "")
+            edible_parts = plant_species.get("edible_parts", [])
+            data["edible_parts"] = ", ".join(edible_parts) if edible_parts else ""
+            data["data_source"] = plant_species.get("data_source", "")
+
+        return data

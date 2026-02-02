@@ -1,14 +1,15 @@
 """Tests for export functionality."""
 
+import csv
 from pathlib import Path
 
 import pytest
-from PyQt6.QtCore import QRectF
-from PyQt6.QtWidgets import QGraphicsScene
+from PyQt6.QtCore import QPointF
 
+from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.services.export_service import ExportService
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
-from open_garden_planner.ui.canvas.items import RectangleItem
+from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
 
 
 class TestExportService:
@@ -194,3 +195,161 @@ class TestExportPngDialog:
         dialog._letter_radio.setChecked(True)
         dialog._on_size_changed(int(27.94 * 10))
         assert dialog.selected_output_width_cm == pytest.approx(27.94, abs=0.1)
+
+
+class TestPlantListExport:
+    """Tests for plant list CSV export."""
+
+    @pytest.fixture
+    def scene_with_plants(self, qtbot) -> CanvasScene:
+        """Create a scene with plant objects."""
+        scene = CanvasScene(width_cm=1000, height_cm=500)
+
+        # Add tree with full metadata
+        tree = CircleItem(0, 0, 150, object_type=ObjectType.TREE)
+        tree.name = "Apple Tree"
+        tree.setPos(QPointF(100, 200))
+        tree.metadata["plant_instance"] = {
+            "variety_cultivar": "Honeycrisp",
+            "planting_date": "2023-04-15",
+            "current_spread_cm": 150.0,
+            "current_height_cm": 300.0,
+            "notes": "Grafted on dwarf rootstock",
+        }
+        tree.metadata["plant_species"] = {
+            "scientific_name": "Malus domestica",
+            "common_name": "Apple",
+            "family": "Rosaceae",
+            "genus": "Malus",
+            "cycle": "perennial",
+            "sun_requirement": "full_sun",
+            "water_needs": "medium",
+            "edible": True,
+            "edible_parts": ["fruit", "flower"],
+            "data_source": "custom",
+        }
+        scene.addItem(tree)
+
+        # Add shrub with minimal metadata
+        shrub = CircleItem(0, 0, 80, object_type=ObjectType.SHRUB)
+        shrub.name = "Rose Bush"
+        shrub.setPos(QPointF(300, 400))
+        shrub.metadata["plant_instance"] = {
+            "variety_cultivar": "Knockout",
+        }
+        scene.addItem(shrub)
+
+        # Add perennial with no metadata
+        perennial = CircleItem(0, 0, 50, object_type=ObjectType.PERENNIAL)
+        perennial.setPos(QPointF(500, 100))
+        scene.addItem(perennial)
+
+        return scene
+
+    def test_export_csv_empty_scene(self, tmp_path, qtbot) -> None:
+        """Test CSV export with no plants."""
+        scene = CanvasScene(width_cm=1000, height_cm=500)
+        file_path = tmp_path / "plants_empty.csv"
+
+        count = ExportService.export_plant_list_to_csv(scene, file_path)
+
+        assert count == 0
+        assert file_path.exists()
+
+        # Verify header exists
+        with open(file_path, encoding="utf-8") as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            assert "name" in header
+            assert "scientific_name" in header
+
+    def test_export_csv_with_plants(self, scene_with_plants, tmp_path, qtbot) -> None:
+        """Test CSV export with plant objects."""
+        file_path = tmp_path / "plants.csv"
+
+        count = ExportService.export_plant_list_to_csv(scene_with_plants, file_path)
+
+        assert count == 3
+        assert file_path.exists()
+
+        # Read and verify CSV content
+        with open(file_path, encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+
+        assert len(rows) == 3
+
+        # Find the apple tree row
+        apple = next(row for row in rows if row["name"] == "Apple Tree")
+        assert apple["type"] == "Tree"
+        assert apple["variety_cultivar"] == "Honeycrisp"
+        assert apple["planting_date"] == "2023-04-15"
+        assert float(apple["current_spread_cm"]) == 150.0
+        assert float(apple["current_height_cm"]) == 300.0
+        assert apple["scientific_name"] == "Malus domestica"
+        assert apple["common_name"] == "Apple"
+        assert apple["edible"] == "True"
+        assert "fruit" in apple["edible_parts"]
+
+        # Find the rose bush row
+        rose = next(row for row in rows if row["name"] == "Rose Bush")
+        assert rose["type"] == "Shrub"
+        assert rose["variety_cultivar"] == "Knockout"
+
+    def test_export_csv_without_species_data(self, scene_with_plants, tmp_path, qtbot) -> None:
+        """Test CSV export excluding species-level data."""
+        file_path = tmp_path / "plants_minimal.csv"
+
+        count = ExportService.export_plant_list_to_csv(
+            scene_with_plants, file_path, include_species_data=False
+        )
+
+        assert count == 3
+        assert file_path.exists()
+
+        # Read and verify CSV content
+        with open(file_path, encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            header = reader.fieldnames
+
+        # Verify species columns are not included
+        assert "scientific_name" not in header
+        assert "common_name" not in header
+
+        # Verify instance columns are included
+        assert "name" in header
+        assert "variety_cultivar" in header
+        assert "planting_date" in header
+
+    def test_export_csv_position_data(self, scene_with_plants, tmp_path, qtbot) -> None:
+        """Test CSV export includes position data."""
+        file_path = tmp_path / "plants_positions.csv"
+
+        ExportService.export_plant_list_to_csv(scene_with_plants, file_path)
+
+        with open(file_path, encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+
+        # Check apple tree position
+        apple = next(row for row in rows if row["name"] == "Apple Tree")
+        assert float(apple["position_x_cm"]) == pytest.approx(100.0, abs=0.1)
+        assert float(apple["position_y_cm"]) == pytest.approx(200.0, abs=0.1)
+
+    def test_export_csv_path_object(self, scene_with_plants, tmp_path, qtbot) -> None:
+        """Test CSV export with Path object."""
+        file_path = Path(tmp_path) / "plants_path.csv"
+
+        count = ExportService.export_plant_list_to_csv(scene_with_plants, file_path)
+
+        assert count == 3
+        assert file_path.exists()
+
+    def test_export_csv_string_path(self, scene_with_plants, tmp_path, qtbot) -> None:
+        """Test CSV export with string path."""
+        file_path = str(tmp_path / "plants_string.csv")
+
+        count = ExportService.export_plant_list_to_csv(scene_with_plants, file_path)
+
+        assert count == 3
+        assert Path(file_path).exists()
