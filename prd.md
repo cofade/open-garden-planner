@@ -697,7 +697,7 @@ open_garden_planner/
 **Technical Milestones**:
 - [x] PNG export with DPI options
 - [x] SVG export
-- [ ] CSV plant list export
+- [x] CSV plant list export
 - [ ] Keyboard shortcut system
 - [ ] Dark mode theming
 - [ ] Auto-save and crash recovery
