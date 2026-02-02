@@ -593,6 +593,7 @@ class GardenPlannerApp(QMainWindow):
                 self.canvas_scene,
                 file_path,
                 dpi=dialog.selected_dpi,
+                output_width_cm=dialog.selected_output_width_cm,
             )
             self.statusBar().showMessage(f"Exported: {file_path}")
         except Exception as e:
@@ -621,6 +622,7 @@ class GardenPlannerApp(QMainWindow):
             ExportService.export_to_svg(
                 self.canvas_scene,
                 file_path,
+                output_width_cm=ExportService.PAPER_A4_LANDSCAPE_WIDTH_CM,
                 title=self._project_manager.project_name,
                 description="Created with Open Garden Planner",
             )

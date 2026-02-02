@@ -28,43 +28,47 @@ class TestExportService:
 
     def test_calculate_image_size_72dpi(self, qtbot) -> None:
         """Test image size calculation at 72 DPI."""
-        # 100cm = ~39.37 inches
-        # At 72 DPI: ~2835 pixels
-        width_px, height_px = ExportService.calculate_image_size(100, 50, 72)
+        # Canvas: 5000cm x 2500cm, Output: 30cm wide
+        # Output: 30cm x 15cm (maintains aspect ratio)
+        # At 72 DPI: (30 / 2.54) * 72 = 850 pixels wide
+        width_px, height_px = ExportService.calculate_image_size(5000, 2500, 30, 72)
 
-        # 100 / 2.54 * 72 = 2834.6...
-        assert width_px == 2834
-        assert height_px == 1417
+        assert width_px == 850
+        assert height_px == 425
 
     def test_calculate_image_size_150dpi(self, qtbot) -> None:
         """Test image size calculation at 150 DPI."""
-        width_px, height_px = ExportService.calculate_image_size(100, 50, 150)
+        # Output: 30cm x 15cm at 150 DPI
+        width_px, height_px = ExportService.calculate_image_size(5000, 2500, 30, 150)
 
-        # 100 / 2.54 * 150 = 5905.5...
-        assert width_px == 5905
-        assert height_px == 2952
+        # (30 / 2.54) * 150 = 1771.6...
+        assert width_px == 1771
+        assert height_px == 885
 
     def test_calculate_image_size_300dpi(self, qtbot) -> None:
         """Test image size calculation at 300 DPI."""
-        width_px, height_px = ExportService.calculate_image_size(100, 50, 300)
+        # Output: 30cm x 15cm at 300 DPI
+        width_px, height_px = ExportService.calculate_image_size(5000, 2500, 30, 300)
 
-        # 100 / 2.54 * 300 = 11811.02...
-        assert width_px == 11811
-        assert height_px == 5905
+        # (30 / 2.54) * 300 = 3543.3...
+        assert width_px == 3543
+        assert height_px == 1771
 
-    def test_estimate_file_size(self, qtbot) -> None:
-        """Test file size estimation."""
-        # 1000x1000 = 1M pixels
-        # 4 bytes per pixel (ARGB32) = 4MB raw
-        # With 40% compression = 1.6MB
-        size_mb = ExportService.estimate_file_size_mb(1000, 1000)
-        assert 1.0 < size_mb < 2.0
+    def test_calculate_scale(self, qtbot) -> None:
+        """Test scale calculation."""
+        # 5000cm canvas → 30cm output = 1:166.67 scale
+        scale = ExportService.calculate_scale(5000, 30)
+        assert scale == pytest.approx(0.006, abs=0.001)
+
+        # 1000cm canvas → 30cm output = 1:33.33 scale
+        scale = ExportService.calculate_scale(1000, 30)
+        assert scale == pytest.approx(0.03, abs=0.001)
 
     def test_export_to_png_creates_file(self, scene, tmp_path, qtbot) -> None:
         """Test that PNG export creates a file."""
         file_path = tmp_path / "test_export.png"
 
-        ExportService.export_to_png(scene, file_path, dpi=72)
+        ExportService.export_to_png(scene, file_path, dpi=72, output_width_cm=30)
 
         assert file_path.exists()
         assert file_path.stat().st_size > 0
@@ -73,7 +77,7 @@ class TestExportService:
         """Test PNG export with scene content."""
         file_path = tmp_path / "test_with_rect.png"
 
-        ExportService.export_to_png(scene_with_rect, file_path, dpi=150)
+        ExportService.export_to_png(scene_with_rect, file_path, dpi=150, output_width_cm=30)
 
         assert file_path.exists()
         # File with content should be larger than empty
@@ -84,8 +88,8 @@ class TestExportService:
         file_72 = tmp_path / "test_72.png"
         file_300 = tmp_path / "test_300.png"
 
-        ExportService.export_to_png(scene, file_72, dpi=72)
-        ExportService.export_to_png(scene, file_300, dpi=300)
+        ExportService.export_to_png(scene, file_72, dpi=72, output_width_cm=30)
+        ExportService.export_to_png(scene, file_300, dpi=300, output_width_cm=30)
 
         # 300 DPI file should be significantly larger
         assert file_300.stat().st_size > file_72.stat().st_size
@@ -94,7 +98,7 @@ class TestExportService:
         """Test that SVG export creates a file."""
         file_path = tmp_path / "test_export.svg"
 
-        ExportService.export_to_svg(scene, file_path)
+        ExportService.export_to_svg(scene, file_path, output_width_cm=30)
 
         assert file_path.exists()
         assert file_path.stat().st_size > 0
@@ -103,7 +107,7 @@ class TestExportService:
         """Test SVG export with scene content."""
         file_path = tmp_path / "test_with_rect.svg"
 
-        ExportService.export_to_svg(scene_with_rect, file_path)
+        ExportService.export_to_svg(scene_with_rect, file_path, output_width_cm=30)
 
         assert file_path.exists()
 
@@ -118,6 +122,7 @@ class TestExportService:
         ExportService.export_to_svg(
             scene,
             file_path,
+            output_width_cm=30,
             title="My Garden",
             description="Test garden plan"
         )
@@ -130,7 +135,7 @@ class TestExportService:
         """Test export with Path object."""
         file_path = Path(tmp_path) / "test_path.png"
 
-        ExportService.export_to_png(scene, file_path, dpi=72)
+        ExportService.export_to_png(scene, file_path, dpi=72, output_width_cm=30)
 
         assert file_path.exists()
 
@@ -138,7 +143,7 @@ class TestExportService:
         """Test export with string path."""
         file_path = str(tmp_path / "test_string.png")
 
-        ExportService.export_to_png(scene, file_path, dpi=72)
+        ExportService.export_to_png(scene, file_path, dpi=72, output_width_cm=30)
 
         assert Path(file_path).exists()
 
@@ -154,6 +159,7 @@ class TestExportPngDialog:
         qtbot.addWidget(dialog)
 
         assert dialog.selected_dpi == 150  # Default
+        assert dialog.selected_output_width_cm == pytest.approx(29.7, abs=0.1)  # A4 landscape
 
     def test_dialog_dpi_selection(self, qtbot) -> None:
         """Test DPI selection changes."""
@@ -171,3 +177,20 @@ class TestExportPngDialog:
         dialog._dpi_300_radio.setChecked(True)
         dialog._on_dpi_changed(300)
         assert dialog.selected_dpi == 300
+
+    def test_dialog_size_selection(self, qtbot) -> None:
+        """Test output size selection changes."""
+        from open_garden_planner.ui.dialogs.export_dialog import ExportPngDialog
+
+        dialog = ExportPngDialog(5000, 3000)
+        qtbot.addWidget(dialog)
+
+        # Select A3
+        dialog._a3_radio.setChecked(True)
+        dialog._on_size_changed(int(42.0 * 10))
+        assert dialog.selected_output_width_cm == pytest.approx(42.0, abs=0.1)
+
+        # Select Letter
+        dialog._letter_radio.setChecked(True)
+        dialog._on_size_changed(int(27.94 * 10))
+        assert dialog.selected_output_width_cm == pytest.approx(27.94, abs=0.1)

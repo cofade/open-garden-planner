@@ -695,8 +695,8 @@ open_garden_planner/
 | US-5.8 | As a user, I have professional, consistent SVG icons for all drawing tools | Should |
 
 **Technical Milestones**:
-- [ ] PNG export with DPI options
-- [ ] SVG export
+- [x] PNG export with DPI options
+- [x] SVG export
 - [ ] CSV plant list export
 - [ ] Keyboard shortcut system
 - [ ] Dark mode theming

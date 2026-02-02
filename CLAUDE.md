@@ -151,8 +151,8 @@ tests/
 
 | Status | US  | Description                                |
 | ------ | --- | ------------------------------------------ |
-|        | 5.1 | Export plan as PNG (various resolutions)   |
-|        | 5.2 | Export plan as SVG                         |
+| ✅     | 5.1 | Export plan as PNG (various resolutions)   |
+| ✅     | 5.2 | Export plan as SVG                         |
 |        | 5.3 | Export plant list as CSV                   |
 |        | 5.4 | Keyboard shortcuts for all actions         |
 |        | 5.5 | Light/dark mode switch                     |
