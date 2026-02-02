@@ -145,8 +145,25 @@ tests/
 | ✅     | 4.8 | Organized sidebar with tool panels         |
 | ✅     | 4.9 | Resize objects by dragging handles         |
 
+## Phase 4 Complete!
+
+## Progress (Phase 5: Export & Polish)
+
+| Status | US  | Description                                |
+| ------ | --- | ------------------------------------------ |
+| ✅     | 5.1 | Export plan as PNG (various resolutions)   |
+| ✅     | 5.2 | Export plan as SVG                         |
+|        | 5.3 | Export plant list as CSV                   |
+|        | 5.4 | Keyboard shortcuts for all actions         |
+|        | 5.5 | Light/dark mode switch                     |
+|        | 5.6 | Welcome screen with recent projects        |
+|        | 5.7 | Auto-save periodically                     |
+|        | 5.8 | Professional SVG icons for tools           |
+
 ## Future Backlog
 
-1. Vertex coordinate annotations on selection
-2. Rotate objects (15° snap)
-3. Edit polygon vertices
+| US  | Description                                |
+| --- | ------------------------------------------ |
+| B.1 | Rotate objects (free + 15° snap)           |
+| B.2 | Edit polygon vertices (move, add, remove)  |
+| -   | Vertex coordinate annotations on selection |

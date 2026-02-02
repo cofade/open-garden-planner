@@ -24,6 +24,7 @@ from open_garden_planner.core import (
     format_length,
 )
 from open_garden_planner.core.tools import ToolType
+from open_garden_planner.services.export_service import ExportService
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.panels import (
@@ -136,10 +137,12 @@ class GardenPlannerApp(QMainWindow):
 
         export_png = QAction("Export as &PNG...", self)
         export_png.setStatusTip("Export the plan as a PNG image")
+        export_png.triggered.connect(self._on_export_png)
         export_menu.addAction(export_png)
 
         export_svg = QAction("Export as &SVG...", self)
         export_svg.setStatusTip("Export the plan as an SVG vector file")
+        export_svg.triggered.connect(self._on_export_svg)
         export_menu.addAction(export_svg)
 
         menu.addSeparator()
@@ -553,6 +556,79 @@ class GardenPlannerApp(QMainWindow):
             self.statusBar().showMessage(f"Saved: {file_path}")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save file:\n{e}")
+
+    def _on_export_png(self) -> None:
+        """Handle Export as PNG action."""
+        from open_garden_planner.ui.dialogs.export_dialog import ExportPngDialog
+
+        # Show export dialog
+        dialog = ExportPngDialog(
+            self.canvas_scene.width_cm,
+            self.canvas_scene.height_cm,
+            self,
+        )
+
+        if dialog.exec() != ExportPngDialog.DialogCode.Accepted:
+            return
+
+        # Get file path
+        default_name = self._project_manager.project_name + ".png"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export as PNG",
+            default_name,
+            "PNG Image (*.png);;All Files (*)",
+        )
+
+        if not file_path:
+            return
+
+        # Ensure .png extension
+        file_path = Path(file_path)
+        if file_path.suffix.lower() != ".png":
+            file_path = file_path.with_suffix(".png")
+
+        try:
+            ExportService.export_to_png(
+                self.canvas_scene,
+                file_path,
+                dpi=dialog.selected_dpi,
+                output_width_cm=dialog.selected_output_width_cm,
+            )
+            self.statusBar().showMessage(f"Exported: {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Failed to export PNG:\n{e}")
+
+    def _on_export_svg(self) -> None:
+        """Handle Export as SVG action."""
+        # Get file path
+        default_name = self._project_manager.project_name + ".svg"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export as SVG",
+            default_name,
+            "SVG Vector (*.svg);;All Files (*)",
+        )
+
+        if not file_path:
+            return
+
+        # Ensure .svg extension
+        file_path = Path(file_path)
+        if file_path.suffix.lower() != ".svg":
+            file_path = file_path.with_suffix(".svg")
+
+        try:
+            ExportService.export_to_svg(
+                self.canvas_scene,
+                file_path,
+                output_width_cm=ExportService.PAPER_A4_LANDSCAPE_WIDTH_CM,
+                title=self._project_manager.project_name,
+                description="Created with Open Garden Planner",
+            )
+            self.statusBar().showMessage(f"Exported: {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Failed to export SVG:\n{e}")
 
     def _confirm_discard_changes(self) -> bool:
         """Ask user to save if there are unsaved changes.
