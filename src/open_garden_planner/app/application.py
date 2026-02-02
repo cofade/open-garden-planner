@@ -145,6 +145,11 @@ class GardenPlannerApp(QMainWindow):
         export_svg.triggered.connect(self._on_export_svg)
         export_menu.addAction(export_svg)
 
+        export_csv = QAction("Export Plant List as &CSV...", self)
+        export_csv.setStatusTip("Export all plants to a CSV spreadsheet")
+        export_csv.triggered.connect(self._on_export_plant_csv)
+        export_menu.addAction(export_csv)
+
         menu.addSeparator()
 
         # Exit
@@ -629,6 +634,41 @@ class GardenPlannerApp(QMainWindow):
             self.statusBar().showMessage(f"Exported: {file_path}")
         except Exception as e:
             QMessageBox.critical(self, "Export Error", f"Failed to export SVG:\n{e}")
+
+    def _on_export_plant_csv(self) -> None:
+        """Handle Export Plant List as CSV action."""
+        # Get file path
+        default_name = self._project_manager.project_name + "_plants.csv"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Plant List as CSV",
+            default_name,
+            "CSV Spreadsheet (*.csv);;All Files (*)",
+        )
+
+        if not file_path:
+            return
+
+        # Ensure .csv extension
+        file_path = Path(file_path)
+        if file_path.suffix.lower() != ".csv":
+            file_path = file_path.with_suffix(".csv")
+
+        try:
+            count = ExportService.export_plant_list_to_csv(
+                self.canvas_scene,
+                file_path,
+                include_species_data=True,
+            )
+            if count == 0:
+                QMessageBox.information(
+                    self,
+                    "No Plants Found",
+                    "No plants found in the project. The CSV file will be empty.",
+                )
+            self.statusBar().showMessage(f"Exported {count} plant(s) to: {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Failed to export plant list:\n{e}")
 
     def _confirm_discard_changes(self) -> bool:
         """Ask user to save if there are unsaved changes.
