@@ -50,7 +50,8 @@ class RectangleTool(BaseTool):
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
-        self._start_point = scene_pos
+        # Snap the start point to grid if enabled
+        self._start_point = self._view.snap_point(scene_pos)
         self._is_drawing = True
 
         # Create preview rectangle
@@ -66,7 +67,9 @@ class RectangleTool(BaseTool):
         if not self._is_drawing or not self._preview_item:
             return False
 
-        rect = self._calculate_rect(self._start_point, scene_pos, event)
+        # Snap the end point to grid if enabled
+        snapped_pos = self._view.snap_point(scene_pos)
+        rect = self._calculate_rect(self._start_point, snapped_pos, event)
         self._preview_item.setRect(rect)
 
         return True
@@ -81,8 +84,10 @@ class RectangleTool(BaseTool):
             self._view.scene().removeItem(self._preview_item)
             self._preview_item = None
 
+        # Snap the end point to grid if enabled
+        snapped_pos = self._view.snap_point(scene_pos)
         # Create final rectangle if it has area
-        rect = self._calculate_rect(self._start_point, scene_pos, event)
+        rect = self._calculate_rect(self._start_point, snapped_pos, event)
         if rect.width() > 1 and rect.height() > 1:  # Minimum size
             from open_garden_planner.ui.canvas.items import RectangleItem
             # Get active layer from scene

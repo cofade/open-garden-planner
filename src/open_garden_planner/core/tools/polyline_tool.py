@@ -54,15 +54,18 @@ class PolylineTool(BaseTool):
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
+        # Snap the position to grid if enabled
+        snapped_pos = self._view.snap_point(scene_pos)
+
         # Add point
-        self._points.append(scene_pos)
-        self._add_vertex_marker(scene_pos)
+        self._points.append(snapped_pos)
+        self._add_vertex_marker(snapped_pos)
 
         if not self._is_drawing:
             self._is_drawing = True
             self._create_preview_path()
 
-        self._update_preview_path(scene_pos)
+        self._update_preview_path(snapped_pos)
         return True
 
     def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
@@ -70,7 +73,9 @@ class PolylineTool(BaseTool):
         if not self._is_drawing or not self._points:
             return False
 
-        self._update_preview_path(scene_pos)
+        # Snap the position to grid if enabled
+        snapped_pos = self._view.snap_point(scene_pos)
+        self._update_preview_path(snapped_pos)
         return True
 
     def mouse_release(self, _event: QMouseEvent, _scene_pos: QPointF) -> bool:

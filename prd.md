@@ -698,7 +698,7 @@ open_garden_planner/
 - [x] PNG export with DPI options
 - [x] SVG export
 - [x] CSV plant list export
-- [ ] Keyboard shortcut system
+- [x] Keyboard shortcut system
 - [ ] Dark mode theming
 - [ ] Auto-save and crash recovery
 - [ ] Welcome/start screen
