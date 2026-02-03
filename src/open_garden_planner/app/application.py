@@ -1,6 +1,7 @@
 """Main application window."""
 
 import contextlib
+import logging
 from pathlib import Path
 
 from PyQt6.QtCore import Qt, QTimer
@@ -36,6 +37,8 @@ from open_garden_planner.ui.panels import (
 )
 from open_garden_planner.ui.widgets import CollapsiblePanel
 
+logger = logging.getLogger(__name__)
+
 
 class GardenPlannerApp(QMainWindow):
     """Main application window for Open Garden Planner.
@@ -59,12 +62,18 @@ class GardenPlannerApp(QMainWindow):
         self._setup_status_bar()
         self._setup_central_widget()
 
+        # Set up auto-save manager
+        self._setup_autosave()
+
         # Initial window title
         self._update_window_title()
 
         # Show maximized and fit canvas after window is fully displayed
         self.showMaximized()
         QTimer.singleShot(100, self.canvas_view.fit_in_view)
+
+        # Check for recovery files after UI is fully loaded
+        QTimer.singleShot(500, self._check_recovery_files)
 
     def _setup_menu_bar(self) -> None:
         """Set up the menu bar with File, Edit, View, Help menus."""
@@ -221,6 +230,35 @@ class GardenPlannerApp(QMainWindow):
         select_all_action.setStatusTip("Select all objects")
         select_all_action.triggered.connect(self._on_select_all)
         menu.addAction(select_all_action)
+
+        menu.addSeparator()
+
+        # Auto-Save submenu
+        autosave_menu = menu.addMenu("Auto-&Save")
+
+        # Toggle auto-save
+        self._autosave_action = QAction("&Enable Auto-Save", self)
+        self._autosave_action.setCheckable(True)
+        self._autosave_action.setStatusTip("Enable or disable automatic saving")
+        self._autosave_action.triggered.connect(self._on_toggle_autosave)
+        autosave_menu.addAction(self._autosave_action)
+
+        autosave_menu.addSeparator()
+
+        # Auto-save interval options
+        self._autosave_interval_actions: list[QAction] = []
+        intervals = [1, 2, 5, 10, 15, 30]
+        for minutes in intervals:
+            label = f"{minutes} minute{'s' if minutes > 1 else ''}"
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.setData(minutes)
+            action.triggered.connect(lambda _checked, m=minutes: self._on_set_autosave_interval(m))
+            autosave_menu.addAction(action)
+            self._autosave_interval_actions.append(action)
+
+        # Initialize menu state from settings
+        QTimer.singleShot(0, self._update_autosave_menu_state)
 
     def _setup_view_menu(self, menu: QMenu) -> None:
         """Set up the View menu actions."""
@@ -449,6 +487,126 @@ class GardenPlannerApp(QMainWindow):
         # Add stretch at the bottom to push panels to top
         sidebar_layout.addStretch()
 
+    def _setup_autosave(self) -> None:
+        """Set up the auto-save manager."""
+        from open_garden_planner.services import AutoSaveManager
+
+        self._autosave_manager = AutoSaveManager(self)
+        self._autosave_manager.set_scene(self.canvas_scene)
+
+        # Connect dirty state changes
+        self._project_manager.dirty_changed.connect(self._autosave_manager.set_dirty)
+
+        # Connect project path changes
+        self._project_manager.project_changed.connect(self._on_project_changed_for_autosave)
+
+        # Connect auto-save events for status bar feedback
+        self._autosave_manager.autosave_performed.connect(self._on_autosave_performed)
+        self._autosave_manager.autosave_failed.connect(self._on_autosave_failed)
+
+        # Start auto-save
+        self._autosave_manager.start()
+
+    def _on_project_changed_for_autosave(self, path: str | None) -> None:
+        """Handle project path change for auto-save manager.
+
+        Args:
+            path: New project file path or None
+        """
+        self._autosave_manager.set_project_path(Path(path) if path else None)
+
+    def _on_autosave_performed(self, _path: str) -> None:
+        """Handle successful auto-save.
+
+        Args:
+            _path: Path where auto-save was written (unused)
+        """
+        self.statusBar().showMessage("Auto-saved", 2000)
+
+    def _on_autosave_failed(self, error: str) -> None:
+        """Handle failed auto-save.
+
+        Args:
+            error: Error message
+        """
+        logger.error(f"Auto-save failed: {error}")
+        self.statusBar().showMessage(f"Auto-save failed: {error}", 5000)
+
+    def _check_recovery_files(self) -> None:
+        """Check for recovery files on startup and offer to restore."""
+        from open_garden_planner.services import AutoSaveManager
+
+        recovery_files = AutoSaveManager.find_recovery_files()
+        if not recovery_files:
+            return
+
+        # Found recovery file(s) - ask user what to do
+        for autosave_path, metadata in recovery_files:
+            timestamp = metadata.get("timestamp", "unknown time")
+            original_file = metadata.get("original_file")
+
+            if original_file:
+                message = (
+                    f"A recovery file was found from {timestamp}.\n\n"
+                    f"Original project: {original_file}\n\n"
+                    "Would you like to recover this file?"
+                )
+            else:
+                message = (
+                    f"A recovery file for an unsaved project was found from {timestamp}.\n\n"
+                    "Would you like to recover this file?"
+                )
+
+            result = QMessageBox.question(
+                self,
+                "Recover Auto-Save",
+                message,
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.No
+                | QMessageBox.StandardButton.Discard,
+                QMessageBox.StandardButton.Yes,
+            )
+
+            if result == QMessageBox.StandardButton.Yes:
+                # Load the recovery file
+                self._load_recovery_file(autosave_path)
+            elif result == QMessageBox.StandardButton.Discard:
+                # Delete the recovery file
+                AutoSaveManager.delete_recovery_file(autosave_path)
+            # If No, just leave it for next time
+
+    def _load_recovery_file(self, recovery_path: Path) -> None:
+        """Load a recovery file.
+
+        Args:
+            recovery_path: Path to the recovery file
+        """
+        try:
+            self._project_manager.load(self.canvas_scene, recovery_path)
+            self.canvas_view.command_manager.clear()
+            self.canvas_view.fit_in_view()
+
+            # Mark as dirty since this is a recovery (not a normal saved project)
+            self._project_manager.mark_dirty()
+
+            # Reset the project path to None (since this is a recovery)
+            self._project_manager._current_file = None
+            self._project_manager.project_changed.emit(None)
+
+            self.statusBar().showMessage("Recovered from auto-save. Remember to save your work!")
+            QMessageBox.information(
+                self,
+                "Recovery Complete",
+                "Your work has been recovered from the auto-save file.\n\n"
+                "Please save your project to a permanent location.",
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Recovery Failed",
+                f"Failed to recover from auto-save:\n{e}",
+            )
+
     def _update_properties_panel(self) -> None:
         """Update properties panel with current selection."""
         try:
@@ -524,6 +682,10 @@ class GardenPlannerApp(QMainWindow):
             self.canvas_view.command_manager.clear()
             self._project_manager.new_project()
 
+            # Clear any existing auto-save
+            self._autosave_manager.clear_autosave()
+            self._autosave_manager.set_project_path(None)
+
             # Update status bar
             width_m = width_cm / 100.0
             height_m = height_cm / 100.0
@@ -546,9 +708,13 @@ class GardenPlannerApp(QMainWindow):
         )
         if file_path:
             try:
+                # Clear any existing auto-save before loading new project
+                self._autosave_manager.clear_autosave()
+
                 self._project_manager.load(self.canvas_scene, Path(file_path))
                 self.canvas_view.command_manager.clear()
                 self.canvas_view.fit_in_view()
+                self.layers_panel.set_layers(self.canvas_scene.layers)
                 self.statusBar().showMessage(f"Opened: {file_path}")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to open file:\n{e}")
@@ -575,6 +741,8 @@ class GardenPlannerApp(QMainWindow):
         """Save the project to a specific file."""
         try:
             self._project_manager.save(self.canvas_scene, file_path)
+            # Clear the auto-save file since we've saved manually
+            self._autosave_manager.clear_autosave()
             self.statusBar().showMessage(f"Saved: {file_path}")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save file:\n{e}")
@@ -720,6 +888,10 @@ class GardenPlannerApp(QMainWindow):
     def closeEvent(self, event: QCloseEvent) -> None:
         """Handle window close - prompt to save if dirty."""
         if self._confirm_discard_changes():
+            # Stop auto-save timer
+            self._autosave_manager.stop()
+            # Clear auto-save file (user chose to save or discard)
+            self._autosave_manager.clear_autosave()
             event.accept()
         else:
             event.ignore()
@@ -771,6 +943,61 @@ class GardenPlannerApp(QMainWindow):
             self.statusBar().showMessage(f"Selected {count} object(s)")
         except RuntimeError:
             pass
+
+    def _update_autosave_menu_state(self) -> None:
+        """Update auto-save menu state from settings."""
+        from open_garden_planner.app.settings import get_settings
+
+        settings = get_settings()
+
+        # Update enabled checkbox
+        self._autosave_action.setChecked(settings.autosave_enabled)
+
+        # Update interval radio buttons
+        current_interval = settings.autosave_interval_minutes
+        for action in self._autosave_interval_actions:
+            action.setChecked(action.data() == current_interval)
+
+    def _on_toggle_autosave(self, enabled: bool) -> None:
+        """Handle toggle auto-save action.
+
+        Args:
+            enabled: Whether auto-save should be enabled
+        """
+        from open_garden_planner.app.settings import get_settings
+
+        settings = get_settings()
+        settings.autosave_enabled = enabled
+
+        if enabled:
+            self._autosave_manager.start()
+            self.statusBar().showMessage("Auto-save enabled", 2000)
+        else:
+            self._autosave_manager.stop()
+            self.statusBar().showMessage("Auto-save disabled", 2000)
+
+    def _on_set_autosave_interval(self, minutes: int) -> None:
+        """Handle setting auto-save interval.
+
+        Args:
+            minutes: Interval in minutes
+        """
+        from open_garden_planner.app.settings import get_settings
+
+        settings = get_settings()
+        settings.autosave_interval_minutes = minutes
+
+        # Update menu checkmarks
+        for action in self._autosave_interval_actions:
+            action.setChecked(action.data() == minutes)
+
+        # Restart timer with new interval
+        self._autosave_manager.restart()
+
+        self.statusBar().showMessage(
+            f"Auto-save interval set to {minutes} minute{'s' if minutes > 1 else ''}",
+            2000,
+        )
 
     def _on_toggle_grid(self, checked: bool) -> None:
         """Handle toggle grid action."""
