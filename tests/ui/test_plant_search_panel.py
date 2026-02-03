@@ -1,6 +1,5 @@
 """Tests for plant search panel."""
 
-import pytest
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene

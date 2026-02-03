@@ -59,6 +59,17 @@ class TestProjectData:
 class TestProjectManager:
     """Tests for ProjectManager class."""
 
+    @pytest.fixture(autouse=True)
+    def setup(self, qtbot):  # noqa: ARG002
+        """Set up test fixtures - clean recent files."""
+        from open_garden_planner.app.settings import get_settings
+
+        # Clear recent files before each test
+        get_settings().clear_recent_files()
+        yield
+        # Clear recent files after each test
+        get_settings().clear_recent_files()
+
     @pytest.fixture
     def manager(self, qtbot) -> ProjectManager:
         """Create a project manager for testing."""

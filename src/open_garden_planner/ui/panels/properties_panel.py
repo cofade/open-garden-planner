@@ -153,7 +153,7 @@ class PropertiesPanel(QWidget):
         self._clear_form()
         label = QLabel("No objects selected")
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label.setStyleSheet("color: gray; padding: 20px;")
+        label.setStyleSheet("color: palette(mid); padding: 20px;")
         self._form_layout.addRow(label)
 
     def _show_multi_selection(self, count: int) -> None:
@@ -169,7 +169,7 @@ class PropertiesPanel(QWidget):
 
         # TODO: Show common properties for batch editing
         info = QLabel("Multi-selection editing\nnot yet implemented")
-        info.setStyleSheet("color: gray; padding: 10px;")
+        info.setStyleSheet("color: palette(mid); padding: 10px;")
         info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._form_layout.addRow(info)
 

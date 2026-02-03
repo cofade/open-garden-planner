@@ -699,9 +699,9 @@ open_garden_planner/
 - [x] SVG export
 - [x] CSV plant list export
 - [x] Keyboard shortcut system
-- [ ] Dark mode theming
+- [x] Dark mode theming
 - [x] Auto-save and crash recovery
-- [ ] Welcome/start screen
+- [x] Welcome/start screen
 - [ ] Windows installer (PyInstaller)
 - [ ] Professional SVG icon set (consistent style, appropriate colors)
 

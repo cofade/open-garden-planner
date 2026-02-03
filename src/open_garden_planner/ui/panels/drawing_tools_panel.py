@@ -145,15 +145,6 @@ class DrawingToolsPanel(QWidget):
             layout: Layout to add to
         """
         label = QLabel(title)
-        label.setStyleSheet("""
-            QLabel {
-                color: palette(text);
-                font-weight: bold;
-                padding: 2px 0px 2px 0px;
-                border-bottom: 1px solid palette(mid);
-                margin-bottom: 1px;
-            }
-        """)
         layout.addWidget(label)
 
     def _add_tool(
@@ -195,24 +186,6 @@ class DrawingToolsPanel(QWidget):
             font = button.font()
             font.setPointSize(18)
             button.setFont(font)
-
-        button.setStyleSheet("""
-            QToolButton {
-                border: 1px solid palette(mid);
-                background-color: palette(button);
-                margin: 0px;
-                padding: 0px;
-            }
-            QToolButton:hover {
-                background-color: palette(light);
-                border-color: palette(dark);
-            }
-            QToolButton:checked {
-                background-color: #e3f2fd;
-                border: 2px solid #2196f3;
-                font-weight: bold;
-            }
-        """)
 
         # Set keyboard shortcut
         if shortcut:

@@ -55,37 +55,6 @@ class ClickableDateEdit(QDateEdit):
         # Set cursor to indicate clickability
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
-        # Style with visible dropdown button
-        self.setStyleSheet("""
-            QDateEdit {
-                background-color: palette(base);
-                border: 1px solid palette(mid);
-                border-radius: 2px;
-                padding: 2px;
-                padding-right: 20px;
-            }
-            QDateEdit:hover {
-                border: 1px solid palette(highlight);
-                background-color: palette(light);
-            }
-            QDateEdit::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 20px;
-                border-left: 1px solid palette(mid);
-            }
-            QDateEdit::down-arrow {
-                image: none;
-                border: 2px solid palette(text);
-                border-top: none;
-                border-right: none;
-                width: 6px;
-                height: 6px;
-                transform: rotate(-45deg);
-                margin: 2px;
-            }
-        """)
-
         # Initialize to today's date
         self.setDate(QDate.currentDate())
 
@@ -286,7 +255,7 @@ class PlantDatabasePanel(QWidget):
         # Info labels
         self.no_selection_label = QLabel("Select a plant to view details")
         self.no_selection_label.setWordWrap(True)
-        self.no_selection_label.setStyleSheet("color: gray; font-style: italic;")
+        self.no_selection_label.setStyleSheet("color: palette(mid); font-style: italic;")
         self.info_layout.addWidget(self.no_selection_label)
 
         # Form layout for plant details (hidden initially)
@@ -324,25 +293,11 @@ class PlantDatabasePanel(QWidget):
         7. Planting info
         8. Notes
         """
-        # Style for text fields to indicate they're editable
-        line_edit_style = """
-            QLineEdit {
-                background-color: palette(base);
-                border: 1px solid palette(mid);
-                border-radius: 2px;
-                padding: 2px;
-            }
-            QLineEdit:focus {
-                border: 1px solid palette(highlight);
-            }
-        """
-
         # === BASIC IDENTITY ===
 
         # Common name
         self.common_edit = QLineEdit()
         self.common_edit.setPlaceholderText("Enter common name...")
-        self.common_edit.setStyleSheet(line_edit_style)
         self.common_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.common_edit.editingFinished.connect(self._on_field_changed)
         self.details_form.addRow("Common Name:", self.common_edit)
@@ -350,7 +305,6 @@ class PlantDatabasePanel(QWidget):
         # Scientific name
         self.scientific_edit = QLineEdit()
         self.scientific_edit.setPlaceholderText("Enter scientific name...")
-        self.scientific_edit.setStyleSheet(line_edit_style)
         self.scientific_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.scientific_edit.editingFinished.connect(self._on_field_changed)
         self.details_form.addRow("Scientific Name:", self.scientific_edit)
@@ -358,7 +312,6 @@ class PlantDatabasePanel(QWidget):
         # Family
         self.family_edit = QLineEdit()
         self.family_edit.setPlaceholderText("Enter plant family...")
-        self.family_edit.setStyleSheet(line_edit_style)
         self.family_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.family_edit.editingFinished.connect(self._on_field_changed)
         self.details_form.addRow("Family:", self.family_edit)
@@ -366,7 +319,6 @@ class PlantDatabasePanel(QWidget):
         # Variety/Cultivar (instance-specific)
         self.variety_edit = QLineEdit()
         self.variety_edit.setPlaceholderText("Enter variety or cultivar...")
-        self.variety_edit.setStyleSheet(line_edit_style)
         self.variety_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.variety_edit.editingFinished.connect(self._on_instance_field_changed)
         self.details_form.addRow("Variety:", self.variety_edit)
@@ -495,7 +447,6 @@ class PlantDatabasePanel(QWidget):
         # Edible parts
         self.edible_parts_edit = QLineEdit()
         self.edible_parts_edit.setPlaceholderText("e.g., fruit, leaves, roots...")
-        self.edible_parts_edit.setStyleSheet(line_edit_style)
         self.edible_parts_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.edible_parts_edit.editingFinished.connect(self._on_field_changed)
         self.details_form.addRow("Edible Parts:", self.edible_parts_edit)
@@ -551,7 +502,7 @@ class PlantDatabasePanel(QWidget):
 
         # Age label (calculated from planting date)
         self.age_label = QLabel("")
-        self.age_label.setStyleSheet("color: gray; font-style: italic;")
+        self.age_label.setStyleSheet("color: palette(mid); font-style: italic;")
         planting_layout.addWidget(self.age_label)
 
         self.details_form.addRow("Planted:", planting_layout)

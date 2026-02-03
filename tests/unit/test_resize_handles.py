@@ -1,7 +1,7 @@
 """Unit tests for resize handle functionality."""
 
 import pytest
-from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem

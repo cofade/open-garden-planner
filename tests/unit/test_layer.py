@@ -2,8 +2,6 @@
 
 from uuid import UUID
 
-import pytest
-
 from open_garden_planner.models.layer import Layer, create_default_layers
 
 

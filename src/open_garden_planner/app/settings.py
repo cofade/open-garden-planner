@@ -5,6 +5,8 @@ Provides persistent storage for user preferences using QSettings.
 
 from PyQt6.QtCore import QSettings
 
+from open_garden_planner.ui.theme import ThemeMode
+
 
 class AppSettings:
     """Manages application settings using Qt's QSettings.
@@ -22,6 +24,7 @@ class AppSettings:
     KEY_WINDOW_GEOMETRY = "window/geometry"
     KEY_WINDOW_STATE = "window/state"
     KEY_SHOW_WELCOME = "startup/show_welcome"
+    KEY_THEME_MODE = "appearance/theme_mode"
 
     # Default values
     DEFAULT_AUTOSAVE_ENABLED = True
@@ -29,6 +32,7 @@ class AppSettings:
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
     MIN_AUTOSAVE_INTERVAL_MINUTES = 1
     MAX_AUTOSAVE_INTERVAL_MINUTES = 30
+    DEFAULT_THEME_MODE = "system"
 
     def __init__(self) -> None:
         """Initialize the settings manager."""
@@ -137,6 +141,33 @@ class AppSettings:
     def window_state(self, state: bytes) -> None:
         """Save window state."""
         self._settings.setValue(self.KEY_WINDOW_STATE, state)
+
+    @property
+    def theme_mode(self) -> ThemeMode:
+        """Get the current theme mode preference.
+
+        Returns:
+            ThemeMode enum value (LIGHT, DARK, or SYSTEM)
+        """
+        value = self._settings.value(
+            self.KEY_THEME_MODE,
+            self.DEFAULT_THEME_MODE,
+            type=str,
+        )
+        # Convert string to enum, default to SYSTEM if invalid
+        try:
+            return ThemeMode(value.lower())
+        except (ValueError, AttributeError):
+            return ThemeMode.SYSTEM
+
+    @theme_mode.setter
+    def theme_mode(self, mode: ThemeMode) -> None:
+        """Set the theme mode preference.
+
+        Args:
+            mode: ThemeMode enum value to save
+        """
+        self._settings.setValue(self.KEY_THEME_MODE, mode.value)
 
     def sync(self) -> None:
         """Force settings to be written to storage."""

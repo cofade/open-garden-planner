@@ -181,8 +181,8 @@ class WelcomeDialog(QDialog):
                 background-color: rgba(76, 175, 80, 0.2);
             }
             QPushButton:disabled {
-                border-color: gray;
-                color: gray;
+                border-color: palette(mid);
+                color: palette(mid);
             }
         """
 

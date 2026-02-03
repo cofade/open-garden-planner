@@ -51,16 +51,6 @@ class CollapsiblePanel(QWidget):
         # Header frame with background
         self._header = QFrame()
         self._header.setFrameShape(QFrame.Shape.StyledPanel)
-        self._header.setStyleSheet("""
-            QFrame {
-                background-color: palette(button);
-                border: 1px solid palette(mid);
-                border-radius: 3px;
-            }
-            QFrame:hover {
-                background-color: palette(light);
-            }
-        """)
         self._header.setCursor(Qt.CursorShape.PointingHandCursor)
         self._header.mousePressEvent = lambda _: self.toggle()
 
@@ -74,7 +64,7 @@ class CollapsiblePanel(QWidget):
 
         # Title label
         title_label = QLabel(self._title)
-        title_label.setStyleSheet("font-weight: bold; border: none;")
+        title_label.setStyleSheet("font-weight: bold;")
         header_layout.addWidget(title_label)
 
         header_layout.addStretch()

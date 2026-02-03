@@ -1,6 +1,5 @@
 """Tests for drawing tools panel."""
 
-import pytest
 
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.panels import DrawingToolsPanel

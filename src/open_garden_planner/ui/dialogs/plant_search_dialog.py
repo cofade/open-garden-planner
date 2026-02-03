@@ -77,7 +77,7 @@ class PlantSearchDialog(QDialog):
 
         # Status/info label
         self.status_label = QLabel("Enter a plant name to search")
-        self.status_label.setStyleSheet("color: gray;")
+        self.status_label.setStyleSheet("color: palette(mid);")
         layout.addWidget(self.status_label)
 
         # Main content area
@@ -134,7 +134,7 @@ class PlantSearchDialog(QDialog):
         else:
             self.results_list.clear()
             self.status_label.setText("Enter a plant name to search")
-            self.status_label.setStyleSheet("color: gray;")
+            self.status_label.setStyleSheet("color: palette(mid);")
 
     def _perform_search(self) -> None:
         """Perform plant search using the API manager."""
@@ -275,7 +275,7 @@ class PlantSearchDialog(QDialog):
             html += "</ul>"
 
         # Data source
-        html += "<hr><p style='color: gray; font-size: small;'>"
+        html += "<hr><p style='color: palette(mid); font-size: small;'>"
         html += f"Source: {plant.data_source.title()}"
         if plant.source_id:
             html += f" (ID: {plant.source_id})"
