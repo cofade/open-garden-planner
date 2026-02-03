@@ -74,7 +74,7 @@ class CalibrationDialog(QDialog):
 
         # Status label
         self._status_label = QLabel("Click the first point on the image")
-        self._status_label.setStyleSheet("color: #0066cc; font-weight: bold;")
+        self._status_label.setStyleSheet("color: palette(highlight); font-weight: bold;")
         layout.addWidget(self._status_label)
 
         # Distance input

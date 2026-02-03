@@ -1,6 +1,5 @@
 """Tests for properties panel."""
 
-import pytest
 from PyQt6.QtCore import QPointF
 
 from open_garden_planner.core.object_types import ObjectType

@@ -73,7 +73,7 @@ class PlantListItem(QWidget):
         # Bottom row: scientific name
         if species:
             species_label = QLabel(species)
-            species_label.setStyleSheet("color: gray; font-style: italic; padding-left: 24px;")
+            species_label.setStyleSheet("color: palette(mid); font-style: italic; padding-left: 24px;")
             layout.addWidget(species_label)
 
 
@@ -140,7 +140,7 @@ class PlantSearchPanel(QWidget):
 
         # Results count label
         self.results_label = QLabel("No plants in project")
-        self.results_label.setStyleSheet("color: gray;")
+        self.results_label.setStyleSheet("color: palette(mid);")
         layout.addWidget(self.results_label)
 
         # Results list

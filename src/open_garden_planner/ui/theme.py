@@ -1,0 +1,674 @@
+"""Theme management for the application.
+
+Provides light and dark color schemes with comprehensive styling.
+"""
+
+from enum import Enum
+
+from PyQt6.QtWidgets import QApplication
+
+
+class ThemeMode(Enum):
+    """Available theme modes."""
+
+    LIGHT = "light"
+    DARK = "dark"
+    SYSTEM = "system"
+
+
+class ThemeColors:
+    """Color definitions for light and dark themes."""
+
+    # Light theme colors
+    LIGHT = {
+        # Base colors
+        "background": "#ffffff",
+        "background_alt": "#f5f5f5",
+        "surface": "#fafafa",
+        "surface_alt": "#e0e0e0",
+        # Text colors
+        "text_primary": "#212121",
+        "text_secondary": "#757575",
+        "text_disabled": "#9e9e9e",
+        # Border colors
+        "border": "#e0e0e0",
+        "border_focus": "#90caf9",
+        # Canvas colors
+        "canvas_background": "#f5f5dc",  # Beige
+        "grid_line": "#d0d0d0",
+        # Accent colors
+        "accent": "#2196f3",
+        "accent_hover": "#1976d2",
+        "accent_pressed": "#0d47a1",
+        # Status colors
+        "success": "#4caf50",
+        "warning": "#ff9800",
+        "error": "#f44336",
+        "info": "#2196f3",
+        # UI element colors
+        "button": "#f0f0f0",
+        "button_hover": "#e0e0e0",
+        "button_pressed": "#d0d0d0",
+        "input": "#ffffff",
+        "input_disabled": "#f5f5f5",
+        # Selection colors
+        "selection": "#bbdefb",
+        "selection_inactive": "#e0e0e0",
+    }
+
+    # Dark theme colors
+    DARK = {
+        # Base colors
+        "background": "#1e1e1e",
+        "background_alt": "#252525",
+        "surface": "#2d2d2d",
+        "surface_alt": "#383838",
+        # Text colors
+        "text_primary": "#e0e0e0",
+        "text_secondary": "#b0b0b0",
+        "text_disabled": "#707070",
+        # Border colors
+        "border": "#404040",
+        "border_focus": "#64b5f6",
+        # Canvas colors
+        "canvas_background": "#2a2a2a",
+        "grid_line": "#404040",
+        # Accent colors
+        "accent": "#64b5f6",
+        "accent_hover": "#42a5f5",
+        "accent_pressed": "#2196f3",
+        # Status colors
+        "success": "#66bb6a",
+        "warning": "#ffa726",
+        "error": "#ef5350",
+        "info": "#42a5f5",
+        # UI element colors
+        "button": "#383838",
+        "button_hover": "#424242",
+        "button_pressed": "#505050",
+        "input": "#2d2d2d",
+        "input_disabled": "#252525",
+        # Selection colors
+        "selection": "#1565c0",
+        "selection_inactive": "#424242",
+    }
+
+    @classmethod
+    def get_colors(cls, mode: ThemeMode) -> dict[str, str]:
+        """Get color palette for the specified theme mode.
+
+        Args:
+            mode: Theme mode (light, dark, or system)
+
+        Returns:
+            Dictionary mapping color names to hex values
+        """
+        if mode == ThemeMode.SYSTEM:
+            # Detect system theme preference
+            mode = cls.detect_system_theme()
+
+        return cls.DARK if mode == ThemeMode.DARK else cls.LIGHT
+
+    @staticmethod
+    def detect_system_theme() -> ThemeMode:
+        """Detect the system's preferred color scheme.
+
+        Returns:
+            ThemeMode.DARK if system prefers dark, ThemeMode.LIGHT otherwise
+        """
+        # Qt 6.5+ has better dark mode detection, but for compatibility
+        # we'll check the application's palette
+        palette = QApplication.palette()
+        window_color = palette.color(palette.ColorRole.Window)
+
+        # If the background is dark (low luminance), use dark theme
+        luminance = (0.299 * window_color.red() +
+                     0.587 * window_color.green() +
+                     0.114 * window_color.blue()) / 255.0
+
+        return ThemeMode.DARK if luminance < 0.5 else ThemeMode.LIGHT
+
+
+def generate_stylesheet(mode: ThemeMode) -> str:
+    """Generate complete application stylesheet for the given theme mode.
+
+    Args:
+        mode: Theme mode (light, dark, or system)
+
+    Returns:
+        Complete CSS stylesheet as string
+    """
+    colors = ThemeColors.get_colors(mode)
+
+    return f"""
+    /* Global application styles */
+    QMainWindow, QDialog, QWidget {{
+        background-color: {colors['background']};
+        color: {colors['text_primary']};
+    }}
+
+    /* Menu bar */
+    QMenuBar {{
+        background-color: {colors['background']};
+        color: {colors['text_primary']};
+        border-bottom: 1px solid {colors['border']};
+    }}
+
+    QMenuBar::item {{
+        background-color: transparent;
+        padding: 4px 8px;
+    }}
+
+    QMenuBar::item:selected {{
+        background-color: {colors['button_hover']};
+    }}
+
+    QMenuBar::item:pressed {{
+        background-color: {colors['button_pressed']};
+    }}
+
+    /* Menus */
+    QMenu {{
+        background-color: {colors['surface']};
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+    }}
+
+    QMenu::item {{
+        padding: 6px 24px;
+    }}
+
+    QMenu::item:selected {{
+        background-color: {colors['accent']};
+        color: #ffffff;
+    }}
+
+    QMenu::item:disabled {{
+        color: {colors['text_disabled']};
+    }}
+
+    QMenu::separator {{
+        height: 1px;
+        background-color: {colors['border']};
+        margin: 4px 0px;
+    }}
+
+    /* Status bar */
+    QStatusBar {{
+        background-color: {colors['surface']};
+        color: {colors['text_primary']};
+        border-top: 1px solid {colors['border']};
+    }}
+
+    QStatusBar QLabel {{
+        background-color: transparent;
+        padding: 2px 4px;
+    }}
+
+    /* Buttons */
+    QPushButton {{
+        background-color: {colors['button']};
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+        border-radius: 4px;
+        padding: 6px 12px;
+        min-width: 80px;
+    }}
+
+    QPushButton:hover {{
+        background-color: {colors['button_hover']};
+        border-color: {colors['border_focus']};
+    }}
+
+    QPushButton:pressed {{
+        background-color: {colors['button_pressed']};
+    }}
+
+    QPushButton:disabled {{
+        background-color: {colors['input_disabled']};
+        color: {colors['text_disabled']};
+    }}
+
+    /* Tool buttons */
+    QToolButton {{
+        background-color: transparent;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        padding: 4px;
+    }}
+
+    QToolButton:hover {{
+        background-color: {colors['button_hover']};
+        border-color: {colors['border']};
+    }}
+
+    QToolButton:pressed, QToolButton:checked {{
+        background-color: {colors['button_pressed']};
+        border-color: {colors['accent']};
+    }}
+
+    /* Text inputs */
+    QLineEdit, QTextEdit, QPlainTextEdit {{
+        background-color: {colors['input']};
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+        border-radius: 3px;
+        padding: 4px;
+        selection-background-color: {colors['selection']};
+    }}
+
+    QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {{
+        border-color: {colors['border_focus']};
+    }}
+
+    QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled {{
+        background-color: {colors['input_disabled']};
+        color: {colors['text_disabled']};
+    }}
+
+    /* Spin boxes */
+    QSpinBox, QDoubleSpinBox {{
+        background-color: {colors['input']};
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+        border-radius: 3px;
+        padding: 4px;
+    }}
+
+    QSpinBox:focus, QDoubleSpinBox:focus {{
+        border-color: {colors['border_focus']};
+    }}
+
+    /* Date edit */
+    QDateEdit {{
+        background-color: {colors['input']};
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+        border-radius: 3px;
+        padding: 4px;
+    }}
+
+    QDateEdit:focus {{
+        border-color: {colors['border_focus']};
+    }}
+
+    QDateEdit::drop-down {{
+        border-left: 1px solid {colors['border']};
+    }}
+
+    QDateEdit::down-arrow {{
+        border-color: {colors['text_primary']};
+    }}
+
+    /* Calendar widget */
+    QCalendarWidget {{
+        background-color: {colors['surface']};
+        color: {colors['text_primary']};
+    }}
+
+    QCalendarWidget QToolButton {{
+        background-color: {colors['button']};
+        color: {colors['text_primary']};
+    }}
+
+    QCalendarWidget QMenu {{
+        background-color: {colors['surface']};
+        color: {colors['text_primary']};
+    }}
+
+    QCalendarWidget QSpinBox {{
+        background-color: {colors['input']};
+        color: {colors['text_primary']};
+    }}
+
+    QCalendarWidget QAbstractItemView {{
+        background-color: {colors['surface']};
+        color: {colors['text_primary']};
+        selection-background-color: {colors['selection']};
+        selection-color: {colors['text_primary']};
+    }}
+
+    /* Combo boxes */
+    QComboBox {{
+        background-color: {colors['input']};
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+        border-radius: 3px;
+        padding: 4px;
+    }}
+
+    QComboBox:focus {{
+        border-color: {colors['border_focus']};
+    }}
+
+    QComboBox::drop-down {{
+        border: none;
+        width: 20px;
+    }}
+
+    QComboBox QAbstractItemView {{
+        background-color: {colors['surface']};
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+        selection-background-color: {colors['selection']};
+    }}
+
+    /* Checkboxes and radio buttons */
+    QCheckBox, QRadioButton {{
+        color: {colors['text_primary']};
+        spacing: 6px;
+    }}
+
+    QCheckBox:disabled, QRadioButton:disabled {{
+        color: {colors['text_disabled']};
+    }}
+
+    /* List widgets */
+    QListWidget {{
+        background-color: {colors['input']};
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+        border-radius: 3px;
+    }}
+
+    QListWidget::item {{
+        padding: 4px;
+    }}
+
+    QListWidget::item:selected {{
+        background-color: {colors['selection']};
+    }}
+
+    QListWidget::item:hover {{
+        background-color: {colors['button_hover']};
+    }}
+
+    /* Table widgets */
+    QTableWidget {{
+        background-color: {colors['input']};
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+        gridline-color: {colors['border']};
+    }}
+
+    QTableWidget::item:selected {{
+        background-color: {colors['selection']};
+    }}
+
+    QHeaderView::section {{
+        background-color: {colors['surface']};
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+        padding: 4px;
+    }}
+
+    /* Scroll bars */
+    QScrollBar:vertical {{
+        background-color: {colors['background_alt']};
+        width: 14px;
+        border: none;
+    }}
+
+    QScrollBar::handle:vertical {{
+        background-color: {colors['surface_alt']};
+        min-height: 30px;
+        border-radius: 7px;
+        margin: 2px;
+    }}
+
+    QScrollBar::handle:vertical:hover {{
+        background-color: {colors['button_hover']};
+    }}
+
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+        height: 0px;
+    }}
+
+    QScrollBar:horizontal {{
+        background-color: {colors['background_alt']};
+        height: 14px;
+        border: none;
+    }}
+
+    QScrollBar::handle:horizontal {{
+        background-color: {colors['surface_alt']};
+        min-width: 30px;
+        border-radius: 7px;
+        margin: 2px;
+    }}
+
+    QScrollBar::handle:horizontal:hover {{
+        background-color: {colors['button_hover']};
+    }}
+
+    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+        width: 0px;
+    }}
+
+    /* Sliders */
+    QSlider::groove:horizontal {{
+        background-color: {colors['surface_alt']};
+        height: 6px;
+        border-radius: 3px;
+    }}
+
+    QSlider::handle:horizontal {{
+        background-color: {colors['accent']};
+        width: 16px;
+        height: 16px;
+        margin: -5px 0;
+        border-radius: 8px;
+    }}
+
+    QSlider::handle:horizontal:hover {{
+        background-color: {colors['accent_hover']};
+    }}
+
+    /* Tab widgets */
+    QTabWidget::pane {{
+        border: 1px solid {colors['border']};
+        background-color: {colors['surface']};
+    }}
+
+    QTabBar::tab {{
+        background-color: {colors['button']};
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+        padding: 6px 12px;
+        margin-right: 2px;
+    }}
+
+    QTabBar::tab:selected {{
+        background-color: {colors['surface']};
+        border-bottom-color: {colors['surface']};
+    }}
+
+    QTabBar::tab:hover {{
+        background-color: {colors['button_hover']};
+    }}
+
+    /* Group boxes */
+    QGroupBox {{
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+        border-radius: 4px;
+        margin-top: 8px;
+        padding-top: 8px;
+    }}
+
+    QGroupBox::title {{
+        subcontrol-origin: margin;
+        subcontrol-position: top left;
+        padding: 0 4px;
+        background-color: {colors['background']};
+        color: {colors['text_primary']};
+    }}
+
+    /* Form layouts - ensure labels are visible */
+    QFormLayout QLabel {{
+        color: {colors['text_primary']};
+    }}
+
+    /* Frames */
+    QFrame[frameShape="4"], QFrame[frameShape="5"] {{
+        border: 1px solid {colors['border']};
+    }}
+
+    /* Splitter */
+    QSplitter::handle {{
+        background-color: {colors['border']};
+    }}
+
+    QSplitter::handle:horizontal {{
+        width: 1px;
+    }}
+
+    QSplitter::handle:vertical {{
+        height: 1px;
+    }}
+
+    /* Progress bars */
+    QProgressBar {{
+        background-color: {colors['surface_alt']};
+        border: 1px solid {colors['border']};
+        border-radius: 3px;
+        text-align: center;
+    }}
+
+    QProgressBar::chunk {{
+        background-color: {colors['accent']};
+        border-radius: 2px;
+    }}
+
+    /* Tooltips */
+    QToolTip {{
+        background-color: {colors['surface']};
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+        padding: 4px;
+    }}
+
+    /* Labels */
+    QLabel {{
+        color: {colors['text_primary']};
+        background-color: transparent;
+    }}
+
+    /* Scroll area */
+    QScrollArea {{
+        background-color: transparent;
+        border: none;
+    }}
+
+    QScrollArea > QWidget > QWidget {{
+        background-color: transparent;
+    }}
+
+    /* Graphics View (Canvas) */
+    QGraphicsView {{
+        background-color: {colors['canvas_background']};
+        border: 1px solid {colors['border']};
+    }}
+
+    /* Collapsible Panel Headers */
+    CollapsiblePanel > QFrame {{
+        background-color: {colors['surface']};
+        border: 1px solid {colors['border']};
+    }}
+
+    CollapsiblePanel > QFrame:hover {{
+        background-color: {colors['surface_alt']};
+    }}
+
+    CollapsiblePanel QLabel {{
+        color: {colors['text_primary']};
+    }}
+
+    /* Drawing Tools Panel - Category Labels */
+    DrawingToolsPanel QLabel {{
+        color: {colors['text_primary']};
+        font-weight: bold;
+        border-bottom: 1px solid {colors['border']};
+    }}
+
+    /* Drawing Tools Panel - Tool Buttons */
+    DrawingToolsPanel QToolButton {{
+        border: 1px solid {colors['border']};
+        background-color: {colors['button']};
+    }}
+
+    DrawingToolsPanel QToolButton:hover {{
+        background-color: {colors['button_hover']};
+        border-color: {colors['border_focus']};
+    }}
+
+    DrawingToolsPanel QToolButton:checked {{
+        background-color: {colors['accent']};
+        border: 2px solid {colors['accent_pressed']};
+    }}
+    """
+
+
+def _set_windows_dark_titlebar(window, dark: bool) -> None:
+    """Set Windows title bar to dark or light mode (Windows 10 1809+).
+
+    Args:
+        window: QWidget with window handle
+        dark: True for dark title bar, False for light
+    """
+    try:
+        import ctypes
+        import sys
+
+        if sys.platform != "win32":
+            return
+
+        hwnd = window.winId()
+        if hwnd is None:
+            return
+
+        # DWMWA_USE_IMMERSIVE_DARK_MODE = 20 (Windows 10 20H1+)
+        # For older Windows 10 versions, use 19
+        DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+
+        # Try the newer attribute first
+        value = ctypes.c_int(1 if dark else 0)
+        try:
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                int(hwnd),
+                DWMWA_USE_IMMERSIVE_DARK_MODE,
+                ctypes.byref(value),
+                ctypes.sizeof(value),
+            )
+        except Exception:
+            # Try older attribute for Windows 10 1809-2004
+            DWMWA_USE_IMMERSIVE_DARK_MODE = 19
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                int(hwnd),
+                DWMWA_USE_IMMERSIVE_DARK_MODE,
+                ctypes.byref(value),
+                ctypes.sizeof(value),
+            )
+    except Exception:
+        # Silently fail on systems that don't support this
+        pass
+
+
+def apply_theme(app: QApplication, mode: ThemeMode) -> None:
+    """Apply the specified theme to the application.
+
+    Args:
+        app: QApplication instance
+        mode: Theme mode to apply
+    """
+    stylesheet = generate_stylesheet(mode)
+    app.setStyleSheet(stylesheet)
+
+    # Apply dark title bar on Windows if using dark mode
+    colors = ThemeColors.get_colors(mode)
+    is_dark = colors == ThemeColors.DARK
+
+    # Update all top-level windows
+    for widget in app.topLevelWidgets():
+        if widget.isWindow():
+            _set_windows_dark_titlebar(widget, is_dark)

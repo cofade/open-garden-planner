@@ -143,13 +143,13 @@ class ShortcutsDialog(QDialog):
         for shortcut, description in shortcuts:
             row = QHBoxLayout()
 
-            # Shortcut label (styled as keyboard key - dark theme)
+            # Shortcut label (styled as keyboard key - theme-aware)
             shortcut_label = QLabel(shortcut)
             shortcut_label.setStyleSheet(
                 "QLabel {"
-                "  background-color: #3c3c3c;"
-                "  color: #e0e0e0;"
-                "  border: 1px solid #555555;"
+                "  background-color: palette(button);"
+                "  color: palette(button-text);"
+                "  border: 1px solid palette(mid);"
                 "  border-radius: 3px;"
                 "  padding: 2px 6px;"
                 "  font-family: monospace;"

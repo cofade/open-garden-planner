@@ -1,6 +1,5 @@
 """Tests for stroke style functionality."""
 
-import pytest
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 

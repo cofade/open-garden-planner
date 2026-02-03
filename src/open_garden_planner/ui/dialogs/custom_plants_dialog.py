@@ -58,7 +58,7 @@ class CustomPlantsDialog(QDialog):
             "These are available across all your projects."
         )
         desc.setWordWrap(True)
-        desc.setStyleSheet("color: gray;")
+        desc.setStyleSheet("color: palette(mid);")
         layout.addWidget(desc)
 
         # Table for plant list
@@ -109,7 +109,7 @@ class CustomPlantsDialog(QDialog):
 
         # Info label
         self.info_label = QLabel()
-        self.info_label.setStyleSheet("color: gray; font-style: italic;")
+        self.info_label.setStyleSheet("color: palette(mid); font-style: italic;")
         layout.addWidget(self.info_label)
 
         # Dialog buttons

@@ -6,7 +6,7 @@ from PyQt6.QtCore import QPointF
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
-from open_garden_planner.ui.canvas.items import RectangleItem, PolygonItem, CircleItem
+from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 
 
 class TestCanvasScene:

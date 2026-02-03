@@ -35,6 +35,7 @@ from open_garden_planner.ui.panels import (
     PlantSearchPanel,
     PropertiesPanel,
 )
+from open_garden_planner.ui.theme import ThemeMode, apply_theme
 from open_garden_planner.ui.widgets import CollapsiblePanel
 
 logger = logging.getLogger(__name__)
@@ -305,6 +306,35 @@ class GardenPlannerApp(QMainWindow):
         self.snap_action.setChecked(True)
         self.snap_action.setStatusTip("Toggle snap to grid")
         menu.addAction(self.snap_action)
+
+        menu.addSeparator()
+
+        # Theme submenu
+        theme_menu = menu.addMenu("&Theme")
+
+        # Light theme
+        self._light_theme_action = QAction("&Light", self)
+        self._light_theme_action.setCheckable(True)
+        self._light_theme_action.setStatusTip("Use light color scheme")
+        self._light_theme_action.triggered.connect(lambda: self._on_theme_changed(ThemeMode.LIGHT))
+        theme_menu.addAction(self._light_theme_action)
+
+        # Dark theme
+        self._dark_theme_action = QAction("&Dark", self)
+        self._dark_theme_action.setCheckable(True)
+        self._dark_theme_action.setStatusTip("Use dark color scheme")
+        self._dark_theme_action.triggered.connect(lambda: self._on_theme_changed(ThemeMode.DARK))
+        theme_menu.addAction(self._dark_theme_action)
+
+        # System theme
+        self._system_theme_action = QAction("&System", self)
+        self._system_theme_action.setCheckable(True)
+        self._system_theme_action.setStatusTip("Follow system color scheme preference")
+        self._system_theme_action.triggered.connect(lambda: self._on_theme_changed(ThemeMode.SYSTEM))
+        theme_menu.addAction(self._system_theme_action)
+
+        # Initialize menu state from settings
+        QTimer.singleShot(0, self._update_theme_menu_state)
 
     def _setup_plants_menu(self, menu: QMenu) -> None:
         """Set up the Plants menu actions."""
@@ -1119,6 +1149,41 @@ class GardenPlannerApp(QMainWindow):
     def _on_fit_to_window(self) -> None:
         """Handle fit to window action."""
         self.canvas_view.fit_in_view()
+
+    def _update_theme_menu_state(self) -> None:
+        """Update theme menu state from settings."""
+        from open_garden_planner.app.settings import get_settings
+
+        settings = get_settings()
+        current_theme = settings.theme_mode
+
+        # Update checkboxes
+        self._light_theme_action.setChecked(current_theme == ThemeMode.LIGHT)
+        self._dark_theme_action.setChecked(current_theme == ThemeMode.DARK)
+        self._system_theme_action.setChecked(current_theme == ThemeMode.SYSTEM)
+
+    def _on_theme_changed(self, mode: ThemeMode) -> None:
+        """Handle theme change action.
+
+        Args:
+            mode: New theme mode to apply
+        """
+        from open_garden_planner.app.settings import get_settings
+
+        settings = get_settings()
+        settings.theme_mode = mode
+
+        # Update menu checkmarks
+        self._light_theme_action.setChecked(mode == ThemeMode.LIGHT)
+        self._dark_theme_action.setChecked(mode == ThemeMode.DARK)
+        self._system_theme_action.setChecked(mode == ThemeMode.SYSTEM)
+
+        # Apply theme to application
+        apply_theme(QApplication.instance(), mode)
+
+        # Show feedback
+        theme_name = mode.value.capitalize()
+        self.statusBar().showMessage(f"Theme changed to {theme_name}", 2000)
 
     def _on_tool_selected(self, tool_type: ToolType) -> None:
         """Handle tool selection from toolbar.

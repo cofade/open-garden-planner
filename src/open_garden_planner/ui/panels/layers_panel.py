@@ -125,7 +125,7 @@ class LayerListItem(QWidget):
     def _update_styling(self) -> None:
         """Update visual styling based on layer state."""
         if not self.layer.visible:
-            self.name_label.setStyleSheet("color: gray; padding-left: 4px;")
+            self.name_label.setStyleSheet("color: palette(mid); padding-left: 4px;")
         else:
             self.name_label.setStyleSheet("padding-left: 4px;")
 
