@@ -51,9 +51,12 @@ class CircleTool(BaseTool):
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
+        # Snap the position to grid if enabled
+        snapped_pos = self._view.snap_point(scene_pos)
+
         if not self._is_drawing:
             # First click: set center
-            self._center_point = scene_pos
+            self._center_point = snapped_pos
             self._is_drawing = True
 
             # Create preview circle (starts with zero radius)
@@ -73,8 +76,8 @@ class CircleTool(BaseTool):
 
             return True
         else:
-            # Second click: finalize circle
-            self._finalize_circle(scene_pos)
+            # Second click: finalize circle (use snapped position)
+            self._finalize_circle(snapped_pos)
             return True
 
     def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
@@ -82,8 +85,11 @@ class CircleTool(BaseTool):
         if not self._is_drawing or not self._preview_circle or not self._center_point:
             return False
 
+        # Snap the position to grid if enabled
+        snapped_pos = self._view.snap_point(scene_pos)
+
         # Calculate radius from center to current mouse position
-        radius = QLineF(self._center_point, scene_pos).length()
+        radius = QLineF(self._center_point, snapped_pos).length()
 
         # Update preview circle
         top_left_x = self._center_point.x() - radius
@@ -96,8 +102,8 @@ class CircleTool(BaseTool):
             self._preview_line.setLine(
                 self._center_point.x(),
                 self._center_point.y(),
-                scene_pos.x(),
-                scene_pos.y(),
+                snapped_pos.x(),
+                snapped_pos.y(),
             )
 
         return True

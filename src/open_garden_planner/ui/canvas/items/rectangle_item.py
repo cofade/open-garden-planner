@@ -316,9 +316,8 @@ class RectangleItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsRectItem):
 
         menu.addSeparator()
 
-        # Placeholder actions
+        # Duplicate action
         duplicate_action = menu.addAction("Duplicate")
-        duplicate_action.setEnabled(False)  # Placeholder
 
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
@@ -328,6 +327,15 @@ class RectangleItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsRectItem):
             scene = self.scene()
             for item in scene.selectedItems():
                 scene.removeItem(item)
+        elif action == duplicate_action:
+            # Duplicate via canvas view
+            scene = self.scene()
+            if scene:
+                views = scene.views()
+                if views:
+                    view = views[0]
+                    if hasattr(view, "duplicate_selected"):
+                        view.duplicate_selected()
 
     @classmethod
     def from_rect(cls, rect: QRectF) -> "RectangleItem":

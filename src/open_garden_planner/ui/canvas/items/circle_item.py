@@ -404,15 +404,23 @@ class CircleItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsEllipseItem):
 
         menu.addSeparator()
 
-        # Placeholder actions
+        # Duplicate action
         duplicate_action = menu.addAction("Duplicate")
-        duplicate_action.setEnabled(False)  # Placeholder
 
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
         if action == delete_action:
             self.scene().removeItem(self)
+        elif action == duplicate_action:
+            # Duplicate via canvas view
+            scene = self.scene()
+            if scene:
+                views = scene.views()
+                if views:
+                    view = views[0]
+                    if hasattr(view, "duplicate_selected"):
+                        view.duplicate_selected()
 
     def to_dict(self) -> dict:
         """Serialize the item to a dictionary for saving."""

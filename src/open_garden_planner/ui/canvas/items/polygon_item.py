@@ -338,9 +338,8 @@ class PolygonItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsPolygonItem):
 
         menu.addSeparator()
 
-        # Placeholder actions
+        # Duplicate action
         duplicate_action = menu.addAction("Duplicate")
-        duplicate_action.setEnabled(False)  # Placeholder
 
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
@@ -350,6 +349,15 @@ class PolygonItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsPolygonItem):
             scene = self.scene()
             for item in scene.selectedItems():
                 scene.removeItem(item)
+        elif action == duplicate_action:
+            # Duplicate via canvas view
+            scene = self.scene()
+            if scene:
+                views = scene.views()
+                if views:
+                    view = views[0]
+                    if hasattr(view, "duplicate_selected"):
+                        view.duplicate_selected()
 
     @classmethod
     def from_polygon(cls, polygon: QPolygonF) -> "PolygonItem":

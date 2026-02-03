@@ -102,6 +102,8 @@ class TestRectangleTool:
         view = MagicMock()
         view.scene.return_value = scene
         view.setCursor = MagicMock()
+        # snap_point returns the input point unchanged (simulating snap disabled)
+        view.snap_point = lambda p: p
         return view
 
     def test_tool_type(self, mock_view) -> None:
@@ -184,6 +186,8 @@ class TestPolygonTool:
         view.scene.return_value = scene
         view.setCursor = MagicMock()
         view.zoom_factor = 1.0
+        # snap_point returns the input point unchanged (simulating snap disabled)
+        view.snap_point = lambda p: p
         return view
 
     def test_tool_type(self, mock_view) -> None:
@@ -283,6 +287,8 @@ class TestCircleTool:
         view = MagicMock()
         view.scene.return_value = scene
         view.setCursor = MagicMock()
+        # snap_point returns the input point unchanged (simulating snap disabled)
+        view.snap_point = lambda p: p
         return view
 
     def test_tool_type(self, mock_view) -> None:

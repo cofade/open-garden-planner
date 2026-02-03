@@ -120,7 +120,7 @@ class CanvasView(QGraphicsView):
         self._tool_manager.register_tool(rect_tool)
 
         poly_tool = PolygonTool(self, object_type=ObjectType.GENERIC_POLYGON)
-        poly_tool.shortcut = "G"
+        poly_tool.shortcut = "P"
         self._tool_manager.register_tool(poly_tool)
 
         circle_tool = CircleTool(self, object_type=ObjectType.GENERIC_CIRCLE)
@@ -606,6 +606,12 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
+        # Handle Duplicate (Ctrl+D)
+        if event.key() == Qt.Key.Key_D and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.duplicate_selected()
+            event.accept()
+            return
+
         # Delegate to active tool first
         tool = self._tool_manager.active_tool
         if tool and tool.key_press(event):
@@ -860,6 +866,65 @@ class CanvasView(QGraphicsView):
                 item.setSelected(True)
 
             self.set_status_message(f"Pasted {len(pasted_items)} item(s)")
+
+    def duplicate_selected(self) -> None:
+        """Duplicate selected items (copy and paste in one action)."""
+        selected = self.scene().selectedItems()
+        if not selected:
+            self.set_status_message("Nothing to duplicate")
+            return
+
+        # Serialize selected items directly (don't modify clipboard)
+        items_to_duplicate = []
+        for item in selected:
+            obj_data = self._serialize_item(item)
+            if obj_data:
+                items_to_duplicate.append(obj_data)
+
+        if not items_to_duplicate:
+            return
+
+        # Deselect all items
+        for item in self.scene().selectedItems():
+            item.setSelected(False)
+
+        # Create new items with offset
+        duplicated_items = []
+        for obj_data in items_to_duplicate:
+            obj_copy = obj_data.copy()
+
+            # Apply offset to position
+            if "x" in obj_copy:
+                obj_copy["x"] += self._paste_offset
+            if "y" in obj_copy:
+                obj_copy["y"] += self._paste_offset
+            if "center_x" in obj_copy:
+                obj_copy["center_x"] += self._paste_offset
+            if "center_y" in obj_copy:
+                obj_copy["center_y"] += self._paste_offset
+            if "points" in obj_copy:
+                obj_copy["points"] = [
+                    {"x": p["x"] + self._paste_offset, "y": p["y"] + self._paste_offset}
+                    for p in obj_copy["points"]
+                ]
+
+            # Deserialize the item
+            item = self._deserialize_item(obj_copy)
+            if item:
+                duplicated_items.append(item)
+
+        # Add all duplicated items to scene and select them
+        if duplicated_items:
+            from open_garden_planner.core import CreateItemsCommand
+
+            command = CreateItemsCommand(self.scene(), duplicated_items, "duplicated objects")
+            self._command_manager.execute(command)
+
+            # Select the duplicated items
+            for item in duplicated_items:
+                item.setSelected(True)
+
+            self.set_status_message(f"Duplicated {len(duplicated_items)} item(s)")
 
     def _serialize_item(self, item: QGraphicsItem) -> dict | None:
         """Serialize a single graphics item (reuses project manager logic).

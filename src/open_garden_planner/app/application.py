@@ -200,6 +200,13 @@ class GardenPlannerApp(QMainWindow):
         paste_action.triggered.connect(self._on_paste)
         menu.addAction(paste_action)
 
+        # Duplicate
+        duplicate_action = QAction("D&uplicate", self)
+        duplicate_action.setShortcut(QKeySequence("Ctrl+D"))
+        duplicate_action.setStatusTip("Duplicate selected objects")
+        duplicate_action.triggered.connect(self._on_duplicate)
+        menu.addAction(duplicate_action)
+
         # Delete
         self._delete_action = QAction("&Delete", self)
         self._delete_action.setShortcut(QKeySequence("Delete"))
@@ -212,6 +219,7 @@ class GardenPlannerApp(QMainWindow):
         select_all_action = QAction("Select &All", self)
         select_all_action.setShortcut(QKeySequence("Ctrl+A"))
         select_all_action.setStatusTip("Select all objects")
+        select_all_action.triggered.connect(self._on_select_all)
         menu.addAction(select_all_action)
 
     def _setup_view_menu(self, menu: QMenu) -> None:
@@ -274,6 +282,15 @@ class GardenPlannerApp(QMainWindow):
 
     def _setup_help_menu(self, menu: QMenu) -> None:
         """Set up the Help menu actions."""
+        # Keyboard Shortcuts
+        shortcuts_action = QAction("&Keyboard Shortcuts", self)
+        shortcuts_action.setShortcut(QKeySequence("F1"))
+        shortcuts_action.setStatusTip("Show keyboard shortcuts reference")
+        shortcuts_action.triggered.connect(self._on_keyboard_shortcuts)
+        menu.addAction(shortcuts_action)
+
+        menu.addSeparator()
+
         # About
         about_action = QAction("&About Open Garden Planner", self)
         about_action.setStatusTip("About this application")
@@ -739,6 +756,22 @@ class GardenPlannerApp(QMainWindow):
         """Handle Paste action."""
         self.canvas_view.paste()
 
+    def _on_duplicate(self) -> None:
+        """Handle Duplicate action."""
+        self.canvas_view.duplicate_selected()
+
+    def _on_select_all(self) -> None:
+        """Handle Select All action."""
+        try:
+            for item in self.canvas_scene.items():
+                # Only select items that are selectable (not background, grid, etc.)
+                if item.flags() & item.GraphicsItemFlag.ItemIsSelectable:
+                    item.setSelected(True)
+            count = len(self.canvas_scene.selectedItems())
+            self.statusBar().showMessage(f"Selected {count} object(s)")
+        except RuntimeError:
+            pass
+
     def _on_toggle_grid(self, checked: bool) -> None:
         """Handle toggle grid action."""
         self.canvas_view.set_grid_visible(checked)
@@ -875,6 +908,13 @@ class GardenPlannerApp(QMainWindow):
                         "Select a plant object (tree, shrub, or perennial) to assign species data",
                         5000,
                     )
+
+    def _on_keyboard_shortcuts(self) -> None:
+        """Handle Keyboard Shortcuts action."""
+        from open_garden_planner.ui.dialogs import ShortcutsDialog
+
+        dialog = ShortcutsDialog(self)
+        dialog.exec()
 
     def _on_about(self) -> None:
         """Handle About action."""

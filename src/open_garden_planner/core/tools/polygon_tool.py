@@ -56,18 +56,21 @@ class PolygonTool(BaseTool):
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
+        # Snap the position to grid if enabled
+        snapped_pos = self._view.snap_point(scene_pos)
+
         # Check if clicking near first vertex to close (need 3+ vertices)
         if (
             self._is_drawing
             and len(self._vertices) >= 3
-            and self._is_near_first_vertex(scene_pos)
+            and self._is_near_first_vertex(snapped_pos)
         ):
             self._close_polygon()
             return True
 
         # Add vertex
-        self._vertices.append(scene_pos)
-        self._add_vertex_marker(scene_pos)
+        self._vertices.append(snapped_pos)
+        self._add_vertex_marker(snapped_pos)
 
         if not self._is_drawing:
             self._is_drawing = True
@@ -81,14 +84,17 @@ class PolygonTool(BaseTool):
         if not self._is_drawing or not self._vertices:
             return False
 
+        # Snap the position to grid if enabled
+        snapped_pos = self._view.snap_point(scene_pos)
+
         # Update rubber band line from last vertex to cursor
         if self._preview_line:
             last = self._vertices[-1]
-            self._preview_line.setLine(last.x(), last.y(), scene_pos.x(), scene_pos.y())
+            self._preview_line.setLine(last.x(), last.y(), snapped_pos.x(), snapped_pos.y())
 
         # Highlight first vertex if near (visual feedback for closing)
         if len(self._vertices) >= 3 and self._vertex_markers:
-            is_near = self._is_near_first_vertex(scene_pos)
+            is_near = self._is_near_first_vertex(snapped_pos)
             marker = self._vertex_markers[0]
             if is_near:
                 marker.setBrush(QBrush(QColor(255, 200, 0)))  # Yellow highlight
