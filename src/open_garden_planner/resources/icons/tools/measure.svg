@@ -1,7 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-<rect x='12' y='26' width='40' height='12' rx='2' fill='#F59E0B' stroke='#1F2937' stroke-width='2'/>
-<line x1='20' y1='26' x2='20' y2='38' stroke='#1F2937' stroke-width='2'/>
-<line x1='28' y1='26' x2='28' y2='38' stroke='#1F2937' stroke-width='2'/>
-<line x1='36' y1='26' x2='36' y2='38' stroke='#1F2937' stroke-width='2'/>
-<line x1='44' y1='26' x2='44' y2='38' stroke='#1F2937' stroke-width='2'/>
+  <g stroke="#1F2937" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" transform="scale(2.6667)">
+    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+    <path d="M19.875 12c.621 0 1.125 .512 1.125 1.143v5.714c0 .631 -.504 1.143 -1.125 1.143h-15.875a1 1 0 0 1 -1 -1v-5.857c0 -.631 .504 -1.143 1.125 -1.143h15.75" fill="#F59E0B"/>
+    <path d="M9 12v2" />
+    <path d="M6 12v3" />
+    <path d="M12 12v3" />
+    <path d="M18 12v3" />
+    <path d="M15 12v2" />
+    <path d="M3 3v4" />
+    <path d="M3 5h18" />
+    <path d="M21 3v4" />
+  </g>
 </svg>
