@@ -73,7 +73,8 @@ class GardenPlannerApp(QMainWindow):
         QTimer.singleShot(100, self.canvas_view.fit_in_view)
 
         # Check for recovery files after UI is fully loaded
-        QTimer.singleShot(500, self._check_recovery_files)
+        # Then show welcome dialog if enabled
+        QTimer.singleShot(500, self._startup_sequence)
 
     def _setup_menu_bar(self) -> None:
         """Set up the menu bar with File, Edit, View, Help menus."""
@@ -114,6 +115,10 @@ class GardenPlannerApp(QMainWindow):
         open_action.setStatusTip("Open an existing project")
         open_action.triggered.connect(self._on_open_project)
         menu.addAction(open_action)
+
+        # Open Recent submenu
+        self._recent_menu = menu.addMenu("Open &Recent")
+        self._recent_menu.aboutToShow.connect(self._populate_recent_menu)
 
         menu.addSeparator()
 
@@ -487,6 +492,32 @@ class GardenPlannerApp(QMainWindow):
         # Add stretch at the bottom to push panels to top
         sidebar_layout.addStretch()
 
+    def _startup_sequence(self) -> None:
+        """Handle startup sequence: recovery check, then welcome dialog."""
+        # First check for recovery files
+        recovery_handled = self._check_recovery_files()
+
+        # Then show welcome dialog if enabled and no recovery was handled
+        if not recovery_handled:
+            self._show_welcome_dialog()
+
+    def _show_welcome_dialog(self) -> None:
+        """Show the welcome dialog if enabled in settings."""
+        from open_garden_planner.app.settings import get_settings
+        from open_garden_planner.ui.dialogs import WelcomeDialog
+
+        if not get_settings().show_welcome_on_startup:
+            return
+
+        dialog = WelcomeDialog(self)
+
+        # Connect signals
+        dialog.new_project_requested.connect(self._on_new_project)
+        dialog.open_project_requested.connect(self._on_open_project)
+        dialog.recent_project_selected.connect(self._open_project_file)
+
+        dialog.exec()
+
     def _setup_autosave(self) -> None:
         """Set up the auto-save manager."""
         from open_garden_planner.services import AutoSaveManager
@@ -532,14 +563,19 @@ class GardenPlannerApp(QMainWindow):
         logger.error(f"Auto-save failed: {error}")
         self.statusBar().showMessage(f"Auto-save failed: {error}", 5000)
 
-    def _check_recovery_files(self) -> None:
-        """Check for recovery files on startup and offer to restore."""
+    def _check_recovery_files(self) -> bool:
+        """Check for recovery files on startup and offer to restore.
+
+        Returns:
+            True if user chose to recover a file, False otherwise
+        """
         from open_garden_planner.services import AutoSaveManager
 
         recovery_files = AutoSaveManager.find_recovery_files()
         if not recovery_files:
-            return
+            return False
 
+        recovered = False
         # Found recovery file(s) - ask user what to do
         for autosave_path, metadata in recovery_files:
             timestamp = metadata.get("timestamp", "unknown time")
@@ -570,10 +606,13 @@ class GardenPlannerApp(QMainWindow):
             if result == QMessageBox.StandardButton.Yes:
                 # Load the recovery file
                 self._load_recovery_file(autosave_path)
+                recovered = True
             elif result == QMessageBox.StandardButton.Discard:
                 # Delete the recovery file
                 AutoSaveManager.delete_recovery_file(autosave_path)
             # If No, just leave it for next time
+
+        return recovered
 
     def _load_recovery_file(self, recovery_path: Path) -> None:
         """Load a recovery file.
@@ -707,17 +746,79 @@ class GardenPlannerApp(QMainWindow):
             "Open Garden Planner (*.ogp);;All Files (*)",
         )
         if file_path:
-            try:
-                # Clear any existing auto-save before loading new project
-                self._autosave_manager.clear_autosave()
+            self._open_project_file(file_path)
 
-                self._project_manager.load(self.canvas_scene, Path(file_path))
-                self.canvas_view.command_manager.clear()
-                self.canvas_view.fit_in_view()
-                self.layers_panel.set_layers(self.canvas_scene.layers)
-                self.statusBar().showMessage(f"Opened: {file_path}")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to open file:\n{e}")
+    def _open_project_file(self, file_path: str) -> None:
+        """Open a project file.
+
+        Args:
+            file_path: Path to the project file to open
+        """
+        try:
+            # Clear any existing auto-save before loading new project
+            self._autosave_manager.clear_autosave()
+
+            self._project_manager.load(self.canvas_scene, Path(file_path))
+            self.canvas_view.command_manager.clear()
+            self.canvas_view.fit_in_view()
+            self.layers_panel.set_layers(self.canvas_scene.layers)
+            self.statusBar().showMessage(f"Opened: {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open file:\n{e}")
+
+    def _populate_recent_menu(self) -> None:
+        """Populate the Open Recent submenu with recent files."""
+        from open_garden_planner.app.settings import get_settings
+
+        self._recent_menu.clear()
+
+        recent_files = get_settings().recent_files
+        if not recent_files:
+            no_recent = QAction("No recent projects", self)
+            no_recent.setEnabled(False)
+            self._recent_menu.addAction(no_recent)
+            return
+
+        for file_path in recent_files:
+            path = Path(file_path)
+            if path.exists():
+                action = QAction(path.stem, self)
+                action.setToolTip(str(path))
+                action.setData(str(path))
+                action.triggered.connect(
+                    lambda _checked, fp=str(path): self._on_open_recent_file(fp)
+                )
+                self._recent_menu.addAction(action)
+            else:
+                # Show missing files with indicator (grayed out)
+                action = QAction(f"{path.stem} (not found)", self)
+                action.setToolTip(f"File not found: {path}")
+                action.setEnabled(False)
+                self._recent_menu.addAction(action)
+
+        self._recent_menu.addSeparator()
+
+        # Clear recent files action
+        clear_action = QAction("Clear Recent Projects", self)
+        clear_action.triggered.connect(self._on_clear_recent_files)
+        self._recent_menu.addAction(clear_action)
+
+    def _on_open_recent_file(self, file_path: str) -> None:
+        """Handle opening a recent file.
+
+        Args:
+            file_path: Path to the file to open
+        """
+        if not self._confirm_discard_changes():
+            return
+        self._open_project_file(file_path)
+
+    def _on_clear_recent_files(self) -> None:
+        """Handle clearing recent files list."""
+        from open_garden_planner.app.settings import get_settings
+
+        get_settings().clear_recent_files()
+        self.statusBar().showMessage("Recent projects list cleared", 2000)
 
     def _on_save(self) -> None:
         """Handle Save action."""

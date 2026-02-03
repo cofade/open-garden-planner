@@ -14,6 +14,7 @@ from PyQt6.QtCore import QObject, QPointF, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
+from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import StrokeStyle
 from open_garden_planner.models.layer import Layer, create_default_layers
@@ -128,6 +129,9 @@ class ProjectManager(QObject):
         self.mark_clean()
         self.project_changed.emit(str(file_path))
 
+        # Track in recent files
+        get_settings().add_recent_file(str(file_path))
+
     def load(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Load a project from a file.
 
@@ -147,6 +151,9 @@ class ProjectManager(QObject):
         self._current_file = file_path
         self.mark_clean()
         self.project_changed.emit(str(file_path))
+
+        # Track in recent files
+        get_settings().add_recent_file(str(file_path))
 
     def _sync_custom_plants(self, scene: QGraphicsScene) -> None:
         """Sync custom plants from loaded project to app library.

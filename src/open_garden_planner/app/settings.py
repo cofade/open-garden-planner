@@ -21,9 +21,11 @@ class AppSettings:
     KEY_RECENT_FILES = "recent_files"
     KEY_WINDOW_GEOMETRY = "window/geometry"
     KEY_WINDOW_STATE = "window/state"
+    KEY_SHOW_WELCOME = "startup/show_welcome"
 
     # Default values
     DEFAULT_AUTOSAVE_ENABLED = True
+    DEFAULT_SHOW_WELCOME = True
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
     MIN_AUTOSAVE_INTERVAL_MINUTES = 1
     MAX_AUTOSAVE_INTERVAL_MINUTES = 30
@@ -99,6 +101,20 @@ class AppSettings:
     def clear_recent_files(self) -> None:
         """Clear the recent files list."""
         self.recent_files = []
+
+    @property
+    def show_welcome_on_startup(self) -> bool:
+        """Whether to show welcome screen on startup."""
+        return self._settings.value(
+            self.KEY_SHOW_WELCOME,
+            self.DEFAULT_SHOW_WELCOME,
+            type=bool,
+        )
+
+    @show_welcome_on_startup.setter
+    def show_welcome_on_startup(self, show: bool) -> None:
+        """Set whether to show welcome screen on startup."""
+        self._settings.setValue(self.KEY_SHOW_WELCOME, show)
 
     @property
     def window_geometry(self) -> bytes | None:
