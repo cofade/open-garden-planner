@@ -690,7 +690,7 @@ open_garden_planner/
 | US-5.3 | As a user, I can export a plant list as CSV | Should |
 | ~~US-5.4~~ | ~~As a user, I can use keyboard shortcuts for all common actions~~ | ✅ Should |
 | US-5.5 | As a user, I can switch between light and dark mode | Should |
-| US-5.6 | As a user, I see a welcome screen with recent projects | Should |
+| ~~US-5.6~~ | ~~As a user, I see a welcome screen with recent projects~~ | ✅ Should |
 | ~~US-5.7~~ | ~~As a user, my work is auto-saved periodically~~ | ✅ Must |
 | US-5.8 | As a user, I have professional, consistent SVG icons for all drawing tools | Should |
 

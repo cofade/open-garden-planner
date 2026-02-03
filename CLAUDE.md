@@ -156,7 +156,7 @@ tests/
 | ✅     | 5.3 | Export plant list as CSV                   |
 | ✅     | 5.4 | Keyboard shortcuts for all actions         |
 |        | 5.5 | Light/dark mode switch                     |
-|        | 5.6 | Welcome screen with recent projects        |
+| ✅     | 5.6 | Welcome screen with recent projects        |
 | ✅     | 5.7 | Auto-save periodically                     |
 |        | 5.8 | Professional SVG icons for tools           |
 

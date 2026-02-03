@@ -6,6 +6,7 @@ from open_garden_planner.ui.dialogs.new_project_dialog import NewProjectDialog
 from open_garden_planner.ui.dialogs.plant_search_dialog import PlantSearchDialog
 from open_garden_planner.ui.dialogs.properties_dialog import PropertiesDialog
 from open_garden_planner.ui.dialogs.shortcuts_dialog import ShortcutsDialog
+from open_garden_planner.ui.dialogs.welcome_dialog import WelcomeDialog
 
 __all__ = [
     "CalibrationDialog",
@@ -14,4 +15,5 @@ __all__ = [
     "PlantSearchDialog",
     "PropertiesDialog",
     "ShortcutsDialog",
+    "WelcomeDialog",
 ]
