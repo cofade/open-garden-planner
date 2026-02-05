@@ -17,7 +17,7 @@ from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_b
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 
 from .garden_item import GardenItemMixin
-from .resize_handle import ResizeHandlesMixin
+from .resize_handle import ResizeHandlesMixin, RotationHandleMixin
 
 
 def _show_properties_dialog(item: QGraphicsRectItem) -> None:
@@ -92,11 +92,11 @@ def _show_properties_dialog(item: QGraphicsRectItem) -> None:
         item.setPen(pen)
 
 
-class RectangleItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsRectItem):
+class RectangleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGraphicsRectItem):
     """A rectangle shape on the garden canvas.
 
     Supports property object types with appropriate styling.
-    Supports selection, movement, and resizing.
+    Supports selection, movement, resizing, and rotation.
     """
 
     def __init__(
@@ -141,8 +141,9 @@ class RectangleItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsRectItem):
         )
         QGraphicsRectItem.__init__(self, x, y, width, height)
 
-        # Initialize resize handles
+        # Initialize resize and rotation handles
         self.init_resize_handles()
+        self.init_rotation_handle()
 
         self._setup_styling()
         self._setup_flags()
@@ -181,13 +182,15 @@ class RectangleItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsRectItem):
     ) -> Any:
         """Handle item state changes.
 
-        Shows/hides resize handles based on selection state.
+        Shows/hides resize and rotation handles based on selection state.
         """
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
                 self.show_resize_handles()
+                self.show_rotation_handle()
             else:  # Being deselected
                 self.hide_resize_handles()
+                self.hide_rotation_handle()
 
         return super().itemChange(change, value)
 
@@ -288,6 +291,44 @@ class RectangleItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsRectItem):
         )
 
         # Add to undo stack without executing (geometry already applied)
+        command_manager._undo_stack.append(command)
+        command_manager._redo_stack.clear()
+        command_manager.can_undo_changed.emit(True)
+        command_manager.can_redo_changed.emit(False)
+        command_manager.command_executed.emit(command.description)
+
+    def _on_rotation_end(self, initial_angle: float) -> None:
+        """Called when rotation operation completes. Registers undo command."""
+        scene = self.scene()
+        if scene is None or not hasattr(scene, 'get_command_manager'):
+            return
+
+        command_manager = scene.get_command_manager()
+        if command_manager is None:
+            return
+
+        # Get current angle
+        current_angle = self.rotation_angle
+
+        # Only register command if angle actually changed
+        if abs(initial_angle - current_angle) < 0.01:
+            return
+
+        from open_garden_planner.core.commands import RotateItemCommand
+
+        def apply_rotation(item: QGraphicsItem, angle: float) -> None:
+            """Apply rotation to the item."""
+            if isinstance(item, RectangleItem):
+                item._apply_rotation(angle)
+
+        command = RotateItemCommand(
+            self,
+            initial_angle,
+            current_angle,
+            apply_rotation,
+        )
+
+        # Add to undo stack without executing (rotation already applied)
         command_manager._undo_stack.append(command)
         command_manager._redo_stack.clear()
         command_manager.can_undo_changed.emit(True)

@@ -1,21 +1,28 @@
 """Polyline item for the garden canvas."""
 
 import uuid
+from typing import Any
 
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QPainterPath, QPen
-from PyQt6.QtWidgets import QGraphicsPathItem, QGraphicsSceneContextMenuEvent, QMenu
+from PyQt6.QtWidgets import (
+    QGraphicsItem,
+    QGraphicsPathItem,
+    QGraphicsSceneContextMenuEvent,
+    QMenu,
+)
 
 from open_garden_planner.core.object_types import ObjectType, get_style
 
 from .garden_item import GardenItemMixin
+from .resize_handle import RotationHandleMixin
 
 
-class PolylineItem(GardenItemMixin, QGraphicsPathItem):
+class PolylineItem(RotationHandleMixin, GardenItemMixin, QGraphicsPathItem):
     """A polyline (open path) on the garden canvas.
 
     Used for fences, walls, paths, and other linear features.
-    Supports selection and movement.
+    Supports selection, movement, and rotation.
     """
 
     def __init__(
@@ -45,6 +52,10 @@ class PolylineItem(GardenItemMixin, QGraphicsPathItem):
         QGraphicsPathItem.__init__(self, path)
 
         self._points = points.copy()
+
+        # Initialize rotation handle
+        self.init_rotation_handle()
+
         self._setup_styling()
         self._setup_flags()
         self.initialize_label()
@@ -71,6 +82,62 @@ class PolylineItem(GardenItemMixin, QGraphicsPathItem):
         """Configure item interaction flags."""
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsMovable, True)
+        self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+
+    def itemChange(
+        self,
+        change: QGraphicsItem.GraphicsItemChange,
+        value: Any,
+    ) -> Any:
+        """Handle item state changes.
+
+        Shows/hides rotation handle based on selection state.
+        """
+        if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
+            if value:  # Being selected
+                self.show_rotation_handle()
+            else:  # Being deselected
+                self.hide_rotation_handle()
+
+        return super().itemChange(change, value)
+
+    def _on_rotation_end(self, initial_angle: float) -> None:
+        """Called when rotation operation completes. Registers undo command."""
+        scene = self.scene()
+        if scene is None or not hasattr(scene, 'get_command_manager'):
+            return
+
+        command_manager = scene.get_command_manager()
+        if command_manager is None:
+            return
+
+        # Get current angle
+        current_angle = self.rotation_angle
+
+        # Only register command if angle actually changed
+        if abs(initial_angle - current_angle) < 0.01:
+            return
+
+        from open_garden_planner.core.commands import RotateItemCommand
+
+        def apply_rotation(item: QGraphicsItem, angle: float) -> None:
+            """Apply rotation to the item."""
+            if isinstance(item, PolylineItem):
+                item._apply_rotation(angle)
+
+        command = RotateItemCommand(
+            self,
+            initial_angle,
+            current_angle,
+            apply_rotation,
+        )
+
+        # Add to undo stack without executing (rotation already applied)
+        command_manager._undo_stack.append(command)
+        command_manager._redo_stack.clear()
+        command_manager.can_undo_changed.emit(True)
+        command_manager.can_redo_changed.emit(False)
+        command_manager.command_executed.emit(command.description)
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show context menu on right-click."""
