@@ -5,10 +5,13 @@ from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsScene
 
 from open_garden_planner.core.commands import (
+    AddVertexCommand,
     CommandManager,
     CreateItemCommand,
     DeleteItemsCommand,
+    DeleteVertexCommand,
     MoveItemsCommand,
+    MoveVertexCommand,
 )
 
 
@@ -250,3 +253,156 @@ class TestMoveItemsCommand:
         command = MoveItemsCommand(items, QPointF(10, 10))
 
         assert command.description == "Move 5 items"
+
+
+class TestMoveVertexCommand:
+    """Tests for MoveVertexCommand class."""
+
+    def test_execute_moves_vertex(self) -> None:
+        """Test that execute calls apply function with new position."""
+        applied_values: list[tuple[int, QPointF]] = []
+
+        def apply_func(item, index, pos):
+            applied_values.append((index, pos))
+
+        item = QGraphicsRectItem(0, 0, 100, 100)
+        old_pos = QPointF(0, 0)
+        new_pos = QPointF(50, 50)
+        command = MoveVertexCommand(item, 0, old_pos, new_pos, apply_func)
+
+        command.execute()
+
+        assert len(applied_values) == 1
+        assert applied_values[0][0] == 0
+        assert applied_values[0][1] == new_pos
+
+    def test_undo_restores_vertex(self) -> None:
+        """Test that undo calls apply function with old position."""
+        applied_values: list[tuple[int, QPointF]] = []
+
+        def apply_func(item, index, pos):
+            applied_values.append((index, pos))
+
+        item = QGraphicsRectItem(0, 0, 100, 100)
+        old_pos = QPointF(0, 0)
+        new_pos = QPointF(50, 50)
+        command = MoveVertexCommand(item, 0, old_pos, new_pos, apply_func)
+        command.execute()
+
+        command.undo()
+
+        assert len(applied_values) == 2
+        assert applied_values[1][1] == old_pos
+
+    def test_description(self) -> None:
+        """Test the description property."""
+        item = QGraphicsRectItem(0, 0, 100, 100)
+        command = MoveVertexCommand(item, 0, QPointF(0, 0), QPointF(50, 50), lambda *_: None)
+
+        assert command.description == "Move vertex"
+
+
+class TestAddVertexCommand:
+    """Tests for AddVertexCommand class."""
+
+    def test_execute_adds_vertex(self) -> None:
+        """Test that execute calls add function."""
+        add_calls: list[tuple[int, QPointF]] = []
+        remove_calls: list[int] = []
+
+        def add_func(item, index, pos):
+            add_calls.append((index, pos))
+
+        def remove_func(item, index):
+            remove_calls.append(index)
+
+        item = QGraphicsRectItem(0, 0, 100, 100)
+        pos = QPointF(50, 0)
+        command = AddVertexCommand(item, 1, pos, add_func, remove_func)
+
+        command.execute()
+
+        assert len(add_calls) == 1
+        assert add_calls[0] == (1, pos)
+        assert len(remove_calls) == 0
+
+    def test_undo_removes_vertex(self) -> None:
+        """Test that undo calls remove function."""
+        add_calls: list[tuple[int, QPointF]] = []
+        remove_calls: list[int] = []
+
+        def add_func(item, index, pos):
+            add_calls.append((index, pos))
+
+        def remove_func(item, index):
+            remove_calls.append(index)
+
+        item = QGraphicsRectItem(0, 0, 100, 100)
+        pos = QPointF(50, 0)
+        command = AddVertexCommand(item, 1, pos, add_func, remove_func)
+        command.execute()
+
+        command.undo()
+
+        assert len(remove_calls) == 1
+        assert remove_calls[0] == 1
+
+    def test_description(self) -> None:
+        """Test the description property."""
+        item = QGraphicsRectItem(0, 0, 100, 100)
+        command = AddVertexCommand(item, 1, QPointF(50, 0), lambda *_: None, lambda *_: None)
+
+        assert command.description == "Add vertex"
+
+
+class TestDeleteVertexCommand:
+    """Tests for DeleteVertexCommand class."""
+
+    def test_execute_removes_vertex(self) -> None:
+        """Test that execute calls remove function."""
+        add_calls: list[tuple[int, QPointF]] = []
+        remove_calls: list[int] = []
+
+        def add_func(item, index, pos):
+            add_calls.append((index, pos))
+
+        def remove_func(item, index):
+            remove_calls.append(index)
+
+        item = QGraphicsRectItem(0, 0, 100, 100)
+        pos = QPointF(50, 0)
+        command = DeleteVertexCommand(item, 1, pos, add_func, remove_func)
+
+        command.execute()
+
+        assert len(remove_calls) == 1
+        assert remove_calls[0] == 1
+        assert len(add_calls) == 0
+
+    def test_undo_adds_vertex_back(self) -> None:
+        """Test that undo calls add function to restore vertex."""
+        add_calls: list[tuple[int, QPointF]] = []
+        remove_calls: list[int] = []
+
+        def add_func(item, index, pos):
+            add_calls.append((index, pos))
+
+        def remove_func(item, index):
+            remove_calls.append(index)
+
+        item = QGraphicsRectItem(0, 0, 100, 100)
+        pos = QPointF(50, 0)
+        command = DeleteVertexCommand(item, 1, pos, add_func, remove_func)
+        command.execute()
+
+        command.undo()
+
+        assert len(add_calls) == 1
+        assert add_calls[0] == (1, pos)
+
+    def test_description(self) -> None:
+        """Test the description property."""
+        item = QGraphicsRectItem(0, 0, 100, 100)
+        command = DeleteVertexCommand(item, 1, QPointF(50, 0), lambda *_: None, lambda *_: None)
+
+        assert command.description == "Delete vertex"

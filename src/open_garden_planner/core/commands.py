@@ -396,3 +396,123 @@ class RotateItemCommand(Command):
     def undo(self) -> None:
         """Restore the old rotation."""
         self._apply_func(self._item, self._old_angle)
+
+
+class MoveVertexCommand(Command):
+    """Command for moving a single vertex in a polygon."""
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        vertex_index: int,
+        old_pos: QPointF,
+        new_pos: QPointF,
+        apply_func: Callable[[QGraphicsItem, int, QPointF], None],
+    ) -> None:
+        """Initialize the move vertex command.
+
+        Args:
+            item: The polygon item being modified
+            vertex_index: Index of the vertex being moved
+            old_pos: Previous position of the vertex
+            new_pos: New position of the vertex
+            apply_func: Function to apply vertex position to the item
+        """
+        self._item = item
+        self._vertex_index = vertex_index
+        self._old_pos = old_pos
+        self._new_pos = new_pos
+        self._apply_func = apply_func
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return "Move vertex"
+
+    def execute(self) -> None:
+        """Apply the new vertex position."""
+        self._apply_func(self._item, self._vertex_index, self._new_pos)
+
+    def undo(self) -> None:
+        """Restore the old vertex position."""
+        self._apply_func(self._item, self._vertex_index, self._old_pos)
+
+
+class AddVertexCommand(Command):
+    """Command for adding a vertex to a polygon."""
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        vertex_index: int,
+        position: QPointF,
+        apply_add_func: Callable[[QGraphicsItem, int, QPointF], None],
+        apply_remove_func: Callable[[QGraphicsItem, int], None],
+    ) -> None:
+        """Initialize the add vertex command.
+
+        Args:
+            item: The polygon item being modified
+            vertex_index: Index where the vertex will be inserted
+            position: Position of the new vertex
+            apply_add_func: Function to add a vertex to the item
+            apply_remove_func: Function to remove a vertex from the item
+        """
+        self._item = item
+        self._vertex_index = vertex_index
+        self._position = position
+        self._apply_add_func = apply_add_func
+        self._apply_remove_func = apply_remove_func
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return "Add vertex"
+
+    def execute(self) -> None:
+        """Add the vertex."""
+        self._apply_add_func(self._item, self._vertex_index, self._position)
+
+    def undo(self) -> None:
+        """Remove the vertex."""
+        self._apply_remove_func(self._item, self._vertex_index)
+
+
+class DeleteVertexCommand(Command):
+    """Command for deleting a vertex from a polygon."""
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        vertex_index: int,
+        position: QPointF,
+        apply_add_func: Callable[[QGraphicsItem, int, QPointF], None],
+        apply_remove_func: Callable[[QGraphicsItem, int], None],
+    ) -> None:
+        """Initialize the delete vertex command.
+
+        Args:
+            item: The polygon item being modified
+            vertex_index: Index of the vertex to delete
+            position: Position of the vertex (for undo)
+            apply_add_func: Function to add a vertex to the item (for undo)
+            apply_remove_func: Function to remove a vertex from the item
+        """
+        self._item = item
+        self._vertex_index = vertex_index
+        self._position = position
+        self._apply_add_func = apply_add_func
+        self._apply_remove_func = apply_remove_func
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return "Delete vertex"
+
+    def execute(self) -> None:
+        """Remove the vertex."""
+        self._apply_remove_func(self._item, self._vertex_index)
+
+    def undo(self) -> None:
+        """Restore the vertex."""
+        self._apply_add_func(self._item, self._vertex_index, self._position)
