@@ -270,6 +270,9 @@ class ProjectManager(QObject):
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
+            # Save rotation angle
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
             return data
         elif isinstance(item, CircleItem):
             data = {
@@ -302,6 +305,9 @@ class ProjectManager(QObject):
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
+            # Save rotation angle
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
             return data
         elif isinstance(item, PolylineItem):
             data = {
@@ -320,6 +326,9 @@ class ProjectManager(QObject):
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
+            # Save rotation angle
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
             return data
         elif isinstance(item, PolygonItem):
             polygon = item.polygon()
@@ -358,6 +367,9 @@ class ProjectManager(QObject):
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
+            # Save rotation angle
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
             return data
         return None
 
@@ -481,6 +493,9 @@ class ProjectManager(QObject):
                 if stroke_style:
                     pen.setStyle(stroke_style.to_qt_pen_style())
                 item.setPen(pen)
+            # Restore rotation angle
+            if "rotation_angle" in obj:
+                item._apply_rotation(obj["rotation_angle"])
             return item
         elif obj_type == "circle":
             item = CircleItem(
@@ -515,6 +530,9 @@ class ProjectManager(QObject):
                 if stroke_style:
                     pen.setStyle(stroke_style.to_qt_pen_style())
                 item.setPen(pen)
+            # Restore rotation angle
+            if "rotation_angle" in obj:
+                item._apply_rotation(obj["rotation_angle"])
             return item
         elif obj_type == "polyline":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
@@ -532,6 +550,9 @@ class ProjectManager(QObject):
                     if "stroke_width" in obj:
                         pen.setWidthF(obj["stroke_width"])
                     item.setPen(pen)
+                # Restore rotation angle
+                if "rotation_angle" in obj:
+                    item._apply_rotation(obj["rotation_angle"])
                 return item
         elif obj_type == "polygon":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
@@ -566,5 +587,8 @@ class ProjectManager(QObject):
                     if stroke_style:
                         pen.setStyle(stroke_style.to_qt_pen_style())
                     item.setPen(pen)
+                # Restore rotation angle
+                if "rotation_angle" in obj:
+                    item._apply_rotation(obj["rotation_angle"])
                 return item
         return None

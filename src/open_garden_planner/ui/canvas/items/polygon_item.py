@@ -17,7 +17,7 @@ from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_b
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 
 from .garden_item import GardenItemMixin
-from .resize_handle import ResizeHandlesMixin
+from .resize_handle import ResizeHandlesMixin, RotationHandleMixin
 
 
 def _show_properties_dialog(item: QGraphicsPolygonItem) -> None:
@@ -92,11 +92,11 @@ def _show_properties_dialog(item: QGraphicsPolygonItem) -> None:
         item.setPen(pen)
 
 
-class PolygonItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsPolygonItem):
+class PolygonItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGraphicsPolygonItem):
     """A polygon shape on the garden canvas.
 
     Supports property object types with appropriate styling.
-    Supports selection and movement.
+    Supports selection, movement, resizing, and rotation.
     """
 
     def __init__(
@@ -136,8 +136,9 @@ class PolygonItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsPolygonItem):
         polygon = QPolygonF(vertices)
         QGraphicsPolygonItem.__init__(self, polygon)
 
-        # Initialize resize handles
+        # Initialize resize and rotation handles
         self.init_resize_handles()
+        self.init_rotation_handle()
         self._resize_initial_polygon: QPolygonF | None = None
 
         self._setup_styling()
@@ -177,13 +178,15 @@ class PolygonItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsPolygonItem):
     ) -> Any:
         """Handle item state changes.
 
-        Shows/hides resize handles based on selection state.
+        Shows/hides resize and rotation handles based on selection state.
         """
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
                 self.show_resize_handles()
+                self.show_rotation_handle()
             else:  # Being deselected
                 self.hide_resize_handles()
+                self.hide_rotation_handle()
 
         return super().itemChange(change, value)
 
@@ -315,6 +318,44 @@ class PolygonItem(ResizeHandlesMixin, GardenItemMixin, QGraphicsPolygonItem):
 
         # Clear stored initial polygon
         self._resize_initial_polygon = None
+
+    def _on_rotation_end(self, initial_angle: float) -> None:
+        """Called when rotation operation completes. Registers undo command."""
+        scene = self.scene()
+        if scene is None or not hasattr(scene, 'get_command_manager'):
+            return
+
+        command_manager = scene.get_command_manager()
+        if command_manager is None:
+            return
+
+        # Get current angle
+        current_angle = self.rotation_angle
+
+        # Only register command if angle actually changed
+        if abs(initial_angle - current_angle) < 0.01:
+            return
+
+        from open_garden_planner.core.commands import RotateItemCommand
+
+        def apply_rotation(item: QGraphicsItem, angle: float) -> None:
+            """Apply rotation to the item."""
+            if isinstance(item, PolygonItem):
+                item._apply_rotation(angle)
+
+        command = RotateItemCommand(
+            self,
+            initial_angle,
+            current_angle,
+            apply_rotation,
+        )
+
+        # Add to undo stack without executing (rotation already applied)
+        command_manager._undo_stack.append(command)
+        command_manager._redo_stack.clear()
+        command_manager.can_undo_changed.emit(True)
+        command_manager.can_redo_changed.emit(False)
+        command_manager.command_executed.emit(command.description)
 
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Handle double-click to edit label inline."""

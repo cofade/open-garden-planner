@@ -359,3 +359,40 @@ class ResizeItemCommand(Command):
     def undo(self) -> None:
         """Restore the old geometry."""
         self._apply_func(self._item, self._old_geometry)
+
+
+class RotateItemCommand(Command):
+    """Command for rotating an item."""
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        old_angle: float,
+        new_angle: float,
+        apply_func: Callable[[QGraphicsItem, float], None],
+    ) -> None:
+        """Initialize the rotate command.
+
+        Args:
+            item: The item being rotated
+            old_angle: Previous rotation angle in degrees
+            new_angle: New rotation angle in degrees
+            apply_func: Function to apply rotation to the item
+        """
+        self._item = item
+        self._old_angle = old_angle
+        self._new_angle = new_angle
+        self._apply_func = apply_func
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return "Rotate item"
+
+    def execute(self) -> None:
+        """Apply the new rotation."""
+        self._apply_func(self._item, self._new_angle)
+
+    def undo(self) -> None:
+        """Restore the old rotation."""
+        self._apply_func(self._item, self._old_angle)
