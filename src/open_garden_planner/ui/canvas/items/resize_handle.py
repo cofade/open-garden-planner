@@ -1049,17 +1049,23 @@ class VertexHandle(QGraphicsRectItem):
         if self._parent_item is None:
             return
 
-        # Check if we can delete (need minimum vertices)
+        # Check if we can delete (need minimum vertices - parent defines minimum)
         can_delete = True
         if hasattr(self._parent_item, '_get_vertex_count'):
-            can_delete = self._parent_item._get_vertex_count() > MINIMUM_VERTICES
+            min_count = MINIMUM_VERTICES
+            if hasattr(self._parent_item, '_get_minimum_vertex_count'):
+                min_count = self._parent_item._get_minimum_vertex_count()
+            can_delete = self._parent_item._get_vertex_count() > min_count
 
         menu = QMenu()
 
         delete_action = menu.addAction("Delete Vertex")
         delete_action.setEnabled(can_delete)
         if not can_delete:
-            delete_action.setToolTip("Cannot delete: minimum 3 vertices required")
+            min_count = MINIMUM_VERTICES
+            if hasattr(self._parent_item, '_get_minimum_vertex_count'):
+                min_count = self._parent_item._get_minimum_vertex_count()
+            delete_action.setToolTip(f"Cannot delete: minimum {min_count} vertices required")
 
         action = menu.exec(event.screenPos())
 
@@ -1307,6 +1313,10 @@ class VertexEditMixin:
             return 0
 
         return self.polygon().count()  # type: ignore[attr-defined]
+
+    def _get_minimum_vertex_count(self) -> int:
+        """Get the minimum number of vertices allowed (3 for polygons)."""
+        return MINIMUM_VERTICES
 
     def _move_vertex_to(self, index: int, pos: QPointF) -> None:
         """Move a vertex to a new position.
@@ -1955,3 +1965,351 @@ class RectVertexEditMixin:
         command_manager.can_undo_changed.emit(True)
         command_manager.can_redo_changed.emit(False)
         command_manager.command_executed.emit(command.description)
+
+
+# Minimum vertices for polylines (need at least 2 points for a line)
+MINIMUM_POLYLINE_VERTICES = 2
+
+
+class PolylineVertexEditMixin:
+    """Mixin that adds vertex editing functionality to polyline items.
+
+    Works with polylines that store vertices in a _points list and use
+    QPainterPath for rendering (open paths, not closed polygons).
+    """
+
+    _vertex_handles: list[VertexHandle]
+    _midpoint_handles: list[MidpointHandle]
+    _is_vertex_edit_mode: bool
+
+    def init_vertex_edit(self) -> None:
+        """Initialize vertex editing (call in subclass __init__)."""
+        self._vertex_handles = []
+        self._midpoint_handles = []
+        self._is_vertex_edit_mode = False
+
+    @property
+    def is_vertex_edit_mode(self) -> bool:
+        """Check if currently in vertex edit mode."""
+        return self._is_vertex_edit_mode
+
+    def enter_vertex_edit_mode(self) -> None:
+        """Enter vertex editing mode - show vertex and midpoint handles."""
+        if self._is_vertex_edit_mode:
+            return
+
+        self._is_vertex_edit_mode = True
+
+        # Hide rotation handle if it exists
+        if hasattr(self, 'hide_rotation_handle'):
+            self.hide_rotation_handle()  # type: ignore[attr-defined]
+
+        # Create vertex and midpoint handles
+        self._create_vertex_handles()
+        self._create_midpoint_handles()
+
+    def exit_vertex_edit_mode(self) -> None:
+        """Exit vertex editing mode - hide vertex handles."""
+        if not self._is_vertex_edit_mode:
+            return
+
+        self._is_vertex_edit_mode = False
+
+        # Remove vertex and midpoint handles
+        self._remove_vertex_handles()
+        self._remove_midpoint_handles()
+
+        # Show rotation handle if selected
+        if hasattr(self, 'isSelected') and self.isSelected() and hasattr(self, 'show_rotation_handle'):  # type: ignore[attr-defined]
+            self.show_rotation_handle()  # type: ignore[attr-defined]
+
+    def _create_vertex_handles(self) -> None:
+        """Create handles for all vertices."""
+        self._remove_vertex_handles()
+
+        if not hasattr(self, '_points'):
+            return
+
+        for i, point in enumerate(self._points):  # type: ignore[attr-defined]
+            handle = VertexHandle(i, self)  # type: ignore[arg-type]
+            handle.update_position(point)
+            self._vertex_handles.append(handle)
+
+    def _remove_vertex_handles(self) -> None:
+        """Remove all vertex handles."""
+        for handle in self._vertex_handles:
+            if handle.scene() is not None:
+                handle.scene().removeItem(handle)
+        self._vertex_handles = []
+
+    def _create_midpoint_handles(self) -> None:
+        """Create handles at edge midpoints (no wrap-around for open paths)."""
+        self._remove_midpoint_handles()
+
+        if not hasattr(self, '_points'):
+            return
+
+        points = self._points  # type: ignore[attr-defined]
+        # Open path: midpoints between consecutive pairs only (no closing edge)
+        for i in range(len(points) - 1):
+            p1 = points[i]
+            p2 = points[i + 1]
+            midpoint = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
+
+            handle = MidpointHandle(i, self)  # type: ignore[arg-type]
+            handle.update_position(midpoint)
+            self._midpoint_handles.append(handle)
+
+    def _remove_midpoint_handles(self) -> None:
+        """Remove all midpoint handles."""
+        for handle in self._midpoint_handles:
+            if handle.scene() is not None:
+                handle.scene().removeItem(handle)
+        self._midpoint_handles = []
+
+    def _update_vertex_handles(self) -> None:
+        """Update positions of all vertex and midpoint handles."""
+        if not hasattr(self, '_points'):
+            return
+
+        points = self._points  # type: ignore[attr-defined]
+
+        # Update vertex handles
+        for i, handle in enumerate(self._vertex_handles):
+            if i < len(points):
+                handle.update_position(points[i])
+
+        # Update midpoint handles
+        for i, handle in enumerate(self._midpoint_handles):
+            if i < len(points) - 1:
+                p1 = points[i]
+                p2 = points[i + 1]
+                midpoint = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
+                handle.update_position(midpoint)
+
+    def _rebuild_path(self) -> None:
+        """Rebuild the QPainterPath from current points."""
+        if not hasattr(self, '_points') or not hasattr(self, 'setPath'):
+            return
+
+        from PyQt6.QtGui import QPainterPath as _QPainterPath
+
+        points = self._points  # type: ignore[attr-defined]
+        path = _QPainterPath()
+        if points:
+            path.moveTo(points[0])
+            for point in points[1:]:
+                path.lineTo(point)
+        self.setPath(path)  # type: ignore[attr-defined]
+
+    def _get_vertex_position(self, index: int) -> QPointF:
+        """Get the position of a vertex."""
+        if not hasattr(self, '_points'):
+            return QPointF(0, 0)
+
+        points = self._points  # type: ignore[attr-defined]
+        if 0 <= index < len(points):
+            return QPointF(points[index])
+        return QPointF(0, 0)
+
+    def _get_vertex_count(self) -> int:
+        """Get the number of vertices."""
+        if not hasattr(self, '_points'):
+            return 0
+        return len(self._points)  # type: ignore[attr-defined]
+
+    def _get_minimum_vertex_count(self) -> int:
+        """Get the minimum number of vertices allowed (2 for polylines)."""
+        return MINIMUM_POLYLINE_VERTICES
+
+    def _move_vertex_to(self, index: int, pos: QPointF) -> None:
+        """Move a vertex to a new position."""
+        if not hasattr(self, '_points'):
+            return
+
+        points = self._points  # type: ignore[attr-defined]
+        if 0 <= index < len(points):
+            points[index] = pos
+            self._rebuild_path()
+            self._update_vertex_handles()
+
+            if hasattr(self, '_position_label'):
+                self._position_label()  # type: ignore[attr-defined]
+
+    def _add_vertex_at_edge(self, edge_index: int, pos: QPointF) -> None:
+        """Add a new vertex at an edge position."""
+        if not hasattr(self, '_points'):
+            return
+
+        points = self._points  # type: ignore[attr-defined]
+        insert_index = edge_index + 1
+        points.insert(insert_index, pos)
+
+        self._rebuild_path()
+        self._create_vertex_handles()
+        self._create_midpoint_handles()
+
+        if hasattr(self, '_position_label'):
+            self._position_label()  # type: ignore[attr-defined]
+
+        self._on_vertex_add(insert_index, pos)
+
+    def _delete_vertex(self, index: int) -> None:
+        """Delete a vertex from the polyline."""
+        if not hasattr(self, '_points'):
+            return
+
+        points = self._points  # type: ignore[attr-defined]
+        if len(points) <= MINIMUM_POLYLINE_VERTICES:
+            return
+
+        deleted_pos = QPointF(points[index])
+        del points[index]
+
+        self._rebuild_path()
+        self._create_vertex_handles()
+        self._create_midpoint_handles()
+
+        if hasattr(self, '_position_label'):
+            self._position_label()  # type: ignore[attr-defined]
+
+        self._on_vertex_delete(index, deleted_pos)
+
+    def _on_vertex_move_end(
+        self,
+        vertex_index: int,
+        old_pos: QPointF,
+        new_pos: QPointF,
+    ) -> None:
+        """Called when a vertex move completes. Registers undo command."""
+        if old_pos == new_pos:
+            return
+
+        scene = getattr(self, 'scene', lambda: None)()
+        if scene is None or not hasattr(scene, 'get_command_manager'):
+            return
+
+        command_manager = scene.get_command_manager()
+        if command_manager is None:
+            return
+
+        from open_garden_planner.core.commands import MoveVertexCommand
+
+        def apply_vertex_pos(item: QGraphicsItem, index: int, pos: QPointF) -> None:
+            if hasattr(item, '_move_vertex_to'):
+                item._move_vertex_to(index, pos)
+
+        command = MoveVertexCommand(
+            self,  # type: ignore[arg-type]
+            vertex_index,
+            old_pos,
+            new_pos,
+            apply_vertex_pos,
+        )
+
+        command_manager._undo_stack.append(command)
+        command_manager._redo_stack.clear()
+        command_manager.can_undo_changed.emit(True)
+        command_manager.can_redo_changed.emit(False)
+        command_manager.command_executed.emit(command.description)
+
+    def _on_vertex_add(self, vertex_index: int, pos: QPointF) -> None:
+        """Called when a vertex is added. Registers undo command."""
+        scene = getattr(self, 'scene', lambda: None)()
+        if scene is None or not hasattr(scene, 'get_command_manager'):
+            return
+
+        command_manager = scene.get_command_manager()
+        if command_manager is None:
+            return
+
+        from open_garden_planner.core.commands import AddVertexCommand
+
+        def apply_add_vertex(item: QGraphicsItem, index: int, position: QPointF) -> None:
+            if hasattr(item, '_insert_vertex'):
+                item._insert_vertex(index, position)
+
+        def apply_remove_vertex(item: QGraphicsItem, index: int) -> None:
+            if hasattr(item, '_remove_vertex'):
+                item._remove_vertex(index)
+
+        command = AddVertexCommand(
+            self,  # type: ignore[arg-type]
+            vertex_index,
+            pos,
+            apply_add_vertex,
+            apply_remove_vertex,
+        )
+
+        command_manager._undo_stack.append(command)
+        command_manager._redo_stack.clear()
+        command_manager.can_undo_changed.emit(True)
+        command_manager.can_redo_changed.emit(False)
+        command_manager.command_executed.emit(command.description)
+
+    def _on_vertex_delete(self, vertex_index: int, pos: QPointF) -> None:
+        """Called when a vertex is deleted. Registers undo command."""
+        scene = getattr(self, 'scene', lambda: None)()
+        if scene is None or not hasattr(scene, 'get_command_manager'):
+            return
+
+        command_manager = scene.get_command_manager()
+        if command_manager is None:
+            return
+
+        from open_garden_planner.core.commands import DeleteVertexCommand
+
+        def apply_add_vertex(item: QGraphicsItem, index: int, position: QPointF) -> None:
+            if hasattr(item, '_insert_vertex'):
+                item._insert_vertex(index, position)
+
+        def apply_remove_vertex(item: QGraphicsItem, index: int) -> None:
+            if hasattr(item, '_remove_vertex'):
+                item._remove_vertex(index)
+
+        command = DeleteVertexCommand(
+            self,  # type: ignore[arg-type]
+            vertex_index,
+            pos,
+            apply_add_vertex,
+            apply_remove_vertex,
+        )
+
+        command_manager._undo_stack.append(command)
+        command_manager._redo_stack.clear()
+        command_manager.can_undo_changed.emit(True)
+        command_manager.can_redo_changed.emit(False)
+        command_manager.command_executed.emit(command.description)
+
+    def _insert_vertex(self, index: int, pos: QPointF) -> None:
+        """Insert a vertex at a specific index (for undo/redo)."""
+        if not hasattr(self, '_points'):
+            return
+
+        points = self._points  # type: ignore[attr-defined]
+        points.insert(index, pos)
+        self._rebuild_path()
+
+        if self._is_vertex_edit_mode:
+            self._create_vertex_handles()
+            self._create_midpoint_handles()
+
+        if hasattr(self, '_position_label'):
+            self._position_label()  # type: ignore[attr-defined]
+
+    def _remove_vertex(self, index: int) -> None:
+        """Remove a vertex at a specific index (for undo/redo)."""
+        if not hasattr(self, '_points'):
+            return
+
+        points = self._points  # type: ignore[attr-defined]
+        if 0 <= index < len(points):
+            del points[index]
+        self._rebuild_path()
+
+        if self._is_vertex_edit_mode:
+            self._create_vertex_handles()
+            self._create_midpoint_handles()
+
+        if hasattr(self, '_position_label'):
+            self._position_label()  # type: ignore[attr-defined]

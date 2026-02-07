@@ -4,21 +4,22 @@ import uuid
 from typing import Any
 
 from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtGui import QBrush, QColor, QPainterPath, QPen
+from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsPathItem,
     QGraphicsSceneContextMenuEvent,
+    QGraphicsSceneMouseEvent,
     QMenu,
 )
 
 from open_garden_planner.core.object_types import ObjectType, get_style
 
 from .garden_item import GardenItemMixin
-from .resize_handle import RotationHandleMixin
+from .resize_handle import PolylineVertexEditMixin, RotationHandleMixin
 
 
-class PolylineItem(RotationHandleMixin, GardenItemMixin, QGraphicsPathItem):
+class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin, QGraphicsPathItem):
     """A polyline (open path) on the garden canvas.
 
     Used for fences, walls, paths, and other linear features.
@@ -53,8 +54,9 @@ class PolylineItem(RotationHandleMixin, GardenItemMixin, QGraphicsPathItem):
 
         self._points = points.copy()
 
-        # Initialize rotation handle
+        # Initialize rotation handle and vertex editing
         self.init_rotation_handle()
+        self.init_vertex_edit()
 
         self._setup_styling()
         self._setup_flags()
@@ -83,6 +85,7 @@ class PolylineItem(RotationHandleMixin, GardenItemMixin, QGraphicsPathItem):
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsFocusable, True)
 
     def itemChange(
         self,
@@ -92,14 +95,36 @@ class PolylineItem(RotationHandleMixin, GardenItemMixin, QGraphicsPathItem):
         """Handle item state changes.
 
         Shows/hides rotation handle based on selection state.
+        Exits vertex edit mode when deselected.
         """
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
-                self.show_rotation_handle()
+                if not self.is_vertex_edit_mode:
+                    self.show_rotation_handle()
             else:  # Being deselected
+                if self.is_vertex_edit_mode:
+                    self.exit_vertex_edit_mode()
                 self.hide_rotation_handle()
 
         return super().itemChange(change, value)
+
+    def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        """Handle double-click to enter vertex edit mode and start label edit."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            if not self.is_vertex_edit_mode:
+                self.enter_vertex_edit_mode()
+            self.start_label_edit()
+            event.accept()
+        else:
+            super().mouseDoubleClickEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Handle key presses - Escape exits vertex edit mode."""
+        if event.key() == Qt.Key.Key_Escape and self.is_vertex_edit_mode:
+            self.exit_vertex_edit_mode()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
     def _on_rotation_end(self, initial_angle: float) -> None:
         """Called when rotation operation completes. Registers undo command."""
@@ -148,6 +173,19 @@ class PolylineItem(RotationHandleMixin, GardenItemMixin, QGraphicsPathItem):
 
         menu = QMenu()
 
+        # Edit vertices action
+        if self.is_vertex_edit_mode:
+            exit_edit_action = menu.addAction("Exit Vertex Edit Mode")
+            edit_vertices_action = None
+        else:
+            edit_vertices_action = menu.addAction("Edit Vertices")
+            exit_edit_action = None
+
+        # Edit label action
+        edit_label_action = menu.addAction("Edit Label")
+
+        menu.addSeparator()
+
         # Delete action
         delete_action = menu.addAction("Delete")
 
@@ -159,7 +197,14 @@ class PolylineItem(RotationHandleMixin, GardenItemMixin, QGraphicsPathItem):
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
-        if action == delete_action:
+        if action == edit_vertices_action and edit_vertices_action is not None:
+            self.enter_vertex_edit_mode()
+            self.setFocus()
+        elif action == exit_edit_action and exit_edit_action is not None:
+            self.exit_vertex_edit_mode()
+        elif action == edit_label_action:
+            self.start_label_edit()
+        elif action == delete_action:
             # Delete this item and any other selected items
             scene = self.scene()
             for item in scene.selectedItems():

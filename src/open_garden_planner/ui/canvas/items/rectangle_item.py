@@ -344,15 +344,11 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         command_manager.command_executed.emit(command.description)
 
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        """Handle double-click to enter vertex edit mode."""
+        """Handle double-click to enter vertex edit mode and start label edit."""
         if event.button() == Qt.MouseButton.LeftButton:
-            if self.is_vertex_edit_mode:
-                # Already in vertex edit mode - edit label
-                self.start_label_edit()
-            else:
-                # Enter vertex edit mode
+            if not self.is_vertex_edit_mode:
                 self.enter_vertex_edit_mode()
-                self.setFocus()
+            self.start_label_edit()
             event.accept()
         else:
             super().mouseDoubleClickEvent(event)
