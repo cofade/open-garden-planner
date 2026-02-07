@@ -17,7 +17,13 @@ from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_b
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 
 from .garden_item import GardenItemMixin
-from .resize_handle import ResizeHandlesMixin, RotationHandleMixin
+from .resize_handle import (
+    AnnotationLabel,
+    ResizeHandlesMixin,
+    RotationHandleMixin,
+    _format_coordinate,
+    _format_edge_length,
+)
 
 
 def _show_properties_dialog(item: QGraphicsEllipseItem) -> None:
@@ -151,6 +157,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         self.init_resize_handles()
         self.init_rotation_handle()
 
+        self._diameter_label: AnnotationLabel | None = None
+        self._center_label: AnnotationLabel | None = None
+
         self._setup_styling()
         self._setup_flags()
         self.initialize_label()
@@ -204,11 +213,62 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             if value:  # Being selected
                 self.show_resize_handles()
                 self.show_rotation_handle()
+                self._show_circle_annotations()
             else:  # Being deselected
                 self.hide_resize_handles()
                 self.hide_rotation_handle()
+                self._hide_circle_annotations()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            self._update_circle_annotations()
 
         return super().itemChange(change, value)
+
+    def _show_circle_annotations(self) -> None:
+        """Show diameter and center coordinate annotations."""
+        rect = self.rect()
+        diameter_cm = rect.width()
+        center_item = QPointF(rect.x() + rect.width() / 2, rect.y() + rect.height() / 2)
+        center_scene = self.mapToScene(center_item)
+
+        # Center coordinate label
+        if self._center_label is None:
+            self._center_label = AnnotationLabel(self)
+        self._center_label.set_text(_format_coordinate(center_scene.x(), center_scene.y()))
+        self._center_label.setPos(center_item.x(), center_item.y())
+        self._center_label.show()
+
+        # Diameter label at the right edge midpoint
+        right_mid = QPointF(rect.right(), rect.y() + rect.height() / 2)
+        if self._diameter_label is None:
+            self._diameter_label = AnnotationLabel(self)
+        self._diameter_label.set_text(f"\u2300 {_format_edge_length(diameter_cm)}")
+        self._diameter_label.setPos(right_mid.x(), right_mid.y())
+        self._diameter_label.show()
+
+    def _hide_circle_annotations(self) -> None:
+        """Hide diameter and center coordinate annotations."""
+        if self._center_label is not None:
+            self._center_label.hide()
+        if self._diameter_label is not None:
+            self._diameter_label.hide()
+
+    def _update_circle_annotations(self) -> None:
+        """Update annotations after resize."""
+        if self._center_label is None or not self._center_label.isVisible():
+            return
+
+        rect = self.rect()
+        diameter_cm = rect.width()
+        center_item = QPointF(rect.x() + rect.width() / 2, rect.y() + rect.height() / 2)
+        center_scene = self.mapToScene(center_item)
+
+        self._center_label.set_text(_format_coordinate(center_scene.x(), center_scene.y()))
+        self._center_label.setPos(center_item.x(), center_item.y())
+
+        right_mid = QPointF(rect.right(), rect.y() + rect.height() / 2)
+        if self._diameter_label is not None:
+            self._diameter_label.set_text(f"\u2300 {_format_edge_length(diameter_cm)}")
+            self._diameter_label.setPos(right_mid.x(), right_mid.y())
 
     def _on_resize_start(self) -> None:
         """Called when a resize operation starts. Store initial geometry."""
@@ -306,6 +366,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         # Update label position
         self._position_label()
+
+        # Update annotations
+        self._update_circle_annotations()
 
     def _on_resize_end(
         self,
