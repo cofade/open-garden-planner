@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QPen, QPolygonF
+from PyQt6.QtGui import QKeyEvent, QPen, QPolygonF
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsPolygonItem,
@@ -17,7 +17,7 @@ from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_b
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 
 from .garden_item import GardenItemMixin
-from .resize_handle import ResizeHandlesMixin, RotationHandleMixin
+from .resize_handle import ResizeHandlesMixin, RotationHandleMixin, VertexEditMixin
 
 
 def _show_properties_dialog(item: QGraphicsPolygonItem) -> None:
@@ -92,11 +92,11 @@ def _show_properties_dialog(item: QGraphicsPolygonItem) -> None:
         item.setPen(pen)
 
 
-class PolygonItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGraphicsPolygonItem):
+class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGraphicsPolygonItem):
     """A polygon shape on the garden canvas.
 
     Supports property object types with appropriate styling.
-    Supports selection, movement, resizing, and rotation.
+    Supports selection, movement, resizing, rotation, and vertex editing.
     """
 
     def __init__(
@@ -136,9 +136,10 @@ class PolygonItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         polygon = QPolygonF(vertices)
         QGraphicsPolygonItem.__init__(self, polygon)
 
-        # Initialize resize and rotation handles
+        # Initialize resize, rotation, and vertex editing handles
         self.init_resize_handles()
         self.init_rotation_handle()
+        self.init_vertex_edit()
         self._resize_initial_polygon: QPolygonF | None = None
 
         self._setup_styling()
@@ -170,6 +171,7 @@ class PolygonItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemIsFocusable, True)
 
     def itemChange(
         self,
@@ -179,12 +181,18 @@ class PolygonItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         """Handle item state changes.
 
         Shows/hides resize and rotation handles based on selection state.
+        Exits vertex edit mode when deselected.
         """
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
-                self.show_resize_handles()
-                self.show_rotation_handle()
+                # Only show resize/rotation handles if not in vertex edit mode
+                if not self.is_vertex_edit_mode:
+                    self.show_resize_handles()
+                    self.show_rotation_handle()
             else:  # Being deselected
+                # Exit vertex edit mode when deselected
+                if self.is_vertex_edit_mode:
+                    self.exit_vertex_edit_mode()
                 self.hide_resize_handles()
                 self.hide_rotation_handle()
 
@@ -358,12 +366,22 @@ class PolygonItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         command_manager.command_executed.emit(command.description)
 
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        """Handle double-click to edit label inline."""
+        """Handle double-click to enter vertex edit mode and start label edit."""
         if event.button() == Qt.MouseButton.LeftButton:
+            if not self.is_vertex_edit_mode:
+                self.enter_vertex_edit_mode()
             self.start_label_edit()
             event.accept()
         else:
             super().mouseDoubleClickEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Handle key presses - Escape exits vertex edit mode."""
+        if event.key() == Qt.Key.Key_Escape and self.is_vertex_edit_mode:
+            self.exit_vertex_edit_mode()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show context menu on right-click."""
@@ -373,6 +391,19 @@ class PolygonItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
             self.setSelected(True)
 
         menu = QMenu()
+
+        # Edit vertices action
+        if self.is_vertex_edit_mode:
+            exit_edit_action = menu.addAction("Exit Vertex Edit Mode")
+            edit_vertices_action = None
+        else:
+            edit_vertices_action = menu.addAction("Edit Vertices")
+            exit_edit_action = None
+
+        # Edit label action
+        edit_label_action = menu.addAction("Edit Label")
+
+        menu.addSeparator()
 
         # Delete action
         delete_action = menu.addAction("Delete")
@@ -385,7 +416,17 @@ class PolygonItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
-        if action == delete_action:
+        if action == edit_vertices_action and edit_vertices_action is not None:
+            # Enter vertex edit mode
+            self.enter_vertex_edit_mode()
+            self.setFocus()
+        elif action == exit_edit_action and exit_edit_action is not None:
+            # Exit vertex edit mode
+            self.exit_vertex_edit_mode()
+        elif action == edit_label_action:
+            # Edit the label
+            self.start_label_edit()
+        elif action == delete_action:
             # Delete this item and any other selected items
             scene = self.scene()
             for item in scene.selectedItems():

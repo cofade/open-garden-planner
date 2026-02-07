@@ -165,5 +165,5 @@ tests/
 | Status | US  | Description                                |
 | ------ | --- | ------------------------------------------ |
 | ✅     | B.1 | Rotate objects (free + 15° snap)           |
-|        | B.2 | Edit polygon vertices (move, add, remove)  |
+| ✅     | B.2 | Edit polygon vertices (move, add, remove)  |
 |        | -   | Vertex coordinate annotations on selection |

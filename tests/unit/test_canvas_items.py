@@ -165,6 +165,155 @@ class TestPolygonItem:
         item = PolygonItem(triangle_vertices)
         assert item.flags() & QGraphicsPolygonItem.GraphicsItemFlag.ItemIsMovable
 
+    def test_is_focusable(self, triangle_vertices) -> None:
+        """Test PolygonItem is focusable (for vertex edit mode key handling)."""
+        item = PolygonItem(triangle_vertices)
+        assert item.flags() & QGraphicsPolygonItem.GraphicsItemFlag.ItemIsFocusable
+
+
+class TestPolygonVertexEditing:
+    """Tests for polygon vertex editing functionality."""
+
+    @pytest.fixture
+    def square_vertices(self):
+        """Create square vertices."""
+        return [
+            QPointF(0, 0),
+            QPointF(100, 0),
+            QPointF(100, 100),
+            QPointF(0, 100),
+        ]
+
+    @pytest.fixture
+    def triangle_vertices(self):
+        """Create triangle vertices (minimum valid polygon)."""
+        return [
+            QPointF(0, 0),
+            QPointF(100, 0),
+            QPointF(50, 86.6),
+        ]
+
+    def test_vertex_edit_mode_initially_false(self, square_vertices) -> None:
+        """Test polygon starts not in vertex edit mode."""
+        item = PolygonItem(square_vertices)
+        assert not item.is_vertex_edit_mode
+
+    def test_enter_vertex_edit_mode(self, square_vertices) -> None:
+        """Test entering vertex edit mode."""
+        item = PolygonItem(square_vertices)
+        item.enter_vertex_edit_mode()
+        assert item.is_vertex_edit_mode
+
+    def test_exit_vertex_edit_mode(self, square_vertices) -> None:
+        """Test exiting vertex edit mode."""
+        item = PolygonItem(square_vertices)
+        item.enter_vertex_edit_mode()
+        assert item.is_vertex_edit_mode
+        item.exit_vertex_edit_mode()
+        assert not item.is_vertex_edit_mode
+
+    def test_get_vertex_count(self, square_vertices) -> None:
+        """Test getting vertex count."""
+        item = PolygonItem(square_vertices)
+        assert item._get_vertex_count() == 4
+
+    def test_get_vertex_position(self, square_vertices) -> None:
+        """Test getting vertex position."""
+        item = PolygonItem(square_vertices)
+        pos = item._get_vertex_position(0)
+        assert pos.x() == 0
+        assert pos.y() == 0
+
+        pos = item._get_vertex_position(2)
+        assert pos.x() == 100
+        assert pos.y() == 100
+
+    def test_move_vertex_to(self, square_vertices) -> None:
+        """Test moving a vertex."""
+        item = PolygonItem(square_vertices)
+        new_pos = QPointF(50, 50)
+        item._move_vertex_to(0, new_pos)
+
+        pos = item._get_vertex_position(0)
+        assert pos.x() == 50
+        assert pos.y() == 50
+
+        # Other vertices should be unchanged
+        pos1 = item._get_vertex_position(1)
+        assert pos1.x() == 100
+        assert pos1.y() == 0
+
+    def test_insert_vertex(self, square_vertices) -> None:
+        """Test inserting a vertex."""
+        item = PolygonItem(square_vertices)
+        assert item._get_vertex_count() == 4
+
+        new_pos = QPointF(50, 0)
+        item._insert_vertex(1, new_pos)
+
+        assert item._get_vertex_count() == 5
+        # Check the inserted vertex
+        pos = item._get_vertex_position(1)
+        assert pos.x() == 50
+        assert pos.y() == 0
+        # Original vertex 1 should now be at index 2
+        pos = item._get_vertex_position(2)
+        assert pos.x() == 100
+        assert pos.y() == 0
+
+    def test_remove_vertex(self, square_vertices) -> None:
+        """Test removing a vertex."""
+        item = PolygonItem(square_vertices)
+        assert item._get_vertex_count() == 4
+
+        item._remove_vertex(1)
+
+        assert item._get_vertex_count() == 3
+        # Vertex 2 should now be at index 1
+        pos = item._get_vertex_position(1)
+        assert pos.x() == 100
+        assert pos.y() == 100
+
+    def test_cannot_remove_below_minimum_vertices(self, triangle_vertices) -> None:
+        """Test that minimum 3 vertices are enforced."""
+        item = PolygonItem(triangle_vertices)
+        assert item._get_vertex_count() == 3
+
+        # _delete_vertex checks minimum, _remove_vertex is raw operation
+        # The public API (_delete_vertex) should prevent going below 3
+        item._delete_vertex(0)
+
+        # Should still have 3 vertices (delete was prevented)
+        assert item._get_vertex_count() == 3
+
+
+class TestRectangleVertexEditing:
+    """Tests for rectangle vertex editing functionality."""
+
+    def test_vertex_edit_mode_initially_false(self) -> None:
+        """Test rectangle starts not in vertex edit mode."""
+        item = RectangleItem(0, 0, 100, 50)
+        assert not item.is_vertex_edit_mode
+
+    def test_enter_vertex_edit_mode(self) -> None:
+        """Test entering vertex edit mode."""
+        item = RectangleItem(0, 0, 100, 50)
+        item.enter_vertex_edit_mode()
+        assert item.is_vertex_edit_mode
+
+    def test_exit_vertex_edit_mode(self) -> None:
+        """Test exiting vertex edit mode."""
+        item = RectangleItem(0, 0, 100, 50)
+        item.enter_vertex_edit_mode()
+        assert item.is_vertex_edit_mode
+        item.exit_vertex_edit_mode()
+        assert not item.is_vertex_edit_mode
+
+    def test_is_focusable(self) -> None:
+        """Test RectangleItem is focusable (for vertex edit mode key handling)."""
+        item = RectangleItem(0, 0, 100, 50)
+        assert item.flags() & QGraphicsRectItem.GraphicsItemFlag.ItemIsFocusable
+
 
 class TestCircleItem:
     """Tests for the CircleItem class."""

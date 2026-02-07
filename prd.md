@@ -720,7 +720,7 @@ open_garden_planner/
 | ID | User Story | Priority |
 |----|------------|----------|
 | ~~US-B.1~~ | ~~As a user, I can rotate objects freely or snap to 15° increments~~ | ✅ Should |
-| US-B.2 | As a user, I can edit polygon vertices (move, add, remove individual points) | Should |
+| ~~US-B.2~~ | ~~As a user, I can edit polygon vertices (move, add, remove individual points)~~ | ✅ Should |
 
 #### US-B.1: Rotate Objects
 
