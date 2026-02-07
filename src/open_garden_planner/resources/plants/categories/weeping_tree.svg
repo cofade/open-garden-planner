@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Weeping tree - round with drooping fringe edges -->
+  <defs>
+    <radialGradient id="weep_canopy" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#5a9a4f"/>
+      <stop offset="50%" stop-color="#4a8840"/>
+      <stop offset="100%" stop-color="#3a7530"/>
+    </radialGradient>
+  </defs>
+  <!-- Drooping outer fringe (irregular edge) -->
+  <path d="M50 6 C62 8 78 18 85 30 C90 40 92 48 88 60 C85 72 78 82 68 88 C58 94 46 95 36 90 C24 84 14 74 10 60 C6 48 8 36 14 26 C22 14 36 7 50 6Z" fill="#3a7530" opacity="0.5"/>
+  <!-- Main canopy -->
+  <ellipse cx="50" cy="50" rx="36" ry="36" fill="url(#weep_canopy)" opacity="0.9"/>
+  <!-- Drooping branch tips around the edge -->
+  <ellipse cx="22" cy="42" rx="8" ry="4" fill="#4a8840" opacity="0.6" transform="rotate(-30 22 42)"/>
+  <ellipse cx="30" cy="75" rx="7" ry="4" fill="#4a8840" opacity="0.6" transform="rotate(20 30 75)"/>
+  <ellipse cx="72" cy="38" rx="7" ry="4" fill="#4a8840" opacity="0.6" transform="rotate(25 72 38)"/>
+  <ellipse cx="75" cy="62" rx="8" ry="4" fill="#4a8840" opacity="0.6" transform="rotate(-15 75 62)"/>
+  <ellipse cx="50" cy="18" rx="6" ry="4" fill="#4a8840" opacity="0.55"/>
+  <ellipse cx="50" cy="82" rx="7" ry="4" fill="#4a8840" opacity="0.55"/>
+  <!-- Leaf clusters -->
+  <circle cx="42" cy="40" r="12" fill="#62b050" opacity="0.45"/>
+  <circle cx="58" cy="55" r="11" fill="#59a848" opacity="0.4"/>
+  <!-- Trunk shadow -->
+  <circle cx="50" cy="50" r="5" fill="#3a2a1a" opacity="0.4"/>
+  <!-- Highlights -->
+  <circle cx="40" cy="42" r="5" fill="#7cc46a" opacity="0.3"/>
+</svg>

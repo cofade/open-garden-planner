@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Ornamental grass - radiating blade-like leaves from center -->
+  <defs>
+    <radialGradient id="grass_center" cx="50%" cy="50%" r="30%">
+      <stop offset="0%" stop-color="#8ab848"/>
+      <stop offset="100%" stop-color="#6a9830"/>
+    </radialGradient>
+  </defs>
+  <!-- Radiating grass blades -->
+  <path d="M50 50 L52 8 Q50 20 48 8Z" fill="#7aaa3c" opacity="0.7"/>
+  <path d="M50 50 L68 12 Q58 22 62 10Z" fill="#82b244" opacity="0.65"/>
+  <path d="M50 50 L88 28 Q74 34 86 22Z" fill="#7aaa3c" opacity="0.7"/>
+  <path d="M50 50 L92 50 Q80 48 92 44Z" fill="#72a236" opacity="0.65"/>
+  <path d="M50 50 L86 72 Q76 64 88 68Z" fill="#7aaa3c" opacity="0.7"/>
+  <path d="M50 50 L68 90 Q62 78 72 88Z" fill="#82b244" opacity="0.65"/>
+  <path d="M50 50 L48 92 Q50 80 52 92Z" fill="#7aaa3c" opacity="0.7"/>
+  <path d="M50 50 L30 88 Q38 78 28 86Z" fill="#72a236" opacity="0.65"/>
+  <path d="M50 50 L12 72 Q22 64 10 70Z" fill="#7aaa3c" opacity="0.7"/>
+  <path d="M50 50 L8 48 Q20 48 8 52Z" fill="#82b244" opacity="0.65"/>
+  <path d="M50 50 L14 26 Q24 34 12 30Z" fill="#7aaa3c" opacity="0.7"/>
+  <path d="M50 50 L34 10 Q40 22 30 14Z" fill="#72a236" opacity="0.65"/>
+  <!-- Secondary thinner blades -->
+  <path d="M50 50 L58 14 Q54 26 60 16Z" fill="#90c450" opacity="0.45"/>
+  <path d="M50 50 L84 38 Q72 40 82 34Z" fill="#90c450" opacity="0.4"/>
+  <path d="M50 50 L78 78 Q68 70 76 76Z" fill="#90c450" opacity="0.45"/>
+  <path d="M50 50 L38 86 Q42 74 36 84Z" fill="#90c450" opacity="0.4"/>
+  <path d="M50 50 L14 58 Q26 54 16 60Z" fill="#90c450" opacity="0.45"/>
+  <path d="M50 50 L24 18 Q32 26 22 20Z" fill="#90c450" opacity="0.4"/>
+  <!-- Center clump -->
+  <circle cx="50" cy="50" r="8" fill="url(#grass_center)" opacity="0.9"/>
+</svg>

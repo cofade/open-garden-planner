@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Boxwood - dense, tightly clipped round shrub -->
+  <defs>
+    <radialGradient id="box_fill" cx="45%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#3d7a2a"/>
+      <stop offset="60%" stop-color="#326822"/>
+      <stop offset="100%" stop-color="#285a1a"/>
+    </radialGradient>
+  </defs>
+  <!-- Dense round clipped shape (slightly irregular for natural look) -->
+  <path d="M18 48 C16 34 26 20 40 18 C50 16 56 18 64 18 C78 18 86 32 86 46 C86 58 80 70 70 76 C60 82 42 82 30 76 C20 70 16 58 18 48Z" fill="url(#box_fill)" opacity="0.92"/>
+  <!-- Very tight small leaf texture -->
+  <circle cx="30" cy="34" r="8" fill="#468832" opacity="0.45"/>
+  <circle cx="46" cy="30" r="7" fill="#3e8028" opacity="0.4"/>
+  <circle cx="62" cy="32" r="8" fill="#468832" opacity="0.42"/>
+  <circle cx="76" cy="44" r="7" fill="#3e8028" opacity="0.4"/>
+  <circle cx="72" cy="60" r="8" fill="#468832" opacity="0.38"/>
+  <circle cx="56" cy="66" r="7" fill="#3e8028" opacity="0.38"/>
+  <circle cx="38" cy="64" r="8" fill="#468832" opacity="0.38"/>
+  <circle cx="24" cy="52" r="7" fill="#3e8028" opacity="0.4"/>
+  <circle cx="50" cy="48" r="9" fill="#468832" opacity="0.35"/>
+  <!-- Clipped edge definition -->
+  <circle cx="36" cy="44" r="6" fill="#509038" opacity="0.3"/>
+  <circle cx="58" cy="46" r="6" fill="#509038" opacity="0.28"/>
+  <circle cx="48" cy="36" r="5" fill="#509038" opacity="0.28"/>
+  <!-- Light highlight on top surface -->
+  <ellipse cx="44" cy="40" rx="14" ry="10" fill="#58a040" opacity="0.2"/>
+</svg>

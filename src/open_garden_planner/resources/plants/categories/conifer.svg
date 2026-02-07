@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Conifer/pine tree - star-shaped from above with radiating branches -->
+  <defs>
+    <radialGradient id="pine_canopy" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2d6b3a"/>
+      <stop offset="60%" stop-color="#1f5c2e"/>
+      <stop offset="100%" stop-color="#164d24"/>
+    </radialGradient>
+  </defs>
+  <!-- Radiating branch structure -->
+  <path d="M50 8 L56 38 L88 30 L62 50 L90 62 L58 58 L68 90 L50 62 L32 90 L42 58 L10 62 L38 50 L12 30 L44 38Z" fill="url(#pine_canopy)" opacity="0.85"/>
+  <!-- Secondary branch layer -->
+  <path d="M50 18 L54 40 L76 34 L58 50 L78 58 L56 56 L62 78 L50 58 L38 78 L44 56 L22 58 L42 50 L24 34 L46 40Z" fill="#2d7b3e" opacity="0.6"/>
+  <!-- Inner canopy -->
+  <circle cx="50" cy="50" r="16" fill="#358544" opacity="0.7"/>
+  <!-- Trunk center -->
+  <circle cx="50" cy="50" r="4" fill="#4a3520" opacity="0.5"/>
+  <!-- Needle texture highlights -->
+  <circle cx="44" cy="44" r="3" fill="#4a9a55" opacity="0.3"/>
+  <circle cx="56" cy="46" r="3" fill="#4a9a55" opacity="0.25"/>
+</svg>

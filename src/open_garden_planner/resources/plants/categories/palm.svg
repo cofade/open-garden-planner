@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Palm tree - star/fan-shaped fronds from above -->
+  <defs>
+    <radialGradient id="palm_center" cx="50%" cy="50%" r="20%">
+      <stop offset="0%" stop-color="#8a7040"/>
+      <stop offset="100%" stop-color="#6a5530"/>
+    </radialGradient>
+  </defs>
+  <!-- Palm fronds radiating outward -->
+  <path d="M50 50 L42 6 Q50 22 58 6Z" fill="#3a8a28" opacity="0.75"/>
+  <path d="M50 50 L82 14 Q66 28 86 10Z" fill="#429230" opacity="0.7"/>
+  <path d="M50 50 L94 42 Q78 46 96 38Z" fill="#3a8a28" opacity="0.75"/>
+  <path d="M50 50 L90 72 Q76 64 92 68Z" fill="#429230" opacity="0.7"/>
+  <path d="M50 50 L62 94 Q54 78 66 92Z" fill="#3a8a28" opacity="0.7"/>
+  <path d="M50 50 L20 88 Q32 76 18 86Z" fill="#429230" opacity="0.65"/>
+  <path d="M50 50 L6 58 Q22 54 4 62Z" fill="#3a8a28" opacity="0.75"/>
+  <path d="M50 50 L10 28 Q24 36 8 32Z" fill="#429230" opacity="0.7"/>
+  <!-- Wider frond shapes overlaid -->
+  <path d="M50 50 Q44 30 42 6 Q50 28 58 6 Q56 30 50 50Z" fill="#4a9a35" opacity="0.45"/>
+  <path d="M50 50 Q62 36 82 14 Q64 34 86 10 Q68 38 50 50Z" fill="#4a9a35" opacity="0.4"/>
+  <path d="M50 50 Q58 44 94 42 Q60 48 96 38 Q62 50 50 50Z" fill="#4a9a35" opacity="0.45"/>
+  <path d="M50 50 Q58 58 90 72 Q60 62 92 68 Q62 60 50 50Z" fill="#4a9a35" opacity="0.4"/>
+  <path d="M50 50 Q54 62 62 94 Q52 64 66 92 Q56 62 50 50Z" fill="#4a9a35" opacity="0.4"/>
+  <path d="M50 50 Q42 60 20 88 Q40 62 18 86 Q38 58 50 50Z" fill="#4a9a35" opacity="0.35"/>
+  <path d="M50 50 Q40 54 6 58 Q38 52 4 62 Q36 50 50 50Z" fill="#4a9a35" opacity="0.45"/>
+  <path d="M50 50 Q40 40 10 28 Q38 38 8 32 Q36 38 50 50Z" fill="#4a9a35" opacity="0.4"/>
+  <!-- Trunk center -->
+  <circle cx="50" cy="50" r="7" fill="url(#palm_center)" opacity="0.9"/>
+  <circle cx="50" cy="50" r="4" fill="#7a6540" opacity="0.6"/>
+</svg>

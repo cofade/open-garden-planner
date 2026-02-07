@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Apple tree - broad round canopy with red apple fruits -->
+  <defs>
+    <radialGradient id="apple_canopy" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4a8c3f"/>
+      <stop offset="55%" stop-color="#3d7a34"/>
+      <stop offset="100%" stop-color="#2d6425"/>
+    </radialGradient>
+  </defs>
+  <!-- Broad irregular canopy -->
+  <path d="M16 48 C12 32 24 16 40 12 C50 10 56 14 64 12 C80 10 92 26 90 44 C92 56 86 68 76 76 C64 84 38 86 26 78 C14 68 12 58 16 48Z" fill="url(#apple_canopy)" opacity="0.88"/>
+  <!-- Leaf clusters giving organic shape -->
+  <circle cx="34" cy="32" r="16" fill="#55a044" opacity="0.6"/>
+  <circle cx="62" cy="28" r="14" fill="#4d9438" opacity="0.55"/>
+  <circle cx="72" cy="50" r="14" fill="#50944a" opacity="0.5"/>
+  <circle cx="56" cy="65" r="15" fill="#55a044" opacity="0.5"/>
+  <circle cx="30" cy="60" r="13" fill="#508f3c" opacity="0.5"/>
+  <circle cx="48" cy="42" r="12" fill="#5da846" opacity="0.45"/>
+  <!-- Trunk shadow -->
+  <circle cx="50" cy="48" r="5" fill="#3a2a1a" opacity="0.35"/>
+  <!-- Red apples -->
+  <circle cx="36" cy="26" r="3.5" fill="#cc3030" opacity="0.85"/>
+  <circle cx="68" cy="34" r="3" fill="#cc3030" opacity="0.8"/>
+  <circle cx="60" cy="56" r="3.5" fill="#cc3030" opacity="0.75"/>
+  <circle cx="32" cy="52" r="3" fill="#cc3030" opacity="0.8"/>
+  <circle cx="50" cy="72" r="3" fill="#cc3030" opacity="0.7"/>
+  <circle cx="76" cy="54" r="2.5" fill="#cc3030" opacity="0.65"/>
+  <circle cx="44" cy="38" r="2.5" fill="#cc3030" opacity="0.75"/>
+  <circle cx="22" cy="42" r="2.5" fill="#cc3030" opacity="0.7"/>
+  <!-- Apple highlights -->
+  <circle cx="35" cy="25" r="1.2" fill="#ff6060" opacity="0.5"/>
+  <circle cx="67" cy="33" r="1" fill="#ff6060" opacity="0.45"/>
+  <!-- Canopy highlights -->
+  <circle cx="38" cy="34" r="5" fill="#7cc46a" opacity="0.3"/>
+  <circle cx="58" cy="44" r="4" fill="#7cc46a" opacity="0.25"/>
+</svg>

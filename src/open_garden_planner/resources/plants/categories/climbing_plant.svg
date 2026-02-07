@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Climbing plant - elongated trailing/vine-like shape from above -->
+  <defs>
+    <radialGradient id="climb_fill" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#5aaa35"/>
+      <stop offset="70%" stop-color="#4a9428"/>
+      <stop offset="100%" stop-color="#3a8020"/>
+    </radialGradient>
+  </defs>
+  <!-- Main vine mass (irregular elongated) -->
+  <path d="M25 30 C22 22 32 14 42 16 C50 18 58 14 66 18 C76 22 82 32 78 42 C82 48 80 56 74 62 C70 68 62 74 54 76 C48 78 40 80 34 76 C26 72 20 62 18 52 C16 44 20 36 25 30Z" fill="url(#climb_fill)" opacity="0.8"/>
+  <!-- Trailing vine tendrils -->
+  <path d="M74 62 C80 68 84 78 80 86" stroke="#4a9428" stroke-width="2.5" fill="none" opacity="0.6"/>
+  <path d="M54 76 C56 82 52 90 48 94" stroke="#4a9428" stroke-width="2" fill="none" opacity="0.55"/>
+  <path d="M34 76 C30 82 26 88 22 90" stroke="#4a9428" stroke-width="2" fill="none" opacity="0.5"/>
+  <path d="M25 30 C20 24 16 16 14 10" stroke="#4a9428" stroke-width="2" fill="none" opacity="0.5"/>
+  <!-- Leaf shapes along vine -->
+  <ellipse cx="40" cy="30" rx="8" ry="6" fill="#62b240" opacity="0.55"/>
+  <ellipse cx="62" cy="32" rx="7" ry="6" fill="#5aaa38" opacity="0.5"/>
+  <ellipse cx="70" cy="50" rx="7" ry="6" fill="#62b240" opacity="0.5"/>
+  <ellipse cx="55" cy="62" rx="8" ry="6" fill="#5aaa38" opacity="0.45"/>
+  <ellipse cx="35" cy="58" rx="7" ry="6" fill="#62b240" opacity="0.45"/>
+  <!-- Small flower accents -->
+  <circle cx="44" cy="24" r="2.5" fill="#a080c0" opacity="0.6"/>
+  <circle cx="66" cy="40" r="2" fill="#a080c0" opacity="0.55"/>
+  <circle cx="48" cy="68" r="2.5" fill="#a080c0" opacity="0.5"/>
+</svg>

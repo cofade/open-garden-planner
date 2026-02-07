@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Rhododendron - large glossy-leaved shrub with flower clusters -->
+  <defs>
+    <radialGradient id="rhodo_fill" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#2d6a28"/>
+      <stop offset="70%" stop-color="#225820"/>
+      <stop offset="100%" stop-color="#1a4818"/>
+    </radialGradient>
+  </defs>
+  <!-- Large spreading base -->
+  <path d="M14 46 C10 30 22 16 38 12 C50 10 58 14 68 12 C84 10 94 28 92 44 C94 58 88 72 76 80 C64 88 38 88 24 80 C12 72 10 58 14 46Z" fill="url(#rhodo_fill)" opacity="0.88"/>
+  <!-- Large glossy leaves -->
+  <ellipse cx="32" cy="30" rx="14" ry="9" fill="#388032" opacity="0.6" transform="rotate(-15 32 30)"/>
+  <ellipse cx="66" cy="28" rx="13" ry="8" fill="#307828" opacity="0.55" transform="rotate(15 66 28)"/>
+  <ellipse cx="78" cy="50" rx="12" ry="8" fill="#388032" opacity="0.55" transform="rotate(40 78 50)"/>
+  <ellipse cx="62" cy="70" rx="14" ry="9" fill="#307828" opacity="0.5" transform="rotate(-10 62 70)"/>
+  <ellipse cx="32" cy="66" rx="13" ry="8" fill="#388032" opacity="0.5" transform="rotate(10 32 66)"/>
+  <ellipse cx="18" cy="48" rx="11" ry="8" fill="#307828" opacity="0.5" transform="rotate(-40 18 48)"/>
+  <ellipse cx="50" cy="48" rx="12" ry="8" fill="#388032" opacity="0.45"/>
+  <!-- Flower clusters (rhododendron blooms - pink/magenta) -->
+  <!-- Cluster 1 -->
+  <circle cx="38" cy="34" r="3" fill="#d050a0" opacity="0.8"/>
+  <circle cx="34" cy="30" r="2.5" fill="#d858a8" opacity="0.75"/>
+  <circle cx="42" cy="30" r="2.5" fill="#d050a0" opacity="0.75"/>
+  <circle cx="38" cy="26" r="2.5" fill="#d858a8" opacity="0.7"/>
+  <circle cx="38" cy="30" r="1.5" fill="#e880c0" opacity="0.6"/>
+  <!-- Cluster 2 -->
+  <circle cx="62" cy="42" r="3" fill="#d050a0" opacity="0.75"/>
+  <circle cx="58" cy="38" r="2.5" fill="#d858a8" opacity="0.7"/>
+  <circle cx="66" cy="38" r="2.5" fill="#d050a0" opacity="0.7"/>
+  <circle cx="62" cy="38" r="1.5" fill="#e880c0" opacity="0.55"/>
+  <!-- Cluster 3 -->
+  <circle cx="48" cy="62" r="2.5" fill="#d050a0" opacity="0.7"/>
+  <circle cx="44" cy="58" r="2" fill="#d858a8" opacity="0.65"/>
+  <circle cx="52" cy="58" r="2" fill="#d050a0" opacity="0.65"/>
+  <!-- Cluster 4 (small) -->
+  <circle cx="74" cy="58" r="2" fill="#d050a0" opacity="0.6"/>
+  <circle cx="70" cy="56" r="1.5" fill="#d858a8" opacity="0.55"/>
+  <!-- Leaf shine highlights -->
+  <ellipse cx="34" cy="36" rx="4" ry="2" fill="#48a040" opacity="0.25"/>
+  <ellipse cx="60" cy="50" rx="4" ry="2" fill="#48a040" opacity="0.2"/>
+</svg>

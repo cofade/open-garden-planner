@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Tomato plant - bushy spreading foliage with tomato fruits -->
+  <defs>
+    <radialGradient id="tomato_leaf" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#508c2e"/>
+      <stop offset="70%" stop-color="#407824"/>
+      <stop offset="100%" stop-color="#30641c"/>
+    </radialGradient>
+  </defs>
+  <!-- Bushy foliage base -->
+  <path d="M20 44 C16 30 28 18 42 16 C52 14 58 18 68 16 C82 14 92 30 88 46 C90 58 84 70 74 78 C62 86 40 86 28 78 C18 70 16 56 20 44Z" fill="url(#tomato_leaf)" opacity="0.8"/>
+  <!-- Compound leaf clusters -->
+  <ellipse cx="35" cy="32" rx="14" ry="10" fill="#58942e" opacity="0.55"/>
+  <ellipse cx="62" cy="30" rx="12" ry="10" fill="#508c28" opacity="0.5"/>
+  <ellipse cx="72" cy="52" rx="12" ry="10" fill="#58942e" opacity="0.5"/>
+  <ellipse cx="55" cy="66" rx="14" ry="10" fill="#508c28" opacity="0.45"/>
+  <ellipse cx="30" cy="60" rx="12" ry="9" fill="#58942e" opacity="0.45"/>
+  <ellipse cx="48" cy="44" rx="10" ry="8" fill="#60a034" opacity="0.4"/>
+  <!-- Leaf vein hints -->
+  <line x1="35" y1="32" x2="22" y2="24" stroke="#30641c" stroke-width="0.8" opacity="0.3"/>
+  <line x1="62" y1="30" x2="76" y2="22" stroke="#30641c" stroke-width="0.8" opacity="0.3"/>
+  <!-- Tomato fruits -->
+  <circle cx="40" cy="40" r="5" fill="#e03828" opacity="0.85"/>
+  <circle cx="65" cy="45" r="4.5" fill="#e04030" opacity="0.8"/>
+  <circle cx="50" cy="60" r="5" fill="#e03828" opacity="0.75"/>
+  <circle cx="30" cy="50" r="4" fill="#d83020" opacity="0.8"/>
+  <circle cx="72" cy="62" r="3.5" fill="#e04030" opacity="0.7"/>
+  <!-- Green unripe tomatoes -->
+  <circle cx="58" cy="32" r="3" fill="#78a838" opacity="0.7"/>
+  <circle cx="38" cy="68" r="3" fill="#78a838" opacity="0.65"/>
+  <!-- Tomato highlights -->
+  <circle cx="39" cy="39" r="1.8" fill="#f06050" opacity="0.5"/>
+  <circle cx="64" cy="44" r="1.5" fill="#f06050" opacity="0.45"/>
+  <circle cx="49" cy="59" r="1.8" fill="#f06050" opacity="0.4"/>
+</svg>

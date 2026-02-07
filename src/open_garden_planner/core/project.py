@@ -308,6 +308,11 @@ class ProjectManager(QObject):
             # Save rotation angle
             if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
                 data["rotation_angle"] = item.rotation_angle
+            # Save plant category and species (for plant types)
+            if hasattr(item, "plant_category") and item.plant_category is not None:
+                data["plant_category"] = item.plant_category.name
+            if hasattr(item, "plant_species") and item.plant_species:
+                data["plant_species"] = item.plant_species
             return data
         elif isinstance(item, PolylineItem):
             data = {
@@ -533,6 +538,15 @@ class ProjectManager(QObject):
             # Restore rotation angle
             if "rotation_angle" in obj:
                 item._apply_rotation(obj["rotation_angle"])
+            # Restore plant category and species
+            if "plant_category" in obj:
+                import contextlib
+
+                from open_garden_planner.core.plant_renderer import PlantCategory
+                with contextlib.suppress(KeyError):
+                    item.plant_category = PlantCategory[obj["plant_category"]]
+            if "plant_species" in obj:
+                item.plant_species = obj["plant_species"]
             return item
         elif obj_type == "polyline":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]

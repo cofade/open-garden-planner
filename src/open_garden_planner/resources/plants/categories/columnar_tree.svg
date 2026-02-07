@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Columnar tree - narrow upright oval from above -->
+  <defs>
+    <radialGradient id="col_canopy" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4a8c3f"/>
+      <stop offset="70%" stop-color="#3a7530"/>
+      <stop offset="100%" stop-color="#2a5f22"/>
+    </radialGradient>
+  </defs>
+  <!-- Narrow oval canopy -->
+  <ellipse cx="50" cy="50" rx="22" ry="42" fill="url(#col_canopy)" opacity="0.9"/>
+  <!-- Vertical leaf detail -->
+  <ellipse cx="45" cy="35" rx="10" ry="18" fill="#55a044" opacity="0.5"/>
+  <ellipse cx="55" cy="55" rx="10" ry="16" fill="#4d9438" opacity="0.5"/>
+  <ellipse cx="50" cy="45" rx="8" ry="14" fill="#62b050" opacity="0.4"/>
+  <!-- Trunk shadow -->
+  <circle cx="50" cy="50" r="4" fill="#3a2a1a" opacity="0.35"/>
+  <!-- Highlights -->
+  <ellipse cx="46" cy="38" rx="4" ry="7" fill="#7cc46a" opacity="0.3"/>
+</svg>

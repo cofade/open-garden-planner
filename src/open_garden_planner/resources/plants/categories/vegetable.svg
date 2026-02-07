@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Vegetable plant - leafy rosette pattern -->
+  <defs>
+    <radialGradient id="veg_fill" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#68b438"/>
+      <stop offset="70%" stop-color="#58a02e"/>
+      <stop offset="100%" stop-color="#488c24"/>
+    </radialGradient>
+  </defs>
+  <!-- Large leaves radiating from center -->
+  <ellipse cx="50" cy="25" rx="12" ry="20" fill="#58a830" opacity="0.7"/>
+  <ellipse cx="50" cy="75" rx="12" ry="20" fill="#58a830" opacity="0.65"/>
+  <ellipse cx="25" cy="50" rx="20" ry="12" fill="#58a830" opacity="0.7"/>
+  <ellipse cx="75" cy="50" rx="20" ry="12" fill="#58a830" opacity="0.65"/>
+  <!-- Diagonal leaves -->
+  <ellipse cx="30" cy="30" rx="10" ry="16" fill="#50a028" opacity="0.6" transform="rotate(-45 30 30)"/>
+  <ellipse cx="70" cy="30" rx="10" ry="16" fill="#50a028" opacity="0.55" transform="rotate(45 70 30)"/>
+  <ellipse cx="30" cy="70" rx="10" ry="16" fill="#50a028" opacity="0.55" transform="rotate(45 30 70)"/>
+  <ellipse cx="70" cy="70" rx="10" ry="16" fill="#50a028" opacity="0.5" transform="rotate(-45 70 70)"/>
+  <!-- Inner rosette -->
+  <circle cx="50" cy="50" r="14" fill="url(#veg_fill)" opacity="0.8"/>
+  <!-- Leaf vein details (subtle) -->
+  <line x1="50" y1="50" x2="50" y2="12" stroke="#488c24" stroke-width="1" opacity="0.3"/>
+  <line x1="50" y1="50" x2="50" y2="88" stroke="#488c24" stroke-width="1" opacity="0.3"/>
+  <line x1="50" y1="50" x2="12" y2="50" stroke="#488c24" stroke-width="1" opacity="0.3"/>
+  <line x1="50" y1="50" x2="88" y2="50" stroke="#488c24" stroke-width="1" opacity="0.3"/>
+  <!-- Center highlight -->
+  <circle cx="50" cy="50" r="5" fill="#7cc44a" opacity="0.5"/>
+</svg>
