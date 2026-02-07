@@ -4,17 +4,24 @@ import uuid
 from typing import Any
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QPen
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
     QGraphicsSceneContextMenuEvent,
     QGraphicsSceneMouseEvent,
     QMenu,
+    QStyleOptionGraphicsItem,
+    QWidget,
 )
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
+from open_garden_planner.core.plant_renderer import (
+    PlantCategory,
+    is_plant_type,
+    render_plant_pixmap,
+)
 
 from .garden_item import GardenItemMixin
 from .resize_handle import (
@@ -152,6 +159,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         self._center = QPointF(center_x, center_y)
         self._radius = radius
+        self._plant_category: PlantCategory | None = None
+        self._plant_species: str = ""
 
         # Initialize resize and rotation handles
         self.init_resize_handles()
@@ -167,6 +176,12 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
     def _setup_styling(self) -> None:
         """Configure visual appearance based on object type."""
         style = get_style(self.object_type) if self.object_type else get_style(ObjectType.GENERIC_CIRCLE)
+
+        # Plant types use SVG rendering — hide pen and brush
+        if is_plant_type(self.object_type):
+            self.setPen(QPen(Qt.PenStyle.NoPen))
+            self.setBrush(QBrush())
+            return
 
         # Use stored stroke properties if available, otherwise use style defaults
         stroke_color = self.stroke_color if self.stroke_color is not None else style.stroke_color
@@ -189,6 +204,96 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+
+    @property
+    def plant_category(self) -> PlantCategory | None:
+        """Plant category for SVG shape selection."""
+        return self._plant_category
+
+    @plant_category.setter
+    def plant_category(self, value: PlantCategory | None) -> None:
+        """Set the plant category and trigger repaint."""
+        self._plant_category = value
+        self.update()
+
+    @property
+    def plant_species(self) -> str:
+        """Plant species name for SVG lookup."""
+        return self._plant_species
+
+    @plant_species.setter
+    def plant_species(self, value: str) -> None:
+        """Set the plant species and trigger repaint."""
+        self._plant_species = value
+        self.update()
+
+    # Scale factor to fill the circle area (SVGs have organic internal padding)
+    _PLANT_FILL_SCALE = 1.15
+
+    def boundingRect(self) -> QRectF:
+        """Return bounding rect, expanded for plant SVG overflow."""
+        base = super().boundingRect()
+        if is_plant_type(self.object_type):
+            rect = self.rect()
+            overflow = rect.width() * (self._PLANT_FILL_SCALE - 1.0) / 2.0
+            return base.adjusted(-overflow, -overflow, overflow, overflow)
+        return base
+
+    def paint(
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: QWidget | None = None,
+    ) -> None:
+        """Paint the circle item.
+
+        For plant types (TREE, SHRUB, PERENNIAL), renders an illustrated
+        SVG plant shape instead of a flat colored ellipse. The SVG is
+        scaled up slightly so its organic edges touch/fill the circle
+        boundary rather than floating inside it.
+
+        For non-plant circles, delegates to the default ellipse painting.
+        """
+        if is_plant_type(self.object_type):
+            rect = self.rect()
+            diameter = rect.width()
+
+            # Render at a larger size so organic shapes fill the circle
+            render_diameter = diameter * self._PLANT_FILL_SCALE
+
+            pixmap = render_plant_pixmap(
+                object_type=self.object_type,
+                diameter=render_diameter,
+                item_id=str(self._item_id),
+                species=self._plant_species,
+                category=self._plant_category,
+                tint_color=self.fill_color,
+            )
+
+            if pixmap is not None:
+                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+                # Center the scaled-up pixmap over the circle area
+                overflow = diameter * (self._PLANT_FILL_SCALE - 1.0) / 2.0
+                draw_rect = QRectF(
+                    rect.x() - overflow,
+                    rect.y() - overflow,
+                    render_diameter,
+                    render_diameter,
+                )
+                painter.drawPixmap(draw_rect.toAlignedRect(), pixmap)
+
+                # Draw selection highlight
+                if self.isSelected():
+                    pen = QPen(QColor(0, 120, 215, 180))
+                    pen.setWidthF(2.0)
+                    pen.setStyle(Qt.PenStyle.DashLine)
+                    painter.setPen(pen)
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                    painter.drawEllipse(rect)
+                return
+
+        # Fall back to standard ellipse painting for non-plant circles
+        super().paint(painter, option, widget)
 
     @property
     def center(self) -> QPointF:

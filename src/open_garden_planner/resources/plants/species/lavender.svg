@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Lavender - compact grey-green mound with purple flower spikes -->
+  <defs>
+    <radialGradient id="lav_base" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7a9a70"/>
+      <stop offset="70%" stop-color="#688a60"/>
+      <stop offset="100%" stop-color="#587a52"/>
+    </radialGradient>
+  </defs>
+  <!-- Grey-green foliage mound -->
+  <path d="M24 48 C22 34 32 22 44 20 C54 18 60 22 66 20 C78 18 86 32 84 46 C86 56 80 66 72 72 C62 78 40 80 30 74 C22 68 20 56 24 48Z" fill="url(#lav_base)" opacity="0.8"/>
+  <!-- Fine silvery-green leaves -->
+  <ellipse cx="38" cy="38" rx="10" ry="8" fill="#88a880" opacity="0.5"/>
+  <ellipse cx="58" cy="36" rx="9" ry="8" fill="#80a078" opacity="0.45"/>
+  <ellipse cx="50" cy="55" rx="10" ry="8" fill="#88a880" opacity="0.45"/>
+  <ellipse cx="34" cy="58" rx="9" ry="7" fill="#80a078" opacity="0.4"/>
+  <ellipse cx="66" cy="52" rx="8" ry="7" fill="#88a880" opacity="0.4"/>
+  <!-- Lavender flower spikes (purple) -->
+  <ellipse cx="35" cy="28" rx="3" ry="8" fill="#8860b8" opacity="0.8"/>
+  <ellipse cx="50" cy="24" rx="2.5" ry="7" fill="#9068c0" opacity="0.75"/>
+  <ellipse cx="64" cy="26" rx="3" ry="8" fill="#8860b8" opacity="0.75"/>
+  <ellipse cx="28" cy="42" rx="2.5" ry="7" fill="#9068c0" opacity="0.7" transform="rotate(-20 28 42)"/>
+  <ellipse cx="74" cy="40" rx="2.5" ry="7" fill="#8860b8" opacity="0.7" transform="rotate(20 74 40)"/>
+  <ellipse cx="42" cy="20" rx="2" ry="6" fill="#9870c8" opacity="0.65"/>
+  <ellipse cx="58" cy="22" rx="2" ry="6" fill="#9870c8" opacity="0.6"/>
+  <!-- Flower spike tips (lighter) -->
+  <ellipse cx="35" cy="22" rx="2" ry="3" fill="#a880d0" opacity="0.6"/>
+  <ellipse cx="50" cy="19" rx="1.5" ry="2.5" fill="#a880d0" opacity="0.55"/>
+  <ellipse cx="64" cy="20" rx="2" ry="3" fill="#a880d0" opacity="0.55"/>
+</svg>

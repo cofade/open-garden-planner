@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Cherry tree - round canopy with pink blossoms -->
+  <defs>
+    <radialGradient id="cherry_canopy" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4a8a3d"/>
+      <stop offset="55%" stop-color="#3c7832"/>
+      <stop offset="100%" stop-color="#2c6424"/>
+    </radialGradient>
+  </defs>
+  <!-- Organic round canopy -->
+  <path d="M18 46 C14 30 26 16 42 14 C52 12 58 16 66 14 C80 12 90 28 88 44 C90 58 84 70 74 78 C62 86 40 86 28 78 C16 70 14 58 18 46Z" fill="url(#cherry_canopy)" opacity="0.85"/>
+  <!-- Leaf clusters -->
+  <circle cx="36" cy="34" r="15" fill="#52a042" opacity="0.55"/>
+  <circle cx="62" cy="30" r="13" fill="#4a9438" opacity="0.5"/>
+  <circle cx="70" cy="52" r="13" fill="#52a042" opacity="0.5"/>
+  <circle cx="54" cy="64" r="14" fill="#4a9438" opacity="0.45"/>
+  <circle cx="32" cy="58" r="12" fill="#52a042" opacity="0.45"/>
+  <circle cx="50" cy="44" r="11" fill="#5aa844" opacity="0.4"/>
+  <!-- Trunk -->
+  <circle cx="50" cy="48" r="5" fill="#3a2a1a" opacity="0.35"/>
+  <!-- Cherry blossoms (pink/white) -->
+  <circle cx="34" cy="28" r="4" fill="#ffa0b8" opacity="0.8"/>
+  <circle cx="56" cy="24" r="3.5" fill="#ffb0c4" opacity="0.75"/>
+  <circle cx="72" cy="36" r="3.5" fill="#ffa0b8" opacity="0.7"/>
+  <circle cx="66" cy="58" r="3" fill="#ffb0c4" opacity="0.7"/>
+  <circle cx="44" cy="68" r="3.5" fill="#ffa0b8" opacity="0.65"/>
+  <circle cx="28" cy="50" r="3" fill="#ffb0c4" opacity="0.7"/>
+  <circle cx="48" cy="36" r="3" fill="#ffa0b8" opacity="0.65"/>
+  <circle cx="78" cy="48" r="2.5" fill="#ffb0c4" opacity="0.6"/>
+  <!-- Blossom centers -->
+  <circle cx="34" cy="28" r="1.5" fill="#fff0f4" opacity="0.7"/>
+  <circle cx="56" cy="24" r="1.2" fill="#fff0f4" opacity="0.65"/>
+  <circle cx="72" cy="36" r="1.2" fill="#fff0f4" opacity="0.6"/>
+  <circle cx="44" cy="68" r="1.2" fill="#fff0f4" opacity="0.55"/>
+  <!-- Highlight -->
+  <circle cx="40" cy="36" r="5" fill="#7cc46a" opacity="0.25"/>
+</svg>

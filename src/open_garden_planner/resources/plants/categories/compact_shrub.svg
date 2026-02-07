@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Compact shrub - small, dense, rounded shape -->
+  <defs>
+    <radialGradient id="compact_fill" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#5ea035"/>
+      <stop offset="70%" stop-color="#4d8c2c"/>
+      <stop offset="100%" stop-color="#3d7822"/>
+    </radialGradient>
+  </defs>
+  <!-- Dense round base -->
+  <ellipse cx="50" cy="50" rx="32" ry="30" fill="url(#compact_fill)" opacity="0.9"/>
+  <!-- Tight leaf clusters -->
+  <circle cx="42" cy="42" r="12" fill="#68ac3e" opacity="0.55"/>
+  <circle cx="58" cy="44" r="11" fill="#62a438" opacity="0.5"/>
+  <circle cx="50" cy="58" r="11" fill="#68ac3e" opacity="0.45"/>
+  <circle cx="38" cy="55" r="9" fill="#62a438" opacity="0.4"/>
+  <circle cx="60" cy="56" r="9" fill="#68ac3e" opacity="0.4"/>
+  <!-- Highlight spots -->
+  <circle cx="44" cy="44" r="4" fill="#82c450" opacity="0.35"/>
+  <circle cx="56" cy="50" r="3" fill="#82c450" opacity="0.3"/>
+</svg>

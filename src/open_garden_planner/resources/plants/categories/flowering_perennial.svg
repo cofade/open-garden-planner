@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Flowering perennial - leafy mound with flower dots -->
+  <defs>
+    <radialGradient id="peren_fill" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#5ea838"/>
+      <stop offset="70%" stop-color="#4d9430"/>
+      <stop offset="100%" stop-color="#3d8025"/>
+    </radialGradient>
+  </defs>
+  <!-- Leafy base mound -->
+  <path d="M14 50 C12 30 24 12 42 10 C52 8 60 14 66 10 C82 8 94 26 92 46 C94 60 86 76 74 84 C62 92 40 92 26 84 C12 76 8 62 14 50Z" fill="url(#peren_fill)" opacity="0.85"/>
+  <!-- Leaf clusters -->
+  <circle cx="34" cy="32" r="15" fill="#68b040" opacity="0.5"/>
+  <circle cx="66" cy="34" r="14" fill="#60a83a" opacity="0.45"/>
+  <circle cx="50" cy="62" r="15" fill="#68b040" opacity="0.45"/>
+  <circle cx="28" cy="56" r="13" fill="#60a83a" opacity="0.4"/>
+  <circle cx="72" cy="56" r="12" fill="#68b040" opacity="0.4"/>
+  <circle cx="50" cy="40" r="11" fill="#60a83a" opacity="0.35"/>
+  <!-- Flower dots -->
+  <circle cx="38" cy="26" r="5" fill="#e86090" opacity="0.8"/>
+  <circle cx="64" cy="30" r="4.5" fill="#e86090" opacity="0.75"/>
+  <circle cx="58" cy="52" r="4" fill="#e86090" opacity="0.7"/>
+  <circle cx="30" cy="46" r="4.5" fill="#e86090" opacity="0.75"/>
+  <circle cx="50" cy="72" r="4" fill="#e86090" opacity="0.7"/>
+  <circle cx="74" cy="52" r="3.5" fill="#e86090" opacity="0.65"/>
+  <circle cx="22" cy="36" r="3.5" fill="#e86090" opacity="0.6"/>
+  <!-- Flower centers -->
+  <circle cx="38" cy="26" r="2" fill="#f0c040" opacity="0.8"/>
+  <circle cx="64" cy="30" r="1.8" fill="#f0c040" opacity="0.75"/>
+  <circle cx="58" cy="52" r="1.5" fill="#f0c040" opacity="0.7"/>
+  <circle cx="30" cy="46" r="1.8" fill="#f0c040" opacity="0.75"/>
+  <circle cx="50" cy="72" r="1.5" fill="#f0c040" opacity="0.7"/>
+</svg>

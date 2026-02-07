@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Spreading shrub - wide irregular organic shape -->
+  <defs>
+    <radialGradient id="shrub_fill" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#6ba832"/>
+      <stop offset="60%" stop-color="#5a9428"/>
+      <stop offset="100%" stop-color="#4a8020"/>
+    </radialGradient>
+  </defs>
+  <!-- Wide irregular base shape -->
+  <path d="M18 45 C16 32 28 18 42 16 C52 14 58 18 65 16 C78 14 90 28 88 42 C90 52 86 62 80 70 C72 80 60 86 48 86 C36 86 24 80 18 70 C12 60 14 52 18 45Z" fill="url(#shrub_fill)" opacity="0.85"/>
+  <!-- Leaf cluster bumps -->
+  <circle cx="35" cy="30" r="14" fill="#72b43a" opacity="0.55"/>
+  <circle cx="60" cy="28" r="12" fill="#6aac34" opacity="0.5"/>
+  <circle cx="72" cy="50" r="13" fill="#72b43a" opacity="0.5"/>
+  <circle cx="55" cy="68" r="14" fill="#6aac34" opacity="0.45"/>
+  <circle cx="32" cy="60" r="12" fill="#72b43a" opacity="0.45"/>
+  <circle cx="48" cy="45" r="10" fill="#7ec048" opacity="0.4"/>
+  <!-- Small detail highlights -->
+  <circle cx="38" cy="32" r="4" fill="#90d060" opacity="0.35"/>
+  <circle cx="62" cy="48" r="3" fill="#90d060" opacity="0.3"/>
+  <circle cx="45" cy="62" r="3" fill="#90d060" opacity="0.3"/>
+</svg>

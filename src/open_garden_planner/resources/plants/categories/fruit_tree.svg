@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Fruit tree - round canopy with fruit dots -->
+  <defs>
+    <radialGradient id="fruit_canopy" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4a8c3f"/>
+      <stop offset="60%" stop-color="#3d7a34"/>
+      <stop offset="100%" stop-color="#2d6425"/>
+    </radialGradient>
+  </defs>
+  <!-- Main canopy (similar to round deciduous) -->
+  <ellipse cx="50" cy="50" rx="42" ry="40" fill="url(#fruit_canopy)" opacity="0.9"/>
+  <!-- Leaf clusters -->
+  <circle cx="36" cy="36" r="16" fill="#55a044" opacity="0.6"/>
+  <circle cx="62" cy="34" r="14" fill="#4d9438" opacity="0.55"/>
+  <circle cx="56" cy="62" r="15" fill="#508f3c" opacity="0.5"/>
+  <circle cx="32" cy="58" r="13" fill="#55a044" opacity="0.5"/>
+  <circle cx="50" cy="44" r="12" fill="#5da846" opacity="0.45"/>
+  <!-- Trunk shadow -->
+  <circle cx="50" cy="50" r="5" fill="#3a2a1a" opacity="0.35"/>
+  <!-- Fruit dots (red apples/cherries) -->
+  <circle cx="38" cy="30" r="3.5" fill="#d44040" opacity="0.8"/>
+  <circle cx="65" cy="38" r="3" fill="#d44040" opacity="0.75"/>
+  <circle cx="58" cy="58" r="3.5" fill="#d44040" opacity="0.7"/>
+  <circle cx="30" cy="52" r="3" fill="#d44040" opacity="0.75"/>
+  <circle cx="48" cy="70" r="3" fill="#d44040" opacity="0.65"/>
+  <circle cx="70" cy="52" r="2.5" fill="#d44040" opacity="0.6"/>
+  <circle cx="42" cy="42" r="2.5" fill="#d44040" opacity="0.7"/>
+  <!-- Highlight on leaves -->
+  <circle cx="40" cy="38" r="5" fill="#7cc46a" opacity="0.3"/>
+  <circle cx="60" cy="48" r="4" fill="#7cc46a" opacity="0.25"/>
+</svg>

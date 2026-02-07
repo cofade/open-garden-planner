@@ -121,6 +121,7 @@ src/open_garden_planner/
 │   ├── project.py                # Save/load, ProjectManager
 │   ├── object_types.py           # ObjectType enum, default styles
 │   ├── fill_patterns.py          # Texture/pattern rendering
+│   ├── plant_renderer.py         # Plant SVG loading, caching, rendering
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
 │   └── tools/                    # Drawing tools
 │       ├── base_tool.py          # ToolType enum, BaseTool ABC
@@ -178,7 +179,7 @@ tests/
 | Status | US   | Description                                       |
 | ------ | ---- | ------------------------------------------------- |
 | :white_check_mark: | 6.1  | Rich tileable PNG textures for all materials      |
-|        | 6.2  | Illustrated SVG plant rendering (hybrid approach) |
+| :white_check_mark: | 6.2  | Illustrated SVG plant rendering (hybrid approach) |
 |        | 6.3  | Drop shadows on all objects (toggleable)          |
 |        | 6.4  | Visual scale bar on canvas                        |
 |        | 6.5  | Visual thumbnail gallery sidebar                  |

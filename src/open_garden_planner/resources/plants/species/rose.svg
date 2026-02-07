@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Rose bush - top-down view with rose blooms and thorny foliage -->
+  <defs>
+    <radialGradient id="rose_leaf" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3d7a28"/>
+      <stop offset="100%" stop-color="#2d6420"/>
+    </radialGradient>
+  </defs>
+  <!-- Irregular foliage base -->
+  <path d="M22 42 C18 30 28 18 42 16 C52 14 60 18 68 18 C80 20 88 32 86 46 C88 58 80 70 70 76 C60 82 42 84 32 78 C20 70 18 56 22 42Z" fill="url(#rose_leaf)" opacity="0.8"/>
+  <!-- Serrated leaf clusters -->
+  <ellipse cx="35" cy="35" rx="12" ry="10" fill="#468830" opacity="0.6"/>
+  <ellipse cx="60" cy="32" rx="10" ry="10" fill="#3e8028" opacity="0.55"/>
+  <ellipse cx="68" cy="55" rx="10" ry="10" fill="#468830" opacity="0.5"/>
+  <ellipse cx="48" cy="65" rx="11" ry="9" fill="#3e8028" opacity="0.5"/>
+  <ellipse cx="30" cy="58" rx="10" ry="9" fill="#468830" opacity="0.5"/>
+  <!-- Rose blooms - multi-layered petals -->
+  <!-- Rose 1 (large) -->
+  <circle cx="42" cy="36" r="8" fill="#e83060" opacity="0.85"/>
+  <circle cx="42" cy="36" r="5.5" fill="#f04070" opacity="0.8"/>
+  <circle cx="42" cy="36" r="3" fill="#f85880" opacity="0.75"/>
+  <circle cx="42" cy="36" r="1.5" fill="#ffa0b0" opacity="0.7"/>
+  <!-- Rose 2 -->
+  <circle cx="62" cy="48" r="7" fill="#e83060" opacity="0.8"/>
+  <circle cx="62" cy="48" r="5" fill="#f04070" opacity="0.75"/>
+  <circle cx="62" cy="48" r="2.5" fill="#f85880" opacity="0.7"/>
+  <circle cx="62" cy="48" r="1.2" fill="#ffa0b0" opacity="0.65"/>
+  <!-- Rose 3 -->
+  <circle cx="38" cy="60" r="6.5" fill="#e83060" opacity="0.75"/>
+  <circle cx="38" cy="60" r="4.5" fill="#f04070" opacity="0.7"/>
+  <circle cx="38" cy="60" r="2.2" fill="#f85880" opacity="0.65"/>
+  <!-- Rose 4 (bud) -->
+  <circle cx="58" cy="66" r="4" fill="#e83060" opacity="0.7"/>
+  <circle cx="58" cy="66" r="2" fill="#f04070" opacity="0.65"/>
+  <!-- Rose 5 (small) -->
+  <circle cx="72" cy="38" r="5" fill="#e83060" opacity="0.7"/>
+  <circle cx="72" cy="38" r="3" fill="#f04070" opacity="0.65"/>
+  <!-- Leaf highlights -->
+  <circle cx="50" cy="28" r="3" fill="#58a038" opacity="0.4"/>
+  <circle cx="28" cy="48" r="3" fill="#58a038" opacity="0.35"/>
+</svg>

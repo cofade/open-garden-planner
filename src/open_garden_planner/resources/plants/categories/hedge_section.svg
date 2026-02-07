@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Hedge section - rectangular trimmed shape from above -->
+  <defs>
+    <linearGradient id="hedge_fill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4a8c30"/>
+      <stop offset="50%" stop-color="#3d7a28"/>
+      <stop offset="100%" stop-color="#326820"/>
+    </linearGradient>
+  </defs>
+  <!-- Trimmed rectangular hedge mass -->
+  <rect x="10" y="25" width="80" height="50" rx="6" ry="6" fill="#3d7a28" opacity="0.9"/>
+  <!-- Surface texture - tight leaf clusters -->
+  <circle cx="22" cy="38" r="7" fill="#508c35" opacity="0.5"/>
+  <circle cx="36" cy="42" r="8" fill="#4a8430" opacity="0.45"/>
+  <circle cx="50" cy="38" r="7" fill="#508c35" opacity="0.5"/>
+  <circle cx="64" cy="42" r="8" fill="#4a8430" opacity="0.45"/>
+  <circle cx="78" cy="38" r="7" fill="#508c35" opacity="0.5"/>
+  <circle cx="28" cy="56" r="7" fill="#4a8430" opacity="0.45"/>
+  <circle cx="42" cy="58" r="8" fill="#508c35" opacity="0.45"/>
+  <circle cx="58" cy="56" r="7" fill="#4a8430" opacity="0.45"/>
+  <circle cx="72" cy="58" r="8" fill="#508c35" opacity="0.45"/>
+  <!-- Highlight spots on top -->
+  <circle cx="30" cy="40" r="3" fill="#60a040" opacity="0.35"/>
+  <circle cx="55" cy="42" r="3" fill="#60a040" opacity="0.3"/>
+  <circle cx="70" cy="40" r="3" fill="#60a040" opacity="0.3"/>
+  <!-- Subtle shadow edge at bottom -->
+  <rect x="10" y="65" width="80" height="10" rx="4" ry="4" fill="#2a5a18" opacity="0.25"/>
+</svg>

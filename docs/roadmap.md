@@ -127,7 +127,7 @@
 | ID | User Story | Priority | Status |
 |----|------------|----------|--------|
 | US-6.1 | Rich tileable textures for all materials | Must | :white_check_mark: Done |
-| US-6.2 | Illustrated SVG plant rendering (hybrid approach) | Must | |
+| US-6.2 | Illustrated SVG plant rendering (hybrid approach) | Must | :white_check_mark: Done |
 | US-6.3 | Drop shadows on all objects (toggleable) | Must | |
 | US-6.4 | Visual scale bar on canvas | Must | |
 | US-6.5 | Visual thumbnail gallery sidebar | Must | |
