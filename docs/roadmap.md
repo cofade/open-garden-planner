@@ -126,7 +126,7 @@
 
 | ID | User Story | Priority | Status |
 |----|------------|----------|--------|
-| US-6.1 | Rich tileable textures for all materials | Must | |
+| US-6.1 | Rich tileable textures for all materials | Must | :white_check_mark: Done |
 | US-6.2 | Illustrated SVG plant rendering (hybrid approach) | Must | |
 | US-6.3 | Drop shadows on all objects (toggleable) | Must | |
 | US-6.4 | Visual scale bar on canvas | Must | |
@@ -318,7 +318,7 @@
 - Width adjustable per object
 
 **Technical Milestones**:
-- [ ] Texture loading system (replacing procedural patterns)
+- [x] Texture loading system (replacing procedural patterns)
 - [ ] SVG plant illustration asset set (AI-generated)
 - [ ] Plant shape rendering engine
 - [ ] Drop shadow system

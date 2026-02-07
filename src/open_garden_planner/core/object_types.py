@@ -110,11 +110,11 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         fill_pattern=FillPattern.WATER,
     ),
     ObjectType.GREENHOUSE: ObjectStyle(
-        fill_color=QColor(240, 255, 240, 80),  # Honeydew (transparent)
-        stroke_color=QColor(34, 139, 34),  # Forest green
+        fill_color=QColor(210, 230, 245, 140),  # Light sky-blue glass
+        stroke_color=QColor(160, 165, 170),  # Silver / aluminium
         stroke_width=2.5,
         display_name="Greenhouse",
-        fill_pattern=FillPattern.SOLID,
+        fill_pattern=FillPattern.GLASS,
     ),
     ObjectType.GARDEN_BED: ObjectStyle(
         fill_color=QColor(139, 90, 43, 120),  # Brown soil
