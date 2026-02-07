@@ -57,6 +57,7 @@ htmlcov/
 
 # Project specific
 *.ogp.backup
+competitor_screenshots/
 
 # API keys and secrets
 .env
