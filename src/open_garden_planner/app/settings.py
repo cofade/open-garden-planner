@@ -25,10 +25,12 @@ class AppSettings:
     KEY_WINDOW_STATE = "window/state"
     KEY_SHOW_WELCOME = "startup/show_welcome"
     KEY_THEME_MODE = "appearance/theme_mode"
+    KEY_SHOW_SHADOWS = "appearance/show_shadows"
 
     # Default values
     DEFAULT_AUTOSAVE_ENABLED = True
     DEFAULT_SHOW_WELCOME = True
+    DEFAULT_SHOW_SHADOWS = True
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
     MIN_AUTOSAVE_INTERVAL_MINUTES = 1
     MAX_AUTOSAVE_INTERVAL_MINUTES = 30
@@ -168,6 +170,20 @@ class AppSettings:
             mode: ThemeMode enum value to save
         """
         self._settings.setValue(self.KEY_THEME_MODE, mode.value)
+
+    @property
+    def show_shadows(self) -> bool:
+        """Whether to show drop shadows on canvas objects."""
+        return self._settings.value(
+            self.KEY_SHOW_SHADOWS,
+            self.DEFAULT_SHOW_SHADOWS,
+            type=bool,
+        )
+
+    @show_shadows.setter
+    def show_shadows(self, show: bool) -> None:
+        """Set whether to show drop shadows on canvas objects."""
+        self._settings.setValue(self.KEY_SHOW_SHADOWS, show)
 
     def sync(self) -> None:
         """Force settings to be written to storage."""

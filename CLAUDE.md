@@ -180,7 +180,7 @@ tests/
 | ------ | ---- | ------------------------------------------------- |
 | :white_check_mark: | 6.1  | Rich tileable PNG textures for all materials      |
 | :white_check_mark: | 6.2  | Illustrated SVG plant rendering (hybrid approach) |
-|        | 6.3  | Drop shadows on all objects (toggleable)          |
+| :white_check_mark: | 6.3  | Drop shadows on all objects (toggleable)          |
 |        | 6.4  | Visual scale bar on canvas                        |
 |        | 6.5  | Visual thumbnail gallery sidebar                  |
 |        | 6.6  | Toggleable object labels on canvas                |
