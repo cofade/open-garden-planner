@@ -15,6 +15,35 @@ venv/Scripts/python.exe -m pytest tests/ -v
 venv/Scripts/python.exe -m ruff check src/
 ```
 
+## Where to Pick Up After Restart
+
+1. **Check current progress** in the Phase 6 table below
+2. **Read the roadmap**: `docs/roadmap.md` has full user stories and acceptance criteria
+3. **Read architecture docs**: `docs/` contains arc42 documentation (see Documentation section below)
+4. **Check git status**: See recent git history, which branch you're on and any uncommitted changes
+5. **Pick the next unchecked US** from the Phase 6 progress table below
+
+## Documentation (arc42)
+
+All project documentation is in the `docs/` directory:
+
+| Section                             | Key Content                                          |
+| ----------------------------------- | ---------------------------------------------------- |
+| `docs/01-introduction-and-goals/`   | Vision, goals, target users, prd.md index            |
+| `docs/02-constraints/`              | Technical/org constraints, licensing (GPLv3)         |
+| `docs/03-context-and-scope/`        | Competitive analysis, external APIs, plant API setup |
+| `docs/04-solution-strategy/`        | Tech stack, design decisions, visual strategy        |
+| `docs/05-building-block-view/`      | Architecture layers, module structure, object model  |
+| `docs/06-runtime-view/`             | Drawing, save/load, export, undo/redo flows          |
+| `docs/07-deployment-view/`          | Windows installer (NSIS), CI/CD, system requirements |
+| `docs/08-crosscutting-concepts/`    | Coordinate system, i18n, themes, dev workflow        |
+| `docs/09-architecture-decisions/`   | ADRs for all key technical choices                   |
+| `docs/10-quality-requirements/`     | Performance targets, testing strategy                |
+| `docs/11-risks-and-technical-debt/` | Open questions, risks, tech debt                     |
+| `docs/12-glossary/`                 | Terms, keyboard shortcuts, references                |
+| `docs/functional-requirements.md`   | All FR-\* requirements                               |
+| `docs/roadmap.md`                   | **Phases, user stories, acceptance criteria**        |
+
 ## Tech Stack
 
 Note: Use context7 as required for up-to-date documentation in any scenario where you require it.
@@ -29,10 +58,10 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 ### Step-by-Step Process
 
 1. **Create feature branch** FIRST (before any changes)
-   - Branch naming: `feature/US-X.X-short-description` (e.g., `feature/US-2.5-measure-distances`)
+   - Branch naming: `feature/US-X.X-short-description` (e.g., `feature/US-6.1-tileable-textures`)
    - Command: `git checkout -b feature/US-X.X-short-description`
 
-2. Read user story from `prd.md`
+2. Read user story from `docs/roadmap.md`
 
 3. Clarify with `AskUserQuestion` tool if needed
 
@@ -48,7 +77,7 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 7. After user approval, commit changes:
    - Use GitHub sub-agent (Bash subagent_type) for committing
    - Commit message format: `feat(US-X.X): Description`
-   - Update progress in `CLAUDE.md` and `prd.md` in the same commit
+   - Update progress in `CLAUDE.md` and `docs/roadmap.md` in the same commit
 
 8. Push feature branch and create PR:
    - **Note:** GitHub CLI is installed at `C:\Program Files\GitHub CLI\gh.exe` (not in PATH on Windows)
@@ -79,20 +108,6 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 
 - PyQt6 tests require `qtbot` fixture parameter in test methods even when unused (needed for Qt initialization); configure ruff per-file ignore for ARG002 in test files
 
-## Progress (Phase 1)
-
-| Status | US  | Description                        |
-| ------ | --- | ---------------------------------- |
-| ✅     | 1.1 | Create new project with dimensions |
-| ✅     | 1.2 | Pan and zoom canvas                |
-| ✅     | 1.7 | Cursor coordinates display         |
-| ✅     | 1.8 | App icon                           |
-| ✅     | 1.9 | README banner                      |
-| ✅     | 1.3 | Draw rectangles and polygons       |
-| ✅     | 1.4 | Select, move, delete objects       |
-| ✅     | 1.5 | Save/load project files            |
-| ✅     | 1.6 | Undo/redo                          |
-
 ## Project Structure
 
 <!-- Keep this updated when adding/removing files -->
@@ -104,66 +119,76 @@ src/open_garden_planner/
 ├── core/
 │   ├── commands.py               # Undo/redo command pattern
 │   ├── project.py                # Save/load, ProjectManager
+│   ├── object_types.py           # ObjectType enum, default styles
+│   ├── fill_patterns.py          # Texture/pattern rendering
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
 │   └── tools/                    # Drawing tools
 │       ├── base_tool.py          # ToolType enum, BaseTool ABC
 │       ├── tool_manager.py       # ToolManager with signals
-│       ├── select_tool.py        # Selection + box select
+│       ├── select_tool.py        # Selection + box select + vertex editing
 │       ├── rectangle_tool.py     # Rectangle drawing
-│       └── polygon_tool.py       # Polygon drawing
+│       ├── polygon_tool.py       # Polygon drawing
+│       ├── circle_tool.py        # Circle drawing
+│       ├── polyline_tool.py      # Polyline/path drawing
+│       ├── plant_tool.py         # Plant placement
+│       └── measure_tool.py       # Distance measurement
 ├── ui/
 │   ├── canvas/
 │   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling
 │   │   ├── canvas_scene.py       # Scene (holds objects)
-│   │   └── items/                # GardenItem, RectangleItem, PolygonItem, BackgroundImageItem
-│   ├── dialogs/                  # NewProjectDialog, etc.
-│   └── widgets/toolbar.py        # MainToolbar
-└── resources/                    # Icons, images
+│   │   └── items/                # GardenItem, RectangleItem, PolygonItem, etc.
+│   ├── panels/                   # Sidebar panels (drawing tools, properties, layers, plants)
+│   ├── dialogs/                  # NewProjectDialog, WelcomeDialog, etc.
+│   ├── widgets/toolbar.py        # MainToolbar
+│   └── theme.py                  # Light/Dark theme system
+├── services/
+│   └── plant_api.py              # Trefle.io/Perenual/Permapeople integration
+└── resources/
+    ├── icons/                    # App icons, banner, tool SVGs
+    ├── textures/                 # Tileable PNG textures (Phase 6)
+    ├── plants/                   # Plant SVG illustrations (Phase 6)
+    └── objects/                  # Object SVG illustrations (Phase 6)
+
+docs/                             # arc42 architecture documentation
+├── 01-introduction-and-goals/    # Vision, goals, users
+├── 02-constraints/               # Technical/org constraints
+├── 03-context-and-scope/         # Competitors, APIs, plant API setup
+├── 04-solution-strategy/         # Tech stack, decisions
+├── 05-building-block-view/       # Architecture, modules, object model
+├── 06-runtime-view/              # Workflow flows
+├── 07-deployment-view/           # Installer, CI/CD
+├── 08-crosscutting-concepts/     # i18n, themes, dev workflow
+├── 09-architecture-decisions/    # ADRs
+├── 10-quality-requirements/      # Performance, testing
+├── 11-risks-and-technical-debt/  # Risks, tech debt
+├── 12-glossary/                  # Terms, shortcuts, refs
+├── functional-requirements.md    # All FR-* requirements
+└── roadmap.md                    # Phases & user stories
 
 tests/
 ├── unit/                         # Unit tests
 ├── integration/                  # Integration tests
-└── ui/                           # UI tests
+└── ui/                           # UI tests (pytest-qt)
 ```
 
-## Phase 1 Complete!
+## Phases 1-5 + Backlog Complete!
 
-## Phase 2 Complete!
+## Progress (Phase 6: Visual Polish & Public Release v1.0)
 
-## Phase 3 Complete!
-
-## Progress (Phase 4: Plants & Metadata)
-
-| Status | US  | Description                                |
-| ------ | --- | ------------------------------------------ |
-| ✅     | 4.1 | Add plant objects (tree, shrub, perennial) |
-| ✅     | 4.2 | Set plant metadata (species, variety, dates) |
-| ✅     | 4.3 | Search plant species from online database  |
-| ✅     | 4.4 | Create custom plant species in library     |
-| ✅     | 4.6 | Add garden beds with area calculation      |
-| ✅     | 4.7 | Filter/search plants in project            |
-| ✅     | 4.8 | Organized sidebar with tool panels         |
-| ✅     | 4.9 | Resize objects by dragging handles         |
-
-## Phase 4 Complete!
-
-## Progress (Phase 5: Export & Polish)
-
-| Status | US  | Description                                |
-| ------ | --- | ------------------------------------------ |
-| ✅     | 5.1 | Export plan as PNG (various resolutions)   |
-| ✅     | 5.2 | Export plan as SVG                         |
-| ✅     | 5.3 | Export plant list as CSV                   |
-| ✅     | 5.4 | Keyboard shortcuts for all actions         |
-| ✅     | 5.5 | Light/dark mode switch                     |
-| ✅     | 5.6 | Welcome screen with recent projects        |
-| ✅     | 5.7 | Auto-save periodically                     |
-| ✅     | 5.8 | Professional SVG icons for tools           |
-
-## Future Backlog
-
-| Status | US  | Description                                |
-| ------ | --- | ------------------------------------------ |
-| ✅     | B.1 | Rotate objects (free + 15° snap)           |
-| ✅     | B.2 | Edit polygon vertices (move, add, remove)  |
-| ✅     | B.3 | Vertex coordinate annotations on selection |
+| Status | US   | Description                                       |
+| ------ | ---- | ------------------------------------------------- |
+|        | 6.1  | Rich tileable PNG textures for all materials      |
+|        | 6.2  | Illustrated SVG plant rendering (hybrid approach) |
+|        | 6.3  | Drop shadows on all objects (toggleable)          |
+|        | 6.4  | Visual scale bar on canvas                        |
+|        | 6.5  | Visual thumbnail gallery sidebar                  |
+|        | 6.6  | Toggleable object labels on canvas                |
+|        | 6.7  | Branded green theme (light/dark)                  |
+|        | 6.8  | Outdoor furniture objects                         |
+|        | 6.9  | Garden infrastructure objects                     |
+|        | 6.10 | Object snapping & alignment tools                 |
+|        | 6.11 | Fullscreen preview mode (F11)                     |
+|        | 6.12 | Internationalization (EN + DE, Qt Linguist)       |
+|        | 6.13 | Print support with scaling                        |
+|        | 6.14 | Windows installer (NSIS) + .ogp file association  |
+|        | 6.15 | Path & fence style presets                        |

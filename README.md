@@ -15,35 +15,77 @@ Existing tools are either:
 
 Open Garden Planner fills the gap: **engineering-grade precision meets gardener-friendly workflows**.
 
-## Features (Planned)
+## Features
 
 - **Metric Accuracy**: Plan with centimeter-level precision on a calibrated canvas
 - **Image Calibration**: Import satellite imagery and calibrate to real-world scale
 - **Rich Plant Metadata**: Track species, varieties, planting dates, and growing requirements
-- **Object Library**: Define custom plants, structures, and garden elements
-- **Standard Formats**: JSON project files, PNG/SVG export - your data, your control
-- **Modern UI**: Clean, native Windows interface with both light and dark modes
+- **Online Plant Database**: Search Trefle.io, Perenual, and Permapeople for plant data
+- **Object Library**: Property structures, garden beds, plants, paths, fences
+- **Layers**: Organize objects into manageable layers with visibility/lock controls
+- **Standard Formats**: JSON project files (.ogp), PNG/SVG export, CSV plant lists
+- **Modern UI**: Clean interface with light and dark modes, keyboard shortcuts
+- **Auto-Save**: Periodic auto-save with crash recovery
 
 ## Status
 
-This project is in active development. See [prd.md](prd.md) for the detailed product requirements document and roadmap.
+**Phases 1-5 complete.** Currently working on Phase 6: Visual Polish & Public Release (v1.0).
+
+See the [Development Roadmap](docs/roadmap.md) for detailed progress.
 
 ## Tech Stack
 
-- **Python 3.11+** with **PyQt6** for cross-platform desktop UI
+- **Python 3.11+** with **PyQt6** for desktop UI
 - **QGraphicsView** for hardware-accelerated 2D canvas
-- **SQLite** for local plant database caching
-- **Trefle.io API** for plant species data
+- **Trefle.io / Perenual / Permapeople** APIs for plant species data
+- **pytest + pytest-qt** for testing
 
 ## Getting Started
 
-*Coming soon - we're building the foundation.*
+### Prerequisites
+
+- Python 3.11+
+- Git
+
+### Installation (from source)
+
+```bash
+git clone https://github.com/your-username/open-garden-planner.git
+cd open-garden-planner
+python -m venv venv
+venv/Scripts/activate     # Windows
+# source venv/bin/activate  # Linux/Mac
+pip install -e .
+```
+
+### Running
+
+```bash
+python -m open_garden_planner
+```
+
+### Plant Database (optional)
+
+To enable online plant search, see the [Plant API Setup Guide](docs/03-context-and-scope/PLANT_API_SETUP.md).
+
+## Documentation
+
+Project documentation follows the [arc42](https://arc42.org/) architecture template:
+
+| Document | Description |
+|----------|-------------|
+| [Introduction & Goals](docs/01-introduction-and-goals/) | Product vision, target users |
+| [Functional Requirements](docs/functional-requirements.md) | Detailed requirements specification |
+| [Solution Strategy](docs/04-solution-strategy/) | Technology choices and design decisions |
+| [Building Block View](docs/05-building-block-view/) | Architecture and module structure |
+| [Development Roadmap](docs/roadmap.md) | Phases, user stories, progress tracking |
+| [All Documentation](docs/01-introduction-and-goals/prd.md) | Documentation index |
 
 ## Contributing
 
 We welcome contributions! This project aims to be technically clean and attractive for both users and contributors.
 
-- Read the [PRD](prd.md) to understand the vision and architecture
+- Read the [Roadmap](docs/roadmap.md) and [Architecture](docs/05-building-block-view/) to understand the vision
 - Check the Issues for tasks and discussions
 - PRs must pass CI (tests, linting, type checking)
 
