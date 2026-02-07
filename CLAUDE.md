@@ -177,7 +177,7 @@ tests/
 
 | Status | US   | Description                                       |
 | ------ | ---- | ------------------------------------------------- |
-|        | 6.1  | Rich tileable PNG textures for all materials      |
+| :white_check_mark: | 6.1  | Rich tileable PNG textures for all materials      |
 |        | 6.2  | Illustrated SVG plant rendering (hybrid approach) |
 |        | 6.3  | Drop shadows on all objects (toggleable)          |
 |        | 6.4  | Visual scale bar on canvas                        |
