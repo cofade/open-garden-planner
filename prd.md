@@ -742,27 +742,27 @@ open_garden_planner/
 - Apply rotation transform in rendering pipeline
 - Consider adding rotation property to Properties panel for precise input
 
-#### US-B.2: Edit Polygon Vertices
+#### ~~US-B.2: Edit Polygon Vertices~~ ✅
 
 **Description**: Users can enter a vertex editing mode for polygons to modify their shape by moving, adding, or removing individual vertices while other vertices remain fixed.
 
 **Acceptance Criteria**:
-- Double-click on a polygon (or use context menu) to enter vertex edit mode
-- In vertex edit mode:
-  - Each vertex displayed as a draggable handle (square or circle grip)
-  - Dragging a vertex moves only that vertex; other vertices stay fixed
-  - Click on an edge midpoint to add a new vertex at that position
-  - Right-click on a vertex shows context menu with "Delete vertex" option
-  - Minimum 3 vertices required (cannot delete below 3)
-- Click outside polygon or press Escape to exit vertex edit mode
-- Visual feedback: vertices highlighted, edges shown with midpoint markers
-- Undo/redo support for all vertex operations (move, add, delete)
-- Works for polygons and garden beds (polygon-based objects)
+- ~~Double-click on a polygon (or use context menu) to enter vertex edit mode~~
+- ~~In vertex edit mode:~~
+  - ~~Each vertex displayed as a draggable handle (square or circle grip)~~
+  - ~~Dragging a vertex moves only that vertex; other vertices stay fixed~~
+  - ~~Click on an edge midpoint to add a new vertex at that position~~
+  - ~~Right-click on a vertex shows context menu with "Delete vertex" option~~
+  - ~~Minimum 3 vertices required (cannot delete below 3)~~
+- ~~Click outside polygon or press Escape to exit vertex edit mode~~
+- ~~Visual feedback: vertices highlighted, edges shown with midpoint markers~~
+- ~~Undo/redo support for all vertex operations (move, add, delete)~~
+- ~~Works for polygons and garden beds (polygon-based objects)~~
 
 **Technical Notes**:
-- Implement as a sub-mode of the select tool or as a dedicated "Edit Vertices" tool
-- Each vertex operation should be a separate undoable command
-- Consider batch undo for complex edits (optional)
+- ~~Implement as a sub-mode of the select tool or as a dedicated "Edit Vertices" tool~~
+- ~~Each vertex operation should be a separate undoable command~~
+- ~~Consider batch undo for complex edits (optional)~~
 
 ### Phase 6: Advanced Features (v0.6+)
 
