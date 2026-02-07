@@ -309,6 +309,16 @@ class GardenPlannerApp(QMainWindow):
 
         menu.addSeparator()
 
+        # Toggle Shadows
+        self._shadows_action = QAction("Show &Shadows", self)
+        self._shadows_action.setCheckable(True)
+        self._shadows_action.setChecked(True)  # Updated from settings in _setup_central_widget
+        self._shadows_action.setStatusTip("Toggle drop shadows on objects")
+        self._shadows_action.triggered.connect(self._on_toggle_shadows)
+        menu.addAction(self._shadows_action)
+
+        menu.addSeparator()
+
         # Theme submenu
         theme_menu = menu.addMenu("&Theme")
 
@@ -461,6 +471,9 @@ class GardenPlannerApp(QMainWindow):
 
         # Initial selection display
         self.update_selection(0, [])
+
+        # Initialize shadow state from settings
+        QTimer.singleShot(0, self._init_shadows_from_settings)
 
     def _setup_sidebar(self) -> None:
         """Set up the right sidebar with collapsible panels."""
@@ -1129,6 +1142,21 @@ class GardenPlannerApp(QMainWindow):
             f"Auto-save interval set to {minutes} minute{'s' if minutes > 1 else ''}",
             2000,
         )
+
+    def _init_shadows_from_settings(self) -> None:
+        """Initialize shadow state from persisted settings."""
+        from open_garden_planner.app.settings import get_settings
+
+        enabled = get_settings().show_shadows
+        self._shadows_action.setChecked(enabled)
+        self.canvas_scene.set_shadows_enabled(enabled)
+
+    def _on_toggle_shadows(self, checked: bool) -> None:
+        """Handle toggle shadows action."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_scene.set_shadows_enabled(checked)
+        get_settings().show_shadows = checked
 
     def _on_toggle_grid(self, checked: bool) -> None:
         """Handle toggle grid action."""
