@@ -96,6 +96,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
 
         Shows/hides rotation handle based on selection state.
         Exits vertex edit mode when deselected.
+        Updates annotations when position changes.
         """
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
@@ -105,6 +106,8 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                 if self.is_vertex_edit_mode:
                     self.exit_vertex_edit_mode()
                 self.hide_rotation_handle()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged and self.is_vertex_edit_mode:
+            self._update_annotations()
 
         return super().itemChange(change, value)
 
