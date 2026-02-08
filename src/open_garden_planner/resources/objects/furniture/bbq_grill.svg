@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 60">
+  <!-- BBQ/Grill - top-down view -->
+  <!-- Shadow -->
+  <ellipse cx="43" cy="33" rx="36" ry="26" fill="#00000020"/>
+  <!-- Grill body (kettle/barrel shape from top) -->
+  <ellipse cx="40" cy="30" rx="36" ry="26" fill="#404040" stroke="#2A2A2A" stroke-width="2"/>
+  <!-- Lid rim highlight -->
+  <ellipse cx="40" cy="30" rx="33" ry="23" fill="none" stroke="#555" stroke-width="1"/>
+  <!-- Grill grate lines -->
+  <line x1="12" y1="18" x2="68" y2="18" stroke="#666" stroke-width="1.5" opacity="0.6"/>
+  <line x1="9" y1="24" x2="71" y2="24" stroke="#666" stroke-width="1.5" opacity="0.6"/>
+  <line x1="7" y1="30" x2="73" y2="30" stroke="#666" stroke-width="1.5" opacity="0.6"/>
+  <line x1="9" y1="36" x2="71" y2="36" stroke="#666" stroke-width="1.5" opacity="0.6"/>
+  <line x1="12" y1="42" x2="68" y2="42" stroke="#666" stroke-width="1.5" opacity="0.6"/>
+  <!-- Handle -->
+  <rect x="34" y="1" width="12" height="5" rx="2" fill="#888" stroke="#555" stroke-width="1"/>
+  <!-- Side shelf (visible from top) -->
+  <rect x="72" y="22" width="6" height="16" rx="1" fill="#606060" stroke="#404040" stroke-width="0.8"/>
+</svg>

@@ -177,6 +177,11 @@ class CanvasView(QGraphicsView):
         garden_bed_tool.shortcut = "B"
         self._tool_manager.register_tool(garden_bed_tool)
 
+        lawn_tool = PolygonTool(self, object_type=ObjectType.LAWN)
+        lawn_tool.tool_type = ToolType.LAWN
+        lawn_tool.display_name = "Lawn"
+        self._tool_manager.register_tool(lawn_tool)
+
         # Register property object tools (polyline-based)
         fence_tool = PolylineTool(self, object_type=ObjectType.FENCE)
         fence_tool.tool_type = ToolType.FENCE
@@ -214,6 +219,39 @@ class CanvasView(QGraphicsView):
         perennial_tool.display_name = "Perennial"
         perennial_tool.shortcut = "3"
         self._tool_manager.register_tool(perennial_tool)
+
+        # Register hedge section tool (rectangle-based, SVG-rendered)
+        hedge_tool = RectangleTool(self, object_type=ObjectType.HEDGE_SECTION)
+        hedge_tool.tool_type = ToolType.HEDGE_SECTION
+        hedge_tool.display_name = "Hedge Section"
+        self._tool_manager.register_tool(hedge_tool)
+
+        # Register outdoor furniture tools (rectangle-based, SVG-rendered)
+        rect_furniture = [
+            (ObjectType.TABLE_RECTANGULAR, ToolType.TABLE_RECTANGULAR, "Table (Rectangular)"),
+            (ObjectType.CHAIR, ToolType.CHAIR, "Chair"),
+            (ObjectType.BENCH, ToolType.BENCH, "Bench"),
+            (ObjectType.LOUNGER, ToolType.LOUNGER, "Lounger"),
+        ]
+        for obj_type, tool_type, display_name in rect_furniture:
+            tool = RectangleTool(self, object_type=obj_type)
+            tool.tool_type = tool_type
+            tool.display_name = display_name
+            self._tool_manager.register_tool(tool)
+
+        # Register round furniture tools (circle-based, SVG-rendered)
+        circle_furniture = [
+            (ObjectType.TABLE_ROUND, ToolType.TABLE_ROUND, "Table (Round)"),
+            (ObjectType.PARASOL, ToolType.PARASOL, "Parasol"),
+            (ObjectType.BBQ_GRILL, ToolType.BBQ_GRILL, "BBQ/Grill"),
+            (ObjectType.FIRE_PIT, ToolType.FIRE_PIT, "Fire Pit"),
+            (ObjectType.PLANTER_POT, ToolType.PLANTER_POT, "Planter/Pot"),
+        ]
+        for obj_type, tool_type, display_name in circle_furniture:
+            tool = CircleTool(self, object_type=obj_type)
+            tool.tool_type = tool_type
+            tool.display_name = display_name
+            self._tool_manager.register_tool(tool)
 
         # Connect tool change signal
         self._tool_manager.tool_changed.connect(self.tool_changed.emit)
@@ -339,6 +377,11 @@ class CanvasView(QGraphicsView):
         command = CreateItemCommand(self.scene(), item, item_type)
         self._command_manager.execute(command)
 
+    @property
+    def active_tool(self) -> object | None:
+        """The currently active drawing tool."""
+        return self._tool_manager.active_tool
+
     def set_active_tool(self, tool_type: ToolType) -> None:
         """Set the active drawing tool.
 
@@ -445,22 +488,42 @@ class CanvasView(QGraphicsView):
             self._canvas_scene.height_cm - canvas_point.y(),
         )
 
+    def clamp_to_canvas(self, point: QPointF) -> QPointF:
+        """Clamp a point to stay within canvas boundaries.
+
+        Args:
+            point: Point in scene coordinates
+
+        Returns:
+            Point clamped to canvas rect
+        """
+        canvas_rect = self._canvas_scene.canvas_rect
+        x = max(canvas_rect.left(), min(point.x(), canvas_rect.right()))
+        y = max(canvas_rect.top(), min(point.y(), canvas_rect.bottom()))
+        return QPointF(x, y)
+
     def snap_point(self, point: QPointF) -> QPointF:
-        """Snap a point to the grid if snap is enabled.
+        """Snap a point to the grid if snap is enabled, and clamp to canvas.
 
         Args:
             point: Point in canvas coordinates
 
         Returns:
-            Snapped point if snap enabled, original point otherwise
+            Point snapped to grid (if enabled) and clamped to canvas borders
         """
-        if not self._snap_enabled:
-            return point
+        # Always clamp to canvas borders first
+        clamped = self.clamp_to_canvas(point)
 
-        return QPointF(
-            round(point.x() / self._grid_size) * self._grid_size,
-            round(point.y() / self._grid_size) * self._grid_size,
+        if not self._snap_enabled:
+            return clamped
+
+        snapped = QPointF(
+            round(clamped.x() / self._grid_size) * self._grid_size,
+            round(clamped.y() / self._grid_size) * self._grid_size,
         )
+
+        # Re-clamp after snapping (grid snap near border could push outside)
+        return self.clamp_to_canvas(snapped)
 
     # Drag-and-drop from gallery panel
 

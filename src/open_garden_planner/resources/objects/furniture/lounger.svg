@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 180">
+  <!-- Sun lounger - top-down view (head at top) -->
+  <!-- Shadow -->
+  <rect x="5" y="5" width="62" height="172" rx="4" fill="#00000020"/>
+  <!-- Frame -->
+  <rect x="2" y="2" width="62" height="172" rx="4" fill="#D0D0D0" stroke="#A0A0A0" stroke-width="1.5"/>
+  <!-- Headrest (adjustable, slightly raised) -->
+  <rect x="6" y="6" width="54" height="40" rx="3" fill="#B8D4E8" stroke="#88A8C0" stroke-width="1"/>
+  <!-- Headrest fabric stripes -->
+  <line x1="8" y1="16" x2="58" y2="16" stroke="#A0C0D8" stroke-width="0.8" opacity="0.5"/>
+  <line x1="8" y1="26" x2="58" y2="26" stroke="#A0C0D8" stroke-width="0.8" opacity="0.5"/>
+  <line x1="8" y1="36" x2="58" y2="36" stroke="#A0C0D8" stroke-width="0.8" opacity="0.5"/>
+  <!-- Main bed surface -->
+  <rect x="6" y="48" width="54" height="118" rx="2" fill="#B8D4E8" stroke="#88A8C0" stroke-width="1"/>
+  <!-- Fabric stripes -->
+  <line x1="8" y1="62" x2="58" y2="62" stroke="#A0C0D8" stroke-width="0.8" opacity="0.5"/>
+  <line x1="8" y1="76" x2="58" y2="76" stroke="#A0C0D8" stroke-width="0.8" opacity="0.5"/>
+  <line x1="8" y1="90" x2="58" y2="90" stroke="#A0C0D8" stroke-width="0.8" opacity="0.5"/>
+  <line x1="8" y1="104" x2="58" y2="104" stroke="#A0C0D8" stroke-width="0.8" opacity="0.5"/>
+  <line x1="8" y1="118" x2="58" y2="118" stroke="#A0C0D8" stroke-width="0.8" opacity="0.5"/>
+  <line x1="8" y1="132" x2="58" y2="132" stroke="#A0C0D8" stroke-width="0.8" opacity="0.5"/>
+  <line x1="8" y1="146" x2="58" y2="146" stroke="#A0C0D8" stroke-width="0.8" opacity="0.5"/>
+  <line x1="8" y1="160" x2="58" y2="160" stroke="#A0C0D8" stroke-width="0.8" opacity="0.5"/>
+  <!-- Wheels at foot end -->
+  <circle cx="12" cy="170" r="4" fill="#888" stroke="#666" stroke-width="1"/>
+  <circle cx="54" cy="170" r="4" fill="#888" stroke="#666" stroke-width="1"/>
+</svg>

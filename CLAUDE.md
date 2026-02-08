@@ -122,6 +122,7 @@ src/open_garden_planner/
 │   ├── object_types.py           # ObjectType enum, default styles
 │   ├── fill_patterns.py          # Texture/pattern rendering
 │   ├── plant_renderer.py         # Plant SVG loading, caching, rendering
+│   ├── furniture_renderer.py     # Furniture/hedge SVG rendering & caching
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
 │   └── tools/                    # Drawing tools
 │       ├── base_tool.py          # ToolType enum, BaseTool ABC
@@ -185,7 +186,7 @@ tests/
 | ✅ | 6.5  | Visual thumbnail gallery sidebar                  |
 | ✅ | 6.6  | Toggleable object labels on canvas                |
 | ✅ | 6.7  | Branded green theme (light/dark)                  |
-|        | 6.8  | Outdoor furniture objects                         |
+| ✅ | 6.8  | Outdoor furniture objects                         |
 |        | 6.9  | Garden infrastructure objects                     |
 |        | 6.10 | Object snapping & alignment tools                 |
 | ✅ | 6.11 | Fullscreen preview mode (F11)                     |

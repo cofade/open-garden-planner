@@ -23,6 +23,25 @@ if TYPE_CHECKING:
     from PyQt6.QtWidgets import QGraphicsItem as ParentItem
 
 
+def _clamp_pos_to_canvas(pos: QPointF, parent_item: QGraphicsItem) -> QPointF:
+    """Clamp a scene position to the canvas boundaries.
+
+    Args:
+        pos: Position in scene coordinates
+        parent_item: An item whose scene has a canvas_rect property
+
+    Returns:
+        Position clamped to canvas rect, or original if no canvas rect available
+    """
+    scene = parent_item.scene() if parent_item else None
+    if scene is not None and hasattr(scene, 'canvas_rect'):
+        canvas_rect = scene.canvas_rect
+        x = max(canvas_rect.left(), min(pos.x(), canvas_rect.right()))
+        y = max(canvas_rect.top(), min(pos.y(), canvas_rect.bottom()))
+        return QPointF(x, y)
+    return pos
+
+
 class HandlePosition(Enum):
     """Position of resize handle on an item's bounding rect."""
 
@@ -253,8 +272,8 @@ class ResizeHandle(QGraphicsRectItem):
         if self._parent_item is None or self._initial_rect is None:
             return
 
-        # Calculate delta in scene coordinates
-        current_pos = event.scenePos()
+        # Calculate delta in scene coordinates, clamped to canvas
+        current_pos = _clamp_pos_to_canvas(event.scenePos(), self._parent_item)
         delta = current_pos - self._drag_start_pos
 
         # Apply resize based on handle position
@@ -1019,8 +1038,8 @@ class VertexHandle(QGraphicsRectItem):
             super().mouseMoveEvent(event)
             return
 
-        # Get new position in parent item coordinates
-        scene_pos = event.scenePos()
+        # Get new position in parent item coordinates, clamped to canvas
+        scene_pos = _clamp_pos_to_canvas(event.scenePos(), self._parent_item)
         parent_pos = self._parent_item.mapFromScene(scene_pos)
 
         # Apply the vertex move
@@ -1888,8 +1907,8 @@ class RectCornerHandle(QGraphicsRectItem):
         if self._initial_rect is None or self._initial_item_pos is None:
             return
 
-        # Get delta in scene coordinates
-        current_pos = event.scenePos()
+        # Get delta in scene coordinates, clamped to canvas
+        current_pos = _clamp_pos_to_canvas(event.scenePos(), self._parent_item)
         delta = current_pos - self._drag_start_pos
 
         # Apply corner movement

@@ -1384,13 +1384,22 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_view.set_active_tool(tool_type)
 
     def _on_gallery_item_selected(self, item: object) -> None:
-        """Handle gallery item selection - also update toolbar to match.
+        """Handle gallery item selection - update toolbar and pass plant info.
 
         Args:
             item: The GalleryItem that was selected
         """
         if hasattr(item, "tool_type"):
             self.main_toolbar.set_active_tool(item.tool_type)
+
+        # Pass plant category/species to the active circle tool
+        from open_garden_planner.core.tools.circle_tool import CircleTool
+
+        active_tool = self.canvas_view.active_tool
+        if isinstance(active_tool, CircleTool):
+            category = getattr(item, "plant_category", None)
+            species = getattr(item, "species", "")
+            active_tool.set_plant_info(category=category, species=species)
 
     def _sync_toolbar_state(self, tool_name: str) -> None:
         """Sync the toolbar button state when tool changes from other sources.

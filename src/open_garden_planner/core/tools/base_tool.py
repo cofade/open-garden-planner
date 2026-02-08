@@ -25,6 +25,7 @@ class ToolType(Enum):
     POND_POOL = auto()
     GREENHOUSE = auto()
     GARDEN_BED = auto()
+    LAWN = auto()
 
     # Property object types (polyline-based)
     FENCE = auto()
@@ -35,6 +36,20 @@ class ToolType(Enum):
     TREE = auto()
     SHRUB = auto()
     PERENNIAL = auto()
+
+    # Hedge section (rectangle-based, SVG-rendered)
+    HEDGE_SECTION = auto()
+
+    # Outdoor furniture (rectangle-based, SVG-rendered)
+    TABLE_RECTANGULAR = auto()
+    TABLE_ROUND = auto()
+    CHAIR = auto()
+    BENCH = auto()
+    PARASOL = auto()
+    LOUNGER = auto()
+    BBQ_GRILL = auto()
+    FIRE_PIT = auto()
+    PLANTER_POT = auto()
 
     # Generic geometric shapes (backwards compatibility)
     RECTANGLE = auto()

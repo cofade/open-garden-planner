@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Fire pit - top-down view -->
+  <!-- Outer shadow -->
+  <circle cx="53" cy="53" r="46" fill="#00000018"/>
+  <!-- Stone ring outer -->
+  <circle cx="50" cy="50" r="46" fill="#9B8B78" stroke="#6B5D50" stroke-width="2"/>
+  <!-- Stone ring inner -->
+  <circle cx="50" cy="50" r="36" fill="#554840" stroke="#6B5D50" stroke-width="2"/>
+  <!-- Stone segments (radial divisions) -->
+  <line x1="50" y1="4" x2="50" y2="14" stroke="#7B6B5E" stroke-width="1.5"/>
+  <line x1="50" y1="86" x2="50" y2="96" stroke="#7B6B5E" stroke-width="1.5"/>
+  <line x1="4" y1="50" x2="14" y2="50" stroke="#7B6B5E" stroke-width="1.5"/>
+  <line x1="86" y1="50" x2="96" y2="50" stroke="#7B6B5E" stroke-width="1.5"/>
+  <line x1="17" y1="17" x2="24" y2="24" stroke="#7B6B5E" stroke-width="1.5"/>
+  <line x1="76" y1="76" x2="83" y2="83" stroke="#7B6B5E" stroke-width="1.5"/>
+  <line x1="83" y1="17" x2="76" y2="24" stroke="#7B6B5E" stroke-width="1.5"/>
+  <line x1="17" y1="83" x2="24" y2="76" stroke="#7B6B5E" stroke-width="1.5"/>
+  <!-- Fire bowl interior -->
+  <circle cx="50" cy="50" r="30" fill="#3A2A20"/>
+  <!-- Ash/ember glow -->
+  <circle cx="50" cy="50" r="20" fill="#5A3A28" opacity="0.7"/>
+  <!-- Ember highlights -->
+  <circle cx="42" cy="45" r="4" fill="#C85A30" opacity="0.6"/>
+  <circle cx="55" cy="52" r="5" fill="#E07040" opacity="0.5"/>
+  <circle cx="48" cy="56" r="3" fill="#D06838" opacity="0.5"/>
+  <!-- Log cross -->
+  <rect x="32" y="47" width="36" height="6" rx="2" fill="#5A4030" opacity="0.6" transform="rotate(-20 50 50)"/>
+  <rect x="32" y="47" width="36" height="6" rx="2" fill="#5A4030" opacity="0.6" transform="rotate(25 50 50)"/>
+</svg>

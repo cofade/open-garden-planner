@@ -43,6 +43,7 @@ class ObjectType(Enum):
     POND_POOL = auto()
     GREENHOUSE = auto()
     GARDEN_BED = auto()
+    LAWN = auto()
 
     # Polyline-based structures
     FENCE = auto()
@@ -53,6 +54,20 @@ class ObjectType(Enum):
     TREE = auto()
     SHRUB = auto()
     PERENNIAL = auto()
+
+    # Hedge section (rectangle-based, SVG-rendered)
+    HEDGE_SECTION = auto()
+
+    # Outdoor furniture (rectangle-based, SVG-rendered)
+    TABLE_RECTANGULAR = auto()
+    TABLE_ROUND = auto()
+    CHAIR = auto()
+    BENCH = auto()
+    PARASOL = auto()
+    LOUNGER = auto()
+    BBQ_GRILL = auto()
+    FIRE_PIT = auto()
+    PLANTER_POT = auto()
 
     # Generic geometric shapes (for backwards compatibility)
     GENERIC_RECTANGLE = auto()
@@ -123,6 +138,13 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         display_name="Garden Bed",
         fill_pattern=FillPattern.SOIL,
     ),
+    ObjectType.LAWN: ObjectStyle(
+        fill_color=QColor(100, 180, 60, 120),  # Fresh green
+        stroke_color=QColor(60, 130, 30),  # Darker green
+        stroke_width=2.0,
+        display_name="Lawn",
+        fill_pattern=FillPattern.GRASS,
+    ),
     ObjectType.TREE: ObjectStyle(
         fill_color=QColor(34, 139, 34, 100),  # Forest green
         stroke_color=QColor(85, 107, 47),  # Dark olive green
@@ -163,6 +185,76 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         stroke_color=QColor(160, 82, 45),  # Sienna
         stroke_width=5.0,
         display_name="Path",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.HEDGE_SECTION: ObjectStyle(
+        fill_color=QColor(60, 120, 40, 180),  # Hedge green
+        stroke_color=QColor(40, 90, 25),  # Dark hedge green
+        stroke_width=1.5,
+        display_name="Hedge Section",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.TABLE_RECTANGULAR: ObjectStyle(
+        fill_color=QColor(160, 120, 80, 180),  # Warm wood
+        stroke_color=QColor(100, 70, 40),  # Dark wood
+        stroke_width=1.5,
+        display_name="Table (Rectangular)",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.TABLE_ROUND: ObjectStyle(
+        fill_color=QColor(160, 120, 80, 180),  # Warm wood
+        stroke_color=QColor(100, 70, 40),  # Dark wood
+        stroke_width=1.5,
+        display_name="Table (Round)",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.CHAIR: ObjectStyle(
+        fill_color=QColor(140, 105, 70, 180),  # Medium wood
+        stroke_color=QColor(90, 60, 30),  # Dark wood
+        stroke_width=1.5,
+        display_name="Chair",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.BENCH: ObjectStyle(
+        fill_color=QColor(150, 110, 70, 180),  # Wood
+        stroke_color=QColor(90, 60, 30),  # Dark wood
+        stroke_width=1.5,
+        display_name="Bench",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.PARASOL: ObjectStyle(
+        fill_color=QColor(230, 220, 200, 160),  # Cream/beige
+        stroke_color=QColor(180, 160, 130),  # Warm gray
+        stroke_width=1.5,
+        display_name="Parasol",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.LOUNGER: ObjectStyle(
+        fill_color=QColor(180, 180, 180, 180),  # Light gray metal
+        stroke_color=QColor(120, 120, 120),  # Medium gray
+        stroke_width=1.5,
+        display_name="Lounger",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.BBQ_GRILL: ObjectStyle(
+        fill_color=QColor(60, 60, 60, 200),  # Dark charcoal
+        stroke_color=QColor(40, 40, 40),  # Near black
+        stroke_width=1.5,
+        display_name="BBQ/Grill",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.FIRE_PIT: ObjectStyle(
+        fill_color=QColor(140, 100, 70, 180),  # Stone brown
+        stroke_color=QColor(80, 60, 40),  # Dark brown
+        stroke_width=1.5,
+        display_name="Fire Pit",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.PLANTER_POT: ObjectStyle(
+        fill_color=QColor(180, 120, 60, 180),  # Terracotta
+        stroke_color=QColor(140, 80, 30),  # Dark terracotta
+        stroke_width=1.5,
+        display_name="Planter/Pot",
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.GENERIC_RECTANGLE: ObjectStyle(

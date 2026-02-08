@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+from open_garden_planner.core.furniture_renderer import is_furniture_type, render_furniture_pixmap
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 from open_garden_planner.core.plant_renderer import (
     PlantCategory,
@@ -177,8 +178,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         """Configure visual appearance based on object type."""
         style = get_style(self.object_type) if self.object_type else get_style(ObjectType.GENERIC_CIRCLE)
 
-        # Plant types use SVG rendering — hide pen and brush
-        if is_plant_type(self.object_type):
+        # Plant and furniture types use SVG rendering — hide pen and brush
+        if is_plant_type(self.object_type) or is_furniture_type(self.object_type):
             self.setPen(QPen(Qt.PenStyle.NoPen))
             self.setBrush(QBrush())
             return
@@ -292,7 +293,29 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                     painter.drawEllipse(rect)
                 return
 
-        # Fall back to standard ellipse painting for non-plant circles
+        if is_furniture_type(self.object_type):
+            rect = self.rect()
+            diameter = rect.width()
+            pixmap = render_furniture_pixmap(
+                object_type=self.object_type,
+                width=diameter,
+                height=diameter,
+            )
+            if pixmap is not None:
+                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+                painter.drawPixmap(rect.toAlignedRect(), pixmap)
+
+                # Draw selection highlight
+                if self.isSelected():
+                    pen = QPen(QColor(0, 120, 215, 180))
+                    pen.setWidthF(2.0)
+                    pen.setStyle(Qt.PenStyle.DashLine)
+                    painter.setPen(pen)
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                    painter.drawEllipse(rect)
+                return
+
+        # Fall back to standard ellipse painting for non-plant/furniture circles
         super().paint(painter, option, widget)
 
     @property
