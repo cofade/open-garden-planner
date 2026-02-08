@@ -184,7 +184,7 @@ tests/
 | ✅ | 6.4  | Visual scale bar on canvas                        |
 | ✅ | 6.5  | Visual thumbnail gallery sidebar                  |
 | ✅ | 6.6  | Toggleable object labels on canvas                |
-|        | 6.7  | Branded green theme (light/dark)                  |
+| ✅ | 6.7  | Branded green theme (light/dark)                  |
 |        | 6.8  | Outdoor furniture objects                         |
 |        | 6.9  | Garden infrastructure objects                     |
 |        | 6.10 | Object snapping & alignment tools                 |

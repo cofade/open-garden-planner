@@ -108,6 +108,13 @@ class CanvasView(QGraphicsView):
         self._calibration_input.hide()
         self._calibration_input.returnPressed.connect(self._on_calibration_input_entered)
 
+        # Theme colors for overlays (defaults; overridden by apply_theme_colors)
+        self._grid_color = QColor(200, 200, 200, 100)
+        self._grid_major_color = QColor(180, 180, 180, 150)
+        self._canvas_border_color = QColor("#666666")
+        self._scale_bar_fg = QColor(40, 40, 40)
+        self._scale_bar_outline = QColor(255, 255, 255, 220)
+
         # Set up view properties
         self._setup_view()
 
@@ -243,6 +250,33 @@ class CanvasView(QGraphicsView):
 
         # Accept drops from gallery panel
         self.setAcceptDrops(True)
+
+    def apply_theme_colors(self, colors: dict[str, str]) -> None:
+        """Update overlay colors from the theme palette.
+
+        Args:
+            colors: Theme color dictionary from ThemeColors
+        """
+        if "grid_line" in colors:
+            c = QColor(colors["grid_line"])
+            c.setAlpha(100)
+            self._grid_color = c
+        if "grid_line_major" in colors:
+            c = QColor(colors["grid_line_major"])
+            c.setAlpha(150)
+            self._grid_major_color = c
+        if "canvas_border" in colors:
+            self._canvas_border_color = QColor(colors["canvas_border"])
+        if "scale_bar_fg" in colors:
+            self._scale_bar_fg = QColor(colors["scale_bar_fg"])
+        if "scale_bar_outline" in colors:
+            c = QColor(colors["scale_bar_outline"])
+            c.setAlpha(220)
+            self._scale_bar_outline = c
+
+        # Also propagate to the scene
+        self._canvas_scene.apply_theme_colors(colors)
+        self.viewport().update()
 
     def _apply_transform(self) -> None:
         """Apply the current transform including Y-flip and zoom."""
@@ -825,7 +859,7 @@ class CanvasView(QGraphicsView):
         canvas_rect = self._canvas_scene.canvas_rect
 
         # Set up pen for border
-        border_pen = QPen(QColor("#666666"))  # Dark gray border
+        border_pen = QPen(self._canvas_border_color)
         border_pen.setWidth(2)
         border_pen.setCosmetic(True)  # Constant width regardless of zoom
         painter.setPen(border_pen)
@@ -846,7 +880,7 @@ class CanvasView(QGraphicsView):
             grid_size /= 2
 
         # Set up pen for grid lines
-        pen = QPen(QColor(200, 200, 200, 100))
+        pen = QPen(self._grid_color)
         pen.setWidth(0)  # Cosmetic pen (1 pixel regardless of transform)
         painter.setPen(pen)
 
@@ -869,7 +903,7 @@ class CanvasView(QGraphicsView):
             y += grid_size
 
         # Draw major grid lines (every 5th line) slightly darker
-        major_pen = QPen(QColor(180, 180, 180, 150))
+        major_pen = QPen(self._grid_major_color)
         major_pen.setWidth(0)
         painter.setPen(major_pen)
 
@@ -971,8 +1005,8 @@ class CanvasView(QGraphicsView):
         text_x = bar_x
         text_y = bar_y - tick_h - 4  # gap between text baseline and tick top
 
-        # Draw white outline pass (thicker, behind the dark foreground)
-        outline_pen = QPen(QColor(255, 255, 255, 220))
+        # Draw outline pass (thicker, behind the foreground)
+        outline_pen = QPen(self._scale_bar_outline)
         outline_pen.setWidth(lw + 3)
         outline_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         painter.setPen(outline_pen)
@@ -999,8 +1033,8 @@ class CanvasView(QGraphicsView):
         painter.setPen(outline_pen)
         painter.drawText(int(text_x), int(text_y), label)
 
-        # Draw dark foreground pass
-        fg_color = QColor(40, 40, 40)
+        # Draw foreground pass
+        fg_color = QColor(self._scale_bar_fg)
         fg_pen = QPen(fg_color)
         fg_pen.setWidth(lw)
         fg_pen.setCapStyle(Qt.PenCapStyle.SquareCap)

@@ -32,8 +32,9 @@ class CanvasScene(QGraphicsScene):
         active_layer_changed: Emitted when the active layer changes
     """
 
-    # Canvas background color (beige/cream)
+    # Default canvas colors (overridden by apply_theme_colors)
     CANVAS_COLOR = QColor("#f5f5dc")
+    OUTSIDE_COLOR = QColor("#707070")
 
     # Signals
     layers_changed = pyqtSignal()
@@ -88,9 +89,6 @@ class CanvasScene(QGraphicsScene):
             self._width_cm + 2 * padding_x,
             self._height_cm + 2 * padding_y
         ))
-
-    # Background color for area outside canvas (darker for clear contrast)
-    OUTSIDE_COLOR = QColor("#707070")  # Medium-dark gray
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the scene background.
@@ -186,6 +184,16 @@ class CanvasScene(QGraphicsScene):
         from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
         if isinstance(item, GardenItemMixin):
             item.set_global_labels_visible(self._labels_enabled)
+
+    def apply_theme_colors(self, colors: dict[str, str]) -> None:
+        """Update canvas colors from the theme palette.
+
+        Args:
+            colors: Theme color dictionary from ThemeColors
+        """
+        self.CANVAS_COLOR = QColor(colors.get("canvas_background", "#f5f5dc"))
+        self.OUTSIDE_COLOR = QColor(colors.get("canvas_outside", "#707070"))
+        self.update()
 
     @property
     def width_cm(self) -> float:

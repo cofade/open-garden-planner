@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <!-- Ruler body -->
-  <rect x="4" y="22" width="56" height="20" rx="3" fill="#F59E0B" fill-opacity="0.25" stroke="#92400E" stroke-width="2.5"/>
+  <!-- Ruler body (opaque fill so it looks the same on any background) -->
+  <rect x="4" y="22" width="56" height="20" rx="3" fill="#FEF3C7" stroke="#92400E" stroke-width="2.5"/>
   <!-- Ruler ticks -->
   <line x1="16" y1="22" x2="16" y2="30" stroke="#92400E" stroke-width="2"/>
   <line x1="28" y1="22" x2="28" y2="34" stroke="#92400E" stroke-width="2"/>
