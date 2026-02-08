@@ -3,6 +3,7 @@
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QPen
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QColorDialog,
     QComboBox,
     QDoubleSpinBox,
@@ -213,6 +214,15 @@ class PropertiesPanel(QWidget):
                 lambda text: self._on_property_changed(item, 'name', text)
             )
             self._form_layout.addRow("Name:", name_edit)
+
+        # Show Label checkbox
+        if hasattr(item, 'label_visible'):
+            label_check = QCheckBox("Show label on canvas")
+            label_check.setChecked(item.label_visible)
+            label_check.toggled.connect(
+                lambda checked: self._on_property_changed(item, 'label_visible', checked)
+            )
+            self._form_layout.addRow("Label:", label_check)
 
         # Layer
         if hasattr(item, 'layer_id'):
@@ -521,6 +531,19 @@ class PropertiesPanel(QWidget):
                     if hasattr(itm, '_update_label'):
                         itm._update_label()
                 cmd = ChangePropertyCommand(item, "name", old_name, value, apply_name)
+                self._command_manager._undo_stack.append(cmd)
+                self._command_manager._redo_stack.clear()
+                self._command_manager.can_undo_changed.emit(True)
+                self._command_manager.can_redo_changed.emit(False)
+
+        elif property_name == 'label_visible' and hasattr(item, 'label_visible'):
+            old_visible = item.label_visible
+            item.label_visible = value
+
+            if self._command_manager:
+                def apply_label_visible(itm, val):
+                    itm.label_visible = val
+                cmd = ChangePropertyCommand(item, "label visibility", old_visible, value, apply_label_visible)
                 self._command_manager._undo_stack.append(cmd)
                 self._command_manager._redo_stack.clear()
                 self._command_manager.can_undo_changed.emit(True)

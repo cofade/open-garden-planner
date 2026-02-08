@@ -325,6 +325,14 @@ class GardenPlannerApp(QMainWindow):
         self._scale_bar_action.triggered.connect(self._on_toggle_scale_bar)
         menu.addAction(self._scale_bar_action)
 
+        # Toggle Labels
+        self._labels_action = QAction("Show &Labels", self)
+        self._labels_action.setCheckable(True)
+        self._labels_action.setChecked(True)  # Updated from settings in _setup_central_widget
+        self._labels_action.setStatusTip("Toggle object labels on the canvas")
+        self._labels_action.triggered.connect(self._on_toggle_labels)
+        menu.addAction(self._labels_action)
+
         menu.addSeparator()
 
         # Theme submenu
@@ -487,9 +495,10 @@ class GardenPlannerApp(QMainWindow):
         # Initial selection display
         self.update_selection(0, [])
 
-        # Initialize shadow and scale bar state from settings
+        # Initialize shadow, scale bar, and labels state from settings
         QTimer.singleShot(0, self._init_shadows_from_settings)
         QTimer.singleShot(0, self._init_scale_bar_from_settings)
+        QTimer.singleShot(0, self._init_labels_from_settings)
 
     def _setup_sidebar(self) -> None:
         """Set up the right sidebar with collapsible panels."""
@@ -1188,6 +1197,21 @@ class GardenPlannerApp(QMainWindow):
 
         self.canvas_view.set_scale_bar_visible(checked)
         get_settings().show_scale_bar = checked
+
+    def _init_labels_from_settings(self) -> None:
+        """Initialize labels state from persisted settings."""
+        from open_garden_planner.app.settings import get_settings
+
+        enabled = get_settings().show_labels
+        self._labels_action.setChecked(enabled)
+        self.canvas_scene.set_labels_visible(enabled)
+
+    def _on_toggle_labels(self, checked: bool) -> None:
+        """Handle toggle labels action."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_scene.set_labels_visible(checked)
+        get_settings().show_labels = checked
 
     def _on_toggle_grid(self, checked: bool) -> None:
         """Handle toggle grid action."""

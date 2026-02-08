@@ -131,7 +131,7 @@
 | US-6.3 | Drop shadows on all objects (toggleable) | Must | ✅ Done |
 | US-6.4 | Visual scale bar on canvas | Must | ✅ Done |
 | US-6.5 | Visual thumbnail gallery sidebar | Must | ✅ Done |
-| US-6.6 | Toggleable object labels on canvas | Should | |
+| US-6.6 | Toggleable object labels on canvas | Should | ✅ Done |
 | US-6.7 | Branded green theme (light/dark variants) | Should | |
 | US-6.8 | Outdoor furniture objects | Must | |
 | US-6.9 | Garden infrastructure objects | Must | |
