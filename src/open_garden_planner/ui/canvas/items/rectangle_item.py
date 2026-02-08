@@ -4,16 +4,19 @@ import uuid
 from typing import Any
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QKeyEvent, QPen
+from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsRectItem,
     QGraphicsSceneContextMenuEvent,
     QGraphicsSceneMouseEvent,
     QMenu,
+    QStyleOptionGraphicsItem,
+    QWidget,
 )
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+from open_garden_planner.core.furniture_renderer import is_furniture_type, render_furniture_pixmap
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 
 from .garden_item import GardenItemMixin
@@ -154,6 +157,12 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         """Configure visual appearance based on object type."""
         style = get_style(self.object_type) if self.object_type else get_style(ObjectType.GENERIC_RECTANGLE)
 
+        # Furniture types use SVG rendering — hide pen and brush
+        if is_furniture_type(self.object_type):
+            self.setPen(QPen(Qt.PenStyle.NoPen))
+            self.setBrush(QBrush())
+            return
+
         # Use stored stroke properties if available, otherwise use style defaults
         stroke_color = self.stroke_color if self.stroke_color is not None else style.stroke_color
         stroke_width = self.stroke_width if self.stroke_width is not None else style.stroke_width
@@ -176,6 +185,42 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         self.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsFocusable, True)
+
+    def paint(
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: QWidget | None = None,
+    ) -> None:
+        """Paint the rectangle item.
+
+        For furniture types, renders an illustrated SVG instead of a
+        flat colored rectangle. For non-furniture rectangles, delegates
+        to the default rectangle painting.
+        """
+        if is_furniture_type(self.object_type):
+            rect = self.rect()
+            pixmap = render_furniture_pixmap(
+                object_type=self.object_type,
+                width=rect.width(),
+                height=rect.height(),
+            )
+            if pixmap is not None:
+                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+                painter.drawPixmap(rect.toAlignedRect(), pixmap)
+
+                # Draw selection highlight
+                if self.isSelected():
+                    pen = QPen(QColor(0, 120, 215, 180))
+                    pen.setWidthF(2.0)
+                    pen.setStyle(Qt.PenStyle.DashLine)
+                    painter.setPen(pen)
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                    painter.drawRect(rect)
+                return
+
+        # Fall back to standard rectangle painting
+        super().paint(painter, option, widget)
 
     def itemChange(
         self,

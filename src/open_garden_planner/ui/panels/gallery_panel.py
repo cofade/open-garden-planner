@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.fill_patterns import _TEXTURES_DIR, FillPattern
+from open_garden_planner.core.furniture_renderer import _FURNITURE_DIR, _FURNITURE_FILES
 from open_garden_planner.core.object_types import OBJECT_STYLES, ObjectType
 from open_garden_planner.core.plant_renderer import (
     _CATEGORIES_DIR,
@@ -257,7 +258,6 @@ def _build_gallery_categories() -> list[GalleryCategory]:
     shrub_categories = [
         ("Spreading Shrub", PlantCategory.SPREADING_SHRUB),
         ("Compact Shrub", PlantCategory.COMPACT_SHRUB),
-        ("Hedge Section", PlantCategory.HEDGE_SECTION),
     ]
     for name, cat in shrub_categories:
         filename = _CATEGORY_FILES.get(cat, "")
@@ -287,6 +287,20 @@ def _build_gallery_categories() -> list[GalleryCategory]:
                 species=species_name.lower(),
             )
         )
+    # Add hedge section as a rectangle-based item
+    hedge_svg_path = _CATEGORIES_DIR / "hedge_section.svg"
+    hedge_thumb = _render_svg_thumbnail(hedge_svg_path)
+    if hedge_thumb is None:
+        style = OBJECT_STYLES[ObjectType.HEDGE_SECTION]
+        hedge_thumb = _render_color_circle_thumbnail(style.fill_color)
+    shrub_items.append(
+        GalleryItem(
+            name="Hedge Section",
+            tool_type=ToolType.HEDGE_SECTION,
+            object_type=ObjectType.HEDGE_SECTION,
+            thumbnail=hedge_thumb,
+        )
+    )
     categories.append(GalleryCategory("Shrubs", shrub_items))
 
     # --- Flowers & Perennials ---
@@ -378,9 +392,51 @@ def _build_gallery_categories() -> list[GalleryCategory]:
         )
     categories.append(GalleryCategory("Structures", structure_items))
 
+    # --- Furniture ---
+    furniture_items: list[GalleryItem] = []
+    furniture_objects = [
+        ("Table (Rect.)", ToolType.TABLE_RECTANGULAR, ObjectType.TABLE_RECTANGULAR),
+        ("Table (Round)", ToolType.TABLE_ROUND, ObjectType.TABLE_ROUND),
+        ("Chair", ToolType.CHAIR, ObjectType.CHAIR),
+        ("Bench", ToolType.BENCH, ObjectType.BENCH),
+        ("Parasol", ToolType.PARASOL, ObjectType.PARASOL),
+        ("Lounger", ToolType.LOUNGER, ObjectType.LOUNGER),
+        ("BBQ/Grill", ToolType.BBQ_GRILL, ObjectType.BBQ_GRILL),
+        ("Fire Pit", ToolType.FIRE_PIT, ObjectType.FIRE_PIT),
+    ]
+    for name, tool, obj in furniture_objects:
+        svg_filename = _FURNITURE_FILES.get(obj, "")
+        svg_path = _FURNITURE_DIR / f"{svg_filename}.svg"
+        thumb = _render_svg_thumbnail(svg_path)
+        if thumb is None:
+            style = OBJECT_STYLES[obj]
+            thumb = _render_color_circle_thumbnail(style.fill_color)
+        furniture_items.append(
+            GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb)
+        )
+    categories.append(GalleryCategory("Furniture", furniture_items))
+
+    # --- Gardening ---
+    gardening_items: list[GalleryItem] = []
+    gardening_objects = [
+        ("Planter/Pot", ToolType.PLANTER_POT, ObjectType.PLANTER_POT),
+    ]
+    for name, tool, obj in gardening_objects:
+        svg_filename = _FURNITURE_FILES.get(obj, "")
+        svg_path = _FURNITURE_DIR / f"{svg_filename}.svg"
+        thumb = _render_svg_thumbnail(svg_path)
+        if thumb is None:
+            style = OBJECT_STYLES[obj]
+            thumb = _render_color_circle_thumbnail(style.fill_color)
+        gardening_items.append(
+            GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb)
+        )
+    categories.append(GalleryCategory("Gardening", gardening_items))
+
     # --- Paths & Surfaces ---
     surface_items: list[GalleryItem] = []
     surfaces = [
+        ("Lawn", ToolType.LAWN, ObjectType.LAWN, "lawn", FillPattern.GRASS),
         ("Terrace/Patio", ToolType.TERRACE_PATIO, ObjectType.TERRACE_PATIO, "terrace", FillPattern.WOOD),
         ("Driveway", ToolType.DRIVEWAY, ObjectType.DRIVEWAY, "driveway", FillPattern.GRAVEL),
         ("Garden Bed", ToolType.GARDEN_BED, ObjectType.GARDEN_BED, "garden_bed", FillPattern.SOIL),

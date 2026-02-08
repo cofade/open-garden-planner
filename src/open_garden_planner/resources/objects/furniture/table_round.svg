@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Round table - top-down view -->
+  <!-- Table shadow -->
+  <circle cx="53" cy="53" r="45" fill="#00000020"/>
+  <!-- Table surface -->
+  <circle cx="50" cy="50" r="45" fill="#B8834A" stroke="#8B5E2B" stroke-width="2"/>
+  <!-- Wood grain arcs -->
+  <circle cx="50" cy="50" r="35" fill="none" stroke="#A0703C" stroke-width="0.7" opacity="0.4"/>
+  <circle cx="50" cy="50" r="25" fill="none" stroke="#A0703C" stroke-width="0.7" opacity="0.4"/>
+  <circle cx="50" cy="50" r="15" fill="none" stroke="#A0703C" stroke-width="0.7" opacity="0.4"/>
+  <!-- Center pedestal base (top-down) -->
+  <circle cx="50" cy="50" r="8" fill="#6B4226" stroke="#4A2E18" stroke-width="1.5"/>
+  <circle cx="50" cy="50" r="3" fill="#4A2E18"/>
+</svg>

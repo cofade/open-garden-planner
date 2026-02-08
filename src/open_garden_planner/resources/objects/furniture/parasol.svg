@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Parasol/umbrella - top-down view (open, from above) -->
+  <!-- Outer shadow -->
+  <circle cx="53" cy="53" r="46" fill="#00000015"/>
+  <!-- Parasol canopy -->
+  <circle cx="50" cy="50" r="46" fill="#E8DCC8" stroke="#C8B89A" stroke-width="1.5"/>
+  <!-- Canopy ribs (8 sections) -->
+  <line x1="50" y1="4" x2="50" y2="96" stroke="#C8B89A" stroke-width="1"/>
+  <line x1="4" y1="50" x2="96" y2="50" stroke="#C8B89A" stroke-width="1"/>
+  <line x1="17" y1="17" x2="83" y2="83" stroke="#C8B89A" stroke-width="1"/>
+  <line x1="83" y1="17" x2="17" y2="83" stroke="#C8B89A" stroke-width="1"/>
+  <!-- Alternating panel shading -->
+  <path d="M50,50 L50,4 A46,46 0 0,1 83,17 Z" fill="#DDD0BC" opacity="0.5"/>
+  <path d="M50,50 L96,50 A46,46 0 0,1 83,83 Z" fill="#DDD0BC" opacity="0.5"/>
+  <path d="M50,50 L50,96 A46,46 0 0,1 17,83 Z" fill="#DDD0BC" opacity="0.5"/>
+  <path d="M50,50 L4,50 A46,46 0 0,1 17,17 Z" fill="#DDD0BC" opacity="0.5"/>
+  <!-- Center pole cap -->
+  <circle cx="50" cy="50" r="5" fill="#8B7355" stroke="#6B5535" stroke-width="1.5"/>
+  <circle cx="50" cy="50" r="2" fill="#6B5535"/>
+  <!-- Finial/tip -->
+  <circle cx="50" cy="50" r="1" fill="#E0D0B8"/>
+</svg>

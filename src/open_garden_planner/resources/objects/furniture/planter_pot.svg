@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+  <!-- Planter/Pot - top-down view (terracotta pot) -->
+  <!-- Shadow -->
+  <circle cx="43" cy="43" r="36" fill="#00000018"/>
+  <!-- Pot rim outer -->
+  <circle cx="40" cy="40" r="36" fill="#C87840" stroke="#A05828" stroke-width="2"/>
+  <!-- Pot rim inner highlight -->
+  <circle cx="40" cy="40" r="32" fill="#D08850" stroke="#B86838" stroke-width="1"/>
+  <!-- Inside of pot (soil visible from top) -->
+  <circle cx="40" cy="40" r="28" fill="#6B4830" stroke="#8B5838" stroke-width="1"/>
+  <!-- Soil texture -->
+  <circle cx="34" cy="35" r="2" fill="#5A3820" opacity="0.5"/>
+  <circle cx="46" cy="38" r="1.5" fill="#5A3820" opacity="0.5"/>
+  <circle cx="38" cy="46" r="1.8" fill="#5A3820" opacity="0.5"/>
+  <circle cx="44" cy="32" r="1.2" fill="#5A3820" opacity="0.4"/>
+  <circle cx="32" cy="44" r="1.5" fill="#5A3820" opacity="0.4"/>
+  <!-- Small plant in center -->
+  <circle cx="40" cy="40" r="10" fill="#4A8B30" opacity="0.7"/>
+  <circle cx="36" cy="36" r="5" fill="#5AA038" opacity="0.6"/>
+  <circle cx="44" cy="38" r="4" fill="#5AA038" opacity="0.6"/>
+  <circle cx="40" cy="44" r="4.5" fill="#4A8B30" opacity="0.5"/>
+</svg>

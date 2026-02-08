@@ -45,6 +45,20 @@ class CircleTool(BaseTool):
         self._preview_circle: QGraphicsEllipseItem | None = None
         self._preview_line: QGraphicsLineItem | None = None
         self._is_drawing = False
+        self._plant_category: object | None = None
+        self._plant_species: str = ""
+
+    def set_plant_info(
+        self, category: object | None = None, species: str = ""
+    ) -> None:
+        """Set plant category/species for the next item created.
+
+        Args:
+            category: PlantCategory enum value (or None)
+            species: Species name string
+        """
+        self._plant_category = category
+        self._plant_species = species
 
     def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
         """Handle click for center or rim point."""
@@ -143,6 +157,11 @@ class CircleTool(BaseTool):
                 object_type=self._object_type,
                 layer_id=layer_id,
             )
+            # Set plant category/species if provided by gallery selection
+            if self._plant_category is not None:
+                item.plant_category = self._plant_category
+            if self._plant_species:
+                item.plant_species = self._plant_species
             self._view.add_item(item, "circle")
 
         self._reset_state()
