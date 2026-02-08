@@ -70,6 +70,9 @@ class CanvasScene(QGraphicsScene):
         # Shadow state
         self._shadows_enabled = True
 
+        # Labels state
+        self._labels_enabled = True
+
         # Layer management
         self._layers: list[Layer] = create_default_layers()
         self._active_layer: Layer | None = self._layers[0] if self._layers else None  # Default to first layer
@@ -150,8 +153,28 @@ class CanvasScene(QGraphicsScene):
         effect.setOffset(self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y)
         item.setGraphicsEffect(effect)
 
+    # Label management
+
+    @property
+    def labels_enabled(self) -> bool:
+        """Whether labels are shown on objects."""
+        return self._labels_enabled
+
+    def set_labels_visible(self, visible: bool) -> None:
+        """Enable or disable labels on all garden objects.
+
+        Args:
+            visible: Whether labels should be shown
+        """
+        self._labels_enabled = visible
+        from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
+
+        for item in self.items():
+            if isinstance(item, GardenItemMixin):
+                item.set_global_labels_visible(visible)
+
     def addItem(self, item: QGraphicsItem) -> None:
-        """Add an item to the scene, applying shadow if enabled.
+        """Add an item to the scene, applying shadow and label state.
 
         Args:
             item: The graphics item to add
@@ -159,6 +182,10 @@ class CanvasScene(QGraphicsScene):
         super().addItem(item)
         if self._shadows_enabled and self._is_shadow_eligible(item):
             self._apply_shadow_effect(item)
+        # Sync global label state to newly added items
+        from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
+        if isinstance(item, GardenItemMixin):
+            item.set_global_labels_visible(self._labels_enabled)
 
     @property
     def width_cm(self) -> float:

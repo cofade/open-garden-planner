@@ -254,6 +254,8 @@ class ProjectManager(QObject):
                 data["metadata"] = item.metadata
             if hasattr(item, "layer_id") and item.layer_id:
                 data["layer_id"] = str(item.layer_id)
+            if hasattr(item, "label_visible") and not item.label_visible:
+                data["label_visible"] = False
             # Save custom fill and stroke colors (with alpha)
             # Use stored fill_color if available (for textured brushes), otherwise get from brush
             if hasattr(item, "fill_color") and item.fill_color:
@@ -289,6 +291,8 @@ class ProjectManager(QObject):
                 data["metadata"] = item.metadata
             if hasattr(item, "layer_id") and item.layer_id:
                 data["layer_id"] = str(item.layer_id)
+            if hasattr(item, "label_visible") and not item.label_visible:
+                data["label_visible"] = False
             # Save custom fill and stroke colors (with alpha)
             # Use stored fill_color if available (for textured brushes), otherwise get from brush
             if hasattr(item, "fill_color") and item.fill_color:
@@ -327,6 +331,8 @@ class ProjectManager(QObject):
                 data["metadata"] = item.metadata
             if hasattr(item, "layer_id") and item.layer_id:
                 data["layer_id"] = str(item.layer_id)
+            if hasattr(item, "label_visible") and not item.label_visible:
+                data["label_visible"] = False
             # Save custom stroke color (polylines don't have fill, with alpha)
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
@@ -356,6 +362,8 @@ class ProjectManager(QObject):
                 data["metadata"] = item.metadata
             if hasattr(item, "layer_id") and item.layer_id:
                 data["layer_id"] = str(item.layer_id)
+            if hasattr(item, "label_visible") and not item.label_visible:
+                data["label_visible"] = False
             # Save custom fill and stroke colors (with alpha)
             # Use stored fill_color if available (for textured brushes), otherwise get from brush
             if hasattr(item, "fill_color") and item.fill_color:
@@ -441,6 +449,7 @@ class ProjectManager(QObject):
 
         name = obj.get("name", "")
         metadata = obj.get("metadata", {})
+        label_visible = obj.get("label_visible", True)
         fill_pattern = None
         if "fill_pattern" in obj:
             try:
@@ -498,6 +507,9 @@ class ProjectManager(QObject):
                 if stroke_style:
                     pen.setStyle(stroke_style.to_qt_pen_style())
                 item.setPen(pen)
+            # Restore label visibility
+            if not label_visible:
+                item.label_visible = False
             # Restore rotation angle
             if "rotation_angle" in obj:
                 item._apply_rotation(obj["rotation_angle"])
@@ -535,6 +547,9 @@ class ProjectManager(QObject):
                 if stroke_style:
                     pen.setStyle(stroke_style.to_qt_pen_style())
                 item.setPen(pen)
+            # Restore label visibility
+            if not label_visible:
+                item.label_visible = False
             # Restore rotation angle
             if "rotation_angle" in obj:
                 item._apply_rotation(obj["rotation_angle"])
@@ -564,6 +579,9 @@ class ProjectManager(QObject):
                     if "stroke_width" in obj:
                         pen.setWidthF(obj["stroke_width"])
                     item.setPen(pen)
+                # Restore label visibility
+                if not label_visible:
+                    item.label_visible = False
                 # Restore rotation angle
                 if "rotation_angle" in obj:
                     item._apply_rotation(obj["rotation_angle"])
@@ -601,6 +619,9 @@ class ProjectManager(QObject):
                     if stroke_style:
                         pen.setStyle(stroke_style.to_qt_pen_style())
                     item.setPen(pen)
+                # Restore label visibility
+                if not label_visible:
+                    item.label_visible = False
                 # Restore rotation angle
                 if "rotation_angle" in obj:
                     item._apply_rotation(obj["rotation_angle"])

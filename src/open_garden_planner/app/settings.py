@@ -27,12 +27,14 @@ class AppSettings:
     KEY_THEME_MODE = "appearance/theme_mode"
     KEY_SHOW_SHADOWS = "appearance/show_shadows"
     KEY_SHOW_SCALE_BAR = "appearance/show_scale_bar"
+    KEY_SHOW_LABELS = "appearance/show_labels"
 
     # Default values
     DEFAULT_AUTOSAVE_ENABLED = True
     DEFAULT_SHOW_WELCOME = True
     DEFAULT_SHOW_SHADOWS = True
     DEFAULT_SHOW_SCALE_BAR = True
+    DEFAULT_SHOW_LABELS = True
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
     MIN_AUTOSAVE_INTERVAL_MINUTES = 1
     MAX_AUTOSAVE_INTERVAL_MINUTES = 30
@@ -200,6 +202,20 @@ class AppSettings:
     def show_scale_bar(self, show: bool) -> None:
         """Set whether to show the scale bar on the canvas."""
         self._settings.setValue(self.KEY_SHOW_SCALE_BAR, show)
+
+    @property
+    def show_labels(self) -> bool:
+        """Whether to show object labels on the canvas."""
+        return self._settings.value(
+            self.KEY_SHOW_LABELS,
+            self.DEFAULT_SHOW_LABELS,
+            type=bool,
+        )
+
+    @show_labels.setter
+    def show_labels(self, show: bool) -> None:
+        """Set whether to show object labels on the canvas."""
+        self._settings.setValue(self.KEY_SHOW_LABELS, show)
 
     def sync(self) -> None:
         """Force settings to be written to storage."""

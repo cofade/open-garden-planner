@@ -57,6 +57,8 @@ class GardenItemMixin:
         self._stroke_width = stroke_width
         self._stroke_style = stroke_style
         self._layer_id = layer_id
+        self._label_visible = True  # Per-object label visibility
+        self._global_labels_visible = True  # Global label visibility (set by scene)
         self._label_item: QGraphicsSimpleTextItem | None = None
         self._edit_label_item: QGraphicsTextItem | None = None
 
@@ -156,6 +158,17 @@ class GardenItemMixin:
         """Set the layer ID."""
         self._layer_id = value
 
+    @property
+    def label_visible(self) -> bool:
+        """Whether the label is visible for this object."""
+        return self._label_visible
+
+    @label_visible.setter
+    def label_visible(self, value: bool) -> None:
+        """Set per-object label visibility."""
+        self._label_visible = value
+        self._update_label()
+
     def set_metadata(self, key: str, value: Any) -> None:
         """Set a metadata value.
 
@@ -177,6 +190,22 @@ class GardenItemMixin:
         """
         return self._metadata.get(key, default)
 
+    def _get_display_label_text(self) -> str:
+        """Get the text that should be displayed in the label.
+
+        Returns:
+            The custom name, or empty string if not set
+        """
+        return self._name
+
+    def _should_show_label(self) -> bool:
+        """Determine if the label should be visible.
+
+        Returns:
+            True if the label should be shown
+        """
+        return self._global_labels_visible and self._label_visible
+
     def _create_label(self) -> None:
         """Create the label text item if it doesn't exist."""
         if self._label_item is None:
@@ -185,7 +214,11 @@ class GardenItemMixin:
             if not hasattr(self, 'boundingRect'):
                 return
 
-            self._label_item = QGraphicsSimpleTextItem(self._name, self)  # type: ignore[arg-type]
+            text = self._get_display_label_text()
+            if not text:
+                return
+
+            self._label_item = QGraphicsSimpleTextItem(text, self)  # type: ignore[arg-type]
 
             # Configure label appearance
             font = QFont("Arial", 10)
@@ -199,23 +232,46 @@ class GardenItemMixin:
             # Position the label
             self._position_label()
 
+    def _remove_label(self) -> None:
+        """Remove the label item from the scene."""
+        if self._label_item is not None:
+            self._label_item.setParentItem(None)
+            if hasattr(self, 'scene') and callable(self.scene):  # type: ignore[attr-defined]
+                scene = self.scene()  # type: ignore[attr-defined]
+                if scene is not None:
+                    scene.removeItem(self._label_item)
+            self._label_item = None
+
     def _update_label(self) -> None:
-        """Update or create label based on current name."""
-        if self._name:
+        """Update or create label based on current state."""
+        text = self._get_display_label_text()
+        should_show = self._should_show_label() and bool(text)
+
+        if should_show:
             if self._label_item is None:
                 self._create_label()
             else:
-                self._label_item.setText(self._name)
+                self._label_item.setText(text)
+                self._label_item.show()
                 self._position_label()
         else:
-            # Remove label if name is empty
+            # Hide or remove label
             if self._label_item is not None:
-                self._label_item.setParentItem(None)
-                if hasattr(self, 'scene') and callable(self.scene):  # type: ignore[attr-defined]
-                    scene = self.scene()  # type: ignore[attr-defined]
-                    if scene is not None:
-                        scene.removeItem(self._label_item)
-                self._label_item = None
+                if not self._should_show_label():
+                    # Just hide, don't remove (so it can be shown again)
+                    self._label_item.hide()
+                else:
+                    # No text, remove entirely
+                    self._remove_label()
+
+    def set_global_labels_visible(self, visible: bool) -> None:
+        """Set global label visibility (called by scene toggle).
+
+        Args:
+            visible: Whether labels should be globally visible
+        """
+        self._global_labels_visible = visible
+        self._update_label()
 
     def _position_label(self) -> None:
         """Position the label at the center of the item's bounding rect.
@@ -250,7 +306,7 @@ class GardenItemMixin:
 
         This should be called by subclasses after they complete their initialization.
         """
-        if self._name:
+        if self._should_show_label() and self._get_display_label_text():
             self._create_label()
 
     def start_label_edit(self) -> None:
