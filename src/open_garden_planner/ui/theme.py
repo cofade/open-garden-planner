@@ -19,78 +19,91 @@ class ThemeMode(Enum):
 class ThemeColors:
     """Color definitions for light and dark themes."""
 
-    # Light theme colors
+    # Light theme colors - branded garden green with cream accents
     LIGHT = {
         # Base colors
-        "background": "#ffffff",
-        "background_alt": "#f5f5f5",
-        "surface": "#fafafa",
-        "surface_alt": "#e0e0e0",
+        "background": "#fafaf5",
+        "background_alt": "#f0efe8",
+        "surface": "#f5f4ed",
+        "surface_alt": "#dddcce",
         # Text colors
-        "text_primary": "#212121",
-        "text_secondary": "#757575",
-        "text_disabled": "#9e9e9e",
+        "text_primary": "#1b2e1b",
+        "text_secondary": "#5a6b5a",
+        "text_disabled": "#9aa39a",
         # Border colors
-        "border": "#e0e0e0",
-        "border_focus": "#90caf9",
+        "border": "#c8d1c0",
+        "border_focus": "#4a9e4a",
         # Canvas colors
-        "canvas_background": "#f5f5dc",  # Beige
-        "grid_line": "#d0d0d0",
-        # Accent colors
-        "accent": "#2196f3",
-        "accent_hover": "#1976d2",
-        "accent_pressed": "#0d47a1",
+        "canvas_background": "#f5f5dc",
+        "canvas_outside": "#707070",
+        "grid_line": "#c8c8a8",
+        "grid_line_major": "#b0b090",
+        "canvas_border": "#5a6b5a",
+        "scale_bar_fg": "#283828",
+        "scale_bar_outline": "#ffffff",
+        # Accent colors - garden green
+        "accent": "#3d8b37",
+        "accent_hover": "#2e7d32",
+        "accent_pressed": "#1b5e20",
+        "accent_text": "#ffffff",
         # Status colors
-        "success": "#4caf50",
-        "warning": "#ff9800",
-        "error": "#f44336",
-        "info": "#2196f3",
+        "success": "#43a047",
+        "warning": "#ef6c00",
+        "error": "#d32f2f",
+        "info": "#2e7d32",
         # UI element colors
-        "button": "#f0f0f0",
-        "button_hover": "#e0e0e0",
-        "button_pressed": "#d0d0d0",
+        "button": "#eeeddf",
+        "button_hover": "#dddcce",
+        "button_pressed": "#c8d1c0",
         "input": "#ffffff",
-        "input_disabled": "#f5f5f5",
+        "input_disabled": "#f0efe8",
         # Selection colors
-        "selection": "#bbdefb",
-        "selection_inactive": "#e0e0e0",
+        "selection": "#c8e6c9",
+        "selection_inactive": "#dddcce",
     }
 
-    # Dark theme colors
+    # Dark theme colors - slate with soft sage-green accents
     DARK = {
         # Base colors
-        "background": "#1e1e1e",
-        "background_alt": "#252525",
-        "surface": "#2d2d2d",
-        "surface_alt": "#383838",
+        "background": "#1a1e1a",
+        "background_alt": "#22271f",
+        "surface": "#272d25",
+        "surface_alt": "#353d32",
         # Text colors
-        "text_primary": "#e0e0e0",
-        "text_secondary": "#b0b0b0",
-        "text_disabled": "#707070",
+        "text_primary": "#dce0d8",
+        "text_secondary": "#a3ab9d",
+        "text_disabled": "#606860",
         # Border colors
-        "border": "#404040",
-        "border_focus": "#64b5f6",
-        # Canvas colors
-        "canvas_background": "#2a2a2a",
-        "grid_line": "#404040",
-        # Accent colors
-        "accent": "#64b5f6",
-        "accent_hover": "#42a5f5",
-        "accent_pressed": "#2196f3",
+        "border": "#3a4238",
+        "border_focus": "#66bb6a",
+        # Canvas colors - keep same as light theme so the garden plan
+        # always looks bright and natural; only UI chrome goes dark
+        "canvas_background": "#f5f5dc",
+        "canvas_outside": "#707070",
+        "grid_line": "#c8c8a8",
+        "grid_line_major": "#b0b090",
+        "canvas_border": "#5a6b5a",
+        "scale_bar_fg": "#283828",
+        "scale_bar_outline": "#ffffff",
+        # Accent colors - softer green for dark mode
+        "accent": "#66bb6a",
+        "accent_hover": "#81c784",
+        "accent_pressed": "#4caf50",
+        "accent_text": "#1a1e1a",
         # Status colors
         "success": "#66bb6a",
         "warning": "#ffa726",
         "error": "#ef5350",
-        "info": "#42a5f5",
+        "info": "#66bb6a",
         # UI element colors
-        "button": "#383838",
-        "button_hover": "#424242",
-        "button_pressed": "#505050",
-        "input": "#2d2d2d",
-        "input_disabled": "#252525",
+        "button": "#353d32",
+        "button_hover": "#3e4a3a",
+        "button_pressed": "#4a5648",
+        "input": "#272d25",
+        "input_disabled": "#22271f",
         # Selection colors
-        "selection": "#1565c0",
-        "selection_inactive": "#424242",
+        "selection": "#2e5630",
+        "selection_inactive": "#353d32",
     }
 
     @classmethod
@@ -180,7 +193,7 @@ def generate_stylesheet(mode: ThemeMode) -> str:
 
     QMenu::item:selected {{
         background-color: {colors['accent']};
-        color: #ffffff;
+        color: {colors['accent_text']};
     }}
 
     QMenu::item:disabled {{
@@ -566,7 +579,7 @@ def generate_stylesheet(mode: ThemeMode) -> str:
 
     /* Graphics View (Canvas) */
     QGraphicsView {{
-        background-color: {colors['canvas_background']};
+        background-color: {colors['canvas_outside']};
         border: 1px solid {colors['border']};
     }}
 
@@ -672,3 +685,20 @@ def apply_theme(app: QApplication, mode: ThemeMode) -> None:
     for widget in app.topLevelWidgets():
         if widget.isWindow():
             _set_windows_dark_titlebar(widget, is_dark)
+
+    # Propagate theme colors to any open canvas views
+    _apply_theme_to_canvas_views(app, colors)
+
+
+def _apply_theme_to_canvas_views(app: QApplication, colors: dict[str, str]) -> None:
+    """Propagate theme colors to all CanvasView instances.
+
+    Args:
+        app: QApplication instance
+        colors: Theme color dictionary
+    """
+    from open_garden_planner.ui.canvas.canvas_view import CanvasView
+
+    for widget in app.allWidgets():
+        if isinstance(widget, CanvasView):
+            widget.apply_theme_colors(colors)

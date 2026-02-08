@@ -1,8 +1,11 @@
 """Layers panel for managing layer visibility, locking, and order."""
 
+from pathlib import Path
 from uuid import UUID
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QIcon, QPainter, QPixmap
+from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -18,12 +21,57 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.models.layer import Layer
 
+_ICONS_DIR = Path(__file__).parent.parent.parent / "resources" / "icons" / "layers"
+
+# Inline SVG sources for layer icons.
+# Stroke colors chosen for good contrast on both light and dark backgrounds.
+_EYE_OPEN_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3d8b37" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+  <circle cx="12" cy="12" r="3"/>
+</svg>"""
+
+_EYE_CLOSED_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+  <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+  <line x1="1" y1="1" x2="23" y2="23"/>
+</svg>"""
+
+_LOCK_OPEN_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3d8b37" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+  <path d="M7 11V7a5 5 0 019.9-1"/>
+</svg>"""
+
+_LOCK_CLOSED_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+  <path d="M7 11V7a5 5 0 0110 0v4"/>
+</svg>"""
+
+
+def _svg_to_icon(svg_data: str, size: int = 20) -> QIcon:
+    """Render an inline SVG string to a QIcon.
+
+    Args:
+        svg_data: SVG markup string
+        size: Icon pixel size
+
+    Returns:
+        QIcon rendered from the SVG
+    """
+    renderer = QSvgRenderer(svg_data.encode())
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    renderer.render(painter)
+    painter.end()
+    return QIcon(pixmap)
+
 
 class LayerListItem(QWidget):
     """Custom widget for a layer list item with visibility/lock controls."""
 
     visibility_changed = pyqtSignal(UUID, bool)
     lock_changed = pyqtSignal(UUID, bool)
+    delete_requested = pyqtSignal(UUID)
     layer_selected = pyqtSignal(UUID)
     rename_requested = pyqtSignal(UUID)
 
@@ -44,29 +92,44 @@ class LayerListItem(QWidget):
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(4)
 
-        # Visibility toggle button (eye icon)
+        # Pre-render icons
+        self._eye_open_icon = _svg_to_icon(_EYE_OPEN_SVG)
+        self._eye_closed_icon = _svg_to_icon(_EYE_CLOSED_SVG)
+        self._lock_open_icon = _svg_to_icon(_LOCK_OPEN_SVG)
+        self._lock_closed_icon = _svg_to_icon(_LOCK_CLOSED_SVG)
+
+        # Visibility toggle button
         self.visibility_btn = QToolButton()
         self.visibility_btn.setCheckable(True)
         self.visibility_btn.setChecked(self.layer.visible)
-        self.visibility_btn.setText("👁" if self.layer.visible else "🚫")
+        self.visibility_btn.setIcon(
+            self._eye_open_icon if self.layer.visible else self._eye_closed_icon
+        )
+        self.visibility_btn.setIconSize(QSize(16, 16))
         self.visibility_btn.setToolTip("Toggle visibility")
         self.visibility_btn.setFixedSize(24, 24)
         self.visibility_btn.toggled.connect(self._on_visibility_toggled)
         layout.addWidget(self.visibility_btn)
 
-        # Lock toggle button (lock icon)
+        # Lock toggle button
         self.lock_btn = QToolButton()
         self.lock_btn.setCheckable(True)
         self.lock_btn.setChecked(self.layer.locked)
-        self.lock_btn.setText("🔒" if self.layer.locked else "🔓")
+        self.lock_btn.setIcon(
+            self._lock_closed_icon if self.layer.locked else self._lock_open_icon
+        )
+        self.lock_btn.setIconSize(QSize(16, 16))
         self.lock_btn.setToolTip("Toggle lock")
         self.lock_btn.setFixedSize(24, 24)
         self.lock_btn.toggled.connect(self._on_lock_toggled)
         layout.addWidget(self.lock_btn)
 
-        # Layer name label
+        # Layer name label — use palette-safe color so it stays readable
+        # when selected in both light and dark modes
         self.name_label = QLabel(self.layer.name)
-        self.name_label.setStyleSheet("padding-left: 4px;")
+        self.name_label.setStyleSheet(
+            "padding-left: 4px;"
+        )
         self.name_label.mouseDoubleClickEvent = lambda _: self._start_editing()
         layout.addWidget(self.name_label, 1)
 
@@ -104,30 +167,41 @@ class LayerListItem(QWidget):
         from PyQt6.QtWidgets import QMenu
         menu = QMenu(self)
         rename_action = menu.addAction("Rename Layer")
+        delete_action = menu.addAction("Delete Layer")
         action = menu.exec(event.globalPos())
         if action == rename_action:
             self._start_editing()
+        elif action == delete_action:
+            self.delete_requested.emit(self.layer.id)
 
     def _on_visibility_toggled(self, checked: bool) -> None:
         """Handle visibility toggle."""
         self.layer.visible = checked
-        self.visibility_btn.setText("👁" if checked else "🚫")
+        self.visibility_btn.setIcon(
+            self._eye_open_icon if checked else self._eye_closed_icon
+        )
         self.visibility_changed.emit(self.layer.id, checked)
         self._update_styling()
 
     def _on_lock_toggled(self, checked: bool) -> None:
         """Handle lock toggle."""
         self.layer.locked = checked
-        self.lock_btn.setText("🔒" if checked else "🔓")
+        self.lock_btn.setIcon(
+            self._lock_closed_icon if checked else self._lock_open_icon
+        )
         self.lock_changed.emit(self.layer.id, checked)
         self._update_styling()
 
     def _update_styling(self) -> None:
         """Update visual styling based on layer state."""
         if not self.layer.visible:
-            self.name_label.setStyleSheet("color: palette(mid); padding-left: 4px;")
+            self.name_label.setStyleSheet(
+                "color: palette(mid); padding-left: 4px;"
+            )
         else:
-            self.name_label.setStyleSheet("padding-left: 4px;")
+            self.name_label.setStyleSheet(
+                "padding-left: 4px;"
+            )
 
     def update_layer(self, layer: Layer) -> None:
         """Update the displayed layer.
@@ -139,9 +213,13 @@ class LayerListItem(QWidget):
         self.name_label.setText(layer.name)
         self.name_edit.setText(layer.name)
         self.visibility_btn.setChecked(layer.visible)
-        self.visibility_btn.setText("👁" if layer.visible else "🚫")
+        self.visibility_btn.setIcon(
+            self._eye_open_icon if layer.visible else self._eye_closed_icon
+        )
         self.lock_btn.setChecked(layer.locked)
-        self.lock_btn.setText("🔒" if layer.locked else "🔓")
+        self.lock_btn.setIcon(
+            self._lock_closed_icon if layer.locked else self._lock_open_icon
+        )
         self._update_styling()
 
 
@@ -154,6 +232,7 @@ class LayersPanel(QWidget):
     layer_opacity_changed = pyqtSignal(UUID, float)
     layers_reordered = pyqtSignal(list)
     layer_renamed = pyqtSignal(UUID, str)
+    layer_deleted = pyqtSignal(UUID)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Initialize the layers panel.
@@ -226,8 +305,11 @@ class LayersPanel(QWidget):
             widget.visibility_changed.connect(self.layer_visibility_changed.emit)
             widget.lock_changed.connect(self.layer_lock_changed.emit)
             widget.rename_requested.connect(self._on_rename_layer)
+            widget.delete_requested.connect(self._on_delete_layer)
 
-            item.setSizeHint(widget.sizeHint())
+            hint = widget.sizeHint()
+            hint.setHeight(max(hint.height(), 36))
+            item.setSizeHint(hint)
             self.layer_list.addItem(item)
             self.layer_list.setItemWidget(item, widget)
 
@@ -242,8 +324,8 @@ class LayersPanel(QWidget):
 
     def _adjust_list_height(self) -> None:
         """Adjust the list height based on number of layers."""
-        # Calculate height per item (each layer item is about 33px)
-        item_height = 33
+        # Height per item (24px icon + 4+4px margins + 4px padding)
+        item_height = 36
         num_layers = len(self._layers)
         max_visible = 5
 
@@ -302,7 +384,10 @@ class LayersPanel(QWidget):
     def _on_add_layer(self) -> None:
         """Handle add layer button click."""
         # Create a new layer with a unique name
-        layer_num = len(self._layers) + 1
+        existing_names = {layer.name for layer in self._layers}
+        layer_num = 1
+        while f"Layer {layer_num}" in existing_names:
+            layer_num += 1
         new_layer = Layer(name=f"Layer {layer_num}", z_order=len(self._layers))
         self._layers.append(new_layer)
         self._refresh_list()
@@ -319,6 +404,19 @@ class LayersPanel(QWidget):
             if layer.id == layer_id:
                 self.layer_renamed.emit(layer_id, layer.name)
                 break
+
+    def _on_delete_layer(self, layer_id: UUID) -> None:
+        """Handle layer delete request.
+
+        Args:
+            layer_id: ID of layer to delete
+        """
+        if len(self._layers) <= 1:
+            return  # Must keep at least one layer
+        self.layer_deleted.emit(layer_id)
+        # Remove from local list and refresh
+        self._layers = [layer for layer in self._layers if layer.id != layer_id]
+        self._refresh_list()
 
     def update_layer(self, layer: Layer) -> None:
         """Update a specific layer in the list.

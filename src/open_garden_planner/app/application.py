@@ -548,6 +548,7 @@ class GardenPlannerApp(QMainWindow):
         self.layers_panel.layer_opacity_changed.connect(self.canvas_scene.update_layer_opacity)
         self.layers_panel.layers_reordered.connect(self._on_layers_reordered)
         self.layers_panel.layer_renamed.connect(self._on_layer_renamed)
+        self.layers_panel.layer_deleted.connect(self._on_layer_deleted)
 
         # Connect scene layer changes to panel
         self.canvas_scene.layers_changed.connect(lambda: self.layers_panel.set_layers(self.canvas_scene.layers))
@@ -1439,6 +1440,15 @@ class GardenPlannerApp(QMainWindow):
             _layer_id: UUID of the renamed layer (unused)
             _new_name: New layer name (unused)
         """
+        self._project_manager.mark_dirty()
+
+    def _on_layer_deleted(self, layer_id) -> None:
+        """Handle layer deletion from layers panel.
+
+        Args:
+            layer_id: UUID of the layer to delete
+        """
+        self.canvas_scene.remove_layer(layer_id)
         self._project_manager.mark_dirty()
 
     def _on_scene_changed_for_plant_search(self) -> None:
