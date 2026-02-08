@@ -136,7 +136,7 @@
 | US-6.8 | Outdoor furniture objects | Must | |
 | US-6.9 | Garden infrastructure objects | Must | |
 | US-6.10 | Object snapping & alignment tools | Should | |
-| US-6.11 | Fullscreen preview mode (F11) | Should | |
+| US-6.11 | Fullscreen preview mode (F11) | Should | ✅ Done |
 | US-6.12 | Internationalization (EN + DE, Qt Linguist) | Must | |
 | US-6.13 | Print support with scaling | Should | |
 | US-6.14 | Windows installer (NSIS) + .ogp file association | Must | |
@@ -330,7 +330,7 @@
 - [ ] Infrastructure SVG assets + object types
 - [ ] Snap-to-object with visual guides
 - [ ] Alignment/distribution tools
-- [ ] Fullscreen preview mode
+- [x] Fullscreen preview mode
 - [ ] Qt Linguist i18n + German translation
 - [ ] Print support (QPrinter)
 - [ ] PyInstaller + NSIS installer

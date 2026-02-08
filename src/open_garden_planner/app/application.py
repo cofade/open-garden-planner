@@ -66,6 +66,10 @@ class GardenPlannerApp(QMainWindow):
         # Set up auto-save manager
         self._setup_autosave()
 
+        # Preview mode state
+        self._preview_mode = False
+        self._pre_preview_state: dict | None = None
+
         # Initial window title
         self._update_window_title()
 
@@ -332,6 +336,17 @@ class GardenPlannerApp(QMainWindow):
         self._labels_action.setStatusTip("Toggle object labels on the canvas")
         self._labels_action.triggered.connect(self._on_toggle_labels)
         menu.addAction(self._labels_action)
+
+        menu.addSeparator()
+
+        # Fullscreen Preview
+        self._preview_action = QAction("&Fullscreen Preview", self)
+        self._preview_action.setShortcut(QKeySequence("F11"))
+        self._preview_action.setCheckable(True)
+        self._preview_action.setChecked(False)
+        self._preview_action.setStatusTip("Toggle fullscreen preview mode (hides all UI)")
+        self._preview_action.triggered.connect(self._on_toggle_preview_mode)
+        menu.addAction(self._preview_action)
 
         menu.addSeparator()
 
@@ -1212,6 +1227,97 @@ class GardenPlannerApp(QMainWindow):
 
         self.canvas_scene.set_labels_visible(checked)
         get_settings().show_labels = checked
+
+    def _on_toggle_preview_mode(self, checked: bool) -> None:
+        """Handle toggle preview mode action."""
+        if checked:
+            self._enter_preview_mode()
+        else:
+            self._exit_preview_mode()
+
+    def _enter_preview_mode(self) -> None:
+        """Enter fullscreen preview mode, hiding all UI chrome."""
+        if self._preview_mode:
+            return
+
+        # Save current state so we can restore it
+        self._pre_preview_state = {
+            "grid_visible": self.canvas_view.grid_visible,
+            "scale_bar_visible": self.canvas_view.scale_bar_visible,
+            "labels_visible": self.canvas_scene.labels_enabled,
+            "was_maximized": self.isMaximized(),
+        }
+
+        self._preview_mode = True
+
+        # Deselect all objects (hides selection handles and annotations)
+        self.canvas_scene.clearSelection()
+
+        # Switch to select tool to cancel any in-progress drawing
+        self.canvas_view.set_active_tool(ToolType.SELECT)
+
+        # Hide UI chrome
+        self.menuBar().hide()
+        self.statusBar().hide()
+        self.main_toolbar.hide()
+        self.sidebar.hide()
+
+        # Hide canvas overlays
+        self.canvas_view.set_grid_visible(False)
+        self.canvas_view.set_scale_bar_visible(False)
+        self.canvas_scene.set_labels_visible(False)
+
+        # Go fullscreen
+        self.showFullScreen()
+
+        # Fit the canvas nicely after entering fullscreen
+        QTimer.singleShot(50, self.canvas_view.fit_in_view)
+
+    def _exit_preview_mode(self) -> None:
+        """Exit fullscreen preview mode, restoring all UI chrome."""
+        if not self._preview_mode:
+            return
+
+        self._preview_mode = False
+        self._preview_action.setChecked(False)
+
+        # Restore UI chrome
+        self.menuBar().show()
+        self.statusBar().show()
+        self.main_toolbar.show()
+        self.sidebar.show()
+
+        # Restore canvas overlays from saved state
+        state = self._pre_preview_state or {}
+        self.canvas_view.set_grid_visible(state.get("grid_visible", False))
+        self.grid_action.setChecked(state.get("grid_visible", False))
+        self.canvas_view.set_scale_bar_visible(state.get("scale_bar_visible", True))
+        self._scale_bar_action.setChecked(state.get("scale_bar_visible", True))
+        self.canvas_scene.set_labels_visible(state.get("labels_visible", True))
+        self._labels_action.setChecked(state.get("labels_visible", True))
+
+        # Restore window state
+        if state.get("was_maximized", True):
+            self.showMaximized()
+        else:
+            self.showNormal()
+
+        self._pre_preview_state = None
+
+    def keyPressEvent(self, event) -> None:
+        """Handle key press events for preview mode toggle."""
+        if event.key() == Qt.Key.Key_F11:
+            if self._preview_mode:
+                self._exit_preview_mode()
+            else:
+                self._enter_preview_mode()
+            event.accept()
+            return
+        if self._preview_mode and event.key() == Qt.Key.Key_Escape:
+            self._exit_preview_mode()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def _on_toggle_grid(self, checked: bool) -> None:
         """Handle toggle grid action."""

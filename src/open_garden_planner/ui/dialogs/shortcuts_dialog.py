@@ -67,6 +67,8 @@ class ShortcutsDialog(QDialog):
             ("Ctrl+0", "Fit to Window"),
             ("G", "Toggle Grid"),
             ("S", "Toggle Snap to Grid"),
+            ("F11", "Fullscreen Preview"),
+            ("Escape", "Exit Fullscreen Preview"),
             ("Scroll Wheel", "Zoom"),
             ("Middle Mouse Drag", "Pan"),
         ])
