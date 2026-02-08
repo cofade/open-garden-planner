@@ -1,9 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <g stroke="#1F2937" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" transform="scale(2.6667)">
-    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-    <path d="M3 21l18 0" />
-    <path d="M4 21v-11l2.5 -4.5l5.5 -2.5l5.5 2.5l2.5 4.5v11" fill="#FB923C"/>
-    <path d="M10 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
-    <path d="M9 21v-5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v5" />
-  </g>
+  <!-- Shed body -->
+  <rect x="10" y="28" width="44" height="28" rx="2" fill="#FB923C" fill-opacity="0.3" stroke="#7C2D12" stroke-width="2.5"/>
+  <!-- Roof (sloped) -->
+  <path d="M6 30L32 14L58 30" fill="#F97316" fill-opacity="0.3" stroke="#7C2D12" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Double door -->
+  <rect x="20" y="40" width="10" height="16" rx="1" fill="none" stroke="#7C2D12" stroke-width="1.8"/>
+  <rect x="34" y="40" width="10" height="16" rx="1" fill="none" stroke="#7C2D12" stroke-width="1.8"/>
+  <!-- Door handles -->
+  <circle cx="29" cy="48" r="1.2" fill="#7C2D12"/>
+  <circle cx="35" cy="48" r="1.2" fill="#7C2D12"/>
 </svg>

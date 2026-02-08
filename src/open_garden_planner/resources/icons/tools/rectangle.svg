@@ -1,6 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <g stroke="#1F2937" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" transform="scale(2.6667)">
-    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-    <path d="M3 5a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-14" fill="#06B6D4"/>
-  </g>
+  <!-- Clean rectangle shape -->
+  <rect x="8" y="12" width="48" height="40" rx="3" fill="#06B6D4" fill-opacity="0.25" stroke="#0E7490" stroke-width="2.5"/>
+  <!-- Corner handles -->
+  <circle cx="8" cy="12" r="3" fill="#0E7490"/>
+  <circle cx="56" cy="12" r="3" fill="#0E7490"/>
+  <circle cx="8" cy="52" r="3" fill="#0E7490"/>
+  <circle cx="56" cy="52" r="3" fill="#0E7490"/>
 </svg>

@@ -1,6 +1,10 @@
-"""Main toolbar for drawing tools."""
+"""Main toolbar with core drawing and selection tools (CAD-style)."""
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from pathlib import Path
+
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QIcon, QPainter, QPixmap
+from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (
     QButtonGroup,
     QToolBar,
@@ -10,9 +14,14 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.tools import ToolType
 
+_ICONS_DIR = Path(__file__).parent.parent.parent / "resources" / "icons" / "tools"
+
 
 class MainToolbar(QToolBar):
-    """Toolbar with exclusive tool buttons.
+    """CAD-style top toolbar with core tools: Select, Measure, basic shapes.
+
+    All garden-specific objects (structures, plants, surfaces, etc.) live
+    in the Object Gallery sidebar panel instead.
 
     Signals:
         tool_selected: Emitted when a tool button is clicked (ToolType)
@@ -35,144 +44,42 @@ class MainToolbar(QToolBar):
         self._setup_toolbar()
         self._connect_signals()
 
+    def _load_icon(self, icon_name: str) -> QIcon | None:
+        """Load an SVG icon from the tools icon directory.
+
+        Args:
+            icon_name: SVG filename without extension
+
+        Returns:
+            QIcon if found, None otherwise
+        """
+        svg_path = _ICONS_DIR / f"{icon_name}.svg"
+        if not svg_path.exists():
+            return None
+        renderer = QSvgRenderer(str(svg_path))
+        if not renderer.isValid():
+            return None
+        pixmap = QPixmap(28, 28)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        renderer.render(painter)
+        painter.end()
+        return QIcon(pixmap)
+
     def _setup_toolbar(self) -> None:
         """Create tool buttons."""
         self.setMovable(False)
         self.setOrientation(Qt.Orientation.Horizontal)
+        self.setIconSize(QSize(24, 24))
 
-        # Select tool
+        # --- Selection & Measurement ---
         self._add_tool_button(
-            ToolType.SELECT,
-            "Select",
-            "Select and move objects (V)",
-            "V",
+            ToolType.SELECT, "select", "Select (V)",
+            "Select and move objects", "V",
         )
-
-        self.addSeparator()
-
-        # Generic shapes
         self._add_tool_button(
-            ToolType.RECTANGLE,
-            "Rectangle",
-            "Draw rectangle (R)\nHold Shift for square",
-            "R",
-        )
-
-        self._add_tool_button(
-            ToolType.POLYGON,
-            "Polygon",
-            "Draw polygon (P)\nClick to add vertices, double-click to close",
-            "P",
-        )
-
-        self._add_tool_button(
-            ToolType.CIRCLE,
-            "Circle",
-            "Draw circle (C)\nClick center, then click rim point",
-            "C",
-        )
-
-        self.addSeparator()
-
-        # Property objects - Structures
-        self._add_tool_button(
-            ToolType.HOUSE,
-            "House",
-            "Draw house footprint (H)\nClick to add vertices, double-click to close",
-            "H",
-        )
-
-        self._add_tool_button(
-            ToolType.GARAGE_SHED,
-            "Garage/Shed",
-            "Draw garage/shed footprint\nClick to add vertices, double-click to close",
-            "",
-        )
-
-        self._add_tool_button(
-            ToolType.GREENHOUSE,
-            "Greenhouse",
-            "Draw greenhouse\nClick to add vertices, double-click to close",
-            "",
-        )
-
-        # Property objects - Hardscape
-        self._add_tool_button(
-            ToolType.TERRACE_PATIO,
-            "Terrace",
-            "Draw terrace/patio (T)\nClick to add vertices, double-click to close",
-            "T",
-        )
-
-        self._add_tool_button(
-            ToolType.DRIVEWAY,
-            "Driveway",
-            "Draw driveway (D)\nClick to add vertices, double-click to close",
-            "D",
-        )
-
-        # Property objects - Linear features
-        self._add_tool_button(
-            ToolType.FENCE,
-            "Fence",
-            "Draw fence (F)\nClick to add points, double-click to finish",
-            "F",
-        )
-
-        self._add_tool_button(
-            ToolType.WALL,
-            "Wall",
-            "Draw wall (W)\nClick to add points, double-click to finish",
-            "W",
-        )
-
-        self._add_tool_button(
-            ToolType.PATH,
-            "Path",
-            "Draw path (L)\nClick to add points, double-click to finish",
-            "L",
-        )
-
-        # Property objects - Water features
-        self._add_tool_button(
-            ToolType.POND_POOL,
-            "Pond/Pool",
-            "Draw pond or pool\nClick to add vertices, double-click to close",
-            "",
-        )
-
-        self.addSeparator()
-
-        # Plant objects
-        self._add_tool_button(
-            ToolType.TREE,
-            "Tree",
-            "Add tree (1)\nClick center, then click to set canopy size",
-            "1",
-        )
-
-        self._add_tool_button(
-            ToolType.SHRUB,
-            "Shrub",
-            "Add shrub (2)\nClick center, then click to set canopy size",
-            "2",
-        )
-
-        self._add_tool_button(
-            ToolType.PERENNIAL,
-            "Perennial",
-            "Add perennial (3)\nClick center, then click to set canopy size",
-            "3",
-        )
-
-        self.addSeparator()
-
-        # Measure tool
-        self._add_tool_button(
-            ToolType.MEASURE,
-            "Measure",
-            "Measure distances (M)\nClick two points to measure",
-            "M",
+            ToolType.MEASURE, "measure", "Measure (M)",
+            "Measure distances between two points", "M",
         )
 
         # Select tool is default
@@ -181,27 +88,37 @@ class MainToolbar(QToolBar):
     def _add_tool_button(
         self,
         tool_type: ToolType,
-        text: str,
+        icon_name: str,
+        label: str,
         tooltip: str,
         shortcut: str,
     ) -> None:
-        """Add a tool button to the toolbar.
+        """Add a tool button with icon and tooltip.
 
         Args:
             tool_type: The tool type this button activates
-            text: Button text
-            tooltip: Tooltip text
+            icon_name: SVG icon filename (without .svg)
+            label: Short label for the button
+            tooltip: Detailed tooltip text
             shortcut: Keyboard shortcut letter
         """
         button = QToolButton()
-        button.setText(text)
-        button.setToolTip(tooltip)
         button.setCheckable(True)
-        button.setShortcut(shortcut)
+        button.setToolTip(f"{tooltip} ({shortcut})" if shortcut else tooltip)
 
-        # Style for visibility
-        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
-        button.setMinimumWidth(70)
+        # Load SVG icon
+        icon = self._load_icon(icon_name)
+        if icon:
+            button.setIcon(icon)
+            button.setIconSize(QSize(24, 24))
+            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        else:
+            button.setText(label)
+            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+
+        button.setFixedSize(36, 36)
+        if shortcut:
+            button.setShortcut(shortcut)
 
         self._button_group.addButton(button)
         self._buttons[tool_type] = button
@@ -210,7 +127,6 @@ class MainToolbar(QToolBar):
     def _connect_signals(self) -> None:
         """Connect button signals."""
         for tool_type, button in self._buttons.items():
-            # Capture tool_type in closure
             button.clicked.connect(
                 lambda _checked, tt=tool_type: self._on_button_clicked(tt)
             )

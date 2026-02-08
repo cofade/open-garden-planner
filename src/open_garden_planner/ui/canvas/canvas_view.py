@@ -241,6 +241,9 @@ class CanvasView(QGraphicsView):
         # Viewport update mode for smooth rendering
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
 
+        # Accept drops from gallery panel
+        self.setAcceptDrops(True)
+
     def _apply_transform(self) -> None:
         """Apply the current transform including Y-flip and zoom."""
         transform = QTransform()
@@ -424,6 +427,89 @@ class CanvasView(QGraphicsView):
             round(point.x() / self._grid_size) * self._grid_size,
             round(point.y() / self._grid_size) * self._grid_size,
         )
+
+    # Drag-and-drop from gallery panel
+
+    def dragEnterEvent(self, event) -> None:
+        """Accept drag events from the gallery panel."""
+        if event.mimeData().hasText() and event.mimeData().text().startswith("gallery:"):
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event) -> None:
+        """Accept drag move events from the gallery panel."""
+        if event.mimeData().hasText() and event.mimeData().text().startswith("gallery:"):
+            event.acceptProposedAction()
+        else:
+            super().dragMoveEvent(event)
+
+    def dropEvent(self, event) -> None:
+        """Handle drop from the gallery panel - activate the tool and simulate a click."""
+        text = event.mimeData().text()
+        if not text.startswith("gallery:"):
+            super().dropEvent(event)
+            return
+
+        event.acceptProposedAction()
+
+        # Parse the gallery data: "gallery:TOOL_TYPE:species=xxx:category=YYY"
+        parts = text.split(":")
+        tool_name = parts[1] if len(parts) > 1 else ""
+
+        # Find the matching ToolType
+        try:
+            from open_garden_planner.core.tools import ToolType as TT
+
+            tool_type = TT[tool_name]
+        except (KeyError, ValueError):
+            return
+
+        # Activate the tool
+        self.set_active_tool(tool_type)
+
+        # Map the drop position to scene coordinates
+        scene_pos = self.mapToScene(event.position().toPoint())
+
+        # For plant tools (circle-based), create the item directly at the drop location
+        if tool_type in (TT.TREE, TT.SHRUB, TT.PERENNIAL):
+            from open_garden_planner.ui.canvas.items import CircleItem
+
+            # Determine plant size defaults
+            size_map = {TT.TREE: 200.0, TT.SHRUB: 100.0, TT.PERENNIAL: 60.0}
+            default_diameter = size_map.get(tool_type, 100.0)
+
+            # Map ToolType to ObjectType
+            obj_map = {
+                TT.TREE: ObjectType.TREE,
+                TT.SHRUB: ObjectType.SHRUB,
+                TT.PERENNIAL: ObjectType.PERENNIAL,
+            }
+            obj_type = obj_map.get(tool_type, ObjectType.TREE)
+
+            # Snap to grid if enabled
+            if self._snap_enabled:
+                scene_pos = self._snap_to_grid(scene_pos)
+
+            item = CircleItem(
+                center_x=scene_pos.x(),
+                center_y=scene_pos.y(),
+                radius=default_diameter / 2,
+                object_type=obj_type,
+            )
+            # Assign to active layer
+            active_layer = self._canvas_scene.active_layer
+            if active_layer:
+                item.layer_id = active_layer.id
+
+            # Use the command manager for undo support
+            cmd = CreateItemCommand(self._canvas_scene, item)
+            self._command_manager.execute(cmd)
+
+            # Switch to select tool and select the new item
+            self.set_active_tool(TT.SELECT)
+            self._canvas_scene.clearSelection()
+            item.setSelected(True)
 
     # Event handlers
 

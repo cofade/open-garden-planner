@@ -126,11 +126,11 @@
 
 | ID | User Story | Priority | Status |
 |----|------------|----------|--------|
-| US-6.1 | Rich tileable textures for all materials | Must | :white_check_mark: Done |
-| US-6.2 | Illustrated SVG plant rendering (hybrid approach) | Must | :white_check_mark: Done |
-| US-6.3 | Drop shadows on all objects (toggleable) | Must | :white_check_mark: Done |
-| US-6.4 | Visual scale bar on canvas | Must | :white_check_mark: Done |
-| US-6.5 | Visual thumbnail gallery sidebar | Must | |
+| US-6.1 | Rich tileable textures for all materials | Must | ✅ Done |
+| US-6.2 | Illustrated SVG plant rendering (hybrid approach) | Must | ✅ Done |
+| US-6.3 | Drop shadows on all objects (toggleable) | Must | ✅ Done |
+| US-6.4 | Visual scale bar on canvas | Must | ✅ Done |
+| US-6.5 | Visual thumbnail gallery sidebar | Must | ✅ Done |
 | US-6.6 | Toggleable object labels on canvas | Should | |
 | US-6.7 | Branded green theme (light/dark variants) | Should | |
 | US-6.8 | Outdoor furniture objects | Must | |

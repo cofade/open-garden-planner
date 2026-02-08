@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- Raised bed frame -->
+  <rect x="4" y="24" width="56" height="34" rx="3" fill="#8B6914" fill-opacity="0.2" stroke="#78350F" stroke-width="2.5"/>
+  <!-- Soil fill -->
+  <rect x="8" y="28" width="48" height="26" rx="1" fill="#92400E" fill-opacity="0.2"/>
+  <!-- Small plants growing -->
+  <circle cx="16" cy="32" r="5" fill="#22C55E" fill-opacity="0.5"/>
+  <line x1="16" y1="37" x2="16" y2="46" stroke="#15803D" stroke-width="1.5"/>
+  <circle cx="32" cy="30" r="6" fill="#4ADE80" fill-opacity="0.5"/>
+  <line x1="32" y1="36" x2="32" y2="46" stroke="#15803D" stroke-width="1.5"/>
+  <circle cx="48" cy="32" r="5" fill="#22C55E" fill-opacity="0.5"/>
+  <line x1="48" y1="37" x2="48" y2="46" stroke="#15803D" stroke-width="1.5"/>
+  <!-- Soil line -->
+  <path d="M8 46Q16 44 24 46Q32 48 40 46Q48 44 56 46" stroke="#78350F" stroke-width="1.5" fill="none"/>
+</svg>
