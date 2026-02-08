@@ -317,6 +317,14 @@ class GardenPlannerApp(QMainWindow):
         self._shadows_action.triggered.connect(self._on_toggle_shadows)
         menu.addAction(self._shadows_action)
 
+        # Toggle Scale Bar
+        self._scale_bar_action = QAction("Show Scale &Bar", self)
+        self._scale_bar_action.setCheckable(True)
+        self._scale_bar_action.setChecked(True)  # Updated from settings in _setup_central_widget
+        self._scale_bar_action.setStatusTip("Toggle the scale bar overlay on the canvas")
+        self._scale_bar_action.triggered.connect(self._on_toggle_scale_bar)
+        menu.addAction(self._scale_bar_action)
+
         menu.addSeparator()
 
         # Theme submenu
@@ -472,8 +480,9 @@ class GardenPlannerApp(QMainWindow):
         # Initial selection display
         self.update_selection(0, [])
 
-        # Initialize shadow state from settings
+        # Initialize shadow and scale bar state from settings
         QTimer.singleShot(0, self._init_shadows_from_settings)
+        QTimer.singleShot(0, self._init_scale_bar_from_settings)
 
     def _setup_sidebar(self) -> None:
         """Set up the right sidebar with collapsible panels."""
@@ -1157,6 +1166,21 @@ class GardenPlannerApp(QMainWindow):
 
         self.canvas_scene.set_shadows_enabled(checked)
         get_settings().show_shadows = checked
+
+    def _init_scale_bar_from_settings(self) -> None:
+        """Initialize scale bar state from persisted settings."""
+        from open_garden_planner.app.settings import get_settings
+
+        enabled = get_settings().show_scale_bar
+        self._scale_bar_action.setChecked(enabled)
+        self.canvas_view.set_scale_bar_visible(enabled)
+
+    def _on_toggle_scale_bar(self, checked: bool) -> None:
+        """Handle toggle scale bar action."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_view.set_scale_bar_visible(checked)
+        get_settings().show_scale_bar = checked
 
     def _on_toggle_grid(self, checked: bool) -> None:
         """Handle toggle grid action."""

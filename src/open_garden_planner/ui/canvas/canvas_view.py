@@ -8,9 +8,11 @@ Y increasing upward).
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
     QColor,
+    QFont,
     QKeyEvent,
     QMouseEvent,
     QPainter,
+    QPaintEvent,
     QPen,
     QTransform,
     QWheelEvent,
@@ -71,6 +73,7 @@ class CanvasView(QGraphicsView):
         self._grid_visible = False
         self._snap_enabled = True
         self._grid_size = 50.0  # 50cm default grid
+        self._scale_bar_visible = True
 
         # Pan state
         self._panning = False
@@ -275,6 +278,11 @@ class CanvasView(QGraphicsView):
         return self._grid_size
 
     @property
+    def scale_bar_visible(self) -> bool:
+        """Whether the scale bar is visible."""
+        return self._scale_bar_visible
+
+    @property
     def tool_manager(self) -> ToolManager:
         """The tool manager for this view."""
         return self._tool_manager
@@ -361,6 +369,11 @@ class CanvasView(QGraphicsView):
         self._grid_size = size
         if self._grid_visible:
             self.viewport().update()
+
+    def set_scale_bar_visible(self, visible: bool) -> None:
+        """Set scale bar visibility."""
+        self._scale_bar_visible = visible
+        self.viewport().update()
 
     # Coordinate conversion
 
@@ -785,6 +798,147 @@ class CanvasView(QGraphicsView):
         while y <= bottom:
             painter.drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y))
             y += major_grid
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        """Paint the view, then draw overlays in viewport coordinates."""
+        super().paintEvent(event)
+
+        if self._scale_bar_visible:
+            painter = QPainter(self.viewport())
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            self._draw_scale_bar(painter)
+            painter.end()
+
+    # Scale bar constants
+    _SCALE_BAR_NICE_DISTANCES = [
+        1, 2, 5, 10, 20, 50,
+        100, 200, 500,
+        1000, 2000, 5000, 10000,
+    ]
+    _SCALE_BAR_MARGIN = 12
+    _SCALE_BAR_TICK_H = 5
+    _SCALE_BAR_LINE_WIDTH = 2
+
+    @staticmethod
+    def _format_distance(cm: float) -> str:
+        """Format a distance in cm as a human-readable string.
+
+        Args:
+            cm: Distance in centimeters
+
+        Returns:
+            Formatted string (e.g., "50 cm", "2 m", "1.5 km")
+        """
+        if cm >= 100000:
+            km = cm / 100000
+            return f"{km:g} km"
+        if cm >= 100:
+            m = cm / 100
+            return f"{m:g} m"
+        return f"{cm:g} cm"
+
+    def _pick_scale_bar_distance(self) -> float:
+        """Pick the best round distance for the scale bar at current zoom.
+
+        Returns:
+            Distance in cm that produces a bar of reasonable pixel width.
+        """
+        target_px = 150.0
+        best = self._SCALE_BAR_NICE_DISTANCES[0]
+        best_diff = abs(best * self._zoom_factor - target_px)
+
+        for d in self._SCALE_BAR_NICE_DISTANCES:
+            px = d * self._zoom_factor
+            diff = abs(px - target_px)
+            if diff < best_diff:
+                best = d
+                best_diff = diff
+
+        return float(best)
+
+    def _draw_scale_bar(self, painter: QPainter) -> None:
+        """Draw a Google Maps-style scale bar in the bottom-left corner.
+
+        Minimal design: text label above a horizontal line with end ticks,
+        drawn with a white outline for legibility over any background.
+
+        Args:
+            painter: QPainter targeting the viewport (pixel coordinates)
+        """
+        distance_cm = self._pick_scale_bar_distance()
+        bar_width_px = distance_cm * self._zoom_factor
+        label = self._format_distance(distance_cm)
+
+        margin = self._SCALE_BAR_MARGIN
+        tick_h = self._SCALE_BAR_TICK_H
+        lw = self._SCALE_BAR_LINE_WIDTH
+
+        # Text setup
+        font = QFont()
+        font.setPointSize(8)
+        font.setBold(True)
+        painter.setFont(font)
+        # Position: bottom-right corner
+        vp = self.viewport().rect()
+        bar_x = vp.width() - margin - bar_width_px
+        bar_y = vp.height() - margin
+        text_x = bar_x
+        text_y = bar_y - tick_h - 4  # gap between text baseline and tick top
+
+        # Draw white outline pass (thicker, behind the dark foreground)
+        outline_pen = QPen(QColor(255, 255, 255, 220))
+        outline_pen.setWidth(lw + 3)
+        outline_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(outline_pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        # Outline: horizontal line
+        painter.drawLine(
+            int(bar_x), int(bar_y),
+            int(bar_x + bar_width_px), int(bar_y),
+        )
+        # Outline: left tick
+        painter.drawLine(
+            int(bar_x), int(bar_y),
+            int(bar_x), int(bar_y - tick_h),
+        )
+        # Outline: right tick
+        painter.drawLine(
+            int(bar_x + bar_width_px), int(bar_y),
+            int(bar_x + bar_width_px), int(bar_y - tick_h),
+        )
+
+        # Outline: text
+        outline_pen.setWidth(3)
+        painter.setPen(outline_pen)
+        painter.drawText(int(text_x), int(text_y), label)
+
+        # Draw dark foreground pass
+        fg_color = QColor(40, 40, 40)
+        fg_pen = QPen(fg_color)
+        fg_pen.setWidth(lw)
+        fg_pen.setCapStyle(Qt.PenCapStyle.SquareCap)
+        painter.setPen(fg_pen)
+
+        # Foreground: horizontal line
+        painter.drawLine(
+            int(bar_x), int(bar_y),
+            int(bar_x + bar_width_px), int(bar_y),
+        )
+        # Foreground: left tick
+        painter.drawLine(
+            int(bar_x), int(bar_y),
+            int(bar_x), int(bar_y - tick_h),
+        )
+        # Foreground: right tick
+        painter.drawLine(
+            int(bar_x + bar_width_px), int(bar_y),
+            int(bar_x + bar_width_px), int(bar_y - tick_h),
+        )
+
+        # Foreground: text
+        painter.setPen(fg_color)
+        painter.drawText(int(text_x), int(text_y), label)
 
     def copy_selected(self) -> None:
         """Copy selected items to clipboard."""
