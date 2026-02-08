@@ -1,14 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <g stroke="#1F2937" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" transform="scale(2.6667)">
-    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-    <path d="M19.875 12c.621 0 1.125 .512 1.125 1.143v5.714c0 .631 -.504 1.143 -1.125 1.143h-15.875a1 1 0 0 1 -1 -1v-5.857c0 -.631 .504 -1.143 1.125 -1.143h15.75" fill="#F59E0B"/>
-    <path d="M9 12v2" />
-    <path d="M6 12v3" />
-    <path d="M12 12v3" />
-    <path d="M18 12v3" />
-    <path d="M15 12v2" />
-    <path d="M3 3v4" />
-    <path d="M3 5h18" />
-    <path d="M21 3v4" />
-  </g>
+  <!-- Ruler body -->
+  <rect x="4" y="22" width="56" height="20" rx="3" fill="#F59E0B" fill-opacity="0.25" stroke="#92400E" stroke-width="2.5"/>
+  <!-- Ruler ticks -->
+  <line x1="16" y1="22" x2="16" y2="30" stroke="#92400E" stroke-width="2"/>
+  <line x1="28" y1="22" x2="28" y2="34" stroke="#92400E" stroke-width="2"/>
+  <line x1="40" y1="22" x2="40" y2="30" stroke="#92400E" stroke-width="2"/>
+  <line x1="52" y1="22" x2="52" y2="34" stroke="#92400E" stroke-width="2"/>
+  <!-- Dimension arrows -->
+  <line x1="6" y1="12" x2="58" y2="12" stroke="#D97706" stroke-width="2"/>
+  <path d="M6 8L6 16" stroke="#D97706" stroke-width="2"/>
+  <path d="M58 8L58 16" stroke="#D97706" stroke-width="2"/>
+  <path d="M6 12L12 9M6 12L12 15" stroke="#D97706" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M58 12L52 9M58 12L52 15" stroke="#D97706" stroke-width="2" stroke-linejoin="round"/>
 </svg>

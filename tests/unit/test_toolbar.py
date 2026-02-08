@@ -38,17 +38,14 @@ class TestMainToolbar:
     def test_has_select_button(self, toolbar) -> None:
         """Test toolbar has Select button."""
         assert ToolType.SELECT in toolbar._buttons
-        assert toolbar._buttons[ToolType.SELECT].text() == "Select"
 
-    def test_has_rectangle_button(self, toolbar) -> None:
-        """Test toolbar has Rectangle button."""
-        assert ToolType.RECTANGLE in toolbar._buttons
-        assert toolbar._buttons[ToolType.RECTANGLE].text() == "Rectangle"
+    def test_has_measure_button(self, toolbar) -> None:
+        """Test toolbar has Measure button."""
+        assert ToolType.MEASURE in toolbar._buttons
 
-    def test_has_polygon_button(self, toolbar) -> None:
-        """Test toolbar has Polygon button."""
-        assert ToolType.POLYGON in toolbar._buttons
-        assert toolbar._buttons[ToolType.POLYGON].text() == "Polygon"
+    def test_toolbar_has_two_tools(self, toolbar) -> None:
+        """Test toolbar has exactly two core tools (Select + Measure)."""
+        assert len(toolbar._buttons) == 2
 
     def test_select_is_default(self, toolbar) -> None:
         """Test Select tool is checked by default."""
@@ -61,25 +58,24 @@ class TestMainToolbar:
 
     def test_buttons_are_exclusive(self, toolbar, qtbot) -> None:
         """Test only one button can be checked at a time."""
-        # Click Rectangle button
-        qtbot.mouseClick(toolbar._buttons[ToolType.RECTANGLE], Qt.MouseButton.LeftButton)
+        # Click Measure button
+        qtbot.mouseClick(toolbar._buttons[ToolType.MEASURE], Qt.MouseButton.LeftButton)
 
-        assert toolbar._buttons[ToolType.RECTANGLE].isChecked()
+        assert toolbar._buttons[ToolType.MEASURE].isChecked()
         assert not toolbar._buttons[ToolType.SELECT].isChecked()
-        assert not toolbar._buttons[ToolType.POLYGON].isChecked()
 
     def test_tool_selected_signal(self, toolbar, qtbot) -> None:
         """Test tool_selected signal is emitted when button clicked."""
         with qtbot.waitSignal(toolbar.tool_selected, timeout=1000) as blocker:
-            qtbot.mouseClick(toolbar._buttons[ToolType.RECTANGLE], Qt.MouseButton.LeftButton)
+            qtbot.mouseClick(toolbar._buttons[ToolType.MEASURE], Qt.MouseButton.LeftButton)
 
-        assert blocker.args == [ToolType.RECTANGLE]
+        assert blocker.args == [ToolType.MEASURE]
 
     def test_set_active_tool(self, toolbar) -> None:
         """Test set_active_tool updates button state."""
-        toolbar.set_active_tool(ToolType.POLYGON)
+        toolbar.set_active_tool(ToolType.MEASURE)
 
-        assert toolbar._buttons[ToolType.POLYGON].isChecked()
+        assert toolbar._buttons[ToolType.MEASURE].isChecked()
         assert not toolbar._buttons[ToolType.SELECT].isChecked()
 
     def test_select_button_shortcut(self, toolbar) -> None:
@@ -87,15 +83,10 @@ class TestMainToolbar:
         shortcut = toolbar._buttons[ToolType.SELECT].shortcut()
         assert shortcut.toString() == "V"
 
-    def test_rectangle_button_shortcut(self, toolbar) -> None:
-        """Test Rectangle button has R shortcut."""
-        shortcut = toolbar._buttons[ToolType.RECTANGLE].shortcut()
-        assert shortcut.toString() == "R"
-
-    def test_polygon_button_shortcut(self, toolbar) -> None:
-        """Test Polygon button has P shortcut."""
-        shortcut = toolbar._buttons[ToolType.POLYGON].shortcut()
-        assert shortcut.toString() == "P"
+    def test_measure_button_shortcut(self, toolbar) -> None:
+        """Test Measure button has M shortcut."""
+        shortcut = toolbar._buttons[ToolType.MEASURE].shortcut()
+        assert shortcut.toString() == "M"
 
     def test_button_tooltips(self, toolbar) -> None:
         """Test buttons have tooltips."""

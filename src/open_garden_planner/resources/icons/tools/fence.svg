@@ -1,8 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <g stroke="#1F2937" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" transform="scale(2.6667)">
-    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-    <path d="M4 12v4h16v-4l-16 0" fill="#F59E0B"/>
-    <path d="M6 16v4h4v-4m0 -4v-6l-2 -2l-2 2v6" />
-    <path d="M14 16v4h4v-4m0 -4v-6l-2 -2l-2 2v6" />
-  </g>
+  <!-- Fence posts -->
+  <rect x="6" y="12" width="6" height="44" rx="1.5" fill="#D4A574" fill-opacity="0.5" stroke="#78350F" stroke-width="2"/>
+  <rect x="22" y="12" width="6" height="44" rx="1.5" fill="#D4A574" fill-opacity="0.5" stroke="#78350F" stroke-width="2"/>
+  <rect x="38" y="12" width="6" height="44" rx="1.5" fill="#D4A574" fill-opacity="0.5" stroke="#78350F" stroke-width="2"/>
+  <rect x="54" y="12" width="6" height="44" rx="1.5" fill="#D4A574" fill-opacity="0.5" stroke="#78350F" stroke-width="2"/>
+  <!-- Post tops (pointed) -->
+  <path d="M6 14L9 6L12 14" fill="#D4A574" fill-opacity="0.5" stroke="#78350F" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M22 14L25 6L28 14" fill="#D4A574" fill-opacity="0.5" stroke="#78350F" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M38 14L41 6L44 14" fill="#D4A574" fill-opacity="0.5" stroke="#78350F" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M54 14L57 6L60 14" fill="#D4A574" fill-opacity="0.5" stroke="#78350F" stroke-width="1.8" stroke-linejoin="round"/>
+  <!-- Horizontal rails -->
+  <line x1="4" y1="26" x2="62" y2="26" stroke="#78350F" stroke-width="2.5"/>
+  <line x1="4" y1="42" x2="62" y2="42" stroke="#78350F" stroke-width="2.5"/>
 </svg>

@@ -29,14 +29,14 @@ from open_garden_planner.services.export_service import ExportService
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.panels import (
-    DrawingToolsPanel,
+    GalleryPanel,
     LayersPanel,
     PlantDatabasePanel,
     PlantSearchPanel,
     PropertiesPanel,
 )
 from open_garden_planner.ui.theme import ThemeMode, apply_theme
-from open_garden_planner.ui.widgets import CollapsiblePanel
+from open_garden_planner.ui.widgets import CollapsiblePanel, MainToolbar
 
 logger = logging.getLogger(__name__)
 
@@ -427,6 +427,10 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_scene = CanvasScene(width_cm=5000, height_cm=3000)
         self.canvas_view = CanvasView(self.canvas_scene)
 
+        # Add CAD-style top toolbar
+        self.main_toolbar = MainToolbar(self)
+        self.addToolBar(self.main_toolbar)
+
         # Create sidebar panels
         self._setup_sidebar()
 
@@ -448,9 +452,12 @@ class GardenPlannerApp(QMainWindow):
         self.grid_action.triggered.connect(self._on_toggle_grid)
         self.snap_action.triggered.connect(self._on_toggle_snap)
 
-        # Connect tool panel to canvas view
-        self.drawing_tools_panel.tool_selected.connect(self._on_tool_selected)
+        # Connect toolbar and gallery to canvas view
+        self.main_toolbar.tool_selected.connect(self._on_tool_selected)
+        self.gallery_panel.tool_selected.connect(self._on_tool_selected)
+        self.gallery_panel.item_selected.connect(self._on_gallery_item_selected)
         self.canvas_view.tool_changed.connect(self.update_tool)
+        self.canvas_view.tool_changed.connect(self._sync_toolbar_state)
 
         # Connect scene selection changes to status bar and panels
         self.canvas_scene.selectionChanged.connect(self._on_selection_changed)
@@ -492,10 +499,10 @@ class GardenPlannerApp(QMainWindow):
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(4)
 
-        # 1. Drawing Tools Panel (collapsible)
-        self.drawing_tools_panel = DrawingToolsPanel()
-        tools_panel = CollapsiblePanel("Drawing Tools", self.drawing_tools_panel, expanded=True)
-        sidebar_layout.addWidget(tools_panel)
+        # 1. Object Gallery Panel (collapsible) - visual thumbnail gallery
+        self.gallery_panel = GalleryPanel()
+        gallery_collapsible = CollapsiblePanel("Object Gallery", self.gallery_panel, expanded=True)
+        sidebar_layout.addWidget(gallery_collapsible)
 
         # 2. Properties Panel (collapsible)
         self.properties_panel = PropertiesPanel(
@@ -1244,6 +1251,29 @@ class GardenPlannerApp(QMainWindow):
             tool_type: The selected tool type
         """
         self.canvas_view.set_active_tool(tool_type)
+
+    def _on_gallery_item_selected(self, item: object) -> None:
+        """Handle gallery item selection - also update toolbar to match.
+
+        Args:
+            item: The GalleryItem that was selected
+        """
+        if hasattr(item, "tool_type"):
+            self.main_toolbar.set_active_tool(item.tool_type)
+
+    def _sync_toolbar_state(self, tool_name: str) -> None:
+        """Sync the toolbar button state when tool changes from other sources.
+
+        Args:
+            tool_name: Display name of the current tool
+        """
+        name_map = {
+            "Select": ToolType.SELECT,
+            "Measure": ToolType.MEASURE,
+        }
+        tool_type = name_map.get(tool_name)
+        if tool_type:
+            self.main_toolbar.set_active_tool(tool_type)
 
     def _on_active_layer_changed(self, layer_id) -> None:
         """Handle active layer change from layers panel.
