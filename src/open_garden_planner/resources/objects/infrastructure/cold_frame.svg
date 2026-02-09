@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60">
+  <!-- Cold Frame - top-down view with glass lid -->
+  <!-- Shadow -->
+  <rect x="4" y="4" width="116" height="56" rx="2" fill="#00000020"/>
+  <!-- Wood base frame -->
+  <rect x="2" y="2" width="116" height="56" rx="2" fill="#A08040" stroke="#705828" stroke-width="2"/>
+  <!-- Glass panel (transparent blue tint) -->
+  <rect x="6" y="6" width="108" height="48" rx="1" fill="#C8DDF0" fill-opacity="0.6" stroke="#90A0B0" stroke-width="1"/>
+  <!-- Glass frame dividers -->
+  <line x1="60" y1="6" x2="60" y2="54" stroke="#90A0B0" stroke-width="1.5"/>
+  <line x1="6" y1="30" x2="114" y2="30" stroke="#90A0B0" stroke-width="1.5"/>
+  <!-- Glass reflection highlights -->
+  <line x1="15" y1="12" x2="45" y2="12" stroke="#FFFFFF" stroke-width="1" opacity="0.4"/>
+  <line x1="70" y1="14" x2="100" y2="14" stroke="#FFFFFF" stroke-width="1" opacity="0.3"/>
+  <line x1="15" y1="36" x2="50" y2="36" stroke="#FFFFFF" stroke-width="1" opacity="0.35"/>
+  <line x1="68" y1="38" x2="95" y2="38" stroke="#FFFFFF" stroke-width="1" opacity="0.3"/>
+  <!-- Small plants visible through glass -->
+  <circle cx="30" cy="20" r="4" fill="#4A8030" opacity="0.3"/>
+  <circle cx="90" cy="22" r="3.5" fill="#4A8030" opacity="0.25"/>
+  <circle cx="35" cy="44" r="3" fill="#4A8030" opacity="0.3"/>
+  <circle cx="85" cy="42" r="4" fill="#4A8030" opacity="0.25"/>
+  <!-- Hinge at back -->
+  <rect x="50" y="2" width="8" height="3" rx="1" fill="#888" stroke="#666" stroke-width="0.5"/>
+  <rect x="20" y="2" width="8" height="3" rx="1" fill="#888" stroke="#666" stroke-width="0.5"/>
+  <rect x="90" y="2" width="8" height="3" rx="1" fill="#888" stroke="#666" stroke-width="0.5"/>
+</svg>

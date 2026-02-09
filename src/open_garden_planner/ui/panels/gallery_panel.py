@@ -27,7 +27,12 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.fill_patterns import _TEXTURES_DIR, FillPattern
-from open_garden_planner.core.furniture_renderer import _FURNITURE_DIR, _FURNITURE_FILES
+from open_garden_planner.core.furniture_renderer import (
+    _FURNITURE_DIR,
+    _FURNITURE_FILES,
+    _INFRASTRUCTURE_DIR,
+    _INFRASTRUCTURE_FILES,
+)
 from open_garden_planner.core.object_types import OBJECT_STYLES, ObjectType
 from open_garden_planner.core.plant_renderer import (
     _CATEGORIES_DIR,
@@ -432,6 +437,28 @@ def _build_gallery_categories() -> list[GalleryCategory]:
             GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb)
         )
     categories.append(GalleryCategory("Gardening", gardening_items))
+
+    # --- Garden Infrastructure ---
+    infra_items: list[GalleryItem] = []
+    infra_objects = [
+        ("Raised Bed", ToolType.RAISED_BED, ObjectType.RAISED_BED),
+        ("Compost Bin", ToolType.COMPOST_BIN, ObjectType.COMPOST_BIN),
+        ("Cold Frame", ToolType.COLD_FRAME, ObjectType.COLD_FRAME),
+        ("Rain Barrel", ToolType.RAIN_BARREL, ObjectType.RAIN_BARREL),
+        ("Water Tap", ToolType.WATER_TAP, ObjectType.WATER_TAP),
+        ("Tool Shed", ToolType.TOOL_SHED, ObjectType.TOOL_SHED),
+    ]
+    for name, tool, obj in infra_objects:
+        svg_filename = _INFRASTRUCTURE_FILES.get(obj, "")
+        svg_path = _INFRASTRUCTURE_DIR / f"{svg_filename}.svg"
+        thumb = _render_svg_thumbnail(svg_path)
+        if thumb is None:
+            style = OBJECT_STYLES[obj]
+            thumb = _render_color_circle_thumbnail(style.fill_color)
+        infra_items.append(
+            GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb)
+        )
+    categories.append(GalleryCategory("Garden Infrastructure", infra_items))
 
     # --- Paths & Surfaces ---
     surface_items: list[GalleryItem] = []

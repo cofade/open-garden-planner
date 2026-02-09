@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150">
+  <!-- Tool Shed - top-down view -->
+  <!-- Shadow -->
+  <rect x="6" y="6" width="194" height="144" rx="3" fill="#00000020"/>
+  <!-- Roof (slightly larger than walls, visible from above) -->
+  <rect x="2" y="2" width="194" height="144" rx="3" fill="#8B7355" stroke="#6B5535" stroke-width="2.5"/>
+  <!-- Roof ridge line -->
+  <line x1="100" y1="5" x2="100" y2="143" stroke="#7A6348" stroke-width="2"/>
+  <!-- Roof shingle/panel lines (left side) -->
+  <line x1="10" y1="25" x2="98" y2="25" stroke="#7E644A" stroke-width="0.8" opacity="0.4"/>
+  <line x1="10" y1="50" x2="98" y2="50" stroke="#7E644A" stroke-width="0.8" opacity="0.4"/>
+  <line x1="10" y1="75" x2="98" y2="75" stroke="#7E644A" stroke-width="0.8" opacity="0.4"/>
+  <line x1="10" y1="100" x2="98" y2="100" stroke="#7E644A" stroke-width="0.8" opacity="0.4"/>
+  <line x1="10" y1="125" x2="98" y2="125" stroke="#7E644A" stroke-width="0.8" opacity="0.4"/>
+  <!-- Roof shingle/panel lines (right side) -->
+  <line x1="102" y1="25" x2="190" y2="25" stroke="#7E644A" stroke-width="0.8" opacity="0.4"/>
+  <line x1="102" y1="50" x2="190" y2="50" stroke="#7E644A" stroke-width="0.8" opacity="0.4"/>
+  <line x1="102" y1="75" x2="190" y2="75" stroke="#7E644A" stroke-width="0.8" opacity="0.4"/>
+  <line x1="102" y1="100" x2="190" y2="100" stroke="#7E644A" stroke-width="0.8" opacity="0.4"/>
+  <line x1="102" y1="125" x2="190" y2="125" stroke="#7E644A" stroke-width="0.8" opacity="0.4"/>
+  <!-- Door visible on one side (front wall) -->
+  <rect x="80" y="138" width="40" height="8" rx="1" fill="#6B5535" stroke="#4A3A22" stroke-width="1"/>
+  <!-- Door handle -->
+  <circle cx="112" cy="142" r="2" fill="#AAA" stroke="#888" stroke-width="0.5"/>
+  <!-- Window (visible as small rectangle on roof side) -->
+  <rect x="30" y="60" width="20" height="15" rx="1" fill="#A0C0D8" fill-opacity="0.5" stroke="#808A94" stroke-width="0.8"/>
+  <line x1="40" y1="60" x2="40" y2="75" stroke="#808A94" stroke-width="0.5"/>
+  <line x1="30" y1="67" x2="50" y2="67" stroke="#808A94" stroke-width="0.5"/>
+</svg>

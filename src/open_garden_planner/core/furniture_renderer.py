@@ -14,6 +14,7 @@ from .object_types import ObjectType
 
 # Directories containing SVG files
 _FURNITURE_DIR = Path(__file__).parent.parent / "resources" / "objects" / "furniture"
+_INFRASTRUCTURE_DIR = Path(__file__).parent.parent / "resources" / "objects" / "infrastructure"
 _PLANTS_CATEGORIES_DIR = Path(__file__).parent.parent / "resources" / "plants" / "categories"
 
 # Map ObjectType to (directory, filename_without_extension)
@@ -29,14 +30,36 @@ _FURNITURE_FILES: dict[ObjectType, str] = {
     ObjectType.PLANTER_POT: "planter_pot",
 }
 
+# Map ObjectType to SVG filename for infrastructure objects
+_INFRASTRUCTURE_FILES: dict[ObjectType, str] = {
+    ObjectType.RAISED_BED: "raised_bed",
+    ObjectType.COMPOST_BIN: "compost_bin",
+    ObjectType.COLD_FRAME: "cold_frame",
+    ObjectType.RAIN_BARREL: "rain_barrel",
+    ObjectType.WATER_TAP: "water_tap",
+    ObjectType.TOOL_SHED: "tool_shed",
+}
+
 # SVG types whose files live outside _FURNITURE_DIR
 _SVG_DIR_OVERRIDES: dict[ObjectType, Path] = {
     ObjectType.HEDGE_SECTION: _PLANTS_CATEGORIES_DIR,
+    ObjectType.RAISED_BED: _INFRASTRUCTURE_DIR,
+    ObjectType.COMPOST_BIN: _INFRASTRUCTURE_DIR,
+    ObjectType.COLD_FRAME: _INFRASTRUCTURE_DIR,
+    ObjectType.RAIN_BARREL: _INFRASTRUCTURE_DIR,
+    ObjectType.WATER_TAP: _INFRASTRUCTURE_DIR,
+    ObjectType.TOOL_SHED: _INFRASTRUCTURE_DIR,
 }
 
 # Map ObjectType to SVG filename for non-furniture SVG-rendered objects
 _OBJECT_SVG_FILES: dict[ObjectType, str] = {
     ObjectType.HEDGE_SECTION: "hedge_section",
+    ObjectType.RAISED_BED: "raised_bed",
+    ObjectType.COMPOST_BIN: "compost_bin",
+    ObjectType.COLD_FRAME: "cold_frame",
+    ObjectType.RAIN_BARREL: "rain_barrel",
+    ObjectType.WATER_TAP: "water_tap",
+    ObjectType.TOOL_SHED: "tool_shed",
 }
 
 # Default dimensions in cm (width, height) for each furniture type
@@ -50,6 +73,13 @@ FURNITURE_DEFAULT_DIMENSIONS: dict[ObjectType, tuple[float, float]] = {
     ObjectType.BBQ_GRILL: (80.0, 60.0),
     ObjectType.FIRE_PIT: (100.0, 100.0),
     ObjectType.PLANTER_POT: (50.0, 50.0),
+    # Infrastructure
+    ObjectType.RAISED_BED: (120.0, 80.0),
+    ObjectType.COMPOST_BIN: (100.0, 100.0),
+    ObjectType.COLD_FRAME: (120.0, 60.0),
+    ObjectType.RAIN_BARREL: (60.0, 60.0),
+    ObjectType.WATER_TAP: (20.0, 20.0),
+    ObjectType.TOOL_SHED: (200.0, 150.0),
 }
 
 # Cache for QSvgRenderer instances (path -> renderer)

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30">
+  <!-- Water Tap / Spigot - top-down view (small fixture) -->
+  <!-- Shadow -->
+  <ellipse cx="17" cy="17" rx="12" ry="12" fill="#00000018"/>
+  <!-- Base plate (circular mounting plate) -->
+  <circle cx="15" cy="15" r="12" fill="#A0AAB4" stroke="#707A84" stroke-width="1.5"/>
+  <!-- Inner mounting ring -->
+  <circle cx="15" cy="15" r="8" fill="#B0BAC4" stroke="#808A94" stroke-width="1"/>
+  <!-- Pipe center -->
+  <circle cx="15" cy="15" r="4" fill="#808A94" stroke="#606A74" stroke-width="1"/>
+  <circle cx="15" cy="15" r="2" fill="#606A74"/>
+  <!-- Handle (cross-shaped valve) -->
+  <rect x="13" y="4" width="4" height="22" rx="1.5" fill="#6080A0" stroke="#405060" stroke-width="0.8"/>
+  <rect x="4" y="13" width="22" height="4" rx="1.5" fill="#6080A0" stroke="#405060" stroke-width="0.8"/>
+  <!-- Center bolt -->
+  <circle cx="15" cy="15" r="2.5" fill="#505A64" stroke="#404A54" stroke-width="0.5"/>
+  <!-- Water droplet hint -->
+  <circle cx="22" cy="22" r="1.5" fill="#4A90D0" opacity="0.5"/>
+</svg>

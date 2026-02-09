@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60">
+  <!-- Rain Barrel - top-down view (circular) -->
+  <!-- Shadow -->
+  <ellipse cx="33" cy="33" rx="26" ry="26" fill="#00000020"/>
+  <!-- Barrel body (outer) -->
+  <circle cx="30" cy="30" r="26" fill="#3A6A3A" stroke="#2A4A2A" stroke-width="2"/>
+  <!-- Barrel rim -->
+  <circle cx="30" cy="30" r="23" fill="none" stroke="#2E5530" stroke-width="1.5"/>
+  <!-- Barrel lid -->
+  <circle cx="30" cy="30" r="21" fill="#3D7040" stroke="#2E5530" stroke-width="0.8"/>
+  <!-- Lid handle (centered bar) -->
+  <rect x="22" y="28" width="16" height="4" rx="2" fill="#555" stroke="#444" stroke-width="0.8"/>
+  <!-- Barrel top texture - concentric circles -->
+  <circle cx="30" cy="30" r="16" fill="none" stroke="#357035" stroke-width="0.5" opacity="0.5"/>
+  <circle cx="30" cy="30" r="10" fill="none" stroke="#357035" stroke-width="0.5" opacity="0.4"/>
+  <!-- Water inlet hole -->
+  <circle cx="42" cy="15" r="3" fill="#2A5A30" stroke="#1E4020" stroke-width="0.8"/>
+  <!-- Small rivet/bolt details -->
+  <circle cx="12" cy="18" r="1" fill="#2E5530"/>
+  <circle cx="48" cy="42" r="1" fill="#2E5530"/>
+  <circle cx="18" cy="46" r="1" fill="#2E5530"/>
+  <circle cx="42" cy="18" r="1" fill="#2E5530"/>
+</svg>

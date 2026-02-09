@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80">
+  <!-- Raised Bed - top-down view with wood frame and soil fill -->
+  <!-- Shadow -->
+  <rect x="5" y="5" width="115" height="75" rx="3" fill="#00000020"/>
+  <!-- Outer wood frame -->
+  <rect x="2" y="2" width="115" height="75" rx="3" fill="#8B6914" stroke="#5C4410" stroke-width="2"/>
+  <!-- Inner wood frame edge -->
+  <rect x="6" y="6" width="107" height="67" rx="2" fill="#A07828" stroke="#7A5A1E" stroke-width="1"/>
+  <!-- Soil interior -->
+  <rect x="10" y="10" width="99" height="59" rx="1" fill="#6B4226"/>
+  <!-- Soil texture - small dots and marks -->
+  <circle cx="20" cy="20" r="1.5" fill="#5A3520" opacity="0.6"/>
+  <circle cx="45" cy="15" r="1" fill="#7D5030" opacity="0.5"/>
+  <circle cx="70" cy="25" r="1.5" fill="#5A3520" opacity="0.6"/>
+  <circle cx="95" cy="18" r="1" fill="#7D5030" opacity="0.5"/>
+  <circle cx="30" cy="40" r="1.5" fill="#5A3520" opacity="0.6"/>
+  <circle cx="55" cy="45" r="1" fill="#7D5030" opacity="0.5"/>
+  <circle cx="80" cy="38" r="1.5" fill="#5A3520" opacity="0.6"/>
+  <circle cx="25" cy="58" r="1" fill="#7D5030" opacity="0.5"/>
+  <circle cx="60" cy="55" r="1.5" fill="#5A3520" opacity="0.6"/>
+  <circle cx="90" cy="52" r="1" fill="#7D5030" opacity="0.5"/>
+  <!-- Small plant seedling hints -->
+  <circle cx="35" cy="30" r="3" fill="#4A8030" opacity="0.4"/>
+  <circle cx="65" cy="35" r="2.5" fill="#4A8030" opacity="0.35"/>
+  <circle cx="85" cy="50" r="3" fill="#4A8030" opacity="0.4"/>
+  <!-- Wood grain lines on frame -->
+  <line x1="3" y1="15" x2="8" y2="15" stroke="#6E5010" stroke-width="0.5" opacity="0.4"/>
+  <line x1="3" y1="55" x2="8" y2="55" stroke="#6E5010" stroke-width="0.5" opacity="0.4"/>
+  <line x1="110" y1="25" x2="115" y2="25" stroke="#6E5010" stroke-width="0.5" opacity="0.4"/>
+  <line x1="110" y1="60" x2="115" y2="60" stroke="#6E5010" stroke-width="0.5" opacity="0.4"/>
+</svg>
