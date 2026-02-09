@@ -1,6 +1,7 @@
 """Core business logic and document management."""
 
 from open_garden_planner.core.commands import (
+    AlignItemsCommand,
     Command,
     CommandManager,
     CreateItemCommand,
@@ -19,6 +20,7 @@ from open_garden_planner.core.project import (
 )
 
 __all__ = [
+    "AlignItemsCommand",
     "Command",
     "CommandManager",
     "CreateItemCommand",

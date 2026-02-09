@@ -190,7 +190,7 @@ tests/
 | ✅ | 6.7  | Branded green theme (light/dark)                  |
 | ✅ | 6.8  | Outdoor furniture objects                         |
 | ✅ | 6.9  | Garden infrastructure objects                     |
-|        | 6.10 | Object snapping & alignment tools                 |
+| ✅ | 6.10 | Object snapping & alignment tools                 |
 | ✅ | 6.11 | Fullscreen preview mode (F11)                     |
 |        | 6.12 | Internationalization (EN + DE, Qt Linguist)       |
 |        | 6.13 | Print support with scaling                        |

@@ -478,6 +478,43 @@ class AddVertexCommand(Command):
         self._apply_remove_func(self._item, self._vertex_index)
 
 
+class AlignItemsCommand(Command):
+    """Command for aligning/distributing items with per-item deltas.
+
+    Unlike MoveItemsCommand (uniform delta), each item can move a different amount.
+    Used by alignment and distribution operations.
+    """
+
+    def __init__(
+        self,
+        item_deltas: list[tuple[QGraphicsItem, QPointF]],
+        description_text: str = "Align items",
+    ) -> None:
+        """Initialize the alignment command.
+
+        Args:
+            item_deltas: List of (item, delta) tuples.
+            description_text: Human-readable description for undo menu.
+        """
+        self._item_deltas = list(item_deltas)
+        self._description_text = description_text
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return self._description_text
+
+    def execute(self) -> None:
+        """Move each item by its individual delta."""
+        for item, delta in self._item_deltas:
+            item.moveBy(delta.x(), delta.y())
+
+    def undo(self) -> None:
+        """Move each item back by its individual delta."""
+        for item, delta in self._item_deltas:
+            item.moveBy(-delta.x(), -delta.y())
+
+
 class DeleteVertexCommand(Command):
     """Command for deleting a vertex from a polygon."""
 

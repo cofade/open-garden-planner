@@ -243,6 +243,53 @@ class GardenPlannerApp(QMainWindow):
 
         menu.addSeparator()
 
+        # Align submenu
+        align_menu = menu.addMenu("Ali&gn && Distribute")
+
+        align_left = QAction("Align &Left", self)
+        align_left.setStatusTip("Align selected objects to the left edge")
+        align_left.triggered.connect(self._on_align_left)
+        align_menu.addAction(align_left)
+
+        align_right = QAction("Align &Right", self)
+        align_right.setStatusTip("Align selected objects to the right edge")
+        align_right.triggered.connect(self._on_align_right)
+        align_menu.addAction(align_right)
+
+        align_top = QAction("Align &Top", self)
+        align_top.setStatusTip("Align selected objects to the top edge")
+        align_top.triggered.connect(self._on_align_top)
+        align_menu.addAction(align_top)
+
+        align_bottom = QAction("Align &Bottom", self)
+        align_bottom.setStatusTip("Align selected objects to the bottom edge")
+        align_bottom.triggered.connect(self._on_align_bottom)
+        align_menu.addAction(align_bottom)
+
+        align_center_h = QAction("Align Center &Horizontally", self)
+        align_center_h.setStatusTip("Align selected objects to horizontal center")
+        align_center_h.triggered.connect(self._on_align_center_h)
+        align_menu.addAction(align_center_h)
+
+        align_center_v = QAction("Align Center &Vertically", self)
+        align_center_v.setStatusTip("Align selected objects to vertical center")
+        align_center_v.triggered.connect(self._on_align_center_v)
+        align_menu.addAction(align_center_v)
+
+        align_menu.addSeparator()
+
+        dist_h = QAction("Distribute &Horizontal", self)
+        dist_h.setStatusTip("Distribute selected objects with equal horizontal spacing")
+        dist_h.triggered.connect(self._on_distribute_horizontal)
+        align_menu.addAction(dist_h)
+
+        dist_v = QAction("Distribute &Vertical", self)
+        dist_v.setStatusTip("Distribute selected objects with equal vertical spacing")
+        dist_v.triggered.connect(self._on_distribute_vertical)
+        align_menu.addAction(dist_v)
+
+        menu.addSeparator()
+
         # Auto-Save submenu
         autosave_menu = menu.addMenu("Auto-&Save")
 
@@ -310,6 +357,15 @@ class GardenPlannerApp(QMainWindow):
         self.snap_action.setChecked(True)
         self.snap_action.setStatusTip("Toggle snap to grid")
         menu.addAction(self.snap_action)
+
+        # Toggle Object Snap
+        self._object_snap_action = QAction("Snap to &Objects", self)
+        self._object_snap_action.setShortcut(QKeySequence("O"))
+        self._object_snap_action.setCheckable(True)
+        self._object_snap_action.setChecked(True)
+        self._object_snap_action.setStatusTip("Toggle snap to object edges and centers")
+        self._object_snap_action.triggered.connect(self._on_toggle_object_snap)
+        menu.addAction(self._object_snap_action)
 
         menu.addSeparator()
 
@@ -510,10 +566,11 @@ class GardenPlannerApp(QMainWindow):
         # Initial selection display
         self.update_selection(0, [])
 
-        # Initialize shadow, scale bar, and labels state from settings
+        # Initialize shadow, scale bar, labels, and object snap state from settings
         QTimer.singleShot(0, self._init_shadows_from_settings)
         QTimer.singleShot(0, self._init_scale_bar_from_settings)
         QTimer.singleShot(0, self._init_labels_from_settings)
+        QTimer.singleShot(0, self._init_object_snap_from_settings)
 
     def _setup_sidebar(self) -> None:
         """Set up the right sidebar with collapsible panels."""
@@ -1229,6 +1286,14 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_scene.set_labels_visible(checked)
         get_settings().show_labels = checked
 
+    def _init_object_snap_from_settings(self) -> None:
+        """Initialize object snap state from persisted settings."""
+        from open_garden_planner.app.settings import get_settings
+
+        enabled = get_settings().object_snap_enabled
+        self._object_snap_action.setChecked(enabled)
+        self.canvas_view.set_object_snap_enabled(enabled)
+
     def _on_toggle_preview_mode(self, checked: bool) -> None:
         """Handle toggle preview mode action."""
         if checked:
@@ -1327,6 +1392,53 @@ class GardenPlannerApp(QMainWindow):
     def _on_toggle_snap(self, checked: bool) -> None:
         """Handle toggle snap action."""
         self.canvas_view.set_snap_enabled(checked)
+
+    def _on_toggle_object_snap(self, checked: bool) -> None:
+        """Handle toggle object snap action."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_view.set_object_snap_enabled(checked)
+        get_settings().object_snap_enabled = checked
+
+    def _on_align_left(self) -> None:
+        """Align selected objects to the left edge."""
+        from open_garden_planner.core.alignment import AlignMode
+        self.canvas_view.align_selected(AlignMode.LEFT)
+
+    def _on_align_right(self) -> None:
+        """Align selected objects to the right edge."""
+        from open_garden_planner.core.alignment import AlignMode
+        self.canvas_view.align_selected(AlignMode.RIGHT)
+
+    def _on_align_top(self) -> None:
+        """Align selected objects to the top edge."""
+        from open_garden_planner.core.alignment import AlignMode
+        self.canvas_view.align_selected(AlignMode.TOP)
+
+    def _on_align_bottom(self) -> None:
+        """Align selected objects to the bottom edge."""
+        from open_garden_planner.core.alignment import AlignMode
+        self.canvas_view.align_selected(AlignMode.BOTTOM)
+
+    def _on_align_center_h(self) -> None:
+        """Align selected objects to horizontal center."""
+        from open_garden_planner.core.alignment import AlignMode
+        self.canvas_view.align_selected(AlignMode.CENTER_H)
+
+    def _on_align_center_v(self) -> None:
+        """Align selected objects to vertical center."""
+        from open_garden_planner.core.alignment import AlignMode
+        self.canvas_view.align_selected(AlignMode.CENTER_V)
+
+    def _on_distribute_horizontal(self) -> None:
+        """Distribute selected objects with equal horizontal spacing."""
+        from open_garden_planner.core.alignment import DistributeMode
+        self.canvas_view.distribute_selected(DistributeMode.HORIZONTAL)
+
+    def _on_distribute_vertical(self) -> None:
+        """Distribute selected objects with equal vertical spacing."""
+        from open_garden_planner.core.alignment import DistributeMode
+        self.canvas_view.distribute_selected(DistributeMode.VERTICAL)
 
     def _on_zoom_in(self) -> None:
         """Handle zoom in action."""

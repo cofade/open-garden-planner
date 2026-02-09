@@ -20,12 +20,20 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsView, QLineEdit
 
 from open_garden_planner.core import (
+    AlignItemsCommand,
     CommandManager,
     CreateItemCommand,
     DeleteItemsCommand,
     MoveItemsCommand,
 )
+from open_garden_planner.core.alignment import (
+    AlignMode,
+    DistributeMode,
+    align_items,
+    distribute_items,
+)
 from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
     CircleTool,
     MeasureTool,
@@ -72,8 +80,14 @@ class CanvasView(QGraphicsView):
         self._zoom_factor = 1.0
         self._grid_visible = False
         self._snap_enabled = True
+        self._object_snap_enabled = True
         self._grid_size = 50.0  # 50cm default grid
         self._scale_bar_visible = True
+
+        # Object snapping engine and visual guides
+        self._object_snapper = ObjectSnapper(threshold=10.0)
+        self._snap_guides: list[SnapGuide] = []
+        self._snap_guide_color = QColor(255, 0, 128, 180)  # Magenta
 
         # Pan state
         self._panning = False
@@ -371,6 +385,11 @@ class CanvasView(QGraphicsView):
         return self._snap_enabled
 
     @property
+    def object_snap_enabled(self) -> bool:
+        """Whether snap to objects is enabled."""
+        return self._object_snap_enabled
+
+    @property
     def grid_size(self) -> float:
         """Current grid size in centimeters."""
         return self._grid_size
@@ -467,6 +486,10 @@ class CanvasView(QGraphicsView):
         """Set snap to grid enabled."""
         self._snap_enabled = enabled
 
+    def set_object_snap_enabled(self, enabled: bool) -> None:
+        """Set snap to objects enabled."""
+        self._object_snap_enabled = enabled
+
     def set_grid_size(self, size: float) -> None:
         """Set grid size in centimeters."""
         self._grid_size = size
@@ -524,6 +547,80 @@ class CanvasView(QGraphicsView):
         x = max(canvas_rect.left(), min(point.x(), canvas_rect.right()))
         y = max(canvas_rect.top(), min(point.y(), canvas_rect.bottom()))
         return QPointF(x, y)
+
+    def _clamp_items_to_canvas(self, items: list[QGraphicsItem]) -> None:
+        """Push items back so their combined bounding rect stays inside the canvas.
+
+        Computes how far the selection overflows each edge and shifts all items
+        together by the smallest correction needed.
+
+        Args:
+            items: The items to constrain.
+        """
+        if not items:
+            return
+
+        canvas = self._canvas_scene.canvas_rect
+        combined = items[0].sceneBoundingRect()
+        for item in items[1:]:
+            combined = combined.united(item.sceneBoundingRect())
+
+        dx = 0.0
+        dy = 0.0
+
+        if combined.left() < canvas.left():
+            dx = canvas.left() - combined.left()
+        elif combined.right() > canvas.right():
+            dx = canvas.right() - combined.right()
+
+        if combined.top() < canvas.top():
+            dy = canvas.top() - combined.top()
+        elif combined.bottom() > canvas.bottom():
+            dy = canvas.bottom() - combined.bottom()
+
+        if dx != 0 or dy != 0:
+            for item in items:
+                item.moveBy(dx, dy)
+
+    def _clamp_delta_to_canvas(
+        self, items: list[QGraphicsItem], delta: QPointF
+    ) -> QPointF:
+        """Restrict a proposed movement delta so items stay inside the canvas.
+
+        Args:
+            items: The items that would be moved.
+            delta: The proposed movement (dx, dy).
+
+        Returns:
+            A clamped delta that keeps all items within the canvas boundary.
+        """
+        if not items:
+            return delta
+
+        canvas = self._canvas_scene.canvas_rect
+
+        # Compute combined bounding rect of all items
+        combined = items[0].sceneBoundingRect()
+        for item in items[1:]:
+            combined = combined.united(item.sceneBoundingRect())
+
+        # Predict where the rect would end up
+        moved = combined.translated(delta)
+
+        dx = delta.x()
+        dy = delta.y()
+
+        if moved.left() < canvas.left():
+            dx = canvas.left() - combined.left()
+        elif moved.right() > canvas.right():
+            dx = canvas.right() - combined.right()
+
+        if moved.top() < canvas.top():
+            dy = canvas.top() - combined.top()
+        elif moved.bottom() > canvas.bottom():
+            dy = canvas.bottom() - combined.bottom()
+
+        return QPointF(dx, dy)
 
     def snap_point(self, point: QPointF) -> QPointF:
         """Snap a point to the grid if snap is enabled, and clamp to canvas.
@@ -760,8 +857,91 @@ class CanvasView(QGraphicsView):
 
         super().mouseMoveEvent(event)
 
+        # Apply object snapping and canvas boundary clamping during drag
+        self._apply_object_snap_during_drag()
+        self._clamp_dragged_items_to_canvas()
+
+    def _apply_object_snap_during_drag(self) -> None:
+        """Apply object snapping to items being dragged.
+
+        Called after super().mouseMoveEvent() has already moved items.
+        Computes snap offsets and adjusts positions accordingly.
+        """
+        if not self._object_snap_enabled or not self._drag_start_positions:
+            self._snap_guides = []
+            return
+
+        selected = self.scene().selectedItems()
+        if not selected:
+            self._snap_guides = []
+            return
+
+        # Check that at least one item has actually moved (is being dragged)
+        any_moved = False
+        for item in selected:
+            if item in self._drag_start_positions and item.pos() != self._drag_start_positions[item]:
+                any_moved = True
+                break
+
+        if not any_moved:
+            self._snap_guides = []
+            return
+
+        # Compute combined bounding rect of all selected items
+        combined = selected[0].sceneBoundingRect()
+        for item in selected[1:]:
+            combined = combined.united(item.sceneBoundingRect())
+
+        # Compute snap against other items
+        exclude = set(selected)
+        snap_result = self._object_snapper.snap(
+            combined,
+            list(self.scene().items()),
+            exclude=exclude,
+            canvas_rect=self._canvas_scene.canvas_rect,
+        )
+
+        # Apply snap offset to all dragged items
+        dx = snap_result.snapped_pos.x()
+        dy = snap_result.snapped_pos.y()
+        if dx != 0 or dy != 0:
+            for item in selected:
+                item.moveBy(dx, dy)
+
+        # Store guides for rendering and trigger repaint
+        self._snap_guides = snap_result.guides
+        self.viewport().update()
+
+    def _clamp_dragged_items_to_canvas(self) -> None:
+        """Clamp items to canvas boundaries during mouse drag.
+
+        Called after super().mouseMoveEvent() and object snapping.
+        Only acts when a drag is in progress (drag_start_positions is populated).
+        """
+        if not self._drag_start_positions:
+            return
+
+        selected = self.scene().selectedItems()
+        if not selected:
+            return
+
+        # Only clamp if items have actually moved
+        any_moved = any(
+            item in self._drag_start_positions and item.pos() != self._drag_start_positions[item]
+            for item in selected
+        )
+        if not any_moved:
+            return
+
+        self._clamp_items_to_canvas(selected)
+
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         """Handle mouse release to stop panning and finish tool operations."""
+        # Clear snap guides
+        if self._snap_guides:
+            self._snap_guides = []
+            self.viewport().update()
+
         if event.button() == Qt.MouseButton.MiddleButton:
             self._panning = False
             # Restore tool cursor
@@ -892,8 +1072,13 @@ class CanvasView(QGraphicsView):
         elif event.key() == Qt.Key.Key_Down:
             dy = -distance  # Down arrow = negative Y (down in our flipped view)
 
+        # Clamp delta to keep items inside the canvas
+        delta = self._clamp_delta_to_canvas(selected, QPointF(dx, dy))
+        if delta.x() == 0 and delta.y() == 0:
+            return
+
         # Move with undo support
-        command = MoveItemsCommand(selected, QPointF(dx, dy))
+        command = MoveItemsCommand(selected, delta)
         self._command_manager.execute(command)
 
     def _finalize_drag_move(self) -> None:
@@ -929,7 +1114,7 @@ class CanvasView(QGraphicsView):
         super().drawBackground(painter, rect)
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
-        """Draw the foreground including canvas border and grid overlay."""
+        """Draw the foreground including canvas border, grid overlay, and snap guides."""
         super().drawForeground(painter, rect)
 
         # Draw canvas border
@@ -938,6 +1123,10 @@ class CanvasView(QGraphicsView):
         # Draw grid overlay on top of everything
         if self._grid_visible:
             self._draw_grid(painter, rect)
+
+        # Draw snap alignment guides
+        if self._snap_guides:
+            self._draw_snap_guides(painter, rect)
 
     def _draw_canvas_border(self, painter: QPainter) -> None:
         """Draw a border around the canvas area."""
@@ -1004,6 +1193,32 @@ class CanvasView(QGraphicsView):
         while y <= bottom:
             painter.drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y))
             y += major_grid
+
+    def _draw_snap_guides(self, painter: QPainter, rect: QRectF) -> None:
+        """Draw snap alignment guide lines.
+
+        Args:
+            painter: QPainter in scene coordinates.
+            rect: Current visible rect.
+        """
+        pen = QPen(self._snap_guide_color)
+        pen.setWidth(0)  # Cosmetic (1px regardless of zoom)
+        pen.setStyle(Qt.PenStyle.DashLine)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        for guide in self._snap_guides:
+            # Clip guide to visible rect
+            if guide.is_horizontal:
+                painter.drawLine(
+                    QPointF(rect.left(), guide.start.y()),
+                    QPointF(rect.right(), guide.start.y()),
+                )
+            else:
+                painter.drawLine(
+                    QPointF(guide.start.x(), rect.top()),
+                    QPointF(guide.start.x(), rect.bottom()),
+                )
 
     def paintEvent(self, event: QPaintEvent) -> None:
         """Paint the view, then draw overlays in viewport coordinates."""
@@ -1622,6 +1837,80 @@ class CanvasView(QGraphicsView):
                 self.set_status_message("Distance must be positive")
         except ValueError:
             self.set_status_message("Invalid distance. Enter a number in centimeters.")
+
+    def _clamp_individual_deltas(
+        self, item_deltas: list[tuple[QGraphicsItem, QPointF]],
+    ) -> list[tuple[QGraphicsItem, QPointF]]:
+        """Clamp per-item deltas so each item stays inside the canvas.
+
+        Args:
+            item_deltas: List of (item, delta) tuples.
+
+        Returns:
+            Clamped list of (item, delta) tuples.
+        """
+        canvas = self._canvas_scene.canvas_rect
+        result: list[tuple[QGraphicsItem, QPointF]] = []
+        for item, delta in item_deltas:
+            rect = item.sceneBoundingRect()
+            moved = rect.translated(delta)
+            dx = delta.x()
+            dy = delta.y()
+            if moved.left() < canvas.left():
+                dx = canvas.left() - rect.left()
+            elif moved.right() > canvas.right():
+                dx = canvas.right() - rect.right()
+            if moved.top() < canvas.top():
+                dy = canvas.top() - rect.top()
+            elif moved.bottom() > canvas.bottom():
+                dy = canvas.bottom() - rect.bottom()
+            result.append((item, QPointF(dx, dy)))
+        return result
+
+    def align_selected(self, mode: AlignMode) -> None:
+        """Align selected items using the given mode.
+
+        Args:
+            mode: The alignment mode (LEFT, RIGHT, TOP, BOTTOM, CENTER_H, CENTER_V).
+        """
+        selected = self.scene().selectedItems()
+        if len(selected) < 2:
+            self.set_status_message("Select at least 2 objects to align")
+            return
+
+        deltas = align_items(selected, mode)
+        deltas = self._clamp_individual_deltas(deltas)
+        # Filter out zero-movement items
+        non_zero = [(item, d) for item, d in deltas if d.x() != 0 or d.y() != 0]
+        if not non_zero:
+            return
+
+        desc = f"Align {mode.name.lower().replace('_', ' ')}"
+        command = AlignItemsCommand(non_zero, desc)
+        self._command_manager.execute(command)
+        self.set_status_message(desc.capitalize())
+
+    def distribute_selected(self, mode: DistributeMode) -> None:
+        """Distribute selected items using the given mode.
+
+        Args:
+            mode: The distribution mode (HORIZONTAL or VERTICAL).
+        """
+        selected = self.scene().selectedItems()
+        if len(selected) < 3:
+            self.set_status_message("Select at least 3 objects to distribute")
+            return
+
+        deltas = distribute_items(selected, mode)
+        deltas = self._clamp_individual_deltas(deltas)
+        non_zero = [(item, d) for item, d in deltas if d.x() != 0 or d.y() != 0]
+        if not non_zero:
+            return
+
+        desc = f"Distribute {mode.name.lower()}"
+        command = AlignItemsCommand(non_zero, desc)
+        self._command_manager.execute(command)
+        self.set_status_message(desc.capitalize())
 
     def set_status_message(self, message: str) -> None:
         """Set status message (to be picked up by main window).
