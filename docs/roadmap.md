@@ -135,7 +135,7 @@
 | US-6.7 | Branded green theme (light/dark variants) | Should | ✅ Done |
 | US-6.8 | Outdoor furniture objects | Must | ✅ Done |
 | US-6.9 | Garden infrastructure objects | Must | ✅ Done |
-| US-6.10 | Object snapping & alignment tools | Should | |
+| US-6.10 | Object snapping & alignment tools | Should | ✅ Done |
 | US-6.11 | Fullscreen preview mode (F11) | Should | ✅ Done |
 | US-6.12 | Internationalization (EN + DE, Qt Linguist) | Must | |
 | US-6.13 | Print support with scaling | Should | |

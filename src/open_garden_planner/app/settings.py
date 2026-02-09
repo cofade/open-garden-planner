@@ -28,6 +28,7 @@ class AppSettings:
     KEY_SHOW_SHADOWS = "appearance/show_shadows"
     KEY_SHOW_SCALE_BAR = "appearance/show_scale_bar"
     KEY_SHOW_LABELS = "appearance/show_labels"
+    KEY_OBJECT_SNAP = "canvas/object_snap_enabled"
 
     # Default values
     DEFAULT_AUTOSAVE_ENABLED = True
@@ -35,6 +36,7 @@ class AppSettings:
     DEFAULT_SHOW_SHADOWS = True
     DEFAULT_SHOW_SCALE_BAR = True
     DEFAULT_SHOW_LABELS = True
+    DEFAULT_OBJECT_SNAP = True
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
     MIN_AUTOSAVE_INTERVAL_MINUTES = 1
     MAX_AUTOSAVE_INTERVAL_MINUTES = 30
@@ -216,6 +218,20 @@ class AppSettings:
     def show_labels(self, show: bool) -> None:
         """Set whether to show object labels on the canvas."""
         self._settings.setValue(self.KEY_SHOW_LABELS, show)
+
+    @property
+    def object_snap_enabled(self) -> bool:
+        """Whether snap-to-object is enabled."""
+        return self._settings.value(
+            self.KEY_OBJECT_SNAP,
+            self.DEFAULT_OBJECT_SNAP,
+            type=bool,
+        )
+
+    @object_snap_enabled.setter
+    def object_snap_enabled(self, enabled: bool) -> None:
+        """Set whether snap-to-object is enabled."""
+        self._settings.setValue(self.KEY_OBJECT_SNAP, enabled)
 
     def sync(self) -> None:
         """Force settings to be written to storage."""
