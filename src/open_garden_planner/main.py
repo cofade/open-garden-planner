@@ -35,6 +35,7 @@ def main() -> int:
 
     from open_garden_planner.app.application import GardenPlannerApp
     from open_garden_planner.app.settings import get_settings
+    from open_garden_planner.core.i18n import load_translator
     from open_garden_planner.ui.theme import apply_theme
 
     app = QApplication(sys.argv)
@@ -47,8 +48,9 @@ def main() -> int:
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
 
-    # Apply saved theme preference
+    # Apply saved preferences
     settings = get_settings()
+    load_translator(app, settings.language)
     apply_theme(app, settings.theme_mode)
 
     window = GardenPlannerApp()

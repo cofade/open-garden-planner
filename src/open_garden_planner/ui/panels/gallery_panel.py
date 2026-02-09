@@ -195,17 +195,25 @@ def _render_color_circle_thumbnail(
 def _build_gallery_categories() -> list[GalleryCategory]:
     """Build all gallery categories with items and thumbnails.
 
+    Note: This function uses QCoreApplication.translate() for i18n since
+    it is a module-level function (not a QObject method). It is called
+    at GalleryPanel init time, when the translator is already installed.
+
     Returns:
         List of GalleryCategory instances
     """
+    from PyQt6.QtCore import QCoreApplication
+    def _tr(text: str) -> str:
+        return QCoreApplication.translate("GalleryPanel", text)
+
     categories: list[GalleryCategory] = []
 
     # --- Basic Shapes ---
     shape_items: list[GalleryItem] = []
     shapes = [
-        ("Rectangle", ToolType.RECTANGLE, ObjectType.GENERIC_RECTANGLE, "rectangle"),
-        ("Polygon", ToolType.POLYGON, ObjectType.GENERIC_POLYGON, "polygon"),
-        ("Circle", ToolType.CIRCLE, ObjectType.GENERIC_CIRCLE, "circle"),
+        (_tr("Rectangle"), ToolType.RECTANGLE, ObjectType.GENERIC_RECTANGLE, "rectangle"),
+        (_tr("Polygon"), ToolType.POLYGON, ObjectType.GENERIC_POLYGON, "polygon"),
+        (_tr("Circle"), ToolType.CIRCLE, ObjectType.GENERIC_CIRCLE, "circle"),
     ]
     for name, tool, obj, icon in shapes:
         style = OBJECT_STYLES[obj]
@@ -215,17 +223,17 @@ def _build_gallery_categories() -> list[GalleryCategory]:
         shape_items.append(
             GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb)
         )
-    categories.append(GalleryCategory("Basic Shapes", shape_items))
+    categories.append(GalleryCategory(_tr("Basic Shapes"), shape_items))
 
     # --- Trees ---
     tree_items: list[GalleryItem] = []
     tree_categories = [
-        ("Round Deciduous", PlantCategory.ROUND_DECIDUOUS),
-        ("Columnar Tree", PlantCategory.COLUMNAR_TREE),
-        ("Weeping Tree", PlantCategory.WEEPING_TREE),
-        ("Conifer", PlantCategory.CONIFER),
-        ("Fruit Tree", PlantCategory.FRUIT_TREE),
-        ("Palm", PlantCategory.PALM),
+        (_tr("Round Deciduous"), PlantCategory.ROUND_DECIDUOUS),
+        (_tr("Columnar Tree"), PlantCategory.COLUMNAR_TREE),
+        (_tr("Weeping Tree"), PlantCategory.WEEPING_TREE),
+        (_tr("Conifer"), PlantCategory.CONIFER),
+        (_tr("Fruit Tree"), PlantCategory.FRUIT_TREE),
+        (_tr("Palm"), PlantCategory.PALM),
     ]
     for name, cat in tree_categories:
         filename = _CATEGORY_FILES.get(cat, "")
@@ -242,8 +250,8 @@ def _build_gallery_categories() -> list[GalleryCategory]:
         )
     # Species-specific trees
     for species_name, svg_file in [
-        ("Apple Tree", "apple_tree"),
-        ("Cherry Tree", "cherry_tree"),
+        (_tr("Apple Tree"), "apple_tree"),
+        (_tr("Cherry Tree"), "cherry_tree"),
     ]:
         svg_path = _SPECIES_DIR / f"{svg_file}.svg"
         thumb = _render_svg_thumbnail(svg_path)
@@ -256,13 +264,13 @@ def _build_gallery_categories() -> list[GalleryCategory]:
                 species=species_name.lower(),
             )
         )
-    categories.append(GalleryCategory("Trees", tree_items))
+    categories.append(GalleryCategory(_tr("Trees"), tree_items))
 
     # --- Shrubs ---
     shrub_items: list[GalleryItem] = []
     shrub_categories = [
-        ("Spreading Shrub", PlantCategory.SPREADING_SHRUB),
-        ("Compact Shrub", PlantCategory.COMPACT_SHRUB),
+        (_tr("Spreading Shrub"), PlantCategory.SPREADING_SHRUB),
+        (_tr("Compact Shrub"), PlantCategory.COMPACT_SHRUB),
     ]
     for name, cat in shrub_categories:
         filename = _CATEGORY_FILES.get(cat, "")
@@ -278,8 +286,8 @@ def _build_gallery_categories() -> list[GalleryCategory]:
             )
         )
     for species_name, svg_file in [
-        ("Boxwood", "boxwood"),
-        ("Rhododendron", "rhododendron"),
+        (_tr("Boxwood"), "boxwood"),
+        (_tr("Rhododendron"), "rhododendron"),
     ]:
         svg_path = _SPECIES_DIR / f"{svg_file}.svg"
         thumb = _render_svg_thumbnail(svg_path)
@@ -300,21 +308,21 @@ def _build_gallery_categories() -> list[GalleryCategory]:
         hedge_thumb = _render_color_circle_thumbnail(style.fill_color)
     shrub_items.append(
         GalleryItem(
-            name="Hedge Section",
+            name=_tr("Hedge Section"),
             tool_type=ToolType.HEDGE_SECTION,
             object_type=ObjectType.HEDGE_SECTION,
             thumbnail=hedge_thumb,
         )
     )
-    categories.append(GalleryCategory("Shrubs", shrub_items))
+    categories.append(GalleryCategory(_tr("Shrubs"), shrub_items))
 
     # --- Flowers & Perennials ---
     flower_items: list[GalleryItem] = []
     flower_categories = [
-        ("Flowering Perennial", PlantCategory.FLOWERING_PERENNIAL),
-        ("Ornamental Grass", PlantCategory.ORNAMENTAL_GRASS),
-        ("Ground Cover", PlantCategory.GROUND_COVER),
-        ("Climbing Plant", PlantCategory.CLIMBING_PLANT),
+        (_tr("Flowering Perennial"), PlantCategory.FLOWERING_PERENNIAL),
+        (_tr("Ornamental Grass"), PlantCategory.ORNAMENTAL_GRASS),
+        (_tr("Ground Cover"), PlantCategory.GROUND_COVER),
+        (_tr("Climbing Plant"), PlantCategory.CLIMBING_PLANT),
     ]
     for name, cat in flower_categories:
         filename = _CATEGORY_FILES.get(cat, "")
@@ -330,9 +338,9 @@ def _build_gallery_categories() -> list[GalleryCategory]:
             )
         )
     for species_name, svg_file in [
-        ("Rose", "rose"),
-        ("Lavender", "lavender"),
-        ("Sunflower", "sunflower"),
+        (_tr("Rose"), "rose"),
+        (_tr("Lavender"), "lavender"),
+        (_tr("Sunflower"), "sunflower"),
     ]:
         svg_path = _SPECIES_DIR / f"{svg_file}.svg"
         thumb = _render_svg_thumbnail(svg_path)
@@ -345,13 +353,13 @@ def _build_gallery_categories() -> list[GalleryCategory]:
                 species=species_name.lower(),
             )
         )
-    categories.append(GalleryCategory("Flowers & Perennials", flower_items))
+    categories.append(GalleryCategory(_tr("Flowers & Perennials"), flower_items))
 
     # --- Vegetables & Herbs ---
     veg_items: list[GalleryItem] = []
     veg_categories = [
-        ("Vegetable", PlantCategory.VEGETABLE),
-        ("Herb", PlantCategory.HERB),
+        (_tr("Vegetable"), PlantCategory.VEGETABLE),
+        (_tr("Herb"), PlantCategory.HERB),
     ]
     for name, cat in veg_categories:
         filename = _CATEGORY_FILES.get(cat, "")
@@ -366,7 +374,7 @@ def _build_gallery_categories() -> list[GalleryCategory]:
                 plant_category=cat,
             )
         )
-    for species_name, svg_file in [("Tomato", "tomato")]:
+    for species_name, svg_file in [(_tr("Tomato"), "tomato")]:
         svg_path = _SPECIES_DIR / f"{svg_file}.svg"
         thumb = _render_svg_thumbnail(svg_path)
         veg_items.append(
@@ -378,14 +386,14 @@ def _build_gallery_categories() -> list[GalleryCategory]:
                 species=species_name.lower(),
             )
         )
-    categories.append(GalleryCategory("Vegetables & Herbs", veg_items))
+    categories.append(GalleryCategory(_tr("Vegetables & Herbs"), veg_items))
 
     # --- Structures ---
     structure_items: list[GalleryItem] = []
     structures = [
-        ("House", ToolType.HOUSE, ObjectType.HOUSE, "house", FillPattern.ROOF_TILES),
-        ("Garage/Shed", ToolType.GARAGE_SHED, ObjectType.GARAGE_SHED, "shed", FillPattern.CONCRETE),
-        ("Greenhouse", ToolType.GREENHOUSE, ObjectType.GREENHOUSE, "greenhouse", FillPattern.GLASS),
+        (_tr("House"), ToolType.HOUSE, ObjectType.HOUSE, "house", FillPattern.ROOF_TILES),
+        (_tr("Garage/Shed"), ToolType.GARAGE_SHED, ObjectType.GARAGE_SHED, "shed", FillPattern.CONCRETE),
+        (_tr("Greenhouse"), ToolType.GREENHOUSE, ObjectType.GREENHOUSE, "greenhouse", FillPattern.GLASS),
     ]
     for name, tool, obj, icon, pattern in structures:
         style = OBJECT_STYLES[obj]
@@ -395,19 +403,19 @@ def _build_gallery_categories() -> list[GalleryCategory]:
         structure_items.append(
             GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb)
         )
-    categories.append(GalleryCategory("Structures", structure_items))
+    categories.append(GalleryCategory(_tr("Structures"), structure_items))
 
     # --- Furniture ---
     furniture_items: list[GalleryItem] = []
     furniture_objects = [
-        ("Table (Rect.)", ToolType.TABLE_RECTANGULAR, ObjectType.TABLE_RECTANGULAR),
-        ("Table (Round)", ToolType.TABLE_ROUND, ObjectType.TABLE_ROUND),
-        ("Chair", ToolType.CHAIR, ObjectType.CHAIR),
-        ("Bench", ToolType.BENCH, ObjectType.BENCH),
-        ("Parasol", ToolType.PARASOL, ObjectType.PARASOL),
-        ("Lounger", ToolType.LOUNGER, ObjectType.LOUNGER),
-        ("BBQ/Grill", ToolType.BBQ_GRILL, ObjectType.BBQ_GRILL),
-        ("Fire Pit", ToolType.FIRE_PIT, ObjectType.FIRE_PIT),
+        (_tr("Table (Rect.)"), ToolType.TABLE_RECTANGULAR, ObjectType.TABLE_RECTANGULAR),
+        (_tr("Table (Round)"), ToolType.TABLE_ROUND, ObjectType.TABLE_ROUND),
+        (_tr("Chair"), ToolType.CHAIR, ObjectType.CHAIR),
+        (_tr("Bench"), ToolType.BENCH, ObjectType.BENCH),
+        (_tr("Parasol"), ToolType.PARASOL, ObjectType.PARASOL),
+        (_tr("Lounger"), ToolType.LOUNGER, ObjectType.LOUNGER),
+        (_tr("BBQ/Grill"), ToolType.BBQ_GRILL, ObjectType.BBQ_GRILL),
+        (_tr("Fire Pit"), ToolType.FIRE_PIT, ObjectType.FIRE_PIT),
     ]
     for name, tool, obj in furniture_objects:
         svg_filename = _FURNITURE_FILES.get(obj, "")
@@ -419,12 +427,12 @@ def _build_gallery_categories() -> list[GalleryCategory]:
         furniture_items.append(
             GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb)
         )
-    categories.append(GalleryCategory("Furniture", furniture_items))
+    categories.append(GalleryCategory(_tr("Furniture"), furniture_items))
 
     # --- Gardening ---
     gardening_items: list[GalleryItem] = []
     gardening_objects = [
-        ("Planter/Pot", ToolType.PLANTER_POT, ObjectType.PLANTER_POT),
+        (_tr("Planter/Pot"), ToolType.PLANTER_POT, ObjectType.PLANTER_POT),
     ]
     for name, tool, obj in gardening_objects:
         svg_filename = _FURNITURE_FILES.get(obj, "")
@@ -436,17 +444,17 @@ def _build_gallery_categories() -> list[GalleryCategory]:
         gardening_items.append(
             GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb)
         )
-    categories.append(GalleryCategory("Gardening", gardening_items))
+    categories.append(GalleryCategory(_tr("Gardening"), gardening_items))
 
     # --- Garden Infrastructure ---
     infra_items: list[GalleryItem] = []
     infra_objects = [
-        ("Raised Bed", ToolType.RAISED_BED, ObjectType.RAISED_BED),
-        ("Compost Bin", ToolType.COMPOST_BIN, ObjectType.COMPOST_BIN),
-        ("Cold Frame", ToolType.COLD_FRAME, ObjectType.COLD_FRAME),
-        ("Rain Barrel", ToolType.RAIN_BARREL, ObjectType.RAIN_BARREL),
-        ("Water Tap", ToolType.WATER_TAP, ObjectType.WATER_TAP),
-        ("Tool Shed", ToolType.TOOL_SHED, ObjectType.TOOL_SHED),
+        (_tr("Raised Bed"), ToolType.RAISED_BED, ObjectType.RAISED_BED),
+        (_tr("Compost Bin"), ToolType.COMPOST_BIN, ObjectType.COMPOST_BIN),
+        (_tr("Cold Frame"), ToolType.COLD_FRAME, ObjectType.COLD_FRAME),
+        (_tr("Rain Barrel"), ToolType.RAIN_BARREL, ObjectType.RAIN_BARREL),
+        (_tr("Water Tap"), ToolType.WATER_TAP, ObjectType.WATER_TAP),
+        (_tr("Tool Shed"), ToolType.TOOL_SHED, ObjectType.TOOL_SHED),
     ]
     for name, tool, obj in infra_objects:
         svg_filename = _INFRASTRUCTURE_FILES.get(obj, "")
@@ -458,16 +466,16 @@ def _build_gallery_categories() -> list[GalleryCategory]:
         infra_items.append(
             GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb)
         )
-    categories.append(GalleryCategory("Garden Infrastructure", infra_items))
+    categories.append(GalleryCategory(_tr("Garden Infrastructure"), infra_items))
 
     # --- Paths & Surfaces ---
     surface_items: list[GalleryItem] = []
     surfaces = [
-        ("Lawn", ToolType.LAWN, ObjectType.LAWN, "lawn", FillPattern.GRASS),
-        ("Terrace/Patio", ToolType.TERRACE_PATIO, ObjectType.TERRACE_PATIO, "terrace", FillPattern.WOOD),
-        ("Driveway", ToolType.DRIVEWAY, ObjectType.DRIVEWAY, "driveway", FillPattern.GRAVEL),
-        ("Garden Bed", ToolType.GARDEN_BED, ObjectType.GARDEN_BED, "garden_bed", FillPattern.SOIL),
-        ("Pond/Pool", ToolType.POND_POOL, ObjectType.POND_POOL, "pond", FillPattern.WATER),
+        (_tr("Lawn"), ToolType.LAWN, ObjectType.LAWN, "lawn", FillPattern.GRASS),
+        (_tr("Terrace/Patio"), ToolType.TERRACE_PATIO, ObjectType.TERRACE_PATIO, "terrace", FillPattern.WOOD),
+        (_tr("Driveway"), ToolType.DRIVEWAY, ObjectType.DRIVEWAY, "driveway", FillPattern.GRAVEL),
+        (_tr("Garden Bed"), ToolType.GARDEN_BED, ObjectType.GARDEN_BED, "garden_bed", FillPattern.SOIL),
+        (_tr("Pond/Pool"), ToolType.POND_POOL, ObjectType.POND_POOL, "pond", FillPattern.WATER),
     ]
     for name, tool, obj, icon, pattern in surfaces:
         style = OBJECT_STYLES[obj]
@@ -477,14 +485,14 @@ def _build_gallery_categories() -> list[GalleryCategory]:
         surface_items.append(
             GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb)
         )
-    categories.append(GalleryCategory("Paths & Surfaces", surface_items))
+    categories.append(GalleryCategory(_tr("Paths & Surfaces"), surface_items))
 
     # --- Fences & Walls ---
     fence_items: list[GalleryItem] = []
     fences = [
-        ("Fence", ToolType.FENCE, ObjectType.FENCE, "fence"),
-        ("Wall", ToolType.WALL, ObjectType.WALL, "wall"),
-        ("Path", ToolType.PATH, ObjectType.PATH, "path"),
+        (_tr("Fence"), ToolType.FENCE, ObjectType.FENCE, "fence"),
+        (_tr("Wall"), ToolType.WALL, ObjectType.WALL, "wall"),
+        (_tr("Path"), ToolType.PATH, ObjectType.PATH, "path"),
     ]
     for name, tool, obj, icon in fences:
         thumb = _render_tool_icon_thumbnail(icon)
@@ -494,7 +502,7 @@ def _build_gallery_categories() -> list[GalleryCategory]:
         fence_items.append(
             GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb)
         )
-    categories.append(GalleryCategory("Fences & Walls", fence_items))
+    categories.append(GalleryCategory(_tr("Fences & Walls"), fence_items))
 
     return categories
 
@@ -630,14 +638,14 @@ class GalleryPanel(QWidget):
 
         # Search/filter box
         self._search_box = QLineEdit()
-        self._search_box.setPlaceholderText("Search objects...")
+        self._search_box.setPlaceholderText(self.tr("Search objects..."))
         self._search_box.setClearButtonEnabled(True)
         self._search_box.textChanged.connect(self._on_filter_changed)
         layout.addWidget(self._search_box)
 
         # Category dropdown
         self._category_combo = QComboBox()
-        self._category_combo.addItem("All Categories")
+        self._category_combo.addItem(self.tr("All Categories"))
         for cat in self._categories:
             self._category_combo.addItem(cat.name)
         self._category_combo.currentIndexChanged.connect(self._on_category_changed)

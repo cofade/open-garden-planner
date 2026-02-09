@@ -31,7 +31,7 @@ class CustomPlantsDialog(QDialog):
             parent: Parent widget
         """
         super().__init__(parent)
-        self.setWindowTitle("Manage Custom Plants")
+        self.setWindowTitle(self.tr("Manage Custom Plants"))
         self.setMinimumSize(700, 500)
         self.resize(800, 600)
 
@@ -48,14 +48,14 @@ class CustomPlantsDialog(QDialog):
         layout.setSpacing(12)
 
         # Title
-        title = QLabel("Custom Plant Library")
+        title = QLabel(self.tr("Custom Plant Library"))
         title.setStyleSheet("font-size: 16px; font-weight: bold;")
         layout.addWidget(title)
 
         # Description
         desc = QLabel(
-            "Plants you've created or customized are stored here. "
-            "These are available across all your projects."
+            self.tr("Plants you've created or customized are stored here. "
+            "These are available across all your projects.")
         )
         desc.setWordWrap(True)
         desc.setStyleSheet("color: palette(mid);")
@@ -65,7 +65,7 @@ class CustomPlantsDialog(QDialog):
         self.table = QTableWidget()
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels([
-            "Common Name", "Scientific Name", "Family", "Cycle", "ID"
+            self.tr("Common Name"), self.tr("Scientific Name"), self.tr("Family"), self.tr("Cycle"), "ID"
         ])
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
@@ -91,16 +91,16 @@ class CustomPlantsDialog(QDialog):
         button_layout.setSpacing(8)
 
         # Create New button
-        self.new_btn = QPushButton("Create New")
-        self.new_btn.setToolTip("Create a new custom plant species")
+        self.new_btn = QPushButton(self.tr("Create New"))
+        self.new_btn.setToolTip(self.tr("Create a new custom plant species"))
         self.new_btn.clicked.connect(self._on_create_new)
         button_layout.addWidget(self.new_btn)
 
         button_layout.addStretch()
 
         # Delete button
-        self.delete_btn = QPushButton("Delete")
-        self.delete_btn.setToolTip("Delete the selected plant")
+        self.delete_btn = QPushButton(self.tr("Delete"))
+        self.delete_btn.setToolTip(self.tr("Delete the selected plant"))
         self.delete_btn.setEnabled(False)
         self.delete_btn.clicked.connect(self._on_delete)
         button_layout.addWidget(self.delete_btn)
@@ -116,7 +116,7 @@ class CustomPlantsDialog(QDialog):
         dialog_buttons = QHBoxLayout()
         dialog_buttons.addStretch()
 
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton(self.tr("Close"))
         close_btn.clicked.connect(self.accept)
         dialog_buttons.addWidget(close_btn)
 
@@ -161,9 +161,9 @@ class CustomPlantsDialog(QDialog):
         # Update info label
         count = len(plants)
         if count == 0:
-            self.info_label.setText("No custom plants yet. Click 'Create New' to add one.")
+            self.info_label.setText(self.tr("No custom plants yet. Click 'Create New' to add one."))
         else:
-            self.info_label.setText(f"{count} custom plant{'s' if count != 1 else ''} in library")
+            self.info_label.setText(self.tr("{count} custom plant(s) in library").format(count=count))
 
     def _on_selection_changed(self) -> None:
         """Handle selection change in the table."""
@@ -200,7 +200,7 @@ class CustomPlantsDialog(QDialog):
                 self.table.selectRow(row)
                 break
 
-        self.info_label.setText("New plant created. Edit it in the Plant Details panel.")
+        self.info_label.setText(self.tr("New plant created. Edit it in the Plant Details panel."))
 
     def _on_delete(self) -> None:
         """Delete the selected plant."""
@@ -210,10 +210,10 @@ class CustomPlantsDialog(QDialog):
         # Confirm deletion
         result = QMessageBox.question(
             self,
-            "Delete Plant",
-            f"Are you sure you want to delete '{self._selected_plant.common_name}'?\n\n"
+            self.tr("Delete Plant"),
+            self.tr("Are you sure you want to delete '{name}'?\n\n"
             "This will remove it from your custom library. "
-            "Plants already placed in projects will keep their data.",
+            "Plants already placed in projects will keep their data.").format(name=self._selected_plant.common_name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )

@@ -19,7 +19,7 @@ class ShortcutsDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         """Initialize the shortcuts dialog."""
         super().__init__(parent)
-        self.setWindowTitle("Keyboard Shortcuts")
+        self.setWindowTitle(self.tr("Keyboard Shortcuts"))
         self.setMinimumSize(500, 600)
         self._setup_ui()
 
@@ -38,78 +38,78 @@ class ShortcutsDialog(QDialog):
         container_layout.setSpacing(16)
 
         # File operations
-        file_group = self._create_shortcut_group("File", [
-            ("Ctrl+N", "New Project"),
-            ("Ctrl+O", "Open Project"),
-            ("Ctrl+S", "Save"),
-            ("Ctrl+Shift+S", "Save As"),
-            ("Alt+F4", "Exit"),
+        file_group = self._create_shortcut_group(self.tr("File"), [
+            ("Ctrl+N", self.tr("New Project")),
+            ("Ctrl+O", self.tr("Open Project")),
+            ("Ctrl+S", self.tr("Save")),
+            ("Ctrl+Shift+S", self.tr("Save As")),
+            ("Alt+F4", self.tr("Exit")),
         ])
         container_layout.addWidget(file_group)
 
         # Edit operations
-        edit_group = self._create_shortcut_group("Edit", [
-            ("Ctrl+Z", "Undo"),
-            ("Ctrl+Y", "Redo"),
-            ("Ctrl+X", "Cut"),
-            ("Ctrl+C", "Copy"),
-            ("Ctrl+V", "Paste"),
-            ("Ctrl+D", "Duplicate"),
-            ("Delete", "Delete selected"),
-            ("Ctrl+A", "Select All"),
+        edit_group = self._create_shortcut_group(self.tr("Edit"), [
+            ("Ctrl+Z", self.tr("Undo")),
+            ("Ctrl+Y", self.tr("Redo")),
+            ("Ctrl+X", self.tr("Cut")),
+            ("Ctrl+C", self.tr("Copy")),
+            ("Ctrl+V", self.tr("Paste")),
+            ("Ctrl+D", self.tr("Duplicate")),
+            ("Delete", self.tr("Delete selected")),
+            ("Ctrl+A", self.tr("Select All")),
         ])
         container_layout.addWidget(edit_group)
 
         # View operations
-        view_group = self._create_shortcut_group("View", [
-            ("Ctrl++", "Zoom In"),
-            ("Ctrl+-", "Zoom Out"),
-            ("Ctrl+0", "Fit to Window"),
-            ("G", "Toggle Grid"),
-            ("S", "Toggle Snap to Grid"),
-            ("F11", "Fullscreen Preview"),
-            ("Escape", "Exit Fullscreen Preview"),
-            ("Scroll Wheel", "Zoom"),
-            ("Middle Mouse Drag", "Pan"),
+        view_group = self._create_shortcut_group(self.tr("View"), [
+            ("Ctrl++", self.tr("Zoom In")),
+            ("Ctrl+-", self.tr("Zoom Out")),
+            ("Ctrl+0", self.tr("Fit to Window")),
+            ("G", self.tr("Toggle Grid")),
+            ("S", self.tr("Toggle Snap to Grid")),
+            ("F11", self.tr("Fullscreen Preview")),
+            ("Escape", self.tr("Exit Fullscreen Preview")),
+            (self.tr("Scroll Wheel"), self.tr("Zoom")),
+            (self.tr("Middle Mouse Drag"), self.tr("Pan")),
         ])
         container_layout.addWidget(view_group)
 
         # Drawing tools
-        tools_group = self._create_shortcut_group("Drawing Tools", [
-            ("V", "Select Tool"),
-            ("M", "Measure Tool"),
-            ("R", "Rectangle"),
-            ("P", "Polygon"),
-            ("C", "Circle"),
+        tools_group = self._create_shortcut_group(self.tr("Drawing Tools"), [
+            ("V", self.tr("Select Tool")),
+            ("M", self.tr("Measure Tool")),
+            ("R", self.tr("Rectangle")),
+            ("P", self.tr("Polygon")),
+            ("C", self.tr("Circle")),
         ])
         container_layout.addWidget(tools_group)
 
         # Property objects
-        property_group = self._create_shortcut_group("Property Objects", [
-            ("H", "House"),
-            ("T", "Terrace/Patio"),
-            ("D", "Driveway"),
-            ("B", "Garden Bed"),
-            ("F", "Fence"),
-            ("W", "Wall"),
-            ("L", "Path"),
+        property_group = self._create_shortcut_group(self.tr("Property Objects"), [
+            ("H", self.tr("House")),
+            ("T", self.tr("Terrace/Patio")),
+            ("D", self.tr("Driveway")),
+            ("B", self.tr("Garden Bed")),
+            ("F", self.tr("Fence")),
+            ("W", self.tr("Wall")),
+            ("L", self.tr("Path")),
         ])
         container_layout.addWidget(property_group)
 
         # Plant tools
-        plant_group = self._create_shortcut_group("Plant Tools", [
-            ("1", "Tree"),
-            ("2", "Shrub"),
-            ("3", "Perennial"),
-            ("Ctrl+K", "Search Plant Database"),
+        plant_group = self._create_shortcut_group(self.tr("Plant Tools"), [
+            ("1", self.tr("Tree")),
+            ("2", self.tr("Shrub")),
+            ("3", self.tr("Perennial")),
+            ("Ctrl+K", self.tr("Search Plant Database")),
         ])
         container_layout.addWidget(plant_group)
 
         # Object manipulation
-        manipulation_group = self._create_shortcut_group("Object Manipulation", [
-            ("Arrow Keys", "Move selected (by grid size)"),
-            ("Shift+Arrow Keys", "Move selected (by 1cm)"),
-            ("Double-click", "Edit object label"),
+        manipulation_group = self._create_shortcut_group(self.tr("Object Manipulation"), [
+            (self.tr("Arrow Keys"), self.tr("Move selected (by grid size)")),
+            (self.tr("Shift+Arrow Keys"), self.tr("Move selected (by 1cm)")),
+            (self.tr("Double-click"), self.tr("Edit object label")),
         ])
         container_layout.addWidget(manipulation_group)
 
@@ -119,7 +119,7 @@ class ShortcutsDialog(QDialog):
         layout.addWidget(scroll)
 
         # Close button
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton(self.tr("Close"))
         close_btn.clicked.connect(self.accept)
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()

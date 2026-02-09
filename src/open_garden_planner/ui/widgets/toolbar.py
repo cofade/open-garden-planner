@@ -35,7 +35,7 @@ class MainToolbar(QToolBar):
         Args:
             parent: Parent widget
         """
-        super().__init__("Tools", parent)
+        super().__init__(self.tr("Tools"), parent)
 
         self._button_group = QButtonGroup(self)
         self._button_group.setExclusive(True)
@@ -74,12 +74,12 @@ class MainToolbar(QToolBar):
 
         # --- Selection & Measurement ---
         self._add_tool_button(
-            ToolType.SELECT, "select", "Select (V)",
-            "Select and move objects", "V",
+            ToolType.SELECT, "select", self.tr("Select (V)"),
+            self.tr("Select and move objects"), "V",
         )
         self._add_tool_button(
-            ToolType.MEASURE, "measure", "Measure (M)",
-            "Measure distances between two points", "M",
+            ToolType.MEASURE, "measure", self.tr("Measure (M)"),
+            self.tr("Measure distances between two points"), "M",
         )
 
         # Select tool is default

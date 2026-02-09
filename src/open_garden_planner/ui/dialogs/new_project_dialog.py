@@ -36,7 +36,7 @@ class NewProjectDialog(QDialog):
         """
         super().__init__(parent)
 
-        self.setWindowTitle("New Project")
+        self.setWindowTitle(self.tr("New Project"))
         self.setModal(True)
         self.setMinimumWidth(350)
 
@@ -47,7 +47,7 @@ class NewProjectDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # Canvas dimensions group
-        dimensions_group = QGroupBox("Canvas Dimensions")
+        dimensions_group = QGroupBox(self.tr("Canvas Dimensions"))
         dimensions_layout = QFormLayout(dimensions_group)
 
         # Width input
@@ -60,7 +60,7 @@ class NewProjectDialog(QDialog):
         self.width_spinbox.setMinimumWidth(120)
         width_layout.addWidget(self.width_spinbox)
         width_layout.addStretch()
-        dimensions_layout.addRow("Width:", width_layout)
+        dimensions_layout.addRow(self.tr("Width:"), width_layout)
 
         # Height input
         height_layout = QHBoxLayout()
@@ -72,13 +72,13 @@ class NewProjectDialog(QDialog):
         self.height_spinbox.setMinimumWidth(120)
         height_layout.addWidget(self.height_spinbox)
         height_layout.addStretch()
-        dimensions_layout.addRow("Height:", height_layout)
+        dimensions_layout.addRow(self.tr("Height:"), height_layout)
 
         layout.addWidget(dimensions_group)
 
         # Info label
         info_label = QLabel(
-            "Tip: You can resize the canvas later from Edit > Canvas Size."
+            self.tr("Tip: You can resize the canvas later from Edit > Canvas Size.")
         )
         info_label.setStyleSheet("color: palette(mid);")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)

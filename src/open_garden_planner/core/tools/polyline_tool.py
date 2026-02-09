@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPainterPath, QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsPathItem
 
@@ -25,7 +25,7 @@ class PolylineTool(BaseTool):
     """
 
     tool_type = ToolType.FENCE
-    display_name = "Polyline"
+    display_name = QT_TR_NOOP("Polyline")
     shortcut = ""  # Will be set by specific instances
     cursor = Qt.CursorShape.CrossCursor
 

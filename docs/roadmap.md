@@ -137,7 +137,7 @@
 | US-6.9 | Garden infrastructure objects | Must | ✅ Done |
 | US-6.10 | Object snapping & alignment tools | Should | ✅ Done |
 | US-6.11 | Fullscreen preview mode (F11) | Should | ✅ Done |
-| US-6.12 | Internationalization (EN + DE, Qt Linguist) | Must | |
+| US-6.12 | Internationalization (EN + DE, Qt Linguist) | Must | ✅ Done |
 | US-6.13 | Print support with scaling | Should | |
 | US-6.14 | Windows installer (NSIS) + .ogp file association | Must | |
 | US-6.15 | Path & fence style presets | Must | |

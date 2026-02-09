@@ -40,7 +40,7 @@ class WelcomeDialog(QDialog):
         """Initialize the Welcome dialog."""
         super().__init__(parent)
 
-        self.setWindowTitle("Welcome to Open Garden Planner")
+        self.setWindowTitle(self.tr("Welcome to Open Garden Planner"))
         self.setModal(True)
         self.setMinimumSize(600, 500)
         self.setMaximumSize(800, 700)
@@ -90,7 +90,7 @@ class WelcomeDialog(QDialog):
             banner_label.setPixmap(scaled)
         else:
             # Fallback if banner not found
-            banner_label.setText("Open Garden Planner")
+            banner_label.setText(self.tr("Open Garden Planner"))
             font = QFont()
             font.setPointSize(24)
             font.setBold(True)
@@ -106,7 +106,7 @@ class WelcomeDialog(QDialog):
         recent_layout.setSpacing(10)
 
         # Header
-        header = QLabel("Recent Projects")
+        header = QLabel(self.tr("Recent Projects"))
         header_font = QFont()
         header_font.setPointSize(12)
         header_font.setBold(True)
@@ -125,7 +125,7 @@ class WelcomeDialog(QDialog):
         recent_layout.addWidget(self._recent_list, stretch=1)
 
         # Clear recent button - use native styling
-        clear_btn = QPushButton("Clear Recent")
+        clear_btn = QPushButton(self.tr("Clear Recent"))
         clear_btn.clicked.connect(self._on_clear_recent)
         recent_layout.addWidget(clear_btn)
 
@@ -139,7 +139,7 @@ class WelcomeDialog(QDialog):
         actions_layout.setSpacing(15)
 
         # Header
-        header = QLabel("Get Started")
+        header = QLabel(self.tr("Get Started"))
         header_font = QFont()
         header_font.setPointSize(12)
         header_font.setBold(True)
@@ -187,19 +187,19 @@ class WelcomeDialog(QDialog):
         """
 
         # New Project button (primary)
-        new_project_btn = QPushButton("New Project")
+        new_project_btn = QPushButton(self.tr("New Project"))
         new_project_btn.setStyleSheet(primary_button_style)
         new_project_btn.clicked.connect(self._on_new_project)
         actions_layout.addWidget(new_project_btn)
 
         # Open Project button
-        open_project_btn = QPushButton("Open Project...")
+        open_project_btn = QPushButton(self.tr("Open Project..."))
         open_project_btn.setStyleSheet(secondary_button_style)
         open_project_btn.clicked.connect(self._on_open_project)
         actions_layout.addWidget(open_project_btn)
 
         # Open Selected button (for recent projects)
-        self._open_selected_btn = QPushButton("Open Selected")
+        self._open_selected_btn = QPushButton(self.tr("Open Selected"))
         self._open_selected_btn.setStyleSheet(secondary_button_style)
         self._open_selected_btn.setEnabled(False)
         self._open_selected_btn.clicked.connect(self._on_open_selected)
@@ -213,7 +213,7 @@ class WelcomeDialog(QDialog):
 
         # Tips section - use default text color
         tips_label = QLabel(
-            "<b>Tip:</b> Double-click a recent project to open it directly."
+            self.tr("<b>Tip:</b> Double-click a recent project to open it directly.")
         )
         tips_label.setWordWrap(True)
         actions_layout.addWidget(tips_label)
@@ -226,7 +226,7 @@ class WelcomeDialog(QDialog):
         """Set up the footer with the checkbox."""
         footer_layout = QHBoxLayout()
 
-        self._show_on_startup_checkbox = QCheckBox("Show this screen on startup")
+        self._show_on_startup_checkbox = QCheckBox(self.tr("Show this screen on startup"))
         self._show_on_startup_checkbox.setChecked(get_settings().show_welcome_on_startup)
         self._show_on_startup_checkbox.stateChanged.connect(self._on_checkbox_changed)
 
@@ -234,7 +234,7 @@ class WelcomeDialog(QDialog):
         footer_layout.addStretch()
 
         # Close button - use native styling
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton(self.tr("Close"))
         close_btn.clicked.connect(self.reject)
         footer_layout.addWidget(close_btn)
 
@@ -247,7 +247,7 @@ class WelcomeDialog(QDialog):
 
         if not recent_files:
             # Show placeholder
-            placeholder = QListWidgetItem("No recent projects")
+            placeholder = QListWidgetItem(self.tr("No recent projects"))
             placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
             placeholder.setForeground(Qt.GlobalColor.gray)
             self._recent_list.addItem(placeholder)
@@ -264,8 +264,8 @@ class WelcomeDialog(QDialog):
             else:
                 # Show missing files with indicator
                 item = QListWidgetItem()
-                item.setText(f"{path.stem} (not found)")
-                item.setToolTip(f"File not found: {path}")
+                item.setText(self.tr("{name} (not found)").format(name=path.stem))
+                item.setToolTip(self.tr("File not found: {path}").format(path=path))
                 item.setData(Qt.ItemDataRole.UserRole, str(path))
                 item.setForeground(Qt.GlobalColor.gray)
                 self._recent_list.addItem(item)

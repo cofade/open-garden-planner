@@ -106,7 +106,7 @@ class LayerListItem(QWidget):
             self._eye_open_icon if self.layer.visible else self._eye_closed_icon
         )
         self.visibility_btn.setIconSize(QSize(16, 16))
-        self.visibility_btn.setToolTip("Toggle visibility")
+        self.visibility_btn.setToolTip(self.tr("Toggle visibility"))
         self.visibility_btn.setFixedSize(24, 24)
         self.visibility_btn.toggled.connect(self._on_visibility_toggled)
         layout.addWidget(self.visibility_btn)
@@ -119,7 +119,7 @@ class LayerListItem(QWidget):
             self._lock_closed_icon if self.layer.locked else self._lock_open_icon
         )
         self.lock_btn.setIconSize(QSize(16, 16))
-        self.lock_btn.setToolTip("Toggle lock")
+        self.lock_btn.setToolTip(self.tr("Toggle lock"))
         self.lock_btn.setFixedSize(24, 24)
         self.lock_btn.toggled.connect(self._on_lock_toggled)
         layout.addWidget(self.lock_btn)
@@ -166,8 +166,8 @@ class LayerListItem(QWidget):
         """Show context menu for layer operations."""
         from PyQt6.QtWidgets import QMenu
         menu = QMenu(self)
-        rename_action = menu.addAction("Rename Layer")
-        delete_action = menu.addAction("Delete Layer")
+        rename_action = menu.addAction(self.tr("Rename Layer"))
+        delete_action = menu.addAction(self.tr("Delete Layer"))
         action = menu.exec(event.globalPos())
         if action == rename_action:
             self._start_editing()
@@ -260,14 +260,14 @@ class LayersPanel(QWidget):
 
         # Opacity slider
         opacity_layout = QHBoxLayout()
-        opacity_label = QLabel("Opacity:")
+        opacity_label = QLabel(self.tr("Opacity:"))
         opacity_layout.addWidget(opacity_label)
 
         self.opacity_slider = QSlider(Qt.Orientation.Horizontal)
         self.opacity_slider.setMinimum(0)
         self.opacity_slider.setMaximum(100)
         self.opacity_slider.setValue(100)
-        self.opacity_slider.setToolTip("Layer opacity")
+        self.opacity_slider.setToolTip(self.tr("Layer opacity"))
         self.opacity_slider.valueChanged.connect(self._on_opacity_changed)
         opacity_layout.addWidget(self.opacity_slider)
 
@@ -278,7 +278,7 @@ class LayersPanel(QWidget):
         layout.addLayout(opacity_layout)
 
         # Add layer button
-        add_btn = QPushButton("Add Layer")
+        add_btn = QPushButton(self.tr("Add Layer"))
         add_btn.clicked.connect(self._on_add_layer)
         layout.addWidget(add_btn)
 
