@@ -253,6 +253,29 @@ class CanvasView(QGraphicsView):
             tool.display_name = display_name
             self._tool_manager.register_tool(tool)
 
+        # Register garden infrastructure tools (SVG-rendered)
+        rect_infrastructure = [
+            (ObjectType.RAISED_BED, ToolType.RAISED_BED, "Raised Bed"),
+            (ObjectType.COMPOST_BIN, ToolType.COMPOST_BIN, "Compost Bin"),
+            (ObjectType.COLD_FRAME, ToolType.COLD_FRAME, "Cold Frame"),
+            (ObjectType.TOOL_SHED, ToolType.TOOL_SHED, "Tool Shed"),
+        ]
+        for obj_type, tool_type, display_name in rect_infrastructure:
+            tool = RectangleTool(self, object_type=obj_type)
+            tool.tool_type = tool_type
+            tool.display_name = display_name
+            self._tool_manager.register_tool(tool)
+
+        circle_infrastructure = [
+            (ObjectType.RAIN_BARREL, ToolType.RAIN_BARREL, "Rain Barrel"),
+            (ObjectType.WATER_TAP, ToolType.WATER_TAP, "Water Tap"),
+        ]
+        for obj_type, tool_type, display_name in circle_infrastructure:
+            tool = CircleTool(self, object_type=obj_type)
+            tool.tool_type = tool_type
+            tool.display_name = display_name
+            self._tool_manager.register_tool(tool)
+
         # Connect tool change signal
         self._tool_manager.tool_changed.connect(self.tool_changed.emit)
 

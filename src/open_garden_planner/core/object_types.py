@@ -69,6 +69,14 @@ class ObjectType(Enum):
     FIRE_PIT = auto()
     PLANTER_POT = auto()
 
+    # Garden infrastructure (SVG-rendered)
+    RAISED_BED = auto()
+    COMPOST_BIN = auto()
+    COLD_FRAME = auto()
+    RAIN_BARREL = auto()
+    WATER_TAP = auto()
+    TOOL_SHED = auto()
+
     # Generic geometric shapes (for backwards compatibility)
     GENERIC_RECTANGLE = auto()
     GENERIC_POLYGON = auto()
@@ -255,6 +263,48 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         stroke_color=QColor(140, 80, 30),  # Dark terracotta
         stroke_width=1.5,
         display_name="Planter/Pot",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.RAISED_BED: ObjectStyle(
+        fill_color=QColor(139, 90, 43, 180),  # Wood brown
+        stroke_color=QColor(100, 60, 20),  # Dark wood
+        stroke_width=2.0,
+        display_name="Raised Bed",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.COMPOST_BIN: ObjectStyle(
+        fill_color=QColor(90, 70, 40, 180),  # Dark brown
+        stroke_color=QColor(60, 45, 25),  # Very dark brown
+        stroke_width=1.5,
+        display_name="Compost Bin",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.COLD_FRAME: ObjectStyle(
+        fill_color=QColor(200, 220, 240, 160),  # Light glass blue
+        stroke_color=QColor(150, 155, 160),  # Silver aluminum
+        stroke_width=2.0,
+        display_name="Cold Frame",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.RAIN_BARREL: ObjectStyle(
+        fill_color=QColor(60, 100, 60, 180),  # Dark green
+        stroke_color=QColor(40, 70, 40),  # Darker green
+        stroke_width=1.5,
+        display_name="Rain Barrel",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.WATER_TAP: ObjectStyle(
+        fill_color=QColor(160, 170, 180, 200),  # Steel gray
+        stroke_color=QColor(100, 110, 120),  # Dark steel
+        stroke_width=1.5,
+        display_name="Water Tap",
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.TOOL_SHED: ObjectStyle(
+        fill_color=QColor(160, 130, 90, 180),  # Light wood
+        stroke_color=QColor(100, 75, 45),  # Dark wood
+        stroke_width=2.0,
+        display_name="Tool Shed",
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.GENERIC_RECTANGLE: ObjectStyle(

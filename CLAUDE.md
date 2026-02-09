@@ -150,6 +150,8 @@ src/open_garden_planner/
     ├── textures/                 # Tileable PNG textures (Phase 6)
     ├── plants/                   # Plant SVG illustrations (Phase 6)
     └── objects/                  # Object SVG illustrations (Phase 6)
+        ├── furniture/            # Outdoor furniture SVGs
+        └── infrastructure/       # Garden infrastructure SVGs
 
 docs/                             # arc42 architecture documentation
 ├── 01-introduction-and-goals/    # Vision, goals, users
@@ -187,7 +189,7 @@ tests/
 | ✅ | 6.6  | Toggleable object labels on canvas                |
 | ✅ | 6.7  | Branded green theme (light/dark)                  |
 | ✅ | 6.8  | Outdoor furniture objects                         |
-|        | 6.9  | Garden infrastructure objects                     |
+| ✅ | 6.9  | Garden infrastructure objects                     |
 |        | 6.10 | Object snapping & alignment tools                 |
 | ✅ | 6.11 | Fullscreen preview mode (F11)                     |
 |        | 6.12 | Internationalization (EN + DE, Qt Linguist)       |

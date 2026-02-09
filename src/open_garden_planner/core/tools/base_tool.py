@@ -51,6 +51,14 @@ class ToolType(Enum):
     FIRE_PIT = auto()
     PLANTER_POT = auto()
 
+    # Garden infrastructure (SVG-rendered)
+    RAISED_BED = auto()
+    COMPOST_BIN = auto()
+    COLD_FRAME = auto()
+    RAIN_BARREL = auto()
+    WATER_TAP = auto()
+    TOOL_SHED = auto()
+
     # Generic geometric shapes (backwards compatibility)
     RECTANGLE = auto()
     POLYGON = auto()

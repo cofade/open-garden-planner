@@ -134,7 +134,7 @@
 | US-6.6 | Toggleable object labels on canvas | Should | ✅ Done |
 | US-6.7 | Branded green theme (light/dark variants) | Should | ✅ Done |
 | US-6.8 | Outdoor furniture objects | Must | ✅ Done |
-| US-6.9 | Garden infrastructure objects | Must | |
+| US-6.9 | Garden infrastructure objects | Must | ✅ Done |
 | US-6.10 | Object snapping & alignment tools | Should | |
 | US-6.11 | Fullscreen preview mode (F11) | Should | ✅ Done |
 | US-6.12 | Internationalization (EN + DE, Qt Linguist) | Must | |
@@ -327,7 +327,7 @@
 - [ ] Object label rendering
 - [x] Branded green theme
 - [ ] Furniture SVG assets + object types
-- [ ] Infrastructure SVG assets + object types
+- [x] Infrastructure SVG assets + object types
 - [ ] Snap-to-object with visual guides
 - [ ] Alignment/distribution tools
 - [x] Fullscreen preview mode
