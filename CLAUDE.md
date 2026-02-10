@@ -123,6 +123,7 @@ src/open_garden_planner/
 │   ├── fill_patterns.py          # Texture/pattern rendering
 │   ├── plant_renderer.py         # Plant SVG loading, caching, rendering
 │   ├── furniture_renderer.py     # Furniture/hedge SVG rendering & caching
+│   ├── i18n.py                   # Internationalization, translator loading
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
 │   └── tools/                    # Drawing tools
 │       ├── base_tool.py          # ToolType enum, BaseTool ABC
@@ -149,6 +150,7 @@ src/open_garden_planner/
     ├── icons/                    # App icons, banner, tool SVGs
     ├── textures/                 # Tileable PNG textures (Phase 6)
     ├── plants/                   # Plant SVG illustrations (Phase 6)
+    ├── translations/             # .ts source & .qm compiled translations
     └── objects/                  # Object SVG illustrations (Phase 6)
         ├── furniture/            # Outdoor furniture SVGs
         └── infrastructure/       # Garden infrastructure SVGs
@@ -181,18 +183,18 @@ tests/
 
 | Status | US   | Description                                       |
 | ------ | ---- | ------------------------------------------------- |
-| ✅ | 6.1  | Rich tileable PNG textures for all materials      |
-| ✅ | 6.2  | Illustrated SVG plant rendering (hybrid approach) |
-| ✅ | 6.3  | Drop shadows on all objects (toggleable)          |
-| ✅ | 6.4  | Visual scale bar on canvas                        |
-| ✅ | 6.5  | Visual thumbnail gallery sidebar                  |
-| ✅ | 6.6  | Toggleable object labels on canvas                |
-| ✅ | 6.7  | Branded green theme (light/dark)                  |
-| ✅ | 6.8  | Outdoor furniture objects                         |
-| ✅ | 6.9  | Garden infrastructure objects                     |
-| ✅ | 6.10 | Object snapping & alignment tools                 |
-| ✅ | 6.11 | Fullscreen preview mode (F11)                     |
-|        | 6.12 | Internationalization (EN + DE, Qt Linguist)       |
+| ✅     | 6.1  | Rich tileable PNG textures for all materials      |
+| ✅     | 6.2  | Illustrated SVG plant rendering (hybrid approach) |
+| ✅     | 6.3  | Drop shadows on all objects (toggleable)          |
+| ✅     | 6.4  | Visual scale bar on canvas                        |
+| ✅     | 6.5  | Visual thumbnail gallery sidebar                  |
+| ✅     | 6.6  | Toggleable object labels on canvas                |
+| ✅     | 6.7  | Branded green theme (light/dark)                  |
+| ✅     | 6.8  | Outdoor furniture objects                         |
+| ✅     | 6.9  | Garden infrastructure objects                     |
+| ✅     | 6.10 | Object snapping & alignment tools                 |
+| ✅     | 6.11 | Fullscreen preview mode (F11)                     |
+| ✅     | 6.12 | Internationalization (EN + DE, Qt Linguist)       |
 |        | 6.13 | Print support with scaling                        |
 |        | 6.14 | Windows installer (NSIS) + .ogp file association  |
 |        | 6.15 | Path & fence style presets                        |

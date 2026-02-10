@@ -40,7 +40,7 @@ class ExportPngDialog(QDialog):
         self._selected_dpi = ExportService.DPI_PRINT  # Default to 150 DPI
         self._selected_output_width_cm = ExportService.PAPER_A4_LANDSCAPE_WIDTH_CM
 
-        self.setWindowTitle("Export as PNG")
+        self.setWindowTitle(self.tr("Export as PNG"))
         self.setModal(True)
         self.setMinimumWidth(450)
 
@@ -52,14 +52,14 @@ class ExportPngDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # Output size group
-        size_group = QGroupBox("Output Size")
+        size_group = QGroupBox(self.tr("Output Size"))
         size_layout = QVBoxLayout(size_group)
 
         self._size_button_group = QButtonGroup(self)
 
         # A4 landscape option (default)
-        self._a4_radio = QRadioButton("A4 Landscape (29.7 cm wide)")
-        self._a4_radio.setToolTip("Standard A4 paper in landscape orientation")
+        self._a4_radio = QRadioButton(self.tr("A4 Landscape (29.7 cm wide)"))
+        self._a4_radio.setToolTip(self.tr("Standard A4 paper in landscape orientation"))
         self._a4_radio.setChecked(True)
         self._size_button_group.addButton(
             self._a4_radio, int(ExportService.PAPER_A4_LANDSCAPE_WIDTH_CM * 10)
@@ -67,16 +67,16 @@ class ExportPngDialog(QDialog):
         size_layout.addWidget(self._a4_radio)
 
         # A3 landscape option
-        self._a3_radio = QRadioButton("A3 Landscape (42.0 cm wide)")
-        self._a3_radio.setToolTip("A3 paper in landscape orientation (larger)")
+        self._a3_radio = QRadioButton(self.tr("A3 Landscape (42.0 cm wide)"))
+        self._a3_radio.setToolTip(self.tr("A3 paper in landscape orientation (larger)"))
         self._size_button_group.addButton(
             self._a3_radio, int(ExportService.PAPER_A3_LANDSCAPE_WIDTH_CM * 10)
         )
         size_layout.addWidget(self._a3_radio)
 
         # Letter landscape option
-        self._letter_radio = QRadioButton("Letter Landscape (27.9 cm wide)")
-        self._letter_radio.setToolTip("US Letter paper in landscape orientation")
+        self._letter_radio = QRadioButton(self.tr("Letter Landscape (27.9 cm wide)"))
+        self._letter_radio.setToolTip(self.tr("US Letter paper in landscape orientation"))
         self._size_button_group.addButton(
             self._letter_radio, int(ExportService.PAPER_LETTER_LANDSCAPE_WIDTH_CM * 10)
         )
@@ -88,27 +88,27 @@ class ExportPngDialog(QDialog):
         layout.addWidget(size_group)
 
         # Resolution group
-        resolution_group = QGroupBox("Resolution (DPI)")
+        resolution_group = QGroupBox(self.tr("Resolution (DPI)"))
         resolution_layout = QVBoxLayout(resolution_group)
 
         self._dpi_button_group = QButtonGroup(self)
 
         # 72 DPI option
-        self._dpi_72_radio = QRadioButton("72 DPI (Screen)")
-        self._dpi_72_radio.setToolTip("Best for on-screen viewing, smallest file size")
+        self._dpi_72_radio = QRadioButton(self.tr("72 DPI (Screen)"))
+        self._dpi_72_radio.setToolTip(self.tr("Best for on-screen viewing, smallest file size"))
         self._dpi_button_group.addButton(self._dpi_72_radio, ExportService.DPI_SCREEN)
         resolution_layout.addWidget(self._dpi_72_radio)
 
         # 150 DPI option (default)
-        self._dpi_150_radio = QRadioButton("150 DPI (Standard Print)")
-        self._dpi_150_radio.setToolTip("Good balance of quality and file size")
+        self._dpi_150_radio = QRadioButton(self.tr("150 DPI (Standard Print)"))
+        self._dpi_150_radio.setToolTip(self.tr("Good balance of quality and file size"))
         self._dpi_150_radio.setChecked(True)
         self._dpi_button_group.addButton(self._dpi_150_radio, ExportService.DPI_PRINT)
         resolution_layout.addWidget(self._dpi_150_radio)
 
         # 300 DPI option
-        self._dpi_300_radio = QRadioButton("300 DPI (High Quality)")
-        self._dpi_300_radio.setToolTip("Best for high-quality printing, largest file size")
+        self._dpi_300_radio = QRadioButton(self.tr("300 DPI (High Quality)"))
+        self._dpi_300_radio.setToolTip(self.tr("Best for high-quality printing, largest file size"))
         self._dpi_button_group.addButton(self._dpi_300_radio, ExportService.DPI_HIGH)
         resolution_layout.addWidget(self._dpi_300_radio)
 
@@ -118,13 +118,15 @@ class ExportPngDialog(QDialog):
         layout.addWidget(resolution_group)
 
         # Preview group
-        preview_group = QGroupBox("Output Preview")
+        preview_group = QGroupBox(self.tr("Output Preview"))
         preview_layout = QVBoxLayout(preview_group)
 
         # Canvas size info
         canvas_info = QLabel(
-            f"Canvas size: {self._canvas_width_cm / 100:.1f} × "
-            f"{self._canvas_height_cm / 100:.1f} m"
+            self.tr("Canvas size: {width} × {height} m").format(
+                width=f"{self._canvas_width_cm / 100:.1f}",
+                height=f"{self._canvas_height_cm / 100:.1f}",
+            )
         )
         canvas_info.setStyleSheet("color: palette(mid);")
         preview_layout.addWidget(canvas_info)
@@ -176,7 +178,7 @@ class ExportPngDialog(QDialog):
             self._canvas_width_cm, self._selected_output_width_cm
         )
         scale_denominator = int(1 / scale_ratio)
-        self._scale_label.setText(f"Scale: 1:{scale_denominator}")
+        self._scale_label.setText(self.tr("Scale: 1:{denom}").format(denom=scale_denominator))
 
         # Calculate image size
         width_px, height_px = ExportService.calculate_image_size(
@@ -187,7 +189,7 @@ class ExportPngDialog(QDialog):
         )
 
         self._dimensions_label.setText(
-            f"<b>Image size: {width_px:,} × {height_px:,} pixels</b>"
+            self.tr("<b>Image size: {w} × {h} pixels</b>").format(w=f"{width_px:,}", h=f"{height_px:,}")
         )
 
     @property

@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsRectItem
 
@@ -24,7 +24,7 @@ class SelectTool(BaseTool):
     """
 
     tool_type = ToolType.SELECT
-    display_name = "Select"
+    display_name = QT_TR_NOOP("Select")
     shortcut = "V"
     cursor = Qt.CursorShape.ArrowCursor
 

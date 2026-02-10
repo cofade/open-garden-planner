@@ -72,7 +72,7 @@ class ColorButton(QPushButton):
         dialog = QColorDialog()
         dialog.setCurrentColor(self._color)
         dialog.setOption(QColorDialog.ColorDialogOption.ShowAlphaChannel, True)
-        dialog.setWindowTitle("Choose Color")
+        dialog.setWindowTitle(self.tr("Choose Color"))
 
         # Execute dialog
         if dialog.exec():
@@ -100,7 +100,7 @@ class PropertiesDialog(QDialog):
         self._stroke_style_combo: QComboBox | None = None
         self._layer_combo: QComboBox | None = None
 
-        self.setWindowTitle("Object Properties")
+        self.setWindowTitle(self.tr("Object Properties"))
         self.setModal(True)
         self.setMinimumWidth(400)
 
@@ -132,7 +132,7 @@ class PropertiesDialog(QDialog):
 
     def _create_basic_info_section(self) -> QGroupBox:
         """Create the basic information section."""
-        group = QGroupBox("Basic Information")
+        group = QGroupBox(self.tr("Basic Information"))
         layout = QFormLayout()
 
         # Object type dropdown
@@ -172,12 +172,12 @@ class PropertiesDialog(QDialog):
             self._object_type_combo.setCurrentIndex(current_idx)
             # Connect to update colors/patterns when object type changes
             self._object_type_combo.currentIndexChanged.connect(self._on_object_type_changed)
-            layout.addRow("Type:", self._object_type_combo)
+            layout.addRow(self.tr("Type:"), self._object_type_combo)
 
         # Name/label
         if hasattr(self._item, 'name'):
             self._name_edit = QLineEdit(self._item.name)
-            layout.addRow("Name:", self._name_edit)
+            layout.addRow(self.tr("Name:"), self._name_edit)
 
         # Layer selection
         if hasattr(self._item, 'layer_id'):
@@ -194,14 +194,14 @@ class PropertiesDialog(QDialog):
                         current_idx = idx
 
                 self._layer_combo.setCurrentIndex(current_idx)
-                layout.addRow("Layer:", self._layer_combo)
+                layout.addRow(self.tr("Layer:"), self._layer_combo)
 
         group.setLayout(layout)
         return group
 
     def _create_appearance_section(self) -> QGroupBox:
         """Create the appearance customization section."""
-        group = QGroupBox("Appearance")
+        group = QGroupBox(self.tr("Appearance"))
         layout = QFormLayout()
 
         # Get current fill color
@@ -209,7 +209,7 @@ class PropertiesDialog(QDialog):
 
         # Fill color picker
         self._fill_color_button = ColorButton(current_fill)
-        layout.addRow("Fill Color:", self._fill_color_button)
+        layout.addRow(self.tr("Fill Color:"), self._fill_color_button)
 
         # Fill pattern selector
         self._fill_pattern_combo = QComboBox()
@@ -225,12 +225,12 @@ class PropertiesDialog(QDialog):
                 self._fill_pattern_combo.setCurrentIndex(i)
                 break
 
-        layout.addRow("Fill Pattern:", self._fill_pattern_combo)
+        layout.addRow(self.tr("Fill Pattern:"), self._fill_pattern_combo)
 
         # Stroke/outline controls
         current_stroke = self._get_current_stroke_color()
         self._stroke_color_button = ColorButton(current_stroke)
-        layout.addRow("Stroke Color:", self._stroke_color_button)
+        layout.addRow(self.tr("Stroke Color:"), self._stroke_color_button)
 
         # Stroke width
         self._stroke_width_spin = QDoubleSpinBox()
@@ -239,7 +239,7 @@ class PropertiesDialog(QDialog):
         self._stroke_width_spin.setDecimals(1)
         self._stroke_width_spin.setSuffix(" px")
         self._stroke_width_spin.setValue(self._get_current_stroke_width())
-        layout.addRow("Stroke Width:", self._stroke_width_spin)
+        layout.addRow(self.tr("Stroke Width:"), self._stroke_width_spin)
 
         # Stroke style
         self._stroke_style_combo = QComboBox()
@@ -255,14 +255,14 @@ class PropertiesDialog(QDialog):
                 self._stroke_style_combo.setCurrentIndex(i)
                 break
 
-        layout.addRow("Stroke Style:", self._stroke_style_combo)
+        layout.addRow(self.tr("Stroke Style:"), self._stroke_style_combo)
 
         group.setLayout(layout)
         return group
 
     def _create_metadata_section(self) -> QGroupBox:
         """Create metadata section."""
-        group = QGroupBox("Additional Information")
+        group = QGroupBox(self.tr("Additional Information"))
         layout = QFormLayout()
 
         if hasattr(self._item, 'metadata'):

@@ -49,7 +49,7 @@ class PlantSearchDialog(QDialog):
         self._search_timer.setSingleShot(True)
         self._search_timer.timeout.connect(self._perform_search)
 
-        self.setWindowTitle("Search Plant Species")
+        self.setWindowTitle(self.tr("Search Plant Species"))
         self.setModal(True)
         self.setMinimumSize(700, 500)
 
@@ -61,13 +61,13 @@ class PlantSearchDialog(QDialog):
 
         # Search input area
         search_layout = QHBoxLayout()
-        search_label = QLabel("Search:")
+        search_label = QLabel(self.tr("Search:"))
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Enter plant common or scientific name...")
+        self.search_input.setPlaceholderText(self.tr("Enter plant common or scientific name..."))
         self.search_input.textChanged.connect(self._on_search_text_changed)
         self.search_input.returnPressed.connect(self._perform_search)
 
-        self.search_button = QPushButton("Search")
+        self.search_button = QPushButton(self.tr("Search"))
         self.search_button.clicked.connect(self._perform_search)
 
         search_layout.addWidget(search_label)
@@ -76,8 +76,8 @@ class PlantSearchDialog(QDialog):
         layout.addLayout(search_layout)
 
         # Status/info label
-        self.status_label = QLabel("Enter a plant name to search")
-        self.status_label.setStyleSheet("color: palette(mid);")
+        self.status_label = QLabel(self.tr("Enter a plant name to search"))
+        self.status_label.setStyleSheet("color: palette(text); opacity: 0.7;")
         layout.addWidget(self.status_label)
 
         # Main content area
@@ -85,7 +85,7 @@ class PlantSearchDialog(QDialog):
 
         # Left side: Search results list
         results_layout = QVBoxLayout()
-        results_label = QLabel("Results:")
+        results_label = QLabel(self.tr("Results:"))
         results_label.setStyleSheet("font-weight: bold;")
         self.results_list = QListWidget()
         self.results_list.itemSelectionChanged.connect(self._on_selection_changed)
@@ -95,11 +95,11 @@ class PlantSearchDialog(QDialog):
 
         # Right side: Plant details
         details_layout = QVBoxLayout()
-        details_label = QLabel("Plant Details:")
+        details_label = QLabel(self.tr("Plant Details:"))
         details_label.setStyleSheet("font-weight: bold;")
         self.details_text = QTextEdit()
         self.details_text.setReadOnly(True)
-        self.details_text.setPlaceholderText("Select a plant to view details")
+        self.details_text.setPlaceholderText(self.tr("Select a plant to view details"))
         details_layout.addWidget(details_label)
         details_layout.addWidget(self.details_text)
 
@@ -133,8 +133,8 @@ class PlantSearchDialog(QDialog):
             self._search_timer.start(500)
         else:
             self.results_list.clear()
-            self.status_label.setText("Enter a plant name to search")
-            self.status_label.setStyleSheet("color: palette(mid);")
+            self.status_label.setText(self.tr("Enter a plant name to search"))
+            self.status_label.setStyleSheet("color: palette(text); opacity: 0.7;")
 
     def _perform_search(self) -> None:
         """Perform plant search using the API manager."""
@@ -149,7 +149,7 @@ class PlantSearchDialog(QDialog):
         self._selected_plant = None
 
         # Show searching status
-        self.status_label.setText(f"Searching for '{query}'...")
+        self.status_label.setText(self.tr("Searching for '{query}'...").format(query=query))
         self.status_label.setStyleSheet("color: blue;")
         self.search_button.setEnabled(False)
 
@@ -166,23 +166,23 @@ class PlantSearchDialog(QDialog):
                     item.setData(Qt.ItemDataRole.UserRole, plant_data)
                     self.results_list.addItem(item)
 
-                self.status_label.setText(f"Found {len(results)} results")
+                self.status_label.setText(self.tr("Found {count} results").format(count=len(results)))
                 self.status_label.setStyleSheet("color: green;")
             else:
-                self.status_label.setText("No results found")
+                self.status_label.setText(self.tr("No results found"))
                 self.status_label.setStyleSheet("color: orange;")
 
         except PlantAPIError as e:
-            self.status_label.setText(f"Search failed: {str(e)}")
+            self.status_label.setText(self.tr("Search failed: {error}").format(error=str(e)))
             self.status_label.setStyleSheet("color: red;")
             logger.error(f"Plant search failed: {e}")
 
             # Show error dialog
             QMessageBox.warning(
                 self,
-                "Search Failed",
-                f"Failed to search plant database:\n{str(e)}\n\n"
-                "Please check your internet connection and API credentials.",
+                self.tr("Search Failed"),
+                self.tr("Failed to search plant database:\n{error}\n\n"
+                "Please check your internet connection and API credentials.").format(error=str(e)),
             )
 
         finally:
@@ -225,50 +225,69 @@ class PlantSearchDialog(QDialog):
 
         # Botanical info
         if plant.family or plant.genus:
-            html += "<h3>Botanical Classification</h3><ul>"
+            html += f"<h3>{self.tr('Botanical Classification')}</h3><ul>"
             if plant.family:
-                html += f"<li><b>Family:</b> {plant.family}</li>"
+                html += f"<li><b>{self.tr('Family:')}</b> {plant.family}</li>"
             if plant.genus:
-                html += f"<li><b>Genus:</b> {plant.genus}</li>"
+                html += f"<li><b>{self.tr('Genus:')}</b> {plant.genus}</li>"
             html += "</ul>"
 
         # Growing requirements
-        html += "<h3>Growing Requirements</h3><ul>"
-        html += f"<li><b>Cycle:</b> {plant.cycle.value.replace('_', ' ').title()}</li>"
-        html += f"<li><b>Sun:</b> {plant.sun_requirement.value.replace('_', ' ').title()}</li>"
-        html += f"<li><b>Water:</b> {plant.water_needs.value.title()}</li>"
+        _cycle_names = {
+            "unknown": self.tr("Unknown"),
+            "annual": self.tr("Annual"),
+            "biennial": self.tr("Biennial"),
+            "perennial": self.tr("Perennial"),
+        }
+        _sun_names = {
+            "unknown": self.tr("Unknown"),
+            "full_sun": self.tr("Full Sun"),
+            "partial_sun": self.tr("Partial Sun"),
+            "partial_shade": self.tr("Partial Shade"),
+            "full_shade": self.tr("Full Shade"),
+        }
+        _water_names = {
+            "unknown": self.tr("Unknown"),
+            "low": self.tr("Low"),
+            "medium": self.tr("Medium"),
+            "high": self.tr("High"),
+        }
+        html += f"<h3>{self.tr('Growing Requirements')}</h3><ul>"
+        html += f"<li><b>{self.tr('Cycle:')}</b> {_cycle_names.get(plant.cycle.value, plant.cycle.value)}</li>"
+        html += f"<li><b>{self.tr('Sun:')}</b> {_sun_names.get(plant.sun_requirement.value, plant.sun_requirement.value)}</li>"
+        html += f"<li><b>{self.tr('Water:')}</b> {_water_names.get(plant.water_needs.value, plant.water_needs.value)}</li>"
 
         if plant.hardiness_zone_min and plant.hardiness_zone_max:
-            html += f"<li><b>Hardiness Zones:</b> {plant.hardiness_zone_min}-{plant.hardiness_zone_max}</li>"
+            html += f"<li><b>{self.tr('Hardiness Zones:')}</b> {plant.hardiness_zone_min}-{plant.hardiness_zone_max}</li>"
         elif plant.hardiness_zone_min:
-            html += f"<li><b>Hardiness Zone:</b> {plant.hardiness_zone_min}</li>"
+            html += f"<li><b>{self.tr('Hardiness Zone:')}</b> {plant.hardiness_zone_min}</li>"
 
         if plant.soil_type:
-            html += f"<li><b>Soil:</b> {plant.soil_type}</li>"
+            html += f"<li><b>{self.tr('Soil:')}</b> {plant.soil_type}</li>"
 
         html += "</ul>"
 
         # Size info
         if plant.max_height_cm or plant.max_spread_cm:
-            html += "<h3>Size</h3><ul>"
+            html += f"<h3>{self.tr('Size')}</h3><ul>"
             if plant.max_height_cm:
                 height_m = plant.max_height_cm / 100
-                html += f"<li><b>Max Height:</b> {height_m:.1f} m</li>"
+                html += f"<li><b>{self.tr('Max Height:')}</b> {height_m:.1f} m</li>"
             if plant.max_spread_cm:
                 spread_m = plant.max_spread_cm / 100
-                html += f"<li><b>Max Spread:</b> {spread_m:.1f} m</li>"
+                html += f"<li><b>{self.tr('Max Spread:')}</b> {spread_m:.1f} m</li>"
             html += "</ul>"
 
         # Additional attributes
         if plant.edible or plant.flowering or plant.flower_color:
-            html += "<h3>Attributes</h3><ul>"
+            html += f"<h3>{self.tr('Attributes')}</h3><ul>"
             if plant.edible:
-                html += "<li><b>Edible:</b> Yes"
+                html += f"<li><b>{self.tr('Edible:')}</b> {self.tr('Yes')}"
                 if plant.edible_parts:
                     html += f" ({', '.join(plant.edible_parts)})"
                 html += "</li>"
             if plant.flowering:
-                html += "<li><b>Flowering:</b> Yes"
+                html += f"<li><b>{self.tr('Flowering:')}</b> {self.tr('Yes')}"
                 if plant.flower_color:
                     html += f" ({plant.flower_color})"
                 html += "</li>"
@@ -276,7 +295,7 @@ class PlantSearchDialog(QDialog):
 
         # Data source
         html += "<hr><p style='color: palette(mid); font-size: small;'>"
-        html += f"Source: {plant.data_source.title()}"
+        html += self.tr("Source: {source}").format(source=plant.data_source.title())
         if plant.source_id:
             html += f" (ID: {plant.source_id})"
         html += "</p>"
@@ -298,8 +317,8 @@ class PlantSearchDialog(QDialog):
         if self._selected_plant is None:
             QMessageBox.warning(
                 self,
-                "No Selection",
-                "Please select a plant from the search results.",
+                self.tr("No Selection"),
+                self.tr("Please select a plant from the search results."),
             )
             return
 

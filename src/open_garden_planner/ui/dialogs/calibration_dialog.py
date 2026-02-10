@@ -31,7 +31,7 @@ class CalibrationDialog(QDialog):
         """
         super().__init__(parent)
 
-        self.setWindowTitle("Calibrate Background Image")
+        self.setWindowTitle(self.tr("Calibrate Background Image"))
         self.setModal(True)
         self.setMinimumSize(600, 500)
 
@@ -47,10 +47,10 @@ class CalibrationDialog(QDialog):
 
         # Instructions
         instructions = QLabel(
-            "<b>Instructions:</b><br>"
+            self.tr("<b>Instructions:</b><br>"
             "1. Click two points on the image at a known distance apart<br>"
             "2. Enter the real-world distance between those points<br>"
-            "3. Click OK to apply calibration"
+            "3. Click OK to apply calibration")
         )
         instructions.setWordWrap(True)
         layout.addWidget(instructions)
@@ -73,13 +73,13 @@ class CalibrationDialog(QDialog):
         layout.addWidget(self._view)
 
         # Status label
-        self._status_label = QLabel("Click the first point on the image")
+        self._status_label = QLabel(self.tr("Click the first point on the image"))
         self._status_label.setStyleSheet("color: palette(highlight); font-weight: bold;")
         layout.addWidget(self._status_label)
 
         # Distance input
         distance_layout = QHBoxLayout()
-        distance_layout.addWidget(QLabel("Real-world distance:"))
+        distance_layout.addWidget(QLabel(self.tr("Real-world distance:")))
 
         self._distance_input = QLineEdit()
         self._distance_input.setPlaceholderText("e.g., 1200 (cm) or 12 (m)")
@@ -89,7 +89,7 @@ class CalibrationDialog(QDialog):
         self._unit_label = QLabel("cm")
         distance_layout.addWidget(self._unit_label)
 
-        self._reset_button = QPushButton("Reset Points")
+        self._reset_button = QPushButton(self.tr("Reset Points"))
         self._reset_button.clicked.connect(self._reset_points)
         self._reset_button.setEnabled(False)
         distance_layout.addWidget(self._reset_button)
@@ -117,7 +117,7 @@ class CalibrationDialog(QDialog):
             self._draw_calibration_markers()
 
             if len(self._points) == 1:
-                self._status_label.setText("Click the second point on the image")
+                self._status_label.setText(self.tr("Click the second point on the image"))
                 self._reset_button.setEnabled(True)
             elif len(self._points) == 2:
                 # Calculate pixel distance
@@ -125,8 +125,8 @@ class CalibrationDialog(QDialog):
                 self._pixel_distance = line.length()
 
                 self._status_label.setText(
-                    f"Distance: {self._pixel_distance:.1f} pixels. "
-                    "Enter the real-world distance below."
+                    self.tr("Distance: {pixels} pixels. "
+                    "Enter the real-world distance below.").format(pixels=f"{self._pixel_distance:.1f}")
                 )
                 self._distance_input.setEnabled(True)
                 self._distance_input.setFocus()
@@ -174,7 +174,7 @@ class CalibrationDialog(QDialog):
             if item != self._pixmap_item:
                 self._scene.removeItem(item)
 
-        self._status_label.setText("Click the first point on the image")
+        self._status_label.setText(self.tr("Click the first point on the image"))
         self._distance_input.clear()
         self._distance_input.setEnabled(False)
         self._ok_button.setEnabled(False)

@@ -51,4 +51,7 @@ class Layer:
 
 def create_default_layers() -> list[Layer]:
     """Create the default set of layers for a new project."""
-    return [Layer(name="Layer 1", z_order=0)]
+    from PyQt6.QtCore import QCoreApplication
+
+    layer_name = QCoreApplication.translate("LayersPanel", "Layer")
+    return [Layer(name=f"{layer_name} 1", z_order=0)]

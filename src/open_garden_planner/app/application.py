@@ -86,112 +86,112 @@ class GardenPlannerApp(QMainWindow):
         menubar = self.menuBar()
 
         # File menu
-        file_menu = menubar.addMenu("&File")
+        file_menu = menubar.addMenu(self.tr("&File"))
         self._setup_file_menu(file_menu)
 
         # Edit menu
-        edit_menu = menubar.addMenu("&Edit")
+        edit_menu = menubar.addMenu(self.tr("&Edit"))
         self._setup_edit_menu(edit_menu)
 
         # View menu
-        view_menu = menubar.addMenu("&View")
+        view_menu = menubar.addMenu(self.tr("&View"))
         self._setup_view_menu(view_menu)
 
         # Plants menu
-        plants_menu = menubar.addMenu("&Plants")
+        plants_menu = menubar.addMenu(self.tr("&Plants"))
         self._setup_plants_menu(plants_menu)
 
         # Help menu
-        help_menu = menubar.addMenu("&Help")
+        help_menu = menubar.addMenu(self.tr("&Help"))
         self._setup_help_menu(help_menu)
 
     def _setup_file_menu(self, menu: QMenu) -> None:
         """Set up the File menu actions."""
         # New Project
-        new_action = QAction("&New Project", self)
+        new_action = QAction(self.tr("&New Project"), self)
         new_action.setShortcut(QKeySequence("Ctrl+N"))
-        new_action.setStatusTip("Create a new garden project")
+        new_action.setStatusTip(self.tr("Create a new garden project"))
         new_action.triggered.connect(self._on_new_project)
         menu.addAction(new_action)
 
         # Open Project
-        open_action = QAction("&Open...", self)
+        open_action = QAction(self.tr("&Open..."), self)
         open_action.setShortcut(QKeySequence("Ctrl+O"))
-        open_action.setStatusTip("Open an existing project")
+        open_action.setStatusTip(self.tr("Open an existing project"))
         open_action.triggered.connect(self._on_open_project)
         menu.addAction(open_action)
 
         # Open Recent submenu
-        self._recent_menu = menu.addMenu("Open &Recent")
+        self._recent_menu = menu.addMenu(self.tr("Open &Recent"))
         self._recent_menu.aboutToShow.connect(self._populate_recent_menu)
 
         menu.addSeparator()
 
         # Save
-        save_action = QAction("&Save", self)
+        save_action = QAction(self.tr("&Save"), self)
         save_action.setShortcut(QKeySequence("Ctrl+S"))
-        save_action.setStatusTip("Save the current project")
+        save_action.setStatusTip(self.tr("Save the current project"))
         save_action.triggered.connect(self._on_save)
         menu.addAction(save_action)
 
         # Save As
-        save_as_action = QAction("Save &As...", self)
+        save_as_action = QAction(self.tr("Save &As..."), self)
         save_as_action.setShortcut(QKeySequence("Ctrl+Shift+S"))
-        save_as_action.setStatusTip("Save the project with a new name")
+        save_as_action.setStatusTip(self.tr("Save the project with a new name"))
         save_as_action.triggered.connect(self._on_save_as)
         menu.addAction(save_as_action)
 
         menu.addSeparator()
 
         # Import Background Image
-        import_image_action = QAction("&Import Background Image...", self)
-        import_image_action.setStatusTip("Import a background image (satellite photo, etc.)")
+        import_image_action = QAction(self.tr("&Import Background Image..."), self)
+        import_image_action.setStatusTip(self.tr("Import a background image (satellite photo, etc.)"))
         import_image_action.triggered.connect(self._on_import_background_image)
         menu.addAction(import_image_action)
 
         menu.addSeparator()
 
         # Export submenu
-        export_menu = menu.addMenu("&Export")
+        export_menu = menu.addMenu(self.tr("&Export"))
 
-        export_png = QAction("Export as &PNG...", self)
-        export_png.setStatusTip("Export the plan as a PNG image")
+        export_png = QAction(self.tr("Export as &PNG..."), self)
+        export_png.setStatusTip(self.tr("Export the plan as a PNG image"))
         export_png.triggered.connect(self._on_export_png)
         export_menu.addAction(export_png)
 
-        export_svg = QAction("Export as &SVG...", self)
-        export_svg.setStatusTip("Export the plan as an SVG vector file")
+        export_svg = QAction(self.tr("Export as &SVG..."), self)
+        export_svg.setStatusTip(self.tr("Export the plan as an SVG vector file"))
         export_svg.triggered.connect(self._on_export_svg)
         export_menu.addAction(export_svg)
 
-        export_csv = QAction("Export Plant List as &CSV...", self)
-        export_csv.setStatusTip("Export all plants to a CSV spreadsheet")
+        export_csv = QAction(self.tr("Export Plant List as &CSV..."), self)
+        export_csv.setStatusTip(self.tr("Export all plants to a CSV spreadsheet"))
         export_csv.triggered.connect(self._on_export_plant_csv)
         export_menu.addAction(export_csv)
 
         menu.addSeparator()
 
         # Exit
-        exit_action = QAction("E&xit", self)
+        exit_action = QAction(self.tr("E&xit"), self)
         exit_action.setShortcut(QKeySequence("Alt+F4"))
-        exit_action.setStatusTip("Exit the application")
+        exit_action.setStatusTip(self.tr("Exit the application"))
         exit_action.triggered.connect(self.close)
         menu.addAction(exit_action)
 
     def _setup_edit_menu(self, menu: QMenu) -> None:
         """Set up the Edit menu actions."""
         # Undo
-        self._undo_action = QAction("&Undo", self)
+        self._undo_action = QAction(self.tr("&Undo"), self)
         self._undo_action.setShortcut(QKeySequence("Ctrl+Z"))
-        self._undo_action.setStatusTip("Undo the last action")
+        self._undo_action.setStatusTip(self.tr("Undo the last action"))
         self._undo_action.setEnabled(False)  # Disabled until there's something to undo
         self._undo_action.triggered.connect(self._on_undo)
         menu.addAction(self._undo_action)
 
         # Redo
-        self._redo_action = QAction("&Redo", self)
+        self._redo_action = QAction(self.tr("&Redo"), self)
         self._redo_action.setShortcut(QKeySequence("Ctrl+Y"))
-        self._redo_action.setStatusTip("Redo the last undone action")
+        self._redo_action.setStatusTip(self.tr("Redo the last undone action"))
         self._redo_action.setEnabled(False)  # Disabled until there's something to redo
         self._redo_action.triggered.connect(self._on_redo)
         menu.addAction(self._redo_action)
@@ -199,104 +199,112 @@ class GardenPlannerApp(QMainWindow):
         menu.addSeparator()
 
         # Cut
-        cut_action = QAction("Cu&t", self)
+        cut_action = QAction(self.tr("Cu&t"), self)
         cut_action.setShortcut(QKeySequence("Ctrl+X"))
-        cut_action.setStatusTip("Cut selected objects")
+        cut_action.setStatusTip(self.tr("Cut selected objects"))
         cut_action.triggered.connect(self._on_cut)
         menu.addAction(cut_action)
 
         # Copy
-        copy_action = QAction("&Copy", self)
+        copy_action = QAction(self.tr("&Copy"), self)
         copy_action.setShortcut(QKeySequence("Ctrl+C"))
-        copy_action.setStatusTip("Copy selected objects")
+        copy_action.setStatusTip(self.tr("Copy selected objects"))
         copy_action.triggered.connect(self._on_copy)
         menu.addAction(copy_action)
 
         # Paste
-        paste_action = QAction("&Paste", self)
+        paste_action = QAction(self.tr("&Paste"), self)
         paste_action.setShortcut(QKeySequence("Ctrl+V"))
-        paste_action.setStatusTip("Paste objects from clipboard")
+        paste_action.setStatusTip(self.tr("Paste objects from clipboard"))
         paste_action.triggered.connect(self._on_paste)
         menu.addAction(paste_action)
 
         # Duplicate
-        duplicate_action = QAction("D&uplicate", self)
+        duplicate_action = QAction(self.tr("D&uplicate"), self)
         duplicate_action.setShortcut(QKeySequence("Ctrl+D"))
-        duplicate_action.setStatusTip("Duplicate selected objects")
+        duplicate_action.setStatusTip(self.tr("Duplicate selected objects"))
         duplicate_action.triggered.connect(self._on_duplicate)
         menu.addAction(duplicate_action)
 
         # Delete
-        self._delete_action = QAction("&Delete", self)
+        self._delete_action = QAction(self.tr("&Delete"), self)
         self._delete_action.setShortcut(QKeySequence("Delete"))
-        self._delete_action.setStatusTip("Delete selected objects")
+        self._delete_action.setStatusTip(self.tr("Delete selected objects"))
         menu.addAction(self._delete_action)
 
         menu.addSeparator()
 
         # Select All
-        select_all_action = QAction("Select &All", self)
+        select_all_action = QAction(self.tr("Select &All"), self)
         select_all_action.setShortcut(QKeySequence("Ctrl+A"))
-        select_all_action.setStatusTip("Select all objects")
+        select_all_action.setStatusTip(self.tr("Select all objects"))
         select_all_action.triggered.connect(self._on_select_all)
         menu.addAction(select_all_action)
 
         menu.addSeparator()
 
         # Align submenu
-        align_menu = menu.addMenu("Ali&gn && Distribute")
+        align_menu = menu.addMenu(self.tr("Ali&gn && Distribute"))
 
-        align_left = QAction("Align &Left", self)
-        align_left.setStatusTip("Align selected objects to the left edge")
+        align_left = QAction(self.tr("Align &Left"), self)
+        align_left.setStatusTip(self.tr("Align selected objects to the left edge"))
         align_left.triggered.connect(self._on_align_left)
         align_menu.addAction(align_left)
 
-        align_right = QAction("Align &Right", self)
-        align_right.setStatusTip("Align selected objects to the right edge")
+        align_right = QAction(self.tr("Align &Right"), self)
+        align_right.setStatusTip(self.tr("Align selected objects to the right edge"))
         align_right.triggered.connect(self._on_align_right)
         align_menu.addAction(align_right)
 
-        align_top = QAction("Align &Top", self)
-        align_top.setStatusTip("Align selected objects to the top edge")
+        align_top = QAction(self.tr("Align &Top"), self)
+        align_top.setStatusTip(self.tr("Align selected objects to the top edge"))
         align_top.triggered.connect(self._on_align_top)
         align_menu.addAction(align_top)
 
-        align_bottom = QAction("Align &Bottom", self)
-        align_bottom.setStatusTip("Align selected objects to the bottom edge")
+        align_bottom = QAction(self.tr("Align &Bottom"), self)
+        align_bottom.setStatusTip(self.tr("Align selected objects to the bottom edge"))
         align_bottom.triggered.connect(self._on_align_bottom)
         align_menu.addAction(align_bottom)
 
-        align_center_h = QAction("Align Center &Horizontally", self)
-        align_center_h.setStatusTip("Align selected objects to horizontal center")
+        align_center_h = QAction(self.tr("Align Center &Horizontally"), self)
+        align_center_h.setStatusTip(self.tr("Align selected objects to horizontal center"))
         align_center_h.triggered.connect(self._on_align_center_h)
         align_menu.addAction(align_center_h)
 
-        align_center_v = QAction("Align Center &Vertically", self)
-        align_center_v.setStatusTip("Align selected objects to vertical center")
+        align_center_v = QAction(self.tr("Align Center &Vertically"), self)
+        align_center_v.setStatusTip(self.tr("Align selected objects to vertical center"))
         align_center_v.triggered.connect(self._on_align_center_v)
         align_menu.addAction(align_center_v)
 
         align_menu.addSeparator()
 
-        dist_h = QAction("Distribute &Horizontal", self)
-        dist_h.setStatusTip("Distribute selected objects with equal horizontal spacing")
+        dist_h = QAction(self.tr("Distribute &Horizontal"), self)
+        dist_h.setStatusTip(self.tr("Distribute selected objects with equal horizontal spacing"))
         dist_h.triggered.connect(self._on_distribute_horizontal)
         align_menu.addAction(dist_h)
 
-        dist_v = QAction("Distribute &Vertical", self)
-        dist_v.setStatusTip("Distribute selected objects with equal vertical spacing")
+        dist_v = QAction(self.tr("Distribute &Vertical"), self)
+        dist_v.setStatusTip(self.tr("Distribute selected objects with equal vertical spacing"))
         dist_v.triggered.connect(self._on_distribute_vertical)
         align_menu.addAction(dist_v)
 
         menu.addSeparator()
 
+        # Canvas Size
+        canvas_size_action = QAction(self.tr("Canvas &Size..."), self)
+        canvas_size_action.setStatusTip(self.tr("Resize the canvas dimensions"))
+        canvas_size_action.triggered.connect(self._on_canvas_size)
+        menu.addAction(canvas_size_action)
+
+        menu.addSeparator()
+
         # Auto-Save submenu
-        autosave_menu = menu.addMenu("Auto-&Save")
+        autosave_menu = menu.addMenu(self.tr("Auto-&Save"))
 
         # Toggle auto-save
-        self._autosave_action = QAction("&Enable Auto-Save", self)
+        self._autosave_action = QAction(self.tr("&Enable Auto-Save"), self)
         self._autosave_action.setCheckable(True)
-        self._autosave_action.setStatusTip("Enable or disable automatic saving")
+        self._autosave_action.setStatusTip(self.tr("Enable or disable automatic saving"))
         self._autosave_action.triggered.connect(self._on_toggle_autosave)
         autosave_menu.addAction(self._autosave_action)
 
@@ -306,7 +314,7 @@ class GardenPlannerApp(QMainWindow):
         self._autosave_interval_actions: list[QAction] = []
         intervals = [1, 2, 5, 10, 15, 30]
         for minutes in intervals:
-            label = f"{minutes} minute{'s' if minutes > 1 else ''}"
+            label = self.tr("{n} minute(s)").format(n=minutes)
             action = QAction(label, self)
             action.setCheckable(True)
             action.setData(minutes)
@@ -320,155 +328,173 @@ class GardenPlannerApp(QMainWindow):
     def _setup_view_menu(self, menu: QMenu) -> None:
         """Set up the View menu actions."""
         # Zoom In
-        zoom_in_action = QAction("Zoom &In", self)
+        zoom_in_action = QAction(self.tr("Zoom &In"), self)
         zoom_in_action.setShortcut(QKeySequence("Ctrl++"))
-        zoom_in_action.setStatusTip("Zoom in on the canvas")
+        zoom_in_action.setStatusTip(self.tr("Zoom in on the canvas"))
         zoom_in_action.triggered.connect(self._on_zoom_in)
         menu.addAction(zoom_in_action)
 
         # Zoom Out
-        zoom_out_action = QAction("Zoom &Out", self)
+        zoom_out_action = QAction(self.tr("Zoom &Out"), self)
         zoom_out_action.setShortcut(QKeySequence("Ctrl+-"))
-        zoom_out_action.setStatusTip("Zoom out on the canvas")
+        zoom_out_action.setStatusTip(self.tr("Zoom out on the canvas"))
         zoom_out_action.triggered.connect(self._on_zoom_out)
         menu.addAction(zoom_out_action)
 
         # Fit to Window
-        fit_action = QAction("&Fit to Window", self)
+        fit_action = QAction(self.tr("&Fit to Window"), self)
         fit_action.setShortcut(QKeySequence("Ctrl+0"))
-        fit_action.setStatusTip("Fit the entire canvas in the window")
+        fit_action.setStatusTip(self.tr("Fit the entire canvas in the window"))
         fit_action.triggered.connect(self._on_fit_to_window)
         menu.addAction(fit_action)
 
         menu.addSeparator()
 
         # Toggle Grid
-        self.grid_action = QAction("Show &Grid", self)
+        self.grid_action = QAction(self.tr("Show &Grid"), self)
         self.grid_action.setShortcut(QKeySequence("G"))
         self.grid_action.setCheckable(True)
         self.grid_action.setChecked(False)
-        self.grid_action.setStatusTip("Toggle grid visibility")
+        self.grid_action.setStatusTip(self.tr("Toggle grid visibility"))
         menu.addAction(self.grid_action)
 
         # Toggle Snap
-        self.snap_action = QAction("&Snap to Grid", self)
+        self.snap_action = QAction(self.tr("&Snap to Grid"), self)
         self.snap_action.setShortcut(QKeySequence("S"))
         self.snap_action.setCheckable(True)
         self.snap_action.setChecked(True)
-        self.snap_action.setStatusTip("Toggle snap to grid")
+        self.snap_action.setStatusTip(self.tr("Toggle snap to grid"))
         menu.addAction(self.snap_action)
 
         # Toggle Object Snap
-        self._object_snap_action = QAction("Snap to &Objects", self)
+        self._object_snap_action = QAction(self.tr("Snap to &Objects"), self)
         self._object_snap_action.setShortcut(QKeySequence("O"))
         self._object_snap_action.setCheckable(True)
         self._object_snap_action.setChecked(True)
-        self._object_snap_action.setStatusTip("Toggle snap to object edges and centers")
+        self._object_snap_action.setStatusTip(self.tr("Toggle snap to object edges and centers"))
         self._object_snap_action.triggered.connect(self._on_toggle_object_snap)
         menu.addAction(self._object_snap_action)
 
         menu.addSeparator()
 
         # Toggle Shadows
-        self._shadows_action = QAction("Show &Shadows", self)
+        self._shadows_action = QAction(self.tr("Show &Shadows"), self)
         self._shadows_action.setCheckable(True)
         self._shadows_action.setChecked(True)  # Updated from settings in _setup_central_widget
-        self._shadows_action.setStatusTip("Toggle drop shadows on objects")
+        self._shadows_action.setStatusTip(self.tr("Toggle drop shadows on objects"))
         self._shadows_action.triggered.connect(self._on_toggle_shadows)
         menu.addAction(self._shadows_action)
 
         # Toggle Scale Bar
-        self._scale_bar_action = QAction("Show Scale &Bar", self)
+        self._scale_bar_action = QAction(self.tr("Show Scale &Bar"), self)
         self._scale_bar_action.setCheckable(True)
         self._scale_bar_action.setChecked(True)  # Updated from settings in _setup_central_widget
-        self._scale_bar_action.setStatusTip("Toggle the scale bar overlay on the canvas")
+        self._scale_bar_action.setStatusTip(self.tr("Toggle the scale bar overlay on the canvas"))
         self._scale_bar_action.triggered.connect(self._on_toggle_scale_bar)
         menu.addAction(self._scale_bar_action)
 
         # Toggle Labels
-        self._labels_action = QAction("Show &Labels", self)
+        self._labels_action = QAction(self.tr("Show &Labels"), self)
         self._labels_action.setCheckable(True)
         self._labels_action.setChecked(True)  # Updated from settings in _setup_central_widget
-        self._labels_action.setStatusTip("Toggle object labels on the canvas")
+        self._labels_action.setStatusTip(self.tr("Toggle object labels on the canvas"))
         self._labels_action.triggered.connect(self._on_toggle_labels)
         menu.addAction(self._labels_action)
 
         menu.addSeparator()
 
         # Fullscreen Preview
-        self._preview_action = QAction("&Fullscreen Preview", self)
+        self._preview_action = QAction(self.tr("&Fullscreen Preview"), self)
         self._preview_action.setShortcut(QKeySequence("F11"))
         self._preview_action.setCheckable(True)
         self._preview_action.setChecked(False)
-        self._preview_action.setStatusTip("Toggle fullscreen preview mode (hides all UI)")
+        self._preview_action.setStatusTip(self.tr("Toggle fullscreen preview mode (hides all UI)"))
         self._preview_action.triggered.connect(self._on_toggle_preview_mode)
         menu.addAction(self._preview_action)
 
         menu.addSeparator()
 
         # Theme submenu
-        theme_menu = menu.addMenu("&Theme")
+        theme_menu = menu.addMenu(self.tr("&Theme"))
 
         # Light theme
-        self._light_theme_action = QAction("&Light", self)
+        self._light_theme_action = QAction(self.tr("&Light"), self)
         self._light_theme_action.setCheckable(True)
-        self._light_theme_action.setStatusTip("Use light color scheme")
+        self._light_theme_action.setStatusTip(self.tr("Use light color scheme"))
         self._light_theme_action.triggered.connect(lambda: self._on_theme_changed(ThemeMode.LIGHT))
         theme_menu.addAction(self._light_theme_action)
 
         # Dark theme
-        self._dark_theme_action = QAction("&Dark", self)
+        self._dark_theme_action = QAction(self.tr("&Dark"), self)
         self._dark_theme_action.setCheckable(True)
-        self._dark_theme_action.setStatusTip("Use dark color scheme")
+        self._dark_theme_action.setStatusTip(self.tr("Use dark color scheme"))
         self._dark_theme_action.triggered.connect(lambda: self._on_theme_changed(ThemeMode.DARK))
         theme_menu.addAction(self._dark_theme_action)
 
         # System theme
-        self._system_theme_action = QAction("&System", self)
+        self._system_theme_action = QAction(self.tr("&System"), self)
         self._system_theme_action.setCheckable(True)
-        self._system_theme_action.setStatusTip("Follow system color scheme preference")
+        self._system_theme_action.setStatusTip(self.tr("Follow system color scheme preference"))
         self._system_theme_action.triggered.connect(lambda: self._on_theme_changed(ThemeMode.SYSTEM))
         theme_menu.addAction(self._system_theme_action)
 
         # Initialize menu state from settings
         QTimer.singleShot(0, self._update_theme_menu_state)
 
+        # Language submenu
+        language_menu = menu.addMenu(self.tr("&Language"))
+        self._language_actions: dict[str, QAction] = {}
+
+        from open_garden_planner.core.i18n import SUPPORTED_LANGUAGES
+
+        for lang_code, native_name in SUPPORTED_LANGUAGES.items():
+            action = QAction(native_name, self)
+            action.setCheckable(True)
+            action.triggered.connect(
+                lambda _checked, lc=lang_code: self._on_language_changed(lc)
+            )
+            language_menu.addAction(action)
+            self._language_actions[lang_code] = action
+
+        # Initialize language menu state from settings
+        QTimer.singleShot(0, self._update_language_menu_state)
+
     def _setup_plants_menu(self, menu: QMenu) -> None:
         """Set up the Plants menu actions."""
         # Search Plant Database
-        search_action = QAction("&Search Plant Database", self)
+        search_action = QAction(self.tr("&Search Plant Database"), self)
         search_action.setShortcut(QKeySequence("Ctrl+K"))
-        search_action.setStatusTip("Search for plant species in online databases")
+        search_action.setStatusTip(self.tr("Search for plant species in online databases"))
         search_action.triggered.connect(self._on_search_plant_database)
         menu.addAction(search_action)
 
         menu.addSeparator()
 
         # Manage Custom Plants
-        manage_custom_action = QAction("&Manage Custom Plants...", self)
-        manage_custom_action.setStatusTip("View, edit, and delete your custom plant species")
+        manage_custom_action = QAction(self.tr("&Manage Custom Plants..."), self)
+        manage_custom_action.setStatusTip(self.tr("View, edit, and delete your custom plant species"))
         manage_custom_action.triggered.connect(self._on_manage_custom_plants)
         menu.addAction(manage_custom_action)
 
     def _setup_help_menu(self, menu: QMenu) -> None:
         """Set up the Help menu actions."""
         # Keyboard Shortcuts
-        shortcuts_action = QAction("&Keyboard Shortcuts", self)
+        shortcuts_action = QAction(self.tr("&Keyboard Shortcuts"), self)
         shortcuts_action.setShortcut(QKeySequence("F1"))
-        shortcuts_action.setStatusTip("Show keyboard shortcuts reference")
+        shortcuts_action.setStatusTip(self.tr("Show keyboard shortcuts reference"))
         shortcuts_action.triggered.connect(self._on_keyboard_shortcuts)
         menu.addAction(shortcuts_action)
 
         menu.addSeparator()
 
         # About
-        about_action = QAction("&About Open Garden Planner", self)
-        about_action.setStatusTip("About this application")
+        about_action = QAction(self.tr("&About Open Garden Planner"), self)
+        about_action.setStatusTip(self.tr("About this application"))
         about_action.triggered.connect(self._on_about)
         menu.addAction(about_action)
 
         # About Qt
-        about_qt_action = QAction("About &Qt", self)
+        about_qt_action = QAction(self.tr("About &Qt"), self)
         about_qt_action.triggered.connect(QApplication.aboutQt)
         menu.addAction(about_qt_action)
 
@@ -478,7 +504,7 @@ class GardenPlannerApp(QMainWindow):
         status_bar = self.statusBar()
 
         # Coordinate label (left side, permanent)
-        self.coord_label = QLabel("X: 0.00 cm  Y: 0.00 cm")
+        self.coord_label = QLabel(self.tr("X: 0.00 cm  Y: 0.00 cm"))
         self.coord_label.setMinimumWidth(200)
         status_bar.addPermanentWidget(self.coord_label)
 
@@ -488,17 +514,17 @@ class GardenPlannerApp(QMainWindow):
         status_bar.addPermanentWidget(self.zoom_label)
 
         # Selection info label
-        self.selection_label = QLabel("No selection")
+        self.selection_label = QLabel(self.tr("No selection"))
         self.selection_label.setMinimumWidth(150)
         status_bar.addPermanentWidget(self.selection_label)
 
         # Tool label
-        self.tool_label = QLabel("Select")
+        self.tool_label = QLabel(self.tr("Select"))
         self.tool_label.setMinimumWidth(80)
         status_bar.addPermanentWidget(self.tool_label)
 
         # Show ready message
-        status_bar.showMessage("Ready")
+        status_bar.showMessage(self.tr("Ready"))
 
     def _setup_central_widget(self) -> None:
         """Set up the central widget area with canvas and sidebar panels."""
@@ -582,7 +608,7 @@ class GardenPlannerApp(QMainWindow):
 
         # 1. Object Gallery Panel (collapsible) - visual thumbnail gallery
         self.gallery_panel = GalleryPanel()
-        gallery_collapsible = CollapsiblePanel("Object Gallery", self.gallery_panel, expanded=True)
+        gallery_collapsible = CollapsiblePanel(self.tr("Object Gallery"), self.gallery_panel, expanded=True)
         sidebar_layout.addWidget(gallery_collapsible)
 
         # 2. Properties Panel (collapsible)
@@ -591,7 +617,7 @@ class GardenPlannerApp(QMainWindow):
         )
         # Connect object type change to update plant details panel
         self.properties_panel.object_type_changed.connect(self._update_plant_database_panel)
-        props_panel = CollapsiblePanel("Properties", self.properties_panel, expanded=True)
+        props_panel = CollapsiblePanel(self.tr("Properties"), self.properties_panel, expanded=True)
         sidebar_layout.addWidget(props_panel)
 
         # 3. Layers Panel (collapsible)
@@ -610,7 +636,7 @@ class GardenPlannerApp(QMainWindow):
         # Connect scene layer changes to panel
         self.canvas_scene.layers_changed.connect(lambda: self.layers_panel.set_layers(self.canvas_scene.layers))
 
-        layers_panel = CollapsiblePanel("Layers", self.layers_panel, expanded=True)
+        layers_panel = CollapsiblePanel(self.tr("Layers"), self.layers_panel, expanded=True)
         sidebar_layout.addWidget(layers_panel)
 
         # 4. Plant Search Panel (collapsible) - for finding plants in the project
@@ -620,13 +646,13 @@ class GardenPlannerApp(QMainWindow):
         # Connect scene changes to refresh plant list
         self.canvas_scene.changed.connect(self._on_scene_changed_for_plant_search)
 
-        plant_search_collapsible = CollapsiblePanel("Find Plants", self.plant_search_panel, expanded=False)
+        plant_search_collapsible = CollapsiblePanel(self.tr("Find Plants"), self.plant_search_panel, expanded=False)
         sidebar_layout.addWidget(plant_search_collapsible)
 
         # 5. Plant Details Panel (collapsible) - only shown when a plant is selected
         self.plant_database_panel = PlantDatabasePanel()
         self.plant_database_panel.search_button.clicked.connect(self._on_search_plant_database)
-        self.plant_details_collapsible = CollapsiblePanel("Plant Details", self.plant_database_panel, expanded=True)
+        self.plant_details_collapsible = CollapsiblePanel(self.tr("Plant Details"), self.plant_database_panel, expanded=True)
         self.plant_details_collapsible.setVisible(False)  # Hidden by default
         sidebar_layout.addWidget(self.plant_details_collapsible)
 
@@ -693,7 +719,7 @@ class GardenPlannerApp(QMainWindow):
         Args:
             _path: Path where auto-save was written (unused)
         """
-        self.statusBar().showMessage("Auto-saved", 2000)
+        self.statusBar().showMessage(self.tr("Auto-saved"), 2000)
 
     def _on_autosave_failed(self, error: str) -> None:
         """Handle failed auto-save.
@@ -701,8 +727,8 @@ class GardenPlannerApp(QMainWindow):
         Args:
             error: Error message
         """
-        logger.error(f"Auto-save failed: {error}")
-        self.statusBar().showMessage(f"Auto-save failed: {error}", 5000)
+        logger.error("Auto-save failed: %s", error)
+        self.statusBar().showMessage(self.tr("Auto-save failed: {error}").format(error=error), 5000)
 
     def _check_recovery_files(self) -> bool:
         """Check for recovery files on startup and offer to restore.
@@ -723,20 +749,20 @@ class GardenPlannerApp(QMainWindow):
             original_file = metadata.get("original_file")
 
             if original_file:
-                message = (
-                    f"A recovery file was found from {timestamp}.\n\n"
-                    f"Original project: {original_file}\n\n"
+                message = self.tr(
+                    "A recovery file was found from {timestamp}.\n\n"
+                    "Original project: {original_file}\n\n"
                     "Would you like to recover this file?"
-                )
+                ).format(timestamp=timestamp, original_file=original_file)
             else:
-                message = (
-                    f"A recovery file for an unsaved project was found from {timestamp}.\n\n"
+                message = self.tr(
+                    "A recovery file for an unsaved project was found from {timestamp}.\n\n"
                     "Would you like to recover this file?"
-                )
+                ).format(timestamp=timestamp)
 
             result = QMessageBox.question(
                 self,
-                "Recover Auto-Save",
+                self.tr("Recover Auto-Save"),
                 message,
                 QMessageBox.StandardButton.Yes
                 | QMessageBox.StandardButton.No
@@ -773,18 +799,20 @@ class GardenPlannerApp(QMainWindow):
             self._project_manager._current_file = None
             self._project_manager.project_changed.emit(None)
 
-            self.statusBar().showMessage("Recovered from auto-save. Remember to save your work!")
+            self.statusBar().showMessage(self.tr("Recovered from auto-save. Remember to save your work!"))
             QMessageBox.information(
                 self,
-                "Recovery Complete",
-                "Your work has been recovered from the auto-save file.\n\n"
-                "Please save your project to a permanent location.",
+                self.tr("Recovery Complete"),
+                self.tr(
+                    "Your work has been recovered from the auto-save file.\n\n"
+                    "Please save your project to a permanent location."
+                ),
             )
         except Exception as e:
             QMessageBox.critical(
                 self,
-                "Recovery Failed",
-                f"Failed to recover from auto-save:\n{e}",
+                self.tr("Recovery Failed"),
+                self.tr("Failed to recover from auto-save:\n{error}").format(error=e),
             )
 
     def _update_properties_panel(self) -> None:
@@ -872,7 +900,36 @@ class GardenPlannerApp(QMainWindow):
             status_bar = self.statusBar()
             if status_bar:
                 status_bar.showMessage(
-                    f"New project created: {width_m:.1f}m x {height_m:.1f}m"
+                    self.tr("New project created: {width}m x {height}m").format(
+                        width=f"{width_m:.1f}", height=f"{height_m:.1f}"
+                    )
+                )
+
+    def _on_canvas_size(self) -> None:
+        """Handle Canvas Size action — resize the current canvas."""
+        from open_garden_planner.ui.dialogs import NewProjectDialog
+
+        dialog = NewProjectDialog(self)
+        dialog.setWindowTitle(self.tr("Canvas Size"))
+        dialog.set_dimensions_cm(
+            self.canvas_scene.width_cm,
+            self.canvas_scene.height_cm,
+        )
+
+        if dialog.exec():
+            width_cm = dialog.width_cm
+            height_cm = dialog.height_cm
+            self.canvas_scene.resize_canvas(width_cm, height_cm)
+            self.canvas_view.fit_in_view()
+
+            width_m = width_cm / 100.0
+            height_m = height_cm / 100.0
+            status_bar = self.statusBar()
+            if status_bar:
+                status_bar.showMessage(
+                    self.tr("Canvas resized to {width}m x {height}m").format(
+                        width=f"{width_m:.1f}", height=f"{height_m:.1f}"
+                    )
                 )
 
     def _on_open_project(self) -> None:
@@ -882,9 +939,9 @@ class GardenPlannerApp(QMainWindow):
 
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Open Project",
+            self.tr("Open Project"),
             "",
-            "Open Garden Planner (*.ogp);;All Files (*)",
+            self.tr("Open Garden Planner (*.ogp);;All Files (*)"),
         )
         if file_path:
             self._open_project_file(file_path)
@@ -903,9 +960,9 @@ class GardenPlannerApp(QMainWindow):
             self.canvas_view.command_manager.clear()
             self.canvas_view.fit_in_view()
             self.layers_panel.set_layers(self.canvas_scene.layers)
-            self.statusBar().showMessage(f"Opened: {file_path}")
+            self.statusBar().showMessage(self.tr("Opened: {path}").format(path=file_path))
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to open file:\n{e}")
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=e))
 
     def _populate_recent_menu(self) -> None:
         """Populate the Open Recent submenu with recent files."""
@@ -915,7 +972,7 @@ class GardenPlannerApp(QMainWindow):
 
         recent_files = get_settings().recent_files
         if not recent_files:
-            no_recent = QAction("No recent projects", self)
+            no_recent = QAction(self.tr("No recent projects"), self)
             no_recent.setEnabled(False)
             self._recent_menu.addAction(no_recent)
             return
@@ -932,15 +989,15 @@ class GardenPlannerApp(QMainWindow):
                 self._recent_menu.addAction(action)
             else:
                 # Show missing files with indicator (grayed out)
-                action = QAction(f"{path.stem} (not found)", self)
-                action.setToolTip(f"File not found: {path}")
+                action = QAction(self.tr("{name} (not found)").format(name=path.stem), self)
+                action.setToolTip(self.tr("File not found: {path}").format(path=path))
                 action.setEnabled(False)
                 self._recent_menu.addAction(action)
 
         self._recent_menu.addSeparator()
 
         # Clear recent files action
-        clear_action = QAction("Clear Recent Projects", self)
+        clear_action = QAction(self.tr("Clear Recent Projects"), self)
         clear_action.triggered.connect(self._on_clear_recent_files)
         self._recent_menu.addAction(clear_action)
 
@@ -959,7 +1016,7 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.app.settings import get_settings
 
         get_settings().clear_recent_files()
-        self.statusBar().showMessage("Recent projects list cleared", 2000)
+        self.statusBar().showMessage(self.tr("Recent projects list cleared"), 2000)
 
     def _on_save(self) -> None:
         """Handle Save action."""
@@ -972,9 +1029,9 @@ class GardenPlannerApp(QMainWindow):
         """Handle Save As action."""
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Save Project As",
+            self.tr("Save Project As"),
             self._project_manager.project_name + ".ogp",
-            "Open Garden Planner (*.ogp);;All Files (*)",
+            self.tr("Open Garden Planner (*.ogp);;All Files (*)"),
         )
         if file_path:
             self._save_to_file(Path(file_path))
@@ -985,9 +1042,9 @@ class GardenPlannerApp(QMainWindow):
             self._project_manager.save(self.canvas_scene, file_path)
             # Clear the auto-save file since we've saved manually
             self._autosave_manager.clear_autosave()
-            self.statusBar().showMessage(f"Saved: {file_path}")
+            self.statusBar().showMessage(self.tr("Saved: {path}").format(path=file_path))
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save file:\n{e}")
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save file:\n{error}").format(error=e))
 
     def _on_export_png(self) -> None:
         """Handle Export as PNG action."""
@@ -1007,9 +1064,9 @@ class GardenPlannerApp(QMainWindow):
         default_name = self._project_manager.project_name + ".png"
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Export as PNG",
+            self.tr("Export as PNG"),
             default_name,
-            "PNG Image (*.png);;All Files (*)",
+            self.tr("PNG Image (*.png);;All Files (*)"),
         )
 
         if not file_path:
@@ -1027,9 +1084,9 @@ class GardenPlannerApp(QMainWindow):
                 dpi=dialog.selected_dpi,
                 output_width_cm=dialog.selected_output_width_cm,
             )
-            self.statusBar().showMessage(f"Exported: {file_path}")
+            self.statusBar().showMessage(self.tr("Exported: {path}").format(path=file_path))
         except Exception as e:
-            QMessageBox.critical(self, "Export Error", f"Failed to export PNG:\n{e}")
+            QMessageBox.critical(self, self.tr("Export Error"), self.tr("Failed to export PNG:\n{error}").format(error=e))
 
     def _on_export_svg(self) -> None:
         """Handle Export as SVG action."""
@@ -1037,9 +1094,9 @@ class GardenPlannerApp(QMainWindow):
         default_name = self._project_manager.project_name + ".svg"
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Export as SVG",
+            self.tr("Export as SVG"),
             default_name,
-            "SVG Vector (*.svg);;All Files (*)",
+            self.tr("SVG Vector (*.svg);;All Files (*)"),
         )
 
         if not file_path:
@@ -1058,9 +1115,9 @@ class GardenPlannerApp(QMainWindow):
                 title=self._project_manager.project_name,
                 description="Created with Open Garden Planner",
             )
-            self.statusBar().showMessage(f"Exported: {file_path}")
+            self.statusBar().showMessage(self.tr("Exported: {path}").format(path=file_path))
         except Exception as e:
-            QMessageBox.critical(self, "Export Error", f"Failed to export SVG:\n{e}")
+            QMessageBox.critical(self, self.tr("Export Error"), self.tr("Failed to export SVG:\n{error}").format(error=e))
 
     def _on_export_plant_csv(self) -> None:
         """Handle Export Plant List as CSV action."""
@@ -1068,9 +1125,9 @@ class GardenPlannerApp(QMainWindow):
         default_name = self._project_manager.project_name + "_plants.csv"
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Export Plant List as CSV",
+            self.tr("Export Plant List as CSV"),
             default_name,
-            "CSV Spreadsheet (*.csv);;All Files (*)",
+            self.tr("CSV Spreadsheet (*.csv);;All Files (*)"),
         )
 
         if not file_path:
@@ -1090,12 +1147,16 @@ class GardenPlannerApp(QMainWindow):
             if count == 0:
                 QMessageBox.information(
                     self,
-                    "No Plants Found",
-                    "No plants found in the project. The CSV file will be empty.",
+                    self.tr("No Plants Found"),
+                    self.tr("No plants found in the project. The CSV file will be empty."),
                 )
-            self.statusBar().showMessage(f"Exported {count} plant(s) to: {file_path}")
+            self.statusBar().showMessage(
+                self.tr("Exported {count} plant(s) to: {path}").format(count=count, path=file_path)
+            )
         except Exception as e:
-            QMessageBox.critical(self, "Export Error", f"Failed to export plant list:\n{e}")
+            QMessageBox.critical(
+                self, self.tr("Export Error"), self.tr("Failed to export plant list:\n{error}").format(error=e)
+            )
 
     def _confirm_discard_changes(self) -> bool:
         """Ask user to save if there are unsaved changes.
@@ -1108,8 +1169,8 @@ class GardenPlannerApp(QMainWindow):
 
         result = QMessageBox.question(
             self,
-            "Unsaved Changes",
-            "Do you want to save changes before proceeding?",
+            self.tr("Unsaved Changes"),
+            self.tr("Do you want to save changes before proceeding?"),
             QMessageBox.StandardButton.Save
             | QMessageBox.StandardButton.Discard
             | QMessageBox.StandardButton.Cancel,
@@ -1144,9 +1205,9 @@ class GardenPlannerApp(QMainWindow):
         if cmd_mgr.can_undo:
             desc = cmd_mgr.undo_description
             cmd_mgr.undo()
-            self.statusBar().showMessage(f"Undo: {desc}")
+            self.statusBar().showMessage(self.tr("Undo: {desc}").format(desc=desc))
         else:
-            self.statusBar().showMessage("Nothing to undo")
+            self.statusBar().showMessage(self.tr("Nothing to undo"))
 
     def _on_redo(self) -> None:
         """Handle Redo action."""
@@ -1154,9 +1215,9 @@ class GardenPlannerApp(QMainWindow):
         if cmd_mgr.can_redo:
             desc = cmd_mgr.redo_description
             cmd_mgr.redo()
-            self.statusBar().showMessage(f"Redo: {desc}")
+            self.statusBar().showMessage(self.tr("Redo: {desc}").format(desc=desc))
         else:
-            self.statusBar().showMessage("Nothing to redo")
+            self.statusBar().showMessage(self.tr("Nothing to redo"))
 
     def _on_copy(self) -> None:
         """Handle Copy action."""
@@ -1182,7 +1243,7 @@ class GardenPlannerApp(QMainWindow):
                 if item.flags() & item.GraphicsItemFlag.ItemIsSelectable:
                     item.setSelected(True)
             count = len(self.canvas_scene.selectedItems())
-            self.statusBar().showMessage(f"Selected {count} object(s)")
+            self.statusBar().showMessage(self.tr("Selected {count} object(s)").format(count=count))
         except RuntimeError:
             pass
 
@@ -1213,10 +1274,10 @@ class GardenPlannerApp(QMainWindow):
 
         if enabled:
             self._autosave_manager.start()
-            self.statusBar().showMessage("Auto-save enabled", 2000)
+            self.statusBar().showMessage(self.tr("Auto-save enabled"), 2000)
         else:
             self._autosave_manager.stop()
-            self.statusBar().showMessage("Auto-save disabled", 2000)
+            self.statusBar().showMessage(self.tr("Auto-save disabled"), 2000)
 
     def _on_set_autosave_interval(self, minutes: int) -> None:
         """Handle setting auto-save interval.
@@ -1237,7 +1298,7 @@ class GardenPlannerApp(QMainWindow):
         self._autosave_manager.restart()
 
         self.statusBar().showMessage(
-            f"Auto-save interval set to {minutes} minute{'s' if minutes > 1 else ''}",
+            self.tr("Auto-save interval set to {n} minute(s)").format(n=minutes),
             2000,
         )
 
@@ -1485,7 +1546,48 @@ class GardenPlannerApp(QMainWindow):
 
         # Show feedback
         theme_name = mode.value.capitalize()
-        self.statusBar().showMessage(f"Theme changed to {theme_name}", 2000)
+        self.statusBar().showMessage(self.tr("Theme changed to {theme}").format(theme=theme_name), 2000)
+
+    def _update_language_menu_state(self) -> None:
+        """Update language menu checkmarks from settings."""
+        from open_garden_planner.app.settings import get_settings
+
+        current_lang = get_settings().language
+        for lang_code, action in self._language_actions.items():
+            action.setChecked(lang_code == current_lang)
+
+    def _on_language_changed(self, lang_code: str) -> None:
+        """Handle language change action.
+
+        Args:
+            lang_code: New language code (e.g. 'en', 'de')
+        """
+        from open_garden_planner.app.settings import get_settings
+
+        settings = get_settings()
+
+        # No change needed
+        if settings.language == lang_code:
+            return
+
+        settings.language = lang_code
+
+        # Update menu checkmarks
+        for lc, action in self._language_actions.items():
+            action.setChecked(lc == lang_code)
+
+        # Show restart-required message
+        from open_garden_planner.core.i18n import SUPPORTED_LANGUAGES
+
+        lang_name = SUPPORTED_LANGUAGES.get(lang_code, lang_code)
+        QMessageBox.information(
+            self,
+            self.tr("Language Changed"),
+            self.tr(
+                "Language has been set to {language}.\n\n"
+                "Please restart the application for the change to take effect."
+            ).format(language=lang_name),
+        )
 
     def _on_tool_selected(self, tool_type: ToolType) -> None:
         """Handle tool selection from toolbar.
@@ -1636,12 +1738,15 @@ class GardenPlannerApp(QMainWindow):
                     self._project_manager.mark_dirty()
 
                     self.statusBar().showMessage(
-                        f"Updated plant with species: {plant_data.common_name}", 3000
+                        self.tr("Updated plant with species: {name}").format(
+                            name=plant_data.common_name
+                        ),
+                        3000,
                     )
                 else:
                     # No plant selected - show message
                     self.statusBar().showMessage(
-                        "Select a plant object (tree, shrub, or perennial) to assign species data",
+                        self.tr("Select a plant object (tree, shrub, or perennial) to assign species data"),
                         5000,
                     )
 
@@ -1662,7 +1767,7 @@ class GardenPlannerApp(QMainWindow):
 
         # Create custom about dialog to show logo
         dialog = QDialog(self)
-        dialog.setWindowTitle("About Open Garden Planner")
+        dialog.setWindowTitle(self.tr("About Open Garden Planner"))
         dialog.setFixedSize(450, 280)
 
         layout = QHBoxLayout(dialog)
@@ -1687,12 +1792,12 @@ class GardenPlannerApp(QMainWindow):
         title_label = QLabel("<h2>Open Garden Planner</h2>")
         text_layout.addWidget(title_label)
 
-        version_label = QLabel("<p>Version 0.1.0</p>")
+        version_label = QLabel(self.tr("<p>Version 0.1.0</p>"))
         text_layout.addWidget(version_label)
 
         description_label = QLabel(
-            "<p>Precision garden planning for passionate gardeners.</p>"
-            "<p>Free and open source under GPLv3.</p>"
+            self.tr("<p>Precision garden planning for passionate gardeners.</p>"
+            "<p>Free and open source under GPLv3.</p>")
         )
         description_label.setWordWrap(True)
         text_layout.addWidget(description_label)
@@ -1718,7 +1823,7 @@ class GardenPlannerApp(QMainWindow):
             x: X coordinate in centimeters
             y: Y coordinate in centimeters
         """
-        self.coord_label.setText(f"X: {x:.2f} cm  Y: {y:.2f} cm")
+        self.coord_label.setText(self.tr("X: {x} cm  Y: {y} cm").format(x=f"{x:.2f}", y=f"{y:.2f}"))
 
     def update_zoom(self, zoom_percent: float) -> None:
         """Update the zoom display in the status bar.
@@ -1736,7 +1841,7 @@ class GardenPlannerApp(QMainWindow):
             selected_items: List of selected QGraphicsItems (optional)
         """
         if count == 0:
-            self.selection_label.setText("No selection")
+            self.selection_label.setText(self.tr("No selection"))
         elif count == 1:
             # For single selection, show area and perimeter if available
             if selected_items:
@@ -1747,12 +1852,14 @@ class GardenPlannerApp(QMainWindow):
                     area_str = format_area(area)
                     length_str = format_length(perimeter)
                     self.selection_label.setText(
-                        f"1 object | Area: {area_str} | Perimeter: {length_str}"
+                        self.tr("1 object | Area: {area} | Perimeter: {perimeter}").format(
+                            area=area_str, perimeter=length_str
+                        )
                     )
                 else:
-                    self.selection_label.setText("1 object selected")
+                    self.selection_label.setText(self.tr("1 object selected"))
             else:
-                self.selection_label.setText("1 object selected")
+                self.selection_label.setText(self.tr("1 object selected"))
         else:
             # For multiple selection, show total area and perimeter
             if selected_items:
@@ -1772,12 +1879,14 @@ class GardenPlannerApp(QMainWindow):
                     area_str = format_area(total_area)
                     length_str = format_length(total_perimeter)
                     self.selection_label.setText(
-                        f"{count} objects | Total Area: {area_str} | Total Perimeter: {length_str}"
+                        self.tr(
+                            "{count} objects | Total Area: {area} | Total Perimeter: {perimeter}"
+                        ).format(count=count, area=area_str, perimeter=length_str)
                     )
                 else:
-                    self.selection_label.setText(f"{count} objects selected")
+                    self.selection_label.setText(self.tr("{count} objects selected").format(count=count))
             else:
-                self.selection_label.setText(f"{count} objects selected")
+                self.selection_label.setText(self.tr("{count} objects selected").format(count=count))
 
     def update_tool(self, tool_name: str) -> None:
         """Update the current tool display in the status bar.
@@ -1791,9 +1900,9 @@ class GardenPlannerApp(QMainWindow):
         """Handle Import Background Image action."""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Import Background Image",
+            self.tr("Import Background Image"),
             "",
-            "Images (*.png *.jpg *.jpeg *.tiff *.bmp);;All Files (*)",
+            self.tr("Images (*.png *.jpg *.jpeg *.tiff *.bmp);;All Files (*)"),
         )
         if file_path:
             try:
@@ -1811,6 +1920,6 @@ class GardenPlannerApp(QMainWindow):
                 )
 
                 self._project_manager.mark_dirty()
-                self.statusBar().showMessage(f"Imported: {file_path}")
+                self.statusBar().showMessage(self.tr("Imported: {path}").format(path=file_path))
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to import image:\n{e}")
+                QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to import image:\n{error}").format(error=e))

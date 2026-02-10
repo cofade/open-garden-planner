@@ -19,7 +19,12 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.commands import ChangePropertyCommand, CommandManager
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
+from open_garden_planner.core.object_types import (
+    ObjectType,
+    StrokeStyle,
+    get_style,
+    get_translated_display_name,
+)
 from open_garden_planner.ui.canvas.items import (
     CircleItem,
     PolygonItem,
@@ -71,7 +76,7 @@ class ColorButton(QPushButton):
         dialog = QColorDialog()
         dialog.setCurrentColor(self._color)
         dialog.setOption(QColorDialog.ColorDialogOption.ShowAlphaChannel, True)
-        dialog.setWindowTitle("Choose Color")
+        dialog.setWindowTitle(self.tr("Choose Color"))
 
         if dialog.exec():
             color = dialog.selectedColor()
@@ -152,7 +157,7 @@ class PropertiesPanel(QWidget):
     def _show_no_selection(self) -> None:
         """Show message when nothing is selected."""
         self._clear_form()
-        label = QLabel("No objects selected")
+        label = QLabel(self.tr("No objects selected"))
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setStyleSheet("color: palette(mid); padding: 20px;")
         self._form_layout.addRow(label)
@@ -164,12 +169,12 @@ class PropertiesPanel(QWidget):
             count: Number of selected objects
         """
         self._clear_form()
-        label = QLabel(f"{count} objects selected")
+        label = QLabel(self.tr("{count} objects selected").format(count=count))
         label.setStyleSheet("font-weight: bold;")
         self._form_layout.addRow(label)
 
         # TODO: Show common properties for batch editing
-        info = QLabel("Multi-selection editing\nnot yet implemented")
+        info = QLabel(self.tr("Multi-selection editing\nnot yet implemented"))
         info.setStyleSheet("color: palette(mid); padding: 10px;")
         info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._form_layout.addRow(info)
@@ -205,7 +210,7 @@ class PropertiesPanel(QWidget):
             type_combo.currentIndexChanged.connect(
                 lambda: self._on_property_changed(item, 'object_type', type_combo.currentData())
             )
-            self._form_layout.addRow("Type:", type_combo)
+            self._form_layout.addRow(self.tr("Type:"), type_combo)
 
         # Name/Label
         if hasattr(item, 'name'):
@@ -213,16 +218,16 @@ class PropertiesPanel(QWidget):
             name_edit.textChanged.connect(
                 lambda text: self._on_property_changed(item, 'name', text)
             )
-            self._form_layout.addRow("Name:", name_edit)
+            self._form_layout.addRow(self.tr("Name:"), name_edit)
 
         # Show Label checkbox
         if hasattr(item, 'label_visible'):
-            label_check = QCheckBox("Show label on canvas")
+            label_check = QCheckBox(self.tr("Show label on canvas"))
             label_check.setChecked(item.label_visible)
             label_check.toggled.connect(
                 lambda checked: self._on_property_changed(item, 'label_visible', checked)
             )
-            self._form_layout.addRow("Label:", label_check)
+            self._form_layout.addRow(self.tr("Label:"), label_check)
 
         # Layer
         if hasattr(item, 'layer_id'):
@@ -231,7 +236,7 @@ class PropertiesPanel(QWidget):
             layer_combo.currentIndexChanged.connect(
                 lambda: self._on_property_changed(item, 'layer_id', layer_combo.currentData())
             )
-            self._form_layout.addRow("Layer:", layer_combo)
+            self._form_layout.addRow(self.tr("Layer:"), layer_combo)
 
         # Geometry section
         self._add_geometry_properties(item)
@@ -277,8 +282,7 @@ class PropertiesPanel(QWidget):
         # Populate combo
         current_idx = 0
         for idx, obj_type in enumerate(valid_types):
-            style = get_style(obj_type)
-            combo.addItem(style.display_name, obj_type)
+            combo.addItem(get_translated_display_name(obj_type), obj_type)
             if hasattr(item, 'object_type') and item.object_type == obj_type:
                 current_idx = idx
 
@@ -309,16 +313,16 @@ class PropertiesPanel(QWidget):
         # Position
         pos = item.pos()
         pos_label = QLabel(f"({pos.x():.1f}, {pos.y():.1f}) cm")
-        self._form_layout.addRow("Position:", pos_label)
+        self._form_layout.addRow(self.tr("Position:"), pos_label)
 
         # Type-specific geometry
         if isinstance(item, CircleItem):
             radius_label = QLabel(f"{item.radius * 2:.1f} cm")
-            self._form_layout.addRow("Diameter:", radius_label)
+            self._form_layout.addRow(self.tr("Diameter:"), radius_label)
         elif isinstance(item, RectangleItem):
             rect = item.rect()
             size_label = QLabel(f"{rect.width():.1f} × {rect.height():.1f} cm")
-            self._form_layout.addRow("Size:", size_label)
+            self._form_layout.addRow(self.tr("Size:"), size_label)
 
     def _add_styling_properties(self, item: QGraphicsItem) -> None:
         """Add styling property fields.
@@ -336,12 +340,26 @@ class PropertiesPanel(QWidget):
             fill_btn.clicked.connect(
                 lambda: self._on_color_changed(item, 'fill_color', fill_btn)
             )
-            self._form_layout.addRow("Fill Color:", fill_btn)
+            self._form_layout.addRow(self.tr("Fill Color:"), fill_btn)
 
             # Fill pattern
             pattern_combo = QComboBox()
+            _pattern_names = {
+                FillPattern.SOLID: self.tr("Solid"),
+                FillPattern.GRASS: self.tr("Grass"),
+                FillPattern.GRAVEL: self.tr("Gravel"),
+                FillPattern.CONCRETE: self.tr("Concrete"),
+                FillPattern.WOOD: self.tr("Wood"),
+                FillPattern.WATER: self.tr("Water"),
+                FillPattern.SOIL: self.tr("Soil"),
+                FillPattern.MULCH: self.tr("Mulch"),
+                FillPattern.ROOF_TILES: self.tr("Roof Tiles"),
+                FillPattern.SAND: self.tr("Sand"),
+                FillPattern.STONE: self.tr("Stone"),
+                FillPattern.GLASS: self.tr("Glass"),
+            }
             for pattern in FillPattern:
-                pattern_combo.addItem(pattern.name.replace("_", " ").title(), pattern)
+                pattern_combo.addItem(_pattern_names.get(pattern, pattern.name), pattern)
 
             current_pattern = item.fill_pattern if hasattr(item, 'fill_pattern') else FillPattern.SOLID
             for i in range(pattern_combo.count()):
@@ -352,7 +370,7 @@ class PropertiesPanel(QWidget):
             pattern_combo.currentIndexChanged.connect(
                 lambda: self._on_property_changed(item, 'fill_pattern', pattern_combo.currentData())
             )
-            self._form_layout.addRow("Fill Pattern:", pattern_combo)
+            self._form_layout.addRow(self.tr("Fill Pattern:"), pattern_combo)
 
         # Stroke color
         stroke_color = item.stroke_color if hasattr(item, 'stroke_color') and item.stroke_color else item.pen().color()
@@ -360,7 +378,7 @@ class PropertiesPanel(QWidget):
         stroke_btn.clicked.connect(
             lambda: self._on_color_changed(item, 'stroke_color', stroke_btn)
         )
-        self._form_layout.addRow("Stroke Color:", stroke_btn)
+        self._form_layout.addRow(self.tr("Stroke Color:"), stroke_btn)
 
         # Stroke width
         width_spin = QDoubleSpinBox()
@@ -374,12 +392,18 @@ class PropertiesPanel(QWidget):
         width_spin.valueChanged.connect(
             lambda val: self._on_property_changed(item, 'stroke_width', val)
         )
-        self._form_layout.addRow("Stroke Width:", width_spin)
+        self._form_layout.addRow(self.tr("Stroke Width:"), width_spin)
 
         # Stroke style
         style_combo = QComboBox()
+        _style_names = {
+            StrokeStyle.SOLID: self.tr("Solid"),
+            StrokeStyle.DASHED: self.tr("Dashed"),
+            StrokeStyle.DOTTED: self.tr("Dotted"),
+            StrokeStyle.DASH_DOT: self.tr("Dash Dot"),
+        }
         for style in StrokeStyle:
-            style_combo.addItem(style.name.replace("_", " ").title(), style)
+            style_combo.addItem(_style_names.get(style, style.name), style)
 
         current_style = item.stroke_style if hasattr(item, 'stroke_style') else StrokeStyle.SOLID
         for i in range(style_combo.count()):
@@ -390,7 +414,7 @@ class PropertiesPanel(QWidget):
         style_combo.currentIndexChanged.connect(
             lambda: self._on_property_changed(item, 'stroke_style', style_combo.currentData())
         )
-        self._form_layout.addRow("Stroke Style:", style_combo)
+        self._form_layout.addRow(self.tr("Stroke Style:"), style_combo)
 
     def _capture_item_state(self, item: QGraphicsItem) -> dict:
         """Capture the current state of an item for undo purposes.

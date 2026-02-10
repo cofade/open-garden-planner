@@ -117,7 +117,7 @@ class CanvasView(QGraphicsView):
 
         # Calibration input widget (hidden by default)
         self._calibration_input = QLineEdit(self)
-        self._calibration_input.setPlaceholderText("Distance in cm")
+        self._calibration_input.setPlaceholderText(self.tr("Distance in cm"))
         self._calibration_input.setFixedWidth(150)
         self._calibration_input.hide()
         self._calibration_input.returnPressed.connect(self._on_calibration_input_entered)
@@ -154,98 +154,98 @@ class CanvasView(QGraphicsView):
         # Register property object tools (polygon-based)
         house_tool = PolygonTool(self, object_type=ObjectType.HOUSE)
         house_tool.tool_type = ToolType.HOUSE
-        house_tool.display_name = "House"
+        house_tool.display_name = self.tr("House")
         house_tool.shortcut = "H"
         self._tool_manager.register_tool(house_tool)
 
         garage_tool = PolygonTool(self, object_type=ObjectType.GARAGE_SHED)
         garage_tool.tool_type = ToolType.GARAGE_SHED
-        garage_tool.display_name = "Garage/Shed"
+        garage_tool.display_name = self.tr("Garage/Shed")
         self._tool_manager.register_tool(garage_tool)
 
         terrace_tool = PolygonTool(self, object_type=ObjectType.TERRACE_PATIO)
         terrace_tool.tool_type = ToolType.TERRACE_PATIO
-        terrace_tool.display_name = "Terrace/Patio"
+        terrace_tool.display_name = self.tr("Terrace/Patio")
         terrace_tool.shortcut = "T"
         self._tool_manager.register_tool(terrace_tool)
 
         driveway_tool = PolygonTool(self, object_type=ObjectType.DRIVEWAY)
         driveway_tool.tool_type = ToolType.DRIVEWAY
-        driveway_tool.display_name = "Driveway"
+        driveway_tool.display_name = self.tr("Driveway")
         driveway_tool.shortcut = "D"
         self._tool_manager.register_tool(driveway_tool)
 
         pond_tool = PolygonTool(self, object_type=ObjectType.POND_POOL)
         pond_tool.tool_type = ToolType.POND_POOL
-        pond_tool.display_name = "Pond/Pool"
+        pond_tool.display_name = self.tr("Pond/Pool")
         self._tool_manager.register_tool(pond_tool)
 
         greenhouse_tool = PolygonTool(self, object_type=ObjectType.GREENHOUSE)
         greenhouse_tool.tool_type = ToolType.GREENHOUSE
-        greenhouse_tool.display_name = "Greenhouse"
+        greenhouse_tool.display_name = self.tr("Greenhouse")
         self._tool_manager.register_tool(greenhouse_tool)
 
         garden_bed_tool = PolygonTool(self, object_type=ObjectType.GARDEN_BED)
         garden_bed_tool.tool_type = ToolType.GARDEN_BED
-        garden_bed_tool.display_name = "Garden Bed"
+        garden_bed_tool.display_name = self.tr("Garden Bed")
         garden_bed_tool.shortcut = "B"
         self._tool_manager.register_tool(garden_bed_tool)
 
         lawn_tool = PolygonTool(self, object_type=ObjectType.LAWN)
         lawn_tool.tool_type = ToolType.LAWN
-        lawn_tool.display_name = "Lawn"
+        lawn_tool.display_name = self.tr("Lawn")
         self._tool_manager.register_tool(lawn_tool)
 
         # Register property object tools (polyline-based)
         fence_tool = PolylineTool(self, object_type=ObjectType.FENCE)
         fence_tool.tool_type = ToolType.FENCE
-        fence_tool.display_name = "Fence"
+        fence_tool.display_name = self.tr("Fence")
         fence_tool.shortcut = "F"
         self._tool_manager.register_tool(fence_tool)
 
         wall_tool = PolylineTool(self, object_type=ObjectType.WALL)
         wall_tool.tool_type = ToolType.WALL
-        wall_tool.display_name = "Wall"
+        wall_tool.display_name = self.tr("Wall")
         wall_tool.shortcut = "W"
         self._tool_manager.register_tool(wall_tool)
 
         path_tool = PolylineTool(self, object_type=ObjectType.PATH)
         path_tool.tool_type = ToolType.PATH
-        path_tool.display_name = "Path"
+        path_tool.display_name = self.tr("Path")
         path_tool.shortcut = "L"
         self._tool_manager.register_tool(path_tool)
 
         # Register plant tools (circle-based)
         tree_tool = CircleTool(self, object_type=ObjectType.TREE)
         tree_tool.tool_type = ToolType.TREE
-        tree_tool.display_name = "Tree"
+        tree_tool.display_name = self.tr("Tree")
         tree_tool.shortcut = "1"
         self._tool_manager.register_tool(tree_tool)
 
         shrub_tool = CircleTool(self, object_type=ObjectType.SHRUB)
         shrub_tool.tool_type = ToolType.SHRUB
-        shrub_tool.display_name = "Shrub"
+        shrub_tool.display_name = self.tr("Shrub")
         shrub_tool.shortcut = "2"
         self._tool_manager.register_tool(shrub_tool)
 
         perennial_tool = CircleTool(self, object_type=ObjectType.PERENNIAL)
         perennial_tool.tool_type = ToolType.PERENNIAL
-        perennial_tool.display_name = "Perennial"
+        perennial_tool.display_name = self.tr("Perennial")
         perennial_tool.shortcut = "3"
         self._tool_manager.register_tool(perennial_tool)
 
         # Register hedge section tool (rectangle-based, SVG-rendered)
         hedge_tool = RectangleTool(self, object_type=ObjectType.HEDGE_SECTION)
         hedge_tool.tool_type = ToolType.HEDGE_SECTION
-        hedge_tool.display_name = "Hedge Section"
+        hedge_tool.display_name = self.tr("Hedge Section")
         self._tool_manager.register_tool(hedge_tool)
 
         # Register outdoor furniture tools (rectangle-based, SVG-rendered)
         rect_furniture = [
-            (ObjectType.TABLE_RECTANGULAR, ToolType.TABLE_RECTANGULAR, "Table (Rectangular)"),
-            (ObjectType.CHAIR, ToolType.CHAIR, "Chair"),
-            (ObjectType.BENCH, ToolType.BENCH, "Bench"),
-            (ObjectType.LOUNGER, ToolType.LOUNGER, "Lounger"),
+            (ObjectType.TABLE_RECTANGULAR, ToolType.TABLE_RECTANGULAR, self.tr("Table (Rectangular)")),
+            (ObjectType.CHAIR, ToolType.CHAIR, self.tr("Chair")),
+            (ObjectType.BENCH, ToolType.BENCH, self.tr("Bench")),
+            (ObjectType.LOUNGER, ToolType.LOUNGER, self.tr("Lounger")),
         ]
         for obj_type, tool_type, display_name in rect_furniture:
             tool = RectangleTool(self, object_type=obj_type)
@@ -255,11 +255,11 @@ class CanvasView(QGraphicsView):
 
         # Register round furniture tools (circle-based, SVG-rendered)
         circle_furniture = [
-            (ObjectType.TABLE_ROUND, ToolType.TABLE_ROUND, "Table (Round)"),
-            (ObjectType.PARASOL, ToolType.PARASOL, "Parasol"),
-            (ObjectType.BBQ_GRILL, ToolType.BBQ_GRILL, "BBQ/Grill"),
-            (ObjectType.FIRE_PIT, ToolType.FIRE_PIT, "Fire Pit"),
-            (ObjectType.PLANTER_POT, ToolType.PLANTER_POT, "Planter/Pot"),
+            (ObjectType.TABLE_ROUND, ToolType.TABLE_ROUND, self.tr("Table (Round)")),
+            (ObjectType.PARASOL, ToolType.PARASOL, self.tr("Parasol")),
+            (ObjectType.BBQ_GRILL, ToolType.BBQ_GRILL, self.tr("BBQ/Grill")),
+            (ObjectType.FIRE_PIT, ToolType.FIRE_PIT, self.tr("Fire Pit")),
+            (ObjectType.PLANTER_POT, ToolType.PLANTER_POT, self.tr("Planter/Pot")),
         ]
         for obj_type, tool_type, display_name in circle_furniture:
             tool = CircleTool(self, object_type=obj_type)
@@ -269,10 +269,10 @@ class CanvasView(QGraphicsView):
 
         # Register garden infrastructure tools (SVG-rendered)
         rect_infrastructure = [
-            (ObjectType.RAISED_BED, ToolType.RAISED_BED, "Raised Bed"),
-            (ObjectType.COMPOST_BIN, ToolType.COMPOST_BIN, "Compost Bin"),
-            (ObjectType.COLD_FRAME, ToolType.COLD_FRAME, "Cold Frame"),
-            (ObjectType.TOOL_SHED, ToolType.TOOL_SHED, "Tool Shed"),
+            (ObjectType.RAISED_BED, ToolType.RAISED_BED, self.tr("Raised Bed")),
+            (ObjectType.COMPOST_BIN, ToolType.COMPOST_BIN, self.tr("Compost Bin")),
+            (ObjectType.COLD_FRAME, ToolType.COLD_FRAME, self.tr("Cold Frame")),
+            (ObjectType.TOOL_SHED, ToolType.TOOL_SHED, self.tr("Tool Shed")),
         ]
         for obj_type, tool_type, display_name in rect_infrastructure:
             tool = RectangleTool(self, object_type=obj_type)
@@ -281,8 +281,8 @@ class CanvasView(QGraphicsView):
             self._tool_manager.register_tool(tool)
 
         circle_infrastructure = [
-            (ObjectType.RAIN_BARREL, ToolType.RAIN_BARREL, "Rain Barrel"),
-            (ObjectType.WATER_TAP, ToolType.WATER_TAP, "Water Tap"),
+            (ObjectType.RAIN_BARREL, ToolType.RAIN_BARREL, self.tr("Rain Barrel")),
+            (ObjectType.WATER_TAP, ToolType.WATER_TAP, self.tr("Water Tap")),
         ]
         for obj_type, tool_type, display_name in circle_infrastructure:
             tool = CircleTool(self, object_type=obj_type)
@@ -553,16 +553,21 @@ class CanvasView(QGraphicsView):
 
         Computes how far the selection overflows each edge and shifts all items
         together by the smallest correction needed.
+        Background images are excluded from clamping.
 
         Args:
             items: The items to constrain.
         """
-        if not items:
+        from open_garden_planner.ui.canvas.items import BackgroundImageItem
+
+        # Filter out background images — they should move freely beyond the canvas
+        clampable = [i for i in items if not isinstance(i, BackgroundImageItem)]
+        if not clampable:
             return
 
         canvas = self._canvas_scene.canvas_rect
-        combined = items[0].sceneBoundingRect()
-        for item in items[1:]:
+        combined = clampable[0].sceneBoundingRect()
+        for item in clampable[1:]:
             combined = combined.united(item.sceneBoundingRect())
 
         dx = 0.0
@@ -587,6 +592,8 @@ class CanvasView(QGraphicsView):
     ) -> QPointF:
         """Restrict a proposed movement delta so items stay inside the canvas.
 
+        Background images are excluded from clamping.
+
         Args:
             items: The items that would be moved.
             delta: The proposed movement (dx, dy).
@@ -594,14 +601,17 @@ class CanvasView(QGraphicsView):
         Returns:
             A clamped delta that keeps all items within the canvas boundary.
         """
-        if not items:
+        from open_garden_planner.ui.canvas.items import BackgroundImageItem
+
+        clampable = [i for i in items if not isinstance(i, BackgroundImageItem)]
+        if not clampable:
             return delta
 
         canvas = self._canvas_scene.canvas_rect
 
-        # Compute combined bounding rect of all items
-        combined = items[0].sceneBoundingRect()
-        for item in items[1:]:
+        # Compute combined bounding rect of clampable items
+        combined = clampable[0].sceneBoundingRect()
+        for item in clampable[1:]:
             combined = combined.united(item.sceneBoundingRect())
 
         # Predict where the rect would end up
@@ -866,13 +876,21 @@ class CanvasView(QGraphicsView):
 
         Called after super().mouseMoveEvent() has already moved items.
         Computes snap offsets and adjusts positions accordingly.
+        Background images are excluded from snapping.
         """
+        from open_garden_planner.ui.canvas.items import BackgroundImageItem
+
         if not self._object_snap_enabled or not self._drag_start_positions:
             self._snap_guides = []
             return
 
         selected = self.scene().selectedItems()
         if not selected:
+            self._snap_guides = []
+            return
+
+        # Don't snap background images
+        if all(isinstance(i, BackgroundImageItem) for i in selected):
             self._snap_guides = []
             return
 
@@ -892,8 +910,11 @@ class CanvasView(QGraphicsView):
         for item in selected[1:]:
             combined = combined.united(item.sceneBoundingRect())
 
-        # Compute snap against other items
+        # Compute snap against other items (exclude background images as targets)
         exclude = set(selected)
+        for scene_item in self.scene().items():
+            if isinstance(scene_item, BackgroundImageItem):
+                exclude.add(scene_item)
         snap_result = self._object_snapper.snap(
             combined,
             list(self.scene().items()),
@@ -1376,7 +1397,7 @@ class CanvasView(QGraphicsView):
 
         # Show status message
         if len(self._clipboard) > 0:
-            self.set_status_message(f"Copied {len(self._clipboard)} item(s)")
+            self.set_status_message(self.tr("Copied {count} item(s)").format(count=len(self._clipboard)))
 
     def cut_selected(self) -> None:
         """Cut selected items (copy then delete)."""
@@ -1390,12 +1411,12 @@ class CanvasView(QGraphicsView):
         # Then delete
         if self._clipboard:
             self._delete_selected_items()
-            self.set_status_message(f"Cut {len(self._clipboard)} item(s)")
+            self.set_status_message(self.tr("Cut {count} item(s)").format(count=len(self._clipboard)))
 
     def paste(self) -> None:
         """Paste items from clipboard."""
         if not self._clipboard:
-            self.set_status_message("Nothing to paste")
+            self.set_status_message(self.tr("Nothing to paste"))
             return
 
         # Deselect all items
@@ -1440,13 +1461,13 @@ class CanvasView(QGraphicsView):
             for item in pasted_items:
                 item.setSelected(True)
 
-            self.set_status_message(f"Pasted {len(pasted_items)} item(s)")
+            self.set_status_message(self.tr("Pasted {count} item(s)").format(count=len(pasted_items)))
 
     def duplicate_selected(self) -> None:
         """Duplicate selected items (copy and paste in one action)."""
         selected = self.scene().selectedItems()
         if not selected:
-            self.set_status_message("Nothing to duplicate")
+            self.set_status_message(self.tr("Nothing to duplicate"))
             return
 
         # Serialize selected items directly (don't modify clipboard)
@@ -1499,7 +1520,7 @@ class CanvasView(QGraphicsView):
             for item in duplicated_items:
                 item.setSelected(True)
 
-            self.set_status_message(f"Duplicated {len(duplicated_items)} item(s)")
+            self.set_status_message(self.tr("Duplicated {count} item(s)").format(count=len(duplicated_items)))
 
     def _serialize_item(self, item: QGraphicsItem) -> dict | None:
         """Serialize a single graphics item (reuses project manager logic).
@@ -1550,6 +1571,9 @@ class CanvasView(QGraphicsView):
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
+            # Save rotation angle
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
             return data
         elif isinstance(item, CircleItem):
             data = {
@@ -1579,6 +1603,9 @@ class CanvasView(QGraphicsView):
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
+            # Save rotation angle
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
             return data
         elif isinstance(item, PolylineItem):
             data = {
@@ -1595,6 +1622,9 @@ class CanvasView(QGraphicsView):
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
+            # Save rotation angle
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
             return data
         elif isinstance(item, PolygonItem):
             polygon = item.polygon()
@@ -1630,6 +1660,9 @@ class CanvasView(QGraphicsView):
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
+            # Save rotation angle
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
             return data
         return None
 
@@ -1713,6 +1746,8 @@ class CanvasView(QGraphicsView):
                 if stroke_style:
                     pen.setStyle(stroke_style.to_qt_pen_style())
                 item.setPen(pen)
+            if "rotation_angle" in obj:
+                item._apply_rotation(obj["rotation_angle"])
             return item
         elif obj_type == "circle":
             item = CircleItem(
@@ -1746,6 +1781,8 @@ class CanvasView(QGraphicsView):
                 if stroke_style:
                     pen.setStyle(stroke_style.to_qt_pen_style())
                 item.setPen(pen)
+            if "rotation_angle" in obj:
+                item._apply_rotation(obj["rotation_angle"])
             return item
         elif obj_type == "polyline":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
@@ -1762,6 +1799,8 @@ class CanvasView(QGraphicsView):
                     if "stroke_width" in obj:
                         pen.setWidthF(obj["stroke_width"])
                     item.setPen(pen)
+                if "rotation_angle" in obj:
+                    item._apply_rotation(obj["rotation_angle"])
                 return item
         elif obj_type == "polygon":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
@@ -1795,6 +1834,8 @@ class CanvasView(QGraphicsView):
                     if stroke_style:
                         pen.setStyle(stroke_style.to_qt_pen_style())
                     item.setPen(pen)
+                if "rotation_angle" in obj:
+                    item._apply_rotation(obj["rotation_angle"])
                 return item
         return None
 
@@ -1834,9 +1875,9 @@ class CanvasView(QGraphicsView):
             if distance_cm > 0:
                 self._canvas_scene.finish_calibration(distance_cm)
             else:
-                self.set_status_message("Distance must be positive")
+                self.set_status_message(self.tr("Distance must be positive"))
         except ValueError:
-            self.set_status_message("Invalid distance. Enter a number in centimeters.")
+            self.set_status_message(self.tr("Invalid distance. Enter a number in centimeters."))
 
     def _clamp_individual_deltas(
         self, item_deltas: list[tuple[QGraphicsItem, QPointF]],
@@ -1875,7 +1916,7 @@ class CanvasView(QGraphicsView):
         """
         selected = self.scene().selectedItems()
         if len(selected) < 2:
-            self.set_status_message("Select at least 2 objects to align")
+            self.set_status_message(self.tr("Select at least 2 objects to align"))
             return
 
         deltas = align_items(selected, mode)
@@ -1898,7 +1939,7 @@ class CanvasView(QGraphicsView):
         """
         selected = self.scene().selectedItems()
         if len(selected) < 3:
-            self.set_status_message("Select at least 3 objects to distribute")
+            self.set_status_message(self.tr("Select at least 3 objects to distribute"))
             return
 
         deltas = distribute_items(selected, mode)

@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen, QPolygonF
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsPolygonItem
 
@@ -25,7 +25,7 @@ class PolygonTool(BaseTool):
     """
 
     tool_type = ToolType.POLYGON
-    display_name = "Polygon"
+    display_name = QT_TR_NOOP("Polygon")
     shortcut = "P"
     cursor = Qt.CursorShape.CrossCursor
 

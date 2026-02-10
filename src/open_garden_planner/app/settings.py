@@ -29,6 +29,7 @@ class AppSettings:
     KEY_SHOW_SCALE_BAR = "appearance/show_scale_bar"
     KEY_SHOW_LABELS = "appearance/show_labels"
     KEY_OBJECT_SNAP = "canvas/object_snap_enabled"
+    KEY_LANGUAGE = "appearance/language"
 
     # Default values
     DEFAULT_AUTOSAVE_ENABLED = True
@@ -37,6 +38,7 @@ class AppSettings:
     DEFAULT_SHOW_SCALE_BAR = True
     DEFAULT_SHOW_LABELS = True
     DEFAULT_OBJECT_SNAP = True
+    DEFAULT_LANGUAGE = "en"
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
     MIN_AUTOSAVE_INTERVAL_MINUTES = 1
     MAX_AUTOSAVE_INTERVAL_MINUTES = 30
@@ -232,6 +234,22 @@ class AppSettings:
     def object_snap_enabled(self, enabled: bool) -> None:
         """Set whether snap-to-object is enabled."""
         self._settings.setValue(self.KEY_OBJECT_SNAP, enabled)
+
+    @property
+    def language(self) -> str:
+        """Get the current UI language code (e.g. 'en', 'de')."""
+        return str(
+            self._settings.value(
+                self.KEY_LANGUAGE,
+                self.DEFAULT_LANGUAGE,
+                type=str,
+            )
+        )
+
+    @language.setter
+    def language(self, lang_code: str) -> None:
+        """Set the UI language code."""
+        self._settings.setValue(self.KEY_LANGUAGE, lang_code)
 
     def sync(self) -> None:
         """Force settings to be written to storage."""

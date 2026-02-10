@@ -1,6 +1,6 @@
 """Measurement tool for measuring distances between points."""
 
-from PyQt6.QtCore import QLineF, QPointF, Qt
+from PyQt6.QtCore import QCoreApplication, QLineF, QPointF, Qt
 from PyQt6.QtGui import QCursor, QFont, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsTextItem
 
@@ -32,7 +32,7 @@ class MeasureTool(BaseTool):
     @property
     def display_name(self) -> str:
         """Get the display name for UI."""
-        return "Measure"
+        return QCoreApplication.translate("MeasureTool", "Measure")
 
     @property
     def shortcut(self) -> str:

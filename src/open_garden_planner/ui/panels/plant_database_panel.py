@@ -220,19 +220,19 @@ class PlantDatabasePanel(QWidget):
         button_layout.setSpacing(4)
 
         # Search button
-        self.search_button = QPushButton("Search")
-        self.search_button.setToolTip("Search for plant species in online databases")
+        self.search_button = QPushButton(self.tr("Search"))
+        self.search_button.setToolTip(self.tr("Search for plant species in online databases"))
         button_layout.addWidget(self.search_button)
 
         # Create custom plant button
-        self.create_custom_button = QPushButton("Create Custom")
-        self.create_custom_button.setToolTip("Create a custom plant species entry")
+        self.create_custom_button = QPushButton(self.tr("Create Custom"))
+        self.create_custom_button.setToolTip(self.tr("Create a custom plant species entry"))
         self.create_custom_button.clicked.connect(self._on_create_custom_plant)
         button_layout.addWidget(self.create_custom_button)
 
         # Load from custom library button
-        self.load_custom_button = QPushButton("Load Custom")
-        self.load_custom_button.setToolTip("Load a plant from your custom library")
+        self.load_custom_button = QPushButton(self.tr("Load Custom"))
+        self.load_custom_button.setToolTip(self.tr("Load a plant from your custom library"))
         self.load_custom_button.clicked.connect(self._on_load_custom_plant)
         button_layout.addWidget(self.load_custom_button)
 
@@ -253,7 +253,7 @@ class PlantDatabasePanel(QWidget):
         self.info_layout.setSpacing(4)
 
         # Info labels
-        self.no_selection_label = QLabel("Select a plant to view details")
+        self.no_selection_label = QLabel(self.tr("Select a plant to view details"))
         self.no_selection_label.setWordWrap(True)
         self.no_selection_label.setStyleSheet("color: palette(mid); font-style: italic;")
         self.info_layout.addWidget(self.no_selection_label)
@@ -297,31 +297,31 @@ class PlantDatabasePanel(QWidget):
 
         # Common name
         self.common_edit = QLineEdit()
-        self.common_edit.setPlaceholderText("Enter common name...")
+        self.common_edit.setPlaceholderText(self.tr("Enter common name..."))
         self.common_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.common_edit.editingFinished.connect(self._on_field_changed)
-        self.details_form.addRow("Common Name:", self.common_edit)
+        self.details_form.addRow(self.tr("Common Name:"), self.common_edit)
 
         # Scientific name
         self.scientific_edit = QLineEdit()
-        self.scientific_edit.setPlaceholderText("Enter scientific name...")
+        self.scientific_edit.setPlaceholderText(self.tr("Enter scientific name..."))
         self.scientific_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.scientific_edit.editingFinished.connect(self._on_field_changed)
-        self.details_form.addRow("Scientific Name:", self.scientific_edit)
+        self.details_form.addRow(self.tr("Scientific Name:"), self.scientific_edit)
 
         # Family
         self.family_edit = QLineEdit()
-        self.family_edit.setPlaceholderText("Enter plant family...")
+        self.family_edit.setPlaceholderText(self.tr("Enter plant family..."))
         self.family_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.family_edit.editingFinished.connect(self._on_field_changed)
-        self.details_form.addRow("Family:", self.family_edit)
+        self.details_form.addRow(self.tr("Family:"), self.family_edit)
 
         # Variety/Cultivar (instance-specific)
         self.variety_edit = QLineEdit()
-        self.variety_edit.setPlaceholderText("Enter variety or cultivar...")
+        self.variety_edit.setPlaceholderText(self.tr("Enter variety or cultivar..."))
         self.variety_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.variety_edit.editingFinished.connect(self._on_instance_field_changed)
-        self.details_form.addRow("Variety:", self.variety_edit)
+        self.details_form.addRow(self.tr("Variety:"), self.variety_edit)
 
         # === PLANT CHARACTERISTICS ===
 
@@ -333,7 +333,7 @@ class PlantDatabasePanel(QWidget):
                 self.cycle_combo.addItem(item.value.replace("_", " ").title(), item.value)
         self.cycle_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.cycle_combo.currentIndexChanged.connect(self._on_field_changed)
-        self.details_form.addRow("Cycle:", self.cycle_combo)
+        self.details_form.addRow(self.tr("Cycle:"), self.cycle_combo)
 
         # === REPRODUCTIVE CHARACTERISTICS ===
 
@@ -351,7 +351,7 @@ class PlantDatabasePanel(QWidget):
                 self.flower_type_combo.addItem(label, item.value)
         self.flower_type_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.flower_type_combo.currentIndexChanged.connect(self._on_field_changed)
-        self.details_form.addRow("Flower Type:", self.flower_type_combo)
+        self.details_form.addRow(self.tr("Flower Type:"), self.flower_type_combo)
 
         # Pollination Type (self-fertility)
         self.pollination_combo = QComboBox()
@@ -367,7 +367,7 @@ class PlantDatabasePanel(QWidget):
                 self.pollination_combo.addItem(label, item.value)
         self.pollination_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.pollination_combo.currentIndexChanged.connect(self._on_field_changed)
-        self.details_form.addRow("Pollination:", self.pollination_combo)
+        self.details_form.addRow(self.tr("Pollination:"), self.pollination_combo)
 
         # === CARE REQUIREMENTS ===
 
@@ -379,7 +379,7 @@ class PlantDatabasePanel(QWidget):
                 self.sun_combo.addItem(item.value.replace("_", " ").title(), item.value)
         self.sun_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.sun_combo.currentIndexChanged.connect(self._on_field_changed)
-        self.details_form.addRow("Sun:", self.sun_combo)
+        self.details_form.addRow(self.tr("Sun:"), self.sun_combo)
 
         # Water needs
         self.water_combo = QComboBox()
@@ -389,7 +389,7 @@ class PlantDatabasePanel(QWidget):
                 self.water_combo.addItem(item.value.replace("_", " ").title(), item.value)
         self.water_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.water_combo.currentIndexChanged.connect(self._on_field_changed)
-        self.details_form.addRow("Water:", self.water_combo)
+        self.details_form.addRow(self.tr("Water:"), self.water_combo)
 
         # === GROWTH INFORMATION ===
 
@@ -402,7 +402,7 @@ class PlantDatabasePanel(QWidget):
         self.max_height_spin.setSpecialValueText("")  # Empty when 0
         self.max_height_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.max_height_spin.valueChanged.connect(self._on_field_changed)
-        self.details_form.addRow("Max Height:", self.max_height_spin)
+        self.details_form.addRow(self.tr("Max Height:"), self.max_height_spin)
 
         # Max Spread
         self.max_spread_spin = QDoubleSpinBox()
@@ -413,7 +413,7 @@ class PlantDatabasePanel(QWidget):
         self.max_spread_spin.setSpecialValueText("")  # Empty when 0
         self.max_spread_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.max_spread_spin.valueChanged.connect(self._on_field_changed)
-        self.details_form.addRow("Max Spread:", self.max_spread_spin)
+        self.details_form.addRow(self.tr("Max Spread:"), self.max_spread_spin)
 
         # Current Height (instance-specific)
         self.current_height_spin = QDoubleSpinBox()
@@ -424,7 +424,7 @@ class PlantDatabasePanel(QWidget):
         self.current_height_spin.setSpecialValueText("")  # Empty when 0
         self.current_height_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.current_height_spin.valueChanged.connect(self._on_current_height_changed)
-        self.details_form.addRow("Current Height:", self.current_height_spin)
+        self.details_form.addRow(self.tr("Current Height:"), self.current_height_spin)
 
         # Current Spread (instance-specific)
         self.current_spread_spin = QDoubleSpinBox()
@@ -435,21 +435,21 @@ class PlantDatabasePanel(QWidget):
         self.current_spread_spin.setSpecialValueText("")  # Empty when 0
         self.current_spread_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.current_spread_spin.valueChanged.connect(self._on_current_spread_changed)
-        self.details_form.addRow("Current Spread:", self.current_spread_spin)
+        self.details_form.addRow(self.tr("Current Spread:"), self.current_spread_spin)
 
         # === EDIBILITY ===
 
         # Edible (simple checkbox)
         self.edible_checkbox = QCheckBox()
         self.edible_checkbox.stateChanged.connect(self._on_field_changed)
-        self.details_form.addRow("Edible:", self.edible_checkbox)
+        self.details_form.addRow(self.tr("Edible:"), self.edible_checkbox)
 
         # Edible parts
         self.edible_parts_edit = QLineEdit()
-        self.edible_parts_edit.setPlaceholderText("e.g., fruit, leaves, roots...")
+        self.edible_parts_edit.setPlaceholderText(self.tr("e.g., fruit, leaves, roots..."))
         self.edible_parts_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.edible_parts_edit.editingFinished.connect(self._on_field_changed)
-        self.details_form.addRow("Edible Parts:", self.edible_parts_edit)
+        self.details_form.addRow(self.tr("Edible Parts:"), self.edible_parts_edit)
 
         # === HARDINESS ===
 
@@ -458,7 +458,7 @@ class PlantDatabasePanel(QWidget):
         hardiness_layout.setSpacing(4)
 
         # Min zone
-        min_label = QLabel("Min:")
+        min_label = QLabel(self.tr("Min:"))
         hardiness_layout.addWidget(min_label)
 
         self.hardiness_min_spin = QDoubleSpinBox()
@@ -472,7 +472,7 @@ class PlantDatabasePanel(QWidget):
         hardiness_layout.addWidget(self.hardiness_min_spin, 1)  # stretch factor 1
 
         # Max zone
-        max_label = QLabel("Max:")
+        max_label = QLabel(self.tr("Max:"))
         hardiness_layout.addWidget(max_label)
 
         self.hardiness_max_spin = QDoubleSpinBox()
@@ -485,7 +485,7 @@ class PlantDatabasePanel(QWidget):
         self.hardiness_max_spin.valueChanged.connect(self._on_field_changed)
         hardiness_layout.addWidget(self.hardiness_max_spin, 1)  # stretch factor 1
 
-        self.details_form.addRow("Hardiness:", hardiness_layout)
+        self.details_form.addRow(self.tr("Hardiness:"), hardiness_layout)
 
         # === PLANTING INFO ===
 
@@ -505,17 +505,17 @@ class PlantDatabasePanel(QWidget):
         self.age_label.setStyleSheet("color: palette(mid); font-style: italic;")
         planting_layout.addWidget(self.age_label)
 
-        self.details_form.addRow("Planted:", planting_layout)
+        self.details_form.addRow(self.tr("Planted:"), planting_layout)
 
         # === NOTES ===
 
         # Notes (instance-specific)
         self.notes_edit = QPlainTextEdit()
-        self.notes_edit.setPlaceholderText("Notes about this plant...")
+        self.notes_edit.setPlaceholderText(self.tr("Notes about this plant..."))
         self.notes_edit.setMaximumHeight(60)
         self.notes_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.notes_edit.textChanged.connect(self._on_notes_changed)
-        self.details_form.addRow("Notes:", self.notes_edit)
+        self.details_form.addRow(self.tr("Notes:"), self.notes_edit)
 
         # === CUSTOM FIELDS ===
 
@@ -526,12 +526,12 @@ class PlantDatabasePanel(QWidget):
         self.custom_fields_layout.setSpacing(4)
 
         # Add custom field button
-        add_field_btn = QPushButton("+ Add Field")
-        add_field_btn.setToolTip("Add a custom metadata field")
+        add_field_btn = QPushButton(self.tr("+ Add Field"))
+        add_field_btn.setToolTip(self.tr("Add a custom metadata field"))
         add_field_btn.clicked.connect(self._on_add_custom_field)
         self.custom_fields_layout.addWidget(add_field_btn)
 
-        self.details_form.addRow("Custom:", self.custom_fields_widget)
+        self.details_form.addRow(self.tr("Custom:"), self.custom_fields_widget)
 
     def _on_field_changed(self) -> None:
         """Handle field value changes - update plant metadata."""
@@ -658,7 +658,7 @@ class PlantDatabasePanel(QWidget):
 
         today = date.today()
         if planting_date > today:
-            self.age_label.setText("(future)")
+            self.age_label.setText(self.tr("(future)"))
             return
 
         # Calculate age
@@ -666,17 +666,17 @@ class PlantDatabasePanel(QWidget):
         days = delta.days
 
         if days < 30:
-            self.age_label.setText(f"({days} days)")
+            self.age_label.setText(self.tr("({days} days)").format(days=days))
         elif days < 365:
             months = days // 30
-            self.age_label.setText(f"({months} mo)")
+            self.age_label.setText(self.tr("({months} mo)").format(months=months))
         else:
             years = days // 365
             remaining_months = (days % 365) // 30
             if remaining_months > 0:
-                self.age_label.setText(f"({years}y {remaining_months}mo)")
+                self.age_label.setText(self.tr("({years}y {remaining_months}mo)").format(years=years, remaining_months=remaining_months))
             else:
-                self.age_label.setText(f"({years}y)")
+                self.age_label.setText(self.tr("({years}y)").format(years=years))
 
     def _on_current_height_changed(self) -> None:
         """Handle current height change."""
@@ -723,7 +723,7 @@ class PlantDatabasePanel(QWidget):
 
         # Key input
         key_edit = QLineEdit()
-        key_edit.setPlaceholderText("Field name")
+        key_edit.setPlaceholderText(self.tr("Field name"))
         key_edit.setText(key)
         key_edit.setMaximumWidth(100)
         key_edit.editingFinished.connect(lambda: self._on_custom_field_changed())
@@ -731,7 +731,7 @@ class PlantDatabasePanel(QWidget):
 
         # Value input
         value_edit = QLineEdit()
-        value_edit.setPlaceholderText("Value")
+        value_edit.setPlaceholderText(self.tr("Value"))
         value_edit.setText(value)
         value_edit.editingFinished.connect(lambda: self._on_custom_field_changed())
         row_layout.addWidget(value_edit, 1)
@@ -739,7 +739,7 @@ class PlantDatabasePanel(QWidget):
         # Remove button
         remove_btn = QPushButton("×")
         remove_btn.setFixedWidth(24)
-        remove_btn.setToolTip("Remove this field")
+        remove_btn.setToolTip(self.tr("Remove this field"))
         remove_btn.clicked.connect(lambda: self._on_remove_custom_field(row_widget))
         row_layout.addWidget(remove_btn)
 
@@ -869,7 +869,7 @@ class PlantDatabasePanel(QWidget):
         """Hide plant details and show 'no selection' message."""
         self._current_plant_data = None
         self._current_plant_item = None
-        self.no_selection_label.setText("Select a plant to view details")
+        self.no_selection_label.setText(self.tr("Select a plant to view details"))
         self.no_selection_label.setVisible(True)
 
         # Hide all form widgets
@@ -904,9 +904,11 @@ class PlantDatabasePanel(QWidget):
         # self._current_plant_item is set by set_selected_items
         self._current_plant_data = None
         self.no_selection_label.setText(
-            "No species data.\n\n"
-            "Click 'Search' to find species online,\n"
-            "or 'Create Custom' to define your own."
+            self.tr(
+                "No species data.\n\n"
+                "Click 'Search' to find species online,\n"
+                "or 'Create Custom' to define your own."
+            )
         )
         self.no_selection_label.setVisible(True)
 
@@ -1124,7 +1126,7 @@ class PlantDatabasePanel(QWidget):
 
         # === SOURCE INFO ===
         # Set source info as tooltip on the panel header (via parent)
-        source_text = f"Data Source: {plant_data.data_source.title()}"
+        source_text = self.tr("Data Source: {source}").format(source=plant_data.data_source.title())
         if plant_data.source_id:
             source_text += f" (ID: {plant_data.source_id})"
 
@@ -1142,8 +1144,8 @@ class PlantDatabasePanel(QWidget):
         if not self._current_plant_item:
             QMessageBox.information(
                 self,
-                "No Plant Selected",
-                "Please select a plant object (tree, shrub, or perennial) first.",
+                self.tr("No Plant Selected"),
+                self.tr("Please select a plant object (tree, shrub, or perennial) first."),
             )
             return
 
@@ -1154,10 +1156,12 @@ class PlantDatabasePanel(QWidget):
         if not plants:
             QMessageBox.information(
                 self,
-                "No Custom Plants",
-                "Your custom plant library is empty.\n\n"
-                "Use 'Create Custom' to add plants, or use the Plants menu "
-                "to manage your custom plant library.",
+                self.tr("No Custom Plants"),
+                self.tr(
+                    "Your custom plant library is empty.\n\n"
+                    "Use 'Create Custom' to add plants, or use the Plants menu "
+                    "to manage your custom plant library."
+                ),
             )
             return
 
@@ -1165,7 +1169,7 @@ class PlantDatabasePanel(QWidget):
         from open_garden_planner.ui.dialogs.custom_plants_dialog import CustomPlantsDialog
 
         dialog = CustomPlantsDialog(self)
-        dialog.setWindowTitle("Select Custom Plant")
+        dialog.setWindowTitle(self.tr("Select Custom Plant"))
         if dialog.exec() and dialog.selected_plant:
             # Assign selected plant to the item
             plant_item = self._current_plant_item
@@ -1192,8 +1196,8 @@ class PlantDatabasePanel(QWidget):
         if not self._current_plant_item:
             QMessageBox.information(
                 self,
-                "No Plant Selected",
-                "Please select a plant object (tree, shrub, or perennial) first.",
+                self.tr("No Plant Selected"),
+                self.tr("Please select a plant object (tree, shrub, or perennial) first."),
             )
             return
 

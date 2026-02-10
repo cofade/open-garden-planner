@@ -72,7 +72,7 @@ class DrawingToolsPanel(QWidget):
         layout.setSpacing(4)
 
         # SELECTION & MEASUREMENT
-        self._add_category("Selection & Measurement", layout)
+        self._add_category(self.tr("Selection & Measurement"), layout)
         grid1 = QGridLayout()
         grid1.setSpacing(0)
         self._add_tool(grid1, 0, 0, ToolType.SELECT, "select", "↖️", "Select (V)", "V")
@@ -80,7 +80,7 @@ class DrawingToolsPanel(QWidget):
         layout.addLayout(grid1)
 
         # BASIC SHAPES
-        self._add_category("Basic Shapes", layout)
+        self._add_category(self.tr("Basic Shapes"), layout)
         grid2 = QGridLayout()
         grid2.setSpacing(0)
         self._add_tool(grid2, 0, 0, ToolType.RECTANGLE, "rectangle", "⬜", "Rectangle (R)", "R")
@@ -89,7 +89,7 @@ class DrawingToolsPanel(QWidget):
         layout.addLayout(grid2)
 
         # STRUCTURES
-        self._add_category("Structures", layout)
+        self._add_category(self.tr("Structures"), layout)
         grid3 = QGridLayout()
         grid3.setSpacing(0)
         self._add_tool(grid3, 0, 0, ToolType.HOUSE, "house", "🏠", "House (H)", "H")
@@ -98,7 +98,7 @@ class DrawingToolsPanel(QWidget):
         layout.addLayout(grid3)
 
         # HARDSCAPE
-        self._add_category("Hardscape", layout)
+        self._add_category(self.tr("Hardscape"), layout)
         grid4 = QGridLayout()
         grid4.setSpacing(0)
         self._add_tool(grid4, 0, 0, ToolType.TERRACE_PATIO, "terrace", "🟫", "Terrace (T)", "T")
@@ -107,7 +107,7 @@ class DrawingToolsPanel(QWidget):
         layout.addLayout(grid4)
 
         # LINEAR FEATURES
-        self._add_category("Linear Features", layout)
+        self._add_category(self.tr("Linear Features"), layout)
         grid5 = QGridLayout()
         grid5.setSpacing(0)
         self._add_tool(grid5, 0, 0, ToolType.FENCE, "fence", "🪵", "Fence (F)", "F")
@@ -116,14 +116,14 @@ class DrawingToolsPanel(QWidget):
         layout.addLayout(grid5)
 
         # GARDEN
-        self._add_category("Garden", layout)
+        self._add_category(self.tr("Garden"), layout)
         grid6 = QGridLayout()
         grid6.setSpacing(0)
         self._add_tool(grid6, 0, 0, ToolType.GARDEN_BED, "garden_bed", "🌱", "Garden Bed (B)", "B")
         layout.addLayout(grid6)
 
         # PLANTS
-        self._add_category("Plants", layout)
+        self._add_category(self.tr("Plants"), layout)
         grid7 = QGridLayout()
         grid7.setSpacing(0)
         self._add_tool(grid7, 0, 0, ToolType.TREE, "tree", "🌳", "Tree (1)", "1")
