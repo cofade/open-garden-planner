@@ -77,7 +77,7 @@ class PlantSearchDialog(QDialog):
 
         # Status/info label
         self.status_label = QLabel(self.tr("Enter a plant name to search"))
-        self.status_label.setStyleSheet("color: palette(mid);")
+        self.status_label.setStyleSheet("color: palette(text); opacity: 0.7;")
         layout.addWidget(self.status_label)
 
         # Main content area
@@ -134,7 +134,7 @@ class PlantSearchDialog(QDialog):
         else:
             self.results_list.clear()
             self.status_label.setText(self.tr("Enter a plant name to search"))
-            self.status_label.setStyleSheet("color: palette(mid);")
+            self.status_label.setStyleSheet("color: palette(text); opacity: 0.7;")
 
     def _perform_search(self) -> None:
         """Perform plant search using the API manager."""
@@ -233,10 +233,29 @@ class PlantSearchDialog(QDialog):
             html += "</ul>"
 
         # Growing requirements
+        _cycle_names = {
+            "unknown": self.tr("Unknown"),
+            "annual": self.tr("Annual"),
+            "biennial": self.tr("Biennial"),
+            "perennial": self.tr("Perennial"),
+        }
+        _sun_names = {
+            "unknown": self.tr("Unknown"),
+            "full_sun": self.tr("Full Sun"),
+            "partial_sun": self.tr("Partial Sun"),
+            "partial_shade": self.tr("Partial Shade"),
+            "full_shade": self.tr("Full Shade"),
+        }
+        _water_names = {
+            "unknown": self.tr("Unknown"),
+            "low": self.tr("Low"),
+            "medium": self.tr("Medium"),
+            "high": self.tr("High"),
+        }
         html += f"<h3>{self.tr('Growing Requirements')}</h3><ul>"
-        html += f"<li><b>{self.tr('Cycle:')}</b> {plant.cycle.value.replace('_', ' ').title()}</li>"
-        html += f"<li><b>{self.tr('Sun:')}</b> {plant.sun_requirement.value.replace('_', ' ').title()}</li>"
-        html += f"<li><b>{self.tr('Water:')}</b> {plant.water_needs.value.title()}</li>"
+        html += f"<li><b>{self.tr('Cycle:')}</b> {_cycle_names.get(plant.cycle.value, plant.cycle.value)}</li>"
+        html += f"<li><b>{self.tr('Sun:')}</b> {_sun_names.get(plant.sun_requirement.value, plant.sun_requirement.value)}</li>"
+        html += f"<li><b>{self.tr('Water:')}</b> {_water_names.get(plant.water_needs.value, plant.water_needs.value)}</li>"
 
         if plant.hardiness_zone_min and plant.hardiness_zone_max:
             html += f"<li><b>{self.tr('Hardiness Zones:')}</b> {plant.hardiness_zone_min}-{plant.hardiness_zone_max}</li>"

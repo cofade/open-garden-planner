@@ -290,6 +290,14 @@ class GardenPlannerApp(QMainWindow):
 
         menu.addSeparator()
 
+        # Canvas Size
+        canvas_size_action = QAction(self.tr("Canvas &Size..."), self)
+        canvas_size_action.setStatusTip(self.tr("Resize the canvas dimensions"))
+        canvas_size_action.triggered.connect(self._on_canvas_size)
+        menu.addAction(canvas_size_action)
+
+        menu.addSeparator()
+
         # Auto-Save submenu
         autosave_menu = menu.addMenu(self.tr("Auto-&Save"))
 
@@ -893,6 +901,33 @@ class GardenPlannerApp(QMainWindow):
             if status_bar:
                 status_bar.showMessage(
                     self.tr("New project created: {width}m x {height}m").format(
+                        width=f"{width_m:.1f}", height=f"{height_m:.1f}"
+                    )
+                )
+
+    def _on_canvas_size(self) -> None:
+        """Handle Canvas Size action — resize the current canvas."""
+        from open_garden_planner.ui.dialogs import NewProjectDialog
+
+        dialog = NewProjectDialog(self)
+        dialog.setWindowTitle(self.tr("Canvas Size"))
+        dialog.set_dimensions_cm(
+            self.canvas_scene.width_cm,
+            self.canvas_scene.height_cm,
+        )
+
+        if dialog.exec():
+            width_cm = dialog.width_cm
+            height_cm = dialog.height_cm
+            self.canvas_scene.resize_canvas(width_cm, height_cm)
+            self.canvas_view.fit_in_view()
+
+            width_m = width_cm / 100.0
+            height_m = height_cm / 100.0
+            status_bar = self.statusBar()
+            if status_bar:
+                status_bar.showMessage(
+                    self.tr("Canvas resized to {width}m x {height}m").format(
                         width=f"{width_m:.1f}", height=f"{height_m:.1f}"
                     )
                 )

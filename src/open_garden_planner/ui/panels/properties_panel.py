@@ -19,7 +19,12 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.commands import ChangePropertyCommand, CommandManager
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
+from open_garden_planner.core.object_types import (
+    ObjectType,
+    StrokeStyle,
+    get_style,
+    get_translated_display_name,
+)
 from open_garden_planner.ui.canvas.items import (
     CircleItem,
     PolygonItem,
@@ -277,8 +282,7 @@ class PropertiesPanel(QWidget):
         # Populate combo
         current_idx = 0
         for idx, obj_type in enumerate(valid_types):
-            style = get_style(obj_type)
-            combo.addItem(style.display_name, obj_type)
+            combo.addItem(get_translated_display_name(obj_type), obj_type)
             if hasattr(item, 'object_type') and item.object_type == obj_type:
                 current_idx = idx
 
@@ -340,8 +344,22 @@ class PropertiesPanel(QWidget):
 
             # Fill pattern
             pattern_combo = QComboBox()
+            _pattern_names = {
+                FillPattern.SOLID: self.tr("Solid"),
+                FillPattern.GRASS: self.tr("Grass"),
+                FillPattern.GRAVEL: self.tr("Gravel"),
+                FillPattern.CONCRETE: self.tr("Concrete"),
+                FillPattern.WOOD: self.tr("Wood"),
+                FillPattern.WATER: self.tr("Water"),
+                FillPattern.SOIL: self.tr("Soil"),
+                FillPattern.MULCH: self.tr("Mulch"),
+                FillPattern.ROOF_TILES: self.tr("Roof Tiles"),
+                FillPattern.SAND: self.tr("Sand"),
+                FillPattern.STONE: self.tr("Stone"),
+                FillPattern.GLASS: self.tr("Glass"),
+            }
             for pattern in FillPattern:
-                pattern_combo.addItem(pattern.name.replace("_", " ").title(), pattern)
+                pattern_combo.addItem(_pattern_names.get(pattern, pattern.name), pattern)
 
             current_pattern = item.fill_pattern if hasattr(item, 'fill_pattern') else FillPattern.SOLID
             for i in range(pattern_combo.count()):
@@ -378,8 +396,14 @@ class PropertiesPanel(QWidget):
 
         # Stroke style
         style_combo = QComboBox()
+        _style_names = {
+            StrokeStyle.SOLID: self.tr("Solid"),
+            StrokeStyle.DASHED: self.tr("Dashed"),
+            StrokeStyle.DOTTED: self.tr("Dotted"),
+            StrokeStyle.DASH_DOT: self.tr("Dash Dot"),
+        }
         for style in StrokeStyle:
-            style_combo.addItem(style.name.replace("_", " ").title(), style)
+            style_combo.addItem(_style_names.get(style, style.name), style)
 
         current_style = item.stroke_style if hasattr(item, 'stroke_style') else StrokeStyle.SOLID
         for i in range(style_combo.count()):

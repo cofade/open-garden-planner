@@ -553,16 +553,21 @@ class CanvasView(QGraphicsView):
 
         Computes how far the selection overflows each edge and shifts all items
         together by the smallest correction needed.
+        Background images are excluded from clamping.
 
         Args:
             items: The items to constrain.
         """
-        if not items:
+        from open_garden_planner.ui.canvas.items import BackgroundImageItem
+
+        # Filter out background images — they should move freely beyond the canvas
+        clampable = [i for i in items if not isinstance(i, BackgroundImageItem)]
+        if not clampable:
             return
 
         canvas = self._canvas_scene.canvas_rect
-        combined = items[0].sceneBoundingRect()
-        for item in items[1:]:
+        combined = clampable[0].sceneBoundingRect()
+        for item in clampable[1:]:
             combined = combined.united(item.sceneBoundingRect())
 
         dx = 0.0
@@ -587,6 +592,8 @@ class CanvasView(QGraphicsView):
     ) -> QPointF:
         """Restrict a proposed movement delta so items stay inside the canvas.
 
+        Background images are excluded from clamping.
+
         Args:
             items: The items that would be moved.
             delta: The proposed movement (dx, dy).
@@ -594,14 +601,17 @@ class CanvasView(QGraphicsView):
         Returns:
             A clamped delta that keeps all items within the canvas boundary.
         """
-        if not items:
+        from open_garden_planner.ui.canvas.items import BackgroundImageItem
+
+        clampable = [i for i in items if not isinstance(i, BackgroundImageItem)]
+        if not clampable:
             return delta
 
         canvas = self._canvas_scene.canvas_rect
 
-        # Compute combined bounding rect of all items
-        combined = items[0].sceneBoundingRect()
-        for item in items[1:]:
+        # Compute combined bounding rect of clampable items
+        combined = clampable[0].sceneBoundingRect()
+        for item in clampable[1:]:
             combined = combined.united(item.sceneBoundingRect())
 
         # Predict where the rect would end up
@@ -866,13 +876,21 @@ class CanvasView(QGraphicsView):
 
         Called after super().mouseMoveEvent() has already moved items.
         Computes snap offsets and adjusts positions accordingly.
+        Background images are excluded from snapping.
         """
+        from open_garden_planner.ui.canvas.items import BackgroundImageItem
+
         if not self._object_snap_enabled or not self._drag_start_positions:
             self._snap_guides = []
             return
 
         selected = self.scene().selectedItems()
         if not selected:
+            self._snap_guides = []
+            return
+
+        # Don't snap background images
+        if all(isinstance(i, BackgroundImageItem) for i in selected):
             self._snap_guides = []
             return
 
@@ -892,8 +910,11 @@ class CanvasView(QGraphicsView):
         for item in selected[1:]:
             combined = combined.united(item.sceneBoundingRect())
 
-        # Compute snap against other items
+        # Compute snap against other items (exclude background images as targets)
         exclude = set(selected)
+        for scene_item in self.scene().items():
+            if isinstance(scene_item, BackgroundImageItem):
+                exclude.add(scene_item)
         snap_result = self._object_snapper.snap(
             combined,
             list(self.scene().items()),
@@ -1550,6 +1571,9 @@ class CanvasView(QGraphicsView):
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
+            # Save rotation angle
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
             return data
         elif isinstance(item, CircleItem):
             data = {
@@ -1579,6 +1603,9 @@ class CanvasView(QGraphicsView):
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
+            # Save rotation angle
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
             return data
         elif isinstance(item, PolylineItem):
             data = {
@@ -1595,6 +1622,9 @@ class CanvasView(QGraphicsView):
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
+            # Save rotation angle
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
             return data
         elif isinstance(item, PolygonItem):
             polygon = item.polygon()
@@ -1630,6 +1660,9 @@ class CanvasView(QGraphicsView):
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
+            # Save rotation angle
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
             return data
         return None
 
@@ -1713,6 +1746,8 @@ class CanvasView(QGraphicsView):
                 if stroke_style:
                     pen.setStyle(stroke_style.to_qt_pen_style())
                 item.setPen(pen)
+            if "rotation_angle" in obj:
+                item._apply_rotation(obj["rotation_angle"])
             return item
         elif obj_type == "circle":
             item = CircleItem(
@@ -1746,6 +1781,8 @@ class CanvasView(QGraphicsView):
                 if stroke_style:
                     pen.setStyle(stroke_style.to_qt_pen_style())
                 item.setPen(pen)
+            if "rotation_angle" in obj:
+                item._apply_rotation(obj["rotation_angle"])
             return item
         elif obj_type == "polyline":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
@@ -1762,6 +1799,8 @@ class CanvasView(QGraphicsView):
                     if "stroke_width" in obj:
                         pen.setWidthF(obj["stroke_width"])
                     item.setPen(pen)
+                if "rotation_angle" in obj:
+                    item._apply_rotation(obj["rotation_angle"])
                 return item
         elif obj_type == "polygon":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
@@ -1795,6 +1834,8 @@ class CanvasView(QGraphicsView):
                     if stroke_style:
                         pen.setStyle(stroke_style.to_qt_pen_style())
                     item.setPen(pen)
+                if "rotation_angle" in obj:
+                    item._apply_rotation(obj["rotation_angle"])
                 return item
         return None
 

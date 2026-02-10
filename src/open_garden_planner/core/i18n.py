@@ -47,12 +47,19 @@ def load_translator(app: QApplication, lang_code: str) -> bool:
     if lang_code == "en":
         return True
 
-    # Load Qt's own translations (OK, Cancel, etc.)
-    qt_translator = QTranslator(app)
+    # Load Qt's own translations (OK, Cancel, About Qt dialog, etc.)
     qt_translations_path = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+
+    qt_translator = QTranslator(app)
     if qt_translator.load(QLocale(lang_code), "qtbase", "_", qt_translations_path):
         app.installTranslator(qt_translator)
         _active_translators.append(qt_translator)
+
+    # Also load the meta qt_*.qm (covers additional dialogs like About Qt)
+    qt_meta_translator = QTranslator(app)
+    if qt_meta_translator.load(QLocale(lang_code), "qt", "_", qt_translations_path):
+        app.installTranslator(qt_meta_translator)
+        _active_translators.append(qt_meta_translator)
 
     # Load our app translations
     app_translator = QTranslator(app)

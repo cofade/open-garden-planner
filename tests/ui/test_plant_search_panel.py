@@ -69,7 +69,7 @@ class TestPlantSearchPanel:
         panel.set_canvas_scene(scene)
 
         assert panel.results_list.count() == 3
-        assert "3 plants" in panel.results_label.text()
+        assert "3 plant" in panel.results_label.text()
 
     def test_search_filters_by_name(self, qtbot):  # noqa: ARG002
         """Test that search input filters plants by name."""

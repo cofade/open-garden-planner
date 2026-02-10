@@ -58,7 +58,7 @@ class CustomPlantsDialog(QDialog):
             "These are available across all your projects.")
         )
         desc.setWordWrap(True)
-        desc.setStyleSheet("color: palette(mid);")
+        desc.setStyleSheet("color: palette(text); opacity: 0.7;")
         layout.addWidget(desc)
 
         # Table for plant list
@@ -109,7 +109,7 @@ class CustomPlantsDialog(QDialog):
 
         # Info label
         self.info_label = QLabel()
-        self.info_label.setStyleSheet("color: palette(mid); font-style: italic;")
+        self.info_label.setStyleSheet("color: palette(text); font-style: italic; opacity: 0.7;")
         layout.addWidget(self.info_label)
 
         # Dialog buttons
@@ -148,9 +148,13 @@ class CustomPlantsDialog(QDialog):
             self.table.setItem(row, 2, family_item)
 
             # Cycle
-            cycle_text = plant.cycle.value.replace("_", " ").title()
-            if cycle_text == "Unknown":
-                cycle_text = ""
+            _cycle_names = {
+                "unknown": "",
+                "annual": self.tr("Annual"),
+                "biennial": self.tr("Biennial"),
+                "perennial": self.tr("Perennial"),
+            }
+            cycle_text = _cycle_names.get(plant.cycle.value, plant.cycle.value)
             cycle_item = QTableWidgetItem(cycle_text)
             self.table.setItem(row, 3, cycle_item)
 

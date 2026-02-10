@@ -352,6 +352,18 @@ This will remove it from your custom library. Plants already placed in projects 
 
 Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte Pflanzen behalten ihre Daten.</translation>
     </message>
+    <message>
+        <source>Annual</source>
+        <translation>Einjährig</translation>
+    </message>
+    <message>
+        <source>Biennial</source>
+        <translation>Zweijährig</translation>
+    </message>
+    <message>
+        <source>Perennial</source>
+        <translation>Mehrjährig</translation>
+    </message>
 </context><context>
     <name>DrawingToolsPanel</name>
     <message>
@@ -489,338 +501,264 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
 </context><context>
     <name>GalleryPanel</name>
     <message>
-        <location filename="..\..\ui\panels\gallery_panel.py" line="641" />
         <source>Search objects...</source>
         <translation>Objekte suchen...</translation>
     </message>
     <message>
-        <location filename="..\..\ui\panels\gallery_panel.py" line="648" />
         <source>All Categories</source>
         <translation>Alle Kategorien</translation>
     </message>
     <message>
         <source>Basic Shapes</source>
-        <translation type="vanished">Grundformen</translation>
+        <translation>Grundformen</translation>
     </message>
     <message>
         <source>Rectangle</source>
-        <translation type="vanished">Rechteck</translation>
+        <translation>Rechteck</translation>
     </message>
     <message>
         <source>Polygon</source>
-        <translation type="vanished">Polygon</translation>
+        <translation>Polygon</translation>
     </message>
     <message>
         <source>Circle</source>
-        <translation type="vanished">Kreis</translation>
+        <translation>Kreis</translation>
     </message>
     <message>
         <source>Trees</source>
-        <translation type="vanished">Bäume</translation>
+        <translation>Bäume</translation>
+    </message>
+    <message>
+        <source>Round Deciduous</source>
+        <translation>Laubbaum (rund)</translation>
+    </message>
+    <message>
+        <source>Columnar Tree</source>
+        <translation>Säulenbaum</translation>
+    </message>
+    <message>
+        <source>Weeping Tree</source>
+        <translation>Trauerform</translation>
+    </message>
+    <message>
+        <source>Conifer</source>
+        <translation>Nadelbaum</translation>
+    </message>
+    <message>
+        <source>Fruit Tree</source>
+        <translation>Obstbaum</translation>
+    </message>
+    <message>
+        <source>Palm</source>
+        <translation>Palme</translation>
     </message>
     <message>
         <source>Apple Tree</source>
-        <translation type="vanished">Apfelbaum</translation>
+        <translation>Apfelbaum</translation>
     </message>
     <message>
         <source>Cherry Tree</source>
-        <translation type="vanished">Kirschbaum</translation>
-    </message>
-    <message>
-        <source>Pear Tree</source>
-        <translation type="vanished">Birnbaum</translation>
-    </message>
-    <message>
-        <source>Plum Tree</source>
-        <translation type="vanished">Pflaumenbaum</translation>
-    </message>
-    <message>
-        <source>Oak Tree</source>
-        <translation type="vanished">Eiche</translation>
-    </message>
-    <message>
-        <source>Maple Tree</source>
-        <translation type="vanished">Ahorn</translation>
-    </message>
-    <message>
-        <source>Birch Tree</source>
-        <translation type="vanished">Birke</translation>
-    </message>
-    <message>
-        <source>Willow Tree</source>
-        <translation type="vanished">Weide</translation>
-    </message>
-    <message>
-        <source>Pine Tree</source>
-        <translation type="vanished">Kiefer</translation>
-    </message>
-    <message>
-        <source>Spruce Tree</source>
-        <translation type="vanished">Fichte</translation>
-    </message>
-    <message>
-        <source>Walnut Tree</source>
-        <translation type="vanished">Walnussbaum</translation>
-    </message>
-    <message>
-        <source>Fig Tree</source>
-        <translation type="vanished">Feigenbaum</translation>
-    </message>
-    <message>
-        <source>Olive Tree</source>
-        <translation type="vanished">Olivenbaum</translation>
-    </message>
-    <message>
-        <source>Lemon Tree</source>
-        <translation type="vanished">Zitronenbaum</translation>
+        <translation>Kirschbaum</translation>
     </message>
     <message>
         <source>Shrubs</source>
-        <translation type="vanished">Sträucher</translation>
+        <translation>Sträucher</translation>
     </message>
     <message>
-        <source>Rose Bush</source>
-        <translation type="vanished">Rosenstrauch</translation>
+        <source>Spreading Shrub</source>
+        <translation>Breitstrauch</translation>
     </message>
     <message>
-        <source>Lavender</source>
-        <translation type="vanished">Lavendel</translation>
+        <source>Compact Shrub</source>
+        <translation>Kompaktstrauch</translation>
     </message>
     <message>
         <source>Boxwood</source>
-        <translation type="vanished">Buchsbaum</translation>
-    </message>
-    <message>
-        <source>Hydrangea</source>
-        <translation type="vanished">Hortensie</translation>
-    </message>
-    <message>
-        <source>Lilac</source>
-        <translation type="vanished">Flieder</translation>
-    </message>
-    <message>
-        <source>Forsythia</source>
-        <translation type="vanished">Forsythie</translation>
+        <translation>Buchsbaum</translation>
     </message>
     <message>
         <source>Rhododendron</source>
-        <translation type="vanished">Rhododendron</translation>
+        <translation>Rhododendron</translation>
     </message>
     <message>
-        <source>Azalea</source>
-        <translation type="vanished">Azalee</translation>
+        <source>Hedge Section</source>
+        <translation>Heckenabschnitt</translation>
     </message>
     <message>
-        <source>Holly</source>
-        <translation type="vanished">Stechpalme</translation>
+        <source>Flowers &amp; Perennials</source>
+        <translation>Blumen &amp; Stauden</translation>
     </message>
     <message>
-        <source>Juniper</source>
-        <translation type="vanished">Wacholder</translation>
-    </message>
-    <message>
-        <source>Blueberry Bush</source>
-        <translation type="vanished">Heidelbeerstrauch</translation>
-    </message>
-    <message>
-        <source>Raspberry Bush</source>
-        <translation type="vanished">Himbeerstrauch</translation>
-    </message>
-    <message>
-        <source>Currant Bush</source>
-        <translation type="vanished">Johannisbeerstrauch</translation>
-    </message>
-    <message>
-        <source>Gooseberry</source>
-        <translation type="vanished">Stachelbeere</translation>
-    </message>
-    <message>
-        <source>Perennials</source>
-        <translation type="vanished">Stauden</translation>
-    </message>
-    <message>
-        <source>Hosta</source>
-        <translation type="vanished">Funkie</translation>
-    </message>
-    <message>
-        <source>Daylily</source>
-        <translation type="vanished">Taglilie</translation>
-    </message>
-    <message>
-        <source>Echinacea</source>
-        <translation type="vanished">Sonnenhut</translation>
-    </message>
-    <message>
-        <source>Black-Eyed Susan</source>
-        <translation type="vanished">Rudbeckie</translation>
-    </message>
-    <message>
-        <source>Peony</source>
-        <translation type="vanished">Pfingstrose</translation>
-    </message>
-    <message>
-        <source>Iris</source>
-        <translation type="vanished">Schwertlilie</translation>
-    </message>
-    <message>
-        <source>Aster</source>
-        <translation type="vanished">Aster</translation>
-    </message>
-    <message>
-        <source>Sedum</source>
-        <translation type="vanished">Fetthenne</translation>
+        <source>Flowering Perennial</source>
+        <translation>Blühstaude</translation>
     </message>
     <message>
         <source>Ornamental Grass</source>
-        <translation type="vanished">Ziergras</translation>
+        <translation>Ziergras</translation>
     </message>
     <message>
-        <source>Fern</source>
-        <translation type="vanished">Farn</translation>
+        <source>Ground Cover</source>
+        <translation>Bodendecker</translation>
     </message>
     <message>
-        <source>Geranium</source>
-        <translation type="vanished">Storchschnabel</translation>
+        <source>Climbing Plant</source>
+        <translation>Kletterpflanze</translation>
     </message>
     <message>
-        <source>Salvia</source>
-        <translation type="vanished">Salbei</translation>
+        <source>Rose</source>
+        <translation>Rose</translation>
     </message>
     <message>
-        <source>Catmint</source>
-        <translation type="vanished">Katzenminze</translation>
+        <source>Lavender</source>
+        <translation>Lavendel</translation>
+    </message>
+    <message>
+        <source>Sunflower</source>
+        <translation>Sonnenblume</translation>
+    </message>
+    <message>
+        <source>Vegetables &amp; Herbs</source>
+        <translation>Gemüse &amp; Kräuter</translation>
+    </message>
+    <message>
+        <source>Vegetable</source>
+        <translation>Gemüse</translation>
+    </message>
+    <message>
+        <source>Herb</source>
+        <translation>Kraut</translation>
+    </message>
+    <message>
+        <source>Tomato</source>
+        <translation>Tomate</translation>
     </message>
     <message>
         <source>Structures</source>
-        <translation type="vanished">Gebäude</translation>
+        <translation>Gebäude</translation>
     </message>
     <message>
         <source>House</source>
-        <translation type="vanished">Haus</translation>
+        <translation>Haus</translation>
     </message>
     <message>
         <source>Garage/Shed</source>
-        <translation type="vanished">Garage/Schuppen</translation>
+        <translation>Garage/Schuppen</translation>
     </message>
     <message>
         <source>Greenhouse</source>
-        <translation type="vanished">Gewächshaus</translation>
-    </message>
-    <message>
-        <source>Hardscape</source>
-        <translation type="vanished">Befestigte Flächen</translation>
-    </message>
-    <message>
-        <source>Terrace/Patio</source>
-        <translation type="vanished">Terrasse/Patio</translation>
-    </message>
-    <message>
-        <source>Driveway</source>
-        <translation type="vanished">Einfahrt</translation>
-    </message>
-    <message>
-        <source>Pond/Pool</source>
-        <translation type="vanished">Teich/Pool</translation>
-    </message>
-    <message>
-        <source>Garden</source>
-        <translation type="vanished">Garten</translation>
-    </message>
-    <message>
-        <source>Garden Bed</source>
-        <translation type="vanished">Gartenbeet</translation>
-    </message>
-    <message>
-        <source>Lawn</source>
-        <translation type="vanished">Rasen</translation>
-    </message>
-    <message>
-        <source>Linear Features</source>
-        <translation type="vanished">Lineare Elemente</translation>
-    </message>
-    <message>
-        <source>Fence</source>
-        <translation type="vanished">Zaun</translation>
-    </message>
-    <message>
-        <source>Wall</source>
-        <translation type="vanished">Mauer</translation>
-    </message>
-    <message>
-        <source>Path</source>
-        <translation type="vanished">Weg</translation>
-    </message>
-    <message>
-        <source>Hedge</source>
-        <translation type="vanished">Hecke</translation>
+        <translation>Gewächshaus</translation>
     </message>
     <message>
         <source>Furniture</source>
-        <translation type="vanished">Möbel</translation>
+        <translation>Möbel</translation>
     </message>
     <message>
-        <source>Table (Rectangular)</source>
-        <translation type="vanished">Tisch (rechteckig)</translation>
-    </message>
-    <message>
-        <source>Chair</source>
-        <translation type="vanished">Stuhl</translation>
-    </message>
-    <message>
-        <source>Bench</source>
-        <translation type="vanished">Bank</translation>
-    </message>
-    <message>
-        <source>Lounger</source>
-        <translation type="vanished">Liege</translation>
+        <source>Table (Rect.)</source>
+        <translation>Tisch (eckig)</translation>
     </message>
     <message>
         <source>Table (Round)</source>
-        <translation type="vanished">Tisch (rund)</translation>
+        <translation>Tisch (rund)</translation>
+    </message>
+    <message>
+        <source>Chair</source>
+        <translation>Stuhl</translation>
+    </message>
+    <message>
+        <source>Bench</source>
+        <translation>Bank</translation>
     </message>
     <message>
         <source>Parasol</source>
-        <translation type="vanished">Sonnenschirm</translation>
+        <translation>Sonnenschirm</translation>
+    </message>
+    <message>
+        <source>Lounger</source>
+        <translation>Liege</translation>
     </message>
     <message>
         <source>BBQ/Grill</source>
-        <translation type="vanished">Grill</translation>
+        <translation>Grill</translation>
     </message>
     <message>
         <source>Fire Pit</source>
-        <translation type="vanished">Feuerstelle</translation>
+        <translation>Feuerstelle</translation>
+    </message>
+    <message>
+        <source>Gardening</source>
+        <translation>Gartenbau</translation>
     </message>
     <message>
         <source>Planter/Pot</source>
-        <translation type="vanished">Pflanzgefäß/Topf</translation>
+        <translation>Pflanzgefäß/Topf</translation>
     </message>
     <message>
-        <source>Infrastructure</source>
-        <translation type="vanished">Infrastruktur</translation>
+        <source>Garden Infrastructure</source>
+        <translation>Garteninfrastruktur</translation>
     </message>
     <message>
         <source>Raised Bed</source>
-        <translation type="vanished">Hochbeet</translation>
+        <translation>Hochbeet</translation>
     </message>
     <message>
         <source>Compost Bin</source>
-        <translation type="vanished">Komposter</translation>
+        <translation>Komposter</translation>
     </message>
     <message>
         <source>Cold Frame</source>
-        <translation type="vanished">Frühbeet</translation>
-    </message>
-    <message>
-        <source>Tool Shed</source>
-        <translation type="vanished">Geräteschuppen</translation>
+        <translation>Frühbeet</translation>
     </message>
     <message>
         <source>Rain Barrel</source>
-        <translation type="vanished">Regentonne</translation>
+        <translation>Regentonne</translation>
     </message>
     <message>
         <source>Water Tap</source>
-        <translation type="vanished">Wasserhahn</translation>
+        <translation>Wasserhahn</translation>
+    </message>
+    <message>
+        <source>Tool Shed</source>
+        <translation>Geräteschuppen</translation>
+    </message>
+    <message>
+        <source>Paths &amp; Surfaces</source>
+        <translation>Wege &amp; Flächen</translation>
+    </message>
+    <message>
+        <source>Lawn</source>
+        <translation>Rasen</translation>
+    </message>
+    <message>
+        <source>Terrace/Patio</source>
+        <translation>Terrasse/Patio</translation>
+    </message>
+    <message>
+        <source>Driveway</source>
+        <translation>Einfahrt</translation>
+    </message>
+    <message>
+        <source>Garden Bed</source>
+        <translation>Gartenbeet</translation>
+    </message>
+    <message>
+        <source>Pond/Pool</source>
+        <translation>Teich/Pool</translation>
+    </message>
+    <message>
+        <source>Fences &amp; Walls</source>
+        <translation>Zäune &amp; Mauern</translation>
+    </message>
+    <message>
+        <source>Fence</source>
+        <translation>Zaun</translation>
+    </message>
+    <message>
+        <source>Wall</source>
+        <translation>Mauer</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>Weg</translation>
     </message>
 </context><context>
     <name>GardenPlannerApp</name>
@@ -1113,6 +1051,22 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <location filename="..\..\app\application.py" line="287" />
         <source>Distribute selected objects with equal vertical spacing</source>
         <translation>Ausgewählte Objekte mit gleichem vertikalen Abstand verteilen</translation>
+    </message>
+    <message>
+        <source>Canvas &amp;Size...</source>
+        <translation>Leinwand&amp;größe...</translation>
+    </message>
+    <message>
+        <source>Resize the canvas dimensions</source>
+        <translation>Die Leinwandgröße ändern</translation>
+    </message>
+    <message>
+        <source>Canvas Size</source>
+        <translation>Leinwandgröße</translation>
+    </message>
+    <message>
+        <source>Canvas resized to {width}m x {height}m</source>
+        <translation>Leinwand auf {width}m x {height}m geändert</translation>
     </message>
     <message>
         <location filename="..\..\app\application.py" line="294" />
@@ -1771,6 +1725,10 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
         <source>Add Layer</source>
         <translation>Ebene hinzufügen</translation>
     </message>
+    <message>
+        <source>Layer</source>
+        <translation>Ebene</translation>
+    </message>
 </context><context>
     <name>MainToolbar</name>
     <message>
@@ -2237,6 +2195,36 @@ Verwenden Sie 'Eigene erstellen', um Pflanzen hinzuzufügen, oder das Pflanzen-M
         <translation>Eigene Pflanze auswählen</translation>
     </message>
 </context><context>
+    <name>PlantSearchPanel</name>
+    <message>
+        <source>Search plants...</source>
+        <translation>Pflanzen suchen...</translation>
+    </message>
+    <message>
+        <source>🌳 Trees</source>
+        <translation>🌳 Bäume</translation>
+    </message>
+    <message>
+        <source>🌿 Shrubs</source>
+        <translation>🌿 Sträucher</translation>
+    </message>
+    <message>
+        <source>🌸 Perennials</source>
+        <translation>🌸 Stauden</translation>
+    </message>
+    <message>
+        <source>No plants in project</source>
+        <translation>Keine Pflanzen im Projekt</translation>
+    </message>
+    <message>
+        <source>{count} plant(s) in project</source>
+        <translation>{count} Pflanze(n) im Projekt</translation>
+    </message>
+    <message>
+        <source>Showing {shown} of {total} plants</source>
+        <translation>{shown} von {total} Pflanzen angezeigt</translation>
+    </message>
+</context><context>
     <name>PlantSearchDialog</name>
     <message>
         <location filename="..\..\ui\dialogs\plant_search_dialog.py" line="52" />
@@ -2416,6 +2404,50 @@ Bitte überprüfen Sie Ihre Internetverbindung und API-Zugangsdaten.</translatio
         <source>Please select a plant from the search results.</source>
         <translation>Bitte wählen Sie eine Pflanze aus den Suchergebnissen.</translation>
     </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Unbekannt</translation>
+    </message>
+    <message>
+        <source>Annual</source>
+        <translation>Einjährig</translation>
+    </message>
+    <message>
+        <source>Biennial</source>
+        <translation>Zweijährig</translation>
+    </message>
+    <message>
+        <source>Perennial</source>
+        <translation>Mehrjährig</translation>
+    </message>
+    <message>
+        <source>Full Sun</source>
+        <translation>Volle Sonne</translation>
+    </message>
+    <message>
+        <source>Partial Sun</source>
+        <translation>Teilsonne</translation>
+    </message>
+    <message>
+        <source>Partial Shade</source>
+        <translation>Halbschatten</translation>
+    </message>
+    <message>
+        <source>Full Shade</source>
+        <translation>Vollschatten</translation>
+    </message>
+    <message>
+        <source>Low</source>
+        <translation>Niedrig</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>Mittel</translation>
+    </message>
+    <message>
+        <source>High</source>
+        <translation>Hoch</translation>
+    </message>
 </context><context>
     <name>PolygonTool</name>
     <message>
@@ -2575,6 +2607,66 @@ noch nicht implementiert</translation>
         <location filename="..\..\ui\panels\properties_panel.py" line="393" />
         <source>Stroke Style:</source>
         <translation>Linienstil:</translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation>Einfarbig</translation>
+    </message>
+    <message>
+        <source>Grass</source>
+        <translation>Rasen</translation>
+    </message>
+    <message>
+        <source>Gravel</source>
+        <translation>Kies</translation>
+    </message>
+    <message>
+        <source>Concrete</source>
+        <translation>Beton</translation>
+    </message>
+    <message>
+        <source>Wood</source>
+        <translation>Holz</translation>
+    </message>
+    <message>
+        <source>Water</source>
+        <translation>Wasser</translation>
+    </message>
+    <message>
+        <source>Soil</source>
+        <translation>Erde</translation>
+    </message>
+    <message>
+        <source>Mulch</source>
+        <translation>Mulch</translation>
+    </message>
+    <message>
+        <source>Roof Tiles</source>
+        <translation>Dachziegel</translation>
+    </message>
+    <message>
+        <source>Sand</source>
+        <translation>Sand</translation>
+    </message>
+    <message>
+        <source>Stone</source>
+        <translation>Stein</translation>
+    </message>
+    <message>
+        <source>Glass</source>
+        <translation>Glas</translation>
+    </message>
+    <message>
+        <source>Dashed</source>
+        <translation>Gestrichelt</translation>
+    </message>
+    <message>
+        <source>Dotted</source>
+        <translation>Gepunktet</translation>
+    </message>
+    <message>
+        <source>Dash Dot</source>
+        <translation>Strichpunkt</translation>
     </message>
 </context><context>
     <name>RectangleTool</name>
@@ -2866,6 +2958,26 @@ noch nicht implementiert</translation>
         <location filename="..\..\ui\dialogs\shortcuts_dialog.py" line="122" />
         <source>Close</source>
         <translation>Schließen</translation>
+    </message>
+    <message>
+        <source>Ctrl</source>
+        <translation>Strg</translation>
+    </message>
+    <message>
+        <source>Shift</source>
+        <translation>Umschalt</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Entf</translation>
+    </message>
+    <message>
+        <source>Escape</source>
+        <translation>Esc</translation>
+    </message>
+    <message>
+        <source>Alt</source>
+        <translation>Alt</translation>
     </message>
 </context><context>
     <name>WelcomeDialog</name>

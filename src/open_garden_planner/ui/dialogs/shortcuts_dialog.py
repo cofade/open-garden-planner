@@ -23,6 +23,20 @@ class ShortcutsDialog(QDialog):
         self.setMinimumSize(500, 600)
         self._setup_ui()
 
+    def _localize_shortcut(self, shortcut: str) -> str:
+        """Localize keyboard modifier names for display.
+
+        Translates standard English key names to localized equivalents
+        (e.g., Ctrl→Strg, Shift→Umschalt, Delete→Entf for German).
+        """
+        result = shortcut
+        result = result.replace("Ctrl", self.tr("Ctrl"))
+        result = result.replace("Shift", self.tr("Shift"))
+        result = result.replace("Delete", self.tr("Delete"))
+        result = result.replace("Escape", self.tr("Escape"))
+        result = result.replace("Alt", self.tr("Alt"))
+        return result
+
     def _setup_ui(self) -> None:
         """Set up the dialog UI."""
         layout = QVBoxLayout(self)
@@ -39,36 +53,36 @@ class ShortcutsDialog(QDialog):
 
         # File operations
         file_group = self._create_shortcut_group(self.tr("File"), [
-            ("Ctrl+N", self.tr("New Project")),
-            ("Ctrl+O", self.tr("Open Project")),
-            ("Ctrl+S", self.tr("Save")),
-            ("Ctrl+Shift+S", self.tr("Save As")),
-            ("Alt+F4", self.tr("Exit")),
+            (self._localize_shortcut("Ctrl+N"), self.tr("New Project")),
+            (self._localize_shortcut("Ctrl+O"), self.tr("Open Project")),
+            (self._localize_shortcut("Ctrl+S"), self.tr("Save")),
+            (self._localize_shortcut("Ctrl+Shift+S"), self.tr("Save As")),
+            (self._localize_shortcut("Alt+F4"), self.tr("Exit")),
         ])
         container_layout.addWidget(file_group)
 
         # Edit operations
         edit_group = self._create_shortcut_group(self.tr("Edit"), [
-            ("Ctrl+Z", self.tr("Undo")),
-            ("Ctrl+Y", self.tr("Redo")),
-            ("Ctrl+X", self.tr("Cut")),
-            ("Ctrl+C", self.tr("Copy")),
-            ("Ctrl+V", self.tr("Paste")),
-            ("Ctrl+D", self.tr("Duplicate")),
-            ("Delete", self.tr("Delete selected")),
-            ("Ctrl+A", self.tr("Select All")),
+            (self._localize_shortcut("Ctrl+Z"), self.tr("Undo")),
+            (self._localize_shortcut("Ctrl+Y"), self.tr("Redo")),
+            (self._localize_shortcut("Ctrl+X"), self.tr("Cut")),
+            (self._localize_shortcut("Ctrl+C"), self.tr("Copy")),
+            (self._localize_shortcut("Ctrl+V"), self.tr("Paste")),
+            (self._localize_shortcut("Ctrl+D"), self.tr("Duplicate")),
+            (self._localize_shortcut("Delete"), self.tr("Delete selected")),
+            (self._localize_shortcut("Ctrl+A"), self.tr("Select All")),
         ])
         container_layout.addWidget(edit_group)
 
         # View operations
         view_group = self._create_shortcut_group(self.tr("View"), [
-            ("Ctrl++", self.tr("Zoom In")),
-            ("Ctrl+-", self.tr("Zoom Out")),
-            ("Ctrl+0", self.tr("Fit to Window")),
+            (self._localize_shortcut("Ctrl++"), self.tr("Zoom In")),
+            (self._localize_shortcut("Ctrl+-"), self.tr("Zoom Out")),
+            (self._localize_shortcut("Ctrl+0"), self.tr("Fit to Window")),
             ("G", self.tr("Toggle Grid")),
             ("S", self.tr("Toggle Snap to Grid")),
             ("F11", self.tr("Fullscreen Preview")),
-            ("Escape", self.tr("Exit Fullscreen Preview")),
+            (self._localize_shortcut("Escape"), self.tr("Exit Fullscreen Preview")),
             (self.tr("Scroll Wheel"), self.tr("Zoom")),
             (self.tr("Middle Mouse Drag"), self.tr("Pan")),
         ])
@@ -101,7 +115,7 @@ class ShortcutsDialog(QDialog):
             ("1", self.tr("Tree")),
             ("2", self.tr("Shrub")),
             ("3", self.tr("Perennial")),
-            ("Ctrl+K", self.tr("Search Plant Database")),
+            (self._localize_shortcut("Ctrl+K"), self.tr("Search Plant Database")),
         ])
         container_layout.addWidget(plant_group)
 

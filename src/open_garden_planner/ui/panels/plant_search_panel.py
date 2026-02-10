@@ -109,7 +109,7 @@ class PlantSearchPanel(QWidget):
         search_layout.setSpacing(4)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search plants...")
+        self.search_input.setPlaceholderText(self.tr("Search plants..."))
         self.search_input.textChanged.connect(self._on_search_changed)
         self.search_input.setClearButtonEnabled(True)
         search_layout.addWidget(self.search_input)
@@ -120,17 +120,17 @@ class PlantSearchPanel(QWidget):
         filter_layout = QHBoxLayout()
         filter_layout.setSpacing(8)
 
-        self.tree_checkbox = QCheckBox("🌳 Trees")
+        self.tree_checkbox = QCheckBox(self.tr("🌳 Trees"))
         self.tree_checkbox.setChecked(True)
         self.tree_checkbox.stateChanged.connect(self._on_filter_changed)
         filter_layout.addWidget(self.tree_checkbox)
 
-        self.shrub_checkbox = QCheckBox("🌿 Shrubs")
+        self.shrub_checkbox = QCheckBox(self.tr("🌿 Shrubs"))
         self.shrub_checkbox.setChecked(True)
         self.shrub_checkbox.stateChanged.connect(self._on_filter_changed)
         filter_layout.addWidget(self.shrub_checkbox)
 
-        self.perennial_checkbox = QCheckBox("🌸 Perennials")
+        self.perennial_checkbox = QCheckBox(self.tr("🌸 Perennials"))
         self.perennial_checkbox.setChecked(True)
         self.perennial_checkbox.stateChanged.connect(self._on_filter_changed)
         filter_layout.addWidget(self.perennial_checkbox)
@@ -139,8 +139,8 @@ class PlantSearchPanel(QWidget):
         layout.addLayout(filter_layout)
 
         # Results count label
-        self.results_label = QLabel("No plants in project")
-        self.results_label.setStyleSheet("color: palette(mid);")
+        self.results_label = QLabel(self.tr("No plants in project"))
+        self.results_label.setStyleSheet("color: palette(text);")
         layout.addWidget(self.results_label)
 
         # Results list
@@ -255,11 +255,15 @@ class PlantSearchPanel(QWidget):
         # Update results label
         total = len(self._all_plants)
         if total == 0:
-            self.results_label.setText("No plants in project")
+            self.results_label.setText(self.tr("No plants in project"))
         elif matching_count == total:
-            self.results_label.setText(f"{total} plant{'s' if total != 1 else ''} in project")
+            self.results_label.setText(self.tr("{count} plant(s) in project").format(count=total))
         else:
-            self.results_label.setText(f"Showing {matching_count} of {total} plants")
+            self.results_label.setText(
+                self.tr("Showing {shown} of {total} plants").format(
+                    shown=matching_count, total=total
+                )
+            )
 
     def _on_item_clicked(self, item: QListWidgetItem) -> None:
         """Handle single click on a plant item - select it."""

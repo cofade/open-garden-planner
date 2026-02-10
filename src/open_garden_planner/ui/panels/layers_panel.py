@@ -386,9 +386,10 @@ class LayersPanel(QWidget):
         # Create a new layer with a unique name
         existing_names = {layer.name for layer in self._layers}
         layer_num = 1
-        while f"Layer {layer_num}" in existing_names:
+        layer_base = self.tr("Layer")
+        while f"{layer_base} {layer_num}" in existing_names:
             layer_num += 1
-        new_layer = Layer(name=f"Layer {layer_num}", z_order=len(self._layers))
+        new_layer = Layer(name=f"{layer_base} {layer_num}", z_order=len(self._layers))
         self._layers.append(new_layer)
         self._refresh_list()
         self.layers_reordered.emit(self._layers)
