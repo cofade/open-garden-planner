@@ -171,6 +171,15 @@ class GardenPlannerApp(QMainWindow):
 
         menu.addSeparator()
 
+        # Print
+        print_action = QAction(self.tr("&Print..."), self)
+        print_action.setShortcut(QKeySequence("Ctrl+P"))
+        print_action.setStatusTip(self.tr("Print the garden plan"))
+        print_action.triggered.connect(self._on_print)
+        menu.addAction(print_action)
+
+        menu.addSeparator()
+
         # Exit
         exit_action = QAction(self.tr("E&xit"), self)
         exit_action.setShortcut(QKeySequence("Alt+F4"))
@@ -1157,6 +1166,37 @@ class GardenPlannerApp(QMainWindow):
             QMessageBox.critical(
                 self, self.tr("Export Error"), self.tr("Failed to export plant list:\n{error}").format(error=e)
             )
+
+    def _on_print(self) -> None:
+        """Handle Print action - show options dialog then print preview."""
+        from open_garden_planner.ui.dialogs import GardenPrintManager, PrintOptionsDialog
+
+        # Show options dialog
+        options = PrintOptionsDialog(
+            self.canvas_scene.width_cm,
+            self.canvas_scene.height_cm,
+            grid_visible=self.canvas_view.grid_visible,
+            labels_visible=self.canvas_scene.labels_enabled,
+            parent=self,
+        )
+
+        if options.exec() != PrintOptionsDialog.DialogCode.Accepted:
+            return
+
+        # Create print manager and configure
+        print_mgr = GardenPrintManager(
+            self.canvas_scene,
+            project_name=self._project_manager.project_name,
+        )
+        print_mgr.configure(
+            scale_denominator=options.scale_denominator,
+            include_grid=options.include_grid,
+            include_labels=options.include_labels,
+            include_legend=options.include_legend,
+        )
+
+        # Show print preview (which allows printing)
+        print_mgr.print_preview(parent=self)
 
     def _confirm_discard_changes(self) -> bool:
         """Ask user to save if there are unsaved changes.
