@@ -14,7 +14,6 @@ from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsLineItem,
     QGraphicsScene,
-    QGraphicsTextItem,
 )
 
 from open_garden_planner.models.layer import Layer, create_default_layers
@@ -66,7 +65,7 @@ class CanvasScene(QGraphicsScene):
         self._calibration_mode = False
         self._calibration_image = None
         self._calibration_points: list[QPointF] = []
-        self._calibration_markers: list[QGraphicsLineItem | QGraphicsTextItem] = []
+        self._calibration_markers: list[QGraphicsLineItem] = []
 
         # Shadow state
         self._shadows_enabled = True
@@ -255,7 +254,7 @@ class CanvasScene(QGraphicsScene):
             return
 
         self._calibration_points.append(point)
-        self._draw_calibration_marker(point, len(self._calibration_points))
+        self._draw_calibration_marker(point)
 
         if len(self._calibration_points) == 1:
             # After first point, update status
@@ -269,12 +268,11 @@ class CanvasScene(QGraphicsScene):
             if self.views():
                 self.views()[0].show_calibration_input(point)
 
-    def _draw_calibration_marker(self, point: QPointF, number: int) -> None:
-        """Draw a calibration marker at the given point.
+    def _draw_calibration_marker(self, point: QPointF) -> None:
+        """Draw a calibration crosshair marker at the given point.
 
         Args:
             point: The point in scene coordinates
-            number: The point number (1 or 2)
         """
         pen = QPen(Qt.GlobalColor.red, 2)
 
@@ -290,13 +288,6 @@ class CanvasScene(QGraphicsScene):
         self.addItem(line_v)
         self._calibration_markers.append(line_v)
 
-        # Draw number label
-        text = QGraphicsTextItem(str(number))
-        text.setDefaultTextColor(Qt.GlobalColor.red)
-        text.setPos(point.x() + 20, point.y() - 20)
-        text.setZValue(1000)  # On top of everything
-        self.addItem(text)
-        self._calibration_markers.append(text)
 
     def _draw_calibration_line(self) -> None:
         """Draw a line between the two calibration points."""
