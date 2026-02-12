@@ -103,6 +103,7 @@ class CanvasView(QGraphicsView):
 
         # Command manager for undo/redo
         self._command_manager = CommandManager(self)
+        self._canvas_scene._command_manager = self._command_manager
 
         # Drag tracking for undo support
         self._drag_start_positions: dict[QGraphicsItem, QPointF] = {}
@@ -1106,6 +1107,18 @@ class CanvasView(QGraphicsView):
         """Create undo command for mouse drag movement if items moved."""
         if not self._drag_start_positions:
             return
+
+        # If a resize command was just pushed to the undo stack, the position
+        # change is already captured by that command. Creating a separate
+        # MoveItemsCommand would duplicate the position delta and cause
+        # undo to only revert the position without restoring the size.
+        from open_garden_planner.core.commands import ResizeItemCommand
+
+        if self._command_manager.can_undo:
+            last_cmd = self._command_manager._undo_stack[-1]
+            if isinstance(last_cmd, ResizeItemCommand):
+                self._drag_start_positions.clear()
+                return
 
         # Find items that actually moved
         moved_items = []
