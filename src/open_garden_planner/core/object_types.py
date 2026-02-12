@@ -98,77 +98,77 @@ class ObjectStyle:
 # Default styles for each object type
 OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
     ObjectType.HOUSE: ObjectStyle(
-        fill_color=QColor(210, 180, 140, 120),  # Tan
+        fill_color=QColor(210, 180, 140, 255),  # Tan
         stroke_color=QColor(139, 90, 43),  # Brown
         stroke_width=2.5,
         display_name=QT_TR_NOOP("House"),
         fill_pattern=FillPattern.ROOF_TILES,
     ),
     ObjectType.GARAGE_SHED: ObjectStyle(
-        fill_color=QColor(169, 169, 169, 120),  # Gray
+        fill_color=QColor(169, 169, 169, 255),  # Gray
         stroke_color=QColor(105, 105, 105),  # Dim gray
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Garage/Shed"),
         fill_pattern=FillPattern.CONCRETE,
     ),
     ObjectType.TERRACE_PATIO: ObjectStyle(
-        fill_color=QColor(222, 184, 135, 120),  # Burlywood
+        fill_color=QColor(222, 184, 135, 255),  # Burlywood
         stroke_color=QColor(160, 82, 45),  # Sienna
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Terrace/Patio"),
         fill_pattern=FillPattern.WOOD,
     ),
     ObjectType.DRIVEWAY: ObjectStyle(
-        fill_color=QColor(112, 128, 144, 120),  # Slate gray
+        fill_color=QColor(112, 128, 144, 255),  # Slate gray
         stroke_color=QColor(47, 79, 79),  # Dark slate gray
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Driveway"),
         fill_pattern=FillPattern.GRAVEL,
     ),
     ObjectType.POND_POOL: ObjectStyle(
-        fill_color=QColor(64, 164, 223, 120),  # Water blue
+        fill_color=QColor(64, 164, 223, 255),  # Water blue
         stroke_color=QColor(25, 25, 112),  # Midnight blue
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Pond/Pool"),
         fill_pattern=FillPattern.WATER,
     ),
     ObjectType.GREENHOUSE: ObjectStyle(
-        fill_color=QColor(210, 230, 245, 140),  # Light sky-blue glass
+        fill_color=QColor(210, 230, 245, 255),  # Light sky-blue glass
         stroke_color=QColor(160, 165, 170),  # Silver / aluminium
         stroke_width=2.5,
         display_name=QT_TR_NOOP("Greenhouse"),
         fill_pattern=FillPattern.GLASS,
     ),
     ObjectType.GARDEN_BED: ObjectStyle(
-        fill_color=QColor(139, 90, 43, 120),  # Brown soil
+        fill_color=QColor(139, 90, 43, 255),  # Brown soil
         stroke_color=QColor(34, 139, 34),  # Forest green border
         stroke_width=2.5,
         display_name=QT_TR_NOOP("Garden Bed"),
         fill_pattern=FillPattern.SOIL,
     ),
     ObjectType.LAWN: ObjectStyle(
-        fill_color=QColor(100, 180, 60, 120),  # Fresh green
+        fill_color=QColor(100, 180, 60, 255),  # Fresh green
         stroke_color=QColor(60, 130, 30),  # Darker green
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Lawn"),
         fill_pattern=FillPattern.GRASS,
     ),
     ObjectType.TREE: ObjectStyle(
-        fill_color=QColor(34, 139, 34, 100),  # Forest green
+        fill_color=QColor(34, 139, 34, 255),  # Forest green
         stroke_color=QColor(85, 107, 47),  # Dark olive green
         stroke_width=3.0,
         display_name=QT_TR_NOOP("Tree"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.SHRUB: ObjectStyle(
-        fill_color=QColor(107, 142, 35, 120),  # Olive drab
+        fill_color=QColor(107, 142, 35, 255),  # Olive drab
         stroke_color=QColor(85, 107, 47),  # Dark olive green
         stroke_width=2.5,
         display_name=QT_TR_NOOP("Shrub"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.PERENNIAL: ObjectStyle(
-        fill_color=QColor(154, 205, 50, 100),  # Yellow green
+        fill_color=QColor(154, 205, 50, 255),  # Yellow green
         stroke_color=QColor(34, 139, 34),  # Forest green
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Perennial"),
@@ -196,133 +196,133 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.HEDGE_SECTION: ObjectStyle(
-        fill_color=QColor(60, 120, 40, 180),  # Hedge green
+        fill_color=QColor(60, 120, 40, 255),  # Hedge green
         stroke_color=QColor(40, 90, 25),  # Dark hedge green
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Hedge Section"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.TABLE_RECTANGULAR: ObjectStyle(
-        fill_color=QColor(160, 120, 80, 180),  # Warm wood
+        fill_color=QColor(160, 120, 80, 255),  # Warm wood
         stroke_color=QColor(100, 70, 40),  # Dark wood
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Table (Rectangular)"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.TABLE_ROUND: ObjectStyle(
-        fill_color=QColor(160, 120, 80, 180),  # Warm wood
+        fill_color=QColor(160, 120, 80, 255),  # Warm wood
         stroke_color=QColor(100, 70, 40),  # Dark wood
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Table (Round)"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.CHAIR: ObjectStyle(
-        fill_color=QColor(140, 105, 70, 180),  # Medium wood
+        fill_color=QColor(140, 105, 70, 255),  # Medium wood
         stroke_color=QColor(90, 60, 30),  # Dark wood
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Chair"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.BENCH: ObjectStyle(
-        fill_color=QColor(150, 110, 70, 180),  # Wood
+        fill_color=QColor(150, 110, 70, 255),  # Wood
         stroke_color=QColor(90, 60, 30),  # Dark wood
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Bench"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.PARASOL: ObjectStyle(
-        fill_color=QColor(230, 220, 200, 160),  # Cream/beige
+        fill_color=QColor(230, 220, 200, 255),  # Cream/beige
         stroke_color=QColor(180, 160, 130),  # Warm gray
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Parasol"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.LOUNGER: ObjectStyle(
-        fill_color=QColor(180, 180, 180, 180),  # Light gray metal
+        fill_color=QColor(180, 180, 180, 255),  # Light gray metal
         stroke_color=QColor(120, 120, 120),  # Medium gray
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Lounger"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.BBQ_GRILL: ObjectStyle(
-        fill_color=QColor(60, 60, 60, 200),  # Dark charcoal
+        fill_color=QColor(60, 60, 60, 255),  # Dark charcoal
         stroke_color=QColor(40, 40, 40),  # Near black
         stroke_width=1.5,
         display_name=QT_TR_NOOP("BBQ/Grill"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.FIRE_PIT: ObjectStyle(
-        fill_color=QColor(140, 100, 70, 180),  # Stone brown
+        fill_color=QColor(140, 100, 70, 255),  # Stone brown
         stroke_color=QColor(80, 60, 40),  # Dark brown
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Fire Pit"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.PLANTER_POT: ObjectStyle(
-        fill_color=QColor(180, 120, 60, 180),  # Terracotta
+        fill_color=QColor(180, 120, 60, 255),  # Terracotta
         stroke_color=QColor(140, 80, 30),  # Dark terracotta
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Planter/Pot"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.RAISED_BED: ObjectStyle(
-        fill_color=QColor(139, 90, 43, 180),  # Wood brown
+        fill_color=QColor(139, 90, 43, 255),  # Wood brown
         stroke_color=QColor(100, 60, 20),  # Dark wood
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Raised Bed"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.COMPOST_BIN: ObjectStyle(
-        fill_color=QColor(90, 70, 40, 180),  # Dark brown
+        fill_color=QColor(90, 70, 40, 255),  # Dark brown
         stroke_color=QColor(60, 45, 25),  # Very dark brown
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Compost Bin"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.COLD_FRAME: ObjectStyle(
-        fill_color=QColor(200, 220, 240, 160),  # Light glass blue
+        fill_color=QColor(200, 220, 240, 255),  # Light glass blue
         stroke_color=QColor(150, 155, 160),  # Silver aluminum
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Cold Frame"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.RAIN_BARREL: ObjectStyle(
-        fill_color=QColor(60, 100, 60, 180),  # Dark green
+        fill_color=QColor(60, 100, 60, 255),  # Dark green
         stroke_color=QColor(40, 70, 40),  # Darker green
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Rain Barrel"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.WATER_TAP: ObjectStyle(
-        fill_color=QColor(160, 170, 180, 200),  # Steel gray
+        fill_color=QColor(160, 170, 180, 255),  # Steel gray
         stroke_color=QColor(100, 110, 120),  # Dark steel
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Water Tap"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.TOOL_SHED: ObjectStyle(
-        fill_color=QColor(160, 130, 90, 180),  # Light wood
+        fill_color=QColor(160, 130, 90, 255),  # Light wood
         stroke_color=QColor(100, 75, 45),  # Dark wood
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Tool Shed"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.GENERIC_RECTANGLE: ObjectStyle(
-        fill_color=QColor(144, 238, 144, 100),  # Light green
+        fill_color=QColor(144, 238, 144, 255),  # Light green
         stroke_color=QColor(34, 139, 34),  # Forest green
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Rectangle"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.GENERIC_POLYGON: ObjectStyle(
-        fill_color=QColor(173, 216, 230, 100),  # Light blue
+        fill_color=QColor(173, 216, 230, 255),  # Light blue
         stroke_color=QColor(70, 130, 180),  # Steel blue
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Polygon"),
         fill_pattern=FillPattern.SOLID,
     ),
     ObjectType.GENERIC_CIRCLE: ObjectStyle(
-        fill_color=QColor(255, 182, 193, 100),  # Light pink
+        fill_color=QColor(255, 182, 193, 255),  # Light pink
         stroke_color=QColor(219, 112, 147),  # Pale violet red
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Circle"),
