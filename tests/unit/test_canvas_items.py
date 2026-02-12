@@ -68,8 +68,8 @@ class TestRectangleItem:
     def test_fill_color(self) -> None:
         """Test RectangleItem has correct fill color."""
         item = RectangleItem(0, 0, 100, 50)
-        # #90EE90 with alpha 100
-        expected = QColor(144, 238, 144, 100)
+        # #90EE90 fully opaque
+        expected = QColor(144, 238, 144, 255)
         assert item.brush().color() == expected
 
     def test_stroke_color(self) -> None:
@@ -139,8 +139,8 @@ class TestPolygonItem:
     def test_fill_color(self, triangle_vertices) -> None:
         """Test PolygonItem has correct fill color."""
         item = PolygonItem(triangle_vertices)
-        # #ADD8E6 with alpha 100
-        expected = QColor(173, 216, 230, 100)
+        # #ADD8E6 fully opaque
+        expected = QColor(173, 216, 230, 255)
         assert item.brush().color() == expected
 
     def test_stroke_color(self, triangle_vertices) -> None:
@@ -357,8 +357,8 @@ class TestCircleItem:
     def test_fill_color(self) -> None:
         """Test CircleItem has correct fill color."""
         item = CircleItem(50, 50, 25)
-        # Light pink (#FFB6C1) with alpha 100
-        expected = QColor(255, 182, 193, 100)
+        # Light pink (#FFB6C1) fully opaque
+        expected = QColor(255, 182, 193, 255)
         assert item.brush().color() == expected
 
     def test_stroke_color(self) -> None:
@@ -435,8 +435,8 @@ class TestGardenBedItem:
     def test_garden_bed_fill_color(self, bed_vertices) -> None:
         """Test garden bed has correct brown soil fill color."""
         item = PolygonItem(bed_vertices, object_type=ObjectType.GARDEN_BED)
-        # Brown soil color (139, 90, 43) with alpha 120
-        expected = QColor(139, 90, 43, 120)
+        # Brown soil color (139, 90, 43) fully opaque
+        expected = QColor(139, 90, 43, 255)
         assert item.fill_color == expected
 
     def test_garden_bed_stroke_color(self, bed_vertices) -> None:
