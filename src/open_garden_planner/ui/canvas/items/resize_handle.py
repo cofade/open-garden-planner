@@ -322,6 +322,23 @@ class ResizeHandle(QGraphicsRectItem):
         init_rect = self._initial_rect
         init_pos = self._initial_parent_pos
 
+        # Transform delta from scene coordinates to item-local coordinates
+        # to account for rotation. Without this, dragging a resize handle on
+        # a rotated object would move the object instead of just resizing it.
+        rotation = self._parent_item.rotation()
+        if rotation != 0.0:
+            angle_rad = math.radians(rotation)
+            cos_a = math.cos(angle_rad)
+            sin_a = math.sin(angle_rad)
+            # Inverse rotation: scene -> local
+            local_dx = delta.x() * cos_a + delta.y() * sin_a
+            local_dy = -delta.x() * sin_a + delta.y() * cos_a
+        else:
+            cos_a = 1.0
+            sin_a = 0.0
+            local_dx = delta.x()
+            local_dy = delta.y()
+
         # Calculate new rect based on which handle is being dragged
         new_x = init_rect.x()
         new_y = init_rect.y()
@@ -330,16 +347,16 @@ class ResizeHandle(QGraphicsRectItem):
         pos_dx = 0.0
         pos_dy = 0.0
 
-        # Determine what changes based on handle position
+        # Determine what changes based on handle position (using local delta)
         if self._position in {
             HandlePosition.TOP_LEFT,
             HandlePosition.MIDDLE_LEFT,
             HandlePosition.BOTTOM_LEFT,
         }:
             # Left handles: adjust x and width
-            new_width = init_rect.width() - delta.x()
+            new_width = init_rect.width() - local_dx
             if new_width >= MINIMUM_SIZE_CM:
-                pos_dx = delta.x()
+                pos_dx = local_dx
             else:
                 new_width = MINIMUM_SIZE_CM
                 pos_dx = init_rect.width() - MINIMUM_SIZE_CM
@@ -350,7 +367,7 @@ class ResizeHandle(QGraphicsRectItem):
             HandlePosition.BOTTOM_RIGHT,
         }:
             # Right handles: adjust width only
-            new_width = init_rect.width() + delta.x()
+            new_width = init_rect.width() + local_dx
             if new_width < MINIMUM_SIZE_CM:
                 new_width = MINIMUM_SIZE_CM
 
@@ -360,9 +377,9 @@ class ResizeHandle(QGraphicsRectItem):
             HandlePosition.TOP_RIGHT,
         }:
             # Top handles: adjust y and height
-            new_height = init_rect.height() - delta.y()
+            new_height = init_rect.height() - local_dy
             if new_height >= MINIMUM_SIZE_CM:
-                pos_dy = delta.y()
+                pos_dy = local_dy
             else:
                 new_height = MINIMUM_SIZE_CM
                 pos_dy = init_rect.height() - MINIMUM_SIZE_CM
@@ -373,13 +390,18 @@ class ResizeHandle(QGraphicsRectItem):
             HandlePosition.BOTTOM_RIGHT,
         }:
             # Bottom handles: adjust height only
-            new_height = init_rect.height() + delta.y()
+            new_height = init_rect.height() + local_dy
             if new_height < MINIMUM_SIZE_CM:
                 new_height = MINIMUM_SIZE_CM
 
         # Ensure minimum size
         new_width = max(new_width, MINIMUM_SIZE_CM)
         new_height = max(new_height, MINIMUM_SIZE_CM)
+
+        # Transform local position offset back to scene coordinates
+        # Forward rotation: local -> scene
+        scene_pos_dx = pos_dx * cos_a - pos_dy * sin_a
+        scene_pos_dy = pos_dx * sin_a + pos_dy * cos_a
 
         # Update dimension display
         if (hasattr(self._parent_item, '_dimension_display') and
@@ -399,8 +421,8 @@ class ResizeHandle(QGraphicsRectItem):
                 new_y,
                 new_width,
                 new_height,
-                init_pos.x() + pos_dx,
-                init_pos.y() + pos_dy,
+                init_pos.x() + scene_pos_dx,
+                init_pos.y() + scene_pos_dy,
             )
 
 
