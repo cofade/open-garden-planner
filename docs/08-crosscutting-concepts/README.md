@@ -33,6 +33,8 @@ class MoveObjectCommand(Command):
 - Commands are pushed onto an UndoStack (QUndoStack)
 - Undo history clears on project close (standard behavior)
 - Each vertex operation, property change, etc. is a separate undoable command
+- The `CommandManager` is owned by `CanvasView` and shared with `CanvasScene` via `scene.get_command_manager()` so that `QGraphicsItem` subclasses can push commands directly when handling resize, rotation, or vertex-editing interactions
+- Operations that change both geometry and position (e.g. scaling from a left handle) must be captured in a single command to avoid requiring multiple undos
 
 ## 8.3 Internationalization (i18n)
 

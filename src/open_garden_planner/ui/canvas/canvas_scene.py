@@ -77,6 +77,9 @@ class CanvasScene(QGraphicsScene):
         self._layers: list[Layer] = create_default_layers()
         self._active_layer: Layer | None = self._layers[0] if self._layers else None  # Default to first layer
 
+        # Command manager reference (set by CanvasView after construction)
+        self._command_manager = None
+
     def _update_scene_rect(self) -> None:
         """Update the scene rect with padding for panning."""
         # Add padding around canvas (50% of canvas size on each side)
@@ -208,6 +211,10 @@ class CanvasScene(QGraphicsScene):
     def canvas_rect(self) -> QRectF:
         """Get the actual canvas rectangle (not the scene rect with padding)."""
         return QRectF(0, 0, self._width_cm, self._height_cm)
+
+    def get_command_manager(self):
+        """Get the command manager for undo/redo operations."""
+        return self._command_manager
 
     def resize_canvas(self, width_cm: float, height_cm: float) -> None:
         """Resize the canvas.
