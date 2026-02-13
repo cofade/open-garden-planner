@@ -155,6 +155,13 @@ src/open_garden_planner/
         ├── furniture/            # Outdoor furniture SVGs
         └── infrastructure/       # Garden infrastructure SVGs
 
+installer/                        # Windows installer build files
+├── ogp.spec                      # PyInstaller spec (--onedir bundle)
+├── ogp_installer.nsi             # NSIS installer script (wizard, registry)
+├── build_installer.py            # Build orchestration script
+├── ogp_app.ico                   # Application icon (multi-size)
+└── ogp_file.ico                  # .ogp file type icon
+
 docs/                             # arc42 architecture documentation
 ├── 01-introduction-and-goals/    # Vision, goals, users
 ├── 02-constraints/               # Technical/org constraints
@@ -196,5 +203,5 @@ tests/
 | ✅     | 6.11 | Fullscreen preview mode (F11)                     |
 | ✅     | 6.12 | Internationalization (EN + DE, Qt Linguist)       |
 | ✅     | 6.13 | Print support with scaling                        |
-|        | 6.14 | Windows installer (NSIS) + .ogp file association  |
+| ✅     | 6.14 | Windows installer (NSIS) + .ogp file association  |
 |        | 6.15 | Path & fence style presets                        |
