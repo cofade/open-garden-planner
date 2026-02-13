@@ -5,7 +5,7 @@ It flips the Y-axis to provide CAD-style coordinates (origin at bottom-left,
 Y increasing upward).
 """
 
-from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import (
     QColor,
     QFont,
@@ -92,14 +92,6 @@ class CanvasView(QGraphicsView):
         # Pan state
         self._panning = False
         self._pan_start = QPointF()
-
-        # Smooth zoom state
-        self._target_zoom = 1.0
-        self._zoom_velocity = 0.0
-        self._zoom_anchor: QPointF | None = None
-        self._zoom_timer = QTimer(self)
-        self._zoom_timer.setInterval(16)  # ~60 FPS
-        self._zoom_timer.timeout.connect(self._animate_zoom)
 
         # Command manager for undo/redo
         self._command_manager = CommandManager(self)
@@ -750,51 +742,30 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
-        # Store the zoom anchor point (where the mouse is)
-        self._zoom_anchor = self.mapToScene(event.position().toPoint())
+        # Remember scene position under the mouse before zoom
+        old_scene_pos = self.mapToScene(event.position().toPoint())
 
-        # Calculate zoom velocity based on scroll delta
-        # Faster scrolling = faster zoom
-        zoom_speed = 0.0002  # Sensitivity factor (lower = more precise)
-        self._zoom_velocity += delta * zoom_speed
+        # Apply immediate zoom: 1.15x per standard wheel notch (120 units)
+        zoom_per_notch = 1.15
+        notches = delta / 120.0
+        factor = zoom_per_notch ** notches
 
-        # Clamp velocity to prevent extreme zooming
-        max_velocity = 0.08  # Maximum zoom speed (lower = more controlled)
-        self._zoom_velocity = max(-max_velocity, min(max_velocity, self._zoom_velocity))
-
-        # Start the animation timer if not already running
-        if not self._zoom_timer.isActive():
-            self._zoom_timer.start()
-
-        event.accept()
-
-    def _animate_zoom(self) -> None:
-        """Animate smooth zoom towards target."""
-        # Apply velocity to zoom
-        if abs(self._zoom_velocity) < 0.001:
-            # Velocity too small, stop animation
-            self._zoom_velocity = 0.0
-            self._zoom_timer.stop()
-            return
-
-        # Calculate new zoom factor
-        new_zoom = self._zoom_factor * (1.0 + self._zoom_velocity)
-        new_zoom = max(self.min_zoom, min(self.max_zoom, new_zoom))
-
-        # Apply the new zoom
+        new_zoom = max(self.min_zoom, min(self.max_zoom, self._zoom_factor * factor))
         self._zoom_factor = new_zoom
         self._apply_transform()
         self.zoom_changed.emit(self.zoom_percent)
 
-        # Apply friction to slow down
-        friction = 0.85
-        self._zoom_velocity *= friction
+        # Scroll so the point under the mouse stays in the same screen position
+        new_scene_pos = self.mapToScene(event.position().toPoint())
+        scroll_delta = old_scene_pos - new_scene_pos
+        self.horizontalScrollBar().setValue(
+            self.horizontalScrollBar().value() + int(scroll_delta.x() * self._zoom_factor)
+        )
+        self.verticalScrollBar().setValue(
+            self.verticalScrollBar().value() - int(scroll_delta.y() * self._zoom_factor)
+        )
 
-        # Stop if zoom reached limits
-        if (new_zoom <= self.min_zoom and self._zoom_velocity < 0) or \
-           (new_zoom >= self.max_zoom and self._zoom_velocity > 0):
-            self._zoom_velocity = 0.0
-            self._zoom_timer.stop()
+        event.accept()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         """Handle mouse press for panning and tool operations."""
