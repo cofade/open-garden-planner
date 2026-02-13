@@ -313,8 +313,8 @@ class CanvasView(QGraphicsView):
         # Flip Y-axis for CAD convention (origin bottom-left, Y up)
         self._apply_transform()
 
-        # Viewport update mode for smooth rendering
-        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
+        # Use minimal updates — only repaint dirty regions
+        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate)
 
         # Accept drops from gallery panel
         self.setAcceptDrops(True)
@@ -1231,6 +1231,10 @@ class CanvasView(QGraphicsView):
 
         if self._scale_bar_visible:
             painter = QPainter(self.viewport())
+            # Remove clip so the scale bar is always fully drawn,
+            # even with MinimalViewportUpdate where only dirty
+            # regions are repainted.
+            painter.setClipping(False)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             self._draw_scale_bar(painter)
             painter.end()

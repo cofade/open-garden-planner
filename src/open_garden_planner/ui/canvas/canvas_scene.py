@@ -10,7 +10,6 @@ from uuid import UUID
 from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
-    QGraphicsDropShadowEffect,
     QGraphicsItem,
     QGraphicsLineItem,
     QGraphicsScene,
@@ -67,7 +66,7 @@ class CanvasScene(QGraphicsScene):
         self._calibration_points: list[QPointF] = []
         self._calibration_markers: list[QGraphicsLineItem] = []
 
-        # Shadow state
+        # Shadow state (painted shadows on garden items)
         self._shadows_enabled = True
 
         # Labels state
@@ -104,54 +103,25 @@ class CanvasScene(QGraphicsScene):
         canvas_rect = QRectF(0, 0, self._width_cm, self._height_cm)
         painter.fillRect(canvas_rect, QBrush(self.CANVAS_COLOR))
 
-    # Shadow management
-
-    # Shadow parameters
-    SHADOW_COLOR = QColor(0, 0, 0, 80)
-    SHADOW_BLUR_RADIUS = 8.0
-    SHADOW_OFFSET_X = 3.0
-    SHADOW_OFFSET_Y = 3.0
+    # Shadow management (painted shadows — no QGraphicsEffect overhead)
 
     @property
     def shadows_enabled(self) -> bool:
-        """Whether drop shadows are shown on objects."""
+        """Whether painted shadows are shown on objects."""
         return self._shadows_enabled
 
     def set_shadows_enabled(self, enabled: bool) -> None:
-        """Enable or disable drop shadows on all garden objects.
+        """Enable or disable painted shadows on all garden objects.
 
         Args:
             enabled: Whether shadows should be shown
         """
         self._shadows_enabled = enabled
-        for item in self.items():
-            if self._is_shadow_eligible(item):
-                if enabled:
-                    self._apply_shadow_effect(item)
-                else:
-                    item.setGraphicsEffect(None)
-
-    def _is_shadow_eligible(self, item: QGraphicsItem) -> bool:
-        """Check if an item should receive a drop shadow.
-
-        Only GardenItemMixin-based items get shadows; background images,
-        calibration markers, handles, annotations, labels, etc. do not.
-        """
         from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
 
-        return isinstance(item, GardenItemMixin)
-
-    def _apply_shadow_effect(self, item: QGraphicsItem) -> None:
-        """Apply a drop shadow effect to an item.
-
-        Args:
-            item: The graphics item to apply the shadow to
-        """
-        effect = QGraphicsDropShadowEffect()
-        effect.setColor(self.SHADOW_COLOR)
-        effect.setBlurRadius(self.SHADOW_BLUR_RADIUS)
-        effect.setOffset(self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y)
-        item.setGraphicsEffect(effect)
+        for item in self.items():
+            if isinstance(item, GardenItemMixin):
+                item.shadows_enabled = enabled
 
     # Label management
 
@@ -180,11 +150,10 @@ class CanvasScene(QGraphicsScene):
             item: The graphics item to add
         """
         super().addItem(item)
-        if self._shadows_enabled and self._is_shadow_eligible(item):
-            self._apply_shadow_effect(item)
-        # Sync global label state to newly added items
         from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
+
         if isinstance(item, GardenItemMixin):
+            item.shadows_enabled = self._shadows_enabled
             item.set_global_labels_visible(self._labels_enabled)
 
     def apply_theme_colors(self, colors: dict[str, str]) -> None:

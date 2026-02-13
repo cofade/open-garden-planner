@@ -3,14 +3,16 @@
 import uuid
 from typing import Any
 
-from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QPainterPath, QPen
+from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsPathItem,
     QGraphicsSceneContextMenuEvent,
     QGraphicsSceneMouseEvent,
     QMenu,
+    QStyleOptionGraphicsItem,
+    QWidget,
 )
 
 from open_garden_planner.core.object_types import ObjectType, get_style
@@ -86,6 +88,36 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsFocusable, True)
+
+    def boundingRect(self) -> QRectF:
+        """Return bounding rect, expanded for shadow."""
+        base = super().boundingRect()
+        m = self._shadow_margin()
+        if m > 0:
+            base = base.adjusted(-m, -m, m, m)
+        return base
+
+    def paint(
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: QWidget | None = None,
+    ) -> None:
+        """Paint the polyline with an optional painted shadow."""
+        if self._shadows_enabled:
+            painter.save()
+            shadow_pen = QPen(self.SHADOW_COLOR)
+            shadow_pen.setWidthF(self.pen().widthF())
+            shadow_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            shadow_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            painter.setPen(shadow_pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            shadow_path = self.path().translated(
+                self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y,
+            )
+            painter.drawPath(shadow_path)
+            painter.restore()
+        super().paint(painter, option, widget)
 
     def itemChange(
         self,

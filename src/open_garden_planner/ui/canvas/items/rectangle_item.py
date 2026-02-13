@@ -186,6 +186,14 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         self.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsFocusable, True)
 
+    def boundingRect(self) -> QRectF:
+        """Return bounding rect, expanded for shadow."""
+        base = super().boundingRect()
+        m = self._shadow_margin()
+        if m > 0:
+            base = base.adjusted(-m, -m, m, m)
+        return base
+
     def paint(
         self,
         painter: QPainter,
@@ -198,6 +206,16 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         flat colored rectangle. For non-furniture rectangles, delegates
         to the default rectangle painting.
         """
+        # Draw painted shadow before the item itself
+        if self._shadows_enabled:
+            rect = self.rect()
+            painter.save()
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(self.SHADOW_COLOR)
+            shadow_rect = rect.translated(self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y)
+            painter.drawRect(shadow_rect)
+            painter.restore()
+
         if is_furniture_type(self.object_type):
             rect = self.rect()
             pixmap = render_furniture_pixmap(

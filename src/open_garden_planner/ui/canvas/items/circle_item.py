@@ -232,12 +232,15 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
     _PLANT_FILL_SCALE = 1.15
 
     def boundingRect(self) -> QRectF:
-        """Return bounding rect, expanded for plant SVG overflow."""
+        """Return bounding rect, expanded for plant SVG overflow and shadow."""
         base = super().boundingRect()
         if is_plant_type(self.object_type):
             rect = self.rect()
             overflow = rect.width() * (self._PLANT_FILL_SCALE - 1.0) / 2.0
-            return base.adjusted(-overflow, -overflow, overflow, overflow)
+            base = base.adjusted(-overflow, -overflow, overflow, overflow)
+        m = self._shadow_margin()
+        if m > 0:
+            base = base.adjusted(-m, -m, m, m)
         return base
 
     def paint(
@@ -255,6 +258,16 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         For non-plant circles, delegates to the default ellipse painting.
         """
+        # Draw painted shadow before the item itself
+        if self._shadows_enabled:
+            rect = self.rect()
+            painter.save()
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(self.SHADOW_COLOR)
+            shadow_rect = rect.translated(self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y)
+            painter.drawEllipse(shadow_rect)
+            painter.restore()
+
         if is_plant_type(self.object_type):
             rect = self.rect()
             diameter = rect.width()

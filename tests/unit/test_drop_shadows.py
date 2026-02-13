@@ -1,7 +1,6 @@
-"""Tests for US-6.3: Drop shadows on all objects (toggleable)."""
+"""Tests for US-6.3: Painted drop shadows on all objects (toggleable)."""
 
 from PyQt6.QtCore import QPointF
-from PyQt6.QtWidgets import QGraphicsDropShadowEffect
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -14,10 +13,11 @@ from open_garden_planner.ui.canvas.items import (
 from open_garden_planner.ui.canvas.items.background_image_item import (
     BackgroundImageItem,
 )
+from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
 
 
-class TestDropShadowsOnScene:
-    """Tests for shadow management on CanvasScene."""
+class TestPaintedShadows:
+    """Tests for painted-shadow management on CanvasScene."""
 
     def test_shadows_enabled_by_default(self, qtbot) -> None:
         scene = CanvasScene()
@@ -27,44 +27,35 @@ class TestDropShadowsOnScene:
         scene = CanvasScene()
         item = RectangleItem(0, 0, 100, 50)
         scene.addItem(item)
-        effect = item.graphicsEffect()
-        assert isinstance(effect, QGraphicsDropShadowEffect)
+        assert item.shadows_enabled is True
 
     def test_circle_gets_shadow_on_add(self, qtbot) -> None:
         scene = CanvasScene()
         item = CircleItem(50, 50, 25)
         scene.addItem(item)
-        effect = item.graphicsEffect()
-        assert isinstance(effect, QGraphicsDropShadowEffect)
+        assert item.shadows_enabled is True
 
     def test_polygon_gets_shadow_on_add(self, qtbot) -> None:
         scene = CanvasScene()
         points = [QPointF(0, 0), QPointF(100, 0), QPointF(50, 80)]
         item = PolygonItem(points)
         scene.addItem(item)
-        effect = item.graphicsEffect()
-        assert isinstance(effect, QGraphicsDropShadowEffect)
+        assert item.shadows_enabled is True
 
     def test_polyline_gets_shadow_on_add(self, qtbot) -> None:
         scene = CanvasScene()
         points = [QPointF(0, 0), QPointF(100, 0), QPointF(200, 50)]
         item = PolylineItem(points)
         scene.addItem(item)
-        effect = item.graphicsEffect()
-        assert isinstance(effect, QGraphicsDropShadowEffect)
+        assert item.shadows_enabled is True
 
-    def test_shadow_effect_parameters(self, qtbot) -> None:
-        scene = CanvasScene()
-        item = RectangleItem(0, 0, 100, 50)
-        scene.addItem(item)
-        effect = item.graphicsEffect()
-        assert isinstance(effect, QGraphicsDropShadowEffect)
-        assert effect.blurRadius() == CanvasScene.SHADOW_BLUR_RADIUS
-        assert effect.xOffset() == CanvasScene.SHADOW_OFFSET_X
-        assert effect.yOffset() == CanvasScene.SHADOW_OFFSET_Y
-        assert effect.color() == CanvasScene.SHADOW_COLOR
+    def test_shadow_parameters_on_mixin(self, qtbot) -> None:
+        """Shadow offset and color are defined on the mixin."""
+        assert GardenItemMixin.SHADOW_OFFSET_X == 3.0
+        assert GardenItemMixin.SHADOW_OFFSET_Y == -3.0
+        assert GardenItemMixin.SHADOW_COLOR.alpha() > 0
 
-    def test_disable_shadows_removes_effects(self, qtbot) -> None:
+    def test_disable_shadows_clears_flag(self, qtbot) -> None:
         scene = CanvasScene()
         item1 = RectangleItem(0, 0, 100, 50)
         item2 = CircleItem(200, 200, 30)
@@ -74,19 +65,19 @@ class TestDropShadowsOnScene:
         scene.set_shadows_enabled(False)
 
         assert scene.shadows_enabled is False
-        assert item1.graphicsEffect() is None
-        assert item2.graphicsEffect() is None
+        assert item1.shadows_enabled is False
+        assert item2.shadows_enabled is False
 
-    def test_reenable_shadows_applies_effects(self, qtbot) -> None:
+    def test_reenable_shadows_sets_flag(self, qtbot) -> None:
         scene = CanvasScene()
         item = RectangleItem(0, 0, 100, 50)
         scene.addItem(item)
 
         scene.set_shadows_enabled(False)
-        assert item.graphicsEffect() is None
+        assert item.shadows_enabled is False
 
         scene.set_shadows_enabled(True)
-        assert isinstance(item.graphicsEffect(), QGraphicsDropShadowEffect)
+        assert item.shadows_enabled is True
 
     def test_no_shadow_when_disabled_on_add(self, qtbot) -> None:
         scene = CanvasScene()
@@ -95,11 +86,10 @@ class TestDropShadowsOnScene:
         item = RectangleItem(0, 0, 100, 50)
         scene.addItem(item)
 
-        assert item.graphicsEffect() is None
+        assert item.shadows_enabled is False
 
-    def test_background_image_no_shadow(self, qtbot, tmp_path) -> None:
-        """Background images should not receive drop shadows."""
-        # Create a small test image
+    def test_background_image_no_shadow_flag(self, qtbot, tmp_path) -> None:
+        """Background images should not have shadow flag (not GardenItemMixin)."""
         from PyQt6.QtCore import QSize
         from PyQt6.QtGui import QImage, QColor as QC
 
@@ -111,14 +101,14 @@ class TestDropShadowsOnScene:
         scene = CanvasScene()
         item = BackgroundImageItem(img_path)
         scene.addItem(item)
-        assert item.graphicsEffect() is None
+        assert not hasattr(item, 'shadows_enabled') or not isinstance(item, GardenItemMixin)
 
     def test_plant_circle_gets_shadow(self, qtbot) -> None:
         """Plant items (trees, shrubs, perennials) also get shadows."""
         scene = CanvasScene()
         item = CircleItem(50, 50, 30, object_type=ObjectType.TREE)
         scene.addItem(item)
-        assert isinstance(item.graphicsEffect(), QGraphicsDropShadowEffect)
+        assert item.shadows_enabled is True
 
     def test_many_items_shadow_toggle(self, qtbot) -> None:
         """Toggling shadows with 100+ objects completes without error."""
@@ -129,16 +119,35 @@ class TestDropShadowsOnScene:
             scene.addItem(item)
             items.append(item)
 
-        # All should have shadows
+        # All should have shadows enabled
         for item in items:
-            assert isinstance(item.graphicsEffect(), QGraphicsDropShadowEffect)
+            assert item.shadows_enabled is True
 
         # Disable
         scene.set_shadows_enabled(False)
         for item in items:
-            assert item.graphicsEffect() is None
+            assert item.shadows_enabled is False
 
         # Re-enable
         scene.set_shadows_enabled(True)
         for item in items:
-            assert isinstance(item.graphicsEffect(), QGraphicsDropShadowEffect)
+            assert item.shadows_enabled is True
+
+    def test_no_graphics_effect_applied(self, qtbot) -> None:
+        """Painted shadows must NOT use QGraphicsEffect (performance)."""
+        scene = CanvasScene()
+        item = RectangleItem(0, 0, 100, 50)
+        scene.addItem(item)
+        assert item.graphicsEffect() is None
+
+    def test_bounding_rect_expands_for_shadow(self, qtbot) -> None:
+        """Bounding rect should be larger when shadows are enabled."""
+        item = RectangleItem(0, 0, 100, 50)
+        item.shadows_enabled = True
+        rect_with = item.boundingRect()
+
+        item.shadows_enabled = False
+        rect_without = item.boundingRect()
+
+        assert rect_with.width() > rect_without.width()
+        assert rect_with.height() > rect_without.height()

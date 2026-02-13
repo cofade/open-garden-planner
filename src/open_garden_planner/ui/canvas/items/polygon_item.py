@@ -4,13 +4,15 @@ import uuid
 from typing import Any
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QKeyEvent, QPen, QPolygonF
+from PyQt6.QtGui import QKeyEvent, QPainter, QPen, QPolygonF
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsPolygonItem,
     QGraphicsSceneContextMenuEvent,
     QGraphicsSceneMouseEvent,
     QMenu,
+    QStyleOptionGraphicsItem,
+    QWidget,
 )
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
@@ -172,6 +174,32 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemIsFocusable, True)
+
+    def boundingRect(self) -> QRectF:
+        """Return bounding rect, expanded for shadow."""
+        base = super().boundingRect()
+        m = self._shadow_margin()
+        if m > 0:
+            base = base.adjusted(-m, -m, m, m)
+        return base
+
+    def paint(
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: QWidget | None = None,
+    ) -> None:
+        """Paint the polygon with an optional painted shadow."""
+        if self._shadows_enabled:
+            painter.save()
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(self.SHADOW_COLOR)
+            shadow_poly = self.polygon().translated(
+                self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y,
+            )
+            painter.drawPolygon(shadow_poly)
+            painter.restore()
+        super().paint(painter, option, widget)
 
     def itemChange(
         self,
