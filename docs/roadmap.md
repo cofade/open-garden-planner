@@ -139,7 +139,7 @@
 | US-6.11 | Fullscreen preview mode (F11) | Should | ✅ Done |
 | US-6.12 | Internationalization (EN + DE, Qt Linguist) | Must | ✅ Done |
 | US-6.13 | Print support with scaling | Should | ✅ Done |
-| US-6.14 | Windows installer (NSIS) + .ogp file association | Must | |
+| US-6.14 | Windows installer (NSIS) + .ogp file association | Must | ✅ Done |
 | US-6.15 | Path & fence style presets | Must | |
 
 ### US-6.1: Rich Tileable Textures
@@ -333,8 +333,8 @@
 - [x] Fullscreen preview mode
 - [ ] Qt Linguist i18n + German translation
 - [ ] Print support (QPrinter)
-- [ ] PyInstaller + NSIS installer
-- [ ] .ogp file association + custom icon
+- [x] PyInstaller + NSIS installer
+- [x] .ogp file association + custom icon
 - [ ] Path/fence style presets
 
 ---

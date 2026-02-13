@@ -27,11 +27,68 @@ Open Garden Planner fills the gap: **engineering-grade precision meets gardener-
 - **Modern UI**: Clean interface with light and dark modes, keyboard shortcuts
 - **Auto-Save**: Periodic auto-save with crash recovery
 
-## Status
+## Installation
 
-**Phases 1-5 complete.** Currently working on Phase 6: Visual Polish & Public Release (v1.0).
+### Windows Installer (recommended)
 
-See the [Development Roadmap](docs/roadmap.md) for detailed progress.
+Download the latest installer from the [Releases](https://github.com/cofade/open-garden-planner/releases/latest) page:
+
+> **[Download OpenGardenPlanner-v1.0.0-Setup.exe](https://github.com/cofade/open-garden-planner/releases/latest)**
+
+Run the installer and follow the wizard. It will:
+- Install to `C:\Program Files\Open Garden Planner` (configurable)
+- Create Start Menu and optional desktop shortcuts
+- Optionally associate `.ogp` files so you can double-click to open them
+- Register in Add/Remove Programs for clean uninstallation
+
+**System requirements:** Windows 10+ (64-bit), 4 GB RAM, 200 MB disk space.
+
+#### Verify your download
+
+Each release includes a `SHA256SUMS.txt` file. To verify the installer integrity:
+
+```powershell
+# PowerShell
+(Get-FileHash .\OpenGardenPlanner-v1.0.0-Setup.exe -Algorithm SHA256).Hash
+```
+
+Compare the output with the hash in `SHA256SUMS.txt` from the release page.
+
+### Install from source
+
+Requires Python 3.11+ and Git.
+
+```bash
+git clone https://github.com/cofade/open-garden-planner.git
+cd open-garden-planner
+python -m venv venv
+venv\Scripts\activate     # Windows
+# source venv/bin/activate  # Linux/Mac
+pip install -e .
+python -m open_garden_planner
+```
+
+### Build the installer yourself
+
+If you prefer to build the installer from source:
+
+```bash
+git clone https://github.com/cofade/open-garden-planner.git
+cd open-garden-planner
+python -m venv venv
+venv\Scripts\activate
+pip install -e .
+pip install pyinstaller
+
+# Build PyInstaller bundle + NSIS installer (requires NSIS: https://nsis.sourceforge.io/)
+python installer/build_installer.py
+```
+
+The installer will be created at `dist\OpenGardenPlanner-v1.0.0-Setup.exe`.
+
+### Plant Database (optional)
+
+To enable online plant search, see the [Plant API Setup Guide](docs/03-context-and-scope/PLANT_API_SETUP.md).
 
 ## Tech Stack
 
@@ -40,33 +97,11 @@ See the [Development Roadmap](docs/roadmap.md) for detailed progress.
 - **Trefle.io / Perenual / Permapeople** APIs for plant species data
 - **pytest + pytest-qt** for testing
 
-## Getting Started
+## Status
 
-### Prerequisites
+**Phases 1-5 complete.** Currently working on Phase 6: Visual Polish & Public Release (v1.0).
 
-- Python 3.11+
-- Git
-
-### Installation (from source)
-
-```bash
-git clone https://github.com/your-username/open-garden-planner.git
-cd open-garden-planner
-python -m venv venv
-venv/Scripts/activate     # Windows
-# source venv/bin/activate  # Linux/Mac
-pip install -e .
-```
-
-### Running
-
-```bash
-python -m open_garden_planner
-```
-
-### Plant Database (optional)
-
-To enable online plant search, see the [Plant API Setup Guide](docs/03-context-and-scope/PLANT_API_SETUP.md).
+See the [Development Roadmap](docs/roadmap.md) for detailed progress.
 
 ## Documentation
 

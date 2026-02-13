@@ -59,6 +59,13 @@ def main() -> int:
     # Reapply theme after window is shown to update title bar
     apply_theme(app, settings.theme_mode)
 
+    # Open file passed as command-line argument (e.g. double-click .ogp file)
+    args = app.arguments()
+    if len(args) > 1:
+        file_arg = Path(args[-1])
+        if file_arg.suffix.lower() == ".ogp" and file_arg.is_file():
+            window._open_project_file(str(file_arg))
+
     return app.exec()
 
 
