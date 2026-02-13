@@ -20,7 +20,15 @@ class GardenItemMixin:
         - Name/label
         - Layer assignment
         - Extensible metadata
+        - Painted drop shadows (lightweight, no offscreen buffer)
     """
+
+    # Painted-shadow parameters (scene-coordinate units).
+    # Y offset is negative so the shadow appears *below* the item on screen
+    # (the view applies a Y-flip).
+    SHADOW_OFFSET_X: float = 3.0
+    SHADOW_OFFSET_Y: float = -3.0
+    SHADOW_COLOR = QColor(0, 0, 0, 40)
 
     def __init__(
         self,
@@ -59,6 +67,7 @@ class GardenItemMixin:
         self._layer_id = layer_id
         self._label_visible = True  # Per-object label visibility
         self._global_labels_visible = True  # Global label visibility (set by scene)
+        self._shadows_enabled = True  # Painted shadow on/off
         self._label_item: QGraphicsSimpleTextItem | None = None
         self._edit_label_item: QGraphicsTextItem | None = None
 
@@ -157,6 +166,32 @@ class GardenItemMixin:
     def layer_id(self, value: uuid.UUID | None) -> None:
         """Set the layer ID."""
         self._layer_id = value
+
+    @property
+    def shadows_enabled(self) -> bool:
+        """Whether painted shadow is enabled for this item."""
+        return self._shadows_enabled
+
+    @shadows_enabled.setter
+    def shadows_enabled(self, value: bool) -> None:
+        """Toggle painted shadow and trigger geometry/repaint update."""
+        if value == self._shadows_enabled:
+            return
+        self._shadows_enabled = value
+        if hasattr(self, 'prepareGeometryChange'):
+            self.prepareGeometryChange()  # type: ignore[attr-defined]
+        if hasattr(self, 'update'):
+            self.update()  # type: ignore[attr-defined]
+
+    def _shadow_margin(self) -> float:
+        """Extra margin to add to bounding rect for painted shadow.
+
+        Returns:
+            Margin in scene units (0 when shadows are disabled).
+        """
+        if not self._shadows_enabled:
+            return 0.0
+        return max(abs(self.SHADOW_OFFSET_X), abs(self.SHADOW_OFFSET_Y))
 
     @property
     def label_visible(self) -> bool:
