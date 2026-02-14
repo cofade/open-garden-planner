@@ -9,6 +9,118 @@ from PyQt6.QtGui import QColor
 from .fill_patterns import FillPattern
 
 
+class PathFenceStyle(Enum):
+    """Visual style presets for path and fence polylines."""
+
+    # Path styles
+    NONE = auto()  # Plain line (no style preset)
+    GRAVEL_PATH = auto()
+    STEPPING_STONES = auto()
+    PAVED_PATH = auto()
+    WOODEN_BOARDWALK = auto()
+    DIRT_PATH = auto()
+
+    # Fence styles
+    WOODEN_FENCE = auto()
+    METAL_FENCE = auto()
+    CHAIN_LINK = auto()
+    HEDGE_FENCE = auto()
+    STONE_WALL = auto()
+
+
+@dataclass(frozen=True)
+class PathFenceStyleInfo:
+    """Display info for a path/fence style preset."""
+
+    display_name: str
+    category: str  # "path" or "fence"
+    stroke_color: QColor
+    stroke_width: float
+    description: str = ""
+
+
+# Style presets with default visual properties
+PATH_FENCE_STYLES: dict[PathFenceStyle, PathFenceStyleInfo] = {
+    PathFenceStyle.NONE: PathFenceStyleInfo(
+        display_name=QT_TR_NOOP("None (Plain)"),
+        category="",
+        stroke_color=QColor(160, 82, 45),
+        stroke_width=3.0,
+    ),
+    PathFenceStyle.GRAVEL_PATH: PathFenceStyleInfo(
+        display_name=QT_TR_NOOP("Gravel"),
+        category="path",
+        stroke_color=QColor(180, 170, 150),
+        stroke_width=8.0,
+    ),
+    PathFenceStyle.STEPPING_STONES: PathFenceStyleInfo(
+        display_name=QT_TR_NOOP("Stepping Stones"),
+        category="path",
+        stroke_color=QColor(160, 160, 155),
+        stroke_width=6.0,
+    ),
+    PathFenceStyle.PAVED_PATH: PathFenceStyleInfo(
+        display_name=QT_TR_NOOP("Paved"),
+        category="path",
+        stroke_color=QColor(140, 140, 140),
+        stroke_width=10.0,
+    ),
+    PathFenceStyle.WOODEN_BOARDWALK: PathFenceStyleInfo(
+        display_name=QT_TR_NOOP("Wooden Boardwalk"),
+        category="path",
+        stroke_color=QColor(160, 120, 70),
+        stroke_width=10.0,
+    ),
+    PathFenceStyle.DIRT_PATH: PathFenceStyleInfo(
+        display_name=QT_TR_NOOP("Dirt"),
+        category="path",
+        stroke_color=QColor(150, 110, 60),
+        stroke_width=6.0,
+    ),
+    PathFenceStyle.WOODEN_FENCE: PathFenceStyleInfo(
+        display_name=QT_TR_NOOP("Wooden Fence"),
+        category="fence",
+        stroke_color=QColor(139, 90, 43),
+        stroke_width=3.0,
+    ),
+    PathFenceStyle.METAL_FENCE: PathFenceStyleInfo(
+        display_name=QT_TR_NOOP("Metal/Wrought Iron"),
+        category="fence",
+        stroke_color=QColor(60, 60, 60),
+        stroke_width=2.5,
+    ),
+    PathFenceStyle.CHAIN_LINK: PathFenceStyleInfo(
+        display_name=QT_TR_NOOP("Chain Link"),
+        category="fence",
+        stroke_color=QColor(160, 165, 170),
+        stroke_width=2.0,
+    ),
+    PathFenceStyle.HEDGE_FENCE: PathFenceStyleInfo(
+        display_name=QT_TR_NOOP("Hedge"),
+        category="fence",
+        stroke_color=QColor(60, 120, 40),
+        stroke_width=8.0,
+    ),
+    PathFenceStyle.STONE_WALL: PathFenceStyleInfo(
+        display_name=QT_TR_NOOP("Stone Wall"),
+        category="fence",
+        stroke_color=QColor(130, 130, 120),
+        stroke_width=5.0,
+    ),
+}
+
+
+def get_path_fence_style_info(style: PathFenceStyle) -> PathFenceStyleInfo:
+    """Get display info for a path/fence style."""
+    return PATH_FENCE_STYLES[style]
+
+
+def get_translated_path_fence_style_name(style: PathFenceStyle) -> str:
+    """Get the translated display name for a path/fence style."""
+    info = PATH_FENCE_STYLES[style]
+    return QCoreApplication.translate("PathFenceStyle", info.display_name)
+
+
 class StrokeStyle(Enum):
     """Stroke/line styles for object outlines."""
 
