@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.object_types import StrokeStyle
+from open_garden_planner.core.object_types import PathFenceStyle, StrokeStyle
 from open_garden_planner.models.layer import Layer, create_default_layers
 
 # File format version for backward compatibility
@@ -337,6 +337,9 @@ class ProjectManager(QObject):
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
+            # Save path/fence style preset
+            if hasattr(item, "path_fence_style") and item.path_fence_style and item.path_fence_style.name != "NONE":
+                data["path_fence_style"] = item.path_fence_style.name
             # Save rotation angle
             if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
                 data["rotation_angle"] = item.rotation_angle
@@ -566,14 +569,22 @@ class ProjectManager(QObject):
         elif obj_type == "polyline":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
             if len(points) >= 2:
+                # Parse path_fence_style
+                path_fence_style = PathFenceStyle.NONE
+                if "path_fence_style" in obj:
+                    try:
+                        path_fence_style = PathFenceStyle[obj["path_fence_style"]]
+                    except KeyError:
+                        path_fence_style = PathFenceStyle.NONE
                 item = PolylineItem(
                     points,
                     object_type=object_type or ObjectType.FENCE,
                     name=name,
                     layer_id=layer_id,
+                    path_fence_style=path_fence_style,
                 )
-                # Restore custom stroke color if saved
-                if "stroke_color" in obj:
+                # Restore custom stroke color if saved (only if no preset overrides it)
+                if "stroke_color" in obj and path_fence_style == PathFenceStyle.NONE:
                     pen = item.pen()
                     pen.setColor(QColor(obj["stroke_color"]))
                     if "stroke_width" in obj:

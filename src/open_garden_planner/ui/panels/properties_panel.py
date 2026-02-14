@@ -21,9 +21,11 @@ from open_garden_planner.core.commands import ChangePropertyCommand, CommandMana
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import (
     ObjectType,
+    PathFenceStyle,
     StrokeStyle,
     get_style,
     get_translated_display_name,
+    get_translated_path_fence_style_name,
 )
 from open_garden_planner.ui.canvas.items import (
     CircleItem,
@@ -333,6 +335,50 @@ class PropertiesPanel(QWidget):
         if not isinstance(item, (RectangleItem, PolygonItem, CircleItem, PolylineItem)):
             return
 
+        # Path/fence style preset (only for polylines)
+        if isinstance(item, PolylineItem):
+            style_combo = QComboBox()
+            # Add "Paths" group
+            style_combo.addItem(self.tr("── Paths ──"), None)
+            idx = style_combo.count() - 1
+            model = style_combo.model()
+            if model:
+                model.item(idx).setEnabled(False)
+            for pfs in [
+                PathFenceStyle.NONE,
+                PathFenceStyle.GRAVEL_PATH,
+                PathFenceStyle.STEPPING_STONES,
+                PathFenceStyle.PAVED_PATH,
+                PathFenceStyle.WOODEN_BOARDWALK,
+                PathFenceStyle.DIRT_PATH,
+            ]:
+                style_combo.addItem(get_translated_path_fence_style_name(pfs), pfs)
+            # Add "Fences" group
+            style_combo.addItem(self.tr("── Fences ──"), None)
+            idx = style_combo.count() - 1
+            if model:
+                model.item(idx).setEnabled(False)
+            for pfs in [
+                PathFenceStyle.WOODEN_FENCE,
+                PathFenceStyle.METAL_FENCE,
+                PathFenceStyle.CHAIN_LINK,
+                PathFenceStyle.HEDGE_FENCE,
+                PathFenceStyle.STONE_WALL,
+            ]:
+                style_combo.addItem(get_translated_path_fence_style_name(pfs), pfs)
+
+            current_pfs = item.path_fence_style if hasattr(item, 'path_fence_style') else PathFenceStyle.NONE
+            for i in range(style_combo.count()):
+                if style_combo.itemData(i) == current_pfs:
+                    style_combo.setCurrentIndex(i)
+                    break
+
+            style_combo.currentIndexChanged.connect(
+                lambda: self._on_property_changed(item, 'path_fence_style', style_combo.currentData())
+                if style_combo.currentData() is not None else None
+            )
+            self._form_layout.addRow(self.tr("Style:"), style_combo)
+
         # Fill color (not for polylines)
         if not isinstance(item, PolylineItem):
             fill_color = item.fill_color if hasattr(item, 'fill_color') and item.fill_color else item.brush().color()
@@ -442,6 +488,8 @@ class PropertiesPanel(QWidget):
             state['stroke_width'] = item.stroke_width
         if hasattr(item, 'stroke_style'):
             state['stroke_style'] = item.stroke_style
+        if hasattr(item, 'path_fence_style'):
+            state['path_fence_style'] = item.path_fence_style
         return state
 
     def _apply_item_state(self, item: QGraphicsItem, state: dict) -> None:
@@ -477,6 +525,10 @@ class PropertiesPanel(QWidget):
             item.stroke_width = state['stroke_width']
         if 'stroke_style' in state and hasattr(item, 'stroke_style'):
             item.stroke_style = state['stroke_style']
+        if 'path_fence_style' in state and hasattr(item, 'path_fence_style'):
+            item.path_fence_style = state['path_fence_style']
+            if hasattr(item, 'apply_style_preset'):
+                item.apply_style_preset()
 
         # Update visual appearance
         if not isinstance(item, PolylineItem):
@@ -653,6 +705,27 @@ class PropertiesPanel(QWidget):
                     p.setStyle(val.to_qt_pen_style())
                     itm.setPen(p)
                 cmd = ChangePropertyCommand(item, "stroke style", old_style, value, apply_stroke_style)
+                self._command_manager._undo_stack.append(cmd)
+                self._command_manager._redo_stack.clear()
+                self._command_manager.can_undo_changed.emit(True)
+                self._command_manager.can_redo_changed.emit(False)
+
+        elif property_name == 'path_fence_style':
+            old_pfs = item.path_fence_style if hasattr(item, 'path_fence_style') else PathFenceStyle.NONE
+            if hasattr(item, 'path_fence_style'):
+                item.path_fence_style = value
+            if hasattr(item, 'apply_style_preset'):
+                item.apply_style_preset()
+            item.update()
+
+            if self._command_manager:
+                def apply_pfs(itm, val):
+                    if hasattr(itm, 'path_fence_style'):
+                        itm.path_fence_style = val
+                    if hasattr(itm, 'apply_style_preset'):
+                        itm.apply_style_preset()
+                    itm.update()
+                cmd = ChangePropertyCommand(item, "path/fence style", old_pfs, value, apply_pfs)
                 self._command_manager._undo_stack.append(cmd)
                 self._command_manager._redo_stack.clear()
                 self._command_manager.can_undo_changed.emit(True)
