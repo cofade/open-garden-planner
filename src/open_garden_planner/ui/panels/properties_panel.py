@@ -441,7 +441,7 @@ class PropertiesPanel(QWidget):
         self._form_layout.addRow(self.tr("Stroke Width:"), width_spin)
 
         # Stroke style
-        style_combo = QComboBox()
+        stroke_style_combo = QComboBox()
         _style_names = {
             StrokeStyle.SOLID: self.tr("Solid"),
             StrokeStyle.DASHED: self.tr("Dashed"),
@@ -449,18 +449,18 @@ class PropertiesPanel(QWidget):
             StrokeStyle.DASH_DOT: self.tr("Dash Dot"),
         }
         for style in StrokeStyle:
-            style_combo.addItem(_style_names.get(style, style.name), style)
+            stroke_style_combo.addItem(_style_names.get(style, style.name), style)
 
         current_style = item.stroke_style if hasattr(item, 'stroke_style') else StrokeStyle.SOLID
-        for i in range(style_combo.count()):
-            if style_combo.itemData(i) == current_style:
-                style_combo.setCurrentIndex(i)
+        for i in range(stroke_style_combo.count()):
+            if stroke_style_combo.itemData(i) == current_style:
+                stroke_style_combo.setCurrentIndex(i)
                 break
 
-        style_combo.currentIndexChanged.connect(
-            lambda: self._on_property_changed(item, 'stroke_style', style_combo.currentData())
+        stroke_style_combo.currentIndexChanged.connect(
+            lambda: self._on_property_changed(item, 'stroke_style', stroke_style_combo.currentData())
         )
-        self._form_layout.addRow(self.tr("Stroke Style:"), style_combo)
+        self._form_layout.addRow(self.tr("Stroke Style:"), stroke_style_combo)
 
     def _capture_item_state(self, item: QGraphicsItem) -> dict:
         """Capture the current state of an item for undo purposes.
