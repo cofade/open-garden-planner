@@ -204,4 +204,4 @@ tests/
 | ✅     | 6.12 | Internationalization (EN + DE, Qt Linguist)       |
 | ✅     | 6.13 | Print support with scaling                        |
 | ✅     | 6.14 | Windows installer (NSIS) + .ogp file association  |
-|        | 6.15 | Path & fence style presets                        |
+| ✅     | 6.15 | Path & fence style presets                        |
