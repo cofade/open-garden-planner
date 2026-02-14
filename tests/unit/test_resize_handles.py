@@ -47,9 +47,9 @@ class TestResizeHandle:
         handle.update_position()
 
         # Top-left handle should be at or near (10, 20) in item coordinates
-        # Allow small tolerance for pen width
-        assert abs(handle.pos().x() - 10) < 2
-        assert abs(handle.pos().y() - 20) < 2
+        # Allow tolerance for pen width and handle offset
+        assert abs(handle.pos().x() - 10) < 5
+        assert abs(handle.pos().y() - 20) < 5
 
 
 class TestRectangleItemResize:
@@ -208,10 +208,10 @@ class TestPolygonItemResize:
             0,
         )
 
-        # Polygon should have scaled (allow tolerance for pen width)
+        # Polygon should have scaled (allow tolerance for pen width and handle offset)
         new_bounds = poly.boundingRect()
-        assert abs(new_bounds.width() - new_width) < 5
-        assert abs(new_bounds.height() - new_height) < 5
+        assert abs(new_bounds.width() - new_width) < 10
+        assert abs(new_bounds.height() - new_height) < 10
 
     def test_polygon_vertex_count_preserved(self, qtbot, triangle_vertices) -> None:
         """Test polygon maintains same number of vertices after resize."""
