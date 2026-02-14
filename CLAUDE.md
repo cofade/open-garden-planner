@@ -13,7 +13,36 @@ venv/Scripts/python.exe -m pytest tests/ -v
 
 # Lint
 venv/Scripts/python.exe -m ruff check src/
+
+# Build installer locally (requires PyInstaller + NSIS)
+venv/Scripts/python.exe installer/build_installer.py --version 1.2.0
 ```
+
+## CI/CD & Releases
+
+### Automated Releases (GitHub Actions)
+
+Releases are **fully automated** via `.github/workflows/release.yml`. To trigger a release:
+
+1. Create a feature branch and PR to `master`
+2. Add a **version label** to the PR:
+   - `major` → bump major (1.0.0 → 2.0.0) — breaking changes
+   - `minor` → bump minor (1.0.0 → 1.1.0) — new features
+   - `patch` → bump patch (1.0.0 → 1.0.1) — bug fixes (default if no label)
+3. Merge the PR → release workflow automatically builds installer + creates GitHub Release
+
+### CI Checks
+
+`.github/workflows/ci.yml` runs on every push and PR:
+- **Lint**: `ruff check src/` (ubuntu)
+- **Test**: `pytest tests/ -v` under xvfb (ubuntu)
+
+### Version Source of Truth
+
+- **Git tags** (e.g., `v1.0.0`) are the version source of truth
+- The release workflow reads the latest tag and bumps based on PR labels
+- `installer/build_installer.py` accepts `--version X.Y.Z` to override the hardcoded default
+- `pyproject.toml` version should stay in sync (currently 1.0.0)
 
 ## Where to Pick Up After Restart
 
@@ -204,4 +233,4 @@ tests/
 | ✅     | 6.12 | Internationalization (EN + DE, Qt Linguist)       |
 | ✅     | 6.13 | Print support with scaling                        |
 | ✅     | 6.14 | Windows installer (NSIS) + .ogp file association  |
-|        | 6.15 | Path & fence style presets                        |
+| ✅     | 6.15 | Path & fence style presets                        |

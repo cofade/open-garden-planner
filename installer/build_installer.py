@@ -146,10 +146,16 @@ def run_nsis() -> None:
 
 def main() -> None:
     """Run the build process."""
+    global APP_VERSION
+
     parser = argparse.ArgumentParser(description="Build Open Garden Planner installer")
     parser.add_argument("--skip-pyinstaller", action="store_true", help="Skip PyInstaller step")
     parser.add_argument("--skip-nsis", action="store_true", help="Skip NSIS step")
+    parser.add_argument("--version", type=str, help="Override version (e.g. 1.2.0)")
     args = parser.parse_args()
+
+    if args.version:
+        APP_VERSION = args.version
 
     print(f"Building {APP_NAME} v{APP_VERSION}")
     print(f"Project root: {ROOT}")

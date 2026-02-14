@@ -113,10 +113,26 @@ Registry entries under `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall
 
 ## 7.3 Release Process (GitHub Releases)
 
-### Creating a Release
+### Creating a Release (Automated)
+
+Releases are fully automated via the `release.yml` GitHub Actions workflow:
+
+1. **Create a PR** to `master` with your changes
+2. **Add a version label** to the PR: `major`, `minor`, or `patch` (default if no label)
+3. **Merge the PR** — the release workflow automatically:
+   - Computes the next version from the latest git tag + PR label
+   - Builds the Windows installer (PyInstaller + NSIS) on a Windows runner
+   - Generates SHA256 checksums
+   - Creates a GitHub Release with auto-generated notes
+   - Uploads the installer `.exe` and `SHA256SUMS.txt` as release assets
+   - Tags the release as `vX.Y.Z`
+
+### Creating a Release (Manual Fallback)
+
+If CI/CD is unavailable, releases can be built locally:
 
 1. **Tag the release**: `git tag -a v1.0.0 -m "Release v1.0.0"`
-2. **Build the installer**: `python installer/build_installer.py`
+2. **Build the installer**: `python installer/build_installer.py --version 1.0.0`
 3. **Generate checksums**:
    ```powershell
    (Get-FileHash dist\OpenGardenPlanner-v1.0.0-Setup.exe -Algorithm SHA256).Hash > dist\SHA256SUMS.txt
@@ -145,23 +161,56 @@ Users verify download integrity by comparing checksums:
 
 ## 7.4 CI/CD Pipeline (GitHub Actions)
 
-```
-On every push:
-    ├── Run linting (ruff)
-    ├── Run type checking (mypy)
-    └── Run all tests (pytest)
+Two workflow files in `.github/workflows/`:
 
-On PR:
-    ├── Full test suite
-    └── Coverage report
+### CI Workflow (`ci.yml`)
 
-On release tag (v*):
-    ├── Build Windows .exe (PyInstaller)
-    ├── Build NSIS installer
-    ├── Generate SHA256 checksums
-    ├── Create GitHub Release
-    └── Upload installer + checksums as release assets
+**Trigger**: Every push to any branch + every PR to `master`
+
 ```
+Lint job (ubuntu-latest):
+    ├── Set up Python 3.11
+    ├── Install dependencies (pip install -e ".[dev]")
+    └── Run ruff check src/
+
+Test job (ubuntu-latest):
+    ├── Set up Python 3.11
+    ├── Install system deps (libegl1, libxkbcommon0, libxcb-cursor0)
+    ├── Install dependencies (pip install -e ".[dev]")
+    └── Run pytest tests/ -v (under xvfb for Qt)
+```
+
+### Release Workflow (`release.yml`)
+
+**Trigger**: Push to `master` (i.e., PR merge)
+
+**Version bumping**: Automatic based on PR labels:
+- Label `major` → bump major (1.0.0 → 2.0.0)
+- Label `minor` → bump minor (1.0.0 → 1.1.0)
+- Label `patch` or no label → bump patch (1.0.0 → 1.0.1)
+
+```
+Release job (windows-latest):
+    ├── Checkout with full history (for git tags)
+    ├── Determine next version from latest tag + merged PR labels
+    ├── Skip if tag already exists (idempotent)
+    ├── Set up Python 3.11
+    ├── Install dependencies + PyInstaller
+    ├── Install NSIS (via choco)
+    ├── Build installer: python installer/build_installer.py --version X.Y.Z
+    ├── Generate SHA256 checksum
+    └── Create GitHub Release with auto-generated notes
+        ├── Upload OpenGardenPlanner-vX.Y.Z-Setup.exe
+        └── Upload SHA256SUMS.txt
+```
+
+### PR Labels for Versioning
+
+| Label | Effect | Example |
+|-------|--------|---------|
+| `major` | Breaking changes, major new version | 1.0.1 → 2.0.0 |
+| `minor` | New features, backward compatible | 1.0.1 → 1.1.0 |
+| `patch` | Bug fixes, small improvements (default) | 1.0.1 → 1.0.2 |
 
 ## 7.5 System Requirements
 
