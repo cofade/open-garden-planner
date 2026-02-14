@@ -677,6 +677,20 @@ class CanvasView(QGraphicsView):
         parts = text.split(":")
         tool_name = parts[1] if len(parts) > 1 else ""
 
+        # Extract species and category from drag data
+        species = ""
+        plant_category = None
+        for part in parts[2:]:
+            if part.startswith("species="):
+                species = part[len("species="):]
+            elif part.startswith("category="):
+                cat_name = part[len("category="):]
+                try:
+                    from open_garden_planner.core.plant_renderer import PlantCategory
+                    plant_category = PlantCategory[cat_name]
+                except (KeyError, ValueError):
+                    pass
+
         # Find the matching ToolType
         try:
             from open_garden_planner.core.tools import ToolType as TT
@@ -709,7 +723,7 @@ class CanvasView(QGraphicsView):
 
             # Snap to grid if enabled
             if self._snap_enabled:
-                scene_pos = self._snap_to_grid(scene_pos)
+                scene_pos = self.snap_point(scene_pos)
 
             item = CircleItem(
                 center_x=scene_pos.x(),
@@ -717,6 +731,12 @@ class CanvasView(QGraphicsView):
                 radius=default_diameter / 2,
                 object_type=obj_type,
             )
+            # Set plant species/category from drag data
+            if species:
+                item.plant_species = species
+            if plant_category is not None:
+                item.plant_category = plant_category
+
             # Assign to active layer
             active_layer = self._canvas_scene.active_layer
             if active_layer:

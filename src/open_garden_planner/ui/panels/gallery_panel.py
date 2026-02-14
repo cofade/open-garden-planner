@@ -261,7 +261,7 @@ def _build_gallery_categories() -> list[GalleryCategory]:
                 tool_type=ToolType.TREE,
                 object_type=ObjectType.TREE,
                 thumbnail=thumb,
-                species=species_name.lower(),
+                species=svg_file.replace("_", " "),
             )
         )
     categories.append(GalleryCategory(_tr("Trees"), tree_items))
@@ -297,7 +297,7 @@ def _build_gallery_categories() -> list[GalleryCategory]:
                 tool_type=ToolType.SHRUB,
                 object_type=ObjectType.SHRUB,
                 thumbnail=thumb,
-                species=species_name.lower(),
+                species=svg_file.replace("_", " "),
             )
         )
     # Add hedge section as a rectangle-based item
@@ -350,7 +350,7 @@ def _build_gallery_categories() -> list[GalleryCategory]:
                 tool_type=ToolType.PERENNIAL,
                 object_type=ObjectType.PERENNIAL,
                 thumbnail=thumb,
-                species=species_name.lower(),
+                species=svg_file.replace("_", " "),
             )
         )
     categories.append(GalleryCategory(_tr("Flowers & Perennials"), flower_items))
@@ -383,7 +383,7 @@ def _build_gallery_categories() -> list[GalleryCategory]:
                 tool_type=ToolType.PERENNIAL,
                 object_type=ObjectType.PERENNIAL,
                 thumbnail=thumb,
-                species=species_name.lower(),
+                species=svg_file.replace("_", " "),
             )
         )
     categories.append(GalleryCategory(_tr("Vegetables & Herbs"), veg_items))
