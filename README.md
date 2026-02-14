@@ -2,6 +2,9 @@
 
 # Open Garden Planner
 
+[![Latest Release](https://img.shields.io/github/v/release/cofade/open-garden-planner?label=Latest%20Release)](https://github.com/cofade/open-garden-planner/releases/latest)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
 **Precision garden planning for passionate gardeners who value independence and transparency.**
 
 Open Garden Planner is an open-source desktop application that combines CAD-like metric accuracy with garden-specific features. Plan your garden with centimeter precision, track plants with rich metadata, and export to standard formats - all without subscription fees or vendor lock-in.
@@ -33,7 +36,7 @@ Open Garden Planner fills the gap: **engineering-grade precision meets gardener-
 
 Download the latest installer from the [Releases](https://github.com/cofade/open-garden-planner/releases/latest) page:
 
-> **[Download OpenGardenPlanner-v1.0.0-Setup.exe](https://github.com/cofade/open-garden-planner/releases/latest)**
+> **[Download Latest Installer](https://github.com/cofade/open-garden-planner/releases/latest)**
 
 Run the installer and follow the wizard. It will:
 - Install to `C:\Program Files\Open Garden Planner` (configurable)
@@ -48,8 +51,8 @@ Run the installer and follow the wizard. It will:
 Each release includes a `SHA256SUMS.txt` file. To verify the installer integrity:
 
 ```powershell
-# PowerShell
-(Get-FileHash .\OpenGardenPlanner-v1.0.0-Setup.exe -Algorithm SHA256).Hash
+# PowerShell — replace <version> with the actual version you downloaded
+(Get-FileHash .\OpenGardenPlanner-<version>-Setup.exe -Algorithm SHA256).Hash
 ```
 
 Compare the output with the hash in `SHA256SUMS.txt` from the release page.
@@ -84,7 +87,7 @@ pip install pyinstaller
 python installer/build_installer.py
 ```
 
-The installer will be created at `dist\OpenGardenPlanner-v1.0.0-Setup.exe`.
+The installer will be created in the `dist\` directory.
 
 ### Plant Database (optional)
 
