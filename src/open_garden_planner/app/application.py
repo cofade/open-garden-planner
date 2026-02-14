@@ -334,6 +334,14 @@ class GardenPlannerApp(QMainWindow):
         # Initialize menu state from settings
         QTimer.singleShot(0, self._update_autosave_menu_state)
 
+        menu.addSeparator()
+
+        # Preferences
+        preferences_action = QAction(self.tr("&Preferences..."), self)
+        preferences_action.setStatusTip(self.tr("Configure application settings and API keys"))
+        preferences_action.triggered.connect(self._on_preferences)
+        menu.addAction(preferences_action)
+
     def _setup_view_menu(self, menu: QMenu) -> None:
         """Set up the View menu actions."""
         # Zoom In
@@ -1737,13 +1745,49 @@ class GardenPlannerApp(QMainWindow):
         dialog = CustomPlantsDialog(self)
         dialog.exec()
 
+    def _on_preferences(self) -> None:
+        """Handle Preferences action."""
+        from open_garden_planner.ui.dialogs import PreferencesDialog
+
+        dialog = PreferencesDialog(self)
+        dialog.exec()
+
     def _on_search_plant_database(self) -> None:
         """Handle Search Plant Database action."""
-        from open_garden_planner.services import PlantAPIManager
-        from open_garden_planner.ui.dialogs import PlantSearchDialog
+        import os
 
-        # Initialize API manager (will use .env credentials)
-        api_manager = PlantAPIManager()
+        from open_garden_planner.app.settings import get_settings
+        from open_garden_planner.services import PlantAPIManager
+        from open_garden_planner.ui.dialogs import PlantSearchDialog, PreferencesDialog
+
+        # Read API credentials from QSettings, with env var fallback
+        settings = get_settings()
+        trefle_token = settings.trefle_api_token or os.environ.get("TREFLE_API_TOKEN", "")
+        perenual_key = settings.perenual_api_key or os.environ.get("PERENUAL_API_KEY", "")
+        permapeople_id = settings.permapeople_key_id or os.environ.get("PERMAPEOPLE_KEY_ID", "")
+        permapeople_secret = settings.permapeople_key_secret or os.environ.get("PERMAPEOPLE_KEY_SECRET", "")
+
+        # If no credentials configured anywhere, open Preferences dialog
+        if not any([trefle_token, perenual_key, permapeople_id and permapeople_secret]):
+            dialog = PreferencesDialog(self)
+            if dialog.exec():
+                # Re-read settings after user saved
+                trefle_token = settings.trefle_api_token
+                perenual_key = settings.perenual_api_key
+                permapeople_id = settings.permapeople_key_id
+                permapeople_secret = settings.permapeople_key_secret
+                # If still no credentials, abort
+                if not any([trefle_token, perenual_key, permapeople_id and permapeople_secret]):
+                    return
+            else:
+                return
+
+        api_manager = PlantAPIManager(
+            trefle_api_token=settings.trefle_api_token or None,
+            perenual_api_key=settings.perenual_api_key or None,
+            permapeople_key_id=settings.permapeople_key_id or None,
+            permapeople_key_secret=settings.permapeople_key_secret or None,
+        )
 
         dialog = PlantSearchDialog(api_manager, self)
         if dialog.exec():
