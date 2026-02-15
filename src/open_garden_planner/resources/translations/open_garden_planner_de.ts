@@ -1686,6 +1686,16 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
         <translation>Bild konnte nicht importiert werden:
 {error}</translation>
     </message>
+    <message>
+        <location filename="..\..\app\application.py" line="340" />
+        <source>&amp;Preferences...</source>
+        <translation>&amp;Einstellungen...</translation>
+    </message>
+    <message>
+        <location filename="..\..\app\application.py" line="341" />
+        <source>Configure application settings and API keys</source>
+        <translation>Anwendungseinstellungen und API-Schlüssel konfigurieren</translation>
+    </message>
 </context><context>
     <name>LayerListItem</name>
     <message>
@@ -3050,5 +3060,149 @@ noch nicht implementiert</translation>
         <location filename="..\..\ui\dialogs\welcome_dialog.py" line="268" />
         <source>File not found: {path}</source>
         <translation>Datei nicht gefunden: {path}</translation>
+    </message>
+</context><context>
+    <name>_PasswordLineEdit</name>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="36" />
+        <source>Show</source>
+        <translation>Anzeigen</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="45" />
+        <source>Hide</source>
+        <translation>Ausblenden</translation>
+    </message>
+</context><context>
+    <name>PreferencesDialog</name>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="69" />
+        <source>Preferences</source>
+        <translation>Einstellungen</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="80" />
+        <source>Configure your plant database API keys below. Keys are stored locally and never shared. Environment variables (.env) are used as fallback.</source>
+        <translation>Konfigurieren Sie unten Ihre Pflanzendatenbank-API-Schlüssel. Schlüssel werden lokal gespeichert und nie weitergegeben. Umgebungsvariablen (.env) werden als Fallback verwendet.</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="90" />
+        <source>Trefle (trefle.io)</source>
+        <translation>Trefle (trefle.io)</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="94" />
+        <source>Enter Trefle API token...</source>
+        <translation>Trefle-API-Token eingeben...</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="95" />
+        <source>API Token:</source>
+        <translation>API-Token:</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="98" />
+        <source>Get API Key</source>
+        <translation>API-Schlüssel holen</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="103" />
+        <source>Test</source>
+        <translation>Testen</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="113" />
+        <source>Perenual (perenual.com)</source>
+        <translation>Perenual (perenual.com)</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="117" />
+        <source>Enter Perenual API key...</source>
+        <translation>Perenual-API-Schlüssel eingeben...</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="118" />
+        <source>API Key:</source>
+        <translation>API-Schlüssel:</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="136" />
+        <source>Permapeople (permapeople.org)</source>
+        <translation>Permapeople (permapeople.org)</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="140" />
+        <source>Enter Key ID...</source>
+        <translation>Schlüssel-ID eingeben...</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="141" />
+        <source>Key ID:</source>
+        <translation>Schlüssel-ID:</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="144" />
+        <source>Enter Key Secret...</source>
+        <translation>Schlüssel-Geheimnis eingeben...</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="145" />
+        <source>Key Secret:</source>
+        <translation>Schlüssel-Geheimnis:</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="170" />
+        <source>Cancel</source>
+        <translation>Abbrechen</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="175" />
+        <source>Save</source>
+        <translation>Speichern</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="211" />
+        <source>Please enter a Trefle API token first.</source>
+        <translation>Bitte geben Sie zuerst einen Trefle-API-Token ein.</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="219" />
+        <source>Please enter a Perenual API key first.</source>
+        <translation>Bitte geben Sie zuerst einen Perenual-API-Schlüssel ein.</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="229" />
+        <source>Please enter both Permapeople Key ID and Key Secret.</source>
+        <translation>Bitte geben Sie sowohl Permapeople-Schlüssel-ID als auch Schlüssel-Geheimnis ein.</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="243" />
+        <source>Test Successful</source>
+        <translation>Test erfolgreich</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="244" />
+        <source>Connection to {api} is working.</source>
+        <translation>Verbindung zu {api} funktioniert.</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="249" />
+        <source>Test Failed</source>
+        <translation>Test fehlgeschlagen</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="251" />
+        <source>Could not connect to {api}. Please check your credentials.</source>
+        <translation>Verbindung zu {api} konnte nicht hergestellt werden. Bitte überprüfen Sie Ihre Zugangsdaten.</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="260" />
+        <source>Test Error</source>
+        <translation>Testfehler</translation>
+    </message>
+    <message>
+        <location filename="..\..\ui\dialogs\preferences_dialog.py" line="261" />
+        <source>Error testing {api}: {error}</source>
+        <translation>Fehler beim Testen von {api}: {error}</translation>
     </message>
 </context></TS>

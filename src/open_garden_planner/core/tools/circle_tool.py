@@ -48,6 +48,16 @@ class CircleTool(BaseTool):
         self._plant_category: object | None = None
         self._plant_species: str = ""
 
+    def activate(self) -> None:
+        """Called when this tool becomes the active tool.
+
+        Clears any stale plant info from a previous gallery selection
+        so that re-activating via toolbar defaults to category-based rendering.
+        """
+        super().activate()
+        self._plant_category = None
+        self._plant_species = ""
+
     def set_plant_info(
         self, category: object | None = None, species: str = ""
     ) -> None:

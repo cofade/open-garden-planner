@@ -31,6 +31,12 @@ class AppSettings:
     KEY_OBJECT_SNAP = "canvas/object_snap_enabled"
     KEY_LANGUAGE = "appearance/language"
 
+    # API key settings
+    KEY_TREFLE_API_TOKEN = "api_keys/trefle_token"
+    KEY_PERENUAL_API_KEY = "api_keys/perenual_key"
+    KEY_PERMAPEOPLE_KEY_ID = "api_keys/permapeople_key_id"
+    KEY_PERMAPEOPLE_KEY_SECRET = "api_keys/permapeople_key_secret"
+
     # Default values
     DEFAULT_AUTOSAVE_ENABLED = True
     DEFAULT_SHOW_WELCOME = True
@@ -250,6 +256,56 @@ class AppSettings:
     def language(self, lang_code: str) -> None:
         """Set the UI language code."""
         self._settings.setValue(self.KEY_LANGUAGE, lang_code)
+
+    # --- Plant API key properties ---
+
+    @property
+    def trefle_api_token(self) -> str:
+        """Trefle API token."""
+        return str(
+            self._settings.value(self.KEY_TREFLE_API_TOKEN, "", type=str)
+        )
+
+    @trefle_api_token.setter
+    def trefle_api_token(self, token: str) -> None:
+        """Set the Trefle API token."""
+        self._settings.setValue(self.KEY_TREFLE_API_TOKEN, token)
+
+    @property
+    def perenual_api_key(self) -> str:
+        """Perenual API key."""
+        return str(
+            self._settings.value(self.KEY_PERENUAL_API_KEY, "", type=str)
+        )
+
+    @perenual_api_key.setter
+    def perenual_api_key(self, key: str) -> None:
+        """Set the Perenual API key."""
+        self._settings.setValue(self.KEY_PERENUAL_API_KEY, key)
+
+    @property
+    def permapeople_key_id(self) -> str:
+        """Permapeople API key ID."""
+        return str(
+            self._settings.value(self.KEY_PERMAPEOPLE_KEY_ID, "", type=str)
+        )
+
+    @permapeople_key_id.setter
+    def permapeople_key_id(self, key_id: str) -> None:
+        """Set the Permapeople API key ID."""
+        self._settings.setValue(self.KEY_PERMAPEOPLE_KEY_ID, key_id)
+
+    @property
+    def permapeople_key_secret(self) -> str:
+        """Permapeople API key secret."""
+        return str(
+            self._settings.value(self.KEY_PERMAPEOPLE_KEY_SECRET, "", type=str)
+        )
+
+    @permapeople_key_secret.setter
+    def permapeople_key_secret(self, secret: str) -> None:
+        """Set the Permapeople API key secret."""
+        self._settings.setValue(self.KEY_PERMAPEOPLE_KEY_SECRET, secret)
 
     def sync(self) -> None:
         """Force settings to be written to storage."""
