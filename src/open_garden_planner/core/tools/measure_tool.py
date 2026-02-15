@@ -1,17 +1,25 @@
 """Measurement tool for measuring distances between points."""
 
-from PyQt6.QtCore import QCoreApplication, QLineF, QPointF, Qt
-from PyQt6.QtGui import QCursor, QFont, QKeyEvent, QMouseEvent, QPen
-from PyQt6.QtWidgets import QGraphicsTextItem
+from PyQt6.QtCore import QCoreApplication, QLineF, QPointF, QRectF, Qt
+from PyQt6.QtGui import QColor, QCursor, QFont, QKeyEvent, QMouseEvent, QPen
+from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsTextItem
 
+from open_garden_planner.core.measure_snapper import AnchorPoint, find_nearest_anchor
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
+
+# Visual constants for the snap indicator
+SNAP_INDICATOR_RADIUS = 8.0  # Scene units (cm)
+SNAP_INDICATOR_COLOR = QColor(0, 180, 0, 200)  # Green
+SNAP_INDICATOR_PEN_WIDTH = 2.5
 
 
 class MeasureTool(BaseTool):
     """Tool for measuring distances between two points.
 
     Click two points to measure the distance between them.
-    The measurement is displayed but not persisted (temporary).
+    Snaps to object anchor points (centers and edge midpoints)
+    when clicking near objects. The measurement is displayed
+    but not persisted (temporary).
     """
 
     def __init__(self, view) -> None:
@@ -23,6 +31,8 @@ class MeasureTool(BaseTool):
         super().__init__(view)
         self._first_point: QPointF | None = None
         self._graphics_items: list = []  # Track all created items for cleanup
+        self._snap_indicator: QGraphicsEllipseItem | None = None
+        self._current_snap: AnchorPoint | None = None
 
     @property
     def tool_type(self) -> ToolType:
@@ -53,9 +63,69 @@ class MeasureTool(BaseTool):
         """Deactivate the tool."""
         super().deactivate()
         self._clear_measurement()
+        self._remove_snap_indicator()
+
+    def _snap_scene_pos(self, scene_pos: QPointF) -> QPointF:
+        """Attempt to snap a scene position to the nearest object anchor.
+
+        Updates the visual snap indicator accordingly.
+
+        Args:
+            scene_pos: Raw mouse position in scene coordinates.
+
+        Returns:
+            Snapped position if near an anchor, otherwise the original position.
+        """
+        scene = self._view.scene()
+        if not scene:
+            self._remove_snap_indicator()
+            self._current_snap = None
+            return scene_pos
+
+        anchor = find_nearest_anchor(scene_pos, scene.items())
+        if anchor is not None:
+            self._current_snap = anchor
+            self._show_snap_indicator(anchor.point)
+            return anchor.point
+        else:
+            self._current_snap = None
+            self._remove_snap_indicator()
+            return scene_pos
+
+    def _show_snap_indicator(self, point: QPointF) -> None:
+        """Show a small circle at the snap point.
+
+        Args:
+            point: The anchor point in scene coordinates.
+        """
+        scene = self._view.scene()
+        if not scene:
+            return
+
+        r = SNAP_INDICATOR_RADIUS
+        rect = QRectF(point.x() - r, point.y() - r, r * 2, r * 2)
+
+        if self._snap_indicator is not None and self._snap_indicator.scene():
+            # Reposition existing indicator
+            self._snap_indicator.setRect(rect)
+        else:
+            # Create new indicator
+            pen = QPen(SNAP_INDICATOR_COLOR, SNAP_INDICATOR_PEN_WIDTH)
+            self._snap_indicator = scene.addEllipse(rect, pen)
+            self._snap_indicator.setZValue(1002)
+
+    def _remove_snap_indicator(self) -> None:
+        """Remove the snap indicator from the scene."""
+        if self._snap_indicator is not None:
+            scene = self._snap_indicator.scene()
+            if scene:
+                scene.removeItem(self._snap_indicator)
+            self._snap_indicator = None
 
     def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
         """Handle mouse press to set measurement points.
+
+        Snaps to object anchor points when near an object.
 
         Args:
             event: The mouse event
@@ -67,20 +137,25 @@ class MeasureTool(BaseTool):
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
+        # Snap to nearest anchor if available
+        snapped_pos = self._snap_scene_pos(scene_pos)
+        # Remove indicator after click (it served its purpose)
+        self._remove_snap_indicator()
+
         if self._first_point is None:
             # First point: start measurement
-            self._first_point = scene_pos
-            self._draw_start_point(scene_pos)
+            self._first_point = snapped_pos
+            self._draw_start_point(snapped_pos)
             return True
         else:
             # Second point: complete measurement
-            self._draw_measurement(self._first_point, scene_pos)
+            self._draw_measurement(self._first_point, snapped_pos)
             # Reset for next measurement
             self._first_point = None
             return True
 
     def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
-        """Handle mouse move to show preview line.
+        """Handle mouse move to show preview line and snap indicator.
 
         Args:
             _event: The mouse event (unused)
@@ -89,11 +164,14 @@ class MeasureTool(BaseTool):
         Returns:
             True if event was handled
         """
+        # Always try to snap and show indicator during mouse move
+        snapped_pos = self._snap_scene_pos(scene_pos)
+
         if self._first_point is not None:
-            # Update preview line
-            self._draw_preview_line(self._first_point, scene_pos)
+            # Update preview line using snapped position
+            self._draw_preview_line(self._first_point, snapped_pos)
             return True
-        return False
+        return True  # Always handle to update snap indicator
 
     def mouse_release(self, _event: QMouseEvent, _scene_pos: QPointF) -> bool:
         """Handle mouse release (not used for measure tool).
@@ -290,6 +368,7 @@ class MeasureTool(BaseTool):
         """Clear the current measurement."""
         self._clear_measurement_visuals()
         self._first_point = None
+        self._remove_snap_indicator()
 
     def _clear_measurement_visuals(self) -> None:
         """Remove all measurement graphics items from the scene."""

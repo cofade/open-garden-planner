@@ -152,6 +152,7 @@ src/open_garden_planner/
 │   ├── fill_patterns.py          # Texture/pattern rendering
 │   ├── plant_renderer.py         # Plant SVG loading, caching, rendering
 │   ├── furniture_renderer.py     # Furniture/hedge SVG rendering & caching
+│   ├── measure_snapper.py         # Anchor-point snapper for measure tool
 │   ├── i18n.py                   # Internationalization, translator loading
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
 │   └── tools/                    # Drawing tools
@@ -239,7 +240,7 @@ tests/
 
 | Status | US   | Description                                          |
 | ------ | ---- | ---------------------------------------------------- |
-|        | 7.1  | Measure tool snap to object anchors                  |
+| ✅     | 7.1  | Measure tool snap to object anchors                  |
 |        | 7.2  | Distance constraint data model & solver              |
 |        | 7.3  | Distance constraint tool                             |
 |        | 7.4  | Dimension line visualization                         |

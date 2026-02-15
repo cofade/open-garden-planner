@@ -188,16 +188,16 @@ class TestMeasureTool:
         assert len(tool._graphics_items) > 0  # Should have preview items
 
     def test_mouse_move_without_first_point(self, qtbot, measure_tool):
-        """Test that mouse move does nothing without first point."""
+        """Test that mouse move still handles event for snap indicator."""
         tool, view, scene = measure_tool
         tool.activate()
 
-        # Move mouse without setting first point
+        # Move mouse without setting first point - still handled for snap indicator
         point = QPointF(200, 150)
         move_event = Mock()
         result = tool.mouse_move(move_event, point)
 
-        assert result is False
+        assert result is True
 
     def test_measurement_creates_line_item(self, qtbot, measure_tool):
         """Test that measurement creates a line item in the scene."""

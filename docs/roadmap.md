@@ -10,8 +10,8 @@
 | 4 | v0.4 | ✅ Complete | Plants & Metadata: Plant objects, API, sidebar |
 | 5 | v0.5 | ✅ Complete | Export & Polish: PNG/SVG/CSV export, shortcuts, themes |
 | Backlog | - | ✅ Complete | Rotation, vertex editing, annotations |
-| **6** | **v1.0** | **In Progress** | **Visual Polish & Public Release** |
-| **7** | **v1.1** | **Planned** | **CAD Precision & Constraints** |
+| ~~6~~ | ~~v1.0~~ | ~~✅ Complete~~ | ~~Visual Polish & Public Release~~ |
+| **7** | **v1.1** | **In Progress** | **CAD Precision & Constraints** |
 | 8 | v2.0+ | Future | Advanced Features |
 
 ---
@@ -141,7 +141,7 @@
 | US-6.12 | Internationalization (EN + DE, Qt Linguist) | Must | ✅ Done |
 | US-6.13 | Print support with scaling | Should | ✅ Done |
 | US-6.14 | Windows installer (NSIS) + .ogp file association | Must | ✅ Done |
-| US-6.15 | Path & fence style presets | Must | |
+| US-6.15 | Path & fence style presets | Must | ✅ Done |
 
 ### US-6.1: Rich Tileable Textures
 
@@ -336,7 +336,7 @@
 - [ ] Print support (QPrinter)
 - [x] PyInstaller + NSIS installer
 - [x] .ogp file association + custom icon
-- [ ] Path/fence style presets
+- [x] Path/fence style presets
 
 ---
 
@@ -348,7 +348,7 @@
 
 | ID | User Story | Priority | Status |
 |----|------------|----------|--------|
-| US-7.1 | Measure tool snap to object anchors (centers + edges) | Must | |
+| US-7.1 | Measure tool snap to object anchors (centers + edges) | Must | ✅ Done |
 | US-7.2 | Distance constraint data model & solver | Must | |
 | US-7.3 | Distance constraint tool (dedicated toolbar tool) | Must | |
 | US-7.4 | Dimension line visualization (FreeCAD-style, toggleable) | Must | |
