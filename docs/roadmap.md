@@ -11,7 +11,8 @@
 | 5 | v0.5 | ✅ Complete | Export & Polish: PNG/SVG/CSV export, shortcuts, themes |
 | Backlog | - | ✅ Complete | Rotation, vertex editing, annotations |
 | **6** | **v1.0** | **In Progress** | **Visual Polish & Public Release** |
-| 7 | v2.0+ | Future | Advanced Features |
+| **7** | **v1.1** | **Planned** | **CAD Precision & Constraints** |
+| 8 | v2.0+ | Future | Advanced Features |
 
 ---
 
@@ -339,9 +340,216 @@
 
 ---
 
-## Phase 7: Advanced Features (Future, v2.0+)
+## Phase 7: CAD Precision & Constraints (v1.1)
 
-Future enhancements beyond v1.0:
+**Goal**: Full 2D geometric constraint system with numeric precision input, construction aids, and pattern placement — bringing FreeCAD Sketcher-level precision to garden planning.
+
+**Ref**: GitHub Issue #60
+
+| ID | User Story | Priority | Status |
+|----|------------|----------|--------|
+| US-7.1 | Measure tool snap to object anchors (centers + edges) | Must | |
+| US-7.2 | Distance constraint data model & solver | Must | |
+| US-7.3 | Distance constraint tool (dedicated toolbar tool) | Must | |
+| US-7.4 | Dimension line visualization (FreeCAD-style, toggleable) | Must | |
+| US-7.5 | Constraint solver drag integration (chain propagation) | Must | |
+| US-7.6 | Constraints manager panel | Must | |
+| US-7.7 | Numeric position input (editable X, Y in properties) | Must | |
+| US-7.8 | Numeric dimension input (editable width/height/radius) | Must | |
+| US-7.9 | Horizontal/Vertical alignment constraints | Should | |
+| US-7.10 | Angle constraints | Should | |
+| US-7.11 | Symmetry constraints | Should | |
+| US-7.12 | Construction geometry (helper lines, not in exports) | Should | |
+| US-7.13 | Draggable guide lines | Should | |
+| US-7.14 | Linear array placement | Could | |
+| US-7.15 | Grid array placement | Could | |
+| US-7.16 | Circular array placement | Could | |
+
+### US-7.1: Measure Tool Snap to Object Anchors
+
+**Description**: Enhance the measure tool to snap to object center points and edge midpoints when clicking near objects, enabling precise object-to-object distance measurement.
+
+**Acceptance Criteria**:
+- Measure tool snaps to object center when clicking within 15cm threshold
+- Also snaps to edge midpoints (top, bottom, left, right) of rectangles and polygons
+- Visual indicator (small circle) shows the active snap point
+- Crosshair marker placed at snapped position, not raw click position
+- Works for all object types (circles, rectangles, polygons, polylines)
+
+### US-7.2: Distance Constraint Data Model & Solver
+
+**Description**: Implement the constraint data model and iterative position-based constraint solver (Gauss-Seidel relaxation) that resolves constraint chains.
+
+**Acceptance Criteria**:
+- `Constraint` dataclass with two anchors (item_id + anchor type), target distance, visibility flag
+- `AnchorType` enum: CENTER, EDGE_TOP, EDGE_BOTTOM, EDGE_LEFT, EDGE_RIGHT
+- `ConstraintGraph` with adjacency lookup, BFS for connected components
+- Iterative relaxation solver: 5 iterations, 1mm tolerance
+- Supports pinned items (don't move) and propagates through chains
+- Over-constrained detection
+- Full serialization for project save/load
+- Unit tests for solver (triangle chain, over-constrained, degenerate cases)
+
+### US-7.3: Distance Constraint Tool
+
+**Description**: Dedicated toolbar tool for creating distance constraints between two objects, with anchor point selection and distance input dialog.
+
+**Acceptance Criteria**:
+- New "Constraint" tool in toolbar (shortcut: K)
+- Workflow: click object A → select anchor → click object B → select anchor → distance dialog
+- Anchor indicators (small circles) on hovered objects
+- Preview dimension line while selecting second anchor
+- Dialog pre-fills current distance, allows setting exact target
+- Undo/redo via AddConstraintCommand, RemoveConstraintCommand, EditConstraintDistanceCommand
+
+### US-7.4: Dimension Line Visualization
+
+**Description**: FreeCAD-style dimension annotations with witness lines, arrowheads, and distance text.
+
+**Acceptance Criteria**:
+- Dimension line with arrowheads between constrained anchor points
+- Witness lines at each anchor
+- Distance text centered on line (e.g., "1.20 m"), readable at any zoom
+- Satisfied constraints in blue/green, violated in red
+- Toggleable via View menu: "Show Constraints"
+- Real-time updates when objects move
+- Double-click to edit distance value
+
+### US-7.5: Constraint Solver Drag Integration
+
+**Description**: Wire solver into drag system — moving a constrained object propagates through the chain in real-time.
+
+**Acceptance Criteria**:
+- Dragged item follows mouse; connected items adjust to satisfy constraints
+- Chain propagation: A→B→C, moving A cascades to B then C
+- Over-constrained: dimension lines turn red, best-effort positioning
+- Undo captures both dragged and constraint-propagated items
+- Item deletion cascades to constraint removal
+- Constraints in project save/load (new JSON key, file version bump)
+
+### US-7.6: Constraints Manager Panel
+
+**Description**: Dedicated sidebar panel listing all constraints with status, edit, and delete — like FreeCAD's "Randbedingungen" panel.
+
+**Acceptance Criteria**:
+- New "Constraints" tab in sidebar
+- List: type icon, object names, target distance, status (✓ satisfied / ✗ violated)
+- Click to select both objects and highlight dimension line
+- Double-click to edit distance
+- Delete button/key to remove
+- Over-constrained warnings
+- Empty state message
+
+### US-7.7: Numeric Position Input
+
+**Description**: Editable X, Y coordinate fields in properties panel for precise positioning.
+
+**Acceptance Criteria**:
+- X and Y as editable QDoubleSpinBox (currently read-only labels)
+- Values in cm, 1 decimal place
+- Changes create MoveItemsCommand for undo/redo
+- Constraint solver runs after manual position change
+
+### US-7.8: Numeric Dimension Input
+
+**Description**: Editable width/height/radius fields in properties panel for precise resizing.
+
+**Acceptance Criteria**:
+- Diameter editable for circles, Width/Height for rectangles (currently read-only)
+- Changes create ResizeItemCommand for undo/redo
+- Values in cm, 1 decimal place, minimum >0
+- Constraint solver runs after resize
+
+### US-7.9: Horizontal & Vertical Alignment Constraints
+
+**Description**: Constrain two objects to stay on the same horizontal or vertical line.
+
+**Acceptance Criteria**:
+- New constraint types: HORIZONTAL (same Y), VERTICAL (same X)
+- Created via constraint tool with H/V mode selector
+- Solver enforces alignment when objects move
+- Composable with distance constraints
+
+### US-7.10: Angle Constraints
+
+**Description**: Fix the angle between three objects (vertex at middle object).
+
+**Acceptance Criteria**:
+- ANGLE constraint type (three objects: A, B=vertex, C)
+- Angle arc annotation with degree value
+- Solver maintains angle during moves
+- Common presets: 90°, 45°, 60°, 120°
+
+### US-7.11: Symmetry Constraints
+
+**Description**: Mirror objects across a horizontal or vertical axis.
+
+**Acceptance Criteria**:
+- SYMMETRY constraint type (two objects + axis)
+- Axis: horizontal, vertical, or construction line
+- Moving one mirrors the other
+- Visual axis indicator
+
+### US-7.12: Construction Geometry
+
+**Description**: Helper lines/circles that guide placement but don't appear in exports or prints (like FreeCAD's blue construction lines).
+
+**Acceptance Criteria**:
+- "Construction" toggle when drawing lines or circles
+- Distinct style: dashed, light blue
+- Excluded from PNG/SVG export and print
+- Usable as snap targets and constraint anchors
+- Toggle visibility via View menu
+- Persisted in project
+
+### US-7.13: Draggable Guide Lines
+
+**Description**: Horizontal/vertical guide lines draggable from rulers for alignment reference.
+
+**Acceptance Criteria**:
+- Drag from top ruler → horizontal guide, left ruler → vertical guide
+- Infinite lines spanning full canvas, semi-transparent
+- Objects snap to guide lines
+- Double-click for exact numeric position
+- Drag back to ruler to delete
+- Persisted in project, toggleable via View menu
+
+### US-7.14: Linear Array Placement
+
+**Description**: Place N copies of an object along a line with exact spacing.
+
+**Acceptance Criteria**:
+- Right-click → "Create Linear Array..."
+- Dialog: count, spacing (cm), direction
+- Creates copies at exact intervals
+- Optional auto-create distance constraints
+- Single undo for entire array
+
+### US-7.15: Grid Array Placement
+
+**Description**: Place objects in a rectangular grid with exact row/column spacing.
+
+**Acceptance Criteria**:
+- Right-click → "Create Grid Array..."
+- Dialog: rows, columns, row spacing, column spacing
+- Preview overlay
+- Single undo for entire grid
+
+### US-7.16: Circular Array Placement
+
+**Description**: Place objects in a circle with exact radius and angular spacing.
+
+**Acceptance Criteria**:
+- Right-click → "Create Circular Array..."
+- Dialog: count, radius, start angle, sweep angle
+- Equal angular intervals around center
+- Single undo
+
+---
+
+## Phase 8: Advanced Features (Future, v2.0+)
+
+Future enhancements beyond v1.1:
 
 - Additional drawing tools (arcs, curves, bezier paths)
 - DXF import/export for CAD interoperability

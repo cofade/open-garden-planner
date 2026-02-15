@@ -234,3 +234,24 @@ tests/
 | ✅     | 6.13 | Print support with scaling                        |
 | ✅     | 6.14 | Windows installer (NSIS) + .ogp file association  |
 | ✅     | 6.15 | Path & fence style presets                        |
+
+## Progress (Phase 7: CAD Precision & Constraints v1.1)
+
+| Status | US   | Description                                          |
+| ------ | ---- | ---------------------------------------------------- |
+|        | 7.1  | Measure tool snap to object anchors                  |
+|        | 7.2  | Distance constraint data model & solver              |
+|        | 7.3  | Distance constraint tool                             |
+|        | 7.4  | Dimension line visualization                         |
+|        | 7.5  | Constraint solver drag integration                   |
+|        | 7.6  | Constraints manager panel                            |
+|        | 7.7  | Numeric position input                               |
+|        | 7.8  | Numeric dimension input                              |
+|        | 7.9  | Horizontal/Vertical alignment constraints            |
+|        | 7.10 | Angle constraints                                    |
+|        | 7.11 | Symmetry constraints                                 |
+|        | 7.12 | Construction geometry                                |
+|        | 7.13 | Draggable guide lines                                |
+|        | 7.14 | Linear array placement                               |
+|        | 7.15 | Grid array placement                                 |
+|        | 7.16 | Circular array placement                             |
