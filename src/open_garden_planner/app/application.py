@@ -418,6 +418,14 @@ class GardenPlannerApp(QMainWindow):
         self._labels_action.triggered.connect(self._on_toggle_labels)
         menu.addAction(self._labels_action)
 
+        # Toggle Constraints
+        self._constraints_action = QAction(self.tr("Show &Constraints"), self)
+        self._constraints_action.setCheckable(True)
+        self._constraints_action.setChecked(True)  # Updated from settings in _setup_central_widget
+        self._constraints_action.setStatusTip(self.tr("Toggle constraint dimension lines on the canvas"))
+        self._constraints_action.triggered.connect(self._on_toggle_constraints)
+        menu.addAction(self._constraints_action)
+
         menu.addSeparator()
 
         # Fullscreen Preview
@@ -609,10 +617,11 @@ class GardenPlannerApp(QMainWindow):
         # Initial selection display
         self.update_selection(0, [])
 
-        # Initialize shadow, scale bar, labels, and object snap state from settings
+        # Initialize shadow, scale bar, labels, constraints, and object snap state from settings
         QTimer.singleShot(0, self._init_shadows_from_settings)
         QTimer.singleShot(0, self._init_scale_bar_from_settings)
         QTimer.singleShot(0, self._init_labels_from_settings)
+        QTimer.singleShot(0, self._init_constraints_from_settings)
         QTimer.singleShot(0, self._init_object_snap_from_settings)
 
     def _setup_sidebar(self) -> None:
@@ -1395,6 +1404,21 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_scene.set_labels_visible(checked)
         get_settings().show_labels = checked
 
+    def _init_constraints_from_settings(self) -> None:
+        """Initialize constraints visibility from persisted settings."""
+        from open_garden_planner.app.settings import get_settings
+
+        enabled = get_settings().show_constraints
+        self._constraints_action.setChecked(enabled)
+        self.canvas_view.set_constraints_visible(enabled)
+
+    def _on_toggle_constraints(self, checked: bool) -> None:
+        """Handle toggle constraints action."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_view.set_constraints_visible(checked)
+        get_settings().show_constraints = checked
+
     def _init_object_snap_from_settings(self) -> None:
         """Initialize object snap state from persisted settings."""
         from open_garden_planner.app.settings import get_settings
@@ -1420,6 +1444,7 @@ class GardenPlannerApp(QMainWindow):
             "grid_visible": self.canvas_view.grid_visible,
             "scale_bar_visible": self.canvas_view.scale_bar_visible,
             "labels_visible": self.canvas_scene.labels_enabled,
+            "constraints_visible": self.canvas_scene.constraints_visible,
             "was_maximized": self.isMaximized(),
         }
 
@@ -1441,6 +1466,7 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_view.set_grid_visible(False)
         self.canvas_view.set_scale_bar_visible(False)
         self.canvas_scene.set_labels_visible(False)
+        self.canvas_view.set_constraints_visible(False)
 
         # Go fullscreen
         self.showFullScreen()
@@ -1470,6 +1496,8 @@ class GardenPlannerApp(QMainWindow):
         self._scale_bar_action.setChecked(state.get("scale_bar_visible", True))
         self.canvas_scene.set_labels_visible(state.get("labels_visible", True))
         self._labels_action.setChecked(state.get("labels_visible", True))
+        self.canvas_view.set_constraints_visible(state.get("constraints_visible", True))
+        self._constraints_action.setChecked(state.get("constraints_visible", True))
 
         # Restore window state
         if state.get("was_maximized", True):

@@ -32,6 +32,7 @@ class AnchorPoint:
     point: QPointF
     anchor_type: AnchorType
     item: QGraphicsItem
+    anchor_index: int = 0  # Distinguishes same-type anchors (e.g. vertex 0 vs 2)
 
 
 def get_anchor_points(item: QGraphicsItem) -> list[AnchorPoint]:
@@ -153,6 +154,7 @@ def _polygon_anchors(item: QGraphicsItem) -> list[AnchorPoint]:
             point=item.mapToScene(vertex),
             anchor_type=AnchorType.CORNER,
             item=item,
+            anchor_index=i,
         ))
 
     # Edge midpoints (including closing edge)
@@ -175,6 +177,7 @@ def _polygon_anchors(item: QGraphicsItem) -> list[AnchorPoint]:
                 point=item.mapToScene(mid),
                 anchor_type=anchor_type,
                 item=item,
+                anchor_index=i,
             ))
 
     return anchors
@@ -205,11 +208,12 @@ def _polyline_anchors(item: QGraphicsItem) -> list[AnchorPoint]:
     ))
 
     # All vertices (endpoints and intermediate points)
-    for pt in points:
+    for i, pt in enumerate(points):
         anchors.append(AnchorPoint(
             point=item.mapToScene(pt),
             anchor_type=AnchorType.ENDPOINT,
             item=item,
+            anchor_index=i,
         ))
 
     # Segment midpoints
@@ -225,6 +229,7 @@ def _polyline_anchors(item: QGraphicsItem) -> list[AnchorPoint]:
             point=item.mapToScene(mid),
             anchor_type=anchor_type,
             item=item,
+            anchor_index=i,
         ))
 
     return anchors

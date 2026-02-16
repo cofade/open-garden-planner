@@ -326,10 +326,12 @@ class ConstraintTool(BaseTool):
         ref_a = AnchorRef(
             item_id=anchor_a.item.item_id,
             anchor_type=anchor_a.anchor_type,
+            anchor_index=anchor_a.anchor_index,
         )
         ref_b = AnchorRef(
             item_id=anchor_b.item.item_id,
             anchor_type=anchor_b.anchor_type,
+            anchor_index=anchor_b.anchor_index,
         )
 
         command = AddConstraintCommand(

@@ -28,6 +28,7 @@ class AppSettings:
     KEY_SHOW_SHADOWS = "appearance/show_shadows"
     KEY_SHOW_SCALE_BAR = "appearance/show_scale_bar"
     KEY_SHOW_LABELS = "appearance/show_labels"
+    KEY_SHOW_CONSTRAINTS = "appearance/show_constraints"
     KEY_OBJECT_SNAP = "canvas/object_snap_enabled"
     KEY_LANGUAGE = "appearance/language"
 
@@ -43,6 +44,7 @@ class AppSettings:
     DEFAULT_SHOW_SHADOWS = True
     DEFAULT_SHOW_SCALE_BAR = True
     DEFAULT_SHOW_LABELS = True
+    DEFAULT_SHOW_CONSTRAINTS = True
     DEFAULT_OBJECT_SNAP = True
     DEFAULT_LANGUAGE = "en"
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
@@ -226,6 +228,20 @@ class AppSettings:
     def show_labels(self, show: bool) -> None:
         """Set whether to show object labels on the canvas."""
         self._settings.setValue(self.KEY_SHOW_LABELS, show)
+
+    @property
+    def show_constraints(self) -> bool:
+        """Whether to show constraint dimension lines on the canvas."""
+        return self._settings.value(
+            self.KEY_SHOW_CONSTRAINTS,
+            self.DEFAULT_SHOW_CONSTRAINTS,
+            type=bool,
+        )
+
+    @show_constraints.setter
+    def show_constraints(self, show: bool) -> None:
+        """Set whether to show constraint dimension lines on the canvas."""
+        self._settings.setValue(self.KEY_SHOW_CONSTRAINTS, show)
 
     @property
     def object_snap_enabled(self) -> bool:
