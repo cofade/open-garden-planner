@@ -31,10 +31,11 @@ class ProjectData:
     canvas_height: float = 3000.0
     objects: list[dict[str, Any]] = field(default_factory=list)
     layers: list[dict[str, Any]] = field(default_factory=list)
+    constraints: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
-        return {
+        data: dict[str, Any] = {
             "version": FILE_VERSION,
             "metadata": {
                 "modified": datetime.now(UTC).isoformat(),
@@ -46,6 +47,9 @@ class ProjectData:
             "layers": self.layers,
             "objects": self.objects,
         }
+        if self.constraints:
+            data["constraints"] = self.constraints
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ProjectData":
@@ -56,6 +60,7 @@ class ProjectData:
             canvas_height=canvas.get("height", 3000.0),
             layers=data.get("layers", []),
             objects=data.get("objects", []),
+            constraints=data.get("constraints", []),
         )
 
 
@@ -207,6 +212,7 @@ class ProjectManager(QObject):
         """Convert scene objects to ProjectData."""
         objects = []
         layers = []
+        constraints: list[dict[str, Any]] = []
 
         # Serialize layers if the scene has them
         if hasattr(scene, "layers"):
@@ -217,11 +223,16 @@ class ProjectManager(QObject):
             if obj_data:
                 objects.append(obj_data)
 
+        # Serialize constraints if the scene has a constraint graph
+        if hasattr(scene, "constraint_graph") and scene.constraint_graph is not None:
+            constraints = scene.constraint_graph.to_list()
+
         return ProjectData(
             canvas_width=scene.width_cm if hasattr(scene, "width_cm") else 5000.0,
             canvas_height=scene.height_cm if hasattr(scene, "height_cm") else 3000.0,
             layers=layers,
             objects=objects,
+            constraints=constraints,
         )
 
     def _serialize_item(self, item: QGraphicsItem) -> dict[str, Any] | None:
@@ -427,6 +438,12 @@ class ProjectManager(QObject):
             item = self._deserialize_item(obj)
             if item:
                 scene.addItem(item)
+
+        # Load constraints if present
+        if data.constraints and hasattr(scene, "constraint_graph"):
+            from open_garden_planner.core.constraints import ConstraintGraph
+
+            scene.constraint_graph = ConstraintGraph.from_list(data.constraints)
 
     def _deserialize_item(self, obj: dict[str, Any]) -> QGraphicsItem | None:
         """Deserialize a single object to a graphics item."""
