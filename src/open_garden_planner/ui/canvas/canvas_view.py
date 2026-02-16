@@ -98,6 +98,11 @@ class CanvasView(QGraphicsView):
         self._command_manager = CommandManager(self)
         self._canvas_scene._command_manager = self._command_manager
 
+        # Update dimension lines after any command (constraint add/remove, item move, etc.)
+        self._command_manager.command_executed.connect(
+            lambda _desc: self._canvas_scene.update_dimension_lines()
+        )
+
         # Drag tracking for undo support
         self._drag_start_positions: dict[QGraphicsItem, QPointF] = {}
 
@@ -496,6 +501,14 @@ class CanvasView(QGraphicsView):
         self._scale_bar_visible = visible
         self.viewport().update()
 
+    def set_constraints_visible(self, visible: bool) -> None:
+        """Set constraint dimension line visibility."""
+        self._canvas_scene.set_constraints_visible(visible)
+
+    def update_dimension_lines(self) -> None:
+        """Trigger a rebuild of all constraint dimension lines."""
+        self._canvas_scene.update_dimension_lines()
+
     # Coordinate conversion
 
     def scene_to_canvas(self, scene_point: QPointF) -> QPointF:
@@ -865,6 +878,10 @@ class CanvasView(QGraphicsView):
         self._apply_object_snap_during_drag()
         self._clamp_dragged_items_to_canvas()
 
+        # Update dimension lines in real-time during drag
+        if self._drag_start_positions:
+            self._canvas_scene.update_dimension_lines()
+
     def _apply_object_snap_during_drag(self) -> None:
         """Apply object snapping to items being dragged.
 
@@ -984,13 +1001,21 @@ class CanvasView(QGraphicsView):
             self._finalize_drag_move()
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
-        """Handle mouse double click for tool operations."""
-        tool = self._tool_manager.active_tool
-        if tool:
-            scene_pos = self.mapToScene(event.position().toPoint())
-            if tool.mouse_double_click(event, scene_pos):
+        """Handle mouse double click for tool operations and constraint editing."""
+        scene_pos = self.mapToScene(event.position().toPoint())
+
+        # Check if double-click is on a dimension line to edit constraint
+        if event.button() == Qt.MouseButton.LeftButton:
+            cid = self._canvas_scene.dimension_line_manager.get_constraint_at(scene_pos)
+            if cid is not None:
+                self._edit_constraint_distance(cid)
                 event.accept()
                 return
+
+        tool = self._tool_manager.active_tool
+        if tool and tool.mouse_double_click(event, scene_pos):
+            event.accept()
+            return
 
         super().mouseDoubleClickEvent(event)
 
@@ -1050,6 +1075,31 @@ class CanvasView(QGraphicsView):
             return
 
         super().keyPressEvent(event)
+
+    def _edit_constraint_distance(self, constraint_id) -> None:
+        """Open dialog to edit a constraint's target distance.
+
+        Args:
+            constraint_id: UUID of the constraint to edit
+        """
+        from open_garden_planner.core.commands import EditConstraintDistanceCommand
+        from open_garden_planner.core.tools.constraint_tool import DistanceInputDialog
+
+        graph = self._canvas_scene.constraint_graph
+        constraint = graph.constraints.get(constraint_id)
+        if constraint is None:
+            return
+
+        dialog = DistanceInputDialog(constraint.target_distance, self)
+        if dialog.exec():
+            new_distance = dialog.distance_cm()
+            if abs(new_distance - constraint.target_distance) > 0.01:
+                command = EditConstraintDistanceCommand(
+                    constraint=constraint,
+                    old_distance=constraint.target_distance,
+                    new_distance=new_distance,
+                )
+                self._command_manager.execute(command)
 
     def _delete_selected_items(self) -> None:
         """Delete all selected items from the scene with undo support."""

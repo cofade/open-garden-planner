@@ -84,6 +84,11 @@ class CanvasScene(QGraphicsScene):
 
         self.constraint_graph = ConstraintGraph()
 
+        # Dimension line manager for constraint visualization
+        from open_garden_planner.ui.canvas.dimension_lines import DimensionLineManager
+
+        self._dimension_line_manager = DimensionLineManager(self)
+
     def _update_scene_rect(self) -> None:
         """Update the scene rect with padding for panning."""
         # Add padding around canvas (50% of canvas size on each side)
@@ -160,6 +165,30 @@ class CanvasScene(QGraphicsScene):
         if isinstance(item, GardenItemMixin):
             item.shadows_enabled = self._shadows_enabled
             item.set_global_labels_visible(self._labels_enabled)
+
+    # Constraint dimension line management
+
+    @property
+    def constraints_visible(self) -> bool:
+        """Whether constraint dimension lines are shown."""
+        return self._dimension_line_manager.visible
+
+    def set_constraints_visible(self, visible: bool) -> None:
+        """Show or hide constraint dimension lines.
+
+        Args:
+            visible: Whether dimension lines should be shown
+        """
+        self._dimension_line_manager.set_visible(visible)
+
+    def update_dimension_lines(self) -> None:
+        """Rebuild all dimension line visuals from the constraint graph."""
+        self._dimension_line_manager.update_all()
+
+    @property
+    def dimension_line_manager(self):
+        """Access the dimension line manager."""
+        return self._dimension_line_manager
 
     def apply_theme_colors(self, colors: dict[str, str]) -> None:
         """Update canvas colors from the theme palette.
