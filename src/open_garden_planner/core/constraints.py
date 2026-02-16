@@ -28,18 +28,22 @@ class ConstraintStatus(Enum):
 class AnchorRef:
     """Reference to an anchor point on a specific item.
 
-    Identifies a particular anchor on a garden item by its UUID
-    and anchor type. The actual scene position is resolved at solve time.
+    Identifies a particular anchor on a garden item by its UUID,
+    anchor type, and index. The index distinguishes same-type anchors
+    (e.g. vertex 0 vs vertex 3 on a polygon, both AnchorType.CORNER).
+    The actual scene position is resolved at solve time.
     """
 
     item_id: UUID
     anchor_type: AnchorType
+    anchor_index: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
             "item_id": str(self.item_id),
             "anchor_type": self.anchor_type.name,
+            "anchor_index": self.anchor_index,
         }
 
     @classmethod
@@ -48,6 +52,7 @@ class AnchorRef:
         return cls(
             item_id=UUID(data["item_id"]),
             anchor_type=AnchorType[data["anchor_type"]],
+            anchor_index=data.get("anchor_index", 0),
         )
 
 

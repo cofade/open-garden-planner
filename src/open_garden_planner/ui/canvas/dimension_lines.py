@@ -132,10 +132,14 @@ class DimensionLineManager:
 
         # Resolve anchor positions
         pos_a = self._resolve_anchor_position(
-            constraint.anchor_a.item_id, constraint.anchor_a.anchor_type
+            constraint.anchor_a.item_id,
+            constraint.anchor_a.anchor_type,
+            constraint.anchor_a.anchor_index,
         )
         pos_b = self._resolve_anchor_position(
-            constraint.anchor_b.item_id, constraint.anchor_b.anchor_type
+            constraint.anchor_b.item_id,
+            constraint.anchor_b.anchor_type,
+            constraint.anchor_b.anchor_index,
         )
         if pos_a is None or pos_b is None:
             return
@@ -152,7 +156,7 @@ class DimensionLineManager:
         self._groups[constraint.constraint_id] = group
 
     def _resolve_anchor_position(
-        self, item_id: UUID, anchor_type: AnchorType
+        self, item_id: UUID, anchor_type: AnchorType, anchor_index: int = 0
     ) -> QPointF | None:
         """Get the scene position of an anchor on a garden item."""
         for item in self._scene.items():
@@ -161,6 +165,11 @@ class DimensionLineManager:
             if item.item_id != item_id:
                 continue
             anchors = get_anchor_points(item)
+            # Match by both type and index to distinguish same-type anchors
+            for anchor in anchors:
+                if anchor.anchor_type == anchor_type and anchor.anchor_index == anchor_index:
+                    return anchor.point
+            # Fallback: match by type only (for CENTER and unique types)
             for anchor in anchors:
                 if anchor.anchor_type == anchor_type:
                     return anchor.point
@@ -315,10 +324,14 @@ class DimensionLineManager:
 
         for cid, constraint in graph.constraints.items():
             pos_a = self._resolve_anchor_position(
-                constraint.anchor_a.item_id, constraint.anchor_a.anchor_type
+                constraint.anchor_a.item_id,
+                constraint.anchor_a.anchor_type,
+                constraint.anchor_a.anchor_index,
             )
             pos_b = self._resolve_anchor_position(
-                constraint.anchor_b.item_id, constraint.anchor_b.anchor_type
+                constraint.anchor_b.item_id,
+                constraint.anchor_b.anchor_type,
+                constraint.anchor_b.anchor_index,
             )
             if pos_a is None or pos_b is None:
                 continue
