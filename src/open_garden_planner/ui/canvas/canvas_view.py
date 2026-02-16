@@ -36,6 +36,7 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
     CircleTool,
+    ConstraintTool,
     MeasureTool,
     PolygonTool,
     PolylineTool,
@@ -130,6 +131,7 @@ class CanvasView(QGraphicsView):
         # Register basic tools
         self._tool_manager.register_tool(SelectTool(self))
         self._tool_manager.register_tool(MeasureTool(self))
+        self._tool_manager.register_tool(ConstraintTool(self))
 
         # Register generic shape tools
         rect_tool = RectangleTool(self, object_type=ObjectType.GENERIC_RECTANGLE)

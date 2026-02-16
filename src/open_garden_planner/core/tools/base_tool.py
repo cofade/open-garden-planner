@@ -16,6 +16,7 @@ class ToolType(Enum):
 
     SELECT = auto()
     MEASURE = auto()
+    CONSTRAINT = auto()
 
     # Property object types (polygon-based)
     HOUSE = auto()

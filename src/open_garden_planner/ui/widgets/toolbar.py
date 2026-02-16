@@ -81,6 +81,10 @@ class MainToolbar(QToolBar):
             ToolType.MEASURE, "measure", self.tr("Measure (M)"),
             self.tr("Measure distances between two points"), "M",
         )
+        self._add_tool_button(
+            ToolType.CONSTRAINT, "constraint", self.tr("Constraint (K)"),
+            self.tr("Create distance constraint between objects"), "K",
+        )
 
         # Select tool is default
         self._buttons[ToolType.SELECT].setChecked(True)

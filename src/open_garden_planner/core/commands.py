@@ -7,12 +7,17 @@ executed, undone, and redone.
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from PyQt6.QtCore import QObject, QPointF, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 if TYPE_CHECKING:
-    pass
+    from open_garden_planner.core.constraints import (
+        AnchorRef,
+        Constraint,
+        ConstraintGraph,
+    )
 
 
 class Command(ABC):
@@ -553,3 +558,95 @@ class DeleteVertexCommand(Command):
     def undo(self) -> None:
         """Restore the vertex."""
         self._apply_add_func(self._item, self._vertex_index, self._position)
+
+
+class AddConstraintCommand(Command):
+    """Command for adding a distance constraint."""
+
+    def __init__(
+        self,
+        graph: "ConstraintGraph",
+        anchor_a: "AnchorRef",
+        anchor_b: "AnchorRef",
+        target_distance: float,
+    ) -> None:
+        self._graph = graph
+        self._anchor_a = anchor_a
+        self._anchor_b = anchor_b
+        self._target_distance = target_distance
+        self._constraint_id: UUID | None = None
+
+    @property
+    def description(self) -> str:
+        return "Add constraint"
+
+    def execute(self) -> None:
+        c = self._graph.add_constraint(
+            self._anchor_a,
+            self._anchor_b,
+            self._target_distance,
+            constraint_id=self._constraint_id,
+        )
+        self._constraint_id = c.constraint_id
+
+    def undo(self) -> None:
+        if self._constraint_id is not None:
+            self._graph.remove_constraint(self._constraint_id)
+
+
+class RemoveConstraintCommand(Command):
+    """Command for removing a distance constraint."""
+
+    def __init__(
+        self,
+        graph: "ConstraintGraph",
+        constraint: "Constraint",
+    ) -> None:
+        self._graph = graph
+        self._constraint = constraint
+
+    @property
+    def description(self) -> str:
+        return "Remove constraint"
+
+    def execute(self) -> None:
+        self._graph.remove_constraint(self._constraint.constraint_id)
+
+    def undo(self) -> None:
+        self._graph.add_constraint(
+            self._constraint.anchor_a,
+            self._constraint.anchor_b,
+            self._constraint.target_distance,
+            visible=self._constraint.visible,
+            constraint_id=self._constraint.constraint_id,
+        )
+
+
+class EditConstraintDistanceCommand(Command):
+    """Command for editing a constraint's target distance."""
+
+    def __init__(
+        self,
+        graph: "ConstraintGraph",
+        constraint_id: UUID,
+        old_distance: float,
+        new_distance: float,
+    ) -> None:
+        self._graph = graph
+        self._constraint_id = constraint_id
+        self._old_distance = old_distance
+        self._new_distance = new_distance
+
+    @property
+    def description(self) -> str:
+        return "Edit constraint distance"
+
+    def execute(self) -> None:
+        c = self._graph.constraints.get(self._constraint_id)
+        if c:
+            c.target_distance = self._new_distance
+
+    def undo(self) -> None:
+        c = self._graph.constraints.get(self._constraint_id)
+        if c:
+            c.target_distance = self._old_distance

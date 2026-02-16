@@ -1495,6 +1495,42 @@ Please restart the application for the change to take effect.</translation>
             <source>Measure distances between two points</source>
             <translation>Measure distances between two points</translation>
         </message>
+        <message>
+            <location filename="..\..\ui\widgets\toolbar.py" line="85" />
+            <source>Constraint (K)</source>
+            <translation>Constraint (K)</translation>
+        </message>
+        <message>
+            <location filename="..\..\ui\widgets\toolbar.py" line="86" />
+            <source>Create distance constraint between objects</source>
+            <translation>Create distance constraint between objects</translation>
+        </message>
+    </context>
+    <context>
+        <name>ConstraintTool</name>
+        <message>
+            <location filename="..\..\core\tools\constraint_tool.py" line="115" />
+            <source>Constraint</source>
+            <translation>Constraint</translation>
+        </message>
+    </context>
+    <context>
+        <name>DistanceInputDialog</name>
+        <message>
+            <location filename="..\..\core\tools\constraint_tool.py" line="53" />
+            <source>Set Constraint Distance</source>
+            <translation>Set Constraint Distance</translation>
+        </message>
+        <message>
+            <location filename="..\..\core\tools\constraint_tool.py" line="59" />
+            <source>Enter the target distance (meters):</source>
+            <translation>Enter the target distance (meters):</translation>
+        </message>
+        <message>
+            <location filename="..\..\core\tools\constraint_tool.py" line="76" />
+            <source>Current distance: {distance:.2f} m</source>
+            <translation>Current distance: {distance:.2f} m</translation>
+        </message>
     </context>
     <context>
         <name>MeasureTool</name>

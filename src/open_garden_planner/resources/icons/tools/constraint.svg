@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Two anchor points -->
+  <circle cx="5" cy="12" r="3" fill="none" stroke="#333"/>
+  <circle cx="19" cy="12" r="3" fill="none" stroke="#333"/>
+  <!-- Dimension line with arrowheads -->
+  <line x1="8" y1="12" x2="16" y2="12" stroke="#333" stroke-dasharray="2,1"/>
+  <!-- Arrowheads -->
+  <polyline points="9,10 8,12 9,14" stroke="#333" fill="none" stroke-width="1.5"/>
+  <polyline points="15,10 16,12 15,14" stroke="#333" fill="none" stroke-width="1.5"/>
+  <!-- Distance text indicator -->
+  <text x="12" y="8" text-anchor="middle" font-size="5" fill="#333" font-family="sans-serif">d</text>
+</svg>
