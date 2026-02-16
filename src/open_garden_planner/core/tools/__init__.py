@@ -2,6 +2,7 @@
 
 from .base_tool import BaseTool, ToolType
 from .circle_tool import CircleTool
+from .constraint_tool import ConstraintTool
 from .measure_tool import MeasureTool
 from .polygon_tool import PolygonTool
 from .polyline_tool import PolylineTool
@@ -12,6 +13,7 @@ from .tool_manager import ToolManager
 __all__ = [
     "BaseTool",
     "CircleTool",
+    "ConstraintTool",
     "MeasureTool",
     "PolygonTool",
     "PolylineTool",

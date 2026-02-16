@@ -165,7 +165,8 @@ src/open_garden_planner/
 │       ├── circle_tool.py        # Circle drawing
 │       ├── polyline_tool.py      # Polyline/path drawing
 │       ├── plant_tool.py         # Plant placement
-│       └── measure_tool.py       # Distance measurement
+│       ├── measure_tool.py       # Distance measurement
+│       └── constraint_tool.py    # Distance constraint creation
 ├── ui/
 │   ├── canvas/
 │   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling
@@ -243,7 +244,7 @@ tests/
 | ------ | ---- | ---------------------------------------------------- |
 | ✅     | 7.1  | Measure tool snap to object anchors                  |
 | ✅     | 7.2  | Distance constraint data model & solver              |
-|        | 7.3  | Distance constraint tool                             |
+| ✅     | 7.3  | Distance constraint tool                             |
 |        | 7.4  | Dimension line visualization                         |
 |        | 7.5  | Constraint solver drag integration                   |
 |        | 7.6  | Constraints manager panel                            |

@@ -815,8 +815,16 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         action = menu.exec(event.screenPos())
 
         if action == edit_vertices_action and edit_vertices_action is not None:
+            # Enter vertex edit mode and switch to Select tool
             self.enter_vertex_edit_mode()
             self.setFocus()
+            scene = self.scene()
+            if scene:
+                for v in scene.views():
+                    if hasattr(v, "_tool_manager"):
+                        from open_garden_planner.core.tools import ToolType
+                        v._tool_manager.set_active_tool(ToolType.SELECT)
+                        break
         elif action == exit_edit_action and exit_edit_action is not None:
             self.exit_vertex_edit_mode()
         elif action == edit_label_action:
