@@ -349,7 +349,7 @@
 | ID | User Story | Priority | Status |
 |----|------------|----------|--------|
 | US-7.1 | Measure tool snap to object anchors (centers + edges) | Must | ✅ Done |
-| US-7.2 | Distance constraint data model & solver | Must | |
+| US-7.2 | Distance constraint data model & solver | Must | ✅ Done |
 | US-7.3 | Distance constraint tool (dedicated toolbar tool) | Must | |
 | US-7.4 | Dimension line visualization (FreeCAD-style, toggleable) | Must | |
 | US-7.5 | Constraint solver drag integration (chain propagation) | Must | |

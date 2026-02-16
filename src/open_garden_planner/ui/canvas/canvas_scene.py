@@ -79,6 +79,11 @@ class CanvasScene(QGraphicsScene):
         # Command manager reference (set by CanvasView after construction)
         self._command_manager = None
 
+        # Constraint graph for distance constraints
+        from open_garden_planner.core.constraints import ConstraintGraph
+
+        self.constraint_graph = ConstraintGraph()
+
     def _update_scene_rect(self) -> None:
         """Update the scene rect with padding for panning."""
         # Add padding around canvas (50% of canvas size on each side)
