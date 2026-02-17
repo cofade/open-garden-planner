@@ -137,6 +137,11 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 
 - PyQt6 tests require `qtbot` fixture parameter in test methods even when unused (needed for Qt initialization); configure ruff per-file ignore for ARG002 in test files
 
+## Known Pitfalls
+
+- **Anchor index on same-type anchors**: When multiple anchors share the same `AnchorType` (e.g. rectangle corners are all `CORNER`, polygon vertices are all `CORNER`, polyline vertices are all `ENDPOINT`), each must have a unique `anchor_index` in `get_anchor_points()`. Without it, `DimensionLineManager._resolve_anchor_position()` falls back to type-only matching and picks the first anchor. Always pass `anchor_index=i` when creating `AnchorPoint` for same-type anchors.
+- **Dimension line updates after undo/redo**: `CommandManager.command_executed` only fires on `execute()`, NOT on `undo()`/`redo()`. Dimension line updates must also be connected to `can_undo_changed`/`can_redo_changed` signals.
+
 ## Project Structure
 
 <!-- Keep this updated when adding/removing files -->
@@ -245,8 +250,8 @@ tests/
 | ✅     | 7.1  | Measure tool snap to object anchors                  |
 | ✅     | 7.2  | Distance constraint data model & solver              |
 | ✅     | 7.3  | Distance constraint tool                             |
-|        | 7.4  | Dimension line visualization                         |
-|        | 7.5  | Constraint solver drag integration                   |
+| ✅     | 7.4  | Dimension line visualization                         |
+| ✅     | 7.5  | Constraint solver drag integration                   |
 |        | 7.6  | Constraints manager panel                            |
 |        | 7.7  | Numeric position input                               |
 |        | 7.8  | Numeric dimension input                              |

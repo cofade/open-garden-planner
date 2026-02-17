@@ -417,6 +417,126 @@ class ConstraintGraph:
             )
         return graph
 
+    def solve_anchored(
+        self,
+        item_positions: dict[UUID, tuple[float, float]],
+        anchor_offsets: dict[tuple[UUID, AnchorType, int], tuple[float, float]],
+        pinned_items: set[UUID] | None = None,
+        max_iterations: int = 10,
+        tolerance: float = 1.0,
+    ) -> SolverResult:
+        """Solve constraints using actual anchor positions for distance computation.
+
+        Unlike solve(), this method uses resolved anchor offsets relative to
+        item positions to compute accurate anchor-to-anchor distances.
+        Corrections are still applied to item positions (moving the whole item).
+
+        Args:
+            item_positions: Current item positions {item_id: (x, y)}.
+            anchor_offsets: Pre-computed anchor offsets relative to item pos().
+                Key is (item_id, anchor_type, anchor_index).
+                Value is (offset_x, offset_y) such that
+                anchor_pos = item_pos + offset.
+            pinned_items: Items that should not move.
+            max_iterations: Maximum solver iterations.
+            tolerance: Convergence tolerance in scene units (cm).
+
+        Returns:
+            SolverResult with convergence info and computed deltas.
+        """
+        if pinned_items is None:
+            pinned_items = set()
+
+        original_positions = {
+            uid: (pos[0], pos[1]) for uid, pos in item_positions.items()
+        }
+        positions = {
+            uid: [pos[0], pos[1]] for uid, pos in item_positions.items()
+        }
+        over_constrained = self.is_over_constrained(item_positions)
+
+        max_error = float("inf")
+        iterations_used = 0
+
+        for iteration in range(max_iterations):
+            max_error = 0.0
+
+            for constraint in self._constraints.values():
+                id_a = constraint.anchor_a.item_id
+                id_b = constraint.anchor_b.item_id
+
+                if id_a not in positions or id_b not in positions:
+                    continue
+
+                # Get anchor offsets for this constraint's endpoints
+                key_a = (id_a, constraint.anchor_a.anchor_type, constraint.anchor_a.anchor_index)
+                key_b = (id_b, constraint.anchor_b.anchor_type, constraint.anchor_b.anchor_index)
+
+                off_a = anchor_offsets.get(key_a, (0.0, 0.0))
+                off_b = anchor_offsets.get(key_b, (0.0, 0.0))
+
+                # Compute actual anchor positions
+                ax = positions[id_a][0] + off_a[0]
+                ay = positions[id_a][1] + off_a[1]
+                bx = positions[id_b][0] + off_b[0]
+                by = positions[id_b][1] + off_b[1]
+
+                dx = bx - ax
+                dy = by - ay
+                current_dist = math.sqrt(dx * dx + dy * dy)
+
+                error = abs(current_dist - constraint.target_distance)
+                max_error = max(max_error, error)
+
+                if current_dist < 1e-9:
+                    dx = 1.0
+                    dy = 0.0
+                    current_dist = 1.0
+
+                correction = constraint.target_distance - current_dist
+                nx = dx / current_dist
+                ny = dy / current_dist
+
+                a_pinned = id_a in pinned_items
+                b_pinned = id_b in pinned_items
+
+                if a_pinned and b_pinned:
+                    continue
+                elif a_pinned:
+                    positions[id_b][0] += correction * nx
+                    positions[id_b][1] += correction * ny
+                elif b_pinned:
+                    positions[id_a][0] -= correction * nx
+                    positions[id_a][1] -= correction * ny
+                else:
+                    half = correction / 2.0
+                    positions[id_a][0] -= half * nx
+                    positions[id_a][1] -= half * ny
+                    positions[id_b][0] += half * nx
+                    positions[id_b][1] += half * ny
+
+            iterations_used = iteration + 1
+            if max_error <= tolerance:
+                break
+
+        item_deltas: dict[UUID, tuple[float, float]] = {}
+        for uid, pos in positions.items():
+            if uid in pinned_items:
+                continue
+            orig = original_positions[uid]
+            delta_x = pos[0] - orig[0]
+            delta_y = pos[1] - orig[1]
+            if abs(delta_x) > 1e-6 or abs(delta_y) > 1e-6:
+                item_deltas[uid] = (delta_x, delta_y)
+
+        return SolverResult(
+            converged=max_error <= tolerance,
+            iterations_used=iterations_used,
+            max_error=max_error,
+            item_deltas=item_deltas,
+            over_constrained_items=over_constrained,
+        )
+
     def clear(self) -> None:
         """Remove all constraints."""
         self._constraints.clear()
