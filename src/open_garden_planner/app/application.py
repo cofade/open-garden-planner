@@ -817,6 +817,7 @@ class GardenPlannerApp(QMainWindow):
             self._project_manager.load(self.canvas_scene, recovery_path)
             self.canvas_view.command_manager.clear()
             self.canvas_view.fit_in_view()
+            self.canvas_scene.update_dimension_lines()
 
             # Mark as dirty since this is a recovery (not a normal saved project)
             self._project_manager.mark_dirty()
@@ -986,6 +987,7 @@ class GardenPlannerApp(QMainWindow):
             self.canvas_view.command_manager.clear()
             self.canvas_view.fit_in_view()
             self.layers_panel.set_layers(self.canvas_scene.layers)
+            self.canvas_scene.update_dimension_lines()
             self.statusBar().showMessage(self.tr("Opened: {path}").format(path=file_path))
         except Exception as e:
             QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=e))

@@ -25,6 +25,7 @@ from open_garden_planner.core import (
     CreateItemCommand,
     DeleteItemsCommand,
     MoveItemsCommand,
+    RemoveConstraintCommand,
 )
 from open_garden_planner.core.alignment import (
     AlignMode,
@@ -102,9 +103,18 @@ class CanvasView(QGraphicsView):
         self._command_manager.command_executed.connect(
             lambda _desc: self._canvas_scene.update_dimension_lines()
         )
+        # Also update after undo/redo (these don't emit command_executed)
+        self._command_manager.can_undo_changed.connect(
+            lambda _: self._canvas_scene.update_dimension_lines()
+        )
+        self._command_manager.can_redo_changed.connect(
+            lambda _: self._canvas_scene.update_dimension_lines()
+        )
 
         # Drag tracking for undo support
         self._drag_start_positions: dict[QGraphicsItem, QPointF] = {}
+        # Constraint-propagated items' start positions during drag
+        self._constraint_propagated_starts: dict[QGraphicsItem, QPointF] = {}
 
         # Clipboard for copy/paste
         self._clipboard: list[dict] = []
@@ -878,6 +888,9 @@ class CanvasView(QGraphicsView):
         self._apply_object_snap_during_drag()
         self._clamp_dragged_items_to_canvas()
 
+        # Propagate constraints to connected items during drag
+        self._propagate_constraints_during_drag()
+
         # Update dimension lines in real-time during drag
         if self._drag_start_positions:
             self._canvas_scene.update_dimension_lines()
@@ -967,6 +980,175 @@ class CanvasView(QGraphicsView):
 
         self._clamp_items_to_canvas(selected)
 
+    def _compute_constraint_propagation(
+        self,
+        moved_items: list[QGraphicsItem],
+        delta: QPointF,
+    ) -> list[tuple[QGraphicsItem, QPointF]]:
+        """Compute constraint propagation deltas for non-selected items.
+
+        Simulates moving the given items by delta, runs the constraint solver,
+        and returns per-item deltas for connected (non-moved) items.
+
+        Args:
+            moved_items: Items being moved by the user.
+            delta: The movement applied to moved items.
+
+        Returns:
+            List of (item, delta) tuples for constraint-propagated items.
+            Empty list if no propagation needed.
+        """
+        from open_garden_planner.core.measure_snapper import get_anchor_points
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        graph = self._canvas_scene.constraint_graph
+
+        dragged_ids: set = set()
+        for item in moved_items:
+            if isinstance(item, GardenItemMixin):
+                dragged_ids.add(item.item_id)
+
+        if not dragged_ids:
+            return []
+
+        connected_ids: set = set()
+        for did in dragged_ids:
+            connected_ids.update(graph.get_connected_component(did))
+
+        propagated_ids = connected_ids - dragged_ids
+        if not propagated_ids:
+            return []
+
+        # Build item lookup
+        item_map: dict = {}
+        for item in self.scene().items():
+            if isinstance(item, GardenItemMixin) and item.item_id in connected_ids:
+                item_map[item.item_id] = item
+
+        # Build positions (with delta applied to moved items)
+        item_positions: dict = {}
+        anchor_offsets: dict = {}
+
+        for uid, gitem in item_map.items():
+            pos = gitem.pos()
+            if uid in dragged_ids:
+                item_positions[uid] = (pos.x() + delta.x(), pos.y() + delta.y())
+            else:
+                item_positions[uid] = (pos.x(), pos.y())
+
+            anchors = get_anchor_points(gitem)
+            for anchor in anchors:
+                key = (uid, anchor.anchor_type, anchor.anchor_index)
+                anchor_offsets[key] = (
+                    anchor.point.x() - pos.x(),
+                    anchor.point.y() - pos.y(),
+                )
+
+        result = graph.solve_anchored(
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+            pinned_items=dragged_ids,
+            max_iterations=10,
+            tolerance=1.0,
+        )
+
+        propagated_deltas: list[tuple[QGraphicsItem, QPointF]] = []
+        for uid, (pdx, pdy) in result.item_deltas.items():
+            gitem = item_map.get(uid)
+            if gitem is not None:
+                propagated_deltas.append((gitem, QPointF(pdx, pdy)))
+
+        return propagated_deltas
+
+    def _propagate_constraints_during_drag(self) -> None:
+        """Run the constraint solver to propagate drag to connected items.
+
+        Called during mouseMoveEvent after the dragged items have been
+        repositioned by Qt. Pins the dragged items and moves connected
+        items to satisfy distance constraints.
+        """
+        if not self._drag_start_positions:
+            return
+
+        graph = self._canvas_scene.constraint_graph
+        if not graph.constraints:
+            return
+
+        from open_garden_planner.core.measure_snapper import get_anchor_points
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        selected = self.scene().selectedItems()
+        if not selected:
+            return
+
+        # Collect item IDs of dragged items
+        dragged_ids: set = set()
+        for item in selected:
+            if isinstance(item, GardenItemMixin):
+                dragged_ids.add(item.item_id)
+
+        if not dragged_ids:
+            return
+
+        # Find all items in connected components of dragged items
+        connected_ids: set = set()
+        for did in dragged_ids:
+            connected_ids.update(graph.get_connected_component(did))
+
+        # Remove dragged items — they are pinned
+        propagated_ids = connected_ids - dragged_ids
+        if not propagated_ids:
+            return
+
+        # Build item lookup by UUID
+        item_map: dict = {}
+        for item in self.scene().items():
+            if isinstance(item, GardenItemMixin) and item.item_id in connected_ids:
+                item_map[item.item_id] = item
+
+        # Record start positions of propagated items (only once per drag)
+        for uid in propagated_ids:
+            gitem = item_map.get(uid)
+            if gitem and gitem not in self._constraint_propagated_starts:
+                self._constraint_propagated_starts[gitem] = gitem.pos()
+
+        # First, revert propagated items to their start positions so the
+        # solver computes deltas from a clean state each frame
+        for gitem, start_pos in self._constraint_propagated_starts.items():
+            if isinstance(gitem, GardenItemMixin) and gitem.item_id in propagated_ids:
+                gitem.setPos(start_pos)
+
+        # Build item positions and anchor offsets
+        item_positions: dict = {}
+        anchor_offsets: dict = {}
+
+        for uid, gitem in item_map.items():
+            pos = gitem.pos()
+            item_positions[uid] = (pos.x(), pos.y())
+
+            anchors = get_anchor_points(gitem)
+            for anchor in anchors:
+                key = (uid, anchor.anchor_type, anchor.anchor_index)
+                anchor_offsets[key] = (
+                    anchor.point.x() - pos.x(),
+                    anchor.point.y() - pos.y(),
+                )
+
+        # Run solver with dragged items pinned
+        result = graph.solve_anchored(
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+            pinned_items=dragged_ids,
+            max_iterations=10,
+            tolerance=1.0,
+        )
+
+        # Apply deltas to propagated items
+        for uid, (dx, dy) in result.item_deltas.items():
+            gitem = item_map.get(uid)
+            if gitem is not None:
+                gitem.moveBy(dx, dy)
+
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         """Handle mouse release to stop panning and finish tool operations."""
         # Clear snap guides
@@ -992,6 +1174,7 @@ class CanvasView(QGraphicsView):
             if tool.mouse_release(event, scene_pos):
                 event.accept()
                 self._drag_start_positions.clear()
+                self._constraint_propagated_starts.clear()
                 return
 
         super().mouseReleaseEvent(event)
@@ -1095,17 +1278,39 @@ class CanvasView(QGraphicsView):
             new_distance = dialog.distance_cm()
             if abs(new_distance - constraint.target_distance) > 0.01:
                 command = EditConstraintDistanceCommand(
-                    constraint=constraint,
+                    graph=graph,
+                    constraint_id=constraint_id,
                     old_distance=constraint.target_distance,
                     new_distance=new_distance,
                 )
                 self._command_manager.execute(command)
 
     def _delete_selected_items(self) -> None:
-        """Delete all selected items from the scene with undo support."""
+        """Delete all selected items from the scene with undo support.
+
+        Also removes any distance constraints involving the deleted items.
+        """
         selected = self.scene().selectedItems()
         if not selected:
             return
+
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        # Collect constraints to remove for deleted items
+        graph = self._canvas_scene.constraint_graph
+        constraints_to_remove = []
+        for item in selected:
+            if isinstance(item, GardenItemMixin):
+                for constraint in graph.get_item_constraints(item.item_id):
+                    if constraint not in constraints_to_remove:
+                        constraints_to_remove.append(constraint)
+
+        # Remove constraints first (before items are removed from scene)
+        for constraint in constraints_to_remove:
+            cmd = RemoveConstraintCommand(graph, constraint)
+            self._command_manager.execute(cmd)
+
+        # Then delete items
         command = DeleteItemsCommand(self.scene(), selected)
         self._command_manager.execute(command)
 
@@ -1142,13 +1347,34 @@ class CanvasView(QGraphicsView):
         if delta.x() == 0 and delta.y() == 0:
             return
 
-        # Move with undo support
+        # Check for constraint propagation
+        graph = self._canvas_scene.constraint_graph
+        if graph.constraints:
+            propagated_deltas = self._compute_constraint_propagation(
+                selected, delta,
+            )
+            if propagated_deltas:
+                # Combine dragged + propagated into per-item deltas
+                all_deltas: list[tuple[QGraphicsItem, QPointF]] = [
+                    (item, delta) for item in selected
+                ]
+                all_deltas.extend(propagated_deltas)
+                command = AlignItemsCommand(all_deltas, "Move items (constrained)")
+                self._command_manager.execute(command)
+                return
+
+        # Move with undo support (no constraints)
         command = MoveItemsCommand(selected, delta)
         self._command_manager.execute(command)
 
     def _finalize_drag_move(self) -> None:
-        """Create undo command for mouse drag movement if items moved."""
+        """Create undo command for mouse drag movement if items moved.
+
+        Captures both directly dragged items and constraint-propagated items
+        in a single compound undo command with per-item deltas.
+        """
         if not self._drag_start_positions:
+            self._constraint_propagated_starts.clear()
             return
 
         # If a resize command was just pushed to the undo stack, the position
@@ -1161,30 +1387,43 @@ class CanvasView(QGraphicsView):
             last_cmd = self._command_manager._undo_stack[-1]
             if isinstance(last_cmd, ResizeItemCommand):
                 self._drag_start_positions.clear()
+                self._constraint_propagated_starts.clear()
                 return
 
-        # Find items that actually moved
-        moved_items = []
-        total_delta = QPointF(0, 0)
+        # Collect per-item deltas for both dragged and propagated items
+        item_deltas: list[tuple[QGraphicsItem, QPointF]] = []
 
         for item, start_pos in self._drag_start_positions.items():
             current_pos = item.pos()
-            if start_pos != current_pos:
-                moved_items.append(item)
-                # Calculate delta (should be same for all items in a drag)
-                total_delta = current_pos - start_pos
+            delta = current_pos - start_pos
+            if delta.x() != 0 or delta.y() != 0:
+                item_deltas.append((item, delta))
 
-        if moved_items and (total_delta.x() != 0 or total_delta.y() != 0):
-            # Move items back to start, then execute command to move them
-            # This ensures the command captures the correct state
-            for item in moved_items:
-                start_pos = self._drag_start_positions[item]
+        for item, start_pos in self._constraint_propagated_starts.items():
+            current_pos = item.pos()
+            delta = current_pos - start_pos
+            if delta.x() != 0 or delta.y() != 0:
+                item_deltas.append((item, delta))
+
+        if item_deltas:
+            # Reset all items to their start positions
+            for item, start_pos in self._drag_start_positions.items():
+                item.setPos(start_pos)
+            for item, start_pos in self._constraint_propagated_starts.items():
                 item.setPos(start_pos)
 
-            command = MoveItemsCommand(moved_items, total_delta)
+            # Use AlignItemsCommand for per-item deltas (supports undo)
+            has_propagated = len(self._constraint_propagated_starts) > 0
+            desc = "Move items (constrained)" if has_propagated else "Move item"
+            if len(item_deltas) == 1 and not has_propagated:
+                # Single item, uniform delta — use simple MoveItemsCommand
+                command = MoveItemsCommand([item_deltas[0][0]], item_deltas[0][1])
+            else:
+                command = AlignItemsCommand(item_deltas, desc)
             self._command_manager.execute(command)
 
         self._drag_start_positions.clear()
+        self._constraint_propagated_starts.clear()
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the background."""

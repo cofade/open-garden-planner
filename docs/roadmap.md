@@ -351,8 +351,8 @@
 | US-7.1 | Measure tool snap to object anchors (centers + edges) | Must | ✅ Done |
 | US-7.2 | Distance constraint data model & solver | Must | ✅ Done |
 | US-7.3 | Distance constraint tool (dedicated toolbar tool) | Must | ✅ Done |
-| US-7.4 | Dimension line visualization (FreeCAD-style, toggleable) | Must | |
-| US-7.5 | Constraint solver drag integration (chain propagation) | Must | |
+| US-7.4 | Dimension line visualization (FreeCAD-style, toggleable) | Must | ✅ Done |
+| US-7.5 | Constraint solver drag integration (chain propagation) | Must | ✅ Done |
 | US-7.6 | Constraints manager panel | Must | |
 | US-7.7 | Numeric position input (editable X, Y in properties) | Must | |
 | US-7.8 | Numeric dimension input (editable width/height/radius) | Must | |

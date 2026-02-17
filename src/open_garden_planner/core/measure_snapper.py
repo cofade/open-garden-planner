@@ -75,27 +75,40 @@ def _rect_anchors(item: QGraphicsItem) -> list[AnchorPoint]:
     assert isinstance(item, RectangleItem)
     rect = item.rect()
 
-    local_points = [
+    # Non-corner anchors (unique types, no index needed)
+    single_anchors = [
         (QPointF(rect.center().x(), rect.center().y()), AnchorType.CENTER),
         (QPointF(rect.center().x(), rect.top()), AnchorType.EDGE_TOP),
         (QPointF(rect.center().x(), rect.bottom()), AnchorType.EDGE_BOTTOM),
         (QPointF(rect.left(), rect.center().y()), AnchorType.EDGE_LEFT),
         (QPointF(rect.right(), rect.center().y()), AnchorType.EDGE_RIGHT),
-        # Corners
-        (QPointF(rect.left(), rect.top()), AnchorType.CORNER),
-        (QPointF(rect.right(), rect.top()), AnchorType.CORNER),
-        (QPointF(rect.left(), rect.bottom()), AnchorType.CORNER),
-        (QPointF(rect.right(), rect.bottom()), AnchorType.CORNER),
     ]
 
-    return [
+    anchors = [
         AnchorPoint(
             point=item.mapToScene(lp),
             anchor_type=at,
             item=item,
         )
-        for lp, at in local_points
+        for lp, at in single_anchors
     ]
+
+    # Corners need anchor_index to distinguish same-type anchors
+    corners = [
+        QPointF(rect.left(), rect.top()),      # 0: top-left
+        QPointF(rect.right(), rect.top()),     # 1: top-right
+        QPointF(rect.left(), rect.bottom()),   # 2: bottom-left
+        QPointF(rect.right(), rect.bottom()),  # 3: bottom-right
+    ]
+    for i, corner in enumerate(corners):
+        anchors.append(AnchorPoint(
+            point=item.mapToScene(corner),
+            anchor_type=AnchorType.CORNER,
+            item=item,
+            anchor_index=i,
+        ))
+
+    return anchors
 
 
 def _circle_anchors(item: QGraphicsItem) -> list[AnchorPoint]:
