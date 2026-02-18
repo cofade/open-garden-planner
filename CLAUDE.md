@@ -177,7 +177,7 @@ src/open_garden_planner/
 │   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling
 │   │   ├── canvas_scene.py       # Scene (holds objects)
 │   │   └── items/                # GardenItem, RectangleItem, PolygonItem, etc.
-│   ├── panels/                   # Sidebar panels (drawing tools, properties, layers, plants)
+│   ├── panels/                   # Sidebar panels (drawing tools, properties, layers, plants, constraints)
 │   ├── dialogs/                  # NewProjectDialog, WelcomeDialog, etc.
 │   ├── widgets/toolbar.py        # MainToolbar
 │   └── theme.py                  # Light/Dark theme system
@@ -252,7 +252,7 @@ tests/
 | ✅     | 7.3  | Distance constraint tool                             |
 | ✅     | 7.4  | Dimension line visualization                         |
 | ✅     | 7.5  | Constraint solver drag integration                   |
-|        | 7.6  | Constraints manager panel                            |
+| ✅     | 7.6  | Constraints manager panel                            |
 |        | 7.7  | Numeric position input                               |
 |        | 7.8  | Numeric dimension input                              |
 |        | 7.9  | Horizontal/Vertical alignment constraints            |
