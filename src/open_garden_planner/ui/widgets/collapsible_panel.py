@@ -146,6 +146,20 @@ class CollapsiblePanel(QWidget):
         """Collapse the panel."""
         self.set_expanded(False)
 
+    def add_header_widget(self, widget: QWidget) -> None:
+        """Add a widget to the right side of the header (e.g. an action button).
+
+        The widget is inserted before the info icon at the end of the header row.
+        Clicks on the widget do NOT toggle the panel (child widgets consume their
+        own mouse events before the QFrame's mousePressEvent fires).
+
+        Args:
+            widget: Widget to add to the header
+        """
+        layout = self._header.layout()
+        # Insert before the info label (last item)
+        layout.insertWidget(layout.count() - 1, widget)
+
     def set_info_tooltip(self, tooltip: str) -> None:
         """Set tooltip text for the info icon.
 

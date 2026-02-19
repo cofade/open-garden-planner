@@ -181,6 +181,17 @@ class CanvasScene(QGraphicsScene):
         """
         self._dimension_line_manager.set_visible(visible)
 
+    def reset_constraints(self) -> None:
+        """Clear all constraints and their dimension-line visuals.
+
+        Must be called BEFORE scene.clear() so the manager can remove its
+        graphics items while the C++ objects are still alive.
+        """
+        from open_garden_planner.core.constraints import ConstraintGraph
+
+        self._dimension_line_manager.clear()
+        self.constraint_graph = ConstraintGraph()
+
     def update_dimension_lines(self) -> None:
         """Rebuild all dimension line visuals from the constraint graph."""
         self._dimension_line_manager.update_all()

@@ -46,11 +46,11 @@ Releases are **fully automated** via `.github/workflows/release.yml`. To trigger
 
 ## Where to Pick Up After Restart
 
-1. **Check current progress** in the Phase 6 table below
+1. **Check current progress** in the Phase 7 table below
 2. **Read the roadmap**: `docs/roadmap.md` has full user stories and acceptance criteria
 3. **Read architecture docs**: `docs/` contains arc42 documentation (see Documentation section below)
 4. **Check git status**: See recent git history, which branch you're on and any uncommitted changes
-5. **Pick the next unchecked US** from the Phase 6 progress table below
+5. **Pick the next unchecked US** from the Phase 7 progress table below
 
 ## Documentation (arc42)
 
@@ -72,6 +72,41 @@ All project documentation is in the `docs/` directory:
 | `docs/12-glossary/`                 | Terms, keyboard shortcuts, references                |
 | `docs/functional-requirements.md`   | All FR-\* requirements                               |
 | `docs/roadmap.md`                   | **Phases, user stories, acceptance criteria**        |
+
+## Translation (i18n) Requirements
+
+**Always use `self.tr("string")` for every user-visible string in any `QWidget` subclass.**
+
+### How to add translations when creating/modifying a widget
+
+1. **In code**: wrap every UI string with `self.tr("English text")`. The class name is the translation context automatically.
+
+2. **Update both `.ts` files** — add a `<context>` block (or extend an existing one) to:
+   - `src/open_garden_planner/resources/translations/open_garden_planner_de.ts`
+   - `src/open_garden_planner/resources/translations/open_garden_planner_en.ts`
+
+   Format (note: German file uses `<name>` with no extra indent, English file uses 4-space indent):
+   ```xml
+   <context>
+       <name>MyWidget</name>
+       <message>
+           <source>English text</source>
+           <translation>Translated text</translation>
+       </message>
+   </context>
+   ```
+
+3. **Recompile `.qm` files** after every `.ts` change:
+   ```bash
+   venv/Lib/site-packages/qt6_applications/Qt/bin/lrelease.exe \
+     src/open_garden_planner/resources/translations/open_garden_planner_de.ts \
+     src/open_garden_planner/resources/translations/open_garden_planner_en.ts
+   ```
+
+### Rules
+- Strings passed to `CollapsiblePanel(title, ...)` must use `self.tr("title")` at the **call site** (e.g. in `application.py`), because `CollapsiblePanel` is generic and has no context for the title string.
+- `QT_TR_NOOP("string")` marks strings for extraction without translating them at that point (used in module-level dicts). Translate them later with `QCoreApplication.translate("ContextClass", string)`.
+- Non-`QObject` contexts (e.g. module-level code) use `QCoreApplication.translate("ContextName", "string")`.
 
 ## Tech Stack
 
@@ -149,7 +184,9 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 ```
 src/open_garden_planner/
 ├── __main__.py, main.py          # Entry points
-├── app/application.py            # Main window (GardenPlannerApp)
+├── app/
+│   ├── application.py            # Main window (GardenPlannerApp)
+│   └── settings.py               # App-level settings/preferences
 ├── core/
 │   ├── commands.py               # Undo/redo command pattern
 │   ├── project.py                # Save/load, ProjectManager
@@ -157,8 +194,11 @@ src/open_garden_planner/
 │   ├── fill_patterns.py          # Texture/pattern rendering
 │   ├── plant_renderer.py         # Plant SVG loading, caching, rendering
 │   ├── furniture_renderer.py     # Furniture/hedge SVG rendering & caching
-│   ├── constraints.py              # Distance constraint model & solver
-│   ├── measure_snapper.py         # Anchor-point snapper for measure tool
+│   ├── constraints.py            # Distance constraint model & solver
+│   ├── measure_snapper.py        # Anchor-point snapper for measure tool
+│   ├── measurements.py           # Measurement data model
+│   ├── snapping.py               # Object snapping logic
+│   ├── alignment.py              # Object alignment helpers
 │   ├── i18n.py                   # Internationalization, translator loading
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
 │   └── tools/                    # Drawing tools
@@ -169,26 +209,62 @@ src/open_garden_planner/
 │       ├── polygon_tool.py       # Polygon drawing
 │       ├── circle_tool.py        # Circle drawing
 │       ├── polyline_tool.py      # Polyline/path drawing
-│       ├── plant_tool.py         # Plant placement
 │       ├── measure_tool.py       # Distance measurement
 │       └── constraint_tool.py    # Distance constraint creation
+├── models/
+│   ├── plant_data.py             # Plant data model
+│   └── layer.py                  # Layer model
 ├── ui/
 │   ├── canvas/
 │   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling
 │   │   ├── canvas_scene.py       # Scene (holds objects)
-│   │   └── items/                # GardenItem, RectangleItem, PolygonItem, etc.
-│   ├── panels/                   # Sidebar panels (drawing tools, properties, layers, plants)
-│   ├── dialogs/                  # NewProjectDialog, WelcomeDialog, etc.
-│   ├── widgets/toolbar.py        # MainToolbar
+│   │   ├── dimension_lines.py    # Dimension line rendering & management
+│   │   └── items/                # Canvas item types
+│   │       ├── garden_item.py    # GardenItem base class
+│   │       ├── rectangle_item.py
+│   │       ├── polygon_item.py
+│   │       ├── circle_item.py
+│   │       ├── polyline_item.py
+│   │       ├── background_image_item.py
+│   │       └── resize_handle.py
+│   ├── panels/
+│   │   ├── drawing_tools_panel.py
+│   │   ├── properties_panel.py
+│   │   ├── layers_panel.py
+│   │   ├── gallery_panel.py      # Thumbnail gallery sidebar
+│   │   ├── plant_database_panel.py
+│   │   └── plant_search_panel.py
+│   ├── dialogs/
+│   │   ├── new_project_dialog.py
+│   │   ├── welcome_dialog.py
+│   │   ├── calibration_dialog.py
+│   │   ├── custom_plants_dialog.py
+│   │   ├── export_dialog.py
+│   │   ├── preferences_dialog.py
+│   │   ├── print_dialog.py
+│   │   ├── shortcuts_dialog.py
+│   │   ├── plant_search_dialog.py
+│   │   └── properties_dialog.py
+│   ├── widgets/
+│   │   ├── toolbar.py            # MainToolbar
+│   │   └── collapsible_panel.py
 │   └── theme.py                  # Light/Dark theme system
 ├── services/
-│   └── plant_api.py              # Trefle.io/Perenual/Permapeople integration
+│   ├── plant_api/                # Trefle.io/Perenual/Permapeople integration
+│   │   ├── base.py
+│   │   ├── manager.py
+│   │   ├── perenual_client.py
+│   │   ├── permapeople_client.py
+│   │   └── trefle_client.py
+│   ├── plant_library.py          # Local plant library management
+│   ├── export_service.py         # PDF/image export
+│   └── autosave_service.py       # Autosave logic
 └── resources/
     ├── icons/                    # App icons, banner, tool SVGs
-    ├── textures/                 # Tileable PNG textures (Phase 6)
-    ├── plants/                   # Plant SVG illustrations (Phase 6)
+    ├── textures/                 # Tileable PNG textures
+    ├── plants/                   # Plant SVG illustrations
     ├── translations/             # .ts source & .qm compiled translations
-    └── objects/                  # Object SVG illustrations (Phase 6)
+    └── objects/                  # Object SVG illustrations
         ├── furniture/            # Outdoor furniture SVGs
         └── infrastructure/       # Garden infrastructure SVGs
 
@@ -221,27 +297,7 @@ tests/
 └── ui/                           # UI tests (pytest-qt)
 ```
 
-## Phases 1-5 + Backlog Complete!
-
-## Progress (Phase 6: Visual Polish & Public Release v1.0)
-
-| Status | US   | Description                                       |
-| ------ | ---- | ------------------------------------------------- |
-| ✅     | 6.1  | Rich tileable PNG textures for all materials      |
-| ✅     | 6.2  | Illustrated SVG plant rendering (hybrid approach) |
-| ✅     | 6.3  | Drop shadows on all objects (toggleable)          |
-| ✅     | 6.4  | Visual scale bar on canvas                        |
-| ✅     | 6.5  | Visual thumbnail gallery sidebar                  |
-| ✅     | 6.6  | Toggleable object labels on canvas                |
-| ✅     | 6.7  | Branded green theme (light/dark)                  |
-| ✅     | 6.8  | Outdoor furniture objects                         |
-| ✅     | 6.9  | Garden infrastructure objects                     |
-| ✅     | 6.10 | Object snapping & alignment tools                 |
-| ✅     | 6.11 | Fullscreen preview mode (F11)                     |
-| ✅     | 6.12 | Internationalization (EN + DE, Qt Linguist)       |
-| ✅     | 6.13 | Print support with scaling                        |
-| ✅     | 6.14 | Windows installer (NSIS) + .ogp file association  |
-| ✅     | 6.15 | Path & fence style presets                        |
+## Phases 1-6 + Backlog Complete!
 
 ## Progress (Phase 7: CAD Precision & Constraints v1.1)
 
@@ -252,7 +308,7 @@ tests/
 | ✅     | 7.3  | Distance constraint tool                             |
 | ✅     | 7.4  | Dimension line visualization                         |
 | ✅     | 7.5  | Constraint solver drag integration                   |
-|        | 7.6  | Constraints manager panel                            |
+| ✅     | 7.6  | Constraints manager panel                            |
 |        | 7.7  | Numeric position input                               |
 |        | 7.8  | Numeric dimension input                              |
 |        | 7.9  | Horizontal/Vertical alignment constraints            |

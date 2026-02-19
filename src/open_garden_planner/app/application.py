@@ -29,6 +29,7 @@ from open_garden_planner.services.export_service import ExportService
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.panels import (
+    ConstraintsPanel,
     GalleryPanel,
     LayersPanel,
     PlantDatabasePanel,
@@ -605,6 +606,11 @@ class GardenPlannerApp(QMainWindow):
         # Mark project dirty when commands are executed
         cmd_mgr.command_executed.connect(lambda _: self._project_manager.mark_dirty())
 
+        # Refresh constraints panel after any command (add/remove/edit/undo/redo)
+        cmd_mgr.command_executed.connect(lambda _: self.constraints_panel.refresh())
+        cmd_mgr.can_undo_changed.connect(lambda _: self.constraints_panel.refresh())
+        cmd_mgr.can_redo_changed.connect(lambda _: self.constraints_panel.refresh())
+
         # Set splitter as central widget
         self.setCentralWidget(splitter)
 
@@ -665,7 +671,33 @@ class GardenPlannerApp(QMainWindow):
         layers_panel = CollapsiblePanel(self.tr("Layers"), self.layers_panel, expanded=True)
         sidebar_layout.addWidget(layers_panel)
 
-        # 4. Plant Search Panel (collapsible) - for finding plants in the project
+        # 4. Constraints Panel (collapsible) - manage distance constraints
+        self.constraints_panel = ConstraintsPanel()
+        self.constraints_panel.set_scene(self.canvas_scene)
+        self.constraints_panel.constraint_selected.connect(
+            self._on_constraint_selected
+        )
+        self.constraints_panel.constraint_edit_requested.connect(
+            self._on_constraint_edit_requested
+        )
+        self.constraints_panel.constraint_delete_requested.connect(
+            self._on_constraint_delete_requested
+        )
+        constraints_collapsible = CollapsiblePanel(
+            self.tr("Constraints"), self.constraints_panel, expanded=False
+        )
+        # Delete-all button lives in the header, aligned with individual row × buttons
+        from PyQt6.QtWidgets import QToolButton
+        delete_all_btn = QToolButton()
+        delete_all_btn.setText("\u00d7")
+        delete_all_btn.setFixedSize(20, 20)
+        delete_all_btn.setToolTip(self.tr("Delete all constraints"))
+        delete_all_btn.setStyleSheet("QToolButton { color: #cc3333; font-weight: bold; }")
+        delete_all_btn.clicked.connect(self.constraints_panel.delete_all)
+        constraints_collapsible.add_header_widget(delete_all_btn)
+        sidebar_layout.addWidget(constraints_collapsible)
+
+        # 5. Plant Search Panel (collapsible) - for finding plants in the project
         self.plant_search_panel = PlantSearchPanel()
         self.plant_search_panel.set_canvas_scene(self.canvas_scene)
 
@@ -675,7 +707,7 @@ class GardenPlannerApp(QMainWindow):
         plant_search_collapsible = CollapsiblePanel(self.tr("Find Plants"), self.plant_search_panel, expanded=False)
         sidebar_layout.addWidget(plant_search_collapsible)
 
-        # 5. Plant Details Panel (collapsible) - only shown when a plant is selected
+        # 6. Plant Details Panel (collapsible) - only shown when a plant is selected
         self.plant_database_panel = PlantDatabasePanel()
         self.plant_database_panel.search_button.clicked.connect(self._on_search_plant_database)
         self.plant_details_collapsible = CollapsiblePanel(self.tr("Plant Details"), self.plant_database_panel, expanded=True)
@@ -818,6 +850,7 @@ class GardenPlannerApp(QMainWindow):
             self.canvas_view.command_manager.clear()
             self.canvas_view.fit_in_view()
             self.canvas_scene.update_dimension_lines()
+            self.constraints_panel.refresh()
 
             # Mark as dirty since this is a recovery (not a normal saved project)
             self._project_manager.mark_dirty()
@@ -899,6 +932,10 @@ class GardenPlannerApp(QMainWindow):
             width_cm = dialog.width_cm
             height_cm = dialog.height_cm
 
+            # Reset constraints and dimension lines BEFORE scene.clear() to
+            # avoid RuntimeError from accessing deleted C++ graphics objects
+            self.canvas_scene.reset_constraints()
+
             # Clear existing objects from scene
             self.canvas_scene.clear()
 
@@ -915,6 +952,7 @@ class GardenPlannerApp(QMainWindow):
 
             # Clear undo history and reset project state
             self.canvas_view.command_manager.clear()
+            self.constraints_panel.refresh()
             self._project_manager.new_project()
 
             # Clear any existing auto-save
@@ -988,6 +1026,7 @@ class GardenPlannerApp(QMainWindow):
             self.canvas_view.fit_in_view()
             self.layers_panel.set_layers(self.canvas_scene.layers)
             self.canvas_scene.update_dimension_lines()
+            self.constraints_panel.refresh()
             self.statusBar().showMessage(self.tr("Opened: {path}").format(path=file_path))
         except Exception as e:
             QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=e))
@@ -1420,6 +1459,65 @@ class GardenPlannerApp(QMainWindow):
 
         self.canvas_view.set_constraints_visible(checked)
         get_settings().show_constraints = checked
+
+    # -- Constraints panel handlers --
+
+    def _on_constraint_selected(self, constraint_id: object) -> None:
+        """Handle constraint selected in constraints panel.
+
+        Selects both objects involved in the constraint on the canvas.
+
+        Args:
+            constraint_id: UUID of the selected constraint
+        """
+        from uuid import UUID
+
+        from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
+
+        cid = constraint_id if isinstance(constraint_id, UUID) else UUID(str(constraint_id))
+        graph = self.canvas_scene.constraint_graph
+        constraint = graph.constraints.get(cid)
+        if constraint is None:
+            return
+
+        # Clear current selection and select both constrained objects
+        self.canvas_scene.clearSelection()
+        target_ids = {constraint.anchor_a.item_id, constraint.anchor_b.item_id}
+        for item in self.canvas_scene.items():
+            if isinstance(item, GardenItemMixin) and item.item_id in target_ids:
+                item.setSelected(True)
+
+    def _on_constraint_edit_requested(self, constraint_id: object) -> None:
+        """Handle constraint double-click for distance editing.
+
+        Args:
+            constraint_id: UUID of the constraint to edit
+        """
+        from uuid import UUID
+
+        cid = constraint_id if isinstance(constraint_id, UUID) else UUID(str(constraint_id))
+        self.canvas_view._edit_constraint_distance(cid)
+        self.constraints_panel.refresh()
+
+    def _on_constraint_delete_requested(self, constraint_id: object) -> None:
+        """Handle constraint delete from constraints panel.
+
+        Args:
+            constraint_id: UUID of the constraint to delete
+        """
+        from uuid import UUID
+
+        from open_garden_planner.core.commands import RemoveConstraintCommand
+
+        cid = constraint_id if isinstance(constraint_id, UUID) else UUID(str(constraint_id))
+        graph = self.canvas_scene.constraint_graph
+        constraint = graph.constraints.get(cid)
+        if constraint is None:
+            return
+
+        cmd = RemoveConstraintCommand(graph, constraint)
+        self.canvas_view.command_manager.execute(cmd)
+        self.canvas_scene.update_dimension_lines()
 
     def _init_object_snap_from_settings(self) -> None:
         """Initialize object snap state from persisted settings."""
