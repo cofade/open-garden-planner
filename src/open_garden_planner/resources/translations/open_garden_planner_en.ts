@@ -2697,4 +2697,47 @@ not yet implemented</translation>
             <translation>Error testing {api}: {error}</translation>
         </message>
     </context>
+    <context>
+        <name>ConstraintListItem</name>
+        <message>
+            <source>Satisfied</source>
+            <translation>Satisfied</translation>
+        </message>
+        <message>
+            <source>Violated</source>
+            <translation>Violated</translation>
+        </message>
+        <message>
+            <source>{a} ↔ {b}: {d:.2f} m</source>
+            <translation>{a} ↔ {b}: {d:.2f} m</translation>
+        </message>
+        <message>
+            <source>Delete constraint</source>
+            <translation>Delete constraint</translation>
+        </message>
+    </context>
+    <context>
+        <name>ConstraintsPanel</name>
+        <message>
+            <source>No constraints yet.
+Use the Constraint tool (K) to add one.</source>
+            <translation>No constraints yet.
+Use the Constraint tool (K) to add one.</translation>
+        </message>
+        <message>
+            <source>Object</source>
+            <translation>Object</translation>
+        </message>
+    </context>
+    <context>
+        <name>GardenPlannerApp</name>
+        <message>
+            <source>Constraints</source>
+            <translation>Constraints</translation>
+        </message>
+        <message>
+            <source>Delete all constraints</source>
+            <translation>Delete all constraints</translation>
+        </message>
+    </context>
 </TS>

@@ -519,6 +519,21 @@ class CanvasView(QGraphicsView):
         """Trigger a rebuild of all constraint dimension lines."""
         self._canvas_scene.update_dimension_lines()
 
+    def apply_constraint_solver(self) -> None:
+        """Run the constraint solver and move items to satisfy all constraints.
+
+        Call this after adding a new constraint (or changing target distances)
+        so objects immediately snap to the required positions.  The resulting
+        item moves are NOT recorded on the undo stack; they are folded into
+        the subsequent drag or treated as the "initial state" for the newly
+        created constraint.
+        """
+        moves = self._compute_constraint_solve_moves()
+        for item, _old, new in moves:
+            item.setPos(new)
+        if moves:
+            self._canvas_scene.update_dimension_lines()
+
     # Coordinate conversion
 
     def scene_to_canvas(self, scene_point: QPointF) -> QPointF:
@@ -1262,6 +1277,11 @@ class CanvasView(QGraphicsView):
     def _edit_constraint_distance(self, constraint_id) -> None:
         """Open dialog to edit a constraint's target distance.
 
+        After the user confirms a new distance, the constraint solver is run
+        immediately so objects move to satisfy the new value.  Both the
+        distance change and the resulting item moves are bundled into a single
+        undo step.
+
         Args:
             constraint_id: UUID of the constraint to edit
         """
@@ -1277,13 +1297,78 @@ class CanvasView(QGraphicsView):
         if dialog.exec():
             new_distance = dialog.distance_cm()
             if abs(new_distance - constraint.target_distance) > 0.01:
+                old_distance = constraint.target_distance
+
+                # Temporarily apply new distance so solver can compute moves
+                constraint.target_distance = new_distance
+                item_moves = self._compute_constraint_solve_moves()
+                constraint.target_distance = old_distance  # command will set it
+
                 command = EditConstraintDistanceCommand(
                     graph=graph,
                     constraint_id=constraint_id,
-                    old_distance=constraint.target_distance,
+                    old_distance=old_distance,
                     new_distance=new_distance,
+                    item_moves=item_moves,
                 )
                 self._command_manager.execute(command)
+
+    def _compute_constraint_solve_moves(
+        self,
+    ) -> "list[tuple[QGraphicsItem, QPointF, QPointF]]":
+        """Run the constraint solver (all items free) and return position changes.
+
+        Should be called while the constraint graph already has the desired
+        target distances set.  Returns a list of (item, old_pos, new_pos) for
+        every item that would move by more than 0.01 cm.
+        """
+        from open_garden_planner.core.measure_snapper import get_anchor_points
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        graph = self._canvas_scene.constraint_graph
+        if not graph.constraints:
+            return []
+
+        constrained_ids: set = set()
+        for c in graph.constraints.values():
+            constrained_ids.add(c.anchor_a.item_id)
+            constrained_ids.add(c.anchor_b.item_id)
+
+        item_map: dict = {}
+        item_positions: dict = {}
+        anchor_offsets: dict = {}
+
+        for item in self.scene().items():
+            if isinstance(item, GardenItemMixin) and item.item_id in constrained_ids:
+                uid = item.item_id
+                item_map[uid] = item
+                pos = item.pos()
+                item_positions[uid] = (pos.x(), pos.y())
+                for anchor in get_anchor_points(item):
+                    key = (uid, anchor.anchor_type, anchor.anchor_index)
+                    anchor_offsets[key] = (
+                        anchor.point.x() - pos.x(),
+                        anchor.point.y() - pos.y(),
+                    )
+
+        if not item_positions:
+            return []
+
+        result = graph.solve_anchored(
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+            pinned_items=set(),
+            max_iterations=10,
+            tolerance=1.0,
+        )
+
+        moves: list = []
+        for uid, (pdx, pdy) in result.item_deltas.items():
+            gitem = item_map.get(uid)
+            if gitem is not None and (abs(pdx) > 0.01 or abs(pdy) > 0.01):
+                old_pos = gitem.pos()
+                moves.append((gitem, old_pos, QPointF(old_pos.x() + pdx, old_pos.y() + pdy)))
+        return moves
 
     def _delete_selected_items(self) -> None:
         """Delete all selected items from the scene with undo support.

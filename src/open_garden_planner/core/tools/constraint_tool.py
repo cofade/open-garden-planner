@@ -342,6 +342,9 @@ class ConstraintTool(BaseTool):
         )
         self._view.command_manager.execute(command)
 
+        # Move items immediately if target_distance differs from current distance
+        self._view.apply_constraint_solver()
+
     def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
         # Show anchor indicators on hovered objects
         self._show_anchor_indicators(scene_pos)

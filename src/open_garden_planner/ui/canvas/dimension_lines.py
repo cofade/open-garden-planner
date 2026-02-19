@@ -48,8 +48,11 @@ class DimensionLineGroup:
     def remove_from_scene(self, scene: QGraphicsScene) -> None:
         """Remove all graphics items from the scene."""
         for item in self.items:
-            if item.scene() is scene:
-                scene.removeItem(item)
+            try:
+                if item.scene() is scene:
+                    scene.removeItem(item)
+            except RuntimeError:
+                pass  # C++ object already deleted (e.g. after scene.clear())
         self.items.clear()
 
 

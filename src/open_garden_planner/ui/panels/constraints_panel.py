@@ -6,13 +6,12 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from PyQt6.QtCore import QLineF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QColor, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
-    QPushButton,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -25,11 +24,10 @@ if TYPE_CHECKING:
 # Colors matching dimension_lines.py
 _COLOR_SATISFIED = QColor(0, 120, 200)
 _COLOR_VIOLATED = QColor(220, 40, 40)
-_COLOR_OVER_CONSTRAINED = QColor(200, 120, 0)
 
 
-def _make_status_icon(color: QColor, size: int = 16) -> QIcon:
-    """Create a small circle icon in the given color."""
+def _make_status_icon(color: QColor, size: int = 14) -> QPixmap:
+    """Create a small circle pixmap in the given color."""
     pixmap = QPixmap(size, size)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
@@ -38,7 +36,7 @@ def _make_status_icon(color: QColor, size: int = 16) -> QIcon:
     painter.setBrush(color)
     painter.drawEllipse(2, 2, size - 4, size - 4)
     painter.end()
-    return QIcon(pixmap)
+    return pixmap
 
 
 class ConstraintListItem(QWidget):
@@ -70,29 +68,28 @@ class ConstraintListItem(QWidget):
         layout.setContentsMargins(4, 2, 4, 2)
         layout.setSpacing(6)
 
-        # Status icon
+        # Status icon — use QLabel with pixmap (QToolButton.setEnabled(False) grays out the icon)
         color = _COLOR_SATISFIED if satisfied else _COLOR_VIOLATED
-        icon = _make_status_icon(color)
-        self._status_btn = QToolButton()
-        self._status_btn.setIcon(icon)
-        self._status_btn.setIconSize(QSize(14, 14))
-        self._status_btn.setFixedSize(20, 20)
-        self._status_btn.setEnabled(False)
-        self._status_btn.setToolTip(
+        pixmap = _make_status_icon(color)
+        status_label = QLabel()
+        status_label.setPixmap(pixmap)
+        status_label.setFixedSize(QSize(20, 20))
+        status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        status_label.setToolTip(
             self.tr("Satisfied") if satisfied else self.tr("Violated")
         )
-        layout.addWidget(self._status_btn)
+        layout.addWidget(status_label)
 
         # Object names and distance label
         dist_m = target_distance / 100.0
         text = f"{label_a}  \u2194  {label_b}   {dist_m:.2f} m"
-        self._label = QLabel(text)
-        self._label.setToolTip(
+        label = QLabel(text)
+        label.setToolTip(
             self.tr("{a} \u2194 {b}: {d:.2f} m").format(
                 a=label_a, b=label_b, d=dist_m
             )
         )
-        layout.addWidget(self._label, 1)
+        layout.addWidget(label, 1)
 
         # Delete button
         delete_btn = QToolButton()
@@ -145,14 +142,8 @@ class ConstraintsPanel(QWidget):
         )
         self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._empty_label.setWordWrap(True)
-        self._empty_label.setStyleSheet("color: palette(mid); padding: 12px;")
+        self._empty_label.setStyleSheet("QLabel { padding: 12px; font-style: italic; }")
         layout.addWidget(self._empty_label)
-
-        # Delete all button
-        self._delete_all_btn = QPushButton(self.tr("Delete All"))
-        self._delete_all_btn.setToolTip(self.tr("Remove all constraints"))
-        self._delete_all_btn.clicked.connect(self._on_delete_all)
-        layout.addWidget(self._delete_all_btn)
 
         layout.addStretch()
 
@@ -206,6 +197,18 @@ class ConstraintsPanel(QWidget):
         # Adjust height: show up to 6 rows then scroll
         self._adjust_list_height()
 
+    def delete_all(self) -> None:
+        """Delete all constraints (called from header button)."""
+        # Collect all IDs first — emitting signals mid-loop causes refresh()
+        # to clear the list, breaking iteration
+        ids = [
+            UUID(self._list.item(i).data(Qt.ItemDataRole.UserRole))
+            for i in range(self._list.count())
+            if self._list.item(i) and self._list.item(i).data(Qt.ItemDataRole.UserRole)
+        ]
+        for cid in ids:
+            self.constraint_delete_requested.emit(cid)
+
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
@@ -214,23 +217,45 @@ class ConstraintsPanel(QWidget):
         """Toggle between empty state and list."""
         self._empty_label.setVisible(empty)
         self._list.setVisible(not empty)
-        self._delete_all_btn.setVisible(not empty)
 
     def _build_item_labels(self) -> dict[UUID, str]:
-        """Build a mapping from item UUID to display label."""
+        """Build a mapping from item UUID to a unique display label."""
         from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
 
-        labels: dict[UUID, str] = {}
+        raw: dict[UUID, str] = {}
         if self._scene is None:
-            return labels
+            return raw
 
         for item in self._scene.items():
             if isinstance(item, GardenItemMixin):
                 name = getattr(item, "name", "") or ""
+                if name:
+                    raw[item.item_id] = name
+                    continue
                 obj_type = getattr(item, "object_type", None)
-                type_name = obj_type.value if obj_type else ""
-                label = name if name else type_name if type_name else self.tr("Object")
-                labels[item.item_id] = label
+                if obj_type is not None:
+                    # Use the enum member name, formatted for readability.
+                    # Strip "GENERIC_" prefix and title-case (e.g. GENERIC_RECTANGLE → Rectangle)
+                    type_name = obj_type.name.replace("_", " ").title()
+                    type_name = type_name.removeprefix("Generic ")
+                    raw[item.item_id] = type_name
+                else:
+                    raw[item.item_id] = self.tr("Object")
+
+        # Append counters to disambiguate items with the same label
+        label_count: dict[str, int] = {}
+        for label in raw.values():
+            label_count[label] = label_count.get(label, 0) + 1
+
+        occurrence: dict[str, int] = {}
+        labels: dict[UUID, str] = {}
+        for item_id, label in raw.items():
+            if label_count[label] > 1:
+                occurrence[label] = occurrence.get(label, 0) + 1
+                labels[item_id] = f"{label} {occurrence[label]}"
+            else:
+                labels[item_id] = label
+
         return labels
 
     def _is_satisfied(self, constraint: Constraint) -> bool:
@@ -287,11 +312,3 @@ class ConstraintsPanel(QWidget):
         cid_str = item.data(Qt.ItemDataRole.UserRole)
         if cid_str:
             self.constraint_edit_requested.emit(UUID(cid_str))
-
-    def _on_delete_all(self) -> None:
-        """Handle Delete All button — emit delete for every constraint."""
-        for i in range(self._list.count()):
-            item = self._list.item(i)
-            cid_str = item.data(Qt.ItemDataRole.UserRole) if item else None
-            if cid_str:
-                self.constraint_delete_requested.emit(UUID(cid_str))

@@ -686,6 +686,15 @@ class GardenPlannerApp(QMainWindow):
         constraints_collapsible = CollapsiblePanel(
             self.tr("Constraints"), self.constraints_panel, expanded=False
         )
+        # Delete-all button lives in the header, aligned with individual row × buttons
+        from PyQt6.QtWidgets import QToolButton
+        delete_all_btn = QToolButton()
+        delete_all_btn.setText("\u00d7")
+        delete_all_btn.setFixedSize(20, 20)
+        delete_all_btn.setToolTip(self.tr("Delete all constraints"))
+        delete_all_btn.setStyleSheet("QToolButton { color: #cc3333; font-weight: bold; }")
+        delete_all_btn.clicked.connect(self.constraints_panel.delete_all)
+        constraints_collapsible.add_header_widget(delete_all_btn)
         sidebar_layout.addWidget(constraints_collapsible)
 
         # 5. Plant Search Panel (collapsible) - for finding plants in the project
@@ -922,6 +931,10 @@ class GardenPlannerApp(QMainWindow):
             # User clicked OK - create new project with specified dimensions
             width_cm = dialog.width_cm
             height_cm = dialog.height_cm
+
+            # Reset constraints and dimension lines BEFORE scene.clear() to
+            # avoid RuntimeError from accessing deleted C++ graphics objects
+            self.canvas_scene.reset_constraints()
 
             # Clear existing objects from scene
             self.canvas_scene.clear()

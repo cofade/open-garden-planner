@@ -3239,4 +3239,44 @@ noch nicht implementiert</translation>
         <source>Error testing {api}: {error}</source>
         <translation>Fehler beim Testen von {api}: {error}</translation>
     </message>
+</context><context>
+    <name>ConstraintListItem</name>
+    <message>
+        <source>Satisfied</source>
+        <translation>Erfüllt</translation>
+    </message>
+    <message>
+        <source>Violated</source>
+        <translation>Verletzt</translation>
+    </message>
+    <message>
+        <source>{a} ↔ {b}: {d:.2f} m</source>
+        <translation>{a} ↔ {b}: {d:.2f} m</translation>
+    </message>
+    <message>
+        <source>Delete constraint</source>
+        <translation>Randbedingung löschen</translation>
+    </message>
+</context><context>
+    <name>ConstraintsPanel</name>
+    <message>
+        <source>No constraints yet.
+Use the Constraint tool (K) to add one.</source>
+        <translation>Noch keine Randbedingungen.
+Verwenden Sie das Randbedingungen-Werkzeug (K), um eine hinzuzufügen.</translation>
+    </message>
+    <message>
+        <source>Object</source>
+        <translation>Objekt</translation>
+    </message>
+</context><context>
+    <name>GardenPlannerApp</name>
+    <message>
+        <source>Constraints</source>
+        <translation>Randbedingungen</translation>
+    </message>
+    <message>
+        <source>Delete all constraints</source>
+        <translation>Alle Randbedingungen löschen</translation>
+    </message>
 </context></TS>

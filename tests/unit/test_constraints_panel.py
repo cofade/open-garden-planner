@@ -270,7 +270,7 @@ class TestConstraintsPanel:
         received = []
         panel.constraint_delete_requested.connect(lambda cid: received.append(cid))
 
-        panel._on_delete_all()
+        panel.delete_all()
 
         assert len(received) == 2
         assert {c1.constraint_id, c2.constraint_id} == set(received)

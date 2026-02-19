@@ -623,7 +623,12 @@ class RemoveConstraintCommand(Command):
 
 
 class EditConstraintDistanceCommand(Command):
-    """Command for editing a constraint's target distance."""
+    """Command for editing a constraint's target distance.
+
+    Optionally includes item position changes computed by running the solver
+    after the distance change, so that objects immediately snap to satisfy the
+    new constraint (bundled into one undo step).
+    """
 
     def __init__(
         self,
@@ -631,11 +636,23 @@ class EditConstraintDistanceCommand(Command):
         constraint_id: UUID,
         old_distance: float,
         new_distance: float,
+        item_moves: "list[tuple[QGraphicsItem, QPointF, QPointF]] | None" = None,
     ) -> None:
+        """Initialize the command.
+
+        Args:
+            graph: The constraint graph.
+            constraint_id: UUID of the constraint to edit.
+            old_distance: Previous target distance.
+            new_distance: New target distance.
+            item_moves: Optional list of (item, old_pos, new_pos) for any
+                items that need to move to satisfy the new distance.
+        """
         self._graph = graph
         self._constraint_id = constraint_id
         self._old_distance = old_distance
         self._new_distance = new_distance
+        self._item_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = item_moves or []
 
     @property
     def description(self) -> str:
@@ -645,8 +662,12 @@ class EditConstraintDistanceCommand(Command):
         c = self._graph.constraints.get(self._constraint_id)
         if c:
             c.target_distance = self._new_distance
+        for item, _old, new in self._item_moves:
+            item.setPos(new)
 
     def undo(self) -> None:
         c = self._graph.constraints.get(self._constraint_id)
         if c:
             c.target_distance = self._old_distance
+        for item, old, _new in self._item_moves:
+            item.setPos(old)

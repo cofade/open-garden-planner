@@ -252,6 +252,7 @@ class ProjectManager(QObject):
             rect = item.rect()
             data = {
                 "type": "rectangle",
+                "item_id": str(item.item_id),
                 "x": item.pos().x() + rect.x(),
                 "y": item.pos().y() + rect.y(),
                 "width": rect.width(),
@@ -290,6 +291,7 @@ class ProjectManager(QObject):
         elif isinstance(item, CircleItem):
             data = {
                 "type": "circle",
+                "item_id": str(item.item_id),
                 "center_x": item.pos().x() + item.center.x(),
                 "center_y": item.pos().y() + item.center.y(),
                 "radius": item.radius,
@@ -332,6 +334,7 @@ class ProjectManager(QObject):
         elif isinstance(item, PolylineItem):
             data = {
                 "type": "polyline",
+                "item_id": str(item.item_id),
                 "points": [{"x": item.pos().x() + p.x(), "y": item.pos().y() + p.y()} for p in item.points],
             }
             if hasattr(item, "object_type") and item.object_type:
@@ -366,6 +369,7 @@ class ProjectManager(QObject):
                 })
             data = {
                 "type": "polygon",
+                "item_id": str(item.item_id),
                 "points": points,
             }
             if hasattr(item, "object_type") and item.object_type:
@@ -412,6 +416,11 @@ class ProjectManager(QObject):
             PolylineItem,
             RectangleItem,
         )
+
+        # Clear dimension lines before removing garden items so the manager can
+        # cleanly remove its graphics items while C++ objects are still alive
+        if hasattr(scene, "_dimension_line_manager"):
+            scene._dimension_line_manager.clear()
 
         # Clear existing items
         for item in list(scene.items()):
@@ -510,6 +519,9 @@ class ProjectManager(QObject):
                 stroke_style=stroke_style,
                 layer_id=layer_id,
             )
+            # Restore item_id so constraints referencing this item still resolve
+            if "item_id" in obj:
+                item._item_id = UUID(obj["item_id"])
             # Restore custom colors if saved
             if "fill_color" in obj:
                 # If we have a pattern, recreate the brush with both color and pattern
@@ -546,6 +558,8 @@ class ProjectManager(QObject):
                 stroke_style=stroke_style,
                 layer_id=layer_id,
             )
+            if "item_id" in obj:
+                item._item_id = UUID(obj["item_id"])
             # Restore custom colors if saved
             if "fill_color" in obj:
                 color = QColor(obj["fill_color"])
@@ -600,6 +614,8 @@ class ProjectManager(QObject):
                     layer_id=layer_id,
                     path_fence_style=path_fence_style,
                 )
+                if "item_id" in obj:
+                    item._item_id = UUID(obj["item_id"])
                 # Restore custom stroke color if saved (only if no preset overrides it)
                 if "stroke_color" in obj and path_fence_style == PathFenceStyle.NONE:
                     pen = item.pen()
@@ -626,6 +642,8 @@ class ProjectManager(QObject):
                     stroke_style=stroke_style,
                     layer_id=layer_id,
                 )
+                if "item_id" in obj:
+                    item._item_id = UUID(obj["item_id"])
                 # Restore custom colors if saved
                 if "fill_color" in obj:
                     color = QColor(obj["fill_color"])
