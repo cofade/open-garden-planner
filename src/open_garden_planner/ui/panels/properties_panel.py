@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -188,6 +189,14 @@ class PropertiesPanel(QWidget):
         Args:
             items: List of selected graphics items
         """
+        # Don't rebuild the form while the user is actively typing in a spin box.
+        # This prevents the focused widget from being destroyed mid-input when
+        # command_executed triggers _update_properties_panel.
+        from PyQt6.QtWidgets import QApplication, QDoubleSpinBox
+        fw = QApplication.focusWidget()
+        if fw is not None and isinstance(fw, QDoubleSpinBox) and self.isAncestorOf(fw):
+            return
+
         self._current_items = items
 
         if not items:
@@ -337,15 +346,12 @@ class PropertiesPanel(QWidget):
         x_spin.setRange(-100000.0, 100000.0)
         x_spin.setDecimals(1)
         x_spin.setSingleStep(10.0)
-        x_spin.setMinimumWidth(75)
-        x_spin.setMaximumWidth(100)
         x_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
         x_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
-        # Add padding to prevent text from overlapping buttons
         x_spin.setStyleSheet("QDoubleSpinBox { padding-left: 2px; padding-right: 20px; }")
         x_spin.setValue(bottom_left_x)
         pos_layout.addWidget(x_label)
-        pos_layout.addWidget(x_spin)
+        pos_layout.addWidget(x_spin, 1)
 
         # Y coordinate
         y_label = QLabel("Y:")
@@ -353,15 +359,12 @@ class PropertiesPanel(QWidget):
         y_spin.setRange(-100000.0, 100000.0)
         y_spin.setDecimals(1)
         y_spin.setSingleStep(10.0)
-        y_spin.setMinimumWidth(75)
-        y_spin.setMaximumWidth(100)
         y_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
         y_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
-        # Add padding to prevent text from overlapping buttons
         y_spin.setStyleSheet("QDoubleSpinBox { padding-left: 2px; padding-right: 20px; }")
         y_spin.setValue(bottom_left_y)
         pos_layout.addWidget(y_label)
-        pos_layout.addWidget(y_spin)
+        pos_layout.addWidget(y_spin, 1)
 
         # Connect after both spin boxes are created
         x_spin.valueChanged.connect(
@@ -371,19 +374,69 @@ class PropertiesPanel(QWidget):
             lambda _: self._on_position_changed(item, x_spin, y_spin)
         )
 
-        # Create a widget to hold the layout
+        # Create a widget to hold the layout; Expanding so it fills the field column
         pos_widget = QWidget()
+        pos_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         pos_widget.setLayout(pos_layout)
         self._form_layout.addRow(self.tr("Position:"), pos_widget)
 
-        # Type-specific geometry
+        # Type-specific geometry (editable)
         if isinstance(item, CircleItem):
-            radius_label = QLabel(f"{item.radius * 2:.1f} cm")
-            self._form_layout.addRow(self.tr("Diameter:"), radius_label)
+            diameter_spin = QDoubleSpinBox()
+            diameter_spin.setRange(1.0, 100000.0)
+            diameter_spin.setDecimals(1)
+            diameter_spin.setSingleStep(10.0)
+            diameter_spin.setSuffix(" cm")
+            diameter_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            diameter_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+            diameter_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            diameter_spin.setStyleSheet("QDoubleSpinBox { padding-left: 2px; padding-right: 20px; }")
+            diameter_spin.setValue(item.radius * 2)
+            diameter_spin.valueChanged.connect(
+                lambda val: self._on_dimension_changed(item, 'circle_diameter', val)
+            )
+            self._form_layout.addRow(self.tr("Diameter:"), diameter_spin)
         elif isinstance(item, RectangleItem):
             rect = item.rect()
-            size_label = QLabel(f"{rect.width():.1f} × {rect.height():.1f} cm")
-            self._form_layout.addRow(self.tr("Size:"), size_label)
+            size_layout = QHBoxLayout()
+            size_layout.setSpacing(4)
+            size_layout.setContentsMargins(0, 0, 0, 0)
+
+            w_label = QLabel("W:")
+            w_spin = QDoubleSpinBox()
+            w_spin.setRange(1.0, 100000.0)
+            w_spin.setDecimals(1)
+            w_spin.setSingleStep(10.0)
+            w_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+            w_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            w_spin.setStyleSheet("QDoubleSpinBox { padding-left: 2px; padding-right: 20px; }")
+            w_spin.setValue(rect.width())
+            size_layout.addWidget(w_label)
+            size_layout.addWidget(w_spin, 1)
+
+            h_label = QLabel("H:")
+            h_spin = QDoubleSpinBox()
+            h_spin.setRange(1.0, 100000.0)
+            h_spin.setDecimals(1)
+            h_spin.setSingleStep(10.0)
+            h_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+            h_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            h_spin.setStyleSheet("QDoubleSpinBox { padding-left: 2px; padding-right: 20px; }")
+            h_spin.setValue(rect.height())
+            size_layout.addWidget(h_label)
+            size_layout.addWidget(h_spin, 1)
+
+            w_spin.valueChanged.connect(
+                lambda _: self._on_dimension_changed(item, 'rect_size', None, w_spin, h_spin)
+            )
+            h_spin.valueChanged.connect(
+                lambda _: self._on_dimension_changed(item, 'rect_size', None, w_spin, h_spin)
+            )
+
+            size_widget = QWidget()
+            size_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            size_widget.setLayout(size_layout)
+            self._form_layout.addRow(self.tr("Size:"), size_widget)
 
     def _add_styling_properties(self, item: QGraphicsItem) -> None:
         """Add styling property fields.
@@ -700,6 +753,153 @@ class PropertiesPanel(QWidget):
         command = MoveItemsCommand([item], delta)
         if self._command_manager:
             self._command_manager.execute(command)
+
+    def _on_dimension_changed(
+        self,
+        item: QGraphicsItem,
+        dimension_type: str,
+        value: float | None = None,
+        width_spin: QDoubleSpinBox | None = None,
+        height_spin: QDoubleSpinBox | None = None,
+    ) -> None:
+        """Handle dimension (width/height/diameter) change with undo support.
+
+        Args:
+            item: Item being resized
+            dimension_type: 'circle_diameter' or 'rect_size'
+            value: New diameter value (for circles)
+            width_spin: Width spin box (for rectangles)
+            height_spin: Height spin box (for rectangles)
+        """
+        if self._updating:
+            return
+
+        from PyQt6.QtCore import QPointF
+
+        from open_garden_planner.core.commands import ResizeItemCommand
+
+        if dimension_type == 'circle_diameter' and isinstance(item, CircleItem):
+            new_diameter = value
+            if new_diameter is None or new_diameter <= 0:
+                return
+            new_radius = new_diameter / 2.0
+
+            old_rect = item.rect()
+            old_pos = item.pos()
+            old_radius = old_rect.width() / 2.0
+
+            # Keep scene-space center fixed
+            center_x = old_pos.x() + old_rect.x() + old_radius
+            center_y = old_pos.y() + old_rect.y() + old_radius
+
+            new_pos_x = center_x - new_radius
+            new_pos_y = center_y - new_radius
+
+            old_geometry = {
+                'rect_x': old_rect.x(),
+                'rect_y': old_rect.y(),
+                'diameter': old_rect.width(),
+                'center_x': old_rect.x() + old_radius,
+                'center_y': old_rect.y() + old_radius,
+                'radius': old_radius,
+                'pos_x': old_pos.x(),
+                'pos_y': old_pos.y(),
+            }
+            new_geometry = {
+                'rect_x': 0.0,
+                'rect_y': 0.0,
+                'diameter': new_diameter,
+                'center_x': new_radius,
+                'center_y': new_radius,
+                'radius': new_radius,
+                'pos_x': new_pos_x,
+                'pos_y': new_pos_y,
+            }
+
+            def apply_circle(itm: QGraphicsItem, geom: dict) -> None:
+                if isinstance(itm, CircleItem):
+                    itm.setRect(
+                        geom['rect_x'], geom['rect_y'],
+                        geom['diameter'], geom['diameter'],
+                    )
+                    itm._center = QPointF(geom['center_x'], geom['center_y'])
+                    itm._radius = geom['radius']
+                    itm.setPos(geom['pos_x'], geom['pos_y'])
+                    itm.update_resize_handles()
+                    itm._position_label()
+                    itm._update_circle_annotations()
+
+            apply_circle(item, new_geometry)
+
+            if self._command_manager:
+                cmd = ResizeItemCommand(item, old_geometry, new_geometry, apply_circle)
+                self._command_manager._undo_stack.append(cmd)
+                self._command_manager._redo_stack.clear()
+                self._command_manager.can_undo_changed.emit(True)
+                self._command_manager.can_redo_changed.emit(False)
+                self._command_manager.command_executed.emit(cmd.description)
+
+        elif (
+            dimension_type == 'rect_size'
+            and isinstance(item, RectangleItem)
+            and width_spin is not None
+            and height_spin is not None
+        ):
+            new_width = width_spin.value()
+            new_height = height_spin.value()
+            if new_width <= 0 or new_height <= 0:
+                return
+
+            old_rect = item.rect()
+            old_pos = item.pos()
+
+            old_geometry = {
+                'rect_x': old_rect.x(),
+                'rect_y': old_rect.y(),
+                'width': old_rect.width(),
+                'height': old_rect.height(),
+                'pos_x': old_pos.x(),
+                'pos_y': old_pos.y(),
+            }
+            new_geometry = {
+                'rect_x': old_rect.x(),
+                'rect_y': old_rect.y(),
+                'width': new_width,
+                'height': new_height,
+                'pos_x': old_pos.x(),
+                'pos_y': old_pos.y(),
+            }
+
+            def apply_rect(itm: QGraphicsItem, geom: dict) -> None:
+                if isinstance(itm, RectangleItem):
+                    itm.setRect(
+                        geom['rect_x'], geom['rect_y'],
+                        geom['width'], geom['height'],
+                    )
+                    itm.setPos(geom['pos_x'], geom['pos_y'])
+                    itm.update_resize_handles()
+                    itm._position_label()
+
+            apply_rect(item, new_geometry)
+
+            if self._command_manager:
+                cmd = ResizeItemCommand(item, old_geometry, new_geometry, apply_rect)
+                self._command_manager._undo_stack.append(cmd)
+                self._command_manager._redo_stack.clear()
+                self._command_manager.can_undo_changed.emit(True)
+                self._command_manager.can_redo_changed.emit(False)
+                self._command_manager.command_executed.emit(cmd.description)
+
+        else:
+            return
+
+        # Update scene and run constraint solver
+        scene = item.scene()
+        if scene:
+            scene.update()
+            views = scene.views()
+            if views and hasattr(views[0], 'apply_constraint_solver'):
+                views[0].apply_constraint_solver()
 
     def _on_property_changed(self, item: QGraphicsItem, property_name: str, value) -> None:
         """Handle property change with undo support.
