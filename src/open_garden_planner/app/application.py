@@ -611,6 +611,12 @@ class GardenPlannerApp(QMainWindow):
         cmd_mgr.can_undo_changed.connect(lambda _: self.constraints_panel.refresh())
         cmd_mgr.can_redo_changed.connect(lambda _: self.constraints_panel.refresh())
 
+        # Refresh properties panel after any command (move/resize/vertex edit/undo/redo)
+        # Use QTimer.singleShot to defer the update and avoid crash during spin box interaction
+        cmd_mgr.command_executed.connect(lambda _: QTimer.singleShot(0, self._update_properties_panel))
+        cmd_mgr.can_undo_changed.connect(lambda _: QTimer.singleShot(0, self._update_properties_panel))
+        cmd_mgr.can_redo_changed.connect(lambda _: QTimer.singleShot(0, self._update_properties_panel))
+
         # Set splitter as central widget
         self.setCentralWidget(splitter)
 
