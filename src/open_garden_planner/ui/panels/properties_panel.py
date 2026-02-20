@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QGraphicsItem,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -312,10 +313,68 @@ class PropertiesPanel(QWidget):
         Args:
             item: Item to show geometry for
         """
-        # Position
-        pos = item.pos()
-        pos_label = QLabel(f"({pos.x():.1f}, {pos.y():.1f}) cm")
-        self._form_layout.addRow(self.tr("Position:"), pos_label)
+        # Position (editable X, Y) - use top-left corner of bounding box in scene coords
+        # This corresponds to visual bottom-left after Y-flip (CAD origin)
+        bbox = item.boundingRect()
+
+        # Get top-left in local coordinates and map to scene
+        # In scene coords (Y-down), topLeft is the visual bottom-left after Y-flip
+        top_left_local = bbox.topLeft()
+        top_left_scene = item.mapToScene(top_left_local)
+
+        # Scene topLeft Y directly corresponds to CAD bottom-left Y
+        bottom_left_x = top_left_scene.x()
+        bottom_left_y = top_left_scene.y()
+
+        # Create horizontal layout for X and Y spin boxes
+        pos_layout = QHBoxLayout()
+        pos_layout.setSpacing(4)
+        pos_layout.setContentsMargins(0, 0, 0, 0)
+
+        # X coordinate
+        x_label = QLabel("X:")
+        x_spin = QDoubleSpinBox()
+        x_spin.setRange(-100000.0, 100000.0)
+        x_spin.setDecimals(1)
+        x_spin.setSingleStep(10.0)
+        x_spin.setMinimumWidth(75)
+        x_spin.setMaximumWidth(100)
+        x_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+        x_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        # Add padding to prevent text from overlapping buttons
+        x_spin.setStyleSheet("QDoubleSpinBox { padding-left: 2px; padding-right: 20px; }")
+        x_spin.setValue(bottom_left_x)
+        pos_layout.addWidget(x_label)
+        pos_layout.addWidget(x_spin)
+
+        # Y coordinate
+        y_label = QLabel("Y:")
+        y_spin = QDoubleSpinBox()
+        y_spin.setRange(-100000.0, 100000.0)
+        y_spin.setDecimals(1)
+        y_spin.setSingleStep(10.0)
+        y_spin.setMinimumWidth(75)
+        y_spin.setMaximumWidth(100)
+        y_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+        y_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        # Add padding to prevent text from overlapping buttons
+        y_spin.setStyleSheet("QDoubleSpinBox { padding-left: 2px; padding-right: 20px; }")
+        y_spin.setValue(bottom_left_y)
+        pos_layout.addWidget(y_label)
+        pos_layout.addWidget(y_spin)
+
+        # Connect after both spin boxes are created
+        x_spin.valueChanged.connect(
+            lambda _: self._on_position_changed(item, x_spin, y_spin)
+        )
+        y_spin.valueChanged.connect(
+            lambda _: self._on_position_changed(item, x_spin, y_spin)
+        )
+
+        # Create a widget to hold the layout
+        pos_widget = QWidget()
+        pos_widget.setLayout(pos_layout)
+        self._form_layout.addRow(self.tr("Position:"), pos_widget)
 
         # Type-specific geometry
         if isinstance(item, CircleItem):
@@ -549,6 +608,98 @@ class PropertiesPanel(QWidget):
         scene = item.scene()
         if scene:
             scene.update()
+
+    def _on_position_changed(
+        self, item: QGraphicsItem, x_spin: QDoubleSpinBox, y_spin: QDoubleSpinBox
+    ) -> None:
+        """Handle position change with undo support and constraint solving.
+
+        Args:
+            item: Item being moved
+            x_spin: X coordinate spin box
+            y_spin: Y coordinate spin box
+        """
+        if self._updating:
+            return
+
+        from PyQt6.QtCore import QPointF
+
+        from open_garden_planner.core.commands import AlignItemsCommand, MoveItemsCommand
+
+        # Get new position from spin boxes
+        # View transform already flips Y, so scene coords = CAD coords (no conversion)
+        new_scene_x = x_spin.value()
+        new_scene_y = y_spin.value()
+
+        # Get current position (topLeft of bbox = CAD bottom-left)
+        bbox = item.boundingRect()
+        top_left_local = bbox.topLeft()
+        old_top_left_scene = item.mapToScene(top_left_local)
+
+        scene = item.scene()
+        if not scene:
+            return
+
+        # Calculate delta in scene coordinates
+        delta = QPointF(
+            new_scene_x - old_top_left_scene.x(),
+            new_scene_y - old_top_left_scene.y()
+        )
+
+        # Validate bounds - don't allow moving outside canvas area (0, 0, width, height in scene coords)
+        canvas_rect = scene.canvas_rect  # QRectF(0, 0, width_cm, height_cm)
+        # Calculate where corners would be after the move (in scene coordinates)
+        top_left_after = item.mapToScene(bbox.topLeft()) + delta
+        bottom_right_after = item.mapToScene(bbox.bottomRight()) + delta
+
+        # Clamp to canvas bounds (not scene bounds with padding)
+        if top_left_after.x() < canvas_rect.left():
+            delta.setX(delta.x() + (canvas_rect.left() - top_left_after.x()))
+        if top_left_after.y() < canvas_rect.top():
+            delta.setY(delta.y() + (canvas_rect.top() - top_left_after.y()))
+        if bottom_right_after.x() > canvas_rect.right():
+            delta.setX(delta.x() - (bottom_right_after.x() - canvas_rect.right()))
+        if bottom_right_after.y() > canvas_rect.bottom():
+            delta.setY(delta.y() - (bottom_right_after.y() - canvas_rect.bottom()))
+
+        # Skip if no movement
+        if abs(delta.x()) < 0.01 and abs(delta.y()) < 0.01:
+            return
+
+        # Check if item is constrained
+        scene = item.scene()
+        if scene and hasattr(scene, 'constraint_graph'):
+            from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+            graph = scene.constraint_graph
+            if isinstance(item, GardenItemMixin) and graph.constraints:
+                # Compute constraint propagation
+                constrained_ids = set()
+                for c in graph.constraints.values():
+                    constrained_ids.add(c.anchor_a.item_id)
+                    constrained_ids.add(c.anchor_b.item_id)
+
+                if item.item_id in constrained_ids:
+                    # Get canvas view to compute propagation
+                    view = scene.views()[0] if scene.views() else None
+                    if view and hasattr(view, '_compute_constraint_propagation'):
+                        propagated_deltas = view._compute_constraint_propagation([item], delta)
+
+                        if propagated_deltas:
+                            # Combine dragged + propagated into per-item deltas
+                            all_deltas = [(item, delta)]
+                            all_deltas.extend(propagated_deltas)
+                            command = AlignItemsCommand(
+                                all_deltas, "Move item (constrained)"
+                            )
+                            if self._command_manager:
+                                self._command_manager.execute(command)
+                            return
+
+        # No constraints or no propagation - simple move
+        command = MoveItemsCommand([item], delta)
+        if self._command_manager:
+            self._command_manager.execute(command)
 
     def _on_property_changed(self, item: QGraphicsItem, property_name: str, value) -> None:
         """Handle property change with undo support.
