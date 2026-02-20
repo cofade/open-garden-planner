@@ -310,7 +310,7 @@ tests/
 | ✅     | 7.5  | Constraint solver drag integration                   |
 | ✅     | 7.6  | Constraints manager panel                            |
 | ✅     | 7.7  | Numeric position input                               |
-|        | 7.8  | Numeric dimension input                              |
+| ✅     | 7.8  | Numeric dimension input                              |
 |        | 7.9  | Horizontal/Vertical alignment constraints            |
 |        | 7.10 | Angle constraints                                    |
 |        | 7.11 | Symmetry constraints                                 |
