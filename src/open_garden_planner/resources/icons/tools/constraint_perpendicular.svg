@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Horizontal base line -->
+  <line x1="3" y1="24" x2="29" y2="24" stroke="#00695C" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Vertical line (perpendicular) -->
+  <line x1="16" y1="24" x2="16" y2="5" stroke="#00695C" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Right-angle square marker at junction -->
+  <polyline points="16,20 20,20 20,24" stroke="#00695C" stroke-width="1.5" fill="none"/>
+</svg>

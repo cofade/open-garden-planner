@@ -1,4 +1,4 @@
-"""Constraints manager panel for listing, editing, and deleting distance constraints."""
+"""Constraints manager panel for listing, editing, and deleting constraints."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 # Colors matching dimension_lines.py
 _COLOR_SATISFIED = QColor(0, 120, 200)
 _COLOR_VIOLATED = QColor(220, 40, 40)
+_COLOR_ALIGN_SATISFIED = QColor(120, 0, 180)
 
 
 def _make_status_icon(color: QColor, size: int = 14) -> QPixmap:
@@ -51,11 +52,12 @@ class ConstraintListItem(QWidget):
         label_b: str,
         target_distance: float,
         satisfied: bool,
+        constraint_type_name: str = "DISTANCE",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.constraint_id = constraint_id
-        self._setup_ui(label_a, label_b, target_distance, satisfied)
+        self._setup_ui(label_a, label_b, target_distance, satisfied, constraint_type_name)
 
     def _setup_ui(
         self,
@@ -63,13 +65,19 @@ class ConstraintListItem(QWidget):
         label_b: str,
         target_distance: float,
         satisfied: bool,
+        constraint_type_name: str,
     ) -> None:
         layout = QHBoxLayout(self)
         layout.setContentsMargins(4, 2, 4, 2)
         layout.setSpacing(6)
 
-        # Status icon — use QLabel with pixmap (QToolButton.setEnabled(False) grays out the icon)
-        color = _COLOR_SATISFIED if satisfied else _COLOR_VIOLATED
+        # Status icon color depends on type
+        is_alignment = constraint_type_name in ("HORIZONTAL", "VERTICAL")
+        if is_alignment:
+            color = _COLOR_ALIGN_SATISFIED if satisfied else _COLOR_VIOLATED
+        else:
+            color = _COLOR_SATISFIED if satisfied else _COLOR_VIOLATED
+
         pixmap = _make_status_icon(color)
         status_label = QLabel()
         status_label.setPixmap(pixmap)
@@ -80,15 +88,23 @@ class ConstraintListItem(QWidget):
         )
         layout.addWidget(status_label)
 
-        # Object names and distance label
-        dist_m = target_distance / 100.0
-        text = f"{label_a}  \u2194  {label_b}   {dist_m:.2f} m"
-        label = QLabel(text)
-        label.setToolTip(
-            self.tr("{a} \u2194 {b}: {d:.2f} m").format(
+        # Object names and constraint label
+        if constraint_type_name == "HORIZONTAL":
+            detail = self.tr("≡ H")
+            tooltip = self.tr("{a} horizontal align {b}").format(a=label_a, b=label_b)
+        elif constraint_type_name == "VERTICAL":
+            detail = self.tr("≡ V")
+            tooltip = self.tr("{a} vertical align {b}").format(a=label_a, b=label_b)
+        else:
+            dist_m = target_distance / 100.0
+            detail = f"{dist_m:.2f} m"
+            tooltip = self.tr("{a} \u2194 {b}: {d:.2f} m").format(
                 a=label_a, b=label_b, d=dist_m
             )
-        )
+
+        text = f"{label_a}  \u2194  {label_b}   {detail}"
+        label = QLabel(text)
+        label.setToolTip(tooltip)
         layout.addWidget(label, 1)
 
         # Delete button
@@ -182,6 +198,7 @@ class ConstraintsPanel(QWidget):
                 label_b,
                 constraint.target_distance,
                 satisfied,
+                constraint.constraint_type.name,
             )
             row_widget.delete_requested.connect(self.constraint_delete_requested.emit)
 
@@ -260,6 +277,8 @@ class ConstraintsPanel(QWidget):
 
     def _is_satisfied(self, constraint: Constraint) -> bool:
         """Check whether a constraint is satisfied (within 1 cm tolerance)."""
+        from open_garden_planner.core.constraints import ConstraintType
+
         if self._scene is None:
             return False
 
@@ -276,6 +295,11 @@ class ConstraintsPanel(QWidget):
         )
         if pos_a is None or pos_b is None:
             return False
+
+        if constraint.constraint_type == ConstraintType.HORIZONTAL:
+            return abs(pos_b.y() - pos_a.y()) < 1.0
+        if constraint.constraint_type == ConstraintType.VERTICAL:
+            return abs(pos_b.x() - pos_a.x()) < 1.0
 
         current_dist = QLineF(pos_a, pos_b).length()
         return abs(current_dist - constraint.target_distance) < 1.0

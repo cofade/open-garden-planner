@@ -1,4 +1,4 @@
-"""Constraint tool for creating distance constraints between objects."""
+"""Constraint tools for creating distance and alignment constraints between objects."""
 
 from __future__ import annotations
 
@@ -12,11 +12,12 @@ from PyQt6.QtWidgets import (
     QGraphicsLineItem,
     QGraphicsTextItem,
     QLabel,
+    QMessageBox,
     QVBoxLayout,
 )
 
 from open_garden_planner.core.commands import AddConstraintCommand
-from open_garden_planner.core.constraints import AnchorRef
+from open_garden_planner.core.constraints import AnchorRef, ConstraintType
 from open_garden_planner.core.measure_snapper import (
     AnchorPoint,
     find_nearest_anchor,
@@ -29,8 +30,9 @@ from open_garden_planner.ui.canvas.items import GardenItemMixin
 ANCHOR_INDICATOR_RADIUS = 6.0
 ANCHOR_INDICATOR_COLOR = QColor(255, 140, 0, 200)  # Orange
 ANCHOR_SELECTED_COLOR = QColor(0, 120, 255, 220)  # Blue
-SNAP_INDICATOR_COLOR = QColor(0, 180, 0, 200)  # Green
-PREVIEW_LINE_COLOR = QColor(0, 120, 255, 160)  # Semi-transparent blue
+PREVIEW_LINE_COLOR = QColor(0, 120, 255, 160)  # Semi-transparent blue for distance
+PREVIEW_H_COLOR = QColor(180, 0, 200, 200)      # Purple for horizontal
+PREVIEW_V_COLOR = QColor(0, 160, 80, 200)       # Green for vertical
 PEN_WIDTH = 2.5
 
 
@@ -95,10 +97,14 @@ class ConstraintTool(BaseTool):
     Workflow:
     1. Hover over objects to see anchor indicators (small circles).
     2. Click an anchor on object A to select it.
-    3. Hover and click an anchor on object B.
+    3. Click an anchor on object B.
     4. A dialog appears to set the target distance.
-    5. The constraint is added to the ConstraintGraph via undo/redo.
+    5. The constraint is added via undo/redo.
     """
+
+    # Subclasses override these to fix the constraint type and visual style
+    _CONSTRAINT_TYPE: ConstraintType = ConstraintType.DISTANCE
+    _PREVIEW_COLOR: QColor = PREVIEW_LINE_COLOR
 
     def __init__(self, view) -> None:
         super().__init__(view)
@@ -116,7 +122,7 @@ class ConstraintTool(BaseTool):
 
     @property
     def display_name(self) -> str:
-        return QCoreApplication.translate("ConstraintTool", "Constraint")
+        return QCoreApplication.translate("ConstraintTool", "Distance Constraint")
 
     @property
     def shortcut(self) -> str:
@@ -165,28 +171,23 @@ class ConstraintTool(BaseTool):
         self._anchor_indicators.clear()
 
     def _show_anchor_indicators(self, scene_pos: QPointF) -> None:
-        """Show anchor indicators on objects near the mouse position.
-
-        Displays small circles on all anchors of the hovered object.
-        """
+        """Show anchor indicators on objects near the mouse position."""
         scene = self._view.scene()
         if not scene:
             return
 
         self._clear_anchor_indicators()
 
-        # Find which item is under the mouse
         items_at = scene.items(scene_pos)
         hovered_item = None
         for item in items_at:
             if isinstance(item, GardenItemMixin) and item.flags() & item.GraphicsItemFlag.ItemIsSelectable:
-                    hovered_item = item
-                    break
+                hovered_item = item
+                break
 
         if hovered_item is None:
             return
 
-        # Show all anchors for this item
         anchors = get_anchor_points(hovered_item)
         for anchor in anchors:
             r = ANCHOR_INDICATOR_RADIUS
@@ -220,14 +221,15 @@ class ConstraintTool(BaseTool):
         self._graphics_items.append(self._selected_marker)
 
     def _update_preview(self, end_pos: QPointF) -> None:
-        """Update the preview dimension line from anchor A to the current pos."""
+        """Update the preview line from anchor A to the current pos."""
         scene = self._view.scene()
         if not scene or self._anchor_a is None:
             return
 
         start = self._anchor_a.point
+        color = self._PREVIEW_COLOR
 
-        # Remove old preview
+        # Remove old preview items
         if self._preview_line and self._preview_line.scene():
             scene.removeItem(self._preview_line)
             self._graphics_items.remove(self._preview_line)
@@ -235,22 +237,33 @@ class ConstraintTool(BaseTool):
             scene.removeItem(self._preview_text)
             self._graphics_items.remove(self._preview_text)
 
-        # Draw preview line
-        pen = QPen(PREVIEW_LINE_COLOR, 2, Qt.PenStyle.DashLine)
-        self._preview_line = scene.addLine(QLineF(start, end_pos), pen)
+        # For alignment constraints, snap the preview line to the constraint axis
+        if self._CONSTRAINT_TYPE == ConstraintType.HORIZONTAL:
+            snapped_end = QPointF(end_pos.x(), start.y())
+        elif self._CONSTRAINT_TYPE == ConstraintType.VERTICAL:
+            snapped_end = QPointF(start.x(), end_pos.y())
+        else:
+            snapped_end = end_pos
+
+        pen = QPen(color, 2, Qt.PenStyle.DashLine)
+        self._preview_line = scene.addLine(QLineF(start, snapped_end), pen)
         self._preview_line.setZValue(1001)
         self._graphics_items.append(self._preview_line)
 
-        # Show distance text
-        distance_cm = QLineF(start, end_pos).length()
-        distance_m = distance_cm / 100.0
-        text = f"{distance_m:.2f} m"
+        # Distance or alignment label
+        if self._CONSTRAINT_TYPE == ConstraintType.HORIZONTAL:
+            text = QCoreApplication.translate("ConstraintTool", "≡ H (same Y)")
+        elif self._CONSTRAINT_TYPE == ConstraintType.VERTICAL:
+            text = QCoreApplication.translate("ConstraintTool", "≡ V (same X)")
+        else:
+            distance_cm = QLineF(start, end_pos).length()
+            text = f"{distance_cm / 100.0:.2f} m"
 
-        mid_x = (start.x() + end_pos.x()) / 2
-        mid_y = (start.y() + end_pos.y()) / 2
+        mid_x = (start.x() + snapped_end.x()) / 2
+        mid_y = (start.y() + snapped_end.y()) / 2
 
         self._preview_text = scene.addText(text)
-        self._preview_text.setDefaultTextColor(ANCHOR_SELECTED_COLOR)
+        self._preview_text.setDefaultTextColor(color)
         font = QFont()
         font.setPointSize(11)
         font.setBold(True)
@@ -282,7 +295,7 @@ class ConstraintTool(BaseTool):
             self._show_selected_anchor(anchor)
             return True
         else:
-            # Second click: select anchor B and open dialog
+            # Second click: select anchor B and create constraint
             anchor_b = anchor
 
             # Don't allow constraining same anchor to itself
@@ -294,14 +307,15 @@ class ConstraintTool(BaseTool):
             ):
                 return True
 
-            # Calculate current distance
-            dist = QLineF(self._anchor_a.point, anchor_b.point).length()
-
-            # Show distance input dialog
-            dialog = DistanceInputDialog(dist, self._view)
-            if dialog.exec() == QDialog.DialogCode.Accepted:
-                target_cm = dialog.distance_cm()
-                self._create_constraint(self._anchor_a, anchor_b, target_cm)
+            if self._CONSTRAINT_TYPE == ConstraintType.DISTANCE:
+                dist = QLineF(self._anchor_a.point, anchor_b.point).length()
+                dialog = DistanceInputDialog(dist, self._view)
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    target_cm = dialog.distance_cm()
+                    self._create_constraint(self._anchor_a, anchor_b, target_cm)
+            else:
+                # Alignment constraints need no dialog
+                self._create_constraint(self._anchor_a, anchor_b, 0.0)
 
             self._reset()
             return True
@@ -317,7 +331,6 @@ class ConstraintTool(BaseTool):
         if not scene:
             return
 
-        # Build AnchorRef from AnchorPoint
         if not isinstance(anchor_a.item, GardenItemMixin) or not isinstance(
             anchor_b.item, GardenItemMixin
         ):
@@ -334,26 +347,35 @@ class ConstraintTool(BaseTool):
             anchor_index=anchor_b.anchor_index,
         )
 
+        if not self._view.is_constraint_feasible(
+            ref_a, ref_b, target_distance, self._CONSTRAINT_TYPE
+        ):
+            QMessageBox.warning(
+                self._view,
+                QCoreApplication.translate("ConstraintTool", "Conflicting Constraint"),
+                QCoreApplication.translate(
+                    "ConstraintTool",
+                    "This constraint conflicts with existing constraints "
+                    "and cannot be applied. The existing constraints are unchanged.",
+                ),
+            )
+            return
+
         command = AddConstraintCommand(
             graph=scene.constraint_graph,
             anchor_a=ref_a,
             anchor_b=ref_b,
             target_distance=target_distance,
+            constraint_type=self._CONSTRAINT_TYPE,
         )
         self._view.command_manager.execute(command)
-
-        # Move items immediately if target_distance differs from current distance
         self._view.apply_constraint_solver()
 
     def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
-        # Show anchor indicators on hovered objects
         self._show_anchor_indicators(scene_pos)
-
-        # Highlight nearest snappable anchor
         anchor = self._find_nearest_anchor(scene_pos)
         self._current_hover = anchor
 
-        # Update preview line if we have anchor A selected
         if self._anchor_a is not None:
             end = anchor.point if anchor else scene_pos
             self._update_preview(end)
@@ -371,3 +393,41 @@ class ConstraintTool(BaseTool):
 
     def cancel(self) -> None:
         self._reset()
+
+
+class HorizontalConstraintTool(ConstraintTool):
+    """Tool for creating horizontal alignment constraints (same Y coordinate)."""
+
+    _CONSTRAINT_TYPE = ConstraintType.HORIZONTAL
+    _PREVIEW_COLOR = PREVIEW_H_COLOR
+
+    @property
+    def tool_type(self) -> ToolType:
+        return ToolType.CONSTRAINT_HORIZONTAL
+
+    @property
+    def display_name(self) -> str:
+        return QCoreApplication.translate("HorizontalConstraintTool", "Horizontal Constraint")
+
+    @property
+    def shortcut(self) -> str:
+        return ""
+
+
+class VerticalConstraintTool(ConstraintTool):
+    """Tool for creating vertical alignment constraints (same X coordinate)."""
+
+    _CONSTRAINT_TYPE = ConstraintType.VERTICAL
+    _PREVIEW_COLOR = PREVIEW_V_COLOR
+
+    @property
+    def tool_type(self) -> ToolType:
+        return ToolType.CONSTRAINT_VERTICAL
+
+    @property
+    def display_name(self) -> str:
+        return QCoreApplication.translate("VerticalConstraintTool", "Vertical Constraint")
+
+    @property
+    def shortcut(self) -> str:
+        return ""

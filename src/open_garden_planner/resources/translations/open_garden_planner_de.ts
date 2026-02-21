@@ -401,6 +401,22 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <source>Plants</source>
         <translation>Pflanzen</translation>
     </message>
+    <message>
+        <source>Constraints</source>
+        <translation>Randbedingungen</translation>
+    </message>
+    <message>
+        <source>Distance Constraint (K)</source>
+        <translation>Abstandsbedingung (K)</translation>
+    </message>
+    <message>
+        <source>Horizontal Constraint</source>
+        <translation>Horizontale Randbedingung</translation>
+    </message>
+    <message>
+        <source>Vertical Constraint</source>
+        <translation>Vertikale Randbedingung</translation>
+    </message>
 </context><context>
     <name>ExportPngDialog</name>
     <message>
@@ -1777,11 +1793,108 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
         <translation>Abstandsbeschränkung zwischen Objekten erstellen</translation>
     </message>
 </context><context>
+    <name>ConstraintToolbar</name>
+    <message>
+        <source>Constraints</source>
+        <translation>Randbedingungen</translation>
+    </message>
+    <message>
+        <source>Distance Constraint (K)</source>
+        <translation>Abstandsbedingung (K)</translation>
+    </message>
+    <message>
+        <source>Horizontal Distance (coming soon)</source>
+        <translation>Horizontaler Abstand (demnächst)</translation>
+    </message>
+    <message>
+        <source>Vertical Distance (coming soon)</source>
+        <translation>Vertikaler Abstand (demnächst)</translation>
+    </message>
+    <message>
+        <source>Horizontal Alignment</source>
+        <translation>Horizontale Ausrichtung</translation>
+    </message>
+    <message>
+        <source>Vertical Alignment</source>
+        <translation>Vertikale Ausrichtung</translation>
+    </message>
+    <message>
+        <source>Coincident (coming soon)</source>
+        <translation>Koinzident (demnächst)</translation>
+    </message>
+    <message>
+        <source>Parallel (coming soon)</source>
+        <translation>Parallel (demnächst)</translation>
+    </message>
+    <message>
+        <source>Perpendicular (coming soon)</source>
+        <translation>Senkrecht (demnächst)</translation>
+    </message>
+    <message>
+        <source>Equal Size (coming soon)</source>
+        <translation>Gleiche Größe (demnächst)</translation>
+    </message>
+    <message>
+        <source>Fix in Place (coming soon)</source>
+        <translation>Position fixieren (demnächst)</translation>
+    </message>
+    <message>
+        <source>Angle Constraint (coming soon)</source>
+        <translation>Winkelbedingung (demnächst)</translation>
+    </message>
+    <message>
+        <source>Symmetry (coming soon)</source>
+        <translation>Symmetrie (demnächst)</translation>
+    </message>
+</context><context>
     <name>ConstraintTool</name>
     <message>
-        <location filename="..\..\core\tools\constraint_tool.py" line="115" />
         <source>Constraint</source>
         <translation>Sketcher</translation>
+    </message>
+    <message>
+        <source>≡ H (same Y)</source>
+        <translation>≡ H (gleiche Y-Position)</translation>
+    </message>
+    <message>
+        <source>≡ V (same X)</source>
+        <translation>≡ V (gleiche X-Position)</translation>
+    </message>
+    <message>
+        <source>Distance [H/V]</source>
+        <translation>Abstand [H/V]</translation>
+    </message>
+    <message>
+        <source>Horizontal [D/V]</source>
+        <translation>Horizontal [A/V]</translation>
+    </message>
+    <message>
+        <source>Vertical [D/H]</source>
+        <translation>Vertikal [A/H]</translation>
+    </message>
+    <message>
+        <source>Distance Constraint</source>
+        <translation>Abstandsbedingung</translation>
+    </message>
+    <message>
+        <source>Conflicting Constraint</source>
+        <translation>Konfligierende Randbedingung</translation>
+    </message>
+    <message>
+        <source>This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.</source>
+        <translation>Diese Randbedingung steht im Konflikt mit bestehenden Randbedingungen und kann nicht angewendet werden. Die bestehenden Randbedingungen sind unverändert.</translation>
+    </message>
+</context><context>
+    <name>HorizontalConstraintTool</name>
+    <message>
+        <source>Horizontal Constraint</source>
+        <translation>Horizontale Randbedingung</translation>
+    </message>
+</context><context>
+    <name>VerticalConstraintTool</name>
+    <message>
+        <source>Vertical Constraint</source>
+        <translation>Vertikale Randbedingung</translation>
     </message>
 </context><context>
     <name>DistanceInputDialog</name>
@@ -3257,6 +3370,22 @@ noch nicht implementiert</translation>
         <source>Delete constraint</source>
         <translation>Randbedingung löschen</translation>
     </message>
+    <message>
+        <source>≡ H</source>
+        <translation>≡ H</translation>
+    </message>
+    <message>
+        <source>≡ V</source>
+        <translation>≡ V</translation>
+    </message>
+    <message>
+        <source>{a} horizontal align {b}</source>
+        <translation>{a} horizontal ausgerichtet mit {b}</translation>
+    </message>
+    <message>
+        <source>{a} vertical align {b}</source>
+        <translation>{a} vertikal ausgerichtet mit {b}</translation>
+    </message>
 </context><context>
     <name>ConstraintsPanel</name>
     <message>
@@ -3278,5 +3407,9 @@ Verwenden Sie das Randbedingungen-Werkzeug (K), um eine hinzuzufügen.</translat
     <message>
         <source>Delete all constraints</source>
         <translation>Alle Randbedingungen löschen</translation>
+    </message>
+    <message>
+        <source>Show &amp;Constraints</source>
+        <translation>Randbedingungen &amp;anzeigen</translation>
     </message>
 </context></TS>

@@ -38,6 +38,7 @@ from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
     CircleTool,
     ConstraintTool,
+    HorizontalConstraintTool,
     MeasureTool,
     PolygonTool,
     PolylineTool,
@@ -45,6 +46,7 @@ from open_garden_planner.core.tools import (
     SelectTool,
     ToolManager,
     ToolType,
+    VerticalConstraintTool,
 )
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
@@ -147,6 +149,8 @@ class CanvasView(QGraphicsView):
         self._tool_manager.register_tool(SelectTool(self))
         self._tool_manager.register_tool(MeasureTool(self))
         self._tool_manager.register_tool(ConstraintTool(self))
+        self._tool_manager.register_tool(HorizontalConstraintTool(self))
+        self._tool_manager.register_tool(VerticalConstraintTool(self))
 
         # Register generic shape tools
         rect_tool = RectangleTool(self, object_type=ObjectType.GENERIC_RECTANGLE)
@@ -533,6 +537,67 @@ class CanvasView(QGraphicsView):
             item.setPos(new)
         if moves:
             self._canvas_scene.update_dimension_lines()
+
+    def is_constraint_feasible(
+        self,
+        anchor_a: object,
+        anchor_b: object,
+        target_distance: float,
+        constraint_type: object,
+    ) -> bool:
+        """Test whether adding a constraint would conflict with existing constraints.
+
+        Builds the current item positions and anchor offsets from the scene, then
+        asks the constraint graph to validate the proposed constraint without
+        permanently modifying the graph or any item positions.
+
+        Args:
+            anchor_a: AnchorRef for the first anchor.
+            anchor_b: AnchorRef for the second anchor.
+            target_distance: Desired distance in cm (ignored for alignment types).
+            constraint_type: ConstraintType (DISTANCE, HORIZONTAL, or VERTICAL).
+
+        Returns:
+            True  — the constraint is compatible with the existing system.
+            False — adding it would create an irresolvable conflict.
+        """
+        from open_garden_planner.core.measure_snapper import get_anchor_points
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        graph = self._canvas_scene.constraint_graph
+
+        # Collect all item IDs that need positions (existing + the two new anchors)
+        constrained_ids: set = {anchor_a.item_id, anchor_b.item_id}  # type: ignore[union-attr]
+        for c in graph.constraints.values():
+            constrained_ids.add(c.anchor_a.item_id)
+            constrained_ids.add(c.anchor_b.item_id)
+
+        item_positions: dict = {}
+        anchor_offsets: dict = {}
+
+        for item in self.scene().items():
+            if isinstance(item, GardenItemMixin) and item.item_id in constrained_ids:
+                uid = item.item_id
+                pos = item.pos()
+                item_positions[uid] = (pos.x(), pos.y())
+                for anchor in get_anchor_points(item):
+                    key = (uid, anchor.anchor_type, anchor.anchor_index)
+                    anchor_offsets[key] = (
+                        anchor.point.x() - pos.x(),
+                        anchor.point.y() - pos.y(),
+                    )
+
+        if len(item_positions) < 2:  # noqa: PLR2004
+            return True  # Not enough items to form a conflict — optimistically allow
+
+        return graph.validate_constraint(
+            anchor_a=anchor_a,  # type: ignore[arg-type]
+            anchor_b=anchor_b,  # type: ignore[arg-type]
+            target_distance=target_distance,
+            constraint_type=constraint_type,  # type: ignore[arg-type]
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+        )
 
     # Coordinate conversion
 

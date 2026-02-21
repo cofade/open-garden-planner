@@ -131,6 +131,15 @@ class DrawingToolsPanel(QWidget):
         self._add_tool(grid7, 0, 2, ToolType.PERENNIAL, "flower", "🌸", "Perennial (3)", "3")
         layout.addLayout(grid7)
 
+        # CONSTRAINTS
+        self._add_category(self.tr("Constraints"), layout)
+        grid_c = QGridLayout()
+        grid_c.setSpacing(0)
+        self._add_tool(grid_c, 0, 0, ToolType.CONSTRAINT, "constraint_distance", "↔", self.tr("Distance Constraint (K)"), "K")
+        self._add_tool(grid_c, 0, 1, ToolType.CONSTRAINT_HORIZONTAL, "constraint_horizontal", "≡H", self.tr("Horizontal Constraint"), "")
+        self._add_tool(grid_c, 0, 2, ToolType.CONSTRAINT_VERTICAL, "constraint_vertical", "≡V", self.tr("Vertical Constraint"), "")
+        layout.addLayout(grid_c)
+
         layout.addStretch()
 
         # Select tool is default

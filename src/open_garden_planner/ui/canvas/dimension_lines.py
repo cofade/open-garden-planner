@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from uuid import UUID
 
-from PyQt6.QtCore import QLineF, QPointF, Qt
+from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QFont, QPen, QPolygonF
 from PyQt6.QtWidgets import (
     QGraphicsItem,
@@ -18,13 +18,15 @@ from PyQt6.QtWidgets import (
     QGraphicsSimpleTextItem,
 )
 
-from open_garden_planner.core.constraints import Constraint, ConstraintGraph
+from open_garden_planner.core.constraints import Constraint, ConstraintGraph, ConstraintType
 from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
 from open_garden_planner.ui.canvas.items import GardenItemMixin
 
 # Colors
 COLOR_SATISFIED = QColor(0, 120, 200)  # Blue
 COLOR_VIOLATED = QColor(220, 40, 40)  # Red
+COLOR_ALIGN_SATISFIED = QColor(120, 0, 180)  # Purple for alignment
+COLOR_ALIGN_VIOLATED = QColor(220, 40, 40)   # Red (same as distance violated)
 
 # Geometry constants
 WITNESS_LINE_OFFSET = 15.0  # Perpendicular offset from dimension line (in cm)
@@ -126,7 +128,7 @@ class DimensionLineManager:
             group.remove_from_scene(self._scene)
 
     def _update_constraint(self, constraint: Constraint) -> None:
-        """Update or create the dimension line for a constraint."""
+        """Update or create the visual for a constraint."""
         # Remove old visuals
         self._remove_group(constraint.constraint_id)
 
@@ -147,15 +149,26 @@ class DimensionLineManager:
         if pos_a is None or pos_b is None:
             return
 
-        # Calculate constraint status (satisfied vs violated)
-        current_dist = QLineF(pos_a, pos_b).length()
-        error = abs(current_dist - constraint.target_distance)
-        satisfied = error < 1.0  # 1cm tolerance
-        color = COLOR_SATISFIED if satisfied else COLOR_VIOLATED
-
-        # Build the dimension line group
         group = DimensionLineGroup(constraint.constraint_id)
-        self._build_dimension_line(group, pos_a, pos_b, constraint.target_distance, color)
+
+        if constraint.constraint_type == ConstraintType.HORIZONTAL:
+            error = abs(pos_b.y() - pos_a.y())
+            satisfied = error < 1.0
+            color = COLOR_ALIGN_SATISFIED if satisfied else COLOR_ALIGN_VIOLATED
+            self._build_alignment_indicator(group, pos_a, pos_b, "H", color)
+        elif constraint.constraint_type == ConstraintType.VERTICAL:
+            error = abs(pos_b.x() - pos_a.x())
+            satisfied = error < 1.0
+            color = COLOR_ALIGN_SATISFIED if satisfied else COLOR_ALIGN_VIOLATED
+            self._build_alignment_indicator(group, pos_a, pos_b, "V", color)
+        else:
+            # DISTANCE constraint
+            current_dist = QLineF(pos_a, pos_b).length()
+            error = abs(current_dist - constraint.target_distance)
+            satisfied = error < 1.0  # 1cm tolerance
+            color = COLOR_SATISFIED if satisfied else COLOR_VIOLATED
+            self._build_dimension_line(group, pos_a, pos_b, constraint.target_distance, color)
+
         self._groups[constraint.constraint_id] = group
 
     def _resolve_anchor_position(
@@ -272,6 +285,51 @@ class DimensionLineManager:
         self._scene.addItem(text_item)
         group.items.append(text_item)
 
+    def _build_alignment_indicator(
+        self,
+        group: DimensionLineGroup,
+        pos_a: QPointF,
+        pos_b: QPointF,
+        label: str,
+        color: QColor,
+    ) -> None:
+        """Build a visual indicator for a horizontal or vertical alignment constraint.
+
+        Draws a dashed line between the two anchor positions and a badge
+        with the alignment type label (H or V).
+        """
+        pen = QPen(color, 1.5, Qt.PenStyle.DashLine)
+        pen.setCosmetic(True)
+
+        line = self._scene.addLine(QLineF(pos_a, pos_b), pen)
+        line.setZValue(DIMENSION_LINE_Z)
+        group.items.append(line)
+
+        # Small circles at each anchor endpoint
+        for pos in (pos_a, pos_b):
+            r = 4.0
+            ellipse = self._scene.addEllipse(
+                QRectF(pos.x() - r, pos.y() - r, r * 2, r * 2),
+                QPen(color, 1.5),
+                QBrush(color),
+            )
+            ellipse.setZValue(DIMENSION_LINE_Z)
+            group.items.append(ellipse)
+
+        # Label badge at midpoint
+        mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
+        text_item = QGraphicsSimpleTextItem(label)
+        font = QFont()
+        font.setPointSize(11)
+        font.setBold(True)
+        text_item.setFont(font)
+        text_item.setBrush(QBrush(color))
+        text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        text_item.setZValue(DIMENSION_LINE_Z + 1)
+        text_item.setPos(mid)
+        self._scene.addItem(text_item)
+        group.items.append(text_item)
+
     def _add_arrowhead(
         self,
         group: DimensionLineGroup,
@@ -339,24 +397,24 @@ class DimensionLineManager:
             if pos_a is None or pos_b is None:
                 continue
 
-            # Check distance from point to the dimension line segment
-            # (offset perpendicular from anchor line)
-            dx = pos_b.x() - pos_a.x()
-            dy = pos_b.y() - pos_a.y()
-            length = math.sqrt(dx * dx + dy * dy)
-            if length < 1e-6:
-                continue
-
-            nx = dx / length
-            ny = dy / length
-            px = -ny
-            py = nx
-            offset = WITNESS_LINE_OFFSET
-
-            dim_a = QPointF(pos_a.x() + px * offset, pos_a.y() + py * offset)
-            dim_b = QPointF(pos_b.x() + px * offset, pos_b.y() + py * offset)
-
-            dist = _point_to_segment_distance(scene_pos, dim_a, dim_b)
+            # For alignment constraints check distance to the direct line;
+            # for distance constraints check the offset dimension line.
+            if constraint.constraint_type in (ConstraintType.HORIZONTAL, ConstraintType.VERTICAL):
+                dist = _point_to_segment_distance(scene_pos, pos_a, pos_b)
+            else:
+                dx = pos_b.x() - pos_a.x()
+                dy = pos_b.y() - pos_a.y()
+                length = math.sqrt(dx * dx + dy * dy)
+                if length < 1e-6:
+                    continue
+                nx = dx / length
+                ny = dy / length
+                px = -ny
+                py = nx
+                offset = WITNESS_LINE_OFFSET
+                dim_a = QPointF(pos_a.x() + px * offset, pos_a.y() + py * offset)
+                dim_b = QPointF(pos_b.x() + px * offset, pos_b.y() + py * offset)
+                dist = _point_to_segment_distance(scene_pos, dim_a, dim_b)
             if dist < best_dist:
                 best_dist = dist
                 best_id = cid

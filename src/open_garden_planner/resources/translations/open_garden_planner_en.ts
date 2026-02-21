@@ -394,6 +394,22 @@ This will remove it from your custom library. Plants already placed in projects 
             <source>Plants</source>
             <translation>Plants</translation>
         </message>
+        <message>
+            <source>Constraints</source>
+            <translation>Constraints</translation>
+        </message>
+        <message>
+            <source>Distance Constraint (K)</source>
+            <translation>Distance Constraint (K)</translation>
+        </message>
+        <message>
+            <source>Horizontal Constraint</source>
+            <translation>Horizontal Constraint</translation>
+        </message>
+        <message>
+            <source>Vertical Constraint</source>
+            <translation>Vertical Constraint</translation>
+        </message>
     </context>
     <context>
         <name>ExportPngDialog</name>
@@ -1507,11 +1523,111 @@ Please restart the application for the change to take effect.</translation>
         </message>
     </context>
     <context>
+        <name>ConstraintToolbar</name>
+        <message>
+            <source>Constraints</source>
+            <translation>Constraints</translation>
+        </message>
+        <message>
+            <source>Distance Constraint (K)</source>
+            <translation>Distance Constraint (K)</translation>
+        </message>
+        <message>
+            <source>Horizontal Distance (coming soon)</source>
+            <translation>Horizontal Distance (coming soon)</translation>
+        </message>
+        <message>
+            <source>Vertical Distance (coming soon)</source>
+            <translation>Vertical Distance (coming soon)</translation>
+        </message>
+        <message>
+            <source>Horizontal Alignment</source>
+            <translation>Horizontal Alignment</translation>
+        </message>
+        <message>
+            <source>Vertical Alignment</source>
+            <translation>Vertical Alignment</translation>
+        </message>
+        <message>
+            <source>Coincident (coming soon)</source>
+            <translation>Coincident (coming soon)</translation>
+        </message>
+        <message>
+            <source>Parallel (coming soon)</source>
+            <translation>Parallel (coming soon)</translation>
+        </message>
+        <message>
+            <source>Perpendicular (coming soon)</source>
+            <translation>Perpendicular (coming soon)</translation>
+        </message>
+        <message>
+            <source>Equal Size (coming soon)</source>
+            <translation>Equal Size (coming soon)</translation>
+        </message>
+        <message>
+            <source>Fix in Place (coming soon)</source>
+            <translation>Fix in Place (coming soon)</translation>
+        </message>
+        <message>
+            <source>Angle Constraint (coming soon)</source>
+            <translation>Angle Constraint (coming soon)</translation>
+        </message>
+        <message>
+            <source>Symmetry (coming soon)</source>
+            <translation>Symmetry (coming soon)</translation>
+        </message>
+    </context>
+    <context>
         <name>ConstraintTool</name>
         <message>
-            <location filename="..\..\core\tools\constraint_tool.py" line="115" />
             <source>Constraint</source>
             <translation>Constraint</translation>
+        </message>
+        <message>
+            <source>≡ H (same Y)</source>
+            <translation>≡ H (same Y)</translation>
+        </message>
+        <message>
+            <source>≡ V (same X)</source>
+            <translation>≡ V (same X)</translation>
+        </message>
+        <message>
+            <source>Distance [H/V]</source>
+            <translation>Distance [H/V]</translation>
+        </message>
+        <message>
+            <source>Horizontal [D/V]</source>
+            <translation>Horizontal [D/V]</translation>
+        </message>
+        <message>
+            <source>Vertical [D/H]</source>
+            <translation>Vertical [D/H]</translation>
+        </message>
+        <message>
+            <source>Distance Constraint</source>
+            <translation>Distance Constraint</translation>
+        </message>
+        <message>
+            <source>Conflicting Constraint</source>
+            <translation>Conflicting Constraint</translation>
+        </message>
+        <message>
+            <source>This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.</source>
+            <translation>This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.</translation>
+        </message>
+    </context>
+    <context>
+        <name>HorizontalConstraintTool</name>
+        <message>
+            <source>Horizontal Constraint</source>
+            <translation>Horizontal Constraint</translation>
+        </message>
+    </context>
+    <context>
+        <name>VerticalConstraintTool</name>
+        <message>
+            <source>Vertical Constraint</source>
+            <translation>Vertical Constraint</translation>
         </message>
     </context>
     <context>
@@ -2714,6 +2830,22 @@ not yet implemented</translation>
         <message>
             <source>Delete constraint</source>
             <translation>Delete constraint</translation>
+        </message>
+        <message>
+            <source>≡ H</source>
+            <translation>≡ H</translation>
+        </message>
+        <message>
+            <source>≡ V</source>
+            <translation>≡ V</translation>
+        </message>
+        <message>
+            <source>{a} horizontal align {b}</source>
+            <translation>{a} horizontal align {b}</translation>
+        </message>
+        <message>
+            <source>{a} vertical align {b}</source>
+            <translation>{a} vertical align {b}</translation>
         </message>
     </context>
     <context>

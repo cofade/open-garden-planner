@@ -37,7 +37,7 @@ from open_garden_planner.ui.panels import (
     PropertiesPanel,
 )
 from open_garden_planner.ui.theme import ThemeMode, apply_theme
-from open_garden_planner.ui.widgets import CollapsiblePanel, MainToolbar
+from open_garden_planner.ui.widgets import CollapsiblePanel, ConstraintToolbar, MainToolbar
 
 logger = logging.getLogger(__name__)
 
@@ -558,9 +558,13 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_scene = CanvasScene(width_cm=5000, height_cm=3000)
         self.canvas_view = CanvasView(self.canvas_scene)
 
-        # Add CAD-style top toolbar
+        # Add CAD-style top toolbar (Select, Measure)
         self.main_toolbar = MainToolbar(self)
         self.addToolBar(self.main_toolbar)
+
+        # Add constraint toolbar (all constraint tools, FreeCAD-style)
+        self.constraint_toolbar = ConstraintToolbar(self)
+        self.addToolBar(self.constraint_toolbar)
 
         # Create sidebar panels
         self._setup_sidebar()
@@ -585,6 +589,7 @@ class GardenPlannerApp(QMainWindow):
 
         # Connect toolbar and gallery to canvas view
         self.main_toolbar.tool_selected.connect(self._on_tool_selected)
+        self.constraint_toolbar.tool_selected.connect(self._on_tool_selected)
         self.gallery_panel.tool_selected.connect(self._on_tool_selected)
         self.gallery_panel.item_selected.connect(self._on_gallery_item_selected)
         self.canvas_view.tool_changed.connect(self.update_tool)
@@ -1798,18 +1803,25 @@ class GardenPlannerApp(QMainWindow):
             active_tool.set_plant_info(category=category, species=species)
 
     def _sync_toolbar_state(self, tool_name: str) -> None:
-        """Sync the toolbar button state when tool changes from other sources.
+        """Sync toolbar button states when the active tool changes.
 
         Args:
             tool_name: Display name of the current tool
         """
-        name_map = {
+        main_tool_map = {
             "Select": ToolType.SELECT,
             "Measure": ToolType.MEASURE,
         }
-        tool_type = name_map.get(tool_name)
-        if tool_type:
+        constraint_tool_map = {
+            "Distance Constraint": ToolType.CONSTRAINT,
+            "Horizontal Constraint": ToolType.CONSTRAINT_HORIZONTAL,
+            "Vertical Constraint": ToolType.CONSTRAINT_VERTICAL,
+        }
+        if tool_type := main_tool_map.get(tool_name):
             self.main_toolbar.set_active_tool(tool_type)
+            self.constraint_toolbar.set_active_tool(tool_type)  # uncheck all constraint btns
+        elif tool_type := constraint_tool_map.get(tool_name):
+            self.constraint_toolbar.set_active_tool(tool_type)
 
     def _on_active_layer_changed(self, layer_id) -> None:
         """Handle active layer change from layers panel.

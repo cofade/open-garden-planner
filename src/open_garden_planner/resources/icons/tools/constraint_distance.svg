@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Witness lines -->
+  <line x1="5" y1="9" x2="5" y2="23" stroke="#1565C0" stroke-width="2" stroke-linecap="round"/>
+  <line x1="27" y1="9" x2="27" y2="23" stroke="#1565C0" stroke-width="2" stroke-linecap="round"/>
+  <!-- Dimension line -->
+  <line x1="5" y1="16" x2="27" y2="16" stroke="#1565C0" stroke-width="2"/>
+  <!-- Arrowheads pointing inward -->
+  <polygon points="5,16 12,13 12,19" fill="#1565C0"/>
+  <polygon points="27,16 20,13 20,19" fill="#1565C0"/>
+  <!-- Distance label -->
+  <text x="16" y="11" font-family="sans-serif" font-size="7" fill="#1565C0" text-anchor="middle" font-weight="bold">d</text>
+</svg>
