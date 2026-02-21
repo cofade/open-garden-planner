@@ -173,7 +173,7 @@ class TestConstraintTool:
 
     def test_display_name(self, qtbot, constraint_tool) -> None:
         tool, view, scene = constraint_tool
-        assert tool.display_name == "Constraint"
+        assert tool.display_name == "Distance Constraint"
 
     def test_shortcut(self, qtbot, constraint_tool) -> None:
         tool, view, scene = constraint_tool

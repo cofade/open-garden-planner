@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Witness lines (horizontal) -->
+  <line x1="9" y1="4" x2="21" y2="4" stroke="#1565C0" stroke-width="2" stroke-linecap="round"/>
+  <line x1="9" y1="26" x2="21" y2="26" stroke="#1565C0" stroke-width="2" stroke-linecap="round"/>
+  <!-- Vertical dimension line -->
+  <line x1="15" y1="4" x2="15" y2="26" stroke="#1565C0" stroke-width="2"/>
+  <polygon points="15,4 12,11 18,11" fill="#1565C0"/>
+  <polygon points="15,26 12,19 18,19" fill="#1565C0"/>
+  <!-- V label to the right -->
+  <text x="25" y="18" font-family="sans-serif" font-size="9" fill="#1565C0" text-anchor="middle" font-weight="bold">V</text>
+</svg>

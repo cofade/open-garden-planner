@@ -356,7 +356,7 @@
 | US-7.6 | Constraints manager panel | Must | ✅ Done |
 | US-7.7 | Numeric position input (editable X, Y in properties) | Must | ✅ Done |
 | US-7.8 | Numeric dimension input (editable width/height/radius) | Must | ✅ Done |
-| US-7.9 | Horizontal/Vertical alignment constraints | Should | |
+| US-7.9 | Horizontal/Vertical alignment constraints | Should | ✅ Done |
 | US-7.10 | Angle constraints | Should | |
 | US-7.11 | Symmetry constraints | Should | |
 | US-7.12 | Construction geometry (helper lines, not in exports) | Should | |
@@ -364,6 +364,13 @@
 | US-7.14 | Linear array placement | Could | |
 | US-7.15 | Grid array placement | Could | |
 | US-7.16 | Circular array placement | Could | |
+| US-7.17 | Coincident constraint (merge two anchor points) | Should | |
+| US-7.18 | Parallel constraint (two edges stay parallel) | Could | |
+| US-7.19 | Perpendicular constraint (two edges at 90°) | Could | |
+| US-7.20 | Equal size constraint (same radius/width/height) | Could | |
+| US-7.21 | Fix in place / Block constraint (pin object permanently) | Could | |
+| US-7.22 | Horizontal/Vertical distance constraints (1D dimensional) | Could | |
+| **US-7.23** | **FreeCAD-style constraint toolbar with full icon set** | **Must** | ✅ Done |
 
 ### US-7.1: Measure Tool Snap to Object Anchors
 
@@ -544,6 +551,153 @@
 - Dialog: count, radius, start angle, sweep angle
 - Equal angular intervals around center
 - Single undo
+
+### US-7.17: Coincident Constraint
+
+**Description**: Force two anchor points to occupy the exact same location (zero distance). Like FreeCAD's "Coincident" — useful for attaching the corner of one object exactly onto a vertex or center of another.
+
+**Acceptance Criteria**:
+- New `COINCIDENT` constraint type in solver (enforces distance = 0)
+- Toolbar button in Constraints section (shortcut: none)
+- Workflow: click anchor A → click anchor B → constraint created immediately (no dialog)
+- Dimension line visualization: small filled square or diamond marker at the merged point
+- Satisfied when both anchors are within 1 mm of each other
+- Listed in Constraints panel as "⦿ Coincident"
+- Undo/redo via AddConstraintCommand
+
+### US-7.18: Parallel Constraint
+
+**Description**: Keep two line segments (edges of rectangles, polygon sides, polyline segments) parallel to each other. Like FreeCAD's "Parallel" constraint.
+
+**Acceptance Criteria**:
+- New `PARALLEL` constraint type in solver
+- Workflow: click edge A (near a polyline/rectangle side) → click edge B → constraint applied
+- Solver adjusts angle of free object to match the angle of the pinned one
+- Dimension line visualization: two parallel arrow markers on each edge
+- Listed in Constraints panel as "∥ Parallel"
+- Undo/redo via AddConstraintCommand
+
+### US-7.19: Perpendicular Constraint
+
+**Description**: Force two line segments to meet at exactly 90°. Like FreeCAD's "Perpendicular" — useful for paths meeting walls at right angles.
+
+**Acceptance Criteria**:
+- New `PERPENDICULAR` constraint type in solver
+- Workflow: click edge A → click edge B → constraint applied
+- Solver rotates the free object so the angle between edges = 90°
+- Dimension line visualization: small right-angle symbol at intersection
+- Listed in Constraints panel as "⊾ Perpendicular"
+- Undo/redo via AddConstraintCommand
+
+### US-7.20: Equal Size Constraint
+
+**Description**: Constrain two objects to have the same size — same radius for circles, same width or height for rectangles. Like FreeCAD's "Equal" constraint.
+
+**Acceptance Criteria**:
+- New `EQUAL_RADIUS`, `EQUAL_WIDTH`, `EQUAL_HEIGHT` constraint types (or single `EQUAL` dispatching by object pair)
+- Workflow: select two objects of compatible type → toolbar button creates equal constraint
+- Solver resizes the free object to match the size of the pinned/reference one
+- Dimension line visualization: "=" annotation near each affected object
+- Listed in Constraints panel as "= Equal"
+- Undo/redo via AddConstraintCommand
+
+### US-7.21: Fix in Place (Block) Constraint
+
+**Description**: Permanently pin an object to its current position so no solver or drag can move it. Like FreeCAD's "Block" constraint — useful for fixing the house, main fence posts, or reference objects.
+
+**Acceptance Criteria**:
+- New `FIXED` constraint type (single anchor only, stores target X/Y position)
+- Toolbar button or right-click → "Fix in Place"
+- Object cannot be dragged or moved by solver while constraint is active
+- Visual indicator: small padlock icon or crossed arrows badge on the object
+- Listed in Constraints panel as "🔒 Fixed"
+- Removing the constraint restores full movability
+- Undo/redo via AddConstraintCommand/RemoveConstraintCommand
+
+### US-7.22: Horizontal & Vertical Distance Constraints
+
+**Description**: Fix the horizontal (X-axis) or vertical (Y-axis) distance between two anchors to a specific value. Distinct from H/V alignment (US-7.9): alignment makes the distance zero on one axis; this sets it to any value. Like FreeCAD's "Horizontal Dimension" and "Vertical Dimension".
+
+**Acceptance Criteria**:
+- New `HORIZONTAL_DISTANCE` and `VERTICAL_DISTANCE` constraint types in solver
+- Workflow: click anchor A → click anchor B → dialog for exact distance (in meters)
+- Solver maintains only the X (or Y) component of the vector, leaving the other axis free
+- Dimension line visualization: horizontal (or vertical) double-arrow with value
+- Dialog pre-fills current measured H/V distance
+- Listed in Constraints panel as "↔ H-dist" / "↕ V-dist"
+- Undo/redo via AddConstraintCommand
+
+### US-7.23: FreeCAD-Style Constraint Toolbar with Full Icon Set
+
+**Description**: Replace the current "Constraints" section in the left sidebar with a dedicated horizontal **constraint toolbar** docked at the top of the canvas area, styled exactly like FreeCAD's Sketcher constraint toolbar. All constraint tools are shown as icon buttons in a row: implemented tools have full-color SVG icons, not-yet-implemented tools appear grayed out (disabled) as a visual roadmap preview.
+
+**Reference**: FreeCAD Sketcher workbench toolbar — see screenshot in project notes and look up FreeCAD's actual constraint tool icons at:
+- https://wiki.freecad.org/Sketcher_Workbench (constraint tool reference images)
+- https://github.com/FreeCAD/FreeCAD source tree `src/Mod/Sketcher/Gui/Resources/icons/` (original SVG icon files for design inspiration — do not copy, use as reference only)
+
+**Tools to include in the toolbar** (in order, matching FreeCAD layout):
+
+| # | Tool | Status | Color |
+|---|------|--------|-------|
+| 1 | Distance Constraint (K) | ✅ implemented | Full color |
+| 2 | Horizontal Alignment | ✅ implemented | Full color |
+| 3 | Vertical Alignment | ✅ implemented | Full color |
+| 4 | Horizontal Distance | ⬜ US-7.22 | Grayed out |
+| 5 | Vertical Distance | ⬜ US-7.22 | Grayed out |
+| 6 | Coincident | ⬜ US-7.17 | Grayed out |
+| 7 | Parallel | ⬜ US-7.18 | Grayed out |
+| 8 | Perpendicular | ⬜ US-7.19 | Grayed out |
+| 9 | Equal Size | ⬜ US-7.20 | Grayed out |
+| 10 | Fix in Place | ⬜ US-7.21 | Grayed out |
+| 11 | Angle Constraint | ⬜ US-7.10 | Grayed out |
+| 12 | Symmetry Constraint | ⬜ US-7.11 | Grayed out |
+
+**Acceptance Criteria**:
+
+**Layout & placement:**
+- New horizontal `QToolBar` docked at the top of the main window (below the existing main toolbar), labeled "Constraints"
+- Toolbar is shown only when a constraint tool is active OR always visible (prefer always visible)
+- Each button: 32×32px icon, no text label, tooltip showing name + shortcut
+- Separator line between groups: Dimensional | Geometric | Advanced
+- Remove the "Constraints" category from the left drawing tools panel sidebar (clean up)
+
+**SVG icon design (create all 12 icons in `resources/icons/tools/`):**
+
+Design language: flat, clean, 32×32 viewBox, 2px stroke, rounded caps. Use the FreeCAD icon set as visual reference for each symbol. Color palette for implemented tools:
+- Dimensional constraints: deep blue (`#1565C0`) — distance arrows, dimension lines
+- Geometric alignment: purple (`#6A1B9A`) — H/V alignment symbols
+- Geometric relational: teal (`#00695C`) — parallel, perpendicular, coincident
+- Equal/Fix: amber (`#E65100`) — equal sign, padlock
+
+Icon designs per tool:
+1. `constraint_distance.svg` — two arrows pointing inward ↔ with a dimension line and measurement hash marks; blue
+2. `constraint_horizontal.svg` — horizontal double-headed arrow with a small `H` and an equals sign beneath; purple
+3. `constraint_vertical.svg` — vertical double-headed arrow with a small `V` and an equals sign; purple
+4. `constraint_h_distance.svg` — horizontal arrow with a numeric `d` label; blue (grayed version = same SVG, opacity 0.3)
+5. `constraint_v_distance.svg` — vertical arrow with a numeric `d` label; blue
+6. `constraint_coincident.svg` — two circles with overlapping centers and a dot; teal
+7. `constraint_parallel.svg` — two parallel slanted lines with arrow pairs; teal
+8. `constraint_perpendicular.svg` — two lines meeting at 90° with a small square corner marker; teal
+9. `constraint_equal.svg` — `=` sign between two line segments of matching length; amber
+10. `constraint_fixed.svg` — padlock icon with small position cross; amber
+11. `constraint_angle.svg` — two lines diverging with an arc and degree symbol; blue
+12. `constraint_symmetric.svg` — mirrored object pair with a dashed centerline; purple
+
+**Not-yet-implemented buttons:**
+- Show all 12 buttons in the toolbar
+- Buttons for tools in US-7.10–7.22 (not yet implemented): `setEnabled(False)` + `setToolTip("Coming soon: <name>")`
+- Use the same SVG but render at 30% opacity (via `QIcon` with disabled mode, or a separate `_disabled` variant)
+
+**Translation:**
+- Add toolbar title and all tooltip strings to both `.ts` files
+- Recompile `.qm` files
+
+**Technical notes:**
+- `QToolBar` registered with `addToolBar(Qt.ToolBarArea.TopToolBarArea, constraint_toolbar)`
+- Buttons are `QToolButton` (checkable, exclusive group) — same pattern as drawing tools panel
+- Connect to `ToolManager.tool_changed` to highlight active button
+- On tool switch to any constraint type: activate that button in the group
+- The existing `DrawingToolsPanel` constraint section (added in US-7.9) is REMOVED in this US
 
 ---
 

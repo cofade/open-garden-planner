@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Dashed horizontal guideline (shared Y) -->
+  <line x1="2" y1="12" x2="30" y2="12" stroke="#6A1B9A" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <!-- Point A already on the line -->
+  <circle cx="7" cy="12" r="3.5" fill="#6A1B9A"/>
+  <!-- Point B below the line (ghost) -->
+  <circle cx="24" cy="23" r="3.5" fill="#6A1B9A" opacity="0.4"/>
+  <!-- Arrow showing B moves up to align -->
+  <line x1="24" y1="19" x2="24" y2="16" stroke="#6A1B9A" stroke-width="2" stroke-linecap="round"/>
+  <polygon points="24,12 21,17 27,17" fill="#6A1B9A"/>
+  <!-- H label -->
+  <text x="16" y="29" font-family="sans-serif" font-size="8" fill="#6A1B9A" text-anchor="middle" font-weight="bold">H</text>
+</svg>

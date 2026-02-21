@@ -1,7 +1,7 @@
-"""Distance constraint data model and solver for CAD precision.
+"""Distance and alignment constraint data model and solver for CAD precision.
 
 Provides a constraint graph and iterative Gauss-Seidel relaxation solver
-that resolves distance constraints between object anchor points.
+that resolves distance and alignment constraints between object anchor points.
 """
 
 from __future__ import annotations
@@ -14,6 +14,14 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from open_garden_planner.core.measure_snapper import AnchorType
+
+
+class ConstraintType(Enum):
+    """Type of constraint between two anchor points."""
+
+    DISTANCE = auto()    # Fixed distance between anchors
+    HORIZONTAL = auto()  # Same Y coordinate (horizontal alignment)
+    VERTICAL = auto()    # Same X coordinate (vertical alignment)
 
 
 class ConstraintStatus(Enum):
@@ -58,10 +66,12 @@ class AnchorRef:
 
 @dataclass
 class Constraint:
-    """A distance constraint between two anchor points.
+    """A constraint between two anchor points.
 
-    Specifies that the distance between anchor_a and anchor_b should
-    equal target_distance (in scene units / cm).
+    For DISTANCE constraints, specifies that the distance between anchor_a
+    and anchor_b should equal target_distance (in scene units / cm).
+    For HORIZONTAL/VERTICAL constraints, the anchors share the same Y/X
+    coordinate respectively; target_distance is unused (stored as 0.0).
     """
 
     constraint_id: UUID
@@ -69,6 +79,7 @@ class Constraint:
     anchor_b: AnchorRef
     target_distance: float
     visible: bool = True
+    constraint_type: ConstraintType = field(default_factory=lambda: ConstraintType.DISTANCE)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
@@ -78,6 +89,7 @@ class Constraint:
             "anchor_b": self.anchor_b.to_dict(),
             "target_distance": self.target_distance,
             "visible": self.visible,
+            "constraint_type": self.constraint_type.name,
         }
 
     @classmethod
@@ -89,6 +101,7 @@ class Constraint:
             anchor_b=AnchorRef.from_dict(data["anchor_b"]),
             target_distance=data["target_distance"],
             visible=data.get("visible", True),
+            constraint_type=ConstraintType[data.get("constraint_type", "DISTANCE")],
         )
 
 
@@ -127,15 +140,18 @@ class ConstraintGraph:
         target_distance: float,
         visible: bool = True,
         constraint_id: UUID | None = None,
+        constraint_type: ConstraintType = ConstraintType.DISTANCE,
     ) -> Constraint:
-        """Add a distance constraint between two anchors.
+        """Add a constraint between two anchors.
 
         Args:
             anchor_a: First anchor reference.
             anchor_b: Second anchor reference.
             target_distance: Desired distance in scene units (cm).
-            visible: Whether the constraint dimension line is visible.
+                Ignored for HORIZONTAL/VERTICAL constraints (pass 0.0).
+            visible: Whether the constraint annotation is visible.
             constraint_id: Optional pre-set ID (for deserialization).
+            constraint_type: Type of constraint (DISTANCE, HORIZONTAL, VERTICAL).
 
         Returns:
             The created Constraint.
@@ -147,6 +163,7 @@ class ConstraintGraph:
             anchor_b=anchor_b,
             target_distance=target_distance,
             visible=visible,
+            constraint_type=constraint_type,
         )
         self._constraints[cid] = constraint
 
@@ -332,6 +349,42 @@ class ConstraintGraph:
                 pos_a = positions[id_a]
                 pos_b = positions[id_b]
 
+                a_pinned = id_a in pinned_items
+                b_pinned = id_b in pinned_items
+
+                if constraint.constraint_type == ConstraintType.HORIZONTAL:
+                    # Enforce same Y coordinate
+                    diff = pos_b[1] - pos_a[1]
+                    error = abs(diff)
+                    max_error = max(max_error, error)
+                    if a_pinned and b_pinned:
+                        continue
+                    elif a_pinned:
+                        positions[id_b][1] = pos_a[1]
+                    elif b_pinned:
+                        positions[id_a][1] = pos_b[1]
+                    else:
+                        positions[id_a][1] += diff / 2.0
+                        positions[id_b][1] -= diff / 2.0
+                    continue
+
+                if constraint.constraint_type == ConstraintType.VERTICAL:
+                    # Enforce same X coordinate
+                    diff = pos_b[0] - pos_a[0]
+                    error = abs(diff)
+                    max_error = max(max_error, error)
+                    if a_pinned and b_pinned:
+                        continue
+                    elif a_pinned:
+                        positions[id_b][0] = pos_a[0]
+                    elif b_pinned:
+                        positions[id_a][0] = pos_b[0]
+                    else:
+                        positions[id_a][0] += diff / 2.0
+                        positions[id_b][0] -= diff / 2.0
+                    continue
+
+                # DISTANCE constraint
                 dx = pos_b[0] - pos_a[0]
                 dy = pos_b[1] - pos_a[1]
                 current_dist = math.sqrt(dx * dx + dy * dy)
@@ -351,9 +404,6 @@ class ConstraintGraph:
                 # Normalize direction
                 nx = dx / current_dist
                 ny = dy / current_dist
-
-                a_pinned = id_a in pinned_items
-                b_pinned = id_b in pinned_items
 
                 if a_pinned and b_pinned:
                     # Both pinned, cannot resolve
@@ -414,6 +464,7 @@ class ConstraintGraph:
                 target_distance=c.target_distance,
                 visible=c.visible,
                 constraint_id=c.constraint_id,
+                constraint_type=c.constraint_type,
             )
         return graph
 
@@ -481,6 +532,46 @@ class ConstraintGraph:
                 bx = positions[id_b][0] + off_b[0]
                 by = positions[id_b][1] + off_b[1]
 
+                a_pinned = id_a in pinned_items
+                b_pinned = id_b in pinned_items
+
+                if constraint.constraint_type == ConstraintType.HORIZONTAL:
+                    # Enforce same Y coordinate for anchors
+                    diff = by - ay
+                    error = abs(diff)
+                    max_error = max(max_error, error)
+                    if a_pinned and b_pinned:
+                        continue
+                    elif a_pinned:
+                        # Move item_b so its anchor matches item_a's anchor Y
+                        positions[id_b][1] -= diff
+                    elif b_pinned:
+                        # Move item_a so its anchor matches item_b's anchor Y
+                        positions[id_a][1] += diff
+                    else:
+                        positions[id_a][1] += diff / 2.0
+                        positions[id_b][1] -= diff / 2.0
+                    continue
+
+                if constraint.constraint_type == ConstraintType.VERTICAL:
+                    # Enforce same X coordinate for anchors
+                    diff = bx - ax
+                    error = abs(diff)
+                    max_error = max(max_error, error)
+                    if a_pinned and b_pinned:
+                        continue
+                    elif a_pinned:
+                        # Move item_b so its anchor matches item_a's anchor X
+                        positions[id_b][0] -= diff
+                    elif b_pinned:
+                        # Move item_a so its anchor matches item_b's anchor X
+                        positions[id_a][0] += diff
+                    else:
+                        positions[id_a][0] += diff / 2.0
+                        positions[id_b][0] -= diff / 2.0
+                    continue
+
+                # DISTANCE constraint
                 dx = bx - ax
                 dy = by - ay
                 current_dist = math.sqrt(dx * dx + dy * dy)
@@ -496,9 +587,6 @@ class ConstraintGraph:
                 correction = constraint.target_distance - current_dist
                 nx = dx / current_dist
                 ny = dy / current_dist
-
-                a_pinned = id_a in pinned_items
-                b_pinned = id_b in pinned_items
 
                 if a_pinned and b_pinned:
                     continue
@@ -536,6 +624,56 @@ class ConstraintGraph:
             item_deltas=item_deltas,
             over_constrained_items=over_constrained,
         )
+
+    def validate_constraint(
+        self,
+        anchor_a: AnchorRef,
+        anchor_b: AnchorRef,
+        target_distance: float,
+        constraint_type: ConstraintType,
+        item_positions: dict[UUID, tuple[float, float]],
+        anchor_offsets: dict[tuple[UUID, AnchorType, int], tuple[float, float]],
+        max_iterations: int = 50,
+        tolerance: float = 1.0,
+    ) -> bool:
+        """Test if adding a constraint would conflict with existing constraints.
+
+        Temporarily adds the constraint, runs the solver (without mutating
+        item_positions), removes the test constraint, and returns whether the
+        solver converged.
+
+        Args:
+            anchor_a: First anchor reference.
+            anchor_b: Second anchor reference.
+            target_distance: Desired distance in cm (ignored for alignment).
+            constraint_type: Type of constraint to test.
+            item_positions: Current item centre positions {item_id: (x, y)}.
+            anchor_offsets: Pre-computed anchor offsets keyed by
+                (item_id, anchor_type, anchor_index).
+            max_iterations: Solver iterations for the feasibility check.
+            tolerance: Convergence tolerance in cm.
+
+        Returns:
+            True  — constraint is compatible with the existing system.
+            False — adding the constraint would cause an irresolvable conflict.
+        """
+        temp = self.add_constraint(
+            anchor_a=anchor_a,
+            anchor_b=anchor_b,
+            target_distance=target_distance,
+            constraint_type=constraint_type,
+        )
+        try:
+            result = self.solve_anchored(
+                item_positions=item_positions,
+                anchor_offsets=anchor_offsets,
+                pinned_items=set(),
+                max_iterations=max_iterations,
+                tolerance=tolerance,
+            )
+            return result.converged
+        finally:
+            self.remove_constraint(temp.constraint_id)
 
     def clear(self) -> None:
         """Remove all constraints."""

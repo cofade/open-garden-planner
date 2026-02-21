@@ -311,7 +311,7 @@ tests/
 | ✅     | 7.6  | Constraints manager panel                            |
 | ✅     | 7.7  | Numeric position input                               |
 | ✅     | 7.8  | Numeric dimension input                              |
-|        | 7.9  | Horizontal/Vertical alignment constraints            |
+| ✅     | 7.9  | Horizontal/Vertical alignment constraints            |
 |        | 7.10 | Angle constraints                                    |
 |        | 7.11 | Symmetry constraints                                 |
 |        | 7.12 | Construction geometry                                |
@@ -319,3 +319,10 @@ tests/
 |        | 7.14 | Linear array placement                               |
 |        | 7.15 | Grid array placement                                 |
 |        | 7.16 | Circular array placement                             |
+|        | 7.17 | Coincident constraint (merge two anchor points)      |
+|        | 7.18 | Parallel constraint (two edges stay parallel)        |
+|        | 7.19 | Perpendicular constraint (two edges at 90°)          |
+|        | 7.20 | Equal size constraint (same radius/width/height)     |
+|        | 7.21 | Fix in place / Block constraint                      |
+|        | 7.22 | Horizontal/Vertical distance constraints (1D)        |
+| ✅     | 7.23 | FreeCAD-style constraint toolbar + full SVG icon set |

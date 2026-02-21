@@ -10,6 +10,7 @@ from open_garden_planner.core.constraints import (
     Constraint,
     ConstraintGraph,
     ConstraintStatus,
+    ConstraintType,
     SolverResult,
 )
 from open_garden_planner.core.measure_snapper import AnchorType
@@ -385,3 +386,213 @@ class TestConstraintGraphSerialization:
 
         # Adjacency should be preserved
         assert len(restored.get_item_constraints(ids[1])) == 2
+
+
+# --- Alignment constraint tests ---
+
+
+class TestAlignmentConstraints:
+    """Tests for HORIZONTAL and VERTICAL alignment constraints."""
+
+    def test_constraint_type_enum(self, qtbot) -> None:
+        assert ConstraintType.DISTANCE != ConstraintType.HORIZONTAL
+        assert ConstraintType.HORIZONTAL != ConstraintType.VERTICAL
+
+    def test_default_constraint_type_is_distance(self, qtbot) -> None:
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        c = graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
+        assert c.constraint_type == ConstraintType.DISTANCE
+
+    def test_add_horizontal_constraint(self, qtbot) -> None:
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.HORIZONTAL,
+        )
+        assert c.constraint_type == ConstraintType.HORIZONTAL
+
+    def test_add_vertical_constraint(self, qtbot) -> None:
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.VERTICAL,
+        )
+        assert c.constraint_type == ConstraintType.VERTICAL
+
+    def test_horizontal_solver_aligns_y(self, qtbot) -> None:
+        """HORIZONTAL constraint should make items have same Y coordinate."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.HORIZONTAL,
+        )
+        # Items at different Y positions
+        positions = {id_a: (0.0, 0.0), id_b: (100.0, 60.0)}
+        result = graph.solve(positions)
+
+        assert result.converged
+        delta_a = result.item_deltas.get(id_a, (0.0, 0.0))
+        delta_b = result.item_deltas.get(id_b, (0.0, 0.0))
+        new_ay = 0.0 + delta_a[1]
+        new_by = 60.0 + delta_b[1]
+        assert abs(new_by - new_ay) < 1.0  # Same Y
+
+    def test_vertical_solver_aligns_x(self, qtbot) -> None:
+        """VERTICAL constraint should make items have same X coordinate."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.VERTICAL,
+        )
+        # Items at different X positions
+        positions = {id_a: (0.0, 0.0), id_b: (80.0, 100.0)}
+        result = graph.solve(positions)
+
+        assert result.converged
+        delta_a = result.item_deltas.get(id_a, (0.0, 0.0))
+        delta_b = result.item_deltas.get(id_b, (0.0, 0.0))
+        new_ax = 0.0 + delta_a[0]
+        new_bx = 80.0 + delta_b[0]
+        assert abs(new_bx - new_ax) < 1.0  # Same X
+
+    def test_horizontal_pinned_a_only_b_moves(self, qtbot) -> None:
+        """HORIZONTAL with A pinned: only B adjusts its Y."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.HORIZONTAL,
+        )
+        positions = {id_a: (0.0, 0.0), id_b: (100.0, 50.0)}
+        result = graph.solve(positions, pinned_items={id_a})
+
+        assert id_a not in result.item_deltas
+        delta_b = result.item_deltas.get(id_b, (0.0, 0.0))
+        new_by = 50.0 + delta_b[1]
+        assert abs(new_by - 0.0) < 1.0  # B moves to A's Y
+
+    def test_vertical_pinned_b_only_a_moves(self, qtbot) -> None:
+        """VERTICAL with B pinned: only A adjusts its X."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.VERTICAL,
+        )
+        positions = {id_a: (0.0, 0.0), id_b: (60.0, 100.0)}
+        result = graph.solve(positions, pinned_items={id_b})
+
+        assert id_b not in result.item_deltas
+        delta_a = result.item_deltas.get(id_a, (0.0, 0.0))
+        new_ax = 0.0 + delta_a[0]
+        assert abs(new_ax - 60.0) < 1.0  # A moves to B's X
+
+    def test_already_aligned_no_movement(self, qtbot) -> None:
+        """Items already aligned should not move."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.HORIZONTAL,
+        )
+        positions = {id_a: (0.0, 50.0), id_b: (100.0, 50.0)}
+        result = graph.solve(positions)
+
+        assert result.converged
+        assert result.max_error < 1.0
+        assert len(result.item_deltas) == 0
+
+    def test_alignment_composable_with_distance(self, qtbot) -> None:
+        """HORIZONTAL alignment + DISTANCE should both be enforced."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.HORIZONTAL,
+        )
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+            constraint_type=ConstraintType.DISTANCE,
+        )
+        positions = {id_a: (0.0, 0.0), id_b: (200.0, 60.0)}
+        result = graph.solve(positions, pinned_items={id_a}, max_iterations=20)
+
+        delta_b = result.item_deltas.get(id_b, (0.0, 0.0))
+        new_bx = 200.0 + delta_b[0]
+        new_by = 60.0 + delta_b[1]
+        # B should be aligned horizontally (same Y as A=0)
+        assert abs(new_by - 0.0) < 2.0
+
+    def test_alignment_constraint_serialization_roundtrip(self, qtbot) -> None:
+        """Alignment constraints survive serialization roundtrip."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        c_h = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.HORIZONTAL,
+        )
+        c_v = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.EDGE_TOP),
+            0.0,
+            constraint_type=ConstraintType.VERTICAL,
+        )
+        data = graph.to_list()
+        restored = ConstraintGraph.from_list(data)
+
+        assert len(restored.constraints) == 2
+        types = {c.constraint_type for c in restored.constraints.values()}
+        assert ConstraintType.HORIZONTAL in types
+        assert ConstraintType.VERTICAL in types
+
+    def test_constraint_dict_includes_type(self, qtbot) -> None:
+        """to_dict() should include constraint_type field."""
+        id_a, id_b = uuid4(), uuid4()
+        c = Constraint(
+            constraint_id=uuid4(),
+            anchor_a=AnchorRef(id_a, AnchorType.CENTER),
+            anchor_b=AnchorRef(id_b, AnchorType.CENTER),
+            target_distance=0.0,
+            constraint_type=ConstraintType.HORIZONTAL,
+        )
+        d = c.to_dict()
+        assert d["constraint_type"] == "HORIZONTAL"
+
+    def test_constraint_from_dict_defaults_to_distance(self, qtbot) -> None:
+        """Old saved data without constraint_type should default to DISTANCE."""
+        id_a, id_b = uuid4(), uuid4()
+        d = {
+            "constraint_id": str(uuid4()),
+            "anchor_a": AnchorRef(id_a, AnchorType.CENTER).to_dict(),
+            "anchor_b": AnchorRef(id_b, AnchorType.CENTER).to_dict(),
+            "target_distance": 100.0,
+            "visible": True,
+            # No "constraint_type" key (old format)
+        }
+        c = Constraint.from_dict(d)
+        assert c.constraint_type == ConstraintType.DISTANCE

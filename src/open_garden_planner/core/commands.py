@@ -17,6 +17,7 @@ if TYPE_CHECKING:
         AnchorRef,
         Constraint,
         ConstraintGraph,
+        ConstraintType,
     )
 
 
@@ -561,7 +562,7 @@ class DeleteVertexCommand(Command):
 
 
 class AddConstraintCommand(Command):
-    """Command for adding a distance constraint."""
+    """Command for adding a constraint (distance or alignment)."""
 
     def __init__(
         self,
@@ -569,11 +570,14 @@ class AddConstraintCommand(Command):
         anchor_a: "AnchorRef",
         anchor_b: "AnchorRef",
         target_distance: float,
+        constraint_type: "ConstraintType | None" = None,
     ) -> None:
+        from open_garden_planner.core.constraints import ConstraintType
         self._graph = graph
         self._anchor_a = anchor_a
         self._anchor_b = anchor_b
         self._target_distance = target_distance
+        self._constraint_type = constraint_type or ConstraintType.DISTANCE
         self._constraint_id: UUID | None = None
 
     @property
@@ -586,6 +590,7 @@ class AddConstraintCommand(Command):
             self._anchor_b,
             self._target_distance,
             constraint_id=self._constraint_id,
+            constraint_type=self._constraint_type,
         )
         self._constraint_id = c.constraint_id
 
@@ -619,6 +624,7 @@ class RemoveConstraintCommand(Command):
             self._constraint.target_distance,
             visible=self._constraint.visible,
             constraint_id=self._constraint.constraint_id,
+            constraint_type=self._constraint.constraint_type,
         )
 
 
