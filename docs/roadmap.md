@@ -12,7 +12,10 @@
 | Backlog | - | ✅ Complete | Rotation, vertex editing, annotations |
 | ~~6~~ | ~~v1.0~~ | ~~✅ Complete~~ | ~~Visual Polish & Public Release~~ |
 | **7** | **v1.1** | **In Progress** | **CAD Precision & Constraints** |
-| 8 | v2.0+ | Future | Advanced Features |
+| 8 | v1.2 | Planned | Location, Climate & Planting Calendar |
+| 9 | v1.3 | Planned | Seed Inventory & Propagation Planning |
+| 10 | v1.4 | Planned | Companion Planting & Crop Rotation |
+| 11 | v2.0+ | Future | Advanced Features |
 
 ---
 
@@ -701,19 +704,534 @@ Icon designs per tool:
 
 ---
 
-## Phase 8: Advanced Features (Future, v2.0+)
+## Phase 8: Location, Climate & Planting Calendar (v1.2)
 
-Future enhancements beyond v1.1:
+**Goal**: Enable location-aware planting schedules with a dashboard showing what to do today/this week/this month.
+
+| ID | User Story | Priority | Status |
+|----|------------|----------|--------|
+| US-8.1 | GPS location & climate zone setup | Must | |
+| US-8.2 | Frost date & hardiness zone API lookup | Must | |
+| US-8.3 | Plant calendar data model | Must | |
+| US-8.4 | Planting calendar view (tab) | Must | |
+| US-8.5 | Dashboard / today view | Must | |
+| US-8.6 | Tab-based main window architecture | Must | |
+
+### US-8.1: GPS Location & Climate Zone Setup
+
+**Description**: User can set their garden's GPS coordinates to determine the local climate zone and frost dates.
+
+**Acceptance Criteria**:
+- Canvas context menu or project settings dialog has "Set Location" option
+- GPS coordinate input with latitude/longitude (decimal degrees)
+- Coordinates validated (lat: -90 to 90, lon: -180 to 180)
+- Tolerance for varying precision (2-6 decimal places)
+- Location persisted in the project file (`.ogp`)
+- Location indicator shown on canvas or status bar
+- Works without GPS — user can also manually enter frost dates as fallback
+
+**Technical Notes**:
+- Add `location` dict to `ProjectData`: `{"latitude": float, "longitude": float, "elevation_m": float | None}`
+- Add `frost_dates` dict: `{"last_spring_frost": "MM-DD", "first_fall_frost": "MM-DD", "hardiness_zone": "7b"}`
+- Store in `.ogp` under new top-level key `"location"`
+- New dialog: `ui/dialogs/location_dialog.py`
+- Bump `FILE_VERSION` to `"1.2"`
+
+### US-8.2: Frost Date & Hardiness Zone API Lookup
+
+**Description**: Given GPS coordinates, the system automatically looks up local frost dates and hardiness zone via online APIs.
+
+**Acceptance Criteria**:
+- After entering GPS coordinates, frost dates are automatically fetched
+- USDA zones supported (North America) via Frostline API or similar
+- European zones supported via Plantmaps or DWD data
+- API results populate the frost date fields automatically
+- User can override auto-detected values manually
+- Offline fallback: if API unavailable, user enters frost dates manually
+- Loading indicator during API call
+
+**Technical Notes**:
+- New service: `services/climate_service.py`
+- `ClimateService` class with `lookup_frost_dates(lat, lon) -> FrostData`
+- API chain pattern similar to `PlantAPIManager`: try multiple sources
+- Cache results in `get_app_data_dir()` to avoid repeated lookups
+- Consider bundling a coarse hardiness zone GeoJSON for offline fallback
+
+### US-8.3: Plant Calendar Data Model
+
+**Description**: Extend the plant data model with sowing, transplanting, and harvest timing information.
+
+**Acceptance Criteria**:
+- `PlantSpeciesData` extended with planting calendar fields
+- Fields: indoor sow window, direct sow window, transplant window, harvest window (all relative to last frost date)
+- Days to germination, days to maturity
+- Frost tolerance classification (frost-hardy, half-hardy, tender)
+- Minimum germination temperature
+- Seed depth (cm)
+- Local hybrid database with curated data for common vegetables/herbs (50+ species)
+- API fallback for extended data from Trefle/Perenual/Permapeople
+
+**Technical Notes**:
+- Extend `PlantSpeciesData` in `models/plant_data.py`:
+  ```python
+  # Planting calendar (weeks relative to last frost date, negative = before)
+  indoor_sow_start: int | None = None   # e.g., -8 = 8 weeks before last frost
+  indoor_sow_end: int | None = None
+  direct_sow_start: int | None = None
+  direct_sow_end: int | None = None
+  transplant_start: int | None = None
+  transplant_end: int | None = None
+  harvest_start: int | None = None       # weeks after planting
+  harvest_end: int | None = None
+  days_to_germination_min: int | None = None
+  days_to_germination_max: int | None = None
+  days_to_maturity_min: int | None = None
+  days_to_maturity_max: int | None = None
+  frost_tolerance: str | None = None     # "hardy" | "half-hardy" | "tender"
+  min_germination_temp_c: float | None = None
+  seed_depth_cm: float | None = None
+  ```
+- New local database: `resources/data/planting_calendar.json` — curated data for 50+ common vegetables/herbs
+- Merge logic: local DB has priority, API data fills gaps
+
+### US-8.4: Planting Calendar View
+
+**Description**: A dedicated tab showing a month-by-month calendar of all planting activities based on the garden plan and frost dates.
+
+**Acceptance Criteria**:
+- New "Planting Calendar" tab in main window
+- 12-month overview (scrollable) showing for each plant in the garden plan:
+  - Indoor sowing window (color-coded bar)
+  - Direct sowing window
+  - Transplanting window
+  - Expected harvest window
+- Current date highlighted with a "today" marker
+- Click on a plant row to see details (germination temp, seed depth, etc.)
+- Calendar adjusts automatically when frost dates change
+- Empty state when no plants are placed or no location is set
+
+**Technical Notes**:
+- New widget: `ui/views/planting_calendar_view.py`
+- Custom `QWidget` with a grid-based Gantt chart layout
+- Rows = plants from canvas, columns = weeks/months
+- Color coding: blue = indoor sow, green = direct sow, orange = transplant, red = harvest
+- Derives data from placed plants on canvas + `PlantSpeciesData` calendar fields + project frost dates
+- Signal connection: refresh when canvas objects change or frost dates updated
+
+### US-8.5: Dashboard / Today View
+
+**Description**: A dashboard section at the top of the Planting Calendar tab showing actionable tasks for today and this week.
+
+**Acceptance Criteria**:
+- "Today" panel at top of Planting Calendar tab
+- Shows tasks grouped by urgency: "Overdue", "Today", "This Week", "Coming Up"
+- Task types: "Start indoor sowing of X", "Transplant X outdoors", "Direct sow X", "Harvest X"
+- Tasks derived automatically from placed plants + calendar data + current date
+- Visual indicators for overdue tasks (red), today (yellow), upcoming (green)
+- Clicking a task highlights the plant on the canvas (switches to Garden Plan tab)
+
+**Technical Notes**:
+- Integrated into `PlanningCalendarView` as a top section
+- Uses `QDate.currentDate()` for "today"
+- Task generation: compare current date against each plant's calculated windows
+- Store task completion state per season in project file (so user can mark "done")
+
+### US-8.6: Tab-Based Main Window Architecture
+
+**Description**: Refactor the main window to support multiple tabs (Garden Plan, Planting Calendar, Seed Inventory).
+
+**Acceptance Criteria**:
+- Tab bar above the canvas area with at least "Garden Plan" tab
+- Switching tabs preserves state (no data loss)
+- Sidebar panels only visible on Garden Plan tab
+- Tab icons for visual distinction
+- Keyboard shortcut to switch tabs (Ctrl+1, Ctrl+2, Ctrl+3)
+- Existing functionality unchanged — Garden Plan tab works exactly as before
+
+**Technical Notes**:
+- This is a prerequisite for US-8.4 and US-9.4 — implement first
+- Modify `application.py` -> `_setup_central_widget()`
+- Wrap current `QSplitter` in a `QTabWidget`
+- Tab 0: existing splitter (canvas + sidebar)
+- Tabs 1+: new views added by subsequent phases
+- Consider `QStackedWidget` if tab bar styling needs customization
+
+---
+
+## Phase 9: Seed Inventory & Propagation Planning (v1.3)
+
+**Goal**: Manage seed packets ("Samenbeutel"), track viability, and plan the full propagation cycle from indoor sowing to transplanting.
+
+| ID | User Story | Priority | Status |
+|----|------------|----------|--------|
+| US-9.1 | Seed packet data model | Must | |
+| US-9.2 | Seed viability database | Must | |
+| US-9.3 | Seed inventory management panel | Must | |
+| US-9.4 | Seed inventory tab view | Must | |
+| US-9.5 | Propagation planning (pre-cultivation) | Should | |
+| US-9.6 | Seed-to-plant manual linking | Should | |
+
+### US-9.1: Seed Packet Data Model
+
+**Description**: Define the data model for tracking seed packets with all relevant attributes.
+
+**Acceptance Criteria**:
+- Each seed packet record contains:
+  - Plant species/variety (linked to `PlantSpeciesData`)
+  - Purchase/harvest year
+  - Quantity (count or weight in grams)
+  - Manufacturer/source
+  - Batch/lot number (optional)
+  - Viability (auto-calculated from species + age)
+  - Germination temperature (min/optimal/max)
+  - Germination duration (days)
+  - Light/dark germinator classification
+  - Cold stratification required (yes/no, duration)
+  - Pre-treatment notes (scarification, soaking, etc.)
+  - Free-text notes
+  - Photo attachment (optional, stored as file path)
+- Seed viability auto-calculated based on species shelf life and packet age
+- Status indicator: "Good", "Reduced viability", "Likely expired"
+
+**Technical Notes**:
+- New model: `models/seed_inventory.py`
+  ```python
+  @dataclass
+  class SeedPacket:
+      id: str                          # UUID
+      species_id: str | None           # Link to PlantSpeciesData
+      species_name: str                # Fallback display name
+      variety: str = ""
+      purchase_year: int = 2024
+      quantity: float = 0
+      quantity_unit: str = "seeds"     # "seeds" | "grams"
+      manufacturer: str = ""
+      batch_number: str = ""
+      germination_temp_min_c: float | None = None
+      germination_temp_opt_c: float | None = None
+      germination_temp_max_c: float | None = None
+      germination_days_min: int | None = None
+      germination_days_max: int | None = None
+      light_germinator: bool | None = None    # True=light, False=dark, None=indifferent
+      cold_stratification: bool = False
+      stratification_days: int | None = None
+      pre_treatment: str = ""
+      notes: str = ""
+      photo_path: str = ""
+      created_date: str = ""          # ISO date
+  ```
+- Viability rules: `resources/data/seed_viability.json` — maps species/family to shelf life in years
+- Storage: new top-level key `"seed_inventory"` in `.ogp` project file
+- Also store a global seed inventory in `get_app_data_dir()/seed_inventory.json` (not project-specific)
+
+### US-9.2: Seed Viability Database
+
+**Description**: A curated database mapping plant species/families to seed shelf life, enabling automatic viability calculation.
+
+**Acceptance Criteria**:
+- Bundled database with viability data for 80+ common species
+- Data includes: species/family, typical shelf life (years), viability curve (good/reduced/expired thresholds)
+- Auto-lookup when creating a seed packet from a known species
+- User can override viability for individual packets
+- Source references from established seed viability charts
+
+**Technical Notes**:
+- JSON file: `resources/data/seed_viability.json`
+  ```json
+  {
+    "by_species": {
+      "tomato": {"shelf_life_years": 5, "reduced_after_years": 4},
+      "onion": {"shelf_life_years": 1, "reduced_after_years": 1},
+      "lettuce": {"shelf_life_years": 5, "reduced_after_years": 3}
+    },
+    "by_family": {
+      "Solanaceae": {"shelf_life_years": 4, "reduced_after_years": 3},
+      "Brassicaceae": {"shelf_life_years": 5, "reduced_after_years": 4}
+    }
+  }
+  ```
+- Lookup order: exact species match -> family match -> default (3 years)
+
+### US-9.3: Seed Inventory Management Panel
+
+**Description**: A dedicated panel/dialog for adding, editing, and browsing seed packets.
+
+**Acceptance Criteria**:
+- Accessible from Plants menu -> "Manage Seed Inventory"
+- Table/card view showing all seed packets with key info at a glance
+- Color-coded viability status: green (good), yellow (reduced), red (expired)
+- Add new seed packet (with plant species autocomplete from plant database)
+- Edit existing seed packet
+- Delete seed packet (with confirmation)
+- Sort by: name, year, viability, quantity
+- Filter by: status (good/reduced/expired), plant family, year
+- Search bar for quick finding
+- "Needs reorder" indicator when quantity is low (user-defined threshold)
+
+**Technical Notes**:
+- New dialog: `ui/dialogs/seed_inventory_dialog.py`
+- `QTableView` with custom `QAbstractTableModel` for the seed list
+- Or `QListWidget` with custom `QWidget` items for card-style layout
+- Reuse plant search/autocomplete from existing `PlantSearchPanel`
+- Connect to `PlantLibrary` for species data linking
+
+### US-9.4: Seed Inventory Tab View
+
+**Description**: The Seed Inventory as a dedicated tab in the main window for quick access.
+
+**Acceptance Criteria**:
+- "Seed Inventory" tab in main window (third tab after Garden Plan and Planting Calendar)
+- Same functionality as the dialog but always accessible
+- Quick-add button for new seed packets
+- Summary statistics at top: total packets, expired count, needs reorder count
+- Batch operations: mark multiple as used, delete multiple
+
+**Technical Notes**:
+- New widget: `ui/views/seed_inventory_view.py`
+- Shares model/logic with seed inventory dialog (extract into shared service)
+- New service: `services/seed_inventory_service.py` — manages CRUD, persistence, viability calculations
+
+### US-9.5: Propagation Planning (Pre-Cultivation)
+
+**Description**: Plan the full indoor propagation cycle: sowing -> germination -> pricking out -> hardening off -> transplanting.
+
+**Acceptance Criteria**:
+- For each seed packet or plant in the garden plan, show a propagation timeline:
+  1. **Indoor sowing** — start date, required temperature, seed depth
+  2. **Germination** — expected duration, check dates
+  3. **Pricking out (Pikieren)** — when seedlings have first true leaves
+  4. **Hardening off (Abhärten)** — gradual outdoor exposure period (typically 7-14 days)
+  5. **Transplanting** — final outdoor planting date (after last frost)
+- Each step has a calculated date based on species data + frost dates
+- Steps shown as a timeline/Gantt chart in the Planting Calendar
+- User can adjust individual dates
+- Propagation steps generate tasks in the Dashboard
+
+**Technical Notes**:
+- Extend `PlanningCalendarView` with propagation sub-steps
+- New model: `models/propagation.py` — `PropagationPlan` with steps
+- Default step durations in `planting_calendar.json`:
+  ```json
+  {
+    "tomato": {
+      "indoor_sow_weeks_before_frost": 8,
+      "germination_days": [7, 14],
+      "prick_out_after_days": 21,
+      "harden_off_days": 10,
+      "transplant_after_last_frost_days": 14
+    }
+  }
+  ```
+- Link propagation plans to seed packets (optional manual linking)
+
+### US-9.6: Seed-to-Plant Manual Linking
+
+**Description**: User can optionally link a seed packet to a placed plant on the canvas.
+
+**Acceptance Criteria**:
+- In the Properties panel (when a plant is selected), option to "Link Seed Packet"
+- Dropdown/search showing matching seed packets from inventory
+- Linked seed packet info shown in Properties panel
+- Unlinking is always possible
+- Linking does NOT auto-decrement seed quantity (manual quantity management only)
+- Linked seeds appear in the Planting Calendar with their propagation timeline
+
+**Technical Notes**:
+- Store `seed_packet_id` in `PlantInstance.custom_fields`
+- Extend `PropertiesPanel` with seed packet link UI
+- Bidirectional: seed inventory view shows which plants a packet is linked to
+
+---
+
+## Phase 10: Companion Planting & Crop Rotation (v1.4)
+
+**Goal**: Help gardeners optimize plant placement with companion planting recommendations and multi-year crop rotation tracking.
+
+| ID | User Story | Priority | Status |
+|----|------------|----------|--------|
+| US-10.1 | Companion planting database | Must | |
+| US-10.2 | Companion planting visual warnings | Must | |
+| US-10.3 | Companion planting recommendation panel | Should | |
+| US-10.4 | Whole-plan compatibility check | Should | |
+| US-10.5 | Crop rotation data model | Must | |
+| US-10.6 | Crop rotation recommendations | Should | |
+| US-10.7 | Season management & plan duplication | Could | |
+
+### US-10.1: Companion Planting Database
+
+**Description**: A curated database of plant compatibility (good neighbors, bad neighbors).
+
+**Acceptance Criteria**:
+- Bundled database with companion planting data for 60+ common vegetables/herbs/flowers
+- Relationship types: "beneficial" (good neighbor), "antagonistic" (bad neighbor), "neutral"
+- Bidirectional relationships (if A helps B, that's recorded for both)
+- Reasons/notes for each relationship (e.g., "repels aphids", "competes for nutrients")
+- Data sourced from established gardening references
+- User can add custom companion planting rules
+
+**Technical Notes**:
+- JSON file: `resources/data/companion_planting.json`
+  ```json
+  {
+    "relationships": [
+      {
+        "plant_a": "tomato",
+        "plant_b": "basil",
+        "type": "beneficial",
+        "reason": "Basil repels aphids and improves tomato flavor"
+      },
+      {
+        "plant_a": "tomato",
+        "plant_b": "fennel",
+        "type": "antagonistic",
+        "reason": "Fennel inhibits tomato growth"
+      }
+    ]
+  }
+  ```
+- New service: `services/companion_planting_service.py`
+- Lookup by species name, common name, or family
+
+### US-10.2: Companion Planting Visual Warnings
+
+**Description**: When placing or moving a plant on the canvas, visually indicate compatibility with neighboring plants.
+
+**Acceptance Criteria**:
+- When a plant is selected or being placed, nearby plants are highlighted:
+  - Green glow/border: beneficial companion
+  - Red glow/border: antagonistic plant
+  - No highlight: neutral
+- "Nearby" defined by a configurable radius (default: 2m)
+- Warnings shown in real-time during drag operations
+- Can be toggled on/off in View menu
+- Works with both existing placed plants and new plant placement
+
+**Technical Notes**:
+- Extend `GardenItem` / plant items with a `set_companion_highlight(type)` method
+- Use `QGraphicsDropShadowEffect` or colored border overlay
+- Proximity check: iterate nearby items within radius, check companion DB
+- Trigger on: item selection, item move, new item placement
+- Performance: spatial index or simple distance check (gardens are small)
+
+### US-10.3: Companion Planting Recommendation Panel
+
+**Description**: A sidebar panel showing companion planting recommendations for the selected plant.
+
+**Acceptance Criteria**:
+- When a plant is selected, a panel shows:
+  - "Good Companions" list with reasons
+  - "Bad Companions" list with reasons
+  - Which companions are already nearby in the plan
+- Clicking a companion in the list highlights it on the canvas (if placed)
+- Panel integrated into existing Plant Details panel or as new collapsible panel
+
+**Technical Notes**:
+- Extend `PlantDatabasePanel` or create new `CompanionPanel`
+- Query `CompanionPlantingService` with selected plant's species
+- Cross-reference with plants currently on canvas
+
+### US-10.4: Whole-Plan Compatibility Check
+
+**Description**: Analyze the entire garden plan for companion planting issues.
+
+**Acceptance Criteria**:
+- Menu action: Plants -> "Check Companion Planting"
+- Scans all plant pairs within proximity radius
+- Report dialog showing:
+  - Number of beneficial pairings
+  - Number of antagonistic pairings (warnings)
+  - List of each conflict with plant names, distance, and reason
+- Option to highlight all conflicts on the canvas simultaneously
+- "Score" or rating for overall plan compatibility
+
+**Technical Notes**:
+- New dialog: `ui/dialogs/companion_check_dialog.py`
+- Algorithm: for each plant pair within radius, check companion DB
+- O(n^2) but fine for garden-scale (typically <100 plants)
+
+### US-10.5: Crop Rotation Data Model
+
+**Description**: Track what was planted where across multiple years/seasons for crop rotation planning.
+
+**Acceptance Criteria**:
+- Each bed/area can have a planting history: year -> list of plants
+- History persisted in project file
+- Plant family classification for rotation rules (Solanaceae, Brassicaceae, etc.)
+- Nutrient demand classification: heavy feeder, medium feeder, light feeder, nitrogen fixer (green manure)
+- Data for 60+ common species included in the local database
+
+**Technical Notes**:
+- Extend `PlantSpeciesData`:
+  ```python
+  nutrient_demand: str | None = None   # "heavy" | "medium" | "light" | "fixer"
+  # family field already exists
+  ```
+- New model in `models/crop_rotation.py`:
+  ```python
+  @dataclass
+  class PlantingRecord:
+      year: int
+      season: str           # "spring" | "summer" | "fall" | "winter"
+      species_name: str
+      family: str
+      nutrient_demand: str
+      area_id: str          # links to a garden item (bed/area)
+
+  @dataclass
+  class CropRotationHistory:
+      records: list[PlantingRecord]
+  ```
+- Store as `"crop_rotation"` key in `.ogp` file
+- Nutrient demand data in `resources/data/planting_calendar.json` (extend existing)
+
+### US-10.6: Crop Rotation Recommendations
+
+**Description**: Based on planting history, recommend what to plant in each bed this year.
+
+**Acceptance Criteria**:
+- For each bed with history, show rotation recommendation:
+  - Avoid: same family as last 2-3 years
+  - Prefer: follow heavy feeders with medium/light feeders
+  - Ideal rotation: Heavy -> Medium -> Light -> Green Manure -> Heavy
+- Visual indicator on beds: green (good rotation), yellow (suboptimal), red (violation)
+- Recommendation panel showing suggested plant families for each bed
+- Warning when placing a plant that violates rotation rules
+
+**Technical Notes**:
+- New service: `services/crop_rotation_service.py`
+- Rule engine: check last N years of history for family/demand conflicts
+- Integrate with companion planting visual system (similar highlight approach)
+
+### US-10.7: Season Management & Plan Duplication
+
+**Description**: Manage multiple seasons/years and duplicate plans for a new season.
+
+**Acceptance Criteria**:
+- "New Season" action: duplicate current plan as starting point for next year
+- Previous season's plant placements become the rotation history for the new season
+- Season selector in the UI to switch between years
+- Each season is a separate state of the canvas (different plants, same beds/structures)
+- Beds/paths/structures carry over, plants are cleared or kept as user chooses
+- Compare view: overlay previous season's plants as ghosted/faded
+
+**Technical Notes**:
+- Major feature — likely the most complex US in this phase
+- Recommend separate `.ogp` files linked via `"linked_seasons"` metadata field
+- Season management dialog: `ui/dialogs/season_manager_dialog.py`
+
+---
+
+## Phase 11: Advanced Features (Future, v2.0+)
+
+Future enhancements beyond v1.4:
 
 - Additional drawing tools (arcs, curves, bezier paths)
 - DXF import/export for CAD interoperability
 - 3D visualization (Qt3D integration)
 - Sun path simulation
 - Plant growth over time visualization
-- Companion planting suggestions
 - Plugin system
 - Community plant library sharing
 - Seasonal view (spring/summer/autumn/winter appearance)
 - Irrigation planning
-- Companion planting matrix
 - Cost estimation
