@@ -360,7 +360,7 @@
 | US-7.7 | Numeric position input (editable X, Y in properties) | Must | ✅ Done |
 | US-7.8 | Numeric dimension input (editable width/height/radius) | Must | ✅ Done |
 | US-7.9 | Horizontal/Vertical alignment constraints | Should | ✅ Done |
-| US-7.10 | Angle constraints | Should | |
+| US-7.10 | Angle constraints | Should | ✅ Done |
 | US-7.11 | Symmetry constraints | Should | |
 | US-7.12 | Construction geometry (helper lines, not in exports) | Should | |
 | US-7.13 | Draggable guide lines | Should | |

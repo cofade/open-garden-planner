@@ -22,6 +22,7 @@ class ConstraintType(Enum):
     DISTANCE = auto()    # Fixed distance between anchors
     HORIZONTAL = auto()  # Same Y coordinate (horizontal alignment)
     VERTICAL = auto()    # Same X coordinate (vertical alignment)
+    ANGLE = auto()       # Fixed angle at vertex B between rays BA and BC (degrees)
 
 
 class ConstraintStatus(Enum):
@@ -66,12 +67,15 @@ class AnchorRef:
 
 @dataclass
 class Constraint:
-    """A constraint between two anchor points.
+    """A constraint between two or three anchor points.
 
     For DISTANCE constraints, specifies that the distance between anchor_a
     and anchor_b should equal target_distance (in scene units / cm).
     For HORIZONTAL/VERTICAL constraints, the anchors share the same Y/X
     coordinate respectively; target_distance is unused (stored as 0.0).
+    For ANGLE constraints, specifies that the angle A-B-C (where B=anchor_b
+    is the vertex) should equal target_distance (in degrees). anchor_c is
+    the third anchor point.
     """
 
     constraint_id: UUID
@@ -80,10 +84,11 @@ class Constraint:
     target_distance: float
     visible: bool = True
     constraint_type: ConstraintType = field(default_factory=lambda: ConstraintType.DISTANCE)
+    anchor_c: AnchorRef | None = None  # Third anchor for ANGLE constraints
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
-        return {
+        d: dict[str, Any] = {
             "constraint_id": str(self.constraint_id),
             "anchor_a": self.anchor_a.to_dict(),
             "anchor_b": self.anchor_b.to_dict(),
@@ -91,10 +96,14 @@ class Constraint:
             "visible": self.visible,
             "constraint_type": self.constraint_type.name,
         }
+        if self.anchor_c is not None:
+            d["anchor_c"] = self.anchor_c.to_dict()
+        return d
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Constraint:
         """Deserialize from dictionary."""
+        anchor_c_data = data.get("anchor_c")
         return cls(
             constraint_id=UUID(data["constraint_id"]),
             anchor_a=AnchorRef.from_dict(data["anchor_a"]),
@@ -102,6 +111,7 @@ class Constraint:
             target_distance=data["target_distance"],
             visible=data.get("visible", True),
             constraint_type=ConstraintType[data.get("constraint_type", "DISTANCE")],
+            anchor_c=AnchorRef.from_dict(anchor_c_data) if anchor_c_data else None,
         )
 
 
@@ -141,17 +151,19 @@ class ConstraintGraph:
         visible: bool = True,
         constraint_id: UUID | None = None,
         constraint_type: ConstraintType = ConstraintType.DISTANCE,
+        anchor_c: AnchorRef | None = None,
     ) -> Constraint:
-        """Add a constraint between two anchors.
+        """Add a constraint between two or three anchors.
 
         Args:
             anchor_a: First anchor reference.
-            anchor_b: Second anchor reference.
-            target_distance: Desired distance in scene units (cm).
+            anchor_b: Second anchor reference (vertex for ANGLE constraints).
+            target_distance: Desired distance in cm, or angle in degrees for ANGLE.
                 Ignored for HORIZONTAL/VERTICAL constraints (pass 0.0).
             visible: Whether the constraint annotation is visible.
             constraint_id: Optional pre-set ID (for deserialization).
-            constraint_type: Type of constraint (DISTANCE, HORIZONTAL, VERTICAL).
+            constraint_type: Type of constraint.
+            anchor_c: Third anchor for ANGLE constraints (point C in A-B-C).
 
         Returns:
             The created Constraint.
@@ -164,14 +176,17 @@ class ConstraintGraph:
             target_distance=target_distance,
             visible=visible,
             constraint_type=constraint_type,
+            anchor_c=anchor_c,
         )
         self._constraints[cid] = constraint
 
-        # Update adjacency
+        # Update adjacency for all involved items
         item_a = anchor_a.item_id
         item_b = anchor_b.item_id
         self._adjacency.setdefault(item_a, set()).add(cid)
         self._adjacency.setdefault(item_b, set()).add(cid)
+        if anchor_c is not None:
+            self._adjacency.setdefault(anchor_c.item_id, set()).add(cid)
 
         return constraint
 
@@ -181,8 +196,11 @@ class ConstraintGraph:
         if constraint is None:
             return
 
-        # Clean up adjacency
-        for item_id in (constraint.anchor_a.item_id, constraint.anchor_b.item_id):
+        # Clean up adjacency for all involved items
+        item_ids = [constraint.anchor_a.item_id, constraint.anchor_b.item_id]
+        if constraint.anchor_c is not None:
+            item_ids.append(constraint.anchor_c.item_id)
+        for item_id in item_ids:
             adj = self._adjacency.get(item_id)
             if adj is not None:
                 adj.discard(constraint_id)
@@ -227,13 +245,13 @@ class ConstraintGraph:
                 constraint = self._constraints.get(cid)
                 if constraint is None:
                     continue
-                neighbor = (
-                    constraint.anchor_b.item_id
-                    if constraint.anchor_a.item_id == current
-                    else constraint.anchor_a.item_id
-                )
-                if neighbor not in visited:
-                    queue.append(neighbor)
+                # All items involved in this constraint are neighbors
+                neighbors = [constraint.anchor_a.item_id, constraint.anchor_b.item_id]
+                if constraint.anchor_c is not None:
+                    neighbors.append(constraint.anchor_c.item_id)
+                for neighbor in neighbors:
+                    if neighbor != current and neighbor not in visited:
+                        queue.append(neighbor)
 
         return visited
 
@@ -465,6 +483,7 @@ class ConstraintGraph:
                 visible=c.visible,
                 constraint_id=c.constraint_id,
                 constraint_type=c.constraint_type,
+                anchor_c=c.anchor_c,
             )
         return graph
 
@@ -571,6 +590,85 @@ class ConstraintGraph:
                         positions[id_b][0] -= diff / 2.0
                     continue
 
+                if constraint.constraint_type == ConstraintType.ANGLE:
+                    # ANGLE constraint: fix angle A-B-C at vertex B.
+                    # anchor_b is the vertex; anchor_a and anchor_c are the two rays.
+                    if constraint.anchor_c is None:
+                        continue
+                    id_c = constraint.anchor_c.item_id
+                    if id_c not in positions:
+                        continue
+                    key_c = (
+                        id_c,
+                        constraint.anchor_c.anchor_type,
+                        constraint.anchor_c.anchor_index,
+                    )
+                    off_c = anchor_offsets.get(key_c, (0.0, 0.0))
+                    cx = positions[id_c][0] + off_c[0]
+                    cy = positions[id_c][1] + off_c[1]
+
+                    # Vectors from vertex B to A and B to C
+                    ba_x, ba_y = ax - bx, ay - by
+                    bc_x, bc_y = cx - bx, cy - by
+                    ba_len = math.sqrt(ba_x * ba_x + ba_y * ba_y)
+                    bc_len = math.sqrt(bc_x * bc_x + bc_y * bc_y)
+                    if ba_len < 1e-9 or bc_len < 1e-9:
+                        continue
+
+                    # Unsigned angle between BA and BC in radians
+                    cos_val = (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len)
+                    cos_val = max(-1.0, min(1.0, cos_val))
+                    current_angle = math.acos(cos_val)
+
+                    target_rad = math.radians(constraint.target_distance)
+                    angle_error = current_angle - target_rad
+                    max_error = max(max_error, abs(angle_error) * 100)
+
+                    if abs(angle_error) < 1e-6:
+                        continue
+
+                    # Signed cross product (BA × BC) determines rotation direction.
+                    # If cross >= 0: BC is CCW from BA when viewed from B.
+                    # Rotation correction: bring A and C symmetrically towards target angle.
+                    cross = ba_x * bc_y - ba_y * bc_x
+                    cross_sign = 1.0 if cross >= 0.0 else -1.0
+
+                    c_pinned = id_c in pinned_items
+
+                    # Rotation amounts (radians) for items A and C around vertex B.
+                    # Positive = CW in Qt scene (Y-down), negative = CCW.
+                    # Formula: delta_a =  angle_error/2 * cross_sign
+                    #          delta_c = -angle_error/2 * cross_sign
+                    # (angle_error > 0 means current > target, i.e. close the angle)
+                    if not a_pinned and not c_pinned:
+                        delta_a = angle_error / 2.0 * cross_sign
+                        delta_c = -angle_error / 2.0 * cross_sign
+                    elif a_pinned and not c_pinned:
+                        delta_a = 0.0
+                        delta_c = -angle_error * cross_sign
+                    elif not a_pinned and c_pinned:
+                        delta_a = angle_error * cross_sign
+                        delta_c = 0.0
+                    else:
+                        continue  # Both A and C pinned; cannot fix
+
+                    # Rotate item A's anchor position around B by delta_a
+                    if abs(delta_a) > 1e-9:
+                        cos_a, sin_a = math.cos(delta_a), math.sin(delta_a)
+                        new_ra_x = cos_a * ba_x - sin_a * ba_y
+                        new_ra_y = sin_a * ba_x + cos_a * ba_y
+                        positions[id_a][0] += new_ra_x - ba_x
+                        positions[id_a][1] += new_ra_y - ba_y
+
+                    # Rotate item C's anchor position around B by delta_c
+                    if abs(delta_c) > 1e-9:
+                        cos_c, sin_c = math.cos(delta_c), math.sin(delta_c)
+                        new_rc_x = cos_c * bc_x - sin_c * bc_y
+                        new_rc_y = sin_c * bc_x + cos_c * bc_y
+                        positions[id_c][0] += new_rc_x - bc_x
+                        positions[id_c][1] += new_rc_y - bc_y
+                    continue
+
                 # DISTANCE constraint
                 dx = bx - ax
                 dy = by - ay
@@ -635,6 +733,7 @@ class ConstraintGraph:
         anchor_offsets: dict[tuple[UUID, AnchorType, int], tuple[float, float]],
         max_iterations: int = 50,
         tolerance: float = 1.0,
+        anchor_c: AnchorRef | None = None,
     ) -> bool:
         """Test if adding a constraint would conflict with existing constraints.
 
@@ -645,13 +744,14 @@ class ConstraintGraph:
         Args:
             anchor_a: First anchor reference.
             anchor_b: Second anchor reference.
-            target_distance: Desired distance in cm (ignored for alignment).
+            target_distance: Desired distance in cm, or degrees for ANGLE.
             constraint_type: Type of constraint to test.
             item_positions: Current item centre positions {item_id: (x, y)}.
             anchor_offsets: Pre-computed anchor offsets keyed by
                 (item_id, anchor_type, anchor_index).
             max_iterations: Solver iterations for the feasibility check.
             tolerance: Convergence tolerance in cm.
+            anchor_c: Optional third anchor for ANGLE constraints.
 
         Returns:
             True  — constraint is compatible with the existing system.
@@ -662,6 +762,7 @@ class ConstraintGraph:
             anchor_b=anchor_b,
             target_distance=target_distance,
             constraint_type=constraint_type,
+            anchor_c=anchor_c,
         )
         try:
             result = self.solve_anchored(

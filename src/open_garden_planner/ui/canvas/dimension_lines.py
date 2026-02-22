@@ -10,9 +10,10 @@ import math
 from uuid import UUID
 
 from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QFont, QPen, QPolygonF
+from PyQt6.QtGui import QBrush, QColor, QFont, QPainterPath, QPen, QPolygonF
 from PyQt6.QtWidgets import (
     QGraphicsItem,
+    QGraphicsPathItem,
     QGraphicsPolygonItem,
     QGraphicsScene,
     QGraphicsSimpleTextItem,
@@ -23,10 +24,12 @@ from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_poin
 from open_garden_planner.ui.canvas.items import GardenItemMixin
 
 # Colors
-COLOR_SATISFIED = QColor(0, 120, 200)  # Blue
-COLOR_VIOLATED = QColor(220, 40, 40)  # Red
+COLOR_SATISFIED = QColor(0, 120, 200)     # Blue
+COLOR_VIOLATED = QColor(220, 40, 40)      # Red
 COLOR_ALIGN_SATISFIED = QColor(120, 0, 180)  # Purple for alignment
 COLOR_ALIGN_VIOLATED = QColor(220, 40, 40)   # Red (same as distance violated)
+COLOR_ANGLE_SATISFIED = QColor(200, 100, 0)  # Orange for angle constraints
+COLOR_ANGLE_VIOLATED = QColor(220, 40, 40)   # Red
 
 # Geometry constants
 WITNESS_LINE_OFFSET = 15.0  # Perpendicular offset from dimension line (in cm)
@@ -161,6 +164,32 @@ class DimensionLineManager:
             satisfied = error < 1.0
             color = COLOR_ALIGN_SATISFIED if satisfied else COLOR_ALIGN_VIOLATED
             self._build_alignment_indicator(group, pos_a, pos_b, "V", color)
+        elif constraint.constraint_type == ConstraintType.ANGLE:
+            # ANGLE constraint: pos_b is the vertex, pos_a and pos_c are the ray endpoints.
+            if constraint.anchor_c is None:
+                return
+            pos_c = self._resolve_anchor_position(
+                constraint.anchor_c.item_id,
+                constraint.anchor_c.anchor_type,
+                constraint.anchor_c.anchor_index,
+            )
+            if pos_c is None:
+                return
+            # Compute current angle at vertex (pos_b) between rays to pos_a and pos_c
+            ba_x, ba_y = pos_a.x() - pos_b.x(), pos_a.y() - pos_b.y()
+            bc_x, bc_y = pos_c.x() - pos_b.x(), pos_c.y() - pos_b.y()
+            ba_len = math.sqrt(ba_x * ba_x + ba_y * ba_y)
+            bc_len = math.sqrt(bc_x * bc_x + bc_y * bc_y)
+            if ba_len < 1e-6 or bc_len < 1e-6:
+                return
+            cos_val = max(-1.0, min(1.0, (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len)))
+            current_angle_deg = math.degrees(math.acos(cos_val))
+            angle_error = abs(current_angle_deg - constraint.target_distance)
+            satisfied = angle_error < 0.5  # 0.5° tolerance
+            color = COLOR_ANGLE_SATISFIED if satisfied else COLOR_ANGLE_VIOLATED
+            self._build_angle_arc(
+                group, pos_a, pos_b, pos_c, constraint.target_distance, color
+            )
         else:
             # DISTANCE constraint
             current_dist = QLineF(pos_a, pos_b).length()
@@ -330,6 +359,105 @@ class DimensionLineManager:
         self._scene.addItem(text_item)
         group.items.append(text_item)
 
+    def _build_angle_arc(
+        self,
+        group: DimensionLineGroup,
+        pos_a: QPointF,
+        pos_b: QPointF,
+        pos_c: QPointF,
+        target_angle_deg: float,
+        color: QColor,
+    ) -> None:
+        """Build an angle arc annotation at the vertex (pos_b).
+
+        Draws two short ray lines from B towards A and C, then an arc between
+        them at a fixed radius, with the target angle label.
+        """
+        pen = QPen(color, 1.5)
+        pen.setCosmetic(True)
+
+        # Vectors from vertex to A and C
+        ba_x, ba_y = pos_a.x() - pos_b.x(), pos_a.y() - pos_b.y()
+        bc_x, bc_y = pos_c.x() - pos_b.x(), pos_c.y() - pos_b.y()
+        ba_len = math.sqrt(ba_x * ba_x + ba_y * ba_y)
+        bc_len = math.sqrt(bc_x * bc_x + bc_y * bc_y)
+
+        if ba_len < 1e-6 or bc_len < 1e-6:
+            return
+
+        # Angles of the two rays from the vertex (in degrees, Qt convention: right=0, CW)
+        angle_a = math.degrees(math.atan2(ba_y, ba_x))
+        angle_c = math.degrees(math.atan2(bc_y, bc_x))
+
+        # Arc radius in scene units (cosmetic — will appear ~20px regardless of zoom)
+        arc_r = 25.0  # cm
+
+        # Short tick lines along each ray at arc_r distance
+        tick_end_a = QPointF(
+            pos_b.x() + ba_x / ba_len * arc_r,
+            pos_b.y() + ba_y / ba_len * arc_r,
+        )
+        tick_end_c = QPointF(
+            pos_b.x() + bc_x / bc_len * arc_r,
+            pos_b.y() + bc_y / bc_len * arc_r,
+        )
+        line_a = self._scene.addLine(QLineF(pos_b, tick_end_a), pen)
+        line_a.setZValue(DIMENSION_LINE_Z)
+        group.items.append(line_a)
+
+        line_c = self._scene.addLine(QLineF(pos_b, tick_end_c), pen)
+        line_c.setZValue(DIMENSION_LINE_Z)
+        group.items.append(line_c)
+
+        # Arc from angle_a to angle_c (choose the shorter arc)
+        # QGraphicsEllipseItem draws arcs with spanAngle; Qt uses 1/16 degree units.
+        # Normalize span to the interior angle (always <= 180°).
+        span = angle_c - angle_a
+        # Normalize to (-360, 360]
+        span = span % 360.0
+        if span > 180.0:
+            span -= 360.0
+        elif span < -180.0:
+            span += 360.0
+
+        # In Qt, the arc goes CCW from start_angle by span_angle
+        # (positive span = CCW in Qt's Y-down coordinate system).
+        path = QPainterPath()
+        rect = QRectF(
+            pos_b.x() - arc_r, pos_b.y() - arc_r, arc_r * 2, arc_r * 2
+        )
+        # arcTo: startAngle (CCW from 3 o'clock in Qt), spanAngle (positive = CCW)
+        # Qt uses Y-down so atan2(y, x) maps directly.
+        path.arcMoveTo(rect, -angle_a)
+        path.arcTo(rect, -angle_a, span)
+
+        arc_item = QGraphicsPathItem(path)
+        arc_item.setPen(pen)
+        arc_item.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+        arc_item.setZValue(DIMENSION_LINE_Z)
+        self._scene.addItem(arc_item)
+        group.items.append(arc_item)
+
+        # Angle label at the mid-arc point
+        mid_angle_rad = math.radians(angle_a + span / 2.0)
+        label_r = arc_r + 10.0  # place label slightly outside the arc
+        label_pos = QPointF(
+            pos_b.x() + math.cos(mid_angle_rad) * label_r,
+            pos_b.y() + math.sin(mid_angle_rad) * label_r,
+        )
+        text_str = f"{target_angle_deg:.1f}°"
+        text_item = QGraphicsSimpleTextItem(text_str)
+        font = QFont()
+        font.setPointSize(9)
+        font.setBold(True)
+        text_item.setFont(font)
+        text_item.setBrush(QBrush(color))
+        text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        text_item.setZValue(DIMENSION_LINE_Z + 1)
+        text_item.setPos(label_pos)
+        self._scene.addItem(text_item)
+        group.items.append(text_item)
+
     def _add_arrowhead(
         self,
         group: DimensionLineGroup,
@@ -398,9 +526,14 @@ class DimensionLineManager:
                 continue
 
             # For alignment constraints check distance to the direct line;
+            # for angle constraints check proximity to vertex (pos_b);
             # for distance constraints check the offset dimension line.
             if constraint.constraint_type in (ConstraintType.HORIZONTAL, ConstraintType.VERTICAL):
                 dist = _point_to_segment_distance(scene_pos, pos_a, pos_b)
+            elif constraint.constraint_type == ConstraintType.ANGLE:
+                dx = scene_pos.x() - pos_b.x()
+                dy = scene_pos.y() - pos_b.y()
+                dist = math.sqrt(dx * dx + dy * dy)
             else:
                 dx = pos_b.x() - pos_a.x()
                 dy = pos_b.y() - pos_a.y()

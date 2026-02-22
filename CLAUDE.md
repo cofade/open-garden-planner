@@ -176,6 +176,7 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 
 - **Anchor index on same-type anchors**: When multiple anchors share the same `AnchorType` (e.g. rectangle corners are all `CORNER`, polygon vertices are all `CORNER`, polyline vertices are all `ENDPOINT`), each must have a unique `anchor_index` in `get_anchor_points()`. Without it, `DimensionLineManager._resolve_anchor_position()` falls back to type-only matching and picks the first anchor. Always pass `anchor_index=i` when creating `AnchorPoint` for same-type anchors.
 - **Dimension line updates after undo/redo**: `CommandManager.command_executed` only fires on `execute()`, NOT on `undo()`/`redo()`. Dimension line updates must also be connected to `can_undo_changed`/`can_redo_changed` signals.
+- **3-anchor constraints not solved on add**: `_compute_constraint_solve_moves()` in `canvas_view.py` collects `constrained_ids` from `anchor_a` and `anchor_b` only. Any constraint with a third anchor (`anchor_c`, e.g. ANGLE) must also add `anchor_c.item_id` here, otherwise the third item is absent from `item_positions` and the solver cannot move it — showing as red/violated until the user manually drags an object.
 
 ## Project Structure
 
@@ -312,7 +313,7 @@ tests/
 | ✅     | 7.7  | Numeric position input                               |
 | ✅     | 7.8  | Numeric dimension input                              |
 | ✅     | 7.9  | Horizontal/Vertical alignment constraints            |
-|        | 7.10 | Angle constraints                                    |
+| ✅     | 7.10 | Angle constraints                                    |
 |        | 7.11 | Symmetry constraints                                 |
 |        | 7.12 | Construction geometry                                |
 |        | 7.13 | Draggable guide lines                                |

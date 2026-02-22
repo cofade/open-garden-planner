@@ -138,6 +138,7 @@ class DrawingToolsPanel(QWidget):
         self._add_tool(grid_c, 0, 0, ToolType.CONSTRAINT, "constraint_distance", "↔", self.tr("Distance Constraint (K)"), "K")
         self._add_tool(grid_c, 0, 1, ToolType.CONSTRAINT_HORIZONTAL, "constraint_horizontal", "≡H", self.tr("Horizontal Constraint"), "")
         self._add_tool(grid_c, 0, 2, ToolType.CONSTRAINT_VERTICAL, "constraint_vertical", "≡V", self.tr("Vertical Constraint"), "")
+        self._add_tool(grid_c, 1, 0, ToolType.CONSTRAINT_ANGLE, "constraint_angle", "∠", self.tr("Angle Constraint"), "")
         layout.addLayout(grid_c)
 
         layout.addStretch()

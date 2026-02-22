@@ -1839,8 +1839,8 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
         <translation>Position fixieren (demnächst)</translation>
     </message>
     <message>
-        <source>Angle Constraint (coming soon)</source>
-        <translation>Winkelbedingung (demnächst)</translation>
+        <source>Angle Constraint</source>
+        <translation>Winkelbedingung</translation>
     </message>
     <message>
         <source>Symmetry (coming soon)</source>
@@ -1895,6 +1895,30 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
     <message>
         <source>Vertical Constraint</source>
         <translation>Vertikale Randbedingung</translation>
+    </message>
+</context><context>
+    <name>AngleInputDialog</name>
+    <message>
+        <source>Set Angle Constraint</source>
+        <translation>Winkel festlegen</translation>
+    </message>
+    <message>
+        <source>Enter the target angle (degrees):</source>
+        <translation>Zielwinkel eingeben (Grad):</translation>
+    </message>
+    <message>
+        <source>Current angle: {angle:.1f}°</source>
+        <translation>Aktueller Winkel: {angle:.1f}°</translation>
+    </message>
+    <message>
+        <source>Presets:</source>
+        <translation>Voreinstellungen:</translation>
+    </message>
+</context><context>
+    <name>AngleConstraintTool</name>
+    <message>
+        <source>Angle Constraint</source>
+        <translation>Winkel-Randbedingung</translation>
     </message>
 </context><context>
     <name>DistanceInputDialog</name>
@@ -3385,6 +3409,14 @@ noch nicht implementiert</translation>
     <message>
         <source>{a} vertical align {b}</source>
         <translation>{a} vertikal ausgerichtet mit {b}</translation>
+    </message>
+    <message>
+        <source>∠ {a}–{b}–{c}: {d:.1f}°</source>
+        <translation>∠ {a}–{b}–{c}: {d:.1f}°</translation>
+    </message>
+    <message>
+        <source>…</source>
+        <translation>…</translation>
     </message>
 </context><context>
     <name>ConstraintsPanel</name>

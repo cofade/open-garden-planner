@@ -1569,8 +1569,8 @@ Please restart the application for the change to take effect.</translation>
             <translation>Fix in Place (coming soon)</translation>
         </message>
         <message>
-            <source>Angle Constraint (coming soon)</source>
-            <translation>Angle Constraint (coming soon)</translation>
+            <source>Angle Constraint</source>
+            <translation>Angle Constraint</translation>
         </message>
         <message>
             <source>Symmetry (coming soon)</source>
@@ -1628,6 +1628,32 @@ Please restart the application for the change to take effect.</translation>
         <message>
             <source>Vertical Constraint</source>
             <translation>Vertical Constraint</translation>
+        </message>
+    </context>
+    <context>
+        <name>AngleInputDialog</name>
+        <message>
+            <source>Set Angle Constraint</source>
+            <translation>Set Angle Constraint</translation>
+        </message>
+        <message>
+            <source>Enter the target angle (degrees):</source>
+            <translation>Enter the target angle (degrees):</translation>
+        </message>
+        <message>
+            <source>Current angle: {angle:.1f}°</source>
+            <translation>Current angle: {angle:.1f}°</translation>
+        </message>
+        <message>
+            <source>Presets:</source>
+            <translation>Presets:</translation>
+        </message>
+    </context>
+    <context>
+        <name>AngleConstraintTool</name>
+        <message>
+            <source>Angle Constraint</source>
+            <translation>Angle Constraint</translation>
         </message>
     </context>
     <context>
@@ -2846,6 +2872,14 @@ not yet implemented</translation>
         <message>
             <source>{a} vertical align {b}</source>
             <translation>{a} vertical align {b}</translation>
+        </message>
+        <message>
+            <source>∠ {a}–{b}–{c}: {d:.1f}°</source>
+            <translation>∠ {a}–{b}–{c}: {d:.1f}°</translation>
+        </message>
+        <message>
+            <source>…</source>
+            <translation>…</translation>
         </message>
     </context>
     <context>
