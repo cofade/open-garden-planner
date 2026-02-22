@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 _COLOR_SATISFIED = QColor(0, 120, 200)
 _COLOR_VIOLATED = QColor(220, 40, 40)
 _COLOR_ALIGN_SATISFIED = QColor(120, 0, 180)
+_COLOR_ANGLE_SATISFIED = QColor(200, 100, 0)
 
 
 def _make_status_icon(color: QColor, size: int = 14) -> QPixmap:
@@ -73,8 +74,11 @@ class ConstraintListItem(QWidget):
 
         # Status icon color depends on type
         is_alignment = constraint_type_name in ("HORIZONTAL", "VERTICAL")
+        is_angle = constraint_type_name == "ANGLE"
         if is_alignment:
             color = _COLOR_ALIGN_SATISFIED if satisfied else _COLOR_VIOLATED
+        elif is_angle:
+            color = _COLOR_ANGLE_SATISFIED if satisfied else _COLOR_VIOLATED
         else:
             color = _COLOR_SATISFIED if satisfied else _COLOR_VIOLATED
 
@@ -95,6 +99,11 @@ class ConstraintListItem(QWidget):
         elif constraint_type_name == "VERTICAL":
             detail = self.tr("≡ V")
             tooltip = self.tr("{a} vertical align {b}").format(a=label_a, b=label_b)
+        elif constraint_type_name == "ANGLE":
+            detail = f"{target_distance:.1f}°"
+            tooltip = self.tr("∠ {a}–{b}–{c}: {d:.1f}°").format(
+                a=label_a, b=label_b, c=self.tr("…"), d=target_distance
+            )
         else:
             dist_m = target_distance / 100.0
             detail = f"{dist_m:.2f} m"
@@ -102,7 +111,10 @@ class ConstraintListItem(QWidget):
                 a=label_a, b=label_b, d=dist_m
             )
 
-        text = f"{label_a}  \u2194  {label_b}   {detail}"
+        if constraint_type_name == "ANGLE":
+            text = f"∠ {label_a}–{label_b}–…   {detail}"
+        else:
+            text = f"{label_a}  \u2194  {label_b}   {detail}"
         label = QLabel(text)
         label.setToolTip(tooltip)
         layout.addWidget(label, 1)
@@ -276,7 +288,9 @@ class ConstraintsPanel(QWidget):
         return labels
 
     def _is_satisfied(self, constraint: Constraint) -> bool:
-        """Check whether a constraint is satisfied (within 1 cm tolerance)."""
+        """Check whether a constraint is satisfied (within tolerance)."""
+        import math
+
         from open_garden_planner.core.constraints import ConstraintType
 
         if self._scene is None:
@@ -300,6 +314,25 @@ class ConstraintsPanel(QWidget):
             return abs(pos_b.y() - pos_a.y()) < 1.0
         if constraint.constraint_type == ConstraintType.VERTICAL:
             return abs(pos_b.x() - pos_a.x()) < 1.0
+        if constraint.constraint_type == ConstraintType.ANGLE:
+            if constraint.anchor_c is None:
+                return False
+            pos_c = dlm._resolve_anchor_position(
+                constraint.anchor_c.item_id,
+                constraint.anchor_c.anchor_type,
+                constraint.anchor_c.anchor_index,
+            )
+            if pos_c is None:
+                return False
+            ba_x, ba_y = pos_a.x() - pos_b.x(), pos_a.y() - pos_b.y()
+            bc_x, bc_y = pos_c.x() - pos_b.x(), pos_c.y() - pos_b.y()
+            ba_len = math.sqrt(ba_x * ba_x + ba_y * ba_y)
+            bc_len = math.sqrt(bc_x * bc_x + bc_y * bc_y)
+            if ba_len < 1e-6 or bc_len < 1e-6:
+                return False
+            cos_val = max(-1.0, min(1.0, (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len)))
+            current_deg = math.degrees(math.acos(cos_val))
+            return abs(current_deg - constraint.target_distance) < 0.5
 
         current_dist = QLineF(pos_a, pos_b).length()
         return abs(current_dist - constraint.target_distance) < 1.0

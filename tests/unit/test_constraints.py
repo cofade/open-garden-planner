@@ -596,3 +596,248 @@ class TestAlignmentConstraints:
         }
         c = Constraint.from_dict(d)
         assert c.constraint_type == ConstraintType.DISTANCE
+
+
+# --- Angle constraint tests ---
+
+
+class TestAngleConstraints:
+    """Tests for ANGLE constraint type: data model, serialization, and solver."""
+
+    # ----- Data model -----
+
+    def test_angle_constraint_type_exists(self, qtbot) -> None:
+        assert ConstraintType.ANGLE is not None
+
+    def test_add_angle_constraint(self, qtbot) -> None:
+        graph = ConstraintGraph()
+        id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
+        ref_a = AnchorRef(id_a, AnchorType.CENTER)
+        ref_b = AnchorRef(id_b, AnchorType.CENTER)
+        ref_c = AnchorRef(id_c, AnchorType.CENTER)
+        constraint = graph.add_constraint(
+            ref_a, ref_b, 90.0,
+            constraint_type=ConstraintType.ANGLE,
+            anchor_c=ref_c,
+        )
+        assert constraint.constraint_type == ConstraintType.ANGLE
+        assert constraint.target_distance == 90.0
+        assert constraint.anchor_c is not None
+        assert constraint.anchor_c.item_id == id_c
+
+    def test_angle_constraint_adjacency_includes_all_three(self, qtbot) -> None:
+        """All three items (A, B, C) should be in the adjacency graph."""
+        graph = ConstraintGraph()
+        id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            90.0,
+            constraint_type=ConstraintType.ANGLE,
+            anchor_c=AnchorRef(id_c, AnchorType.CENTER),
+        )
+        assert len(graph.get_item_constraints(id_a)) == 1
+        assert len(graph.get_item_constraints(id_b)) == 1
+        assert len(graph.get_item_constraints(id_c)) == 1
+
+    def test_angle_constraint_remove_cleans_up_all_three(self, qtbot) -> None:
+        """Removing an angle constraint removes adjacency for all three items."""
+        graph = ConstraintGraph()
+        id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            90.0,
+            constraint_type=ConstraintType.ANGLE,
+            anchor_c=AnchorRef(id_c, AnchorType.CENTER),
+        )
+        graph.remove_constraint(c.constraint_id)
+        assert c.constraint_id not in graph.constraints
+        assert graph.get_item_constraints(id_a) == []
+        assert graph.get_item_constraints(id_b) == []
+        assert graph.get_item_constraints(id_c) == []
+
+    def test_angle_constraint_connected_component_includes_all_three(self, qtbot) -> None:
+        """BFS should include all three items of an angle constraint in the same component."""
+        graph = ConstraintGraph()
+        id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            90.0,
+            constraint_type=ConstraintType.ANGLE,
+            anchor_c=AnchorRef(id_c, AnchorType.CENTER),
+        )
+        component = graph.get_connected_component(id_a)
+        assert id_a in component
+        assert id_b in component
+        assert id_c in component
+
+    # ----- Serialization -----
+
+    def test_angle_constraint_serialization_roundtrip(self, qtbot) -> None:
+        """Angle constraints with anchor_c survive serialization roundtrip."""
+        graph = ConstraintGraph()
+        id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            45.0,
+            constraint_type=ConstraintType.ANGLE,
+            anchor_c=AnchorRef(id_c, AnchorType.EDGE_TOP),
+        )
+        data = graph.to_list()
+        restored = ConstraintGraph.from_list(data)
+        assert len(restored.constraints) == 1
+        rc = list(restored.constraints.values())[0]
+        assert rc.constraint_type == ConstraintType.ANGLE
+        assert rc.target_distance == 45.0
+        assert rc.anchor_c is not None
+        assert rc.anchor_c.item_id == id_c
+        assert rc.anchor_c.anchor_type == AnchorType.EDGE_TOP
+
+    def test_angle_constraint_dict_includes_anchor_c(self, qtbot) -> None:
+        """to_dict() should include anchor_c for ANGLE constraints."""
+        id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
+        c = Constraint(
+            constraint_id=uuid4(),
+            anchor_a=AnchorRef(id_a, AnchorType.CENTER),
+            anchor_b=AnchorRef(id_b, AnchorType.CENTER),
+            target_distance=90.0,
+            constraint_type=ConstraintType.ANGLE,
+            anchor_c=AnchorRef(id_c, AnchorType.CENTER),
+        )
+        d = c.to_dict()
+        assert d["constraint_type"] == "ANGLE"
+        assert "anchor_c" in d
+        assert d["anchor_c"]["item_id"] == str(id_c)
+
+    def test_angle_constraint_no_anchor_c_dict_omits_field(self, qtbot) -> None:
+        """to_dict() should not include anchor_c key when anchor_c is None."""
+        c = Constraint(
+            constraint_id=uuid4(),
+            anchor_a=AnchorRef(uuid4(), AnchorType.CENTER),
+            anchor_b=AnchorRef(uuid4(), AnchorType.CENTER),
+            target_distance=100.0,
+        )
+        d = c.to_dict()
+        assert "anchor_c" not in d
+
+    # ----- Solver -----
+
+    def _compute_angle(self, pa, pb, pc):
+        """Compute angle at vertex pb between rays pa and pc (degrees)."""
+        ba_x, ba_y = pa[0] - pb[0], pa[1] - pb[1]
+        bc_x, bc_y = pc[0] - pb[0], pc[1] - pb[1]
+        ba_len = math.sqrt(ba_x ** 2 + ba_y ** 2)
+        bc_len = math.sqrt(bc_x ** 2 + bc_y ** 2)
+        if ba_len < 1e-9 or bc_len < 1e-9:
+            return 0.0
+        cos_val = max(-1.0, min(1.0, (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len)))
+        return math.degrees(math.acos(cos_val))
+
+    def test_angle_solver_90_degrees(self, qtbot) -> None:
+        """Solver should bring angle to 90° when A, B, C start at 60°."""
+        graph = ConstraintGraph()
+        id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
+        ref_a = AnchorRef(id_a, AnchorType.CENTER)
+        ref_b = AnchorRef(id_b, AnchorType.CENTER)
+        ref_c = AnchorRef(id_c, AnchorType.CENTER)
+
+        graph.add_constraint(
+            ref_a, ref_b, 90.0,
+            constraint_type=ConstraintType.ANGLE,
+            anchor_c=ref_c,
+        )
+
+        # B at origin (vertex), A to the right, C at 60° from A
+        positions = {
+            id_a: (100.0, 0.0),
+            id_b: (0.0, 0.0),
+            id_c: (50.0, 86.6),  # ~60° from A (equilateral-ish)
+        }
+        anchor_offsets = {
+            (id_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_c, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+
+        result = graph.solve_anchored(
+            item_positions={k: list(v) for k, v in positions.items()},
+            anchor_offsets=anchor_offsets,
+            pinned_items={id_b},  # vertex stays fixed
+            max_iterations=20,
+            tolerance=0.5,
+        )
+
+        # Compute final positions
+        def get_final(uid, orig):
+            delta = result.item_deltas.get(uid, (0.0, 0.0))
+            return (orig[0] + delta[0], orig[1] + delta[1])
+
+        pa = get_final(id_a, positions[id_a])
+        pb = positions[id_b]  # pinned
+        pc = get_final(id_c, positions[id_c])
+
+        final_angle = self._compute_angle(pa, pb, pc)
+        assert abs(final_angle - 90.0) < 5.0  # Within 5° (iterative solver)
+
+    def test_angle_solver_already_satisfied(self, qtbot) -> None:
+        """No movement should occur when angle is already at target."""
+        graph = ConstraintGraph()
+        id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
+
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            90.0,
+            constraint_type=ConstraintType.ANGLE,
+            anchor_c=AnchorRef(id_c, AnchorType.CENTER),
+        )
+
+        # Already at 90°: B at origin, A to the right, C straight up
+        positions = {
+            id_a: (100.0, 0.0),
+            id_b: (0.0, 0.0),
+            id_c: (0.0, 100.0),
+        }
+        anchor_offsets = {
+            (id_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_c, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+        result = graph.solve_anchored(
+            item_positions={k: list(v) for k, v in positions.items()},
+            anchor_offsets=anchor_offsets,
+            pinned_items={id_b},
+            max_iterations=10,
+            tolerance=0.5,
+        )
+
+        assert abs(result.max_error) < 1.0  # Already satisfied
+        assert id_a not in result.item_deltas or abs(result.item_deltas[id_a][0]) < 1.0
+        assert id_c not in result.item_deltas or abs(result.item_deltas[id_c][0]) < 1.0
+
+    def test_angle_solver_skips_missing_anchor_c(self, qtbot) -> None:
+        """Solver should skip angle constraint if anchor_c is None."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        # Manually add a constraint without anchor_c (normally prevented by the tool)
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            90.0,
+            constraint_type=ConstraintType.ANGLE,
+            anchor_c=None,  # Missing
+        )
+        positions = {id_a: (100.0, 0.0), id_b: (0.0, 0.0)}
+        anchor_offsets = {
+            (id_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+        # Should not raise
+        result = graph.solve_anchored(
+            item_positions={k: list(v) for k, v in positions.items()},
+            anchor_offsets=anchor_offsets,
+        )
+        assert result is not None

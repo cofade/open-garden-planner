@@ -55,7 +55,7 @@ _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
     _ToolEntry("constraint_fixed",         "Fix in Place (coming soon)",  "", None),
     _SEP,
     # ── Advanced ──────────────────────────────────────────────────────────────
-    _ToolEntry("constraint_angle",     "Angle Constraint (coming soon)", "", None),
+    _ToolEntry("constraint_angle",     "Angle Constraint", "", ToolType.CONSTRAINT_ANGLE),
     _ToolEntry("constraint_symmetric", "Symmetry (coming soon)",         "", None),
 ]
 

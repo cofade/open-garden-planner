@@ -36,6 +36,7 @@ from open_garden_planner.core.alignment import (
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
+    AngleConstraintTool,
     CircleTool,
     ConstraintTool,
     HorizontalConstraintTool,
@@ -151,6 +152,7 @@ class CanvasView(QGraphicsView):
         self._tool_manager.register_tool(ConstraintTool(self))
         self._tool_manager.register_tool(HorizontalConstraintTool(self))
         self._tool_manager.register_tool(VerticalConstraintTool(self))
+        self._tool_manager.register_tool(AngleConstraintTool(self))
 
         # Register generic shape tools
         rect_tool = RectangleTool(self, object_type=ObjectType.GENERIC_RECTANGLE)
@@ -544,6 +546,7 @@ class CanvasView(QGraphicsView):
         anchor_b: object,
         target_distance: float,
         constraint_type: object,
+        anchor_c: object = None,
     ) -> bool:
         """Test whether adding a constraint would conflict with existing constraints.
 
@@ -553,9 +556,10 @@ class CanvasView(QGraphicsView):
 
         Args:
             anchor_a: AnchorRef for the first anchor.
-            anchor_b: AnchorRef for the second anchor.
-            target_distance: Desired distance in cm (ignored for alignment types).
-            constraint_type: ConstraintType (DISTANCE, HORIZONTAL, or VERTICAL).
+            anchor_b: AnchorRef for the second anchor (vertex for ANGLE).
+            target_distance: Desired distance in cm, or degrees for ANGLE.
+            constraint_type: ConstraintType.
+            anchor_c: Optional third AnchorRef for ANGLE constraints.
 
         Returns:
             True  — the constraint is compatible with the existing system.
@@ -566,11 +570,15 @@ class CanvasView(QGraphicsView):
 
         graph = self._canvas_scene.constraint_graph
 
-        # Collect all item IDs that need positions (existing + the two new anchors)
+        # Collect all item IDs that need positions
         constrained_ids: set = {anchor_a.item_id, anchor_b.item_id}  # type: ignore[union-attr]
+        if anchor_c is not None:
+            constrained_ids.add(anchor_c.item_id)  # type: ignore[union-attr]
         for c in graph.constraints.values():
             constrained_ids.add(c.anchor_a.item_id)
             constrained_ids.add(c.anchor_b.item_id)
+            if c.anchor_c is not None:
+                constrained_ids.add(c.anchor_c.item_id)
 
         item_positions: dict = {}
         anchor_offsets: dict = {}
@@ -597,6 +605,7 @@ class CanvasView(QGraphicsView):
             constraint_type=constraint_type,  # type: ignore[arg-type]
             item_positions=item_positions,
             anchor_offsets=anchor_offsets,
+            anchor_c=anchor_c,  # type: ignore[arg-type]
         )
 
     # Coordinate conversion
@@ -1398,6 +1407,8 @@ class CanvasView(QGraphicsView):
         for c in graph.constraints.values():
             constrained_ids.add(c.anchor_a.item_id)
             constrained_ids.add(c.anchor_b.item_id)
+            if c.anchor_c is not None:
+                constrained_ids.add(c.anchor_c.item_id)
 
         item_map: dict = {}
         item_positions: dict = {}
