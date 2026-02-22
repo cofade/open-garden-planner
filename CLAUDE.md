@@ -326,3 +326,39 @@ tests/
 |        | 7.21 | Fix in place / Block constraint                      |
 |        | 7.22 | Horizontal/Vertical distance constraints (1D)        |
 | ✅     | 7.23 | FreeCAD-style constraint toolbar + full SVG icon set |
+
+## Progress (Phase 8: Location, Climate & Planting Calendar v1.2)
+
+| Status | US   | Description                                          |
+| ------ | ---- | ---------------------------------------------------- |
+|        | 8.1  | GPS location & climate zone setup                    |
+|        | 8.2  | Frost date & hardiness zone API lookup               |
+|        | 8.3  | Plant calendar data model                            |
+|        | 8.4  | Planting calendar view (tab)                         |
+|        | 8.5  | Dashboard / today view                               |
+|        | 8.6  | Tab-based main window architecture                   |
+
+## Progress (Phase 9: Seed Inventory & Propagation Planning v1.3)
+
+| Status | US   | Description                                          |
+| ------ | ---- | ---------------------------------------------------- |
+|        | 9.1  | Seed packet data model                               |
+|        | 9.2  | Seed viability database                              |
+|        | 9.3  | Seed inventory management panel                      |
+|        | 9.4  | Seed inventory tab view                              |
+|        | 9.5  | Propagation planning (pre-cultivation)               |
+|        | 9.6  | Seed-to-plant manual linking                         |
+
+## Progress (Phase 10: Companion Planting & Crop Rotation v1.4)
+
+| Status | US    | Description                                          |
+| ------ | ----- | ---------------------------------------------------- |
+|        | 10.1  | Companion planting database                          |
+|        | 10.2  | Companion planting visual warnings                   |
+|        | 10.3  | Companion planting recommendation panel              |
+|        | 10.4  | Whole-plan compatibility check                       |
+|        | 10.5  | Crop rotation data model                             |
+|        | 10.6  | Crop rotation recommendations                        |
+|        | 10.7  | Season management & plan duplication                 |
+
+Full user stories, acceptance criteria, and technical notes: see `docs/roadmap.md`
