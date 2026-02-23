@@ -20,6 +20,7 @@ class ToolType(Enum):
     CONSTRAINT_HORIZONTAL = auto()  # Horizontal alignment constraint
     CONSTRAINT_VERTICAL = auto()    # Vertical alignment constraint
     CONSTRAINT_ANGLE = auto()       # Angle constraint (3-point)
+    CONSTRAINT_SYMMETRY = auto()    # Symmetry constraint (mirror across H/V axis)
 
     # Property object types (polygon-based)
     HOUSE = auto()

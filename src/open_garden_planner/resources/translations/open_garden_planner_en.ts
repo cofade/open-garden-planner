@@ -1573,8 +1573,8 @@ Please restart the application for the change to take effect.</translation>
             <translation>Angle Constraint</translation>
         </message>
         <message>
-            <source>Symmetry (coming soon)</source>
-            <translation>Symmetry (coming soon)</translation>
+            <source>Symmetry Constraint</source>
+            <translation>Symmetry Constraint</translation>
         </message>
     </context>
     <context>
@@ -1654,6 +1654,36 @@ Please restart the application for the change to take effect.</translation>
         <message>
             <source>Angle Constraint</source>
             <translation>Angle Constraint</translation>
+        </message>
+    </context>
+    <context>
+        <name>SymmetryAxisDialog</name>
+        <message>
+            <source>Set Symmetry Axis</source>
+            <translation>Set Symmetry Axis</translation>
+        </message>
+        <message>
+            <source>Mirror across axis:</source>
+            <translation>Mirror across axis:</translation>
+        </message>
+        <message>
+            <source>Horizontal axis (mirror top/bottom)</source>
+            <translation>Horizontal axis (mirror top/bottom)</translation>
+        </message>
+        <message>
+            <source>Vertical axis (mirror left/right)</source>
+            <translation>Vertical axis (mirror left/right)</translation>
+        </message>
+    </context>
+    <context>
+        <name>SymmetryConstraintTool</name>
+        <message>
+            <source>Symmetry Constraint</source>
+            <translation>Symmetry Constraint</translation>
+        </message>
+        <message>
+            <source>&#x27FA; SYM</source>
+            <translation>&#x27FA; SYM</translation>
         </message>
     </context>
     <context>

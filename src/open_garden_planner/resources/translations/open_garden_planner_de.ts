@@ -1843,8 +1843,8 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
         <translation>Winkelbedingung</translation>
     </message>
     <message>
-        <source>Symmetry (coming soon)</source>
-        <translation>Symmetrie (demnächst)</translation>
+        <source>Symmetry Constraint</source>
+        <translation>Symmetrie-Randbedingung</translation>
     </message>
 </context><context>
     <name>ConstraintTool</name>
@@ -1919,6 +1919,34 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
     <message>
         <source>Angle Constraint</source>
         <translation>Winkel-Randbedingung</translation>
+    </message>
+</context><context>
+    <name>SymmetryAxisDialog</name>
+    <message>
+        <source>Set Symmetry Axis</source>
+        <translation>Symmetrieachse festlegen</translation>
+    </message>
+    <message>
+        <source>Mirror across axis:</source>
+        <translation>Spiegeln an Achse:</translation>
+    </message>
+    <message>
+        <source>Horizontal axis (mirror top/bottom)</source>
+        <translation>Horizontale Achse (oben/unten spiegeln)</translation>
+    </message>
+    <message>
+        <source>Vertical axis (mirror left/right)</source>
+        <translation>Vertikale Achse (links/rechts spiegeln)</translation>
+    </message>
+</context><context>
+    <name>SymmetryConstraintTool</name>
+    <message>
+        <source>Symmetry Constraint</source>
+        <translation>Symmetrie-Randbedingung</translation>
+    </message>
+    <message>
+        <source>&#x27FA; SYM</source>
+        <translation>&#x27FA; SYM</translation>
     </message>
 </context><context>
     <name>DistanceInputDialog</name>

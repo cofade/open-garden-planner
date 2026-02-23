@@ -361,7 +361,7 @@
 | US-7.8 | Numeric dimension input (editable width/height/radius) | Must | ✅ Done |
 | US-7.9 | Horizontal/Vertical alignment constraints | Should | ✅ Done |
 | US-7.10 | Angle constraints | Should | ✅ Done |
-| US-7.11 | Symmetry constraints | Should | |
+| US-7.11 | Symmetry constraints | Should | ✅ Done |
 | US-7.12 | Construction geometry (helper lines, not in exports) | Should | |
 | US-7.13 | Draggable guide lines | Should | |
 | US-7.14 | Linear array placement | Could | |
@@ -652,8 +652,8 @@
 | 8 | Perpendicular | ⬜ US-7.19 | Grayed out |
 | 9 | Equal Size | ⬜ US-7.20 | Grayed out |
 | 10 | Fix in Place | ⬜ US-7.21 | Grayed out |
-| 11 | Angle Constraint | ⬜ US-7.10 | Grayed out |
-| 12 | Symmetry Constraint | ⬜ US-7.11 | Grayed out |
+| 11 | Angle Constraint | ✅ US-7.10 | Active |
+| 12 | Symmetry Constraint | ✅ US-7.11 | Active |
 
 **Acceptance Criteria**:
 

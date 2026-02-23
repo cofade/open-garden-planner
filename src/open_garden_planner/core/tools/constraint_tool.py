@@ -7,6 +7,7 @@ import math
 from PyQt6.QtCore import QCoreApplication, QLineF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QCursor, QFont, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -808,6 +809,301 @@ class AngleConstraintTool(BaseTool):
     def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
         self._show_anchor_indicators(scene_pos)
         self._update_preview(scene_pos)
+        return True
+
+    def mouse_release(self, _event: QMouseEvent, _scene_pos: QPointF) -> bool:
+        return False
+
+    def key_press(self, event: QKeyEvent) -> bool:
+        if event.key() == Qt.Key.Key_Escape:
+            self._reset()
+            return True
+        return False
+
+    def cancel(self) -> None:
+        self._reset()
+
+
+# Symmetry constraint visual constants
+PREVIEW_SYMMETRY_COLOR = QColor(140, 0, 180, 200)  # Purple for symmetry
+
+
+class SymmetryAxisDialog(QDialog):
+    """Dialog for choosing the symmetry axis (horizontal or vertical)."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(
+            QCoreApplication.translate("SymmetryAxisDialog", "Set Symmetry Axis")
+        )
+        self.setMinimumWidth(260)
+        layout = QVBoxLayout(self)
+
+        label = QLabel(
+            QCoreApplication.translate("SymmetryAxisDialog", "Mirror across axis:")
+        )
+        layout.addWidget(label)
+
+        self._combo = QComboBox()
+        self._combo.addItem(
+            QCoreApplication.translate(
+                "SymmetryAxisDialog", "Horizontal axis (mirror top/bottom)"
+            ),
+            "H",
+        )
+        self._combo.addItem(
+            QCoreApplication.translate(
+                "SymmetryAxisDialog", "Vertical axis (mirror left/right)"
+            ),
+            "V",
+        )
+        layout.addWidget(self._combo)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def axis(self) -> str:
+        """Return 'H' for horizontal axis or 'V' for vertical axis."""
+        return self._combo.currentData()
+
+
+class SymmetryConstraintTool(BaseTool):
+    """Tool for creating symmetry (mirror) constraints between two object anchors.
+
+    Workflow:
+    1. Hover to see anchor indicators on objects.
+    2. Click anchor A on object A.
+    3. Click anchor B on object B.
+    4. Choose axis (H or V) in dialog.
+    5. The symmetry constraint is added: B mirrors A across the midpoint axis.
+    """
+
+    def __init__(self, view) -> None:
+        super().__init__(view)
+        self._anchor_a: AnchorPoint | None = None
+        self._graphics_items: list = []
+        self._anchor_indicators: list = []
+        self._preview_line: QGraphicsLineItem | None = None
+        self._preview_text: QGraphicsTextItem | None = None
+        self._selected_marker: QGraphicsEllipseItem | None = None
+
+    @property
+    def tool_type(self) -> ToolType:
+        return ToolType.CONSTRAINT_SYMMETRY
+
+    @property
+    def display_name(self) -> str:
+        return QCoreApplication.translate("SymmetryConstraintTool", "Symmetry Constraint")
+
+    @property
+    def shortcut(self) -> str:
+        return ""
+
+    @property
+    def cursor(self) -> QCursor:
+        return QCursor(Qt.CursorShape.CrossCursor)
+
+    def activate(self) -> None:
+        super().activate()
+        self._reset()
+
+    def deactivate(self) -> None:
+        super().deactivate()
+        self._reset()
+
+    def _reset(self) -> None:
+        self._anchor_a = None
+        self._clear_all_visuals()
+
+    def _clear_all_visuals(self) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        for item in self._graphics_items:
+            if item.scene():
+                scene.removeItem(item)
+        self._graphics_items.clear()
+        self._clear_anchor_indicators()
+        self._preview_line = None
+        self._preview_text = None
+        self._selected_marker = None
+
+    def _clear_anchor_indicators(self) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        for item in self._anchor_indicators:
+            if item.scene():
+                scene.removeItem(item)
+        self._anchor_indicators.clear()
+
+    def _show_anchor_indicators(self, scene_pos: QPointF) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        self._clear_anchor_indicators()
+        items_at = scene.items(scene_pos)
+        hovered_item = None
+        for item in items_at:
+            if (
+                isinstance(item, GardenItemMixin)
+                and item.flags() & item.GraphicsItemFlag.ItemIsSelectable
+            ):
+                hovered_item = item
+                break
+        if hovered_item is None:
+            return
+        for anchor in get_anchor_points(hovered_item):
+            r = ANCHOR_INDICATOR_RADIUS
+            rect = QRectF(anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2)
+            pen = QPen(ANCHOR_INDICATOR_COLOR, PEN_WIDTH)
+            indicator = scene.addEllipse(rect, pen)
+            indicator.setZValue(1002)
+            self._anchor_indicators.append(indicator)
+
+    def _find_nearest_anchor(self, scene_pos: QPointF) -> AnchorPoint | None:
+        scene = self._view.scene()
+        if not scene:
+            return None
+        return find_nearest_anchor(scene_pos, scene.items())
+
+    def _show_selected_anchor(self, anchor: AnchorPoint) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        r = ANCHOR_INDICATOR_RADIUS + 2
+        rect = QRectF(anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2)
+        pen = QPen(ANCHOR_SELECTED_COLOR, PEN_WIDTH)
+        self._selected_marker = scene.addEllipse(rect, pen)
+        self._selected_marker.setZValue(1003)
+        self._graphics_items.append(self._selected_marker)
+
+    def _update_preview(self, end_pos: QPointF) -> None:
+        scene = self._view.scene()
+        if not scene or self._anchor_a is None:
+            return
+
+        start = self._anchor_a.point
+        color = PREVIEW_SYMMETRY_COLOR
+
+        if self._preview_line and self._preview_line.scene():
+            scene.removeItem(self._preview_line)
+            self._graphics_items.remove(self._preview_line)
+        if self._preview_text and self._preview_text.scene():
+            scene.removeItem(self._preview_text)
+            self._graphics_items.remove(self._preview_text)
+
+        pen = QPen(color, 2, Qt.PenStyle.DashLine)
+        self._preview_line = scene.addLine(QLineF(start, end_pos), pen)
+        self._preview_line.setZValue(1001)
+        self._graphics_items.append(self._preview_line)
+
+        text = QCoreApplication.translate("SymmetryConstraintTool", "\u27fa SYM")
+        mid_x = (start.x() + end_pos.x()) / 2
+        mid_y = (start.y() + end_pos.y()) / 2
+        self._preview_text = scene.addText(text)
+        self._preview_text.setDefaultTextColor(color)
+        font = QFont()
+        font.setPointSize(11)
+        font.setBold(True)
+        self._preview_text.setFont(font)
+        text_rect = self._preview_text.boundingRect()
+        self._preview_text.setPos(
+            mid_x - text_rect.width() / 2, mid_y - text_rect.height() / 2
+        )
+        self._preview_text.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        self._preview_text.setZValue(1002)
+        self._graphics_items.append(self._preview_text)
+
+    def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+
+        anchor = self._find_nearest_anchor(scene_pos)
+        if anchor is None:
+            return True
+
+        if self._anchor_a is None:
+            self._anchor_a = anchor
+            self._clear_anchor_indicators()
+            self._show_selected_anchor(anchor)
+            return True
+
+        # Second click: select anchor B
+        anchor_b = anchor
+        if (
+            isinstance(self._anchor_a.item, GardenItemMixin)
+            and isinstance(anchor_b.item, GardenItemMixin)
+            and self._anchor_a.item.item_id == anchor_b.item.item_id
+        ):
+            return True  # Same item — skip
+
+        dialog = SymmetryAxisDialog(self._view)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            axis = dialog.axis()
+            self._create_symmetry_constraint(self._anchor_a, anchor_b, axis)
+
+        self._reset()
+        return True
+
+    def _create_symmetry_constraint(
+        self,
+        anchor_a: AnchorPoint,
+        anchor_b: AnchorPoint,
+        axis: str,
+    ) -> None:
+        """Create a symmetry constraint via the command pattern.
+
+        The axis position is set to the midpoint between the two anchors
+        at creation time, so the constraint is immediately satisfied.
+        """
+        scene = self._view.scene()
+        if not scene:
+            return
+        if not isinstance(anchor_a.item, GardenItemMixin) or not isinstance(
+            anchor_b.item, GardenItemMixin
+        ):
+            return
+
+        # Compute axis coordinate from the midpoint at creation time
+        if axis == "H":
+            axis_pos = (anchor_a.point.y() + anchor_b.point.y()) / 2.0
+            constraint_type = ConstraintType.SYMMETRY_HORIZONTAL
+        else:
+            axis_pos = (anchor_a.point.x() + anchor_b.point.x()) / 2.0
+            constraint_type = ConstraintType.SYMMETRY_VERTICAL
+
+        ref_a = AnchorRef(
+            item_id=anchor_a.item.item_id,
+            anchor_type=anchor_a.anchor_type,
+            anchor_index=anchor_a.anchor_index,
+        )
+        ref_b = AnchorRef(
+            item_id=anchor_b.item.item_id,
+            anchor_type=anchor_b.anchor_type,
+            anchor_index=anchor_b.anchor_index,
+        )
+
+        command = AddConstraintCommand(
+            graph=scene.constraint_graph,
+            anchor_a=ref_a,
+            anchor_b=ref_b,
+            target_distance=axis_pos,
+            constraint_type=constraint_type,
+        )
+        self._view.command_manager.execute(command)
+        self._view.apply_constraint_solver()
+
+    def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
+        self._show_anchor_indicators(scene_pos)
+        if self._anchor_a is not None:
+            anchor = self._find_nearest_anchor(scene_pos)
+            end = anchor.point if anchor else scene_pos
+            self._update_preview(end)
         return True
 
     def mouse_release(self, _event: QMouseEvent, _scene_pos: QPointF) -> bool:
