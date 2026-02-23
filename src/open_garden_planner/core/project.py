@@ -241,12 +241,14 @@ class ProjectManager(QObject):
         from open_garden_planner.ui.canvas.items import (
             BackgroundImageItem,
             CircleItem,
+            ConstructionCircleItem,
+            ConstructionLineItem,
             PolygonItem,
             PolylineItem,
             RectangleItem,
         )
 
-        if isinstance(item, BackgroundImageItem):
+        if isinstance(item, (ConstructionLineItem, ConstructionCircleItem, BackgroundImageItem)):
             return item.to_dict()
         elif isinstance(item, RectangleItem):
             rect = item.rect()
@@ -412,6 +414,8 @@ class ProjectManager(QObject):
         from open_garden_planner.ui.canvas.items import (
             BackgroundImageItem,
             CircleItem,
+            ConstructionCircleItem,
+            ConstructionLineItem,
             PolygonItem,
             PolylineItem,
             RectangleItem,
@@ -422,10 +426,19 @@ class ProjectManager(QObject):
         if hasattr(scene, "_dimension_line_manager"):
             scene._dimension_line_manager.clear()
 
-        # Clear existing items
+        # Clear existing items (including construction geometry)
         for item in list(scene.items()):
             if isinstance(
-                item, (RectangleItem, CircleItem, PolygonItem, PolylineItem, BackgroundImageItem)
+                item,
+                (
+                    RectangleItem,
+                    CircleItem,
+                    PolygonItem,
+                    PolylineItem,
+                    BackgroundImageItem,
+                    ConstructionLineItem,
+                    ConstructionCircleItem,
+                ),
             ):
                 scene.removeItem(item)
 
@@ -465,8 +478,17 @@ class ProjectManager(QObject):
             PolylineItem,
             RectangleItem,
         )
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
 
         obj_type = obj.get("type")
+
+        if obj_type == "construction_line":
+            return ConstructionLineItem.from_dict(obj)
+        elif obj_type == "construction_circle":
+            return ConstructionCircleItem.from_dict(obj)
 
         # Extract common fields
         object_type = None

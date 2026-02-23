@@ -57,6 +57,10 @@ _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
     # ── Advanced ──────────────────────────────────────────────────────────────
     _ToolEntry("constraint_angle",     "Angle Constraint", "", ToolType.CONSTRAINT_ANGLE),
     _ToolEntry("constraint_symmetric", "Symmetry Constraint", "", ToolType.CONSTRAINT_SYMMETRY),
+    _SEP,
+    # ── Construction geometry ──────────────────────────────────────────────────
+    _ToolEntry("construction_line",   "Construction Line", "", ToolType.CONSTRUCTION_LINE),
+    _ToolEntry("construction_circle", "Construction Circle", "", ToolType.CONSTRUCTION_CIRCLE),
 ]
 
 

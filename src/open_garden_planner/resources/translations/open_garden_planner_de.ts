@@ -1195,6 +1195,14 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <translation>Objektbeschriftungen auf der Leinwand umschalten</translation>
     </message>
     <message>
+        <source>Show C&amp;onstruction Geometry</source>
+        <translation>H&amp;ilfsgeometrie anzeigen</translation>
+    </message>
+    <message>
+        <source>Toggle construction geometry visibility (excluded from exports)</source>
+        <translation>Sichtbarkeit der Hilfsgeometrie umschalten (nicht im Export enthalten)</translation>
+    </message>
+    <message>
         <location filename="..\..\app\application.py" line="399" />
         <source>&amp;Fullscreen Preview</source>
         <translation>&amp;Vollbildvorschau</translation>
@@ -1845,6 +1853,14 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
     <message>
         <source>Symmetry Constraint</source>
         <translation>Symmetrie-Randbedingung</translation>
+    </message>
+    <message>
+        <source>Construction Line</source>
+        <translation>Hilfslinie</translation>
+    </message>
+    <message>
+        <source>Construction Circle</source>
+        <translation>Hilfskreis</translation>
     </message>
 </context><context>
     <name>ConstraintTool</name>

@@ -427,6 +427,14 @@ class GardenPlannerApp(QMainWindow):
         self._constraints_action.triggered.connect(self._on_toggle_constraints)
         menu.addAction(self._constraints_action)
 
+        # Toggle Construction Geometry
+        self._construction_action = QAction(self.tr("Show C&onstruction Geometry"), self)
+        self._construction_action.setCheckable(True)
+        self._construction_action.setChecked(True)
+        self._construction_action.setStatusTip(self.tr("Toggle construction geometry visibility (excluded from exports)"))
+        self._construction_action.triggered.connect(self._on_toggle_construction)
+        menu.addAction(self._construction_action)
+
         menu.addSeparator()
 
         # Fullscreen Preview
@@ -1470,6 +1478,10 @@ class GardenPlannerApp(QMainWindow):
 
         self.canvas_view.set_constraints_visible(checked)
         get_settings().show_constraints = checked
+
+    def _on_toggle_construction(self, checked: bool) -> None:
+        """Handle toggle construction geometry visibility action."""
+        self.canvas_scene.set_construction_visible(checked)
 
     # -- Constraints panel handlers --
 

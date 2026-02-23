@@ -24,6 +24,31 @@ class ExportService:
     PAPER_LETTER_LANDSCAPE_WIDTH_CM = 27.94
 
     @staticmethod
+    def _hide_construction_items(scene: QGraphicsScene) -> list[object]:
+        """Hide all construction geometry items before export.
+
+        Returns:
+            List of items that were hidden (to restore later).
+        """
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
+
+        hidden: list[object] = []
+        for item in scene.items():
+            if isinstance(item, (ConstructionLineItem, ConstructionCircleItem)) and item.isVisible():
+                item.setVisible(False)
+                hidden.append(item)
+        return hidden
+
+    @staticmethod
+    def _restore_construction_items(hidden_items: list[object]) -> None:
+        """Restore visibility of construction items after export."""
+        for item in hidden_items:
+            item.setVisible(True)  # type: ignore[union-attr]
+
+    @staticmethod
     def _prepare_text_for_export(scene: QGraphicsScene, scale: float, dpi: int) -> list[tuple[object, bool, QFont | None]]:
         """Prepare text items for export by adjusting fonts.
 
@@ -131,6 +156,7 @@ class ExportService:
 
         # Prepare text items for export
         saved_text_state = ExportService._prepare_text_for_export(scene, scale, dpi)
+        hidden_construction = ExportService._hide_construction_items(scene)
 
         try:
             # Create image with the calculated dimensions
@@ -162,8 +188,9 @@ class ExportService:
             if not image.save(str(file_path), "PNG"):
                 raise ValueError(f"Failed to save PNG to {file_path}")
         finally:
-            # Always restore text items to original state
+            # Always restore items to original state
             ExportService._restore_text_after_export(saved_text_state)
+            ExportService._restore_construction_items(hidden_construction)
 
     @staticmethod
     def export_to_svg(
@@ -206,6 +233,7 @@ class ExportService:
 
         # Prepare text items for export
         saved_text_state = ExportService._prepare_text_for_export(scene, scale, svg_dpi)
+        hidden_construction = ExportService._hide_construction_items(scene)
 
         try:
             # Create SVG generator
@@ -227,8 +255,9 @@ class ExportService:
 
             painter.end()
         finally:
-            # Always restore text items to original state
+            # Always restore items to original state
             ExportService._restore_text_after_export(saved_text_state)
+            ExportService._restore_construction_items(hidden_construction)
 
     @staticmethod
     def calculate_image_size(

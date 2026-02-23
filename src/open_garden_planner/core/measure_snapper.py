@@ -38,7 +38,8 @@ class AnchorPoint:
 def get_anchor_points(item: QGraphicsItem) -> list[AnchorPoint]:
     """Compute all anchor points for a garden item in scene coordinates.
 
-    Supports RectangleItem, CircleItem, PolygonItem, and PolylineItem.
+    Supports RectangleItem, CircleItem, PolygonItem, PolylineItem, and
+    construction geometry items.
     Returns center plus edge midpoints appropriate for each type.
 
     Args:
@@ -53,6 +54,10 @@ def get_anchor_points(item: QGraphicsItem) -> list[AnchorPoint]:
         PolylineItem,
         RectangleItem,
     )
+    from open_garden_planner.ui.canvas.items.construction_item import (
+        ConstructionCircleItem,
+        ConstructionLineItem,
+    )
 
     anchors: list[AnchorPoint] = []
 
@@ -64,6 +69,10 @@ def get_anchor_points(item: QGraphicsItem) -> list[AnchorPoint]:
         anchors = _polygon_anchors(item)
     elif isinstance(item, PolylineItem):
         anchors = _polyline_anchors(item)
+    elif isinstance(item, ConstructionLineItem):
+        anchors = _construction_line_anchors(item)
+    elif isinstance(item, ConstructionCircleItem):
+        anchors = _construction_circle_anchors(item)
 
     return anchors
 
@@ -248,6 +257,49 @@ def _polyline_anchors(item: QGraphicsItem) -> list[AnchorPoint]:
     return anchors
 
 
+def _construction_line_anchors(item: QGraphicsItem) -> list[AnchorPoint]:
+    """Get anchors for a construction line item (endpoints + midpoint)."""
+    from open_garden_planner.ui.canvas.items.construction_item import ConstructionLineItem
+
+    assert isinstance(item, ConstructionLineItem)
+    line = item.line()
+    scene_p1 = item.mapToScene(line.p1())
+    scene_p2 = item.mapToScene(line.p2())
+    mid = QPointF(
+        (scene_p1.x() + scene_p2.x()) / 2,
+        (scene_p1.y() + scene_p2.y()) / 2,
+    )
+
+    return [
+        AnchorPoint(point=scene_p1, anchor_type=AnchorType.ENDPOINT, item=item, anchor_index=0),
+        AnchorPoint(point=scene_p2, anchor_type=AnchorType.ENDPOINT, item=item, anchor_index=1),
+        AnchorPoint(point=mid, anchor_type=AnchorType.CENTER, item=item),
+    ]
+
+
+def _construction_circle_anchors(item: QGraphicsItem) -> list[AnchorPoint]:
+    """Get anchors for a construction circle item (center + 4 cardinal points)."""
+    from open_garden_planner.ui.canvas.items.construction_item import ConstructionCircleItem
+
+    assert isinstance(item, ConstructionCircleItem)
+    rect = item.rect()
+    cx = rect.x() + rect.width() / 2
+    cy = rect.y() + rect.height() / 2
+
+    local_points = [
+        (QPointF(cx, cy), AnchorType.CENTER),
+        (QPointF(cx, rect.top()), AnchorType.EDGE_TOP),
+        (QPointF(cx, rect.bottom()), AnchorType.EDGE_BOTTOM),
+        (QPointF(rect.left(), cy), AnchorType.EDGE_LEFT),
+        (QPointF(rect.right(), cy), AnchorType.EDGE_RIGHT),
+    ]
+
+    return [
+        AnchorPoint(point=item.mapToScene(lp), anchor_type=at, item=item)
+        for lp, at in local_points
+    ]
+
+
 def find_nearest_anchor(
     scene_pos: QPointF,
     scene_items: list[QGraphicsItem],
@@ -264,13 +316,19 @@ def find_nearest_anchor(
         The nearest AnchorPoint, or None if nothing is within threshold.
     """
     from open_garden_planner.ui.canvas.items import GardenItemMixin
+    from open_garden_planner.ui.canvas.items.construction_item import (
+        ConstructionCircleItem,
+        ConstructionLineItem,
+    )
 
     best: AnchorPoint | None = None
     best_dist = threshold
 
     for item in scene_items:
-        # Only snap to garden items (skip background images, handles, etc.)
-        if not isinstance(item, GardenItemMixin):
+        # Include garden items and construction geometry items
+        is_garden = isinstance(item, GardenItemMixin)
+        is_construction = isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
+        if not (is_garden or is_construction):
             continue
         # Skip items that aren't selectable (hidden/locked layers)
         if not (item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable):

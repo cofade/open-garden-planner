@@ -69,6 +69,10 @@ class ToolType(Enum):
     POLYGON = auto()
     CIRCLE = auto()
 
+    # Construction geometry (helper lines/circles, not in exports)
+    CONSTRUCTION_LINE = auto()
+    CONSTRUCTION_CIRCLE = auto()
+
 
 class BaseTool(ABC):
     """Abstract base class for all drawing tools.
