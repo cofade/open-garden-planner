@@ -72,6 +72,9 @@ class CanvasScene(QGraphicsScene):
         # Labels state
         self._labels_enabled = True
 
+        # Construction geometry visibility state
+        self._construction_visible = True
+
         # Layer management
         self._layers: list[Layer] = create_default_layers()
         self._active_layer: Layer | None = self._layers[0] if self._layers else None  # Default to first layer
@@ -153,6 +156,29 @@ class CanvasScene(QGraphicsScene):
             if isinstance(item, GardenItemMixin):
                 item.set_global_labels_visible(visible)
 
+    # Construction geometry visibility management
+
+    @property
+    def construction_visible(self) -> bool:
+        """Whether construction geometry items are shown."""
+        return self._construction_visible
+
+    def set_construction_visible(self, visible: bool) -> None:
+        """Show or hide all construction geometry items.
+
+        Args:
+            visible: Whether construction geometry should be shown.
+        """
+        self._construction_visible = visible
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
+
+        for item in self.items():
+            if isinstance(item, (ConstructionLineItem, ConstructionCircleItem)):
+                item.setVisible(visible)
+
     def addItem(self, item: QGraphicsItem) -> None:
         """Add an item to the scene, applying shadow and label state.
 
@@ -160,7 +186,15 @@ class CanvasScene(QGraphicsScene):
             item: The graphics item to add
         """
         super().addItem(item)
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
         from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
+
+        if isinstance(item, (ConstructionLineItem, ConstructionCircleItem)):
+            item.setVisible(self._construction_visible)
+            return
 
         if isinstance(item, GardenItemMixin):
             item.shadows_enabled = self._shadows_enabled

@@ -177,6 +177,11 @@ class ConstraintTool(BaseTool):
 
     def _show_anchor_indicators(self, scene_pos: QPointF) -> None:
         """Show anchor indicators on objects near the mouse position."""
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
+
         scene = self._view.scene()
         if not scene:
             return
@@ -186,7 +191,8 @@ class ConstraintTool(BaseTool):
         items_at = scene.items(scene_pos)
         hovered_item = None
         for item in items_at:
-            if isinstance(item, GardenItemMixin) and item.flags() & item.GraphicsItemFlag.ItemIsSelectable:
+            is_target = isinstance(item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem))
+            if is_target and item.flags() & item.GraphicsItemFlag.ItemIsSelectable:
                 hovered_item = item
                 break
 
@@ -305,8 +311,8 @@ class ConstraintTool(BaseTool):
 
             # Don't allow constraining same anchor to itself
             if (
-                isinstance(self._anchor_a.item, GardenItemMixin)
-                and isinstance(anchor_b.item, GardenItemMixin)
+                hasattr(self._anchor_a.item, "item_id")
+                and hasattr(anchor_b.item, "item_id")
                 and self._anchor_a.item.item_id == anchor_b.item.item_id
                 and self._anchor_a.anchor_type == anchor_b.anchor_type
             ):
@@ -336,18 +342,16 @@ class ConstraintTool(BaseTool):
         if not scene:
             return
 
-        if not isinstance(anchor_a.item, GardenItemMixin) or not isinstance(
-            anchor_b.item, GardenItemMixin
-        ):
+        if not hasattr(anchor_a.item, "item_id") or not hasattr(anchor_b.item, "item_id"):
             return
 
         ref_a = AnchorRef(
-            item_id=anchor_a.item.item_id,
+            item_id=anchor_a.item.item_id,  # type: ignore[union-attr]
             anchor_type=anchor_a.anchor_type,
             anchor_index=anchor_a.anchor_index,
         )
         ref_b = AnchorRef(
-            item_id=anchor_b.item.item_id,
+            item_id=anchor_b.item.item_id,  # type: ignore[union-attr]
             anchor_type=anchor_b.anchor_type,
             anchor_index=anchor_b.anchor_index,
         )
@@ -584,6 +588,11 @@ class AngleConstraintTool(BaseTool):
         self._anchor_indicators.clear()
 
     def _show_anchor_indicators(self, scene_pos: QPointF) -> None:
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
+
         scene = self._view.scene()
         if not scene:
             return
@@ -591,7 +600,8 @@ class AngleConstraintTool(BaseTool):
         items_at = scene.items(scene_pos)
         hovered_item = None
         for item in items_at:
-            if isinstance(item, GardenItemMixin) and item.flags() & item.GraphicsItemFlag.ItemIsSelectable:
+            is_target = isinstance(item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem))
+            if is_target and item.flags() & item.GraphicsItemFlag.ItemIsSelectable:
                 hovered_item = item
                 break
         if hovered_item is None:
@@ -714,8 +724,8 @@ class AngleConstraintTool(BaseTool):
             # Second click: select anchor B (vertex)
             # Must be on a different item from A
             if (
-                isinstance(self._anchor_a.item, GardenItemMixin)
-                and isinstance(anchor.item, GardenItemMixin)
+                hasattr(self._anchor_a.item, "item_id")
+                and hasattr(anchor.item, "item_id")
                 and self._anchor_a.item.item_id == anchor.item.item_id
             ):
                 return True
@@ -728,9 +738,9 @@ class AngleConstraintTool(BaseTool):
         # Third click: select anchor C and create constraint
         anchor_c = anchor
         if not (
-            isinstance(self._anchor_a.item, GardenItemMixin)
-            and isinstance(self._anchor_b.item, GardenItemMixin)
-            and isinstance(anchor_c.item, GardenItemMixin)
+            hasattr(self._anchor_a.item, "item_id")
+            and hasattr(self._anchor_b.item, "item_id")
+            and hasattr(anchor_c.item, "item_id")
         ):
             self._reset()
             return True
@@ -942,6 +952,11 @@ class SymmetryConstraintTool(BaseTool):
         self._anchor_indicators.clear()
 
     def _show_anchor_indicators(self, scene_pos: QPointF) -> None:
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
+
         scene = self._view.scene()
         if not scene:
             return
@@ -949,10 +964,8 @@ class SymmetryConstraintTool(BaseTool):
         items_at = scene.items(scene_pos)
         hovered_item = None
         for item in items_at:
-            if (
-                isinstance(item, GardenItemMixin)
-                and item.flags() & item.GraphicsItemFlag.ItemIsSelectable
-            ):
+            is_target = isinstance(item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem))
+            if is_target and item.flags() & item.GraphicsItemFlag.ItemIsSelectable:
                 hovered_item = item
                 break
         if hovered_item is None:
@@ -1036,8 +1049,8 @@ class SymmetryConstraintTool(BaseTool):
         # Second click: select anchor B
         anchor_b = anchor
         if (
-            isinstance(self._anchor_a.item, GardenItemMixin)
-            and isinstance(anchor_b.item, GardenItemMixin)
+            hasattr(self._anchor_a.item, "item_id")
+            and hasattr(anchor_b.item, "item_id")
             and self._anchor_a.item.item_id == anchor_b.item.item_id
         ):
             return True  # Same item — skip
@@ -1064,9 +1077,7 @@ class SymmetryConstraintTool(BaseTool):
         scene = self._view.scene()
         if not scene:
             return
-        if not isinstance(anchor_a.item, GardenItemMixin) or not isinstance(
-            anchor_b.item, GardenItemMixin
-        ):
+        if not hasattr(anchor_a.item, "item_id") or not hasattr(anchor_b.item, "item_id"):
             return
 
         # Compute axis coordinate from the midpoint at creation time
@@ -1078,12 +1089,12 @@ class SymmetryConstraintTool(BaseTool):
             constraint_type = ConstraintType.SYMMETRY_VERTICAL
 
         ref_a = AnchorRef(
-            item_id=anchor_a.item.item_id,
+            item_id=anchor_a.item.item_id,  # type: ignore[union-attr]
             anchor_type=anchor_a.anchor_type,
             anchor_index=anchor_a.anchor_index,
         )
         ref_b = AnchorRef(
-            item_id=anchor_b.item.item_id,
+            item_id=anchor_b.item.item_id,  # type: ignore[union-attr]
             anchor_type=anchor_b.anchor_type,
             anchor_index=anchor_b.anchor_index,
         )

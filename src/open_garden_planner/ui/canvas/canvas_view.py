@@ -39,6 +39,8 @@ from open_garden_planner.core.tools import (
     AngleConstraintTool,
     CircleTool,
     ConstraintTool,
+    ConstructionCircleTool,
+    ConstructionLineTool,
     HorizontalConstraintTool,
     MeasureTool,
     PolygonTool,
@@ -155,6 +157,10 @@ class CanvasView(QGraphicsView):
         self._tool_manager.register_tool(VerticalConstraintTool(self))
         self._tool_manager.register_tool(AngleConstraintTool(self))
         self._tool_manager.register_tool(SymmetryConstraintTool(self))
+
+        # Register construction geometry tools
+        self._tool_manager.register_tool(ConstructionLineTool(self))
+        self._tool_manager.register_tool(ConstructionCircleTool(self))
 
         # Register generic shape tools
         rect_tool = RectangleTool(self, object_type=ObjectType.GENERIC_RECTANGLE)
@@ -569,6 +575,10 @@ class CanvasView(QGraphicsView):
         """
         from open_garden_planner.core.measure_snapper import get_anchor_points
         from open_garden_planner.ui.canvas.items import GardenItemMixin
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
 
         graph = self._canvas_scene.constraint_graph
 
@@ -584,9 +594,12 @@ class CanvasView(QGraphicsView):
 
         item_positions: dict = {}
         anchor_offsets: dict = {}
+        construction_ids: set = set()
 
         for item in self.scene().items():
-            if isinstance(item, GardenItemMixin) and item.item_id in constrained_ids:
+            is_garden = isinstance(item, GardenItemMixin)
+            is_construction = isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
+            if (is_garden or is_construction) and item.item_id in constrained_ids:
                 uid = item.item_id
                 pos = item.pos()
                 item_positions[uid] = (pos.x(), pos.y())
@@ -596,6 +609,8 @@ class CanvasView(QGraphicsView):
                         anchor.point.x() - pos.x(),
                         anchor.point.y() - pos.y(),
                     )
+                if is_construction:
+                    construction_ids.add(uid)
 
         if len(item_positions) < 2:  # noqa: PLR2004
             return True  # Not enough items to form a conflict — optimistically allow
@@ -1110,11 +1125,20 @@ class CanvasView(QGraphicsView):
         if not propagated_ids:
             return []
 
-        # Build item lookup
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
+
+        # Build item lookup (garden items + construction items in connected component)
         item_map: dict = {}
+        construction_ids: set = set()
         for item in self.scene().items():
             if isinstance(item, GardenItemMixin) and item.item_id in connected_ids:
                 item_map[item.item_id] = item
+            elif isinstance(item, (ConstructionLineItem, ConstructionCircleItem)) and item.item_id in connected_ids:
+                item_map[item.item_id] = item
+                construction_ids.add(item.item_id)
 
         # Build positions (with delta applied to moved items)
         item_positions: dict = {}
@@ -1135,16 +1159,19 @@ class CanvasView(QGraphicsView):
                     anchor.point.y() - pos.y(),
                 )
 
+        # Construction items are always pinned (they are fixed guides)
         result = graph.solve_anchored(
             item_positions=item_positions,
             anchor_offsets=anchor_offsets,
-            pinned_items=dragged_ids,
+            pinned_items=dragged_ids | construction_ids,
             max_iterations=10,
             tolerance=1.0,
         )
 
         propagated_deltas: list[tuple[QGraphicsItem, QPointF]] = []
         for uid, (pdx, pdy) in result.item_deltas.items():
+            if uid in construction_ids:
+                continue
             gitem = item_map.get(uid)
             if gitem is not None:
                 propagated_deltas.append((gitem, QPointF(pdx, pdy)))
@@ -1167,15 +1194,19 @@ class CanvasView(QGraphicsView):
 
         from open_garden_planner.core.measure_snapper import get_anchor_points
         from open_garden_planner.ui.canvas.items import GardenItemMixin
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
 
         selected = self.scene().selectedItems()
         if not selected:
             return
 
-        # Collect item IDs of dragged items
+        # Collect item IDs of dragged items (garden + construction)
         dragged_ids: set = set()
         for item in selected:
-            if isinstance(item, GardenItemMixin):
+            if isinstance(item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)):
                 dragged_ids.add(item.item_id)
 
         if not dragged_ids:
@@ -1186,27 +1217,68 @@ class CanvasView(QGraphicsView):
         for did in dragged_ids:
             connected_ids.update(graph.get_connected_component(did))
 
-        # Remove dragged items — they are pinned
-        propagated_ids = connected_ids - dragged_ids
+        # Identify all construction items in scene (needed for soft_dragged logic below)
+        scene_construction_ids: set = set()
+        for scene_item in self.scene().items():
+            if isinstance(scene_item, (ConstructionLineItem, ConstructionCircleItem)):
+                scene_construction_ids.add(scene_item.item_id)
+
+        # "Soft-dragged": dragged garden items whose ALL constraints are exclusively
+        # to construction items. These are NOT pinned in the solver — the solver
+        # enforces the construction constraint by snapping them to the correct
+        # distance/position each frame (the cursor acts as a "desired" position,
+        # not a hard pin). This makes constraints bidirectional: dragging either the
+        # construction item or the garden item satisfies the constraint.
+        soft_dragged: set = set()
+        for uid in dragged_ids:
+            if uid in scene_construction_ids:
+                continue  # Construction items are always hard-pinned
+            item_constraints = graph.get_item_constraints(uid)
+            if not item_constraints:
+                continue
+            if all(
+                (c.anchor_a.item_id if c.anchor_b.item_id == uid else c.anchor_b.item_id)
+                in scene_construction_ids
+                for c in item_constraints
+            ):
+                soft_dragged.add(uid)
+
+        # truly_dragged: follow the cursor and pull their constraint partners
+        truly_dragged = dragged_ids - soft_dragged
+
+        # propagated_ids: items the solver may move (soft_dragged included)
+        propagated_ids = connected_ids - truly_dragged
         if not propagated_ids:
             return
 
-        # Build item lookup by UUID
+        # Build item lookup by UUID (garden + construction items)
         item_map: dict = {}
+        construction_ids: set = set()
         for item in self.scene().items():
             if isinstance(item, GardenItemMixin) and item.item_id in connected_ids:
                 item_map[item.item_id] = item
+            elif isinstance(item, (ConstructionLineItem, ConstructionCircleItem)) and item.item_id in connected_ids:
+                item_map[item.item_id] = item
+                construction_ids.add(item.item_id)
 
-        # Record start positions of propagated items (only once per drag)
+        # Record start positions of propagated garden items (only once per drag).
+        # soft_dragged items are excluded — their "start" is the cursor position
+        # (reset by Qt each frame), so recording a stale start would be wrong.
         for uid in propagated_ids:
+            if uid in soft_dragged:
+                continue
             gitem = item_map.get(uid)
             if gitem and gitem not in self._constraint_propagated_starts:
                 self._constraint_propagated_starts[gitem] = gitem.pos()
 
-        # First, revert propagated items to their start positions so the
-        # solver computes deltas from a clean state each frame
+        # Revert non-soft propagated garden items to start positions so the solver
+        # computes deltas from a clean state each frame
         for gitem, start_pos in self._constraint_propagated_starts.items():
-            if isinstance(gitem, GardenItemMixin) and gitem.item_id in propagated_ids:
+            if (
+                isinstance(gitem, GardenItemMixin)
+                and gitem.item_id in propagated_ids
+                and gitem.item_id not in soft_dragged
+            ):
                 gitem.setPos(start_pos)
 
         # Build item positions and anchor offsets
@@ -1225,17 +1297,20 @@ class CanvasView(QGraphicsView):
                     anchor.point.y() - pos.y(),
                 )
 
-        # Run solver with dragged items pinned
+        # Run solver: truly_dragged and construction items are pinned.
+        # soft_dragged items are FREE so the solver enforces construction constraints.
         result = graph.solve_anchored(
             item_positions=item_positions,
             anchor_offsets=anchor_offsets,
-            pinned_items=dragged_ids,
+            pinned_items=truly_dragged | construction_ids,
             max_iterations=10,
             tolerance=1.0,
         )
 
-        # Apply deltas to propagated items
+        # Apply deltas (skip construction items — always pinned)
         for uid, (dx, dy) in result.item_deltas.items():
+            if uid in construction_ids:
+                continue
             gitem = item_map.get(uid)
             if gitem is not None:
                 gitem.moveBy(dx, dy)
@@ -1400,6 +1475,10 @@ class CanvasView(QGraphicsView):
         """
         from open_garden_planner.core.measure_snapper import get_anchor_points
         from open_garden_planner.ui.canvas.items import GardenItemMixin
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
 
         graph = self._canvas_scene.constraint_graph
         if not graph.constraints:
@@ -1415,9 +1494,12 @@ class CanvasView(QGraphicsView):
         item_map: dict = {}
         item_positions: dict = {}
         anchor_offsets: dict = {}
+        construction_ids: set = set()
 
         for item in self.scene().items():
-            if isinstance(item, GardenItemMixin) and item.item_id in constrained_ids:
+            is_garden = isinstance(item, GardenItemMixin)
+            is_construction = isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
+            if (is_garden or is_construction) and item.item_id in constrained_ids:
                 uid = item.item_id
                 item_map[uid] = item
                 pos = item.pos()
@@ -1428,20 +1510,25 @@ class CanvasView(QGraphicsView):
                         anchor.point.x() - pos.x(),
                         anchor.point.y() - pos.y(),
                     )
+                if is_construction:
+                    construction_ids.add(uid)
 
         if not item_positions:
             return []
 
+        # Construction items are always pinned — only garden items move
         result = graph.solve_anchored(
             item_positions=item_positions,
             anchor_offsets=anchor_offsets,
-            pinned_items=set(),
+            pinned_items=construction_ids,
             max_iterations=10,
             tolerance=1.0,
         )
 
         moves: list = []
         for uid, (pdx, pdy) in result.item_deltas.items():
+            if uid in construction_ids:
+                continue
             gitem = item_map.get(uid)
             if gitem is not None and (abs(pdx) > 0.01 or abs(pdy) > 0.01):
                 old_pos = gitem.pos()
@@ -1458,12 +1545,16 @@ class CanvasView(QGraphicsView):
             return
 
         from open_garden_planner.ui.canvas.items import GardenItemMixin
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
 
-        # Collect constraints to remove for deleted items
+        # Collect constraints to remove for deleted items (garden + construction)
         graph = self._canvas_scene.constraint_graph
         constraints_to_remove = []
         for item in selected:
-            if isinstance(item, GardenItemMixin):
+            if isinstance(item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)):
                 for constraint in graph.get_item_constraints(item.item_id):
                     if constraint not in constraints_to_remove:
                         constraints_to_remove.append(constraint)

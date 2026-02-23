@@ -222,9 +222,16 @@ class DimensionLineManager:
     def _resolve_anchor_position(
         self, item_id: UUID, anchor_type: AnchorType, anchor_index: int = 0
     ) -> QPointF | None:
-        """Get the scene position of an anchor on a garden item."""
+        """Get the scene position of an anchor on a garden or construction item."""
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
+
         for item in self._scene.items():
-            if not isinstance(item, GardenItemMixin):
+            is_garden = isinstance(item, GardenItemMixin)
+            is_construction = isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
+            if not (is_garden or is_construction):
                 continue
             if item.item_id != item_id:
                 continue

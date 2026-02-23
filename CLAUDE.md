@@ -135,6 +135,7 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 
 6. **WAIT for user to manually test and approve the functionality**
    - Do NOT commit yet
+   - **Provide a Manual Testing Checklist** covering all acceptance criteria from the user story
    - User will test the implementation
    - Only proceed after explicit approval
 
@@ -315,7 +316,7 @@ tests/
 | ✅     | 7.9  | Horizontal/Vertical alignment constraints            |
 | ✅     | 7.10 | Angle constraints                                    |
 | ✅     | 7.11 | Symmetry constraints                                 |
-|        | 7.12 | Construction geometry                                |
+| ✅     | 7.12 | Construction geometry                                |
 |        | 7.13 | Draggable guide lines                                |
 |        | 7.14 | Linear array placement                               |
 |        | 7.15 | Grid array placement                                 |

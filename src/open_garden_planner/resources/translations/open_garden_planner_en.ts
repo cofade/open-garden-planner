@@ -925,6 +925,14 @@ This will remove it from your custom library. Plants already placed in projects 
             <translation>Toggle object labels on the canvas</translation>
         </message>
         <message>
+            <source>Show C&amp;onstruction Geometry</source>
+            <translation>Show C&amp;onstruction Geometry</translation>
+        </message>
+        <message>
+            <source>Toggle construction geometry visibility (excluded from exports)</source>
+            <translation>Toggle construction geometry visibility (excluded from exports)</translation>
+        </message>
+        <message>
             <location filename="..\..\app\application.py" line="399" />
             <source>&amp;Fullscreen Preview</source>
             <translation>&amp;Fullscreen Preview</translation>
@@ -1575,6 +1583,14 @@ Please restart the application for the change to take effect.</translation>
         <message>
             <source>Symmetry Constraint</source>
             <translation>Symmetry Constraint</translation>
+        </message>
+        <message>
+            <source>Construction Line</source>
+            <translation>Construction Line</translation>
+        </message>
+        <message>
+            <source>Construction Circle</source>
+            <translation>Construction Circle</translation>
         </message>
     </context>
     <context>
