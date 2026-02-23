@@ -6,6 +6,7 @@ from .constraint_tool import (
     AngleConstraintTool,
     ConstraintTool,
     HorizontalConstraintTool,
+    SymmetryConstraintTool,
     VerticalConstraintTool,
 )
 from .measure_tool import MeasureTool
@@ -26,6 +27,7 @@ __all__ = [
     "PolylineTool",
     "RectangleTool",
     "SelectTool",
+    "SymmetryConstraintTool",
     "ToolManager",
     "ToolType",
     "VerticalConstraintTool",

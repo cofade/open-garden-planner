@@ -314,7 +314,7 @@ tests/
 | ✅     | 7.8  | Numeric dimension input                              |
 | ✅     | 7.9  | Horizontal/Vertical alignment constraints            |
 | ✅     | 7.10 | Angle constraints                                    |
-|        | 7.11 | Symmetry constraints                                 |
+| ✅     | 7.11 | Symmetry constraints                                 |
 |        | 7.12 | Construction geometry                                |
 |        | 7.13 | Draggable guide lines                                |
 |        | 7.14 | Linear array placement                               |

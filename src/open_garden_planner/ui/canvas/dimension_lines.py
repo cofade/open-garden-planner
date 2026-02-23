@@ -30,6 +30,8 @@ COLOR_ALIGN_SATISFIED = QColor(120, 0, 180)  # Purple for alignment
 COLOR_ALIGN_VIOLATED = QColor(220, 40, 40)   # Red (same as distance violated)
 COLOR_ANGLE_SATISFIED = QColor(200, 100, 0)  # Orange for angle constraints
 COLOR_ANGLE_VIOLATED = QColor(220, 40, 40)   # Red
+COLOR_SYMMETRY_SATISFIED = QColor(140, 0, 180)  # Purple for symmetry constraints
+COLOR_SYMMETRY_VIOLATED = QColor(220, 40, 40)   # Red
 
 # Geometry constants
 WITNESS_LINE_OFFSET = 15.0  # Perpendicular offset from dimension line (in cm)
@@ -164,6 +166,23 @@ class DimensionLineManager:
             satisfied = error < 1.0
             color = COLOR_ALIGN_SATISFIED if satisfied else COLOR_ALIGN_VIOLATED
             self._build_alignment_indicator(group, pos_a, pos_b, "V", color)
+        elif constraint.constraint_type in (
+            ConstraintType.SYMMETRY_HORIZONTAL,
+            ConstraintType.SYMMETRY_VERTICAL,
+        ):
+            axis_is_horizontal = constraint.constraint_type == ConstraintType.SYMMETRY_HORIZONTAL
+            axis_val = constraint.target_distance
+            if axis_is_horizontal:
+                x_error = abs(pos_b.x() - pos_a.x())
+                y_error = abs((pos_a.y() + pos_b.y()) / 2.0 - axis_val)
+            else:
+                y_error = abs(pos_b.y() - pos_a.y())
+                x_error = abs((pos_a.x() + pos_b.x()) / 2.0 - axis_val)
+            satisfied = x_error < 1.0 and y_error < 1.0
+            color = COLOR_SYMMETRY_SATISFIED if satisfied else COLOR_SYMMETRY_VIOLATED
+            self._build_symmetry_indicator(
+                group, pos_a, pos_b, axis_val, axis_is_horizontal, color
+            )
         elif constraint.constraint_type == ConstraintType.ANGLE:
             # ANGLE constraint: pos_b is the vertex, pos_a and pos_c are the ray endpoints.
             if constraint.anchor_c is None:
@@ -359,6 +378,108 @@ class DimensionLineManager:
         self._scene.addItem(text_item)
         group.items.append(text_item)
 
+    def _build_symmetry_indicator(
+        self,
+        group: DimensionLineGroup,
+        pos_a: QPointF,
+        pos_b: QPointF,
+        axis_val: float,
+        axis_is_horizontal: bool,
+        color: QColor,
+    ) -> None:
+        """Build a visual indicator for a symmetry constraint.
+
+        Draws a dashed axis line through the midpoint, small dots at each anchor,
+        and a dashed connector between them with an "S" label.
+        """
+        pen_dash = QPen(color, 1.5, Qt.PenStyle.DashLine)
+        pen_dash.setCosmetic(True)
+        pen_solid = QPen(color, 1.5)
+        pen_solid.setCosmetic(True)
+
+        # Dashed connector line between the two anchors
+        connector = self._scene.addLine(QLineF(pos_a, pos_b), pen_dash)
+        connector.setZValue(DIMENSION_LINE_Z)
+        group.items.append(connector)
+
+        # Determine axis extent: span a bit beyond both anchors
+        if axis_is_horizontal:
+            # Horizontal axis at y = axis_val; extend left/right
+            min_x = min(pos_a.x(), pos_b.x()) - 30.0
+            max_x = max(pos_a.x(), pos_b.x()) + 30.0
+            axis_start = QPointF(min_x, axis_val)
+            axis_end = QPointF(max_x, axis_val)
+        else:
+            # Vertical axis at x = axis_val; extend up/down
+            min_y = min(pos_a.y(), pos_b.y()) - 30.0
+            max_y = max(pos_a.y(), pos_b.y()) + 30.0
+            axis_start = QPointF(axis_val, min_y)
+            axis_end = QPointF(axis_val, max_y)
+
+        axis_line = self._scene.addLine(QLineF(axis_start, axis_end), pen_solid)
+        axis_line.setZValue(DIMENSION_LINE_Z)
+        group.items.append(axis_line)
+
+        # Small triangular "mirror" tick marks on the axis
+        TICK = 6.0
+        if axis_is_horizontal:
+            mid_x = (pos_a.x() + pos_b.x()) / 2.0
+            tick_a = QPointF(mid_x - TICK, axis_val)
+            tick_b = QPointF(mid_x + TICK, axis_val)
+            # Two short perpendicular ticks above and below the axis line
+            for side in (-1.0, 1.0):
+                t = self._scene.addLine(
+                    QLineF(
+                        QPointF(mid_x, axis_val - TICK * side),
+                        QPointF(mid_x, axis_val + TICK * side * 0.5),
+                    ),
+                    pen_solid,
+                )
+                t.setZValue(DIMENSION_LINE_Z)
+                group.items.append(t)
+            _ = tick_a, tick_b  # suppress unused warnings
+        else:
+            mid_y = (pos_a.y() + pos_b.y()) / 2.0
+            for side in (-1.0, 1.0):
+                t = self._scene.addLine(
+                    QLineF(
+                        QPointF(axis_val - TICK * side, mid_y),
+                        QPointF(axis_val + TICK * side * 0.5, mid_y),
+                    ),
+                    pen_solid,
+                )
+                t.setZValue(DIMENSION_LINE_Z)
+                group.items.append(t)
+
+        # Small dots at each anchor
+        for pos in (pos_a, pos_b):
+            r = 3.5
+            ellipse = self._scene.addEllipse(
+                QRectF(pos.x() - r, pos.y() - r, r * 2, r * 2),
+                QPen(color, 1.5),
+                QBrush(color),
+            )
+            ellipse.setZValue(DIMENSION_LINE_Z)
+            group.items.append(ellipse)
+
+        # Label "S" at the axis midpoint
+        if axis_is_horizontal:
+            label_pos = QPointF((pos_a.x() + pos_b.x()) / 2.0 + 6.0, axis_val - 8.0)
+        else:
+            label_pos = QPointF(axis_val + 6.0, (pos_a.y() + pos_b.y()) / 2.0 - 8.0)
+
+        text_item = QGraphicsSimpleTextItem("S")
+        font = QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        text_item.setFont(font)
+        text_item.setBrush(QBrush(color))
+        text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        text_item.setZValue(DIMENSION_LINE_Z + 1)
+        text_item.setPos(label_pos)
+        self._scene.addItem(text_item)
+        group.items.append(text_item)
+
     def _build_angle_arc(
         self,
         group: DimensionLineGroup,
@@ -529,6 +650,12 @@ class DimensionLineManager:
             # for angle constraints check proximity to vertex (pos_b);
             # for distance constraints check the offset dimension line.
             if constraint.constraint_type in (ConstraintType.HORIZONTAL, ConstraintType.VERTICAL):
+                dist = _point_to_segment_distance(scene_pos, pos_a, pos_b)
+            elif constraint.constraint_type in (
+                ConstraintType.SYMMETRY_HORIZONTAL,
+                ConstraintType.SYMMETRY_VERTICAL,
+            ):
+                # Check proximity to the connector line between the two anchors
                 dist = _point_to_segment_distance(scene_pos, pos_a, pos_b)
             elif constraint.constraint_type == ConstraintType.ANGLE:
                 dx = scene_pos.x() - pos_b.x()

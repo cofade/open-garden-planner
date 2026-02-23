@@ -19,10 +19,12 @@ from open_garden_planner.core.measure_snapper import AnchorType
 class ConstraintType(Enum):
     """Type of constraint between two anchor points."""
 
-    DISTANCE = auto()    # Fixed distance between anchors
-    HORIZONTAL = auto()  # Same Y coordinate (horizontal alignment)
-    VERTICAL = auto()    # Same X coordinate (vertical alignment)
-    ANGLE = auto()       # Fixed angle at vertex B between rays BA and BC (degrees)
+    DISTANCE = auto()              # Fixed distance between anchors
+    HORIZONTAL = auto()            # Same Y coordinate (horizontal alignment)
+    VERTICAL = auto()              # Same X coordinate (vertical alignment)
+    ANGLE = auto()                 # Fixed angle at vertex B between rays BA and BC (degrees)
+    SYMMETRY_HORIZONTAL = auto()   # Mirror A and B across a horizontal axis (y = target_distance)
+    SYMMETRY_VERTICAL = auto()     # Mirror A and B across a vertical axis (x = target_distance)
 
 
 class ConstraintStatus(Enum):
@@ -667,6 +669,68 @@ class ConstraintGraph:
                         new_rc_y = sin_c * bc_x + cos_c * bc_y
                         positions[id_c][0] += new_rc_x - bc_x
                         positions[id_c][1] += new_rc_y - bc_y
+                    continue
+
+                if constraint.constraint_type == ConstraintType.SYMMETRY_HORIZONTAL:
+                    # Mirror A and B across the horizontal axis y = target_distance.
+                    # Enforces: bx = ax  AND  ay + by = 2 * axis_y
+                    axis_y = constraint.target_distance
+                    # X synchronisation: bx should equal ax
+                    x_error = bx - ax
+                    # Y symmetry: ay + by should equal 2 * axis_y
+                    y_sum_error = ay + by - 2.0 * axis_y
+
+                    sym_error = math.sqrt(x_error ** 2 + y_sum_error ** 2)
+                    max_error = max(max_error, sym_error)
+
+                    if a_pinned and b_pinned:
+                        continue
+                    elif a_pinned:
+                        # Move B's item so B's anchor mirrors A's anchor.
+                        # anchor_b = positions[id_b] + off_b, so:
+                        # positions[id_b] = target_anchor - off_b
+                        positions[id_b][0] = ax - off_b[0]
+                        positions[id_b][1] = (2.0 * axis_y - ay) - off_b[1]
+                    elif b_pinned:
+                        # Move A's item so A's anchor mirrors B's anchor.
+                        positions[id_a][0] = bx - off_a[0]
+                        positions[id_a][1] = (2.0 * axis_y - by) - off_a[1]
+                    else:
+                        # Split: align X to average, adjust Y to meet symmetry
+                        positions[id_a][0] += x_error / 2.0
+                        positions[id_b][0] -= x_error / 2.0
+                        positions[id_a][1] -= y_sum_error / 2.0
+                        positions[id_b][1] -= y_sum_error / 2.0
+                    continue
+
+                if constraint.constraint_type == ConstraintType.SYMMETRY_VERTICAL:
+                    # Mirror A and B across the vertical axis x = target_distance.
+                    # Enforces: by = ay  AND  ax + bx = 2 * axis_x
+                    axis_x = constraint.target_distance
+                    # Y synchronisation: by should equal ay
+                    y_error = by - ay
+                    # X symmetry: ax + bx should equal 2 * axis_x
+                    x_sum_error = ax + bx - 2.0 * axis_x
+
+                    sym_error = math.sqrt(y_error ** 2 + x_sum_error ** 2)
+                    max_error = max(max_error, sym_error)
+
+                    if a_pinned and b_pinned:
+                        continue
+                    elif a_pinned:
+                        # Move B's item so B's anchor mirrors A's anchor.
+                        positions[id_b][0] = (2.0 * axis_x - ax) - off_b[0]
+                        positions[id_b][1] = ay - off_b[1]
+                    elif b_pinned:
+                        # Move A's item so A's anchor mirrors B's anchor.
+                        positions[id_a][0] = (2.0 * axis_x - bx) - off_a[0]
+                        positions[id_a][1] = by - off_a[1]
+                    else:
+                        # Split: align Y to average, adjust X to meet symmetry
+                        positions[id_a][1] += y_error / 2.0
+                        positions[id_b][1] -= y_error / 2.0
+                        positions[id_a][0] -= x_sum_error / 2.0
+                        positions[id_b][0] -= x_sum_error / 2.0
                     continue
 
                 # DISTANCE constraint

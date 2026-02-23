@@ -841,3 +841,222 @@ class TestAngleConstraints:
             anchor_offsets=anchor_offsets,
         )
         assert result is not None
+
+
+class TestSymmetryConstraintSolver:
+    """Tests for the symmetry constraint solver."""
+
+    def _make_anchored_positions(
+        self,
+        positions: dict,
+    ) -> tuple[dict, dict]:
+        """Build item_positions and anchor_offsets with zero offsets."""
+        anchor_offsets = {
+            (uid, AnchorType.CENTER, 0): (0.0, 0.0)
+            for uid in positions
+        }
+        item_positions = {uid: [x, y] for uid, (x, y) in positions.items()}
+        return item_positions, anchor_offsets
+
+    def test_horizontal_symmetry_already_satisfied(self, qtbot) -> None:
+        """Two items already mirrored across y=0 should converge immediately."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        # A at (0, -100), B at (0, 100) — symmetric across y=0
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,  # axis at y=0
+            constraint_type=ConstraintType.SYMMETRY_HORIZONTAL,
+        )
+        positions, offsets = self._make_anchored_positions(
+            {id_a: (0.0, -100.0), id_b: (0.0, 100.0)}
+        )
+        result = graph.solve_anchored(
+            item_positions=positions,
+            anchor_offsets=offsets,
+        )
+        assert result.converged
+        # Items should not have moved (already satisfied)
+        assert id_a not in result.item_deltas
+        assert id_b not in result.item_deltas
+
+    def test_horizontal_symmetry_corrects_positions(self, qtbot) -> None:
+        """Items not yet mirrored should be moved to satisfy symmetry."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        # Axis at y=0; A at (0, 50), B at (0, 30) — not symmetric
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,  # axis at y=0
+            constraint_type=ConstraintType.SYMMETRY_HORIZONTAL,
+        )
+        positions, offsets = self._make_anchored_positions(
+            {id_a: (0.0, 50.0), id_b: (0.0, 30.0)}
+        )
+        result = graph.solve_anchored(
+            item_positions=positions,
+            anchor_offsets=offsets,
+        )
+        assert result.converged
+        # After correction: ay + by should be 0 (both free — equally adjusted)
+        new_ay = 50.0 + result.item_deltas.get(id_a, (0.0, 0.0))[1]
+        new_by = 30.0 + result.item_deltas.get(id_b, (0.0, 0.0))[1]
+        assert abs(new_ay + new_by) < 1.0  # sum should be 2 * axis_y = 0
+
+    def test_horizontal_symmetry_pinned_a_moves_b(self, qtbot) -> None:
+        """When A is pinned, B should mirror A exactly."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,  # axis at y=0
+            constraint_type=ConstraintType.SYMMETRY_HORIZONTAL,
+        )
+        positions, offsets = self._make_anchored_positions(
+            {id_a: (50.0, 80.0), id_b: (0.0, 0.0)}
+        )
+        result = graph.solve_anchored(
+            item_positions=positions,
+            anchor_offsets=offsets,
+            pinned_items={id_a},
+        )
+        assert result.converged
+        assert id_a not in result.item_deltas
+        new_bx = 0.0 + result.item_deltas.get(id_b, (0.0, 0.0))[0]
+        new_by = 0.0 + result.item_deltas.get(id_b, (0.0, 0.0))[1]
+        # B should mirror A: bx=50, by=-80
+        assert abs(new_bx - 50.0) < 1.0
+        assert abs(new_by - (-80.0)) < 1.0
+
+    def test_vertical_symmetry_corrects_positions(self, qtbot) -> None:
+        """Items not yet mirrored vertically should be corrected."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        # Axis at x=0; A at (50, 0), B at (30, 0) — not symmetric
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,  # axis at x=0
+            constraint_type=ConstraintType.SYMMETRY_VERTICAL,
+        )
+        positions, offsets = self._make_anchored_positions(
+            {id_a: (50.0, 0.0), id_b: (30.0, 0.0)}
+        )
+        result = graph.solve_anchored(
+            item_positions=positions,
+            anchor_offsets=offsets,
+        )
+        assert result.converged
+        new_ax = 50.0 + result.item_deltas.get(id_a, (0.0, 0.0))[0]
+        new_bx = 30.0 + result.item_deltas.get(id_b, (0.0, 0.0))[0]
+        assert abs(new_ax + new_bx) < 1.0  # sum should be 2 * axis_x = 0
+
+    def test_vertical_symmetry_pinned_a_moves_b(self, qtbot) -> None:
+        """When A is pinned, B should mirror A exactly across vertical axis."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,  # axis at x=100
+            constraint_type=ConstraintType.SYMMETRY_VERTICAL,
+        )
+        positions, offsets = self._make_anchored_positions(
+            {id_a: (150.0, 75.0), id_b: (0.0, 0.0)}
+        )
+        result = graph.solve_anchored(
+            item_positions=positions,
+            anchor_offsets=offsets,
+            pinned_items={id_a},
+        )
+        assert result.converged
+        assert id_a not in result.item_deltas
+        new_bx = 0.0 + result.item_deltas.get(id_b, (0.0, 0.0))[0]
+        new_by = 0.0 + result.item_deltas.get(id_b, (0.0, 0.0))[1]
+        # B should mirror A across x=100: bx = 2*100 - 150 = 50, by = 75
+        assert abs(new_bx - 50.0) < 1.0
+        assert abs(new_by - 75.0) < 1.0
+
+    def test_horizontal_symmetry_pinned_with_nonzero_offsets(self, qtbot) -> None:
+        """Regression: non-zero anchor offsets must not cause large item jumps.
+
+        Simulates items where pos() = (0, 0) and the anchor is embedded at a
+        large local coordinate (typical for QGraphicsRectItem created from
+        scene drag without a subsequent setPos call).
+        """
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        # axis at y=300; A's anchor at (200, 170), B's anchor at (200, 450)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            300.0,
+            constraint_type=ConstraintType.SYMMETRY_HORIZONTAL,
+        )
+        # Item positions with zero item-pos but large anchor offsets
+        item_positions = {id_a: [0.0, 20.0], id_b: [0.0, 0.0]}
+        anchor_offsets = {
+            (id_a, AnchorType.CENTER, 0): (200.0, 150.0),  # anchor at (200, 170)
+            (id_b, AnchorType.CENTER, 0): (200.0, 450.0),  # anchor at (200, 450)
+        }
+        result = graph.solve_anchored(
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+            pinned_items={id_a},
+        )
+        assert result.converged
+        assert id_a not in result.item_deltas
+        # ax=200, ay=170 → B's target anchor=(200, 430) → B's item target=(0, -20)
+        new_bx = 0.0 + result.item_deltas.get(id_b, (0.0, 0.0))[0]
+        new_by = 0.0 + result.item_deltas.get(id_b, (0.0, 0.0))[1]
+        assert abs(new_bx) < 1.0            # B's item X stays at 0
+        assert abs(new_by - (-20.0)) < 1.0  # B's item Y moves by -20, not +430
+
+    def test_vertical_symmetry_pinned_with_nonzero_offsets(self, qtbot) -> None:
+        """Regression: non-zero anchor offsets must not cause large item jumps (V)."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        # axis at x=300; A's anchor at (170, 200), B's anchor at (450, 200)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            300.0,
+            constraint_type=ConstraintType.SYMMETRY_VERTICAL,
+        )
+        item_positions = {id_a: [20.0, 0.0], id_b: [0.0, 0.0]}
+        anchor_offsets = {
+            (id_a, AnchorType.CENTER, 0): (150.0, 200.0),  # anchor at (170, 200)
+            (id_b, AnchorType.CENTER, 0): (450.0, 200.0),  # anchor at (450, 200)
+        }
+        result = graph.solve_anchored(
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+            pinned_items={id_a},
+        )
+        assert result.converged
+        assert id_a not in result.item_deltas
+        # ax=170, ay=200 → B's target anchor=(430, 200) → B's item target=(-20, 0)
+        new_bx = 0.0 + result.item_deltas.get(id_b, (0.0, 0.0))[0]
+        new_by = 0.0 + result.item_deltas.get(id_b, (0.0, 0.0))[1]
+        assert abs(new_bx - (-20.0)) < 1.0  # B's item X moves by -20, not +430
+        assert abs(new_by) < 1.0            # B's item Y stays at 0
+
+    def test_symmetry_serialization_roundtrip(self, qtbot) -> None:
+        """SYMMETRY constraints should survive to_dict/from_dict round-trip."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            75.0,
+            constraint_type=ConstraintType.SYMMETRY_HORIZONTAL,
+        )
+        data = graph.to_list()
+        restored = ConstraintGraph.from_list(data)
+        assert len(restored.constraints) == 1
+        rc = list(restored.constraints.values())[0]
+        assert rc.constraint_type == ConstraintType.SYMMETRY_HORIZONTAL
+        assert rc.target_distance == 75.0
