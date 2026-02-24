@@ -252,6 +252,14 @@
             <translation>Created linear array of {count} items</translation>
         </message>
         <message>
+            <source>Select exactly one item to create a grid array</source>
+            <translation>Select exactly one item to create a grid array</translation>
+        </message>
+        <message>
+            <source>Created grid array of {count} items ({rows}×{cols})</source>
+            <translation>Created grid array of {count} items ({rows}×{cols})</translation>
+        </message>
+        <message>
             <location filename="..\..\ui\canvas\canvas_view.py" line="1837" />
             <source>Distance must be positive</source>
             <translation>Distance must be positive</translation>
@@ -1794,6 +1802,45 @@ Please restart the application for the change to take effect.</translation>
             <location filename="..\..\ui\dialogs\new_project_dialog.py" line="81" />
             <source>Tip: You can resize the canvas later from Edit &gt; Canvas Size.</source>
             <translation>Tip: You can resize the canvas later from Edit &gt; Canvas Size.</translation>
+        </message>
+    </context>
+    <context>
+        <name>GridArrayDialog</name>
+        <message>
+            <source>Create Grid Array</source>
+            <translation>Create Grid Array</translation>
+        </message>
+        <message>
+            <source>Grid Parameters</source>
+            <translation>Grid Parameters</translation>
+        </message>
+        <message>
+            <source>Rows:</source>
+            <translation>Rows:</translation>
+        </message>
+        <message>
+            <source>Columns:</source>
+            <translation>Columns:</translation>
+        </message>
+        <message>
+            <source>Row spacing:</source>
+            <translation>Row spacing:</translation>
+        </message>
+        <message>
+            <source>(downward)</source>
+            <translation>(downward)</translation>
+        </message>
+        <message>
+            <source>Column spacing:</source>
+            <translation>Column spacing:</translation>
+        </message>
+        <message>
+            <source>(rightward)</source>
+            <translation>(rightward)</translation>
+        </message>
+        <message>
+            <source>Auto-create distance constraints between copies</source>
+            <translation>Auto-create distance constraints between copies</translation>
         </message>
     </context>
     <context>

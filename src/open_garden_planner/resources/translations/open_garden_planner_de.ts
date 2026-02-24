@@ -251,6 +251,14 @@
         <translation>Lineares Muster mit {count} Objekten erstellt</translation>
     </message>
     <message>
+        <source>Select exactly one item to create a grid array</source>
+        <translation>Wählen Sie genau ein Objekt aus, um ein Rastermuster zu erstellen</translation>
+    </message>
+    <message>
+        <source>Created grid array of {count} items ({rows}×{cols})</source>
+        <translation>Rastermuster mit {count} Objekten erstellt ({rows}×{cols})</translation>
+    </message>
+    <message>
         <location filename="..\..\ui\canvas\canvas_view.py" line="1837" />
         <source>Distance must be positive</source>
         <translation>Abstand muss positiv sein</translation>
@@ -2062,6 +2070,45 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
         <location filename="..\..\ui\dialogs\new_project_dialog.py" line="81" />
         <source>Tip: You can resize the canvas later from Edit &gt; Canvas Size.</source>
         <translation>Tipp: Sie können die Leinwandgröße später unter Bearbeiten &gt; Leinwandgröße ändern.</translation>
+    </message>
+</context>
+<context>
+    <name>GridArrayDialog</name>
+    <message>
+        <source>Create Grid Array</source>
+        <translation>Rastermuster erstellen</translation>
+    </message>
+    <message>
+        <source>Grid Parameters</source>
+        <translation>Raster-Parameter</translation>
+    </message>
+    <message>
+        <source>Rows:</source>
+        <translation>Zeilen:</translation>
+    </message>
+    <message>
+        <source>Columns:</source>
+        <translation>Spalten:</translation>
+    </message>
+    <message>
+        <source>Row spacing:</source>
+        <translation>Zeilenabstand:</translation>
+    </message>
+    <message>
+        <source>(downward)</source>
+        <translation>(nach unten)</translation>
+    </message>
+    <message>
+        <source>Column spacing:</source>
+        <translation>Spaltenabstand:</translation>
+    </message>
+    <message>
+        <source>(rightward)</source>
+        <translation>(nach rechts)</translation>
+    </message>
+    <message>
+        <source>Auto-create distance constraints between copies</source>
+        <translation>Abstandsbeschränkungen automatisch erstellen</translation>
     </message>
 </context>
 <context>

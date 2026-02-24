@@ -2511,6 +2511,146 @@ class CanvasView(QGraphicsView):
             self.tr("Created linear array of {count} items").format(count=count)
         )
 
+    def create_grid_array(self) -> None:
+        """Create a rectangular grid array from the single selected item."""
+        selected = self.scene().selectedItems()
+        if len(selected) != 1:
+            self.set_status_message(
+                self.tr("Select exactly one item to create a grid array")
+            )
+            return
+
+        from PyQt6.QtWidgets import QDialog
+
+        from open_garden_planner.ui.dialogs.grid_array_dialog import GridArrayDialog
+
+        dlg = GridArrayDialog(self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        rows = dlg.rows
+        cols = dlg.cols
+        row_spacing = dlg.row_spacing_cm
+        col_spacing = dlg.col_spacing_cm
+
+        # Canvas Y-axis is flipped: scale(zoom, -zoom) makes positive scene Y visually upward.
+        # Rows go downward on screen → -row_spacing per row in scene coords.
+        # Columns go rightward → +col_spacing per column in scene coords (X not flipped).
+
+        source_item = selected[0]
+        obj_data = self._serialize_item(source_item)
+        if not obj_data:
+            return
+
+        canvas_w = self._canvas_scene.width_cm
+        canvas_h = self._canvas_scene.height_cm
+
+        # Build a flat list of (row, col) positions skipping (0, 0) = original
+        new_items: list = []
+        grid: list = []  # list of (row, col, item) — includes original at (0,0)
+
+        # Add original at grid position (0,0)
+        grid.append((0, 0, source_item))
+
+        for r in range(rows):
+            for c in range(cols):
+                if r == 0 and c == 0:
+                    continue  # original
+                obj_copy = obj_data.copy()
+                # col → rightward = +x; row → downward on screen = -y (scene Y-flip)
+                offset_x = col_spacing * c
+                offset_y = -row_spacing * r
+
+                if "points" in obj_copy:
+                    pts = [
+                        {"x": p["x"] + offset_x, "y": p["y"] + offset_y}
+                        for p in obj_data["points"]
+                    ]
+                    min_x = min(p["x"] for p in pts)
+                    max_x = max(p["x"] for p in pts)
+                    min_y = min(p["y"] for p in pts)
+                    max_y = max(p["y"] for p in pts)
+                    cx = max(0.0, -min_x) - max(0.0, max_x - canvas_w)
+                    cy = max(0.0, -min_y) - max(0.0, max_y - canvas_h)
+                    obj_copy["points"] = [{"x": p["x"] + cx, "y": p["y"] + cy} for p in pts]
+                elif "center_x" in obj_copy:
+                    rad = obj_data.get("radius", 0.0)
+                    cx = obj_data["center_x"] + offset_x
+                    cy = obj_data["center_y"] + offset_y
+                    obj_copy["center_x"] = max(rad, min(cx, canvas_w - rad))
+                    obj_copy["center_y"] = max(rad, min(cy, canvas_h - rad))
+                else:
+                    item_w = obj_data.get("width", 0.0)
+                    item_h = obj_data.get("height", 0.0)
+                    nx = obj_data["x"] + offset_x
+                    ny = obj_data["y"] + offset_y
+                    obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
+                    obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
+
+                item = self._deserialize_item(obj_copy)
+                if item:
+                    new_items.append(item)
+                    grid.append((r, c, item))
+
+        if not new_items:
+            return
+
+        # Build optional constraint pairs between adjacent items (same row/col)
+        constraint_pairs = None
+        if dlg.create_constraints:
+            from open_garden_planner.core.constraints import AnchorRef
+            from open_garden_planner.core.measure_snapper import AnchorType
+            from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+            if isinstance(source_item, GardenItemMixin):
+                # Index the grid by (row, col)
+                grid_map: dict = {(r, c): itm for r, c, itm in grid}
+                constraint_pairs = []
+                for r in range(rows):
+                    for c in range(cols):
+                        itm = grid_map.get((r, c))
+                        if itm is None or not isinstance(itm, GardenItemMixin):
+                            continue
+                        # Horizontal neighbour (same row, next col)
+                        right = grid_map.get((r, c + 1))
+                        if right is not None and isinstance(right, GardenItemMixin):
+                            constraint_pairs.append((
+                                AnchorRef(item_id=itm.item_id, anchor_type=AnchorType.CENTER),
+                                AnchorRef(item_id=right.item_id, anchor_type=AnchorType.CENTER),
+                                col_spacing,
+                            ))
+                        # Vertical neighbour (next row, same col)
+                        below = grid_map.get((r + 1, c))
+                        if below is not None and isinstance(below, GardenItemMixin):
+                            constraint_pairs.append((
+                                AnchorRef(item_id=itm.item_id, anchor_type=AnchorType.CENTER),
+                                AnchorRef(item_id=below.item_id, anchor_type=AnchorType.CENTER),
+                                row_spacing,
+                            ))
+
+        from open_garden_planner.core import GridArrayCommand
+
+        command = GridArrayCommand(
+            self.scene(),
+            new_items,
+            constraint_pairs=constraint_pairs,
+            graph=self._canvas_scene.constraint_graph if constraint_pairs else None,
+        )
+        self._command_manager.execute(command)
+
+        # Select original + all copies
+        self.scene().clearSelection()
+        source_item.setSelected(True)
+        for item in new_items:
+            item.setSelected(True)
+
+        total = rows * cols
+        self.set_status_message(
+            self.tr("Created grid array of {count} items ({rows}×{cols})").format(
+                count=total, rows=rows, cols=cols
+            )
+        )
+
     def _serialize_item(self, item: QGraphicsItem) -> dict | None:
         """Serialize a single graphics item (reuses project manager logic).
 

@@ -686,6 +686,61 @@ class LinearArrayCommand(Command):
                 self._scene.removeItem(item)
 
 
+class GridArrayCommand(Command):
+    """Command for creating a rectangular grid array of copies of one item.
+
+    Bundles item creation and optional distance constraints into a
+    single undoable step.
+    """
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        new_items: "list[QGraphicsItem]",
+        constraint_pairs: "list[tuple[AnchorRef, AnchorRef, float]] | None" = None,
+        graph: "ConstraintGraph | None" = None,
+    ) -> None:
+        """Initialize the command.
+
+        Args:
+            scene: The scene to add items to.
+            new_items: The newly created copies (not including the original).
+            constraint_pairs: Optional list of (anchor_a, anchor_b, distance)
+                tuples for distance constraints between adjacent items.
+            graph: The constraint graph (required if constraint_pairs given).
+        """
+        self._scene = scene
+        self._items = list(new_items)
+        self._constraint_pairs = constraint_pairs or []
+        self._graph = graph
+        self._constraint_ids: list[UUID] = []
+
+    @property
+    def description(self) -> str:
+        return f"Create grid array ({len(self._items) + 1} items)"
+
+    def execute(self) -> None:
+        """Add items and constraints to the scene."""
+        for item in self._items:
+            if item.scene() is None:
+                self._scene.addItem(item)
+        if self._graph and self._constraint_pairs:
+            self._constraint_ids = []
+            for anchor_a, anchor_b, dist in self._constraint_pairs:
+                c = self._graph.add_constraint(anchor_a, anchor_b, dist)
+                self._constraint_ids.append(c.constraint_id)
+
+    def undo(self) -> None:
+        """Remove constraints then items from the scene."""
+        if self._graph:
+            for cid in reversed(self._constraint_ids):
+                self._graph.remove_constraint(cid)
+        self._constraint_ids = []
+        for item in self._items:
+            if item.scene() is not None:
+                self._scene.removeItem(item)
+
+
 class EditConstraintDistanceCommand(Command):
     """Command for editing a constraint's target distance.
 

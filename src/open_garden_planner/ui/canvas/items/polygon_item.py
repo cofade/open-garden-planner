@@ -447,6 +447,9 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # Linear array action
         linear_array_action = menu.addAction("Create Linear Array...")
 
+        # Grid array action
+        grid_array_action = menu.addAction("Create Grid Array...")
+
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
@@ -489,6 +492,14 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
                     view = views[0]
                     if hasattr(view, "create_linear_array"):
                         view.create_linear_array()
+        elif action == grid_array_action:
+            scene = self.scene()
+            if scene:
+                views = scene.views()
+                if views:
+                    view = views[0]
+                    if hasattr(view, "create_grid_array"):
+                        view.create_grid_array()
 
     @classmethod
     def from_polygon(cls, polygon: QPolygonF) -> "PolygonItem":
