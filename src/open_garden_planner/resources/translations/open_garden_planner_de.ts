@@ -42,6 +42,22 @@
 </context><context>
     <name>CanvasView</name>
     <message>
+        <source>Y</source>
+        <translation>Y</translation>
+    </message>
+    <message>
+        <source>X</source>
+        <translation>X</translation>
+    </message>
+    <message>
+        <source>Guide position</source>
+        <translation>Führungslinienposition</translation>
+    </message>
+    <message>
+        <source>{axis} position (cm)</source>
+        <translation>{axis}-Position (cm)</translation>
+    </message>
+    <message>
         <location filename="..\..\ui\canvas\canvas_view.py" line="120" />
         <source>Distance in cm</source>
         <translation>Abstand in cm</translation>
@@ -1201,6 +1217,30 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
     <message>
         <source>Toggle construction geometry visibility (excluded from exports)</source>
         <translation>Sichtbarkeit der Hilfsgeometrie umschalten (nicht im Export enthalten)</translation>
+    </message>
+    <message>
+        <source>Show &amp;Guide Lines</source>
+        <translation>&amp;Führungslinien anzeigen</translation>
+    </message>
+    <message>
+        <source>Toggle ruler and guide lines (drag from ruler to create)</source>
+        <translation>Lineal und Führungslinien umschalten (vom Lineal ziehen zum Erstellen)</translation>
+    </message>
+    <message>
+        <source>Guide position</source>
+        <translation>Führungslinienposition</translation>
+    </message>
+    <message>
+        <source>Y position (cm)</source>
+        <translation>Y-Position (cm)</translation>
+    </message>
+    <message>
+        <source>X position (cm)</source>
+        <translation>X-Position (cm)</translation>
+    </message>
+    <message>
+        <source>{axis} position (cm)</source>
+        <translation>{axis}-Position (cm)</translation>
     </message>
     <message>
         <location filename="..\..\app\application.py" line="399" />

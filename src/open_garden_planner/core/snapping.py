@@ -80,6 +80,8 @@ class ObjectSnapper:
         scene_items: list[QGraphicsItem],
         exclude: set[QGraphicsItem] | None = None,
         canvas_rect: QRectF | None = None,
+        extra_x: list[float] | None = None,
+        extra_y: list[float] | None = None,
     ) -> SnapResult:
         """Compute the snap offset for a dragged bounding rect.
 
@@ -91,6 +93,8 @@ class ObjectSnapper:
             scene_items: All items in the scene.
             exclude: Items to exclude from snap targets (the dragged items).
             canvas_rect: Optional canvas boundary rect for guide extent.
+            extra_x: Additional fixed X snap positions (e.g. vertical guide lines).
+            extra_y: Additional fixed Y snap positions (e.g. horizontal guide lines).
 
         Returns:
             SnapResult with the adjusted position and guide lines.
@@ -99,8 +103,8 @@ class ObjectSnapper:
             exclude = set()
 
         # Collect snap x/y values from target items
-        target_x_values: list[float] = []
-        target_y_values: list[float] = []
+        target_x_values: list[float] = list(extra_x) if extra_x else []
+        target_y_values: list[float] = list(extra_y) if extra_y else []
 
         for item in scene_items:
             if item in exclude:

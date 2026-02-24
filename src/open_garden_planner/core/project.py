@@ -32,6 +32,7 @@ class ProjectData:
     objects: list[dict[str, Any]] = field(default_factory=list)
     layers: list[dict[str, Any]] = field(default_factory=list)
     constraints: list[dict[str, Any]] = field(default_factory=list)
+    guides: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -49,6 +50,8 @@ class ProjectData:
         }
         if self.constraints:
             data["constraints"] = self.constraints
+        if self.guides:
+            data["guides"] = self.guides
         return data
 
     @classmethod
@@ -61,6 +64,7 @@ class ProjectData:
             layers=data.get("layers", []),
             objects=data.get("objects", []),
             constraints=data.get("constraints", []),
+            guides=data.get("guides", []),
         )
 
 
@@ -227,12 +231,21 @@ class ProjectManager(QObject):
         if hasattr(scene, "constraint_graph") and scene.constraint_graph is not None:
             constraints = scene.constraint_graph.to_list()
 
+        # Serialize guide lines if the scene has them
+        guides: list[dict[str, Any]] = []
+        if hasattr(scene, "guide_lines"):
+            guides = [
+                {"is_horizontal": g.is_horizontal, "position": g.position}
+                for g in scene.guide_lines
+            ]
+
         return ProjectData(
             canvas_width=scene.width_cm if hasattr(scene, "width_cm") else 5000.0,
             canvas_height=scene.height_cm if hasattr(scene, "height_cm") else 3000.0,
             layers=layers,
             objects=objects,
             constraints=constraints,
+            guides=guides,
         )
 
     def _serialize_item(self, item: QGraphicsItem) -> dict[str, Any] | None:
@@ -466,6 +479,17 @@ class ProjectManager(QObject):
             from open_garden_planner.core.constraints import ConstraintGraph
 
             scene.constraint_graph = ConstraintGraph.from_list(data.constraints)
+
+        # Load guide lines if present
+        if data.guides and hasattr(scene, "set_guide_lines"):
+            from open_garden_planner.ui.canvas.canvas_scene import GuideLine
+
+            scene.set_guide_lines([
+                GuideLine(is_horizontal=g["is_horizontal"], position=g["position"])
+                for g in data.guides
+            ])
+        elif hasattr(scene, "set_guide_lines"):
+            scene.set_guide_lines([])
 
     def _deserialize_item(self, obj: dict[str, Any]) -> QGraphicsItem | None:
         """Deserialize a single object to a graphics item."""

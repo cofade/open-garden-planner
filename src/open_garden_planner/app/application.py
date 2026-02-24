@@ -435,6 +435,15 @@ class GardenPlannerApp(QMainWindow):
         self._construction_action.triggered.connect(self._on_toggle_construction)
         menu.addAction(self._construction_action)
 
+        # Toggle Guide Lines
+        self._guides_action = QAction(self.tr("Show &Guide Lines"), self)
+        self._guides_action.setShortcut(QKeySequence(";"))
+        self._guides_action.setCheckable(True)
+        self._guides_action.setChecked(True)
+        self._guides_action.setStatusTip(self.tr("Toggle ruler and guide lines (drag from ruler to create)"))
+        self._guides_action.triggered.connect(self._on_toggle_guides)
+        menu.addAction(self._guides_action)
+
         menu.addSeparator()
 
         # Fullscreen Preview
@@ -1482,6 +1491,10 @@ class GardenPlannerApp(QMainWindow):
     def _on_toggle_construction(self, checked: bool) -> None:
         """Handle toggle construction geometry visibility action."""
         self.canvas_scene.set_construction_visible(checked)
+
+    def _on_toggle_guides(self, checked: bool) -> None:
+        """Handle toggle guide lines and rulers visibility action."""
+        self.canvas_view.set_guides_visible(checked)
 
     # -- Constraints panel handlers --
 

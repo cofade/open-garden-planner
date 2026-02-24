@@ -254,3 +254,28 @@ class TestSerialization:
         manager.load(scene, file_path)
 
         assert not manager.is_dirty
+
+    def test_save_and_load_guide_lines(self, manager, tmp_path) -> None:
+        """Test that guide lines round-trip through save/load."""
+        from open_garden_planner.ui.canvas.canvas_scene import CanvasScene, GuideLine
+
+        scene = CanvasScene(width_cm=1000, height_cm=500)
+        scene.guide_lines.append(GuideLine(is_horizontal=True, position=200.0))
+        scene.guide_lines.append(GuideLine(is_horizontal=False, position=350.5))
+
+        file_path = tmp_path / "guides.ogp"
+        manager.save(scene, file_path)
+
+        # Clear guides
+        scene.set_guide_lines([])
+        assert len(scene.guide_lines) == 0
+
+        # Load back
+        manager.load(scene, file_path)
+
+        guides = scene.guide_lines
+        assert len(guides) == 2
+        h_guide = next(g for g in guides if g.is_horizontal)
+        v_guide = next(g for g in guides if not g.is_horizontal)
+        assert h_guide.position == 200.0
+        assert abs(v_guide.position - 350.5) < 0.001

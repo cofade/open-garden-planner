@@ -363,7 +363,7 @@
 | US-7.10 | Angle constraints | Should | ✅ Done |
 | US-7.11 | Symmetry constraints | Should | ✅ Done |
 | US-7.12 | Construction geometry (helper lines, not in exports) | Should | ✅ Done |
-| US-7.13 | Draggable guide lines | Should | |
+| US-7.13 | Draggable guide lines | Should | ✅ Done |
 | US-7.14 | Linear array placement | Could | |
 | US-7.15 | Grid array placement | Could | |
 | US-7.16 | Circular array placement | Could | |

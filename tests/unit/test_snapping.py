@@ -134,3 +134,55 @@ class TestObjectSnapper:
         result = snapper.snap(dragged, list(scene.items()), exclude=set())
         assert not result.snapped_x
         assert not result.snapped_y
+
+    def test_snap_to_extra_x(self, snapper, scene) -> None:
+        """Test snapping to extra_x values (e.g. vertical guide lines)."""
+        dragged = QRectF(198, 300, 50, 50)  # left edge at 198, close to x=200
+        result = snapper.snap(
+            dragged, list(scene.items()), exclude=set(), extra_x=[200.0]
+        )
+        assert result.snapped_x
+        # Left edge (198) should snap to 200: dx = +2
+        assert abs(result.snapped_pos.x() - 2.0) < 0.01
+
+    def test_snap_to_extra_y(self, snapper, scene) -> None:
+        """Test snapping to extra_y values (e.g. horizontal guide lines)."""
+        dragged = QRectF(300, 198, 50, 50)  # top edge at 198, close to y=200
+        result = snapper.snap(
+            dragged, list(scene.items()), exclude=set(), extra_y=[200.0]
+        )
+        assert result.snapped_y
+        assert abs(result.snapped_pos.y() - 2.0) < 0.01
+
+    def test_extra_values_beyond_threshold_ignored(self, snapper, scene) -> None:
+        """Test that extra values beyond threshold are not snapped to."""
+        dragged = QRectF(0, 0, 50, 50)  # far from x=500
+        result = snapper.snap(
+            dragged, list(scene.items()), exclude=set(), extra_x=[500.0]
+        )
+        assert not result.snapped_x
+
+
+class TestGuideLine:
+    """Tests for GuideLine dataclass."""
+
+    def test_guide_line_horizontal(self, qtbot) -> None:
+        from open_garden_planner.ui.canvas.canvas_scene import GuideLine
+
+        g = GuideLine(is_horizontal=True, position=100.0)
+        assert g.is_horizontal is True
+        assert g.position == 100.0
+
+    def test_guide_line_vertical(self, qtbot) -> None:
+        from open_garden_planner.ui.canvas.canvas_scene import GuideLine
+
+        g = GuideLine(is_horizontal=False, position=250.5)
+        assert g.is_horizontal is False
+        assert g.position == 250.5
+
+    def test_guide_line_mutable(self, qtbot) -> None:
+        from open_garden_planner.ui.canvas.canvas_scene import GuideLine
+
+        g = GuideLine(is_horizontal=True, position=0.0)
+        g.position = 300.0
+        assert g.position == 300.0
