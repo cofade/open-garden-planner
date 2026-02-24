@@ -320,7 +320,7 @@ tests/
 | ✅     | 7.12 | Construction geometry                                |
 | ✅     | 7.13 | Draggable guide lines                                |
 | ✅     | 7.14 | Linear array placement                               |
-|        | 7.15 | Grid array placement                                 |
+| ✅     | 7.15 | Grid array placement                                 |
 |        | 7.16 | Circular array placement                             |
 |        | 7.17 | Coincident constraint (merge two anchor points)      |
 |        | 7.18 | Parallel constraint (two edges stay parallel)        |
