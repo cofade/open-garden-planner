@@ -2391,6 +2391,126 @@ class CanvasView(QGraphicsView):
 
             self.set_status_message(self.tr("Duplicated {count} item(s)").format(count=len(duplicated_items)))
 
+    def create_linear_array(self) -> None:
+        """Create a linear array from the single selected item."""
+        import math
+
+        selected = self.scene().selectedItems()
+        if len(selected) != 1:
+            self.set_status_message(
+                self.tr("Select exactly one item to create a linear array")
+            )
+            return
+
+        from PyQt6.QtWidgets import QDialog
+
+        from open_garden_planner.ui.dialogs.linear_array_dialog import LinearArrayDialog
+
+        dlg = LinearArrayDialog(self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        count = dlg.count
+        spacing = dlg.spacing_cm
+        angle_rad = math.radians(dlg.angle_deg)
+        # Negate dy: canvas has a Y-flip (origin bottom-left, Y-up in view),
+        # so +scene_y is visually upward. Negate to match screen-space intuition
+        # where 90° = downward and 270° = upward.
+        dx = spacing * math.cos(angle_rad)
+        dy = -spacing * math.sin(angle_rad)
+
+        source_item = selected[0]
+        obj_data = self._serialize_item(source_item)
+        if not obj_data:
+            return
+
+        canvas_w = self._canvas_scene.width_cm
+        canvas_h = self._canvas_scene.height_cm
+
+        new_items = []
+        for i in range(1, count):
+            obj_copy = obj_data.copy()
+            offset_x = dx * i
+            offset_y = dy * i
+
+            if "points" in obj_copy:
+                pts = [
+                    {"x": p["x"] + offset_x, "y": p["y"] + offset_y}
+                    for p in obj_data["points"]
+                ]
+                # Clamp: shift all points so bbox stays within canvas
+                min_x = min(p["x"] for p in pts)
+                max_x = max(p["x"] for p in pts)
+                min_y = min(p["y"] for p in pts)
+                max_y = max(p["y"] for p in pts)
+                cx = max(0.0, -min_x) - max(0.0, max_x - canvas_w)
+                cy = max(0.0, -min_y) - max(0.0, max_y - canvas_h)
+                obj_copy["points"] = [{"x": p["x"] + cx, "y": p["y"] + cy} for p in pts]
+            elif "center_x" in obj_copy:
+                r = obj_data.get("radius", 0.0)
+                cx = obj_data["center_x"] + offset_x
+                cy = obj_data["center_y"] + offset_y
+                obj_copy["center_x"] = max(r, min(cx, canvas_w - r))
+                obj_copy["center_y"] = max(r, min(cy, canvas_h - r))
+            else:
+                item_w = obj_data.get("width", 0.0)
+                item_h = obj_data.get("height", 0.0)
+                nx = obj_data["x"] + offset_x
+                ny = obj_data["y"] + offset_y
+                obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
+                obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
+
+            item = self._deserialize_item(obj_copy)
+            if item:
+                new_items.append(item)
+
+        if not new_items:
+            return
+
+        # Build optional constraint pairs (center-to-center between consecutive items)
+        constraint_pairs = None
+        if dlg.create_constraints:
+            from open_garden_planner.core.constraints import AnchorRef
+            from open_garden_planner.core.measure_snapper import AnchorType
+            from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+            if isinstance(source_item, GardenItemMixin):
+                all_items = [source_item, *new_items]
+                constraint_pairs = []
+                for j in range(len(all_items) - 1):
+                    a = all_items[j]
+                    b = all_items[j + 1]
+                    if isinstance(a, GardenItemMixin) and isinstance(b, GardenItemMixin):
+                        ref_a = AnchorRef(
+                            item_id=a.item_id,
+                            anchor_type=AnchorType.CENTER,
+                        )
+                        ref_b = AnchorRef(
+                            item_id=b.item_id,
+                            anchor_type=AnchorType.CENTER,
+                        )
+                        constraint_pairs.append((ref_a, ref_b, spacing))
+
+        from open_garden_planner.core import LinearArrayCommand
+
+        command = LinearArrayCommand(
+            self.scene(),
+            new_items,
+            constraint_pairs=constraint_pairs,
+            graph=self._canvas_scene.constraint_graph if constraint_pairs else None,
+        )
+        self._command_manager.execute(command)
+
+        # Select original + all copies
+        self.scene().clearSelection()
+        source_item.setSelected(True)
+        for item in new_items:
+            item.setSelected(True)
+
+        self.set_status_message(
+            self.tr("Created linear array of {count} items").format(count=count)
+        )
+
     def _serialize_item(self, item: QGraphicsItem) -> dict | None:
         """Serialize a single graphics item (reuses project manager logic).
 

@@ -811,6 +811,9 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         # Duplicate action
         duplicate_action = menu.addAction("Duplicate")
 
+        # Linear array action
+        linear_array_action = menu.addAction("Create Linear Array...")
+
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
@@ -843,3 +846,11 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                     view = views[0]
                     if hasattr(view, "duplicate_selected"):
                         view.duplicate_selected()
+        elif action == linear_array_action:
+            scene = self.scene()
+            if scene:
+                views = scene.views()
+                if views:
+                    view = views[0]
+                    if hasattr(view, "create_linear_array"):
+                        view.create_linear_array()

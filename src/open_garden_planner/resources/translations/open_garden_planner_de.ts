@@ -243,6 +243,14 @@
         <translation>{count} Element(e) dupliziert</translation>
     </message>
     <message>
+        <source>Select exactly one item to create a linear array</source>
+        <translation>Wählen Sie genau ein Objekt aus, um ein lineares Muster zu erstellen</translation>
+    </message>
+    <message>
+        <source>Created linear array of {count} items</source>
+        <translation>Lineares Muster mit {count} Objekten erstellt</translation>
+    </message>
+    <message>
         <location filename="..\..\ui\canvas\canvas_view.py" line="1837" />
         <source>Distance must be positive</source>
         <translation>Abstand muss positiv sein</translation>
@@ -2055,7 +2063,39 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
         <source>Tip: You can resize the canvas later from Edit &gt; Canvas Size.</source>
         <translation>Tipp: Sie können die Leinwandgröße später unter Bearbeiten &gt; Leinwandgröße ändern.</translation>
     </message>
-</context><context>
+</context>
+<context>
+    <name>LinearArrayDialog</name>
+    <message>
+        <source>Create Linear Array</source>
+        <translation>Lineares Muster erstellen</translation>
+    </message>
+    <message>
+        <source>Array Parameters</source>
+        <translation>Muster-Parameter</translation>
+    </message>
+    <message>
+        <source>Count:</source>
+        <translation>Anzahl:</translation>
+    </message>
+    <message>
+        <source>Spacing:</source>
+        <translation>Abstand:</translation>
+    </message>
+    <message>
+        <source>Direction:</source>
+        <translation>Richtung:</translation>
+    </message>
+    <message>
+        <source>(0° = right, 90° = down, 180° = left, 270° = up)</source>
+        <translation>(0° = rechts, 90° = unten, 180° = links, 270° = oben)</translation>
+    </message>
+    <message>
+        <source>Auto-create distance constraints between copies</source>
+        <translation>Abstandsbeschränkungen automatisch erstellen</translation>
+    </message>
+</context>
+<context>
     <name>ObjectType</name>
     <message>
         <source>Generic Rectangle</source>
