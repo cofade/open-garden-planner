@@ -17,7 +17,7 @@ from PyQt6.QtGui import (
     QTransform,
     QWheelEvent,
 )
-from PyQt6.QtWidgets import QGraphicsItem, QGraphicsView, QLineEdit
+from PyQt6.QtWidgets import QGraphicsItem, QGraphicsView, QInputDialog, QLineEdit
 
 from open_garden_planner.core import (
     AlignItemsCommand,
@@ -52,7 +52,7 @@ from open_garden_planner.core.tools import (
     ToolType,
     VerticalConstraintTool,
 )
-from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.canvas_scene import CanvasScene, GuideLine
 
 
 class CanvasView(QGraphicsView):
@@ -136,6 +136,15 @@ class CanvasView(QGraphicsView):
         self._calibration_input.setFixedWidth(150)
         self._calibration_input.hide()
         self._calibration_input.returnPressed.connect(self._on_calibration_input_entered)
+
+        # Guide lines (drag from ruler to create; stored on the scene for persistence)
+        self._guides_visible: bool = True
+        self._guide_color: QColor = QColor(0, 100, 220, 160)  # Blue, semi-transparent
+        self._guide_highlight_color: QColor = QColor(255, 120, 0, 200)  # Orange highlight
+        # Guide dragging state: (guide, is_new_guide_not_yet_in_list)
+        self._dragging_guide: GuideLine | None = None
+        self._dragging_guide_is_new: bool = False
+        self._hovered_guide: GuideLine | None = None  # guide under cursor
 
         # Theme colors for overlays (defaults; overridden by apply_theme_colors)
         self._grid_color = QColor(200, 200, 200, 100)
@@ -388,6 +397,9 @@ class CanvasView(QGraphicsView):
 
     # Properties
 
+    # Ruler strip width/height in viewport pixels
+    RULER_SIZE: int = 20
+
     @property
     def zoom_factor(self) -> float:
         """Current zoom factor (1.0 = 100%)."""
@@ -397,6 +409,20 @@ class CanvasView(QGraphicsView):
     def zoom_percent(self) -> float:
         """Current zoom as percentage."""
         return self._zoom_factor * 100.0
+
+    @property
+    def guides_visible(self) -> bool:
+        """Whether guide lines and rulers are visible."""
+        return self._guides_visible
+
+    def set_guides_visible(self, visible: bool) -> None:
+        """Show or hide guide lines and rulers.
+
+        Args:
+            visible: Whether guides should be shown.
+        """
+        self._guides_visible = visible
+        self.viewport().update()
 
     @property
     def grid_visible(self) -> bool:
@@ -923,6 +949,39 @@ class CanvasView(QGraphicsView):
         # Grab keyboard focus so Delete/arrow keys work
         self.setFocus()
 
+        # ── Guide line handling ─────────────────────────────────────────────
+        if self._guides_visible and event.button() == Qt.MouseButton.LeftButton:
+            vp_pos = event.position()
+            rs = self.RULER_SIZE
+            in_top_ruler = vp_pos.y() < rs and vp_pos.x() >= rs
+            in_left_ruler = vp_pos.x() < rs and vp_pos.y() >= rs
+
+            if in_top_ruler:
+                # Dragging from top ruler → new horizontal guide
+                scene_pos = self.mapToScene(vp_pos.toPoint())
+                guide = GuideLine(is_horizontal=True, position=scene_pos.y())
+                self._dragging_guide = guide
+                self._dragging_guide_is_new = True
+                event.accept()
+                return
+
+            if in_left_ruler:
+                # Dragging from left ruler → new vertical guide
+                scene_pos = self.mapToScene(vp_pos.toPoint())
+                guide = GuideLine(is_horizontal=False, position=scene_pos.x())
+                self._dragging_guide = guide
+                self._dragging_guide_is_new = True
+                event.accept()
+                return
+
+            # Check if pressing on an existing guide
+            hit = self._guide_hit_test(vp_pos)
+            if hit:
+                self._dragging_guide = hit
+                self._dragging_guide_is_new = False
+                event.accept()
+                return
+
         # Handle calibration mode
         if self._canvas_scene.is_calibrating and event.button() == Qt.MouseButton.LeftButton:
             scene_pos = self.mapToScene(event.position().toPoint())
@@ -960,6 +1019,39 @@ class CanvasView(QGraphicsView):
         # Update coordinates display
         scene_pos = self.mapToScene(event.position().toPoint())
         self.coordinates_changed.emit(scene_pos.x(), scene_pos.y())
+
+        # ── Guide drag ─────────────────────────────────────────────────────
+        if self._dragging_guide is not None:
+            guide = self._dragging_guide
+            if guide.is_horizontal:
+                guide.position = scene_pos.y()
+                self.setCursor(Qt.CursorShape.SplitVCursor)
+            else:
+                guide.position = scene_pos.x()
+                self.setCursor(Qt.CursorShape.SplitHCursor)
+
+            # Add to scene's guide list on first move (lazy: avoids phantom guide on click)
+            if self._dragging_guide_is_new and guide not in self._canvas_scene.guide_lines:
+                self._canvas_scene.guide_lines.append(guide)
+
+            self.scene().update()
+            self.viewport().update()
+            event.accept()
+            return
+
+        # ── Guide hover cursor ─────────────────────────────────────────────
+        if self._guides_visible:
+            prev_hovered = self._hovered_guide
+            self._hovered_guide = self._guide_hit_test(event.position())
+            if self._hovered_guide is not None:
+                if self._hovered_guide.is_horizontal:
+                    self.setCursor(Qt.CursorShape.SplitVCursor)
+                else:
+                    self.setCursor(Qt.CursorShape.SplitHCursor)
+            elif prev_hovered is not None:
+                self.unsetCursor()
+            if self._hovered_guide is not prev_hovered:
+                self.viewport().update()
 
         if self._panning:
             # Pan the view by translating
@@ -1045,11 +1137,23 @@ class CanvasView(QGraphicsView):
         for scene_item in self.scene().items():
             if isinstance(scene_item, BackgroundImageItem):
                 exclude.add(scene_item)
+        # Add guide lines as additional snap targets
+        guide_x: list[float] = []
+        guide_y: list[float] = []
+        if self._guides_visible:
+            for guide in self._canvas_scene.guide_lines:
+                if guide.is_horizontal:
+                    guide_y.append(guide.position)
+                else:
+                    guide_x.append(guide.position)
+
         snap_result = self._object_snapper.snap(
             combined,
             list(self.scene().items()),
             exclude=exclude,
             canvas_rect=self._canvas_scene.canvas_rect,
+            extra_x=guide_x if guide_x else None,
+            extra_y=guide_y if guide_y else None,
         )
 
         # Apply snap offset to all dragged items
@@ -1322,6 +1426,28 @@ class CanvasView(QGraphicsView):
             self._snap_guides = []
             self.viewport().update()
 
+        # ── Finalize guide drag ─────────────────────────────────────────────
+        if self._dragging_guide is not None and event.button() == Qt.MouseButton.LeftButton:
+            guide = self._dragging_guide
+            vp_pos = event.position()
+            rs = self.RULER_SIZE
+
+            # Dragged back into ruler area → remove guide
+            dropped_on_ruler = (
+                (guide.is_horizontal and vp_pos.y() < rs) or
+                (not guide.is_horizontal and vp_pos.x() < rs)
+            )
+            if dropped_on_ruler and guide in self._canvas_scene.guide_lines:
+                self._canvas_scene.guide_lines.remove(guide)
+
+            self._dragging_guide = None
+            self._dragging_guide_is_new = False
+            self.unsetCursor()
+            self.scene().update()
+            self.viewport().update()
+            event.accept()
+            return
+
         if event.button() == Qt.MouseButton.MiddleButton:
             self._panning = False
             # Restore tool cursor
@@ -1352,6 +1478,14 @@ class CanvasView(QGraphicsView):
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         """Handle mouse double click for tool operations and constraint editing."""
         scene_pos = self.mapToScene(event.position().toPoint())
+
+        # Double-click on a guide line → edit its position numerically
+        if self._guides_visible and event.button() == Qt.MouseButton.LeftButton:
+            hit = self._guide_hit_test(event.position())
+            if hit:
+                self._edit_guide_position(hit)
+                event.accept()
+                return
 
         # Check if double-click is on a dimension line to edit constraint
         if event.button() == Qt.MouseButton.LeftButton:
@@ -1698,6 +1832,10 @@ class CanvasView(QGraphicsView):
         if self._snap_guides:
             self._draw_snap_guides(painter, rect)
 
+        # Draw persistent guide lines
+        if self._guides_visible and self._canvas_scene.guide_lines:
+            self._draw_guide_lines(painter, rect)
+
     def _draw_canvas_border(self, painter: QPainter) -> None:
         """Draw a border around the canvas area."""
         # Get the actual canvas rect (not the padded scene rect)
@@ -1790,19 +1928,197 @@ class CanvasView(QGraphicsView):
                     QPointF(guide.start.x(), rect.bottom()),
                 )
 
+    def _draw_guide_lines(self, painter: QPainter, rect: QRectF) -> None:
+        """Draw persistent guide lines in scene coordinates.
+
+        Args:
+            painter: QPainter in scene coordinates.
+            rect: Current visible rect.
+        """
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        for guide in self._canvas_scene.guide_lines:
+            is_hovered = guide is self._hovered_guide or guide is self._dragging_guide
+            color = self._guide_highlight_color if is_hovered else self._guide_color
+            pen = QPen(color)
+            pen.setWidth(0)  # Cosmetic 1px
+            pen.setStyle(Qt.PenStyle.SolidLine)
+            painter.setPen(pen)
+
+            if guide.is_horizontal:
+                painter.drawLine(
+                    QPointF(rect.left(), guide.position),
+                    QPointF(rect.right(), guide.position),
+                )
+            else:
+                painter.drawLine(
+                    QPointF(guide.position, rect.top()),
+                    QPointF(guide.position, rect.bottom()),
+                )
+
     def paintEvent(self, event: QPaintEvent) -> None:
         """Paint the view, then draw overlays in viewport coordinates."""
         super().paintEvent(event)
 
+        painter = QPainter(self.viewport())
+        painter.setClipping(False)
+
         if self._scale_bar_visible:
-            painter = QPainter(self.viewport())
-            # Remove clip so the scale bar is always fully drawn,
-            # even with MinimalViewportUpdate where only dirty
-            # regions are repainted.
-            painter.setClipping(False)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             self._draw_scale_bar(painter)
-            painter.end()
+
+        if self._guides_visible:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+            self._draw_rulers(painter)
+
+        painter.end()
+
+    # Ruler tick intervals (cm), used to pick a nice spacing based on zoom
+    _RULER_NICE_INTERVALS = [
+        1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000,
+    ]
+    _RULER_MIN_TICK_PX = 50  # Minimum pixels between labelled ticks
+    _RULER_BG = QColor(235, 235, 235, 230)
+    _RULER_FG = QColor(80, 80, 80)
+    _RULER_BORDER = QColor(180, 180, 180)
+
+    def _pick_ruler_interval(self) -> float:
+        """Choose a tick interval in cm so ticks are at least _RULER_MIN_TICK_PX apart."""
+        for interval in self._RULER_NICE_INTERVALS:
+            if interval * self._zoom_factor >= self._RULER_MIN_TICK_PX:
+                return float(interval)
+        return float(self._RULER_NICE_INTERVALS[-1])
+
+    def _draw_rulers(self, painter: QPainter) -> None:
+        """Draw horizontal (top) and vertical (left) rulers in viewport coordinates.
+
+        Args:
+            painter: QPainter targeting the viewport (pixel coordinates).
+        """
+        import math
+
+        rs = self.RULER_SIZE
+        vp = self.viewport().rect()
+        font = QFont()
+        font.setPointSize(7)
+        painter.setFont(font)
+
+        interval = self._pick_ruler_interval()
+
+        # ── Background strips ──────────────────────────────────────────────
+        painter.fillRect(rs, 0, vp.width() - rs, rs, self._RULER_BG)   # top
+        painter.fillRect(0, rs, rs, vp.height() - rs, self._RULER_BG)  # left
+        painter.fillRect(0, 0, rs, rs, QColor(210, 210, 210, 230))      # corner box
+
+        # ── Border lines ───────────────────────────────────────────────────
+        border_pen = QPen(self._RULER_BORDER)
+        border_pen.setWidth(1)
+        painter.setPen(border_pen)
+        painter.drawLine(rs, rs - 1, vp.width(), rs - 1)                # bottom of top ruler
+        painter.drawLine(rs - 1, rs, rs - 1, vp.height())               # right of left ruler
+
+        # ── Horizontal ruler (X axis) ──────────────────────────────────────
+        painter.setPen(QPen(self._RULER_FG))
+        # Determine scene X range visible in the ruler strip
+        left_x = self.mapToScene(rs, rs // 2).x()
+        right_x = self.mapToScene(vp.width(), rs // 2).x()
+
+        first_tick = math.floor(left_x / interval) * interval
+        x = first_tick
+        while x <= right_x:
+            vp_x = int(self.mapFromScene(x, 0).x())
+            if rs <= vp_x <= vp.width():
+                painter.drawLine(vp_x, rs - 4, vp_x, rs - 1)           # tick mark
+                lbl = self._ruler_label(x)
+                # Center label horizontally on the tick (40px box centered at vp_x)
+                painter.drawText(
+                    vp_x - 20, 0, 40, rs - 5,
+                    int(Qt.AlignmentFlag.AlignHCenter), lbl,
+                )
+            x += interval
+
+        # ── Vertical ruler (Y axis) ────────────────────────────────────────
+        # Scene Y at top of the viewport is the LARGER value (Y-axis is flipped)
+        top_y = self.mapToScene(rs // 2, rs).y()
+        bottom_y = self.mapToScene(rs // 2, vp.height()).y()
+        # Ensure correct iteration order (bottom_y < top_y due to Y-flip)
+        y_min, y_max = min(bottom_y, top_y), max(bottom_y, top_y)
+
+        first_tick_y = math.floor(y_min / interval) * interval
+        y = first_tick_y
+        while y <= y_max:
+            vp_y = int(self.mapFromScene(0, y).y())
+            if rs <= vp_y <= vp.height():
+                painter.drawLine(rs - 4, vp_y, rs - 1, vp_y)           # tick mark
+                lbl = self._ruler_label(y)
+                # Draw label rotated 90° for vertical ruler.
+                # After rotate(-90) at (tx, ty), screen_y_center = ty - 20 for a
+                # 40px-tall rotated box.  Set ty = vp_y + 20 so the text centers on
+                # the tick.  tx = 1 keeps the 15px-wide box inside the 20px ruler.
+                painter.save()
+                painter.translate(1, vp_y + 20)
+                painter.rotate(-90)
+                painter.drawText(
+                    0, 0, 40, rs - 5,
+                    int(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter), lbl,
+                )
+                painter.restore()
+            y += interval
+
+        # ── Guide line markers on rulers ──────────────────────────────────
+        guide_pen = QPen(self._guide_color)
+        guide_pen.setWidth(2)
+        painter.setPen(guide_pen)
+        for guide in self._canvas_scene.guide_lines:
+            if guide.is_horizontal:
+                vp_y = int(self.mapFromScene(0, guide.position).y())
+                if rs <= vp_y <= vp.height():
+                    painter.drawLine(0, vp_y, rs - 1, vp_y)
+            else:
+                vp_x = int(self.mapFromScene(guide.position, 0).x())
+                if rs <= vp_x <= vp.width():
+                    painter.drawLine(vp_x, 0, vp_x, rs - 1)
+
+    @staticmethod
+    def _ruler_label(value: float) -> str:
+        """Format a ruler tick label compactly (cm values)."""
+        if abs(value) >= 100:
+            m = value / 100
+            return f"{m:g}m"
+        return f"{value:g}"
+
+    # Guide line interaction helpers
+
+    def _guide_hit_test(self, vp_pos: QPointF, hit_px: int = 5) -> GuideLine | None:
+        """Return the guide line under vp_pos (viewport coords), or None."""
+        for guide in self._canvas_scene.guide_lines:
+            if guide.is_horizontal:
+                scene_pt = self.mapFromScene(0, guide.position)
+                if abs(scene_pt.y() - vp_pos.y()) <= hit_px:
+                    return guide
+            else:
+                scene_pt = self.mapFromScene(guide.position, 0)
+                if abs(scene_pt.x() - vp_pos.x()) <= hit_px:
+                    return guide
+        return None
+
+    def _edit_guide_position(self, guide: GuideLine) -> None:
+        """Show input dialog to set guide position numerically."""
+        axis = self.tr("Y") if guide.is_horizontal else self.tr("X")
+        label = self.tr("{axis} position (cm)").format(axis=axis)
+        value, ok = QInputDialog.getDouble(
+            self,
+            self.tr("Guide position"),
+            label,
+            guide.position,
+            -1_000_000.0,
+            1_000_000.0,
+            2,
+        )
+        if ok:
+            guide.position = value
+            self.scene().update()
+            self.viewport().update()
 
     # Scale bar constants
     _SCALE_BAR_NICE_DISTANCES = [

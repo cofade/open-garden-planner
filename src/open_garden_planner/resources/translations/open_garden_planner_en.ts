@@ -43,6 +43,22 @@
     <context>
         <name>CanvasView</name>
         <message>
+            <source>Y</source>
+            <translation>Y</translation>
+        </message>
+        <message>
+            <source>X</source>
+            <translation>X</translation>
+        </message>
+        <message>
+            <source>Guide position</source>
+            <translation>Guide position</translation>
+        </message>
+        <message>
+            <source>{axis} position (cm)</source>
+            <translation>{axis} position (cm)</translation>
+        </message>
+        <message>
             <location filename="..\..\ui\canvas\canvas_view.py" line="120" />
             <source>Distance in cm</source>
             <translation>Distance in cm</translation>
@@ -931,6 +947,22 @@ This will remove it from your custom library. Plants already placed in projects 
         <message>
             <source>Toggle construction geometry visibility (excluded from exports)</source>
             <translation>Toggle construction geometry visibility (excluded from exports)</translation>
+        </message>
+        <message>
+            <source>Show &amp;Guide Lines</source>
+            <translation>Show &amp;Guide Lines</translation>
+        </message>
+        <message>
+            <source>Toggle ruler and guide lines (drag from ruler to create)</source>
+            <translation>Toggle ruler and guide lines (drag from ruler to create)</translation>
+        </message>
+        <message>
+            <source>Guide position</source>
+            <translation>Guide position</translation>
+        </message>
+        <message>
+            <source>{axis} position (cm)</source>
+            <translation>{axis} position (cm)</translation>
         </message>
         <message>
             <location filename="..\..\app\application.py" line="399" />

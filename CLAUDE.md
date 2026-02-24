@@ -317,7 +317,7 @@ tests/
 | ✅     | 7.10 | Angle constraints                                    |
 | ✅     | 7.11 | Symmetry constraints                                 |
 | ✅     | 7.12 | Construction geometry                                |
-|        | 7.13 | Draggable guide lines                                |
+| ✅     | 7.13 | Draggable guide lines                                |
 |        | 7.14 | Linear array placement                               |
 |        | 7.15 | Grid array placement                                 |
 |        | 7.16 | Circular array placement                             |

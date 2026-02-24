@@ -5,6 +5,7 @@ Coordinates are in centimeters with Y-axis pointing down (Qt convention).
 The view handles the Y-flip for display.
 """
 
+from dataclasses import dataclass
 from uuid import UUID
 
 from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt, pyqtSignal
@@ -16,6 +17,19 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.models.layer import Layer, create_default_layers
+
+
+@dataclass
+class GuideLine:
+    """A persistent guide line for alignment reference.
+
+    Attributes:
+        is_horizontal: True = horizontal line (constant Y), False = vertical (constant X).
+        position: Position in scene coordinates (Y for horizontal, X for vertical).
+    """
+
+    is_horizontal: bool
+    position: float
 
 
 class CanvasScene(QGraphicsScene):
@@ -91,6 +105,9 @@ class CanvasScene(QGraphicsScene):
         from open_garden_planner.ui.canvas.dimension_lines import DimensionLineManager
 
         self._dimension_line_manager = DimensionLineManager(self)
+
+        # Guide lines (persistent horizontal/vertical reference lines)
+        self._guide_lines: list[GuideLine] = []
 
     def _update_scene_rect(self) -> None:
         """Update the scene rect with padding for panning."""
@@ -263,6 +280,19 @@ class CanvasScene(QGraphicsScene):
     def get_command_manager(self):
         """Get the command manager for undo/redo operations."""
         return self._command_manager
+
+    @property
+    def guide_lines(self) -> list[GuideLine]:
+        """List of persistent guide lines."""
+        return self._guide_lines
+
+    def set_guide_lines(self, guides: list[GuideLine]) -> None:
+        """Replace the guide line list (used when loading a project).
+
+        Args:
+            guides: New list of guide lines.
+        """
+        self._guide_lines = list(guides)
 
     def resize_canvas(self, width_cm: float, height_cm: float) -> None:
         """Resize the canvas.
