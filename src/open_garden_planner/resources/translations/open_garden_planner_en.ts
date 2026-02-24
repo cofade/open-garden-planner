@@ -244,6 +244,14 @@
             <translation>Duplicated {count} item(s)</translation>
         </message>
         <message>
+            <source>Select exactly one item to create a linear array</source>
+            <translation>Select exactly one item to create a linear array</translation>
+        </message>
+        <message>
+            <source>Created linear array of {count} items</source>
+            <translation>Created linear array of {count} items</translation>
+        </message>
+        <message>
             <location filename="..\..\ui\canvas\canvas_view.py" line="1837" />
             <source>Distance must be positive</source>
             <translation>Distance must be positive</translation>
@@ -1786,6 +1794,37 @@ Please restart the application for the change to take effect.</translation>
             <location filename="..\..\ui\dialogs\new_project_dialog.py" line="81" />
             <source>Tip: You can resize the canvas later from Edit &gt; Canvas Size.</source>
             <translation>Tip: You can resize the canvas later from Edit &gt; Canvas Size.</translation>
+        </message>
+    </context>
+    <context>
+        <name>LinearArrayDialog</name>
+        <message>
+            <source>Create Linear Array</source>
+            <translation>Create Linear Array</translation>
+        </message>
+        <message>
+            <source>Array Parameters</source>
+            <translation>Array Parameters</translation>
+        </message>
+        <message>
+            <source>Count:</source>
+            <translation>Count:</translation>
+        </message>
+        <message>
+            <source>Spacing:</source>
+            <translation>Spacing:</translation>
+        </message>
+        <message>
+            <source>Direction:</source>
+            <translation>Direction:</translation>
+        </message>
+        <message>
+            <source>(0° = right, 90° = down, 180° = left, 270° = up)</source>
+            <translation>(0° = right, 90° = down, 180° = left, 270° = up)</translation>
+        </message>
+        <message>
+            <source>Auto-create distance constraints between copies</source>
+            <translation>Auto-create distance constraints between copies</translation>
         </message>
     </context>
     <context>

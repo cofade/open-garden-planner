@@ -9,6 +9,7 @@ from open_garden_planner.core.commands import (
     CreateItemsCommand,
     DeleteItemsCommand,
     EditConstraintDistanceCommand,
+    LinearArrayCommand,
     MoveItemsCommand,
     RemoveConstraintCommand,
 )
@@ -31,6 +32,7 @@ __all__ = [
     "CreateItemsCommand",
     "DeleteItemsCommand",
     "EditConstraintDistanceCommand",
+    "LinearArrayCommand",
     "MoveItemsCommand",
     "RemoveConstraintCommand",
     "ProjectData",
