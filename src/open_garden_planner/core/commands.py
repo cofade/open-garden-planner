@@ -567,6 +567,7 @@ class AddConstraintCommand(Command):
     Optionally includes item position changes computed by running the solver
     after the constraint is added, so that objects immediately snap to satisfy
     the new constraint and the move is bundled into the same undo step.
+    Also optionally includes item rotation changes (for PARALLEL constraints).
     """
 
     def __init__(
@@ -578,6 +579,7 @@ class AddConstraintCommand(Command):
         constraint_type: "ConstraintType | None" = None,
         anchor_c: "AnchorRef | None" = None,
         item_moves: "list[tuple[QGraphicsItem, QPointF, QPointF]] | None" = None,
+        item_rotations: "list[tuple[QGraphicsItem, float, float, Callable[[QGraphicsItem, float], None]]] | None" = None,
     ) -> None:
         from open_garden_planner.core.constraints import ConstraintType
         self._graph = graph
@@ -588,6 +590,7 @@ class AddConstraintCommand(Command):
         self._anchor_c = anchor_c
         self._constraint_id: UUID | None = None
         self._item_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = item_moves or []
+        self._item_rotations: list[tuple[QGraphicsItem, float, float, Callable[[QGraphicsItem, float], None]]] = item_rotations or []
 
     @property
     def description(self) -> str:
@@ -605,12 +608,16 @@ class AddConstraintCommand(Command):
         self._constraint_id = c.constraint_id
         for item, _old, new in self._item_moves:
             item.setPos(new)
+        for item, _old_angle, new_angle, apply_func in self._item_rotations:
+            apply_func(item, new_angle)
 
     def undo(self) -> None:
         if self._constraint_id is not None:
             self._graph.remove_constraint(self._constraint_id)
         for item, old, _new in self._item_moves:
             item.setPos(old)
+        for item, old_angle, _new_angle, apply_func in self._item_rotations:
+            apply_func(item, old_angle)
 
 
 class RemoveConstraintCommand(Command):

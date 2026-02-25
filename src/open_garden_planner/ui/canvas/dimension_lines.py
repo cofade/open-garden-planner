@@ -34,6 +34,8 @@ COLOR_SYMMETRY_SATISFIED = QColor(140, 0, 180)  # Purple for symmetry constraint
 COLOR_SYMMETRY_VIOLATED = QColor(220, 40, 40)   # Red
 COLOR_COINCIDENT_SATISFIED = QColor(0, 160, 200)  # Teal for coincident constraints
 COLOR_COINCIDENT_VIOLATED = QColor(220, 40, 40)   # Red
+COLOR_PARALLEL_SATISFIED = QColor(20, 160, 100)   # Green for parallel constraints
+COLOR_PARALLEL_VIOLATED = QColor(220, 40, 40)     # Red
 
 # Geometry constants
 WITNESS_LINE_OFFSET = 15.0  # Perpendicular offset from dimension line (in cm)
@@ -194,6 +196,14 @@ class DimensionLineManager:
             # Use midpoint of the two anchors as the marker position
             mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
             self._build_coincident_marker(group, pos_a, pos_b, mid, color)
+        elif constraint.constraint_type == ConstraintType.PARALLEL:
+            # Satisfaction: item B's current rotation_angle matches the stored target (±0.5°)
+            item_b = self._find_item_by_id(constraint.anchor_b.item_id)
+            current_rot = getattr(item_b, "rotation_angle", 0.0) if item_b else 0.0
+            angle_error = abs((current_rot - constraint.target_distance + 90.0) % 180.0 - 90.0)
+            satisfied = angle_error < 0.5
+            color = COLOR_PARALLEL_SATISFIED if satisfied else COLOR_PARALLEL_VIOLATED
+            self._build_parallel_marker(group, pos_a, pos_b, color)
         elif constraint.constraint_type == ConstraintType.ANGLE:
             # ANGLE constraint: pos_b is the vertex, pos_a and pos_c are the ray endpoints.
             if constraint.anchor_c is None:
@@ -450,6 +460,62 @@ class DimensionLineManager:
         text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
         text_item.setZValue(DIMENSION_LINE_Z + 1)
         text_item.setPos(QPointF(marker_pos.x() + half + 2, marker_pos.y() - half))
+        self._scene.addItem(text_item)
+        group.items.append(text_item)
+
+    def _find_item_by_id(self, item_id: UUID):
+        """Return the scene item with the given item_id, or None."""
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
+
+        for item in self._scene.items():
+            is_garden = isinstance(item, GardenItemMixin)
+            is_construction = isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
+            if (is_garden or is_construction) and item.item_id == item_id:
+                return item
+        return None
+
+    def _build_parallel_marker(
+        self,
+        group: DimensionLineGroup,
+        pos_a: QPointF,
+        pos_b: QPointF,
+        color: QColor,
+    ) -> None:
+        """Draw two parallel hash marks (∥) at each edge midpoint and a dashed connector."""
+        pen = QPen(color, 1.5)
+        pen.setCosmetic(True)
+
+        # Dashed connector line between the two edge midpoints
+        dash_pen = QPen(color, 1.0, Qt.PenStyle.DashLine)
+        dash_pen.setCosmetic(True)
+        connector = self._scene.addLine(QLineF(pos_a, pos_b), dash_pen)
+        connector.setZValue(DIMENSION_LINE_Z)
+        group.items.append(connector)
+
+        # Draw double-tick hash marks at each anchor position
+        for pos in (pos_a, pos_b):
+            for offset in (-4.0, 4.0):
+                tick = self._scene.addLine(
+                    QLineF(pos.x() - 5, pos.y() + offset, pos.x() + 5, pos.y() + offset),
+                    pen,
+                )
+                tick.setZValue(DIMENSION_LINE_Z + 1)
+                group.items.append(tick)
+
+        # "∥" label near the midpoint
+        mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
+        text_item = QGraphicsSimpleTextItem("\u2225")
+        font = QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        text_item.setFont(font)
+        text_item.setBrush(QBrush(color))
+        text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        text_item.setZValue(DIMENSION_LINE_Z + 1)
+        text_item.setPos(QPointF(mid.x() + 4, mid.y() - 8))
         self._scene.addItem(text_item)
         group.items.append(text_item)
 
@@ -729,6 +795,8 @@ class DimensionLineManager:
             elif constraint.constraint_type in (
                 ConstraintType.SYMMETRY_HORIZONTAL,
                 ConstraintType.SYMMETRY_VERTICAL,
+                ConstraintType.COINCIDENT,
+                ConstraintType.PARALLEL,
             ):
                 # Check proximity to the connector line between the two anchors
                 dist = _point_to_segment_distance(scene_pos, pos_a, pos_b)

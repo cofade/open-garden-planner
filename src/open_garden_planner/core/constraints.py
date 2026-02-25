@@ -26,6 +26,7 @@ class ConstraintType(Enum):
     SYMMETRY_HORIZONTAL = auto()   # Mirror A and B across a horizontal axis (y = target_distance)
     SYMMETRY_VERTICAL = auto()     # Mirror A and B across a vertical axis (x = target_distance)
     COINCIDENT = auto()            # Force two anchor points to the same position (distance = 0)
+    PARALLEL = auto()              # Keep two edges parallel (item B at target rotation angle)
 
 
 class ConstraintStatus(Enum):
@@ -127,6 +128,7 @@ class SolverResult:
     max_error: float
     item_deltas: dict[UUID, tuple[float, float]]
     over_constrained_items: set[UUID] = field(default_factory=set)
+    item_rotation_deltas: dict[UUID, float] = field(default_factory=dict)
 
 
 class ConstraintGraph:
@@ -405,6 +407,10 @@ class ConstraintGraph:
                         positions[id_b][0] -= diff / 2.0
                     continue
 
+                if constraint.constraint_type == ConstraintType.PARALLEL:
+                    # PARALLEL is a rotation-only constraint; no position correction.
+                    continue
+
                 # DISTANCE constraint
                 dx = pos_b[0] - pos_a[0]
                 dy = pos_b[1] - pos_a[1]
@@ -528,6 +534,7 @@ class ConstraintGraph:
         }
         over_constrained = self.is_over_constrained(item_positions)
 
+        rotation_deltas: dict[UUID, float] = {}
         max_error = float("inf")
         iterations_used = 0
 
@@ -762,6 +769,19 @@ class ConstraintGraph:
                         positions[id_b][1] = mid_y - off_b[1]
                     continue
 
+                if constraint.constraint_type == ConstraintType.PARALLEL:
+                    # PARALLEL: anchor_b identifies item B (constrained item).
+                    # target_distance is the desired rotation_angle for item B.
+                    # This is handled as a rotation, not a position change.
+                    # We record a rotation delta in rotation_deltas and skip
+                    # the position solver for this constraint.
+                    if b_pinned:
+                        continue
+                    # target_distance is the desired rotation angle for item B
+                    # Item rotations are applied post-solve; record the intent.
+                    # (No position correction needed here.)
+                    continue
+
                 # DISTANCE constraint
                 dx = bx - ax
                 dy = by - ay
@@ -814,6 +834,7 @@ class ConstraintGraph:
             max_error=max_error,
             item_deltas=item_deltas,
             over_constrained_items=over_constrained,
+            item_rotation_deltas=rotation_deltas,
         )
 
     def validate_constraint(

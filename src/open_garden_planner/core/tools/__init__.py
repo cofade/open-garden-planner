@@ -7,6 +7,7 @@ from .constraint_tool import (
     CoincidentConstraintTool,
     ConstraintTool,
     HorizontalConstraintTool,
+    ParallelConstraintTool,
     SymmetryConstraintTool,
     VerticalConstraintTool,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "ConstructionLineTool",
     "HorizontalConstraintTool",
     "MeasureTool",
+    "ParallelConstraintTool",
     "PolygonTool",
     "PolylineTool",
     "RectangleTool",

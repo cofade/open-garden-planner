@@ -1229,3 +1229,366 @@ class SymmetryConstraintTool(BaseTool):
 
     def cancel(self) -> None:
         self._reset()
+
+
+# ─── Parallel constraint ──────────────────────────────────────────────────────
+
+PREVIEW_PARALLEL_COLOR = QColor(20, 160, 100, 200)   # Green for parallel
+
+
+def _compute_edge_scene_angle(edge_anchor):
+    """Compute the scene angle (degrees [0, 180)) of the edge identified by edge_anchor.
+
+    Works for rectangles (EDGE_* anchors), polygons and polylines
+    (EDGE_* midpoints with anchor_index = edge/segment index).
+    Returns the angle in degrees [0, 180) or None if not computable.
+    """
+    import math as _math
+
+    from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
+    from open_garden_planner.ui.canvas.items import PolylineItem, RectangleItem
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    item = edge_anchor.item
+    anchor_type = edge_anchor.anchor_type
+    anchor_index = edge_anchor.anchor_index
+    anchors = get_anchor_points(item)
+
+    if isinstance(item, RectangleItem):
+        corner_map = {
+            AnchorType.EDGE_TOP:    (0, 1),
+            AnchorType.EDGE_BOTTOM: (2, 3),
+            AnchorType.EDGE_LEFT:   (0, 2),
+            AnchorType.EDGE_RIGHT:  (1, 3),
+        }
+        if anchor_type not in corner_map:
+            return None
+        i0, i1 = corner_map[anchor_type]
+        corners = {a.anchor_index: a.point for a in anchors if a.anchor_type == AnchorType.CORNER}
+        if i0 not in corners or i1 not in corners:
+            return None
+        p1, p2 = corners[i0], corners[i1]
+    elif isinstance(item, PolygonItem):
+        polygon = item.polygon()
+        n = polygon.count()
+        if n < 2:
+            return None
+        i = anchor_index
+        p1 = item.mapToScene(polygon.at(i))
+        p2 = item.mapToScene(polygon.at((i + 1) % n))
+    elif isinstance(item, PolylineItem):
+        pts = item.points
+        i = anchor_index
+        if i < 0 or i + 1 >= len(pts):
+            return None
+        p1 = item.mapToScene(pts[i])
+        p2 = item.mapToScene(pts[i + 1])
+    else:
+        return None
+
+    dx = p2.x() - p1.x()
+    dy = p2.y() - p1.y()
+    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+        return None
+    return _math.degrees(_math.atan2(dy, dx)) % 180.0
+
+
+def _find_nearest_edge_anchor(scene_pos, scene_items):
+    """Find the nearest edge-midpoint anchor (EDGE_* type) across all garden items."""
+    import math as _math
+
+    from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+    SNAP_THRESHOLD = 40.0
+    best = None
+    best_dist = SNAP_THRESHOLD
+    edge_types = {AnchorType.EDGE_TOP, AnchorType.EDGE_BOTTOM, AnchorType.EDGE_LEFT, AnchorType.EDGE_RIGHT}
+
+    for item in scene_items:
+        if not isinstance(item, GardenItemMixin):
+            continue
+        if not (item.flags() & item.GraphicsItemFlag.ItemIsSelectable):
+            continue
+        for anchor in get_anchor_points(item):
+            if anchor.anchor_type not in edge_types:
+                continue
+            dx = anchor.point.x() - scene_pos.x()
+            dy = anchor.point.y() - scene_pos.y()
+            dist = _math.sqrt(dx * dx + dy * dy)
+            if dist < best_dist:
+                best_dist = dist
+                best = anchor
+
+    return best
+
+
+class ParallelConstraintTool(BaseTool):
+    """Tool for creating parallel constraints between two item edges.
+
+    Workflow:
+    1. Hover over an item — edge midpoints are highlighted (green circles).
+    2. Click an edge midpoint on object A (reference edge).
+    3. Hover and click an edge midpoint on object B — object B is immediately
+       rotated so its selected edge is parallel to object A's edge.
+    4. The constraint is stored with undo/redo bundling the rotation.
+    """
+
+    def __init__(self, view) -> None:
+        super().__init__(view)
+        self._edge_a = None
+        self._graphics_items: list = []
+        self._edge_indicators: list = []
+        self._selected_marker = None
+        self._preview_line = None
+        self._preview_text = None
+
+    @property
+    def tool_type(self) -> ToolType:
+        return ToolType.CONSTRAINT_PARALLEL
+
+    @property
+    def display_name(self) -> str:
+        return QCoreApplication.translate("ParallelConstraintTool", "Parallel Constraint")
+
+    @property
+    def shortcut(self) -> str:
+        return ""
+
+    @property
+    def cursor(self) -> QCursor:
+        return QCursor(Qt.CursorShape.CrossCursor)
+
+    def activate(self) -> None:
+        super().activate()
+        self._reset()
+
+    def deactivate(self) -> None:
+        super().deactivate()
+        self._reset()
+
+    def _reset(self) -> None:
+        self._edge_a = None
+        self._clear_all_visuals()
+
+    def _clear_all_visuals(self) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        for item in self._graphics_items:
+            if item.scene():
+                scene.removeItem(item)
+        self._graphics_items.clear()
+        self._clear_edge_indicators()
+        self._selected_marker = None
+        self._preview_line = None
+        self._preview_text = None
+
+    def _clear_edge_indicators(self) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        for item in self._edge_indicators:
+            if item.scene():
+                scene.removeItem(item)
+        self._edge_indicators.clear()
+
+    def _show_edge_indicators(self, scene_pos) -> None:
+        from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        scene = self._view.scene()
+        if not scene:
+            return
+        self._clear_edge_indicators()
+
+        edge_types = {AnchorType.EDGE_TOP, AnchorType.EDGE_BOTTOM,
+                      AnchorType.EDGE_LEFT, AnchorType.EDGE_RIGHT}
+
+        items_at = scene.items(scene_pos)
+        hovered = None
+        for it in items_at:
+            if isinstance(it, GardenItemMixin) and it.flags() & it.GraphicsItemFlag.ItemIsSelectable:
+                hovered = it
+                break
+
+        if hovered is None:
+            return
+
+        for anchor in get_anchor_points(hovered):
+            if anchor.anchor_type not in edge_types:
+                continue
+            r = ANCHOR_INDICATOR_RADIUS
+            rect = QRectF(anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2)
+            pen = QPen(PREVIEW_PARALLEL_COLOR, PEN_WIDTH)
+            indicator = scene.addEllipse(rect, pen)
+            indicator.setZValue(1002)
+            self._edge_indicators.append(indicator)
+
+    def _show_selected_edge(self, anchor) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        r = ANCHOR_INDICATOR_RADIUS + 2
+        rect = QRectF(anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2)
+        pen = QPen(ANCHOR_SELECTED_COLOR, PEN_WIDTH)
+        self._selected_marker = scene.addEllipse(rect, pen)
+        self._selected_marker.setZValue(1003)
+        self._graphics_items.append(self._selected_marker)
+
+    def _update_preview(self, end_pos) -> None:
+        scene = self._view.scene()
+        if not scene or self._edge_a is None:
+            return
+
+        start = self._edge_a.point
+        color = PREVIEW_PARALLEL_COLOR
+
+        if self._preview_line and self._preview_line.scene():
+            scene.removeItem(self._preview_line)
+            self._graphics_items.remove(self._preview_line)
+        if self._preview_text and self._preview_text.scene():
+            scene.removeItem(self._preview_text)
+            self._graphics_items.remove(self._preview_text)
+
+        pen = QPen(color, 2, Qt.PenStyle.DashLine)
+        self._preview_line = scene.addLine(QLineF(start, end_pos), pen)
+        self._preview_line.setZValue(1001)
+        self._graphics_items.append(self._preview_line)
+
+        text = QCoreApplication.translate("ParallelConstraintTool", "\u2225 Parallel")
+        mid_x = (start.x() + end_pos.x()) / 2
+        mid_y = (start.y() + end_pos.y()) / 2
+        self._preview_text = scene.addText(text)
+        self._preview_text.setDefaultTextColor(color)
+        font = QFont()
+        font.setPointSize(11)
+        font.setBold(True)
+        self._preview_text.setFont(font)
+        text_rect = self._preview_text.boundingRect()
+        self._preview_text.setPos(mid_x - text_rect.width() / 2, mid_y - text_rect.height() / 2)
+        self._preview_text.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        self._preview_text.setZValue(1002)
+        self._graphics_items.append(self._preview_text)
+
+    def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+
+        scene = self._view.scene()
+        if not scene:
+            return True
+
+        edge = _find_nearest_edge_anchor(scene_pos, scene.items())
+        if edge is None:
+            return True
+
+        if self._edge_a is None:
+            self._edge_a = edge
+            self._clear_edge_indicators()
+            self._show_selected_edge(edge)
+        else:
+            edge_b = edge
+            if (
+                hasattr(self._edge_a.item, "item_id")
+                and hasattr(edge_b.item, "item_id")
+                and self._edge_a.item.item_id == edge_b.item.item_id
+            ):
+                return True
+
+            self._create_parallel_constraint(self._edge_a, edge_b)
+            self._reset()
+
+        return True
+
+    def _create_parallel_constraint(self, edge_a, edge_b) -> None:
+        import math as _math  # noqa: F401
+
+        from open_garden_planner.core.commands import AddConstraintCommand
+        from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+
+        scene = self._view.scene()
+        if not scene:
+            return
+        if not hasattr(edge_a.item, "item_id") or not hasattr(edge_b.item, "item_id"):
+            return
+
+        alpha_a = _compute_edge_scene_angle(edge_a)
+        if alpha_a is None:
+            QMessageBox.warning(
+                self._view,
+                QCoreApplication.translate("ParallelConstraintTool", "Parallel Constraint"),
+                QCoreApplication.translate(
+                    "ParallelConstraintTool",
+                    "Cannot determine the angle of the selected edge on object A.",
+                ),
+            )
+            return
+
+        alpha_b = _compute_edge_scene_angle(edge_b)
+        if alpha_b is None:
+            QMessageBox.warning(
+                self._view,
+                QCoreApplication.translate("ParallelConstraintTool", "Parallel Constraint"),
+                QCoreApplication.translate(
+                    "ParallelConstraintTool",
+                    "Cannot determine the angle of the selected edge on object B.",
+                ),
+            )
+            return
+
+        item_b = edge_b.item
+        rot_b = getattr(item_b, "rotation_angle", 0.0)
+
+        # Minimum rotation delta to align edge B with edge A (handles 180-deg ambiguity)
+        delta = (alpha_a - alpha_b + 90.0) % 180.0 - 90.0
+        target_rotation = rot_b + delta
+
+        ref_a = AnchorRef(
+            item_id=edge_a.item.item_id,
+            anchor_type=edge_a.anchor_type,
+            anchor_index=edge_a.anchor_index,
+        )
+        ref_b = AnchorRef(
+            item_id=edge_b.item.item_id,
+            anchor_type=edge_b.anchor_type,
+            anchor_index=edge_b.anchor_index,
+        )
+
+        item_rotations: list = []
+        if hasattr(item_b, "_apply_rotation") and abs(delta) > 0.01:
+            item_rotations = [
+                (item_b, rot_b, target_rotation, lambda it, ang: it._apply_rotation(ang))
+            ]
+
+        command = AddConstraintCommand(
+            graph=scene.constraint_graph,
+            anchor_a=ref_a,
+            anchor_b=ref_b,
+            target_distance=target_rotation,
+            constraint_type=ConstraintType.PARALLEL,
+            item_rotations=item_rotations,
+        )
+        self._view._execute_constraint_with_solve(command)
+
+    def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
+        self._show_edge_indicators(scene_pos)
+        if self._edge_a is not None:
+            scene = self._view.scene()
+            items = scene.items() if scene else []
+            edge = _find_nearest_edge_anchor(scene_pos, items)
+            end = edge.point if edge else scene_pos
+            self._update_preview(end)
+        return True
+
+    def mouse_release(self, _event: QMouseEvent, _scene_pos: QPointF) -> bool:
+        return False
+
+    def key_press(self, event: QKeyEvent) -> bool:
+        if event.key() == Qt.Key.Key_Escape:
+            self._reset()
+            return True
+        return False
+
+    def cancel(self) -> None:
+        self._reset()

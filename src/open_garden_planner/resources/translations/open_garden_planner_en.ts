@@ -1617,8 +1617,8 @@ Please restart the application for the change to take effect.</translation>
             <translation>Coincident</translation>
         </message>
         <message>
-            <source>Parallel (coming soon)</source>
-            <translation>Parallel (coming soon)</translation>
+            <source>Parallel</source>
+            <translation>Parallel</translation>
         </message>
         <message>
             <source>Perpendicular (coming soon)</source>
@@ -1767,6 +1767,25 @@ Please restart the application for the change to take effect.</translation>
         <message>
             <source>&#x29BF; Coincident</source>
             <translation>&#x29BF; Coincident</translation>
+        </message>
+    </context>
+    <context>
+        <name>ParallelConstraintTool</name>
+        <message>
+            <source>Parallel Constraint</source>
+            <translation>Parallel Constraint</translation>
+        </message>
+        <message>
+            <source>&#x2225; Parallel</source>
+            <translation>&#x2225; Parallel</translation>
+        </message>
+        <message>
+            <source>Cannot determine the angle of the selected edge on object A.</source>
+            <translation>Cannot determine the angle of the selected edge on object A.</translation>
+        </message>
+        <message>
+            <source>Cannot determine the angle of the selected edge on object B.</source>
+            <translation>Cannot determine the angle of the selected edge on object B.</translation>
         </message>
     </context>
     <context>
@@ -3106,6 +3125,14 @@ not yet implemented</translation>
         <message>
             <source>{a} coincident with {b}</source>
             <translation>{a} coincident with {b}</translation>
+        </message>
+        <message>
+            <source>&#x2225; Parallel</source>
+            <translation>&#x2225; Parallel</translation>
+        </message>
+        <message>
+            <source>{a} parallel to {b}</source>
+            <translation>{a} parallel to {b}</translation>
         </message>
     </context>
     <context>

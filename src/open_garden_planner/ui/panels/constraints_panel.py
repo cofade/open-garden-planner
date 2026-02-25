@@ -27,6 +27,7 @@ _COLOR_VIOLATED = QColor(220, 40, 40)
 _COLOR_ALIGN_SATISFIED = QColor(120, 0, 180)
 _COLOR_ANGLE_SATISFIED = QColor(200, 100, 0)
 _COLOR_COINCIDENT_SATISFIED = QColor(0, 160, 200)
+_COLOR_PARALLEL_SATISFIED = QColor(20, 160, 100)
 
 
 def _make_status_icon(color: QColor, size: int = 14) -> QPixmap:
@@ -77,12 +78,15 @@ class ConstraintListItem(QWidget):
         is_alignment = constraint_type_name in ("HORIZONTAL", "VERTICAL")
         is_angle = constraint_type_name == "ANGLE"
         is_coincident = constraint_type_name == "COINCIDENT"
+        is_parallel = constraint_type_name == "PARALLEL"
         if is_alignment:
             color = _COLOR_ALIGN_SATISFIED if satisfied else _COLOR_VIOLATED
         elif is_angle:
             color = _COLOR_ANGLE_SATISFIED if satisfied else _COLOR_VIOLATED
         elif is_coincident:
             color = _COLOR_COINCIDENT_SATISFIED if satisfied else _COLOR_VIOLATED
+        elif is_parallel:
+            color = _COLOR_PARALLEL_SATISFIED if satisfied else _COLOR_VIOLATED
         else:
             color = _COLOR_SATISFIED if satisfied else _COLOR_VIOLATED
 
@@ -111,6 +115,9 @@ class ConstraintListItem(QWidget):
         elif constraint_type_name == "COINCIDENT":
             detail = self.tr("⦿ Coincident")
             tooltip = self.tr("{a} coincident with {b}").format(a=label_a, b=label_b)
+        elif constraint_type_name == "PARALLEL":
+            detail = self.tr("\u2225 Parallel")
+            tooltip = self.tr("{a} parallel to {b}").format(a=label_a, b=label_b)
         else:
             dist_m = target_distance / 100.0
             detail = f"{dist_m:.2f} m"
@@ -122,6 +129,8 @@ class ConstraintListItem(QWidget):
             text = f"∠ {label_a}–{label_b}–…   {detail}"
         elif constraint_type_name == "COINCIDENT":
             text = f"⦿ {label_a}  ↔  {label_b}   {detail}"
+        elif constraint_type_name == "PARALLEL":
+            text = f"\u2225 {label_a}  \u2225  {label_b}"
         else:
             text = f"{label_a}  \u2194  {label_b}   {detail}"
         label = QLabel(text)
@@ -346,6 +355,12 @@ class ConstraintsPanel(QWidget):
             cos_val = max(-1.0, min(1.0, (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len)))
             current_deg = math.degrees(math.acos(cos_val))
             return abs(current_deg - constraint.target_distance) < 0.5
+        if constraint.constraint_type == ConstraintType.PARALLEL:
+            # Satisfied when item B's rotation matches the stored target (±0.5°)
+            item_b = dlm._find_item_by_id(constraint.anchor_b.item_id)
+            current_rot = getattr(item_b, "rotation_angle", 0.0) if item_b else 0.0
+            angle_error = abs((current_rot - constraint.target_distance + 90.0) % 180.0 - 90.0)
+            return angle_error < 0.5
 
         current_dist = QLineF(pos_a, pos_b).length()
         return abs(current_dist - constraint.target_distance) < 1.0
