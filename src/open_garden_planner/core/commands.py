@@ -741,6 +741,43 @@ class GridArrayCommand(Command):
                 self._scene.removeItem(item)
 
 
+class CircularArrayCommand(Command):
+    """Command for creating a circular array of copies of one item.
+
+    Bundles item creation into a single undoable step.
+    """
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        new_items: "list[QGraphicsItem]",
+    ) -> None:
+        """Initialize the command.
+
+        Args:
+            scene: The scene to add items to.
+            new_items: The newly created copies (not including the original).
+        """
+        self._scene = scene
+        self._items = list(new_items)
+
+    @property
+    def description(self) -> str:
+        return f"Create circular array ({len(self._items) + 1} items)"
+
+    def execute(self) -> None:
+        """Add items to the scene."""
+        for item in self._items:
+            if item.scene() is None:
+                self._scene.addItem(item)
+
+    def undo(self) -> None:
+        """Remove items from the scene."""
+        for item in self._items:
+            if item.scene() is not None:
+                self._scene.removeItem(item)
+
+
 class EditConstraintDistanceCommand(Command):
     """Command for editing a constraint's target distance.
 

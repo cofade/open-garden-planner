@@ -259,6 +259,14 @@
         <translation>Rastermuster mit {count} Objekten erstellt ({rows}×{cols})</translation>
     </message>
     <message>
+        <source>Select exactly one item to create a circular array</source>
+        <translation>Wählen Sie genau ein Objekt aus, um ein Kreismuster zu erstellen</translation>
+    </message>
+    <message>
+        <source>Created circular array of {count} items</source>
+        <translation>Kreismuster mit {count} Objekten erstellt</translation>
+    </message>
+    <message>
         <location filename="..\..\ui\canvas\canvas_view.py" line="1837" />
         <source>Distance must be positive</source>
         <translation>Abstand muss positiv sein</translation>
@@ -2109,6 +2117,41 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
     <message>
         <source>Auto-create distance constraints between copies</source>
         <translation>Abstandsbeschränkungen automatisch erstellen</translation>
+    </message>
+</context>
+<context>
+    <name>CircularArrayDialog</name>
+    <message>
+        <source>Create Circular Array</source>
+        <translation>Kreismuster erstellen</translation>
+    </message>
+    <message>
+        <source>Array Parameters</source>
+        <translation>Muster-Parameter</translation>
+    </message>
+    <message>
+        <source>Count:</source>
+        <translation>Anzahl:</translation>
+    </message>
+    <message>
+        <source>Radius:</source>
+        <translation>Radius:</translation>
+    </message>
+    <message>
+        <source>Start Angle:</source>
+        <translation>Startwinkel:</translation>
+    </message>
+    <message>
+        <source>(0° = right, 90° = down, 180° = left, 270° = up)</source>
+        <translation>(0° = rechts, 90° = unten, 180° = links, 270° = oben)</translation>
+    </message>
+    <message>
+        <source>Sweep Angle:</source>
+        <translation>Bogenwinkel:</translation>
+    </message>
+    <message>
+        <source>(360° = full circle)</source>
+        <translation>(360° = voller Kreis)</translation>
     </message>
 </context>
 <context>

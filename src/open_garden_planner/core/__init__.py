@@ -3,6 +3,7 @@
 from open_garden_planner.core.commands import (
     AddConstraintCommand,
     AlignItemsCommand,
+    CircularArrayCommand,
     Command,
     CommandManager,
     CreateItemCommand,
@@ -27,6 +28,7 @@ from open_garden_planner.core.project import (
 __all__ = [
     "AddConstraintCommand",
     "AlignItemsCommand",
+    "CircularArrayCommand",
     "Command",
     "CommandManager",
     "CreateItemCommand",

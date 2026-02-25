@@ -2651,6 +2651,124 @@ class CanvasView(QGraphicsView):
             )
         )
 
+    def create_circular_array(self) -> None:
+        """Create a circular array from the single selected item."""
+        import math
+
+        selected = self.scene().selectedItems()
+        if len(selected) != 1:
+            self.set_status_message(
+                self.tr("Select exactly one item to create a circular array")
+            )
+            return
+
+        from PyQt6.QtWidgets import QDialog
+
+        from open_garden_planner.ui.dialogs.circular_array_dialog import (
+            CircularArrayDialog,
+        )
+
+        dlg = CircularArrayDialog(self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        count = dlg.count
+        radius = dlg.radius_cm
+        start_rad = math.radians(dlg.start_angle_deg)
+        sweep_rad = math.radians(dlg.sweep_angle_deg)
+
+        # Angular step between copies. When sweep == 360° divide evenly by count
+        # (no duplicated endpoint). When sweep < 360° include both endpoints by
+        # dividing by (count - 1).
+        if abs(sweep_rad - 2 * math.pi) < 1e-6:
+            step_rad = sweep_rad / count
+        else:
+            step_rad = sweep_rad / max(count - 1, 1)
+
+        source_item = selected[0]
+        obj_data = self._serialize_item(source_item)
+        if not obj_data:
+            return
+
+        # Determine the center of the source item to use as circle origin.
+        if "center_x" in obj_data:
+            origin_x = obj_data["center_x"]
+            origin_y = obj_data["center_y"]
+        elif "points" in obj_data:
+            xs = [p["x"] for p in obj_data["points"]]
+            ys = [p["y"] for p in obj_data["points"]]
+            origin_x = (min(xs) + max(xs)) / 2.0
+            origin_y = (min(ys) + max(ys)) / 2.0
+        else:
+            origin_x = obj_data["x"] + obj_data.get("width", 0.0) / 2.0
+            origin_y = obj_data["y"] + obj_data.get("height", 0.0) / 2.0
+
+        canvas_w = self._canvas_scene.width_cm
+        canvas_h = self._canvas_scene.height_cm
+
+        # The original sits at start_angle on the circle; each copy is offset
+        # relative to the original's position (not from an implicit center).
+        # Canvas Y-axis is flipped (scale(zoom, -zoom)), so negate sin for dy.
+        # offset_i = radius * (direction_i - direction_0), so at i=0 offset=(0,0).
+        base_cos = math.cos(start_rad)
+        base_sin = math.sin(start_rad)
+
+        new_items = []
+        for i in range(1, count):
+            angle = start_rad + i * step_rad
+            offset_x = radius * (math.cos(angle) - base_cos)
+            offset_y = -radius * (math.sin(angle) - base_sin)
+
+            obj_copy = obj_data.copy()
+
+            if "points" in obj_copy:
+                pts = [
+                    {"x": p["x"] + offset_x, "y": p["y"] + offset_y}
+                    for p in obj_data["points"]
+                ]
+                min_x = min(p["x"] for p in pts)
+                max_x = max(p["x"] for p in pts)
+                min_y = min(p["y"] for p in pts)
+                max_y = max(p["y"] for p in pts)
+                cx = max(0.0, -min_x) - max(0.0, max_x - canvas_w)
+                cy = max(0.0, -min_y) - max(0.0, max_y - canvas_h)
+                obj_copy["points"] = [{"x": p["x"] + cx, "y": p["y"] + cy} for p in pts]
+            elif "center_x" in obj_copy:
+                r = obj_data.get("radius", 0.0)
+                cx = origin_x + offset_x
+                cy = origin_y + offset_y
+                obj_copy["center_x"] = max(r, min(cx, canvas_w - r))
+                obj_copy["center_y"] = max(r, min(cy, canvas_h - r))
+            else:
+                item_w = obj_data.get("width", 0.0)
+                item_h = obj_data.get("height", 0.0)
+                nx = origin_x - item_w / 2.0 + offset_x
+                ny = origin_y - item_h / 2.0 + offset_y
+                obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
+                obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
+
+            item = self._deserialize_item(obj_copy)
+            if item:
+                new_items.append(item)
+
+        if not new_items:
+            return
+
+        from open_garden_planner.core import CircularArrayCommand
+
+        command = CircularArrayCommand(self.scene(), new_items)
+        self._command_manager.execute(command)
+
+        # Select original + all copies
+        self.scene().clearSelection()
+        source_item.setSelected(True)
+        for item in new_items:
+            item.setSelected(True)
+
+        self.set_status_message(
+            self.tr("Created circular array of {count} items").format(count=count)
+        )
+
     def _serialize_item(self, item: QGraphicsItem) -> dict | None:
         """Serialize a single graphics item (reuses project manager logic).
 
@@ -2717,6 +2835,10 @@ class CanvasView(QGraphicsView):
                 data["name"] = item.name
             if hasattr(item, "metadata") and item.metadata:
                 data["metadata"] = item.metadata
+            if hasattr(item, "plant_category") and item.plant_category is not None:
+                data["plant_category"] = item.plant_category.name
+            if hasattr(item, "plant_species") and item.plant_species:
+                data["plant_species"] = item.plant_species
             # Save custom fill and stroke colors (with alpha)
             if hasattr(item, "fill_color") and item.fill_color:
                 fill_color = item.fill_color
@@ -2889,6 +3011,15 @@ class CanvasView(QGraphicsView):
                 fill_pattern=fill_pattern,
                 stroke_style=stroke_style,
             )
+            # Restore plant-specific rendering properties
+            if "plant_category" in obj:
+                try:
+                    from open_garden_planner.core.plant_renderer import PlantCategory
+                    item.plant_category = PlantCategory[obj["plant_category"]]
+                except KeyError:
+                    pass
+            if "plant_species" in obj:
+                item.plant_species = obj["plant_species"]
             # Restore custom colors if saved
             if "fill_color" in obj:
                 color = QColor(obj["fill_color"])

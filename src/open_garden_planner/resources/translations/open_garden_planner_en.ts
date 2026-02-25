@@ -260,6 +260,14 @@
             <translation>Created grid array of {count} items ({rows}×{cols})</translation>
         </message>
         <message>
+            <source>Select exactly one item to create a circular array</source>
+            <translation>Select exactly one item to create a circular array</translation>
+        </message>
+        <message>
+            <source>Created circular array of {count} items</source>
+            <translation>Created circular array of {count} items</translation>
+        </message>
+        <message>
             <location filename="..\..\ui\canvas\canvas_view.py" line="1837" />
             <source>Distance must be positive</source>
             <translation>Distance must be positive</translation>
@@ -1841,6 +1849,41 @@ Please restart the application for the change to take effect.</translation>
         <message>
             <source>Auto-create distance constraints between copies</source>
             <translation>Auto-create distance constraints between copies</translation>
+        </message>
+    </context>
+    <context>
+        <name>CircularArrayDialog</name>
+        <message>
+            <source>Create Circular Array</source>
+            <translation>Create Circular Array</translation>
+        </message>
+        <message>
+            <source>Array Parameters</source>
+            <translation>Array Parameters</translation>
+        </message>
+        <message>
+            <source>Count:</source>
+            <translation>Count:</translation>
+        </message>
+        <message>
+            <source>Radius:</source>
+            <translation>Radius:</translation>
+        </message>
+        <message>
+            <source>Start Angle:</source>
+            <translation>Start Angle:</translation>
+        </message>
+        <message>
+            <source>(0° = right, 90° = down, 180° = left, 270° = up)</source>
+            <translation>(0° = right, 90° = down, 180° = left, 270° = up)</translation>
+        </message>
+        <message>
+            <source>Sweep Angle:</source>
+            <translation>Sweep Angle:</translation>
+        </message>
+        <message>
+            <source>(360° = full circle)</source>
+            <translation>(360° = full circle)</translation>
         </message>
     </context>
     <context>
