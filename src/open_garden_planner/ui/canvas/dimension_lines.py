@@ -32,6 +32,8 @@ COLOR_ANGLE_SATISFIED = QColor(200, 100, 0)  # Orange for angle constraints
 COLOR_ANGLE_VIOLATED = QColor(220, 40, 40)   # Red
 COLOR_SYMMETRY_SATISFIED = QColor(140, 0, 180)  # Purple for symmetry constraints
 COLOR_SYMMETRY_VIOLATED = QColor(220, 40, 40)   # Red
+COLOR_COINCIDENT_SATISFIED = QColor(0, 160, 200)  # Teal for coincident constraints
+COLOR_COINCIDENT_VIOLATED = QColor(220, 40, 40)   # Red
 
 # Geometry constants
 WITNESS_LINE_OFFSET = 15.0  # Perpendicular offset from dimension line (in cm)
@@ -183,6 +185,15 @@ class DimensionLineManager:
             self._build_symmetry_indicator(
                 group, pos_a, pos_b, axis_val, axis_is_horizontal, color
             )
+        elif constraint.constraint_type == ConstraintType.COINCIDENT:
+            dx = pos_b.x() - pos_a.x()
+            dy = pos_b.y() - pos_a.y()
+            error = math.sqrt(dx * dx + dy * dy)
+            satisfied = error < 0.1  # 1 mm tolerance (0.1 cm)
+            color = COLOR_COINCIDENT_SATISFIED if satisfied else COLOR_COINCIDENT_VIOLATED
+            # Use midpoint of the two anchors as the marker position
+            mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
+            self._build_coincident_marker(group, pos_a, pos_b, mid, color)
         elif constraint.constraint_type == ConstraintType.ANGLE:
             # ANGLE constraint: pos_b is the vertex, pos_a and pos_c are the ray endpoints.
             if constraint.anchor_c is None:
@@ -382,6 +393,63 @@ class DimensionLineManager:
         text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
         text_item.setZValue(DIMENSION_LINE_Z + 1)
         text_item.setPos(mid)
+        self._scene.addItem(text_item)
+        group.items.append(text_item)
+
+    def _build_coincident_marker(
+        self,
+        group: DimensionLineGroup,
+        pos_a: QPointF,
+        pos_b: QPointF,
+        marker_pos: QPointF,
+        color: QColor,
+    ) -> None:
+        """Build a visual marker for a coincident constraint.
+
+        Draws a dashed line between the two anchor positions (when not coincident)
+        and a filled diamond at the merged point position.
+        """
+        pen = QPen(color, 1.5)
+        pen.setCosmetic(True)
+
+        # Dashed connector line (shows where the anchors came from)
+        dx = pos_b.x() - pos_a.x()
+        dy = pos_b.y() - pos_a.y()
+        if math.sqrt(dx * dx + dy * dy) > 0.5:
+            dash_pen = QPen(color, 1.5, Qt.PenStyle.DashLine)
+            dash_pen.setCosmetic(True)
+            line = self._scene.addLine(QLineF(pos_a, pos_b), dash_pen)
+            line.setZValue(DIMENSION_LINE_Z)
+            group.items.append(line)
+
+        # Filled diamond at the marker position
+        half = 6.0  # half-diagonal of the diamond in scene units (cm)
+        diamond = QPolygonF([
+            QPointF(marker_pos.x(), marker_pos.y() - half),  # top
+            QPointF(marker_pos.x() + half, marker_pos.y()),  # right
+            QPointF(marker_pos.x(), marker_pos.y() + half),  # bottom
+            QPointF(marker_pos.x() - half, marker_pos.y()),  # left
+        ])
+        path = QPainterPath()
+        path.addPolygon(diamond)
+        path.closeSubpath()
+        diamond_item = QGraphicsPathItem(path)
+        diamond_item.setPen(QPen(color.darker(120), 1))
+        diamond_item.setBrush(QBrush(color))
+        diamond_item.setZValue(DIMENSION_LINE_Z + 1)
+        self._scene.addItem(diamond_item)
+        group.items.append(diamond_item)
+
+        # "⦿" label offset from the marker
+        text_item = QGraphicsSimpleTextItem("⦿")
+        font = QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        text_item.setFont(font)
+        text_item.setBrush(QBrush(color))
+        text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        text_item.setZValue(DIMENSION_LINE_Z + 1)
+        text_item.setPos(QPointF(marker_pos.x() + half + 2, marker_pos.y() - half))
         self._scene.addItem(text_item)
         group.items.append(text_item)
 

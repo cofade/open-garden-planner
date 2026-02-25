@@ -1613,8 +1613,8 @@ Please restart the application for the change to take effect.</translation>
             <translation>Vertical Alignment</translation>
         </message>
         <message>
-            <source>Coincident (coming soon)</source>
-            <translation>Coincident (coming soon)</translation>
+            <source>Coincident</source>
+            <translation>Coincident</translation>
         </message>
         <message>
             <source>Parallel (coming soon)</source>
@@ -1756,6 +1756,17 @@ Please restart the application for the change to take effect.</translation>
         <message>
             <source>&#x27FA; SYM</source>
             <translation>&#x27FA; SYM</translation>
+        </message>
+    </context>
+    <context>
+        <name>CoincidentConstraintTool</name>
+        <message>
+            <source>Coincident Constraint</source>
+            <translation>Coincident Constraint</translation>
+        </message>
+        <message>
+            <source>&#x29BF; Coincident</source>
+            <translation>&#x29BF; Coincident</translation>
         </message>
     </context>
     <context>
@@ -3087,6 +3098,14 @@ not yet implemented</translation>
         <message>
             <source>…</source>
             <translation>…</translation>
+        </message>
+        <message>
+            <source>&#x29BF; Coincident</source>
+            <translation>&#x29BF; Coincident</translation>
+        </message>
+        <message>
+            <source>{a} coincident with {b}</source>
+            <translation>{a} coincident with {b}</translation>
         </message>
     </context>
     <context>

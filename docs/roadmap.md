@@ -367,7 +367,7 @@
 | US-7.14 | Linear array placement | Could | ✅ Done |
 | US-7.15 | Grid array placement | Could | ✅ |
 | US-7.16 | Circular array placement | Could | ✅ Done |
-| US-7.17 | Coincident constraint (merge two anchor points) | Should | |
+| US-7.17 | Coincident constraint (merge two anchor points) | Should | ✅ Done |
 | US-7.18 | Parallel constraint (two edges stay parallel) | Could | |
 | US-7.19 | Perpendicular constraint (two edges at 90°) | Could | |
 | US-7.20 | Equal size constraint (same radius/width/height) | Could | |
@@ -647,7 +647,7 @@
 | 3 | Vertical Alignment | ✅ implemented | Full color |
 | 4 | Horizontal Distance | ⬜ US-7.22 | Grayed out |
 | 5 | Vertical Distance | ⬜ US-7.22 | Grayed out |
-| 6 | Coincident | ⬜ US-7.17 | Grayed out |
+| 6 | Coincident | ✅ US-7.17 | Done |
 | 7 | Parallel | ⬜ US-7.18 | Grayed out |
 | 8 | Perpendicular | ⬜ US-7.19 | Grayed out |
 | 9 | Equal Size | ⬜ US-7.20 | Grayed out |

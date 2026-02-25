@@ -25,6 +25,7 @@ class ConstraintType(Enum):
     ANGLE = auto()                 # Fixed angle at vertex B between rays BA and BC (degrees)
     SYMMETRY_HORIZONTAL = auto()   # Mirror A and B across a horizontal axis (y = target_distance)
     SYMMETRY_VERTICAL = auto()     # Mirror A and B across a vertical axis (x = target_distance)
+    COINCIDENT = auto()            # Force two anchor points to the same position (distance = 0)
 
 
 class ConstraintStatus(Enum):
@@ -731,6 +732,34 @@ class ConstraintGraph:
                         positions[id_b][1] -= y_error / 2.0
                         positions[id_a][0] -= x_sum_error / 2.0
                         positions[id_b][0] -= x_sum_error / 2.0
+                    continue
+
+                if constraint.constraint_type == ConstraintType.COINCIDENT:
+                    # Force both anchors to the same position (meet at midpoint).
+                    dx = bx - ax
+                    dy = by - ay
+                    error = math.sqrt(dx * dx + dy * dy)
+                    max_error = max(max_error, error)
+                    if error < 1e-9:
+                        continue
+                    if a_pinned and b_pinned:
+                        continue
+                    elif a_pinned:
+                        # Move item B so anchor B coincides with anchor A
+                        positions[id_b][0] = ax - off_b[0]
+                        positions[id_b][1] = ay - off_b[1]
+                    elif b_pinned:
+                        # Move item A so anchor A coincides with anchor B
+                        positions[id_a][0] = bx - off_a[0]
+                        positions[id_a][1] = by - off_a[1]
+                    else:
+                        # Both free: meet at midpoint
+                        mid_x = (ax + bx) / 2.0
+                        mid_y = (ay + by) / 2.0
+                        positions[id_a][0] = mid_x - off_a[0]
+                        positions[id_a][1] = mid_y - off_a[1]
+                        positions[id_b][0] = mid_x - off_b[0]
+                        positions[id_b][1] = mid_y - off_b[1]
                     continue
 
                 # DISTANCE constraint

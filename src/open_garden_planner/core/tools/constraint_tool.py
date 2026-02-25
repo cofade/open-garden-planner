@@ -377,8 +377,7 @@ class ConstraintTool(BaseTool):
             target_distance=target_distance,
             constraint_type=self._CONSTRAINT_TYPE,
         )
-        self._view.command_manager.execute(command)
-        self._view.apply_constraint_solver()
+        self._view._execute_constraint_with_solve(command)
 
     def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
         self._show_anchor_indicators(scene_pos)
@@ -440,6 +439,110 @@ class VerticalConstraintTool(ConstraintTool):
     @property
     def shortcut(self) -> str:
         return ""
+
+
+PREVIEW_COINCIDENT_COLOR = QColor(0, 160, 200, 200)  # Teal for coincident
+
+
+class CoincidentConstraintTool(ConstraintTool):
+    """Tool for creating coincident constraints (merge two anchor points to same location).
+
+    Workflow:
+    1. Hover over objects to see anchor indicators (small circles).
+    2. Click an anchor on object A to select it.
+    3. Click an anchor on object B — constraint is created immediately (no dialog).
+    """
+
+    _CONSTRAINT_TYPE = ConstraintType.COINCIDENT
+    _PREVIEW_COLOR = PREVIEW_COINCIDENT_COLOR
+
+    @property
+    def tool_type(self) -> ToolType:
+        return ToolType.CONSTRAINT_COINCIDENT
+
+    @property
+    def display_name(self) -> str:
+        return QCoreApplication.translate("CoincidentConstraintTool", "Coincident Constraint")
+
+    @property
+    def shortcut(self) -> str:
+        return ""
+
+    def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
+        """Override to skip the distance dialog — create constraint immediately."""
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+
+        anchor = self._find_nearest_anchor(scene_pos)
+        if anchor is None:
+            return True
+
+        if self._anchor_a is None:
+            self._anchor_a = anchor
+            self._clear_anchor_indicators()
+            self._show_selected_anchor(anchor)
+            return True
+        else:
+            anchor_b = anchor
+
+            # Don't allow constraining same anchor to itself
+            if (
+                hasattr(self._anchor_a.item, "item_id")
+                and hasattr(anchor_b.item, "item_id")
+                and self._anchor_a.item.item_id == anchor_b.item.item_id
+                and self._anchor_a.anchor_type == anchor_b.anchor_type
+            ):
+                return True
+
+            # Create coincident constraint immediately (no dialog needed)
+            self._create_constraint(self._anchor_a, anchor_b, 0.0)
+            self._reset()
+            return True
+
+    def _update_preview(self, end_pos: QPointF) -> None:
+        """Override to show a coincident preview with a special marker."""
+        scene = self._view.scene()
+        if not scene or self._anchor_a is None:
+            return
+
+        start = self._anchor_a.point
+        color = self._PREVIEW_COLOR
+
+        # Remove old preview items
+        if self._preview_line and self._preview_line.scene():
+            scene.removeItem(self._preview_line)
+            self._graphics_items.remove(self._preview_line)
+        if self._preview_text and self._preview_text.scene():
+            scene.removeItem(self._preview_text)
+            self._graphics_items.remove(self._preview_text)
+
+        pen = QPen(color, 2, Qt.PenStyle.DashLine)
+        self._preview_line = scene.addLine(QLineF(start, end_pos), pen)
+        self._preview_line.setZValue(1001)
+        self._graphics_items.append(self._preview_line)
+
+        text = QCoreApplication.translate("CoincidentConstraintTool", "⦿ Coincident")
+
+        mid_x = (start.x() + end_pos.x()) / 2
+        mid_y = (start.y() + end_pos.y()) / 2
+
+        self._preview_text = scene.addText(text)
+        self._preview_text.setDefaultTextColor(color)
+        font = QFont()
+        font.setPointSize(11)
+        font.setBold(True)
+        self._preview_text.setFont(font)
+
+        text_rect = self._preview_text.boundingRect()
+        self._preview_text.setPos(
+            mid_x - text_rect.width() / 2,
+            mid_y - text_rect.height() / 2,
+        )
+        self._preview_text.setFlag(
+            QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations
+        )
+        self._preview_text.setZValue(1002)
+        self._graphics_items.append(self._preview_text)
 
 
 # Angle constraint visual constants
@@ -813,8 +916,7 @@ class AngleConstraintTool(BaseTool):
             constraint_type=ConstraintType.ANGLE,
             anchor_c=ref_c,
         )
-        self._view.command_manager.execute(command)
-        self._view.apply_constraint_solver()
+        self._view._execute_constraint_with_solve(command)
 
     def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
         self._show_anchor_indicators(scene_pos)
@@ -1106,8 +1208,7 @@ class SymmetryConstraintTool(BaseTool):
             target_distance=axis_pos,
             constraint_type=constraint_type,
         )
-        self._view.command_manager.execute(command)
-        self._view.apply_constraint_solver()
+        self._view._execute_constraint_with_solve(command)
 
     def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
         self._show_anchor_indicators(scene_pos)
