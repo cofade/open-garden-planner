@@ -45,6 +45,7 @@ from open_garden_planner.core.tools import (
     ConstructionLineTool,
     HorizontalConstraintTool,
     MeasureTool,
+    ParallelConstraintTool,
     PolygonTool,
     PolylineTool,
     RectangleTool,
@@ -167,6 +168,7 @@ class CanvasView(QGraphicsView):
         self._tool_manager.register_tool(HorizontalConstraintTool(self))
         self._tool_manager.register_tool(VerticalConstraintTool(self))
         self._tool_manager.register_tool(CoincidentConstraintTool(self))
+        self._tool_manager.register_tool(ParallelConstraintTool(self))
         self._tool_manager.register_tool(AngleConstraintTool(self))
         self._tool_manager.register_tool(SymmetryConstraintTool(self))
 

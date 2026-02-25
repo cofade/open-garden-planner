@@ -1895,8 +1895,8 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
         <translation>Koinzident</translation>
     </message>
     <message>
-        <source>Parallel (coming soon)</source>
-        <translation>Parallel (demnächst)</translation>
+        <source>Parallel</source>
+        <translation>Parallel</translation>
     </message>
     <message>
         <source>Perpendicular (coming soon)</source>
@@ -2037,6 +2037,24 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
     <message>
         <source>&#x29BF; Coincident</source>
         <translation>&#x29BF; Koinzident</translation>
+    </message>
+</context><context>
+    <name>ParallelConstraintTool</name>
+    <message>
+        <source>Parallel Constraint</source>
+        <translation>Parallelitäts-Randbedingung</translation>
+    </message>
+    <message>
+        <source>&#x2225; Parallel</source>
+        <translation>&#x2225; Parallel</translation>
+    </message>
+    <message>
+        <source>Cannot determine the angle of the selected edge on object A.</source>
+        <translation>Der Winkel der ausgewählten Kante von Objekt A kann nicht bestimmt werden.</translation>
+    </message>
+    <message>
+        <source>Cannot determine the angle of the selected edge on object B.</source>
+        <translation>Der Winkel der ausgewählten Kante von Objekt B kann nicht bestimmt werden.</translation>
     </message>
 </context><context>
     <name>DistanceInputDialog</name>
@@ -3649,6 +3667,14 @@ noch nicht implementiert</translation>
     <message>
         <source>{a} coincident with {b}</source>
         <translation>{a} koinzident mit {b}</translation>
+    </message>
+    <message>
+        <source>&#x2225; Parallel</source>
+        <translation>&#x2225; Parallel</translation>
+    </message>
+    <message>
+        <source>{a} parallel to {b}</source>
+        <translation>{a} parallel zu {b}</translation>
     </message>
 </context><context>
     <name>ConstraintsPanel</name>

@@ -1164,3 +1164,82 @@ class TestCoincidentConstraint:
         rc = list(restored.constraints.values())[0]
         assert rc.constraint_type == ConstraintType.COINCIDENT
         assert rc.target_distance == 0.0
+
+
+# --- Parallel constraint tests ---
+
+
+class TestParallelConstraint:
+    """Tests for the PARALLEL constraint type."""
+
+    def test_parallel_constraint_type_enum(self, qtbot) -> None:
+        """PARALLEL should be a distinct ConstraintType."""
+        assert ConstraintType.PARALLEL != ConstraintType.DISTANCE
+        assert ConstraintType.PARALLEL != ConstraintType.HORIZONTAL
+        assert ConstraintType.PARALLEL != ConstraintType.COINCIDENT
+
+    def test_add_parallel_constraint(self, qtbot) -> None:
+        """Can add a PARALLEL constraint to a graph."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.EDGE_TOP),
+            AnchorRef(id_b, AnchorType.EDGE_LEFT),
+            45.0,  # target_rotation for item B in degrees
+            constraint_type=ConstraintType.PARALLEL,
+        )
+        assert c.constraint_type == ConstraintType.PARALLEL
+        assert c.target_distance == 45.0
+        assert c.anchor_a.anchor_type == AnchorType.EDGE_TOP
+        assert c.anchor_b.anchor_type == AnchorType.EDGE_LEFT
+
+    def test_parallel_solver_does_not_translate(self, qtbot) -> None:
+        """PARALLEL constraint should not produce translation deltas (rotation only)."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.EDGE_TOP),
+            AnchorRef(id_b, AnchorType.EDGE_LEFT),
+            30.0,
+            constraint_type=ConstraintType.PARALLEL,
+        )
+        positions = {id_a: (0.0, 0.0), id_b: (100.0, 0.0)}
+        result = graph.solve(positions)
+
+        # PARALLEL is a snapshot constraint: solver does not produce translation deltas
+        assert id_a not in result.item_deltas
+        assert id_b not in result.item_deltas
+
+    def test_parallel_constraint_serialization_roundtrip(self, qtbot) -> None:
+        """PARALLEL constraint survives to_dict/from_dict round-trip."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.EDGE_TOP),
+            AnchorRef(id_b, AnchorType.EDGE_RIGHT),
+            67.5,
+            constraint_type=ConstraintType.PARALLEL,
+        )
+        data = graph.to_list()
+        restored = ConstraintGraph.from_list(data)
+        assert len(restored.constraints) == 1
+        rc = list(restored.constraints.values())[0]
+        assert rc.constraint_type == ConstraintType.PARALLEL
+        assert rc.target_distance == 67.5
+        assert rc.anchor_a.anchor_type == AnchorType.EDGE_TOP
+        assert rc.anchor_b.anchor_type == AnchorType.EDGE_RIGHT
+
+    def test_parallel_solver_result_has_rotation_deltas_field(self, qtbot) -> None:
+        """SolverResult should expose item_rotation_deltas dict."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.EDGE_TOP),
+            AnchorRef(id_b, AnchorType.EDGE_LEFT),
+            0.0,
+            constraint_type=ConstraintType.PARALLEL,
+        )
+        positions = {id_a: (0.0, 0.0), id_b: (100.0, 0.0)}
+        result = graph.solve(positions)
+        assert hasattr(result, "item_rotation_deltas")
+        assert isinstance(result.item_rotation_deltas, dict)
