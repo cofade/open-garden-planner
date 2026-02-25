@@ -4,6 +4,7 @@ from .base_tool import BaseTool, ToolType
 from .circle_tool import CircleTool
 from .constraint_tool import (
     AngleConstraintTool,
+    CoincidentConstraintTool,
     ConstraintTool,
     HorizontalConstraintTool,
     SymmetryConstraintTool,
@@ -21,6 +22,7 @@ __all__ = [
     "AngleConstraintTool",
     "BaseTool",
     "CircleTool",
+    "CoincidentConstraintTool",
     "ConstraintTool",
     "ConstructionCircleTool",
     "ConstructionLineTool",

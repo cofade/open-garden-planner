@@ -48,7 +48,7 @@ _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
     _ToolEntry("constraint_vertical",   "Vertical Alignment",   "", ToolType.CONSTRAINT_VERTICAL),
     _SEP,
     # ── Geometric relational ──────────────────────────────────────────────────
-    _ToolEntry("constraint_coincident",    "Coincident (coming soon)",    "", None),
+    _ToolEntry("constraint_coincident",    "Coincident",    "", ToolType.CONSTRAINT_COINCIDENT),
     _ToolEntry("constraint_parallel",      "Parallel (coming soon)",      "", None),
     _ToolEntry("constraint_perpendicular", "Perpendicular (coming soon)", "", None),
     _ToolEntry("constraint_equal",         "Equal Size (coming soon)",    "", None),

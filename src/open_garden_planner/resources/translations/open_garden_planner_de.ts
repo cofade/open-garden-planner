@@ -1891,8 +1891,8 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
         <translation>Vertikale Ausrichtung</translation>
     </message>
     <message>
-        <source>Coincident (coming soon)</source>
-        <translation>Koinzident (demnächst)</translation>
+        <source>Coincident</source>
+        <translation>Koinzident</translation>
     </message>
     <message>
         <source>Parallel (coming soon)</source>
@@ -2027,6 +2027,16 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
     <message>
         <source>&#x27FA; SYM</source>
         <translation>&#x27FA; SYM</translation>
+    </message>
+</context><context>
+    <name>CoincidentConstraintTool</name>
+    <message>
+        <source>Coincident Constraint</source>
+        <translation>Koinzidenz-Randbedingung</translation>
+    </message>
+    <message>
+        <source>&#x29BF; Coincident</source>
+        <translation>&#x29BF; Koinzident</translation>
     </message>
 </context><context>
     <name>DistanceInputDialog</name>
@@ -3631,6 +3641,14 @@ noch nicht implementiert</translation>
     <message>
         <source>…</source>
         <translation>…</translation>
+    </message>
+    <message>
+        <source>&#x29BF; Coincident</source>
+        <translation>&#x29BF; Koinzident</translation>
+    </message>
+    <message>
+        <source>{a} coincident with {b}</source>
+        <translation>{a} koinzident mit {b}</translation>
     </message>
 </context><context>
     <name>ConstraintsPanel</name>

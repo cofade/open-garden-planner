@@ -1060,3 +1060,107 @@ class TestSymmetryConstraintSolver:
         rc = list(restored.constraints.values())[0]
         assert rc.constraint_type == ConstraintType.SYMMETRY_HORIZONTAL
         assert rc.target_distance == 75.0
+
+
+class TestCoincidentConstraint:
+    """Tests for the COINCIDENT constraint type and solver."""
+
+    def test_coincident_type_exists(self, qtbot) -> None:
+        assert ConstraintType.COINCIDENT is not None
+
+    def test_add_coincident_constraint(self, qtbot) -> None:
+        """COINCIDENT constraint is added with target_distance=0."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.COINCIDENT,
+        )
+        assert c.constraint_type == ConstraintType.COINCIDENT
+        assert c.target_distance == 0.0
+        assert len(graph.constraints) == 1
+
+    def test_coincident_solver_moves_to_midpoint(self, qtbot) -> None:
+        """Solver moves two free anchors to meet at the midpoint."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        ref_a = AnchorRef(id_a, AnchorType.CENTER)
+        ref_b = AnchorRef(id_b, AnchorType.CENTER)
+        graph.add_constraint(ref_a, ref_b, 0.0, constraint_type=ConstraintType.COINCIDENT)
+
+        positions = {id_a: (0.0, 0.0), id_b: (100.0, 0.0)}
+        offsets: dict = {
+            (id_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+
+        result = graph.solve_anchored(positions, offsets, tolerance=0.01)
+        assert result.converged
+        # Both items should be at the midpoint (50, 0)
+        final_a = (positions[id_a][0] + result.item_deltas.get(id_a, (0, 0))[0],
+                   positions[id_a][1] + result.item_deltas.get(id_a, (0, 0))[1])
+        final_b = (positions[id_b][0] + result.item_deltas.get(id_b, (0, 0))[0],
+                   positions[id_b][1] + result.item_deltas.get(id_b, (0, 0))[1])
+        assert abs(final_a[0] - final_b[0]) < 0.01
+        assert abs(final_a[1] - final_b[1]) < 0.01
+
+    def test_coincident_solver_pinned_a(self, qtbot) -> None:
+        """When A is pinned, solver moves B to A's position."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        ref_a = AnchorRef(id_a, AnchorType.CENTER)
+        ref_b = AnchorRef(id_b, AnchorType.CENTER)
+        graph.add_constraint(ref_a, ref_b, 0.0, constraint_type=ConstraintType.COINCIDENT)
+
+        positions = {id_a: (10.0, 20.0), id_b: (50.0, 80.0)}
+        offsets: dict = {
+            (id_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+
+        result = graph.solve_anchored(positions, offsets, pinned_items={id_a}, tolerance=0.01)
+        assert result.converged
+        # A should not move; B should move to A's position
+        assert id_a not in result.item_deltas
+        delta_b = result.item_deltas.get(id_b, (0.0, 0.0))
+        final_bx = positions[id_b][0] + delta_b[0]
+        final_by = positions[id_b][1] + delta_b[1]
+        assert abs(final_bx - 10.0) < 0.01
+        assert abs(final_by - 20.0) < 0.01
+
+    def test_coincident_solver_already_coincident(self, qtbot) -> None:
+        """Solver is stable when anchors are already coincident."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        ref_a = AnchorRef(id_a, AnchorType.CENTER)
+        ref_b = AnchorRef(id_b, AnchorType.CENTER)
+        graph.add_constraint(ref_a, ref_b, 0.0, constraint_type=ConstraintType.COINCIDENT)
+
+        positions = {id_a: (50.0, 50.0), id_b: (50.0, 50.0)}
+        offsets: dict = {
+            (id_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+
+        result = graph.solve_anchored(positions, offsets, tolerance=0.01)
+        assert result.converged
+        assert len(result.item_deltas) == 0
+
+    def test_coincident_serialization_roundtrip(self, qtbot) -> None:
+        """COINCIDENT constraint survives to_dict/from_dict round-trip."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.COINCIDENT,
+        )
+        data = graph.to_list()
+        restored = ConstraintGraph.from_list(data)
+        assert len(restored.constraints) == 1
+        rc = list(restored.constraints.values())[0]
+        assert rc.constraint_type == ConstraintType.COINCIDENT
+        assert rc.target_distance == 0.0

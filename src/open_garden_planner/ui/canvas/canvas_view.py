@@ -20,6 +20,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsView, QInputDialog, QLineEdit
 
 from open_garden_planner.core import (
+    AddConstraintCommand,
     AlignItemsCommand,
     CommandManager,
     CreateItemCommand,
@@ -38,6 +39,7 @@ from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
     AngleConstraintTool,
     CircleTool,
+    CoincidentConstraintTool,
     ConstraintTool,
     ConstructionCircleTool,
     ConstructionLineTool,
@@ -164,6 +166,7 @@ class CanvasView(QGraphicsView):
         self._tool_manager.register_tool(ConstraintTool(self))
         self._tool_manager.register_tool(HorizontalConstraintTool(self))
         self._tool_manager.register_tool(VerticalConstraintTool(self))
+        self._tool_manager.register_tool(CoincidentConstraintTool(self))
         self._tool_manager.register_tool(AngleConstraintTool(self))
         self._tool_manager.register_tool(SymmetryConstraintTool(self))
 
@@ -571,6 +574,28 @@ class CanvasView(QGraphicsView):
         moves = self._compute_constraint_solve_moves()
         for item, _old, new in moves:
             item.setPos(new)
+        if moves:
+            self._canvas_scene.update_dimension_lines()
+
+    def _execute_constraint_with_solve(
+        self, command: AddConstraintCommand
+    ) -> None:
+        """Execute a constraint command with solver moves bundled in one undo step.
+
+        Temporarily adds the constraint, computes what the solver would do,
+        removes it again, stores the moves on the command, then executes the
+        command through the command manager so the full operation (constraint
+        addition + position changes) is a single Ctrl+Z step.
+        """
+        # 1. Add the constraint temporarily so the solver can compute moves.
+        command.execute()
+        moves = self._compute_constraint_solve_moves()
+        # 2. Remove temporarily — we want the official execute() below to do it.
+        command.undo()
+        # 3. Embed the moves into the command so execute() + undo() handle them.
+        command._item_moves = moves  # type: ignore[attr-defined]
+        # 4. Execute via command_manager (adds constraint + applies moves; one undo unit).
+        self.command_manager.execute(command)
         if moves:
             self._canvas_scene.update_dimension_lines()
 

@@ -562,7 +562,12 @@ class DeleteVertexCommand(Command):
 
 
 class AddConstraintCommand(Command):
-    """Command for adding a constraint (distance, alignment, or angle)."""
+    """Command for adding a constraint (distance, alignment, or angle).
+
+    Optionally includes item position changes computed by running the solver
+    after the constraint is added, so that objects immediately snap to satisfy
+    the new constraint and the move is bundled into the same undo step.
+    """
 
     def __init__(
         self,
@@ -572,6 +577,7 @@ class AddConstraintCommand(Command):
         target_distance: float,
         constraint_type: "ConstraintType | None" = None,
         anchor_c: "AnchorRef | None" = None,
+        item_moves: "list[tuple[QGraphicsItem, QPointF, QPointF]] | None" = None,
     ) -> None:
         from open_garden_planner.core.constraints import ConstraintType
         self._graph = graph
@@ -581,6 +587,7 @@ class AddConstraintCommand(Command):
         self._constraint_type = constraint_type or ConstraintType.DISTANCE
         self._anchor_c = anchor_c
         self._constraint_id: UUID | None = None
+        self._item_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = item_moves or []
 
     @property
     def description(self) -> str:
@@ -596,10 +603,14 @@ class AddConstraintCommand(Command):
             anchor_c=self._anchor_c,
         )
         self._constraint_id = c.constraint_id
+        for item, _old, new in self._item_moves:
+            item.setPos(new)
 
     def undo(self) -> None:
         if self._constraint_id is not None:
             self._graph.remove_constraint(self._constraint_id)
+        for item, old, _new in self._item_moves:
+            item.setPos(old)
 
 
 class RemoveConstraintCommand(Command):
