@@ -368,7 +368,7 @@
 | US-7.15 | Grid array placement | Could | ✅ |
 | US-7.16 | Circular array placement | Could | ✅ Done |
 | US-7.17 | Coincident constraint (merge two anchor points) | Should | ✅ Done |
-| US-7.18 | Parallel constraint (two edges stay parallel) | Could | |
+| US-7.18 | Parallel constraint (two edges stay parallel) | Could | ✅ Done |
 | US-7.19 | Perpendicular constraint (two edges at 90°) | Could | |
 | US-7.20 | Equal size constraint (same radius/width/height) | Could | |
 | US-7.21 | Fix in place / Block constraint (pin object permanently) | Could | |
