@@ -658,6 +658,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # Grid array action
         grid_array_action = menu.addAction("Create Grid Array...")
 
+        # Circular array action
+        circular_array_action = menu.addAction("Create Circular Array...")
+
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
@@ -688,6 +691,14 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                     view = views[0]
                     if hasattr(view, "create_grid_array"):
                         view.create_grid_array()
+        elif action == circular_array_action:
+            scene = self.scene()
+            if scene:
+                views = scene.views()
+                if views:
+                    view = views[0]
+                    if hasattr(view, "create_circular_array"):
+                        view.create_circular_array()
 
     def to_dict(self) -> dict:
         """Serialize the item to a dictionary for saving."""

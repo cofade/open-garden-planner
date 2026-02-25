@@ -463,6 +463,9 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         # Grid array action
         grid_array_action = menu.addAction("Create Grid Array...")
 
+        # Circular array action
+        circular_array_action = menu.addAction("Create Circular Array...")
+
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
@@ -513,6 +516,14 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     view = views[0]
                     if hasattr(view, "create_grid_array"):
                         view.create_grid_array()
+        elif action == circular_array_action:
+            scene = self.scene()
+            if scene:
+                views = scene.views()
+                if views:
+                    view = views[0]
+                    if hasattr(view, "create_circular_array"):
+                        view.create_circular_array()
 
     @classmethod
     def from_rect(cls, rect: QRectF) -> "RectangleItem":
