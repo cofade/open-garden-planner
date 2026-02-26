@@ -34,8 +34,10 @@ COLOR_SYMMETRY_SATISFIED = QColor(140, 0, 180)  # Purple for symmetry constraint
 COLOR_SYMMETRY_VIOLATED = QColor(220, 40, 40)   # Red
 COLOR_COINCIDENT_SATISFIED = QColor(0, 160, 200)  # Teal for coincident constraints
 COLOR_COINCIDENT_VIOLATED = QColor(220, 40, 40)   # Red
-COLOR_PARALLEL_SATISFIED = QColor(20, 160, 100)   # Green for parallel constraints
-COLOR_PARALLEL_VIOLATED = QColor(220, 40, 40)     # Red
+COLOR_PARALLEL_SATISFIED = QColor(20, 160, 100)       # Green for parallel constraints
+COLOR_PARALLEL_VIOLATED = QColor(220, 40, 40)         # Red
+COLOR_PERPENDICULAR_SATISFIED = QColor(20, 120, 160)  # Blue-teal for perpendicular constraints
+COLOR_PERPENDICULAR_VIOLATED = QColor(220, 40, 40)    # Red
 
 # Geometry constants
 WITNESS_LINE_OFFSET = 15.0  # Perpendicular offset from dimension line (in cm)
@@ -197,13 +199,43 @@ class DimensionLineManager:
             mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
             self._build_coincident_marker(group, pos_a, pos_b, mid, color)
         elif constraint.constraint_type == ConstraintType.PARALLEL:
-            # Satisfaction: item B's current rotation_angle matches the stored target (±0.5°)
-            item_b = self._find_item_by_id(constraint.anchor_b.item_id)
-            current_rot = getattr(item_b, "rotation_angle", 0.0) if item_b else 0.0
-            angle_error = abs((current_rot - constraint.target_distance + 90.0) % 180.0 - 90.0)
-            satisfied = angle_error < 0.5
+            # Satisfaction: both edges have the same scene angle (±0.5°)
+            alpha_a = self._compute_edge_angle_for_anchor(
+                constraint.anchor_a.item_id,
+                constraint.anchor_a.anchor_type,
+                constraint.anchor_a.anchor_index,
+            )
+            alpha_b = self._compute_edge_angle_for_anchor(
+                constraint.anchor_b.item_id,
+                constraint.anchor_b.anchor_type,
+                constraint.anchor_b.anchor_index,
+            )
+            if alpha_a is None or alpha_b is None:
+                satisfied = False
+            else:
+                angle_error = abs((alpha_a - alpha_b + 90.0) % 180.0 - 90.0)
+                satisfied = angle_error < 0.5
             color = COLOR_PARALLEL_SATISFIED if satisfied else COLOR_PARALLEL_VIOLATED
             self._build_parallel_marker(group, pos_a, pos_b, color)
+        elif constraint.constraint_type == ConstraintType.PERPENDICULAR:
+            # Satisfaction: the two edges differ by 90° in scene angle (±0.5°)
+            alpha_a = self._compute_edge_angle_for_anchor(
+                constraint.anchor_a.item_id,
+                constraint.anchor_a.anchor_type,
+                constraint.anchor_a.anchor_index,
+            )
+            alpha_b = self._compute_edge_angle_for_anchor(
+                constraint.anchor_b.item_id,
+                constraint.anchor_b.anchor_type,
+                constraint.anchor_b.anchor_index,
+            )
+            if alpha_a is None or alpha_b is None:
+                satisfied = False
+            else:
+                diff = abs(alpha_a - alpha_b) % 180.0
+                satisfied = abs(diff - 90.0) < 0.5
+            color = COLOR_PERPENDICULAR_SATISFIED if satisfied else COLOR_PERPENDICULAR_VIOLATED
+            self._build_perpendicular_marker(group, pos_a, pos_b, color)
         elif constraint.constraint_type == ConstraintType.ANGLE:
             # ANGLE constraint: pos_b is the vertex, pos_a and pos_c are the ray endpoints.
             if constraint.anchor_c is None:
@@ -477,6 +509,61 @@ class DimensionLineManager:
                 return item
         return None
 
+    def _compute_edge_angle_for_anchor(
+        self, item_id: UUID, anchor_type: AnchorType, anchor_index: int
+    ) -> float | None:
+        """Compute the scene angle [0, 180°) of an edge anchor on the given item.
+
+        Returns the angle in degrees, or None if not computable (wrong item type,
+        missing anchor, etc.).
+        """
+        from open_garden_planner.ui.canvas.items import PolylineItem, RectangleItem
+        from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+        item = self._find_item_by_id(item_id)
+        if item is None:
+            return None
+
+        anchors = get_anchor_points(item)
+
+        if isinstance(item, RectangleItem):
+            corner_map = {
+                AnchorType.EDGE_TOP:    (0, 1),
+                AnchorType.EDGE_BOTTOM: (2, 3),
+                AnchorType.EDGE_LEFT:   (0, 2),
+                AnchorType.EDGE_RIGHT:  (1, 3),
+            }
+            if anchor_type not in corner_map:
+                return None
+            i0, i1 = corner_map[anchor_type]
+            corners = {a.anchor_index: a.point for a in anchors if a.anchor_type == AnchorType.CORNER}
+            if i0 not in corners or i1 not in corners:
+                return None
+            p1, p2 = corners[i0], corners[i1]
+        elif isinstance(item, PolygonItem):
+            polygon = item.polygon()
+            n = polygon.count()
+            if n < 2:
+                return None
+            i = anchor_index
+            p1 = item.mapToScene(polygon.at(i))
+            p2 = item.mapToScene(polygon.at((i + 1) % n))
+        elif isinstance(item, PolylineItem):
+            pts = item.points
+            i = anchor_index
+            if i < 0 or i + 1 >= len(pts):
+                return None
+            p1 = item.mapToScene(pts[i])
+            p2 = item.mapToScene(pts[i + 1])
+        else:
+            return None
+
+        dx = p2.x() - p1.x()
+        dy = p2.y() - p1.y()
+        if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+            return None
+        return math.degrees(math.atan2(dy, dx)) % 180.0
+
     def _build_parallel_marker(
         self,
         group: DimensionLineGroup,
@@ -508,6 +595,49 @@ class DimensionLineManager:
         # "∥" label near the midpoint
         mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
         text_item = QGraphicsSimpleTextItem("\u2225")
+        font = QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        text_item.setFont(font)
+        text_item.setBrush(QBrush(color))
+        text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        text_item.setZValue(DIMENSION_LINE_Z + 1)
+        text_item.setPos(QPointF(mid.x() + 4, mid.y() - 8))
+        self._scene.addItem(text_item)
+        group.items.append(text_item)
+
+    def _build_perpendicular_marker(
+        self,
+        group: DimensionLineGroup,
+        pos_a: QPointF,
+        pos_b: QPointF,
+        color: QColor,
+    ) -> None:
+        """Draw a right-angle symbol (⊾) at each edge midpoint and a dashed connector."""
+        pen = QPen(color, 1.5)
+        pen.setCosmetic(True)
+
+        # Dashed connector line between the two edge midpoints
+        dash_pen = QPen(color, 1.0, Qt.PenStyle.DashLine)
+        dash_pen.setCosmetic(True)
+        connector = self._scene.addLine(QLineF(pos_a, pos_b), dash_pen)
+        connector.setZValue(DIMENSION_LINE_Z)
+        group.items.append(connector)
+
+        # Draw a small right-angle square marker at each anchor
+        SZ = 5.0  # half-size of the right-angle square in scene units
+        for pos in (pos_a, pos_b):
+            path = QPainterPath()
+            path.moveTo(pos.x() - SZ, pos.y())
+            path.lineTo(pos.x() - SZ, pos.y() - SZ)
+            path.lineTo(pos.x(), pos.y() - SZ)
+            right_angle = self._scene.addPath(path, pen)
+            right_angle.setZValue(DIMENSION_LINE_Z + 1)
+            group.items.append(right_angle)
+
+        # "⊾" label near the midpoint
+        mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
+        text_item = QGraphicsSimpleTextItem("\u22be")
         font = QFont()
         font.setPointSize(10)
         font.setBold(True)
@@ -797,6 +927,7 @@ class DimensionLineManager:
                 ConstraintType.SYMMETRY_VERTICAL,
                 ConstraintType.COINCIDENT,
                 ConstraintType.PARALLEL,
+                ConstraintType.PERPENDICULAR,
             ):
                 # Check proximity to the connector line between the two anchors
                 dist = _point_to_segment_distance(scene_pos, pos_a, pos_b)

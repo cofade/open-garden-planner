@@ -28,6 +28,7 @@ _COLOR_ALIGN_SATISFIED = QColor(120, 0, 180)
 _COLOR_ANGLE_SATISFIED = QColor(200, 100, 0)
 _COLOR_COINCIDENT_SATISFIED = QColor(0, 160, 200)
 _COLOR_PARALLEL_SATISFIED = QColor(20, 160, 100)
+_COLOR_PERPENDICULAR_SATISFIED = QColor(20, 120, 160)
 
 
 def _make_status_icon(color: QColor, size: int = 14) -> QPixmap:
@@ -79,6 +80,7 @@ class ConstraintListItem(QWidget):
         is_angle = constraint_type_name == "ANGLE"
         is_coincident = constraint_type_name == "COINCIDENT"
         is_parallel = constraint_type_name == "PARALLEL"
+        is_perpendicular = constraint_type_name == "PERPENDICULAR"
         if is_alignment:
             color = _COLOR_ALIGN_SATISFIED if satisfied else _COLOR_VIOLATED
         elif is_angle:
@@ -87,6 +89,8 @@ class ConstraintListItem(QWidget):
             color = _COLOR_COINCIDENT_SATISFIED if satisfied else _COLOR_VIOLATED
         elif is_parallel:
             color = _COLOR_PARALLEL_SATISFIED if satisfied else _COLOR_VIOLATED
+        elif is_perpendicular:
+            color = _COLOR_PERPENDICULAR_SATISFIED if satisfied else _COLOR_VIOLATED
         else:
             color = _COLOR_SATISFIED if satisfied else _COLOR_VIOLATED
 
@@ -118,6 +122,9 @@ class ConstraintListItem(QWidget):
         elif constraint_type_name == "PARALLEL":
             detail = self.tr("\u2225 Parallel")
             tooltip = self.tr("{a} parallel to {b}").format(a=label_a, b=label_b)
+        elif constraint_type_name == "PERPENDICULAR":
+            detail = self.tr("\u22be Perpendicular")
+            tooltip = self.tr("{a} perpendicular to {b}").format(a=label_a, b=label_b)
         else:
             dist_m = target_distance / 100.0
             detail = f"{dist_m:.2f} m"
@@ -131,6 +138,8 @@ class ConstraintListItem(QWidget):
             text = f"⦿ {label_a}  ↔  {label_b}   {detail}"
         elif constraint_type_name == "PARALLEL":
             text = f"\u2225 {label_a}  \u2225  {label_b}"
+        elif constraint_type_name == "PERPENDICULAR":
+            text = f"\u22be {label_a}  \u22be  {label_b}"
         else:
             text = f"{label_a}  \u2194  {label_b}   {detail}"
         label = QLabel(text)
@@ -356,11 +365,34 @@ class ConstraintsPanel(QWidget):
             current_deg = math.degrees(math.acos(cos_val))
             return abs(current_deg - constraint.target_distance) < 0.5
         if constraint.constraint_type == ConstraintType.PARALLEL:
-            # Satisfied when item B's rotation matches the stored target (±0.5°)
-            item_b = dlm._find_item_by_id(constraint.anchor_b.item_id)
-            current_rot = getattr(item_b, "rotation_angle", 0.0) if item_b else 0.0
-            angle_error = abs((current_rot - constraint.target_distance + 90.0) % 180.0 - 90.0)
-            return angle_error < 0.5
+            alpha_a = dlm._compute_edge_angle_for_anchor(
+                constraint.anchor_a.item_id,
+                constraint.anchor_a.anchor_type,
+                constraint.anchor_a.anchor_index,
+            )
+            alpha_b = dlm._compute_edge_angle_for_anchor(
+                constraint.anchor_b.item_id,
+                constraint.anchor_b.anchor_type,
+                constraint.anchor_b.anchor_index,
+            )
+            if alpha_a is None or alpha_b is None:
+                return False
+            return abs((alpha_a - alpha_b + 90.0) % 180.0 - 90.0) < 0.5
+        if constraint.constraint_type == ConstraintType.PERPENDICULAR:
+            alpha_a = dlm._compute_edge_angle_for_anchor(
+                constraint.anchor_a.item_id,
+                constraint.anchor_a.anchor_type,
+                constraint.anchor_a.anchor_index,
+            )
+            alpha_b = dlm._compute_edge_angle_for_anchor(
+                constraint.anchor_b.item_id,
+                constraint.anchor_b.anchor_type,
+                constraint.anchor_b.anchor_index,
+            )
+            if alpha_a is None or alpha_b is None:
+                return False
+            diff = abs(alpha_a - alpha_b) % 180.0
+            return abs(diff - 90.0) < 0.5
 
         current_dist = QLineF(pos_a, pos_b).length()
         return abs(current_dist - constraint.target_distance) < 1.0

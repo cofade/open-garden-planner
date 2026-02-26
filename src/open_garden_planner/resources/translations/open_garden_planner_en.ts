@@ -1621,8 +1621,8 @@ Please restart the application for the change to take effect.</translation>
             <translation>Parallel</translation>
         </message>
         <message>
-            <source>Perpendicular (coming soon)</source>
-            <translation>Perpendicular (coming soon)</translation>
+            <source>Perpendicular</source>
+            <translation>Perpendicular</translation>
         </message>
         <message>
             <source>Equal Size (coming soon)</source>
@@ -1778,6 +1778,25 @@ Please restart the application for the change to take effect.</translation>
         <message>
             <source>&#x2225; Parallel</source>
             <translation>&#x2225; Parallel</translation>
+        </message>
+        <message>
+            <source>Cannot determine the angle of the selected edge on object A.</source>
+            <translation>Cannot determine the angle of the selected edge on object A.</translation>
+        </message>
+        <message>
+            <source>Cannot determine the angle of the selected edge on object B.</source>
+            <translation>Cannot determine the angle of the selected edge on object B.</translation>
+        </message>
+    </context>
+    <context>
+        <name>PerpendicularConstraintTool</name>
+        <message>
+            <source>Perpendicular Constraint</source>
+            <translation>Perpendicular Constraint</translation>
+        </message>
+        <message>
+            <source>&#x22BE; Perpendicular</source>
+            <translation>&#x22BE; Perpendicular</translation>
         </message>
         <message>
             <source>Cannot determine the angle of the selected edge on object A.</source>
@@ -3133,6 +3152,14 @@ not yet implemented</translation>
         <message>
             <source>{a} parallel to {b}</source>
             <translation>{a} parallel to {b}</translation>
+        </message>
+        <message>
+            <source>&#x22BE; Perpendicular</source>
+            <translation>&#x22BE; Perpendicular</translation>
+        </message>
+        <message>
+            <source>{a} perpendicular to {b}</source>
+            <translation>{a} perpendicular to {b}</translation>
         </message>
     </context>
     <context>

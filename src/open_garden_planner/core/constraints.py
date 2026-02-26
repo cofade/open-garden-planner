@@ -27,6 +27,7 @@ class ConstraintType(Enum):
     SYMMETRY_VERTICAL = auto()     # Mirror A and B across a vertical axis (x = target_distance)
     COINCIDENT = auto()            # Force two anchor points to the same position (distance = 0)
     PARALLEL = auto()              # Keep two edges parallel (item B at target rotation angle)
+    PERPENDICULAR = auto()         # Keep two edges at 90° (item B perpendicular to edge A)
 
 
 class ConstraintStatus(Enum):
@@ -147,6 +148,15 @@ class ConstraintGraph:
     def constraints(self) -> dict[UUID, Constraint]:
         """All constraints indexed by constraint_id."""
         return self._constraints
+
+    def has_rotation_constraint(self, item_id: UUID) -> bool:
+        """Return True if *item_id* participates in any PARALLEL or PERPENDICULAR constraint."""
+        rotation_types = {ConstraintType.PARALLEL, ConstraintType.PERPENDICULAR}
+        for cid in self._adjacency.get(item_id, set()):
+            c = self._constraints.get(cid)
+            if c and c.constraint_type in rotation_types:
+                return True
+        return False
 
     def add_constraint(
         self,
@@ -407,8 +417,11 @@ class ConstraintGraph:
                         positions[id_b][0] -= diff / 2.0
                     continue
 
-                if constraint.constraint_type == ConstraintType.PARALLEL:
-                    # PARALLEL is a rotation-only constraint; no position correction.
+                if constraint.constraint_type in (
+                    ConstraintType.PARALLEL,
+                    ConstraintType.PERPENDICULAR,
+                ):
+                    # Rotation-only constraints; no position correction.
                     continue
 
                 # DISTANCE constraint
@@ -769,17 +782,13 @@ class ConstraintGraph:
                         positions[id_b][1] = mid_y - off_b[1]
                     continue
 
-                if constraint.constraint_type == ConstraintType.PARALLEL:
-                    # PARALLEL: anchor_b identifies item B (constrained item).
+                if constraint.constraint_type in (
+                    ConstraintType.PARALLEL,
+                    ConstraintType.PERPENDICULAR,
+                ):
+                    # PARALLEL / PERPENDICULAR: rotation-only constraints.
                     # target_distance is the desired rotation_angle for item B.
-                    # This is handled as a rotation, not a position change.
-                    # We record a rotation delta in rotation_deltas and skip
-                    # the position solver for this constraint.
-                    if b_pinned:
-                        continue
-                    # target_distance is the desired rotation angle for item B
-                    # Item rotations are applied post-solve; record the intent.
-                    # (No position correction needed here.)
+                    # Position solver skips these; rotation is applied post-solve.
                     continue
 
                 # DISTANCE constraint
