@@ -279,6 +279,10 @@ class ResizeHandle(QGraphicsRectItem):
         # Apply resize based on handle position
         self._apply_resize(delta)
 
+        # Propagate to EQUAL-constrained partners in real time
+        if self._parent_item is not None and hasattr(self._parent_item, '_propagate_equal_resize_live'):
+            self._parent_item._propagate_equal_resize_live()
+
         event.accept()
 
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
@@ -772,6 +776,35 @@ class ResizeHandlesMixin:
             self._resize_initial_rect = self.boundingRect()  # type: ignore[attr-defined]
         if hasattr(self, 'pos'):
             self._resize_initial_pos = self.pos()  # type: ignore[attr-defined]
+        # Capture EQUAL-constrained partner sizes before any propagation (for undo)
+        scene = self.scene() if hasattr(self, 'scene') else None  # type: ignore[attr-defined]
+        if scene is not None and hasattr(self, 'item_id'):
+            from open_garden_planner.core.tools.constraint_tool import (
+                _capture_equal_partner_pre_states,  # noqa: PLC0415
+            )
+            self._equal_partner_pre_states: list = _capture_equal_partner_pre_states(self, scene)
+        else:
+            self._equal_partner_pre_states = []
+
+    def _propagate_equal_resize_live(self) -> None:
+        """Apply EQUAL-constraint propagation to partners during resize drag.
+
+        Guards against re-entrancy so propagation on a partner does not trigger
+        a second round of propagation back to this item.
+        """
+        if getattr(self, '_propagating_equal_resize', False):
+            return
+        scene = self.scene() if hasattr(self, 'scene') else None  # type: ignore[attr-defined]
+        if scene is None:
+            return
+        self._propagating_equal_resize = True  # type: ignore[attr-defined]
+        try:
+            from open_garden_planner.core.tools.constraint_tool import (
+                _apply_equal_propagation_live,  # noqa: PLC0415
+            )
+            _apply_equal_propagation_live(self, scene)
+        finally:
+            self._propagating_equal_resize = False  # type: ignore[attr-defined]
 
     def _on_resize_end(
         self,

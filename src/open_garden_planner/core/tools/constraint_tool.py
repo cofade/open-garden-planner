@@ -1374,6 +1374,506 @@ def _find_nearest_edge_anchor(scene_pos, scene_items):
     return best
 
 
+def _compute_equal_dimension(anchor) -> float | None:
+    """Compute the relevant 'size' dimension for an EQUAL constraint anchor.
+
+    - CircleItem + any EDGE_* → radius
+    - RectangleItem + EDGE_TOP/EDGE_BOTTOM → rect width
+    - RectangleItem + EDGE_LEFT/EDGE_RIGHT → rect height
+    - PolygonItem / PolylineItem + EDGE_* (with index) → segment length
+
+    Returns the dimension in scene units (cm), or None if not computable.
+    """
+    import math as _math
+
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.ui.canvas.items import PolylineItem, RectangleItem
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    item = anchor.item
+    anchor_type = anchor.anchor_type
+    anchor_index = anchor.anchor_index
+
+    if isinstance(item, CircleItem):
+        return item._radius
+
+    if isinstance(item, RectangleItem):
+        rect = item.rect()
+        if anchor_type in (AnchorType.EDGE_TOP, AnchorType.EDGE_BOTTOM):
+            return abs(rect.width())
+        if anchor_type in (AnchorType.EDGE_LEFT, AnchorType.EDGE_RIGHT):
+            return abs(rect.height())
+        return None
+
+    if isinstance(item, PolygonItem):
+        polygon = item.polygon()
+        n = polygon.count()
+        if n < 2:
+            return None
+        i = anchor_index
+        p1 = item.mapToScene(polygon.at(i))
+        p2 = item.mapToScene(polygon.at((i + 1) % n))
+        dx, dy = p2.x() - p1.x(), p2.y() - p1.y()
+        return _math.sqrt(dx * dx + dy * dy)
+
+    if isinstance(item, PolylineItem):
+        pts = item.points
+        i = anchor_index
+        if i < 0 or i + 1 >= len(pts):
+            return None
+        p1 = item.mapToScene(pts[i])
+        p2 = item.mapToScene(pts[i + 1])
+        dx, dy = p2.x() - p1.x(), p2.y() - p1.y()
+        return _math.sqrt(dx * dx + dy * dy)
+
+    return None
+
+
+def _build_equal_resize_fn(item, anchor_type):
+    """Return (old_size, apply_fn) for resizing item to equalize its dimension.
+
+    apply_fn(item, new_size) resizes the item while keeping its visual center.
+    Returns (None, None) if the item/anchor combination is not resizable.
+    """
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.ui.canvas.items import RectangleItem
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+    if isinstance(item, CircleItem):
+        old_size = item._radius
+
+        def circle_apply(it, new_r: float) -> None:
+            r = it.rect()
+            cx = r.x() + r.width() / 2
+            cy = r.y() + r.height() / 2
+            it.setRect(cx - new_r, cy - new_r, 2 * new_r, 2 * new_r)
+            it._radius = new_r
+            it.update_resize_handles()
+            it._position_label()
+
+        return old_size, circle_apply
+
+    if isinstance(item, RectangleItem):
+        rect = item.rect()
+        if anchor_type in (AnchorType.EDGE_TOP, AnchorType.EDGE_BOTTOM):
+            old_size = abs(rect.width())
+
+            def rect_width_apply(it, new_w: float) -> None:
+                r = it.rect()
+                scene_cx = it.pos().x() + r.x() + r.width() / 2
+                new_px = scene_cx - r.x() - new_w / 2
+                it._apply_resize(r.x(), r.y(), new_w, r.height(), new_px, it.pos().y())
+
+            return old_size, rect_width_apply
+
+        if anchor_type in (AnchorType.EDGE_LEFT, AnchorType.EDGE_RIGHT):
+            old_size = abs(rect.height())
+
+            def rect_height_apply(it, new_h: float) -> None:
+                r = it.rect()
+                scene_cy = it.pos().y() + r.y() + r.height() / 2
+                new_py = scene_cy - r.y() - new_h / 2
+                it._apply_resize(r.x(), r.y(), r.width(), new_h, it.pos().x(), new_py)
+
+            return old_size, rect_height_apply
+
+    return None, None
+
+
+def _capture_equal_partner_pre_states(source_item, scene) -> list:
+    """Snapshot ALL transitively EQUAL-connected partner sizes before a resize drag.
+
+    Performs a BFS through the full EQUAL constraint chain so that every item
+    reachable from source_item (however many hops) is captured for undo bundling.
+
+    Returns list of (partner_item, old_size, apply_fn, partner_anchor_type).
+    """
+    import collections  # noqa: PLC0415
+
+    from open_garden_planner.core.constraints import ConstraintType  # noqa: PLC0415
+    from open_garden_planner.ui.canvas.items import GardenItemMixin  # noqa: PLC0415
+
+    if not hasattr(source_item, "item_id") or not hasattr(scene, "constraint_graph"):
+        return []
+
+    graph = scene.constraint_graph
+    item_map = {
+        it.item_id: it
+        for it in scene.items()
+        if isinstance(it, GardenItemMixin) and hasattr(it, "item_id")
+    }
+
+    results = []
+    visited: set = {source_item.item_id}
+    queue = collections.deque([source_item])
+
+    while queue:
+        current = queue.popleft()
+        for c in graph.get_item_constraints(current.item_id):
+            if c.constraint_type != ConstraintType.EQUAL:
+                continue
+
+            if c.anchor_a.item_id == current.item_id:
+                partner_id = c.anchor_b.item_id
+                partner_anchor_type = c.anchor_b.anchor_type
+            else:
+                partner_id = c.anchor_a.item_id
+                partner_anchor_type = c.anchor_a.anchor_type
+
+            if partner_id in visited:
+                continue
+            visited.add(partner_id)
+
+            partner = item_map.get(partner_id)
+            if partner is None:
+                continue
+
+            old_size, apply_fn = _build_equal_resize_fn(partner, partner_anchor_type)
+            if apply_fn is None:
+                continue
+
+            results.append((partner, old_size, apply_fn, partner_anchor_type))
+            queue.append(partner)
+
+    return results
+
+
+def _apply_equal_propagation_live(source_item, scene) -> None:
+    """Resize ALL transitively EQUAL-connected items to match source_item's current size.
+
+    Performs a BFS so that chains like A→B→C→D all update in one call.
+    At each hop the dimension is re-computed from the just-resized item so
+    that the correct dimension (width vs height vs radius) is propagated even
+    when anchor types differ along the chain.
+
+    Guard against re-entrancy before calling this.
+    """
+    import collections  # noqa: PLC0415
+
+    from open_garden_planner.core.constraints import ConstraintType  # noqa: PLC0415
+    from open_garden_planner.ui.canvas.items import GardenItemMixin  # noqa: PLC0415
+
+    if not hasattr(source_item, "item_id") or not hasattr(scene, "constraint_graph"):
+        return
+
+    graph = scene.constraint_graph
+    item_map = {
+        it.item_id: it
+        for it in scene.items()
+        if isinstance(it, GardenItemMixin) and hasattr(it, "item_id")
+    }
+
+    class _AP:
+        def __init__(self, item, anchor_type, anchor_index: int) -> None:
+            self.item = item
+            self.anchor_type = anchor_type
+            self.anchor_index = anchor_index
+
+    # BFS: each entry is the item we just finished resizing.
+    # We compute its current dimension for each outgoing EQUAL constraint and
+    # propagate to partners that haven't been updated yet.
+    visited: set = {source_item.item_id}
+    queue = collections.deque([source_item])
+
+    while queue:
+        current = queue.popleft()
+        for c in graph.get_item_constraints(current.item_id):
+            if c.constraint_type != ConstraintType.EQUAL:
+                continue
+
+            if c.anchor_a.item_id == current.item_id:
+                src_type = c.anchor_a.anchor_type
+                src_idx = c.anchor_a.anchor_index
+                partner_id = c.anchor_b.item_id
+                partner_type = c.anchor_b.anchor_type
+            else:
+                src_type = c.anchor_b.anchor_type
+                src_idx = c.anchor_b.anchor_index
+                partner_id = c.anchor_a.item_id
+                partner_type = c.anchor_a.anchor_type
+
+            if partner_id in visited:
+                continue
+
+            # Compute the current item's dimension for this constraint's port.
+            # If the dimension doesn't match what was propagated (e.g. a rectangle
+            # whose height is being queried but only its width changed), skip.
+            new_size = _compute_equal_dimension(_AP(current, src_type, src_idx))
+            if new_size is None:
+                continue
+
+            partner = item_map.get(partner_id)
+            if partner is None:
+                continue
+
+            _, apply_fn = _build_equal_resize_fn(partner, partner_type)
+            if apply_fn is None:
+                continue
+
+            apply_fn(partner, new_size)
+            visited.add(partner_id)
+            queue.append(partner)
+
+
+# ─── Equal-size constraint ─────────────────────────────────────────────────────
+
+PREVIEW_EQUAL_COLOR = QColor(200, 100, 0, 200)   # Amber for equal-size constraint
+
+
+class EqualConstraintTool(BaseTool):
+    """Tool for creating equal-size constraints between two items.
+
+    Workflow:
+    1. Hover over an item — edge midpoints are highlighted (amber circles).
+    2. Click an edge midpoint on object A (reference):
+       - EDGE_TOP/BOTTOM on rectangle → locks width
+       - EDGE_LEFT/RIGHT on rectangle → locks height
+       - any EDGE_* on circle → locks radius
+       - EDGE_* (with index) on polygon/polyline → locks segment length
+    3. Click an edge midpoint on object B — object B is immediately resized so
+       its corresponding dimension equals object A's dimension.
+    4. The constraint is stored with undo/redo bundling the resize.
+    """
+
+    def __init__(self, view) -> None:
+        super().__init__(view)
+        self._anchor_a = None
+        self._graphics_items: list = []
+        self._edge_indicators: list = []
+        self._selected_marker = None
+        self._preview_line = None
+        self._preview_text = None
+
+    @property
+    def tool_type(self) -> ToolType:
+        return ToolType.CONSTRAINT_EQUAL
+
+    @property
+    def display_name(self) -> str:
+        return QCoreApplication.translate("EqualConstraintTool", "Equal Size Constraint")
+
+    @property
+    def shortcut(self) -> str:
+        return ""
+
+    @property
+    def cursor(self) -> QCursor:
+        return QCursor(Qt.CursorShape.CrossCursor)
+
+    def activate(self) -> None:
+        super().activate()
+        self._reset()
+
+    def deactivate(self) -> None:
+        super().deactivate()
+        self._reset()
+
+    def _reset(self) -> None:
+        self._anchor_a = None
+        self._clear_all_visuals()
+
+    def _clear_all_visuals(self) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        for item in self._graphics_items:
+            if item.scene():
+                scene.removeItem(item)
+        self._graphics_items.clear()
+        self._clear_edge_indicators()
+        self._selected_marker = None
+        self._preview_line = None
+        self._preview_text = None
+
+    def _clear_edge_indicators(self) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        for item in self._edge_indicators:
+            if item.scene():
+                scene.removeItem(item)
+        self._edge_indicators.clear()
+
+    def _show_edge_indicators(self, scene_pos: QPointF) -> None:
+        from open_garden_planner.core.measure_snapper import AnchorType  # noqa: PLC0415
+
+        scene = self._view.scene()
+        if not scene:
+            return
+        self._clear_edge_indicators()
+
+        edge_types = {AnchorType.EDGE_TOP, AnchorType.EDGE_BOTTOM,
+                      AnchorType.EDGE_LEFT, AnchorType.EDGE_RIGHT}
+
+        items_at = scene.items(scene_pos)
+        hovered = None
+        for it in items_at:
+            if isinstance(it, GardenItemMixin) and it.flags() & it.GraphicsItemFlag.ItemIsSelectable:
+                hovered = it
+                break
+
+        if hovered is None:
+            return
+
+        for anchor in get_anchor_points(hovered):
+            if anchor.anchor_type not in edge_types:
+                continue
+            r = ANCHOR_INDICATOR_RADIUS
+            rect = QRectF(anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2)
+            pen = QPen(PREVIEW_EQUAL_COLOR, PEN_WIDTH)
+            indicator = scene.addEllipse(rect, pen)
+            indicator.setZValue(1002)
+            self._edge_indicators.append(indicator)
+
+    def _show_selected_anchor(self, anchor) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        r = ANCHOR_INDICATOR_RADIUS + 2
+        rect = QRectF(anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2)
+        pen = QPen(ANCHOR_SELECTED_COLOR, PEN_WIDTH)
+        self._selected_marker = scene.addEllipse(rect, pen)
+        self._selected_marker.setZValue(1003)
+        self._graphics_items.append(self._selected_marker)
+
+    def _update_preview(self, end_pos: QPointF) -> None:
+        scene = self._view.scene()
+        if not scene or self._anchor_a is None:
+            return
+
+        start = self._anchor_a.point
+        color = PREVIEW_EQUAL_COLOR
+
+        if self._preview_line and self._preview_line.scene():
+            scene.removeItem(self._preview_line)
+            self._graphics_items.remove(self._preview_line)
+        if self._preview_text and self._preview_text.scene():
+            scene.removeItem(self._preview_text)
+            self._graphics_items.remove(self._preview_text)
+
+        pen = QPen(color, 2, Qt.PenStyle.DashLine)
+        self._preview_line = scene.addLine(QLineF(start, end_pos), pen)
+        self._preview_line.setZValue(1001)
+        self._graphics_items.append(self._preview_line)
+
+        text = QCoreApplication.translate("EqualConstraintTool", "= Equal")
+        mid_x = (start.x() + end_pos.x()) / 2
+        mid_y = (start.y() + end_pos.y()) / 2
+        self._preview_text = scene.addText(text)
+        self._preview_text.setDefaultTextColor(color)
+        font = QFont()
+        font.setPointSize(11)
+        font.setBold(True)
+        self._preview_text.setFont(font)
+        text_rect = self._preview_text.boundingRect()
+        self._preview_text.setPos(mid_x - text_rect.width() / 2, mid_y - text_rect.height() / 2)
+        self._preview_text.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        self._preview_text.setZValue(1002)
+        self._graphics_items.append(self._preview_text)
+
+    def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+
+        scene = self._view.scene()
+        if not scene:
+            return True
+
+        edge = _find_nearest_edge_anchor(scene_pos, scene.items())
+        if edge is None:
+            return True
+
+        if self._anchor_a is None:
+            self._anchor_a = edge
+            self._clear_edge_indicators()
+            self._show_selected_anchor(edge)
+        else:
+            anchor_b = edge
+            if (
+                hasattr(self._anchor_a.item, "item_id")
+                and hasattr(anchor_b.item, "item_id")
+                and self._anchor_a.item.item_id == anchor_b.item.item_id
+            ):
+                return True
+
+            self._create_equal_constraint(self._anchor_a, anchor_b)
+            self._reset()
+
+        return True
+
+    def _create_equal_constraint(self, anchor_a, anchor_b) -> None:
+        from open_garden_planner.core.commands import AddConstraintCommand
+        from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+
+        scene = self._view.scene()
+        if not scene:
+            return
+        if not hasattr(anchor_a.item, "item_id") or not hasattr(anchor_b.item, "item_id"):
+            return
+
+        dim_a = _compute_equal_dimension(anchor_a)
+        if dim_a is None:
+            QMessageBox.warning(
+                self._view,
+                QCoreApplication.translate("EqualConstraintTool", "Equal Size Constraint"),
+                QCoreApplication.translate(
+                    "EqualConstraintTool",
+                    "Cannot determine the size dimension for object A.",
+                ),
+            )
+            return
+
+        ref_a = AnchorRef(
+            item_id=anchor_a.item.item_id,
+            anchor_type=anchor_a.anchor_type,
+            anchor_index=anchor_a.anchor_index,
+        )
+        ref_b = AnchorRef(
+            item_id=anchor_b.item.item_id,
+            anchor_type=anchor_b.anchor_type,
+            anchor_index=anchor_b.anchor_index,
+        )
+
+        # Resize item B to match item A's dimension
+        old_size_b, apply_fn = _build_equal_resize_fn(anchor_b.item, anchor_b.anchor_type)
+        item_sizes: list = []
+        if apply_fn is not None and old_size_b is not None and abs(dim_a - old_size_b) > 0.01:
+            item_sizes = [(anchor_b.item, old_size_b, dim_a, apply_fn)]
+
+        command = AddConstraintCommand(
+            graph=scene.constraint_graph,
+            anchor_a=ref_a,
+            anchor_b=ref_b,
+            target_distance=dim_a,
+            constraint_type=ConstraintType.EQUAL,
+            item_rotations=item_sizes,
+        )
+        self._view._execute_constraint_with_solve(command)
+
+    def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
+        self._show_edge_indicators(scene_pos)
+        if self._anchor_a is not None:
+            scene = self._view.scene()
+            items = scene.items() if scene else []
+            edge = _find_nearest_edge_anchor(scene_pos, items)
+            end = edge.point if edge else scene_pos
+            self._update_preview(end)
+        return True
+
+    def mouse_release(self, _event: QMouseEvent, _scene_pos: QPointF) -> bool:
+        return False
+
+    def key_press(self, event: QKeyEvent) -> bool:
+        if event.key() == Qt.Key.Key_Escape:
+            self._reset()
+            return True
+        return False
+
+    def cancel(self) -> None:
+        self._reset()
+
+
 class ParallelConstraintTool(BaseTool):
     """Tool for creating parallel constraints between two item edges.
 

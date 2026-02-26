@@ -1308,3 +1308,95 @@ class TestPerpendicularConstraint:
         assert rc.target_distance == 45.0
         assert rc.anchor_a.anchor_type == AnchorType.EDGE_TOP
         assert rc.anchor_b.anchor_type == AnchorType.EDGE_RIGHT
+
+
+# --- Equal constraint tests ---
+
+
+class TestEqualConstraint:
+    """Tests for the EQUAL constraint type."""
+
+    def test_equal_constraint_type_enum(self, qtbot) -> None:
+        """EQUAL should be a distinct ConstraintType."""
+        assert ConstraintType.EQUAL != ConstraintType.DISTANCE
+        assert ConstraintType.EQUAL != ConstraintType.HORIZONTAL
+        assert ConstraintType.EQUAL != ConstraintType.PARALLEL
+        assert ConstraintType.EQUAL != ConstraintType.PERPENDICULAR
+        assert ConstraintType.EQUAL != ConstraintType.COINCIDENT
+
+    def test_add_equal_constraint(self, qtbot) -> None:
+        """Can add an EQUAL constraint to a graph."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.EDGE_TOP),
+            AnchorRef(id_b, AnchorType.EDGE_TOP),
+            50.0,
+            constraint_type=ConstraintType.EQUAL,
+        )
+        assert c.constraint_type == ConstraintType.EQUAL
+        assert c.target_distance == 50.0
+        assert c.anchor_a.anchor_type == AnchorType.EDGE_TOP
+        assert c.anchor_b.anchor_type == AnchorType.EDGE_TOP
+
+    def test_equal_solver_does_not_translate(self, qtbot) -> None:
+        """EQUAL constraint should not produce translation deltas (size-only)."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.EDGE_TOP),
+            AnchorRef(id_b, AnchorType.EDGE_TOP),
+            80.0,
+            constraint_type=ConstraintType.EQUAL,
+        )
+        positions = {id_a: (0.0, 0.0), id_b: (100.0, 0.0)}
+        result = graph.solve(positions)
+        assert id_a not in result.item_deltas
+        assert id_b not in result.item_deltas
+
+    def test_equal_constraint_serialization_roundtrip(self, qtbot) -> None:
+        """EQUAL constraint survives to_dict/from_dict round-trip."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.EDGE_LEFT),
+            AnchorRef(id_b, AnchorType.EDGE_LEFT),
+            120.0,
+            constraint_type=ConstraintType.EQUAL,
+        )
+        data = graph.to_list()
+        restored = ConstraintGraph.from_list(data)
+        assert len(restored.constraints) == 1
+        rc = list(restored.constraints.values())[0]
+        assert rc.constraint_type == ConstraintType.EQUAL
+        assert rc.target_distance == 120.0
+        assert rc.anchor_a.anchor_type == AnchorType.EDGE_LEFT
+        assert rc.anchor_b.anchor_type == AnchorType.EDGE_LEFT
+
+    def test_equal_constraint_adjacency(self, qtbot) -> None:
+        """Both items should appear in the constraint graph adjacency."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.EDGE_TOP),
+            AnchorRef(id_b, AnchorType.EDGE_TOP),
+            60.0,
+            constraint_type=ConstraintType.EQUAL,
+        )
+        assert len(graph.get_item_constraints(id_a)) == 1
+        assert len(graph.get_item_constraints(id_b)) == 1
+
+    def test_equal_constraint_remove(self, qtbot) -> None:
+        """Removing an EQUAL constraint clears it from the graph."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.EDGE_BOTTOM),
+            AnchorRef(id_b, AnchorType.EDGE_BOTTOM),
+            40.0,
+            constraint_type=ConstraintType.EQUAL,
+        )
+        graph.remove_constraint(c.constraint_id)
+        assert len(graph.constraints) == 0
+        assert len(graph.get_item_constraints(id_a)) == 0
+        assert len(graph.get_item_constraints(id_b)) == 0
