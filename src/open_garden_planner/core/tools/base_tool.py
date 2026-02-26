@@ -21,8 +21,9 @@ class ToolType(Enum):
     CONSTRAINT_VERTICAL = auto()    # Vertical alignment constraint
     CONSTRAINT_ANGLE = auto()       # Angle constraint (3-point)
     CONSTRAINT_SYMMETRY = auto()    # Symmetry constraint (mirror across H/V axis)
-    CONSTRAINT_COINCIDENT = auto()  # Coincident constraint (merge two anchor points)
-    CONSTRAINT_PARALLEL = auto()    # Parallel constraint (two edges stay parallel)
+    CONSTRAINT_COINCIDENT = auto()      # Coincident constraint (merge two anchor points)
+    CONSTRAINT_PARALLEL = auto()        # Parallel constraint (two edges stay parallel)
+    CONSTRAINT_PERPENDICULAR = auto()   # Perpendicular constraint (two edges at 90°)
 
     # Property object types (polygon-based)
     HOUSE = auto()

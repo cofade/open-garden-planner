@@ -1243,3 +1243,68 @@ class TestParallelConstraint:
         result = graph.solve(positions)
         assert hasattr(result, "item_rotation_deltas")
         assert isinstance(result.item_rotation_deltas, dict)
+
+
+# --- Perpendicular constraint tests ---
+
+
+class TestPerpendicularConstraint:
+    """Tests for the PERPENDICULAR constraint type."""
+
+    def test_perpendicular_constraint_type_enum(self, qtbot) -> None:
+        """PERPENDICULAR should be a distinct ConstraintType."""
+        assert ConstraintType.PERPENDICULAR != ConstraintType.DISTANCE
+        assert ConstraintType.PERPENDICULAR != ConstraintType.HORIZONTAL
+        assert ConstraintType.PERPENDICULAR != ConstraintType.PARALLEL
+        assert ConstraintType.PERPENDICULAR != ConstraintType.COINCIDENT
+
+    def test_add_perpendicular_constraint(self, qtbot) -> None:
+        """Can add a PERPENDICULAR constraint to a graph."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.EDGE_TOP),
+            AnchorRef(id_b, AnchorType.EDGE_LEFT),
+            90.0,  # target_rotation for item B in degrees
+            constraint_type=ConstraintType.PERPENDICULAR,
+        )
+        assert c.constraint_type == ConstraintType.PERPENDICULAR
+        assert c.target_distance == 90.0
+        assert c.anchor_a.anchor_type == AnchorType.EDGE_TOP
+        assert c.anchor_b.anchor_type == AnchorType.EDGE_LEFT
+
+    def test_perpendicular_solver_does_not_translate(self, qtbot) -> None:
+        """PERPENDICULAR constraint should not produce translation deltas (rotation only)."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.EDGE_TOP),
+            AnchorRef(id_b, AnchorType.EDGE_LEFT),
+            90.0,
+            constraint_type=ConstraintType.PERPENDICULAR,
+        )
+        positions = {id_a: (0.0, 0.0), id_b: (100.0, 0.0)}
+        result = graph.solve(positions)
+
+        # PERPENDICULAR is a rotation-only constraint: solver does not produce translation deltas
+        assert id_a not in result.item_deltas
+        assert id_b not in result.item_deltas
+
+    def test_perpendicular_constraint_serialization_roundtrip(self, qtbot) -> None:
+        """PERPENDICULAR constraint survives to_dict/from_dict round-trip."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.EDGE_TOP),
+            AnchorRef(id_b, AnchorType.EDGE_RIGHT),
+            45.0,
+            constraint_type=ConstraintType.PERPENDICULAR,
+        )
+        data = graph.to_list()
+        restored = ConstraintGraph.from_list(data)
+        assert len(restored.constraints) == 1
+        rc = list(restored.constraints.values())[0]
+        assert rc.constraint_type == ConstraintType.PERPENDICULAR
+        assert rc.target_distance == 45.0
+        assert rc.anchor_a.anchor_type == AnchorType.EDGE_TOP
+        assert rc.anchor_b.anchor_type == AnchorType.EDGE_RIGHT

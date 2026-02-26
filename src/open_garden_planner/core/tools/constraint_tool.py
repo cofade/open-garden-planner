@@ -1236,6 +1236,57 @@ class SymmetryConstraintTool(BaseTool):
 PREVIEW_PARALLEL_COLOR = QColor(20, 160, 100, 200)   # Green for parallel
 
 
+def _collect_rotation_chain(scene_items, graph, start_item, delta: float, exclude_id) -> list:
+    """BFS through PARALLEL/PERPENDICULAR constraints from *start_item*.
+
+    Returns a list of ``(item, old_rotation, new_rotation, apply_fn)`` tuples for every
+    item reachable via existing rotation constraints that should co-rotate by *delta*.
+    *exclude_id* is the item_id of the reference (fixed) item — it is never rotated.
+
+    The propagation rule: rotating any item in a PARALLEL or PERPENDICULAR chain by
+    *delta* preserves the relative angle between all pairs, so every free connected item
+    must rotate by the same *delta*.
+    """
+    from collections import deque
+
+    from open_garden_planner.core.constraints import ConstraintType
+
+    rotation_types = {ConstraintType.PARALLEL, ConstraintType.PERPENDICULAR}
+
+    # Build a quick id → scene-item map
+    item_by_id: dict = {}
+    for si in scene_items:
+        if hasattr(si, "item_id") and hasattr(si, "_apply_rotation"):
+            item_by_id[si.item_id] = si
+
+    visited = {start_item.item_id, exclude_id}
+    queue: deque = deque([start_item])
+    chain: list = []
+
+    while queue:
+        current = queue.popleft()
+        for c in graph.get_item_constraints(current.item_id):
+            if c.constraint_type not in rotation_types:
+                continue
+            # Find the other item in this constraint
+            other_id = (
+                c.anchor_b.item_id
+                if c.anchor_a.item_id == current.item_id
+                else c.anchor_a.item_id
+            )
+            if other_id in visited:
+                continue
+            visited.add(other_id)
+            other_item = item_by_id.get(other_id)
+            if other_item is None:
+                continue
+            old_rot = getattr(other_item, "rotation_angle", 0.0)
+            chain.append((other_item, old_rot, old_rot + delta, lambda it, ang: it._apply_rotation(ang)))
+            queue.append(other_item)
+
+    return chain
+
+
 def _compute_edge_scene_angle(edge_anchor):
     """Compute the scene angle (degrees [0, 180)) of the edge identified by edge_anchor.
 
@@ -1537,12 +1588,19 @@ class ParallelConstraintTool(BaseTool):
             )
             return
 
-        item_b = edge_b.item
-        rot_b = getattr(item_b, "rotation_angle", 0.0)
-
-        # Minimum rotation delta to align edge B with edge A (handles 180-deg ambiguity)
-        delta = (alpha_a - alpha_b + 90.0) % 180.0 - 90.0
-        target_rotation = rot_b + delta
+        # Prefer rotating edge B (second-clicked / "target") to align with edge A.
+        # Fall back to rotating edge A if edge B is already rotation-constrained
+        # (has an existing PARALLEL or PERPENDICULAR constraint on its item).
+        graph = scene.constraint_graph
+        if not graph.has_rotation_constraint(edge_b.item.item_id):
+            item_to_rotate = edge_b.item
+            rot = getattr(item_to_rotate, "rotation_angle", 0.0)
+            delta = (alpha_a - alpha_b + 90.0) % 180.0 - 90.0
+        else:
+            item_to_rotate = edge_a.item
+            rot = getattr(item_to_rotate, "rotation_angle", 0.0)
+            delta = (alpha_b - alpha_a + 90.0) % 180.0 - 90.0
+        target_rotation = rot + delta
 
         ref_a = AnchorRef(
             item_id=edge_a.item.item_id,
@@ -1556,10 +1614,17 @@ class ParallelConstraintTool(BaseTool):
         )
 
         item_rotations: list = []
-        if hasattr(item_b, "_apply_rotation") and abs(delta) > 0.01:
+        if hasattr(item_to_rotate, "_apply_rotation") and abs(delta) > 0.01:
             item_rotations = [
-                (item_b, rot_b, target_rotation, lambda it, ang: it._apply_rotation(ang))
+                (item_to_rotate, rot, target_rotation, lambda it, ang: it._apply_rotation(ang))
             ]
+            # Propagate rotation delta through existing PARALLEL/PERPENDICULAR chains.
+            reference_item = edge_b.item if item_to_rotate is edge_a.item else edge_a.item
+            chain = _collect_rotation_chain(
+                scene.items(), scene.constraint_graph,
+                item_to_rotate, delta, reference_item.item_id,
+            )
+            item_rotations.extend(chain)
 
         command = AddConstraintCommand(
             graph=scene.constraint_graph,
@@ -1567,6 +1632,313 @@ class ParallelConstraintTool(BaseTool):
             anchor_b=ref_b,
             target_distance=target_rotation,
             constraint_type=ConstraintType.PARALLEL,
+            item_rotations=item_rotations,
+        )
+        self._view._execute_constraint_with_solve(command)
+
+    def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
+        self._show_edge_indicators(scene_pos)
+        if self._edge_a is not None:
+            scene = self._view.scene()
+            items = scene.items() if scene else []
+            edge = _find_nearest_edge_anchor(scene_pos, items)
+            end = edge.point if edge else scene_pos
+            self._update_preview(end)
+        return True
+
+    def mouse_release(self, _event: QMouseEvent, _scene_pos: QPointF) -> bool:
+        return False
+
+    def key_press(self, event: QKeyEvent) -> bool:
+        if event.key() == Qt.Key.Key_Escape:
+            self._reset()
+            return True
+        return False
+
+    def cancel(self) -> None:
+        self._reset()
+
+
+# ─── Perpendicular constraint ─────────────────────────────────────────────────
+
+PREVIEW_PERPENDICULAR_COLOR = QColor(20, 120, 160, 200)   # Blue-teal for perpendicular
+
+
+class PerpendicularConstraintTool(BaseTool):
+    """Tool for creating perpendicular constraints between two item edges.
+
+    Workflow:
+    1. Hover over an item — edge midpoints are highlighted (blue-teal circles).
+    2. Click an edge midpoint on object A (reference edge).
+    3. Hover and click an edge midpoint on object B — object B is immediately
+       rotated so its selected edge is perpendicular (90°) to object A's edge.
+    4. The constraint is stored with undo/redo bundling the rotation.
+    """
+
+    def __init__(self, view) -> None:
+        super().__init__(view)
+        self._edge_a = None
+        self._graphics_items: list = []
+        self._edge_indicators: list = []
+        self._selected_marker = None
+        self._preview_line = None
+        self._preview_text = None
+
+    @property
+    def tool_type(self) -> ToolType:
+        return ToolType.CONSTRAINT_PERPENDICULAR
+
+    @property
+    def display_name(self) -> str:
+        return QCoreApplication.translate(
+            "PerpendicularConstraintTool", "Perpendicular Constraint"
+        )
+
+    @property
+    def shortcut(self) -> str:
+        return ""
+
+    @property
+    def cursor(self):
+        return QCursor(Qt.CursorShape.CrossCursor)
+
+    def activate(self) -> None:
+        super().activate()
+        self._reset()
+
+    def deactivate(self) -> None:
+        super().deactivate()
+        self._reset()
+
+    def _reset(self) -> None:
+        self._edge_a = None
+        self._clear_all_visuals()
+
+    def _clear_all_visuals(self) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        for item in self._graphics_items:
+            if item.scene():
+                scene.removeItem(item)
+        self._graphics_items.clear()
+        self._clear_edge_indicators()
+        self._selected_marker = None
+        self._preview_line = None
+        self._preview_text = None
+
+    def _clear_edge_indicators(self) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        for item in self._edge_indicators:
+            if item.scene():
+                scene.removeItem(item)
+        self._edge_indicators.clear()
+
+    def _show_edge_indicators(self, scene_pos: QPointF) -> None:
+        """Highlight edge-midpoint anchors on the item nearest to scene_pos."""
+        self._clear_edge_indicators()
+        scene = self._view.scene()
+        if not scene:
+            return
+
+        from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        edge_types = {
+            AnchorType.EDGE_TOP, AnchorType.EDGE_BOTTOM,
+            AnchorType.EDGE_LEFT, AnchorType.EDGE_RIGHT,
+        }
+
+        hovered = None
+        best_dist = 40.0
+        for scene_item in scene.items():
+            if not isinstance(scene_item, GardenItemMixin):
+                continue
+            for anchor in get_anchor_points(scene_item):
+                if anchor.anchor_type not in edge_types:
+                    continue
+                import math as _math
+                dx = anchor.point.x() - scene_pos.x()
+                dy = anchor.point.y() - scene_pos.y()
+                d = _math.sqrt(dx * dx + dy * dy)
+                if d < best_dist:
+                    best_dist = d
+                    hovered = scene_item
+
+        if hovered is None:
+            return
+
+        for anchor in get_anchor_points(hovered):
+            if anchor.anchor_type not in edge_types:
+                continue
+            r = ANCHOR_INDICATOR_RADIUS
+            rect = QRectF(anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2)
+            pen = QPen(PREVIEW_PERPENDICULAR_COLOR, PEN_WIDTH)
+            indicator = scene.addEllipse(rect, pen)
+            indicator.setZValue(1002)
+            self._edge_indicators.append(indicator)
+
+    def _show_selected_edge(self, anchor) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        r = ANCHOR_INDICATOR_RADIUS
+        rect = QRectF(anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2)
+        pen = QPen(ANCHOR_SELECTED_COLOR, PEN_WIDTH)
+        self._selected_marker = scene.addEllipse(rect, pen)
+        self._selected_marker.setZValue(1003)
+        self._graphics_items.append(self._selected_marker)
+
+    def _update_preview(self, end_pos: QPointF) -> None:
+        scene = self._view.scene()
+        if not scene or self._edge_a is None:
+            return
+
+        start = self._edge_a.point
+        color = PREVIEW_PERPENDICULAR_COLOR
+
+        if self._preview_line and self._preview_line.scene():
+            scene.removeItem(self._preview_line)
+            self._graphics_items.remove(self._preview_line)
+        if self._preview_text and self._preview_text.scene():
+            scene.removeItem(self._preview_text)
+            self._graphics_items.remove(self._preview_text)
+
+        pen = QPen(color, PEN_WIDTH, Qt.PenStyle.DashLine)
+        pen.setCosmetic(True)
+        self._preview_line = scene.addLine(QLineF(start, end_pos), pen)
+        self._preview_line.setZValue(1001)
+        self._graphics_items.append(self._preview_line)
+
+        mid = QPointF((start.x() + end_pos.x()) / 2, (start.y() + end_pos.y()) / 2)
+        text_item = scene.addText("\u22be")
+        text_item.setDefaultTextColor(color)
+        font = QFont()
+        font.setPointSizeF(10.0)
+        text_item.setFont(font)
+        text_item.setPos(mid)
+        text_item.setZValue(1001)
+        self._preview_text = text_item
+        self._graphics_items.append(self._preview_text)
+
+    def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+
+        scene = self._view.scene()
+        if not scene:
+            return True
+
+        edge = _find_nearest_edge_anchor(scene_pos, scene.items())
+        if edge is None:
+            return True
+
+        if self._edge_a is None:
+            self._edge_a = edge
+            self._clear_edge_indicators()
+            self._show_selected_edge(edge)
+        else:
+            edge_b = edge
+            if (
+                hasattr(self._edge_a.item, "item_id")
+                and hasattr(edge_b.item, "item_id")
+                and self._edge_a.item.item_id == edge_b.item.item_id
+            ):
+                return True
+
+            self._create_perpendicular_constraint(self._edge_a, edge_b)
+            self._reset()
+
+        return True
+
+    def _create_perpendicular_constraint(self, edge_a, edge_b) -> None:
+        import math as _math  # noqa: F401
+
+        from open_garden_planner.core.commands import AddConstraintCommand
+        from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+
+        scene = self._view.scene()
+        if not scene:
+            return
+        if not hasattr(edge_a.item, "item_id") or not hasattr(edge_b.item, "item_id"):
+            return
+
+        alpha_a = _compute_edge_scene_angle(edge_a)
+        if alpha_a is None:
+            QMessageBox.warning(
+                self._view,
+                QCoreApplication.translate(
+                    "PerpendicularConstraintTool", "Perpendicular Constraint"
+                ),
+                QCoreApplication.translate(
+                    "PerpendicularConstraintTool",
+                    "Cannot determine the angle of the selected edge on object A.",
+                ),
+            )
+            return
+
+        alpha_b = _compute_edge_scene_angle(edge_b)
+        if alpha_b is None:
+            QMessageBox.warning(
+                self._view,
+                QCoreApplication.translate(
+                    "PerpendicularConstraintTool", "Perpendicular Constraint"
+                ),
+                QCoreApplication.translate(
+                    "PerpendicularConstraintTool",
+                    "Cannot determine the angle of the selected edge on object B.",
+                ),
+            )
+            return
+
+        # Prefer rotating edge B (second-clicked / "target") to be perpendicular to edge A.
+        # Fall back to rotating edge A if edge B is already rotation-constrained
+        # (has an existing PARALLEL or PERPENDICULAR constraint on its item).
+        graph = scene.constraint_graph
+        if not graph.has_rotation_constraint(edge_b.item.item_id):
+            item_to_rotate = edge_b.item
+            rot = getattr(item_to_rotate, "rotation_angle", 0.0)
+            target_edge_angle = (alpha_a + 90.0) % 180.0
+            delta = (target_edge_angle - alpha_b + 90.0) % 180.0 - 90.0
+        else:
+            item_to_rotate = edge_a.item
+            rot = getattr(item_to_rotate, "rotation_angle", 0.0)
+            target_edge_angle = (alpha_b + 90.0) % 180.0
+            delta = (target_edge_angle - alpha_a + 90.0) % 180.0 - 90.0
+        target_rotation = rot + delta
+
+        ref_a = AnchorRef(
+            item_id=edge_a.item.item_id,
+            anchor_type=edge_a.anchor_type,
+            anchor_index=edge_a.anchor_index,
+        )
+        ref_b = AnchorRef(
+            item_id=edge_b.item.item_id,
+            anchor_type=edge_b.anchor_type,
+            anchor_index=edge_b.anchor_index,
+        )
+
+        item_rotations: list = []
+        if hasattr(item_to_rotate, "_apply_rotation") and abs(delta) > 0.01:
+            item_rotations = [
+                (item_to_rotate, rot, target_rotation, lambda it, ang: it._apply_rotation(ang))
+            ]
+            # Propagate rotation delta through existing PARALLEL/PERPENDICULAR chains.
+            reference_item = edge_b.item if item_to_rotate is edge_a.item else edge_a.item
+            chain = _collect_rotation_chain(
+                scene.items(), scene.constraint_graph,
+                item_to_rotate, delta, reference_item.item_id,
+            )
+            item_rotations.extend(chain)
+
+        command = AddConstraintCommand(
+            graph=scene.constraint_graph,
+            anchor_a=ref_a,
+            anchor_b=ref_b,
+            target_distance=target_rotation,
+            constraint_type=ConstraintType.PERPENDICULAR,
             item_rotations=item_rotations,
         )
         self._view._execute_constraint_with_solve(command)
