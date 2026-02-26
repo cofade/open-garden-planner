@@ -2075,6 +2075,30 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
         <translation>Der Winkel der ausgewählten Kante von Objekt B kann nicht bestimmt werden.</translation>
     </message>
 </context><context>
+    <name>EqualConstraintTool</name>
+    <message>
+        <source>Equal Size Constraint</source>
+        <translation>Gleichheits-Randbedingung</translation>
+    </message>
+    <message>
+        <source>= Equal</source>
+        <translation>= Gleich</translation>
+    </message>
+    <message>
+        <source>Cannot determine the size dimension for object A.</source>
+        <translation>Die Größe von Objekt A kann nicht bestimmt werden.</translation>
+    </message>
+</context><context>
+    <name>ConstraintListItem</name>
+    <message>
+        <source>= Equal</source>
+        <translation>= Gleich</translation>
+    </message>
+    <message>
+        <source>{a} equal size to {b}</source>
+        <translation>{a} gleiche Größe wie {b}</translation>
+    </message>
+</context><context>
     <name>DistanceInputDialog</name>
     <message>
         <location filename="..\..\core\tools\constraint_tool.py" line="53" />

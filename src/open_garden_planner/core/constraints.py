@@ -28,6 +28,7 @@ class ConstraintType(Enum):
     COINCIDENT = auto()            # Force two anchor points to the same position (distance = 0)
     PARALLEL = auto()              # Keep two edges parallel (item B at target rotation angle)
     PERPENDICULAR = auto()         # Keep two edges at 90° (item B perpendicular to edge A)
+    EQUAL = auto()                 # Equal size (radius, width, or height)
 
 
 class ConstraintStatus(Enum):
@@ -420,8 +421,9 @@ class ConstraintGraph:
                 if constraint.constraint_type in (
                     ConstraintType.PARALLEL,
                     ConstraintType.PERPENDICULAR,
+                    ConstraintType.EQUAL,
                 ):
-                    # Rotation-only constraints; no position correction.
+                    # Rotation/size-only constraints; no position correction.
                     continue
 
                 # DISTANCE constraint
@@ -785,10 +787,10 @@ class ConstraintGraph:
                 if constraint.constraint_type in (
                     ConstraintType.PARALLEL,
                     ConstraintType.PERPENDICULAR,
+                    ConstraintType.EQUAL,
                 ):
-                    # PARALLEL / PERPENDICULAR: rotation-only constraints.
-                    # target_distance is the desired rotation_angle for item B.
-                    # Position solver skips these; rotation is applied post-solve.
+                    # PARALLEL / PERPENDICULAR / EQUAL: rotation/size-only constraints.
+                    # Position solver skips these; changes are applied at creation time.
                     continue
 
                 # DISTANCE constraint

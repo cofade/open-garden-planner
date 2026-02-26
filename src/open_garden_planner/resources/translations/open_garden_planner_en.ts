@@ -1808,6 +1808,32 @@ Please restart the application for the change to take effect.</translation>
         </message>
     </context>
     <context>
+        <name>EqualConstraintTool</name>
+        <message>
+            <source>Equal Size Constraint</source>
+            <translation>Equal Size Constraint</translation>
+        </message>
+        <message>
+            <source>= Equal</source>
+            <translation>= Equal</translation>
+        </message>
+        <message>
+            <source>Cannot determine the size dimension for object A.</source>
+            <translation>Cannot determine the size dimension for object A.</translation>
+        </message>
+    </context>
+    <context>
+        <name>ConstraintListItem</name>
+        <message>
+            <source>= Equal</source>
+            <translation>= Equal</translation>
+        </message>
+        <message>
+            <source>{a} equal size to {b}</source>
+            <translation>{a} equal size to {b}</translation>
+        </message>
+    </context>
+    <context>
         <name>DistanceInputDialog</name>
         <message>
             <location filename="..\..\core\tools\constraint_tool.py" line="53" />

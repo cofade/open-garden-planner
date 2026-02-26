@@ -38,6 +38,8 @@ COLOR_PARALLEL_SATISFIED = QColor(20, 160, 100)       # Green for parallel const
 COLOR_PARALLEL_VIOLATED = QColor(220, 40, 40)         # Red
 COLOR_PERPENDICULAR_SATISFIED = QColor(20, 120, 160)  # Blue-teal for perpendicular constraints
 COLOR_PERPENDICULAR_VIOLATED = QColor(220, 40, 40)    # Red
+COLOR_EQUAL_SATISFIED = QColor(200, 100, 0)           # Amber for equal-size constraints
+COLOR_EQUAL_VIOLATED = QColor(220, 40, 40)            # Red
 
 # Geometry constants
 WITNESS_LINE_OFFSET = 15.0  # Perpendicular offset from dimension line (in cm)
@@ -236,6 +238,21 @@ class DimensionLineManager:
                 satisfied = abs(diff - 90.0) < 0.5
             color = COLOR_PERPENDICULAR_SATISFIED if satisfied else COLOR_PERPENDICULAR_VIOLATED
             self._build_perpendicular_marker(group, pos_a, pos_b, color)
+        elif constraint.constraint_type == ConstraintType.EQUAL:
+            # Satisfaction: both anchors have the same dimension (within 1 mm)
+            dim_a = self._compute_equal_dim_for_anchor(
+                constraint.anchor_a.item_id,
+                constraint.anchor_a.anchor_type,
+                constraint.anchor_a.anchor_index,
+            )
+            dim_b = self._compute_equal_dim_for_anchor(
+                constraint.anchor_b.item_id,
+                constraint.anchor_b.anchor_type,
+                constraint.anchor_b.anchor_index,
+            )
+            satisfied = False if dim_a is None or dim_b is None else abs(dim_a - dim_b) < 1.0
+            color = COLOR_EQUAL_SATISFIED if satisfied else COLOR_EQUAL_VIOLATED
+            self._build_equal_marker(group, pos_a, pos_b, color)
         elif constraint.constraint_type == ConstraintType.ANGLE:
             # ANGLE constraint: pos_b is the vertex, pos_a and pos_c are the ray endpoints.
             if constraint.anchor_c is None:
@@ -563,6 +580,104 @@ class DimensionLineManager:
         if abs(dx) < 1e-9 and abs(dy) < 1e-9:
             return None
         return math.degrees(math.atan2(dy, dx)) % 180.0
+
+    def _compute_equal_dim_for_anchor(
+        self, item_id: UUID, anchor_type: AnchorType, anchor_index: int
+    ) -> float | None:
+        """Compute the 'size' dimension for an EQUAL constraint anchor on the given item.
+
+        - CircleItem + any EDGE_* → radius
+        - RectangleItem + EDGE_TOP/EDGE_BOTTOM → rect width
+        - RectangleItem + EDGE_LEFT/EDGE_RIGHT → rect height
+        - PolygonItem / PolylineItem + EDGE_* → segment length
+
+        Returns the dimension in scene units (cm), or None if not computable.
+        """
+        from open_garden_planner.ui.canvas.items import PolylineItem, RectangleItem
+        from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+        from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+        item = self._find_item_by_id(item_id)
+        if item is None:
+            return None
+
+        if isinstance(item, CircleItem):
+            return item._radius
+
+        if isinstance(item, RectangleItem):
+            rect = item.rect()
+            if anchor_type in (AnchorType.EDGE_TOP, AnchorType.EDGE_BOTTOM):
+                return abs(rect.width())
+            if anchor_type in (AnchorType.EDGE_LEFT, AnchorType.EDGE_RIGHT):
+                return abs(rect.height())
+            return None
+
+        if isinstance(item, PolygonItem):
+            polygon = item.polygon()
+            n = polygon.count()
+            if n < 2:
+                return None
+            i = anchor_index
+            p1 = item.mapToScene(polygon.at(i))
+            p2 = item.mapToScene(polygon.at((i + 1) % n))
+            dx = p2.x() - p1.x()
+            dy = p2.y() - p1.y()
+            return math.sqrt(dx * dx + dy * dy)
+
+        if isinstance(item, PolylineItem):
+            pts = item.points
+            i = anchor_index
+            if i < 0 or i + 1 >= len(pts):
+                return None
+            p1 = item.mapToScene(pts[i])
+            p2 = item.mapToScene(pts[i + 1])
+            dx = p2.x() - p1.x()
+            dy = p2.y() - p1.y()
+            return math.sqrt(dx * dx + dy * dy)
+
+        return None
+
+    def _build_equal_marker(
+        self,
+        group: DimensionLineGroup,
+        pos_a: QPointF,
+        pos_b: QPointF,
+        color: QColor,
+    ) -> None:
+        """Draw "=" signs at each anchor and a dashed connector between them."""
+        pen = QPen(color, 1.5)
+        pen.setCosmetic(True)
+
+        # Dashed connector
+        dash_pen = QPen(color, 1.0, Qt.PenStyle.DashLine)
+        dash_pen.setCosmetic(True)
+        connector = self._scene.addLine(QLineF(pos_a, pos_b), dash_pen)
+        connector.setZValue(DIMENSION_LINE_Z)
+        group.items.append(connector)
+
+        # Two horizontal bars ("=") at each anchor position
+        for pos in (pos_a, pos_b):
+            for offset in (-3.5, 3.5):
+                bar = self._scene.addLine(
+                    QLineF(pos.x() - 5, pos.y() + offset, pos.x() + 5, pos.y() + offset),
+                    pen,
+                )
+                bar.setZValue(DIMENSION_LINE_Z + 1)
+                group.items.append(bar)
+
+        # "=" label at midpoint
+        mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
+        text_item = QGraphicsSimpleTextItem("=")
+        font = QFont()
+        font.setPointSize(11)
+        font.setBold(True)
+        text_item.setFont(font)
+        text_item.setBrush(QBrush(color))
+        text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        text_item.setZValue(DIMENSION_LINE_Z + 1)
+        text_item.setPos(QPointF(mid.x() + 4, mid.y() - 8))
+        self._scene.addItem(text_item)
+        group.items.append(text_item)
 
     def _build_parallel_marker(
         self,

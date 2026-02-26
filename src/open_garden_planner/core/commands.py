@@ -331,7 +331,12 @@ class ChangePropertyCommand(Command):
 
 
 class ResizeItemCommand(Command):
-    """Command for resizing an item."""
+    """Command for resizing an item.
+
+    Optionally includes partner_resizes for equal-constraint partners so that
+    both the primary item and its EQUAL-constrained partners are undone/redone
+    together in a single undo step.
+    """
 
     def __init__(
         self,
@@ -339,6 +344,7 @@ class ResizeItemCommand(Command):
         old_geometry: dict[str, Any],
         new_geometry: dict[str, Any],
         apply_func: Callable[[QGraphicsItem, dict[str, Any]], None],
+        partner_resizes: "list[tuple] | None" = None,
     ) -> None:
         """Initialize the resize command.
 
@@ -347,11 +353,14 @@ class ResizeItemCommand(Command):
             old_geometry: Dictionary containing old geometry data
             new_geometry: Dictionary containing new geometry data
             apply_func: Function to apply geometry to the item
+            partner_resizes: Optional list of (partner_item, old_size, new_size, apply_fn)
+                for EQUAL-constrained partners that resize together with this item.
         """
         self._item = item
         self._old_geometry = old_geometry
         self._new_geometry = new_geometry
         self._apply_func = apply_func
+        self._partner_resizes: list = partner_resizes or []
 
     @property
     def description(self) -> str:
@@ -359,12 +368,16 @@ class ResizeItemCommand(Command):
         return "Resize item"
 
     def execute(self) -> None:
-        """Apply the new geometry."""
+        """Apply the new geometry (and partner new sizes)."""
         self._apply_func(self._item, self._new_geometry)
+        for p_item, _old_size, new_size, p_apply_fn in self._partner_resizes:
+            p_apply_fn(p_item, new_size)
 
     def undo(self) -> None:
-        """Restore the old geometry."""
+        """Restore the old geometry (and partner old sizes)."""
         self._apply_func(self._item, self._old_geometry)
+        for p_item, old_size, _new_size, p_apply_fn in self._partner_resizes:
+            p_apply_fn(p_item, old_size)
 
 
 class RotateItemCommand(Command):

@@ -24,6 +24,7 @@ class ToolType(Enum):
     CONSTRAINT_COINCIDENT = auto()      # Coincident constraint (merge two anchor points)
     CONSTRAINT_PARALLEL = auto()        # Parallel constraint (two edges stay parallel)
     CONSTRAINT_PERPENDICULAR = auto()   # Perpendicular constraint (two edges at 90°)
+    CONSTRAINT_EQUAL = auto()           # Equal size constraint (same radius/width/height)
 
     # Property object types (polygon-based)
     HOUSE = auto()

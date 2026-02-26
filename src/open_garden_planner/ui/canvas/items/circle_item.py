@@ -575,11 +575,22 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             'pos_y': current_pos.y(),
         }
 
+        # Collect EQUAL-constraint partner resize undo data
+        from open_garden_planner.core.tools.constraint_tool import (
+            _build_equal_resize_fn,  # noqa: PLC0415
+        )
+        partner_resizes = []
+        for p_item, old_size, apply_fn, p_anchor_type in getattr(self, '_equal_partner_pre_states', []):
+            new_size, _ = _build_equal_resize_fn(p_item, p_anchor_type)
+            if new_size is not None and old_size != new_size:
+                partner_resizes.append((p_item, old_size, new_size, apply_fn))
+
         command = ResizeItemCommand(
             self,
             old_geometry,
             new_geometry,
             apply_geometry,
+            partner_resizes=partner_resizes or None,
         )
 
         # Add to undo stack without executing (geometry already applied)

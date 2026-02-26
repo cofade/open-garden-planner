@@ -51,7 +51,7 @@ _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
     _ToolEntry("constraint_coincident",    "Coincident",    "", ToolType.CONSTRAINT_COINCIDENT),
     _ToolEntry("constraint_parallel",      "Parallel",      "", ToolType.CONSTRAINT_PARALLEL),
     _ToolEntry("constraint_perpendicular", "Perpendicular", "", ToolType.CONSTRAINT_PERPENDICULAR),
-    _ToolEntry("constraint_equal",         "Equal Size (coming soon)",    "", None),
+    _ToolEntry("constraint_equal",         "Equal Size",    "", ToolType.CONSTRAINT_EQUAL),
     _ToolEntry("constraint_fixed",         "Fix in Place (coming soon)",  "", None),
     _SEP,
     # ── Advanced ──────────────────────────────────────────────────────────────
