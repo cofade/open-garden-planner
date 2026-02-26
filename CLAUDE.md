@@ -324,7 +324,7 @@ tests/
 | ✅     | 7.16 | Circular array placement                             |
 | ✅     | 7.17 | Coincident constraint (merge two anchor points)      |
 | ✅     | 7.18 | Parallel constraint (two edges stay parallel)        |
-|        | 7.19 | Perpendicular constraint (two edges at 90°)          |
+| ✅     | 7.19 | Perpendicular constraint (two edges at 90°)          |
 |        | 7.20 | Equal size constraint (same radius/width/height)     |
 |        | 7.21 | Fix in place / Block constraint                      |
 |        | 7.22 | Horizontal/Vertical distance constraints (1D)        |
