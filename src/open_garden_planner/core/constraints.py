@@ -30,6 +30,8 @@ class ConstraintType(Enum):
     PERPENDICULAR = auto()         # Keep two edges at 90° (item B perpendicular to edge A)
     EQUAL = auto()                 # Equal size (radius, width, or height)
     FIXED = auto()                 # Pin item to current position (block/fix in place)
+    HORIZONTAL_DISTANCE = auto()   # Fixed horizontal (X-axis) distance between two anchors
+    VERTICAL_DISTANCE = auto()     # Fixed vertical (Y-axis) distance between two anchors
 
 
 class ConstraintStatus(Enum):
@@ -433,6 +435,46 @@ class ConstraintGraph:
                         positions[id_b][0] -= diff / 2.0
                     continue
 
+                if constraint.constraint_type == ConstraintType.HORIZONTAL_DISTANCE:
+                    # Enforce |bx - ax| = target_distance; Y is free
+                    current_dx = pos_b[0] - pos_a[0]
+                    current_abs = abs(current_dx)
+                    error = abs(current_abs - constraint.target_distance)
+                    max_error = max(max_error, error)
+                    if a_pinned and b_pinned:
+                        continue
+                    sign = 1.0 if current_dx >= 0 else -1.0
+                    target_dx = sign * constraint.target_distance
+                    correction_x = target_dx - current_dx
+                    if a_pinned:
+                        positions[id_b][0] += correction_x
+                    elif b_pinned:
+                        positions[id_a][0] -= correction_x
+                    else:
+                        positions[id_a][0] -= correction_x / 2.0
+                        positions[id_b][0] += correction_x / 2.0
+                    continue
+
+                if constraint.constraint_type == ConstraintType.VERTICAL_DISTANCE:
+                    # Enforce |by - ay| = target_distance; X is free
+                    current_dy = pos_b[1] - pos_a[1]
+                    current_abs = abs(current_dy)
+                    error = abs(current_abs - constraint.target_distance)
+                    max_error = max(max_error, error)
+                    if a_pinned and b_pinned:
+                        continue
+                    sign = 1.0 if current_dy >= 0 else -1.0
+                    target_dy = sign * constraint.target_distance
+                    correction_y = target_dy - current_dy
+                    if a_pinned:
+                        positions[id_b][1] += correction_y
+                    elif b_pinned:
+                        positions[id_a][1] -= correction_y
+                    else:
+                        positions[id_a][1] -= correction_y / 2.0
+                        positions[id_b][1] += correction_y / 2.0
+                    continue
+
                 if constraint.constraint_type in (
                     ConstraintType.PARALLEL,
                     ConstraintType.PERPENDICULAR,
@@ -647,6 +689,46 @@ class ConstraintGraph:
                     else:
                         positions[id_a][0] += diff / 2.0
                         positions[id_b][0] -= diff / 2.0
+                    continue
+
+                if constraint.constraint_type == ConstraintType.HORIZONTAL_DISTANCE:
+                    # Enforce |bx - ax| = target_distance; Y is free
+                    current_dx = bx - ax
+                    current_abs = abs(current_dx)
+                    error = abs(current_abs - constraint.target_distance)
+                    max_error = max(max_error, error)
+                    if a_pinned and b_pinned:
+                        continue
+                    sign = 1.0 if current_dx >= 0 else -1.0
+                    target_dx = sign * constraint.target_distance
+                    correction_x = target_dx - current_dx
+                    if a_pinned:
+                        positions[id_b][0] += correction_x
+                    elif b_pinned:
+                        positions[id_a][0] -= correction_x
+                    else:
+                        positions[id_a][0] -= correction_x / 2.0
+                        positions[id_b][0] += correction_x / 2.0
+                    continue
+
+                if constraint.constraint_type == ConstraintType.VERTICAL_DISTANCE:
+                    # Enforce |by - ay| = target_distance; X is free
+                    current_dy = by - ay
+                    current_abs = abs(current_dy)
+                    error = abs(current_abs - constraint.target_distance)
+                    max_error = max(max_error, error)
+                    if a_pinned and b_pinned:
+                        continue
+                    sign = 1.0 if current_dy >= 0 else -1.0
+                    target_dy = sign * constraint.target_distance
+                    correction_y = target_dy - current_dy
+                    if a_pinned:
+                        positions[id_b][1] += correction_y
+                    elif b_pinned:
+                        positions[id_a][1] -= correction_y
+                    else:
+                        positions[id_a][1] -= correction_y / 2.0
+                        positions[id_b][1] += correction_y / 2.0
                     continue
 
                 if constraint.constraint_type == ConstraintType.ANGLE:

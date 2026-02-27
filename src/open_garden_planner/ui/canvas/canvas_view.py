@@ -46,6 +46,7 @@ from open_garden_planner.core.tools import (
     EqualConstraintTool,
     FixedConstraintTool,
     HorizontalConstraintTool,
+    HorizontalDistanceConstraintTool,
     MeasureTool,
     ParallelConstraintTool,
     PerpendicularConstraintTool,
@@ -57,6 +58,7 @@ from open_garden_planner.core.tools import (
     ToolManager,
     ToolType,
     VerticalConstraintTool,
+    VerticalDistanceConstraintTool,
 )
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene, GuideLine
 
@@ -173,6 +175,8 @@ class CanvasView(QGraphicsView):
         self._tool_manager.register_tool(CoincidentConstraintTool(self))
         self._tool_manager.register_tool(EqualConstraintTool(self))
         self._tool_manager.register_tool(FixedConstraintTool(self))
+        self._tool_manager.register_tool(HorizontalDistanceConstraintTool(self))
+        self._tool_manager.register_tool(VerticalDistanceConstraintTool(self))
         self._tool_manager.register_tool(ParallelConstraintTool(self))
         self._tool_manager.register_tool(PerpendicularConstraintTool(self))
         self._tool_manager.register_tool(AngleConstraintTool(self))

@@ -85,6 +85,8 @@ class ConstraintListItem(QWidget):
         is_perpendicular = constraint_type_name == "PERPENDICULAR"
         is_equal = constraint_type_name == "EQUAL"
         is_fixed = constraint_type_name == "FIXED"
+        is_h_distance = constraint_type_name == "HORIZONTAL_DISTANCE"
+        is_v_distance = constraint_type_name == "VERTICAL_DISTANCE"
         if is_alignment:
             color = _COLOR_ALIGN_SATISFIED if satisfied else _COLOR_VIOLATED
         elif is_angle:
@@ -99,6 +101,8 @@ class ConstraintListItem(QWidget):
             color = _COLOR_EQUAL_SATISFIED if satisfied else _COLOR_VIOLATED
         elif is_fixed:
             color = _COLOR_FIXED  # always "satisfied" visually
+        elif is_h_distance or is_v_distance:
+            color = _COLOR_SATISFIED if satisfied else _COLOR_VIOLATED
         else:
             color = _COLOR_SATISFIED if satisfied else _COLOR_VIOLATED
 
@@ -139,6 +143,18 @@ class ConstraintListItem(QWidget):
         elif constraint_type_name == "FIXED":
             detail = self.tr("🔒 Fixed")
             tooltip = self.tr("{a} is fixed in place").format(a=label_a)
+        elif constraint_type_name == "HORIZONTAL_DISTANCE":
+            dist_m = target_distance / 100.0
+            detail = f"↔ {dist_m:.2f} m"
+            tooltip = self.tr("{a} ↔ H-dist {b}: {d:.2f} m").format(
+                a=label_a, b=label_b, d=dist_m
+            )
+        elif constraint_type_name == "VERTICAL_DISTANCE":
+            dist_m = target_distance / 100.0
+            detail = f"↕ {dist_m:.2f} m"
+            tooltip = self.tr("{a} ↕ V-dist {b}: {d:.2f} m").format(
+                a=label_a, b=label_b, d=dist_m
+            )
         else:
             dist_m = target_distance / 100.0
             detail = f"{dist_m:.2f} m"
@@ -158,6 +174,10 @@ class ConstraintListItem(QWidget):
             text = f"= {label_a}  =  {label_b}"
         elif constraint_type_name == "FIXED":
             text = f"🔒 {label_a}"
+        elif constraint_type_name == "HORIZONTAL_DISTANCE":
+            text = f"↔ {label_a}  ↔  {label_b}   {detail}"
+        elif constraint_type_name == "VERTICAL_DISTANCE":
+            text = f"↕ {label_a}  ↕  {label_b}   {detail}"
         else:
             text = f"{label_a}  \u2194  {label_b}   {detail}"
         label = QLabel(text)
@@ -429,6 +449,12 @@ class ConstraintsPanel(QWidget):
         if constraint.constraint_type == ConstraintType.FIXED:
             # FIXED is always considered satisfied (the solver enforces it)
             return True
+
+        if constraint.constraint_type == ConstraintType.HORIZONTAL_DISTANCE:
+            return abs(abs(pos_b.x() - pos_a.x()) - constraint.target_distance) < 1.0
+
+        if constraint.constraint_type == ConstraintType.VERTICAL_DISTANCE:
+            return abs(abs(pos_b.y() - pos_a.y()) - constraint.target_distance) < 1.0
 
         current_dist = QLineF(pos_a, pos_b).length()
         return abs(current_dist - constraint.target_distance) < 1.0

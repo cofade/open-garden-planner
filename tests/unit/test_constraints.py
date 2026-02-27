@@ -1521,3 +1521,154 @@ class TestFixedConstraint:
         )
         graph.remove_constraint(c.constraint_id)
         assert len(graph.constraints) == 0
+
+
+class TestHorizontalVerticalDistanceConstraints:
+    """Tests for HORIZONTAL_DISTANCE and VERTICAL_DISTANCE constraint types."""
+
+    def test_constraint_types_exist(self, qtbot) -> None:
+        assert ConstraintType.HORIZONTAL_DISTANCE != ConstraintType.VERTICAL_DISTANCE
+        assert ConstraintType.HORIZONTAL_DISTANCE != ConstraintType.HORIZONTAL
+        assert ConstraintType.VERTICAL_DISTANCE != ConstraintType.VERTICAL
+
+    def test_h_distance_solver_enforces_x_gap(self, qtbot) -> None:
+        """HORIZONTAL_DISTANCE should set |bx - ax| = target, leaving Y free."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        target = 200.0  # 200 cm
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            target,
+            constraint_type=ConstraintType.HORIZONTAL_DISTANCE,
+        )
+        # Items at different X and Y positions
+        positions = {id_a: (0.0, 0.0), id_b: (50.0, 80.0)}
+        result = graph.solve(positions)
+
+        assert result.converged
+        delta_a = result.item_deltas.get(id_a, (0.0, 0.0))
+        delta_b = result.item_deltas.get(id_b, (0.0, 0.0))
+        new_ax = 0.0 + delta_a[0]
+        new_bx = 50.0 + delta_b[0]
+        # X gap should equal target
+        assert abs(abs(new_bx - new_ax) - target) < 1.0
+        # Y should be unchanged (H-distance is free in Y)
+        assert abs(delta_a[1]) < 1e-6
+        assert abs(delta_b[1]) < 1e-6
+
+    def test_v_distance_solver_enforces_y_gap(self, qtbot) -> None:
+        """VERTICAL_DISTANCE should set |by - ay| = target, leaving X free."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        target = 150.0  # 150 cm
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            target,
+            constraint_type=ConstraintType.VERTICAL_DISTANCE,
+        )
+        positions = {id_a: (0.0, 0.0), id_b: (60.0, 30.0)}
+        result = graph.solve(positions)
+
+        assert result.converged
+        delta_a = result.item_deltas.get(id_a, (0.0, 0.0))
+        delta_b = result.item_deltas.get(id_b, (0.0, 0.0))
+        new_ay = 0.0 + delta_a[1]
+        new_by = 30.0 + delta_b[1]
+        # Y gap should equal target
+        assert abs(abs(new_by - new_ay) - target) < 1.0
+        # X should be unchanged
+        assert abs(delta_a[0]) < 1e-6
+        assert abs(delta_b[0]) < 1e-6
+
+    def test_h_distance_pinned_a_only_b_moves_x(self, qtbot) -> None:
+        """HORIZONTAL_DISTANCE with A pinned: only B adjusts its X."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        target = 100.0
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            target,
+            constraint_type=ConstraintType.HORIZONTAL_DISTANCE,
+        )
+        positions = {id_a: (0.0, 0.0), id_b: (20.0, 50.0)}
+        result = graph.solve(positions, pinned_items={id_a})
+
+        assert id_a not in result.item_deltas
+        delta_b = result.item_deltas.get(id_b, (0.0, 0.0))
+        new_bx = 20.0 + delta_b[0]
+        assert abs(abs(new_bx - 0.0) - target) < 1.0
+
+    def test_v_distance_pinned_b_only_a_moves_y(self, qtbot) -> None:
+        """VERTICAL_DISTANCE with B pinned: only A adjusts its Y."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        target = 80.0
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            target,
+            constraint_type=ConstraintType.VERTICAL_DISTANCE,
+        )
+        positions = {id_a: (0.0, 0.0), id_b: (30.0, 10.0)}
+        result = graph.solve(positions, pinned_items={id_b})
+
+        assert id_b not in result.item_deltas
+        delta_a = result.item_deltas.get(id_a, (0.0, 0.0))
+        new_ay = 0.0 + delta_a[1]
+        # A should move so |by - ay| = target; by = 10, so ay = 10 - 80 = -70
+        assert abs(abs(10.0 - new_ay) - target) < 1.0
+
+    def test_h_distance_serialization(self, qtbot) -> None:
+        """HORIZONTAL_DISTANCE constraint survives to_dict/from_dict roundtrip."""
+        cid = uuid4()
+        a = AnchorRef(uuid4(), AnchorType.CENTER)
+        b = AnchorRef(uuid4(), AnchorType.CENTER)
+        c = Constraint(
+            cid, a, b,
+            target_distance=300.0,
+            constraint_type=ConstraintType.HORIZONTAL_DISTANCE,
+        )
+        data = c.to_dict()
+        restored = Constraint.from_dict(data)
+        assert restored.constraint_type == ConstraintType.HORIZONTAL_DISTANCE
+        assert restored.target_distance == 300.0
+
+    def test_v_distance_serialization(self, qtbot) -> None:
+        """VERTICAL_DISTANCE constraint survives to_dict/from_dict roundtrip."""
+        cid = uuid4()
+        a = AnchorRef(uuid4(), AnchorType.CENTER)
+        b = AnchorRef(uuid4(), AnchorType.CENTER)
+        c = Constraint(
+            cid, a, b,
+            target_distance=120.0,
+            constraint_type=ConstraintType.VERTICAL_DISTANCE,
+        )
+        data = c.to_dict()
+        restored = Constraint.from_dict(data)
+        assert restored.constraint_type == ConstraintType.VERTICAL_DISTANCE
+        assert restored.target_distance == 120.0
+
+    def test_h_distance_already_satisfied(self, qtbot) -> None:
+        """HORIZONTAL_DISTANCE should not move items already at the correct gap."""
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        target = 100.0
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            target,
+            constraint_type=ConstraintType.HORIZONTAL_DISTANCE,
+        )
+        # Items already 100 cm apart horizontally
+        positions = {id_a: (0.0, 0.0), id_b: (100.0, 50.0)}
+        result = graph.solve(positions)
+
+        assert result.converged
+        # No significant movement
+        delta_a = result.item_deltas.get(id_a, (0.0, 0.0))
+        delta_b = result.item_deltas.get(id_b, (0.0, 0.0))
+        assert abs(delta_a[0]) < 1.0
+        assert abs(delta_b[0]) < 1.0

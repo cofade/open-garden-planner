@@ -1597,12 +1597,12 @@ Please restart the application for the change to take effect.</translation>
             <translation>Distance Constraint (K)</translation>
         </message>
         <message>
-            <source>Horizontal Distance (coming soon)</source>
-            <translation>Horizontal Distance (coming soon)</translation>
+            <source>Horizontal Distance</source>
+            <translation>Horizontal Distance</translation>
         </message>
         <message>
-            <source>Vertical Distance (coming soon)</source>
-            <translation>Vertical Distance (coming soon)</translation>
+            <source>Vertical Distance</source>
+            <translation>Vertical Distance</translation>
         </message>
         <message>
             <source>Horizontal Alignment</source>
@@ -3233,6 +3233,58 @@ Use the Constraint tool (K) to add one.</translation>
         <message>
             <source>Delete all constraints</source>
             <translation>Delete all constraints</translation>
+        </message>
+    </context>
+    <context>
+        <name>HDistanceInputDialog</name>
+        <message>
+            <source>Set Horizontal Distance</source>
+            <translation>Set Horizontal Distance</translation>
+        </message>
+        <message>
+            <source>Enter the target horizontal distance (meters):</source>
+            <translation>Enter the target horizontal distance (meters):</translation>
+        </message>
+        <message>
+            <source>Current horizontal distance: {distance:.2f} m</source>
+            <translation>Current horizontal distance: {distance:.2f} m</translation>
+        </message>
+    </context>
+    <context>
+        <name>VDistanceInputDialog</name>
+        <message>
+            <source>Set Vertical Distance</source>
+            <translation>Set Vertical Distance</translation>
+        </message>
+        <message>
+            <source>Enter the target vertical distance (meters):</source>
+            <translation>Enter the target vertical distance (meters):</translation>
+        </message>
+        <message>
+            <source>Current vertical distance: {distance:.2f} m</source>
+            <translation>Current vertical distance: {distance:.2f} m</translation>
+        </message>
+    </context>
+    <context>
+        <name>HorizontalDistanceConstraintTool</name>
+        <message>
+            <source>Horizontal Distance Constraint</source>
+            <translation>Horizontal Distance Constraint</translation>
+        </message>
+        <message>
+            <source>↔ {d:.2f} m</source>
+            <translation>↔ {d:.2f} m</translation>
+        </message>
+    </context>
+    <context>
+        <name>VerticalDistanceConstraintTool</name>
+        <message>
+            <source>Vertical Distance Constraint</source>
+            <translation>Vertical Distance Constraint</translation>
+        </message>
+        <message>
+            <source>↕ {d:.2f} m</source>
+            <translation>↕ {d:.2f} m</translation>
         </message>
     </context>
 </TS>

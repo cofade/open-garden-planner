@@ -1875,12 +1875,12 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
         <translation>Abstandsbedingung (K)</translation>
     </message>
     <message>
-        <source>Horizontal Distance (coming soon)</source>
-        <translation>Horizontaler Abstand (demnächst)</translation>
+        <source>Horizontal Distance</source>
+        <translation>Horizontaler Abstand</translation>
     </message>
     <message>
-        <source>Vertical Distance (coming soon)</source>
-        <translation>Vertikaler Abstand (demnächst)</translation>
+        <source>Vertical Distance</source>
+        <translation>Vertikaler Abstand</translation>
     </message>
     <message>
         <source>Horizontal Alignment</source>
@@ -3774,4 +3774,57 @@ Verwenden Sie das Randbedingungen-Werkzeug (K), um eine hinzuzufügen.</translat
         <source>Show &amp;Constraints</source>
         <translation>Randbedingungen &amp;anzeigen</translation>
     </message>
-</context></TS>
+</context>
+<context>
+    <name>HDistanceInputDialog</name>
+    <message>
+        <source>Set Horizontal Distance</source>
+        <translation>Horizontalen Abstand festlegen</translation>
+    </message>
+    <message>
+        <source>Enter the target horizontal distance (meters):</source>
+        <translation>Ziel-Horizontalabstand eingeben (Meter):</translation>
+    </message>
+    <message>
+        <source>Current horizontal distance: {distance:.2f} m</source>
+        <translation>Aktueller Horizontalabstand: {distance:.2f} m</translation>
+    </message>
+</context>
+<context>
+    <name>VDistanceInputDialog</name>
+    <message>
+        <source>Set Vertical Distance</source>
+        <translation>Vertikalen Abstand festlegen</translation>
+    </message>
+    <message>
+        <source>Enter the target vertical distance (meters):</source>
+        <translation>Ziel-Vertikalabstand eingeben (Meter):</translation>
+    </message>
+    <message>
+        <source>Current vertical distance: {distance:.2f} m</source>
+        <translation>Aktueller Vertikalabstand: {distance:.2f} m</translation>
+    </message>
+</context>
+<context>
+    <name>HorizontalDistanceConstraintTool</name>
+    <message>
+        <source>Horizontal Distance Constraint</source>
+        <translation>Horizontale Abstandsbedingung</translation>
+    </message>
+    <message>
+        <source>↔ {d:.2f} m</source>
+        <translation>↔ {d:.2f} m</translation>
+    </message>
+</context>
+<context>
+    <name>VerticalDistanceConstraintTool</name>
+    <message>
+        <source>Vertical Distance Constraint</source>
+        <translation>Vertikale Abstandsbedingung</translation>
+    </message>
+    <message>
+        <source>↕ {d:.2f} m</source>
+        <translation>↕ {d:.2f} m</translation>
+    </message>
+</context>
+</TS>
