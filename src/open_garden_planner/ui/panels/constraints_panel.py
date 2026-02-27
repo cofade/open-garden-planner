@@ -30,6 +30,7 @@ _COLOR_COINCIDENT_SATISFIED = QColor(0, 160, 200)
 _COLOR_PARALLEL_SATISFIED = QColor(20, 160, 100)
 _COLOR_PERPENDICULAR_SATISFIED = QColor(20, 120, 160)
 _COLOR_EQUAL_SATISFIED = QColor(200, 100, 0)
+_COLOR_FIXED = QColor(180, 130, 0)
 
 
 def _make_status_icon(color: QColor, size: int = 14) -> QPixmap:
@@ -83,6 +84,7 @@ class ConstraintListItem(QWidget):
         is_parallel = constraint_type_name == "PARALLEL"
         is_perpendicular = constraint_type_name == "PERPENDICULAR"
         is_equal = constraint_type_name == "EQUAL"
+        is_fixed = constraint_type_name == "FIXED"
         if is_alignment:
             color = _COLOR_ALIGN_SATISFIED if satisfied else _COLOR_VIOLATED
         elif is_angle:
@@ -95,6 +97,8 @@ class ConstraintListItem(QWidget):
             color = _COLOR_PERPENDICULAR_SATISFIED if satisfied else _COLOR_VIOLATED
         elif is_equal:
             color = _COLOR_EQUAL_SATISFIED if satisfied else _COLOR_VIOLATED
+        elif is_fixed:
+            color = _COLOR_FIXED  # always "satisfied" visually
         else:
             color = _COLOR_SATISFIED if satisfied else _COLOR_VIOLATED
 
@@ -132,6 +136,9 @@ class ConstraintListItem(QWidget):
         elif constraint_type_name == "EQUAL":
             detail = self.tr("= Equal")
             tooltip = self.tr("{a} equal size to {b}").format(a=label_a, b=label_b)
+        elif constraint_type_name == "FIXED":
+            detail = self.tr("🔒 Fixed")
+            tooltip = self.tr("{a} is fixed in place").format(a=label_a)
         else:
             dist_m = target_distance / 100.0
             detail = f"{dist_m:.2f} m"
@@ -149,6 +156,8 @@ class ConstraintListItem(QWidget):
             text = f"\u22be {label_a}  \u22be  {label_b}"
         elif constraint_type_name == "EQUAL":
             text = f"= {label_a}  =  {label_b}"
+        elif constraint_type_name == "FIXED":
+            text = f"🔒 {label_a}"
         else:
             text = f"{label_a}  \u2194  {label_b}   {detail}"
         label = QLabel(text)
@@ -416,6 +425,10 @@ class ConstraintsPanel(QWidget):
             if dim_a is None or dim_b is None:
                 return False
             return abs(dim_a - dim_b) < 1.0
+
+        if constraint.constraint_type == ConstraintType.FIXED:
+            # FIXED is always considered satisfied (the solver enforces it)
+            return True
 
         current_dist = QLineF(pos_a, pos_b).length()
         return abs(current_dist - constraint.target_distance) < 1.0

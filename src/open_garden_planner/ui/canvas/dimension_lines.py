@@ -40,6 +40,7 @@ COLOR_PERPENDICULAR_SATISFIED = QColor(20, 120, 160)  # Blue-teal for perpendicu
 COLOR_PERPENDICULAR_VIOLATED = QColor(220, 40, 40)    # Red
 COLOR_EQUAL_SATISFIED = QColor(200, 100, 0)           # Amber for equal-size constraints
 COLOR_EQUAL_VIOLATED = QColor(220, 40, 40)            # Red
+COLOR_FIXED = QColor(180, 130, 0)                     # Gold for fix-in-place constraints
 
 # Geometry constants
 WITNESS_LINE_OFFSET = 15.0  # Perpendicular offset from dimension line (in cm)
@@ -146,6 +147,20 @@ class DimensionLineManager:
         self._remove_group(constraint.constraint_id)
 
         if not constraint.visible or not self._visible:
+            return
+
+        # FIXED constraint — single-anchor visual (padlock badge at item center)
+        if constraint.constraint_type == ConstraintType.FIXED:
+            pos_a = self._resolve_anchor_position(
+                constraint.anchor_a.item_id,
+                constraint.anchor_a.anchor_type,
+                constraint.anchor_a.anchor_index,
+            )
+            if pos_a is None:
+                return
+            group = DimensionLineGroup(constraint.constraint_id)
+            self._build_fixed_marker(group, pos_a)
+            self._groups[constraint.constraint_id] = group
             return
 
         # Resolve anchor positions
@@ -676,6 +691,51 @@ class DimensionLineManager:
         text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
         text_item.setZValue(DIMENSION_LINE_Z + 1)
         text_item.setPos(QPointF(mid.x() + 4, mid.y() - 8))
+        self._scene.addItem(text_item)
+        group.items.append(text_item)
+
+    def _build_fixed_marker(
+        self,
+        group: DimensionLineGroup,
+        pos: QPointF,
+    ) -> None:
+        """Draw a padlock badge (🔒) at the item's center anchor position.
+
+        The lock symbol indicates the item is fixed in place and cannot be moved.
+        """
+        color = COLOR_FIXED
+
+        # Small filled square as "body" of the padlock
+        half = 6.0
+        path = QPainterPath()
+        path.addRect(QRectF(pos.x() - half, pos.y() - half / 2, half * 2, half * 1.5))
+        body = QGraphicsPathItem(path)
+        body.setPen(QPen(color.darker(120), 1.0))
+        body.setBrush(QBrush(color))
+        body.setZValue(DIMENSION_LINE_Z + 1)
+        self._scene.addItem(body)
+        group.items.append(body)
+
+        # Arc above the body (shackle of the lock)
+        arc_path = QPainterPath()
+        arc_path.moveTo(pos.x() - half * 0.5, pos.y() - half / 2)
+        arc_path.arcTo(
+            QRectF(pos.x() - half * 0.5, pos.y() - half * 1.3, half, half),
+            180, -180,
+        )
+        shackle = self._scene.addPath(arc_path, QPen(color.darker(120), 2.5))
+        shackle.setZValue(DIMENSION_LINE_Z + 1)
+        group.items.append(shackle)
+
+        # "🔒" text label offset to the right
+        text_item = QGraphicsSimpleTextItem("🔒")
+        font = QFont()
+        font.setPointSize(10)
+        text_item.setFont(font)
+        text_item.setBrush(QBrush(color))
+        text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        text_item.setZValue(DIMENSION_LINE_Z + 1)
+        text_item.setPos(QPointF(pos.x() + half + 2, pos.y() - half))
         self._scene.addItem(text_item)
         group.items.append(text_item)
 

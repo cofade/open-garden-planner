@@ -29,6 +29,7 @@ class ConstraintType(Enum):
     PARALLEL = auto()              # Keep two edges parallel (item B at target rotation angle)
     PERPENDICULAR = auto()         # Keep two edges at 90° (item B perpendicular to edge A)
     EQUAL = auto()                 # Equal size (radius, width, or height)
+    FIXED = auto()                 # Pin item to current position (block/fix in place)
 
 
 class ConstraintStatus(Enum):
@@ -91,6 +92,8 @@ class Constraint:
     visible: bool = True
     constraint_type: ConstraintType = field(default_factory=lambda: ConstraintType.DISTANCE)
     anchor_c: AnchorRef | None = None  # Third anchor for ANGLE constraints
+    target_x: float | None = None  # For FIXED constraint: pinned X position (scene units)
+    target_y: float | None = None  # For FIXED constraint: pinned Y position (scene units)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
@@ -104,6 +107,10 @@ class Constraint:
         }
         if self.anchor_c is not None:
             d["anchor_c"] = self.anchor_c.to_dict()
+        if self.target_x is not None:
+            d["target_x"] = self.target_x
+        if self.target_y is not None:
+            d["target_y"] = self.target_y
         return d
 
     @classmethod
@@ -118,6 +125,8 @@ class Constraint:
             visible=data.get("visible", True),
             constraint_type=ConstraintType[data.get("constraint_type", "DISTANCE")],
             anchor_c=AnchorRef.from_dict(anchor_c_data) if anchor_c_data else None,
+            target_x=data.get("target_x"),
+            target_y=data.get("target_y"),
         )
 
 
@@ -168,6 +177,8 @@ class ConstraintGraph:
         constraint_id: UUID | None = None,
         constraint_type: ConstraintType = ConstraintType.DISTANCE,
         anchor_c: AnchorRef | None = None,
+        target_x: float | None = None,
+        target_y: float | None = None,
     ) -> Constraint:
         """Add a constraint between two or three anchors.
 
@@ -180,6 +191,8 @@ class ConstraintGraph:
             constraint_id: Optional pre-set ID (for deserialization).
             constraint_type: Type of constraint.
             anchor_c: Third anchor for ANGLE constraints (point C in A-B-C).
+            target_x: For FIXED constraints, the pinned X position in scene units.
+            target_y: For FIXED constraints, the pinned Y position in scene units.
 
         Returns:
             The created Constraint.
@@ -193,6 +206,8 @@ class ConstraintGraph:
             visible=visible,
             constraint_type=constraint_type,
             anchor_c=anchor_c,
+            target_x=target_x,
+            target_y=target_y,
         )
         self._constraints[cid] = constraint
 
@@ -541,9 +556,24 @@ class ConstraintGraph:
         if pinned_items is None:
             pinned_items = set()
 
+        # Save the true caller-supplied positions BEFORE any FIXED overrides.
+        # item_deltas will be relative to these originals so the canvas can
+        # correctly revert dragged-but-fixed items to their target positions.
         original_positions = {
             uid: (pos[0], pos[1]) for uid, pos in item_positions.items()
         }
+
+        # Pre-pass: FIXED constraints pin items at their stored target positions.
+        # Add them to pinned_items and override item_positions so the solver
+        # sees the correct target position regardless of how Qt moved the item.
+        pinned_items = set(pinned_items)  # make a mutable copy
+        for c in self._constraints.values():
+            if c.constraint_type == ConstraintType.FIXED and c.target_x is not None and c.target_y is not None:
+                fixed_id = c.anchor_a.item_id
+                pinned_items.add(fixed_id)
+                item_positions = dict(item_positions)
+                item_positions[fixed_id] = (c.target_x, c.target_y)
+
         positions = {
             uid: [pos[0], pos[1]] for uid, pos in item_positions.items()
         }
@@ -561,6 +591,10 @@ class ConstraintGraph:
                 id_b = constraint.anchor_b.item_id
 
                 if id_a not in positions or id_b not in positions:
+                    continue
+
+                # FIXED constraints are handled entirely in the pre-pass above.
+                if constraint.constraint_type == ConstraintType.FIXED:
                     continue
 
                 # Get anchor offsets for this constraint's endpoints

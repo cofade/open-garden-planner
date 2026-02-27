@@ -593,6 +593,8 @@ class AddConstraintCommand(Command):
         anchor_c: "AnchorRef | None" = None,
         item_moves: "list[tuple[QGraphicsItem, QPointF, QPointF]] | None" = None,
         item_rotations: "list[tuple[QGraphicsItem, float, float, Callable[[QGraphicsItem, float], None]]] | None" = None,
+        target_x: float | None = None,
+        target_y: float | None = None,
     ) -> None:
         from open_garden_planner.core.constraints import ConstraintType
         self._graph = graph
@@ -604,6 +606,8 @@ class AddConstraintCommand(Command):
         self._constraint_id: UUID | None = None
         self._item_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = item_moves or []
         self._item_rotations: list[tuple[QGraphicsItem, float, float, Callable[[QGraphicsItem, float], None]]] = item_rotations or []
+        self._target_x = target_x
+        self._target_y = target_y
 
     @property
     def description(self) -> str:
@@ -617,6 +621,8 @@ class AddConstraintCommand(Command):
             constraint_id=self._constraint_id,
             constraint_type=self._constraint_type,
             anchor_c=self._anchor_c,
+            target_x=self._target_x,
+            target_y=self._target_y,
         )
         self._constraint_id = c.constraint_id
         for item, _old, new in self._item_moves:
@@ -659,6 +665,8 @@ class RemoveConstraintCommand(Command):
             visible=self._constraint.visible,
             constraint_id=self._constraint.constraint_id,
             constraint_type=self._constraint.constraint_type,
+            target_x=self._constraint.target_x,
+            target_y=self._constraint.target_y,
         )
 
 

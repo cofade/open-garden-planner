@@ -2464,3 +2464,158 @@ class PerpendicularConstraintTool(BaseTool):
 
     def cancel(self) -> None:
         self._reset()
+
+
+# ─── Fix in place constraint ──────────────────────────────────────────────────
+
+PREVIEW_FIXED_COLOR = QColor(180, 130, 0, 220)   # Gold/amber for fixed constraint
+
+
+class FixedConstraintTool(BaseTool):
+    """Tool for fixing an item in place (blocking it from moving).
+
+    Workflow:
+    1. Hover over any item — it is highlighted with a dashed gold outline.
+    2. Click the item — a FIXED constraint is created storing its current
+       scene position (item.pos()). The item can no longer be dragged or
+       moved by the constraint solver.
+    3. To release the item, remove the FIXED constraint from the Constraints
+       panel or via Ctrl+Z.
+    """
+
+    def __init__(self, view) -> None:
+        super().__init__(view)
+        self._graphics_items: list = []
+
+    @property
+    def tool_type(self) -> ToolType:
+        return ToolType.CONSTRAINT_FIXED
+
+    @property
+    def display_name(self) -> str:
+        return QCoreApplication.translate("FixedConstraintTool", "Fix in Place")
+
+    @property
+    def shortcut(self) -> str:
+        return ""
+
+    @property
+    def cursor(self) -> QCursor:
+        return QCursor(Qt.CursorShape.PointingHandCursor)
+
+    def activate(self) -> None:
+        super().activate()
+        self._clear_graphics()
+
+    def deactivate(self) -> None:
+        super().deactivate()
+        self._clear_graphics()
+
+    def _clear_graphics(self) -> None:
+        scene = self._view.scene()
+        if scene:
+            for g in self._graphics_items:
+                if g.scene():
+                    scene.removeItem(g)
+        self._graphics_items.clear()
+
+    def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+
+        scene = self._view.scene()
+        if scene is None:
+            return True
+
+        hit = self._find_garden_item_at(scene_pos)
+        if hit is None:
+            return True
+
+        item_id = hit.item_id
+        graph = scene.constraint_graph
+
+        from open_garden_planner.core.constraints import ConstraintType as _CT
+        # Prevent double-fixing the same item
+        for c in graph.constraints.values():
+            if c.constraint_type == _CT.FIXED and c.anchor_a.item_id == item_id:
+                return True
+
+        pos = hit.pos()
+        from open_garden_planner.core.commands import AddConstraintCommand
+        from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+        from open_garden_planner.core.measure_snapper import AnchorType
+
+        ref = AnchorRef(item_id=item_id, anchor_type=AnchorType.CENTER, anchor_index=0)
+        command = AddConstraintCommand(
+            graph=graph,
+            anchor_a=ref,
+            anchor_b=ref,
+            target_distance=0.0,
+            constraint_type=ConstraintType.FIXED,
+            target_x=pos.x(),
+            target_y=pos.y(),
+        )
+        self._view._execute_constraint_with_solve(command)
+        return True
+
+    def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
+        self._clear_graphics()
+        hit = self._find_garden_item_at(scene_pos)
+        if hit is not None:
+            self._draw_hover_indicator(hit)
+        return True
+
+    def mouse_release(self, _event: QMouseEvent, _scene_pos: QPointF) -> bool:
+        return False
+
+    def key_press(self, event: QKeyEvent) -> bool:
+        if event.key() == Qt.Key.Key_Escape:
+            self._clear_graphics()
+            return True
+        return False
+
+    def cancel(self) -> None:
+        self._clear_graphics()
+
+    def _find_garden_item_at(self, scene_pos: QPointF):
+        """Return the topmost GardenItemMixin under scene_pos, or None."""
+        scene = self._view.scene()
+        if scene is None:
+            return None
+        for item in scene.items(scene_pos):
+            if isinstance(item, GardenItemMixin) and hasattr(item, "item_id"):
+                return item
+        return None
+
+    def _draw_hover_indicator(self, item) -> None:
+        """Draw a dashed gold outline around the hovered item as a fix-preview."""
+        scene = self._view.scene()
+        if scene is None:
+            return
+        br_poly = item.mapToScene(item.boundingRect())
+        xs = [br_poly[i].x() for i in range(4)]
+        ys = [br_poly[i].y() for i in range(4)]
+        rect = QRectF(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+
+        from PyQt6.QtGui import QBrush
+        from PyQt6.QtWidgets import QGraphicsSimpleTextItem
+
+        pen = QPen(PREVIEW_FIXED_COLOR, 2, Qt.PenStyle.DashLine)
+        pen.setCosmetic(True)
+        outline = scene.addRect(rect, pen)
+        outline.setZValue(1001)
+        self._graphics_items.append(outline)
+
+        label = QGraphicsSimpleTextItem(
+            QCoreApplication.translate("FixedConstraintTool", "🔒 Fix in place")
+        )
+        font = QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        label.setFont(font)
+        label.setBrush(QBrush(PREVIEW_FIXED_COLOR))
+        label.setFlag(label.GraphicsItemFlag.ItemIgnoresTransformations)
+        label.setPos(rect.right(), rect.top())
+        label.setZValue(1002)
+        scene.addItem(label)
+        self._graphics_items.append(label)
