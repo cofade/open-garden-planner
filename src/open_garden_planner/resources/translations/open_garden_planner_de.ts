@@ -1911,6 +1911,10 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
         <translation>Position fixieren (demnächst)</translation>
     </message>
     <message>
+        <source>Fix in Place</source>
+        <translation>Position fixieren</translation>
+    </message>
+    <message>
         <source>Angle Constraint</source>
         <translation>Winkelbedingung</translation>
     </message>
@@ -2097,6 +2101,24 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
     <message>
         <source>{a} equal size to {b}</source>
         <translation>{a} gleiche Größe wie {b}</translation>
+    </message>
+    <message>
+        <source>🔒 Fixed</source>
+        <translation>🔒 Fixiert</translation>
+    </message>
+    <message>
+        <source>{a} is fixed in place</source>
+        <translation>{a} ist fixiert</translation>
+    </message>
+</context><context>
+    <name>FixedConstraintTool</name>
+    <message>
+        <source>Fix in Place</source>
+        <translation>An Ort fixieren</translation>
+    </message>
+    <message>
+        <source>🔒 Fix in place</source>
+        <translation>🔒 Fixieren</translation>
     </message>
 </context><context>
     <name>DistanceInputDialog</name>

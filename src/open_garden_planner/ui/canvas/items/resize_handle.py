@@ -158,6 +158,22 @@ class DimensionDisplay(QGraphicsItem):
         self.hide()
 
 
+def _is_item_fixed(item: "QGraphicsItem") -> bool:
+    """Return True if item has a FIXED constraint in the scene's constraint graph."""
+    scene = item.scene() if item is not None else None
+    if scene is None or not hasattr(scene, "constraint_graph"):
+        return False
+    item_id = getattr(item, "item_id", None)
+    if item_id is None:
+        return False
+    from open_garden_planner.core.constraints import ConstraintType  # noqa: PLC0415
+
+    for c in scene.constraint_graph.constraints.values():
+        if c.constraint_type == ConstraintType.FIXED and c.anchor_a.item_id == item_id:
+            return True
+    return False
+
+
 class ResizeHandle(QGraphicsRectItem):
     """A draggable handle for resizing items.
 
@@ -247,6 +263,9 @@ class ResizeHandle(QGraphicsRectItem):
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Start resize operation."""
         if event.button() == Qt.MouseButton.LeftButton:
+            if self._parent_item is not None and _is_item_fixed(self._parent_item):
+                event.ignore()
+                return
             self._is_dragging = True
             self._drag_start_pos = event.scenePos()
 
@@ -586,6 +605,9 @@ class RotationHandle(QGraphicsEllipseItem):
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Start rotation operation."""
         if event.button() == Qt.MouseButton.LeftButton:
+            if self._parent_item is not None and _is_item_fixed(self._parent_item):
+                event.ignore()
+                return
             self._is_dragging = True
             self._drag_start_pos = event.scenePos()
 
@@ -1367,6 +1389,8 @@ class VertexEditMixin:
         """Enter vertex editing mode - show vertex and midpoint handles."""
         if self._is_vertex_edit_mode:
             return
+        if _is_item_fixed(self):  # type: ignore[arg-type]
+            return
 
         self._is_vertex_edit_mode = True
 
@@ -2024,6 +2048,8 @@ class RectVertexEditMixin:
         """Enter vertex editing mode - show corner handles."""
         if self._is_rect_vertex_edit_mode:
             return
+        if _is_item_fixed(self):  # type: ignore[arg-type]
+            return
 
         self._is_rect_vertex_edit_mode = True
 
@@ -2352,6 +2378,8 @@ class PolylineVertexEditMixin:
     def enter_vertex_edit_mode(self) -> None:
         """Enter vertex editing mode - show vertex and midpoint handles."""
         if self._is_vertex_edit_mode:
+            return
+        if _is_item_fixed(self):  # type: ignore[arg-type]
             return
 
         self._is_vertex_edit_mode = True

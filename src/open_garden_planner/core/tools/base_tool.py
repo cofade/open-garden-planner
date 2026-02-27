@@ -25,6 +25,7 @@ class ToolType(Enum):
     CONSTRAINT_PARALLEL = auto()        # Parallel constraint (two edges stay parallel)
     CONSTRAINT_PERPENDICULAR = auto()   # Perpendicular constraint (two edges at 90°)
     CONSTRAINT_EQUAL = auto()           # Equal size constraint (same radius/width/height)
+    CONSTRAINT_FIXED = auto()           # Fix in place / Block constraint (pin item to current position)
 
     # Property object types (polygon-based)
     HOUSE = auto()

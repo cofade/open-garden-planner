@@ -1400,3 +1400,124 @@ class TestEqualConstraint:
         assert len(graph.constraints) == 0
         assert len(graph.get_item_constraints(id_a)) == 0
         assert len(graph.get_item_constraints(id_b)) == 0
+
+# --- FIXED constraint tests ---
+
+
+class TestFixedConstraint:
+    """Tests for FIXED constraint type (pin item in place)."""
+
+    def test_fixed_constraint_type_exists(self, qtbot) -> None:
+        """FIXED should be a valid ConstraintType."""
+        assert hasattr(ConstraintType, "FIXED")
+
+    def test_fixed_constraint_serialization(self, qtbot) -> None:
+        """FIXED constraint should serialize/deserialize with target_x/target_y."""
+        item_id = uuid4()
+        ref = AnchorRef(item_id=item_id, anchor_type=AnchorType.CENTER)
+        c = Constraint(
+            constraint_id=uuid4(),
+            anchor_a=ref,
+            anchor_b=ref,
+            target_distance=0.0,
+            constraint_type=ConstraintType.FIXED,
+            target_x=150.0,
+            target_y=200.0,
+        )
+        data = c.to_dict()
+        assert data["constraint_type"] == "FIXED"
+        assert data["target_x"] == 150.0
+        assert data["target_y"] == 200.0
+
+        restored = Constraint.from_dict(data)
+        assert restored.constraint_type == ConstraintType.FIXED
+        assert restored.target_x == 150.0
+        assert restored.target_y == 200.0
+
+    def test_fixed_constraint_pins_item_in_solver(self, qtbot) -> None:
+        """Solver should pin fixed items: they don't appear in item_deltas (pinned).
+
+        Physical enforcement is done by canvas_view._enforce_fixed_positions()
+        which directly calls setPos(target_x, target_y) on the Qt item.
+        A connected free item constrained to the fixed item SHOULD move.
+        """
+        graph = ConstraintGraph()
+        fixed_id = uuid4()
+        free_id = uuid4()
+
+        fixed_ref = AnchorRef(item_id=fixed_id, anchor_type=AnchorType.CENTER)
+        free_ref = AnchorRef(item_id=free_id, anchor_type=AnchorType.CENTER)
+
+        # Fix item at (100, 50)
+        graph.add_constraint(
+            anchor_a=fixed_ref,
+            anchor_b=fixed_ref,
+            target_distance=0.0,
+            constraint_type=ConstraintType.FIXED,
+            target_x=100.0,
+            target_y=50.0,
+        )
+        # Constrain free item to be 50 cm from fixed item
+        graph.add_constraint(
+            anchor_a=fixed_ref,
+            anchor_b=free_ref,
+            target_distance=50.0,
+            constraint_type=ConstraintType.DISTANCE,
+        )
+
+        # Both items start at wrong positions
+        item_positions = {fixed_id: (999.0, 888.0), free_id: (100.0, 50.0)}
+        anchor_offsets = {
+            (fixed_id, AnchorType.CENTER, 0): (0.0, 0.0),
+            (free_id, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+
+        result = graph.solve_anchored(
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+        )
+        # Fixed item should NOT appear in deltas — it is pinned (canvas_view
+        # enforces its position separately via _enforce_fixed_positions)
+        assert fixed_id not in result.item_deltas
+        # Free item should move to satisfy the distance constraint relative
+        # to the fixed item's TARGET position (100, 50), not its dragged position
+        if free_id in result.item_deltas:
+            dx, dy = result.item_deltas[free_id]
+            new_x = 100.0 + dx
+            new_y = 50.0 + dy
+            dist = math.sqrt((new_x - 100.0) ** 2 + (new_y - 50.0) ** 2)
+            assert abs(dist - 50.0) < 1.0
+
+    def test_fixed_constraint_add_to_graph(self, qtbot) -> None:
+        """FIXED constraint should be addable to constraint graph."""
+        graph = ConstraintGraph()
+        item_id = uuid4()
+        ref = AnchorRef(item_id=item_id, anchor_type=AnchorType.CENTER)
+        c = graph.add_constraint(
+            anchor_a=ref,
+            anchor_b=ref,
+            target_distance=0.0,
+            constraint_type=ConstraintType.FIXED,
+            target_x=50.0,
+            target_y=75.0,
+        )
+        assert c.constraint_type == ConstraintType.FIXED
+        assert c.target_x == 50.0
+        assert c.target_y == 75.0
+        assert len(graph.constraints) == 1
+
+    def test_fixed_constraint_removable(self, qtbot) -> None:
+        """FIXED constraint should be removable."""
+        graph = ConstraintGraph()
+        item_id = uuid4()
+        ref = AnchorRef(item_id=item_id, anchor_type=AnchorType.CENTER)
+        c = graph.add_constraint(
+            anchor_a=ref,
+            anchor_b=ref,
+            target_distance=0.0,
+            constraint_type=ConstraintType.FIXED,
+            target_x=10.0,
+            target_y=20.0,
+        )
+        graph.remove_constraint(c.constraint_id)
+        assert len(graph.constraints) == 0

@@ -44,6 +44,7 @@ from open_garden_planner.core.tools import (
     ConstructionCircleTool,
     ConstructionLineTool,
     EqualConstraintTool,
+    FixedConstraintTool,
     HorizontalConstraintTool,
     MeasureTool,
     ParallelConstraintTool,
@@ -171,6 +172,7 @@ class CanvasView(QGraphicsView):
         self._tool_manager.register_tool(VerticalConstraintTool(self))
         self._tool_manager.register_tool(CoincidentConstraintTool(self))
         self._tool_manager.register_tool(EqualConstraintTool(self))
+        self._tool_manager.register_tool(FixedConstraintTool(self))
         self._tool_manager.register_tool(ParallelConstraintTool(self))
         self._tool_manager.register_tool(PerpendicularConstraintTool(self))
         self._tool_manager.register_tool(AngleConstraintTool(self))
@@ -1113,6 +1115,9 @@ class CanvasView(QGraphicsView):
 
         super().mouseMoveEvent(event)
 
+        # Revert any FIXED-constrained items to their pinned position
+        self._enforce_fixed_positions()
+
         # Apply object snapping and canvas boundary clamping during drag
         self._apply_object_snap_during_drag()
         self._clamp_dragged_items_to_canvas()
@@ -1197,6 +1202,31 @@ class CanvasView(QGraphicsView):
         # Store guides for rendering and trigger repaint
         self._snap_guides = snap_result.guides
         self.viewport().update()
+
+    def _enforce_fixed_positions(self) -> None:
+        """Revert any FIXED-constrained items to their pinned (target) position.
+
+        Called immediately after super().mouseMoveEvent() so that Qt's own drag
+        logic cannot move items that have a FIXED constraint.
+        """
+        if not self._drag_start_positions:
+            return
+
+        from open_garden_planner.core.constraints import ConstraintType
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        graph = self._canvas_scene.constraint_graph
+        for c in graph.constraints.values():
+            if c.constraint_type != ConstraintType.FIXED:
+                continue
+            if c.target_x is None or c.target_y is None:
+                continue
+            item_id = c.anchor_a.item_id
+            for scene_item in self.scene().items():
+                if isinstance(scene_item, GardenItemMixin) and scene_item.item_id == item_id:
+                    from PyQt6.QtCore import QPointF as _QPointF
+                    scene_item.setPos(_QPointF(c.target_x, c.target_y))
+                    break
 
     def _clamp_dragged_items_to_canvas(self) -> None:
         """Clamp items to canvas boundaries during mouse drag.
@@ -1358,12 +1388,22 @@ class CanvasView(QGraphicsView):
             if isinstance(scene_item, (ConstructionLineItem, ConstructionCircleItem)):
                 scene_construction_ids.add(scene_item.item_id)
 
+        # Collect FIXED item IDs — they act as pinned anchors just like construction items
+        from open_garden_planner.core.constraints import ConstraintType  # noqa: PLC0415
+        fixed_ids: set = {
+            c.anchor_a.item_id
+            for c in graph.constraints.values()
+            if c.constraint_type == ConstraintType.FIXED
+        }
+        # Items that are always pinned (construction geometry + FIXED items)
+        pinned_reference_ids = scene_construction_ids | fixed_ids
+
         # "Soft-dragged": dragged garden items whose ALL constraints are exclusively
-        # to construction items. These are NOT pinned in the solver — the solver
-        # enforces the construction constraint by snapping them to the correct
-        # distance/position each frame (the cursor acts as a "desired" position,
-        # not a hard pin). This makes constraints bidirectional: dragging either the
-        # construction item or the garden item satisfies the constraint.
+        # to pinned reference items (construction or FIXED). These are NOT pinned in
+        # the solver — the solver enforces the constraint by snapping them to the
+        # correct position each frame (the cursor acts as a "desired" position, not a
+        # hard pin). This makes constraints bidirectional and lets items orbit around
+        # fixed partners.
         soft_dragged: set = set()
         for uid in dragged_ids:
             if uid in scene_construction_ids:
@@ -1373,7 +1413,7 @@ class CanvasView(QGraphicsView):
                 continue
             if all(
                 (c.anchor_a.item_id if c.anchor_b.item_id == uid else c.anchor_b.item_id)
-                in scene_construction_ids
+                in pinned_reference_ids
                 for c in item_constraints
             ):
                 soft_dragged.add(uid)
@@ -1392,6 +1432,9 @@ class CanvasView(QGraphicsView):
         for item in self.scene().items():
             if isinstance(item, GardenItemMixin) and item.item_id in connected_ids:
                 item_map[item.item_id] = item
+                if item.item_id in fixed_ids:
+                    # FIXED garden items are treated as pinned anchors like construction items
+                    construction_ids.add(item.item_id)
             elif isinstance(item, (ConstructionLineItem, ConstructionCircleItem)) and item.item_id in connected_ids:
                 item_map[item.item_id] = item
                 construction_ids.add(item.item_id)
@@ -1740,6 +1783,21 @@ class CanvasView(QGraphicsView):
         Shift: move by 1cm (precision mode)
         """
         selected = self.scene().selectedItems()
+        if not selected:
+            return
+
+        # Exclude items that are FIXED (pinned in place)
+        from open_garden_planner.core.constraints import ConstraintType
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+        fixed_ids = {
+            c.anchor_a.item_id
+            for c in self._canvas_scene.constraint_graph.constraints.values()
+            if c.constraint_type == ConstraintType.FIXED
+        }
+        selected = [
+            item for item in selected
+            if not (isinstance(item, GardenItemMixin) and item.item_id in fixed_ids)
+        ]
         if not selected:
             return
 

@@ -369,9 +369,9 @@
 | US-7.16 | Circular array placement | Could | ✅ Done |
 | US-7.17 | Coincident constraint (merge two anchor points) | Should | ✅ Done |
 | US-7.18 | Parallel constraint (two edges stay parallel) | Could | ✅ Done |
-| US-7.19 | Perpendicular constraint (two edges at 90°) | Could | |
-| US-7.20 | Equal size constraint (same radius/width/height) | Could | |
-| US-7.21 | Fix in place / Block constraint (pin object permanently) | Could | |
+| US-7.19 | Perpendicular constraint (two edges at 90°) | Could | ✅ Done |
+| US-7.20 | Equal size constraint (same radius/width/height) | Could | ✅ Done |
+| US-7.21 | Fix in place / Block constraint (pin object permanently) | Could | ✅ Done |
 | US-7.22 | Horizontal/Vertical distance constraints (1D dimensional) | Could | |
 | **US-7.23** | **FreeCAD-style constraint toolbar with full icon set** | **Must** | ✅ Done |
 
@@ -651,7 +651,7 @@
 | 7 | Parallel | ⬜ US-7.18 | Grayed out |
 | 8 | Perpendicular | ⬜ US-7.19 | Grayed out |
 | 9 | Equal Size | ⬜ US-7.20 | Grayed out |
-| 10 | Fix in Place | ⬜ US-7.21 | Grayed out |
+| 10 | Fix in Place | ✅ US-7.21 | Active |
 | 11 | Angle Constraint | ✅ US-7.10 | Active |
 | 12 | Symmetry Constraint | ✅ US-7.11 | Active |
 

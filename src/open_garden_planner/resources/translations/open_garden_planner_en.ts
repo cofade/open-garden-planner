@@ -1633,6 +1633,10 @@ Please restart the application for the change to take effect.</translation>
             <translation>Fix in Place (coming soon)</translation>
         </message>
         <message>
+            <source>Fix in Place</source>
+            <translation>Fix in Place</translation>
+        </message>
+        <message>
             <source>Angle Constraint</source>
             <translation>Angle Constraint</translation>
         </message>
@@ -1831,6 +1835,25 @@ Please restart the application for the change to take effect.</translation>
         <message>
             <source>{a} equal size to {b}</source>
             <translation>{a} equal size to {b}</translation>
+        </message>
+        <message>
+            <source>🔒 Fixed</source>
+            <translation>🔒 Fixed</translation>
+        </message>
+        <message>
+            <source>{a} is fixed in place</source>
+            <translation>{a} is fixed in place</translation>
+        </message>
+    </context>
+    <context>
+        <name>FixedConstraintTool</name>
+        <message>
+            <source>Fix in Place</source>
+            <translation>Fix in Place</translation>
+        </message>
+        <message>
+            <source>🔒 Fix in place</source>
+            <translation>🔒 Fix in place</translation>
         </message>
     </context>
     <context>
