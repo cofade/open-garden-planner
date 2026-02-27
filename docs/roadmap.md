@@ -372,7 +372,7 @@
 | US-7.19 | Perpendicular constraint (two edges at 90°) | Could | ✅ Done |
 | US-7.20 | Equal size constraint (same radius/width/height) | Could | ✅ Done |
 | US-7.21 | Fix in place / Block constraint (pin object permanently) | Could | ✅ Done |
-| US-7.22 | Horizontal/Vertical distance constraints (1D dimensional) | Could | |
+| US-7.22 | Horizontal/Vertical distance constraints (1D dimensional) | Could | ✅ Done |
 | **US-7.23** | **FreeCAD-style constraint toolbar with full icon set** | **Must** | ✅ Done |
 
 ### US-7.1: Measure Tool Snap to Object Anchors
@@ -1221,7 +1221,43 @@ Icon designs per tool:
 
 ---
 
-## Phase 11: Advanced Features (Future, v2.0+)
+## Phase 11: Infrastructure & App Polish (Future)
+
+Cross-cutting improvements to the installer, distribution, and app experience.
+
+| ID | User Story | Priority | Status |
+|----|------------|----------|--------|
+| US-11.1 | Auto-update notification & one-click installer download | Should | |
+
+### US-11.1: Auto-Update Notification & One-Click Installer Download
+
+**Description**: At application startup, silently check GitHub Releases for a newer version of the installer (Windows `.exe`). If a newer version is available, display a non-blocking notification banner (or dialog) that informs the user, shows the release notes, and offers a one-click "Download & Install" option. After download, launch the new installer and exit the running app; the NSIS installer supports `/S` silent-ish mode but will prompt for the typical "overwrite existing installation" flow. Only applies to the packaged Windows executable — development environments skip the check.
+
+**Acceptance Criteria**:
+- Check runs in a background thread at startup — never blocks the main window
+- Compares current version (from `__version__` / git tag embedded at build time) against the latest GitHub Release tag via the GitHub Releases API (`https://api.github.com/repos/<owner>/<repo>/releases/latest`)
+- If current ≥ latest: do nothing silently
+- If current < latest: show a dismissible notification bar (or `QMessageBox.information`) with:
+  - "A new version (vX.Y.Z) is available"
+  - Brief release notes (first 300 chars of the release body)
+  - "Download & Install" button (downloads `.exe` asset to a temp dir, then launches it, then calls `QApplication.quit()`)
+  - "Remind me later" / "Skip this version" button
+- User preference "Skip version X.Y.Z" is persisted in QSettings
+- Gracefully handles network errors (timeout, no internet) — silently skips the check
+- Only active when running from the installed `.exe` (detect via `sys.frozen` or a build-time flag)
+- Uses only stdlib + `urllib` for the HTTP check (no extra deps)
+- Unit-testable: version comparison logic and API response parsing are pure functions
+
+**Technical Notes**:
+- Version embedding: `build_installer.py` writes `_version.py` into the bundled app at build time
+- GitHub Releases API: `GET https://api.github.com/repos/<owner>/<repo>/releases/latest` → `{"tag_name": "v1.2.0", "body": "...", "assets": [{"name": "ogp-setup-1.2.0.exe", "browser_download_url": "..."}]}`
+- New file: `src/open_garden_planner/services/update_checker.py`
+- Call site: `GardenPlannerApp.__init__` (after window shown), on a `QThread`
+- NSIS installer supports running while the old app is closed: download → launch installer → `QApplication.quit()`
+
+---
+
+## Phase 12: Advanced Features (Future, v2.0+)
 
 Future enhancements beyond v1.4:
 

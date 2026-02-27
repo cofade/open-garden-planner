@@ -40,8 +40,8 @@ _SEP = None
 _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
     # ── Dimensional ──────────────────────────────────────────────────────────
     _ToolEntry("constraint_distance",   "Distance Constraint (K)", "K", ToolType.CONSTRAINT),
-    _ToolEntry("constraint_h_distance", "Horizontal Distance (coming soon)", "",  None),
-    _ToolEntry("constraint_v_distance", "Vertical Distance (coming soon)",   "",  None),
+    _ToolEntry("constraint_h_distance", "Horizontal Distance", "", ToolType.CONSTRAINT_H_DISTANCE),
+    _ToolEntry("constraint_v_distance", "Vertical Distance",   "", ToolType.CONSTRAINT_V_DISTANCE),
     _SEP,
     # ── Geometric alignment ───────────────────────────────────────────────────
     _ToolEntry("constraint_horizontal", "Horizontal Alignment", "", ToolType.CONSTRAINT_HORIZONTAL),

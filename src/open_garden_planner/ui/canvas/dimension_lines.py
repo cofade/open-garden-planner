@@ -41,6 +41,9 @@ COLOR_PERPENDICULAR_VIOLATED = QColor(220, 40, 40)    # Red
 COLOR_EQUAL_SATISFIED = QColor(200, 100, 0)           # Amber for equal-size constraints
 COLOR_EQUAL_VIOLATED = QColor(220, 40, 40)            # Red
 COLOR_FIXED = QColor(180, 130, 0)                     # Gold for fix-in-place constraints
+COLOR_H_DISTANCE_SATISFIED = QColor(21, 101, 192)     # Deep blue for H-distance constraints
+COLOR_V_DISTANCE_SATISFIED = QColor(21, 101, 192)     # Deep blue for V-distance constraints
+COLOR_HV_DISTANCE_VIOLATED = QColor(220, 40, 40)      # Red (violated)
 
 # Geometry constants
 WITNESS_LINE_OFFSET = 15.0  # Perpendicular offset from dimension line (in cm)
@@ -294,6 +297,18 @@ class DimensionLineManager:
             self._build_angle_arc(
                 group, pos_a, pos_b, pos_c, constraint.target_distance, color
             )
+        elif constraint.constraint_type == ConstraintType.HORIZONTAL_DISTANCE:
+            current_h = abs(pos_b.x() - pos_a.x())
+            error = abs(current_h - constraint.target_distance)
+            satisfied = error < 1.0
+            color = COLOR_H_DISTANCE_SATISFIED if satisfied else COLOR_HV_DISTANCE_VIOLATED
+            self._build_h_distance_line(group, pos_a, pos_b, constraint.target_distance, color)
+        elif constraint.constraint_type == ConstraintType.VERTICAL_DISTANCE:
+            current_v = abs(pos_b.y() - pos_a.y())
+            error = abs(current_v - constraint.target_distance)
+            satisfied = error < 1.0
+            color = COLOR_V_DISTANCE_SATISFIED if satisfied else COLOR_HV_DISTANCE_VIOLATED
+            self._build_v_distance_line(group, pos_a, pos_b, constraint.target_distance, color)
         else:
             # DISTANCE constraint
             current_dist = QLineF(pos_a, pos_b).length()
@@ -421,6 +436,137 @@ class DimensionLineManager:
             (dim_a.x() + dim_b.x()) / 2,
             (dim_a.y() + dim_b.y()) / 2,
         )
+        text_item.setPos(mid)
+        self._scene.addItem(text_item)
+        group.items.append(text_item)
+
+    def _build_h_distance_line(
+        self,
+        group: DimensionLineGroup,
+        pos_a: QPointF,
+        pos_b: QPointF,
+        target_distance: float,
+        color: QColor,
+    ) -> None:
+        """Build a horizontal dimension line (↔) between two anchors.
+
+        Draws a horizontal double-arrow at a fixed vertical offset from the
+        higher anchor, with witness lines and the target distance label.
+        """
+        # Project both anchors onto a horizontal reference Y
+        # Place the dimension line below the lower anchor (higher Y in scene)
+        ref_y = max(pos_a.y(), pos_b.y()) + WITNESS_LINE_OFFSET
+
+        dim_a = QPointF(pos_a.x(), ref_y)
+        dim_b = QPointF(pos_b.x(), ref_y)
+
+        pen = QPen(color, 1.5)
+        pen.setCosmetic(True)
+        witness_pen = QPen(color, 1.0)
+        witness_pen.setCosmetic(True)
+
+        # Witness line A (vertical, from anchor down to just past dim line)
+        wa_start = QPointF(pos_a.x(), pos_a.y() + WITNESS_LINE_GAP)
+        wa_end = QPointF(pos_a.x(), ref_y + WITNESS_LINE_EXTEND)
+        witness_a = self._scene.addLine(QLineF(wa_start, wa_end), witness_pen)
+        witness_a.setZValue(DIMENSION_LINE_Z)
+        group.items.append(witness_a)
+
+        # Witness line B
+        wb_start = QPointF(pos_b.x(), pos_b.y() + WITNESS_LINE_GAP)
+        wb_end = QPointF(pos_b.x(), ref_y + WITNESS_LINE_EXTEND)
+        witness_b = self._scene.addLine(QLineF(wb_start, wb_end), witness_pen)
+        witness_b.setZValue(DIMENSION_LINE_Z)
+        group.items.append(witness_b)
+
+        # Horizontal dimension line
+        if abs(dim_b.x() - dim_a.x()) < 1e-6:
+            return
+        dim_line = self._scene.addLine(QLineF(dim_a, dim_b), pen)
+        dim_line.setZValue(DIMENSION_LINE_Z)
+        group.items.append(dim_line)
+
+        # Arrowheads pointing inward (horizontal)
+        self._add_arrowhead(group, dim_a, 1.0, 0.0, color)   # pointing right
+        self._add_arrowhead(group, dim_b, -1.0, 0.0, color)  # pointing left
+
+        # Distance text
+        dist_m = target_distance / 100.0
+        text_str = f"↔ {dist_m:.2f} m"
+        text_item = QGraphicsSimpleTextItem(text_str)
+        font = QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        text_item.setFont(font)
+        text_item.setBrush(QBrush(color))
+        text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        text_item.setZValue(DIMENSION_LINE_Z + 1)
+        mid = QPointF((dim_a.x() + dim_b.x()) / 2, ref_y)
+        text_item.setPos(mid)
+        self._scene.addItem(text_item)
+        group.items.append(text_item)
+
+    def _build_v_distance_line(
+        self,
+        group: DimensionLineGroup,
+        pos_a: QPointF,
+        pos_b: QPointF,
+        target_distance: float,
+        color: QColor,
+    ) -> None:
+        """Build a vertical dimension line (↕) between two anchors.
+
+        Draws a vertical double-arrow at a fixed horizontal offset from the
+        rightmost anchor, with witness lines and the target distance label.
+        """
+        # Place the dimension line to the right of the rightmost anchor
+        ref_x = max(pos_a.x(), pos_b.x()) + WITNESS_LINE_OFFSET
+
+        dim_a = QPointF(ref_x, pos_a.y())
+        dim_b = QPointF(ref_x, pos_b.y())
+
+        pen = QPen(color, 1.5)
+        pen.setCosmetic(True)
+        witness_pen = QPen(color, 1.0)
+        witness_pen.setCosmetic(True)
+
+        # Witness line A (horizontal, from anchor to just past dim line)
+        wa_start = QPointF(pos_a.x() + WITNESS_LINE_GAP, pos_a.y())
+        wa_end = QPointF(ref_x + WITNESS_LINE_EXTEND, pos_a.y())
+        witness_a = self._scene.addLine(QLineF(wa_start, wa_end), witness_pen)
+        witness_a.setZValue(DIMENSION_LINE_Z)
+        group.items.append(witness_a)
+
+        # Witness line B
+        wb_start = QPointF(pos_b.x() + WITNESS_LINE_GAP, pos_b.y())
+        wb_end = QPointF(ref_x + WITNESS_LINE_EXTEND, pos_b.y())
+        witness_b = self._scene.addLine(QLineF(wb_start, wb_end), witness_pen)
+        witness_b.setZValue(DIMENSION_LINE_Z)
+        group.items.append(witness_b)
+
+        # Vertical dimension line
+        if abs(dim_b.y() - dim_a.y()) < 1e-6:
+            return
+        dim_line = self._scene.addLine(QLineF(dim_a, dim_b), pen)
+        dim_line.setZValue(DIMENSION_LINE_Z)
+        group.items.append(dim_line)
+
+        # Arrowheads pointing inward (vertical)
+        self._add_arrowhead(group, dim_a, 0.0, 1.0, color)   # pointing down
+        self._add_arrowhead(group, dim_b, 0.0, -1.0, color)  # pointing up
+
+        # Distance text
+        dist_m = target_distance / 100.0
+        text_str = f"↕ {dist_m:.2f} m"
+        text_item = QGraphicsSimpleTextItem(text_str)
+        font = QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        text_item.setFont(font)
+        text_item.setBrush(QBrush(color))
+        text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        text_item.setZValue(DIMENSION_LINE_Z + 1)
+        mid = QPointF(ref_x, (dim_a.y() + dim_b.y()) / 2)
         text_item.setPos(mid)
         self._scene.addItem(text_item)
         group.items.append(text_item)

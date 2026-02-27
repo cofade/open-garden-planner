@@ -2619,3 +2619,326 @@ class FixedConstraintTool(BaseTool):
         label.setZValue(1002)
         scene.addItem(label)
         self._graphics_items.append(label)
+
+
+# H/V distance constraint visual constants
+PREVIEW_H_DIST_COLOR = QColor(21, 101, 192, 200)    # Deep blue (dimensional)
+PREVIEW_V_DIST_COLOR = QColor(21, 101, 192, 200)    # Deep blue (dimensional)
+
+
+class HDistanceInputDialog(QDialog):
+    """Dialog for entering the target horizontal distance for an H-distance constraint."""
+
+    def __init__(self, current_h_dist_cm: float, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(
+            QCoreApplication.translate(
+                "HDistanceInputDialog", "Set Horizontal Distance"
+            )
+        )
+        self.setMinimumWidth(300)
+        layout = QVBoxLayout(self)
+
+        label = QLabel(
+            QCoreApplication.translate(
+                "HDistanceInputDialog",
+                "Enter the target horizontal distance (meters):",
+            )
+        )
+        layout.addWidget(label)
+
+        self._spin = QDoubleSpinBox()
+        self._spin.setRange(0.01, 999.99)
+        self._spin.setDecimals(2)
+        self._spin.setSuffix(" m")
+        self._spin.setSingleStep(0.10)
+        self._spin.setValue(current_h_dist_cm / 100.0)
+        self._spin.selectAll()
+        layout.addWidget(self._spin)
+
+        current_label = QLabel(
+            QCoreApplication.translate(
+                "HDistanceInputDialog",
+                "Current horizontal distance: {distance:.2f} m",
+            ).format(distance=current_h_dist_cm / 100.0)
+        )
+        current_label.setStyleSheet("color: gray; font-style: italic;")
+        layout.addWidget(current_label)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def distance_cm(self) -> float:
+        """Return the entered distance in scene units (cm)."""
+        return self._spin.value() * 100.0
+
+
+class VDistanceInputDialog(QDialog):
+    """Dialog for entering the target vertical distance for a V-distance constraint."""
+
+    def __init__(self, current_v_dist_cm: float, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(
+            QCoreApplication.translate(
+                "VDistanceInputDialog", "Set Vertical Distance"
+            )
+        )
+        self.setMinimumWidth(300)
+        layout = QVBoxLayout(self)
+
+        label = QLabel(
+            QCoreApplication.translate(
+                "VDistanceInputDialog",
+                "Enter the target vertical distance (meters):",
+            )
+        )
+        layout.addWidget(label)
+
+        self._spin = QDoubleSpinBox()
+        self._spin.setRange(0.01, 999.99)
+        self._spin.setDecimals(2)
+        self._spin.setSuffix(" m")
+        self._spin.setSingleStep(0.10)
+        self._spin.setValue(current_v_dist_cm / 100.0)
+        self._spin.selectAll()
+        layout.addWidget(self._spin)
+
+        current_label = QLabel(
+            QCoreApplication.translate(
+                "VDistanceInputDialog",
+                "Current vertical distance: {distance:.2f} m",
+            ).format(distance=current_v_dist_cm / 100.0)
+        )
+        current_label.setStyleSheet("color: gray; font-style: italic;")
+        layout.addWidget(current_label)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def distance_cm(self) -> float:
+        """Return the entered distance in scene units (cm)."""
+        return self._spin.value() * 100.0
+
+
+class HorizontalDistanceConstraintTool(ConstraintTool):
+    """Tool for creating horizontal distance constraints (fixed X-axis distance).
+
+    Like FreeCAD's 'Horizontal Dimension'. Distinct from HorizontalConstraintTool
+    (which aligns Y coordinates to zero); this tool fixes |bx - ax| = target.
+    The Y-axis difference is left free.
+    """
+
+    _CONSTRAINT_TYPE = ConstraintType.HORIZONTAL_DISTANCE
+    _PREVIEW_COLOR = PREVIEW_H_DIST_COLOR
+
+    @property
+    def tool_type(self) -> ToolType:
+        return ToolType.CONSTRAINT_H_DISTANCE
+
+    @property
+    def display_name(self) -> str:
+        return QCoreApplication.translate(
+            "HorizontalDistanceConstraintTool", "Horizontal Distance Constraint"
+        )
+
+    @property
+    def shortcut(self) -> str:
+        return ""
+
+    def _update_preview(self, end_pos: QPointF) -> None:
+        """Override to show a horizontal-only preview arrow."""
+        scene = self._view.scene()
+        if not scene or self._anchor_a is None:
+            return
+
+        start = self._anchor_a.point
+        color = self._PREVIEW_COLOR
+
+        if self._preview_line and self._preview_line.scene():
+            scene.removeItem(self._preview_line)
+            self._graphics_items.remove(self._preview_line)
+        if self._preview_text and self._preview_text.scene():
+            scene.removeItem(self._preview_text)
+            self._graphics_items.remove(self._preview_text)
+
+        # Snap end to same Y as start — shows horizontal-only distance
+        snapped_end = QPointF(end_pos.x(), start.y())
+
+        pen = QPen(color, 2, Qt.PenStyle.DashLine)
+        self._preview_line = scene.addLine(QLineF(start, snapped_end), pen)
+        self._preview_line.setZValue(1001)
+        self._graphics_items.append(self._preview_line)
+
+        h_dist_cm = abs(end_pos.x() - start.x())
+        text = QCoreApplication.translate(
+            "HorizontalDistanceConstraintTool", "↔ {d:.2f} m"
+        ).format(d=h_dist_cm / 100.0)
+
+        mid_x = (start.x() + snapped_end.x()) / 2
+        mid_y = start.y()
+
+        self._preview_text = scene.addText(text)
+        self._preview_text.setDefaultTextColor(color)
+        font = QFont()
+        font.setPointSize(11)
+        font.setBold(True)
+        self._preview_text.setFont(font)
+
+        text_rect = self._preview_text.boundingRect()
+        self._preview_text.setPos(
+            mid_x - text_rect.width() / 2,
+            mid_y - text_rect.height() / 2,
+        )
+        self._preview_text.setFlag(
+            QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations
+        )
+        self._preview_text.setZValue(1002)
+        self._graphics_items.append(self._preview_text)
+
+    def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+
+        anchor = self._find_nearest_anchor(scene_pos)
+        if anchor is None:
+            return True
+
+        if self._anchor_a is None:
+            self._anchor_a = anchor
+            self._clear_anchor_indicators()
+            self._show_selected_anchor(anchor)
+            return True
+        else:
+            anchor_b = anchor
+            if (
+                hasattr(self._anchor_a.item, "item_id")
+                and hasattr(anchor_b.item, "item_id")
+                and self._anchor_a.item.item_id == anchor_b.item.item_id
+                and self._anchor_a.anchor_type == anchor_b.anchor_type
+            ):
+                return True
+
+            h_dist_cm = abs(anchor_b.point.x() - self._anchor_a.point.x())
+            dialog = HDistanceInputDialog(h_dist_cm, self._view)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                target_cm = dialog.distance_cm()
+                self._create_constraint(self._anchor_a, anchor_b, target_cm)
+
+            self._reset()
+            return True
+
+
+class VerticalDistanceConstraintTool(ConstraintTool):
+    """Tool for creating vertical distance constraints (fixed Y-axis distance).
+
+    Like FreeCAD's 'Vertical Dimension'. Distinct from VerticalConstraintTool
+    (which aligns X coordinates to zero); this tool fixes |by - ay| = target.
+    The X-axis difference is left free.
+    """
+
+    _CONSTRAINT_TYPE = ConstraintType.VERTICAL_DISTANCE
+    _PREVIEW_COLOR = PREVIEW_V_DIST_COLOR
+
+    @property
+    def tool_type(self) -> ToolType:
+        return ToolType.CONSTRAINT_V_DISTANCE
+
+    @property
+    def display_name(self) -> str:
+        return QCoreApplication.translate(
+            "VerticalDistanceConstraintTool", "Vertical Distance Constraint"
+        )
+
+    @property
+    def shortcut(self) -> str:
+        return ""
+
+    def _update_preview(self, end_pos: QPointF) -> None:
+        """Override to show a vertical-only preview arrow."""
+        scene = self._view.scene()
+        if not scene or self._anchor_a is None:
+            return
+
+        start = self._anchor_a.point
+        color = self._PREVIEW_COLOR
+
+        if self._preview_line and self._preview_line.scene():
+            scene.removeItem(self._preview_line)
+            self._graphics_items.remove(self._preview_line)
+        if self._preview_text and self._preview_text.scene():
+            scene.removeItem(self._preview_text)
+            self._graphics_items.remove(self._preview_text)
+
+        # Snap end to same X as start — shows vertical-only distance
+        snapped_end = QPointF(start.x(), end_pos.y())
+
+        pen = QPen(color, 2, Qt.PenStyle.DashLine)
+        self._preview_line = scene.addLine(QLineF(start, snapped_end), pen)
+        self._preview_line.setZValue(1001)
+        self._graphics_items.append(self._preview_line)
+
+        v_dist_cm = abs(end_pos.y() - start.y())
+        text = QCoreApplication.translate(
+            "VerticalDistanceConstraintTool", "↕ {d:.2f} m"
+        ).format(d=v_dist_cm / 100.0)
+
+        mid_x = start.x()
+        mid_y = (start.y() + snapped_end.y()) / 2
+
+        self._preview_text = scene.addText(text)
+        self._preview_text.setDefaultTextColor(color)
+        font = QFont()
+        font.setPointSize(11)
+        font.setBold(True)
+        self._preview_text.setFont(font)
+
+        text_rect = self._preview_text.boundingRect()
+        self._preview_text.setPos(
+            mid_x - text_rect.width() / 2,
+            mid_y - text_rect.height() / 2,
+        )
+        self._preview_text.setFlag(
+            QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations
+        )
+        self._preview_text.setZValue(1002)
+        self._graphics_items.append(self._preview_text)
+
+    def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+
+        anchor = self._find_nearest_anchor(scene_pos)
+        if anchor is None:
+            return True
+
+        if self._anchor_a is None:
+            self._anchor_a = anchor
+            self._clear_anchor_indicators()
+            self._show_selected_anchor(anchor)
+            return True
+        else:
+            anchor_b = anchor
+            if (
+                hasattr(self._anchor_a.item, "item_id")
+                and hasattr(anchor_b.item, "item_id")
+                and self._anchor_a.item.item_id == anchor_b.item.item_id
+                and self._anchor_a.anchor_type == anchor_b.anchor_type
+            ):
+                return True
+
+            v_dist_cm = abs(anchor_b.point.y() - self._anchor_a.point.y())
+            dialog = VDistanceInputDialog(v_dist_cm, self._view)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                target_cm = dialog.distance_cm()
+                self._create_constraint(self._anchor_a, anchor_b, target_cm)
+
+            self._reset()
+            return True

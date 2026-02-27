@@ -9,10 +9,12 @@ from .constraint_tool import (
     EqualConstraintTool,
     FixedConstraintTool,
     HorizontalConstraintTool,
+    HorizontalDistanceConstraintTool,
     ParallelConstraintTool,
     PerpendicularConstraintTool,
     SymmetryConstraintTool,
     VerticalConstraintTool,
+    VerticalDistanceConstraintTool,
 )
 from .construction_tool import ConstructionCircleTool, ConstructionLineTool
 from .measure_tool import MeasureTool
@@ -33,6 +35,7 @@ __all__ = [
     "ConstructionCircleTool",
     "ConstructionLineTool",
     "HorizontalConstraintTool",
+    "HorizontalDistanceConstraintTool",
     "MeasureTool",
     "ParallelConstraintTool",
     "PerpendicularConstraintTool",
@@ -44,4 +47,5 @@ __all__ = [
     "ToolManager",
     "ToolType",
     "VerticalConstraintTool",
+    "VerticalDistanceConstraintTool",
 ]

@@ -327,7 +327,7 @@ tests/
 | ✅     | 7.19 | Perpendicular constraint (two edges at 90°)          |
 | ✅     | 7.20 | Equal size constraint (same radius/width/height)     |
 | ✅     | 7.21 | Fix in place / Block constraint                      |
-|        | 7.22 | Horizontal/Vertical distance constraints (1D)        |
+| ✅     | 7.22 | Horizontal/Vertical distance constraints (1D)        |
 | ✅     | 7.23 | FreeCAD-style constraint toolbar + full SVG icon set |
 
 ## Progress (Phase 8: Location, Climate & Planting Calendar v1.2)
