@@ -3287,4 +3287,146 @@ Use the Constraint tool (K) to add one.</translation>
             <translation>↕ {d:.2f} m</translation>
         </message>
     </context>
+    <context>
+        <name>LocationDialog</name>
+        <message>
+            <source>Set Garden Location</source>
+            <translation>Set Garden Location</translation>
+        </message>
+        <message>
+            <source>GPS Coordinates</source>
+            <translation>GPS Coordinates</translation>
+        </message>
+        <message>
+            <source>Latitude:</source>
+            <translation>Latitude:</translation>
+        </message>
+        <message>
+            <source>(−90 to 90, N positive)</source>
+            <translation>(−90 to 90, N positive)</translation>
+        </message>
+        <message>
+            <source>Longitude:</source>
+            <translation>Longitude:</translation>
+        </message>
+        <message>
+            <source>(−180 to 180, E positive)</source>
+            <translation>(−180 to 180, E positive)</translation>
+        </message>
+        <message>
+            <source>Elevation (optional):</source>
+            <translation>Elevation (optional):</translation>
+        </message>
+        <message>
+            <source>Not set</source>
+            <translation>Not set</translation>
+        </message>
+        <message>
+            <source>Frost Dates &amp; Hardiness Zone</source>
+            <translation>Frost Dates &amp; Hardiness Zone</translation>
+        </message>
+        <message>
+            <source>These are used for planting calendar calculations. Leave blank if unknown — they can be auto-filled in a later step.</source>
+            <translation>These are used for planting calendar calculations. Leave blank if unknown — they can be auto-filled in a later step.</translation>
+        </message>
+        <message>
+            <source>Last spring frost:</source>
+            <translation>Last spring frost:</translation>
+        </message>
+        <message>
+            <source>MM-DD, e.g. 04-15</source>
+            <translation>MM-DD, e.g. 04-15</translation>
+        </message>
+        <message>
+            <source>Date of last expected spring frost (MM-DD format)</source>
+            <translation>Date of last expected spring frost (MM-DD format)</translation>
+        </message>
+        <message>
+            <source>First fall frost:</source>
+            <translation>First fall frost:</translation>
+        </message>
+        <message>
+            <source>MM-DD, e.g. 10-20</source>
+            <translation>MM-DD, e.g. 10-20</translation>
+        </message>
+        <message>
+            <source>Date of first expected fall frost (MM-DD format)</source>
+            <translation>Date of first expected fall frost (MM-DD format)</translation>
+        </message>
+        <message>
+            <source>Hardiness zone:</source>
+            <translation>Hardiness zone:</translation>
+        </message>
+        <message>
+            <source>e.g. 7b or H3</source>
+            <translation>e.g. 7b or H3</translation>
+        </message>
+        <message>
+            <source>Plant hardiness zone — indicates the coldest winter temperatures your garden experiences. Used to determine which perennial plants can survive your winters.
+
+Common formats:
+  USDA zones (worldwide):  e.g. 5b, 7a, 8b
+    Scale 1a (coldest, −51 °C) → 13b (warmest, +18 °C)
+  RHS zones (UK / Europe):  e.g. H3, H4, H5
+    Scale H1 (tender, frost-free) → H7 (fully hardy, −25 °C)
+
+Look up your zone for any country at:
+  plantmaps.com
+(scroll down to select your country, then find your area on the map)</source>
+            <translation>Plant hardiness zone — indicates the coldest winter temperatures your garden experiences. Used to determine which perennial plants can survive your winters.
+
+Common formats:
+  USDA zones (worldwide):  e.g. 5b, 7a, 8b
+    Scale 1a (coldest, −51 °C) → 13b (warmest, +18 °C)
+  RHS zones (UK / Europe):  e.g. H3, H4, H5
+    Scale H1 (tender, frost-free) → H7 (fully hardy, −25 °C)
+
+Look up your zone for any country at:
+  plantmaps.com
+(scroll down to select your country, then find your area on the map)</translation>
+        </message>
+        <message>
+            <source>Tip: Frost dates can be auto-detected from coordinates in a future step (US-8.2). You can also enter them manually here.</source>
+            <translation>Tip: Frost dates can be auto-detected from coordinates in a future step (US-8.2). You can also enter them manually here.</translation>
+        </message>
+    </context>
+    <context>
+        <name>GardenPlannerApp</name>
+        <message>
+            <source>Set Garden &amp;Location...</source>
+            <translation>Set Garden &amp;Location...</translation>
+        </message>
+        <message>
+            <source>Set GPS coordinates and frost dates for planting calendar</source>
+            <translation>Set GPS coordinates and frost dates for planting calendar</translation>
+        </message>
+        <message>
+            <source>No location set</source>
+            <translation>No location set</translation>
+        </message>
+        <message>
+            <source>Garden GPS location — use File > Set Garden Location to configure</source>
+            <translation>Garden GPS location — use File > Set Garden Location to configure</translation>
+        </message>
+        <message>
+            <source>Garden location updated</source>
+            <translation>Garden location updated</translation>
+        </message>
+        <message>
+            <source>Latitude: {lat}, Longitude: {lon}</source>
+            <translation>Latitude: {lat}, Longitude: {lon}</translation>
+        </message>
+        <message>
+            <source>Zone</source>
+            <translation>Zone</translation>
+        </message>
+        <message>
+            <source>Last spring frost</source>
+            <translation>Last spring frost</translation>
+        </message>
+        <message>
+            <source>First fall frost</source>
+            <translation>First fall frost</translation>
+        </message>
+    </context>
 </TS>

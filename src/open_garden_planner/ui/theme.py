@@ -3,6 +3,8 @@
 Provides light and dark color schemes with comprehensive styling.
 """
 
+import os
+import tempfile
 from enum import Enum
 
 from PyQt6.QtWidgets import QApplication
@@ -153,6 +155,26 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     """
     colors = ThemeColors.get_colors(mode)
 
+    # Write tiny SVG arrow files to temp dir — Qt QSS image: url() requires
+    # file paths; inline data URIs are not supported by Qt's QSS image loader.
+    _c = colors["text_secondary"]
+    _tmp = tempfile.gettempdir()
+    _key = _c.lstrip("#")
+    _up_path = os.path.join(_tmp, f"ogp_arrow_up_{_key}.svg").replace("\\", "/")
+    _dn_path = os.path.join(_tmp, f"ogp_arrow_dn_{_key}.svg").replace("\\", "/")
+    with open(_up_path, "w", encoding="utf-8") as _f:
+        _f.write(
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
+            f'<text x="5" y="9" text-anchor="middle" font-size="11" fill="{_c}">▲</text>'
+            f"</svg>"
+        )
+    with open(_dn_path, "w", encoding="utf-8") as _f:
+        _f.write(
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
+            f'<text x="5" y="9" text-anchor="middle" font-size="11" fill="{_c}">▼</text>'
+            f"</svg>"
+        )
+
     return f"""
     /* Global application styles */
     QMainWindow, QDialog, QWidget {{
@@ -285,11 +307,58 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         color: {colors['text_primary']};
         border: 1px solid {colors['border']};
         border-radius: 3px;
-        padding: 4px;
+        padding: 4px 20px 4px 4px;
     }}
 
     QSpinBox:focus, QDoubleSpinBox:focus {{
         border-color: {colors['border_focus']};
+    }}
+
+    QSpinBox::up-button, QDoubleSpinBox::up-button {{
+        subcontrol-origin: border;
+        subcontrol-position: top right;
+        width: 16px;
+        border-left: 1px solid {colors['border']};
+        border-bottom: 1px solid {colors['border']};
+        border-top-right-radius: 3px;
+        background-color: {colors['button']};
+    }}
+
+    QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover {{
+        background-color: {colors['button_hover']};
+    }}
+
+    QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed {{
+        background-color: {colors['button_pressed']};
+    }}
+
+    QSpinBox::down-button, QDoubleSpinBox::down-button {{
+        subcontrol-origin: border;
+        subcontrol-position: bottom right;
+        width: 16px;
+        border-left: 1px solid {colors['border']};
+        border-bottom-right-radius: 3px;
+        background-color: {colors['button']};
+    }}
+
+    QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
+        background-color: {colors['button_hover']};
+    }}
+
+    QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed {{
+        background-color: {colors['button_pressed']};
+    }}
+
+    QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
+        image: url("{_up_path}");
+        width: 10px;
+        height: 10px;
+    }}
+
+    QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
+        image: url("{_dn_path}");
+        width: 10px;
+        height: 10px;
     }}
 
     /* Date edit */

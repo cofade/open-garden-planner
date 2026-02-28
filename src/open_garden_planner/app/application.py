@@ -58,6 +58,7 @@ class GardenPlannerApp(QMainWindow):
         self._project_manager = ProjectManager(self)
         self._project_manager.project_changed.connect(self._update_window_title)
         self._project_manager.dirty_changed.connect(self._update_window_title)
+        self._project_manager.location_changed.connect(self._on_location_changed)
 
         # Set up UI components
         self._setup_menu_bar()
@@ -149,6 +150,12 @@ class GardenPlannerApp(QMainWindow):
         import_image_action.setStatusTip(self.tr("Import a background image (satellite photo, etc.)"))
         import_image_action.triggered.connect(self._on_import_background_image)
         menu.addAction(import_image_action)
+
+        # Set Garden Location
+        location_action = QAction(self.tr("Set Garden &Location..."), self)
+        location_action.setStatusTip(self.tr("Set GPS coordinates and frost dates for planting calendar"))
+        location_action.triggered.connect(self._on_set_location)
+        menu.addAction(location_action)
 
         menu.addSeparator()
 
@@ -565,6 +572,12 @@ class GardenPlannerApp(QMainWindow):
         self.tool_label = QLabel(self.tr("Select"))
         self.tool_label.setMinimumWidth(80)
         status_bar.addPermanentWidget(self.tool_label)
+
+        # Location label
+        self.location_label = QLabel(self.tr("No location set"))
+        self.location_label.setMinimumWidth(160)
+        self.location_label.setToolTip(self.tr("Garden GPS location — use File > Set Garden Location to configure"))
+        status_bar.addPermanentWidget(self.location_label)
 
         # Show ready message
         status_bar.showMessage(self.tr("Ready"))
@@ -2178,3 +2191,41 @@ class GardenPlannerApp(QMainWindow):
                 self.statusBar().showMessage(self.tr("Imported: {path}").format(path=file_path))
             except Exception as e:
                 QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to import image:\n{error}").format(error=e))
+
+    def _on_set_location(self) -> None:
+        """Handle Set Garden Location action."""
+        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+
+        from open_garden_planner.ui.dialogs.location_dialog import LocationDialog  # noqa: PLC0415
+
+        dialog = LocationDialog(self, location=self._project_manager.location)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._project_manager.set_location(dialog.location_data)
+            self.statusBar().showMessage(self.tr("Garden location updated"), 3000)
+
+    def _on_location_changed(self, location: object) -> None:
+        """Update the location label in the status bar."""
+        if location is None:
+            self.location_label.setText(self.tr("No location set"))
+            self.location_label.setToolTip(
+                self.tr("Garden GPS location — use File > Set Garden Location to configure")
+            )
+        else:
+            loc = location  # type: ignore[assignment]
+            lat = loc.get("latitude", 0.0)
+            lon = loc.get("longitude", 0.0)
+            lat_str = f"{abs(lat):.4f}°{'N' if lat >= 0 else 'S'}"
+            lon_str = f"{abs(lon):.4f}°{'E' if lon >= 0 else 'W'}"
+            self.location_label.setText(f"{lat_str}, {lon_str}")
+            frost = loc.get("frost_dates", {}) or {}
+            zone = frost.get("hardiness_zone", "")
+            tip = self.tr("Latitude: {lat}, Longitude: {lon}").format(lat=lat, lon=lon)
+            if zone:
+                tip += f"\n{self.tr('Zone')}: {zone}"
+            spring = frost.get("last_spring_frost", "")
+            fall = frost.get("first_fall_frost", "")
+            if spring:
+                tip += f"\n{self.tr('Last spring frost')}: {spring}"
+            if fall:
+                tip += f"\n{self.tr('First fall frost')}: {fall}"
+            self.location_label.setToolTip(tip)
