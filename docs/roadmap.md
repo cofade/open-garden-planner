@@ -11,10 +11,10 @@
 | 5 | v0.5 | ✅ Complete | Export & Polish: PNG/SVG/CSV export, shortcuts, themes |
 | Backlog | - | ✅ Complete | Rotation, vertex editing, annotations |
 | ~~6~~ | ~~v1.0~~ | ~~✅ Complete~~ | ~~Visual Polish & Public Release~~ |
-| **7** | **v1.1** | **In Progress** | **CAD Precision & Constraints** |
-| 8 | v1.2 | Planned | Location, Climate & Planting Calendar |
-| 9 | v1.3 | Planned | Seed Inventory & Propagation Planning |
-| 10 | v1.4 | Planned | Companion Planting & Crop Rotation |
+| ~~7~~ | ~~v1.1 – v1.6~~ | ~~✅ Complete~~ | ~~CAD Precision & Constraints~~ |
+| **8** | **v1.7** | **In Progress** | **Location, Climate & Planting Calendar** |
+| 9 | v1.8 | Planned | Seed Inventory & Propagation Planning |
+| 10 | v1.9 | Planned | Companion Planting & Crop Rotation |
 | 11 | v2.0+ | Future | Advanced Features |
 
 ---
@@ -343,7 +343,7 @@
 
 ---
 
-## Phase 7: CAD Precision & Constraints (v1.1)
+## ~~Phase 7: CAD Precision & Constraints (v1.1 – v1.6)~~ ✅
 
 **Goal**: Full 2D geometric constraint system with numeric precision input, construction aids, and pattern placement — bringing FreeCAD Sketcher-level precision to garden planning.
 
@@ -704,7 +704,7 @@ Icon designs per tool:
 
 ---
 
-## Phase 8: Location, Climate & Planting Calendar (v1.2)
+## Phase 8: Location, Climate & Planting Calendar (v1.7)
 
 **Goal**: Enable location-aware planting schedules with a dashboard showing what to do today/this week/this month.
 
@@ -712,10 +712,11 @@ Icon designs per tool:
 |----|------------|----------|--------|
 | US-8.1 | GPS location & climate zone setup | Must | ✅ |
 | US-8.2 | Frost date & hardiness zone API lookup | Must | ✅ |
-| US-8.3 | Plant calendar data model | Must | |
-| US-8.4 | Planting calendar view (tab) | Must | |
-| US-8.5 | Dashboard / today view | Must | |
-| US-8.6 | Tab-based main window architecture | Must | |
+| US-8.3 | Auto-update notification & one-click installer download | Should | |
+| US-8.4 | Plant calendar data model | Must | |
+| US-8.5 | Planting calendar view (tab) | Must | |
+| US-8.6 | Dashboard / today view | Must | |
+| US-8.7 | Tab-based main window architecture | Must | |
 
 ### US-8.1: GPS Location & Climate Zone Setup
 
@@ -757,7 +758,35 @@ Icon designs per tool:
 - Cache results in `get_app_data_dir()` to avoid repeated lookups
 - Consider bundling a coarse hardiness zone GeoJSON for offline fallback
 
-### US-8.3: Plant Calendar Data Model
+### US-8.3: Auto-Update Notification & One-Click Installer Download
+
+**Description**: At application startup, silently check GitHub Releases for a newer version of the installer (Windows `.exe`). If a newer version is available, display a non-blocking notification banner (or dialog) that informs the user, shows the release notes, and offers a one-click "Download & Install" option. After download, launch the new installer and exit the running app; the NSIS installer supports `/S` silent-ish mode but will prompt for the typical "overwrite existing installation" flow. Only applies to the packaged Windows executable — development environments skip the check.
+
+**Acceptance Criteria**:
+- Check runs in a background thread at startup — never blocks the main window
+- Compares current version (from `__version__` / git tag embedded at build time) against the latest GitHub Release tag via the GitHub Releases API (`https://api.github.com/repos/<owner>/<repo>/releases/latest`)
+- If current ≥ latest: do nothing silently
+- If current < latest: show a dismissible notification bar (or `QMessageBox.information`) with:
+  - "A new version (vX.Y.Z) is available"
+  - Brief release notes (first 300 chars of the release body)
+  - "Download & Install" button (downloads `.exe` asset to a temp dir, then launches it, then calls `QApplication.quit()`)
+  - "Remind me later" / "Skip this version" button
+- User preference "Skip version X.Y.Z" is persisted in QSettings
+- Gracefully handles network errors (timeout, no internet) — silently skips the check
+- Only active when running from the installed `.exe` (detect via `sys.frozen` or a build-time flag)
+- Uses only stdlib + `urllib` for the HTTP check (no extra deps)
+- Unit-testable: version comparison logic and API response parsing are pure functions
+
+**Technical Notes**:
+- Version embedding: `build_installer.py` writes `_version.py` into the bundled app at build time
+- GitHub Releases API: `GET https://api.github.com/repos/cofade/open-garden-planner/releases/latest` → `{"tag_name": "v1.7.x", "body": "...", "assets": [{"name": "OpenGardenPlanner-vX.Y.Z-Setup.exe", "browser_download_url": "..."}]}`
+- New file: `src/open_garden_planner/services/update_checker.py`
+- Call site: `GardenPlannerApp.__init__` (after window shown), on a `QThread`
+- NSIS installer supports running while the old app is closed: download → launch installer → `QApplication.quit()`
+
+---
+
+### US-8.4: Plant Calendar Data Model
 
 **Description**: Extend the plant data model with sowing, transplanting, and harvest timing information.
 
@@ -794,7 +823,7 @@ Icon designs per tool:
 - New local database: `resources/data/planting_calendar.json` — curated data for 50+ common vegetables/herbs
 - Merge logic: local DB has priority, API data fills gaps
 
-### US-8.4: Planting Calendar View
+### US-8.5: Planting Calendar View
 
 **Description**: A dedicated tab showing a month-by-month calendar of all planting activities based on the garden plan and frost dates.
 
@@ -818,7 +847,7 @@ Icon designs per tool:
 - Derives data from placed plants on canvas + `PlantSpeciesData` calendar fields + project frost dates
 - Signal connection: refresh when canvas objects change or frost dates updated
 
-### US-8.5: Dashboard / Today View
+### US-8.6: Dashboard / Today View
 
 **Description**: A dashboard section at the top of the Planting Calendar tab showing actionable tasks for today and this week.
 
@@ -836,7 +865,7 @@ Icon designs per tool:
 - Task generation: compare current date against each plant's calculated windows
 - Store task completion state per season in project file (so user can mark "done")
 
-### US-8.6: Tab-Based Main Window Architecture
+### US-8.7: Tab-Based Main Window Architecture
 
 **Description**: Refactor the main window to support multiple tabs (Garden Plan, Planting Calendar, Seed Inventory).
 
@@ -849,7 +878,7 @@ Icon designs per tool:
 - Existing functionality unchanged — Garden Plan tab works exactly as before
 
 **Technical Notes**:
-- This is a prerequisite for US-8.4 and US-9.4 — implement first
+- This is a prerequisite for US-8.5 and US-9.4 — implement first
 - Modify `application.py` -> `_setup_central_widget()`
 - Wrap current `QSplitter` in a `QTabWidget`
 - Tab 0: existing splitter (canvas + sidebar)
@@ -858,7 +887,7 @@ Icon designs per tool:
 
 ---
 
-## Phase 9: Seed Inventory & Propagation Planning (v1.3)
+## Phase 9: Seed Inventory & Propagation Planning (v1.8)
 
 **Goal**: Manage seed packets ("Samenbeutel"), track viability, and plan the full propagation cycle from indoor sowing to transplanting.
 
@@ -1043,7 +1072,7 @@ Icon designs per tool:
 
 ---
 
-## Phase 10: Companion Planting & Crop Rotation (v1.4)
+## Phase 10: Companion Planting & Crop Rotation (v1.9)
 
 **Goal**: Help gardeners optimize plant placement with companion planting recommendations and multi-year crop rotation tracking.
 
@@ -1221,45 +1250,9 @@ Icon designs per tool:
 
 ---
 
-## Phase 11: Infrastructure & App Polish (Future)
+## Phase 11: Advanced Features (Future, v2.0+)
 
-Cross-cutting improvements to the installer, distribution, and app experience.
-
-| ID | User Story | Priority | Status |
-|----|------------|----------|--------|
-| US-11.1 | Auto-update notification & one-click installer download | Should | |
-
-### US-11.1: Auto-Update Notification & One-Click Installer Download
-
-**Description**: At application startup, silently check GitHub Releases for a newer version of the installer (Windows `.exe`). If a newer version is available, display a non-blocking notification banner (or dialog) that informs the user, shows the release notes, and offers a one-click "Download & Install" option. After download, launch the new installer and exit the running app; the NSIS installer supports `/S` silent-ish mode but will prompt for the typical "overwrite existing installation" flow. Only applies to the packaged Windows executable — development environments skip the check.
-
-**Acceptance Criteria**:
-- Check runs in a background thread at startup — never blocks the main window
-- Compares current version (from `__version__` / git tag embedded at build time) against the latest GitHub Release tag via the GitHub Releases API (`https://api.github.com/repos/<owner>/<repo>/releases/latest`)
-- If current ≥ latest: do nothing silently
-- If current < latest: show a dismissible notification bar (or `QMessageBox.information`) with:
-  - "A new version (vX.Y.Z) is available"
-  - Brief release notes (first 300 chars of the release body)
-  - "Download & Install" button (downloads `.exe` asset to a temp dir, then launches it, then calls `QApplication.quit()`)
-  - "Remind me later" / "Skip this version" button
-- User preference "Skip version X.Y.Z" is persisted in QSettings
-- Gracefully handles network errors (timeout, no internet) — silently skips the check
-- Only active when running from the installed `.exe` (detect via `sys.frozen` or a build-time flag)
-- Uses only stdlib + `urllib` for the HTTP check (no extra deps)
-- Unit-testable: version comparison logic and API response parsing are pure functions
-
-**Technical Notes**:
-- Version embedding: `build_installer.py` writes `_version.py` into the bundled app at build time
-- GitHub Releases API: `GET https://api.github.com/repos/<owner>/<repo>/releases/latest` → `{"tag_name": "v1.2.0", "body": "...", "assets": [{"name": "ogp-setup-1.2.0.exe", "browser_download_url": "..."}]}`
-- New file: `src/open_garden_planner/services/update_checker.py`
-- Call site: `GardenPlannerApp.__init__` (after window shown), on a `QThread`
-- NSIS installer supports running while the old app is closed: download → launch installer → `QApplication.quit()`
-
----
-
-## Phase 12: Advanced Features (Future, v2.0+)
-
-Future enhancements beyond v1.4:
+Future enhancements beyond v1.9:
 
 - Additional drawing tools (arcs, curves, bezier paths)
 - DXF import/export for CAD interoperability

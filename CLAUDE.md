@@ -39,18 +39,27 @@ Releases are **fully automated** via `.github/workflows/release.yml`. To trigger
 
 ### Version Source of Truth
 
-- **Git tags** (e.g., `v1.0.0`) are the version source of truth
+- **Git tags** (e.g., `v1.6.13`) are the version source of truth
 - The release workflow reads the latest tag and bumps based on PR labels
 - `installer/build_installer.py` accepts `--version X.Y.Z` to override the hardcoded default
-- `pyproject.toml` version should stay in sync (currently 1.0.0)
+- `pyproject.toml` version should stay in sync
+
+### Version Assignment for US Implementation
+
+When a US implementation is complete and ready to merge:
+1. Run `git describe --tags --abbrev=0` to get the current latest tag
+2. Assign the PR the appropriate label (`minor` for new features, `patch` for fixes)
+3. After merge, the CI/CD pipeline tags and publishes the new release automatically
+4. Update the progress table below with ✅ and the version delivered
 
 ## Where to Pick Up After Restart
 
-1. **Check current progress** in the Phase 7 table below
+1. **Check current progress** in the Phase 8 table below
 2. **Read the roadmap**: `docs/roadmap.md` has full user stories and acceptance criteria
-3. **Read architecture docs**: `docs/` contains arc42 documentation (see Documentation section below)
-4. **Check git status**: See recent git history, which branch you're on and any uncommitted changes
-5. **Pick the next unchecked US** from the Phase 7 progress table below
+3. **Also update the GitHub wiki** when progress is made — the wiki repo is at `../open-garden-planner.wiki/` (cloned next to this repo). Edit `Roadmap.md` there, commit, and push to keep it in sync.
+4. **Read architecture docs**: `docs/` contains arc42 documentation (see Documentation section below)
+5. **Check git status**: See recent git history, which branch you're on and any uncommitted changes
+6. **Pick the next unchecked US** from the Phase 8 progress table below
 
 ## Documentation (arc42)
 
@@ -300,9 +309,9 @@ tests/
 └── ui/                           # UI tests (pytest-qt)
 ```
 
-## Phases 1-6 + Backlog Complete!
+## Phases 1-7 + Backlog Complete!
 
-## Progress (Phase 7: CAD Precision & Constraints v1.1)
+## Progress (Phase 7: CAD Precision & Constraints v1.1 – v1.6) ✅
 
 | Status | US   | Description                                          |
 | ------ | ---- | ---------------------------------------------------- |
@@ -330,18 +339,21 @@ tests/
 | ✅     | 7.22 | Horizontal/Vertical distance constraints (1D)        |
 | ✅     | 7.23 | FreeCAD-style constraint toolbar + full SVG icon set |
 
-## Progress (Phase 8: Location, Climate & Planting Calendar v1.2)
+## Progress (Phase 8: Location, Climate & Planting Calendar v1.7)
+
+> **Version note**: When implementing each US, check the latest git tag (`git describe --tags --abbrev=0`) and assign the next appropriate minor version at merge time.
 
 | Status | US   | Description                                          |
 | ------ | ---- | ---------------------------------------------------- |
 | ✅     | 8.1  | GPS location & climate zone setup                    |
 | ✅     | 8.2  | Frost date & hardiness zone API lookup               |
-|        | 8.3  | Plant calendar data model                            |
-|        | 8.4  | Planting calendar view (tab)                         |
-|        | 8.5  | Dashboard / today view                               |
-|        | 8.6  | Tab-based main window architecture                   |
+|        | 8.3  | Auto-update notification & one-click installer download |
+|        | 8.4  | Plant calendar data model                            |
+|        | 8.5  | Planting calendar view (tab)                         |
+|        | 8.6  | Dashboard / today view                               |
+|        | 8.7  | Tab-based main window architecture                   |
 
-## Progress (Phase 9: Seed Inventory & Propagation Planning v1.3)
+## Progress (Phase 9: Seed Inventory & Propagation Planning v1.8)
 
 | Status | US   | Description                                          |
 | ------ | ---- | ---------------------------------------------------- |
@@ -352,7 +364,7 @@ tests/
 |        | 9.5  | Propagation planning (pre-cultivation)               |
 |        | 9.6  | Seed-to-plant manual linking                         |
 
-## Progress (Phase 10: Companion Planting & Crop Rotation v1.4)
+## Progress (Phase 10: Companion Planting & Crop Rotation v1.9)
 
 | Status | US    | Description                                          |
 | ------ | ----- | ---------------------------------------------------- |
