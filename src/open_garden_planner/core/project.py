@@ -20,7 +20,7 @@ from open_garden_planner.core.object_types import PathFenceStyle, StrokeStyle
 from open_garden_planner.models.layer import Layer, create_default_layers
 
 # File format version for backward compatibility
-FILE_VERSION = "1.1"
+FILE_VERSION = "1.2"
 
 
 @dataclass
@@ -33,6 +33,7 @@ class ProjectData:
     layers: list[dict[str, Any]] = field(default_factory=list)
     constraints: list[dict[str, Any]] = field(default_factory=list)
     guides: list[dict[str, Any]] = field(default_factory=list)
+    location: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -52,6 +53,8 @@ class ProjectData:
             data["constraints"] = self.constraints
         if self.guides:
             data["guides"] = self.guides
+        if self.location:
+            data["location"] = self.location
         return data
 
     @classmethod
@@ -65,6 +68,7 @@ class ProjectData:
             objects=data.get("objects", []),
             constraints=data.get("constraints", []),
             guides=data.get("guides", []),
+            location=data.get("location") or None,
         )
 
 
@@ -78,12 +82,14 @@ class ProjectManager(QObject):
 
     project_changed = pyqtSignal(object)  # str path or None
     dirty_changed = pyqtSignal(bool)
+    location_changed = pyqtSignal(object)  # dict or None
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
         super().__init__(parent)
         self._current_file: Path | None = None
         self._dirty = False
+        self._location: dict[str, Any] | None = None
 
     @property
     def current_file(self) -> Path | None:
@@ -102,6 +108,22 @@ class ProjectManager(QObject):
             return self._current_file.stem
         return "Untitled"
 
+    @property
+    def location(self) -> dict[str, Any] | None:
+        """Garden location data, or None if not set."""
+        return self._location
+
+    def set_location(self, location: dict[str, Any] | None) -> None:
+        """Set the garden location and mark project as dirty.
+
+        Args:
+            location: Dict with latitude, longitude, elevation_m, frost_dates keys,
+                      or None to clear location.
+        """
+        self._location = location
+        self.location_changed.emit(location)
+        self.mark_dirty()
+
     def mark_dirty(self) -> None:
         """Mark the project as having unsaved changes."""
         if not self._dirty:
@@ -118,8 +140,10 @@ class ProjectManager(QObject):
         """Start a new untitled project."""
         self._current_file = None
         self._dirty = False
+        self._location = None
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
+        self.location_changed.emit(None)
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -129,6 +153,7 @@ class ProjectManager(QObject):
             file_path: Path to save to
         """
         data = self._serialize_scene(scene)
+        data.location = self._location
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -153,6 +178,10 @@ class ProjectManager(QObject):
 
         data = ProjectData.from_dict(raw_data)
         self._deserialize_to_scene(scene, data)
+
+        # Restore location data
+        self._location = data.location
+        self.location_changed.emit(self._location)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)

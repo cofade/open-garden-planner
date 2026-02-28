@@ -3827,4 +3827,146 @@ Verwenden Sie das Randbedingungen-Werkzeug (K), um eine hinzuzufügen.</translat
         <translation>↕ {d:.2f} m</translation>
     </message>
 </context>
+<context>
+    <name>LocationDialog</name>
+    <message>
+        <source>Set Garden Location</source>
+        <translation>Gartenstandort festlegen</translation>
+    </message>
+    <message>
+        <source>GPS Coordinates</source>
+        <translation>GPS-Koordinaten</translation>
+    </message>
+    <message>
+        <source>Latitude:</source>
+        <translation>Breitengrad:</translation>
+    </message>
+    <message>
+        <source>(−90 to 90, N positive)</source>
+        <translation>(−90 bis 90, N positiv)</translation>
+    </message>
+    <message>
+        <source>Longitude:</source>
+        <translation>Längengrad:</translation>
+    </message>
+    <message>
+        <source>(−180 to 180, E positive)</source>
+        <translation>(−180 bis 180, O positiv)</translation>
+    </message>
+    <message>
+        <source>Elevation (optional):</source>
+        <translation>Höhe über NN (optional):</translation>
+    </message>
+    <message>
+        <source>Not set</source>
+        <translation>Nicht angegeben</translation>
+    </message>
+    <message>
+        <source>Frost Dates &amp; Hardiness Zone</source>
+        <translation>Frostdaten &amp; Härtezone</translation>
+    </message>
+    <message>
+        <source>These are used for planting calendar calculations. Leave blank if unknown — they can be auto-filled in a later step.</source>
+        <translation>Diese werden für den Pflanzkalender verwendet. Leer lassen, falls unbekannt – sie können in einem späteren Schritt automatisch ermittelt werden.</translation>
+    </message>
+    <message>
+        <source>Last spring frost:</source>
+        <translation>Letzter Frühjahrsfrost:</translation>
+    </message>
+    <message>
+        <source>MM-DD, e.g. 04-15</source>
+        <translation>MM-TT, z. B. 04-15</translation>
+    </message>
+    <message>
+        <source>Date of last expected spring frost (MM-DD format)</source>
+        <translation>Datum des letzten erwarteten Frühjahrsfrostes (MM-TT)</translation>
+    </message>
+    <message>
+        <source>First fall frost:</source>
+        <translation>Erster Herbstfrost:</translation>
+    </message>
+    <message>
+        <source>MM-DD, e.g. 10-20</source>
+        <translation>MM-TT, z. B. 10-20</translation>
+    </message>
+    <message>
+        <source>Date of first expected fall frost (MM-DD format)</source>
+        <translation>Datum des ersten erwarteten Herbstfrostes (MM-TT)</translation>
+    </message>
+    <message>
+        <source>Hardiness zone:</source>
+        <translation>Härtezone:</translation>
+    </message>
+    <message>
+        <source>e.g. 7b or H3</source>
+        <translation>z. B. 7b oder H3</translation>
+    </message>
+    <message>
+        <source>Plant hardiness zone — indicates the coldest winter temperatures your garden experiences. Used to determine which perennial plants can survive your winters.
+
+Common formats:
+  USDA zones (worldwide):  e.g. 5b, 7a, 8b
+    Scale 1a (coldest, −51 °C) → 13b (warmest, +18 °C)
+  RHS zones (UK / Europe):  e.g. H3, H4, H5
+    Scale H1 (tender, frost-free) → H7 (fully hardy, −25 °C)
+
+Look up your zone for any country at:
+  plantmaps.com
+(scroll down to select your country, then find your area on the map)</source>
+        <translation>Pflanzenhärtezone – gibt an, wie kalt es im Winter in Ihrem Garten wird. Dient zur Einschätzung, welche mehrjährigen Pflanzen Ihren Winter überleben können.
+
+Gängige Formate:
+  USDA-Zonen (weltweit):  z. B. 5b, 7a, 8b
+    Skala 1a (kälteste, −51 °C) → 13b (wärmste, +18 °C)
+  RHS-Zonen (UK / Europa):  z. B. H3, H4, H5
+    Skala H1 (frostempfindlich) → H7 (vollständig winterhart, −25 °C)
+
+Ihre Zone für jedes Land nachschlagen unter:
+  plantmaps.com
+(nach unten scrollen, Land auswählen, dann Ihren Bereich auf der Karte finden)</translation>
+    </message>
+    <message>
+        <source>Tip: Frost dates can be auto-detected from coordinates in a future step (US-8.2). You can also enter them manually here.</source>
+        <translation>Tipp: Frostdaten können in einem späteren Schritt automatisch aus den Koordinaten ermittelt werden (US-8.2). Sie können diese hier auch manuell eingeben.</translation>
+    </message>
+</context>
+<context>
+    <name>GardenPlannerApp</name>
+    <message>
+        <source>Set Garden &amp;Location...</source>
+        <translation>Gartenstandort festlegen...</translation>
+    </message>
+    <message>
+        <source>Set GPS coordinates and frost dates for planting calendar</source>
+        <translation>GPS-Koordinaten und Frostdaten für den Pflanzkalender festlegen</translation>
+    </message>
+    <message>
+        <source>No location set</source>
+        <translation>Kein Standort festgelegt</translation>
+    </message>
+    <message>
+        <source>Garden GPS location — use File > Set Garden Location to configure</source>
+        <translation>Garten-GPS-Standort – Datei > Gartenstandort festlegen zur Konfiguration</translation>
+    </message>
+    <message>
+        <source>Garden location updated</source>
+        <translation>Gartenstandort aktualisiert</translation>
+    </message>
+    <message>
+        <source>Latitude: {lat}, Longitude: {lon}</source>
+        <translation>Breite: {lat}, Länge: {lon}</translation>
+    </message>
+    <message>
+        <source>Zone</source>
+        <translation>Zone</translation>
+    </message>
+    <message>
+        <source>Last spring frost</source>
+        <translation>Letzter Frühjahrsfrost</translation>
+    </message>
+    <message>
+        <source>First fall frost</source>
+        <translation>Erster Herbstfrost</translation>
+    </message>
+</context>
 </TS>
