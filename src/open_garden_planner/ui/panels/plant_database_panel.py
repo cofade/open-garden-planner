@@ -255,7 +255,8 @@ class PlantDatabasePanel(QWidget):
         # Info labels
         self.no_selection_label = QLabel(self.tr("Select a plant to view details"))
         self.no_selection_label.setWordWrap(True)
-        self.no_selection_label.setStyleSheet("color: palette(mid); font-style: italic;")
+        self.no_selection_label.setProperty("secondary", True)
+        self.no_selection_label.setStyleSheet("font-style: italic;")
         self.info_layout.addWidget(self.no_selection_label)
 
         # Form layout for plant details (hidden initially)
@@ -502,7 +503,8 @@ class PlantDatabasePanel(QWidget):
 
         # Age label (calculated from planting date)
         self.age_label = QLabel("")
-        self.age_label.setStyleSheet("color: palette(mid); font-style: italic;")
+        self.age_label.setProperty("secondary", True)
+        self.age_label.setStyleSheet("font-style: italic;")
         planting_layout.addWidget(self.age_label)
 
         self.details_form.addRow(self.tr("Planted:"), planting_layout)

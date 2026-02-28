@@ -3326,8 +3326,8 @@ Use the Constraint tool (K) to add one.</translation>
             <translation>Frost Dates &amp; Hardiness Zone</translation>
         </message>
         <message>
-            <source>These are used for planting calendar calculations. Leave blank if unknown — they can be auto-filled in a later step.</source>
-            <translation>These are used for planting calendar calculations. Leave blank if unknown — they can be auto-filled in a later step.</translation>
+            <source>These are used for planting calendar calculations. Leave blank if unknown — use the Lookup button to auto-detect.</source>
+            <translation>These are used for planting calendar calculations. Leave blank if unknown — use the Lookup button to auto-detect.</translation>
         </message>
         <message>
             <source>Last spring frost:</source>
@@ -3386,8 +3386,38 @@ Look up your zone for any country at:
 (scroll down to select your country, then find your area on the map)</translation>
         </message>
         <message>
-            <source>Tip: Frost dates can be auto-detected from coordinates in a future step (US-8.2). You can also enter them manually here.</source>
-            <translation>Tip: Frost dates can be auto-detected from coordinates in a future step (US-8.2). You can also enter them manually here.</translation>
+            <source>Lookup from Coordinates</source>
+            <translation>Lookup from Coordinates</translation>
+        </message>
+        <message>
+            <source>Fetch frost dates automatically from the Open-Meteo ERA5 climate archive using the coordinates entered above.
+Results are cached locally for one year.</source>
+            <translation>Fetch frost dates automatically from the Open-Meteo ERA5 climate archive using the coordinates entered above.
+Results are cached locally for one year.</translation>
+        </message>
+        <message>
+            <source>Looking up frost dates…</source>
+            <translation>Looking up frost dates…</translation>
+        </message>
+        <message>
+            <source>No frost data found — this location may be in a frost-free zone.</source>
+            <translation>No frost data found — this location may be in a frost-free zone.</translation>
+        </message>
+        <message>
+            <source>Open-Meteo ERA5 (cached)</source>
+            <translation>Open-Meteo ERA5 (cached)</translation>
+        </message>
+        <message>
+            <source>Open-Meteo ERA5</source>
+            <translation>Open-Meteo ERA5</translation>
+        </message>
+        <message>
+            <source>Data source: {source}</source>
+            <translation>Data source: {source}</translation>
+        </message>
+        <message>
+            <source>Lookup failed: {error}</source>
+            <translation>Lookup failed: {error}</translation>
         </message>
     </context>
     <context>

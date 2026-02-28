@@ -81,7 +81,8 @@ class DistanceInputDialog(QDialog):
                 "Current distance: {distance:.2f} m",
             ).format(distance=current_distance_cm / 100.0)
         )
-        current_label.setStyleSheet("color: gray; font-style: italic;")
+        current_label.setProperty("secondary", True)
+        current_label.setStyleSheet("font-style: italic;")
         layout.addWidget(current_label)
 
         buttons = QDialogButtonBox(
@@ -585,7 +586,8 @@ class AngleInputDialog(QDialog):
                 "AngleInputDialog", "Current angle: {angle:.1f}°"
             ).format(angle=current_angle_deg)
         )
-        current_label.setStyleSheet("color: gray; font-style: italic;")
+        current_label.setProperty("secondary", True)
+        current_label.setStyleSheet("font-style: italic;")
         layout.addWidget(current_label)
 
         # Preset buttons row
@@ -2662,7 +2664,8 @@ class HDistanceInputDialog(QDialog):
                 "Current horizontal distance: {distance:.2f} m",
             ).format(distance=current_h_dist_cm / 100.0)
         )
-        current_label.setStyleSheet("color: gray; font-style: italic;")
+        current_label.setProperty("secondary", True)
+        current_label.setStyleSheet("font-style: italic;")
         layout.addWidget(current_label)
 
         buttons = QDialogButtonBox(
@@ -2713,7 +2716,8 @@ class VDistanceInputDialog(QDialog):
                 "Current vertical distance: {distance:.2f} m",
             ).format(distance=current_v_dist_cm / 100.0)
         )
-        current_label.setStyleSheet("color: gray; font-style: italic;")
+        current_label.setProperty("secondary", True)
+        current_label.setStyleSheet("font-style: italic;")
         layout.addWidget(current_label)
 
         buttons = QDialogButtonBox(

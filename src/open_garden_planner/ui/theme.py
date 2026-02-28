@@ -636,6 +636,19 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: transparent;
     }}
 
+    /* Secondary / hint text — activated by setProperty("secondary", True) or
+       setProperty("hint", True).  Higher specificity than the plain QLabel rule
+       above, so they reliably override palette(mid) which is near-invisible in
+       dark themes. */
+    QLabel[secondary="true"] {{
+        color: {colors['text_secondary']};
+    }}
+
+    QLabel[hint="true"] {{
+        color: {colors['text_secondary']};
+        font-size: 11px;
+    }}
+
     /* Scroll area */
     QScrollArea {{
         background-color: transparent;

@@ -3866,8 +3866,8 @@ Verwenden Sie das Randbedingungen-Werkzeug (K), um eine hinzuzufügen.</translat
         <translation>Frostdaten &amp; Härtezone</translation>
     </message>
     <message>
-        <source>These are used for planting calendar calculations. Leave blank if unknown — they can be auto-filled in a later step.</source>
-        <translation>Diese werden für den Pflanzkalender verwendet. Leer lassen, falls unbekannt – sie können in einem späteren Schritt automatisch ermittelt werden.</translation>
+        <source>These are used for planting calendar calculations. Leave blank if unknown — use the Lookup button to auto-detect.</source>
+        <translation>Diese werden für den Pflanzkalender verwendet. Leer lassen, falls unbekannt – verwenden Sie die Schaltfläche „Abrufen" zur automatischen Ermittlung.</translation>
     </message>
     <message>
         <source>Last spring frost:</source>
@@ -3926,8 +3926,38 @@ Ihre Zone für jedes Land nachschlagen unter:
 (nach unten scrollen, Land auswählen, dann Ihren Bereich auf der Karte finden)</translation>
     </message>
     <message>
-        <source>Tip: Frost dates can be auto-detected from coordinates in a future step (US-8.2). You can also enter them manually here.</source>
-        <translation>Tipp: Frostdaten können in einem späteren Schritt automatisch aus den Koordinaten ermittelt werden (US-8.2). Sie können diese hier auch manuell eingeben.</translation>
+        <source>Lookup from Coordinates</source>
+        <translation>Frostdaten von Koordinaten abrufen</translation>
+    </message>
+    <message>
+        <source>Fetch frost dates automatically from the Open-Meteo ERA5 climate archive using the coordinates entered above.
+Results are cached locally for one year.</source>
+        <translation>Frostdaten automatisch aus dem Open-Meteo ERA5-Klimaarchiv anhand der eingegebenen Koordinaten abrufen.
+Ergebnisse werden lokal für ein Jahr zwischengespeichert.</translation>
+    </message>
+    <message>
+        <source>Looking up frost dates…</source>
+        <translation>Frostdaten werden abgerufen…</translation>
+    </message>
+    <message>
+        <source>No frost data found — this location may be in a frost-free zone.</source>
+        <translation>Keine Frostdaten gefunden – dieser Standort liegt möglicherweise in einer frostfreien Zone.</translation>
+    </message>
+    <message>
+        <source>Open-Meteo ERA5 (cached)</source>
+        <translation>Open-Meteo ERA5 (gecacht)</translation>
+    </message>
+    <message>
+        <source>Open-Meteo ERA5</source>
+        <translation>Open-Meteo ERA5</translation>
+    </message>
+    <message>
+        <source>Data source: {source}</source>
+        <translation>Datenquelle: {source}</translation>
+    </message>
+    <message>
+        <source>Lookup failed: {error}</source>
+        <translation>Abruf fehlgeschlagen: {error}</translation>
     </message>
 </context>
 <context>

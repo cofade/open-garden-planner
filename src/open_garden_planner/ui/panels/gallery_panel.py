@@ -545,7 +545,8 @@ class GalleryThumbnailButton(QToolButton):
             thumb_label.setPixmap(scaled)
         else:
             thumb_label.setText("?")
-            thumb_label.setStyleSheet("color: palette(mid); font-size: 20px;")
+            thumb_label.setProperty("secondary", True)
+            thumb_label.setStyleSheet("font-size: 20px;")
         layout.addWidget(thumb_label)
 
         # Name label

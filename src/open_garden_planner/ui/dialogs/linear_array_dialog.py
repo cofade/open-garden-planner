@@ -65,7 +65,7 @@ class LinearArrayDialog(QDialog):
         self._angle_spin.setMinimumWidth(100)
         dir_layout.addWidget(self._angle_spin)
         hint = QLabel(self.tr("(0° = right, 90° = down, 180° = left, 270° = up)"))
-        hint.setStyleSheet("color: palette(mid);")
+        hint.setProperty("secondary", True)
         dir_layout.addWidget(hint)
         dir_layout.addStretch()
         form.addRow(self.tr("Direction:"), dir_layout)

@@ -3,7 +3,7 @@
 import re
 from typing import Any
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -13,15 +13,41 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QVBoxLayout,
 )
+
+
+class _FrostLookupWorker(QThread):
+    """Background worker that calls ClimateService.lookup_frost_dates."""
+
+    success = pyqtSignal(object)  # FrostData
+    error = pyqtSignal(str)
+
+    def __init__(self, lat: float, lon: float) -> None:
+        super().__init__()
+        self._lat = lat
+        self._lon = lon
+
+    def run(self) -> None:
+        try:
+            from open_garden_planner.services.climate_service import (  # noqa: PLC0415
+                get_climate_service,
+            )
+
+            data = get_climate_service().lookup_frost_dates(self._lat, self._lon)
+            self.success.emit(data)
+        except Exception as exc:  # noqa: BLE001
+            self.error.emit(str(exc))
 
 
 class LocationDialog(QDialog):
     """Dialog for setting the garden's GPS location and frost dates.
 
     Allows entering latitude/longitude (decimal degrees) and optionally
-    manual frost dates and hardiness zone.
+    manual frost dates and hardiness zone.  A "Lookup from Coordinates"
+    button fetches frost dates automatically from the Open-Meteo ERA5
+    archive in a background thread.
     """
 
     def __init__(
@@ -39,7 +65,9 @@ class LocationDialog(QDialog):
 
         self.setWindowTitle(self.tr("Set Garden Location"))
         self.setModal(True)
-        self.setMinimumWidth(420)
+        self.setMinimumWidth(450)
+
+        self._worker: _FrostLookupWorker | None = None
 
         self._setup_ui()
 
@@ -105,8 +133,10 @@ class LocationDialog(QDialog):
         # Frost dates group
         frost_group = QGroupBox(self.tr("Frost Dates & Hardiness Zone"))
         frost_group.setToolTip(
-            self.tr("These are used for planting calendar calculations. "
-                    "Leave blank if unknown — they can be auto-filled in a later step.")
+            self.tr(
+                "These are used for planting calendar calculations. "
+                "Leave blank if unknown — use the Lookup button to auto-detect."
+            )
         )
         frost_layout = QFormLayout(frost_group)
 
@@ -158,19 +188,28 @@ class LocationDialog(QDialog):
         zone_row.addStretch()
         frost_layout.addRow(self.tr("Hardiness zone:"), zone_row)
 
-        layout.addWidget(frost_group)
-
-        # Info label
-        info = QLabel(
+        # Lookup button row
+        lookup_row = QHBoxLayout()
+        self._lookup_btn = QPushButton(self.tr("Lookup from Coordinates"))
+        self._lookup_btn.setToolTip(
             self.tr(
-                "Tip: Frost dates can be auto-detected from coordinates in a future step "
-                "(US-8.2). You can also enter them manually here."
+                "Fetch frost dates automatically from the Open-Meteo ERA5 climate "
+                "archive using the coordinates entered above.\n"
+                "Results are cached locally for one year."
             )
         )
-        info.setWordWrap(True)
-        info.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        info.setStyleSheet("color: palette(mid); font-size: 11px;")
-        layout.addWidget(info)
+        self._lookup_btn.clicked.connect(self._on_lookup_clicked)
+        lookup_row.addWidget(self._lookup_btn)
+        lookup_row.addStretch()
+        frost_layout.addRow("", lookup_row)
+
+        # Status label (lookup feedback) — secondary colour from global CSS rule
+        self._status_label = QLabel("")
+        self._status_label.setWordWrap(True)
+        self._status_label.setProperty("hint", True)
+        frost_layout.addRow("", self._status_label)
+
+        layout.addWidget(frost_group)
 
         layout.addSpacing(8)
 
@@ -218,6 +257,75 @@ class LocationDialog(QDialog):
             return
 
         self.accept()
+
+    # ------------------------------------------------------------------
+    # Frost lookup
+    # ------------------------------------------------------------------
+
+    def _on_lookup_clicked(self) -> None:
+        """Start background frost date lookup using current coordinates."""
+        lat = self._lat_spin.value()
+        lon = self._lon_spin.value()
+
+        self._lookup_btn.setEnabled(False)
+        self._status_label.setText(self.tr("Looking up frost dates…"))
+        self._status_label.setStyleSheet("")  # restore hint colour from global rule
+
+        self._worker = _FrostLookupWorker(lat, lon)
+        self._worker.success.connect(self._on_lookup_success)
+        self._worker.error.connect(self._on_lookup_error)
+        self._worker.finished.connect(self._on_lookup_finished)
+        self._worker.start()
+
+    def _on_lookup_success(self, frost_data: object) -> None:
+        """Populate frost date fields with data returned by the worker."""
+        from open_garden_planner.services.climate_service import FrostData  # noqa: PLC0415
+
+        if not isinstance(frost_data, FrostData):
+            return
+
+        if frost_data.last_spring_frost:
+            self._spring_frost_edit.setText(frost_data.last_spring_frost)
+
+        if frost_data.first_fall_frost:
+            self._fall_frost_edit.setText(frost_data.first_fall_frost)
+
+        if frost_data.hardiness_zone and not self._zone_edit.text().strip():
+            self._zone_edit.setText(frost_data.hardiness_zone)
+
+        if not frost_data.last_spring_frost and not frost_data.first_fall_frost:
+            msg = self.tr(
+                "No frost data found — this location may be in a frost-free zone."
+            )
+        else:
+            source = (
+                self.tr("Open-Meteo ERA5 (cached)")
+                if frost_data.data_source == "cached"
+                else self.tr("Open-Meteo ERA5")
+            )
+            msg = self.tr("Data source: {source}").format(source=source)
+
+        # Restore hint colour (clear any previous error override)
+        self._status_label.setStyleSheet("")
+        self._status_label.setText(msg)
+
+    def _on_lookup_error(self, error_msg: str) -> None:
+        """Show an error message when the lookup fails."""
+        self._status_label.setText(
+            self.tr("Lookup failed: {error}").format(error=error_msg)
+        )
+        self._status_label.setStyleSheet("color: red; font-size: 11px;")
+
+    def _on_lookup_finished(self) -> None:
+        """Re-enable the lookup button after the worker finishes."""
+        self._lookup_btn.setEnabled(True)
+        if self._worker:
+            self._worker.deleteLater()
+            self._worker = None
+
+    # ------------------------------------------------------------------
+    # Result accessor
+    # ------------------------------------------------------------------
 
     @property
     def location_data(self) -> dict[str, Any]:
