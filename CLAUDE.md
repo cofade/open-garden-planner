@@ -334,7 +334,7 @@ tests/
 
 | Status | US   | Description                                          |
 | ------ | ---- | ---------------------------------------------------- |
-|        | 8.1  | GPS location & climate zone setup                    |
+| ✅     | 8.1  | GPS location & climate zone setup                    |
 |        | 8.2  | Frost date & hardiness zone API lookup               |
 |        | 8.3  | Plant calendar data model                            |
 |        | 8.4  | Planting calendar view (tab)                         |
