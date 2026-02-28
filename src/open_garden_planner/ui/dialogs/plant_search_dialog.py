@@ -294,7 +294,7 @@ class PlantSearchDialog(QDialog):
             html += "</ul>"
 
         # Data source
-        html += "<hr><p style='color: palette(mid); font-size: small;'>"
+        html += "<hr><p style='opacity: 0.6; font-size: small;'>"
         html += self.tr("Source: {source}").format(source=plant.data_source.title())
         if plant.source_id:
             html += f" (ID: {plant.source_id})"

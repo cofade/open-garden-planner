@@ -80,7 +80,7 @@ class NewProjectDialog(QDialog):
         info_label = QLabel(
             self.tr("Tip: You can resize the canvas later from Edit > Canvas Size.")
         )
-        info_label.setStyleSheet("color: palette(mid);")
+        info_label.setProperty("secondary", True)
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(info_label)
 

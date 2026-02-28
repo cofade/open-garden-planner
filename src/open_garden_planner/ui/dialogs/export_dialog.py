@@ -128,12 +128,12 @@ class ExportPngDialog(QDialog):
                 height=f"{self._canvas_height_cm / 100:.1f}",
             )
         )
-        canvas_info.setStyleSheet("color: palette(mid);")
+        canvas_info.setProperty("secondary", True)
         preview_layout.addWidget(canvas_info)
 
         # Scale ratio
         self._scale_label = QLabel()
-        self._scale_label.setStyleSheet("color: palette(mid);")
+        self._scale_label.setProperty("secondary", True)
         preview_layout.addWidget(self._scale_label)
 
         # Output dimensions

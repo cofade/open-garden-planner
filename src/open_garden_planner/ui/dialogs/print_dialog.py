@@ -84,7 +84,7 @@ class PrintOptionsDialog(QDialog):
 
         # Page count info
         self._page_info_label = QLabel()
-        self._page_info_label.setStyleSheet("color: palette(mid);")
+        self._page_info_label.setProperty("secondary", True)
         scale_layout.addWidget(self._page_info_label)
 
         layout.addWidget(scale_group)
@@ -114,7 +114,7 @@ class PrintOptionsDialog(QDialog):
                 h=f"{self._canvas_height_cm / 100:.1f}",
             )
         )
-        info_label.setStyleSheet("color: palette(mid);")
+        info_label.setProperty("secondary", True)
         layout.addWidget(info_label)
 
         layout.addSpacing(10)

@@ -194,14 +194,15 @@ class LayerListItem(QWidget):
 
     def _update_styling(self) -> None:
         """Update visual styling based on layer state."""
-        if not self.layer.visible:
-            self.name_label.setStyleSheet(
-                "color: palette(mid); padding-left: 4px;"
-            )
-        else:
-            self.name_label.setStyleSheet(
-                "padding-left: 4px;"
-            )
+        # Use the secondary property for dimmed (hidden-layer) appearance so
+        # the colour comes from the global CSS rule and stays readable in both
+        # light and dark themes.
+        is_hidden = not self.layer.visible
+        self.name_label.setProperty("secondary", is_hidden)
+        self.name_label.setStyleSheet("padding-left: 4px;")
+        # Force a style re-evaluation after the dynamic property change.
+        self.name_label.style().unpolish(self.name_label)
+        self.name_label.style().polish(self.name_label)
 
     def update_layer(self, layer: Layer) -> None:
         """Update the displayed layer.
