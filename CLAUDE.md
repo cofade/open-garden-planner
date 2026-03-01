@@ -48,12 +48,21 @@ Releases are **fully automated** via `.github/workflows/release.yml`. To trigger
 ### Version Assignment for US Implementation
 
 When a US implementation is complete and ready to merge:
-1. Run `git describe --tags --abbrev=0` to get the current latest tag
-2. Assign the PR the appropriate label (`minor` for new features, `patch` for fixes)
+1. Run `git fetch --tags && git describe --tags --abbrev=0` to get the current latest tag
+2. Assign the PR the version label based on the **scope** of change:
+
+   | Scenario | Label | Example |
+   |----------|-------|---------|
+   | Individual US within an **ongoing phase** | `patch` | v1.9.0 → v1.9.1 |
+   | **First US of a brand-new phase** | `minor` | v1.9.x → v1.10.0 |
+   | Major architectural milestone (Phase 11+) | `major` | v1.x → v2.0.0 |
+
+   > **Rule of thumb**: almost every US gets `patch`. Only bump `minor` when the PR starts a new phase.
+
 3. After merge, the CI/CD pipeline tags and publishes the new release automatically
 4. Update the progress table below with ✅ and the version delivered
 5. **Do NOT wait for CI to complete.** The new version is deterministic: apply the bump rule to the
-   current tag yourself (e.g. `v1.7.0` + `minor` label → `v1.8.0`). Update immediately after merge:
+   current tag yourself. Update immediately after merge:
    - `pyproject.toml` → `version = "X.Y.Z"`
    - `src/open_garden_planner/__init__.py` → `__version__ = "X.Y.Z"`
 
@@ -356,7 +365,7 @@ tests/
 
 ## Progress (Phase 8: Location, Climate & Planting Calendar v1.7)
 
-> **Version note**: When implementing each US, check the latest git tag (`git describe --tags --abbrev=0`) and assign the next appropriate minor version at merge time.
+> **Version note**: Remaining Phase 8 USes use the `patch` label (v1.9.x series). The first US of Phase 9 uses `minor` (→ v1.10.0).
 
 | Status | US   | Description                                          |
 | ------ | ---- | ---------------------------------------------------- |
