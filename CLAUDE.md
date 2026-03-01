@@ -43,6 +43,7 @@ Releases are **fully automated** via `.github/workflows/release.yml`. To trigger
 - The release workflow reads the latest tag and bumps based on PR labels
 - `installer/build_installer.py` accepts `--version X.Y.Z` to override the hardcoded default
 - `pyproject.toml` version should stay in sync
+- `src/open_garden_planner/__init__.py` `__version__` should stay in sync
 
 ### Version Assignment for US Implementation
 
@@ -51,6 +52,9 @@ When a US implementation is complete and ready to merge:
 2. Assign the PR the appropriate label (`minor` for new features, `patch` for fixes)
 3. After merge, the CI/CD pipeline tags and publishes the new release automatically
 4. Update the progress table below with ✅ and the version delivered
+5. Run `git fetch --tags && git describe --tags --abbrev=0` to get the new tag, then update:
+   - `pyproject.toml` → `version = "X.Y.Z"`
+   - `src/open_garden_planner/__init__.py` → `__version__ = "X.Y.Z"`
 
 ## Where to Pick Up After Restart
 
@@ -168,7 +172,16 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 9. After PR is merged, switch back to master:
    - `git checkout master && git pull origin master`
 
-10. After completing a US, `/clear` context
+10. **Sync version** — CI/CD creates a new git tag on merge; pull it and update both version files:
+    ```bash
+    git fetch --tags
+    git describe --tags --abbrev=0   # → e.g. v1.7.0
+    ```
+    Then update **both** of these to the new version (strip the leading `v`):
+    - `src/open_garden_planner/__init__.py` → `__version__ = "1.7.0"`
+    - `pyproject.toml` → `version = "1.7.0"`
+
+11. After completing a US, `/clear` context
 
 **Important Reminders**:
 
@@ -270,7 +283,8 @@ src/open_garden_planner/
 │   │   └── trefle_client.py
 │   ├── plant_library.py          # Local plant library management
 │   ├── export_service.py         # PDF/image export
-│   └── autosave_service.py       # Autosave logic
+│   ├── autosave_service.py       # Autosave logic
+│   └── update_checker.py         # GitHub releases update check (frozen exe only)
 └── resources/
     ├── icons/                    # App icons, banner, tool SVGs
     ├── textures/                 # Tileable PNG textures
@@ -347,7 +361,7 @@ tests/
 | ------ | ---- | ---------------------------------------------------- |
 | ✅     | 8.1  | GPS location & climate zone setup                    |
 | ✅     | 8.2  | Frost date & hardiness zone API lookup               |
-|        | 8.3  | Auto-update notification & one-click installer download |
+| ✅     | 8.3  | Auto-update notification & one-click installer download |
 |        | 8.4  | Plant calendar data model                            |
 |        | 8.5  | Planting calendar view (tab)                         |
 |        | 8.6  | Dashboard / today view                               |

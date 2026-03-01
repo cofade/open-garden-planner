@@ -3999,4 +3999,65 @@ Ergebnisse werden lokal für ein Jahr zwischengespeichert.</translation>
         <translation>Erster Herbstfrost</translation>
     </message>
 </context>
+<context>
+    <name>UpdateBar</name>
+    <message>
+        <source>A new version ({version}) is available.</source>
+        <translation>Eine neue Version ({version}) ist verfügbar.</translation>
+    </message>
+    <message>
+        <source>Download &amp;&amp; Install</source>
+        <translation>Herunterladen &amp;&amp; Installieren</translation>
+    </message>
+    <message>
+        <source>Skip this version</source>
+        <translation>Diese Version überspringen</translation>
+    </message>
+    <message>
+        <source>Remind me later</source>
+        <translation>Später erinnern</translation>
+    </message>
+    <message>
+        <source>Install Update</source>
+        <translation>Update installieren</translation>
+    </message>
+    <message>
+        <source>The installer will be downloaded and launched.
+Open Garden Planner will close when the installer starts.
+
+Continue?</source>
+        <translation>Das Installationsprogramm wird heruntergeladen und gestartet.
+Open Garden Planner wird geschlossen, wenn die Installation beginnt.
+
+Fortfahren?</translation>
+    </message>
+    <message>
+        <source>Downloading {filename}…</source>
+        <translation>{filename} wird heruntergeladen…</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Abbrechen</translation>
+    </message>
+    <message>
+        <source>Download Failed</source>
+        <translation>Download fehlgeschlagen</translation>
+    </message>
+    <message>
+        <source>Could not download the installer:
+{error}</source>
+        <translation>Das Installationsprogramm konnte nicht heruntergeladen werden:
+{error}</translation>
+    </message>
+    <message>
+        <source>Launch Failed</source>
+        <translation>Start fehlgeschlagen</translation>
+    </message>
+    <message>
+        <source>Could not launch the installer:
+{error}</source>
+        <translation>Das Installationsprogramm konnte nicht gestartet werden:
+{error}</translation>
+    </message>
+</context>
 </TS>

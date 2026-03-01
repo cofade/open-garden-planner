@@ -37,7 +37,12 @@ from open_garden_planner.ui.panels import (
     PropertiesPanel,
 )
 from open_garden_planner.ui.theme import ThemeMode, apply_theme
-from open_garden_planner.ui.widgets import CollapsiblePanel, ConstraintToolbar, MainToolbar
+from open_garden_planner.ui.widgets import (
+    CollapsiblePanel,
+    ConstraintToolbar,
+    MainToolbar,
+    UpdateBar,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +87,9 @@ class GardenPlannerApp(QMainWindow):
         # Check for recovery files after UI is fully loaded
         # Then show welcome dialog if enabled
         QTimer.singleShot(500, self._startup_sequence)
+
+        # Check for updates in background (2-second delay so UI is fully ready)
+        QTimer.singleShot(2000, self._start_update_check)
 
     def _setup_menu_bar(self) -> None:
         """Set up the menu bar with File, Edit, View, Help menus."""
@@ -652,8 +660,16 @@ class GardenPlannerApp(QMainWindow):
         cmd_mgr.can_undo_changed.connect(lambda _: QTimer.singleShot(0, self._update_properties_panel))
         cmd_mgr.can_redo_changed.connect(lambda _: QTimer.singleShot(0, self._update_properties_panel))
 
-        # Set splitter as central widget
-        self.setCentralWidget(splitter)
+        # Wrap splitter in a container so the update bar can sit above it
+        self._update_bar = UpdateBar(self)
+        self._update_bar.skip_version_requested.connect(self._on_skip_version)
+        container = QWidget()
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(0)
+        container_layout.addWidget(self._update_bar)
+        container_layout.addWidget(splitter)
+        self.setCentralWidget(container)
 
         # Initial zoom display
         self.update_zoom(self.canvas_view.zoom_percent)
@@ -783,6 +799,33 @@ class GardenPlannerApp(QMainWindow):
         dialog.recent_project_selected.connect(self._open_project_file)
 
         dialog.exec()
+
+    def _start_update_check(self) -> None:
+        """Launch the background update checker thread (installed .exe only)."""
+        import sys
+
+        if not getattr(sys, "frozen", False):
+            return  # Only check for updates when running from the installed .exe
+
+        from open_garden_planner.services.update_checker import UpdateChecker
+
+        self._update_checker = UpdateChecker(self)
+        self._update_checker.update_available.connect(self._on_update_available)
+        self._update_checker.start()
+
+    def _on_update_available(self, tag_name: str, body: str, download_url: str) -> None:
+        """Show the update bar if the user has not skipped this version."""
+        from open_garden_planner.app.settings import get_settings
+
+        if get_settings().skipped_version == tag_name:
+            return
+        self._update_bar.show_update(tag_name, body, download_url)
+
+    def _on_skip_version(self, tag_name: str) -> None:
+        """Persist the skipped version to settings."""
+        from open_garden_planner.app.settings import get_settings
+
+        get_settings().skipped_version = tag_name
 
     def _setup_autosave(self) -> None:
         """Set up the auto-save manager."""
@@ -2060,7 +2103,9 @@ class GardenPlannerApp(QMainWindow):
         title_label = QLabel("<h2>Open Garden Planner</h2>")
         text_layout.addWidget(title_label)
 
-        version_label = QLabel(self.tr("<p>Version 0.1.0</p>"))
+        from open_garden_planner.services.update_checker import get_current_version
+
+        version_label = QLabel(self.tr("<p>Version {v}</p>").format(v=get_current_version()))
         text_layout.addWidget(version_label)
 
         description_label = QLabel(

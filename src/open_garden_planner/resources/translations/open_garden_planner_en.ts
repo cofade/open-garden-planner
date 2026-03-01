@@ -3459,4 +3459,65 @@ Results are cached locally for one year.</translation>
             <translation>First fall frost</translation>
         </message>
     </context>
+    <context>
+        <name>UpdateBar</name>
+        <message>
+            <source>A new version ({version}) is available.</source>
+            <translation>A new version ({version}) is available.</translation>
+        </message>
+        <message>
+            <source>Download &amp;&amp; Install</source>
+            <translation>Download &amp;&amp; Install</translation>
+        </message>
+        <message>
+            <source>Skip this version</source>
+            <translation>Skip this version</translation>
+        </message>
+        <message>
+            <source>Remind me later</source>
+            <translation>Remind me later</translation>
+        </message>
+        <message>
+            <source>Install Update</source>
+            <translation>Install Update</translation>
+        </message>
+        <message>
+            <source>The installer will be downloaded and launched.
+Open Garden Planner will close when the installer starts.
+
+Continue?</source>
+            <translation>The installer will be downloaded and launched.
+Open Garden Planner will close when the installer starts.
+
+Continue?</translation>
+        </message>
+        <message>
+            <source>Downloading {filename}…</source>
+            <translation>Downloading {filename}…</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>Cancel</translation>
+        </message>
+        <message>
+            <source>Download Failed</source>
+            <translation>Download Failed</translation>
+        </message>
+        <message>
+            <source>Could not download the installer:
+{error}</source>
+            <translation>Could not download the installer:
+{error}</translation>
+        </message>
+        <message>
+            <source>Launch Failed</source>
+            <translation>Launch Failed</translation>
+        </message>
+        <message>
+            <source>Could not launch the installer:
+{error}</source>
+            <translation>Could not launch the installer:
+{error}</translation>
+        </message>
+    </context>
 </TS>
