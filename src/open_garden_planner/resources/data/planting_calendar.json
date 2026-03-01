@@ -54,6 +54,23 @@
       "seed_depth_cm": 0.6
     },
     {
+      "scientific_name": "Solanum melongena",
+      "common_name": "Eggplant",
+      "frost_tolerance": "tender",
+      "indoor_sow_start": -10,
+      "indoor_sow_end": -8,
+      "transplant_start": 2,
+      "transplant_end": 4,
+      "harvest_start": 14,
+      "harvest_end": 20,
+      "days_to_germination_min": 7,
+      "days_to_germination_max": 14,
+      "days_to_maturity_min": 70,
+      "days_to_maturity_max": 90,
+      "min_germination_temp_c": 21.0,
+      "seed_depth_cm": 0.6
+    },
+    {
       "scientific_name": "Cucumis sativus",
       "common_name": "Cucumber",
       "frost_tolerance": "tender",

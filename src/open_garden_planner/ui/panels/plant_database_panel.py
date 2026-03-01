@@ -32,6 +32,7 @@ from open_garden_planner.models.plant_data import (
     WaterNeeds,
 )
 from open_garden_planner.services import get_plant_library
+from open_garden_planner.services.planting_calendar_db import merge_calendar_data
 
 
 class ClickableDateEdit(QDateEdit):
@@ -628,8 +629,8 @@ class PlantDatabasePanel(QWidget):
                 plant_id = library.add_plant(self._current_plant_data)
                 self._current_plant_data.source_id = plant_id
 
-            # Save updated data to item metadata
-            self._current_plant_item.metadata["plant_species"] = (
+            # Save updated data to item metadata (merge local calendar DB data)
+            self._current_plant_item.metadata["plant_species"] = merge_calendar_data(
                 self._current_plant_data.to_dict()
             )
 
@@ -1190,7 +1191,9 @@ class PlantDatabasePanel(QWidget):
             plant_item = self._current_plant_item
             if not hasattr(plant_item, "metadata") or plant_item.metadata is None:
                 plant_item.metadata = {}
-            plant_item.metadata["plant_species"] = dialog.selected_plant.to_dict()
+            plant_item.metadata["plant_species"] = merge_calendar_data(
+                dialog.selected_plant.to_dict()
+            )
 
             # Show the plant data for editing
             self._show_plant_data(dialog.selected_plant, plant_item)
@@ -1229,7 +1232,7 @@ class PlantDatabasePanel(QWidget):
         # Assign to the selected plant item
         if not hasattr(plant_item, "metadata") or plant_item.metadata is None:
             plant_item.metadata = {}
-        plant_item.metadata["plant_species"] = custom_plant.to_dict()
+        plant_item.metadata["plant_species"] = merge_calendar_data(custom_plant.to_dict())
 
         # Add to the custom plant library
         library = get_plant_library()
@@ -1271,6 +1274,6 @@ class PlantDatabasePanel(QWidget):
 
             # Update the item's metadata with new source info
             if hasattr(self._current_plant_item, "metadata"):
-                self._current_plant_item.metadata["plant_species"] = (
+                self._current_plant_item.metadata["plant_species"] = merge_calendar_data(
                     self._current_plant_data.to_dict()
                 )

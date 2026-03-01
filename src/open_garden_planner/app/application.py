@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QMenu,
     QMessageBox,
     QSplitter,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -37,6 +38,7 @@ from open_garden_planner.ui.panels import (
     PropertiesPanel,
 )
 from open_garden_planner.ui.theme import ThemeMode, apply_theme
+from open_garden_planner.ui.views.planting_calendar_view import PlantingCalendarView
 from open_garden_planner.ui.widgets import (
     CollapsiblePanel,
     ConstraintToolbar,
@@ -660,7 +662,33 @@ class GardenPlannerApp(QMainWindow):
         cmd_mgr.can_undo_changed.connect(lambda _: QTimer.singleShot(0, self._update_properties_panel))
         cmd_mgr.can_redo_changed.connect(lambda _: QTimer.singleShot(0, self._update_properties_panel))
 
-        # Wrap splitter in a container so the update bar can sit above it
+        # ── Tab-based main window (US-8.7) ──────────────────────────────────────
+        self._tab_widget = QTabWidget()
+        self._tab_widget.setDocumentMode(True)
+
+        # Tab 0: Garden Plan (existing canvas + sidebar)
+        self._tab_widget.addTab(splitter, self.tr("Garden Plan"))
+
+        # Tab 1: Planting Calendar (US-8.5)
+        self.calendar_view = PlantingCalendarView(self.canvas_scene, self._project_manager)
+        self._tab_widget.addTab(self.calendar_view, self.tr("Planting Calendar"))
+
+        # Keyboard shortcuts: Ctrl+1 / Ctrl+2 to switch tabs
+        tab0_shortcut = QAction(self)
+        tab0_shortcut.setShortcut(QKeySequence("Ctrl+1"))
+        tab0_shortcut.triggered.connect(lambda: self._tab_widget.setCurrentIndex(0))
+        self.addAction(tab0_shortcut)
+        tab1_shortcut = QAction(self)
+        tab1_shortcut.setShortcut(QKeySequence("Ctrl+2"))
+        tab1_shortcut.triggered.connect(lambda: self._tab_widget.setCurrentIndex(1))
+        self.addAction(tab1_shortcut)
+
+        # Refresh calendar on tab switch and on canvas/location changes
+        self._tab_widget.currentChanged.connect(self._on_tab_changed)
+        self._project_manager.location_changed.connect(lambda _: self.calendar_view.refresh())
+        cmd_mgr.command_executed.connect(lambda _: self.calendar_view.refresh())
+
+        # Wrap tab widget + update bar in a container
         self._update_bar = UpdateBar(self)
         self._update_bar.skip_version_requested.connect(self._on_skip_version)
         container = QWidget()
@@ -668,7 +696,7 @@ class GardenPlannerApp(QMainWindow):
         container_layout.setContentsMargins(0, 0, 0, 0)
         container_layout.setSpacing(0)
         container_layout.addWidget(self._update_bar)
-        container_layout.addWidget(splitter)
+        container_layout.addWidget(self._tab_widget)
         self.setCentralWidget(container)
 
         # Initial zoom display
@@ -2037,10 +2065,13 @@ class GardenPlannerApp(QMainWindow):
                         break
 
                 if plant_item:
-                    # Update existing plant with species data
+                    # Update existing plant with species data (merge local calendar DB)
+                    from open_garden_planner.services.planting_calendar_db import (
+                        merge_calendar_data,  # noqa: PLC0415
+                    )
                     if not hasattr(plant_item, 'metadata') or plant_item.metadata is None:
                         plant_item.metadata = {}
-                    plant_item.metadata['plant_species'] = plant_data.to_dict()
+                    plant_item.metadata['plant_species'] = merge_calendar_data(plant_data.to_dict())
 
                     # Update the panel display
                     self._update_plant_database_panel()
@@ -2274,3 +2305,8 @@ class GardenPlannerApp(QMainWindow):
             if fall:
                 tip += f"\n{self.tr('First fall frost')}: {fall}"
             self.location_label.setToolTip(tip)
+
+    def _on_tab_changed(self, index: int) -> None:
+        """Refresh the planting calendar when its tab becomes active."""
+        if index == 1:
+            self.calendar_view.refresh()
