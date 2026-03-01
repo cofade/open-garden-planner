@@ -52,7 +52,8 @@ When a US implementation is complete and ready to merge:
 2. Assign the PR the appropriate label (`minor` for new features, `patch` for fixes)
 3. After merge, the CI/CD pipeline tags and publishes the new release automatically
 4. Update the progress table below with ✅ and the version delivered
-5. Run `git fetch --tags && git describe --tags --abbrev=0` to get the new tag, then update:
+5. **Do NOT wait for CI to complete.** The new version is deterministic: apply the bump rule to the
+   current tag yourself (e.g. `v1.7.0` + `minor` label → `v1.8.0`). Update immediately after merge:
    - `pyproject.toml` → `version = "X.Y.Z"`
    - `src/open_garden_planner/__init__.py` → `__version__ = "X.Y.Z"`
 
@@ -362,7 +363,7 @@ tests/
 | ✅     | 8.1  | GPS location & climate zone setup                    |
 | ✅     | 8.2  | Frost date & hardiness zone API lookup               |
 | ✅     | 8.3  | Auto-update notification & one-click installer download |
-|        | 8.4  | Plant calendar data model                            |
+| ✅     | 8.4  | Plant calendar data model                            |
 |        | 8.5  | Planting calendar view (tab)                         |
 |        | 8.6  | Dashboard / today view                               |
 |        | 8.7  | Tab-based main window architecture                   |
