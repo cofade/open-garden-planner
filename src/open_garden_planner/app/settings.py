@@ -31,6 +31,7 @@ class AppSettings:
     KEY_SHOW_CONSTRAINTS = "appearance/show_constraints"
     KEY_OBJECT_SNAP = "canvas/object_snap_enabled"
     KEY_LANGUAGE = "appearance/language"
+    KEY_SKIPPED_VERSION = "updates/skipped_version"
 
     # API key settings
     KEY_TREFLE_API_TOKEN = "api_keys/trefle_token"
@@ -322,6 +323,16 @@ class AppSettings:
     def permapeople_key_secret(self, secret: str) -> None:
         """Set the Permapeople API key secret."""
         self._settings.setValue(self.KEY_PERMAPEOPLE_KEY_SECRET, secret)
+
+    @property
+    def skipped_version(self) -> str:
+        """Version tag the user chose to skip (e.g. ``"v1.6.0"``), or ``""``."""
+        return str(self._settings.value(self.KEY_SKIPPED_VERSION, "", type=str))
+
+    @skipped_version.setter
+    def skipped_version(self, tag: str) -> None:
+        """Persist the version tag the user chose to skip."""
+        self._settings.setValue(self.KEY_SKIPPED_VERSION, tag)
 
     def sync(self) -> None:
         """Force settings to be written to storage."""

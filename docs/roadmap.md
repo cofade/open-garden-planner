@@ -712,7 +712,7 @@ Icon designs per tool:
 |----|------------|----------|--------|
 | US-8.1 | GPS location & climate zone setup | Must | ✅ |
 | US-8.2 | Frost date & hardiness zone API lookup | Must | ✅ |
-| US-8.3 | Auto-update notification & one-click installer download | Should | |
+| US-8.3 | Auto-update notification & one-click installer download | Should | ✅ |
 | US-8.4 | Plant calendar data model | Must | |
 | US-8.5 | Planting calendar view (tab) | Must | |
 | US-8.6 | Dashboard / today view | Must | |
