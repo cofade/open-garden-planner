@@ -365,7 +365,7 @@ tests/
 
 ## Progress (Phase 8: Location, Climate & Planting Calendar v1.7)
 
-> **Version note**: Remaining Phase 8 USes use the `patch` label (v1.9.x series). The first US of Phase 9 uses `minor` (→ v1.10.0).
+> **Version note**: Remaining Phase 8 USes use the `patch` label (v1.8.x series). The first US of Phase 9 uses `minor` (→ v1.9.0).
 
 | Status | US   | Description                                          |
 | ------ | ---- | ---------------------------------------------------- |
@@ -373,9 +373,9 @@ tests/
 | ✅     | 8.2  | Frost date & hardiness zone API lookup               |
 | ✅     | 8.3  | Auto-update notification & one-click installer download |
 | ✅     | 8.4  | Plant calendar data model                            |
-|        | 8.5  | Planting calendar view (tab)                         |
+| ✅     | 8.5  | Planting calendar view (tab)                         |
 |        | 8.6  | Dashboard / today view                               |
-|        | 8.7  | Tab-based main window architecture                   |
+| ✅     | 8.7  | Tab-based main window architecture                   |
 
 ## Progress (Phase 9: Seed Inventory & Propagation Planning v1.8)
 
