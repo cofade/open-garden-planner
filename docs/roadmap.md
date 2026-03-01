@@ -12,9 +12,9 @@
 | Backlog | - | ✅ Complete | Rotation, vertex editing, annotations |
 | ~~6~~ | ~~v1.0~~ | ~~✅ Complete~~ | ~~Visual Polish & Public Release~~ |
 | ~~7~~ | ~~v1.1 – v1.6~~ | ~~✅ Complete~~ | ~~CAD Precision & Constraints~~ |
-| **8** | **v1.7** | **In Progress** | **Location, Climate & Planting Calendar** |
-| 9 | v1.8 | Planned | Seed Inventory & Propagation Planning |
-| 10 | v1.9 | Planned | Companion Planting & Crop Rotation |
+| **8** | **v1.7 – v1.9.x** | **In Progress** | **Location, Climate & Planting Calendar** |
+| 9 | v1.10 | Planned | Seed Inventory & Propagation Planning |
+| 10 | v1.11 | Planned | Companion Planting & Crop Rotation |
 | 11 | v2.0+ | Future | Advanced Features |
 
 ---
