@@ -187,8 +187,8 @@ class CustomPlantsDialog(QDialog):
         """Create a new custom plant."""
         # Create a new plant with default values
         new_plant = PlantSpeciesData(
-            scientific_name="New Species",
-            common_name="New Plant",
+            scientific_name=self.tr("New Species"),
+            common_name=self.tr("New Plant"),
             data_source="custom",
         )
 

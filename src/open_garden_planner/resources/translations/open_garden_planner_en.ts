@@ -396,6 +396,14 @@ This will remove it from your custom library. Plants already placed in projects 
 
 This will remove it from your custom library. Plants already placed in projects will keep their data.</translation>
         </message>
+        <message>
+            <source>New Plant</source>
+            <translation>New Plant</translation>
+        </message>
+        <message>
+            <source>New Species</source>
+            <translation>New Species</translation>
+        </message>
     </context>
     <context>
         <name>DrawingToolsPanel</name>
@@ -2284,6 +2292,86 @@ Use 'Create Custom' to add plants, or use the Plants menu to manage your custom 
             <location filename="..\..\ui\panels\plant_database_panel.py" line="1172" />
             <source>Select Custom Plant</source>
             <translation>Select Custom Plant</translation>
+        </message>
+        <message>
+            <source>Annual</source>
+            <translation>Annual</translation>
+        </message>
+        <message>
+            <source>Biennial</source>
+            <translation>Biennial</translation>
+        </message>
+        <message>
+            <source>Perennial</source>
+            <translation>Perennial</translation>
+        </message>
+        <message>
+            <source>Hermaphrodite (perfect flowers)</source>
+            <translation>Hermaphrodite (perfect flowers)</translation>
+        </message>
+        <message>
+            <source>Monoecious (separate ♂/♀ flowers)</source>
+            <translation>Monoecious (separate ♂/♀ flowers)</translation>
+        </message>
+        <message>
+            <source>Dioecious Male (♂ only)</source>
+            <translation>Dioecious Male (♂ only)</translation>
+        </message>
+        <message>
+            <source>Dioecious Female (♀ only)</source>
+            <translation>Dioecious Female (♀ only)</translation>
+        </message>
+        <message>
+            <source>Self-fertile (no partner needed)</source>
+            <translation>Self-fertile (no partner needed)</translation>
+        </message>
+        <message>
+            <source>Partially self-fertile</source>
+            <translation>Partially self-fertile</translation>
+        </message>
+        <message>
+            <source>Self-sterile (needs partner)</source>
+            <translation>Self-sterile (needs partner)</translation>
+        </message>
+        <message>
+            <source>Triploid (sterile pollen)</source>
+            <translation>Triploid (sterile pollen)</translation>
+        </message>
+        <message>
+            <source>Full Sun</source>
+            <translation>Full Sun</translation>
+        </message>
+        <message>
+            <source>Partial Sun</source>
+            <translation>Partial Sun</translation>
+        </message>
+        <message>
+            <source>Partial Shade</source>
+            <translation>Partial Shade</translation>
+        </message>
+        <message>
+            <source>Full Shade</source>
+            <translation>Full Shade</translation>
+        </message>
+        <message>
+            <source>Low</source>
+            <translation>Low</translation>
+        </message>
+        <message>
+            <source>Medium</source>
+            <translation>Medium</translation>
+        </message>
+        <message>
+            <source>High</source>
+            <translation>High</translation>
+        </message>
+        <message>
+            <source>My Custom Plant</source>
+            <translation>My Custom Plant</translation>
+        </message>
+        <message>
+            <source>Custom Species</source>
+            <translation>Custom Species</translation>
         </message>
     </context>
     <context>
