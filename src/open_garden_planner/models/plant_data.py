@@ -126,6 +126,27 @@ class PlantSpeciesData:
     source_id: str = ""  # ID in the source database
     description: str = ""
 
+    # Planting calendar (weeks relative to last frost date; negative = before frost)
+    indoor_sow_start: int | None = None   # e.g., -8 = 8 weeks before last frost
+    indoor_sow_end: int | None = None
+    direct_sow_start: int | None = None
+    direct_sow_end: int | None = None
+    transplant_start: int | None = None
+    transplant_end: int | None = None
+    harvest_start: int | None = None      # weeks after planting
+    harvest_end: int | None = None
+
+    # Germination & maturity
+    days_to_germination_min: int | None = None
+    days_to_germination_max: int | None = None
+    days_to_maturity_min: int | None = None
+    days_to_maturity_max: int | None = None
+
+    # Frost tolerance: "hardy" | "half-hardy" | "tender"
+    frost_tolerance: str | None = None
+    min_germination_temp_c: float | None = None
+    seed_depth_cm: float | None = None
+
     # Extensible metadata for API-specific fields
     raw_data: dict[str, Any] = field(default_factory=dict)
 
@@ -166,6 +187,21 @@ class PlantSpeciesData:
             "data_source": self.data_source,
             "source_id": self.source_id,
             "description": self.description,
+            "indoor_sow_start": self.indoor_sow_start,
+            "indoor_sow_end": self.indoor_sow_end,
+            "direct_sow_start": self.direct_sow_start,
+            "direct_sow_end": self.direct_sow_end,
+            "transplant_start": self.transplant_start,
+            "transplant_end": self.transplant_end,
+            "harvest_start": self.harvest_start,
+            "harvest_end": self.harvest_end,
+            "days_to_germination_min": self.days_to_germination_min,
+            "days_to_germination_max": self.days_to_germination_max,
+            "days_to_maturity_min": self.days_to_maturity_min,
+            "days_to_maturity_max": self.days_to_maturity_max,
+            "frost_tolerance": self.frost_tolerance,
+            "min_germination_temp_c": self.min_germination_temp_c,
+            "seed_depth_cm": self.seed_depth_cm,
             "raw_data": self.raw_data,
         }
 
@@ -218,6 +254,21 @@ class PlantSpeciesData:
             data_source=data.get("data_source", ""),
             source_id=data.get("source_id", ""),
             description=data.get("description", ""),
+            indoor_sow_start=data.get("indoor_sow_start"),
+            indoor_sow_end=data.get("indoor_sow_end"),
+            direct_sow_start=data.get("direct_sow_start"),
+            direct_sow_end=data.get("direct_sow_end"),
+            transplant_start=data.get("transplant_start"),
+            transplant_end=data.get("transplant_end"),
+            harvest_start=data.get("harvest_start"),
+            harvest_end=data.get("harvest_end"),
+            days_to_germination_min=data.get("days_to_germination_min"),
+            days_to_germination_max=data.get("days_to_germination_max"),
+            days_to_maturity_min=data.get("days_to_maturity_min"),
+            days_to_maturity_max=data.get("days_to_maturity_max"),
+            frost_tolerance=data.get("frost_tolerance"),
+            min_germination_temp_c=data.get("min_germination_temp_c"),
+            seed_depth_cm=data.get("seed_depth_cm"),
             raw_data=data.get("raw_data", {}),
         )
 

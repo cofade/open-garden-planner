@@ -328,10 +328,14 @@ class PlantDatabasePanel(QWidget):
 
         # Cycle (annual/perennial)
         self.cycle_combo = QComboBox()
+        cycle_labels = {
+            PlantCycle.ANNUAL: self.tr("Annual"),
+            PlantCycle.BIENNIAL: self.tr("Biennial"),
+            PlantCycle.PERENNIAL: self.tr("Perennial"),
+        }
         for item in PlantCycle:
-            # Skip "unknown" - don't show it as an option
             if item != PlantCycle.UNKNOWN:
-                self.cycle_combo.addItem(item.value.replace("_", " ").title(), item.value)
+                self.cycle_combo.addItem(cycle_labels.get(item, item.value), item.value)
         self.cycle_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.cycle_combo.currentIndexChanged.connect(self._on_field_changed)
         self.details_form.addRow(self.tr("Cycle:"), self.cycle_combo)
@@ -341,10 +345,10 @@ class PlantDatabasePanel(QWidget):
         # Flower Type (sexual system)
         self.flower_type_combo = QComboBox()
         flower_type_labels = {
-            FlowerType.HERMAPHRODITE: "Hermaphrodite (perfect flowers)",
-            FlowerType.MONOECIOUS: "Monoecious (separate ♂/♀ flowers)",
-            FlowerType.DIOECIOUS_MALE: "Dioecious Male (♂ only)",
-            FlowerType.DIOECIOUS_FEMALE: "Dioecious Female (♀ only)",
+            FlowerType.HERMAPHRODITE: self.tr("Hermaphrodite (perfect flowers)"),
+            FlowerType.MONOECIOUS: self.tr("Monoecious (separate \u2642/\u2640 flowers)"),
+            FlowerType.DIOECIOUS_MALE: self.tr("Dioecious Male (\u2642 only)"),
+            FlowerType.DIOECIOUS_FEMALE: self.tr("Dioecious Female (\u2640 only)"),
         }
         for item in FlowerType:
             if item != FlowerType.UNKNOWN:
@@ -357,10 +361,10 @@ class PlantDatabasePanel(QWidget):
         # Pollination Type (self-fertility)
         self.pollination_combo = QComboBox()
         pollination_labels = {
-            PollinationType.SELF_FERTILE: "Self-fertile (no partner needed)",
-            PollinationType.PARTIALLY_SELF_FERTILE: "Partially self-fertile",
-            PollinationType.SELF_STERILE: "Self-sterile (needs partner)",
-            PollinationType.TRIPLOID: "Triploid (sterile pollen)",
+            PollinationType.SELF_FERTILE: self.tr("Self-fertile (no partner needed)"),
+            PollinationType.PARTIALLY_SELF_FERTILE: self.tr("Partially self-fertile"),
+            PollinationType.SELF_STERILE: self.tr("Self-sterile (needs partner)"),
+            PollinationType.TRIPLOID: self.tr("Triploid (sterile pollen)"),
         }
         for item in PollinationType:
             if item != PollinationType.UNKNOWN:
@@ -374,20 +378,29 @@ class PlantDatabasePanel(QWidget):
 
         # Sun requirements
         self.sun_combo = QComboBox()
+        sun_labels = {
+            SunRequirement.FULL_SUN: self.tr("Full Sun"),
+            SunRequirement.PARTIAL_SUN: self.tr("Partial Sun"),
+            SunRequirement.PARTIAL_SHADE: self.tr("Partial Shade"),
+            SunRequirement.FULL_SHADE: self.tr("Full Shade"),
+        }
         for item in SunRequirement:
-            # Skip "unknown" - don't show it as an option
             if item != SunRequirement.UNKNOWN:
-                self.sun_combo.addItem(item.value.replace("_", " ").title(), item.value)
+                self.sun_combo.addItem(sun_labels.get(item, item.value), item.value)
         self.sun_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.sun_combo.currentIndexChanged.connect(self._on_field_changed)
         self.details_form.addRow(self.tr("Sun:"), self.sun_combo)
 
         # Water needs
         self.water_combo = QComboBox()
+        water_labels = {
+            WaterNeeds.LOW: self.tr("Low"),
+            WaterNeeds.MEDIUM: self.tr("Medium"),
+            WaterNeeds.HIGH: self.tr("High"),
+        }
         for item in WaterNeeds:
-            # Skip "unknown" - don't show it as an option
             if item != WaterNeeds.UNKNOWN:
-                self.water_combo.addItem(item.value.replace("_", " ").title(), item.value)
+                self.water_combo.addItem(water_labels.get(item, item.value), item.value)
         self.water_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.water_combo.currentIndexChanged.connect(self._on_field_changed)
         self.details_form.addRow(self.tr("Water:"), self.water_combo)
@@ -1205,8 +1218,8 @@ class PlantDatabasePanel(QWidget):
 
         # Create a new custom plant species
         custom_plant = PlantSpeciesData(
-            scientific_name="Custom Species",
-            common_name="My Custom Plant",
+            scientific_name=self.tr("Custom Species"),
+            common_name=self.tr("My Custom Plant"),
             data_source="custom",
         )
 

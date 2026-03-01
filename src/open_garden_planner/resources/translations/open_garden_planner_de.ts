@@ -404,6 +404,14 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <source>Perennial</source>
         <translation>Mehrjährig</translation>
     </message>
+    <message>
+        <source>New Plant</source>
+        <translation>Neue Pflanze</translation>
+    </message>
+    <message>
+        <source>New Species</source>
+        <translation>Neue Art</translation>
+    </message>
 </context><context>
     <name>DrawingToolsPanel</name>
     <message>
@@ -2680,6 +2688,86 @@ Verwenden Sie 'Eigene erstellen', um Pflanzen hinzuzufügen, oder das Pflanzen-M
         <location filename="..\..\ui\panels\plant_database_panel.py" line="1172" />
         <source>Select Custom Plant</source>
         <translation>Eigene Pflanze auswählen</translation>
+    </message>
+    <message>
+        <source>Annual</source>
+        <translation>Einjährig</translation>
+    </message>
+    <message>
+        <source>Biennial</source>
+        <translation>Zweijährig</translation>
+    </message>
+    <message>
+        <source>Perennial</source>
+        <translation>Mehrjährig</translation>
+    </message>
+    <message>
+        <source>Hermaphrodite (perfect flowers)</source>
+        <translation>Zwittrig (vollständige Blüten)</translation>
+    </message>
+    <message>
+        <source>Monoecious (separate ♂/♀ flowers)</source>
+        <translation>Einhäusig (getrennte ♂/♀ Blüten)</translation>
+    </message>
+    <message>
+        <source>Dioecious Male (♂ only)</source>
+        <translation>Zweihäusig Männlich (nur ♂)</translation>
+    </message>
+    <message>
+        <source>Dioecious Female (♀ only)</source>
+        <translation>Zweihäusig Weiblich (nur ♀)</translation>
+    </message>
+    <message>
+        <source>Self-fertile (no partner needed)</source>
+        <translation>Selbstfruchtbar (kein Partner nötig)</translation>
+    </message>
+    <message>
+        <source>Partially self-fertile</source>
+        <translation>Teilweise selbstfruchtbar</translation>
+    </message>
+    <message>
+        <source>Self-sterile (needs partner)</source>
+        <translation>Selbststeril (braucht Partner)</translation>
+    </message>
+    <message>
+        <source>Triploid (sterile pollen)</source>
+        <translation>Triploid (steriler Pollen)</translation>
+    </message>
+    <message>
+        <source>Full Sun</source>
+        <translation>Volle Sonne</translation>
+    </message>
+    <message>
+        <source>Partial Sun</source>
+        <translation>Teilsonne</translation>
+    </message>
+    <message>
+        <source>Partial Shade</source>
+        <translation>Halbschatten</translation>
+    </message>
+    <message>
+        <source>Full Shade</source>
+        <translation>Vollschatten</translation>
+    </message>
+    <message>
+        <source>Low</source>
+        <translation>Niedrig</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>Mittel</translation>
+    </message>
+    <message>
+        <source>High</source>
+        <translation>Hoch</translation>
+    </message>
+    <message>
+        <source>My Custom Plant</source>
+        <translation>Meine eigene Pflanze</translation>
+    </message>
+    <message>
+        <source>Custom Species</source>
+        <translation>Eigene Art</translation>
     </message>
 </context><context>
     <name>PlantSearchPanel</name>
