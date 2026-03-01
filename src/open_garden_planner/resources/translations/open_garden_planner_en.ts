@@ -3608,4 +3608,66 @@ Continue?</translation>
 {error}</translation>
         </message>
     </context>
+    <context>
+        <name>GardenPlannerApp</name>
+        <message>
+            <source>Garden Plan</source>
+            <translation>Garden Plan</translation>
+        </message>
+        <message>
+            <source>Planting Calendar</source>
+            <translation>Planting Calendar</translation>
+        </message>
+    </context>
+    <context>
+        <name>PlantingCalendarView</name>
+        <message>
+            <source>Indoor sow</source>
+            <translation>Indoor sow</translation>
+        </message>
+        <message>
+            <source>Direct sow</source>
+            <translation>Direct sow</translation>
+        </message>
+        <message>
+            <source>Transplant</source>
+            <translation>Transplant</translation>
+        </message>
+        <message>
+            <source>Harvest</source>
+            <translation>Harvest</translation>
+        </message>
+        <message>
+            <source>Today</source>
+            <translation>Today</translation>
+        </message>
+        <message>
+            <source>Last frost</source>
+            <translation>Last frost</translation>
+        </message>
+        <message>
+            <source>First frost</source>
+            <translation>First frost</translation>
+        </message>
+        <message>
+            <source>No location set.
+Use File › Set Garden Location to configure frost dates
+before the planting calendar can be shown.</source>
+            <translation>No location set.
+Use File › Set Garden Location to configure frost dates
+before the planting calendar can be shown.</translation>
+        </message>
+        <message>
+            <source>No plants with calendar data found.
+Place plants on the canvas and use Search Plant Database
+to assign species data.</source>
+            <translation>No plants with calendar data found.
+Place plants on the canvas and use Search Plant Database
+to assign species data.</translation>
+        </message>
+        <message>
+            <source>No detailed data available</source>
+            <translation>No detailed data available</translation>
+        </message>
+    </context>
 </TS>

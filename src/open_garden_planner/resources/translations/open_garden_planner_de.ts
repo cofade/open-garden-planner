@@ -4148,4 +4148,66 @@ Fortfahren?</translation>
 {error}</translation>
     </message>
 </context>
+<context>
+    <name>GardenPlannerApp</name>
+    <message>
+        <source>Garden Plan</source>
+        <translation>Gartenplan</translation>
+    </message>
+    <message>
+        <source>Planting Calendar</source>
+        <translation>Pflanzkalender</translation>
+    </message>
+</context>
+<context>
+    <name>PlantingCalendarView</name>
+    <message>
+        <source>Indoor sow</source>
+        <translation>Vorziehen</translation>
+    </message>
+    <message>
+        <source>Direct sow</source>
+        <translation>Direktsaat</translation>
+    </message>
+    <message>
+        <source>Transplant</source>
+        <translation>Auspflanzen</translation>
+    </message>
+    <message>
+        <source>Harvest</source>
+        <translation>Ernte</translation>
+    </message>
+    <message>
+        <source>Today</source>
+        <translation>Heute</translation>
+    </message>
+    <message>
+        <source>Last frost</source>
+        <translation>Letzter Frost</translation>
+    </message>
+    <message>
+        <source>First frost</source>
+        <translation>Erster Frost</translation>
+    </message>
+    <message>
+        <source>No location set.
+Use File › Set Garden Location to configure frost dates
+before the planting calendar can be shown.</source>
+        <translation>Kein Standort gesetzt.
+Verwenden Sie Datei › Gartenstandort festlegen, um Frostdaten einzugeben,
+bevor der Pflanzkalender angezeigt werden kann.</translation>
+    </message>
+    <message>
+        <source>No plants with calendar data found.
+Place plants on the canvas and use Search Plant Database
+to assign species data.</source>
+        <translation>Keine Pflanzen mit Kalenderdaten gefunden.
+Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
+„Pflanzendatenbank durchsuchen", um Artdaten zuzuweisen.</translation>
+    </message>
+    <message>
+        <source>No detailed data available</source>
+        <translation>Keine Detaildaten verfügbar</translation>
+    </message>
+</context>
 </TS>
