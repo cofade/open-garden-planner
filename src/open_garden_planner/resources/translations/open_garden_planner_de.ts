@@ -4269,4 +4269,261 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
         <translation>Als erledigt markieren</translation>
     </message>
 </context>
+<context>
+    <name>SeedInventoryDialog</name>
+    <message>
+        <source>Seed Inventory</source>
+        <translation>Saatgut-Inventar</translation>
+    </message>
+    <message>
+        <source>Search by name or variety…</source>
+        <translation>Nach Name oder Sorte suchen…</translation>
+    </message>
+    <message>
+        <source>Status:</source>
+        <translation>Status:</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>Alle</translation>
+    </message>
+    <message>
+        <source>Good</source>
+        <translation>Gut</translation>
+    </message>
+    <message>
+        <source>Reduced</source>
+        <translation>Reduziert</translation>
+    </message>
+    <message>
+        <source>Expired</source>
+        <translation>Abgelaufen</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Unbekannt</translation>
+    </message>
+    <message>
+        <source>Year:</source>
+        <translation>Jahr:</translation>
+    </message>
+    <message>
+        <source>All years</source>
+        <translation>Alle Jahre</translation>
+    </message>
+    <message>
+        <source>Species</source>
+        <translation>Art</translation>
+    </message>
+    <message>
+        <source>Variety</source>
+        <translation>Sorte</translation>
+    </message>
+    <message>
+        <source>Year</source>
+        <translation>Jahr</translation>
+    </message>
+    <message>
+        <source>Quantity</source>
+        <translation>Menge</translation>
+    </message>
+    <message>
+        <source>Viability</source>
+        <translation>Keimfähigkeit</translation>
+    </message>
+    <message>
+        <source>Manufacturer</source>
+        <translation>Hersteller</translation>
+    </message>
+    <message>
+        <source>Notes</source>
+        <translation>Notizen</translation>
+    </message>
+    <message>
+        <source>%1 packets · %2 reduced · %3 expired</source>
+        <translation>%1 Pakete · %2 reduziert · %3 abgelaufen</translation>
+    </message>
+    <message>
+        <source>Add Packet</source>
+        <translation>Paket hinzufügen</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>Bearbeiten</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Löschen</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Schließen</translation>
+    </message>
+    <message>
+        <source>Delete Seed Packet</source>
+        <translation>Saatgutpaket löschen</translation>
+    </message>
+    <message>
+        <source>Delete '%1'? This cannot be undone.</source>
+        <translation>'%1' löschen? Dies kann nicht rückgängig gemacht werden.</translation>
+    </message>
+    <message>
+        <source>this packet</source>
+        <translation>dieses Paket</translation>
+    </message>
+</context>
+<context>
+    <name>SeedPacketEditDialog</name>
+    <message>
+        <source>Add Seed Packet</source>
+        <translation>Saatgutpaket hinzufügen</translation>
+    </message>
+    <message>
+        <source>Edit Seed Packet</source>
+        <translation>Saatgutpaket bearbeiten</translation>
+    </message>
+    <message>
+        <source>Basic Information</source>
+        <translation>Grundinformationen</translation>
+    </message>
+    <message>
+        <source>e.g. Tomato</source>
+        <translation>z.B. Tomate</translation>
+    </message>
+    <message>
+        <source>Species name:</source>
+        <translation>Artname:</translation>
+    </message>
+    <message>
+        <source>e.g. Cherry Red</source>
+        <translation>z.B. Cherry Red</translation>
+    </message>
+    <message>
+        <source>Variety / cultivar:</source>
+        <translation>Sorte / Kultivar:</translation>
+    </message>
+    <message>
+        <source>Purchase / harvest year:</source>
+        <translation>Kauf- / Erntejahr:</translation>
+    </message>
+    <message>
+        <source>seeds</source>
+        <translation>Samen</translation>
+    </message>
+    <message>
+        <source>grams</source>
+        <translation>Gramm</translation>
+    </message>
+    <message>
+        <source>Quantity:</source>
+        <translation>Menge:</translation>
+    </message>
+    <message>
+        <source>Manufacturer / source:</source>
+        <translation>Hersteller / Quelle:</translation>
+    </message>
+    <message>
+        <source>Batch / lot number:</source>
+        <translation>Chargen- / Losnummer:</translation>
+    </message>
+    <message>
+        <source>Germination</source>
+        <translation>Keimung</translation>
+    </message>
+    <message>
+        <source>Min:</source>
+        <translation>Min:</translation>
+    </message>
+    <message>
+        <source>Opt:</source>
+        <translation>Opt:</translation>
+    </message>
+    <message>
+        <source>Max:</source>
+        <translation>Max:</translation>
+    </message>
+    <message>
+        <source>Temp. range (°C):</source>
+        <translation>Temperaturbereich (°C):</translation>
+    </message>
+    <message>
+        <source>Germination days:</source>
+        <translation>Keimdauer (Tage):</translation>
+    </message>
+    <message>
+        <source>Indifferent</source>
+        <translation>Gleichgültig</translation>
+    </message>
+    <message>
+        <source>Light germinator</source>
+        <translation>Lichtkeimer</translation>
+    </message>
+    <message>
+        <source>Dark germinator</source>
+        <translation>Dunkelkeimer</translation>
+    </message>
+    <message>
+        <source>Light requirement:</source>
+        <translation>Lichtbedarf:</translation>
+    </message>
+    <message>
+        <source>Pre-treatment</source>
+        <translation>Vorbehandlung</translation>
+    </message>
+    <message>
+        <source>Cold stratification required</source>
+        <translation>Kältestratifizierung erforderlich</translation>
+    </message>
+    <message>
+        <source>Stratification days:</source>
+        <translation>Stratifizierungsdauer (Tage):</translation>
+    </message>
+    <message>
+        <source>e.g. scarify, soak 24h</source>
+        <translation>z.B. skarifizieren, 24h einweichen</translation>
+    </message>
+    <message>
+        <source>Other pre-treatment:</source>
+        <translation>Andere Vorbehandlung:</translation>
+    </message>
+    <message>
+        <source>Viability Override</source>
+        <translation>Keimfähigkeit überschreiben</translation>
+    </message>
+    <message>
+        <source>Override database shelf life</source>
+        <translation>Datenbank-Haltbarkeit überschreiben</translation>
+    </message>
+    <message>
+        <source> years</source>
+        <translation> Jahre</translation>
+    </message>
+    <message>
+        <source>(Use this if you've tested germination and know the actual shelf life)</source>
+        <translation>(Verwenden Sie dies, wenn Sie die tatsächliche Haltbarkeit durch Keimtests kennen)</translation>
+    </message>
+    <message>
+        <source>Notes</source>
+        <translation>Notizen</translation>
+    </message>
+    <message>
+        <source>Missing Information</source>
+        <translation>Fehlende Information</translation>
+    </message>
+    <message>
+        <source>Please enter a species name.</source>
+        <translation>Bitte geben Sie einen Artnamen ein.</translation>
+    </message>
+</context>
+<context>
+    <name>GardenPlannerApp</name>
+    <message>
+        <source>&amp;Manage Seed Inventory...</source>
+        <translation>Saatgut-Inventar &amp;verwalten...</translation>
+    </message>
+    <message>
+        <source>Add, edit, and browse your seed packet inventory</source>
+        <translation>Saatgutpakete hinzufügen, bearbeiten und durchsuchen</translation>
+    </message>
+</context>
 </TS>
