@@ -35,6 +35,7 @@ class ProjectData:
     guides: list[dict[str, Any]] = field(default_factory=list)
     location: dict[str, Any] | None = None
     task_completions: list[str] = field(default_factory=list)
+    seed_inventory: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -58,6 +59,8 @@ class ProjectData:
             data["location"] = self.location
         if self.task_completions:
             data["task_completions"] = sorted(self.task_completions)
+        if self.seed_inventory:
+            data["seed_inventory"] = self.seed_inventory
         return data
 
     @classmethod
@@ -73,6 +76,7 @@ class ProjectData:
             guides=data.get("guides", []),
             location=data.get("location") or None,
             task_completions=data.get("task_completions", []),
+            seed_inventory=data.get("seed_inventory", []),
         )
 
 
@@ -88,6 +92,7 @@ class ProjectManager(QObject):
     dirty_changed = pyqtSignal(bool)
     location_changed = pyqtSignal(object)  # dict or None
     task_completions_changed = pyqtSignal(object)  # set[str]
+    seed_inventory_changed = pyqtSignal(object)    # list[SeedPacket]
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -96,6 +101,7 @@ class ProjectManager(QObject):
         self._dirty = False
         self._location: dict[str, Any] | None = None
         self._task_completions: set[str] = set()
+        self._seed_inventory: list[dict[str, Any]] = []
 
     @property
     def current_file(self) -> Path | None:
@@ -133,6 +139,17 @@ class ProjectManager(QObject):
         self.task_completions_changed.emit(self._task_completions)
         self.mark_dirty()
 
+    @property
+    def seed_inventory(self) -> list[dict[str, Any]]:
+        """Seed packets stored in the current project (as raw dicts)."""
+        return list(self._seed_inventory)
+
+    def set_seed_inventory(self, packets_dicts: list[dict[str, Any]]) -> None:
+        """Replace the project seed inventory and mark project dirty."""
+        self._seed_inventory = list(packets_dicts)
+        self.seed_inventory_changed.emit(self._seed_inventory)
+        self.mark_dirty()
+
     def set_location(self, location: dict[str, Any] | None) -> None:
         """Set the garden location and mark project as dirty.
 
@@ -162,10 +179,12 @@ class ProjectManager(QObject):
         self._dirty = False
         self._location = None
         self._task_completions = set()
+        self._seed_inventory = []
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
         self.task_completions_changed.emit(set())
+        self.seed_inventory_changed.emit([])
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -177,6 +196,7 @@ class ProjectManager(QObject):
         data = self._serialize_scene(scene)
         data.location = self._location
         data.task_completions = sorted(self._task_completions)
+        data.seed_inventory = list(self._seed_inventory)
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -208,6 +228,9 @@ class ProjectManager(QObject):
         # Restore task completions
         self._task_completions = set(data.task_completions)
         self.task_completions_changed.emit(self._task_completions)
+        # Restore project seed inventory
+        self._seed_inventory = list(data.seed_inventory)
+        self.seed_inventory_changed.emit(self._seed_inventory)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)
