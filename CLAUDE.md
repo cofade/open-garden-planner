@@ -381,9 +381,9 @@ tests/
 
 | Status | US   | Description                                          |
 | ------ | ---- | ---------------------------------------------------- |
-|        | 9.1  | Seed packet data model                               |
-|        | 9.2  | Seed viability database                              |
-|        | 9.3  | Seed inventory management panel                      |
+| ✅     | 9.1  | Seed packet data model                               |
+| ✅     | 9.2  | Seed viability database                              |
+| ✅     | 9.3  | Seed inventory management panel                      |
 |        | 9.4  | Seed inventory tab view                              |
 |        | 9.5  | Propagation planning (pre-cultivation)               |
 |        | 9.6  | Seed-to-plant manual linking                         |
