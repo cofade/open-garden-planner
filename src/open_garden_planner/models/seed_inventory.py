@@ -67,10 +67,20 @@ class SeedPacket:
     photo_path: str = ""                 # absolute or project-relative path
     created_date: str = ""              # ISO date string (YYYY-MM-DD)
 
+    # ── Viability override (US-9.2) ───────────────────────────────────────────
+    # When set, this shelf life (years) is used instead of the DB lookup,
+    # allowing the user to record observed germination data for their specific
+    # seed lot.
+    viability_shelf_life_override: int | None = None
+
     # ──────────────────────────────────────────────────────────────────────────
 
     def viability_status(self, current_year: int, db: SeedViabilityDB) -> ViabilityStatus:
         """Return the calculated viability status for this packet.
+
+        Uses ``viability_shelf_life_override`` when set; otherwise looks up the
+        species in ``db``.  Falls back to the DB default (3 years) when the
+        species is not found.
 
         Args:
             current_year: The year to calculate age against (usually today's year).
@@ -83,12 +93,13 @@ class SeedPacket:
         if age < 0:
             return ViabilityStatus.GOOD
 
-        entry = db.lookup(self.species_name)
-        if entry is None:
-            return ViabilityStatus.UNKNOWN
-
-        shelf_life = entry.get("shelf_life_years", 0)
-        reduced_after = entry.get("reduced_after_years", shelf_life)
+        if self.viability_shelf_life_override is not None:
+            shelf_life = self.viability_shelf_life_override
+            reduced_after = max(1, shelf_life - 1)
+        else:
+            entry = db.lookup(self.species_name) or db.default_entry
+            shelf_life = entry.get("shelf_life_years", 3)
+            reduced_after = entry.get("reduced_after_years", shelf_life)
 
         if age >= shelf_life:
             return ViabilityStatus.EXPIRED
@@ -139,6 +150,8 @@ class SeedPacket:
             d["photo_path"] = self.photo_path
         if self.created_date:
             d["created_date"] = self.created_date
+        if self.viability_shelf_life_override is not None:
+            d["viability_shelf_life_override"] = self.viability_shelf_life_override
         return d
 
     @classmethod
@@ -166,6 +179,7 @@ class SeedPacket:
             notes=data.get("notes", ""),
             photo_path=data.get("photo_path", ""),
             created_date=data.get("created_date", ""),
+            viability_shelf_life_override=data.get("viability_shelf_life_override"),
         )
 
 
@@ -179,9 +193,22 @@ class SeedViabilityDB:
     family name, then return None.
     """
 
+    _DEFAULT_ENTRY: dict[str, int] = {"shelf_life_years": 3, "reduced_after_years": 2}
+
     def __init__(self, data: dict[str, Any]) -> None:
         self._by_species: dict[str, dict[str, int]] = data.get("by_species", {})
         self._by_family: dict[str, dict[str, int]] = data.get("by_family", {})
+        # Use the _default entry from the JSON if present, otherwise use the class default
+        raw_default = data.get("_default", {})
+        self._default_entry: dict[str, int] = {
+            "shelf_life_years": raw_default.get("shelf_life_years", 3),
+            "reduced_after_years": raw_default.get("reduced_after_years", 2),
+        }
+
+    @property
+    def default_entry(self) -> dict[str, int]:
+        """Default shelf-life entry applied when no species/family match is found."""
+        return self._default_entry
 
     # ── Factory ───────────────────────────────────────────────────────────────
 

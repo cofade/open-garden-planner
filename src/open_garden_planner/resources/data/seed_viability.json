@@ -1,8 +1,35 @@
 {
-  "_comment": "Seed shelf-life data for common garden plants. Values assume proper storage (cool, dark, dry). Sources: OSU Extension, Mother Earth News, Johnny's Selected Seeds viability charts.",
+  "_comment": "Seed shelf-life data for common garden plants. Values assume proper storage: cool (below 10 °C), dark, and dry (below 8% relative humidity). See _sources for references.",
   "_schema": {
     "shelf_life_years": "Number of years seeds remain viable under ideal storage",
-    "reduced_after_years": "Year at which germination rate drops noticeably (e.g. below 50%)"
+    "reduced_after_years": "Year at which germination rate drops noticeably (typically below 50%)"
+  },
+  "_sources": [
+    {
+      "title": "Seed Viability Chart",
+      "publisher": "Oregon State University Extension Service",
+      "url": "https://extension.oregonstate.edu/gardening/vegetables/how-long-do-vegetable-seeds-last"
+    },
+    {
+      "title": "Seed Saving and Seed Viability",
+      "publisher": "Johnny's Selected Seeds",
+      "url": "https://www.johnnyseeds.com/growers-library/seed-saving-viability.html"
+    },
+    {
+      "title": "How Long Do Seeds Last?",
+      "publisher": "Mother Earth News",
+      "url": "https://www.motherearthnews.com/organic-gardening/seed-saving/storing-seeds-zm0z11zrog"
+    },
+    {
+      "title": "Seed Viability and Germination",
+      "publisher": "Royal Horticultural Society (RHS)",
+      "url": "https://www.rhs.org.uk/seeds/seed-viability"
+    }
+  ],
+  "_default": {
+    "shelf_life_years": 3,
+    "reduced_after_years": 2,
+    "_note": "Applied when no species or family match is found"
   },
   "by_species": {
     "artichoke": {"shelf_life_years": 5, "reduced_after_years": 4},

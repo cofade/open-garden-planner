@@ -219,9 +219,52 @@ class TestViabilityStatus:
         packet = SeedPacket(species_name="Onion", purchase_year=2023)
         assert packet.viability_status(2025, db) == ViabilityStatus.EXPIRED
 
-    def test_unknown_for_species_not_in_db(self, db: SeedViabilityDB) -> None:
+    def test_default_fallback_for_unknown_species(self, db: SeedViabilityDB) -> None:
+        # Species not in DB → falls back to default (3 years shelf life)
         packet = SeedPacket(species_name="Mysterious Fern", purchase_year=2020)
-        assert packet.viability_status(2025, db) == ViabilityStatus.UNKNOWN
+        # age = 5 → expired (default shelf_life=3)
+        assert packet.viability_status(2025, db) == ViabilityStatus.EXPIRED
+
+    def test_default_fallback_still_good_within_3_years(self, db: SeedViabilityDB) -> None:
+        packet = SeedPacket(species_name="Mysterious Fern", purchase_year=2024)
+        # age = 1 → good (default shelf_life=3, reduced_after=2)
+        assert packet.viability_status(2025, db) == ViabilityStatus.GOOD
+
+    def test_viability_override_good(self, db: SeedViabilityDB) -> None:
+        # Override: 10-year shelf life; purchased 2020, current 2025 → age 5 → good
+        packet = SeedPacket(
+            species_name="Tomato",
+            purchase_year=2020,
+            viability_shelf_life_override=10,
+        )
+        assert packet.viability_status(2025, db) == ViabilityStatus.GOOD
+
+    def test_viability_override_expired(self, db: SeedViabilityDB) -> None:
+        # Override: 2-year shelf life; purchased 2020, current 2025 → age 5 → expired
+        packet = SeedPacket(
+            species_name="Tomato",
+            purchase_year=2020,
+            viability_shelf_life_override=2,
+        )
+        assert packet.viability_status(2025, db) == ViabilityStatus.EXPIRED
+
+    def test_viability_override_ignores_db_entry(self, db: SeedViabilityDB) -> None:
+        # Tomato DB says 5y, override says 1y; purchased 2023, current 2025 → age 2 → expired
+        packet = SeedPacket(
+            species_name="Tomato",
+            purchase_year=2023,
+            viability_shelf_life_override=1,
+        )
+        assert packet.viability_status(2025, db) == ViabilityStatus.EXPIRED
+
+    def test_viability_override_round_trips(self) -> None:
+        packet = SeedPacket(species_name="Tomato", viability_shelf_life_override=7)
+        restored = SeedPacket.from_dict(packet.to_dict())
+        assert restored.viability_shelf_life_override == 7
+
+    def test_viability_override_none_not_in_dict(self) -> None:
+        packet = SeedPacket(species_name="Tomato")
+        assert "viability_shelf_life_override" not in packet.to_dict()
 
     def test_good_when_same_year_as_purchase(self, db: SeedViabilityDB) -> None:
         packet = SeedPacket(species_name="Carrot", purchase_year=2025)
@@ -335,3 +378,33 @@ class TestBundledDatabase:
             assert entry["reduced_after_years"] <= entry["shelf_life_years"], (
                 f"{key}: reduced_after_years > shelf_life_years"
             )
+
+    def test_default_entry_defined(self, real_db: SeedViabilityDB) -> None:
+        # US-9.2: bundled DB must expose a default fallback
+        entry = real_db.default_entry
+        assert entry["shelf_life_years"] > 0
+        assert entry["reduced_after_years"] > 0
+
+    def test_sources_present_in_json(self) -> None:
+        # US-9.2: source references must be embedded in the JSON
+        data_path = (
+            Path(__file__).parent.parent.parent
+            / "src"
+            / "open_garden_planner"
+            / "resources"
+            / "data"
+            / "seed_viability.json"
+        )
+        raw = json.loads(data_path.read_text(encoding="utf-8"))
+        sources = raw.get("_sources", [])
+        assert len(sources) >= 2, "At least 2 source references expected"
+        for src in sources:
+            assert "title" in src, "Source missing title"
+            assert "publisher" in src, "Source missing publisher"
+
+    def test_default_fallback_for_unknown_species(self, real_db: SeedViabilityDB) -> None:
+        # Unknown species → viability_status uses default (3 years), not UNKNOWN
+        packet = SeedPacket(species_name="Fictional Plant 99", purchase_year=2020)
+        status = packet.viability_status(2025, real_db)
+        # age=5 > default shelf_life=3 → EXPIRED (not UNKNOWN)
+        assert status == ViabilityStatus.EXPIRED
