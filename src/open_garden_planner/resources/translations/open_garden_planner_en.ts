@@ -3670,4 +3670,63 @@ to assign species data.</translation>
             <translation>No detailed data available</translation>
         </message>
     </context>
+    <context>
+        <name>_DashboardPanel</name>
+        <message>
+            <source>Today's Tasks</source>
+            <translation>Today's Tasks</translation>
+        </message>
+        <message>
+            <source>Collapse/expand</source>
+            <translation>Collapse/expand</translation>
+        </message>
+        <message>
+            <source>No upcoming tasks in the next 30 days.</source>
+            <translation>No upcoming tasks in the next 30 days.</translation>
+        </message>
+        <message>
+            <source>Overdue</source>
+            <translation>Overdue</translation>
+        </message>
+        <message>
+            <source>Today</source>
+            <translation>Today</translation>
+        </message>
+        <message>
+            <source>This Week</source>
+            <translation>This Week</translation>
+        </message>
+        <message>
+            <source>Coming Up</source>
+            <translation>Coming Up</translation>
+        </message>
+        <message>
+            <source>Start indoor sowing of %1</source>
+            <translation>Start indoor sowing of %1</translation>
+        </message>
+        <message>
+            <source>Direct sow %1</source>
+            <translation>Direct sow %1</translation>
+        </message>
+        <message>
+            <source>Transplant %1 outdoors</source>
+            <translation>Transplant %1 outdoors</translation>
+        </message>
+        <message>
+            <source>Harvest %1</source>
+            <translation>Harvest %1</translation>
+        </message>
+        <message>
+            <source>Highlight on canvas</source>
+            <translation>Highlight on canvas</translation>
+        </message>
+        <message>
+            <source>Done</source>
+            <translation>Done</translation>
+        </message>
+        <message>
+            <source>Mark as done</source>
+            <translation>Mark as done</translation>
+        </message>
+    </context>
 </TS>

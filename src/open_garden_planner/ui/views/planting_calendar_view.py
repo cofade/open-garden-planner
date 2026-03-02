@@ -1,7 +1,10 @@
-"""Planting calendar view — month-by-month Gantt chart.
+"""Planting calendar view — month-by-month Gantt chart + today dashboard.
 
 Implements US-8.5: a dedicated tab showing indoor sow, direct sow,
 transplant, and harvest windows for each plant species placed on the canvas.
+
+Implements US-8.6: a "Today's Tasks" dashboard at the top of the tab showing
+actionable tasks grouped by urgency (overdue / today / this week / coming up).
 """
 from __future__ import annotations
 
@@ -15,6 +18,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QScrollArea,
     QSizePolicy,
     QVBoxLayout,
@@ -46,6 +50,16 @@ _COL_HDR_BG = QColor(242, 242, 242)
 _COL_SEL_ROW = QColor(215, 232, 252)
 _COL_HOV_ROW = QColor(235, 243, 255)
 
+# ─── Dashboard urgency colours ─────────────────────────────────────────────────
+_URGENCY_ORDER = ("overdue", "today", "this_week", "coming_up")
+_URGENCY_COLORS: dict[str, QColor] = {
+    "overdue":   QColor(200,  50,  50),
+    "today":     QColor(200, 120,   0),
+    "this_week": QColor( 40, 140,  60),
+    "coming_up": QColor( 60, 140, 100),
+}
+
+
 def _month_abbr(month_1: int) -> str:
     """Return the locale-aware short month name (1-indexed)."""
     return QLocale().monthName(month_1, QLocale.FormatType.ShortFormat)
@@ -64,6 +78,19 @@ class _PlantRow:
 
     display_name: str
     species: PlantSpeciesData
+
+
+@dataclass
+class _DashboardTask:
+    """A single actionable task in the Today dashboard."""
+
+    task_id: str        # "{species_key}:{task_type}:{year}"
+    task_type: str      # "indoor_sow" | "direct_sow" | "transplant" | "harvest"
+    display_name: str   # human-readable plant name
+    task_date: datetime.date   # window start date (for display)
+    end_date: datetime.date    # window end date
+    urgency: str        # "overdue" | "today" | "this_week" | "coming_up"
+    species_key: str    # used to match canvas items
 
 
 # ─── Helper utilities ──────────────────────────────────────────────────────────
@@ -86,6 +113,253 @@ def _parse_frost(mmdd: str, year: int) -> datetime.date | None:
         return datetime.date(year, m, d)
     except (ValueError, AttributeError):
         return None
+
+
+def _classify_urgency(
+    start: datetime.date, end: datetime.date, today: datetime.date
+) -> str | None:
+    """Return the urgency bucket for a task window, or None if not actionable."""
+    # Window is currently active (started, not yet ended)
+    if start <= today <= end:
+        return "today"
+    # Window ended recently (within 14 days) — still overdue/actionable
+    delta_end = (today - end).days
+    if 1 <= delta_end <= 14:
+        return "overdue"
+    # Window starts in the next 7 days
+    delta_start = (start - today).days
+    if 1 <= delta_start <= 7:
+        return "this_week"
+    # Window starts 8–30 days from now
+    if 8 <= delta_start <= 30:
+        return "coming_up"
+    return None
+
+
+def _generate_dashboard_tasks(
+    rows: list[_PlantRow],
+    last_frost: datetime.date,
+    today: datetime.date,
+    completed_ids: set[str],
+) -> list[_DashboardTask]:
+    """Generate actionable dashboard tasks from plant rows and frost dates."""
+    year = today.year
+    year_start = datetime.date(year, 1, 1)
+    year_end = datetime.date(year, 12, 31)
+    task_defs = [
+        ("indoor_sow",  "indoor_sow_start",  "indoor_sow_end"),
+        ("direct_sow",  "direct_sow_start",  "direct_sow_end"),
+        ("transplant",  "transplant_start",  "transplant_end"),
+        ("harvest",     "harvest_start",     "harvest_end"),
+    ]
+
+    tasks: list[_DashboardTask] = []
+    for row in rows:
+        sp = row.species
+        species_key = sp.scientific_name or sp.common_name or row.display_name
+        for task_type, start_attr, end_attr in task_defs:
+            start_w = getattr(sp, start_attr)
+            end_w = getattr(sp, end_attr)
+            if start_w is None or end_w is None:
+                continue
+            start_date = last_frost + datetime.timedelta(weeks=start_w)
+            end_date = last_frost + datetime.timedelta(weeks=end_w)
+            if end_date < year_start or start_date > year_end:
+                continue
+            urgency = _classify_urgency(start_date, end_date, today)
+            if urgency is None:
+                continue
+            task_id = f"{species_key}:{task_type}:{year}"
+            if task_id in completed_ids:
+                continue
+            tasks.append(_DashboardTask(
+                task_id=task_id,
+                task_type=task_type,
+                display_name=row.display_name,
+                task_date=start_date,
+                end_date=end_date,
+                urgency=urgency,
+                species_key=species_key,
+            ))
+    return tasks
+
+
+# ─── Dashboard panel ───────────────────────────────────────────────────────────
+
+class _DashboardPanel(QFrame):
+    """Top panel showing actionable planting tasks grouped by urgency."""
+
+    task_toggled = pyqtSignal(str, bool)   # task_id, done
+    highlight_requested = pyqtSignal(str)  # species_key
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self._collapsed = False
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # ── Header bar ────────────────────────────────────────────────────────
+        header = QFrame()
+        header.setObjectName("dashboardPanelHeader")
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(10, 4, 6, 4)
+        self._title_lbl = QLabel(self.tr("Today's Tasks"))
+        self._title_lbl.setStyleSheet("font-weight: bold; font-size: 9pt;")
+        header_layout.addWidget(self._title_lbl)
+        header_layout.addStretch()
+        self._toggle_btn = QPushButton("▾")
+        self._toggle_btn.setFlat(True)
+        self._toggle_btn.setFixedSize(24, 22)
+        self._toggle_btn.setToolTip(self.tr("Collapse/expand"))
+        self._toggle_btn.clicked.connect(self._toggle)
+        header_layout.addWidget(self._toggle_btn)
+        outer.addWidget(header)
+
+        # ── Scrollable task content ───────────────────────────────────────────
+        self._content_scroll = QScrollArea()
+        self._content_scroll.setWidgetResizable(True)
+        self._content_scroll.setMaximumHeight(170)
+        self._content_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._content_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._content_inner = QWidget()
+        self._content_layout = QVBoxLayout(self._content_inner)
+        self._content_layout.setContentsMargins(6, 4, 6, 4)
+        self._content_layout.setSpacing(2)
+        self._content_scroll.setWidget(self._content_inner)
+        outer.addWidget(self._content_scroll)
+
+        # ── No-tasks label ────────────────────────────────────────────────────
+        self._empty_lbl = QLabel(self.tr("No upcoming tasks in the next 30 days."))
+        self._empty_lbl.setStyleSheet("color: #666; font-size: 9pt; padding: 6px 12px;")
+        self._empty_lbl.hide()
+        outer.addWidget(self._empty_lbl)
+
+    def _toggle(self) -> None:
+        self._collapsed = not self._collapsed
+        self._content_scroll.setVisible(not self._collapsed)
+        self._empty_lbl.setVisible(
+            not self._collapsed and not self._content_scroll.isVisibleTo(self)
+            and self._empty_lbl.text() != ""
+        )
+        self._toggle_btn.setText("▸" if self._collapsed else "▾")
+
+    def set_data(self, tasks: list[_DashboardTask]) -> None:
+        """Rebuild the dashboard content with new tasks."""
+        # Clear old content
+        while self._content_layout.count():
+            item = self._content_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        grouped: dict[str, list[_DashboardTask]] = {u: [] for u in _URGENCY_ORDER}
+        for task in tasks:
+            grouped[task.urgency].append(task)
+
+        total = sum(len(v) for v in grouped.values())
+        self._title_lbl.setText(self.tr("Today's Tasks") + f" ({total})")
+
+        if total == 0:
+            self._content_scroll.hide()
+            self._empty_lbl.setText(self.tr("No upcoming tasks in the next 30 days."))
+            self._empty_lbl.show()
+            self._toggle_btn.setEnabled(False)
+            return
+
+        self._empty_lbl.hide()
+        self._toggle_btn.setEnabled(True)
+        if not self._collapsed:
+            self._content_scroll.show()
+
+        urgency_labels = {
+            "overdue":   self.tr("Overdue"),
+            "today":     self.tr("Today"),
+            "this_week": self.tr("This Week"),
+            "coming_up": self.tr("Coming Up"),
+        }
+        task_templates = {
+            "indoor_sow": self.tr("Start indoor sowing of %1"),
+            "direct_sow": self.tr("Direct sow %1"),
+            "transplant": self.tr("Transplant %1 outdoors"),
+            "harvest":    self.tr("Harvest %1"),
+        }
+
+        for urgency in _URGENCY_ORDER:
+            group = grouped[urgency]
+            if not group:
+                continue
+            color = _URGENCY_COLORS[urgency]
+
+            # Group header
+            grp_lbl = QLabel(urgency_labels[urgency])
+            grp_lbl.setStyleSheet(
+                f"font-weight: bold; font-size: 8pt; color: {color.name()};"
+                " padding: 3px 2px 1px 2px;"
+            )
+            self._content_layout.addWidget(grp_lbl)
+
+            for task in group:
+                self._content_layout.addWidget(
+                    self._make_task_row(task, task_templates, color)
+                )
+
+        self._content_layout.addStretch()
+
+    def _make_task_row(
+        self,
+        task: _DashboardTask,
+        templates: dict[str, str],
+        color: QColor,
+    ) -> QWidget:
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(4, 1, 4, 1)
+        layout.setSpacing(6)
+
+        # Colored urgency dot
+        dot = QLabel("●")
+        dot.setStyleSheet(f"color: {color.name()}; font-size: 8pt;")
+        dot.setFixedWidth(12)
+        layout.addWidget(dot)
+
+        # Task description
+        template = templates.get(task.task_type, "%1")
+        lbl = QLabel(template.replace("%1", task.display_name))
+        lbl.setStyleSheet("font-size: 9pt;")
+        lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        layout.addWidget(lbl)
+
+        # Date hint — use hint property so theme.py provides the secondary color
+        date_lbl = QLabel(task.task_date.strftime("%b %d"))
+        date_lbl.setStyleSheet("font-size: 8pt;")
+        date_lbl.setProperty("hint", True)
+        date_lbl.setFixedWidth(44)
+        layout.addWidget(date_lbl)
+
+        # Highlight-on-canvas button
+        goto_btn = QPushButton("→")
+        goto_btn.setToolTip(self.tr("Highlight on canvas"))
+        goto_btn.setFlat(True)
+        goto_btn.setFixedSize(26, 20)
+        species_key = task.species_key
+        goto_btn.clicked.connect(lambda: self.highlight_requested.emit(species_key))
+        layout.addWidget(goto_btn)
+
+        # Mark-done toggle button (checkable QPushButton, clearly labeled)
+        done_btn = QPushButton(self.tr("Done"))
+        done_btn.setObjectName("taskDoneBtn")
+        done_btn.setCheckable(True)
+        done_btn.setFixedSize(46, 20)
+        done_btn.setToolTip(self.tr("Mark as done"))
+        task_id = task.task_id
+        done_btn.toggled.connect(lambda checked: self.task_toggled.emit(task_id, checked))
+        layout.addWidget(done_btn)
+
+        return row
 
 
 # ─── Gantt painting widget ─────────────────────────────────────────────────────
@@ -335,11 +609,16 @@ class _DetailPanel(QFrame):
 # ─── Main view ─────────────────────────────────────────────────────────────────
 
 class PlantingCalendarView(QWidget):
-    """Full-screen tab view: planting calendar Gantt chart.
+    """Full-screen tab view: planting calendar Gantt chart + today dashboard.
 
     Reads placed plants from canvas_scene and frost dates from
-    project_manager.location to draw a 12-month Gantt chart.
+    project_manager.location to draw a 12-month Gantt chart and a
+    "Today's Tasks" dashboard at the top.
     """
+
+    #: Emitted when the user clicks "highlight on canvas" for a task.
+    #: Carries the species key (scientific_name or common_name).
+    highlight_species = pyqtSignal(str)
 
     def __init__(self, canvas_scene: Any, project_manager: Any, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -354,6 +633,12 @@ class PlantingCalendarView(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
+
+        # Dashboard panel (US-8.6)
+        self._dashboard = _DashboardPanel()
+        self._dashboard.highlight_requested.connect(self.highlight_species.emit)
+        self._dashboard.task_toggled.connect(self._on_task_toggled)
+        root.addWidget(self._dashboard)
 
         root.addWidget(self._make_legend())
 
@@ -450,10 +735,22 @@ class PlantingCalendarView(QWidget):
     # ── refresh ────────────────────────────────────────────────────────────────
 
     def refresh(self) -> None:
-        """Rebuild the chart from current canvas + project state."""
+        """Rebuild the chart and dashboard from current canvas + project state."""
         rows, last_frost, first_fall = self._collect_data()
         self._rows = rows
 
+        # ── Update dashboard (US-8.6) ──────────────────────────────────────────
+        today = datetime.date.today()
+        completed_ids: set[str] = set()
+        if hasattr(self._project_manager, "task_completions"):
+            completed_ids = self._project_manager.task_completions
+        if last_frost is not None and rows:
+            tasks = _generate_dashboard_tasks(rows, last_frost, today, completed_ids)
+        else:
+            tasks = []
+        self._dashboard.set_data(tasks)
+
+        # ── Update Gantt ───────────────────────────────────────────────────────
         # Update translated marker labels on the gantt widget
         self._gantt.label_today = self.tr("Today")
         self._gantt.label_last_frost = self.tr("Last frost")
@@ -483,7 +780,7 @@ class PlantingCalendarView(QWidget):
             return
 
         self._empty_lbl.hide()
-        year = datetime.date.today().year
+        year = today.year
         self._gantt.set_data(rows, year, last_frost, first_fall)
         self._scroll.show()
 
@@ -498,3 +795,9 @@ class PlantingCalendarView(QWidget):
             self._detail.show()
         else:
             self._detail.hide()
+
+    def _on_task_toggled(self, task_id: str, done: bool) -> None:
+        """Persist task completion state, then refresh the dashboard."""
+        if hasattr(self._project_manager, "set_task_completion"):
+            self._project_manager.set_task_completion(task_id, done)
+        self.refresh()
