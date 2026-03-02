@@ -4300,6 +4300,10 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
         <translation>Abgelaufen</translation>
     </message>
     <message>
+        <source>Unknown</source>
+        <translation>Unbekannt</translation>
+    </message>
+    <message>
         <source>Year:</source>
         <translation>Jahr:</translation>
     </message>

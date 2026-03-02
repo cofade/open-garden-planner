@@ -3760,6 +3760,10 @@ to assign species data.</translation>
             <translation>Expired</translation>
         </message>
         <message>
+            <source>Unknown</source>
+            <translation>Unknown</translation>
+        </message>
+        <message>
             <source>Year:</source>
             <translation>Year:</translation>
         </message>

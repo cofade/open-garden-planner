@@ -42,21 +42,51 @@ from open_garden_planner.models.seed_inventory import (
     get_viability_db,
 )
 
-# ── Viability colours ───────────────────────────────────────────────────────────
+# ── Viability colours — separate palettes for light and dark mode ───────────────
 
-_STATUS_COLORS: dict[ViabilityStatus, QColor] = {
-    ViabilityStatus.GOOD:    QColor(210, 240, 210),   # light green
-    ViabilityStatus.REDUCED: QColor(255, 243, 200),   # light amber
-    ViabilityStatus.EXPIRED: QColor(255, 220, 220),   # light red
-    ViabilityStatus.UNKNOWN: QColor(230, 230, 230),   # light grey
+_STATUS_BG_LIGHT: dict[ViabilityStatus, QColor] = {
+    ViabilityStatus.GOOD:    QColor(210, 240, 210),
+    ViabilityStatus.REDUCED: QColor(255, 243, 200),
+    ViabilityStatus.EXPIRED: QColor(255, 220, 220),
+    ViabilityStatus.UNKNOWN: QColor(230, 230, 230),
 }
-
-_STATUS_TEXT_COLORS: dict[ViabilityStatus, QColor] = {
-    ViabilityStatus.GOOD:    QColor(30, 130, 30),
-    ViabilityStatus.REDUCED: QColor(160, 100, 0),
-    ViabilityStatus.EXPIRED: QColor(180, 30, 30),
+_STATUS_BG_DARK: dict[ViabilityStatus, QColor] = {
+    ViabilityStatus.GOOD:    QColor(20,  60,  20),
+    ViabilityStatus.REDUCED: QColor(65,  45,   0),
+    ViabilityStatus.EXPIRED: QColor(75,  18,  18),
+    ViabilityStatus.UNKNOWN: QColor(45,  45,  45),
+}
+_STATUS_FG_LIGHT: dict[ViabilityStatus, QColor] = {
+    ViabilityStatus.GOOD:    QColor(25, 120,  25),
+    ViabilityStatus.REDUCED: QColor(155,  90,   0),
+    ViabilityStatus.EXPIRED: QColor(175,  25,  25),
     ViabilityStatus.UNKNOWN: QColor(100, 100, 100),
 }
+_STATUS_FG_DARK: dict[ViabilityStatus, QColor] = {
+    ViabilityStatus.GOOD:    QColor(100, 220, 100),
+    ViabilityStatus.REDUCED: QColor(240, 180,  50),
+    ViabilityStatus.EXPIRED: QColor(240,  80,  80),
+    ViabilityStatus.UNKNOWN: QColor(160, 160, 160),
+}
+
+
+def _is_dark_palette() -> bool:
+    """Return True when the application is running with a dark palette."""
+    from PyQt6.QtWidgets import QApplication
+    app = QApplication.instance()
+    if app is None:
+        return False
+    return app.palette().window().color().lightness() < 128
+
+
+def _status_bg(status: ViabilityStatus) -> QColor:
+    table = _STATUS_BG_DARK if _is_dark_palette() else _STATUS_BG_LIGHT
+    return table.get(status, QColor(128, 128, 128))
+
+
+def _status_fg(status: ViabilityStatus) -> QColor:
+    table = _STATUS_FG_DARK if _is_dark_palette() else _STATUS_FG_LIGHT
+    return table.get(status, QColor(200, 200, 200))
 
 # Column indices
 _COL_NAME = 0
@@ -74,12 +104,21 @@ _NUM_COLS = 7
 class _SeedTableModel(QAbstractTableModel):
     """Table model backed by a list of SeedPacket objects."""
 
+    # Default (English) viability labels — overridden via set_viability_labels()
+    _DEFAULT_VIA_LABELS: dict[ViabilityStatus, str] = {
+        ViabilityStatus.GOOD:    "✓ Good",
+        ViabilityStatus.REDUCED: "~ Reduced",
+        ViabilityStatus.EXPIRED: "✗ Expired",
+        ViabilityStatus.UNKNOWN: "? Unknown",
+    }
+
     def __init__(self, store: SeedInventoryStore, viability_db: SeedViabilityDB) -> None:
         super().__init__()
         self._store = store
         self._db = viability_db
         self._packets: list[SeedPacket] = []
         self._current_year = datetime.date.today().year
+        self._viability_labels: dict[ViabilityStatus, str] = dict(self._DEFAULT_VIA_LABELS)
         self._reload()
 
     def _reload(self) -> None:
@@ -111,10 +150,10 @@ class _SeedTableModel(QAbstractTableModel):
             return self._display_data(packet, col, status)
 
         if role == Qt.ItemDataRole.BackgroundRole:
-            return QBrush(_STATUS_COLORS.get(status, QColor(255, 255, 255)))
+            return QBrush(_status_bg(status))
 
         if role == Qt.ItemDataRole.ForegroundRole and col == _COL_VIABILITY:
-            return QBrush(_STATUS_TEXT_COLORS.get(status, QColor(0, 0, 0)))
+            return QBrush(_status_fg(status))
 
         if role == Qt.ItemDataRole.FontRole and col == _COL_VIABILITY:
             f = QFont()
@@ -139,13 +178,7 @@ class _SeedTableModel(QAbstractTableModel):
             qty = int(p.quantity) if p.quantity == int(p.quantity) else p.quantity
             return f"{qty} {p.quantity_unit}"
         if col == _COL_VIABILITY:
-            labels = {
-                ViabilityStatus.GOOD:    "✓ Good",
-                ViabilityStatus.REDUCED: "~ Reduced",
-                ViabilityStatus.EXPIRED: "✗ Expired",
-                ViabilityStatus.UNKNOWN: "? Unknown",
-            }
-            return labels.get(status, "")
+            return self._viability_labels.get(status, "")
         if col == _COL_MANUFACTURER:
             return p.manufacturer
         if col == _COL_NOTES:
@@ -168,6 +201,15 @@ class _SeedTableModel(QAbstractTableModel):
         """Update column headers with translated strings."""
         self._translated_headers = headers
         self.headerDataChanged.emit(Qt.Orientation.Horizontal, 0, _NUM_COLS - 1)
+
+    def set_viability_labels(self, labels: dict[ViabilityStatus, str]) -> None:
+        """Update the viability display labels (for translation support)."""
+        self._viability_labels = labels
+        if self._packets:
+            self.dataChanged.emit(
+                self.index(0, _COL_VIABILITY),
+                self.index(len(self._packets) - 1, _COL_VIABILITY),
+            )
 
     def headerData(  # type: ignore[override]
         self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole
@@ -307,6 +349,12 @@ class SeedInventoryDialog(QDialog):
             self.tr("Manufacturer"),
             self.tr("Notes"),
         ])
+        self._model.set_viability_labels({
+            ViabilityStatus.GOOD:    "✓ " + self.tr("Good"),
+            ViabilityStatus.REDUCED: "~ " + self.tr("Reduced"),
+            ViabilityStatus.EXPIRED: "✗ " + self.tr("Expired"),
+            ViabilityStatus.UNKNOWN: "? " + self.tr("Unknown"),
+        })
 
     def _update_stats(self) -> None:
         """Refresh the stats label and year filter combo."""
