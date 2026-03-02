@@ -4210,4 +4210,63 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
         <translation>Keine Detaildaten verfügbar</translation>
     </message>
 </context>
+<context>
+    <name>_DashboardPanel</name>
+    <message>
+        <source>Today's Tasks</source>
+        <translation>Heutige Aufgaben</translation>
+    </message>
+    <message>
+        <source>Collapse/expand</source>
+        <translation>Einklappen/Ausklappen</translation>
+    </message>
+    <message>
+        <source>No upcoming tasks in the next 30 days.</source>
+        <translation>Keine anstehenden Aufgaben in den nächsten 30 Tagen.</translation>
+    </message>
+    <message>
+        <source>Overdue</source>
+        <translation>Überfällig</translation>
+    </message>
+    <message>
+        <source>Today</source>
+        <translation>Heute</translation>
+    </message>
+    <message>
+        <source>This Week</source>
+        <translation>Diese Woche</translation>
+    </message>
+    <message>
+        <source>Coming Up</source>
+        <translation>Demnächst</translation>
+    </message>
+    <message>
+        <source>Start indoor sowing of %1</source>
+        <translation>Vorziehen von %1 beginnen</translation>
+    </message>
+    <message>
+        <source>Direct sow %1</source>
+        <translation>%1 direkt aussäen</translation>
+    </message>
+    <message>
+        <source>Transplant %1 outdoors</source>
+        <translation>%1 auspflanzen</translation>
+    </message>
+    <message>
+        <source>Harvest %1</source>
+        <translation>%1 ernten</translation>
+    </message>
+    <message>
+        <source>Highlight on canvas</source>
+        <translation>Auf Zeichenfläche hervorheben</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Erledigt</translation>
+    </message>
+    <message>
+        <source>Mark as done</source>
+        <translation>Als erledigt markieren</translation>
+    </message>
+</context>
 </TS>

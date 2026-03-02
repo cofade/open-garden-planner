@@ -34,6 +34,7 @@ class ProjectData:
     constraints: list[dict[str, Any]] = field(default_factory=list)
     guides: list[dict[str, Any]] = field(default_factory=list)
     location: dict[str, Any] | None = None
+    task_completions: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -55,6 +56,8 @@ class ProjectData:
             data["guides"] = self.guides
         if self.location:
             data["location"] = self.location
+        if self.task_completions:
+            data["task_completions"] = sorted(self.task_completions)
         return data
 
     @classmethod
@@ -69,6 +72,7 @@ class ProjectData:
             constraints=data.get("constraints", []),
             guides=data.get("guides", []),
             location=data.get("location") or None,
+            task_completions=data.get("task_completions", []),
         )
 
 
@@ -83,6 +87,7 @@ class ProjectManager(QObject):
     project_changed = pyqtSignal(object)  # str path or None
     dirty_changed = pyqtSignal(bool)
     location_changed = pyqtSignal(object)  # dict or None
+    task_completions_changed = pyqtSignal(object)  # set[str]
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -90,6 +95,7 @@ class ProjectManager(QObject):
         self._current_file: Path | None = None
         self._dirty = False
         self._location: dict[str, Any] | None = None
+        self._task_completions: set[str] = set()
 
     @property
     def current_file(self) -> Path | None:
@@ -112,6 +118,20 @@ class ProjectManager(QObject):
     def location(self) -> dict[str, Any] | None:
         """Garden location data, or None if not set."""
         return self._location
+
+    @property
+    def task_completions(self) -> set[str]:
+        """Set of completed task IDs for the current project."""
+        return set(self._task_completions)
+
+    def set_task_completion(self, task_id: str, done: bool) -> None:
+        """Mark a task as done or not done, persisting to the project file."""
+        if done:
+            self._task_completions.add(task_id)
+        else:
+            self._task_completions.discard(task_id)
+        self.task_completions_changed.emit(self._task_completions)
+        self.mark_dirty()
 
     def set_location(self, location: dict[str, Any] | None) -> None:
         """Set the garden location and mark project as dirty.
@@ -141,9 +161,11 @@ class ProjectManager(QObject):
         self._current_file = None
         self._dirty = False
         self._location = None
+        self._task_completions = set()
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
+        self.task_completions_changed.emit(set())
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -154,6 +176,7 @@ class ProjectManager(QObject):
         """
         data = self._serialize_scene(scene)
         data.location = self._location
+        data.task_completions = sorted(self._task_completions)
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -182,6 +205,9 @@ class ProjectManager(QObject):
         # Restore location data
         self._location = data.location
         self.location_changed.emit(self._location)
+        # Restore task completions
+        self._task_completions = set(data.task_completions)
+        self.task_completions_changed.emit(self._task_completions)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)

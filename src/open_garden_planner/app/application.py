@@ -686,7 +686,11 @@ class GardenPlannerApp(QMainWindow):
         # Refresh calendar on tab switch and on canvas/location changes
         self._tab_widget.currentChanged.connect(self._on_tab_changed)
         self._project_manager.location_changed.connect(lambda _: self.calendar_view.refresh())
+        self._project_manager.task_completions_changed.connect(lambda _: self.calendar_view.refresh())
         cmd_mgr.command_executed.connect(lambda _: self.calendar_view.refresh())
+
+        # Highlight plant on canvas when user clicks a dashboard task (US-8.6)
+        self.calendar_view.highlight_species.connect(self._on_highlight_species)
 
         # Wrap tab widget + update bar in a container
         self._update_bar = UpdateBar(self)
@@ -2310,3 +2314,22 @@ class GardenPlannerApp(QMainWindow):
         """Refresh the planting calendar when its tab becomes active."""
         if index == 1:
             self.calendar_view.refresh()
+
+    def _on_highlight_species(self, species_key: str) -> None:
+        """Switch to Garden Plan tab and select all items matching species_key."""
+        from open_garden_planner.models.plant_data import PlantSpeciesData
+
+        self._tab_widget.setCurrentIndex(0)
+        self.canvas_scene.clearSelection()
+        for item in self.canvas_scene.items():
+            if not hasattr(item, "metadata") or not item.metadata:
+                continue
+            ps_dict = item.metadata.get("plant_species")
+            if not ps_dict:
+                continue
+            try:
+                species = PlantSpeciesData.from_dict(ps_dict)
+                if (species.scientific_name or species.common_name) == species_key:
+                    item.setSelected(True)
+            except Exception:
+                continue

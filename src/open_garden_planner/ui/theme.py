@@ -701,6 +701,33 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['accent']};
         border: 2px solid {colors['accent_pressed']};
     }}
+
+    /* Dashboard panel header (Planting Calendar – Today's Tasks) */
+    QFrame#dashboardPanelHeader {{
+        background-color: {colors['surface']};
+        border-bottom: 1px solid {colors['border']};
+    }}
+
+    /* Mark-done button in dashboard task rows */
+    QPushButton#taskDoneBtn {{
+        background-color: transparent;
+        border: 1px solid {colors['border']};
+        border-radius: 3px;
+        color: {colors['text_secondary']};
+        font-size: 8pt;
+        padding: 1px 4px;
+    }}
+
+    QPushButton#taskDoneBtn:hover {{
+        border-color: {colors['accent']};
+        color: {colors['accent']};
+    }}
+
+    QPushButton#taskDoneBtn:checked {{
+        background-color: {colors['accent']};
+        border-color: {colors['accent_pressed']};
+        color: {colors['accent_text']};
+    }}
     """
 
 
