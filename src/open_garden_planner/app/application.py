@@ -536,6 +536,12 @@ class GardenPlannerApp(QMainWindow):
         manage_custom_action.triggered.connect(self._on_manage_custom_plants)
         menu.addAction(manage_custom_action)
 
+        # Manage Seed Inventory (US-9.3)
+        seed_inv_action = QAction(self.tr("&Manage Seed Inventory..."), self)
+        seed_inv_action.setStatusTip(self.tr("Add, edit, and browse your seed packet inventory"))
+        seed_inv_action.triggered.connect(self._on_manage_seed_inventory)
+        menu.addAction(seed_inv_action)
+
     def _setup_help_menu(self, menu: QMenu) -> None:
         """Set up the Help menu actions."""
         # Keyboard Shortcuts
@@ -2002,6 +2008,13 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.ui.dialogs import CustomPlantsDialog
 
         dialog = CustomPlantsDialog(self)
+        dialog.exec()
+
+    def _on_manage_seed_inventory(self) -> None:
+        """Handle Manage Seed Inventory action (US-9.3)."""
+        from open_garden_planner.ui.dialogs import SeedInventoryDialog
+
+        dialog = SeedInventoryDialog(self)
         dialog.exec()
 
     def _on_preferences(self) -> None:

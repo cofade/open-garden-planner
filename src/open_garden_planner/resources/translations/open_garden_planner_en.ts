@@ -3729,4 +3729,257 @@ to assign species data.</translation>
             <translation>Mark as done</translation>
         </message>
     </context>
+    <context>
+        <name>SeedInventoryDialog</name>
+        <message>
+            <source>Seed Inventory</source>
+            <translation>Seed Inventory</translation>
+        </message>
+        <message>
+            <source>Search by name or variety…</source>
+            <translation>Search by name or variety…</translation>
+        </message>
+        <message>
+            <source>Status:</source>
+            <translation>Status:</translation>
+        </message>
+        <message>
+            <source>All</source>
+            <translation>All</translation>
+        </message>
+        <message>
+            <source>Good</source>
+            <translation>Good</translation>
+        </message>
+        <message>
+            <source>Reduced</source>
+            <translation>Reduced</translation>
+        </message>
+        <message>
+            <source>Expired</source>
+            <translation>Expired</translation>
+        </message>
+        <message>
+            <source>Year:</source>
+            <translation>Year:</translation>
+        </message>
+        <message>
+            <source>All years</source>
+            <translation>All years</translation>
+        </message>
+        <message>
+            <source>Species</source>
+            <translation>Species</translation>
+        </message>
+        <message>
+            <source>Variety</source>
+            <translation>Variety</translation>
+        </message>
+        <message>
+            <source>Year</source>
+            <translation>Year</translation>
+        </message>
+        <message>
+            <source>Quantity</source>
+            <translation>Quantity</translation>
+        </message>
+        <message>
+            <source>Viability</source>
+            <translation>Viability</translation>
+        </message>
+        <message>
+            <source>Manufacturer</source>
+            <translation>Manufacturer</translation>
+        </message>
+        <message>
+            <source>Notes</source>
+            <translation>Notes</translation>
+        </message>
+        <message>
+            <source>%1 packets · %2 reduced · %3 expired</source>
+            <translation>%1 packets · %2 reduced · %3 expired</translation>
+        </message>
+        <message>
+            <source>Add Packet</source>
+            <translation>Add Packet</translation>
+        </message>
+        <message>
+            <source>Edit</source>
+            <translation>Edit</translation>
+        </message>
+        <message>
+            <source>Delete</source>
+            <translation>Delete</translation>
+        </message>
+        <message>
+            <source>Close</source>
+            <translation>Close</translation>
+        </message>
+        <message>
+            <source>Delete Seed Packet</source>
+            <translation>Delete Seed Packet</translation>
+        </message>
+        <message>
+            <source>Delete '%1'? This cannot be undone.</source>
+            <translation>Delete '%1'? This cannot be undone.</translation>
+        </message>
+        <message>
+            <source>this packet</source>
+            <translation>this packet</translation>
+        </message>
+    </context>
+    <context>
+        <name>SeedPacketEditDialog</name>
+        <message>
+            <source>Add Seed Packet</source>
+            <translation>Add Seed Packet</translation>
+        </message>
+        <message>
+            <source>Edit Seed Packet</source>
+            <translation>Edit Seed Packet</translation>
+        </message>
+        <message>
+            <source>Basic Information</source>
+            <translation>Basic Information</translation>
+        </message>
+        <message>
+            <source>e.g. Tomato</source>
+            <translation>e.g. Tomato</translation>
+        </message>
+        <message>
+            <source>Species name:</source>
+            <translation>Species name:</translation>
+        </message>
+        <message>
+            <source>e.g. Cherry Red</source>
+            <translation>e.g. Cherry Red</translation>
+        </message>
+        <message>
+            <source>Variety / cultivar:</source>
+            <translation>Variety / cultivar:</translation>
+        </message>
+        <message>
+            <source>Purchase / harvest year:</source>
+            <translation>Purchase / harvest year:</translation>
+        </message>
+        <message>
+            <source>seeds</source>
+            <translation>seeds</translation>
+        </message>
+        <message>
+            <source>grams</source>
+            <translation>grams</translation>
+        </message>
+        <message>
+            <source>Quantity:</source>
+            <translation>Quantity:</translation>
+        </message>
+        <message>
+            <source>Manufacturer / source:</source>
+            <translation>Manufacturer / source:</translation>
+        </message>
+        <message>
+            <source>Batch / lot number:</source>
+            <translation>Batch / lot number:</translation>
+        </message>
+        <message>
+            <source>Germination</source>
+            <translation>Germination</translation>
+        </message>
+        <message>
+            <source>Min:</source>
+            <translation>Min:</translation>
+        </message>
+        <message>
+            <source>Opt:</source>
+            <translation>Opt:</translation>
+        </message>
+        <message>
+            <source>Max:</source>
+            <translation>Max:</translation>
+        </message>
+        <message>
+            <source>Temp. range (°C):</source>
+            <translation>Temp. range (°C):</translation>
+        </message>
+        <message>
+            <source>Germination days:</source>
+            <translation>Germination days:</translation>
+        </message>
+        <message>
+            <source>Indifferent</source>
+            <translation>Indifferent</translation>
+        </message>
+        <message>
+            <source>Light germinator</source>
+            <translation>Light germinator</translation>
+        </message>
+        <message>
+            <source>Dark germinator</source>
+            <translation>Dark germinator</translation>
+        </message>
+        <message>
+            <source>Light requirement:</source>
+            <translation>Light requirement:</translation>
+        </message>
+        <message>
+            <source>Pre-treatment</source>
+            <translation>Pre-treatment</translation>
+        </message>
+        <message>
+            <source>Cold stratification required</source>
+            <translation>Cold stratification required</translation>
+        </message>
+        <message>
+            <source>Stratification days:</source>
+            <translation>Stratification days:</translation>
+        </message>
+        <message>
+            <source>e.g. scarify, soak 24h</source>
+            <translation>e.g. scarify, soak 24h</translation>
+        </message>
+        <message>
+            <source>Other pre-treatment:</source>
+            <translation>Other pre-treatment:</translation>
+        </message>
+        <message>
+            <source>Viability Override</source>
+            <translation>Viability Override</translation>
+        </message>
+        <message>
+            <source>Override database shelf life</source>
+            <translation>Override database shelf life</translation>
+        </message>
+        <message>
+            <source> years</source>
+            <translation> years</translation>
+        </message>
+        <message>
+            <source>(Use this if you've tested germination and know the actual shelf life)</source>
+            <translation>(Use this if you've tested germination and know the actual shelf life)</translation>
+        </message>
+        <message>
+            <source>Notes</source>
+            <translation>Notes</translation>
+        </message>
+        <message>
+            <source>Missing Information</source>
+            <translation>Missing Information</translation>
+        </message>
+        <message>
+            <source>Please enter a species name.</source>
+            <translation>Please enter a species name.</translation>
+        </message>
+    </context>
+    <context>
+        <name>GardenPlannerApp</name>
+        <message>
+            <source>&amp;Manage Seed Inventory...</source>
+            <translation>&amp;Manage Seed Inventory...</translation>
+        </message>
+        <message>
+            <source>Add, edit, and browse your seed packet inventory</source>
+            <translation>Add, edit, and browse your seed packet inventory</translation>
+        </message>
+    </context>
 </TS>
