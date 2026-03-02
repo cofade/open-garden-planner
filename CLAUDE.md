@@ -374,7 +374,7 @@ tests/
 | ✅     | 8.3  | Auto-update notification & one-click installer download |
 | ✅     | 8.4  | Plant calendar data model                            |
 | ✅     | 8.5  | Planting calendar view (tab)                         |
-|        | 8.6  | Dashboard / today view                               |
+| ✅     | 8.6  | Dashboard / today view                               |
 | ✅     | 8.7  | Tab-based main window architecture                   |
 
 ## Progress (Phase 9: Seed Inventory & Propagation Planning v1.8)
