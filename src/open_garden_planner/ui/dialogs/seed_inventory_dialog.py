@@ -1,18 +1,16 @@
-"""Seed Inventory Management Dialog — US-9.3.
+"""Seed inventory table model and packet edit dialog — US-9.3.
 
-Provides a QDialog for browsing, adding, editing, and deleting seed packets
-stored in the global SeedInventoryStore.  A separate SeedPacketEditDialog
-handles the add/edit form.
+SeedTableModel: shared table model used by SeedInventoryView (tab).
+SeedPacketEditDialog: add/edit form for a single seed packet.
 """
 from __future__ import annotations
 
 import datetime
 from typing import Any
 
-from PyQt6.QtCore import QAbstractTableModel, QModelIndex, QSortFilterProxyModel, Qt
+from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PyQt6.QtGui import QBrush, QColor, QFont
 from PyQt6.QtWidgets import (
-    QAbstractItemView,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -21,13 +19,10 @@ from PyQt6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QLineEdit,
     QMessageBox,
-    QPushButton,
     QSpinBox,
-    QTableView,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -38,8 +33,6 @@ from open_garden_planner.models.seed_inventory import (
     SeedPacket,
     SeedViabilityDB,
     ViabilityStatus,
-    get_seed_inventory,
-    get_viability_db,
 )
 
 # ── Viability colours — separate palettes for light and dark mode ───────────────
@@ -101,7 +94,7 @@ _NUM_COLS = 7
 
 # ── Table model ─────────────────────────────────────────────────────────────────
 
-class _SeedTableModel(QAbstractTableModel):
+class SeedTableModel(QAbstractTableModel):
     """Table model backed by a list of SeedPacket objects."""
 
     # Default (English) viability labels — overridden via set_viability_labels()
@@ -221,262 +214,6 @@ class _SeedTableModel(QAbstractTableModel):
                 return self._translated_headers[section]
             return self._col_header(section)
         return str(section + 1)
-
-
-# ── Main dialog ─────────────────────────────────────────────────────────────────
-
-class SeedInventoryDialog(QDialog):
-    """Dialog for managing the global seed packet inventory."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setWindowTitle(self.tr("Seed Inventory"))
-        self.setMinimumSize(900, 600)
-        self.resize(1000, 650)
-
-        self._store = get_seed_inventory()
-        self._db = get_viability_db()
-        self._model = _SeedTableModel(self._store, self._db)
-
-        self._setup_ui()
-        self._update_headers()
-        self._update_stats()
-
-    # ── UI construction ──────────────────────────────────────────────────────
-
-    def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.setSpacing(8)
-
-        # Title + stats bar
-        top = QHBoxLayout()
-        title_lbl = QLabel(self.tr("Seed Inventory"))
-        title_lbl.setStyleSheet("font-size: 15px; font-weight: bold;")
-        top.addWidget(title_lbl)
-        top.addStretch()
-        self._stats_lbl = QLabel()
-        self._stats_lbl.setStyleSheet("color: palette(text); font-size: 9pt;")
-        top.addWidget(self._stats_lbl)
-        layout.addLayout(top)
-
-        # Search + filter bar
-        filter_row = QHBoxLayout()
-        filter_row.setSpacing(8)
-
-        self._search_edit = QLineEdit()
-        self._search_edit.setPlaceholderText(self.tr("Search by name or variety…"))
-        self._search_edit.setClearButtonEnabled(True)
-        self._search_edit.textChanged.connect(self._apply_filter)
-        filter_row.addWidget(self._search_edit, 2)
-
-        filter_row.addWidget(QLabel(self.tr("Status:")))
-        self._status_combo = QComboBox()
-        self._status_combo.addItem(self.tr("All"), "all")
-        self._status_combo.addItem(self.tr("Good"), "good")
-        self._status_combo.addItem(self.tr("Reduced"), "reduced")
-        self._status_combo.addItem(self.tr("Expired"), "expired")
-        self._status_combo.currentIndexChanged.connect(self._apply_filter)
-        filter_row.addWidget(self._status_combo)
-
-        filter_row.addWidget(QLabel(self.tr("Year:")))
-        self._year_combo = QComboBox()
-        self._year_combo.addItem(self.tr("All years"), "all")
-        self._year_combo.currentIndexChanged.connect(self._apply_filter)
-        filter_row.addWidget(self._year_combo)
-
-        layout.addLayout(filter_row)
-
-        # Table view
-        self._proxy = QSortFilterProxyModel(self)
-        self._proxy.setSourceModel(self._model)
-        self._proxy.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        self._proxy.setFilterKeyColumn(-1)  # search all columns
-
-        self._table = QTableView()
-        self._table.setModel(self._proxy)
-        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self._table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self._table.setAlternatingRowColors(False)  # handled by viability colors
-        self._table.setSortingEnabled(True)
-        self._table.doubleClicked.connect(self._on_edit)
-        self._table.selectionModel().selectionChanged.connect(self._on_selection_changed)
-
-        hdr = self._table.horizontalHeader()
-        hdr.setSectionResizeMode(_COL_NAME, QHeaderView.ResizeMode.Stretch)
-        hdr.setSectionResizeMode(_COL_VARIETY, QHeaderView.ResizeMode.ResizeToContents)
-        hdr.setSectionResizeMode(_COL_YEAR, QHeaderView.ResizeMode.ResizeToContents)
-        hdr.setSectionResizeMode(_COL_QUANTITY, QHeaderView.ResizeMode.ResizeToContents)
-        hdr.setSectionResizeMode(_COL_VIABILITY, QHeaderView.ResizeMode.ResizeToContents)
-        hdr.setSectionResizeMode(_COL_MANUFACTURER, QHeaderView.ResizeMode.ResizeToContents)
-        hdr.setSectionResizeMode(_COL_NOTES, QHeaderView.ResizeMode.Stretch)
-        self._table.verticalHeader().setVisible(False)
-        layout.addWidget(self._table)
-
-        # Button row
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(8)
-
-        self._add_btn = QPushButton(self.tr("Add Packet"))
-        self._add_btn.clicked.connect(self._on_add)
-        btn_row.addWidget(self._add_btn)
-
-        self._edit_btn = QPushButton(self.tr("Edit"))
-        self._edit_btn.setEnabled(False)
-        self._edit_btn.clicked.connect(self._on_edit)
-        btn_row.addWidget(self._edit_btn)
-
-        self._delete_btn = QPushButton(self.tr("Delete"))
-        self._delete_btn.setEnabled(False)
-        self._delete_btn.clicked.connect(self._on_delete)
-        btn_row.addWidget(self._delete_btn)
-
-        btn_row.addStretch()
-
-        close_btn = QPushButton(self.tr("Close"))
-        close_btn.clicked.connect(self.accept)
-        btn_row.addWidget(close_btn)
-
-        layout.addLayout(btn_row)
-
-    def _update_headers(self) -> None:
-        self._model.set_headers([
-            self.tr("Species"),
-            self.tr("Variety"),
-            self.tr("Year"),
-            self.tr("Quantity"),
-            self.tr("Viability"),
-            self.tr("Manufacturer"),
-            self.tr("Notes"),
-        ])
-        self._model.set_viability_labels({
-            ViabilityStatus.GOOD:    "✓ " + self.tr("Good"),
-            ViabilityStatus.REDUCED: "~ " + self.tr("Reduced"),
-            ViabilityStatus.EXPIRED: "✗ " + self.tr("Expired"),
-            ViabilityStatus.UNKNOWN: "? " + self.tr("Unknown"),
-        })
-
-    def _update_stats(self) -> None:
-        """Refresh the stats label and year filter combo."""
-        packets = self._store.all()
-        total = len(packets)
-        year = datetime.date.today().year
-        expired = sum(1 for p in packets if p.viability_status(year, self._db) == ViabilityStatus.EXPIRED)
-        reduced = sum(1 for p in packets if p.viability_status(year, self._db) == ViabilityStatus.REDUCED)
-        self._stats_lbl.setText(
-            self.tr("%1 packets · %2 reduced · %3 expired")
-            .replace("%1", str(total))
-            .replace("%2", str(reduced))
-            .replace("%3", str(expired))
-        )
-        # Rebuild year filter
-        years = sorted({p.purchase_year for p in packets}, reverse=True)
-        prev = self._year_combo.currentData()
-        self._year_combo.blockSignals(True)
-        self._year_combo.clear()
-        self._year_combo.addItem(self.tr("All years"), "all")
-        for yr in years:
-            self._year_combo.addItem(str(yr), yr)
-        # Restore selection
-        idx = self._year_combo.findData(prev)
-        if idx >= 0:
-            self._year_combo.setCurrentIndex(idx)
-        self._year_combo.blockSignals(False)
-
-    # ── Filtering ─────────────────────────────────────────────────────────────
-
-    def _apply_filter(self) -> None:
-        search_text = self._search_edit.text().strip()
-        status_filter = self._status_combo.currentData()
-        year_filter = self._year_combo.currentData()
-
-        # Build a combined proxy: we need custom filtering for status+year
-        # We'll use a custom filter function via QSortFilterProxyModel override
-        # but since QSortFilterProxyModel doesn't support multi-column easily,
-        # we implement it by using filterAcceptsRow on a subclass.
-        # For simplicity, use the text filter from Qt and post-filter status/year
-        # by rebuilding rows in the model directly.
-        self._proxy.setFilterFixedString(search_text)
-        self._proxy.setFilterKeyColumn(-1)
-
-        # Status + year filtering: rebuild model data from store with pre-filter
-        packets = self._store.all()
-        year = datetime.date.today().year
-        if status_filter and status_filter != "all":
-            wanted = {
-                "good": ViabilityStatus.GOOD,
-                "reduced": ViabilityStatus.REDUCED,
-                "expired": ViabilityStatus.EXPIRED,
-            }.get(status_filter)
-            if wanted:
-                packets = [p for p in packets if p.viability_status(year, self._db) == wanted]
-        if year_filter and year_filter != "all":
-            packets = [p for p in packets if p.purchase_year == year_filter]
-
-        self._model.beginResetModel()
-        self._model._packets = packets
-        self._model.endResetModel()
-
-        # Re-apply text search on top
-        self._proxy.setFilterFixedString(search_text)
-
-    # ── Selection ─────────────────────────────────────────────────────────────
-
-    def _on_selection_changed(self) -> None:
-        has_sel = bool(self._table.selectionModel().selectedRows())
-        self._edit_btn.setEnabled(has_sel)
-        self._delete_btn.setEnabled(has_sel)
-
-    def _selected_packet(self) -> SeedPacket | None:
-        rows = self._table.selectionModel().selectedRows()
-        if not rows:
-            return None
-        src_index = self._proxy.mapToSource(rows[0])
-        return self._model.packet_at(src_index.row())
-
-    # ── CRUD ─────────────────────────────────────────────────────────────────
-
-    def _on_add(self) -> None:
-        dlg = SeedPacketEditDialog(parent=self)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            packet = dlg.get_packet()
-            self._store.add(packet)
-            self._store.save()
-            self._reload()
-
-    def _on_edit(self) -> None:
-        packet = self._selected_packet()
-        if packet is None:
-            return
-        dlg = SeedPacketEditDialog(packet=packet, parent=self)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            updated = dlg.get_packet()
-            self._store.add(updated)
-            self._store.save()
-            self._reload()
-
-    def _on_delete(self) -> None:
-        packet = self._selected_packet()
-        if packet is None:
-            return
-        name = packet.species_name or self.tr("this packet")
-        answer = QMessageBox.question(
-            self,
-            self.tr("Delete Seed Packet"),
-            self.tr("Delete '%1'? This cannot be undone.").replace("%1", name),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if answer == QMessageBox.StandardButton.Yes:
-            self._store.remove(packet.id)
-            self._store.save()
-            self._reload()
-
-    def _reload(self) -> None:
-        self._model._reload()
-        self._update_stats()
-        self._apply_filter()
-        self._on_selection_changed()
 
 
 # ── Edit dialog ─────────────────────────────────────────────────────────────────

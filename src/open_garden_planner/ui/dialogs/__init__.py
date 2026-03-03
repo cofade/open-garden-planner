@@ -9,14 +9,12 @@ from open_garden_planner.ui.dialogs.plant_search_dialog import PlantSearchDialog
 from open_garden_planner.ui.dialogs.preferences_dialog import PreferencesDialog
 from open_garden_planner.ui.dialogs.print_dialog import GardenPrintManager, PrintOptionsDialog
 from open_garden_planner.ui.dialogs.properties_dialog import PropertiesDialog
-from open_garden_planner.ui.dialogs.seed_inventory_dialog import SeedInventoryDialog
 from open_garden_planner.ui.dialogs.shortcuts_dialog import ShortcutsDialog
 from open_garden_planner.ui.dialogs.welcome_dialog import WelcomeDialog
 
 __all__ = [
     "CalibrationDialog",
     "CustomPlantsDialog",
-    "SeedInventoryDialog",
     "GardenPrintManager",
     "GridArrayDialog",
     "LinearArrayDialog",

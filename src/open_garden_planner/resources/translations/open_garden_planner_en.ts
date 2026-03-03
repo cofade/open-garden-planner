@@ -3618,6 +3618,10 @@ Continue?</translation>
             <source>Planting Calendar</source>
             <translation>Planting Calendar</translation>
         </message>
+        <message>
+            <source>Seed Inventory</source>
+            <translation>Seed Inventory</translation>
+        </message>
     </context>
     <context>
         <name>PlantingCalendarView</name>
@@ -3727,109 +3731,6 @@ to assign species data.</translation>
         <message>
             <source>Mark as done</source>
             <translation>Mark as done</translation>
-        </message>
-    </context>
-    <context>
-        <name>SeedInventoryDialog</name>
-        <message>
-            <source>Seed Inventory</source>
-            <translation>Seed Inventory</translation>
-        </message>
-        <message>
-            <source>Search by name or variety…</source>
-            <translation>Search by name or variety…</translation>
-        </message>
-        <message>
-            <source>Status:</source>
-            <translation>Status:</translation>
-        </message>
-        <message>
-            <source>All</source>
-            <translation>All</translation>
-        </message>
-        <message>
-            <source>Good</source>
-            <translation>Good</translation>
-        </message>
-        <message>
-            <source>Reduced</source>
-            <translation>Reduced</translation>
-        </message>
-        <message>
-            <source>Expired</source>
-            <translation>Expired</translation>
-        </message>
-        <message>
-            <source>Unknown</source>
-            <translation>Unknown</translation>
-        </message>
-        <message>
-            <source>Year:</source>
-            <translation>Year:</translation>
-        </message>
-        <message>
-            <source>All years</source>
-            <translation>All years</translation>
-        </message>
-        <message>
-            <source>Species</source>
-            <translation>Species</translation>
-        </message>
-        <message>
-            <source>Variety</source>
-            <translation>Variety</translation>
-        </message>
-        <message>
-            <source>Year</source>
-            <translation>Year</translation>
-        </message>
-        <message>
-            <source>Quantity</source>
-            <translation>Quantity</translation>
-        </message>
-        <message>
-            <source>Viability</source>
-            <translation>Viability</translation>
-        </message>
-        <message>
-            <source>Manufacturer</source>
-            <translation>Manufacturer</translation>
-        </message>
-        <message>
-            <source>Notes</source>
-            <translation>Notes</translation>
-        </message>
-        <message>
-            <source>%1 packets · %2 reduced · %3 expired</source>
-            <translation>%1 packets · %2 reduced · %3 expired</translation>
-        </message>
-        <message>
-            <source>Add Packet</source>
-            <translation>Add Packet</translation>
-        </message>
-        <message>
-            <source>Edit</source>
-            <translation>Edit</translation>
-        </message>
-        <message>
-            <source>Delete</source>
-            <translation>Delete</translation>
-        </message>
-        <message>
-            <source>Close</source>
-            <translation>Close</translation>
-        </message>
-        <message>
-            <source>Delete Seed Packet</source>
-            <translation>Delete Seed Packet</translation>
-        </message>
-        <message>
-            <source>Delete '%1'? This cannot be undone.</source>
-            <translation>Delete '%1'? This cannot be undone.</translation>
-        </message>
-        <message>
-            <source>this packet</source>
-            <translation>this packet</translation>
         </message>
     </context>
     <context>
@@ -3976,14 +3877,130 @@ to assign species data.</translation>
         </message>
     </context>
     <context>
-        <name>GardenPlannerApp</name>
+        <name>SeedInventoryView</name>
         <message>
-            <source>&amp;Manage Seed Inventory...</source>
-            <translation>&amp;Manage Seed Inventory...</translation>
+            <source>Seed Inventory</source>
+            <translation>Seed Inventory</translation>
         </message>
         <message>
-            <source>Add, edit, and browse your seed packet inventory</source>
-            <translation>Add, edit, and browse your seed packet inventory</translation>
+            <source>Search by name or variety…</source>
+            <translation>Search by name or variety…</translation>
+        </message>
+        <message>
+            <source>Status:</source>
+            <translation>Status:</translation>
+        </message>
+        <message>
+            <source>All</source>
+            <translation>All</translation>
+        </message>
+        <message>
+            <source>Good</source>
+            <translation>Good</translation>
+        </message>
+        <message>
+            <source>Reduced</source>
+            <translation>Reduced</translation>
+        </message>
+        <message>
+            <source>Expired</source>
+            <translation>Expired</translation>
+        </message>
+        <message>
+            <source>Year:</source>
+            <translation>Year:</translation>
+        </message>
+        <message>
+            <source>All years</source>
+            <translation>All years</translation>
+        </message>
+        <message>
+            <source>+ Add Packet</source>
+            <translation>+ Add Packet</translation>
+        </message>
+        <message>
+            <source>Species</source>
+            <translation>Species</translation>
+        </message>
+        <message>
+            <source>Variety</source>
+            <translation>Variety</translation>
+        </message>
+        <message>
+            <source>Year</source>
+            <translation>Year</translation>
+        </message>
+        <message>
+            <source>Quantity</source>
+            <translation>Quantity</translation>
+        </message>
+        <message>
+            <source>Viability</source>
+            <translation>Viability</translation>
+        </message>
+        <message>
+            <source>Manufacturer</source>
+            <translation>Manufacturer</translation>
+        </message>
+        <message>
+            <source>Notes</source>
+            <translation>Notes</translation>
+        </message>
+        <message>
+            <source>Unknown</source>
+            <translation>Unknown</translation>
+        </message>
+        <message>
+            <source>%1 packets · %2 expired · %3 out of stock</source>
+            <translation>%1 packets · %2 expired · %3 out of stock</translation>
+        </message>
+        <message>
+            <source>Edit</source>
+            <translation>Edit</translation>
+        </message>
+        <message>
+            <source>Edit the selected seed packet</source>
+            <translation>Edit the selected seed packet</translation>
+        </message>
+        <message>
+            <source>Mark as Used</source>
+            <translation>Mark as Used</translation>
+        </message>
+        <message>
+            <source>Set quantity to 0 for selected packets</source>
+            <translation>Set quantity to 0 for selected packets</translation>
+        </message>
+        <message>
+            <source>Delete Selected</source>
+            <translation>Delete Selected</translation>
+        </message>
+        <message>
+            <source>Delete all selected seed packets</source>
+            <translation>Delete all selected seed packets</translation>
+        </message>
+        <message>
+            <source> and %1 more</source>
+            <translation> and %1 more</translation>
+        </message>
+        <message>
+            <source>Set quantity to 0 for %1?</source>
+            <translation>Set quantity to 0 for %1?</translation>
+        </message>
+        <message>
+            <source>this packet</source>
+            <translation>this packet</translation>
+        </message>
+        <message>
+            <source>Delete Seed Packets</source>
+            <translation>Delete Seed Packets</translation>
+        </message>
+        <message>
+            <source>Delete &apos;%1&apos;? This cannot be undone.</source>
+            <translation>Delete &apos;%1&apos;? This cannot be undone.</translation>
+        </message>
+        <message>
+            <source>Delete %1 seed packets? This cannot be undone.</source>
+            <translation>Delete %1 seed packets? This cannot be undone.</translation>
         </message>
     </context>
 </TS>
