@@ -66,6 +66,35 @@ When a US implementation is complete and ready to merge:
    - `pyproject.toml` → `version = "X.Y.Z"`
    - `src/open_garden_planner/__init__.py` → `__version__ = "X.Y.Z"`
 
+### ⚠ Determining the Correct New Version — ALWAYS Follow This Protocol
+
+**NEVER guess or infer the new version from the CLAUDE.md progress tables or `__init__.py`.**
+The source of truth is the **git tags on master after pulling**.
+
+After every PR merge, before writing any version:
+
+```bash
+git checkout master && git pull origin master
+git fetch --tags
+git describe --tags --abbrev=0   # → e.g. v1.8.4  ← THIS is your base
+```
+
+Apply the bump rule to **that tag** (not to whatever is written in pyproject.toml or __init__.py):
+
+| Scenario | Bump |
+|----------|------|
+| US within an ongoing phase | patch |
+| First US of a brand-new phase | minor |
+| Major architectural milestone | major |
+
+**Why tags may not match what's in the files**: CI creates the tag asynchronously; chore/sync commits
+do NOT trigger a new tag (they're skipped by the Release workflow). If `__init__.py` already reads
+`v1.9.1` but `git describe` returns `v1.8.4`, the tag is the truth — the files are stale from a
+previous wrong sync.
+
+**Wrong version already written?** Fix it in the chore commit — correct both files and the progress
+table entries to match the tag-derived version before pushing.
+
 ## Where to Pick Up After Restart
 
 1. **Check current progress** in the Phase 8 table below
