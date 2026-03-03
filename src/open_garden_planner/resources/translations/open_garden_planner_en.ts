@@ -3673,6 +3673,48 @@ to assign species data.</translation>
             <source>No detailed data available</source>
             <translation>No detailed data available</translation>
         </message>
+        <message>
+            <source>Show propagation steps</source>
+            <translation>Show propagation steps</translation>
+        </message>
+    </context>
+    <context>
+        <name>_GanttWidget</name>
+        <message>
+            <source>Propagation</source>
+            <translation>Propagation</translation>
+        </message>
+    </context>
+    <context>
+        <name>_DetailPanel</name>
+        <message>
+            <source>Propagation Steps</source>
+            <translation>Propagation Steps</translation>
+        </message>
+        <message>
+            <source>Indoor sow</source>
+            <translation>Indoor sow</translation>
+        </message>
+        <message>
+            <source>Germination</source>
+            <translation>Germination</translation>
+        </message>
+        <message>
+            <source>Prick out</source>
+            <translation>Prick out</translation>
+        </message>
+        <message>
+            <source>Harden off</source>
+            <translation>Harden off</translation>
+        </message>
+        <message>
+            <source>Transplant</source>
+            <translation>Transplant</translation>
+        </message>
+        <message>
+            <source>Reset to calculated date</source>
+            <translation>Reset to calculated date</translation>
+        </message>
     </context>
     <context>
         <name>_DashboardPanel</name>
@@ -3719,6 +3761,14 @@ to assign species data.</translation>
         <message>
             <source>Harvest %1</source>
             <translation>Harvest %1</translation>
+        </message>
+        <message>
+            <source>Prick out %1 seedlings</source>
+            <translation>Prick out %1 seedlings</translation>
+        </message>
+        <message>
+            <source>Start hardening off %1</source>
+            <translation>Start hardening off %1</translation>
         </message>
         <message>
             <source>Highlight on canvas</source>

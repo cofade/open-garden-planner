@@ -26,6 +26,8 @@ _CALENDAR_FIELDS = (
     "frost_tolerance",
     "min_germination_temp_c",
     "seed_depth_cm",
+    "prick_out_after_days",
+    "harden_off_days",
 )
 
 

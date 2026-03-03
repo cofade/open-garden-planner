@@ -4213,6 +4213,48 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
         <source>No detailed data available</source>
         <translation>Keine Detaildaten verfügbar</translation>
     </message>
+    <message>
+        <source>Show propagation steps</source>
+        <translation>Anzuchtschritte anzeigen</translation>
+    </message>
+</context>
+<context>
+    <name>_GanttWidget</name>
+    <message>
+        <source>Propagation</source>
+        <translation>Anzucht</translation>
+    </message>
+</context>
+<context>
+    <name>_DetailPanel</name>
+    <message>
+        <source>Propagation Steps</source>
+        <translation>Anzuchtschritte</translation>
+    </message>
+    <message>
+        <source>Indoor sow</source>
+        <translation>Vorziehen</translation>
+    </message>
+    <message>
+        <source>Germination</source>
+        <translation>Keimung</translation>
+    </message>
+    <message>
+        <source>Prick out</source>
+        <translation>Pikieren</translation>
+    </message>
+    <message>
+        <source>Harden off</source>
+        <translation>Abhärten</translation>
+    </message>
+    <message>
+        <source>Transplant</source>
+        <translation>Auspflanzen</translation>
+    </message>
+    <message>
+        <source>Reset to calculated date</source>
+        <translation>Berechnetes Datum wiederherstellen</translation>
+    </message>
 </context>
 <context>
     <name>_DashboardPanel</name>
@@ -4259,6 +4301,14 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
     <message>
         <source>Harvest %1</source>
         <translation>%1 ernten</translation>
+    </message>
+    <message>
+        <source>Prick out %1 seedlings</source>
+        <translation>%1 pikieren</translation>
+    </message>
+    <message>
+        <source>Start hardening off %1</source>
+        <translation>%1 abhärten beginnen</translation>
     </message>
     <message>
         <source>Highlight on canvas</source>

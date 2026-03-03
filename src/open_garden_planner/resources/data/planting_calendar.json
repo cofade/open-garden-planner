@@ -17,7 +17,9 @@
       "days_to_maturity_min": 60,
       "days_to_maturity_max": 85,
       "min_germination_temp_c": 18.0,
-      "seed_depth_cm": 0.6
+      "seed_depth_cm": 0.6,
+      "prick_out_after_days": 21,
+      "harden_off_days": 10
     },
     {
       "scientific_name": "Capsicum annuum",
@@ -34,7 +36,9 @@
       "days_to_maturity_min": 65,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 21.0,
-      "seed_depth_cm": 0.6
+      "seed_depth_cm": 0.6,
+      "prick_out_after_days": 28,
+      "harden_off_days": 14
     },
     {
       "scientific_name": "Capsicum chinense",
@@ -51,7 +55,9 @@
       "days_to_maturity_min": 70,
       "days_to_maturity_max": 100,
       "min_germination_temp_c": 21.0,
-      "seed_depth_cm": 0.6
+      "seed_depth_cm": 0.6,
+      "prick_out_after_days": 28,
+      "harden_off_days": 14
     },
     {
       "scientific_name": "Solanum melongena",
@@ -68,7 +74,9 @@
       "days_to_maturity_min": 70,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 21.0,
-      "seed_depth_cm": 0.6
+      "seed_depth_cm": 0.6,
+      "prick_out_after_days": 28,
+      "harden_off_days": 10
     },
     {
       "scientific_name": "Cucumis sativus",
@@ -87,7 +95,9 @@
       "days_to_maturity_min": 50,
       "days_to_maturity_max": 70,
       "min_germination_temp_c": 21.0,
-      "seed_depth_cm": 1.5
+      "seed_depth_cm": 1.5,
+      "prick_out_after_days": 14,
+      "harden_off_days": 7
     },
     {
       "scientific_name": "Cucurbita pepo",
@@ -106,7 +116,9 @@
       "days_to_maturity_min": 45,
       "days_to_maturity_max": 60,
       "min_germination_temp_c": 18.0,
-      "seed_depth_cm": 2.5
+      "seed_depth_cm": 2.5,
+      "prick_out_after_days": 14,
+      "harden_off_days": 7
     },
     {
       "scientific_name": "Cucurbita maxima",
@@ -125,7 +137,9 @@
       "days_to_maturity_min": 80,
       "days_to_maturity_max": 110,
       "min_germination_temp_c": 18.0,
-      "seed_depth_cm": 2.5
+      "seed_depth_cm": 2.5,
+      "prick_out_after_days": 14,
+      "harden_off_days": 7
     },
     {
       "scientific_name": "Phaseolus vulgaris",
@@ -234,7 +248,9 @@
       "days_to_maturity_min": 45,
       "days_to_maturity_max": 60,
       "min_germination_temp_c": 4.0,
-      "seed_depth_cm": 0.3
+      "seed_depth_cm": 0.3,
+      "prick_out_after_days": 21,
+      "harden_off_days": 7
     },
     {
       "scientific_name": "Brassica oleracea var. capitata",
@@ -251,7 +267,9 @@
       "days_to_maturity_min": 70,
       "days_to_maturity_max": 120,
       "min_germination_temp_c": 7.0,
-      "seed_depth_cm": 0.6
+      "seed_depth_cm": 0.6,
+      "prick_out_after_days": 21,
+      "harden_off_days": 7
     },
     {
       "scientific_name": "Brassica oleracea var. botrytis",
@@ -268,7 +286,9 @@
       "days_to_maturity_min": 75,
       "days_to_maturity_max": 100,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 0.6
+      "seed_depth_cm": 0.6,
+      "prick_out_after_days": 21,
+      "harden_off_days": 7
     },
     {
       "scientific_name": "Brassica oleracea var. italica",
@@ -285,7 +305,9 @@
       "days_to_maturity_min": 60,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 7.0,
-      "seed_depth_cm": 0.6
+      "seed_depth_cm": 0.6,
+      "prick_out_after_days": 21,
+      "harden_off_days": 7
     },
     {
       "scientific_name": "Brassica oleracea var. gemmifera",
@@ -302,7 +324,9 @@
       "days_to_maturity_min": 100,
       "days_to_maturity_max": 130,
       "min_germination_temp_c": 7.0,
-      "seed_depth_cm": 0.6
+      "seed_depth_cm": 0.6,
+      "prick_out_after_days": 21,
+      "harden_off_days": 7
     },
     {
       "scientific_name": "Brassica rapa subsp. pekinensis",
@@ -336,7 +360,9 @@
       "days_to_maturity_min": 100,
       "days_to_maturity_max": 130,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 1.0
+      "seed_depth_cm": 1.0,
+      "prick_out_after_days": 35,
+      "harden_off_days": 7
     },
     {
       "scientific_name": "Allium porrum",
@@ -353,7 +379,9 @@
       "days_to_maturity_min": 120,
       "days_to_maturity_max": 150,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 1.0
+      "seed_depth_cm": 1.0,
+      "prick_out_after_days": 42,
+      "harden_off_days": 7
     },
     {
       "scientific_name": "Allium sativum",
@@ -455,7 +483,9 @@
       "days_to_maturity_min": 45,
       "days_to_maturity_max": 70,
       "min_germination_temp_c": 18.0,
-      "seed_depth_cm": 0.3
+      "seed_depth_cm": 0.3,
+      "prick_out_after_days": 21,
+      "harden_off_days": 10
     },
     {
       "scientific_name": "Coriandrum sativum",
@@ -687,7 +717,9 @@
       "days_to_maturity_min": 100,
       "days_to_maturity_max": 130,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 0.2
+      "seed_depth_cm": 0.2,
+      "prick_out_after_days": 42,
+      "harden_off_days": 10
     },
     {
       "scientific_name": "Asparagus officinalis",
@@ -982,7 +1014,9 @@
       "days_to_maturity_min": 45,
       "days_to_maturity_max": 70,
       "min_germination_temp_c": 18.0,
-      "seed_depth_cm": 0.5
+      "seed_depth_cm": 0.5,
+      "prick_out_after_days": 14,
+      "harden_off_days": 7
     },
     {
       "scientific_name": "Borago officinalis",

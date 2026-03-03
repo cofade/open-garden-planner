@@ -36,6 +36,9 @@ class ProjectData:
     location: dict[str, Any] | None = None
     task_completions: list[str] = field(default_factory=list)
     seed_inventory: list[dict[str, Any]] = field(default_factory=list)
+    # US-9.5: per-species user overrides for propagation step dates
+    # shape: {species_key: {step_id: {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}}}
+    propagation_overrides: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -61,6 +64,8 @@ class ProjectData:
             data["task_completions"] = sorted(self.task_completions)
         if self.seed_inventory:
             data["seed_inventory"] = self.seed_inventory
+        if self.propagation_overrides:
+            data["propagation_overrides"] = self.propagation_overrides
         return data
 
     @classmethod
@@ -77,6 +82,7 @@ class ProjectData:
             location=data.get("location") or None,
             task_completions=data.get("task_completions", []),
             seed_inventory=data.get("seed_inventory", []),
+            propagation_overrides=data.get("propagation_overrides", {}),
         )
 
 
@@ -93,6 +99,7 @@ class ProjectManager(QObject):
     location_changed = pyqtSignal(object)  # dict or None
     task_completions_changed = pyqtSignal(object)  # set[str]
     seed_inventory_changed = pyqtSignal(object)    # list[SeedPacket]
+    propagation_overrides_changed = pyqtSignal(object)  # dict
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -102,6 +109,7 @@ class ProjectManager(QObject):
         self._location: dict[str, Any] | None = None
         self._task_completions: set[str] = set()
         self._seed_inventory: list[dict[str, Any]] = []
+        self._propagation_overrides: dict[str, Any] = {}
 
     @property
     def current_file(self) -> Path | None:
@@ -150,6 +158,43 @@ class ProjectManager(QObject):
         self.seed_inventory_changed.emit(self._seed_inventory)
         self.mark_dirty()
 
+    @property
+    def propagation_overrides(self) -> dict[str, Any]:
+        """Per-species propagation step date overrides for the current project."""
+        return dict(self._propagation_overrides)
+
+    def set_propagation_override(
+        self,
+        species_key: str,
+        step_id: str,
+        start: str,
+        end: str,
+    ) -> None:
+        """Store a propagation step date override and mark project dirty.
+
+        Args:
+            species_key: Scientific or common name of the species.
+            step_id: Propagation step identifier (e.g., 'prick_out').
+            start: ISO date string for step start.
+            end: ISO date string for step end.
+        """
+        if species_key not in self._propagation_overrides:
+            self._propagation_overrides[species_key] = {}
+        self._propagation_overrides[species_key][step_id] = {"start": start, "end": end}
+        self.propagation_overrides_changed.emit(self._propagation_overrides)
+        self.mark_dirty()
+
+    def clear_propagation_override(self, species_key: str, step_id: str) -> None:
+        """Remove a propagation step override and mark project dirty."""
+        sp_overrides = self._propagation_overrides.get(species_key, {})
+        sp_overrides.pop(step_id, None)
+        if not sp_overrides:
+            self._propagation_overrides.pop(species_key, None)
+        else:
+            self._propagation_overrides[species_key] = sp_overrides
+        self.propagation_overrides_changed.emit(self._propagation_overrides)
+        self.mark_dirty()
+
     def set_location(self, location: dict[str, Any] | None) -> None:
         """Set the garden location and mark project as dirty.
 
@@ -180,11 +225,13 @@ class ProjectManager(QObject):
         self._location = None
         self._task_completions = set()
         self._seed_inventory = []
+        self._propagation_overrides = {}
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
         self.task_completions_changed.emit(set())
         self.seed_inventory_changed.emit([])
+        self.propagation_overrides_changed.emit({})
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -197,6 +244,7 @@ class ProjectManager(QObject):
         data.location = self._location
         data.task_completions = sorted(self._task_completions)
         data.seed_inventory = list(self._seed_inventory)
+        data.propagation_overrides = dict(self._propagation_overrides)
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -231,6 +279,9 @@ class ProjectManager(QObject):
         # Restore project seed inventory
         self._seed_inventory = list(data.seed_inventory)
         self.seed_inventory_changed.emit(self._seed_inventory)
+        # Restore propagation overrides
+        self._propagation_overrides = dict(data.propagation_overrides)
+        self.propagation_overrides_changed.emit(self._propagation_overrides)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)
