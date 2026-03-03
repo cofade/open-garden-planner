@@ -4158,6 +4158,10 @@ Fortfahren?</translation>
         <source>Planting Calendar</source>
         <translation>Pflanzkalender</translation>
     </message>
+    <message>
+        <source>Seed Inventory</source>
+        <translation>Saatgut-Inventar</translation>
+    </message>
 </context>
 <context>
     <name>PlantingCalendarView</name>
@@ -4267,109 +4271,6 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
     <message>
         <source>Mark as done</source>
         <translation>Als erledigt markieren</translation>
-    </message>
-</context>
-<context>
-    <name>SeedInventoryDialog</name>
-    <message>
-        <source>Seed Inventory</source>
-        <translation>Saatgut-Inventar</translation>
-    </message>
-    <message>
-        <source>Search by name or variety…</source>
-        <translation>Nach Name oder Sorte suchen…</translation>
-    </message>
-    <message>
-        <source>Status:</source>
-        <translation>Status:</translation>
-    </message>
-    <message>
-        <source>All</source>
-        <translation>Alle</translation>
-    </message>
-    <message>
-        <source>Good</source>
-        <translation>Gut</translation>
-    </message>
-    <message>
-        <source>Reduced</source>
-        <translation>Reduziert</translation>
-    </message>
-    <message>
-        <source>Expired</source>
-        <translation>Abgelaufen</translation>
-    </message>
-    <message>
-        <source>Unknown</source>
-        <translation>Unbekannt</translation>
-    </message>
-    <message>
-        <source>Year:</source>
-        <translation>Jahr:</translation>
-    </message>
-    <message>
-        <source>All years</source>
-        <translation>Alle Jahre</translation>
-    </message>
-    <message>
-        <source>Species</source>
-        <translation>Art</translation>
-    </message>
-    <message>
-        <source>Variety</source>
-        <translation>Sorte</translation>
-    </message>
-    <message>
-        <source>Year</source>
-        <translation>Jahr</translation>
-    </message>
-    <message>
-        <source>Quantity</source>
-        <translation>Menge</translation>
-    </message>
-    <message>
-        <source>Viability</source>
-        <translation>Keimfähigkeit</translation>
-    </message>
-    <message>
-        <source>Manufacturer</source>
-        <translation>Hersteller</translation>
-    </message>
-    <message>
-        <source>Notes</source>
-        <translation>Notizen</translation>
-    </message>
-    <message>
-        <source>%1 packets · %2 reduced · %3 expired</source>
-        <translation>%1 Pakete · %2 reduziert · %3 abgelaufen</translation>
-    </message>
-    <message>
-        <source>Add Packet</source>
-        <translation>Paket hinzufügen</translation>
-    </message>
-    <message>
-        <source>Edit</source>
-        <translation>Bearbeiten</translation>
-    </message>
-    <message>
-        <source>Delete</source>
-        <translation>Löschen</translation>
-    </message>
-    <message>
-        <source>Close</source>
-        <translation>Schließen</translation>
-    </message>
-    <message>
-        <source>Delete Seed Packet</source>
-        <translation>Saatgutpaket löschen</translation>
-    </message>
-    <message>
-        <source>Delete '%1'? This cannot be undone.</source>
-        <translation>'%1' löschen? Dies kann nicht rückgängig gemacht werden.</translation>
-    </message>
-    <message>
-        <source>this packet</source>
-        <translation>dieses Paket</translation>
     </message>
 </context>
 <context>
@@ -4516,14 +4417,130 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
     </message>
 </context>
 <context>
-    <name>GardenPlannerApp</name>
+    <name>SeedInventoryView</name>
     <message>
-        <source>&amp;Manage Seed Inventory...</source>
-        <translation>Saatgut-Inventar &amp;verwalten...</translation>
+        <source>Seed Inventory</source>
+        <translation>Saatgut-Inventar</translation>
     </message>
     <message>
-        <source>Add, edit, and browse your seed packet inventory</source>
-        <translation>Saatgutpakete hinzufügen, bearbeiten und durchsuchen</translation>
+        <source>Search by name or variety…</source>
+        <translation>Nach Name oder Sorte suchen…</translation>
+    </message>
+    <message>
+        <source>Status:</source>
+        <translation>Status:</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>Alle</translation>
+    </message>
+    <message>
+        <source>Good</source>
+        <translation>Gut</translation>
+    </message>
+    <message>
+        <source>Reduced</source>
+        <translation>Reduziert</translation>
+    </message>
+    <message>
+        <source>Expired</source>
+        <translation>Abgelaufen</translation>
+    </message>
+    <message>
+        <source>Year:</source>
+        <translation>Jahr:</translation>
+    </message>
+    <message>
+        <source>All years</source>
+        <translation>Alle Jahre</translation>
+    </message>
+    <message>
+        <source>+ Add Packet</source>
+        <translation>+ Paket hinzufügen</translation>
+    </message>
+    <message>
+        <source>Species</source>
+        <translation>Art</translation>
+    </message>
+    <message>
+        <source>Variety</source>
+        <translation>Sorte</translation>
+    </message>
+    <message>
+        <source>Year</source>
+        <translation>Jahr</translation>
+    </message>
+    <message>
+        <source>Quantity</source>
+        <translation>Menge</translation>
+    </message>
+    <message>
+        <source>Viability</source>
+        <translation>Keimfähigkeit</translation>
+    </message>
+    <message>
+        <source>Manufacturer</source>
+        <translation>Hersteller</translation>
+    </message>
+    <message>
+        <source>Notes</source>
+        <translation>Notizen</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Unbekannt</translation>
+    </message>
+    <message>
+        <source>%1 packets · %2 expired · %3 out of stock</source>
+        <translation>%1 Pakete · %2 abgelaufen · %3 nicht vorrätig</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>Bearbeiten</translation>
+    </message>
+    <message>
+        <source>Edit the selected seed packet</source>
+        <translation>Ausgewähltes Saatgutpaket bearbeiten</translation>
+    </message>
+    <message>
+        <source>Mark as Used</source>
+        <translation>Als verbraucht markieren</translation>
+    </message>
+    <message>
+        <source>Set quantity to 0 for selected packets</source>
+        <translation>Menge für ausgewählte Pakete auf 0 setzen</translation>
+    </message>
+    <message>
+        <source>Delete Selected</source>
+        <translation>Auswahl löschen</translation>
+    </message>
+    <message>
+        <source>Delete all selected seed packets</source>
+        <translation>Alle ausgewählten Saatgutpakete löschen</translation>
+    </message>
+    <message>
+        <source> and %1 more</source>
+        <translation> und %1 weitere</translation>
+    </message>
+    <message>
+        <source>Set quantity to 0 for %1?</source>
+        <translation>Menge für %1 auf 0 setzen?</translation>
+    </message>
+    <message>
+        <source>this packet</source>
+        <translation>dieses Paket</translation>
+    </message>
+    <message>
+        <source>Delete Seed Packets</source>
+        <translation>Saatgutpakete löschen</translation>
+    </message>
+    <message>
+        <source>Delete &apos;%1&apos;? This cannot be undone.</source>
+        <translation>&apos;%1&apos; löschen? Dies kann nicht rückgängig gemacht werden.</translation>
+    </message>
+    <message>
+        <source>Delete %1 seed packets? This cannot be undone.</source>
+        <translation>%1 Saatgutpakete löschen? Dies kann nicht rückgängig gemacht werden.</translation>
     </message>
 </context>
 </TS>

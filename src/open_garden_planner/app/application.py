@@ -39,6 +39,7 @@ from open_garden_planner.ui.panels import (
 )
 from open_garden_planner.ui.theme import ThemeMode, apply_theme
 from open_garden_planner.ui.views.planting_calendar_view import PlantingCalendarView
+from open_garden_planner.ui.views.seed_inventory_view import SeedInventoryView
 from open_garden_planner.ui.widgets import (
     CollapsiblePanel,
     ConstraintToolbar,
@@ -536,12 +537,6 @@ class GardenPlannerApp(QMainWindow):
         manage_custom_action.triggered.connect(self._on_manage_custom_plants)
         menu.addAction(manage_custom_action)
 
-        # Manage Seed Inventory (US-9.3)
-        seed_inv_action = QAction(self.tr("&Manage Seed Inventory..."), self)
-        seed_inv_action.setStatusTip(self.tr("Add, edit, and browse your seed packet inventory"))
-        seed_inv_action.triggered.connect(self._on_manage_seed_inventory)
-        menu.addAction(seed_inv_action)
-
     def _setup_help_menu(self, menu: QMenu) -> None:
         """Set up the Help menu actions."""
         # Keyboard Shortcuts
@@ -679,7 +674,11 @@ class GardenPlannerApp(QMainWindow):
         self.calendar_view = PlantingCalendarView(self.canvas_scene, self._project_manager)
         self._tab_widget.addTab(self.calendar_view, self.tr("Planting Calendar"))
 
-        # Keyboard shortcuts: Ctrl+1 / Ctrl+2 to switch tabs
+        # Tab 2: Seed Inventory (US-9.4)
+        self.seed_inventory_view = SeedInventoryView()
+        self._tab_widget.addTab(self.seed_inventory_view, self.tr("Seed Inventory"))
+
+        # Keyboard shortcuts: Ctrl+1 / Ctrl+2 / Ctrl+3 to switch tabs
         tab0_shortcut = QAction(self)
         tab0_shortcut.setShortcut(QKeySequence("Ctrl+1"))
         tab0_shortcut.triggered.connect(lambda: self._tab_widget.setCurrentIndex(0))
@@ -688,6 +687,10 @@ class GardenPlannerApp(QMainWindow):
         tab1_shortcut.setShortcut(QKeySequence("Ctrl+2"))
         tab1_shortcut.triggered.connect(lambda: self._tab_widget.setCurrentIndex(1))
         self.addAction(tab1_shortcut)
+        tab2_shortcut = QAction(self)
+        tab2_shortcut.setShortcut(QKeySequence("Ctrl+3"))
+        tab2_shortcut.triggered.connect(lambda: self._tab_widget.setCurrentIndex(2))
+        self.addAction(tab2_shortcut)
 
         # Refresh calendar on tab switch and on canvas/location changes
         self._tab_widget.currentChanged.connect(self._on_tab_changed)
@@ -2010,13 +2013,6 @@ class GardenPlannerApp(QMainWindow):
         dialog = CustomPlantsDialog(self)
         dialog.exec()
 
-    def _on_manage_seed_inventory(self) -> None:
-        """Handle Manage Seed Inventory action (US-9.3)."""
-        from open_garden_planner.ui.dialogs import SeedInventoryDialog
-
-        dialog = SeedInventoryDialog(self)
-        dialog.exec()
-
     def _on_preferences(self) -> None:
         """Handle Preferences action."""
         from open_garden_planner.ui.dialogs import PreferencesDialog
@@ -2324,9 +2320,11 @@ class GardenPlannerApp(QMainWindow):
             self.location_label.setToolTip(tip)
 
     def _on_tab_changed(self, index: int) -> None:
-        """Refresh the planting calendar when its tab becomes active."""
+        """Refresh tab views when they become active."""
         if index == 1:
             self.calendar_view.refresh()
+        elif index == 2:
+            self.seed_inventory_view.refresh()
 
     def _on_highlight_species(self, species_key: str) -> None:
         """Switch to Garden Plan tab and select all items matching species_key."""

@@ -1,4 +1,4 @@
-"""Tests for SeedInventoryDialog and SeedPacketEditDialog (US-9.3)."""
+"""Tests for SeedTableModel and SeedPacketEditDialog (US-9.3)."""
 # ruff: noqa: ARG002
 from __future__ import annotations
 
@@ -15,9 +15,8 @@ from open_garden_planner.models.seed_inventory import (
     ViabilityStatus,
 )
 from open_garden_planner.ui.dialogs.seed_inventory_dialog import (
-    SeedInventoryDialog,
     SeedPacketEditDialog,
-    _SeedTableModel,
+    SeedTableModel,
 )
 
 # ── Minimal viability DB fixture ────────────────────────────────────────────────
@@ -40,68 +39,68 @@ def tmp_store(tmp_path: Path) -> SeedInventoryStore:
     return store
 
 
-# ── _SeedTableModel tests (no Qt event loop needed) ────────────────────────────
+# ── SeedTableModel tests (no Qt event loop needed) ────────────────────────────
 
 class TestSeedTableModel:
     def test_row_count_empty(self, tmp_store: SeedInventoryStore, db: SeedViabilityDB) -> None:
-        model = _SeedTableModel(tmp_store, db)
+        model = SeedTableModel(tmp_store, db)
         assert model.rowCount() == 0
 
     def test_row_count_after_add(self, tmp_store: SeedInventoryStore, db: SeedViabilityDB) -> None:
         tmp_store.add(SeedPacket(species_name="Tomato", purchase_year=2023))
         tmp_store.add(SeedPacket(species_name="Carrot", purchase_year=2024))
-        model = _SeedTableModel(tmp_store, db)
+        model = SeedTableModel(tmp_store, db)
         assert model.rowCount() == 2
 
     def test_column_count(self, tmp_store: SeedInventoryStore, db: SeedViabilityDB) -> None:
-        model = _SeedTableModel(tmp_store, db)
+        model = SeedTableModel(tmp_store, db)
         assert model.columnCount() == 7
 
     def test_packet_at_valid(self, tmp_store: SeedInventoryStore, db: SeedViabilityDB) -> None:
         p = SeedPacket(species_name="Basil", purchase_year=2024)
         tmp_store.add(p)
-        model = _SeedTableModel(tmp_store, db)
+        model = SeedTableModel(tmp_store, db)
         result = model.packet_at(0)
         assert result is not None
         assert result.species_name == "Basil"
 
     def test_packet_at_invalid(self, tmp_store: SeedInventoryStore, db: SeedViabilityDB) -> None:
-        model = _SeedTableModel(tmp_store, db)
+        model = SeedTableModel(tmp_store, db)
         assert model.packet_at(0) is None
         assert model.packet_at(-1) is None
 
     def test_display_data_name(self, tmp_store: SeedInventoryStore, db: SeedViabilityDB) -> None:
         from PyQt6.QtCore import Qt
         tmp_store.add(SeedPacket(species_name="Pepper", purchase_year=2024))
-        model = _SeedTableModel(tmp_store, db)
+        model = SeedTableModel(tmp_store, db)
         idx = model.index(0, 0)
         assert model.data(idx, Qt.ItemDataRole.DisplayRole) == "Pepper"
 
     def test_display_data_year(self, tmp_store: SeedInventoryStore, db: SeedViabilityDB) -> None:
         from PyQt6.QtCore import Qt
         tmp_store.add(SeedPacket(species_name="Pea", purchase_year=2021))
-        model = _SeedTableModel(tmp_store, db)
+        model = SeedTableModel(tmp_store, db)
         idx = model.index(0, 2)  # Year column
         assert model.data(idx, Qt.ItemDataRole.DisplayRole) == "2021"
 
     def test_display_quantity_with_unit(self, tmp_store: SeedInventoryStore, db: SeedViabilityDB) -> None:
         from PyQt6.QtCore import Qt
         tmp_store.add(SeedPacket(species_name="Bean", purchase_year=2024, quantity=50.0, quantity_unit="seeds"))
-        model = _SeedTableModel(tmp_store, db)
+        model = SeedTableModel(tmp_store, db)
         idx = model.index(0, 3)  # Quantity column
         assert model.data(idx, Qt.ItemDataRole.DisplayRole) == "50 seeds"
 
     def test_display_quantity_zero_is_empty(self, tmp_store: SeedInventoryStore, db: SeedViabilityDB) -> None:
         from PyQt6.QtCore import Qt
         tmp_store.add(SeedPacket(species_name="Bean", purchase_year=2024, quantity=0.0))
-        model = _SeedTableModel(tmp_store, db)
+        model = SeedTableModel(tmp_store, db)
         idx = model.index(0, 3)
         assert model.data(idx, Qt.ItemDataRole.DisplayRole) == ""
 
     def test_background_role_good(self, tmp_store: SeedInventoryStore, db: SeedViabilityDB) -> None:
         from PyQt6.QtCore import Qt
         tmp_store.add(SeedPacket(species_name="Tomato", purchase_year=2024))
-        model = _SeedTableModel(tmp_store, db)
+        model = SeedTableModel(tmp_store, db)
         model._current_year = 2024
         idx = model.index(0, 0)
         brush = model.data(idx, Qt.ItemDataRole.BackgroundRole)
@@ -109,14 +108,14 @@ class TestSeedTableModel:
 
     def test_set_headers_updates_model(self, tmp_store: SeedInventoryStore, db: SeedViabilityDB) -> None:
         from PyQt6.QtCore import Qt
-        model = _SeedTableModel(tmp_store, db)
+        model = SeedTableModel(tmp_store, db)
         headers = ["A", "B", "C", "D", "E", "F", "G"]
         model.set_headers(headers)
         result = model.headerData(0, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
         assert result == "A"
 
     def test_reload_updates_rows(self, tmp_store: SeedInventoryStore, db: SeedViabilityDB) -> None:
-        model = _SeedTableModel(tmp_store, db)
+        model = SeedTableModel(tmp_store, db)
         assert model.rowCount() == 0
         tmp_store.add(SeedPacket(species_name="Kale", purchase_year=2025))
         model._reload()
@@ -234,63 +233,3 @@ class TestSeedPacketEditDialog:
         dlg_edit = SeedPacketEditDialog(packet=existing)
         qtbot.addWidget(dlg_edit)
         assert "Edit" in dlg_edit.windowTitle()
-
-
-# ── SeedInventoryDialog tests ───────────────────────────────────────────────────
-
-class TestSeedInventoryDialog:
-    @pytest.fixture
-    def dialog(self, qtbot, tmp_path):
-        with (
-            patch(
-                "open_garden_planner.ui.dialogs.seed_inventory_dialog.get_seed_inventory",
-            ) as mock_store_factory,
-            patch(
-                "open_garden_planner.ui.dialogs.seed_inventory_dialog.get_viability_db",
-            ) as mock_db_factory,
-        ):
-            store = SeedInventoryStore(tmp_path / "inv.json")
-            db = SeedViabilityDB.from_dict(_MINI_DB_DATA)
-            mock_store_factory.return_value = store
-            mock_db_factory.return_value = db
-            dlg = SeedInventoryDialog()
-            qtbot.addWidget(dlg)
-            yield dlg, store, db
-
-    def test_dialog_opens(self, dialog) -> None:
-        dlg, store, db = dialog
-        assert dlg.isVisible() is False  # not shown yet, just constructed
-
-    def test_stats_label_shows_zero(self, dialog) -> None:
-        dlg, store, db = dialog
-        assert "0 packets" in dlg._stats_lbl.text()
-
-    def test_table_empty_on_start(self, dialog) -> None:
-        dlg, store, db = dialog
-        assert dlg._model.rowCount() == 0
-
-    def test_table_shows_packets(self, dialog) -> None:
-        dlg, store, db = dialog
-        store.add(SeedPacket(species_name="Tomato", purchase_year=2023))
-        store.add(SeedPacket(species_name="Basil", purchase_year=2024))
-        dlg._reload()
-        assert dlg._model.rowCount() == 2
-
-    def test_delete_button_disabled_on_start(self, dialog) -> None:
-        dlg, store, db = dialog
-        assert dlg._delete_btn.isEnabled() is False
-
-    def test_edit_button_disabled_on_start(self, dialog) -> None:
-        dlg, store, db = dialog
-        assert dlg._edit_btn.isEnabled() is False
-
-    def test_stats_label_counts_correctly(self, dialog) -> None:
-        dlg, store, db = dialog
-        # Add a good packet (bought this year)
-        store.add(SeedPacket(species_name="Tomato", purchase_year=datetime.date.today().year))
-        # Add an expired packet (bought 10 years ago)
-        store.add(SeedPacket(species_name="Onion", purchase_year=datetime.date.today().year - 10))
-        dlg._reload()
-        text = dlg._stats_lbl.text()
-        assert "2 packets" in text
-        assert "1 expired" in text
