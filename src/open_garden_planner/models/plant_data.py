@@ -147,6 +147,10 @@ class PlantSpeciesData:
     min_germination_temp_c: float | None = None
     seed_depth_cm: float | None = None
 
+    # Propagation timing (US-9.5) — used to compute propagation sub-steps
+    prick_out_after_days: int | None = None   # days after indoor sow start
+    harden_off_days: int | None = None        # duration of hardening-off period
+
     # Extensible metadata for API-specific fields
     raw_data: dict[str, Any] = field(default_factory=dict)
 
@@ -202,6 +206,8 @@ class PlantSpeciesData:
             "frost_tolerance": self.frost_tolerance,
             "min_germination_temp_c": self.min_germination_temp_c,
             "seed_depth_cm": self.seed_depth_cm,
+            "prick_out_after_days": self.prick_out_after_days,
+            "harden_off_days": self.harden_off_days,
             "raw_data": self.raw_data,
         }
 
@@ -269,6 +275,8 @@ class PlantSpeciesData:
             frost_tolerance=data.get("frost_tolerance"),
             min_germination_temp_c=data.get("min_germination_temp_c"),
             seed_depth_cm=data.get("seed_depth_cm"),
+            prick_out_after_days=data.get("prick_out_after_days"),
+            harden_off_days=data.get("harden_off_days"),
             raw_data=data.get("raw_data", {}),
         )
 
