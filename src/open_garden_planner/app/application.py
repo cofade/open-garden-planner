@@ -676,6 +676,7 @@ class GardenPlannerApp(QMainWindow):
 
         # Tab 2: Seed Inventory (US-9.4)
         self.seed_inventory_view = SeedInventoryView()
+        self.seed_inventory_view.set_canvas_scene(self.canvas_scene)  # US-9.6: bidirectional links
         self._tab_widget.addTab(self.seed_inventory_view, self.tr("Seed Inventory"))
 
         # Keyboard shortcuts: Ctrl+1 / Ctrl+2 / Ctrl+3 to switch tabs

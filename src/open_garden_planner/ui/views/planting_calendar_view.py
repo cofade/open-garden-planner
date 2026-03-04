@@ -1047,8 +1047,8 @@ class PlantingCalendarView(QWidget):
 
     def _collect_data(
         self,
-    ) -> tuple[list[_PlantRow], datetime.date | None, datetime.date | None]:
-        """Collect unique plant species and frost dates from current project state."""
+    ) -> tuple[list[_PlantRow], datetime.date | None, datetime.date | None, dict[str, str]]:
+        """Collect unique plant species, frost dates, and seed packet links from current project state."""
         location = self._project_manager.location
         year = datetime.date.today().year
         last_frost: datetime.date | None = None
@@ -1064,6 +1064,7 @@ class PlantingCalendarView(QWidget):
                 first_fall = _parse_frost(fff, year)
 
         seen: dict[str, _PlantRow] = {}
+        seed_links: dict[str, str] = {}  # species_key -> seed_packet_id (first linked wins)
         for item in self._canvas_scene.items():
             if not hasattr(item, "metadata"):
                 continue
@@ -1080,17 +1081,27 @@ class PlantingCalendarView(QWidget):
             if key and key not in seen:
                 name = species.common_name or species.scientific_name
                 seen[key] = _PlantRow(display_name=name, species=species, species_key=key)
+            # Collect seed packet link (first one found wins per species)
+            if key and key not in seed_links and item.metadata:
+                pi = item.metadata.get("plant_instance", {})
+                packet_id = pi.get("seed_packet_id")
+                if packet_id:
+                    seed_links[key] = packet_id
 
         rows = sorted(seen.values(), key=lambda r: r.display_name.lower())
-        return rows, last_frost, first_fall
+        return rows, last_frost, first_fall, seed_links
 
     def _build_propagation_plans(
         self,
         rows: list[_PlantRow],
         last_frost: datetime.date,
+        seed_links: dict[str, str] | None = None,
     ) -> dict[str, PropagationPlan]:
         """Build PropagationPlan for each plant that supports pre-cultivation."""
+        from open_garden_planner.models.seed_inventory import get_seed_inventory
+
         overrides = self._project_manager.propagation_overrides
+        store = get_seed_inventory()
         plans: dict[str, PropagationPlan] = {}
 
         for row in rows:
@@ -1107,8 +1118,18 @@ class PlantingCalendarView(QWidget):
             )
             transplant_date = last_frost + datetime.timedelta(weeks=sp.transplant_start)
 
-            # Adjust years if dates fall outside current year boundaries
-            # (use actual computed dates — they may span year boundaries)
+            # US-9.6: Use linked seed packet germination data when available
+            germ_min = sp.days_to_germination_min
+            germ_max = sp.days_to_germination_max
+            if seed_links:
+                packet_id = seed_links.get(row.species_key)
+                if packet_id:
+                    packet = store.get(packet_id)
+                    if packet:
+                        if packet.germination_days_min is not None:
+                            germ_min = packet.germination_days_min
+                        if packet.germination_days_max is not None:
+                            germ_max = packet.germination_days_max
 
             sp_overrides = overrides.get(row.species_key, {})
             plan = compute_propagation_plan(
@@ -1116,8 +1137,8 @@ class PlantingCalendarView(QWidget):
                 sow_start=sow_start,
                 sow_end=sow_end,
                 transplant_date=transplant_date,
-                germination_days_min=sp.days_to_germination_min,
-                germination_days_max=sp.days_to_germination_max,
+                germination_days_min=germ_min,
+                germination_days_max=germ_max,
                 prick_out_after_days=sp.prick_out_after_days,
                 harden_off_days=sp.harden_off_days,
                 overrides=sp_overrides,
@@ -1130,12 +1151,12 @@ class PlantingCalendarView(QWidget):
 
     def refresh(self) -> None:
         """Rebuild the chart and dashboard from current canvas + project state."""
-        rows, last_frost, first_fall = self._collect_data()
+        rows, last_frost, first_fall, seed_links = self._collect_data()
         self._rows = rows
 
-        # Build propagation plans (US-9.5)
+        # Build propagation plans (US-9.5 + US-9.6)
         if last_frost is not None and rows:
-            self._prop_plans = self._build_propagation_plans(rows, last_frost)
+            self._prop_plans = self._build_propagation_plans(rows, last_frost, seed_links)
         else:
             self._prop_plans = {}
 

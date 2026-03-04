@@ -2769,6 +2769,26 @@ Verwenden Sie 'Eigene erstellen', um Pflanzen hinzuzufügen, oder das Pflanzen-M
         <source>Custom Species</source>
         <translation>Eigene Art</translation>
     </message>
+    <message>
+        <source>Seed Packet:</source>
+        <translation>Saatgutpaket:</translation>
+    </message>
+    <message>
+        <source>— No packet linked —</source>
+        <translation>— Kein Paket verknüpft —</translation>
+    </message>
+    <message>
+        <source>Germination: %1 days</source>
+        <translation>Keimung: %1 Tage</translation>
+    </message>
+    <message>
+        <source>Opt. temp: %1°C</source>
+        <translation>Opt. Temp.: %1°C</translation>
+    </message>
+    <message>
+        <source>Cold stratification</source>
+        <translation>Kältestratifikation</translation>
+    </message>
 </context><context>
     <name>PlantSearchPanel</name>
     <message>
@@ -4591,6 +4611,14 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
     <message>
         <source>Delete %1 seed packets? This cannot be undone.</source>
         <translation>%1 Saatgutpakete löschen? Dies kann nicht rückgängig gemacht werden.</translation>
+    </message>
+    <message>
+        <source>Linked plants: %1</source>
+        <translation>Verknüpfte Pflanzen: %1</translation>
+    </message>
+    <message>
+        <source>Not linked to any canvas plants</source>
+        <translation>Mit keiner Pflanze auf der Leinwand verknüpft</translation>
     </message>
 </context>
 </TS>

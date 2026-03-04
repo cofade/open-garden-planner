@@ -2373,6 +2373,26 @@ Use 'Create Custom' to add plants, or use the Plants menu to manage your custom 
             <source>Custom Species</source>
             <translation>Custom Species</translation>
         </message>
+        <message>
+            <source>Seed Packet:</source>
+            <translation>Seed Packet:</translation>
+        </message>
+        <message>
+            <source>— No packet linked —</source>
+            <translation>— No packet linked —</translation>
+        </message>
+        <message>
+            <source>Germination: %1 days</source>
+            <translation>Germination: %1 days</translation>
+        </message>
+        <message>
+            <source>Opt. temp: %1°C</source>
+            <translation>Opt. temp: %1°C</translation>
+        </message>
+        <message>
+            <source>Cold stratification</source>
+            <translation>Cold stratification</translation>
+        </message>
     </context>
     <context>
         <name>PlantSearchDialog</name>
@@ -4051,6 +4071,14 @@ to assign species data.</translation>
         <message>
             <source>Delete %1 seed packets? This cannot be undone.</source>
             <translation>Delete %1 seed packets? This cannot be undone.</translation>
+        </message>
+        <message>
+            <source>Linked plants: %1</source>
+            <translation>Linked plants: %1</translation>
+        </message>
+        <message>
+            <source>Not linked to any canvas plants</source>
+            <translation>Not linked to any canvas plants</translation>
         </message>
     </context>
 </TS>
