@@ -56,9 +56,14 @@ class SeedInventoryView(QWidget):
         self._store = get_seed_inventory()
         self._db = get_viability_db()
         self._model = SeedTableModel(self._store, self._db)
+        self._canvas_scene = None
         self._setup_ui()
         self._update_headers()
         self._update_stats()
+
+    def set_canvas_scene(self, scene) -> None:
+        """Set the canvas scene for bidirectional plant linking (US-9.6)."""
+        self._canvas_scene = scene
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -170,6 +175,12 @@ class SeedInventoryView(QWidget):
         btn_row.addStretch()
         layout.addLayout(btn_row)
 
+        # Linked plants indicator (US-9.6)
+        self._linked_lbl = QLabel()
+        self._linked_lbl.setStyleSheet("font-size: 8pt; font-style: italic;")
+        self._linked_lbl.setWordWrap(True)
+        layout.addWidget(self._linked_lbl)
+
     def _update_headers(self) -> None:
         self._model.set_headers([
             self.tr("Species"),
@@ -240,12 +251,40 @@ class SeedInventoryView(QWidget):
 
     # ── Selection ─────────────────────────────────────────────────────────────
 
+    def _get_linked_plant_names(self, packet_id: str) -> list[str]:
+        """Return names of canvas plants linked to the given seed packet (US-9.6)."""
+        if not self._canvas_scene:
+            return []
+        names = []
+        for item in self._canvas_scene.items():
+            if not hasattr(item, "metadata"):
+                continue
+            pi = item.metadata.get("plant_instance", {}) if item.metadata else {}
+            if pi.get("seed_packet_id") == packet_id:
+                name = getattr(item, "name", None) or self.tr("(unnamed plant)")
+                names.append(name)
+        return names
+
     def _on_selection_changed(self) -> None:
         rows = self._table.selectionModel().selectedRows()
         count = len(rows)
         self._edit_btn.setEnabled(count == 1)
         self._mark_used_btn.setEnabled(count > 0)
         self._delete_btn.setEnabled(count > 0)
+
+        # Show linked plants for single selection (US-9.6)
+        if count == 1 and self._canvas_scene is not None:
+            packets = self._selected_packets()
+            if packets:
+                names = self._get_linked_plant_names(packets[0].id)
+                if names:
+                    self._linked_lbl.setText(
+                        self.tr("Linked plants: %1").replace("%1", ", ".join(names))
+                    )
+                else:
+                    self._linked_lbl.setText(self.tr("Not linked to any canvas plants"))
+        else:
+            self._linked_lbl.setText("")
 
     def _selected_packets(self) -> list[SeedPacket]:
         rows = self._table.selectionModel().selectedRows()

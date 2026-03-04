@@ -549,6 +549,24 @@ class PlantDatabasePanel(QWidget):
 
         self.details_form.addRow(self.tr("Custom:"), self.custom_fields_widget)
 
+        # === SEED PACKET LINK (US-9.6) ===
+        seed_link_widget = QWidget()
+        seed_link_vbox = QVBoxLayout(seed_link_widget)
+        seed_link_vbox.setContentsMargins(0, 0, 0, 0)
+        seed_link_vbox.setSpacing(2)
+
+        self.seed_packet_combo = QComboBox()
+        self.seed_packet_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.seed_packet_combo.currentIndexChanged.connect(self._on_seed_packet_changed)
+        seed_link_vbox.addWidget(self.seed_packet_combo)
+
+        self.seed_packet_info_lbl = QLabel()
+        self.seed_packet_info_lbl.setWordWrap(True)
+        self.seed_packet_info_lbl.setStyleSheet("font-size: 8pt;")
+        seed_link_vbox.addWidget(self.seed_packet_info_lbl)
+
+        self.details_form.addRow(self.tr("Seed Packet:"), seed_link_widget)
+
     def _on_field_changed(self) -> None:
         """Handle field value changes - update plant metadata."""
         if not self._current_plant_item or not self._current_plant_data:
@@ -713,6 +731,71 @@ class PlantDatabasePanel(QWidget):
         if not self._current_plant_item:
             return
         self._update_instance_metadata("notes", self.notes_edit.toPlainText() or None)
+
+    def _populate_seed_packet_combo(
+        self, plant_data: PlantSpeciesData, instance_data: dict
+    ) -> None:
+        """Populate the seed packet combo box for the given plant."""
+        from open_garden_planner.models.seed_inventory import get_seed_inventory
+
+        self.seed_packet_combo.blockSignals(True)
+        self.seed_packet_combo.clear()
+        self.seed_packet_combo.addItem(self.tr("— No packet linked —"), None)
+
+        store = get_seed_inventory()
+        packets = store.all()
+        species_lower = (plant_data.common_name or plant_data.scientific_name or "").lower()
+        matching = [p for p in packets if species_lower and (
+            species_lower in p.species_name.lower() or p.species_name.lower() in species_lower
+        )]
+        others = [p for p in packets if p not in matching]
+        for p in matching + others:
+            label = p.species_name
+            if p.variety:
+                label += f" ({p.variety})"
+            label += f" [{p.purchase_year}]"
+            self.seed_packet_combo.addItem(label, p.id)
+
+        linked_id = instance_data.get("seed_packet_id")
+        if linked_id:
+            idx = self.seed_packet_combo.findData(linked_id)
+            self.seed_packet_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        else:
+            self.seed_packet_combo.setCurrentIndex(0)
+        self.seed_packet_combo.blockSignals(False)
+
+        packet = store.get(linked_id) if linked_id else None
+        self._update_seed_packet_info(packet)
+
+    def _on_seed_packet_changed(self) -> None:
+        """Handle seed packet link change — save to plant instance metadata."""
+        if not self._current_plant_item:
+            return
+        from open_garden_planner.models.seed_inventory import get_seed_inventory
+
+        packet_id = self.seed_packet_combo.currentData()
+        self._update_instance_metadata("seed_packet_id", packet_id)
+        packet = get_seed_inventory().get(packet_id) if packet_id else None
+        self._update_seed_packet_info(packet)
+
+    def _update_seed_packet_info(self, packet) -> None:
+        """Show germination info for the linked seed packet."""
+        if packet is None:
+            self.seed_packet_info_lbl.setText("")
+            return
+        parts = []
+        if packet.germination_days_min is not None:
+            days = str(packet.germination_days_min)
+            if packet.germination_days_max and packet.germination_days_max != packet.germination_days_min:
+                days += f"\u2013{packet.germination_days_max}"
+            parts.append(self.tr("Germination: %1 days").replace("%1", days))
+        if packet.germination_temp_opt_c is not None:
+            parts.append(
+                self.tr("Opt. temp: %1\u00b0C").replace("%1", str(int(packet.germination_temp_opt_c)))
+            )
+        if packet.cold_stratification:
+            parts.append(self.tr("Cold stratification"))
+        self.seed_packet_info_lbl.setText("  \u00b7  ".join(parts))
 
     def _on_add_custom_field(self) -> None:
         """Add a new custom field."""
@@ -1139,6 +1222,9 @@ class PlantDatabasePanel(QWidget):
         if custom_fields:
             for key, value in custom_fields.items():
                 self._add_custom_field_row(key, str(value) if value else "")
+
+        # === SEED PACKET LINK (US-9.6) ===
+        self._populate_seed_packet_combo(plant_data, instance_data)
 
         # === SOURCE INFO ===
         # Set source info as tooltip on the panel header (via parent)
