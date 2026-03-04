@@ -1078,7 +1078,7 @@ Icon designs per tool:
 
 | ID | User Story | Priority | Status |
 |----|------------|----------|--------|
-| US-10.1 | Companion planting database | Must | ✅ v1.9.0 |
+| US-10.1 | Companion planting database | Must | ✅ v1.8.6 |
 | US-10.2 | Companion planting visual warnings | Must | |
 | US-10.3 | Companion planting recommendation panel | Should | |
 | US-10.4 | Whole-plan compatibility check | Should | |
