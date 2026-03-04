@@ -417,7 +417,7 @@ tests/
 | ✅     | 9.3  | Seed inventory management panel                      |
 | ✅     | 9.4  | Seed inventory tab view                              |
 | ✅     | 9.5  | Propagation planning (pre-cultivation)               |
-|        | 9.6  | Seed-to-plant manual linking                         |
+| ✅     | 9.6  | Seed-to-plant manual linking                         |
 
 ## Progress (Phase 10: Companion Planting & Crop Rotation v1.9)
 

@@ -898,7 +898,7 @@ Icon designs per tool:
 | US-9.3 | Seed inventory management panel | Must | ✅ v1.9.0 |
 | US-9.4 | Seed inventory tab view | Must | ✅ v1.9.1 |
 | US-9.5 | Propagation planning (pre-cultivation) | Should | ✅ v1.8.5 |
-| US-9.6 | Seed-to-plant manual linking | Should | |
+| US-9.6 | Seed-to-plant manual linking | Should | ✅ v1.8.6 |
 
 ### US-9.1: Seed Packet Data Model
 
