@@ -1,0 +1,772 @@
+{
+  "version": "1.0",
+  "description": "Curated companion planting database for common vegetables, herbs, and flowers. Relationships are bidirectional — if A benefits B, looking up B also returns A. Sources: RHS Companion Planting guide, Louise Riotte 'Carrots Love Tomatoes', Rodale's 'Companion Planting for Vegetables'.",
+  "plants": {
+    "tomato": {
+      "scientific_name": "Solanum lycopersicum",
+      "family": "Solanaceae",
+      "aliases": ["tomatoes", "cherry tomato", "solanum lycopersicum"]
+    },
+    "basil": {
+      "scientific_name": "Ocimum basilicum",
+      "family": "Lamiaceae",
+      "aliases": ["sweet basil", "ocimum basilicum"]
+    },
+    "marigold": {
+      "scientific_name": "Tagetes spp.",
+      "family": "Asteraceae",
+      "aliases": ["marigolds", "french marigold", "african marigold", "tagetes"]
+    },
+    "carrot": {
+      "scientific_name": "Daucus carota",
+      "family": "Apiaceae",
+      "aliases": ["carrots", "daucus carota"]
+    },
+    "borage": {
+      "scientific_name": "Borago officinalis",
+      "family": "Boraginaceae",
+      "aliases": ["borago officinalis", "starflower"]
+    },
+    "parsley": {
+      "scientific_name": "Petroselinum crispum",
+      "family": "Apiaceae",
+      "aliases": ["petroselinum crispum", "flat-leaf parsley", "curly parsley"]
+    },
+    "asparagus": {
+      "scientific_name": "Asparagus officinalis",
+      "family": "Asparagaceae",
+      "aliases": ["asparagus officinalis"]
+    },
+    "garlic": {
+      "scientific_name": "Allium sativum",
+      "family": "Amaryllidaceae",
+      "aliases": ["allium sativum"]
+    },
+    "thyme": {
+      "scientific_name": "Thymus vulgaris",
+      "family": "Lamiaceae",
+      "aliases": ["common thyme", "thymus vulgaris"]
+    },
+    "leek": {
+      "scientific_name": "Allium ampeloprasum",
+      "family": "Amaryllidaceae",
+      "aliases": ["leeks", "allium ampeloprasum", "allium porrum"]
+    },
+    "rosemary": {
+      "scientific_name": "Salvia rosmarinus",
+      "family": "Lamiaceae",
+      "aliases": ["rosmarinus officinalis", "salvia rosmarinus"]
+    },
+    "sage": {
+      "scientific_name": "Salvia officinalis",
+      "family": "Lamiaceae",
+      "aliases": ["common sage", "salvia officinalis"]
+    },
+    "onion": {
+      "scientific_name": "Allium cepa",
+      "family": "Amaryllidaceae",
+      "aliases": ["onions", "allium cepa", "bulb onion"]
+    },
+    "pea": {
+      "scientific_name": "Pisum sativum",
+      "family": "Fabaceae",
+      "aliases": ["peas", "garden pea", "pisum sativum"]
+    },
+    "lettuce": {
+      "scientific_name": "Lactuca sativa",
+      "family": "Asteraceae",
+      "aliases": ["lettuce", "lactuca sativa", "salad"]
+    },
+    "chive": {
+      "scientific_name": "Allium schoenoprasum",
+      "family": "Amaryllidaceae",
+      "aliases": ["chives", "allium schoenoprasum"]
+    },
+    "cabbage": {
+      "scientific_name": "Brassica oleracea var. capitata",
+      "family": "Brassicaceae",
+      "aliases": ["cabbages", "brassica oleracea", "white cabbage", "red cabbage"]
+    },
+    "dill": {
+      "scientific_name": "Anethum graveolens",
+      "family": "Apiaceae",
+      "aliases": ["anethum graveolens"]
+    },
+    "nasturtium": {
+      "scientific_name": "Tropaeolum majus",
+      "family": "Tropaeolaceae",
+      "aliases": ["nasturtiums", "tropaeolum majus", "garden nasturtium"]
+    },
+    "chamomile": {
+      "scientific_name": "Matricaria chamomilla",
+      "family": "Asteraceae",
+      "aliases": ["german chamomile", "matricaria chamomilla", "matricaria recutita"]
+    },
+    "broccoli": {
+      "scientific_name": "Brassica oleracea var. italica",
+      "family": "Brassicaceae",
+      "aliases": ["brassica oleracea italica"]
+    },
+    "cucumber": {
+      "scientific_name": "Cucumis sativus",
+      "family": "Cucurbitaceae",
+      "aliases": ["cucumbers", "cucumis sativus"]
+    },
+    "sunflower": {
+      "scientific_name": "Helianthus annuus",
+      "family": "Asteraceae",
+      "aliases": ["sunflowers", "helianthus annuus"]
+    },
+    "pepper": {
+      "scientific_name": "Capsicum annuum",
+      "family": "Solanaceae",
+      "aliases": ["sweet pepper", "bell pepper", "chilli pepper", "capsicum", "capsicum annuum"]
+    },
+    "squash": {
+      "scientific_name": "Cucurbita pepo",
+      "family": "Cucurbitaceae",
+      "aliases": ["zucchini", "courgette", "cucurbita pepo", "cucurbita maxima", "summer squash", "winter squash"]
+    },
+    "corn": {
+      "scientific_name": "Zea mays",
+      "family": "Poaceae",
+      "aliases": ["maize", "sweetcorn", "zea mays", "sweet corn"]
+    },
+    "bean": {
+      "scientific_name": "Phaseolus vulgaris",
+      "family": "Fabaceae",
+      "aliases": ["beans", "green bean", "french bean", "runner bean", "phaseolus vulgaris", "climbing bean", "dwarf bean"]
+    },
+    "strawberry": {
+      "scientific_name": "Fragaria × ananassa",
+      "family": "Rosaceae",
+      "aliases": ["strawberries", "fragaria ananassa", "fragaria × ananassa"]
+    },
+    "radish": {
+      "scientific_name": "Raphanus sativus",
+      "family": "Brassicaceae",
+      "aliases": ["radishes", "raphanus sativus"]
+    },
+    "beet": {
+      "scientific_name": "Beta vulgaris",
+      "family": "Amaranthaceae",
+      "aliases": ["beetroot", "beets", "beta vulgaris", "sugar beet", "red beet"]
+    },
+    "spinach": {
+      "scientific_name": "Spinacia oleracea",
+      "family": "Amaranthaceae",
+      "aliases": ["spinacia oleracea"]
+    },
+    "potato": {
+      "scientific_name": "Solanum tuberosum",
+      "family": "Solanaceae",
+      "aliases": ["potatoes", "solanum tuberosum"]
+    },
+    "fennel": {
+      "scientific_name": "Foeniculum vulgare",
+      "family": "Apiaceae",
+      "aliases": ["foeniculum vulgare", "sweet fennel", "florence fennel"]
+    },
+    "rose": {
+      "scientific_name": "Rosa spp.",
+      "family": "Rosaceae",
+      "aliases": ["roses", "rosa"]
+    },
+    "horseradish": {
+      "scientific_name": "Armoracia rusticana",
+      "family": "Brassicaceae",
+      "aliases": ["armoracia rusticana"]
+    },
+    "kale": {
+      "scientific_name": "Brassica oleracea var. sabellica",
+      "family": "Brassicaceae",
+      "aliases": ["kales", "curly kale", "brassica oleracea sabellica"]
+    },
+    "mint": {
+      "scientific_name": "Mentha spp.",
+      "family": "Lamiaceae",
+      "aliases": ["spearmint", "peppermint", "mentha"]
+    },
+    "lavender": {
+      "scientific_name": "Lavandula angustifolia",
+      "family": "Lamiaceae",
+      "aliases": ["lavandula", "lavandula angustifolia", "english lavender"]
+    },
+    "celery": {
+      "scientific_name": "Apium graveolens",
+      "family": "Apiaceae",
+      "aliases": ["apium graveolens", "celeriac"]
+    },
+    "grape": {
+      "scientific_name": "Vitis vinifera",
+      "family": "Vitaceae",
+      "aliases": ["grapes", "grapevine", "vitis vinifera"]
+    }
+  },
+  "relationships": [
+    {
+      "plant_a": "tomato",
+      "plant_b": "basil",
+      "type": "beneficial",
+      "reason": "Basil repels aphids and spider mites, and may improve tomato flavor"
+    },
+    {
+      "plant_a": "tomato",
+      "plant_b": "marigold",
+      "type": "beneficial",
+      "reason": "Marigolds deter nematodes, whiteflies, and aphids from tomatoes"
+    },
+    {
+      "plant_a": "tomato",
+      "plant_b": "carrot",
+      "type": "beneficial",
+      "reason": "Carrots loosen soil around tomato roots; tomatoes provide shade for carrots"
+    },
+    {
+      "plant_a": "tomato",
+      "plant_b": "borage",
+      "type": "beneficial",
+      "reason": "Borage repels tomato hornworm and attracts pollinators"
+    },
+    {
+      "plant_a": "tomato",
+      "plant_b": "parsley",
+      "type": "beneficial",
+      "reason": "Parsley attracts predatory insects that control tomato pests"
+    },
+    {
+      "plant_a": "tomato",
+      "plant_b": "asparagus",
+      "type": "beneficial",
+      "reason": "Asparagus deters nematodes harmful to tomatoes; tomato repels asparagus beetle"
+    },
+    {
+      "plant_a": "tomato",
+      "plant_b": "garlic",
+      "type": "beneficial",
+      "reason": "Garlic deters spider mites, aphids, and flea beetles on tomatoes"
+    },
+    {
+      "plant_a": "tomato",
+      "plant_b": "thyme",
+      "type": "beneficial",
+      "reason": "Thyme repels whiteflies and provides a general pest deterrent near tomatoes"
+    },
+    {
+      "plant_a": "tomato",
+      "plant_b": "celery",
+      "type": "beneficial",
+      "reason": "Celery repels white cabbage butterfly; tomato repels celery fly"
+    },
+    {
+      "plant_a": "tomato",
+      "plant_b": "fennel",
+      "type": "antagonistic",
+      "reason": "Fennel is allelopathic and inhibits tomato growth"
+    },
+    {
+      "plant_a": "tomato",
+      "plant_b": "cabbage",
+      "type": "antagonistic",
+      "reason": "Both compete strongly for nutrients; tomato can inhibit cabbage growth"
+    },
+    {
+      "plant_a": "tomato",
+      "plant_b": "corn",
+      "type": "antagonistic",
+      "reason": "Both attract the same pest (tomato fruit worm is the same species as corn ear worm)"
+    },
+    {
+      "plant_a": "tomato",
+      "plant_b": "potato",
+      "type": "antagonistic",
+      "reason": "Both susceptible to blight; growing together increases disease risk"
+    },
+    {
+      "plant_a": "tomato",
+      "plant_b": "broccoli",
+      "type": "antagonistic",
+      "reason": "Broccoli and tomatoes compete and inhibit each other's growth"
+    },
+    {
+      "plant_a": "carrot",
+      "plant_b": "leek",
+      "type": "beneficial",
+      "reason": "Leek repels carrot fly; carrot repels leek moth — a classic pairing"
+    },
+    {
+      "plant_a": "carrot",
+      "plant_b": "rosemary",
+      "type": "beneficial",
+      "reason": "Rosemary repels carrot fly with its strong scent"
+    },
+    {
+      "plant_a": "carrot",
+      "plant_b": "sage",
+      "type": "beneficial",
+      "reason": "Sage repels carrot fly with its aromatic oils"
+    },
+    {
+      "plant_a": "carrot",
+      "plant_b": "onion",
+      "type": "beneficial",
+      "reason": "Onion repels carrot fly; carrot repels onion fly — classic companion pairing"
+    },
+    {
+      "plant_a": "carrot",
+      "plant_b": "pea",
+      "type": "beneficial",
+      "reason": "Peas fix nitrogen benefiting carrots; their root depths are complementary"
+    },
+    {
+      "plant_a": "carrot",
+      "plant_b": "lettuce",
+      "type": "beneficial",
+      "reason": "Lettuce uses shallow root zone while carrots grow deep; efficient use of space"
+    },
+    {
+      "plant_a": "carrot",
+      "plant_b": "chive",
+      "type": "beneficial",
+      "reason": "Chives repel aphids and carrot fly with their pungent scent"
+    },
+    {
+      "plant_a": "carrot",
+      "plant_b": "garlic",
+      "type": "beneficial",
+      "reason": "Garlic repels carrot fly and other soil pests"
+    },
+    {
+      "plant_a": "carrot",
+      "plant_b": "lavender",
+      "type": "beneficial",
+      "reason": "Lavender repels carrot fly and numerous other insects"
+    },
+    {
+      "plant_a": "carrot",
+      "plant_b": "dill",
+      "type": "antagonistic",
+      "reason": "Dill and carrot are related and cross-pollinate when both flower; dill can also stunt carrot growth"
+    },
+    {
+      "plant_a": "cabbage",
+      "plant_b": "dill",
+      "type": "beneficial",
+      "reason": "Dill attracts beneficial wasps that parasitize cabbage caterpillars"
+    },
+    {
+      "plant_a": "cabbage",
+      "plant_b": "rosemary",
+      "type": "beneficial",
+      "reason": "Rosemary repels cabbage moth and cabbage white butterfly"
+    },
+    {
+      "plant_a": "cabbage",
+      "plant_b": "sage",
+      "type": "beneficial",
+      "reason": "Sage repels cabbage moth, cabbage butterfly, and whiteflies"
+    },
+    {
+      "plant_a": "cabbage",
+      "plant_b": "thyme",
+      "type": "beneficial",
+      "reason": "Thyme deters cabbage worm and whitefly"
+    },
+    {
+      "plant_a": "cabbage",
+      "plant_b": "marigold",
+      "type": "beneficial",
+      "reason": "Marigolds deter cabbage pests and soil nematodes"
+    },
+    {
+      "plant_a": "cabbage",
+      "plant_b": "nasturtium",
+      "type": "beneficial",
+      "reason": "Nasturtium acts as a trap crop for aphids and whiteflies, drawing them away from cabbage"
+    },
+    {
+      "plant_a": "cabbage",
+      "plant_b": "chamomile",
+      "type": "beneficial",
+      "reason": "Chamomile improves cabbage growth and attracts beneficial insects"
+    },
+    {
+      "plant_a": "cabbage",
+      "plant_b": "mint",
+      "type": "beneficial",
+      "reason": "Mint deters cabbage moth and aphids from brassicas"
+    },
+    {
+      "plant_a": "cabbage",
+      "plant_b": "strawberry",
+      "type": "antagonistic",
+      "reason": "Brassicas inhibit strawberry growth"
+    },
+    {
+      "plant_a": "cabbage",
+      "plant_b": "grape",
+      "type": "antagonistic",
+      "reason": "Traditionally held to be mutually inhibitory"
+    },
+    {
+      "plant_a": "broccoli",
+      "plant_b": "rosemary",
+      "type": "beneficial",
+      "reason": "Rosemary repels cabbage moth and whitefly from broccoli"
+    },
+    {
+      "plant_a": "broccoli",
+      "plant_b": "marigold",
+      "type": "beneficial",
+      "reason": "Marigolds deter broccoli pests and soil nematodes"
+    },
+    {
+      "plant_a": "cucumber",
+      "plant_b": "nasturtium",
+      "type": "beneficial",
+      "reason": "Nasturtium repels aphids, whiteflies, and cucumber beetles"
+    },
+    {
+      "plant_a": "cucumber",
+      "plant_b": "marigold",
+      "type": "beneficial",
+      "reason": "Marigolds deter cucumber beetles and soil nematodes"
+    },
+    {
+      "plant_a": "cucumber",
+      "plant_b": "sunflower",
+      "type": "beneficial",
+      "reason": "Sunflower provides shade, wind protection, and can act as structural support"
+    },
+    {
+      "plant_a": "cucumber",
+      "plant_b": "dill",
+      "type": "beneficial",
+      "reason": "Dill attracts beneficial insects that prey on cucumber pests"
+    },
+    {
+      "plant_a": "cucumber",
+      "plant_b": "pea",
+      "type": "beneficial",
+      "reason": "Peas fix nitrogen; both use vertical growing space efficiently"
+    },
+    {
+      "plant_a": "cucumber",
+      "plant_b": "sage",
+      "type": "antagonistic",
+      "reason": "Sage is said to inhibit cucumber growth"
+    },
+    {
+      "plant_a": "cucumber",
+      "plant_b": "potato",
+      "type": "antagonistic",
+      "reason": "Both share blight susceptibility; proximity increases disease risk"
+    },
+    {
+      "plant_a": "pepper",
+      "plant_b": "basil",
+      "type": "beneficial",
+      "reason": "Basil repels aphids and spider mites on peppers"
+    },
+    {
+      "plant_a": "pepper",
+      "plant_b": "carrot",
+      "type": "beneficial",
+      "reason": "Complementary root depths make them efficient space companions"
+    },
+    {
+      "plant_a": "pepper",
+      "plant_b": "fennel",
+      "type": "antagonistic",
+      "reason": "Fennel's allelopathic compounds inhibit pepper growth"
+    },
+    {
+      "plant_a": "squash",
+      "plant_b": "nasturtium",
+      "type": "beneficial",
+      "reason": "Nasturtium repels squash bugs, cucumber beetles, and aphids"
+    },
+    {
+      "plant_a": "squash",
+      "plant_b": "marigold",
+      "type": "beneficial",
+      "reason": "Marigolds deter squash vine borers and soil nematodes"
+    },
+    {
+      "plant_a": "squash",
+      "plant_b": "borage",
+      "type": "beneficial",
+      "reason": "Borage deters hornworms and attracts pollinators that improve squash yield"
+    },
+    {
+      "plant_a": "squash",
+      "plant_b": "corn",
+      "type": "beneficial",
+      "reason": "Squash shades the ground, suppresses weeds, and retains moisture under corn (Three Sisters)"
+    },
+    {
+      "plant_a": "squash",
+      "plant_b": "potato",
+      "type": "antagonistic",
+      "reason": "Both are heavy feeders that compete for resources and share some pests"
+    },
+    {
+      "plant_a": "corn",
+      "plant_b": "bean",
+      "type": "beneficial",
+      "reason": "Beans fix nitrogen for corn; corn provides a climbing pole for beans (Three Sisters)"
+    },
+    {
+      "plant_a": "bean",
+      "plant_b": "marigold",
+      "type": "beneficial",
+      "reason": "Marigolds deter Mexican bean beetles and soil nematodes"
+    },
+    {
+      "plant_a": "bean",
+      "plant_b": "carrot",
+      "type": "beneficial",
+      "reason": "Beans fix nitrogen; carrots provide deep root aeration; good space companions"
+    },
+    {
+      "plant_a": "bean",
+      "plant_b": "strawberry",
+      "type": "beneficial",
+      "reason": "Beans fix nitrogen that benefits nearby strawberries"
+    },
+    {
+      "plant_a": "bean",
+      "plant_b": "squash",
+      "type": "beneficial",
+      "reason": "Squash suppresses weeds; beans fix nitrogen for the soil"
+    },
+    {
+      "plant_a": "bean",
+      "plant_b": "rosemary",
+      "type": "beneficial",
+      "reason": "Rosemary deters bean beetles and other legume pests"
+    },
+    {
+      "plant_a": "bean",
+      "plant_b": "onion",
+      "type": "antagonistic",
+      "reason": "Onions inhibit bean germination and reduce bean growth"
+    },
+    {
+      "plant_a": "bean",
+      "plant_b": "garlic",
+      "type": "antagonistic",
+      "reason": "Garlic (like all alliums) inhibits bean growth"
+    },
+    {
+      "plant_a": "bean",
+      "plant_b": "leek",
+      "type": "antagonistic",
+      "reason": "Leek (allium family) inhibits bean germination and growth"
+    },
+    {
+      "plant_a": "bean",
+      "plant_b": "fennel",
+      "type": "antagonistic",
+      "reason": "Fennel's allelopathic compounds inhibit bean germination and growth"
+    },
+    {
+      "plant_a": "bean",
+      "plant_b": "beet",
+      "type": "antagonistic",
+      "reason": "Beetroot inhibits bean growth, particularly pole/runner beans"
+    },
+    {
+      "plant_a": "bean",
+      "plant_b": "sunflower",
+      "type": "antagonistic",
+      "reason": "Sunflower's allelopathic chemicals can inhibit bean growth"
+    },
+    {
+      "plant_a": "lettuce",
+      "plant_b": "chive",
+      "type": "beneficial",
+      "reason": "Chives repel aphids that commonly attack lettuce"
+    },
+    {
+      "plant_a": "lettuce",
+      "plant_b": "radish",
+      "type": "beneficial",
+      "reason": "Radish deters leaf miners; both grow well as companions"
+    },
+    {
+      "plant_a": "lettuce",
+      "plant_b": "pea",
+      "type": "beneficial",
+      "reason": "Peas provide light shade; lettuce prefers cool, partially shaded conditions"
+    },
+    {
+      "plant_a": "lettuce",
+      "plant_b": "strawberry",
+      "type": "beneficial",
+      "reason": "Good low-growing companions; strawberry deters slugs from lettuce"
+    },
+    {
+      "plant_a": "lettuce",
+      "plant_b": "fennel",
+      "type": "antagonistic",
+      "reason": "Fennel inhibits lettuce growth"
+    },
+    {
+      "plant_a": "onion",
+      "plant_b": "beet",
+      "type": "beneficial",
+      "reason": "Beets and onions make excellent root crop companions"
+    },
+    {
+      "plant_a": "onion",
+      "plant_b": "chamomile",
+      "type": "beneficial",
+      "reason": "Chamomile is said to improve the flavor and growth of nearby onions"
+    },
+    {
+      "plant_a": "onion",
+      "plant_b": "lettuce",
+      "type": "beneficial",
+      "reason": "Onion scent deters aphids from lettuce; good row companions"
+    },
+    {
+      "plant_a": "onion",
+      "plant_b": "pea",
+      "type": "antagonistic",
+      "reason": "Onions (alliums) inhibit pea germination and growth"
+    },
+    {
+      "plant_a": "garlic",
+      "plant_b": "rose",
+      "type": "beneficial",
+      "reason": "Garlic repels aphids and blackfly from roses; may improve rose health"
+    },
+    {
+      "plant_a": "garlic",
+      "plant_b": "pea",
+      "type": "antagonistic",
+      "reason": "Garlic (allium) inhibits pea germination and growth"
+    },
+    {
+      "plant_a": "pea",
+      "plant_b": "radish",
+      "type": "beneficial",
+      "reason": "Radish repels aphids and pea-borers; both are good vertical space companions"
+    },
+    {
+      "plant_a": "pea",
+      "plant_b": "spinach",
+      "type": "beneficial",
+      "reason": "Peas fix nitrogen; spinach uses the extra nitrogen for leafy growth"
+    },
+    {
+      "plant_a": "spinach",
+      "plant_b": "radish",
+      "type": "beneficial",
+      "reason": "Radish deters leaf miners and other spinach pests"
+    },
+    {
+      "plant_a": "strawberry",
+      "plant_b": "borage",
+      "type": "beneficial",
+      "reason": "Borage repels strawberry pests and attracts pollinators to improve yield"
+    },
+    {
+      "plant_a": "strawberry",
+      "plant_b": "spinach",
+      "type": "beneficial",
+      "reason": "Spinach provides ground cover; together they deter pests"
+    },
+    {
+      "plant_a": "strawberry",
+      "plant_b": "kale",
+      "type": "antagonistic",
+      "reason": "Brassicas (including kale) inhibit strawberry growth"
+    },
+    {
+      "plant_a": "marigold",
+      "plant_b": "potato",
+      "type": "beneficial",
+      "reason": "Marigolds repel Colorado potato beetle and soil nematodes from potatoes"
+    },
+    {
+      "plant_a": "nasturtium",
+      "plant_b": "radish",
+      "type": "beneficial",
+      "reason": "Both act as trap crops; nasturtium attracts aphids away from vegetables"
+    },
+    {
+      "plant_a": "potato",
+      "plant_b": "horseradish",
+      "type": "beneficial",
+      "reason": "Horseradish planted at corners of potato beds deters Colorado potato beetle"
+    },
+    {
+      "plant_a": "potato",
+      "plant_b": "bean",
+      "type": "beneficial",
+      "reason": "Beans fix nitrogen for heavy-feeding potatoes; good leaf coverage companions"
+    },
+    {
+      "plant_a": "potato",
+      "plant_b": "sunflower",
+      "type": "antagonistic",
+      "reason": "Sunflower allelopathy inhibits potato growth"
+    },
+    {
+      "plant_a": "beet",
+      "plant_b": "garlic",
+      "type": "beneficial",
+      "reason": "Garlic deters beet aphids and other beet pests"
+    },
+    {
+      "plant_a": "kale",
+      "plant_b": "marigold",
+      "type": "beneficial",
+      "reason": "Marigolds deter kale pests including aphids and whiteflies"
+    },
+    {
+      "plant_a": "kale",
+      "plant_b": "nasturtium",
+      "type": "beneficial",
+      "reason": "Nasturtium acts as trap crop for aphids attacking kale"
+    },
+    {
+      "plant_a": "chive",
+      "plant_b": "rose",
+      "type": "beneficial",
+      "reason": "Chives planted around roses repel aphids and improve rose vigor"
+    },
+    {
+      "plant_a": "mint",
+      "plant_b": "tomato",
+      "type": "beneficial",
+      "reason": "Mint repels aphids, ants, and flea beetles from tomatoes"
+    },
+    {
+      "plant_a": "celery",
+      "plant_b": "leek",
+      "type": "beneficial",
+      "reason": "Celery and leek grow well together, improving each other's flavor"
+    },
+    {
+      "plant_a": "dill",
+      "plant_b": "fennel",
+      "type": "antagonistic",
+      "reason": "Dill and fennel cross-pollinate when both flower, degrading seed quality of both"
+    },
+    {
+      "plant_a": "fennel",
+      "plant_b": "basil",
+      "type": "antagonistic",
+      "reason": "Fennel's allelopathic compounds inhibit basil growth"
+    },
+    {
+      "plant_a": "leek",
+      "plant_b": "pea",
+      "type": "antagonistic",
+      "reason": "Leek (allium family) inhibits pea germination and growth"
+    }
+  ]
+}
