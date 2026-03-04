@@ -1259,6 +1259,14 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <translation>Lineal und Führungslinien umschalten (vom Lineal ziehen zum Erstellen)</translation>
     </message>
     <message>
+        <source>Show Companion &amp;Warnings</source>
+        <translation>Begleitpflanzen-&amp;Warnungen anzeigen</translation>
+    </message>
+    <message>
+        <source>Highlight compatible and incompatible plants near the selected plant</source>
+        <translation>Kompatible und inkompatible Pflanzen in der Nähe der ausgewählten Pflanze hervorheben</translation>
+    </message>
+    <message>
         <source>Guide position</source>
         <translation>Führungslinienposition</translation>
     </message>

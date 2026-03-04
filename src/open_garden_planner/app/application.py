@@ -25,7 +25,13 @@ from open_garden_planner.core import (
     format_area,
     format_length,
 )
+from open_garden_planner.core.plant_renderer import is_plant_type
 from open_garden_planner.core.tools import ToolType
+from open_garden_planner.services.companion_planting_service import (
+    ANTAGONISTIC,
+    BENEFICIAL,
+    CompanionPlantingService,
+)
 from open_garden_planner.services.export_service import ExportService
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -462,6 +468,16 @@ class GardenPlannerApp(QMainWindow):
         self._guides_action.triggered.connect(self._on_toggle_guides)
         menu.addAction(self._guides_action)
 
+        # Toggle Companion Planting Warnings
+        self._companion_warnings_action = QAction(self.tr("Show Companion &Warnings"), self)
+        self._companion_warnings_action.setCheckable(True)
+        self._companion_warnings_action.setChecked(True)
+        self._companion_warnings_action.setStatusTip(
+            self.tr("Highlight compatible and incompatible plants near the selected plant")
+        )
+        self._companion_warnings_action.triggered.connect(self._on_toggle_companion_warnings)
+        menu.addAction(self._companion_warnings_action)
+
         menu.addSeparator()
 
         # Fullscreen Preview
@@ -640,6 +656,18 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_scene.selectionChanged.connect(self._on_selection_changed)
         self.canvas_scene.selectionChanged.connect(self._update_properties_panel)
         self.canvas_scene.selectionChanged.connect(self._update_plant_database_panel)
+
+        # ── Companion planting highlights (US-10.2) ──────────────────────────
+        self._companion_service = CompanionPlantingService()
+        self._companion_warnings_enabled = True
+        self._companion_radius_cm = 200.0  # 2 m default
+        # Debounce timer for drag updates (avoids re-querying on every pixel move)
+        self._companion_update_timer = QTimer(self)
+        self._companion_update_timer.setSingleShot(True)
+        self._companion_update_timer.setInterval(60)
+        self._companion_update_timer.timeout.connect(self._update_companion_highlights)
+        self.canvas_scene.selectionChanged.connect(self._update_companion_highlights)
+        self.canvas_scene.changed.connect(self._on_scene_changed_for_companion)
 
         # Connect delete action to canvas
         self._delete_action.triggered.connect(self.canvas_view._delete_selected_items)
@@ -1593,6 +1621,119 @@ class GardenPlannerApp(QMainWindow):
     def _on_toggle_guides(self, checked: bool) -> None:
         """Handle toggle guide lines and rulers visibility action."""
         self.canvas_view.set_guides_visible(checked)
+
+    def _on_toggle_companion_warnings(self, checked: bool) -> None:
+        """Handle toggle companion planting warnings."""
+        self._companion_warnings_enabled = checked
+        if not checked:
+            self._clear_companion_highlights()
+        else:
+            self._update_companion_highlights()
+
+    def _on_scene_changed_for_companion(self) -> None:
+        """Debounce companion highlight refresh when scene items move."""
+        if self._companion_warnings_enabled:
+            self._companion_update_timer.start()
+
+    @staticmethod
+    def _companion_species_name(item: object) -> str:
+        """Return the best available species name for companion lookup.
+
+        Plants placed via gallery set ``item.plant_species`` (the SVG key).
+        Plants assigned via plant-search store full data in
+        ``item.metadata["plant_species"]`` as a dict with ``common_name`` /
+        ``scientific_name``.  We try the metadata dict first (more precise),
+        then fall back to the SVG key.
+        """
+        meta = getattr(item, 'metadata', {}) or {}
+        species_data = meta.get("plant_species") if isinstance(meta, dict) else None
+        if isinstance(species_data, dict):
+            name = species_data.get("common_name") or species_data.get("scientific_name") or ""
+            if name:
+                return name
+        return getattr(item, 'plant_species', '') or ''
+
+    @staticmethod
+    def _is_canvas_plant(item: object) -> bool:
+        """Return True if *item* is a plant-type canvas item."""
+        return (
+            hasattr(item, 'plant_species')
+            and is_plant_type(getattr(item, 'object_type', None))
+        )
+
+    def _clear_companion_highlights(self) -> None:
+        """Remove all companion highlight rings and warning badges from canvas items."""
+        for item in self.canvas_scene.items():
+            if hasattr(item, 'set_companion_highlight'):
+                item.set_companion_highlight(None)
+            if hasattr(item, 'set_antagonist_warning'):
+                item.set_antagonist_warning(False)
+
+    def _update_companion_highlights(self) -> None:
+        """Refresh companion planting highlight rings and permanent warning badges."""
+        import math
+
+        # Clear existing highlights and warnings
+        for item in self.canvas_scene.items():
+            if hasattr(item, 'set_companion_highlight'):
+                item.set_companion_highlight(None)
+            if hasattr(item, 'set_antagonist_warning'):
+                item.set_antagonist_warning(False)
+
+        if not self._companion_warnings_enabled:
+            return
+
+        all_plants = [
+            it for it in self.canvas_scene.items()
+            if self._is_canvas_plant(it) and self._companion_species_name(it)
+        ]
+
+        # 1. Selection-based coloured rings (beneficial / antagonistic)
+        selected_plants = [it for it in self.canvas_scene.selectedItems() if it in all_plants]
+        for selected_plant in selected_plants:
+            sel_center = selected_plant.mapToScene(selected_plant.rect().center())  # type: ignore[attr-defined]
+            sel_species = self._companion_species_name(selected_plant)
+
+            for other in all_plants:
+                if other is selected_plant:
+                    continue
+                other_center = other.mapToScene(other.rect().center())  # type: ignore[attr-defined]
+                dist = math.hypot(
+                    sel_center.x() - other_center.x(),
+                    sel_center.y() - other_center.y(),
+                )
+                if dist > self._companion_radius_cm:
+                    continue
+
+                other_species = self._companion_species_name(other)
+                rel = self._companion_service.get_relationship(sel_species, other_species)
+                if rel is None:
+                    continue
+
+                # Antagonistic takes priority over beneficial when multiple plants selected
+                current = getattr(other, '_companion_highlight', None)
+                if rel.type == ANTAGONISTIC:
+                    other.set_companion_highlight(ANTAGONISTIC)  # type: ignore[attr-defined]
+                elif rel.type == BENEFICIAL and current != ANTAGONISTIC:
+                    other.set_companion_highlight(BENEFICIAL)  # type: ignore[attr-defined]
+
+        # 2. Permanent warning badge: show on any plant that has an antagonist nearby
+        for plant_a in all_plants:
+            center_a = plant_a.mapToScene(plant_a.rect().center())  # type: ignore[attr-defined]
+            species_a = self._companion_species_name(plant_a)
+            for plant_b in all_plants:
+                if plant_b is plant_a:
+                    continue
+                center_b = plant_b.mapToScene(plant_b.rect().center())  # type: ignore[attr-defined]
+                dist = math.hypot(center_a.x() - center_b.x(), center_a.y() - center_b.y())
+                if dist > self._companion_radius_cm:
+                    continue
+                rel = self._companion_service.get_relationship(
+                    species_a, self._companion_species_name(plant_b)
+                )
+                if rel is not None and rel.type == ANTAGONISTIC:
+                    plant_a.set_antagonist_warning(True)  # type: ignore[attr-defined]
+                    break  # one antagonist is enough
 
     # -- Constraints panel handlers --
 

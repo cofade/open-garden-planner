@@ -68,6 +68,8 @@ class GardenItemMixin:
         self._label_visible = True  # Per-object label visibility
         self._global_labels_visible = True  # Global label visibility (set by scene)
         self._shadows_enabled = True  # Painted shadow on/off
+        self._companion_highlight: str | None = None  # "beneficial" | "antagonistic" | None
+        self._antagonist_warning: bool = False  # Permanent badge: antagonist nearby
         self._label_item: QGraphicsSimpleTextItem | None = None
         self._edit_label_item: QGraphicsTextItem | None = None
 
@@ -178,6 +180,44 @@ class GardenItemMixin:
         if value == self._shadows_enabled:
             return
         self._shadows_enabled = value
+        if hasattr(self, 'prepareGeometryChange'):
+            self.prepareGeometryChange()  # type: ignore[attr-defined]
+        if hasattr(self, 'update'):
+            self.update()  # type: ignore[attr-defined]
+
+    @property
+    def companion_highlight(self) -> str | None:
+        """Current companion highlight type: 'beneficial', 'antagonistic', or None."""
+        return self._companion_highlight
+
+    @property
+    def antagonist_warning(self) -> bool:
+        """Whether this plant has an antagonist neighbour within the companion radius."""
+        return self._antagonist_warning
+
+    def set_antagonist_warning(self, has_warning: bool) -> None:
+        """Show or hide the permanent antagonist warning badge.
+
+        Args:
+            has_warning: True to show a warning triangle; False to hide it.
+        """
+        if self._antagonist_warning == has_warning:
+            return
+        self._antagonist_warning = has_warning
+        if hasattr(self, 'prepareGeometryChange'):
+            self.prepareGeometryChange()  # type: ignore[attr-defined]
+        if hasattr(self, 'update'):
+            self.update()  # type: ignore[attr-defined]
+
+    def set_companion_highlight(self, highlight_type: str | None) -> None:
+        """Set or clear the companion planting highlight for this item.
+
+        Args:
+            highlight_type: "beneficial", "antagonistic", or None to clear.
+        """
+        if self._companion_highlight == highlight_type:
+            return
+        self._companion_highlight = highlight_type
         if hasattr(self, 'prepareGeometryChange'):
             self.prepareGeometryChange()  # type: ignore[attr-defined]
         if hasattr(self, 'update'):

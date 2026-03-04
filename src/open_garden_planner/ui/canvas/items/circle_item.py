@@ -230,9 +230,14 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
     # Scale factor to fill the circle area (SVGs have organic internal padding)
     _PLANT_FILL_SCALE = 1.15
+    # Companion highlight ring dimensions (cm)
+    _HIGHLIGHT_STROKE_WIDTH = 4.0
+    _HIGHLIGHT_MARGIN = 3.0  # half stroke + tiny gap
+    # Antagonist warning badge dimensions (cm); proportional to radius, capped
+    _WARNING_MAX_SIZE = 12.0
 
     def boundingRect(self) -> QRectF:
-        """Return bounding rect, expanded for plant SVG overflow and shadow."""
+        """Return bounding rect, expanded for plant SVG overflow, shadow, and companion ring."""
         base = super().boundingRect()
         if is_plant_type(self.object_type):
             rect = self.rect()
@@ -241,6 +246,16 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         m = self._shadow_margin()
         if m > 0:
             base = base.adjusted(-m, -m, m, m)
+        if self._companion_highlight is not None:
+            h = self._HIGHLIGHT_MARGIN
+            base = base.adjusted(-h, -h, h, h)
+        if self._antagonist_warning and is_plant_type(self.object_type):
+            # Badge overflows into the visual top-right corner.
+            # With the view's Y-flip, "visual top" = larger positive Y = rect.bottom().
+            # Expand right (+x) and bottom (+y, which is visual top).
+            s = min(self._radius * 0.45, self._WARNING_MAX_SIZE)
+            overflow = s * 0.3
+            base = base.adjusted(0, 0, overflow, overflow)
         return base
 
     def paint(
@@ -304,6 +319,54 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                     painter.setPen(pen)
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                     painter.drawEllipse(rect)
+
+                # Draw companion planting highlight ring
+                if self._companion_highlight is not None:
+                    ring_color = (
+                        QColor(80, 200, 80, 210)
+                        if self._companion_highlight == "beneficial"
+                        else QColor(220, 60, 60, 210)
+                    )
+                    ring_pen = QPen(ring_color)
+                    ring_pen.setWidthF(self._HIGHLIGHT_STROKE_WIDTH)
+                    painter.setPen(ring_pen)
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                    gap = self._HIGHLIGHT_STROKE_WIDTH / 2.0
+                    painter.drawEllipse(rect.adjusted(-gap, -gap, gap, gap))
+
+                # Draw permanent antagonist-neighbour warning badge (top-right corner).
+                # Canvas Y is flipped by the view: positive item-Y = visually UP.
+                # So visual top-right = (rect.right(), rect.bottom()) in item coords.
+                if self._antagonist_warning:
+                    s = min(self._radius * 0.45, self._WARNING_MAX_SIZE)
+                    h = s * 0.866  # equilateral triangle height
+                    # Badge centre: slightly inside the visual top-right of the circle
+                    cx = rect.right() - s * 0.3
+                    cy = rect.bottom() - s * 0.3
+                    # Equilateral triangle pointing upward (apex at larger Y = visually higher)
+                    triangle = [
+                        QPointF(cx, cy + h * 0.55),           # apex (visually top)
+                        QPointF(cx + s * 0.5, cy - h * 0.45), # base-right (visually bottom)
+                        QPointF(cx - s * 0.5, cy - h * 0.45), # base-left (visually bottom)
+                    ]
+                    painter.save()
+                    painter.setBrush(QColor(255, 200, 0, 230))
+                    warn_pen = QPen(QColor(180, 90, 0, 230))
+                    warn_pen.setWidthF(s * 0.08)
+                    painter.setPen(warn_pen)
+                    painter.drawPolygon(*triangle)
+                    # "!" mark: bar + dot using filled rectangles/ellipses
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.setBrush(QColor(110, 50, 0, 240))
+                    bar_w = s * 0.09
+                    bar_h = s * 0.27
+                    # Bar: centred in upper portion of triangle (positive Y = visually up)
+                    bar_bot = cy + h * 0.07
+                    painter.drawRect(QRectF(cx - bar_w / 2, bar_bot, bar_w, bar_h))
+                    # Dot: below the bar (more negative Y = visually down)
+                    dot_r = bar_w * 0.75
+                    painter.drawEllipse(QPointF(cx, bar_bot - dot_r * 2.2), dot_r, dot_r)
+                    painter.restore()
                 return
 
         if is_furniture_type(self.object_type):
