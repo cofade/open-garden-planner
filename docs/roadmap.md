@@ -12,10 +12,12 @@
 | Backlog | - | ✅ Complete | Rotation, vertex editing, annotations |
 | ~~6~~ | ~~v1.0~~ | ~~✅ Complete~~ | ~~Visual Polish & Public Release~~ |
 | ~~7~~ | ~~v1.1 – v1.6~~ | ~~✅ Complete~~ | ~~CAD Precision & Constraints~~ |
-| **8** | **v1.7 – v1.9.x** | **In Progress** | **Location, Climate & Planting Calendar** |
-| 9 | v1.10 | Planned | Seed Inventory & Propagation Planning |
-| 10 | v1.11 | Planned | Companion Planting & Crop Rotation |
-| 11 | v2.0+ | Future | Advanced Features |
+| **8** | **v1.7 – v1.8.3** | **✅ Complete** | **Location, Climate & Planting Calendar** |
+| **9** | **v1.8.5 – v1.8.6** | **✅ Complete** | **Seed Inventory & Propagation Planning** |
+| **10** | **v1.8.6 – v1.9+** | **🔨 In Progress** | **Companion Planting & Crop Rotation** |
+| 11 | v1.10+ | Future | Drawing Tools & Format Integration |
+| 12 | v1.11+ | Future | Smart Features & Simulation |
+| 13 | v2.0 | Future | 3D Visualization |
 
 ---
 
@@ -1250,17 +1252,32 @@ Icon designs per tool:
 
 ---
 
-## Phase 11: Advanced Features (Future, v2.0+)
+## Phase 11: Drawing Tools & Format Integration (Future, v1.10+)
 
-Future enhancements beyond v1.9:
+**Goal**: Extend the drawing toolkit with curved geometry and enable bi-directional CAD interchange.
 
 - Additional drawing tools (arcs, curves, bezier paths)
 - DXF import/export for CAD interoperability
-- 3D visualization (Qt3D integration)
-- Sun path simulation
+
+---
+
+## Phase 12: Smart Features & Simulation (Future, v1.11+)
+
+**Goal**: Layer intelligence on top of the plan — light, water, growth, cost, and community.
+
+- Sun path simulation (shade calculation by season)
 - Plant growth over time visualization
-- Plugin system
-- Community plant library sharing
 - Seasonal view (spring/summer/autumn/winter appearance)
 - Irrigation planning
 - Cost estimation
+- Plugin system
+- Community plant library sharing
+
+---
+
+## Phase 13: 3D Visualization (Future, v2.0)
+
+**Goal**: Full three-dimensional garden view — the milestone that justifies a major version bump.
+
+- 3D visualization (Qt3D integration)
+- First-person walkthrough mode

@@ -55,7 +55,7 @@ When a US implementation is complete and ready to merge:
    |----------|-------|---------|
    | Individual US within an **ongoing phase** | `patch` | v1.9.0 → v1.9.1 |
    | **First US of a brand-new phase** | `minor` | v1.9.x → v1.10.0 |
-   | Major architectural milestone (Phase 11+) | `major` | v1.x → v2.0.0 |
+   | 3D Visualization (Phase 13 only) | `major` | v1.x → v2.0.0 |
 
    > **Rule of thumb**: almost every US gets `patch`. Only bump `minor` when the PR starts a new phase.
 
