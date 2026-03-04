@@ -989,6 +989,14 @@ This will remove it from your custom library. Plants already placed in projects 
             <translation>Toggle ruler and guide lines (drag from ruler to create)</translation>
         </message>
         <message>
+            <source>Show Companion &amp;Warnings</source>
+            <translation>Show Companion &amp;Warnings</translation>
+        </message>
+        <message>
+            <source>Highlight compatible and incompatible plants near the selected plant</source>
+            <translation>Highlight compatible and incompatible plants near the selected plant</translation>
+        </message>
+        <message>
             <source>Guide position</source>
             <translation>Guide position</translation>
         </message>
