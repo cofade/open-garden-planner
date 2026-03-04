@@ -424,7 +424,7 @@ tests/
 | Status | US    | Description                                          |
 | ------ | ----- | ---------------------------------------------------- |
 | ✅     | 10.1  | Companion planting database                          |
-|        | 10.2  | Companion planting visual warnings                   |
+| ✅     | 10.2  | Companion planting visual warnings                   |
 |        | 10.3  | Companion planting recommendation panel              |
 |        | 10.4  | Whole-plan compatibility check                       |
 |        | 10.5  | Crop rotation data model                             |
