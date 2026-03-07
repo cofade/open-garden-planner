@@ -1424,6 +1424,10 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <translation>Pflanzendetails</translation>
     </message>
     <message>
+        <source>Companion Planting</source>
+        <translation>Mischkultur</translation>
+    </message>
+    <message>
         <location filename="..\..\app\application.py" line="714" />
         <source>Auto-saved</source>
         <translation>Automatisch gespeichert</translation>
@@ -4627,6 +4631,41 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
     <message>
         <source>Not linked to any canvas plants</source>
         <translation>Mit keiner Pflanze auf der Leinwand verknüpft</translation>
+    </message>
+</context>
+<context>
+<name>CompanionPanel</name>
+    <message>
+        <source>No plant selected</source>
+        <translation>Keine Pflanze ausgewählt</translation>
+    </message>
+    <message>
+        <source>Unknown plant</source>
+        <translation>Unbekannte Pflanze</translation>
+    </message>
+    <message>
+        <source>Companions for: %1</source>
+        <translation>Begleitpflanzen für: %1</translation>
+    </message>
+    <message>
+        <source>Good Companions</source>
+        <translation>Gute Begleitpflanzen</translation>
+    </message>
+    <message>
+        <source>Bad Companions</source>
+        <translation>Schlechte Begleitpflanzen</translation>
+    </message>
+    <message>
+        <source>★ = already nearby in plan  (click to select)</source>
+        <translation>★ = bereits in der Nähe im Plan  (klicken zum Auswählen)</translation>
+    </message>
+    <message>
+        <source>(none in database)</source>
+        <translation>(keine in der Datenbank)</translation>
+    </message>
+    <message>
+        <source>Click to select on canvas</source>
+        <translation>Klicken zum Auswählen auf der Leinwand</translation>
     </message>
 </context>
 </TS>

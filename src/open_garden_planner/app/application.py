@@ -36,6 +36,7 @@ from open_garden_planner.services.export_service import ExportService
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.panels import (
+    CompanionPanel,
     ConstraintsPanel,
     GalleryPanel,
     LayersPanel,
@@ -623,6 +624,11 @@ class GardenPlannerApp(QMainWindow):
         self.constraint_toolbar = ConstraintToolbar(self)
         self.addToolBar(self.constraint_toolbar)
 
+        # ── Companion planting service (shared by sidebar panel and highlights) ─
+        self._companion_service = CompanionPlantingService()
+        self._companion_warnings_enabled = True
+        self._companion_radius_cm = 200.0  # 2 m default
+
         # Create sidebar panels
         self._setup_sidebar()
 
@@ -656,16 +662,15 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_scene.selectionChanged.connect(self._on_selection_changed)
         self.canvas_scene.selectionChanged.connect(self._update_properties_panel)
         self.canvas_scene.selectionChanged.connect(self._update_plant_database_panel)
+        self.canvas_scene.selectionChanged.connect(self._update_companion_panel)
 
         # ── Companion planting highlights (US-10.2) ──────────────────────────
-        self._companion_service = CompanionPlantingService()
-        self._companion_warnings_enabled = True
-        self._companion_radius_cm = 200.0  # 2 m default
         # Debounce timer for drag updates (avoids re-querying on every pixel move)
         self._companion_update_timer = QTimer(self)
         self._companion_update_timer.setSingleShot(True)
         self._companion_update_timer.setInterval(60)
         self._companion_update_timer.timeout.connect(self._update_companion_highlights)
+        self._companion_update_timer.timeout.connect(self._update_companion_panel)
         self.canvas_scene.selectionChanged.connect(self._update_companion_highlights)
         self.canvas_scene.changed.connect(self._on_scene_changed_for_companion)
 
@@ -840,6 +845,19 @@ class GardenPlannerApp(QMainWindow):
         self.plant_details_collapsible = CollapsiblePanel(self.tr("Plant Details"), self.plant_database_panel, expanded=True)
         self.plant_details_collapsible.setVisible(False)  # Hidden by default
         sidebar_layout.addWidget(self.plant_details_collapsible)
+
+        # 7. Companion Planting Panel (collapsible, US-10.3) — only shown for plant selection
+        self.companion_panel = CompanionPanel(self._companion_service)
+        self.companion_panel.set_canvas_scene(self.canvas_scene)
+        self.companion_panel.set_radius_cm(self._companion_radius_cm)
+        self.companion_panel.highlight_species_requested.connect(
+            self._on_companion_highlight_species
+        )
+        self.companion_collapsible = CollapsiblePanel(
+            self.tr("Companion Planting"), self.companion_panel, expanded=True
+        )
+        self.companion_collapsible.setVisible(False)  # Hidden by default
+        sidebar_layout.addWidget(self.companion_collapsible)
 
         # Add stretch at the bottom to push panels to top
         sidebar_layout.addStretch()
@@ -1064,6 +1082,44 @@ class GardenPlannerApp(QMainWindow):
         except RuntimeError:
             # Scene has been deleted, ignore
             pass
+
+    def _update_companion_panel(self) -> None:
+        """Update the companion planting panel for the current plant selection (US-10.3)."""
+        try:
+            selected_items = self.canvas_scene.selectedItems()
+            show_panel = False
+            plant_item = None
+            if len(selected_items) == 1 and self._is_canvas_plant(selected_items[0]):
+                plant_item = selected_items[0]
+                show_panel = bool(self._companion_species_name(plant_item))
+
+            self.companion_collapsible.setVisible(show_panel)
+            self.companion_panel.update_for_plant(plant_item)
+        except RuntimeError:
+            pass
+
+    def _on_companion_highlight_species(self, species: str) -> None:
+        """Select canvas plants matching *species* when user clicks a companion entry.
+
+        Selection is deferred via QTimer to avoid conflicts with the list widget's
+        itemClicked processing (which triggers selectionChanged → panel clear mid-click).
+        """
+        def _do_select() -> None:
+            self._tab_widget.setCurrentIndex(0)
+            self.canvas_scene.clearSelection()
+            matched: list = []
+            for item in self.canvas_scene.items():
+                if not self._is_canvas_plant(item):
+                    continue
+                item_species = self._companion_species_name(item)
+                if item_species and self._companion_service._resolve(item_species) == self._companion_service._resolve(species):  # noqa: SLF001
+                    item.setSelected(True)
+                    matched.append(item)
+            # Scroll canvas to the first matched item so the user can see it
+            if matched:
+                self.canvas_view.ensureVisible(matched[0])
+
+        QTimer.singleShot(0, _do_select)
 
     # Slot methods for menu actions
 
@@ -1632,8 +1688,7 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_scene_changed_for_companion(self) -> None:
         """Debounce companion highlight refresh when scene items move."""
-        if self._companion_warnings_enabled:
-            self._companion_update_timer.start()
+        self._companion_update_timer.start()
 
     @staticmethod
     def _companion_species_name(item: object) -> str:
