@@ -1146,6 +1146,10 @@ This will remove it from your custom library. Plants already placed in projects 
             <translation>Plant Details</translation>
         </message>
         <message>
+            <source>Companion Planting</source>
+            <translation>Companion Planting</translation>
+        </message>
+        <message>
             <location filename="..\..\app\application.py" line="714" />
             <source>Auto-saved</source>
             <translation>Auto-saved</translation>
@@ -4087,6 +4091,41 @@ to assign species data.</translation>
         <message>
             <source>Not linked to any canvas plants</source>
             <translation>Not linked to any canvas plants</translation>
+        </message>
+    </context>
+    <context>
+        <name>CompanionPanel</name>
+        <message>
+            <source>No plant selected</source>
+            <translation>No plant selected</translation>
+        </message>
+        <message>
+            <source>Unknown plant</source>
+            <translation>Unknown plant</translation>
+        </message>
+        <message>
+            <source>Companions for: %1</source>
+            <translation>Companions for: %1</translation>
+        </message>
+        <message>
+            <source>Good Companions</source>
+            <translation>Good Companions</translation>
+        </message>
+        <message>
+            <source>Bad Companions</source>
+            <translation>Bad Companions</translation>
+        </message>
+        <message>
+            <source>★ = already nearby in plan  (click to select)</source>
+            <translation>★ = already nearby in plan  (click to select)</translation>
+        </message>
+        <message>
+            <source>(none in database)</source>
+            <translation>(none in database)</translation>
+        </message>
+        <message>
+            <source>Click to select on canvas</source>
+            <translation>Click to select on canvas</translation>
         </message>
     </context>
 </TS>

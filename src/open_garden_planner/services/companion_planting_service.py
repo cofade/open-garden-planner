@@ -32,7 +32,8 @@ class CompanionRelationship:
         plant_a: Canonical common name of the first plant.
         plant_b: Canonical common name of the second plant.
         type: Relationship type — "beneficial", "antagonistic", or "neutral".
-        reason: Human-readable explanation of the relationship.
+        reason: Human-readable explanation of the relationship (English).
+        reason_de: German translation of the reason, or empty string.
         is_custom: True if this rule was added by the user.
     """
 
@@ -40,6 +41,7 @@ class CompanionRelationship:
     plant_b: str
     type: str
     reason: str
+    reason_de: str = field(default="")
     is_custom: bool = field(default=False)
 
 
@@ -108,6 +110,39 @@ class CompanionPlantingService:
             if rel.plant_b == can_b:
                 return rel
         return None
+
+    def get_display_name(self, plant_name: str, lang: str = "en") -> str:
+        """Return the display name for a plant in the requested language.
+
+        Falls back to the title-cased canonical name if no translation exists.
+
+        Args:
+            plant_name: Canonical common name (e.g. "tomato").
+            lang: Language code (e.g. "en", "de").
+
+        Returns:
+            Localised display name string.
+        """
+        canonical = self._resolve(plant_name)
+        meta = self._plant_meta.get(canonical, {})
+        key = f"name_{lang}"
+        return meta.get(key) or canonical.title()
+
+    def get_relationship_reason(self, rel: "CompanionRelationship", lang: str = "en") -> str:
+        """Return the relationship reason in the requested language.
+
+        Falls back to the English reason if no translation exists.
+
+        Args:
+            rel: The companion relationship.
+            lang: Language code (e.g. "en", "de").
+
+        Returns:
+            Localised reason string.
+        """
+        if lang == "en" or not rel.reason_de:
+            return rel.reason
+        return rel.reason_de
 
     def get_all_plant_names(self) -> list[str]:
         """Return all canonical common names in the database, sorted."""
@@ -222,6 +257,7 @@ class CompanionPlantingService:
                 plant_b=entry["plant_b"].lower(),
                 type=entry["type"],
                 reason=entry.get("reason", ""),
+                reason_de=entry.get("reason_de", ""),
             )
             self._add_to_adjacency(rel)
         for rule in self._custom_rules:
@@ -252,6 +288,7 @@ class CompanionPlantingService:
                 plant_b=entry["plant_b"].lower(),
                 type=entry["type"],
                 reason=entry.get("reason", ""),
+                reason_de=entry.get("reason_de", ""),
             )
             self._add_to_adjacency(rel)
 

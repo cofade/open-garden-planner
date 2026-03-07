@@ -1,5 +1,6 @@
 """Side panel components (tools, properties, layers, gallery, constraints)."""
 
+from .companion_panel import CompanionPanel
 from .constraints_panel import ConstraintsPanel
 from .drawing_tools_panel import DrawingToolsPanel
 from .gallery_panel import GalleryPanel
@@ -9,6 +10,7 @@ from .plant_search_panel import PlantSearchPanel
 from .properties_panel import PropertiesPanel
 
 __all__ = [
+    "CompanionPanel",
     "ConstraintsPanel",
     "DrawingToolsPanel",
     "GalleryPanel",
