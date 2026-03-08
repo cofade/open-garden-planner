@@ -426,7 +426,7 @@ tests/
 | ✅     | 10.1  | Companion planting database                          |
 | ✅     | 10.2  | Companion planting visual warnings                   |
 | ✅     | 10.3  | Companion planting recommendation panel              |
-|        | 10.4  | Whole-plan compatibility check                       |
+| ✅     | 10.4  | Whole-plan compatibility check                       |
 |        | 10.5  | Crop rotation data model                             |
 |        | 10.6  | Crop rotation recommendations                        |
 |        | 10.7  | Season management & plan duplication                 |
