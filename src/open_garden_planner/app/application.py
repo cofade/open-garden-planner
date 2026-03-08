@@ -554,6 +554,14 @@ class GardenPlannerApp(QMainWindow):
         manage_custom_action.triggered.connect(self._on_manage_custom_plants)
         menu.addAction(manage_custom_action)
 
+        menu.addSeparator()
+
+        # Check Companion Planting
+        check_companion_action = QAction(self.tr("Check &Companion Planting..."), self)
+        check_companion_action.setStatusTip(self.tr("Analyse the whole plan for companion planting compatibility"))
+        check_companion_action.triggered.connect(self._on_check_companion_planting)
+        menu.addAction(check_companion_action)
+
     def _setup_help_menu(self, menu: QMenu) -> None:
         """Set up the Help menu actions."""
         # Keyboard Shortcuts
@@ -1728,8 +1736,13 @@ class GardenPlannerApp(QMainWindow):
         """Refresh companion planting highlight rings and permanent warning badges."""
         import math
 
+        try:
+            scene_items = self.canvas_scene.items()
+        except RuntimeError:
+            return  # Scene already deleted during shutdown
+
         # Clear existing highlights and warnings
-        for item in self.canvas_scene.items():
+        for item in scene_items:
             if hasattr(item, 'set_companion_highlight'):
                 item.set_companion_highlight(None)
             if hasattr(item, 'set_antagonist_warning'):
@@ -2209,6 +2222,42 @@ class GardenPlannerApp(QMainWindow):
 
         dialog = CustomPlantsDialog(self)
         dialog.exec()
+
+    def _on_check_companion_planting(self) -> None:
+        """Run whole-plan companion planting analysis and show report."""
+        from open_garden_planner.ui.dialogs.companion_check_dialog import (
+            CompanionCheckDialog,
+            analyse_plan,
+        )
+
+        lang = self._current_lang()
+        beneficial, antagonistic = analyse_plan(
+            scene=self.canvas_scene,
+            service=self._companion_service,
+            radius_cm=self._companion_radius_cm,
+            species_name_fn=self._companion_species_name,
+            is_plant_fn=self._is_canvas_plant,
+            lang=lang,
+        )
+
+        dialog = CompanionCheckDialog(
+            beneficial=beneficial,
+            antagonistic=antagonistic,
+            service=self._companion_service,
+            scene=self.canvas_scene,
+            lang=lang,
+            parent=self,
+        )
+        dialog.exec()
+
+    @staticmethod
+    def _current_lang() -> str:
+        """Return the current app language code."""
+        try:
+            from open_garden_planner.app.settings import get_settings
+            return get_settings().language
+        except Exception:
+            return "en"
 
     def _on_preferences(self) -> None:
         """Handle Preferences action."""
