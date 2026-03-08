@@ -603,6 +603,12 @@ class ProjectManager(QObject):
             if item:
                 scene.addItem(item)
 
+        # Apply layer visibility/opacity/lock/z-order to all items now that they exist
+        if hasattr(scene, "_update_items_visibility"):
+            scene._update_items_visibility()
+        if hasattr(scene, "_update_items_z_order"):
+            scene._update_items_z_order()
+
         # Load constraints if present
         if data.constraints and hasattr(scene, "constraint_graph"):
             from open_garden_planner.core.constraints import ConstraintGraph
