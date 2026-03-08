@@ -28,6 +28,8 @@ _CALENDAR_FIELDS = (
     "seed_depth_cm",
     "prick_out_after_days",
     "harden_off_days",
+    "family",
+    "nutrient_demand",
 )
 
 

@@ -1158,6 +1158,10 @@ This will remove it from your custom library. Plants already placed in projects 
             <translation>Companion Planting</translation>
         </message>
         <message>
+            <source>Crop Rotation</source>
+            <translation>Crop Rotation</translation>
+        </message>
+        <message>
             <location filename="..\..\app\application.py" line="714" />
             <source>Auto-saved</source>
             <translation>Auto-saved</translation>
@@ -4181,6 +4185,128 @@ to assign species data.</translation>
         <message>
             <source>Click to select on canvas</source>
             <translation>Click to select on canvas</translation>
+        </message>
+    </context>
+    <context>
+        <name>CropRotationPanel</name>
+        <message>
+            <source>No bed selected</source>
+            <translation>No bed selected</translation>
+        </message>
+        <message>
+            <source>Planting History</source>
+            <translation>Planting History</translation>
+        </message>
+        <message>
+            <source>Add Planting Record...</source>
+            <translation>Add Planting Record...</translation>
+        </message>
+        <message>
+            <source>Good Rotation</source>
+            <translation>Good Rotation</translation>
+        </message>
+        <message>
+            <source>Suboptimal Rotation</source>
+            <translation>Suboptimal Rotation</translation>
+        </message>
+        <message>
+            <source>Rotation Violation</source>
+            <translation>Rotation Violation</translation>
+        </message>
+        <message>
+            <source>No History</source>
+            <translation>No History</translation>
+        </message>
+        <message>
+            <source>Unnamed Bed</source>
+            <translation>Unnamed Bed</translation>
+        </message>
+        <message>
+            <source>Next: %1</source>
+            <translation>Next: %1</translation>
+        </message>
+        <message>
+            <source>Avoid: %1</source>
+            <translation>Avoid: %1</translation>
+        </message>
+        <message>
+            <source>(no records yet)</source>
+            <translation>(no records yet)</translation>
+        </message>
+    </context>
+    <context>
+        <name>AddPlantingRecordDialog</name>
+        <message>
+            <source>Add Planting Record</source>
+            <translation>Add Planting Record</translation>
+        </message>
+        <message>
+            <source>Year:</source>
+            <translation>Year:</translation>
+        </message>
+        <message>
+            <source>Season:</source>
+            <translation>Season:</translation>
+        </message>
+        <message>
+            <source>Spring</source>
+            <translation>Spring</translation>
+        </message>
+        <message>
+            <source>Summer</source>
+            <translation>Summer</translation>
+        </message>
+        <message>
+            <source>Fall</source>
+            <translation>Fall</translation>
+        </message>
+        <message>
+            <source>Winter</source>
+            <translation>Winter</translation>
+        </message>
+        <message>
+            <source>Species:</source>
+            <translation>Species:</translation>
+        </message>
+        <message>
+            <source>Common Name:</source>
+            <translation>Common Name:</translation>
+        </message>
+        <message>
+            <source>Family:</source>
+            <translation>Family:</translation>
+        </message>
+        <message>
+            <source>Nutrient Demand:</source>
+            <translation>Nutrient Demand:</translation>
+        </message>
+        <message>
+            <source>Heavy Feeder</source>
+            <translation>Heavy Feeder</translation>
+        </message>
+        <message>
+            <source>Medium Feeder</source>
+            <translation>Medium Feeder</translation>
+        </message>
+        <message>
+            <source>Light Feeder</source>
+            <translation>Light Feeder</translation>
+        </message>
+        <message>
+            <source>Green Manure / N-Fixer</source>
+            <translation>Green Manure / N-Fixer</translation>
+        </message>
+        <message>
+            <source>e.g. Solanum lycopersicum</source>
+            <translation>e.g. Solanum lycopersicum</translation>
+        </message>
+        <message>
+            <source>e.g. Tomato</source>
+            <translation>e.g. Tomato</translation>
+        </message>
+        <message>
+            <source>e.g. Solanaceae</source>
+            <translation>e.g. Solanaceae</translation>
         </message>
     </context>
 </TS>

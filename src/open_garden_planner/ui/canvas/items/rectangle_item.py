@@ -240,6 +240,23 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         # Fall back to standard rectangle painting
         super().paint(painter, option, widget)
 
+        # Draw crop rotation status indicator (colored inner border on beds)
+        if self._rotation_status is not None:
+            _rotation_colors = {
+                "good": QColor(46, 125, 50, 160),       # Green
+                "suboptimal": QColor(245, 127, 23, 160),  # Amber
+                "violation": QColor(198, 40, 40, 160),    # Red
+            }
+            indicator_color = _rotation_colors.get(self._rotation_status)
+            if indicator_color is not None:
+                rect = self.rect()
+                indicator_pen = QPen(indicator_color)
+                indicator_pen.setWidthF(4.0)
+                painter.setPen(indicator_pen)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                gap = 2.0
+                painter.drawRect(rect.adjusted(gap, gap, -gap, -gap))
+
     def itemChange(
         self,
         change: QGraphicsItem.GraphicsItemChange,

@@ -201,6 +201,23 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             painter.restore()
         super().paint(painter, option, widget)
 
+        # Draw crop rotation status indicator (colored inner border on beds)
+        if self._rotation_status is not None:
+            from PyQt6.QtGui import QColor
+
+            _rotation_colors = {
+                "good": QColor(46, 125, 50, 160),
+                "suboptimal": QColor(245, 127, 23, 160),
+                "violation": QColor(198, 40, 40, 160),
+            }
+            indicator_color = _rotation_colors.get(self._rotation_status)
+            if indicator_color is not None:
+                indicator_pen = QPen(indicator_color)
+                indicator_pen.setWidthF(4.0)
+                painter.setPen(indicator_pen)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawPolygon(self.polygon())
+
     def itemChange(
         self,
         change: QGraphicsItem.GraphicsItemChange,

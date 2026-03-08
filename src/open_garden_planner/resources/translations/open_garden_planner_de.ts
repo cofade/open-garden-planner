@@ -1436,6 +1436,10 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <translation>Mischkultur</translation>
     </message>
     <message>
+        <source>Crop Rotation</source>
+        <translation>Fruchtfolge</translation>
+    </message>
+    <message>
         <location filename="..\..\app\application.py" line="714" />
         <source>Auto-saved</source>
         <translation>Automatisch gespeichert</translation>
@@ -4721,6 +4725,128 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
     <message>
         <source>Click to select on canvas</source>
         <translation>Klicken zum Auswählen auf der Leinwand</translation>
+    </message>
+</context>
+<context>
+<name>CropRotationPanel</name>
+    <message>
+        <source>No bed selected</source>
+        <translation>Kein Beet ausgewählt</translation>
+    </message>
+    <message>
+        <source>Planting History</source>
+        <translation>Pflanzhistorie</translation>
+    </message>
+    <message>
+        <source>Add Planting Record...</source>
+        <translation>Pflanzung hinzufügen...</translation>
+    </message>
+    <message>
+        <source>Good Rotation</source>
+        <translation>Gute Fruchtfolge</translation>
+    </message>
+    <message>
+        <source>Suboptimal Rotation</source>
+        <translation>Suboptimale Fruchtfolge</translation>
+    </message>
+    <message>
+        <source>Rotation Violation</source>
+        <translation>Fruchtfolge-Verstoß</translation>
+    </message>
+    <message>
+        <source>No History</source>
+        <translation>Keine Historie</translation>
+    </message>
+    <message>
+        <source>Unnamed Bed</source>
+        <translation>Unbenanntes Beet</translation>
+    </message>
+    <message>
+        <source>Next: %1</source>
+        <translation>Nächstes: %1</translation>
+    </message>
+    <message>
+        <source>Avoid: %1</source>
+        <translation>Vermeiden: %1</translation>
+    </message>
+    <message>
+        <source>(no records yet)</source>
+        <translation>(noch keine Einträge)</translation>
+    </message>
+</context>
+<context>
+<name>AddPlantingRecordDialog</name>
+    <message>
+        <source>Add Planting Record</source>
+        <translation>Pflanzung hinzufügen</translation>
+    </message>
+    <message>
+        <source>Year:</source>
+        <translation>Jahr:</translation>
+    </message>
+    <message>
+        <source>Season:</source>
+        <translation>Saison:</translation>
+    </message>
+    <message>
+        <source>Spring</source>
+        <translation>Frühling</translation>
+    </message>
+    <message>
+        <source>Summer</source>
+        <translation>Sommer</translation>
+    </message>
+    <message>
+        <source>Fall</source>
+        <translation>Herbst</translation>
+    </message>
+    <message>
+        <source>Winter</source>
+        <translation>Winter</translation>
+    </message>
+    <message>
+        <source>Species:</source>
+        <translation>Art:</translation>
+    </message>
+    <message>
+        <source>Common Name:</source>
+        <translation>Allgemeiner Name:</translation>
+    </message>
+    <message>
+        <source>Family:</source>
+        <translation>Familie:</translation>
+    </message>
+    <message>
+        <source>Nutrient Demand:</source>
+        <translation>Nährstoffbedarf:</translation>
+    </message>
+    <message>
+        <source>Heavy Feeder</source>
+        <translation>Starkzehrer</translation>
+    </message>
+    <message>
+        <source>Medium Feeder</source>
+        <translation>Mittelzehrer</translation>
+    </message>
+    <message>
+        <source>Light Feeder</source>
+        <translation>Schwachzehrer</translation>
+    </message>
+    <message>
+        <source>Green Manure / N-Fixer</source>
+        <translation>Gründüngung / N-Fixierer</translation>
+    </message>
+    <message>
+        <source>e.g. Solanum lycopersicum</source>
+        <translation>z.B. Solanum lycopersicum</translation>
+    </message>
+    <message>
+        <source>e.g. Tomato</source>
+        <translation>z.B. Tomate</translation>
+    </message>
+    <message>
+        <source>e.g. Solanaceae</source>
+        <translation>z.B. Solanaceae</translation>
     </message>
 </context>
 </TS>

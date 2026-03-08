@@ -19,7 +19,9 @@
       "min_germination_temp_c": 18.0,
       "seed_depth_cm": 0.6,
       "prick_out_after_days": 21,
-      "harden_off_days": 10
+      "harden_off_days": 10,
+      "family": "Solanaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Capsicum annuum",
@@ -38,7 +40,9 @@
       "min_germination_temp_c": 21.0,
       "seed_depth_cm": 0.6,
       "prick_out_after_days": 28,
-      "harden_off_days": 14
+      "harden_off_days": 14,
+      "family": "Solanaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Capsicum chinense",
@@ -57,7 +61,9 @@
       "min_germination_temp_c": 21.0,
       "seed_depth_cm": 0.6,
       "prick_out_after_days": 28,
-      "harden_off_days": 14
+      "harden_off_days": 14,
+      "family": "Solanaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Solanum melongena",
@@ -76,7 +82,9 @@
       "min_germination_temp_c": 21.0,
       "seed_depth_cm": 0.6,
       "prick_out_after_days": 28,
-      "harden_off_days": 10
+      "harden_off_days": 10,
+      "family": "Solanaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Cucumis sativus",
@@ -97,7 +105,9 @@
       "min_germination_temp_c": 21.0,
       "seed_depth_cm": 1.5,
       "prick_out_after_days": 14,
-      "harden_off_days": 7
+      "harden_off_days": 7,
+      "family": "Cucurbitaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Cucurbita pepo",
@@ -118,7 +128,9 @@
       "min_germination_temp_c": 18.0,
       "seed_depth_cm": 2.5,
       "prick_out_after_days": 14,
-      "harden_off_days": 7
+      "harden_off_days": 7,
+      "family": "Cucurbitaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Cucurbita maxima",
@@ -139,7 +151,9 @@
       "min_germination_temp_c": 18.0,
       "seed_depth_cm": 2.5,
       "prick_out_after_days": 14,
-      "harden_off_days": 7
+      "harden_off_days": 7,
+      "family": "Cucurbitaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Phaseolus vulgaris",
@@ -154,7 +168,9 @@
       "days_to_maturity_min": 50,
       "days_to_maturity_max": 65,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 4.0
+      "seed_depth_cm": 4.0,
+      "family": "Fabaceae",
+      "nutrient_demand": "fixer"
     },
     {
       "scientific_name": "Pisum sativum",
@@ -169,7 +185,9 @@
       "days_to_maturity_min": 55,
       "days_to_maturity_max": 80,
       "min_germination_temp_c": 7.0,
-      "seed_depth_cm": 3.0
+      "seed_depth_cm": 3.0,
+      "family": "Fabaceae",
+      "nutrient_demand": "fixer"
     },
     {
       "scientific_name": "Daucus carota",
@@ -184,7 +202,9 @@
       "days_to_maturity_min": 65,
       "days_to_maturity_max": 80,
       "min_germination_temp_c": 7.0,
-      "seed_depth_cm": 0.5
+      "seed_depth_cm": 0.5,
+      "family": "Apiaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Beta vulgaris",
@@ -199,7 +219,9 @@
       "days_to_maturity_min": 50,
       "days_to_maturity_max": 70,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 1.5
+      "seed_depth_cm": 1.5,
+      "family": "Amaranthaceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Raphanus sativus",
@@ -214,7 +236,9 @@
       "days_to_maturity_min": 22,
       "days_to_maturity_max": 30,
       "min_germination_temp_c": 7.0,
-      "seed_depth_cm": 1.0
+      "seed_depth_cm": 1.0,
+      "family": "Brassicaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Spinacia oleracea",
@@ -229,7 +253,9 @@
       "days_to_maturity_min": 40,
       "days_to_maturity_max": 55,
       "min_germination_temp_c": 4.0,
-      "seed_depth_cm": 1.5
+      "seed_depth_cm": 1.5,
+      "family": "Amaranthaceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Lactuca sativa",
@@ -250,7 +276,9 @@
       "min_germination_temp_c": 4.0,
       "seed_depth_cm": 0.3,
       "prick_out_after_days": 21,
-      "harden_off_days": 7
+      "harden_off_days": 7,
+      "family": "Asteraceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Brassica oleracea var. capitata",
@@ -269,7 +297,9 @@
       "min_germination_temp_c": 7.0,
       "seed_depth_cm": 0.6,
       "prick_out_after_days": 21,
-      "harden_off_days": 7
+      "harden_off_days": 7,
+      "family": "Brassicaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Brassica oleracea var. botrytis",
@@ -288,7 +318,9 @@
       "min_germination_temp_c": 10.0,
       "seed_depth_cm": 0.6,
       "prick_out_after_days": 21,
-      "harden_off_days": 7
+      "harden_off_days": 7,
+      "family": "Brassicaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Brassica oleracea var. italica",
@@ -307,7 +339,9 @@
       "min_germination_temp_c": 7.0,
       "seed_depth_cm": 0.6,
       "prick_out_after_days": 21,
-      "harden_off_days": 7
+      "harden_off_days": 7,
+      "family": "Brassicaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Brassica oleracea var. gemmifera",
@@ -326,7 +360,9 @@
       "min_germination_temp_c": 7.0,
       "seed_depth_cm": 0.6,
       "prick_out_after_days": 21,
-      "harden_off_days": 7
+      "harden_off_days": 7,
+      "family": "Brassicaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Brassica rapa subsp. pekinensis",
@@ -341,7 +377,9 @@
       "days_to_maturity_min": 50,
       "days_to_maturity_max": 80,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 0.6
+      "seed_depth_cm": 0.6,
+      "family": "Brassicaceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Allium cepa",
@@ -362,7 +400,9 @@
       "min_germination_temp_c": 10.0,
       "seed_depth_cm": 1.0,
       "prick_out_after_days": 35,
-      "harden_off_days": 7
+      "harden_off_days": 7,
+      "family": "Amaryllidaceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Allium porrum",
@@ -381,7 +421,9 @@
       "min_germination_temp_c": 10.0,
       "seed_depth_cm": 1.0,
       "prick_out_after_days": 42,
-      "harden_off_days": 7
+      "harden_off_days": 7,
+      "family": "Amaryllidaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Allium sativum",
@@ -396,7 +438,9 @@
       "days_to_maturity_min": 180,
       "days_to_maturity_max": 210,
       "min_germination_temp_c": 5.0,
-      "seed_depth_cm": 5.0
+      "seed_depth_cm": 5.0,
+      "family": "Amaryllidaceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Allium schoenoprasum",
@@ -415,7 +459,9 @@
       "days_to_maturity_min": 60,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 0.3
+      "seed_depth_cm": 0.3,
+      "family": "Amaryllidaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Solanum tuberosum",
@@ -430,7 +476,9 @@
       "days_to_maturity_min": 70,
       "days_to_maturity_max": 120,
       "min_germination_temp_c": 7.0,
-      "seed_depth_cm": 10.0
+      "seed_depth_cm": 10.0,
+      "family": "Solanaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Ipomoea batatas",
@@ -445,7 +493,9 @@
       "days_to_maturity_min": 90,
       "days_to_maturity_max": 110,
       "min_germination_temp_c": 21.0,
-      "seed_depth_cm": 5.0
+      "seed_depth_cm": 5.0,
+      "family": "Convolvulaceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Petroselinum crispum",
@@ -464,7 +514,9 @@
       "days_to_maturity_min": 70,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 0.3
+      "seed_depth_cm": 0.3,
+      "family": "Apiaceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Ocimum basilicum",
@@ -485,7 +537,9 @@
       "min_germination_temp_c": 18.0,
       "seed_depth_cm": 0.3,
       "prick_out_after_days": 21,
-      "harden_off_days": 10
+      "harden_off_days": 10,
+      "family": "Lamiaceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Coriandrum sativum",
@@ -500,7 +554,9 @@
       "days_to_maturity_min": 28,
       "days_to_maturity_max": 45,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 0.5
+      "seed_depth_cm": 0.5,
+      "family": "Apiaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Anethum graveolens",
@@ -515,7 +571,9 @@
       "days_to_maturity_min": 40,
       "days_to_maturity_max": 60,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 0.5
+      "seed_depth_cm": 0.5,
+      "family": "Apiaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Foeniculum vulgare",
@@ -532,7 +590,9 @@
       "days_to_maturity_min": 65,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 0.5
+      "seed_depth_cm": 0.5,
+      "family": "Apiaceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Mentha spicata",
@@ -549,7 +609,9 @@
       "days_to_maturity_min": 60,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 0.3
+      "seed_depth_cm": 0.3,
+      "family": "Lamiaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Thymus vulgaris",
@@ -566,7 +628,9 @@
       "days_to_maturity_min": 90,
       "days_to_maturity_max": 180,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 0.3
+      "seed_depth_cm": 0.3,
+      "family": "Lamiaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Rosmarinus officinalis",
@@ -583,7 +647,9 @@
       "days_to_maturity_min": 180,
       "days_to_maturity_max": 365,
       "min_germination_temp_c": 18.0,
-      "seed_depth_cm": 0.3
+      "seed_depth_cm": 0.3,
+      "family": "Lamiaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Salvia officinalis",
@@ -600,7 +666,9 @@
       "days_to_maturity_min": 75,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 0.6
+      "seed_depth_cm": 0.6,
+      "family": "Lamiaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Origanum vulgare",
@@ -617,7 +685,9 @@
       "days_to_maturity_min": 80,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 0.3
+      "seed_depth_cm": 0.3,
+      "family": "Lamiaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Lavandula angustifolia",
@@ -634,7 +704,9 @@
       "days_to_maturity_min": 90,
       "days_to_maturity_max": 200,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 0.3
+      "seed_depth_cm": 0.3,
+      "family": "Lamiaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Chamaemelum nobile",
@@ -649,7 +721,9 @@
       "days_to_maturity_min": 60,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 0.2
+      "seed_depth_cm": 0.2,
+      "family": "Asteraceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Valeriana officinalis",
@@ -666,7 +740,9 @@
       "days_to_maturity_min": 90,
       "days_to_maturity_max": 120,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 0.2
+      "seed_depth_cm": 0.2,
+      "family": "Caprifoliaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Echinacea purpurea",
@@ -685,7 +761,9 @@
       "days_to_maturity_min": 70,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 0.3
+      "seed_depth_cm": 0.3,
+      "family": "Asteraceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Pastinaca sativa",
@@ -700,7 +778,9 @@
       "days_to_maturity_min": 100,
       "days_to_maturity_max": 130,
       "min_germination_temp_c": 7.0,
-      "seed_depth_cm": 1.0
+      "seed_depth_cm": 1.0,
+      "family": "Apiaceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Apium graveolens",
@@ -719,7 +799,9 @@
       "min_germination_temp_c": 15.0,
       "seed_depth_cm": 0.2,
       "prick_out_after_days": 42,
-      "harden_off_days": 10
+      "harden_off_days": 10,
+      "family": "Apiaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Asparagus officinalis",
@@ -736,7 +818,9 @@
       "days_to_maturity_min": 730,
       "days_to_maturity_max": 1095,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 1.5
+      "seed_depth_cm": 1.5,
+      "family": "Asparagaceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Rheum rhabarbarum",
@@ -753,7 +837,9 @@
       "days_to_maturity_min": 365,
       "days_to_maturity_max": 730,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 2.0
+      "seed_depth_cm": 2.0,
+      "family": "Polygonaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Fragaria ananassa",
@@ -770,7 +856,9 @@
       "days_to_maturity_min": 90,
       "days_to_maturity_max": 150,
       "min_germination_temp_c": 18.0,
-      "seed_depth_cm": 0.2
+      "seed_depth_cm": 0.2,
+      "family": "Rosaceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Zea mays",
@@ -789,7 +877,9 @@
       "days_to_maturity_min": 60,
       "days_to_maturity_max": 100,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 2.5
+      "seed_depth_cm": 2.5,
+      "family": "Poaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Cichorium intybus",
@@ -804,7 +894,9 @@
       "days_to_maturity_min": 70,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 0.5
+      "seed_depth_cm": 0.5,
+      "family": "Asteraceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Cichorium endivia",
@@ -819,7 +911,9 @@
       "days_to_maturity_min": 60,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 7.0,
-      "seed_depth_cm": 0.3
+      "seed_depth_cm": 0.3,
+      "family": "Asteraceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Eruca vesicaria",
@@ -834,7 +928,9 @@
       "days_to_maturity_min": 30,
       "days_to_maturity_max": 45,
       "min_germination_temp_c": 7.0,
-      "seed_depth_cm": 0.5
+      "seed_depth_cm": 0.5,
+      "family": "Brassicaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Brassica napus",
@@ -853,7 +949,9 @@
       "days_to_maturity_min": 45,
       "days_to_maturity_max": 60,
       "min_germination_temp_c": 7.0,
-      "seed_depth_cm": 0.6
+      "seed_depth_cm": 0.6,
+      "family": "Brassicaceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Cynara scolymus",
@@ -870,7 +968,9 @@
       "days_to_maturity_min": 85,
       "days_to_maturity_max": 100,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 1.0
+      "seed_depth_cm": 1.0,
+      "family": "Asteraceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Cucumis melo",
@@ -889,7 +989,9 @@
       "days_to_maturity_min": 75,
       "days_to_maturity_max": 100,
       "min_germination_temp_c": 21.0,
-      "seed_depth_cm": 1.5
+      "seed_depth_cm": 1.5,
+      "family": "Cucurbitaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Citrullus lanatus",
@@ -908,7 +1010,9 @@
       "days_to_maturity_min": 70,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 21.0,
-      "seed_depth_cm": 2.0
+      "seed_depth_cm": 2.0,
+      "family": "Cucurbitaceae",
+      "nutrient_demand": "heavy"
     },
     {
       "scientific_name": "Phaseolus coccineus",
@@ -927,7 +1031,9 @@
       "days_to_maturity_min": 60,
       "days_to_maturity_max": 80,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 5.0
+      "seed_depth_cm": 5.0,
+      "family": "Fabaceae",
+      "nutrient_demand": "fixer"
     },
     {
       "scientific_name": "Vicia faba",
@@ -942,7 +1048,9 @@
       "days_to_maturity_min": 80,
       "days_to_maturity_max": 120,
       "min_germination_temp_c": 5.0,
-      "seed_depth_cm": 5.0
+      "seed_depth_cm": 5.0,
+      "family": "Fabaceae",
+      "nutrient_demand": "fixer"
     },
     {
       "scientific_name": "Lathyrus odoratus",
@@ -961,7 +1069,9 @@
       "days_to_maturity_min": 70,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 2.5
+      "seed_depth_cm": 2.5,
+      "family": "Fabaceae",
+      "nutrient_demand": "fixer"
     },
     {
       "scientific_name": "Helianthus annuus",
@@ -980,7 +1090,9 @@
       "days_to_maturity_min": 60,
       "days_to_maturity_max": 100,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 2.5
+      "seed_depth_cm": 2.5,
+      "family": "Asteraceae",
+      "nutrient_demand": "medium"
     },
     {
       "scientific_name": "Tropaeolum majus",
@@ -995,7 +1107,9 @@
       "days_to_maturity_min": 50,
       "days_to_maturity_max": 60,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 2.0
+      "seed_depth_cm": 2.0,
+      "family": "Tropaeolaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Tagetes erecta",
@@ -1016,7 +1130,9 @@
       "min_germination_temp_c": 18.0,
       "seed_depth_cm": 0.5,
       "prick_out_after_days": 14,
-      "harden_off_days": 7
+      "harden_off_days": 7,
+      "family": "Asteraceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Borago officinalis",
@@ -1031,7 +1147,9 @@
       "days_to_maturity_min": 50,
       "days_to_maturity_max": 70,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 1.0
+      "seed_depth_cm": 1.0,
+      "family": "Boraginaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Melissa officinalis",
@@ -1050,7 +1168,9 @@
       "days_to_maturity_min": 70,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 0.3
+      "seed_depth_cm": 0.3,
+      "family": "Lamiaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Hyssopus officinalis",
@@ -1067,7 +1187,9 @@
       "days_to_maturity_min": 90,
       "days_to_maturity_max": 120,
       "min_germination_temp_c": 15.0,
-      "seed_depth_cm": 0.3
+      "seed_depth_cm": 0.3,
+      "family": "Lamiaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Linum usitatissimum",
@@ -1082,7 +1204,9 @@
       "days_to_maturity_min": 75,
       "days_to_maturity_max": 90,
       "min_germination_temp_c": 7.0,
-      "seed_depth_cm": 0.5
+      "seed_depth_cm": 0.5,
+      "family": "Linaceae",
+      "nutrient_demand": "light"
     },
     {
       "scientific_name": "Calendula officinalis",
@@ -1099,7 +1223,9 @@
       "days_to_maturity_min": 45,
       "days_to_maturity_max": 60,
       "min_germination_temp_c": 10.0,
-      "seed_depth_cm": 0.5
+      "seed_depth_cm": 0.5,
+      "family": "Asteraceae",
+      "nutrient_demand": "light"
     }
   ]
 }
