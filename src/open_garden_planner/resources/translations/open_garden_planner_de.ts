@@ -1353,6 +1353,14 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <translation>Ihre eigenen Pflanzenarten anzeigen, bearbeiten und löschen</translation>
     </message>
     <message>
+        <source>Check &amp;Companion Planting...</source>
+        <translation>&amp;Begleitpflanzung prüfen...</translation>
+    </message>
+    <message>
+        <source>Analyse the whole plan for companion planting compatibility</source>
+        <translation>Den gesamten Plan auf Begleitpflanzungs-Kompatibilität analysieren</translation>
+    </message>
+    <message>
         <location filename="..\..\app\application.py" line="474" />
         <source>&amp;Keyboard Shortcuts</source>
         <translation>&amp;Tastenkürzel</translation>
@@ -4631,6 +4639,53 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
     <message>
         <source>Not linked to any canvas plants</source>
         <translation>Mit keiner Pflanze auf der Leinwand verknüpft</translation>
+    </message>
+</context>
+<context>
+<name>CompanionCheckDialog</name>
+    <message>
+        <source>Companion Planting Report</source>
+        <translation>Begleitpflanzungs-Bericht</translation>
+    </message>
+    <message>
+        <source>Compatibility Score: %1</source>
+        <translation>Kompatibilitätswert: %1</translation>
+    </message>
+    <message>
+        <source>{good} beneficial · {bad} antagonistic pairings</source>
+        <translation>{good} förderliche · {bad} antagonistische Kombinationen</translation>
+    </message>
+    <message>
+        <source>Conflicts</source>
+        <translation>Konflikte</translation>
+    </message>
+    <message>
+        <source>Beneficial Pairings</source>
+        <translation>Förderliche Kombinationen</translation>
+    </message>
+    <message>
+        <source>No companion planting relationships found among nearby plants.</source>
+        <translation>Keine Begleitpflanzungs-Beziehungen unter benachbarten Pflanzen gefunden.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Schließen</translation>
+    </message>
+    <message>
+        <source>Plant A</source>
+        <translation>Pflanze A</translation>
+    </message>
+    <message>
+        <source>Plant B</source>
+        <translation>Pflanze B</translation>
+    </message>
+    <message>
+        <source>Distance</source>
+        <translation>Abstand</translation>
+    </message>
+    <message>
+        <source>Reason</source>
+        <translation>Grund</translation>
     </message>
 </context>
 <context>

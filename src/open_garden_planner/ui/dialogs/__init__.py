@@ -1,6 +1,7 @@
 """Dialog windows for user interactions."""
 
 from open_garden_planner.ui.dialogs.calibration_dialog import CalibrationDialog
+from open_garden_planner.ui.dialogs.companion_check_dialog import CompanionCheckDialog
 from open_garden_planner.ui.dialogs.custom_plants_dialog import CustomPlantsDialog
 from open_garden_planner.ui.dialogs.grid_array_dialog import GridArrayDialog
 from open_garden_planner.ui.dialogs.linear_array_dialog import LinearArrayDialog
@@ -14,6 +15,7 @@ from open_garden_planner.ui.dialogs.welcome_dialog import WelcomeDialog
 
 __all__ = [
     "CalibrationDialog",
+    "CompanionCheckDialog",
     "CustomPlantsDialog",
     "GardenPrintManager",
     "GridArrayDialog",

@@ -1075,6 +1075,14 @@ This will remove it from your custom library. Plants already placed in projects 
             <translation>View, edit, and delete your custom plant species</translation>
         </message>
         <message>
+            <source>Check &amp;Companion Planting...</source>
+            <translation>Check &amp;Companion Planting...</translation>
+        </message>
+        <message>
+            <source>Analyse the whole plan for companion planting compatibility</source>
+            <translation>Analyse the whole plan for companion planting compatibility</translation>
+        </message>
+        <message>
             <location filename="..\..\app\application.py" line="474" />
             <source>&amp;Keyboard Shortcuts</source>
             <translation>&amp;Keyboard Shortcuts</translation>
@@ -4091,6 +4099,53 @@ to assign species data.</translation>
         <message>
             <source>Not linked to any canvas plants</source>
             <translation>Not linked to any canvas plants</translation>
+        </message>
+    </context>
+    <context>
+        <name>CompanionCheckDialog</name>
+        <message>
+            <source>Companion Planting Report</source>
+            <translation>Companion Planting Report</translation>
+        </message>
+        <message>
+            <source>Compatibility Score: %1</source>
+            <translation>Compatibility Score: %1</translation>
+        </message>
+        <message>
+            <source>{good} beneficial · {bad} antagonistic pairings</source>
+            <translation>{good} beneficial · {bad} antagonistic pairings</translation>
+        </message>
+        <message>
+            <source>Conflicts</source>
+            <translation>Conflicts</translation>
+        </message>
+        <message>
+            <source>Beneficial Pairings</source>
+            <translation>Beneficial Pairings</translation>
+        </message>
+        <message>
+            <source>No companion planting relationships found among nearby plants.</source>
+            <translation>No companion planting relationships found among nearby plants.</translation>
+        </message>
+        <message>
+            <source>Close</source>
+            <translation>Close</translation>
+        </message>
+        <message>
+            <source>Plant A</source>
+            <translation>Plant A</translation>
+        </message>
+        <message>
+            <source>Plant B</source>
+            <translation>Plant B</translation>
+        </message>
+        <message>
+            <source>Distance</source>
+            <translation>Distance</translation>
+        </message>
+        <message>
+            <source>Reason</source>
+            <translation>Reason</translation>
         </message>
     </context>
     <context>
