@@ -8,12 +8,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, Qt
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -40,13 +41,36 @@ _STATUS_ICONS = {
     RotationStatus.UNKNOWN: "\u2753",     # Question mark
 }
 
-# Nutrient demand display labels
-_DEMAND_LABELS = {
-    "heavy": "Heavy Feeder",
-    "medium": "Medium Feeder",
-    "light": "Light Feeder",
-    "fixer": "Green Manure / N-Fixer",
-}
+# Keys for demand / season — translated at display time via _tr()
+_DEMAND_KEYS = ("heavy", "medium", "light", "fixer")
+_SEASON_KEYS = ("spring", "summer", "fall", "winter")
+
+
+def _tr(source: str) -> str:
+    """Translate a string in the CropRotationPanel context at display time."""
+    return QCoreApplication.translate("CropRotationPanel", source)
+
+
+def _demand_label(key: str) -> str:
+    """Return the translated demand label for a nutrient-demand key."""
+    labels = {
+        "heavy": QT_TR_NOOP("Heavy Feeder"),
+        "medium": QT_TR_NOOP("Medium Feeder"),
+        "light": QT_TR_NOOP("Light Feeder"),
+        "fixer": QT_TR_NOOP("Green Manure / N-Fixer"),
+    }
+    return _tr(labels.get(key, key))
+
+
+def _season_label(key: str) -> str:
+    """Return the translated season label."""
+    labels = {
+        "spring": QT_TR_NOOP("Spring"),
+        "summer": QT_TR_NOOP("Summer"),
+        "fall": QT_TR_NOOP("Fall"),
+        "winter": QT_TR_NOOP("Winter"),
+    }
+    return _tr(labels.get(key, key))
 
 
 class CropRotationPanel(QWidget):
@@ -91,6 +115,8 @@ class CropRotationPanel(QWidget):
             self._avoid_label.setText("")
             self._suggest_label.setText("")
             self._add_record_btn.setEnabled(False)
+            self._edit_record_btn.setEnabled(False)
+            self._delete_record_btn.setEnabled(False)
             return
 
         self._add_record_btn.setEnabled(True)
@@ -141,14 +167,30 @@ class CropRotationPanel(QWidget):
         self._history_list.setAlternatingRowColors(True)
         layout.addWidget(self._history_list)
 
-        # Add record button
+        # Buttons: add / edit / delete
         btn_layout = QHBoxLayout()
         self._add_record_btn = QPushButton(self.tr("Add Planting Record..."))
         self._add_record_btn.setEnabled(False)
         self._add_record_btn.clicked.connect(self._on_add_record)
         btn_layout.addWidget(self._add_record_btn)
+
+        self._edit_record_btn = QPushButton(self.tr("Edit"))
+        self._edit_record_btn.setEnabled(False)
+        self._edit_record_btn.setFixedWidth(50)
+        self._edit_record_btn.clicked.connect(self._on_edit_record)
+        btn_layout.addWidget(self._edit_record_btn)
+
+        self._delete_record_btn = QPushButton(self.tr("Delete"))
+        self._delete_record_btn.setEnabled(False)
+        self._delete_record_btn.setFixedWidth(50)
+        self._delete_record_btn.clicked.connect(self._on_delete_record)
+        btn_layout.addWidget(self._delete_record_btn)
+
         btn_layout.addStretch()
         layout.addLayout(btn_layout)
+
+        # Enable edit/delete when a history entry is selected
+        self._history_list.currentItemChanged.connect(self._on_history_selection_changed)
 
     def _display_recommendation(
         self, rec: RotationRecommendation, item: object
@@ -171,13 +213,13 @@ class CropRotationPanel(QWidget):
             f"font-weight: bold; color: {color}; font-size: 12px;"
         )
 
-        # Recommendation reason
-        self._recommendation_label.setText(rec.reason)
+        # Recommendation reason (translate known service strings)
+        self._recommendation_label.setText(self._translate_reason(rec.reason))
 
         # Suggested demand
-        demand_label = _DEMAND_LABELS.get(rec.suggested_demand, rec.suggested_demand)
+        demand_text = _demand_label(rec.suggested_demand)
         self._suggest_label.setText(
-            self.tr("Next: %1").replace("%1", demand_label)
+            self.tr("Next: %1").replace("%1", demand_text)
         )
 
         # Families to avoid
@@ -192,11 +234,10 @@ class CropRotationPanel(QWidget):
         # History list
         self._history_list.clear()
         for record in rec.last_records:
-            demand_short = _DEMAND_LABELS.get(
-                record.nutrient_demand, record.nutrient_demand
-            )
+            demand_short = _demand_label(record.nutrient_demand)
+            season_text = _season_label(record.season)
             text = (
-                f"{record.year} {record.season}: "
+                f"{record.year} {season_text}: "
                 f"{record.common_name or record.species_name}"
             )
             if record.family:
@@ -205,7 +246,10 @@ class CropRotationPanel(QWidget):
                 text += f" \u2014 {demand_short}"
 
             entry = QListWidgetItem(text)
-            entry.setFlags(Qt.ItemFlag.ItemIsEnabled)
+            entry.setFlags(
+                Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
+            )
+            entry.setData(Qt.ItemDataRole.UserRole, record)
             self._history_list.addItem(entry)
 
         if self._history_list.count() == 0:
@@ -213,6 +257,16 @@ class CropRotationPanel(QWidget):
             placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
             placeholder.setForeground(self.palette().placeholderText())
             self._history_list.addItem(placeholder)
+
+    def _on_history_selection_changed(self) -> None:
+        """Enable/disable edit and delete buttons based on selection."""
+        current = self._history_list.currentItem()
+        has_record = (
+            current is not None
+            and current.data(Qt.ItemDataRole.UserRole) is not None
+        )
+        self._edit_record_btn.setEnabled(has_record)
+        self._delete_record_btn.setEnabled(has_record)
 
     def _on_add_record(self) -> None:
         """Open a dialog to add a planting record for the current bed."""
@@ -229,8 +283,101 @@ class CropRotationPanel(QWidget):
             if record is not None:
                 self._service.history.add_record(record)
                 self._save_history()
-                # Refresh panel
                 self.update_for_bed(self._cached_item, self._current_area_id)
+
+    def _on_edit_record(self) -> None:
+        """Edit the selected planting record."""
+        current = self._history_list.currentItem()
+        if current is None:
+            return
+        old_record = current.data(Qt.ItemDataRole.UserRole)
+        if old_record is None:
+            return
+
+        from open_garden_planner.ui.dialogs.add_planting_record_dialog import (
+            AddPlantingRecordDialog,
+        )
+
+        dialog = AddPlantingRecordDialog(
+            self._current_area_id or "", parent=self, record=old_record
+        )
+        if dialog.exec():
+            new_record = dialog.get_record()
+            if new_record is not None:
+                self._service.history.remove_record(old_record)
+                self._service.history.add_record(new_record)
+                self._save_history()
+                self.update_for_bed(self._cached_item, self._current_area_id)
+
+    def _on_delete_record(self) -> None:
+        """Delete the selected planting record after confirmation."""
+        current = self._history_list.currentItem()
+        if current is None:
+            return
+        record = current.data(Qt.ItemDataRole.UserRole)
+        if record is None:
+            return
+
+        reply = QMessageBox.question(
+            self,
+            self.tr("Delete Record"),
+            self.tr("Delete this planting record?"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._service.history.remove_record(record)
+            self._save_history()
+            self.update_for_bed(self._cached_item, self._current_area_id)
+
+    def _translate_reason(self, reason: str) -> str:
+        """Translate known English reason strings from the service."""
+        # Exact-match translations for known service reason strings
+        known = {
+            "No planting history \u2014 any crop is suitable.":
+                self.tr("No planting history \u2014 any crop is suitable."),
+            "Only one season recorded \u2014 rotation looks fine.":
+                self.tr("Only one season recorded \u2014 rotation looks fine."),
+            "Good rotation \u2014 diverse families and balanced demands.":
+                self.tr("Good rotation \u2014 diverse families and balanced demands."),
+        }
+        if reason in known:
+            return known[reason]
+
+        # Pattern-based translations for dynamic strings
+        import re
+
+        # "After 'X' feeder, expected 'Y' but got 'Z'."
+        m = re.match(
+            r"After '(\w+)' feeder, expected '(\w+)' but got '(\w+)'\.", reason
+        )
+        if m:
+            return self.tr(
+                "After '%1' feeder, expected '%2' but got '%3'."
+            ).replace("%1", _demand_label(m.group(1))).replace(
+                "%2", _demand_label(m.group(2))
+            ).replace("%3", _demand_label(m.group(3)))
+
+        # "X planted in consecutive seasons — rotate to a different family."
+        m = re.match(
+            r"(.+?) planted in consecutive seasons", reason
+        )
+        if m:
+            return self.tr(
+                "%1 planted in consecutive seasons \u2014 rotate to a different family."
+            ).replace("%1", m.group(1))
+
+        # "X appears multiple times in the last N years."
+        m = re.match(
+            r"(.+?) appears multiple times in the last (\d+) years\.", reason
+        )
+        if m:
+            return self.tr(
+                "%1 appears multiple times in the last %2 years."
+            ).replace("%1", m.group(1)).replace("%2", m.group(2))
+
+        # Fallback: return untranslated
+        return reason
 
     def _save_history(self) -> None:
         """Persist the rotation history to the project file."""

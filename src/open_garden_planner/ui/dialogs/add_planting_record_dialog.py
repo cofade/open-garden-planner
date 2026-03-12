@@ -34,12 +34,16 @@ class AddPlantingRecordDialog(QDialog):
         self,
         area_id: str,
         parent: QWidget | None = None,
+        record: PlantingRecord | None = None,
     ) -> None:
         super().__init__(parent)
         self._area_id = area_id
-        self.setWindowTitle(self.tr("Add Planting Record"))
+        title = self.tr("Edit Planting Record") if record else self.tr("Add Planting Record")
+        self.setWindowTitle(title)
         self.setMinimumWidth(360)
         self._setup_ui()
+        if record is not None:
+            self._prefill(record)
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -103,6 +107,23 @@ class AddPlantingRecordDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _prefill(self, record: PlantingRecord) -> None:
+        """Pre-fill the form fields from an existing record (edit mode)."""
+        self._year_spin.setValue(record.year)
+        # Set season combo by data value
+        for i in range(self._season_combo.count()):
+            if self._season_combo.itemData(i) == record.season:
+                self._season_combo.setCurrentIndex(i)
+                break
+        self._species_edit.setText(record.species_name)
+        self._common_name_edit.setText(record.common_name)
+        self._family_edit.setText(record.family)
+        # Set demand combo by data value
+        for i in range(self._demand_combo.count()):
+            if self._demand_combo.itemData(i) == record.nutrient_demand:
+                self._demand_combo.setCurrentIndex(i)
+                break
 
     def get_record(self) -> PlantingRecord | None:
         """Build a PlantingRecord from the dialog fields.

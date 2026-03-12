@@ -795,8 +795,9 @@ class GardenPlannerApp(QMainWindow):
         self.properties_panel = PropertiesPanel(
             command_manager=self.canvas_view.command_manager
         )
-        # Connect object type change to update plant details panel
+        # Connect object type change to update plant details and crop rotation panels
         self.properties_panel.object_type_changed.connect(self._update_plant_database_panel)
+        self.properties_panel.object_type_changed.connect(self._update_crop_rotation_panel)
         props_panel = CollapsiblePanel(self.tr("Properties"), self.properties_panel, expanded=True)
         sidebar_layout.addWidget(props_panel)
 
@@ -877,7 +878,7 @@ class GardenPlannerApp(QMainWindow):
 
         # 8. Crop Rotation Panel (collapsible, US-10.6) — only shown for bed selection
         self.crop_rotation_panel = CropRotationPanel(self._crop_rotation_service)
-        self.crop_rotation_panel.set_project_manager(self.project_manager)
+        self.crop_rotation_panel.set_project_manager(self._project_manager)
         self.crop_rotation_collapsible = CollapsiblePanel(
             self.tr("Crop Rotation"), self.crop_rotation_panel, expanded=True
         )
@@ -1144,11 +1145,16 @@ class GardenPlannerApp(QMainWindow):
 
     @staticmethod
     def _is_bed_item(item: object) -> bool:
-        """Check if a canvas item is a bed/area (garden bed or raised bed)."""
+        """Check if a canvas item is a bed/area suitable for crop rotation."""
         from open_garden_planner.core.object_types import ObjectType
 
         ot = getattr(item, "object_type", None)
-        return ot in (ObjectType.GARDEN_BED, ObjectType.RAISED_BED)
+        return ot in (
+            ObjectType.GARDEN_BED,
+            ObjectType.RAISED_BED,
+            ObjectType.GREENHOUSE,
+            ObjectType.COLD_FRAME,
+        )
 
     def _on_companion_highlight_species(self, species: str) -> None:
         """Select canvas plants matching *species* when user clicks a companion entry.
