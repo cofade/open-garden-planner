@@ -1158,6 +1158,10 @@ This will remove it from your custom library. Plants already placed in projects 
             <translation>Companion Planting</translation>
         </message>
         <message>
+            <source>Crop Rotation</source>
+            <translation>Crop Rotation</translation>
+        </message>
+        <message>
             <location filename="..\..\app\application.py" line="714" />
             <source>Auto-saved</source>
             <translation>Auto-saved</translation>
@@ -4181,6 +4185,339 @@ to assign species data.</translation>
         <message>
             <source>Click to select on canvas</source>
             <translation>Click to select on canvas</translation>
+        </message>
+    </context>
+    <context>
+        <name>ObjectType</name>
+        <message>
+            <source>Rectangle</source>
+            <translation>Rectangle</translation>
+        </message>
+        <message>
+            <source>Polygon</source>
+            <translation>Polygon</translation>
+        </message>
+        <message>
+            <source>Circle</source>
+            <translation>Circle</translation>
+        </message>
+        <message>
+            <source>House</source>
+            <translation>House</translation>
+        </message>
+        <message>
+            <source>Garage/Shed</source>
+            <translation>Garage/Shed</translation>
+        </message>
+        <message>
+            <source>Terrace/Patio</source>
+            <translation>Terrace/Patio</translation>
+        </message>
+        <message>
+            <source>Driveway</source>
+            <translation>Driveway</translation>
+        </message>
+        <message>
+            <source>Pond/Pool</source>
+            <translation>Pond/Pool</translation>
+        </message>
+        <message>
+            <source>Greenhouse</source>
+            <translation>Greenhouse</translation>
+        </message>
+        <message>
+            <source>Garden Bed</source>
+            <translation>Garden Bed</translation>
+        </message>
+        <message>
+            <source>Lawn</source>
+            <translation>Lawn</translation>
+        </message>
+        <message>
+            <source>Fence</source>
+            <translation>Fence</translation>
+        </message>
+        <message>
+            <source>Wall</source>
+            <translation>Wall</translation>
+        </message>
+        <message>
+            <source>Path</source>
+            <translation>Path</translation>
+        </message>
+        <message>
+            <source>Tree</source>
+            <translation>Tree</translation>
+        </message>
+        <message>
+            <source>Shrub</source>
+            <translation>Shrub</translation>
+        </message>
+        <message>
+            <source>Perennial</source>
+            <translation>Perennial</translation>
+        </message>
+        <message>
+            <source>Hedge Section</source>
+            <translation>Hedge Section</translation>
+        </message>
+        <message>
+            <source>Table (Rectangular)</source>
+            <translation>Table (Rectangular)</translation>
+        </message>
+        <message>
+            <source>Chair</source>
+            <translation>Chair</translation>
+        </message>
+        <message>
+            <source>Bench</source>
+            <translation>Bench</translation>
+        </message>
+        <message>
+            <source>Lounger</source>
+            <translation>Lounger</translation>
+        </message>
+        <message>
+            <source>Table (Round)</source>
+            <translation>Table (Round)</translation>
+        </message>
+        <message>
+            <source>Parasol</source>
+            <translation>Parasol</translation>
+        </message>
+        <message>
+            <source>BBQ/Grill</source>
+            <translation>BBQ/Grill</translation>
+        </message>
+        <message>
+            <source>Fire Pit</source>
+            <translation>Fire Pit</translation>
+        </message>
+        <message>
+            <source>Planter/Pot</source>
+            <translation>Planter/Pot</translation>
+        </message>
+        <message>
+            <source>Raised Bed</source>
+            <translation>Raised Bed</translation>
+        </message>
+        <message>
+            <source>Compost Bin</source>
+            <translation>Compost Bin</translation>
+        </message>
+        <message>
+            <source>Cold Frame</source>
+            <translation>Cold Frame</translation>
+        </message>
+        <message>
+            <source>Tool Shed</source>
+            <translation>Tool Shed</translation>
+        </message>
+        <message>
+            <source>Rain Barrel</source>
+            <translation>Rain Barrel</translation>
+        </message>
+        <message>
+            <source>Water Tap</source>
+            <translation>Water Tap</translation>
+        </message>
+    </context>
+    <context>
+        <name>CropRotationPanel</name>
+        <message>
+            <source>No bed selected</source>
+            <translation>No bed selected</translation>
+        </message>
+        <message>
+            <source>Planting History</source>
+            <translation>Planting History</translation>
+        </message>
+        <message>
+            <source>Add Planting Record...</source>
+            <translation>Add Planting Record...</translation>
+        </message>
+        <message>
+            <source>Good Rotation</source>
+            <translation>Good Rotation</translation>
+        </message>
+        <message>
+            <source>Suboptimal Rotation</source>
+            <translation>Suboptimal Rotation</translation>
+        </message>
+        <message>
+            <source>Rotation Violation</source>
+            <translation>Rotation Violation</translation>
+        </message>
+        <message>
+            <source>No History</source>
+            <translation>No History</translation>
+        </message>
+        <message>
+            <source>Unnamed Bed</source>
+            <translation>Unnamed Bed</translation>
+        </message>
+        <message>
+            <source>Next: %1</source>
+            <translation>Next: %1</translation>
+        </message>
+        <message>
+            <source>Avoid: %1</source>
+            <translation>Avoid: %1</translation>
+        </message>
+        <message>
+            <source>(no records yet)</source>
+            <translation>(no records yet)</translation>
+        </message>
+        <message>
+            <source>Heavy Feeder</source>
+            <translation>Heavy Feeder</translation>
+        </message>
+        <message>
+            <source>Medium Feeder</source>
+            <translation>Medium Feeder</translation>
+        </message>
+        <message>
+            <source>Light Feeder</source>
+            <translation>Light Feeder</translation>
+        </message>
+        <message>
+            <source>Green Manure / N-Fixer</source>
+            <translation>Green Manure / N-Fixer</translation>
+        </message>
+        <message>
+            <source>Spring</source>
+            <translation>Spring</translation>
+        </message>
+        <message>
+            <source>Summer</source>
+            <translation>Summer</translation>
+        </message>
+        <message>
+            <source>Fall</source>
+            <translation>Fall</translation>
+        </message>
+        <message>
+            <source>Winter</source>
+            <translation>Winter</translation>
+        </message>
+        <message>
+            <source>Edit</source>
+            <translation>Edit</translation>
+        </message>
+        <message>
+            <source>Delete</source>
+            <translation>Delete</translation>
+        </message>
+        <message>
+            <source>Delete Record</source>
+            <translation>Delete Record</translation>
+        </message>
+        <message>
+            <source>Delete this planting record?</source>
+            <translation>Delete this planting record?</translation>
+        </message>
+        <message>
+            <source>No planting history — any crop is suitable.</source>
+            <translation>No planting history — any crop is suitable.</translation>
+        </message>
+        <message>
+            <source>Only one season recorded — rotation looks fine.</source>
+            <translation>Only one season recorded — rotation looks fine.</translation>
+        </message>
+        <message>
+            <source>Good rotation — diverse families and balanced demands.</source>
+            <translation>Good rotation — diverse families and balanced demands.</translation>
+        </message>
+        <message>
+            <source>After '%1' feeder, expected '%2' but got '%3'.</source>
+            <translation>After '%1' feeder, expected '%2' but got '%3'.</translation>
+        </message>
+        <message>
+            <source>%1 planted in consecutive seasons — rotate to a different family.</source>
+            <translation>%1 planted in consecutive seasons — rotate to a different family.</translation>
+        </message>
+        <message>
+            <source>%1 appears multiple times in the last %2 years.</source>
+            <translation>%1 appears multiple times in the last %2 years.</translation>
+        </message>
+    </context>
+    <context>
+        <name>AddPlantingRecordDialog</name>
+        <message>
+            <source>Add Planting Record</source>
+            <translation>Add Planting Record</translation>
+        </message>
+        <message>
+            <source>Edit Planting Record</source>
+            <translation>Edit Planting Record</translation>
+        </message>
+        <message>
+            <source>Year:</source>
+            <translation>Year:</translation>
+        </message>
+        <message>
+            <source>Season:</source>
+            <translation>Season:</translation>
+        </message>
+        <message>
+            <source>Spring</source>
+            <translation>Spring</translation>
+        </message>
+        <message>
+            <source>Summer</source>
+            <translation>Summer</translation>
+        </message>
+        <message>
+            <source>Fall</source>
+            <translation>Fall</translation>
+        </message>
+        <message>
+            <source>Winter</source>
+            <translation>Winter</translation>
+        </message>
+        <message>
+            <source>Species:</source>
+            <translation>Species:</translation>
+        </message>
+        <message>
+            <source>Common Name:</source>
+            <translation>Common Name:</translation>
+        </message>
+        <message>
+            <source>Family:</source>
+            <translation>Family:</translation>
+        </message>
+        <message>
+            <source>Nutrient Demand:</source>
+            <translation>Nutrient Demand:</translation>
+        </message>
+        <message>
+            <source>Heavy Feeder</source>
+            <translation>Heavy Feeder</translation>
+        </message>
+        <message>
+            <source>Medium Feeder</source>
+            <translation>Medium Feeder</translation>
+        </message>
+        <message>
+            <source>Light Feeder</source>
+            <translation>Light Feeder</translation>
+        </message>
+        <message>
+            <source>Green Manure / N-Fixer</source>
+            <translation>Green Manure / N-Fixer</translation>
+        </message>
+        <message>
+            <source>e.g. Solanum lycopersicum</source>
+            <translation>e.g. Solanum lycopersicum</translation>
+        </message>
+        <message>
+            <source>e.g. Tomato</source>
+            <translation>e.g. Tomato</translation>
+        </message>
+        <message>
+            <source>e.g. Solanaceae</source>
+            <translation>e.g. Solanaceae</translation>
         </message>
     </context>
 </TS>

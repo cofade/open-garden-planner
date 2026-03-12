@@ -151,6 +151,9 @@ class PlantSpeciesData:
     prick_out_after_days: int | None = None   # days after indoor sow start
     harden_off_days: int | None = None        # duration of hardening-off period
 
+    # Crop rotation (US-10.5)
+    nutrient_demand: str | None = None  # "heavy" | "medium" | "light" | "fixer"
+
     # Extensible metadata for API-specific fields
     raw_data: dict[str, Any] = field(default_factory=dict)
 
@@ -208,6 +211,7 @@ class PlantSpeciesData:
             "seed_depth_cm": self.seed_depth_cm,
             "prick_out_after_days": self.prick_out_after_days,
             "harden_off_days": self.harden_off_days,
+            "nutrient_demand": self.nutrient_demand,
             "raw_data": self.raw_data,
         }
 
@@ -277,6 +281,7 @@ class PlantSpeciesData:
             seed_depth_cm=data.get("seed_depth_cm"),
             prick_out_after_days=data.get("prick_out_after_days"),
             harden_off_days=data.get("harden_off_days"),
+            nutrient_demand=data.get("nutrient_demand"),
             raw_data=data.get("raw_data", {}),
         )
 

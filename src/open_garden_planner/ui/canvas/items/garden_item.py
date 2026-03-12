@@ -70,6 +70,7 @@ class GardenItemMixin:
         self._shadows_enabled = True  # Painted shadow on/off
         self._companion_highlight: str | None = None  # "beneficial" | "antagonistic" | None
         self._antagonist_warning: bool = False  # Permanent badge: antagonist nearby
+        self._rotation_status: str | None = None  # "good" | "suboptimal" | "violation" | None
         self._label_item: QGraphicsSimpleTextItem | None = None
         self._edit_label_item: QGraphicsTextItem | None = None
 
@@ -218,6 +219,25 @@ class GardenItemMixin:
         if self._companion_highlight == highlight_type:
             return
         self._companion_highlight = highlight_type
+        if hasattr(self, 'prepareGeometryChange'):
+            self.prepareGeometryChange()  # type: ignore[attr-defined]
+        if hasattr(self, 'update'):
+            self.update()  # type: ignore[attr-defined]
+
+    @property
+    def rotation_status(self) -> str | None:
+        """Current crop rotation status: 'good', 'suboptimal', 'violation', or None."""
+        return self._rotation_status
+
+    def set_rotation_status(self, status: str | None) -> None:
+        """Set or clear the crop rotation status indicator for this item.
+
+        Args:
+            status: "good", "suboptimal", "violation", or None to clear.
+        """
+        if self._rotation_status == status:
+            return
+        self._rotation_status = status
         if hasattr(self, 'prepareGeometryChange'):
             self.prepareGeometryChange()  # type: ignore[attr-defined]
         if hasattr(self, 'update'):

@@ -39,6 +39,8 @@ class ProjectData:
     # US-9.5: per-species user overrides for propagation step dates
     # shape: {species_key: {step_id: {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}}}
     propagation_overrides: dict[str, Any] = field(default_factory=dict)
+    # US-10.5: crop rotation history
+    crop_rotation: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -66,6 +68,8 @@ class ProjectData:
             data["seed_inventory"] = self.seed_inventory
         if self.propagation_overrides:
             data["propagation_overrides"] = self.propagation_overrides
+        if self.crop_rotation:
+            data["crop_rotation"] = self.crop_rotation
         return data
 
     @classmethod
@@ -83,6 +87,7 @@ class ProjectData:
             task_completions=data.get("task_completions", []),
             seed_inventory=data.get("seed_inventory", []),
             propagation_overrides=data.get("propagation_overrides", {}),
+            crop_rotation=data.get("crop_rotation", {}),
         )
 
 
@@ -100,6 +105,7 @@ class ProjectManager(QObject):
     task_completions_changed = pyqtSignal(object)  # set[str]
     seed_inventory_changed = pyqtSignal(object)    # list[SeedPacket]
     propagation_overrides_changed = pyqtSignal(object)  # dict
+    crop_rotation_changed = pyqtSignal(object)  # dict
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -110,6 +116,7 @@ class ProjectManager(QObject):
         self._task_completions: set[str] = set()
         self._seed_inventory: list[dict[str, Any]] = []
         self._propagation_overrides: dict[str, Any] = {}
+        self._crop_rotation: dict[str, Any] = {}
 
     @property
     def current_file(self) -> Path | None:
@@ -195,6 +202,17 @@ class ProjectManager(QObject):
         self.propagation_overrides_changed.emit(self._propagation_overrides)
         self.mark_dirty()
 
+    @property
+    def crop_rotation(self) -> dict[str, Any]:
+        """Crop rotation history for the current project."""
+        return dict(self._crop_rotation)
+
+    def set_crop_rotation(self, rotation_data: dict[str, Any]) -> None:
+        """Replace the crop rotation history and mark project dirty."""
+        self._crop_rotation = dict(rotation_data)
+        self.crop_rotation_changed.emit(self._crop_rotation)
+        self.mark_dirty()
+
     def set_location(self, location: dict[str, Any] | None) -> None:
         """Set the garden location and mark project as dirty.
 
@@ -226,12 +244,14 @@ class ProjectManager(QObject):
         self._task_completions = set()
         self._seed_inventory = []
         self._propagation_overrides = {}
+        self._crop_rotation = {}
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
         self.task_completions_changed.emit(set())
         self.seed_inventory_changed.emit([])
         self.propagation_overrides_changed.emit({})
+        self.crop_rotation_changed.emit({})
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -245,6 +265,7 @@ class ProjectManager(QObject):
         data.task_completions = sorted(self._task_completions)
         data.seed_inventory = list(self._seed_inventory)
         data.propagation_overrides = dict(self._propagation_overrides)
+        data.crop_rotation = dict(self._crop_rotation)
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -282,6 +303,9 @@ class ProjectManager(QObject):
         # Restore propagation overrides
         self._propagation_overrides = dict(data.propagation_overrides)
         self.propagation_overrides_changed.emit(self._propagation_overrides)
+        # Restore crop rotation history
+        self._crop_rotation = dict(data.crop_rotation)
+        self.crop_rotation_changed.emit(self._crop_rotation)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)

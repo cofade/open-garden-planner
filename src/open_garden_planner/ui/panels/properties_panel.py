@@ -1,7 +1,7 @@
 """Properties panel for live editing of selected objects."""
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QPen
+from PyQt6.QtGui import QColor, QIcon, QPen
 from PyQt6.QtWidgets import (
     QCheckBox,
     QColorDialog,
@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.commands import ChangePropertyCommand, CommandManager
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+from open_garden_planner.core.furniture_renderer import get_furniture_svg_path
 from open_garden_planner.core.object_types import (
     ObjectType,
     PathFenceStyle,
@@ -261,18 +262,52 @@ class PropertiesPanel(QWidget):
         self._updating = False
 
     def _populate_object_type_combo(self, combo: QComboBox, item: QGraphicsItem) -> None:
-        """Populate object type combobox.
+        """Populate object type combobox with all valid types for the item shape.
 
         Args:
             combo: Combobox to populate
             item: Item to get valid types for
         """
-        # Determine valid types based on item type
-        if isinstance(item, (RectangleItem, PolygonItem, CircleItem)):
+        if isinstance(item, RectangleItem):
             valid_types = [
-                ObjectType.GENERIC_RECTANGLE if isinstance(item, RectangleItem) else (
-                    ObjectType.GENERIC_CIRCLE if isinstance(item, CircleItem) else ObjectType.GENERIC_POLYGON
-                ),
+                ObjectType.GENERIC_RECTANGLE,
+                # Structures
+                ObjectType.HOUSE,
+                ObjectType.GARAGE_SHED,
+                ObjectType.GREENHOUSE,
+                ObjectType.GARDEN_BED,
+                # Furniture (rectangle-based)
+                ObjectType.HEDGE_SECTION,
+                ObjectType.TABLE_RECTANGULAR,
+                ObjectType.BENCH,
+                ObjectType.LOUNGER,
+                ObjectType.BBQ_GRILL,
+                # Infrastructure (rectangle-based)
+                ObjectType.RAISED_BED,
+                ObjectType.COMPOST_BIN,
+                ObjectType.COLD_FRAME,
+                ObjectType.TOOL_SHED,
+            ]
+        elif isinstance(item, CircleItem):
+            valid_types = [
+                ObjectType.GENERIC_CIRCLE,
+                # Plants
+                ObjectType.TREE,
+                ObjectType.SHRUB,
+                ObjectType.PERENNIAL,
+                # Furniture (circle-based)
+                ObjectType.TABLE_ROUND,
+                ObjectType.CHAIR,
+                ObjectType.PARASOL,
+                ObjectType.FIRE_PIT,
+                ObjectType.PLANTER_POT,
+                # Infrastructure (circle-based)
+                ObjectType.RAIN_BARREL,
+                ObjectType.WATER_TAP,
+            ]
+        elif isinstance(item, PolygonItem):
+            valid_types = [
+                ObjectType.GENERIC_POLYGON,
                 ObjectType.HOUSE,
                 ObjectType.GARAGE_SHED,
                 ObjectType.TERRACE_PATIO,
@@ -280,9 +315,7 @@ class PropertiesPanel(QWidget):
                 ObjectType.POND_POOL,
                 ObjectType.GREENHOUSE,
                 ObjectType.GARDEN_BED,
-                ObjectType.TREE,
-                ObjectType.SHRUB,
-                ObjectType.PERENNIAL,
+                ObjectType.LAWN,
             ]
         elif isinstance(item, PolylineItem):
             valid_types = [
@@ -293,14 +326,59 @@ class PropertiesPanel(QWidget):
         else:
             valid_types = list(ObjectType)
 
-        # Populate combo
+        # Populate combo with translated names and SVG icons
+        combo.setIconSize(combo.iconSize())  # default icon size
         current_idx = 0
         for idx, obj_type in enumerate(valid_types):
-            combo.addItem(get_translated_display_name(obj_type), obj_type)
+            icon = self._get_object_type_icon(obj_type)
+            if icon is not None:
+                combo.addItem(icon, get_translated_display_name(obj_type), obj_type)
+            else:
+                combo.addItem(get_translated_display_name(obj_type), obj_type)
             if hasattr(item, 'object_type') and item.object_type == obj_type:
                 current_idx = idx
 
         combo.setCurrentIndex(current_idx)
+
+    @staticmethod
+    def _get_object_type_icon(obj_type: ObjectType) -> QIcon | None:
+        """Return a small QIcon from the SVG file for the given object type, or None."""
+        from pathlib import Path
+
+        # 1. Furniture / infrastructure SVGs (objects/ directory)
+        svg_path = get_furniture_svg_path(obj_type)
+        if svg_path is not None and svg_path.exists():
+            return QIcon(str(svg_path))
+
+        res = Path(__file__).parent.parent.parent / "resources"
+
+        # 2. Tool icons (icons/tools/ directory)
+        _TOOL_ICON_FILES: dict[ObjectType, str] = {
+            ObjectType.GENERIC_RECTANGLE: "rectangle",
+            ObjectType.GENERIC_POLYGON: "polygon",
+            ObjectType.GENERIC_CIRCLE: "circle",
+            ObjectType.HOUSE: "house",
+            ObjectType.GARAGE_SHED: "shed",
+            ObjectType.GREENHOUSE: "greenhouse",
+            ObjectType.TERRACE_PATIO: "terrace",
+            ObjectType.DRIVEWAY: "driveway",
+            ObjectType.POND_POOL: "pond",
+            ObjectType.GARDEN_BED: "garden_bed",
+            ObjectType.LAWN: "lawn",
+            ObjectType.FENCE: "fence",
+            ObjectType.WALL: "wall",
+            ObjectType.PATH: "path",
+            ObjectType.TREE: "tree",
+            ObjectType.SHRUB: "shrub",
+            ObjectType.PERENNIAL: "flower",
+        }
+        tool_name = _TOOL_ICON_FILES.get(obj_type)
+        if tool_name is not None:
+            tool_path = res / "icons" / "tools" / f"{tool_name}.svg"
+            if tool_path.exists():
+                return QIcon(str(tool_path))
+
+        return None
 
     def _populate_layer_combo(self, combo: QComboBox, item: QGraphicsItem) -> None:
         """Populate layer combobox.

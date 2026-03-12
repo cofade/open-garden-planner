@@ -38,6 +38,7 @@ from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.panels import (
     CompanionPanel,
     ConstraintsPanel,
+    CropRotationPanel,
     GalleryPanel,
     LayersPanel,
     PlantDatabasePanel,
@@ -74,6 +75,7 @@ class GardenPlannerApp(QMainWindow):
         self._project_manager.project_changed.connect(self._update_window_title)
         self._project_manager.dirty_changed.connect(self._update_window_title)
         self._project_manager.location_changed.connect(self._on_location_changed)
+        self._project_manager.crop_rotation_changed.connect(self._on_crop_rotation_changed)
 
         # Set up UI components
         self._setup_menu_bar()
@@ -637,6 +639,11 @@ class GardenPlannerApp(QMainWindow):
         self._companion_warnings_enabled = True
         self._companion_radius_cm = 200.0  # 2 m default
 
+        # ── Crop rotation service (US-10.6) ──────────────────────────────────
+        from open_garden_planner.services.crop_rotation_service import CropRotationService
+
+        self._crop_rotation_service = CropRotationService()
+
         # Create sidebar panels
         self._setup_sidebar()
 
@@ -671,6 +678,7 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_scene.selectionChanged.connect(self._update_properties_panel)
         self.canvas_scene.selectionChanged.connect(self._update_plant_database_panel)
         self.canvas_scene.selectionChanged.connect(self._update_companion_panel)
+        self.canvas_scene.selectionChanged.connect(self._update_crop_rotation_panel)
 
         # ── Companion planting highlights (US-10.2) ──────────────────────────
         # Debounce timer for drag updates (avoids re-querying on every pixel move)
@@ -787,8 +795,9 @@ class GardenPlannerApp(QMainWindow):
         self.properties_panel = PropertiesPanel(
             command_manager=self.canvas_view.command_manager
         )
-        # Connect object type change to update plant details panel
+        # Connect object type change to update plant details and crop rotation panels
         self.properties_panel.object_type_changed.connect(self._update_plant_database_panel)
+        self.properties_panel.object_type_changed.connect(self._update_crop_rotation_panel)
         props_panel = CollapsiblePanel(self.tr("Properties"), self.properties_panel, expanded=True)
         sidebar_layout.addWidget(props_panel)
 
@@ -866,6 +875,15 @@ class GardenPlannerApp(QMainWindow):
         )
         self.companion_collapsible.setVisible(False)  # Hidden by default
         sidebar_layout.addWidget(self.companion_collapsible)
+
+        # 8. Crop Rotation Panel (collapsible, US-10.6) — only shown for bed selection
+        self.crop_rotation_panel = CropRotationPanel(self._crop_rotation_service)
+        self.crop_rotation_panel.set_project_manager(self._project_manager)
+        self.crop_rotation_collapsible = CollapsiblePanel(
+            self.tr("Crop Rotation"), self.crop_rotation_panel, expanded=True
+        )
+        self.crop_rotation_collapsible.setVisible(False)  # Hidden by default
+        sidebar_layout.addWidget(self.crop_rotation_collapsible)
 
         # Add stretch at the bottom to push panels to top
         sidebar_layout.addStretch()
@@ -1105,6 +1123,38 @@ class GardenPlannerApp(QMainWindow):
             self.companion_panel.update_for_plant(plant_item)
         except RuntimeError:
             pass
+
+    def _update_crop_rotation_panel(self) -> None:
+        """Update the crop rotation panel for the current bed selection (US-10.6)."""
+        try:
+            selected_items = self.canvas_scene.selectedItems()
+            show_panel = False
+            bed_item = None
+            area_id = None
+            if len(selected_items) == 1:
+                item = selected_items[0]
+                if self._is_bed_item(item):
+                    bed_item = item
+                    area_id = str(item.item_id)
+                    show_panel = True
+
+            self.crop_rotation_collapsible.setVisible(show_panel)
+            self.crop_rotation_panel.update_for_bed(bed_item, area_id)
+        except RuntimeError:
+            pass
+
+    @staticmethod
+    def _is_bed_item(item: object) -> bool:
+        """Check if a canvas item is a bed/area suitable for crop rotation."""
+        from open_garden_planner.core.object_types import ObjectType
+
+        ot = getattr(item, "object_type", None)
+        return ot in (
+            ObjectType.GARDEN_BED,
+            ObjectType.RAISED_BED,
+            ObjectType.GREENHOUSE,
+            ObjectType.COLD_FRAME,
+        )
 
     def _on_companion_highlight_species(self, species: str) -> None:
         """Select canvas plants matching *species* when user clicks a companion entry.
@@ -2564,6 +2614,32 @@ class GardenPlannerApp(QMainWindow):
             if fall:
                 tip += f"\n{self.tr('First fall frost')}: {fall}"
             self.location_label.setToolTip(tip)
+
+    def _on_crop_rotation_changed(self, rotation_data: object) -> None:
+        """Update the crop rotation service when project data changes (US-10.6)."""
+        from open_garden_planner.models.crop_rotation import CropRotationHistory
+
+        if rotation_data and isinstance(rotation_data, dict):
+            self._crop_rotation_service.history = CropRotationHistory.from_dict(
+                rotation_data
+            )
+        else:
+            self._crop_rotation_service.history = CropRotationHistory()
+        self._update_bed_rotation_indicators()
+
+    def _update_bed_rotation_indicators(self) -> None:
+        """Update visual rotation status indicators on all bed items (US-10.6)."""
+        from open_garden_planner.services.crop_rotation_service import RotationStatus
+
+        try:
+            for item in self.canvas_scene.items():
+                if self._is_bed_item(item):
+                    area_id = str(item.item_id)
+                    rec = self._crop_rotation_service.get_recommendation(area_id)
+                    status_str = rec.status.value if rec.status != RotationStatus.UNKNOWN else None
+                    item.set_rotation_status(status_str)
+        except RuntimeError:
+            pass
 
     def _on_tab_changed(self, index: int) -> None:
         """Refresh tab views when they become active."""

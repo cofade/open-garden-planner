@@ -1436,6 +1436,10 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <translation>Mischkultur</translation>
     </message>
     <message>
+        <source>Crop Rotation</source>
+        <translation>Fruchtfolge</translation>
+    </message>
+    <message>
         <location filename="..\..\app\application.py" line="714" />
         <source>Auto-saved</source>
         <translation>Automatisch gespeichert</translation>
@@ -2308,136 +2312,136 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
 <context>
     <name>ObjectType</name>
     <message>
-        <source>Generic Rectangle</source>
-        <translation type="vanished">Generisches Rechteck</translation>
+        <source>Rectangle</source>
+        <translation>Rechteck</translation>
     </message>
     <message>
-        <source>Generic Polygon</source>
-        <translation type="vanished">Generisches Polygon</translation>
+        <source>Polygon</source>
+        <translation>Polygon</translation>
     </message>
     <message>
-        <source>Generic Circle</source>
-        <translation type="vanished">Generischer Kreis</translation>
+        <source>Circle</source>
+        <translation>Kreis</translation>
     </message>
     <message>
         <source>House</source>
-        <translation type="vanished">Haus</translation>
+        <translation>Haus</translation>
     </message>
     <message>
         <source>Garage/Shed</source>
-        <translation type="vanished">Garage/Schuppen</translation>
+        <translation>Garage/Schuppen</translation>
     </message>
     <message>
         <source>Terrace/Patio</source>
-        <translation type="vanished">Terrasse/Patio</translation>
+        <translation>Terrasse/Patio</translation>
     </message>
     <message>
         <source>Driveway</source>
-        <translation type="vanished">Einfahrt</translation>
+        <translation>Einfahrt</translation>
     </message>
     <message>
         <source>Pond/Pool</source>
-        <translation type="vanished">Teich/Pool</translation>
+        <translation>Teich/Pool</translation>
     </message>
     <message>
         <source>Greenhouse</source>
-        <translation type="vanished">Gewächshaus</translation>
+        <translation>Gewächshaus</translation>
     </message>
     <message>
         <source>Garden Bed</source>
-        <translation type="vanished">Gartenbeet</translation>
+        <translation>Gartenbeet</translation>
     </message>
     <message>
         <source>Lawn</source>
-        <translation type="vanished">Rasen</translation>
+        <translation>Rasen</translation>
     </message>
     <message>
         <source>Fence</source>
-        <translation type="vanished">Zaun</translation>
+        <translation>Zaun</translation>
     </message>
     <message>
         <source>Wall</source>
-        <translation type="vanished">Mauer</translation>
+        <translation>Mauer</translation>
     </message>
     <message>
         <source>Path</source>
-        <translation type="vanished">Weg</translation>
+        <translation>Weg</translation>
     </message>
     <message>
         <source>Tree</source>
-        <translation type="vanished">Baum</translation>
+        <translation>Baum</translation>
     </message>
     <message>
         <source>Shrub</source>
-        <translation type="vanished">Strauch</translation>
+        <translation>Strauch</translation>
     </message>
     <message>
         <source>Perennial</source>
-        <translation type="vanished">Staude</translation>
+        <translation>Staude</translation>
     </message>
     <message>
         <source>Hedge Section</source>
-        <translation type="vanished">Heckenabschnitt</translation>
+        <translation>Heckenabschnitt</translation>
     </message>
     <message>
         <source>Table (Rectangular)</source>
-        <translation type="vanished">Tisch (rechteckig)</translation>
+        <translation>Tisch (rechteckig)</translation>
     </message>
     <message>
         <source>Chair</source>
-        <translation type="vanished">Stuhl</translation>
+        <translation>Stuhl</translation>
     </message>
     <message>
         <source>Bench</source>
-        <translation type="vanished">Bank</translation>
+        <translation>Bank</translation>
     </message>
     <message>
         <source>Lounger</source>
-        <translation type="vanished">Liege</translation>
+        <translation>Liege</translation>
     </message>
     <message>
         <source>Table (Round)</source>
-        <translation type="vanished">Tisch (rund)</translation>
+        <translation>Tisch (rund)</translation>
     </message>
     <message>
         <source>Parasol</source>
-        <translation type="vanished">Sonnenschirm</translation>
+        <translation>Sonnenschirm</translation>
     </message>
     <message>
         <source>BBQ/Grill</source>
-        <translation type="vanished">Grill</translation>
+        <translation>Grill</translation>
     </message>
     <message>
         <source>Fire Pit</source>
-        <translation type="vanished">Feuerstelle</translation>
+        <translation>Feuerstelle</translation>
     </message>
     <message>
         <source>Planter/Pot</source>
-        <translation type="vanished">Pflanzgefäß/Topf</translation>
+        <translation>Pflanzgefäß/Topf</translation>
     </message>
     <message>
         <source>Raised Bed</source>
-        <translation type="vanished">Hochbeet</translation>
+        <translation>Hochbeet</translation>
     </message>
     <message>
         <source>Compost Bin</source>
-        <translation type="vanished">Komposter</translation>
+        <translation>Komposter</translation>
     </message>
     <message>
         <source>Cold Frame</source>
-        <translation type="vanished">Frühbeet</translation>
+        <translation>Frühbeet</translation>
     </message>
     <message>
         <source>Tool Shed</source>
-        <translation type="vanished">Geräteschuppen</translation>
+        <translation>Geräteschuppen</translation>
     </message>
     <message>
         <source>Rain Barrel</source>
-        <translation type="vanished">Regentonne</translation>
+        <translation>Regentonne</translation>
     </message>
     <message>
         <source>Water Tap</source>
-        <translation type="vanished">Wasserhahn</translation>
+        <translation>Wasserhahn</translation>
     </message>
 </context><context>
     <name>PlantDatabasePanel</name>
@@ -4721,6 +4725,204 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
     <message>
         <source>Click to select on canvas</source>
         <translation>Klicken zum Auswählen auf der Leinwand</translation>
+    </message>
+</context>
+<context>
+<name>CropRotationPanel</name>
+    <message>
+        <source>No bed selected</source>
+        <translation>Kein Beet ausgewählt</translation>
+    </message>
+    <message>
+        <source>Planting History</source>
+        <translation>Pflanzhistorie</translation>
+    </message>
+    <message>
+        <source>Add Planting Record...</source>
+        <translation>Pflanzung hinzufügen...</translation>
+    </message>
+    <message>
+        <source>Good Rotation</source>
+        <translation>Gute Fruchtfolge</translation>
+    </message>
+    <message>
+        <source>Suboptimal Rotation</source>
+        <translation>Suboptimale Fruchtfolge</translation>
+    </message>
+    <message>
+        <source>Rotation Violation</source>
+        <translation>Fruchtfolge-Verstoß</translation>
+    </message>
+    <message>
+        <source>No History</source>
+        <translation>Keine Historie</translation>
+    </message>
+    <message>
+        <source>Unnamed Bed</source>
+        <translation>Unbenanntes Beet</translation>
+    </message>
+    <message>
+        <source>Next: %1</source>
+        <translation>Nächstes: %1</translation>
+    </message>
+    <message>
+        <source>Avoid: %1</source>
+        <translation>Vermeiden: %1</translation>
+    </message>
+    <message>
+        <source>(no records yet)</source>
+        <translation>(noch keine Einträge)</translation>
+    </message>
+    <message>
+        <source>Heavy Feeder</source>
+        <translation>Starkzehrer</translation>
+    </message>
+    <message>
+        <source>Medium Feeder</source>
+        <translation>Mittelzehrer</translation>
+    </message>
+    <message>
+        <source>Light Feeder</source>
+        <translation>Schwachzehrer</translation>
+    </message>
+    <message>
+        <source>Green Manure / N-Fixer</source>
+        <translation>Gründüngung / N-Fixierer</translation>
+    </message>
+    <message>
+        <source>Spring</source>
+        <translation>Frühling</translation>
+    </message>
+    <message>
+        <source>Summer</source>
+        <translation>Sommer</translation>
+    </message>
+    <message>
+        <source>Fall</source>
+        <translation>Herbst</translation>
+    </message>
+    <message>
+        <source>Winter</source>
+        <translation>Winter</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>Bearbeiten</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Löschen</translation>
+    </message>
+    <message>
+        <source>Delete Record</source>
+        <translation>Eintrag löschen</translation>
+    </message>
+    <message>
+        <source>Delete this planting record?</source>
+        <translation>Diesen Pflanzeintrag löschen?</translation>
+    </message>
+    <message>
+        <source>No planting history — any crop is suitable.</source>
+        <translation>Keine Pflanzhistorie — jede Kultur ist geeignet.</translation>
+    </message>
+    <message>
+        <source>Only one season recorded — rotation looks fine.</source>
+        <translation>Nur eine Saison erfasst — Fruchtfolge sieht gut aus.</translation>
+    </message>
+    <message>
+        <source>Good rotation — diverse families and balanced demands.</source>
+        <translation>Gute Fruchtfolge — vielfältige Familien und ausgeglichener Nährstoffbedarf.</translation>
+    </message>
+    <message>
+        <source>After '%1' feeder, expected '%2' but got '%3'.</source>
+        <translation>Nach '%1' wurde '%2' erwartet, aber '%3' erhalten.</translation>
+    </message>
+    <message>
+        <source>%1 planted in consecutive seasons — rotate to a different family.</source>
+        <translation>%1 in aufeinanderfolgenden Saisons gepflanzt — wechsle zu einer anderen Familie.</translation>
+    </message>
+    <message>
+        <source>%1 appears multiple times in the last %2 years.</source>
+        <translation>%1 kommt in den letzten %2 Jahren mehrfach vor.</translation>
+    </message>
+</context>
+<context>
+<name>AddPlantingRecordDialog</name>
+    <message>
+        <source>Add Planting Record</source>
+        <translation>Pflanzung hinzufügen</translation>
+    </message>
+    <message>
+        <source>Edit Planting Record</source>
+        <translation>Pflanzung bearbeiten</translation>
+    </message>
+    <message>
+        <source>Year:</source>
+        <translation>Jahr:</translation>
+    </message>
+    <message>
+        <source>Season:</source>
+        <translation>Saison:</translation>
+    </message>
+    <message>
+        <source>Spring</source>
+        <translation>Frühling</translation>
+    </message>
+    <message>
+        <source>Summer</source>
+        <translation>Sommer</translation>
+    </message>
+    <message>
+        <source>Fall</source>
+        <translation>Herbst</translation>
+    </message>
+    <message>
+        <source>Winter</source>
+        <translation>Winter</translation>
+    </message>
+    <message>
+        <source>Species:</source>
+        <translation>Art:</translation>
+    </message>
+    <message>
+        <source>Common Name:</source>
+        <translation>Allgemeiner Name:</translation>
+    </message>
+    <message>
+        <source>Family:</source>
+        <translation>Familie:</translation>
+    </message>
+    <message>
+        <source>Nutrient Demand:</source>
+        <translation>Nährstoffbedarf:</translation>
+    </message>
+    <message>
+        <source>Heavy Feeder</source>
+        <translation>Starkzehrer</translation>
+    </message>
+    <message>
+        <source>Medium Feeder</source>
+        <translation>Mittelzehrer</translation>
+    </message>
+    <message>
+        <source>Light Feeder</source>
+        <translation>Schwachzehrer</translation>
+    </message>
+    <message>
+        <source>Green Manure / N-Fixer</source>
+        <translation>Gründüngung / N-Fixierer</translation>
+    </message>
+    <message>
+        <source>e.g. Solanum lycopersicum</source>
+        <translation>z.B. Solanum lycopersicum</translation>
+    </message>
+    <message>
+        <source>e.g. Tomato</source>
+        <translation>z.B. Tomate</translation>
+    </message>
+    <message>
+        <source>e.g. Solanaceae</source>
+        <translation>z.B. Solanaceae</translation>
     </message>
 </context>
 </TS>
