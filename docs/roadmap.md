@@ -1084,8 +1084,8 @@ Icon designs per tool:
 | US-10.2 | Companion planting visual warnings | Must | ✅ v1.8.7 |
 | US-10.3 | Companion planting recommendation panel | Should | ✅ v1.8.8 |
 | US-10.4 | Whole-plan compatibility check | Should | ✅ v1.8.9 |
-| US-10.5 | Crop rotation data model | Must | |
-| US-10.6 | Crop rotation recommendations | Should | |
+| US-10.5 | Crop rotation data model | Must | ✅ v1.8.11 |
+| US-10.6 | Crop rotation recommendations | Should | ✅ v1.8.11 |
 | US-10.7 | Season management & plan duplication | Could | |
 
 ### US-10.1: Companion Planting Database
