@@ -185,18 +185,27 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 
 5. Write tests, run lint (`pytest tests/ -v && ruff check src/`)
 
-6. **WAIT for user to manually test and approve the functionality**
+6. **Build executable and verify it launches** (before every merge):
+   ```bash
+   venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
+   timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe
+   # Exit code 124 (killed by timeout) = success (app ran without crash)
+   ```
+   - This catches missing resource files, broken imports, and bundling issues
+   - If the exe crashes, fix the issue before proceeding
+
+7. **WAIT for user to manually test and approve the functionality**
    - Do NOT commit yet
    - **Provide a Manual Testing Checklist** covering all acceptance criteria from the user story
    - User will test the implementation
    - Only proceed after explicit approval
 
-7. After user approval, commit changes:
+8. After user approval, commit changes:
    - Use GitHub sub-agent (Bash subagent_type) for committing
    - Commit message format: `feat(US-X.X): Description`
    - Update progress in `CLAUDE.md` and `docs/roadmap.md` in the same commit
 
-8. Push feature branch and create PR:
+9. Push feature branch and create PR:
    - **Note:** GitHub CLI is installed at `C:\Program Files\GitHub CLI\gh.exe` (not in PATH on Windows)
    - **Use GitHub sub-agent (Bash subagent_type) to push and create PR:**
      - Push: `git push -u origin feature/US-X.X-short-description`
@@ -208,10 +217,10 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
      - Merge: `"C:\Program Files\GitHub CLI\gh.exe" pr merge <PR-NUMBER> --squash --delete-branch --admin`
      - Note: Use `--admin` flag to bypass branch protection rules
 
-9. After PR is merged, switch back to master:
-   - `git checkout master && git pull origin master`
+10. After PR is merged, switch back to master:
+    - `git checkout master && git pull origin master`
 
-10. **Sync version** — CI/CD creates a new git tag on merge; pull it and update both version files:
+11. **Sync version** — CI/CD creates a new git tag on merge; pull it and update both version files:
     ```bash
     git fetch --tags
     git describe --tags --abbrev=0   # → e.g. v1.7.0
@@ -220,7 +229,7 @@ Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
     - `src/open_garden_planner/__init__.py` → `__version__ = "1.7.0"`
     - `pyproject.toml` → `version = "1.7.0"`
 
-11. After completing a US, `/clear` context
+12. After completing a US, `/clear` context
 
 **Important Reminders**:
 

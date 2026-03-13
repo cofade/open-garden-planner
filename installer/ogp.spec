@@ -50,6 +50,12 @@ for f in (RESOURCES / "translations").rglob("*"):
         rel = f.relative_to(SRC)
         datas.append((str(f), str(rel.parent)))
 
+# Data files (planting calendar, seed viability, companion planting, etc.)
+for f in (RESOURCES / "data").rglob("*"):
+    if f.is_file():
+        rel = f.relative_to(SRC)
+        datas.append((str(f), str(rel.parent)))
+
 a = Analysis(
     [str(SRC / "open_garden_planner" / "__main__.py")],
     pathex=[str(SRC)],
