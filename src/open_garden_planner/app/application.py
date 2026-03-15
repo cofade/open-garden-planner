@@ -76,6 +76,7 @@ class GardenPlannerApp(QMainWindow):
         self._project_manager.dirty_changed.connect(self._update_window_title)
         self._project_manager.location_changed.connect(self._on_location_changed)
         self._project_manager.crop_rotation_changed.connect(self._on_crop_rotation_changed)
+        self._project_manager.season_changed.connect(self._on_season_changed)
 
         # Set up UI components
         self._setup_menu_bar()
@@ -162,6 +163,14 @@ class GardenPlannerApp(QMainWindow):
         save_as_action.setStatusTip(self.tr("Save the project with a new name"))
         save_as_action.triggered.connect(self._on_save_as)
         menu.addAction(save_as_action)
+
+        menu.addSeparator()
+
+        # Manage Seasons (US-10.7)
+        seasons_action = QAction(self.tr("Manage &Seasons..."), self)
+        seasons_action.setStatusTip(self.tr("Create a new season or switch between seasons"))
+        seasons_action.triggered.connect(self._on_manage_seasons)
+        menu.addAction(seasons_action)
 
         menu.addSeparator()
 
@@ -481,6 +490,17 @@ class GardenPlannerApp(QMainWindow):
         self._companion_warnings_action.triggered.connect(self._on_toggle_companion_warnings)
         menu.addAction(self._companion_warnings_action)
 
+        # Toggle previous-season compare overlay (US-10.7)
+        self._compare_overlay_action = QAction(self.tr("Show &Previous Season Overlay"), self)
+        self._compare_overlay_action.setCheckable(True)
+        self._compare_overlay_action.setChecked(False)
+        self._compare_overlay_action.setEnabled(False)  # Enabled when overlay data is loaded
+        self._compare_overlay_action.setStatusTip(
+            self.tr("Overlay ghosted plant positions from the previous season")
+        )
+        self._compare_overlay_action.triggered.connect(self._on_toggle_compare_overlay)
+        menu.addAction(self._compare_overlay_action)
+
         menu.addSeparator()
 
         # Fullscreen Preview
@@ -616,6 +636,12 @@ class GardenPlannerApp(QMainWindow):
         self.location_label.setMinimumWidth(160)
         self.location_label.setToolTip(self.tr("Garden GPS location — use File > Set Garden Location to configure"))
         status_bar.addPermanentWidget(self.location_label)
+
+        # Season label (US-10.7)
+        self.season_label = QLabel(self.tr("Season: —"))
+        self.season_label.setMinimumWidth(100)
+        self.season_label.setToolTip(self.tr("Current season year — use File > Manage Seasons to configure"))
+        status_bar.addPermanentWidget(self.season_label)
 
         # Show ready message
         status_bar.showMessage(self.tr("Ready"))
@@ -1227,6 +1253,11 @@ class GardenPlannerApp(QMainWindow):
             self._autosave_manager.clear_autosave()
             self._autosave_manager.set_project_path(None)
 
+            # Reset compare overlay (US-10.7)
+            self.canvas_scene.clear_compare_overlay()
+            self._compare_overlay_action.setEnabled(False)
+            self._compare_overlay_action.setChecked(False)
+
             # Update status bar
             width_m = width_cm / 100.0
             height_m = height_cm / 100.0
@@ -1296,6 +1327,8 @@ class GardenPlannerApp(QMainWindow):
             self.canvas_scene.update_dimension_lines()
             self.constraints_panel.refresh()
             self.statusBar().showMessage(self.tr("Opened: {path}").format(path=file_path))
+            # Load compare overlay if previous seasons are linked (US-10.7)
+            self._load_compare_overlay_from_previous_season()
         except Exception as e:
             QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=e))
 
@@ -2626,6 +2659,115 @@ class GardenPlannerApp(QMainWindow):
         else:
             self._crop_rotation_service.history = CropRotationHistory()
         self._update_bed_rotation_indicators()
+
+    def _on_season_changed(self, year: object) -> None:
+        """Update the season label in the status bar (US-10.7)."""
+        if year is None:
+            self.season_label.setText(self.tr("Season: —"))
+            self.season_label.setToolTip(
+                self.tr("Current season year — use File > Manage Seasons to configure")
+            )
+        else:
+            self.season_label.setText(self.tr("Season: {year}").format(year=year))
+            self.season_label.setToolTip(
+                self.tr("Season {year} — use File > Manage Seasons to manage seasons").format(year=year)
+            )
+
+    def _on_manage_seasons(self) -> None:
+        """Open the Season Manager dialog (US-10.7)."""
+        from open_garden_planner.ui.dialogs.season_manager_dialog import SeasonManagerDialog
+
+        dialog = SeasonManagerDialog(self._project_manager, self)
+        if dialog.exec() != SeasonManagerDialog.DialogCode.Accepted:
+            return
+
+        action = dialog.action
+        if action == "open":
+            path = dialog.open_season_path
+            if path:
+                if not self._confirm_discard_changes():
+                    return
+                self._open_project_file(str(path))
+
+        elif action == "create":
+            path = dialog.new_season_path
+            year = dialog.new_season_year
+            keep_plants = dialog.new_season_keep_plants
+            if path is None or year is None:
+                return
+            try:
+                self._project_manager.create_new_season(
+                    self.canvas_scene, year, path, keep_plants
+                )
+            except Exception as e:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.critical(
+                    self,
+                    self.tr("Error"),
+                    self.tr("Failed to create season file:\n{error}").format(error=e),
+                )
+                return
+
+            # Ask user whether to open the new season now
+            from PyQt6.QtWidgets import QMessageBox
+            reply = QMessageBox.question(
+                self,
+                self.tr("New Season Created"),
+                self.tr(
+                    "Season {year} has been created.\n\nOpen the new season now?"
+                ).format(year=year),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                if not self._confirm_discard_changes():
+                    return
+                self._open_project_file(str(path))
+
+    def _on_toggle_compare_overlay(self, checked: bool) -> None:
+        """Show or hide the previous-season compare overlay (US-10.7)."""
+        self.canvas_scene.set_compare_overlay_visible(checked)
+
+    def _load_compare_overlay_from_previous_season(self) -> None:
+        """Load the most recent linked season as a compare overlay (US-10.7).
+
+        Called after a project is loaded if linked_seasons is non-empty.
+        """
+        linked = self._project_manager.linked_seasons
+        if not linked:
+            self._compare_overlay_action.setEnabled(False)
+            self.canvas_scene.clear_compare_overlay()
+            return
+
+        current_file = self._project_manager.current_file
+        # Use the most recent previous season (highest year that exists)
+        current_year = self._project_manager.season_year or 0
+        candidates = [s for s in linked if s.get("year", 0) < current_year]
+        if not candidates:
+            candidates = linked  # Fall back to any linked season
+
+        target = max(candidates, key=lambda s: s.get("year", 0))
+        file_str = target.get("file", "")
+        if current_file and file_str and not Path(file_str).is_absolute():
+            resolved = current_file.parent / file_str
+        else:
+            resolved = Path(file_str) if file_str else None
+
+        if resolved is None or not resolved.exists():
+            self._compare_overlay_action.setEnabled(False)
+            self.canvas_scene.clear_compare_overlay()
+            return
+
+        try:
+            objects = self._project_manager.load_season_objects(resolved)
+            self.canvas_scene.set_compare_overlay(objects)
+            self._compare_overlay_action.setEnabled(True)
+            self._compare_overlay_action.setToolTip(
+                self.tr("Overlay {year} season plants (ghosted)").format(
+                    year=target.get("year", "?")
+                )
+            )
+        except Exception:
+            self._compare_overlay_action.setEnabled(False)
 
     def _update_bed_rotation_indicators(self) -> None:
         """Update visual rotation status indicators on all bed items (US-10.6)."""

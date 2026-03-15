@@ -41,6 +41,10 @@ class ProjectData:
     propagation_overrides: dict[str, Any] = field(default_factory=dict)
     # US-10.5: crop rotation history
     crop_rotation: dict[str, Any] = field(default_factory=dict)
+    # US-10.7: season management
+    season_year: int | None = None
+    # List of dicts: {"year": int, "file": "relative/or/absolute/path.ogp"}
+    linked_seasons: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -70,6 +74,10 @@ class ProjectData:
             data["propagation_overrides"] = self.propagation_overrides
         if self.crop_rotation:
             data["crop_rotation"] = self.crop_rotation
+        if self.season_year is not None:
+            data["season_year"] = self.season_year
+        if self.linked_seasons:
+            data["linked_seasons"] = self.linked_seasons
         return data
 
     @classmethod
@@ -88,6 +96,8 @@ class ProjectData:
             seed_inventory=data.get("seed_inventory", []),
             propagation_overrides=data.get("propagation_overrides", {}),
             crop_rotation=data.get("crop_rotation", {}),
+            season_year=data.get("season_year"),
+            linked_seasons=data.get("linked_seasons", []),
         )
 
 
@@ -106,6 +116,7 @@ class ProjectManager(QObject):
     seed_inventory_changed = pyqtSignal(object)    # list[SeedPacket]
     propagation_overrides_changed = pyqtSignal(object)  # dict
     crop_rotation_changed = pyqtSignal(object)  # dict
+    season_changed = pyqtSignal(object)  # int year or None
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -117,6 +128,8 @@ class ProjectManager(QObject):
         self._seed_inventory: list[dict[str, Any]] = []
         self._propagation_overrides: dict[str, Any] = {}
         self._crop_rotation: dict[str, Any] = {}
+        self._season_year: int | None = None
+        self._linked_seasons: list[dict[str, Any]] = []
 
     @property
     def current_file(self) -> Path | None:
@@ -213,6 +226,24 @@ class ProjectManager(QObject):
         self.crop_rotation_changed.emit(self._crop_rotation)
         self.mark_dirty()
 
+    @property
+    def season_year(self) -> int | None:
+        """Current season year, or None if not set."""
+        return self._season_year
+
+    @property
+    def linked_seasons(self) -> list[dict[str, Any]]:
+        """Linked season files sorted by year."""
+        return list(self._linked_seasons)
+
+    def set_season(self, year: int | None, linked_seasons: list[dict[str, Any]] | None = None) -> None:
+        """Set the season year and optionally update linked seasons."""
+        self._season_year = year
+        if linked_seasons is not None:
+            self._linked_seasons = list(linked_seasons)
+        self.season_changed.emit(year)
+        self.mark_dirty()
+
     def set_location(self, location: dict[str, Any] | None) -> None:
         """Set the garden location and mark project as dirty.
 
@@ -245,6 +276,8 @@ class ProjectManager(QObject):
         self._seed_inventory = []
         self._propagation_overrides = {}
         self._crop_rotation = {}
+        self._season_year = None
+        self._linked_seasons = []
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
@@ -252,6 +285,7 @@ class ProjectManager(QObject):
         self.seed_inventory_changed.emit([])
         self.propagation_overrides_changed.emit({})
         self.crop_rotation_changed.emit({})
+        self.season_changed.emit(None)
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -266,6 +300,8 @@ class ProjectManager(QObject):
         data.seed_inventory = list(self._seed_inventory)
         data.propagation_overrides = dict(self._propagation_overrides)
         data.crop_rotation = dict(self._crop_rotation)
+        data.season_year = self._season_year
+        data.linked_seasons = list(self._linked_seasons)
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -306,6 +342,10 @@ class ProjectManager(QObject):
         # Restore crop rotation history
         self._crop_rotation = dict(data.crop_rotation)
         self.crop_rotation_changed.emit(self._crop_rotation)
+        # Restore season data
+        self._season_year = data.season_year
+        self._linked_seasons = list(data.linked_seasons)
+        self.season_changed.emit(self._season_year)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)
@@ -316,6 +356,151 @@ class ProjectManager(QObject):
 
         # Track in recent files
         get_settings().add_recent_file(str(file_path))
+
+    def create_new_season(
+        self,
+        scene: QGraphicsScene,
+        new_year: int,
+        new_file_path: Path,
+        keep_plants: bool = False,
+    ) -> None:
+        """Create a new season file from the current project.
+
+        Structural objects (beds, fences, paths, etc.) always carry over.
+        Plant objects (trees, shrubs, perennials) carry over only when keep_plants=True.
+        The current season is recorded in linked_seasons of the new file.
+
+        Args:
+            scene: Current canvas scene
+            new_year: The year for the new season
+            new_file_path: Where to write the new .ogp file
+            keep_plants: Whether to copy plant objects to the new season
+        """
+        # Serialize the current scene
+        current_data = self._serialize_scene(scene)
+        current_data.location = self._location
+        current_data.task_completions = []
+        current_data.seed_inventory = list(self._seed_inventory)
+        current_data.propagation_overrides = dict(self._propagation_overrides)
+        current_data.crop_rotation = dict(self._crop_rotation)
+
+        # Filter objects based on keep_plants flag
+        if not keep_plants:
+            current_data.objects = [
+                obj for obj in current_data.objects
+                if not self._is_removable_plant_object(obj)
+            ]
+
+        # Build linked_seasons: include all previous links + current season
+        linked = list(self._linked_seasons)
+        if self._current_file is not None and self._season_year is not None:
+            # Add current season to the list (use relative path if same dir)
+            try:
+                rel = self._current_file.relative_to(new_file_path.parent)
+                linked_file = str(rel)
+            except ValueError:
+                linked_file = str(self._current_file)
+            # Avoid duplicates
+            if not any(s.get("year") == self._season_year for s in linked):
+                linked.append({"year": self._season_year, "file": linked_file})
+        linked.sort(key=lambda s: s.get("year", 0))
+
+        current_data.season_year = new_year
+        current_data.linked_seasons = linked
+        new_file_path = new_file_path.with_suffix(".ogp")
+
+        with open(new_file_path, "w", encoding="utf-8") as f:
+            json.dump(current_data.to_dict(), f, indent=2)
+
+        # Bidirectional link: update the SOURCE season file so it also lists the new season.
+        if self._current_file is not None and self._current_file.exists():
+            try:
+                with open(self._current_file, encoding="utf-8") as f:
+                    source_raw = json.load(f)
+                source_linked: list[dict[str, Any]] = source_raw.get("linked_seasons", [])
+                # Build relative path from source file's directory to the new file
+                try:
+                    rel_new = new_file_path.relative_to(self._current_file.parent)
+                    new_file_str = str(rel_new)
+                except ValueError:
+                    new_file_str = str(new_file_path)
+                if not any(s.get("year") == new_year for s in source_linked):
+                    source_linked.append({"year": new_year, "file": new_file_str})
+                    source_linked.sort(key=lambda s: s.get("year", 0))
+                    source_raw["linked_seasons"] = source_linked
+                    with open(self._current_file, "w", encoding="utf-8") as f:
+                        json.dump(source_raw, f, indent=2)
+                    # Also update in-memory linked_seasons
+                    self._linked_seasons = source_linked
+            except Exception:
+                pass  # Don't let source-update failure break new-season creation
+
+    @staticmethod
+    def _is_plant_object(obj: dict[str, Any]) -> bool:
+        """Return True if the serialized object represents a plant item."""
+        from open_garden_planner.core.plant_renderer import is_plant_type
+
+        obj_type_name = obj.get("object_type")
+        if obj_type_name is None:
+            return False
+        try:
+            from open_garden_planner.core.object_types import ObjectType
+            obj_type = ObjectType[obj_type_name]
+        except KeyError:
+            return False
+        return is_plant_type(obj_type)
+
+    # Plant categories that represent permanent multi-year plants (trees and woody shrubs).
+    # Anything NOT in this set (vegetables, herbs, flowers, grasses, etc.) is removable.
+    _PERMANENT_PLANT_CATEGORIES = frozenset({
+        "ROUND_DECIDUOUS", "COLUMNAR_TREE", "WEEPING_TREE", "CONIFER", "FRUIT_TREE", "PALM",
+        "SPREADING_SHRUB", "COMPACT_SHRUB",
+    })
+
+    @staticmethod
+    def _is_removable_plant_object(obj: dict[str, Any]) -> bool:
+        """Return True if the object should be removed when clearing for a new season.
+
+        Only trees (all tree categories) and woody shrubs (SPREADING_SHRUB, COMPACT_SHRUB)
+        are permanent and kept. Vegetables, herbs, flowers, and other annuals are removed.
+        The plant_category saved on the object takes precedence; if absent, the default
+        category for the object_type is used.
+        """
+        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.core.plant_renderer import get_default_category, is_plant_type
+
+        obj_type_name = obj.get("object_type")
+        if obj_type_name is None:
+            return False
+        try:
+            obj_type = ObjectType[obj_type_name]
+        except KeyError:
+            return False
+        if not is_plant_type(obj_type):
+            return False
+
+        # Resolve the effective plant category
+        cat_name = obj.get("plant_category")
+        if cat_name is None:
+            default_cat = get_default_category(obj_type)
+            cat_name = default_cat.name if default_cat else None
+
+        return cat_name not in ProjectManager._PERMANENT_PLANT_CATEGORIES
+
+    def load_season_objects(self, file_path: Path) -> list[dict[str, Any]]:
+        """Load and return the serialized objects from a season file.
+
+        Used for compare-view overlay (does not change the current project).
+
+        Args:
+            file_path: Path to the season .ogp file to read
+
+        Returns:
+            List of serialized object dicts from the season file
+        """
+        with open(file_path, encoding="utf-8") as f:
+            raw_data = json.load(f)
+        return raw_data.get("objects", [])
 
     def _sync_custom_plants(self, scene: QGraphicsScene) -> None:
         """Sync custom plants from loaded project to app library.

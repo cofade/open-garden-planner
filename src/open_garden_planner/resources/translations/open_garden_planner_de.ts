@@ -4925,4 +4925,134 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
         <translation>z.B. Solanaceae</translation>
     </message>
 </context>
+<context>
+    <name>SeasonManagerDialog</name>
+    <message>
+        <source>Season Manager</source>
+        <translation>Saisonverwaltung</translation>
+    </message>
+    <message>
+        <source>Current season: &lt;b&gt;{year}&lt;/b&gt;</source>
+        <translation>Aktuelle Saison: &lt;b&gt;{year}&lt;/b&gt;</translation>
+    </message>
+    <message>
+        <source>Current season: &lt;b&gt;Not set&lt;/b&gt;</source>
+        <translation>Aktuelle Saison: &lt;b&gt;Nicht festgelegt&lt;/b&gt;</translation>
+    </message>
+    <message>
+        <source>Linked Seasons</source>
+        <translation>Verknüpfte Saisons</translation>
+    </message>
+    <message>
+        <source>No linked seasons yet</source>
+        <translation>Noch keine verknüpften Saisons</translation>
+    </message>
+    <message>
+        <source>Open Selected Season</source>
+        <translation>Ausgewählte Saison öffnen</translation>
+    </message>
+    <message>
+        <source>Create New Season</source>
+        <translation>Neue Saison anlegen</translation>
+    </message>
+    <message>
+        <source>Season year:</source>
+        <translation>Saisonjahr:</translation>
+    </message>
+    <message>
+        <source>Annual plants from current season:</source>
+        <translation>Einjährige Pflanzen aus der aktuellen Saison:</translation>
+    </message>
+    <message>
+        <source>Clear annuals (trees and shrubs are kept)</source>
+        <translation>Einjährige entfernen (Bäume und Sträucher bleiben)</translation>
+    </message>
+    <message>
+        <source>Keep all plants (carry over — for perennials/trees)</source>
+        <translation>Alle Pflanzen behalten (für Stauden/Bäume)</translation>
+    </message>
+    <message>
+        <source>Save as New Season…</source>
+        <translation>Als neue Saison speichern …</translation>
+    </message>
+    <message>
+        <source>Save the project first before creating a new season</source>
+        <translation>Bitte speichern Sie das Projekt, bevor Sie eine neue Saison erstellen</translation>
+    </message>
+    <message>
+        <source>File Not Found</source>
+        <translation>Datei nicht gefunden</translation>
+    </message>
+    <message>
+        <source>The season file could not be found:
+{path}</source>
+        <translation>Die Saisondatei konnte nicht gefunden werden:
+{path}</translation>
+    </message>
+    <message>
+        <source>Save New Season As</source>
+        <translation>Neue Saison speichern unter</translation>
+    </message>
+    <message>
+        <source>Garden Plan (*.ogp)</source>
+        <translation>Gartenplan (*.ogp)</translation>
+    </message>
+</context>
+<context>
+    <name>GardenPlannerApp</name>
+    <message>
+        <source>Manage &amp;Seasons...</source>
+        <translation>Saisons &amp;verwalten ...</translation>
+    </message>
+    <message>
+        <source>Create a new season or switch between seasons</source>
+        <translation>Eine neue Saison erstellen oder zwischen Saisons wechseln</translation>
+    </message>
+    <message>
+        <source>Season: —</source>
+        <translation>Saison: —</translation>
+    </message>
+    <message>
+        <source>Current season year — use File &gt; Manage Seasons to configure</source>
+        <translation>Aktuelles Saisonjahr – Datei &gt; Saisons verwalten zum Konfigurieren</translation>
+    </message>
+    <message>
+        <source>Season: {year}</source>
+        <translation>Saison: {year}</translation>
+    </message>
+    <message>
+        <source>Season {year} — use File &gt; Manage Seasons to manage seasons</source>
+        <translation>Saison {year} – Datei &gt; Saisons verwalten</translation>
+    </message>
+    <message>
+        <source>Show &amp;Previous Season Overlay</source>
+        <translation>Vorherige Saison &amp;überlagern</translation>
+    </message>
+    <message>
+        <source>Overlay ghosted plant positions from the previous season</source>
+        <translation>Pflanzenstandorte der vorherigen Saison halbtransparent einblenden</translation>
+    </message>
+    <message>
+        <source>Failed to create season file:
+{error}</source>
+        <translation>Saisondatei konnte nicht erstellt werden:
+{error}</translation>
+    </message>
+    <message>
+        <source>New Season Created</source>
+        <translation>Neue Saison erstellt</translation>
+    </message>
+    <message>
+        <source>Season {year} has been created.
+
+Open the new season now?</source>
+        <translation>Saison {year} wurde erstellt.
+
+Neue Saison jetzt öffnen?</translation>
+    </message>
+    <message>
+        <source>Overlay {year} season plants (ghosted)</source>
+        <translation>Pflanzen der Saison {year} überlagern (halbtransparent)</translation>
+    </message>
+</context>
 </TS>

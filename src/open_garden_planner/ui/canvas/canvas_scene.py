@@ -6,14 +6,17 @@ The view handles the Y-flip for display.
 """
 
 from dataclasses import dataclass
+from typing import Any
 from uuid import UUID
 
 from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
+    QGraphicsEllipseItem,
     QGraphicsItem,
     QGraphicsLineItem,
     QGraphicsScene,
+    QGraphicsSimpleTextItem,
 )
 
 from open_garden_planner.models.layer import Layer, create_default_layers
@@ -108,6 +111,10 @@ class CanvasScene(QGraphicsScene):
 
         # Guide lines (persistent horizontal/vertical reference lines)
         self._guide_lines: list[GuideLine] = []
+
+        # Compare overlay: ghosted plant items from a previous season
+        self._compare_items: list[QGraphicsItem] = []
+        self._compare_overlay_visible = False
 
     def _update_scene_rect(self) -> None:
         """Update the scene rect with padding for panning."""
@@ -599,3 +606,91 @@ class CanvasScene(QGraphicsScene):
             layer.opacity = max(0.0, min(1.0, opacity))
             self._update_items_visibility()
             self.layers_changed.emit()
+
+    # ── Compare overlay (US-10.7) ─────────────────────────────────────────
+
+    @property
+    def compare_overlay_visible(self) -> bool:
+        """Whether the previous-season compare overlay is shown."""
+        return self._compare_overlay_visible
+
+    def set_compare_overlay(self, objects: list[dict[str, Any]]) -> None:
+        """Replace the compare overlay with ghosted plant items from objects.
+
+        Only circle-type objects (plants) are shown in the overlay.
+        Existing overlay items are removed first.
+
+        Args:
+            objects: List of serialized object dicts from a season file
+        """
+        self.clear_compare_overlay()
+
+        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.core.plant_renderer import is_plant_type
+
+        for obj in objects:
+            if obj.get("type") != "circle":
+                continue
+            obj_type_name = obj.get("object_type")
+            try:
+                obj_type = ObjectType[obj_type_name] if obj_type_name else None
+            except KeyError:
+                obj_type = None
+            if not is_plant_type(obj_type):
+                continue
+
+            cx = obj.get("center_x", 0.0)
+            cy = obj.get("center_y", 0.0)
+            r = obj.get("radius", 50.0)
+
+            # Draw as a ghost ellipse
+            ellipse = QGraphicsEllipseItem(cx - r, cy - r, r * 2, r * 2)
+            fill_hex = obj.get("fill_color", "#88aaccaa")
+            fill = QColor(fill_hex)
+            fill.setAlpha(80)  # ~30% opacity
+            ellipse.setBrush(QBrush(fill))
+            stroke = QColor(fill_hex)
+            stroke.setAlpha(160)
+            pen = QPen(stroke, 4.0)
+            pen.setStyle(Qt.PenStyle.DashLine)
+            ellipse.setPen(pen)
+            ellipse.setZValue(1000)  # Render on top
+            ellipse.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+            ellipse.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+            ellipse.setVisible(self._compare_overlay_visible)
+            super().addItem(ellipse)
+            self._compare_items.append(ellipse)
+
+            # Small label showing the plant name.
+            # ItemIgnoresTransformations keeps the text right-side-up despite the
+            # canvas Y-flip. Position at (cx, cy + r) — above the circle visually
+            # because higher scene Y = visually higher in the flipped canvas.
+            name = obj.get("name") or (obj_type.name.title() if obj_type else "")
+            if name:
+                label = QGraphicsSimpleTextItem(name)
+                label.setPos(cx, cy + r)
+                label_color = QColor(stroke)
+                label_color.setAlpha(200)
+                label.setBrush(QBrush(label_color))
+                label.setZValue(1001)
+                label.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+                label.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+                label.setVisible(self._compare_overlay_visible)
+                super().addItem(label)
+                self._compare_items.append(label)
+
+    def clear_compare_overlay(self) -> None:
+        """Remove all compare overlay ghost items."""
+        for item in self._compare_items:
+            super().removeItem(item)
+        self._compare_items.clear()
+
+    def set_compare_overlay_visible(self, visible: bool) -> None:
+        """Show or hide the compare overlay without removing items.
+
+        Args:
+            visible: Whether overlay items should be shown
+        """
+        self._compare_overlay_visible = visible
+        for item in self._compare_items:
+            item.setVisible(visible)
