@@ -4520,4 +4520,134 @@ to assign species data.</translation>
             <translation>e.g. Solanaceae</translation>
         </message>
     </context>
+    <context>
+        <name>SeasonManagerDialog</name>
+        <message>
+            <source>Season Manager</source>
+            <translation>Season Manager</translation>
+        </message>
+        <message>
+            <source>Current season: &lt;b&gt;{year}&lt;/b&gt;</source>
+            <translation>Current season: &lt;b&gt;{year}&lt;/b&gt;</translation>
+        </message>
+        <message>
+            <source>Current season: &lt;b&gt;Not set&lt;/b&gt;</source>
+            <translation>Current season: &lt;b&gt;Not set&lt;/b&gt;</translation>
+        </message>
+        <message>
+            <source>Linked Seasons</source>
+            <translation>Linked Seasons</translation>
+        </message>
+        <message>
+            <source>No linked seasons yet</source>
+            <translation>No linked seasons yet</translation>
+        </message>
+        <message>
+            <source>Open Selected Season</source>
+            <translation>Open Selected Season</translation>
+        </message>
+        <message>
+            <source>Create New Season</source>
+            <translation>Create New Season</translation>
+        </message>
+        <message>
+            <source>Season year:</source>
+            <translation>Season year:</translation>
+        </message>
+        <message>
+            <source>Annual plants from current season:</source>
+            <translation>Annual plants from current season:</translation>
+        </message>
+        <message>
+            <source>Clear annuals (trees and shrubs are kept)</source>
+            <translation>Clear annuals (trees and shrubs are kept)</translation>
+        </message>
+        <message>
+            <source>Keep all plants (carry over — for perennials/trees)</source>
+            <translation>Keep all plants (carry over — for perennials/trees)</translation>
+        </message>
+        <message>
+            <source>Save as New Season…</source>
+            <translation>Save as New Season…</translation>
+        </message>
+        <message>
+            <source>Save the project first before creating a new season</source>
+            <translation>Save the project first before creating a new season</translation>
+        </message>
+        <message>
+            <source>File Not Found</source>
+            <translation>File Not Found</translation>
+        </message>
+        <message>
+            <source>The season file could not be found:
+{path}</source>
+            <translation>The season file could not be found:
+{path}</translation>
+        </message>
+        <message>
+            <source>Save New Season As</source>
+            <translation>Save New Season As</translation>
+        </message>
+        <message>
+            <source>Garden Plan (*.ogp)</source>
+            <translation>Garden Plan (*.ogp)</translation>
+        </message>
+    </context>
+    <context>
+        <name>GardenPlannerApp</name>
+        <message>
+            <source>Manage &amp;Seasons...</source>
+            <translation>Manage &amp;Seasons...</translation>
+        </message>
+        <message>
+            <source>Create a new season or switch between seasons</source>
+            <translation>Create a new season or switch between seasons</translation>
+        </message>
+        <message>
+            <source>Season: —</source>
+            <translation>Season: —</translation>
+        </message>
+        <message>
+            <source>Current season year — use File &gt; Manage Seasons to configure</source>
+            <translation>Current season year — use File &gt; Manage Seasons to configure</translation>
+        </message>
+        <message>
+            <source>Season: {year}</source>
+            <translation>Season: {year}</translation>
+        </message>
+        <message>
+            <source>Season {year} — use File &gt; Manage Seasons to manage seasons</source>
+            <translation>Season {year} — use File &gt; Manage Seasons to manage seasons</translation>
+        </message>
+        <message>
+            <source>Show &amp;Previous Season Overlay</source>
+            <translation>Show &amp;Previous Season Overlay</translation>
+        </message>
+        <message>
+            <source>Overlay ghosted plant positions from the previous season</source>
+            <translation>Overlay ghosted plant positions from the previous season</translation>
+        </message>
+        <message>
+            <source>Failed to create season file:
+{error}</source>
+            <translation>Failed to create season file:
+{error}</translation>
+        </message>
+        <message>
+            <source>New Season Created</source>
+            <translation>New Season Created</translation>
+        </message>
+        <message>
+            <source>Season {year} has been created.
+
+Open the new season now?</source>
+            <translation>Season {year} has been created.
+
+Open the new season now?</translation>
+        </message>
+        <message>
+            <source>Overlay {year} season plants (ghosted)</source>
+            <translation>Overlay {year} season plants (ghosted)</translation>
+        </message>
+    </context>
 </TS>

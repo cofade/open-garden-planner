@@ -445,6 +445,29 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         color: {colors['text_disabled']};
     }}
 
+    QRadioButton::indicator {{
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        border: 2px solid {colors['border']};
+        background-color: {colors['input']};
+    }}
+
+    QRadioButton::indicator:checked {{
+        background-color: {colors['accent']};
+        border-color: {colors['accent']};
+        image: url();
+    }}
+
+    QRadioButton::indicator:unchecked:hover {{
+        border-color: {colors['accent']};
+    }}
+
+    QRadioButton::indicator:disabled {{
+        border-color: {colors['text_disabled']};
+        background-color: {colors['input_disabled']};
+    }}
+
     /* List widgets */
     QListWidget {{
         background-color: {colors['input']};
