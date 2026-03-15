@@ -1086,7 +1086,7 @@ Icon designs per tool:
 | US-10.4 | Whole-plan compatibility check | Should | ✅ v1.8.9 |
 | US-10.5 | Crop rotation data model | Must | ✅ v1.8.11 |
 | US-10.6 | Crop rotation recommendations | Should | ✅ v1.8.11 |
-| US-10.7 | Season management & plan duplication | Could | |
+| US-10.7 | Season management & plan duplication | Could | ✅ v1.8.12 |
 
 ### US-10.1: Companion Planting Database
 
