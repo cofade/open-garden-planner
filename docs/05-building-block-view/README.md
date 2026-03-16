@@ -36,17 +36,27 @@
 
 ## 5.2 Module Structure
 
+<!-- Keep this updated when adding/removing files -->
+
 ```
 src/open_garden_planner/
-├── __main__.py                   # Entry point (python -m)
-├── main.py                       # Application launch
+├── __main__.py, main.py          # Entry points
 ├── app/
-│   └── application.py            # GardenPlannerApp (QMainWindow)
+│   ├── application.py            # Main window (GardenPlannerApp)
+│   └── settings.py               # App-level settings/preferences
 ├── core/
 │   ├── commands.py               # Undo/redo command pattern
 │   ├── project.py                # Save/load, ProjectManager
 │   ├── object_types.py           # ObjectType enum, default styles
 │   ├── fill_patterns.py          # Texture/pattern rendering
+│   ├── plant_renderer.py         # Plant SVG loading, caching, rendering
+│   ├── furniture_renderer.py     # Furniture/hedge SVG rendering & caching
+│   ├── constraints.py            # Distance constraint model & solver
+│   ├── measure_snapper.py        # Anchor-point snapper for measure tool
+│   ├── measurements.py           # Measurement data model
+│   ├── snapping.py               # Object snapping logic
+│   ├── alignment.py              # Object alignment helpers
+│   ├── i18n.py                   # Internationalization, translator loading
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
 │   └── tools/                    # Drawing tools
 │       ├── base_tool.py          # ToolType enum, BaseTool ABC
@@ -56,42 +66,72 @@ src/open_garden_planner/
 │       ├── polygon_tool.py       # Polygon drawing
 │       ├── circle_tool.py        # Circle drawing
 │       ├── polyline_tool.py      # Polyline/path drawing
-│       ├── plant_tool.py         # Plant placement
-│       └── measure_tool.py       # Distance measurement
+│       ├── measure_tool.py       # Distance measurement
+│       └── constraint_tool.py    # Distance constraint creation
+├── models/
+│   ├── plant_data.py             # Plant data model
+│   └── layer.py                  # Layer model
 ├── ui/
 │   ├── canvas/
-│   │   ├── canvas_view.py        # QGraphicsView: pan/zoom, key/mouse handling
-│   │   ├── canvas_scene.py       # QGraphicsScene: holds all objects
-│   │   └── items/                # QGraphicsItem subclasses
-│   │       ├── garden_item.py    # Base item (GardenItem)
-│   │       ├── rectangle_item.py # Rectangle rendering
-│   │       ├── polygon_item.py   # Polygon rendering
-│   │       ├── circle_item.py    # Circle rendering
-│   │       ├── polyline_item.py  # Polyline rendering
-│   │       ├── plant_item.py     # Plant rendering (CircleItem)
-│   │       └── background_image_item.py
-│   ├── panels/                   # Sidebar panels
+│   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling
+│   │   ├── canvas_scene.py       # Scene (holds objects)
+│   │   ├── dimension_lines.py    # Dimension line rendering & management
+│   │   └── items/                # Canvas item types
+│   │       ├── garden_item.py    # GardenItem base class
+│   │       ├── rectangle_item.py
+│   │       ├── polygon_item.py
+│   │       ├── circle_item.py
+│   │       ├── polyline_item.py
+│   │       ├── background_image_item.py
+│   │       └── resize_handle.py
+│   ├── panels/
 │   │   ├── drawing_tools_panel.py
 │   │   ├── properties_panel.py
 │   │   ├── layers_panel.py
-│   │   ├── find_plants_panel.py
-│   │   └── plant_details_panel.py
-│   ├── dialogs/                  # Modal dialogs
+│   │   ├── gallery_panel.py      # Thumbnail gallery sidebar
+│   │   ├── plant_database_panel.py
+│   │   └── plant_search_panel.py
+│   ├── dialogs/
 │   │   ├── new_project_dialog.py
 │   │   ├── welcome_dialog.py
+│   │   ├── calibration_dialog.py
+│   │   ├── custom_plants_dialog.py
 │   │   ├── export_dialog.py
-│   │   └── settings_dialog.py
+│   │   ├── preferences_dialog.py
+│   │   ├── print_dialog.py
+│   │   ├── shortcuts_dialog.py
+│   │   ├── plant_search_dialog.py
+│   │   └── properties_dialog.py
 │   ├── widgets/
-│   │   └── toolbar.py            # MainToolbar
+│   │   ├── toolbar.py            # MainToolbar
+│   │   └── collapsible_panel.py
 │   └── theme.py                  # Light/Dark theme system
 ├── services/
-│   └── plant_api.py              # Trefle.io/Permapeople integration
+│   ├── plant_api/                # Trefle.io/Perenual/Permapeople integration
+│   │   ├── base.py
+│   │   ├── manager.py
+│   │   ├── perenual_client.py
+│   │   ├── permapeople_client.py
+│   │   └── trefle_client.py
+│   ├── plant_library.py          # Local plant library management
+│   ├── export_service.py         # PDF/image export
+│   ├── autosave_service.py       # Autosave logic
+│   └── update_checker.py         # GitHub releases update check (frozen exe only)
 └── resources/
-    ├── icons/                    # App icons, banner
-    │   └── tools/                # SVG tool icons
-    ├── textures/                 # Tileable PNG textures (Phase 6)
-    ├── plants/                   # Plant SVG illustrations (Phase 6)
-    └── objects/                  # Object SVG illustrations (Phase 6)
+    ├── icons/                    # App icons, banner, tool SVGs
+    ├── textures/                 # Tileable PNG textures
+    ├── plants/                   # Plant SVG illustrations
+    ├── translations/             # .ts source & .qm compiled translations
+    └── objects/                  # Object SVG illustrations
+        ├── furniture/            # Outdoor furniture SVGs
+        └── infrastructure/       # Garden infrastructure SVGs
+
+installer/                        # Windows installer build files
+├── ogp.spec                      # PyInstaller spec (--onedir bundle)
+├── ogp_installer.nsi             # NSIS installer script (wizard, registry)
+├── build_installer.py            # Build orchestration script
+├── ogp_app.ico                   # Application icon (multi-size)
+└── ogp_file.ico                  # .ogp file type icon
 
 tests/
 ├── unit/                         # Unit tests

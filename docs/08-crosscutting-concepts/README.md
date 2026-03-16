@@ -49,9 +49,43 @@ Uses Qt Linguist translation system:
 **Shipped languages**: English (default), German
 **Extensible**: Community can add languages by creating new `.ts` files
 
-**Translation files location**: `translations/en.ts`, `translations/de.ts`
+**Translation files location**:
+- `src/open_garden_planner/resources/translations/open_garden_planner_de.ts`
+- `src/open_garden_planner/resources/translations/open_garden_planner_en.ts`
 
 **Not translated**: Plant scientific names (Latin), file format identifiers
+
+### How to add translations when creating/modifying a widget
+
+1. **In code**: wrap every UI string with `self.tr("English text")`. The class name is the translation context automatically.
+
+2. **Update both `.ts` files** — add a `<context>` block (or extend an existing one) to both files:
+
+   ```xml
+   <context>
+       <name>MyWidget</name>
+       <message>
+           <source>English text</source>
+           <translation>Translated text</translation>
+       </message>
+   </context>
+   ```
+
+   Note: German file uses `<name>` with no extra indent, English file uses 4-space indent.
+
+3. **Recompile `.qm` files** after every `.ts` change:
+   ```bash
+   venv/Lib/site-packages/qt6_applications/Qt/bin/lrelease.exe \
+     src/open_garden_planner/resources/translations/open_garden_planner_de.ts \
+     src/open_garden_planner/resources/translations/open_garden_planner_en.ts
+   ```
+
+### Translation rules
+
+- **Always use `self.tr("string")`** for every user-visible string in any `QWidget` subclass.
+- Strings passed to `CollapsiblePanel(title, ...)` must use `self.tr("title")` at the **call site** (e.g. in `application.py`), because `CollapsiblePanel` is generic and has no context for the title string.
+- `QT_TR_NOOP("string")` marks strings for extraction without translating them at that point (used in module-level dicts). Translate them later with `QCoreApplication.translate("ContextClass", string)`.
+- Non-`QObject` contexts (e.g. module-level code) use `QCoreApplication.translate("ContextName", "string")`.
 
 ## 8.4 Theme System
 
