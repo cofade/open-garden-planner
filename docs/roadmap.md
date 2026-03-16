@@ -1252,32 +1252,582 @@ Icon designs per tool:
 
 ---
 
-## Phase 11: Drawing Tools & Format Integration (Future, v1.10+)
+## Phase 11: Bed Interior Design, Visual Polish & Advanced 2D Tools (v1.9.x)
 
-**Goal**: Extend the drawing toolkit with curved geometry and enable bi-directional CAD interchange.
+**Goal**: Perfect the 2D garden planning experience — bed interior design, visual polish, annotations, shape operations, drawing tools, interoperability, smart features, and workflow improvements.
 
-- Additional drawing tools (arcs, curves, bezier paths)
-- DXF import/export for CAD interoperability
+### Block 1: Bed Interior Design (Top Priority)
+
+### US-11.1: Plant-Bed Parent-Child Relationship
+
+**Description**: Plants placed inside a bed become children of that bed — they move with it, appear in its plant list, and respect its boundaries.
+
+**Acceptance Criteria**:
+- When a plant is placed inside a bed's boundary, it's automatically parented to that bed
+- Moving a bed moves all its child plants
+- Deleting a bed prompts: keep or delete child plants
+- Plants can be detached from a bed (drag outside or explicit unlink)
+- Bed properties panel shows a list of contained plants with counts
+- Copy/paste a bed includes its child plants
+- Undo/redo preserves parent-child relationships
+- Serialization saves/loads plant-bed associations
+
+**Technical Notes**:
+- Extend `GardenItemMixin` with `_parent_bed_id: UUID | None` and `_child_item_ids: list[UUID]`
+- Use manual tracking (not Qt's `setParentItem()`) to avoid transform issues
+- Modify `commands.py` MoveCommand to propagate movement to children
+- Files to modify: `garden_item.py`, `commands.py`, `project.py` (serialization), `properties_panel.py`
 
 ---
 
-## Phase 12: Smart Features & Simulation (Future, v1.11+)
+### US-11.2: Plant Spacing Circles & Overlap Warnings
 
-**Goal**: Layer intelligence on top of the plan — light, water, growth, cost, and community.
+**Description**: When placing a plant in a bed, show its recommended spacing as a translucent circle. Warn if plants overlap or are too close. Spacing defaults from the plant database but is user-configurable per placement.
 
-- Sun path simulation (shade calculation by season)
-- Plant growth over time visualization
-- Seasonal view (spring/summer/autumn/winter appearance)
-- Irrigation planning
-- Cost estimation
-- Plugin system
-- Community plant library sharing
+**Acceptance Criteria**:
+- Each plant shows a faint spacing circle (radius = recommended spacing / 2) when selected or in bed-edit mode
+- Spacing value defaults from plant database, user can override in properties panel
+- Red highlight / warning icon when spacing circles overlap (plants too close)
+- Green highlight when spacing is ideal
+- Toggle spacing circles visibility on/off (toolbar button or View menu)
+- Spacing data serialized with the plant item
+- Works for all plant types: trees, shrubs, perennials, vegetables
+
+**Technical Notes**:
+- Add `_spacing_radius: float` to plant items (CircleItem when used as plant)
+- Render spacing circle as `QGraphicsEllipseItem` child with low-opacity fill
+- Overlap detection: iterate sibling plants in same bed, check distance < sum of spacing radii
+- Files: `circle_item.py` (plant rendering), `plant_data.py` (spacing field), `properties_panel.py`
 
 ---
 
-## Phase 13: 3D Visualization (Future, v2.0)
+### US-11.3: Square-Foot Grid Overlay
 
-**Goal**: Full three-dimensional garden view — the milestone that justifies a major version bump.
+**Description**: Any bed can display a customizable interior grid overlay for square-foot gardening or other spacing systems.
+
+**Acceptance Criteria**:
+- Right-click bed > "Show Grid" toggles a grid overlay inside the bed boundary
+- Grid spacing configurable: 30cm (square-foot), 15cm, 40cm, or custom value
+- Grid clips to the bed shape (works with polygons, rectangles, any shape)
+- Grid lines are subtle (thin, semi-transparent) and don't appear in exports unless opted in
+- Grid cell count shown in bed properties
+- Grid offset/rotation follows the bed's rotation
+- Grid settings serialized per-bed
+
+**Technical Notes**:
+- Add grid rendering to bed items (PolygonItem, RectangleItem when used as GARDEN_BED)
+- Use `QPainter.setClipPath(bed_shape)` to clip grid to bed boundary
+- Store `_grid_enabled: bool`, `_grid_spacing: float` in GardenItemMixin or bed-specific mixin
+- Files: `polygon_item.py`, `rectangle_item.py`, `project.py`, `properties_panel.py`
+
+---
+
+### US-11.4: Row Planting Mode
+
+**Description**: Two modes for row planting: (a) draw a line inside a bed and auto-fill it with plants at specified spacing, (b) open a dialog to auto-fill an entire bed with rows.
+
+**Acceptance Criteria**:
+- **Quick row**: New "Row Plant" tool — draw a line inside a bed, select plant type & spacing in popup → plants auto-placed along line
+- **Full dialog**: Right-click bed > "Auto-Fill Rows" → dialog with: plant type, row count, row spacing, in-row spacing, offset pattern (staggered/aligned), border margin
+- Plants created by row planting are parented to the bed (US-11.1)
+- Preview shown before confirming placement
+- All plants in a row fill are a single undo action
+- Row lines are visual guides (thin dashed lines) that can be hidden
+
+**Technical Notes**:
+- New tool: `src/open_garden_planner/core/tools/row_plant_tool.py`
+- New dialog: `src/open_garden_planner/ui/dialogs/row_planting_dialog.py`
+- Use bed boundary polygon to clip/constrain plant placement
+- Plant creation uses existing CircleItem + plant ObjectType
+- Batch undo: wrap all addItem calls in a single command macro
+
+---
+
+### Block 2: Visual Polish
+
+### US-11.5: Expanded Fill Pattern Library
+
+**Description**: Add 10+ new tileable texture patterns for more realistic and varied garden plan rendering.
+
+**Acceptance Criteria**:
+- New patterns: mulch, fine gravel, coarse gravel, river stone, brick (running bond), stone paving, bark, sand, water/ripple, wildflower meadow
+- Each pattern is a tileable PNG texture (256×256 or 512×512)
+- Patterns available in the fill pattern dropdown for all shape types
+- Patterns render correctly at all zoom levels
+- Patterns included in PNG/SVG export
+- Existing patterns remain unchanged
+
+**Technical Notes**:
+- Add PNG files to `src/open_garden_planner/resources/textures/`
+- Extend `FillPattern` enum in `fill_patterns.py`
+- Update texture loading in `fill_patterns.py`
+- Update `ObjectType` defaults where appropriate (e.g., PATH could default to gravel)
+
+---
+
+### US-11.6: Plant Illustration Expansion & Style Refresh
+
+**Description**: Expand the plant SVG library to 100+ species with a consistent, attractive illustration style.
+
+**Acceptance Criteria**:
+- 100+ plant SVGs covering: common vegetables (30+), herbs (20+), flowers (20+), trees (15+), shrubs (15+)
+- Consistent illustration style: top-down view, similar line weight, cohesive color palette
+- SVGs render crisp at all zoom levels
+- Each SVG tagged with plant common name for matching with plant database
+- Plants shown as recognizable illustrations instead of plain circles on the plan
+- SVGs load efficiently (cached, no performance regression)
+
+**Technical Notes**:
+- SVGs in `src/open_garden_planner/resources/plants/`
+- Extend `plant_renderer.py` SVG loading and caching
+- May use AI-assisted SVG generation for quantity
+- Map SVG filenames to plant database entries
+
+---
+
+### US-11.7: Minimap / Overview Panel
+
+**Description**: A small semi-transparent overview in the corner of the canvas showing the entire plan with a viewport rectangle for quick navigation.
+
+**Acceptance Criteria**:
+- Small overview (~150×100px) in bottom-right corner of canvas
+- Shows entire plan as a scaled-down thumbnail
+- Red/blue rectangle shows current viewport area
+- Click on minimap to pan to that area
+- Drag the viewport rectangle to navigate
+- Semi-transparent background, non-intrusive
+- Auto-hides when plan fits entirely in view
+- Toggle via View menu
+
+**Technical Notes**:
+- New widget: `src/open_garden_planner/ui/widgets/minimap_widget.py`
+- Overlay on top of `canvas_view.py` using `QWidget` overlay or `QGraphicsProxyWidget`
+- Render scene thumbnail using `QGraphicsScene.render()` into small QPixmap
+- Update on viewport change (connect to `scrollbar.valueChanged`, `zoom_changed`)
+- Throttle updates to avoid performance impact (max 10fps)
+
+---
+
+### Block 3: Annotations
+
+### US-11.8: Free Text Annotation Tool
+
+**Description**: Place text blocks anywhere on the canvas with configurable font, size, color, and rotation.
+
+**Acceptance Criteria**:
+- New "Text" tool in drawing tools panel (shortcut: T)
+- Click on canvas to place text cursor, type to enter text
+- Text supports multi-line
+- Properties panel: font family, size, color, bold/italic, alignment
+- Text items selectable, movable, rotatable like other items
+- Double-click to edit text content
+- Text serialized in project files
+- Text included in exports (PNG, SVG, PDF)
+
+**Technical Notes**:
+- New item: `src/open_garden_planner/ui/canvas/items/text_item.py` (QGraphicsTextItem + GardenItemMixin)
+- New tool: `src/open_garden_planner/core/tools/text_tool.py`
+- Add `TEXT` to ToolType, `GENERIC_TEXT` to ObjectType
+- Reuse label editing infrastructure from `GardenItemMixin`
+
+---
+
+### US-11.9: Auto Area Labels
+
+**Description**: Closed shapes automatically display their area (e.g., "12.5 m²") as a centered label that updates when resized.
+
+**Acceptance Criteria**:
+- All closed shapes (rectangle, polygon, circle, ellipse) can show area label
+- Toggle per-item via right-click > "Show Area" or properties panel checkbox
+- Area calculated accurately from shape geometry (polygon area formula, π·r², etc.)
+- Displayed in m² (or cm² for small areas, auto-switch threshold)
+- Label updates live during resize/drag
+- Area label styled differently from name label (smaller, italic, below name)
+- Option to show perimeter too
+
+**Technical Notes**:
+- Add `_area_label_visible: bool` to GardenItemMixin
+- Area calculation: shoelace formula for polygons, π·r² for circles
+- Render as child `QGraphicsSimpleTextItem` positioned at centroid
+- Files: `garden_item.py`, `rectangle_item.py`, `polygon_item.py`, `circle_item.py`
+
+---
+
+### US-11.10: Callout / Leader Line Annotations
+
+**Description**: Annotation callouts with leader lines (arrows pointing from a text box to a specific feature on the plan).
+
+**Acceptance Criteria**:
+- New "Callout" tool — click on target point, drag to place text box, type annotation
+- Leader line connects text box to target with an arrowhead
+- Leader line re-routes when text box or target moves
+- Text box has configurable background (white, transparent) and border
+- Multiple leader lines can point to different targets from one text box
+- Callouts serializable and included in exports
+- Callouts snap to object anchor points
+
+**Technical Notes**:
+- New item: `src/open_garden_planner/ui/canvas/items/callout_item.py`
+- New tool: `src/open_garden_planner/core/tools/callout_tool.py`
+- Leader line: `QGraphicsLineItem` child with arrowhead polygon at end
+- Text box: `QGraphicsRectItem` + `QGraphicsTextItem` children
+
+---
+
+### Block 4: Shape Operations
+
+### US-11.11: Group / Ungroup
+
+**Description**: Group multiple items into a single selectable unit. Move, copy, rotate entire groups together.
+
+**Acceptance Criteria**:
+- Select multiple items > Ctrl+G to group (or right-click > Group)
+- Grouped items show a single selection bounding box
+- Moving/rotating/copying the group applies to all members
+- Ctrl+Shift+G to ungroup (or right-click > Ungroup)
+- Nested groups supported (group of groups)
+- Groups serialize/deserialize in project files
+- Properties panel shows "Group (N items)" when group is selected
+
+**Technical Notes**:
+- Use `QGraphicsItemGroup` from Qt or custom group class
+- New item: `src/open_garden_planner/ui/canvas/items/group_item.py`
+- Add GroupCommand / UngroupCommand to `commands.py`
+- Serialize as `{"type": "group", "children": [...]}` in `project.py`
+
+---
+
+### US-11.12: Boolean Shape Operations
+
+**Description**: Union, intersect, and subtract shapes to create complex bed outlines and landscape features.
+
+**Acceptance Criteria**:
+- Select two overlapping shapes, right-click > Boolean > Union / Intersect / Subtract
+- Union: merge two shapes into one (outer boundary)
+- Intersect: keep only overlapping area
+- Subtract: cut shape B from shape A
+- Result is a new PolygonItem with the computed outline
+- Original shapes removed (with undo support)
+- Works with: rectangles, polygons, circles, ellipses
+- Preview of result before confirming
+
+**Technical Notes**:
+- Use `QPainterPath` boolean operations: `united()`, `intersected()`, `subtracted()`
+- Convert each shape to QPainterPath, apply boolean, extract polygon from result via `toFillPolygon()`
+- New commands: `BooleanUnionCommand`, `BooleanIntersectCommand`, `BooleanSubtractCommand`
+- Files: `commands.py`, context menu in `canvas_view.py` or `select_tool.py`
+
+---
+
+### US-11.13: Array Along Path
+
+**Description**: Place objects evenly along a polyline or curve path (e.g., fence posts along a fence, plants along a border).
+
+**Acceptance Criteria**:
+- Select an item + a path (polyline/bezier), right-click > "Array Along Path"
+- Dialog: count or spacing, start/end offset, rotation (follow path tangent or fixed)
+- Preview shows ghost copies along the path before confirming
+- Creates independent copies (not linked instances)
+- Single undo action for all placed copies
+- Works with any item type as the source
+
+**Technical Notes**:
+- Sample points along path at equal arc-length intervals using `QPainterPath.pointAtPercent()`
+- For tangent-following rotation: use `QPainterPath.angleAtPercent()`
+- New dialog: `src/open_garden_planner/ui/dialogs/array_along_path_dialog.py`
+- Reuse existing array command pattern from linear/grid/circular arrays (US-7.14–7.16)
+
+---
+
+### Block 5: Drawing Tools
+
+### US-11.14: Ellipse Drawing Tool
+
+**Description**: Draw axis-aligned or rotatable ellipses for oval beds, ponds, and decorative features.
+
+**Acceptance Criteria**:
+- New "Ellipse" tool in Generic Shapes (shortcut: E)
+- Click-drag to define bounding rectangle → ellipse drawn inside
+- Shift constrains to circle, Alt draws from center
+- EllipseItem: selection, movement, resize (independent axes), rotation, labels, styling, layers
+- Serialized as `"ellipse"` with center, semi-major, semi-minor, rotation
+- Anchor points: center + 4 quadrant points
+- Properties panel: semi-major/minor axis numeric input
+
+**Technical Notes**:
+- `src/open_garden_planner/core/tools/ellipse_tool.py` (follows `rectangle_tool.py` pattern)
+- `src/open_garden_planner/ui/canvas/items/ellipse_item.py` (QGraphicsEllipseItem + GardenItemMixin)
+- Add `ELLIPSE` to ToolType, `GENERIC_ELLIPSE` to ObjectType
+
+---
+
+### US-11.15: Offset Tool
+
+**Description**: Offset a shape inward or outward by a specified distance, creating a parallel copy.
+
+**Acceptance Criteria**:
+- Select a shape, activate Offset tool, click inside (inward) or outside (outward)
+- Input distance via popup or typed value
+- Works with: polylines, polygons, rectangles, circles, ellipses
+- Creates a new shape (the offset copy), original unchanged
+- Preview during cursor movement (shows offset direction)
+- Undo support
+
+**Technical Notes**:
+- Use `QPainterPath.toSubpathPolygons()` after `QPainterPathStroker` for polygon offset
+- Or implement Clipper-based polygon offsetting (more robust for complex polygons)
+- Python library option: `pyclipper` for robust polygon offset
+- New tool: `src/open_garden_planner/core/tools/offset_tool.py`
+
+---
+
+### US-11.16: Trim / Extend Tool
+
+**Description**: Trim lines/shapes at intersection points, or extend them to meet another shape.
+
+**Acceptance Criteria**:
+- Trim mode: click on a segment between two intersections → removes that segment
+- Extend mode: click near an endpoint → extends to the nearest intersecting shape
+- Works with polylines and polygon edges
+- Visual highlight of the segment that will be trimmed/extended on hover
+- Undo support
+
+**Technical Notes**:
+- Intersection finding: `QPainterPath.intersects()` + compute intersection points
+- New tool: `src/open_garden_planner/core/tools/trim_tool.py`
+- This is a complex CAD operation — may need to split/modify polyline point lists
+
+---
+
+### Block 6: Interoperability
+
+### US-11.17: DXF Export
+
+**Description**: Export the garden plan to DXF format (AutoCAD R2010+) for professional CAD software interchange.
+
+**Acceptance Criteria**:
+- "Export as DXF..." in File menu and Export dialog
+- Shape mapping: Rectangle→LWPOLYLINE, Polygon→LWPOLYLINE, Polyline→LWPOLYLINE, Circle→CIRCLE, Ellipse→ELLIPSE
+- Layer mapping preserved (OGP layers → DXF layers)
+- Construction geometry excluded
+- 1 OGP unit = 1 cm in DXF
+- Stroke colors mapped to ACI
+- Opens correctly in LibreCAD, FreeCAD
+
+**Technical Notes**:
+- Dependency: `ezdxf>=0.18` (MIT license, pure Python)
+- New service: `src/open_garden_planner/services/dxf_service.py`
+- Add to `pyproject.toml` dependencies and `installer/ogp.spec` hiddenimports
+
+---
+
+### US-11.18: DXF Import
+
+**Description**: Import DXF files to bring existing CAD floor plans or site surveys into the garden planner.
+
+**Acceptance Criteria**:
+- "Import DXF..." in File menu
+- Supported: LINE, LWPOLYLINE, CIRCLE, ARC, ELLIPSE, SPLINE
+- Import dialog: preview, scale factor, layer selection
+- DXF layers become OGP layers
+- Single undo action for entire import
+- Unsupported entities: skip with summary count
+
+**Technical Notes**:
+- New dialog: `src/open_garden_planner/ui/dialogs/dxf_import_dialog.py`
+- Extend `dxf_service.py` with import functions
+- Use `ezdxf.readfile()` + entity iteration
+
+---
+
+### US-11.19: Multi-Page PDF Export
+
+**Description**: Generate a professional multi-page PDF report: cover page, plan overview, zoomed detail views, plant list, planting calendar, and legend.
+
+**Acceptance Criteria**:
+- "Export PDF Report..." in File menu
+- Pages: cover (project name, date, author) → full plan overview → detail views (one per bed, optional) → plant list table → planting calendar → legend
+- Configurable: select which pages to include
+- Paper sizes: A4, A3, Letter, Legal (landscape/portrait)
+- Scale bar, north arrow, title block on plan pages
+- Professional typography and layout
+- Progress dialog for generation
+
+**Technical Notes**:
+- Extend `export_service.py` or new `pdf_report_service.py`
+- Use `QPrinter` + `QPainter` or `reportlab` for PDF generation
+- Plant list: iterate scene items, collect plant data, render as table
+- Calendar data from existing planting calendar model
+
+---
+
+### Block 7: Smart Features
+
+### US-11.20: Shopping List Generation
+
+**Description**: Auto-generate a shopping list from the garden plan with plant quantities, seed needs, materials, and optional cost estimates.
+
+**Acceptance Criteria**:
+- "Generate Shopping List" action (menu or toolbar)
+- Lists: plants (type, quantity, size), seeds (from seed inventory gaps), materials (soil volume for beds, mulch area)
+- Exportable as CSV, PDF, or printable
+- Optional cost column (user enters prices per item)
+- Groups by category (plants, seeds, materials)
+
+---
+
+### US-11.21: Pest & Disease Log
+
+**Description**: Track pest sightings and disease outbreaks per bed/plant with treatment notes and photos.
+
+**Acceptance Criteria**:
+- Right-click bed/plant > "Log Pest/Disease"
+- Entry: date, type (pest/disease), name, severity, treatment, photo attachment
+- History viewable per-bed and per-plant
+- Overview panel showing all active issues across the garden
+- Data serialized in project file
+
+---
+
+### US-11.22: Succession Planting
+
+**Description**: Plan multiple sequential plantings in the same bed within a season.
+
+**Acceptance Criteria**:
+- Bed timeline view showing planting slots per season segment (early spring, late spring, summer, fall)
+- Assign different plants to different time slots in the same bed
+- Calendar integration: succession plants appear in planting calendar at correct dates
+- Visual indicator on bed showing current/next planting
+- Companion planting rules apply within each succession group
+
+---
+
+### US-11.23: Garden Journal (Map-Linked Notes)
+
+**Description**: Pin notes and photos to specific locations on the garden plan, creating a visual garden diary.
+
+**Acceptance Criteria**:
+- New "Note" tool — click on canvas to place a pin icon
+- Click pin to expand note: date, text (rich text), photo attachment
+- Pin icon shows on the plan view, subtle when collapsed
+- Notes filterable by date range
+- Notes included in PDF report export (optional)
+- Search across all notes
+- Notes serialized in project file
+
+**Technical Notes**:
+- New item: `src/open_garden_planner/ui/canvas/items/note_item.py`
+- New tool: `src/open_garden_planner/core/tools/note_tool.py`
+- Photo storage: save photos in project directory alongside .ogp file
+
+---
+
+### Block 8: Workflow
+
+### US-11.24: Find & Replace Objects
+
+**Description**: Search for objects by name/type, batch-select matching items, and bulk-change properties.
+
+**Acceptance Criteria**:
+- Ctrl+F opens Find panel
+- Search by: name, object type, layer, plant species
+- Results highlighted on canvas, listed in panel
+- "Select All Matching" button
+- Bulk property change: select all matching → change color, fill, layer, etc.
+- Replace: change object type (e.g., change all "Tomato" plants to "Cherry Tomato")
+
+---
+
+## Outlook: Additional 2D Features (Candidates for Phase 11 Expansion or Phase 11b)
+
+Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCAD, DraftSight, Inkscape, Affinity Designer, Figma) and 13+ garden planners (GrowVeg, Almanac, Artifact Interactive, iScape, VegPlotter, etc.). These ranked highly but didn't make the initial Phase 11 cut. Revisit after completing Phase 11 core blocks.
+
+### Drawing Tools
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| **Bezier / Spline curves** | High | #1 missing geometry primitive per CAD research. Gardens are organic — curved beds, winding paths, pond outlines need smooth curves. Requires new BezierItem + BezierTool + handle-edit mode. |
+| **Arc tool (3-point)** | High | FR-DRAW-06 already listed. Click start, through-point, end to define circular arc. New ArcItem. Natural complement to bezier for precise curved segments. |
+| **Fillet & Chamfer** | High | Round off (fillet) or bevel (chamfer) sharp corners on paths, patios, beds. Real gardens never have perfectly sharp 90° corners. Every major CAD tool has this. |
+| **Mirror tool** | Medium | Mirror objects across a user-defined axis. Essential for symmetric garden designs. Easy to implement — transform + copy. |
+| **Break / Divide / Split** | Low | Split an entity at a click point or divide into N equal segments. Useful for splitting long paths or bed edges. |
+| **Stretch tool** | Low | Move vertices inside a selection window while fixing those outside. Power-user CAD feature. |
+
+### Precision Input & Snapping
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| **Relative coordinate input (@dx,dy)** | High | Type `@500,0` to draw 500cm right from last point. Currently users must calculate absolute coordinates. Fundamental CAD precision input. |
+| **Polar coordinate input (dist<angle)** | Medium | Specify next point as `@300<45` (300cm at 45°). Useful for angled paths and non-orthogonal layouts. Pairs with relative input. |
+| **Additional snap modes** | High | Missing: midpoint (snap to edge center), intersection (where two objects cross), nearest (closest point on edge), perpendicular, tangent. Midpoint and intersection are most impactful. |
+| **Dynamic input (on-cursor fields)** | Medium | Floating distance/angle fields near cursor while drawing, Tab to switch. Eliminates looking at status bar. Professional feel. |
+| **Object snap tracking** | Low | Temporary dynamic alignment guides from snap points. AutoCAD power feature. |
+
+### Layout & Output
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| **Paper space / print layout** | High | Separate model space (draw 1:1) from paper space (arrange views for printing). Multiple viewports at different scales, title blocks, legends on one sheet. Transforms output from screenshot-quality to professional deliverable. Partially covered by US-11.19 (multi-page PDF) but this is the full CAD approach. |
+| **Scale bar for prints** | Medium | Auto-generated scale bar adjusting to print scale. Essential for field-usable printed plans. Simple to implement, high value. Could be added to US-11.19. |
+| **Dimension styles** | Low | Named styles for dimension appearance (arrowhead type, text height, decimal precision). Polish feature. |
+
+### Selection & Interaction
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| **Crossing/window selection modes** | Medium | Right-to-left drag = crossing (select touched), left-to-right = window (select enclosed). Professional CAD convention. |
+| **Lasso selection** | Low | Freehand selection outline for irregularly grouped objects in dense layouts. |
+| **Interactive scale tool** | Low | Scale by precise factor with selectable base point. Currently possible via properties panel but no interactive tool. |
+
+### Visual & Domain-Specific
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| **Paving pattern fills** | Medium | Parametric paving layouts (herringbone, running bond, basket weave) for patios/driveways. Domain-specific visual appeal. |
+| **Associative hatch patterns** | Low | Hatch auto-updates when boundary shape changes. Currently fill patterns are static. |
+| **Text along path** | Low | Flow text along curved edges for labeling paths, borders. Visual polish. |
+| **PDF vector import** | Low | Import PDF and convert to editable vector geometry. Nice-to-have but background image import covers basic need. |
+
+### Smart Features (from Garden Planner Competitors)
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| **Harvest tracking / yield log** | Medium | Log harvest amounts per crop, compare year-over-year. GrowVeg, BioGarden365, VegPlotter have this. Key for improving gardens season to season. Natural extension of garden journal (US-11.23). |
+| **Task management / reminders** | Medium | Auto-generate tasks from planting calendar ("Start tomato seeds indoors this week"). GrowVeg does biweekly email alerts from 5,000+ weather stations. High user satisfaction. |
+| **Vertical gardening support** | Medium | Growing trend, no competitor handles well. Support for vertical structures, trellises, wall planters. |
+| **Container / balcony gardening** | Medium | Frequently requested, poorly served by competitors. Container objects with soil volume, drainage, plant capacity. |
+| **Microclimate modeling** | Low | Zero competitors have this. Map microclimates within the garden (wind corridors, heat sinks, frost pockets). Blue ocean but complex. |
+| **Soil analysis integration** | Low | Connect soil test results to per-bed recommendations. Nobody does this. |
+| **Water usage calculation** | Low | Calculate water needs per zone based on plants, area, climate. Sustainability angle. |
+| **Permaculture design tools** | Low | Guilds, zones (0–5), sectors. Only SAGE partially covers this. Large underserved niche community. |
+| **Parametric blocks / smart symbols** | Medium | Reusable symbols with configurable parameters (e.g., "raised bed" with length/width/rows). Elevates from drawing tool to design tool. |
+
+### Competitive Benchmarks
+
+- **GrowVeg** (market leader): 21,657 plant varieties, 5,000+ weather stations, biweekly personalized reminders, auto plant count, garden journal with harvest tracking, 441 how-to videos. Weakness: no CAD precision, no seed inventory, subscription-only, web-dependent.
+- **OGP's unique strengths**: CAD-precision tools (constraints, dimension lines, angle/symmetry constraints, guide lines, arrays) are unmatched. Seed inventory with viability tracking, companion planting with canvas-level visual warnings, crop rotation data model. Open-source and offline-first.
+- **Blue ocean**: Sun/shade simulation (no competitor has it built-in), microclimate modeling, permaculture zones.
+
+---
+
+## Phase 12: 3D Visualization & Sun/Shade (Future, v2.0)
+
+**Goal**: Full three-dimensional garden view with sun/shade simulation — the milestone that justifies a major version bump.
 
 - 3D visualization (Qt3D integration)
+- Object height properties (walls, fences, trees, structures)
+- Sun path simulation (shade calculation by season, time-of-day animation, seasonal analysis)
 - First-person walkthrough mode
+- Plant growth over time visualization (seedling → mature)
+
+---
+
+## Phase 13: Platform & Community (Future, v2.1+)
+
+**Goal**: Extend the platform with community features, plugins, and cross-platform support.
+
+- Plugin system for extensibility
+- Community template sharing / marketplace
+- Irrigation planning & drip system design
+- Cost estimation & budget tracking (advanced)
+- Cross-platform packaging (macOS, Linux)
