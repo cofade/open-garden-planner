@@ -441,3 +441,34 @@ tests/
 | ✅     | 10.7  | Season management & plan duplication                 |
 
 Full user stories, acceptance criteria, and technical notes: see `docs/roadmap.md`
+
+## Progress (Phase 11: Bed Interior Design, Visual Polish & Advanced 2D Tools v1.9.x)
+
+> **Version note**: All Phase 11 USes use `patch` label (v1.9.x series, first US = v1.9.0 minor bump). Never use v2.x.
+
+| Status | US    | Description                              | Block              |
+| ------ | ----- | ---------------------------------------- | ------------------ |
+|        | 11.1  | Plant-bed parent-child relationship      | Bed Interior       |
+|        | 11.2  | Plant spacing circles & overlap warnings | Bed Interior       |
+|        | 11.3  | Square-foot grid overlay                 | Bed Interior       |
+|        | 11.4  | Row planting mode                        | Bed Interior       |
+|        | 11.5  | Expanded fill pattern library            | Visual Polish      |
+|        | 11.6  | Plant illustration expansion             | Visual Polish      |
+|        | 11.7  | Minimap / overview panel                 | Visual Polish      |
+|        | 11.8  | Free text annotation tool                | Annotations        |
+|        | 11.9  | Auto area labels                         | Annotations        |
+|        | 11.10 | Callout / leader line annotations        | Annotations        |
+|        | 11.11 | Group / ungroup                          | Shape Operations   |
+|        | 11.12 | Boolean shape operations                 | Shape Operations   |
+|        | 11.13 | Array along path                         | Shape Operations   |
+|        | 11.14 | Ellipse drawing tool                     | Drawing Tools      |
+|        | 11.15 | Offset tool                              | Drawing Tools      |
+|        | 11.16 | Trim / extend tool                       | Drawing Tools      |
+|        | 11.17 | DXF export                               | Interoperability   |
+|        | 11.18 | DXF import                               | Interoperability   |
+|        | 11.19 | Multi-page PDF export                    | Interoperability   |
+|        | 11.20 | Shopping list generation                 | Smart Features     |
+|        | 11.21 | Pest & disease log                       | Smart Features     |
+|        | 11.22 | Succession planting                      | Smart Features     |
+|        | 11.23 | Garden journal (map-linked notes)        | Smart Features     |
+|        | 11.24 | Find & replace objects                   | Workflow           |
