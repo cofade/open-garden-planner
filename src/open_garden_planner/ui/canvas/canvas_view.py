@@ -5,6 +5,8 @@ It flips the Y-axis to provide CAD-style coordinates (origin at bottom-left,
 Y increasing upward).
 """
 
+import logging
+
 from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import (
     QColor,
@@ -61,6 +63,8 @@ from open_garden_planner.core.tools import (
     VerticalDistanceConstraintTool,
 )
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene, GuideLine
+
+_log = logging.getLogger(__name__)
 
 
 class CanvasView(QGraphicsView):
@@ -1578,7 +1582,38 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
+        # Snapshot positions and scroll state before delegating:
+        # Qt's QGraphicsView::mouseDoubleClickEvent internally re-runs its press handler
+        # (mousePressEventHandler), which can interact with ItemIsMovable and AnchorUnderMouse
+        # under the Y-flip transform to produce spurious position jumps and view panning (issue #108).
+        _pre_dbl = {item: item.pos() for item in self.scene().selectedItems()}
+        _hbar = self.horizontalScrollBar().value()
+        _vbar = self.verticalScrollBar().value()
+
         super().mouseDoubleClickEvent(event)
+
+        # Restore any position that shifted during double-click processing.
+        for item, pos in _pre_dbl.items():
+            if item.pos() != pos:
+                _log.warning(
+                    "Double-click caused position drift on %s: %s → %s (zoom=%.2f) — restoring.",
+                    type(item).__name__, pos, item.pos(), self._zoom_factor,
+                )
+                item.setPos(pos)
+
+        # Restore scroll position if the internal press handler panned the view.
+        if self.horizontalScrollBar().value() != _hbar:
+            _log.warning(
+                "Double-click caused H-scroll drift: %d → %d (zoom=%.2f) — restoring.",
+                _hbar, self.horizontalScrollBar().value(), self._zoom_factor,
+            )
+            self.horizontalScrollBar().setValue(_hbar)
+        if self.verticalScrollBar().value() != _vbar:
+            _log.warning(
+                "Double-click caused V-scroll drift: %d → %d (zoom=%.2f) — restoring.",
+                _vbar, self.verticalScrollBar().value(), self._zoom_factor,
+            )
+            self.verticalScrollBar().setValue(_vbar)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """Handle key press for tool operations and editing."""
@@ -1878,6 +1913,10 @@ class CanvasView(QGraphicsView):
             current_pos = item.pos()
             delta = current_pos - start_pos
             if delta.x() != 0 or delta.y() != 0:
+                _log.warning(
+                    "Item drag delta: start=%s current=%s delta=%s zoom=%.2f",
+                    start_pos, current_pos, delta, self._zoom_factor,
+                )
                 item_deltas.append((item, delta))
 
         for item, start_pos in self._constraint_propagated_starts.items():

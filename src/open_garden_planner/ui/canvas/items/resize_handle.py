@@ -1394,6 +1394,11 @@ class VertexEditMixin:
 
         self._is_vertex_edit_mode = True
 
+        # Prevent accidental whole-item drag while editing individual vertices
+        if hasattr(self, 'setFlag'):
+            from PyQt6.QtWidgets import QGraphicsItem
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)  # type: ignore[attr-defined]
+
         # Hide resize and rotation handles if they exist
         if hasattr(self, 'hide_resize_handles'):
             self.hide_resize_handles()  # type: ignore[attr-defined]
@@ -1411,6 +1416,11 @@ class VertexEditMixin:
             return
 
         self._is_vertex_edit_mode = False
+
+        # Restore whole-item movability
+        if hasattr(self, 'setFlag'):
+            from PyQt6.QtWidgets import QGraphicsItem
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)  # type: ignore[attr-defined]
 
         # Remove vertex and midpoint handles + annotations
         self._remove_vertex_handles()
@@ -2053,6 +2063,11 @@ class RectVertexEditMixin:
 
         self._is_rect_vertex_edit_mode = True
 
+        # Prevent accidental whole-item drag while editing individual corners
+        if hasattr(self, 'setFlag'):
+            from PyQt6.QtWidgets import QGraphicsItem
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)  # type: ignore[attr-defined]
+
         # Hide resize and rotation handles if they exist
         if hasattr(self, 'hide_resize_handles'):
             self.hide_resize_handles()  # type: ignore[attr-defined]
@@ -2069,6 +2084,11 @@ class RectVertexEditMixin:
             return
 
         self._is_rect_vertex_edit_mode = False
+
+        # Restore whole-item movability
+        if hasattr(self, 'setFlag'):
+            from PyQt6.QtWidgets import QGraphicsItem
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)  # type: ignore[attr-defined]
 
         # Remove corner handles and annotations
         self._remove_rect_corner_handles()
@@ -2384,6 +2404,11 @@ class PolylineVertexEditMixin:
 
         self._is_vertex_edit_mode = True
 
+        # Prevent accidental whole-item drag while editing individual vertices
+        if hasattr(self, 'setFlag'):
+            from PyQt6.QtWidgets import QGraphicsItem
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)  # type: ignore[attr-defined]
+
         # Hide rotation handle if it exists
         if hasattr(self, 'hide_rotation_handle'):
             self.hide_rotation_handle()  # type: ignore[attr-defined]
@@ -2399,6 +2424,11 @@ class PolylineVertexEditMixin:
             return
 
         self._is_vertex_edit_mode = False
+
+        # Restore whole-item movability
+        if hasattr(self, 'setFlag'):
+            from PyQt6.QtWidgets import QGraphicsItem
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)  # type: ignore[attr-defined]
 
         # Remove vertex and midpoint handles + annotations
         self._remove_vertex_handles()
