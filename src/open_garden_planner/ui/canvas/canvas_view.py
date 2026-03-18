@@ -587,10 +587,13 @@ class CanvasView(QGraphicsView):
         the subsequent drag or treated as the "initial state" for the newly
         created constraint.
         """
-        moves = self._compute_constraint_solve_moves()
+        moves, vertex_moves = self._compute_constraint_solve_moves()
         for item, _old, new in moves:
             item.setPos(new)
-        if moves:
+        for item, idx, _old_local, new_local in vertex_moves:
+            if hasattr(item, '_move_vertex_to'):
+                item._move_vertex_to(idx, new_local)
+        if moves or vertex_moves:
             self._canvas_scene.update_dimension_lines()
 
     def _execute_constraint_with_solve(
@@ -605,14 +608,15 @@ class CanvasView(QGraphicsView):
         """
         # 1. Add the constraint temporarily so the solver can compute moves.
         command.execute()
-        moves = self._compute_constraint_solve_moves()
+        moves, vertex_moves = self._compute_constraint_solve_moves()
         # 2. Remove temporarily — we want the official execute() below to do it.
         command.undo()
         # 3. Embed the moves into the command so execute() + undo() handle them.
         command._item_moves = moves  # type: ignore[attr-defined]
+        command._vertex_moves = vertex_moves  # type: ignore[attr-defined]
         # 4. Execute via command_manager (adds constraint + applies moves; one undo unit).
         self.command_manager.execute(command)
-        if moves:
+        if moves or vertex_moves:
             self._canvas_scene.update_dimension_lines()
 
     def is_constraint_feasible(
@@ -660,6 +664,7 @@ class CanvasView(QGraphicsView):
                 constrained_ids.add(c.anchor_c.item_id)
 
         item_positions: dict = {}
+        item_map: dict = {}
         anchor_offsets: dict = {}
         construction_ids: set = set()
 
@@ -668,6 +673,7 @@ class CanvasView(QGraphicsView):
             is_construction = isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
             if (is_garden or is_construction) and item.item_id in constrained_ids:
                 uid = item.item_id
+                item_map[uid] = item
                 pos = item.pos()
                 item_positions[uid] = (pos.x(), pos.y())
                 for anchor in get_anchor_points(item):
@@ -682,6 +688,8 @@ class CanvasView(QGraphicsView):
         if len(item_positions) < 2:  # noqa: PLR2004
             return True  # Not enough items to form a conflict — optimistically allow
 
+        deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
+
         return graph.validate_constraint(
             anchor_a=anchor_a,  # type: ignore[arg-type]
             anchor_b=anchor_b,  # type: ignore[arg-type]
@@ -690,6 +698,8 @@ class CanvasView(QGraphicsView):
             item_positions=item_positions,
             anchor_offsets=anchor_offsets,
             anchor_c=anchor_c,  # type: ignore[arg-type]
+            deformable_items=deformable_items,
+            deformable_vertices=deformable_vertices,
         )
 
     # Coordinate conversion
@@ -1332,13 +1342,17 @@ class CanvasView(QGraphicsView):
                     anchor.point.y() - pos.y(),
                 )
 
+        deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
+
         # Construction items are always pinned (they are fixed guides)
         result = graph.solve_anchored(
             item_positions=item_positions,
             anchor_offsets=anchor_offsets,
             pinned_items=dragged_ids | construction_ids,
-            max_iterations=10,
+            max_iterations=20,
             tolerance=1.0,
+            deformable_items=deformable_items,
+            deformable_vertices=deformable_vertices,
         )
 
         propagated_deltas: list[tuple[QGraphicsItem, QPointF]] = []
@@ -1483,14 +1497,18 @@ class CanvasView(QGraphicsView):
                     anchor.point.y() - pos.y(),
                 )
 
+        deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
+
         # Run solver: truly_dragged and construction items are pinned.
         # soft_dragged items are FREE so the solver enforces construction constraints.
         result = graph.solve_anchored(
             item_positions=item_positions,
             anchor_offsets=anchor_offsets,
             pinned_items=truly_dragged | construction_ids,
-            max_iterations=10,
+            max_iterations=20,
             tolerance=1.0,
+            deformable_items=deformable_items,
+            deformable_vertices=deformable_vertices,
         )
 
         # Apply deltas (skip construction items — always pinned)
@@ -1500,6 +1518,21 @@ class CanvasView(QGraphicsView):
             gitem = item_map.get(uid)
             if gitem is not None:
                 gitem.moveBy(dx, dy)
+
+        # Apply vertex deltas for deformable items
+        for (uid, vi), (vdx, vdy) in result.vertex_deltas.items():
+            if uid in construction_ids:
+                continue
+            gitem = item_map.get(uid)
+            if gitem is None or not hasattr(gitem, '_move_vertex_to'):
+                continue
+            old_local = self._get_vertex_local(gitem, vi)
+            if old_local is None:
+                continue
+            old_scene = gitem.mapToScene(old_local)
+            new_scene = QPointF(old_scene.x() + vdx, old_scene.y() + vdy)
+            new_local = gitem.mapFromScene(new_scene)
+            gitem._move_vertex_to(vi, new_local)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         """Handle mouse release to stop panning and finish tool operations."""
@@ -1699,7 +1732,7 @@ class CanvasView(QGraphicsView):
 
                 # Temporarily apply new distance so solver can compute moves
                 constraint.target_distance = new_distance
-                item_moves = self._compute_constraint_solve_moves()
+                item_moves, vertex_moves = self._compute_constraint_solve_moves()
                 constraint.target_distance = old_distance  # command will set it
 
                 command = EditConstraintDistanceCommand(
@@ -1709,11 +1742,61 @@ class CanvasView(QGraphicsView):
                     new_distance=new_distance,
                     item_moves=item_moves,
                 )
+                command._vertex_moves = vertex_moves  # type: ignore[attr-defined]
                 self._command_manager.execute(command)
+
+    @staticmethod
+    def _get_vertex_local(item: QGraphicsItem, index: int) -> "QPointF | None":
+        """Get a vertex position in item-local coordinates."""
+        from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
+
+        if isinstance(item, PolygonItem):
+            polygon = item.polygon()
+            if 0 <= index < polygon.count():
+                return polygon.at(index)
+        elif isinstance(item, PolylineItem):
+            points = item.points
+            if 0 <= index < len(points):
+                return QPointF(points[index])
+        return None
+
+    @staticmethod
+    def _gather_deformable_info(
+        item_map: dict,
+    ) -> "tuple[set, dict[..., list[tuple[float, float]]]]":
+        """Build deformable_items set and deformable_vertices dict from item_map.
+
+        Returns:
+            (deformable_items, deformable_vertices) for items that support
+            per-vertex deformation (PolygonItem, PolylineItem).
+        """
+        from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
+
+        deformable_items: set = set()
+        deformable_vertices: dict = {}
+
+        for uid, item in item_map.items():
+            if isinstance(item, PolygonItem):
+                deformable_items.add(uid)
+                polygon = item.polygon()
+                verts = []
+                for i in range(polygon.count()):
+                    sp = item.mapToScene(polygon.at(i))
+                    verts.append((sp.x(), sp.y()))
+                deformable_vertices[uid] = verts
+            elif isinstance(item, PolylineItem):
+                deformable_items.add(uid)
+                verts = []
+                for pt in item.points:
+                    sp = item.mapToScene(pt)
+                    verts.append((sp.x(), sp.y()))
+                deformable_vertices[uid] = verts
+
+        return deformable_items, deformable_vertices
 
     def _compute_constraint_solve_moves(
         self,
-    ) -> "list[tuple[QGraphicsItem, QPointF, QPointF]]":
+    ) -> "tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]":
         """Run the constraint solver (all items free) and return position changes.
 
         Should be called while the constraint graph already has the desired
@@ -1729,7 +1812,7 @@ class CanvasView(QGraphicsView):
 
         graph = self._canvas_scene.constraint_graph
         if not graph.constraints:
-            return []
+            return [], []
 
         constrained_ids: set = set()
         for c in graph.constraints.values():
@@ -1761,15 +1844,19 @@ class CanvasView(QGraphicsView):
                     construction_ids.add(uid)
 
         if not item_positions:
-            return []
+            return [], []
+
+        deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
 
         # Construction items are always pinned — only garden items move
         result = graph.solve_anchored(
             item_positions=item_positions,
             anchor_offsets=anchor_offsets,
             pinned_items=construction_ids,
-            max_iterations=10,
+            max_iterations=20,
             tolerance=1.0,
+            deformable_items=deformable_items,
+            deformable_vertices=deformable_vertices,
         )
 
         moves: list = []
@@ -1780,7 +1867,27 @@ class CanvasView(QGraphicsView):
             if gitem is not None and (abs(pdx) > 0.01 or abs(pdy) > 0.01):
                 old_pos = gitem.pos()
                 moves.append((gitem, old_pos, QPointF(old_pos.x() + pdx, old_pos.y() + pdy)))
-        return moves
+
+        vertex_moves: list = []
+        for (uid, vi), (vdx, vdy) in result.vertex_deltas.items():
+            if uid in construction_ids:
+                continue
+            gitem = item_map.get(uid)
+            if gitem is None:
+                continue
+            if abs(vdx) < 0.01 and abs(vdy) < 0.01:
+                continue
+            # Get current vertex in item-local coords
+            old_local = self._get_vertex_local(gitem, vi)
+            if old_local is None:
+                continue
+            # Compute new local pos: map scene delta to local coords
+            old_scene = gitem.mapToScene(old_local)
+            new_scene = QPointF(old_scene.x() + vdx, old_scene.y() + vdy)
+            new_local = gitem.mapFromScene(new_scene)
+            vertex_moves.append((gitem, vi, QPointF(old_local), new_local))
+
+        return moves, vertex_moves
 
     def _delete_selected_items(self) -> None:
         """Delete all selected items from the scene with undo support.

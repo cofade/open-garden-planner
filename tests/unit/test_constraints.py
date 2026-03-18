@@ -1672,3 +1672,286 @@ class TestHorizontalVerticalDistanceConstraints:
         delta_b = result.item_deltas.get(id_b, (0.0, 0.0))
         assert abs(delta_a[0]) < 1.0
         assert abs(delta_b[0]) < 1.0
+
+
+# --- Vertex deformation tests (issue #109) ---
+
+
+class TestVertexDeformationSolver:
+    """Tests for per-vertex constraint solving on deformable items (issue #109).
+
+    Deformable items (polygon/polyline) can have individual vertices moved by
+    the solver, enabling multiple coincidence constraints on different vertices
+    to be satisfied simultaneously.
+    """
+
+    def _make_graph_with_coincident(
+        self,
+        id_poly: UUID,
+        vi: int,
+        id_rigid: UUID,
+        anchor_type_rigid: AnchorType = AnchorType.CENTER,
+    ) -> ConstraintGraph:
+        """Build a graph with one COINCIDENT constraint: poly vertex vi → rigid item."""
+        graph = ConstraintGraph()
+        graph.add_constraint(
+            AnchorRef(id_poly, AnchorType.CORNER, vi),
+            AnchorRef(id_rigid, anchor_type_rigid),
+            0.0,
+            constraint_type=ConstraintType.COINCIDENT,
+        )
+        return graph
+
+    def test_two_coincident_on_different_vertices_converges(self, qtbot) -> None:
+        """Two COINCIDENT constraints on different polygon vertices must converge.
+
+        This is the core issue #109 scenario: fence vertex 0 snapped to lawn
+        corner A, fence vertex 1 snapped to lawn corner B.
+        """
+        id_poly = uuid4()
+        id_rigid_a = uuid4()
+        id_rigid_b = uuid4()
+
+        # Polygon with 4 vertices forming a rectangle: origin at (100,100)
+        poly_verts = [
+            (100.0, 100.0),  # vertex 0
+            (200.0, 100.0),  # vertex 1
+            (200.0, 200.0),  # vertex 2
+            (100.0, 200.0),  # vertex 3
+        ]
+
+        # Two rigid items at target positions
+        item_positions = {
+            id_poly: (100.0, 100.0),
+            id_rigid_a: (110.0, 110.0),  # where vertex 0 should go
+            id_rigid_b: (210.0, 110.0),  # where vertex 1 should go
+        }
+
+        # Anchor offsets for rigid items (CENTER = no offset)
+        anchor_offsets = {
+            (id_rigid_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_rigid_b, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+        # Polygon vertex offsets relative to item pos
+        for i, (vx, vy) in enumerate(poly_verts):
+            anchor_offsets[(id_poly, AnchorType.CORNER, i)] = (
+                vx - item_positions[id_poly][0],
+                vy - item_positions[id_poly][1],
+            )
+
+        graph = ConstraintGraph()
+        graph.add_constraint(
+            AnchorRef(id_poly, AnchorType.CORNER, 0),
+            AnchorRef(id_rigid_a, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.COINCIDENT,
+        )
+        graph.add_constraint(
+            AnchorRef(id_poly, AnchorType.CORNER, 1),
+            AnchorRef(id_rigid_b, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.COINCIDENT,
+        )
+
+        result = graph.solve_anchored(
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+            pinned_items={id_rigid_a, id_rigid_b},
+            max_iterations=50,
+            tolerance=1.0,
+            deformable_items={id_poly},
+            deformable_vertices={id_poly: poly_verts},
+        )
+
+        assert result.converged, f"Solver did not converge; max_error={result.max_error:.3f}"
+        # At least one vertex delta should be present (vertex moved)
+        poly_vkeys = [(id_poly, i) for i in range(4)]
+        total_vertex_delta = sum(
+            abs(result.vertex_deltas.get(vk, (0.0, 0.0))[0])
+            + abs(result.vertex_deltas.get(vk, (0.0, 0.0))[1])
+            for vk in poly_vkeys
+        )
+        assert total_vertex_delta > 0.1, "Expected at least one vertex to move"
+
+    def test_single_coincident_on_vertex_translates_whole_item(self, qtbot) -> None:
+        """One COINCIDENT constraint on a vertex translates the whole polygon.
+
+        With only one constraint and the polygon free to translate, the solver
+        should move the entire item so the vertex reaches the target.
+        """
+        id_poly = uuid4()
+        id_rigid = uuid4()
+
+        poly_verts = [
+            (0.0, 0.0),
+            (100.0, 0.0),
+            (100.0, 100.0),
+            (0.0, 100.0),
+        ]
+
+        item_positions = {
+            id_poly: (0.0, 0.0),
+            id_rigid: (50.0, 50.0),
+        }
+        anchor_offsets = {
+            (id_rigid, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+        for i, (vx, vy) in enumerate(poly_verts):
+            anchor_offsets[(id_poly, AnchorType.CORNER, i)] = (vx, vy)
+
+        graph = ConstraintGraph()
+        graph.add_constraint(
+            AnchorRef(id_poly, AnchorType.CORNER, 0),
+            AnchorRef(id_rigid, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.COINCIDENT,
+        )
+
+        result = graph.solve_anchored(
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+            pinned_items={id_rigid},
+            max_iterations=20,
+            tolerance=1.0,
+            deformable_items={id_poly},
+            deformable_vertices={id_poly: poly_verts},
+        )
+
+        assert result.converged
+        # Item delta should be (50, 50) — whole item translated
+        dx, dy = result.item_deltas.get(id_poly, (0.0, 0.0))
+        assert abs(dx - 50.0) < 1.0, f"Expected dx≈50, got {dx}"
+        assert abs(dy - 50.0) < 1.0, f"Expected dy≈50, got {dy}"
+
+    def test_rigid_item_unaffected_by_deformable_mode(self, qtbot) -> None:
+        """Rigid items behave identically whether or not deformable mode is on."""
+        id_a = uuid4()
+        id_b = uuid4()
+
+        item_positions = {id_a: (0.0, 0.0), id_b: (200.0, 0.0)}
+        anchor_offsets = {
+            (id_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+
+        graph = ConstraintGraph()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+            constraint_type=ConstraintType.DISTANCE,
+        )
+
+        result_rigid = graph.solve_anchored(
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+            max_iterations=20,
+            tolerance=1.0,
+        )
+
+        result_deformable = graph.solve_anchored(
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+            max_iterations=20,
+            tolerance=1.0,
+            deformable_items=set(),
+            deformable_vertices={},
+        )
+
+        assert result_rigid.converged
+        assert result_deformable.converged
+        # Both should produce the same item deltas
+        assert result_rigid.item_deltas == result_deformable.item_deltas
+
+    def test_deformable_not_over_constrained_with_many_vertices(
+        self, qtbot
+    ) -> None:
+        """A polygon with N vertices should handle up to N coincident constraints."""
+        id_poly = uuid4()
+        n = 4
+        rigid_ids = [uuid4() for _ in range(n)]
+
+        # N-vertex polygon at origin
+        poly_verts = [(float(i * 100), 0.0) for i in range(n)]
+
+        item_positions: dict = {id_poly: (0.0, 0.0)}
+        anchor_offsets: dict = {}
+        for i, (vx, vy) in enumerate(poly_verts):
+            anchor_offsets[(id_poly, AnchorType.CORNER, i)] = (vx, vy)
+
+        graph = ConstraintGraph()
+        for i, rid in enumerate(rigid_ids):
+            item_positions[rid] = (float(i * 100 + 10), 10.0)
+            anchor_offsets[(rid, AnchorType.CENTER, 0)] = (0.0, 0.0)
+            graph.add_constraint(
+                AnchorRef(id_poly, AnchorType.CORNER, i),
+                AnchorRef(rid, AnchorType.CENTER),
+                0.0,
+                constraint_type=ConstraintType.COINCIDENT,
+            )
+
+        over = graph.is_over_constrained(
+            item_positions,
+            deformable_vertex_counts={id_poly: n},
+        )
+        assert id_poly not in over, (
+            f"Polygon with {n} vertices should not be over-constrained "
+            f"with {n} constraints"
+        )
+
+    def test_validate_constraint_approves_second_vertex_coincident(
+        self, qtbot
+    ) -> None:
+        """validate_constraint must accept the second vertex coincident constraint.
+
+        This is the exact failure path from issue #109.
+        """
+        id_poly = uuid4()
+        id_rigid_a = uuid4()
+        id_rigid_b = uuid4()
+
+        poly_verts = [
+            (0.0, 0.0),
+            (100.0, 0.0),
+            (100.0, 100.0),
+            (0.0, 100.0),
+        ]
+
+        item_positions = {
+            id_poly: (0.0, 0.0),
+            id_rigid_a: (5.0, 5.0),
+            id_rigid_b: (105.0, 5.0),
+        }
+        anchor_offsets: dict = {
+            (id_rigid_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_rigid_b, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+        for i, (vx, vy) in enumerate(poly_verts):
+            anchor_offsets[(id_poly, AnchorType.CORNER, i)] = (vx, vy)
+
+        graph = ConstraintGraph()
+        # First constraint: vertex 0 → rigid_a (already applied)
+        graph.add_constraint(
+            AnchorRef(id_poly, AnchorType.CORNER, 0),
+            AnchorRef(id_rigid_a, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.COINCIDENT,
+        )
+
+        # Validate adding a second constraint: vertex 1 → rigid_b
+        feasible = graph.validate_constraint(
+            anchor_a=AnchorRef(id_poly, AnchorType.CORNER, 1),
+            anchor_b=AnchorRef(id_rigid_b, AnchorType.CENTER),
+            target_distance=0.0,
+            constraint_type=ConstraintType.COINCIDENT,
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+            max_iterations=50,
+            deformable_items={id_poly},
+            deformable_vertices={id_poly: poly_verts},
+        )
+
+        assert feasible, (
+            "Second vertex coincident constraint should be feasible "
+            "for a deformable polygon"
+        )
