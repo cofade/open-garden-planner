@@ -606,6 +606,7 @@ class AddConstraintCommand(Command):
         self._constraint_id: UUID | None = None
         self._item_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = item_moves or []
         self._item_rotations: list[tuple[QGraphicsItem, float, float, Callable[[QGraphicsItem, float], None]]] = item_rotations or []
+        self._vertex_moves: list[tuple[QGraphicsItem, int, QPointF, QPointF]] = []
         self._target_x = target_x
         self._target_y = target_y
 
@@ -629,10 +630,17 @@ class AddConstraintCommand(Command):
             item.setPos(new)
         for item, _old_angle, new_angle, apply_func in self._item_rotations:
             apply_func(item, new_angle)
+        for item, idx, _old_local, new_local in self._vertex_moves:
+            if hasattr(item, '_move_vertex_to'):
+                item._move_vertex_to(idx, new_local)
 
     def undo(self) -> None:
         if self._constraint_id is not None:
             self._graph.remove_constraint(self._constraint_id)
+        # Revert vertex moves first (reverse order)
+        for item, idx, old_local, _new_local in reversed(self._vertex_moves):
+            if hasattr(item, '_move_vertex_to'):
+                item._move_vertex_to(idx, old_local)
         for item, old, _new in self._item_moves:
             item.setPos(old)
         for item, old_angle, _new_angle, apply_func in self._item_rotations:
@@ -848,6 +856,7 @@ class EditConstraintDistanceCommand(Command):
         self._old_distance = old_distance
         self._new_distance = new_distance
         self._item_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = item_moves or []
+        self._vertex_moves: list[tuple[QGraphicsItem, int, QPointF, QPointF]] = []
 
     @property
     def description(self) -> str:
@@ -859,10 +868,16 @@ class EditConstraintDistanceCommand(Command):
             c.target_distance = self._new_distance
         for item, _old, new in self._item_moves:
             item.setPos(new)
+        for item, idx, _old_local, new_local in self._vertex_moves:
+            if hasattr(item, '_move_vertex_to'):
+                item._move_vertex_to(idx, new_local)
 
     def undo(self) -> None:
         c = self._graph.constraints.get(self._constraint_id)
         if c:
             c.target_distance = self._old_distance
+        for item, idx, old_local, _new_local in reversed(self._vertex_moves):
+            if hasattr(item, '_move_vertex_to'):
+                item._move_vertex_to(idx, old_local)
         for item, old, _new in self._item_moves:
             item.setPos(old)
