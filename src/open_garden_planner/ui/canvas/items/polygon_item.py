@@ -1,10 +1,19 @@
 """Polygon item for the garden canvas."""
 
+import math
 import uuid
 from typing import Any
 
-from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QKeyEvent, QPainter, QPen, QPolygonF
+from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt
+from PyQt6.QtGui import (
+    QBrush,
+    QKeyEvent,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPolygonF,
+    QTransform,
+)
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsPolygonItem,
@@ -20,6 +29,92 @@ from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_s
 
 from .garden_item import GardenItemMixin
 from .resize_handle import ResizeHandlesMixin, RotationHandleMixin, VertexEditMixin
+
+
+def _project_to_polygon_boundary(polygon: QPolygonF, point: QPointF) -> QPointF:
+    """Find the closest point on a polygon's boundary to *point*.
+
+    Iterates over every edge of *polygon*, projects *point* onto it, and
+    returns the nearest result.  Coordinates are in whatever space the
+    polygon vertices use (usually item-local).
+    """
+    best_pt = point
+    best_dist_sq = float("inf")
+    n = polygon.count()
+    for i in range(n):
+        v1 = polygon.at(i)
+        v2 = polygon.at((i + 1) % n)
+        ex = v2.x() - v1.x()
+        ey = v2.y() - v1.y()
+        len_sq = ex * ex + ey * ey
+        if len_sq < 1e-10:
+            proj = QPointF(v1)
+        else:
+            t = ((point.x() - v1.x()) * ex + (point.y() - v1.y()) * ey) / len_sq
+            t = max(0.0, min(1.0, t))
+            proj = QPointF(v1.x() + t * ex, v1.y() + t * ey)
+        dx = proj.x() - point.x()
+        dy = proj.y() - point.y()
+        d2 = dx * dx + dy * dy
+        if d2 < best_dist_sq:
+            best_dist_sq = d2
+            best_pt = proj
+    return best_pt
+
+
+def _split_path_by_line(
+    path: QPainterPath, line: QLineF
+) -> tuple[QPainterPath, QPainterPath]:
+    """Split a QPainterPath into two halves along a line.
+
+    Returns (left_half, right_half) where "left" is the side that the
+    perpendicular points toward negative when walking from line.p1 to p2.
+
+    Args:
+        path: The path to split
+        line: The dividing line (will be extended far beyond the path bounds)
+
+    Returns:
+        Tuple of (left_path, right_path)
+    """
+    bounds = path.boundingRect()
+    ext = max(bounds.width(), bounds.height()) * 10.0 + 1000.0
+
+    dx = line.dx()
+    dy = line.dy()
+    length = math.sqrt(dx * dx + dy * dy)
+    if length < 1e-9:
+        return path, QPainterPath()
+
+    # Unit direction and unit perpendicular
+    ux, uy = dx / length, dy / length
+    px, py = -uy, ux  # left-perpendicular
+
+    # Midpoint of the supplied line segment
+    mid_x = (line.x1() + line.x2()) / 2.0
+    mid_y = (line.y1() + line.y2()) / 2.0
+
+    # Extended ridge endpoints
+    e1 = QPointF(mid_x - ux * ext, mid_y - uy * ext)
+    e2 = QPointF(mid_x + ux * ext, mid_y + uy * ext)
+
+    # Left half-plane polygon (perpendicular direction is "left")
+    left_rect = QPainterPath()
+    left_rect.moveTo(e1)
+    left_rect.lineTo(e2)
+    left_rect.lineTo(QPointF(e2.x() + px * ext, e2.y() + py * ext))
+    left_rect.lineTo(QPointF(e1.x() + px * ext, e1.y() + py * ext))
+    left_rect.closeSubpath()
+
+    # Right half-plane polygon
+    right_rect = QPainterPath()
+    right_rect.moveTo(e1)
+    right_rect.lineTo(e2)
+    right_rect.lineTo(QPointF(e2.x() - px * ext, e2.y() - py * ext))
+    right_rect.lineTo(QPointF(e1.x() - px * ext, e1.y() - py * ext))
+    right_rect.closeSubpath()
+
+    return path.intersected(left_rect), path.intersected(right_rect)
 
 
 def _show_properties_dialog(item: QGraphicsPolygonItem) -> None:
@@ -183,6 +278,139 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             base = base.adjusted(-m, -m, m, m)
         return base
 
+    def _find_ridge(self) -> "QGraphicsItem | None":
+        """Look up the associated roof ridge item in the scene by metadata ID."""
+        rid = self.get_metadata("ridge_item_id")
+        if not rid:
+            return None
+        scene = self.scene()
+        if scene is None:
+            return None
+        for item in scene.items():
+            if hasattr(item, "item_id") and str(item.item_id) == rid:
+                return item
+        return None
+
+    def _update_ridge_on_boundary(self) -> None:
+        """Re-project the ridge endpoints onto the current polygon boundary.
+
+        Called after polygon resize, vertex edit, or rotation so that the
+        ridge stays attached to the polygon's outer edge.
+        """
+        ridge = self._find_ridge()
+        if ridge is None:
+            return
+
+        poly = self.polygon()
+        if poly.count() < 3:
+            return
+
+        from open_garden_planner.ui.canvas.items import PolylineItem
+
+        if not isinstance(ridge, PolylineItem):
+            return
+
+        pts = ridge.points  # scene-space (ridge pos is usually 0,0)
+        if len(pts) < 2:
+            return
+
+        new_pts: list[QPointF] = []
+        for pt in pts:
+            # Convert ridge scene-coord → polygon item-local coord
+            local = self.mapFromScene(ridge.mapToScene(pt))
+            projected = _project_to_polygon_boundary(poly, local)
+            # Convert back to ridge item-local coords
+            scene_pt = self.mapToScene(projected)
+            new_pts.append(ridge.mapFromScene(scene_pt))
+
+        # Update ridge geometry directly
+        ridge._points = new_pts
+        ridge._rebuild_path()
+        if hasattr(ridge, '_update_vertex_handles') and ridge.is_vertex_edit_mode:
+            ridge._update_vertex_handles()
+        if hasattr(ridge, '_position_label'):
+            ridge._position_label()
+
+    def _paint_with_ridge(self, painter: QPainter, ridge: "QGraphicsItem") -> None:
+        """Paint HOUSE polygon with tile texture mirrored on each side of the ridge."""
+        # Get ridge endpoints in item-local coordinates
+        pts = ridge.points  # list[QPointF] in item-local coords of the ridge item
+        if len(pts) < 2:
+            return
+        p1 = self.mapFromScene(ridge.mapToScene(pts[0]))
+        p2 = self.mapFromScene(ridge.mapToScene(pts[-1]))
+
+        dx = p2.x() - p1.x()
+        dy = p2.y() - p1.y()
+        length = math.sqrt(dx * dx + dy * dy)
+        if length < 1e-9:
+            return
+        mid_x = (p1.x() + p2.x()) / 2.0
+        mid_y = (p1.y() + p2.y()) / 2.0
+        angle_deg = math.degrees(math.atan2(dy, dx))
+
+        # Build polygon QPainterPath
+        poly = self.polygon()
+        poly_path = QPainterPath()
+        if poly.count() > 0:
+            poly_path.moveTo(poly.at(0))
+            for i in range(1, poly.count()):
+                poly_path.lineTo(poly.at(i))
+            poly_path.closeSubpath()
+
+        # Build half-plane clipping paths along the ridge line
+        left_path, right_path = _split_path_by_line(poly_path, QLineF(p1, p2))
+
+        brush = self.brush()
+
+        # Align tile rows perpendicular to ridge, tiling origin at ridge midpoint.
+        # QBrush.setTransform(T) means: local point (x,y) samples texture at T^-1.(x,y).
+        # We want texture to tile outward from the ridge on each side.
+        normal_tx = QTransform()
+        normal_tx.translate(mid_x, mid_y)
+        normal_tx.rotate(angle_deg)
+        normal_brush = QBrush(brush)
+        normal_brush.setTransform(normal_tx)
+
+        # Mirrored brush: flip the perpendicular axis so tiles mirror across the ridge
+        mirrored_tx = QTransform()
+        mirrored_tx.translate(mid_x, mid_y)
+        mirrored_tx.rotate(angle_deg)
+        mirrored_tx.scale(1.0, -1.0)
+        mirrored_brush = QBrush(brush)
+        mirrored_brush.setTransform(mirrored_tx)
+
+        # Bounding rect for fill (clip handles actual shape)
+        bounds = poly_path.boundingRect()
+        ext = max(bounds.width(), bounds.height()) + 100.0
+        fill_rect = QRectF(
+            bounds.center().x() - ext,
+            bounds.center().y() - ext,
+            ext * 2.0,
+            ext * 2.0,
+        )
+
+        # Paint right side (normal texture — tiles go "right" from ridge)
+        painter.save()
+        painter.setClipPath(right_path)
+        painter.setBrush(normal_brush)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRect(fill_rect)
+        painter.restore()
+
+        # Paint left side (mirrored texture — tiles go "left" from ridge)
+        painter.save()
+        painter.setClipPath(left_path)
+        painter.setBrush(mirrored_brush)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRect(fill_rect)
+        painter.restore()
+
+        # Draw outline on top
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(self.pen())
+        painter.drawPath(poly_path)
+
     def paint(
         self,
         painter: QPainter,
@@ -199,7 +427,13 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             )
             painter.drawPolygon(shadow_poly)
             painter.restore()
-        super().paint(painter, option, widget)
+
+        # For HOUSE polygons with a ridge: use mirrored tile rendering
+        ridge = self._find_ridge()
+        if ridge is not None and self.object_type == ObjectType.HOUSE:
+            self._paint_with_ridge(painter, ridge)
+        else:
+            super().paint(painter, option, widget)
 
         # Draw crop rotation status indicator (colored inner border on beds)
         if self._rotation_status is not None:
@@ -228,6 +462,7 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         Shows/hides resize and rotation handles based on selection state.
         Exits vertex edit mode when deselected.
         Updates annotations when position changes.
+        Moves the attached ridge when the polygon moves.
         """
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
@@ -241,10 +476,56 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
                     self.exit_vertex_edit_mode()
                 self.hide_resize_handles()
                 self.hide_rotation_handle()
-        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged and self.is_vertex_edit_mode:
-            self._update_annotations()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
+            # Record old pos BEFORE it changes so we can compute the delta
+            self._pre_move_pos = QPointF(self.pos())
+        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            if self.is_vertex_edit_mode:
+                self._update_annotations()
+            # Move attached ridge by the same delta
+            self._move_ridge_by_delta()
 
         return super().itemChange(change, value)
+
+    def _move_ridge_by_delta(self) -> None:
+        """Translate the attached ridge by the same delta as this polygon moved."""
+        old_pos = getattr(self, "_pre_move_pos", None)
+        if old_pos is None:
+            return
+        new_pos = self.pos()
+        dx = new_pos.x() - old_pos.x()
+        dy = new_pos.y() - old_pos.y()
+        if abs(dx) < 1e-6 and abs(dy) < 1e-6:
+            return
+
+        ridge = self._find_ridge()
+        if ridge is None:
+            return
+
+        from open_garden_planner.ui.canvas.items import PolylineItem
+
+        if not isinstance(ridge, PolylineItem):
+            return
+
+        # Shift every ridge point by the same delta (both are scene-space items)
+        new_pts = [QPointF(pt.x() + dx, pt.y() + dy) for pt in ridge._points]
+        ridge._points = new_pts
+        ridge._rebuild_path()
+        if hasattr(ridge, "_update_vertex_handles") and ridge.is_vertex_edit_mode:
+            ridge._update_vertex_handles()
+        if hasattr(ridge, "_position_label"):
+            ridge._position_label()
+
+    def _move_vertex_to(self, index: int, pos: QPointF) -> None:
+        """Move a polygon vertex and keep the attached ridge on the boundary."""
+        super()._move_vertex_to(index, pos)
+        # Re-project ridge endpoints when the polygon shape changes
+        self._update_ridge_on_boundary()
+
+    def _apply_rotation(self, angle: float) -> None:
+        """Apply rotation and keep the attached ridge on the boundary."""
+        super()._apply_rotation(angle)
+        self._update_ridge_on_boundary()
 
     def _on_resize_start(self) -> None:
         """Called when a resize operation starts. Store initial polygon."""
@@ -303,6 +584,9 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
 
         # Update label position
         self._position_label()
+
+        # Keep ridge endpoints on the polygon boundary
+        self._update_ridge_on_boundary()
 
     def _on_resize_end(
         self,

@@ -286,10 +286,10 @@ class CanvasView(QGraphicsView):
         perennial_tool.shortcut = "3"
         self._tool_manager.register_tool(perennial_tool)
 
-        # Register hedge section tool (rectangle-based, SVG-rendered)
-        hedge_tool = RectangleTool(self, object_type=ObjectType.HEDGE_SECTION)
-        hedge_tool.tool_type = ToolType.HEDGE_SECTION
-        hedge_tool.display_name = self.tr("Hedge Section")
+        # Register hedge polygon tool (polygon-based, tiled texture)
+        hedge_tool = PolygonTool(self, object_type=ObjectType.HEDGE_POLYGON)
+        hedge_tool.tool_type = ToolType.HEDGE_POLYGON
+        hedge_tool.display_name = self.tr("Hedge")
         self._tool_manager.register_tool(hedge_tool)
 
         # Register outdoor furniture tools (rectangle-based, SVG-rendered)

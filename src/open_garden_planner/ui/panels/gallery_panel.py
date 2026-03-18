@@ -300,17 +300,14 @@ def _build_gallery_categories() -> list[GalleryCategory]:
                 species=svg_file.replace("_", " "),
             )
         )
-    # Add hedge section as a rectangle-based item
-    hedge_svg_path = _CATEGORIES_DIR / "hedge_section.svg"
-    hedge_thumb = _render_svg_thumbnail(hedge_svg_path)
-    if hedge_thumb is None:
-        style = OBJECT_STYLES[ObjectType.HEDGE_SECTION]
-        hedge_thumb = _render_color_circle_thumbnail(style.fill_color)
+    # Add hedge polygon as a texture-filled polygon item
+    hedge_style = OBJECT_STYLES[ObjectType.HEDGE_POLYGON]
+    hedge_thumb = _render_texture_thumbnail(FillPattern.HEDGE, hedge_style.fill_color)
     shrub_items.append(
         GalleryItem(
-            name=_tr("Hedge Section"),
-            tool_type=ToolType.HEDGE_SECTION,
-            object_type=ObjectType.HEDGE_SECTION,
+            name=_tr("Hedge"),
+            tool_type=ToolType.HEDGE_POLYGON,
+            object_type=ObjectType.HEDGE_POLYGON,
             thumbnail=hedge_thumb,
         )
     )

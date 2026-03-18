@@ -132,6 +132,35 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setFlag(QGraphicsPathItem.GraphicsItemFlag.ItemIsFocusable, True)
 
+    def _find_owner_polygon(self) -> "QGraphicsItem | None":
+        """Look up the HOUSE polygon that owns this ridge via metadata."""
+        pid = self.get_metadata("owner_polygon_id") if hasattr(self, "get_metadata") else None
+        if not pid:
+            return None
+        scene = self.scene()
+        if scene is None:
+            return None
+        for item in scene.items():
+            if hasattr(item, "item_id") and str(item.item_id) == pid:
+                return item
+        return None
+
+    def _move_vertex_to(self, index: int, pos: QPointF) -> None:
+        """Move a vertex, constraining ROOF_RIDGE endpoints to the polygon boundary."""
+        if self.object_type == ObjectType.ROOF_RIDGE:
+            owner = self._find_owner_polygon()
+            if owner is not None and hasattr(owner, "polygon"):
+                from .polygon_item import _project_to_polygon_boundary
+
+                # Convert new position from ridge-local → scene → polygon-local
+                scene_pt = self.mapToScene(pos)
+                local_pt = owner.mapFromScene(scene_pt)
+                projected = _project_to_polygon_boundary(owner.polygon(), local_pt)
+                # Convert back to ridge-local
+                pos = self.mapFromScene(owner.mapToScene(projected))
+
+        super()._move_vertex_to(index, pos)
+
     def boundingRect(self) -> QRectF:
         """Return bounding rect, expanded for shadow and style decorations."""
         base = super().boundingRect()
@@ -153,6 +182,11 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         # Draw shadow first
         if self._shadows_enabled:
             self._paint_shadow(painter)
+
+        # Roof ridge: custom cap rendering regardless of path_fence_style
+        if self.object_type == ObjectType.ROOF_RIDGE:
+            self._paint_roof_ridge(painter)
+            return
 
         # Draw style-specific rendering
         style = self._path_fence_style
@@ -194,6 +228,69 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y,
         )
         painter.drawPath(shadow_path)
+        painter.restore()
+
+    def _paint_roof_ridge(self, painter: QPainter) -> None:
+        """Paint a roof ridge cap with layered width and highlight."""
+        import math as _math
+
+        path = self.path()
+        pts = self._points
+        if len(pts) < 2:
+            painter.setPen(self.pen())
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawPath(path)
+            return
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        # Layer 1 – wide dark shadow base (ridge cap sides)
+        pen_base = QPen(QColor(70, 45, 20))
+        pen_base.setWidthF(8.0)
+        pen_base.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen_base.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen_base)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawPath(path)
+
+        # Layer 2 – main ridge body (terracotta)
+        pen_body = QPen(QColor(155, 90, 52))
+        pen_body.setWidthF(5.5)
+        pen_body.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen_body.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen_body)
+        painter.drawPath(path)
+
+        # Layer 3 – central highlight (peak of the ridge cap)
+        pen_highlight = QPen(QColor(210, 150, 100))
+        pen_highlight.setWidthF(1.8)
+        pen_highlight.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(pen_highlight)
+        painter.drawPath(path)
+
+        # Draw small semi-circular caps at each end segment
+        for i in range(len(pts) - 1):
+            seg_dx = pts[i + 1].x() - pts[i].x()
+            seg_dy = pts[i + 1].y() - pts[i].y()
+            seg_len = _math.sqrt(seg_dx * seg_dx + seg_dy * seg_dy)
+            if seg_len < 1e-6:
+                continue
+            ux = seg_dx / seg_len
+            uy = seg_dy / seg_len
+            # Cap circles at each end point
+            for end_pt in (pts[i], pts[i + 1]):
+                r = 4.0
+                painter.setPen(QPen(QColor(70, 45, 20), 1.0))
+                painter.setBrush(QBrush(QColor(155, 90, 52)))
+                painter.drawEllipse(end_pt, r, r)
+                # Highlight on cap
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(QBrush(QColor(210, 150, 100, 160)))
+                painter.drawEllipse(
+                    QPointF(end_pt.x() - ux * 0.5, end_pt.y() - uy * 0.5), r * 0.45, r * 0.45
+                )
+
         painter.restore()
 
     def _get_segment_normal(self, p1: QPointF, p2: QPointF) -> tuple[float, float]:

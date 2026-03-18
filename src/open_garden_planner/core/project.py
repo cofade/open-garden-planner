@@ -897,6 +897,32 @@ class ProjectManager(QObject):
                 # Image file may have been moved/deleted
                 return None
         elif obj_type == "rectangle":
+            # Migrate legacy HEDGE_SECTION rectangles to HEDGE_POLYGON polygons
+            if object_type == ObjectType.HEDGE_SECTION:
+                x, y, w, h = obj["x"], obj["y"], obj["width"], obj["height"]
+                vertices = [
+                    QPointF(x, y),
+                    QPointF(x + w, y),
+                    QPointF(x + w, y + h),
+                    QPointF(x, y + h),
+                ]
+                from open_garden_planner.core.fill_patterns import FillPattern as _FP
+                hedge_item = PolygonItem(
+                    vertices,
+                    object_type=ObjectType.HEDGE_POLYGON,
+                    name=name,
+                    metadata=metadata,
+                    fill_pattern=_FP.HEDGE,
+                    layer_id=layer_id,
+                )
+                if "item_id" in obj:
+                    hedge_item._item_id = UUID(obj["item_id"])
+                if not label_visible:
+                    hedge_item.label_visible = False
+                if "rotation_angle" in obj:
+                    hedge_item._apply_rotation(obj["rotation_angle"])
+                return hedge_item
+
             item = RectangleItem(
                 obj["x"],
                 obj["y"],

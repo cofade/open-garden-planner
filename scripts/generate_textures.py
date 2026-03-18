@@ -856,6 +856,102 @@ def generate_glass_texture() -> QPixmap:
     return pixmap
 
 
+def generate_hedge_texture() -> QPixmap:
+    """Generate a tileable hedge texture with fine dense foliage dots."""
+    size = TEXTURE_SIZE
+    pixmap = QPixmap(size, size)
+    base = QColor(40, 82, 24)  # Dark green base
+    pixmap.fill(base)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    rng = _seeded_random(314)
+
+    # Layer 1: Subtle background color variation (small patches for depth)
+    for _ in range(60):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        w = rng.randint(6, 18)
+        h = rng.randint(6, 18)
+        variation = rng.randint(-12, 12)
+        c = QColor(
+            max(0, min(255, 40 + variation)),
+            max(0, min(255, 82 + variation * 2)),
+            max(0, min(255, 24 + variation)),
+        )
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(c))
+        painter.setOpacity(0.4)
+        painter.drawEllipse(x, y, w, h)
+        if x + w > size:
+            painter.drawEllipse(x - size, y, w, h)
+        if y + h > size:
+            painter.drawEllipse(x, y - size, w, h)
+
+    painter.setOpacity(1.0)
+
+    # Layer 2: Fine foliage clusters (many small blobs)
+    for _ in range(350):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        r = rng.uniform(1.5, 5.5)
+        green_var = rng.randint(-15, 35)
+        c = QColor(
+            max(0, min(255, 48 + green_var // 3)),
+            max(0, min(255, 108 + green_var)),
+            max(0, min(255, 28 + green_var // 4)),
+        )
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(c))
+        painter.setOpacity(rng.uniform(0.55, 0.85))
+        ry = r * rng.uniform(0.65, 1.0)
+        painter.drawEllipse(QPointF(x, y), r, ry)
+        if x + r > size:
+            painter.drawEllipse(QPointF(x - size, y), r, ry)
+        if y + ry > size:
+            painter.drawEllipse(QPointF(x, y - size), r, ry)
+
+    painter.setOpacity(1.0)
+
+    # Layer 3: Fine highlight dots (light leaf tips)
+    for _ in range(600):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        r = rng.uniform(0.5, 2.2)
+        green_var = rng.randint(15, 55)
+        c = QColor(
+            max(0, min(255, 58 + green_var // 4)),
+            max(0, min(255, 128 + green_var)),
+            max(0, min(255, 32 + green_var // 5)),
+        )
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(c))
+        painter.setOpacity(rng.uniform(0.45, 0.8))
+        painter.drawEllipse(QPointF(x, y), r, r)
+        if x + r > size:
+            painter.drawEllipse(QPointF(x - size, y), r, r)
+        if y + r > size:
+            painter.drawEllipse(QPointF(x, y - size), r, r)
+
+    painter.setOpacity(1.0)
+
+    # Layer 4: Tiny dark shadow dots (depth between leaves)
+    for _ in range(250):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        r = rng.uniform(0.5, 1.8)
+        c = QColor(18, 44, 10)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(c))
+        painter.setOpacity(rng.uniform(0.35, 0.65))
+        painter.drawEllipse(QPointF(x, y), r, r)
+
+    painter.setOpacity(1.0)
+    painter.end()
+    return pixmap
+
+
 def main() -> None:
     """Generate all textures and save to resources/textures/."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -872,6 +968,7 @@ def main() -> None:
         "stone": generate_stone_texture,
         "roof_tiles": generate_roof_tiles_texture,
         "glass": generate_glass_texture,
+        "hedge": generate_hedge_texture,
     }
 
     for name, generator in textures.items():

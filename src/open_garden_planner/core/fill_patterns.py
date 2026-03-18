@@ -38,6 +38,7 @@ class FillPattern(Enum):
     SAND = auto()  # Sand texture
     STONE = auto()  # Stone paving texture
     GLASS = auto()  # Glass pane / greenhouse texture
+    HEDGE = auto()  # Dense foliage / hedge texture
 
 
 # Mapping from FillPattern to texture filename (without .png)
@@ -53,6 +54,7 @@ _TEXTURE_FILES: dict[FillPattern, str] = {
     FillPattern.SAND: "sand",
     FillPattern.STONE: "stone",
     FillPattern.GLASS: "glass",
+    FillPattern.HEDGE: "hedge",
 }
 
 
