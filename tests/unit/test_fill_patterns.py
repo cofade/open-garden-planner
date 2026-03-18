@@ -24,13 +24,13 @@ class TestFillPatternEnum:
     def test_all_material_patterns_exist(self, qtbot: object) -> None:
         expected = [
             "SOLID", "GRASS", "GRAVEL", "CONCRETE", "WOOD",
-            "WATER", "SOIL", "MULCH", "ROOF_TILES", "SAND", "STONE", "GLASS",
+            "WATER", "SOIL", "MULCH", "ROOF_TILES", "SAND", "STONE", "GLASS", "HEDGE",
         ]
         for name in expected:
             assert hasattr(FillPattern, name), f"Missing pattern: {name}"
 
     def test_pattern_count(self, qtbot: object) -> None:
-        assert len(FillPattern) == 12
+        assert len(FillPattern) == 13
 
 
 class TestTextureFiles:

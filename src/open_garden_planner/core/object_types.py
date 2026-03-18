@@ -156,11 +156,13 @@ class ObjectType(Enum):
     GREENHOUSE = auto()
     GARDEN_BED = auto()
     LAWN = auto()
+    HEDGE_POLYGON = auto()  # Hedge area (polygon, tiled texture)
 
     # Polyline-based structures
     FENCE = auto()
     WALL = auto()
     PATH = auto()
+    ROOF_RIDGE = auto()  # Roof ridge line (auto-created, not in toolbar)
 
     # Plant types (circle-based)
     TREE = auto()
@@ -307,12 +309,26 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         display_name=QT_TR_NOOP("Path"),
         fill_pattern=FillPattern.SOLID,
     ),
+    ObjectType.ROOF_RIDGE: ObjectStyle(
+        fill_color=QColor(0, 0, 0, 0),
+        stroke_color=QColor(100, 72, 38),  # Dark brown ridge
+        stroke_width=2.0,
+        display_name=QT_TR_NOOP("Roof Ridge"),
+        fill_pattern=FillPattern.SOLID,
+    ),
     ObjectType.HEDGE_SECTION: ObjectStyle(
         fill_color=QColor(60, 120, 40, 255),  # Hedge green
         stroke_color=QColor(40, 90, 25),  # Dark hedge green
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Hedge Section"),
         fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.HEDGE_POLYGON: ObjectStyle(
+        fill_color=QColor(45, 90, 28, 255),  # Deep hedge green
+        stroke_color=QColor(30, 65, 18),  # Darker green outline
+        stroke_width=1.5,
+        display_name=QT_TR_NOOP("Hedge"),
+        fill_pattern=FillPattern.HEDGE,
     ),
     ObjectType.TABLE_RECTANGULAR: ObjectStyle(
         fill_color=QColor(160, 120, 80, 255),  # Warm wood
