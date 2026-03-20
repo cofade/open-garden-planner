@@ -133,6 +133,50 @@ class CommandManager(QObject):
         return None
 
 
+def _auto_parent_plant(scene: QGraphicsScene, item: QGraphicsItem) -> None:
+    """If *item* is a plant inside a bed, establish the parent-child link."""
+    from open_garden_planner.core.plant_renderer import is_plant_type
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+    if not isinstance(item, GardenItemMixin):
+        return
+    if not is_plant_type(item.object_type):
+        return
+    # Skip if already parented (e.g. paste with pre-set relationship)
+    if item.parent_bed_id is not None:
+        return
+
+    plant_center = item.mapToScene(item.boundingRect().center())
+
+    if hasattr(scene, "find_smallest_bed_containing"):
+        best_bed = scene.find_smallest_bed_containing(plant_center)
+    else:
+        return
+
+    if best_bed is not None and isinstance(best_bed, GardenItemMixin):
+        item.parent_bed_id = best_bed.item_id
+        best_bed.add_child_id(item.item_id)
+        # Ensure plant renders above its parent bed
+        if item.zValue() <= best_bed.zValue():
+            item.setZValue(best_bed.zValue() + 1)
+
+
+def _detach_from_parent(scene: QGraphicsScene, item: QGraphicsItem) -> None:
+    """Remove the parent-child link for *item* (if any)."""
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+    if not isinstance(item, GardenItemMixin):
+        return
+    parent_id = item.parent_bed_id
+    if parent_id is None:
+        return
+    item.parent_bed_id = None
+    if hasattr(scene, "find_item_by_id"):
+        parent = scene.find_item_by_id(parent_id)
+        if parent is not None and isinstance(parent, GardenItemMixin):
+            parent.remove_child_id(item.item_id)
+
+
 class CreateItemCommand(Command):
     """Command for creating a new item on the scene."""
 
@@ -162,9 +206,11 @@ class CreateItemCommand(Command):
         """Add the item to the scene."""
         if self._item.scene() is None:
             self._scene.addItem(self._item)
+        _auto_parent_plant(self._scene, self._item)
 
     def undo(self) -> None:
         """Remove the item from the scene."""
+        _detach_from_parent(self._scene, self._item)
         if self._item.scene() is not None:
             self._scene.removeItem(self._item)
 
@@ -202,9 +248,13 @@ class CreateItemsCommand(Command):
         for item in self._items:
             if item.scene() is None:
                 self._scene.addItem(item)
+        for item in self._items:
+            _auto_parent_plant(self._scene, item)
 
     def undo(self) -> None:
         """Remove the items from the scene."""
+        for item in self._items:
+            _detach_from_parent(self._scene, item)
         for item in self._items:
             if item.scene() is not None:
                 self._scene.removeItem(item)
@@ -224,8 +274,23 @@ class DeleteItemsCommand(Command):
             scene: The scene containing the items
             items: List of items to delete
         """
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
         self._scene = scene
         self._items = list(items)  # Copy the list
+
+        # Snapshot parent-child relationships for undo restoration.
+        # bed UUID → list of child UUIDs
+        self._bed_children: dict[UUID, list[UUID]] = {}
+        # plant UUID → parent bed UUID
+        self._plant_parents: dict[UUID, UUID] = {}
+        for item in self._items:
+            if not isinstance(item, GardenItemMixin):
+                continue
+            if item.has_children:
+                self._bed_children[item.item_id] = list(item._child_item_ids)
+            if item.parent_bed_id is not None:
+                self._plant_parents[item.item_id] = item.parent_bed_id
 
     @property
     def description(self) -> str:
@@ -237,15 +302,64 @@ class DeleteItemsCommand(Command):
 
     def execute(self) -> None:
         """Remove items from the scene."""
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        # Detach parent-child links before removing items
+        for item in self._items:
+            _detach_from_parent(self._scene, item)
+
+        # Detach surviving children of beds being deleted
+        deleted_ids = {
+            item.item_id for item in self._items if isinstance(item, GardenItemMixin)
+        }
+        for item in self._items:
+            if not isinstance(item, GardenItemMixin):
+                continue
+            if item.item_id not in self._bed_children:
+                continue
+            for child_id in self._bed_children[item.item_id]:
+                if child_id in deleted_ids:
+                    continue  # child is also being deleted
+                if hasattr(self._scene, "find_item_by_id"):
+                    child = self._scene.find_item_by_id(child_id)
+                    if child is not None and isinstance(child, GardenItemMixin):
+                        child.parent_bed_id = None
+            item._child_item_ids.clear()
+
         for item in self._items:
             if item.scene() is not None:
                 self._scene.removeItem(item)
 
     def undo(self) -> None:
         """Restore items to the scene."""
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
         for item in self._items:
             if item.scene() is None:
                 self._scene.addItem(item)
+        # Restore parent-child relationships from snapshot
+        for item in self._items:
+            if not isinstance(item, GardenItemMixin):
+                continue
+            iid = item.item_id
+            if iid in self._bed_children:
+                item._child_item_ids = list(self._bed_children[iid])
+                # Also restore parent_bed_id on surviving children
+                for child_id in self._bed_children[iid]:
+                    if hasattr(self._scene, "find_item_by_id"):
+                        child = self._scene.find_item_by_id(child_id)
+                        if child is not None and isinstance(child, GardenItemMixin):
+                            child.parent_bed_id = iid
+                            # Ensure child renders above the restored bed
+                            if child.zValue() <= item.zValue():
+                                child.setZValue(item.zValue() + 1)
+            if iid in self._plant_parents:
+                item.parent_bed_id = self._plant_parents[iid]
+                # Also re-add to parent's child list (if parent is in scene)
+                if hasattr(self._scene, "find_item_by_id"):
+                    parent = self._scene.find_item_by_id(self._plant_parents[iid])
+                    if parent is not None and isinstance(parent, GardenItemMixin):
+                        parent.add_child_id(iid)
 
 
 class MoveItemsCommand(Command):
@@ -881,3 +995,48 @@ class EditConstraintDistanceCommand(Command):
                 item._move_vertex_to(idx, old_local)
         for item, old, _new in self._item_moves:
             item.setPos(old)
+
+
+class SetParentBedCommand(Command):
+    """Command to attach/detach a plant to/from a bed."""
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        plant_item: QGraphicsItem,
+        old_parent_id: UUID | None,
+        new_parent_id: UUID | None,
+    ) -> None:
+        self._scene = scene
+        self._plant = plant_item
+        self._old_parent_id = old_parent_id
+        self._new_parent_id = new_parent_id
+
+    @property
+    def description(self) -> str:
+        if self._new_parent_id is None:
+            return "Detach plant from bed"
+        return "Attach plant to bed"
+
+    def execute(self) -> None:
+        self._set_parent(self._new_parent_id, self._old_parent_id)
+
+    def undo(self) -> None:
+        self._set_parent(self._old_parent_id, self._new_parent_id)
+
+    def _set_parent(self, attach_id: UUID | None, detach_id: UUID | None) -> None:
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        if not isinstance(self._plant, GardenItemMixin):
+            return
+        # Detach from old
+        if detach_id is not None and hasattr(self._scene, "find_item_by_id"):
+            old_bed = self._scene.find_item_by_id(detach_id)
+            if old_bed is not None and isinstance(old_bed, GardenItemMixin):
+                old_bed.remove_child_id(self._plant.item_id)
+        # Attach to new
+        if attach_id is not None and hasattr(self._scene, "find_item_by_id"):
+            new_bed = self._scene.find_item_by_id(attach_id)
+            if new_bed is not None and isinstance(new_bed, GardenItemMixin):
+                new_bed.add_child_id(self._plant.item_id)
+        self._plant.parent_bed_id = attach_id

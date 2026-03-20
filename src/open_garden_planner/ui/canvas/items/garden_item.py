@@ -71,6 +71,8 @@ class GardenItemMixin:
         self._companion_highlight: str | None = None  # "beneficial" | "antagonistic" | None
         self._antagonist_warning: bool = False  # Permanent badge: antagonist nearby
         self._rotation_status: str | None = None  # "good" | "suboptimal" | "violation" | None
+        self._parent_bed_id: uuid.UUID | None = None  # Parent bed UUID (plant→bed)
+        self._child_item_ids: list[uuid.UUID] = []  # Child plant UUIDs (bed→plants)
         self._label_item: QGraphicsSimpleTextItem | None = None
         self._edit_label_item: QGraphicsTextItem | None = None
 
@@ -242,6 +244,37 @@ class GardenItemMixin:
             self.prepareGeometryChange()  # type: ignore[attr-defined]
         if hasattr(self, 'update'):
             self.update()  # type: ignore[attr-defined]
+
+    @property
+    def parent_bed_id(self) -> uuid.UUID | None:
+        """UUID of the parent bed this item belongs to, or None."""
+        return self._parent_bed_id
+
+    @parent_bed_id.setter
+    def parent_bed_id(self, value: uuid.UUID | None) -> None:
+        """Set the parent bed UUID."""
+        self._parent_bed_id = value
+
+    @property
+    def child_item_ids(self) -> list[uuid.UUID]:
+        """List of child item UUIDs (copy)."""
+        return list(self._child_item_ids)
+
+    @property
+    def has_children(self) -> bool:
+        """Whether this item has any child items."""
+        return bool(self._child_item_ids)
+
+    def add_child_id(self, child_id: uuid.UUID) -> None:
+        """Add a child item UUID if not already present."""
+        if child_id not in self._child_item_ids:
+            self._child_item_ids.append(child_id)
+
+    def remove_child_id(self, child_id: uuid.UUID) -> None:
+        """Remove a child item UUID (no error if absent)."""
+        import contextlib
+        with contextlib.suppress(ValueError):
+            self._child_item_ids.remove(child_id)
 
     def _shadow_margin(self) -> float:
         """Extra margin to add to bounding rect for painted shadow.

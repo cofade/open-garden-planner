@@ -259,6 +259,10 @@ class PropertiesPanel(QWidget):
         # Styling section
         self._add_styling_properties(item)
 
+        # Plant-bed relationship sections
+        self._add_bed_children_section(item)
+        self._add_parent_bed_section(item)
+
         self._updating = False
 
     def _populate_object_type_combo(self, combo: QComboBox, item: QGraphicsItem) -> None:
@@ -395,6 +399,100 @@ class PropertiesPanel(QWidget):
                 if hasattr(item, 'layer_id') and item.layer_id == layer.id:
                     current_idx = idx
             combo.setCurrentIndex(current_idx)
+
+    def _add_bed_children_section(self, item: QGraphicsItem) -> None:
+        """Show contained plants list when a bed is selected."""
+        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        if not isinstance(item, GardenItemMixin):
+            return
+        if not is_bed_type(item.object_type):
+            return
+
+        children = item.child_item_ids
+        scene = item.scene()
+
+        # Header
+        header = QLabel(self.tr("Contained Plants"))
+        header.setStyleSheet("font-weight: bold; margin-top: 6px;")
+        self._form_layout.addRow(header)
+
+        if not children or scene is None:
+            self._form_layout.addRow(QLabel(self.tr("No plants in this bed")))
+            return
+
+        # Group by name/species and count
+        plant_counts: dict[str, int] = {}
+        for child_id in children:
+            child = None
+            for si in scene.items():
+                if isinstance(si, GardenItemMixin) and si.item_id == child_id:
+                    child = si
+                    break
+            if child is not None:
+                label = child.name or get_translated_display_name(child.object_type) if child.object_type else "Plant"
+                plant_counts[label] = plant_counts.get(label, 0) + 1
+
+        total = sum(plant_counts.values())
+        total_label = QLabel(self.tr("Total: {count} plant(s)").format(count=total))
+        self._form_layout.addRow(total_label)
+
+        for name, count in sorted(plant_counts.items()):
+            self._form_layout.addRow(QLabel(f"  {name}: {count}"))
+
+    def _add_parent_bed_section(self, item: QGraphicsItem) -> None:
+        """Show parent bed info when a plant is selected."""
+        from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        if not isinstance(item, GardenItemMixin):
+            return
+        if not is_plant_type(item.object_type):
+            return
+        if item.parent_bed_id is None:
+            return
+
+        scene = item.scene()
+        if scene is None:
+            return
+
+        # Find parent bed
+        parent_bed = None
+        for si in scene.items():
+            if isinstance(si, GardenItemMixin) and si.item_id == item.parent_bed_id:
+                parent_bed = si
+                break
+
+        if parent_bed is None:
+            return
+
+        bed_name = parent_bed.name or (
+            get_translated_display_name(parent_bed.object_type) if parent_bed.object_type else "Bed"
+        )
+
+        row = QHBoxLayout()
+        row.addWidget(QLabel(bed_name))
+
+        unlink_btn = QPushButton(self.tr("Unlink"))
+        unlink_btn.setFixedWidth(60)
+
+        def _do_unlink() -> None:
+            from open_garden_planner.core.commands import SetParentBedCommand
+            cmd = SetParentBedCommand(
+                scene, item, item.parent_bed_id, None,
+            )
+            self._command_manager.execute(cmd)
+            # Refresh panel
+            self.set_selected_items([item])
+
+        unlink_btn.clicked.connect(_do_unlink)
+        row.addWidget(unlink_btn)
+
+        header = QLabel(self.tr("Parent Bed"))
+        header.setStyleSheet("font-weight: bold; margin-top: 6px;")
+        self._form_layout.addRow(header)
+        self._form_layout.addRow(row)
 
     def _add_geometry_properties(self, item: QGraphicsItem) -> None:
         """Add geometry property fields.

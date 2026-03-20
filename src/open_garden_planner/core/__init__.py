@@ -14,6 +14,7 @@ from open_garden_planner.core.commands import (
     LinearArrayCommand,
     MoveItemsCommand,
     RemoveConstraintCommand,
+    SetParentBedCommand,
 )
 from open_garden_planner.core.measurements import (
     calculate_area_and_perimeter,
@@ -39,6 +40,7 @@ __all__ = [
     "LinearArrayCommand",
     "MoveItemsCommand",
     "RemoveConstraintCommand",
+    "SetParentBedCommand",
     "ProjectData",
     "ProjectManager",
     "calculate_area_and_perimeter",

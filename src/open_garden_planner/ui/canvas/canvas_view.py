@@ -133,6 +133,8 @@ class CanvasView(QGraphicsView):
         self._drag_start_positions: dict[QGraphicsItem, QPointF] = {}
         # Constraint-propagated items' start positions during drag
         self._constraint_propagated_starts: dict[QGraphicsItem, QPointF] = {}
+        # Child items moved during bed drag (original positions)
+        self._child_drag_origins: dict[QGraphicsItem, QPointF] = {}
 
         # Clipboard for copy/paste
         self._clipboard: list[dict] = []
@@ -1133,6 +1135,9 @@ class CanvasView(QGraphicsView):
 
         super().mouseMoveEvent(event)
 
+        # Propagate bed movement to child plants during drag
+        self._propagate_bed_children_during_drag()
+
         # Revert any FIXED-constrained items to their pinned position
         self._enforce_fixed_positions()
 
@@ -1893,16 +1898,60 @@ class CanvasView(QGraphicsView):
         """Delete all selected items from the scene with undo support.
 
         Also removes any distance constraints involving the deleted items.
+        If a bed with children is selected, prompts the user.
         """
-        selected = self.scene().selectedItems()
+        selected = list(self.scene().selectedItems())
         if not selected:
             return
 
+        from open_garden_planner.core.object_types import is_bed_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
             ConstructionLineItem,
         )
+
+        # Check for beds with children
+        beds_with_children = [
+            item for item in selected
+            if isinstance(item, GardenItemMixin) and is_bed_type(item.object_type) and item.has_children
+        ]
+
+        if beds_with_children:
+            from PyQt6.QtWidgets import QMessageBox
+
+            msg = QMessageBox(self)
+            msg.setWindowTitle(self.tr("Delete Bed"))
+            msg.setText(self.tr("The selected bed(s) contain plants. What would you like to do?"))
+            delete_all_btn = msg.addButton(
+                self.tr("Delete bed and plants"), QMessageBox.ButtonRole.DestructiveRole,
+            )
+            msg.addButton(
+                self.tr("Keep plants"), QMessageBox.ButtonRole.AcceptRole,
+            )
+            cancel_btn = msg.addButton(QMessageBox.StandardButton.Cancel)
+            msg.exec()
+
+            clicked = msg.clickedButton()
+            if clicked == cancel_btn:
+                return
+
+            if clicked == delete_all_btn:
+                # Add child plants to the deletion set
+                selected_ids = {
+                    item.item_id for item in selected if isinstance(item, GardenItemMixin)
+                }
+                for bed in beds_with_children:
+                    for child_id in bed.child_item_ids:
+                        if child_id not in selected_ids:
+                            child = self._canvas_scene.find_item_by_id(child_id)
+                            if child is not None:
+                                selected.append(child)
+                                selected_ids.add(child_id)
+            else:
+                # Keep plants: DeleteItemsCommand will handle detaching
+                # children on execute and reattaching on undo.
+                pass
 
         # Collect constraints to remove for deleted items (garden + construction)
         graph = self._canvas_scene.constraint_graph
@@ -1934,6 +1983,7 @@ class CanvasView(QGraphicsView):
 
         # Exclude items that are FIXED (pinned in place)
         from open_garden_planner.core.constraints import ConstraintType
+        from open_garden_planner.core.object_types import is_bed_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         fixed_ids = {
             c.anchor_a.item_id
@@ -1946,6 +1996,22 @@ class CanvasView(QGraphicsView):
         ]
         if not selected:
             return
+
+        # Include child plants of any selected beds
+        selected_set = {id(i) for i in selected}
+        extra_children: list[QGraphicsItem] = []
+        for item in selected:
+            if isinstance(item, GardenItemMixin) and is_bed_type(item.object_type):
+                for child_id in item.child_item_ids:
+                    child = self._canvas_scene.find_item_by_id(child_id)
+                    if (
+                        child is not None
+                        and id(child) not in selected_set
+                        and not (isinstance(child, GardenItemMixin) and child.item_id in fixed_ids)
+                    ):
+                        extra_children.append(child)
+                        selected_set.add(id(child))
+        selected.extend(extra_children)
 
         # Determine move distance: 1cm precision with Shift, otherwise grid size
         distance = (
@@ -2032,17 +2098,45 @@ class CanvasView(QGraphicsView):
             if delta.x() != 0 or delta.y() != 0:
                 item_deltas.append((item, delta))
 
+        # Propagate bed movement to child plants
+        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        child_start_positions: dict[QGraphicsItem, QPointF] = {}
+        for item, delta in list(item_deltas):
+            if not isinstance(item, GardenItemMixin) or not is_bed_type(item.object_type):
+                continue
+            for child_id in item.child_item_ids:
+                child = self._canvas_scene.find_item_by_id(child_id)
+                if child is None:
+                    continue
+                # Skip if child is already being dragged independently
+                if child in self._drag_start_positions:
+                    continue
+                if child in self._constraint_propagated_starts:
+                    continue
+                if child in child_start_positions:
+                    continue
+                # Use the original position tracked during drag, not
+                # child.pos() which already includes the visual offset.
+                child_start_pos = self._child_drag_origins.get(child, child.pos())
+                child_start_positions[child] = child_start_pos
+                item_deltas.append((child, delta))
+
         if item_deltas:
             # Reset all items to their start positions
             for item, start_pos in self._drag_start_positions.items():
                 item.setPos(start_pos)
             for item, start_pos in self._constraint_propagated_starts.items():
                 item.setPos(start_pos)
+            for item, start_pos in child_start_positions.items():
+                item.setPos(start_pos)
 
             # Use AlignItemsCommand for per-item deltas (supports undo)
             has_propagated = len(self._constraint_propagated_starts) > 0
+            has_children = len(child_start_positions) > 0
             desc = "Move items (constrained)" if has_propagated else "Move item"
-            if len(item_deltas) == 1 and not has_propagated:
+            if len(item_deltas) == 1 and not has_propagated and not has_children:
                 # Single item, uniform delta — use simple MoveItemsCommand
                 command = MoveItemsCommand([item_deltas[0][0]], item_deltas[0][1])
             else:
@@ -2051,6 +2145,60 @@ class CanvasView(QGraphicsView):
 
         self._drag_start_positions.clear()
         self._constraint_propagated_starts.clear()
+        if hasattr(self, "_child_drag_origins"):
+            self._child_drag_origins.clear()
+
+        # Re-evaluate parent-child relationships after move
+        self._update_plant_bed_relationships()
+
+    def _propagate_bed_children_during_drag(self) -> None:
+        """Move child plants to follow their parent bed during a live drag."""
+        if not self._drag_start_positions:
+            return
+
+        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        for item, start_pos in self._drag_start_positions.items():
+            if not isinstance(item, GardenItemMixin) or not is_bed_type(item.object_type):
+                continue
+            delta = item.pos() - start_pos
+            if delta.x() == 0 and delta.y() == 0:
+                continue
+            for child_id in item.child_item_ids:
+                child = self._canvas_scene.find_item_by_id(child_id)
+                if child is None or child in self._drag_start_positions:
+                    continue
+                # Track the child's original position only once
+                if child not in self._child_drag_origins:
+                    # First frame: child hasn't moved yet, so compute
+                    # its origin from the parent's start delta
+                    self._child_drag_origins[child] = child.pos() - delta
+                child.setPos(self._child_drag_origins[child] + delta)
+
+    def _update_plant_bed_relationships(self) -> None:
+        """Re-evaluate parent-child links for all selected plants after a move."""
+        from open_garden_planner.core.commands import SetParentBedCommand
+        from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        for item in self.scene().selectedItems():
+            if not isinstance(item, GardenItemMixin):
+                continue
+            if not is_plant_type(item.object_type):
+                continue
+
+            plant_center = item.mapToScene(item.boundingRect().center())
+            current_parent_id = item.parent_bed_id
+
+            new_bed = self._canvas_scene.find_smallest_bed_containing(plant_center)
+            new_parent_id = new_bed.item_id if (new_bed is not None and isinstance(new_bed, GardenItemMixin)) else None
+
+            if new_parent_id != current_parent_id:
+                cmd = SetParentBedCommand(
+                    self.scene(), item, current_parent_id, new_parent_id,
+                )
+                self._command_manager.execute(cmd)
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the background."""
@@ -2491,10 +2639,26 @@ class CanvasView(QGraphicsView):
         painter.drawText(int(text_x), int(text_y), label)
 
     def copy_selected(self) -> None:
-        """Copy selected items to clipboard."""
-        selected = self.scene().selectedItems()
+        """Copy selected items to clipboard (auto-includes bed children)."""
+        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        selected = list(self.scene().selectedItems())
         if not selected:
             return
+
+        # Auto-include children of selected beds
+        selected_ids = {
+            item.item_id for item in selected if isinstance(item, GardenItemMixin)
+        }
+        for item in list(selected):
+            if isinstance(item, GardenItemMixin) and is_bed_type(item.object_type):
+                for child_id in item.child_item_ids:
+                    if child_id not in selected_ids:
+                        child = self._canvas_scene.find_item_by_id(child_id)
+                        if child is not None:
+                            selected.append(child)
+                            selected_ids.add(child_id)
 
         # Serialize selected items
         self._clipboard = []
@@ -2523,6 +2687,8 @@ class CanvasView(QGraphicsView):
 
     def paste(self) -> None:
         """Paste items from clipboard."""
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
         if not self._clipboard:
             self.set_status_message(self.tr("Nothing to paste"))
             return
@@ -2532,7 +2698,8 @@ class CanvasView(QGraphicsView):
             item.setSelected(False)
 
         # Create new items from clipboard
-        pasted_items = []
+        pasted_items: list[QGraphicsItem] = []
+        clipboard_data: list[dict] = []
         for obj_data in self._clipboard:
             # Create a copy of the object data
             obj_copy = obj_data.copy()
@@ -2552,13 +2719,35 @@ class CanvasView(QGraphicsView):
                     for p in obj_copy["points"]
                 ]
 
-            # Deserialize the item
+            # Deserialize the item (gets a new UUID)
             item = self._deserialize_item(obj_copy)
             if item:
                 pasted_items.append(item)
+                clipboard_data.append(obj_data)
 
-        # Add all pasted items to scene and select them
+        # Rebuild parent-child relationships with new UUIDs
         if pasted_items:
+            old_id_to_new: dict[str, QGraphicsItem] = {}
+            for obj_data, item in zip(clipboard_data, pasted_items, strict=True):
+                old_id = obj_data.get("item_id")
+                if old_id:
+                    old_id_to_new[old_id] = item
+
+            for obj_data, item in zip(clipboard_data, pasted_items, strict=True):
+                if not isinstance(item, GardenItemMixin):
+                    continue
+                # Clear auto-detect fields so CreateItemsCommand doesn't double-parent
+                item._parent_bed_id = None
+                item._child_item_ids = []
+
+                # Remap parent
+                old_parent = obj_data.get("parent_bed_id")
+                if old_parent and old_parent in old_id_to_new:
+                    parent = old_id_to_new[old_parent]
+                    if isinstance(parent, GardenItemMixin):
+                        item.parent_bed_id = parent.item_id
+                        parent.add_child_id(item.item_id)
+
             # Use command for undo support
             from open_garden_planner.core import CreateItemsCommand
 
@@ -2573,19 +2762,35 @@ class CanvasView(QGraphicsView):
 
     def duplicate_selected(self) -> None:
         """Duplicate selected items (copy and paste in one action)."""
-        selected = self.scene().selectedItems()
+        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        selected = list(self.scene().selectedItems())
         if not selected:
             self.set_status_message(self.tr("Nothing to duplicate"))
             return
 
+        # Auto-include children of selected beds
+        selected_ids = {
+            item.item_id for item in selected if isinstance(item, GardenItemMixin)
+        }
+        for item in list(selected):
+            if isinstance(item, GardenItemMixin) and is_bed_type(item.object_type):
+                for child_id in item.child_item_ids:
+                    if child_id not in selected_ids:
+                        child = self._canvas_scene.find_item_by_id(child_id)
+                        if child is not None:
+                            selected.append(child)
+                            selected_ids.add(child_id)
+
         # Serialize selected items directly (don't modify clipboard)
-        items_to_duplicate = []
+        source_data: list[dict] = []
         for item in selected:
             obj_data = self._serialize_item(item)
             if obj_data:
-                items_to_duplicate.append(obj_data)
+                source_data.append(obj_data)
 
-        if not items_to_duplicate:
+        if not source_data:
             return
 
         # Deselect all items
@@ -2593,8 +2798,9 @@ class CanvasView(QGraphicsView):
             item.setSelected(False)
 
         # Create new items with offset
-        duplicated_items = []
-        for obj_data in items_to_duplicate:
+        duplicated_items: list[QGraphicsItem] = []
+        dup_source: list[dict] = []
+        for obj_data in source_data:
             obj_copy = obj_data.copy()
 
             # Apply offset to position
@@ -2616,9 +2822,29 @@ class CanvasView(QGraphicsView):
             item = self._deserialize_item(obj_copy)
             if item:
                 duplicated_items.append(item)
+                dup_source.append(obj_data)
 
-        # Add all duplicated items to scene and select them
+        # Rebuild parent-child relationships with new UUIDs
         if duplicated_items:
+            old_id_to_new: dict[str, QGraphicsItem] = {}
+            for obj_data, item in zip(dup_source, duplicated_items, strict=True):
+                old_id = obj_data.get("item_id")
+                if old_id:
+                    old_id_to_new[old_id] = item
+
+            for obj_data, item in zip(dup_source, duplicated_items, strict=True):
+                if not isinstance(item, GardenItemMixin):
+                    continue
+                item._parent_bed_id = None
+                item._child_item_ids = []
+
+                old_parent = obj_data.get("parent_bed_id")
+                if old_parent and old_parent in old_id_to_new:
+                    parent = old_id_to_new[old_parent]
+                    if isinstance(parent, GardenItemMixin):
+                        item.parent_bed_id = parent.item_id
+                        parent.add_child_id(item.item_id)
+
             from open_garden_planner.core import CreateItemsCommand
 
             command = CreateItemsCommand(self.scene(), duplicated_items, "duplicated objects")
@@ -3017,6 +3243,24 @@ class CanvasView(QGraphicsView):
         Returns:
             Dictionary representation of the item, or None if not serializable
         """
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        data = self._serialize_item_core(item)
+        if data is None:
+            return None
+
+        # Add parent-child relationship fields for clipboard remapping
+        if isinstance(item, GardenItemMixin):
+            data["item_id"] = str(item.item_id)
+            if item.parent_bed_id is not None:
+                data["parent_bed_id"] = str(item.parent_bed_id)
+            if item.child_item_ids:
+                data["child_item_ids"] = [str(cid) for cid in item.child_item_ids]
+
+        return data
+
+    def _serialize_item_core(self, item: QGraphicsItem) -> dict | None:
+        """Core serialization without relationship fields."""
         from open_garden_planner.ui.canvas.items import (
             BackgroundImageItem,
             CircleItem,

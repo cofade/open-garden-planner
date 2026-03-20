@@ -588,6 +588,22 @@ class ProjectManager(QObject):
 
     def _serialize_item(self, item: QGraphicsItem) -> dict[str, Any] | None:
         """Serialize a single graphics item."""
+        data = self._serialize_item_core(item)
+        if data is None:
+            return None
+
+        # Add parent-child relationship fields
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+        if isinstance(item, GardenItemMixin):
+            if item.parent_bed_id is not None:
+                data["parent_bed_id"] = str(item.parent_bed_id)
+            if item.child_item_ids:
+                data["child_item_ids"] = [str(cid) for cid in item.child_item_ids]
+
+        return data
+
+    def _serialize_item_core(self, item: QGraphicsItem) -> dict[str, Any] | None:
+        """Core serialization logic for a single graphics item."""
         # Import here to avoid circular dependency
         from open_garden_planner.ui.canvas.items import (
             BackgroundImageItem,
@@ -837,6 +853,28 @@ class ProjectManager(QObject):
 
     def _deserialize_item(self, obj: dict[str, Any]) -> QGraphicsItem | None:
         """Deserialize a single object to a graphics item."""
+        item = self._deserialize_item_core(obj)
+        if item is None:
+            return None
+
+        # Restore parent-child relationship fields
+        import contextlib
+
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+        if isinstance(item, GardenItemMixin):
+            if "parent_bed_id" in obj:
+                with contextlib.suppress(ValueError, TypeError):
+                    item._parent_bed_id = UUID(obj["parent_bed_id"])
+            if "child_item_ids" in obj:
+                item._child_item_ids = []
+                for cid_str in obj["child_item_ids"]:
+                    with contextlib.suppress(ValueError, TypeError):
+                        item._child_item_ids.append(UUID(cid_str))
+
+        return item
+
+    def _deserialize_item_core(self, obj: dict[str, Any]) -> QGraphicsItem | None:
+        """Core deserialization logic for a single object."""
         # Import here to avoid circular dependency
         from open_garden_planner.core.object_types import ObjectType
         from open_garden_planner.ui.canvas.items import (
