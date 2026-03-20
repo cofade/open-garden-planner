@@ -473,3 +473,10 @@ def get_translated_display_name(object_type: ObjectType) -> str:
     """
     style = OBJECT_STYLES[object_type]
     return QCoreApplication.translate("ObjectType", style.display_name)
+
+
+def is_bed_type(object_type: ObjectType | None) -> bool:
+    """Check if an ObjectType is a bed type (GARDEN_BED or RAISED_BED)."""
+    if object_type is None:
+        return False
+    return object_type in (ObjectType.GARDEN_BED, ObjectType.RAISED_BED)

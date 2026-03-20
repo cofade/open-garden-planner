@@ -694,3 +694,57 @@ class CanvasScene(QGraphicsScene):
         self._compare_overlay_visible = visible
         for item in self._compare_items:
             item.setVisible(visible)
+
+    # ------------------------------------------------------------------
+    # Plant-bed parent-child helpers
+    # ------------------------------------------------------------------
+
+    def find_item_by_id(self, item_id: UUID) -> QGraphicsItem | None:
+        """Find a garden item by its UUID.
+
+        Args:
+            item_id: The UUID to search for.
+
+        Returns:
+            The matching item, or None if not found.
+        """
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        for item in self.items():
+            if isinstance(item, GardenItemMixin) and item.item_id == item_id:
+                return item  # type: ignore[return-value]
+        return None
+
+    def find_smallest_bed_containing(self, scene_point: QPointF) -> QGraphicsItem | None:
+        """Find the smallest bed whose shape contains *scene_point*.
+
+        When beds are nested (e.g. a raised bed inside a garden bed),
+        the smallest enclosing bed is returned so that the plant is
+        parented to the most specific container.
+
+        Args:
+            scene_point: Point in scene coordinates.
+
+        Returns:
+            The best-matching bed item, or None.
+        """
+        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        best_bed: QGraphicsItem | None = None
+        best_area = float("inf")
+
+        for item in self.items():
+            if not isinstance(item, GardenItemMixin):
+                continue
+            if not is_bed_type(item.object_type):
+                continue
+            local_pt = item.mapFromScene(scene_point)  # type: ignore[union-attr]
+            if item.contains(local_pt):  # type: ignore[union-attr]
+                rect = item.boundingRect()  # type: ignore[union-attr]
+                area = rect.width() * rect.height()
+                if area < best_area:
+                    best_area = area
+                    best_bed = item  # type: ignore[assignment]
+
+        return best_bed
