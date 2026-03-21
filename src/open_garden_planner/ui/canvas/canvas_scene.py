@@ -92,6 +92,9 @@ class CanvasScene(QGraphicsScene):
         # Construction geometry visibility state
         self._construction_visible = True
 
+        # Spacing circles visibility state
+        self._spacing_circles_visible = True
+
         # Layer management
         self._layers: list[Layer] = create_default_layers()
         self._active_layer: Layer | None = self._layers[0] if self._layers else None  # Default to first layer
@@ -203,6 +206,20 @@ class CanvasScene(QGraphicsScene):
             if isinstance(item, (ConstructionLineItem, ConstructionCircleItem)):
                 item.setVisible(visible)
 
+    @property
+    def spacing_circles_visible(self) -> bool:
+        """Whether spacing circles are shown on plant items."""
+        return self._spacing_circles_visible
+
+    def set_spacing_circles_visible(self, visible: bool) -> None:
+        """Enable or disable spacing circles on all plant items."""
+        self._spacing_circles_visible = visible
+        from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
+
+        for item in self.items():
+            if isinstance(item, GardenItemMixin):
+                item.spacing_circles_visible = visible
+
     def addItem(self, item: QGraphicsItem) -> None:
         """Add an item to the scene, applying shadow and label state.
 
@@ -223,6 +240,7 @@ class CanvasScene(QGraphicsScene):
         if isinstance(item, GardenItemMixin):
             item.shadows_enabled = self._shadows_enabled
             item.set_global_labels_visible(self._labels_enabled)
+            item.spacing_circles_visible = self._spacing_circles_visible
 
     # Constraint dimension line management
 

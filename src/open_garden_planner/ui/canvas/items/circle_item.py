@@ -235,6 +235,14 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
     _HIGHLIGHT_MARGIN = 3.0  # half stroke + tiny gap
     # Antagonist warning badge dimensions (cm); proportional to radius, capped
     _WARNING_MAX_SIZE = 12.0
+    # Spacing circle rendering constants
+    _SPACING_STROKE_WIDTH = 1.5
+    _SPACING_FILL_GREEN = QColor(60, 200, 60, 40)
+    _SPACING_FILL_RED = QColor(220, 60, 60, 50)
+    _SPACING_FILL_NEUTRAL = QColor(100, 150, 200, 30)
+    _SPACING_STROKE_GREEN = QColor(60, 200, 60, 160)
+    _SPACING_STROKE_RED = QColor(220, 60, 60, 160)
+    _SPACING_STROKE_NEUTRAL = QColor(100, 150, 200, 120)
 
     def boundingRect(self) -> QRectF:
         """Return bounding rect, expanded for plant SVG overflow, shadow, and companion ring."""
@@ -256,6 +264,15 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             s = min(self._radius * 0.45, self._WARNING_MAX_SIZE)
             overflow = s * 0.3
             base = base.adjusted(0, 0, overflow, overflow)
+        if (
+            self._spacing_circles_visible
+            and is_plant_type(self.object_type)
+            and (self.isSelected() or self._spacing_overlap is not None)
+        ):
+            spacing_r = self.effective_spacing_radius()
+            if spacing_r is not None and spacing_r > self._radius:
+                extra = spacing_r - self._radius + self._SPACING_STROKE_WIDTH
+                base = base.adjusted(-extra, -extra, extra, extra)
         return base
 
     def paint(
@@ -319,6 +336,37 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                     painter.setPen(pen)
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                     painter.drawEllipse(rect)
+
+                # Draw spacing circle (behind companion ring)
+                if self._spacing_circles_visible and (
+                    self.isSelected() or self._spacing_overlap is not None
+                ):
+                        spacing_r = self.effective_spacing_radius()
+                        if spacing_r is not None and spacing_r > self._radius:
+                            center = rect.center()
+                            spacing_rect = QRectF(
+                                center.x() - spacing_r,
+                                center.y() - spacing_r,
+                                spacing_r * 2,
+                                spacing_r * 2,
+                            )
+                            if self._spacing_overlap == "overlap":
+                                fill_c = self._SPACING_FILL_RED
+                                stroke_c = self._SPACING_STROKE_RED
+                            elif self._spacing_overlap == "ideal":
+                                fill_c = self._SPACING_FILL_GREEN
+                                stroke_c = self._SPACING_STROKE_GREEN
+                            else:
+                                fill_c = self._SPACING_FILL_NEUTRAL
+                                stroke_c = self._SPACING_STROKE_NEUTRAL
+                            painter.save()
+                            pen = QPen(stroke_c)
+                            pen.setWidthF(self._SPACING_STROKE_WIDTH)
+                            pen.setStyle(Qt.PenStyle.DashLine)
+                            painter.setPen(pen)
+                            painter.setBrush(QBrush(fill_c))
+                            painter.drawEllipse(spacing_rect)
+                            painter.restore()
 
                 # Draw companion planting highlight ring
                 if self._companion_highlight is not None:

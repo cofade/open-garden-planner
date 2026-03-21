@@ -490,6 +490,16 @@ class GardenPlannerApp(QMainWindow):
         self._companion_warnings_action.triggered.connect(self._on_toggle_companion_warnings)
         menu.addAction(self._companion_warnings_action)
 
+        # Toggle Spacing Circles (US-11.2)
+        self._spacing_circles_action = QAction(self.tr("Show S&pacing Circles"), self)
+        self._spacing_circles_action.setCheckable(True)
+        self._spacing_circles_action.setChecked(True)
+        self._spacing_circles_action.setStatusTip(
+            self.tr("Show recommended spacing zones around plants")
+        )
+        self._spacing_circles_action.triggered.connect(self._on_toggle_spacing_circles)
+        menu.addAction(self._spacing_circles_action)
+
         # Toggle previous-season compare overlay (US-10.7)
         self._compare_overlay_action = QAction(self.tr("Show &Previous Season Overlay"), self)
         self._compare_overlay_action.setCheckable(True)
@@ -716,6 +726,15 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_scene.selectionChanged.connect(self._update_companion_highlights)
         self.canvas_scene.changed.connect(self._on_scene_changed_for_companion)
 
+        # ── Spacing circle overlap detection (US-11.2) ───────────────────────
+        self._spacing_circles_enabled = True
+        self._spacing_update_timer = QTimer(self)
+        self._spacing_update_timer.setSingleShot(True)
+        self._spacing_update_timer.setInterval(150)
+        self._spacing_update_timer.timeout.connect(self._update_spacing_overlaps)
+        self.canvas_scene.selectionChanged.connect(self._update_spacing_overlaps)
+        self.canvas_scene.changed.connect(self._on_scene_changed_for_spacing)
+
         # Connect delete action to canvas
         self._delete_action.triggered.connect(self.canvas_view._delete_selected_items)
 
@@ -803,6 +822,7 @@ class GardenPlannerApp(QMainWindow):
         QTimer.singleShot(0, self._init_labels_from_settings)
         QTimer.singleShot(0, self._init_constraints_from_settings)
         QTimer.singleShot(0, self._init_object_snap_from_settings)
+        QTimer.singleShot(0, self._init_spacing_circles_from_settings)
 
     def _setup_sidebar(self) -> None:
         """Set up the right sidebar with collapsible panels."""
@@ -1777,6 +1797,29 @@ class GardenPlannerApp(QMainWindow):
         else:
             self._update_companion_highlights()
 
+    def _init_spacing_circles_from_settings(self) -> None:
+        """Initialize spacing circles state from persisted settings."""
+        from open_garden_planner.app.settings import get_settings
+
+        enabled = get_settings().show_spacing_circles
+        self._spacing_circles_action.setChecked(enabled)
+        self.canvas_scene.set_spacing_circles_visible(enabled)
+        self._spacing_circles_enabled = enabled
+        if enabled:
+            self._update_spacing_overlaps()
+
+    def _on_toggle_spacing_circles(self, checked: bool) -> None:
+        """Handle toggle spacing circles action."""
+        from open_garden_planner.app.settings import get_settings
+
+        self._spacing_circles_enabled = checked
+        self.canvas_scene.set_spacing_circles_visible(checked)
+        get_settings().show_spacing_circles = checked
+        if checked:
+            self._update_spacing_overlaps()
+        else:
+            self._clear_spacing_overlaps()
+
     def _on_scene_changed_for_companion(self) -> None:
         """Debounce companion highlight refresh when scene items move."""
         self._companion_update_timer.start()
@@ -1885,6 +1928,103 @@ class GardenPlannerApp(QMainWindow):
                 if rel is not None and rel.type == ANTAGONISTIC:
                     plant_a.set_antagonist_warning(True)  # type: ignore[attr-defined]
                     break  # one antagonist is enough
+
+    # -- Spacing circle overlap detection (US-11.2) --
+
+    def _on_scene_changed_for_spacing(self) -> None:
+        """Debounce spacing overlap refresh when scene items move."""
+        self._spacing_update_timer.start()
+
+    def _clear_spacing_overlaps(self) -> None:
+        """Clear all spacing overlap indicators."""
+        try:
+            items = self.canvas_scene.items()
+        except RuntimeError:
+            return
+        for item in items:
+            if hasattr(item, 'set_spacing_overlap'):
+                item.set_spacing_overlap(None)
+
+    def _update_spacing_overlaps(self) -> None:
+        """Refresh spacing overlap status for all plants.
+
+        Groups plants by parent bed for efficient pairwise checks.
+        """
+        import math
+
+        if not self._spacing_circles_enabled:
+            return
+
+        try:
+            scene_items = self.canvas_scene.items()
+        except RuntimeError:
+            return
+
+        all_plants = [
+            it for it in scene_items
+            if self._is_canvas_plant(it)
+        ]
+
+        # Clear existing overlap status
+        for plant in all_plants:
+            plant.set_spacing_overlap(None)  # type: ignore[attr-defined]
+
+        # Group plants by parent bed
+        bed_groups: dict[str, list] = {}
+        orphans: list = []
+        for plant in all_plants:
+            bed_id = getattr(plant, '_parent_bed_id', None)
+            if bed_id is not None:
+                key = str(bed_id)
+                bed_groups.setdefault(key, []).append(plant)
+            else:
+                orphans.append(plant)
+
+        # Check overlaps within each group
+        for group in list(bed_groups.values()) + ([orphans] if orphans else []):
+            self._check_spacing_group(group, math.hypot)
+
+    def _check_spacing_group(self, plants: list, hypot: object) -> None:
+        """Check spacing overlaps within a group of sibling plants.
+
+        Only plants with real spacing data (from database or user override)
+        participate in overlap detection. Plants without data are skipped.
+        """
+        # Filter to plants that have spacing data
+        with_data = [
+            p for p in plants
+            if p.effective_spacing_radius() is not None  # type: ignore[attr-defined]
+        ]
+        if len(with_data) < 2:
+            # Single plant with data gets "ideal"
+            for p in with_data:
+                p.set_spacing_overlap("ideal")  # type: ignore[attr-defined]
+            return
+
+        overlap_set: set[int] = set()
+
+        for i, plant_a in enumerate(with_data):
+            center_a = plant_a.mapToScene(plant_a.rect().center())  # type: ignore[attr-defined]
+            radius_a = plant_a.effective_spacing_radius()  # type: ignore[attr-defined]
+
+            for plant_b in with_data[i + 1:]:
+                center_b = plant_b.mapToScene(plant_b.rect().center())  # type: ignore[attr-defined]
+                radius_b = plant_b.effective_spacing_radius()  # type: ignore[attr-defined]
+
+                dist = hypot(  # type: ignore[operator]
+                    center_a.x() - center_b.x(),
+                    center_a.y() - center_b.y(),
+                )
+
+                if dist < radius_a + radius_b:
+                    overlap_set.add(id(plant_a))
+                    overlap_set.add(id(plant_b))
+
+        for plant in with_data:
+            if id(plant) in overlap_set:
+                plant.set_spacing_overlap("overlap")  # type: ignore[attr-defined]
+            else:
+                plant.set_spacing_overlap("ideal")  # type: ignore[attr-defined]
 
     # -- Constraints panel handlers --
 

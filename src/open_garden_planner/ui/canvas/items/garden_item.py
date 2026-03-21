@@ -73,6 +73,9 @@ class GardenItemMixin:
         self._rotation_status: str | None = None  # "good" | "suboptimal" | "violation" | None
         self._parent_bed_id: uuid.UUID | None = None  # Parent bed UUID (plant→bed)
         self._child_item_ids: list[uuid.UUID] = []  # Child plant UUIDs (bed→plants)
+        self._spacing_radius_cm: float | None = None  # User-override spacing radius (cm)
+        self._spacing_overlap: str | None = None  # "overlap" | "ideal" | None
+        self._spacing_circles_visible: bool = True  # Global toggle from scene
         self._label_item: QGraphicsSimpleTextItem | None = None
         self._edit_label_item: QGraphicsTextItem | None = None
 
@@ -244,6 +247,71 @@ class GardenItemMixin:
             self.prepareGeometryChange()  # type: ignore[attr-defined]
         if hasattr(self, 'update'):
             self.update()  # type: ignore[attr-defined]
+
+    @property
+    def spacing_radius_cm(self) -> float | None:
+        """User-override spacing radius in cm, or None for automatic."""
+        return self._spacing_radius_cm
+
+    @spacing_radius_cm.setter
+    def spacing_radius_cm(self, value: float | None) -> None:
+        """Set the user-override spacing radius."""
+        self._spacing_radius_cm = value
+        if hasattr(self, 'prepareGeometryChange'):
+            self.prepareGeometryChange()  # type: ignore[attr-defined]
+        if hasattr(self, 'update'):
+            self.update()  # type: ignore[attr-defined]
+
+    @property
+    def spacing_overlap(self) -> str | None:
+        """Current spacing overlap status: 'overlap', 'ideal', or None."""
+        return self._spacing_overlap
+
+    def set_spacing_overlap(self, overlap_type: str | None) -> None:
+        """Set or clear the spacing overlap indicator.
+
+        Args:
+            overlap_type: "overlap", "ideal", or None to clear.
+        """
+        if self._spacing_overlap == overlap_type:
+            return
+        self._spacing_overlap = overlap_type
+        if hasattr(self, 'prepareGeometryChange'):
+            self.prepareGeometryChange()  # type: ignore[attr-defined]
+        if hasattr(self, 'update'):
+            self.update()  # type: ignore[attr-defined]
+
+    @property
+    def spacing_circles_visible(self) -> bool:
+        """Whether spacing circles are globally visible."""
+        return self._spacing_circles_visible
+
+    @spacing_circles_visible.setter
+    def spacing_circles_visible(self, value: bool) -> None:
+        """Set global spacing circle visibility."""
+        if self._spacing_circles_visible == value:
+            return
+        self._spacing_circles_visible = value
+        if hasattr(self, 'prepareGeometryChange'):
+            self.prepareGeometryChange()  # type: ignore[attr-defined]
+        if hasattr(self, 'update'):
+            self.update()  # type: ignore[attr-defined]
+
+    def effective_spacing_radius(self) -> float | None:
+        """Return the spacing radius in cm, or None if no data available.
+
+        Priority: user override > max_spread_cm/2 from plant database.
+        Returns None when no real spacing data exists (no circle drawn).
+        """
+        if self._spacing_radius_cm is not None:
+            return self._spacing_radius_cm
+        meta = self._metadata or {}
+        species_data = meta.get("plant_species")
+        if isinstance(species_data, dict):
+            max_spread = species_data.get("max_spread_cm")
+            if max_spread is not None and max_spread > 0:
+                return float(max_spread) / 2.0
+        return None
 
     @property
     def parent_bed_id(self) -> uuid.UUID | None:

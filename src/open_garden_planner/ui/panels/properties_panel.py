@@ -256,6 +256,9 @@ class PropertiesPanel(QWidget):
         # Geometry section
         self._add_geometry_properties(item)
 
+        # Spacing radius section (for plant types only)
+        self._add_spacing_properties(item)
+
         # Styling section
         self._add_styling_properties(item)
 
@@ -610,6 +613,49 @@ class PropertiesPanel(QWidget):
             size_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             size_widget.setLayout(size_layout)
             self._form_layout.addRow(self.tr("Size:"), size_widget)
+
+    def _add_spacing_properties(self, item: QGraphicsItem) -> None:
+        """Add plant spacing radius control (plant types only)."""
+        if not isinstance(item, CircleItem):
+            return
+        from open_garden_planner.core.plant_renderer import is_plant_type
+
+        if not is_plant_type(getattr(item, 'object_type', None)):
+            return
+
+        spacing_spin = QDoubleSpinBox()
+        spacing_spin.setRange(0.0, 10000.0)
+        spacing_spin.setDecimals(1)
+        spacing_spin.setSingleStep(5.0)
+        spacing_spin.setSuffix(" cm")
+        spacing_spin.setSpecialValueText(self.tr("—"))  # Show dash when 0 (no data)
+        spacing_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        spacing_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        effective = item.effective_spacing_radius()
+        spacing_spin.setValue(effective if effective is not None else 0.0)
+        spacing_spin.setToolTip(self.tr("Recommended spacing radius (half of plant spread)"))
+        spacing_spin.valueChanged.connect(
+            lambda val, it=item: self._on_spacing_changed(it, val)
+        )
+        self._form_layout.addRow(self.tr("Spacing radius:"), spacing_spin)
+
+    def _on_spacing_changed(self, item: QGraphicsItem, value: float) -> None:
+        """Handle spacing radius change with undo support."""
+        if self._updating:
+            return
+        old_value = item.spacing_radius_cm  # type: ignore[attr-defined]
+        # 0.0 means "no override" → clear to None (reverts to database value)
+        new_value = value if value > 0.0 else None
+
+        def apply_func(itm: QGraphicsItem, val: float | None) -> None:
+            itm.spacing_radius_cm = val  # type: ignore[attr-defined]
+
+        cmd = ChangePropertyCommand(
+            item, "spacing_radius_cm", old_value, new_value,
+            apply_func=apply_func,
+        )
+        if self._command_manager:
+            self._command_manager.execute(cmd)
 
     def _add_styling_properties(self, item: QGraphicsItem) -> None:
         """Add styling property fields.
