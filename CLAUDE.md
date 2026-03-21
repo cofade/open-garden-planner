@@ -115,7 +115,7 @@ Full history: see `docs/roadmap.md`.
 | Status | US    | Description                              | Block              |
 | ------ | ----- | ---------------------------------------- | ------------------ |
 | ✅     | 11.1  | Plant-bed parent-child relationship      | Bed Interior       |
-|        | 11.2  | Plant spacing circles & overlap warnings | Bed Interior       |
+| ✅     | 11.2  | Plant spacing circles & overlap warnings | Bed Interior       |
 |        | 11.3  | Square-foot grid overlay                 | Bed Interior       |
 |        | 11.4  | Row planting mode                        | Bed Interior       |
 |        | 11.5  | Expanded fill pattern library            | Visual Polish      |
