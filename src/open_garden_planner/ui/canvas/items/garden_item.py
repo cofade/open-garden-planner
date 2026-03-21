@@ -76,6 +76,11 @@ class GardenItemMixin:
         self._spacing_radius_cm: float | None = None  # User-override spacing radius (cm)
         self._spacing_overlap: str | None = None  # "overlap" | "ideal" | None
         self._spacing_circles_visible: bool = True  # Global toggle from scene
+        self._grid_enabled: bool = self._metadata.get("grid_enabled", False)
+        self._grid_spacing: float = self._metadata.get("grid_spacing", 30.0)
+        self._grid_visible_in_export: bool = self._metadata.get(
+            "grid_visible_in_export", False,
+        )
         self._label_item: QGraphicsSimpleTextItem | None = None
         self._edit_label_item: QGraphicsTextItem | None = None
 
@@ -312,6 +317,48 @@ class GardenItemMixin:
             if max_spread is not None and max_spread > 0:
                 return float(max_spread) / 2.0
         return None
+
+    # ── Grid overlay properties ──────────────────────────────────
+
+    @property
+    def grid_enabled(self) -> bool:
+        """Whether the interior grid overlay is shown."""
+        return self._grid_enabled
+
+    @grid_enabled.setter
+    def grid_enabled(self, value: bool) -> None:
+        if self._grid_enabled == value:
+            return
+        self._grid_enabled = value
+        self._metadata["grid_enabled"] = value
+        if hasattr(self, "update"):
+            self.update()  # type: ignore[attr-defined]
+
+    @property
+    def grid_spacing(self) -> float:
+        """Grid cell size in cm."""
+        return self._grid_spacing
+
+    @grid_spacing.setter
+    def grid_spacing(self, value: float) -> None:
+        if self._grid_spacing == value:
+            return
+        self._grid_spacing = max(1.0, value)
+        self._metadata["grid_spacing"] = self._grid_spacing
+        if hasattr(self, "update"):
+            self.update()  # type: ignore[attr-defined]
+
+    @property
+    def grid_visible_in_export(self) -> bool:
+        """Whether the grid appears in PDF / image exports."""
+        return self._grid_visible_in_export
+
+    @grid_visible_in_export.setter
+    def grid_visible_in_export(self, value: bool) -> None:
+        self._grid_visible_in_export = value
+        self._metadata["grid_visible_in_export"] = value
+
+    # ── Parent-bed relationship ────────────────────────────────
 
     @property
     def parent_bed_id(self) -> uuid.UUID | None:

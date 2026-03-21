@@ -29,6 +29,7 @@ from open_garden_planner.core.object_types import (
     get_style,
     get_translated_display_name,
     get_translated_path_fence_style_name,
+    is_bed_type,
 )
 from open_garden_planner.ui.canvas.items import (
     CircleItem,
@@ -255,6 +256,9 @@ class PropertiesPanel(QWidget):
 
         # Geometry section
         self._add_geometry_properties(item)
+
+        # Grid overlay section (for bed types only)
+        self._add_grid_properties(item)
 
         # Spacing radius section (for plant types only)
         self._add_spacing_properties(item)
@@ -613,6 +617,53 @@ class PropertiesPanel(QWidget):
             size_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             size_widget.setLayout(size_layout)
             self._form_layout.addRow(self.tr("Size:"), size_widget)
+
+    def _add_grid_properties(self, item: QGraphicsItem) -> None:
+        """Add grid overlay controls (bed types only)."""
+        if not hasattr(item, "object_type") or not is_bed_type(item.object_type):
+            return
+
+        separator = QLabel(self.tr("Grid Overlay"))
+        separator.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        self._form_layout.addRow(separator)
+
+        # Enable checkbox
+        grid_check = QCheckBox(self.tr("Show grid"))
+        grid_check.setChecked(item.grid_enabled)
+
+        # Cell count (read-only)
+        cell_count_label: QLabel | None = None
+        if hasattr(item, "grid_cell_count"):
+            cell_count_label = QLabel(str(item.grid_cell_count()))
+
+        # Spacing spinbox
+        spacing_spin = QDoubleSpinBox()
+        spacing_spin.setRange(1.0, 200.0)
+        spacing_spin.setSuffix(" cm")
+        spacing_spin.setDecimals(1)
+        spacing_spin.setValue(item.grid_spacing)
+
+        def on_grid_check(checked: bool) -> None:
+            if self._updating:
+                return
+            item.grid_enabled = checked
+            if cell_count_label is not None:
+                cell_count_label.setText(str(item.grid_cell_count()))
+
+        def on_spacing_changed(val: float) -> None:
+            if self._updating:
+                return
+            item.grid_spacing = val
+            if cell_count_label is not None:
+                cell_count_label.setText(str(item.grid_cell_count()))
+
+        grid_check.toggled.connect(on_grid_check)
+        spacing_spin.valueChanged.connect(on_spacing_changed)
+
+        self._form_layout.addRow(self.tr("Grid:"), grid_check)
+        self._form_layout.addRow(self.tr("Spacing:"), spacing_spin)
+        if cell_count_label is not None:
+            self._form_layout.addRow(self.tr("Cells:"), cell_count_label)
 
     def _add_spacing_properties(self, item: QGraphicsItem) -> None:
         """Add plant spacing radius control (plant types only)."""

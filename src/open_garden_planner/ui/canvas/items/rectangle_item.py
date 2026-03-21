@@ -1,10 +1,11 @@
 """Rectangle item for the garden canvas."""
 
+import math
 import uuid
 from typing import Any
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QPainter, QPen
+from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsRectItem,
@@ -17,7 +18,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import is_furniture_type, render_furniture_pixmap
-from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
+from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style, is_bed_type
 
 from .garden_item import GardenItemMixin
 from .resize_handle import RectVertexEditMixin, ResizeHandlesMixin, RotationHandleMixin
@@ -194,6 +195,53 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             base = base.adjusted(-m, -m, m, m)
         return base
 
+    def _draw_grid_overlay(self, painter: QPainter) -> None:
+        """Draw a square-foot grid overlay clipped to the rectangle boundary."""
+        spacing = self._grid_spacing
+        if spacing <= 0:
+            return
+        rect = self.rect()
+        if rect.isEmpty():
+            return
+
+        # Clip to rect shape
+        clip_path = QPainterPath()
+        clip_path.addRect(rect)
+        painter.save()
+        painter.setClipPath(clip_path, Qt.ClipOperation.IntersectClip)
+
+        pen = QPen(QColor(255, 255, 255, 120))
+        pen.setCosmetic(True)
+        pen.setWidthF(1.0)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        x0 = math.floor(rect.left() / spacing) * spacing
+        y0 = math.floor(rect.top() / spacing) * spacing
+
+        # Vertical lines
+        x = x0
+        while x <= rect.right():
+            painter.drawLine(QPointF(x, rect.top()), QPointF(x, rect.bottom()))
+            x += spacing
+
+        # Horizontal lines
+        y = y0
+        while y <= rect.bottom():
+            painter.drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y))
+            y += spacing
+
+        painter.restore()
+
+    def grid_cell_count(self) -> int:
+        """Return the number of grid cells inside the rectangle."""
+        rect = self.rect()
+        if rect.isEmpty() or self._grid_spacing <= 0:
+            return 0
+        cols = int(rect.width() / self._grid_spacing)
+        rows = int(rect.height() / self._grid_spacing)
+        return cols * rows
+
     def paint(
         self,
         painter: QPainter,
@@ -227,6 +275,10 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                 painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
                 painter.drawPixmap(rect.toAlignedRect(), pixmap)
 
+                # Draw grid overlay on raised beds rendered as furniture
+                if self._grid_enabled and is_bed_type(self.object_type):
+                    self._draw_grid_overlay(painter)
+
                 # Draw selection highlight
                 if self.isSelected():
                     pen = QPen(QColor(0, 120, 215, 180))
@@ -239,6 +291,10 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
 
         # Fall back to standard rectangle painting
         super().paint(painter, option, widget)
+
+        # Draw square-foot grid overlay inside bed
+        if self._grid_enabled and is_bed_type(self.object_type):
+            self._draw_grid_overlay(painter)
 
         # Draw crop rotation status indicator (colored inner border on beds)
         if self._rotation_status is not None:
@@ -475,6 +531,13 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         # Edit label action
         edit_label_action = menu.addAction("Edit Label")
 
+        # Grid toggle for bed types
+        toggle_grid_action = None
+        if is_bed_type(self.object_type):
+            menu.addSeparator()
+            label = "Hide Grid" if self._grid_enabled else "Show Grid"
+            toggle_grid_action = menu.addAction(label)
+
         menu.addSeparator()
 
         # Delete action
@@ -514,6 +577,12 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         elif action == edit_label_action:
             # Edit the label
             self.start_label_edit()
+        elif action == toggle_grid_action and toggle_grid_action is not None:
+            self.grid_enabled = not self._grid_enabled
+            # Refresh properties panel to reflect new state
+            scene = self.scene()
+            if scene:
+                scene.selectionChanged.emit()
         elif action == delete_action:
             # Delete this item and any other selected items
             scene = self.scene()

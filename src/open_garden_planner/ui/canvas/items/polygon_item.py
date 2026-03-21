@@ -7,6 +7,7 @@ from typing import Any
 from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt
 from PyQt6.QtGui import (
     QBrush,
+    QColor,
     QKeyEvent,
     QPainter,
     QPainterPath,
@@ -25,7 +26,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
+from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style, is_bed_type
 
 from .garden_item import GardenItemMixin
 from .resize_handle import ResizeHandlesMixin, RotationHandleMixin, VertexEditMixin
@@ -411,6 +412,64 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         painter.setPen(self.pen())
         painter.drawPath(poly_path)
 
+    def _draw_grid_overlay(self, painter: QPainter) -> None:
+        """Draw a square-foot grid overlay clipped to the polygon boundary."""
+        spacing = self._grid_spacing
+        if spacing <= 0:
+            return
+        poly = self.polygon()
+        if poly.isEmpty():
+            return
+
+        # Build clip path from polygon
+        clip_path = QPainterPath()
+        clip_path.addPolygon(poly)
+        clip_path.closeSubpath()
+
+        painter.save()
+        painter.setClipPath(clip_path, Qt.ClipOperation.IntersectClip)
+
+        pen = QPen(QColor(255, 255, 255, 120))
+        pen.setCosmetic(True)
+        pen.setWidthF(1.0)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        br = poly.boundingRect()
+        # Align grid lines to spacing multiples for consistent appearance
+        x0 = math.floor(br.left() / spacing) * spacing
+        y0 = math.floor(br.top() / spacing) * spacing
+
+        # Vertical lines
+        x = x0
+        while x <= br.right():
+            painter.drawLine(QPointF(x, br.top()), QPointF(x, br.bottom()))
+            x += spacing
+
+        # Horizontal lines
+        y = y0
+        while y <= br.bottom():
+            painter.drawLine(QPointF(br.left(), y), QPointF(br.right(), y))
+            y += spacing
+
+        painter.restore()
+
+    def grid_cell_count(self) -> int:
+        """Return the approximate number of grid cells inside the polygon."""
+        poly = self.polygon()
+        if poly.isEmpty() or self._grid_spacing <= 0:
+            return 0
+        # Shoelace formula for polygon area
+        n = poly.count()
+        area = 0.0
+        for i in range(n):
+            p1 = poly.at(i)
+            p2 = poly.at((i + 1) % n)
+            area += p1.x() * p2.y() - p2.x() * p1.y()
+        area = abs(area) / 2.0
+        cell_area = self._grid_spacing ** 2
+        return int(area / cell_area)
+
     def paint(
         self,
         painter: QPainter,
@@ -435,10 +494,12 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         else:
             super().paint(painter, option, widget)
 
+        # Draw square-foot grid overlay inside bed
+        if self._grid_enabled and is_bed_type(self.object_type):
+            self._draw_grid_overlay(painter)
+
         # Draw crop rotation status indicator (colored inner border on beds)
         if self._rotation_status is not None:
-            from PyQt6.QtGui import QColor
-
             _rotation_colors = {
                 "good": QColor(46, 125, 50, 160),
                 "suboptimal": QColor(245, 127, 23, 160),
@@ -735,6 +796,13 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # Edit label action
         edit_label_action = menu.addAction("Edit Label")
 
+        # Grid toggle for bed types
+        toggle_grid_action = None
+        if is_bed_type(self.object_type):
+            menu.addSeparator()
+            label = "Hide Grid" if self._grid_enabled else "Show Grid"
+            toggle_grid_action = menu.addAction(label)
+
         menu.addSeparator()
 
         # Delete action
@@ -774,6 +842,12 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         elif action == edit_label_action:
             # Edit the label
             self.start_label_edit()
+        elif action == toggle_grid_action and toggle_grid_action is not None:
+            self.grid_enabled = not self._grid_enabled
+            # Refresh properties panel to reflect new state
+            scene = self.scene()
+            if scene:
+                scene.selectionChanged.emit()
         elif action == delete_action:
             # Delete this item and any other selected items
             scene = self.scene()
