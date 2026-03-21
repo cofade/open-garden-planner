@@ -31,6 +31,7 @@ class AppSettings:
     KEY_SHOW_CONSTRAINTS = "appearance/show_constraints"
     KEY_OBJECT_SNAP = "canvas/object_snap_enabled"
     KEY_LANGUAGE = "appearance/language"
+    KEY_SHOW_SPACING_CIRCLES = "appearance/show_spacing_circles"
     KEY_SKIPPED_VERSION = "updates/skipped_version"
 
     # API key settings
@@ -46,6 +47,7 @@ class AppSettings:
     DEFAULT_SHOW_SCALE_BAR = True
     DEFAULT_SHOW_LABELS = True
     DEFAULT_SHOW_CONSTRAINTS = True
+    DEFAULT_SHOW_SPACING_CIRCLES = True
     DEFAULT_OBJECT_SNAP = True
     DEFAULT_LANGUAGE = "en"
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
@@ -243,6 +245,20 @@ class AppSettings:
     def show_constraints(self, show: bool) -> None:
         """Set whether to show constraint dimension lines on the canvas."""
         self._settings.setValue(self.KEY_SHOW_CONSTRAINTS, show)
+
+    @property
+    def show_spacing_circles(self) -> bool:
+        """Whether to show spacing circles around plant items."""
+        return self._settings.value(
+            self.KEY_SHOW_SPACING_CIRCLES,
+            self.DEFAULT_SHOW_SPACING_CIRCLES,
+            type=bool,
+        )
+
+    @show_spacing_circles.setter
+    def show_spacing_circles(self, show: bool) -> None:
+        """Set whether to show spacing circles around plant items."""
+        self._settings.setValue(self.KEY_SHOW_SPACING_CIRCLES, show)
 
     @property
     def object_snap_enabled(self) -> bool:

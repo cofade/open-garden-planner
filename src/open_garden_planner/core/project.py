@@ -699,6 +699,9 @@ class ProjectManager(QObject):
                 data["plant_category"] = item.plant_category.name
             if hasattr(item, "plant_species") and item.plant_species:
                 data["plant_species"] = item.plant_species
+            # Save spacing radius override (US-11.2)
+            if hasattr(item, "_spacing_radius_cm") and item._spacing_radius_cm is not None:
+                data["spacing_radius_cm"] = item._spacing_radius_cm
             return data
         elif isinstance(item, PolylineItem):
             data = {
@@ -1050,6 +1053,9 @@ class ProjectManager(QObject):
                     item.plant_category = PlantCategory[obj["plant_category"]]
             if "plant_species" in obj:
                 item.plant_species = obj["plant_species"]
+            # Restore spacing radius override (US-11.2)
+            if "spacing_radius_cm" in obj:
+                item._spacing_radius_cm = obj["spacing_radius_cm"]
             return item
         elif obj_type == "polyline":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
