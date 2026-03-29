@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Forsythia with bright yellow spring flowers - top-down view -->
+  <defs>
+    <radialGradient id="forsythia_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#4a7828"/>
+      <stop offset="70%" stop-color="#3c6820"/>
+      <stop offset="100%" stop-color="#2e5818"/>
+    </radialGradient>
+  </defs>
+  <path d="M76 46 C70 55 71 59 63 69 C56 72 56 72 50 75 C44 79 35 74 31 75 C30 67 23 55 18 44 C18 39 28 35 28 32 C36 26 42 21 45 18 C58 19 66 28 73 34 C72 40 73 38 76 46 Z" fill="url(#forsythia_base)" opacity="0.8"/>
+  <ellipse cx="63" cy="49" rx="8" ry="6" fill="#58942e" opacity="0.47"/>
+  <ellipse cx="51" cy="66" rx="11" ry="11" fill="#508c28" opacity="0.59"/>
+  <ellipse cx="36" cy="61" rx="10" ry="8" fill="#58942e" opacity="0.43"/>
+  <ellipse cx="41" cy="39" rx="13" ry="7" fill="#508c28" opacity="0.54"/>
+  <ellipse cx="52" cy="35" rx="9" ry="6" fill="#58942e" opacity="0.44"/>
+  <circle cx="36" cy="34" r="3" fill="#f0d020" opacity="0.8"/>
+  <circle cx="35" cy="33" r="1.2" fill="#f8e040" opacity="0.45"/>
+  <circle cx="54" cy="32" r="3" fill="#f0d020" opacity="0.8"/>
+  <circle cx="53" cy="31" r="1.2" fill="#f8e040" opacity="0.45"/>
+  <circle cx="66" cy="42" r="3" fill="#f0d020" opacity="0.8"/>
+  <circle cx="65" cy="41" r="1.2" fill="#f8e040" opacity="0.45"/>
+  <circle cx="40" cy="52" r="3" fill="#f0d020" opacity="0.8"/>
+  <circle cx="39" cy="51" r="1.2" fill="#f8e040" opacity="0.45"/>
+  <circle cx="58" cy="56" r="3" fill="#f0d020" opacity="0.8"/>
+  <circle cx="57" cy="55" r="1.2" fill="#f8e040" opacity="0.45"/>
+  <circle cx="28" cy="44" r="3" fill="#f0d020" opacity="0.8"/>
+  <circle cx="27" cy="43" r="1.2" fill="#f8e040" opacity="0.45"/>
+  <circle cx="68" cy="54" r="3" fill="#f0d020" opacity="0.8"/>
+  <circle cx="67" cy="53" r="1.2" fill="#f8e040" opacity="0.45"/>
+  <circle cx="48" cy="40" r="3" fill="#f0d020" opacity="0.8"/>
+  <circle cx="47" cy="39" r="1.2" fill="#f8e040" opacity="0.45"/>
+  <line x1="40" y1="63" x2="28" y2="63" stroke="#2e5818" stroke-width="0.8" opacity="0.3"/>
+  <line x1="56" y1="36" x2="50" y2="35" stroke="#2e5818" stroke-width="0.8" opacity="0.3"/>
+</svg>

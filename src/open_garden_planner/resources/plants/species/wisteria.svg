@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Wisteria with cascading flower clusters - top-down view -->
+  <defs>
+    <radialGradient id="wisteria_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a6828"/>
+      <stop offset="70%" stop-color="#2c5820"/>
+      <stop offset="100%" stop-color="#1e4818"/>
+    </radialGradient>
+  </defs>
+  <path d="M84 43 C79 55 76 58 74 68 C65 69 56 69 46 74 C45 71 40 74 33 73 C27 67 29 53 21 46 C20 42 23 37 20 27 C29 28 36 28 47 25 C54 23 60 29 66 27 C71 34 81 37 84 43 Z" fill="url(#wisteria_base)" opacity="0.8"/>
+  <ellipse cx="64" cy="55" rx="14" ry="6" fill="#58942e" opacity="0.59"/>
+  <ellipse cx="55" cy="62" rx="10" ry="8" fill="#508c28" opacity="0.51"/>
+  <ellipse cx="41" cy="53" rx="8" ry="8" fill="#58942e" opacity="0.43"/>
+  <ellipse cx="38" cy="43" rx="11" ry="6" fill="#508c28" opacity="0.41"/>
+  <ellipse cx="59" cy="36" rx="10" ry="9" fill="#58942e" opacity="0.52"/>
+  <ellipse cx="35" cy="35" rx="2.5" ry="7" fill="#9870c0" opacity="0.75" transform="rotate(-20 35 35)"/>
+  <ellipse cx="35" cy="31" rx="1.5" ry="2.5" fill="#b890d8" opacity="0.55" transform="rotate(-20 35 35)"/>
+  <ellipse cx="50" cy="30" rx="2.5" ry="7" fill="#9870c0" opacity="0.75"/>
+  <ellipse cx="50" cy="26" rx="1.5" ry="2.5" fill="#b890d8" opacity="0.55"/>
+  <ellipse cx="65" cy="35" rx="2.5" ry="7" fill="#9870c0" opacity="0.75" transform="rotate(20 65 35)"/>
+  <ellipse cx="65" cy="31" rx="1.5" ry="2.5" fill="#b890d8" opacity="0.55" transform="rotate(20 65 35)"/>
+  <ellipse cx="30" cy="55" rx="2.5" ry="7" fill="#9870c0" opacity="0.75" transform="rotate(-30 30 55)"/>
+  <ellipse cx="30" cy="51" rx="1.5" ry="2.5" fill="#b890d8" opacity="0.55" transform="rotate(-30 30 55)"/>
+  <ellipse cx="70" cy="55" rx="2.5" ry="7" fill="#9870c0" opacity="0.75" transform="rotate(30 70 55)"/>
+  <ellipse cx="70" cy="51" rx="1.5" ry="2.5" fill="#b890d8" opacity="0.55" transform="rotate(30 70 55)"/>
+  <line x1="61" y1="61" x2="76" y2="81" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+  <line x1="35" y1="59" x2="42" y2="75" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+</svg>

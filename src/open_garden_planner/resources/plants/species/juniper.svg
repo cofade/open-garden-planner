@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Juniper with scale-like foliage - top-down view -->
+  <defs>
+    <radialGradient id="juniper_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#2a5c30"/>
+      <stop offset="70%" stop-color="#1c4c24"/>
+      <stop offset="100%" stop-color="#103c18"/>
+    </radialGradient>
+  </defs>
+  <path d="M72 48 C73 58 66 59 68 69 C62 74 54 72 51 80 C47 77 35 74 28 66 C28 64 31 52 28 50 C32 45 29 36 35 32 C36 29 42 29 47 23 C55 23 65 31 72 32 C68 39 71 44 72 48 Z" fill="url(#juniper_base)" opacity="0.8"/>
+  <ellipse cx="62" cy="52" rx="13" ry="7" fill="#3a6c40" opacity="0.56"/>
+  <ellipse cx="53" cy="67" rx="12" ry="10" fill="#2a5c30" opacity="0.52"/>
+  <ellipse cx="36" cy="61" rx="14" ry="11" fill="#3a6c40" opacity="0.42"/>
+  <ellipse cx="33" cy="51" rx="14" ry="10" fill="#2a5c30" opacity="0.56"/>
+  <ellipse cx="48" cy="38" rx="13" ry="8" fill="#3a6c40" opacity="0.48"/>
+  <ellipse cx="56" cy="42" rx="12" ry="6" fill="#2a5c30" opacity="0.44"/>
+  <circle cx="44" cy="42" r="2.5" fill="#384870" opacity="0.8"/>
+  <circle cx="43" cy="41" r="1.0" fill="#485878" opacity="0.45"/>
+  <circle cx="56" cy="48" r="2.5" fill="#384870" opacity="0.8"/>
+  <circle cx="55" cy="47" r="1.0" fill="#485878" opacity="0.45"/>
+  <circle cx="48" cy="56" r="2.5" fill="#384870" opacity="0.8"/>
+  <circle cx="47" cy="55" r="1.0" fill="#485878" opacity="0.45"/>
+  <line x1="49" y1="45" x2="54" y2="51" stroke="#103c18" stroke-width="0.8" opacity="0.3"/>
+  <line x1="40" y1="45" x2="52" y2="41" stroke="#103c18" stroke-width="0.8" opacity="0.3"/>
+</svg>

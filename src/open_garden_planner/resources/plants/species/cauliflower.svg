@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Cauliflower with white head - top-down view -->
+  <defs>
+    <radialGradient id="cauliflower_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a7828"/>
+      <stop offset="70%" stop-color="#2c6420"/>
+      <stop offset="100%" stop-color="#205018"/>
+    </radialGradient>
+  </defs>
+  <path d="M80 55 C75 61 80 67 75 75 C65 82 50 82 43 84 C43 85 38 77 32 77 C27 67 29 59 24 52 C27 42 30 39 31 32 C33 25 40 16 42 11 C55 15 60 23 74 28 C77 40 81 48 80 55 Z" fill="url(#cauliflower_base)" opacity="0.8"/>
+  <ellipse cx="61" cy="47" rx="9" ry="6" fill="#58942e" opacity="0.43"/>
+  <ellipse cx="57" cy="62" rx="8" ry="11" fill="#508c28" opacity="0.5"/>
+  <ellipse cx="36" cy="58" rx="11" ry="11" fill="#58942e" opacity="0.44"/>
+  <ellipse cx="41" cy="43" rx="10" ry="10" fill="#508c28" opacity="0.57"/>
+  <ellipse cx="59" cy="34" rx="13" ry="8" fill="#58942e" opacity="0.54"/>
+  <circle cx="50" cy="48" r="14" fill="#f0ece0" opacity="0.85"/>
+  <circle cx="44" cy="44" r="5" fill="#f8f4e8" opacity="0.5"/>
+  <circle cx="56" cy="46" r="5" fill="#e8e4d8" opacity="0.45"/>
+  <line x1="56" y1="40" x2="48" y2="35" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="53" y1="60" x2="33" y2="52" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+</svg>

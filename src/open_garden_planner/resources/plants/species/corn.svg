@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Corn stalk from above - star pattern - top-down view -->
+  <defs>
+    <radialGradient id="corn_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#58a030"/>
+      <stop offset="70%" stop-color="#488c28"/>
+      <stop offset="100%" stop-color="#387820"/>
+    </radialGradient>
+  </defs>
+  <path d="M72 46 C69 48 71 60 70 65 C62 67 57 72 54 75 C45 74 36 68 29 64 C29 60 23 53 21 45 C25 36 28 37 33 30 C43 30 50 32 53 29 C58 25 64 31 66 28 C69 33 71 39 72 46 Z" fill="url(#corn_base)" opacity="0.8"/>
+  <ellipse cx="69" cy="49" rx="13" ry="6" fill="#58942e" opacity="0.54"/>
+  <ellipse cx="44" cy="69" rx="8" ry="8" fill="#508c28" opacity="0.44"/>
+  <ellipse cx="32" cy="46" rx="14" ry="9" fill="#58942e" opacity="0.46"/>
+  <ellipse cx="50" cy="33" rx="13" ry="9" fill="#508c28" opacity="0.58"/>
+  <ellipse cx="50" cy="20" rx="5" ry="22" fill="#58a830" opacity="0.65"/>
+  <ellipse cx="50" cy="80" rx="5" ry="22" fill="#58a830" opacity="0.6"/>
+  <ellipse cx="20" cy="50" rx="22" ry="5" fill="#58a830" opacity="0.65"/>
+  <ellipse cx="80" cy="50" rx="22" ry="5" fill="#58a830" opacity="0.6"/>
+  <circle cx="50" cy="50" r="5" fill="#c8a830" opacity="0.6"/>
+</svg>

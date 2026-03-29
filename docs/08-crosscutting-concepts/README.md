@@ -155,6 +155,116 @@ Applied via QSS stylesheets. Theme preference stored in QSettings.
 - Auto-save recovery on crash
 - No silent failures: all errors logged and shown to user where appropriate
 
+## 8.9 QGraphicsView Overlay Widget Patterns
+
+These rules apply whenever you add a **fixed overlay widget** on top of the canvas (minimap, toolbox, legend, etc.).
+
+### 8.9.1 Widget parenting — always parent to the QGraphicsView, never to its viewport
+
+```python
+# WRONG — viewport children scroll with scene content
+super().__init__(canvas_view.viewport())
+
+# CORRECT — QGraphicsView (QAbstractScrollArea) children stay fixed
+super().__init__(canvas_view)
+```
+
+`QGraphicsView.scrollContentsBy()` calls `viewport()->scroll()`, which physically moves every child widget of the viewport. Child widgets of the **QGraphicsView itself** are unaffected.
+
+### 8.9.2 Defer initial positioning with QTimer.singleShot(0, ...)
+
+At construction time the widget has not been shown or laid out, so `viewport().geometry()` may return a zero-size rect. Defer the first `_reposition()` call:
+
+```python
+QTimer.singleShot(0, self._reposition)   # fires after event loop iteration
+```
+
+Continue repositioning on view resize via `installEventFilter(self)` on the **view** (not the viewport).
+
+### 8.9.3 Use viewport().geometry() for positioning, not view.width()/height()
+
+`viewport().geometry()` is in the QGraphicsView's local coordinate space and already excludes scrollbars. Always use it as the bounding rect when computing overlay position.
+
+```python
+def _reposition(self) -> None:
+    vp = self._canvas_view.viewport().geometry()
+    x = vp.right()  - self.width()  - MARGIN
+    y = vp.bottom() - self.height() - MARGIN - extra_clearance
+    self.move(max(vp.left(), x), max(vp.top(), y))
+    self.raise_()
+```
+
+### 8.9.4 Account for viewport-drawn overlays (scale bar, rulers)
+
+The canvas draws a **scale bar** in the bottom-right corner and **rulers** along the top and left edges directly in the viewport's `paintEvent` — they are **not** separate widgets. Fixed overlays must clear their reserved space:
+
+| Drawn overlay | Location | Reserved space |
+|---------------|----------|----------------|
+| Rulers (top & left) | top 20 px, left 20 px | `CanvasView.RULER_SIZE = 20` |
+| Scale bar | bottom-right | `CanvasView.SCALE_BAR_RESERVED_PX = 40` |
+
+```python
+from open_garden_planner.ui.canvas.canvas_view import CanvasView
+
+sb = CanvasView.SCALE_BAR_RESERVED_PX if self._canvas_view.scale_bar_visible else 0
+y = vp.bottom() - self.height() - MARGIN - sb
+```
+
+### 8.9.5 Scene thumbnail rendering — Y-flip and item filtering
+
+`QGraphicsScene.render()` renders in raw scene coordinates (Y increases downward). The canvas view applies a Y-flip transform. Flip the resulting pixmap:
+
+```python
+pixmap = scene.render(painter, target, source_rect)
+thumbnail = pixmap.transformed(QTransform().scale(1, -1))
+```
+
+Before rendering, **hide screen-space overlay items** that would appear at wrong positions or wrong sizes in the thumbnail:
+
+```python
+hidden = []
+for item in scene.items():
+    if (item.isVisible() and (
+        bool(item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        or item.zValue() >= 100          # temporary tool overlays
+    )):
+        item.setVisible(False)
+        hidden.append(item)
+
+# ... render ...
+
+for item in hidden:
+    item.setVisible(True)
+```
+
+`ItemIgnoresTransformations` is set on: measurement/constraint text labels, dimension display handles, angle display handles. Z-value ≥ 100 is set on: active measure tool lines, constraint preview geometry.
+
+### 8.9.6 Coordinate mapping with Y-flip
+
+Minimap Y=0 is the **visual top** of the canvas, which corresponds to **scene Y = canvas_height** (max scene Y). All coordinate conversions must invert Y:
+
+```python
+# minimap pixel → scene
+sx = canvas_rect.x() + (mx / w) * canvas_rect.width()
+sy = canvas_rect.y() + canvas_rect.height() * (1.0 - my / h)   # inverted
+
+# scene → minimap pixel (for viewport rect overlay)
+ry = (canvas_rect.height() - (scene_max_y - canvas_rect.y())) * scale_y
+```
+
+### 8.9.7 Thumbnail aspect ratio — size the widget, don't letterbox
+
+Never stretch a canvas thumbnail into a fixed aspect-ratio widget — this produces gray bars when the canvas has a different proportion. Instead, **resize the overlay widget** to match the canvas aspect ratio within maximum dimensions:
+
+```python
+if canvas_w / canvas_h > MAX_W / MAX_H:
+    w, h = MAX_W, int(MAX_W * canvas_h / canvas_w)
+else:
+    h, w = MAX_H, int(MAX_H * canvas_w / canvas_h)
+self.setFixedSize(w, h)
+self._reposition()
+```
+
 ## 8.8 Settings Storage
 
 User preferences stored via QSettings (platform-native):

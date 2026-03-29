@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Rosemary with needle-like leaves - top-down view -->
+  <defs>
+    <radialGradient id="rosemary_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#587858"/>
+      <stop offset="70%" stop-color="#486848"/>
+      <stop offset="100%" stop-color="#385838"/>
+    </radialGradient>
+  </defs>
+  <path d="M81 47 C83 54 75 59 76 68 C68 68 60 69 55 76 C47 72 43 73 33 69 C27 64 20 55 19 49 C24 39 29 38 31 27 C37 30 44 27 53 27 C61 31 65 27 67 29 C69 39 78 38 81 47 Z" fill="url(#rosemary_base)" opacity="0.8"/>
+  <ellipse cx="64" cy="53" rx="10" ry="9" fill="#688868" opacity="0.44"/>
+  <ellipse cx="52" cy="60" rx="14" ry="9" fill="#587858" opacity="0.53"/>
+  <ellipse cx="38" cy="62" rx="13" ry="11" fill="#688868" opacity="0.51"/>
+  <ellipse cx="44" cy="43" rx="13" ry="8" fill="#587858" opacity="0.58"/>
+  <ellipse cx="58" cy="37" rx="13" ry="11" fill="#688868" opacity="0.53"/>
+  <circle cx="40" cy="38" r="2" fill="#a8a0d8" opacity="0.8"/>
+  <circle cx="58" cy="42" r="2" fill="#a8a0d8" opacity="0.8"/>
+  <circle cx="48" cy="58" r="2" fill="#a8a0d8" opacity="0.8"/>
+  <line x1="59" y1="36" x2="77" y2="28" stroke="#385838" stroke-width="0.8" opacity="0.3"/>
+  <line x1="59" y1="48" x2="51" y2="61" stroke="#385838" stroke-width="0.8" opacity="0.3"/>
+</svg>

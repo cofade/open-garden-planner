@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Sweet basil with broad aromatic leaves - top-down view -->
+  <defs>
+    <radialGradient id="basil_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#50a030"/>
+      <stop offset="70%" stop-color="#409028"/>
+      <stop offset="100%" stop-color="#308020"/>
+    </radialGradient>
+  </defs>
+  <path d="M73 51 C69 60 62 65 61 67 C57 67 53 70 46 72 C36 74 32 71 26 69 C27 66 31 61 28 53 C28 43 31 32 33 25 C38 24 42 21 50 21 C58 21 63 28 72 29 C71 38 72 47 73 51 Z" fill="url(#basil_base)" opacity="0.8"/>
+  <ellipse cx="61" cy="54" rx="8" ry="8" fill="#58b038" opacity="0.56"/>
+  <ellipse cx="54" cy="65" rx="14" ry="7" fill="#48a030" opacity="0.56"/>
+  <ellipse cx="44" cy="56" rx="11" ry="6" fill="#58b038" opacity="0.48"/>
+  <ellipse cx="37" cy="45" rx="13" ry="8" fill="#48a030" opacity="0.48"/>
+  <ellipse cx="57" cy="36" rx="8" ry="8" fill="#58b038" opacity="0.41"/>
+  <line x1="48" y1="37" x2="49" y2="49" stroke="#308020" stroke-width="0.8" opacity="0.3"/>
+  <line x1="55" y1="39" x2="39" y2="48" stroke="#308020" stroke-width="0.8" opacity="0.3"/>
+</svg>

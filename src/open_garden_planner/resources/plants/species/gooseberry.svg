@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Gooseberry bush with translucent fruits - top-down view -->
+  <defs>
+    <radialGradient id="gooseberry_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a7828"/>
+      <stop offset="70%" stop-color="#2c6420"/>
+      <stop offset="100%" stop-color="#205018"/>
+    </radialGradient>
+  </defs>
+  <path d="M75 50 C71 54 71 63 69 66 C62 68 54 72 49 75 C45 77 39 72 33 75 C35 66 34 56 29 46 C32 42 29 41 29 35 C38 35 48 31 54 24 C63 24 68 24 72 28 C71 33 71 42 75 50 Z" fill="url(#gooseberry_base)" opacity="0.8"/>
+  <ellipse cx="61" cy="55" rx="14" ry="10" fill="#58942e" opacity="0.5"/>
+  <ellipse cx="51" cy="59" rx="12" ry="6" fill="#508c28" opacity="0.46"/>
+  <ellipse cx="39" cy="54" rx="9" ry="10" fill="#58942e" opacity="0.51"/>
+  <ellipse cx="41" cy="40" rx="9" ry="10" fill="#508c28" opacity="0.48"/>
+  <ellipse cx="53" cy="39" rx="12" ry="8" fill="#58942e" opacity="0.43"/>
+  <circle cx="40" cy="38" r="3.5" fill="#a8c848" opacity="0.8"/>
+  <circle cx="39" cy="37" r="1.4" fill="#c0d860" opacity="0.45"/>
+  <circle cx="58" cy="42" r="3.5" fill="#a8c848" opacity="0.8"/>
+  <circle cx="57" cy="41" r="1.4" fill="#c0d860" opacity="0.45"/>
+  <circle cx="46" cy="56" r="3.5" fill="#a8c848" opacity="0.8"/>
+  <circle cx="45" cy="55" r="1.4" fill="#c0d860" opacity="0.45"/>
+  <circle cx="34" cy="50" r="3.5" fill="#a8c848" opacity="0.8"/>
+  <circle cx="33" cy="49" r="1.4" fill="#c0d860" opacity="0.45"/>
+  <line x1="62" y1="49" x2="49" y2="45" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="65" y1="44" x2="46" y2="36" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+</svg>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Arugula with narrow jagged leaves - top-down view -->
+  <defs>
+    <radialGradient id="arugula_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#509830"/>
+      <stop offset="70%" stop-color="#408828"/>
+      <stop offset="100%" stop-color="#307820"/>
+    </radialGradient>
+  </defs>
+  <path d="M81 53 C76 55 76 62 72 67 C67 68 63 73 53 70 C48 67 39 65 31 64 C33 59 28 55 29 50 C32 44 29 35 28 25 C35 22 46 20 54 21 C57 21 59 21 67 25 C75 37 77 46 81 53 Z" fill="url(#arugula_base)" opacity="0.8"/>
+  <ellipse cx="61" cy="48" rx="11" ry="8" fill="#58942e" opacity="0.46"/>
+  <ellipse cx="59" cy="61" rx="11" ry="10" fill="#508c28" opacity="0.49"/>
+  <ellipse cx="47" cy="60" rx="11" ry="8" fill="#58942e" opacity="0.53"/>
+  <ellipse cx="42" cy="53" rx="11" ry="9" fill="#508c28" opacity="0.59"/>
+  <ellipse cx="43" cy="43" rx="8" ry="6" fill="#58942e" opacity="0.54"/>
+  <ellipse cx="53" cy="40" rx="10" ry="11" fill="#508c28" opacity="0.45"/>
+  <line x1="37" y1="61" x2="35" y2="55" stroke="#307820" stroke-width="0.8" opacity="0.3"/>
+  <line x1="64" y1="51" x2="56" y2="55" stroke="#307820" stroke-width="0.8" opacity="0.3"/>
+</svg>

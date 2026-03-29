@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Privet hedge shrub - top-down view -->
+  <defs>
+    <radialGradient id="privet_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a6828"/>
+      <stop offset="70%" stop-color="#2c5820"/>
+      <stop offset="100%" stop-color="#1e4818"/>
+    </radialGradient>
+  </defs>
+  <path d="M87 47 C82 57 73 64 68 71 C64 73 52 76 46 76 C39 78 36 74 30 73 C24 64 17 54 14 47 C20 43 21 30 28 25 C37 23 39 17 45 16 C54 23 66 27 71 31 C74 34 84 43 87 47 Z" fill="url(#privet_base)" opacity="0.8"/>
+  <ellipse cx="67" cy="48" rx="8" ry="8" fill="#4a7838" opacity="0.47"/>
+  <ellipse cx="57" cy="65" rx="13" ry="10" fill="#3a6828" opacity="0.55"/>
+  <ellipse cx="44" cy="59" rx="10" ry="9" fill="#4a7838" opacity="0.47"/>
+  <ellipse cx="32" cy="51" rx="8" ry="10" fill="#3a6828" opacity="0.55"/>
+  <ellipse cx="47" cy="40" rx="12" ry="9" fill="#4a7838" opacity="0.59"/>
+  <ellipse cx="53" cy="41" rx="10" ry="9" fill="#3a6828" opacity="0.42"/>
+  <line x1="37" y1="43" x2="42" y2="23" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+  <line x1="47" y1="38" x2="63" y2="19" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+</svg>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Pea plant with tendrils and pods - top-down view -->
+  <defs>
+    <radialGradient id="pea_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#60a838"/>
+      <stop offset="70%" stop-color="#509428"/>
+      <stop offset="100%" stop-color="#408020"/>
+    </radialGradient>
+  </defs>
+  <path d="M76 48 C76 60 73 65 70 78 C67 78 60 81 56 82 C46 75 43 78 32 73 C25 60 20 57 17 45 C23 39 22 38 25 31 C32 31 41 28 49 23 C59 20 67 19 72 20 C73 28 73 36 76 48 Z" fill="url(#pea_base)" opacity="0.8"/>
+  <ellipse cx="63" cy="50" rx="8" ry="7" fill="#58942e" opacity="0.47"/>
+  <ellipse cx="53" cy="66" rx="13" ry="9" fill="#508c28" opacity="0.57"/>
+  <ellipse cx="47" cy="62" rx="13" ry="7" fill="#58942e" opacity="0.55"/>
+  <ellipse cx="35" cy="48" rx="14" ry="9" fill="#508c28" opacity="0.41"/>
+  <ellipse cx="41" cy="41" rx="13" ry="9" fill="#58942e" opacity="0.59"/>
+  <ellipse cx="55" cy="38" rx="12" ry="10" fill="#508c28" opacity="0.49"/>
+  <ellipse cx="40" cy="42" rx="2.5" ry="5" fill="#78b848" opacity="0.7"/>
+  <ellipse cx="56" cy="55" rx="2" ry="5" fill="#78b848" opacity="0.65"/>
+  <line x1="52" y1="62" x2="39" y2="66" stroke="#408020" stroke-width="0.8" opacity="0.3"/>
+  <line x1="63" y1="44" x2="79" y2="57" stroke="#408020" stroke-width="0.8" opacity="0.3"/>
+</svg>

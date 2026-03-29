@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Sweet marjoram with small grey-green leaves - top-down view -->
+  <defs>
+    <radialGradient id="marjoram_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#608850"/>
+      <stop offset="70%" stop-color="#508040"/>
+      <stop offset="100%" stop-color="#407030"/>
+    </radialGradient>
+  </defs>
+  <path d="M71 52 C71 59 66 63 62 68 C55 71 56 69 48 74 C44 75 42 65 35 66 C37 58 35 56 34 48 C30 41 27 35 29 34 C34 34 39 31 47 32 C50 30 63 36 66 37 C64 41 68 46 71 52 Z" fill="url(#marjoram_base)" opacity="0.8"/>
+  <ellipse cx="58" cy="49" rx="13" ry="11" fill="#709860" opacity="0.4"/>
+  <ellipse cx="52" cy="63" rx="13" ry="9" fill="#608850" opacity="0.6"/>
+  <ellipse cx="45" cy="61" rx="9" ry="11" fill="#709860" opacity="0.56"/>
+  <ellipse cx="41" cy="48" rx="10" ry="11" fill="#608850" opacity="0.42"/>
+  <ellipse cx="46" cy="33" rx="13" ry="7" fill="#709860" opacity="0.42"/>
+  <ellipse cx="55" cy="36" rx="14" ry="9" fill="#608850" opacity="0.46"/>
+  <line x1="40" y1="65" x2="60" y2="45" stroke="#407030" stroke-width="0.8" opacity="0.3"/>
+  <line x1="64" y1="51" x2="47" y2="39" stroke="#407030" stroke-width="0.8" opacity="0.3"/>
+</svg>

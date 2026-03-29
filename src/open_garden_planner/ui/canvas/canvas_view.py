@@ -2516,6 +2516,9 @@ class CanvasView(QGraphicsView):
     _SCALE_BAR_MARGIN = 12
     _SCALE_BAR_TICK_H = 5
     _SCALE_BAR_LINE_WIDTH = 2
+    # Total vertical space reserved at viewport bottom for the scale bar
+    # (margin + tick + gap + ~8pt text). Used by overlay widgets for clearance.
+    SCALE_BAR_RESERVED_PX: int = 40
 
     @staticmethod
     def _format_distance(cm: float) -> str:

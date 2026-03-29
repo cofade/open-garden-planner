@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Olive tree with silvery-green foliage - top-down view -->
+  <defs>
+    <radialGradient id="olive_tree_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#687848"/>
+      <stop offset="70%" stop-color="#587038"/>
+      <stop offset="100%" stop-color="#486030"/>
+    </radialGradient>
+  </defs>
+  <path d="M86 46 C79 59 76 66 73 78 C62 80 58 79 46 85 C43 83 33 77 28 73 C21 64 18 57 12 47 C19 41 21 33 23 31 C36 24 42 26 51 19 C54 22 67 22 72 25 C72 33 84 37 86 46 Z" fill="url(#olive_tree_base)" opacity="0.8"/>
+  <ellipse cx="60" cy="52" rx="9" ry="7" fill="#788858" opacity="0.54"/>
+  <ellipse cx="57" cy="60" rx="13" ry="7" fill="#687848" opacity="0.59"/>
+  <ellipse cx="47" cy="63" rx="10" ry="9" fill="#788858" opacity="0.44"/>
+  <ellipse cx="34" cy="47" rx="9" ry="8" fill="#687848" opacity="0.41"/>
+  <ellipse cx="43" cy="44" rx="10" ry="11" fill="#788858" opacity="0.5"/>
+  <ellipse cx="57" cy="43" rx="10" ry="11" fill="#687848" opacity="0.46"/>
+  <circle cx="42" cy="38" r="3" fill="#506030" opacity="0.8"/>
+  <circle cx="41" cy="37" r="1.2" fill="#607040" opacity="0.45"/>
+  <circle cx="56" cy="44" r="3" fill="#506030" opacity="0.8"/>
+  <circle cx="55" cy="43" r="1.2" fill="#607040" opacity="0.45"/>
+  <circle cx="48" cy="56" r="3" fill="#506030" opacity="0.8"/>
+  <circle cx="47" cy="55" r="1.2" fill="#607040" opacity="0.45"/>
+  <circle cx="62" cy="52" r="3" fill="#506030" opacity="0.8"/>
+  <circle cx="61" cy="51" r="1.2" fill="#607040" opacity="0.45"/>
+  <line x1="57" y1="50" x2="42" y2="59" stroke="#486030" stroke-width="0.8" opacity="0.3"/>
+  <line x1="36" y1="61" x2="47" y2="65" stroke="#486030" stroke-width="0.8" opacity="0.3"/>
+</svg>

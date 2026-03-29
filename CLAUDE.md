@@ -33,6 +33,7 @@ All architecture documentation follows arc42 in `docs/`. Key references:
 | Module structure & project tree      | `docs/05-building-block-view/`                        |
 | CI/CD, installer, release process    | `docs/07-deployment-view/`                            |
 | i18n rules & translation how-to      | `docs/08-crosscutting-concepts/` (section 8.3)        |
+| QGraphicsView overlay widget patterns | `docs/08-crosscutting-concepts/` (section 8.9)       |
 | Known pitfalls & technical debt      | `docs/11-risks-and-technical-debt/` (section 11.4)    |
 | Functional requirements (FR-*)       | `docs/functional-requirements.md`                     |
 | Architecture decisions (ADRs)        | `docs/09-architecture-decisions/`                     |

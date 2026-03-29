@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Lily with star-shaped petals - top-down view -->
+  <defs>
+    <radialGradient id="lily_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a7828"/>
+      <stop offset="70%" stop-color="#2c6420"/>
+      <stop offset="100%" stop-color="#205018"/>
+    </radialGradient>
+  </defs>
+  <path d="M76 54 C75 61 72 67 74 69 C65 70 57 80 45 79 C42 75 34 73 27 71 C25 62 24 54 16 46 C18 41 25 30 34 27 C36 25 44 17 45 15 C54 18 63 28 67 29 C73 36 71 49 76 54 Z" fill="url(#lily_base)" opacity="0.8"/>
+  <ellipse cx="66" cy="55" rx="9" ry="11" fill="#58942e" opacity="0.48"/>
+  <ellipse cx="53" cy="61" rx="8" ry="7" fill="#508c28" opacity="0.43"/>
+  <ellipse cx="40" cy="47" rx="13" ry="7" fill="#58942e" opacity="0.48"/>
+  <ellipse cx="46" cy="34" rx="8" ry="6" fill="#508c28" opacity="0.54"/>
+  <ellipse cx="66" cy="50" rx="5" ry="16" fill="#f8f0e0" opacity="0.75" transform="rotate(0 66 50)"/>
+  <ellipse cx="58" cy="64" rx="5" ry="16" fill="#f0e8d8" opacity="0.73" transform="rotate(60 58 64)"/>
+  <ellipse cx="42" cy="64" rx="5" ry="16" fill="#f8f0e0" opacity="0.71" transform="rotate(120 42 64)"/>
+  <ellipse cx="34" cy="50" rx="5" ry="16" fill="#f0e8d8" opacity="0.69" transform="rotate(180 34 50)"/>
+  <ellipse cx="42" cy="36" rx="5" ry="16" fill="#f8f0e0" opacity="0.67" transform="rotate(240 42 36)"/>
+  <ellipse cx="58" cy="36" rx="5" ry="16" fill="#f0e8d8" opacity="0.65" transform="rotate(300 58 36)"/>
+  <circle cx="50" cy="50" r="5" fill="#e8c030" opacity="0.9"/>
+  <line x1="49" y1="53" x2="40" y2="39" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="63" y1="54" x2="79" y2="67" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+</svg>

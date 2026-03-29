@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Fennel with feathery fronds and bulb - top-down view -->
+  <defs>
+    <radialGradient id="fennel_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#58a838"/>
+      <stop offset="70%" stop-color="#489428"/>
+      <stop offset="100%" stop-color="#388020"/>
+    </radialGradient>
+  </defs>
+  <path d="M83 55 C82 57 76 63 77 72 C70 69 60 72 48 75 C39 71 34 68 30 64 C27 65 25 61 18 56 C22 51 31 41 33 36 C38 28 43 24 47 23 C56 28 60 26 66 26 C73 36 80 48 83 55 Z" fill="url(#fennel_base)" opacity="0.8"/>
+  <ellipse cx="64" cy="51" rx="8" ry="9" fill="#70c050" opacity="0.51"/>
+  <ellipse cx="52" cy="66" rx="14" ry="7" fill="#60b040" opacity="0.51"/>
+  <ellipse cx="36" cy="58" rx="12" ry="10" fill="#70c050" opacity="0.55"/>
+  <ellipse cx="38" cy="46" rx="8" ry="8" fill="#60b040" opacity="0.57"/>
+  <ellipse cx="55" cy="36" rx="13" ry="8" fill="#70c050" opacity="0.52"/>
+  <circle cx="50" cy="55" r="8" fill="#c8d8a8" opacity="0.5"/>
+  <line x1="44" y1="59" x2="30" y2="60" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+  <line x1="65" y1="58" x2="78" y2="61" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+</svg>

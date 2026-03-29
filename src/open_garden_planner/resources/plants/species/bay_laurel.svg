@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Bay laurel with glossy dark leaves - top-down view -->
+  <defs>
+    <radialGradient id="bay_laurel_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a6828"/>
+      <stop offset="70%" stop-color="#2c5820"/>
+      <stop offset="100%" stop-color="#1e4818"/>
+    </radialGradient>
+  </defs>
+  <path d="M85 49 C81 53 74 58 71 67 C61 75 58 77 49 82 C46 80 38 72 31 72 C23 69 20 63 17 54 C22 43 22 32 29 23 C39 23 41 24 51 21 C59 25 70 25 77 27 C82 31 85 40 85 49 Z" fill="url(#bay_laurel_base)" opacity="0.8"/>
+  <ellipse cx="65" cy="55" rx="14" ry="7" fill="#4a7838" opacity="0.58"/>
+  <ellipse cx="50" cy="65" rx="11" ry="7" fill="#3a6828" opacity="0.6"/>
+  <ellipse cx="40" cy="63" rx="8" ry="6" fill="#4a7838" opacity="0.49"/>
+  <ellipse cx="41" cy="37" rx="8" ry="6" fill="#3a6828" opacity="0.54"/>
+  <ellipse cx="56" cy="37" rx="13" ry="10" fill="#4a7838" opacity="0.49"/>
+  <line x1="42" y1="41" x2="50" y2="36" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+  <line x1="35" y1="39" x2="35" y2="30" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+</svg>

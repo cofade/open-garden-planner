@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Lemon tree with bright yellow fruits - top-down view -->
+  <defs>
+    <radialGradient id="lemon_tree_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a7028"/>
+      <stop offset="70%" stop-color="#2c5c20"/>
+      <stop offset="100%" stop-color="#1e4818"/>
+    </radialGradient>
+  </defs>
+  <path d="M79 46 C78 51 76 62 70 72 C65 74 58 82 51 84 C44 82 35 80 23 78 C18 67 22 64 15 56 C13 43 18 34 19 24 C29 25 42 20 56 18 C65 19 67 22 71 27 C71 30 73 40 79 46 Z" fill="url(#lemon_tree_base)" opacity="0.8"/>
+  <ellipse cx="60" cy="53" rx="11" ry="6" fill="#58942e" opacity="0.45"/>
+  <ellipse cx="59" cy="57" rx="11" ry="8" fill="#508c28" opacity="0.41"/>
+  <ellipse cx="47" cy="58" rx="11" ry="8" fill="#58942e" opacity="0.52"/>
+  <ellipse cx="40" cy="50" rx="14" ry="7" fill="#508c28" opacity="0.55"/>
+  <ellipse cx="41" cy="42" rx="10" ry="9" fill="#58942e" opacity="0.41"/>
+  <ellipse cx="59" cy="38" rx="10" ry="8" fill="#508c28" opacity="0.47"/>
+  <circle cx="40" cy="36" r="4" fill="#f0d830" opacity="0.8"/>
+  <circle cx="39" cy="35" r="1.6" fill="#f8e050" opacity="0.45"/>
+  <circle cx="60" cy="42" r="4" fill="#f0d830" opacity="0.8"/>
+  <circle cx="59" cy="41" r="1.6" fill="#f8e050" opacity="0.45"/>
+  <circle cx="48" cy="58" r="4" fill="#f0d830" opacity="0.8"/>
+  <circle cx="47" cy="57" r="1.6" fill="#f8e050" opacity="0.45"/>
+  <circle cx="34" cy="52" r="4" fill="#f0d830" opacity="0.8"/>
+  <circle cx="33" cy="51" r="1.6" fill="#f8e050" opacity="0.45"/>
+  <circle cx="56" cy="56" r="4" fill="#f0d830" opacity="0.8"/>
+  <circle cx="55" cy="55" r="1.6" fill="#f8e050" opacity="0.45"/>
+  <line x1="57" y1="61" x2="75" y2="60" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+  <line x1="38" y1="58" x2="56" y2="46" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+</svg>

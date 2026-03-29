@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Asparagus fern from above - top-down view -->
+  <defs>
+    <radialGradient id="asparagus_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#58a838"/>
+      <stop offset="70%" stop-color="#489428"/>
+      <stop offset="100%" stop-color="#388020"/>
+    </radialGradient>
+  </defs>
+  <path d="M73 46 C70 53 69 61 69 73 C63 75 59 71 48 70 C39 69 36 73 31 71 C23 69 18 55 17 53 C21 43 22 34 25 30 C34 31 43 22 51 22 C56 29 65 30 73 33 C71 34 70 39 73 46 Z" fill="url(#asparagus_base)" opacity="0.8"/>
+  <ellipse cx="59" cy="49" rx="8" ry="7" fill="#68b848" opacity="0.44"/>
+  <ellipse cx="54" cy="58" rx="12" ry="9" fill="#58a838" opacity="0.56"/>
+  <ellipse cx="41" cy="58" rx="12" ry="10" fill="#68b848" opacity="0.59"/>
+  <ellipse cx="34" cy="49" rx="11" ry="6" fill="#58a838" opacity="0.6"/>
+  <ellipse cx="42" cy="43" rx="9" ry="9" fill="#68b848" opacity="0.56"/>
+  <ellipse cx="62" cy="37" rx="13" ry="7" fill="#58a838" opacity="0.53"/>
+  <line x1="58" y1="62" x2="51" y2="78" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+  <line x1="53" y1="44" x2="48" y2="59" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+</svg>

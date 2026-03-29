@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Mint with spreading fresh green leaves - top-down view -->
+  <defs>
+    <radialGradient id="mint_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#48b838"/>
+      <stop offset="70%" stop-color="#38a828"/>
+      <stop offset="100%" stop-color="#289820"/>
+    </radialGradient>
+  </defs>
+  <path d="M78 49 C71 55 68 64 66 73 C60 75 58 70 49 72 C41 68 43 70 34 66 C30 58 20 55 18 51 C20 43 28 41 32 34 C39 31 42 23 52 22 C54 25 65 19 69 24 C73 34 74 44 78 49 Z" fill="url(#mint_base)" opacity="0.8"/>
+  <ellipse cx="64" cy="49" rx="12" ry="7" fill="#58c848" opacity="0.52"/>
+  <ellipse cx="61" cy="63" rx="9" ry="8" fill="#48b838" opacity="0.42"/>
+  <ellipse cx="39" cy="60" rx="9" ry="11" fill="#58c848" opacity="0.46"/>
+  <ellipse cx="37" cy="50" rx="13" ry="11" fill="#48b838" opacity="0.54"/>
+  <ellipse cx="42" cy="39" rx="12" ry="8" fill="#58c848" opacity="0.43"/>
+  <ellipse cx="53" cy="36" rx="10" ry="8" fill="#48b838" opacity="0.42"/>
+  <line x1="49" y1="62" x2="69" y2="57" stroke="#289820" stroke-width="0.8" opacity="0.3"/>
+  <line x1="55" y1="39" x2="62" y2="45" stroke="#289820" stroke-width="0.8" opacity="0.3"/>
+</svg>

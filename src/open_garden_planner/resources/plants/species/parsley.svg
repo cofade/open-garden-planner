@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Parsley with curly bright green leaves - top-down view -->
+  <defs>
+    <radialGradient id="parsley_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#48a830"/>
+      <stop offset="70%" stop-color="#389828"/>
+      <stop offset="100%" stop-color="#288820"/>
+    </radialGradient>
+  </defs>
+  <path d="M79 50 C78 56 72 64 66 68 C63 71 50 73 48 79 C43 72 39 69 36 64 C38 56 36 58 32 50 C29 45 34 44 36 37 C38 32 47 28 50 28 C52 30 58 32 68 37 C75 43 73 42 79 50 Z" fill="url(#parsley_base)" opacity="0.8"/>
+  <ellipse cx="59" cy="53" rx="8" ry="10" fill="#58b838" opacity="0.5"/>
+  <ellipse cx="58" cy="60" rx="9" ry="9" fill="#48a830" opacity="0.59"/>
+  <ellipse cx="48" cy="60" rx="14" ry="9" fill="#58b838" opacity="0.57"/>
+  <ellipse cx="35" cy="46" rx="8" ry="6" fill="#48a830" opacity="0.56"/>
+  <ellipse cx="44" cy="35" rx="8" ry="6" fill="#58b838" opacity="0.48"/>
+  <ellipse cx="55" cy="33" rx="8" ry="9" fill="#48a830" opacity="0.47"/>
+  <line x1="43" y1="52" x2="32" y2="35" stroke="#288820" stroke-width="0.8" opacity="0.3"/>
+  <line x1="38" y1="64" x2="43" y2="80" stroke="#288820" stroke-width="0.8" opacity="0.3"/>
+</svg>

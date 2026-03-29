@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Dahlia with dense petal layers - top-down view -->
+  <defs>
+    <radialGradient id="dahlia_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a7828"/>
+      <stop offset="70%" stop-color="#2c6420"/>
+      <stop offset="100%" stop-color="#205018"/>
+    </radialGradient>
+  </defs>
+  <path d="M77 49 C78 53 68 62 68 72 C61 71 56 73 49 75 C41 71 36 72 26 67 C24 56 23 56 17 45 C20 39 25 36 28 30 C33 24 41 23 51 21 C62 26 63 27 74 28 C74 37 77 45 77 49 Z" fill="url(#dahlia_base)" opacity="0.8"/>
+  <ellipse cx="66" cy="52" rx="12" ry="6" fill="#58942e" opacity="0.54"/>
+  <ellipse cx="47" cy="66" rx="10" ry="10" fill="#508c28" opacity="0.55"/>
+  <ellipse cx="41" cy="52" rx="13" ry="10" fill="#58942e" opacity="0.53"/>
+  <ellipse cx="49" cy="33" rx="8" ry="9" fill="#508c28" opacity="0.53"/>
+  <ellipse cx="68" cy="50" rx="4" ry="12" fill="#d83060" opacity="0.75" transform="rotate(0 68 50)"/>
+  <ellipse cx="66" cy="59" rx="4" ry="12" fill="#e04070" opacity="0.73" transform="rotate(30 66 59)"/>
+  <ellipse cx="59" cy="66" rx="4" ry="12" fill="#d83060" opacity="0.71" transform="rotate(60 59 66)"/>
+  <ellipse cx="50" cy="68" rx="4" ry="12" fill="#e04070" opacity="0.69" transform="rotate(90 50 68)"/>
+  <ellipse cx="41" cy="66" rx="4" ry="12" fill="#d83060" opacity="0.67" transform="rotate(120 41 66)"/>
+  <ellipse cx="34" cy="59" rx="4" ry="12" fill="#e04070" opacity="0.65" transform="rotate(150 34 59)"/>
+  <ellipse cx="32" cy="50" rx="4" ry="12" fill="#d83060" opacity="0.63" transform="rotate(180 32 50)"/>
+  <ellipse cx="34" cy="41" rx="4" ry="12" fill="#e04070" opacity="0.61" transform="rotate(210 34 41)"/>
+  <ellipse cx="41" cy="34" rx="4" ry="12" fill="#d83060" opacity="0.59" transform="rotate(240 41 34)"/>
+  <ellipse cx="50" cy="32" rx="4" ry="12" fill="#e04070" opacity="0.57" transform="rotate(270 50 32)"/>
+  <ellipse cx="59" cy="34" rx="4" ry="12" fill="#d83060" opacity="0.55" transform="rotate(300 59 34)"/>
+  <ellipse cx="66" cy="41" rx="4" ry="12" fill="#e04070" opacity="0.53" transform="rotate(330 66 41)"/>
+  <circle cx="50" cy="50" r="6" fill="#c82050" opacity="0.9"/>
+  <line x1="38" y1="35" x2="35" y2="49" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="48" y1="60" x2="33" y2="73" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+</svg>

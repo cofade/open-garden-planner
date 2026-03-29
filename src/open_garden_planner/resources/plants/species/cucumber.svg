@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Cucumber vine with small fruits - top-down view -->
+  <defs>
+    <radialGradient id="cucumber_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#508c2e"/>
+      <stop offset="70%" stop-color="#407824"/>
+      <stop offset="100%" stop-color="#306018"/>
+    </radialGradient>
+  </defs>
+  <path d="M82 49 C76 58 71 64 71 75 C60 76 55 74 46 76 C41 73 32 72 28 73 C28 67 24 56 20 53 C19 45 28 36 28 32 C34 27 48 22 54 19 C63 19 67 20 72 20 C75 33 79 39 82 49 Z" fill="url(#cucumber_base)" opacity="0.8"/>
+  <ellipse cx="65" cy="46" rx="12" ry="10" fill="#58942e" opacity="0.5"/>
+  <ellipse cx="55" cy="63" rx="9" ry="9" fill="#508c28" opacity="0.48"/>
+  <ellipse cx="37" cy="56" rx="12" ry="10" fill="#58942e" opacity="0.42"/>
+  <ellipse cx="39" cy="46" rx="14" ry="7" fill="#508c28" opacity="0.56"/>
+  <ellipse cx="54" cy="33" rx="9" ry="7" fill="#58942e" opacity="0.53"/>
+  <ellipse cx="40" cy="42" rx="4" ry="9" fill="#3c8030" opacity="0.8" transform="rotate(-20 40 42)"/>
+  <ellipse cx="58" cy="56" rx="3.5" ry="8" fill="#448828" opacity="0.75" transform="rotate(15 58 56)"/>
+  <line x1="45" y1="46" x2="58" y2="60" stroke="#306018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="61" y1="39" x2="76" y2="21" stroke="#306018" stroke-width="0.8" opacity="0.3"/>
+</svg>

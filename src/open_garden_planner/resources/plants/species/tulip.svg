@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Tulip - cup-shaped flower from above - top-down view -->
+  <defs>
+    <radialGradient id="tulip_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#488c28"/>
+      <stop offset="70%" stop-color="#3a7820"/>
+      <stop offset="100%" stop-color="#2c6418"/>
+    </radialGradient>
+  </defs>
+  <path d="M83 56 C76 65 76 64 69 70 C66 77 56 79 49 81 C40 77 38 71 31 69 C30 66 28 58 26 53 C26 49 29 36 25 32 C31 26 39 27 48 23 C54 24 58 28 65 35 C71 45 77 50 83 56 Z" fill="url(#tulip_base)" opacity="0.8"/>
+  <ellipse cx="68" cy="55" rx="11" ry="6" fill="#58942e" opacity="0.5"/>
+  <ellipse cx="43" cy="67" rx="14" ry="6" fill="#508c28" opacity="0.6"/>
+  <ellipse cx="41" cy="37" rx="11" ry="9" fill="#58942e" opacity="0.55"/>
+  <ellipse cx="50" cy="42" rx="10" ry="12" fill="#e83060" opacity="0.85"/>
+  <ellipse cx="50" cy="42" rx="7" ry="9" fill="#f04878" opacity="0.7"/>
+  <ellipse cx="50" cy="42" rx="4" ry="5" fill="#f86890" opacity="0.55"/>
+  <line x1="36" y1="43" x2="54" y2="63" stroke="#2c6418" stroke-width="0.8" opacity="0.3"/>
+  <line x1="36" y1="37" x2="45" y2="18" stroke="#2c6418" stroke-width="0.8" opacity="0.3"/>
+</svg>

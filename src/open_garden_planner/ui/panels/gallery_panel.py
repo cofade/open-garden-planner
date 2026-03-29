@@ -252,6 +252,21 @@ def _build_gallery_categories() -> list[GalleryCategory]:
     for species_name, svg_file in [
         (_tr("Apple Tree"), "apple_tree"),
         (_tr("Cherry Tree"), "cherry_tree"),
+        (_tr("Pear Tree"), "pear_tree"),
+        (_tr("Plum Tree"), "plum_tree"),
+        (_tr("Peach Tree"), "peach_tree"),
+        (_tr("Fig Tree"), "fig_tree"),
+        (_tr("Olive Tree"), "olive_tree"),
+        (_tr("Lemon Tree"), "lemon_tree"),
+        (_tr("Orange Tree"), "orange_tree"),
+        (_tr("Walnut Tree"), "walnut_tree"),
+        (_tr("Oak"), "oak"),
+        (_tr("Maple"), "maple"),
+        (_tr("Birch"), "birch"),
+        (_tr("Willow"), "willow"),
+        (_tr("Magnolia"), "magnolia"),
+        (_tr("Pine"), "pine"),
+        (_tr("Spruce"), "spruce"),
     ]:
         svg_path = _SPECIES_DIR / f"{svg_file}.svg"
         thumb = _render_svg_thumbnail(svg_path)
@@ -288,6 +303,21 @@ def _build_gallery_categories() -> list[GalleryCategory]:
     for species_name, svg_file in [
         (_tr("Boxwood"), "boxwood"),
         (_tr("Rhododendron"), "rhododendron"),
+        (_tr("Blueberry"), "blueberry"),
+        (_tr("Raspberry"), "raspberry"),
+        (_tr("Blackberry"), "blackberry"),
+        (_tr("Gooseberry"), "gooseberry"),
+        (_tr("Currant"), "currant"),
+        (_tr("Holly"), "holly"),
+        (_tr("Juniper"), "juniper"),
+        (_tr("Forsythia"), "forsythia"),
+        (_tr("Lilac"), "lilac"),
+        (_tr("Elderberry"), "elderberry"),
+        (_tr("Privet"), "privet"),
+        (_tr("Viburnum"), "viburnum"),
+        (_tr("Barberry"), "barberry"),
+        (_tr("Camellia"), "camellia"),
+        (_tr("Spirea"), "spirea"),
     ]:
         svg_path = _SPECIES_DIR / f"{svg_file}.svg"
         thumb = _render_svg_thumbnail(svg_path)
@@ -338,6 +368,26 @@ def _build_gallery_categories() -> list[GalleryCategory]:
         (_tr("Rose"), "rose"),
         (_tr("Lavender"), "lavender"),
         (_tr("Sunflower"), "sunflower"),
+        (_tr("Tulip"), "tulip"),
+        (_tr("Daffodil"), "daffodil"),
+        (_tr("Dahlia"), "dahlia"),
+        (_tr("Peony"), "peony"),
+        (_tr("Iris"), "iris"),
+        (_tr("Lily"), "lily"),
+        (_tr("Marigold"), "marigold"),
+        (_tr("Zinnia"), "zinnia"),
+        (_tr("Cosmos"), "cosmos"),
+        (_tr("Aster"), "aster"),
+        (_tr("Chrysanthemum"), "chrysanthemum"),
+        (_tr("Geranium"), "geranium"),
+        (_tr("Petunia"), "petunia"),
+        (_tr("Pansy"), "pansy"),
+        (_tr("Hydrangea"), "hydrangea"),
+        (_tr("Clematis"), "clematis"),
+        (_tr("Wisteria"), "wisteria"),
+        (_tr("Jasmine"), "jasmine"),
+        (_tr("Hibiscus"), "hibiscus"),
+        (_tr("Crocus"), "crocus"),
     ]:
         svg_path = _SPECIES_DIR / f"{svg_file}.svg"
         thumb = _render_svg_thumbnail(svg_path)
@@ -371,7 +421,37 @@ def _build_gallery_categories() -> list[GalleryCategory]:
                 plant_category=cat,
             )
         )
-    for species_name, svg_file in [(_tr("Tomato"), "tomato")]:
+    for species_name, svg_file in [
+        (_tr("Tomato"), "tomato"),
+        (_tr("Pepper"), "pepper"),
+        (_tr("Eggplant"), "eggplant"),
+        (_tr("Zucchini"), "zucchini"),
+        (_tr("Cucumber"), "cucumber"),
+        (_tr("Pumpkin"), "pumpkin"),
+        (_tr("Bean"), "bean"),
+        (_tr("Pea"), "pea"),
+        (_tr("Corn"), "corn"),
+        (_tr("Carrot"), "carrot"),
+        (_tr("Radish"), "radish"),
+        (_tr("Potato"), "potato"),
+        (_tr("Onion"), "onion"),
+        (_tr("Garlic"), "garlic"),
+        (_tr("Lettuce"), "lettuce"),
+        (_tr("Spinach"), "spinach"),
+        (_tr("Cabbage"), "cabbage"),
+        (_tr("Kale"), "kale"),
+        (_tr("Broccoli"), "broccoli"),
+        (_tr("Basil"), "basil"),
+        (_tr("Rosemary"), "rosemary"),
+        (_tr("Thyme"), "thyme"),
+        (_tr("Sage"), "sage"),
+        (_tr("Mint"), "mint"),
+        (_tr("Parsley"), "parsley"),
+        (_tr("Cilantro"), "cilantro"),
+        (_tr("Dill"), "dill"),
+        (_tr("Chives"), "chives"),
+        (_tr("Oregano"), "oregano"),
+    ]:
         svg_path = _SPECIES_DIR / f"{svg_file}.svg"
         thumb = _render_svg_thumbnail(svg_path)
         veg_items.append(

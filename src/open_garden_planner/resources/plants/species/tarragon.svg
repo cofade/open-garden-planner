@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Tarragon with narrow aromatic leaves - top-down view -->
+  <defs>
+    <radialGradient id="tarragon_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#608840"/>
+      <stop offset="70%" stop-color="#508030"/>
+      <stop offset="100%" stop-color="#407028"/>
+    </radialGradient>
+  </defs>
+  <path d="M75 47 C66 56 64 56 60 66 C55 68 49 65 47 71 C42 68 36 64 34 62 C30 59 26 50 20 45 C25 45 28 43 34 38 C41 35 38 25 45 24 C53 23 65 28 73 32 C73 36 73 45 75 47 Z" fill="url(#tarragon_base)" opacity="0.8"/>
+  <ellipse cx="59" cy="50" rx="13" ry="7" fill="#709848" opacity="0.51"/>
+  <ellipse cx="52" cy="60" rx="13" ry="11" fill="#608840" opacity="0.54"/>
+  <ellipse cx="37" cy="56" rx="14" ry="9" fill="#709848" opacity="0.6"/>
+  <ellipse cx="38" cy="39" rx="12" ry="7" fill="#608840" opacity="0.56"/>
+  <ellipse cx="54" cy="42" rx="14" ry="11" fill="#709848" opacity="0.59"/>
+  <line x1="48" y1="57" x2="48" y2="44" stroke="#407028" stroke-width="0.8" opacity="0.3"/>
+  <line x1="64" y1="49" x2="68" y2="32" stroke="#407028" stroke-width="0.8" opacity="0.3"/>
+</svg>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Spirea with arching branches and flower clusters - top-down view -->
+  <defs>
+    <radialGradient id="spirea_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a7828"/>
+      <stop offset="70%" stop-color="#2c6420"/>
+      <stop offset="100%" stop-color="#205018"/>
+    </radialGradient>
+  </defs>
+  <path d="M75 47 C71 58 74 68 69 76 C62 79 54 76 46 81 C39 77 33 72 29 71 C31 66 26 60 23 55 C26 44 31 41 35 30 C39 31 41 30 46 27 C56 22 65 20 70 21 C70 33 73 39 75 47 Z" fill="url(#spirea_base)" opacity="0.8"/>
+  <ellipse cx="60" cy="49" rx="13" ry="7" fill="#58942e" opacity="0.52"/>
+  <ellipse cx="55" cy="64" rx="14" ry="8" fill="#508c28" opacity="0.53"/>
+  <ellipse cx="46" cy="60" rx="8" ry="8" fill="#58942e" opacity="0.42"/>
+  <ellipse cx="40" cy="50" rx="11" ry="7" fill="#508c28" opacity="0.57"/>
+  <ellipse cx="48" cy="36" rx="13" ry="6" fill="#58942e" opacity="0.41"/>
+  <ellipse cx="56" cy="41" rx="8" ry="10" fill="#508c28" opacity="0.43"/>
+  <circle cx="38" cy="34" r="3.5" fill="#f0d0d8" opacity="0.8"/>
+  <circle cx="37" cy="33" r="1.4" fill="#f8e0e8" opacity="0.45"/>
+  <circle cx="54" cy="32" r="3.5" fill="#f0d0d8" opacity="0.8"/>
+  <circle cx="53" cy="31" r="1.4" fill="#f8e0e8" opacity="0.45"/>
+  <circle cx="64" cy="42" r="3.5" fill="#f0d0d8" opacity="0.8"/>
+  <circle cx="63" cy="41" r="1.4" fill="#f8e0e8" opacity="0.45"/>
+  <circle cx="42" cy="52" r="3.5" fill="#f0d0d8" opacity="0.8"/>
+  <circle cx="41" cy="51" r="1.4" fill="#f8e0e8" opacity="0.45"/>
+  <circle cx="58" cy="54" r="3.5" fill="#f0d0d8" opacity="0.8"/>
+  <circle cx="57" cy="53" r="1.4" fill="#f8e0e8" opacity="0.45"/>
+  <line x1="50" y1="43" x2="32" y2="51" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="40" y1="38" x2="34" y2="46" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+</svg>

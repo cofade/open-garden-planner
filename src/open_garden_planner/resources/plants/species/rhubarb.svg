@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Rhubarb with large leaves and red stems - top-down view -->
+  <defs>
+    <radialGradient id="rhubarb_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a7828"/>
+      <stop offset="70%" stop-color="#2c6420"/>
+      <stop offset="100%" stop-color="#205018"/>
+    </radialGradient>
+  </defs>
+  <path d="M82 48 C80 62 74 71 72 81 C64 80 59 78 54 80 C48 82 35 77 27 74 C25 65 27 62 22 54 C24 41 21 37 25 26 C34 21 39 25 50 22 C62 23 65 20 77 21 C75 31 78 38 82 48 Z" fill="url(#rhubarb_base)" opacity="0.8"/>
+  <ellipse cx="67" cy="55" rx="8" ry="8" fill="#58942e" opacity="0.46"/>
+  <ellipse cx="55" cy="65" rx="14" ry="11" fill="#508c28" opacity="0.51"/>
+  <ellipse cx="35" cy="46" rx="8" ry="7" fill="#58942e" opacity="0.58"/>
+  <ellipse cx="53" cy="40" rx="11" ry="8" fill="#508c28" opacity="0.58"/>
+  <ellipse cx="50" cy="50" rx="2.5" ry="20" fill="#c03040" opacity="0.6"/>
+  <ellipse cx="38" cy="50" rx="2.5" ry="18" fill="#c83848" opacity="0.55" transform="rotate(-25 38 50)"/>
+  <ellipse cx="62" cy="50" rx="2.5" ry="18" fill="#c03040" opacity="0.55" transform="rotate(25 62 50)"/>
+  <line x1="49" y1="48" x2="66" y2="58" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="57" y1="60" x2="47" y2="68" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+</svg>

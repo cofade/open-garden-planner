@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Camellia with glossy leaves and showy flowers - top-down view -->
+  <defs>
+    <radialGradient id="camellia_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#2e5820"/>
+      <stop offset="70%" stop-color="#204c18"/>
+      <stop offset="100%" stop-color="#184012"/>
+    </radialGradient>
+  </defs>
+  <path d="M83 49 C74 57 70 62 67 67 C63 68 57 73 48 74 C37 72 34 74 21 74 C19 66 17 59 20 52 C23 44 29 40 29 28 C34 31 45 29 49 24 C60 23 70 23 77 25 C77 35 78 41 83 49 Z" fill="url(#camellia_base)" opacity="0.8"/>
+  <ellipse cx="60" cy="48" rx="11" ry="11" fill="#58942e" opacity="0.58"/>
+  <ellipse cx="57" cy="64" rx="11" ry="7" fill="#508c28" opacity="0.54"/>
+  <ellipse cx="42" cy="58" rx="8" ry="8" fill="#58942e" opacity="0.45"/>
+  <ellipse cx="42" cy="43" rx="13" ry="8" fill="#508c28" opacity="0.55"/>
+  <ellipse cx="51" cy="35" rx="10" ry="6" fill="#58942e" opacity="0.43"/>
+  <circle cx="46" cy="42" r="10" fill="#e84060" opacity="0.8"/>
+  <circle cx="46" cy="42" r="7" fill="#f05878" opacity="0.65"/>
+  <circle cx="46" cy="42" r="4" fill="#f87890" opacity="0.5"/>
+  <line x1="49" y1="48" x2="52" y2="51" stroke="#184012" stroke-width="0.8" opacity="0.3"/>
+  <line x1="39" y1="42" x2="51" y2="41" stroke="#184012" stroke-width="0.8" opacity="0.3"/>
+</svg>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Geranium with round leaf clusters and flowers - top-down view -->
+  <defs>
+    <radialGradient id="geranium_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a7828"/>
+      <stop offset="70%" stop-color="#2c6420"/>
+      <stop offset="100%" stop-color="#205018"/>
+    </radialGradient>
+  </defs>
+  <path d="M81 53 C74 60 70 58 67 66 C64 69 55 72 54 80 C46 79 39 71 32 66 C25 58 26 52 20 49 C22 47 26 36 32 34 C37 30 39 30 47 26 C60 26 69 29 77 26 C81 33 79 41 81 53 Z" fill="url(#geranium_base)" opacity="0.8"/>
+  <ellipse cx="60" cy="54" rx="8" ry="10" fill="#58942e" opacity="0.44"/>
+  <ellipse cx="50" cy="62" rx="11" ry="6" fill="#508c28" opacity="0.54"/>
+  <ellipse cx="39" cy="61" rx="8" ry="7" fill="#58942e" opacity="0.4"/>
+  <ellipse cx="38" cy="45" rx="11" ry="8" fill="#508c28" opacity="0.4"/>
+  <ellipse cx="55" cy="36" rx="8" ry="7" fill="#58942e" opacity="0.44"/>
+  <circle cx="42" cy="34" r="4" fill="#e84060" opacity="0.8"/>
+  <circle cx="41" cy="33" r="1.6" fill="#f06878" opacity="0.45"/>
+  <circle cx="58" cy="38" r="4" fill="#e84060" opacity="0.8"/>
+  <circle cx="57" cy="37" r="1.6" fill="#f06878" opacity="0.45"/>
+  <circle cx="36" cy="52" r="4" fill="#e84060" opacity="0.8"/>
+  <circle cx="35" cy="51" r="1.6" fill="#f06878" opacity="0.45"/>
+  <circle cx="56" cy="56" r="4" fill="#e84060" opacity="0.8"/>
+  <circle cx="55" cy="55" r="1.6" fill="#f06878" opacity="0.45"/>
+  <circle cx="48" cy="42" r="4" fill="#e84060" opacity="0.8"/>
+  <circle cx="47" cy="41" r="1.6" fill="#f06878" opacity="0.45"/>
+  <line x1="59" y1="50" x2="40" y2="49" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="63" y1="48" x2="74" y2="36" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+</svg>

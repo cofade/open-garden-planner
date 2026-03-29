@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Artichoke with spiky silvery leaves - top-down view -->
+  <defs>
+    <radialGradient id="artichoke_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#688c58"/>
+      <stop offset="70%" stop-color="#587848"/>
+      <stop offset="100%" stop-color="#486438"/>
+    </radialGradient>
+  </defs>
+  <path d="M80 45 C77 55 79 63 75 77 C67 79 59 88 51 88 C42 85 34 77 25 67 C18 61 16 57 12 46 C21 41 27 31 29 26 C35 22 49 16 57 13 C63 19 68 24 73 30 C78 32 75 41 80 45 Z" fill="url(#artichoke_base)" opacity="0.8"/>
+  <ellipse cx="60" cy="53" rx="13" ry="9" fill="#789c68" opacity="0.44"/>
+  <ellipse cx="55" cy="65" rx="14" ry="6" fill="#688c58" opacity="0.59"/>
+  <ellipse cx="42" cy="53" rx="14" ry="7" fill="#789c68" opacity="0.57"/>
+  <ellipse cx="38" cy="45" rx="12" ry="11" fill="#688c58" opacity="0.4"/>
+  <ellipse cx="52" cy="40" rx="11" ry="7" fill="#789c68" opacity="0.42"/>
+  <circle cx="50" cy="48" r="10" fill="#789068" opacity="0.6"/>
+  <line x1="62" y1="64" x2="79" y2="63" stroke="#486438" stroke-width="0.8" opacity="0.3"/>
+  <line x1="54" y1="65" x2="69" y2="54" stroke="#486438" stroke-width="0.8" opacity="0.3"/>
+</svg>

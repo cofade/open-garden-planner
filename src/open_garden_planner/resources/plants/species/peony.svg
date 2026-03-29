@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Peony with fluffy layered petals - top-down view -->
+  <defs>
+    <radialGradient id="peony_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a7828"/>
+      <stop offset="70%" stop-color="#2c6420"/>
+      <stop offset="100%" stop-color="#205018"/>
+    </radialGradient>
+  </defs>
+  <path d="M81 53 C79 59 75 69 73 73 C66 78 58 79 50 82 C47 81 33 73 30 73 C28 70 23 59 25 52 C25 44 24 40 29 31 C35 28 44 20 47 15 C58 20 69 24 77 32 C80 42 82 48 81 53 Z" fill="url(#peony_base)" opacity="0.8"/>
+  <ellipse cx="67" cy="52" rx="10" ry="9" fill="#58942e" opacity="0.41"/>
+  <ellipse cx="53" cy="62" rx="12" ry="7" fill="#508c28" opacity="0.51"/>
+  <ellipse cx="33" cy="52" rx="9" ry="8" fill="#58942e" opacity="0.53"/>
+  <ellipse cx="50" cy="34" rx="12" ry="6" fill="#508c28" opacity="0.53"/>
+  <circle cx="50" cy="46" r="18" fill="#f0a0b8" opacity="0.8"/>
+  <circle cx="50" cy="46" r="14" fill="#f0b0c8" opacity="0.7"/>
+  <circle cx="50" cy="46" r="10" fill="#f8c0d0" opacity="0.6"/>
+  <circle cx="50" cy="46" r="6" fill="#f8d0d8" opacity="0.5"/>
+  <line x1="62" y1="35" x2="78" y2="35" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="43" y1="58" x2="39" y2="55" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+</svg>
