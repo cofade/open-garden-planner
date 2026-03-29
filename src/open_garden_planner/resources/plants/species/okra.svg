@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Okra plant with large lobed leaves - top-down view -->
+  <defs>
+    <radialGradient id="okra_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#4a8828"/>
+      <stop offset="70%" stop-color="#3c7420"/>
+      <stop offset="100%" stop-color="#2e6018"/>
+    </radialGradient>
+  </defs>
+  <path d="M78 54 C75 57 74 65 66 70 C60 74 61 79 53 87 C42 86 38 82 26 76 C25 63 25 56 22 48 C21 41 22 36 20 29 C31 22 44 21 52 17 C62 15 67 24 74 24 C79 36 76 46 78 54 Z" fill="url(#okra_base)" opacity="0.8"/>
+  <ellipse cx="63" cy="45" rx="12" ry="6" fill="#58942e" opacity="0.6"/>
+  <ellipse cx="50" cy="60" rx="12" ry="9" fill="#508c28" opacity="0.57"/>
+  <ellipse cx="44" cy="60" rx="11" ry="7" fill="#58942e" opacity="0.45"/>
+  <ellipse cx="44" cy="45" rx="11" ry="10" fill="#508c28" opacity="0.55"/>
+  <ellipse cx="58" cy="41" rx="12" ry="9" fill="#58942e" opacity="0.55"/>
+  <circle cx="48" cy="40" r="3" fill="#68a838" opacity="0.8"/>
+  <circle cx="47" cy="39" r="1.2" fill="#80c048" opacity="0.45"/>
+  <circle cx="58" cy="55" r="3" fill="#68a838" opacity="0.8"/>
+  <circle cx="57" cy="54" r="1.2" fill="#80c048" opacity="0.45"/>
+  <line x1="52" y1="36" x2="48" y2="25" stroke="#2e6018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="58" y1="61" x2="47" y2="76" stroke="#2e6018" stroke-width="0.8" opacity="0.3"/>
+</svg>

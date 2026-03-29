@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Crocus with cup-shaped spring flowers - top-down view -->
+  <defs>
+    <radialGradient id="crocus_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#488c28"/>
+      <stop offset="70%" stop-color="#3a7820"/>
+      <stop offset="100%" stop-color="#2c6418"/>
+    </radialGradient>
+  </defs>
+  <path d="M79 50 C77 60 71 64 71 68 C61 68 58 74 50 78 C44 74 34 77 31 72 C33 64 28 59 27 55 C27 44 29 39 34 28 C40 28 47 25 54 23 C58 29 60 26 67 30 C68 37 76 47 79 50 Z" fill="url(#crocus_base)" opacity="0.8"/>
+  <ellipse cx="62" cy="54" rx="13" ry="8" fill="#58942e" opacity="0.46"/>
+  <ellipse cx="42" cy="57" rx="12" ry="9" fill="#508c28" opacity="0.52"/>
+  <ellipse cx="47" cy="38" rx="12" ry="8" fill="#58942e" opacity="0.59"/>
+  <ellipse cx="50" cy="40" rx="8" ry="12" fill="#8858b8" opacity="0.8"/>
+  <ellipse cx="50" cy="40" rx="5" ry="8" fill="#9868c8" opacity="0.6"/>
+  <circle cx="50" cy="40" r="2" fill="#f0c830" opacity="0.7"/>
+  <line x1="61" y1="40" x2="74" y2="55" stroke="#2c6418" stroke-width="0.8" opacity="0.3"/>
+  <line x1="50" y1="62" x2="30" y2="63" stroke="#2c6418" stroke-width="0.8" opacity="0.3"/>
+</svg>

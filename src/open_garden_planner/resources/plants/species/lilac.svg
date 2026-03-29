@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Lilac with fragrant flower clusters - top-down view -->
+  <defs>
+    <radialGradient id="lilac_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a6828"/>
+      <stop offset="70%" stop-color="#2c5820"/>
+      <stop offset="100%" stop-color="#1e4818"/>
+    </radialGradient>
+  </defs>
+  <path d="M84 51 C79 57 75 67 73 71 C63 76 55 85 46 87 C41 81 39 75 30 74 C25 64 26 52 23 46 C19 37 20 37 24 26 C29 21 41 16 50 17 C56 19 73 21 79 27 C80 35 83 39 84 51 Z" fill="url(#lilac_base)" opacity="0.8"/>
+  <ellipse cx="58" cy="47" rx="10" ry="8" fill="#58942e" opacity="0.55"/>
+  <ellipse cx="59" cy="62" rx="14" ry="7" fill="#508c28" opacity="0.42"/>
+  <ellipse cx="42" cy="60" rx="12" ry="7" fill="#58942e" opacity="0.44"/>
+  <ellipse cx="41" cy="36" rx="9" ry="6" fill="#508c28" opacity="0.48"/>
+  <ellipse cx="49" cy="38" rx="8" ry="8" fill="#58942e" opacity="0.53"/>
+  <ellipse cx="38" cy="32" rx="2.5" ry="7" fill="#b880d0" opacity="0.75" transform="rotate(-15 38 32)"/>
+  <ellipse cx="38" cy="28" rx="1.5" ry="2.5" fill="#c898d8" opacity="0.55" transform="rotate(-15 38 32)"/>
+  <ellipse cx="52" cy="28" rx="2.5" ry="7" fill="#b880d0" opacity="0.75"/>
+  <ellipse cx="52" cy="24" rx="1.5" ry="2.5" fill="#c898d8" opacity="0.55"/>
+  <ellipse cx="64" cy="34" rx="2.5" ry="7" fill="#b880d0" opacity="0.75" transform="rotate(15 64 34)"/>
+  <ellipse cx="64" cy="30" rx="1.5" ry="2.5" fill="#c898d8" opacity="0.55" transform="rotate(15 64 34)"/>
+  <ellipse cx="42" cy="50" rx="2.5" ry="7" fill="#b880d0" opacity="0.75" transform="rotate(-10 42 50)"/>
+  <ellipse cx="42" cy="46" rx="1.5" ry="2.5" fill="#c898d8" opacity="0.55" transform="rotate(-10 42 50)"/>
+  <ellipse cx="60" cy="52" rx="2.5" ry="7" fill="#b880d0" opacity="0.75" transform="rotate(10 60 52)"/>
+  <ellipse cx="60" cy="48" rx="1.5" ry="2.5" fill="#c898d8" opacity="0.55" transform="rotate(10 60 52)"/>
+  <line x1="59" y1="38" x2="49" y2="53" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+  <line x1="58" y1="36" x2="44" y2="38" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+</svg>

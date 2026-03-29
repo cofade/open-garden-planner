@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Celery - upright stalks from above - top-down view -->
+  <defs>
+    <radialGradient id="celery_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#68b840"/>
+      <stop offset="70%" stop-color="#58a430"/>
+      <stop offset="100%" stop-color="#489028"/>
+    </radialGradient>
+  </defs>
+  <path d="M73 52 C74 60 77 59 73 67 C66 66 58 69 47 68 C44 69 37 67 33 63 C33 58 30 52 32 51 C33 44 29 41 31 37 C39 31 44 25 53 24 C55 28 57 27 65 28 C66 37 69 43 73 52 Z" fill="url(#celery_base)" opacity="0.8"/>
+  <ellipse cx="60" cy="53" rx="11" ry="10" fill="#58942e" opacity="0.59"/>
+  <ellipse cx="50" cy="59" rx="11" ry="10" fill="#508c28" opacity="0.43"/>
+  <ellipse cx="37" cy="55" rx="9" ry="9" fill="#58942e" opacity="0.57"/>
+  <ellipse cx="43" cy="41" rx="8" ry="10" fill="#508c28" opacity="0.52"/>
+  <ellipse cx="58" cy="40" rx="9" ry="11" fill="#58942e" opacity="0.55"/>
+  <circle cx="50" cy="50" r="6" fill="#b8d888" opacity="0.5"/>
+  <line x1="64" y1="65" x2="81" y2="61" stroke="#489028" stroke-width="0.8" opacity="0.3"/>
+  <line x1="43" y1="54" x2="52" y2="50" stroke="#489028" stroke-width="0.8" opacity="0.3"/>
+</svg>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Bean plant with climbing tendrils - top-down view -->
+  <defs>
+    <radialGradient id="bean_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#58a030"/>
+      <stop offset="70%" stop-color="#488c28"/>
+      <stop offset="100%" stop-color="#387820"/>
+    </radialGradient>
+  </defs>
+  <path d="M75 48 C78 58 76 67 78 71 C72 77 61 76 51 83 C45 75 28 72 21 70 C25 62 23 58 22 47 C23 43 29 32 29 25 C37 24 47 22 52 23 C55 22 59 29 66 29 C71 37 75 39 75 48 Z" fill="url(#bean_base)" opacity="0.8"/>
+  <ellipse cx="61" cy="54" rx="13" ry="10" fill="#58942e" opacity="0.56"/>
+  <ellipse cx="52" cy="58" rx="9" ry="7" fill="#508c28" opacity="0.43"/>
+  <ellipse cx="42" cy="58" rx="12" ry="9" fill="#58942e" opacity="0.4"/>
+  <ellipse cx="34" cy="50" rx="14" ry="7" fill="#508c28" opacity="0.49"/>
+  <ellipse cx="44" cy="45" rx="8" ry="8" fill="#58942e" opacity="0.49"/>
+  <ellipse cx="55" cy="34" rx="9" ry="9" fill="#508c28" opacity="0.55"/>
+  <ellipse cx="42" cy="44" rx="2" ry="6" fill="#408028" opacity="0.7" transform="rotate(-10 42 44)"/>
+  <ellipse cx="58" cy="52" rx="2" ry="6" fill="#408028" opacity="0.65" transform="rotate(15 58 52)"/>
+  <line x1="36" y1="48" x2="48" y2="47" stroke="#387820" stroke-width="0.8" opacity="0.3"/>
+  <line x1="49" y1="49" x2="58" y2="33" stroke="#387820" stroke-width="0.8" opacity="0.3"/>
+</svg>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Bell pepper plant with colorful fruits - top-down view -->
+  <defs>
+    <radialGradient id="pepper_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#4a8828"/>
+      <stop offset="70%" stop-color="#3c7420"/>
+      <stop offset="100%" stop-color="#2e6018"/>
+    </radialGradient>
+  </defs>
+  <path d="M81 52 C74 53 74 64 70 65 C65 71 56 73 53 74 C47 77 42 76 32 75 C27 68 23 55 24 48 C28 38 26 33 33 29 C36 27 40 27 48 25 C53 23 62 27 71 30 C74 35 79 42 81 52 Z" fill="url(#pepper_base)" opacity="0.8"/>
+  <ellipse cx="67" cy="46" rx="9" ry="9" fill="#58942e" opacity="0.52"/>
+  <ellipse cx="51" cy="67" rx="9" ry="10" fill="#508c28" opacity="0.48"/>
+  <ellipse cx="35" cy="58" rx="8" ry="9" fill="#58942e" opacity="0.45"/>
+  <ellipse cx="36" cy="45" rx="14" ry="7" fill="#508c28" opacity="0.43"/>
+  <ellipse cx="56" cy="43" rx="14" ry="7" fill="#58942e" opacity="0.41"/>
+  <circle cx="38" cy="40" r="4.5" fill="#e04030" opacity="0.8"/>
+  <circle cx="37" cy="39" r="1.8" fill="#f06050" opacity="0.45"/>
+  <circle cx="62" cy="45" r="4.5" fill="#e04030" opacity="0.8"/>
+  <circle cx="61" cy="44" r="1.8" fill="#f06050" opacity="0.45"/>
+  <circle cx="48" cy="62" r="4.5" fill="#e04030" opacity="0.8"/>
+  <circle cx="47" cy="61" r="1.8" fill="#f06050" opacity="0.45"/>
+  <circle cx="30" cy="55" r="4.5" fill="#e04030" opacity="0.8"/>
+  <circle cx="29" cy="54" r="1.8" fill="#f06050" opacity="0.45"/>
+  <circle cx="68" cy="60" r="4" fill="#f0c020" opacity="0.8"/>
+  <circle cx="67" cy="59" r="1.6" fill="#f8d848" opacity="0.45"/>
+  <line x1="39" y1="42" x2="37" y2="30" stroke="#2e6018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="38" y1="41" x2="24" y2="49" stroke="#2e6018" stroke-width="0.8" opacity="0.3"/>
+</svg>

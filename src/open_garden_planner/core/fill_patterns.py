@@ -39,6 +39,16 @@ class FillPattern(Enum):
     STONE = auto()  # Stone paving texture
     GLASS = auto()  # Glass pane / greenhouse texture
     HEDGE = auto()  # Dense foliage / hedge texture
+    BRICK = auto()  # Running bond brick pattern
+    BARK = auto()  # Tree bark texture
+    WILDFLOWER = auto()  # Wildflower meadow
+    TERRACOTTA = auto()  # Terracotta tiles
+    PEBBLES = auto()  # River pebbles
+    SLATE = auto()  # Slate slabs
+    LATTICE = auto()  # Trellis / lattice pattern
+    COMPOST = auto()  # Composted soil
+    FLAGSTONE = auto()  # Irregular flagstone paving
+    CLAY = auto()  # Clay surface
 
 
 # Mapping from FillPattern to texture filename (without .png)
@@ -55,6 +65,16 @@ _TEXTURE_FILES: dict[FillPattern, str] = {
     FillPattern.STONE: "stone",
     FillPattern.GLASS: "glass",
     FillPattern.HEDGE: "hedge",
+    FillPattern.BRICK: "brick",
+    FillPattern.BARK: "bark",
+    FillPattern.WILDFLOWER: "wildflower",
+    FillPattern.TERRACOTTA: "terracotta",
+    FillPattern.PEBBLES: "pebbles",
+    FillPattern.SLATE: "slate",
+    FillPattern.LATTICE: "lattice",
+    FillPattern.COMPOST: "compost",
+    FillPattern.FLAGSTONE: "flagstone",
+    FillPattern.CLAY: "clay",
 }
 
 

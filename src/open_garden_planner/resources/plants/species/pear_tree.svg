@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Pear tree canopy from above - top-down view -->
+  <defs>
+    <radialGradient id="pear_tree_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a7028"/>
+      <stop offset="70%" stop-color="#2c5c20"/>
+      <stop offset="100%" stop-color="#1e4818"/>
+    </radialGradient>
+  </defs>
+  <path d="M82 44 C78 56 74 67 71 73 C65 71 57 77 46 78 C38 79 33 81 23 80 C24 68 16 67 15 57 C19 43 23 38 28 25 C38 22 40 20 50 21 C56 19 67 27 74 24 C80 32 83 40 82 44 Z" fill="url(#pear_tree_base)" opacity="0.8"/>
+  <ellipse cx="66" cy="47" rx="8" ry="6" fill="#58942e" opacity="0.57"/>
+  <ellipse cx="53" cy="67" rx="12" ry="7" fill="#508c28" opacity="0.44"/>
+  <ellipse cx="41" cy="61" rx="8" ry="8" fill="#58942e" opacity="0.44"/>
+  <ellipse cx="32" cy="50" rx="8" ry="6" fill="#508c28" opacity="0.55"/>
+  <ellipse cx="40" cy="40" rx="8" ry="9" fill="#58942e" opacity="0.55"/>
+  <ellipse cx="55" cy="37" rx="14" ry="11" fill="#508c28" opacity="0.54"/>
+  <circle cx="42" cy="38" r="4" fill="#a8c830" opacity="0.8"/>
+  <circle cx="41" cy="37" r="1.6" fill="#c0d848" opacity="0.45"/>
+  <circle cx="60" cy="44" r="4" fill="#a8c830" opacity="0.8"/>
+  <circle cx="59" cy="43" r="1.6" fill="#c0d848" opacity="0.45"/>
+  <circle cx="48" cy="58" r="4" fill="#a8c830" opacity="0.8"/>
+  <circle cx="47" cy="57" r="1.6" fill="#c0d848" opacity="0.45"/>
+  <circle cx="36" cy="52" r="4" fill="#a8c830" opacity="0.8"/>
+  <circle cx="35" cy="51" r="1.6" fill="#c0d848" opacity="0.45"/>
+  <line x1="43" y1="52" x2="49" y2="72" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+  <line x1="43" y1="35" x2="27" y2="42" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+</svg>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Leek plant - upright fan of leaves - top-down view -->
+  <defs>
+    <radialGradient id="leek_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#58a038"/>
+      <stop offset="70%" stop-color="#489028"/>
+      <stop offset="100%" stop-color="#387c20"/>
+    </radialGradient>
+  </defs>
+  <path d="M76 53 C74 55 74 57 69 63 C63 62 59 70 53 71 C48 66 45 69 35 66 C34 64 27 60 25 54 C27 46 35 39 35 28 C38 30 41 29 48 34 C52 30 64 36 67 35 C70 43 69 47 76 53 Z" fill="url(#leek_base)" opacity="0.8"/>
+  <ellipse cx="59" cy="47" rx="9" ry="11" fill="#58942e" opacity="0.59"/>
+  <ellipse cx="53" cy="59" rx="12" ry="9" fill="#508c28" opacity="0.46"/>
+  <ellipse cx="42" cy="52" rx="14" ry="8" fill="#58942e" opacity="0.42"/>
+  <ellipse cx="47" cy="42" rx="11" ry="11" fill="#508c28" opacity="0.47"/>
+  <ellipse cx="50" cy="24" rx="4" ry="20" fill="#68b040" opacity="0.65"/>
+  <ellipse cx="56" cy="28" rx="3.5" ry="18" fill="#60a838" opacity="0.6" transform="rotate(10 56 28)"/>
+  <line x1="58" y1="41" x2="51" y2="58" stroke="#387c20" stroke-width="0.8" opacity="0.3"/>
+  <line x1="45" y1="59" x2="47" y2="63" stroke="#387c20" stroke-width="0.8" opacity="0.3"/>
+</svg>

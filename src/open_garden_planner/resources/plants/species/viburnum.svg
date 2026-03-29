@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Viburnum with flat-topped flower clusters - top-down view -->
+  <defs>
+    <radialGradient id="viburnum_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a6828"/>
+      <stop offset="70%" stop-color="#2c5820"/>
+      <stop offset="100%" stop-color="#1e4818"/>
+    </radialGradient>
+  </defs>
+  <path d="M84 46 C82 53 73 64 70 76 C61 75 50 79 46 79 C39 81 39 75 33 75 C24 65 18 65 13 55 C15 41 22 31 23 24 C36 22 45 20 53 24 C63 22 68 21 74 25 C76 35 80 37 84 46 Z" fill="url(#viburnum_base)" opacity="0.8"/>
+  <ellipse cx="64" cy="52" rx="9" ry="9" fill="#58942e" opacity="0.48"/>
+  <ellipse cx="55" cy="60" rx="10" ry="10" fill="#508c28" opacity="0.46"/>
+  <ellipse cx="39" cy="54" rx="14" ry="9" fill="#58942e" opacity="0.59"/>
+  <ellipse cx="37" cy="47" rx="14" ry="8" fill="#508c28" opacity="0.46"/>
+  <ellipse cx="55" cy="43" rx="14" ry="8" fill="#58942e" opacity="0.56"/>
+  <circle cx="44" cy="38" r="8" fill="#f0e8e0" opacity="0.7"/>
+  <circle cx="58" cy="42" r="7" fill="#f0e8e0" opacity="0.65"/>
+  <line x1="37" y1="38" x2="21" y2="29" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+  <line x1="46" y1="49" x2="36" y2="47" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+</svg>

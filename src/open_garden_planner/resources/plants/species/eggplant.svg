@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Eggplant with purple fruits - top-down view -->
+  <defs>
+    <radialGradient id="eggplant_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#4a8828"/>
+      <stop offset="70%" stop-color="#3c7420"/>
+      <stop offset="100%" stop-color="#2e6018"/>
+    </radialGradient>
+  </defs>
+  <path d="M85 46 C85 53 82 61 78 71 C68 77 59 79 45 84 C38 80 35 73 31 71 C27 61 26 58 24 48 C26 43 27 36 33 28 C36 23 42 18 47 18 C55 19 65 26 77 31 C81 32 84 44 85 46 Z" fill="url(#eggplant_base)" opacity="0.8"/>
+  <ellipse cx="58" cy="53" rx="10" ry="10" fill="#58942e" opacity="0.49"/>
+  <ellipse cx="49" cy="61" rx="10" ry="6" fill="#508c28" opacity="0.43"/>
+  <ellipse cx="42" cy="60" rx="9" ry="8" fill="#58942e" opacity="0.48"/>
+  <ellipse cx="40" cy="47" rx="9" ry="6" fill="#508c28" opacity="0.52"/>
+  <ellipse cx="50" cy="41" rx="12" ry="8" fill="#58942e" opacity="0.55"/>
+  <ellipse cx="40" cy="42" rx="6" ry="9" fill="#4a2068" opacity="0.85"/>
+  <ellipse cx="62" cy="55" rx="5" ry="8" fill="#522878" opacity="0.8"/>
+  <ellipse cx="48" cy="65" rx="5" ry="7" fill="#4a2068" opacity="0.75"/>
+  <line x1="55" y1="44" x2="41" y2="40" stroke="#2e6018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="63" y1="42" x2="74" y2="61" stroke="#2e6018" stroke-width="0.8" opacity="0.3"/>
+</svg>

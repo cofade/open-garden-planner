@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Peach tree with fuzzy fruits - top-down view -->
+  <defs>
+    <radialGradient id="peach_tree_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a7028"/>
+      <stop offset="70%" stop-color="#2c5c20"/>
+      <stop offset="100%" stop-color="#1e4818"/>
+    </radialGradient>
+  </defs>
+  <path d="M79 45 C80 52 78 63 76 72 C67 77 57 80 49 79 C40 74 33 73 23 68 C19 63 15 58 10 53 C22 46 27 34 34 26 C38 23 46 26 55 20 C60 22 73 26 80 30 C79 36 81 40 79 45 Z" fill="url(#peach_tree_base)" opacity="0.8"/>
+  <ellipse cx="59" cy="48" rx="9" ry="7" fill="#58942e" opacity="0.58"/>
+  <ellipse cx="56" cy="61" rx="14" ry="11" fill="#508c28" opacity="0.56"/>
+  <ellipse cx="47" cy="59" rx="9" ry="8" fill="#58942e" opacity="0.52"/>
+  <ellipse cx="42" cy="48" rx="8" ry="6" fill="#508c28" opacity="0.44"/>
+  <ellipse cx="44" cy="42" rx="14" ry="6" fill="#58942e" opacity="0.54"/>
+  <ellipse cx="58" cy="35" rx="11" ry="7" fill="#508c28" opacity="0.46"/>
+  <circle cx="42" cy="36" r="4.5" fill="#f0a068" opacity="0.8"/>
+  <circle cx="41" cy="35" r="1.8" fill="#f8b880" opacity="0.45"/>
+  <circle cx="60" cy="42" r="4.5" fill="#f0a068" opacity="0.8"/>
+  <circle cx="59" cy="41" r="1.8" fill="#f8b880" opacity="0.45"/>
+  <circle cx="48" cy="58" r="4.5" fill="#f0a068" opacity="0.8"/>
+  <circle cx="47" cy="57" r="1.8" fill="#f8b880" opacity="0.45"/>
+  <circle cx="35" cy="50" r="4.5" fill="#f0a068" opacity="0.8"/>
+  <circle cx="34" cy="49" r="1.8" fill="#f8b880" opacity="0.45"/>
+  <line x1="42" y1="62" x2="22" y2="72" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+  <line x1="40" y1="42" x2="44" y2="31" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+</svg>

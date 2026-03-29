@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Clematis vine with star-shaped flowers - top-down view -->
+  <defs>
+    <radialGradient id="clematis_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a7828"/>
+      <stop offset="70%" stop-color="#2c6420"/>
+      <stop offset="100%" stop-color="#205018"/>
+    </radialGradient>
+  </defs>
+  <path d="M79 46 C73 56 76 69 72 76 C65 73 59 73 52 73 C48 71 42 67 32 64 C28 61 21 63 19 56 C28 49 32 37 37 32 C39 25 43 18 43 15 C53 18 67 28 75 31 C73 36 76 37 79 46 Z" fill="url(#clematis_base)" opacity="0.8"/>
+  <ellipse cx="68" cy="49" rx="10" ry="8" fill="#58942e" opacity="0.41"/>
+  <ellipse cx="54" cy="58" rx="8" ry="7" fill="#508c28" opacity="0.51"/>
+  <ellipse cx="42" cy="61" rx="8" ry="8" fill="#58942e" opacity="0.53"/>
+  <ellipse cx="40" cy="36" rx="9" ry="7" fill="#508c28" opacity="0.55"/>
+  <ellipse cx="57" cy="39" rx="13" ry="6" fill="#58942e" opacity="0.49"/>
+  <ellipse cx="66" cy="50" rx="5" ry="14" fill="#8858b8" opacity="0.75" transform="rotate(0 66 50)"/>
+  <ellipse cx="58" cy="64" rx="5" ry="14" fill="#9868c8" opacity="0.73" transform="rotate(60 58 64)"/>
+  <ellipse cx="42" cy="64" rx="5" ry="14" fill="#8858b8" opacity="0.71" transform="rotate(120 42 64)"/>
+  <ellipse cx="34" cy="50" rx="5" ry="14" fill="#9868c8" opacity="0.69" transform="rotate(180 34 50)"/>
+  <ellipse cx="42" cy="36" rx="5" ry="14" fill="#8858b8" opacity="0.67" transform="rotate(240 42 36)"/>
+  <ellipse cx="58" cy="36" rx="5" ry="14" fill="#9868c8" opacity="0.65" transform="rotate(300 58 36)"/>
+  <circle cx="50" cy="50" r="4" fill="#f0e8c0" opacity="0.9"/>
+  <line x1="39" y1="36" x2="33" y2="37" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="41" y1="47" x2="50" y2="36" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+</svg>

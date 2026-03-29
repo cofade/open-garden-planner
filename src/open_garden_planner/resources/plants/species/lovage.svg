@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Lovage with large celery-like leaves - top-down view -->
+  <defs>
+    <radialGradient id="lovage_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#488828"/>
+      <stop offset="70%" stop-color="#3c7820"/>
+      <stop offset="100%" stop-color="#2e6818"/>
+    </radialGradient>
+  </defs>
+  <path d="M79 55 C80 62 76 68 78 72 C70 78 66 77 56 81 C48 81 37 73 26 74 C27 62 29 55 26 46 C24 43 27 42 28 35 C33 31 46 25 55 19 C63 20 67 17 73 21 C74 31 79 44 79 55 Z" fill="url(#lovage_base)" opacity="0.8"/>
+  <ellipse cx="66" cy="51" rx="8" ry="11" fill="#589838" opacity="0.48"/>
+  <ellipse cx="50" cy="63" rx="10" ry="6" fill="#488828" opacity="0.52"/>
+  <ellipse cx="38" cy="60" rx="8" ry="7" fill="#589838" opacity="0.57"/>
+  <ellipse cx="43" cy="45" rx="10" ry="11" fill="#488828" opacity="0.52"/>
+  <ellipse cx="53" cy="34" rx="11" ry="7" fill="#589838" opacity="0.41"/>
+  <line x1="48" y1="47" x2="63" y2="47" stroke="#2e6818" stroke-width="0.8" opacity="0.3"/>
+  <line x1="53" y1="41" x2="49" y2="22" stroke="#2e6818" stroke-width="0.8" opacity="0.3"/>
+</svg>

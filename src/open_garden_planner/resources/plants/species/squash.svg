@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Squash plant with large leaves - top-down view -->
+  <defs>
+    <radialGradient id="squash_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#4a8828"/>
+      <stop offset="70%" stop-color="#3c7420"/>
+      <stop offset="100%" stop-color="#2e6018"/>
+    </radialGradient>
+  </defs>
+  <path d="M84 51 C80 60 78 67 72 74 C65 76 53 77 49 79 C38 77 31 83 27 79 C23 74 26 59 24 53 C25 42 22 34 22 28 C31 19 36 14 43 12 C52 18 65 27 74 31 C76 41 82 46 84 51 Z" fill="url(#squash_base)" opacity="0.8"/>
+  <ellipse cx="65" cy="44" rx="9" ry="8" fill="#58942e" opacity="0.56"/>
+  <ellipse cx="55" cy="63" rx="11" ry="10" fill="#508c28" opacity="0.45"/>
+  <ellipse cx="37" cy="61" rx="14" ry="11" fill="#58942e" opacity="0.45"/>
+  <ellipse cx="42" cy="40" rx="14" ry="9" fill="#508c28" opacity="0.41"/>
+  <ellipse cx="53" cy="42" rx="14" ry="10" fill="#58942e" opacity="0.59"/>
+  <circle cx="48" cy="52" r="6" fill="#e8a830" opacity="0.8"/>
+  <circle cx="47" cy="51" r="2.4" fill="#f0c050" opacity="0.45"/>
+  <circle cx="62" cy="58" r="5" fill="#d89020" opacity="0.8"/>
+  <circle cx="61" cy="57" r="2.0" fill="#e0a838" opacity="0.45"/>
+  <line x1="55" y1="51" x2="59" y2="64" stroke="#2e6018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="46" y1="59" x2="26" y2="50" stroke="#2e6018" stroke-width="0.8" opacity="0.3"/>
+</svg>

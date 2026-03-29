@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Magnolia with large glossy leaves and flowers - top-down view -->
+  <defs>
+    <radialGradient id="magnolia_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#2e5c20"/>
+      <stop offset="70%" stop-color="#205018"/>
+      <stop offset="100%" stop-color="#184412"/>
+    </radialGradient>
+  </defs>
+  <path d="M82 47 C84 59 76 67 77 72 C64 71 58 72 45 77 C41 74 31 76 25 77 C20 71 16 64 18 53 C20 40 22 35 27 25 C33 24 44 19 48 15 C55 14 64 21 70 23 C78 35 78 42 82 47 Z" fill="url(#magnolia_base)" opacity="0.8"/>
+  <ellipse cx="66" cy="56" rx="14" ry="9" fill="#58942e" opacity="0.59"/>
+  <ellipse cx="49" cy="64" rx="13" ry="7" fill="#508c28" opacity="0.59"/>
+  <ellipse cx="40" cy="52" rx="9" ry="6" fill="#58942e" opacity="0.54"/>
+  <ellipse cx="35" cy="45" rx="11" ry="8" fill="#508c28" opacity="0.46"/>
+  <ellipse cx="60" cy="36" rx="14" ry="7" fill="#58942e" opacity="0.56"/>
+  <circle cx="48" cy="42" r="10" fill="#f8e8f0" opacity="0.8"/>
+  <circle cx="48" cy="42" r="6" fill="#f0d8e8" opacity="0.6"/>
+  <line x1="47" y1="54" x2="62" y2="68" stroke="#184412" stroke-width="0.8" opacity="0.3"/>
+  <line x1="36" y1="36" x2="48" y2="48" stroke="#184412" stroke-width="0.8" opacity="0.3"/>
+</svg>

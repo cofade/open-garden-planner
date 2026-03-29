@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Sorrel with arrow-shaped leaves - top-down view -->
+  <defs>
+    <radialGradient id="sorrel_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#508830"/>
+      <stop offset="70%" stop-color="#408028"/>
+      <stop offset="100%" stop-color="#307020"/>
+    </radialGradient>
+  </defs>
+  <path d="M81 56 C75 57 70 66 64 67 C59 73 61 76 54 75 C47 75 41 69 39 67 C35 63 27 59 21 54 C24 46 28 38 28 32 C35 30 48 29 54 29 C57 29 65 29 73 28 C75 40 81 49 81 56 Z" fill="url(#sorrel_base)" opacity="0.8"/>
+  <ellipse cx="64" cy="47" rx="8" ry="8" fill="#609838" opacity="0.56"/>
+  <ellipse cx="58" cy="63" rx="8" ry="6" fill="#508830" opacity="0.54"/>
+  <ellipse cx="41" cy="54" rx="8" ry="8" fill="#609838" opacity="0.6"/>
+  <ellipse cx="42" cy="43" rx="8" ry="11" fill="#508830" opacity="0.47"/>
+  <ellipse cx="51" cy="40" rx="13" ry="8" fill="#609838" opacity="0.58"/>
+  <line x1="35" y1="58" x2="37" y2="64" stroke="#307020" stroke-width="0.8" opacity="0.3"/>
+  <line x1="54" y1="63" x2="42" y2="48" stroke="#307020" stroke-width="0.8" opacity="0.3"/>
+</svg>

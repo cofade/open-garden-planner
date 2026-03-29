@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Oregano with small rounded leaves - top-down view -->
+  <defs>
+    <radialGradient id="oregano_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#588838"/>
+      <stop offset="70%" stop-color="#488028"/>
+      <stop offset="100%" stop-color="#387020"/>
+    </radialGradient>
+  </defs>
+  <path d="M69 51 C71 56 67 64 72 72 C66 74 56 71 47 75 C39 73 33 68 31 71 C32 65 25 51 24 45 C26 41 30 37 28 33 C32 27 42 32 52 25 C56 27 66 34 68 35 C64 39 65 43 69 51 Z" fill="url(#oregano_base)" opacity="0.8"/>
+  <ellipse cx="65" cy="49" rx="10" ry="10" fill="#689848" opacity="0.59"/>
+  <ellipse cx="57" cy="63" rx="11" ry="11" fill="#588838" opacity="0.54"/>
+  <ellipse cx="47" cy="66" rx="14" ry="9" fill="#689848" opacity="0.54"/>
+  <ellipse cx="33" cy="52" rx="12" ry="7" fill="#588838" opacity="0.56"/>
+  <ellipse cx="43" cy="39" rx="10" ry="6" fill="#689848" opacity="0.4"/>
+  <ellipse cx="58" cy="44" rx="10" ry="7" fill="#588838" opacity="0.59"/>
+  <line x1="47" y1="57" x2="46" y2="43" stroke="#387020" stroke-width="0.8" opacity="0.3"/>
+  <line x1="52" y1="49" x2="67" y2="30" stroke="#387020" stroke-width="0.8" opacity="0.3"/>
+</svg>

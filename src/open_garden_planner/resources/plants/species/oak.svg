@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Oak tree with broad dense canopy - top-down view -->
+  <defs>
+    <radialGradient id="oak_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#2e5c20"/>
+      <stop offset="70%" stop-color="#205018"/>
+      <stop offset="100%" stop-color="#184412"/>
+    </radialGradient>
+  </defs>
+  <path d="M89 45 C85 58 81 70 80 82 C67 86 55 86 45 89 C40 88 33 81 26 76 C23 64 23 59 20 45 C22 37 25 33 24 21 C32 16 37 19 48 16 C62 23 71 30 77 32 C80 36 89 44 89 45 Z" fill="url(#oak_base)" opacity="0.8"/>
+  <ellipse cx="63" cy="52" rx="10" ry="6" fill="#3e6c30" opacity="0.59"/>
+  <ellipse cx="54" cy="59" rx="14" ry="8" fill="#2e5c20" opacity="0.47"/>
+  <ellipse cx="46" cy="65" rx="12" ry="7" fill="#3e6c30" opacity="0.47"/>
+  <ellipse cx="41" cy="50" rx="12" ry="9" fill="#2e5c20" opacity="0.43"/>
+  <ellipse cx="47" cy="35" rx="9" ry="6" fill="#3e6c30" opacity="0.59"/>
+  <ellipse cx="65" cy="37" rx="10" ry="11" fill="#2e5c20" opacity="0.56"/>
+  <line x1="38" y1="40" x2="47" y2="30" stroke="#184412" stroke-width="0.8" opacity="0.3"/>
+  <line x1="63" y1="56" x2="76" y2="54" stroke="#184412" stroke-width="0.8" opacity="0.3"/>
+</svg>

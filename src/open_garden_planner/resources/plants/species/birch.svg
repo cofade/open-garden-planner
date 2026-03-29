@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Birch tree with light airy canopy - top-down view -->
+  <defs>
+    <radialGradient id="birch_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#58a038"/>
+      <stop offset="70%" stop-color="#489028"/>
+      <stop offset="100%" stop-color="#388020"/>
+    </radialGradient>
+  </defs>
+  <path d="M77 51 C70 55 72 65 67 71 C66 73 58 80 55 82 C45 77 34 74 25 73 C29 65 27 58 28 54 C30 50 34 41 33 32 C35 29 39 21 46 17 C51 17 67 26 74 29 C79 40 78 45 77 51 Z" fill="url(#birch_base)" opacity="0.8"/>
+  <ellipse cx="64" cy="50" rx="12" ry="7" fill="#68b048" opacity="0.57"/>
+  <ellipse cx="63" cy="61" rx="8" ry="9" fill="#58a038" opacity="0.48"/>
+  <ellipse cx="37" cy="61" rx="11" ry="6" fill="#68b048" opacity="0.42"/>
+  <ellipse cx="33" cy="52" rx="10" ry="8" fill="#58a038" opacity="0.53"/>
+  <ellipse cx="43" cy="36" rx="12" ry="7" fill="#68b048" opacity="0.51"/>
+  <ellipse cx="56" cy="41" rx="14" ry="7" fill="#58a038" opacity="0.43"/>
+  <circle cx="50" cy="50" r="4" fill="#e8e0d0" opacity="0.5"/>
+  <line x1="50" y1="65" x2="43" y2="48" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+  <line x1="64" y1="45" x2="59" y2="46" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+</svg>

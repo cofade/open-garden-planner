@@ -952,6 +952,760 @@ def generate_hedge_texture() -> QPixmap:
     return pixmap
 
 
+def generate_brick_texture() -> QPixmap:
+    """Generate a tileable running bond brick pattern."""
+    size = TEXTURE_SIZE
+    pixmap = QPixmap(size, size)
+    mortar = QColor(195, 190, 180)
+    pixmap.fill(mortar)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    rng = _seeded_random(1100)
+
+    brick_w = 50
+    brick_h = 22
+    mortar_w = 3
+
+    for row_idx in range(0, size // (brick_h + mortar_w) + 2):
+        y = row_idx * (brick_h + mortar_w)
+        offset = (brick_w // 2 + mortar_w // 2) if (row_idx % 2 == 1) else 0
+
+        for col in range(-brick_w, size + brick_w, brick_w + mortar_w):
+            x = col + offset
+            variation = rng.randint(-18, 18)
+            c = QColor(
+                max(0, min(255, 165 + variation)),
+                max(0, min(255, 75 + variation // 2)),
+                max(0, min(255, 55 + variation // 3)),
+            )
+
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(c))
+            brick_rect = QRectF(x, y, brick_w, brick_h)
+            painter.drawRect(brick_rect)
+
+            # Surface speckle on brick
+            for _ in range(8):
+                sx = x + rng.randint(2, brick_w - 2)
+                sy = y + rng.randint(2, brick_h - 2)
+                sc = QColor(
+                    max(0, min(255, c.red() + rng.randint(-12, 12))),
+                    max(0, min(255, c.green() + rng.randint(-8, 8))),
+                    max(0, min(255, c.blue() + rng.randint(-6, 6))),
+                )
+                painter.setPen(QPen(sc, 0.5))
+                painter.drawPoint(int(sx) % size, int(sy) % size)
+            painter.setPen(Qt.PenStyle.NoPen)
+
+            # Wrap for tileability
+            if x + brick_w > size:
+                painter.setBrush(QBrush(c))
+                painter.drawRect(QRectF(x - size, y, brick_w, brick_h))
+            if y + brick_h > size:
+                painter.setBrush(QBrush(c))
+                painter.drawRect(QRectF(x, y - size, brick_w, brick_h))
+            if x < 0:
+                painter.setBrush(QBrush(c))
+                painter.drawRect(QRectF(x + size, y, brick_w, brick_h))
+
+    painter.end()
+    return pixmap
+
+
+def generate_bark_texture() -> QPixmap:
+    """Generate a tileable tree bark texture."""
+    size = TEXTURE_SIZE
+    pixmap = QPixmap(size, size)
+    base = QColor(95, 65, 40)
+    pixmap.fill(base)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    rng = _seeded_random(1200)
+
+    # Background patches
+    for _ in range(40):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        w = rng.randint(20, 60)
+        h = rng.randint(30, 80)
+        variation = rng.randint(-15, 15)
+        c = QColor(
+            max(0, min(255, 95 + variation)),
+            max(0, min(255, 65 + variation)),
+            max(0, min(255, 40 + variation)),
+        )
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(c))
+        painter.setOpacity(0.3)
+        painter.drawEllipse(x, y, w, h)
+        if x + w > size:
+            painter.drawEllipse(x - size, y, w, h)
+        if y + h > size:
+            painter.drawEllipse(x, y - size, w, h)
+
+    painter.setOpacity(1.0)
+
+    # Vertical bark ridges (wavy vertical lines)
+    x_pos = 0.0
+    while x_pos < size:
+        spacing = rng.uniform(6, 14)
+        x_pos += spacing
+        dark_var = rng.randint(-20, 10)
+        c = QColor(
+            max(0, min(255, 60 + dark_var)),
+            max(0, min(255, 38 + dark_var)),
+            max(0, min(255, 22 + dark_var)),
+        )
+        pen = QPen(c, rng.uniform(1.0, 3.0))
+        painter.setPen(pen)
+        painter.setOpacity(rng.uniform(0.4, 0.8))
+
+        points = []
+        for y in range(0, size + 1, 4):
+            wave = rng.uniform(-2.5, 2.5)
+            points.append(QPointF(x_pos + wave, y))
+        for i in range(len(points) - 1):
+            painter.drawLine(points[i], points[i + 1])
+
+        # Wrap
+        if x_pos < 10:
+            for i in range(len(points) - 1):
+                p1 = QPointF(points[i].x() + size, points[i].y())
+                p2 = QPointF(points[i + 1].x() + size, points[i + 1].y())
+                painter.drawLine(p1, p2)
+
+    painter.setOpacity(1.0)
+
+    # Horizontal cross-hatching (short marks)
+    for _ in range(200):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        length = rng.randint(4, 15)
+        c = QColor(70, 45, 25)
+        painter.setPen(QPen(c, rng.uniform(0.3, 1.0)))
+        painter.setOpacity(rng.uniform(0.2, 0.5))
+        painter.drawLine(QPointF(x, y), QPointF(x + length, y + rng.uniform(-1, 1)))
+
+    painter.setOpacity(1.0)
+
+    # Light highlights
+    for _ in range(100):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        c = QColor(140, 105, 70)
+        painter.setPen(QPen(c, 0.5))
+        painter.setOpacity(rng.uniform(0.2, 0.4))
+        painter.drawPoint(x, y)
+
+    painter.setOpacity(1.0)
+    painter.end()
+    return pixmap
+
+
+def generate_wildflower_texture() -> QPixmap:
+    """Generate a tileable wildflower meadow texture."""
+    size = TEXTURE_SIZE
+    pixmap = QPixmap(size, size)
+    base = QColor(85, 140, 55)
+    pixmap.fill(base)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    rng = _seeded_random(1300)
+
+    # Grass base variation
+    for _ in range(50):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        w = rng.randint(15, 50)
+        h = rng.randint(15, 50)
+        variation = rng.randint(-15, 15)
+        c = QColor(
+            max(0, min(255, 85 + variation)),
+            max(0, min(255, 140 + variation)),
+            max(0, min(255, 55 + variation)),
+        )
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(c))
+        painter.setOpacity(0.3)
+        painter.drawEllipse(x, y, w, h)
+        if x + w > size:
+            painter.drawEllipse(x - size, y, w, h)
+        if y + h > size:
+            painter.drawEllipse(x, y - size, w, h)
+
+    painter.setOpacity(1.0)
+
+    # Grass blades (shorter than pure grass texture)
+    for _ in range(400):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        blade_len = rng.randint(3, 10)
+        angle = rng.gauss(0, 15)
+        green_var = rng.randint(-25, 25)
+        c = QColor(
+            max(0, min(255, 65 + green_var // 2)),
+            max(0, min(255, 130 + green_var)),
+            max(0, min(255, 40 + green_var // 3)),
+        )
+        painter.setPen(QPen(c, rng.uniform(0.4, 1.2)))
+        dx = blade_len * math.sin(math.radians(angle))
+        dy = -blade_len * math.cos(math.radians(angle))
+        painter.drawLine(QPointF(x, y), QPointF(x + dx, y + dy))
+
+    # Flower heads - scattered colored dots
+    flower_colors = [
+        QColor(240, 220, 50),   # Yellow
+        QColor(255, 180, 200),  # Pink
+        QColor(200, 160, 240),  # Lavender
+        QColor(255, 255, 240),  # White
+        QColor(255, 140, 60),   # Orange
+        QColor(220, 80, 80),    # Red
+        QColor(100, 160, 240),  # Blue
+    ]
+    for _ in range(120):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        r = rng.uniform(1.5, 4.0)
+        c = rng.choice(flower_colors)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(c))
+        painter.setOpacity(rng.uniform(0.5, 0.85))
+        painter.drawEllipse(QPointF(x, y), r, r)
+        if x + r > size:
+            painter.drawEllipse(QPointF(x - size, y), r, r)
+        if y + r > size:
+            painter.drawEllipse(QPointF(x, y - size), r, r)
+
+    painter.setOpacity(1.0)
+    painter.end()
+    return pixmap
+
+
+def generate_terracotta_texture() -> QPixmap:
+    """Generate a tileable terracotta tile texture."""
+    size = TEXTURE_SIZE
+    pixmap = QPixmap(size, size)
+    grout = QColor(190, 180, 165)
+    pixmap.fill(grout)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    rng = _seeded_random(1400)
+
+    tile_size = 62
+    grout_w = 3
+
+    for row in range(0, size + tile_size, tile_size + grout_w):
+        for col in range(0, size + tile_size, tile_size + grout_w):
+            x = col
+            y = row
+            variation = rng.randint(-15, 15)
+            c = QColor(
+                max(0, min(255, 195 + variation)),
+                max(0, min(255, 110 + variation // 2)),
+                max(0, min(255, 70 + variation // 3)),
+            )
+
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(c))
+            tile_rect = QRectF(x, y, tile_size, tile_size)
+            painter.drawRect(tile_rect)
+
+            # Surface speckling
+            for _ in range(20):
+                sx = x + rng.randint(2, tile_size - 2)
+                sy = y + rng.randint(2, tile_size - 2)
+                sc = QColor(
+                    max(0, min(255, c.red() + rng.randint(-15, 15))),
+                    max(0, min(255, c.green() + rng.randint(-10, 10))),
+                    max(0, min(255, c.blue() + rng.randint(-8, 8))),
+                )
+                painter.setPen(QPen(sc, 0.5))
+                painter.drawPoint(int(sx) % size, int(sy) % size)
+            painter.setPen(Qt.PenStyle.NoPen)
+
+            # Wrap
+            if x + tile_size > size:
+                painter.setBrush(QBrush(c))
+                painter.drawRect(QRectF(x - size, y, tile_size, tile_size))
+            if y + tile_size > size:
+                painter.setBrush(QBrush(c))
+                painter.drawRect(QRectF(x, y - size, tile_size, tile_size))
+
+    painter.end()
+    return pixmap
+
+
+def generate_pebbles_texture() -> QPixmap:
+    """Generate a tileable river pebbles texture."""
+    size = TEXTURE_SIZE
+    pixmap = QPixmap(size, size)
+    base = QColor(170, 160, 145)
+    pixmap.fill(base)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    rng = _seeded_random(1500)
+
+    # Background sandy fill
+    for _ in range(40):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        w = rng.randint(20, 60)
+        h = rng.randint(20, 60)
+        variation = rng.randint(-10, 10)
+        c = QColor(
+            max(0, min(255, 170 + variation)),
+            max(0, min(255, 160 + variation)),
+            max(0, min(255, 145 + variation)),
+        )
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(c))
+        painter.setOpacity(0.25)
+        painter.drawEllipse(x, y, w, h)
+        if x + w > size:
+            painter.drawEllipse(x - size, y, w, h)
+        if y + h > size:
+            painter.drawEllipse(x, y - size, w, h)
+
+    painter.setOpacity(1.0)
+
+    # Smooth pebbles - larger than gravel, rounder
+    for _ in range(90):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        rx = rng.randint(8, 18)
+        ry = rng.randint(6, 15)
+        angle = rng.uniform(0, 180)
+
+        grey = rng.randint(120, 210)
+        warm = rng.randint(-10, 15)
+        c = QColor(
+            max(0, min(255, grey + warm)),
+            max(0, min(255, grey + warm - 5)),
+            max(0, min(255, grey - 5)),
+        )
+
+        painter.save()
+        painter.translate(x, y)
+        painter.rotate(angle)
+        # Shadow
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(QColor(80, 75, 65)))
+        painter.setOpacity(0.25)
+        painter.drawEllipse(QRectF(-rx + 2, -ry + 2, rx * 2, ry * 2))
+        # Pebble
+        painter.setOpacity(1.0)
+        painter.setPen(QPen(c.darker(130), 0.5))
+        painter.setBrush(QBrush(c))
+        painter.drawEllipse(QRectF(-rx, -ry, rx * 2, ry * 2))
+        # Highlight
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(QColor(255, 255, 250)))
+        painter.setOpacity(0.2)
+        painter.drawEllipse(QRectF(-rx * 0.4, -ry * 0.5, rx * 0.6, ry * 0.5))
+        painter.restore()
+
+        # Wrap
+        if x + rx > size:
+            painter.save()
+            painter.translate(x - size, y)
+            painter.rotate(angle)
+            painter.setPen(QPen(c.darker(130), 0.5))
+            painter.setBrush(QBrush(c))
+            painter.setOpacity(1.0)
+            painter.drawEllipse(QRectF(-rx, -ry, rx * 2, ry * 2))
+            painter.restore()
+        if y + ry > size:
+            painter.save()
+            painter.translate(x, y - size)
+            painter.rotate(angle)
+            painter.setPen(QPen(c.darker(130), 0.5))
+            painter.setBrush(QBrush(c))
+            painter.setOpacity(1.0)
+            painter.drawEllipse(QRectF(-rx, -ry, rx * 2, ry * 2))
+            painter.restore()
+
+    painter.end()
+    return pixmap
+
+
+def generate_slate_texture() -> QPixmap:
+    """Generate a tileable slate slab texture."""
+    size = TEXTURE_SIZE
+    pixmap = QPixmap(size, size)
+    gap_color = QColor(100, 95, 85)
+    pixmap.fill(gap_color)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    rng = _seeded_random(1600)
+
+    # Irregular slate rectangles
+    slab_h_base = 45
+    slab_w_base = 80
+    gap = 3
+
+    y = 0
+    while y < size + slab_h_base:
+        slab_h = slab_h_base + rng.randint(-8, 8)
+        x = rng.randint(-20, 0)
+        while x < size + slab_w_base:
+            slab_w = slab_w_base + rng.randint(-20, 20)
+
+            grey = rng.randint(55, 85)
+            variation = rng.randint(-8, 8)
+            c = QColor(grey + variation, grey + variation + 2, grey + variation + 5)
+
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(c))
+            slab_rect = QRectF(x, y, slab_w - gap, slab_h - gap)
+            painter.drawRect(slab_rect)
+
+            # Surface scoring lines
+            for _ in range(rng.randint(1, 3)):
+                sx = x + rng.randint(5, max(6, slab_w - 10))
+                sy = y + rng.randint(2, max(3, slab_h - 5))
+                sl = rng.randint(10, 30)
+                sc = QColor(grey - 10, grey - 8, grey - 5)
+                painter.setPen(QPen(sc, 0.5))
+                painter.setOpacity(0.4)
+                painter.drawLine(
+                    QPointF(sx, sy),
+                    QPointF(sx + sl + rng.uniform(-3, 3), sy + rng.uniform(-2, 2)),
+                )
+                painter.setOpacity(1.0)
+
+            # Wrap
+            if x + slab_w > size:
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(QBrush(c))
+                painter.drawRect(QRectF(x - size, y, slab_w - gap, slab_h - gap))
+            if y + slab_h > size:
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(QBrush(c))
+                painter.drawRect(QRectF(x, y - size, slab_w - gap, slab_h - gap))
+
+            x += slab_w
+        y += slab_h
+
+    painter.end()
+    return pixmap
+
+
+def generate_lattice_texture() -> QPixmap:
+    """Generate a tileable trellis/lattice diamond pattern."""
+    size = TEXTURE_SIZE
+    pixmap = QPixmap(size, size)
+    # Background visible through lattice gaps
+    bg = QColor(180, 200, 160)
+    pixmap.fill(bg)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    rng = _seeded_random(1700)
+
+    strip_w = 8
+    spacing = 28  # Diamond opening size
+
+    # Diagonal strips at +45 degrees
+    wood_color_1 = QColor(165, 120, 70)
+    for i in range(-size, size * 2, spacing):
+        variation = rng.randint(-10, 10)
+        c = QColor(
+            max(0, min(255, wood_color_1.red() + variation)),
+            max(0, min(255, wood_color_1.green() + variation)),
+            max(0, min(255, wood_color_1.blue() + variation)),
+        )
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(c))
+        # Draw strip from top-left to bottom-right
+        points = [
+            QPointF(i, 0),
+            QPointF(i + strip_w, 0),
+            QPointF(i + strip_w + size, size),
+            QPointF(i + size, size),
+        ]
+        from PyQt6.QtGui import QPolygonF
+        painter.drawPolygon(QPolygonF(points))
+
+        # Shadow edge
+        painter.setPen(QPen(c.darker(140), 0.5))
+        painter.drawLine(QPointF(i + size, size), QPointF(i, 0))
+
+    # Diagonal strips at -45 degrees (crossing)
+    wood_color_2 = QColor(155, 112, 65)
+    for i in range(-size, size * 2, spacing):
+        variation = rng.randint(-10, 10)
+        c = QColor(
+            max(0, min(255, wood_color_2.red() + variation)),
+            max(0, min(255, wood_color_2.green() + variation)),
+            max(0, min(255, wood_color_2.blue() + variation)),
+        )
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(c))
+        points = [
+            QPointF(i, size),
+            QPointF(i + strip_w, size),
+            QPointF(i + strip_w + size, 0),
+            QPointF(i + size, 0),
+        ]
+        painter.drawPolygon(QPolygonF(points))
+
+    painter.end()
+    return pixmap
+
+
+def generate_compost_texture() -> QPixmap:
+    """Generate a tileable composted soil texture."""
+    size = TEXTURE_SIZE
+    pixmap = QPixmap(size, size)
+    base = QColor(55, 38, 22)
+    pixmap.fill(base)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    rng = _seeded_random(1800)
+
+    # Dark background variation
+    for _ in range(50):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        w = rng.randint(20, 65)
+        h = rng.randint(20, 65)
+        variation = rng.randint(-10, 10)
+        c = QColor(
+            max(0, min(255, 55 + variation)),
+            max(0, min(255, 38 + variation)),
+            max(0, min(255, 22 + variation)),
+        )
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(c))
+        painter.setOpacity(0.35)
+        painter.drawEllipse(x, y, w, h)
+        if x + w > size:
+            painter.drawEllipse(x - size, y, w, h)
+        if y + h > size:
+            painter.drawEllipse(x, y - size, w, h)
+
+    painter.setOpacity(1.0)
+
+    # Organic debris - small leaf/twig fragments
+    for _ in range(180):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        length = rng.randint(3, 12)
+        angle = rng.uniform(0, math.pi)
+        brown_var = rng.randint(-15, 20)
+        c = QColor(
+            max(0, min(255, 80 + brown_var)),
+            max(0, min(255, 55 + brown_var)),
+            max(0, min(255, 30 + brown_var)),
+        )
+        painter.setPen(QPen(c, rng.uniform(0.5, 1.8)))
+        painter.setOpacity(rng.uniform(0.4, 0.7))
+        dx = length * math.cos(angle)
+        dy = length * math.sin(angle)
+        painter.drawLine(QPointF(x, y), QPointF(x + dx, y + dy))
+
+    painter.setOpacity(1.0)
+
+    # Worm-like curves
+    for _ in range(15):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        c = QColor(
+            max(0, min(255, 90 + rng.randint(-10, 10))),
+            max(0, min(255, 60 + rng.randint(-10, 10))),
+            max(0, min(255, 35 + rng.randint(-5, 5))),
+        )
+        painter.setPen(QPen(c, rng.uniform(0.8, 1.5)))
+        painter.setOpacity(0.5)
+        cx, cy = float(x), float(y)
+        for _ in range(rng.randint(3, 6)):
+            dx = rng.uniform(-8, 8)
+            dy = rng.uniform(-8, 8)
+            painter.drawLine(QPointF(cx, cy), QPointF(cx + dx, cy + dy))
+            cx += dx
+            cy += dy
+
+    painter.setOpacity(1.0)
+
+    # Light specks (perlite/mineral)
+    for _ in range(80):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        r = rng.uniform(0.5, 2.0)
+        c = QColor(200, 195, 180)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(c))
+        painter.setOpacity(rng.uniform(0.3, 0.6))
+        painter.drawEllipse(QPointF(x, y), r, r)
+        if x + r > size:
+            painter.drawEllipse(QPointF(x - size, y), r, r)
+        if y + r > size:
+            painter.drawEllipse(QPointF(x, y - size), r, r)
+
+    painter.setOpacity(1.0)
+    painter.end()
+    return pixmap
+
+
+def generate_flagstone_texture() -> QPixmap:
+    """Generate a tileable flagstone paving texture with irregular polygons."""
+    size = TEXTURE_SIZE
+    pixmap = QPixmap(size, size)
+    mortar = QColor(165, 155, 140)
+    pixmap.fill(mortar)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    rng = _seeded_random(1900)
+
+    # Generate irregular stones using a grid with jittered centers
+    cell_size = 55
+    gap = 4
+
+    for row in range(-1, size // cell_size + 2):
+        for col in range(-1, size // cell_size + 2):
+            cx = col * cell_size + cell_size // 2 + rng.randint(-8, 8)
+            cy = row * cell_size + cell_size // 2 + rng.randint(-8, 8)
+
+            # Generate irregular polygon (6-8 vertices)
+            n_verts = rng.randint(5, 7)
+            stone_r = cell_size // 2 - gap
+            points = []
+            for v in range(n_verts):
+                angle = (v / n_verts) * 2 * math.pi + rng.uniform(-0.3, 0.3)
+                r = stone_r + rng.randint(-8, 5)
+                px = cx + r * math.cos(angle)
+                py = cy + r * math.sin(angle)
+                points.append(QPointF(px, py))
+
+            grey = rng.randint(155, 200)
+            warm = rng.randint(-8, 12)
+            c = QColor(
+                max(0, min(255, grey + warm)),
+                max(0, min(255, grey + warm - 3)),
+                max(0, min(255, grey - 5)),
+            )
+
+            from PyQt6.QtGui import QPolygonF
+            painter.setPen(QPen(c.darker(130), 0.8))
+            painter.setBrush(QBrush(c))
+            painter.drawPolygon(QPolygonF(points))
+
+            # Surface texture specks
+            for _ in range(8):
+                sx = cx + rng.randint(-stone_r, stone_r)
+                sy = cy + rng.randint(-stone_r, stone_r)
+                sc = QColor(
+                    max(0, min(255, c.red() + rng.randint(-12, 12))),
+                    max(0, min(255, c.green() + rng.randint(-10, 10))),
+                    max(0, min(255, c.blue() + rng.randint(-8, 8))),
+                )
+                painter.setPen(QPen(sc, 0.4))
+                painter.drawPoint(int(sx) % size, int(sy) % size)
+
+    painter.end()
+    return pixmap
+
+
+def generate_clay_texture() -> QPixmap:
+    """Generate a tileable clay surface texture."""
+    size = TEXTURE_SIZE
+    pixmap = QPixmap(size, size)
+    base = QColor(175, 110, 65)
+    pixmap.fill(base)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    rng = _seeded_random(2000)
+
+    # Background variation
+    for _ in range(50):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        w = rng.randint(25, 80)
+        h = rng.randint(25, 80)
+        variation = rng.randint(-15, 15)
+        c = QColor(
+            max(0, min(255, 175 + variation)),
+            max(0, min(255, 110 + variation)),
+            max(0, min(255, 65 + variation)),
+        )
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(c))
+        painter.setOpacity(0.25)
+        painter.drawEllipse(x, y, w, h)
+        if x + w > size:
+            painter.drawEllipse(x - size, y, w, h)
+        if y + h > size:
+            painter.drawEllipse(x, y - size, w, h)
+
+    painter.setOpacity(1.0)
+
+    # Surface speckles
+    for _ in range(2000):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        variation = rng.randint(-20, 20)
+        c = QColor(
+            max(0, min(255, 170 + variation)),
+            max(0, min(255, 105 + variation)),
+            max(0, min(255, 60 + variation)),
+        )
+        painter.setPen(QPen(c, 0.5))
+        painter.drawPoint(x, y)
+
+    # Crack lines
+    for _ in range(12):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        c = QColor(130, 75, 40)
+        painter.setPen(QPen(c, rng.uniform(0.3, 1.0)))
+        painter.setOpacity(rng.uniform(0.25, 0.55))
+
+        cx, cy = float(x), float(y)
+        length = rng.randint(20, 80)
+        segments = rng.randint(3, 7)
+        for _ in range(segments):
+            dx = rng.uniform(-length / segments, length / segments)
+            dy = rng.uniform(-length / (segments * 3), length / (segments * 3))
+            painter.drawLine(QPointF(cx, cy), QPointF(cx + dx, cy + dy))
+            cx += dx
+            cy += dy
+
+    painter.setOpacity(1.0)
+
+    # Fine horizontal scratches for clay-like feel
+    for _ in range(30):
+        x = rng.randint(0, size - 1)
+        y = rng.randint(0, size - 1)
+        length = rng.randint(15, 50)
+        c = QColor(155, 95, 50)
+        painter.setPen(QPen(c, 0.4))
+        painter.setOpacity(rng.uniform(0.15, 0.35))
+        painter.drawLine(QPointF(x, y), QPointF(x + length, y + rng.uniform(-1, 1)))
+
+    painter.setOpacity(1.0)
+    painter.end()
+    return pixmap
+
+
 def main() -> None:
     """Generate all textures and save to resources/textures/."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -969,6 +1723,16 @@ def main() -> None:
         "roof_tiles": generate_roof_tiles_texture,
         "glass": generate_glass_texture,
         "hedge": generate_hedge_texture,
+        "brick": generate_brick_texture,
+        "bark": generate_bark_texture,
+        "wildflower": generate_wildflower_texture,
+        "terracotta": generate_terracotta_texture,
+        "pebbles": generate_pebbles_texture,
+        "slate": generate_slate_texture,
+        "lattice": generate_lattice_texture,
+        "compost": generate_compost_texture,
+        "flagstone": generate_flagstone_texture,
+        "clay": generate_clay_texture,
     }
 
     for name, generator in textures.items():

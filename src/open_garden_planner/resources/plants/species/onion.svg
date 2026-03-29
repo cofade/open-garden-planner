@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Onion plant with tubular leaves - top-down view -->
+  <defs>
+    <radialGradient id="onion_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#58a830"/>
+      <stop offset="70%" stop-color="#489428"/>
+      <stop offset="100%" stop-color="#388020"/>
+    </radialGradient>
+  </defs>
+  <path d="M71 47 C72 48 63 53 63 60 C58 65 55 67 49 68 C49 66 40 65 35 63 C29 59 27 53 23 50 C23 49 25 37 32 37 C35 34 37 31 46 26 C54 32 54 34 62 33 C62 38 69 40 71 47 Z" fill="url(#onion_base)" opacity="0.8"/>
+  <ellipse cx="60" cy="48" rx="14" ry="8" fill="#58942e" opacity="0.57"/>
+  <ellipse cx="53" cy="61" rx="13" ry="9" fill="#508c28" opacity="0.46"/>
+  <ellipse cx="41" cy="50" rx="10" ry="7" fill="#58942e" opacity="0.45"/>
+  <ellipse cx="47" cy="40" rx="10" ry="11" fill="#508c28" opacity="0.57"/>
+  <ellipse cx="50" cy="28" rx="3" ry="16" fill="#68b840" opacity="0.65"/>
+  <ellipse cx="42" cy="34" rx="3" ry="14" fill="#60b038" opacity="0.6" transform="rotate(-15 42 34)"/>
+  <ellipse cx="58" cy="32" rx="3" ry="14" fill="#68b840" opacity="0.55" transform="rotate(15 58 32)"/>
+  <line x1="62" y1="54" x2="73" y2="48" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+  <line x1="60" y1="56" x2="48" y2="70" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+</svg>

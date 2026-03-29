@@ -61,6 +61,30 @@ class TestPlantSVGFiles:
         [
             "rose", "lavender", "apple_tree", "cherry_tree",
             "sunflower", "tomato", "boxwood", "rhododendron",
+            # Vegetables
+            "pepper", "eggplant", "zucchini", "cucumber", "pumpkin", "squash",
+            "bean", "pea", "corn", "carrot", "radish", "beet", "turnip",
+            "potato", "onion", "garlic", "leek", "celery", "broccoli",
+            "cauliflower", "cabbage", "kale", "spinach", "lettuce", "arugula",
+            "chard", "artichoke", "asparagus", "rhubarb", "okra",
+            # Herbs
+            "basil", "rosemary", "thyme", "sage", "mint", "parsley",
+            "cilantro", "dill", "chives", "oregano", "tarragon", "lemongrass",
+            "chamomile", "fennel", "marjoram", "bay_laurel", "stevia",
+            "sorrel", "borage", "lovage",
+            # Flowers
+            "tulip", "daffodil", "dahlia", "peony", "iris", "lily",
+            "marigold", "zinnia", "cosmos", "aster", "chrysanthemum",
+            "geranium", "petunia", "pansy", "hydrangea", "clematis",
+            "wisteria", "jasmine", "hibiscus", "crocus",
+            # Trees
+            "pear_tree", "plum_tree", "peach_tree", "fig_tree", "olive_tree",
+            "lemon_tree", "orange_tree", "walnut_tree", "oak", "maple",
+            "birch", "willow", "magnolia", "pine", "spruce",
+            # Shrubs
+            "blueberry", "raspberry", "blackberry", "gooseberry", "currant",
+            "holly", "privet", "juniper", "forsythia", "lilac", "viburnum",
+            "barberry", "camellia", "spirea", "elderberry",
         ],
     )
     def test_species_svg_exists(self, filename: str) -> None:
@@ -277,6 +301,8 @@ class TestRenderPlantPixmap:
         species_list = [
             "rose", "lavender", "apple", "cherry",
             "sunflower", "tomato", "boxwood", "rhododendron",
+            "pepper", "basil", "tulip", "oak", "blueberry",
+            "broccoli", "dahlia", "mint", "lemon", "holly",
         ]
         for species in species_list:
             pixmap = render_plant_pixmap(
@@ -284,6 +310,34 @@ class TestRenderPlantPixmap:
             )
             assert pixmap is not None, f"Failed to render species: {species}"
             assert not pixmap.isNull()
+
+
+class TestSpeciesExpansion:
+    """Tests for expanded species library (US-11.6)."""
+
+    def test_species_count(self, qtbot: object) -> None:  # noqa: ARG002
+        """Verify at least 108 unique species SVG files are mapped."""
+        from open_garden_planner.core.plant_renderer import _SPECIES_FILES
+        unique_svgs = set(_SPECIES_FILES.values())
+        assert len(unique_svgs) >= 108, f"Only {len(unique_svgs)} unique SVGs, expected >= 108"
+
+    @pytest.mark.parametrize(
+        "alias,expected_svg",
+        [
+            ("bell pepper", "pepper"),
+            ("aubergine", "eggplant"),
+            ("coriander", "cilantro"),
+            ("rocket", "arugula"),
+            ("peppermint", "mint"),
+            ("mum", "chrysanthemum"),
+            ("elder", "elderberry"),
+        ],
+    )
+    def test_species_alias_resolves(self, alias: str, expected_svg: str) -> None:
+        from open_garden_planner.core.plant_renderer import _SPECIES_FILES
+        assert _SPECIES_FILES.get(alias) == expected_svg, (
+            f"Alias '{alias}' should resolve to '{expected_svg}'"
+        )
 
 
 class TestHelperFunctions:

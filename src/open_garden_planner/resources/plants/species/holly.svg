@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Holly with spiky dark leaves and red berries - top-down view -->
+  <defs>
+    <radialGradient id="holly_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#1e4818"/>
+      <stop offset="70%" stop-color="#143c12"/>
+      <stop offset="100%" stop-color="#0c300c"/>
+    </radialGradient>
+  </defs>
+  <path d="M78 54 C78 65 73 69 73 76 C69 78 59 79 50 81 C39 78 36 73 25 74 C24 65 23 61 27 54 C32 48 30 35 31 29 C35 31 43 25 49 27 C52 27 58 27 66 30 C73 34 71 47 78 54 Z" fill="url(#holly_base)" opacity="0.8"/>
+  <ellipse cx="59" cy="52" rx="9" ry="6" fill="#2e5828" opacity="0.45"/>
+  <ellipse cx="59" cy="65" rx="10" ry="8" fill="#1e4818" opacity="0.51"/>
+  <ellipse cx="44" cy="57" rx="8" ry="9" fill="#2e5828" opacity="0.44"/>
+  <ellipse cx="37" cy="47" rx="9" ry="8" fill="#1e4818" opacity="0.45"/>
+  <ellipse cx="45" cy="37" rx="13" ry="11" fill="#2e5828" opacity="0.48"/>
+  <ellipse cx="59" cy="36" rx="12" ry="9" fill="#1e4818" opacity="0.43"/>
+  <circle cx="42" cy="40" r="2.5" fill="#d82020" opacity="0.8"/>
+  <circle cx="41" cy="39" r="1.0" fill="#e84040" opacity="0.45"/>
+  <circle cx="56" cy="44" r="2.5" fill="#d82020" opacity="0.8"/>
+  <circle cx="55" cy="43" r="1.0" fill="#e84040" opacity="0.45"/>
+  <circle cx="48" cy="56" r="2.5" fill="#d82020" opacity="0.8"/>
+  <circle cx="47" cy="55" r="1.0" fill="#e84040" opacity="0.45"/>
+  <circle cx="38" cy="52" r="2.5" fill="#d82020" opacity="0.8"/>
+  <circle cx="37" cy="51" r="1.0" fill="#e84040" opacity="0.45"/>
+  <line x1="49" y1="62" x2="50" y2="59" stroke="#0c300c" stroke-width="0.8" opacity="0.3"/>
+  <line x1="44" y1="56" x2="50" y2="69" stroke="#0c300c" stroke-width="0.8" opacity="0.3"/>
+</svg>

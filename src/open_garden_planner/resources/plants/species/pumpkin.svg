@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Pumpkin plant with sprawling vines - top-down view -->
+  <defs>
+    <radialGradient id="pumpkin_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#4a8428"/>
+      <stop offset="70%" stop-color="#3c7020"/>
+      <stop offset="100%" stop-color="#2e5c18"/>
+    </radialGradient>
+  </defs>
+  <path d="M85 48 C87 59 86 67 82 72 C74 72 62 76 47 80 C38 74 26 76 17 73 C14 66 21 63 19 55 C21 42 22 32 21 22 C26 18 37 17 45 18 C54 20 64 24 69 23 C74 33 79 43 85 48 Z" fill="url(#pumpkin_base)" opacity="0.8"/>
+  <ellipse cx="61" cy="53" rx="10" ry="10" fill="#58942e" opacity="0.56"/>
+  <ellipse cx="57" cy="67" rx="11" ry="10" fill="#508c28" opacity="0.51"/>
+  <ellipse cx="42" cy="61" rx="12" ry="11" fill="#58942e" opacity="0.41"/>
+  <ellipse cx="40" cy="37" rx="10" ry="9" fill="#508c28" opacity="0.5"/>
+  <ellipse cx="56" cy="39" rx="10" ry="10" fill="#58942e" opacity="0.58"/>
+  <circle cx="50" cy="50" r="7" fill="#e8882 0" opacity="0.8"/>
+  <circle cx="49" cy="49" r="2.8" fill="#f0a040" opacity="0.45"/>
+  <circle cx="35" cy="60" r="7" fill="#e8882 0" opacity="0.8"/>
+  <circle cx="34" cy="59" r="2.8" fill="#f0a040" opacity="0.45"/>
+  <line x1="59" y1="60" x2="75" y2="56" stroke="#2e5c18" stroke-width="0.8" opacity="0.3"/>
+  <line x1="48" y1="43" x2="60" y2="35" stroke="#2e5c18" stroke-width="0.8" opacity="0.3"/>
+</svg>

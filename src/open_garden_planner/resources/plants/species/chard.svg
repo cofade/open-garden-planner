@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Swiss chard with colorful stems - top-down view -->
+  <defs>
+    <radialGradient id="chard_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a7828"/>
+      <stop offset="70%" stop-color="#2c6420"/>
+      <stop offset="100%" stop-color="#205018"/>
+    </radialGradient>
+  </defs>
+  <path d="M78 52 C72 56 69 64 68 69 C65 72 62 81 54 84 C45 79 39 73 28 68 C28 60 19 56 16 52 C19 48 29 35 32 31 C40 27 41 29 52 25 C57 24 65 25 76 28 C73 35 76 42 78 52 Z" fill="url(#chard_base)" opacity="0.8"/>
+  <ellipse cx="67" cy="53" rx="10" ry="11" fill="#58942e" opacity="0.51"/>
+  <ellipse cx="57" cy="59" rx="9" ry="8" fill="#508c28" opacity="0.49"/>
+  <ellipse cx="41" cy="54" rx="10" ry="8" fill="#58942e" opacity="0.42"/>
+  <ellipse cx="39" cy="38" rx="12" ry="6" fill="#508c28" opacity="0.52"/>
+  <ellipse cx="52" cy="41" rx="12" ry="8" fill="#58942e" opacity="0.43"/>
+  <ellipse cx="50" cy="45" rx="2" ry="12" fill="#e04040" opacity="0.6"/>
+  <ellipse cx="40" cy="48" rx="2" ry="10" fill="#e8a020" opacity="0.55" transform="rotate(-15 40 48)"/>
+  <ellipse cx="60" cy="46" rx="2" ry="10" fill="#f0d020" opacity="0.55" transform="rotate(15 60 46)"/>
+  <line x1="45" y1="49" x2="47" y2="60" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+  <line x1="62" y1="54" x2="44" y2="53" stroke="#205018" stroke-width="0.8" opacity="0.3"/>
+</svg>

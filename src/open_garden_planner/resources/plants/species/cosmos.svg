@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Cosmos with delicate petals - top-down view -->
+  <defs>
+    <radialGradient id="cosmos_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#58a038"/>
+      <stop offset="70%" stop-color="#489028"/>
+      <stop offset="100%" stop-color="#388020"/>
+    </radialGradient>
+  </defs>
+  <path d="M68 51 C66 59 68 61 64 67 C61 72 55 67 53 74 C41 71 37 73 28 71 C25 63 27 59 31 49 C34 43 35 42 31 36 C33 34 41 26 48 22 C54 23 60 27 67 31 C68 36 69 46 68 51 Z" fill="url(#cosmos_base)" opacity="0.8"/>
+  <ellipse cx="61" cy="50" rx="9" ry="10" fill="#58942e" opacity="0.56"/>
+  <ellipse cx="52" cy="59" rx="11" ry="8" fill="#508c28" opacity="0.41"/>
+  <ellipse cx="44" cy="57" rx="14" ry="11" fill="#58942e" opacity="0.54"/>
+  <ellipse cx="40" cy="43" rx="9" ry="9" fill="#508c28" opacity="0.49"/>
+  <ellipse cx="53" cy="36" rx="13" ry="11" fill="#58942e" opacity="0.57"/>
+  <ellipse cx="68" cy="50" rx="5" ry="14" fill="#f0a0c0" opacity="0.75" transform="rotate(0 68 50)"/>
+  <ellipse cx="63" cy="63" rx="5" ry="14" fill="#f8b0d0" opacity="0.73" transform="rotate(45 63 63)"/>
+  <ellipse cx="50" cy="68" rx="5" ry="14" fill="#f0a0c0" opacity="0.71" transform="rotate(90 50 68)"/>
+  <ellipse cx="37" cy="63" rx="5" ry="14" fill="#f8b0d0" opacity="0.69" transform="rotate(135 37 63)"/>
+  <ellipse cx="32" cy="50" rx="5" ry="14" fill="#f0a0c0" opacity="0.67" transform="rotate(180 32 50)"/>
+  <ellipse cx="37" cy="37" rx="5" ry="14" fill="#f8b0d0" opacity="0.65" transform="rotate(225 37 37)"/>
+  <ellipse cx="50" cy="32" rx="5" ry="14" fill="#f0a0c0" opacity="0.63" transform="rotate(270 50 32)"/>
+  <ellipse cx="63" cy="37" rx="5" ry="14" fill="#f8b0d0" opacity="0.61" transform="rotate(315 63 37)"/>
+  <circle cx="50" cy="50" r="5" fill="#e8c030" opacity="0.9"/>
+  <line x1="51" y1="46" x2="59" y2="37" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+  <line x1="42" y1="45" x2="23" y2="58" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+</svg>

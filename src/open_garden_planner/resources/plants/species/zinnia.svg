@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Zinnia with bold colorful petals - top-down view -->
+  <defs>
+    <radialGradient id="zinnia_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#488c28"/>
+      <stop offset="70%" stop-color="#3a7820"/>
+      <stop offset="100%" stop-color="#2c6418"/>
+    </radialGradient>
+  </defs>
+  <path d="M83 52 C81 59 76 62 73 68 C64 73 61 75 53 82 C49 79 38 69 33 65 C32 57 31 55 26 49 C26 47 34 39 37 32 C46 27 50 26 53 18 C59 20 63 28 70 30 C76 37 80 42 83 52 Z" fill="url(#zinnia_base)" opacity="0.8"/>
+  <ellipse cx="59" cy="51" rx="9" ry="9" fill="#58942e" opacity="0.43"/>
+  <ellipse cx="53" cy="61" rx="9" ry="11" fill="#508c28" opacity="0.53"/>
+  <ellipse cx="34" cy="50" rx="12" ry="8" fill="#58942e" opacity="0.48"/>
+  <ellipse cx="53" cy="34" rx="8" ry="8" fill="#508c28" opacity="0.44"/>
+  <ellipse cx="66" cy="50" rx="5" ry="12" fill="#e84060" opacity="0.75" transform="rotate(0 66 50)"/>
+  <ellipse cx="63" cy="59" rx="5" ry="12" fill="#f05070" opacity="0.73" transform="rotate(36 63 59)"/>
+  <ellipse cx="55" cy="65" rx="5" ry="12" fill="#e84060" opacity="0.71" transform="rotate(72 55 65)"/>
+  <ellipse cx="45" cy="65" rx="5" ry="12" fill="#f05070" opacity="0.69" transform="rotate(108 45 65)"/>
+  <ellipse cx="37" cy="59" rx="5" ry="12" fill="#e84060" opacity="0.67" transform="rotate(144 37 59)"/>
+  <ellipse cx="34" cy="50" rx="5" ry="12" fill="#f05070" opacity="0.65" transform="rotate(180 34 50)"/>
+  <ellipse cx="37" cy="41" rx="5" ry="12" fill="#e84060" opacity="0.63" transform="rotate(216 37 41)"/>
+  <ellipse cx="45" cy="35" rx="5" ry="12" fill="#f05070" opacity="0.61" transform="rotate(252 45 35)"/>
+  <ellipse cx="55" cy="35" rx="5" ry="12" fill="#e84060" opacity="0.59" transform="rotate(288 55 35)"/>
+  <ellipse cx="63" cy="41" rx="5" ry="12" fill="#f05070" opacity="0.57" transform="rotate(324 63 41)"/>
+  <circle cx="50" cy="50" r="5" fill="#c83050" opacity="0.9"/>
+  <line x1="43" y1="35" x2="52" y2="47" stroke="#2c6418" stroke-width="0.8" opacity="0.3"/>
+  <line x1="39" y1="65" x2="38" y2="52" stroke="#2c6418" stroke-width="0.8" opacity="0.3"/>
+</svg>

@@ -785,6 +785,17 @@ class PropertiesPanel(QWidget):
                 FillPattern.SAND: self.tr("Sand"),
                 FillPattern.STONE: self.tr("Stone"),
                 FillPattern.GLASS: self.tr("Glass"),
+                FillPattern.HEDGE: self.tr("Hedge"),
+                FillPattern.BRICK: self.tr("Brick"),
+                FillPattern.BARK: self.tr("Bark"),
+                FillPattern.WILDFLOWER: self.tr("Wildflower Meadow"),
+                FillPattern.TERRACOTTA: self.tr("Terracotta"),
+                FillPattern.PEBBLES: self.tr("Pebbles"),
+                FillPattern.SLATE: self.tr("Slate"),
+                FillPattern.LATTICE: self.tr("Lattice"),
+                FillPattern.COMPOST: self.tr("Compost"),
+                FillPattern.FLAGSTONE: self.tr("Flagstone"),
+                FillPattern.CLAY: self.tr("Clay"),
             }
             for pattern in FillPattern:
                 pattern_combo.addItem(_pattern_names.get(pattern, pattern.name), pattern)

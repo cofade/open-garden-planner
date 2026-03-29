@@ -500,6 +500,16 @@ class GardenPlannerApp(QMainWindow):
         self._spacing_circles_action.triggered.connect(self._on_toggle_spacing_circles)
         menu.addAction(self._spacing_circles_action)
 
+        # Toggle Minimap (US-11.7)
+        self._minimap_action = QAction(self.tr("Show &Minimap"), self)
+        self._minimap_action.setCheckable(True)
+        self._minimap_action.setChecked(True)
+        self._minimap_action.setStatusTip(
+            self.tr("Show a minimap overview for quick navigation")
+        )
+        self._minimap_action.triggered.connect(self._on_toggle_minimap)
+        menu.addAction(self._minimap_action)
+
         # Toggle previous-season compare overlay (US-10.7)
         self._compare_overlay_action = QAction(self.tr("Show &Previous Season Overlay"), self)
         self._compare_overlay_action.setCheckable(True)
@@ -734,6 +744,11 @@ class GardenPlannerApp(QMainWindow):
         self._spacing_update_timer.timeout.connect(self._update_spacing_overlaps)
         self.canvas_scene.selectionChanged.connect(self._update_spacing_overlaps)
         self.canvas_scene.changed.connect(self._on_scene_changed_for_spacing)
+
+        # ── Minimap overlay (US-11.7) ────────────────────────────────────────
+        from open_garden_planner.ui.widgets.minimap_widget import MinimapWidget
+
+        self._minimap = MinimapWidget(self.canvas_view, self.canvas_scene)
 
         # Connect delete action to canvas
         self._delete_action.triggered.connect(self.canvas_view._delete_selected_items)
@@ -1819,6 +1834,10 @@ class GardenPlannerApp(QMainWindow):
             self._update_spacing_overlaps()
         else:
             self._clear_spacing_overlaps()
+
+    def _on_toggle_minimap(self, checked: bool) -> None:
+        """Handle toggle minimap action."""
+        self._minimap.set_visible(checked)
 
     def _on_scene_changed_for_companion(self) -> None:
         """Debounce companion highlight refresh when scene items move."""

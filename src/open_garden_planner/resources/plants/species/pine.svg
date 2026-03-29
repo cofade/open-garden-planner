@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Pine tree with radiating needle clusters - top-down view -->
+  <defs>
+    <radialGradient id="pine_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#2a5c30"/>
+      <stop offset="70%" stop-color="#1c4c24"/>
+      <stop offset="100%" stop-color="#103c18"/>
+    </radialGradient>
+  </defs>
+  <path d="M88 57 C86 68 78 76 71 81 C61 80 55 80 52 76 C40 73 39 78 27 73 C27 66 18 58 17 45 C23 39 21 38 24 30 C29 29 43 25 51 19 C54 23 64 20 70 21 C78 36 84 44 88 57 Z" fill="url(#pine_base)" opacity="0.8"/>
+  <ellipse cx="62" cy="46" rx="13" ry="10" fill="#3a6c40" opacity="0.51"/>
+  <ellipse cx="55" cy="60" rx="12" ry="7" fill="#2a5c30" opacity="0.48"/>
+  <ellipse cx="43" cy="57" rx="13" ry="9" fill="#3a6c40" opacity="0.48"/>
+  <ellipse cx="35" cy="46" rx="10" ry="11" fill="#2a5c30" opacity="0.47"/>
+  <ellipse cx="55" cy="38" rx="12" ry="7" fill="#3a6c40" opacity="0.54"/>
+  <circle cx="50" cy="50" r="4" fill="#4a3520" opacity="0.5"/>
+  <line x1="50" y1="55" x2="47" y2="47" stroke="#103c18" stroke-width="0.8" opacity="0.3"/>
+  <line x1="58" y1="40" x2="62" y2="41" stroke="#103c18" stroke-width="0.8" opacity="0.3"/>
+</svg>

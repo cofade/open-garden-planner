@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Hydrangea with large flower clusters - top-down view -->
+  <defs>
+    <radialGradient id="hydrangea_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#3a6828"/>
+      <stop offset="70%" stop-color="#2c5820"/>
+      <stop offset="100%" stop-color="#1e4818"/>
+    </radialGradient>
+  </defs>
+  <path d="M79 49 C78 56 82 64 82 72 C71 74 59 80 45 84 C37 79 33 74 29 72 C25 62 24 56 23 45 C24 41 31 35 33 30 C38 23 44 22 51 14 C57 20 65 26 71 33 C73 41 73 46 79 49 Z" fill="url(#hydrangea_base)" opacity="0.8"/>
+  <ellipse cx="60" cy="49" rx="14" ry="9" fill="#58942e" opacity="0.59"/>
+  <ellipse cx="46" cy="67" rx="14" ry="6" fill="#508c28" opacity="0.47"/>
+  <ellipse cx="35" cy="47" rx="14" ry="6" fill="#58942e" opacity="0.48"/>
+  <ellipse cx="45" cy="33" rx="8" ry="11" fill="#508c28" opacity="0.47"/>
+  <circle cx="48" cy="44" r="16" fill="#8898d8" opacity="0.7"/>
+  <circle cx="42" cy="38" r="3" fill="#98a8e0" opacity="0.8"/>
+  <circle cx="41" cy="37" r="1.2" fill="#b0b8e8" opacity="0.45"/>
+  <circle cx="54" cy="40" r="3" fill="#98a8e0" opacity="0.8"/>
+  <circle cx="53" cy="39" r="1.2" fill="#b0b8e8" opacity="0.45"/>
+  <circle cx="46" cy="48" r="3" fill="#98a8e0" opacity="0.8"/>
+  <circle cx="45" cy="47" r="1.2" fill="#b0b8e8" opacity="0.45"/>
+  <circle cx="56" cy="50" r="3" fill="#98a8e0" opacity="0.8"/>
+  <circle cx="55" cy="49" r="1.2" fill="#b0b8e8" opacity="0.45"/>
+  <circle cx="44" cy="52" r="3" fill="#98a8e0" opacity="0.8"/>
+  <circle cx="43" cy="51" r="1.2" fill="#b0b8e8" opacity="0.45"/>
+  <circle cx="52" cy="44" r="3" fill="#98a8e0" opacity="0.8"/>
+  <circle cx="51" cy="43" r="1.2" fill="#b0b8e8" opacity="0.45"/>
+  <circle cx="48" cy="36" r="3" fill="#98a8e0" opacity="0.8"/>
+  <circle cx="47" cy="35" r="1.2" fill="#b0b8e8" opacity="0.45"/>
+  <circle cx="40" cy="46" r="3" fill="#98a8e0" opacity="0.8"/>
+  <circle cx="39" cy="45" r="1.2" fill="#b0b8e8" opacity="0.45"/>
+  <circle cx="58" cy="46" r="3" fill="#98a8e0" opacity="0.8"/>
+  <circle cx="57" cy="45" r="1.2" fill="#b0b8e8" opacity="0.45"/>
+  <line x1="41" y1="55" x2="51" y2="70" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+  <line x1="47" y1="64" x2="54" y2="57" stroke="#1e4818" stroke-width="0.8" opacity="0.3"/>
+</svg>

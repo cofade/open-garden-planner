@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Carrot foliage from above - top-down view -->
+  <defs>
+    <radialGradient id="carrot_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#58a830"/>
+      <stop offset="70%" stop-color="#489428"/>
+      <stop offset="100%" stop-color="#388020"/>
+    </radialGradient>
+  </defs>
+  <path d="M83 54 C84 63 78 63 75 72 C68 79 56 78 47 82 C41 77 34 75 31 77 C25 68 25 53 22 47 C26 40 24 27 28 20 C36 17 48 21 52 17 C55 22 67 25 70 23 C75 36 76 47 83 54 Z" fill="url(#carrot_base)" opacity="0.8"/>
+  <ellipse cx="61" cy="52" rx="13" ry="9" fill="#60b038" opacity="0.43"/>
+  <ellipse cx="53" cy="64" rx="8" ry="8" fill="#58a830" opacity="0.53"/>
+  <ellipse cx="48" cy="60" rx="12" ry="9" fill="#60b038" opacity="0.58"/>
+  <ellipse cx="33" cy="52" rx="9" ry="6" fill="#58a830" opacity="0.57"/>
+  <ellipse cx="40" cy="36" rx="14" ry="8" fill="#60b038" opacity="0.46"/>
+  <ellipse cx="55" cy="35" rx="9" ry="8" fill="#58a830" opacity="0.58"/>
+  <circle cx="50" cy="50" r="5" fill="#e08030" opacity="0.6"/>
+  <line x1="41" y1="55" x2="22" y2="70" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+  <line x1="64" y1="41" x2="49" y2="46" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+</svg>

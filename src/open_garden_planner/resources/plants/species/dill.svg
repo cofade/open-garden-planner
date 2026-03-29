@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Dill with feathery fronds - top-down view -->
+  <defs>
+    <radialGradient id="dill_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#58a838"/>
+      <stop offset="70%" stop-color="#489428"/>
+      <stop offset="100%" stop-color="#388020"/>
+    </radialGradient>
+  </defs>
+  <path d="M77 55 C74 62 71 66 69 78 C65 82 59 78 54 82 C44 79 37 75 31 70 C27 64 25 56 20 52 C21 44 29 40 30 36 C35 32 43 32 45 24 C56 26 60 28 69 30 C75 39 74 47 77 55 Z" fill="url(#dill_base)" opacity="0.8"/>
+  <ellipse cx="64" cy="50" rx="11" ry="11" fill="#70c050" opacity="0.53"/>
+  <ellipse cx="50" cy="58" rx="8" ry="10" fill="#60b040" opacity="0.56"/>
+  <ellipse cx="37" cy="59" rx="9" ry="8" fill="#70c050" opacity="0.51"/>
+  <ellipse cx="39" cy="45" rx="14" ry="6" fill="#60b040" opacity="0.45"/>
+  <ellipse cx="55" cy="39" rx="13" ry="10" fill="#70c050" opacity="0.45"/>
+  <circle cx="50" cy="38" r="8" fill="#c8c830" opacity="0.4"/>
+  <line x1="50" y1="36" x2="49" y2="56" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+  <line x1="43" y1="55" x2="48" y2="39" stroke="#388020" stroke-width="0.8" opacity="0.3"/>
+</svg>

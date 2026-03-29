@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Spinach - flat leaf rosette - top-down view -->
+  <defs>
+    <radialGradient id="spinach_base" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#408830"/>
+      <stop offset="70%" stop-color="#308028"/>
+      <stop offset="100%" stop-color="#206820"/>
+    </radialGradient>
+  </defs>
+  <path d="M77 55 C71 61 73 69 70 72 C66 71 61 75 52 77 C49 75 39 72 32 75 C28 66 26 63 24 52 C27 41 23 36 26 26 C30 29 36 23 48 26 C53 29 59 30 68 36 C70 41 74 45 77 55 Z" fill="url(#spinach_base)" opacity="0.8"/>
+  <ellipse cx="59" cy="47" rx="10" ry="9" fill="#48a038" opacity="0.58"/>
+  <ellipse cx="58" cy="60" rx="11" ry="7" fill="#409830" opacity="0.54"/>
+  <ellipse cx="47" cy="58" rx="8" ry="7" fill="#48a038" opacity="0.46"/>
+  <ellipse cx="38" cy="51" rx="12" ry="7" fill="#409830" opacity="0.45"/>
+  <ellipse cx="43" cy="42" rx="10" ry="6" fill="#48a038" opacity="0.57"/>
+  <ellipse cx="53" cy="36" rx="12" ry="9" fill="#409830" opacity="0.55"/>
+  <line x1="52" y1="64" x2="43" y2="67" stroke="#206820" stroke-width="0.8" opacity="0.3"/>
+  <line x1="39" y1="49" x2="42" y2="34" stroke="#206820" stroke-width="0.8" opacity="0.3"/>
+</svg>
