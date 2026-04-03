@@ -125,7 +125,7 @@ Full history: see `docs/roadmap.md`.
 |        | 11.8  | Free text annotation tool                | Annotations        |
 |        | 11.9  | Auto area labels                         | Annotations        |
 |        | 11.10 | Callout / leader line annotations        | Annotations        |
-|        | 11.11 | Group / ungroup                          | Shape Operations   |
+| ✅     | 11.11 | Group / ungroup                          | Shape Operations   |
 |        | 11.12 | Boolean shape operations                 | Shape Operations   |
 |        | 11.13 | Array along path                         | Shape Operations   |
 |        | 11.14 | Ellipse drawing tool                     | Drawing Tools      |
