@@ -219,6 +219,20 @@ class PropertiesPanel(QWidget):
         self._clear_form()
         self._updating = True
 
+        # GroupItem — show a compact summary
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+        if isinstance(item, GroupItem):
+            count = len(item.childItems())
+            info = QLabel(self.tr("Group ({n} items)").format(n=count))
+            info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._form_layout.addRow(info)
+            hint = QLabel(self.tr("Ctrl+Shift+G to ungroup"))
+            hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            hint.setStyleSheet("color: gray; font-size: 11px;")
+            self._form_layout.addRow(hint)
+            self._updating = False
+            return
+
         # Object Type (if applicable)
         if hasattr(item, 'object_type'):
             type_combo = QComboBox()
