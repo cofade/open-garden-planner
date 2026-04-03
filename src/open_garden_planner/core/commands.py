@@ -1040,3 +1040,75 @@ class SetParentBedCommand(Command):
             if new_bed is not None and isinstance(new_bed, GardenItemMixin):
                 new_bed.add_child_id(self._plant.item_id)
         self._plant.parent_bed_id = attach_id
+
+
+class GroupCommand(Command):
+    """Group multiple items into a single movable unit."""
+
+    def __init__(self, scene: QGraphicsScene, items: list[QGraphicsItem]) -> None:
+        self._scene = scene
+        self._items = list(items)
+        self._group: QGraphicsItem | None = None
+
+    @property
+    def description(self) -> str:
+        return f"Group {len(self._items)} items"
+
+    def execute(self) -> None:
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        if self._group is None:
+            # Infer layer_id from the first item that has one
+            layer_id = None
+            from open_garden_planner.ui.canvas.items import GardenItemMixin
+            for item in self._items:
+                if isinstance(item, GardenItemMixin) and item.layer_id:
+                    layer_id = item.layer_id
+                    break
+            self._group = GroupItem(layer_id=layer_id)
+
+        self._scene.addItem(self._group)
+        for item in self._items:
+            item.setSelected(False)
+            self._group.addToGroup(item)  # type: ignore[attr-defined]
+        self._group.setSelected(True)
+
+    def undo(self) -> None:
+        if self._group is None:
+            return
+        for item in self._items:
+            self._group.removeFromGroup(item)  # type: ignore[attr-defined]
+            # Restore standard interaction flags cleared by addToGroup
+            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+            item.setSelected(True)
+        self._scene.removeItem(self._group)
+
+
+class UngroupCommand(Command):
+    """Ungroup a GroupItem back into independent items."""
+
+    def __init__(self, scene: QGraphicsScene, group: QGraphicsItem) -> None:
+        self._scene = scene
+        self._group = group
+        self._items: list[QGraphicsItem] = list(group.childItems())
+
+    @property
+    def description(self) -> str:
+        return "Ungroup"
+
+    def execute(self) -> None:
+        for item in self._items:
+            self._group.removeFromGroup(item)  # type: ignore[attr-defined]
+            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+            item.setSelected(True)
+        self._scene.removeItem(self._group)
+
+    def undo(self) -> None:
+        if self._group.scene() is None:
+            self._scene.addItem(self._group)
+        for item in self._items:
+            item.setSelected(False)
+            self._group.addToGroup(item)  # type: ignore[attr-defined]
+        self._group.setSelected(True)

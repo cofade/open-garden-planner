@@ -588,6 +588,12 @@ class ProjectManager(QObject):
 
     def _serialize_item(self, item: QGraphicsItem) -> dict[str, Any] | None:
         """Serialize a single graphics item."""
+        # Skip items that are Qt children of a GroupItem — they are serialized
+        # recursively inside the group's own dict.
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+        if isinstance(item.parentItem(), GroupItem):
+            return None
+
         data = self._serialize_item_core(item)
         if data is None:
             return None
@@ -774,6 +780,27 @@ class ProjectManager(QObject):
             if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
                 data["rotation_angle"] = item.rotation_angle
             return data
+
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+        if isinstance(item, GroupItem):
+            children: list[dict[str, Any]] = []
+            for child in item.childItems():
+                child_data = self._serialize_item_core(child)
+                if child_data:
+                    children.append(child_data)
+            group_data: dict[str, Any] = {
+                "type": "group",
+                "item_id": str(item.item_id),
+                "children": children,
+                "x": item.pos().x(),
+                "y": item.pos().y(),
+            }
+            if item.layer_id:
+                group_data["layer_id"] = str(item.layer_id)
+            if item.name:
+                group_data["name"] = item.name
+            return group_data
+
         return None
 
     def _deserialize_to_scene(
@@ -898,6 +925,24 @@ class ProjectManager(QObject):
             return ConstructionLineItem.from_dict(obj)
         elif obj_type == "construction_circle":
             return ConstructionCircleItem.from_dict(obj)
+        elif obj_type == "group":
+            import contextlib
+            from uuid import UUID as _UUID
+
+            from open_garden_planner.ui.canvas.items.group_item import GroupItem
+            layer_id = None
+            with contextlib.suppress(ValueError, TypeError, KeyError):
+                layer_id = _UUID(obj["layer_id"])
+            group = GroupItem(layer_id=layer_id, name=obj.get("name", ""))
+            with contextlib.suppress(ValueError, TypeError, KeyError):
+                group._item_id = _UUID(obj["item_id"])
+            for child_data in obj.get("children", []):
+                child = self._deserialize_item_core(child_data)
+                if child is not None:
+                    group.addToGroup(child)
+            if "x" in obj and "y" in obj:
+                group.setPos(float(obj["x"]), float(obj["y"]))
+            return group
 
         # Extract common fields
         object_type = None

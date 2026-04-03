@@ -1685,6 +1685,15 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
+        # Handle Group (Ctrl+G) / Ungroup (Ctrl+Shift+G)
+        if event.key() == Qt.Key.Key_G and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                self._ungroup_selected()
+            else:
+                self._group_selected()
+            event.accept()
+            return
+
         # Delegate to active tool first
         tool = self._tool_manager.active_tool
         if tool and tool.key_press(event):
@@ -2640,6 +2649,47 @@ class CanvasView(QGraphicsView):
         # Foreground: text
         painter.setPen(fg_color)
         painter.drawText(int(text_x), int(text_y), label)
+
+    # ------------------------------------------------------------------
+    # Group / Ungroup
+    # ------------------------------------------------------------------
+
+    def _group_selected(self) -> None:
+        """Group all currently selected items (Ctrl+G)."""
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        selected = [
+            item for item in self.scene().selectedItems()
+            if not isinstance(item, GroupItem) or item.parentItem() is None
+        ]
+        # Need at least 2 items (or 1 group child) — sensible minimum is 2
+        if len(selected) < 2:
+            self.set_status_message(self.tr("Select 2 or more items to group"))
+            return
+
+        command = GroupCommand(self.scene(), selected)
+        self._command_manager.execute(command)
+        self.set_status_message(self.tr("Grouped {n} items").format(n=len(selected)))
+
+    def _ungroup_selected(self) -> None:
+        """Ungroup all selected GroupItems (Ctrl+Shift+G)."""
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        groups = [item for item in self.scene().selectedItems() if isinstance(item, GroupItem)]
+        if not groups:
+            self.set_status_message(self.tr("No group selected"))
+            return
+        for group in groups:
+            self.ungroup_item(group)
+
+    def ungroup_item(self, group: "QGraphicsItem") -> None:
+        """Ungroup a specific GroupItem."""
+        from open_garden_planner.core.commands import UngroupCommand
+
+        command = UngroupCommand(self.scene(), group)
+        self._command_manager.execute(command)
+        self.set_status_message(self.tr("Ungrouped"))
 
     def copy_selected(self) -> None:
         """Copy selected items to clipboard (auto-includes bed children)."""
