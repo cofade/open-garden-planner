@@ -1322,27 +1322,6 @@ Icon designs per tool:
 
 ---
 
-### US-11.4: Row Planting Mode
-
-**Description**: Two modes for row planting: (a) draw a line inside a bed and auto-fill it with plants at specified spacing, (b) open a dialog to auto-fill an entire bed with rows.
-
-**Acceptance Criteria**:
-- **Quick row**: New "Row Plant" tool — draw a line inside a bed, select plant type & spacing in popup → plants auto-placed along line
-- **Full dialog**: Right-click bed > "Auto-Fill Rows" → dialog with: plant type, row count, row spacing, in-row spacing, offset pattern (staggered/aligned), border margin
-- Plants created by row planting are parented to the bed (US-11.1)
-- Preview shown before confirming placement
-- All plants in a row fill are a single undo action
-- Row lines are visual guides (thin dashed lines) that can be hidden
-
-**Technical Notes**:
-- New tool: `src/open_garden_planner/core/tools/row_plant_tool.py`
-- New dialog: `src/open_garden_planner/ui/dialogs/row_planting_dialog.py`
-- Use bed boundary polygon to clip/constrain plant placement
-- Plant creation uses existing CircleItem + plant ObjectType
-- Batch undo: wrap all addItem calls in a single command macro
-
----
-
 ### Block 2: Visual Polish
 
 ### US-11.5: Expanded Fill Pattern Library

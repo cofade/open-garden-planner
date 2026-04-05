@@ -57,6 +57,7 @@ from open_garden_planner.core.tools import (
     RectangleTool,
     SelectTool,
     SymmetryConstraintTool,
+    TextTool,
     ToolManager,
     ToolType,
     VerticalConstraintTool,
@@ -204,6 +205,9 @@ class CanvasView(QGraphicsView):
         circle_tool = CircleTool(self, object_type=ObjectType.GENERIC_CIRCLE)
         circle_tool.shortcut = "C"
         self._tool_manager.register_tool(circle_tool)
+
+        text_tool = TextTool(self)
+        self._tool_manager.register_tool(text_tool)
 
         # Register property object tools (polygon-based)
         house_tool = PolygonTool(self, object_type=ObjectType.HOUSE)
@@ -3320,6 +3324,7 @@ class CanvasView(QGraphicsView):
             PolygonItem,
             PolylineItem,
             RectangleItem,
+            TextItem,
         )
 
         if isinstance(item, BackgroundImageItem):
@@ -3451,6 +3456,25 @@ class CanvasView(QGraphicsView):
             if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
                 data["rotation_angle"] = item.rotation_angle
             return data
+        elif isinstance(item, TextItem):
+            data = {
+                "type": "text",
+                "x": item.pos().x(),
+                "y": item.pos().y(),
+                "content": item.content,
+                "font_family": item.font_family,
+                "font_size": item.font_size,
+                "bold": item.bold,
+                "italic": item.italic,
+                "text_color": item.text_color.name(QColor.NameFormat.HexArgb),
+            }
+            if hasattr(item, "name") and item.name:
+                data["name"] = item.name
+            if hasattr(item, "metadata") and item.metadata:
+                data["metadata"] = item.metadata
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
+            return data
         return None
 
     def _deserialize_item(self, obj: dict) -> QGraphicsItem | None:
@@ -3470,6 +3494,7 @@ class CanvasView(QGraphicsView):
             PolygonItem,
             PolylineItem,
             RectangleItem,
+            TextItem,
         )
 
         obj_type = obj.get("type")
@@ -3633,6 +3658,23 @@ class CanvasView(QGraphicsView):
                 if "rotation_angle" in obj:
                     item._apply_rotation(obj["rotation_angle"])
                 return item
+        elif obj_type == "text":
+            item = TextItem(
+                obj.get("x", 0.0),
+                obj.get("y", 0.0),
+                content=obj.get("content", ""),
+                font_family=obj.get("font_family", "Arial"),
+                font_size=obj.get("font_size", 12.0),
+                bold=obj.get("bold", False),
+                italic=obj.get("italic", False),
+                text_color=QColor(obj["text_color"]) if "text_color" in obj else QColor(0, 0, 0),
+                metadata=metadata,
+            )
+            if name:
+                item._name = name
+            if "rotation_angle" in obj:
+                item._apply_rotation(obj["rotation_angle"])
+            return item
         return None
 
     def show_calibration_input(self, scene_pos: QPointF) -> None:

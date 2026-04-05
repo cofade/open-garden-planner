@@ -22,6 +22,7 @@ from .polygon_tool import PolygonTool
 from .polyline_tool import PolylineTool
 from .rectangle_tool import RectangleTool
 from .select_tool import SelectTool
+from .text_tool import TextTool
 from .tool_manager import ToolManager
 
 __all__ = [
@@ -44,6 +45,7 @@ __all__ = [
     "RectangleTool",
     "SelectTool",
     "SymmetryConstraintTool",
+    "TextTool",
     "ToolManager",
     "ToolType",
     "VerticalConstraintTool",

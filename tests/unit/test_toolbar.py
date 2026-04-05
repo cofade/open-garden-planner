@@ -43,9 +43,10 @@ class TestMainToolbar:
         """Test toolbar has Measure button."""
         assert ToolType.MEASURE in toolbar._buttons
 
-    def test_toolbar_has_two_tools(self, toolbar) -> None:
-        """Test toolbar has exactly two core tools (Select + Measure)."""
-        assert len(toolbar._buttons) == 2
+    def test_toolbar_has_core_tools(self, toolbar) -> None:
+        """Test toolbar has Select, Measure, and Text tools."""
+        assert len(toolbar._buttons) == 3
+        assert ToolType.TEXT in toolbar._buttons
 
     def test_select_is_default(self, toolbar) -> None:
         """Test Select tool is checked by default."""

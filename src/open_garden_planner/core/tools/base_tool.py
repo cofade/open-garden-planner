@@ -77,6 +77,9 @@ class ToolType(Enum):
     POLYGON = auto()
     CIRCLE = auto()
 
+    # Text annotation
+    TEXT = auto()
+
     # Construction geometry (helper lines/circles, not in exports)
     CONSTRUCTION_LINE = auto()
     CONSTRUCTION_CIRCLE = auto()
