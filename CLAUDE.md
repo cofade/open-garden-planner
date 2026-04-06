@@ -121,7 +121,7 @@ Full history: see `docs/roadmap.md`.
 | ✅     | 11.5  | Expanded fill pattern library            | Visual Polish      |
 | ✅     | 11.6  | Plant illustration expansion             | Visual Polish      |
 | ✅     | 11.7  | Minimap / overview panel                 | Visual Polish      |
-|        | 11.8  | Free text annotation tool                | Annotations        |
+| ✅     | 11.8  | Free text annotation tool                | Annotations        |
 |        | 11.9  | Auto area labels                         | Annotations        |
 |        | 11.10 | Callout / leader line annotations        | Annotations        |
 | ✅     | 11.11 | Group / ungroup                          | Shape Operations   |
