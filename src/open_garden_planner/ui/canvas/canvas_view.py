@@ -64,6 +64,11 @@ from open_garden_planner.core.tools import (
     VerticalDistanceConstraintTool,
 )
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene, GuideLine
+from open_garden_planner.ui.canvas.items.resize_handle import (
+    ResizeHandle,
+    RotationHandle,
+    VertexHandle,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -136,6 +141,8 @@ class CanvasView(QGraphicsView):
         self._constraint_propagated_starts: dict[QGraphicsItem, QPointF] = {}
         # Child items moved during bed drag (original positions)
         self._child_drag_origins: dict[QGraphicsItem, QPointF] = {}
+        # Active handle being dragged — used to re-grab if Qt silently drops it
+        self._active_drag_handle: QGraphicsItem | None = None
 
         # Clipboard for copy/paste
         self._clipboard: list[dict] = []
@@ -1064,6 +1071,16 @@ class CanvasView(QGraphicsView):
 
         super().mousePressEvent(event)
 
+        # Track which handle (if any) just grabbed the mouse.
+        # Qt silently drops the grab on ItemIgnoresTransformations child items
+        # between event dispatches, so we re-establish it ourselves in mouseMoveEvent.
+        if event.button() == Qt.MouseButton.LeftButton:
+            grabber = self.scene().mouseGrabberItem()
+            if isinstance(grabber, (ResizeHandle, RotationHandle, VertexHandle)):
+                self._active_drag_handle = grabber
+            else:
+                self._active_drag_handle = None
+
         # Store positions of selected items for drag undo tracking
         # Must be AFTER super() so item selection is updated
         if event.button() == Qt.MouseButton.LeftButton:
@@ -1130,6 +1147,13 @@ class CanvasView(QGraphicsView):
             self.centerOn(new_center)
             event.accept()
             return
+
+        # Re-establish the mouse grab if Qt silently dropped it between events.
+        # This happens with ItemIgnoresTransformations child items in PyQt6.
+        if (self._active_drag_handle is not None
+                and self.scene().mouseGrabberItem() is None
+                and self._active_drag_handle.scene() is not None):
+            self._active_drag_handle.grabMouse()
 
         # Delegate to active tool
         tool = self._tool_manager.active_tool
@@ -1582,6 +1606,9 @@ class CanvasView(QGraphicsView):
                 self.setCursor(Qt.CursorShape.ArrowCursor)
             event.accept()
             return
+
+        # Clear the handle tracking regardless of what handles the release
+        self._active_drag_handle = None
 
         # Delegate to active tool
         tool = self._tool_manager.active_tool
