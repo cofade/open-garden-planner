@@ -81,6 +81,10 @@ class MainToolbar(QToolBar):
             ToolType.MEASURE, "measure", self.tr("Measure (M)"),
             self.tr("Measure distances between two points"), "M",
         )
+        self._add_tool_button(
+            ToolType.TEXT, "text_annotation", self.tr("Text"),
+            self.tr("Place a text annotation"), "",
+        )
 
         # Select tool is default
         self._buttons[ToolType.SELECT].setChecked(True)

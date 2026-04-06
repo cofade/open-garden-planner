@@ -278,6 +278,7 @@ class ResizeHandle(QGraphicsRectItem):
                 if hasattr(self._parent_item, '_on_resize_start'):
                     self._parent_item._on_resize_start()
 
+            self.grabMouse()
             event.accept()
         else:
             super().mousePressEvent(event)
@@ -307,6 +308,7 @@ class ResizeHandle(QGraphicsRectItem):
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Complete resize operation."""
         if event.button() == Qt.MouseButton.LeftButton and self._is_dragging:
+            self.ungrabMouse()
             self._is_dragging = False
 
             # Hide dimension display
@@ -627,6 +629,7 @@ class RotationHandle(QGraphicsEllipseItem):
                 if hasattr(self._parent_item, '_on_rotation_start'):
                     self._parent_item._on_rotation_start()
 
+            self.grabMouse()
             event.accept()
         else:
             super().mousePressEvent(event)
@@ -669,6 +672,7 @@ class RotationHandle(QGraphicsEllipseItem):
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Complete rotation operation."""
         if event.button() == Qt.MouseButton.LeftButton and self._is_dragging:
+            self.ungrabMouse()
             self._is_dragging = False
 
             # Hide angle display
@@ -1105,6 +1109,7 @@ class VertexHandle(QGraphicsRectItem):
             if self._parent_item is not None and hasattr(self._parent_item, '_get_vertex_position'):
                 self._initial_vertex_pos = self._parent_item._get_vertex_position(self._vertex_index)
 
+            self.grabMouse()
             event.accept()
         else:
             super().mousePressEvent(event)
@@ -1128,6 +1133,7 @@ class VertexHandle(QGraphicsRectItem):
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Complete vertex drag operation."""
         if event.button() == Qt.MouseButton.LeftButton and self._is_dragging:
+            self.ungrabMouse()
             self._is_dragging = False
 
             # Register undo command

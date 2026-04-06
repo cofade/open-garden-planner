@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QColorDialog,
     QComboBox,
     QDoubleSpinBox,
+    QFontComboBox,
     QFormLayout,
     QGraphicsItem,
     QHBoxLayout,
@@ -15,6 +16,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -36,6 +38,7 @@ from open_garden_planner.ui.canvas.items import (
     PolygonItem,
     PolylineItem,
     RectangleItem,
+    TextItem,
 )
 
 
@@ -218,6 +221,20 @@ class PropertiesPanel(QWidget):
         """
         self._clear_form()
         self._updating = True
+
+        # TextItem — show text-specific properties
+        if isinstance(item, TextItem):
+            self._add_text_properties(item)
+            # Layer
+            if hasattr(item, 'layer_id'):
+                layer_combo = QComboBox()
+                self._populate_layer_combo(layer_combo, item)
+                layer_combo.currentIndexChanged.connect(
+                    lambda: self._on_property_changed(item, 'layer_id', layer_combo.currentData())
+                )
+                self._form_layout.addRow(self.tr("Layer:"), layer_combo)
+            self._updating = False
+            return
 
         # GroupItem — show a compact summary
         from open_garden_planner.ui.canvas.items.group_item import GroupItem
@@ -721,6 +738,121 @@ class PropertiesPanel(QWidget):
         )
         if self._command_manager:
             self._command_manager.execute(cmd)
+
+    def _add_text_properties(self, item: "TextItem") -> None:
+        """Add text annotation property fields.
+
+        Args:
+            item: TextItem to show properties for
+        """
+        header = QLabel(self.tr("Text"))
+        header.setStyleSheet("font-weight: bold; margin-top: 4px;")
+        self._form_layout.addRow(header)
+
+        # Content (multi-line)
+        content_edit = QTextEdit()
+        content_edit.setPlainText(item.content)
+        content_edit.setFixedHeight(80)
+        content_edit.textChanged.connect(
+            lambda: self._on_text_content_changed(item, content_edit.toPlainText())
+        )
+        self._form_layout.addRow(self.tr("Content:"), content_edit)
+
+        # Font family
+        font_combo = QFontComboBox()
+        font_combo.setCurrentFont(item.font())
+        font_combo.currentFontChanged.connect(
+            lambda f: self._on_text_property_changed(item, "font_family", f.family())
+        )
+        self._form_layout.addRow(self.tr("Font:"), font_combo)
+
+        # Font size (in cm, matching scene units)
+        size_spin = QDoubleSpinBox()
+        size_spin.setRange(0.1, 100.0)
+        size_spin.setSingleStep(0.5)
+        size_spin.setDecimals(1)
+        size_spin.setSuffix(" cm")
+        size_spin.setValue(item.font_size)
+        size_spin.valueChanged.connect(
+            lambda v: self._on_text_property_changed(item, "font_size", v)
+        )
+        self._form_layout.addRow(self.tr("Size:"), size_spin)
+
+        # Bold / Italic row
+        style_row = QHBoxLayout()
+        bold_check = QCheckBox(self.tr("Bold"))
+        bold_check.setChecked(item.bold)
+        bold_check.toggled.connect(
+            lambda v: self._on_text_property_changed(item, "bold", v)
+        )
+        italic_check = QCheckBox(self.tr("Italic"))
+        italic_check.setChecked(item.italic)
+        italic_check.toggled.connect(
+            lambda v: self._on_text_property_changed(item, "italic", v)
+        )
+        style_row.addWidget(bold_check)
+        style_row.addWidget(italic_check)
+        style_row.addStretch()
+        self._form_layout.addRow(self.tr("Style:"), style_row)
+
+        # Text color
+        color_btn = ColorButton(item.text_color)
+        color_btn.clicked.connect(
+            lambda: self._on_text_color_changed(item, color_btn)
+        )
+        self._form_layout.addRow(self.tr("Color:"), color_btn)
+
+    def _on_text_content_changed(self, item: "TextItem", value: str) -> None:
+        """Handle text content change from properties panel."""
+        if self._updating:
+            return
+        old_content = item.content
+        item.content = value
+        if self._command_manager:
+            def apply_func(itm, val):
+                itm.content = val
+            cmd = ChangePropertyCommand(item, "text content", old_content, value, apply_func)
+            self._command_manager._undo_stack.append(cmd)
+            self._command_manager._redo_stack.clear()
+            self._command_manager.can_undo_changed.emit(True)
+            self._command_manager.can_redo_changed.emit(False)
+
+    def _on_text_property_changed(self, item: "TextItem", prop: str, value: object) -> None:
+        """Handle font property change from properties panel."""
+        if self._updating:
+            return
+        old_val = getattr(item, prop, None)
+        setattr(item, prop, value)
+        if self._command_manager:
+            def apply_func(itm, val, p=prop):
+                setattr(itm, p, val)
+            cmd = ChangePropertyCommand(item, f"text {prop}", old_val, value, apply_func)
+            self._command_manager._undo_stack.append(cmd)
+            self._command_manager._redo_stack.clear()
+            self._command_manager.can_undo_changed.emit(True)
+            self._command_manager.can_redo_changed.emit(False)
+        scene = item.scene()
+        if scene:
+            scene.update()
+
+    def _on_text_color_changed(self, item: "TextItem", btn: "ColorButton") -> None:
+        """Handle text color change from the color button."""
+        if self._updating:
+            return
+        old_color = item.text_color
+        new_color = btn.color
+        item.text_color = new_color
+        if self._command_manager:
+            def apply_func(itm, val):
+                itm.text_color = val
+            cmd = ChangePropertyCommand(item, "text color", old_color, new_color, apply_func)
+            self._command_manager._undo_stack.append(cmd)
+            self._command_manager._redo_stack.clear()
+            self._command_manager.can_undo_changed.emit(True)
+            self._command_manager.can_redo_changed.emit(False)
+        scene = item.scene()
+        if scene:
+            scene.update()
 
     def _add_styling_properties(self, item: QGraphicsItem) -> None:
         """Add styling property fields.

@@ -196,6 +196,9 @@ class ObjectType(Enum):
     GENERIC_POLYGON = auto()
     GENERIC_CIRCLE = auto()
 
+    # Text annotation
+    GENERIC_TEXT = auto()
+
 
 @dataclass(frozen=True)
 class ObjectStyle:
@@ -454,6 +457,13 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         stroke_color=QColor(219, 112, 147),  # Pale violet red
         stroke_width=2.0,
         display_name=QT_TR_NOOP("Circle"),
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.GENERIC_TEXT: ObjectStyle(
+        fill_color=QColor(0, 0, 0, 255),  # Black text
+        stroke_color=QColor(0, 0, 0, 0),  # No stroke
+        stroke_width=0.0,
+        display_name=QT_TR_NOOP("Text"),
         fill_pattern=FillPattern.SOLID,
     ),
 }
