@@ -541,6 +541,26 @@ class CanvasScene(QGraphicsScene):
                     # Use z_order * 100 to leave room for ordering within layer
                     item.setZValue(layer.z_order * 100)
 
+        # Second pass: ensure ROOF_RIDGE items always render above their owner polygon.
+        # Needed because scene.items() serialization order reverses same-z stacking,
+        # so on reload the polygon would otherwise end up on top of the ridge.
+        from open_garden_planner.core.object_types import ObjectType
+        all_items = list(self.items())
+        for item in all_items:
+            if (
+                hasattr(item, 'object_type')
+                and item.object_type == ObjectType.ROOF_RIDGE
+                and hasattr(item, 'get_metadata')
+            ):
+                owner_id_str = item.get_metadata("owner_polygon_id")
+                if not owner_id_str:
+                    continue
+                for other in all_items:
+                    if hasattr(other, 'item_id') and str(other.item_id) == owner_id_str:
+                        if item.zValue() <= other.zValue():
+                            item.setZValue(other.zValue() + 1)
+                        break
+
     def get_layer_by_id(self, layer_id: UUID) -> Layer | None:
         """Get a layer by its ID.
 

@@ -279,3 +279,53 @@ class TestSerialization:
         v_guide = next(g for g in guides if not g.is_horizontal)
         assert h_guide.position == 200.0
         assert abs(v_guide.position - 350.5) < 0.001
+
+    def test_roof_ridge_z_order_after_reload(self, manager, tmp_path, qtbot) -> None:
+        """Regression test: roof ridge must render above its owner polygon after reload.
+
+        Bug: scene.items() returns items in descending z-order, so the ridge
+        (on top) is serialized first and polygon second. On reload they are
+        added in that order, making the polygon the later-inserted item with the
+        same z-value — which Qt renders on top, hiding the ridge.
+        """
+        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+        from open_garden_planner.ui.canvas.items import PolygonItem
+        from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+        scene = CanvasScene(width_cm=1000, height_cm=800)
+
+        # Create a HOUSE polygon and a ROOF_RIDGE that references it via metadata
+        polygon = PolygonItem(
+            [QPointF(0, 0), QPointF(200, 0), QPointF(200, 150), QPointF(0, 150)],
+            object_type=ObjectType.HOUSE,
+        )
+        ridge = PolylineItem(
+            [QPointF(100, 0), QPointF(100, 150)],
+            object_type=ObjectType.ROOF_RIDGE,
+        )
+        ridge.set_metadata("owner_polygon_id", str(polygon.item_id))
+        polygon.set_metadata("ridge_item_id", str(ridge.item_id))
+
+        scene.addItem(polygon)
+        scene.addItem(ridge)
+        # Ridge added second → higher stacking → on top (correct before save)
+        assert ridge.zValue() >= polygon.zValue()
+
+        file_path = tmp_path / "house.ogp"
+        manager.save(scene, file_path)
+        scene.clear()
+
+        manager.load(scene, file_path)
+
+        loaded_ridge = next(
+            i for i in scene.items()
+            if hasattr(i, 'object_type') and i.object_type == ObjectType.ROOF_RIDGE
+        )
+        loaded_polygon = next(
+            i for i in scene.items()
+            if hasattr(i, 'object_type') and i.object_type == ObjectType.HOUSE
+        )
+        assert loaded_ridge.zValue() > loaded_polygon.zValue(), (
+            "Roof ridge must render above its owner polygon after reload"
+        )
