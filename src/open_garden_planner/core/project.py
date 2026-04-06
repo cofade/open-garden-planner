@@ -1121,6 +1121,8 @@ class ProjectManager(QObject):
                 )
                 if "item_id" in obj:
                     item._item_id = UUID(obj["item_id"])
+                if metadata:
+                    item._metadata = metadata
                 # Restore custom stroke color if saved (only if no preset overrides it)
                 if "stroke_color" in obj and path_fence_style == PathFenceStyle.NONE:
                     pen = item.pen()
