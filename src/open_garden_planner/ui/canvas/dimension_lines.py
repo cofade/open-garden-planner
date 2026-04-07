@@ -309,6 +309,39 @@ class DimensionLineManager:
             satisfied = error < 1.0
             color = COLOR_V_DISTANCE_SATISFIED if satisfied else COLOR_HV_DISTANCE_VIOLATED
             self._build_v_distance_line(group, pos_a, pos_b, constraint.target_distance, color)
+        elif constraint.constraint_type == ConstraintType.POINT_ON_CIRCLE:
+            # pos_b = circle center, target_distance = radius
+            radius = constraint.target_distance
+            dx = pos_a.x() - pos_b.x()
+            dy = pos_a.y() - pos_b.y()
+            dist = math.sqrt(dx * dx + dy * dy)
+            error = abs(dist - radius)
+            satisfied = error < 0.1
+            color = COLOR_COINCIDENT_SATISFIED if satisfied else COLOR_COINCIDENT_VIOLATED
+            self._build_point_on_circle_marker(group, pos_a, pos_b, radius, color)
+        elif constraint.constraint_type == ConstraintType.POINT_ON_EDGE:
+            # pos_b and pos_c are the two endpoints of the edge; pos_a is the constrained point.
+            if constraint.anchor_c is None:
+                return
+            pos_c = self._resolve_anchor_position(
+                constraint.anchor_c.item_id,
+                constraint.anchor_c.anchor_type,
+                constraint.anchor_c.anchor_index,
+            )
+            if pos_c is None:
+                return
+            edx, edy = pos_c.x() - pos_b.x(), pos_c.y() - pos_b.y()
+            line_len_sq = edx * edx + edy * edy
+            if line_len_sq < 1e-12:
+                return
+            t = ((pos_a.x() - pos_b.x()) * edx + (pos_a.y() - pos_b.y()) * edy) / line_len_sq
+            proj = QPointF(pos_b.x() + t * edx, pos_b.y() + t * edy)
+            dx = pos_a.x() - proj.x()
+            dy = pos_a.y() - proj.y()
+            error = math.sqrt(dx * dx + dy * dy)
+            satisfied = error < 0.1  # 1 mm tolerance
+            color = COLOR_COINCIDENT_SATISFIED if satisfied else COLOR_COINCIDENT_VIOLATED
+            self._build_point_on_edge_marker(group, pos_a, proj, pos_b, pos_c, color)
         else:
             # DISTANCE constraint
             current_dist = QLineF(pos_a, pos_b).length()
@@ -672,6 +705,115 @@ class DimensionLineManager:
         text_item.setPos(QPointF(marker_pos.x() + half + 2, marker_pos.y() - half))
         self._scene.addItem(text_item)
         group.items.append(text_item)
+
+    def _build_point_on_circle_marker(
+        self,
+        group: DimensionLineGroup,
+        pos_a: QPointF,
+        center: QPointF,
+        radius: float,
+        color: QColor,
+    ) -> None:
+        """Build a visual marker for a POINT_ON_CIRCLE constraint.
+
+        Draws: dashed circle outline, a line from pos_a to its projection on
+        the perimeter, and a small filled dot at pos_a.
+        """
+        pen = QPen(color, 1.5)
+        pen.setCosmetic(True)
+        dash_pen = QPen(color, 1.5, Qt.PenStyle.DashLine)
+        dash_pen.setCosmetic(True)
+
+        # Dashed circle outline
+        circle_item = self._scene.addEllipse(
+            QRectF(center.x() - radius, center.y() - radius, radius * 2, radius * 2),
+            dash_pen,
+        )
+        circle_item.setZValue(DIMENSION_LINE_Z)
+        group.items.append(circle_item)
+
+        # Projection of pos_a onto the circle perimeter
+        dx = pos_a.x() - center.x()
+        dy = pos_a.y() - center.y()
+        dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 1e-6:
+            proj = QPointF(center.x() + (dx / dist) * radius, center.y() + (dy / dist) * radius)
+        else:
+            proj = QPointF(center.x() + radius, center.y())
+
+        # Connector from pos_a to projection
+        conn_dx = pos_a.x() - proj.x()
+        conn_dy = pos_a.y() - proj.y()
+        if math.sqrt(conn_dx * conn_dx + conn_dy * conn_dy) > 0.5:
+            conn = self._scene.addLine(QLineF(pos_a, proj), pen)
+            conn.setZValue(DIMENSION_LINE_Z)
+            group.items.append(conn)
+
+        # Small filled dot at pos_a
+        r = 3.5
+        dot = self._scene.addEllipse(
+            QRectF(pos_a.x() - r, pos_a.y() - r, r * 2, r * 2),
+            QPen(color, 1),
+            QBrush(color),
+        )
+        dot.setZValue(DIMENSION_LINE_Z + 1)
+        group.items.append(dot)
+
+    def _build_point_on_edge_marker(
+        self,
+        group: DimensionLineGroup,
+        pos_a: QPointF,
+        proj: QPointF,
+        pos_b: QPointF,
+        pos_c: QPointF,
+        color: QColor,
+    ) -> None:
+        """Build a visual marker for a POINT_ON_EDGE constraint.
+
+        Draws: the edge line (dashed), a perpendicular tick at the projection
+        point, and a connector from pos_a to the projection.
+        """
+        pen = QPen(color, 1.5)
+        pen.setCosmetic(True)
+        dash_pen = QPen(color, 1.5, Qt.PenStyle.DashLine)
+        dash_pen.setCosmetic(True)
+
+        # Extended edge line (from pos_b to pos_c, dashed)
+        edge_line = self._scene.addLine(QLineF(pos_b, pos_c), dash_pen)
+        edge_line.setZValue(DIMENSION_LINE_Z)
+        group.items.append(edge_line)
+
+        # Connector: pos_a → projection (only if not already on the line)
+        dx = pos_a.x() - proj.x()
+        dy = pos_a.y() - proj.y()
+        if math.sqrt(dx * dx + dy * dy) > 0.5:
+            conn = self._scene.addLine(QLineF(pos_a, proj), pen)
+            conn.setZValue(DIMENSION_LINE_Z)
+            group.items.append(conn)
+
+        # Perpendicular tick at projection (small cross-bar perpendicular to the edge)
+        edx = pos_c.x() - pos_b.x()
+        edy = pos_c.y() - pos_b.y()
+        edge_len = math.sqrt(edx * edx + edy * edy)
+        if edge_len > 1e-6:
+            # Perpendicular unit vector
+            perp_x, perp_y = -edy / edge_len, edx / edge_len
+            tick = 5.0
+            t1 = QPointF(proj.x() + perp_x * tick, proj.y() + perp_y * tick)
+            t2 = QPointF(proj.x() - perp_x * tick, proj.y() - perp_y * tick)
+            tick_line = self._scene.addLine(QLineF(t1, t2), pen)
+            tick_line.setZValue(DIMENSION_LINE_Z + 1)
+            group.items.append(tick_line)
+
+        # Small filled dot at pos_a
+        r = 3.5
+        dot = self._scene.addEllipse(
+            QRectF(pos_a.x() - r, pos_a.y() - r, r * 2, r * 2),
+            QPen(color, 1),
+            QBrush(color),
+        )
+        dot.setZValue(DIMENSION_LINE_Z + 1)
+        group.items.append(dot)
 
     def _find_item_by_id(self, item_id: UUID):
         """Return the scene item with the given item_id, or None."""

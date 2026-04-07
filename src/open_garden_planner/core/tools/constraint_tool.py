@@ -446,16 +446,25 @@ PREVIEW_COINCIDENT_COLOR = QColor(0, 160, 200, 200)  # Teal for coincident
 
 
 class CoincidentConstraintTool(ConstraintTool):
-    """Tool for creating coincident constraints (merge two anchor points to same location).
+    """Unified coincident / point-on-edge / point-on-circle constraint tool.
 
     Workflow:
     1. Hover over objects to see anchor indicators (small circles).
     2. Click an anchor on object A to select it.
-    3. Click an anchor on object B — constraint is created immediately (no dialog).
+    3a. Hover near a vertex anchor on object B → COINCIDENT (A snaps to B).
+    3b. Hover near a straight edge on any object → POINT_ON_EDGE (A locked to the infinite line).
+    3c. Hover near a circle's perimeter → POINT_ON_CIRCLE (A locked to the circle).
     """
 
     _CONSTRAINT_TYPE = ConstraintType.COINCIDENT
     _PREVIEW_COLOR = PREVIEW_COINCIDENT_COLOR
+
+    def __init__(self, view) -> None:
+        super().__init__(view)
+        self._hovered_edge: _EdgeResult | None = None
+        self._edge_highlight: QGraphicsLineItem | None = None
+        self._hovered_circle: _CircleEdgeResult | None = None
+        self._circle_highlight = None  # QGraphicsEllipseItem added to scene
 
     @property
     def tool_type(self) -> ToolType:
@@ -469,24 +478,115 @@ class CoincidentConstraintTool(ConstraintTool):
     def shortcut(self) -> str:
         return ""
 
-    def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
-        """Override to skip the distance dialog — create constraint immediately."""
-        if event.button() != Qt.MouseButton.LeftButton:
-            return False
+    def _reset(self) -> None:
+        self._hovered_edge = None
+        self._edge_highlight = None
+        self._hovered_circle = None
+        self._circle_highlight = None
+        super()._reset()
 
-        anchor = self._find_nearest_anchor(scene_pos)
-        if anchor is None:
+    def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
+        scene = self._view.scene()
+        if not scene:
             return True
 
         if self._anchor_a is None:
+            # Phase 1: show vertex anchor indicators as usual
+            self._show_anchor_indicators(scene_pos)
+            return True
+
+        # Phase 2: check anchor, straight edge, and circle perimeter.
+        # Anchors always win; among curves/edges prefer the closer one.
+        self._clear_anchor_indicators()
+
+        anchor = self._find_nearest_anchor(scene_pos)
+        edge = _find_nearest_edge(scene_pos, scene.items()) if anchor is None else None
+        circle = _find_nearest_circle_edge(scene_pos, scene.items()) if anchor is None else None
+
+        # When both edge and circle are within threshold, prefer the closer one
+        if edge is not None and circle is not None:
+            if circle.dist <= edge.dist:
+                edge = None
+            else:
+                circle = None
+
+        prefer_edge = anchor is None and edge is not None
+        prefer_circle = anchor is None and circle is not None
+
+        # Remove old straight-edge highlight
+        if self._edge_highlight and self._edge_highlight.scene():
+            scene.removeItem(self._edge_highlight)
+            if self._edge_highlight in self._graphics_items:
+                self._graphics_items.remove(self._edge_highlight)
+            self._edge_highlight = None
+
+        # Remove old circle highlight
+        if self._circle_highlight and self._circle_highlight.scene():
+            scene.removeItem(self._circle_highlight)
+            if self._circle_highlight in self._graphics_items:
+                self._graphics_items.remove(self._circle_highlight)
+            self._circle_highlight = None
+
+        if prefer_edge:
+            self._hovered_edge = edge
+            self._hovered_circle = None
+            # Draw extended dashed highlight along the infinite line (+/- 200 cm)
+            p1, p2 = edge.p1_scene, edge.p2_scene  # type: ignore[union-attr]
+            edx, edy = p2.x() - p1.x(), p2.y() - p1.y()
+            length = math.sqrt(edx * edx + edy * edy)
+            if length > 1e-6:
+                nx, ny = edx / length, edy / length
+                ext = 200.0
+                ext_p1 = QPointF(p1.x() - nx * ext, p1.y() - ny * ext)
+                ext_p2 = QPointF(p2.x() + nx * ext, p2.y() + ny * ext)
+                pen = QPen(PREVIEW_POINT_ON_EDGE_COLOR, 2, Qt.PenStyle.DashLine)
+                self._edge_highlight = scene.addLine(QLineF(ext_p1, ext_p2), pen)
+                self._edge_highlight.setZValue(1001)
+                self._graphics_items.append(self._edge_highlight)
+        elif prefer_circle:
+            self._hovered_circle = circle
+            self._hovered_edge = None
+            # Draw dashed circle outline at the circle's perimeter
+            c = circle  # type: ignore[union-attr]
+            r = c.radius
+            from PyQt6.QtCore import QRectF
+            pen = QPen(PREVIEW_POINT_ON_EDGE_COLOR, 2, Qt.PenStyle.DashLine)
+            self._circle_highlight = scene.addEllipse(
+                QRectF(c.center_scene.x() - r, c.center_scene.y() - r, r * 2, r * 2), pen
+            )
+            self._circle_highlight.setZValue(1001)
+            self._graphics_items.append(self._circle_highlight)
+        else:
+            self._hovered_edge = None
+            self._hovered_circle = None
+
+        end = anchor.point if anchor is not None else scene_pos
+        self._update_preview(end)
+        return True
+
+    def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
+        """Phase 1: select anchor A. Phase 2: create COINCIDENT, POINT_ON_EDGE, or POINT_ON_CIRCLE."""
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+
+        if self._anchor_a is None:
+            anchor = self._find_nearest_anchor(scene_pos)
+            if anchor is None:
+                return True
             self._anchor_a = anchor
             self._clear_anchor_indicators()
             self._show_selected_anchor(anchor)
             return True
-        else:
-            anchor_b = anchor
 
-            # Don't allow constraining same anchor to itself
+        # Phase 2 — dispatch to appropriate constraint type
+        if self._hovered_edge is not None:
+            self._apply_point_on_edge()
+        elif self._hovered_circle is not None:
+            self._apply_point_on_circle()
+        else:
+            anchor_b = self._find_nearest_anchor(scene_pos)
+            if anchor_b is None:
+                return True
             if (
                 hasattr(self._anchor_a.item, "item_id")
                 and hasattr(anchor_b.item, "item_id")
@@ -494,56 +594,355 @@ class CoincidentConstraintTool(ConstraintTool):
                 and self._anchor_a.anchor_type == anchor_b.anchor_type
             ):
                 return True
-
-            # Create coincident constraint immediately (no dialog needed)
             self._create_constraint(self._anchor_a, anchor_b, 0.0)
-            self._reset()
-            return True
+
+        self._reset()
+        return True
+
+    def _apply_point_on_edge(self) -> None:
+        """Create a POINT_ON_EDGE constraint for the currently hovered edge."""
+        edge = self._hovered_edge
+        if edge is None or self._anchor_a is None:
+            return
+        if not hasattr(self._anchor_a.item, "item_id") or not hasattr(edge.item, "item_id"):
+            return
+
+        ref_a = AnchorRef(
+            item_id=self._anchor_a.item.item_id,  # type: ignore[union-attr]
+            anchor_type=self._anchor_a.anchor_type,
+            anchor_index=self._anchor_a.anchor_index,
+        )
+        ref_b = AnchorRef(
+            item_id=edge.item.item_id,
+            anchor_type=edge.anchor_type,
+            anchor_index=edge.idx_start,
+        )
+        ref_c = AnchorRef(
+            item_id=edge.item.item_id,
+            anchor_type=edge.anchor_type,
+            anchor_index=edge.idx_end,
+        )
+
+        if not self._view.is_constraint_feasible(
+            ref_a, ref_b, 0.0, ConstraintType.POINT_ON_EDGE, anchor_c=ref_c
+        ):
+            QMessageBox.warning(
+                self._view,
+                QCoreApplication.translate("CoincidentConstraintTool", "Conflicting Constraint"),
+                QCoreApplication.translate(
+                    "CoincidentConstraintTool",
+                    "This constraint conflicts with existing constraints "
+                    "and cannot be applied. The existing constraints are unchanged.",
+                ),
+            )
+            return
+
+        scene = self._view.scene()
+        if not scene:
+            return
+
+        command = AddConstraintCommand(
+            graph=scene.constraint_graph,
+            anchor_a=ref_a,
+            anchor_b=ref_b,
+            target_distance=0.0,
+            constraint_type=ConstraintType.POINT_ON_EDGE,
+            anchor_c=ref_c,
+        )
+        self._view._execute_constraint_with_solve(command)
+
+    def _apply_point_on_circle(self) -> None:
+        """Create a POINT_ON_CIRCLE constraint for the currently hovered circle."""
+        from open_garden_planner.core.measure_snapper import AnchorType as _AnchorType
+
+        circle = self._hovered_circle
+        if circle is None or self._anchor_a is None:
+            return
+        if not hasattr(self._anchor_a.item, "item_id") or not hasattr(circle.item, "item_id"):
+            return
+
+        ref_a = AnchorRef(
+            item_id=self._anchor_a.item.item_id,  # type: ignore[union-attr]
+            anchor_type=self._anchor_a.anchor_type,
+            anchor_index=self._anchor_a.anchor_index,
+        )
+        ref_b = AnchorRef(
+            item_id=circle.item.item_id,
+            anchor_type=_AnchorType.CENTER,
+            anchor_index=0,
+        )
+
+        if not self._view.is_constraint_feasible(
+            ref_a, ref_b, circle.radius, ConstraintType.POINT_ON_CIRCLE
+        ):
+            QMessageBox.warning(
+                self._view,
+                QCoreApplication.translate("CoincidentConstraintTool", "Conflicting Constraint"),
+                QCoreApplication.translate(
+                    "CoincidentConstraintTool",
+                    "This constraint conflicts with existing constraints "
+                    "and cannot be applied. The existing constraints are unchanged.",
+                ),
+            )
+            return
+
+        scene = self._view.scene()
+        if not scene:
+            return
+
+        command = AddConstraintCommand(
+            graph=scene.constraint_graph,
+            anchor_a=ref_a,
+            anchor_b=ref_b,
+            target_distance=circle.radius,
+            constraint_type=ConstraintType.POINT_ON_CIRCLE,
+        )
+        self._view._execute_constraint_with_solve(command)
 
     def _update_preview(self, end_pos: QPointF) -> None:
-        """Override to show a coincident preview with a special marker."""
+        """Show coincident preview, 'On Edge' label, or 'On Circle' label."""
         scene = self._view.scene()
         if not scene or self._anchor_a is None:
             return
 
-        start = self._anchor_a.point
-        color = self._PREVIEW_COLOR
-
         # Remove old preview items
         if self._preview_line and self._preview_line.scene():
             scene.removeItem(self._preview_line)
-            self._graphics_items.remove(self._preview_line)
+            if self._preview_line in self._graphics_items:
+                self._graphics_items.remove(self._preview_line)
+            self._preview_line = None
         if self._preview_text and self._preview_text.scene():
             scene.removeItem(self._preview_text)
-            self._graphics_items.remove(self._preview_text)
+            if self._preview_text in self._graphics_items:
+                self._graphics_items.remove(self._preview_text)
+            self._preview_text = None
 
-        pen = QPen(color, 2, Qt.PenStyle.DashLine)
-        self._preview_line = scene.addLine(QLineF(start, end_pos), pen)
-        self._preview_line.setZValue(1001)
-        self._graphics_items.append(self._preview_line)
+        if self._hovered_circle is not None:
+            # Circle mode: show "⊙ On Circle" label near cursor
+            color = PREVIEW_POINT_ON_EDGE_COLOR
+            text = QCoreApplication.translate("CoincidentConstraintTool", "⊙ On Circle")
+            self._preview_text = scene.addText(text)
+            self._preview_text.setDefaultTextColor(color)
+            font = QFont()
+            font.setPointSize(11)
+            font.setBold(True)
+            self._preview_text.setFont(font)
+            self._preview_text.setFlag(
+                QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations
+            )
+            text_rect = self._preview_text.boundingRect()
+            self._preview_text.setPos(
+                end_pos.x() - text_rect.width() / 2,
+                end_pos.y() - text_rect.height() - 20,
+            )
+            self._preview_text.setZValue(1002)
+            self._graphics_items.append(self._preview_text)
+        elif self._hovered_edge is not None:
+            # Edge mode: show "⊥ On Edge" label near cursor
+            color = PREVIEW_POINT_ON_EDGE_COLOR
+            text = QCoreApplication.translate("CoincidentConstraintTool", "⊥ On Edge")
+            self._preview_text = scene.addText(text)
+            self._preview_text.setDefaultTextColor(color)
+            font = QFont()
+            font.setPointSize(11)
+            font.setBold(True)
+            self._preview_text.setFont(font)
+            self._preview_text.setFlag(
+                QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations
+            )
+            text_rect = self._preview_text.boundingRect()
+            self._preview_text.setPos(
+                end_pos.x() - text_rect.width() / 2,
+                end_pos.y() - text_rect.height() - 20,
+            )
+            self._preview_text.setZValue(1002)
+            self._graphics_items.append(self._preview_text)
+        else:
+            # Vertex mode: dashed line + "⦿ Coincident" label at midpoint
+            start = self._anchor_a.point
+            color = self._PREVIEW_COLOR
 
-        text = QCoreApplication.translate("CoincidentConstraintTool", "⦿ Coincident")
+            pen = QPen(color, 2, Qt.PenStyle.DashLine)
+            self._preview_line = scene.addLine(QLineF(start, end_pos), pen)
+            self._preview_line.setZValue(1001)
+            self._graphics_items.append(self._preview_line)
 
-        mid_x = (start.x() + end_pos.x()) / 2
-        mid_y = (start.y() + end_pos.y()) / 2
+            text = QCoreApplication.translate("CoincidentConstraintTool", "⦿ Coincident")
+            mid_x = (start.x() + end_pos.x()) / 2
+            mid_y = (start.y() + end_pos.y()) / 2
 
-        self._preview_text = scene.addText(text)
-        self._preview_text.setDefaultTextColor(color)
-        font = QFont()
-        font.setPointSize(11)
-        font.setBold(True)
-        self._preview_text.setFont(font)
+            self._preview_text = scene.addText(text)
+            self._preview_text.setDefaultTextColor(color)
+            font = QFont()
+            font.setPointSize(11)
+            font.setBold(True)
+            self._preview_text.setFont(font)
+            text_rect = self._preview_text.boundingRect()
+            self._preview_text.setPos(
+                mid_x - text_rect.width() / 2,
+                mid_y - text_rect.height() / 2,
+            )
+            self._preview_text.setFlag(
+                QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations
+            )
+            self._preview_text.setZValue(1002)
+            self._graphics_items.append(self._preview_text)
 
-        text_rect = self._preview_text.boundingRect()
-        self._preview_text.setPos(
-            mid_x - text_rect.width() / 2,
-            mid_y - text_rect.height() / 2,
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Point-on-Edge constraint tool
+# ──────────────────────────────────────────────────────────────────────────────
+
+PREVIEW_POINT_ON_EDGE_COLOR = QColor(0, 180, 160, 220)  # Teal-green for point-on-edge
+
+# How close the cursor must be to an edge to snap to it (scene units / cm)
+_EDGE_SNAP_THRESHOLD = 15.0
+
+
+def _point_to_segment_distance(
+    px: float, py: float,
+    ax: float, ay: float,
+    bx: float, by: float,
+) -> float:
+    """Return the perpendicular distance from point P to infinite line through A–B."""
+    edx, edy = bx - ax, by - ay
+    line_len_sq = edx * edx + edy * edy
+    if line_len_sq < 1e-12:
+        return math.sqrt((px - ax) ** 2 + (py - ay) ** 2)
+    t = ((px - ax) * edx + (py - ay) * edy) / line_len_sq
+    proj_x = ax + t * edx
+    proj_y = ay + t * edy
+    return math.sqrt((px - proj_x) ** 2 + (py - proj_y) ** 2)
+
+
+class _EdgeResult:
+    """Result of an edge-snap query."""
+
+    __slots__ = ("item", "p1_scene", "p2_scene", "anchor_type", "idx_start", "idx_end", "dist")
+
+    def __init__(
+        self,
+        item,
+        p1_scene: QPointF,
+        p2_scene: QPointF,
+        anchor_type,
+        idx_start: int,
+        idx_end: int,
+        dist: float,
+    ) -> None:
+        self.item = item
+        self.p1_scene = p1_scene
+        self.p2_scene = p2_scene
+        self.anchor_type = anchor_type
+        self.idx_start = idx_start
+        self.idx_end = idx_end
+        self.dist = dist
+
+
+class _CircleEdgeResult:
+    """Result of a circle-perimeter snap query."""
+
+    __slots__ = ("item", "center_scene", "radius", "dist")
+
+    def __init__(self, item, center_scene: QPointF, radius: float, dist: float) -> None:
+        self.item = item
+        self.center_scene = center_scene
+        self.radius = radius
+        self.dist = dist
+
+
+def _find_nearest_circle_edge(scene_pos: QPointF, scene_items) -> _CircleEdgeResult | None:
+    """Find the nearest CircleItem whose perimeter is within snap threshold of *scene_pos*."""
+    from open_garden_planner.ui.canvas.items import CircleItem
+
+    best: _CircleEdgeResult | None = None
+    for item in scene_items:
+        if not isinstance(item, CircleItem):
+            continue
+        rect = item.rect()
+        radius = rect.width() / 2.0
+        cx_local = rect.x() + radius
+        cy_local = rect.y() + radius
+        center = item.mapToScene(QPointF(cx_local, cy_local))
+        dist_to_center = math.sqrt(
+            (scene_pos.x() - center.x()) ** 2 + (scene_pos.y() - center.y()) ** 2
         )
-        self._preview_text.setFlag(
-            QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations
+        dist_to_perimeter = abs(dist_to_center - radius)
+        if dist_to_perimeter < _EDGE_SNAP_THRESHOLD and (best is None or dist_to_perimeter < best.dist):
+            best = _CircleEdgeResult(item, center, radius, dist_to_perimeter)
+    return best
+
+
+def _find_nearest_edge(scene_pos: QPointF, scene_items) -> _EdgeResult | None:
+    """Find the nearest edge to *scene_pos* within the snap threshold.
+
+    Handles PolygonItem (CORNER vertices), PolylineItem (ENDPOINT vertices),
+    and RectangleItem (CORNER vertices mapped from the bounding rect).
+
+    Returns an _EdgeResult or None if nothing is within _EDGE_SNAP_THRESHOLD.
+    """
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem, RectangleItem
+
+    best: _EdgeResult | None = None
+
+    def _check(item, p1: QPointF, p2: QPointF, at, i_start: int, i_end: int) -> None:
+        nonlocal best
+        d = _point_to_segment_distance(
+            scene_pos.x(), scene_pos.y(),
+            p1.x(), p1.y(), p2.x(), p2.y(),
         )
-        self._preview_text.setZValue(1002)
-        self._graphics_items.append(self._preview_text)
+        if d < _EDGE_SNAP_THRESHOLD and (best is None or d < best.dist):
+            best = _EdgeResult(
+                item=item,
+                p1_scene=p1,
+                p2_scene=p2,
+                anchor_type=at,
+                idx_start=i_start,
+                idx_end=i_end,
+                dist=d,
+            )
+
+    for item in scene_items:
+        if isinstance(item, RectangleItem):
+            # Corner indices match measure_snapper._rectangle_anchors:
+            # 0=TL, 1=TR, 2=BL, 3=BR
+            r = item.rect()
+            corners = [
+                item.mapToScene(r.left(),  r.top()),     # 0 TL
+                item.mapToScene(r.right(), r.top()),     # 1 TR
+                item.mapToScene(r.left(),  r.bottom()),  # 2 BL
+                item.mapToScene(r.right(), r.bottom()),  # 3 BR
+            ]
+            for i_start, i_end in ((0, 1), (1, 3), (2, 3), (0, 2)):
+                _check(item, corners[i_start], corners[i_end],
+                       AnchorType.CORNER, i_start, i_end)
+
+        elif isinstance(item, PolygonItem):
+            poly = item.polygon()
+            n = poly.count()
+            if n < 2:
+                continue
+            for i in range(n):
+                _check(item,
+                       item.mapToScene(poly.at(i)),
+                       item.mapToScene(poly.at((i + 1) % n)),
+                       AnchorType.CORNER, i, (i + 1) % n)
+
+        elif isinstance(item, PolylineItem):
+            pts = item.points
+            n = len(pts)
+            if n < 2:
+                continue
+            for i in range(n - 1):
+                _check(item,
+                       item.mapToScene(pts[i]),
+                       item.mapToScene(pts[i + 1]),
+                       AnchorType.ENDPOINT, i, i + 1)
+
+    return best
+
+
 
 
 # Angle constraint visual constants

@@ -32,6 +32,8 @@ class ConstraintType(Enum):
     FIXED = auto()                 # Pin item to current position (block/fix in place)
     HORIZONTAL_DISTANCE = auto()   # Fixed horizontal (X-axis) distance between two anchors
     VERTICAL_DISTANCE = auto()     # Fixed vertical (Y-axis) distance between two anchors
+    POINT_ON_EDGE = auto()         # Constrain point A to lie on infinite line through B–C
+    POINT_ON_CIRCLE = auto()      # Constrain point A to lie on circle centred at B with radius = target_distance
 
 
 class ConstraintStatus(Enum):
@@ -985,10 +987,60 @@ class ConstraintGraph:
                         # "A is constrained to B" means A moves, not both.
                         _set_pos(id_a, constraint.anchor_a, off_a, bx, by)
                     else:
-                        mid_x = (ax + bx) / 2.0
-                        mid_y = (ay + by) / 2.0
-                        _set_pos(id_a, constraint.anchor_a, off_a, mid_x, mid_y)
-                        _set_pos(id_b, constraint.anchor_b, off_b, mid_x, mid_y)
+                        # Default CAD convention: A is constrained to B → A moves, B stays.
+                        _set_pos(id_a, constraint.anchor_a, off_a, bx, by)
+                    continue
+
+                if constraint.constraint_type == ConstraintType.POINT_ON_EDGE:
+                    # Project anchor_a onto the infinite line defined by anchor_b → anchor_c.
+                    if constraint.anchor_c is None:
+                        continue
+                    id_c = constraint.anchor_c.item_id
+                    if id_c not in positions:
+                        continue
+                    key_c = (
+                        id_c,
+                        constraint.anchor_c.anchor_type,
+                        constraint.anchor_c.anchor_index,
+                    )
+                    off_c = anchor_offsets.get(key_c, (0.0, 0.0))
+                    cx = positions[id_c][0] + off_c[0]
+                    cy = positions[id_c][1] + off_c[1]
+
+                    edx, edy = cx - bx, cy - by
+                    line_len_sq = edx * edx + edy * edy
+                    if line_len_sq < 1e-12:
+                        continue
+                    t = ((ax - bx) * edx + (ay - by) * edy) / line_len_sq
+                    proj_x = bx + t * edx
+                    proj_y = by + t * edy
+
+                    error = math.sqrt((ax - proj_x) ** 2 + (ay - proj_y) ** 2)
+                    max_error = max(max_error, error)
+                    if error < 1e-9:
+                        continue
+                    if not a_pinned:
+                        _set_pos(id_a, constraint.anchor_a, off_a, proj_x, proj_y)
+                    continue
+
+                if constraint.constraint_type == ConstraintType.POINT_ON_CIRCLE:
+                    # Project anchor_a onto circle centred at anchor_b with radius = target_distance.
+                    radius = constraint.target_distance
+                    dx = ax - bx
+                    dy = ay - by
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist < 1e-9:
+                        proj_x = bx + radius
+                        proj_y = by
+                    else:
+                        proj_x = bx + (dx / dist) * radius
+                        proj_y = by + (dy / dist) * radius
+                    error = math.sqrt((ax - proj_x) ** 2 + (ay - proj_y) ** 2)
+                    max_error = max(max_error, error)
+                    if error < 1e-9:
+                        continue
+                    if not a_pinned:
+                        _set_pos(id_a, constraint.anchor_a, off_a, proj_x, proj_y)
                     continue
 
                 if constraint.constraint_type in (
