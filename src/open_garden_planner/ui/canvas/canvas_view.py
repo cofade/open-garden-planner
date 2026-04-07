@@ -1169,6 +1169,9 @@ class CanvasView(QGraphicsView):
         # Revert any FIXED-constrained items to their pinned position
         self._enforce_fixed_positions()
 
+        # Clamp POINT_ON_EDGE-constrained items to their edge line during drag
+        self._enforce_point_on_edge_positions()
+
         # Apply object snapping and canvas boundary clamping during drag
         self._apply_object_snap_during_drag()
         self._clamp_dragged_items_to_canvas()
@@ -1278,6 +1281,100 @@ class CanvasView(QGraphicsView):
                     from PyQt6.QtCore import QPointF as _QPointF
                     scene_item.setPos(_QPointF(c.target_x, c.target_y))
                     break
+
+    def _enforce_point_on_edge_positions(self) -> None:
+        """Project POINT_ON_EDGE-constrained anchors back onto their edge during drag.
+
+        Called immediately after _enforce_fixed_positions so that Qt's drag
+        cannot pull an anchor off its constrained edge line.  The anchor slides
+        freely along the edge but its perpendicular displacement is zeroed out.
+        """
+        if not self._drag_start_positions:
+            return
+
+        from open_garden_planner.core.constraints import ConstraintType
+        from open_garden_planner.core.measure_snapper import get_anchor_points
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        graph = self._canvas_scene.constraint_graph
+
+        import math as _math
+
+        for c in graph.constraints.values():
+            if c.constraint_type not in (ConstraintType.POINT_ON_EDGE, ConstraintType.POINT_ON_CIRCLE):
+                continue
+
+            # Only enforce when anchor_a's item is being dragged
+            item_a = None
+            for scene_item in self.scene().items():
+                if isinstance(scene_item, GardenItemMixin) and scene_item.item_id == c.anchor_a.item_id:
+                    item_a = scene_item
+                    break
+            if item_a is None or item_a not in self._drag_start_positions:
+                continue
+
+            # Get anchor_a's current scene position (post-drag)
+            anchor_a_scene = None
+            for anchor in get_anchor_points(item_a):
+                if anchor.anchor_type == c.anchor_a.anchor_type and anchor.anchor_index == c.anchor_a.anchor_index:
+                    anchor_a_scene = anchor.point
+                    break
+            if anchor_a_scene is None:
+                continue
+
+            # Get item_b (the edge/circle owner)
+            item_b = None
+            for scene_item in self.scene().items():
+                if isinstance(scene_item, GardenItemMixin) and scene_item.item_id == c.anchor_b.item_id:
+                    item_b = scene_item
+                    break
+            if item_b is None:
+                continue
+
+            # Resolve anchor_b position (always needed)
+            pos_b = None
+            for anchor in get_anchor_points(item_b):
+                if anchor.anchor_type == c.anchor_b.anchor_type and anchor.anchor_index == c.anchor_b.anchor_index:
+                    pos_b = anchor.point
+                    break
+            if pos_b is None:
+                continue
+
+            if c.constraint_type == ConstraintType.POINT_ON_CIRCLE:
+                # Project anchor_a radially onto circle centred at pos_b with radius = target_distance
+                radius = c.target_distance
+                adx = anchor_a_scene.x() - pos_b.x()
+                ady = anchor_a_scene.y() - pos_b.y()
+                a_dist = _math.sqrt(adx * adx + ady * ady)
+                if a_dist < 1e-9:
+                    proj_x, proj_y = pos_b.x() + radius, pos_b.y()
+                else:
+                    proj_x = pos_b.x() + (adx / a_dist) * radius
+                    proj_y = pos_b.y() + (ady / a_dist) * radius
+            else:
+                # POINT_ON_EDGE: project onto infinite line through pos_b → pos_c
+                if c.anchor_c is None:
+                    continue
+                pos_c = None
+                for anchor in get_anchor_points(item_b):
+                    if anchor.anchor_type == c.anchor_c.anchor_type and anchor.anchor_index == c.anchor_c.anchor_index:
+                        pos_c = anchor.point
+                        break
+                if pos_c is None:
+                    continue
+                edx = pos_c.x() - pos_b.x()
+                edy = pos_c.y() - pos_b.y()
+                line_len_sq = edx * edx + edy * edy
+                if line_len_sq < 1e-12:
+                    continue
+                t = ((anchor_a_scene.x() - pos_b.x()) * edx + (anchor_a_scene.y() - pos_b.y()) * edy) / line_len_sq
+                proj_x = pos_b.x() + t * edx
+                proj_y = pos_b.y() + t * edy
+
+            # Reposition item_a so its constrained anchor lands exactly on the projection
+            local_x = anchor_a_scene.x() - item_a.pos().x()
+            local_y = anchor_a_scene.y() - item_a.pos().y()
+            item_a.setPos(QPointF(proj_x - local_x, proj_y - local_y))
 
     def _clamp_dragged_items_to_canvas(self) -> None:
         """Clamp items to canvas boundaries during mouse drag.

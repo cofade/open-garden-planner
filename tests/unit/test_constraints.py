@@ -1082,8 +1082,8 @@ class TestCoincidentConstraint:
         assert c.target_distance == 0.0
         assert len(graph.constraints) == 1
 
-    def test_coincident_solver_moves_to_midpoint(self, qtbot) -> None:
-        """Solver moves two free anchors to meet at the midpoint."""
+    def test_coincident_solver_a_moves_to_b(self, qtbot) -> None:
+        """Solver moves A to B's position; B stays in place (CAD convention)."""
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
         ref_a = AnchorRef(id_a, AnchorType.CENTER)
@@ -1098,13 +1098,15 @@ class TestCoincidentConstraint:
 
         result = graph.solve_anchored(positions, offsets, tolerance=0.01)
         assert result.converged
-        # Both items should be at the midpoint (50, 0)
         final_a = (positions[id_a][0] + result.item_deltas.get(id_a, (0, 0))[0],
                    positions[id_a][1] + result.item_deltas.get(id_a, (0, 0))[1])
         final_b = (positions[id_b][0] + result.item_deltas.get(id_b, (0, 0))[0],
                    positions[id_b][1] + result.item_deltas.get(id_b, (0, 0))[1])
-        assert abs(final_a[0] - final_b[0]) < 0.01
-        assert abs(final_a[1] - final_b[1]) < 0.01
+        # A must move to B; B must not move
+        assert abs(final_a[0] - 100.0) < 0.01
+        assert abs(final_a[1] - 0.0) < 0.01
+        assert abs(final_b[0] - 100.0) < 0.01  # B unchanged
+        assert abs(final_b[1] - 0.0) < 0.01    # B unchanged
 
     def test_coincident_solver_pinned_a(self, qtbot) -> None:
         """When A is pinned, solver moves B to A's position."""
@@ -1955,3 +1957,164 @@ class TestVertexDeformationSolver:
             "Second vertex coincident constraint should be feasible "
             "for a deformable polygon"
         )
+
+
+class TestPointOnEdgeConstraint:
+    """Tests for the POINT_ON_EDGE constraint type and solver."""
+
+    def _make_graph_and_ids(self):
+        """Return a fresh ConstraintGraph and three item UUIDs: point, edge_start, edge_end."""
+        return ConstraintGraph(), uuid4(), uuid4(), uuid4()
+
+    def _solve(self, graph, positions, offsets, tolerance=0.01):
+        return graph.solve_anchored(positions, offsets, tolerance=tolerance)
+
+    def test_point_on_edge_type_exists(self, qtbot) -> None:
+        assert ConstraintType.POINT_ON_EDGE is not None
+
+    def test_point_on_edge_basic_horizontal(self, qtbot) -> None:
+        """Point above a horizontal edge snaps down onto the edge's infinite line."""
+        graph, id_a, id_b, id_c = self._make_graph_and_ids()
+
+        ref_a = AnchorRef(id_a, AnchorType.CENTER)
+        ref_b = AnchorRef(id_b, AnchorType.CENTER)
+        ref_c = AnchorRef(id_c, AnchorType.CENTER)
+        graph.add_constraint(
+            ref_a, ref_b, 0.0,
+            constraint_type=ConstraintType.POINT_ON_EDGE,
+            anchor_c=ref_c,
+        )
+
+        # Edge: horizontal from (0, 0) to (100, 0). Point at (50, 30) — above the line.
+        positions = {id_a: (50.0, 30.0), id_b: (0.0, 0.0), id_c: (100.0, 0.0)}
+        offsets: dict = {
+            (id_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_c, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+
+        result = self._solve(graph, positions, offsets)
+        assert result.converged
+
+        final_ay = positions[id_a][1] + result.item_deltas.get(id_a, (0.0, 0.0))[1]
+        # Point must land on y=0 (the horizontal edge line)
+        assert abs(final_ay) < 0.1
+
+        # X should not move (projection keeps same X on horizontal line)
+        final_ax = positions[id_a][0] + result.item_deltas.get(id_a, (0.0, 0.0))[0]
+        assert abs(final_ax - 50.0) < 0.1
+
+        # Edge endpoints must not move
+        assert id_b not in result.item_deltas or (
+            abs(result.item_deltas[id_b][0]) < 0.01
+            and abs(result.item_deltas[id_b][1]) < 0.01
+        )
+
+    def test_point_on_edge_diagonal(self, qtbot) -> None:
+        """Point projects correctly onto a 45° diagonal line."""
+        graph, id_a, id_b, id_c = self._make_graph_and_ids()
+
+        ref_a = AnchorRef(id_a, AnchorType.CENTER)
+        ref_b = AnchorRef(id_b, AnchorType.CENTER)
+        ref_c = AnchorRef(id_c, AnchorType.CENTER)
+        graph.add_constraint(
+            ref_a, ref_b, 0.0,
+            constraint_type=ConstraintType.POINT_ON_EDGE,
+            anchor_c=ref_c,
+        )
+
+        # Edge: diagonal from (0,0) to (100,100). Point at (0, 100).
+        # Projection onto y=x line: t = (0*1 + 100*1)/2 = 50 → proj = (50, 50).
+        positions = {id_a: (0.0, 100.0), id_b: (0.0, 0.0), id_c: (100.0, 100.0)}
+        offsets: dict = {
+            (id_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_c, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+
+        result = self._solve(graph, positions, offsets)
+        assert result.converged
+
+        final_ax = positions[id_a][0] + result.item_deltas.get(id_a, (0.0, 0.0))[0]
+        final_ay = positions[id_a][1] + result.item_deltas.get(id_a, (0.0, 0.0))[1]
+        # Should be at (50, 50) on the y=x line
+        assert abs(final_ax - 50.0) < 0.5
+        assert abs(final_ay - 50.0) < 0.5
+
+    def test_point_on_edge_already_on_line(self, qtbot) -> None:
+        """No movement when point is already on the edge's infinite line."""
+        graph, id_a, id_b, id_c = self._make_graph_and_ids()
+
+        ref_a = AnchorRef(id_a, AnchorType.CENTER)
+        ref_b = AnchorRef(id_b, AnchorType.CENTER)
+        ref_c = AnchorRef(id_c, AnchorType.CENTER)
+        graph.add_constraint(
+            ref_a, ref_b, 0.0,
+            constraint_type=ConstraintType.POINT_ON_EDGE,
+            anchor_c=ref_c,
+        )
+
+        # Point at (75, 0), edge from (0,0) to (100,0) — point already on y=0.
+        positions = {id_a: (75.0, 0.0), id_b: (0.0, 0.0), id_c: (100.0, 0.0)}
+        offsets: dict = {
+            (id_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_c, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+
+        result = self._solve(graph, positions, offsets)
+        assert result.converged
+        # No deltas expected
+        assert id_a not in result.item_deltas or (
+            abs(result.item_deltas[id_a][0]) < 0.01
+            and abs(result.item_deltas[id_a][1]) < 0.01
+        )
+
+    def test_point_on_edge_extended_beyond_segment(self, qtbot) -> None:
+        """Point projects correctly onto the infinite extension of an edge (t < 0 or t > 1)."""
+        graph, id_a, id_b, id_c = self._make_graph_and_ids()
+
+        ref_a = AnchorRef(id_a, AnchorType.CENTER)
+        ref_b = AnchorRef(id_b, AnchorType.CENTER)
+        ref_c = AnchorRef(id_c, AnchorType.CENTER)
+        graph.add_constraint(
+            ref_a, ref_b, 0.0,
+            constraint_type=ConstraintType.POINT_ON_EDGE,
+            anchor_c=ref_c,
+        )
+
+        # Edge: (0,0)→(100,0). Point at (200, 50) — beyond segment, above line.
+        # Projection: (200, 0).
+        positions = {id_a: (200.0, 50.0), id_b: (0.0, 0.0), id_c: (100.0, 0.0)}
+        offsets: dict = {
+            (id_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_c, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+
+        result = self._solve(graph, positions, offsets)
+        assert result.converged
+
+        final_ay = positions[id_a][1] + result.item_deltas.get(id_a, (0.0, 0.0))[1]
+        assert abs(final_ay) < 0.1  # Snapped to y=0 (the infinite line)
+
+        final_ax = positions[id_a][0] + result.item_deltas.get(id_a, (0.0, 0.0))[0]
+        assert abs(final_ax - 200.0) < 0.1  # X stays at 200 (on the infinite line)
+
+    def test_point_on_edge_serialization(self, qtbot) -> None:
+        """POINT_ON_EDGE constraint survives to_dict/from_dict round-trip."""
+        graph = ConstraintGraph()
+        id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CORNER, 0),
+            0.0,
+            constraint_type=ConstraintType.POINT_ON_EDGE,
+            anchor_c=AnchorRef(id_c, AnchorType.CORNER, 1),
+        )
+        d = c.to_dict()
+        rc = Constraint.from_dict(d)
+        assert rc.constraint_type == ConstraintType.POINT_ON_EDGE
+        assert rc.anchor_c is not None
+        assert rc.anchor_c.item_id == id_c
+        assert rc.anchor_c.anchor_index == 1
