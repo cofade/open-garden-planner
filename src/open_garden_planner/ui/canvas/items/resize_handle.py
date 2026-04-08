@@ -364,6 +364,14 @@ class ResizeHandle(QGraphicsRectItem):
             local_dx = delta.x()
             local_dy = delta.y()
 
+        # Constrain mid-edge handles to a single axis so the perpendicular
+        # dimension stays constant (critical for rotated shapes where both
+        # local_dx and local_dy are non-zero from any screen-space drag).
+        if self._position in {HandlePosition.MIDDLE_LEFT, HandlePosition.MIDDLE_RIGHT}:
+            local_dy = 0.0
+        elif self._position in {HandlePosition.TOP_CENTER, HandlePosition.BOTTOM_CENTER}:
+            local_dx = 0.0
+
         # Calculate new rect based on which handle is being dragged
         new_x = init_rect.x()
         new_y = init_rect.y()
