@@ -762,6 +762,10 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         """Handle double-click to enter vertex edit mode and start label edit."""
         if event.button() == Qt.MouseButton.LeftButton:
             if not self.is_vertex_edit_mode:
+                # Exit vertex edit mode on any other item first
+                for item in self.scene().items():
+                    if item is not self and hasattr(item, 'is_vertex_edit_mode') and item.is_vertex_edit_mode:
+                        item.exit_vertex_edit_mode()
                 self.enter_vertex_edit_mode()
             self.start_label_edit()
             event.accept()

@@ -1789,6 +1789,14 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
+        # Handle ESC to exit vertex edit mode
+        if event.key() == Qt.Key.Key_Escape:
+            for item in self._canvas_scene.selectedItems():
+                if hasattr(item, 'is_vertex_edit_mode') and item.is_vertex_edit_mode:
+                    item.exit_vertex_edit_mode()
+                    event.accept()
+                    return
+
         # Handle Copy (Ctrl+C)
         if event.key() == Qt.Key.Key_C and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             self.copy_selected()
