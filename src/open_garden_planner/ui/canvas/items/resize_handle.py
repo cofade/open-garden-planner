@@ -269,9 +269,14 @@ class ResizeHandle(QGraphicsRectItem):
             self._is_dragging = True
             self._drag_start_pos = event.scenePos()
 
-            # Store initial geometry
+            # Store initial geometry — use rect() (actual geometry) rather
+            # than boundingRect() which includes pen width + shadow margin
+            # and would inflate dimensions on every drag.
             if self._parent_item is not None:
-                self._initial_rect = self._parent_item.boundingRect()
+                if hasattr(self._parent_item, 'rect') and callable(self._parent_item.rect):
+                    self._initial_rect = self._parent_item.rect()
+                else:
+                    self._initial_rect = self._parent_item.boundingRect()
                 self._initial_parent_pos = self._parent_item.pos()
 
                 # Notify parent that resize is starting
