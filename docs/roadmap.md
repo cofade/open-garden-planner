@@ -14,9 +14,9 @@
 | ~~7~~ | ~~v1.1 – v1.6~~ | ~~✅ Complete~~ | ~~CAD Precision & Constraints~~ |
 | **8** | **v1.7 – v1.8.3** | **✅ Complete** | **Location, Climate & Planting Calendar** |
 | **9** | **v1.8.5 – v1.8.6** | **✅ Complete** | **Seed Inventory & Propagation Planning** |
-| **10** | **v1.8.6 – v1.9+** | **🔨 In Progress** | **Companion Planting & Crop Rotation** |
-| 11 | v1.10+ | Future | Drawing Tools & Format Integration |
-| 12 | v1.11+ | Future | Smart Features & Simulation |
+| **10** | **v1.8.6 – v1.8.12** | **✅ Complete** | **Companion Planting & Crop Rotation** |
+| **11** | **v1.8.13+** | **🔨 In Progress** | **Bed Interior Design, Visual Polish & Advanced 2D Tools** |
+| 12 | TBD | Future | Smart Features & Simulation |
 | 13 | v2.0 | Future | 3D Visualization |
 
 ---
@@ -895,10 +895,10 @@ Icon designs per tool:
 
 | ID | User Story | Priority | Status |
 |----|------------|----------|--------|
-| US-9.1 | Seed packet data model | Must | ✅ v1.9.0 |
-| US-9.2 | Seed viability database | Must | ✅ v1.9.0 |
-| US-9.3 | Seed inventory management panel | Must | ✅ v1.9.0 |
-| US-9.4 | Seed inventory tab view | Must | ✅ v1.9.1 |
+| US-9.1 | Seed packet data model | Must | ✅ v1.8.4 |
+| US-9.2 | Seed viability database | Must | ✅ v1.8.4 |
+| US-9.3 | Seed inventory management panel | Must | ✅ v1.8.4 |
+| US-9.4 | Seed inventory tab view | Must | ✅ v1.8.4 |
 | US-9.5 | Propagation planning (pre-cultivation) | Should | ✅ v1.8.5 |
 | US-9.6 | Seed-to-plant manual linking | Should | ✅ v1.8.6 |
 
@@ -1074,7 +1074,7 @@ Icon designs per tool:
 
 ---
 
-## Phase 10: Companion Planting & Crop Rotation (v1.9)
+## Phase 10: Companion Planting & Crop Rotation (v1.8.6 – v1.8.12)
 
 **Goal**: Help gardeners optimize plant placement with companion planting recommendations and multi-year crop rotation tracking.
 
@@ -1252,7 +1252,7 @@ Icon designs per tool:
 
 ---
 
-## Phase 11: Bed Interior Design, Visual Polish & Advanced 2D Tools (v1.9.x)
+## Phase 11: Bed Interior Design, Visual Polish & Advanced 2D Tools (v1.8.x)
 
 **Goal**: Perfect the 2D garden planning experience — bed interior design, visual polish, annotations, shape operations, drawing tools, interoperability, smart features, and workflow improvements.
 

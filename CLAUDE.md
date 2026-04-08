@@ -41,21 +41,16 @@ All architecture documentation follows arc42 in `docs/`. Key references:
 
 ## Versioning Protocol
 
-**Git tags are the ONLY source of truth for versions.** Never infer from files.
+**GitHub releases are the ONLY source of truth for versions.** The CI release workflow (`release.yml`) auto-creates tags + releases on every non-chore push to master. **Never create git tags manually.**
 
 ```bash
-git checkout master && git pull origin master
-git fetch --tags
-git describe --tags --abbrev=0   # e.g. v1.8.12 ← THIS is your base
+# Find current version (ground truth):
+"C:\Program Files\GitHub CLI\gh.exe" release list --limit 1 --json tagName --jq '.[0].tagName'
 ```
 
-| Scenario | Bump | Label |
-|----------|------|-------|
-| US within an ongoing phase | patch | `patch` |
-| First US of a brand-new phase | minor | `minor` |
-| Major architectural milestone | major | `major` |
+The CI defaults to **patch bump**. For minor/major bumps, add a `minor` or `major` **label** to the PR before merging — the CI reads PR labels to decide the bump level.
 
-After merge, update **both** `pyproject.toml` and `src/open_garden_planner/__init__.py` to match the new tag. Do NOT wait for CI — the version is deterministic from the bump rule.
+After merge, wait for the CI release, then update **both** `pyproject.toml` and `src/open_garden_planner/__init__.py` to match the new release tag. Push as a `chore:` commit (CI skips these).
 
 ## Workflow
 
@@ -109,9 +104,9 @@ Key rules:
 All user stories from Phase 1 through Phase 10 (US-10.7) are delivered.
 Full history: see `docs/roadmap.md`.
 
-## Progress (Phase 11: Bed Interior Design, Visual Polish & Advanced 2D Tools v1.9.x)
+## Progress (Phase 11: Bed Interior Design, Visual Polish & Advanced 2D Tools v1.8.x)
 
-> **Version note**: First US = v1.9.0 minor bump, subsequent = patch. Never v2.x.
+> **Version note**: CI release workflow (`release.yml`) is the sole source of truth for versions. Never create git tags manually.
 
 | Status | US    | Description                              | Block              |
 | ------ | ----- | ---------------------------------------- | ------------------ |
