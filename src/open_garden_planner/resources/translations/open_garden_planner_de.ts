@@ -267,6 +267,42 @@
         <translation>Kreismuster mit {count} Objekten erstellt</translation>
     </message>
     <message>
+        <source>Select exactly two shapes for boolean operation</source>
+        <translation>Genau zwei Formen für Bool'sche Operation auswählen</translation>
+    </message>
+    <message>
+        <source>Boolean operations require closed shapes (polygon, rectangle, or circle)</source>
+        <translation>Bool'sche Operationen erfordern geschlossene Formen (Polygon, Rechteck oder Kreis)</translation>
+    </message>
+    <message>
+        <source>Shapes must overlap for boolean operations</source>
+        <translation>Formen müssen sich für Bool'sche Operationen überlappen</translation>
+    </message>
+    <message>
+        <source>Boolean {op} produced an empty result</source>
+        <translation>Bool'sche Operation {op} hat ein leeres Ergebnis erzeugt</translation>
+    </message>
+    <message>
+        <source>Boolean {op}</source>
+        <translation>Bool'sche Operation {op}</translation>
+    </message>
+    <message>
+        <source>Apply boolean {op}?</source>
+        <translation>Bool'sche Operation {op} anwenden?</translation>
+    </message>
+    <message>
+        <source>Applied boolean {op}</source>
+        <translation>Bool'sche Operation {op} angewendet</translation>
+    </message>
+    <message>
+        <source>Select one item and one polyline path for array along path</source>
+        <translation>Ein Objekt und einen Pfad (Polylinie) für Muster entlang Pfad auswählen</translation>
+    </message>
+    <message>
+        <source>Created array of {count} items along path</source>
+        <translation>Muster mit {count} Objekten entlang Pfad erstellt</translation>
+    </message>
+    <message>
         <location filename="..\..\ui\canvas\canvas_view.py" line="1837" />
         <source>Distance must be positive</source>
         <translation>Abstand muss positiv sein</translation>
@@ -5421,6 +5457,133 @@ Neue Saison jetzt öffnen?</translation>
     <message>
         <source>Overlay {year} season plants (ghosted)</source>
         <translation>Pflanzen der Saison {year} überlagern (halbtransparent)</translation>
+    </message>
+</context>
+<context>
+    <name>ArrayAlongPathDialog</name>
+    <message>
+        <source>Array Along Path</source>
+        <translation>Muster entlang Pfad</translation>
+    </message>
+    <message>
+        <source>Array Parameters</source>
+        <translation>Muster-Parameter</translation>
+    </message>
+    <message>
+        <source>Mode:</source>
+        <translation>Modus:</translation>
+    </message>
+    <message>
+        <source>By count</source>
+        <translation>Nach Anzahl</translation>
+    </message>
+    <message>
+        <source>By spacing</source>
+        <translation>Nach Abstand</translation>
+    </message>
+    <message>
+        <source>Count:</source>
+        <translation>Anzahl:</translation>
+    </message>
+    <message>
+        <source>Spacing:</source>
+        <translation>Abstand:</translation>
+    </message>
+    <message>
+        <source>Start Offset:</source>
+        <translation>Startversatz:</translation>
+    </message>
+    <message>
+        <source>End Offset:</source>
+        <translation>Endversatz:</translation>
+    </message>
+    <message>
+        <source>Rotation:</source>
+        <translation>Drehung:</translation>
+    </message>
+    <message>
+        <source>Fixed orientation</source>
+        <translation>Feste Ausrichtung</translation>
+    </message>
+    <message>
+        <source>Follow path tangent</source>
+        <translation>Pfadtangente folgen</translation>
+    </message>
+</context>
+<context>
+    <name>PolygonItem</name>
+    <message>
+        <source>Boolean</source>
+        <translation>Bool'sche Operation</translation>
+    </message>
+    <message>
+        <source>Union</source>
+        <translation>Vereinigung</translation>
+    </message>
+    <message>
+        <source>Intersect</source>
+        <translation>Schnittmenge</translation>
+    </message>
+    <message>
+        <source>Subtract</source>
+        <translation>Subtraktion</translation>
+    </message>
+    <message>
+        <source>Array Along Path...</source>
+        <translation>Muster entlang Pfad...</translation>
+    </message>
+</context>
+<context>
+    <name>RectangleItem</name>
+    <message>
+        <source>Boolean</source>
+        <translation>Bool'sche Operation</translation>
+    </message>
+    <message>
+        <source>Union</source>
+        <translation>Vereinigung</translation>
+    </message>
+    <message>
+        <source>Intersect</source>
+        <translation>Schnittmenge</translation>
+    </message>
+    <message>
+        <source>Subtract</source>
+        <translation>Subtraktion</translation>
+    </message>
+    <message>
+        <source>Array Along Path...</source>
+        <translation>Muster entlang Pfad...</translation>
+    </message>
+</context>
+<context>
+    <name>CircleItem</name>
+    <message>
+        <source>Boolean</source>
+        <translation>Bool'sche Operation</translation>
+    </message>
+    <message>
+        <source>Union</source>
+        <translation>Vereinigung</translation>
+    </message>
+    <message>
+        <source>Intersect</source>
+        <translation>Schnittmenge</translation>
+    </message>
+    <message>
+        <source>Subtract</source>
+        <translation>Subtraktion</translation>
+    </message>
+    <message>
+        <source>Array Along Path...</source>
+        <translation>Muster entlang Pfad...</translation>
+    </message>
+</context>
+<context>
+    <name>PolylineItem</name>
+    <message>
+        <source>Array Along Path...</source>
+        <translation>Muster entlang Pfad...</translation>
     </message>
 </context>
 </TS>

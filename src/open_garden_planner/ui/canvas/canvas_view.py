@@ -3423,6 +3423,226 @@ class CanvasView(QGraphicsView):
             self.tr("Created circular array of {count} items").format(count=count)
         )
 
+    def boolean_operation(self, operation: str) -> None:
+        """Apply a boolean operation (union/intersect/subtract) on two selected shapes."""
+        from PyQt6.QtGui import QColor, QPen
+        from PyQt6.QtWidgets import QMessageBox
+
+        from open_garden_planner.core.shape_boolean import (
+            boolean_intersect,
+            boolean_subtract,
+            boolean_union,
+            item_to_painter_path,
+        )
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+        from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+        selected = self.scene().selectedItems()
+        if len(selected) != 2:
+            self.set_status_message(
+                self.tr("Select exactly two shapes for boolean operation")
+            )
+            return
+
+        item_a, item_b = selected[0], selected[1]
+
+        path_a = item_to_painter_path(item_a)
+        path_b = item_to_painter_path(item_b)
+        if path_a is None or path_b is None:
+            self.set_status_message(
+                self.tr("Boolean operations require closed shapes (polygon, rectangle, or circle)")
+            )
+            return
+
+        if not path_a.intersects(path_b):
+            self.set_status_message(
+                self.tr("Shapes must overlap for boolean operations")
+            )
+            return
+
+        ops = {"union": boolean_union, "intersect": boolean_intersect, "subtract": boolean_subtract}
+        result_poly = ops[operation](path_a, path_b)
+        if result_poly is None:
+            self.set_status_message(
+                self.tr("Boolean {op} produced an empty result").format(op=operation)
+            )
+            return
+
+        # Preview
+        from PyQt6.QtWidgets import QGraphicsPolygonItem as QGPolyItem
+
+        preview = QGPolyItem(result_poly)
+        preview.setPen(QPen(QColor(60, 130, 200), 2.0, Qt.PenStyle.DashLine))
+        preview.setBrush(QColor(60, 130, 200, 50))
+        preview.setZValue(9999)
+        self.scene().addItem(preview)
+
+        answer = QMessageBox.question(
+            self,
+            self.tr("Boolean {op}").format(op=operation.capitalize()),
+            self.tr("Apply boolean {op}?").format(op=operation),
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+        )
+
+        self.scene().removeItem(preview)
+
+        if answer != QMessageBox.StandardButton.Ok:
+            return
+
+        # Create result PolygonItem
+        result_item = PolygonItem.from_polygon(result_poly)
+
+        # Inherit layer from item_a
+        if isinstance(item_a, GardenItemMixin) and item_a.layer_id:
+            result_item.layer_id = item_a.layer_id
+
+        from open_garden_planner.core import BooleanShapeCommand
+
+        command = BooleanShapeCommand(
+            self.scene(), item_a, item_b, result_item, operation
+        )
+        self._command_manager.execute(command)
+
+        result_item.setSelected(True)
+        self.set_status_message(
+            self.tr("Applied boolean {op}").format(op=operation)
+        )
+
+    def create_array_along_path(self) -> None:
+        """Create copies of an item distributed along a polyline path."""
+        from PyQt6.QtWidgets import QDialog
+
+        from open_garden_planner.core.path_sampling import sample_points_along_path
+        from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+        from open_garden_planner.ui.dialogs.array_along_path_dialog import (
+            ArrayAlongPathDialog,
+        )
+
+        selected = self.scene().selectedItems()
+        if len(selected) != 2:
+            self.set_status_message(
+                self.tr("Select one item and one polyline path for array along path")
+            )
+            return
+
+        # Identify the path and the source item
+        path_item = None
+        source_item = None
+        for item in selected:
+            if isinstance(item, PolylineItem):
+                path_item = item
+            else:
+                source_item = item
+
+        if path_item is None or source_item is None:
+            self.set_status_message(
+                self.tr("Select one item and one polyline path for array along path")
+            )
+            return
+
+        # Get the path in scene coordinates
+        from PyQt6.QtGui import QPainterPath
+
+        local_path = path_item.path()
+        # Map path to scene coordinates by sampling and rebuilding
+        scene_path = QPainterPath()
+        n_segments = 200
+        for i in range(n_segments + 1):
+            t = i / n_segments
+            local_pt = local_path.pointAtPercent(t)
+            scene_pt = path_item.mapToScene(local_pt)
+            if i == 0:
+                scene_path.moveTo(scene_pt)
+            else:
+                scene_path.lineTo(scene_pt)
+
+        dlg = ArrayAlongPathDialog(self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        # Determine count
+        total_length = scene_path.length()
+        start_pct = dlg.start_offset_pct / 100.0
+        end_pct = 1.0 - dlg.end_offset_pct / 100.0
+        usable_length = total_length * (end_pct - start_pct)
+
+        if dlg.use_spacing_mode:
+            count = max(2, int(usable_length / dlg.spacing_cm) + 1)
+        else:
+            count = dlg.count
+
+        points = sample_points_along_path(
+            scene_path, count, start_pct, end_pct, dlg.follow_tangent
+        )
+
+        obj_data = self._serialize_item(source_item)
+        if not obj_data:
+            return
+
+        # Determine the center of the source item
+        if "center_x" in obj_data:
+            src_cx = obj_data["center_x"]
+            src_cy = obj_data["center_y"]
+        elif "points" in obj_data:
+            xs = [p["x"] for p in obj_data["points"]]
+            ys = [p["y"] for p in obj_data["points"]]
+            src_cx = (min(xs) + max(xs)) / 2.0
+            src_cy = (min(ys) + max(ys)) / 2.0
+        else:
+            src_cx = obj_data["x"] + obj_data.get("width", 0.0) / 2.0
+            src_cy = obj_data["y"] + obj_data.get("height", 0.0) / 2.0
+
+        new_items = []
+        for pt, angle in points:
+            offset_x = pt.x() - src_cx
+            offset_y = pt.y() - src_cy
+
+            obj_copy = obj_data.copy()
+
+            if "points" in obj_copy:
+                pts = [
+                    {"x": p["x"] + offset_x, "y": p["y"] + offset_y}
+                    for p in obj_data["points"]
+                ]
+                obj_copy["points"] = pts
+            elif "center_x" in obj_copy:
+                obj_copy["center_x"] = pt.x()
+                obj_copy["center_y"] = pt.y()
+            else:
+                item_w = obj_data.get("width", 0.0)
+                item_h = obj_data.get("height", 0.0)
+                obj_copy["x"] = pt.x() - item_w / 2.0
+                obj_copy["y"] = pt.y() - item_h / 2.0
+
+            item = self._deserialize_item(obj_copy)
+            if item:
+                if dlg.follow_tangent:
+                    # Rotate around the item's visual center, not its local origin,
+                    # so the item stays centred on the path point after rotation.
+                    item.setTransformOriginPoint(item.boundingRect().center())
+                    item.setRotation(-angle)
+                new_items.append(item)
+
+        if not new_items:
+            return
+
+        from open_garden_planner.core import ArrayAlongPathCommand
+
+        command = ArrayAlongPathCommand(self.scene(), new_items)
+        self._command_manager.execute(command)
+
+        # Select original + all copies
+        self.scene().clearSelection()
+        source_item.setSelected(True)
+        for item in new_items:
+            item.setSelected(True)
+
+        self.set_status_message(
+            self.tr("Created array of {count} items along path").format(
+                count=len(new_items) + 1
+            )
+        )
+
     def _serialize_item(self, item: QGraphicsItem) -> dict | None:
         """Serialize a single graphics item (reuses project manager logic).
 

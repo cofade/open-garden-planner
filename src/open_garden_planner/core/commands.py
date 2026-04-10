@@ -1112,3 +1112,65 @@ class UngroupCommand(Command):
             item.setSelected(False)
             self._group.addToGroup(item)  # type: ignore[attr-defined]
         self._group.setSelected(True)
+
+
+class BooleanShapeCommand(Command):
+    """Apply a boolean operation (union/intersect/subtract) on two shapes."""
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        item_a: QGraphicsItem,
+        item_b: QGraphicsItem,
+        result_item: QGraphicsItem,
+        operation: str,
+    ) -> None:
+        self._scene = scene
+        self._item_a = item_a
+        self._item_b = item_b
+        self._result_item = result_item
+        self._operation = operation
+
+    @property
+    def description(self) -> str:
+        return f"Boolean {self._operation}"
+
+    def execute(self) -> None:
+        if self._item_a.scene() is not None:
+            self._scene.removeItem(self._item_a)
+        if self._item_b.scene() is not None:
+            self._scene.removeItem(self._item_b)
+        if self._result_item.scene() is None:
+            self._scene.addItem(self._result_item)
+
+    def undo(self) -> None:
+        if self._result_item.scene() is not None:
+            self._scene.removeItem(self._result_item)
+        if self._item_a.scene() is None:
+            self._scene.addItem(self._item_a)
+        if self._item_b.scene() is None:
+            self._scene.addItem(self._item_b)
+
+
+class ArrayAlongPathCommand(Command):
+    """Place copies of an item along a path."""
+
+    def __init__(
+        self, scene: QGraphicsScene, new_items: list[QGraphicsItem]
+    ) -> None:
+        self._scene = scene
+        self._items = list(new_items)
+
+    @property
+    def description(self) -> str:
+        return f"Array along path ({len(self._items)} copies)"
+
+    def execute(self) -> None:
+        for item in self._items:
+            if item.scene() is None:
+                self._scene.addItem(item)
+
+    def undo(self) -> None:
+        for item in self._items:
+            if item.scene() is not None:
+                self._scene.removeItem(item)

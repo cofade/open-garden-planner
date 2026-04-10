@@ -79,14 +79,14 @@ After merge, wait for the CI release, then update **both** `pyproject.toml` and 
 
 ## Translation (i18n)
 
-**Always use `self.tr("string")` for every user-visible string in any `QWidget` subclass.**
+> **MUST — every feature, no exceptions.** Every user-visible string added in any file MUST be wrapped for translation. Skipping this is a bug.
+
+- `QWidget`/`QDialog` subclasses → `self.tr("string")`
+- `QGraphicsItem` context menus (non-QObject) → `QCoreApplication.translate("ClassName", "string")`
+- Module-level dicts → `QT_TR_NOOP("string")`, translate later with `QCoreApplication.translate()`
+- `CollapsiblePanel(title)` → wrap at the **call site**, not inside the panel
 
 Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crosscutting-concepts/` section 8.3.
-
-Key rules:
-- `CollapsiblePanel(title)` → use `self.tr()` at the **call site**, not inside the panel
-- `QT_TR_NOOP("string")` for module-level dicts, translate later with `QCoreApplication.translate()`
-- Non-QObject contexts → `QCoreApplication.translate("ContextName", "string")`
 
 ## Testing Notes
 
