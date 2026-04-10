@@ -21,6 +21,34 @@
 
 ---
 
+## Development Standards
+
+> These rules apply to every contribution — AI-assisted or human.
+
+### Integration tests are mandatory
+
+**Every User Story must ship with at least one end-to-end integration test.** No PR merges without it.
+
+- Tests live in `tests/integration/test_<feature>.py`
+- They exercise the full UI workflow: tool activate → mouse gesture → scene state assertion
+- Shared fixtures and coordinate system notes: `tests/integration/conftest.py`
+- Full policy and pattern reference: `docs/08-crosscutting-concepts/` section 8.10
+
+### Workflow per US
+
+1. Implement feature with type hints
+2. Write unit/widget tests (`tests/unit/`, `tests/ui/`)
+3. **Write integration test** (`tests/integration/`) — mandatory
+4. Run `pytest tests/ -v` and `ruff check src/` — must be green
+5. Build exe, wait for manual user approval
+6. Commit, push, PR, merge
+
+### Translation (i18n)
+
+Every user-visible string must be wrapped for translation. See `docs/08-crosscutting-concepts/` section 8.3.
+
+---
+
 ## ~~Phase 1: Foundation (v0.1)~~ ✅
 
 **Goal**: Basic working application with canvas, drawing, and file operations.

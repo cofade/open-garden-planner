@@ -34,6 +34,7 @@ All architecture documentation follows arc42 in `docs/`. Key references:
 | CI/CD, installer, release process    | `docs/07-deployment-view/`                            |
 | i18n rules & translation how-to      | `docs/08-crosscutting-concepts/` (section 8.3)        |
 | QGraphicsView overlay widget patterns | `docs/08-crosscutting-concepts/` (section 8.9)       |
+| Integration test policy (MANDATORY)  | `docs/08-crosscutting-concepts/` (section 8.10)      |
 | Known pitfalls & technical debt      | `docs/11-risks-and-technical-debt/` (section 11.4)    |
 | Functional requirements (FR-*)       | `docs/functional-requirements.md`                     |
 | Architecture decisions (ADRs)        | `docs/09-architecture-decisions/`                     |
@@ -65,15 +66,16 @@ After merge, wait for the CI release, then update **both** `pyproject.toml` and 
 3. Clarify with `AskUserQuestion` if needed
 4. Implement with type hints
 5. Write tests, run lint
-6. Build exe and verify it launches (see Quick Reference)
-7. **WAIT for user to manually test and approve** — provide a testing checklist
-8. After approval, commit: `feat(US-X.X): Description`
-9. Push and create PR via GitHub CLI:
+6. **Write integration test** — every US needs at least one end-to-end test in `tests/integration/test_<feature>.py` that simulates the primary UI workflow (tool activate → gesture → verify state). **No merge without this. No exceptions.** See `docs/08-crosscutting-concepts/` section 8.10.
+7. Build exe and verify it launches (see Quick Reference)
+8. **WAIT for user to manually test and approve** — provide a testing checklist
+9. After approval, commit: `feat(US-X.X): Description`
+10. Push and create PR via GitHub CLI:
    - `git push -u origin feature/US-X.X-short-description`
    - `"C:\Program Files\GitHub CLI\gh.exe" pr create --title "feat(US-X.X): Title" --body "..."`
    - Merge: `"C:\Program Files\GitHub CLI\gh.exe" pr merge <PR#> --squash --delete-branch --admin`
-10. Switch back to master, sync version (see Versioning Protocol)
-11. `/clear` context
+11. Switch back to master, sync version (see Versioning Protocol)
+12. `/clear` context
 
 **Reminders**: Never commit to master. Never commit before user approval. Always create branch BEFORE changes.
 
