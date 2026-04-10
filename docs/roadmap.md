@@ -39,13 +39,24 @@
 1. Implement feature with type hints
 2. Write unit/widget tests (`tests/unit/`, `tests/ui/`)
 3. **Write integration test** (`tests/integration/`) — mandatory
-4. Run `pytest tests/ -v` and `ruff check src/` — must be green
+4. Run `pytest tests/ -v`, `ruff check src/`, and `bandit -r src/ --severity-level high` — must all be green
 5. Build exe, wait for manual user approval
 6. Commit, push, PR, merge
 
 ### Translation (i18n)
 
 Every user-visible string must be wrapped for translation. See `docs/08-crosscutting-concepts/` section 8.3.
+
+---
+
+## Dev Infrastructure
+
+> Infrastructure improvements that apply project-wide, independent of product user stories.
+> These are tracked here rather than as numbered product US entries.
+
+| Status | ID   | Description            | Notes                                                         |
+|--------|------|------------------------|---------------------------------------------------------------|
+| ✅     | DI-1 | SAST pipeline (Bandit) | HIGH-severity scan in CI; `bandit>=1.7.0` added as dev dep   |
 
 ---
 

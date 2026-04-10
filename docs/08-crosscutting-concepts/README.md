@@ -341,3 +341,26 @@ def canvas(qtbot):
 ### CI
 
 Integration tests run automatically in CI (`ci.yml`) alongside unit and widget tests. Qt rendering uses `QT_QPA_PLATFORM=offscreen` — no display server required.
+
+## 8.11 Security Scanning (SAST)
+
+**Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).
+
+**CI enforcement:** The `security` job in `ci.yml` runs `bandit -r src/ --severity-level high` on every push. CI fails only on HIGH-severity findings. MEDIUM and LOW findings are printed in the log for awareness but do not block merges.
+
+**Local use:**
+```bash
+venv/Scripts/python.exe -m bandit -r src/ --severity-level high
+
+# See ALL findings (MEDIUM + LOW) for awareness:
+venv/Scripts/python.exe -m bandit -r src/
+```
+
+**Suppressing a false positive** (use sparingly — always add a justification comment):
+```python
+result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, never from user input
+```
+
+**Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
+
+**Adding new checks:** If a feature introduces a new code pattern that warrants attention (e.g. cryptography, XML parsing, network server code), review the relevant Bandit rule IDs and verify the CI job covers them.

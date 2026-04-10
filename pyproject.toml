@@ -38,6 +38,7 @@ dev = [
     "pytest-cov>=4.1.0",
     "ruff>=0.1.0",
     "mypy>=1.8.0",
+    "bandit>=1.7.0",
 ]
 
 [project.scripts]

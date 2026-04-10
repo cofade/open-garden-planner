@@ -404,7 +404,7 @@ def _stable_random_for_item(item_id: str, seed_offset: int = 0) -> float:
     Returns:
         Float between 0.0 and 1.0
     """
-    h = hashlib.md5(f"{item_id}:{seed_offset}".encode()).hexdigest()
+    h = hashlib.md5(f"{item_id}:{seed_offset}".encode(), usedforsecurity=False).hexdigest()
     return int(h[:8], 16) / 0xFFFFFFFF
 
 

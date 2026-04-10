@@ -14,6 +14,9 @@ venv/Scripts/python.exe -m pytest tests/ -v
 # Lint
 venv/Scripts/python.exe -m ruff check src/
 
+# Security scan
+venv/Scripts/python.exe -m bandit -r src/ --severity-level high
+
 # Build & verify exe (before every merge)
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe
@@ -35,6 +38,7 @@ All architecture documentation follows arc42 in `docs/`. Key references:
 | i18n rules & translation how-to      | `docs/08-crosscutting-concepts/` (section 8.3)        |
 | QGraphicsView overlay widget patterns | `docs/08-crosscutting-concepts/` (section 8.9)       |
 | Integration test policy (MANDATORY)  | `docs/08-crosscutting-concepts/` (section 8.10)      |
+| Security scanning / SAST (Bandit)    | `docs/08-crosscutting-concepts/` (section 8.11)      |
 | Known pitfalls & technical debt      | `docs/11-risks-and-technical-debt/` (section 11.4)    |
 | Functional requirements (FR-*)       | `docs/functional-requirements.md`                     |
 | Architecture decisions (ADRs)        | `docs/09-architecture-decisions/`                     |
@@ -65,7 +69,10 @@ After merge, wait for the CI release, then update **both** `pyproject.toml` and 
 2. Read user story from `docs/roadmap.md`
 3. Clarify with `AskUserQuestion` if needed
 4. Implement with type hints
-5. Write tests, run lint
+5. Write tests, run lint and security scan:
+   - `pytest tests/ -v`
+   - `ruff check src/`
+   - `bandit -r src/ --severity-level high`
 6. **Write integration test** — every US needs at least one end-to-end test in `tests/integration/test_<feature>.py` that simulates the primary UI workflow (tool activate → gesture → verify state). **No merge without this. No exceptions.** See `docs/08-crosscutting-concepts/` section 8.10.
 7. Build exe and verify it launches (see Quick Reference)
 8. **WAIT for user to manually test and approve** — provide a testing checklist
