@@ -128,11 +128,12 @@ Applied via QSS stylesheets. Theme preference stored in QSettings.
 2. **Read user story** from roadmap
 3. **Implement** with type hints
 4. **Write tests**, run lint (`pytest tests/ -v && ruff check src/`)
-5. **Manual testing** by user
-6. **Commit** after approval: `feat(US-X.X): Description`
-7. **Push and create PR** via GitHub CLI
-8. **Merge with admin flag** (squash merge)
-9. **Switch back to master**: `git checkout master && git pull`
+5. **Write integration test** — see section 8.10; mandatory, no exceptions
+6. **Manual testing** by user
+7. **Commit** after approval: `feat(US-X.X): Description`
+8. **Push and create PR** via GitHub CLI
+9. **Merge with admin flag** (squash merge)
+10. **Switch back to master**: `git checkout master && git pull`
 
 ### Code Quality Standards
 
@@ -275,3 +276,68 @@ User preferences stored via QSettings (platform-native):
 - Auto-save interval
 - Grid and snap settings
 - Last used export options
+
+## 8.10 Integration Test Policy
+
+**Every user story (US) must ship with at least one end-to-end integration test. No merge without it. No exceptions.**
+
+### Rationale
+
+Unit tests and widget tests protect individual components but cannot catch regressions in the interaction between tools, canvas, and scene — the most failure-prone area of the app. Integration tests lock in observed behavior so that refactoring and feature additions don't silently break existing workflows.
+
+### Test location
+
+All integration tests live in `tests/integration/`. Shared fixtures are in `tests/integration/conftest.py`.
+
+### Minimum requirement per US
+
+Each US must have at least one test that exercises its **primary workflow** end to end:
+
+1. Activate the relevant tool (if applicable)
+2. Simulate the user gesture (mouse press → move → release)
+3. Assert the resulting scene state (item created, property changed, item removed, etc.)
+
+### How tool interaction is tested
+
+Tools expose a direct API that bypasses the Qt event pipeline while still testing real business logic:
+
+```python
+tool.mouse_press(event, scene_pos: QPointF)
+tool.mouse_move(event, scene_pos: QPointF)
+tool.mouse_release(event, scene_pos: QPointF)
+```
+
+- `event`: `MagicMock(spec=QMouseEvent)` with `event.button.return_value = Qt.MouseButton.LeftButton`
+- `scene_pos`: Qt Y-down scene coordinates (not canvas Y-up coordinates)
+- Always disable snapping in tests: `view.set_snap_enabled(False)`
+
+### Standard fixture pattern
+
+```python
+@pytest.fixture
+def canvas(qtbot):
+    scene = CanvasScene(width_cm=5000, height_cm=3000)
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    view.set_snap_enabled(False)
+    return view
+```
+
+### Coordinate system reminder
+
+- **Scene coordinates** (Y-down, what tools receive): `(0, 0)` is top-left
+- **Canvas coordinates** (Y-up, what the user sees): `(0, 0)` is bottom-left
+- Pass scene coordinates to tool methods; use `view.scene_to_canvas()` / `view.canvas_to_scene()` when conversion is needed
+
+### What integration tests cover
+
+| Category | File | Tests |
+|----------|------|-------|
+| Drawing workflows | `test_drawing_workflows.py` | Rectangle, Circle, Polygon, Text, cancel |
+| Tool switching | `test_tool_switching.py` | Default tool, switch, cancel-on-switch, Escape |
+| Selection & resize | `test_selection_and_resize.py` | Select, deselect, move, mid-edge constraint, corner |
+| Undo/Redo | `test_undo_redo.py` | Draw→undo, draw→undo→redo, move→undo, multi-action stack |
+
+### CI
+
+Integration tests run automatically in CI (`ci.yml`) alongside unit and widget tests. Qt rendering uses `QT_QPA_PLATFORM=offscreen` — no display server required.
