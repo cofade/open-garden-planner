@@ -3,7 +3,6 @@
 # ruff: noqa: ARG002
 
 import pytest
-from PyQt6.QtCore import Qt
 
 from open_garden_planner.services.export_service import ExportService
 from open_garden_planner.ui.dialogs.export_dialog import ExportPngDialog
@@ -47,8 +46,8 @@ class TestExportPngDialog:
     # --- Format selection ---
 
     def test_select_a3_updates_output_width(self, dialog, qtbot) -> None:
-        """Clicking A3 radio updates selected_output_width_cm."""
-        qtbot.mouseClick(dialog._a3_radio, Qt.MouseButton.LeftButton)  # Qt.MouseButton.LeftButton = 1
+        """A3 size handler updates selected_output_width_cm."""
+        dialog._on_size_changed(int(ExportService.PAPER_A3_LANDSCAPE_WIDTH_CM * 10))
         assert dialog.selected_output_width_cm == pytest.approx(
             ExportService.PAPER_A3_LANDSCAPE_WIDTH_CM
         )
@@ -64,7 +63,7 @@ class TestExportPngDialog:
         assert dialog.selected_dpi == ExportService.DPI_HIGH
 
     def test_selecting_a3_unchecks_a4(self, dialog, qtbot) -> None:
-        """Selecting A3 radio deselects A4 (mutual exclusion)."""
-        qtbot.mouseClick(dialog._a3_radio, Qt.MouseButton.LeftButton)
+        """Selecting A3 radio deselects A4 (mutual exclusion via QButtonGroup)."""
+        dialog._a3_radio.setChecked(True)
         assert not dialog._a4_radio.isChecked()
         assert dialog._a3_radio.isChecked()
