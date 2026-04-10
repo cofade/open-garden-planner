@@ -4,7 +4,7 @@ import math
 import uuid
 from typing import Any
 
-from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QGraphicsItem,
@@ -561,6 +561,30 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         # Circular array action
         circular_array_action = menu.addAction("Create Circular Array...")
 
+        # Boolean operations (requires exactly 2 selected closed shapes)
+        boolean_union_action = None
+        boolean_intersect_action = None
+        boolean_subtract_action = None
+        array_along_path_action = None
+        selected = self.scene().selectedItems()
+        if len(selected) == 2:
+            from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+            from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+            from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+            shape_types = (PolygonItem, RectangleItem, CircleItem)
+            if all(isinstance(s, shape_types) for s in selected):
+                menu.addSeparator()
+                _ = QCoreApplication.translate
+                bool_menu = menu.addMenu(_("RectangleItem", "Boolean"))
+                boolean_union_action = bool_menu.addAction(_("RectangleItem", "Union"))
+                boolean_intersect_action = bool_menu.addAction(_("RectangleItem", "Intersect"))
+                boolean_subtract_action = bool_menu.addAction(_("RectangleItem", "Subtract"))
+            if any(isinstance(s, PolylineItem) for s in selected):
+                array_along_path_action = menu.addAction(
+                    QCoreApplication.translate("RectangleItem", "Array Along Path...")
+                )
+
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
@@ -625,6 +649,27 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     view = views[0]
                     if hasattr(view, "create_circular_array"):
                         view.create_circular_array()
+        elif action is not None and action in (
+            boolean_union_action, boolean_intersect_action, boolean_subtract_action
+        ):
+            op_map = {
+                boolean_union_action: "union",
+                boolean_intersect_action: "intersect",
+                boolean_subtract_action: "subtract",
+            }
+            scene = self.scene()
+            if scene:
+                for v in scene.views():
+                    if hasattr(v, "boolean_operation"):
+                        v.boolean_operation(op_map[action])
+                        break
+        elif action == array_along_path_action and array_along_path_action is not None:
+            scene = self.scene()
+            if scene:
+                for v in scene.views():
+                    if hasattr(v, "create_array_along_path"):
+                        v.create_array_along_path()
+                        break
 
     @classmethod
     def from_rect(cls, rect: QRectF) -> "RectangleItem":

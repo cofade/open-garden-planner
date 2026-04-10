@@ -4,7 +4,7 @@ import math
 import uuid
 from typing import Any
 
-from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QGraphicsItem,
@@ -921,6 +921,14 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         # Circular array action
         circular_array_action = menu.addAction("Create Circular Array...")
 
+        # Array along path (requires exactly 2 selected, one being a polyline)
+        array_along_path_action = None
+        selected = self.scene().selectedItems()
+        if len(selected) == 2:
+            array_along_path_action = menu.addAction(
+                QCoreApplication.translate("PolylineItem", "Array Along Path...")
+            )
+
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
@@ -977,3 +985,10 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                     view = views[0]
                     if hasattr(view, "create_circular_array"):
                         view.create_circular_array()
+        elif action == array_along_path_action and array_along_path_action is not None:
+            scene = self.scene()
+            if scene:
+                for v in scene.views():
+                    if hasattr(v, "create_array_along_path"):
+                        v.create_array_along_path()
+                        break

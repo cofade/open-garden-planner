@@ -268,6 +268,42 @@
             <translation>Created circular array of {count} items</translation>
         </message>
         <message>
+            <source>Select exactly two shapes for boolean operation</source>
+            <translation>Select exactly two shapes for boolean operation</translation>
+        </message>
+        <message>
+            <source>Boolean operations require closed shapes (polygon, rectangle, or circle)</source>
+            <translation>Boolean operations require closed shapes (polygon, rectangle, or circle)</translation>
+        </message>
+        <message>
+            <source>Shapes must overlap for boolean operations</source>
+            <translation>Shapes must overlap for boolean operations</translation>
+        </message>
+        <message>
+            <source>Boolean {op} produced an empty result</source>
+            <translation>Boolean {op} produced an empty result</translation>
+        </message>
+        <message>
+            <source>Boolean {op}</source>
+            <translation>Boolean {op}</translation>
+        </message>
+        <message>
+            <source>Apply boolean {op}?</source>
+            <translation>Apply boolean {op}?</translation>
+        </message>
+        <message>
+            <source>Applied boolean {op}</source>
+            <translation>Applied boolean {op}</translation>
+        </message>
+        <message>
+            <source>Select one item and one polyline path for array along path</source>
+            <translation>Select one item and one polyline path for array along path</translation>
+        </message>
+        <message>
+            <source>Created array of {count} items along path</source>
+            <translation>Created array of {count} items along path</translation>
+        </message>
+        <message>
             <location filename="..\..\ui\canvas\canvas_view.py" line="1837" />
             <source>Distance must be positive</source>
             <translation>Distance must be positive</translation>
@@ -4650,4 +4686,131 @@ Open the new season now?</translation>
             <translation>Overlay {year} season plants (ghosted)</translation>
         </message>
     </context>
+<context>
+    <name>ArrayAlongPathDialog</name>
+    <message>
+        <source>Array Along Path</source>
+        <translation>Array Along Path</translation>
+    </message>
+    <message>
+        <source>Array Parameters</source>
+        <translation>Array Parameters</translation>
+    </message>
+    <message>
+        <source>Mode:</source>
+        <translation>Mode:</translation>
+    </message>
+    <message>
+        <source>By count</source>
+        <translation>By count</translation>
+    </message>
+    <message>
+        <source>By spacing</source>
+        <translation>By spacing</translation>
+    </message>
+    <message>
+        <source>Count:</source>
+        <translation>Count:</translation>
+    </message>
+    <message>
+        <source>Spacing:</source>
+        <translation>Spacing:</translation>
+    </message>
+    <message>
+        <source>Start Offset:</source>
+        <translation>Start Offset:</translation>
+    </message>
+    <message>
+        <source>End Offset:</source>
+        <translation>End Offset:</translation>
+    </message>
+    <message>
+        <source>Rotation:</source>
+        <translation>Rotation:</translation>
+    </message>
+    <message>
+        <source>Fixed orientation</source>
+        <translation>Fixed orientation</translation>
+    </message>
+    <message>
+        <source>Follow path tangent</source>
+        <translation>Follow path tangent</translation>
+    </message>
+</context>
+<context>
+    <name>PolygonItem</name>
+    <message>
+        <source>Boolean</source>
+        <translation>Boolean</translation>
+    </message>
+    <message>
+        <source>Union</source>
+        <translation>Union</translation>
+    </message>
+    <message>
+        <source>Intersect</source>
+        <translation>Intersect</translation>
+    </message>
+    <message>
+        <source>Subtract</source>
+        <translation>Subtract</translation>
+    </message>
+    <message>
+        <source>Array Along Path...</source>
+        <translation>Array Along Path...</translation>
+    </message>
+</context>
+<context>
+    <name>RectangleItem</name>
+    <message>
+        <source>Boolean</source>
+        <translation>Boolean</translation>
+    </message>
+    <message>
+        <source>Union</source>
+        <translation>Union</translation>
+    </message>
+    <message>
+        <source>Intersect</source>
+        <translation>Intersect</translation>
+    </message>
+    <message>
+        <source>Subtract</source>
+        <translation>Subtract</translation>
+    </message>
+    <message>
+        <source>Array Along Path...</source>
+        <translation>Array Along Path...</translation>
+    </message>
+</context>
+<context>
+    <name>CircleItem</name>
+    <message>
+        <source>Boolean</source>
+        <translation>Boolean</translation>
+    </message>
+    <message>
+        <source>Union</source>
+        <translation>Union</translation>
+    </message>
+    <message>
+        <source>Intersect</source>
+        <translation>Intersect</translation>
+    </message>
+    <message>
+        <source>Subtract</source>
+        <translation>Subtract</translation>
+    </message>
+    <message>
+        <source>Array Along Path...</source>
+        <translation>Array Along Path...</translation>
+    </message>
+</context>
+<context>
+    <name>PolylineItem</name>
+    <message>
+        <source>Array Along Path...</source>
+        <translation>Array Along Path...</translation>
+    </message>
+</context>
 </TS>
