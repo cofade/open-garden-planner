@@ -619,9 +619,23 @@ class CanvasView(QGraphicsView):
         command through the command manager so the full operation (constraint
         addition + position changes) is a single Ctrl+Z step.
         """
+        from open_garden_planner.core.constraints import ConstraintType as _CT
+
+        # CAD convention: A is constrained to B → A moves, B stays (reference).
+        # Exception: if A already has a FIXED constraint the FIXED pre-pass
+        # inside solve_anchored will pin A, so B must remain free to move.
+        graph = self._canvas_scene.constraint_graph
+        anchor_a_id = command._anchor_a.item_id  # type: ignore[attr-defined]
+        anchor_b_id = command._anchor_b.item_id  # type: ignore[attr-defined]
+        a_is_fixed = any(
+            c.constraint_type == _CT.FIXED and c.anchor_a.item_id == anchor_a_id
+            for c in graph.constraints.values()
+        )
+        extra_pinned: set | None = None if a_is_fixed else {anchor_b_id}
+
         # 1. Add the constraint temporarily so the solver can compute moves.
         command.execute()
-        moves, vertex_moves = self._compute_constraint_solve_moves()
+        moves, vertex_moves = self._compute_constraint_solve_moves(extra_pinned=extra_pinned)
         # 2. Remove temporarily — we want the official execute() below to do it.
         command.undo()
         # 3. Embed the moves into the command so execute() + undo() handle them.
@@ -1867,6 +1881,7 @@ class CanvasView(QGraphicsView):
             constraint_id: UUID of the constraint to edit
         """
         from open_garden_planner.core.commands import EditConstraintDistanceCommand
+        from open_garden_planner.core.constraints import ConstraintType
         from open_garden_planner.core.tools.constraint_tool import DistanceInputDialog
 
         graph = self._canvas_scene.constraint_graph
@@ -1880,9 +1895,22 @@ class CanvasView(QGraphicsView):
             if abs(new_distance - constraint.target_distance) > 0.01:
                 old_distance = constraint.target_distance
 
+                # CAD convention: A moves, B stays.  If A is already FIXED the
+                # pre-pass in solve_anchored pins it, so B must remain free.
+                a_is_fixed = any(
+                    c.constraint_type == ConstraintType.FIXED
+                    and c.anchor_a.item_id == constraint.anchor_a.item_id
+                    for c in graph.constraints.values()
+                )
+                extra_pinned: set | None = (
+                    None if a_is_fixed else {constraint.anchor_b.item_id}
+                )
+
                 # Temporarily apply new distance so solver can compute moves
                 constraint.target_distance = new_distance
-                item_moves, vertex_moves = self._compute_constraint_solve_moves()
+                item_moves, vertex_moves = self._compute_constraint_solve_moves(
+                    extra_pinned=extra_pinned
+                )
                 constraint.target_distance = old_distance  # command will set it
 
                 command = EditConstraintDistanceCommand(
@@ -1946,12 +1974,20 @@ class CanvasView(QGraphicsView):
 
     def _compute_constraint_solve_moves(
         self,
+        extra_pinned: "set | None" = None,
     ) -> "tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]":
-        """Run the constraint solver (all items free) and return position changes.
+        """Run the constraint solver and return position changes.
 
         Should be called while the constraint graph already has the desired
         target distances set.  Returns a list of (item, old_pos, new_pos) for
         every item that would move by more than 0.01 cm.
+
+        Args:
+            extra_pinned: Additional item IDs to treat as pinned (immovable)
+                during this solve pass, beyond the always-pinned construction
+                items.  Used to implement the CAD convention that item B (the
+                reference anchor) stays fixed while item A moves to satisfy the
+                new constraint.
         """
         from open_garden_planner.core.measure_snapper import get_anchor_points
         from open_garden_planner.ui.canvas.items import GardenItemMixin
@@ -1998,11 +2034,13 @@ class CanvasView(QGraphicsView):
 
         deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
 
-        # Construction items are always pinned — only garden items move
+        # Construction items are always pinned — only garden items move.
+        # extra_pinned allows callers to additionally pin a reference item so
+        # that only the other item moves (CAD convention: A moves, B stays).
         result = graph.solve_anchored(
             item_positions=item_positions,
             anchor_offsets=anchor_offsets,
-            pinned_items=construction_ids,
+            pinned_items=construction_ids | (extra_pinned or set()),
             max_iterations=20,
             tolerance=1.0,
             deformable_items=deformable_items,
