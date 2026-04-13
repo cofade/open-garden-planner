@@ -248,6 +248,37 @@ class TestSolveAnchored:
         result = graph.solve_anchored(positions, {})
         assert id_center in result.over_constrained_items
 
+    def test_b_pinned_as_reference_only_a_moves(self, qtbot) -> None:
+        """Pinning B as reference: only A moves to satisfy the distance.
+
+        This mirrors the CAD convention applied by _execute_constraint_with_solve:
+        anchor B's item_id is passed in extra_pinned (which becomes pinned_items
+        in solve_anchored) so that B stays fixed and A moves the full correction.
+        Scenario from issue #139: objects 10 m apart, target 8 m.
+        """
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            800.0,  # target: 8 m
+        )
+        positions = {id_a: (0.0, 0.0), id_b: (1000.0, 0.0)}  # 10 m apart
+        anchor_offsets = {
+            (id_a, AnchorType.CENTER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CENTER, 0): (0.0, 0.0),
+        }
+
+        # B is passed as pinned — simulates _compute_constraint_solve_moves(extra_pinned={id_b})
+        result = graph.solve_anchored(positions, anchor_offsets, pinned_items={id_b})
+
+        assert result.converged
+        assert id_b not in result.item_deltas, "B (reference) must not move"
+        assert id_a in result.item_deltas, "A must move to satisfy the constraint"
+        new_ax = 0.0 + result.item_deltas[id_a][0]
+        dist = abs(1000.0 - new_ax)
+        assert abs(dist - 800.0) < 1.0, f"Constraint unsatisfied: dist={dist}, target=800"
+
 
 # --- Delete cascade tests ---
 
