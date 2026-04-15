@@ -645,9 +645,12 @@ class CanvasView(QGraphicsView):
 
         # 1. Add the constraint temporarily so the solver can compute moves.
         command.execute()
-        moves, vertex_moves = self._compute_constraint_solve_moves(
-            extra_pinned=extra_pinned
-        )
+        if command._constraint_type == _CT.EDGE_LENGTH:  # type: ignore[attr-defined]
+            moves, vertex_moves = self._compute_edge_length_constraint_moves(command)
+        else:
+            moves, vertex_moves = self._compute_constraint_solve_moves(
+                extra_pinned=extra_pinned
+            )
         # 2. Remove temporarily — we want the official execute() below to do it.
         command.undo()
         # 3. Embed the moves into the command so execute() + undo() handle them.
@@ -2071,6 +2074,66 @@ class CanvasView(QGraphicsView):
                 deformable_vertices[uid] = verts
 
         return deformable_items, deformable_vertices
+
+    def _compute_edge_length_constraint_moves(
+        self, command: AddConstraintCommand
+    ) -> "tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]":
+        """Compute direct endpoint movement for a newly created edge-length constraint."""
+        from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
+
+        scene = self.scene()
+        anchor_a = command._anchor_a  # type: ignore[attr-defined]
+        anchor_b = command._anchor_b  # type: ignore[attr-defined]
+        target_distance = command._target_distance  # type: ignore[attr-defined]
+
+        item = next(
+            (
+                candidate
+                for candidate in scene.items()
+                if hasattr(candidate, "item_id")
+                and candidate.item_id == anchor_a.item_id
+            ),
+            None,
+        )
+        if item is None:
+            return [], []
+
+        if isinstance(item, PolygonItem):
+            polygon = item.polygon()
+            if not (0 <= anchor_a.anchor_index < polygon.count()):
+                return [], []
+            if not (0 <= anchor_b.anchor_index < polygon.count()):
+                return [], []
+        elif isinstance(item, PolylineItem):
+            points = item.points
+            if not (0 <= anchor_a.anchor_index < len(points)):
+                return [], []
+            if not (0 <= anchor_b.anchor_index < len(points)):
+                return [], []
+        else:
+            return self._compute_constraint_solve_moves(extra_pinned={anchor_b.item_id})
+
+        old_local = self._get_vertex_local(item, anchor_a.anchor_index)
+        ref_local = self._get_vertex_local(item, anchor_b.anchor_index)
+        if old_local is None or ref_local is None:
+            return [], []
+
+        old_scene = item.mapToScene(old_local)
+        ref_scene = item.mapToScene(ref_local)
+        dx = old_scene.x() - ref_scene.x()
+        dy = old_scene.y() - ref_scene.y()
+        current_dist = (dx * dx + dy * dy) ** 0.5
+        if current_dist < 1e-9:
+            direction = QPointF(1.0, 0.0)
+        else:
+            direction = QPointF(dx / current_dist, dy / current_dist)
+
+        new_scene = QPointF(
+            ref_scene.x() + direction.x() * target_distance,
+            ref_scene.y() + direction.y() * target_distance,
+        )
+        new_local = item.mapFromScene(new_scene)
+        return [], [(item, anchor_a.anchor_index, QPointF(old_local), new_local)]
 
     def _compute_constraint_solve_moves(
         self,

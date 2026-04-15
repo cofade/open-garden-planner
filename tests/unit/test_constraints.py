@@ -1481,6 +1481,24 @@ class TestEdgeLengthConstraint:
         by = item_positions[id_b][1] + delta_b[1]
         assert abs(math.sqrt((bx - ax) ** 2 + (by - ay) ** 2) - 200.0) < 1.0
 
+    def test_edge_length_solver_keeps_second_endpoint_as_reference(self, qtbot) -> None:
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CORNER, 0),
+            AnchorRef(id_b, AnchorType.CORNER, 1),
+            200.0,
+            constraint_type=ConstraintType.EDGE_LENGTH,
+        )
+        item_positions = {id_a: (0.0, 0.0), id_b: (100.0, 0.0)}
+        anchor_offsets = {
+            (id_a, AnchorType.CORNER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CORNER, 1): (0.0, 0.0),
+        }
+        result = graph.solve_anchored(item_positions, anchor_offsets)
+        assert id_a in result.item_deltas
+        assert id_b not in result.item_deltas
+
     def test_edge_length_constraint_serialization_roundtrip(self, qtbot) -> None:
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()

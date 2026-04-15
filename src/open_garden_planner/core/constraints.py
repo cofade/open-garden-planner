@@ -1125,6 +1125,11 @@ class ConstraintGraph:
                     _move(id_b, constraint.anchor_b, correction * nx, correction * ny)
                 elif b_pinned:
                     _move(id_a, constraint.anchor_a, -correction * nx, -correction * ny)
+                elif constraint.constraint_type == ConstraintType.EDGE_LENGTH:
+                    # Keep the second endpoint as the reference for direct edge edits.
+                    # This matches the CAD convention used elsewhere: A is constrained
+                    # to B, so A moves while B stays put.
+                    _move(id_a, constraint.anchor_a, -correction * nx, -correction * ny)
                 else:
                     half = correction / 2.0
                     _move(id_a, constraint.anchor_a, -half * nx, -half * ny)

@@ -38,7 +38,7 @@ _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
         "constraint_distance", "Distance Constraint (K)", "K", ToolType.CONSTRAINT
     ),
     _ToolEntry(
-        "constraint_distance",
+        "constraint_edge_length",
         "Edge Length Constraint",
         "",
         ToolType.CONSTRAINT_EDGE_LENGTH,
