@@ -229,6 +229,12 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         menu = QMenu()
 
         edit_action = menu.addAction(self.tr("Edit Text"))
+
+        menu.addSeparator()
+
+        # Move to Layer submenu (hidden when project has only one layer)
+        move_layer_menu = self._build_move_to_layer_menu(menu)
+
         menu.addSeparator()
         delete_action = menu.addAction(self.tr("Delete"))
 
@@ -239,6 +245,8 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
             scene = self.scene()
             if scene:
                 scene.removeItem(self)
+        elif move_layer_menu and chosen and chosen.parent() is move_layer_menu:
+            self._dispatch_move_to_layer(chosen.data())
 
     # ── Visual / bounding ────────────────────────────────────────
 

@@ -145,7 +145,13 @@ class TestBackgroundImageItem:
         assert height == pytest.approx(200.0)
 
     def test_to_dict(self, qtbot, test_image_path: Path) -> None:
-        """Test serialization to dictionary."""
+        """Test serialization to dictionary.
+
+        Verifies that image data is embedded as base64 (portable) and that all
+        other fields are preserved correctly.
+        """
+        import base64
+
         item = BackgroundImageItem(str(test_image_path))
         item.setPos(QPointF(100, 200))
         item.opacity = 0.7
@@ -155,18 +161,55 @@ class TestBackgroundImageItem:
         data = item.to_dict()
 
         assert data["type"] == "background_image"
+        # image_path is kept as a human-readable hint
         assert data["image_path"] == str(test_image_path)
+        # image_data must be present and must be valid base64-encoded bytes
+        assert "image_data" in data
+        assert isinstance(data["image_data"], str)
+        decoded = base64.b64decode(data["image_data"])
+        assert len(decoded) > 0
         assert data["position"]["x"] == pytest.approx(100.0)
         assert data["position"]["y"] == pytest.approx(200.0)
         assert data["opacity"] == pytest.approx(0.7)
         assert data["locked"] is True
         assert data["scale_factor"] == pytest.approx(0.2)
 
-    def test_from_dict(self, qtbot, test_image_path: Path) -> None:
-        """Test deserialization from dictionary."""
+    def test_from_dict_with_image_data(self, qtbot, test_image_path: Path) -> None:
+        """Test deserialization from a dict that contains embedded image_data.
+
+        The source file path need not be valid — the image is loaded from
+        the base64-encoded PNG bytes.
+        """
+        # Generate base64 payload from the fixture image
+        source = BackgroundImageItem(str(test_image_path))
+        embedded_data = source.to_dict()["image_data"]
+
         data = {
             "type": "background_image",
-            "image_path": str(test_image_path),
+            "image_path": "/nonexistent/path/photo.png",  # intentionally invalid
+            "image_data": embedded_data,
+            "position": {"x": 150.0, "y": 250.0},
+            "opacity": 0.8,
+            "locked": True,
+            "scale_factor": 0.3,
+        }
+
+        item = BackgroundImageItem.from_dict(data)
+
+        assert item.image_path == "/nonexistent/path/photo.png"
+        assert not item.pixmap().isNull()
+        assert item.pos().x() == pytest.approx(150.0)
+        assert item.pos().y() == pytest.approx(250.0)
+        assert item.opacity == pytest.approx(0.8)
+        assert item.locked is True
+        assert item.scale_factor == pytest.approx(0.3)
+        assert item.scale() == pytest.approx(1.0 / 0.3)
+
+    def test_from_dict_legacy_path_only(self, qtbot, test_image_path: Path) -> None:
+        """Test backward-compat: old project files with only image_path still load."""
+        data = {
+            "type": "background_image",
+            "image_path": str(test_image_path),  # valid path, no image_data
             "position": {"x": 150.0, "y": 250.0},
             "opacity": 0.8,
             "locked": True,
@@ -176,31 +219,48 @@ class TestBackgroundImageItem:
         item = BackgroundImageItem.from_dict(data)
 
         assert item.image_path == str(test_image_path)
+        assert not item.pixmap().isNull()
         assert item.pos().x() == pytest.approx(150.0)
         assert item.pos().y() == pytest.approx(250.0)
         assert item.opacity == pytest.approx(0.8)
         assert item.locked is True
         assert item.scale_factor == pytest.approx(0.3)
-        # Scale should be 1/0.3 ≈ 3.33
         assert item.scale() == pytest.approx(1.0 / 0.3)
 
     def test_round_trip_serialization(self, qtbot, test_image_path: Path) -> None:
-        """Test that serialization and deserialization preserve data."""
-        # Create an item with specific properties
+        """Test that serialization and deserialization preserve all data."""
         original = BackgroundImageItem(str(test_image_path))
         original.setPos(QPointF(50, 75))
         original.opacity = 0.6
         original.locked = False
         original.calibrate(pixels=100, centimeters=400)
 
-        # Serialize and deserialize
         data = original.to_dict()
         restored = BackgroundImageItem.from_dict(data)
 
-        # Verify all properties match
         assert restored.image_path == original.image_path
         assert restored.pos() == original.pos()
         assert restored.opacity == pytest.approx(original.opacity)
         assert restored.locked == original.locked
         assert restored.scale_factor == pytest.approx(original.scale_factor)
         assert restored.scale() == pytest.approx(original.scale())
+
+    def test_portable_load_without_source_file(
+        self, qtbot, test_image_path: Path
+    ) -> None:
+        """Portable round-trip: image loads correctly even after the source file is deleted."""
+        original = BackgroundImageItem(str(test_image_path))
+        original.opacity = 0.5
+        original.calibrate(pixels=100, centimeters=200)
+        data = original.to_dict()
+
+        # Delete the source file — simulates opening the project on another PC
+        test_image_path.unlink()
+        assert not test_image_path.exists()
+
+        # Must succeed without the original file
+        restored = BackgroundImageItem.from_dict(data)
+
+        assert not restored.pixmap().isNull()
+        assert restored.opacity == pytest.approx(0.5)
+        assert restored.scale_factor == pytest.approx(0.5)

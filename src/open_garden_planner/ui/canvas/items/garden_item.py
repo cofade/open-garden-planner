@@ -1,11 +1,14 @@
 """Base mixin for garden canvas items."""
 
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import QGraphicsSimpleTextItem, QGraphicsTextItem
+
+if TYPE_CHECKING:
+    from PyQt6.QtWidgets import QMenu
 
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
@@ -693,3 +696,51 @@ class GardenItemMixin:
         # Show the static label again
         if self._label_item is not None:
             self._label_item.show()
+
+    # ------------------------------------------------------------------
+    # Layer-assignment helpers (shared by all item context menus)
+    # ------------------------------------------------------------------
+
+    def _build_move_to_layer_menu(self, parent_menu: "QMenu") -> "QMenu | None":
+        """Append a 'Move to Layer' submenu to *parent_menu* and return it.
+
+        Returns ``None`` when there is only one layer (nothing to move to) or
+        when the item has no scene, in which case nothing is added to the menu.
+        """
+        from PyQt6.QtCore import QCoreApplication
+        from PyQt6.QtWidgets import QMenu
+
+        scene = self.scene()  # type: ignore[attr-defined]
+        if not scene or not hasattr(scene, "layers"):
+            return None
+        layers = scene.layers
+        if len(layers) <= 1:
+            return None
+        label = QCoreApplication.translate("GardenItemMixin", "Move to Layer")
+        layer_menu: QMenu = parent_menu.addMenu(label)
+        for layer in layers:
+            if layer.id != self._layer_id:
+                action = layer_menu.addAction(layer.name)
+                action.setData(layer.id)
+        return layer_menu
+
+    def _dispatch_move_to_layer(self, target_layer_id: "uuid.UUID") -> None:
+        """Move all selected items (or just *self*) to *target_layer_id*.
+
+        Wraps the change in a :class:`MoveToLayerCommand` so that it is
+        fully undoable via the command manager.
+        """
+        from open_garden_planner.core.commands import MoveToLayerCommand
+
+        scene = self.scene()  # type: ignore[attr-defined]
+        if not scene:
+            return
+        selected = [i for i in scene.selectedItems() if hasattr(i, "layer_id")]
+        items = selected if selected else [self]
+        target_layer = scene.get_layer_by_id(target_layer_id)
+        layer_name = target_layer.name if target_layer else str(target_layer_id)
+        cmd = MoveToLayerCommand(items, target_layer_id, scene, layer_name)
+        if scene._command_manager:  # type: ignore[attr-defined]
+            scene._command_manager.execute(cmd)  # type: ignore[attr-defined]
+        else:
+            cmd.execute()  # graceful fallback (e.g. in unit tests without CanvasView)

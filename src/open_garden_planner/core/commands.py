@@ -1174,3 +1174,55 @@ class ArrayAlongPathCommand(Command):
         for item in self._items:
             if item.scene() is not None:
                 self._scene.removeItem(item)
+
+
+class MoveToLayerCommand(Command):
+    """Move one or more scene items to a different layer (undoable).
+
+    Snapshots each item's current ``layer_id`` at construction time so that
+    undo restores every item to its individual original layer, even when items
+    come from different layers before the move.
+    """
+
+    def __init__(
+        self,
+        items: list[QGraphicsItem],
+        target_layer_id: UUID,
+        scene: QGraphicsScene,
+        target_layer_name: str,
+    ) -> None:
+        """Initialise the command.
+
+        Args:
+            items: Items to move (must have a ``layer_id`` attribute).
+            target_layer_id: UUID of the destination layer.
+            scene: The canvas scene (used to refresh visibility and z-order).
+            target_layer_name: Human-readable name of the target layer
+                (used in the undo description only; not looked up at undo time).
+        """
+        # Snapshot (item, original_layer_id) at construction — before any move
+        self._moves: list[tuple[QGraphicsItem, UUID | None]] = [
+            (item, item.layer_id) for item in items  # type: ignore[union-attr]
+        ]
+        self._target_layer_id = target_layer_id
+        self._scene = scene
+        self._target_layer_name = target_layer_name
+
+    @property
+    def description(self) -> str:
+        n = len(self._moves)
+        return f"Move {n} item(s) to layer '{self._target_layer_name}'"
+
+    def execute(self) -> None:
+        """Assign all items to the target layer and refresh scene visuals."""
+        for item, _ in self._moves:
+            item.layer_id = self._target_layer_id  # type: ignore[union-attr]
+        self._scene._update_items_visibility()  # type: ignore[attr-defined]
+        self._scene._update_items_z_order()  # type: ignore[attr-defined]
+
+    def undo(self) -> None:
+        """Restore each item to its original layer and refresh scene visuals."""
+        for item, old_layer_id in self._moves:
+            item.layer_id = old_layer_id  # type: ignore[union-attr]
+        self._scene._update_items_visibility()  # type: ignore[attr-defined]
+        self._scene._update_items_z_order()  # type: ignore[attr-defined]
