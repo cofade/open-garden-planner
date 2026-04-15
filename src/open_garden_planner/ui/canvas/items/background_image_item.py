@@ -4,7 +4,9 @@ Displays an imported image (satellite photo, etc.) that can be calibrated
 to real-world scale.
 """
 
-from PyQt6.QtCore import QPointF
+import base64
+
+from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QPointF
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QGraphicsItem,
@@ -26,12 +28,16 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         self,
         image_path: str,
         parent: QGraphicsItem | None = None,
+        *,
+        _pixmap_data: bytes | None = None,
     ) -> None:
         """Initialize the background image item.
 
         Args:
-            image_path: Path to the image file
+            image_path: Path to the image file (used as display hint when _pixmap_data is given)
             parent: Parent graphics item
+            _pixmap_data: Raw PNG bytes to load from (internal use by from_dict only).
+                When provided, image_path is stored as a hint only and the file need not exist.
         """
         super().__init__(parent)
 
@@ -40,10 +46,16 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         self._locked = False
         self._scale_factor = 1.0  # pixels per cm after calibration
 
-        # Load the image
-        self._original_pixmap = QPixmap(image_path)
-        if self._original_pixmap.isNull():
-            raise ValueError(f"Failed to load image: {image_path}")
+        # Load the image — either from embedded bytes or from disk path
+        if _pixmap_data is not None:
+            self._original_pixmap = QPixmap()
+            self._original_pixmap.loadFromData(QByteArray(_pixmap_data))
+            if self._original_pixmap.isNull():
+                raise ValueError("Failed to load image from embedded data")
+        else:
+            self._original_pixmap = QPixmap(image_path)
+            if self._original_pixmap.isNull():
+                raise ValueError(f"Failed to load image: {image_path}")
 
         # Flip vertically to compensate for view's Y-flip transform (CAD convention)
         from PyQt6.QtGui import QTransform
@@ -142,10 +154,22 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         return w / self._scale_factor, h / self._scale_factor
 
     def to_dict(self) -> dict:
-        """Serialize the item to a dictionary for saving."""
+        """Serialize the item to a dictionary for saving.
+
+        The original pixmap is embedded as a base64-encoded PNG so that the
+        project file is self-contained and portable across machines.
+        ``image_path`` is kept as a human-readable hint only — it is not used
+        when loading if ``image_data`` is present.
+        """
+        buf = QBuffer()
+        buf.open(QIODevice.OpenModeFlag.WriteOnly)
+        self._original_pixmap.save(buf, "PNG")
+        image_data_b64 = base64.b64encode(bytes(buf.data())).decode("ascii")
+        buf.close()
         return {
             "type": "background_image",
             "image_path": self._image_path,
+            "image_data": image_data_b64,
             "position": {"x": self.pos().x(), "y": self.pos().y()},
             "opacity": self._opacity,
             "locked": self._locked,
@@ -154,15 +178,23 @@ class BackgroundImageItem(QGraphicsPixmapItem):
 
     @classmethod
     def from_dict(cls, data: dict) -> "BackgroundImageItem":
-        """Create an item from a dictionary."""
-        item = cls(data["image_path"])
+        """Create an item from a dictionary.
+
+        Prefers ``image_data`` (base64 PNG, portable) when present; falls back
+        to ``image_path`` for legacy project files that pre-date embedding.
+        """
+        image_path = data.get("image_path", "")
+        if "image_data" in data:
+            pixmap_bytes = base64.b64decode(data["image_data"])
+            item = cls(image_path, _pixmap_data=pixmap_bytes)
+        else:
+            item = cls(image_path)
         item.setPos(QPointF(data["position"]["x"], data["position"]["y"]))
         item.opacity = data.get("opacity", 1.0)
         item.locked = data.get("locked", False)
         item._scale_factor = data.get("scale_factor", 1.0)
         # Apply saved scale
-        scale = 1.0 / item._scale_factor
-        item.setScale(scale)
+        item.setScale(1.0 / item._scale_factor)
         return item
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:

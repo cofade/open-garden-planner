@@ -809,6 +809,11 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
 
         menu.addSeparator()
 
+        # Move to Layer submenu (hidden when project has only one layer)
+        move_layer_menu = self._build_move_to_layer_menu(menu)
+
+        menu.addSeparator()
+
         # Delete action
         delete_action = menu.addAction("Delete")
 
@@ -935,6 +940,8 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
                     if hasattr(v, "create_array_along_path"):
                         v.create_array_along_path()
                         break
+        elif move_layer_menu and action and action.parent() is move_layer_menu:
+            self._dispatch_move_to_layer(action.data())
 
     @classmethod
     def from_polygon(cls, polygon: QPolygonF) -> "PolygonItem":
