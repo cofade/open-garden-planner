@@ -718,6 +718,9 @@ class GardenPlannerApp(QMainWindow):
         self.gallery_panel.item_selected.connect(self._on_gallery_item_selected)
         self.canvas_view.tool_changed.connect(self.update_tool)
         self.canvas_view.tool_changed.connect(self._sync_toolbar_state)
+        self.canvas_view.import_background_image_requested.connect(
+            self._on_import_background_image
+        )
 
         # Connect scene selection changes to status bar and panels
         self.canvas_scene.selectionChanged.connect(self._on_selection_changed)
@@ -877,6 +880,7 @@ class GardenPlannerApp(QMainWindow):
 
         # Connect scene layer changes to panel
         self.canvas_scene.layers_changed.connect(lambda: self.layers_panel.set_layers(self.canvas_scene.layers))
+        self.canvas_scene.layer_auto_unhidden.connect(self._on_layer_auto_unhidden)
 
         layers_panel = CollapsiblePanel(self.tr("Layers"), self.layers_panel, expanded=True)
         sidebar_layout.addWidget(layers_panel)
@@ -1283,6 +1287,10 @@ class GardenPlannerApp(QMainWindow):
             self.canvas_view.command_manager.clear()
             self.constraints_panel.refresh()
             self._project_manager.new_project()
+
+            # Apply optional garden year chosen in dialog
+            if dialog.garden_year is not None:
+                self._project_manager.set_season(dialog.garden_year)
 
             # Clear any existing auto-save
             self._autosave_manager.clear_autosave()
@@ -2440,6 +2448,11 @@ class GardenPlannerApp(QMainWindow):
             layer_id: UUID of the layer to delete
         """
         self.canvas_scene.remove_layer(layer_id)
+        self._project_manager.mark_dirty()
+
+    def _on_layer_auto_unhidden(self, layer_id) -> None:
+        """Update the layers panel when the scene auto-unhides a hidden layer."""
+        self.layers_panel.refresh_layer_visibility(layer_id, True)
         self._project_manager.mark_dirty()
 
     def _on_scene_changed_for_plant_search(self) -> None:

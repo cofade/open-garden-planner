@@ -54,6 +54,7 @@ class CanvasScene(QGraphicsScene):
     # Signals
     layers_changed = pyqtSignal()
     active_layer_changed = pyqtSignal(object)  # Layer or None
+    layer_auto_unhidden = pyqtSignal(UUID)  # emitted when a draw auto-reveals a hidden layer
 
     def __init__(
         self,
@@ -223,6 +224,9 @@ class CanvasScene(QGraphicsScene):
     def addItem(self, item: QGraphicsItem) -> None:
         """Add an item to the scene, applying shadow and label state.
 
+        Also auto-unhides the item's layer if it is currently hidden, so that
+        drawing on a hidden layer reveals the layer and all its items.
+
         Args:
             item: The graphics item to add
         """
@@ -241,6 +245,14 @@ class CanvasScene(QGraphicsScene):
             item.shadows_enabled = self._shadows_enabled
             item.set_global_labels_visible(self._labels_enabled)
             item.spacing_circles_visible = self._spacing_circles_visible
+
+            # Auto-unhide the target layer so drawing on a hidden layer reveals it
+            if item.layer_id:
+                layer = self.get_layer_by_id(item.layer_id)
+                if layer and not layer.visible:
+                    layer.visible = True
+                    self._update_items_visibility()
+                    self.layer_auto_unhidden.emit(item.layer_id)
 
     # Constraint dimension line management
 

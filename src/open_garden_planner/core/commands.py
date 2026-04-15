@@ -688,6 +688,37 @@ class DeleteVertexCommand(Command):
         self._apply_add_func(self._item, self._vertex_index, self._position)
 
 
+class MultiVertexMoveCommand(Command):
+    """Undo/redo for one or more vertex moves across one or more items.
+
+    Used to bundle a user-driven vertex drag with automatic constraint
+    corrections into a single Ctrl+Z step.
+    """
+
+    def __init__(
+        self,
+        vertex_moves: "list[tuple[QGraphicsItem, int, QPointF, QPointF]]",
+        description: str = "Move vertex",
+    ) -> None:
+        """Initialize with a list of (item, vertex_index, old_local, new_local) tuples."""
+        self._vertex_moves = vertex_moves
+        self._desc = description
+
+    @property
+    def description(self) -> str:
+        return self._desc
+
+    def execute(self) -> None:
+        for item, idx, _old, new in self._vertex_moves:
+            if hasattr(item, "_move_vertex_to"):
+                item._move_vertex_to(idx, new)
+
+    def undo(self) -> None:
+        for item, idx, old, _new in reversed(self._vertex_moves):
+            if hasattr(item, "_move_vertex_to"):
+                item._move_vertex_to(idx, old)
+
+
 class AddConstraintCommand(Command):
     """Command for adding a constraint (distance, alignment, or angle).
 

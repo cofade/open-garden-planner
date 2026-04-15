@@ -472,6 +472,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 self._hide_circle_annotations()
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             self._update_circle_annotations()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
+            self.remove_rotation_handle()
 
         return super().itemChange(change, value)
 

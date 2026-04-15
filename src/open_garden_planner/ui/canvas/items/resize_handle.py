@@ -1753,6 +1753,13 @@ class VertexEditMixin:
         if command_manager is None:
             return
 
+        # Canvas view may request deferred registration so it can bundle constraint
+        # corrections (ANGLE solver + PARALLEL re-alignment) into a single undo step.
+        view = scene.views()[0] if scene.views() else None
+        if view is not None and getattr(view, '_deferring_vertex_undo', False):
+            view._deferred_vertex_move = (self, vertex_index, old_pos, new_pos)
+            return
+
         from open_garden_planner.core.commands import MoveVertexCommand
 
         def apply_vertex_pos(item: QGraphicsItem, index: int, pos: QPointF) -> None:
@@ -2700,6 +2707,13 @@ class PolylineVertexEditMixin:
 
         command_manager = scene.get_command_manager()
         if command_manager is None:
+            return
+
+        # Canvas view may request deferred registration so it can bundle constraint
+        # corrections (ANGLE solver + PARALLEL re-alignment) into a single undo step.
+        view = scene.views()[0] if scene.views() else None
+        if view is not None and getattr(view, '_deferring_vertex_undo', False):
+            view._deferred_vertex_move = (self, vertex_index, old_pos, new_pos)
             return
 
         from open_garden_planner.core.commands import MoveVertexCommand

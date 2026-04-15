@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 
 from PyQt6.QtCore import QCoreApplication, QLineF, QPointF, QRectF, Qt
@@ -30,6 +31,8 @@ from open_garden_planner.core.measure_snapper import (
 )
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
 from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+_log = logging.getLogger(__name__)
 
 # Visual constants
 ANCHOR_INDICATOR_RADIUS = 6.0
@@ -310,12 +313,13 @@ class ConstraintTool(BaseTool):
             # Second click: select anchor B and create constraint
             anchor_b = anchor
 
-            # Don't allow constraining same anchor to itself
+            # Don't allow constraining an anchor to itself (same item + same type + same index)
             if (
                 hasattr(self._anchor_a.item, "item_id")
                 and hasattr(anchor_b.item, "item_id")
                 and self._anchor_a.item.item_id == anchor_b.item.item_id
                 and self._anchor_a.anchor_type == anchor_b.anchor_type
+                and self._anchor_a.anchor_index == anchor_b.anchor_index
             ):
                 return True
 
@@ -592,6 +596,7 @@ class CoincidentConstraintTool(ConstraintTool):
                 and hasattr(anchor_b.item, "item_id")
                 and self._anchor_a.item.item_id == anchor_b.item.item_id
                 and self._anchor_a.anchor_type == anchor_b.anchor_type
+                and self._anchor_a.anchor_index == anchor_b.anchor_index
             ):
                 return True
             self._create_constraint(self._anchor_a, anchor_b, 0.0)
@@ -1226,11 +1231,12 @@ class AngleConstraintTool(BaseTool):
 
         if self._anchor_b is None:
             # Second click: select anchor B (vertex)
-            # Must be on a different item from A
+            # Must not be the same anchor point as A
             if (
                 hasattr(self._anchor_a.item, "item_id")
                 and hasattr(anchor.item, "item_id")
                 and self._anchor_a.item.item_id == anchor.item.item_id
+                and self._anchor_a.anchor_index == anchor.anchor_index
             ):
                 return True
             self._anchor_b = anchor
@@ -1249,13 +1255,13 @@ class AngleConstraintTool(BaseTool):
             self._reset()
             return True
 
-        # All three must be different items
-        ids = {
-            self._anchor_a.item.item_id,
-            self._anchor_b.item.item_id,
-            anchor_c.item.item_id,
+        # All three must be distinct anchor points (can be on the same item)
+        anchor_keys = {
+            (self._anchor_a.item.item_id, self._anchor_a.anchor_index),
+            (self._anchor_b.item.item_id, self._anchor_b.anchor_index),
+            (anchor_c.item.item_id, anchor_c.anchor_index),
         }
-        if len(ids) < 3:  # noqa: PLR2004
+        if len(anchor_keys) < 3:  # noqa: PLR2004
             return True
 
         # Compute current angle at vertex B
@@ -1555,8 +1561,9 @@ class SymmetryConstraintTool(BaseTool):
             hasattr(self._anchor_a.item, "item_id")
             and hasattr(anchor_b.item, "item_id")
             and self._anchor_a.item.item_id == anchor_b.item.item_id
+            and self._anchor_a.anchor_index == anchor_b.anchor_index
         ):
-            return True  # Same item — skip
+            return True  # Same anchor point — skip
 
         dialog = SymmetryAxisDialog(self._view)
         if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -2195,6 +2202,7 @@ class EqualConstraintTool(BaseTool):
                 hasattr(self._anchor_a.item, "item_id")
                 and hasattr(anchor_b.item, "item_id")
                 and self._anchor_a.item.item_id == anchor_b.item.item_id
+                and self._anchor_a.anchor_index == anchor_b.anchor_index
             ):
                 return True
 
@@ -2445,6 +2453,8 @@ class ParallelConstraintTool(BaseTool):
                 hasattr(self._edge_a.item, "item_id")
                 and hasattr(edge_b.item, "item_id")
                 and self._edge_a.item.item_id == edge_b.item.item_id
+                and self._edge_a.anchor_type == edge_b.anchor_type
+                and self._edge_a.anchor_index == edge_b.anchor_index
             ):
                 return True
 
@@ -2487,6 +2497,11 @@ class ParallelConstraintTool(BaseTool):
                     "Cannot determine the angle of the selected edge on object B.",
                 ),
             )
+            return
+
+        # Intra-object: use one-time vertex deformation (not an ANGLE constraint).
+        if edge_a.item.item_id == edge_b.item.item_id:
+            _create_intraobject_parallel_from_edges(self._view, edge_a, edge_b)
             return
 
         # Prefer rotating edge B (second-clicked / "target") to align with edge A.
@@ -2746,6 +2761,8 @@ class PerpendicularConstraintTool(BaseTool):
                 hasattr(self._edge_a.item, "item_id")
                 and hasattr(edge_b.item, "item_id")
                 and self._edge_a.item.item_id == edge_b.item.item_id
+                and self._edge_a.anchor_type == edge_b.anchor_type
+                and self._edge_a.anchor_index == edge_b.anchor_index
             ):
                 return True
 
@@ -2792,6 +2809,12 @@ class PerpendicularConstraintTool(BaseTool):
                     "Cannot determine the angle of the selected edge on object B.",
                 ),
             )
+            return
+
+        # Intra-object: rotating the whole item would shift both edges equally.
+        # Instead, deform the polygon vertices via an ANGLE(90°) constraint.
+        if edge_a.item.item_id == edge_b.item.item_id:
+            _create_intraobject_angle_from_edges(self._view, edge_a, edge_b, 90.0)
             return
 
         # Prefer rotating edge B (second-clicked / "target") to be perpendicular to edge A.
@@ -2865,6 +2888,251 @@ class PerpendicularConstraintTool(BaseTool):
 
     def cancel(self) -> None:
         self._reset()
+
+
+# ─── Intra-object edge helper ────────────────────────────────────────────────
+
+
+def _create_intraobject_angle_from_edges(view, edge_a, edge_b, target_deg: float) -> None:
+    """Convert an intra-polygon edge relationship to an ANGLE constraint.
+
+    Works for PolygonItem (CORNER anchors) and PolylineItem (ENDPOINT anchors).
+    Finds the shared vertex between the two adjacent edges by midpoint proximity,
+    then delegates to _execute_constraint_with_solve (vertex-deformation path).
+    """
+    import math as _imath
+
+    from open_garden_planner.core.commands import AddConstraintCommand
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import AnchorType
+
+    item = edge_a.item
+    scene = view.scene()
+    if not scene:
+        return
+
+    # Resolve item type → vertex accessor
+    if hasattr(item, "polygon") and callable(item.polygon):
+        pg = item.polygon()
+        n = pg.count()
+        vtype = AnchorType.CORNER
+        def _get_v(i: int):  # noqa: E306
+            return item.mapToScene(pg.at(i))
+    elif hasattr(item, "points"):
+        pts = item.points
+        n = len(pts)
+        vtype = AnchorType.ENDPOINT
+        def _get_v(i: int):  # noqa: E306
+            return item.mapToScene(pts[i])
+    else:
+        QMessageBox.information(
+            view,
+            QCoreApplication.translate("ConstraintTool", "Constraint"),
+            QCoreApplication.translate(
+                "ConstraintTool",
+                "Intra-object edge constraints are only supported for polygons and polylines.",
+            ),
+        )
+        return
+
+    if n < 3:
+        return
+
+    # Match each edge anchor to its polygon-edge index by midpoint proximity.
+    # anchor_index is unreliable for rectangle EDGE_* anchors (set to None),
+    # so geometry-based matching is used for all item types.
+    def _edge_idx(anchor) -> int:
+        best, best_d = 0, float("inf")
+        for i in range(n):
+            p1, p2 = _get_v(i), _get_v((i + 1) % n)
+            mid_x = (p1.x() + p2.x()) / 2
+            mid_y = (p1.y() + p2.y()) / 2
+            d = _imath.hypot(anchor.point.x() - mid_x, anchor.point.y() - mid_y)
+            if d < best_d:
+                best_d, best = d, i
+        return best
+
+    i_a = _edge_idx(edge_a)
+    i_b = _edge_idx(edge_b)
+
+    if i_a == i_b:
+        return  # Same edge (guard already prevents this, but be safe)
+
+    # Adjacent edges share exactly one vertex.
+    # Edge i: vertex[i] → vertex[(i+1) % n]
+    if (i_a + 1) % n == i_b:
+        p1_idx, v_idx, p2_idx = i_a, (i_a + 1) % n, (i_b + 1) % n
+    elif (i_b + 1) % n == i_a:
+        p1_idx, v_idx, p2_idx = (i_a + 1) % n, i_a, i_b
+    else:
+        QMessageBox.information(
+            view,
+            QCoreApplication.translate("ConstraintTool", "Constraint"),
+            QCoreApplication.translate(
+                "ConstraintTool",
+                "Please select two adjacent (connected) edges of the same polygon.",
+            ),
+        )
+        return
+
+    uid = item.item_id
+    ref_a = AnchorRef(item_id=uid, anchor_type=vtype, anchor_index=p1_idx)
+    ref_b = AnchorRef(item_id=uid, anchor_type=vtype, anchor_index=v_idx)
+    ref_c = AnchorRef(item_id=uid, anchor_type=vtype, anchor_index=p2_idx)
+
+    command = AddConstraintCommand(
+        graph=scene.constraint_graph,
+        anchor_a=ref_a,
+        anchor_b=ref_b,
+        target_distance=target_deg,
+        constraint_type=ConstraintType.ANGLE,
+        anchor_c=ref_c,
+    )
+    view._execute_constraint_with_solve(command)
+
+
+def _create_intraobject_parallel_from_edges(view, edge_a, edge_b) -> None:
+    """Make two non-adjacent edges of the same polygon parallel via vertex deformation.
+
+    Rotates the end-vertex of edge B around its start-vertex by the angle delta
+    that aligns edge B's direction with edge A's direction.  The deformation is
+    pushed as a MoveVertexCommand so it is fully undoable.
+
+    Adjacent edges are rejected with an informational message because making
+    adjacent edges parallel would collapse the shared vertex (180° corner).
+    """
+    import math as _imath
+
+    from PyQt6.QtCore import QPointF
+
+    from open_garden_planner.core.commands import AddConstraintCommand
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+
+    item = edge_a.item
+    scene = view.scene()
+    if not scene:
+        return
+
+    # Resolve item type → vertex access
+    if hasattr(item, "polygon") and callable(item.polygon):
+        pg = item.polygon()
+        n = pg.count()
+        def _get_v(i: int) -> QPointF:  # noqa: E306
+            return item.mapToScene(pg.at(i))
+        def _local(i: int) -> QPointF:  # noqa: E306
+            return pg.at(i)
+    elif hasattr(item, "points"):
+        pts = item.points
+        n = len(pts)
+        def _get_v(i: int) -> QPointF:  # noqa: E306
+            return item.mapToScene(pts[i])
+        def _local(i: int) -> QPointF:  # noqa: E306
+            return QPointF(pts[i])
+    else:
+        QMessageBox.information(
+            view,
+            QCoreApplication.translate("ConstraintTool", "Constraint"),
+            QCoreApplication.translate(
+                "ConstraintTool",
+                "Intra-object edge constraints are only supported for polygons and polylines.",
+            ),
+        )
+        return
+
+    if n < 4:  # noqa: PLR2004
+        QMessageBox.information(
+            view,
+            QCoreApplication.translate("ConstraintTool", "Parallel Constraint"),
+            QCoreApplication.translate(
+                "ConstraintTool",
+                "The polygon needs at least 4 vertices for a parallel constraint "
+                "between non-adjacent edges.",
+            ),
+        )
+        return
+
+    # Match each edge anchor to its polygon-edge index by midpoint proximity
+    def _edge_idx(anchor) -> int:
+        best, best_d = 0, float("inf")
+        for i in range(n):
+            p1, p2 = _get_v(i), _get_v((i + 1) % n)
+            mid_x = (p1.x() + p2.x()) / 2
+            mid_y = (p1.y() + p2.y()) / 2
+            d = _imath.hypot(anchor.point.x() - mid_x, anchor.point.y() - mid_y)
+            if d < best_d:
+                best_d, best = d, i
+        return best
+
+    i_a = _edge_idx(edge_a)
+    i_b = _edge_idx(edge_b)
+
+    if i_a == i_b:
+        return  # Same edge; already guarded upstream
+
+    # Adjacent edges share a vertex — making them parallel collapses that vertex
+    if (i_a + 1) % n == i_b or (i_b + 1) % n == i_a:
+        QMessageBox.information(
+            view,
+            QCoreApplication.translate("ConstraintTool", "Parallel Constraint"),
+            QCoreApplication.translate(
+                "ConstraintTool",
+                "Adjacent edges of the same polygon cannot be made parallel. "
+                "To set a specific corner angle, use the Angle constraint tool.",
+            ),
+        )
+        return
+
+    # Scene positions of the four relevant vertices
+    p_a1 = _get_v(i_a)
+    p_a2 = _get_v((i_a + 1) % n)
+    p_b1 = _get_v(i_b)
+    p_b2 = _get_v((i_b + 1) % n)
+
+    da_x = p_a2.x() - p_a1.x()
+    da_y = p_a2.y() - p_a1.y()
+    db_x = p_b2.x() - p_b1.x()
+    db_y = p_b2.y() - p_b1.y()
+
+    if _imath.hypot(da_x, da_y) < 1e-9 or _imath.hypot(db_x, db_y) < 1e-9:
+        return  # Degenerate edge
+
+    # Rotation delta from edge B direction to edge A direction,
+    # normalised to (-π/2, π/2] so we pick the shorter arc (parallel = 0° or 180°)
+    delta = _imath.atan2(da_y, da_x) - _imath.atan2(db_y, db_x)
+    while delta > _imath.pi / 2:
+        delta -= _imath.pi
+    while delta <= -_imath.pi / 2:
+        delta += _imath.pi
+
+    if abs(delta) < 1e-6:
+        return  # Already parallel
+
+    # Rotate p_b2 around p_b1 by delta (preserves edge length, aligns direction)
+    cos_d, sin_d = _imath.cos(delta), _imath.sin(delta)
+    rel_x = p_b2.x() - p_b1.x()
+    rel_y = p_b2.y() - p_b1.y()
+    new_b2_scene = QPointF(
+        p_b1.x() + cos_d * rel_x - sin_d * rel_y,
+        p_b1.y() + sin_d * rel_x + cos_d * rel_y,
+    )
+
+    vertex_idx = (i_b + 1) % n
+    old_local = _local(vertex_idx)
+    new_local = item.mapFromScene(new_b2_scene)
+
+    uid = item.item_id
+    ref_a = AnchorRef(item_id=uid, anchor_type=edge_a.anchor_type, anchor_index=edge_a.anchor_index)
+    ref_b = AnchorRef(item_id=uid, anchor_type=edge_b.anchor_type, anchor_index=edge_b.anchor_index)
+
+    cmd = AddConstraintCommand(
+        graph=scene.constraint_graph,
+        anchor_a=ref_a,
+        anchor_b=ref_b,
+        target_distance=getattr(item, "rotation_angle", 0.0),
+        constraint_type=ConstraintType.PARALLEL,
+    )
+    cmd._vertex_moves = [(item, vertex_idx, old_local, new_local)]
+    scene.get_command_manager().execute(cmd)
 
 
 # ─── Fix in place constraint ──────────────────────────────────────────────────
@@ -3226,6 +3494,7 @@ class HorizontalDistanceConstraintTool(ConstraintTool):
                 and hasattr(anchor_b.item, "item_id")
                 and self._anchor_a.item.item_id == anchor_b.item.item_id
                 and self._anchor_a.anchor_type == anchor_b.anchor_type
+                and self._anchor_a.anchor_index == anchor_b.anchor_index
             ):
                 return True
 
@@ -3334,6 +3603,7 @@ class VerticalDistanceConstraintTool(ConstraintTool):
                 and hasattr(anchor_b.item, "item_id")
                 and self._anchor_a.item.item_id == anchor_b.item.item_id
                 and self._anchor_a.anchor_type == anchor_b.anchor_type
+                and self._anchor_a.anchor_index == anchor_b.anchor_index
             ):
                 return True
 
