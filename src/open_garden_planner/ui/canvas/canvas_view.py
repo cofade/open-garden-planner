@@ -10,6 +10,7 @@ import logging
 from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import (
     QColor,
+    QContextMenuEvent,
     QFont,
     QKeyEvent,
     QMouseEvent,
@@ -19,7 +20,7 @@ from PyQt6.QtGui import (
     QTransform,
     QWheelEvent,
 )
-from PyQt6.QtWidgets import QGraphicsItem, QGraphicsView, QInputDialog, QLineEdit
+from PyQt6.QtWidgets import QGraphicsItem, QGraphicsView, QInputDialog, QLineEdit, QMenu
 
 from open_garden_planner.core import (
     AddConstraintCommand,
@@ -89,6 +90,7 @@ class CanvasView(QGraphicsView):
     coordinates_changed = pyqtSignal(float, float)
     zoom_changed = pyqtSignal(float)
     tool_changed = pyqtSignal(str)  # Emitted when active tool changes
+    import_background_image_requested = pyqtSignal()  # Emitted from empty-canvas right-click
 
     # Zoom limits
     min_zoom: float = 0.01  # 1% - very zoomed out
@@ -631,6 +633,15 @@ class CanvasView(QGraphicsView):
         """
         from open_garden_planner.core.constraints import ConstraintType as _CT
 
+        # PARALLEL / PERPENDICULAR / EQUAL are rotation-only: the solver skips them.
+        # Bundling solver moves from OTHER constraints would shift polygon vertices and
+        # make the freshly applied rotation appear violated. Execute cleanly instead.
+        _rotation_only = (_CT.PARALLEL, _CT.PERPENDICULAR, _CT.EQUAL)
+        if command._constraint_type in _rotation_only:  # type: ignore[attr-defined]
+            self.command_manager.execute(command)
+            self._canvas_scene.update_dimension_lines()
+            return
+
         # CAD convention: A is constrained to B → A moves, B stays (reference).
         # Exception: if A already has a FIXED constraint the FIXED pre-pass
         # inside solve_anchored will pin A, so B must remain free to move.
@@ -641,7 +652,11 @@ class CanvasView(QGraphicsView):
             c.constraint_type == _CT.FIXED and c.anchor_a.item_id == anchor_a_id
             for c in graph.constraints.values()
         )
-        extra_pinned: set | None = None if a_is_fixed else {anchor_b_id}
+        # Intra-object constraints (e.g. ANGLE on a polygon vertex) have both
+        # anchors on the same item.  Pinning B would pin the item itself and
+        # prevent the solver from deforming any of its vertices.
+        intra_object = anchor_a_id == anchor_b_id
+        extra_pinned: set | None = None if (a_is_fixed or intra_object) else {anchor_b_id}
 
         # 1. Add the constraint temporarily so the solver can compute moves.
         command.execute()
@@ -1045,6 +1060,22 @@ class CanvasView(QGraphicsView):
 
         event.accept()
 
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        """Show context menu on empty-canvas right-click."""
+        scene_pos = self.mapToScene(event.pos())
+        items_at = [
+            i for i in self.scene().items(scene_pos)
+            if i.isVisible() and i.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+        ]
+        if items_at:
+            super().contextMenuEvent(event)
+            return
+        menu = QMenu(self)
+        import_action = menu.addAction(self.tr("Import Background Image..."))
+        selected = menu.exec(event.globalPos())
+        if selected == import_action:
+            self.import_background_image_requested.emit()
+
     def mousePressEvent(self, event: QMouseEvent) -> None:
         """Handle mouse press for panning and tool operations."""
         # Grab keyboard focus so Delete/arrow keys work
@@ -1118,6 +1149,16 @@ class CanvasView(QGraphicsView):
             grabber = self.scene().mouseGrabberItem()
             if isinstance(grabber, (ResizeHandle, RotationHandle, VertexHandle)):
                 self._active_drag_handle = grabber
+                # Block rotation for items that have an inter-object PARALLEL or
+                # PERPENDICULAR constraint — rotating would violate the constraint.
+                if isinstance(grabber, RotationHandle):
+                    parent = grabber.parentItem()
+                    if (parent is not None
+                            and hasattr(parent, "item_id")
+                            and self._canvas_scene.constraint_graph
+                                .has_interobject_rotation_constraint(parent.item_id)):
+                        grabber.ungrabMouse()
+                        self._active_drag_handle = None
             else:
                 self._active_drag_handle = None
 
@@ -1220,8 +1261,10 @@ class CanvasView(QGraphicsView):
         self._apply_object_snap_during_drag()
         self._clamp_dragged_items_to_canvas()
 
-        # Propagate constraints to connected items during drag
-        self._propagate_constraints_during_drag()
+        # Propagate constraints to connected items during drag.
+        # Skip during rotation — constraint solving doesn't apply while rotating.
+        if not isinstance(self._active_drag_handle, RotationHandle):
+            self._propagate_constraints_during_drag()
 
         # Update dimension lines in real-time during drag
         if self._drag_start_positions:
@@ -1792,6 +1835,22 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
+        # Re-establish mouse grab if Qt dropped it (ItemIgnoresTransformations bug).
+        # Must happen BEFORE super() so the handle receives the release event.
+        if (self._active_drag_handle is not None
+                and self.scene().mouseGrabberItem() is None
+                and self._active_drag_handle.scene() is not None):
+            self._active_drag_handle.grabMouse()
+
+        # Capture whether a vertex drag is ending so we can enforce constraints below.
+        was_vertex_drag = (
+            isinstance(self._active_drag_handle, VertexHandle)
+            and event.button() == Qt.MouseButton.LeftButton
+        )
+        if was_vertex_drag:
+            self._deferring_vertex_undo = True
+            self._deferred_vertex_move = None
+
         # Clear the handle tracking regardless of what handles the release
         self._active_drag_handle = None
 
@@ -1803,13 +1862,136 @@ class CanvasView(QGraphicsView):
                 event.accept()
                 self._drag_start_positions.clear()
                 self._constraint_propagated_starts.clear()
+                if was_vertex_drag:
+                    self._deferring_vertex_undo = False
                 return
 
         super().mouseReleaseEvent(event)
 
+        if was_vertex_drag:
+            self._deferring_vertex_undo = False
+            self._enforce_after_vertex_drag()
+
         # Check if items were dragged and create undo command
         if event.button() == Qt.MouseButton.LeftButton and self._drag_start_positions:
             self._finalize_drag_move()
+
+    def _enforce_after_vertex_drag(self) -> None:
+        """Re-enforce constraints after a polygon vertex drag.
+
+        Runs the ANGLE constraint solver and re-aligns any intra-object PARALLEL
+        constraints, then bundles everything (original drag + all corrections) into
+        a single MultiVertexMoveCommand so Ctrl+Z reverts in one step.
+        """
+        from PyQt6.QtCore import QPointF
+
+        from open_garden_planner.core.commands import MultiVertexMoveCommand
+
+        deferred = getattr(self, '_deferred_vertex_move', None)
+        if deferred is None:
+            return
+        self._deferred_vertex_move = None
+
+        item, vertex_index, old_pos, new_pos = deferred
+
+        # Snapshot ALL current vertex positions (post-drag, pre-correction).
+        snapshots: dict[int, QPointF] = {}
+        if hasattr(item, 'polygon') and callable(item.polygon):
+            pg = item.polygon()
+            for i in range(pg.count()):
+                snapshots[i] = QPointF(pg.at(i))
+
+        # Run the solver (polygon not pinned → vertex deltas for ANGLE constraints apply).
+        _item_moves, vertex_corrections = self._compute_constraint_solve_moves()
+        for gitem, idx, _old_local, new_local in vertex_corrections:
+            if hasattr(gitem, '_move_vertex_to'):
+                gitem._move_vertex_to(idx, new_local)
+
+        # Re-enforce intra-object PARALLEL constraints.
+        self._reenforce_parallel_after_vertex_move(item, vertex_index)
+
+        # Collect ALL vertex changes (original drag + solver + PARALLEL re-alignment).
+        all_moves: list = [(item, vertex_index, old_pos, new_pos)]
+        if hasattr(item, 'polygon') and callable(item.polygon):
+            pg = item.polygon()
+            for i in range(pg.count()):
+                if i == vertex_index:
+                    continue
+                old_v = snapshots.get(i)
+                new_v = pg.at(i)
+                if old_v is not None and (
+                    abs(new_v.x() - old_v.x()) > 0.01 or abs(new_v.y() - old_v.y()) > 0.01
+                ):
+                    all_moves.append((item, i, old_v, new_v))
+
+        cmd = MultiVertexMoveCommand(all_moves)
+        cm = self.command_manager
+        cm._undo_stack.append(cmd)
+        cm._redo_stack.clear()
+        cm.can_undo_changed.emit(True)
+        cm.can_redo_changed.emit(False)
+        cm.command_executed.emit(cmd.description)
+
+        self._canvas_scene.update_dimension_lines()
+
+    def _reenforce_parallel_after_vertex_move(self, item: object, vertex_index: int) -> None:  # noqa: ARG002
+        """Re-align the target edge of every intra-object PARALLEL constraint on *item*."""
+        import math as _m
+
+        from PyQt6.QtCore import QPointF
+
+        from open_garden_planner.core.constraints import ConstraintType
+
+        uid = getattr(item, 'item_id', None)
+        if uid is None or not (hasattr(item, 'polygon') and callable(item.polygon)):
+            return
+
+        graph = self._canvas_scene.constraint_graph
+        pg = item.polygon()  # type: ignore[union-attr]
+        n = pg.count()
+        if n < 4:  # noqa: PLR2004
+            return
+
+        def _scene(i: int) -> QPointF:
+            return item.mapToScene(pg.at(i))  # type: ignore[union-attr]
+
+        for cid in list(graph._adjacency.get(uid, set())):
+            c = graph._constraints.get(cid)
+            if c is None or c.constraint_type != ConstraintType.PARALLEL:
+                continue
+            if c.anchor_a.item_id != uid or c.anchor_b.item_id != uid:
+                continue  # inter-object — skip
+
+            i_a = c.anchor_a.anchor_index  # reference edge start vertex
+            i_b = c.anchor_b.anchor_index  # target edge start vertex
+
+            p_a1, p_a2 = _scene(i_a), _scene((i_a + 1) % n)
+            p_b1, p_b2 = _scene(i_b), _scene((i_b + 1) % n)
+
+            da_x = p_a2.x() - p_a1.x()
+            da_y = p_a2.y() - p_a1.y()
+            db_x = p_b2.x() - p_b1.x()
+            db_y = p_b2.y() - p_b1.y()
+            if _m.hypot(da_x, da_y) < 1e-9 or _m.hypot(db_x, db_y) < 1e-9:
+                continue
+
+            delta = _m.atan2(da_y, da_x) - _m.atan2(db_y, db_x)
+            while delta > _m.pi / 2:
+                delta -= _m.pi
+            while delta <= -_m.pi / 2:
+                delta += _m.pi
+
+            if abs(delta) < 1e-6:
+                continue
+
+            cos_d, sin_d = _m.cos(delta), _m.sin(delta)
+            rel_x = p_b2.x() - p_b1.x()
+            rel_y = p_b2.y() - p_b1.y()
+            new_b2_scene = QPointF(
+                p_b1.x() + cos_d * rel_x - sin_d * rel_y,
+                p_b1.y() + sin_d * rel_x + cos_d * rel_y,
+            )
+            item._move_vertex_to((i_b + 1) % n, item.mapFromScene(new_b2_scene))  # type: ignore[union-attr]
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         """Handle mouse double click for tool operations and constraint editing."""
@@ -2314,6 +2496,27 @@ class CanvasView(QGraphicsView):
                 # children on execute and reattaching on undo.
                 pass
 
+        # Expand deletion to include associated roof ridges (metadata-linked, not Qt children)
+        from uuid import UUID as _UUID
+
+        from open_garden_planner.core.object_types import ObjectType
+
+        _sel_ids = {item.item_id for item in selected if isinstance(item, GardenItemMixin)}
+        for _item in list(selected):
+            if not isinstance(_item, GardenItemMixin):
+                continue
+            if _item.object_type != ObjectType.HOUSE:
+                continue
+            ridge_id_str = _item.metadata.get("ridge_item_id")
+            if ridge_id_str and hasattr(self._canvas_scene, "find_item_by_id"):
+                try:
+                    ridge = self._canvas_scene.find_item_by_id(_UUID(ridge_id_str))
+                except ValueError:
+                    continue
+                if ridge is not None and ridge.item_id not in _sel_ids:
+                    selected.append(ridge)
+                    _sel_ids.add(ridge.item_id)
+
         # Collect constraints to remove for deleted items (garden + construction)
         graph = self._canvas_scene.constraint_graph
         constraints_to_remove = []
@@ -2436,15 +2639,15 @@ class CanvasView(QGraphicsView):
             self._constraint_propagated_starts.clear()
             return
 
-        # If a resize command was just pushed to the undo stack, the position
-        # change is already captured by that command. Creating a separate
-        # MoveItemsCommand would duplicate the position delta and cause
-        # undo to only revert the position without restoring the size.
-        from open_garden_planner.core.commands import ResizeItemCommand
+        # If a resize or rotate command was just pushed to the undo stack, the
+        # position/angle change is already captured by that command. Creating a
+        # separate MoveItemsCommand would duplicate the delta and cause undo to
+        # only revert the position without restoring the size/angle.
+        from open_garden_planner.core.commands import ResizeItemCommand, RotateItemCommand
 
         if self._command_manager.can_undo:
             last_cmd = self._command_manager._undo_stack[-1]
-            if isinstance(last_cmd, ResizeItemCommand):
+            if isinstance(last_cmd, (ResizeItemCommand, RotateItemCommand)):
                 self._drag_start_positions.clear()
                 self._constraint_propagated_starts.clear()
                 return

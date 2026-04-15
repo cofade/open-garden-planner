@@ -1,7 +1,10 @@
 """New Project dialog for creating projects with specified dimensions."""
 
+from datetime import date
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -9,6 +12,7 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QSpinBox,
     QVBoxLayout,
 )
 
@@ -76,6 +80,28 @@ class NewProjectDialog(QDialog):
 
         layout.addWidget(dimensions_group)
 
+        # Garden year group
+        year_group = QGroupBox(self.tr("Garden Year"))
+        year_layout = QVBoxLayout(year_group)
+
+        self._year_checkbox = QCheckBox(self.tr("Assign a year to this plan"))
+        self._year_checkbox.setChecked(False)
+        year_layout.addWidget(self._year_checkbox)
+
+        year_spin_layout = QHBoxLayout()
+        self._year_spinbox = QSpinBox()
+        self._year_spinbox.setRange(2000, 2100)
+        self._year_spinbox.setValue(date.today().year)
+        self._year_spinbox.setMinimumWidth(100)
+        self._year_spinbox.setEnabled(False)
+        year_spin_layout.addWidget(self._year_spinbox)
+        year_spin_layout.addStretch()
+        year_layout.addLayout(year_spin_layout)
+
+        self._year_checkbox.toggled.connect(self._year_spinbox.setEnabled)
+
+        layout.addWidget(year_group)
+
         # Info label
         info_label = QLabel(
             self.tr("Tip: You can resize the canvas later from Edit > Canvas Size.")
@@ -114,6 +140,13 @@ class NewProjectDialog(QDialog):
     def height_m(self) -> float:
         """Get the canvas height in meters."""
         return self.height_spinbox.value()
+
+    @property
+    def garden_year(self) -> int | None:
+        """Get the selected garden year, or None if the year checkbox is unchecked."""
+        if self._year_checkbox.isChecked():
+            return self._year_spinbox.value()
+        return None
 
     def set_dimensions_m(self, width_m: float, height_m: float) -> None:
         """Set the canvas dimensions in meters.

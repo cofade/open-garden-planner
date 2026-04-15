@@ -545,6 +545,8 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
                 self._update_annotations()
             # Move attached ridge by the same delta
             self._move_ridge_by_delta()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
+            self.remove_rotation_handle()
 
         return super().itemChange(change, value)
 
