@@ -175,6 +175,21 @@ class ConstraintGraph:
                 return True
         return False
 
+    def has_interobject_rotation_constraint(self, item_id: UUID) -> bool:
+        """Return True if *item_id* has a PARALLEL or PERPENDICULAR constraint
+        with at least one anchor on a *different* item.
+
+        Intra-object constraints (both anchors on the same polygon) are excluded:
+        rotating the polygon as a whole preserves its internal angles.
+        """
+        rotation_types = {ConstraintType.PARALLEL, ConstraintType.PERPENDICULAR}
+        for cid in self._adjacency.get(item_id, set()):
+            c = self._constraints.get(cid)
+            if (c and c.constraint_type in rotation_types
+                    and c.anchor_a.item_id != c.anchor_b.item_id):
+                return True
+        return False
+
     def add_constraint(
         self,
         anchor_a: AnchorRef,
@@ -853,8 +868,7 @@ class ConstraintGraph:
                         constraint.anchor_c.anchor_index,
                     )
                     off_c = anchor_offsets.get(key_c, (0.0, 0.0))
-                    cx = positions[id_c][0] + off_c[0]
-                    cy = positions[id_c][1] + off_c[1]
+                    cx, cy = _anchor_pos(id_c, constraint.anchor_c, off_c)
 
                     # Vectors from vertex B to A and B to C
                     ba_x, ba_y = ax - bx, ay - by

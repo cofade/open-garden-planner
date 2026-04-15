@@ -284,4 +284,6 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
                 self.show_rotation_handle()
             else:
                 self.hide_rotation_handle()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
+            self.remove_rotation_handle()
         return super().itemChange(change, value)

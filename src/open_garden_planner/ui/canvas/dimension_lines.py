@@ -361,6 +361,13 @@ class DimensionLineManager:
             ConstructionLineItem,
         )
 
+        _edge_types = frozenset({
+            AnchorType.EDGE_TOP,
+            AnchorType.EDGE_BOTTOM,
+            AnchorType.EDGE_LEFT,
+            AnchorType.EDGE_RIGHT,
+        })
+
         for item in self._scene.items():
             is_garden = isinstance(item, GardenItemMixin)
             is_construction = isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
@@ -369,7 +376,15 @@ class DimensionLineManager:
             if item.item_id != item_id:
                 continue
             anchors = get_anchor_points(item)
-            # Match by both type and index to distinguish same-type anchors
+            # For polygon/polyline edges the EDGE_* classification is dynamic (determined
+            # by the edge's current dominant axis) and may change as vertices move.
+            # Match by index among all EDGE_* anchors so the indicator stays on the
+            # correct edge regardless of its current orientation.
+            if anchor_type in _edge_types:
+                for anchor in anchors:
+                    if anchor.anchor_type in _edge_types and anchor.anchor_index == anchor_index:
+                        return anchor.point
+            # Standard match: type + index
             for anchor in anchors:
                 if anchor.anchor_type == anchor_type and anchor.anchor_index == anchor_index:
                     return anchor.point

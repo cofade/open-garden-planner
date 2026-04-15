@@ -340,6 +340,23 @@ class LayersPanel(QWidget):
             self.layer_list.setMaximumHeight(height)
             self.layer_list.setMinimumHeight(height)
 
+    def refresh_layer_visibility(self, layer_id: UUID, visible: bool) -> None:
+        """Update the visibility button for a layer without emitting layer_visibility_changed.
+
+        Called when the scene auto-unhides a layer (e.g. when drawing on a hidden layer).
+        """
+        for i in range(self.layer_list.count()):
+            widget = self.layer_list.itemWidget(self.layer_list.item(i))
+            if isinstance(widget, LayerListItem) and widget.layer.id == layer_id:
+                widget.visibility_btn.blockSignals(True)
+                widget.visibility_btn.setChecked(visible)
+                widget.visibility_btn.setIcon(
+                    widget._eye_open_icon if visible else widget._eye_closed_icon
+                )
+                widget.visibility_btn.blockSignals(False)
+                widget._update_styling()
+                break
+
     def _on_layer_selected(self, row: int) -> None:
         """Handle layer selection.
 
