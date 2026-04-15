@@ -16,18 +16,25 @@ class ToolType(Enum):
 
     SELECT = auto()
     MEASURE = auto()
-    CONSTRAINT = auto()             # Distance constraint
+    CONSTRAINT = auto()  # Distance constraint
+    CONSTRAINT_EDGE_LENGTH = auto()  # Edge-length constraint
     CONSTRAINT_HORIZONTAL = auto()  # Horizontal alignment constraint
-    CONSTRAINT_VERTICAL = auto()    # Vertical alignment constraint
-    CONSTRAINT_ANGLE = auto()       # Angle constraint (3-point)
-    CONSTRAINT_SYMMETRY = auto()    # Symmetry constraint (mirror across H/V axis)
-    CONSTRAINT_COINCIDENT = auto()      # Coincident constraint (merge two anchor points)
-    CONSTRAINT_PARALLEL = auto()        # Parallel constraint (two edges stay parallel)
-    CONSTRAINT_PERPENDICULAR = auto()   # Perpendicular constraint (two edges at 90°)
-    CONSTRAINT_EQUAL = auto()           # Equal size constraint (same radius/width/height)
-    CONSTRAINT_FIXED = auto()           # Fix in place / Block constraint (pin item to current position)
-    CONSTRAINT_H_DISTANCE = auto()      # Horizontal distance constraint (fixed X-axis distance)
-    CONSTRAINT_V_DISTANCE = auto()      # Vertical distance constraint (fixed Y-axis distance)
+    CONSTRAINT_VERTICAL = auto()  # Vertical alignment constraint
+    CONSTRAINT_ANGLE = auto()  # Angle constraint (3-point)
+    CONSTRAINT_SYMMETRY = auto()  # Symmetry constraint (mirror across H/V axis)
+    CONSTRAINT_COINCIDENT = auto()  # Coincident constraint (merge two anchor points)
+    CONSTRAINT_PARALLEL = auto()  # Parallel constraint (two edges stay parallel)
+    CONSTRAINT_PERPENDICULAR = auto()  # Perpendicular constraint (two edges at 90°)
+    CONSTRAINT_EQUAL = auto()  # Equal size constraint (same radius/width/height)
+    CONSTRAINT_FIXED = (
+        auto()
+    )  # Fix in place / Block constraint (pin item to current position)
+    CONSTRAINT_H_DISTANCE = (
+        auto()
+    )  # Horizontal distance constraint (fixed X-axis distance)
+    CONSTRAINT_V_DISTANCE = (
+        auto()
+    )  # Vertical distance constraint (fixed Y-axis distance)
 
     # Property object types (polygon-based)
     HOUSE = auto()

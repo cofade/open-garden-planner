@@ -25,6 +25,7 @@ from open_garden_planner.core.commands import AddConstraintCommand
 from open_garden_planner.core.constraints import AnchorRef, ConstraintType
 from open_garden_planner.core.measure_snapper import (
     AnchorPoint,
+    AnchorType,
     find_nearest_anchor,
     get_anchor_points,
 )
@@ -36,8 +37,8 @@ ANCHOR_INDICATOR_RADIUS = 6.0
 ANCHOR_INDICATOR_COLOR = QColor(255, 140, 0, 200)  # Orange
 ANCHOR_SELECTED_COLOR = QColor(0, 120, 255, 220)  # Blue
 PREVIEW_LINE_COLOR = QColor(0, 120, 255, 160)  # Semi-transparent blue for distance
-PREVIEW_H_COLOR = QColor(180, 0, 200, 200)      # Purple for horizontal
-PREVIEW_V_COLOR = QColor(0, 160, 80, 200)       # Green for vertical
+PREVIEW_H_COLOR = QColor(180, 0, 200, 200)  # Purple for horizontal
+PREVIEW_V_COLOR = QColor(0, 160, 80, 200)  # Green for vertical
 PEN_WIDTH = 2.5
 
 
@@ -192,7 +193,9 @@ class ConstraintTool(BaseTool):
         items_at = scene.items(scene_pos)
         hovered_item = None
         for item in items_at:
-            is_target = isinstance(item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem))
+            is_target = isinstance(
+                item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)
+            )
             if is_target and item.flags() & item.GraphicsItemFlag.ItemIsSelectable:
                 hovered_item = item
                 break
@@ -203,9 +206,7 @@ class ConstraintTool(BaseTool):
         anchors = get_anchor_points(hovered_item)
         for anchor in anchors:
             r = ANCHOR_INDICATOR_RADIUS
-            rect = QRectF(
-                anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2
-            )
+            rect = QRectF(anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2)
             pen = QPen(ANCHOR_INDICATOR_COLOR, PEN_WIDTH)
             indicator = scene.addEllipse(rect, pen)
             indicator.setZValue(1002)
@@ -224,9 +225,7 @@ class ConstraintTool(BaseTool):
         if not scene:
             return
         r = ANCHOR_INDICATOR_RADIUS + 2
-        rect = QRectF(
-            anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2
-        )
+        rect = QRectF(anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2)
         pen = QPen(ANCHOR_SELECTED_COLOR, PEN_WIDTH)
         self._selected_marker = scene.addEllipse(rect, pen)
         self._selected_marker.setZValue(1003)
@@ -316,6 +315,7 @@ class ConstraintTool(BaseTool):
                 and hasattr(anchor_b.item, "item_id")
                 and self._anchor_a.item.item_id == anchor_b.item.item_id
                 and self._anchor_a.anchor_type == anchor_b.anchor_type
+                and self._anchor_a.anchor_index == anchor_b.anchor_index
             ):
                 return True
 
@@ -343,7 +343,9 @@ class ConstraintTool(BaseTool):
         if not scene:
             return
 
-        if not hasattr(anchor_a.item, "item_id") or not hasattr(anchor_b.item, "item_id"):
+        if not hasattr(anchor_a.item, "item_id") or not hasattr(
+            anchor_b.item, "item_id"
+        ):
             return
 
         ref_a = AnchorRef(
@@ -416,7 +418,9 @@ class HorizontalConstraintTool(ConstraintTool):
 
     @property
     def display_name(self) -> str:
-        return QCoreApplication.translate("HorizontalConstraintTool", "Horizontal Constraint")
+        return QCoreApplication.translate(
+            "HorizontalConstraintTool", "Horizontal Constraint"
+        )
 
     @property
     def shortcut(self) -> str:
@@ -435,7 +439,9 @@ class VerticalConstraintTool(ConstraintTool):
 
     @property
     def display_name(self) -> str:
-        return QCoreApplication.translate("VerticalConstraintTool", "Vertical Constraint")
+        return QCoreApplication.translate(
+            "VerticalConstraintTool", "Vertical Constraint"
+        )
 
     @property
     def shortcut(self) -> str:
@@ -472,7 +478,9 @@ class CoincidentConstraintTool(ConstraintTool):
 
     @property
     def display_name(self) -> str:
-        return QCoreApplication.translate("CoincidentConstraintTool", "Coincident Constraint")
+        return QCoreApplication.translate(
+            "CoincidentConstraintTool", "Coincident Constraint"
+        )
 
     @property
     def shortcut(self) -> str:
@@ -501,7 +509,11 @@ class CoincidentConstraintTool(ConstraintTool):
 
         anchor = self._find_nearest_anchor(scene_pos)
         edge = _find_nearest_edge(scene_pos, scene.items()) if anchor is None else None
-        circle = _find_nearest_circle_edge(scene_pos, scene.items()) if anchor is None else None
+        circle = (
+            _find_nearest_circle_edge(scene_pos, scene.items())
+            if anchor is None
+            else None
+        )
 
         # When both edge and circle are within threshold, prefer the closer one
         if edge is not None and circle is not None:
@@ -550,9 +562,11 @@ class CoincidentConstraintTool(ConstraintTool):
             c = circle  # type: ignore[union-attr]
             r = c.radius
             from PyQt6.QtCore import QRectF
+
             pen = QPen(PREVIEW_POINT_ON_EDGE_COLOR, 2, Qt.PenStyle.DashLine)
             self._circle_highlight = scene.addEllipse(
-                QRectF(c.center_scene.x() - r, c.center_scene.y() - r, r * 2, r * 2), pen
+                QRectF(c.center_scene.x() - r, c.center_scene.y() - r, r * 2, r * 2),
+                pen,
             )
             self._circle_highlight.setZValue(1001)
             self._graphics_items.append(self._circle_highlight)
@@ -604,7 +618,9 @@ class CoincidentConstraintTool(ConstraintTool):
         edge = self._hovered_edge
         if edge is None or self._anchor_a is None:
             return
-        if not hasattr(self._anchor_a.item, "item_id") or not hasattr(edge.item, "item_id"):
+        if not hasattr(self._anchor_a.item, "item_id") or not hasattr(
+            edge.item, "item_id"
+        ):
             return
 
         ref_a = AnchorRef(
@@ -628,7 +644,9 @@ class CoincidentConstraintTool(ConstraintTool):
         ):
             QMessageBox.warning(
                 self._view,
-                QCoreApplication.translate("CoincidentConstraintTool", "Conflicting Constraint"),
+                QCoreApplication.translate(
+                    "CoincidentConstraintTool", "Conflicting Constraint"
+                ),
                 QCoreApplication.translate(
                     "CoincidentConstraintTool",
                     "This constraint conflicts with existing constraints "
@@ -658,7 +676,9 @@ class CoincidentConstraintTool(ConstraintTool):
         circle = self._hovered_circle
         if circle is None or self._anchor_a is None:
             return
-        if not hasattr(self._anchor_a.item, "item_id") or not hasattr(circle.item, "item_id"):
+        if not hasattr(self._anchor_a.item, "item_id") or not hasattr(
+            circle.item, "item_id"
+        ):
             return
 
         ref_a = AnchorRef(
@@ -677,7 +697,9 @@ class CoincidentConstraintTool(ConstraintTool):
         ):
             QMessageBox.warning(
                 self._view,
-                QCoreApplication.translate("CoincidentConstraintTool", "Conflicting Constraint"),
+                QCoreApplication.translate(
+                    "CoincidentConstraintTool", "Conflicting Constraint"
+                ),
                 QCoreApplication.translate(
                     "CoincidentConstraintTool",
                     "This constraint conflicts with existing constraints "
@@ -767,7 +789,9 @@ class CoincidentConstraintTool(ConstraintTool):
             self._preview_line.setZValue(1001)
             self._graphics_items.append(self._preview_line)
 
-            text = QCoreApplication.translate("CoincidentConstraintTool", "⦿ Coincident")
+            text = QCoreApplication.translate(
+                "CoincidentConstraintTool", "⦿ Coincident"
+            )
             mid_x = (start.x() + end_pos.x()) / 2
             mid_y = (start.y() + end_pos.y()) / 2
 
@@ -800,9 +824,12 @@ _EDGE_SNAP_THRESHOLD = 15.0
 
 
 def _point_to_segment_distance(
-    px: float, py: float,
-    ax: float, ay: float,
-    bx: float, by: float,
+    px: float,
+    py: float,
+    ax: float,
+    ay: float,
+    bx: float,
+    by: float,
 ) -> float:
     """Return the perpendicular distance from point P to infinite line through A–B."""
     edx, edy = bx - ax, by - ay
@@ -818,7 +845,15 @@ def _point_to_segment_distance(
 class _EdgeResult:
     """Result of an edge-snap query."""
 
-    __slots__ = ("item", "p1_scene", "p2_scene", "anchor_type", "idx_start", "idx_end", "dist")
+    __slots__ = (
+        "item",
+        "p1_scene",
+        "p2_scene",
+        "anchor_type",
+        "idx_start",
+        "idx_end",
+        "dist",
+    )
 
     def __init__(
         self,
@@ -851,7 +886,9 @@ class _CircleEdgeResult:
         self.dist = dist
 
 
-def _find_nearest_circle_edge(scene_pos: QPointF, scene_items) -> _CircleEdgeResult | None:
+def _find_nearest_circle_edge(
+    scene_pos: QPointF, scene_items
+) -> _CircleEdgeResult | None:
     """Find the nearest CircleItem whose perimeter is within snap threshold of *scene_pos*."""
     from open_garden_planner.ui.canvas.items import CircleItem
 
@@ -868,7 +905,9 @@ def _find_nearest_circle_edge(scene_pos: QPointF, scene_items) -> _CircleEdgeRes
             (scene_pos.x() - center.x()) ** 2 + (scene_pos.y() - center.y()) ** 2
         )
         dist_to_perimeter = abs(dist_to_center - radius)
-        if dist_to_perimeter < _EDGE_SNAP_THRESHOLD and (best is None or dist_to_perimeter < best.dist):
+        if dist_to_perimeter < _EDGE_SNAP_THRESHOLD and (
+            best is None or dist_to_perimeter < best.dist
+        ):
             best = _CircleEdgeResult(item, center, radius, dist_to_perimeter)
     return best
 
@@ -882,15 +921,23 @@ def _find_nearest_edge(scene_pos: QPointF, scene_items) -> _EdgeResult | None:
     Returns an _EdgeResult or None if nothing is within _EDGE_SNAP_THRESHOLD.
     """
     from open_garden_planner.core.measure_snapper import AnchorType
-    from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem, RectangleItem
+    from open_garden_planner.ui.canvas.items import (
+        PolygonItem,
+        PolylineItem,
+        RectangleItem,
+    )
 
     best: _EdgeResult | None = None
 
     def _check(item, p1: QPointF, p2: QPointF, at, i_start: int, i_end: int) -> None:
         nonlocal best
         d = _point_to_segment_distance(
-            scene_pos.x(), scene_pos.y(),
-            p1.x(), p1.y(), p2.x(), p2.y(),
+            scene_pos.x(),
+            scene_pos.y(),
+            p1.x(),
+            p1.y(),
+            p2.x(),
+            p2.y(),
         )
         if d < _EDGE_SNAP_THRESHOLD and (best is None or d < best.dist):
             best = _EdgeResult(
@@ -909,14 +956,20 @@ def _find_nearest_edge(scene_pos: QPointF, scene_items) -> _EdgeResult | None:
             # 0=TL, 1=TR, 2=BL, 3=BR
             r = item.rect()
             corners = [
-                item.mapToScene(r.left(),  r.top()),     # 0 TL
-                item.mapToScene(r.right(), r.top()),     # 1 TR
-                item.mapToScene(r.left(),  r.bottom()),  # 2 BL
+                item.mapToScene(r.left(), r.top()),  # 0 TL
+                item.mapToScene(r.right(), r.top()),  # 1 TR
+                item.mapToScene(r.left(), r.bottom()),  # 2 BL
                 item.mapToScene(r.right(), r.bottom()),  # 3 BR
             ]
             for i_start, i_end in ((0, 1), (1, 3), (2, 3), (0, 2)):
-                _check(item, corners[i_start], corners[i_end],
-                       AnchorType.CORNER, i_start, i_end)
+                _check(
+                    item,
+                    corners[i_start],
+                    corners[i_end],
+                    AnchorType.CORNER,
+                    i_start,
+                    i_end,
+                )
 
         elif isinstance(item, PolygonItem):
             poly = item.polygon()
@@ -924,10 +977,14 @@ def _find_nearest_edge(scene_pos: QPointF, scene_items) -> _EdgeResult | None:
             if n < 2:
                 continue
             for i in range(n):
-                _check(item,
-                       item.mapToScene(poly.at(i)),
-                       item.mapToScene(poly.at((i + 1) % n)),
-                       AnchorType.CORNER, i, (i + 1) % n)
+                _check(
+                    item,
+                    item.mapToScene(poly.at(i)),
+                    item.mapToScene(poly.at((i + 1) % n)),
+                    AnchorType.CORNER,
+                    i,
+                    (i + 1) % n,
+                )
 
         elif isinstance(item, PolylineItem):
             pts = item.points
@@ -935,14 +992,16 @@ def _find_nearest_edge(scene_pos: QPointF, scene_items) -> _EdgeResult | None:
             if n < 2:
                 continue
             for i in range(n - 1):
-                _check(item,
-                       item.mapToScene(pts[i]),
-                       item.mapToScene(pts[i + 1]),
-                       AnchorType.ENDPOINT, i, i + 1)
+                _check(
+                    item,
+                    item.mapToScene(pts[i]),
+                    item.mapToScene(pts[i + 1]),
+                    AnchorType.ENDPOINT,
+                    i,
+                    i + 1,
+                )
 
     return best
-
-
 
 
 # Angle constraint visual constants
@@ -967,7 +1026,9 @@ class AngleInputDialog(QDialog):
         layout = QVBoxLayout(self)
 
         label = QLabel(
-            QCoreApplication.translate("AngleInputDialog", "Enter the target angle (degrees):")
+            QCoreApplication.translate(
+                "AngleInputDialog", "Enter the target angle (degrees):"
+            )
         )
         layout.addWidget(label)
 
@@ -991,7 +1052,9 @@ class AngleInputDialog(QDialog):
 
         # Preset buttons row
         preset_layout = QHBoxLayout()
-        preset_label = QLabel(QCoreApplication.translate("AngleInputDialog", "Presets:"))
+        preset_label = QLabel(
+            QCoreApplication.translate("AngleInputDialog", "Presets:")
+        )
         preset_layout.addWidget(preset_label)
         for angle in self._PRESETS:
             btn = QPushButton(f"{angle:.0f}°")
@@ -1104,13 +1167,16 @@ class AngleConstraintTool(BaseTool):
         items_at = scene.items(scene_pos)
         hovered_item = None
         for item in items_at:
-            is_target = isinstance(item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem))
+            is_target = isinstance(
+                item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)
+            )
             if is_target and item.flags() & item.GraphicsItemFlag.ItemIsSelectable:
                 hovered_item = item
                 break
         if hovered_item is None:
             return
         from open_garden_planner.core.measure_snapper import get_anchor_points
+
         for anchor in get_anchor_points(hovered_item):
             r = ANCHOR_INDICATOR_RADIUS
             rect = QRectF(anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2)
@@ -1125,7 +1191,9 @@ class AngleConstraintTool(BaseTool):
             return None
         return find_nearest_anchor(scene_pos, scene.items())
 
-    def _show_selected_marker(self, anchor: AnchorPoint, color: QColor) -> QGraphicsEllipseItem:
+    def _show_selected_marker(
+        self, anchor: AnchorPoint, color: QColor
+    ) -> QGraphicsEllipseItem:
         scene = self._view.scene()
         r = ANCHOR_INDICATOR_RADIUS + 2
         rect = QRectF(anchor.point.x() - r, anchor.point.y() - r, r * 2, r * 2)
@@ -1184,10 +1252,12 @@ class AngleConstraintTool(BaseTool):
         # Compute and display current angle
         ba_x, ba_y = end_a.x() - vertex.x(), end_a.y() - vertex.y()
         bc_x, bc_y = end_c.x() - vertex.x(), end_c.y() - vertex.y()
-        ba_len = math.sqrt(ba_x ** 2 + ba_y ** 2)
-        bc_len = math.sqrt(bc_x ** 2 + bc_y ** 2)
+        ba_len = math.sqrt(ba_x**2 + ba_y**2)
+        bc_len = math.sqrt(bc_x**2 + bc_y**2)
         if ba_len > 1e-6 and bc_len > 1e-6:
-            cos_val = max(-1.0, min(1.0, (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len)))
+            cos_val = max(
+                -1.0, min(1.0, (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len))
+            )
             angle_deg = math.degrees(math.acos(cos_val))
             text = f"{angle_deg:.1f}°"
             self._preview_text = scene.addText(text)
@@ -1264,8 +1334,8 @@ class AngleConstraintTool(BaseTool):
         end_c = anchor_c.point
         ba_x, ba_y = end_a.x() - vertex.x(), end_a.y() - vertex.y()
         bc_x, bc_y = end_c.x() - vertex.x(), end_c.y() - vertex.y()
-        ba_len = math.sqrt(ba_x ** 2 + ba_y ** 2)
-        bc_len = math.sqrt(bc_x ** 2 + bc_y ** 2)
+        ba_len = math.sqrt(ba_x**2 + ba_y**2)
+        bc_len = math.sqrt(bc_x**2 + bc_y**2)
         if ba_len < 1e-6 or bc_len < 1e-6:
             self._reset()
             return True
@@ -1276,7 +1346,9 @@ class AngleConstraintTool(BaseTool):
         dialog = AngleInputDialog(current_angle_deg, self._view)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             target_deg = dialog.angle_degrees()
-            self._create_angle_constraint(self._anchor_a, self._anchor_b, anchor_c, target_deg)
+            self._create_angle_constraint(
+                self._anchor_a, self._anchor_b, anchor_c, target_deg
+            )
 
         self._reset()
         return True
@@ -1410,7 +1482,9 @@ class SymmetryConstraintTool(BaseTool):
 
     @property
     def display_name(self) -> str:
-        return QCoreApplication.translate("SymmetryConstraintTool", "Symmetry Constraint")
+        return QCoreApplication.translate(
+            "SymmetryConstraintTool", "Symmetry Constraint"
+        )
 
     @property
     def shortcut(self) -> str:
@@ -1467,7 +1541,9 @@ class SymmetryConstraintTool(BaseTool):
         items_at = scene.items(scene_pos)
         hovered_item = None
         for item in items_at:
-            is_target = isinstance(item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem))
+            is_target = isinstance(
+                item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)
+            )
             if is_target and item.flags() & item.GraphicsItemFlag.ItemIsSelectable:
                 hovered_item = item
                 break
@@ -1531,7 +1607,9 @@ class SymmetryConstraintTool(BaseTool):
         self._preview_text.setPos(
             mid_x - text_rect.width() / 2, mid_y - text_rect.height() / 2
         )
-        self._preview_text.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        self._preview_text.setFlag(
+            QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations
+        )
         self._preview_text.setZValue(1002)
         self._graphics_items.append(self._preview_text)
 
@@ -1580,7 +1658,9 @@ class SymmetryConstraintTool(BaseTool):
         scene = self._view.scene()
         if not scene:
             return
-        if not hasattr(anchor_a.item, "item_id") or not hasattr(anchor_b.item, "item_id"):
+        if not hasattr(anchor_a.item, "item_id") or not hasattr(
+            anchor_b.item, "item_id"
+        ):
             return
 
         # Compute axis coordinate from the midpoint at creation time
@@ -1634,10 +1714,12 @@ class SymmetryConstraintTool(BaseTool):
 
 # ─── Parallel constraint ──────────────────────────────────────────────────────
 
-PREVIEW_PARALLEL_COLOR = QColor(20, 160, 100, 200)   # Green for parallel
+PREVIEW_PARALLEL_COLOR = QColor(20, 160, 100, 200)  # Green for parallel
 
 
-def _collect_rotation_chain(scene_items, graph, start_item, delta: float, exclude_id) -> list:
+def _collect_rotation_chain(
+    scene_items, graph, start_item, delta: float, exclude_id
+) -> list:
     """BFS through PARALLEL/PERPENDICULAR constraints from *start_item*.
 
     Returns a list of ``(item, old_rotation, new_rotation, apply_fn)`` tuples for every
@@ -1682,7 +1764,14 @@ def _collect_rotation_chain(scene_items, graph, start_item, delta: float, exclud
             if other_item is None:
                 continue
             old_rot = getattr(other_item, "rotation_angle", 0.0)
-            chain.append((other_item, old_rot, old_rot + delta, lambda it, ang: it._apply_rotation(ang)))
+            chain.append(
+                (
+                    other_item,
+                    old_rot,
+                    old_rot + delta,
+                    lambda it, ang: it._apply_rotation(ang),
+                )
+            )
             queue.append(other_item)
 
     return chain
@@ -1708,15 +1797,19 @@ def _compute_edge_scene_angle(edge_anchor):
 
     if isinstance(item, RectangleItem):
         corner_map = {
-            AnchorType.EDGE_TOP:    (0, 1),
+            AnchorType.EDGE_TOP: (0, 1),
             AnchorType.EDGE_BOTTOM: (2, 3),
-            AnchorType.EDGE_LEFT:   (0, 2),
-            AnchorType.EDGE_RIGHT:  (1, 3),
+            AnchorType.EDGE_LEFT: (0, 2),
+            AnchorType.EDGE_RIGHT: (1, 3),
         }
         if anchor_type not in corner_map:
             return None
         i0, i1 = corner_map[anchor_type]
-        corners = {a.anchor_index: a.point for a in anchors if a.anchor_type == AnchorType.CORNER}
+        corners = {
+            a.anchor_index: a.point
+            for a in anchors
+            if a.anchor_type == AnchorType.CORNER
+        }
         if i0 not in corners or i1 not in corners:
             return None
         p1, p2 = corners[i0], corners[i1]
@@ -1755,7 +1848,12 @@ def _find_nearest_edge_anchor(scene_pos, scene_items):
     SNAP_THRESHOLD = 40.0
     best = None
     best_dist = SNAP_THRESHOLD
-    edge_types = {AnchorType.EDGE_TOP, AnchorType.EDGE_BOTTOM, AnchorType.EDGE_LEFT, AnchorType.EDGE_RIGHT}
+    edge_types = {
+        AnchorType.EDGE_TOP,
+        AnchorType.EDGE_BOTTOM,
+        AnchorType.EDGE_LEFT,
+        AnchorType.EDGE_RIGHT,
+    }
 
     for item in scene_items:
         if not isinstance(item, GardenItemMixin):
@@ -1773,6 +1871,74 @@ def _find_nearest_edge_anchor(scene_pos, scene_items):
                 best = anchor
 
     return best
+
+
+def _edge_anchor_to_endpoints(anchor) -> tuple[AnchorPoint, AnchorPoint] | None:
+    """Resolve an edge anchor to its concrete endpoint anchors."""
+    from open_garden_planner.ui.canvas.items import PolylineItem, RectangleItem
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    item = anchor.item
+    if isinstance(item, RectangleItem):
+        corner_pairs = {
+            AnchorType.EDGE_TOP: (0, 1),
+            AnchorType.EDGE_BOTTOM: (2, 3),
+            AnchorType.EDGE_LEFT: (0, 2),
+            AnchorType.EDGE_RIGHT: (1, 3),
+        }
+        pair = corner_pairs.get(anchor.anchor_type)
+        if pair is None:
+            return None
+        corners = {
+            a.anchor_index: a
+            for a in get_anchor_points(item)
+            if a.anchor_type == AnchorType.CORNER
+        }
+        if pair[0] not in corners or pair[1] not in corners:
+            return None
+        return corners[pair[0]], corners[pair[1]]
+
+    if isinstance(item, PolygonItem):
+        polygon = item.polygon()
+        n = polygon.count()
+        if n < 2:
+            return None
+        i = anchor.anchor_index
+        p1 = AnchorPoint(
+            point=item.mapToScene(polygon.at(i)),
+            anchor_type=AnchorType.CORNER,
+            item=item,
+            anchor_index=i,
+        )
+        p2_index = (i + 1) % n
+        p2 = AnchorPoint(
+            point=item.mapToScene(polygon.at(p2_index)),
+            anchor_type=AnchorType.CORNER,
+            item=item,
+            anchor_index=p2_index,
+        )
+        return p1, p2
+
+    if isinstance(item, PolylineItem):
+        points = item.points
+        i = anchor.anchor_index
+        if i < 0 or i + 1 >= len(points):
+            return None
+        p1 = AnchorPoint(
+            point=item.mapToScene(points[i]),
+            anchor_type=AnchorType.ENDPOINT,
+            item=item,
+            anchor_index=i,
+        )
+        p2 = AnchorPoint(
+            point=item.mapToScene(points[i + 1]),
+            anchor_type=AnchorType.ENDPOINT,
+            item=item,
+            anchor_index=i + 1,
+        )
+        return p1, p2
+
+    return None
 
 
 def _compute_equal_dimension(anchor) -> float | None:
@@ -2019,7 +2185,191 @@ def _apply_equal_propagation_live(source_item, scene) -> None:
 
 # ─── Equal-size constraint ─────────────────────────────────────────────────────
 
-PREVIEW_EQUAL_COLOR = QColor(200, 100, 0, 200)   # Amber for equal-size constraint
+PREVIEW_EQUAL_COLOR = QColor(200, 100, 0, 200)  # Amber for equal-size constraint
+
+
+class EdgeLengthConstraintTool(BaseTool):
+    """Tool for creating direct edge-length constraints by clicking an edge."""
+
+    def __init__(self, view) -> None:
+        super().__init__(view)
+        self._edge_indicators: list = []
+        self._graphics_items: list = []
+        self._selected_marker = None
+        self._preview_line = None
+        self._preview_text = None
+        self._current_edge = None
+
+    @property
+    def tool_type(self) -> ToolType:
+        return ToolType.CONSTRAINT_EDGE_LENGTH
+
+    @property
+    def display_name(self) -> str:
+        return QCoreApplication.translate(
+            "EdgeLengthConstraintTool", "Edge Length Constraint"
+        )
+
+    @property
+    def shortcut(self) -> str:
+        return ""
+
+    @property
+    def cursor(self) -> QCursor:
+        return QCursor(Qt.CursorShape.CrossCursor)
+
+    def activate(self) -> None:
+        super().activate()
+        self._reset()
+
+    def deactivate(self) -> None:
+        super().deactivate()
+        self._reset()
+
+    def _reset(self) -> None:
+        self._current_edge = None
+        self._clear_all_visuals()
+
+    def _clear_all_visuals(self) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        for item in self._graphics_items:
+            if item.scene():
+                scene.removeItem(item)
+        self._graphics_items.clear()
+        for item in self._edge_indicators:
+            if item.scene():
+                scene.removeItem(item)
+        self._edge_indicators.clear()
+        self._selected_marker = None
+        self._preview_line = None
+        self._preview_text = None
+
+    def _show_edge_indicators(self, scene_pos: QPointF) -> None:
+        scene = self._view.scene()
+        if not scene:
+            return
+        for item in self._edge_indicators:
+            if item.scene():
+                scene.removeItem(item)
+        self._edge_indicators.clear()
+
+        hovered_edge = _find_nearest_edge_anchor(scene_pos, scene.items())
+        if hovered_edge is None:
+            return
+        self._current_edge = hovered_edge
+        r = ANCHOR_INDICATOR_RADIUS
+        rect = QRectF(
+            hovered_edge.point.x() - r, hovered_edge.point.y() - r, r * 2, r * 2
+        )
+        pen = QPen(PREVIEW_LINE_COLOR, PEN_WIDTH)
+        indicator = scene.addEllipse(rect, pen)
+        indicator.setZValue(1002)
+        self._edge_indicators.append(indicator)
+
+        endpoints = _edge_anchor_to_endpoints(hovered_edge)
+        if endpoints is not None:
+            p1, p2 = endpoints
+            if self._preview_line and self._preview_line.scene():
+                scene.removeItem(self._preview_line)
+                self._graphics_items.remove(self._preview_line)
+            if self._preview_text and self._preview_text.scene():
+                scene.removeItem(self._preview_text)
+                self._graphics_items.remove(self._preview_text)
+            pen = QPen(PREVIEW_LINE_COLOR, 2, Qt.PenStyle.DashLine)
+            self._preview_line = scene.addLine(QLineF(p1.point, p2.point), pen)
+            self._preview_line.setZValue(1001)
+            self._graphics_items.append(self._preview_line)
+            length_cm = QLineF(p1.point, p2.point).length()
+            self._preview_text = scene.addText(f"{length_cm / 100.0:.2f} m")
+            self._preview_text.setDefaultTextColor(PREVIEW_LINE_COLOR)
+            font = QFont()
+            font.setPointSize(11)
+            font.setBold(True)
+            self._preview_text.setFont(font)
+            mid_x = (p1.point.x() + p2.point.x()) / 2
+            mid_y = (p1.point.y() + p2.point.y()) / 2
+            text_rect = self._preview_text.boundingRect()
+            self._preview_text.setPos(
+                mid_x - text_rect.width() / 2, mid_y - text_rect.height() / 2
+            )
+            self._preview_text.setFlag(
+                QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations
+            )
+            self._preview_text.setZValue(1002)
+            self._graphics_items.append(self._preview_text)
+
+    def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+        scene = self._view.scene()
+        if not scene:
+            return True
+        edge = _find_nearest_edge_anchor(scene_pos, scene.items())
+        if edge is None:
+            return True
+        endpoints = _edge_anchor_to_endpoints(edge)
+        if endpoints is None:
+            return True
+        p1, p2 = endpoints
+        current_length = QLineF(p1.point, p2.point).length()
+        dialog = DistanceInputDialog(current_length, self._view)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return True
+        target_cm = dialog.distance_cm()
+        if not hasattr(edge.item, "item_id"):
+            return True
+        ref_a = AnchorRef(
+            item_id=p1.item.item_id,
+            anchor_type=p1.anchor_type,
+            anchor_index=p1.anchor_index,
+        )
+        ref_b = AnchorRef(
+            item_id=p2.item.item_id,
+            anchor_type=p2.anchor_type,
+            anchor_index=p2.anchor_index,
+        )
+        if not self._view.is_constraint_feasible(
+            ref_a, ref_b, target_cm, ConstraintType.EDGE_LENGTH
+        ):
+            QMessageBox.warning(
+                self._view,
+                QCoreApplication.translate(
+                    "EdgeLengthConstraintTool", "Conflicting Constraint"
+                ),
+                QCoreApplication.translate(
+                    "EdgeLengthConstraintTool",
+                    "This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.",
+                ),
+            )
+            return True
+        command = AddConstraintCommand(
+            graph=scene.constraint_graph,
+            anchor_a=ref_a,
+            anchor_b=ref_b,
+            target_distance=target_cm,
+            constraint_type=ConstraintType.EDGE_LENGTH,
+        )
+        self._view._execute_constraint_with_solve(command)
+        self._reset()
+        return True
+
+    def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
+        self._show_edge_indicators(scene_pos)
+        return True
+
+    def mouse_release(self, _event: QMouseEvent, _scene_pos: QPointF) -> bool:
+        return False
+
+    def key_press(self, event: QKeyEvent) -> bool:
+        if event.key() == Qt.Key.Key_Escape:
+            self._reset()
+            return True
+        return False
+
+    def cancel(self) -> None:
+        self._reset()
 
 
 class EqualConstraintTool(BaseTool):
@@ -2052,7 +2402,9 @@ class EqualConstraintTool(BaseTool):
 
     @property
     def display_name(self) -> str:
-        return QCoreApplication.translate("EqualConstraintTool", "Equal Size Constraint")
+        return QCoreApplication.translate(
+            "EqualConstraintTool", "Equal Size Constraint"
+        )
 
     @property
     def shortcut(self) -> str:
@@ -2104,13 +2456,20 @@ class EqualConstraintTool(BaseTool):
             return
         self._clear_edge_indicators()
 
-        edge_types = {AnchorType.EDGE_TOP, AnchorType.EDGE_BOTTOM,
-                      AnchorType.EDGE_LEFT, AnchorType.EDGE_RIGHT}
+        edge_types = {
+            AnchorType.EDGE_TOP,
+            AnchorType.EDGE_BOTTOM,
+            AnchorType.EDGE_LEFT,
+            AnchorType.EDGE_RIGHT,
+        }
 
         items_at = scene.items(scene_pos)
         hovered = None
         for it in items_at:
-            if isinstance(it, GardenItemMixin) and it.flags() & it.GraphicsItemFlag.ItemIsSelectable:
+            if (
+                isinstance(it, GardenItemMixin)
+                and it.flags() & it.GraphicsItemFlag.ItemIsSelectable
+            ):
                 hovered = it
                 break
 
@@ -2168,8 +2527,12 @@ class EqualConstraintTool(BaseTool):
         font.setBold(True)
         self._preview_text.setFont(font)
         text_rect = self._preview_text.boundingRect()
-        self._preview_text.setPos(mid_x - text_rect.width() / 2, mid_y - text_rect.height() / 2)
-        self._preview_text.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        self._preview_text.setPos(
+            mid_x - text_rect.width() / 2, mid_y - text_rect.height() / 2
+        )
+        self._preview_text.setFlag(
+            QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations
+        )
         self._preview_text.setZValue(1002)
         self._graphics_items.append(self._preview_text)
 
@@ -2210,14 +2573,18 @@ class EqualConstraintTool(BaseTool):
         scene = self._view.scene()
         if not scene:
             return
-        if not hasattr(anchor_a.item, "item_id") or not hasattr(anchor_b.item, "item_id"):
+        if not hasattr(anchor_a.item, "item_id") or not hasattr(
+            anchor_b.item, "item_id"
+        ):
             return
 
         dim_a = _compute_equal_dimension(anchor_a)
         if dim_a is None:
             QMessageBox.warning(
                 self._view,
-                QCoreApplication.translate("EqualConstraintTool", "Equal Size Constraint"),
+                QCoreApplication.translate(
+                    "EqualConstraintTool", "Equal Size Constraint"
+                ),
                 QCoreApplication.translate(
                     "EqualConstraintTool",
                     "Cannot determine the size dimension for object A.",
@@ -2237,9 +2604,15 @@ class EqualConstraintTool(BaseTool):
         )
 
         # Resize item B to match item A's dimension
-        old_size_b, apply_fn = _build_equal_resize_fn(anchor_b.item, anchor_b.anchor_type)
+        old_size_b, apply_fn = _build_equal_resize_fn(
+            anchor_b.item, anchor_b.anchor_type
+        )
         item_sizes: list = []
-        if apply_fn is not None and old_size_b is not None and abs(dim_a - old_size_b) > 0.01:
+        if (
+            apply_fn is not None
+            and old_size_b is not None
+            and abs(dim_a - old_size_b) > 0.01
+        ):
             item_sizes = [(anchor_b.item, old_size_b, dim_a, apply_fn)]
 
         command = AddConstraintCommand(
@@ -2301,7 +2674,9 @@ class ParallelConstraintTool(BaseTool):
 
     @property
     def display_name(self) -> str:
-        return QCoreApplication.translate("ParallelConstraintTool", "Parallel Constraint")
+        return QCoreApplication.translate(
+            "ParallelConstraintTool", "Parallel Constraint"
+        )
 
     @property
     def shortcut(self) -> str:
@@ -2346,7 +2721,10 @@ class ParallelConstraintTool(BaseTool):
         self._edge_indicators.clear()
 
     def _show_edge_indicators(self, scene_pos) -> None:
-        from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
+        from open_garden_planner.core.measure_snapper import (
+            AnchorType,
+            get_anchor_points,
+        )
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         scene = self._view.scene()
@@ -2354,13 +2732,20 @@ class ParallelConstraintTool(BaseTool):
             return
         self._clear_edge_indicators()
 
-        edge_types = {AnchorType.EDGE_TOP, AnchorType.EDGE_BOTTOM,
-                      AnchorType.EDGE_LEFT, AnchorType.EDGE_RIGHT}
+        edge_types = {
+            AnchorType.EDGE_TOP,
+            AnchorType.EDGE_BOTTOM,
+            AnchorType.EDGE_LEFT,
+            AnchorType.EDGE_RIGHT,
+        }
 
         items_at = scene.items(scene_pos)
         hovered = None
         for it in items_at:
-            if isinstance(it, GardenItemMixin) and it.flags() & it.GraphicsItemFlag.ItemIsSelectable:
+            if (
+                isinstance(it, GardenItemMixin)
+                and it.flags() & it.GraphicsItemFlag.ItemIsSelectable
+            ):
                 hovered = it
                 break
 
@@ -2418,8 +2803,12 @@ class ParallelConstraintTool(BaseTool):
         font.setBold(True)
         self._preview_text.setFont(font)
         text_rect = self._preview_text.boundingRect()
-        self._preview_text.setPos(mid_x - text_rect.width() / 2, mid_y - text_rect.height() / 2)
-        self._preview_text.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        self._preview_text.setPos(
+            mid_x - text_rect.width() / 2, mid_y - text_rect.height() / 2
+        )
+        self._preview_text.setFlag(
+            QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations
+        )
         self._preview_text.setZValue(1002)
         self._graphics_items.append(self._preview_text)
 
@@ -2469,7 +2858,9 @@ class ParallelConstraintTool(BaseTool):
         if alpha_a is None:
             QMessageBox.warning(
                 self._view,
-                QCoreApplication.translate("ParallelConstraintTool", "Parallel Constraint"),
+                QCoreApplication.translate(
+                    "ParallelConstraintTool", "Parallel Constraint"
+                ),
                 QCoreApplication.translate(
                     "ParallelConstraintTool",
                     "Cannot determine the angle of the selected edge on object A.",
@@ -2481,7 +2872,9 @@ class ParallelConstraintTool(BaseTool):
         if alpha_b is None:
             QMessageBox.warning(
                 self._view,
-                QCoreApplication.translate("ParallelConstraintTool", "Parallel Constraint"),
+                QCoreApplication.translate(
+                    "ParallelConstraintTool", "Parallel Constraint"
+                ),
                 QCoreApplication.translate(
                     "ParallelConstraintTool",
                     "Cannot determine the angle of the selected edge on object B.",
@@ -2517,13 +2910,23 @@ class ParallelConstraintTool(BaseTool):
         item_rotations: list = []
         if hasattr(item_to_rotate, "_apply_rotation") and abs(delta) > 0.01:
             item_rotations = [
-                (item_to_rotate, rot, target_rotation, lambda it, ang: it._apply_rotation(ang))
+                (
+                    item_to_rotate,
+                    rot,
+                    target_rotation,
+                    lambda it, ang: it._apply_rotation(ang),
+                )
             ]
             # Propagate rotation delta through existing PARALLEL/PERPENDICULAR chains.
-            reference_item = edge_b.item if item_to_rotate is edge_a.item else edge_a.item
+            reference_item = (
+                edge_b.item if item_to_rotate is edge_a.item else edge_a.item
+            )
             chain = _collect_rotation_chain(
-                scene.items(), scene.constraint_graph,
-                item_to_rotate, delta, reference_item.item_id,
+                scene.items(),
+                scene.constraint_graph,
+                item_to_rotate,
+                delta,
+                reference_item.item_id,
             )
             item_rotations.extend(chain)
 
@@ -2562,7 +2965,7 @@ class ParallelConstraintTool(BaseTool):
 
 # ─── Perpendicular constraint ─────────────────────────────────────────────────
 
-PREVIEW_PERPENDICULAR_COLOR = QColor(20, 120, 160, 200)   # Blue-teal for perpendicular
+PREVIEW_PERPENDICULAR_COLOR = QColor(20, 120, 160, 200)  # Blue-teal for perpendicular
 
 
 class PerpendicularConstraintTool(BaseTool):
@@ -2644,12 +3047,17 @@ class PerpendicularConstraintTool(BaseTool):
         if not scene:
             return
 
-        from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
+        from open_garden_planner.core.measure_snapper import (
+            AnchorType,
+            get_anchor_points,
+        )
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         edge_types = {
-            AnchorType.EDGE_TOP, AnchorType.EDGE_BOTTOM,
-            AnchorType.EDGE_LEFT, AnchorType.EDGE_RIGHT,
+            AnchorType.EDGE_TOP,
+            AnchorType.EDGE_BOTTOM,
+            AnchorType.EDGE_LEFT,
+            AnchorType.EDGE_RIGHT,
         }
 
         hovered = None
@@ -2661,6 +3069,7 @@ class PerpendicularConstraintTool(BaseTool):
                 if anchor.anchor_type not in edge_types:
                     continue
                 import math as _math
+
                 dx = anchor.point.x() - scene_pos.x()
                 dy = anchor.point.y() - scene_pos.y()
                 d = _math.sqrt(dx * dx + dy * dy)
@@ -2824,13 +3233,23 @@ class PerpendicularConstraintTool(BaseTool):
         item_rotations: list = []
         if hasattr(item_to_rotate, "_apply_rotation") and abs(delta) > 0.01:
             item_rotations = [
-                (item_to_rotate, rot, target_rotation, lambda it, ang: it._apply_rotation(ang))
+                (
+                    item_to_rotate,
+                    rot,
+                    target_rotation,
+                    lambda it, ang: it._apply_rotation(ang),
+                )
             ]
             # Propagate rotation delta through existing PARALLEL/PERPENDICULAR chains.
-            reference_item = edge_b.item if item_to_rotate is edge_a.item else edge_a.item
+            reference_item = (
+                edge_b.item if item_to_rotate is edge_a.item else edge_a.item
+            )
             chain = _collect_rotation_chain(
-                scene.items(), scene.constraint_graph,
-                item_to_rotate, delta, reference_item.item_id,
+                scene.items(),
+                scene.constraint_graph,
+                item_to_rotate,
+                delta,
+                reference_item.item_id,
             )
             item_rotations.extend(chain)
 
@@ -2869,7 +3288,7 @@ class PerpendicularConstraintTool(BaseTool):
 
 # ─── Fix in place constraint ──────────────────────────────────────────────────
 
-PREVIEW_FIXED_COLOR = QColor(180, 130, 0, 220)   # Gold/amber for fixed constraint
+PREVIEW_FIXED_COLOR = QColor(180, 130, 0, 220)  # Gold/amber for fixed constraint
 
 
 class FixedConstraintTool(BaseTool):
@@ -2936,6 +3355,7 @@ class FixedConstraintTool(BaseTool):
         graph = scene.constraint_graph
 
         from open_garden_planner.core.constraints import ConstraintType as _CT
+
         # Prevent double-fixing the same item
         for c in graph.constraints.values():
             if c.constraint_type == _CT.FIXED and c.anchor_a.item_id == item_id:
@@ -3023,8 +3443,8 @@ class FixedConstraintTool(BaseTool):
 
 
 # H/V distance constraint visual constants
-PREVIEW_H_DIST_COLOR = QColor(21, 101, 192, 200)    # Deep blue (dimensional)
-PREVIEW_V_DIST_COLOR = QColor(21, 101, 192, 200)    # Deep blue (dimensional)
+PREVIEW_H_DIST_COLOR = QColor(21, 101, 192, 200)  # Deep blue (dimensional)
+PREVIEW_V_DIST_COLOR = QColor(21, 101, 192, 200)  # Deep blue (dimensional)
 
 
 class HDistanceInputDialog(QDialog):
@@ -3085,9 +3505,7 @@ class VDistanceInputDialog(QDialog):
     def __init__(self, current_v_dist_cm: float, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(
-            QCoreApplication.translate(
-                "VDistanceInputDialog", "Set Vertical Distance"
-            )
+            QCoreApplication.translate("VDistanceInputDialog", "Set Vertical Distance")
         )
         self.setMinimumWidth(300)
         layout = QVBoxLayout(self)

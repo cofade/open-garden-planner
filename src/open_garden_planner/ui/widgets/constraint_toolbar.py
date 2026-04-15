@@ -12,12 +12,7 @@ from typing import NamedTuple
 from PyQt6.QtCore import QCoreApplication, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon, QPainter, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
-from PyQt6.QtWidgets import (
-    QButtonGroup,
-    QToolBar,
-    QToolButton,
-    QWidget,
-)
+from PyQt6.QtWidgets import QButtonGroup, QToolBar, QToolButton, QWidget
 
 from open_garden_planner.core.tools import ToolType
 
@@ -28,7 +23,7 @@ class _ToolEntry(NamedTuple):
     """Descriptor for one button in the constraint toolbar."""
 
     icon_name: str
-    tooltip_key: str       # untranslated English string (translated at runtime)
+    tooltip_key: str  # untranslated English string (translated at runtime)
     shortcut: str
     tool_type: ToolType | None  # None → not yet implemented (disabled button)
 
@@ -39,28 +34,63 @@ _SEP = None
 # Full toolbar layout: implemented tools first, then grouped by category.
 _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
     # ── Dimensional ──────────────────────────────────────────────────────────
-    _ToolEntry("constraint_distance",   "Distance Constraint (K)", "K", ToolType.CONSTRAINT),
-    _ToolEntry("constraint_h_distance", "Horizontal Distance", "", ToolType.CONSTRAINT_H_DISTANCE),
-    _ToolEntry("constraint_v_distance", "Vertical Distance",   "", ToolType.CONSTRAINT_V_DISTANCE),
+    _ToolEntry(
+        "constraint_distance", "Distance Constraint (K)", "K", ToolType.CONSTRAINT
+    ),
+    _ToolEntry(
+        "constraint_distance",
+        "Edge Length Constraint",
+        "",
+        ToolType.CONSTRAINT_EDGE_LENGTH,
+    ),
+    _ToolEntry(
+        "constraint_h_distance",
+        "Horizontal Distance",
+        "",
+        ToolType.CONSTRAINT_H_DISTANCE,
+    ),
+    _ToolEntry(
+        "constraint_v_distance", "Vertical Distance", "", ToolType.CONSTRAINT_V_DISTANCE
+    ),
     _SEP,
     # ── Geometric alignment ───────────────────────────────────────────────────
-    _ToolEntry("constraint_horizontal", "Horizontal Alignment", "", ToolType.CONSTRAINT_HORIZONTAL),
-    _ToolEntry("constraint_vertical",   "Vertical Alignment",   "", ToolType.CONSTRAINT_VERTICAL),
+    _ToolEntry(
+        "constraint_horizontal",
+        "Horizontal Alignment",
+        "",
+        ToolType.CONSTRAINT_HORIZONTAL,
+    ),
+    _ToolEntry(
+        "constraint_vertical", "Vertical Alignment", "", ToolType.CONSTRAINT_VERTICAL
+    ),
     _SEP,
     # ── Geometric relational ──────────────────────────────────────────────────
-    _ToolEntry("constraint_coincident",    "Coincident",    "", ToolType.CONSTRAINT_COINCIDENT),
-    _ToolEntry("constraint_parallel",      "Parallel",      "", ToolType.CONSTRAINT_PARALLEL),
-    _ToolEntry("constraint_perpendicular", "Perpendicular", "", ToolType.CONSTRAINT_PERPENDICULAR),
-    _ToolEntry("constraint_equal",         "Equal Size",    "", ToolType.CONSTRAINT_EQUAL),
-    _ToolEntry("constraint_fixed",         "Fix in Place",  "", ToolType.CONSTRAINT_FIXED),
+    _ToolEntry(
+        "constraint_coincident", "Coincident", "", ToolType.CONSTRAINT_COINCIDENT
+    ),
+    _ToolEntry("constraint_parallel", "Parallel", "", ToolType.CONSTRAINT_PARALLEL),
+    _ToolEntry(
+        "constraint_perpendicular",
+        "Perpendicular",
+        "",
+        ToolType.CONSTRAINT_PERPENDICULAR,
+    ),
+    _ToolEntry("constraint_equal", "Equal Size", "", ToolType.CONSTRAINT_EQUAL),
+    _ToolEntry("constraint_fixed", "Fix in Place", "", ToolType.CONSTRAINT_FIXED),
     _SEP,
     # ── Advanced ──────────────────────────────────────────────────────────────
-    _ToolEntry("constraint_angle",     "Angle Constraint", "", ToolType.CONSTRAINT_ANGLE),
-    _ToolEntry("constraint_symmetric", "Symmetry Constraint", "", ToolType.CONSTRAINT_SYMMETRY),
+    _ToolEntry("constraint_angle", "Angle Constraint", "", ToolType.CONSTRAINT_ANGLE),
+    _ToolEntry(
+        "constraint_symmetric", "Symmetry Constraint", "", ToolType.CONSTRAINT_SYMMETRY
+    ),
     _SEP,
     # ── Construction geometry ──────────────────────────────────────────────────
-    _ToolEntry("construction_line",   "Construction Line", "", ToolType.CONSTRUCTION_LINE),
-    _ToolEntry("construction_circle", "Construction Circle", "", ToolType.CONSTRUCTION_CIRCLE),
+    _ToolEntry(
+        "construction_line", "Construction Line", "", ToolType.CONSTRUCTION_LINE
+    ),
+    _ToolEntry(
+        "construction_circle", "Construction Circle", "", ToolType.CONSTRUCTION_CIRCLE
+    ),
 ]
 
 
@@ -117,7 +147,9 @@ class ConstraintToolbar(QToolBar):
             button = QToolButton()
             button.setCheckable(implemented)
             button.setEnabled(implemented)
-            button.setToolTip(f"{tooltip} ({entry.shortcut})" if entry.shortcut else tooltip)
+            button.setToolTip(
+                f"{tooltip} ({entry.shortcut})" if entry.shortcut else tooltip
+            )
             button.setFixedSize(36, 36)
 
             icon = self._load_icon(entry.icon_name)

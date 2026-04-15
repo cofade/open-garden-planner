@@ -291,6 +291,12 @@ class TestConstraintListItem:
         widget = ConstraintListItem(cid, "Tree", "Fence", 150.0, True)
         assert widget.constraint_id == cid
 
+    def test_edge_length_row_creation(self, qtbot) -> None:
+        """Edge-length rows create without errors."""
+        cid = uuid4()
+        widget = ConstraintListItem(cid, "Bed 1", "", 150.0, True, "EDGE_LENGTH")
+        assert widget.constraint_id == cid
+
     def test_delete_signal(self, qtbot) -> None:
         """Delete button emits delete_requested signal."""
         cid = uuid4()

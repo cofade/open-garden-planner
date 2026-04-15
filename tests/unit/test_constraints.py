@@ -3,18 +3,13 @@
 import math
 from uuid import UUID, uuid4
 
-import pytest
-
 from open_garden_planner.core.constraints import (
     AnchorRef,
     Constraint,
     ConstraintGraph,
-    ConstraintStatus,
     ConstraintType,
-    SolverResult,
 )
 from open_garden_planner.core.measure_snapper import AnchorType
-
 
 # --- AnchorRef tests ---
 
@@ -99,8 +94,16 @@ class TestConstraintGraph:
     def test_remove_item_constraints(self, qtbot) -> None:
         graph = ConstraintGraph()
         id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_c, AnchorType.CENTER), 200.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+        )
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_c, AnchorType.CENTER),
+            200.0,
+        )
         removed = graph.remove_item_constraints(id_a)
         assert len(removed) == 2
         assert len(graph.constraints) == 0
@@ -112,7 +115,11 @@ class TestConstraintGraph:
     def test_connected_component_single_pair(self, qtbot) -> None:
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+        )
         component = graph.get_connected_component(id_a)
         assert component == {id_a, id_b}
 
@@ -120,8 +127,16 @@ class TestConstraintGraph:
         """A-B-C chain should all be in the same component."""
         graph = ConstraintGraph()
         id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
-        graph.add_constraint(AnchorRef(id_b, AnchorType.CENTER), AnchorRef(id_c, AnchorType.CENTER), 150.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+        )
+        graph.add_constraint(
+            AnchorRef(id_b, AnchorType.CENTER),
+            AnchorRef(id_c, AnchorType.CENTER),
+            150.0,
+        )
         component = graph.get_connected_component(id_a)
         assert component == {id_a, id_b, id_c}
 
@@ -129,14 +144,26 @@ class TestConstraintGraph:
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
         id_c, id_d = uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
-        graph.add_constraint(AnchorRef(id_c, AnchorType.CENTER), AnchorRef(id_d, AnchorType.CENTER), 200.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+        )
+        graph.add_constraint(
+            AnchorRef(id_c, AnchorType.CENTER),
+            AnchorRef(id_d, AnchorType.CENTER),
+            200.0,
+        )
         components = graph.get_all_connected_components()
         assert len(components) == 2
 
     def test_clear(self, qtbot) -> None:
         graph = ConstraintGraph()
-        graph.add_constraint(AnchorRef(uuid4(), AnchorType.CENTER), AnchorRef(uuid4(), AnchorType.CENTER), 100.0)
+        graph.add_constraint(
+            AnchorRef(uuid4(), AnchorType.CENTER),
+            AnchorRef(uuid4(), AnchorType.CENTER),
+            100.0,
+        )
         graph.clear()
         assert len(graph.constraints) == 0
 
@@ -151,17 +178,25 @@ class TestConstraintSolver:
         """Two items 200cm apart, constraint wants 100cm -> should converge."""
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+        )
 
         positions = {id_a: (0.0, 0.0), id_b: (200.0, 0.0)}
         result = graph.solve(positions)
 
         assert result.converged
-        # Items should have moved to be 100cm apart
-        dx = positions[id_b][0] - positions[id_a][0]  # Original positions unchanged
         # Check deltas bring them to ~100cm apart
-        pos_a = (0.0 + result.item_deltas.get(id_a, (0, 0))[0], 0.0 + result.item_deltas.get(id_a, (0, 0))[1])
-        pos_b = (200.0 + result.item_deltas.get(id_b, (0, 0))[0], 0.0 + result.item_deltas.get(id_b, (0, 0))[1])
+        pos_a = (
+            0.0 + result.item_deltas.get(id_a, (0, 0))[0],
+            0.0 + result.item_deltas.get(id_a, (0, 0))[1],
+        )
+        pos_b = (
+            200.0 + result.item_deltas.get(id_b, (0, 0))[0],
+            0.0 + result.item_deltas.get(id_b, (0, 0))[1],
+        )
         dist = math.sqrt((pos_b[0] - pos_a[0]) ** 2 + (pos_b[1] - pos_a[1]) ** 2)
         assert abs(dist - 100.0) < 1.0  # Within tolerance
 
@@ -169,7 +204,11 @@ class TestConstraintSolver:
         """Pinned item should stay in place, other item moves."""
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+        )
 
         positions = {id_a: (0.0, 0.0), id_b: (200.0, 0.0)}
         result = graph.solve(positions, pinned_items={id_a})
@@ -184,7 +223,11 @@ class TestConstraintSolver:
         """When both items are pinned, no movement should occur."""
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+        )
 
         positions = {id_a: (0.0, 0.0), id_b: (200.0, 0.0)}
         result = graph.solve(positions, pinned_items={id_a, id_b})
@@ -196,9 +239,21 @@ class TestConstraintSolver:
         graph = ConstraintGraph()
         id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
         # Equilateral triangle with side 100
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
-        graph.add_constraint(AnchorRef(id_b, AnchorType.CENTER), AnchorRef(id_c, AnchorType.CENTER), 100.0)
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_c, AnchorType.CENTER), 100.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+        )
+        graph.add_constraint(
+            AnchorRef(id_b, AnchorType.CENTER),
+            AnchorRef(id_c, AnchorType.CENTER),
+            100.0,
+        )
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_c, AnchorType.CENTER),
+            100.0,
+        )
 
         # Start with items in a line
         positions = {id_a: (0.0, 0.0), id_b: (100.0, 0.0), id_c: (200.0, 0.0)}
@@ -210,10 +265,8 @@ class TestConstraintSolver:
             orig = positions[uid]
             return (orig[0] + delta[0], orig[1] + delta[1])
 
-        pa, pb, pc = get_pos(id_a), get_pos(id_b), get_pos(id_c)
+        pa, pb = get_pos(id_a), get_pos(id_b)
         dist_ab = math.sqrt((pb[0] - pa[0]) ** 2 + (pb[1] - pa[1]) ** 2)
-        dist_bc = math.sqrt((pc[0] - pb[0]) ** 2 + (pc[1] - pb[1]) ** 2)
-        dist_ac = math.sqrt((pc[0] - pa[0]) ** 2 + (pc[1] - pa[1]) ** 2)
 
         # With limited iterations, triangle may not perfectly converge but should improve
         assert dist_ab < 200.0  # Should have improved from initial 100, 100, 200
@@ -222,7 +275,9 @@ class TestConstraintSolver:
         """Items at the same position should be pushed apart."""
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 50.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 50.0
+        )
 
         positions = {id_a: (100.0, 100.0), id_b: (100.0, 100.0)}
         result = graph.solve(positions)
@@ -234,7 +289,11 @@ class TestConstraintSolver:
         """Items already at correct distance should not move."""
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+        )
 
         positions = {id_a: (0.0, 0.0), id_b: (100.0, 0.0)}
         result = graph.solve(positions)
@@ -247,7 +306,11 @@ class TestConstraintSolver:
         """Constraints referencing missing items should be skipped."""
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+        )
 
         # Only provide position for one item
         positions = {id_a: (0.0, 0.0)}
@@ -260,9 +323,21 @@ class TestConstraintSolver:
         graph = ConstraintGraph()
         id_center = uuid4()
         id_1, id_2, id_3 = uuid4(), uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_center, AnchorType.CENTER), AnchorRef(id_1, AnchorType.CENTER), 100.0)
-        graph.add_constraint(AnchorRef(id_center, AnchorType.CENTER), AnchorRef(id_2, AnchorType.CENTER), 100.0)
-        graph.add_constraint(AnchorRef(id_center, AnchorType.CENTER), AnchorRef(id_3, AnchorType.CENTER), 100.0)
+        graph.add_constraint(
+            AnchorRef(id_center, AnchorType.CENTER),
+            AnchorRef(id_1, AnchorType.CENTER),
+            100.0,
+        )
+        graph.add_constraint(
+            AnchorRef(id_center, AnchorType.CENTER),
+            AnchorRef(id_2, AnchorType.CENTER),
+            100.0,
+        )
+        graph.add_constraint(
+            AnchorRef(id_center, AnchorType.CENTER),
+            AnchorRef(id_3, AnchorType.CENTER),
+            100.0,
+        )
 
         positions = {
             id_center: (0.0, 0.0),
@@ -277,7 +352,11 @@ class TestConstraintSolver:
         """Verify SolverResult has expected fields."""
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+        )
 
         positions = {id_a: (0.0, 0.0), id_b: (200.0, 0.0)}
         result = graph.solve(positions)
@@ -292,8 +371,16 @@ class TestConstraintSolver:
         """Constraints should propagate through chains: A-B-C with A pinned."""
         graph = ConstraintGraph()
         id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
-        graph.add_constraint(AnchorRef(id_b, AnchorType.CENTER), AnchorRef(id_c, AnchorType.CENTER), 100.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+        )
+        graph.add_constraint(
+            AnchorRef(id_b, AnchorType.CENTER),
+            AnchorRef(id_c, AnchorType.CENTER),
+            100.0,
+        )
 
         # A at origin (pinned), B at 50 (too close to A), C at 300 (too far from B)
         positions = {id_a: (0.0, 0.0), id_b: (50.0, 0.0), id_c: (300.0, 0.0)}
@@ -309,7 +396,11 @@ class TestConstraintSolver:
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
         target = 100.0
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), target)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            target,
+        )
 
         # Items at 45 degrees, 200cm apart
         positions = {id_a: (0.0, 0.0), id_b: (141.42, 141.42)}
@@ -318,14 +409,16 @@ class TestConstraintSolver:
         delta_b = result.item_deltas.get(id_b, (0.0, 0.0))
         new_bx = 141.42 + delta_b[0]
         new_by = 141.42 + delta_b[1]
-        dist = math.sqrt(new_bx ** 2 + new_by ** 2)
+        dist = math.sqrt(new_bx**2 + new_by**2)
         assert abs(dist - target) < 1.0
 
     def test_zero_distance_constraint(self, qtbot) -> None:
         """Items should be pulled together with zero distance constraint."""
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
-        graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 0.0)
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 0.0
+        )
 
         positions = {id_a: (0.0, 0.0), id_b: (50.0, 0.0)}
         result = graph.solve(positions)
@@ -376,9 +469,21 @@ class TestConstraintGraphSerialization:
     def test_multiple_constraints_roundtrip(self, qtbot) -> None:
         graph = ConstraintGraph()
         ids = [uuid4() for _ in range(4)]
-        graph.add_constraint(AnchorRef(ids[0], AnchorType.CENTER), AnchorRef(ids[1], AnchorType.CENTER), 100.0)
-        graph.add_constraint(AnchorRef(ids[1], AnchorType.CENTER), AnchorRef(ids[2], AnchorType.CENTER), 200.0)
-        graph.add_constraint(AnchorRef(ids[2], AnchorType.CENTER), AnchorRef(ids[3], AnchorType.CENTER), 300.0)
+        graph.add_constraint(
+            AnchorRef(ids[0], AnchorType.CENTER),
+            AnchorRef(ids[1], AnchorType.CENTER),
+            100.0,
+        )
+        graph.add_constraint(
+            AnchorRef(ids[1], AnchorType.CENTER),
+            AnchorRef(ids[2], AnchorType.CENTER),
+            200.0,
+        )
+        graph.add_constraint(
+            AnchorRef(ids[2], AnchorType.CENTER),
+            AnchorRef(ids[3], AnchorType.CENTER),
+            300.0,
+        )
 
         data = graph.to_list()
         restored = ConstraintGraph.from_list(data)
@@ -401,7 +506,11 @@ class TestAlignmentConstraints:
     def test_default_constraint_type_is_distance(self, qtbot) -> None:
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
-        c = graph.add_constraint(AnchorRef(id_a, AnchorType.CENTER), AnchorRef(id_b, AnchorType.CENTER), 100.0)
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CENTER),
+            AnchorRef(id_b, AnchorType.CENTER),
+            100.0,
+        )
         assert c.constraint_type == ConstraintType.DISTANCE
 
     def test_add_horizontal_constraint(self, qtbot) -> None:
@@ -541,7 +650,6 @@ class TestAlignmentConstraints:
         result = graph.solve(positions, pinned_items={id_a}, max_iterations=20)
 
         delta_b = result.item_deltas.get(id_b, (0.0, 0.0))
-        new_bx = 200.0 + delta_b[0]
         new_by = 60.0 + delta_b[1]
         # B should be aligned horizontally (same Y as A=0)
         assert abs(new_by - 0.0) < 2.0
@@ -550,13 +658,13 @@ class TestAlignmentConstraints:
         """Alignment constraints survive serialization roundtrip."""
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
-        c_h = graph.add_constraint(
+        graph.add_constraint(
             AnchorRef(id_a, AnchorType.CENTER),
             AnchorRef(id_b, AnchorType.CENTER),
             0.0,
             constraint_type=ConstraintType.HORIZONTAL,
         )
-        c_v = graph.add_constraint(
+        graph.add_constraint(
             AnchorRef(id_a, AnchorType.CENTER),
             AnchorRef(id_b, AnchorType.EDGE_TOP),
             0.0,
@@ -616,7 +724,9 @@ class TestAngleConstraints:
         ref_b = AnchorRef(id_b, AnchorType.CENTER)
         ref_c = AnchorRef(id_c, AnchorType.CENTER)
         constraint = graph.add_constraint(
-            ref_a, ref_b, 90.0,
+            ref_a,
+            ref_b,
+            90.0,
             constraint_type=ConstraintType.ANGLE,
             anchor_c=ref_c,
         )
@@ -644,20 +754,22 @@ class TestAngleConstraints:
         """Removing an angle constraint removes adjacency for all three items."""
         graph = ConstraintGraph()
         id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
-        c = graph.add_constraint(
+        constraint = graph.add_constraint(
             AnchorRef(id_a, AnchorType.CENTER),
             AnchorRef(id_b, AnchorType.CENTER),
             90.0,
             constraint_type=ConstraintType.ANGLE,
             anchor_c=AnchorRef(id_c, AnchorType.CENTER),
         )
-        graph.remove_constraint(c.constraint_id)
-        assert c.constraint_id not in graph.constraints
+        graph.remove_constraint(constraint.constraint_id)
+        assert constraint.constraint_id not in graph.constraints
         assert graph.get_item_constraints(id_a) == []
         assert graph.get_item_constraints(id_b) == []
         assert graph.get_item_constraints(id_c) == []
 
-    def test_angle_constraint_connected_component_includes_all_three(self, qtbot) -> None:
+    def test_angle_constraint_connected_component_includes_all_three(
+        self, qtbot
+    ) -> None:
         """BFS should include all three items of an angle constraint in the same component."""
         graph = ConstraintGraph()
         id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
@@ -679,7 +791,7 @@ class TestAngleConstraints:
         """Angle constraints with anchor_c survive serialization roundtrip."""
         graph = ConstraintGraph()
         id_a, id_b, id_c = uuid4(), uuid4(), uuid4()
-        c = graph.add_constraint(
+        graph.add_constraint(
             AnchorRef(id_a, AnchorType.CENTER),
             AnchorRef(id_b, AnchorType.CENTER),
             45.0,
@@ -729,8 +841,8 @@ class TestAngleConstraints:
         """Compute angle at vertex pb between rays pa and pc (degrees)."""
         ba_x, ba_y = pa[0] - pb[0], pa[1] - pb[1]
         bc_x, bc_y = pc[0] - pb[0], pc[1] - pb[1]
-        ba_len = math.sqrt(ba_x ** 2 + ba_y ** 2)
-        bc_len = math.sqrt(bc_x ** 2 + bc_y ** 2)
+        ba_len = math.sqrt(ba_x**2 + ba_y**2)
+        bc_len = math.sqrt(bc_x**2 + bc_y**2)
         if ba_len < 1e-9 or bc_len < 1e-9:
             return 0.0
         cos_val = max(-1.0, min(1.0, (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len)))
@@ -745,7 +857,9 @@ class TestAngleConstraints:
         ref_c = AnchorRef(id_c, AnchorType.CENTER)
 
         graph.add_constraint(
-            ref_a, ref_b, 90.0,
+            ref_a,
+            ref_b,
+            90.0,
             constraint_type=ConstraintType.ANGLE,
             anchor_c=ref_c,
         )
@@ -823,7 +937,7 @@ class TestAngleConstraints:
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
         # Manually add a constraint without anchor_c (normally prevented by the tool)
-        c = graph.add_constraint(
+        graph.add_constraint(
             AnchorRef(id_a, AnchorType.CENTER),
             AnchorRef(id_b, AnchorType.CENTER),
             90.0,
@@ -851,10 +965,7 @@ class TestSymmetryConstraintSolver:
         positions: dict,
     ) -> tuple[dict, dict]:
         """Build item_positions and anchor_offsets with zero offsets."""
-        anchor_offsets = {
-            (uid, AnchorType.CENTER, 0): (0.0, 0.0)
-            for uid in positions
-        }
+        anchor_offsets = {(uid, AnchorType.CENTER, 0): (0.0, 0.0) for uid in positions}
         item_positions = {uid: [x, y] for uid, (x, y) in positions.items()}
         return item_positions, anchor_offsets
 
@@ -1012,7 +1123,7 @@ class TestSymmetryConstraintSolver:
         # ax=200, ay=170 → B's target anchor=(200, 430) → B's item target=(0, -20)
         new_bx = 0.0 + result.item_deltas.get(id_b, (0.0, 0.0))[0]
         new_by = 0.0 + result.item_deltas.get(id_b, (0.0, 0.0))[1]
-        assert abs(new_bx) < 1.0            # B's item X stays at 0
+        assert abs(new_bx) < 1.0  # B's item X stays at 0
         assert abs(new_by - (-20.0)) < 1.0  # B's item Y moves by -20, not +430
 
     def test_vertical_symmetry_pinned_with_nonzero_offsets(self, qtbot) -> None:
@@ -1042,13 +1153,13 @@ class TestSymmetryConstraintSolver:
         new_bx = 0.0 + result.item_deltas.get(id_b, (0.0, 0.0))[0]
         new_by = 0.0 + result.item_deltas.get(id_b, (0.0, 0.0))[1]
         assert abs(new_bx - (-20.0)) < 1.0  # B's item X moves by -20, not +430
-        assert abs(new_by) < 1.0            # B's item Y stays at 0
+        assert abs(new_by) < 1.0  # B's item Y stays at 0
 
     def test_symmetry_serialization_roundtrip(self, qtbot) -> None:
         """SYMMETRY constraints should survive to_dict/from_dict round-trip."""
         graph = ConstraintGraph()
         id_a, id_b = uuid4(), uuid4()
-        c = graph.add_constraint(
+        graph.add_constraint(
             AnchorRef(id_a, AnchorType.CENTER),
             AnchorRef(id_b, AnchorType.CENTER),
             75.0,
@@ -1088,7 +1199,9 @@ class TestCoincidentConstraint:
         id_a, id_b = uuid4(), uuid4()
         ref_a = AnchorRef(id_a, AnchorType.CENTER)
         ref_b = AnchorRef(id_b, AnchorType.CENTER)
-        graph.add_constraint(ref_a, ref_b, 0.0, constraint_type=ConstraintType.COINCIDENT)
+        graph.add_constraint(
+            ref_a, ref_b, 0.0, constraint_type=ConstraintType.COINCIDENT
+        )
 
         positions = {id_a: (0.0, 0.0), id_b: (100.0, 0.0)}
         offsets: dict = {
@@ -1098,15 +1211,19 @@ class TestCoincidentConstraint:
 
         result = graph.solve_anchored(positions, offsets, tolerance=0.01)
         assert result.converged
-        final_a = (positions[id_a][0] + result.item_deltas.get(id_a, (0, 0))[0],
-                   positions[id_a][1] + result.item_deltas.get(id_a, (0, 0))[1])
-        final_b = (positions[id_b][0] + result.item_deltas.get(id_b, (0, 0))[0],
-                   positions[id_b][1] + result.item_deltas.get(id_b, (0, 0))[1])
+        final_a = (
+            positions[id_a][0] + result.item_deltas.get(id_a, (0, 0))[0],
+            positions[id_a][1] + result.item_deltas.get(id_a, (0, 0))[1],
+        )
+        final_b = (
+            positions[id_b][0] + result.item_deltas.get(id_b, (0, 0))[0],
+            positions[id_b][1] + result.item_deltas.get(id_b, (0, 0))[1],
+        )
         # A must move to B; B must not move
         assert abs(final_a[0] - 100.0) < 0.01
         assert abs(final_a[1] - 0.0) < 0.01
         assert abs(final_b[0] - 100.0) < 0.01  # B unchanged
-        assert abs(final_b[1] - 0.0) < 0.01    # B unchanged
+        assert abs(final_b[1] - 0.0) < 0.01  # B unchanged
 
     def test_coincident_solver_pinned_a(self, qtbot) -> None:
         """When A is pinned, solver moves B to A's position."""
@@ -1114,7 +1231,9 @@ class TestCoincidentConstraint:
         id_a, id_b = uuid4(), uuid4()
         ref_a = AnchorRef(id_a, AnchorType.CENTER)
         ref_b = AnchorRef(id_b, AnchorType.CENTER)
-        graph.add_constraint(ref_a, ref_b, 0.0, constraint_type=ConstraintType.COINCIDENT)
+        graph.add_constraint(
+            ref_a, ref_b, 0.0, constraint_type=ConstraintType.COINCIDENT
+        )
 
         positions = {id_a: (10.0, 20.0), id_b: (50.0, 80.0)}
         offsets: dict = {
@@ -1122,7 +1241,9 @@ class TestCoincidentConstraint:
             (id_b, AnchorType.CENTER, 0): (0.0, 0.0),
         }
 
-        result = graph.solve_anchored(positions, offsets, pinned_items={id_a}, tolerance=0.01)
+        result = graph.solve_anchored(
+            positions, offsets, pinned_items={id_a}, tolerance=0.01
+        )
         assert result.converged
         # A should not move; B should move to A's position
         assert id_a not in result.item_deltas
@@ -1138,7 +1259,9 @@ class TestCoincidentConstraint:
         id_a, id_b = uuid4(), uuid4()
         ref_a = AnchorRef(id_a, AnchorType.CENTER)
         ref_b = AnchorRef(id_b, AnchorType.CENTER)
-        graph.add_constraint(ref_a, ref_b, 0.0, constraint_type=ConstraintType.COINCIDENT)
+        graph.add_constraint(
+            ref_a, ref_b, 0.0, constraint_type=ConstraintType.COINCIDENT
+        )
 
         positions = {id_a: (50.0, 50.0), id_b: (50.0, 50.0)}
         offsets: dict = {
@@ -1315,6 +1438,64 @@ class TestPerpendicularConstraint:
 # --- Equal constraint tests ---
 
 
+class TestEdgeLengthConstraint:
+    """Tests for the EDGE_LENGTH constraint type."""
+
+    def test_edge_length_constraint_type_enum(self, qtbot) -> None:
+        assert ConstraintType.EDGE_LENGTH != ConstraintType.DISTANCE
+        assert ConstraintType.EDGE_LENGTH != ConstraintType.HORIZONTAL
+        assert ConstraintType.EDGE_LENGTH != ConstraintType.EQUAL
+
+    def test_add_edge_length_constraint(self, qtbot) -> None:
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        c = graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CORNER, 0),
+            AnchorRef(id_b, AnchorType.CORNER, 1),
+            125.0,
+            constraint_type=ConstraintType.EDGE_LENGTH,
+        )
+        assert c.constraint_type == ConstraintType.EDGE_LENGTH
+        assert c.target_distance == 125.0
+
+    def test_edge_length_solver_enforces_distance(self, qtbot) -> None:
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CORNER, 0),
+            AnchorRef(id_b, AnchorType.CORNER, 1),
+            200.0,
+            constraint_type=ConstraintType.EDGE_LENGTH,
+        )
+        item_positions = {id_a: (0.0, 0.0), id_b: (100.0, 0.0)}
+        anchor_offsets = {
+            (id_a, AnchorType.CORNER, 0): (0.0, 0.0),
+            (id_b, AnchorType.CORNER, 1): (0.0, 0.0),
+        }
+        result = graph.solve_anchored(item_positions, anchor_offsets)
+        delta_a = result.item_deltas.get(id_a, (0.0, 0.0))
+        delta_b = result.item_deltas.get(id_b, (0.0, 0.0))
+        ax = item_positions[id_a][0] + delta_a[0]
+        ay = item_positions[id_a][1] + delta_a[1]
+        bx = item_positions[id_b][0] + delta_b[0]
+        by = item_positions[id_b][1] + delta_b[1]
+        assert abs(math.sqrt((bx - ax) ** 2 + (by - ay) ** 2) - 200.0) < 1.0
+
+    def test_edge_length_constraint_serialization_roundtrip(self, qtbot) -> None:
+        graph = ConstraintGraph()
+        id_a, id_b = uuid4(), uuid4()
+        graph.add_constraint(
+            AnchorRef(id_a, AnchorType.CORNER, 0),
+            AnchorRef(id_b, AnchorType.CORNER, 1),
+            175.0,
+            constraint_type=ConstraintType.EDGE_LENGTH,
+        )
+        restored = ConstraintGraph.from_list(graph.to_list())
+        rc = list(restored.constraints.values())[0]
+        assert rc.constraint_type == ConstraintType.EDGE_LENGTH
+        assert rc.target_distance == 175.0
+
+
 class TestEqualConstraint:
     """Tests for the EQUAL constraint type."""
 
@@ -1402,6 +1583,7 @@ class TestEqualConstraint:
         assert len(graph.constraints) == 0
         assert len(graph.get_item_constraints(id_a)) == 0
         assert len(graph.get_item_constraints(id_b)) == 0
+
 
 # --- FIXED constraint tests ---
 
@@ -1629,7 +1811,9 @@ class TestHorizontalVerticalDistanceConstraints:
         a = AnchorRef(uuid4(), AnchorType.CENTER)
         b = AnchorRef(uuid4(), AnchorType.CENTER)
         c = Constraint(
-            cid, a, b,
+            cid,
+            a,
+            b,
             target_distance=300.0,
             constraint_type=ConstraintType.HORIZONTAL_DISTANCE,
         )
@@ -1644,7 +1828,9 @@ class TestHorizontalVerticalDistanceConstraints:
         a = AnchorRef(uuid4(), AnchorType.CENTER)
         b = AnchorRef(uuid4(), AnchorType.CENTER)
         c = Constraint(
-            cid, a, b,
+            cid,
+            a,
+            b,
             target_distance=120.0,
             constraint_type=ConstraintType.VERTICAL_DISTANCE,
         )
@@ -1765,7 +1951,9 @@ class TestVertexDeformationSolver:
             deformable_vertices={id_poly: poly_verts},
         )
 
-        assert result.converged, f"Solver did not converge; max_error={result.max_error:.3f}"
+        assert (
+            result.converged
+        ), f"Solver did not converge; max_error={result.max_error:.3f}"
         # At least one vertex delta should be present (vertex moved)
         poly_vkeys = [(id_poly, i) for i in range(4)]
         total_vertex_delta = sum(
@@ -1865,9 +2053,7 @@ class TestVertexDeformationSolver:
         # Both should produce the same item deltas
         assert result_rigid.item_deltas == result_deformable.item_deltas
 
-    def test_deformable_not_over_constrained_with_many_vertices(
-        self, qtbot
-    ) -> None:
+    def test_deformable_not_over_constrained_with_many_vertices(self, qtbot) -> None:
         """A polygon with N vertices should handle up to N coincident constraints."""
         id_poly = uuid4()
         n = 4
@@ -1901,9 +2087,7 @@ class TestVertexDeformationSolver:
             f"with {n} constraints"
         )
 
-    def test_validate_constraint_approves_second_vertex_coincident(
-        self, qtbot
-    ) -> None:
+    def test_validate_constraint_approves_second_vertex_coincident(self, qtbot) -> None:
         """validate_constraint must accept the second vertex coincident constraint.
 
         This is the exact failure path from issue #109.
@@ -1980,7 +2164,9 @@ class TestPointOnEdgeConstraint:
         ref_b = AnchorRef(id_b, AnchorType.CENTER)
         ref_c = AnchorRef(id_c, AnchorType.CENTER)
         graph.add_constraint(
-            ref_a, ref_b, 0.0,
+            ref_a,
+            ref_b,
+            0.0,
             constraint_type=ConstraintType.POINT_ON_EDGE,
             anchor_c=ref_c,
         )
@@ -2018,7 +2204,9 @@ class TestPointOnEdgeConstraint:
         ref_b = AnchorRef(id_b, AnchorType.CENTER)
         ref_c = AnchorRef(id_c, AnchorType.CENTER)
         graph.add_constraint(
-            ref_a, ref_b, 0.0,
+            ref_a,
+            ref_b,
+            0.0,
             constraint_type=ConstraintType.POINT_ON_EDGE,
             anchor_c=ref_c,
         )
@@ -2049,7 +2237,9 @@ class TestPointOnEdgeConstraint:
         ref_b = AnchorRef(id_b, AnchorType.CENTER)
         ref_c = AnchorRef(id_c, AnchorType.CENTER)
         graph.add_constraint(
-            ref_a, ref_b, 0.0,
+            ref_a,
+            ref_b,
+            0.0,
             constraint_type=ConstraintType.POINT_ON_EDGE,
             anchor_c=ref_c,
         )
@@ -2078,7 +2268,9 @@ class TestPointOnEdgeConstraint:
         ref_b = AnchorRef(id_b, AnchorType.CENTER)
         ref_c = AnchorRef(id_c, AnchorType.CENTER)
         graph.add_constraint(
-            ref_a, ref_b, 0.0,
+            ref_a,
+            ref_b,
+            0.0,
             constraint_type=ConstraintType.POINT_ON_EDGE,
             anchor_c=ref_c,
         )
