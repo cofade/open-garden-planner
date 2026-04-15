@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "💬 General discussion / workflow questions"
+    url: https://github.com/cofade/open-garden-planner/discussions/new?category=general
+    about: Ask questions, share ideas, or start a conversation
+  - name: "🐛 Bug report"
+    url: https://github.com/cofade/open-garden-planner/issues/new?template=bug_report.md
+    about: Something broken? File a bug
+  - name: "✨ Feature request"
+    url: https://github.com/cofade/open-garden-planner/issues/new?template=feature_request.md
+    about: Suggest something new
