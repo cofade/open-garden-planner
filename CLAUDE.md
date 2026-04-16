@@ -26,65 +26,84 @@ timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe
 Tech stack: Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 Use context7 as required for up-to-date library documentation.
 
-## Documentation
+## Documentation & Knowledge Base
 
-All architecture documentation follows arc42 in `docs/`. Key references:
+Architecture documentation follows arc42 in `docs/`. This project uses **continuous documentation** — every feature and fix should leave the docs better than found.
 
-| What you need                        | Where to find it                                      |
+### Finding Information
+
+| Need                                 | Location                                              |
 | ------------------------------------ | ----------------------------------------------------- |
-| User stories & acceptance criteria   | `docs/roadmap.md`                                     |
-| Module structure & project tree      | `docs/05-building-block-view/`                        |
+| User stories, acceptance criteria    | `docs/roadmap.md`                                     |
+| Module structure, project tree       | `docs/05-building-block-view/`                        |
 | CI/CD, installer, release process    | `docs/07-deployment-view/`                            |
-| i18n rules & translation how-to      | `docs/08-crosscutting-concepts/` (section 8.3)        |
-| QGraphicsView overlay widget patterns | `docs/08-crosscutting-concepts/` (section 8.9)       |
-| Integration test policy (MANDATORY)  | `docs/08-crosscutting-concepts/` (section 8.10)      |
-| Security scanning / SAST (Bandit)    | `docs/08-crosscutting-concepts/` (section 8.11)      |
-| Known pitfalls & technical debt      | `docs/11-risks-and-technical-debt/` (section 11.4)    |
+| i18n rules, translation how-to       | `docs/08-crosscutting-concepts/` section 8.3          |
+| QGraphicsView widget patterns        | `docs/08-crosscutting-concepts/` section 8.9          |
+| Integration test policy (MANDATORY)  | `docs/08-crosscutting-concepts/` section 8.10         |
+| Security scanning / SAST (Bandit)    | `docs/08-crosscutting-concepts/` section 8.11         |
+| Known pitfalls, technical debt       | `docs/11-risks-and-technical-debt/` section 11.4      |
 | Functional requirements (FR-*)       | `docs/functional-requirements.md`                     |
 | Architecture decisions (ADRs)        | `docs/09-architecture-decisions/`                     |
-| GitHub wiki (keep in sync)           | `../open-garden-planner.wiki/Roadmap.md`              |
+| Glossary                             | `docs/12-glossary.md`                                 |
+| GitHub wiki (sync with roadmap)      | `../open-garden-planner.wiki/Roadmap.md`              |
+
+### Contributing to Documentation
+
+**After implementing a feature:**
+| Change Type | Update Target |
+|-------------|---------------|
+| New component/module | `docs/05-building-block-view/` — add black box description |
+| New UI pattern | `docs/08-crosscutting-concepts/` section 8.9 |
+| Changed runtime behavior | `docs/06-runtime-view/` — update sequence diagrams |
+| New user-facing capability | `docs/functional-requirements.md` — add FR-* entry |
+| Architecture decision | `docs/09-architecture-decisions/` — create ADR |
+| New domain term | `docs/12-glossary.md` — add definition |
+
+**After solving issues:**
+| Issue Category | Document In | Capture |
+|----------------|-------------|---------|
+| PyQt6 quirks | `docs/11-risks-and-technical-debt/` 11.4 | Symptoms → Root cause → Fix |
+| Performance issues | `docs/08-crosscutting-concepts/` | Optimization technique |
+| Testing patterns | `docs/08-crosscutting-concepts/` 8.10 | How to test this pattern |
+| Security fixes | `docs/08-crosscutting-concepts/` 8.11 | Vulnerability + mitigation |
+
+**ADR triggers:** Create ADR when introducing new dependencies, choosing between approaches, changing patterns, or addressing non-obvious constraints.
+
+**Before merge, verify:** arc42 docs updated, ADRs created if needed, glossary updated, wiki synced.
 
 ## Versioning Protocol
 
-**GitHub releases are the ONLY source of truth for versions.** The CI release workflow (`release.yml`) auto-creates tags + releases on every non-chore push to master. **Never create git tags manually.**
+**GitHub releases are THE source of truth.** CI auto-creates tags/releases on non-chore push to master.
 
 ```bash
-# Find current version (ground truth):
+# Find current version:
 "C:\Program Files\GitHub CLI\gh.exe" release list --limit 1 --json tagName --jq '.[0].tagName'
 ```
 
-The CI defaults to **patch bump**. For minor/major bumps, add a `minor` or `major` **label** to the PR before merging — the CI reads PR labels to decide the bump level.
+- CI **defaults to patch** bump
+- Add `minor` or `major` **label** to PR for bigger bumps
+- After merge, update both `pyproject.toml` and `src/open_garden_planner/__init__.py` to match the CI release
+- Push as `chore:` commit (CI skips these)
 
-After merge, wait for the CI release, then update **both** `pyproject.toml` and `src/open_garden_planner/__init__.py` to match the new release tag. Push as a `chore:` commit (CI skips these).
+**Never create git tags manually.**
 
 ## Workflow
 
-### CRITICAL: Always Use Feature Branches
+**CRITICAL: Always use feature branches — NEVER commit directly to master.**
 
-**NEVER commit directly to master!** Always work on feature branches.
-
-### Step-by-Step Process
-
-1. **Create feature branch**: `git checkout -b feature/US-X.X-short-description`
-2. Read user story from `docs/roadmap.md`
-3. Clarify with `AskUserQuestion` if needed
-4. Implement with type hints
-5. Write tests, run lint and security scan:
-   - `pytest tests/ -v`
-   - `ruff check src/`
-   - `bandit -r src/ --severity-level high`
-6. **Write integration test** — every US needs at least one end-to-end test in `tests/integration/test_<feature>.py` that simulates the primary UI workflow (tool activate → gesture → verify state). **No merge without this. No exceptions.** See `docs/08-crosscutting-concepts/` section 8.10.
-7. Build exe and verify it launches (see Quick Reference)
-8. **WAIT for user to manually test and approve** — provide a testing checklist
-9. After approval, commit: `feat(US-X.X): Description`
-10. Push and create PR via GitHub CLI:
-   - `git push -u origin feature/US-X.X-short-description`
-   - `"C:\Program Files\GitHub CLI\gh.exe" pr create --title "feat(US-X.X): Title" --body "..."`
-   - Merge: `"C:\Program Files\GitHub CLI\gh.exe" pr merge <PR#> --squash --delete-branch --admin`
-11. Switch back to master, sync version (see Versioning Protocol)
-12. `/clear` context
-
-**Reminders**: Never commit to master. Never commit before user approval. Always create branch BEFORE changes.
+| Step | Action | Notes |
+|------|--------|-------|
+| 1 | Create branch: `git checkout -b feature/US-X.X-short-description` | Before any changes |
+| 2 | Read user story from `docs/roadmap.md` | Understand acceptance criteria |
+| 3 | Implement with type hints & translation | Use `self.tr()` for all UI strings |
+| 4 | Run quality checks | `pytest tests/ -v`, `ruff check src/`, `bandit -r src/ --severity-level high` |
+| 5 | **Write integration test** in `tests/integration/test_<feature>.py` | **Mandatory** — end-to-end UI workflow. See `docs/08-crosscutting-concepts/` 8.10 |
+| 6 | Build & verify exe | See Quick Reference |
+| 7 | **WAIT for user approval** Provide testing checklist | Never commit before approval |
+| 8 | Commit: `feat(US-X.X): Description` | Conventional commit format |
+| 9 | Push & create PR | Use GitHub CLI: `pr create`, `pr merge --squash --delete-branch --admin` |
+| 10 | Sync version on master | See Versioning Protocol |
+| 11 | `/clear` context | Clear Claude context
 
 ## Translation (i18n)
 
@@ -103,10 +122,12 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
-1. Check the **Phase 11 progress table** below for the next unchecked US
-2. Read the user story in `docs/roadmap.md`
-3. Check `git status` and recent history
-4. Create feature branch and start implementing
+1. Check **Phase 11 progress table** below for next unchecked US
+2. Read user story in `docs/roadmap.md`
+3. Check `git status` and recent git history
+4. Create feature branch and implement
+
+**Maintaining this file:** Update progress table when US status changes; add new patterns when discovered; keep Quick Reference commands current.
 
 ## Phases 1-10 Complete
 
