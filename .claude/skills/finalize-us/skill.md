@@ -74,9 +74,30 @@ Run the full post-approval wrap-up for a completed user story. This skill assume
     - Close it via `mcp__github__issue_write` with `state: closed, state_reason: completed`.
     - Skip this step if there is no linked issue.
 
-12. **Cleanup** — delete local feature branch if it still exists:
+12. **Move issue to "Closed" on the project board** (only if a linked issue exists):
+    Project: `PVT_kwHOAyyXvs4BU2fi` (number 1), Status field: `PVTSSF_lAHOAyyXvs4BU2fizhFw3mk`, Closed option: `98236657`.
+    ```bash
+    # 1. Find the project item ID for the issue
+    ITEM_ID=$("C:\Program Files\GitHub CLI\gh.exe" api graphql -f query='
+    { user(login:"cofade") { projectV2(number:1) { items(first:100) { nodes {
+      id content { ... on Issue { number } }
+    } } } } }' \
+    --jq ".data.user.projectV2.items.nodes[] | select(.content.number == ISSUE_NUMBER) | .id")
+
+    # 2. Set status to Closed
+    "C:\Program Files\GitHub CLI\gh.exe" api graphql -f query="
+    mutation { updateProjectV2ItemFieldValue(input: {
+      projectId: \"PVT_kwHOAyyXvs4BU2fi\"
+      itemId: \"$ITEM_ID\"
+      fieldId: \"PVTSSF_lAHOAyyXvs4BU2fizhFw3mk\"
+      value: { singleSelectOptionId: \"98236657\" }
+    }) { projectV2Item { id } } }"
+    ```
+    Skip if no linked issue, or if the item is not found in the project.
+
+13. **Cleanup** — delete local feature branch if it still exists:
     ```
     git branch -d feature/US-X.X-short-description
     ```
 
-13. Return the PR URL and new version to the user.
+14. Return the PR URL and new version to the user.
