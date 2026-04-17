@@ -1153,6 +1153,29 @@ class ConstraintGraph:
             if max_error <= tolerance:
                 break
 
+        # ── Newton-Raphson refinement ──────────────────────────────────────
+        # Gauss-Seidel resolves constraints by alternating 1D projections; for
+        # coupled systems (e.g. two EDGE_LENGTHs sharing a vertex) that cannot
+        # find the true 2D feasible point.  Run a damped Newton refinement on
+        # the remaining residuals so the solver actually converges on the
+        # intersection set.  See docs §8.12 and ADR-012.
+        if max_error > tolerance:
+            from open_garden_planner.core.constraint_solver_newton import (  # noqa: PLC0415
+                newton_refine,
+            )
+
+            _, refined_err = newton_refine(
+                positions=positions,
+                vertex_pos=vertex_pos,
+                anchor_offsets=anchor_offsets,
+                deformable_items=deformable,
+                deformable_vkeys=deformable_vkeys,
+                constraints=list(self._constraints.values()),
+                pinned_items=pinned_items,
+                tol=tolerance,
+            )
+            max_error = min(max_error, refined_err)
+
         item_deltas: dict[UUID, tuple[float, float]] = {}
         for uid, pos in positions.items():
             if uid in pinned_items:
@@ -1246,6 +1269,192 @@ class ConstraintGraph:
             return result.converged
         finally:
             self.remove_constraint(temp.constraint_id)
+
+    def project_to_feasible(
+        self,
+        moving_vertex: tuple[UUID, int],
+        desired_scene_pos: tuple[float, float],
+        item_positions: dict[UUID, tuple[float, float]],
+        anchor_offsets: dict[tuple[UUID, AnchorType, int], tuple[float, float]],
+        deformable_items: set[UUID],
+        deformable_vertices: dict[UUID, list[tuple[float, float]]],
+        tolerance: float = 0.5,
+    ) -> tuple[float, float]:
+        """Project ``desired_scene_pos`` onto the feasible set for ``moving_vertex``.
+
+        Used by the live vertex-drag path: the user moves the cursor freely, and
+        this method returns the closest point to the cursor that still satisfies
+        every constraint touching the moving vertex.  All other items and
+        vertices are held fixed.
+
+        Returns ``desired_scene_pos`` unchanged when no constraint touches the
+        moving vertex, so callers can short-circuit without a solver run.
+        """
+        from open_garden_planner.core.constraint_solver_newton import (  # noqa: PLC0415
+            newton_refine,
+        )
+
+        moving_uid = moving_vertex[0]
+        touching = [
+            c
+            for c in self._constraints.values()
+            if c.anchor_a.item_id == moving_uid
+            and c.anchor_a.anchor_index == moving_vertex[1]
+            and c.anchor_a.anchor_type in {AnchorType.CORNER, AnchorType.ENDPOINT}
+            or (
+                c.anchor_b.item_id == moving_uid
+                and c.anchor_b.anchor_index == moving_vertex[1]
+                and c.anchor_b.anchor_type in {AnchorType.CORNER, AnchorType.ENDPOINT}
+            )
+        ]
+        if not touching:
+            return desired_scene_pos
+
+        # Build mutable solver state with the moving vertex placed at desired pos
+        # and every other variable pinned.
+        positions: dict[UUID, list[float]] = {
+            uid: [pos[0], pos[1]] for uid, pos in item_positions.items()
+        }
+        vertex_pos: dict[tuple[UUID, int], list[float]] = {}
+        deformable_vkeys: dict[UUID, list[tuple[UUID, int]]] = {}
+        for uid, verts in deformable_vertices.items():
+            keys: list[tuple[UUID, int]] = []
+            for vi, (vx, vy) in enumerate(verts):
+                vk = (uid, vi)
+                if vk == moving_vertex:
+                    vertex_pos[vk] = [desired_scene_pos[0], desired_scene_pos[1]]
+                else:
+                    vertex_pos[vk] = [vx, vy]
+                keys.append(vk)
+            deformable_vkeys[uid] = keys
+
+        # Pin every item; only the moving vertex is free.  Newton's variable
+        # selection uses per-vertex DOF for deformable items, so we also need
+        # to mark the item as "deformable with just this vertex free".
+        pinned_items = set(positions.keys())
+        # Mark the moving item as non-pinned but restrict deformable_vkeys to
+        # the single moving vertex so only it becomes a variable.
+        pinned_items.discard(moving_uid)
+        deformable_vkeys_restricted = {moving_uid: [moving_vertex]}
+
+        newton_refine(
+            positions=positions,
+            vertex_pos=vertex_pos,
+            anchor_offsets=anchor_offsets,
+            deformable_items={moving_uid} if moving_uid in deformable_items else set(),
+            deformable_vkeys=deformable_vkeys_restricted,
+            constraints=touching,
+            pinned_items=pinned_items,
+            tol=tolerance,
+        )
+        p = vertex_pos[moving_vertex]
+        return p[0], p[1]
+
+    def find_conflicting_constraints(
+        self,
+        trial_constraint: Constraint,
+        item_positions: dict[UUID, tuple[float, float]],
+        anchor_offsets: dict[tuple[UUID, AnchorType, int], tuple[float, float]],
+        deformable_items: set[UUID] | None = None,
+        deformable_vertices: dict[UUID, list[tuple[float, float]]] | None = None,
+        tolerance: float = 1.0,
+    ) -> list[UUID]:
+        """Return IDs of existing constraints that would be violated by ``trial_constraint``.
+
+        Temporarily adds ``trial_constraint``, runs the solver, then inspects
+        each existing constraint's residual.  Returns the UUIDs whose residuals
+        exceed ``tolerance`` — i.e. constraints the solver had to sacrifice in
+        order to satisfy the trial one.  Empty list means the trial constraint
+        is compatible with everything already in the graph.
+        """
+        self._constraints[trial_constraint.constraint_id] = trial_constraint
+        try:
+            result = self.solve_anchored(
+                item_positions=item_positions,
+                anchor_offsets=anchor_offsets,
+                pinned_items=set(),
+                max_iterations=50,
+                tolerance=tolerance,
+                deformable_items=deformable_items,
+                deformable_vertices=deformable_vertices,
+            )
+        finally:
+            del self._constraints[trial_constraint.constraint_id]
+
+        # Rebuild resolved anchor positions from deltas
+        resolved_item_pos: dict[UUID, tuple[float, float]] = dict(item_positions)
+        for uid, (dx, dy) in result.item_deltas.items():
+            base = item_positions[uid]
+            resolved_item_pos[uid] = (base[0] + dx, base[1] + dy)
+        resolved_vertex_pos: dict[tuple[UUID, int], tuple[float, float]] = {}
+        if deformable_vertices:
+            for uid, verts in deformable_vertices.items():
+                for vi, (vx, vy) in enumerate(verts):
+                    resolved_vertex_pos[(uid, vi)] = (vx, vy)
+        for vk, (dx, dy) in result.vertex_deltas.items():
+            base = resolved_vertex_pos.get(vk)
+            if base is None:
+                continue
+            # Deltas returned by solve_anchored are vertex deformation, i.e.
+            # they exclude any whole-item translation.  Add the item delta back
+            # to get the absolute vertex position.
+            item_dx, item_dy = result.item_deltas.get(vk[0], (0.0, 0.0))
+            resolved_vertex_pos[vk] = (
+                base[0] + dx + item_dx,
+                base[1] + dy + item_dy,
+            )
+
+        def anchor_pos(anchor: AnchorRef) -> tuple[float, float]:
+            if (
+                deformable_items
+                and anchor.item_id in deformable_items
+                and anchor.anchor_type in {AnchorType.CORNER, AnchorType.ENDPOINT}
+            ):
+                vp = resolved_vertex_pos.get((anchor.item_id, anchor.anchor_index))
+                if vp is not None:
+                    return vp
+            off = anchor_offsets.get(
+                (anchor.item_id, anchor.anchor_type, anchor.anchor_index), (0.0, 0.0)
+            )
+            base = resolved_item_pos.get(anchor.item_id, (0.0, 0.0))
+            return base[0] + off[0], base[1] + off[1]
+
+        conflicting: list[UUID] = []
+        for cid, c in self._constraints.items():
+            if c.constraint_type in (
+                ConstraintType.PARALLEL,
+                ConstraintType.PERPENDICULAR,
+                ConstraintType.EQUAL,
+                ConstraintType.FIXED,
+            ):
+                # Rotation-only and pinning types aren't meaningfully evaluated
+                # from positions alone — skip.
+                continue
+            ax, ay = anchor_pos(c.anchor_a)
+            bx, by = anchor_pos(c.anchor_b)
+            if c.constraint_type in (
+                ConstraintType.DISTANCE,
+                ConstraintType.EDGE_LENGTH,
+                ConstraintType.POINT_ON_CIRCLE,
+            ):
+                err = abs(
+                    math.sqrt((ax - bx) ** 2 + (ay - by) ** 2) - c.target_distance
+                )
+            elif c.constraint_type == ConstraintType.HORIZONTAL:
+                err = abs(ay - by)
+            elif c.constraint_type == ConstraintType.VERTICAL:
+                err = abs(ax - bx)
+            elif c.constraint_type == ConstraintType.HORIZONTAL_DISTANCE:
+                err = abs(abs(bx - ax) - c.target_distance)
+            elif c.constraint_type == ConstraintType.VERTICAL_DISTANCE:
+                err = abs(abs(by - ay) - c.target_distance)
+            elif c.constraint_type == ConstraintType.COINCIDENT:
+                err = math.sqrt((ax - bx) ** 2 + (ay - by) ** 2)
+            else:
+                continue
+            if err > tolerance:
+                conflicting.append(cid)
+        return conflicting
 
     def clear(self) -> None:
         """Remove all constraints."""

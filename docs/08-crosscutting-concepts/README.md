@@ -363,4 +363,63 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 **Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
 
+## 8.12 Constraint Solver Architecture
+
+The constraint solver lives in [`core/constraints.py`](../../src/open_garden_planner/core/constraints.py) and [`core/constraint_solver_newton.py`](../../src/open_garden_planner/core/constraint_solver_newton.py). It supports 16 constraint types and runs in two phases.
+
+### 8.12.1 Constraint types
+
+Defined in `ConstraintType`. Grouped by the invariant they express:
+
+| Category | Types |
+|---|---|
+| Dimensional (scale-sensitive) | `EDGE_LENGTH`, `DISTANCE`, `HORIZONTAL_DISTANCE`, `VERTICAL_DISTANCE`, `POINT_ON_CIRCLE`, `ANGLE` |
+| Positional | `COINCIDENT`, `POINT_ON_EDGE`, `SYMMETRY_HORIZONTAL`, `SYMMETRY_VERTICAL`, `FIXED` |
+| Orientation (scale-invariant) | `HORIZONTAL`, `VERTICAL`, `PARALLEL`, `PERPENDICULAR`, `EQUAL` |
+
+### 8.12.2 Two-phase solve
+
+Every `solve_anchored` call runs in two phases:
+
+1. **Gauss-Seidel warm start** — each constraint is resolved by a 1D projection along its own direction. Cheap, robust for decoupled systems, converges in O(N) iterations when the constraints don't share variables in geometrically independent directions.
+2. **Newton-Raphson refinement** — runs when the Gauss-Seidel residual exceeds tolerance. Treats the free variables as a single vector `x`, builds a residual vector `F(x)` from all non-orientation constraints, and takes damped Newton steps on `J · Δx = −F`. The Jacobian is computed numerically via central differences (`h = 1e-3 cm`); the step uses `numpy.linalg.lstsq` so rank-deficient systems yield a minimum-norm step. Armijo backtracking (α halves per failed step) accepts only moves that strictly reduce `max|F|`.
+
+Convergence criterion: `max|F| ≤ tolerance` (default 0.1 cm; 1.0 cm for drag-time solves where cm-level drift is invisible). Caps: 20 Gauss-Seidel iterations, 25 Newton iterations, 15 backtrack steps.
+
+### 8.12.3 Why two phases
+
+Gauss-Seidel alone fails on coupled systems — the canonical case is two `EDGE_LENGTH` constraints sharing a vertex. The feasible vertex position is the intersection of two circles, which cannot be reached by alternating 1D projections. Newton handles the 2D move. In the non-coupled majority case, Newton returns immediately because Gauss-Seidel already hit tolerance.
+
+### 8.12.4 Geometric fast path
+
+For the shared-vertex EDGE_LENGTH case, `two_circle_intersection()` in `constraint_solver_newton` provides a closed-form solution. Returns the intersection root nearest the current vertex; returns `None` for non-intersecting circles so the caller can fall back to Newton.
+
+### 8.12.5 Live vertex drag projection
+
+`ConstraintGraph.project_to_feasible()` is called from the vertex-drag `mouseMove` path. It pins every variable except the moving vertex, runs Newton on just the constraints touching that vertex, and returns the closest feasible point to the raw cursor position. Short-circuits when no constraint touches the vertex — zero cost for unconstrained drags.
+
+### 8.12.6 Scale handle blocking
+
+`_has_blocking_constraints()` in `ui/canvas/items/resize_handle.py` guards bounding-box resize handles. Orientation-only constraint types (`HORIZONTAL`, `VERTICAL`, `PARALLEL`, `PERPENDICULAR`, `EQUAL`) are scale-invariant and permit resize; any other constraint — including `FIXED`, `EDGE_LENGTH`, `DISTANCE`, `ANGLE`, `SYMMETRY_*`, `COINCIDENT`, `POINT_ON_*` — blocks the drag and emits a translated status-bar hint.
+
+### 8.12.7 Conflict detection on add
+
+Before executing an `AddConstraintCommand`, the canvas view trial-runs the solver with the proposed constraint via `ConstraintGraph.find_conflicting_constraints()`. Existing constraints whose post-solve residual exceeds 1.0 cm are flagged. The user is shown a `ConstraintConflictDialog` (Override / Cancel) rather than letting the solver silently distort existing geometry.
+
+### 8.12.8 Residual formulas (per type, scaled to cm)
+
+| Type | Residual |
+|---|---|
+| `EDGE_LENGTH`, `DISTANCE`, `POINT_ON_CIRCLE` | `|P_a − P_b| − L` |
+| `HORIZONTAL` | `a_y − b_y` |
+| `VERTICAL` | `a_x − b_x` |
+| `HORIZONTAL_DISTANCE` | `(b_x − a_x) − sign · L` |
+| `VERTICAL_DISTANCE` | `(b_y − a_y) − sign · L` |
+| `COINCIDENT` | `(a_x − b_x, a_y − b_y)` — 2 residuals |
+| `SYMMETRY_HORIZONTAL` | `(b_x − a_x, a_y + b_y − 2·axis_y)` |
+| `SYMMETRY_VERTICAL` | `(b_y − a_y, a_x + b_x − 2·axis_x)` |
+| `POINT_ON_EDGE` | perpendicular distance from point to edge |
+| `ANGLE` | `(acos(ba·bc / (|ba|·|bc|)) − θ_target) · min(|ba|, |bc|)` |
+| `PARALLEL`, `PERPENDICULAR`, `EQUAL`, `FIXED` | handled in warm-start; Newton skips |
+
 **Adding new checks:** If a feature introduces a new code pattern that warrants attention (e.g. cryptography, XML parsing, network server code), review the relevant Bandit rule IDs and verify the CI job covers them.

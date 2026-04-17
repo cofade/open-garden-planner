@@ -34,7 +34,7 @@ Open Garden Planner fills the gap: **engineering-grade precision meets gardener-
 
 ### Windows Installer (recommended)
 
-Download the latest installer from the [Releases](https://github.com/cofade/open-garden-planner/releases/latest) page:
+Download the latest installer from the [Releases](https://github.com/cofade/open-garden-planner/releases) page:
 
 > **[Download Latest Installer](https://github.com/cofade/open-garden-planner/releases/latest)**
 

@@ -67,6 +67,8 @@ from open_garden_planner.core.tools import (
 )
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene, GuideLine
 from open_garden_planner.ui.canvas.items.resize_handle import (
+    MidpointHandle,
+    RectCornerHandle,
     ResizeHandle,
     RotationHandle,
     VertexHandle,
@@ -642,6 +644,11 @@ class CanvasView(QGraphicsView):
             self._canvas_scene.update_dimension_lines()
             return
 
+        # Pre-flight feasibility: if this constraint would force the solver to
+        # violate an existing one, offer the user an Override/Cancel dialog.
+        if not self._resolve_constraint_conflicts(command):
+            return
+
         # CAD convention: A is constrained to B → A moves, B stays (reference).
         # Exception: if A already has a FIXED constraint the FIXED pre-pass
         # inside solve_anchored will pin A, so B must remain free to move.
@@ -675,6 +682,128 @@ class CanvasView(QGraphicsView):
         self.command_manager.execute(command)
         if moves or vertex_moves:
             self._canvas_scene.update_dimension_lines()
+
+    def _resolve_constraint_conflicts(self, command: AddConstraintCommand) -> bool:
+        """Return True if ``command`` can proceed, False if the user cancelled.
+
+        Runs a trial solve with the proposed constraint.  If existing
+        constraints would be forced out of tolerance, shows a dialog letting
+        the user delete conflicting constraints (Override) or back out.
+        """
+        import uuid as _uuid  # noqa: PLC0415
+
+        from open_garden_planner.core.constraints import (  # noqa: PLC0415
+            Constraint,
+            ConstraintType,
+        )
+        from open_garden_planner.core.measure_snapper import (  # noqa: PLC0415
+            get_anchor_points,
+        )
+        from open_garden_planner.ui.canvas.items import GardenItemMixin  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.construction_item import (  # noqa: PLC0415
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
+        from open_garden_planner.ui.dialogs.constraint_conflict_dialog import (  # noqa: PLC0415
+            ConstraintConflictDialog,
+        )
+
+        graph = self._canvas_scene.constraint_graph
+        if not graph.constraints:
+            return True
+
+        trial = Constraint(
+            constraint_id=_uuid.uuid4(),
+            anchor_a=command._anchor_a,  # type: ignore[attr-defined]
+            anchor_b=command._anchor_b,  # type: ignore[attr-defined]
+            target_distance=command._target_distance,  # type: ignore[attr-defined]
+            constraint_type=command._constraint_type,  # type: ignore[attr-defined]
+            anchor_c=command._anchor_c,  # type: ignore[attr-defined]
+            target_x=command._target_x,  # type: ignore[attr-defined]
+            target_y=command._target_y,  # type: ignore[attr-defined]
+        )
+
+        item_positions: dict = {}
+        item_map: dict = {}
+        anchor_offsets: dict = {}
+        for item in self.scene().items():
+            is_garden = isinstance(item, GardenItemMixin)
+            is_construction = isinstance(
+                item, (ConstructionLineItem, ConstructionCircleItem)
+            )
+            if not (is_garden or is_construction):
+                continue
+            uid = item.item_id
+            item_map[uid] = item
+            pos = item.pos()
+            item_positions[uid] = (pos.x(), pos.y())
+            for anchor in get_anchor_points(item):
+                anchor_offsets[(uid, anchor.anchor_type, anchor.anchor_index)] = (
+                    anchor.point.x() - pos.x(),
+                    anchor.point.y() - pos.y(),
+                )
+
+        deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
+
+        try:
+            conflict_ids = graph.find_conflicting_constraints(
+                trial_constraint=trial,
+                item_positions=item_positions,
+                anchor_offsets=anchor_offsets,
+                deformable_items=deformable_items,
+                deformable_vertices=deformable_vertices,
+                tolerance=1.0,
+            )
+        except Exception:
+            return True  # Don't block on solver errors — warn-only gate.
+
+        if not conflict_ids:
+            return True
+
+        type_names: dict = {
+            ConstraintType.DISTANCE: self.tr("Distance"),
+            ConstraintType.EDGE_LENGTH: self.tr("Edge length"),
+            ConstraintType.HORIZONTAL: self.tr("Horizontal"),
+            ConstraintType.VERTICAL: self.tr("Vertical"),
+            ConstraintType.HORIZONTAL_DISTANCE: self.tr("Horizontal distance"),
+            ConstraintType.VERTICAL_DISTANCE: self.tr("Vertical distance"),
+            ConstraintType.ANGLE: self.tr("Angle"),
+            ConstraintType.PARALLEL: self.tr("Parallel"),
+            ConstraintType.PERPENDICULAR: self.tr("Perpendicular"),
+            ConstraintType.EQUAL: self.tr("Equal"),
+            ConstraintType.FIXED: self.tr("Fixed"),
+            ConstraintType.COINCIDENT: self.tr("Coincident"),
+            ConstraintType.SYMMETRY_HORIZONTAL: self.tr("Horizontal symmetry"),
+            ConstraintType.SYMMETRY_VERTICAL: self.tr("Vertical symmetry"),
+            ConstraintType.POINT_ON_EDGE: self.tr("Point on edge"),
+            ConstraintType.POINT_ON_CIRCLE: self.tr("Point on circle"),
+        }
+        rows: list[tuple] = []
+        for cid in conflict_ids:
+            c = graph.constraints.get(cid)
+            if c is None:
+                continue
+            name = type_names.get(c.constraint_type, str(c.constraint_type.name))
+            if c.constraint_type in (
+                ConstraintType.EDGE_LENGTH,
+                ConstraintType.DISTANCE,
+                ConstraintType.HORIZONTAL_DISTANCE,
+                ConstraintType.VERTICAL_DISTANCE,
+                ConstraintType.POINT_ON_CIRCLE,
+            ):
+                rows.append((cid, f"{name} — {c.target_distance / 100.0:.2f} m"))
+            elif c.constraint_type == ConstraintType.ANGLE:
+                rows.append((cid, f"{name} — {c.target_distance:.1f}°"))
+            else:
+                rows.append((cid, name))
+
+        selected = ConstraintConflictDialog.ask(rows, parent=self)
+        if selected is None:
+            return False  # User cancelled
+        for cid in selected:
+            graph.remove_constraint(cid)
+        self._canvas_scene.update_dimension_lines()
+        return True
 
     def is_constraint_feasible(
         self,
@@ -1147,7 +1276,7 @@ class CanvasView(QGraphicsView):
         # between event dispatches, so we re-establish it ourselves in mouseMoveEvent.
         if event.button() == Qt.MouseButton.LeftButton:
             grabber = self.scene().mouseGrabberItem()
-            if isinstance(grabber, (ResizeHandle, RotationHandle, VertexHandle)):
+            if isinstance(grabber, (ResizeHandle, RotationHandle, VertexHandle, RectCornerHandle, MidpointHandle)):
                 self._active_drag_handle = grabber
                 # Block rotation for items that have an inter-object PARALLEL or
                 # PERPENDICULAR constraint — rotating would violate the constraint.
@@ -2315,7 +2444,77 @@ class CanvasView(QGraphicsView):
             ref_scene.y() + direction.y() * target_distance,
         )
         new_local = item.mapFromScene(new_scene)
-        return [], [(item, anchor_a.anchor_index, QPointF(old_local), new_local)]
+
+        # Direct single-endpoint move. If the moved vertex participates in any
+        # OTHER constraint, the direct move will violate it — run the hybrid
+        # solver to propagate. Apply the move, solve, then collect the final
+        # deltas before restoring the pre-move state (the caller re-applies via
+        # the command).
+        moved_vertex_idx = anchor_a.anchor_index
+        has_other_touching = any(
+            c
+            for c in self._canvas_scene.constraint_graph.constraints.values()
+            if (
+                c.anchor_a.item_id == anchor_a.item_id
+                and c.anchor_a.anchor_index == moved_vertex_idx
+            )
+            or (
+                c.anchor_b.item_id == anchor_a.item_id
+                and c.anchor_b.anchor_index == moved_vertex_idx
+            )
+        )
+        if not has_other_touching or len(self._canvas_scene.constraint_graph.constraints) <= 1:
+            return [], [(item, moved_vertex_idx, QPointF(old_local), new_local)]
+
+        # Apply the direct move temporarily, solve, capture final vertex positions.
+        original_polygon = None
+        original_points = None
+        if isinstance(item, PolygonItem):
+            from PyQt6.QtGui import QPolygonF
+            original_polygon = QPolygonF(item.polygon())
+            item._move_vertex_to(moved_vertex_idx, new_local)
+        elif isinstance(item, PolylineItem):
+            original_points = list(item.points)
+            item._move_vertex_to(moved_vertex_idx, new_local)
+
+        try:
+            # For intra-object self-constraints (common on polygon edges), pinning
+            # anchor_b would pin the entire polygon, making vertex moves impossible.
+            # Only pin the reference when it is a *different* item.
+            intra_object = anchor_a.item_id == anchor_b.item_id
+            extra_pinned = None if intra_object else {anchor_b.item_id}
+            _item_moves, vertex_moves = self._compute_constraint_solve_moves(
+                extra_pinned=extra_pinned
+            )
+        finally:
+            if original_polygon is not None and isinstance(item, PolygonItem):
+                item.setPolygon(original_polygon)
+            elif original_points is not None and isinstance(item, PolylineItem):
+                for i, pt in enumerate(original_points):
+                    item._move_vertex_to(i, pt)
+
+        # Merge the primary endpoint move with any solver-produced vertex moves.
+        # Solver vertex_moves are tuples (item, idx, old_local, new_local).
+        final_vertex_moves: list = []
+        moved_indices: set = set()
+        for m_item, m_idx, m_old_local, m_new_local in vertex_moves:
+            if m_item is item and m_idx == moved_vertex_idx:
+                # Use the solver's result for the primary vertex too.
+                final_vertex_moves.append(
+                    (item, moved_vertex_idx, QPointF(old_local), m_new_local)
+                )
+                moved_indices.add(moved_vertex_idx)
+            else:
+                final_vertex_moves.append(
+                    (m_item, m_idx, m_old_local, m_new_local)
+                )
+                if m_item is item:
+                    moved_indices.add(m_idx)
+        if moved_vertex_idx not in moved_indices:
+            final_vertex_moves.append(
+                (item, moved_vertex_idx, QPointF(old_local), new_local)
+            )
+        return [], final_vertex_moves
 
     def _compute_constraint_solve_moves(
         self,
@@ -2659,7 +2858,7 @@ class CanvasView(QGraphicsView):
             current_pos = item.pos()
             delta = current_pos - start_pos
             if delta.x() != 0 or delta.y() != 0:
-                _log.warning(
+                _log.debug(
                     "Item drag delta: start=%s current=%s delta=%s zoom=%.2f",
                     start_pos,
                     current_pos,
