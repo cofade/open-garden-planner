@@ -119,12 +119,19 @@ Project documentation follows the [arc42](https://arc42.org/) architecture templ
 | [Development Roadmap](docs/roadmap.md) | Phases, user stories, progress tracking |
 | [All Documentation](docs/01-introduction-and-goals/prd.md) | Documentation index |
 
+## Community
+
+- **[GitHub Discussions](https://github.com/cofade/open-garden-planner/discussions)** — questions, ideas, feature requests, and general chat
+- **[Issue Tracker](https://github.com/cofade/open-garden-planner/issues)** — bug reports and confirmed tasks
+- **[Project Board](https://github.com/users/cofade/projects/1)** — Kanban view of open work items; pick something from the **Todo** column to get started
+
 ## Contributing
 
 We welcome contributions! This project aims to be technically clean and attractive for both users and contributors.
 
 - Read the [Roadmap](docs/roadmap.md) and [Architecture](docs/05-building-block-view/) to understand the vision
-- Check the Issues for tasks and discussions
+- Browse the **[Project Board](https://github.com/users/cofade/projects/1)** for ready-to-pick work items
+- Join **[GitHub Discussions](https://github.com/cofade/open-garden-planner/discussions)** if you have questions or ideas before opening a PR
 - PRs must pass CI (tests, linting, type checking)
 
 **AI-assisted development is welcome.** Feel free to use Claude Code, GitHub Copilot, Cursor, or other AI-powered coding tools. We care about the quality of the result, not how you got there. Just ensure every contribution includes proper tests - unit tests, integration tests, and UI tests where applicable.

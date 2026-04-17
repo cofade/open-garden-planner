@@ -1,6 +1,11 @@
-# Claude Code
+# Claude Code — ignore everything except committed workspace skills
 .agents/
-.claude/
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/finalize-us/
+.claude/skills/finalize-us/*
+!.claude/skills/finalize-us/skill.md
 
 # Windows
 nul
