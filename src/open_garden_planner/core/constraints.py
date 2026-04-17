@@ -19,21 +19,30 @@ from open_garden_planner.core.measure_snapper import AnchorType
 class ConstraintType(Enum):
     """Type of constraint between two anchor points."""
 
-    DISTANCE = auto()              # Fixed distance between anchors
-    HORIZONTAL = auto()            # Same Y coordinate (horizontal alignment)
-    VERTICAL = auto()              # Same X coordinate (vertical alignment)
-    ANGLE = auto()                 # Fixed angle at vertex B between rays BA and BC (degrees)
-    SYMMETRY_HORIZONTAL = auto()   # Mirror A and B across a horizontal axis (y = target_distance)
-    SYMMETRY_VERTICAL = auto()     # Mirror A and B across a vertical axis (x = target_distance)
-    COINCIDENT = auto()            # Force two anchor points to the same position (distance = 0)
-    PARALLEL = auto()              # Keep two edges parallel (item B at target rotation angle)
-    PERPENDICULAR = auto()         # Keep two edges at 90° (item B perpendicular to edge A)
-    EQUAL = auto()                 # Equal size (radius, width, or height)
-    FIXED = auto()                 # Pin item to current position (block/fix in place)
-    HORIZONTAL_DISTANCE = auto()   # Fixed horizontal (X-axis) distance between two anchors
-    VERTICAL_DISTANCE = auto()     # Fixed vertical (Y-axis) distance between two anchors
-    POINT_ON_EDGE = auto()         # Constrain point A to lie on infinite line through B–C
-    POINT_ON_CIRCLE = auto()      # Constrain point A to lie on circle centred at B with radius = target_distance
+    DISTANCE = auto()  # Fixed distance between anchors
+    EDGE_LENGTH = auto()  # Fixed length of a specific edge/segment
+    HORIZONTAL = auto()  # Same Y coordinate (horizontal alignment)
+    VERTICAL = auto()  # Same X coordinate (vertical alignment)
+    ANGLE = auto()  # Fixed angle at vertex B between rays BA and BC (degrees)
+    SYMMETRY_HORIZONTAL = (
+        auto()
+    )  # Mirror A and B across a horizontal axis (y = target_distance)
+    SYMMETRY_VERTICAL = (
+        auto()
+    )  # Mirror A and B across a vertical axis (x = target_distance)
+    COINCIDENT = auto()  # Force two anchor points to the same position (distance = 0)
+    PARALLEL = auto()  # Keep two edges parallel (item B at target rotation angle)
+    PERPENDICULAR = auto()  # Keep two edges at 90° (item B perpendicular to edge A)
+    EQUAL = auto()  # Equal size (radius, width, or height)
+    FIXED = auto()  # Pin item to current position (block/fix in place)
+    HORIZONTAL_DISTANCE = (
+        auto()
+    )  # Fixed horizontal (X-axis) distance between two anchors
+    VERTICAL_DISTANCE = auto()  # Fixed vertical (Y-axis) distance between two anchors
+    POINT_ON_EDGE = auto()  # Constrain point A to lie on infinite line through B–C
+    POINT_ON_CIRCLE = (
+        auto()
+    )  # Constrain point A to lie on circle centred at B with radius = target_distance
 
 
 class ConstraintStatus(Enum):
@@ -94,10 +103,16 @@ class Constraint:
     anchor_b: AnchorRef
     target_distance: float
     visible: bool = True
-    constraint_type: ConstraintType = field(default_factory=lambda: ConstraintType.DISTANCE)
+    constraint_type: ConstraintType = field(
+        default_factory=lambda: ConstraintType.DISTANCE
+    )
     anchor_c: AnchorRef | None = None  # Third anchor for ANGLE constraints
-    target_x: float | None = None  # For FIXED constraint: pinned X position (scene units)
-    target_y: float | None = None  # For FIXED constraint: pinned Y position (scene units)
+    target_x: float | None = (
+        None  # For FIXED constraint: pinned X position (scene units)
+    )
+    target_y: float | None = (
+        None  # For FIXED constraint: pinned Y position (scene units)
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
@@ -402,9 +417,7 @@ class ConstraintGraph:
         }
 
         # Working copy of positions
-        positions = {
-            uid: [pos[0], pos[1]] for uid, pos in item_positions.items()
-        }
+        positions = {uid: [pos[0], pos[1]] for uid, pos in item_positions.items()}
 
         # Check for over-constrained items
         over_constrained = self.is_over_constrained(item_positions)
@@ -643,15 +656,17 @@ class ConstraintGraph:
         # sees the correct target position regardless of how Qt moved the item.
         pinned_items = set(pinned_items)  # make a mutable copy
         for c in self._constraints.values():
-            if c.constraint_type == ConstraintType.FIXED and c.target_x is not None and c.target_y is not None:
+            if (
+                c.constraint_type == ConstraintType.FIXED
+                and c.target_x is not None
+                and c.target_y is not None
+            ):
                 fixed_id = c.anchor_a.item_id
                 pinned_items.add(fixed_id)
                 item_positions = dict(item_positions)
                 item_positions[fixed_id] = (c.target_x, c.target_y)
 
-        positions = {
-            uid: [pos[0], pos[1]] for uid, pos in item_positions.items()
-        }
+        positions = {uid: [pos[0], pos[1]] for uid, pos in item_positions.items()}
 
         # ── Vertex-level deformation setup ──────────────────────────────
         _VERTEX_TYPES = {AnchorType.CORNER, AnchorType.ENDPOINT}
@@ -676,7 +691,10 @@ class ConstraintGraph:
         vertex_constraint_counts: dict[UUID, set[int]] = {}
         for c in self._constraints.values():
             for ref in (c.anchor_a, c.anchor_b):
-                if ref.item_id in _potential_deformable and ref.anchor_type in _VERTEX_TYPES:
+                if (
+                    ref.item_id in _potential_deformable
+                    and ref.anchor_type in _VERTEX_TYPES
+                ):
                     vertex_constraint_counts.setdefault(ref.item_id, set()).add(
                         ref.anchor_index
                     )
@@ -704,9 +722,7 @@ class ConstraintGraph:
                 return vp[0], vp[1]
             return positions[item_id][0] + off[0], positions[item_id][1] + off[1]
 
-        def _move(
-            item_id: UUID, anchor: AnchorRef, dx: float, dy: float
-        ) -> None:
+        def _move(item_id: UUID, anchor: AnchorRef, dx: float, dy: float) -> None:
             """Apply additive delta to an anchor's movable entity."""
             if _is_vtx(item_id, anchor):
                 vp = vertex_pos[(item_id, anchor.anchor_index)]
@@ -745,9 +761,9 @@ class ConstraintGraph:
         over_constrained = self.is_over_constrained(
             item_positions,
             deformable_vertex_counts={
-                uid: len(verts)
-                for uid, verts in (deformable_vertices or {}).items()
-            } or None,
+                uid: len(verts) for uid, verts in (deformable_vertices or {}).items()
+            }
+            or None,
         )
 
         rotation_deltas: dict[UUID, float] = {}
@@ -769,8 +785,16 @@ class ConstraintGraph:
                     continue
 
                 # Get anchor offsets for this constraint's endpoints
-                key_a = (id_a, constraint.anchor_a.anchor_type, constraint.anchor_a.anchor_index)
-                key_b = (id_b, constraint.anchor_b.anchor_type, constraint.anchor_b.anchor_index)
+                key_a = (
+                    id_a,
+                    constraint.anchor_a.anchor_type,
+                    constraint.anchor_a.anchor_index,
+                )
+                key_b = (
+                    id_b,
+                    constraint.anchor_b.anchor_type,
+                    constraint.anchor_b.anchor_index,
+                )
 
                 off_a = anchor_offsets.get(key_a, (0.0, 0.0))
                 off_b = anchor_offsets.get(key_b, (0.0, 0.0))
@@ -920,14 +944,18 @@ class ConstraintGraph:
                         cos_a, sin_a = math.cos(delta_a), math.sin(delta_a)
                         new_ra_x = cos_a * ba_x - sin_a * ba_y
                         new_ra_y = sin_a * ba_x + cos_a * ba_y
-                        _move(id_a, constraint.anchor_a, new_ra_x - ba_x, new_ra_y - ba_y)
+                        _move(
+                            id_a, constraint.anchor_a, new_ra_x - ba_x, new_ra_y - ba_y
+                        )
 
                     # Rotate item C's anchor position around B by delta_c
                     if abs(delta_c) > 1e-9:
                         cos_c, sin_c = math.cos(delta_c), math.sin(delta_c)
                         new_rc_x = cos_c * bc_x - sin_c * bc_y
                         new_rc_y = sin_c * bc_x + cos_c * bc_y
-                        _move(id_c, constraint.anchor_c, new_rc_x - bc_x, new_rc_y - bc_y)
+                        _move(
+                            id_c, constraint.anchor_c, new_rc_x - bc_x, new_rc_y - bc_y
+                        )
                     continue
 
                 if constraint.constraint_type == ConstraintType.SYMMETRY_HORIZONTAL:
@@ -939,18 +967,29 @@ class ConstraintGraph:
                     # Y symmetry: ay + by should equal 2 * axis_y
                     y_sum_error = ay + by - 2.0 * axis_y
 
-                    sym_error = math.sqrt(x_error ** 2 + y_sum_error ** 2)
+                    sym_error = math.sqrt(x_error**2 + y_sum_error**2)
                     max_error = max(max_error, sym_error)
 
                     if a_pinned and b_pinned:
                         continue
                     elif a_pinned:
-                        _set_pos(id_b, constraint.anchor_b, off_b, ax, 2.0 * axis_y - ay)
+                        _set_pos(
+                            id_b, constraint.anchor_b, off_b, ax, 2.0 * axis_y - ay
+                        )
                     elif b_pinned:
-                        _set_pos(id_a, constraint.anchor_a, off_a, bx, 2.0 * axis_y - by)
+                        _set_pos(
+                            id_a, constraint.anchor_a, off_a, bx, 2.0 * axis_y - by
+                        )
                     else:
-                        _move(id_a, constraint.anchor_a, x_error / 2.0, -y_sum_error / 2.0)
-                        _move(id_b, constraint.anchor_b, -x_error / 2.0, -y_sum_error / 2.0)
+                        _move(
+                            id_a, constraint.anchor_a, x_error / 2.0, -y_sum_error / 2.0
+                        )
+                        _move(
+                            id_b,
+                            constraint.anchor_b,
+                            -x_error / 2.0,
+                            -y_sum_error / 2.0,
+                        )
                     continue
 
                 if constraint.constraint_type == ConstraintType.SYMMETRY_VERTICAL:
@@ -962,18 +1001,29 @@ class ConstraintGraph:
                     # X symmetry: ax + bx should equal 2 * axis_x
                     x_sum_error = ax + bx - 2.0 * axis_x
 
-                    sym_error = math.sqrt(y_error ** 2 + x_sum_error ** 2)
+                    sym_error = math.sqrt(y_error**2 + x_sum_error**2)
                     max_error = max(max_error, sym_error)
 
                     if a_pinned and b_pinned:
                         continue
                     elif a_pinned:
-                        _set_pos(id_b, constraint.anchor_b, off_b, 2.0 * axis_x - ax, ay)
+                        _set_pos(
+                            id_b, constraint.anchor_b, off_b, 2.0 * axis_x - ax, ay
+                        )
                     elif b_pinned:
-                        _set_pos(id_a, constraint.anchor_a, off_a, 2.0 * axis_x - bx, by)
+                        _set_pos(
+                            id_a, constraint.anchor_a, off_a, 2.0 * axis_x - bx, by
+                        )
                     else:
-                        _move(id_a, constraint.anchor_a, -x_sum_error / 2.0, y_error / 2.0)
-                        _move(id_b, constraint.anchor_b, -x_sum_error / 2.0, -y_error / 2.0)
+                        _move(
+                            id_a, constraint.anchor_a, -x_sum_error / 2.0, y_error / 2.0
+                        )
+                        _move(
+                            id_b,
+                            constraint.anchor_b,
+                            -x_sum_error / 2.0,
+                            -y_error / 2.0,
+                        )
                     continue
 
                 if constraint.constraint_type == ConstraintType.COINCIDENT:
@@ -1066,7 +1116,7 @@ class ConstraintGraph:
                     # Position solver skips these; changes are applied at creation time.
                     continue
 
-                # DISTANCE constraint
+                # DISTANCE / EDGE_LENGTH constraint
                 dx = bx - ax
                 dy = by - ay
                 current_dist = math.sqrt(dx * dx + dy * dy)
@@ -1089,6 +1139,11 @@ class ConstraintGraph:
                     _move(id_b, constraint.anchor_b, correction * nx, correction * ny)
                 elif b_pinned:
                     _move(id_a, constraint.anchor_a, -correction * nx, -correction * ny)
+                elif constraint.constraint_type == ConstraintType.EDGE_LENGTH:
+                    # Keep the second endpoint as the reference for direct edge edits.
+                    # This matches the CAD convention used elsewhere: A is constrained
+                    # to B, so A moves while B stays put.
+                    _move(id_a, constraint.anchor_a, -correction * nx, -correction * ny)
                 else:
                     half = correction / 2.0
                     _move(id_a, constraint.anchor_a, -half * nx, -half * ny)
@@ -1097,6 +1152,29 @@ class ConstraintGraph:
             iterations_used = iteration + 1
             if max_error <= tolerance:
                 break
+
+        # ── Newton-Raphson refinement ──────────────────────────────────────
+        # Gauss-Seidel resolves constraints by alternating 1D projections; for
+        # coupled systems (e.g. two EDGE_LENGTHs sharing a vertex) that cannot
+        # find the true 2D feasible point.  Run a damped Newton refinement on
+        # the remaining residuals so the solver actually converges on the
+        # intersection set.  See docs §8.12 and ADR-012.
+        if max_error > tolerance:
+            from open_garden_planner.core.constraint_solver_newton import (  # noqa: PLC0415
+                newton_refine,
+            )
+
+            _, refined_err = newton_refine(
+                positions=positions,
+                vertex_pos=vertex_pos,
+                anchor_offsets=anchor_offsets,
+                deformable_items=deformable,
+                deformable_vkeys=deformable_vkeys,
+                constraints=list(self._constraints.values()),
+                pinned_items=pinned_items,
+                tol=tolerance,
+            )
+            max_error = min(max_error, refined_err)
 
         item_deltas: dict[UUID, tuple[float, float]] = {}
         for uid, pos in positions.items():
@@ -1191,6 +1269,192 @@ class ConstraintGraph:
             return result.converged
         finally:
             self.remove_constraint(temp.constraint_id)
+
+    def project_to_feasible(
+        self,
+        moving_vertex: tuple[UUID, int],
+        desired_scene_pos: tuple[float, float],
+        item_positions: dict[UUID, tuple[float, float]],
+        anchor_offsets: dict[tuple[UUID, AnchorType, int], tuple[float, float]],
+        deformable_items: set[UUID],
+        deformable_vertices: dict[UUID, list[tuple[float, float]]],
+        tolerance: float = 0.5,
+    ) -> tuple[float, float]:
+        """Project ``desired_scene_pos`` onto the feasible set for ``moving_vertex``.
+
+        Used by the live vertex-drag path: the user moves the cursor freely, and
+        this method returns the closest point to the cursor that still satisfies
+        every constraint touching the moving vertex.  All other items and
+        vertices are held fixed.
+
+        Returns ``desired_scene_pos`` unchanged when no constraint touches the
+        moving vertex, so callers can short-circuit without a solver run.
+        """
+        from open_garden_planner.core.constraint_solver_newton import (  # noqa: PLC0415
+            newton_refine,
+        )
+
+        moving_uid = moving_vertex[0]
+        touching = [
+            c
+            for c in self._constraints.values()
+            if c.anchor_a.item_id == moving_uid
+            and c.anchor_a.anchor_index == moving_vertex[1]
+            and c.anchor_a.anchor_type in {AnchorType.CORNER, AnchorType.ENDPOINT}
+            or (
+                c.anchor_b.item_id == moving_uid
+                and c.anchor_b.anchor_index == moving_vertex[1]
+                and c.anchor_b.anchor_type in {AnchorType.CORNER, AnchorType.ENDPOINT}
+            )
+        ]
+        if not touching:
+            return desired_scene_pos
+
+        # Build mutable solver state with the moving vertex placed at desired pos
+        # and every other variable pinned.
+        positions: dict[UUID, list[float]] = {
+            uid: [pos[0], pos[1]] for uid, pos in item_positions.items()
+        }
+        vertex_pos: dict[tuple[UUID, int], list[float]] = {}
+        deformable_vkeys: dict[UUID, list[tuple[UUID, int]]] = {}
+        for uid, verts in deformable_vertices.items():
+            keys: list[tuple[UUID, int]] = []
+            for vi, (vx, vy) in enumerate(verts):
+                vk = (uid, vi)
+                if vk == moving_vertex:
+                    vertex_pos[vk] = [desired_scene_pos[0], desired_scene_pos[1]]
+                else:
+                    vertex_pos[vk] = [vx, vy]
+                keys.append(vk)
+            deformable_vkeys[uid] = keys
+
+        # Pin every item; only the moving vertex is free.  Newton's variable
+        # selection uses per-vertex DOF for deformable items, so we also need
+        # to mark the item as "deformable with just this vertex free".
+        pinned_items = set(positions.keys())
+        # Mark the moving item as non-pinned but restrict deformable_vkeys to
+        # the single moving vertex so only it becomes a variable.
+        pinned_items.discard(moving_uid)
+        deformable_vkeys_restricted = {moving_uid: [moving_vertex]}
+
+        newton_refine(
+            positions=positions,
+            vertex_pos=vertex_pos,
+            anchor_offsets=anchor_offsets,
+            deformable_items={moving_uid} if moving_uid in deformable_items else set(),
+            deformable_vkeys=deformable_vkeys_restricted,
+            constraints=touching,
+            pinned_items=pinned_items,
+            tol=tolerance,
+        )
+        p = vertex_pos[moving_vertex]
+        return p[0], p[1]
+
+    def find_conflicting_constraints(
+        self,
+        trial_constraint: Constraint,
+        item_positions: dict[UUID, tuple[float, float]],
+        anchor_offsets: dict[tuple[UUID, AnchorType, int], tuple[float, float]],
+        deformable_items: set[UUID] | None = None,
+        deformable_vertices: dict[UUID, list[tuple[float, float]]] | None = None,
+        tolerance: float = 1.0,
+    ) -> list[UUID]:
+        """Return IDs of existing constraints that would be violated by ``trial_constraint``.
+
+        Temporarily adds ``trial_constraint``, runs the solver, then inspects
+        each existing constraint's residual.  Returns the UUIDs whose residuals
+        exceed ``tolerance`` — i.e. constraints the solver had to sacrifice in
+        order to satisfy the trial one.  Empty list means the trial constraint
+        is compatible with everything already in the graph.
+        """
+        self._constraints[trial_constraint.constraint_id] = trial_constraint
+        try:
+            result = self.solve_anchored(
+                item_positions=item_positions,
+                anchor_offsets=anchor_offsets,
+                pinned_items=set(),
+                max_iterations=50,
+                tolerance=tolerance,
+                deformable_items=deformable_items,
+                deformable_vertices=deformable_vertices,
+            )
+        finally:
+            del self._constraints[trial_constraint.constraint_id]
+
+        # Rebuild resolved anchor positions from deltas
+        resolved_item_pos: dict[UUID, tuple[float, float]] = dict(item_positions)
+        for uid, (dx, dy) in result.item_deltas.items():
+            base = item_positions[uid]
+            resolved_item_pos[uid] = (base[0] + dx, base[1] + dy)
+        resolved_vertex_pos: dict[tuple[UUID, int], tuple[float, float]] = {}
+        if deformable_vertices:
+            for uid, verts in deformable_vertices.items():
+                for vi, (vx, vy) in enumerate(verts):
+                    resolved_vertex_pos[(uid, vi)] = (vx, vy)
+        for vk, (dx, dy) in result.vertex_deltas.items():
+            base = resolved_vertex_pos.get(vk)
+            if base is None:
+                continue
+            # Deltas returned by solve_anchored are vertex deformation, i.e.
+            # they exclude any whole-item translation.  Add the item delta back
+            # to get the absolute vertex position.
+            item_dx, item_dy = result.item_deltas.get(vk[0], (0.0, 0.0))
+            resolved_vertex_pos[vk] = (
+                base[0] + dx + item_dx,
+                base[1] + dy + item_dy,
+            )
+
+        def anchor_pos(anchor: AnchorRef) -> tuple[float, float]:
+            if (
+                deformable_items
+                and anchor.item_id in deformable_items
+                and anchor.anchor_type in {AnchorType.CORNER, AnchorType.ENDPOINT}
+            ):
+                vp = resolved_vertex_pos.get((anchor.item_id, anchor.anchor_index))
+                if vp is not None:
+                    return vp
+            off = anchor_offsets.get(
+                (anchor.item_id, anchor.anchor_type, anchor.anchor_index), (0.0, 0.0)
+            )
+            base = resolved_item_pos.get(anchor.item_id, (0.0, 0.0))
+            return base[0] + off[0], base[1] + off[1]
+
+        conflicting: list[UUID] = []
+        for cid, c in self._constraints.items():
+            if c.constraint_type in (
+                ConstraintType.PARALLEL,
+                ConstraintType.PERPENDICULAR,
+                ConstraintType.EQUAL,
+                ConstraintType.FIXED,
+            ):
+                # Rotation-only and pinning types aren't meaningfully evaluated
+                # from positions alone — skip.
+                continue
+            ax, ay = anchor_pos(c.anchor_a)
+            bx, by = anchor_pos(c.anchor_b)
+            if c.constraint_type in (
+                ConstraintType.DISTANCE,
+                ConstraintType.EDGE_LENGTH,
+                ConstraintType.POINT_ON_CIRCLE,
+            ):
+                err = abs(
+                    math.sqrt((ax - bx) ** 2 + (ay - by) ** 2) - c.target_distance
+                )
+            elif c.constraint_type == ConstraintType.HORIZONTAL:
+                err = abs(ay - by)
+            elif c.constraint_type == ConstraintType.VERTICAL:
+                err = abs(ax - bx)
+            elif c.constraint_type == ConstraintType.HORIZONTAL_DISTANCE:
+                err = abs(abs(bx - ax) - c.target_distance)
+            elif c.constraint_type == ConstraintType.VERTICAL_DISTANCE:
+                err = abs(abs(by - ay) - c.target_distance)
+            elif c.constraint_type == ConstraintType.COINCIDENT:
+                err = math.sqrt((ax - bx) ** 2 + (ay - by) ** 2)
+            else:
+                continue
+            if err > tolerance:
+                conflicting.append(cid)
+        return conflicting
 
     def clear(self) -> None:
         """Remove all constraints."""

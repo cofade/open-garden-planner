@@ -2,6 +2,8 @@
 
 from uuid import UUID, uuid4
 
+from PyQt6.QtWidgets import QLabel
+
 from open_garden_planner.core.constraints import AnchorRef, ConstraintGraph
 from open_garden_planner.core.measure_snapper import AnchorType
 from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
@@ -290,6 +292,19 @@ class TestConstraintListItem:
         cid = uuid4()
         widget = ConstraintListItem(cid, "Tree", "Fence", 150.0, True)
         assert widget.constraint_id == cid
+
+    def test_edge_length_row_creation(self, qtbot) -> None:
+        """Edge-length rows create without errors."""
+        cid = uuid4()
+        widget = ConstraintListItem(cid, "Bed 1", "", 150.0, True, "EDGE_LENGTH")
+        assert widget.constraint_id == cid
+
+    def test_edge_length_row_uses_expected_label(self, qtbot) -> None:
+        """Edge-length rows show their dedicated label text."""
+        cid = uuid4()
+        widget = ConstraintListItem(cid, "Bed 1", "", 150.0, True, "EDGE_LENGTH")
+        labels = widget.findChildren(QLabel)
+        assert any("Edge 1.50 m" in label.text() for label in labels)
 
     def test_delete_signal(self, qtbot) -> None:
         """Delete button emits delete_requested signal."""

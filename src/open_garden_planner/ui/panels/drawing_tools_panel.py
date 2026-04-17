@@ -37,7 +37,9 @@ class DrawingToolsPanel(QWidget):
         self._button_group = QButtonGroup(self)
         self._button_group.setExclusive(True)
         self._buttons: dict[ToolType, QToolButton] = {}
-        self._icons_dir = Path(__file__).parent.parent.parent / "resources" / "icons" / "tools"
+        self._icons_dir = (
+            Path(__file__).parent.parent.parent / "resources" / "icons" / "tools"
+        )
         self._setup_ui()
 
     def _load_icon(self, icon_name: str, fallback_emoji: str) -> QIcon | str:
@@ -76,15 +78,21 @@ class DrawingToolsPanel(QWidget):
         grid1 = QGridLayout()
         grid1.setSpacing(0)
         self._add_tool(grid1, 0, 0, ToolType.SELECT, "select", "↖️", "Select (V)", "V")
-        self._add_tool(grid1, 0, 1, ToolType.MEASURE, "measure", "📐", "Measure (M)", "M")
+        self._add_tool(
+            grid1, 0, 1, ToolType.MEASURE, "measure", "📐", "Measure (M)", "M"
+        )
         layout.addLayout(grid1)
 
         # BASIC SHAPES
         self._add_category(self.tr("Basic Shapes"), layout)
         grid2 = QGridLayout()
         grid2.setSpacing(0)
-        self._add_tool(grid2, 0, 0, ToolType.RECTANGLE, "rectangle", "⬜", "Rectangle (R)", "R")
-        self._add_tool(grid2, 0, 1, ToolType.POLYGON, "polygon", "⬢", "Polygon (P)", "P")
+        self._add_tool(
+            grid2, 0, 0, ToolType.RECTANGLE, "rectangle", "⬜", "Rectangle (R)", "R"
+        )
+        self._add_tool(
+            grid2, 0, 1, ToolType.POLYGON, "polygon", "⬢", "Polygon (P)", "P"
+        )
         self._add_tool(grid2, 0, 2, ToolType.CIRCLE, "circle", "⭕", "Circle (C)", "C")
         layout.addLayout(grid2)
 
@@ -93,16 +101,24 @@ class DrawingToolsPanel(QWidget):
         grid3 = QGridLayout()
         grid3.setSpacing(0)
         self._add_tool(grid3, 0, 0, ToolType.HOUSE, "house", "🏠", "House (H)", "H")
-        self._add_tool(grid3, 0, 1, ToolType.GARAGE_SHED, "shed", "🛖", "Garage/Shed", "")
-        self._add_tool(grid3, 0, 2, ToolType.GREENHOUSE, "greenhouse", "🪟", "Greenhouse", "")
+        self._add_tool(
+            grid3, 0, 1, ToolType.GARAGE_SHED, "shed", "🛖", "Garage/Shed", ""
+        )
+        self._add_tool(
+            grid3, 0, 2, ToolType.GREENHOUSE, "greenhouse", "🪟", "Greenhouse", ""
+        )
         layout.addLayout(grid3)
 
         # HARDSCAPE
         self._add_category(self.tr("Hardscape"), layout)
         grid4 = QGridLayout()
         grid4.setSpacing(0)
-        self._add_tool(grid4, 0, 0, ToolType.TERRACE_PATIO, "terrace", "🟫", "Terrace (T)", "T")
-        self._add_tool(grid4, 0, 1, ToolType.DRIVEWAY, "driveway", "🛣️", "Driveway (D)", "D")
+        self._add_tool(
+            grid4, 0, 0, ToolType.TERRACE_PATIO, "terrace", "🟫", "Terrace (T)", "T"
+        )
+        self._add_tool(
+            grid4, 0, 1, ToolType.DRIVEWAY, "driveway", "🛣️", "Driveway (D)", "D"
+        )
         self._add_tool(grid4, 0, 2, ToolType.POND_POOL, "pond", "💧", "Pond/Pool", "")
         layout.addLayout(grid4)
 
@@ -119,7 +135,9 @@ class DrawingToolsPanel(QWidget):
         self._add_category(self.tr("Garden"), layout)
         grid6 = QGridLayout()
         grid6.setSpacing(0)
-        self._add_tool(grid6, 0, 0, ToolType.GARDEN_BED, "garden_bed", "🌱", "Garden Bed (B)", "B")
+        self._add_tool(
+            grid6, 0, 0, ToolType.GARDEN_BED, "garden_bed", "🌱", "Garden Bed (B)", "B"
+        )
         layout.addLayout(grid6)
 
         # PLANTS
@@ -128,17 +146,65 @@ class DrawingToolsPanel(QWidget):
         grid7.setSpacing(0)
         self._add_tool(grid7, 0, 0, ToolType.TREE, "tree", "🌳", "Tree (1)", "1")
         self._add_tool(grid7, 0, 1, ToolType.SHRUB, "shrub", "🪴", "Shrub (2)", "2")
-        self._add_tool(grid7, 0, 2, ToolType.PERENNIAL, "flower", "🌸", "Perennial (3)", "3")
+        self._add_tool(
+            grid7, 0, 2, ToolType.PERENNIAL, "flower", "🌸", "Perennial (3)", "3"
+        )
         layout.addLayout(grid7)
 
         # CONSTRAINTS
         self._add_category(self.tr("Constraints"), layout)
         grid_c = QGridLayout()
         grid_c.setSpacing(0)
-        self._add_tool(grid_c, 0, 0, ToolType.CONSTRAINT, "constraint_distance", "↔", self.tr("Distance Constraint (K)"), "K")
-        self._add_tool(grid_c, 0, 1, ToolType.CONSTRAINT_HORIZONTAL, "constraint_horizontal", "≡H", self.tr("Horizontal Constraint"), "")
-        self._add_tool(grid_c, 0, 2, ToolType.CONSTRAINT_VERTICAL, "constraint_vertical", "≡V", self.tr("Vertical Constraint"), "")
-        self._add_tool(grid_c, 1, 0, ToolType.CONSTRAINT_ANGLE, "constraint_angle", "∠", self.tr("Angle Constraint"), "")
+        self._add_tool(
+            grid_c,
+            0,
+            0,
+            ToolType.CONSTRAINT,
+            "constraint_distance",
+            "↔",
+            self.tr("Distance Constraint (K)"),
+            "K",
+        )
+        self._add_tool(
+            grid_c,
+            0,
+            1,
+            ToolType.CONSTRAINT_EDGE_LENGTH,
+            "constraint_edge_length",
+            "⟷|",
+            self.tr("Edge Length Constraint"),
+            "",
+        )
+        self._add_tool(
+            grid_c,
+            0,
+            2,
+            ToolType.CONSTRAINT_HORIZONTAL,
+            "constraint_horizontal",
+            "≡H",
+            self.tr("Horizontal Constraint"),
+            "",
+        )
+        self._add_tool(
+            grid_c,
+            1,
+            0,
+            ToolType.CONSTRAINT_VERTICAL,
+            "constraint_vertical",
+            "≡V",
+            self.tr("Vertical Constraint"),
+            "",
+        )
+        self._add_tool(
+            grid_c,
+            1,
+            1,
+            ToolType.CONSTRAINT_ANGLE,
+            "constraint_angle",
+            "∠",
+            self.tr("Angle Constraint"),
+            "",
+        )
         layout.addLayout(grid_c)
 
         layout.addStretch()

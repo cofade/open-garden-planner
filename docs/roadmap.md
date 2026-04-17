@@ -429,7 +429,7 @@ Every user-visible string must be wrapped for translation. See `docs/08-crosscut
 
 ### US-7.2: Distance Constraint Data Model & Solver
 
-**Description**: Implement the constraint data model and iterative position-based constraint solver (Gauss-Seidel relaxation) that resolves constraint chains.
+**Description**: Implement the constraint data model and a hybrid Gauss-Seidel + Newton-Raphson constraint solver that resolves constraint chains, including coupled systems like shared-vertex edge-length constraints (see §8.12).
 
 **Acceptance Criteria**:
 - `Constraint` dataclass with two anchors (item_id + anchor type), target distance, visibility flag

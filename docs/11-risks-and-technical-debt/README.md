@@ -37,6 +37,7 @@
 | TD-005 | Test coverage | Some UI components lack automated tests | Medium |
 | TD-006 | Error messages | Some error messages are technical, not user-friendly | Low |
 | TD-007 | Constraint anchors | Polygon/polyline edge anchors use dynamic `EDGE_TOP/BOTTOM/LEFT/RIGHT` classification (dominant axis). Classification changes when a vertex moves far enough to flip an edge's axis, causing constraint indicators to jump to the wrong edge. Replace with `AnchorType.EDGE_MIDPOINT` + stable numeric `anchor_index` so the edge identity is axis-independent. Workaround in place (index-only match in `_resolve_anchor_position`). | Medium |
+| TD-008 | Constraint solver | Newton-Raphson refinement uses a numerical central-difference Jacobian (`constraint_solver_newton._JACOBIAN_H`). An analytic Jacobian per constraint type would be faster (roughly 2N × eval savings per iteration), but numerical cost is microseconds for typical ≤20-variable systems so no user-facing impact. Revisit only if large-scene solves become a bottleneck. | Low |
 
 ## 11.4 Known Development Pitfalls
 

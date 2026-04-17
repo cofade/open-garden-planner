@@ -174,6 +174,59 @@ def _is_item_fixed(item: "QGraphicsItem") -> bool:
     return False
 
 
+def _emit_scale_blocked_hint(item: "QGraphicsItem") -> None:
+    """Surface a user-visible hint when a scale drag is refused."""
+    from PyQt6.QtCore import QCoreApplication  # noqa: PLC0415
+
+    scene = item.scene() if item is not None else None
+    if scene is None:
+        return
+    msg = QCoreApplication.translate(
+        "ResizeHandle", "Scale blocked: item has dimensional constraints"
+    )
+    for view in scene.views():
+        window = view.window()
+        status_bar = getattr(window, "statusBar", None)
+        if callable(status_bar):
+            try:
+                status_bar().showMessage(msg, 4000)
+                return
+            except Exception:
+                continue
+
+
+def _has_blocking_constraints(item: "QGraphicsItem") -> bool:
+    """Return True if ``item`` has any constraint that a uniform scale would violate.
+
+    Scale-invariant constraint types (HORIZONTAL, VERTICAL, PARALLEL,
+    PERPENDICULAR, EQUAL) are allowed.  Any other constraint — including FIXED,
+    EDGE_LENGTH, DISTANCE, ANGLE, SYMMETRY_*, COINCIDENT, POINT_ON_* — blocks
+    scaling because the bounding-box resize would silently invalidate it.
+    """
+    scene = item.scene() if item is not None else None
+    if scene is None or not hasattr(scene, "constraint_graph"):
+        return False
+    item_id = getattr(item, "item_id", None)
+    if item_id is None:
+        return False
+    from open_garden_planner.core.constraints import ConstraintType  # noqa: PLC0415
+
+    scale_invariant = {
+        ConstraintType.HORIZONTAL,
+        ConstraintType.VERTICAL,
+        ConstraintType.PARALLEL,
+        ConstraintType.PERPENDICULAR,
+        ConstraintType.EQUAL,
+    }
+    for c in scene.constraint_graph.constraints.values():
+        touches = c.anchor_a.item_id == item_id or c.anchor_b.item_id == item_id
+        if not touches:
+            continue
+        if c.constraint_type not in scale_invariant:
+            return True
+    return False
+
+
 class ResizeHandle(QGraphicsRectItem):
     """A draggable handle for resizing items.
 
@@ -263,7 +316,10 @@ class ResizeHandle(QGraphicsRectItem):
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Start resize operation."""
         if event.button() == Qt.MouseButton.LeftButton:
-            if self._parent_item is not None and _is_item_fixed(self._parent_item):
+            if self._parent_item is not None and _has_blocking_constraints(
+                self._parent_item
+            ):
+                _emit_scale_blocked_hint(self._parent_item)
                 event.ignore()
                 return
             self._is_dragging = True
@@ -1135,6 +1191,15 @@ class VertexHandle(QGraphicsRectItem):
 
         # Get new position in parent item coordinates, clamped to canvas
         scene_pos = _clamp_pos_to_canvas(event.scenePos(), self._parent_item)
+
+        # Live constraint projection: if any constraint touches this vertex,
+        # snap the cursor target to the closest feasible point before painting.
+        scene = self._parent_item.scene()
+        if scene is not None and hasattr(scene, "project_vertex_drag"):
+            scene_pos = scene.project_vertex_drag(
+                self._parent_item, self._vertex_index, scene_pos
+            )
+
         parent_pos = self._parent_item.mapFromScene(scene_pos)
 
         # Apply the vertex move
@@ -2001,6 +2066,15 @@ class RectCornerHandle(QGraphicsRectItem):
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Start corner drag operation."""
         if event.button() == Qt.MouseButton.LeftButton:
+            # A FIXED rectangle or one with blocking constraints must not deform.
+            if self._parent_item is not None and (
+                _is_item_fixed(self._parent_item)
+                or _has_blocking_constraints(self._parent_item)
+            ):
+                _emit_scale_blocked_hint(self._parent_item)
+                event.ignore()
+                return
+
             self._is_dragging = True
             self._drag_start_pos = event.scenePos()
 
@@ -2009,6 +2083,9 @@ class RectCornerHandle(QGraphicsRectItem):
                 self._initial_rect = QRectF(self._parent_item.rect())
                 self._initial_item_pos = QPointF(self._parent_item.pos())
 
+            # Grab mouse so movement events keep firing even when the cursor
+            # leaves this handle — the original cause of "corners are inert".
+            self.grabMouse()
             event.accept()
         else:
             super().mousePressEvent(event)
@@ -2035,6 +2112,7 @@ class RectCornerHandle(QGraphicsRectItem):
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Complete corner drag operation."""
         if event.button() == Qt.MouseButton.LeftButton and self._is_dragging:
+            self.ungrabMouse()
             self._is_dragging = False
 
             # Register undo command
@@ -2246,69 +2324,78 @@ class RectVertexEditMixin:
         initial_rect: QRectF,
         initial_pos: QPointF,
     ) -> None:
-        """Move a corner by delta from its initial position.
+        """Move a corner by ``delta`` (scene coords) while keeping the shape a rectangle.
 
-        Args:
-            corner: Which corner to move
-            delta: Movement delta in scene coordinates
-            initial_rect: Initial rectangle before drag started
-            initial_pos: Initial item position before drag started
+        The diagonally opposite corner is held fixed in scene space; the
+        rectangle's local width and height are adjusted to reach the dragged
+        corner's new scene position.  Supports rotated rectangles by projecting
+        the delta onto the rectangle's local axes.
         """
         if not hasattr(self, 'setRect') or not hasattr(self, 'setPos'):
             return
 
-        # Calculate new rect based on which corner is being dragged
+        # Rotate delta into the rectangle's local frame.  Qt rotation is CW in
+        # screen space (Y-down), so use -θ to invert.
+        rotation_deg = float(self.rotation()) if hasattr(self, 'rotation') else 0.0  # type: ignore[attr-defined]
+        theta = math.radians(-rotation_deg)
+        cos_t = math.cos(theta)
+        sin_t = math.sin(theta)
+        local_dx = delta.x() * cos_t - delta.y() * sin_t
+        local_dy = delta.x() * sin_t + delta.y() * cos_t
+
         new_rect = QRectF(initial_rect)
-        new_pos = QPointF(initial_pos)
+        # Track how the rect's top-left moves in the LOCAL frame, so the
+        # diagonally opposite corner stays at the same local (and scene) point.
+        local_tl_shift_x = 0.0
+        local_tl_shift_y = 0.0
 
         if corner == RectCorner.TOP_LEFT:
-            # Adjust left and top
-            new_width = initial_rect.width() - delta.x()
-            new_height = initial_rect.height() - delta.y()
+            new_width = initial_rect.width() - local_dx
+            new_height = initial_rect.height() - local_dy
             if new_width >= MINIMUM_SIZE_CM:
                 new_rect.setWidth(new_width)
-                new_pos.setX(initial_pos.x() + delta.x())
+                local_tl_shift_x = local_dx
             if new_height >= MINIMUM_SIZE_CM:
                 new_rect.setHeight(new_height)
-                new_pos.setY(initial_pos.y() + delta.y())
+                local_tl_shift_y = local_dy
 
         elif corner == RectCorner.TOP_RIGHT:
-            # Adjust right and top
-            new_width = initial_rect.width() + delta.x()
-            new_height = initial_rect.height() - delta.y()
+            new_width = initial_rect.width() + local_dx
+            new_height = initial_rect.height() - local_dy
             if new_width >= MINIMUM_SIZE_CM:
                 new_rect.setWidth(new_width)
             if new_height >= MINIMUM_SIZE_CM:
                 new_rect.setHeight(new_height)
-                new_pos.setY(initial_pos.y() + delta.y())
+                local_tl_shift_y = local_dy
 
         elif corner == RectCorner.BOTTOM_LEFT:
-            # Adjust left and bottom
-            new_width = initial_rect.width() - delta.x()
-            new_height = initial_rect.height() + delta.y()
+            new_width = initial_rect.width() - local_dx
+            new_height = initial_rect.height() + local_dy
             if new_width >= MINIMUM_SIZE_CM:
                 new_rect.setWidth(new_width)
-                new_pos.setX(initial_pos.x() + delta.x())
+                local_tl_shift_x = local_dx
             if new_height >= MINIMUM_SIZE_CM:
                 new_rect.setHeight(new_height)
 
         elif corner == RectCorner.BOTTOM_RIGHT:
-            # Adjust right and bottom
-            new_width = initial_rect.width() + delta.x()
-            new_height = initial_rect.height() + delta.y()
+            new_width = initial_rect.width() + local_dx
+            new_height = initial_rect.height() + local_dy
             if new_width >= MINIMUM_SIZE_CM:
                 new_rect.setWidth(new_width)
             if new_height >= MINIMUM_SIZE_CM:
                 new_rect.setHeight(new_height)
 
-        # Apply the new geometry
+        # Convert the LOCAL top-left shift back to SCENE space so the rotated
+        # rectangle's anchor corner stays pinned.
+        cos_r = math.cos(math.radians(rotation_deg))
+        sin_r = math.sin(math.radians(rotation_deg))
+        scene_shift_x = local_tl_shift_x * cos_r - local_tl_shift_y * sin_r
+        scene_shift_y = local_tl_shift_x * sin_r + local_tl_shift_y * cos_r
+        new_pos = QPointF(initial_pos.x() + scene_shift_x, initial_pos.y() + scene_shift_y)
+
         self.setRect(new_rect)  # type: ignore[attr-defined]
         self.setPos(new_pos)  # type: ignore[attr-defined]
-
-        # Update corner handles
         self._update_rect_corner_handles()
-
-        # Update label position
         if hasattr(self, '_position_label'):
             self._position_label()  # type: ignore[attr-defined]
 

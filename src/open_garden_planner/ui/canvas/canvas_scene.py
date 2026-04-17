@@ -284,6 +284,101 @@ class CanvasScene(QGraphicsScene):
         """Rebuild all dimension line visuals from the constraint graph."""
         self._dimension_line_manager.update_all()
 
+    def project_vertex_drag(
+        self,
+        item: QGraphicsItem,
+        vertex_index: int,
+        desired_scene_pos: QPointF,
+    ) -> QPointF:
+        """Project a live vertex-drag target onto its constraint feasible set.
+
+        Returns ``desired_scene_pos`` unchanged when no constraint touches this
+        vertex, or when the item is not tracked as deformable (rigid items use
+        a different drag path).  Otherwise builds the minimum solver state —
+        all other items pinned — and delegates to
+        :py:meth:`ConstraintGraph.project_to_feasible`.
+        """
+        from open_garden_planner.core.constraints import AnchorType
+        from open_garden_planner.core.measure_snapper import get_anchor_points
+        from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
+        from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
+
+        if not isinstance(item, (PolygonItem, PolylineItem)):
+            return desired_scene_pos
+        item_id = getattr(item, "item_id", None)
+        if item_id is None:
+            return desired_scene_pos
+
+        graph = self.constraint_graph
+        vkey = (item_id, vertex_index)
+        vertex_types = {AnchorType.CORNER, AnchorType.ENDPOINT}
+        touches = any(
+            (
+                c.anchor_a.item_id == item_id
+                and c.anchor_a.anchor_index == vertex_index
+                and c.anchor_a.anchor_type in vertex_types
+            )
+            or (
+                c.anchor_b.item_id == item_id
+                and c.anchor_b.anchor_index == vertex_index
+                and c.anchor_b.anchor_type in vertex_types
+            )
+            for c in graph.constraints.values()
+        )
+        if not touches:
+            return desired_scene_pos
+
+        item_positions: dict = {}
+        anchor_offsets: dict = {}
+        deformable_items: set = set()
+        deformable_vertices: dict = {}
+
+        for scene_item in self.items():
+            if not isinstance(scene_item, GardenItemMixin):
+                continue
+            uid = scene_item.item_id
+            pos = scene_item.pos()
+            item_positions[uid] = (pos.x(), pos.y())
+            for anchor in get_anchor_points(scene_item):
+                anchor_offsets[(uid, anchor.anchor_type, anchor.anchor_index)] = (
+                    anchor.point.x() - pos.x(),
+                    anchor.point.y() - pos.y(),
+                )
+            if isinstance(scene_item, PolygonItem):
+                polygon = scene_item.polygon()
+                verts = [
+                    (
+                        scene_item.mapToScene(polygon.at(i)).x(),
+                        scene_item.mapToScene(polygon.at(i)).y(),
+                    )
+                    for i in range(polygon.count())
+                ]
+                deformable_items.add(uid)
+                deformable_vertices[uid] = verts
+            elif isinstance(scene_item, PolylineItem):
+                verts = [
+                    (scene_item.mapToScene(pt).x(), scene_item.mapToScene(pt).y())
+                    for pt in scene_item.points
+                ]
+                deformable_items.add(uid)
+                deformable_vertices[uid] = verts
+
+        if item_id not in deformable_vertices:
+            return desired_scene_pos
+
+        try:
+            x, y = graph.project_to_feasible(
+                moving_vertex=vkey,
+                desired_scene_pos=(desired_scene_pos.x(), desired_scene_pos.y()),
+                item_positions=item_positions,
+                anchor_offsets=anchor_offsets,
+                deformable_items=deformable_items,
+                deformable_vertices=deformable_vertices,
+            )
+        except Exception:
+            return desired_scene_pos
+        return QPointF(x, y)
+
     @property
     def dimension_line_manager(self):
         """Access the dimension line manager."""

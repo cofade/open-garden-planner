@@ -19,8 +19,7 @@ from open_garden_planner.core.constraints import AnchorRef, ConstraintType
 from open_garden_planner.core.measure_snapper import AnchorType
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
-from open_garden_planner.ui.canvas.items import RectangleItem
-
+from open_garden_planner.ui.canvas.items import PolygonItem, RectangleItem
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -34,7 +33,9 @@ def _left_click_event() -> MagicMock:
     return event
 
 
-def _draw_rect(view: CanvasView, x1: float, y1: float, x2: float, y2: float) -> RectangleItem:
+def _draw_rect(
+    view: CanvasView, x1: float, y1: float, x2: float, y2: float
+) -> RectangleItem:
     """Draw a rectangle and return the resulting item."""
     event = _left_click_event()
     view.set_active_tool(ToolType.RECTANGLE)
@@ -49,6 +50,18 @@ def _draw_rect(view: CanvasView, x1: float, y1: float, x2: float, y2: float) -> 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
+
+def _draw_polygon(view: CanvasView, points: list[QPointF]) -> PolygonItem:
+    """Draw a polygon and return the resulting item."""
+    event = _left_click_event()
+    view.set_active_tool(ToolType.POLYGON)
+    tool = view.tool_manager.active_tool
+    for point in points:
+        tool.mouse_press(event, point)
+    tool.mouse_double_click(event, points[-1])
+    polygons = [i for i in view.scene().items() if isinstance(i, PolygonItem)]
+    return polygons[0]
 
 
 class TestDistanceConstraintCreation:
@@ -83,12 +96,12 @@ class TestDistanceConstraintCreation:
         pos_b_after = rect_b.pos()
 
         # B must not have moved at all (pos() is the Qt item position offset).
-        assert pos_b_after.x() == pytest.approx(pos_b_before.x(), abs=0.1), (
-            "Item B (reference) must not move when a distance constraint is added"
-        )
-        assert pos_b_after.y() == pytest.approx(pos_b_before.y(), abs=0.1), (
-            "Item B (reference) must not move when a distance constraint is added"
-        )
+        assert pos_b_after.x() == pytest.approx(
+            pos_b_before.x(), abs=0.1
+        ), "Item B (reference) must not move when a distance constraint is added"
+        assert pos_b_after.y() == pytest.approx(
+            pos_b_before.y(), abs=0.1
+        ), "Item B (reference) must not move when a distance constraint is added"
 
         # The resulting anchor-to-anchor (centre-to-centre) distance must equal
         # the target.  RectangleItem uses QGraphicsRectItem(x, y, w, h) which
@@ -97,12 +110,11 @@ class TestDistanceConstraintCreation:
         centre_a = rect_a.mapToScene(rect_a.rect().center())
         centre_b = rect_b.mapToScene(rect_b.rect().center())
         dist = math.sqrt(
-            (centre_b.x() - centre_a.x()) ** 2
-            + (centre_b.y() - centre_a.y()) ** 2
+            (centre_b.x() - centre_a.x()) ** 2 + (centre_b.y() - centre_a.y()) ** 2
         )
-        assert abs(dist - target_cm) < 1.0, (
-            f"Distance constraint not satisfied: got {dist:.1f} cm, expected {target_cm} cm"
-        )
+        assert (
+            abs(dist - target_cm) < 1.0
+        ), f"Distance constraint not satisfied: got {dist:.1f} cm, expected {target_cm} cm"
 
     def test_item_a_moves_full_correction_not_half(
         self, canvas: CanvasView, qtbot: object
@@ -132,6 +144,30 @@ class TestDistanceConstraintCreation:
         centre_a_after = rect_a.mapToScene(rect_a.rect().center())
         # A should have moved ~200 cm (the full correction), not ~100 cm (the half).
         delta_a = abs(centre_a_after.x() - centre_a_before.x())
-        assert delta_a > 150.0, (
-            f"A moved only {delta_a:.1f} cm — looks like the old 50/50 split is still active"
+        assert (
+            delta_a > 150.0
+        ), f"A moved only {delta_a:.1f} cm — looks like the old 50/50 split is still active"
+
+    def test_polygon_adjacent_edges_can_have_distinct_edge_length_constraints(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """Adjacent polygon edges remain distinguishable via anchor_index."""
+        polygon = _draw_polygon(
+            canvas,
+            [QPointF(0, 0), QPointF(300, 0), QPointF(300, 200), QPointF(0, 200)],
         )
+        graph = canvas._canvas_scene.constraint_graph
+        c1 = graph.add_constraint(
+            AnchorRef(polygon.item_id, AnchorType.CORNER, 0),
+            AnchorRef(polygon.item_id, AnchorType.CORNER, 1),
+            300.0,
+            constraint_type=ConstraintType.EDGE_LENGTH,
+        )
+        c2 = graph.add_constraint(
+            AnchorRef(polygon.item_id, AnchorType.CORNER, 1),
+            AnchorRef(polygon.item_id, AnchorType.CORNER, 2),
+            200.0,
+            constraint_type=ConstraintType.EDGE_LENGTH,
+        )
+        assert c1.constraint_id != c2.constraint_id
+        assert len(graph.constraints) == 2

@@ -19,31 +19,43 @@ from PyQt6.QtWidgets import (
     QGraphicsSimpleTextItem,
 )
 
-from open_garden_planner.core.constraints import Constraint, ConstraintGraph, ConstraintType
+from open_garden_planner.core.constraints import (
+    Constraint,
+    ConstraintGraph,
+    ConstraintType,
+)
 from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
 from open_garden_planner.ui.canvas.items import GardenItemMixin
 
 # Colors
-COLOR_SATISFIED = QColor(0, 120, 200)     # Blue
-COLOR_VIOLATED = QColor(220, 40, 40)      # Red
+COLOR_SATISFIED = QColor(0, 120, 200)  # Blue
+COLOR_VIOLATED = QColor(220, 40, 40)  # Red
 COLOR_ALIGN_SATISFIED = QColor(120, 0, 180)  # Purple for alignment
-COLOR_ALIGN_VIOLATED = QColor(220, 40, 40)   # Red (same as distance violated)
+COLOR_ALIGN_VIOLATED = QColor(220, 40, 40)  # Red (same as distance violated)
 COLOR_ANGLE_SATISFIED = QColor(200, 100, 0)  # Orange for angle constraints
-COLOR_ANGLE_VIOLATED = QColor(220, 40, 40)   # Red
+COLOR_ANGLE_VIOLATED = QColor(220, 40, 40)  # Red
 COLOR_SYMMETRY_SATISFIED = QColor(140, 0, 180)  # Purple for symmetry constraints
-COLOR_SYMMETRY_VIOLATED = QColor(220, 40, 40)   # Red
+COLOR_SYMMETRY_VIOLATED = QColor(220, 40, 40)  # Red
 COLOR_COINCIDENT_SATISFIED = QColor(0, 160, 200)  # Teal for coincident constraints
-COLOR_COINCIDENT_VIOLATED = QColor(220, 40, 40)   # Red
-COLOR_PARALLEL_SATISFIED = QColor(20, 160, 100)       # Green for parallel constraints
-COLOR_PARALLEL_VIOLATED = QColor(220, 40, 40)         # Red
-COLOR_PERPENDICULAR_SATISFIED = QColor(20, 120, 160)  # Blue-teal for perpendicular constraints
-COLOR_PERPENDICULAR_VIOLATED = QColor(220, 40, 40)    # Red
-COLOR_EQUAL_SATISFIED = QColor(200, 100, 0)           # Amber for equal-size constraints
-COLOR_EQUAL_VIOLATED = QColor(220, 40, 40)            # Red
-COLOR_FIXED = QColor(180, 130, 0)                     # Gold for fix-in-place constraints
-COLOR_H_DISTANCE_SATISFIED = QColor(21, 101, 192)     # Deep blue for H-distance constraints
-COLOR_V_DISTANCE_SATISFIED = QColor(21, 101, 192)     # Deep blue for V-distance constraints
-COLOR_HV_DISTANCE_VIOLATED = QColor(220, 40, 40)      # Red (violated)
+COLOR_COINCIDENT_VIOLATED = QColor(220, 40, 40)  # Red
+COLOR_PARALLEL_SATISFIED = QColor(20, 160, 100)  # Green for parallel constraints
+COLOR_PARALLEL_VIOLATED = QColor(220, 40, 40)  # Red
+COLOR_PERPENDICULAR_SATISFIED = QColor(
+    20, 120, 160
+)  # Blue-teal for perpendicular constraints
+COLOR_PERPENDICULAR_VIOLATED = QColor(220, 40, 40)  # Red
+COLOR_EQUAL_SATISFIED = QColor(200, 100, 0)  # Amber for equal-size constraints
+COLOR_EQUAL_VIOLATED = QColor(220, 40, 40)  # Red
+COLOR_EDGE_LENGTH_SATISFIED = QColor(0, 120, 200)  # Blue for edge-length constraints
+COLOR_EDGE_LENGTH_VIOLATED = QColor(220, 40, 40)  # Red
+COLOR_FIXED = QColor(180, 130, 0)  # Gold for fix-in-place constraints
+COLOR_H_DISTANCE_SATISFIED = QColor(
+    21, 101, 192
+)  # Deep blue for H-distance constraints
+COLOR_V_DISTANCE_SATISFIED = QColor(
+    21, 101, 192
+)  # Deep blue for V-distance constraints
+COLOR_HV_DISTANCE_VIOLATED = QColor(220, 40, 40)  # Red (violated)
 
 # Geometry constants
 WITNESS_LINE_OFFSET = 15.0  # Perpendicular offset from dimension line (in cm)
@@ -196,7 +208,9 @@ class DimensionLineManager:
             ConstraintType.SYMMETRY_HORIZONTAL,
             ConstraintType.SYMMETRY_VERTICAL,
         ):
-            axis_is_horizontal = constraint.constraint_type == ConstraintType.SYMMETRY_HORIZONTAL
+            axis_is_horizontal = (
+                constraint.constraint_type == ConstraintType.SYMMETRY_HORIZONTAL
+            )
             axis_val = constraint.target_distance
             if axis_is_horizontal:
                 x_error = abs(pos_b.x() - pos_a.x())
@@ -214,7 +228,9 @@ class DimensionLineManager:
             dy = pos_b.y() - pos_a.y()
             error = math.sqrt(dx * dx + dy * dy)
             satisfied = error < 0.1  # 1 mm tolerance (0.1 cm)
-            color = COLOR_COINCIDENT_SATISFIED if satisfied else COLOR_COINCIDENT_VIOLATED
+            color = (
+                COLOR_COINCIDENT_SATISFIED if satisfied else COLOR_COINCIDENT_VIOLATED
+            )
             # Use midpoint of the two anchors as the marker position
             mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
             self._build_coincident_marker(group, pos_a, pos_b, mid, color)
@@ -254,7 +270,11 @@ class DimensionLineManager:
             else:
                 diff = abs(alpha_a - alpha_b) % 180.0
                 satisfied = abs(diff - 90.0) < 0.5
-            color = COLOR_PERPENDICULAR_SATISFIED if satisfied else COLOR_PERPENDICULAR_VIOLATED
+            color = (
+                COLOR_PERPENDICULAR_SATISFIED
+                if satisfied
+                else COLOR_PERPENDICULAR_VIOLATED
+            )
             self._build_perpendicular_marker(group, pos_a, pos_b, color)
         elif constraint.constraint_type == ConstraintType.EQUAL:
             # Satisfaction: both anchors have the same dimension (within 1 mm)
@@ -268,7 +288,9 @@ class DimensionLineManager:
                 constraint.anchor_b.anchor_type,
                 constraint.anchor_b.anchor_index,
             )
-            satisfied = False if dim_a is None or dim_b is None else abs(dim_a - dim_b) < 1.0
+            satisfied = (
+                False if dim_a is None or dim_b is None else abs(dim_a - dim_b) < 1.0
+            )
             color = COLOR_EQUAL_SATISFIED if satisfied else COLOR_EQUAL_VIOLATED
             self._build_equal_marker(group, pos_a, pos_b, color)
         elif constraint.constraint_type == ConstraintType.ANGLE:
@@ -289,7 +311,9 @@ class DimensionLineManager:
             bc_len = math.sqrt(bc_x * bc_x + bc_y * bc_y)
             if ba_len < 1e-6 or bc_len < 1e-6:
                 return
-            cos_val = max(-1.0, min(1.0, (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len)))
+            cos_val = max(
+                -1.0, min(1.0, (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len))
+            )
             current_angle_deg = math.degrees(math.acos(cos_val))
             angle_error = abs(current_angle_deg - constraint.target_distance)
             satisfied = angle_error < 0.5  # 0.5° tolerance
@@ -301,14 +325,32 @@ class DimensionLineManager:
             current_h = abs(pos_b.x() - pos_a.x())
             error = abs(current_h - constraint.target_distance)
             satisfied = error < 1.0
-            color = COLOR_H_DISTANCE_SATISFIED if satisfied else COLOR_HV_DISTANCE_VIOLATED
-            self._build_h_distance_line(group, pos_a, pos_b, constraint.target_distance, color)
+            color = (
+                COLOR_H_DISTANCE_SATISFIED if satisfied else COLOR_HV_DISTANCE_VIOLATED
+            )
+            self._build_h_distance_line(
+                group, pos_a, pos_b, constraint.target_distance, color
+            )
         elif constraint.constraint_type == ConstraintType.VERTICAL_DISTANCE:
             current_v = abs(pos_b.y() - pos_a.y())
             error = abs(current_v - constraint.target_distance)
             satisfied = error < 1.0
-            color = COLOR_V_DISTANCE_SATISFIED if satisfied else COLOR_HV_DISTANCE_VIOLATED
-            self._build_v_distance_line(group, pos_a, pos_b, constraint.target_distance, color)
+            color = (
+                COLOR_V_DISTANCE_SATISFIED if satisfied else COLOR_HV_DISTANCE_VIOLATED
+            )
+            self._build_v_distance_line(
+                group, pos_a, pos_b, constraint.target_distance, color
+            )
+        elif constraint.constraint_type == ConstraintType.EDGE_LENGTH:
+            current_dist = QLineF(pos_a, pos_b).length()
+            error = abs(current_dist - constraint.target_distance)
+            satisfied = error < 1.0
+            color = (
+                COLOR_EDGE_LENGTH_SATISFIED if satisfied else COLOR_EDGE_LENGTH_VIOLATED
+            )
+            self._build_dimension_line(
+                group, pos_a, pos_b, constraint.target_distance, color
+            )
         elif constraint.constraint_type == ConstraintType.POINT_ON_CIRCLE:
             # pos_b = circle center, target_distance = radius
             radius = constraint.target_distance
@@ -317,7 +359,9 @@ class DimensionLineManager:
             dist = math.sqrt(dx * dx + dy * dy)
             error = abs(dist - radius)
             satisfied = error < 0.1
-            color = COLOR_COINCIDENT_SATISFIED if satisfied else COLOR_COINCIDENT_VIOLATED
+            color = (
+                COLOR_COINCIDENT_SATISFIED if satisfied else COLOR_COINCIDENT_VIOLATED
+            )
             self._build_point_on_circle_marker(group, pos_a, pos_b, radius, color)
         elif constraint.constraint_type == ConstraintType.POINT_ON_EDGE:
             # pos_b and pos_c are the two endpoints of the edge; pos_a is the constrained point.
@@ -334,13 +378,17 @@ class DimensionLineManager:
             line_len_sq = edx * edx + edy * edy
             if line_len_sq < 1e-12:
                 return
-            t = ((pos_a.x() - pos_b.x()) * edx + (pos_a.y() - pos_b.y()) * edy) / line_len_sq
+            t = (
+                (pos_a.x() - pos_b.x()) * edx + (pos_a.y() - pos_b.y()) * edy
+            ) / line_len_sq
             proj = QPointF(pos_b.x() + t * edx, pos_b.y() + t * edy)
             dx = pos_a.x() - proj.x()
             dy = pos_a.y() - proj.y()
             error = math.sqrt(dx * dx + dy * dy)
             satisfied = error < 0.1  # 1 mm tolerance
-            color = COLOR_COINCIDENT_SATISFIED if satisfied else COLOR_COINCIDENT_VIOLATED
+            color = (
+                COLOR_COINCIDENT_SATISFIED if satisfied else COLOR_COINCIDENT_VIOLATED
+            )
             self._build_point_on_edge_marker(group, pos_a, proj, pos_b, pos_c, color)
         else:
             # DISTANCE constraint
@@ -348,7 +396,9 @@ class DimensionLineManager:
             error = abs(current_dist - constraint.target_distance)
             satisfied = error < 1.0  # 1cm tolerance
             color = COLOR_SATISFIED if satisfied else COLOR_VIOLATED
-            self._build_dimension_line(group, pos_a, pos_b, constraint.target_distance, color)
+            self._build_dimension_line(
+                group, pos_a, pos_b, constraint.target_distance, color
+            )
 
         self._groups[constraint.constraint_id] = group
 
@@ -370,7 +420,9 @@ class DimensionLineManager:
 
         for item in self._scene.items():
             is_garden = isinstance(item, GardenItemMixin)
-            is_construction = isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
+            is_construction = isinstance(
+                item, (ConstructionLineItem, ConstructionCircleItem)
+            )
             if not (is_garden or is_construction):
                 continue
             if item.item_id != item_id:
@@ -386,7 +438,10 @@ class DimensionLineManager:
                         return anchor.point
             # Standard match: type + index
             for anchor in anchors:
-                if anchor.anchor_type == anchor_type and anchor.anchor_index == anchor_index:
+                if (
+                    anchor.anchor_type == anchor_type
+                    and anchor.anchor_index == anchor_index
+                ):
                     return anchor.point
             # Fallback: match by type only (for CENTER and unique types)
             for anchor in anchors:
@@ -535,7 +590,7 @@ class DimensionLineManager:
         group.items.append(dim_line)
 
         # Arrowheads pointing inward (horizontal)
-        self._add_arrowhead(group, dim_a, 1.0, 0.0, color)   # pointing right
+        self._add_arrowhead(group, dim_a, 1.0, 0.0, color)  # pointing right
         self._add_arrowhead(group, dim_b, -1.0, 0.0, color)  # pointing left
 
         # Distance text
@@ -600,7 +655,7 @@ class DimensionLineManager:
         group.items.append(dim_line)
 
         # Arrowheads pointing inward (vertical)
-        self._add_arrowhead(group, dim_a, 0.0, 1.0, color)   # pointing down
+        self._add_arrowhead(group, dim_a, 0.0, 1.0, color)  # pointing down
         self._add_arrowhead(group, dim_b, 0.0, -1.0, color)  # pointing up
 
         # Distance text
@@ -692,12 +747,14 @@ class DimensionLineManager:
 
         # Filled diamond at the marker position
         half = 6.0  # half-diagonal of the diamond in scene units (cm)
-        diamond = QPolygonF([
-            QPointF(marker_pos.x(), marker_pos.y() - half),  # top
-            QPointF(marker_pos.x() + half, marker_pos.y()),  # right
-            QPointF(marker_pos.x(), marker_pos.y() + half),  # bottom
-            QPointF(marker_pos.x() - half, marker_pos.y()),  # left
-        ])
+        diamond = QPolygonF(
+            [
+                QPointF(marker_pos.x(), marker_pos.y() - half),  # top
+                QPointF(marker_pos.x() + half, marker_pos.y()),  # right
+                QPointF(marker_pos.x(), marker_pos.y() + half),  # bottom
+                QPointF(marker_pos.x() - half, marker_pos.y()),  # left
+            ]
+        )
         path = QPainterPath()
         path.addPolygon(diamond)
         path.closeSubpath()
@@ -752,7 +809,9 @@ class DimensionLineManager:
         dy = pos_a.y() - center.y()
         dist = math.sqrt(dx * dx + dy * dy)
         if dist > 1e-6:
-            proj = QPointF(center.x() + (dx / dist) * radius, center.y() + (dy / dist) * radius)
+            proj = QPointF(
+                center.x() + (dx / dist) * radius, center.y() + (dy / dist) * radius
+            )
         else:
             proj = QPointF(center.x() + radius, center.y())
 
@@ -839,7 +898,9 @@ class DimensionLineManager:
 
         for item in self._scene.items():
             is_garden = isinstance(item, GardenItemMixin)
-            is_construction = isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
+            is_construction = isinstance(
+                item, (ConstructionLineItem, ConstructionCircleItem)
+            )
             if (is_garden or is_construction) and item.item_id == item_id:
                 return item
         return None
@@ -863,15 +924,19 @@ class DimensionLineManager:
 
         if isinstance(item, RectangleItem):
             corner_map = {
-                AnchorType.EDGE_TOP:    (0, 1),
+                AnchorType.EDGE_TOP: (0, 1),
                 AnchorType.EDGE_BOTTOM: (2, 3),
-                AnchorType.EDGE_LEFT:   (0, 2),
-                AnchorType.EDGE_RIGHT:  (1, 3),
+                AnchorType.EDGE_LEFT: (0, 2),
+                AnchorType.EDGE_RIGHT: (1, 3),
             }
             if anchor_type not in corner_map:
                 return None
             i0, i1 = corner_map[anchor_type]
-            corners = {a.anchor_index: a.point for a in anchors if a.anchor_type == AnchorType.CORNER}
+            corners = {
+                a.anchor_index: a.point
+                for a in anchors
+                if a.anchor_type == AnchorType.CORNER
+            }
             if i0 not in corners or i1 not in corners:
                 return None
             p1, p2 = corners[i0], corners[i1]
@@ -977,7 +1042,9 @@ class DimensionLineManager:
         for pos in (pos_a, pos_b):
             for offset in (-3.5, 3.5):
                 bar = self._scene.addLine(
-                    QLineF(pos.x() - 5, pos.y() + offset, pos.x() + 5, pos.y() + offset),
+                    QLineF(
+                        pos.x() - 5, pos.y() + offset, pos.x() + 5, pos.y() + offset
+                    ),
                     pen,
                 )
                 bar.setZValue(DIMENSION_LINE_Z + 1)
@@ -1024,7 +1091,8 @@ class DimensionLineManager:
         arc_path.moveTo(pos.x() - half * 0.5, pos.y() - half / 2)
         arc_path.arcTo(
             QRectF(pos.x() - half * 0.5, pos.y() - half * 1.3, half, half),
-            180, -180,
+            180,
+            -180,
         )
         shackle = self._scene.addPath(arc_path, QPen(color.darker(120), 2.5))
         shackle.setZValue(DIMENSION_LINE_Z + 1)
@@ -1064,7 +1132,9 @@ class DimensionLineManager:
         for pos in (pos_a, pos_b):
             for offset in (-4.0, 4.0):
                 tick = self._scene.addLine(
-                    QLineF(pos.x() - 5, pos.y() + offset, pos.x() + 5, pos.y() + offset),
+                    QLineF(
+                        pos.x() - 5, pos.y() + offset, pos.x() + 5, pos.y() + offset
+                    ),
                     pen,
                 )
                 tick.setZValue(DIMENSION_LINE_Z + 1)
@@ -1293,9 +1363,7 @@ class DimensionLineManager:
         # In Qt, the arc goes CCW from start_angle by span_angle
         # (positive span = CCW in Qt's Y-down coordinate system).
         path = QPainterPath()
-        rect = QRectF(
-            pos_b.x() - arc_r, pos_b.y() - arc_r, arc_r * 2, arc_r * 2
-        )
+        rect = QRectF(pos_b.x() - arc_r, pos_b.y() - arc_r, arc_r * 2, arc_r * 2)
         # arcTo: startAngle (CCW from 3 o'clock in Qt), spanAngle (positive = CCW)
         # Qt uses Y-down so atan2(y, x) maps directly.
         path.arcMoveTo(rect, -angle_a)
@@ -1362,7 +1430,9 @@ class DimensionLineManager:
         self._scene.addItem(arrow)
         group.items.append(arrow)
 
-    def get_constraint_at(self, scene_pos: QPointF, threshold: float = 10.0) -> UUID | None:
+    def get_constraint_at(
+        self, scene_pos: QPointF, threshold: float = 10.0
+    ) -> UUID | None:
         """Find a constraint whose dimension line is near the given position.
 
         Used for double-click to edit.
@@ -1398,7 +1468,10 @@ class DimensionLineManager:
             # For alignment constraints check distance to the direct line;
             # for angle constraints check proximity to vertex (pos_b);
             # for distance constraints check the offset dimension line.
-            if constraint.constraint_type in (ConstraintType.HORIZONTAL, ConstraintType.VERTICAL):
+            if constraint.constraint_type in (
+                ConstraintType.HORIZONTAL,
+                ConstraintType.VERTICAL,
+            ):
                 dist = _point_to_segment_distance(scene_pos, pos_a, pos_b)
             elif constraint.constraint_type in (
                 ConstraintType.SYMMETRY_HORIZONTAL,
@@ -1434,9 +1507,7 @@ class DimensionLineManager:
         return best_id
 
 
-def _point_to_segment_distance(
-    point: QPointF, seg_a: QPointF, seg_b: QPointF
-) -> float:
+def _point_to_segment_distance(point: QPointF, seg_a: QPointF, seg_b: QPointF) -> float:
     """Calculate minimum distance from a point to a line segment."""
     dx = seg_b.x() - seg_a.x()
     dy = seg_b.y() - seg_a.y()
@@ -1449,9 +1520,13 @@ def _point_to_segment_distance(
         return math.sqrt(ddx * ddx + ddy * ddy)
 
     # Project point onto segment
-    t = max(0.0, min(1.0, (
-        (point.x() - seg_a.x()) * dx + (point.y() - seg_a.y()) * dy
-    ) / length_sq))
+    t = max(
+        0.0,
+        min(
+            1.0,
+            ((point.x() - seg_a.x()) * dx + (point.y() - seg_a.y()) * dy) / length_sq,
+        ),
+    )
 
     proj_x = seg_a.x() + t * dx
     proj_y = seg_a.y() + t * dy

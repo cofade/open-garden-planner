@@ -46,6 +46,7 @@ from open_garden_planner.core.tools import (
     ConstraintTool,
     ConstructionCircleTool,
     ConstructionLineTool,
+    EdgeLengthConstraintTool,
     EqualConstraintTool,
     FixedConstraintTool,
     HorizontalConstraintTool,
@@ -66,6 +67,8 @@ from open_garden_planner.core.tools import (
 )
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene, GuideLine
 from open_garden_planner.ui.canvas.items.resize_handle import (
+    MidpointHandle,
+    RectCornerHandle,
     ResizeHandle,
     RotationHandle,
     VertexHandle,
@@ -159,12 +162,16 @@ class CanvasView(QGraphicsView):
         self._calibration_input.setPlaceholderText(self.tr("Distance in cm"))
         self._calibration_input.setFixedWidth(150)
         self._calibration_input.hide()
-        self._calibration_input.returnPressed.connect(self._on_calibration_input_entered)
+        self._calibration_input.returnPressed.connect(
+            self._on_calibration_input_entered
+        )
 
         # Guide lines (drag from ruler to create; stored on the scene for persistence)
         self._guides_visible: bool = True
         self._guide_color: QColor = QColor(0, 100, 220, 160)  # Blue, semi-transparent
-        self._guide_highlight_color: QColor = QColor(255, 120, 0, 200)  # Orange highlight
+        self._guide_highlight_color: QColor = QColor(
+            255, 120, 0, 200
+        )  # Orange highlight
         # Guide dragging state: (guide, is_new_guide_not_yet_in_list)
         self._dragging_guide: GuideLine | None = None
         self._dragging_guide_is_new: bool = False
@@ -186,6 +193,7 @@ class CanvasView(QGraphicsView):
         self._tool_manager.register_tool(SelectTool(self))
         self._tool_manager.register_tool(MeasureTool(self))
         self._tool_manager.register_tool(ConstraintTool(self))
+        self._tool_manager.register_tool(EdgeLengthConstraintTool(self))
         self._tool_manager.register_tool(HorizontalConstraintTool(self))
         self._tool_manager.register_tool(VerticalConstraintTool(self))
         self._tool_manager.register_tool(CoincidentConstraintTool(self))
@@ -309,7 +317,11 @@ class CanvasView(QGraphicsView):
 
         # Register outdoor furniture tools (rectangle-based, SVG-rendered)
         rect_furniture = [
-            (ObjectType.TABLE_RECTANGULAR, ToolType.TABLE_RECTANGULAR, self.tr("Table (Rectangular)")),
+            (
+                ObjectType.TABLE_RECTANGULAR,
+                ToolType.TABLE_RECTANGULAR,
+                self.tr("Table (Rectangular)"),
+            ),
             (ObjectType.CHAIR, ToolType.CHAIR, self.tr("Chair")),
             (ObjectType.BENCH, ToolType.BENCH, self.tr("Bench")),
             (ObjectType.LOUNGER, ToolType.LOUNGER, self.tr("Lounger")),
@@ -388,7 +400,9 @@ class CanvasView(QGraphicsView):
         self._apply_transform()
 
         # Use minimal updates — only repaint dirty regions
-        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate)
+        self.setViewportUpdateMode(
+            QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate
+        )
 
         # Accept drops from gallery panel
         self.setAcceptDrops(True)
@@ -606,14 +620,12 @@ class CanvasView(QGraphicsView):
         for item, _old, new in moves:
             item.setPos(new)
         for item, idx, _old_local, new_local in vertex_moves:
-            if hasattr(item, '_move_vertex_to'):
+            if hasattr(item, "_move_vertex_to"):
                 item._move_vertex_to(idx, new_local)
         if moves or vertex_moves:
             self._canvas_scene.update_dimension_lines()
 
-    def _execute_constraint_with_solve(
-        self, command: AddConstraintCommand
-    ) -> None:
+    def _execute_constraint_with_solve(self, command: AddConstraintCommand) -> None:
         """Execute a constraint command with solver moves bundled in one undo step.
 
         Temporarily adds the constraint, computes what the solver would do,
@@ -630,6 +642,11 @@ class CanvasView(QGraphicsView):
         if command._constraint_type in _rotation_only:  # type: ignore[attr-defined]
             self.command_manager.execute(command)
             self._canvas_scene.update_dimension_lines()
+            return
+
+        # Pre-flight feasibility: if this constraint would force the solver to
+        # violate an existing one, offer the user an Override/Cancel dialog.
+        if not self._resolve_constraint_conflicts(command):
             return
 
         # CAD convention: A is constrained to B → A moves, B stays (reference).
@@ -650,7 +667,12 @@ class CanvasView(QGraphicsView):
 
         # 1. Add the constraint temporarily so the solver can compute moves.
         command.execute()
-        moves, vertex_moves = self._compute_constraint_solve_moves(extra_pinned=extra_pinned)
+        if command._constraint_type == _CT.EDGE_LENGTH:  # type: ignore[attr-defined]
+            moves, vertex_moves = self._compute_edge_length_constraint_moves(command)
+        else:
+            moves, vertex_moves = self._compute_constraint_solve_moves(
+                extra_pinned=extra_pinned
+            )
         # 2. Remove temporarily — we want the official execute() below to do it.
         command.undo()
         # 3. Embed the moves into the command so execute() + undo() handle them.
@@ -660,6 +682,128 @@ class CanvasView(QGraphicsView):
         self.command_manager.execute(command)
         if moves or vertex_moves:
             self._canvas_scene.update_dimension_lines()
+
+    def _resolve_constraint_conflicts(self, command: AddConstraintCommand) -> bool:
+        """Return True if ``command`` can proceed, False if the user cancelled.
+
+        Runs a trial solve with the proposed constraint.  If existing
+        constraints would be forced out of tolerance, shows a dialog letting
+        the user delete conflicting constraints (Override) or back out.
+        """
+        import uuid as _uuid  # noqa: PLC0415
+
+        from open_garden_planner.core.constraints import (  # noqa: PLC0415
+            Constraint,
+            ConstraintType,
+        )
+        from open_garden_planner.core.measure_snapper import (  # noqa: PLC0415
+            get_anchor_points,
+        )
+        from open_garden_planner.ui.canvas.items import GardenItemMixin  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.construction_item import (  # noqa: PLC0415
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
+        from open_garden_planner.ui.dialogs.constraint_conflict_dialog import (  # noqa: PLC0415
+            ConstraintConflictDialog,
+        )
+
+        graph = self._canvas_scene.constraint_graph
+        if not graph.constraints:
+            return True
+
+        trial = Constraint(
+            constraint_id=_uuid.uuid4(),
+            anchor_a=command._anchor_a,  # type: ignore[attr-defined]
+            anchor_b=command._anchor_b,  # type: ignore[attr-defined]
+            target_distance=command._target_distance,  # type: ignore[attr-defined]
+            constraint_type=command._constraint_type,  # type: ignore[attr-defined]
+            anchor_c=command._anchor_c,  # type: ignore[attr-defined]
+            target_x=command._target_x,  # type: ignore[attr-defined]
+            target_y=command._target_y,  # type: ignore[attr-defined]
+        )
+
+        item_positions: dict = {}
+        item_map: dict = {}
+        anchor_offsets: dict = {}
+        for item in self.scene().items():
+            is_garden = isinstance(item, GardenItemMixin)
+            is_construction = isinstance(
+                item, (ConstructionLineItem, ConstructionCircleItem)
+            )
+            if not (is_garden or is_construction):
+                continue
+            uid = item.item_id
+            item_map[uid] = item
+            pos = item.pos()
+            item_positions[uid] = (pos.x(), pos.y())
+            for anchor in get_anchor_points(item):
+                anchor_offsets[(uid, anchor.anchor_type, anchor.anchor_index)] = (
+                    anchor.point.x() - pos.x(),
+                    anchor.point.y() - pos.y(),
+                )
+
+        deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
+
+        try:
+            conflict_ids = graph.find_conflicting_constraints(
+                trial_constraint=trial,
+                item_positions=item_positions,
+                anchor_offsets=anchor_offsets,
+                deformable_items=deformable_items,
+                deformable_vertices=deformable_vertices,
+                tolerance=1.0,
+            )
+        except Exception:
+            return True  # Don't block on solver errors — warn-only gate.
+
+        if not conflict_ids:
+            return True
+
+        type_names: dict = {
+            ConstraintType.DISTANCE: self.tr("Distance"),
+            ConstraintType.EDGE_LENGTH: self.tr("Edge length"),
+            ConstraintType.HORIZONTAL: self.tr("Horizontal"),
+            ConstraintType.VERTICAL: self.tr("Vertical"),
+            ConstraintType.HORIZONTAL_DISTANCE: self.tr("Horizontal distance"),
+            ConstraintType.VERTICAL_DISTANCE: self.tr("Vertical distance"),
+            ConstraintType.ANGLE: self.tr("Angle"),
+            ConstraintType.PARALLEL: self.tr("Parallel"),
+            ConstraintType.PERPENDICULAR: self.tr("Perpendicular"),
+            ConstraintType.EQUAL: self.tr("Equal"),
+            ConstraintType.FIXED: self.tr("Fixed"),
+            ConstraintType.COINCIDENT: self.tr("Coincident"),
+            ConstraintType.SYMMETRY_HORIZONTAL: self.tr("Horizontal symmetry"),
+            ConstraintType.SYMMETRY_VERTICAL: self.tr("Vertical symmetry"),
+            ConstraintType.POINT_ON_EDGE: self.tr("Point on edge"),
+            ConstraintType.POINT_ON_CIRCLE: self.tr("Point on circle"),
+        }
+        rows: list[tuple] = []
+        for cid in conflict_ids:
+            c = graph.constraints.get(cid)
+            if c is None:
+                continue
+            name = type_names.get(c.constraint_type, str(c.constraint_type.name))
+            if c.constraint_type in (
+                ConstraintType.EDGE_LENGTH,
+                ConstraintType.DISTANCE,
+                ConstraintType.HORIZONTAL_DISTANCE,
+                ConstraintType.VERTICAL_DISTANCE,
+                ConstraintType.POINT_ON_CIRCLE,
+            ):
+                rows.append((cid, f"{name} — {c.target_distance / 100.0:.2f} m"))
+            elif c.constraint_type == ConstraintType.ANGLE:
+                rows.append((cid, f"{name} — {c.target_distance:.1f}°"))
+            else:
+                rows.append((cid, name))
+
+        selected = ConstraintConflictDialog.ask(rows, parent=self)
+        if selected is None:
+            return False  # User cancelled
+        for cid in selected:
+            graph.remove_constraint(cid)
+        self._canvas_scene.update_dimension_lines()
+        return True
 
     def is_constraint_feasible(
         self,
@@ -712,7 +856,9 @@ class CanvasView(QGraphicsView):
 
         for item in self.scene().items():
             is_garden = isinstance(item, GardenItemMixin)
-            is_construction = isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
+            is_construction = isinstance(
+                item, (ConstructionLineItem, ConstructionCircleItem)
+            )
             if (is_garden or is_construction) and item.item_id in constrained_ids:
                 uid = item.item_id
                 item_map[uid] = item
@@ -902,14 +1048,18 @@ class CanvasView(QGraphicsView):
 
     def dragEnterEvent(self, event) -> None:
         """Accept drag events from the gallery panel."""
-        if event.mimeData().hasText() and event.mimeData().text().startswith("gallery:"):
+        if event.mimeData().hasText() and event.mimeData().text().startswith(
+            "gallery:"
+        ):
             event.acceptProposedAction()
         else:
             super().dragEnterEvent(event)
 
     def dragMoveEvent(self, event) -> None:
         """Accept drag move events from the gallery panel."""
-        if event.mimeData().hasText() and event.mimeData().text().startswith("gallery:"):
+        if event.mimeData().hasText() and event.mimeData().text().startswith(
+            "gallery:"
+        ):
             event.acceptProposedAction()
         else:
             super().dragMoveEvent(event)
@@ -932,11 +1082,12 @@ class CanvasView(QGraphicsView):
         plant_category = None
         for part in parts[2:]:
             if part.startswith("species="):
-                species = part[len("species="):]
+                species = part[len("species=") :]
             elif part.startswith("category="):
-                cat_name = part[len("category="):]
+                cat_name = part[len("category=") :]
                 try:
                     from open_garden_planner.core.plant_renderer import PlantCategory
+
                     plant_category = PlantCategory[cat_name]
                 except (KeyError, ValueError):
                     pass
@@ -1018,7 +1169,7 @@ class CanvasView(QGraphicsView):
         # Apply immediate zoom: 1.15x per standard wheel notch (120 units)
         zoom_per_notch = 1.15
         notches = delta / 120.0
-        factor = zoom_per_notch ** notches
+        factor = zoom_per_notch**notches
 
         new_zoom = max(self.min_zoom, min(self.max_zoom, self._zoom_factor * factor))
         self._zoom_factor = new_zoom
@@ -1029,7 +1180,8 @@ class CanvasView(QGraphicsView):
         new_scene_pos = self.mapToScene(event.position().toPoint())
         scroll_delta = old_scene_pos - new_scene_pos
         self.horizontalScrollBar().setValue(
-            self.horizontalScrollBar().value() + int(scroll_delta.x() * self._zoom_factor)
+            self.horizontalScrollBar().value()
+            + int(scroll_delta.x() * self._zoom_factor)
         )
         self.verticalScrollBar().setValue(
             self.verticalScrollBar().value() - int(scroll_delta.y() * self._zoom_factor)
@@ -1092,7 +1244,10 @@ class CanvasView(QGraphicsView):
                 return
 
         # Handle calibration mode
-        if self._canvas_scene.is_calibrating and event.button() == Qt.MouseButton.LeftButton:
+        if (
+            self._canvas_scene.is_calibrating
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
             scene_pos = self.mapToScene(event.position().toPoint())
             self._canvas_scene.add_calibration_point(scene_pos)
             event.accept()
@@ -1121,7 +1276,7 @@ class CanvasView(QGraphicsView):
         # between event dispatches, so we re-establish it ourselves in mouseMoveEvent.
         if event.button() == Qt.MouseButton.LeftButton:
             grabber = self.scene().mouseGrabberItem()
-            if isinstance(grabber, (ResizeHandle, RotationHandle, VertexHandle)):
+            if isinstance(grabber, (ResizeHandle, RotationHandle, VertexHandle, RectCornerHandle, MidpointHandle)):
                 self._active_drag_handle = grabber
                 # Block rotation for items that have an inter-object PARALLEL or
                 # PERPENDICULAR constraint — rotating would violate the constraint.
@@ -1160,7 +1315,10 @@ class CanvasView(QGraphicsView):
                 self.setCursor(Qt.CursorShape.SplitHCursor)
 
             # Add to scene's guide list on first move (lazy: avoids phantom guide on click)
-            if self._dragging_guide_is_new and guide not in self._canvas_scene.guide_lines:
+            if (
+                self._dragging_guide_is_new
+                and guide not in self._canvas_scene.guide_lines
+            ):
                 self._canvas_scene.guide_lines.append(guide)
 
             self.scene().update()
@@ -1192,8 +1350,7 @@ class CanvasView(QGraphicsView):
             center = self.viewport().rect().center()
             scene_before = self.mapToScene(center)
             scene_after = self.mapToScene(
-                center.x() + int(delta.x()),
-                center.y() + int(delta.y())
+                center.x() + int(delta.x()), center.y() + int(delta.y())
             )
 
             # Move in opposite direction of mouse drag
@@ -1205,9 +1362,11 @@ class CanvasView(QGraphicsView):
 
         # Re-establish the mouse grab if Qt silently dropped it between events.
         # This happens with ItemIgnoresTransformations child items in PyQt6.
-        if (self._active_drag_handle is not None
-                and self.scene().mouseGrabberItem() is None
-                and self._active_drag_handle.scene() is not None):
+        if (
+            self._active_drag_handle is not None
+            and self.scene().mouseGrabberItem() is None
+            and self._active_drag_handle.scene() is not None
+        ):
             self._active_drag_handle.grabMouse()
 
         # Delegate to active tool
@@ -1266,7 +1425,10 @@ class CanvasView(QGraphicsView):
         # Check that at least one item has actually moved (is being dragged)
         any_moved = False
         for item in selected:
-            if item in self._drag_start_positions and item.pos() != self._drag_start_positions[item]:
+            if (
+                item in self._drag_start_positions
+                and item.pos() != self._drag_start_positions[item]
+            ):
                 any_moved = True
                 break
 
@@ -1334,8 +1496,12 @@ class CanvasView(QGraphicsView):
                 continue
             item_id = c.anchor_a.item_id
             for scene_item in self.scene().items():
-                if isinstance(scene_item, GardenItemMixin) and scene_item.item_id == item_id:
+                if (
+                    isinstance(scene_item, GardenItemMixin)
+                    and scene_item.item_id == item_id
+                ):
                     from PyQt6.QtCore import QPointF as _QPointF
+
                     scene_item.setPos(_QPointF(c.target_x, c.target_y))
                     break
 
@@ -1358,13 +1524,19 @@ class CanvasView(QGraphicsView):
         import math as _math
 
         for c in graph.constraints.values():
-            if c.constraint_type not in (ConstraintType.POINT_ON_EDGE, ConstraintType.POINT_ON_CIRCLE):
+            if c.constraint_type not in (
+                ConstraintType.POINT_ON_EDGE,
+                ConstraintType.POINT_ON_CIRCLE,
+            ):
                 continue
 
             # Only enforce when anchor_a's item is being dragged
             item_a = None
             for scene_item in self.scene().items():
-                if isinstance(scene_item, GardenItemMixin) and scene_item.item_id == c.anchor_a.item_id:
+                if (
+                    isinstance(scene_item, GardenItemMixin)
+                    and scene_item.item_id == c.anchor_a.item_id
+                ):
                     item_a = scene_item
                     break
             if item_a is None or item_a not in self._drag_start_positions:
@@ -1373,7 +1545,10 @@ class CanvasView(QGraphicsView):
             # Get anchor_a's current scene position (post-drag)
             anchor_a_scene = None
             for anchor in get_anchor_points(item_a):
-                if anchor.anchor_type == c.anchor_a.anchor_type and anchor.anchor_index == c.anchor_a.anchor_index:
+                if (
+                    anchor.anchor_type == c.anchor_a.anchor_type
+                    and anchor.anchor_index == c.anchor_a.anchor_index
+                ):
                     anchor_a_scene = anchor.point
                     break
             if anchor_a_scene is None:
@@ -1382,7 +1557,10 @@ class CanvasView(QGraphicsView):
             # Get item_b (the edge/circle owner)
             item_b = None
             for scene_item in self.scene().items():
-                if isinstance(scene_item, GardenItemMixin) and scene_item.item_id == c.anchor_b.item_id:
+                if (
+                    isinstance(scene_item, GardenItemMixin)
+                    and scene_item.item_id == c.anchor_b.item_id
+                ):
                     item_b = scene_item
                     break
             if item_b is None:
@@ -1391,7 +1569,10 @@ class CanvasView(QGraphicsView):
             # Resolve anchor_b position (always needed)
             pos_b = None
             for anchor in get_anchor_points(item_b):
-                if anchor.anchor_type == c.anchor_b.anchor_type and anchor.anchor_index == c.anchor_b.anchor_index:
+                if (
+                    anchor.anchor_type == c.anchor_b.anchor_type
+                    and anchor.anchor_index == c.anchor_b.anchor_index
+                ):
                     pos_b = anchor.point
                     break
             if pos_b is None:
@@ -1414,7 +1595,10 @@ class CanvasView(QGraphicsView):
                     continue
                 pos_c = None
                 for anchor in get_anchor_points(item_b):
-                    if anchor.anchor_type == c.anchor_c.anchor_type and anchor.anchor_index == c.anchor_c.anchor_index:
+                    if (
+                        anchor.anchor_type == c.anchor_c.anchor_type
+                        and anchor.anchor_index == c.anchor_c.anchor_index
+                    ):
                         pos_c = anchor.point
                         break
                 if pos_c is None:
@@ -1424,7 +1608,10 @@ class CanvasView(QGraphicsView):
                 line_len_sq = edx * edx + edy * edy
                 if line_len_sq < 1e-12:
                     continue
-                t = ((anchor_a_scene.x() - pos_b.x()) * edx + (anchor_a_scene.y() - pos_b.y()) * edy) / line_len_sq
+                t = (
+                    (anchor_a_scene.x() - pos_b.x()) * edx
+                    + (anchor_a_scene.y() - pos_b.y()) * edy
+                ) / line_len_sq
                 proj_x = pos_b.x() + t * edx
                 proj_y = pos_b.y() + t * edy
 
@@ -1448,7 +1635,8 @@ class CanvasView(QGraphicsView):
 
         # Only clamp if items have actually moved
         any_moved = any(
-            item in self._drag_start_positions and item.pos() != self._drag_start_positions[item]
+            item in self._drag_start_positions
+            and item.pos() != self._drag_start_positions[item]
             for item in selected
         )
         if not any_moved:
@@ -1506,7 +1694,10 @@ class CanvasView(QGraphicsView):
         for item in self.scene().items():
             if isinstance(item, GardenItemMixin) and item.item_id in connected_ids:
                 item_map[item.item_id] = item
-            elif isinstance(item, (ConstructionLineItem, ConstructionCircleItem)) and item.item_id in connected_ids:
+            elif (
+                isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
+                and item.item_id in connected_ids
+            ):
                 item_map[item.item_id] = item
                 construction_ids.add(item.item_id)
 
@@ -1580,7 +1771,9 @@ class CanvasView(QGraphicsView):
         # Collect item IDs of dragged items (garden + construction)
         dragged_ids: set = set()
         for item in selected:
-            if isinstance(item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)):
+            if isinstance(
+                item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)
+            ):
                 dragged_ids.add(item.item_id)
 
         if not dragged_ids:
@@ -1599,6 +1792,7 @@ class CanvasView(QGraphicsView):
 
         # Collect FIXED item IDs — they act as pinned anchors just like construction items
         from open_garden_planner.core.constraints import ConstraintType  # noqa: PLC0415
+
         fixed_ids: set = {
             c.anchor_a.item_id
             for c in graph.constraints.values()
@@ -1621,7 +1815,11 @@ class CanvasView(QGraphicsView):
             if not item_constraints:
                 continue
             if all(
-                (c.anchor_a.item_id if c.anchor_b.item_id == uid else c.anchor_b.item_id)
+                (
+                    c.anchor_a.item_id
+                    if c.anchor_b.item_id == uid
+                    else c.anchor_b.item_id
+                )
                 in pinned_reference_ids
                 for c in item_constraints
             ):
@@ -1644,7 +1842,10 @@ class CanvasView(QGraphicsView):
                 if item.item_id in fixed_ids:
                     # FIXED garden items are treated as pinned anchors like construction items
                     construction_ids.add(item.item_id)
-            elif isinstance(item, (ConstructionLineItem, ConstructionCircleItem)) and item.item_id in connected_ids:
+            elif (
+                isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
+                and item.item_id in connected_ids
+            ):
                 item_map[item.item_id] = item
                 construction_ids.add(item.item_id)
 
@@ -1711,7 +1912,7 @@ class CanvasView(QGraphicsView):
             if uid in construction_ids:
                 continue
             gitem = item_map.get(uid)
-            if gitem is None or not hasattr(gitem, '_move_vertex_to'):
+            if gitem is None or not hasattr(gitem, "_move_vertex_to"):
                 continue
             old_local = self._get_vertex_local(gitem, vi)
             if old_local is None:
@@ -1729,15 +1930,17 @@ class CanvasView(QGraphicsView):
             self.viewport().update()
 
         # ── Finalize guide drag ─────────────────────────────────────────────
-        if self._dragging_guide is not None and event.button() == Qt.MouseButton.LeftButton:
+        if (
+            self._dragging_guide is not None
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
             guide = self._dragging_guide
             vp_pos = event.position()
             rs = self.RULER_SIZE
 
             # Dragged back into ruler area → remove guide
-            dropped_on_ruler = (
-                (guide.is_horizontal and vp_pos.y() < rs) or
-                (not guide.is_horizontal and vp_pos.x() < rs)
+            dropped_on_ruler = (guide.is_horizontal and vp_pos.y() < rs) or (
+                not guide.is_horizontal and vp_pos.x() < rs
             )
             if dropped_on_ruler and guide in self._canvas_scene.guide_lines:
                 self._canvas_scene.guide_lines.remove(guide)
@@ -1959,7 +2162,10 @@ class CanvasView(QGraphicsView):
             if item.pos() != pos:
                 _log.warning(
                     "Double-click caused position drift on %s: %s → %s (zoom=%.2f) — restoring.",
-                    type(item).__name__, pos, item.pos(), self._zoom_factor,
+                    type(item).__name__,
+                    pos,
+                    item.pos(),
+                    self._zoom_factor,
                 )
                 item.setPos(pos)
 
@@ -1967,13 +2173,17 @@ class CanvasView(QGraphicsView):
         if self.horizontalScrollBar().value() != _hbar:
             _log.warning(
                 "Double-click caused H-scroll drift: %d → %d (zoom=%.2f) — restoring.",
-                _hbar, self.horizontalScrollBar().value(), self._zoom_factor,
+                _hbar,
+                self.horizontalScrollBar().value(),
+                self._zoom_factor,
             )
             self.horizontalScrollBar().setValue(_hbar)
         if self.verticalScrollBar().value() != _vbar:
             _log.warning(
                 "Double-click caused V-scroll drift: %d → %d (zoom=%.2f) — restoring.",
-                _vbar, self.verticalScrollBar().value(), self._zoom_factor,
+                _vbar,
+                self.verticalScrollBar().value(),
+                self._zoom_factor,
             )
             self.verticalScrollBar().setValue(_vbar)
 
@@ -1988,37 +2198,52 @@ class CanvasView(QGraphicsView):
         # Handle ESC to exit vertex edit mode
         if event.key() == Qt.Key.Key_Escape:
             for item in self._canvas_scene.selectedItems():
-                if hasattr(item, 'is_vertex_edit_mode') and item.is_vertex_edit_mode:
+                if hasattr(item, "is_vertex_edit_mode") and item.is_vertex_edit_mode:
                     item.exit_vertex_edit_mode()
                     event.accept()
                     return
 
         # Handle Copy (Ctrl+C)
-        if event.key() == Qt.Key.Key_C and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+        if (
+            event.key() == Qt.Key.Key_C
+            and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        ):
             self.copy_selected()
             event.accept()
             return
 
         # Handle Cut (Ctrl+X)
-        if event.key() == Qt.Key.Key_X and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+        if (
+            event.key() == Qt.Key.Key_X
+            and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        ):
             self.cut_selected()
             event.accept()
             return
 
         # Handle Paste (Ctrl+V)
-        if event.key() == Qt.Key.Key_V and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+        if (
+            event.key() == Qt.Key.Key_V
+            and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        ):
             self.paste()
             event.accept()
             return
 
         # Handle Duplicate (Ctrl+D)
-        if event.key() == Qt.Key.Key_D and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+        if (
+            event.key() == Qt.Key.Key_D
+            and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        ):
             self.duplicate_selected()
             event.accept()
             return
 
         # Handle Group (Ctrl+G) / Ungroup (Ctrl+Shift+G)
-        if event.key() == Qt.Key.Key_G and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+        if (
+            event.key() == Qt.Key.Key_G
+            and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        ):
             if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
                 self._ungroup_selected()
             else:
@@ -2069,6 +2294,13 @@ class CanvasView(QGraphicsView):
         graph = self._canvas_scene.constraint_graph
         constraint = graph.constraints.get(constraint_id)
         if constraint is None:
+            return
+        if constraint.constraint_type not in {
+            ConstraintType.DISTANCE,
+            ConstraintType.EDGE_LENGTH,
+            ConstraintType.HORIZONTAL_DISTANCE,
+            ConstraintType.VERTICAL_DISTANCE,
+        }:
             return
 
         dialog = DistanceInputDialog(constraint.target_distance, self)
@@ -2154,6 +2386,136 @@ class CanvasView(QGraphicsView):
 
         return deformable_items, deformable_vertices
 
+    def _compute_edge_length_constraint_moves(
+        self, command: AddConstraintCommand
+    ) -> "tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]":
+        """Compute direct endpoint movement for a newly created edge-length constraint."""
+        from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
+
+        scene = self.scene()
+        anchor_a = command._anchor_a  # type: ignore[attr-defined]
+        anchor_b = command._anchor_b  # type: ignore[attr-defined]
+        target_distance = command._target_distance  # type: ignore[attr-defined]
+
+        item = next(
+            (
+                candidate
+                for candidate in scene.items()
+                if hasattr(candidate, "item_id")
+                and candidate.item_id == anchor_a.item_id
+            ),
+            None,
+        )
+        if item is None:
+            return [], []
+
+        if isinstance(item, PolygonItem):
+            polygon = item.polygon()
+            if not (0 <= anchor_a.anchor_index < polygon.count()):
+                return [], []
+            if not (0 <= anchor_b.anchor_index < polygon.count()):
+                return [], []
+        elif isinstance(item, PolylineItem):
+            points = item.points
+            if not (0 <= anchor_a.anchor_index < len(points)):
+                return [], []
+            if not (0 <= anchor_b.anchor_index < len(points)):
+                return [], []
+        else:
+            return self._compute_constraint_solve_moves(extra_pinned={anchor_b.item_id})
+
+        old_local = self._get_vertex_local(item, anchor_a.anchor_index)
+        ref_local = self._get_vertex_local(item, anchor_b.anchor_index)
+        if old_local is None or ref_local is None:
+            return [], []
+
+        old_scene = item.mapToScene(old_local)
+        ref_scene = item.mapToScene(ref_local)
+        dx = old_scene.x() - ref_scene.x()
+        dy = old_scene.y() - ref_scene.y()
+        current_dist = (dx * dx + dy * dy) ** 0.5
+        if current_dist < 1e-9:
+            direction = QPointF(1.0, 0.0)
+        else:
+            direction = QPointF(dx / current_dist, dy / current_dist)
+
+        new_scene = QPointF(
+            ref_scene.x() + direction.x() * target_distance,
+            ref_scene.y() + direction.y() * target_distance,
+        )
+        new_local = item.mapFromScene(new_scene)
+
+        # Direct single-endpoint move. If the moved vertex participates in any
+        # OTHER constraint, the direct move will violate it — run the hybrid
+        # solver to propagate. Apply the move, solve, then collect the final
+        # deltas before restoring the pre-move state (the caller re-applies via
+        # the command).
+        moved_vertex_idx = anchor_a.anchor_index
+        has_other_touching = any(
+            c
+            for c in self._canvas_scene.constraint_graph.constraints.values()
+            if (
+                c.anchor_a.item_id == anchor_a.item_id
+                and c.anchor_a.anchor_index == moved_vertex_idx
+            )
+            or (
+                c.anchor_b.item_id == anchor_a.item_id
+                and c.anchor_b.anchor_index == moved_vertex_idx
+            )
+        )
+        if not has_other_touching or len(self._canvas_scene.constraint_graph.constraints) <= 1:
+            return [], [(item, moved_vertex_idx, QPointF(old_local), new_local)]
+
+        # Apply the direct move temporarily, solve, capture final vertex positions.
+        original_polygon = None
+        original_points = None
+        if isinstance(item, PolygonItem):
+            from PyQt6.QtGui import QPolygonF
+            original_polygon = QPolygonF(item.polygon())
+            item._move_vertex_to(moved_vertex_idx, new_local)
+        elif isinstance(item, PolylineItem):
+            original_points = list(item.points)
+            item._move_vertex_to(moved_vertex_idx, new_local)
+
+        try:
+            # For intra-object self-constraints (common on polygon edges), pinning
+            # anchor_b would pin the entire polygon, making vertex moves impossible.
+            # Only pin the reference when it is a *different* item.
+            intra_object = anchor_a.item_id == anchor_b.item_id
+            extra_pinned = None if intra_object else {anchor_b.item_id}
+            _item_moves, vertex_moves = self._compute_constraint_solve_moves(
+                extra_pinned=extra_pinned
+            )
+        finally:
+            if original_polygon is not None and isinstance(item, PolygonItem):
+                item.setPolygon(original_polygon)
+            elif original_points is not None and isinstance(item, PolylineItem):
+                for i, pt in enumerate(original_points):
+                    item._move_vertex_to(i, pt)
+
+        # Merge the primary endpoint move with any solver-produced vertex moves.
+        # Solver vertex_moves are tuples (item, idx, old_local, new_local).
+        final_vertex_moves: list = []
+        moved_indices: set = set()
+        for m_item, m_idx, m_old_local, m_new_local in vertex_moves:
+            if m_item is item and m_idx == moved_vertex_idx:
+                # Use the solver's result for the primary vertex too.
+                final_vertex_moves.append(
+                    (item, moved_vertex_idx, QPointF(old_local), m_new_local)
+                )
+                moved_indices.add(moved_vertex_idx)
+            else:
+                final_vertex_moves.append(
+                    (m_item, m_idx, m_old_local, m_new_local)
+                )
+                if m_item is item:
+                    moved_indices.add(m_idx)
+        if moved_vertex_idx not in moved_indices:
+            final_vertex_moves.append(
+                (item, moved_vertex_idx, QPointF(old_local), new_local)
+            )
+        return [], final_vertex_moves
+
     def _compute_constraint_solve_moves(
         self,
         extra_pinned: "set | None" = None,
@@ -2196,7 +2558,9 @@ class CanvasView(QGraphicsView):
 
         for item in self.scene().items():
             is_garden = isinstance(item, GardenItemMixin)
-            is_construction = isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
+            is_construction = isinstance(
+                item, (ConstructionLineItem, ConstructionCircleItem)
+            )
             if (is_garden or is_construction) and item.item_id in constrained_ids:
                 uid = item.item_id
                 item_map[uid] = item
@@ -2236,7 +2600,9 @@ class CanvasView(QGraphicsView):
             gitem = item_map.get(uid)
             if gitem is not None and (abs(pdx) > 0.01 or abs(pdy) > 0.01):
                 old_pos = gitem.pos()
-                moves.append((gitem, old_pos, QPointF(old_pos.x() + pdx, old_pos.y() + pdy)))
+                moves.append(
+                    (gitem, old_pos, QPointF(old_pos.x() + pdx, old_pos.y() + pdy))
+                )
 
         vertex_moves: list = []
         for (uid, vi), (vdx, vdy) in result.vertex_deltas.items():
@@ -2278,8 +2644,11 @@ class CanvasView(QGraphicsView):
 
         # Check for beds with children
         beds_with_children = [
-            item for item in selected
-            if isinstance(item, GardenItemMixin) and is_bed_type(item.object_type) and item.has_children
+            item
+            for item in selected
+            if isinstance(item, GardenItemMixin)
+            and is_bed_type(item.object_type)
+            and item.has_children
         ]
 
         if beds_with_children:
@@ -2287,12 +2656,18 @@ class CanvasView(QGraphicsView):
 
             msg = QMessageBox(self)
             msg.setWindowTitle(self.tr("Delete Bed"))
-            msg.setText(self.tr("The selected bed(s) contain plants. What would you like to do?"))
+            msg.setText(
+                self.tr(
+                    "The selected bed(s) contain plants. What would you like to do?"
+                )
+            )
             delete_all_btn = msg.addButton(
-                self.tr("Delete bed and plants"), QMessageBox.ButtonRole.DestructiveRole,
+                self.tr("Delete bed and plants"),
+                QMessageBox.ButtonRole.DestructiveRole,
             )
             msg.addButton(
-                self.tr("Keep plants"), QMessageBox.ButtonRole.AcceptRole,
+                self.tr("Keep plants"),
+                QMessageBox.ButtonRole.AcceptRole,
             )
             cancel_btn = msg.addButton(QMessageBox.StandardButton.Cancel)
             msg.exec()
@@ -2304,7 +2679,9 @@ class CanvasView(QGraphicsView):
             if clicked == delete_all_btn:
                 # Add child plants to the deletion set
                 selected_ids = {
-                    item.item_id for item in selected if isinstance(item, GardenItemMixin)
+                    item.item_id
+                    for item in selected
+                    if isinstance(item, GardenItemMixin)
                 }
                 for bed in beds_with_children:
                     for child_id in bed.child_item_ids:
@@ -2343,7 +2720,9 @@ class CanvasView(QGraphicsView):
         graph = self._canvas_scene.constraint_graph
         constraints_to_remove = []
         for item in selected:
-            if isinstance(item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)):
+            if isinstance(
+                item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)
+            ):
                 for constraint in graph.get_item_constraints(item.item_id):
                     if constraint not in constraints_to_remove:
                         constraints_to_remove.append(constraint)
@@ -2371,13 +2750,15 @@ class CanvasView(QGraphicsView):
         from open_garden_planner.core.constraints import ConstraintType
         from open_garden_planner.core.object_types import is_bed_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
+
         fixed_ids = {
             c.anchor_a.item_id
             for c in self._canvas_scene.constraint_graph.constraints.values()
             if c.constraint_type == ConstraintType.FIXED
         }
         selected = [
-            item for item in selected
+            item
+            for item in selected
             if not (isinstance(item, GardenItemMixin) and item.item_id in fixed_ids)
         ]
         if not selected:
@@ -2393,7 +2774,10 @@ class CanvasView(QGraphicsView):
                     if (
                         child is not None
                         and id(child) not in selected_set
-                        and not (isinstance(child, GardenItemMixin) and child.item_id in fixed_ids)
+                        and not (
+                            isinstance(child, GardenItemMixin)
+                            and child.item_id in fixed_ids
+                        )
                     ):
                         extra_children.append(child)
                         selected_set.add(id(child))
@@ -2401,7 +2785,8 @@ class CanvasView(QGraphicsView):
 
         # Determine move distance: 1cm precision with Shift, otherwise grid size
         distance = (
-            1.0 if event.modifiers() & Qt.KeyboardModifier.ShiftModifier
+            1.0
+            if event.modifiers() & Qt.KeyboardModifier.ShiftModifier
             else self._grid_size
         )
 
@@ -2426,7 +2811,8 @@ class CanvasView(QGraphicsView):
         graph = self._canvas_scene.constraint_graph
         if graph.constraints:
             propagated_deltas = self._compute_constraint_propagation(
-                selected, delta,
+                selected,
+                delta,
             )
             if propagated_deltas:
                 # Combine dragged + propagated into per-item deltas
@@ -2472,9 +2858,12 @@ class CanvasView(QGraphicsView):
             current_pos = item.pos()
             delta = current_pos - start_pos
             if delta.x() != 0 or delta.y() != 0:
-                _log.warning(
+                _log.debug(
                     "Item drag delta: start=%s current=%s delta=%s zoom=%.2f",
-                    start_pos, current_pos, delta, self._zoom_factor,
+                    start_pos,
+                    current_pos,
+                    delta,
+                    self._zoom_factor,
                 )
                 item_deltas.append((item, delta))
 
@@ -2490,7 +2879,9 @@ class CanvasView(QGraphicsView):
 
         child_start_positions: dict[QGraphicsItem, QPointF] = {}
         for item, delta in list(item_deltas):
-            if not isinstance(item, GardenItemMixin) or not is_bed_type(item.object_type):
+            if not isinstance(item, GardenItemMixin) or not is_bed_type(
+                item.object_type
+            ):
                 continue
             for child_id in item.child_item_ids:
                 child = self._canvas_scene.find_item_by_id(child_id)
@@ -2546,7 +2937,9 @@ class CanvasView(QGraphicsView):
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         for item, start_pos in self._drag_start_positions.items():
-            if not isinstance(item, GardenItemMixin) or not is_bed_type(item.object_type):
+            if not isinstance(item, GardenItemMixin) or not is_bed_type(
+                item.object_type
+            ):
                 continue
             delta = item.pos() - start_pos
             if delta.x() == 0 and delta.y() == 0:
@@ -2578,11 +2971,18 @@ class CanvasView(QGraphicsView):
             current_parent_id = item.parent_bed_id
 
             new_bed = self._canvas_scene.find_smallest_bed_containing(plant_center)
-            new_parent_id = new_bed.item_id if (new_bed is not None and isinstance(new_bed, GardenItemMixin)) else None
+            new_parent_id = (
+                new_bed.item_id
+                if (new_bed is not None and isinstance(new_bed, GardenItemMixin))
+                else None
+            )
 
             if new_parent_id != current_parent_id:
                 cmd = SetParentBedCommand(
-                    self.scene(), item, current_parent_id, new_parent_id,
+                    self.scene(),
+                    item,
+                    current_parent_id,
+                    new_parent_id,
                 )
                 self._command_manager.execute(cmd)
 
@@ -2748,7 +3148,19 @@ class CanvasView(QGraphicsView):
 
     # Ruler tick intervals (cm), used to pick a nice spacing based on zoom
     _RULER_NICE_INTERVALS = [
-        1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000,
+        1,
+        2,
+        5,
+        10,
+        20,
+        50,
+        100,
+        200,
+        500,
+        1000,
+        2000,
+        5000,
+        10000,
     ]
     _RULER_MIN_TICK_PX = 50  # Minimum pixels between labelled ticks
     _RULER_BG = QColor(235, 235, 235, 230)
@@ -2779,16 +3191,16 @@ class CanvasView(QGraphicsView):
         interval = self._pick_ruler_interval()
 
         # ── Background strips ──────────────────────────────────────────────
-        painter.fillRect(rs, 0, vp.width() - rs, rs, self._RULER_BG)   # top
+        painter.fillRect(rs, 0, vp.width() - rs, rs, self._RULER_BG)  # top
         painter.fillRect(0, rs, rs, vp.height() - rs, self._RULER_BG)  # left
-        painter.fillRect(0, 0, rs, rs, QColor(210, 210, 210, 230))      # corner box
+        painter.fillRect(0, 0, rs, rs, QColor(210, 210, 210, 230))  # corner box
 
         # ── Border lines ───────────────────────────────────────────────────
         border_pen = QPen(self._RULER_BORDER)
         border_pen.setWidth(1)
         painter.setPen(border_pen)
-        painter.drawLine(rs, rs - 1, vp.width(), rs - 1)                # bottom of top ruler
-        painter.drawLine(rs - 1, rs, rs - 1, vp.height())               # right of left ruler
+        painter.drawLine(rs, rs - 1, vp.width(), rs - 1)  # bottom of top ruler
+        painter.drawLine(rs - 1, rs, rs - 1, vp.height())  # right of left ruler
 
         # ── Horizontal ruler (X axis) ──────────────────────────────────────
         painter.setPen(QPen(self._RULER_FG))
@@ -2801,12 +3213,16 @@ class CanvasView(QGraphicsView):
         while x <= right_x:
             vp_x = int(self.mapFromScene(x, 0).x())
             if rs <= vp_x <= vp.width():
-                painter.drawLine(vp_x, rs - 4, vp_x, rs - 1)           # tick mark
+                painter.drawLine(vp_x, rs - 4, vp_x, rs - 1)  # tick mark
                 lbl = self._ruler_label(x)
                 # Center label horizontally on the tick (40px box centered at vp_x)
                 painter.drawText(
-                    vp_x - 20, 0, 40, rs - 5,
-                    int(Qt.AlignmentFlag.AlignHCenter), lbl,
+                    vp_x - 20,
+                    0,
+                    40,
+                    rs - 5,
+                    int(Qt.AlignmentFlag.AlignHCenter),
+                    lbl,
                 )
             x += interval
 
@@ -2822,7 +3238,7 @@ class CanvasView(QGraphicsView):
         while y <= y_max:
             vp_y = int(self.mapFromScene(0, y).y())
             if rs <= vp_y <= vp.height():
-                painter.drawLine(rs - 4, vp_y, rs - 1, vp_y)           # tick mark
+                painter.drawLine(rs - 4, vp_y, rs - 1, vp_y)  # tick mark
                 lbl = self._ruler_label(y)
                 # Draw label rotated 90° for vertical ruler.
                 # After rotate(-90) at (tx, ty), screen_y_center = ty - 20 for a
@@ -2832,8 +3248,12 @@ class CanvasView(QGraphicsView):
                 painter.translate(1, vp_y + 20)
                 painter.rotate(-90)
                 painter.drawText(
-                    0, 0, 40, rs - 5,
-                    int(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter), lbl,
+                    0,
+                    0,
+                    40,
+                    rs - 5,
+                    int(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter),
+                    lbl,
                 )
                 painter.restore()
             y += interval
@@ -2895,9 +3315,19 @@ class CanvasView(QGraphicsView):
 
     # Scale bar constants
     _SCALE_BAR_NICE_DISTANCES = [
-        1, 2, 5, 10, 20, 50,
-        100, 200, 500,
-        1000, 2000, 5000, 10000,
+        1,
+        2,
+        5,
+        10,
+        20,
+        50,
+        100,
+        200,
+        500,
+        1000,
+        2000,
+        5000,
+        10000,
     ]
     _SCALE_BAR_MARGIN = 12
     _SCALE_BAR_TICK_H = 5
@@ -2981,18 +3411,24 @@ class CanvasView(QGraphicsView):
 
         # Outline: horizontal line
         painter.drawLine(
-            int(bar_x), int(bar_y),
-            int(bar_x + bar_width_px), int(bar_y),
+            int(bar_x),
+            int(bar_y),
+            int(bar_x + bar_width_px),
+            int(bar_y),
         )
         # Outline: left tick
         painter.drawLine(
-            int(bar_x), int(bar_y),
-            int(bar_x), int(bar_y - tick_h),
+            int(bar_x),
+            int(bar_y),
+            int(bar_x),
+            int(bar_y - tick_h),
         )
         # Outline: right tick
         painter.drawLine(
-            int(bar_x + bar_width_px), int(bar_y),
-            int(bar_x + bar_width_px), int(bar_y - tick_h),
+            int(bar_x + bar_width_px),
+            int(bar_y),
+            int(bar_x + bar_width_px),
+            int(bar_y - tick_h),
         )
 
         # Outline: text
@@ -3009,18 +3445,24 @@ class CanvasView(QGraphicsView):
 
         # Foreground: horizontal line
         painter.drawLine(
-            int(bar_x), int(bar_y),
-            int(bar_x + bar_width_px), int(bar_y),
+            int(bar_x),
+            int(bar_y),
+            int(bar_x + bar_width_px),
+            int(bar_y),
         )
         # Foreground: left tick
         painter.drawLine(
-            int(bar_x), int(bar_y),
-            int(bar_x), int(bar_y - tick_h),
+            int(bar_x),
+            int(bar_y),
+            int(bar_x),
+            int(bar_y - tick_h),
         )
         # Foreground: right tick
         painter.drawLine(
-            int(bar_x + bar_width_px), int(bar_y),
-            int(bar_x + bar_width_px), int(bar_y - tick_h),
+            int(bar_x + bar_width_px),
+            int(bar_y),
+            int(bar_x + bar_width_px),
+            int(bar_y - tick_h),
         )
 
         # Foreground: text
@@ -3037,7 +3479,8 @@ class CanvasView(QGraphicsView):
         from open_garden_planner.ui.canvas.items.group_item import GroupItem
 
         selected = [
-            item for item in self.scene().selectedItems()
+            item
+            for item in self.scene().selectedItems()
             if not isinstance(item, GroupItem) or item.parentItem() is None
         ]
         # Need at least 2 items (or 1 group child) — sensible minimum is 2
@@ -3053,7 +3496,9 @@ class CanvasView(QGraphicsView):
         """Ungroup all selected GroupItems (Ctrl+Shift+G)."""
         from open_garden_planner.ui.canvas.items.group_item import GroupItem
 
-        groups = [item for item in self.scene().selectedItems() if isinstance(item, GroupItem)]
+        groups = [
+            item for item in self.scene().selectedItems() if isinstance(item, GroupItem)
+        ]
         if not groups:
             self.set_status_message(self.tr("No group selected"))
             return
@@ -3099,7 +3544,9 @@ class CanvasView(QGraphicsView):
 
         # Show status message
         if len(self._clipboard) > 0:
-            self.set_status_message(self.tr("Copied {count} item(s)").format(count=len(self._clipboard)))
+            self.set_status_message(
+                self.tr("Copied {count} item(s)").format(count=len(self._clipboard))
+            )
 
     def cut_selected(self) -> None:
         """Cut selected items (copy then delete)."""
@@ -3113,7 +3560,9 @@ class CanvasView(QGraphicsView):
         # Then delete
         if self._clipboard:
             self._delete_selected_items()
-            self.set_status_message(self.tr("Cut {count} item(s)").format(count=len(self._clipboard)))
+            self.set_status_message(
+                self.tr("Cut {count} item(s)").format(count=len(self._clipboard))
+            )
 
     def paste(self) -> None:
         """Paste items from clipboard."""
@@ -3188,7 +3637,9 @@ class CanvasView(QGraphicsView):
             for item in pasted_items:
                 item.setSelected(True)
 
-            self.set_status_message(self.tr("Pasted {count} item(s)").format(count=len(pasted_items)))
+            self.set_status_message(
+                self.tr("Pasted {count} item(s)").format(count=len(pasted_items))
+            )
 
     def duplicate_selected(self) -> None:
         """Duplicate selected items (copy and paste in one action)."""
@@ -3277,14 +3728,20 @@ class CanvasView(QGraphicsView):
 
             from open_garden_planner.core import CreateItemsCommand
 
-            command = CreateItemsCommand(self.scene(), duplicated_items, "duplicated objects")
+            command = CreateItemsCommand(
+                self.scene(), duplicated_items, "duplicated objects"
+            )
             self._command_manager.execute(command)
 
             # Select the duplicated items
             for item in duplicated_items:
                 item.setSelected(True)
 
-            self.set_status_message(self.tr("Duplicated {count} item(s)").format(count=len(duplicated_items)))
+            self.set_status_message(
+                self.tr("Duplicated {count} item(s)").format(
+                    count=len(duplicated_items)
+                )
+            )
 
     def create_linear_array(self) -> None:
         """Create a linear array from the single selected item."""
@@ -3375,7 +3832,9 @@ class CanvasView(QGraphicsView):
                 for j in range(len(all_items) - 1):
                     a = all_items[j]
                     b = all_items[j + 1]
-                    if isinstance(a, GardenItemMixin) and isinstance(b, GardenItemMixin):
+                    if isinstance(a, GardenItemMixin) and isinstance(
+                        b, GardenItemMixin
+                    ):
                         ref_a = AnchorRef(
                             item_id=a.item_id,
                             anchor_type=AnchorType.CENTER,
@@ -3467,7 +3926,9 @@ class CanvasView(QGraphicsView):
                     max_y = max(p["y"] for p in pts)
                     cx = max(0.0, -min_x) - max(0.0, max_x - canvas_w)
                     cy = max(0.0, -min_y) - max(0.0, max_y - canvas_h)
-                    obj_copy["points"] = [{"x": p["x"] + cx, "y": p["y"] + cy} for p in pts]
+                    obj_copy["points"] = [
+                        {"x": p["x"] + cx, "y": p["y"] + cy} for p in pts
+                    ]
                 elif "center_x" in obj_copy:
                     rad = obj_data.get("radius", 0.0)
                     cx = obj_data["center_x"] + offset_x
@@ -3509,19 +3970,35 @@ class CanvasView(QGraphicsView):
                         # Horizontal neighbour (same row, next col)
                         right = grid_map.get((r, c + 1))
                         if right is not None and isinstance(right, GardenItemMixin):
-                            constraint_pairs.append((
-                                AnchorRef(item_id=itm.item_id, anchor_type=AnchorType.CENTER),
-                                AnchorRef(item_id=right.item_id, anchor_type=AnchorType.CENTER),
-                                col_spacing,
-                            ))
+                            constraint_pairs.append(
+                                (
+                                    AnchorRef(
+                                        item_id=itm.item_id,
+                                        anchor_type=AnchorType.CENTER,
+                                    ),
+                                    AnchorRef(
+                                        item_id=right.item_id,
+                                        anchor_type=AnchorType.CENTER,
+                                    ),
+                                    col_spacing,
+                                )
+                            )
                         # Vertical neighbour (next row, same col)
                         below = grid_map.get((r + 1, c))
                         if below is not None and isinstance(below, GardenItemMixin):
-                            constraint_pairs.append((
-                                AnchorRef(item_id=itm.item_id, anchor_type=AnchorType.CENTER),
-                                AnchorRef(item_id=below.item_id, anchor_type=AnchorType.CENTER),
-                                row_spacing,
-                            ))
+                            constraint_pairs.append(
+                                (
+                                    AnchorRef(
+                                        item_id=itm.item_id,
+                                        anchor_type=AnchorType.CENTER,
+                                    ),
+                                    AnchorRef(
+                                        item_id=below.item_id,
+                                        anchor_type=AnchorType.CENTER,
+                                    ),
+                                    row_spacing,
+                                )
+                            )
 
         from open_garden_planner.core import GridArrayCommand
 
@@ -3691,7 +4168,9 @@ class CanvasView(QGraphicsView):
         path_b = item_to_painter_path(item_b)
         if path_a is None or path_b is None:
             self.set_status_message(
-                self.tr("Boolean operations require closed shapes (polygon, rectangle, or circle)")
+                self.tr(
+                    "Boolean operations require closed shapes (polygon, rectangle, or circle)"
+                )
             )
             return
 
@@ -3701,7 +4180,11 @@ class CanvasView(QGraphicsView):
             )
             return
 
-        ops = {"union": boolean_union, "intersect": boolean_intersect, "subtract": boolean_subtract}
+        ops = {
+            "union": boolean_union,
+            "intersect": boolean_intersect,
+            "subtract": boolean_subtract,
+        }
         result_poly = ops[operation](path_a, path_b)
         if result_poly is None:
             self.set_status_message(
@@ -3745,9 +4228,7 @@ class CanvasView(QGraphicsView):
         self._command_manager.execute(command)
 
         result_item.setSelected(True)
-        self.set_status_message(
-            self.tr("Applied boolean {op}").format(op=operation)
-        )
+        self.set_status_message(self.tr("Applied boolean {op}").format(op=operation))
 
     def create_array_along_path(self) -> None:
         """Create copies of an item distributed along a polyline path."""
@@ -3995,7 +4476,10 @@ class CanvasView(QGraphicsView):
         elif isinstance(item, PolylineItem):
             data = {
                 "type": "polyline",
-                "points": [{"x": item.pos().x() + p.x(), "y": item.pos().y() + p.y()} for p in item.points],
+                "points": [
+                    {"x": item.pos().x() + p.x(), "y": item.pos().y() + p.y()}
+                    for p in item.points
+                ],
             }
             if hasattr(item, "object_type") and item.object_type:
                 data["object_type"] = item.object_type.name
@@ -4016,10 +4500,12 @@ class CanvasView(QGraphicsView):
             points = []
             for i in range(polygon.count()):
                 pt = polygon.at(i)
-                points.append({
-                    "x": item.pos().x() + pt.x(),
-                    "y": item.pos().y() + pt.y(),
-                })
+                points.append(
+                    {
+                        "x": item.pos().x() + pt.x(),
+                        "y": item.pos().y() + pt.y(),
+                    }
+                )
             data = {
                 "type": "polygon",
                 "points": points,
@@ -4079,7 +4565,10 @@ class CanvasView(QGraphicsView):
         Returns:
             Graphics item, or None if deserialization failed
         """
-        from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+        from open_garden_planner.core.fill_patterns import (
+            FillPattern,
+            create_pattern_brush,
+        )
         from open_garden_planner.core.object_types import ObjectType, StrokeStyle
         from open_garden_planner.ui.canvas.items import (
             BackgroundImageItem,
@@ -4138,7 +4627,9 @@ class CanvasView(QGraphicsView):
             if "fill_color" in obj:
                 # If we have a pattern, recreate the brush with both color and pattern
                 if fill_pattern:
-                    brush = create_pattern_brush(fill_pattern, QColor(obj["fill_color"]))
+                    brush = create_pattern_brush(
+                        fill_pattern, QColor(obj["fill_color"])
+                    )
                 else:
                     brush = item.brush()
                     brush.setColor(QColor(obj["fill_color"]))
@@ -4169,6 +4660,7 @@ class CanvasView(QGraphicsView):
             if "plant_category" in obj:
                 try:
                     from open_garden_planner.core.plant_renderer import PlantCategory
+
                     item.plant_category = PlantCategory[obj["plant_category"]]
                 except KeyError:
                     pass
@@ -4178,7 +4670,7 @@ class CanvasView(QGraphicsView):
             if "fill_color" in obj:
                 color = QColor(obj["fill_color"])
                 # Store the base color in the item
-                if hasattr(item, 'fill_color'):
+                if hasattr(item, "fill_color"):
                     item.fill_color = color
                 # If we have a pattern, recreate the brush with both color and pattern
                 if fill_pattern:
@@ -4231,7 +4723,7 @@ class CanvasView(QGraphicsView):
                 if "fill_color" in obj:
                     color = QColor(obj["fill_color"])
                     # Store the base color in the item
-                    if hasattr(item, 'fill_color'):
+                    if hasattr(item, "fill_color"):
                         item.fill_color = color
                     # If we have a pattern, recreate the brush with both color and pattern
                     if fill_pattern:
@@ -4260,7 +4752,11 @@ class CanvasView(QGraphicsView):
                 font_size=obj.get("font_size", 12.0),
                 bold=obj.get("bold", False),
                 italic=obj.get("italic", False),
-                text_color=QColor(obj["text_color"]) if "text_color" in obj else QColor(0, 0, 0),
+                text_color=(
+                    QColor(obj["text_color"])
+                    if "text_color" in obj
+                    else QColor(0, 0, 0)
+                ),
                 metadata=metadata,
             )
             if name:
@@ -4308,10 +4804,13 @@ class CanvasView(QGraphicsView):
             else:
                 self.set_status_message(self.tr("Distance must be positive"))
         except ValueError:
-            self.set_status_message(self.tr("Invalid distance. Enter a number in centimeters."))
+            self.set_status_message(
+                self.tr("Invalid distance. Enter a number in centimeters.")
+            )
 
     def _clamp_individual_deltas(
-        self, item_deltas: list[tuple[QGraphicsItem, QPointF]],
+        self,
+        item_deltas: list[tuple[QGraphicsItem, QPointF]],
     ) -> list[tuple[QGraphicsItem, QPointF]]:
         """Clamp per-item deltas so each item stays inside the canvas.
 
@@ -4392,7 +4891,7 @@ class CanvasView(QGraphicsView):
         """
         # This will be picked up by the main window's status bar
         # For now, we'll emit it as a signal if the parent has a status bar
-        if self.parent() and hasattr(self.parent(), 'statusBar'):
+        if self.parent() and hasattr(self.parent(), "statusBar"):
             status_bar = self.parent().statusBar()
             if status_bar:
                 status_bar.showMessage(message)

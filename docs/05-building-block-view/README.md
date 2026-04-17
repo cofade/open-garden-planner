@@ -51,7 +51,8 @@ src/open_garden_planner/
 │   ├── fill_patterns.py          # Texture/pattern rendering
 │   ├── plant_renderer.py         # Plant SVG loading, caching, rendering
 │   ├── furniture_renderer.py     # Furniture/hedge SVG rendering & caching
-│   ├── constraints.py            # Distance constraint model & solver
+│   ├── constraints.py            # All 16 constraint types + hybrid solver (see §8.12)
+│   ├── constraint_solver_newton.py # Newton-Raphson refinement + circle-circle fast path
 │   ├── measure_snapper.py        # Anchor-point snapper for measure tool
 │   ├── measurements.py           # Measurement data model
 │   ├── snapping.py               # Object snapping logic

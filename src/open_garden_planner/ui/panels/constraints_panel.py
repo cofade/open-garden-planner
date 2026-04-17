@@ -31,6 +31,7 @@ _COLOR_PARALLEL_SATISFIED = QColor(20, 160, 100)
 _COLOR_PERPENDICULAR_SATISFIED = QColor(20, 120, 160)
 _COLOR_EQUAL_SATISFIED = QColor(200, 100, 0)
 _COLOR_FIXED = QColor(180, 130, 0)
+_COLOR_EDGE_LENGTH = QColor(0, 120, 200)
 
 
 def _make_status_icon(color: QColor, size: int = 14) -> QPixmap:
@@ -63,7 +64,9 @@ class ConstraintListItem(QWidget):
     ) -> None:
         super().__init__(parent)
         self.constraint_id = constraint_id
-        self._setup_ui(label_a, label_b, target_distance, satisfied, constraint_type_name)
+        self._setup_ui(
+            label_a, label_b, target_distance, satisfied, constraint_type_name
+        )
 
     def _setup_ui(
         self,
@@ -85,6 +88,7 @@ class ConstraintListItem(QWidget):
         is_perpendicular = constraint_type_name == "PERPENDICULAR"
         is_equal = constraint_type_name == "EQUAL"
         is_fixed = constraint_type_name == "FIXED"
+        is_edge_length = constraint_type_name == "EDGE_LENGTH"
         is_h_distance = constraint_type_name == "HORIZONTAL_DISTANCE"
         is_v_distance = constraint_type_name == "VERTICAL_DISTANCE"
         if is_alignment:
@@ -101,6 +105,8 @@ class ConstraintListItem(QWidget):
             color = _COLOR_EQUAL_SATISFIED if satisfied else _COLOR_VIOLATED
         elif is_fixed:
             color = _COLOR_FIXED  # always "satisfied" visually
+        elif is_edge_length:
+            color = _COLOR_EDGE_LENGTH if satisfied else _COLOR_VIOLATED
         elif is_h_distance or is_v_distance:
             color = _COLOR_SATISFIED if satisfied else _COLOR_VIOLATED
         else:
@@ -143,6 +149,10 @@ class ConstraintListItem(QWidget):
         elif constraint_type_name == "FIXED":
             detail = self.tr("🔒 Fixed")
             tooltip = self.tr("{a} is fixed in place").format(a=label_a)
+        elif constraint_type_name == "EDGE_LENGTH":
+            dist_m = target_distance / 100.0
+            detail = self.tr("Edge {d:.2f} m").format(d=dist_m)
+            tooltip = self.tr("{a} edge length: {d:.2f} m").format(a=label_a, d=dist_m)
         elif constraint_type_name == "HORIZONTAL_DISTANCE":
             dist_m = target_distance / 100.0
             detail = f"↔ {dist_m:.2f} m"
@@ -174,6 +184,8 @@ class ConstraintListItem(QWidget):
             text = f"= {label_a}  =  {label_b}"
         elif constraint_type_name == "FIXED":
             text = f"🔒 {label_a}"
+        elif constraint_type_name == "EDGE_LENGTH":
+            text = f"⟷ {label_a}   {detail}"
         elif constraint_type_name == "HORIZONTAL_DISTANCE":
             text = f"↔ {label_a}  ↔  {label_b}   {detail}"
         elif constraint_type_name == "VERTICAL_DISTANCE":
@@ -189,7 +201,9 @@ class ConstraintListItem(QWidget):
         delete_btn.setText("\u00d7")
         delete_btn.setFixedSize(20, 20)
         delete_btn.setToolTip(self.tr("Delete constraint"))
-        delete_btn.clicked.connect(lambda: self.delete_requested.emit(self.constraint_id))
+        delete_btn.clicked.connect(
+            lambda: self.delete_requested.emit(self.constraint_id)
+        )
         layout.addWidget(delete_btn)
 
 
@@ -379,6 +393,9 @@ class ConstraintsPanel(QWidget):
             return abs(pos_b.y() - pos_a.y()) < 1.0
         if constraint.constraint_type == ConstraintType.VERTICAL:
             return abs(pos_b.x() - pos_a.x()) < 1.0
+        if constraint.constraint_type == ConstraintType.EDGE_LENGTH:
+            current_dist = QLineF(pos_a, pos_b).length()
+            return abs(current_dist - constraint.target_distance) < 1.0
         if constraint.constraint_type == ConstraintType.COINCIDENT:
             dx = pos_b.x() - pos_a.x()
             dy = pos_b.y() - pos_a.y()
@@ -399,7 +416,9 @@ class ConstraintsPanel(QWidget):
             bc_len = math.sqrt(bc_x * bc_x + bc_y * bc_y)
             if ba_len < 1e-6 or bc_len < 1e-6:
                 return False
-            cos_val = max(-1.0, min(1.0, (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len)))
+            cos_val = max(
+                -1.0, min(1.0, (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len))
+            )
             current_deg = math.degrees(math.acos(cos_val))
             return abs(current_deg - constraint.target_distance) < 0.5
         if constraint.constraint_type == ConstraintType.PARALLEL:
