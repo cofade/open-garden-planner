@@ -170,3 +170,4 @@ Full history: see `docs/roadmap.md`.
 |        | 11.22 | Succession planting                      | Smart Features     |
 |        | 11.23 | Garden journal (map-linked notes)        | Smart Features     |
 |        | 11.24 | Find & replace objects                   | Workflow           |
+| ✅     | 11.25 | Missing translations & Change Type menu  | Quality / UX       |
