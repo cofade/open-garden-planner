@@ -1257,3 +1257,128 @@ class MoveToLayerCommand(Command):
             item.layer_id = old_layer_id  # type: ignore[union-attr]
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         self._scene._update_items_z_order()  # type: ignore[attr-defined]
+
+
+class TrimPolylineCommand(Command):
+    """Remove a sub-segment from a PolylineItem, replacing it with 0–2 new pieces."""
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        original_item: QGraphicsItem,
+        new_pieces: list[QGraphicsItem],
+    ) -> None:
+        """Initialize.
+
+        Args:
+            scene: The canvas scene.
+            original_item: The polyline being trimmed (currently in scene).
+            new_pieces: Replacement polyline(s) with trimmed geometry and
+                        identical styling. May be empty if the entire item
+                        is consumed by the trim.
+        """
+        self._scene = scene
+        self._original = original_item
+        self._pieces = list(new_pieces)
+
+    @property
+    def description(self) -> str:
+        return "Trim polyline"
+
+    def execute(self) -> None:
+        if self._original.scene() is not None:
+            self._scene.removeItem(self._original)
+        for piece in self._pieces:
+            if piece.scene() is None:
+                self._scene.addItem(piece)
+
+    def undo(self) -> None:
+        for piece in self._pieces:
+            if piece.scene() is not None:
+                self._scene.removeItem(piece)
+        if self._original.scene() is None:
+            self._scene.addItem(self._original)
+
+
+class TrimPolygonCommand(Command):
+    """Trim a polygon edge, replacing the PolygonItem with an open PolylineItem."""
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        original_polygon: QGraphicsItem,
+        result_polyline: QGraphicsItem,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            scene: The canvas scene.
+            original_polygon: The polygon being trimmed (currently in scene).
+            result_polyline: Open polyline wrapping the remaining perimeter.
+        """
+        self._scene = scene
+        self._polygon = original_polygon
+        self._polyline = result_polyline
+
+    @property
+    def description(self) -> str:
+        return "Trim polygon edge"
+
+    def execute(self) -> None:
+        if self._polygon.scene() is not None:
+            self._scene.removeItem(self._polygon)
+        if self._polyline.scene() is None:
+            self._scene.addItem(self._polyline)
+
+    def undo(self) -> None:
+        if self._polyline.scene() is not None:
+            self._scene.removeItem(self._polyline)
+        if self._polygon.scene() is None:
+            self._scene.addItem(self._polygon)
+
+
+class TrimRectangleCommand(TrimPolygonCommand):
+    """Trim a rectangle edge, replacing the RectangleItem with an open PolylineItem."""
+
+    @property
+    def description(self) -> str:
+        return "Trim rectangle edge"
+
+
+class ExtendPolylineCommand(Command):
+    """Extend a PolylineItem endpoint to a new point (item-local coordinates)."""
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        endpoint_index: int,
+        new_end_local: QPointF,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            item: The PolylineItem to extend.
+            endpoint_index: 0 to prepend to start, -1 (or last index) to append to end.
+            new_end_local: New endpoint in item-local coordinates.
+        """
+        self._item = item
+        self._endpoint_index = endpoint_index
+        self._new_end = new_end_local
+        self._old_points: list[QPointF] = item.points  # type: ignore[attr-defined]
+
+    @property
+    def description(self) -> str:
+        return "Extend polyline"
+
+    def execute(self) -> None:
+        pts = self._item.points  # type: ignore[attr-defined]
+        if self._endpoint_index == 0:
+            pts.insert(0, self._new_end)
+        else:
+            pts.append(self._new_end)
+        self._item._points = pts  # type: ignore[attr-defined]
+        self._item._rebuild_path()  # type: ignore[attr-defined]
+
+    def undo(self) -> None:
+        self._item._points = list(self._old_points)  # type: ignore[attr-defined]
+        self._item._rebuild_path()  # type: ignore[attr-defined]

@@ -62,6 +62,7 @@ from open_garden_planner.core.tools import (
     TextTool,
     ToolManager,
     ToolType,
+    TrimExtendTool,
     VerticalConstraintTool,
     VerticalDistanceConstraintTool,
 )
@@ -209,6 +210,9 @@ class CanvasView(QGraphicsView):
         # Register construction geometry tools
         self._tool_manager.register_tool(ConstructionLineTool(self))
         self._tool_manager.register_tool(ConstructionCircleTool(self))
+
+        # Register CAD editing tools
+        self._tool_manager.register_tool(TrimExtendTool(self))
 
         # Register generic shape tools
         rect_tool = RectangleTool(self, object_type=ObjectType.GENERIC_RECTANGLE)

@@ -91,6 +91,9 @@ class ToolType(Enum):
     CONSTRUCTION_LINE = auto()
     CONSTRUCTION_CIRCLE = auto()
 
+    # CAD editing tools
+    TRIM_EXTEND = auto()
+
 
 class BaseTool(ABC):
     """Abstract base class for all drawing tools.

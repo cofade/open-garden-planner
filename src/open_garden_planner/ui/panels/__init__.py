@@ -3,7 +3,6 @@
 from .companion_panel import CompanionPanel
 from .constraints_panel import ConstraintsPanel
 from .crop_rotation_panel import CropRotationPanel
-from .drawing_tools_panel import DrawingToolsPanel
 from .gallery_panel import GalleryPanel
 from .layers_panel import LayersPanel
 from .plant_database_panel import PlantDatabasePanel
@@ -14,7 +13,6 @@ __all__ = [
     "CompanionPanel",
     "ConstraintsPanel",
     "CropRotationPanel",
-    "DrawingToolsPanel",
     "GalleryPanel",
     "LayersPanel",
     "PlantDatabasePanel",

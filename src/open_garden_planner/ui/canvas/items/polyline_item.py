@@ -79,6 +79,26 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         """Get the polyline points."""
         return self._points.copy()
 
+    def clone_with_points(self, new_points: list[QPointF]) -> "PolylineItem":
+        """Return a new PolylineItem with identical styling but a different point list.
+
+        Args:
+            new_points: Replacement points in item-local coordinates.
+
+        Returns:
+            A new PolylineItem not yet added to any scene.
+        """
+        clone = PolylineItem(
+            points=new_points,
+            object_type=self.object_type,
+            name=self.name,
+            layer_id=self.layer_id,
+            path_fence_style=self._path_fence_style,
+        )
+        clone.setPen(QPen(self.pen()))
+        clone.setBrush(QBrush(self.brush()))
+        return clone
+
     @property
     def path_fence_style(self) -> PathFenceStyle:
         """Get the path/fence style preset."""
