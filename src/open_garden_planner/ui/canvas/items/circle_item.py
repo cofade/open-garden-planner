@@ -766,29 +766,34 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             self.scene().clearSelection()
             self.setSelected(True)
 
+        _ = QCoreApplication.translate
         menu = QMenu()
 
         # Move to Layer submenu (hidden when project has only one layer)
         move_layer_menu = self._build_move_to_layer_menu(menu)
 
+        # Change Type submenu
+        from open_garden_planner.core.object_types import get_valid_types_for_shape
+        change_type_menu = self._build_change_type_menu(menu, get_valid_types_for_shape("circle"))
+
         menu.addSeparator()
 
         # Delete action
-        delete_action = menu.addAction("Delete")
+        delete_action = menu.addAction(_("CircleItem", "Delete"))
 
         menu.addSeparator()
 
         # Duplicate action
-        duplicate_action = menu.addAction("Duplicate")
+        duplicate_action = menu.addAction(_("CircleItem", "Duplicate"))
 
         # Linear array action
-        linear_array_action = menu.addAction("Create Linear Array...")
+        linear_array_action = menu.addAction(_("CircleItem", "Create Linear Array..."))
 
         # Grid array action
-        grid_array_action = menu.addAction("Create Grid Array...")
+        grid_array_action = menu.addAction(_("CircleItem", "Create Grid Array..."))
 
         # Circular array action
-        circular_array_action = menu.addAction("Create Circular Array...")
+        circular_array_action = menu.addAction(_("CircleItem", "Create Circular Array..."))
 
         # Boolean operations (requires exactly 2 selected closed shapes)
         boolean_union_action = None
@@ -875,6 +880,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                         break
         elif move_layer_menu and action and action.parent() is move_layer_menu:
             self._dispatch_move_to_layer(action.data())
+        elif change_type_menu and action and action.parent() is change_type_menu:
+            self._dispatch_change_type(action.data())
 
     def to_dict(self) -> dict:
         """Serialize the item to a dictionary for saving."""

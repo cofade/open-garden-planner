@@ -6,7 +6,7 @@ to real-world scale.
 
 import base64
 
-from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QPointF
+from PyQt6.QtCore import QBuffer, QByteArray, QCoreApplication, QIODevice, QPointF
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QGraphicsItem,
@@ -120,7 +120,6 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         """Set locked state."""
         self._locked = value
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, not value)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, not value)
 
     @property
     def scale_factor(self) -> float:
@@ -199,27 +198,35 @@ class BackgroundImageItem(QGraphicsPixmapItem):
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show context menu for background image options."""
+        _ = QCoreApplication.translate
         menu = QMenu()
 
         # Calibrate action
-        calibrate_action = menu.addAction("Calibrate Scale...")
+        calibrate_action = menu.addAction(_("BackgroundImageItem", "Calibrate Scale..."))
         calibrate_action.triggered.connect(self._show_calibration_dialog)
 
         menu.addSeparator()
 
-        # Opacity action
-        opacity_action = menu.addAction(f"Set Opacity ({int(self._opacity * 100)}%)...")
+        # Opacity action — embed the current value in the translated string at runtime
+        opacity_label = _("BackgroundImageItem", "Set Opacity ({pct}%)...").format(
+            pct=int(self._opacity * 100)
+        )
+        opacity_action = menu.addAction(opacity_label)
         opacity_action.triggered.connect(self._show_opacity_dialog)
 
         # Lock/Unlock action
-        lock_text = "Unlock Image" if self._locked else "Lock Image"
+        lock_text = (
+            _("BackgroundImageItem", "Unlock Image")
+            if self._locked
+            else _("BackgroundImageItem", "Lock Image")
+        )
         lock_action = menu.addAction(lock_text)
         lock_action.triggered.connect(self._toggle_lock)
 
         menu.addSeparator()
 
         # Remove action
-        remove_action = menu.addAction("Remove Image")
+        remove_action = menu.addAction(_("BackgroundImageItem", "Remove Image"))
         remove_action.triggered.connect(self._remove_self)
 
         menu.exec(event.screenPos())

@@ -21,6 +21,15 @@ TS_FILE = (
 
 # ── Complete English → German translation mapping ─────────────────────────
 TRANSLATIONS: dict[str, dict[str, str]] = {
+    # ── BackgroundImageItem ──
+    "BackgroundImageItem": {
+        "Calibrate Scale...": "Skalierung kalibrieren...",
+        "Set Opacity ({pct}%)...": "Deckkraft festlegen ({pct}%)...",
+        "Lock Image": "Bild sperren",
+        "Unlock Image": "Bild entsperren",
+        "Remove Image": "Bild entfernen",
+    },
+
     # ── CalibrationDialog ──
     "CalibrationDialog": {
         "Calibrate Background Image": "Hintergrundbild kalibrieren",
@@ -73,6 +82,33 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Pasted {count} item(s)": "{count} Element(e) eingefügt",
         "Nothing to duplicate": "Nichts zum Duplizieren",
         "Duplicated {count} item(s)": "{count} Element(e) dupliziert",
+        "Import Background Image...": "Hintergrundbild importieren...",
+        "Hedge": "Hecke",
+        "Distance": "Abstand",
+        "Edge length": "Kantenlänge",
+        "Horizontal": "Horizontal",
+        "Vertical": "Vertikal",
+        "Horizontal distance": "Horizontaler Abstand",
+        "Vertical distance": "Vertikaler Abstand",
+        "Angle": "Winkel",
+        "Parallel": "Parallel",
+        "Perpendicular": "Senkrecht",
+        "Equal": "Gleich",
+        "Fixed": "Fixiert",
+        "Coincident": "Koinzident",
+        "Horizontal symmetry": "Horizontale Symmetrie",
+        "Vertical symmetry": "Vertikale Symmetrie",
+        "Point on edge": "Punkt auf Kante",
+        "Point on circle": "Punkt auf Kreis",
+        "Delete Bed": "Beet löschen",
+        "The selected bed(s) contain plants. What would you like to do?":
+            "Das/die ausgewählte(n) Beet(e) enthält/enthalten Pflanzen. Was möchten Sie tun?",
+        "Delete bed and plants": "Beet und Pflanzen löschen",
+        "Keep plants": "Pflanzen behalten",
+        "Select 2 or more items to group": "Mindestens 2 Elemente zum Gruppieren auswählen",
+        "Grouped {n} items": "{n} Elemente gruppiert",
+        "No group selected": "Keine Gruppe ausgewählt",
+        "Ungrouped": "Gruppierung aufgelöst",
         "Distance must be positive": "Abstand muss positiv sein",
         "Invalid distance. Enter a number in centimeters.":
             "Ungültiger Abstand. Geben Sie eine Zahl in Zentimetern ein.",
@@ -82,14 +118,89 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Wählen Sie mindestens 3 Objekte zum Verteilen",
     },
 
+    # ── CoincidentConstraintTool ──
+    "CoincidentConstraintTool": {
+        "Conflicting Constraint": "Widersprüchliche Randbedingung",
+        "This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.":
+            "Diese Randbedingung widerspricht bestehenden Randbedingungen und kann nicht angewendet werden. Die bestehenden Randbedingungen bleiben unverändert.",
+        "⊙ On Circle": "⊙ Auf Kreis",
+        "⊥ On Edge": "⊥ Auf Kante",
+    },
+
+    # ── ConstraintConflictDialog ──
+    "ConstraintConflictDialog": {
+        "Constraint conflict": "Randbedingungskonflikt",
+        "The new constraint cannot be satisfied together with the following existing constraints. Select which ones to delete, or cancel.":
+            "Die neue Randbedingung kann nicht zusammen mit den folgenden bestehenden Randbedingungen erfüllt werden. Wählen Sie aus, welche gelöscht werden sollen, oder brechen Sie ab.",
+        "Override (delete selected)": "Überschreiben (Auswahl löschen)",
+        "Cancel": "Abbrechen",
+    },
+
+    # ── ConstraintListItem ──
+    "ConstraintListItem": {
+        "= Equal": "= Gleich",
+        "{a} equal size to {b}": "{a} gleiche Größe wie {b}",
+        "🔒 Fixed": "🔒 Fixiert",
+        "{a} is fixed in place": "{a} ist fixiert",
+        "Edge {d:.2f} m": "Kante {d:.2f} m",
+        "{a} edge length: {d:.2f} m": "{a} Kantenlänge: {d:.2f} m",
+        "{a} ↔ H-dist {b}: {d:.2f} m": "{a} ↔ H-Abst. {b}: {d:.2f} m",
+        "{a} ↕ V-dist {b}: {d:.2f} m": "{a} ↕ V-Abst. {b}: {d:.2f} m",
+    },
+
+    # ── ConstraintTool ──
+    "ConstraintTool": {
+        "Intra-object edge constraints are only supported for polygons and polylines.":
+            "Interne Kantenrandbedingungen werden nur für Polygone und Polylinien unterstützt.",
+        "Please select two adjacent (connected) edges of the same polygon.":
+            "Bitte wählen Sie zwei angrenzende (verbundene) Kanten desselben Polygons.",
+        "Parallel Constraint": "Parallelrandbedingung",
+        "The polygon needs at least 4 vertices for a parallel constraint between non-adjacent edges.":
+            "Das Polygon benötigt mindestens 4 Knoten für eine Parallelrandbedingung zwischen nicht angrenzenden Kanten.",
+        "Adjacent edges of the same polygon cannot be made parallel. To set a specific corner angle, use the Angle constraint tool.":
+            "Angrenzende Kanten desselben Polygons können nicht parallel gemacht werden. Um einen bestimmten Winkel festzulegen, verwenden Sie das Winkelrandbedingungswerkzeug.",
+    },
+
+    # ── CircleItem (context menu — pylupdate6 cannot extract _ alias) ──
+    "CircleItem": {
+        "Delete": "Löschen",
+        "Duplicate": "Duplizieren",
+        "Create Linear Array...": "Lineares Muster erstellen...",
+        "Create Grid Array...": "Rastermuster erstellen...",
+        "Create Circular Array...": "Kreismuster erstellen...",
+        "Boolean": "Bool'sche Operation",
+        "Union": "Vereinigung",
+        "Intersect": "Schnittmenge",
+        "Subtract": "Subtraktion",
+        "Array Along Path...": "Muster entlang Pfad...",
+    },
+
     # ── CircleTool ──
     "CircleTool": {
         "Circle": "Kreis",
     },
 
+    # ── EdgeLengthConstraintTool ──
+    "EdgeLengthConstraintTool": {
+        "Edge Length Constraint": "Kantenlängenrandbedingung",
+        "Conflicting Constraint": "Widersprüchliche Randbedingung",
+        "This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.":
+            "Diese Randbedingung widerspricht bestehenden Randbedingungen und kann nicht angewendet werden. Die bestehenden Randbedingungen bleiben unverändert.",
+    },
+
     # ── ColorButton ──
     "ColorButton": {
         "Choose Color": "Farbe wählen",
+    },
+
+    # ── ConstructionCircleItem ──
+    "ConstructionCircleItem": {
+        "Delete Construction Circle": "Hilfskreis löschen",
+    },
+
+    # ── ConstructionLineItem ──
+    "ConstructionLineItem": {
+        "Delete Construction Line": "Hilfslinie löschen",
     },
 
     # ── CustomPlantsDialog ──
@@ -152,6 +263,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Canvas size: {width} × {height} m": "Leinwandgröße: {width} × {height} m",
         "Scale: 1:{denom}": "Maßstab: 1:{denom}",
         "<b>Image size: {w} × {h} pixels</b>": "<b>Bildgröße: {w} × {h} Pixel</b>",
+    },
+
+    # ── GardenItemMixin (context menu submenus — pylupdate6 cannot extract _ alias) ──
+    "GardenItemMixin": {
+        "Move to Layer": "Auf Ebene verschieben",
+        "Change Type": "Typ ändern",
+    },
+
+    # ── GroupItem ──
+    "GroupItem": {
+        "Ungroup": "Gruppe aufheben",
     },
 
     # ── GalleryPanel ──
@@ -450,6 +572,55 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Language Changed": "Sprache geändert",
         "Language has been set to {language}.\n\nPlease restart the application for the change to take effect.":
             "Die Sprache wurde auf {language} gesetzt.\n\nBitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.",
+        "Set Garden &Location...": "Gartenstandort &festlegen...",
+        "Set GPS coordinates and frost dates for planting calendar":
+            "GPS-Koordinaten und Frostdaten für den Pflanzkalender festlegen",
+        "&Print...": "&Drucken...",
+        "Print the garden plan": "Den Gartenplan drucken",
+        "Canvas &Size...": "Leinwand&größe...",
+        "Resize the canvas dimensions": "Die Leinwandabmessungen ändern",
+        "&Preferences...": "&Einstellungen...",
+        "Configure application settings and API keys":
+            "Anwendungseinstellungen und API-Schlüssel konfigurieren",
+        "Show &Constraints": "Randbedingungen &anzeigen",
+        "Toggle constraint dimension lines on the canvas":
+            "Maßlinien für Randbedingungen auf der Leinwand umschalten",
+        "Show C&onstruction Geometry": "K&onstruktionsgeometrie anzeigen",
+        "Toggle construction geometry visibility (excluded from exports)":
+            "Sichtbarkeit der Konstruktionsgeometrie umschalten (von Exporten ausgeschlossen)",
+        "Show &Guide Lines": "&Hilfslinien anzeigen",
+        "Toggle ruler and guide lines (drag from ruler to create)":
+            "Lineale und Hilfslinien umschalten (vom Lineal ziehen zum Erstellen)",
+        "Show Companion &Warnings": "Begleitpflanzen&warnungen anzeigen",
+        "Highlight compatible and incompatible plants near the selected plant":
+            "Kompatible und inkompatible Pflanzen in der Nähe der ausgewählten Pflanze hervorheben",
+        "Show S&pacing Circles": "Ab&standskreise anzeigen",
+        "Show recommended spacing zones around plants":
+            "Empfohlene Abstandszonen um Pflanzen anzeigen",
+        "Show &Minimap": "&Übersichtskarte anzeigen",
+        "Show a minimap overview for quick navigation":
+            "Übersichtskarte für schnelle Navigation anzeigen",
+        "Check &Companion Planting...": "&Mischkulturen prüfen...",
+        "Analyse the whole plan for companion planting compatibility":
+            "Den gesamten Plan auf Mischkulturkompatibilität analysieren",
+        "No location set": "Kein Standort festgelegt",
+        "Garden GPS location — use File > Set Garden Location to configure":
+            "Garten-GPS-Standort — Datei > Gartenstandort festlegen zum Konfigurieren verwenden",
+        "Garden Plan": "Gartenplan",
+        "Planting Calendar": "Pflanzkalender",
+        "Seed Inventory": "Saatgutbestand",
+        "Constraints": "Randbedingungen",
+        "Delete all constraints": "Alle Randbedingungen löschen",
+        "Companion Planting": "Mischkulturen",
+        "Crop Rotation": "Fruchtfolge",
+        "Canvas Size": "Leinwandgröße",
+        "Canvas resized to {width}m x {height}m": "Leinwand auf {width}m x {height}m geändert",
+        "<p>Version {v}</p>": "<p>Version {v}</p>",
+        "Garden location updated": "Gartenstandort aktualisiert",
+        "Latitude: {lat}, Longitude: {lon}": "Breite: {lat}, Länge: {lon}",
+        "Zone": "Zone",
+        "Last spring frost": "Letzter Spätfrost",
+        "First fall frost": "Erster Herbstfrost",
     },
 
     # ── LayerListItem ──
@@ -474,6 +645,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Select and move objects": "Objekte auswählen und verschieben",
         "Measure (M)": "Messen (M)",
         "Measure distances between two points": "Abstände zwischen zwei Punkten messen",
+        "Text": "Text",
+        "Place a text annotation": "Eine Textanmerkung platzieren",
     },
 
     # ── MeasureTool ──
@@ -489,6 +662,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Height:": "Höhe:",
         "Tip: You can resize the canvas later from Edit > Canvas Size.":
             "Tipp: Sie können die Leinwandgröße später unter Bearbeiten > Leinwandgröße ändern.",
+        "Garden Year": "Gartenjahr",
+        "Assign a year to this plan": "Diesem Plan ein Jahr zuweisen",
     },
 
     # ── PlantDatabasePanel ──
@@ -591,14 +766,68 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Bitte wählen Sie eine Pflanze aus den Suchergebnissen.",
     },
 
+    # ── PolygonItem (context menu — pylupdate6 cannot extract _ alias) ──
+    "PolygonItem": {
+        "Exit Vertex Edit Mode": "Knotenbearbeitungsmodus beenden",
+        "Edit Vertices": "Knoten bearbeiten",
+        "Edit Label": "Beschriftung bearbeiten",
+        "Hide Grid": "Raster ausblenden",
+        "Show Grid": "Raster einblenden",
+        "Delete": "Löschen",
+        "Duplicate": "Duplizieren",
+        "Create Linear Array...": "Lineares Muster erstellen...",
+        "Create Grid Array...": "Rastermuster erstellen...",
+        "Create Circular Array...": "Kreismuster erstellen...",
+        "Boolean": "Bool'sche Operation",
+        "Union": "Vereinigung",
+        "Intersect": "Schnittmenge",
+        "Subtract": "Subtraktion",
+        "Array Along Path...": "Muster entlang Pfad...",
+    },
+
     # ── PolygonTool ──
     "PolygonTool": {
         "Polygon": "Polygon",
     },
 
+    # ── PolylineItem (context menu — pylupdate6 cannot extract _ alias) ──
+    "PolylineItem": {
+        "Exit Vertex Edit Mode": "Knotenbearbeitungsmodus beenden",
+        "Edit Vertices": "Knoten bearbeiten",
+        "Edit Label": "Beschriftung bearbeiten",
+        "Delete": "Löschen",
+        "Duplicate": "Duplizieren",
+        "Create Linear Array...": "Lineares Muster erstellen...",
+        "Create Grid Array...": "Rastermuster erstellen...",
+        "Create Circular Array...": "Kreismuster erstellen...",
+        "Array Along Path...": "Muster entlang Pfad...",
+    },
+
     # ── PolylineTool ──
     "PolylineTool": {
         "Polyline": "Polylinie",
+    },
+
+    # ── PlantingCalendarView ──
+    "PlantingCalendarView": {
+        "Germination": "Keimung",
+        "Prick out": "Pikieren",
+        "Harden off": "Abhärten",
+    },
+
+    # ── PrintOptionsDialog ──
+    "PrintOptionsDialog": {
+        "Print Options": "Druckoptionen",
+        "Scale": "Maßstab",
+        "Print scale:": "Druckmaßstab:",
+        "Include": "Einschließen",
+        "Grid": "Raster",
+        "Object labels": "Objektbeschriftungen",
+        "Legend (project name, scale, date)": "Legende (Projektname, Maßstab, Datum)",
+        "Canvas: {w} m × {h} m": "Leinwand: {w} m × {h} m",
+        "Single page (scaled to fit)": "Eine Seite (skaliert passend)",
+        "1 page at {scale}": "1 Seite bei {scale}",
+        "{total} pages ({cols} × {rows}) at {scale}": "{total} Seiten ({cols} × {rows}) bei {scale}",
     },
 
     # ── PropertiesDialog ──
@@ -636,11 +865,60 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Stroke Color:": "Linienfarbe:",
         "Stroke Width:": "Linienstärke:",
         "Stroke Style:": "Linienstil:",
+        "Group ({n} items)": "Gruppe ({n} Elemente)",
+        "Ctrl+Shift+G to ungroup": "Strg+Umschalt+G zum Aufheben der Gruppierung",
+        "Contained Plants": "Enthaltene Pflanzen",
+        "No plants in this bed": "Keine Pflanzen in diesem Beet",
+        "Total: {count} plant(s)": "Gesamt: {count} Pflanze(n)",
+        "Unlink": "Verknüpfung aufheben",
+        "Parent Bed": "Übergeordnetes Beet",
+        "Grid Overlay": "Rasterüberlagerung",
+        "Show grid": "Raster anzeigen",
+        "Grid:": "Raster:",
+        "Spacing:": "Abstand:",
+        "Cells:": "Zellen:",
+        "—": "—",
+        "Recommended spacing radius (half of plant spread)":
+            "Empfohlener Abstandsradius (halbe Pflanzenbreite)",
+        "Spacing radius:": "Abstandsradius:",
+        "Text": "Text",
+        "Content:": "Inhalt:",
+        "Font:": "Schriftart:",
+        "Bold": "Fett",
+        "Italic": "Kursiv",
+        "Style:": "Stil:",
+        "Color:": "Farbe:",
+        "── Paths ──": "── Wege ──",
+        "── Fences ──": "── Zäune ──",
+    },
+
+    # ── RectangleItem (context menu — pylupdate6 cannot extract _ alias) ──
+    "RectangleItem": {
+        "Exit Vertex Edit Mode": "Knotenbearbeitungsmodus beenden",
+        "Edit Vertices": "Knoten bearbeiten",
+        "Edit Label": "Beschriftung bearbeiten",
+        "Hide Grid": "Raster ausblenden",
+        "Show Grid": "Raster einblenden",
+        "Delete": "Löschen",
+        "Duplicate": "Duplizieren",
+        "Create Linear Array...": "Lineares Muster erstellen...",
+        "Create Grid Array...": "Rastermuster erstellen...",
+        "Create Circular Array...": "Kreismuster erstellen...",
+        "Boolean": "Bool'sche Operation",
+        "Union": "Vereinigung",
+        "Intersect": "Schnittmenge",
+        "Subtract": "Subtraktion",
+        "Array Along Path...": "Muster entlang Pfad...",
     },
 
     # ── RectangleTool ──
     "RectangleTool": {
         "Rectangle": "Rechteck",
+    },
+
+    # ── ResizeHandle ──
+    "ResizeHandle": {
+        "Scale blocked: item has dimensional constraints": "Skalierung blockiert: Element hat Maßeinschränkungen",
     },
 
     # ── SelectTool ──
@@ -705,6 +983,32 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Double-click": "Doppelklick",
         "Edit object label": "Objektbeschriftung bearbeiten",
         "Close": "Schließen",
+    },
+
+    # ── SeedInventoryView ──
+    "SeedInventoryView": {
+        "(unnamed plant)": "(unbenannte Pflanze)",
+    },
+
+    # ── TextItem (context menu — pylupdate6 cannot extract _ alias) ──
+    "TextItem": {
+        "Edit Text": "Text bearbeiten",
+        "Delete": "Löschen",
+    },
+
+    # ── TextTool ──
+    "TextTool": {
+        "Text": "Text",
+    },
+
+    # ── VertexHandle (context menu — pylupdate6 cannot extract _ alias) ──
+    "VertexHandle": {
+        "Delete Vertex": "Knoten löschen",
+    },
+
+    # ── _DetailPanel ──
+    "_DetailPanel": {
+        "↺": "↺",
     },
 
     # ── WelcomeDialog ──

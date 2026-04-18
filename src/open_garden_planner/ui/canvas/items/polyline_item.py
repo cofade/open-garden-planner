@@ -911,50 +911,53 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             self.scene().clearSelection()
             self.setSelected(True)
 
+        _ = QCoreApplication.translate
         menu = QMenu()
 
         # Edit vertices action
         if self.is_vertex_edit_mode:
-            exit_edit_action = menu.addAction("Exit Vertex Edit Mode")
+            exit_edit_action = menu.addAction(_("PolylineItem", "Exit Vertex Edit Mode"))
             edit_vertices_action = None
         else:
-            edit_vertices_action = menu.addAction("Edit Vertices")
+            edit_vertices_action = menu.addAction(_("PolylineItem", "Edit Vertices"))
             exit_edit_action = None
 
         # Edit label action
-        edit_label_action = menu.addAction("Edit Label")
+        edit_label_action = menu.addAction(_("PolylineItem", "Edit Label"))
 
         menu.addSeparator()
 
         # Move to Layer submenu (hidden when project has only one layer)
         move_layer_menu = self._build_move_to_layer_menu(menu)
 
+        # Change Type submenu
+        from open_garden_planner.core.object_types import get_valid_types_for_shape
+        change_type_menu = self._build_change_type_menu(menu, get_valid_types_for_shape("polyline"))
+
         menu.addSeparator()
 
         # Delete action
-        delete_action = menu.addAction("Delete")
+        delete_action = menu.addAction(_("PolylineItem", "Delete"))
 
         menu.addSeparator()
 
         # Duplicate action
-        duplicate_action = menu.addAction("Duplicate")
+        duplicate_action = menu.addAction(_("PolylineItem", "Duplicate"))
 
         # Linear array action
-        linear_array_action = menu.addAction("Create Linear Array...")
+        linear_array_action = menu.addAction(_("PolylineItem", "Create Linear Array..."))
 
         # Grid array action
-        grid_array_action = menu.addAction("Create Grid Array...")
+        grid_array_action = menu.addAction(_("PolylineItem", "Create Grid Array..."))
 
         # Circular array action
-        circular_array_action = menu.addAction("Create Circular Array...")
+        circular_array_action = menu.addAction(_("PolylineItem", "Create Circular Array..."))
 
         # Array along path (requires exactly 2 selected, one being a polyline)
         array_along_path_action = None
         selected = self.scene().selectedItems()
         if len(selected) == 2:
-            array_along_path_action = menu.addAction(
-                QCoreApplication.translate("PolylineItem", "Array Along Path...")
-            )
+            array_along_path_action = menu.addAction(_("PolylineItem", "Array Along Path..."))
 
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
@@ -1021,3 +1024,5 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                         break
         elif move_layer_menu and action and action.parent() is move_layer_menu:
             self._dispatch_move_to_layer(action.data())
+        elif change_type_menu and action and action.parent() is change_type_menu:
+            self._dispatch_change_type(action.data())

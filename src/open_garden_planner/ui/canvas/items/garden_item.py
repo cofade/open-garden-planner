@@ -744,3 +744,94 @@ class GardenItemMixin:
             scene._command_manager.execute(cmd)  # type: ignore[attr-defined]
         else:
             cmd.execute()  # graceful fallback (e.g. in unit tests without CanvasView)
+
+    # ------------------------------------------------------------------
+    # Type-change helpers (shared by all item context menus)
+    # ------------------------------------------------------------------
+
+    def _build_change_type_menu(
+        self,
+        parent_menu: "QMenu",
+        valid_types: list,
+    ) -> "QMenu | None":
+        """Append a 'Change Type' submenu to *parent_menu* and return it.
+
+        Returns ``None`` when the item has no ``object_type`` attribute or
+        the valid-types list is empty, in which case nothing is added.
+        """
+        from PyQt6.QtCore import QCoreApplication
+        from PyQt6.QtWidgets import QMenu
+
+        from open_garden_planner.core.object_types import get_translated_display_name
+
+        if not hasattr(self, "object_type") or not valid_types:
+            return None
+        label = QCoreApplication.translate("GardenItemMixin", "Change Type")
+        type_menu: QMenu = parent_menu.addMenu(label)
+        current = self.object_type  # type: ignore[attr-defined]
+        for obj_type in valid_types:
+            action = type_menu.addAction(get_translated_display_name(obj_type))
+            action.setData(obj_type)
+            action.setCheckable(True)
+            action.setChecked(obj_type == current)
+        return type_menu
+
+    def _dispatch_change_type(self, new_type: object) -> None:
+        """Apply an object-type change with full undo support.
+
+        Mirrors :meth:`_dispatch_move_to_layer`: applies the change
+        immediately, then pushes a :class:`ChangePropertyCommand` onto the
+        undo stack so Ctrl+Z restores both type and style.  Only items of
+        the same concrete class as *self* are affected (safe for mixed
+        multi-selections).
+        """
+        from open_garden_planner.core.commands import ChangePropertyCommand
+        from open_garden_planner.core.object_types import get_style
+
+        scene = self.scene()  # type: ignore[attr-defined]
+        if not scene:
+            return
+        selected = [
+            i
+            for i in scene.selectedItems()
+            if type(i) is type(self) and hasattr(i, "object_type")
+        ]
+        items = selected if selected else [self]
+
+        def _apply(itm: object, state: dict) -> None:
+            for key, val in state.items():
+                if hasattr(itm, key):
+                    setattr(itm, key, val)
+            if hasattr(itm, "_setup_styling"):
+                itm._setup_styling()  # type: ignore[union-attr]
+            if hasattr(itm, "update"):
+                itm.update()  # type: ignore[union-attr]
+
+        for item in items:
+            old_state = {
+                "object_type": item.object_type,  # type: ignore[union-attr]
+                "fill_color": getattr(item, "fill_color", None),
+                "fill_pattern": getattr(item, "fill_pattern", None),
+                "stroke_color": getattr(item, "stroke_color", None),
+                "stroke_width": getattr(item, "stroke_width", None),
+                "stroke_style": getattr(item, "stroke_style", None),
+            }
+            style = get_style(new_type)  # type: ignore[arg-type]
+            new_state = {
+                "object_type": new_type,
+                "fill_color": style.fill_color,
+                "fill_pattern": style.fill_pattern,
+                "stroke_color": style.stroke_color,
+                "stroke_width": style.stroke_width,
+                "stroke_style": style.stroke_style,
+            }
+            _apply(item, new_state)
+            cmd = ChangePropertyCommand(item, "type", old_state, new_state, _apply)
+            if hasattr(scene, "_command_manager") and scene._command_manager:  # type: ignore[attr-defined]
+                scene._command_manager._undo_stack.append(cmd)  # type: ignore[attr-defined]
+                scene._command_manager._redo_stack.clear()  # type: ignore[attr-defined]
+                scene._command_manager.can_undo_changed.emit(True)  # type: ignore[attr-defined]
+                scene._command_manager.can_redo_changed.emit(False)  # type: ignore[attr-defined]
+
+        # Refresh the properties panel by re-emitting the selection signal
+        scene.selectionChanged.emit()  # type: ignore[attr-defined]

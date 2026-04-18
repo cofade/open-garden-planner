@@ -80,11 +80,11 @@ class TestBackgroundImageItem:
         assert item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable
         assert item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
 
-        # Lock the item
+        # Lock the item — movable is disabled but selectable stays on for right-click access
         item.locked = True
         assert item.locked
         assert not (item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
-        assert not (item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+        assert item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
 
         # Unlock the item
         item.locked = False

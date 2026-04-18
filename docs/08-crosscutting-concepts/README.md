@@ -87,6 +87,32 @@ Uses Qt Linguist translation system:
 - `QT_TR_NOOP("string")` marks strings for extraction without translating them at that point (used in module-level dicts). Translate them later with `QCoreApplication.translate("ContextClass", string)`.
 - Non-`QObject` contexts (e.g. module-level code) use `QCoreApplication.translate("ContextName", "string")`.
 
+### Context menu strings in QGraphicsItem subclasses
+
+`QGraphicsItem` subclasses (e.g. `CircleItem`, `PolygonItem`, `BackgroundImageItem`) are **not** `QObject` subclasses, so `self.tr()` is unavailable or incorrect. Use the shorthand alias at the top of every `contextMenuEvent()`:
+
+```python
+def contextMenuEvent(self, event):
+    _ = QCoreApplication.translate
+    action = menu.addAction(_("ClassName", "String"))
+```
+
+**Dynamic toggle labels** (e.g. "Lock Image" / "Unlock Image") must call `QCoreApplication.translate` on **both branches individually** so `pylupdate6` can extract both source strings:
+
+```python
+# CORRECT — both strings are extractable by pylupdate6
+lock_text = (
+    _("BackgroundImageItem", "Unlock Image")
+    if self._locked
+    else _("BackgroundImageItem", "Lock Image")
+)
+
+# WRONG — only one branch is extracted
+lock_text = _("BackgroundImageItem", "Unlock Image" if self._locked else "Lock Image")
+```
+
+This pattern was systematically applied across all item classes in issues #148/#149.
+
 ## 8.4 Theme System
 
 Branded green color palette with light and dark variants:

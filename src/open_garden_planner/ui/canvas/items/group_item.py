@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtCore import QCoreApplication, QRectF, Qt
 from PyQt6.QtGui import QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsItem,
@@ -79,8 +79,9 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show ungroup action in the context menu."""
+        _ = QCoreApplication.translate
         menu = QMenu()
-        ungroup_action = menu.addAction("Ungroup")
+        ungroup_action = menu.addAction(_("GroupItem", "Ungroup"))
 
         menu.addSeparator()
 
