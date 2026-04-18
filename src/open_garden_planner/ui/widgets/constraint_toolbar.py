@@ -91,6 +91,11 @@ _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
     _ToolEntry(
         "construction_circle", "Construction Circle", "", ToolType.CONSTRUCTION_CIRCLE
     ),
+    _SEP,
+    # ── CAD editing ───────────────────────────────────────────────────────────
+    _ToolEntry(
+        "trim_extend", "Trim/Extend (I) — X toggles mode", "I", ToolType.TRIM_EXTEND
+    ),
 ]
 
 

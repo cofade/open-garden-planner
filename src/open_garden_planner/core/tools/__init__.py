@@ -25,6 +25,7 @@ from .rectangle_tool import RectangleTool
 from .select_tool import SelectTool
 from .text_tool import TextTool
 from .tool_manager import ToolManager
+from .trim_tool import TrimExtendTool
 
 __all__ = [
     "AngleConstraintTool",
@@ -50,6 +51,7 @@ __all__ = [
     "TextTool",
     "ToolManager",
     "ToolType",
+    "TrimExtendTool",
     "VerticalConstraintTool",
     "VerticalDistanceConstraintTool",
 ]

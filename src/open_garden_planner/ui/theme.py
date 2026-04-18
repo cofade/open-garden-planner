@@ -702,29 +702,6 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         color: {colors['text_primary']};
     }}
 
-    /* Drawing Tools Panel - Category Labels */
-    DrawingToolsPanel QLabel {{
-        color: {colors['text_primary']};
-        font-weight: bold;
-        border-bottom: 1px solid {colors['border']};
-    }}
-
-    /* Drawing Tools Panel - Tool Buttons */
-    DrawingToolsPanel QToolButton {{
-        border: 1px solid {colors['border']};
-        background-color: {colors['button']};
-    }}
-
-    DrawingToolsPanel QToolButton:hover {{
-        background-color: {colors['button_hover']};
-        border-color: {colors['border_focus']};
-    }}
-
-    DrawingToolsPanel QToolButton:checked {{
-        background-color: {colors['accent']};
-        border: 2px solid {colors['accent_pressed']};
-    }}
-
     /* Dashboard panel header (Planting Calendar – Today's Tasks) */
     QFrame#dashboardPanelHeader {{
         background-color: {colors['surface']};
