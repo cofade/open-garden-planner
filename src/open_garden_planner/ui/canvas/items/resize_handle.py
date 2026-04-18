@@ -107,7 +107,7 @@ class DimensionDisplay(QGraphicsItem):
 
         # Make it render at fixed screen size
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
-        self.setZValue(2000)  # Above everything
+        self.setZValue(20_000)  # Above everything
 
         self.hide()
 
@@ -272,7 +272,7 @@ class ResizeHandle(QGraphicsRectItem):
         self.setAcceptHoverEvents(True)
         self.setCursor(HANDLE_CURSORS.get(self._position, Qt.CursorShape.ArrowCursor))
         # Z-value above parent
-        self.setZValue(1000)
+        self.setZValue(10_000)
 
     @property
     def handle_position(self) -> HandlePosition:
@@ -541,7 +541,7 @@ class AngleDisplay(QGraphicsItem):
 
         # Make it render at fixed screen size
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
-        self.setZValue(2000)  # Above everything
+        self.setZValue(20_000)  # Above everything
 
         self.hide()
 
@@ -633,7 +633,7 @@ class RotationHandle(QGraphicsEllipseItem):
         self.setAcceptHoverEvents(True)
         self.setCursor(Qt.CursorShape.CrossCursor)
         # Z-value above parent and resize handles
-        self.setZValue(1001)
+        self.setZValue(10_001)
 
     def update_position(self) -> None:
         """Update handle position above the parent's bounding rect center-top."""
@@ -1136,7 +1136,7 @@ class VertexHandle(QGraphicsRectItem):
         """Configure interaction flags."""
         self.setAcceptHoverEvents(True)
         self.setCursor(Qt.CursorShape.SizeAllCursor)
-        self.setZValue(1002)  # Above rotation and resize handles
+        self.setZValue(10_002)  # Above rotation and resize handles
 
     @property
     def vertex_index(self) -> int:
@@ -1302,7 +1302,7 @@ class MidpointHandle(QGraphicsEllipseItem):
         """Configure interaction flags."""
         self.setAcceptHoverEvents(True)
         self.setCursor(Qt.CursorShape.CrossCursor)
-        self.setZValue(1001)  # Below vertex handles
+        self.setZValue(10_001)  # Below vertex handles
 
     @property
     def edge_index(self) -> int:
@@ -2031,7 +2031,7 @@ class RectCornerHandle(QGraphicsRectItem):
             self.setCursor(Qt.CursorShape.SizeFDiagCursor)
         else:
             self.setCursor(Qt.CursorShape.SizeBDiagCursor)
-        self.setZValue(1002)
+        self.setZValue(10_002)
 
     @property
     def corner(self) -> RectCorner:

@@ -15,6 +15,7 @@ from open_garden_planner.ui.widgets.minimap_widget import (
     MINIMAP_HEIGHT,
     MINIMAP_WIDTH,
     MinimapWidget,
+    _OVERLAY_Z_MIN,
 )
 
 
@@ -198,3 +199,44 @@ class TestMinimapMouseInteraction:
         )
         minimap.mouseReleaseEvent(release)
         assert minimap._dragging is False
+
+
+class TestMinimapOverlayFiltering:
+    """Regression tests for issue #152 — overlay filter must not hide garden items."""
+
+    def test_layer_items_not_hidden_by_overlay_filter(
+        self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+    ) -> None:
+        """Items on non-bottom layers (zValue = 100, 200, …) must survive
+        _hide_overlay_items() — they were wrongly hidden before the fix."""
+        from PyQt6.QtWidgets import QGraphicsRectItem
+
+        view, scene = canvas_pair
+        item = QGraphicsRectItem(0, 0, 100, 100)
+        item.setZValue(100)  # z_order=1 layer
+        scene.addItem(item)
+
+        minimap = MinimapWidget(view, scene)
+        hidden = minimap._hide_overlay_items()
+        minimap._restore_overlay_items(hidden)
+
+        assert item not in hidden, "Garden item with zValue=100 must not be hidden"
+        assert item.isVisible()
+
+    def test_high_z_overlay_is_hidden_and_restored(
+        self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+    ) -> None:
+        """Items with zValue >= _OVERLAY_Z_MIN (overlay handles) must be
+        hidden during render and restored afterwards."""
+        from PyQt6.QtWidgets import QGraphicsRectItem
+
+        view, scene = canvas_pair
+        overlay = QGraphicsRectItem(0, 0, 10, 10)
+        overlay.setZValue(_OVERLAY_Z_MIN)
+        scene.addItem(overlay)
+
+        minimap = MinimapWidget(view, scene)
+        hidden = minimap._hide_overlay_items()
+        assert overlay in hidden
+        minimap._restore_overlay_items(hidden)
+        assert overlay.isVisible()

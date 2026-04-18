@@ -35,6 +35,11 @@ _VIEWPORT_STROKE_WIDTH = 2.0
 # Throttle interval (ms) — max ~10 fps
 _UPDATE_INTERVAL_MS = 100
 
+# Overlay items (resize/rotation/vertex handles) must use zValue >= this.
+# Layer-based garden items use z_order * 100 (max ~900 for 9 layers), so
+# this constant leaves a safe gap and lets the minimap filter only real overlays.
+_OVERLAY_Z_MIN = 10_000
+
 
 class MinimapWidget(QWidget):
     """Semi-transparent minimap overlay for canvas navigation.
@@ -195,7 +200,7 @@ class MinimapWidget(QWidget):
         ignore_flag = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
         for item in self._canvas_scene.items():
             if item.isVisible() and (
-                bool(item.flags() & ignore_flag) or item.zValue() >= 100
+                bool(item.flags() & ignore_flag) or item.zValue() >= _OVERLAY_Z_MIN
             ):
                 item.setVisible(False)
                 hidden.append(item)
