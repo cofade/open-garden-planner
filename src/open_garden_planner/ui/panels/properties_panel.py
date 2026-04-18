@@ -310,61 +310,16 @@ class PropertiesPanel(QWidget):
             combo: Combobox to populate
             item: Item to get valid types for
         """
+        from open_garden_planner.core.object_types import get_valid_types_for_shape
+
         if isinstance(item, RectangleItem):
-            valid_types = [
-                ObjectType.GENERIC_RECTANGLE,
-                # Structures
-                ObjectType.HOUSE,
-                ObjectType.GARAGE_SHED,
-                ObjectType.GREENHOUSE,
-                ObjectType.GARDEN_BED,
-                # Furniture (rectangle-based)
-                ObjectType.HEDGE_SECTION,
-                ObjectType.TABLE_RECTANGULAR,
-                ObjectType.BENCH,
-                ObjectType.LOUNGER,
-                ObjectType.BBQ_GRILL,
-                # Infrastructure (rectangle-based)
-                ObjectType.RAISED_BED,
-                ObjectType.COMPOST_BIN,
-                ObjectType.COLD_FRAME,
-                ObjectType.TOOL_SHED,
-            ]
+            valid_types = get_valid_types_for_shape("rectangle")
         elif isinstance(item, CircleItem):
-            valid_types = [
-                ObjectType.GENERIC_CIRCLE,
-                # Plants
-                ObjectType.TREE,
-                ObjectType.SHRUB,
-                ObjectType.PERENNIAL,
-                # Furniture (circle-based)
-                ObjectType.TABLE_ROUND,
-                ObjectType.CHAIR,
-                ObjectType.PARASOL,
-                ObjectType.FIRE_PIT,
-                ObjectType.PLANTER_POT,
-                # Infrastructure (circle-based)
-                ObjectType.RAIN_BARREL,
-                ObjectType.WATER_TAP,
-            ]
+            valid_types = get_valid_types_for_shape("circle")
         elif isinstance(item, PolygonItem):
-            valid_types = [
-                ObjectType.GENERIC_POLYGON,
-                ObjectType.HOUSE,
-                ObjectType.GARAGE_SHED,
-                ObjectType.TERRACE_PATIO,
-                ObjectType.DRIVEWAY,
-                ObjectType.POND_POOL,
-                ObjectType.GREENHOUSE,
-                ObjectType.GARDEN_BED,
-                ObjectType.LAWN,
-            ]
+            valid_types = get_valid_types_for_shape("polygon")
         elif isinstance(item, PolylineItem):
-            valid_types = [
-                ObjectType.FENCE,
-                ObjectType.WALL,
-                ObjectType.PATH,
-            ]
+            valid_types = get_valid_types_for_shape("polyline")
         else:
             valid_types = list(ObjectType)
 

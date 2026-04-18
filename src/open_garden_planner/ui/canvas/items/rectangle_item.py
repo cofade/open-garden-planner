@@ -524,49 +524,58 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             self.scene().clearSelection()
             self.setSelected(True)
 
+        _ = QCoreApplication.translate
         menu = QMenu()
 
         # Edit vertices action
         if self.is_vertex_edit_mode:
-            exit_edit_action = menu.addAction("Exit Vertex Edit Mode")
+            exit_edit_action = menu.addAction(_("RectangleItem", "Exit Vertex Edit Mode"))
             edit_vertices_action = None
         else:
-            edit_vertices_action = menu.addAction("Edit Vertices")
+            edit_vertices_action = menu.addAction(_("RectangleItem", "Edit Vertices"))
             exit_edit_action = None
 
         # Edit label action
-        edit_label_action = menu.addAction("Edit Label")
+        edit_label_action = menu.addAction(_("RectangleItem", "Edit Label"))
 
         # Grid toggle for bed types
         toggle_grid_action = None
         if is_bed_type(self.object_type):
             menu.addSeparator()
-            label = "Hide Grid" if self._grid_enabled else "Show Grid"
-            toggle_grid_action = menu.addAction(label)
+            grid_label = (
+                _("RectangleItem", "Hide Grid")
+                if self._grid_enabled
+                else _("RectangleItem", "Show Grid")
+            )
+            toggle_grid_action = menu.addAction(grid_label)
 
         menu.addSeparator()
 
         # Move to Layer submenu (hidden when project has only one layer)
         move_layer_menu = self._build_move_to_layer_menu(menu)
 
+        # Change Type submenu
+        from open_garden_planner.core.object_types import get_valid_types_for_shape
+        change_type_menu = self._build_change_type_menu(menu, get_valid_types_for_shape("rectangle"))
+
         menu.addSeparator()
 
         # Delete action
-        delete_action = menu.addAction("Delete")
+        delete_action = menu.addAction(_("RectangleItem", "Delete"))
 
         menu.addSeparator()
 
         # Duplicate action
-        duplicate_action = menu.addAction("Duplicate")
+        duplicate_action = menu.addAction(_("RectangleItem", "Duplicate"))
 
         # Linear array action
-        linear_array_action = menu.addAction("Create Linear Array...")
+        linear_array_action = menu.addAction(_("RectangleItem", "Create Linear Array..."))
 
         # Grid array action
-        grid_array_action = menu.addAction("Create Grid Array...")
+        grid_array_action = menu.addAction(_("RectangleItem", "Create Grid Array..."))
 
         # Circular array action
-        circular_array_action = menu.addAction("Create Circular Array...")
+        circular_array_action = menu.addAction(_("RectangleItem", "Create Circular Array..."))
 
         # Boolean operations (requires exactly 2 selected closed shapes)
         boolean_union_action = None
@@ -582,7 +591,6 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             shape_types = (PolygonItem, RectangleItem, CircleItem)
             if all(isinstance(s, shape_types) for s in selected):
                 menu.addSeparator()
-                _ = QCoreApplication.translate
                 bool_menu = menu.addMenu(_("RectangleItem", "Boolean"))
                 boolean_union_action = bool_menu.addAction(_("RectangleItem", "Union"))
                 boolean_intersect_action = bool_menu.addAction(_("RectangleItem", "Intersect"))
@@ -679,6 +687,8 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                         break
         elif move_layer_menu and action and action.parent() is move_layer_menu:
             self._dispatch_move_to_layer(action.data())
+        elif change_type_menu and action and action.parent() is change_type_menu:
+            self._dispatch_change_type(action.data())
 
     @classmethod
     def from_rect(cls, rect: QRectF) -> "RectangleItem":

@@ -21,6 +21,12 @@ venv/Scripts/python.exe -m bandit -r src/ --severity-level high
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe
 # Exit code 124 (killed by timeout) = success
+
+# Update & compile translations (after adding/changing any UI strings)
+PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py
+PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
+# pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished
+# verifies zero unfinished strings — fails if any string was missed
 ```
 
 Tech stack: Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
@@ -97,6 +103,7 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 | 2 | Read user story from `docs/roadmap.md` | Understand acceptance criteria |
 | 3 | Implement with type hints & translation | Use `self.tr()` for all UI strings |
 | 4 | Run quality checks | `pytest tests/ -v`, `ruff check src/`, `bandit -r src/ --severity-level high` |
+| 4a | Update translations | Add strings to `scripts/fill_translations.py`, run `PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py` then `compile_translations.py`; `pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` must pass |
 | 5 | **Write integration test** in `tests/integration/test_<feature>.py` | **Mandatory** — end-to-end UI workflow. See `docs/08-crosscutting-concepts/` 8.10 |
 | 6 | Build & verify exe | See Quick Reference |
 | 7 | **WAIT for user approval** Provide testing checklist | Never commit before approval |

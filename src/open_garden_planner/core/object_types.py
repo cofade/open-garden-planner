@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from enum import Enum, auto
+from typing import Literal
 
 from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, Qt
 from PyQt6.QtGui import QColor
@@ -490,3 +491,60 @@ def is_bed_type(object_type: ObjectType | None) -> bool:
     if object_type is None:
         return False
     return object_type in (ObjectType.GARDEN_BED, ObjectType.RAISED_BED)
+
+
+def get_valid_types_for_shape(
+    shape: Literal["circle", "polygon", "rectangle", "polyline"],
+) -> list[ObjectType]:
+    """Return the valid ObjectType values for a given shape class.
+
+    Single source of truth used by both the properties panel dropdown and
+    the context-menu "Change Type" submenu so they stay in sync.
+    """
+    if shape == "circle":
+        return [
+            ObjectType.GENERIC_CIRCLE,
+            ObjectType.TREE,
+            ObjectType.SHRUB,
+            ObjectType.PERENNIAL,
+            ObjectType.TABLE_ROUND,
+            ObjectType.PARASOL,
+            ObjectType.FIRE_PIT,
+            ObjectType.PLANTER_POT,
+            ObjectType.RAIN_BARREL,
+            ObjectType.WATER_TAP,
+            ObjectType.POND_POOL,
+        ]
+    if shape == "polygon":
+        return [
+            ObjectType.GENERIC_POLYGON,
+            ObjectType.HOUSE,
+            ObjectType.GARAGE_SHED,
+            ObjectType.TERRACE_PATIO,
+            ObjectType.DRIVEWAY,
+            ObjectType.POND_POOL,
+            ObjectType.GREENHOUSE,
+            ObjectType.GARDEN_BED,
+            ObjectType.LAWN,
+        ]
+    if shape == "rectangle":
+        return [
+            ObjectType.GENERIC_RECTANGLE,
+            ObjectType.HOUSE,
+            ObjectType.GARAGE_SHED,
+            ObjectType.GREENHOUSE,
+            ObjectType.GARDEN_BED,
+            ObjectType.HEDGE_SECTION,
+            ObjectType.TABLE_RECTANGULAR,
+            ObjectType.CHAIR,
+            ObjectType.BENCH,
+            ObjectType.LOUNGER,
+            ObjectType.BBQ_GRILL,
+            ObjectType.RAISED_BED,
+            ObjectType.COMPOST_BIN,
+            ObjectType.COLD_FRAME,
+            ObjectType.TOOL_SHED,
+        ]
+    if shape == "polyline":
+        return [ObjectType.FENCE, ObjectType.WALL, ObjectType.PATH]
+    return list(ObjectType)

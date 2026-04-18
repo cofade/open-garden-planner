@@ -3,7 +3,7 @@
 import uuid
 from typing import Any
 
-from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtCore import QCoreApplication, QRectF, Qt
 from PyQt6.QtGui import (
     QColor,
     QFont,
@@ -226,9 +226,10 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show right-click context menu."""
+        _ = QCoreApplication.translate
         menu = QMenu()
 
-        edit_action = menu.addAction(self.tr("Edit Text"))
+        edit_action = menu.addAction(_("TextItem", "Edit Text"))
 
         menu.addSeparator()
 
@@ -236,7 +237,7 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         move_layer_menu = self._build_move_to_layer_menu(menu)
 
         menu.addSeparator()
-        delete_action = menu.addAction(self.tr("Delete"))
+        delete_action = menu.addAction(_("TextItem", "Delete"))
 
         chosen = menu.exec(event.screenPos())
         if chosen == edit_action:

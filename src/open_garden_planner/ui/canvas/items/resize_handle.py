@@ -4,7 +4,7 @@ import math
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QFont, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QApplication,
@@ -176,8 +176,6 @@ def _is_item_fixed(item: "QGraphicsItem") -> bool:
 
 def _emit_scale_blocked_hint(item: "QGraphicsItem") -> None:
     """Surface a user-visible hint when a scale drag is refused."""
-    from PyQt6.QtCore import QCoreApplication  # noqa: PLC0415
-
     scene = item.scene() if item is not None else None
     if scene is None:
         return
@@ -1245,9 +1243,10 @@ class VertexHandle(QGraphicsRectItem):
                 min_count = self._parent_item._get_minimum_vertex_count()
             can_delete = self._parent_item._get_vertex_count() > min_count
 
+        _ = QCoreApplication.translate
         menu = QMenu()
 
-        delete_action = menu.addAction("Delete Vertex")
+        delete_action = menu.addAction(_("VertexHandle", "Delete Vertex"))
         delete_action.setEnabled(can_delete)
         if not can_delete:
             min_count = MINIMUM_VERTICES

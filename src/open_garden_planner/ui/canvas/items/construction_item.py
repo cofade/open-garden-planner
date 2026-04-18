@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt
+from PyQt6.QtCore import QCoreApplication, QLineF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
@@ -100,8 +100,9 @@ class ConstructionLineItem(QGraphicsLineItem):
                 self.scene().clearSelection()
             self.setSelected(True)
 
+        _ = QCoreApplication.translate
         menu = QMenu()
-        delete_action = menu.addAction("Delete Construction Line")
+        delete_action = menu.addAction(_("ConstructionLineItem", "Delete Construction Line"))
         action = menu.exec(event.screenPos())
 
         if action == delete_action and self.scene():
@@ -202,8 +203,9 @@ class ConstructionCircleItem(QGraphicsEllipseItem):
                 self.scene().clearSelection()
             self.setSelected(True)
 
+        _ = QCoreApplication.translate
         menu = QMenu()
-        delete_action = menu.addAction("Delete Construction Circle")
+        delete_action = menu.addAction(_("ConstructionCircleItem", "Delete Construction Circle"))
         action = menu.exec(event.screenPos())
 
         if action == delete_action and self.scene():
