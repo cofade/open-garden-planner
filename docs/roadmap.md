@@ -16,8 +16,9 @@
 | **9** | **v1.8.5 – v1.8.6** | **✅ Complete** | **Seed Inventory & Propagation Planning** |
 | **10** | **v1.8.6 – v1.8.12** | **✅ Complete** | **Companion Planting & Crop Rotation** |
 | **11** | **v1.8.13+** | **🔨 In Progress** | **Bed Interior Design, Visual Polish & Advanced 2D Tools** |
-| 12 | TBD | Future | Smart Features & Simulation |
-| 13 | v2.0 | Future | 3D Visualization |
+| 12 | v1.9.0 | Future | Weather & Smart Features |
+| 13 | v2.0 | Future | 3D Visualization & Sun/Shade |
+| 14 | v2.1+ | Future | Platform & Community |
 
 ---
 
@@ -1293,7 +1294,7 @@ Icon designs per tool:
 
 ## Phase 11: Bed Interior Design, Visual Polish & Advanced 2D Tools (v1.8.x)
 
-**Goal**: Perfect the 2D garden planning experience — bed interior design, visual polish, annotations, shape operations, drawing tools, interoperability, smart features, and workflow improvements.
+**Goal**: Perfect the 2D garden planning experience — bed interior design, visual polish, annotations, shape operations, drawing tools, interoperability, and workflow improvements.
 
 ### Block 1: Bed Interior Design (Top Priority)
 
@@ -1617,130 +1618,7 @@ Icon designs per tool:
 
 ---
 
-### Block 6: Interoperability
-
-### US-11.17: DXF Export
-
-**Description**: Export the garden plan to DXF format (AutoCAD R2010+) for professional CAD software interchange.
-
-**Acceptance Criteria**:
-- "Export as DXF..." in File menu and Export dialog
-- Shape mapping: Rectangle→LWPOLYLINE, Polygon→LWPOLYLINE, Polyline→LWPOLYLINE, Circle→CIRCLE, Ellipse→ELLIPSE
-- Layer mapping preserved (OGP layers → DXF layers)
-- Construction geometry excluded
-- 1 OGP unit = 1 cm in DXF
-- Stroke colors mapped to ACI
-- Opens correctly in LibreCAD, FreeCAD
-
-**Technical Notes**:
-- Dependency: `ezdxf>=0.18` (MIT license, pure Python)
-- New service: `src/open_garden_planner/services/dxf_service.py`
-- Add to `pyproject.toml` dependencies and `installer/ogp.spec` hiddenimports
-
----
-
-### US-11.18: DXF Import
-
-**Description**: Import DXF files to bring existing CAD floor plans or site surveys into the garden planner.
-
-**Acceptance Criteria**:
-- "Import DXF..." in File menu
-- Supported: LINE, LWPOLYLINE, CIRCLE, ARC, ELLIPSE, SPLINE
-- Import dialog: preview, scale factor, layer selection
-- DXF layers become OGP layers
-- Single undo action for entire import
-- Unsupported entities: skip with summary count
-
-**Technical Notes**:
-- New dialog: `src/open_garden_planner/ui/dialogs/dxf_import_dialog.py`
-- Extend `dxf_service.py` with import functions
-- Use `ezdxf.readfile()` + entity iteration
-
----
-
-### US-11.19: Multi-Page PDF Export
-
-**Description**: Generate a professional multi-page PDF report: cover page, plan overview, zoomed detail views, plant list, planting calendar, and legend.
-
-**Acceptance Criteria**:
-- "Export PDF Report..." in File menu
-- Pages: cover (project name, date, author) → full plan overview → detail views (one per bed, optional) → plant list table → planting calendar → legend
-- Configurable: select which pages to include
-- Paper sizes: A4, A3, Letter, Legal (landscape/portrait)
-- Scale bar, north arrow, title block on plan pages
-- Professional typography and layout
-- Progress dialog for generation
-
-**Technical Notes**:
-- Extend `export_service.py` or new `pdf_report_service.py`
-- Use `QPrinter` + `QPainter` or `reportlab` for PDF generation
-- Plant list: iterate scene items, collect plant data, render as table
-- Calendar data from existing planting calendar model
-
----
-
-### Block 7: Smart Features
-
-### US-11.20: Shopping List Generation
-
-**Description**: Auto-generate a shopping list from the garden plan with plant quantities, seed needs, materials, and optional cost estimates.
-
-**Acceptance Criteria**:
-- "Generate Shopping List" action (menu or toolbar)
-- Lists: plants (type, quantity, size), seeds (from seed inventory gaps), materials (soil volume for beds, mulch area)
-- Exportable as CSV, PDF, or printable
-- Optional cost column (user enters prices per item)
-- Groups by category (plants, seeds, materials)
-
----
-
-### US-11.21: Pest & Disease Log
-
-**Description**: Track pest sightings and disease outbreaks per bed/plant with treatment notes and photos.
-
-**Acceptance Criteria**:
-- Right-click bed/plant > "Log Pest/Disease"
-- Entry: date, type (pest/disease), name, severity, treatment, photo attachment
-- History viewable per-bed and per-plant
-- Overview panel showing all active issues across the garden
-- Data serialized in project file
-
----
-
-### US-11.22: Succession Planting
-
-**Description**: Plan multiple sequential plantings in the same bed within a season.
-
-**Acceptance Criteria**:
-- Bed timeline view showing planting slots per season segment (early spring, late spring, summer, fall)
-- Assign different plants to different time slots in the same bed
-- Calendar integration: succession plants appear in planting calendar at correct dates
-- Visual indicator on bed showing current/next planting
-- Companion planting rules apply within each succession group
-
----
-
-### US-11.23: Garden Journal (Map-Linked Notes)
-
-**Description**: Pin notes and photos to specific locations on the garden plan, creating a visual garden diary.
-
-**Acceptance Criteria**:
-- New "Note" tool — click on canvas to place a pin icon
-- Click pin to expand note: date, text (rich text), photo attachment
-- Pin icon shows on the plan view, subtle when collapsed
-- Notes filterable by date range
-- Notes included in PDF report export (optional)
-- Search across all notes
-- Notes serialized in project file
-
-**Technical Notes**:
-- New item: `src/open_garden_planner/ui/canvas/items/note_item.py`
-- New tool: `src/open_garden_planner/core/tools/note_tool.py`
-- Photo storage: save photos in project directory alongside .ogp file
-
----
-
-### Block 8: Workflow
+### Block 6: Workflow
 
 ### US-11.24: Find & Replace Objects
 
@@ -1756,7 +1634,7 @@ Icon designs per tool:
 
 ---
 
-## Outlook: Additional 2D Features (Candidates for Phase 11 Expansion or Phase 11b)
+## Outlook: Additional 2D Features (Candidates for Phase 11 Expansion)
 
 Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCAD, DraftSight, Inkscape, Affinity Designer, Figma) and 13+ garden planners (GrowVeg, Almanac, Artifact Interactive, iScape, VegPlotter, etc.). These ranked highly but didn't make the initial Phase 11 cut. Revisit after completing Phase 11 core blocks.
 
@@ -1828,7 +1706,206 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 
 ---
 
-## Phase 12: 3D Visualization & Sun/Shade (Future, v2.0)
+## Phase 12: Weather & Smart Features (v1.9.0)
+
+**Goal**: Bring live weather data into the garden planning workflow — forecast-based watering decisions and plant-aware frost warnings, fetched at startup via Open-Meteo (no API key required).
+
+| ID | User Story | Priority | Status |
+|----|------------|----------|--------|
+| US-12.1 | Weather forecast widget in Dashboard | Must | |
+| US-12.2 | Frost alert & plant-aware warnings | Must | |
+| US-12.3 | DXF export | Should | |
+| US-12.4 | DXF import | Should | |
+| US-12.5 | Multi-page PDF export | Should | |
+| US-12.6 | Shopping list generation | Could | |
+| US-12.7 | Pest & disease log | Could | |
+| US-12.8 | Succession planting | Could | |
+| US-12.9 | Garden journal (map-linked notes) | Could | |
+
+### US-12.1: Weather Forecast Widget
+
+**Description**: At app startup, fetch a 16-day weather forecast for the project's GPS location (set in US-8.1) from the Open-Meteo API and display it in the Dashboard section of the Planting Calendar tab.
+
+**Acceptance Criteria**:
+- Forecast fetched on startup in a background `QThread` — never blocks main window
+- Source: Open-Meteo `https://api.open-meteo.com/v1/forecast` with params `daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode&forecast_days=16&timezone=auto`
+- No API key required
+- **7-day compact strip**: icon (WMO weather code mapped to emoji/SVG), min/max °C, precipitation mm, for days 1–7
+- **14-day expandable table**: collapsible section below showing days 8–16 as a table (date, icon, max, min, rain)
+- Offline / fetch failed: show most recent cached data with "Last updated X ago" label in muted style
+- If no project GPS set: show "Set a location to enable weather forecast" empty state with link to location dialog
+- Cache stored in `get_app_data_dir()/weather_cache_{lat:.4f}_{lon:.4f}.json` alongside a fetch timestamp
+- Cache considered stale after 3 hours; if fresh (< 3h old) and offline, use cache silently without re-fetching
+- No additional Python dependencies — use only `urllib` (stdlib)
+- All UI strings wrapped in `self.tr()` / translated in both `.ts` files
+
+**Technical Notes**:
+- New service: `src/open_garden_planner/services/weather_service.py`
+  - `WeatherService` with `fetch_forecast(lat, lon) -> WeatherForecast | None`
+  - `WeatherForecast` dataclass: `days: list[DayForecast]`, `fetched_at: str`
+  - `DayForecast`: `date: str, max_c: float, min_c: float, precipitation_mm: float, weathercode: int`
+  - WMO code → icon mapping dict (0=☀, 1–3=⛅, 45–48=🌫, 51–67=🌧, 71–77=🌨, 80–82=🌦, 95+=⛈)
+  - Cache logic: load/save JSON with timestamp check
+- New widget: `src/open_garden_planner/ui/widgets/weather_widget.py`
+  - `WeatherWidget(QWidget)` — fetches via `WeatherService`, renders strip + expandable table
+  - Signals: `fetch_started`, `fetch_complete`, `fetch_failed`
+  - Embedded at top of `PlanningCalendarView.dashboard_section`
+- Modify: `src/open_garden_planner/ui/views/planting_calendar_view.py` — add `WeatherWidget` at top of dashboard panel
+- Integration test: `tests/integration/test_weather_widget.py` — mock urllib, assert strip renders, assert cache shown with age label
+
+### US-12.2: Frost Alert & Plant-Aware Warnings
+
+**Description**: When the weather forecast includes nights below configurable thresholds, generate visible frost alerts in the Dashboard. Alerts are cross-referenced against frost-sensitive plants placed on the canvas to produce actionable "bring in X tonight" tasks.
+
+**Acceptance Criteria**:
+- Two threshold levels, configurable in **Settings → Weather**:
+  - **Orange warning**: min temp ≤ 5°C (default) — half-hardy plants at risk
+  - **Red alert**: min temp ≤ 2°C (default) — tender plants at risk
+- Forecast days hitting a threshold highlighted in the 7-day strip (orange/red background tint on that day's cell)
+- Dashboard task list shows frost alert entries: `⚠ Frost tonight: -1°C — protect Tomato (Bed A), Basil (Pot)`
+- Tasks include a "Highlight on map" button that switches to Garden Plan tab and selects affected plants
+- **Plant sensitivity source** (in priority order):
+  1. Per-plant override: new `frost_protection_needed: bool | None` field on plant items (None = use DB default)
+  2. `PlantSpeciesData.frost_tolerance`: `"tender"` → warned at red threshold; `"half-hardy"` → warned at orange threshold; `"hardy"` → no warning
+- Per-plant override exposed as a checkbox **"Needs frost protection"** in the Properties panel (plant selected)
+- Frost alerts re-evaluated whenever the weather cache refreshes or the project is opened
+- Settings persist in `QSettings` under `weather/frost_warning_orange_c` and `weather/frost_warning_red_c`
+- All strings translated in both `.ts` files
+
+**Technical Notes**:
+- Extend `WeatherService`: add `get_frost_alerts(forecast, plants, orange_threshold, red_threshold) -> list[FrostAlert]`
+  - `FrostAlert` dataclass: `date: str, min_temp: float, severity: str ("orange"|"red"), affected_plant_ids: list[str]`
+- Extend `GardenItemMixin` (plant items only): add `frost_protection_needed: bool | None = None`; serialize in `project.py`
+- Extend `PropertiesPanel`: add "Needs frost protection" `QCheckBox` (visible when plant selected)
+- Extend `SettingsDialog`: new "Weather" section with two `QDoubleSpinBox` fields for thresholds
+- Extend `PlanningCalendarView` dashboard: inject `FrostAlert` tasks into existing task list (sorted by date)
+- Modify `WeatherWidget`: tint frost days in the 7-day strip
+- Integration test: `tests/integration/test_frost_alerts.py` — mock forecast with frost day, assert dashboard task appears, assert plant highlight works
+
+### Block 2: Interoperability
+
+### US-12.3: DXF Export
+
+**Description**: Export the garden plan to DXF format (AutoCAD R2010+) for professional CAD software interchange.
+
+**Acceptance Criteria**:
+- "Export as DXF..." in File menu and Export dialog
+- Shape mapping: Rectangle→LWPOLYLINE, Polygon→LWPOLYLINE, Polyline→LWPOLYLINE, Circle→CIRCLE, Ellipse→ELLIPSE
+- Layer mapping preserved (OGP layers → DXF layers)
+- Construction geometry excluded
+- 1 OGP unit = 1 cm in DXF
+- Stroke colors mapped to ACI
+- Opens correctly in LibreCAD, FreeCAD
+
+**Technical Notes**:
+- Dependency: `ezdxf>=0.18` (MIT license, pure Python)
+- New service: `src/open_garden_planner/services/dxf_service.py`
+- Add to `pyproject.toml` dependencies and `installer/ogp.spec` hiddenimports
+
+---
+
+### US-12.4: DXF Import
+
+**Description**: Import DXF files to bring existing CAD floor plans or site surveys into the garden planner.
+
+**Acceptance Criteria**:
+- "Import DXF..." in File menu
+- Supported: LINE, LWPOLYLINE, CIRCLE, ARC, ELLIPSE, SPLINE
+- Import dialog: preview, scale factor, layer selection
+- DXF layers become OGP layers
+- Single undo action for entire import
+- Unsupported entities: skip with summary count
+
+**Technical Notes**:
+- New dialog: `src/open_garden_planner/ui/dialogs/dxf_import_dialog.py`
+- Extend `dxf_service.py` with import functions
+- Use `ezdxf.readfile()` + entity iteration
+
+---
+
+### US-12.5: Multi-Page PDF Export
+
+**Description**: Generate a professional multi-page PDF report: cover page, plan overview, zoomed detail views, plant list, planting calendar, and legend.
+
+**Acceptance Criteria**:
+- "Export PDF Report..." in File menu
+- Pages: cover (project name, date, author) → full plan overview → detail views (one per bed, optional) → plant list table → planting calendar → legend
+- Configurable: select which pages to include
+- Paper sizes: A4, A3, Letter, Legal (landscape/portrait)
+- Scale bar, north arrow, title block on plan pages
+- Professional typography and layout
+- Progress dialog for generation
+
+**Technical Notes**:
+- Extend `export_service.py` or new `pdf_report_service.py`
+- Use `QPrinter` + `QPainter` or `reportlab` for PDF generation
+- Plant list: iterate scene items, collect plant data, render as table
+- Calendar data from existing planting calendar model
+
+---
+
+### Block 3: Smart Features
+
+### US-12.6: Shopping List Generation
+
+**Description**: Auto-generate a shopping list from the garden plan with plant quantities, seed needs, materials, and optional cost estimates.
+
+**Acceptance Criteria**:
+- "Generate Shopping List" action (menu or toolbar)
+- Lists: plants (type, quantity, size), seeds (from seed inventory gaps), materials (soil volume for beds, mulch area)
+- Exportable as CSV, PDF, or printable
+- Optional cost column (user enters prices per item)
+- Groups by category (plants, seeds, materials)
+
+---
+
+### US-12.7: Pest & Disease Log
+
+**Description**: Track pest sightings and disease outbreaks per bed/plant with treatment notes and photos.
+
+**Acceptance Criteria**:
+- Right-click bed/plant > "Log Pest/Disease"
+- Entry: date, type (pest/disease), name, severity, treatment, photo attachment
+- History viewable per-bed and per-plant
+- Overview panel showing all active issues across the garden
+- Data serialized in project file
+
+---
+
+### US-12.8: Succession Planting
+
+**Description**: Plan multiple sequential plantings in the same bed within a season.
+
+**Acceptance Criteria**:
+- Bed timeline view showing planting slots per season segment (early spring, late spring, summer, fall)
+- Assign different plants to different time slots in the same bed
+- Calendar integration: succession plants appear in planting calendar at correct dates
+- Visual indicator on bed showing current/next planting
+- Companion planting rules apply within each succession group
+
+---
+
+### US-12.9: Garden Journal (Map-Linked Notes)
+
+**Description**: Pin notes and photos to specific locations on the garden plan, creating a visual garden diary.
+
+**Acceptance Criteria**:
+- New "Note" tool — click on canvas to place a pin icon
+- Click pin to expand note: date, text (rich text), photo attachment
+- Pin icon shows on the plan view, subtle when collapsed
+- Notes filterable by date range
+- Notes included in PDF report export (optional)
+- Search across all notes
+- Notes serialized in project file
+
+**Technical Notes**:
+- New item: `src/open_garden_planner/ui/canvas/items/note_item.py`
+- New tool: `src/open_garden_planner/core/tools/note_tool.py`
+- Photo storage: save photos in project directory alongside .ogp file
+
+---
+
+## Phase 13: 3D Visualization & Sun/Shade (Future, v2.0)
 
 **Goal**: Full three-dimensional garden view with sun/shade simulation — the milestone that justifies a major version bump.
 
@@ -1840,7 +1917,7 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 
 ---
 
-## Phase 13: Platform & Community (Future, v2.1+)
+## Phase 14: Platform & Community (Future, v2.1+)
 
 **Goal**: Extend the platform with community features, plugins, and cross-platform support.
 

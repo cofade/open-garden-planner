@@ -129,7 +129,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
-1. Check **Phase 11 progress table** below for next unchecked US
+1. Check **Phase 11 or Phase 12 progress table** below for next unchecked US
 2. Read user story in `docs/roadmap.md`
 3. Check `git status` and recent git history
 4. Create feature branch and implement
@@ -162,12 +162,19 @@ Full history: see `docs/roadmap.md`.
 |        | 11.14 | Ellipse drawing tool                     | Drawing Tools      |
 |        | 11.15 | Offset tool                              | Drawing Tools      |
 | ✅     | 11.16 | Trim / extend tool                       | Drawing Tools      |
-|        | 11.17 | DXF export                               | Interoperability   |
-|        | 11.18 | DXF import                               | Interoperability   |
-|        | 11.19 | Multi-page PDF export                    | Interoperability   |
-|        | 11.20 | Shopping list generation                 | Smart Features     |
-|        | 11.21 | Pest & disease log                       | Smart Features     |
-|        | 11.22 | Succession planting                      | Smart Features     |
-|        | 11.23 | Garden journal (map-linked notes)        | Smart Features     |
 |        | 11.24 | Find & replace objects                   | Workflow           |
 | ✅     | 11.25 | Missing translations & Change Type menu  | Quality / UX       |
+
+## Progress (Phase 12: Weather & Smart Features v1.9.x)
+
+| Status | US    | Description                              | Block              |
+| ------ | ----- | ---------------------------------------- | ------------------ |
+|        | 12.1  | Weather forecast widget in Dashboard     | Weather            |
+|        | 12.2  | Frost alert & plant-aware warnings       | Weather            |
+|        | 12.3  | DXF export                               | Interoperability   |
+|        | 12.4  | DXF import                               | Interoperability   |
+|        | 12.5  | Multi-page PDF export                    | Interoperability   |
+|        | 12.6  | Shopping list generation                 | Smart Features     |
+|        | 12.7  | Pest & disease log                       | Smart Features     |
+|        | 12.8  | Succession planting                      | Smart Features     |
+|        | 12.9  | Garden journal (map-linked notes)        | Smart Features     |
