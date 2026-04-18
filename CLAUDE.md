@@ -154,7 +154,7 @@ Full history: see `docs/roadmap.md`.
 | ✅     | 11.13 | Array along path                         | Shape Operations   |
 |        | 11.14 | Ellipse drawing tool                     | Drawing Tools      |
 |        | 11.15 | Offset tool                              | Drawing Tools      |
-|        | 11.16 | Trim / extend tool                       | Drawing Tools      |
+| ✅     | 11.16 | Trim / extend tool                       | Drawing Tools      |
 |        | 11.17 | DXF export                               | Interoperability   |
 |        | 11.18 | DXF import                               | Interoperability   |
 |        | 11.19 | Multi-page PDF export                    | Interoperability   |
