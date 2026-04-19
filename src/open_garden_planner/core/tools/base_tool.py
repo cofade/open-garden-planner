@@ -83,6 +83,7 @@ class ToolType(Enum):
     RECTANGLE = auto()
     POLYGON = auto()
     CIRCLE = auto()
+    ELLIPSE = auto()
 
     # Text annotation
     TEXT = auto()
@@ -93,6 +94,7 @@ class ToolType(Enum):
 
     # CAD editing tools
     TRIM_EXTEND = auto()
+    OFFSET = auto()
 
 
 class BaseTool(ABC):

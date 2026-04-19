@@ -616,6 +616,7 @@ class ProjectManager(QObject):
             CircleItem,
             ConstructionCircleItem,
             ConstructionLineItem,
+            EllipseItem,
             PolygonItem,
             PolylineItem,
             RectangleItem,
@@ -660,6 +661,39 @@ class ProjectManager(QObject):
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
             # Save rotation angle
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
+            return data
+        elif isinstance(item, EllipseItem):
+            rect = item.rect()
+            cx = item.pos().x() + rect.center().x()
+            cy = item.pos().y() + rect.center().y()
+            data = {
+                "type": "ellipse",
+                "item_id": str(item.item_id),
+                "center_x": cx,
+                "center_y": cy,
+                "semi_x": rect.width() / 2,
+                "semi_y": rect.height() / 2,
+            }
+            if hasattr(item, "object_type") and item.object_type:
+                data["object_type"] = item.object_type.name
+            if hasattr(item, "name") and item.name:
+                data["name"] = item.name
+            if hasattr(item, "metadata") and item.metadata:
+                data["metadata"] = item.metadata
+            if hasattr(item, "layer_id") and item.layer_id:
+                data["layer_id"] = str(item.layer_id)
+            if hasattr(item, "label_visible") and not item.label_visible:
+                data["label_visible"] = False
+            fill_color = item.fill_color if hasattr(item, "fill_color") and item.fill_color else item.brush().color()
+            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            data["stroke_color"] = item.pen().color().name(QColor.NameFormat.HexArgb)
+            data["stroke_width"] = item.pen().widthF()
+            if hasattr(item, "fill_pattern") and item.fill_pattern:
+                data["fill_pattern"] = item.fill_pattern.name
+            if hasattr(item, "stroke_style") and item.stroke_style:
+                data["stroke_style"] = item.stroke_style.name
             if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
                 data["rotation_angle"] = item.rotation_angle
             return data
@@ -813,6 +847,7 @@ class ProjectManager(QObject):
             CircleItem,
             ConstructionCircleItem,
             ConstructionLineItem,
+            EllipseItem,
             PolygonItem,
             PolylineItem,
             RectangleItem,
@@ -830,6 +865,7 @@ class ProjectManager(QObject):
                 (
                     RectangleItem,
                     CircleItem,
+                    EllipseItem,
                     PolygonItem,
                     PolylineItem,
                     BackgroundImageItem,
@@ -910,6 +946,7 @@ class ProjectManager(QObject):
         from open_garden_planner.ui.canvas.items import (
             BackgroundImageItem,
             CircleItem,
+            EllipseItem,
             PolygonItem,
             PolylineItem,
             RectangleItem,
@@ -1101,6 +1138,48 @@ class ProjectManager(QObject):
             # Restore spacing radius override (US-11.2)
             if "spacing_radius_cm" in obj:
                 item._spacing_radius_cm = obj["spacing_radius_cm"]
+            return item
+        elif obj_type == "ellipse":
+            semi_x = float(obj.get("semi_x", 50))
+            semi_y = float(obj.get("semi_y", 30))
+            cx = float(obj.get("center_x", 0))
+            cy = float(obj.get("center_y", 0))
+            item = EllipseItem(
+                cx - semi_x,
+                cy - semi_y,
+                semi_x * 2,
+                semi_y * 2,
+                object_type=object_type or ObjectType.GENERIC_ELLIPSE,
+                name=name,
+                metadata=metadata,
+                fill_pattern=fill_pattern,
+                stroke_style=stroke_style,
+                layer_id=layer_id,
+            )
+            if "item_id" in obj:
+                item._item_id = UUID(obj["item_id"])
+            if "fill_color" in obj:
+                color = QColor(obj["fill_color"])
+                if hasattr(item, 'fill_color'):
+                    item.fill_color = color
+                if fill_pattern:
+                    item.setBrush(create_pattern_brush(fill_pattern, color))
+                else:
+                    brush = item.brush()
+                    brush.setColor(color)
+                    item.setBrush(brush)
+            if "stroke_color" in obj:
+                pen = item.pen()
+                pen.setColor(QColor(obj["stroke_color"]))
+                if "stroke_width" in obj:
+                    pen.setWidthF(obj["stroke_width"])
+                if stroke_style:
+                    pen.setStyle(stroke_style.to_qt_pen_style())
+                item.setPen(pen)
+            if not label_visible:
+                item.label_visible = False
+            if "rotation_angle" in obj:
+                item._apply_rotation(obj["rotation_angle"])
             return item
         elif obj_type == "polyline":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]

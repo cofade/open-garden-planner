@@ -3,6 +3,7 @@
 from .background_image_item import BackgroundImageItem
 from .circle_item import CircleItem
 from .construction_item import ConstructionCircleItem, ConstructionLineItem
+from .ellipse_item import EllipseItem
 from .garden_item import GardenItemMixin
 from .group_item import GroupItem
 from .polygon_item import PolygonItem
@@ -16,6 +17,7 @@ __all__ = [
     "CircleItem",
     "ConstructionCircleItem",
     "ConstructionLineItem",
+    "EllipseItem",
     "GardenItemMixin",
     "GroupItem",
     "HandlePosition",

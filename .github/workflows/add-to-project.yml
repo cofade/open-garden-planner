@@ -8,7 +8,7 @@ jobs:
   add-to-project:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/add-to-project@v1.0.2
-        with:
-          project-url: https://github.com/users/cofade/projects/1
-          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+      - name: Add issue to project
+        env:
+          GH_TOKEN: ${{ secrets.ADD_TO_PROJECT_PAT }}
+        run: gh project item-add 1 --owner cofade --url "${{ github.event.issue.html_url }}"

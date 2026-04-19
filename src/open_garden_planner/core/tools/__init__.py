@@ -18,7 +18,9 @@ from .constraint_tool import (
     VerticalDistanceConstraintTool,
 )
 from .construction_tool import ConstructionCircleTool, ConstructionLineTool
+from .ellipse_tool import EllipseTool
 from .measure_tool import MeasureTool
+from .offset_tool import OffsetTool
 from .polygon_tool import PolygonTool
 from .polyline_tool import PolylineTool
 from .rectangle_tool import RectangleTool
@@ -34,6 +36,7 @@ __all__ = [
     "CoincidentConstraintTool",
     "ConstraintTool",
     "EdgeLengthConstraintTool",
+    "EllipseTool",
     "EqualConstraintTool",
     "FixedConstraintTool",
     "ConstructionCircleTool",
@@ -41,6 +44,7 @@ __all__ = [
     "HorizontalConstraintTool",
     "HorizontalDistanceConstraintTool",
     "MeasureTool",
+    "OffsetTool",
     "ParallelConstraintTool",
     "PerpendicularConstraintTool",
     "PolygonTool",

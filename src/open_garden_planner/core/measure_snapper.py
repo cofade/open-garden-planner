@@ -50,6 +50,7 @@ def get_anchor_points(item: QGraphicsItem) -> list[AnchorPoint]:
     """
     from open_garden_planner.ui.canvas.items import (
         CircleItem,
+        EllipseItem,
         PolygonItem,
         PolylineItem,
         RectangleItem,
@@ -63,6 +64,8 @@ def get_anchor_points(item: QGraphicsItem) -> list[AnchorPoint]:
 
     if isinstance(item, RectangleItem):
         anchors = _rect_anchors(item)
+    elif isinstance(item, EllipseItem):
+        anchors = _ellipse_anchors(item)
     elif isinstance(item, CircleItem):
         anchors = _circle_anchors(item)
     elif isinstance(item, PolygonItem):
@@ -125,6 +128,33 @@ def _circle_anchors(item: QGraphicsItem) -> list[AnchorPoint]:
     from open_garden_planner.ui.canvas.items import CircleItem
 
     assert isinstance(item, CircleItem)
+    rect = item.rect()
+    cx = rect.x() + rect.width() / 2
+    cy = rect.y() + rect.height() / 2
+
+    local_points = [
+        (QPointF(cx, cy), AnchorType.CENTER),
+        (QPointF(cx, rect.top()), AnchorType.EDGE_TOP),
+        (QPointF(cx, rect.bottom()), AnchorType.EDGE_BOTTOM),
+        (QPointF(rect.left(), cy), AnchorType.EDGE_LEFT),
+        (QPointF(rect.right(), cy), AnchorType.EDGE_RIGHT),
+    ]
+
+    return [
+        AnchorPoint(
+            point=item.mapToScene(lp),
+            anchor_type=at,
+            item=item,
+        )
+        for lp, at in local_points
+    ]
+
+
+def _ellipse_anchors(item: QGraphicsItem) -> list[AnchorPoint]:
+    """Get anchors for an ellipse item: center + 4 quadrant points (N/E/S/W)."""
+    from open_garden_planner.ui.canvas.items import EllipseItem
+
+    assert isinstance(item, EllipseItem)
     rect = item.rect()
     cx = rect.x() + rect.width() / 2
     cy = rect.y() + rect.height() / 2

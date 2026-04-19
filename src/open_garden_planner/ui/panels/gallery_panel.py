@@ -214,6 +214,7 @@ def _build_gallery_categories() -> list[GalleryCategory]:
         (_tr("Rectangle"), ToolType.RECTANGLE, ObjectType.GENERIC_RECTANGLE, "rectangle"),
         (_tr("Polygon"), ToolType.POLYGON, ObjectType.GENERIC_POLYGON, "polygon"),
         (_tr("Circle"), ToolType.CIRCLE, ObjectType.GENERIC_CIRCLE, "circle"),
+        (_tr("Ellipse"), ToolType.ELLIPSE, ObjectType.GENERIC_ELLIPSE, "ellipse"),
     ]
     for name, tool, obj, icon in shapes:
         style = OBJECT_STYLES[obj]

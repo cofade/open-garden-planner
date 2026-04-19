@@ -47,11 +47,13 @@ from open_garden_planner.core.tools import (
     ConstructionCircleTool,
     ConstructionLineTool,
     EdgeLengthConstraintTool,
+    EllipseTool,
     EqualConstraintTool,
     FixedConstraintTool,
     HorizontalConstraintTool,
     HorizontalDistanceConstraintTool,
     MeasureTool,
+    OffsetTool,
     ParallelConstraintTool,
     PerpendicularConstraintTool,
     PolygonTool,
@@ -213,6 +215,7 @@ class CanvasView(QGraphicsView):
 
         # Register CAD editing tools
         self._tool_manager.register_tool(TrimExtendTool(self))
+        self._tool_manager.register_tool(OffsetTool(self))
 
         # Register generic shape tools
         rect_tool = RectangleTool(self, object_type=ObjectType.GENERIC_RECTANGLE)
@@ -226,6 +229,10 @@ class CanvasView(QGraphicsView):
         circle_tool = CircleTool(self, object_type=ObjectType.GENERIC_CIRCLE)
         circle_tool.shortcut = "C"
         self._tool_manager.register_tool(circle_tool)
+
+        ellipse_tool = EllipseTool(self, object_type=ObjectType.GENERIC_ELLIPSE)
+        ellipse_tool.shortcut = "E"
+        self._tool_manager.register_tool(ellipse_tool)
 
         text_tool = TextTool(self)
         self._tool_manager.register_tool(text_tool)
