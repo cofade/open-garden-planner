@@ -649,11 +649,21 @@ class GardenItemMixin:
             self._edit_label_item.setPlainText(self._name)
             self._edit_label_item.show()
 
-        # Give it focus and select all text
-        self._edit_label_item.setFocus()
-        cursor = self._edit_label_item.textCursor()
-        cursor.select(cursor.SelectionType.Document)
-        self._edit_label_item.setTextCursor(cursor)
+        # Defer focus so Qt finishes processing the triggering mouse event first.
+        # Without the timer, the final MouseButtonRelease from the double-click
+        # resets the scene's focus item before the editor can accept keystrokes.
+        from PyQt6.QtCore import QTimer
+        _item = self._edit_label_item
+
+        def _give_focus() -> None:
+            if _item is None:
+                return
+            _item.setFocus(Qt.FocusReason.OtherFocusReason)
+            _cursor = _item.textCursor()
+            _cursor.select(_cursor.SelectionType.Document)
+            _item.setTextCursor(_cursor)
+
+        QTimer.singleShot(0, _give_focus)
 
     def _reposition_edit_label(self) -> None:
         """Reposition the edit label as text changes size."""

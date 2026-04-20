@@ -2262,6 +2262,18 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
+        # Dispatch bare letter/digit keys to registered tools via their shortcut attribute.
+        # Guard: no modifier keys; scene not editing text (label edit in progress).
+        _focus = self._canvas_scene.focusItem()
+        _in_text_edit = _focus is not None and hasattr(_focus, 'toPlainText')
+        if not event.modifiers() and not _in_text_edit and event.text():
+            _key = event.text().upper()
+            for _tool in self._tool_manager._tools.values():
+                if _tool.shortcut and _tool.shortcut.upper() == _key:
+                    self.set_active_tool(_tool.tool_type)
+                    event.accept()
+                    return
+
         # Delegate to active tool first
         tool = self._tool_manager.active_tool
         if tool and tool.key_press(event):

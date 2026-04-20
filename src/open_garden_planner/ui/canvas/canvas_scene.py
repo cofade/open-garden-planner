@@ -254,6 +254,13 @@ class CanvasScene(QGraphicsScene):
                     self._update_items_visibility()
                     self.layer_auto_unhidden.emit(item.layer_id)
 
+            # Assign layer z-value so new items render on top of existing same-layer
+            # items. Without this, new items default to z=0, below all layer items.
+            if item.layer_id:
+                _layer = self.get_layer_by_id(item.layer_id)
+                if _layer:
+                    item.setZValue(_layer.z_order * 100)
+
     # Constraint dimension line management
 
     @property
