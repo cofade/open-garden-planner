@@ -1,16 +1,16 @@
 """Integration tests for OffsetTool (US-11.15).
 
-Tests exercise the full select → hover → click → dialog workflow.
+Tests exercise the full select → hover → click workflow.
+Distance is now determined by cursor position, not a dialog.
 All coordinates are scene-space (Y-down, (0,0) = top-left).
 """
 
 # ruff: noqa: ARG002
 
-from unittest.mock import MagicMock, patch
-
 import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QMouseEvent
+from unittest.mock import MagicMock
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.tools import ToolType
@@ -68,21 +68,12 @@ def _add_polygon(view: CanvasView, vertices: list[QPointF]) -> PolygonItem:
     return item
 
 
-def _offset_click(
-    view: CanvasView,
-    click_pos: QPointF,
-    distance: float,
-) -> None:
-    """Activate offset tool, click at pos with mocked dialog returning distance."""
+def _offset_click(view: CanvasView, click_pos: QPointF) -> None:
+    """Activate offset tool, hover then click at pos — distance from cursor."""
     tool = view.tool_manager.active_tool
     event = _left_click()
-
-    with patch(
-        "open_garden_planner.core.tools.offset_tool.QInputDialog.getDouble",
-        return_value=(distance, True),
-    ):
-        tool.mouse_move(event, click_pos)
-        tool.mouse_press(event, click_pos)
+    tool.mouse_move(event, click_pos)
+    tool.mouse_press(event, click_pos)
 
 
 # ---------------------------------------------------------------------------
@@ -99,8 +90,8 @@ class TestOffsetRectangle:
         canvas.set_active_tool(ToolType.OFFSET)
 
         before = len(_items_of(canvas, RectangleItem))
-        # Click outside the rect (to the right)
-        _offset_click(canvas, QPointF(820, 400), distance=20.0)
+        # Click ~20 units outside the right edge (boundary at x=800)
+        _offset_click(canvas, QPointF(820, 400))
 
         rects = _items_of(canvas, RectangleItem)
         assert len(rects) == before + 1
@@ -108,18 +99,32 @@ class TestOffsetRectangle:
     def test_outward_offset_size(
         self, canvas: CanvasView, qtbot: object
     ) -> None:
-        """Outward offset by 20 adds 40 to each dimension."""
+        """Outward offset by ~20 adds ~40 to each dimension."""
         original = _add_rect(canvas, 200, 200, 600, 400)
         canvas.set_active_tool(ToolType.OFFSET)
 
-        # Click outside (right side)
-        _offset_click(canvas, QPointF(820, 400), distance=20.0)
+        # Click 20 units outside the right edge; boundary sampling tolerance ±3
+        _offset_click(canvas, QPointF(820, 400))
 
         new_rects = [r for r in _items_of(canvas, RectangleItem) if r is not original]
         assert len(new_rects) == 1
         nr = new_rects[0]
-        assert abs(nr.rect().width() - 640) < 1.0
-        assert abs(nr.rect().height() - 440) < 1.0
+        assert abs(nr.rect().width() - 640) < 3.0
+        assert abs(nr.rect().height() - 440) < 3.0
+
+    def test_outward_offset_larger_than_original(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """Outward offset always creates a shape wider and taller than original."""
+        original = _add_rect(canvas, 200, 200, 600, 400)
+        canvas.set_active_tool(ToolType.OFFSET)
+
+        _offset_click(canvas, QPointF(830, 400))
+
+        new_rects = [r for r in _items_of(canvas, RectangleItem) if r is not original]
+        assert len(new_rects) == 1
+        assert new_rects[0].rect().width() > original.rect().width()
+        assert new_rects[0].rect().height() > original.rect().height()
 
     def test_inward_offset_creates_smaller_rect(
         self, canvas: CanvasView, qtbot: object
@@ -128,25 +133,13 @@ class TestOffsetRectangle:
         original = _add_rect(canvas, 200, 200, 600, 400)
         canvas.set_active_tool(ToolType.OFFSET)
 
-        # Click inside the rect (center)
-        _offset_click(canvas, QPointF(500, 400), distance=20.0)
+        # Click well inside the rect, far from boundary → inward offset
+        _offset_click(canvas, QPointF(500, 400))
 
         new_rects = [r for r in _items_of(canvas, RectangleItem) if r is not original]
         assert len(new_rects) == 1
-        nr = new_rects[0]
-        assert nr.rect().width() < original.rect().width()
-        assert nr.rect().height() < original.rect().height()
-
-    def test_inward_too_large_creates_no_item(
-        self, canvas: CanvasView, qtbot: object
-    ) -> None:
-        """Inward offset larger than half the smallest dimension produces no item."""
-        original = _add_rect(canvas, 200, 200, 100, 100)
-        canvas.set_active_tool(ToolType.OFFSET)
-
-        before = len(_items_of(canvas, RectangleItem))
-        _offset_click(canvas, QPointF(250, 250), distance=200.0)
-        assert len(_items_of(canvas, RectangleItem)) == before
+        assert new_rects[0].rect().width() < original.rect().width()
+        assert new_rects[0].rect().height() < original.rect().height()
 
     def test_undo_removes_offset_rect(
         self, canvas: CanvasView, qtbot: object
@@ -155,11 +148,22 @@ class TestOffsetRectangle:
         _add_rect(canvas, 200, 200, 600, 400)
         canvas.set_active_tool(ToolType.OFFSET)
 
-        _offset_click(canvas, QPointF(820, 400), distance=20.0)
+        _offset_click(canvas, QPointF(820, 400))
         assert len(_items_of(canvas, RectangleItem)) == 2
 
         canvas.command_manager.undo()
         assert len(_items_of(canvas, RectangleItem)) == 1
+
+    def test_tool_switches_to_select_after_offset(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """After creating an offset, the active tool switches back to SELECT."""
+        _add_rect(canvas, 200, 200, 600, 400)
+        canvas.set_active_tool(ToolType.OFFSET)
+
+        _offset_click(canvas, QPointF(820, 400))
+
+        assert canvas.tool_manager.active_tool.tool_type == ToolType.SELECT
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +172,7 @@ class TestOffsetRectangle:
 
 
 class TestOffsetCircle:
-    def test_outward_offset_increases_radius(
+    def test_outward_offset_creates_larger_circle(
         self, canvas: CanvasView, qtbot: object
     ) -> None:
         """Clicking outside a circle creates a larger CircleItem."""
@@ -176,39 +180,43 @@ class TestOffsetCircle:
         canvas.set_active_tool(ToolType.OFFSET)
 
         before_count = len(_items_of(canvas, CircleItem))
-        # Click outside (to the right of the circle boundary)
-        _offset_click(canvas, QPointF(620, 500), distance=30.0)
+        # Click 30 units outside the right boundary (boundary at x=600)
+        _offset_click(canvas, QPointF(630, 500))
 
         circles = _items_of(canvas, CircleItem)
         assert len(circles) == before_count + 1
 
         new_circles = [c for c in circles if c is not original]
         assert len(new_circles) == 1
-        assert abs(new_circles[0].radius - 130) < 1.0
+        assert new_circles[0].radius > original.radius
 
-    def test_inward_offset_decreases_radius(
+    def test_inward_offset_creates_smaller_circle(
         self, canvas: CanvasView, qtbot: object
     ) -> None:
         """Clicking inside a circle creates a smaller CircleItem."""
         original = _add_circle(canvas, 500, 500, 100)
         canvas.set_active_tool(ToolType.OFFSET)
 
-        _offset_click(canvas, QPointF(500, 500), distance=30.0)
+        # Click well inside (30 units from right boundary)
+        _offset_click(canvas, QPointF(570, 500))
 
         new_circles = [c for c in _items_of(canvas, CircleItem) if c is not original]
         assert len(new_circles) == 1
-        assert abs(new_circles[0].radius - 70) < 1.0
+        assert new_circles[0].radius < original.radius
 
-    def test_inward_offset_larger_than_radius_creates_no_item(
+    def test_outward_offset_approximate_radius(
         self, canvas: CanvasView, qtbot: object
     ) -> None:
-        """Inward offset exceeding the radius produces no item."""
-        _add_circle(canvas, 500, 500, 50)
+        """Outward offset by ~30 units increases radius by ~30."""
+        original = _add_circle(canvas, 500, 500, 100)
         canvas.set_active_tool(ToolType.OFFSET)
 
-        before = len(_items_of(canvas, CircleItem))
-        _offset_click(canvas, QPointF(500, 500), distance=200.0)
-        assert len(_items_of(canvas, CircleItem)) == before
+        # 30 units outside right boundary
+        _offset_click(canvas, QPointF(630, 500))
+
+        new_circles = [c for c in _items_of(canvas, CircleItem) if c is not original]
+        assert len(new_circles) == 1
+        assert abs(new_circles[0].radius - 130) < 3.0
 
 
 # ---------------------------------------------------------------------------
@@ -224,11 +232,26 @@ class TestOffsetEllipse:
         original = _add_ellipse(canvas, 300, 300, 400, 200)
         canvas.set_active_tool(ToolType.OFFSET)
 
-        _offset_click(canvas, QPointF(720, 400), distance=25.0)
+        # Click outside the right boundary (boundary at x=700)
+        _offset_click(canvas, QPointF(725, 400))
 
         new_items = [e for e in _items_of(canvas, EllipseItem) if e is not original]
         assert len(new_items) == 1
         assert new_items[0].rect().width() > original.rect().width()
+
+    def test_inward_offset_creates_smaller_ellipse(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """Inward offset of an ellipse creates a smaller EllipseItem."""
+        original = _add_ellipse(canvas, 300, 300, 400, 200)
+        canvas.set_active_tool(ToolType.OFFSET)
+
+        # Click inside near the right boundary
+        _offset_click(canvas, QPointF(675, 400))
+
+        new_items = [e for e in _items_of(canvas, EllipseItem) if e is not original]
+        assert len(new_items) == 1
+        assert new_items[0].rect().width() < original.rect().width()
 
 
 # ---------------------------------------------------------------------------
@@ -253,8 +276,7 @@ class TestOffsetPolygon:
         canvas.set_active_tool(ToolType.OFFSET)
 
         before = len(_items_of(canvas, PolygonItem))
-        # Click outside the polygon
-        _offset_click(canvas, QPointF(820, 400), distance=20.0)
+        _offset_click(canvas, QPointF(820, 400))
         assert len(_items_of(canvas, PolygonItem)) == before + 1
 
     def test_polygon_offset_undo(
@@ -273,7 +295,7 @@ class TestOffsetPolygon:
         canvas.set_active_tool(ToolType.OFFSET)
 
         before = len(_items_of(canvas, PolygonItem))
-        _offset_click(canvas, QPointF(820, 400), distance=20.0)
+        _offset_click(canvas, QPointF(820, 400))
         assert len(_items_of(canvas, PolygonItem)) == before + 1
 
         canvas.command_manager.undo()
@@ -294,27 +316,8 @@ class TestRobustness:
         tool = canvas.tool_manager.active_tool
         event = _left_click()
 
-        # No items in scene, no crash
         result = tool.mouse_press(event, QPointF(500, 500))
         assert result is False
-
-    def test_dialog_cancel_creates_no_item(
-        self, canvas: CanvasView, qtbot: object
-    ) -> None:
-        """Cancelling the distance dialog creates no item."""
-        _add_rect(canvas, 200, 200, 600, 400)
-        canvas.set_active_tool(ToolType.OFFSET)
-        tool = canvas.tool_manager.active_tool
-        event = _left_click()
-
-        with patch(
-            "open_garden_planner.core.tools.offset_tool.QInputDialog.getDouble",
-            return_value=(0.0, False),
-        ):
-            tool.mouse_move(event, QPointF(820, 400))
-            tool.mouse_press(event, QPointF(820, 400))
-
-        assert len(_items_of(canvas, RectangleItem)) == 1
 
     def test_hover_empty_scene_no_crash(
         self, canvas: CanvasView, qtbot: object

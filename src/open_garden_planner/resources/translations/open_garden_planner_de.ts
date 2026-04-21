@@ -684,14 +684,6 @@
             <source>outward</source>
             <translation>auswärts</translation>
         </message>
-        <message>
-            <source>Offset</source>
-            <translation>Versatz</translation>
-        </message>
-        <message>
-            <source>Offset distance (cm):</source>
-            <translation>Versatzabstand (cm):</translation>
-        </message>
     </context>
     <context>
         <name>CircleItem</name>

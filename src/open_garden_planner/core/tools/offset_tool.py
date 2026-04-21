@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QT_TR_NOOP, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen
-from PyQt6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QInputDialog
+from PyQt6.QtWidgets import QGraphicsItem, QGraphicsPathItem
 
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
 
@@ -305,26 +305,16 @@ class OffsetTool(BaseTool):
 
         self._update_target_from_selection()
         if self._target is None:
-            self._view.set_status_message(
-                self._view.tr("Select a shape to offset")
-            )
+            self._view.set_status_message(self._view.tr("Select a shape to offset"))
             return False
 
         local_pos = self._target.mapFromScene(scene_pos)
         self._inward = self._target.shape().contains(local_pos)
+        dist = _nearest_boundary_distance(self._target, scene_pos)
 
         self._clear_preview()
 
-        dist, ok = QInputDialog.getDouble(
-            self._view,
-            self._view.tr("Offset"),
-            self._view.tr("Offset distance (cm):"),
-            value=10.0,
-            min=0.1,
-            max=9999.0,
-            decimals=1,
-        )
-        if not ok or dist <= 0:
+        if dist < 0.5:
             return True
 
         result = _compute_offset_item(self._target, dist, self._inward)
@@ -337,8 +327,9 @@ class OffsetTool(BaseTool):
         self._view.add_item(result, "offset")
         direction = self._view.tr("inward") if self._inward else self._view.tr("outward")
         self._view.set_status_message(
-            self._view.tr("Created {dir} offset of {dist} cm").format(dir=direction, dist=dist)
+            self._view.tr("Created {dir} offset of {dist:.1f} cm").format(dir=direction, dist=dist)
         )
+        self._view._tool_manager.set_active_tool(ToolType.SELECT)
         return True
 
     def mouse_release(self, _event: QMouseEvent, _scene_pos: QPointF) -> bool:

@@ -86,6 +86,7 @@ class GardenItemMixin:
         )
         self._label_item: QGraphicsSimpleTextItem | None = None
         self._edit_label_item: QGraphicsTextItem | None = None
+        self._label_edit_start_time: float = 0.0
 
     @property
     def item_id(self) -> uuid.UUID:
@@ -583,8 +584,25 @@ class GardenItemMixin:
                 def focusOutEvent(self, event: Any) -> None:
                     """Handle focus loss - commit changes."""
                     super().focusOutEvent(event)
-                    if hasattr(self.parent_item, '_finish_label_edit'):
-                        self.parent_item._finish_label_edit()
+                    parent = self.parent_item
+                    # Guard: Qt's double-click Release-2 resets scene focus within
+                    # milliseconds of the editor opening.  Re-establish focus as long
+                    # as the editor is visible and within the 200 ms protection window.
+                    import time
+                    if (self.isVisible()
+                            and time.monotonic()
+                                - getattr(parent, '_label_edit_start_time', 0) < 0.2):
+                        from PyQt6.QtCore import Qt as _Qt
+                        from PyQt6.QtCore import QTimer
+                        _self = self
+                        QTimer.singleShot(
+                            0,
+                            lambda: _self.setFocus(_Qt.FocusReason.OtherFocusReason)
+                                    if _self.isVisible() else None,
+                        )
+                        return
+                    if hasattr(parent, '_finish_label_edit'):
+                        parent._finish_label_edit()
 
                 def keyPressEvent(self, event: Any) -> None:
                     """Handle key presses - Enter/Escape to finish editing."""
@@ -654,6 +672,7 @@ class GardenItemMixin:
         # resets the scene's focus item before the editor can accept keystrokes.
         from PyQt6.QtCore import QTimer
         _item = self._edit_label_item
+        _parent = self
 
         def _give_focus() -> None:
             if _item is None:
@@ -662,6 +681,8 @@ class GardenItemMixin:
             _cursor = _item.textCursor()
             _cursor.select(_cursor.SelectionType.Document)
             _item.setTextCursor(_cursor)
+            import time
+            _parent._label_edit_start_time = time.monotonic()
 
         QTimer.singleShot(0, _give_focus)
 

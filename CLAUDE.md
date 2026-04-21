@@ -159,7 +159,7 @@ Full history: see `docs/roadmap.md`.
 | ✅     | 11.11 | Group / ungroup                          | Shape Operations   |
 | ✅     | 11.12 | Boolean shape operations                 | Shape Operations   |
 | ✅     | 11.13 | Array along path                         | Shape Operations   |
-|        | 11.14 | Ellipse drawing tool                     | Drawing Tools      |
+| ✅     | 11.14 | Ellipse drawing tool                     | Drawing Tools      |
 |        | 11.15 | Offset tool                              | Drawing Tools      |
 | ✅     | 11.16 | Trim / extend tool                       | Drawing Tools      |
 |        | 11.24 | Find & replace objects                   | Workflow           |

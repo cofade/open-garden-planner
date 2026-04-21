@@ -122,8 +122,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Created {dir} offset of {dist} cm": "{dir}er Versatz von {dist} cm erstellt",
         "inward": "einwärts",
         "outward": "auswärts",
-        "Offset": "Versatz",
-        "Offset distance (cm):": "Versatzabstand (cm):",
     },
 
     # ── CoincidentConstraintTool ──
