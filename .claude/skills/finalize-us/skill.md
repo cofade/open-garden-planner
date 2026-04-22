@@ -35,10 +35,16 @@ Run the full post-approval wrap-up for a completed user story. This skill assume
    ```
 
 5. **Wait for CI release** — the CI release workflow (`release.yml`) auto-creates a release + tag on every non-chore push to master. Default is patch bump. For minor/major bumps, add the `minor` or `major` label to the PR **before** merging.
-   ```
-   # Poll until release appears (usually ~2-3 minutes):
+
+   Poll by today's date — NOT by tag prefix (which matches old releases immediately and exits the loop before CI has run):
+   ```bash
+   until "C:\Program Files\GitHub CLI\gh.exe" release list --limit 1 --json tagName,createdAt \
+     --jq '.[0].createdAt' 2>/dev/null | grep -q "$(date +%Y-%m-%d)"; do
+     sleep 15
+   done
    "C:\Program Files\GitHub CLI\gh.exe" release list --limit 1
    ```
+   Usually ~2–3 minutes. If already confirmed (e.g. checked manually), skip polling.
 
 6. **Version bump** — sync source files to the CI-created release:
    ```
