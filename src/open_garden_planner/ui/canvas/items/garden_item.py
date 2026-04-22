@@ -583,23 +583,23 @@ class GardenItemMixin:
 
                 def focusOutEvent(self, event: Any) -> None:
                     """Handle focus loss - commit changes."""
+                    import time
+                    start_time = getattr(self.parent_item, '_label_edit_start_time', 0)
+                    guard_ok = self.isVisible() and time.monotonic() - start_time < 0.2
                     super().focusOutEvent(event)
                     parent = self.parent_item
-                    # Guard: Qt's double-click Release-2 resets scene focus within
-                    # milliseconds of the editor opening.  Re-establish focus as long
-                    # as the editor is visible and within the 200 ms protection window.
-                    import time
-                    if (self.isVisible()
-                            and time.monotonic()
-                                - getattr(parent, '_label_edit_start_time', 0) < 0.2):
+                    if guard_ok:
                         from PyQt6.QtCore import Qt as _Qt
                         from PyQt6.QtCore import QTimer
                         _self = self
-                        QTimer.singleShot(
-                            0,
-                            lambda: _self.setFocus(_Qt.FocusReason.OtherFocusReason)
-                                    if _self.isVisible() else None,
-                        )
+                        _parent_ref = parent
+                        def _refocus() -> None:
+                            if not _self.isVisible():
+                                return
+                            import time as _t
+                            _parent_ref._label_edit_start_time = _t.monotonic()
+                            _self.setFocus(_Qt.FocusReason.OtherFocusReason)
+                        QTimer.singleShot(0, _refocus)
                         return
                     if hasattr(parent, '_finish_label_edit'):
                         parent._finish_label_edit()
@@ -608,13 +608,11 @@ class GardenItemMixin:
                     """Handle key presses - Enter/Escape to finish editing."""
                     from PyQt6.QtCore import Qt
                     if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
-                        # Commit on Enter
                         if hasattr(self.parent_item, '_finish_label_edit'):
                             self.parent_item._finish_label_edit()
                         self.clearFocus()
                         event.accept()
                     elif event.key() == Qt.Key.Key_Escape:
-                        # Cancel on Escape - restore original text
                         if hasattr(self.parent_item, '_cancel_label_edit'):
                             self.parent_item._cancel_label_edit()
                         self.clearFocus()
@@ -649,10 +647,8 @@ class GardenItemMixin:
 
             # Position it exactly where the static label is
             if self._label_item is not None:
-                # Copy the exact position from the static label
                 self._edit_label_item.setPos(self._label_item.pos())
             else:
-                # Fallback positioning if no static label exists
                 bounds = self.boundingRect()  # type: ignore[attr-defined]
                 center = bounds.center()
                 label_bounds = self._edit_label_item.boundingRect()
@@ -663,7 +659,6 @@ class GardenItemMixin:
             # Connect signal to reposition as text changes
             self._edit_label_item.document().contentsChanged.connect(self._reposition_edit_label)
         else:
-            # Update text and show
             self._edit_label_item.setPlainText(self._name)
             self._edit_label_item.show()
 
@@ -677,12 +672,12 @@ class GardenItemMixin:
         def _give_focus() -> None:
             if _item is None:
                 return
+            import time
+            _parent._label_edit_start_time = time.monotonic()
             _item.setFocus(Qt.FocusReason.OtherFocusReason)
             _cursor = _item.textCursor()
             _cursor.select(_cursor.SelectionType.Document)
             _item.setTextCursor(_cursor)
-            import time
-            _parent._label_edit_start_time = time.monotonic()
 
         QTimer.singleShot(0, _give_focus)
 
@@ -702,17 +697,9 @@ class GardenItemMixin:
         """Finish editing the label and save changes."""
         if self._edit_label_item is None or not self._edit_label_item.isVisible():
             return
-
-        # Get the edited text
         new_text = self._edit_label_item.toPlainText().strip()
-
-        # Hide the edit item
         self._edit_label_item.hide()
-
-        # Update the name (this will update or remove the static label)
         self.name = new_text
-
-        # Show the static label again if there's text
         if self._label_item is not None:
             self._label_item.show()
 
@@ -720,11 +707,7 @@ class GardenItemMixin:
         """Cancel editing the label without saving changes."""
         if self._edit_label_item is None:
             return
-
-        # Hide the edit item
         self._edit_label_item.hide()
-
-        # Show the static label again
         if self._label_item is not None:
             self._label_item.show()
 

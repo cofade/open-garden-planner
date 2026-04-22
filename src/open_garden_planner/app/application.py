@@ -422,7 +422,6 @@ class GardenPlannerApp(QMainWindow):
 
         # Toggle Object Snap
         self._object_snap_action = QAction(self.tr("Snap to &Objects"), self)
-        self._object_snap_action.setShortcut(QKeySequence("O"))
         self._object_snap_action.setCheckable(True)
         self._object_snap_action.setChecked(True)
         self._object_snap_action.setStatusTip(self.tr("Toggle snap to object edges and centers"))
