@@ -96,6 +96,9 @@ _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
     _ToolEntry(
         "trim_extend", "Trim/Extend (I) — X toggles mode", "I", ToolType.TRIM_EXTEND
     ),
+    _ToolEntry(
+        "offset", "Offset (O) — parallel copy inward/outward", "O", ToolType.OFFSET
+    ),
 ]
 
 

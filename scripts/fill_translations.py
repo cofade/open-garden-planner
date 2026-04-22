@@ -116,6 +116,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Wählen Sie mindestens 2 Objekte zum Ausrichten",
         "Select at least 3 objects to distribute":
             "Wählen Sie mindestens 3 Objekte zum Verteilen",
+        "Select a shape to offset": "Form zum Versetzen auswählen",
+        "Offset result is empty — try a smaller distance":
+            "Versatzergebnis ist leer – versuchen Sie einen kleineren Abstand",
+        "Created {dir} offset of {dist} cm": "{dir}er Versatz von {dist} cm erstellt",
+        "inward": "einwärts",
+        "outward": "auswärts",
     },
 
     # ── CoincidentConstraintTool ──
@@ -285,6 +291,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Rectangle": "Rechteck",
         "Polygon": "Polygon",
         "Circle": "Kreis",
+        "Ellipse": "Ellipse",
         "Trees": "Bäume",
         "Apple Tree": "Apfelbaum",
         "Cherry Tree": "Kirschbaum",
@@ -860,6 +867,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Position:": "Position:",
         "Diameter:": "Durchmesser:",
         "Size:": "Größe:",
+        "Semi-axes:": "Halbachsen:",
         "Fill Color:": "Füllfarbe:",
         "Fill Pattern:": "Füllmuster:",
         "Stroke Color:": "Linienfarbe:",
@@ -890,6 +898,31 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Color:": "Farbe:",
         "── Paths ──": "── Wege ──",
         "── Fences ──": "── Zäune ──",
+    },
+
+    # ── EllipseItem (context menu — pylupdate6 cannot extract _ alias) ──
+    "EllipseItem": {
+        "Edit Label": "Beschriftung bearbeiten",
+        "Delete": "Löschen",
+        "Duplicate": "Duplizieren",
+        "Create Linear Array...": "Lineares Muster erstellen...",
+        "Create Grid Array...": "Rastermuster erstellen...",
+        "Create Circular Array...": "Kreismuster erstellen...",
+        "Boolean": "Bool'sche Operation",
+        "Union": "Vereinigung",
+        "Intersect": "Schnittmenge",
+        "Subtract": "Subtraktion",
+        "Array Along Path...": "Muster entlang Pfad...",
+    },
+
+    # ── EllipseTool ──
+    "EllipseTool": {
+        "Ellipse": "Ellipse",
+    },
+
+    # ── OffsetTool / CanvasView strings for offset ──
+    "OffsetTool": {
+        "Offset": "Versatz",
     },
 
     # ── RectangleItem (context menu — pylupdate6 cannot extract _ alias) ──
@@ -1035,6 +1068,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Generic Rectangle": "Generisches Rechteck",
         "Generic Polygon": "Generisches Polygon",
         "Generic Circle": "Generischer Kreis",
+        "Ellipse": "Ellipse",
         "House": "Haus",
         "Garage/Shed": "Garage/Schuppen",
         "Terrace/Patio": "Terrasse/Patio",

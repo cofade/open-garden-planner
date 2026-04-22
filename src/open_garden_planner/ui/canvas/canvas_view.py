@@ -47,11 +47,13 @@ from open_garden_planner.core.tools import (
     ConstructionCircleTool,
     ConstructionLineTool,
     EdgeLengthConstraintTool,
+    EllipseTool,
     EqualConstraintTool,
     FixedConstraintTool,
     HorizontalConstraintTool,
     HorizontalDistanceConstraintTool,
     MeasureTool,
+    OffsetTool,
     ParallelConstraintTool,
     PerpendicularConstraintTool,
     PolygonTool,
@@ -213,6 +215,7 @@ class CanvasView(QGraphicsView):
 
         # Register CAD editing tools
         self._tool_manager.register_tool(TrimExtendTool(self))
+        self._tool_manager.register_tool(OffsetTool(self))
 
         # Register generic shape tools
         rect_tool = RectangleTool(self, object_type=ObjectType.GENERIC_RECTANGLE)
@@ -226,6 +229,10 @@ class CanvasView(QGraphicsView):
         circle_tool = CircleTool(self, object_type=ObjectType.GENERIC_CIRCLE)
         circle_tool.shortcut = "C"
         self._tool_manager.register_tool(circle_tool)
+
+        ellipse_tool = EllipseTool(self, object_type=ObjectType.GENERIC_ELLIPSE)
+        ellipse_tool.shortcut = "E"
+        self._tool_manager.register_tool(ellipse_tool)
 
         text_tool = TextTool(self)
         self._tool_manager.register_tool(text_tool)
@@ -2254,6 +2261,18 @@ class CanvasView(QGraphicsView):
                 self._group_selected()
             event.accept()
             return
+
+        # Dispatch bare letter/digit keys to registered tools via their shortcut attribute.
+        # Guard: no modifier keys; scene not editing text (label edit in progress).
+        _focus = self._canvas_scene.focusItem()
+        _in_text_edit = _focus is not None and hasattr(_focus, 'toPlainText')
+        if not event.modifiers() and not _in_text_edit and event.text():
+            _key = event.text().upper()
+            for _tool in self._tool_manager._tools.values():
+                if _tool.shortcut and _tool.shortcut.upper() == _key:
+                    self.set_active_tool(_tool.tool_type)
+                    event.accept()
+                    return
 
         # Delegate to active tool first
         tool = self._tool_manager.active_tool

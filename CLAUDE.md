@@ -32,6 +32,18 @@ PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
 Tech stack: Python 3.11+ | PyQt6 | QGraphicsView/Scene | pytest + pytest-qt | ruff | mypy
 Use context7 as required for up-to-date library documentation.
 
+## Debugging
+
+**Use `/debug-verbose` at the first sign of any non-obvious bug — before theorising.**
+
+The skill instruments the relevant code with `print`-based logging (stdout, no config needed), then the bug is reproduced manually and the output is read. Fix from evidence, not assumptions.
+
+Key rules:
+- Always include `traceback.format_stack()` at "unexpected call" sites — this is what reveals external callers (e.g. the minimap hiding the label editor).
+- Prefix every print with `[TAG]` so output is grep-able.
+- Remove all instrumentation before committing; the fix stays, the prints don't.
+- After each fix, add a **Case study** entry to `.claude/skills/debug-verbose/skill.md` (symptom, wrong theories, key log line, root cause, lesson). The skill grows with the project.
+
 ## Documentation & Knowledge Base
 
 Architecture documentation follows arc42 in `docs/`. This project uses **continuous documentation** — every feature and fix should leave the docs better than found.
@@ -159,7 +171,7 @@ Full history: see `docs/roadmap.md`.
 | ✅     | 11.11 | Group / ungroup                          | Shape Operations   |
 | ✅     | 11.12 | Boolean shape operations                 | Shape Operations   |
 | ✅     | 11.13 | Array along path                         | Shape Operations   |
-|        | 11.14 | Ellipse drawing tool                     | Drawing Tools      |
+| ✅     | 11.14 | Ellipse drawing tool                     | Drawing Tools      |
 |        | 11.15 | Offset tool                              | Drawing Tools      |
 | ✅     | 11.16 | Trim / extend tool                       | Drawing Tools      |
 |        | 11.24 | Find & replace objects                   | Workflow           |

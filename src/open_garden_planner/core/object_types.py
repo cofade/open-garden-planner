@@ -196,6 +196,7 @@ class ObjectType(Enum):
     GENERIC_RECTANGLE = auto()
     GENERIC_POLYGON = auto()
     GENERIC_CIRCLE = auto()
+    GENERIC_ELLIPSE = auto()
 
     # Text annotation
     GENERIC_TEXT = auto()
@@ -460,6 +461,13 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         display_name=QT_TR_NOOP("Circle"),
         fill_pattern=FillPattern.SOLID,
     ),
+    ObjectType.GENERIC_ELLIPSE: ObjectStyle(
+        fill_color=QColor(255, 220, 150, 255),  # Light amber
+        stroke_color=QColor(200, 140, 0),  # Dark amber
+        stroke_width=2.0,
+        display_name=QT_TR_NOOP("Ellipse"),
+        fill_pattern=FillPattern.SOLID,
+    ),
     ObjectType.GENERIC_TEXT: ObjectStyle(
         fill_color=QColor(0, 0, 0, 255),  # Black text
         stroke_color=QColor(0, 0, 0, 0),  # No stroke
@@ -494,7 +502,7 @@ def is_bed_type(object_type: ObjectType | None) -> bool:
 
 
 def get_valid_types_for_shape(
-    shape: Literal["circle", "polygon", "rectangle", "polyline"],
+    shape: Literal["circle", "polygon", "rectangle", "polyline", "ellipse"],
 ) -> list[ObjectType]:
     """Return the valid ObjectType values for a given shape class.
 
@@ -545,6 +553,8 @@ def get_valid_types_for_shape(
             ObjectType.COLD_FRAME,
             ObjectType.TOOL_SHED,
         ]
+    if shape == "ellipse":
+        return [ObjectType.GENERIC_ELLIPSE]
     if shape == "polyline":
         return [ObjectType.FENCE, ObjectType.WALL, ObjectType.PATH]
     return list(ObjectType)

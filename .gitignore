@@ -6,6 +6,9 @@
 !.claude/skills/finalize-us/
 .claude/skills/finalize-us/*
 !.claude/skills/finalize-us/skill.md
+!.claude/skills/debug-verbose/
+.claude/skills/debug-verbose/*
+!.claude/skills/debug-verbose/skill.md
 
 # Windows
 nul

@@ -35,6 +35,7 @@ from open_garden_planner.core.object_types import (
 )
 from open_garden_planner.ui.canvas.items import (
     CircleItem,
+    EllipseItem,
     PolygonItem,
     PolylineItem,
     RectangleItem,
@@ -314,6 +315,8 @@ class PropertiesPanel(QWidget):
 
         if isinstance(item, RectangleItem):
             valid_types = get_valid_types_for_shape("rectangle")
+        elif isinstance(item, EllipseItem):
+            valid_types = get_valid_types_for_shape("ellipse")
         elif isinstance(item, CircleItem):
             valid_types = get_valid_types_for_shape("circle")
         elif isinstance(item, PolygonItem):
@@ -603,6 +606,47 @@ class PropertiesPanel(QWidget):
             size_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             size_widget.setLayout(size_layout)
             self._form_layout.addRow(self.tr("Size:"), size_widget)
+        elif isinstance(item, EllipseItem):
+            rect = item.rect()
+            axes_layout = QHBoxLayout()
+            axes_layout.setSpacing(4)
+            axes_layout.setContentsMargins(0, 0, 0, 0)
+
+            rx_label = QLabel("X:")
+            rx_spin = QDoubleSpinBox()
+            rx_spin.setRange(0.5, 100000.0)
+            rx_spin.setDecimals(1)
+            rx_spin.setSingleStep(5.0)
+            rx_spin.setSuffix(" cm")
+            rx_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+            rx_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            rx_spin.setValue(rect.width() / 2)
+            axes_layout.addWidget(rx_label)
+            axes_layout.addWidget(rx_spin, 1)
+
+            ry_label = QLabel("Y:")
+            ry_spin = QDoubleSpinBox()
+            ry_spin.setRange(0.5, 100000.0)
+            ry_spin.setDecimals(1)
+            ry_spin.setSingleStep(5.0)
+            ry_spin.setSuffix(" cm")
+            ry_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+            ry_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            ry_spin.setValue(rect.height() / 2)
+            axes_layout.addWidget(ry_label)
+            axes_layout.addWidget(ry_spin, 1)
+
+            rx_spin.valueChanged.connect(
+                lambda _: self._on_dimension_changed(item, 'ellipse_axes', None, rx_spin, ry_spin)
+            )
+            ry_spin.valueChanged.connect(
+                lambda _: self._on_dimension_changed(item, 'ellipse_axes', None, rx_spin, ry_spin)
+            )
+
+            axes_widget = QWidget()
+            axes_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            axes_widget.setLayout(axes_layout)
+            self._form_layout.addRow(self.tr("Semi-axes:"), axes_widget)
 
     def _add_grid_properties(self, item: QGraphicsItem) -> None:
         """Add grid overlay controls (bed types only)."""
@@ -815,7 +859,7 @@ class PropertiesPanel(QWidget):
         Args:
             item: Item to show styling for
         """
-        if not isinstance(item, (RectangleItem, PolygonItem, CircleItem, PolylineItem)):
+        if not isinstance(item, (RectangleItem, EllipseItem, PolygonItem, CircleItem, PolylineItem)):
             return
 
         # Path/fence style preset (only for polylines)
@@ -1266,6 +1310,48 @@ class PropertiesPanel(QWidget):
 
             if self._command_manager:
                 cmd = ResizeItemCommand(item, old_geometry, new_geometry, apply_rect)
+                self._command_manager._undo_stack.append(cmd)
+                self._command_manager._redo_stack.clear()
+                self._command_manager.can_undo_changed.emit(True)
+                self._command_manager.can_redo_changed.emit(False)
+                self._command_manager.command_executed.emit(cmd.description)
+
+        elif (
+            dimension_type == 'ellipse_axes'
+            and isinstance(item, EllipseItem)
+            and width_spin is not None
+            and height_spin is not None
+        ):
+            new_rx = width_spin.value()
+            new_ry = height_spin.value()
+            if new_rx <= 0 or new_ry <= 0:
+                return
+
+            old_rect = item.rect()
+            old_pos = item.pos()
+
+            old_geometry = {
+                'rect_x': old_rect.x(), 'rect_y': old_rect.y(),
+                'width': old_rect.width(), 'height': old_rect.height(),
+                'pos_x': old_pos.x(), 'pos_y': old_pos.y(),
+            }
+            new_geometry = {
+                'rect_x': old_rect.x(), 'rect_y': old_rect.y(),
+                'width': new_rx * 2, 'height': new_ry * 2,
+                'pos_x': old_pos.x(), 'pos_y': old_pos.y(),
+            }
+
+            def apply_ellipse(itm: QGraphicsItem, geom: dict) -> None:
+                if isinstance(itm, EllipseItem):
+                    itm.setRect(geom['rect_x'], geom['rect_y'], geom['width'], geom['height'])
+                    itm.setPos(geom['pos_x'], geom['pos_y'])
+                    itm.update_resize_handles()
+                    itm._position_label()
+
+            apply_ellipse(item, new_geometry)
+
+            if self._command_manager:
+                cmd = ResizeItemCommand(item, old_geometry, new_geometry, apply_ellipse)
                 self._command_manager._undo_stack.append(cmd)
                 self._command_manager._redo_stack.clear()
                 self._command_manager.can_undo_changed.emit(True)

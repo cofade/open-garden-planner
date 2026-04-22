@@ -664,6 +664,26 @@
             <source>Hedge Section</source>
             <translation>Heckenabschnitt</translation>
         </message>
+        <message>
+            <source>Select a shape to offset</source>
+            <translation>Form zum Versetzen auswählen</translation>
+        </message>
+        <message>
+            <source>Offset result is empty — try a smaller distance</source>
+            <translation>Versatzergebnis ist leer – versuchen Sie einen kleineren Abstand</translation>
+        </message>
+        <message>
+            <source>Created {dir} offset of {dist} cm</source>
+            <translation>{dir}er Versatz von {dist} cm erstellt</translation>
+        </message>
+        <message>
+            <source>inward</source>
+            <translation>einwärts</translation>
+        </message>
+        <message>
+            <source>outward</source>
+            <translation>auswärts</translation>
+        </message>
     </context>
     <context>
         <name>CircleItem</name>
@@ -2361,6 +2381,10 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <message>
             <source>Infrastructure</source>
             <translation>Infrastruktur</translation>
+        </message>
+        <message>
+            <source>Ellipse</source>
+            <translation>Ellipse</translation>
         </message>
     </context>
     <context>
@@ -4122,6 +4146,10 @@ Ergebnisse werden lokal für ein Jahr zwischengespeichert.</translation>
             <source>Generic Circle</source>
             <translation>Generischer Kreis</translation>
         </message>
+        <message>
+            <source>Ellipse</source>
+            <translation>Ellipse</translation>
+        </message>
     </context>
     <context>
         <name>ParallelConstraintTool</name>
@@ -5646,6 +5674,10 @@ noch nicht implementiert</translation>
             <source>Stroke Style:</source>
             <translation>Linienstil:</translation>
         </message>
+        <message>
+            <source>Semi-axes:</source>
+            <translation>Halbachsen:</translation>
+        </message>
     </context>
     <context>
         <name>RectangleItem</name>
@@ -6926,6 +6958,67 @@ Fortfahren?</translation>
         <message>
             <source>Delete Vertex</source>
             <translation>Knoten löschen</translation>
+        </message>
+    </context>
+    <context>
+        <name>EllipseItem</name>
+        <message>
+            <source>Edit Label</source>
+            <translation>Beschriftung bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete</source>
+            <translation>Löschen</translation>
+        </message>
+        <message>
+            <source>Duplicate</source>
+            <translation>Duplizieren</translation>
+        </message>
+        <message>
+            <source>Create Linear Array...</source>
+            <translation>Lineares Muster erstellen...</translation>
+        </message>
+        <message>
+            <source>Create Grid Array...</source>
+            <translation>Rastermuster erstellen...</translation>
+        </message>
+        <message>
+            <source>Create Circular Array...</source>
+            <translation>Kreismuster erstellen...</translation>
+        </message>
+        <message>
+            <source>Boolean</source>
+            <translation>Bool'sche Operation</translation>
+        </message>
+        <message>
+            <source>Union</source>
+            <translation>Vereinigung</translation>
+        </message>
+        <message>
+            <source>Intersect</source>
+            <translation>Schnittmenge</translation>
+        </message>
+        <message>
+            <source>Subtract</source>
+            <translation>Subtraktion</translation>
+        </message>
+        <message>
+            <source>Array Along Path...</source>
+            <translation>Muster entlang Pfad...</translation>
+        </message>
+    </context>
+    <context>
+        <name>EllipseTool</name>
+        <message>
+            <source>Ellipse</source>
+            <translation>Ellipse</translation>
+        </message>
+    </context>
+    <context>
+        <name>OffsetTool</name>
+        <message>
+            <source>Offset</source>
+            <translation>Versatz</translation>
         </message>
     </context>
 </TS>

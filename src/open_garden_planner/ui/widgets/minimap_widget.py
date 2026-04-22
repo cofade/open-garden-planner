@@ -198,7 +198,12 @@ class MinimapWidget(QWidget):
         """
         hidden: list[QGraphicsItem] = []
         ignore_flag = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
+        # Never hide the scene's current focus item — it may be an active inline
+        # text editor (EditableLabel). Hiding it would steal focus and close the editor.
+        focus_item = self._canvas_scene.focusItem()
         for item in self._canvas_scene.items():
+            if item is focus_item:
+                continue
             if item.isVisible() and (
                 bool(item.flags() & ignore_flag) or item.zValue() >= _OVERLAY_Z_MIN
             ):
