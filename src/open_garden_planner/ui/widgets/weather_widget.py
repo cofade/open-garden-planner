@@ -43,12 +43,11 @@ class _WeatherFetchWorker(QThread):
 
     def run(self) -> None:
         try:
-            svc = get_weather_service()
-            forecast = svc.fetch_forecast(self._lat, self._lon)
+            forecast = get_weather_service().fetch_forecast(self._lat, self._lon)
             if forecast is not None:
                 self.success.emit(forecast)
             else:
-                self.error.emit("Forecast unavailable")
+                self.error.emit(self.tr("Forecast unavailable"))
         except Exception as exc:  # noqa: BLE001
             self.error.emit(str(exc))
 
@@ -182,9 +181,13 @@ class WeatherWidget(QFrame):
             self._show_empty_state()
             return
 
-        self._show_loading()
+        # Skip if a fetch for this exact location is already in flight
+        if (self._worker is not None and self._worker.isRunning()
+                and self._worker._lat == self._lat
+                and self._worker._lon == self._lon):
+            return
 
-        # Cancel any running worker
+        self._show_loading()
         if self._worker is not None and self._worker.isRunning():
             self._worker.wait(500)
 

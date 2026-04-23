@@ -50,11 +50,11 @@ def tmp_cache_dir(tmp_path: Path) -> Path:
 
 class TestWmoMapping:
     def test_clear_sky(self) -> None:
-        assert wmo_to_icon(0) == "☀"
+        assert wmo_to_icon(0) == "☀️"
         assert _wmo_to_description(0) == "Clear sky"
 
     def test_partly_cloudy(self) -> None:
-        assert wmo_to_icon(2) == "⛅"
+        assert wmo_to_icon(2) == "⛅️"
         assert _wmo_to_description(2) == "Partly cloudy"
 
     def test_rainy(self) -> None:
@@ -66,7 +66,7 @@ class TestWmoMapping:
         assert _wmo_to_description(71) == "Snowy"
 
     def test_thunderstorm(self) -> None:
-        assert wmo_to_icon(95) == "⛈"
+        assert wmo_to_icon(95) == "⛈️"
         assert _wmo_to_description(95) == "Thunderstorm"
 
     def test_unknown_code(self) -> None:

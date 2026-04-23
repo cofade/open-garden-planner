@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import logging
+import ssl
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -28,15 +30,15 @@ _CACHE_STALE_SECONDS = 10800  # 3 hours
 # WMO Weather interpretation codes (Open-Meteo docs)
 # Each tuple is (inclusive_start, inclusive_end) -> (description, emoji)
 _WMO_CODE_MAP: dict[tuple[int, int], tuple[str, str]] = {
-    (0, 0): ("Clear sky", "☀"),          # ☀
-    (1, 3): ("Partly cloudy", "⛅"),      # ⛅
-    (45, 48): ("Foggy", "\U0001f32b"),        # 🌫
-    (51, 67): ("Rainy", "\U0001f327"),        # 🌧
-    (71, 77): ("Snowy", "\U0001f328"),        # 🌨
-    (80, 82): ("Showers", "\U0001f326"),      # 🌦
-    (85, 86): ("Snow showers", "\U0001f328"), # 🌨
-    (95, 95): ("Thunderstorm", "⛈"),     # ⛈
-    (96, 99): ("Thunderstorm", "⛈"),     # ⛈
+    (0, 0): ("Clear sky", "☀️"),       # ☀️ (VS-16 forces colour/emoji rendering)
+    (1, 3): ("Partly cloudy", "⛅️"),   # ⛅️
+    (45, 48): ("Foggy", "\U0001f32b"),            # 🌫
+    (51, 67): ("Rainy", "\U0001f327"),            # 🌧
+    (71, 77): ("Snowy", "\U0001f328"),            # 🌨
+    (80, 82): ("Showers", "\U0001f326"),          # 🌦
+    (85, 86): ("Snow showers", "\U0001f328"),     # 🌨
+    (95, 95): ("Thunderstorm", "⛈️"),  # ⛈️
+    (96, 99): ("Thunderstorm", "⛈️"),  # ⛈️
 }
 
 
@@ -190,14 +192,25 @@ class WeatherService:
         if parsed_url.scheme != "https" or parsed_url.netloc != "api.open-meteo.com":
             raise WeatherServiceError("Unexpected weather API URL")
 
+        # Enterprise-compatible SSL context: loads the OS certificate store so
+        # corporate proxy CAs are trusted, and clears VERIFY_X509_STRICT (added
+        # in Python 3.12) which rejects legacy CA certs whose Basic Constraints
+        # extension is not marked as critical per RFC 5280.
+        ssl_ctx = ssl.create_default_context()
+        if sys.platform == "win32":
+            ssl_ctx.load_default_certs(ssl.Purpose.SERVER_AUTH)
+        ssl_ctx.verify_flags &= ~getattr(ssl, "VERIFY_X509_STRICT", 0x20)
+
         req = urllib.request.Request(
             url,
             headers={"User-Agent": "OpenGardenPlanner-WeatherService/1.0"},
         )
         try:
-            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
-                data: dict[str, Any] = json.loads(resp.read().decode("utf-8"))
+            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT, context=ssl_ctx) as resp:
+                raw_bytes = resp.read()
+                data: dict[str, Any] = json.loads(raw_bytes.decode("utf-8"))
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
+            logger.debug("Weather fetch failed for (%.4f, %.4f)", lat, lon, exc_info=True)
             raise WeatherServiceError(f"Open-Meteo request failed: {exc}") from exc
         except json.JSONDecodeError as exc:
             raise WeatherServiceError(f"Invalid JSON from Open-Meteo: {exc}") from exc
