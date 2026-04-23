@@ -5975,4 +5975,68 @@ Continue?</translation>
         <source>Hide</source>
         <translation>Hide</translation>
     </message>
+</context><context>
+    <name>WeatherWidget</name>
+    <message>
+        <source>Weather Forecast</source>
+        <translation>Weather Forecast</translation>
+    </message>
+    <message>
+        <source>Refresh forecast</source>
+        <translation>Refresh forecast</translation>
+    </message>
+    <message>
+        <source>Show / hide full forecast</source>
+        <translation>Show / hide full forecast</translation>
+    </message>
+    <message>
+        <source>Loading forecast …</source>
+        <translation>Loading forecast …</translation>
+    </message>
+    <message>
+        <source>Set a location to enable weather forecast.
+Use File › Set Garden Location to configure GPS coordinates.</source>
+        <translation>Set a location to enable weather forecast.
+Use File › Set Garden Location to configure GPS coordinates.</translation>
+    </message>
+    <message>
+        <source>Date</source>
+        <translation>Date</translation>
+    </message>
+    <message>
+        <source>Weather</source>
+        <translation>Weather</translation>
+    </message>
+    <message>
+        <source>Max °C</source>
+        <translation>Max °C</translation>
+    </message>
+    <message>
+        <source>Min °C</source>
+        <translation>Min °C</translation>
+    </message>
+    <message>
+        <source>Rain mm</source>
+        <translation>Rain mm</translation>
+    </message>
+    <message>
+        <source>Weather forecast unavailable:
+{message}</source>
+        <translation>Weather forecast unavailable:
+{message}</translation>
+    </message>
+    <message>
+        <source>Last updated %1 min ago</source>
+        <translation>Last updated %1 min ago</translation>
+    </message>
+    <message>
+        <source>Last updated %1 h ago</source>
+        <translation>Last updated %1 h ago</translation>
+    </message>
+</context><context>
+    <name>_WeatherFetchWorker</name>
+    <message>
+        <source>Forecast unavailable</source>
+        <translation>Forecast unavailable</translation>
+    </message>
 </context></TS>
