@@ -9,34 +9,59 @@ argument: "US number and PR title, e.g. 'US-11.2 Plant spacing circles'"
 
 Run the full post-approval wrap-up for a completed user story. This skill assumes the code is already approved and all tests pass.
 
+## Operating rules
+
+- Do not finalize from `master`; work from the feature branch first.
+- Before opening or merging a PR, run an independent PR review in a fresh agent context and address anything actionable.
+- Never create git tags manually; GitHub release automation owns tags and versions.
+- Prefer the repo's Windows-safe `gh.exe` path: `"C:\Program Files\GitHub CLI\gh.exe"`.
+- Ask for confirmation before any irreversible remote action if the user has not already approved finalization.
+
 ## Steps
 
-1. **Commit** all staged/unstaged changes on the feature branch:
+1. **Verify branch and clean scope**
+   ```bash
+   git status
+   git branch --show-current
+   git diff --stat
+   ```
+   Confirm you are on the intended feature branch and understand exactly what will ship.
+
+2. **Run final local quality checks**
+   Use the checks required by `CLAUDE.md` for the touched feature. At minimum, run the relevant tests and lint checks; if UI strings changed, include translation validation.
+
+3. **Run an independent PR review**
+   Launch the local `.claude/agents/pr-reviewer.md` agent in a fresh, isolated worktree to review the branch as if it were an external reviewer. The review should look for correctness issues, regressions, missing tests, translation misses, and security concerns. Treat the result as an input to the finalization decision, not as a rubber stamp.
+
+4. **Apply any fixes from review**
+   Re-run the affected checks after fixes. If the reviewer found nothing actionable, note that in the PR summary.
+
+5. **Commit** all staged/unstaged changes on the feature branch:
    ```
    git add <changed files>
    git commit -m "feat(US-X.X): <description>"
    ```
-   Include `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`.
+   Include `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`.
 
-2. **Push** the feature branch:
+6. **Push** the feature branch:
    ```
    git push -u origin feature/US-X.X-short-description
    ```
 
-3. **Create PR** via GitHub CLI:
+7. **Create PR** via GitHub CLI:
    ```
    "C:\Program Files\GitHub CLI\gh.exe" pr create --title "feat(US-X.X): Title" --body "..."
    ```
-   Body must include `## Summary` (bullet points), `## Test plan` (checklist), and the Claude Code footer.
+   Body must include `## Summary` (bullet points), `## Test plan` (checklist), and the Claude Code footer. Include a short note if an independent PR review was run and whether it produced changes.
 
-4. **Merge** via GitHub CLI:
+8. **Merge** via GitHub CLI:
    ```
    "C:\Program Files\GitHub CLI\gh.exe" pr merge <PR#> --squash --delete-branch --admin
    ```
 
-5. **Wait for CI release** — the CI release workflow (`release.yml`) auto-creates a release + tag on every non-chore push to master. Default is patch bump. For minor/major bumps, add the `minor` or `major` label to the PR **before** merging.
+9. **Wait for CI release** — the CI release workflow (`release.yml`) auto-creates a release + tag on every non-chore push to master. Default is patch bump. For minor/major bumps, add the `minor` or `major` label to the PR before merging.
 
-   Poll by today's date — NOT by tag prefix (which matches old releases immediately and exits the loop before CI has run):
+   Poll by today's date — not by tag prefix:
    ```bash
    until "C:\Program Files\GitHub CLI\gh.exe" release list --limit 1 --json tagName,createdAt \
      --jq '.[0].createdAt' 2>/dev/null | grep -q "$(date +%Y-%m-%d)"; do
@@ -44,66 +69,37 @@ Run the full post-approval wrap-up for a completed user story. This skill assume
    done
    "C:\Program Files\GitHub CLI\gh.exe" release list --limit 1
    ```
-   Usually ~2–3 minutes. If already confirmed (e.g. checked manually), skip polling.
 
-6. **Version bump** — sync source files to the CI-created release:
+10. **Version bump** — sync source files to the CI-created release:
    ```
    "C:\Program Files\GitHub CLI\gh.exe" release list --limit 1 --json tagName --jq '.[0].tagName'
    ```
-   Update `pyproject.toml` (`version = "X.Y.Z"`) and `src/open_garden_planner/__init__.py` (`__version__ = "X.Y.Z"`) to match.
+   Update `pyproject.toml` and `src/open_garden_planner/__init__.py` to match.
 
-   **CRITICAL: Never create git tags manually. The CI release workflow is the sole owner of tags.**
+11. **Update roadmap** — mark the user story complete:
+   - `CLAUDE.md`: change the Phase progress row to `✅`
+   - `../open-garden-planner.wiki/Roadmap.md`: mark the same story complete
 
-7. **Update roadmap** — mark US as complete:
-   - `CLAUDE.md`: change `|        |` to `| ✅     |` in the progress table
-   - `../open-garden-planner.wiki/Roadmap.md`: change `| |` to `| :white_check_mark: |`
-
-8. **Commit version sync + roadmap**:
+12. **Commit version sync + roadmap**:
    ```
    git add pyproject.toml src/open_garden_planner/__init__.py CLAUDE.md
    git commit -m "chore: sync version to vX.Y.Z after US-X.X PR #NNN"
    ```
 
-9. **Push master** (no tags — CI owns tags):
+13. **Push master**:
    ```
    git push origin master
    ```
 
-10. **Push wiki**:
-    ```
-    cd ../open-garden-planner.wiki
-    git add Roadmap.md && git commit -m "Update roadmap: US-X.X complete" && git push
-    ```
+14. **Push wiki**:
+   ```
+   cd ../open-garden-planner.wiki
+   git add Roadmap.md && git commit -m "Update roadmap: US-X.X complete" && git push
+   ```
 
-11. **Close linked issue** (if the PR/branch references a GitHub issue number):
-    - Post a closing comment on the issue via `mcp__github__add_issue_comment` summarising root cause and changes shipped.
-    - Close it via `mcp__github__issue_write` with `state: closed, state_reason: completed`.
-    - Skip this step if there is no linked issue.
+15. **Cleanup** — delete the local feature branch if it still exists:
+   ```
+   git branch -d feature/US-X.X-short-description
+   ```
 
-12. **Move issue to "Closed" on the project board** (only if a linked issue exists):
-    Project: `PVT_kwHOAyyXvs4BU2fi` (number 1), Status field: `PVTSSF_lAHOAyyXvs4BU2fizhFw3mk`, Closed option: `98236657`.
-    ```bash
-    # 1. Find the project item ID for the issue
-    ITEM_ID=$("C:\Program Files\GitHub CLI\gh.exe" api graphql -f query='
-    { user(login:"cofade") { projectV2(number:1) { items(first:100) { nodes {
-      id content { ... on Issue { number } }
-    } } } } }' \
-    --jq ".data.user.projectV2.items.nodes[] | select(.content.number == ISSUE_NUMBER) | .id")
-
-    # 2. Set status to Closed
-    "C:\Program Files\GitHub CLI\gh.exe" api graphql -f query="
-    mutation { updateProjectV2ItemFieldValue(input: {
-      projectId: \"PVT_kwHOAyyXvs4BU2fi\"
-      itemId: \"$ITEM_ID\"
-      fieldId: \"PVTSSF_lAHOAyyXvs4BU2fizhFw3mk\"
-      value: { singleSelectOptionId: \"98236657\" }
-    }) { projectV2Item { id } } }"
-    ```
-    Skip if no linked issue, or if the item is not found in the project.
-
-13. **Cleanup** — delete local feature branch if it still exists:
-    ```
-    git branch -d feature/US-X.X-short-description
-    ```
-
-14. Return the PR URL and new version to the user.
+16. Return the PR URL and new version to the user.

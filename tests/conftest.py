@@ -3,6 +3,7 @@
 import os
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -40,3 +41,10 @@ def isolate_qsettings():
     QSettings("cofade_test", "Open Garden Planner Test").clear()
     settings_module.AppSettings.__init__ = original_init  # type: ignore[method-assign]
     settings_module._settings_instance = None  # type: ignore[attr-defined]
+
+
+@pytest.fixture(autouse=True)
+def _no_weather_network():
+    """Stub out the weather fetch thread so tests never make real network requests."""
+    with patch("open_garden_planner.ui.widgets.weather_widget._WeatherFetchWorker.start"):
+        yield

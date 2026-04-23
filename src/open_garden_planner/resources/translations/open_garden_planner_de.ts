@@ -7021,4 +7021,70 @@ Fortfahren?</translation>
             <translation>Versatz</translation>
         </message>
     </context>
+    <context>
+        <name>WeatherWidget</name>
+        <message>
+            <source>Weather Forecast</source>
+            <translation>Wettervorhersage</translation>
+        </message>
+        <message>
+            <source>Refresh forecast</source>
+            <translation>Vorhersage aktualisieren</translation>
+        </message>
+        <message>
+            <source>Show / hide full forecast</source>
+            <translation>Vollständige Vorhersage anzeigen / ausblenden</translation>
+        </message>
+        <message>
+            <source>Loading forecast …</source>
+            <translation>Vorhersage wird geladen …</translation>
+        </message>
+        <message>
+            <source>Set a location to enable weather forecast.
+Use File › Set Garden Location to configure GPS coordinates.</source>
+            <translation>Legen Sie einen Standort fest, um die Wettervorhersage zu aktivieren.
+Verwenden Sie Datei › Gartenstandort festlegen, um GPS-Koordinaten zu konfigurieren.</translation>
+        </message>
+        <message>
+            <source>Date</source>
+            <translation>Datum</translation>
+        </message>
+        <message>
+            <source>Weather</source>
+            <translation>Wetter</translation>
+        </message>
+        <message>
+            <source>Max °C</source>
+            <translation>Max °C</translation>
+        </message>
+        <message>
+            <source>Min °C</source>
+            <translation>Min °C</translation>
+        </message>
+        <message>
+            <source>Rain mm</source>
+            <translation>Regen mm</translation>
+        </message>
+        <message>
+            <source>Weather forecast unavailable:
+{message}</source>
+            <translation>Wettervorhersage nicht verfügbar:
+{message}</translation>
+        </message>
+        <message>
+            <source>Last updated %1 min ago</source>
+            <translation>Zuletzt vor %1 Min. aktualisiert</translation>
+        </message>
+        <message>
+            <source>Last updated %1 h ago</source>
+            <translation>Zuletzt vor %1 Std. aktualisiert</translation>
+        </message>
+    </context>
+    <context>
+        <name>_WeatherFetchWorker</name>
+        <message>
+            <source>Forecast unavailable</source>
+            <translation>Vorhersage nicht verfügbar</translation>
+        </message>
+    </context>
 </TS>
