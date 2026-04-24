@@ -63,6 +63,7 @@ class TestParseReleaseInfo:
         data: dict[str, Any] = {
             "tag_name": "v1.6.0",
             "body": "## What's New\n- Feature A\n- Feature B",
+            "html_url": "https://github.com/cofade/open-garden-planner/releases/tag/v1.6.0",
             "assets": [
                 _make_asset("OpenGardenPlanner-v1.6.0-Setup.exe", "https://example.com/setup.exe"),
                 _make_asset("OpenGardenPlanner-v1.6.0-symbols.zip", "https://example.com/syms.zip"),
@@ -72,6 +73,7 @@ class TestParseReleaseInfo:
         assert info.tag_name == "v1.6.0"
         assert "What's New" in info.body
         assert info.download_url == "https://example.com/setup.exe"
+        assert info.html_url == "https://github.com/cofade/open-garden-planner/releases/tag/v1.6.0"
 
     def test_no_setup_asset(self) -> None:
         data: dict[str, Any] = {
@@ -98,6 +100,7 @@ class TestParseReleaseInfo:
         assert info.tag_name == ""
         assert info.body == ""
         assert info.download_url is None
+        assert info.html_url == ""
 
     def test_none_body_treated_as_empty(self) -> None:
         data: dict[str, Any] = {"tag_name": "v1.0.0", "body": None, "assets": []}
@@ -119,3 +122,13 @@ class TestParseReleaseInfo:
     def test_returns_release_info_instance(self) -> None:
         info = parse_release_info({"tag_name": "v1.0.0", "body": "hi", "assets": []})
         assert isinstance(info, ReleaseInfo)
+
+    def test_html_url_extracted(self) -> None:
+        data: dict[str, Any] = {
+            "tag_name": "v1.0.0",
+            "body": "",
+            "assets": [],
+            "html_url": "https://github.com/cofade/open-garden-planner/releases/tag/v1.0.0",
+        }
+        info = parse_release_info(data)
+        assert info.html_url == "https://github.com/cofade/open-garden-planner/releases/tag/v1.0.0"

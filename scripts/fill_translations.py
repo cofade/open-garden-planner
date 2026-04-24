@@ -1100,6 +1100,30 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Rain Barrel": "Regentonne",
         "Water Tap": "Wasserhahn",
     },
+
+    # ── UpdateBar ──
+    "UpdateBar": {
+        "A new version ({version}) is available.": "Eine neue Version ({version}) ist verfügbar.",
+        "What's new": "Was ist neu",
+        "Download && Install": "Herunterladen && Installieren",
+        "Skip this version": "Diese Version überspringen",
+        "Remind me later": "Später erinnern",
+        "Install Update": "Update installieren",
+        "The installer will be downloaded and launched.\n"
+        "Open Garden Planner will close when the installer starts.\n\n"
+        "Continue?":
+            "Das Installationsprogramm wird heruntergeladen und gestartet.\n"
+            "Open Garden Planner wird geschlossen, wenn die Installation beginnt.\n\n"
+            "Fortfahren?",
+        "Downloading {filename}…": "{filename} wird heruntergeladen…",
+        "Cancel": "Abbrechen",
+        "Download Failed": "Download fehlgeschlagen",
+        "Could not download the installer:\n{error}":
+            "Das Installationsprogramm konnte nicht heruntergeladen werden:\n{error}",
+        "Launch Failed": "Start fehlgeschlagen",
+        "Could not launch the installer:\n{error}":
+            "Das Installationsprogramm konnte nicht gestartet werden:\n{error}",
+    },
 }
 
 

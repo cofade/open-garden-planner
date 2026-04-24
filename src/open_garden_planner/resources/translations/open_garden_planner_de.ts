@@ -6635,6 +6635,10 @@ Fortfahren?</translation>
             <translation>Das Installationsprogramm konnte nicht gestartet werden:
 {error}</translation>
         </message>
+        <message>
+            <source>What's new</source>
+            <translation>Was ist neu</translation>
+        </message>
     </context>
     <context>
         <name>VDistanceInputDialog</name>

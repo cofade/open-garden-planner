@@ -991,13 +991,13 @@ class GardenPlannerApp(QMainWindow):
         self._update_checker.update_available.connect(self._on_update_available)
         self._update_checker.start()
 
-    def _on_update_available(self, tag_name: str, body: str, download_url: str) -> None:
+    def _on_update_available(self, tag_name: str, body: str, download_url: str, html_url: str) -> None:
         """Show the update bar if the user has not skipped this version."""
         from open_garden_planner.app.settings import get_settings
 
         if get_settings().skipped_version == tag_name:
             return
-        self._update_bar.show_update(tag_name, body, download_url)
+        self._update_bar.show_update(tag_name, body, download_url, html_url)
 
     def _on_skip_version(self, tag_name: str) -> None:
         """Persist the skipped version to settings."""
