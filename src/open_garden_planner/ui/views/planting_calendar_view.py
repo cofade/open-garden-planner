@@ -33,6 +33,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
+from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
 # ─── Layout constants ──────────────────────────────────────────────────────────
 _NAME_W = 210          # left column: plant name
@@ -976,6 +977,12 @@ class PlantingCalendarView(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
+        # Weather forecast widget (US-12.1)
+        self._weather = WeatherWidget()
+        self._weather.forecast_ready.connect(self._on_weather_ready)
+        self._weather.forecast_failed.connect(self._on_weather_failed)
+        root.addWidget(self._weather)
+
         # Dashboard panel (US-8.6)
         self._dashboard = _DashboardPanel()
         self._dashboard.highlight_requested.connect(self.highlight_species.emit)
@@ -1151,6 +1158,19 @@ class PlantingCalendarView(QWidget):
 
     def refresh(self) -> None:
         """Rebuild the chart and dashboard from current canvas + project state."""
+        # Trigger weather fetch if location is available (US-12.1)
+        location = self._project_manager.location if hasattr(self._project_manager, "location") else None
+        if location:
+            lat = location.get("latitude")
+            lon = location.get("longitude")
+            if lat is not None and lon is not None:
+                self._weather.set_location(float(lat), float(lon))
+                self._weather.refresh()
+            else:
+                self._weather.set_location(None, None)
+        else:
+            self._weather.set_location(None, None)
+
         rows, last_frost, first_fall, seed_links = self._collect_data()
         self._rows = rows
 
@@ -1273,3 +1293,11 @@ class PlantingCalendarView(QWidget):
                     row.species, species_key, plan,
                     no_data_text=self.tr("No detailed data available"),
                 )
+
+    # ─── Weather widget slots (US-12.1) ──────────────────────────────
+
+    def _on_weather_ready(self) -> None:
+        """Weather forecast fetched successfully."""
+
+    def _on_weather_failed(self, message: str) -> None:
+        """Weather forecast fetch failed."""
