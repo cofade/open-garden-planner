@@ -46,5 +46,5 @@ def isolate_qsettings():
 @pytest.fixture(autouse=True)
 def _no_weather_network():
     """Stub out the weather fetch thread so tests never make real network requests."""
-    with patch("open_garden_planner.ui.widgets.weather_widget._WeatherFetchWorker.start"):
+    with patch("open_garden_planner.ui.widgets.weather_widget._WeatherFetchWorker"):
         yield
