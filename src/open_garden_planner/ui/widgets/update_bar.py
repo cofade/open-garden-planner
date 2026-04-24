@@ -3,6 +3,7 @@
 Shown at the top of the main window when a newer GitHub release is available.
 """
 
+import html
 import logging
 import subprocess
 import tempfile
@@ -45,22 +46,29 @@ class UpdateBar(QFrame):
     # Public API
     # ------------------------------------------------------------------
 
-    def show_update(self, tag_name: str, body: str, download_url: str) -> None:
+    def show_update(self, tag_name: str, _body: str, download_url: str, html_url: str = "") -> None:
         """Populate and display the bar for a specific update.
 
         Args:
             tag_name:     Version tag, e.g. ``"v1.6.0"``.
-            body:         Release notes snippet (≤ 300 chars).
+            _body:        Release notes snippet (reserved, not displayed in bar).
             download_url: Direct URL to the ``*-Setup.exe`` asset, or ``""``
                           if no installer asset was found.
+            html_url:     GitHub release page URL for the "What's new" link.
         """
         self._tag_name = tag_name
         self._download_url = download_url
 
-        msg = self.tr("A new version ({version}) is available.").format(version=tag_name)
-        if body:
-            msg += "  " + body.split("\n")[0][:100]
-        self._label.setText(msg)
+        msg_plain = self.tr("A new version ({version}) is available.").format(version=tag_name)
+        if html_url:
+            whats_new = self.tr("What's new")
+            link = (
+                f'<a href="{html.escape(html_url)}" style="color:white;">'
+                f"{html.escape(whats_new)} ↗</a>"
+            )
+            self._label.setText(f"{html.escape(msg_plain)}  {link}")
+        else:
+            self._label.setText(msg_plain)
         self._download_btn.setVisible(bool(download_url))
         self.show()
 
@@ -79,7 +87,8 @@ class UpdateBar(QFrame):
 
         self._label = QLabel()
         self._label.setWordWrap(False)
-        self._label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        self._label.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
+        self._label.setOpenExternalLinks(True)
         layout.addWidget(self._label, stretch=1)
 
         self._download_btn = QPushButton(self.tr("Download && Install"))

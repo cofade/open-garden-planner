@@ -28,6 +28,7 @@ class ReleaseInfo:
     tag_name: str
     body: str
     download_url: str | None
+    html_url: str
 
 
 def compare_versions(current: str, latest: str) -> bool:
@@ -63,6 +64,7 @@ def parse_release_info(data: dict[str, Any]) -> ReleaseInfo:
     tag_name = str(data.get("tag_name", ""))
     body_raw = data.get("body") or ""
     body = str(body_raw)[:300]
+    html_url = str(data.get("html_url", ""))
 
     download_url: str | None = None
     for asset in data.get("assets", []):
@@ -71,7 +73,7 @@ def parse_release_info(data: dict[str, Any]) -> ReleaseInfo:
             download_url = str(asset.get("browser_download_url", "")) or None
             break
 
-    return ReleaseInfo(tag_name=tag_name, body=body, download_url=download_url)
+    return ReleaseInfo(tag_name=tag_name, body=body, download_url=download_url, html_url=html_url)
 
 
 def get_current_version() -> str:
@@ -100,9 +102,9 @@ class UpdateChecker(QThread):
     Silently swallows all network / parse errors so it never blocks the UI.
     """
 
-    #: Emitted with (tag_name, release_body_snippet, download_url).
+    #: Emitted with (tag_name, release_body_snippet, download_url, html_url).
     #: ``download_url`` may be an empty string if no Setup.exe asset was found.
-    update_available = pyqtSignal(str, str, str)
+    update_available = pyqtSignal(str, str, str, str)
 
     def run(self) -> None:
         """Perform the update check in the background thread."""
@@ -124,6 +126,7 @@ class UpdateChecker(QThread):
                     info.tag_name,
                     info.body,
                     info.download_url or "",
+                    info.html_url,
                 )
         except Exception:  # noqa: BLE001
             logger.debug("Update check skipped (offline or error)", exc_info=True)
