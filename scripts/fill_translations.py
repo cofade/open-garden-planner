@@ -628,6 +628,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Zone": "Zone",
         "Last spring frost": "Letzter Spätfrost",
         "First fall frost": "Erster Herbstfrost",
+        "Frost alert — click to view details in Planting Calendar":
+            "Frostwarnung — klicken, um Details im Pflanzkalender anzuzeigen",
+        "frost alert": "Frostwarnung",
+        "frost alerts": "Frostwarnungen",
     },
 
     # ── LayerListItem ──
@@ -853,6 +857,37 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Additional Information": "Zusätzliche Informationen",
     },
 
+    # ── WeatherWidget (US-12.1) ──
+    "WeatherWidget": {
+        "Weather Forecast": "Wettervorhersage",
+        "Refresh forecast": "Vorhersage aktualisieren",
+        "Show / hide full forecast": "Vollständige Vorhersage anzeigen/ausblenden",
+        "Loading forecast …": "Vorhersage wird geladen …",
+        "Set a location to enable weather forecast.\n"
+        "Use File › Set Garden Location to configure GPS coordinates.":
+            "Legen Sie einen Standort fest, um die Wettervorhersage zu aktivieren.\n"
+            "Verwenden Sie Datei › Gartenstandort festlegen zum Konfigurieren der GPS-Koordinaten.",
+        "Date": "Datum",
+        "Weather": "Wetter",
+        "Max °C": "Max °C",
+        "Min °C": "Min °C",
+        "Rain mm": "Regen mm",
+        "Weather forecast unavailable:\n{message}": "Wettervorhersage nicht verfügbar:\n{message}",
+        "Last updated %1 min ago": "Zuletzt aktualisiert vor %1 Min.",
+        "Last updated %1 h ago": "Zuletzt aktualisiert vor %1 Std.",
+    },
+
+    # ── _WeatherFetchWorker ──
+    "_WeatherFetchWorker": {
+        "Forecast unavailable": "Vorhersage nicht verfügbar",
+    },
+
+    # ── _DashboardPanel (US-12.2 frost task templates) ──
+    "_DashboardPanel": {
+        "⚠ Frost: %1": "⚠ Frost: %1",
+        "❄ Hard frost: %1": "❄ Starker Frost: %1",
+    },
+
     # ── PropertiesPanel ──
     "PropertiesPanel": {
         "No objects selected": "Keine Objekte ausgewählt",
@@ -889,6 +924,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Recommended spacing radius (half of plant spread)":
             "Empfohlener Abstandsradius (halbe Pflanzenbreite)",
         "Spacing radius:": "Abstandsradius:",
+        "Needs frost protection": "Frostschutz benötigt",
+        "Frost protection:": "Frostschutz:",
+        "Override frost sensitivity:\n☑ Always protect  ☐ Never protect  ‒ Use plant database default":
+            "Frostempfindlichkeit überschreiben:\n☑ Immer schützen  ☐ Nie schützen  ‒ Datenbankstandard verwenden",
         "Text": "Text",
         "Content:": "Inhalt:",
         "Font:": "Schriftart:",
@@ -1099,6 +1138,46 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Tool Shed": "Geräteschuppen",
         "Rain Barrel": "Regentonne",
         "Water Tap": "Wasserhahn",
+    },
+
+    # ── PreferencesDialog (US-12.2 weather section) ──
+    "PreferencesDialog": {
+        "Preferences": "Einstellungen",
+        "Configure your plant database API keys below. "
+        "Keys are stored locally and never shared. "
+        "Environment variables (.env) are used as fallback.":
+            "Konfigurieren Sie unten Ihre Pflanzendatenbank-API-Schlüssel. "
+            "Schlüssel werden lokal gespeichert und nie weitergegeben. "
+            "Umgebungsvariablen (.env) werden als Fallback verwendet.",
+        "Trefle (trefle.io)": "Trefle (trefle.io)",
+        "API Token:": "API-Token:",
+        "Enter Trefle API token...": "Trefle-API-Token eingeben...",
+        "Get API Key": "API-Schlüssel erhalten",
+        "Test": "Testen",
+        "Perenual (perenual.com)": "Perenual (perenual.com)",
+        "API Key:": "API-Schlüssel:",
+        "Enter Perenual API key...": "Perenual-API-Schlüssel eingeben...",
+        "Permapeople (permapeople.org)": "Permapeople (permapeople.org)",
+        "Key ID:": "Schlüssel-ID:",
+        "Enter Key ID...": "Schlüssel-ID eingeben...",
+        "Key Secret:": "Schlüssel-Geheimnis:",
+        "Enter Key Secret...": "Schlüssel-Geheimnis eingeben...",
+        "Show": "Anzeigen",
+        "Hide": "Ausblenden",
+        "Cancel": "Abbrechen",
+        "Save": "Speichern",
+        "Please enter a Trefle API token first.": "Bitte zuerst einen Trefle-API-Token eingeben.",
+        "Please enter a Perenual API key first.": "Bitte zuerst einen Perenual-API-Schlüssel eingeben.",
+        "Please enter both Permapeople Key ID and Key Secret.":
+            "Bitte sowohl Permapeople-Schlüssel-ID als auch Schlüssel-Geheimnis eingeben.",
+        # Weather section (US-12.2)
+        "Weather": "Wetter",
+        "Orange warning threshold (°C):": "Orange Warnschwelle (°C):",
+        "Red alert threshold (°C):": "Roter Alarm-Schwellenwert (°C):",
+        "Temperature at or below which half-hardy plants are at risk":
+            "Temperatur, bei der oder darunter halbharte Pflanzen gefährdet sind",
+        "Temperature at or below which tender plants are at risk":
+            "Temperatur, bei der oder darunter empfindliche Pflanzen gefährdet sind",
     },
 
     # ── UpdateBar ──

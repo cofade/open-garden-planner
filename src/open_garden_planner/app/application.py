@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QMenu,
     QMessageBox,
+    QPushButton,
     QSplitter,
     QTabWidget,
     QVBoxLayout,
@@ -812,6 +813,16 @@ class GardenPlannerApp(QMainWindow):
 
         # Highlight plant on canvas when user clicks a dashboard task (US-8.6)
         self.calendar_view.highlight_species.connect(self._on_highlight_species)
+
+        # Frost alert badge in the tab-bar corner (US-12.2)
+        self._frost_badge = QPushButton(self._tab_widget)
+        self._frost_badge.setFlat(True)
+        self._frost_badge.setFixedHeight(24)
+        self._frost_badge.setToolTip(self.tr("Frost alert — click to view details in Planting Calendar"))
+        self._frost_badge.clicked.connect(lambda: self._tab_widget.setCurrentIndex(1))
+        self._frost_badge.hide()
+        self._tab_widget.setCornerWidget(self._frost_badge, Qt.Corner.TopRightCorner)
+        self.calendar_view.frost_alert_ready.connect(self._on_frost_alert_ready)
 
         # Wrap tab widget + update bar in a container
         self._update_bar = UpdateBar(self)
@@ -2961,8 +2972,40 @@ class GardenPlannerApp(QMainWindow):
         elif index == 2:
             self.seed_inventory_view.refresh()
 
+    def _on_frost_alert_ready(self, count: int, max_severity: str) -> None:
+        """Update the frost alert corner badge."""
+        if count == 0:
+            self._frost_badge.hide()
+            return
+        icon = "❄" if max_severity == "red" else "⚠"
+        bg = "#dc3545" if max_severity == "red" else "#fd7e14"
+        label = self.tr("frost alert") if count == 1 else self.tr("frost alerts")
+        self._frost_badge.setText(f"  {icon} {count} {label}  ")
+        self._frost_badge.setStyleSheet(
+            f"QPushButton {{ background: {bg}; color: white; font-weight: bold;"
+            "  border-radius: 4px; padding: 2px 6px; }}"
+            f"QPushButton:hover {{ background: {bg}; opacity: 0.9; }}"
+        )
+        self._frost_badge.show()
+
     def _on_highlight_species(self, species_key: str) -> None:
         """Switch to Garden Plan tab and select all items matching species_key."""
+        if species_key.startswith("frost_items:"):
+            ids = set(species_key[len("frost_items:"):].split(","))
+            self._tab_widget.setCurrentIndex(0)
+            def _do_select(ids: set = ids) -> None:
+                self.canvas_scene.clearSelection()
+                first = None
+                for item in self.canvas_scene.items():
+                    if hasattr(item, "item_id") and str(item.item_id) in ids:
+                        item.setSelected(True)
+                        if first is None:
+                            first = item
+                if first is not None:
+                    self.canvas_view.centerOn(first)
+            QTimer.singleShot(0, _do_select)
+            return
+
         from open_garden_planner.models.plant_data import PlantSpeciesData
 
         self._tab_widget.setCurrentIndex(0)

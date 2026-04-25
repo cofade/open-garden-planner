@@ -31,8 +31,10 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.app.settings import get_settings
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
+from open_garden_planner.services.weather_service import get_frost_alerts
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
 # ─── Layout constants ──────────────────────────────────────────────────────────
@@ -344,12 +346,14 @@ class _DashboardPanel(QFrame):
             "coming_up": self.tr("Coming Up"),
         }
         task_templates = {
-            "indoor_sow": self.tr("Start indoor sowing of %1"),
-            "direct_sow": self.tr("Direct sow %1"),
-            "transplant": self.tr("Transplant %1 outdoors"),
-            "harvest":    self.tr("Harvest %1"),
-            "prick_out":  self.tr("Prick out %1 seedlings"),
-            "harden_off": self.tr("Start hardening off %1"),
+            "indoor_sow":         self.tr("Start indoor sowing of %1"),
+            "direct_sow":         self.tr("Direct sow %1"),
+            "transplant":         self.tr("Transplant %1 outdoors"),
+            "harvest":            self.tr("Harvest %1"),
+            "prick_out":          self.tr("Prick out %1 seedlings"),
+            "harden_off":         self.tr("Start hardening off %1"),
+            "frost_alert_orange": self.tr("⚠ Frost: %1"),
+            "frost_alert_red":    self.tr("❄ Hard frost: %1"),
         }
 
         for urgency in _URGENCY_ORDER:
@@ -408,14 +412,15 @@ class _DashboardPanel(QFrame):
         goto_btn.clicked.connect(lambda: self.highlight_requested.emit(species_key))
         layout.addWidget(goto_btn)
 
-        done_btn = QPushButton(self.tr("Done"))
-        done_btn.setObjectName("taskDoneBtn")
-        done_btn.setCheckable(True)
-        done_btn.setFixedSize(46, 20)
-        done_btn.setToolTip(self.tr("Mark as done"))
-        task_id = task.task_id
-        done_btn.toggled.connect(lambda checked: self.task_toggled.emit(task_id, checked))
-        layout.addWidget(done_btn)
+        if not task.task_type.startswith("frost_alert"):
+            done_btn = QPushButton(self.tr("Done"))
+            done_btn.setObjectName("taskDoneBtn")
+            done_btn.setCheckable(True)
+            done_btn.setFixedSize(46, 20)
+            done_btn.setToolTip(self.tr("Mark as done"))
+            task_id = task.task_id
+            done_btn.toggled.connect(lambda checked: self.task_toggled.emit(task_id, checked))
+            layout.addWidget(done_btn)
 
         return row
 
@@ -961,6 +966,9 @@ class PlantingCalendarView(QWidget):
 
     #: Emitted when the user clicks "highlight on canvas" for a task.
     highlight_species = pyqtSignal(str)
+    #: Emitted after frost alerts are computed: (alert_count, max_severity).
+    #: max_severity is "red", "orange", or "" when there are no alerts.
+    frost_alert_ready = pyqtSignal(int, str)
 
     def __init__(self, canvas_scene: Any, project_manager: Any, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -968,6 +976,7 @@ class PlantingCalendarView(QWidget):
         self._project_manager = project_manager
         self._rows: list[_PlantRow] = []
         self._prop_plans: dict[str, PropagationPlan] = {}
+        self._current_dashboard_tasks: list[_DashboardTask] = []
         self._build_ui()
 
     # ── construction ───────────────────────────────────────────────────────────
@@ -1192,6 +1201,7 @@ class PlantingCalendarView(QWidget):
             )
         else:
             tasks = []
+        self._current_dashboard_tasks: list[_DashboardTask] = tasks
         self._dashboard.set_data(tasks)
 
         # Update Gantt translated marker labels
@@ -1294,10 +1304,110 @@ class PlantingCalendarView(QWidget):
                     no_data_text=self.tr("No detailed data available"),
                 )
 
-    # ─── Weather widget slots (US-12.1) ──────────────────────────────
+    # ─── Weather widget slots (US-12.1 / US-12.2) ────────────────────
 
     def _on_weather_ready(self) -> None:
-        """Weather forecast fetched successfully."""
+        """Apply frost tinting and inject frost alerts into the dashboard."""
+        forecast = self._weather.forecast()
+        if forecast is None:
+            return
+        settings = get_settings()
+        orange_c = settings.frost_warning_orange_c
+        red_c = settings.frost_warning_red_c
+        self._weather.apply_frost_thresholds(orange_c, red_c)
+        plants = self._collect_plant_info()
+        alerts = get_frost_alerts(forecast, plants, orange_c, red_c)
+        self._inject_frost_tasks(alerts)
+
+    def _collect_plant_info(self) -> list[dict]:
+        """Return a list of plant info dicts for all plant items on the canvas."""
+        from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.items import CircleItem, GardenItemMixin
+        result: list[dict] = []
+        for item in self._canvas_scene.items():
+            if not isinstance(item, CircleItem):
+                continue
+            if not isinstance(item, GardenItemMixin):
+                continue
+            if not is_plant_type(item.object_type):
+                continue
+            name: str = ""
+            frost_tolerance: str | None = None
+            ps_dict = item.metadata.get("plant_species")
+            if ps_dict and isinstance(ps_dict, dict):
+                try:
+                    species = PlantSpeciesData.from_dict(ps_dict)
+                    name = species.common_name or species.scientific_name or ""
+                    frost_tolerance = species.frost_tolerance
+                except Exception:
+                    pass
+            if not name:
+                name = item.name
+            if not name and hasattr(item, "plant_species") and item.plant_species:
+                name = item.plant_species.replace("_", " ").title()
+            result.append({
+                "id": str(item.item_id),
+                "name": name or "?",
+                "frost_protection_needed": item.frost_protection_needed,
+                "frost_tolerance": frost_tolerance,
+            })
+        return result
+
+    def _inject_frost_tasks(self, alerts: list) -> None:
+        """Merge frost alerts into the dashboard task list."""
+        today = datetime.date.today()
+        frost_tasks: list[_DashboardTask] = []
+        for alert in alerts:
+            alert_date = datetime.date.fromisoformat(alert.date)
+            urgency = _classify_urgency(alert_date, alert_date, today)
+            if urgency is None:
+                continue
+            plant_names = self._names_for_ids(alert.affected_plant_ids)
+            temp_str = QLocale().toString(float(alert.min_temp), "f", 1)
+            display = f"{temp_str}°C — {', '.join(plant_names)}"
+            task_type = "frost_alert_red" if alert.severity == "red" else "frost_alert_orange"
+            species_key = "frost_items:" + ",".join(alert.affected_plant_ids)
+            frost_tasks.append(
+                _DashboardTask(
+                    task_id=f"frost:{alert.date}:{alert.severity}",
+                    task_type=task_type,
+                    display_name=display,
+                    task_date=alert_date,
+                    end_date=alert_date,
+                    urgency=urgency,
+                    species_key=species_key,
+                )
+            )
+        self._dashboard.set_data(self._current_dashboard_tasks + frost_tasks)
+        max_severity = ""
+        if any(t.task_type == "frost_alert_red" for t in frost_tasks):
+            max_severity = "red"
+        elif frost_tasks:
+            max_severity = "orange"
+        self.frost_alert_ready.emit(len(frost_tasks), max_severity)
+
+    def _names_for_ids(self, item_ids: list[str]) -> list[str]:
+        """Return plant names for the given item IDs."""
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+        id_set = set(item_ids)
+        names: list[str] = []
+        for item in self._canvas_scene.items():
+            if not isinstance(item, GardenItemMixin) or str(item.item_id) not in id_set:
+                continue
+            name: str = ""
+            ps_dict = item.metadata.get("plant_species")
+            if ps_dict and isinstance(ps_dict, dict):
+                try:
+                    species = PlantSpeciesData.from_dict(ps_dict)
+                    name = species.common_name or species.scientific_name or ""
+                except Exception:
+                    pass
+            if not name:
+                name = item.name
+            if not name and hasattr(item, "plant_species") and item.plant_species:
+                name = item.plant_species.replace("_", " ").title()
+            names.append(name or "?")
+        return names
 
     def _on_weather_failed(self, message: str) -> None:
-        """Weather forecast fetch failed."""
+        """Weather forecast fetch failed — no frost alerts shown."""

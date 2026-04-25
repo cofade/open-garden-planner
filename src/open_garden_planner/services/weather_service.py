@@ -109,6 +109,69 @@ class WeatherForecast:
         )
 
 
+@dataclass
+class FrostAlert:
+    """One day's frost alert with the plants at risk."""
+
+    date: str               # ISO "YYYY-MM-DD"
+    min_temp: float
+    severity: str           # "orange" | "red"
+    affected_plant_ids: list[str]
+
+
+def get_frost_alerts(
+    forecast: WeatherForecast,
+    plants: list[dict],
+    orange_threshold: float = 5.0,
+    red_threshold: float = 2.0,
+) -> list[FrostAlert]:
+    """Return frost alerts for days that breach a threshold.
+
+    Args:
+        forecast: 16-day forecast to scan.
+        plants: List of plant info dicts with keys:
+            ``id`` (str), ``name`` (str),
+            ``frost_protection_needed`` (bool | None),
+            ``frost_tolerance`` (str | None — "tender", "half-hardy", "hardy").
+        orange_threshold: min_c at or below which tender plants are at risk.
+        red_threshold: min_c at or below which half-hardy plants are at risk.
+
+    Returns:
+        Alerts sorted by date, only for days with ≥1 affected plant.
+    """
+    alerts: list[FrostAlert] = []
+    for day in forecast.days:
+        if day.min_c > orange_threshold:
+            continue
+        severity = "red" if day.min_c <= red_threshold else "orange"
+        affected: list[str] = []
+        for p in plants:
+            override = p.get("frost_protection_needed")
+            if override is True:
+                affected.append(p["id"])
+                continue
+            if override is False:
+                continue
+            # override is None → use DB default
+            tolerance = p.get("frost_tolerance")
+            if tolerance == "hardy":
+                continue
+            if tolerance is None:
+                continue  # no species data — don't assume frost sensitivity
+            if tolerance == "tender":
+                affected.append(p["id"])  # most fragile: warn at orange and red
+            elif tolerance == "half-hardy" and severity == "red":
+                affected.append(p["id"])  # tolerates light frost; only hard-frost warning
+        if affected:
+            alerts.append(FrostAlert(
+                date=day.date,
+                min_temp=day.min_c,
+                severity=severity,
+                affected_plant_ids=affected,
+            ))
+    return alerts
+
+
 class WeatherServiceError(Exception):
     """Raised when a weather forecast lookup fails."""
 

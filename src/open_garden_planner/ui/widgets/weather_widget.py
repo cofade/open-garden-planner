@@ -201,6 +201,20 @@ class WeatherWidget(QFrame):
         """Return the currently-held forecast, or None."""
         return self._forecast
 
+    def apply_frost_thresholds(self, orange_c: float, red_c: float) -> None:
+        """Tint the 7-day strip cells that breach a frost threshold."""
+        if self._forecast is None:
+            return
+        for i, cell in enumerate(self._day_cells):
+            if i < len(self._forecast.days):
+                day = self._forecast.days[i]
+                if day.min_c <= red_c:
+                    cell.set_frost_severity("red")
+                elif day.min_c <= orange_c:
+                    cell.set_frost_severity("orange")
+                else:
+                    cell.set_frost_severity(None)
+
     # ── slots ───────────────────────────────────────────────────────────
 
     def _on_fetch_success(self, forecast: WeatherForecast) -> None:
@@ -347,3 +361,12 @@ class _DayCell(QFrame):
             self._rain_lbl.show()
         else:
             self._rain_lbl.hide()
+
+    def set_frost_severity(self, severity: str | None) -> None:
+        """Tint the cell background to indicate frost risk."""
+        if severity == "red":
+            self.setStyleSheet("background: #f8d7da; border-radius: 4px;")
+        elif severity == "orange":
+            self.setStyleSheet("background: #fff3cd; border-radius: 4px;")
+        else:
+            self.setStyleSheet("background: #fafafa; border-radius: 4px;")

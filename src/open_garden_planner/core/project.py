@@ -742,6 +742,9 @@ class ProjectManager(QObject):
             # Save spacing radius override (US-11.2)
             if hasattr(item, "_spacing_radius_cm") and item._spacing_radius_cm is not None:
                 data["spacing_radius_cm"] = item._spacing_radius_cm
+            # Save frost protection override (US-12.2)
+            if hasattr(item, "_frost_protection_needed") and item._frost_protection_needed is not None:
+                data["frost_protection_needed"] = item._frost_protection_needed
             return data
         elif isinstance(item, PolylineItem):
             data = {
@@ -1138,6 +1141,9 @@ class ProjectManager(QObject):
             # Restore spacing radius override (US-11.2)
             if "spacing_radius_cm" in obj:
                 item._spacing_radius_cm = obj["spacing_radius_cm"]
+            # Restore frost protection override (US-12.2)
+            if "frost_protection_needed" in obj:
+                item._frost_protection_needed = bool(obj["frost_protection_needed"])
             return item
         elif obj_type == "ellipse":
             semi_x = float(obj.get("semi_x", 50))
