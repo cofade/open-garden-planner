@@ -720,6 +720,53 @@ class PropertiesPanel(QWidget):
         )
         self._form_layout.addRow(self.tr("Spacing radius:"), spacing_spin)
 
+        # Frost protection tristate checkbox (US-12.2)
+        frost_check = QCheckBox(self.tr("Needs frost protection"))
+        frost_check.setTristate(True)
+        state_map = {
+            True: Qt.CheckState.Checked,
+            False: Qt.CheckState.Unchecked,
+            None: Qt.CheckState.PartiallyChecked,
+        }
+        frost_check.setCheckState(
+            state_map.get(
+                getattr(item, "frost_protection_needed", None),
+                Qt.CheckState.PartiallyChecked,
+            )
+        )
+        frost_check.setToolTip(
+            self.tr(
+                "Override frost sensitivity:\n"
+                "☑ Always protect  ☐ Never protect  ‒ Use plant database default"
+            )
+        )
+        frost_check.checkStateChanged.connect(
+            lambda state, it=item: self._on_frost_protection_changed(it, state)
+        )
+        self._form_layout.addRow(self.tr("Frost protection:"), frost_check)
+
+    def _on_frost_protection_changed(self, item: QGraphicsItem, state: Qt.CheckState) -> None:
+        """Handle frost protection tristate change with undo support."""
+        if self._updating:
+            return
+        value_map = {
+            Qt.CheckState.Checked: True,
+            Qt.CheckState.Unchecked: False,
+            Qt.CheckState.PartiallyChecked: None,
+        }
+        new_val = value_map.get(state)
+        old_val = getattr(item, "frost_protection_needed", None)
+
+        def apply_func(itm: QGraphicsItem, val: bool | None) -> None:
+            itm.frost_protection_needed = val  # type: ignore[attr-defined]
+
+        cmd = ChangePropertyCommand(
+            item, "frost_protection_needed", old_val, new_val,
+            apply_func=apply_func,
+        )
+        if self._command_manager:
+            self._command_manager.execute(cmd)
+
     def _on_spacing_changed(self, item: QGraphicsItem, value: float) -> None:
         """Handle spacing radius change with undo support."""
         if self._updating:

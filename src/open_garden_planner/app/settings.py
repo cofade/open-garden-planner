@@ -34,6 +34,10 @@ class AppSettings:
     KEY_SHOW_SPACING_CIRCLES = "appearance/show_spacing_circles"
     KEY_SKIPPED_VERSION = "updates/skipped_version"
 
+    # Frost alert thresholds (US-12.2)
+    KEY_FROST_WARNING_ORANGE_C = "weather/frost_warning_orange_c"
+    KEY_FROST_WARNING_RED_C = "weather/frost_warning_red_c"
+
     # API key settings
     KEY_TREFLE_API_TOKEN = "api_keys/trefle_token"
     KEY_PERENUAL_API_KEY = "api_keys/perenual_key"
@@ -54,6 +58,8 @@ class AppSettings:
     MIN_AUTOSAVE_INTERVAL_MINUTES = 1
     MAX_AUTOSAVE_INTERVAL_MINUTES = 30
     DEFAULT_THEME_MODE = "system"
+    DEFAULT_FROST_WARNING_ORANGE_C = 5.0
+    DEFAULT_FROST_WARNING_RED_C = 2.0
 
     def __init__(self) -> None:
         """Initialize the settings manager."""
@@ -349,6 +355,38 @@ class AppSettings:
     def skipped_version(self, tag: str) -> None:
         """Persist the version tag the user chose to skip."""
         self._settings.setValue(self.KEY_SKIPPED_VERSION, tag)
+
+    @property
+    def frost_warning_orange_c(self) -> float:
+        """Temperature threshold (°C) for orange half-hardy frost warning."""
+        return float(
+            self._settings.value(
+                self.KEY_FROST_WARNING_ORANGE_C,
+                self.DEFAULT_FROST_WARNING_ORANGE_C,
+                type=float,
+            )
+        )
+
+    @frost_warning_orange_c.setter
+    def frost_warning_orange_c(self, value: float) -> None:
+        """Set the orange frost warning threshold."""
+        self._settings.setValue(self.KEY_FROST_WARNING_ORANGE_C, value)
+
+    @property
+    def frost_warning_red_c(self) -> float:
+        """Temperature threshold (°C) for red tender-plant frost alert."""
+        return float(
+            self._settings.value(
+                self.KEY_FROST_WARNING_RED_C,
+                self.DEFAULT_FROST_WARNING_RED_C,
+                type=float,
+            )
+        )
+
+    @frost_warning_red_c.setter
+    def frost_warning_red_c(self, value: float) -> None:
+        """Set the red frost alert threshold."""
+        self._settings.setValue(self.KEY_FROST_WARNING_RED_C, value)
 
     def sync(self) -> None:
         """Force settings to be written to storage."""

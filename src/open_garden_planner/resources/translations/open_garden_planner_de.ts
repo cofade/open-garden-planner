@@ -5107,7 +5107,7 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <location filename="..\..\ui\dialogs\preferences_dialog.py" line="121" />
             <location filename="..\..\ui\dialogs\preferences_dialog.py" line="98" />
             <source>Get API Key</source>
-            <translation>API-Schlüssel holen</translation>
+            <translation>API-Schlüssel erhalten</translation>
         </message>
         <message>
             <location filename="..\..\ui\dialogs\preferences_dialog.py" line="230" />
@@ -5172,17 +5172,17 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
         <message>
             <location filename="..\..\ui\dialogs\preferences_dialog.py" line="212" />
             <source>Please enter a Trefle API token first.</source>
-            <translation>Bitte geben Sie zuerst einen Trefle-API-Token ein.</translation>
+            <translation>Bitte zuerst einen Trefle-API-Token eingeben.</translation>
         </message>
         <message>
             <location filename="..\..\ui\dialogs\preferences_dialog.py" line="220" />
             <source>Please enter a Perenual API key first.</source>
-            <translation>Bitte geben Sie zuerst einen Perenual-API-Schlüssel ein.</translation>
+            <translation>Bitte zuerst einen Perenual-API-Schlüssel eingeben.</translation>
         </message>
         <message>
             <location filename="..\..\ui\dialogs\preferences_dialog.py" line="231" />
             <source>Please enter both Permapeople Key ID and Key Secret.</source>
-            <translation>Bitte geben Sie sowohl Permapeople-Schlüssel-ID als auch Schlüssel-Geheimnis ein.</translation>
+            <translation>Bitte sowohl Permapeople-Schlüssel-ID als auch Schlüssel-Geheimnis eingeben.</translation>
         </message>
         <message>
             <location filename="..\..\ui\dialogs\preferences_dialog.py" line="245" />
@@ -5213,6 +5213,34 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <location filename="..\..\ui\dialogs\preferences_dialog.py" line="263" />
             <source>Error testing {api}: {error}</source>
             <translation>Fehler beim Testen von {api}: {error}</translation>
+        </message>
+        <message>
+            <source>Show</source>
+            <translation>Anzeigen</translation>
+        </message>
+        <message>
+            <source>Hide</source>
+            <translation>Ausblenden</translation>
+        </message>
+        <message>
+            <source>Weather</source>
+            <translation>Wetter</translation>
+        </message>
+        <message>
+            <source>Orange warning threshold (°C):</source>
+            <translation>Orange Warnschwelle (°C):</translation>
+        </message>
+        <message>
+            <source>Red alert threshold (°C):</source>
+            <translation>Roter Alarm-Schwellenwert (°C):</translation>
+        </message>
+        <message>
+            <source>Temperature at or below which half-hardy plants are at risk</source>
+            <translation>Temperatur, bei der oder darunter halbharte Pflanzen gefährdet sind</translation>
+        </message>
+        <message>
+            <source>Temperature at or below which tender plants are at risk</source>
+            <translation>Temperatur, bei der oder darunter empfindliche Pflanzen gefährdet sind</translation>
         </message>
     </context>
     <context>
@@ -5677,6 +5705,20 @@ noch nicht implementiert</translation>
         <message>
             <source>Semi-axes:</source>
             <translation>Halbachsen:</translation>
+        </message>
+        <message>
+            <source>Needs frost protection</source>
+            <translation>Frostschutz benötigt</translation>
+        </message>
+        <message>
+            <source>Frost protection:</source>
+            <translation>Frostschutz:</translation>
+        </message>
+        <message>
+            <source>Override frost sensitivity:
+☑ Always protect  ☐ Never protect  ‒ Use plant database default</source>
+            <translation>Frostempfindlichkeit überschreiben:
+☑ Immer schützen  ☐ Nie schützen  ‒ Datenbankstandard verwenden</translation>
         </message>
     </context>
     <context>
@@ -6836,6 +6878,14 @@ Fortfahren?</translation>
             <source>Mark as done</source>
             <translation>Als erledigt markieren</translation>
         </message>
+        <message>
+            <source>⚠ Frost: %1</source>
+            <translation>⚠ Frost: %1</translation>
+        </message>
+        <message>
+            <source>❄ Hard frost: %1</source>
+            <translation>❄ Starker Frost: %1</translation>
+        </message>
     </context>
     <context>
         <name>_DetailPanel</name>
@@ -7037,7 +7087,7 @@ Fortfahren?</translation>
         </message>
         <message>
             <source>Show / hide full forecast</source>
-            <translation>Vollständige Vorhersage anzeigen / ausblenden</translation>
+            <translation>Vollständige Vorhersage anzeigen/ausblenden</translation>
         </message>
         <message>
             <source>Loading forecast …</source>
@@ -7047,7 +7097,7 @@ Fortfahren?</translation>
             <source>Set a location to enable weather forecast.
 Use File › Set Garden Location to configure GPS coordinates.</source>
             <translation>Legen Sie einen Standort fest, um die Wettervorhersage zu aktivieren.
-Verwenden Sie Datei › Gartenstandort festlegen, um GPS-Koordinaten zu konfigurieren.</translation>
+Verwenden Sie Datei › Gartenstandort festlegen zum Konfigurieren der GPS-Koordinaten.</translation>
         </message>
         <message>
             <source>Date</source>
@@ -7077,11 +7127,11 @@ Verwenden Sie Datei › Gartenstandort festlegen, um GPS-Koordinaten zu konfigur
         </message>
         <message>
             <source>Last updated %1 min ago</source>
-            <translation>Zuletzt vor %1 Min. aktualisiert</translation>
+            <translation>Zuletzt aktualisiert vor %1 Min.</translation>
         </message>
         <message>
             <source>Last updated %1 h ago</source>
-            <translation>Zuletzt vor %1 Std. aktualisiert</translation>
+            <translation>Zuletzt aktualisiert vor %1 Std.</translation>
         </message>
     </context>
     <context>

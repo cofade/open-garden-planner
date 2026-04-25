@@ -77,6 +77,7 @@ class GardenItemMixin:
         self._parent_bed_id: uuid.UUID | None = None  # Parent bed UUID (plant→bed)
         self._child_item_ids: list[uuid.UUID] = []  # Child plant UUIDs (bed→plants)
         self._spacing_radius_cm: float | None = None  # User-override spacing radius (cm)
+        self._frost_protection_needed: bool | None = None  # Per-plant frost override (US-12.2)
         self._spacing_overlap: str | None = None  # "overlap" | "ideal" | None
         self._spacing_circles_visible: bool = True  # Global toggle from scene
         self._grid_enabled: bool = self._metadata.get("grid_enabled", False)
@@ -270,6 +271,16 @@ class GardenItemMixin:
             self.prepareGeometryChange()  # type: ignore[attr-defined]
         if hasattr(self, 'update'):
             self.update()  # type: ignore[attr-defined]
+
+    @property
+    def frost_protection_needed(self) -> bool | None:
+        """Per-plant frost protection override, or None to use DB default."""
+        return self._frost_protection_needed
+
+    @frost_protection_needed.setter
+    def frost_protection_needed(self, value: bool | None) -> None:
+        """Set per-plant frost protection override."""
+        self._frost_protection_needed = value
 
     @property
     def spacing_overlap(self) -> str | None:

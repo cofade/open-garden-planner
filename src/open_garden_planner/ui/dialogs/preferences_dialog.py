@@ -6,6 +6,7 @@ from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QDialog,
+    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -161,6 +162,32 @@ class PreferencesDialog(QDialog):
 
         layout.addWidget(permapeople_group)
 
+        # --- Weather (US-12.2) ---
+        weather_group = QGroupBox(self.tr("Weather"))
+        weather_layout = QFormLayout(weather_group)
+
+        self._frost_orange_spin = QDoubleSpinBox()
+        self._frost_orange_spin.setRange(-30.0, 10.0)
+        self._frost_orange_spin.setSingleStep(0.5)
+        self._frost_orange_spin.setDecimals(1)
+        self._frost_orange_spin.setSuffix(" °C")
+        self._frost_orange_spin.setToolTip(
+            self.tr("Temperature at or below which half-hardy plants are at risk")
+        )
+        weather_layout.addRow(self.tr("Orange warning threshold (°C):"), self._frost_orange_spin)
+
+        self._frost_red_spin = QDoubleSpinBox()
+        self._frost_red_spin.setRange(-30.0, 10.0)
+        self._frost_red_spin.setSingleStep(0.5)
+        self._frost_red_spin.setDecimals(1)
+        self._frost_red_spin.setSuffix(" °C")
+        self._frost_red_spin.setToolTip(
+            self.tr("Temperature at or below which tender plants are at risk")
+        )
+        weather_layout.addRow(self.tr("Red alert threshold (°C):"), self._frost_red_spin)
+
+        layout.addWidget(weather_group)
+
         layout.addStretch()
 
         # --- Buttons ---
@@ -186,6 +213,8 @@ class PreferencesDialog(QDialog):
         self._perenual_key.setText(settings.perenual_api_key)
         self._permapeople_key_id.setText(settings.permapeople_key_id)
         self._permapeople_key_secret.setText(settings.permapeople_key_secret)
+        self._frost_orange_spin.setValue(settings.frost_warning_orange_c)
+        self._frost_red_spin.setValue(settings.frost_warning_red_c)
 
     def _save_and_accept(self) -> None:
         from open_garden_planner.app.settings import get_settings
@@ -195,6 +224,8 @@ class PreferencesDialog(QDialog):
         settings.perenual_api_key = self._perenual_key.text().strip()
         settings.permapeople_key_id = self._permapeople_key_id.text().strip()
         settings.permapeople_key_secret = self._permapeople_key_secret.text().strip()
+        settings.frost_warning_orange_c = self._frost_orange_spin.value()
+        settings.frost_warning_red_c = self._frost_red_spin.value()
         settings.sync()
         self.accept()
 
