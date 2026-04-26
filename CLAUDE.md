@@ -182,7 +182,7 @@ Full history: see `docs/roadmap.md`.
 | Status | US    | Description                              | Block              |
 | ------ | ----- | ---------------------------------------- | ------------------ |
 | ✅     | 12.1  | Weather forecast widget in Dashboard     | Weather            |
-|        | 12.2  | Frost alert & plant-aware warnings       | Weather            |
+| ✅     | 12.2  | Frost alert & plant-aware warnings       | Weather            |
 |        | 12.3  | DXF export                               | Interoperability   |
 |        | 12.4  | DXF import                               | Interoperability   |
 |        | 12.5  | Multi-page PDF export                    | Interoperability   |

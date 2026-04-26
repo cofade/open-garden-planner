@@ -5,5 +5,5 @@
 # so this value only matters when running from source (dev mode).
 # Run: git fetch --tags && git describe --tags --abbrev=0
 # then set this to the new tag (without the leading "v").
-__version__ = "1.8.42"
+__version__ = "1.8.43"
 __author__ = "cofade"
