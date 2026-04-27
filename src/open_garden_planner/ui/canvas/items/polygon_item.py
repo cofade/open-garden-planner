@@ -545,10 +545,23 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
                 self._update_annotations()
             # Move attached ridge by the same delta
             self._move_ridge_by_delta()
+            self._update_area_label()
         elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
             self.remove_rotation_handle()
 
         return super().itemChange(change, value)
+
+    def _compute_area_cm2(self) -> float | None:
+        poly = self.polygon()
+        n = poly.count()
+        if n < 3:
+            return None
+        area = 0.0
+        for i in range(n):
+            j = (i + 1) % n
+            area += poly.at(i).x() * poly.at(j).y()
+            area -= poly.at(j).x() * poly.at(i).y()
+        return abs(area) / 2.0
 
     def _move_ridge_by_delta(self) -> None:
         """Translate the attached ridge by the same delta as this polygon moved."""
@@ -647,6 +660,7 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
 
         # Update label position
         self._position_label()
+        self._update_area_label()
 
         # Keep ridge endpoints on the polygon boundary
         self._update_ridge_on_boundary()
@@ -823,6 +837,11 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         from open_garden_planner.core.object_types import get_valid_types_for_shape
         change_type_menu = self._build_change_type_menu(menu, get_valid_types_for_shape("polygon"))
 
+        # Show Area toggle
+        show_area_action = menu.addAction(_("PolygonItem", "Show Area"))
+        show_area_action.setCheckable(True)
+        show_area_action.setChecked(self._area_label_visible)
+
         menu.addSeparator()
 
         # Delete action
@@ -885,6 +904,8 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         elif action == edit_label_action:
             # Edit the label
             self.start_label_edit()
+        elif action == show_area_action:
+            self.area_label_visible = not self._area_label_visible
         elif action == toggle_grid_action and toggle_grid_action is not None:
             self.grid_enabled = not self._grid_enabled
             # Refresh properties panel to reflect new state

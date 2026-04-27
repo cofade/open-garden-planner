@@ -415,6 +415,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Delete selected objects": "Ausgewählte Objekte löschen",
         "Select &All": "&Alles auswählen",
         "Select all objects": "Alle Objekte auswählen",
+        "&Find && Replace…": "Su&chen && Ersetzen…",
+        "Find and replace objects by name, type, layer or species":
+            "Objekte nach Name, Typ, Ebene oder Art suchen und ersetzen",
         "Ali&gn && Distribute": "Aus&richten && Verteilen",
         "Align &Left": "Links &ausrichten",
         "Align selected objects to the left edge":
@@ -658,6 +661,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Measure distances between two points": "Abstände zwischen zwei Punkten messen",
         "Text": "Text",
         "Place a text annotation": "Eine Textanmerkung platzieren",
+        "Callout": "Beschriftungspfeil",
+        "Place a callout annotation with leader line": "Beschriftungspfeil mit Führungslinie platzieren",
     },
 
     # ── MeasureTool ──
@@ -1102,6 +1107,50 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "File not found: {path}": "Datei nicht gefunden: {path}",
     },
 
+    # ── CalloutItem (US-11.10) ──
+    "CalloutItem": {
+        "Edit Text": "Text bearbeiten",
+        "Delete": "Löschen",
+    },
+
+    # ── CircleItem — area label (US-11.9) ──
+    "CircleItem": {
+        "Show Area": "Fläche anzeigen",
+    },
+
+    # ── EllipseItem — area label (US-11.9) ──
+    "EllipseItem": {
+        "Show Area": "Fläche anzeigen",
+    },
+
+    # ── FindReplacePanel (US-11.24) ──
+    "FindReplacePanel": {
+        "Find & Replace": "Suchen & Ersetzen",
+        "Name contains:": "Name enthält:",
+        "Type:": "Typ:",
+        "Layer:": "Ebene:",
+        "Species contains:": "Art enthält:",
+        "(any)": "(beliebig)",
+        "Search": "Suchen",
+        "Select All Matching": "Alle Treffer auswählen",
+        "All Types": "Alle Typen",
+        "All Layers": "Alle Ebenen",
+        "(unnamed)": "(unbenannt)",
+        "Bulk change layer:": "Ebene ändern:",
+        "Replace species:": "Art ersetzen:",
+        "Apply": "Anwenden",
+    },
+
+    # ── PolygonItem — area label (US-11.9) ──
+    "PolygonItem": {
+        "Show Area": "Fläche anzeigen",
+    },
+
+    # ── RectangleItem — area label (US-11.9) ──
+    "RectangleItem": {
+        "Show Area": "Fläche anzeigen",
+    },
+
     # ── ObjectType (from QT_TR_NOOP in object_types.py — missing from pylupdate6) ──
     "ObjectType": {
         "Generic Rectangle": "Generisches Rechteck",
@@ -1138,6 +1187,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Tool Shed": "Geräteschuppen",
         "Rain Barrel": "Regentonne",
         "Water Tap": "Wasserhahn",
+        "Text": "Text",
+        "Callout": "Beschriftungspfeil",
     },
 
     # ── PreferencesDialog (US-12.2 weather section) ──

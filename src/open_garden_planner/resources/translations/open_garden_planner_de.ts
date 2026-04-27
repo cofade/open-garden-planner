@@ -728,6 +728,10 @@
             <source>Create Circular Array...</source>
             <translation>Kreismuster erstellen...</translation>
         </message>
+        <message>
+            <source>Show Area</source>
+            <translation>Fläche anzeigen</translation>
+        </message>
     </context>
     <context>
         <name>CircleTool</name>
@@ -3575,6 +3579,26 @@ Neue Saison jetzt öffnen?</translation>
             <source>&lt;p&gt;Version 0.1.0&lt;/p&gt;</source>
             <translation>&lt;p&gt;Version 0.1.0&lt;/p&gt;</translation>
         </message>
+        <message>
+            <source>&amp;Find &amp;&amp; Replace…</source>
+            <translation>Su&amp;chen &amp;&amp; Ersetzen…</translation>
+        </message>
+        <message>
+            <source>Find and replace objects by name, type, layer or species</source>
+            <translation>Objekte nach Name, Typ, Ebene oder Art suchen und ersetzen</translation>
+        </message>
+        <message>
+            <source>Frost alert — click to view details in Planting Calendar</source>
+            <translation>Frostwarnung — klicken, um Details im Pflanzkalender anzuzeigen</translation>
+        </message>
+        <message>
+            <source>frost alert</source>
+            <translation>Frostwarnung</translation>
+        </message>
+        <message>
+            <source>frost alerts</source>
+            <translation>Frostwarnungen</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -3953,6 +3977,14 @@ Ergebnisse werden lokal für ein Jahr zwischengespeichert.</translation>
             <source>Create distance constraint between objects</source>
             <translation type="vanished">Abstandsbeschränkung zwischen Objekten erstellen</translation>
         </message>
+        <message>
+            <source>Callout</source>
+            <translation>Beschriftungspfeil</translation>
+        </message>
+        <message>
+            <source>Place a callout annotation with leader line</source>
+            <translation>Beschriftungspfeil mit Führungslinie platzieren</translation>
+        </message>
     </context>
     <context>
         <name>MeasureTool</name>
@@ -4149,6 +4181,14 @@ Ergebnisse werden lokal für ein Jahr zwischengespeichert.</translation>
         <message>
             <source>Ellipse</source>
             <translation>Ellipse</translation>
+        </message>
+        <message>
+            <source>Text</source>
+            <translation>Text</translation>
+        </message>
+        <message>
+            <source>Callout</source>
+            <translation>Beschriftungspfeil</translation>
         </message>
     </context>
     <context>
@@ -5019,6 +5059,10 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <source>Create Circular Array...</source>
             <translation>Kreismuster erstellen...</translation>
         </message>
+        <message>
+            <source>Show Area</source>
+            <translation>Fläche anzeigen</translation>
+        </message>
     </context>
     <context>
         <name>PolygonTool</name>
@@ -5783,6 +5827,10 @@ noch nicht implementiert</translation>
         <message>
             <source>Create Circular Array...</source>
             <translation>Kreismuster erstellen...</translation>
+        </message>
+        <message>
+            <source>Show Area</source>
+            <translation>Fläche anzeigen</translation>
         </message>
     </context>
     <context>
@@ -7060,6 +7108,10 @@ Fortfahren?</translation>
             <source>Array Along Path...</source>
             <translation>Muster entlang Pfad...</translation>
         </message>
+        <message>
+            <source>Show Area</source>
+            <translation>Fläche anzeigen</translation>
+        </message>
     </context>
     <context>
         <name>EllipseTool</name>
@@ -7139,6 +7191,76 @@ Verwenden Sie Datei › Gartenstandort festlegen zum Konfigurieren der GPS-Koord
         <message>
             <source>Forecast unavailable</source>
             <translation>Vorhersage nicht verfügbar</translation>
+        </message>
+    </context>
+    <context>
+        <name>CalloutItem</name>
+        <message>
+            <source>Edit Text</source>
+            <translation>Text bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete</source>
+            <translation>Löschen</translation>
+        </message>
+    </context>
+    <context>
+        <name>FindReplacePanel</name>
+        <message>
+            <source>Find &amp; Replace</source>
+            <translation>Suchen &amp; Ersetzen</translation>
+        </message>
+        <message>
+            <source>Name contains:</source>
+            <translation>Name enthält:</translation>
+        </message>
+        <message>
+            <source>Type:</source>
+            <translation>Typ:</translation>
+        </message>
+        <message>
+            <source>Layer:</source>
+            <translation>Ebene:</translation>
+        </message>
+        <message>
+            <source>Species contains:</source>
+            <translation>Art enthält:</translation>
+        </message>
+        <message>
+            <source>(any)</source>
+            <translation>(beliebig)</translation>
+        </message>
+        <message>
+            <source>Search</source>
+            <translation>Suchen</translation>
+        </message>
+        <message>
+            <source>Select All Matching</source>
+            <translation>Alle Treffer auswählen</translation>
+        </message>
+        <message>
+            <source>All Types</source>
+            <translation>Alle Typen</translation>
+        </message>
+        <message>
+            <source>All Layers</source>
+            <translation>Alle Ebenen</translation>
+        </message>
+        <message>
+            <source>(unnamed)</source>
+            <translation>(unbenannt)</translation>
+        </message>
+        <message>
+            <source>Bulk change layer:</source>
+            <translation>Ebene ändern:</translation>
+        </message>
+        <message>
+            <source>Replace species:</source>
+            <translation>Art ersetzen:</translation>
+        </message>
+        <message>
+            <source>Apply</source>
+            <translation>Anwenden</translation>
         </message>
     </context>
 </TS>

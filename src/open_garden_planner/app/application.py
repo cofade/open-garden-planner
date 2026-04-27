@@ -288,6 +288,13 @@ class GardenPlannerApp(QMainWindow):
         select_all_action.triggered.connect(self._on_select_all)
         menu.addAction(select_all_action)
 
+        # Find & Replace
+        find_replace_action = QAction(self.tr("&Find && Replace…"), self)
+        find_replace_action.setShortcut(QKeySequence.StandardKey.Find)
+        find_replace_action.setStatusTip(self.tr("Find and replace objects by name, type, layer or species"))
+        find_replace_action.triggered.connect(self._on_toggle_find_replace)
+        menu.addAction(find_replace_action)
+
         menu.addSeparator()
 
         # Align submenu
@@ -752,6 +759,11 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.ui.widgets.minimap_widget import MinimapWidget
 
         self._minimap = MinimapWidget(self.canvas_view, self.canvas_scene)
+
+        # ── Find & Replace panel (US-11.24) ──────────────────────────────────
+        from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
+
+        self._find_panel = FindReplacePanel(self.canvas_view, parent=self)
 
         # Connect delete action to canvas
         self._delete_action.triggered.connect(self.canvas_view._delete_selected_items)
@@ -1857,6 +1869,14 @@ class GardenPlannerApp(QMainWindow):
         """Handle toggle minimap action."""
         self._minimap.set_visible(checked)
 
+    def _on_toggle_find_replace(self) -> None:
+        """Toggle Find & Replace panel visibility."""
+        self._find_panel.refresh_combos()
+        self._find_panel.setVisible(not self._find_panel.isVisible())
+        if self._find_panel.isVisible():
+            self._find_panel.activateWindow()
+            self._find_panel.raise_()
+
     def _on_scene_changed_for_companion(self) -> None:
         """Debounce companion highlight refresh when scene items move."""
         self._companion_update_timer.start()
@@ -2403,6 +2423,8 @@ class GardenPlannerApp(QMainWindow):
         main_tool_map = {
             "Select": ToolType.SELECT,
             "Measure": ToolType.MEASURE,
+            "Text": ToolType.TEXT,
+            "Callout": ToolType.CALLOUT,
         }
         constraint_tool_map = {
             "Distance Constraint": ToolType.CONSTRAINT,

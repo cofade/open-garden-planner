@@ -87,6 +87,8 @@ class ToolType(Enum):
 
     # Text annotation
     TEXT = auto()
+    # Callout / leader line annotation
+    CALLOUT = auto()
 
     # Construction geometry (helper lines/circles, not in exports)
     CONSTRUCTION_LINE = auto()

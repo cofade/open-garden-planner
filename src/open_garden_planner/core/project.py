@@ -663,6 +663,8 @@ class ProjectManager(QObject):
             # Save rotation angle
             if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
                 data["rotation_angle"] = item.rotation_angle
+            if hasattr(item, "area_label_visible") and item.area_label_visible:
+                data["area_label_visible"] = True
             return data
         elif isinstance(item, EllipseItem):
             rect = item.rect()
@@ -696,6 +698,8 @@ class ProjectManager(QObject):
                 data["stroke_style"] = item.stroke_style.name
             if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
                 data["rotation_angle"] = item.rotation_angle
+            if hasattr(item, "area_label_visible") and item.area_label_visible:
+                data["area_label_visible"] = True
             return data
         elif isinstance(item, CircleItem):
             data = {
@@ -745,6 +749,8 @@ class ProjectManager(QObject):
             # Save frost protection override (US-12.2)
             if hasattr(item, "_frost_protection_needed") and item._frost_protection_needed is not None:
                 data["frost_protection_needed"] = item._frost_protection_needed
+            if hasattr(item, "area_label_visible") and item.area_label_visible:
+                data["area_label_visible"] = True
             return data
         elif isinstance(item, PolylineItem):
             data = {
@@ -816,7 +822,13 @@ class ProjectManager(QObject):
             # Save rotation angle
             if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
                 data["rotation_angle"] = item.rotation_angle
+            if hasattr(item, "area_label_visible") and item.area_label_visible:
+                data["area_label_visible"] = True
             return data
+
+        from open_garden_planner.ui.canvas.items.callout_item import CalloutItem
+        if isinstance(item, CalloutItem):
+            return item.to_dict()
 
         from open_garden_planner.ui.canvas.items.group_item import GroupItem
         if isinstance(item, GroupItem):
@@ -1087,6 +1099,8 @@ class ProjectManager(QObject):
             # Restore rotation angle
             if "rotation_angle" in obj:
                 item._apply_rotation(obj["rotation_angle"])
+            if obj.get("area_label_visible"):
+                item.area_label_visible = True
             return item
         elif obj_type == "circle":
             item = CircleItem(
@@ -1144,6 +1158,8 @@ class ProjectManager(QObject):
             # Restore frost protection override (US-12.2)
             if "frost_protection_needed" in obj:
                 item._frost_protection_needed = bool(obj["frost_protection_needed"])
+            if obj.get("area_label_visible"):
+                item.area_label_visible = True
             return item
         elif obj_type == "ellipse":
             semi_x = float(obj.get("semi_x", 50))
@@ -1186,6 +1202,8 @@ class ProjectManager(QObject):
                 item.label_visible = False
             if "rotation_angle" in obj:
                 item._apply_rotation(obj["rotation_angle"])
+            if obj.get("area_label_visible"):
+                item.area_label_visible = True
             return item
         elif obj_type == "polyline":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
@@ -1263,5 +1281,10 @@ class ProjectManager(QObject):
                 # Restore rotation angle
                 if "rotation_angle" in obj:
                     item._apply_rotation(obj["rotation_angle"])
+                if obj.get("area_label_visible"):
+                    item.area_label_visible = True
                 return item
+        elif obj_type == "callout":
+            from open_garden_planner.ui.canvas.items.callout_item import CalloutItem
+            return CalloutItem.from_dict(obj)
         return None

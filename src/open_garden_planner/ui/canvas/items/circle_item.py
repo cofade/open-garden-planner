@@ -472,10 +472,15 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 self._hide_circle_annotations()
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             self._update_circle_annotations()
+            self._update_area_label()
         elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
             self.remove_rotation_handle()
 
         return super().itemChange(change, value)
+
+    def _compute_area_cm2(self) -> float | None:
+        import math
+        return math.pi * self.radius ** 2
 
     def _show_circle_annotations(self) -> None:
         """Show diameter and center coordinate annotations."""
@@ -620,6 +625,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         # Update label position
         self._position_label()
+        self._update_area_label()
 
         # Update annotations
         self._update_circle_annotations()
@@ -776,6 +782,11 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         from open_garden_planner.core.object_types import get_valid_types_for_shape
         change_type_menu = self._build_change_type_menu(menu, get_valid_types_for_shape("circle"))
 
+        # Show Area toggle
+        show_area_action = menu.addAction(_("CircleItem", "Show Area"))
+        show_area_action.setCheckable(True)
+        show_area_action.setChecked(self._area_label_visible)
+
         menu.addSeparator()
 
         # Delete action
@@ -822,7 +833,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
-        if action == delete_action:
+        if action == show_area_action:
+            self.area_label_visible = not self._area_label_visible
+        elif action == delete_action:
             self.scene().removeItem(self)
         elif action == duplicate_action:
             # Duplicate via canvas view
