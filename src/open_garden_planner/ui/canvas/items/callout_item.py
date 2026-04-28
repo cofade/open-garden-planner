@@ -43,6 +43,7 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
     _ARROW_SIZE: float = 10.0
     _BOX_PADDING: float = 4.0
     _BOX_RADIUS: float = 3.0
+    _MIN_BOX_WIDTH: float = 80.0
     _FONT_FAMILY: str = "Arial"
     _FONT_SIZE_PT: int = 10
 
@@ -107,7 +108,7 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         return QRectF(
             self._box_offset.x() - p,
             self._box_offset.y() - p,
-            tr.width() + 2 * p,
+            max(self._MIN_BOX_WIDTH, tr.width()) + 2 * p,
             tr.height() + 2 * p,
         )
 
@@ -212,10 +213,18 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         """Enter inline text editing mode."""
         self._editing = True
         self._text_child.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
+        # Ensure the canvas view widget has keyboard focus so key events reach the
+        # scene after the text child receives scene focus (e.g. after a context menu).
+        scene = self.scene()
+        if scene:
+            for view in scene.views():
+                view.setFocus()
+                break
         self._text_child.setFocus(Qt.FocusReason.MouseFocusReason)
         cursor = self._text_child.textCursor()
         cursor.select(QTextCursor.SelectionType.Document)
         self._text_child.setTextCursor(cursor)
+        self.update()
 
     def _commit_edit(self) -> None:
         if not self._editing:
