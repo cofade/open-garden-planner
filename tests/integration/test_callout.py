@@ -107,13 +107,14 @@ class TestCancel:
         assert consumed is True
         assert len(_callouts(canvas)) == 0
 
-    def test_escape_when_idle_is_not_consumed(
+    def test_escape_when_idle_switches_to_select(
         self, canvas: CanvasView, qtbot: object
     ) -> None:
         canvas.set_active_tool(ToolType.CALLOUT)
         tool = canvas.tool_manager.active_tool
         consumed = tool.key_press(_key_event(Qt.Key.Key_Escape))
-        assert consumed is False
+        assert consumed is True
+        assert canvas.tool_manager.active_tool.tool_type == ToolType.SELECT
 
 
 class TestUndo:

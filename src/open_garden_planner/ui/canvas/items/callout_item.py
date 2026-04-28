@@ -33,6 +33,23 @@ from .garden_item import GardenItemMixin
 from .resize_handle import RotationHandleMixin
 
 
+class _CalloutTextChild(QGraphicsTextItem):
+    """Child text item for CalloutItem that routes focus/key events back to the parent."""
+
+    def focusOutEvent(self, event: Any) -> None:
+        parent = self.parentItem()
+        if parent is not None:
+            parent._on_text_focus_out()  # type: ignore[union-attr]
+        super().focusOutEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() == Qt.Key.Key_Escape:
+            self.clearFocus()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
+
 class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
     """Callout annotation: leader line with arrowhead pointing at a target + text box.
 
@@ -69,7 +86,7 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         self._editing: bool = False
 
         # Child text item with Y-flip (same trick as TextItem for the canvas Y-axis flip)
-        self._text_child = QGraphicsTextItem(content, self)
+        self._text_child = _CalloutTextChild(content, self)
         self._text_child.setTransform(QTransform().scale(1.0, -1.0))
         font = QFont(self._FONT_FAMILY, self._FONT_SIZE_PT)
         self._text_child.setFont(font)
@@ -82,7 +99,9 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsFocusable, True)
+        # ItemIsFocusable intentionally NOT set: the text child holds scene focus
+        # during editing; granting focus to the parent caused focusOutEvent to fire
+        # immediately when start_editing() transferred focus to the child.
 
     # ── Properties ───────────────────────────────────────────────
 
@@ -213,8 +232,8 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         """Enter inline text editing mode."""
         self._editing = True
         self._text_child.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
-        # Ensure the canvas view widget has keyboard focus so key events reach the
-        # scene after the text child receives scene focus (e.g. after a context menu).
+        # Restore widget focus to the canvas view so key events reach the scene
+        # (e.g. after a context menu stole keyboard focus from the view).
         scene = self.scene()
         if scene:
             for view in scene.views():
@@ -226,6 +245,11 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         self._text_child.setTextCursor(cursor)
         self.update()
 
+    def _on_text_focus_out(self) -> None:
+        """Called by _CalloutTextChild.focusOutEvent when the text child loses focus."""
+        if self._editing:
+            self._commit_edit()
+
     def _commit_edit(self) -> None:
         if not self._editing:
             return
@@ -235,7 +259,7 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         cursor = self._text_child.textCursor()
         cursor.clearSelection()
         self._text_child.setTextCursor(cursor)
-        self._text_child.clearFocus()
+        self.update()
 
     # ── Qt events ─────────────────────────────────────────────────
 
@@ -245,18 +269,6 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
             event.accept()
         else:
             super().mouseDoubleClickEvent(event)
-
-    def focusOutEvent(self, event: Any) -> None:
-        if self._editing:
-            self._commit_edit()
-        super().focusOutEvent(event)
-
-    def keyPressEvent(self, event: QKeyEvent) -> None:
-        if self._editing and event.key() in (Qt.Key.Key_Escape,):
-            self._commit_edit()
-            event.accept()
-        else:
-            super().keyPressEvent(event)
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         _ = QCoreApplication.translate

@@ -21,6 +21,7 @@ class CalloutTool(BaseTool):
 
     tool_type = ToolType.CALLOUT
     display_name = QT_TR_NOOP("Callout")
+    shortcut = ""
     cursor = Qt.CursorShape.CrossCursor
 
     def __init__(self, view: "CanvasView") -> None:
@@ -82,8 +83,11 @@ class CalloutTool(BaseTool):
         return True
 
     def key_press(self, event: QKeyEvent) -> bool:
-        if event.key() == Qt.Key.Key_Escape and self._target is not None:
-            self.cancel()
+        if event.key() == Qt.Key.Key_Escape:
+            if self._target is not None:
+                self.cancel()
+            else:
+                self._view.set_active_tool(ToolType.SELECT)
             return True
         return False
 

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- Horizontal crossbar of T -->
+  <rect x="8" y="10" width="48" height="8" rx="2" fill="#1F2937"/>
+  <!-- Vertical stem of T -->
+  <rect x="28" y="18" width="8" height="36" rx="2" fill="#1F2937"/>
+</svg>

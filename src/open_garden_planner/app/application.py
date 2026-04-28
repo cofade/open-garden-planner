@@ -3006,7 +3006,7 @@ class GardenPlannerApp(QMainWindow):
         self._frost_badge.setStyleSheet(
             f"QPushButton {{ background: {bg}; color: white; font-weight: bold;"
             "  border-radius: 4px; padding: 2px 6px; }}"
-            f"QPushButton:hover {{ background: {bg}; opacity: 0.9; }}"
+            f"QPushButton:hover {{ border: 1px solid white; }}"
         )
         self._frost_badge.show()
 
