@@ -1248,11 +1248,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Downloading {filename}…": "{filename} wird heruntergeladen…",
         "Cancel": "Abbrechen",
         "Download Failed": "Download fehlgeschlagen",
-        "Could not download the installer:\n{error}":
-            "Das Installationsprogramm konnte nicht heruntergeladen werden:\n{error}",
+        "Could not download the installer:\n{error}\n\n"
+        "Download the latest release directly:\n{url}":
+            "Das Installationsprogramm konnte nicht heruntergeladen werden:\n{error}\n\n"
+            "Neueste Version direkt herunterladen:\n{url}",
         "Launch Failed": "Start fehlgeschlagen",
-        "Could not launch the installer:\n{error}":
-            "Das Installationsprogramm konnte nicht gestartet werden:\n{error}",
+        "Could not launch the installer:\n{error}\n\n"
+        "Try running Open Garden Planner as Administrator, "
+        "or download the installer directly:\n{url}":
+            "Das Installationsprogramm konnte nicht gestartet werden:\n{error}\n\n"
+            "Starten Sie Open Garden Planner als Administrator, "
+            "oder laden Sie das Installationsprogramm direkt herunter:\n{url}",
     },
 }
 
