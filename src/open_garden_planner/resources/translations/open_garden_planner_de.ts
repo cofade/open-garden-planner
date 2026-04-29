@@ -6707,27 +6707,37 @@ Fortfahren?</translation>
             <translation>Download fehlgeschlagen</translation>
         </message>
         <message>
-            <location filename="..\..\ui\widgets\update_bar.py" line="173" />
-            <source>Could not download the installer:
-{error}</source>
-            <translation>Das Installationsprogramm konnte nicht heruntergeladen werden:
-{error}</translation>
-        </message>
-        <message>
             <location filename="..\..\ui\widgets\update_bar.py" line="184" />
             <source>Launch Failed</source>
             <translation>Start fehlgeschlagen</translation>
         </message>
         <message>
-            <location filename="..\..\ui\widgets\update_bar.py" line="185" />
-            <source>Could not launch the installer:
-{error}</source>
-            <translation>Das Installationsprogramm konnte nicht gestartet werden:
-{error}</translation>
-        </message>
-        <message>
             <source>What's new</source>
             <translation>Was ist neu</translation>
+        </message>
+        <message>
+            <source>Could not download the installer:
+{error}
+
+Download the latest release directly:
+{url}</source>
+            <translation>Das Installationsprogramm konnte nicht heruntergeladen werden:
+{error}
+
+Neueste Version direkt herunterladen:
+{url}</translation>
+        </message>
+        <message>
+            <source>Could not launch the installer:
+{error}
+
+Try running Open Garden Planner as Administrator, or download the installer directly:
+{url}</source>
+            <translation>Das Installationsprogramm konnte nicht gestartet werden:
+{error}
+
+Starten Sie Open Garden Planner als Administrator, oder laden Sie das Installationsprogramm direkt herunter:
+{url}</translation>
         </message>
     </context>
     <context>
