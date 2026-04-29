@@ -340,8 +340,17 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             self._update_rect_annotations()
         elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
             self.remove_rotation_handle()
+        elif change in (
+            QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged,
+            QGraphicsItem.GraphicsItemChange.ItemTransformHasChanged,
+        ):
+            self._update_area_label()
 
         return super().itemChange(change, value)
+
+    def _compute_area_cm2(self) -> float | None:
+        r = self.rect()
+        return abs(r.width() * r.height())
 
     def _apply_resize(
         self,
@@ -373,6 +382,7 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
 
         # Update label position
         self._position_label()
+        self._update_area_label()
 
     def _on_resize_end(
         self,
@@ -558,6 +568,11 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         from open_garden_planner.core.object_types import get_valid_types_for_shape
         change_type_menu = self._build_change_type_menu(menu, get_valid_types_for_shape("rectangle"))
 
+        # Show Area toggle
+        show_area_action = menu.addAction(_("RectangleItem", "Show Area"))
+        show_area_action.setCheckable(True)
+        show_area_action.setChecked(self._area_label_visible)
+
         menu.addSeparator()
 
         # Delete action
@@ -620,6 +635,8 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         elif action == edit_label_action:
             # Edit the label
             self.start_label_edit()
+        elif action == show_area_action:
+            self.area_label_visible = not self._area_label_visible
         elif action == toggle_grid_action and toggle_grid_action is not None:
             self.grid_enabled = not self._grid_enabled
             # Refresh properties panel to reflect new state

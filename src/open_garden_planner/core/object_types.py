@@ -201,6 +201,9 @@ class ObjectType(Enum):
     # Text annotation
     GENERIC_TEXT = auto()
 
+    # Callout / leader line annotation
+    GENERIC_CALLOUT = auto()
+
 
 @dataclass(frozen=True)
 class ObjectStyle:
@@ -473,6 +476,13 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         stroke_color=QColor(0, 0, 0, 0),  # No stroke
         stroke_width=0.0,
         display_name=QT_TR_NOOP("Text"),
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.GENERIC_CALLOUT: ObjectStyle(
+        fill_color=QColor(255, 255, 255, 220),
+        stroke_color=QColor(30, 30, 30, 255),
+        stroke_width=1.5,
+        display_name=QT_TR_NOOP("Callout"),
         fill_pattern=FillPattern.SOLID,
     ),
 }

@@ -1,6 +1,7 @@
 """Drawing and editing tools."""
 
 from .base_tool import BaseTool, ToolType
+from .callout_tool import CalloutTool
 from .circle_tool import CircleTool
 from .constraint_tool import (
     AngleConstraintTool,
@@ -32,6 +33,7 @@ from .trim_tool import TrimExtendTool
 __all__ = [
     "AngleConstraintTool",
     "BaseTool",
+    "CalloutTool",
     "CircleTool",
     "CoincidentConstraintTool",
     "ConstraintTool",

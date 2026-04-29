@@ -85,6 +85,10 @@ class MainToolbar(QToolBar):
             ToolType.TEXT, "text_annotation", self.tr("Text"),
             self.tr("Place a text annotation"), "",
         )
+        self._add_tool_button(
+            ToolType.CALLOUT, "callout_annotation", self.tr("Callout"),
+            self.tr("Place a callout annotation with leader line"), "",
+        )
 
         # Select tool is default
         self._buttons[ToolType.SELECT].setChecked(True)

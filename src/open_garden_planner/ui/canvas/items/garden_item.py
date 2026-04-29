@@ -85,6 +85,8 @@ class GardenItemMixin:
         self._grid_visible_in_export: bool = self._metadata.get(
             "grid_visible_in_export", False,
         )
+        self._area_label_visible: bool = False
+        self._area_label_item: QGraphicsSimpleTextItem | None = None
         self._label_item: QGraphicsSimpleTextItem | None = None
         self._edit_label_item: QGraphicsTextItem | None = None
         self._label_edit_start_time: float = 0.0
@@ -521,6 +523,9 @@ class GardenItemMixin:
                 else:
                     # No text, remove entirely
                     self._remove_label()
+        # Keep area label below updated name label position
+        if self._area_label_item is not None:
+            self._position_area_label()
 
     def set_global_labels_visible(self, visible: bool) -> None:
         """Set global label visibility (called by scene toggle).
@@ -566,6 +571,73 @@ class GardenItemMixin:
         """
         if self._should_show_label() and self._get_display_label_text():
             self._create_label()
+
+    # ── Area label ───────────────────────────────────────────────
+
+    @property
+    def area_label_visible(self) -> bool:
+        """Whether the area label is shown for this item."""
+        return self._area_label_visible
+
+    @area_label_visible.setter
+    def area_label_visible(self, value: bool) -> None:
+        """Toggle the area label and trigger a repaint."""
+        self._area_label_visible = value
+        self._update_area_label()
+
+    def _compute_area_cm2(self) -> float | None:
+        """Return the area in cm². Override in concrete shape items."""
+        return None
+
+    @staticmethod
+    def _format_area(area_cm2: float) -> str:
+        """Format area with auto unit switching at 10 000 cm² = 1 m²."""
+        if area_cm2 >= 10_000:
+            return f"{area_cm2 / 10_000:.2f} m²"
+        return f"{area_cm2:.1f} cm²"
+
+    def _update_area_label(self) -> None:
+        """Create, update, or remove the area label child item."""
+        if not self._area_label_visible or not hasattr(self, "boundingRect"):
+            if self._area_label_item is not None:
+                self._area_label_item.setParentItem(None)
+                if hasattr(self, "scene") and callable(self.scene):  # type: ignore[attr-defined]
+                    s = self.scene()  # type: ignore[attr-defined]
+                    if s is not None:
+                        s.removeItem(self._area_label_item)
+                self._area_label_item = None
+            return
+        area = self._compute_area_cm2()
+        if area is None:
+            return
+        text = self._format_area(area)
+        if self._area_label_item is None:
+            self._area_label_item = QGraphicsSimpleTextItem(text, self)  # type: ignore[arg-type]
+            font = QFont("Arial", 8)
+            font.setItalic(True)
+            self._area_label_item.setFont(font)
+            self._area_label_item.setBrush(QColor(60, 60, 60))
+            self._area_label_item.setFlag(
+                QGraphicsSimpleTextItem.GraphicsItemFlag.ItemIgnoresTransformations
+            )
+        else:
+            self._area_label_item.setText(text)
+        self._position_area_label()
+
+    def _position_area_label(self) -> None:
+        """Position area label centred horizontally, just below name label."""
+        if self._area_label_item is None or not hasattr(self, "boundingRect"):
+            return
+        bounds = self.boundingRect()  # type: ignore[attr-defined]
+        center = bounds.center()
+        lw = self._area_label_item.boundingRect().width()
+        lh = self._area_label_item.boundingRect().height()
+        # Offset downward one extra label-height when a name label is also visible
+        extra = lh + 2.0 if (self._label_item is not None and self._label_item.isVisible()) else 0.0
+        self._area_label_item.setPos(
+            center.x() - lw / 2.0,
+            center.y() - lh / 2.0 + extra,
+        )
 
     def start_label_edit(self) -> None:
         """Start inline editing of the label."""

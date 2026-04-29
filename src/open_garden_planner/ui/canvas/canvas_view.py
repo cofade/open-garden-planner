@@ -41,6 +41,7 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
     AngleConstraintTool,
+    CalloutTool,
     CircleTool,
     CoincidentConstraintTool,
     ConstraintTool,
@@ -236,6 +237,9 @@ class CanvasView(QGraphicsView):
 
         text_tool = TextTool(self)
         self._tool_manager.register_tool(text_tool)
+
+        callout_tool = CalloutTool(self)
+        self._tool_manager.register_tool(callout_tool)
 
         # Register property object tools (polygon-based)
         house_tool = PolygonTool(self, object_type=ObjectType.HOUSE)
@@ -4417,14 +4421,16 @@ class CanvasView(QGraphicsView):
         """Core serialization without relationship fields."""
         from open_garden_planner.ui.canvas.items import (
             BackgroundImageItem,
+            CalloutItem,
             CircleItem,
+            EllipseItem,
             PolygonItem,
             PolylineItem,
             RectangleItem,
             TextItem,
         )
 
-        if isinstance(item, BackgroundImageItem):
+        if isinstance(item, (BackgroundImageItem, CalloutItem)):
             return item.to_dict()
         elif isinstance(item, RectangleItem):
             rect = item.rect()
@@ -4459,6 +4465,9 @@ class CanvasView(QGraphicsView):
             # Save rotation angle
             if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
                 data["rotation_angle"] = item.rotation_angle
+            # Save area label visibility
+            if hasattr(item, "area_label_visible") and item.area_label_visible:
+                data["area_label_visible"] = True
             return data
         elif isinstance(item, CircleItem):
             data = {
@@ -4495,6 +4504,41 @@ class CanvasView(QGraphicsView):
             # Save rotation angle
             if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
                 data["rotation_angle"] = item.rotation_angle
+            # Save area label visibility
+            if hasattr(item, "area_label_visible") and item.area_label_visible:
+                data["area_label_visible"] = True
+            return data
+        elif isinstance(item, EllipseItem):
+            r = item.rect()
+            data = {
+                "type": "ellipse",
+                "x": item.pos().x() + r.x(),
+                "y": item.pos().y() + r.y(),
+                "width": r.width(),
+                "height": r.height(),
+            }
+            if hasattr(item, "object_type") and item.object_type:
+                data["object_type"] = item.object_type.name
+            if hasattr(item, "name") and item.name:
+                data["name"] = item.name
+            if hasattr(item, "metadata") and item.metadata:
+                data["metadata"] = item.metadata
+            if hasattr(item, "fill_color") and item.fill_color:
+                fill_color = item.fill_color
+            else:
+                fill_color = item.brush().color()
+            data["fill_color"] = fill_color.name(QColor.NameFormat.HexArgb)
+            stroke_color = item.pen().color()
+            data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
+            data["stroke_width"] = item.pen().widthF()
+            if hasattr(item, "fill_pattern") and item.fill_pattern:
+                data["fill_pattern"] = item.fill_pattern.name
+            if hasattr(item, "stroke_style") and item.stroke_style:
+                data["stroke_style"] = item.stroke_style.name
+            if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
+                data["rotation_angle"] = item.rotation_angle
+            if hasattr(item, "area_label_visible") and item.area_label_visible:
+                data["area_label_visible"] = True
             return data
         elif isinstance(item, PolylineItem):
             data = {
@@ -4557,6 +4601,9 @@ class CanvasView(QGraphicsView):
             # Save rotation angle
             if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
                 data["rotation_angle"] = item.rotation_angle
+            # Save area label visibility
+            if hasattr(item, "area_label_visible") and item.area_label_visible:
+                data["area_label_visible"] = True
             return data
         elif isinstance(item, TextItem):
             data = {
@@ -4595,7 +4642,9 @@ class CanvasView(QGraphicsView):
         from open_garden_planner.core.object_types import ObjectType, StrokeStyle
         from open_garden_planner.ui.canvas.items import (
             BackgroundImageItem,
+            CalloutItem,
             CircleItem,
+            EllipseItem,
             PolygonItem,
             PolylineItem,
             RectangleItem,
@@ -4634,6 +4683,8 @@ class CanvasView(QGraphicsView):
             except (ValueError, FileNotFoundError):
                 # Image file may have been moved/deleted
                 return None
+        elif obj_type == "callout":
+            return CalloutItem.from_dict(obj)
         elif obj_type == "rectangle":
             item = RectangleItem(
                 obj["x"],
@@ -4667,6 +4718,8 @@ class CanvasView(QGraphicsView):
                 item.setPen(pen)
             if "rotation_angle" in obj:
                 item._apply_rotation(obj["rotation_angle"])
+            if obj.get("area_label_visible"):
+                item.area_label_visible = True
             return item
         elif obj_type == "circle":
             item = CircleItem(
@@ -4712,6 +4765,43 @@ class CanvasView(QGraphicsView):
                 item.setPen(pen)
             if "rotation_angle" in obj:
                 item._apply_rotation(obj["rotation_angle"])
+            if obj.get("area_label_visible"):
+                item.area_label_visible = True
+            return item
+        elif obj_type == "ellipse":
+            item = EllipseItem(
+                obj.get("x", 0.0),
+                obj.get("y", 0.0),
+                obj.get("width", 50.0),
+                obj.get("height", 30.0),
+                object_type=object_type or ObjectType.GENERIC_ELLIPSE,
+                name=name,
+                metadata=metadata,
+                fill_pattern=fill_pattern,
+                stroke_style=stroke_style,
+            )
+            if "fill_color" in obj:
+                color = QColor(obj["fill_color"])
+                if hasattr(item, "fill_color"):
+                    item.fill_color = color
+                if fill_pattern:
+                    brush = create_pattern_brush(fill_pattern, color)
+                else:
+                    brush = item.brush()
+                    brush.setColor(color)
+                item.setBrush(brush)
+            if "stroke_color" in obj:
+                pen = item.pen()
+                pen.setColor(QColor(obj["stroke_color"]))
+                if "stroke_width" in obj:
+                    pen.setWidthF(obj["stroke_width"])
+                if stroke_style:
+                    pen.setStyle(stroke_style.to_qt_pen_style())
+                item.setPen(pen)
+            if "rotation_angle" in obj:
+                item._apply_rotation(obj["rotation_angle"])
+            if obj.get("area_label_visible"):
+                item.area_label_visible = True
             return item
         elif obj_type == "polyline":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
@@ -4765,6 +4855,8 @@ class CanvasView(QGraphicsView):
                     item.setPen(pen)
                 if "rotation_angle" in obj:
                     item._apply_rotation(obj["rotation_angle"])
+                if obj.get("area_label_visible"):
+                    item.area_label_visible = True
                 return item
         elif obj_type == "text":
             item = TextItem(

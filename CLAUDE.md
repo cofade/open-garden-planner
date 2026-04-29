@@ -166,15 +166,15 @@ Full history: see `docs/roadmap.md`.
 | ✅     | 11.6  | Plant illustration expansion             | Visual Polish      |
 | ✅     | 11.7  | Minimap / overview panel                 | Visual Polish      |
 | ✅     | 11.8  | Free text annotation tool                | Annotations        |
-|        | 11.9  | Auto area labels                         | Annotations        |
-|        | 11.10 | Callout / leader line annotations        | Annotations        |
+| ✅     | 11.9  | Auto area labels                         | Annotations        |
+| ✅     | 11.10 | Callout / leader line annotations        | Annotations        |
 | ✅     | 11.11 | Group / ungroup                          | Shape Operations   |
 | ✅     | 11.12 | Boolean shape operations                 | Shape Operations   |
 | ✅     | 11.13 | Array along path                         | Shape Operations   |
 | ✅     | 11.14 | Ellipse drawing tool                     | Drawing Tools      |
 | ✅     | 11.15 | Offset tool                              | Drawing Tools      |
 | ✅     | 11.16 | Trim / extend tool                       | Drawing Tools      |
-|        | 11.24 | Find & replace objects                   | Workflow           |
+| ✅     | 11.24 | Find & replace objects                   | Workflow           |
 | ✅     | 11.25 | Missing translations & Change Type menu  | Quality / UX       |
 
 ## Progress (Phase 12: Weather & Smart Features v1.9.x)
@@ -190,3 +190,7 @@ Full history: see `docs/roadmap.md`.
 |        | 12.7  | Pest & disease log                       | Smart Features     |
 |        | 12.8  | Succession planting                      | Smart Features     |
 |        | 12.9  | Garden journal (map-linked notes)        | Smart Features     |
+|        | 12.10 | Soil health tracking & amendment calc    | Smart Features     |
+
+> **US-12.10 implementation details**: `docs/roadmap.md` § "US-12.10: Soil Health Tracking & Amendment Calculator"
+> Sub-stories (execute in order): **12.10a** data model + entry → **12.10b** canvas overlay → **12.10c** amendment calculator → **12.10d** plant-soil warnings → **12.10e** history + seasonal badge

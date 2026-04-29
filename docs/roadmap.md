@@ -1712,8 +1712,8 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 
 | ID | User Story | Priority | Status |
 |----|------------|----------|--------|
-| US-12.1 | Weather forecast widget in Dashboard | Must | |
-| US-12.2 | Frost alert & plant-aware warnings | Must | |
+| US-12.1 | Weather forecast widget in Dashboard | Must | ✅ |
+| US-12.2 | Frost alert & plant-aware warnings | Must | ✅ |
 | US-12.3 | DXF export | Should | |
 | US-12.4 | DXF import | Should | |
 | US-12.5 | Multi-page PDF export | Should | |
@@ -1721,6 +1721,7 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 | US-12.7 | Pest & disease log | Could | |
 | US-12.8 | Succession planting | Could | |
 | US-12.9 | Garden journal (map-linked notes) | Could | |
+| US-12.10 | Soil health tracking & amendment calculator | Must | |
 
 ### US-12.1: Weather Forecast Widget
 
@@ -1902,6 +1903,279 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 - New item: `src/open_garden_planner/ui/canvas/items/note_item.py`
 - New tool: `src/open_garden_planner/core/tools/note_tool.py`
 - Photo storage: save photos in project directory alongside .ogp file
+
+---
+
+### US-12.10: Soil Health Tracking & Amendment Calculator
+
+**Phase**: 12 | **Block**: Smart Features | **Priority**: Must
+
+#### Background
+
+User conducts periodic soil tests (pH, N, P, K, Ca, Mg, S) using Rapitest-style kits or professional lab
+reports. OGP records results per bed, visualises soil health on the canvas, and — using the bed's known area
+from the CAD model — computes precise amendment quantities in grams. No other garden app can do this because
+none carry the geometric model.
+
+**Implemented in five modular sub-stories — execute in order:**
+
+| Sub-story  | Description                                                |
+| ---------- | ---------------------------------------------------------- |
+| US-12.10a  | Data model + right-click entry dialog + .ogp storage       |
+| US-12.10b  | Canvas overlay: overall health tint + parameter drilldown  |
+| US-12.10c  | Amendment calculator: inline per-bed + Amendment Plan dialog|
+| US-12.10d  | Plant-soil compatibility warnings: bed border + Dashboard  |
+| US-12.10e  | Full history + sparkline charts + seasonal reminder badge  |
+
+---
+
+#### Data Model
+
+**New file**: `src/open_garden_planner/models/soil_test.py`
+
+```python
+# NPK scale follows Rapitest kit:
+#   N: 0=Depleted, 1=Deficient, 2=Adequate, 3=Sufficient, 4=Surplus
+#   P: 0=Depleted, 1=Deficient, 2=Adequate, 3=Sufficient, 4=Surplus
+#   K: 1=Deficient, 2=Adequate, 3=Sufficient, 4=Surplus  (no K0 in kit)
+# Secondary nutrients: 0=Low, 1=Medium, 2=High
+
+@dataclass
+class SoilTestRecord:
+    date: str                    # ISO 8601, e.g. "2026-04-25"
+    ph: float | None = None
+    n_level: int | None = None   # 0–4
+    p_level: int | None = None   # 0–4
+    k_level: int | None = None   # 1–4
+    ca_level: int | None = None  # 0–2
+    mg_level: int | None = None  # 0–2
+    s_level: int | None = None   # 0–2
+    notes: str = ""
+
+@dataclass
+class SoilTestHistory:
+    target_id: str               # bed UUID or "global" for project-wide default
+    records: list[SoilTestRecord]
+```
+
+**Storage**: `.ogp` JSON top-level key `"soil_tests"` → `{target_id: SoilTestHistory.to_dict()}`.
+
+**Hierarchy**: effective record = bed's own latest → fallback to global latest (future: zone in between).
+
+**Plant DB extension** (`src/open_garden_planner/models/plant_data.py`):
+Add to `PlantSpeciesData` after `nutrient_demand`:
+```python
+n_demand: str | None = None   # "low" | "medium" | "high" | "fixer"
+p_demand: str | None = None
+k_demand: str | None = None
+```
+Backward-compat: `nutrient_demand="heavy"` → `n_demand="high"` mapped lazily in `SoilService`.
+
+---
+
+#### Amendment Config
+
+**New file**: `src/open_garden_planner/data/amendments.json` (version `"1.0"`)
+
+12 substances bundled at ship time; UI editor deferred. Each entry has:
+
+| Field | Meaning |
+|---|---|
+| `id` | Stable key for code references |
+| `name` / `name_de` | Localised display name |
+| `fixes` | List of effects: `"raises_pH"`, `"lowers_pH"`, `"adds_N"`, `"adds_P"`, `"adds_K"`, `"adds_Ca"`, `"adds_Mg"`, `"adds_S"`, `"improves_structure"` |
+| `application_rate_g_m2` | Default quantity for one level correction |
+| `ph_effect_per_100g_m2` | pH units changed per 100 g/m² applied |
+| `{n/p/k/ca/mg}_level_effect` | NPK level steps per one application |
+| `organic` | `true` / `false` |
+| `release_speed` | `"fast"` / `"slow"` / `"very_slow"` |
+
+Bundled substances: garden lime, dolomite lime, sulfur, blood meal, bone meal, wood ash, compost,
+well-rotted manure, epsom salt, gypsum, greensand, rock phosphate.
+
+---
+
+#### Service Layer
+
+**New file**: `src/open_garden_planner/services/soil_service.py`
+
+```python
+class SoilService:
+    def get_history(self, target_id: str) -> SoilTestHistory: ...
+    def get_effective_record(self, bed_id: str) -> SoilTestRecord | None: ...
+    def add_record(self, target_id: str, record: SoilTestRecord) -> None: ...
+    def calculate_amendments(self, current, target_ph, target_n, target_p, target_k,
+                             bed_area_m2) -> list[AmendmentRecommendation]: ...
+    def get_mismatched_plants(self, bed_id, plants) -> list[tuple[PlantItem, list[str]]]: ...
+    def is_test_overdue(self, bed_id: str) -> bool: ...  # month in {3,4,9,10} AND >180 days
+    def overall_health_color(self, record: SoilTestRecord) -> HealthLevel: ...
+
+@dataclass
+class AmendmentRecommendation:
+    amendment_id: str
+    name: str
+    quantity_g: float
+    rationale: str   # e.g. "Raises pH from 5.8 → 6.5"
+
+class HealthLevel(Enum):
+    GOOD = "good"    # green  (100,200,100,80)
+    FAIR = "fair"    # amber  (255,200,0,80)
+    POOR = "poor"    # red    (220,60,60,80)
+    UNTESTED = "untested"  # grey diagonal-hatch
+```
+
+Amendment calc formulas:
+- pH: `qty_g = abs(target_ph - current_ph) / substance["ph_effect_per_100g_m2"] * 100 * bed_area_m2`
+- NPK: `qty_g = (target_level - current_level) * substance["application_rate_g_m2"] * bed_area_m2`
+
+---
+
+#### Key Files
+
+| File | New/Modified | Role |
+|---|---|---|
+| `src/open_garden_planner/models/soil_test.py` | New | `SoilTestRecord`, `SoilTestHistory` dataclasses |
+| `src/open_garden_planner/services/soil_service.py` | New | Business logic: amendments, mismatch detection, overdue check |
+| `src/open_garden_planner/data/amendments.json` | New | 12-substance config table (g/m², pH effects, NPK effects) |
+| `ui/dialogs/soil_test_dialog.py` | New | Entry dialog (Kit/Lab mode, History tab with sparklines) |
+| `ui/dialogs/amendment_plan_dialog.py` | New | Cross-bed amendment plan; "Add to Shopping List" |
+| `ui/widgets/soil_sparkline.py` | New | `SoilSparklineWidget` — QPainter polyline, no external lib |
+| `src/open_garden_planner/core/project.py` | Modified | Add `soil_tests: dict[str, SoilTestHistory]` to `ProjectData` |
+| `src/open_garden_planner/models/plant_data.py` | Modified | Add `n_demand`, `p_demand`, `k_demand` to `PlantSpeciesData` |
+| `ui/canvas/canvas_scene.py` | Modified | `drawForeground` overlay, debounced mismatch timer, badges |
+| `ui/canvas/items/garden_item.py` | Modified | Context menu "Add soil test…", mismatch border, tooltip |
+| `app/application.py` | Modified | Overlay toggle (Ctrl+Shift+S), toolbar combo, Garden menu items |
+| `ui/views/planting_calendar_view.py` | Modified | Dashboard soil mismatch cards (urgency AMBER) |
+
+---
+
+#### US-12.10a: Data Model, Entry & Storage
+
+**Branch**: `feature/US-12.10a-soil-data-model`
+
+**Acceptance criteria**:
+- Right-click bed → "Add soil test…" → `SoilTestDialog` opens
+- Dialog: date picker (default today), pH field (float 0–14), N/P/K dropdowns (None + N0–N4 labels),
+  Ca/Mg/S dropdowns (None + Low/Medium/High), notes textarea, Kit/Lab mode toggle
+- Kit mode shows categorical labels (Depleted…Surplus); Lab mode shows numeric ppm input
+- Garden menu → "Set default soil test…" opens same dialog with `target_id="global"`
+- Data persists in `.ogp` `"soil_tests"` key; project marked dirty; undo/redo supported
+
+**Key i18n strings** (add to `scripts/fill_translations.py`):
+```
+"Add soil test…", "Soil Test", "Soil Test — {name}", "Default Soil Test",
+"pH (0–14)", "Nitrogen (N)", "Phosphorus (P)", "Potassium (K)",
+"Calcium (Ca)", "Magnesium (Mg)", "Sulfur (S)", "Notes",
+"Depleted", "Deficient", "Adequate", "Sufficient", "Surplus",
+"Low", "Medium", "High", "Kit (categorical)", "Lab (ppm)"
+```
+
+**Integration test** `tests/integration/test_soil_test_entry.py`:
+```python
+def test_add_soil_test_to_bed_and_persist(app, qtbot, tmp_path):
+    # draw rectangle bed → right-click → "Add soil test…"
+    # fill: pH=6.2, N=1 (Deficient), P=1, K=1 → accept
+    # assert project_data.soil_tests[bed_id].latest.ph == 6.2
+    # save to tmp_path → reload → assert round-trip preserves all fields
+```
+
+---
+
+#### US-12.10b: Canvas Soil Health Overlay
+
+**Branch**: `feature/US-12.10b-soil-overlay`
+
+**Acceptance criteria**:
+- View → "Soil Health Overlay" toggle (Ctrl+Shift+S) tints beds by worst parameter
+- Toolbar `QComboBox` (only visible when overlay on): Overall / pH / N / P / K
+- Untested beds: grey `Qt.BrushStyle.DiagCrossPattern` fill (alpha 40)
+- Overlay excluded from PDF/image exports
+
+**Implementation**:
+- `CanvasScene`: add `_soil_overlay_visible: bool = False`, `_soil_overlay_param: str = "overall"`
+- Override `drawForeground(painter, rect)` → call `_paint_soil_overlay(painter)` when active
+- `_paint_soil_overlay`: iterate bed items → `SoilService.get_effective_record(item_id)` → draw
+  `QColor(r,g,b,80)` filled polygon over `item.mapToScene(item.boundingRect())`
+- Color map: GOOD=`(100,200,100,80)`, FAIR=`(255,200,0,80)`, POOR=`(220,60,60,80)`
+- Per-parameter colour: pH ideal 6.0–7.0; NPK 0/1=red, 2=amber, 3/4=green
+
+**Integration test** `tests/integration/test_soil_overlay.py`
+
+---
+
+#### US-12.10c: Amendment Calculator
+
+**Branch**: `feature/US-12.10c-amendment-calc`
+
+**Acceptance criteria**:
+- `SoilTestDialog` "Amendments" section: target selectors → inline list of amendment + grams for this bed
+- Garden → "Amendment Plan…" → `AmendmentPlanDialog`: all deficient beds, grouped by substance,
+  totals per substance, "Add all to Shopping List" button (clipboard text if US-12.6 absent)
+- Quantities computed using bed's CAD area (`item.area_m2()`)
+
+**Amendment priority**: pH correction first, then N, P, K, then secondary nutrients.
+
+**Integration test** `tests/integration/test_amendment_calculator.py`:
+```python
+def test_amendment_calc_uses_bed_area(app, qtbot):
+    # bed with area 2.0 m², soil pH=5.8, target pH=6.5
+    # SoilService.calculate_amendments(...) with dolomite_lime
+    # expected qty_g ≈ (6.5-5.8)/0.25*100*2.0 = 560 g
+    # assert recommendation.quantity_g == pytest.approx(560, rel=0.05)
+```
+
+---
+
+#### US-12.10d: Plant-Soil Compatibility Warnings
+
+**Branch**: `feature/US-12.10d-plant-soil-warnings`
+
+**Acceptance criteria**:
+- Beds with mismatch: 4 px amber (warning) or red (critical) border rendered in `paint()`
+- Hover tooltip: "Soil mismatch: Tomato needs pH 6.5–7.0, current 5.8"
+- Dashboard "Today's Tasks": AMBER urgency cards listing each mismatch
+- `PlantSpeciesData.n_demand` / `p_demand` / `k_demand` populated for built-in species
+
+**Mismatch rules**:
+- pH: `current_ph < plant.ph_min - 0.3` or `current_ph > plant.ph_max + 0.3`
+- N: `n_level < 2` and `plant.n_demand == "high"` (Adequate is minimum for heavy feeders)
+- P/K: `{p,k}_level < 2` and `plant.{p,k}_demand == "high"`
+
+**Canvas update**: debounced 200 ms `QTimer` in `CanvasScene` (same pattern as spacing circles).
+Sets `_soil_mismatch_level: str` on each bed item → read in `paint()`.
+
+**Integration test** `tests/integration/test_plant_soil_warnings.py`
+
+---
+
+#### US-12.10e: History Sparklines & Seasonal Reminder Badge
+
+**Branch**: `feature/US-12.10e-history-and-reminders`
+
+**Acceptance criteria**:
+- `SoilTestDialog` "History" tab: scrollable list of past tests + `SoilSparklineWidget` per parameter
+- Sparkline: `QPainter` polyline; linear date x-axis; y-axis auto-scaled; dots at each test date
+- Seasonal badge: clock icon on bed top-right when `month ∈ {3,4,9,10}` and last test > 180 days ago
+- Clicking badge opens `SoilTestDialog` for that bed
+
+**Badge implementation**:
+- `SoilBadgeItem(QGraphicsItem)` anchored to bed top-right; updated in `CanvasScene` on scene change
+- `mousePressEvent` → emit `soil_test_badge_clicked(bed_id)` signal → `Application` opens dialog
+
+**Integration test** `tests/integration/test_soil_history_and_reminders.py`
+
+---
+
+#### arc42 Documentation (update after each sub-story — mandatory)
+
+| Document | What to add |
+|---|---|
+| `docs/05-building-block-view/` | Black boxes: SoilTestHistory, SoilService, SoilTestDialog, AmendmentPlanDialog |
+| `docs/06-runtime-view/` | Sequence: add test → overlay update → mismatch recalc |
+| `docs/08-crosscutting-concepts/` | New **§ 8.13 Soil Health Tracking**: data hierarchy, Rapitest scale, amendment formula, overlay rendering |
+| `docs/09-architecture-decisions/` | ADR: soil data embedded in .ogp (vs. sidecar) |
+| `docs/functional-requirements.md` | FR-SOIL-1…FR-SOIL-5 |
+| `docs/12-glossary.md` | NPK, Amendment, SoilTestRecord, SoilTestHistory, Rapitest scale |
 
 ---
 

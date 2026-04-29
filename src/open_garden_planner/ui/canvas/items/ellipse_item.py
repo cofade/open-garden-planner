@@ -120,7 +120,17 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
                 self.hide_rotation_handle()
         elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
             self.remove_rotation_handle()
+        elif change in (
+            QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged,
+            QGraphicsItem.GraphicsItemChange.ItemTransformHasChanged,
+        ):
+            self._update_area_label()
         return super().itemChange(change, value)
+
+    def _compute_area_cm2(self) -> float | None:
+        import math
+        r = self.rect()
+        return math.pi * (r.width() / 2.0) * (r.height() / 2.0)
 
     def _apply_resize(
         self,
@@ -135,6 +145,7 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         self.setPos(pos_x, pos_y)
         self.update_resize_handles()
         self._position_label()
+        self._update_area_label()
 
     def _on_resize_end(
         self,
@@ -235,6 +246,11 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         from open_garden_planner.core.object_types import get_valid_types_for_shape
         change_type_menu = self._build_change_type_menu(menu, get_valid_types_for_shape("ellipse"))
 
+        # Show Area toggle
+        show_area_action = menu.addAction(_("EllipseItem", "Show Area"))
+        show_area_action.setCheckable(True)
+        show_area_action.setChecked(self._area_label_visible)
+
         menu.addSeparator()
 
         delete_action = menu.addAction(_("EllipseItem", "Delete"))
@@ -273,6 +289,8 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
 
         if action == edit_label_action:
             self.start_label_edit()
+        elif action == show_area_action:
+            self.area_label_visible = not self._area_label_visible
         elif action == delete_action:
             scene = self.scene()
             for item in scene.selectedItems():
