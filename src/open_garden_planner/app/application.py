@@ -753,7 +753,7 @@ class GardenPlannerApp(QMainWindow):
         self._companion_warnings_enabled = True
         self._companion_radius_cm = 200.0  # 2 m default
 
-        # ── Soil service (US-12.10a/b) — long-lived, shared by overlay & dialog ──
+        # ── Soil service (US-12.10a/b/d) — long-lived, shared by overlay & dialog ──
         self._soil_service = SoilService(self._project_manager)
         self.canvas_view.set_soil_service(self._soil_service)
 
@@ -866,6 +866,7 @@ class GardenPlannerApp(QMainWindow):
 
         # Tab 1: Planting Calendar (US-8.5)
         self.calendar_view = PlantingCalendarView(self.canvas_scene, self._project_manager)
+        self.calendar_view.set_soil_service(self._soil_service)
         self._tab_widget.addTab(self.calendar_view, self.tr("Planting Calendar"))
 
         # Tab 2: Seed Inventory (US-9.4)
@@ -3118,6 +3119,9 @@ class GardenPlannerApp(QMainWindow):
         # Refresh the soil overlay if it's currently visible.
         if self.canvas_view.soil_overlay_visible:
             self.canvas_view.viewport().update()
+        # Recompute mismatch borders and dashboard cards (US-12.10d).
+        self.canvas_view.refresh_soil_mismatches()
+        self.calendar_view.refresh()
 
     def _lookup_bed_area_m2(self, target_id: str) -> float:
         """Return the area of the bed identified by ``target_id`` in m².

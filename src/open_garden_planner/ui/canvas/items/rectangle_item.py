@@ -313,6 +313,10 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                 gap = 2.0
                 painter.drawRect(rect.adjusted(gap, gap, -gap, -gap))
 
+        # Draw soil mismatch border outside rotation border (US-12.10d)
+        if is_bed_type(self.object_type):
+            self._draw_soil_mismatch_border(painter)
+
     def itemChange(
         self,
         change: QGraphicsItem.GraphicsItemChange,

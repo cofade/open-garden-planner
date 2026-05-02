@@ -5,9 +5,10 @@ It flips the Y-axis to provide CAD-style coordinates (origin at bottom-left,
 Y increasing upward).
 """
 
+import contextlib
 import logging
 
-from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
+from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
     QBrush,
     QColor,
@@ -632,8 +633,63 @@ class CanvasView(QGraphicsView):
         wires this once after constructing both objects.
         """
         self._soil_service = service
+        if not hasattr(self, "_soil_mismatch_timer"):
+            self._soil_mismatch_timer = QTimer(self)
+            self._soil_mismatch_timer.setSingleShot(True)
+            self._soil_mismatch_timer.setInterval(500)
+            self._soil_mismatch_timer.timeout.connect(self._update_soil_mismatches)
+            if self._canvas_scene is not None:
+                self._canvas_scene.changed.connect(
+                    lambda _rects: self._soil_mismatch_timer.start()
+                )
         if self._soil_overlay_visible:
             self.viewport().update()
+        self._update_soil_mismatches()
+
+    def refresh_soil_mismatches(self) -> None:
+        """Force an immediate mismatch recompute (call after a soil test is saved)."""
+        self._update_soil_mismatches()
+
+    def _update_soil_mismatches(self) -> None:
+        """Recompute plant-soil mismatches for every bed and update their borders."""
+        if self._soil_service is None or self._canvas_scene is None:
+            return
+        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.models.plant_data import PlantSpeciesData
+        from open_garden_planner.services.soil_service import SoilService
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        all_items = list(self._canvas_scene.items())
+        for item in all_items:
+            if not isinstance(item, GardenItemMixin):
+                continue
+            if not is_bed_type(getattr(item, "object_type", None)):
+                continue
+            bed_id = str(getattr(item, "item_id", ""))
+            record = self._soil_service.get_effective_record(bed_id)
+            child_ids = {str(c) for c in getattr(item, "_child_item_ids", [])}
+            specs: list[PlantSpeciesData] = []
+            for child in all_items:
+                if str(getattr(child, "item_id", "")) not in child_ids:
+                    continue
+                ps_dict = getattr(child, "metadata", {}).get("plant_species")
+                if ps_dict and isinstance(ps_dict, dict):
+                    with contextlib.suppress(Exception):
+                        specs.append(PlantSpeciesData.from_dict(ps_dict))
+            mismatches = SoilService.get_mismatched_plants(record, specs)
+            total_reasons = sum(len(reasons) for _, reasons in mismatches)
+            level: str | None = None
+            if total_reasons == 1:
+                level = "warning"
+            elif total_reasons >= 2:
+                level = "critical"
+            item._soil_mismatch_level = level  # type: ignore[attr-defined]
+            if mismatches:
+                tip_lines = [r for _, reasons in mismatches for r in reasons]
+                item.setToolTip("\n".join(tip_lines))  # type: ignore[attr-defined]
+            else:
+                item.setToolTip("")  # type: ignore[attr-defined]
+            item.update()  # type: ignore[attr-defined]
 
     def set_soil_overlay_visible(self, visible: bool) -> None:
         """Show or hide the soil-health overlay."""

@@ -869,6 +869,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Germination": "Keimung",
         "Prick out": "Pikieren",
         "Harden off": "Abhärten",
+        "Bed": "Beet",
+        "Soil mismatch in {bed}: {plants}": "Bodenkonflikt in {bed}: {plants}",
     },
 
     # ── PrintOptionsDialog ──

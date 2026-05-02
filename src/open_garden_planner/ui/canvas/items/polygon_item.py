@@ -513,6 +513,10 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
                 painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.drawPolygon(self.polygon())
 
+        # Draw soil mismatch border outside rotation border (US-12.10d)
+        if is_bed_type(self.object_type):
+            self._draw_soil_mismatch_border(painter)
+
     def itemChange(
         self,
         change: QGraphicsItem.GraphicsItemChange,

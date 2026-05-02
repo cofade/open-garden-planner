@@ -12,6 +12,7 @@ transplanting), with user-adjustable per-step dates.
 """
 from __future__ import annotations
 
+import contextlib
 import datetime
 from dataclasses import dataclass
 from typing import Any
@@ -75,10 +76,11 @@ _COL_TRANSPLANT_PROP = QColor(230, 126, 34) # orange — transplant marker
 # ─── Dashboard urgency colours ─────────────────────────────────────────────────
 _URGENCY_ORDER = ("overdue", "today", "this_week", "coming_up")
 _URGENCY_COLORS: dict[str, QColor] = {
-    "overdue":   QColor(200,  50,  50),
-    "today":     QColor(200, 120,   0),
-    "this_week": QColor( 40, 140,  60),
-    "coming_up": QColor( 60, 140, 100),
+    "overdue":       QColor(200,  50,  50),
+    "today":         QColor(200, 120,   0),
+    "this_week":     QColor( 40, 140,  60),
+    "coming_up":     QColor( 60, 140, 100),
+    "soil_mismatch": QColor(200, 120,   0),  # amber — same as "today" (US-12.10d)
 }
 
 # All task types including propagation steps
@@ -977,7 +979,12 @@ class PlantingCalendarView(QWidget):
         self._rows: list[_PlantRow] = []
         self._prop_plans: dict[str, PropagationPlan] = {}
         self._current_dashboard_tasks: list[_DashboardTask] = []
+        self._soil_service: Any | None = None
         self._build_ui()
+
+    def set_soil_service(self, service: Any | None) -> None:
+        """Inject the SoilService so the dashboard can show soil mismatch cards (US-12.10d)."""
+        self._soil_service = service
 
     # ── construction ───────────────────────────────────────────────────────────
 
@@ -1204,6 +1211,9 @@ class PlantingCalendarView(QWidget):
         self._current_dashboard_tasks: list[_DashboardTask] = tasks
         self._dashboard.set_data(tasks)
 
+        # Merge soil mismatch alerts into dashboard (US-12.10d)
+        self._inject_soil_mismatch_tasks()
+
         # Update Gantt translated marker labels
         self._gantt.label_today = self.tr("Today")
         self._gantt.label_last_frost = self.tr("Last frost")
@@ -1408,6 +1418,58 @@ class PlantingCalendarView(QWidget):
                 name = item.plant_species.replace("_", " ").title()
             names.append(name or "?")
         return names
+
+    def _inject_soil_mismatch_tasks(self) -> None:
+        """Merge soil mismatch alerts into the dashboard task list (US-12.10d)."""
+        if self._soil_service is None:
+            return
+        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.models.plant_data import PlantSpeciesData
+        from open_garden_planner.services.soil_service import SoilService
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        today = datetime.date.today()
+        soil_tasks: list[_DashboardTask] = []
+        all_items = list(self._canvas_scene.items())
+        for item in all_items:
+            if not isinstance(item, GardenItemMixin):
+                continue
+            if not is_bed_type(getattr(item, "object_type", None)):
+                continue
+            bed_id = str(getattr(item, "item_id", ""))
+            record = self._soil_service.get_effective_record(bed_id)
+            child_ids = {str(c) for c in getattr(item, "_child_item_ids", [])}
+            specs: list[PlantSpeciesData] = []
+            for child in all_items:
+                if str(getattr(child, "item_id", "")) not in child_ids:
+                    continue
+                ps_dict = getattr(child, "metadata", {}).get("plant_species")
+                if ps_dict and isinstance(ps_dict, dict):
+                    with contextlib.suppress(Exception):
+                        specs.append(PlantSpeciesData.from_dict(ps_dict))
+            mismatches = SoilService.get_mismatched_plants(record, specs)
+            if not mismatches:
+                continue
+            bed_name = str(getattr(item, "name", "") or self.tr("Bed"))
+            plant_names = ", ".join(
+                s.common_name or s.scientific_name or "?" for s, _ in mismatches
+            )
+            display = self.tr("Soil mismatch in {bed}: {plants}").format(
+                bed=bed_name, plants=plant_names
+            )
+            soil_tasks.append(
+                _DashboardTask(
+                    task_id=f"soil_mismatch:{bed_id}",
+                    task_type="soil_mismatch",
+                    display_name=display,
+                    task_date=today,
+                    end_date=today,
+                    urgency="today",
+                    species_key="",
+                )
+            )
+        if soil_tasks:
+            self._dashboard.set_data(self._current_dashboard_tasks + soil_tasks)
 
     def _on_weather_failed(self, message: str) -> None:
         """Weather forecast fetch failed — no frost alerts shown."""

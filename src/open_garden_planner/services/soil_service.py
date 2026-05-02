@@ -1,9 +1,9 @@
-"""Soil-test service (US-12.10a, extended in US-12.10b and US-12.10c).
+"""Soil-test service (US-12.10a–d).
 
 Thin facade over ``ProjectManager`` that returns ``SoilTestHistory`` /
-``SoilTestRecord`` objects instead of raw dicts. The amendment calculator
-(US-12.10c) is implemented here; mismatch detection (US-12.10d) and
-overdue-test logic (US-12.10e) are still stubbed.
+``SoilTestRecord`` objects instead of raw dicts. Amendment calculator
+(US-12.10c) and plant-soil mismatch detection (US-12.10d) are implemented
+here. Overdue-test logic (US-12.10e) is still stubbed.
 """
 from __future__ import annotations
 
@@ -30,6 +30,7 @@ from open_garden_planner.services.amendment_loader import (
 
 if TYPE_CHECKING:
     from open_garden_planner.core.project import ProjectManager
+    from open_garden_planner.models.plant_data import PlantSpeciesData
 
 GLOBAL_TARGET_ID = "global"
 
@@ -176,6 +177,18 @@ def _compute_nutrient(
         current_value=float(current_level),
         target_value=float(target_level),
     )
+
+
+def _effective_demand(
+    spec: PlantSpeciesData,
+) -> tuple[str | None, str | None, str | None]:
+    """Return (n_demand, p_demand, k_demand), falling back to legacy nutrient_demand."""
+    n, p, k = spec.n_demand, spec.p_demand, spec.k_demand
+    if n is None and spec.nutrient_demand:
+        _map = {"heavy": "high", "light": "low", "fixer": "fixer"}
+        mapped = _map.get(spec.nutrient_demand)
+        n = p = k = mapped
+    return n, p, k
 
 
 class SoilService:
@@ -343,11 +356,57 @@ class SoilService:
 
         return results
 
-    # ── Stubs (deferred to later sub-stories) ─────────────────────────────────
+    # ── US-12.10d: Plant-soil compatibility ───────────────────────────────────
 
-    def get_mismatched_plants(self, *_args, **_kwargs):  # pragma: no cover
-        """Detect plant-soil mismatches (US-12.10d)."""
-        raise NotImplementedError("Plant-soil mismatch detection lands in US-12.10d")
+    @staticmethod
+    def get_mismatched_plants(
+        record: SoilTestRecord | None,
+        plant_specs: list[PlantSpeciesData],
+    ) -> list[tuple[PlantSpeciesData, list[str]]]:
+        """Return (spec, reasons) for each plant whose requirements conflict with record.
+
+        Returns [] when record is None or plant_specs is empty.
+        Severity is determined by the caller: 1 entry → amber, ≥2 → red.
+        """
+        if record is None:
+            return []
+        results: list[tuple[PlantSpeciesData, list[str]]] = []
+        for spec in plant_specs:
+            reasons: list[str] = []
+            name = spec.common_name or spec.scientific_name or "Plant"
+            if (
+                record.ph is not None
+                and spec.ph_min is not None
+                and spec.ph_max is not None
+            ):
+                if record.ph < spec.ph_min - 0.3:
+                    reasons.append(
+                        f"{name} needs pH ≥{spec.ph_min:.1f},"
+                        f" current {record.ph:.1f}"
+                    )
+                elif record.ph > spec.ph_max + 0.3:
+                    reasons.append(
+                        f"{name} needs pH ≤{spec.ph_max:.1f},"
+                        f" current {record.ph:.1f}"
+                    )
+            n_d, p_d, k_d = _effective_demand(spec)
+            if n_d == "high" and record.n_level is not None and record.n_level < 2:
+                reasons.append(
+                    f"{name} is a heavy N feeder (current level: {record.n_level})"
+                )
+            if p_d == "high" and record.p_level is not None and record.p_level < 2:
+                reasons.append(
+                    f"{name} is a heavy P feeder (current level: {record.p_level})"
+                )
+            if k_d == "high" and record.k_level is not None and record.k_level < 2:
+                reasons.append(
+                    f"{name} is a heavy K feeder (current level: {record.k_level})"
+                )
+            if reasons:
+                results.append((spec, reasons))
+        return results
+
+    # ── Stubs (deferred to later sub-stories) ─────────────────────────────────
 
     def is_test_overdue(self, *_args, **_kwargs) -> bool:  # pragma: no cover
         """Seasonal overdue check (US-12.10e)."""

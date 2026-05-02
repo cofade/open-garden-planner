@@ -1721,7 +1721,7 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 | US-12.7 | Pest & disease log | Could | |
 | US-12.8 | Succession planting | Could | |
 | US-12.9 | Garden journal (map-linked notes) | Could | |
-| US-12.10 | Soil health tracking & amendment calculator | Must | 🟡 (12.10a, 12.10b done) |
+| US-12.10 | Soil health tracking & amendment calculator | Must | 🟡 (12.10a, 12.10b, 12.10c, 12.10d done) |
 
 ### US-12.1: Weather Forecast Widget
 
@@ -2126,9 +2126,9 @@ def test_amendment_calc_uses_bed_area(app, qtbot):
 
 ---
 
-#### US-12.10d: Plant-Soil Compatibility Warnings
+#### US-12.10d: Plant-Soil Compatibility Warnings ✅
 
-**Branch**: `feature/US-12.10d-plant-soil-warnings`
+**Branch**: `claude/check-clustering-next-steps-E4ReB`
 
 **Acceptance criteria**:
 - Beds with mismatch: 4 px amber (warning) or red (critical) border rendered in `paint()`

@@ -5142,6 +5142,14 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <source>No detailed data available</source>
             <translation>Keine Detaildaten verfügbar</translation>
         </message>
+        <message>
+            <source>Bed</source>
+            <translation>Beet</translation>
+        </message>
+        <message>
+            <source>Soil mismatch in {bed}: {plants}</source>
+            <translation>Bodenkonflikt in {bed}: {plants}</translation>
+        </message>
     </context>
     <context>
         <name>PolygonItem</name>

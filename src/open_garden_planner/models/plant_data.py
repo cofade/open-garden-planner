@@ -154,6 +154,11 @@ class PlantSpeciesData:
     # Crop rotation (US-10.5)
     nutrient_demand: str | None = None  # "heavy" | "medium" | "light" | "fixer"
 
+    # Per-nutrient demand for soil compatibility (US-12.10d); None falls back to nutrient_demand
+    n_demand: str | None = None  # "high" | "medium" | "low" | "fixer"
+    p_demand: str | None = None
+    k_demand: str | None = None
+
     # Extensible metadata for API-specific fields
     raw_data: dict[str, Any] = field(default_factory=dict)
 

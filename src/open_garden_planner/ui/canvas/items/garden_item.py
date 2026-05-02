@@ -4,7 +4,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtGui import QColor, QFont, QPen
 from PyQt6.QtWidgets import QGraphicsSimpleTextItem, QGraphicsTextItem
 
 if TYPE_CHECKING:
@@ -79,6 +79,7 @@ class GardenItemMixin:
         self._spacing_radius_cm: float | None = None  # User-override spacing radius (cm)
         self._frost_protection_needed: bool | None = None  # Per-plant frost override (US-12.2)
         self._spacing_overlap: str | None = None  # "overlap" | "ideal" | None
+        self._soil_mismatch_level: str | None = None  # "warning" | "critical" | None (US-12.10d)
         self._spacing_circles_visible: bool = True  # Global toggle from scene
         self._grid_enabled: bool = self._metadata.get("grid_enabled", False)
         self._grid_spacing: float = self._metadata.get("grid_spacing", 30.0)
@@ -584,6 +585,29 @@ class GardenItemMixin:
         """Toggle the area label and trigger a repaint."""
         self._area_label_visible = value
         self._update_area_label()
+
+    def _draw_soil_mismatch_border(self, painter: Any) -> None:
+        """Draw 4px amber/red border when a soil-plant mismatch exists (US-12.10d).
+
+        Called from each shape item's paint() after the rotation border.
+        Uses self.shape() so it works for rect, polygon, and circle without overrides.
+        """
+        if self._soil_mismatch_level is None:
+            return
+        _colors = {
+            "warning": QColor(255, 160, 0, 220),  # Amber
+            "critical": QColor(210, 40, 40, 220),  # Red
+        }
+        color = _colors.get(self._soil_mismatch_level)
+        if color is None:
+            return
+        pen = QPen(color)
+        pen.setWidthF(4.0)
+        painter.save()
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawPath(self.shape())  # type: ignore[attr-defined]
+        painter.restore()
 
     def _compute_area_cm2(self) -> float | None:
         """Return the area in cm². Override in concrete shape items."""
