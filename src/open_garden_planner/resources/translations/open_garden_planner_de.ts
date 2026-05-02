@@ -3685,6 +3685,22 @@ Neue Saison jetzt öffnen?</translation>
             <translation>PDF-Bericht-Export fehlgeschlagen:
 {error}</translation>
         </message>
+        <message>
+            <source>&amp;Garden</source>
+            <translation>&amp;Garten</translation>
+        </message>
+        <message>
+            <source>&amp;Set default soil test…</source>
+            <translation>Standard-Bodenprobe &amp;festlegen…</translation>
+        </message>
+        <message>
+            <source>Set a project-wide soil test used when individual beds have none</source>
+            <translation>Eine projektweite Bodenprobe festlegen, falls einzelne Beete keine eigene haben</translation>
+        </message>
+        <message>
+            <source>Soil test recorded</source>
+            <translation>Bodenprobe gespeichert</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -5149,6 +5165,10 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <source>Show Area</source>
             <translation>Fläche anzeigen</translation>
         </message>
+        <message>
+            <source>Add soil test…</source>
+            <translation>Bodenprobe hinzufügen…</translation>
+        </message>
     </context>
     <context>
         <name>PolygonTool</name>
@@ -5917,6 +5937,10 @@ noch nicht implementiert</translation>
         <message>
             <source>Show Area</source>
             <translation>Fläche anzeigen</translation>
+        </message>
+        <message>
+            <source>Add soil test…</source>
+            <translation>Bodenprobe hinzufügen…</translation>
         </message>
     </context>
     <context>
@@ -7208,6 +7232,10 @@ Starten Sie Open Garden Planner als Administrator, oder laden Sie das Installati
             <source>Show Area</source>
             <translation>Fläche anzeigen</translation>
         </message>
+        <message>
+            <source>Add soil test…</source>
+            <translation>Bodenprobe hinzufügen…</translation>
+        </message>
     </context>
     <context>
         <name>EllipseTool</name>
@@ -7496,6 +7524,105 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Created with Open Garden Planner</source>
             <translation>Erstellt mit Open Garden Planner</translation>
+        </message>
+    </context>
+    <context>
+        <name>SoilTestDialog</name>
+        <message>
+            <source>Soil Test</source>
+            <translation>Bodenprobe</translation>
+        </message>
+        <message>
+            <source>Soil Test — {name}</source>
+            <translation>Bodenprobe — {name}</translation>
+        </message>
+        <message>
+            <source>Default Soil Test</source>
+            <translation>Standard-Bodenprobe</translation>
+        </message>
+        <message>
+            <source>Date</source>
+            <translation>Datum</translation>
+        </message>
+        <message>
+            <source>Mode</source>
+            <translation>Modus</translation>
+        </message>
+        <message>
+            <source>Kit (categorical)</source>
+            <translation>Testkit (kategorisch)</translation>
+        </message>
+        <message>
+            <source>Lab (ppm)</source>
+            <translation>Labor (ppm)</translation>
+        </message>
+        <message>
+            <source>pH (0–14)</source>
+            <translation>pH (0–14)</translation>
+        </message>
+        <message>
+            <source>Nitrogen (N)</source>
+            <translation>Stickstoff (N)</translation>
+        </message>
+        <message>
+            <source>Phosphorus (P)</source>
+            <translation>Phosphor (P)</translation>
+        </message>
+        <message>
+            <source>Potassium (K)</source>
+            <translation>Kalium (K)</translation>
+        </message>
+        <message>
+            <source>Calcium (Ca)</source>
+            <translation>Calcium (Ca)</translation>
+        </message>
+        <message>
+            <source>Magnesium (Mg)</source>
+            <translation>Magnesium (Mg)</translation>
+        </message>
+        <message>
+            <source>Sulfur (S)</source>
+            <translation>Schwefel (S)</translation>
+        </message>
+        <message>
+            <source>Notes</source>
+            <translation>Notizen</translation>
+        </message>
+        <message>
+            <source>Depleted</source>
+            <translation>Verarmt</translation>
+        </message>
+        <message>
+            <source>Deficient</source>
+            <translation>Mangel</translation>
+        </message>
+        <message>
+            <source>Adequate</source>
+            <translation>Ausreichend</translation>
+        </message>
+        <message>
+            <source>Sufficient</source>
+            <translation>Genügend</translation>
+        </message>
+        <message>
+            <source>Surplus</source>
+            <translation>Überschuss</translation>
+        </message>
+        <message>
+            <source>Low</source>
+            <translation>Niedrig</translation>
+        </message>
+        <message>
+            <source>Medium</source>
+            <translation>Mittel</translation>
+        </message>
+        <message>
+            <source>High</source>
+            <translation>Hoch</translation>
+        </message>
+        <message>
+            <source>—</source>
+            <translation>—</translation>
         </message>
     </context>
 </TS>

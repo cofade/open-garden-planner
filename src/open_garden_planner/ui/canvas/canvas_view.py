@@ -97,6 +97,9 @@ class CanvasView(QGraphicsView):
     zoom_changed = pyqtSignal(float)
     tool_changed = pyqtSignal(str)  # Emitted when active tool changes
     import_background_image_requested = pyqtSignal()  # Emitted from empty-canvas right-click
+    # US-12.10a: emitted when a bed's "Add soil test…" action is invoked.
+    # Args: target_id (bed UUID string or "global"), display_name (informational)
+    soil_test_requested = pyqtSignal(str, str)
 
     # Zoom limits
     min_zoom: float = 0.01  # 1% - very zoomed out
@@ -531,6 +534,15 @@ class CanvasView(QGraphicsView):
         """
         command = CreateItemCommand(self.scene(), item, item_type)
         self._command_manager.execute(command)
+
+    def request_soil_test(self, target_id: str, display_name: str = "") -> None:
+        """Forward a soil-test request from a bed's context menu (US-12.10a).
+
+        Emits ``soil_test_requested`` so the application (which owns the
+        ``ProjectManager``) can open ``SoilTestDialog`` and execute the
+        resulting ``AddSoilTestCommand``.
+        """
+        self.soil_test_requested.emit(target_id, display_name or "")
 
     @property
     def active_tool(self) -> object | None:

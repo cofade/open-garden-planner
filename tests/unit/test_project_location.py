@@ -75,9 +75,9 @@ class TestProjectDataLocation:
         data = ProjectData.from_dict(raw)
         assert data.location is None
 
-    def test_file_version_is_1_2(self) -> None:
-        """FILE_VERSION has been bumped to 1.2."""
-        assert FILE_VERSION == "1.2"
+    def test_file_version_is_1_3(self) -> None:
+        """FILE_VERSION has been bumped to 1.3 (US-12.10a — soil tests)."""
+        assert FILE_VERSION == "1.3"
 
     def test_roundtrip(self) -> None:
         """Location survives to_dict / from_dict roundtrip."""

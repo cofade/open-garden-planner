@@ -449,3 +449,35 @@ Before executing an `AddConstraintCommand`, the canvas view trial-runs the solve
 | `PARALLEL`, `PERPENDICULAR`, `EQUAL`, `FIXED` | handled in warm-start; Newton skips |
 
 **Adding new checks:** If a feature introduces a new code pattern that warrants attention (e.g. cryptography, XML parsing, network server code), review the relevant Bandit rule IDs and verify the CI job covers them.
+
+## 8.13 Soil Health Tracking (US-12.10)
+
+Per-bed soil tests are stored on the project itself, not on individual canvas items, so that historical records survive bed deletion and rotation. The model is intentionally minimal in 12.10a — entry + persistence — and is extended by 12.10b–e (canvas overlay, amendment calculator, plant-soil warnings, history sparklines).
+
+### 8.13.1 Data hierarchy
+
+```
+.ogp file
+└── "soil_tests" : { target_id → SoilTestHistory }
+                    target_id ∈ { <bed-uuid>, "global" }
+```
+
+Effective record for a bed = bed's latest record → falls back to global latest → `None`. The fallback chain is implemented in `SoilService.get_effective_record` (`src/open_garden_planner/services/soil_service.py`) and used by every consumer (overlay, amendment calc, mismatch warnings).
+
+### 8.13.2 Rapitest categorical scale
+
+| Field | Range | Labels |
+|---|---|---|
+| `n_level`, `p_level` | 0–4 | Depleted / Deficient / Adequate / Sufficient / Surplus |
+| `k_level` | 1–4 | (no K0 on the kit) — Deficient / Adequate / Sufficient / Surplus |
+| `ca_level`, `mg_level`, `s_level` | 0–2 | Low / Medium / High |
+
+Lab-mode ppm values (`*_ppm`) are stored alongside the categorical fields so they survive between sub-stories without a second data migration; conversion ppm → categorical lands in 12.10c.
+
+### 8.13.3 Persistence & file version
+
+The dedicated top-level `"soil_tests"` key was introduced with file version **1.3**. Older v1.2 files load with `soil_tests = {}`; re-saving silently upgrades the file to v1.3. There is no automatic downgrade — opening a v1.3 file in an older binary fails the version gate (existing convention).
+
+### 8.13.4 Undo integration
+
+`AddSoilTestCommand` (in `core/commands.py`) snapshots the prior history dict for the target and restores it on undo. This means undoing the very first record for a bed deletes the `target_id` key entirely, while undoing an N-th record restores history of length N-1.

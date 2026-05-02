@@ -263,3 +263,11 @@ Pre-defined object types for common property elements:
 - **FR-SNAP-03**: Distribute tools: horizontal, vertical (equal spacing)
 - **FR-SNAP-04**: Snap toggleable independently from grid snap
 - **FR-SNAP-05**: Visual snap guide lines during drag operations
+
+## FR-15: Soil Health Tracking (Phase 12, US-12.10)
+
+- **FR-SOIL-01**: Per-bed soil test entry via right-click → "Add soil test…"; project-wide default via Garden → "Set default soil test…"
+- **FR-SOIL-02**: Records pH (0–14), Rapitest categorical NPK levels (N/P 0–4, K 1–4) and secondary nutrients (Ca/Mg/S Low/Medium/High), free-text notes, and optional Lab-mode ppm values
+- **FR-SOIL-03**: Effective record hierarchy — bed's latest → project-wide default → none
+- **FR-SOIL-04**: Records persist in the `.ogp` file under top-level `soil_tests` and survive save/load round-trip
+- **FR-SOIL-05**: Adding a record is undoable via the standard command stack and marks the project dirty

@@ -1382,3 +1382,55 @@ class ExtendPolylineCommand(Command):
     def undo(self) -> None:
         self._item._points = list(self._old_points)  # type: ignore[attr-defined]
         self._item._rebuild_path()  # type: ignore[attr-defined]
+
+
+class AddSoilTestCommand(Command):
+    """Add a soil test record to a bed (or the global default) — undoable.
+
+    Snapshots the prior history dict on construction so undo restores the
+    exact pre-state (including absence of any history when this is the first
+    record for the target).
+    """
+
+    def __init__(
+        self,
+        project_manager: "Any",
+        target_id: str,
+        record: "Any",
+    ) -> None:
+        """Initialise.
+
+        Args:
+            project_manager: The ``ProjectManager`` holding the soil test state.
+            target_id: Bed UUID string or the literal ``"global"``.
+            record: A ``SoilTestRecord`` instance to append.
+        """
+        from open_garden_planner.models.soil_test import SoilTestHistory
+
+        self._pm = project_manager
+        self._target_id = target_id
+        self._record = record
+        self._SoilTestHistory = SoilTestHistory
+        # Snapshot the prior history dict (or None if no history existed yet)
+        existing = self._pm.soil_tests.get(target_id)
+        self._prior_history_dict: dict[str, Any] | None = (
+            dict(existing) if existing is not None else None
+        )
+
+    @property
+    def description(self) -> str:
+        return "Add soil test"
+
+    def execute(self) -> None:
+        # Build the new history from the prior snapshot (or fresh) + the new record
+        if self._prior_history_dict is None:
+            history = self._SoilTestHistory(target_id=self._target_id)
+        else:
+            history = self._SoilTestHistory.from_dict(self._prior_history_dict)
+        if not any(r.id == self._record.id for r in history.records):
+            history.records.append(self._record)
+        self._pm.set_soil_test_history(self._target_id, history)
+
+    def undo(self) -> None:
+        # Restore (or delete) the prior snapshot
+        self._pm.restore_soil_test_history(self._target_id, self._prior_history_dict)

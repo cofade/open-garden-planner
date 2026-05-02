@@ -125,6 +125,10 @@ class GardenPlannerApp(QMainWindow):
         plants_menu = menubar.addMenu(self.tr("&Plants"))
         self._setup_plants_menu(plants_menu)
 
+        # Garden menu (US-12.10a — soil tests; expanded in 12.10b–e)
+        garden_menu = menubar.addMenu(self.tr("&Garden"))
+        self._setup_garden_menu(garden_menu)
+
         # Help menu
         help_menu = menubar.addMenu(self.tr("&Help"))
         self._setup_help_menu(help_menu)
@@ -627,6 +631,16 @@ class GardenPlannerApp(QMainWindow):
         check_companion_action.triggered.connect(self._on_check_companion_planting)
         menu.addAction(check_companion_action)
 
+    def _setup_garden_menu(self, menu: QMenu) -> None:
+        """Set up the Garden menu actions (US-12.10a — soil)."""
+        # Set default soil test (project-wide fallback when a bed has no own test)
+        default_soil_action = QAction(self.tr("&Set default soil test…"), self)
+        default_soil_action.setStatusTip(
+            self.tr("Set a project-wide soil test used when individual beds have none")
+        )
+        default_soil_action.triggered.connect(self._on_set_default_soil_test)
+        menu.addAction(default_soil_action)
+
     def _setup_help_menu(self, menu: QMenu) -> None:
         """Set up the Help menu actions."""
         # Keyboard Shortcuts
@@ -744,6 +758,8 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_view.import_background_image_requested.connect(
             self._on_import_background_image
         )
+        # US-12.10a: bed → "Add soil test…" routes through CanvasView
+        self.canvas_view.soil_test_requested.connect(self._on_soil_test_requested)
 
         # Connect scene selection changes to status bar and panels
         self.canvas_scene.selectionChanged.connect(self._on_selection_changed)
@@ -2982,6 +2998,39 @@ class GardenPlannerApp(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._project_manager.set_location(dialog.location_data)
             self.statusBar().showMessage(self.tr("Garden location updated"), 3000)
+
+    def _on_soil_test_requested(self, target_id: str, display_name: str) -> None:
+        """Open SoilTestDialog for a bed (US-12.10a)."""
+        self._open_soil_test_dialog(target_id, display_name)
+
+    def _on_set_default_soil_test(self) -> None:
+        """Open SoilTestDialog for the project-wide default (US-12.10a)."""
+        self._open_soil_test_dialog("global", "")
+
+    def _open_soil_test_dialog(self, target_id: str, display_name: str) -> None:
+        """Open the soil test dialog and execute AddSoilTestCommand on accept."""
+        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+
+        from open_garden_planner.core import AddSoilTestCommand  # noqa: PLC0415
+        from open_garden_planner.services.soil_service import SoilService  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs import SoilTestDialog  # noqa: PLC0415
+
+        soil_service = SoilService(self._project_manager)
+        existing = soil_service.get_history(target_id).latest
+
+        dialog = SoilTestDialog(
+            parent=self,
+            target_id=target_id,
+            target_name=display_name,
+            existing_latest=existing,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        record = dialog.result_record()
+        cmd = AddSoilTestCommand(self._project_manager, target_id, record)
+        self.canvas_view.command_manager.execute(cmd)
+        self.statusBar().showMessage(self.tr("Soil test recorded"), 3000)
 
     def _on_location_changed(self, location: object) -> None:
         """Update the location label in the status bar."""

@@ -13,6 +13,7 @@
 | **GardenObject** | Base class for all drawable entities on the canvas |
 | **Layer** | A logical grouping of objects for organization and visibility control |
 | **LOD** | Level of Detail — rendering different detail levels at different zoom levels |
+| **NPK** | Macronutrients tracked in soil tests: Nitrogen (N), Phosphorus (P), Potassium (K) |
 | **OGP** | Open Garden Planner (the application) |
 | **.ogp** | Project file format (JSON-based) |
 | **Object Snap** | Automatic snapping of new/moved objects to edges/vertices of existing objects |
@@ -20,7 +21,10 @@
 | **Polyline** | A connected series of line segments (open path) used for fences, paths, walls |
 | **QGraphicsScene** | Qt class that manages all 2D items on the canvas |
 | **QGraphicsView** | Qt class that provides the viewport/widget for displaying the scene |
+| **Rapitest scale** | Categorical NPK / Ca-Mg-S labels (Depleted/Deficient/Adequate/Sufficient/Surplus and Low/Medium/High) used by consumer soil test kits and stored on `SoilTestRecord` |
 | **Scene Coordinates** | Real-world metric coordinates used internally (centimeters) |
+| **SoilTestRecord** | Single soil test entry: date, pH, NPK levels, secondary nutrients, optional ppm values, notes |
+| **SoilTestHistory** | Time-ordered list of `SoilTestRecord`s for one target (a bed UUID or `"global"` default) |
 | **Screen Coordinates** | Pixel coordinates on the display; converted via QGraphicsView transform |
 | **SVG** | Scalable Vector Graphics — vector image format used for icons and plant illustrations |
 | **Tileable Texture** | A small image that can be seamlessly repeated to fill any area |

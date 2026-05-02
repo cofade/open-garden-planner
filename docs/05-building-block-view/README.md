@@ -70,7 +70,8 @@ src/open_garden_planner/
 │       └── constraint_tool.py    # Distance constraint creation
 ├── models/
 │   ├── plant_data.py             # Plant data model
-│   └── layer.py                  # Layer model
+│   ├── layer.py                  # Layer model
+│   └── soil_test.py              # SoilTestRecord & SoilTestHistory (US-12.10a)
 ├── ui/
 │   ├── canvas/
 │   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling
@@ -116,6 +117,7 @@ src/open_garden_planner/
 │   ├── plant_library.py          # Local plant library management
 │   ├── export_service.py         # PDF/image export
 │   ├── autosave_service.py       # Autosave logic
+│   ├── soil_service.py           # Soil test history facade (US-12.10a)
 │   └── update_checker.py         # GitHub releases update check (frozen exe only)
 └── resources/
     ├── icons/                    # App icons, banner, tool SVGs
