@@ -1714,9 +1714,9 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 |----|------------|----------|--------|
 | US-12.1 | Weather forecast widget in Dashboard | Must | ✅ |
 | US-12.2 | Frost alert & plant-aware warnings | Must | ✅ |
-| US-12.3 | DXF export | Should | |
-| US-12.4 | DXF import | Should | |
-| US-12.5 | Multi-page PDF export | Should | |
+| US-12.3 | DXF export | Should | ✅ |
+| US-12.4 | DXF import | Should | ✅ |
+| US-12.5 | Multi-page PDF export | Should | ✅ |
 | US-12.6 | Shopping list generation | Could | |
 | US-12.7 | Pest & disease log | Could | |
 | US-12.8 | Succession planting | Could | |

@@ -7,7 +7,7 @@ argument: "US number and PR title, e.g. 'US-11.2 Plant spacing circles'"
 
 # Finalize User Story
 
-Run the full post-approval wrap-up for a completed user story. This skill assumes the code is already approved and all tests pass.
+Run the full post-approval wrap-up for a completed user story. This skill assumes the code is already approved and all tests pass. All issues identified and corrected during implementation and manual testing must be documented in the arc42 docs before this step.
 
 ## Operating rules
 

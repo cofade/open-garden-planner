@@ -181,6 +181,12 @@ class GardenPlannerApp(QMainWindow):
         import_image_action.triggered.connect(self._on_import_background_image)
         menu.addAction(import_image_action)
 
+        # Import DXF
+        import_dxf_action = QAction(self.tr("Import &DXF..."), self)
+        import_dxf_action.setStatusTip(self.tr("Import a DXF CAD file onto the canvas"))
+        import_dxf_action.triggered.connect(self._on_import_dxf)
+        menu.addAction(import_dxf_action)
+
         # Set Garden Location
         location_action = QAction(self.tr("Set Garden &Location..."), self)
         location_action.setStatusTip(self.tr("Set GPS coordinates and frost dates for planting calendar"))
@@ -206,6 +212,16 @@ class GardenPlannerApp(QMainWindow):
         export_csv.setStatusTip(self.tr("Export all plants to a CSV spreadsheet"))
         export_csv.triggered.connect(self._on_export_plant_csv)
         export_menu.addAction(export_csv)
+
+        export_dxf = QAction(self.tr("Export as D&XF..."), self)
+        export_dxf.setStatusTip(self.tr("Export the plan as a DXF file for CAD software"))
+        export_dxf.triggered.connect(self._on_export_dxf)
+        export_menu.addAction(export_dxf)
+
+        export_pdf_report = QAction(self.tr("Export PDF &Report..."), self)
+        export_pdf_report.setStatusTip(self.tr("Generate a multi-page PDF report of the garden plan"))
+        export_pdf_report.triggered.connect(self._on_export_pdf_report)
+        export_menu.addAction(export_pdf_report)
 
         menu.addSeparator()
 
@@ -1621,6 +1637,148 @@ class GardenPlannerApp(QMainWindow):
 
         # Show print preview (which allows printing)
         print_mgr.print_preview(parent=self)
+
+    def _on_import_dxf(self) -> None:
+        """Handle Import DXF action."""
+        from open_garden_planner.core.commands import CreateItemsCommand
+        from open_garden_planner.services.dxf_service import DxfImportService
+        from open_garden_planner.ui.dialogs.dxf_import_dialog import DxfImportDialog
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Import DXF"),
+            "",
+            self.tr("DXF Files (*.dxf);;All Files (*)"),
+        )
+        if not file_path:
+            return
+
+        dialog = DxfImportDialog(file_path, parent=self)
+        if dialog.exec() != DxfImportDialog.DialogCode.Accepted:
+            return
+
+        try:
+            result = DxfImportService.import_file(
+                self.canvas_scene,
+                file_path,
+                scale_factor=dialog.scale_factor,
+                selected_layers=dialog.selected_layers,
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self, self.tr("Import Error"), self.tr("Failed to import DXF:\n{error}").format(error=e)
+            )
+            return
+
+        if not result.items:
+            QMessageBox.information(
+                self,
+                self.tr("Nothing Imported"),
+                self.tr("No supported entities found in the selected layers."),
+            )
+            return
+
+        cmd = CreateItemsCommand(self.canvas_scene, result.items, "DXF import")
+        self.canvas_view.command_manager.execute(cmd)
+
+        msg = self.tr("Imported {n} item(s) from DXF.").format(n=len(result.items))
+        if result.skipped_count:
+            types = ", ".join(result.skipped_types)
+            msg += " " + self.tr("Skipped {k} unsupported entity/entities ({types}).").format(
+                k=result.skipped_count, types=types
+            )
+        self.statusBar().showMessage(msg)
+
+    def _on_export_dxf(self) -> None:
+        """Handle Export as DXF action."""
+        from open_garden_planner.services.dxf_service import DxfExportService
+
+        default_name = self._project_manager.project_name + ".dxf"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Export as DXF"),
+            default_name,
+            self.tr("DXF Files (*.dxf);;All Files (*)"),
+        )
+        if not file_path:
+            return
+
+        file_path_obj = Path(file_path)
+        if file_path_obj.suffix.lower() != ".dxf":
+            file_path_obj = file_path_obj.with_suffix(".dxf")
+
+        try:
+            DxfExportService.export(self.canvas_scene, file_path_obj)
+            self.statusBar().showMessage(self.tr("Exported: {path}").format(path=file_path_obj))
+        except Exception as e:
+            QMessageBox.critical(
+                self, self.tr("Export Error"), self.tr("Failed to export DXF:\n{error}").format(error=e)
+            )
+
+    def _on_export_pdf_report(self) -> None:
+        """Handle Export PDF Report action."""
+        from PyQt6.QtWidgets import QProgressDialog
+
+        from open_garden_planner.services.pdf_report_service import (
+            PdfReportOptions,
+            PdfReportService,
+        )
+        from open_garden_planner.ui.dialogs.pdf_report_dialog import PdfReportDialog
+
+        dialog = PdfReportDialog(
+            project_name=self._project_manager.project_name,
+            parent=self,
+        )
+        if dialog.exec() != PdfReportDialog.DialogCode.Accepted:
+            return
+
+        default_name = self._project_manager.project_name + ".pdf"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Export PDF Report"),
+            default_name,
+            self.tr("PDF Files (*.pdf);;All Files (*)"),
+        )
+        if not file_path:
+            return
+
+        file_path_obj = Path(file_path)
+        if file_path_obj.suffix.lower() != ".pdf":
+            file_path_obj = file_path_obj.with_suffix(".pdf")
+
+        opts = PdfReportOptions(
+            paper_size=dialog.paper_size,
+            orientation=dialog.orientation,
+            include_cover=dialog.include_cover,
+            include_overview=dialog.include_overview,
+            include_bed_details=dialog.include_bed_details,
+            include_plant_list=dialog.include_plant_list,
+            include_legend=dialog.include_legend,
+            project_name=dialog.project_name,
+            author=dialog.author,
+        )
+
+        progress = QProgressDialog(
+            self.tr("Generating PDF…"), self.tr("Cancel"), 0, 100, self
+        )
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(500)
+
+        def on_progress(current: int, total: int) -> None:
+            if total > 0:
+                progress.setValue(int(current / total * 100))
+
+        try:
+            PdfReportService.generate(self.canvas_scene, opts, file_path_obj, on_progress)
+            progress.setValue(100)
+            self.statusBar().showMessage(self.tr("Exported: {path}").format(path=file_path_obj))
+        except Exception as e:
+            progress.cancel()
+            QMessageBox.critical(
+                self,
+                self.tr("Export Error"),
+                self.tr("Failed to export PDF report:\n{error}").format(error=e),
+            )
 
     def _confirm_discard_changes(self) -> bool:
         """Ask user to save if there are unsaved changes.

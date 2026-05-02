@@ -67,6 +67,8 @@ htmlcov/
 # Project specific
 *.ogp.backup
 competitor_screenshots/
+# Smoke-test export artifacts (PDFs at repo root from validate_exports.py)
+/*.pdf
 
 # API keys and secrets
 .env
