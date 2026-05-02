@@ -2,139 +2,161 @@
 
 ## 6.1 Drawing Workflow
 
-```
-User selects tool (e.g., Rectangle Tool)
-    │
-    ├── ToolManager activates RectangleTool
-    ├── Canvas cursor changes to crosshair
-    │
-    v
-User clicks first point on canvas
-    │
-    ├── Tool captures start coordinate (scene coords)
-    ├── Preview rectangle drawn (rubber band)
-    │
-    v
-User clicks second point (or drags)
-    │
-    ├── Tool calculates final geometry
-    ├── Creates AddObjectCommand with Rectangle data
-    ├── Command pushed to UndoStack
-    ├── Command.execute() creates RectangleItem in scene
-    ├── Scene emits objectAdded signal
-    └── Properties panel updates if auto-select enabled
+```mermaid
+flowchart TD
+    A([User selects tool<br/>e.g. Rectangle Tool])
+    A1[ToolManager activates RectangleTool]
+    A2[Canvas cursor changes to crosshair]
+    B([User clicks first point on canvas])
+    B1[Tool captures start coordinate<br/>scene coords]
+    B2[Preview rectangle drawn<br/>rubber band]
+    C([User clicks second point<br/>or drags])
+    C1[Tool calculates final geometry]
+    C2[Creates AddObjectCommand<br/>with Rectangle data]
+    C3[Command pushed to UndoStack]
+    C4[Command.execute creates<br/>RectangleItem in scene]
+    C5[Scene emits objectAdded signal]
+    C6[Properties panel updates<br/>if auto-select enabled]
+
+    A --> A1 --> A2 --> B
+    B --> B1 --> B2 --> C
+    C --> C1 --> C2 --> C3 --> C4 --> C5 --> C6
 ```
 
 ## 6.2 Save/Load Flow
 
 ### Save
-```
-User triggers Save (Ctrl+S)
-    │
-    ├── ProjectManager.save()
-    ├── Serialize all scene objects → JSON
-    ├── Include: layers, objects, metadata, background images (base64)
-    ├── Write to .ogp file (atomic write via temp file)
-    └── Status bar shows "Saved"
+
+```mermaid
+flowchart TD
+    S0([User triggers Save<br/>Ctrl+S])
+    S1[ProjectManager.save]
+    S2[Serialize all scene objects to JSON]
+    S3["Include: layers, objects, metadata,<br/>background images (base64)"]
+    S4[Write to .ogp file<br/>atomic write via temp file]
+    S5[Status bar shows 'Saved']
+
+    S0 --> S1 --> S2 --> S3 --> S4 --> S5
 ```
 
 ### Load
-```
-User opens .ogp file
-    │
-    ├── ProjectManager.load()
-    ├── Parse JSON, validate version
-    ├── Clear current scene
-    ├── Reconstruct layers
-    ├── Reconstruct objects → create QGraphicsItems
-    ├── Reconstruct background images
-    ├── Fit view to content
-    └── UndoStack cleared (fresh session)
+
+```mermaid
+flowchart TD
+    L0([User opens .ogp file])
+    L1[ProjectManager.load]
+    L2[Parse JSON, validate version]
+    L3[Clear current scene]
+    L4[Reconstruct layers]
+    L5[Reconstruct objects<br/>create QGraphicsItems]
+    L6[Reconstruct background images]
+    L7[Fit view to content]
+    L8[UndoStack cleared<br/>fresh session]
+
+    L0 --> L1 --> L2 --> L3 --> L4 --> L5 --> L6 --> L7 --> L8
 ```
 
 ## 6.3 Plant API Integration Flow
 
-```
-User searches for plant species
-    │
-    ├── Check local SQLite cache first
-    │   ├── Cache hit → return cached data
-    │   └── Cache miss → continue
-    │
-    ├── Try Trefle.io API (primary)
-    │   ├── Success → cache result, return data
-    │   └── Failure → try fallback
-    │
-    ├── Try Permapeople API (secondary)
-    │   ├── Success → cache result, return data
-    │   └── Failure → try fallback
-    │
-    ├── Check bundled plant database
-    │   ├── Found → return data
-    │   └── Not found → continue
-    │
-    └── Allow manual entry (user creates custom species)
+```mermaid
+flowchart TD
+    Start([User searches for plant species])
+    Cache{Local SQLite<br/>cache hit?}
+    Trefle{Trefle.io<br/>success?}
+    Perma{Permapeople<br/>success?}
+    Bundled{Found in<br/>bundled DB?}
+    Manual[Allow manual entry<br/>user creates custom species]
+    Return([Return data])
+    CacheWrite[Cache result]
+
+    Start --> Cache
+    Cache -->|hit| Return
+    Cache -->|miss| Trefle
+    Trefle -->|yes| CacheWrite
+    Trefle -->|no| Perma
+    Perma -->|yes| CacheWrite
+    Perma -->|no| Bundled
+    Bundled -->|yes| Return
+    Bundled -->|no| Manual
+    Manual --> Return
+    CacheWrite --> Return
 ```
 
 ## 6.4 Export Flow
 
-```
-User triggers Export (File → Export as PNG/SVG)
-    │
-    ├── Export dialog shown (format, DPI, options)
-    ├── User configures and confirms
-    │
-    ├── [PNG] QGraphicsScene.render() → QImage → save as PNG
-    │   └── Options: DPI (72/150/300), include/exclude grid
-    │
-    ├── [SVG] QSvgGenerator renders scene
-    │   └── Options: include/exclude annotations
-    │
-    └── [CSV] Iterate plant objects → extract metadata → write CSV
+```mermaid
+flowchart TD
+    Start(["User triggers Export<br/>File → Export as PNG/SVG"])
+    Dlg[Export dialog shown<br/>format, DPI, options]
+    Conf[User configures and confirms]
+    Fmt{Format?}
+
+    PNG["QGraphicsScene.render → QImage → PNG<br/>options: DPI 72/150/300, grid on/off"]
+    SVG["QSvgGenerator renders scene<br/>options: annotations on/off"]
+    CSV[Iterate plant objects<br/>extract metadata → write CSV]
+
+    Done([File written])
+
+    Start --> Dlg --> Conf --> Fmt
+    Fmt -->|PNG| PNG --> Done
+    Fmt -->|SVG| SVG --> Done
+    Fmt -->|CSV| CSV --> Done
 ```
 
 ## 6.5 Undo/Redo Flow
 
-```
-User performs action (e.g., move object)
-    │
-    ├── Tool creates MoveObjectCommand(obj, old_pos, new_pos)
-    ├── UndoStack.push(command)
-    │   ├── command.execute() applies the change
-    │   └── Redo stack cleared (new branch)
-    │
-    v
-User presses Ctrl+Z (Undo)
-    │
-    ├── UndoStack.undo()
-    │   ├── command.undo() reverses the change
-    │   └── Command moved to redo stack
-    │
-    v
-User presses Ctrl+Y (Redo)
-    │
-    ├── UndoStack.redo()
-    │   ├── command.execute() re-applies the change
-    │   └── Command moved back to undo stack
+```mermaid
+flowchart TD
+    A([User performs action<br/>e.g. move object])
+    A1["Tool creates MoveObjectCommand<br/>(obj, old_pos, new_pos)"]
+    A2[UndoStack.push command]
+    A3[command.execute applies the change]
+    A4[Redo stack cleared<br/>new branch]
+
+    B([User presses Ctrl+Z<br/>Undo])
+    B1[UndoStack.undo]
+    B2[command.undo reverses the change]
+    B3[Command moved to redo stack]
+
+    C([User presses Ctrl+Y<br/>Redo])
+    C1[UndoStack.redo]
+    C2[command.execute re-applies the change]
+    C3[Command moved back to undo stack]
+
+    A --> A1 --> A2 --> A3 --> A4
+    A4 --> B
+    B --> B1 --> B2 --> B3
+    B3 --> C
+    C --> C1 --> C2 --> C3
 ```
 
 ## 6.6 Auto-Save Flow
 
-```
-Timer fires every N seconds (configurable)
-    │
-    ├── Check if document has unsaved changes
-    │   └── No changes → skip
-    │
-    ├── Serialize current state to temp file
-    │   └── Path: ~/.open-garden-planner/autosave/<project-hash>.ogp
-    │
-    └── On next successful manual save, remove auto-save file
+```mermaid
+flowchart TD
+    T([Timer fires every N seconds<br/>configurable])
+    Dirty{Unsaved<br/>changes?}
+    Skip([Skip])
+    Ser["Serialize current state to temp file<br/>~/.open-garden-planner/autosave/&lt;project-hash&gt;.ogp"]
+    Manual[On next successful manual save<br/>remove auto-save file]
 
-On startup:
-    │
-    ├── Check for auto-save files
-    │   └── Found → prompt user: "Recover unsaved changes?"
-    │       ├── Yes → load auto-save
-    │       └── No → delete auto-save, proceed normally
+    T --> Dirty
+    Dirty -->|no| Skip
+    Dirty -->|yes| Ser --> Manual
+```
+
+```mermaid
+flowchart TD
+    Boot([On startup])
+    Check{Auto-save<br/>files found?}
+    Prompt["Prompt user:<br/>'Recover unsaved changes?'"]
+    Load[Load auto-save]
+    Del[Delete auto-save<br/>proceed normally]
+    Done([Continue])
+
+    Boot --> Check
+    Check -->|no| Done
+    Check -->|yes| Prompt
+    Prompt -->|Yes| Load
+    Prompt -->|No| Del
 ```
