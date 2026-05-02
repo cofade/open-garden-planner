@@ -383,6 +383,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Set a project-wide soil test used when individual beds have none":
             "Eine projektweite Bodenprobe festlegen, falls einzelne Beete keine eigene haben",
         "Soil test recorded": "Bodenprobe gespeichert",
+        # US-12.10c — Amendment Plan menu
+        "&Amendment Plan…": "&Bodenverbesserungs-Plan…",
+        "View amendment recommendations for deficient beds":
+            "Empfehlungen für mangelhafte Beete anzeigen",
         # Soil-health overlay (US-12.10b)
         "Soil &Health Overlay": "Boden&gesundheits-Overlay",
         "Tint beds by soil-health rating (excluded from exports)":
@@ -1349,7 +1353,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Created with Open Garden Planner": "Erstellt mit Open Garden Planner",
     },
 
-    # ── SoilTestDialog (US-12.10a) ──
+    # ── SoilTestDialog (US-12.10a, extended in US-12.10c) ──
     "SoilTestDialog": {
         "Soil Test": "Bodenprobe",
         "Soil Test — {name}": "Bodenprobe — {name}",
@@ -1375,6 +1379,35 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Medium": "Mittel",
         "High": "Hoch",
         "—": "—",
+        # US-12.10c — inline amendments section
+        "Amendments for this bed": "Bodenverbesserer für dieses Beet",
+        "Target pH": "Ziel-pH",
+        "Target N": "Ziel-N",
+        "Target P": "Ziel-P",
+        "Target K": "Ziel-K",
+        "No deficiencies — soil is adequate.": "Keine Mängel — der Boden ist ausreichend.",
+        "Raises pH {cur:.1f} → {tgt:.1f}": "Hebt pH {cur:.1f} → {tgt:.1f}",
+        "Lowers pH {cur:.1f} → {tgt:.1f}": "Senkt pH {cur:.1f} → {tgt:.1f}",
+        "Raises {nutrient} level {cur} → {tgt}": "Hebt {nutrient}-Stufe {cur} → {tgt}",
+    },
+
+    # ── AmendmentPlanDialog (US-12.10c) ──
+    "AmendmentPlanDialog": {
+        "Amendment Plan": "Bodenverbesserungs-Plan",
+        "Recommended soil amendments aggregated across all beds with a "
+        "deficient soil test. Quantities are totals — purchase rounded up "
+        "and consult local extension advice before bulk application.":
+            "Empfohlene Bodenverbesserer aggregiert über alle Beete mit "
+            "mangelhafter Bodenprobe. Mengen sind Gesamtwerte — beim Einkauf "
+            "aufrunden und vor der Anwendung lokale Beratung einholen.",
+        "Substance": "Substanz",
+        "Total": "Gesamt",
+        "Beds": "Beete",
+        "Copy to clipboard": "In Zwischenablage kopieren",
+        "Close": "Schließen",
+        "No deficient beds found.": "Keine mangelhaften Beete gefunden.",
+        "Amendment plan copied to clipboard.": "Bodenverbesserungs-Plan in Zwischenablage kopiert.",
+        "Bed": "Beet",
     },
 }
 

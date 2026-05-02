@@ -663,6 +663,15 @@ class GardenPlannerApp(QMainWindow):
         default_soil_action.triggered.connect(self._on_set_default_soil_test)
         menu.addAction(default_soil_action)
 
+        # Amendment plan (US-12.10c) — aggregated cross-bed shopping list.
+        menu.addSeparator()
+        amendment_plan_action = QAction(self.tr("&Amendment Plan…"), self)
+        amendment_plan_action.setStatusTip(
+            self.tr("View amendment recommendations for deficient beds")
+        )
+        amendment_plan_action.triggered.connect(self._on_amendment_plan)
+        menu.addAction(amendment_plan_action)
+
     def _setup_help_menu(self, menu: QMenu) -> None:
         """Set up the Help menu actions."""
         # Keyboard Shortcuts
@@ -3088,12 +3097,16 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.ui.dialogs import SoilTestDialog  # noqa: PLC0415
 
         existing = self._soil_service.get_history(target_id).latest
+        bed_area_m2 = (
+            self._lookup_bed_area_m2(target_id) if target_id != "global" else 0.0
+        )
 
         dialog = SoilTestDialog(
             parent=self,
             target_id=target_id,
             target_name=display_name,
             existing_latest=existing,
+            bed_area_m2=bed_area_m2,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
@@ -3105,6 +3118,48 @@ class GardenPlannerApp(QMainWindow):
         # Refresh the soil overlay if it's currently visible.
         if self.canvas_view.soil_overlay_visible:
             self.canvas_view.viewport().update()
+
+    def _lookup_bed_area_m2(self, target_id: str) -> float:
+        """Return the area of the bed identified by ``target_id`` in m².
+
+        Returns 0.0 when the bed is not found, when its shape isn't supported by
+        ``calculate_area_and_perimeter`` (e.g. EllipseItem — pre-existing gap),
+        or when the canvas scene isn't available.
+        """
+        from open_garden_planner.core.measurements import (  # noqa: PLC0415
+            calculate_area_and_perimeter,
+        )
+        from open_garden_planner.core.object_types import is_bed_type  # noqa: PLC0415
+
+        scene = getattr(self.canvas_view, "_canvas_scene", None) or self.canvas_view.scene()
+        if scene is None:
+            return 0.0
+        for item in scene.items():
+            if not is_bed_type(getattr(item, "object_type", None)):
+                continue
+            if str(getattr(item, "item_id", "")) != target_id:
+                continue
+            result = calculate_area_and_perimeter(item)
+            if result is None:
+                return 0.0
+            area_cm2, _ = result
+            return area_cm2 / 10_000.0
+        return 0.0
+
+    def _on_amendment_plan(self) -> None:
+        """Open the cross-bed Amendment Plan dialog (US-12.10c)."""
+        from open_garden_planner.ui.dialogs import AmendmentPlanDialog  # noqa: PLC0415
+
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None)
+            or self.canvas_view.scene()
+        )
+        dialog = AmendmentPlanDialog(
+            parent=self,
+            canvas_scene=scene,
+            soil_service=self._soil_service,
+        )
+        dialog.exec()
 
     def _on_location_changed(self, location: object) -> None:
         """Update the location label in the status bar."""

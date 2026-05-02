@@ -1,5 +1,6 @@
 """Dialog windows for user interactions."""
 
+from open_garden_planner.ui.dialogs.amendment_plan_dialog import AmendmentPlanDialog
 from open_garden_planner.ui.dialogs.calibration_dialog import CalibrationDialog
 from open_garden_planner.ui.dialogs.companion_check_dialog import CompanionCheckDialog
 from open_garden_planner.ui.dialogs.constraint_conflict_dialog import (
@@ -19,6 +20,7 @@ from open_garden_planner.ui.dialogs.soil_test_dialog import SoilTestDialog
 from open_garden_planner.ui.dialogs.welcome_dialog import WelcomeDialog
 
 __all__ = [
+    "AmendmentPlanDialog",
     "CalibrationDialog",
     "CompanionCheckDialog",
     "ConstraintConflictDialog",

@@ -3737,6 +3737,14 @@ Neue Saison jetzt öffnen?</translation>
             <source>Potassium (K)</source>
             <translation>Kalium (K)</translation>
         </message>
+        <message>
+            <source>&amp;Amendment Plan…</source>
+            <translation>&amp;Bodenverbesserungs-Plan…</translation>
+        </message>
+        <message>
+            <source>View amendment recommendations for deficient beds</source>
+            <translation>Empfehlungen für mangelhafte Beete anzeigen</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -7659,6 +7667,85 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>—</source>
             <translation>—</translation>
+        </message>
+        <message>
+            <source>Amendments for this bed</source>
+            <translation>Bodenverbesserer für dieses Beet</translation>
+        </message>
+        <message>
+            <source>Target pH</source>
+            <translation>Ziel-pH</translation>
+        </message>
+        <message>
+            <source>Target N</source>
+            <translation>Ziel-N</translation>
+        </message>
+        <message>
+            <source>Target P</source>
+            <translation>Ziel-P</translation>
+        </message>
+        <message>
+            <source>Target K</source>
+            <translation>Ziel-K</translation>
+        </message>
+        <message>
+            <source>No deficiencies — soil is adequate.</source>
+            <translation>Keine Mängel — der Boden ist ausreichend.</translation>
+        </message>
+        <message>
+            <source>Raises pH {cur:.1f} → {tgt:.1f}</source>
+            <translation>Hebt pH {cur:.1f} → {tgt:.1f}</translation>
+        </message>
+        <message>
+            <source>Lowers pH {cur:.1f} → {tgt:.1f}</source>
+            <translation>Senkt pH {cur:.1f} → {tgt:.1f}</translation>
+        </message>
+        <message>
+            <source>Raises {nutrient} level {cur} → {tgt}</source>
+            <translation>Hebt {nutrient}-Stufe {cur} → {tgt}</translation>
+        </message>
+    </context>
+    <context>
+        <name>AmendmentPlanDialog</name>
+        <message>
+            <source>Amendment Plan</source>
+            <translation>Bodenverbesserungs-Plan</translation>
+        </message>
+        <message>
+            <source>Recommended soil amendments aggregated across all beds with a deficient soil test. Quantities are totals — purchase rounded up and consult local extension advice before bulk application.</source>
+            <translation>Empfohlene Bodenverbesserer aggregiert über alle Beete mit mangelhafter Bodenprobe. Mengen sind Gesamtwerte — beim Einkauf aufrunden und vor der Anwendung lokale Beratung einholen.</translation>
+        </message>
+        <message>
+            <source>Substance</source>
+            <translation>Substanz</translation>
+        </message>
+        <message>
+            <source>Total</source>
+            <translation>Gesamt</translation>
+        </message>
+        <message>
+            <source>Beds</source>
+            <translation>Beete</translation>
+        </message>
+        <message>
+            <source>Copy to clipboard</source>
+            <translation>In Zwischenablage kopieren</translation>
+        </message>
+        <message>
+            <source>Close</source>
+            <translation>Schließen</translation>
+        </message>
+        <message>
+            <source>No deficient beds found.</source>
+            <translation>Keine mangelhaften Beete gefunden.</translation>
+        </message>
+        <message>
+            <source>Amendment plan copied to clipboard.</source>
+            <translation>Bodenverbesserungs-Plan in Zwischenablage kopiert.</translation>
+        </message>
+        <message>
+            <source>Bed</source>
+            <translation>Beet</translation>
         </message>
     </context>
 </TS>

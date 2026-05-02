@@ -500,3 +500,35 @@ The colour mapping lives in `SoilService.health_level(record, parameter)` and `S
 For `"overall"`, the worst non-unknown level across pH/N/P/K wins (all-unknown stays unknown).
 
 The `SoilService` is a single long-lived instance owned by `GardenPlannerApp` and injected into `CanvasView` via `set_soil_service`. The soil-test-entry dialog reuses the same instance, so dialog edits and overlay tint stay consistent without re-querying `ProjectManager.soil_tests`.
+
+### 8.13.6 Amendment calculation (US-12.10c)
+
+`SoilService.calculate_amendments(record, target_ph, target_n, target_p, target_k, bed_area_m2, loader)` is a **pure static method** — no I/O, no service state. Tests assert quantities trivially; the canvas overlay (8.13.5) and the amendment dialogs share the exact same code path.
+
+**Formula** (from roadmap §1976-2030):
+
+```
+pH:  qty_g = |target_ph - current_ph| / |effect_per_100g_m2| * 100 * area_m2
+NPK: qty_g = (target_level - current_level) * application_rate_g_m2 * area_m2
+```
+
+**Priority walk** (one pass, each substance picked at most once):
+
+1. pH (only if `|delta| ≥ 0.1` — below this is measurement noise).
+2. N → P → K (any deficit ≥ 1 Rapitest step).
+3. Ca → Mg → S, but only if the pH/NPK picks didn't already supply them — e.g. dolomite lime decrements both Ca and Mg deficits before gypsum is considered.
+
+Returns `[]` for `record is None`, `bed_area_m2 <= 0`, or no deficits.
+
+**Data file**: `src/open_garden_planner/resources/data/amendments.json` (12 substances). Loaded once by `AmendmentLoader`, eagerly validated; corrupt JSON raises at startup rather than mid-dialog.
+
+**Two surfaces** consume the same calculator:
+
+| Surface | File | Behaviour |
+|---|---|---|
+| Inline per-bed list | `SoilTestDialog._refresh_amendments` | Hidden when `bed_area_m2 == 0` (i.e. global default test). Recomputes live as the form values change. |
+| Cross-bed plan | `AmendmentPlanDialog` | Walks every bed, groups by substance, sums grams. "Copy to clipboard" is the fallback for US-12.6 shopping-list integration. |
+
+**Targets** default to the same "ideal" definition the canvas overlay (8.13.5) uses for GOOD: `pH 6.5`, `N=P=K=3`. Per-bed overrides are not persisted — 12.10d will derive plant-aware targets from species in the bed.
+
+**EllipseItem note**: `core.measurements.calculate_area_and_perimeter` does not yet support `EllipseItem`. Beds drawn as ellipses are skipped (the calculator returns `[]` for `area=0`). This is a pre-existing gap, tracked separately.

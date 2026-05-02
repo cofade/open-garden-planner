@@ -168,7 +168,7 @@ Full history: see `docs/roadmap.md`.
 |        | 12.7  | Pest & disease log                       | Smart Features     |
 |        | 12.8  | Succession planting                      | Smart Features     |
 |        | 12.9  | Garden journal (map-linked notes)        | Smart Features     |
-| 🟡     | 12.10 | Soil health tracking & amendment calc    | Smart Features (12.10a, 12.10b complete) |
+| 🟡     | 12.10 | Soil health tracking & amendment calc    | Smart Features (12.10a, 12.10b, 12.10c complete) |
 
 > **US-12.10 implementation details**: `docs/roadmap.md` § "US-12.10: Soil Health Tracking & Amendment Calculator"
 > Sub-stories (execute in order): **12.10a** data model + entry → **12.10b** canvas overlay → **12.10c** amendment calculator → **12.10d** plant-soil warnings → **12.10e** history + seasonal badge

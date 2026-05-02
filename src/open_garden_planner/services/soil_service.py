@@ -1,16 +1,32 @@
-"""Soil-test service (US-12.10a, extended in US-12.10b).
+"""Soil-test service (US-12.10a, extended in US-12.10b and US-12.10c).
 
 Thin facade over ``ProjectManager`` that returns ``SoilTestHistory`` /
-``SoilTestRecord`` objects instead of raw dicts. The amendment calculator,
-mismatch detection and overdue-test logic land in later 12.10 sub-stories
-and are stubbed here to flag premature use.
+``SoilTestRecord`` objects instead of raw dicts. The amendment calculator
+(US-12.10c) is implemented here; mismatch detection (US-12.10d) and
+overdue-test logic (US-12.10e) are still stubbed.
 """
 from __future__ import annotations
 
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from open_garden_planner.models.amendment import (
+    FIX_ADDS_CA,
+    FIX_ADDS_K,
+    FIX_ADDS_MG,
+    FIX_ADDS_N,
+    FIX_ADDS_P,
+    FIX_ADDS_S,
+    FIX_LOWERS_PH,
+    FIX_RAISES_PH,
+    Amendment,
+    AmendmentRecommendation,
+)
 from open_garden_planner.models.soil_test import SoilTestHistory, SoilTestRecord
+from open_garden_planner.services.amendment_loader import (
+    AmendmentLoader,
+    get_default_loader,
+)
 
 if TYPE_CHECKING:
     from open_garden_planner.core.project import ProjectManager
@@ -75,6 +91,91 @@ _RANK = {
     HealthLevel.FAIR: 1,
     HealthLevel.POOR: 2,
 }
+
+# Default target on the 0–4 Rapitest scale for Ca/Mg/S secondaries (Medium / Sufficient).
+_SECONDARY_TARGET = 2
+
+# Smallest pH delta worth correcting — anything below is within measurement noise.
+_PH_EPSILON = 0.1
+
+
+def _level_deficit(current: int | None, target: int) -> int:
+    """How many Rapitest steps below ``target`` the bed sits. Unknown → 0."""
+    if current is None:
+        return 0
+    return max(0, target - current)
+
+
+def _pick_ph(
+    current_ph: float | None,
+    target_ph: float,
+    amendments: list[Amendment],
+    used: set[str],
+) -> Amendment | None:
+    """Return the first pH-fixing amendment whose direction matches the deficit."""
+    if current_ph is None:
+        return None
+    delta = target_ph - current_ph
+    if abs(delta) < _PH_EPSILON:
+        return None
+    needed_fix = FIX_RAISES_PH if delta > 0 else FIX_LOWERS_PH
+    for amendment in amendments:
+        if amendment.id in used:
+            continue
+        if needed_fix in amendment.fixes and amendment.ph_effect_per_100g_m2 != 0:
+            return amendment
+    return None
+
+
+def _pick_nutrient(
+    fix_tag: str, amendments: list[Amendment], used: set[str]
+) -> Amendment | None:
+    """Return the first unused amendment that carries ``fix_tag``."""
+    for amendment in amendments:
+        if amendment.id in used:
+            continue
+        if fix_tag in amendment.fixes:
+            return amendment
+    return None
+
+
+def _compute_ph(
+    amendment: Amendment,
+    current_ph: float | None,
+    target_ph: float,
+    bed_area_m2: float,
+) -> AmendmentRecommendation:
+    """Build a pH AmendmentRecommendation per the roadmap formula §1976-2030."""
+    current = current_ph if current_ph is not None else target_ph
+    delta = abs(target_ph - current)
+    effect = abs(amendment.ph_effect_per_100g_m2) or 1.0
+    quantity_g = (delta / effect) * 100.0 * bed_area_m2
+    return AmendmentRecommendation(
+        amendment=amendment,
+        quantity_g=quantity_g,
+        target_kind="ph",
+        current_value=current,
+        target_value=target_ph,
+    )
+
+
+def _compute_nutrient(
+    amendment: Amendment,
+    current_level: int,
+    target_level: int,
+    kind: str,
+    bed_area_m2: float,
+) -> AmendmentRecommendation:
+    """Build a nutrient AmendmentRecommendation per the roadmap formula."""
+    deficit = max(0, target_level - current_level)
+    quantity_g = deficit * amendment.application_rate_g_m2 * bed_area_m2
+    return AmendmentRecommendation(
+        amendment=amendment,
+        quantity_g=quantity_g,
+        target_kind=kind,
+        current_value=float(current_level),
+        target_value=float(target_level),
+    )
 
 
 class SoilService:
@@ -151,11 +252,98 @@ class SoilService:
         """
         return _HEALTH_RGBA.get(level)
 
-    # ── Stubs (deferred to later sub-stories) ─────────────────────────────────
+    # ── Amendment calculator (US-12.10c) ──────────────────────────────────────
 
-    def calculate_amendments(self, *_args, **_kwargs):  # pragma: no cover
-        """Compute per-bed amendment quantities (US-12.10c)."""
-        raise NotImplementedError("Amendment calculator lands in US-12.10c")
+    @staticmethod
+    def calculate_amendments(
+        record: SoilTestRecord | None,
+        target_ph: float = 6.5,
+        target_n: int = 3,
+        target_p: int = 3,
+        target_k: int = 3,
+        bed_area_m2: float = 0.0,
+        loader: AmendmentLoader | None = None,
+    ) -> list[AmendmentRecommendation]:
+        """Compute amendment recommendations for one bed.
+
+        Walks deficits in the priority order **pH → N → P → K → Ca → Mg → S**
+        and picks the first matching substance for each. Each substance can
+        appear at most once per bed.
+
+        Returns ``[]`` when ``record`` is ``None``, ``bed_area_m2 <= 0``, or
+        no deficits exist. The function is pure: no I/O, no service state.
+        """
+        if record is None or bed_area_m2 <= 0.0:
+            return []
+
+        amendments = (loader or get_default_loader()).get_amendments()
+        used_ids: set[str] = set()
+        results: list[AmendmentRecommendation] = []
+
+        # Track Ca/Mg/S deficits dynamically — adding lime also adds Ca, so we
+        # decrement the secondary-nutrient deficit after picking it.
+        ca_deficit = _level_deficit(record.ca_level, _SECONDARY_TARGET)
+        mg_deficit = _level_deficit(record.mg_level, _SECONDARY_TARGET)
+        s_deficit = _level_deficit(record.s_level, _SECONDARY_TARGET)
+
+        # 1. pH
+        ph_pick = _pick_ph(record.ph, target_ph, amendments, used_ids)
+        if ph_pick is not None:
+            results.append(_compute_ph(ph_pick, record.ph, target_ph, bed_area_m2))
+            used_ids.add(ph_pick.id)
+            # Lime / ash also raise Ca; sulfur adds S; dolomite adds Mg.
+            if ph_pick.ca_level_effect > 0:
+                ca_deficit = max(0, ca_deficit - 1)
+            if ph_pick.mg_level_effect > 0:
+                mg_deficit = max(0, mg_deficit - 1)
+            if ph_pick.s_level_effect > 0:
+                s_deficit = max(0, s_deficit - 1)
+
+        # 2-4. NPK
+        for fix, current, target, kind in (
+            (FIX_ADDS_N, record.n_level, target_n, "n"),
+            (FIX_ADDS_P, record.p_level, target_p, "p"),
+            (FIX_ADDS_K, record.k_level, target_k, "k"),
+        ):
+            deficit = _level_deficit(current, target)
+            if deficit < 1:
+                continue
+            pick = _pick_nutrient(fix, amendments, used_ids)
+            if pick is None:
+                continue
+            results.append(
+                _compute_nutrient(pick, current or 0, target, kind, bed_area_m2)
+            )
+            used_ids.add(pick.id)
+            # An NPK pick can also bump secondaries (e.g. compost gives N+P+K).
+            if pick.ca_level_effect > 0:
+                ca_deficit = max(0, ca_deficit - 1)
+            if pick.mg_level_effect > 0:
+                mg_deficit = max(0, mg_deficit - 1)
+            if pick.s_level_effect > 0:
+                s_deficit = max(0, s_deficit - 1)
+
+        # 5-7. Ca, Mg, S — only if still deficient after the pH/NPK picks.
+        for fix, deficit, current, kind in (
+            (FIX_ADDS_CA, ca_deficit, record.ca_level, "ca"),
+            (FIX_ADDS_MG, mg_deficit, record.mg_level, "mg"),
+            (FIX_ADDS_S, s_deficit, record.s_level, "s"),
+        ):
+            if deficit < 1:
+                continue
+            pick = _pick_nutrient(fix, amendments, used_ids)
+            if pick is None:
+                continue
+            results.append(
+                _compute_nutrient(
+                    pick, current or 0, _SECONDARY_TARGET, kind, bed_area_m2
+                )
+            )
+            used_ids.add(pick.id)
+
+        return results
+
+    # ── Stubs (deferred to later sub-stories) ─────────────────────────────────
 
     def get_mismatched_plants(self, *_args, **_kwargs):  # pragma: no cover
         """Detect plant-soil mismatches (US-12.10d)."""

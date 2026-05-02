@@ -71,7 +71,8 @@ src/open_garden_planner/
 ├── models/
 │   ├── plant_data.py             # Plant data model
 │   ├── layer.py                  # Layer model
-│   └── soil_test.py              # SoilTestRecord & SoilTestHistory (US-12.10a)
+│   ├── soil_test.py              # SoilTestRecord & SoilTestHistory (US-12.10a)
+│   └── amendment.py              # Amendment & AmendmentRecommendation (US-12.10c)
 ├── ui/
 │   ├── canvas/
 │   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling

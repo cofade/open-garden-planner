@@ -26,13 +26,18 @@ from PyQt6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QPlainTextEdit,
+    QSpinBox,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
+from open_garden_planner.models.amendment import AmendmentRecommendation
 from open_garden_planner.models.soil_test import SoilTestRecord
+from open_garden_planner.services.soil_service import SoilService
 
 # Categorical labels for Rapitest scale. Index = stored level value.
 # N/P share the 0–4 scale (Depleted/Deficient/Adequate/Sufficient/Surplus).
@@ -51,6 +56,7 @@ class SoilTestDialog(QDialog):
         target_id: str = "",
         target_name: str = "",
         existing_latest: SoilTestRecord | None = None,
+        bed_area_m2: float = 0.0,
     ) -> None:
         """Initialise the dialog.
 
@@ -61,9 +67,13 @@ class SoilTestDialog(QDialog):
                 or ``"global"`` is displayed as the default-soil-test title.
             existing_latest: Optional record to pre-populate the form (e.g. when
                 editing or re-opening for an existing target).
+            bed_area_m2: Bed area in square metres. When > 0 the inline
+                "Amendments for this bed" section is shown (US-12.10c). The
+                global default test passes 0 to keep the section hidden.
         """
         super().__init__(parent)
         self._target_id = target_id
+        self._bed_area_m2 = bed_area_m2
 
         if not target_name or target_id == "global":
             self.setWindowTitle(self.tr("Default Soil Test"))
@@ -75,6 +85,7 @@ class SoilTestDialog(QDialog):
         self._setup_ui()
         if existing_latest is not None:
             self._populate(existing_latest)
+        self._refresh_amendments()
 
     # ── UI construction ──────────────────────────────────────────────────────
 
@@ -114,6 +125,21 @@ class SoilTestDialog(QDialog):
         self._stack.addWidget(self._build_kit_panel())
         self._stack.addWidget(self._build_lab_panel())
         layout.addWidget(self._stack)
+
+        # Amendments for this bed (US-12.10c) — hidden when bed_area_m2 == 0.
+        self._amendments_box = self._build_amendments_panel()
+        if self._bed_area_m2 > 0.0:
+            layout.addWidget(self._amendments_box)
+        else:
+            self._amendments_box.setVisible(False)
+
+        # Wire any field that affects the recommendation list.
+        self._ph_spin.valueChanged.connect(self._refresh_amendments)
+        for combo in (
+            self._n_combo, self._p_combo, self._k_combo,
+            self._ca_combo, self._mg_combo, self._s_combo,
+        ):
+            combo.currentIndexChanged.connect(self._refresh_amendments)
 
         # Notes
         notes_label = QLabel(self.tr("Notes"))
@@ -189,6 +215,45 @@ class SoilTestDialog(QDialog):
             combo.addItem(self.tr(labels[idx]), userData=idx)
         return combo
 
+    def _build_amendments_panel(self) -> QGroupBox:
+        """Build the inline 'Amendments for this bed' section (US-12.10c).
+
+        Contains target spinboxes (pH, N, P, K) plus a list widget that
+        recomputes from the form's current values whenever any field changes.
+        """
+        panel = QGroupBox(self.tr("Amendments for this bed"))
+        layout = QVBoxLayout(panel)
+
+        targets_form = QFormLayout()
+        self._target_ph_spin = QDoubleSpinBox()
+        self._target_ph_spin.setRange(4.0, 9.0)
+        self._target_ph_spin.setDecimals(1)
+        self._target_ph_spin.setSingleStep(0.1)
+        self._target_ph_spin.setValue(6.5)
+        self._target_ph_spin.valueChanged.connect(self._refresh_amendments)
+        targets_form.addRow(self.tr("Target pH"), self._target_ph_spin)
+
+        self._target_n_spin = self._make_target_level_spin()
+        self._target_p_spin = self._make_target_level_spin()
+        self._target_k_spin = self._make_target_level_spin()
+        targets_form.addRow(self.tr("Target N"), self._target_n_spin)
+        targets_form.addRow(self.tr("Target P"), self._target_p_spin)
+        targets_form.addRow(self.tr("Target K"), self._target_k_spin)
+        layout.addLayout(targets_form)
+
+        self._amendments_list = QListWidget()
+        self._amendments_list.setMinimumHeight(80)
+        layout.addWidget(self._amendments_list)
+        return panel
+
+    def _make_target_level_spin(self) -> QSpinBox:
+        """Build a 0–4 target spinbox (Rapitest scale) defaulted to 3 (Sufficient)."""
+        spin = QSpinBox()
+        spin.setRange(0, 4)
+        spin.setValue(3)
+        spin.valueChanged.connect(self._refresh_amendments)
+        return spin
+
     @staticmethod
     def _make_ppm_spin() -> QDoubleSpinBox:
         """Build a ppm spinbox. 0.0 with special-value text means 'not entered'."""
@@ -205,6 +270,30 @@ class SoilTestDialog(QDialog):
 
     def _on_mode_changed(self, index: int) -> None:
         self._stack.setCurrentIndex(index)
+
+    def _refresh_amendments(self) -> None:
+        """Recompute and re-render the inline amendments list."""
+        if self._bed_area_m2 <= 0.0:
+            return
+        record = self.result_record()
+        recs = SoilService.calculate_amendments(
+            record,
+            target_ph=self._target_ph_spin.value(),
+            target_n=self._target_n_spin.value(),
+            target_p=self._target_p_spin.value(),
+            target_k=self._target_k_spin.value(),
+            bed_area_m2=self._bed_area_m2,
+        )
+        self._amendments_list.clear()
+        if not recs:
+            self._amendments_list.addItem(
+                QListWidgetItem(self.tr("No deficiencies — soil is adequate."))
+            )
+            return
+        for rec in recs:
+            self._amendments_list.addItem(
+                QListWidgetItem(format_amendment_line(rec, dialog=self))
+            )
 
     def _populate(self, record: SoilTestRecord) -> None:
         """Pre-populate fields from an existing record."""
@@ -324,4 +413,41 @@ class SoilTestDialog(QDialog):
             self._notes_edit.setPlainText(notes)
 
 
-__all__: list[str] = ["SoilTestDialog"]
+def format_amendment_line(
+    rec: AmendmentRecommendation, dialog: QWidget | None = None
+) -> str:
+    """Render one ``AmendmentRecommendation`` as a localisable display string.
+
+    ``dialog`` is used purely for ``self.tr`` lookup so the format strings get
+    extracted with the dialog's translation context. Falls back to the
+    English defaults from ``rec.rationale_en`` if no dialog is supplied.
+    """
+    name = rec.amendment.name
+    qty = _format_quantity(rec.quantity_g)
+    if dialog is None:
+        return f"{name}: {qty} — {rec.rationale_en}"
+    if rec.target_kind == "ph":
+        if rec.target_value > rec.current_value:
+            rationale = dialog.tr("Raises pH {cur:.1f} → {tgt:.1f}").format(
+                cur=rec.current_value, tgt=rec.target_value
+            )
+        else:
+            rationale = dialog.tr("Lowers pH {cur:.1f} → {tgt:.1f}").format(
+                cur=rec.current_value, tgt=rec.target_value
+            )
+    else:
+        nutrient = rec.target_kind.upper()
+        rationale = dialog.tr("Raises {nutrient} level {cur} → {tgt}").format(
+            nutrient=nutrient, cur=int(rec.current_value), tgt=int(rec.target_value)
+        )
+    return f"{name}: {qty} — {rationale}"
+
+
+def _format_quantity(grams: float) -> str:
+    """Format a gram quantity. ≥1000 g shown in kg; else g."""
+    if grams >= 1000.0:
+        return f"{grams / 1000.0:.2f} kg"
+    return f"{grams:.0f} g"
+
+
+__all__: list[str] = ["SoilTestDialog", "format_amendment_line"]
