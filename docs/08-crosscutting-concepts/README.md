@@ -532,3 +532,24 @@ Returns `[]` for `record is None`, `bed_area_m2 <= 0`, or no deficits.
 **Targets** default to the same "ideal" definition the canvas overlay (8.13.5) uses for GOOD: `pH 6.5`, `N=P=K=3`. Per-bed overrides are not persisted — 12.10d will derive plant-aware targets from species in the bed.
 
 **EllipseItem note**: `core.measurements.calculate_area_and_perimeter` does not yet support `EllipseItem`. Beds drawn as ellipses are skipped (the calculator returns `[]` for `area=0`). This is a pre-existing gap, tracked separately.
+
+### 8.13.7 Plant-soil compatibility warnings (US-12.10d)
+
+`SoilService.get_mismatched_plants(record, plant_specs)` is a pure static method that compares the effective bed record against each hosted plant's pH window (with a ±0.3 tolerance) and "high" NPK demand. It returns `[(spec, [reason, …]), …]`. The view layer (`CanvasView._update_soil_mismatches`, debounced 500 ms on `scene.changed`) walks every bed, calls the calculator, and sets `_soil_mismatch_level` on the bed item: `"warning"` for exactly one reason across all hosted plants, `"critical"` for ≥2. `GardenItemMixin._draw_soil_mismatch_border` paints an amber or red border (4 px) outside the rotation ring; a tooltip joins the per-plant reasons. The Dashboard mirrors the warnings via `PlantingCalendarView._inject_soil_mismatch_tasks` (one amber card per mismatched bed). Plant species expose `n_demand`/`p_demand`/`k_demand`; legacy `nutrient_demand="heavy"` falls back to `high` for all three macros via `_effective_demand`.
+
+### 8.13.8 History sparklines & seasonal reminder badge (US-12.10e)
+
+The `SoilTestDialog` is split into two tabs (`QTabWidget`):
+
+| Tab     | Content |
+|---------|---------|
+| Entry   | Existing form (date, mode, pH, Kit/Lab nutrient panel, amendments, notes). |
+| History | Past tests listed date-descending + four `SoilSparklineWidget` charts (pH, N, P, K). Ca/Mg/S still appear in the past-tests list but get no sparkline. |
+
+`SoilSparklineWidget` is a single-parameter QPainter line chart with an auto-scaled y-range bounded to parameter semantics (pH 0–14, NPK 0–4). 0 records → "No history yet" placeholder; 1 record → centred dot; ≥2 → polyline + dots with min/max-y labels and first/last-date labels.
+
+**Seasonal reminder.** `SoilService.is_test_overdue(history, today)` is pure: returns `True` only when `today.month ∈ {3, 4, 9, 10}`, the bed has been tested before, and the latest record is older than 180 days (or its date is unparseable). Untested beds (None / empty history) are deliberately *not* flagged — the badge nudges re-testing, not first-testing.
+
+**Badge.** `SoilBadgeItem` is a `QGraphicsObject` (so it can carry a `pyqtSignal`) with `ItemIgnoresTransformations` so it stays 16 × 16 px regardless of zoom. It anchors to the bed's top-right corner (8 px screen-fixed offset, view-scale-aware just like `RotationHandle`). Click → `clicked = pyqtSignal(str)` carrying the bed UUID; `CanvasView` re-emits as `soil_test_badge_clicked`, which the `Application` wires into the same `_open_soil_test_dialog` flow used by the bed context menu.
+
+Lifecycle: the existing 500 ms debounce timer in `CanvasView.set_soil_service` (introduced for 12.10d mismatch borders) was extended — its `timeout` now calls `_on_soil_debounce_tick` which runs both `_update_soil_mismatches()` and `_update_soil_badges()`. After a soil-test save, `Application._open_soil_test_dialog` calls `refresh_soil_badges()` for an immediate clear (so the badge disappears before the debounce window elapses).

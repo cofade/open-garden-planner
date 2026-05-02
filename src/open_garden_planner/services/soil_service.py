@@ -1,12 +1,13 @@
-"""Soil-test service (US-12.10a–d).
+"""Soil-test service (US-12.10a–e).
 
 Thin facade over ``ProjectManager`` that returns ``SoilTestHistory`` /
 ``SoilTestRecord`` objects instead of raw dicts. Amendment calculator
-(US-12.10c) and plant-soil mismatch detection (US-12.10d) are implemented
-here. Overdue-test logic (US-12.10e) is still stubbed.
+(US-12.10c), plant-soil mismatch detection (US-12.10d), and seasonal
+overdue-test logic (US-12.10e) are implemented here.
 """
 from __future__ import annotations
 
+from datetime import date
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -406,8 +407,29 @@ class SoilService:
                 results.append((spec, reasons))
         return results
 
-    # ── Stubs (deferred to later sub-stories) ─────────────────────────────────
+    # ── US-12.10e: Seasonal overdue check ─────────────────────────────────────
 
-    def is_test_overdue(self, *_args, **_kwargs) -> bool:  # pragma: no cover
-        """Seasonal overdue check (US-12.10e)."""
-        raise NotImplementedError("Overdue check lands in US-12.10e")
+    @staticmethod
+    def is_test_overdue(history: SoilTestHistory | None, today: date) -> bool:
+        """Return True when the bed is due for a fresh soil test.
+
+        A bed is overdue iff:
+          * the calendar month is a sampling window (Mar/Apr or Sep/Oct), AND
+          * a previous test exists, AND
+          * the latest record is older than 180 days (or its date is unparseable).
+
+        Untested beds (None / empty history) are intentionally NOT flagged —
+        new beds shouldn't nag the gardener until a baseline test exists.
+        """
+        if today.month not in {3, 4, 9, 10}:
+            return False
+        if history is None or not history.records:
+            return False
+        latest = history.latest
+        if latest is None:
+            return False
+        try:
+            last_date = date.fromisoformat(latest.date)
+        except (ValueError, TypeError):
+            return True
+        return (today - last_date).days > 180

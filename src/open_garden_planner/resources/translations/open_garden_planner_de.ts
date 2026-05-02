@@ -7712,6 +7712,38 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Raises {nutrient} level {cur} → {tgt}</source>
             <translation>Hebt {nutrient}-Stufe {cur} → {tgt}</translation>
         </message>
+        <message>
+            <source>Entry</source>
+            <translation>Eingabe</translation>
+        </message>
+        <message>
+            <source>History</source>
+            <translation>Verlauf</translation>
+        </message>
+        <message>
+            <source>Past tests</source>
+            <translation>Frühere Tests</translation>
+        </message>
+        <message>
+            <source>No past tests yet</source>
+            <translation>Noch keine Tests aufgezeichnet</translation>
+        </message>
+        <message>
+            <source>Trends</source>
+            <translation>Trends</translation>
+        </message>
+        <message>
+            <source>pH</source>
+            <translation>pH</translation>
+        </message>
+        <message>
+            <source>(no pH)</source>
+            <translation>(kein pH)</translation>
+        </message>
+        <message>
+            <source>{date} — pH {ph}, N{n} P{p} K{k}</source>
+            <translation>{date} — pH {ph}, N{n} P{p} K{k}</translation>
+        </message>
     </context>
     <context>
         <name>AmendmentPlanDialog</name>
@@ -7754,6 +7786,20 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Bed</source>
             <translation>Beet</translation>
+        </message>
+    </context>
+    <context>
+        <name>SoilSparklineWidget</name>
+        <message>
+            <source>No history yet</source>
+            <translation>Noch kein Verlauf</translation>
+        </message>
+    </context>
+    <context>
+        <name>SoilBadgeItem</name>
+        <message>
+            <source>Soil test overdue — click to record</source>
+            <translation>Bodenprobe überfällig — zum Eintragen klicken</translation>
         </message>
     </context>
 </TS>

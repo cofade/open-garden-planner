@@ -29,15 +29,18 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPlainTextEdit,
+    QScrollArea,
     QSpinBox,
     QStackedWidget,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from open_garden_planner.models.amendment import AmendmentRecommendation
-from open_garden_planner.models.soil_test import SoilTestRecord
+from open_garden_planner.models.soil_test import SoilTestHistory, SoilTestRecord
 from open_garden_planner.services.soil_service import SoilService
+from open_garden_planner.ui.widgets import SoilSparklineWidget
 
 # Categorical labels for Rapitest scale. Index = stored level value.
 # N/P share the 0–4 scale (Depleted/Deficient/Adequate/Sufficient/Surplus).
@@ -56,6 +59,7 @@ class SoilTestDialog(QDialog):
         target_id: str = "",
         target_name: str = "",
         existing_latest: SoilTestRecord | None = None,
+        existing_history: SoilTestHistory | None = None,
         bed_area_m2: float = 0.0,
     ) -> None:
         """Initialise the dialog.
@@ -67,6 +71,9 @@ class SoilTestDialog(QDialog):
                 or ``"global"`` is displayed as the default-soil-test title.
             existing_latest: Optional record to pre-populate the form (e.g. when
                 editing or re-opening for an existing target).
+            existing_history: Optional full history used to render the History
+                tab (sparklines + past-tests list, US-12.10e). When ``None`` or
+                empty the History tab shows placeholders.
             bed_area_m2: Bed area in square metres. When > 0 the inline
                 "Amendments for this bed" section is shown (US-12.10c). The
                 global default test passes 0 to keep the section hidden.
@@ -82,15 +89,32 @@ class SoilTestDialog(QDialog):
         self.setModal(True)
         self.setMinimumWidth(450)
 
-        self._setup_ui()
+        self._setup_ui(existing_history)
         if existing_latest is not None:
             self._populate(existing_latest)
         self._refresh_amendments()
 
     # ── UI construction ──────────────────────────────────────────────────────
 
-    def _setup_ui(self) -> None:
+    def _setup_ui(self, existing_history: SoilTestHistory | None) -> None:
         layout = QVBoxLayout(self)
+
+        self._tabs = QTabWidget()
+        self._tabs.addTab(self._build_entry_tab(), self.tr("Entry"))
+        self._tabs.addTab(self._build_history_tab(existing_history), self.tr("History"))
+        layout.addWidget(self._tabs)
+
+        # OK / Cancel — at dialog level, outside the tabs.
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def _build_entry_tab(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
 
         # Date row
         meta_form = QFormLayout()
@@ -148,13 +172,55 @@ class SoilTestDialog(QDialog):
         self._notes_edit.setFixedHeight(80)
         layout.addWidget(self._notes_edit)
 
-        # OK / Cancel
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        return page
+
+    def _build_history_tab(self, history: SoilTestHistory | None) -> QWidget:
+        records = list(history.records) if history is not None else []
+        records_desc = sorted(records, key=lambda r: r.date, reverse=True)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        page = QWidget()
+        layout = QVBoxLayout(page)
+
+        layout.addWidget(QLabel(self.tr("Past tests")))
+        self._history_list = QListWidget()
+        self._history_list.setSelectionMode(QListWidget.SelectionMode.NoSelection)
+        if records_desc:
+            for rec in records_desc:
+                self._history_list.addItem(QListWidgetItem(self._format_history_row(rec)))
+        else:
+            self._history_list.addItem(QListWidgetItem(self.tr("No past tests yet")))
+        self._history_list.setMinimumHeight(100)
+        layout.addWidget(self._history_list)
+
+        layout.addWidget(QLabel(self.tr("Trends")))
+        self._sparklines: dict[str, SoilSparklineWidget] = {}
+        for param, label in (
+            ("ph", self.tr("pH")),
+            ("n", self.tr("Nitrogen (N)")),
+            ("p", self.tr("Phosphorus (P)")),
+            ("k", self.tr("Potassium (K)")),
+        ):
+            row = QFormLayout()
+            widget = SoilSparklineWidget(param)
+            widget.set_data(records)
+            self._sparklines[param] = widget
+            row.addRow(label, widget)
+            layout.addLayout(row)
+
+        layout.addStretch(1)
+        scroll.setWidget(page)
+        return scroll
+
+    def _format_history_row(self, rec: SoilTestRecord) -> str:
+        ph = f"{rec.ph:.1f}" if rec.ph is not None else self.tr("(no pH)")
+        n = str(rec.n_level) if rec.n_level is not None else "—"
+        p = str(rec.p_level) if rec.p_level is not None else "—"
+        k = str(rec.k_level) if rec.k_level is not None else "—"
+        return self.tr("{date} — pH {ph}, N{n} P{p} K{k}").format(
+            date=rec.date or "?", ph=ph, n=n, p=p, k=k
         )
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-        layout.addWidget(button_box)
 
     def _build_kit_panel(self) -> QWidget:
         """Build the Kit-mode panel: categorical comboboxes for N/P/K and Ca/Mg/S."""

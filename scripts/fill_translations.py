@@ -1391,6 +1391,27 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Raises pH {cur:.1f} → {tgt:.1f}": "Hebt pH {cur:.1f} → {tgt:.1f}",
         "Lowers pH {cur:.1f} → {tgt:.1f}": "Senkt pH {cur:.1f} → {tgt:.1f}",
         "Raises {nutrient} level {cur} → {tgt}": "Hebt {nutrient}-Stufe {cur} → {tgt}",
+        # US-12.10e — History tab
+        "Entry": "Eingabe",
+        "History": "Verlauf",
+        "Past tests": "Frühere Tests",
+        "No past tests yet": "Noch keine Tests aufgezeichnet",
+        "Trends": "Trends",
+        "pH": "pH",
+        "(no pH)": "(kein pH)",
+        "{date} — pH {ph}, N{n} P{p} K{k}":
+            "{date} — pH {ph}, N{n} P{p} K{k}",
+    },
+
+    # ── SoilSparklineWidget (US-12.10e) ──
+    "SoilSparklineWidget": {
+        "No history yet": "Noch kein Verlauf",
+    },
+
+    # ── SoilBadgeItem (US-12.10e) ──
+    "SoilBadgeItem": {
+        "Soil test overdue — click to record":
+            "Bodenprobe überfällig — zum Eintragen klicken",
     },
 
     # ── AmendmentPlanDialog (US-12.10c) ──

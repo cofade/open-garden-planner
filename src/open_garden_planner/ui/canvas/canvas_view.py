@@ -7,6 +7,11 @@ Y increasing upward).
 
 import contextlib
 import logging
+from datetime import date
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
@@ -108,6 +113,9 @@ class CanvasView(QGraphicsView):
     # US-12.10a: emitted when a bed's "Add soil test…" action is invoked.
     # Args: target_id (bed UUID string or "global"), display_name (informational)
     soil_test_requested = pyqtSignal(str, str)
+    # US-12.10e: emitted when the seasonal reminder badge on a bed is clicked.
+    # Args: bed_id (UUID string).
+    soil_test_badge_clicked = pyqtSignal(str)
 
     # Zoom limits
     min_zoom: float = 0.01  # 1% - very zoomed out
@@ -204,6 +212,8 @@ class CanvasView(QGraphicsView):
         self._soil_overlay_visible: bool = False
         self._soil_overlay_param: str = PARAM_OVERALL
         self._soil_service: SoilService | None = None
+        # US-12.10e: seasonal reminder badges, keyed by bed UUID.
+        self._soil_badges: dict[str, SoilBadgeItem] = {}
 
         # Set up view properties
         self._setup_view()
@@ -637,7 +647,7 @@ class CanvasView(QGraphicsView):
             self._soil_mismatch_timer = QTimer(self)
             self._soil_mismatch_timer.setSingleShot(True)
             self._soil_mismatch_timer.setInterval(500)
-            self._soil_mismatch_timer.timeout.connect(self._update_soil_mismatches)
+            self._soil_mismatch_timer.timeout.connect(self._on_soil_debounce_tick)
             if self._canvas_scene is not None:
                 self._canvas_scene.changed.connect(
                     lambda _rects: self._soil_mismatch_timer.start()
@@ -645,10 +655,20 @@ class CanvasView(QGraphicsView):
         if self._soil_overlay_visible:
             self.viewport().update()
         self._update_soil_mismatches()
+        self._update_soil_badges()
 
     def refresh_soil_mismatches(self) -> None:
         """Force an immediate mismatch recompute (call after a soil test is saved)."""
         self._update_soil_mismatches()
+
+    def refresh_soil_badges(self) -> None:
+        """Force an immediate overdue-badge recompute (call after a soil test is saved)."""
+        self._update_soil_badges()
+
+    def _on_soil_debounce_tick(self) -> None:
+        """Run by the 500 ms debounce timer; refreshes mismatch borders + badges."""
+        self._update_soil_mismatches()
+        self._update_soil_badges()
 
     def _update_soil_mismatches(self) -> None:
         """Recompute plant-soil mismatches for every bed and update their borders."""
@@ -690,6 +710,45 @@ class CanvasView(QGraphicsView):
             else:
                 item.setToolTip("")  # type: ignore[attr-defined]
             item.update()  # type: ignore[attr-defined]
+
+    def _update_soil_badges(self, today: date | None = None) -> None:
+        """Recompute seasonal-reminder badges for every bed (US-12.10e)."""
+        if self._soil_service is None or self._canvas_scene is None:
+            return
+        from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
+
+        eval_date = today if today is not None else date.today()
+        present_bed_ids: set[str] = set()
+
+        for item in list(self._canvas_scene.items()):
+            if not is_bed_type(getattr(item, "object_type", None)):
+                continue
+            bed_id = str(getattr(item, "item_id", ""))
+            if not bed_id:
+                continue
+            present_bed_ids.add(bed_id)
+
+            history = self._soil_service.get_history(bed_id)
+            overdue = SoilService.is_test_overdue(history, eval_date)
+            existing = self._soil_badges.get(bed_id)
+
+            if overdue and existing is None:
+                badge = SoilBadgeItem(item, bed_id)
+                badge.clicked.connect(self.soil_test_badge_clicked.emit)
+                self._canvas_scene.addItem(badge)
+                badge.update_position()
+                self._soil_badges[bed_id] = badge
+            elif overdue and existing is not None:
+                existing.update_position()
+            elif not overdue and existing is not None:
+                self._canvas_scene.removeItem(existing)
+                self._soil_badges.pop(bed_id, None)
+
+        # Garbage-collect badges for beds no longer in the scene.
+        for stale_id in [bid for bid in self._soil_badges if bid not in present_bed_ids]:
+            badge = self._soil_badges.pop(stale_id)
+            with contextlib.suppress(Exception):
+                self._canvas_scene.removeItem(badge)
 
     def set_soil_overlay_visible(self, visible: bool) -> None:
         """Show or hide the soil-health overlay."""

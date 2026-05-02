@@ -798,6 +798,10 @@ class GardenPlannerApp(QMainWindow):
         )
         # US-12.10a: bed → "Add soil test…" routes through CanvasView
         self.canvas_view.soil_test_requested.connect(self._on_soil_test_requested)
+        # US-12.10e: bed top-right reminder badge → open dialog for that bed
+        self.canvas_view.soil_test_badge_clicked.connect(
+            self._on_soil_test_badge_clicked
+        )
 
         # Connect scene selection changes to status bar and panels
         self.canvas_scene.selectionChanged.connect(self._on_selection_changed)
@@ -3090,6 +3094,27 @@ class GardenPlannerApp(QMainWindow):
         """Open SoilTestDialog for the project-wide default (US-12.10a)."""
         self._open_soil_test_dialog("global", "")
 
+    def _on_soil_test_badge_clicked(self, bed_id: str) -> None:
+        """Open SoilTestDialog when the seasonal reminder badge is clicked (US-12.10e)."""
+        self._open_soil_test_dialog(bed_id, self._lookup_bed_display_name(bed_id))
+
+    def _lookup_bed_display_name(self, bed_id: str) -> str:
+        """Return the bed's name for the dialog title, or empty string if not found."""
+        from open_garden_planner.core.object_types import is_bed_type  # noqa: PLC0415
+
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None) or self.canvas_view.scene()
+        )
+        if scene is None:
+            return ""
+        for item in scene.items():
+            if not is_bed_type(getattr(item, "object_type", None)):
+                continue
+            if str(getattr(item, "item_id", "")) != bed_id:
+                continue
+            return getattr(item, "name", "") or ""
+        return ""
+
     def _open_soil_test_dialog(self, target_id: str, display_name: str) -> None:
         """Open the soil test dialog and execute AddSoilTestCommand on accept."""
         from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
@@ -3097,7 +3122,8 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.core import AddSoilTestCommand  # noqa: PLC0415
         from open_garden_planner.ui.dialogs import SoilTestDialog  # noqa: PLC0415
 
-        existing = self._soil_service.get_history(target_id).latest
+        history = self._soil_service.get_history(target_id)
+        existing = history.latest
         bed_area_m2 = (
             self._lookup_bed_area_m2(target_id) if target_id != "global" else 0.0
         )
@@ -3107,6 +3133,7 @@ class GardenPlannerApp(QMainWindow):
             target_id=target_id,
             target_name=display_name,
             existing_latest=existing,
+            existing_history=history,
             bed_area_m2=bed_area_m2,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
@@ -3121,6 +3148,8 @@ class GardenPlannerApp(QMainWindow):
             self.canvas_view.viewport().update()
         # Recompute mismatch borders and dashboard cards (US-12.10d).
         self.canvas_view.refresh_soil_mismatches()
+        # Recompute seasonal reminder badges (US-12.10e).
+        self.canvas_view.refresh_soil_badges()
         self.calendar_view.refresh()
 
     def _lookup_bed_area_m2(self, target_id: str) -> float:

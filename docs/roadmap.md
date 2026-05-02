@@ -1721,7 +1721,7 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 | US-12.7 | Pest & disease log | Could | |
 | US-12.8 | Succession planting | Could | |
 | US-12.9 | Garden journal (map-linked notes) | Could | |
-| US-12.10 | Soil health tracking & amendment calculator | Must | 🟡 (12.10a, 12.10b, 12.10c, 12.10d done) |
+| US-12.10 | Soil health tracking & amendment calculator | Must | ✅ |
 
 ### US-12.1: Weather Forecast Widget
 
@@ -2148,7 +2148,7 @@ Sets `_soil_mismatch_level: str` on each bed item → read in `paint()`.
 
 ---
 
-#### US-12.10e: History Sparklines & Seasonal Reminder Badge
+#### US-12.10e: History Sparklines & Seasonal Reminder Badge ✅
 
 **Branch**: `feature/US-12.10e-history-and-reminders`
 

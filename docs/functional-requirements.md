@@ -271,3 +271,8 @@ Pre-defined object types for common property elements:
 - **FR-SOIL-03**: Effective record hierarchy — bed's latest → project-wide default → none
 - **FR-SOIL-04**: Records persist in the `.ogp` file under top-level `soil_tests` and survive save/load round-trip
 - **FR-SOIL-05**: Adding a record is undoable via the standard command stack and marks the project dirty
+- **FR-SOIL-06** (US-12.10b): Canvas overlay tints beds by overall / pH / N / P / K health bucket; untested beds show a hatched-grey pattern
+- **FR-SOIL-07** (US-12.10c): Amendment calculator emits per-bed quantities (g or kg) for pH/NPK/secondary deficits; an Amendment Plan dialog aggregates totals across beds
+- **FR-SOIL-08** (US-12.10d): Plant-soil compatibility warnings draw an amber (1 mismatch) or red (≥2 mismatches) border on beds whose hosted plants conflict with the effective soil record; mismatches also surface as Dashboard cards
+- **FR-SOIL-09** (US-12.10e): The soil-test dialog's History tab lists past records date-descending and renders pH/N/P/K trend sparklines
+- **FR-SOIL-10** (US-12.10e): Seasonal reminder badge — a clock icon at a bed's top-right corner, shown only in sampling months (Mar/Apr, Sep/Oct) when the latest test is older than 180 days; clicking it opens the soil-test dialog. Untested beds are deliberately not flagged.
