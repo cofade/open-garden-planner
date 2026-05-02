@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
+    QComboBox,
     QFileDialog,
     QLabel,
     QMainWindow,
@@ -16,6 +17,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QSplitter,
     QTabWidget,
+    QToolBar,
     QVBoxLayout,
     QWidget,
 )
@@ -34,6 +36,15 @@ from open_garden_planner.services.companion_planting_service import (
     CompanionPlantingService,
 )
 from open_garden_planner.services.export_service import ExportService
+from open_garden_planner.services.soil_service import (
+    ALL_PARAMS,
+    PARAM_K,
+    PARAM_N,
+    PARAM_OVERALL,
+    PARAM_P,
+    PARAM_PH,
+    SoilService,
+)
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.panels import (
@@ -527,6 +538,17 @@ class GardenPlannerApp(QMainWindow):
         self._spacing_circles_action.triggered.connect(self._on_toggle_spacing_circles)
         menu.addAction(self._spacing_circles_action)
 
+        # Toggle Soil Health Overlay (US-12.10b)
+        self._soil_overlay_action = QAction(self.tr("Soil &Health Overlay"), self)
+        self._soil_overlay_action.setShortcut(QKeySequence("Ctrl+Shift+H"))
+        self._soil_overlay_action.setCheckable(True)
+        self._soil_overlay_action.setChecked(False)
+        self._soil_overlay_action.setStatusTip(
+            self.tr("Tint beds by soil-health rating (excluded from exports)")
+        )
+        self._soil_overlay_action.triggered.connect(self._on_toggle_soil_overlay)
+        menu.addAction(self._soil_overlay_action)
+
         # Toggle Minimap (US-11.7)
         self._minimap_action = QAction(self.tr("Show &Minimap"), self)
         self._minimap_action.setCheckable(True)
@@ -721,6 +743,13 @@ class GardenPlannerApp(QMainWindow):
         self._companion_service = CompanionPlantingService()
         self._companion_warnings_enabled = True
         self._companion_radius_cm = 200.0  # 2 m default
+
+        # ── Soil service (US-12.10a/b) — long-lived, shared by overlay & dialog ──
+        self._soil_service = SoilService(self._project_manager)
+        self.canvas_view.set_soil_service(self._soil_service)
+
+        # Soil overlay parameter toolbar (US-12.10b) — hidden until overlay on.
+        self._setup_soil_overlay_toolbar()
 
         # ── Crop rotation service (US-10.6) ──────────────────────────────────
         from open_garden_planner.services.crop_rotation_service import CropRotationService
@@ -2043,6 +2072,44 @@ class GardenPlannerApp(QMainWindow):
         """Handle toggle minimap action."""
         self._minimap.set_visible(checked)
 
+    def _setup_soil_overlay_toolbar(self) -> None:
+        """Build the parameter-picker toolbar for the soil overlay (US-12.10b).
+
+        The toolbar is visible only while the overlay is active so it doesn't
+        clutter the UI for users who don't track soil tests.
+        """
+        self.soil_overlay_toolbar = QToolBar(self.tr("Soil Overlay"), self)
+        self.soil_overlay_toolbar.setObjectName("soil_overlay_toolbar")
+        self.soil_overlay_toolbar.setMovable(False)
+        self.soil_overlay_toolbar.addWidget(QLabel(self.tr("Soil parameter:") + " "))
+        self._soil_param_combo = QComboBox(self.soil_overlay_toolbar)
+        # (display label, parameter key) — labels translated via self.tr.
+        for key, label in (
+            (PARAM_OVERALL, self.tr("Overall")),
+            (PARAM_PH, self.tr("pH")),
+            (PARAM_N, self.tr("Nitrogen (N)")),
+            (PARAM_P, self.tr("Phosphorus (P)")),
+            (PARAM_K, self.tr("Potassium (K)")),
+        ):
+            self._soil_param_combo.addItem(label, key)
+        self._soil_param_combo.currentIndexChanged.connect(
+            self._on_soil_overlay_param_changed
+        )
+        self.soil_overlay_toolbar.addWidget(self._soil_param_combo)
+        self.addToolBar(self.soil_overlay_toolbar)
+        self.soil_overlay_toolbar.setVisible(False)
+
+    def _on_toggle_soil_overlay(self, checked: bool) -> None:
+        """Show/hide the soil-health overlay and its parameter toolbar."""
+        self.canvas_view.set_soil_overlay_visible(checked)
+        self.soil_overlay_toolbar.setVisible(checked)
+
+    def _on_soil_overlay_param_changed(self, index: int) -> None:
+        """Forward combo changes to the canvas view."""
+        key = self._soil_param_combo.itemData(index)
+        if isinstance(key, str) and key in ALL_PARAMS:
+            self.canvas_view.set_soil_overlay_param(key)
+
     def _on_toggle_find_replace(self) -> None:
         """Toggle Find & Replace panel visibility."""
         self._find_panel.refresh_combos()
@@ -2358,6 +2425,10 @@ class GardenPlannerApp(QMainWindow):
         self.statusBar().hide()
         self.main_toolbar.hide()
         self.sidebar.hide()
+        self._pre_preview_state["soil_overlay_toolbar_visible"] = (
+            self.soil_overlay_toolbar.isVisible()
+        )
+        self.soil_overlay_toolbar.hide()
 
         # Hide canvas overlays
         self.canvas_view.set_grid_visible(False)
@@ -2384,6 +2455,8 @@ class GardenPlannerApp(QMainWindow):
         self.statusBar().show()
         self.main_toolbar.show()
         self.sidebar.show()
+        if (self._pre_preview_state or {}).get("soil_overlay_toolbar_visible"):
+            self.soil_overlay_toolbar.show()
 
         # Restore canvas overlays from saved state
         state = self._pre_preview_state or {}
@@ -3012,11 +3085,9 @@ class GardenPlannerApp(QMainWindow):
         from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
 
         from open_garden_planner.core import AddSoilTestCommand  # noqa: PLC0415
-        from open_garden_planner.services.soil_service import SoilService  # noqa: PLC0415
         from open_garden_planner.ui.dialogs import SoilTestDialog  # noqa: PLC0415
 
-        soil_service = SoilService(self._project_manager)
-        existing = soil_service.get_history(target_id).latest
+        existing = self._soil_service.get_history(target_id).latest
 
         dialog = SoilTestDialog(
             parent=self,
@@ -3031,6 +3102,9 @@ class GardenPlannerApp(QMainWindow):
         cmd = AddSoilTestCommand(self._project_manager, target_id, record)
         self.canvas_view.command_manager.execute(cmd)
         self.statusBar().showMessage(self.tr("Soil test recorded"), 3000)
+        # Refresh the soil overlay if it's currently visible.
+        if self.canvas_view.soil_overlay_visible:
+            self.canvas_view.viewport().update()
 
     def _on_location_changed(self, location: object) -> None:
         """Update the location label in the status bar."""

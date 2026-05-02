@@ -9,6 +9,7 @@ import logging
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import (
+    QBrush,
     QColor,
     QContextMenuEvent,
     QFont,
@@ -37,7 +38,7 @@ from open_garden_planner.core.alignment import (
     align_items,
     distribute_items,
 )
-from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.object_types import ObjectType, is_bed_type
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
     AngleConstraintTool,
@@ -68,6 +69,12 @@ from open_garden_planner.core.tools import (
     TrimExtendTool,
     VerticalConstraintTool,
     VerticalDistanceConstraintTool,
+)
+from open_garden_planner.services.soil_service import (
+    ALL_PARAMS,
+    PARAM_OVERALL,
+    HealthLevel,
+    SoilService,
 )
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene, GuideLine
 from open_garden_planner.ui.canvas.items.resize_handle import (
@@ -190,6 +197,12 @@ class CanvasView(QGraphicsView):
         self._canvas_border_color = QColor("#666666")
         self._scale_bar_fg = QColor(40, 40, 40)
         self._scale_bar_outline = QColor(255, 255, 255, 220)
+
+        # Soil health overlay (US-12.10b) — view-level so it's excluded from
+        # exports (PNG/SVG/PDF/print) which all go through scene.render().
+        self._soil_overlay_visible: bool = False
+        self._soil_overlay_param: str = PARAM_OVERALL
+        self._soil_service: SoilService | None = None
 
         # Set up view properties
         self._setup_view()
@@ -599,6 +612,45 @@ class CanvasView(QGraphicsView):
         transform = self.transform()
         self._zoom_factor = abs(transform.m11())  # m11 is the x scale factor
         self.zoom_changed.emit(self.zoom_percent)
+
+    # Soil health overlay (US-12.10b)
+
+    @property
+    def soil_overlay_visible(self) -> bool:
+        """Whether the soil-health canvas overlay is on."""
+        return self._soil_overlay_visible
+
+    @property
+    def soil_overlay_param(self) -> str:
+        """Current overlay parameter (one of :data:`ALL_PARAMS`)."""
+        return self._soil_overlay_param
+
+    def set_soil_service(self, service: SoilService | None) -> None:
+        """Inject the long-lived ``SoilService`` used by the overlay.
+
+        The overlay is a no-op until a service is supplied; the application
+        wires this once after constructing both objects.
+        """
+        self._soil_service = service
+        if self._soil_overlay_visible:
+            self.viewport().update()
+
+    def set_soil_overlay_visible(self, visible: bool) -> None:
+        """Show or hide the soil-health overlay."""
+        if self._soil_overlay_visible == visible:
+            return
+        self._soil_overlay_visible = visible
+        self.viewport().update()
+
+    def set_soil_overlay_param(self, parameter: str) -> None:
+        """Set the parameter the overlay colours by (one of :data:`ALL_PARAMS`)."""
+        if parameter not in ALL_PARAMS:
+            return
+        if self._soil_overlay_param == parameter:
+            return
+        self._soil_overlay_param = parameter
+        if self._soil_overlay_visible:
+            self.viewport().update()
 
     # Grid methods
 
@@ -3033,6 +3085,12 @@ class CanvasView(QGraphicsView):
         """Draw the foreground including canvas border, grid overlay, and snap guides."""
         super().drawForeground(painter, rect)
 
+        # Soil-health overlay (US-12.10b) — painted before grid/guides so the
+        # grid and guide lines stay legible above the tint. Drawn at view
+        # level so scene.render() (PNG/SVG/PDF/print) excludes it.
+        if self._soil_overlay_visible and self._soil_service is not None:
+            self._draw_soil_overlay(painter)
+
         # Draw canvas border
         self._draw_canvas_border(painter)
 
@@ -3062,6 +3120,41 @@ class CanvasView(QGraphicsView):
 
         # Draw rectangle around canvas
         painter.drawRect(canvas_rect)
+
+    def _draw_soil_overlay(self, painter: QPainter) -> None:
+        """Tint each bed by the current soil-health parameter (US-12.10b).
+
+        Beds with no effective soil test get a hatched grey fill so the
+        absence of data reads visually distinct from POOR.
+        """
+        service = self._soil_service
+        if service is None:
+            return
+
+        painter.save()
+        painter.setPen(Qt.PenStyle.NoPen)
+
+        param = self._soil_overlay_param
+        for item in self._canvas_scene.items():
+            if not is_bed_type(getattr(item, "object_type", None)):
+                continue
+            target_id = str(getattr(item, "item_id", ""))
+            if not target_id:
+                continue
+            record = service.get_effective_record(target_id)
+            level = service.health_level(record, param)
+            scene_path = item.mapToScene(item.shape())
+            if level is HealthLevel.UNKNOWN:
+                painter.setBrush(QBrush(QColor(140, 140, 140, 40),
+                                        Qt.BrushStyle.DiagCrossPattern))
+            else:
+                rgba = service.overlay_rgba(level)
+                if rgba is None:
+                    continue
+                painter.setBrush(QBrush(QColor(*rgba)))
+            painter.drawPath(scene_path)
+
+        painter.restore()
 
     def _draw_grid(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the grid overlay."""

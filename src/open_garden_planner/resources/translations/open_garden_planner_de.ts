@@ -3701,6 +3701,42 @@ Neue Saison jetzt öffnen?</translation>
             <source>Soil test recorded</source>
             <translation>Bodenprobe gespeichert</translation>
         </message>
+        <message>
+            <source>Soil &amp;Health Overlay</source>
+            <translation>Boden&amp;gesundheits-Overlay</translation>
+        </message>
+        <message>
+            <source>Tint beds by soil-health rating (excluded from exports)</source>
+            <translation>Beete nach Bodengesundheit einfärben (nicht in Exporten enthalten)</translation>
+        </message>
+        <message>
+            <source>Soil Overlay</source>
+            <translation>Boden-Overlay</translation>
+        </message>
+        <message>
+            <source>Soil parameter:</source>
+            <translation>Bodenparameter:</translation>
+        </message>
+        <message>
+            <source>Overall</source>
+            <translation>Gesamt</translation>
+        </message>
+        <message>
+            <source>pH</source>
+            <translation>pH</translation>
+        </message>
+        <message>
+            <source>Nitrogen (N)</source>
+            <translation>Stickstoff (N)</translation>
+        </message>
+        <message>
+            <source>Phosphorus (P)</source>
+            <translation>Phosphor (P)</translation>
+        </message>
+        <message>
+            <source>Potassium (K)</source>
+            <translation>Kalium (K)</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>

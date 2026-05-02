@@ -383,6 +383,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Set a project-wide soil test used when individual beds have none":
             "Eine projektweite Bodenprobe festlegen, falls einzelne Beete keine eigene haben",
         "Soil test recorded": "Bodenprobe gespeichert",
+        # Soil-health overlay (US-12.10b)
+        "Soil &Health Overlay": "Boden&gesundheits-Overlay",
+        "Tint beds by soil-health rating (excluded from exports)":
+            "Beete nach Bodengesundheit einfärben (nicht in Exporten enthalten)",
+        "Soil Overlay": "Boden-Overlay",
+        "Soil parameter:": "Bodenparameter:",
+        "Overall": "Gesamt",
+        "pH": "pH",
+        "Nitrogen (N)": "Stickstoff (N)",
+        "Phosphorus (P)": "Phosphor (P)",
+        "Potassium (K)": "Kalium (K)",
         "&New Project": "&Neues Projekt",
         "Create a new garden project": "Ein neues Gartenprojekt erstellen",
         "&Open...": "&Öffnen...",

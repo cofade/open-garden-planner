@@ -481,3 +481,22 @@ The dedicated top-level `"soil_tests"` key was introduced with file version **1.
 ### 8.13.4 Undo integration
 
 `AddSoilTestCommand` (in `core/commands.py`) snapshots the prior history dict for the target and restores it on undo. This means undoing the very first record for a bed deletes the `target_id` key entirely, while undoing an N-th record restores history of length N-1.
+
+### 8.13.5 Canvas overlay (US-12.10b)
+
+The toggleable soil-health overlay tints each bed by a chosen parameter (Overall / pH / N / P / K). It is painted in `CanvasView.drawForeground` — **never** in `CanvasScene.drawForeground` — so it is automatically excluded from PNG / SVG / PDF / print exports, all of which call `scene.render()` (which only invokes scene-level draw hooks). This mirrors how the grid and ruler-guide overlays are scoped.
+
+Bed shapes are mapped via `item.mapToScene(item.shape())` so rotated beds stay correctly tinted (a `boundingRect()`-based path would over-paint).
+
+The colour mapping lives in `SoilService.health_level(record, parameter)` and `SoilService.overlay_rgba(level)`:
+
+| Level | RGBA tint | Trigger |
+|---|---|---|
+| GOOD | (100, 200, 100, 80) | pH 6.0–7.0; NPK ≥ 3 |
+| FAIR | (255, 200, 0, 80) | pH 5.5–<6.0 / >7.0–7.5; NPK = 2 |
+| POOR | (220, 60, 60, 80) | otherwise |
+| UNKNOWN | grey `DiagCrossPattern` (alpha 40) | no record at all |
+
+For `"overall"`, the worst non-unknown level across pH/N/P/K wins (all-unknown stays unknown).
+
+The `SoilService` is a single long-lived instance owned by `GardenPlannerApp` and injected into `CanvasView` via `set_soil_service`. The soil-test-entry dialog reuses the same instance, so dialog edits and overlay tint stay consistent without re-querying `ProjectManager.soil_tests`.
