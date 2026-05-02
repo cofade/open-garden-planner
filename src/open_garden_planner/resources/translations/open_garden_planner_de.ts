@@ -3599,6 +3599,92 @@ Neue Saison jetzt öffnen?</translation>
             <source>frost alerts</source>
             <translation>Frostwarnungen</translation>
         </message>
+        <message>
+            <source>Import &amp;DXF...</source>
+            <translation>&amp;DXF importieren...</translation>
+        </message>
+        <message>
+            <source>Import a DXF CAD file onto the canvas</source>
+            <translation>Eine DXF-CAD-Datei in die Zeichenfläche importieren</translation>
+        </message>
+        <message>
+            <source>Export as D&amp;XF...</source>
+            <translation>Als D&amp;XF exportieren...</translation>
+        </message>
+        <message>
+            <source>Export the plan as a DXF file for CAD software</source>
+            <translation>Den Plan als DXF-Datei für CAD-Software exportieren</translation>
+        </message>
+        <message>
+            <source>Export PDF &amp;Report...</source>
+            <translation>PDF-&amp;Bericht exportieren...</translation>
+        </message>
+        <message>
+            <source>Generate a multi-page PDF report of the garden plan</source>
+            <translation>Einen mehrseitigen PDF-Bericht des Gartenplans erstellen</translation>
+        </message>
+        <message>
+            <source>Import DXF</source>
+            <translation>DXF importieren</translation>
+        </message>
+        <message>
+            <source>DXF Files (*.dxf);;All Files (*)</source>
+            <translation>DXF-Dateien (*.dxf);;Alle Dateien (*)</translation>
+        </message>
+        <message>
+            <source>Import Error</source>
+            <translation>Importfehler</translation>
+        </message>
+        <message>
+            <source>Failed to import DXF:
+{error}</source>
+            <translation>DXF-Import fehlgeschlagen:
+{error}</translation>
+        </message>
+        <message>
+            <source>Nothing Imported</source>
+            <translation>Nichts importiert</translation>
+        </message>
+        <message>
+            <source>No supported entities found in the selected layers.</source>
+            <translation>In den ausgewählten Ebenen wurden keine unterstützten Objekte gefunden.</translation>
+        </message>
+        <message>
+            <source>Imported {n} item(s) from DXF.</source>
+            <translation>{n} Objekt(e) aus DXF importiert.</translation>
+        </message>
+        <message>
+            <source>Skipped {k} unsupported entity/entities ({types}).</source>
+            <translation>{k} nicht unterstützte(s) Objekt(e) übersprungen ({types}).</translation>
+        </message>
+        <message>
+            <source>Export as DXF</source>
+            <translation>Als DXF exportieren</translation>
+        </message>
+        <message>
+            <source>Failed to export DXF:
+{error}</source>
+            <translation>DXF-Export fehlgeschlagen:
+{error}</translation>
+        </message>
+        <message>
+            <source>Export PDF Report</source>
+            <translation>PDF-Bericht exportieren</translation>
+        </message>
+        <message>
+            <source>PDF Files (*.pdf);;All Files (*)</source>
+            <translation>PDF-Dateien (*.pdf);;Alle Dateien (*)</translation>
+        </message>
+        <message>
+            <source>Generating PDF…</source>
+            <translation>PDF wird erstellt…</translation>
+        </message>
+        <message>
+            <source>Failed to export PDF report:
+{error}</source>
+            <translation>PDF-Bericht-Export fehlgeschlagen:
+{error}</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -7271,6 +7357,145 @@ Verwenden Sie Datei › Gartenstandort festlegen zum Konfigurieren der GPS-Koord
         <message>
             <source>Apply</source>
             <translation>Anwenden</translation>
+        </message>
+    </context>
+    <context>
+        <name>DxfImportDialog</name>
+        <message>
+            <source>Import DXF</source>
+            <translation>DXF importieren</translation>
+        </message>
+        <message>
+            <source>File: {name}</source>
+            <translation>Datei: {name}</translation>
+        </message>
+        <message>
+            <source>Scale Factor</source>
+            <translation>Skalierungsfaktor</translation>
+        </message>
+        <message>
+            <source>Scale (DXF units → cm):</source>
+            <translation>Skalierung (DXF-Einheiten → cm):</translation>
+        </message>
+        <message>
+            <source>Multiply DXF coordinates by this factor to get centimeters.
+Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
+            <translation>DXF-Koordinaten mit diesem Faktor multiplizieren, um Zentimeter zu erhalten.
+0,1 für DXF in mm, 100 für DXF in Metern.</translation>
+        </message>
+        <message>
+            <source>Layers to Import</source>
+            <translation>Zu importierende Ebenen</translation>
+        </message>
+        <message>
+            <source>Loading layers…</source>
+            <translation>Ebenen werden geladen…</translation>
+        </message>
+        <message>
+            <source>Failed to read DXF: {error}</source>
+            <translation>DXF konnte nicht gelesen werden: {error}</translation>
+        </message>
+        <message>
+            <source>No layers found — all entities will be imported.</source>
+            <translation>Keine Ebenen gefunden – alle Objekte werden importiert.</translation>
+        </message>
+        <message>
+            <source>{n} layer(s) found.</source>
+            <translation>{n} Ebene(n) gefunden.</translation>
+        </message>
+    </context>
+    <context>
+        <name>PdfReportDialog</name>
+        <message>
+            <source>Export PDF Report</source>
+            <translation>PDF-Bericht exportieren</translation>
+        </message>
+        <message>
+            <source>Report Information</source>
+            <translation>Berichtsinformationen</translation>
+        </message>
+        <message>
+            <source>Project name:</source>
+            <translation>Projektname:</translation>
+        </message>
+        <message>
+            <source>Author:</source>
+            <translation>Autor:</translation>
+        </message>
+        <message>
+            <source>Paper</source>
+            <translation>Papier</translation>
+        </message>
+        <message>
+            <source>Size</source>
+            <translation>Größe</translation>
+        </message>
+        <message>
+            <source>Orientation</source>
+            <translation>Ausrichtung</translation>
+        </message>
+        <message>
+            <source>Landscape</source>
+            <translation>Querformat</translation>
+        </message>
+        <message>
+            <source>Portrait</source>
+            <translation>Hochformat</translation>
+        </message>
+        <message>
+            <source>Pages to Include</source>
+            <translation>Einzuschließende Seiten</translation>
+        </message>
+        <message>
+            <source>Cover page</source>
+            <translation>Titelseite</translation>
+        </message>
+        <message>
+            <source>Plan overview (full garden)</source>
+            <translation>Planübersicht (gesamter Garten)</translation>
+        </message>
+        <message>
+            <source>Bed detail views (one page per bed)</source>
+            <translation>Beet-Detailansichten (eine Seite pro Beet)</translation>
+        </message>
+        <message>
+            <source>Plant list</source>
+            <translation>Pflanzenliste</translation>
+        </message>
+        <message>
+            <source>Legend (layers)</source>
+            <translation>Legende (Ebenen)</translation>
+        </message>
+        <message>
+            <source>A progress dialog will appear during export.</source>
+            <translation>Während des Exports wird ein Fortschrittsdialog angezeigt.</translation>
+        </message>
+    </context>
+    <context>
+        <name>PdfReportService</name>
+        <message>
+            <source>N</source>
+            <translation>N</translation>
+        </message>
+        <message>
+            <source>Plant List</source>
+            <translation>Pflanzenliste</translation>
+        </message>
+        <message>
+            <source>Legend</source>
+            <translation>Legende</translation>
+        </message>
+        <message>
+            <source>Bed</source>
+            <translation>Beet</translation>
+        </message>
+        <message>
+            <source>No plants found in this project.</source>
+            <translation>Keine Pflanzen in diesem Projekt gefunden.</translation>
+        </message>
+        <message>
+            <source>Created with Open Garden Planner</source>
+            <translation>Erstellt mit Open Garden Planner</translation>
         </message>
     </context>
 </TS>

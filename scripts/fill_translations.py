@@ -397,6 +397,26 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Export the plan as an SVG vector file": "Den Plan als SVG-Vektordatei exportieren",
         "Export Plant List as &CSV...": "Pflanzenliste als &CSV exportieren...",
         "Export all plants to a CSV spreadsheet": "Alle Pflanzen in eine CSV-Tabelle exportieren",
+        "Import &DXF...": "&DXF importieren...",
+        "Import a DXF CAD file onto the canvas": "Eine DXF-CAD-Datei in die Zeichenfläche importieren",
+        "Export as D&XF...": "Als D&XF exportieren...",
+        "Export the plan as a DXF file for CAD software": "Den Plan als DXF-Datei für CAD-Software exportieren",
+        "Export PDF &Report...": "PDF-&Bericht exportieren...",
+        "Generate a multi-page PDF report of the garden plan": "Einen mehrseitigen PDF-Bericht des Gartenplans erstellen",
+        "Import DXF": "DXF importieren",
+        "DXF Files (*.dxf);;All Files (*)": "DXF-Dateien (*.dxf);;Alle Dateien (*)",
+        "Import Error": "Importfehler",
+        "Failed to import DXF:\n{error}": "DXF-Import fehlgeschlagen:\n{error}",
+        "Nothing Imported": "Nichts importiert",
+        "No supported entities found in the selected layers.": "In den ausgewählten Ebenen wurden keine unterstützten Objekte gefunden.",
+        "Imported {n} item(s) from DXF.": "{n} Objekt(e) aus DXF importiert.",
+        "Skipped {k} unsupported entity/entities ({types}).": "{k} nicht unterstützte(s) Objekt(e) übersprungen ({types}).",
+        "Export as DXF": "Als DXF exportieren",
+        "Failed to export DXF:\n{error}": "DXF-Export fehlgeschlagen:\n{error}",
+        "Export PDF Report": "PDF-Bericht exportieren",
+        "PDF Files (*.pdf);;All Files (*)": "PDF-Dateien (*.pdf);;Alle Dateien (*)",
+        "Generating PDF…": "PDF wird erstellt…",
+        "Failed to export PDF report:\n{error}": "PDF-Bericht-Export fehlgeschlagen:\n{error}",
         "E&xit": "&Beenden",
         "Exit the application": "Die Anwendung beenden",
         "&Undo": "&Rückgängig",
@@ -1259,6 +1279,55 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Das Installationsprogramm konnte nicht gestartet werden:\n{error}\n\n"
             "Starten Sie Open Garden Planner als Administrator, "
             "oder laden Sie das Installationsprogramm direkt herunter:\n{url}",
+    },
+
+    # ── DxfImportDialog ──
+    "DxfImportDialog": {
+        "Import DXF": "DXF importieren",
+        "File: {name}": "Datei: {name}",
+        "Scale Factor": "Skalierungsfaktor",
+        "Scale (DXF units → cm):": "Skalierung (DXF-Einheiten → cm):",
+        "Multiply DXF coordinates by this factor to get centimeters.\n"
+        "Use 0.1 for DXF in mm, 100 for DXF in metres.":
+            "DXF-Koordinaten mit diesem Faktor multiplizieren, um Zentimeter zu erhalten.\n"
+            "0,1 für DXF in mm, 100 für DXF in Metern.",
+        "Layers to Import": "Zu importierende Ebenen",
+        "Loading layers…": "Ebenen werden geladen…",
+        "Failed to read DXF: {error}": "DXF konnte nicht gelesen werden: {error}",
+        "No layers found — all entities will be imported.":
+            "Keine Ebenen gefunden – alle Objekte werden importiert.",
+        "{n} layer(s) found.": "{n} Ebene(n) gefunden.",
+    },
+
+    # ── PdfReportDialog ──
+    "PdfReportDialog": {
+        "Export PDF Report": "PDF-Bericht exportieren",
+        "Report Information": "Berichtsinformationen",
+        "Project name:": "Projektname:",
+        "Author:": "Autor:",
+        "Paper": "Papier",
+        "Size": "Größe",
+        "Orientation": "Ausrichtung",
+        "Landscape": "Querformat",
+        "Portrait": "Hochformat",
+        "Pages to Include": "Einzuschließende Seiten",
+        "Cover page": "Titelseite",
+        "Plan overview (full garden)": "Planübersicht (gesamter Garten)",
+        "Bed detail views (one page per bed)": "Beet-Detailansichten (eine Seite pro Beet)",
+        "Plant list": "Pflanzenliste",
+        "Legend (layers)": "Legende (Ebenen)",
+        "A progress dialog will appear during export.":
+            "Während des Exports wird ein Fortschrittsdialog angezeigt.",
+    },
+
+    # ── PdfReportService (service-layer strings written into the PDF) ──
+    "PdfReportService": {
+        "N": "N",
+        "Plant List": "Pflanzenliste",
+        "Legend": "Legende",
+        "Bed": "Beet",
+        "No plants found in this project.": "Keine Pflanzen in diesem Projekt gefunden.",
+        "Created with Open Garden Planner": "Erstellt mit Open Garden Planner",
     },
 }
 

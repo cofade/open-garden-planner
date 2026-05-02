@@ -171,11 +171,14 @@ Pre-defined object types for common property elements:
 - **FR-EXP-04**: Export selected objects only or entire canvas
 - **FR-EXP-05**: Export includes visible layers only (or all, user choice)
 - **FR-EXP-06**: Plant list export: CSV with all plant metadata
+- **FR-EXP-07**: Export to DXF (AutoCAD R2010+); shapes map to LWPOLYLINE/CIRCLE/ELLIPSE; layers preserved; 1 unit = 1 cm
+- **FR-EXP-08**: Multi-page PDF report with configurable pages (cover, overview, bed details, plant list, legend); paper size A4/A3/Letter/Legal, landscape/portrait
 
 ### FR-9.3 Import
 - **FR-IMP-01**: Import `.ogp` project files
 - **FR-IMP-02**: Import SVG as editable objects (basic support, future)
 - **FR-IMP-03**: Import plant list from CSV (batch add plants, future)
+- **FR-IMP-04**: Import DXF (LINE, LWPOLYLINE, CIRCLE, ARC, ELLIPSE, SPLINE); configurable scale factor; layer selection; single undo action
 
 ## FR-10: User Interface
 

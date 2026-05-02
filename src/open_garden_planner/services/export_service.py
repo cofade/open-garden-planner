@@ -178,9 +178,13 @@ class ExportService:
             painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
             painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
 
-            # Render the canvas area scaled to fit the output
-            target_rect = QRectF(0, 0, width_px, height_px)
-            scene.render(painter, target_rect, canvas_rect)
+            # Pre-flip Y so scene Y=0 (visual bottom in OGP's Y-up view) maps to
+            # image bottom. translate(0, H) then scale(1,-1) maps scene y → H - y·scale.
+            painter.save()
+            painter.translate(0, height_px)
+            painter.scale(1.0, -1.0)
+            scene.render(painter, QRectF(0, 0, width_px, height_px), canvas_rect)
+            painter.restore()
 
             painter.end()
 
@@ -249,15 +253,186 @@ class ExportService:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
 
-            # Render the canvas area scaled to fit the output
-            target_rect = QRectF(0, 0, width_px, height_px)
-            scene.render(painter, target_rect, canvas_rect)
+            # Pre-flip Y so scene Y=0 (visual bottom in OGP's Y-up view) maps to
+            # output bottom. translate(0, H) then scale(1,-1) maps scene y → H - y·scale.
+            painter.save()
+            painter.translate(0, height_px)
+            painter.scale(1.0, -1.0)
+            scene.render(painter, QRectF(0, 0, width_px, height_px), canvas_rect)
+            painter.restore()
 
             painter.end()
         finally:
             # Always restore items to original state
             ExportService._restore_text_after_export(saved_text_state)
             ExportService._restore_construction_items(hidden_construction)
+
+        # Post-process SVG: the Y-flip painter transform causes pattern tile images to
+        # appear vertically inverted. Add patternTransform to each <pattern> element to
+        # compensate (flip the tile back so it renders correctly in browsers).
+        ExportService._fix_svg_pattern_yflip(file_path)
+        # Qt's QSvgGenerator does not serialize the painter clip region. Texture-filled
+        # shapes are emitted as a large unconstrained <rect> that bleeds across the
+        # canvas. Wrap each such group in a <clipPath> derived from the preceding
+        # "shadow" group's actual polygon path.
+        ExportService._fix_svg_qt_texture_clipping(file_path)
+
+    @staticmethod
+    def _fix_svg_pattern_yflip(file_path: Path) -> None:
+        """Post-process a Qt-generated SVG to fix pattern tile orientation.
+
+        Qt's Y-flip painter transform causes texture tile images inside <pattern>
+        elements to render upside-down in SVG viewers. Adding patternTransform
+        with a matching Y-flip compensates so tiles render correctly.
+        """
+        import re
+        text = file_path.read_text(encoding="utf-8")
+
+        def add_pattern_transform(m: re.Match) -> str:
+            tag = m.group(0)
+            # Extract height attribute to build the flip matrix (flip around y=height/2)
+            h_match = re.search(r'height="([^"]+)"', tag)
+            h = float(h_match.group(1)) if h_match else 256.0
+            # Avoid adding a duplicate patternTransform
+            if "patternTransform" in tag:
+                return tag
+            # Insert patternTransform before the closing >
+            return tag.rstrip(">") + f' patternTransform="matrix(1,0,0,-1,0,{h})">'
+
+        text = re.sub(r'<pattern\b[^>]+>', add_pattern_transform, text)
+        file_path.write_text(text, encoding="utf-8")
+
+    @staticmethod
+    def _fix_svg_qt_texture_clipping(file_path: Path) -> None:
+        """Wrap Qt-emitted texture groups in SVG clipPath elements.
+
+        Qt's QSvgGenerator emits each textured QGraphicsItem as a "shadow" group
+        (`fill="#000000"` + `<path d="..."/>`) carrying the real polygon outline,
+        followed (after Qt's empty bookkeeping groups) by a texture group
+        (`fill="url(#...)"` + a large `<rect>`). The painter's clip region — which
+        constrains the rect to the polygon shape during native rendering — is *not*
+        serialized. The result in SVG viewers is a large rect that bleeds across
+        the canvas.
+
+        The fix: pair non-empty shadow groups with the next non-empty texture
+        group in document order, build a `<clipPath>` from the shadow's path
+        (with its transform) and wrap the texture group with `clip-path=...`.
+        """
+        import re
+
+        text = file_path.read_text(encoding="utf-8")
+
+        # Items smaller than this are not worth clipping (e.g. text glyphs).
+        LARGE_THRESHOLD = 400.0  # cm
+
+        shadow_re = re.compile(
+            r'<g\b(?P<attrs>[^>]*)\bfill="#000000"[^>]*>\s*'
+            r'(?P<path><path\b[^/]*/?>)\s*</g>',
+            re.DOTALL,
+        )
+        texture_re = re.compile(
+            r'<g\b(?P<tattrs>[^>]*)\bfill="url\(#[^)]+\)"[^>]*>\s*'
+            r'(?P<rect><rect\b[^/]*/>)\s*</g>',
+            re.DOTALL,
+        )
+
+        # Collect ALL shadow groups (sorted by position) and all texture groups
+        # (sorted by position). Walk both in lockstep so each texture is matched
+        # to exactly one shadow.
+        shadows = list(shadow_re.finditer(text))
+        textures = list(texture_re.finditer(text))
+
+        clip_defs: list[str] = []
+        replacements: list[tuple[int, int, str]] = []
+        cp_id = 0
+
+        used_textures: set[int] = set()
+
+        for shadow_m in shadows:
+            d_m = re.search(r'\bd="([^"]+)"', shadow_m.group("path"))
+            if not d_m:
+                continue
+            path_d = d_m.group(1)
+            tr_m = re.search(r'\btransform="([^"]+)"', shadow_m.group("attrs"))
+            transform = tr_m.group(1) if tr_m else None
+
+            # First unused texture starting after this shadow ends.
+            tex_m = None
+            for idx, t in enumerate(textures):
+                if idx in used_textures:
+                    continue
+                if t.start() < shadow_m.end():
+                    continue
+                tex_m = t
+                tex_idx = idx
+                break
+            if tex_m is None:
+                continue
+
+            rect_attrs = tex_m.group("rect")
+            w_m = re.search(r'\bwidth="([0-9.+\-eE]+)"', rect_attrs)
+            x_m = re.search(r'\bx="([0-9.+\-eE]+)"', rect_attrs)
+            y_m = re.search(r'\by="([0-9.+\-eE]+)"', rect_attrs)
+            if not (w_m and x_m and y_m):
+                continue
+
+            rect_w = float(w_m.group(1))
+            rect_x = float(x_m.group(1))
+            rect_y = float(y_m.group(1))
+
+            # Skip without consuming: small rects (already shape-bounded) and
+            # the canvas background rect (origin at 0,0 — that rect IS the
+            # canvas, no clipping wanted). Leaving the index unconsumed means
+            # the next shadow re-evaluates it; the position check
+            # (t.start() < shadow.end()) filters it out naturally and any
+            # genuinely later texture group remains available.
+            if rect_w < LARGE_THRESHOLD:
+                continue
+            if abs(rect_x) < 1.0 and abs(rect_y) < 1.0:
+                continue
+
+            used_textures.add(tex_idx)
+            cp_id += 1
+            cp_name = f"ogp_clip_{cp_id}"
+
+            if transform:
+                clip_defs.append(
+                    f'<clipPath id="{cp_name}" clipPathUnits="userSpaceOnUse">'
+                    f'<g transform="{transform}">'
+                    f'<path fill-rule="evenodd" d="{path_d}"/>'
+                    f'</g></clipPath>'
+                )
+            else:
+                clip_defs.append(
+                    f'<clipPath id="{cp_name}" clipPathUnits="userSpaceOnUse">'
+                    f'<path fill-rule="evenodd" d="{path_d}"/>'
+                    f'</clipPath>'
+                )
+
+            abs_start = tex_m.start()
+            abs_end = tex_m.end()
+            full_texture_group = text[abs_start:abs_end]
+            replacements.append(
+                (abs_start, abs_end,
+                 f'<g clip-path="url(#{cp_name})">{full_texture_group}</g>')
+            )
+
+        # Apply replacements back-to-front so earlier offsets stay valid.
+        for start, end, rep in sorted(replacements, key=lambda r: -r[0]):
+            text = text[:start] + rep + text[end:]
+
+        if clip_defs:
+            defs_close = text.find("</defs>")
+            if defs_close >= 0:
+                text = text[:defs_close] + "\n" + "\n".join(clip_defs) + "\n" + text[defs_close:]
+            else:
+                svg_open = re.search(r'<svg\b[^>]*>', text)
+                if svg_open is not None:
+                    insert_at = svg_open.end()
+                    defs_block = "\n<defs>\n" + "\n".join(clip_defs) + "\n</defs>\n"
+                    text = text[:insert_at] + defs_block + text[insert_at:]
+
+        file_path.write_text(text, encoding="utf-8")
 
     @staticmethod
     def calculate_image_size(

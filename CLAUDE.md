@@ -77,7 +77,7 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 | Architecture decision | `docs/09-architecture-decisions/` — create ADR |
 | New domain term | `docs/12-glossary.md` — add definition |
 
-**After solving issues:**
+**After solving issues, all lessons learned MUST be documented:**
 | Issue Category | Document In | Capture |
 |----------------|-------------|---------|
 | PyQt6 quirks | `docs/11-risks-and-technical-debt/` 11.4 | Symptoms → Root cause → Fix |
@@ -148,34 +148,12 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 **Maintaining this file:** Update progress table when US status changes; add new patterns when discovered; keep Quick Reference commands current.
 
-## Phases 1-10 Complete
+## Phases 1-11 Complete
 
-All user stories from Phase 1 through Phase 10 (US-10.7) are delivered.
+All user stories from Phase 1 through Phase 11 are delivered.
 Full history: see `docs/roadmap.md`.
 
-## Progress (Phase 11: Bed Interior Design, Visual Polish & Advanced 2D Tools v1.8.x)
-
 > **Version note**: CI release workflow (`release.yml`) is the sole source of truth for versions. Never create git tags manually.
-
-| Status | US    | Description                              | Block              |
-| ------ | ----- | ---------------------------------------- | ------------------ |
-| ✅     | 11.1  | Plant-bed parent-child relationship      | Bed Interior       |
-| ✅     | 11.2  | Plant spacing circles & overlap warnings | Bed Interior       |
-| ✅     | 11.3  | Square-foot grid overlay                 | Bed Interior       |
-| ✅     | 11.5  | Expanded fill pattern library            | Visual Polish      |
-| ✅     | 11.6  | Plant illustration expansion             | Visual Polish      |
-| ✅     | 11.7  | Minimap / overview panel                 | Visual Polish      |
-| ✅     | 11.8  | Free text annotation tool                | Annotations        |
-| ✅     | 11.9  | Auto area labels                         | Annotations        |
-| ✅     | 11.10 | Callout / leader line annotations        | Annotations        |
-| ✅     | 11.11 | Group / ungroup                          | Shape Operations   |
-| ✅     | 11.12 | Boolean shape operations                 | Shape Operations   |
-| ✅     | 11.13 | Array along path                         | Shape Operations   |
-| ✅     | 11.14 | Ellipse drawing tool                     | Drawing Tools      |
-| ✅     | 11.15 | Offset tool                              | Drawing Tools      |
-| ✅     | 11.16 | Trim / extend tool                       | Drawing Tools      |
-| ✅     | 11.24 | Find & replace objects                   | Workflow           |
-| ✅     | 11.25 | Missing translations & Change Type menu  | Quality / UX       |
 
 ## Progress (Phase 12: Weather & Smart Features v1.9.x)
 
@@ -183,9 +161,9 @@ Full history: see `docs/roadmap.md`.
 | ------ | ----- | ---------------------------------------- | ------------------ |
 | ✅     | 12.1  | Weather forecast widget in Dashboard     | Weather            |
 | ✅     | 12.2  | Frost alert & plant-aware warnings       | Weather            |
-|        | 12.3  | DXF export                               | Interoperability   |
-|        | 12.4  | DXF import                               | Interoperability   |
-|        | 12.5  | Multi-page PDF export                    | Interoperability   |
+| ✅     | 12.3  | DXF export                               | Interoperability   |
+| ✅     | 12.4  | DXF import                               | Interoperability   |
+| ✅     | 12.5  | Multi-page PDF export                    | Interoperability   |
 |        | 12.6  | Shopping list generation                 | Smart Features     |
 |        | 12.7  | Pest & disease log                       | Smart Features     |
 |        | 12.8  | Succession planting                      | Smart Features     |
