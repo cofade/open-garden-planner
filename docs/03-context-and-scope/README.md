@@ -4,20 +4,16 @@
 
 Open Garden Planner operates as a standalone desktop application with optional connections to external plant databases.
 
-```
-                        ┌─────────────────────────┐
-                        │   Open Garden Planner    │
-                        │   (Desktop Application)  │
-                        └────┬──────┬──────┬───────┘
-                             │      │      │
-              ┌──────────────┘      │      └──────────────┐
-              │                     │                     │
-              v                     v                     v
-     ┌────────────────┐   ┌────────────────┐   ┌────────────────┐
-     │   Trefle.io    │   │  Permapeople   │   │  Local Files   │
-     │   Plant API    │   │   Plant API    │   │  (.ogp, PNG,   │
-     │  (Primary)     │   │  (Fallback)    │   │   SVG, CSV)    │
-     └────────────────┘   └────────────────┘   └────────────────┘
+```mermaid
+flowchart TD
+    OGP["Open Garden Planner<br/>(Desktop Application)"]
+    Trefle["Trefle.io Plant API<br/>(Primary)"]
+    Perma["Permapeople Plant API<br/>(Fallback)"]
+    Files["Local Files<br/>(.ogp, PNG, SVG, CSV)"]
+
+    OGP -->|HTTPS REST| Trefle
+    OGP -->|HTTPS REST| Perma
+    OGP -->|read/write| Files
 ```
 
 | External System | Purpose | Interface |
@@ -70,26 +66,26 @@ For detailed plant API setup instructions, see [Plant API Setup Guide](PLANT_API
 
 ## 3.3 Technical Context
 
-```
-┌─────────────────────────────────────────────────┐
-│                  User's Computer                 │
-│                                                  │
-│  ┌──────────────────────────────────────────┐   │
-│  │         Open Garden Planner (PyQt6)       │   │
-│  │  ┌──────┐ ┌──────┐ ┌──────┐ ┌─────────┐ │   │
-│  │  │Canvas│ │Panels│ │Tools │ │ Dialogs │ │   │
-│  │  └──┬───┘ └──┬───┘ └──┬───┘ └────┬────┘ │   │
-│  │     └────────┴────────┴──────────┘       │   │
-│  │              Core Engine                   │   │
-│  │  ┌─────────┐ ┌─────────┐ ┌────────────┐  │   │
-│  │  │Geometry │ │ Objects │ │   Plant    │  │   │
-│  │  │ Engine  │ │  Model  │ │  Service   │  │   │
-│  │  └─────────┘ └─────────┘ └─────┬──────┘  │   │
-│  └────────────┬───────────────────┼──────────┘   │
-│               │                   │              │
-│   ┌───────────v──────┐  ┌────────v─────────┐    │
-│   │   Local Files    │  │   HTTPS / REST   │    │
-│   │ (.ogp, exports)  │  │  (Plant APIs)    │    │
-│   └──────────────────┘  └──────────────────┘    │
-└─────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Computer["User's Computer"]
+        subgraph App["Open Garden Planner (PyQt6)"]
+            subgraph UI["UI Layer"]
+                Canvas[Canvas]
+                Panels[Panels]
+                Tools[Tools]
+                Dialogs[Dialogs]
+            end
+            subgraph Core["Core Engine"]
+                Geom[Geometry Engine]
+                Objs[Objects Model]
+                PlantSvc[Plant Service]
+            end
+            UI --> Core
+        end
+        Files["Local Files<br/>(.ogp, exports)"]
+        Net["HTTPS / REST<br/>(Plant APIs)"]
+        Core --> Files
+        PlantSvc --> Net
+    end
 ```

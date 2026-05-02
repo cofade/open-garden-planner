@@ -12,29 +12,18 @@ Open Garden Planner is distributed as:
 
 ### Build Pipeline
 
+```mermaid
+flowchart TD
+    Src([Source Code])
+    PI["PyInstaller<br/>(--onedir, installer/ogp.spec)<br/>bundles Python 3.12 + deps + resources,<br/>windowed mode, app icon"]
+    Bundle["dist/OpenGardenPlanner/<br/>~99 MB"]
+    NSIS["NSIS Installer Script<br/>(installer/ogp_installer.nsi)<br/>wizard, Start Menu + desktop shortcut,<br/>file association, upgrade detection,<br/>EN+DE languages"]
+    Out["OpenGardenPlanner-v1.0.0-Setup.exe<br/>~34 MB (LZMA solid, 32% ratio)"]
+
+    Src --> PI --> Bundle --> NSIS --> Out
 ```
-Source Code
-    │
-    ├── PyInstaller (--onedir mode, spec: installer/ogp.spec)
-    │   ├── Bundle Python 3.12 runtime
-    │   ├── Bundle all dependencies (PyQt6, Pillow, requests, etc.)
-    │   ├── Bundle resources (SVGs, textures, translations, icons)
-    │   ├── Set application icon (installer/ogp_app.ico)
-    │   ├── Windowed mode (no console)
-    │   └── Output: dist/OpenGardenPlanner/ directory (~99 MB)
-    │
-    └── NSIS Installer Script (installer/ogp_installer.nsi)
-        ├── LZMA solid compression (32% ratio → ~34 MB installer)
-        ├── Install wizard (welcome, license, path, components)
-        ├── Copy bundled files to Program Files
-        ├── Create Start Menu shortcut + uninstaller shortcut
-        ├── Optional desktop shortcut
-        ├── Optional .ogp file association with custom icon
-        ├── Add to Add/Remove Programs (with size estimate)
-        ├── Upgrade detection (silently uninstalls previous version)
-        ├── English + German language support
-        └── Output: OpenGardenPlanner-v1.0.0-Setup.exe
-```
+
+See the **Installer Features** table below for the full feature list.
 
 ### How to Build
 
@@ -167,17 +156,25 @@ Two workflow files in `.github/workflows/`:
 
 **Trigger**: Every push to any branch + every PR to `master`
 
-```
-Lint job (ubuntu-latest):
-    ├── Set up Python 3.11
-    ├── Install dependencies (pip install -e ".[dev]")
-    └── Run ruff check src/
+```mermaid
+flowchart TD
+    Trigger(["push / PR to master"])
+    subgraph Lint["Lint job (ubuntu-latest)"]
+        L1[Set up Python 3.11]
+        L2["Install deps<br/>pip install -e .[dev]"]
+        L3["ruff check src/"]
+        L1 --> L2 --> L3
+    end
+    subgraph Test["Test job (ubuntu-latest)"]
+        T1[Set up Python 3.11]
+        T2["Install system deps<br/>libegl1, libxkbcommon0, libxcb-cursor0"]
+        T3["Install deps<br/>pip install -e .[dev]"]
+        T4["pytest tests/ -v<br/>under xvfb for Qt"]
+        T1 --> T2 --> T3 --> T4
+    end
 
-Test job (ubuntu-latest):
-    ├── Set up Python 3.11
-    ├── Install system deps (libegl1, libxkbcommon0, libxcb-cursor0)
-    ├── Install dependencies (pip install -e ".[dev]")
-    └── Run pytest tests/ -v (under xvfb for Qt)
+    Trigger --> Lint
+    Trigger --> Test
 ```
 
 ### Release Workflow (`release.yml`)
@@ -189,19 +186,31 @@ Test job (ubuntu-latest):
 - Label `minor` → bump minor (1.0.0 → 1.1.0)
 - Label `patch` or no label → bump patch (1.0.0 → 1.0.1)
 
-```
-Release job (windows-latest):
-    ├── Checkout with full history (for git tags)
-    ├── Determine next version from latest tag + merged PR labels
-    ├── Skip if tag already exists (idempotent)
-    ├── Set up Python 3.11
-    ├── Install dependencies + PyInstaller
-    ├── Install NSIS (via choco)
-    ├── Build installer: python installer/build_installer.py --version X.Y.Z
-    ├── Generate SHA256 checksum
-    └── Create GitHub Release with auto-generated notes
-        ├── Upload OpenGardenPlanner-vX.Y.Z-Setup.exe
-        └── Upload SHA256SUMS.txt
+```mermaid
+flowchart TD
+    Trigger(["push to master / PR merge"])
+    subgraph Job["Release job (windows-latest)"]
+        R1[Checkout with full history<br/>for git tags]
+        R2[Determine next version<br/>latest tag + PR labels]
+        R3{Tag<br/>already exists?}
+        R4[Set up Python 3.11]
+        R5[Install deps + PyInstaller]
+        R6[Install NSIS via choco]
+        R7["Build installer:<br/>python installer/build_installer.py --version X.Y.Z"]
+        R8[Generate SHA256 checksum]
+        R9[Create GitHub Release<br/>auto-generated notes]
+        R10a[Upload OpenGardenPlanner-vX.Y.Z-Setup.exe]
+        R10b[Upload SHA256SUMS.txt]
+        Skip([Skip<br/>idempotent])
+
+        R1 --> R2 --> R3
+        R3 -->|yes| Skip
+        R3 -->|no| R4 --> R5 --> R6 --> R7 --> R8 --> R9
+        R9 --> R10a
+        R9 --> R10b
+    end
+
+    Trigger --> R1
 ```
 
 ### PR Labels for Versioning

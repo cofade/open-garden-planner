@@ -2,36 +2,35 @@
 
 ## 5.1 High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Presentation Layer                        │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐           │
-│  │  Canvas  │ │  Tools   │ │  Panels  │ │  Dialogs │           │
-│  │  Widget  │ │  Widget  │ │ (Props,  │ │ (Export, │           │
-│  │          │ │          │ │  Layers) │ │  Import) │           │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘           │
-│       │            │            │            │                   │
-├───────┴────────────┴────────────┴────────────┴──────────────────┤
-│                        Application Layer                         │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐ │
-│  │   Document   │ │    Tools     │ │      Commands            │ │
-│  │   Manager    │ │   Manager    │ │   (Undo/Redo Stack)      │ │
-│  └──────┬───────┘ └──────┬───────┘ └──────────┬───────────────┘ │
-│         │                │                    │                  │
-├─────────┴────────────────┴────────────────────┴─────────────────┤
-│                          Domain Layer                            │
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌──────────────┐  │
-│  │  Geometry  │ │   Objects  │ │   Plants   │ │    Layers    │  │
-│  │   Engine   │ │   Model    │ │   Model    │ │    Model     │  │
-│  └────────────┘ └────────────┘ └────────────┘ └──────────────┘  │
-│                                                                  │
-├──────────────────────────────────────────────────────────────────┤
-│                       Infrastructure Layer                       │
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌──────────────┐  │
-│  │   File     │ │   Export   │ │  Plant DB  │ │   Settings   │  │
-│  │   I/O      │ │   Engine   │ │    API     │ │   Storage    │  │
-│  └────────────┘ └────────────┘ └────────────┘ └──────────────┘  │
-└──────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Pres["Presentation Layer"]
+        Canvas[Canvas Widget]
+        Tools[Tools Widget]
+        Panels["Panels<br/>(Props, Layers)"]
+        Dialogs["Dialogs<br/>(Export, Import)"]
+    end
+    subgraph App["Application Layer"]
+        DocMgr[Document Manager]
+        ToolMgr[Tools Manager]
+        Cmds["Commands<br/>(Undo/Redo Stack)"]
+    end
+    subgraph Dom["Domain Layer"]
+        Geom[Geometry Engine]
+        Objs[Objects Model]
+        Plants[Plants Model]
+        Layers[Layers Model]
+    end
+    subgraph Inf["Infrastructure Layer"]
+        IO["File I/O"]
+        Exp[Export Engine]
+        API[Plant DB API]
+        Sett[Settings Storage]
+    end
+
+    Pres --> App
+    App --> Dom
+    Dom --> Inf
 ```
 
 ## 5.2 Module Structure
@@ -159,24 +158,34 @@ class GardenObject(ABC):
 
 ### Object Type Hierarchy
 
+```mermaid
+classDiagram
+    class GardenObject {
+        <<abstract>>
+    }
+    class ShapeObject
+    class PlantObject
+    class FurnitureObject
+    class InfrastructureObject
+
+    GardenObject <|-- ShapeObject
+    GardenObject <|-- PlantObject
+    GardenObject <|-- FurnitureObject
+    GardenObject <|-- InfrastructureObject
+
+    ShapeObject <|-- RectangleObject
+    ShapeObject <|-- PolygonObject
+    ShapeObject <|-- CircleObject
+    ShapeObject <|-- PolylineObject
+
+    PlantObject <|-- TreePlant
+    PlantObject <|-- ShrubPlant
+    PlantObject <|-- PerennialPlant
+    PlantObject <|-- AnnualPlant
+    PlantObject <|-- GroundCoverPlant
 ```
-GardenObject (ABC)
-├── ShapeObject
-│   ├── RectangleObject (house, garage, terrace, driveway)
-│   ├── PolygonObject (custom shapes, garden beds)
-│   ├── CircleObject (ponds, circular features)
-│   └── PolylineObject (fences, paths, walls)
-├── PlantObject
-│   ├── TreePlant
-│   ├── ShrubPlant
-│   ├── PerennialPlant
-│   ├── AnnualPlant
-│   └── GroundCoverPlant
-├── FurnitureObject (Phase 6)
-│   ├── Table, Chair, Bench, Parasol, BBQ, etc.
-└── InfrastructureObject (Phase 6)
-    ├── RaisedBed, CompostBin, Greenhouse, etc.
-```
+
+Concrete shape types: `RectangleObject` (house, garage, terrace, driveway), `PolygonObject` (custom shapes, garden beds), `CircleObject` (ponds, circular features), `PolylineObject` (fences, paths, walls). `FurnitureObject` (Phase 6) covers tables, chairs, benches, parasols, BBQs etc.; `InfrastructureObject` (Phase 6) covers raised beds, compost bins, greenhouses etc.
 
 ## 5.4 Project File Format
 
