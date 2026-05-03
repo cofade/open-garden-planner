@@ -4781,6 +4781,46 @@ Verwenden Sie 'Eigene erstellen', um Pflanzen hinzuzufügen, oder das Pflanzen-M
             <source>My Custom Plant</source>
             <translation>Meine eigene Pflanze</translation>
         </message>
+        <message>
+            <source>pH range:</source>
+            <translation>pH-Bereich:</translation>
+        </message>
+        <message>
+            <source>N demand:</source>
+            <translation>N-Bedarf:</translation>
+        </message>
+        <message>
+            <source>P demand:</source>
+            <translation>P-Bedarf:</translation>
+        </message>
+        <message>
+            <source>K demand:</source>
+            <translation>K-Bedarf:</translation>
+        </message>
+        <message>
+            <source>Overall demand:</source>
+            <translation>Gesamt-Bedarf:</translation>
+        </message>
+        <message>
+            <source>Fixer</source>
+            <translation>Sammler</translation>
+        </message>
+        <message>
+            <source>Heavy feeder</source>
+            <translation>Starkzehrer</translation>
+        </message>
+        <message>
+            <source>Medium feeder</source>
+            <translation>Mittelzehrer</translation>
+        </message>
+        <message>
+            <source>Light feeder</source>
+            <translation>Schwachzehrer</translation>
+        </message>
+        <message>
+            <source>Fixer (legume)</source>
+            <translation>Sammler (Hülsenfrüchtler)</translation>
+        </message>
     </context>
     <context>
         <name>PlantSearchDialog</name>
