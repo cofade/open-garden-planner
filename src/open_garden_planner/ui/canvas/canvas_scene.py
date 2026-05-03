@@ -675,6 +675,24 @@ class CanvasScene(QGraphicsScene):
                             item.setZValue(other.zValue() + 1)
                         break
 
+        # Third pass: every item with a _parent_bed_id (plant inside a bed) must
+        # render above its parent bed. Without this, .ogp save/load reverses the
+        # same-z stacking and the plant disappears behind the bed (US-12.10/F2.7).
+        items_by_id: dict[str, Any] = {
+            str(getattr(item, "item_id", "")): item
+            for item in all_items
+            if getattr(item, "item_id", None) is not None
+        }
+        for item in all_items:
+            parent_id = getattr(item, "_parent_bed_id", None)
+            if parent_id is None:
+                continue
+            parent = items_by_id.get(str(parent_id))
+            if parent is None:
+                continue
+            if item.zValue() <= parent.zValue():
+                item.setZValue(parent.zValue() + 1)
+
     def get_layer_by_id(self, layer_id: UUID) -> Layer | None:
         """Get a layer by its ID.
 
