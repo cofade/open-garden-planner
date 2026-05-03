@@ -1410,6 +1410,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Past tests": "Frühere Tests",
         "No past tests yet": "Noch keine Tests aufgezeichnet",
         "Trends": "Trends",
+        # Issue #171 — edit/delete past records
+        "Edit": "Bearbeiten",
+        "Delete": "Löschen",
+        "Edit Soil Test": "Bodenprobe bearbeiten",
+        "Delete the soil test from {date}?":
+            "Bodenprobe vom {date} löschen?",
+        "Delete soil test": "Bodenprobe löschen",
         "pH": "pH",
         "(no pH)": "(kein pH)",
         "{date} — pH {ph}, N{n} P{p} K{k}":

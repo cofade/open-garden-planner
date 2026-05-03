@@ -3135,6 +3135,8 @@ class GardenPlannerApp(QMainWindow):
             existing_latest=existing,
             existing_history=history,
             bed_area_m2=bed_area_m2,
+            project_manager=self._project_manager,
+            command_manager=self.canvas_view.command_manager,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return

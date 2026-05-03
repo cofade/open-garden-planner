@@ -158,6 +158,8 @@ class TestSoilTestDialogHistoryTab:
         assert dialog._tabs.count() == 2
 
     def test_history_tab_lists_records_descending(self, qtbot) -> None:
+        from PyQt6.QtWidgets import QLabel
+
         history = _history(
             _record("2024-04-01", ph=6.0),
             _record("2025-04-01", ph=6.5),
@@ -170,14 +172,19 @@ class TestSoilTestDialogHistoryTab:
         )
         qtbot.addWidget(dialog)
 
-        items = [
-            dialog._history_list.item(i).text()
-            for i in range(dialog._history_list.count())
-        ]
-        assert len(items) == 3
-        assert items[0].startswith("2026-04-01")
-        assert items[1].startswith("2025-04-01")
-        assert items[2].startswith("2024-04-01")
+        layout = dialog._history_records_layout
+        labels: list[str] = []
+        for i in range(layout.count()):
+            row = layout.itemAt(i).widget()
+            if row is None:
+                continue
+            for child in row.findChildren(QLabel):
+                labels.append(child.text())
+                break
+        assert len(labels) == 3
+        assert labels[0].startswith("2026-04-01")
+        assert labels[1].startswith("2025-04-01")
+        assert labels[2].startswith("2024-04-01")
 
     def test_history_tab_has_four_sparklines(self, qtbot) -> None:
         history = _history(_record("2026-04-01", ph=6.5))
@@ -191,13 +198,18 @@ class TestSoilTestDialogHistoryTab:
         assert set(dialog._sparklines.keys()) == {"ph", "n", "p", "k"}
 
     def test_empty_history_shows_placeholder_row(self, qtbot) -> None:
+        from PyQt6.QtWidgets import QLabel
+
         dialog = SoilTestDialog(
             target_id="bed-1",
             target_name="Bed 1",
             existing_history=None,
         )
         qtbot.addWidget(dialog)
-        assert dialog._history_list.count() == 1
+        layout = dialog._history_records_layout
+        assert layout.count() == 1
+        placeholder = layout.itemAt(0).widget()
+        assert isinstance(placeholder, QLabel)
 
 
 # ---------------------------------------------------------------------------

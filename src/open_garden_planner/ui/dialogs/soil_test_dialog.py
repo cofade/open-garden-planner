@@ -15,6 +15,7 @@ calculator (US-12.10c). pH and notes apply to both modes.
 from __future__ import annotations
 
 from datetime import date as _date
+from typing import Any
 
 from PyQt6.QtCore import QDate, Qt
 from PyQt6.QtWidgets import (
@@ -25,10 +26,13 @@ from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QPlainTextEdit,
+    QPushButton,
     QScrollArea,
     QSpinBox,
     QStackedWidget,
@@ -61,6 +65,9 @@ class SoilTestDialog(QDialog):
         existing_latest: SoilTestRecord | None = None,
         existing_history: SoilTestHistory | None = None,
         bed_area_m2: float = 0.0,
+        edit_mode: bool = False,
+        project_manager: Any | None = None,
+        command_manager: Any | None = None,
     ) -> None:
         """Initialise the dialog.
 
@@ -70,19 +77,35 @@ class SoilTestDialog(QDialog):
             target_name: Human-readable name of the bed (used in the title); empty
                 or ``"global"`` is displayed as the default-soil-test title.
             existing_latest: Optional record to pre-populate the form (e.g. when
-                editing or re-opening for an existing target).
+                editing or re-opening for an existing target). In edit_mode this
+                is the record being edited; its ``id`` is preserved on save.
             existing_history: Optional full history used to render the History
                 tab (sparklines + past-tests list, US-12.10e). When ``None`` or
-                empty the History tab shows placeholders.
+                empty the History tab shows placeholders. Ignored in edit_mode.
             bed_area_m2: Bed area in square metres. When > 0 the inline
                 "Amendments for this bed" section is shown (US-12.10c). The
                 global default test passes 0 to keep the section hidden.
+            edit_mode: When True, the dialog is editing an existing record:
+                History tab is hidden, the title reads "Edit Soil Test", and
+                ``result_record()`` preserves ``existing_latest.id`` instead of
+                generating a new uuid.
+            project_manager: Optional ``ProjectManager`` — used by Edit/Delete
+                buttons in the History tab to run undoable commands.
+            command_manager: Optional command manager used to execute the Edit
+                and Delete commands (issue #171).
         """
         super().__init__(parent)
         self._target_id = target_id
         self._bed_area_m2 = bed_area_m2
+        self._edit_mode = edit_mode
+        self._edit_record_id = existing_latest.id if (edit_mode and existing_latest) else None
+        self._project_manager = project_manager
+        self._command_manager = command_manager
+        self._existing_history = existing_history
 
-        if not target_name or target_id == "global":
+        if edit_mode:
+            self.setWindowTitle(self.tr("Edit Soil Test"))
+        elif not target_name or target_id == "global":
             self.setWindowTitle(self.tr("Default Soil Test"))
         else:
             self.setWindowTitle(self.tr("Soil Test — {name}").format(name=target_name))
@@ -99,10 +122,16 @@ class SoilTestDialog(QDialog):
     def _setup_ui(self, existing_history: SoilTestHistory | None) -> None:
         layout = QVBoxLayout(self)
 
-        self._tabs = QTabWidget()
-        self._tabs.addTab(self._build_entry_tab(), self.tr("Entry"))
-        self._tabs.addTab(self._build_history_tab(existing_history), self.tr("History"))
-        layout.addWidget(self._tabs)
+        if self._edit_mode:
+            # Edit mode: no tabs, just the entry form.
+            layout.addWidget(self._build_entry_tab())
+        else:
+            self._tabs = QTabWidget()
+            self._tabs.addTab(self._build_entry_tab(), self.tr("Entry"))
+            self._tabs.addTab(
+                self._build_history_tab(existing_history), self.tr("History")
+            )
+            layout.addWidget(self._tabs)
 
         # OK / Cancel — at dialog level, outside the tabs.
         button_box = QDialogButtonBox(
@@ -175,24 +204,19 @@ class SoilTestDialog(QDialog):
         return page
 
     def _build_history_tab(self, history: SoilTestHistory | None) -> QWidget:
-        records = list(history.records) if history is not None else []
-        records_desc = sorted(records, key=lambda r: r.date, reverse=True)
-
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         page = QWidget()
         layout = QVBoxLayout(page)
 
         layout.addWidget(QLabel(self.tr("Past tests")))
-        self._history_list = QListWidget()
-        self._history_list.setSelectionMode(QListWidget.SelectionMode.NoSelection)
-        if records_desc:
-            for rec in records_desc:
-                self._history_list.addItem(QListWidgetItem(self._format_history_row(rec)))
-        else:
-            self._history_list.addItem(QListWidgetItem(self.tr("No past tests yet")))
-        self._history_list.setMinimumHeight(100)
-        layout.addWidget(self._history_list)
+
+        # Container that we rebuild on edit/delete (issue #171).
+        self._history_records_container = QWidget()
+        self._history_records_layout = QVBoxLayout(self._history_records_container)
+        self._history_records_layout.setContentsMargins(0, 0, 0, 0)
+        self._history_records_layout.setSpacing(2)
+        layout.addWidget(self._history_records_container)
 
         layout.addWidget(QLabel(self.tr("Trends")))
         self._sparklines: dict[str, SoilSparklineWidget] = {}
@@ -204,14 +228,140 @@ class SoilTestDialog(QDialog):
         ):
             row = QFormLayout()
             widget = SoilSparklineWidget(param)
-            widget.set_data(records)
             self._sparklines[param] = widget
             row.addRow(label, widget)
             layout.addLayout(row)
 
         layout.addStretch(1)
         scroll.setWidget(page)
+
+        self._refresh_history_view(history)
         return scroll
+
+    def _refresh_history_view(self, history: SoilTestHistory | None) -> None:
+        """Rebuild the past-tests rows + sparklines from ``history`` (issue #171)."""
+        # Clear existing rows
+        while self._history_records_layout.count():
+            item = self._history_records_layout.takeAt(0)
+            widget = item.widget() if item is not None else None
+            if widget is not None:
+                widget.deleteLater()
+
+        records = list(history.records) if history is not None else []
+        records_desc = sorted(records, key=lambda r: r.date, reverse=True)
+
+        if not records_desc:
+            self._history_records_layout.addWidget(
+                QLabel(self.tr("No past tests yet"))
+            )
+        else:
+            for rec in records_desc:
+                self._history_records_layout.addWidget(self._build_history_row(rec))
+
+        # Sparklines re-feed
+        for widget in self._sparklines.values():
+            widget.set_data(records)
+
+        # Cache the latest history reference so edit/delete handlers can replay
+        # off the current state instead of the original constructor arg.
+        self._existing_history = history
+
+    def _build_history_row(self, rec: SoilTestRecord) -> QWidget:
+        """One row in the past-tests list: text + Edit + Delete buttons."""
+        row = QWidget()
+        h = QHBoxLayout(row)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(4)
+
+        label = QLabel(self._format_history_row(rec))
+        label.setSizePolicy(
+            label.sizePolicy().horizontalPolicy(),
+            label.sizePolicy().verticalPolicy(),
+        )
+        h.addWidget(label, 1)
+
+        # Edit/Delete only available when wired with a project + command manager.
+        if self._project_manager is not None and self._command_manager is not None:
+            edit_btn = QPushButton(self.tr("Edit"))
+            edit_btn.setFixedWidth(60)
+            edit_btn.clicked.connect(lambda _, r=rec: self._on_edit_record(r))
+            h.addWidget(edit_btn)
+
+            del_btn = QPushButton(self.tr("Delete"))
+            del_btn.setFixedWidth(60)
+            del_btn.clicked.connect(lambda _, r=rec: self._on_delete_record(r))
+            h.addWidget(del_btn)
+
+        return row
+
+    def _on_edit_record(self, rec: SoilTestRecord) -> None:
+        """Open a sub-dialog in edit mode for ``rec`` (issue #171)."""
+        sub = SoilTestDialog(
+            parent=self,
+            target_id=self._target_id,
+            target_name="",
+            existing_latest=rec,
+            existing_history=None,
+            bed_area_m2=self._bed_area_m2,
+            edit_mode=True,
+        )
+        if sub.exec() != QDialog.DialogCode.Accepted:
+            return
+        from open_garden_planner.core import EditSoilTestCommand  # noqa: PLC0415
+
+        new_record = sub.result_record()
+        cmd = EditSoilTestCommand(self._project_manager, self._target_id, new_record)
+        self._command_manager.execute(cmd)
+        self._reload_history_after_change()
+
+    def _on_delete_record(self, rec: SoilTestRecord) -> None:
+        """Delete ``rec`` after a confirmation prompt (issue #171)."""
+        prompt = self.tr("Delete the soil test from {date}?").format(
+            date=rec.date or "?"
+        )
+        reply = QMessageBox.question(
+            self,
+            self.tr("Delete soil test"),
+            prompt,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        from open_garden_planner.core import DeleteSoilTestCommand  # noqa: PLC0415
+
+        cmd = DeleteSoilTestCommand(self._project_manager, self._target_id, rec.id)
+        self._command_manager.execute(cmd)
+        self._reload_history_after_change()
+
+    def _reload_history_after_change(self) -> None:
+        """Reload history from the project manager after edit/delete (issue #171).
+
+        Also notify the parent application so it can refresh canvas overlays
+        (mismatch borders, badges) — necessary because the user may then cancel
+        the outer dialog without ever pressing OK.
+        """
+        if self._project_manager is None:
+            return
+        from open_garden_planner.models.soil_test import SoilTestHistory  # noqa: PLC0415
+
+        raw = self._project_manager.soil_tests.get(self._target_id)
+        history = SoilTestHistory.from_dict(raw) if raw else SoilTestHistory(
+            target_id=self._target_id
+        )
+        self._refresh_history_view(history)
+        # Best-effort canvas refresh — the parent (Application) usually owns a
+        # canvas_view with refresh_soil_mismatches / refresh_soil_badges hooks.
+        parent = self.parent()
+        canvas_view = getattr(parent, "canvas_view", None)
+        if canvas_view is not None:
+            for refresh in ("refresh_soil_mismatches", "refresh_soil_badges"):
+                fn = getattr(canvas_view, refresh, None)
+                if callable(fn):
+                    fn()
+            calendar_view = getattr(parent, "calendar_view", None)
+            if calendar_view is not None and hasattr(calendar_view, "refresh"):
+                calendar_view.refresh()
 
     def _format_history_row(self, rec: SoilTestRecord) -> str:
         ph = f"{rec.ph:.1f}" if rec.ph is not None else self.tr("(no pH)")
@@ -409,29 +559,36 @@ class SoilTestDialog(QDialog):
     # ── Public API ───────────────────────────────────────────────────────────
 
     def result_record(self) -> SoilTestRecord:
-        """Return a ``SoilTestRecord`` populated from the dialog fields."""
+        """Return a ``SoilTestRecord`` populated from the dialog fields.
+
+        In edit mode the existing record id is preserved so EditSoilTestCommand
+        can update the record in place rather than appending a new one.
+        """
         qd = self._date_edit.date()
         date_iso = f"{qd.year():04d}-{qd.month():02d}-{qd.day():02d}"
         ph = self._ph_spin.value()
         # 0.0 is the "not entered" sentinel (special-value text active)
         ph_value: float | None = ph if ph > 0.0 else None
-        return SoilTestRecord(
-            date=date_iso,
-            ph=ph_value,
-            n_level=self._n_combo.currentData(),
-            p_level=self._p_combo.currentData(),
-            k_level=self._k_combo.currentData(),
-            ca_level=self._ca_combo.currentData(),
-            mg_level=self._mg_combo.currentData(),
-            s_level=self._s_combo.currentData(),
-            n_ppm=self._ppm_value(self._n_ppm_spin),
-            p_ppm=self._ppm_value(self._p_ppm_spin),
-            k_ppm=self._ppm_value(self._k_ppm_spin),
-            ca_ppm=self._ppm_value(self._ca_ppm_spin),
-            mg_ppm=self._ppm_value(self._mg_ppm_spin),
-            s_ppm=self._ppm_value(self._s_ppm_spin),
-            notes=self._notes_edit.toPlainText().strip(),
-        )
+        kwargs: dict[str, Any] = {
+            "date": date_iso,
+            "ph": ph_value,
+            "n_level": self._n_combo.currentData(),
+            "p_level": self._p_combo.currentData(),
+            "k_level": self._k_combo.currentData(),
+            "ca_level": self._ca_combo.currentData(),
+            "mg_level": self._mg_combo.currentData(),
+            "s_level": self._s_combo.currentData(),
+            "n_ppm": self._ppm_value(self._n_ppm_spin),
+            "p_ppm": self._ppm_value(self._p_ppm_spin),
+            "k_ppm": self._ppm_value(self._k_ppm_spin),
+            "ca_ppm": self._ppm_value(self._ca_ppm_spin),
+            "mg_ppm": self._ppm_value(self._mg_ppm_spin),
+            "s_ppm": self._ppm_value(self._s_ppm_spin),
+            "notes": self._notes_edit.toPlainText().strip(),
+        }
+        if self._edit_record_id is not None:
+            kwargs["id"] = self._edit_record_id
+        return SoilTestRecord(**kwargs)
 
     @staticmethod
     def _ppm_value(spin: QDoubleSpinBox) -> float | None:

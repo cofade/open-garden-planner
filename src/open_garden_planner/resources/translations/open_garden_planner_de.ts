@@ -7784,6 +7784,26 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>{date} — pH {ph}, N{n} P{p} K{k}</source>
             <translation>{date} — pH {ph}, N{n} P{p} K{k}</translation>
         </message>
+        <message>
+            <source>Edit</source>
+            <translation>Bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete</source>
+            <translation>Löschen</translation>
+        </message>
+        <message>
+            <source>Edit Soil Test</source>
+            <translation>Bodenprobe bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete the soil test from {date}?</source>
+            <translation>Bodenprobe vom {date} löschen?</translation>
+        </message>
+        <message>
+            <source>Delete soil test</source>
+            <translation>Bodenprobe löschen</translation>
+        </message>
     </context>
     <context>
         <name>AmendmentPlanDialog</name>
