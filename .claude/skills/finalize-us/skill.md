@@ -31,7 +31,7 @@ Run the full post-approval wrap-up for a completed user story. This skill assume
    Use the checks required by `CLAUDE.md` for the touched feature. At minimum, run the relevant tests and lint checks; if UI strings changed, include translation validation.
 
 3. **Run an independent PR review**
-   Launch the local `.claude/agents/pr-reviewer.md` agent in a fresh, isolated worktree to review the branch as if it were an external reviewer. The review should look for correctness issues, regressions, missing tests, translation misses, and security concerns. Treat the result as an input to the finalization decision, not as a rubber stamp.
+   Launch the local `.claude/agents/senior-reviewer.md` agent in a fresh, isolated worktree to review the branch as if it were an external reviewer. The review should look for correctness issues, regressions, missing tests, translation misses, and security concerns. Treat the result as an input to the finalization decision, not as a rubber stamp.
 
 4. **Apply any fixes from review**
    Re-run the affected checks after fixes. If the reviewer found nothing actionable, note that in the PR summary.
