@@ -171,6 +171,21 @@ class TestAmendmentPlanDialog:
         assert "Blood meal" in text
         assert "Bed A" in text and "Bed B" in text
 
+    def test_clipboard_format_is_tab_separated(
+        self, qtbot: object, scene_with_two_deficient_beds: tuple
+    ) -> None:
+        """Issue F10: every data row joins columns with TAB so spreadsheets parse it."""
+        scene, svc, _ = scene_with_two_deficient_beds
+        dialog = AmendmentPlanDialog(canvas_scene=scene, soil_service=svc)
+        qtbot.addWidget(dialog)  # type: ignore[attr-defined]
+
+        text = dialog._build_clipboard_text()
+        lines = text.split("\n")
+        assert len(lines) >= 2  # Header + at least one row
+        # Every line has exactly 2 tab characters (3 columns).
+        for line in lines:
+            assert line.count("\t") == 2, f"Expected 3 tab-separated columns: {line!r}"
+
     def test_empty_state_when_no_deficient_beds(self, qtbot: object) -> None:
         """Dialog shows the 'no deficient beds' label and disables Copy."""
         scene = CanvasScene(width_cm=2000, height_cm=2000)

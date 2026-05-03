@@ -29,6 +29,7 @@ from open_garden_planner.core.measurements import calculate_area_and_perimeter
 from open_garden_planner.core.object_types import is_bed_type
 from open_garden_planner.models.amendment import Amendment
 from open_garden_planner.services.soil_service import SoilService
+from open_garden_planner.ui.dialogs.soil_test_dialog import _amendment_display_lang
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -122,9 +123,10 @@ class AmendmentPlanDialog(QDialog):
             return
         self._empty_label.setVisible(False)
         self._copy_button.setEnabled(True)
+        lang = _amendment_display_lang()
         for row, agg in enumerate(self._aggregated):
             self._table.setItem(
-                row, 0, QTableWidgetItem(agg.amendment.name)
+                row, 0, QTableWidgetItem(agg.amendment.display_name(lang))
             )
             self._table.setItem(
                 row, 1, QTableWidgetItem(_format_quantity(agg.total_g))
@@ -175,12 +177,23 @@ class AmendmentPlanDialog(QDialog):
         self._status_label.setText(self.tr("Amendment plan copied to clipboard."))
 
     def _build_clipboard_text(self) -> str:
-        """Render the aggregations as a plain-text shopping list."""
-        lines = [self.tr("Amendment Plan")]
+        """Render the aggregations as a tab-separated table for paste-into-spreadsheet."""
+        lang = _amendment_display_lang()
+        # Header row matches the visible column titles (kept in sync with _setup_ui).
+        lines = [
+            "\t".join(
+                (self.tr("Substance"), self.tr("Total"), self.tr("Beds"))
+            )
+        ]
         for agg in self._aggregated:
-            beds = ", ".join(agg.bed_names)
             lines.append(
-                f"- {agg.amendment.name}: {_format_quantity(agg.total_g)} ({beds})"
+                "\t".join(
+                    (
+                        agg.amendment.display_name(lang),
+                        _format_quantity(agg.total_g),
+                        ", ".join(agg.bed_names),
+                    )
+                )
             )
         return "\n".join(lines)
 

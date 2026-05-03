@@ -636,6 +636,18 @@ class SoilTestDialog(QDialog):
             self._notes_edit.setPlainText(notes)
 
 
+def _amendment_display_lang() -> str:
+    """Return the active app language code, defaulting to "en" (US-12.10/F4)."""
+    try:
+        from open_garden_planner.app.settings import (  # noqa: PLC0415
+            get_settings,
+        )
+
+        return get_settings().language or "en"
+    except Exception:
+        return "en"
+
+
 def format_amendment_line(
     rec: AmendmentRecommendation, dialog: QWidget | None = None
 ) -> str:
@@ -645,7 +657,7 @@ def format_amendment_line(
     extracted with the dialog's translation context. Falls back to the
     English defaults from ``rec.rationale_en`` if no dialog is supplied.
     """
-    name = rec.amendment.name
+    name = rec.amendment.display_name(_amendment_display_lang())
     qty = _format_quantity(rec.quantity_g)
     if dialog is None:
         return f"{name}: {qty} — {rec.rationale_en}"
