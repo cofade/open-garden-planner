@@ -383,6 +383,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Set a project-wide soil test used when individual beds have none":
             "Eine projektweite Bodenprobe festlegen, falls einzelne Beete keine eigene haben",
         "Soil test recorded": "Bodenprobe gespeichert",
+        "No changes": "Keine Änderungen",
         # US-12.10c — Amendment Plan menu
         "&Amendment Plan…": "&Bodenverbesserungs-Plan…",
         "View amendment recommendations for deficient beds":

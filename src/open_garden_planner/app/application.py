@@ -70,6 +70,26 @@ from open_garden_planner.ui.widgets import (
 logger = logging.getLogger(__name__)
 
 
+def _records_equivalent(a: object, b: object) -> bool:
+    """True iff two SoilTestRecord instances match field-by-field, ignoring id and date.
+
+    Used by ``_open_soil_test_dialog`` (F12 / F2.6c) to skip ``AddSoilTestCommand``
+    when the user clicks OK without changing the entry tab — common after using
+    Edit-via-History, which already committed the change via ``EditSoilTestCommand``.
+    """
+    if a is None or b is None:
+        return False
+    fields = (
+        "ph",
+        "n_level", "p_level", "k_level",
+        "ca_level", "mg_level", "s_level",
+        "n_ppm", "p_ppm", "k_ppm",
+        "ca_ppm", "mg_ppm", "s_ppm",
+        "notes",
+    )
+    return all(getattr(a, f, None) == getattr(b, f, None) for f in fields)
+
+
 class GardenPlannerApp(QMainWindow):
     """Main application window for Open Garden Planner.
 
@@ -3142,6 +3162,12 @@ class GardenPlannerApp(QMainWindow):
             return
 
         record = dialog.result_record()
+        # Duplicate guard (F12 / F2.6c): if the user clicked OK without
+        # changing anything (common after Edit-via-History), don't append a
+        # stale copy of `existing`. Compare every field except id and date.
+        if existing is not None and _records_equivalent(record, existing):
+            self.statusBar().showMessage(self.tr("No changes"), 3000)
+            return
         cmd = AddSoilTestCommand(self._project_manager, target_id, record)
         self.canvas_view.command_manager.execute(cmd)
         self.statusBar().showMessage(self.tr("Soil test recorded"), 3000)

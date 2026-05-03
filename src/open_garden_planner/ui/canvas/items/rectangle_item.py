@@ -287,6 +287,12 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     painter.setPen(pen)
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                     painter.drawRect(rect)
+
+                # Draw soil mismatch border on top of the pixmap-rendered raised
+                # bed too — without this, RAISED_BED items never show the border
+                # (US-12.10/F2.6b: this branch returns early before line 317).
+                if is_bed_type(self.object_type):
+                    self._draw_soil_mismatch_border(painter)
                 return
 
         # Fall back to standard rectangle painting

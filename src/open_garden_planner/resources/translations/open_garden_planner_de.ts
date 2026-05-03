@@ -3745,6 +3745,10 @@ Neue Saison jetzt öffnen?</translation>
             <source>View amendment recommendations for deficient beds</source>
             <translation>Empfehlungen für mangelhafte Beete anzeigen</translation>
         </message>
+        <message>
+            <source>No changes</source>
+            <translation>Keine Änderungen</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
