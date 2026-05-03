@@ -49,6 +49,59 @@ class ExportService:
             item.setVisible(True)  # type: ignore[union-attr]
 
     @staticmethod
+    def _hide_overlay_items(scene: QGraphicsScene) -> tuple[list[object], list[object]]:
+        """Hide selection-handle classes + soil reminder badges before export (US-12.10/F7).
+
+        Selection / resize / rotation / vertex handles and the seasonal soil
+        badge are scene-attached items, so ``scene.render()`` would paint them
+        into PNG / SVG / PDF exports. Hide them temporarily and clear the
+        current selection so any selection-rectangle drawn by items themselves
+        also disappears.
+
+        Returns:
+            (hidden_items, previously_selected_items) — the second list is so
+            the selection state can be restored after the render.
+        """
+        from open_garden_planner.ui.canvas.items.resize_handle import (  # noqa: PLC0415
+            MidpointHandle,
+            RectCornerHandle,
+            ResizeHandle,
+            RotationHandle,
+            VertexHandle,
+        )
+        from open_garden_planner.ui.canvas.items.soil_badge_item import (  # noqa: PLC0415
+            SoilBadgeItem,
+        )
+
+        handle_types = (
+            ResizeHandle,
+            RotationHandle,
+            MidpointHandle,
+            RectCornerHandle,
+            VertexHandle,
+            SoilBadgeItem,
+        )
+        hidden: list[object] = []
+        for item in scene.items():
+            if isinstance(item, handle_types) and item.isVisible():
+                item.setVisible(False)
+                hidden.append(item)
+
+        previously_selected = list(scene.selectedItems())
+        scene.clearSelection()
+        return hidden, previously_selected
+
+    @staticmethod
+    def _restore_overlay_items(
+        hidden_items: list[object], previously_selected: list[object]
+    ) -> None:
+        """Restore visibility of selection handles + soil badges, and the prior selection."""
+        for item in hidden_items:
+            item.setVisible(True)  # type: ignore[union-attr]
+        for item in previously_selected:
+            item.setSelected(True)  # type: ignore[union-attr]
+
+    @staticmethod
     def _prepare_text_for_export(scene: QGraphicsScene, scale: float, dpi: int) -> list[tuple[object, bool, QFont | None]]:
         """Prepare text items for export by adjusting fonts.
 
@@ -157,6 +210,7 @@ class ExportService:
         # Prepare text items for export
         saved_text_state = ExportService._prepare_text_for_export(scene, scale, dpi)
         hidden_construction = ExportService._hide_construction_items(scene)
+        hidden_overlay, prior_selection = ExportService._hide_overlay_items(scene)
 
         try:
             # Create image with the calculated dimensions
@@ -195,6 +249,7 @@ class ExportService:
             # Always restore items to original state
             ExportService._restore_text_after_export(saved_text_state)
             ExportService._restore_construction_items(hidden_construction)
+            ExportService._restore_overlay_items(hidden_overlay, prior_selection)
 
     @staticmethod
     def export_to_svg(
@@ -238,6 +293,7 @@ class ExportService:
         # Prepare text items for export
         saved_text_state = ExportService._prepare_text_for_export(scene, scale, svg_dpi)
         hidden_construction = ExportService._hide_construction_items(scene)
+        hidden_overlay, prior_selection = ExportService._hide_overlay_items(scene)
 
         try:
             # Create SVG generator
@@ -266,6 +322,7 @@ class ExportService:
             # Always restore items to original state
             ExportService._restore_text_after_export(saved_text_state)
             ExportService._restore_construction_items(hidden_construction)
+            ExportService._restore_overlay_items(hidden_overlay, prior_selection)
 
         # Post-process SVG: the Y-flip painter transform causes pattern tile images to
         # appear vertically inverted. Add patternTransform to each <pattern> element to

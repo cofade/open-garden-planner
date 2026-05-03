@@ -84,6 +84,7 @@ def _scene_to_image(scene: Any, source: QRectF, dest: QRectF) -> QImage:
     scale = w_cm / max(1.0, source.width())
 
     saved_text = ExportService._prepare_text_for_export(scene, scale, _PDF_DPI)
+    hidden_overlay, prior_selection = ExportService._hide_overlay_items(scene)
     try:
         img = QImage(w, h, QImage.Format.Format_ARGB32)
         img.fill(QColor("white"))
@@ -98,6 +99,7 @@ def _scene_to_image(scene: Any, source: QRectF, dest: QRectF) -> QImage:
         p.end()
     finally:
         ExportService._restore_text_after_export(saved_text)
+        ExportService._restore_overlay_items(hidden_overlay, prior_selection)
     return img
 
 
