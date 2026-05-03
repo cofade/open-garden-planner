@@ -380,12 +380,16 @@ class SoilService:
                 and spec.ph_min is not None
                 and spec.ph_max is not None
             ):
-                if record.ph < spec.ph_min - 0.3:
+                # Tolerance is intentionally tight (0.05) — only enough to
+                # absorb float-rounding from the dialog's 0.1-step pH spinbox.
+                # A larger margin (originally 0.3) hides real mismatches: a
+                # tomato with ph_min=5.8 should warn at pH 5.7, not just 5.4.
+                if record.ph < spec.ph_min - 0.05:
                     reasons.append(
                         f"{name} needs pH ≥{spec.ph_min:.1f},"
                         f" current {record.ph:.1f}"
                     )
-                elif record.ph > spec.ph_max + 0.3:
+                elif record.ph > spec.ph_max + 0.05:
                     reasons.append(
                         f"{name} needs pH ≤{spec.ph_max:.1f},"
                         f" current {record.ph:.1f}"

@@ -89,10 +89,21 @@ class TestGetMismatchedPlants:
         assert any("pH" in r or "ph" in r.lower() for r in reasons)
 
     def test_ph_within_tolerance_no_mismatch(self) -> None:
-        # pH 5.9 with ph_min=6.0 — delta = 0.1 ≤ 0.3, so no mismatch
-        record = _make_record(ph=5.9)
+        # Tolerance is 0.05 (only float-rounding slack). pH 5.96 vs ph_min=6.0
+        # is within tolerance → no mismatch. pH 5.9 vs ph_min=6.0 IS a mismatch
+        # (test split into two cases below).
+        record = _make_record(ph=5.96)
         spec = _make_spec(ph_min=6.0, ph_max=7.0)
         assert SoilService.get_mismatched_plants(record, [spec]) == []
+
+    def test_ph_just_below_min_triggers_mismatch(self) -> None:
+        # pH 5.7 with ph_min=5.8 → delta 0.1 → mismatch under tight tolerance.
+        record = _make_record(ph=5.7)
+        spec = _make_spec(ph_min=5.8, ph_max=7.0)
+        result = SoilService.get_mismatched_plants(record, [spec])
+        assert len(result) == 1
+        _, reasons = result[0]
+        assert any("pH" in r or "ph" in r.lower() for r in reasons)
 
     def test_n_deficient_with_explicit_high_demand(self) -> None:
         record = _make_record(n_level=1)

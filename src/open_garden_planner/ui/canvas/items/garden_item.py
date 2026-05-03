@@ -603,16 +603,24 @@ class GardenItemMixin:
             return
         pen = QPen(color)
         pen.setWidthF(4.0)
+        pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
         painter.save()
         painter.setPen(pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        # QGraphicsPolygonItem.shape() builds the path via QPainterPath.addPolygon
-        # which leaves the subpath OPEN, so stroking misses the closing edge
-        # (US-12.10/F2.6a). closeSubpath is a no-op when already closed, so
-        # rect / circle / ellipse paths are unaffected.
-        path = self.shape()  # type: ignore[attr-defined]
-        path.closeSubpath()
-        painter.drawPath(path)
+        # Polygon items: stroke the underlying polygon directly. self.shape()
+        # for a QGraphicsPolygonItem returns the *stroke envelope*, so drawing
+        # it produces an uneven double-line and a thin closing segment
+        # (US-12.10/F2.6a follow-up). drawPolygon uses the raw vertex list and
+        # produces a uniform stroke on every edge.
+        polygon_fn = getattr(self, "polygon", None)
+        if callable(polygon_fn):
+            poly = polygon_fn()
+            if not poly.isEmpty():
+                painter.drawPolygon(poly)
+                painter.restore()
+                return
+        # Rect / circle / ellipse: shape() returns a closed outline path.
+        painter.drawPath(self.shape())  # type: ignore[attr-defined]
         painter.restore()
 
     def _compute_area_cm2(self) -> float | None:
