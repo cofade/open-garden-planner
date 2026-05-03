@@ -5,10 +5,17 @@ It flips the Y-axis to provide CAD-style coordinates (origin at bottom-left,
 Y increasing upward).
 """
 
+import contextlib
 import logging
+from datetime import date
+from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
+if TYPE_CHECKING:
+    from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
+
+from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
+    QBrush,
     QColor,
     QContextMenuEvent,
     QFont,
@@ -37,7 +44,7 @@ from open_garden_planner.core.alignment import (
     align_items,
     distribute_items,
 )
-from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.object_types import ObjectType, is_bed_type
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
     AngleConstraintTool,
@@ -69,6 +76,12 @@ from open_garden_planner.core.tools import (
     VerticalConstraintTool,
     VerticalDistanceConstraintTool,
 )
+from open_garden_planner.services.soil_service import (
+    ALL_PARAMS,
+    PARAM_OVERALL,
+    HealthLevel,
+    SoilService,
+)
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene, GuideLine
 from open_garden_planner.ui.canvas.items.resize_handle import (
     MidpointHandle,
@@ -97,6 +110,12 @@ class CanvasView(QGraphicsView):
     zoom_changed = pyqtSignal(float)
     tool_changed = pyqtSignal(str)  # Emitted when active tool changes
     import_background_image_requested = pyqtSignal()  # Emitted from empty-canvas right-click
+    # US-12.10a: emitted when a bed's "Add soil test…" action is invoked.
+    # Args: target_id (bed UUID string or "global"), display_name (informational)
+    soil_test_requested = pyqtSignal(str, str)
+    # US-12.10e: emitted when the seasonal reminder badge on a bed is clicked.
+    # Args: bed_id (UUID string).
+    soil_test_badge_clicked = pyqtSignal(str)
 
     # Zoom limits
     min_zoom: float = 0.01  # 1% - very zoomed out
@@ -187,6 +206,14 @@ class CanvasView(QGraphicsView):
         self._canvas_border_color = QColor("#666666")
         self._scale_bar_fg = QColor(40, 40, 40)
         self._scale_bar_outline = QColor(255, 255, 255, 220)
+
+        # Soil health overlay (US-12.10b) — view-level so it's excluded from
+        # exports (PNG/SVG/PDF/print) which all go through scene.render().
+        self._soil_overlay_visible: bool = False
+        self._soil_overlay_param: str = PARAM_OVERALL
+        self._soil_service: SoilService | None = None
+        # US-12.10e: seasonal reminder badges, keyed by bed UUID.
+        self._soil_badges: dict[str, SoilBadgeItem] = {}
 
         # Set up view properties
         self._setup_view()
@@ -532,6 +559,15 @@ class CanvasView(QGraphicsView):
         command = CreateItemCommand(self.scene(), item, item_type)
         self._command_manager.execute(command)
 
+    def request_soil_test(self, target_id: str, display_name: str = "") -> None:
+        """Forward a soil-test request from a bed's context menu (US-12.10a).
+
+        Emits ``soil_test_requested`` so the application (which owns the
+        ``ProjectManager``) can open ``SoilTestDialog`` and execute the
+        resulting ``AddSoilTestCommand``.
+        """
+        self.soil_test_requested.emit(target_id, display_name or "")
+
     @property
     def active_tool(self) -> object | None:
         """The currently active drawing tool."""
@@ -587,6 +623,149 @@ class CanvasView(QGraphicsView):
         transform = self.transform()
         self._zoom_factor = abs(transform.m11())  # m11 is the x scale factor
         self.zoom_changed.emit(self.zoom_percent)
+
+    # Soil health overlay (US-12.10b)
+
+    @property
+    def soil_overlay_visible(self) -> bool:
+        """Whether the soil-health canvas overlay is on."""
+        return self._soil_overlay_visible
+
+    @property
+    def soil_overlay_param(self) -> str:
+        """Current overlay parameter (one of :data:`ALL_PARAMS`)."""
+        return self._soil_overlay_param
+
+    def set_soil_service(self, service: SoilService | None) -> None:
+        """Inject the long-lived ``SoilService`` used by the overlay.
+
+        The overlay is a no-op until a service is supplied; the application
+        wires this once after constructing both objects.
+        """
+        self._soil_service = service
+        if not hasattr(self, "_soil_mismatch_timer"):
+            self._soil_mismatch_timer = QTimer(self)
+            self._soil_mismatch_timer.setSingleShot(True)
+            self._soil_mismatch_timer.setInterval(500)
+            self._soil_mismatch_timer.timeout.connect(self._on_soil_debounce_tick)
+            if self._canvas_scene is not None:
+                self._canvas_scene.changed.connect(
+                    lambda _rects: self._soil_mismatch_timer.start()
+                )
+        if self._soil_overlay_visible:
+            self.viewport().update()
+        self._update_soil_mismatches()
+        self._update_soil_badges()
+
+    def refresh_soil_mismatches(self) -> None:
+        """Force an immediate mismatch recompute (call after a soil test is saved)."""
+        self._update_soil_mismatches()
+
+    def refresh_soil_badges(self) -> None:
+        """Force an immediate overdue-badge recompute (call after a soil test is saved)."""
+        self._update_soil_badges()
+
+    def _on_soil_debounce_tick(self) -> None:
+        """Run by the 500 ms debounce timer; refreshes mismatch borders + badges."""
+        self._update_soil_mismatches()
+        self._update_soil_badges()
+
+    def _update_soil_mismatches(self) -> None:
+        """Recompute plant-soil mismatches for every bed and update their borders."""
+        if self._soil_service is None or self._canvas_scene is None:
+            return
+        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.models.plant_data import PlantSpeciesData
+        from open_garden_planner.services.soil_service import SoilService
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        all_items = list(self._canvas_scene.items())
+        for item in all_items:
+            if not isinstance(item, GardenItemMixin):
+                continue
+            if not is_bed_type(getattr(item, "object_type", None)):
+                continue
+            bed_id = str(getattr(item, "item_id", ""))
+            record = self._soil_service.get_effective_record(bed_id)
+            child_ids = {str(c) for c in getattr(item, "_child_item_ids", [])}
+            specs: list[PlantSpeciesData] = []
+            for child in all_items:
+                if str(getattr(child, "item_id", "")) not in child_ids:
+                    continue
+                ps_dict = getattr(child, "metadata", {}).get("plant_species")
+                if ps_dict and isinstance(ps_dict, dict):
+                    with contextlib.suppress(Exception):
+                        specs.append(PlantSpeciesData.from_dict(ps_dict))
+            mismatches = SoilService.get_mismatched_plants(record, specs)
+            total_reasons = sum(len(reasons) for _, reasons in mismatches)
+            level: str | None = None
+            if total_reasons == 1:
+                level = "warning"
+            elif total_reasons >= 2:
+                level = "critical"
+            item._soil_mismatch_level = level  # type: ignore[attr-defined]
+            if mismatches:
+                tip_lines = [r for _, reasons in mismatches for r in reasons]
+                item.setToolTip("\n".join(tip_lines))  # type: ignore[attr-defined]
+            else:
+                item.setToolTip("")  # type: ignore[attr-defined]
+            item.update()  # type: ignore[attr-defined]
+
+    def _update_soil_badges(self, today: date | None = None) -> None:
+        """Recompute seasonal-reminder badges for every bed (US-12.10e)."""
+        if self._soil_service is None or self._canvas_scene is None:
+            return
+        from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
+
+        eval_date = today if today is not None else date.today()
+        present_bed_ids: set[str] = set()
+
+        for item in list(self._canvas_scene.items()):
+            if not is_bed_type(getattr(item, "object_type", None)):
+                continue
+            bed_id = str(getattr(item, "item_id", ""))
+            if not bed_id:
+                continue
+            present_bed_ids.add(bed_id)
+
+            history = self._soil_service.get_history(bed_id)
+            overdue = SoilService.is_test_overdue(history, eval_date)
+            existing = self._soil_badges.get(bed_id)
+
+            if overdue and existing is None:
+                badge = SoilBadgeItem(item, bed_id)
+                badge.clicked.connect(self.soil_test_badge_clicked.emit)
+                self._canvas_scene.addItem(badge)
+                badge.update_position()
+                self._soil_badges[bed_id] = badge
+            elif overdue and existing is not None:
+                existing.update_position()
+            elif not overdue and existing is not None:
+                self._canvas_scene.removeItem(existing)
+                self._soil_badges.pop(bed_id, None)
+
+        # Garbage-collect badges for beds no longer in the scene.
+        for stale_id in [bid for bid in self._soil_badges if bid not in present_bed_ids]:
+            badge = self._soil_badges.pop(stale_id)
+            with contextlib.suppress(Exception):
+                self._canvas_scene.removeItem(badge)
+
+    def set_soil_overlay_visible(self, visible: bool) -> None:
+        """Show or hide the soil-health overlay."""
+        if self._soil_overlay_visible == visible:
+            return
+        self._soil_overlay_visible = visible
+        self.viewport().update()
+
+    def set_soil_overlay_param(self, parameter: str) -> None:
+        """Set the parameter the overlay colours by (one of :data:`ALL_PARAMS`)."""
+        if parameter not in ALL_PARAMS:
+            return
+        if self._soil_overlay_param == parameter:
+            return
+        self._soil_overlay_param = parameter
+        if self._soil_overlay_visible:
+            self.viewport().update()
 
     # Grid methods
 
@@ -3021,6 +3200,12 @@ class CanvasView(QGraphicsView):
         """Draw the foreground including canvas border, grid overlay, and snap guides."""
         super().drawForeground(painter, rect)
 
+        # Soil-health overlay (US-12.10b) — painted before grid/guides so the
+        # grid and guide lines stay legible above the tint. Drawn at view
+        # level so scene.render() (PNG/SVG/PDF/print) excludes it.
+        if self._soil_overlay_visible and self._soil_service is not None:
+            self._draw_soil_overlay(painter)
+
         # Draw canvas border
         self._draw_canvas_border(painter)
 
@@ -3050,6 +3235,41 @@ class CanvasView(QGraphicsView):
 
         # Draw rectangle around canvas
         painter.drawRect(canvas_rect)
+
+    def _draw_soil_overlay(self, painter: QPainter) -> None:
+        """Tint each bed by the current soil-health parameter (US-12.10b).
+
+        Beds with no effective soil test get a hatched grey fill so the
+        absence of data reads visually distinct from POOR.
+        """
+        service = self._soil_service
+        if service is None:
+            return
+
+        painter.save()
+        painter.setPen(Qt.PenStyle.NoPen)
+
+        param = self._soil_overlay_param
+        for item in self._canvas_scene.items():
+            if not is_bed_type(getattr(item, "object_type", None)):
+                continue
+            target_id = str(getattr(item, "item_id", ""))
+            if not target_id:
+                continue
+            record = service.get_effective_record(target_id)
+            level = service.health_level(record, param)
+            scene_path = item.mapToScene(item.shape())
+            if level is HealthLevel.UNKNOWN:
+                painter.setBrush(QBrush(QColor(140, 140, 140, 40),
+                                        Qt.BrushStyle.DiagCrossPattern))
+            else:
+                rgba = service.overlay_rgba(level)
+                if rgba is None:
+                    continue
+                painter.setBrush(QBrush(QColor(*rgba)))
+            painter.drawPath(scene_path)
+
+        painter.restore()
 
     def _draw_grid(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the grid overlay."""

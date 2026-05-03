@@ -2,6 +2,7 @@
 
 from open_garden_planner.core.commands import (
     AddConstraintCommand,
+    AddSoilTestCommand,
     AlignItemsCommand,
     ArrayAlongPathCommand,
     BooleanShapeCommand,
@@ -30,6 +31,7 @@ from open_garden_planner.core.project import (
 
 __all__ = [
     "AddConstraintCommand",
+    "AddSoilTestCommand",
     "AlignItemsCommand",
     "ArrayAlongPathCommand",
     "BooleanShapeCommand",

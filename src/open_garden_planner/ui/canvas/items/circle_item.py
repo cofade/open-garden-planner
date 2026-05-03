@@ -442,6 +442,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # Fall back to standard ellipse painting for non-plant/furniture circles
         super().paint(painter, option, widget)
 
+        # Draw soil mismatch border for circular beds (US-12.10d)
+        self._draw_soil_mismatch_border(painter)
+
     @property
     def center(self) -> QPointF:
         """Get circle center point."""

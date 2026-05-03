@@ -449,3 +449,107 @@ Before executing an `AddConstraintCommand`, the canvas view trial-runs the solve
 | `PARALLEL`, `PERPENDICULAR`, `EQUAL`, `FIXED` | handled in warm-start; Newton skips |
 
 **Adding new checks:** If a feature introduces a new code pattern that warrants attention (e.g. cryptography, XML parsing, network server code), review the relevant Bandit rule IDs and verify the CI job covers them.
+
+## 8.13 Soil Health Tracking (US-12.10)
+
+Per-bed soil tests are stored on the project itself, not on individual canvas items, so that historical records survive bed deletion and rotation. The model is intentionally minimal in 12.10a — entry + persistence — and is extended by 12.10b–e (canvas overlay, amendment calculator, plant-soil warnings, history sparklines).
+
+### 8.13.1 Data hierarchy
+
+```
+.ogp file
+└── "soil_tests" : { target_id → SoilTestHistory }
+                    target_id ∈ { <bed-uuid>, "global" }
+```
+
+Effective record for a bed = bed's latest record → falls back to global latest → `None`. The fallback chain is implemented in `SoilService.get_effective_record` (`src/open_garden_planner/services/soil_service.py`) and used by every consumer (overlay, amendment calc, mismatch warnings).
+
+### 8.13.2 Rapitest categorical scale
+
+| Field | Range | Labels |
+|---|---|---|
+| `n_level`, `p_level` | 0–4 | Depleted / Deficient / Adequate / Sufficient / Surplus |
+| `k_level` | 1–4 | (no K0 on the kit) — Deficient / Adequate / Sufficient / Surplus |
+| `ca_level`, `mg_level`, `s_level` | 0–2 | Low / Medium / High |
+
+Lab-mode ppm values (`*_ppm`) are stored alongside the categorical fields so they survive between sub-stories without a second data migration; conversion ppm → categorical lands in 12.10c.
+
+### 8.13.3 Persistence & file version
+
+The dedicated top-level `"soil_tests"` key was introduced with file version **1.3**. Older v1.2 files load with `soil_tests = {}`; re-saving silently upgrades the file to v1.3. There is no automatic downgrade — opening a v1.3 file in an older binary fails the version gate (existing convention).
+
+### 8.13.4 Undo integration
+
+`AddSoilTestCommand` (in `core/commands.py`) snapshots the prior history dict for the target and restores it on undo. This means undoing the very first record for a bed deletes the `target_id` key entirely, while undoing an N-th record restores history of length N-1.
+
+### 8.13.5 Canvas overlay (US-12.10b)
+
+The toggleable soil-health overlay tints each bed by a chosen parameter (Overall / pH / N / P / K). It is painted in `CanvasView.drawForeground` — **never** in `CanvasScene.drawForeground` — so it is automatically excluded from PNG / SVG / PDF / print exports, all of which call `scene.render()` (which only invokes scene-level draw hooks). This mirrors how the grid and ruler-guide overlays are scoped.
+
+Bed shapes are mapped via `item.mapToScene(item.shape())` so rotated beds stay correctly tinted (a `boundingRect()`-based path would over-paint).
+
+The colour mapping lives in `SoilService.health_level(record, parameter)` and `SoilService.overlay_rgba(level)`:
+
+| Level | RGBA tint | Trigger |
+|---|---|---|
+| GOOD | (100, 200, 100, 80) | pH 6.0–7.0; NPK ≥ 3 |
+| FAIR | (255, 200, 0, 80) | pH 5.5–<6.0 / >7.0–7.5; NPK = 2 |
+| POOR | (220, 60, 60, 80) | otherwise |
+| UNKNOWN | grey `DiagCrossPattern` (alpha 40) | no record at all |
+
+For `"overall"`, the worst non-unknown level across pH/N/P/K wins (all-unknown stays unknown).
+
+The `SoilService` is a single long-lived instance owned by `GardenPlannerApp` and injected into `CanvasView` via `set_soil_service`. The soil-test-entry dialog reuses the same instance, so dialog edits and overlay tint stay consistent without re-querying `ProjectManager.soil_tests`.
+
+### 8.13.6 Amendment calculation (US-12.10c)
+
+`SoilService.calculate_amendments(record, target_ph, target_n, target_p, target_k, bed_area_m2, loader)` is a **pure static method** — no I/O, no service state. Tests assert quantities trivially; the canvas overlay (8.13.5) and the amendment dialogs share the exact same code path.
+
+**Formula** (from roadmap §1976-2030):
+
+```
+pH:  qty_g = |target_ph - current_ph| / |effect_per_100g_m2| * 100 * area_m2
+NPK: qty_g = (target_level - current_level) * application_rate_g_m2 * area_m2
+```
+
+**Priority walk** (one pass, each substance picked at most once):
+
+1. pH (only if `|delta| ≥ 0.1` — below this is measurement noise).
+2. N → P → K (any deficit ≥ 1 Rapitest step).
+3. Ca → Mg → S, but only if the pH/NPK picks didn't already supply them — e.g. dolomite lime decrements both Ca and Mg deficits before gypsum is considered.
+
+Returns `[]` for `record is None`, `bed_area_m2 <= 0`, or no deficits.
+
+**Data file**: `src/open_garden_planner/resources/data/amendments.json` (12 substances). Loaded once by `AmendmentLoader`, eagerly validated; corrupt JSON raises at startup rather than mid-dialog.
+
+**Two surfaces** consume the same calculator:
+
+| Surface | File | Behaviour |
+|---|---|---|
+| Inline per-bed list | `SoilTestDialog._refresh_amendments` | Hidden when `bed_area_m2 == 0` (i.e. global default test). Recomputes live as the form values change. |
+| Cross-bed plan | `AmendmentPlanDialog` | Walks every bed, groups by substance, sums grams. "Copy to clipboard" is the fallback for US-12.6 shopping-list integration. |
+
+**Targets** default to the same "ideal" definition the canvas overlay (8.13.5) uses for GOOD: `pH 6.5`, `N=P=K=3`. Per-bed overrides are not persisted — 12.10d will derive plant-aware targets from species in the bed.
+
+**EllipseItem note**: `core.measurements.calculate_area_and_perimeter` does not yet support `EllipseItem`. Beds drawn as ellipses are skipped (the calculator returns `[]` for `area=0`). This is a pre-existing gap, tracked separately.
+
+### 8.13.7 Plant-soil compatibility warnings (US-12.10d)
+
+`SoilService.get_mismatched_plants(record, plant_specs)` is a pure static method that compares the effective bed record against each hosted plant's pH window (with a ±0.3 tolerance) and "high" NPK demand. It returns `[(spec, [reason, …]), …]`. The view layer (`CanvasView._update_soil_mismatches`, debounced 500 ms on `scene.changed`) walks every bed, calls the calculator, and sets `_soil_mismatch_level` on the bed item: `"warning"` for exactly one reason across all hosted plants, `"critical"` for ≥2. `GardenItemMixin._draw_soil_mismatch_border` paints an amber or red border (4 px) outside the rotation ring; a tooltip joins the per-plant reasons. The Dashboard mirrors the warnings via `PlantingCalendarView._inject_soil_mismatch_tasks` (one amber card per mismatched bed). Plant species expose `n_demand`/`p_demand`/`k_demand`; legacy `nutrient_demand="heavy"` falls back to `high` for all three macros via `_effective_demand`.
+
+### 8.13.8 History sparklines & seasonal reminder badge (US-12.10e)
+
+The `SoilTestDialog` is split into two tabs (`QTabWidget`):
+
+| Tab     | Content |
+|---------|---------|
+| Entry   | Existing form (date, mode, pH, Kit/Lab nutrient panel, amendments, notes). |
+| History | Past tests listed date-descending + four `SoilSparklineWidget` charts (pH, N, P, K). Ca/Mg/S still appear in the past-tests list but get no sparkline. |
+
+`SoilSparklineWidget` is a single-parameter QPainter line chart with an auto-scaled y-range bounded to parameter semantics (pH 0–14, NPK 0–4). 0 records → "No history yet" placeholder; 1 record → centred dot; ≥2 → polyline + dots with min/max-y labels and first/last-date labels.
+
+**Seasonal reminder.** `SoilService.is_test_overdue(history, today)` is pure: returns `True` only when `today.month ∈ {3, 4, 9, 10}`, the bed has been tested before, and the latest record is older than 180 days (or its date is unparseable). Untested beds (None / empty history) are deliberately *not* flagged — the badge nudges re-testing, not first-testing.
+
+**Badge.** `SoilBadgeItem` is a `QGraphicsObject` (so it can carry a `pyqtSignal`) with `ItemIgnoresTransformations` so it stays 16 × 16 px regardless of zoom. It anchors to the bed's top-right corner (8 px screen-fixed offset, view-scale-aware just like `RotationHandle`). Click → `clicked = pyqtSignal(str)` carrying the bed UUID; `CanvasView` re-emits as `soil_test_badge_clicked`, which the `Application` wires into the same `_open_soil_test_dialog` flow used by the bed context menu.
+
+Lifecycle: the existing 500 ms debounce timer in `CanvasView.set_soil_service` (introduced for 12.10d mismatch borders) was extended — its `timeout` now calls `_on_soil_debounce_tick` which runs both `_update_soil_mismatches()` and `_update_soil_badges()`. After a soil-test save, `Application._open_soil_test_dialog` calls `refresh_soil_badges()` for an immediate clear (so the badge disappears before the debounce window elapses).

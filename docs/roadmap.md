@@ -1721,7 +1721,7 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 | US-12.7 | Pest & disease log | Could | |
 | US-12.8 | Succession planting | Could | |
 | US-12.9 | Garden journal (map-linked notes) | Could | |
-| US-12.10 | Soil health tracking & amendment calculator | Must | |
+| US-12.10 | Soil health tracking & amendment calculator | Must | ✅ |
 
 ### US-12.1: Weather Forecast Widget
 
@@ -2103,15 +2103,15 @@ def test_add_soil_test_to_bed_and_persist(app, qtbot, tmp_path):
 
 ---
 
-#### US-12.10c: Amendment Calculator
+#### US-12.10c: Amendment Calculator ✅
 
-**Branch**: `feature/US-12.10c-amendment-calc`
+**Branch**: implemented on `claude/check-clustering-next-steps-E4ReB` (PR #166).
 
-**Acceptance criteria**:
+**Acceptance criteria** (all met):
 - `SoilTestDialog` "Amendments" section: target selectors → inline list of amendment + grams for this bed
 - Garden → "Amendment Plan…" → `AmendmentPlanDialog`: all deficient beds, grouped by substance,
-  totals per substance, "Add all to Shopping List" button (clipboard text if US-12.6 absent)
-- Quantities computed using bed's CAD area (`item.area_m2()`)
+  totals per substance, "Add all to Shopping List" button (clipboard text — US-12.6 deferred)
+- Quantities computed using bed's CAD area via `core.measurements.calculate_area_and_perimeter`
 
 **Amendment priority**: pH correction first, then N, P, K, then secondary nutrients.
 
@@ -2126,9 +2126,9 @@ def test_amendment_calc_uses_bed_area(app, qtbot):
 
 ---
 
-#### US-12.10d: Plant-Soil Compatibility Warnings
+#### US-12.10d: Plant-Soil Compatibility Warnings ✅
 
-**Branch**: `feature/US-12.10d-plant-soil-warnings`
+**Branch**: `claude/check-clustering-next-steps-E4ReB`
 
 **Acceptance criteria**:
 - Beds with mismatch: 4 px amber (warning) or red (critical) border rendered in `paint()`
@@ -2148,7 +2148,7 @@ Sets `_soil_mismatch_level: str` on each bed item → read in `paint()`.
 
 ---
 
-#### US-12.10e: History Sparklines & Seasonal Reminder Badge
+#### US-12.10e: History Sparklines & Seasonal Reminder Badge ✅
 
 **Branch**: `feature/US-12.10e-history-and-reminders`
 

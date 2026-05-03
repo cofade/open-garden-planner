@@ -377,7 +377,27 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "&Edit": "&Bearbeiten",
         "&View": "&Ansicht",
         "&Plants": "&Pflanzen",
+        "&Garden": "&Garten",
         "&Help": "&Hilfe",
+        "&Set default soil test…": "Standard-Bodenprobe &festlegen…",
+        "Set a project-wide soil test used when individual beds have none":
+            "Eine projektweite Bodenprobe festlegen, falls einzelne Beete keine eigene haben",
+        "Soil test recorded": "Bodenprobe gespeichert",
+        # US-12.10c — Amendment Plan menu
+        "&Amendment Plan…": "&Bodenverbesserungs-Plan…",
+        "View amendment recommendations for deficient beds":
+            "Empfehlungen für mangelhafte Beete anzeigen",
+        # Soil-health overlay (US-12.10b)
+        "Soil &Health Overlay": "Boden&gesundheits-Overlay",
+        "Tint beds by soil-health rating (excluded from exports)":
+            "Beete nach Bodengesundheit einfärben (nicht in Exporten enthalten)",
+        "Soil Overlay": "Boden-Overlay",
+        "Soil parameter:": "Bodenparameter:",
+        "Overall": "Gesamt",
+        "pH": "pH",
+        "Nitrogen (N)": "Stickstoff (N)",
+        "Phosphorus (P)": "Phosphor (P)",
+        "Potassium (K)": "Kalium (K)",
         "&New Project": "&Neues Projekt",
         "Create a new garden project": "Ein neues Gartenprojekt erstellen",
         "&Open...": "&Öffnen...",
@@ -849,6 +869,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Germination": "Keimung",
         "Prick out": "Pikieren",
         "Harden off": "Abhärten",
+        "Bed": "Beet",
+        "Soil mismatch in {bed}: {plants}": "Bodenkonflikt in {bed}: {plants}",
     },
 
     # ── PrintOptionsDialog ──
@@ -1138,9 +1160,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Show Area": "Fläche anzeigen",
     },
 
-    # ── EllipseItem — area label (US-11.9) ──
+    # ── EllipseItem — area label (US-11.9) and soil test (US-12.10a) ──
     "EllipseItem": {
         "Show Area": "Fläche anzeigen",
+        "Add soil test…": "Bodenprobe hinzufügen…",
     },
 
     # ── FindReplacePanel (US-11.24) ──
@@ -1161,14 +1184,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Apply": "Anwenden",
     },
 
-    # ── PolygonItem — area label (US-11.9) ──
+    # ── PolygonItem — area label (US-11.9) and soil test (US-12.10a) ──
     "PolygonItem": {
         "Show Area": "Fläche anzeigen",
+        "Add soil test…": "Bodenprobe hinzufügen…",
     },
 
-    # ── RectangleItem — area label (US-11.9) ──
+    # ── RectangleItem — area label (US-11.9) and soil test (US-12.10a) ──
     "RectangleItem": {
         "Show Area": "Fläche anzeigen",
+        "Add soil test…": "Bodenprobe hinzufügen…",
     },
 
     # ── ObjectType (from QT_TR_NOOP in object_types.py — missing from pylupdate6) ──
@@ -1328,6 +1353,84 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Bed": "Beet",
         "No plants found in this project.": "Keine Pflanzen in diesem Projekt gefunden.",
         "Created with Open Garden Planner": "Erstellt mit Open Garden Planner",
+    },
+
+    # ── SoilTestDialog (US-12.10a, extended in US-12.10c) ──
+    "SoilTestDialog": {
+        "Soil Test": "Bodenprobe",
+        "Soil Test — {name}": "Bodenprobe — {name}",
+        "Default Soil Test": "Standard-Bodenprobe",
+        "Date": "Datum",
+        "Mode": "Modus",
+        "Kit (categorical)": "Testkit (kategorisch)",
+        "Lab (ppm)": "Labor (ppm)",
+        "pH (0–14)": "pH (0–14)",
+        "Nitrogen (N)": "Stickstoff (N)",
+        "Phosphorus (P)": "Phosphor (P)",
+        "Potassium (K)": "Kalium (K)",
+        "Calcium (Ca)": "Calcium (Ca)",
+        "Magnesium (Mg)": "Magnesium (Mg)",
+        "Sulfur (S)": "Schwefel (S)",
+        "Notes": "Notizen",
+        "Depleted": "Verarmt",
+        "Deficient": "Mangel",
+        "Adequate": "Ausreichend",
+        "Sufficient": "Genügend",
+        "Surplus": "Überschuss",
+        "Low": "Niedrig",
+        "Medium": "Mittel",
+        "High": "Hoch",
+        "—": "—",
+        # US-12.10c — inline amendments section
+        "Amendments for this bed": "Bodenverbesserer für dieses Beet",
+        "Target pH": "Ziel-pH",
+        "Target N": "Ziel-N",
+        "Target P": "Ziel-P",
+        "Target K": "Ziel-K",
+        "No deficiencies — soil is adequate.": "Keine Mängel — der Boden ist ausreichend.",
+        "Raises pH {cur:.1f} → {tgt:.1f}": "Hebt pH {cur:.1f} → {tgt:.1f}",
+        "Lowers pH {cur:.1f} → {tgt:.1f}": "Senkt pH {cur:.1f} → {tgt:.1f}",
+        "Raises {nutrient} level {cur} → {tgt}": "Hebt {nutrient}-Stufe {cur} → {tgt}",
+        # US-12.10e — History tab
+        "Entry": "Eingabe",
+        "History": "Verlauf",
+        "Past tests": "Frühere Tests",
+        "No past tests yet": "Noch keine Tests aufgezeichnet",
+        "Trends": "Trends",
+        "pH": "pH",
+        "(no pH)": "(kein pH)",
+        "{date} — pH {ph}, N{n} P{p} K{k}":
+            "{date} — pH {ph}, N{n} P{p} K{k}",
+    },
+
+    # ── SoilSparklineWidget (US-12.10e) ──
+    "SoilSparklineWidget": {
+        "No history yet": "Noch kein Verlauf",
+    },
+
+    # ── SoilBadgeItem (US-12.10e) ──
+    "SoilBadgeItem": {
+        "Soil test overdue — click to record":
+            "Bodenprobe überfällig — zum Eintragen klicken",
+    },
+
+    # ── AmendmentPlanDialog (US-12.10c) ──
+    "AmendmentPlanDialog": {
+        "Amendment Plan": "Bodenverbesserungs-Plan",
+        "Recommended soil amendments aggregated across all beds with a "
+        "deficient soil test. Quantities are totals — purchase rounded up "
+        "and consult local extension advice before bulk application.":
+            "Empfohlene Bodenverbesserer aggregiert über alle Beete mit "
+            "mangelhafter Bodenprobe. Mengen sind Gesamtwerte — beim Einkauf "
+            "aufrunden und vor der Anwendung lokale Beratung einholen.",
+        "Substance": "Substanz",
+        "Total": "Gesamt",
+        "Beds": "Beete",
+        "Copy to clipboard": "In Zwischenablage kopieren",
+        "Close": "Schließen",
+        "No deficient beds found.": "Keine mangelhaften Beete gefunden.",
+        "Amendment plan copied to clipboard.": "Bodenverbesserungs-Plan in Zwischenablage kopiert.",
+        "Bed": "Beet",
     },
 }
 
