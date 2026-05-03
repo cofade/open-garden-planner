@@ -1094,6 +1094,31 @@ ANNOTATION_EDGE_OFFSET = 8.0  # pixels offset from edge midpoint
 MINIMUM_VERTICES = 3  # Cannot delete below this count
 
 
+def _shift_constraint_indices_after_insert(item: "QGraphicsItem", insert_index: int) -> None:
+    """Shift constraint anchor indices on ``item`` after a vertex is inserted.
+
+    Without this, an edge-length / angle constraint silently retargets a
+    different vertex once an earlier vertex is added — the visible symptom is
+    geometry suddenly snapping to the wrong place on the next solver pass.
+    """
+    scene = item.scene() if hasattr(item, "scene") else None
+    item_id = getattr(item, "item_id", None)
+    if scene is None or item_id is None or not hasattr(scene, "constraint_graph"):
+        return
+    scene.constraint_graph.shift_vertex_indices(item_id, insert_index, +1)
+
+
+def _shift_constraint_indices_after_delete(item: "QGraphicsItem", deleted_index: int) -> None:
+    """Drop constraints on the deleted vertex, then shift higher indices down."""
+    scene = item.scene() if hasattr(item, "scene") else None
+    item_id = getattr(item, "item_id", None)
+    if scene is None or item_id is None or not hasattr(scene, "constraint_graph"):
+        return
+    graph = scene.constraint_graph
+    graph.remove_vertex_constraints(item_id, deleted_index)
+    graph.shift_vertex_indices(item_id, deleted_index + 1, -1)
+
+
 class VertexHandle(QGraphicsRectItem):
     """A draggable handle for moving polygon vertices.
 
@@ -1235,17 +1260,34 @@ class VertexHandle(QGraphicsRectItem):
         if self._parent_item is None:
             return
 
+        # Polylines are open (no wrap-around): insert-before disabled at v0,
+        # insert-after disabled at the last vertex. Polygons wrap.
+        from open_garden_planner.ui.canvas.items import PolylineItem
+        is_polyline = isinstance(self._parent_item, PolylineItem)
+        vertex_count = (
+            self._parent_item._get_vertex_count()
+            if hasattr(self._parent_item, '_get_vertex_count')
+            else 0
+        )
+        can_insert_before = (not is_polyline) or self._vertex_index > 0
+        can_insert_after = (not is_polyline) or self._vertex_index < vertex_count - 1
+
         # Check if we can delete (need minimum vertices - parent defines minimum)
         can_delete = True
         if hasattr(self._parent_item, '_get_vertex_count'):
             min_count = MINIMUM_VERTICES
             if hasattr(self._parent_item, '_get_minimum_vertex_count'):
                 min_count = self._parent_item._get_minimum_vertex_count()
-            can_delete = self._parent_item._get_vertex_count() > min_count
+            can_delete = vertex_count > min_count
 
         _ = QCoreApplication.translate
         menu = QMenu()
 
+        insert_before_action = menu.addAction(_("VertexHandle", "Insert Vertex Before"))
+        insert_before_action.setEnabled(can_insert_before)
+        insert_after_action = menu.addAction(_("VertexHandle", "Insert Vertex After"))
+        insert_after_action.setEnabled(can_insert_after)
+        menu.addSeparator()
         delete_action = menu.addAction(_("VertexHandle", "Delete Vertex"))
         delete_action.setEnabled(can_delete)
         if not can_delete:
@@ -1256,9 +1298,32 @@ class VertexHandle(QGraphicsRectItem):
 
         action = menu.exec(event.screenPos())
 
+        if action is None:
+            event.accept()
+            return
+
         if (action == delete_action and can_delete
                 and hasattr(self._parent_item, '_delete_vertex')):
             self._parent_item._delete_vertex(self._vertex_index)
+        elif (action == insert_before_action and can_insert_before
+                and hasattr(self._parent_item, '_add_vertex_at_edge')
+                and hasattr(self._parent_item, '_get_vertex_position')):
+            # Edge before this vertex starts at (vertex_index - 1) for both
+            # polygons and polylines; polygons wrap so v0's "before" is the
+            # last edge.
+            prev_idx = (self._vertex_index - 1) % vertex_count
+            p1 = self._parent_item._get_vertex_position(prev_idx)
+            p2 = self._parent_item._get_vertex_position(self._vertex_index)
+            midpoint = QPointF((p1.x() + p2.x()) / 2.0, (p1.y() + p2.y()) / 2.0)
+            self._parent_item._add_vertex_at_edge(prev_idx, midpoint)
+        elif (action == insert_after_action and can_insert_after
+                and hasattr(self._parent_item, '_add_vertex_at_edge')
+                and hasattr(self._parent_item, '_get_vertex_position')):
+            next_idx = (self._vertex_index + 1) % vertex_count
+            p1 = self._parent_item._get_vertex_position(self._vertex_index)
+            p2 = self._parent_item._get_vertex_position(next_idx)
+            midpoint = QPointF((p1.x() + p2.x()) / 2.0, (p1.y() + p2.y()) / 2.0)
+            self._parent_item._add_vertex_at_edge(self._vertex_index, midpoint)
 
         event.accept()
 
@@ -1297,6 +1362,10 @@ class MidpointHandle(QGraphicsEllipseItem):
 
         # Make handle render at fixed screen size regardless of zoom
         self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemIgnoresTransformations)
+
+        self.setToolTip(
+            QCoreApplication.translate("MidpointHandle", "Click to add a vertex")
+        )
 
     def _setup_flags(self) -> None:
         """Configure interaction flags."""
@@ -1344,6 +1413,19 @@ class MidpointHandle(QGraphicsEllipseItem):
             event.accept()
         else:
             super().mousePressEvent(event)
+
+    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
+        """Right-click menu mirrors the left-click action for discoverability."""
+        if self._parent_item is None or not hasattr(self._parent_item, '_add_vertex_at_edge'):
+            event.ignore()
+            return
+        _ = QCoreApplication.translate
+        menu = QMenu()
+        add_action = menu.addAction(_("MidpointHandle", "Add Vertex Here"))
+        action = menu.exec(event.screenPos())
+        if action == add_action:
+            self._parent_item._add_vertex_at_edge(self._edge_index, self.pos())
+        event.accept()
 
 
 class AnnotationLabel(QGraphicsItem):
@@ -1742,6 +1824,9 @@ class VertexEditMixin:
         # Update polygon
         self.setPolygon(QPolygonF(vertices))  # type: ignore[attr-defined]
 
+        # Shift any constraint anchor indices that now point past the insert.
+        _shift_constraint_indices_after_insert(self, insert_index)
+
         # Recreate handles and annotations (indices changed)
         self._create_vertex_handles()
         self._create_midpoint_handles()
@@ -1773,6 +1858,9 @@ class VertexEditMixin:
 
         # Store position for undo
         deleted_pos = polygon.at(index)
+
+        # Drop constraints on the deleted vertex and shift higher indices down.
+        _shift_constraint_indices_after_delete(self, index)
 
         # Remove vertex
         vertices = [polygon.at(i) for i in range(polygon.count()) if i != index]
@@ -2745,6 +2833,9 @@ class PolylineVertexEditMixin:
         insert_index = edge_index + 1
         points.insert(insert_index, pos)
 
+        # Shift any constraint anchor indices that now point past the insert.
+        _shift_constraint_indices_after_insert(self, insert_index)
+
         self._rebuild_path()
         self._create_vertex_handles()
         self._create_midpoint_handles()
@@ -2765,6 +2856,10 @@ class PolylineVertexEditMixin:
             return
 
         deleted_pos = QPointF(points[index])
+
+        # Drop constraints on the deleted vertex and shift higher indices down.
+        _shift_constraint_indices_after_delete(self, index)
+
         del points[index]
 
         self._rebuild_path()

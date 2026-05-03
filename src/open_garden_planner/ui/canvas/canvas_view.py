@@ -2039,13 +2039,17 @@ class CanvasView(QGraphicsView):
         item, vertex_index, old_pos, new_pos = deferred
 
         # Snapshot ALL current vertex positions (post-drag, pre-correction).
-        snapshots: dict[int, QPointF] = {}
-        if hasattr(item, 'polygon') and callable(item.polygon):
-            pg = item.polygon()
-            for i in range(pg.count()):
-                snapshots[i] = QPointF(pg.at(i))
+        # Works for both PolygonItem (polygon().at(i)) and PolylineItem (._points).
+        snapshots: dict[int, QPointF] = {
+            i: QPointF(p) for i, p in enumerate(self._iter_item_vertices(item))
+        }
 
-        # Run the solver (polygon not pinned → vertex deltas for ANGLE constraints apply).
+        # Run the solver. We deliberately do NOT pin the moving item: for a
+        # deformable item the solver only varies its per-vertex DOFs (no
+        # item-translation DOF), and vertex_corrections is the channel that
+        # rebalances neighbour vertices to satisfy the constraint the drag
+        # just disturbed. _item_moves is intentionally discarded for the
+        # moving item below.
         _item_moves, vertex_corrections = self._compute_constraint_solve_moves()
         for gitem, idx, _old_local, new_local in vertex_corrections:
             if hasattr(gitem, '_move_vertex_to'):
@@ -2056,17 +2060,14 @@ class CanvasView(QGraphicsView):
 
         # Collect ALL vertex changes (original drag + solver + PARALLEL re-alignment).
         all_moves: list = [(item, vertex_index, old_pos, new_pos)]
-        if hasattr(item, 'polygon') and callable(item.polygon):
-            pg = item.polygon()
-            for i in range(pg.count()):
-                if i == vertex_index:
-                    continue
-                old_v = snapshots.get(i)
-                new_v = pg.at(i)
-                if old_v is not None and (
-                    abs(new_v.x() - old_v.x()) > 0.01 or abs(new_v.y() - old_v.y()) > 0.01
-                ):
-                    all_moves.append((item, i, old_v, new_v))
+        for i, new_v in enumerate(self._iter_item_vertices(item)):
+            if i == vertex_index:
+                continue
+            old_v = snapshots.get(i)
+            if old_v is not None and (
+                abs(new_v.x() - old_v.x()) > 0.01 or abs(new_v.y() - old_v.y()) > 0.01
+            ):
+                all_moves.append((item, i, old_v, QPointF(new_v)))
 
         cmd = MultiVertexMoveCommand(all_moves)
         cm = self.command_manager
@@ -2378,6 +2379,22 @@ class CanvasView(QGraphicsView):
             if 0 <= index < len(points):
                 return QPointF(points[index])
         return None
+
+    @staticmethod
+    def _iter_item_vertices(item: QGraphicsItem) -> "list[QPointF]":
+        """Return current vertices of a deformable item in item-local coords.
+
+        Dispatches on item type so callers don't have to special-case the
+        polygon ``polygon().at(i)`` API vs the polyline ``_points`` list.
+        """
+        from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
+
+        if isinstance(item, PolygonItem):
+            pg = item.polygon()
+            return [QPointF(pg.at(i)) for i in range(pg.count())]
+        if isinstance(item, PolylineItem):
+            return [QPointF(p) for p in item.points]
+        return []
 
     @staticmethod
     def _gather_deformable_info(

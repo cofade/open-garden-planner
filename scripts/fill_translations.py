@@ -1101,6 +1101,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── VertexHandle (context menu — pylupdate6 cannot extract _ alias) ──
     "VertexHandle": {
         "Delete Vertex": "Knoten löschen",
+        "Insert Vertex Before": "Knoten davor einfügen",
+        "Insert Vertex After": "Knoten danach einfügen",
+    },
+
+    # ── MidpointHandle (context menu + tooltip) ──
+    "MidpointHandle": {
+        "Click to add a vertex": "Klicken zum Hinzufügen eines Knotens",
+        "Add Vertex Here": "Hier Knoten einfügen",
     },
 
     # ── _DetailPanel ──

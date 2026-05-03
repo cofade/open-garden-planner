@@ -289,6 +289,58 @@ class ConstraintGraph:
             self.remove_constraint(cid)
         return constraint_ids
 
+    def shift_vertex_indices(
+        self,
+        item_id: UUID,
+        threshold: int,
+        delta: int,
+    ) -> None:
+        """Shift vertex anchor indices on ``item_id`` after a vertex insert/delete.
+
+        Insert at position p → call with ``threshold=p, delta=+1`` so any
+        existing anchor at index ``>= p`` shifts up by 1.
+        Delete at position p → call with ``threshold=p+1, delta=-1`` (caller
+        must first remove constraints whose anchor is exactly ``p`` via
+        :py:meth:`remove_vertex_constraints`).
+        """
+        if delta == 0:
+            return
+        for cid in self._adjacency.get(item_id, set()):
+            c = self._constraints.get(cid)
+            if c is None:
+                continue
+            for anchor in (c.anchor_a, c.anchor_b, c.anchor_c):
+                if anchor is None or anchor.item_id != item_id:
+                    continue
+                if anchor.anchor_type not in {AnchorType.CORNER, AnchorType.ENDPOINT}:
+                    continue
+                if anchor.anchor_index >= threshold:
+                    anchor.anchor_index += delta
+
+    def remove_vertex_constraints(self, item_id: UUID, vertex_index: int) -> list[UUID]:
+        """Remove constraints whose vertex anchor on ``item_id`` is exactly ``vertex_index``.
+
+        Used before deleting a vertex: any constraint pinned to that vertex
+        becomes meaningless and must be dropped before remaining indices are
+        shifted down via :py:meth:`shift_vertex_indices`.
+        """
+        removed: list[UUID] = []
+        for cid in list(self._adjacency.get(item_id, set())):
+            c = self._constraints.get(cid)
+            if c is None:
+                continue
+            for anchor in (c.anchor_a, c.anchor_b, c.anchor_c):
+                if (
+                    anchor is not None
+                    and anchor.item_id == item_id
+                    and anchor.anchor_type in {AnchorType.CORNER, AnchorType.ENDPOINT}
+                    and anchor.anchor_index == vertex_index
+                ):
+                    self.remove_constraint(cid)
+                    removed.append(cid)
+                    break
+        return removed
+
     def get_item_constraints(self, item_id: UUID) -> list[Constraint]:
         """Get all constraints involving an item."""
         cids = self._adjacency.get(item_id, set())

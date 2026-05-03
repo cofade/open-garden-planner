@@ -7157,6 +7157,14 @@ Starten Sie Open Garden Planner als Administrator, oder laden Sie das Installati
             <source>Delete Vertex</source>
             <translation>Knoten löschen</translation>
         </message>
+        <message>
+            <source>Insert Vertex Before</source>
+            <translation>Knoten davor einfügen</translation>
+        </message>
+        <message>
+            <source>Insert Vertex After</source>
+            <translation>Knoten danach einfügen</translation>
+        </message>
     </context>
     <context>
         <name>EllipseItem</name>
@@ -7496,6 +7504,17 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Created with Open Garden Planner</source>
             <translation>Erstellt mit Open Garden Planner</translation>
+        </message>
+    </context>
+    <context>
+        <name>MidpointHandle</name>
+        <message>
+            <source>Click to add a vertex</source>
+            <translation>Klicken zum Hinzufügen eines Knotens</translation>
+        </message>
+        <message>
+            <source>Add Vertex Here</source>
+            <translation>Hier Knoten einfügen</translation>
         </message>
     </context>
 </TS>
