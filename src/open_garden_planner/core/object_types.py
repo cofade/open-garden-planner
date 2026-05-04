@@ -532,6 +532,9 @@ def get_valid_types_for_shape(
             ObjectType.RAIN_BARREL,
             ObjectType.WATER_TAP,
             ObjectType.POND_POOL,
+            # F9: round beds — keyhole gardens, container beds, etc.
+            ObjectType.GARDEN_BED,
+            ObjectType.RAISED_BED,
         ]
     if shape == "polygon":
         return [
@@ -564,7 +567,12 @@ def get_valid_types_for_shape(
             ObjectType.TOOL_SHED,
         ]
     if shape == "ellipse":
-        return [ObjectType.GENERIC_ELLIPSE]
+        # F9: oval beds — common for raised hügel beds and decorative borders.
+        return [
+            ObjectType.GENERIC_ELLIPSE,
+            ObjectType.GARDEN_BED,
+            ObjectType.RAISED_BED,
+        ]
     if shape == "polyline":
         return [ObjectType.FENCE, ObjectType.WALL, ObjectType.PATH]
     return list(ObjectType)

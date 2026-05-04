@@ -1172,6 +1172,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── CircleItem — area label (US-11.9) ──
     "CircleItem": {
         "Show Area": "Fläche anzeigen",
+        "Add soil test…": "Bodenprobe hinzufügen…",
     },
 
     # ── EllipseItem — area label (US-11.9) and soil test (US-12.10a) ──
@@ -1418,6 +1419,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Delete the soil test from {date}?":
             "Bodenprobe vom {date} löschen?",
         "Delete soil test": "Bodenprobe löschen",
+        # F6: default-record badge in History tab
+        " (default)": " (Standard)",
         "pH": "pH",
         "(no pH)": "(kein pH)",
         "{date} — pH {ph}, N{n} P{p} K{k}":

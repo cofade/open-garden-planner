@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -34,7 +35,6 @@ from PyQt6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
-    QSpinBox,
     QStackedWidget,
     QTabWidget,
     QVBoxLayout,
@@ -64,6 +64,7 @@ class SoilTestDialog(QDialog):
         target_name: str = "",
         existing_latest: SoilTestRecord | None = None,
         existing_history: SoilTestHistory | None = None,
+        existing_default_history: SoilTestHistory | None = None,
         bed_area_m2: float = 0.0,
         edit_mode: bool = False,
         project_manager: Any | None = None,
@@ -102,6 +103,9 @@ class SoilTestDialog(QDialog):
         self._project_manager = project_manager
         self._command_manager = command_manager
         self._existing_history = existing_history
+        # F6: global default records merged into the History tab list (sparklines
+        # plot bed records only). None when this dialog is for the global target.
+        self._existing_default_history = existing_default_history
 
         if edit_mode:
             self.setWindowTitle(self.tr("Edit Soil Test"))
@@ -219,18 +223,25 @@ class SoilTestDialog(QDialog):
         layout.addWidget(self._history_records_container)
 
         layout.addWidget(QLabel(self.tr("Trends")))
+        # Single QGridLayout so every label cell shares one column width and
+        # every sparkline cell shares the other (F11). Per-row QFormLayout
+        # auto-sizes its label column to that one row's label only, which is
+        # why "pH" rows had a much narrower margin than "Stickstoff (N)" rows.
+        sparkline_grid = QGridLayout()
+        sparkline_grid.setColumnStretch(1, 1)  # let the chart column expand
         self._sparklines: dict[str, SoilSparklineWidget] = {}
-        for param, label in (
+        for grid_row, (param, label) in enumerate((
             ("ph", self.tr("pH")),
             ("n", self.tr("Nitrogen (N)")),
             ("p", self.tr("Phosphorus (P)")),
             ("k", self.tr("Potassium (K)")),
-        ):
-            row = QFormLayout()
+        )):
+            label_widget = QLabel(label)
+            sparkline_grid.addWidget(label_widget, grid_row, 0)
             widget = SoilSparklineWidget(param)
             self._sparklines[param] = widget
-            row.addRow(label, widget)
-            layout.addLayout(row)
+            sparkline_grid.addWidget(widget, grid_row, 1)
+        layout.addLayout(sparkline_grid)
 
         layout.addStretch(1)
         scroll.setWidget(page)
@@ -247,41 +258,70 @@ class SoilTestDialog(QDialog):
             if widget is not None:
                 widget.deleteLater()
 
-        records = list(history.records) if history is not None else []
-        records_desc = sorted(records, key=lambda r: r.date, reverse=True)
+        bed_records = list(history.records) if history is not None else []
+        # F6: merge global-default rows into the chronological list, badged.
+        # Default rows are NOT editable from this dialog (they belong to the
+        # global target); the user must open the default-soil-test dialog to
+        # edit them. Sparklines plot only bed records (locked design).
+        default_records = (
+            list(self._existing_default_history.records)
+            if self._existing_default_history is not None
+            else []
+        )
+        merged: list[tuple[SoilTestRecord, bool]] = [
+            (r, False) for r in bed_records
+        ] + [(r, True) for r in default_records]
+        merged.sort(key=lambda pair: pair[0].date, reverse=True)
 
-        if not records_desc:
+        if not merged:
             self._history_records_layout.addWidget(
                 QLabel(self.tr("No past tests yet"))
             )
         else:
-            for rec in records_desc:
-                self._history_records_layout.addWidget(self._build_history_row(rec))
+            for rec, is_default in merged:
+                self._history_records_layout.addWidget(
+                    self._build_history_row(rec, is_default=is_default)
+                )
 
-        # Sparklines re-feed
+        # Sparklines re-feed (bed records only).
         for widget in self._sparklines.values():
-            widget.set_data(records)
+            widget.set_data(bed_records)
 
         # Cache the latest history reference so edit/delete handlers can replay
         # off the current state instead of the original constructor arg.
         self._existing_history = history
 
-    def _build_history_row(self, rec: SoilTestRecord) -> QWidget:
-        """One row in the past-tests list: text + Edit + Delete buttons."""
+    def _build_history_row(
+        self, rec: SoilTestRecord, *, is_default: bool = False
+    ) -> QWidget:
+        """One row in the past-tests list: text + Edit + Delete buttons.
+
+        ``is_default=True`` means the record is from the global default test
+        (F6) — the row gets a "(default)" suffix and no Edit/Delete buttons,
+        because those operations would target the wrong history.
+        """
         row = QWidget()
         h = QHBoxLayout(row)
         h.setContentsMargins(0, 0, 0, 0)
         h.setSpacing(4)
 
-        label = QLabel(self._format_history_row(rec))
+        text = self._format_history_row(rec)
+        if is_default:
+            text = text + self.tr(" (default)")
+        label = QLabel(text)
         label.setSizePolicy(
             label.sizePolicy().horizontalPolicy(),
             label.sizePolicy().verticalPolicy(),
         )
         h.addWidget(label, 1)
 
-        # Edit/Delete only available when wired with a project + command manager.
-        if self._project_manager is not None and self._command_manager is not None:
+        # Edit/Delete only available for bed-owned rows AND when wired with
+        # both managers. Default rows are read-only here.
+        if (
+            not is_default
+            and self._project_manager is not None
+            and self._command_manager is not None
+        ):
             edit_btn = QPushButton(self.tr("Edit"))
             edit_btn.setFixedWidth(60)
             edit_btn.clicked.connect(lambda _, r=rec: self._on_edit_record(r))
@@ -449,12 +489,12 @@ class SoilTestDialog(QDialog):
         self._target_ph_spin.valueChanged.connect(self._refresh_amendments)
         targets_form.addRow(self.tr("Target pH"), self._target_ph_spin)
 
-        self._target_n_spin = self._make_target_level_spin()
-        self._target_p_spin = self._make_target_level_spin()
-        self._target_k_spin = self._make_target_level_spin()
-        targets_form.addRow(self.tr("Target N"), self._target_n_spin)
-        targets_form.addRow(self.tr("Target P"), self._target_p_spin)
-        targets_form.addRow(self.tr("Target K"), self._target_k_spin)
+        self._target_n_combo = self._make_target_level_combo()
+        self._target_p_combo = self._make_target_level_combo()
+        self._target_k_combo = self._make_target_level_combo()
+        targets_form.addRow(self.tr("Target N"), self._target_n_combo)
+        targets_form.addRow(self.tr("Target P"), self._target_p_combo)
+        targets_form.addRow(self.tr("Target K"), self._target_k_combo)
         layout.addLayout(targets_form)
 
         self._amendments_list = QListWidget()
@@ -462,13 +502,19 @@ class SoilTestDialog(QDialog):
         layout.addWidget(self._amendments_list)
         return panel
 
-    def _make_target_level_spin(self) -> QSpinBox:
-        """Build a 0–4 target spinbox (Rapitest scale) defaulted to 3 (Sufficient)."""
-        spin = QSpinBox()
-        spin.setRange(0, 4)
-        spin.setValue(3)
-        spin.valueChanged.connect(self._refresh_amendments)
-        return spin
+    def _make_target_level_combo(self) -> QComboBox:
+        """Build a Rapitest-labelled target combo defaulted to "Sufficient" (level 3).
+
+        Uses the same five labels as the entry-tab Kit combos so the user
+        sees consistent terminology between "current state" and "target".
+        """
+        combo = QComboBox()
+        for idx, label in enumerate(_NPK_LABELS_KEY):
+            combo.addItem(self.tr(label), userData=idx)
+        # Default to "Sufficient" (index 3).
+        combo.setCurrentIndex(3)
+        combo.currentIndexChanged.connect(self._refresh_amendments)
+        return combo
 
     @staticmethod
     def _make_ppm_spin() -> QDoubleSpinBox:
@@ -495,9 +541,9 @@ class SoilTestDialog(QDialog):
         recs = SoilService.calculate_amendments(
             record,
             target_ph=self._target_ph_spin.value(),
-            target_n=self._target_n_spin.value(),
-            target_p=self._target_p_spin.value(),
-            target_k=self._target_k_spin.value(),
+            target_n=self._target_n_combo.currentData(),
+            target_p=self._target_p_combo.currentData(),
+            target_k=self._target_k_combo.currentData(),
             bed_area_m2=self._bed_area_m2,
         )
         self._amendments_list.clear()
@@ -541,8 +587,11 @@ class SoilTestDialog(QDialog):
             self._s_ppm_spin.setValue(record.s_ppm)
         if record.notes:
             self._notes_edit.setPlainText(record.notes)
-        # If any ppm value is set, default to Lab mode
-        if any(
+        # F5: mode is now persisted on the record. Older records default to
+        # "kit" via the dataclass default, so we still honour the legacy
+        # ppm-presence heuristic as a fallback when mode == "kit" but ppm
+        # values are present (i.e. records saved before F5 shipped).
+        if record.mode == "lab" or any(
             getattr(record, k) is not None
             for k in ("n_ppm", "p_ppm", "k_ppm", "ca_ppm", "mg_ppm", "s_ppm")
         ):
@@ -569,6 +618,7 @@ class SoilTestDialog(QDialog):
         ph = self._ph_spin.value()
         # 0.0 is the "not entered" sentinel (special-value text active)
         ph_value: float | None = ph if ph > 0.0 else None
+        mode = "lab" if self._mode_combo.currentIndex() == 1 else "kit"
         kwargs: dict[str, Any] = {
             "date": date_iso,
             "ph": ph_value,
@@ -585,6 +635,7 @@ class SoilTestDialog(QDialog):
             "mg_ppm": self._ppm_value(self._mg_ppm_spin),
             "s_ppm": self._ppm_value(self._s_ppm_spin),
             "notes": self._notes_edit.toPlainText().strip(),
+            "mode": mode,
         }
         if self._edit_record_id is not None:
             kwargs["id"] = self._edit_record_id
@@ -672,10 +723,26 @@ def format_amendment_line(
             )
     else:
         nutrient = rec.target_kind.upper()
-        rationale = dialog.tr("Raises {nutrient} level {cur} → {tgt}").format(
-            nutrient=nutrient, cur=int(rec.current_value), tgt=int(rec.target_value)
-        )
+        cur_label = _level_label(int(rec.current_value), rec.target_kind, dialog)
+        tgt_label = _level_label(int(rec.target_value), rec.target_kind, dialog)
+        rationale = dialog.tr(
+            "Raises {nutrient} level {cur} → {tgt}"
+        ).format(nutrient=nutrient, cur=cur_label, tgt=tgt_label)
     return f"{name}: {qty} — {rationale}"
+
+
+def _level_label(level: int, kind: str, dialog: QWidget) -> str:
+    """Return the localised Rapitest label for ``level`` matching the kit (F2.9).
+
+    NPK shares the 5-step scale ("Depleted" → "Surplus"); Ca/Mg/S use the
+    3-step ("Low" / "Medium" / "High") scale.
+    """
+    labels = (
+        _SECONDARY_LABELS_KEY if kind in ("ca", "mg", "s") else _NPK_LABELS_KEY
+    )
+    if 0 <= level < len(labels):
+        return dialog.tr(labels[level])
+    return str(level)
 
 
 def _format_quantity(grams: float) -> str:

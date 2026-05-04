@@ -47,6 +47,11 @@ class SoilTestRecord:
     mg_ppm: float | None = None
     s_ppm: float | None = None
     notes: str = ""
+    # Entry mode the dialog was in when the user saved this record. Persisted
+    # so the dialog defaults back to the same mode on the next open even when
+    # the user left the ppm fields at zero (US-12.10/F5). Older records lacking
+    # this field fall back to the ppm-presence heuristic.
+    mode: str = "kit"  # "kit" | "lab"
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def to_dict(self) -> dict[str, Any]:
@@ -64,6 +69,9 @@ class SoilTestRecord:
                 d[key] = value
         if self.notes:
             d["notes"] = self.notes
+        # Only emit non-default mode to keep diffs minimal for legacy records.
+        if self.mode and self.mode != "kit":
+            d["mode"] = self.mode
         return d
 
     @classmethod
@@ -86,6 +94,7 @@ class SoilTestRecord:
             mg_ppm=data.get("mg_ppm"),
             s_ppm=data.get("s_ppm"),
             notes=data.get("notes", ""),
+            mode=data.get("mode", "kit"),
         )
 
 

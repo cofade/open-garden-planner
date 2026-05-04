@@ -86,6 +86,7 @@ def _records_equivalent(a: object, b: object) -> bool:
         "n_ppm", "p_ppm", "k_ppm",
         "ca_ppm", "mg_ppm", "s_ppm",
         "notes",
+        "mode",
     )
     return all(getattr(a, f, None) == getattr(b, f, None) for f in fields)
 
@@ -3147,6 +3148,14 @@ class GardenPlannerApp(QMainWindow):
         bed_area_m2 = (
             self._lookup_bed_area_m2(target_id) if target_id != "global" else 0.0
         )
+        # F6: when this dialog is for a bed (not the global target), pass the
+        # global-default history so the History tab can merge those rows in
+        # chronologically with a "(default)" badge.
+        default_history = (
+            None
+            if target_id == "global"
+            else self._soil_service.get_history("global")
+        )
 
         dialog = SoilTestDialog(
             parent=self,
@@ -3154,6 +3163,7 @@ class GardenPlannerApp(QMainWindow):
             target_name=display_name,
             existing_latest=existing,
             existing_history=history,
+            existing_default_history=default_history,
             bed_area_m2=bed_area_m2,
             project_manager=self._project_manager,
             command_manager=self.canvas_view.command_manager,

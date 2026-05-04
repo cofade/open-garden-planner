@@ -78,8 +78,11 @@ class SoilSparklineWidget(QWidget):
             self._paint_placeholder(painter, rect)
             return
 
-        # Plot area with margins for labels.
-        margin_left = 24
+        # Plot area with margins for labels. margin_left is fixed (not
+        # font-metric-derived) so every sparkline in the History tab —
+        # whether plotting pH (one decimal) or NPK (integer) — starts its
+        # plot region at exactly the same x pixel within its widget (F11).
+        margin_left = 32
         margin_right = 8
         margin_top = 6
         margin_bottom = 14

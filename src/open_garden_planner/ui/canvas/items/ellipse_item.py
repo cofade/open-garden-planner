@@ -106,6 +106,11 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
             painter.restore()
         super().paint(painter, option, widget)
 
+        # F9: soil-mismatch border for bed-typed ellipses (US-12.10d).
+        from open_garden_planner.core.object_types import is_bed_type
+        if is_bed_type(self.object_type):
+            self._draw_soil_mismatch_border(painter)
+
     def itemChange(
         self,
         change: QGraphicsItem.GraphicsItemChange,

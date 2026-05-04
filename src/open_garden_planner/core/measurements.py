@@ -18,7 +18,12 @@ def calculate_area_and_perimeter(item: QGraphicsItem) -> tuple[float, float] | N
         For circles, perimeter is the circumference.
     """
     # Import here to avoid circular dependency
-    from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
+    from open_garden_planner.ui.canvas.items import (
+        CircleItem,
+        EllipseItem,
+        PolygonItem,
+        RectangleItem,
+    )
 
     if isinstance(item, RectangleItem):
         rect = item.rect()
@@ -44,6 +49,18 @@ def calculate_area_and_perimeter(item: QGraphicsItem) -> tuple[float, float] | N
         area = math.pi * radius * radius
         circumference = 2 * math.pi * radius
         return (area, circumference)
+
+    elif isinstance(item, EllipseItem):
+        # Semi-axes from the bounding rect (US-12.10/F9).
+        rect = item.rect()
+        a = rect.width() / 2.0
+        b = rect.height() / 2.0
+        area = math.pi * a * b
+        # Ramanujan's second approximation — accurate to <0.001% even for
+        # extreme aspect ratios; closed-form integral is unnecessary here.
+        h = ((a - b) ** 2) / ((a + b) ** 2) if (a + b) > 0 else 0.0
+        perimeter = math.pi * (a + b) * (1 + (3 * h) / (10 + math.sqrt(4 - 3 * h)))
+        return (area, perimeter)
 
     return None
 

@@ -76,13 +76,15 @@ def _npk_level(level: int | None) -> HealthLevel:
     """Map a Rapitest 0–4 NPK rating to a HealthLevel.
 
     The kit semantics: 0=Depleted, 1=Deficient, 2=Adequate, 3=Sufficient,
-    4=Surplus. Adequate (2) is amber because it's borderline.
+    4=Surplus. Adequate (2) and Sufficient (3) are both GOOD — the kit
+    literally calls 2 "adequate", which UX-tests as fine. Surplus (4) is
+    FAIR because over-fertilisation can imbalance the soil and burn roots.
     """
     if level is None:
         return HealthLevel.UNKNOWN
     if level <= 1:
         return HealthLevel.POOR
-    if level == 2:
+    if level == 4:
         return HealthLevel.FAIR
     return HealthLevel.GOOD
 

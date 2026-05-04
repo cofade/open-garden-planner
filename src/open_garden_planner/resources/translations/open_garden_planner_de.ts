@@ -732,6 +732,10 @@
             <source>Show Area</source>
             <translation>Fläche anzeigen</translation>
         </message>
+        <message>
+            <source>Add soil test…</source>
+            <translation>Bodenprobe hinzufügen…</translation>
+        </message>
     </context>
     <context>
         <name>CircleTool</name>
@@ -7807,6 +7811,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Delete soil test</source>
             <translation>Bodenprobe löschen</translation>
+        </message>
+        <message>
+            <source> (default)</source>
+            <translation> (Standard)</translation>
         </message>
     </context>
     <context>

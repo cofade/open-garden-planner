@@ -66,11 +66,13 @@ class TestHealthLevel:
     @pytest.mark.parametrize(
         ("level", "expected"),
         [
+            # F2.8: Adequate (2) and Sufficient (3) are GOOD; Surplus (4) is FAIR
+            # because over-fertilisation can imbalance the soil and burn roots.
             (0, HealthLevel.POOR),
             (1, HealthLevel.POOR),
-            (2, HealthLevel.FAIR),
+            (2, HealthLevel.GOOD),
             (3, HealthLevel.GOOD),
-            (4, HealthLevel.GOOD),
+            (4, HealthLevel.FAIR),
         ],
     )
     def test_npk_buckets(self, level: int, expected: HealthLevel) -> None:
@@ -80,14 +82,15 @@ class TestHealthLevel:
         for param in (PARAM_N, PARAM_P, PARAM_K):
             assert SoilService.health_level(rec, param) is expected
 
-    def test_overall_is_worst_known(self) -> None:
-        # pH GOOD, N FAIR, P GOOD, K unset → overall FAIR
+    def test_overall_with_surplus_n_is_fair(self) -> None:
+        # pH GOOD, N FAIR (surplus), P GOOD, K unset → overall FAIR
         rec = SoilTestRecord(
-            date="2026-01-01", ph=6.5, n_level=2, p_level=3,
+            date="2026-01-01", ph=6.5, n_level=4, p_level=3,
         )
         assert SoilService.health_level(rec, PARAM_OVERALL) is HealthLevel.FAIR
 
     def test_overall_with_one_poor_is_poor(self) -> None:
+        # pH GOOD, N GOOD, P POOR, K FAIR → overall POOR
         rec = SoilTestRecord(
             date="2026-01-01", ph=6.5, n_level=3, p_level=0, k_level=4,
         )
