@@ -1718,7 +1718,7 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 | US-12.4 | DXF import | Should | ✅ |
 | US-12.5 | Multi-page PDF export | Should | ✅ |
 | US-12.6 | Shopping list generation | Could | |
-| US-12.7 | Pest & disease log | Could | |
+| US-12.7 | Pest & disease log | Could | ✅ |
 | US-12.8 | Succession planting | Could | |
 | US-12.9 | Garden journal (map-linked notes) | Could | |
 | US-12.10 | Soil health tracking & amendment calculator | Must | ✅ |

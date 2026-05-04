@@ -116,6 +116,9 @@ class CanvasView(QGraphicsView):
     # US-12.10e: emitted when the seasonal reminder badge on a bed is clicked.
     # Args: bed_id (UUID string).
     soil_test_badge_clicked = pyqtSignal(str)
+    # US-12.7: emitted when a bed or plant's "Log pest/disease…" action is invoked.
+    # Args: target_id (bed or plant UUID), display_name (informational)
+    pest_disease_requested = pyqtSignal(str, str)
 
     # Zoom limits
     min_zoom: float = 0.01  # 1% - very zoomed out
@@ -567,6 +570,14 @@ class CanvasView(QGraphicsView):
         resulting ``AddSoilTestCommand``.
         """
         self.soil_test_requested.emit(target_id, display_name or "")
+
+    def request_pest_disease(self, target_id: str, display_name: str = "") -> None:
+        """Forward a pest/disease log request from a bed/plant context menu (US-12.7).
+
+        Emits ``pest_disease_requested`` so the application can open
+        ``PestDiseaseDialog`` and execute the resulting command.
+        """
+        self.pest_disease_requested.emit(target_id, display_name or "")
 
     @property
     def active_tool(self) -> object | None:

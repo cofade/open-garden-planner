@@ -27,6 +27,9 @@
 | **Scene Coordinates** | Real-world metric coordinates used internally (centimeters) |
 | **SoilTestRecord** | Single soil test entry: date, pH, NPK levels, secondary nutrients, optional ppm values, notes |
 | **SoilTestHistory** | Time-ordered list of `SoilTestRecord`s for one target (a bed UUID or `"global"` default) |
+| **PestDiseaseRecord** | Single pest sighting or disease outbreak entry: date, kind (`pest`/`disease`), name, severity, treatment, optional photo, optional `resolved_date` |
+| **PestDiseaseLog** | Time-ordered list of `PestDiseaseRecord`s for one target (a bed or plant UUID); `active` filters entries whose `resolved_date is None` |
+| **Active issue** | A pest/disease record without a `resolved_date` — surfaces as a Dashboard task card and remains there until "Done" sets the resolved date |
 | **Screen Coordinates** | Pixel coordinates on the display; converted via QGraphicsView transform |
 | **SVG** | Scalable Vector Graphics — vector image format used for icons and plant illustrations |
 | **Tileable Texture** | A small image that can be seamlessly repeated to fill any area |

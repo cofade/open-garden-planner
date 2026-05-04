@@ -72,7 +72,8 @@ src/open_garden_planner/
 │   ├── plant_data.py             # Plant data model
 │   ├── layer.py                  # Layer model
 │   ├── soil_test.py              # SoilTestRecord & SoilTestHistory (US-12.10a)
-│   └── amendment.py              # Amendment & AmendmentRecommendation (US-12.10c)
+│   ├── amendment.py              # Amendment & AmendmentRecommendation (US-12.10c)
+│   └── pest_disease.py           # PestDiseaseRecord & PestDiseaseLog (US-12.7)
 ├── ui/
 │   ├── canvas/
 │   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling
@@ -119,6 +120,8 @@ src/open_garden_planner/
 │   ├── export_service.py         # PDF/image export
 │   ├── autosave_service.py       # Autosave logic
 │   ├── soil_service.py           # Soil test history facade (US-12.10a)
+│   ├── pest_disease_service.py   # Pest/disease log facade (US-12.7)
+│   ├── photo_attachment.py       # Photo encode/decode helper, base64 JPEG (US-12.7, reused by US-12.9)
 │   └── update_checker.py         # GitHub releases update check (frozen exe only)
 └── resources/
     ├── icons/                    # App icons, banner, tool SVGs

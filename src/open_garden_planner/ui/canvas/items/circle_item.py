@@ -790,6 +790,12 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         show_area_action.setCheckable(True)
         show_area_action.setChecked(self._area_label_visible)
 
+        # US-12.7: Log pest/disease for plants
+        log_pest_action = None
+        if is_plant_type(self.object_type):
+            menu.addSeparator()
+            log_pest_action = menu.addAction(_("CircleItem", "Log pest/disease…"))
+
         menu.addSeparator()
 
         # Delete action
@@ -838,6 +844,12 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         if action == show_area_action:
             self.area_label_visible = not self._area_label_visible
+        elif action == log_pest_action and log_pest_action is not None:
+            scene = self.scene()
+            if scene:
+                views = scene.views()
+                if views and hasattr(views[0], "request_pest_disease"):
+                    views[0].request_pest_disease(str(self.item_id), self.name)
         elif action == delete_action:
             self.scene().removeItem(self)
         elif action == duplicate_action:

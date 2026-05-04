@@ -980,11 +980,16 @@ class PlantingCalendarView(QWidget):
         self._prop_plans: dict[str, PropagationPlan] = {}
         self._current_dashboard_tasks: list[_DashboardTask] = []
         self._soil_service: Any | None = None
+        self._pest_disease_service: Any | None = None
         self._build_ui()
 
     def set_soil_service(self, service: Any | None) -> None:
         """Inject the SoilService so the dashboard can show soil mismatch cards (US-12.10d)."""
         self._soil_service = service
+
+    def set_pest_disease_service(self, service: Any | None) -> None:
+        """Inject the PestDiseaseService so the dashboard shows active issues (US-12.7)."""
+        self._pest_disease_service = service
 
     # ── construction ───────────────────────────────────────────────────────────
 
@@ -1213,6 +1218,8 @@ class PlantingCalendarView(QWidget):
 
         # Merge soil mismatch alerts into dashboard (US-12.10d)
         self._inject_soil_mismatch_tasks()
+        # Merge active pest/disease issues into dashboard (US-12.7)
+        self._inject_pest_disease_tasks()
 
         # Update Gantt translated marker labels
         self._gantt.label_today = self.tr("Today")
@@ -1268,7 +1275,25 @@ class PlantingCalendarView(QWidget):
             self._detail.hide()
 
     def _on_task_toggled(self, task_id: str, done: bool) -> None:
-        """Persist task completion state, then refresh the dashboard."""
+        """Persist task completion state, then refresh the dashboard.
+
+        ``pest_disease:<target_id>:<record_id>`` tasks are routed to
+        ``PestDiseaseService.update_record`` so "Done" resolves the issue
+        (sets ``resolved_date``) instead of just toggling a planting-task flag.
+        """
+        if task_id.startswith("pest_disease:") and self._pest_disease_service is not None:
+            _, target_id, record_id = task_id.split(":", 2)
+            log = self._pest_disease_service.get_log(target_id)
+            for r in log.records:
+                if r.id == record_id:
+                    if done and r.resolved_date is None:
+                        r.resolved_date = datetime.date.today().isoformat()
+                    elif not done:
+                        r.resolved_date = None
+                    self._pest_disease_service.update_record(target_id, r)
+                    break
+            self.refresh()
+            return
         if hasattr(self._project_manager, "set_task_completion"):
             self._project_manager.set_task_completion(task_id, done)
         self.refresh()
@@ -1469,7 +1494,57 @@ class PlantingCalendarView(QWidget):
                 )
             )
         if soil_tasks:
-            self._dashboard.set_data(self._current_dashboard_tasks + soil_tasks)
+            self._current_dashboard_tasks = self._current_dashboard_tasks + soil_tasks
+            self._dashboard.set_data(self._current_dashboard_tasks)
+
+    def _inject_pest_disease_tasks(self) -> None:
+        """Merge active pest/disease issues into the dashboard task list (US-12.7)."""
+        if self._pest_disease_service is None:
+            return
+        from open_garden_planner.core.object_types import is_bed_type, is_plant_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        today = datetime.date.today()
+        # Map target_id → display name by scanning the scene once.
+        names: dict[str, str] = {}
+        for item in self._canvas_scene.items():
+            if not isinstance(item, GardenItemMixin):
+                continue
+            object_type = getattr(item, "object_type", None)
+            if not (is_bed_type(object_type) or is_plant_type(object_type)):
+                continue
+            tid = str(getattr(item, "item_id", ""))
+            if tid:
+                names[tid] = str(getattr(item, "name", "") or self.tr("Item"))
+
+        pest_tasks: list[_DashboardTask] = []
+        for target_id, record in self._pest_disease_service.get_active_issues():
+            display_name = names.get(target_id, self.tr("Unknown"))
+            kind_label = (
+                self.tr("Pest") if record.kind == "pest" else self.tr("Disease")
+            )
+            display = self.tr("{kind} on {target}: {name}").format(
+                kind=kind_label, target=display_name, name=record.name
+            )
+            urgency = {
+                "high": "today",
+                "medium": "this_week",
+                "low": "coming_up",
+            }.get(record.severity, "this_week")
+            pest_tasks.append(
+                _DashboardTask(
+                    task_id=f"pest_disease:{target_id}:{record.id}",
+                    task_type="pest_disease",
+                    display_name=display,
+                    task_date=today,
+                    end_date=today,
+                    urgency=urgency,
+                    species_key="",
+                )
+            )
+        if pest_tasks:
+            self._current_dashboard_tasks = self._current_dashboard_tasks + pest_tasks
+            self._dashboard.set_data(self._current_dashboard_tasks)
 
     def _on_weather_failed(self, message: str) -> None:
         """Weather forecast fetch failed — no frost alerts shown."""

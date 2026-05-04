@@ -732,6 +732,10 @@
             <source>Show Area</source>
             <translation>Fläche anzeigen</translation>
         </message>
+        <message>
+            <source>Log pest/disease…</source>
+            <translation>Schädling/Krankheit erfassen…</translation>
+        </message>
     </context>
     <context>
         <name>CircleTool</name>
@@ -3749,6 +3753,18 @@ Neue Saison jetzt öffnen?</translation>
             <source>No changes</source>
             <translation>Keine Änderungen</translation>
         </message>
+        <message>
+            <source>Pest/disease record added</source>
+            <translation>Schädlings-/Krankheitseintrag hinzugefügt</translation>
+        </message>
+        <message>
+            <source>Pest/disease record updated</source>
+            <translation>Schädlings-/Krankheitseintrag aktualisiert</translation>
+        </message>
+        <message>
+            <source>Pest/disease record deleted</source>
+            <translation>Schädlings-/Krankheitseintrag gelöscht</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -5194,6 +5210,26 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <source>Soil mismatch in {bed}: {plants}</source>
             <translation>Bodenkonflikt in {bed}: {plants}</translation>
         </message>
+        <message>
+            <source>Pest</source>
+            <translation>Schädling</translation>
+        </message>
+        <message>
+            <source>Disease</source>
+            <translation>Krankheit</translation>
+        </message>
+        <message>
+            <source>Item</source>
+            <translation>Objekt</translation>
+        </message>
+        <message>
+            <source>Unknown</source>
+            <translation>Unbekannt</translation>
+        </message>
+        <message>
+            <source>{kind} on {target}: {name}</source>
+            <translation>{kind} an {target}: {name}</translation>
+        </message>
     </context>
     <context>
         <name>PolygonItem</name>
@@ -5264,6 +5300,10 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
         <message>
             <source>Add soil test…</source>
             <translation>Bodenprobe hinzufügen…</translation>
+        </message>
+        <message>
+            <source>Log pest/disease…</source>
+            <translation>Schädling/Krankheit erfassen…</translation>
         </message>
     </context>
     <context>
@@ -6037,6 +6077,10 @@ noch nicht implementiert</translation>
         <message>
             <source>Add soil test…</source>
             <translation>Bodenprobe hinzufügen…</translation>
+        </message>
+        <message>
+            <source>Log pest/disease…</source>
+            <translation>Schädling/Krankheit erfassen…</translation>
         </message>
     </context>
     <context>
@@ -7332,6 +7376,10 @@ Starten Sie Open Garden Planner als Administrator, oder laden Sie das Installati
             <source>Add soil test…</source>
             <translation>Bodenprobe hinzufügen…</translation>
         </message>
+        <message>
+            <source>Log pest/disease…</source>
+            <translation>Schädling/Krankheit erfassen…</translation>
+        </message>
     </context>
     <context>
         <name>EllipseTool</name>
@@ -7864,6 +7912,145 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Soil test overdue — click to record</source>
             <translation>Bodenprobe überfällig — zum Eintragen klicken</translation>
+        </message>
+    </context>
+    <context>
+        <name>PestDiseaseDialog</name>
+        <message>
+            <source>Log Pest / Disease</source>
+            <translation>Schädling / Krankheit erfassen</translation>
+        </message>
+        <message>
+            <source>Edit Pest/Disease Record</source>
+            <translation>Schädlings-/Krankheitseintrag bearbeiten</translation>
+        </message>
+        <message>
+            <source>Date</source>
+            <translation>Datum</translation>
+        </message>
+        <message>
+            <source>Type</source>
+            <translation>Typ</translation>
+        </message>
+        <message>
+            <source>Pest</source>
+            <translation>Schädling</translation>
+        </message>
+        <message>
+            <source>Disease</source>
+            <translation>Krankheit</translation>
+        </message>
+        <message>
+            <source>Name</source>
+            <translation>Name</translation>
+        </message>
+        <message>
+            <source>e.g. Aphid, Powdery mildew</source>
+            <translation>z. B. Blattlaus, Echter Mehltau</translation>
+        </message>
+        <message>
+            <source>Severity</source>
+            <translation>Schweregrad</translation>
+        </message>
+        <message>
+            <source>Low</source>
+            <translation>Niedrig</translation>
+        </message>
+        <message>
+            <source>Medium</source>
+            <translation>Mittel</translation>
+        </message>
+        <message>
+            <source>High</source>
+            <translation>Hoch</translation>
+        </message>
+        <message>
+            <source>Treatment</source>
+            <translation>Behandlung</translation>
+        </message>
+        <message>
+            <source>e.g. Neem oil weekly; remove affected leaves</source>
+            <translation>z. B. Neemöl wöchentlich; befallene Blätter entfernen</translation>
+        </message>
+        <message>
+            <source>Photo</source>
+            <translation>Foto</translation>
+        </message>
+        <message>
+            <source>No photo</source>
+            <translation>Kein Foto</translation>
+        </message>
+        <message>
+            <source>Add photo…</source>
+            <translation>Foto hinzufügen…</translation>
+        </message>
+        <message>
+            <source>Remove</source>
+            <translation>Entfernen</translation>
+        </message>
+        <message>
+            <source>Select photo</source>
+            <translation>Foto auswählen</translation>
+        </message>
+        <message>
+            <source>Images (*.png *.jpg *.jpeg *.bmp *.gif);;All files (*)</source>
+            <translation>Bilder (*.png *.jpg *.jpeg *.bmp *.gif);;Alle Dateien (*)</translation>
+        </message>
+        <message>
+            <source>Cannot load photo</source>
+            <translation>Foto kann nicht geladen werden</translation>
+        </message>
+        <message>
+            <source>Notes</source>
+            <translation>Notizen</translation>
+        </message>
+        <message>
+            <source>Resolved</source>
+            <translation>Gelöst</translation>
+        </message>
+        <message>
+            <source>Entry</source>
+            <translation>Eingabe</translation>
+        </message>
+        <message>
+            <source>History</source>
+            <translation>Verlauf</translation>
+        </message>
+        <message>
+            <source>No records yet.</source>
+            <translation>Noch keine Einträge.</translation>
+        </message>
+        <message>
+            <source>Active</source>
+            <translation>Aktiv</translation>
+        </message>
+        <message>
+            <source>Resolved {date}</source>
+            <translation>Gelöst {date}</translation>
+        </message>
+        <message>
+            <source>Edit selected…</source>
+            <translation>Ausgewählten bearbeiten…</translation>
+        </message>
+        <message>
+            <source>Delete selected</source>
+            <translation>Ausgewählten löschen</translation>
+        </message>
+        <message>
+            <source>Delete record</source>
+            <translation>Eintrag löschen</translation>
+        </message>
+        <message>
+            <source>Delete this record? This can be undone.</source>
+            <translation>Diesen Eintrag löschen? Das kann rückgängig gemacht werden.</translation>
+        </message>
+        <message>
+            <source>Name required</source>
+            <translation>Name erforderlich</translation>
+        </message>
+        <message>
+            <source>Please enter the pest or disease name.</source>
+            <translation>Bitte den Namen des Schädlings oder der Krankheit eingeben.</translation>
         </message>
     </context>
 </TS>

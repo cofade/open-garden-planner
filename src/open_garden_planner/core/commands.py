@@ -1518,3 +1518,124 @@ class DeleteSoilTestCommand(Command):
 
     def undo(self) -> None:
         self._pm.restore_soil_test_history(self._target_id, self._prior_history_dict)
+
+
+class AddPestDiseaseCommand(Command):
+    """Add a pest/disease record to a bed or plant — undoable (US-12.7).
+
+    Snapshots the prior log dict on construction so undo restores the exact
+    pre-state (including the absence of any log when this is the first
+    record for the target).
+    """
+
+    def __init__(
+        self,
+        project_manager: "Any",
+        target_id: str,
+        record: "Any",
+    ) -> None:
+        from open_garden_planner.models.pest_disease import PestDiseaseLog
+
+        self._pm = project_manager
+        self._target_id = target_id
+        self._record = record
+        self._PestDiseaseLog = PestDiseaseLog
+        existing = self._pm.pest_disease_logs.get(target_id)
+        self._prior_log_dict: dict[str, Any] | None = (
+            dict(existing) if existing is not None else None
+        )
+
+    @property
+    def description(self) -> str:
+        return "Add pest/disease record"
+
+    def execute(self) -> None:
+        if self._prior_log_dict is None:
+            log = self._PestDiseaseLog(target_id=self._target_id)
+        else:
+            log = self._PestDiseaseLog.from_dict(self._prior_log_dict)
+        if not any(r.id == self._record.id for r in log.records):
+            log.records.append(self._record)
+        self._pm.set_pest_disease_log(self._target_id, log)
+
+    def undo(self) -> None:
+        self._pm.restore_pest_disease_log(self._target_id, self._prior_log_dict)
+
+
+class EditPestDiseaseCommand(Command):
+    """Edit an existing pest/disease record — undoable (US-12.7).
+
+    Matches the record by ``id``. Useful for resolving an active issue
+    (filling ``resolved_date``) or correcting fields after the fact.
+    """
+
+    def __init__(
+        self,
+        project_manager: "Any",
+        target_id: str,
+        new_record: "Any",
+    ) -> None:
+        from open_garden_planner.models.pest_disease import PestDiseaseLog
+
+        self._pm = project_manager
+        self._target_id = target_id
+        self._new_record = new_record
+        self._PestDiseaseLog = PestDiseaseLog
+        existing = self._pm.pest_disease_logs.get(target_id)
+        self._prior_log_dict: dict[str, Any] | None = (
+            dict(existing) if existing is not None else None
+        )
+
+    @property
+    def description(self) -> str:
+        return "Edit pest/disease record"
+
+    def execute(self) -> None:
+        if self._prior_log_dict is None:
+            return
+        log = self._PestDiseaseLog.from_dict(self._prior_log_dict)
+        for idx, r in enumerate(log.records):
+            if r.id == self._new_record.id:
+                log.records[idx] = self._new_record
+                break
+        else:
+            return  # id not found
+        self._pm.set_pest_disease_log(self._target_id, log)
+
+    def undo(self) -> None:
+        self._pm.restore_pest_disease_log(self._target_id, self._prior_log_dict)
+
+
+class DeletePestDiseaseCommand(Command):
+    """Delete a pest/disease record from a target's log — undoable (US-12.7)."""
+
+    def __init__(
+        self,
+        project_manager: "Any",
+        target_id: str,
+        record_id: str,
+    ) -> None:
+        from open_garden_planner.models.pest_disease import PestDiseaseLog
+
+        self._pm = project_manager
+        self._target_id = target_id
+        self._record_id = record_id
+        self._PestDiseaseLog = PestDiseaseLog
+        existing = self._pm.pest_disease_logs.get(target_id)
+        self._prior_log_dict: dict[str, Any] | None = (
+            dict(existing) if existing is not None else None
+        )
+
+    @property
+    def description(self) -> str:
+        return "Delete pest/disease record"
+
+    def execute(self) -> None:
+        if self._prior_log_dict is None:
+            return
+        log = self._PestDiseaseLog.from_dict(self._prior_log_dict)
+        log.records = [r for r in log.records if r.id != self._record_id]
+        self._pm.set_pest_disease_log(self._target_id, log)
+
+    def undo(self) -> None:
+        self._pm.restore_pest_disease_log(self._target_id, self._prior_log_dict)

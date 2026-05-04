@@ -179,6 +179,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Intersect": "Schnittmenge",
         "Subtract": "Subtraktion",
         "Array Along Path...": "Muster entlang Pfad...",
+        # US-11.9 — area label
+        "Show Area": "Fläche anzeigen",
+        # US-12.7 — pest log
+        "Log pest/disease…": "Schädling/Krankheit erfassen…",
     },
 
     # ── CircleTool ──
@@ -384,6 +388,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Eine projektweite Bodenprobe festlegen, falls einzelne Beete keine eigene haben",
         "Soil test recorded": "Bodenprobe gespeichert",
         "No changes": "Keine Änderungen",
+        # US-12.7 — pest/disease status messages
+        "Pest/disease record added": "Schädlings-/Krankheitseintrag hinzugefügt",
+        "Pest/disease record updated": "Schädlings-/Krankheitseintrag aktualisiert",
+        "Pest/disease record deleted": "Schädlings-/Krankheitseintrag gelöscht",
         # US-12.10c — Amendment Plan menu
         "&Amendment Plan…": "&Bodenverbesserungs-Plan…",
         "View amendment recommendations for deficient beds":
@@ -885,6 +893,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Harden off": "Abhärten",
         "Bed": "Beet",
         "Soil mismatch in {bed}: {plants}": "Bodenkonflikt in {bed}: {plants}",
+        # US-12.7
+        "Pest": "Schädling",
+        "Disease": "Krankheit",
+        "Item": "Objekt",
+        "Unknown": "Unbekannt",
+        "{kind} on {target}: {name}": "{kind} an {target}: {name}",
     },
 
     # ── PrintOptionsDialog ──
@@ -1169,15 +1183,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Delete": "Löschen",
     },
 
-    # ── CircleItem — area label (US-11.9) ──
-    "CircleItem": {
-        "Show Area": "Fläche anzeigen",
-    },
-
-    # ── EllipseItem — area label (US-11.9) and soil test (US-12.10a) ──
+    # ── EllipseItem — area label (US-11.9), soil test (US-12.10a), pest log (US-12.7) ──
     "EllipseItem": {
         "Show Area": "Fläche anzeigen",
         "Add soil test…": "Bodenprobe hinzufügen…",
+        "Log pest/disease…": "Schädling/Krankheit erfassen…",
     },
 
     # ── FindReplacePanel (US-11.24) ──
@@ -1198,16 +1208,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Apply": "Anwenden",
     },
 
-    # ── PolygonItem — area label (US-11.9) and soil test (US-12.10a) ──
+    # ── PolygonItem — area label (US-11.9), soil test (US-12.10a), pest log (US-12.7) ──
     "PolygonItem": {
         "Show Area": "Fläche anzeigen",
         "Add soil test…": "Bodenprobe hinzufügen…",
+        "Log pest/disease…": "Schädling/Krankheit erfassen…",
     },
 
-    # ── RectangleItem — area label (US-11.9) and soil test (US-12.10a) ──
+    # ── RectangleItem — area label (US-11.9), soil test (US-12.10a), pest log (US-12.7) ──
     "RectangleItem": {
         "Show Area": "Fläche anzeigen",
         "Add soil test…": "Bodenprobe hinzufügen…",
+        "Log pest/disease…": "Schädling/Krankheit erfassen…",
     },
 
     # ── ObjectType (from QT_TR_NOOP in object_types.py — missing from pylupdate6) ──
@@ -1452,6 +1464,49 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "No deficient beds found.": "Keine mangelhaften Beete gefunden.",
         "Amendment plan copied to clipboard.": "Bodenverbesserungs-Plan in Zwischenablage kopiert.",
         "Bed": "Beet",
+    },
+
+    # ── PestDiseaseDialog (US-12.7) ──
+    "PestDiseaseDialog": {
+        "Log Pest / Disease": "Schädling / Krankheit erfassen",
+        "Edit Pest/Disease Record": "Schädlings-/Krankheitseintrag bearbeiten",
+        "Date": "Datum",
+        "Type": "Typ",
+        "Pest": "Schädling",
+        "Disease": "Krankheit",
+        "Name": "Name",
+        "e.g. Aphid, Powdery mildew":
+            "z. B. Blattlaus, Echter Mehltau",
+        "Severity": "Schweregrad",
+        "Low": "Niedrig",
+        "Medium": "Mittel",
+        "High": "Hoch",
+        "Treatment": "Behandlung",
+        "e.g. Neem oil weekly; remove affected leaves":
+            "z. B. Neemöl wöchentlich; befallene Blätter entfernen",
+        "Photo": "Foto",
+        "No photo": "Kein Foto",
+        "Add photo…": "Foto hinzufügen…",
+        "Remove": "Entfernen",
+        "Select photo": "Foto auswählen",
+        "Images (*.png *.jpg *.jpeg *.bmp *.gif);;All files (*)":
+            "Bilder (*.png *.jpg *.jpeg *.bmp *.gif);;Alle Dateien (*)",
+        "Cannot load photo": "Foto kann nicht geladen werden",
+        "Notes": "Notizen",
+        "Resolved": "Gelöst",
+        "Entry": "Eingabe",
+        "History": "Verlauf",
+        "No records yet.": "Noch keine Einträge.",
+        "Active": "Aktiv",
+        "Resolved {date}": "Gelöst {date}",
+        "Edit selected…": "Ausgewählten bearbeiten…",
+        "Delete selected": "Ausgewählten löschen",
+        "Delete record": "Eintrag löschen",
+        "Delete this record? This can be undone.":
+            "Diesen Eintrag löschen? Das kann rückgängig gemacht werden.",
+        "Name required": "Name erforderlich",
+        "Please enter the pest or disease name.":
+            "Bitte den Namen des Schädlings oder der Krankheit eingeben.",
     },
 }
 

@@ -777,6 +777,13 @@ class GardenPlannerApp(QMainWindow):
         self._soil_service = SoilService(self._project_manager)
         self.canvas_view.set_soil_service(self._soil_service)
 
+        # ── Pest & disease service (US-12.7) — shared by dialog and Active Issues panel ──
+        from open_garden_planner.services.pest_disease_service import (  # noqa: PLC0415
+            PestDiseaseService,
+        )
+
+        self._pest_disease_service = PestDiseaseService(self._project_manager)
+
         # Soil overlay parameter toolbar (US-12.10b) — hidden until overlay on.
         self._setup_soil_overlay_toolbar()
 
@@ -821,6 +828,10 @@ class GardenPlannerApp(QMainWindow):
         # US-12.10e: bed top-right reminder badge → open dialog for that bed
         self.canvas_view.soil_test_badge_clicked.connect(
             self._on_soil_test_badge_clicked
+        )
+        # US-12.7: bed/plant → "Log pest/disease…" routes through CanvasView
+        self.canvas_view.pest_disease_requested.connect(
+            self._on_pest_disease_requested
         )
 
         # Connect scene selection changes to status bar and panels
@@ -891,6 +902,7 @@ class GardenPlannerApp(QMainWindow):
         # Tab 1: Planting Calendar (US-8.5)
         self.calendar_view = PlantingCalendarView(self.canvas_scene, self._project_manager)
         self.calendar_view.set_soil_service(self._soil_service)
+        self.calendar_view.set_pest_disease_service(self._pest_disease_service)
         self._tab_widget.addTab(self.calendar_view, self.tr("Planting Calendar"))
 
         # Tab 2: Seed Inventory (US-9.4)
@@ -916,6 +928,9 @@ class GardenPlannerApp(QMainWindow):
         self._tab_widget.currentChanged.connect(self._on_tab_changed)
         self._project_manager.location_changed.connect(lambda _: self.calendar_view.refresh())
         self._project_manager.task_completions_changed.connect(lambda _: self.calendar_view.refresh())
+        self._project_manager.pest_disease_logs_changed.connect(
+            lambda _: self.calendar_view.refresh()
+        )
         cmd_mgr.command_executed.connect(lambda _: self.calendar_view.refresh())
 
         # Highlight plant on canvas when user clicks a dashboard task (US-8.6)
@@ -3109,6 +3124,79 @@ class GardenPlannerApp(QMainWindow):
     def _on_soil_test_requested(self, target_id: str, display_name: str) -> None:
         """Open SoilTestDialog for a bed (US-12.10a)."""
         self._open_soil_test_dialog(target_id, display_name)
+
+    def _on_pest_disease_requested(
+        self, target_id: str, display_name: str
+    ) -> None:
+        """Open PestDiseaseDialog for a bed or plant (US-12.7)."""
+        self._open_pest_disease_dialog(target_id, display_name, existing_record=None)
+
+    def _open_pest_disease_dialog(
+        self,
+        target_id: str,
+        display_name: str,
+        existing_record: object | None = None,
+    ) -> None:
+        """Open the pest/disease dialog and execute add/edit on accept (US-12.7).
+
+        ``existing_record`` is a ``PestDiseaseRecord | None``; typed as
+        ``object | None`` to avoid a top-level model import.
+        """
+        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+
+        from open_garden_planner.core.commands import (  # noqa: PLC0415
+            AddPestDiseaseCommand,
+            DeletePestDiseaseCommand,
+            EditPestDiseaseCommand,
+        )
+        from open_garden_planner.ui.dialogs.pest_disease_dialog import (  # noqa: PLC0415
+            PestDiseaseDialog,
+        )
+
+        log = self._pest_disease_service.get_log(target_id)
+        edit_mode = existing_record is not None
+
+        dialog = PestDiseaseDialog(
+            parent=self,
+            target_id=target_id,
+            target_name=display_name,
+            existing_record=existing_record,
+            existing_log=log,
+            edit_mode=edit_mode,
+            project_manager=self._project_manager,
+            command_manager=self.canvas_view.command_manager,
+        )
+
+        # History tab → Edit/Delete buttons trigger these signals; map to commands.
+        def _on_edit(record_id: str) -> None:
+            for r in log.records:
+                if r.id == record_id:
+                    self._open_pest_disease_dialog(
+                        target_id, display_name, existing_record=r
+                    )
+                    return
+
+        def _on_delete(record_id: str) -> None:
+            cmd = DeletePestDiseaseCommand(
+                self._project_manager, target_id, record_id
+            )
+            self.canvas_view.command_manager.execute(cmd)
+            self.statusBar().showMessage(self.tr("Pest/disease record deleted"), 3000)
+
+        dialog.record_edit_requested.connect(_on_edit)
+        dialog.record_delete_requested.connect(_on_delete)
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        record = dialog.result_record()
+        if edit_mode:
+            cmd = EditPestDiseaseCommand(self._project_manager, target_id, record)
+            self.canvas_view.command_manager.execute(cmd)
+            self.statusBar().showMessage(self.tr("Pest/disease record updated"), 3000)
+        else:
+            cmd = AddPestDiseaseCommand(self._project_manager, target_id, record)
+            self.canvas_view.command_manager.execute(cmd)
+            self.statusBar().showMessage(self.tr("Pest/disease record added"), 3000)
 
     def _on_set_default_soil_test(self) -> None:
         """Open SoilTestDialog for the project-wide default (US-12.10a)."""

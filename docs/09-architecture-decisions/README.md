@@ -114,3 +114,18 @@ Architecture Decision Records (ADRs) for significant technical choices.
 - *Sidecar JSON* — would let lab-mode CSV imports drop a file alongside the project, but the same goal is achievable through Garden → Import inside the embedded model in 12.10c. The portability cost outweighs the import convenience.
 - *Per-bed metadata field on `RectangleItem` etc.* — entangles canvas-item lifetime with historical data. Deleting a bed would lose its test history; restoring it via undo would not bring history back. Project-level storage avoids this.
 **Consequences**: `.ogp` files grow modestly (≈100 bytes per test record). Migration path is one-way (v1.3 files cannot be opened in older binaries — same convention as v1.2). All later 12.10 sub-stories (overlay, calculator, warnings, sparklines) consume the same `SoilService` facade and inherit the storage decision automatically.
+
+## ADR-014: Photo Attachments Embedded as Base64 in Records
+
+**Status**: Accepted (Phase 12 — US-12.7)
+**Context**: US-12.7 (Pest & Disease Log) requires per-record photo attachments. The same need will recur in US-12.9 (Garden Journal). Two shapes were considered: (a) embed photos as base64 JPEG inside the record dict — extending the precedent of ADR-013 (single-file portability); or (b) write photos to a sidecar `<project>_assets/` folder, with the record storing a relative path.
+**Decision**: Embed each photo as a base64-encoded JPEG inside its record. A shared helper `services/photo_attachment.py` resizes inputs to ≤ 1024 px max edge at JPEG quality 85 before encoding, capping per-photo payload around 20–80 KB regardless of camera resolution.
+**Rationale**:
+- *Single-file portability* — one `.ogp` keeps everything; users move/share/back up one file (same argument as ADR-013 for soil).
+- *No sidecar lifecycle* — moving, renaming, or deleting the project keeps photos with it; no orphaned files, no path-rewriting on Save As.
+- *Bounded payload* — the resize step keeps photos small; field tests are 17 KB for a typical 2000×1500 input.
+- *Consistent with existing convention* — ADR-003 already embeds images (background imports) as base64; this extends the precedent.
+**Alternatives considered**:
+- *Sidecar `<project>_assets/`* — slightly more compact for very photo-heavy projects, but adds file-lifecycle complexity (Save As, rename, delete). US-12.9 garden journals may eventually push this trade-off, but US-12.7 records are typically 0–1 photos each, so embedding is the clear win for now.
+- *External path reference* — relies on user-managed paths that break when projects move between machines. Rejected.
+**Consequences**: A heavy garden journal with hundreds of photos will inflate `.ogp` size; if that becomes an issue we can introduce sidecar storage in a future ADR with a one-way migration. The `photo_attachment` helper is the single point that future US-12.9 work will reuse, keeping the policy localised.

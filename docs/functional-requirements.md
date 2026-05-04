@@ -276,3 +276,13 @@ Pre-defined object types for common property elements:
 - **FR-SOIL-08** (US-12.10d): Plant-soil compatibility warnings draw an amber (1 mismatch) or red (≥2 mismatches) border on beds whose hosted plants conflict with the effective soil record; mismatches also surface as Dashboard cards
 - **FR-SOIL-09** (US-12.10e): The soil-test dialog's History tab lists past records date-descending and renders pH/N/P/K trend sparklines
 - **FR-SOIL-10** (US-12.10e): Seasonal reminder badge — a clock icon at a bed's top-right corner, shown only in sampling months (Mar/Apr, Sep/Oct) when the latest test is older than 180 days; clicking it opens the soil-test dialog. Untested beds are deliberately not flagged.
+
+## FR-16: Pest & Disease Log (Phase 12, US-12.7)
+
+- **FR-PEST-01**: Per-bed and per-plant pest/disease entry via right-click → "Log pest/disease…" on bed-typed rectangle/ellipse/polygon items and plant-typed circle items.
+- **FR-PEST-02**: Records date (ISO 8601), kind (`pest` | `disease`), name, severity (`low` | `medium` | `high`), free-text treatment, optional photo, and free-text notes. An optional `resolved_date` marks an issue inactive.
+- **FR-PEST-03**: Photos are stored as base64 JPEG inside the record, downscaled to ≤ 1024 px max edge at quality 85 — preserves the project's single-file portability (no sidecar).
+- **FR-PEST-04**: Records persist in the `.ogp` file under top-level `pest_disease_logs` (FILE_VERSION ≥ 1.4) and survive save/load round-trip; older files load with an empty log.
+- **FR-PEST-05**: Add / edit / delete operations are undoable via the standard command stack and mark the project dirty.
+- **FR-PEST-06**: The dialog's History tab lists past records for the target newest first; per-row Edit / Delete actions route through undoable commands.
+- **FR-PEST-07**: Active issues (records with `resolved_date is None`) surface on the Dashboard as task cards labelled "*kind* on *target*: *name*" with severity-derived urgency (high = today, medium = this week, low = coming up). Marking the card "Done" sets the record's `resolved_date` to today via an undoable `EditPestDiseaseCommand`.
