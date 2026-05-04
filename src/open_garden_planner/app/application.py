@@ -903,6 +903,9 @@ class GardenPlannerApp(QMainWindow):
         self.calendar_view = PlantingCalendarView(self.canvas_scene, self._project_manager)
         self.calendar_view.set_soil_service(self._soil_service)
         self.calendar_view.set_pest_disease_service(self._pest_disease_service)
+        self.calendar_view.pest_disease_resolution_requested.connect(
+            self._on_pest_disease_resolution_requested
+        )
         self._tab_widget.addTab(self.calendar_view, self.tr("Planting Calendar"))
 
         # Tab 2: Seed Inventory (US-9.4)
@@ -3130,6 +3133,42 @@ class GardenPlannerApp(QMainWindow):
     ) -> None:
         """Open PestDiseaseDialog for a bed or plant (US-12.7)."""
         self._open_pest_disease_dialog(target_id, display_name, existing_record=None)
+
+    def _on_pest_disease_resolution_requested(
+        self, target_id: str, record_id: str, resolved: bool
+    ) -> None:
+        """Toggle the resolved state of a pest/disease record from the Dashboard.
+
+        Routes through ``EditPestDiseaseCommand`` so the change is undoable
+        (US-12.7). Called when the user clicks "Done" on an Active Issues
+        Dashboard card.
+        """
+        import datetime as _dt  # noqa: PLC0415
+
+        from open_garden_planner.core.commands import (  # noqa: PLC0415
+            EditPestDiseaseCommand,
+        )
+
+        log = self._pest_disease_service.get_log(target_id)
+        for existing in log.records:
+            if existing.id != record_id:
+                continue
+            edited = type(existing)(
+                id=existing.id,
+                date=existing.date,
+                kind=existing.kind,
+                name=existing.name,
+                severity=existing.severity,
+                treatment=existing.treatment,
+                resolved_date=(
+                    _dt.date.today().isoformat() if resolved else None
+                ),
+                photo_base64=existing.photo_base64,
+                notes=existing.notes,
+            )
+            cmd = EditPestDiseaseCommand(self._project_manager, target_id, edited)
+            self.canvas_view.command_manager.execute(cmd)
+            return
 
     def _open_pest_disease_dialog(
         self,

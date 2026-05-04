@@ -12,7 +12,7 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
-from PyQt6.QtCore import QBuffer, QByteArray, QIODevice
+from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, Qt
 from PyQt6.QtGui import QImage, QPixmap
 
 DEFAULT_MAX_EDGE_PX = 1024
@@ -50,13 +50,11 @@ def encode_photo_to_base64(
     width, height = image.width(), image.height()
     longest = max(width, height)
     if longest > max_edge_px:
+        mode = Qt.TransformationMode.SmoothTransformation
         if width >= height:
-            scaled = image.scaledToWidth(
-                max_edge_px,
-                # Smooth transformation matches the QImage default for shrinks.
-            )
+            scaled = image.scaledToWidth(max_edge_px, mode)
         else:
-            scaled = image.scaledToHeight(max_edge_px)
+            scaled = image.scaledToHeight(max_edge_px, mode)
     else:
         scaled = image
 

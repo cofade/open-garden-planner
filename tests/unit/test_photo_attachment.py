@@ -69,3 +69,14 @@ class TestDecodePhotoFromBase64:
     ) -> None:
         pix = decode_photo_from_base64("not-base64!!!")
         assert pix.isNull()
+
+    def test_valid_base64_non_image_returns_empty_pixmap(
+        self, qtbot: object  # noqa: ARG002
+    ) -> None:
+        """Well-formed base64 whose payload is not an image must not crash;
+        ``QPixmap.loadFromData`` returns False and we surface an empty pixmap."""
+        garbage_b64 = base64.b64encode(b"this is plain text, not JPEG bytes").decode(
+            "ascii"
+        )
+        pix = decode_photo_from_base64(garbage_b64)
+        assert pix.isNull()

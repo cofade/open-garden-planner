@@ -4,6 +4,7 @@ All modifications to the canvas are wrapped in commands that can be
 executed, undone, and redone.
 """
 
+import copy
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
@@ -1540,9 +1541,12 @@ class AddPestDiseaseCommand(Command):
         self._target_id = target_id
         self._record = record
         self._PestDiseaseLog = PestDiseaseLog
+        # Deep copy: the snapshot must be independent of the live store so
+        # any future in-place mutation of the inner record dicts cannot
+        # silently corrupt undo (PR review HIGH/MEDIUM finding).
         existing = self._pm.pest_disease_logs.get(target_id)
         self._prior_log_dict: dict[str, Any] | None = (
-            dict(existing) if existing is not None else None
+            copy.deepcopy(existing) if existing is not None else None
         )
 
     @property
@@ -1581,9 +1585,12 @@ class EditPestDiseaseCommand(Command):
         self._target_id = target_id
         self._new_record = new_record
         self._PestDiseaseLog = PestDiseaseLog
+        # Deep copy: the snapshot must be independent of the live store so
+        # any future in-place mutation of the inner record dicts cannot
+        # silently corrupt undo (PR review HIGH/MEDIUM finding).
         existing = self._pm.pest_disease_logs.get(target_id)
         self._prior_log_dict: dict[str, Any] | None = (
-            dict(existing) if existing is not None else None
+            copy.deepcopy(existing) if existing is not None else None
         )
 
     @property
@@ -1621,9 +1628,12 @@ class DeletePestDiseaseCommand(Command):
         self._target_id = target_id
         self._record_id = record_id
         self._PestDiseaseLog = PestDiseaseLog
+        # Deep copy: the snapshot must be independent of the live store so
+        # any future in-place mutation of the inner record dicts cannot
+        # silently corrupt undo (PR review HIGH/MEDIUM finding).
         existing = self._pm.pest_disease_logs.get(target_id)
         self._prior_log_dict: dict[str, Any] | None = (
-            dict(existing) if existing is not None else None
+            copy.deepcopy(existing) if existing is not None else None
         )
 
     @property

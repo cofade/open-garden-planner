@@ -971,6 +971,11 @@ class PlantingCalendarView(QWidget):
     #: Emitted after frost alerts are computed: (alert_count, max_severity).
     #: max_severity is "red", "orange", or "" when there are no alerts.
     frost_alert_ready = pyqtSignal(int, str)
+    #: US-12.7 — emitted when the Dashboard "Done" button is toggled on a
+    #: pest/disease task card. The application owns the command stack and
+    #: routes this through ``EditPestDiseaseCommand`` so resolution is
+    #: undoable. Args: target_id, record_id, resolved (True = mark resolved).
+    pest_disease_resolution_requested = pyqtSignal(str, str, bool)
 
     def __init__(self, canvas_scene: Any, project_manager: Any, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -1277,22 +1282,14 @@ class PlantingCalendarView(QWidget):
     def _on_task_toggled(self, task_id: str, done: bool) -> None:
         """Persist task completion state, then refresh the dashboard.
 
-        ``pest_disease:<target_id>:<record_id>`` tasks are routed to
-        ``PestDiseaseService.update_record`` so "Done" resolves the issue
-        (sets ``resolved_date``) instead of just toggling a planting-task flag.
+        ``pest_disease:<target_id>:<record_id>`` tasks are forwarded to the
+        application via ``pest_disease_resolution_requested`` so "Done" goes
+        through the undo stack via ``EditPestDiseaseCommand`` instead of
+        the planting-task completion store.
         """
-        if task_id.startswith("pest_disease:") and self._pest_disease_service is not None:
+        if task_id.startswith("pest_disease:"):
             _, target_id, record_id = task_id.split(":", 2)
-            log = self._pest_disease_service.get_log(target_id)
-            for r in log.records:
-                if r.id == record_id:
-                    if done and r.resolved_date is None:
-                        r.resolved_date = datetime.date.today().isoformat()
-                    elif not done:
-                        r.resolved_date = None
-                    self._pest_disease_service.update_record(target_id, r)
-                    break
-            self.refresh()
+            self.pest_disease_resolution_requested.emit(target_id, record_id, done)
             return
         if hasattr(self._project_manager, "set_task_completion"):
             self._project_manager.set_task_completion(task_id, done)
