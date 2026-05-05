@@ -7816,6 +7816,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source> (default)</source>
             <translation> (Standard)</translation>
         </message>
+        <message>
+            <source> [Lab]</source>
+            <translation> [Labor]</translation>
+        </message>
     </context>
     <context>
         <name>AmendmentPlanDialog</name>

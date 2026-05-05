@@ -1421,6 +1421,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Delete soil test": "Bodenprobe löschen",
         # F6: default-record badge in History tab
         " (default)": " (Standard)",
+        # F2.10a: Lab-mode badge so users can tell same-date kit/lab rows apart.
+        " [Lab]": " [Labor]",
         "pH": "pH",
         "(no pH)": "(kein pH)",
         "{date} — pH {ph}, N{n} P{p} K{k}":

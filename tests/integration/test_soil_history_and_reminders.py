@@ -211,6 +211,56 @@ class TestSoilTestDialogHistoryTab:
         placeholder = layout.itemAt(0).widget()
         assert isinstance(placeholder, QLabel)
 
+    def test_default_history_only_shown_when_bed_has_no_records(self, qtbot) -> None:
+        """F2.10b: default rows merge into bed history only if bed is untested."""
+        from PyQt6.QtWidgets import QLabel
+
+        default = _history(
+            _record("2026-04-15", ph=6.5),
+            target_id="global",
+        )
+
+        # Untested bed → default rows visible.
+        dialog = SoilTestDialog(
+            target_id="bed-1",
+            target_name="Bed 1",
+            existing_history=None,
+            existing_default_history=default,
+        )
+        qtbot.addWidget(dialog)
+        labels_when_empty: list[str] = []
+        for i in range(dialog._history_records_layout.count()):
+            row = dialog._history_records_layout.itemAt(i).widget()
+            if row is None:
+                continue
+            for child in row.findChildren(QLabel):
+                labels_when_empty.append(child.text())
+                break
+        assert any("(default)" in t.lower() or "(standard)" in t.lower()
+                   for t in labels_when_empty)
+
+        # Tested bed → default rows hidden.
+        bed_history = _history(_record("2026-05-01", ph=5.5), target_id="bed-1")
+        dialog2 = SoilTestDialog(
+            target_id="bed-1",
+            target_name="Bed 1",
+            existing_history=bed_history,
+            existing_default_history=default,
+        )
+        qtbot.addWidget(dialog2)
+        labels_when_tested: list[str] = []
+        for i in range(dialog2._history_records_layout.count()):
+            row = dialog2._history_records_layout.itemAt(i).widget()
+            if row is None:
+                continue
+            for child in row.findChildren(QLabel):
+                labels_when_tested.append(child.text())
+                break
+        # Bed has 1 record, no default rows merged.
+        assert len(labels_when_tested) == 1
+        assert "(default)" not in labels_when_tested[0].lower()
+        assert "(standard)" not in labels_when_tested[0].lower()
+
 
 # ---------------------------------------------------------------------------
 # TestSoilBadgeItem — click signal

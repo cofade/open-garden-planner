@@ -107,10 +107,21 @@ class SoilTestHistory:
 
     @property
     def latest(self) -> SoilTestRecord | None:
-        """Return the most recently dated record, or None if empty."""
+        """Return the most recently dated record, or None if empty.
+
+        When two records share the same ISO date, the *most-recently-appended*
+        one wins (US-12.10/F2.10a). ``max(records, key=date)`` would otherwise
+        return the first-encountered tie, which is the older append — making
+        a freshly-saved Lab-mode record invisible to the dialog reopen flow
+        when a Kit record exists on the same day.
+        """
         if not self.records:
             return None
-        return max(self.records, key=lambda r: r.date)
+        max_date = max(r.date for r in self.records)
+        for r in reversed(self.records):
+            if r.date == max_date:
+                return r
+        return None  # unreachable: max_date came from self.records
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serialisable dict."""

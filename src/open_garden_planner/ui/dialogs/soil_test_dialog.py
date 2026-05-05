@@ -259,13 +259,14 @@ class SoilTestDialog(QDialog):
                 widget.deleteLater()
 
         bed_records = list(history.records) if history is not None else []
-        # F6: merge global-default rows into the chronological list, badged.
-        # Default rows are NOT editable from this dialog (they belong to the
-        # global target); the user must open the default-soil-test dialog to
-        # edit them. Sparklines plot only bed records (locked design).
+        # F6 / F2.10b: the default test only applies until the bed has its own
+        # record. Once the bed is tested, the default is irrelevant — and if
+        # all bed records are later deleted, the default reappears here.
+        # Sparklines always plot bed records only (locked design). Default
+        # rows are NOT editable from this dialog (they belong to "global").
         default_records = (
             list(self._existing_default_history.records)
-            if self._existing_default_history is not None
+            if (self._existing_default_history is not None and not bed_records)
             else []
         )
         merged: list[tuple[SoilTestRecord, bool]] = [
@@ -408,9 +409,15 @@ class SoilTestDialog(QDialog):
         n = str(rec.n_level) if rec.n_level is not None else "—"
         p = str(rec.p_level) if rec.p_level is not None else "—"
         k = str(rec.k_level) if rec.k_level is not None else "—"
-        return self.tr("{date} — pH {ph}, N{n} P{p} K{k}").format(
+        text = self.tr("{date} — pH {ph}, N{n} P{p} K{k}").format(
             date=rec.date or "?", ph=ph, n=n, p=p, k=k
         )
+        # F2.10a: badge Lab-mode records so users can tell them apart from
+        # Kit rows that share the same date — the row formatter above shows
+        # only categorical fields, hiding the ppm values that distinguish them.
+        if rec.mode == "lab":
+            text = text + self.tr(" [Lab]")
+        return text
 
     def _build_kit_panel(self) -> QWidget:
         """Build the Kit-mode panel: categorical comboboxes for N/P/K and Ca/Mg/S."""
