@@ -513,6 +513,10 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
                 painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.drawPolygon(self.polygon())
 
+        # Draw soil mismatch border outside rotation border (US-12.10d)
+        if is_bed_type(self.object_type):
+            self._draw_soil_mismatch_border(painter)
+
     def itemChange(
         self,
         change: QGraphicsItem.GraphicsItemChange,
@@ -819,6 +823,7 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
 
         # Grid toggle for bed types
         toggle_grid_action = None
+        add_soil_test_action = None
         if is_bed_type(self.object_type):
             menu.addSeparator()
             grid_label = (
@@ -827,6 +832,8 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
                 else _("PolygonItem", "Show Grid")
             )
             toggle_grid_action = menu.addAction(grid_label)
+            # US-12.10a: Add soil test entry for beds
+            add_soil_test_action = menu.addAction(_("PolygonItem", "Add soil test…"))
 
         menu.addSeparator()
 
@@ -912,6 +919,12 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             scene = self.scene()
             if scene:
                 scene.selectionChanged.emit()
+        elif action == add_soil_test_action and add_soil_test_action is not None:
+            scene = self.scene()
+            if scene:
+                views = scene.views()
+                if views and hasattr(views[0], "request_soil_test"):
+                    views[0].request_soil_test(str(self.item_id), self.name)
         elif action == delete_action:
             # Delete this item and any other selected items
             scene = self.scene()

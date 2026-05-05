@@ -106,6 +106,11 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
             painter.restore()
         super().paint(painter, option, widget)
 
+        # F9: soil-mismatch border for bed-typed ellipses (US-12.10d).
+        from open_garden_planner.core.object_types import is_bed_type
+        if is_bed_type(self.object_type):
+            self._draw_soil_mismatch_border(painter)
+
     def itemChange(
         self,
         change: QGraphicsItem.GraphicsItemChange,
@@ -239,6 +244,13 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
 
         edit_label_action = menu.addAction(_("EllipseItem", "Edit Label"))
 
+        # US-12.10a: Add soil test entry for bed-typed ellipses
+        from open_garden_planner.core.object_types import is_bed_type
+        add_soil_test_action = None
+        if is_bed_type(self.object_type):
+            menu.addSeparator()
+            add_soil_test_action = menu.addAction(_("EllipseItem", "Add soil test…"))
+
         menu.addSeparator()
 
         move_layer_menu = self._build_move_to_layer_menu(menu)
@@ -289,6 +301,12 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
 
         if action == edit_label_action:
             self.start_label_edit()
+        elif action == add_soil_test_action and add_soil_test_action is not None:
+            scene = self.scene()
+            if scene:
+                views = scene.views()
+                if views and hasattr(views[0], "request_soil_test"):
+                    views[0].request_soil_test(str(self.item_id), self.name)
         elif action == show_area_action:
             self.area_label_visible = not self._area_label_visible
         elif action == delete_action:

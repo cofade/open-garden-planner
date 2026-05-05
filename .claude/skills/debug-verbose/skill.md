@@ -284,3 +284,179 @@ The texture rects were the **painter's clip bounding rect**, not the polygon sha
 **Fix**: Post-process the SVG (`ExportService._fix_svg_qt_texture_clipping`) — pair each non-empty shadow group with the next non-empty texture group in document order, build a `<clipPath>` from the shadow's path (preserving its transform), and wrap the texture group with `clip-path="url(#...)"`. Pairing must be 1:1 in document order with a `used_textures` set; a naive "scan 4000 chars ahead" matched the same texture from multiple shadows and produced overlapping replacements that corrupted the XML tree (mismatched `</g>` tags). Visual validation: render SVG via Edge headless (`scripts/svg_preview.py`) — Qt's QSvgRenderer is too forgiving and hides this class of bug.
 
 **Lesson**: Qt's `QSvgGenerator` is *not* a faithful serializer of painter state. Anything beyond shape + fill + stroke (clip regions, composition modes, painter transforms applied to brush textures) must be recovered in post-processing. When pairing emitted constructs (shadow ↔ texture), walk both lists in lockstep with a `used` set — never use a forward window scan, because Qt emits empty bookkeeping groups that throw off positional heuristics. Always validate SVG output in a real browser, not just QSvgRenderer.
+
+---
+
+## Case study: US-12.10d plant-soil mismatch border never appears (fixed 2026-05-03)
+
+**Symptom**: Tomato in a bed with mismatched soil pH/N/P/K never triggered the amber/red bed border. `SoilService.get_mismatched_plants()` had a perfect implementation and 14 passing integration tests, yet the live app behaviour was silently broken. Manual hover tooltip showed *one* warning ("heavy N feeder") that never changed regardless of which soil parameters the user altered.
+
+**Theories entertained (wrong)**:
+- The 500 ms debounce timer wasn't firing — but the same timer correctly drove the rotation handle hide/show and badge updates.
+- The `_child_item_ids` link from bed to plant was missing — verified, it was set correctly.
+- `is_bed_type` rejecting the rectangle — false, the bed had `ObjectType.GARDEN_BED`.
+- The pH rule had a bug in its boundary comparison — re-read it five times, the logic was right.
+- The plant-data file (`planting_calendar.json`) lacked `n_demand` — true but not load-bearing; the legacy `nutrient_demand="heavy"` mapping covers it via `_effective_demand()`.
+
+**What instrumentation revealed**: A diff between `PlantSpeciesData` dataclass field list and the keys returned by `to_dict()`:
+
+```
+fields:    ..., nutrient_demand, n_demand, p_demand, k_demand, raw_data
+to_dict:   ..., nutrient_demand,                                raw_data    ← three missing
+from_dict: ..., nutrient_demand=...,                            raw_data=...
+```
+
+Three brand-new fields were declared on the dataclass (US-12.10d) but never added to either serialization site. So the live data flow `library → plant_database_panel.set_plant_data() → metadata["plant_species"] = data.to_dict() → ... → PlantSpeciesData.from_dict(metadata["plant_species"])` silently dropped every per-nutrient demand value, leaving `n_demand=p_demand=k_demand=None` on the reconstructed spec. The N rule still fired via the `nutrient_demand="heavy"` legacy fallback in `_effective_demand`, but it now used the *fallback* mapping, not the direct field — and any test that set the direct fields would silently no-op.
+
+**Root cause**: [src/open_garden_planner/models/plant_data.py:165–221](src/open_garden_planner/models/plant_data.py#L165) and [src/open_garden_planner/models/plant_data.py:223–291](src/open_garden_planner/models/plant_data.py#L223) — `to_dict()` and `from_dict()` were not updated when `n_demand`/`p_demand`/`k_demand` were added to the dataclass.
+
+**Fix**: Add the three keys to both serialization sites. Add a regression test [tests/unit/test_plant_data_serialization.py](tests/unit/test_plant_data_serialization.py) that iterates over every `dataclasses.fields(PlantSpeciesData)` and asserts presence in `to_dict()` output, plus a full equality round-trip.
+
+**Lesson**: When adding a field to a dataclass that already has `to_dict`/`from_dict` methods, **immediately grep for the dataclass name in the same file and update both serialization sites** — and write a `dataclasses.fields()`-driven round-trip test. The integration tests passed because they constructed `PlantSpeciesData` instances directly and never round-tripped through dict; the bug only surfaced on the canvas → metadata → canvas data path. **Construct-and-test is not the same as serialize-and-test.** Whenever a dataclass has both code paths, both must be exercised.
+
+---
+
+## Case study: data fields exist on the model but no UI to set them (US-12.10d, fixed 2026-05-03)
+
+**Symptom**: Even after F1 fixed the silent serialization gap (case study above), tomato beds still didn't show pH-mismatch warnings in real use. Manual REPL round-trip of `PlantSpeciesData(n_demand="high", ph_min=5.8)` worked perfectly — the data plumbing was correct. But in the running app, every plant the user dropped had `ph_min=ph_max=n_demand=p_demand=k_demand=None`.
+
+**Theories entertained (wrong)**:
+- The fix didn't actually deploy (it had — `git show df9871e:plant_data.py` confirmed).
+- `merge_calendar_data()` was overwriting the new fields (it wasn't — it only merges calendar fields).
+- The library lookup was returning a stale cached `PlantSpeciesData` (no cache layer exists).
+
+**Key signal from the user**: a screenshot of the plant details panel showing **no row** for pH or NPK demand. The fields existed on the dataclass and round-tripped through dict, but **the UI never showed them**. So the user had no way to set them — every plant arrived with `None` because the bundled data files (\`planting_calendar.json\`) only carry \`nutrient_demand: "heavy"\` and the API doesn't return pH ranges, leaving the new fields permanently empty.
+
+**Root cause**: [src/open_garden_planner/ui/panels/plant_database_panel.py](src/open_garden_planner/ui/panels/plant_database_panel.py) — `_create_editable_fields()` had no rows for `ph_min`, `ph_max`, `n_demand`, `p_demand`, `k_demand`, or `nutrient_demand`. The model exposed the fields; the panel didn't.
+
+**Fix**: Added 5 new form rows (pH range Min/Max, N/P/K demand combos, overall demand combo) between Hardiness and Planted, with read-back in `_on_field_changed` and population in `_show_plant_data`. After any field change the panel calls `view.refresh_soil_mismatches()` so the bed border updates live.
+
+**Lesson**: A serialization round-trip test proves *data flows*, not *user intent flows*. When you add a field to a model, also audit the panel/dialog/forms that read & write that model — a "ghost field" with no UI is worse than no field at all because it gives the appearance of completeness in the data layer while silently making the feature unusable. Concretely: when adding a field to `PlantSpeciesData`, also grep `plant_database_panel.py` for any nearby field of the same model (e.g. `hardiness_zone_min`) — that's the natural place to add the matching UI row.
+
+**Sister issues raised** (deferred to follow-up work, but caught during this debug session):
+- #170 — autoloading from a shipped local species DB on canvas drop (so the new fields actually have values).
+- #171 — past records in the History tab need edit/delete affordances; a typo currently requires deleting the whole bed.
+
+---
+
+## Case study: QGraphicsPolygonItem.shape() is the stroke envelope, not the outline (US-12.10/F2.6a, fixed 2026-05-03)
+
+**Symptom**: After fixing the soil-mismatch border to call `closeSubpath()` on `self.shape()`, all polygon edges were finally painted — but the closing edge was visibly *thinner* than the others.
+
+**Wrong theories**:
+- Anti-aliasing artifact at the closing vertex (no — clearly a different stroke width).
+- `closeSubpath()` not being applied (verified it ran).
+- Pen join style needed `MiterJoin` (didn't fix it).
+
+**Key signal**: visually, the closing segment looked like a *single hairline*, while the other edges were a clean 4 px stroke. That's the signature of stroking a thin-band shape: the outline gets a 4 px stroke but the band itself is < 4 px wide.
+
+**Root cause**: [Qt's `QGraphicsPolygonItem.shape()`](src/open_garden_planner/ui/canvas/items/garden_item.py#L589) does **not** return the polygon's outline. It returns the *stroke envelope* — a closed band path that's the polygon outline expanded by the pen width, intended for hit-testing (so clicking near the edge counts as a hit). Stroking that band's outline produces the observed double-line effect, with the addPolygon-induced open seam reduced to a thin closing line.
+
+**Fix**: When the item has a `polygon()` method (i.e. it *is* a `QGraphicsPolygonItem`), bypass `shape()` entirely and use `painter.drawPolygon(self.polygon())`. That uses the raw vertex list and produces a uniform stroke on every edge with proper miter joins. Rect / circle / ellipse keep the `drawPath(self.shape())` fallback because their `shape()` *does* return a closed outline.
+
+**Lesson**: `QGraphicsItem.shape()` is hit-testing geometry, not drawing geometry. When you need to outline an item, use the item's *primitive* (polygon, rect, ellipse) not its shape. Reach for `painter.drawPolygon`/`drawRect`/`drawEllipse` over `drawPath(self.shape())` whenever you can.
+
+---
+
+## Case study: early `return` inside a paint() branch silently bypasses later draws (US-12.10/F2.6b, fixed 2026-05-03)
+
+**Symptom**: GARDEN_BED rectangles correctly showed soil-mismatch borders. RAISED_BED rectangles never did. Both pass `is_bed_type()`, both have a `_soil_mismatch_level`, both call the same paint hook.
+
+**Wrong theories**:
+- `is_bed_type(RAISED_BED)` returning False (verified true).
+- Pixmap rendering covering the border (no — pen has alpha 220).
+- Selection-handle code stealing focus (irrelevant to paint).
+
+**Key signal**: instrumenting paint() showed the border code at line 317 *never ran* for raised beds. That code is unconditional within `is_bed_type` — so something earlier was returning.
+
+**Root cause**: [rectangle_item.py:290](src/open_garden_planner/ui/canvas/items/rectangle_item.py#L290) — RAISED_BED is rendered as a *furniture pixmap* (the wooden-frame look), and that branch had an early `return` (line 290) at the end of the pixmap block. Every line below that — grid overlay, rotation indicator, *and the soil mismatch border* — was bypassed for raised beds. The original code reviewer of US-12.10d wired the border at line 317 thinking it was reachable for all bed types.
+
+**Fix**: Add a second `_draw_soil_mismatch_border` call *inside* the early-return branch, just before the `return`. Both the pixmap path and the standard path now paint the border.
+
+**Lesson**: When wiring a new draw call into an existing `paint()` method, search the method for *every* `return` statement and confirm each control-flow path reaches your new code. Better: factor reusable post-paint hooks into a method called at every exit point. An early-return inside an `if` block is a classic stale-call site for new features added later.
+
+---
+
+## Case study: outer dialog OK appends a duplicate after sub-dialog edit (US-12.10/F2.6c, fixed 2026-05-03)
+
+**Symptom**: Editing a past soil-test record via the History tab → sub-dialog accepted, history list updated. But after closing and reopening the bed's soil dialog, there were now *two* records: the edited original and a duplicate of the pre-edit values.
+
+**Wrong theories**:
+- `EditSoilTestCommand` was appending instead of replacing (verified by direct unit test — it correctly mutated by id).
+- Race condition in the canvas refresh callback (no — the duplicate was on disk).
+- The user pressed OK on the sub-dialog twice (single press confirmed).
+
+**Key signal**: the *outer* dialog's status bar showed "Soil test recorded" after the user closed the dialog with OK. They thought OK = "save my changes", but the outer dialog's `result_record()` had already been built from the entry tab, which was populated at construction time with the *pre-edit* `existing_latest`. So `AddSoilTestCommand` appended a stale copy.
+
+**Root cause**: [application.py:_open_soil_test_dialog](src/open_garden_planner/app/application.py) unconditionally fired `AddSoilTestCommand` on every accepted dialog, regardless of whether the entry tab actually changed.
+
+**Fix**: Compare `result_record()` to the original `existing` field-by-field (ignoring `id` and `date`); if equal, status-bar "No changes" and skip the command. The user's OK becomes a no-op when they only used History-tab affordances.
+
+**Lesson**: Modal dialogs that mix "view past data + edit current data" hide a state-capture trap: any sub-dialog that mutates the underlying state leaves the outer dialog showing stale form values. Either keep state-mutating actions out of the outer dialog (separate browser/editor flows) or *always* compare-before-commit on accept. Don't trust the user's OK to mean "I want to save the entry tab" if the entry tab was never touched.
+
+---
+
+## Case study: same-zValue items reverse stacking after .ogp save/load (US-12.10/F2.7, fixed 2026-05-03)
+
+**Symptom**: A tomato dropped on a polygon bed rendered correctly during the live session. After saving the project and reopening it, the bed was on top — the tomato was gone (actually still in the scene, just hidden behind the bed).
+
+**Wrong theories**:
+- The plant wasn't being saved (`scene.items()` after load showed it present).
+- The plant's transform was wrong (correct — the dot was just hidden).
+- A z-value field wasn't being persisted in `.ogp` (it isn't, but that's a symptom not the cause).
+
+**Key signal**: in the live session, both bed and plant had `zValue() == 0`. The plant was on top. After load, both still had `zValue() == 0` — but the bed was on top. So the *tie-break* between same-z items had flipped between sessions.
+
+**Root cause**: [canvas_scene.py:_update_items_z_order](src/open_garden_planner/ui/canvas/canvas_scene.py#L649) sets every item's z to `layer.z_order * 100`. Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
+
+**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case at line 658) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
+
+**Lesson**: Identical zValues are a footgun across save/load boundaries because `QGraphicsScene` tie-breaks by *insertion order*, which is **not stable** between live mutation order and JSON-load order. Whenever a parent-child draw relationship matters, encode it explicitly via `parent.zValue() + 1` — never rely on "I inserted them in the right order, it'll just work". Pattern: anywhere `_update_items_z_order` touches multiple item categories, add an explicit ordering pass per parent-child relationship.
+
+---
+
+## Case study: model has display_name(lang) but call sites use .name (US-12.10/F4, fixed 2026-05-03)
+
+**Symptom**: With German locale active, the soil-test dialog's amendments list and the Amendment Plan table both showed substance names in English ("Dolomite lime", "Blood meal") despite the bundled `amendments.json` carrying perfect German `name_de` translations and the `Amendment` dataclass having a `display_name(lang)` helper.
+
+**Root cause**: [`format_amendment_line`](src/open_garden_planner/ui/dialogs/soil_test_dialog.py) and [`AmendmentPlanDialog._populate_table`](src/open_garden_planner/ui/dialogs/amendment_plan_dialog.py) both read `rec.amendment.name` directly — bypassing the localisation helper.
+
+**Lesson**: When you add a localisation helper to a model (`display_name(lang)`), grep every read of the underlying field (`.name`) in the same package and switch them over. A helper added without consumers is dead code that gives a false impression of i18n coverage. Same family of bug as F2 ("ghost field") but at the *call site* instead of the UI layer.
+
+---
+
+## Case study: clipboard format that LOOKS right but fails on paste (US-12.10/F10, fixed 2026-05-03)
+
+**Symptom**: AmendmentPlanDialog → "Copy to clipboard" → paste into LibreOffice / Excel → everything dumped into a single column.
+
+**Root cause**: `_build_clipboard_text` produced human-readable bullet lines (`- Dolomite lime: 10.4 kg (Bed A, Bed B)`). Visually fine on a notepad, but the spreadsheet has no separator to split on.
+
+**Lesson**: "Copy to clipboard" buttons targeting *spreadsheets* must produce **tab-separated** rows with a header row. Always test the receiving application, not just the rendered string. Add a regression test that asserts exact column count via `line.count("\t") == n`.
+
+---
+
+## Case study: max() ties hide newer records of the same date (US-12.10/F2.10a, fixed 2026-05-04)
+
+**Symptom**: User saves a Lab-mode soil test on a bed that already has a Kit-mode record dated the same day. Reopens the dialog → defaults to Kit. The History tab seems to show only one record. The .ogp file does contain a record with `mode: "lab"`, but the dialog can't see it.
+
+**Wrong theories**:
+- `AddSoilTestCommand` silently dropped the record (verified — it appended).
+- `to_dict` wasn't emitting the `mode` field (verified — it did when != "kit").
+- `_records_equivalent` dedup'd it out (mode differs → guard passed).
+- Q-signal ordering issue inside the dialog rebuild after save.
+
+**Key signal**: side-by-side comparison of the .ogp file (which had the lab record) and the dialog state on reopen (`existing_latest.mode == "kit"`). The lab record was on disk but `latest` returned the kit record.
+
+**Root cause**: [models/soil_test.py:113](src/open_garden_planner/models/soil_test.py#L113) — `SoilTestHistory.latest` was implemented as `max(self.records, key=lambda r: r.date)`. Python's `max()` returns the **first** maximal element when keys tie ("If multiple items are maximal, the function returns the first one encountered"). The Kit record was appended first, so it won every same-day tie. Compounded by `_format_history_row` showing only categorical fields — the user couldn't tell two records existed for that date.
+
+**Fix**: Walk `reversed(self.records)` and return the first match for the max date. Plus add a ` [Lab]` / ` [Labor]` suffix to History-tab rows whose `mode == "lab"` so they're visually distinguishable from Kit rows on the same date.
+
+**Lesson**: `max(iterable, key=...)` is **left-biased** on ties. For a "most recently saved record" that uses date as the key, the *first* save with the max date wins — not the last. Whenever the semantic is "newest among items with equal sort keys", either (a) walk the iterable backwards, (b) use a tuple key including a stable secondary sort (insertion index, uuid, monotonic counter), or (c) use `sorted(...)[-1]`. Bonus heuristic: if a sort/aggregation key has limited resolution (a date, not a datetime), assume ties are common and design the tie-break explicitly.
+
+---
+
+## Notes from the same sweep (no separate case study warranted)
+
+- **F2.10b — bed history merge with global default**: a UX-semantics fix. The default test should be the bed's *fallback*, not a permanent overlay. Once a bed is tested, the default vanishes from its history; delete the last bed record and the default reappears. Lesson worth remembering: when implementing a "fallback" relationship, the UI should show the fallback *only when actually applied* — having it always visible obscures whether the bed has its own data.
+
+- **F2.10c — RAISED_BED on circles/ellipses**: pixmap-based rendering doesn't clip to the underlying shape. A round bed with `RAISED_BED` rendered as a square wooden frame. Lesson: when a type carries a fixed-aspect-ratio raster asset (the wooden-frame pixmap), the "valid shapes" list for that type must match the asset's aspect — otherwise the result is incoherent. Drop the option from incompatible shape lists rather than trying to clip the pixmap (which would distort it).

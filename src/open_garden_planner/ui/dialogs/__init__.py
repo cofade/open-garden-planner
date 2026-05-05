@@ -1,5 +1,6 @@
 """Dialog windows for user interactions."""
 
+from open_garden_planner.ui.dialogs.amendment_plan_dialog import AmendmentPlanDialog
 from open_garden_planner.ui.dialogs.calibration_dialog import CalibrationDialog
 from open_garden_planner.ui.dialogs.companion_check_dialog import CompanionCheckDialog
 from open_garden_planner.ui.dialogs.constraint_conflict_dialog import (
@@ -15,9 +16,11 @@ from open_garden_planner.ui.dialogs.print_dialog import GardenPrintManager, Prin
 from open_garden_planner.ui.dialogs.properties_dialog import PropertiesDialog
 from open_garden_planner.ui.dialogs.season_manager_dialog import SeasonManagerDialog
 from open_garden_planner.ui.dialogs.shortcuts_dialog import ShortcutsDialog
+from open_garden_planner.ui.dialogs.soil_test_dialog import SoilTestDialog
 from open_garden_planner.ui.dialogs.welcome_dialog import WelcomeDialog
 
 __all__ = [
+    "AmendmentPlanDialog",
     "CalibrationDialog",
     "CompanionCheckDialog",
     "ConstraintConflictDialog",
@@ -32,5 +35,6 @@ __all__ = [
     "PropertiesDialog",
     "SeasonManagerDialog",
     "ShortcutsDialog",
+    "SoilTestDialog",
     "WelcomeDialog",
 ]

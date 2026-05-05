@@ -7,12 +7,15 @@
 | **arc42** | Template for software architecture documentation (12 sections) |
 | **Canvas** | The main drawing area where garden objects are placed and manipulated |
 | **Canopy Diameter** | The spread/width of a tree or shrub's foliage when viewed from above |
+| **Amendment** | Soil-improving substance (lime, blood meal, compost, etc.) loaded from `resources/data/amendments.json`. Carries application rate (g/m²) and per-fix effect coefficients used by the calculator |
+| **AmendmentRecommendation** | Calculator output for one substance applied to one bed: amendment + grams + rationale (e.g. "Raises pH 5.8 → 6.5") |
 | **Calibration** | The process of marking a known distance on an image to establish metric scale |
 | **Command Pattern** | Design pattern where every modification is wrapped in an object with execute/undo methods |
 | **Garden Bed** | A defined planting area (polygon) that can contain plant objects |
 | **GardenObject** | Base class for all drawable entities on the canvas |
 | **Layer** | A logical grouping of objects for organization and visibility control |
 | **LOD** | Level of Detail — rendering different detail levels at different zoom levels |
+| **NPK** | Macronutrients tracked in soil tests: Nitrogen (N), Phosphorus (P), Potassium (K) |
 | **OGP** | Open Garden Planner (the application) |
 | **.ogp** | Project file format (JSON-based) |
 | **Object Snap** | Automatic snapping of new/moved objects to edges/vertices of existing objects |
@@ -20,7 +23,10 @@
 | **Polyline** | A connected series of line segments (open path) used for fences, paths, walls |
 | **QGraphicsScene** | Qt class that manages all 2D items on the canvas |
 | **QGraphicsView** | Qt class that provides the viewport/widget for displaying the scene |
+| **Rapitest scale** | Categorical NPK / Ca-Mg-S labels (Depleted/Deficient/Adequate/Sufficient/Surplus and Low/Medium/High) used by consumer soil test kits and stored on `SoilTestRecord` |
 | **Scene Coordinates** | Real-world metric coordinates used internally (centimeters) |
+| **SoilTestRecord** | Single soil test entry: date, pH, NPK levels, secondary nutrients, optional ppm values, notes |
+| **SoilTestHistory** | Time-ordered list of `SoilTestRecord`s for one target (a bed UUID or `"global"` default) |
 | **Screen Coordinates** | Pixel coordinates on the display; converted via QGraphicsView transform |
 | **SVG** | Scalable Vector Graphics — vector image format used for icons and plant illustrations |
 | **Tileable Texture** | A small image that can be seamlessly repeated to fill any area |

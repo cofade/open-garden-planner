@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
+    QComboBox,
     QFileDialog,
     QLabel,
     QMainWindow,
@@ -16,6 +17,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QSplitter,
     QTabWidget,
+    QToolBar,
     QVBoxLayout,
     QWidget,
 )
@@ -34,6 +36,15 @@ from open_garden_planner.services.companion_planting_service import (
     CompanionPlantingService,
 )
 from open_garden_planner.services.export_service import ExportService
+from open_garden_planner.services.soil_service import (
+    ALL_PARAMS,
+    PARAM_K,
+    PARAM_N,
+    PARAM_OVERALL,
+    PARAM_P,
+    PARAM_PH,
+    SoilService,
+)
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.panels import (
@@ -57,6 +68,27 @@ from open_garden_planner.ui.widgets import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _records_equivalent(a: object, b: object) -> bool:
+    """True iff two SoilTestRecord instances match field-by-field, ignoring id and date.
+
+    Used by ``_open_soil_test_dialog`` (F12 / F2.6c) to skip ``AddSoilTestCommand``
+    when the user clicks OK without changing the entry tab — common after using
+    Edit-via-History, which already committed the change via ``EditSoilTestCommand``.
+    """
+    if a is None or b is None:
+        return False
+    fields = (
+        "ph",
+        "n_level", "p_level", "k_level",
+        "ca_level", "mg_level", "s_level",
+        "n_ppm", "p_ppm", "k_ppm",
+        "ca_ppm", "mg_ppm", "s_ppm",
+        "notes",
+        "mode",
+    )
+    return all(getattr(a, f, None) == getattr(b, f, None) for f in fields)
 
 
 class GardenPlannerApp(QMainWindow):
@@ -124,6 +156,10 @@ class GardenPlannerApp(QMainWindow):
         # Plants menu
         plants_menu = menubar.addMenu(self.tr("&Plants"))
         self._setup_plants_menu(plants_menu)
+
+        # Garden menu (US-12.10a — soil tests; expanded in 12.10b–e)
+        garden_menu = menubar.addMenu(self.tr("&Garden"))
+        self._setup_garden_menu(garden_menu)
 
         # Help menu
         help_menu = menubar.addMenu(self.tr("&Help"))
@@ -523,6 +559,17 @@ class GardenPlannerApp(QMainWindow):
         self._spacing_circles_action.triggered.connect(self._on_toggle_spacing_circles)
         menu.addAction(self._spacing_circles_action)
 
+        # Toggle Soil Health Overlay (US-12.10b)
+        self._soil_overlay_action = QAction(self.tr("Soil &Health Overlay"), self)
+        self._soil_overlay_action.setShortcut(QKeySequence("Ctrl+Shift+H"))
+        self._soil_overlay_action.setCheckable(True)
+        self._soil_overlay_action.setChecked(False)
+        self._soil_overlay_action.setStatusTip(
+            self.tr("Tint beds by soil-health rating (excluded from exports)")
+        )
+        self._soil_overlay_action.triggered.connect(self._on_toggle_soil_overlay)
+        menu.addAction(self._soil_overlay_action)
+
         # Toggle Minimap (US-11.7)
         self._minimap_action = QAction(self.tr("Show &Minimap"), self)
         self._minimap_action.setCheckable(True)
@@ -627,6 +674,25 @@ class GardenPlannerApp(QMainWindow):
         check_companion_action.triggered.connect(self._on_check_companion_planting)
         menu.addAction(check_companion_action)
 
+    def _setup_garden_menu(self, menu: QMenu) -> None:
+        """Set up the Garden menu actions (US-12.10a — soil)."""
+        # Set default soil test (project-wide fallback when a bed has no own test)
+        default_soil_action = QAction(self.tr("&Set default soil test…"), self)
+        default_soil_action.setStatusTip(
+            self.tr("Set a project-wide soil test used when individual beds have none")
+        )
+        default_soil_action.triggered.connect(self._on_set_default_soil_test)
+        menu.addAction(default_soil_action)
+
+        # Amendment plan (US-12.10c) — aggregated cross-bed shopping list.
+        menu.addSeparator()
+        amendment_plan_action = QAction(self.tr("&Amendment Plan…"), self)
+        amendment_plan_action.setStatusTip(
+            self.tr("View amendment recommendations for deficient beds")
+        )
+        amendment_plan_action.triggered.connect(self._on_amendment_plan)
+        menu.addAction(amendment_plan_action)
+
     def _setup_help_menu(self, menu: QMenu) -> None:
         """Set up the Help menu actions."""
         # Keyboard Shortcuts
@@ -708,6 +774,13 @@ class GardenPlannerApp(QMainWindow):
         self._companion_warnings_enabled = True
         self._companion_radius_cm = 200.0  # 2 m default
 
+        # ── Soil service (US-12.10a/b/d) — long-lived, shared by overlay & dialog ──
+        self._soil_service = SoilService(self._project_manager)
+        self.canvas_view.set_soil_service(self._soil_service)
+
+        # Soil overlay parameter toolbar (US-12.10b) — hidden until overlay on.
+        self._setup_soil_overlay_toolbar()
+
         # ── Crop rotation service (US-10.6) ──────────────────────────────────
         from open_garden_planner.services.crop_rotation_service import CropRotationService
 
@@ -743,6 +816,12 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_view.tool_changed.connect(self._sync_toolbar_state)
         self.canvas_view.import_background_image_requested.connect(
             self._on_import_background_image
+        )
+        # US-12.10a: bed → "Add soil test…" routes through CanvasView
+        self.canvas_view.soil_test_requested.connect(self._on_soil_test_requested)
+        # US-12.10e: bed top-right reminder badge → open dialog for that bed
+        self.canvas_view.soil_test_badge_clicked.connect(
+            self._on_soil_test_badge_clicked
         )
 
         # Connect scene selection changes to status bar and panels
@@ -812,6 +891,7 @@ class GardenPlannerApp(QMainWindow):
 
         # Tab 1: Planting Calendar (US-8.5)
         self.calendar_view = PlantingCalendarView(self.canvas_scene, self._project_manager)
+        self.calendar_view.set_soil_service(self._soil_service)
         self._tab_widget.addTab(self.calendar_view, self.tr("Planting Calendar"))
 
         # Tab 2: Seed Inventory (US-9.4)
@@ -2027,6 +2107,44 @@ class GardenPlannerApp(QMainWindow):
         """Handle toggle minimap action."""
         self._minimap.set_visible(checked)
 
+    def _setup_soil_overlay_toolbar(self) -> None:
+        """Build the parameter-picker toolbar for the soil overlay (US-12.10b).
+
+        The toolbar is visible only while the overlay is active so it doesn't
+        clutter the UI for users who don't track soil tests.
+        """
+        self.soil_overlay_toolbar = QToolBar(self.tr("Soil Overlay"), self)
+        self.soil_overlay_toolbar.setObjectName("soil_overlay_toolbar")
+        self.soil_overlay_toolbar.setMovable(False)
+        self.soil_overlay_toolbar.addWidget(QLabel(self.tr("Soil parameter:") + " "))
+        self._soil_param_combo = QComboBox(self.soil_overlay_toolbar)
+        # (display label, parameter key) — labels translated via self.tr.
+        for key, label in (
+            (PARAM_OVERALL, self.tr("Overall")),
+            (PARAM_PH, self.tr("pH")),
+            (PARAM_N, self.tr("Nitrogen (N)")),
+            (PARAM_P, self.tr("Phosphorus (P)")),
+            (PARAM_K, self.tr("Potassium (K)")),
+        ):
+            self._soil_param_combo.addItem(label, key)
+        self._soil_param_combo.currentIndexChanged.connect(
+            self._on_soil_overlay_param_changed
+        )
+        self.soil_overlay_toolbar.addWidget(self._soil_param_combo)
+        self.addToolBar(self.soil_overlay_toolbar)
+        self.soil_overlay_toolbar.setVisible(False)
+
+    def _on_toggle_soil_overlay(self, checked: bool) -> None:
+        """Show/hide the soil-health overlay and its parameter toolbar."""
+        self.canvas_view.set_soil_overlay_visible(checked)
+        self.soil_overlay_toolbar.setVisible(checked)
+
+    def _on_soil_overlay_param_changed(self, index: int) -> None:
+        """Forward combo changes to the canvas view."""
+        key = self._soil_param_combo.itemData(index)
+        if isinstance(key, str) and key in ALL_PARAMS:
+            self.canvas_view.set_soil_overlay_param(key)
+
     def _on_toggle_find_replace(self) -> None:
         """Toggle Find & Replace panel visibility."""
         self._find_panel.refresh_combos()
@@ -2342,6 +2460,10 @@ class GardenPlannerApp(QMainWindow):
         self.statusBar().hide()
         self.main_toolbar.hide()
         self.sidebar.hide()
+        self._pre_preview_state["soil_overlay_toolbar_visible"] = (
+            self.soil_overlay_toolbar.isVisible()
+        )
+        self.soil_overlay_toolbar.hide()
 
         # Hide canvas overlays
         self.canvas_view.set_grid_visible(False)
@@ -2368,6 +2490,8 @@ class GardenPlannerApp(QMainWindow):
         self.statusBar().show()
         self.main_toolbar.show()
         self.sidebar.show()
+        if (self._pre_preview_state or {}).get("soil_overlay_toolbar_visible"):
+            self.soil_overlay_toolbar.show()
 
         # Restore canvas overlays from saved state
         state = self._pre_preview_state or {}
@@ -2982,6 +3106,135 @@ class GardenPlannerApp(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._project_manager.set_location(dialog.location_data)
             self.statusBar().showMessage(self.tr("Garden location updated"), 3000)
+
+    def _on_soil_test_requested(self, target_id: str, display_name: str) -> None:
+        """Open SoilTestDialog for a bed (US-12.10a)."""
+        self._open_soil_test_dialog(target_id, display_name)
+
+    def _on_set_default_soil_test(self) -> None:
+        """Open SoilTestDialog for the project-wide default (US-12.10a)."""
+        self._open_soil_test_dialog("global", "")
+
+    def _on_soil_test_badge_clicked(self, bed_id: str) -> None:
+        """Open SoilTestDialog when the seasonal reminder badge is clicked (US-12.10e)."""
+        self._open_soil_test_dialog(bed_id, self._lookup_bed_display_name(bed_id))
+
+    def _lookup_bed_display_name(self, bed_id: str) -> str:
+        """Return the bed's name for the dialog title, or empty string if not found."""
+        from open_garden_planner.core.object_types import is_bed_type  # noqa: PLC0415
+
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None) or self.canvas_view.scene()
+        )
+        if scene is None:
+            return ""
+        for item in scene.items():
+            if not is_bed_type(getattr(item, "object_type", None)):
+                continue
+            if str(getattr(item, "item_id", "")) != bed_id:
+                continue
+            return getattr(item, "name", "") or ""
+        return ""
+
+    def _open_soil_test_dialog(self, target_id: str, display_name: str) -> None:
+        """Open the soil test dialog and execute AddSoilTestCommand on accept."""
+        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+
+        from open_garden_planner.core import AddSoilTestCommand  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs import SoilTestDialog  # noqa: PLC0415
+
+        history = self._soil_service.get_history(target_id)
+        existing = history.latest
+        bed_area_m2 = (
+            self._lookup_bed_area_m2(target_id) if target_id != "global" else 0.0
+        )
+        # F6: when this dialog is for a bed (not the global target), pass the
+        # global-default history so the History tab can merge those rows in
+        # chronologically with a "(default)" badge.
+        default_history = (
+            None
+            if target_id == "global"
+            else self._soil_service.get_history("global")
+        )
+
+        dialog = SoilTestDialog(
+            parent=self,
+            target_id=target_id,
+            target_name=display_name,
+            existing_latest=existing,
+            existing_history=history,
+            existing_default_history=default_history,
+            bed_area_m2=bed_area_m2,
+            project_manager=self._project_manager,
+            command_manager=self.canvas_view.command_manager,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        record = dialog.result_record()
+        # Duplicate guard (F12 / F2.6c): if the user clicked OK without
+        # changing anything (common after Edit-via-History), don't append a
+        # stale copy of `existing`. Re-read the latest record AFTER the dialog
+        # closed because the user may have edited or deleted records via the
+        # History tab (issue #171); the constructor-time `existing` could be
+        # stale or even point at a deleted record.
+        latest_after = self._soil_service.get_history(target_id).latest
+        if latest_after is not None and _records_equivalent(record, latest_after):
+            self.statusBar().showMessage(self.tr("No changes"), 3000)
+            return
+        cmd = AddSoilTestCommand(self._project_manager, target_id, record)
+        self.canvas_view.command_manager.execute(cmd)
+        self.statusBar().showMessage(self.tr("Soil test recorded"), 3000)
+        # Refresh the soil overlay if it's currently visible.
+        if self.canvas_view.soil_overlay_visible:
+            self.canvas_view.viewport().update()
+        # Recompute mismatch borders and dashboard cards (US-12.10d).
+        self.canvas_view.refresh_soil_mismatches()
+        # Recompute seasonal reminder badges (US-12.10e).
+        self.canvas_view.refresh_soil_badges()
+        self.calendar_view.refresh()
+
+    def _lookup_bed_area_m2(self, target_id: str) -> float:
+        """Return the area of the bed identified by ``target_id`` in m².
+
+        Returns 0.0 when the bed is not found, when its shape isn't supported by
+        ``calculate_area_and_perimeter`` (e.g. EllipseItem — pre-existing gap),
+        or when the canvas scene isn't available.
+        """
+        from open_garden_planner.core.measurements import (  # noqa: PLC0415
+            calculate_area_and_perimeter,
+        )
+        from open_garden_planner.core.object_types import is_bed_type  # noqa: PLC0415
+
+        scene = getattr(self.canvas_view, "_canvas_scene", None) or self.canvas_view.scene()
+        if scene is None:
+            return 0.0
+        for item in scene.items():
+            if not is_bed_type(getattr(item, "object_type", None)):
+                continue
+            if str(getattr(item, "item_id", "")) != target_id:
+                continue
+            result = calculate_area_and_perimeter(item)
+            if result is None:
+                return 0.0
+            area_cm2, _ = result
+            return area_cm2 / 10_000.0
+        return 0.0
+
+    def _on_amendment_plan(self) -> None:
+        """Open the cross-bed Amendment Plan dialog (US-12.10c)."""
+        from open_garden_planner.ui.dialogs import AmendmentPlanDialog  # noqa: PLC0415
+
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None)
+            or self.canvas_view.scene()
+        )
+        dialog = AmendmentPlanDialog(
+            parent=self,
+            canvas_scene=scene,
+            soil_service=self._soil_service,
+        )
+        dialog.exec()
 
     def _on_location_changed(self, location: object) -> None:
         """Update the location label in the status bar."""

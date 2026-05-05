@@ -502,6 +502,66 @@ class PlantDatabasePanel(QWidget):
 
         self.details_form.addRow(self.tr("Hardiness:"), hardiness_layout)
 
+        # === SOIL REQUIREMENTS (US-12.10d) ===
+        # pH window — used by SoilService.get_mismatched_plants to decide whether
+        # the bed's soil pH is acceptable for this plant. Empty (0.0) = unknown.
+
+        ph_layout = QHBoxLayout()
+        ph_layout.setSpacing(4)
+        ph_layout.addWidget(QLabel(self.tr("Min:")))
+        self.ph_min_spin = QDoubleSpinBox()
+        self.ph_min_spin.setRange(0.0, 14.0)
+        self.ph_min_spin.setSingleStep(0.1)
+        self.ph_min_spin.setDecimals(1)
+        self.ph_min_spin.setSpecialValueText("")  # Empty when 0.0 (= unknown)
+        self.ph_min_spin.setMinimumWidth(60)
+        self.ph_min_spin.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        self.ph_min_spin.valueChanged.connect(self._on_field_changed)
+        ph_layout.addWidget(self.ph_min_spin, 1)
+
+        ph_layout.addWidget(QLabel(self.tr("Max:")))
+        self.ph_max_spin = QDoubleSpinBox()
+        self.ph_max_spin.setRange(0.0, 14.0)
+        self.ph_max_spin.setSingleStep(0.1)
+        self.ph_max_spin.setDecimals(1)
+        self.ph_max_spin.setSpecialValueText("")
+        self.ph_max_spin.setMinimumWidth(60)
+        self.ph_max_spin.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        self.ph_max_spin.valueChanged.connect(self._on_field_changed)
+        ph_layout.addWidget(self.ph_max_spin, 1)
+
+        self.details_form.addRow(self.tr("pH range:"), ph_layout)
+
+        # Per-nutrient demand (US-12.10d). Each combo's userData carries the
+        # canonical string ("high"/"medium"/"low"/"fixer") or None for unknown.
+        self.n_demand_combo = self._make_demand_combo()
+        self.details_form.addRow(self.tr("N demand:"), self.n_demand_combo)
+        self.p_demand_combo = self._make_demand_combo()
+        self.details_form.addRow(self.tr("P demand:"), self.p_demand_combo)
+        self.k_demand_combo = self._make_demand_combo()
+        self.details_form.addRow(self.tr("K demand:"), self.k_demand_combo)
+
+        # Legacy combined demand (US-10.5) — kept for crop rotation. When the
+        # individual N/P/K demands are unset, get_mismatched_plants falls back
+        # to this value via _effective_demand("heavy"→all-high, etc.).
+        self.nutrient_demand_combo = QComboBox()
+        for label_key, value in (
+            (self.tr("—"), None),
+            (self.tr("Heavy feeder"), "heavy"),
+            (self.tr("Medium feeder"), "medium"),
+            (self.tr("Light feeder"), "light"),
+            (self.tr("Fixer (legume)"), "fixer"),
+        ):
+            self.nutrient_demand_combo.addItem(label_key, value)
+        self.nutrient_demand_combo.currentIndexChanged.connect(self._on_field_changed)
+        self.details_form.addRow(
+            self.tr("Overall demand:"), self.nutrient_demand_combo
+        )
+
         # === PLANTING INFO ===
 
         # Planting Date with age display (instance-specific)
@@ -567,6 +627,32 @@ class PlantDatabasePanel(QWidget):
 
         self.details_form.addRow(self.tr("Seed Packet:"), seed_link_widget)
 
+    def _make_demand_combo(self) -> QComboBox:
+        """Build a NPK-demand combobox (US-12.10d)."""
+        combo = QComboBox()
+        for label, value in (
+            (self.tr("—"), None),
+            (self.tr("High"), "high"),
+            (self.tr("Medium"), "medium"),
+            (self.tr("Low"), "low"),
+            (self.tr("Fixer"), "fixer"),
+        ):
+            combo.addItem(label, value)
+        combo.currentIndexChanged.connect(self._on_field_changed)
+        return combo
+
+    @staticmethod
+    def _set_combo_data(combo: QComboBox, value: object) -> None:
+        """Select the combo entry whose userData matches ``value`` (None-safe)."""
+        combo.blockSignals(True)
+        for idx in range(combo.count()):
+            if combo.itemData(idx) == value:
+                combo.setCurrentIndex(idx)
+                break
+        else:
+            combo.setCurrentIndex(0)  # Fall back to "—"
+        combo.blockSignals(False)
+
     def _on_field_changed(self) -> None:
         """Handle field value changes - update plant metadata."""
         if not self._current_plant_item or not self._current_plant_data:
@@ -629,6 +715,18 @@ class PlantDatabasePanel(QWidget):
         else:
             self._current_plant_data.edible_parts = []
 
+        # Soil requirements (US-12.10d)
+        ph_min_val = self.ph_min_spin.value()
+        self._current_plant_data.ph_min = ph_min_val if ph_min_val > 0.0 else None
+        ph_max_val = self.ph_max_spin.value()
+        self._current_plant_data.ph_max = ph_max_val if ph_max_val > 0.0 else None
+        self._current_plant_data.n_demand = self.n_demand_combo.currentData()
+        self._current_plant_data.p_demand = self.p_demand_combo.currentData()
+        self._current_plant_data.k_demand = self.k_demand_combo.currentData()
+        self._current_plant_data.nutrient_demand = (
+            self.nutrient_demand_combo.currentData()
+        )
+
         # Save back to item metadata and custom library
         if hasattr(self._current_plant_item, "metadata"):
             if not self._current_plant_item.metadata:
@@ -652,7 +750,7 @@ class PlantDatabasePanel(QWidget):
                 self._current_plant_data.to_dict()
             )
 
-            # Mark project as dirty
+            # Mark project as dirty + refresh soil-mismatch borders (US-12.10d)
             scene = self._current_plant_item.scene()
             if scene and hasattr(scene, "views"):
                 for view in scene.views():
@@ -660,7 +758,8 @@ class PlantDatabasePanel(QWidget):
                         window = view.window()
                         if hasattr(window, "_project_manager"):
                             window._project_manager.mark_dirty()
-                            break
+                    if hasattr(view, "refresh_soil_mismatches"):
+                        view.refresh_soil_mismatches()
 
     def _on_instance_field_changed(self) -> None:
         """Handle variety field change."""
@@ -1162,6 +1261,18 @@ class PlantDatabasePanel(QWidget):
         self.hardiness_max_spin.blockSignals(True)
         self.hardiness_max_spin.setValue(plant_data.hardiness_zone_max or 0)
         self.hardiness_max_spin.blockSignals(False)
+
+        # Soil requirements (US-12.10d)
+        self.ph_min_spin.blockSignals(True)
+        self.ph_min_spin.setValue(plant_data.ph_min or 0.0)
+        self.ph_min_spin.blockSignals(False)
+        self.ph_max_spin.blockSignals(True)
+        self.ph_max_spin.setValue(plant_data.ph_max or 0.0)
+        self.ph_max_spin.blockSignals(False)
+        self._set_combo_data(self.n_demand_combo, plant_data.n_demand)
+        self._set_combo_data(self.p_demand_combo, plant_data.p_demand)
+        self._set_combo_data(self.k_demand_combo, plant_data.k_demand)
+        self._set_combo_data(self.nutrient_demand_combo, plant_data.nutrient_demand)
 
         # === PLANT INSTANCE FIELDS ===
 

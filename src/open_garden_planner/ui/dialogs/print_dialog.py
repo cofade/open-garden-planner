@@ -328,6 +328,13 @@ class GardenPrintManager:
         # Clear selection to avoid printing selection handles
         scene.clearSelection()
 
+        # Hide persistent overlay items (soil reminder badges, etc.) that
+        # don't disappear via clearSelection. Selection-tied handles are
+        # already gone after the clearSelection above. (US-12.10/F7).
+        from open_garden_planner.services.export_service import ExportService
+
+        self._saved_overlay, _ignored = ExportService._hide_overlay_items(scene)
+
     def _restore_scene_after_print(self) -> None:
         """Restore the scene state after printing."""
         scene = self._scene
@@ -340,6 +347,12 @@ class GardenPrintManager:
         for item in self._saved_bg_clips:
             item.setVisible(True)
         self._saved_bg_clips = []
+
+        # Restore overlay items hidden by _prepare_scene_for_print.
+        from open_garden_planner.services.export_service import ExportService
+
+        ExportService._restore_overlay_items(getattr(self, "_saved_overlay", []), [])
+        self._saved_overlay = []
 
     def _render_fit_to_page(
         self,

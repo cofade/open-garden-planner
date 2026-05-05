@@ -20,7 +20,7 @@ from open_garden_planner.core.object_types import PathFenceStyle, StrokeStyle
 from open_garden_planner.models.layer import Layer, create_default_layers
 
 # File format version for backward compatibility
-FILE_VERSION = "1.2"
+FILE_VERSION = "1.3"
 
 
 @dataclass
@@ -45,6 +45,9 @@ class ProjectData:
     season_year: int | None = None
     # List of dicts: {"year": int, "file": "relative/or/absolute/path.ogp"}
     linked_seasons: list[dict[str, Any]] = field(default_factory=list)
+    # US-12.10a: per-bed (and "global" default) soil test history
+    # shape: {target_id: SoilTestHistory.to_dict()} where target_id is bed UUID or "global"
+    soil_tests: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -78,6 +81,8 @@ class ProjectData:
             data["season_year"] = self.season_year
         if self.linked_seasons:
             data["linked_seasons"] = self.linked_seasons
+        if self.soil_tests:
+            data["soil_tests"] = self.soil_tests
         return data
 
     @classmethod
@@ -98,6 +103,7 @@ class ProjectData:
             crop_rotation=data.get("crop_rotation", {}),
             season_year=data.get("season_year"),
             linked_seasons=data.get("linked_seasons", []),
+            soil_tests=data.get("soil_tests", {}),
         )
 
 
@@ -117,6 +123,7 @@ class ProjectManager(QObject):
     propagation_overrides_changed = pyqtSignal(object)  # dict
     crop_rotation_changed = pyqtSignal(object)  # dict
     season_changed = pyqtSignal(object)  # int year or None
+    soil_tests_changed = pyqtSignal(object)  # dict[str, dict]
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -130,6 +137,7 @@ class ProjectManager(QObject):
         self._crop_rotation: dict[str, Any] = {}
         self._season_year: int | None = None
         self._linked_seasons: list[dict[str, Any]] = []
+        self._soil_tests: dict[str, Any] = {}
 
     @property
     def current_file(self) -> Path | None:
@@ -244,6 +252,35 @@ class ProjectManager(QObject):
         self.season_changed.emit(year)
         self.mark_dirty()
 
+    @property
+    def soil_tests(self) -> dict[str, Any]:
+        """Per-target soil test history dicts (target_id -> SoilTestHistory dict)."""
+        return dict(self._soil_tests)
+
+    def set_soil_test_history(self, target_id: str, history: Any) -> None:
+        """Replace the soil test history for ``target_id`` and mark project dirty.
+
+        Args:
+            target_id: Bed UUID string or the literal ``"global"``.
+            history: SoilTestHistory instance (uses its ``to_dict``).
+        """
+        self._soil_tests[target_id] = history.to_dict()
+        self.soil_tests_changed.emit(self._soil_tests)
+        self.mark_dirty()
+
+    def restore_soil_test_history(self, target_id: str, history_dict: dict[str, Any] | None) -> None:
+        """Restore (or delete) the soil test history for ``target_id``.
+
+        Used by undo/redo to revert to a previous snapshot. Marks dirty but
+        does not require a SoilTestHistory instance.
+        """
+        if history_dict is None:
+            self._soil_tests.pop(target_id, None)
+        else:
+            self._soil_tests[target_id] = history_dict
+        self.soil_tests_changed.emit(self._soil_tests)
+        self.mark_dirty()
+
     def set_location(self, location: dict[str, Any] | None) -> None:
         """Set the garden location and mark project as dirty.
 
@@ -278,6 +315,7 @@ class ProjectManager(QObject):
         self._crop_rotation = {}
         self._season_year = None
         self._linked_seasons = []
+        self._soil_tests = {}
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
@@ -286,6 +324,7 @@ class ProjectManager(QObject):
         self.propagation_overrides_changed.emit({})
         self.crop_rotation_changed.emit({})
         self.season_changed.emit(None)
+        self.soil_tests_changed.emit({})
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -302,6 +341,7 @@ class ProjectManager(QObject):
         data.crop_rotation = dict(self._crop_rotation)
         data.season_year = self._season_year
         data.linked_seasons = list(self._linked_seasons)
+        data.soil_tests = dict(self._soil_tests)
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -346,6 +386,9 @@ class ProjectManager(QObject):
         self._season_year = data.season_year
         self._linked_seasons = list(data.linked_seasons)
         self.season_changed.emit(self._season_year)
+        # Restore soil test history (US-12.10a)
+        self._soil_tests = dict(data.soil_tests)
+        self.soil_tests_changed.emit(self._soil_tests)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)
@@ -383,6 +426,7 @@ class ProjectManager(QObject):
         current_data.seed_inventory = list(self._seed_inventory)
         current_data.propagation_overrides = dict(self._propagation_overrides)
         current_data.crop_rotation = dict(self._crop_rotation)
+        current_data.soil_tests = dict(self._soil_tests)
 
         # Filter objects based on keep_plants flag
         if not keep_plants:

@@ -9,7 +9,12 @@ from open_garden_planner.core.measurements import (
     format_area,
     format_length,
 )
-from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
+from open_garden_planner.ui.canvas.items import (
+    CircleItem,
+    EllipseItem,
+    PolygonItem,
+    RectangleItem,
+)
 
 
 def test_rectangle_measurements(qtbot):
@@ -153,3 +158,24 @@ def test_clockwise_polygon_measurements(qtbot):
 
     assert abs(area_cw - 10000) < 0.01
     assert abs(area_ccw - 10000) < 0.01
+
+
+def test_ellipse_area_uses_pi_a_b(qtbot):
+    """F9: ellipse with semi-axes (50, 30) → area π·50·30."""
+    ellipse = EllipseItem(0, 0, 100, 60)
+    result = calculate_area_and_perimeter(ellipse)
+    assert result is not None
+    area, perimeter = result
+    expected_area = math.pi * 50 * 30
+    assert abs(area - expected_area) < 0.01
+    # Ramanujan's approximation — accept ±0.5 cm slack vs the exact ellipse
+    # integral, which would require elliptic-integral solver.
+    assert 250 < perimeter < 260
+
+
+def test_ellipse_circle_special_case(qtbot):
+    """An ellipse with equal semi-axes is a circle: area = π·r², perimeter = 2π·r."""
+    ellipse = EllipseItem(0, 0, 200, 200)  # r = 100 in both axes
+    area, perimeter = calculate_area_and_perimeter(ellipse)  # type: ignore[misc]
+    assert abs(area - math.pi * 100 * 100) < 0.01
+    assert abs(perimeter - 2 * math.pi * 100) < 0.5
