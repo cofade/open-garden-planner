@@ -3174,8 +3174,12 @@ class GardenPlannerApp(QMainWindow):
         record = dialog.result_record()
         # Duplicate guard (F12 / F2.6c): if the user clicked OK without
         # changing anything (common after Edit-via-History), don't append a
-        # stale copy of `existing`. Compare every field except id and date.
-        if existing is not None and _records_equivalent(record, existing):
+        # stale copy of `existing`. Re-read the latest record AFTER the dialog
+        # closed because the user may have edited or deleted records via the
+        # History tab (issue #171); the constructor-time `existing` could be
+        # stale or even point at a deleted record.
+        latest_after = self._soil_service.get_history(target_id).latest
+        if latest_after is not None and _records_equivalent(record, latest_after):
             self.statusBar().showMessage(self.tr("No changes"), 3000)
             return
         cmd = AddSoilTestCommand(self._project_manager, target_id, record)

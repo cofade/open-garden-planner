@@ -1440,6 +1440,21 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Bodenprobe überfällig — zum Eintragen klicken",
     },
 
+    # ── SoilService — plant-soil mismatch tooltip reasons (US-12.10d) ──
+    "SoilService": {
+        "Plant": "Pflanze",
+        "{name} needs pH ≥{min:.1f}, current {cur:.1f}":
+            "{name} braucht pH ≥{min:.1f}, aktuell {cur:.1f}",
+        "{name} needs pH ≤{max:.1f}, current {cur:.1f}":
+            "{name} braucht pH ≤{max:.1f}, aktuell {cur:.1f}",
+        "{name} is a heavy N feeder (current level: {lvl})":
+            "{name} ist ein N-Starkzehrer (aktueller Wert: {lvl})",
+        "{name} is a heavy P feeder (current level: {lvl})":
+            "{name} ist ein P-Starkzehrer (aktueller Wert: {lvl})",
+        "{name} is a heavy K feeder (current level: {lvl})":
+            "{name} ist ein K-Starkzehrer (aktueller Wert: {lvl})",
+    },
+
     # ── AmendmentPlanDialog (US-12.10c) ──
     "AmendmentPlanDialog": {
         "Amendment Plan": "Bodenverbesserungs-Plan",

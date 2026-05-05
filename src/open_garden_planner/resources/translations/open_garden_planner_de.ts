@@ -7878,4 +7878,31 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Bodenprobe überfällig — zum Eintragen klicken</translation>
         </message>
     </context>
+    <context>
+        <name>SoilService</name>
+        <message>
+            <source>Plant</source>
+            <translation>Pflanze</translation>
+        </message>
+        <message>
+            <source>{name} needs pH ≥{min:.1f}, current {cur:.1f}</source>
+            <translation>{name} braucht pH ≥{min:.1f}, aktuell {cur:.1f}</translation>
+        </message>
+        <message>
+            <source>{name} needs pH ≤{max:.1f}, current {cur:.1f}</source>
+            <translation>{name} braucht pH ≤{max:.1f}, aktuell {cur:.1f}</translation>
+        </message>
+        <message>
+            <source>{name} is a heavy N feeder (current level: {lvl})</source>
+            <translation>{name} ist ein N-Starkzehrer (aktueller Wert: {lvl})</translation>
+        </message>
+        <message>
+            <source>{name} is a heavy P feeder (current level: {lvl})</source>
+            <translation>{name} ist ein P-Starkzehrer (aktueller Wert: {lvl})</translation>
+        </message>
+        <message>
+            <source>{name} is a heavy K feeder (current level: {lvl})</source>
+            <translation>{name} ist ein K-Starkzehrer (aktueller Wert: {lvl})</translation>
+        </message>
+    </context>
 </TS>

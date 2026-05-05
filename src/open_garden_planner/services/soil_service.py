@@ -11,6 +11,8 @@ from datetime import date
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from PyQt6.QtCore import QCoreApplication
+
 from open_garden_planner.models.amendment import (
     FIX_ADDS_CA,
     FIX_ADDS_K,
@@ -376,7 +378,9 @@ class SoilService:
         results: list[tuple[PlantSpeciesData, list[str]]] = []
         for spec in plant_specs:
             reasons: list[str] = []
-            name = spec.common_name or spec.scientific_name or "Plant"
+            name = spec.common_name or spec.scientific_name or QCoreApplication.translate(
+                "SoilService", "Plant"
+            )
             if (
                 record.ph is not None
                 and spec.ph_min is not None
@@ -388,26 +392,39 @@ class SoilService:
                 # tomato with ph_min=5.8 should warn at pH 5.7, not just 5.4.
                 if record.ph < spec.ph_min - 0.05:
                     reasons.append(
-                        f"{name} needs pH ≥{spec.ph_min:.1f},"
-                        f" current {record.ph:.1f}"
+                        QCoreApplication.translate(
+                            "SoilService",
+                            "{name} needs pH ≥{min:.1f}, current {cur:.1f}",
+                        ).format(name=name, min=spec.ph_min, cur=record.ph)
                     )
                 elif record.ph > spec.ph_max + 0.05:
                     reasons.append(
-                        f"{name} needs pH ≤{spec.ph_max:.1f},"
-                        f" current {record.ph:.1f}"
+                        QCoreApplication.translate(
+                            "SoilService",
+                            "{name} needs pH ≤{max:.1f}, current {cur:.1f}",
+                        ).format(name=name, max=spec.ph_max, cur=record.ph)
                     )
             n_d, p_d, k_d = _effective_demand(spec)
             if n_d == "high" and record.n_level is not None and record.n_level < 2:
                 reasons.append(
-                    f"{name} is a heavy N feeder (current level: {record.n_level})"
+                    QCoreApplication.translate(
+                        "SoilService",
+                        "{name} is a heavy N feeder (current level: {lvl})",
+                    ).format(name=name, lvl=record.n_level)
                 )
             if p_d == "high" and record.p_level is not None and record.p_level < 2:
                 reasons.append(
-                    f"{name} is a heavy P feeder (current level: {record.p_level})"
+                    QCoreApplication.translate(
+                        "SoilService",
+                        "{name} is a heavy P feeder (current level: {lvl})",
+                    ).format(name=name, lvl=record.p_level)
                 )
             if k_d == "high" and record.k_level is not None and record.k_level < 2:
                 reasons.append(
-                    f"{name} is a heavy K feeder (current level: {record.k_level})"
+                    QCoreApplication.translate(
+                        "SoilService",
+                        "{name} is a heavy K feeder (current level: {lvl})",
+                    ).format(name=name, lvl=record.k_level)
                 )
             if reasons:
                 results.append((spec, reasons))
