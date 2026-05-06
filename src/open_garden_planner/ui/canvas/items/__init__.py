@@ -11,6 +11,7 @@ from .polygon_item import PolygonItem
 from .polyline_item import PolylineItem
 from .rectangle_item import RectangleItem
 from .resize_handle import HandlePosition, ResizeHandle, ResizeHandlesMixin
+from .soil_badge_item import SoilBadgeItem
 from .text_item import TextItem
 
 __all__ = [
@@ -28,5 +29,6 @@ __all__ = [
     "RectangleItem",
     "ResizeHandle",
     "ResizeHandlesMixin",
+    "SoilBadgeItem",
     "TextItem",
 ]

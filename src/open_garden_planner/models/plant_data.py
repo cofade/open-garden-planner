@@ -154,6 +154,11 @@ class PlantSpeciesData:
     # Crop rotation (US-10.5)
     nutrient_demand: str | None = None  # "heavy" | "medium" | "light" | "fixer"
 
+    # Per-nutrient demand for soil compatibility (US-12.10d); None falls back to nutrient_demand
+    n_demand: str | None = None  # "high" | "medium" | "low" | "fixer"
+    p_demand: str | None = None
+    k_demand: str | None = None
+
     # Extensible metadata for API-specific fields
     raw_data: dict[str, Any] = field(default_factory=dict)
 
@@ -212,6 +217,9 @@ class PlantSpeciesData:
             "prick_out_after_days": self.prick_out_after_days,
             "harden_off_days": self.harden_off_days,
             "nutrient_demand": self.nutrient_demand,
+            "n_demand": self.n_demand,
+            "p_demand": self.p_demand,
+            "k_demand": self.k_demand,
             "raw_data": self.raw_data,
         }
 
@@ -282,6 +290,9 @@ class PlantSpeciesData:
             prick_out_after_days=data.get("prick_out_after_days"),
             harden_off_days=data.get("harden_off_days"),
             nutrient_demand=data.get("nutrient_demand"),
+            n_demand=data.get("n_demand"),
+            p_demand=data.get("p_demand"),
+            k_demand=data.get("k_demand"),
             raw_data=data.get("raw_data", {}),
         )
 

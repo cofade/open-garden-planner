@@ -732,6 +732,10 @@
             <source>Show Area</source>
             <translation>Fläche anzeigen</translation>
         </message>
+        <message>
+            <source>Add soil test…</source>
+            <translation>Bodenprobe hinzufügen…</translation>
+        </message>
     </context>
     <context>
         <name>CircleTool</name>
@@ -3685,6 +3689,70 @@ Neue Saison jetzt öffnen?</translation>
             <translation>PDF-Bericht-Export fehlgeschlagen:
 {error}</translation>
         </message>
+        <message>
+            <source>&amp;Garden</source>
+            <translation>&amp;Garten</translation>
+        </message>
+        <message>
+            <source>&amp;Set default soil test…</source>
+            <translation>Standard-Bodenprobe &amp;festlegen…</translation>
+        </message>
+        <message>
+            <source>Set a project-wide soil test used when individual beds have none</source>
+            <translation>Eine projektweite Bodenprobe festlegen, falls einzelne Beete keine eigene haben</translation>
+        </message>
+        <message>
+            <source>Soil test recorded</source>
+            <translation>Bodenprobe gespeichert</translation>
+        </message>
+        <message>
+            <source>Soil &amp;Health Overlay</source>
+            <translation>Boden&amp;gesundheits-Overlay</translation>
+        </message>
+        <message>
+            <source>Tint beds by soil-health rating (excluded from exports)</source>
+            <translation>Beete nach Bodengesundheit einfärben (nicht in Exporten enthalten)</translation>
+        </message>
+        <message>
+            <source>Soil Overlay</source>
+            <translation>Boden-Overlay</translation>
+        </message>
+        <message>
+            <source>Soil parameter:</source>
+            <translation>Bodenparameter:</translation>
+        </message>
+        <message>
+            <source>Overall</source>
+            <translation>Gesamt</translation>
+        </message>
+        <message>
+            <source>pH</source>
+            <translation>pH</translation>
+        </message>
+        <message>
+            <source>Nitrogen (N)</source>
+            <translation>Stickstoff (N)</translation>
+        </message>
+        <message>
+            <source>Phosphorus (P)</source>
+            <translation>Phosphor (P)</translation>
+        </message>
+        <message>
+            <source>Potassium (K)</source>
+            <translation>Kalium (K)</translation>
+        </message>
+        <message>
+            <source>&amp;Amendment Plan…</source>
+            <translation>&amp;Bodenverbesserungs-Plan…</translation>
+        </message>
+        <message>
+            <source>View amendment recommendations for deficient beds</source>
+            <translation>Empfehlungen für mangelhafte Beete anzeigen</translation>
+        </message>
+        <message>
+            <source>No changes</source>
+            <translation>Keine Änderungen</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -4721,6 +4789,46 @@ Verwenden Sie 'Eigene erstellen', um Pflanzen hinzuzufügen, oder das Pflanzen-M
             <source>My Custom Plant</source>
             <translation>Meine eigene Pflanze</translation>
         </message>
+        <message>
+            <source>pH range:</source>
+            <translation>pH-Bereich:</translation>
+        </message>
+        <message>
+            <source>N demand:</source>
+            <translation>N-Bedarf:</translation>
+        </message>
+        <message>
+            <source>P demand:</source>
+            <translation>P-Bedarf:</translation>
+        </message>
+        <message>
+            <source>K demand:</source>
+            <translation>K-Bedarf:</translation>
+        </message>
+        <message>
+            <source>Overall demand:</source>
+            <translation>Gesamt-Bedarf:</translation>
+        </message>
+        <message>
+            <source>Fixer</source>
+            <translation>Sammler</translation>
+        </message>
+        <message>
+            <source>Heavy feeder</source>
+            <translation>Starkzehrer</translation>
+        </message>
+        <message>
+            <source>Medium feeder</source>
+            <translation>Mittelzehrer</translation>
+        </message>
+        <message>
+            <source>Light feeder</source>
+            <translation>Schwachzehrer</translation>
+        </message>
+        <message>
+            <source>Fixer (legume)</source>
+            <translation>Sammler (Hülsenfrüchtler)</translation>
+        </message>
     </context>
     <context>
         <name>PlantSearchDialog</name>
@@ -5082,6 +5190,14 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <source>No detailed data available</source>
             <translation>Keine Detaildaten verfügbar</translation>
         </message>
+        <message>
+            <source>Bed</source>
+            <translation>Beet</translation>
+        </message>
+        <message>
+            <source>Soil mismatch in {bed}: {plants}</source>
+            <translation>Bodenkonflikt in {bed}: {plants}</translation>
+        </message>
     </context>
     <context>
         <name>PolygonItem</name>
@@ -5148,6 +5264,10 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
         <message>
             <source>Show Area</source>
             <translation>Fläche anzeigen</translation>
+        </message>
+        <message>
+            <source>Add soil test…</source>
+            <translation>Bodenprobe hinzufügen…</translation>
         </message>
     </context>
     <context>
@@ -5917,6 +6037,10 @@ noch nicht implementiert</translation>
         <message>
             <source>Show Area</source>
             <translation>Fläche anzeigen</translation>
+        </message>
+        <message>
+            <source>Add soil test…</source>
+            <translation>Bodenprobe hinzufügen…</translation>
         </message>
     </context>
     <context>
@@ -7216,6 +7340,10 @@ Starten Sie Open Garden Planner als Administrator, oder laden Sie das Installati
             <source>Show Area</source>
             <translation>Fläche anzeigen</translation>
         </message>
+        <message>
+            <source>Add soil test…</source>
+            <translation>Bodenprobe hinzufügen…</translation>
+        </message>
     </context>
     <context>
         <name>EllipseTool</name>
@@ -7515,6 +7643,285 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Add Vertex Here</source>
             <translation>Hier Knoten einfügen</translation>
+        </message>
+    </context>
+    <context>
+        <name>SoilTestDialog</name>
+        <message>
+            <source>Soil Test</source>
+            <translation>Bodenprobe</translation>
+        </message>
+        <message>
+            <source>Soil Test — {name}</source>
+            <translation>Bodenprobe — {name}</translation>
+        </message>
+        <message>
+            <source>Default Soil Test</source>
+            <translation>Standard-Bodenprobe</translation>
+        </message>
+        <message>
+            <source>Date</source>
+            <translation>Datum</translation>
+        </message>
+        <message>
+            <source>Mode</source>
+            <translation>Modus</translation>
+        </message>
+        <message>
+            <source>Kit (categorical)</source>
+            <translation>Testkit (kategorisch)</translation>
+        </message>
+        <message>
+            <source>Lab (ppm)</source>
+            <translation>Labor (ppm)</translation>
+        </message>
+        <message>
+            <source>pH (0–14)</source>
+            <translation>pH (0–14)</translation>
+        </message>
+        <message>
+            <source>Nitrogen (N)</source>
+            <translation>Stickstoff (N)</translation>
+        </message>
+        <message>
+            <source>Phosphorus (P)</source>
+            <translation>Phosphor (P)</translation>
+        </message>
+        <message>
+            <source>Potassium (K)</source>
+            <translation>Kalium (K)</translation>
+        </message>
+        <message>
+            <source>Calcium (Ca)</source>
+            <translation>Calcium (Ca)</translation>
+        </message>
+        <message>
+            <source>Magnesium (Mg)</source>
+            <translation>Magnesium (Mg)</translation>
+        </message>
+        <message>
+            <source>Sulfur (S)</source>
+            <translation>Schwefel (S)</translation>
+        </message>
+        <message>
+            <source>Notes</source>
+            <translation>Notizen</translation>
+        </message>
+        <message>
+            <source>Depleted</source>
+            <translation>Verarmt</translation>
+        </message>
+        <message>
+            <source>Deficient</source>
+            <translation>Mangel</translation>
+        </message>
+        <message>
+            <source>Adequate</source>
+            <translation>Ausreichend</translation>
+        </message>
+        <message>
+            <source>Sufficient</source>
+            <translation>Genügend</translation>
+        </message>
+        <message>
+            <source>Surplus</source>
+            <translation>Überschuss</translation>
+        </message>
+        <message>
+            <source>Low</source>
+            <translation>Niedrig</translation>
+        </message>
+        <message>
+            <source>Medium</source>
+            <translation>Mittel</translation>
+        </message>
+        <message>
+            <source>High</source>
+            <translation>Hoch</translation>
+        </message>
+        <message>
+            <source>—</source>
+            <translation>—</translation>
+        </message>
+        <message>
+            <source>Amendments for this bed</source>
+            <translation>Bodenverbesserer für dieses Beet</translation>
+        </message>
+        <message>
+            <source>Target pH</source>
+            <translation>Ziel-pH</translation>
+        </message>
+        <message>
+            <source>Target N</source>
+            <translation>Ziel-N</translation>
+        </message>
+        <message>
+            <source>Target P</source>
+            <translation>Ziel-P</translation>
+        </message>
+        <message>
+            <source>Target K</source>
+            <translation>Ziel-K</translation>
+        </message>
+        <message>
+            <source>No deficiencies — soil is adequate.</source>
+            <translation>Keine Mängel — der Boden ist ausreichend.</translation>
+        </message>
+        <message>
+            <source>Raises pH {cur:.1f} → {tgt:.1f}</source>
+            <translation>Hebt pH {cur:.1f} → {tgt:.1f}</translation>
+        </message>
+        <message>
+            <source>Lowers pH {cur:.1f} → {tgt:.1f}</source>
+            <translation>Senkt pH {cur:.1f} → {tgt:.1f}</translation>
+        </message>
+        <message>
+            <source>Raises {nutrient} level {cur} → {tgt}</source>
+            <translation>Hebt {nutrient}-Stufe {cur} → {tgt}</translation>
+        </message>
+        <message>
+            <source>Entry</source>
+            <translation>Eingabe</translation>
+        </message>
+        <message>
+            <source>History</source>
+            <translation>Verlauf</translation>
+        </message>
+        <message>
+            <source>Past tests</source>
+            <translation>Frühere Tests</translation>
+        </message>
+        <message>
+            <source>No past tests yet</source>
+            <translation>Noch keine Tests aufgezeichnet</translation>
+        </message>
+        <message>
+            <source>Trends</source>
+            <translation>Trends</translation>
+        </message>
+        <message>
+            <source>pH</source>
+            <translation>pH</translation>
+        </message>
+        <message>
+            <source>(no pH)</source>
+            <translation>(kein pH)</translation>
+        </message>
+        <message>
+            <source>{date} — pH {ph}, N{n} P{p} K{k}</source>
+            <translation>{date} — pH {ph}, N{n} P{p} K{k}</translation>
+        </message>
+        <message>
+            <source>Edit</source>
+            <translation>Bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete</source>
+            <translation>Löschen</translation>
+        </message>
+        <message>
+            <source>Edit Soil Test</source>
+            <translation>Bodenprobe bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete the soil test from {date}?</source>
+            <translation>Bodenprobe vom {date} löschen?</translation>
+        </message>
+        <message>
+            <source>Delete soil test</source>
+            <translation>Bodenprobe löschen</translation>
+        </message>
+        <message>
+            <source> (default)</source>
+            <translation> (Standard)</translation>
+        </message>
+        <message>
+            <source> [Lab]</source>
+            <translation> [Labor]</translation>
+        </message>
+    </context>
+    <context>
+        <name>AmendmentPlanDialog</name>
+        <message>
+            <source>Amendment Plan</source>
+            <translation>Bodenverbesserungs-Plan</translation>
+        </message>
+        <message>
+            <source>Recommended soil amendments aggregated across all beds with a deficient soil test. Quantities are totals — purchase rounded up and consult local extension advice before bulk application.</source>
+            <translation>Empfohlene Bodenverbesserer aggregiert über alle Beete mit mangelhafter Bodenprobe. Mengen sind Gesamtwerte — beim Einkauf aufrunden und vor der Anwendung lokale Beratung einholen.</translation>
+        </message>
+        <message>
+            <source>Substance</source>
+            <translation>Substanz</translation>
+        </message>
+        <message>
+            <source>Total</source>
+            <translation>Gesamt</translation>
+        </message>
+        <message>
+            <source>Beds</source>
+            <translation>Beete</translation>
+        </message>
+        <message>
+            <source>Copy to clipboard</source>
+            <translation>In Zwischenablage kopieren</translation>
+        </message>
+        <message>
+            <source>Close</source>
+            <translation>Schließen</translation>
+        </message>
+        <message>
+            <source>No deficient beds found.</source>
+            <translation>Keine mangelhaften Beete gefunden.</translation>
+        </message>
+        <message>
+            <source>Amendment plan copied to clipboard.</source>
+            <translation>Bodenverbesserungs-Plan in Zwischenablage kopiert.</translation>
+        </message>
+        <message>
+            <source>Bed</source>
+            <translation>Beet</translation>
+        </message>
+    </context>
+    <context>
+        <name>SoilSparklineWidget</name>
+        <message>
+            <source>No history yet</source>
+            <translation>Noch kein Verlauf</translation>
+        </message>
+    </context>
+    <context>
+        <name>SoilBadgeItem</name>
+        <message>
+            <source>Soil test overdue — click to record</source>
+            <translation>Bodenprobe überfällig — zum Eintragen klicken</translation>
+        </message>
+    </context>
+    <context>
+        <name>SoilService</name>
+        <message>
+            <source>Plant</source>
+            <translation>Pflanze</translation>
+        </message>
+        <message>
+            <source>{name} needs pH ≥{min:.1f}, current {cur:.1f}</source>
+            <translation>{name} braucht pH ≥{min:.1f}, aktuell {cur:.1f}</translation>
+        </message>
+        <message>
+            <source>{name} needs pH ≤{max:.1f}, current {cur:.1f}</source>
+            <translation>{name} braucht pH ≤{max:.1f}, aktuell {cur:.1f}</translation>
+        </message>
+        <message>
+            <source>{name} is a heavy N feeder (current level: {lvl})</source>
+            <translation>{name} ist ein N-Starkzehrer (aktueller Wert: {lvl})</translation>
+        </message>
+        <message>
+            <source>{name} is a heavy P feeder (current level: {lvl})</source>
+            <translation>{name} ist ein P-Starkzehrer (aktueller Wert: {lvl})</translation>
+        </message>
+        <message>
+            <source>{name} is a heavy K feeder (current level: {lvl})</source>
+            <translation>{name} ist ein K-Starkzehrer (aktueller Wert: {lvl})</translation>
         </message>
     </context>
 </TS>

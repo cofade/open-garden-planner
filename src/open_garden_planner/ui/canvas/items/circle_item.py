@@ -442,6 +442,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # Fall back to standard ellipse painting for non-plant/furniture circles
         super().paint(painter, option, widget)
 
+        # Draw soil mismatch border for circular beds (US-12.10d)
+        self._draw_soil_mismatch_border(painter)
+
     @property
     def center(self) -> QPointF:
         """Get circle center point."""
@@ -782,6 +785,13 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         from open_garden_planner.core.object_types import get_valid_types_for_shape
         change_type_menu = self._build_change_type_menu(menu, get_valid_types_for_shape("circle"))
 
+        # F9: Add soil test entry for circular bed types.
+        from open_garden_planner.core.object_types import is_bed_type
+        add_soil_test_action = None
+        if is_bed_type(self.object_type):
+            menu.addSeparator()
+            add_soil_test_action = menu.addAction(_("CircleItem", "Add soil test…"))
+
         # Show Area toggle
         show_area_action = menu.addAction(_("CircleItem", "Show Area"))
         show_area_action.setCheckable(True)
@@ -833,7 +843,13 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
-        if action == show_area_action:
+        if action == add_soil_test_action and add_soil_test_action is not None:
+            scene = self.scene()
+            if scene:
+                views = scene.views()
+                if views and hasattr(views[0], "request_soil_test"):
+                    views[0].request_soil_test(str(self.item_id), self.name)
+        elif action == show_area_action:
             self.area_label_visible = not self._area_label_visible
         elif action == delete_action:
             self.scene().removeItem(self)

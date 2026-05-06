@@ -1,6 +1,9 @@
-# Claude Code — ignore everything except committed workspace skills
+# Claude Code — ignore everything except committed workspace agents and skills
 .agents/
 .claude/*
+!.claude/agents/
+.claude/agents/*
+!.claude/agents/senior-reviewer.md
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/finalize-us/
