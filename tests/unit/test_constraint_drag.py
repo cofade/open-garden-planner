@@ -7,14 +7,11 @@ during drag operations.
 import math
 from uuid import uuid4
 
-import pytest
-
 from open_garden_planner.core.constraints import (
     AnchorRef,
     ConstraintGraph,
 )
 from open_garden_planner.core.measure_snapper import AnchorType
-
 
 # --- Anchored solver tests ---
 
@@ -376,3 +373,196 @@ class TestConstraintSaveLoad:
         rc = list(restored.constraints.values())[0]
         assert rc.anchor_a.anchor_index == 3
         assert rc.anchor_b.anchor_index == 2
+
+
+# --- Issue #168: Polyline vertex drag isolation ---
+
+
+class TestPolylineVertexDragIsolation:
+    """Issue #168: dragging a polyline vertex must touch only that vertex.
+
+    Regression coverage for the report that moving an unconstrained vertex
+    on a fence with edge-length constraints elsewhere caused the entire
+    polyline to "jump around wildly" on every pixel of motion.
+    """
+
+    def test_unconstrained_vertex_is_passthrough(self, qtbot) -> None:
+        """If no constraint touches the moving vertex, projection is a no-op."""
+        graph = ConstraintGraph()
+        pid = uuid4()
+        # Polyline v0..v4 along the X axis with an EDGE_LENGTH constraint
+        # only between v2 and v3.
+        graph.add_constraint(
+            AnchorRef(pid, AnchorType.ENDPOINT, 2),
+            AnchorRef(pid, AnchorType.ENDPOINT, 3),
+            100.0,
+        )
+
+        item_positions = {pid: (0.0, 0.0)}
+        anchor_offsets = {
+            (pid, AnchorType.ENDPOINT, i): (i * 100.0, 0.0) for i in range(5)
+        }
+        deformable_vertices = {pid: [(i * 100.0, 0.0) for i in range(5)]}
+
+        result = graph.project_to_feasible(
+            moving_vertex=(pid, 0),
+            desired_scene_pos=(5.0, 5.0),
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+            deformable_items={pid},
+            deformable_vertices=deformable_vertices,
+        )
+        # Short-circuit: cursor passed through untouched.
+        assert result == (5.0, 5.0)
+
+    def test_constrained_vertex_projection_only_moves_target(self, qtbot) -> None:
+        """Projecting the constrained vertex must keep neighbours stationary."""
+        graph = ConstraintGraph()
+        pid = uuid4()
+        graph.add_constraint(
+            AnchorRef(pid, AnchorType.ENDPOINT, 2),
+            AnchorRef(pid, AnchorType.ENDPOINT, 3),
+            100.0,
+        )
+
+        item_positions = {pid: (0.0, 0.0)}
+        anchor_offsets = {
+            (pid, AnchorType.ENDPOINT, i): (i * 100.0, 0.0) for i in range(5)
+        }
+        # Snapshot before projection so we can verify no other vertex moves.
+        before = [(i * 100.0, 0.0) for i in range(5)]
+        deformable_vertices = {pid: list(before)}
+
+        # Drag v2 perpendicular to the chain — solver should snap onto the
+        # circle of radius 100 around v3=(300,0).
+        result = graph.project_to_feasible(
+            moving_vertex=(pid, 2),
+            desired_scene_pos=(200.0, 50.0),
+            item_positions=item_positions,
+            anchor_offsets=anchor_offsets,
+            deformable_items={pid},
+            deformable_vertices=deformable_vertices,
+        )
+        # Distance from v3=(300,0) must equal target 100 (within tol).
+        d = math.hypot(result[0] - 300.0, result[1] - 0.0)
+        assert abs(d - 100.0) < 1.0
+
+        # All other vertices unchanged in the deformable_vertices state.
+        verts = deformable_vertices[pid]
+        for i in (0, 1, 3, 4):
+            assert verts[i] == before[i], f"v{i} moved; should be pinned"
+
+    def test_no_per_frame_drift_on_fully_constrained_vertex(self, qtbot) -> None:
+        """Repeated near-stationary projections must not accumulate drift.
+
+        Reproduces the post-merge manual test failure on PR #169: a fully
+        constrained middle vertex (EDGE_LENGTH on both incident edges) was
+        slipping ~0.2 cm per frame because newton_refine early-returned on
+        its cm-scale tolerance, leaving ``vertex_pos[moving]`` at the cursor.
+        Drives 100 frames of cursor sitting 0.3 cm off the original v_i and
+        asserts the projected point stays on the constraint set throughout.
+        """
+        graph = ConstraintGraph()
+        pid = uuid4()
+        # Chain v0=(0,0), v1=(100,0), v2=(200,0), v3=(300,0), v4=(400,0)
+        # with EDGE_LENGTH between every adjacent pair.
+        for i in range(4):
+            graph.add_constraint(
+                AnchorRef(pid, AnchorType.ENDPOINT, i),
+                AnchorRef(pid, AnchorType.ENDPOINT, i + 1),
+                100.0,
+            )
+
+        item_positions = {pid: (0.0, 0.0)}
+        anchor_offsets = {
+            (pid, AnchorType.ENDPOINT, i): (i * 100.0, 0.0) for i in range(5)
+        }
+        original = [(i * 100.0, 0.0) for i in range(5)]
+
+        # Simulate 100 mouse frames of cursor wobbling 0.3 cm off v2.
+        for frame in range(100):
+            # Cursor offset in tight 0.3 cm circle centred on v2.
+            theta = (frame / 100.0) * 2.0 * math.pi
+            cursor = (
+                200.0 + 0.3 * math.cos(theta),
+                0.0 + 0.3 * math.sin(theta),
+            )
+            deformable_vertices = {pid: list(original)}
+            result = graph.project_to_feasible(
+                moving_vertex=(pid, 2),
+                desired_scene_pos=cursor,
+                item_positions=item_positions,
+                anchor_offsets=anchor_offsets,
+                deformable_items={pid},
+                deformable_vertices=deformable_vertices,
+            )
+            # Result must lie exactly on the v1=(100,0)/v3=(300,0) intersection
+            # — i.e. v2's original position — within sub-mm precision.
+            d_v1 = math.hypot(result[0] - 100.0, result[1])
+            d_v3 = math.hypot(result[0] - 300.0, result[1])
+            assert abs(d_v1 - 100.0) < 1e-2, (
+                f"frame {frame}: |v2-v1|={d_v1:.6f} drifted from 100"
+            )
+            assert abs(d_v3 - 100.0) < 1e-2, (
+                f"frame {frame}: |v2-v3|={d_v3:.6f} drifted from 100"
+            )
+
+
+# --- Issue #168 + #167: Constraint anchor index shift on vertex add/delete ---
+
+
+class TestConstraintIndexShift:
+    """Inserting / deleting vertices must keep constraint anchor indices valid."""
+
+    def test_shift_on_insert(self, qtbot) -> None:
+        """An inserted vertex shifts later anchor indices up by one."""
+        graph = ConstraintGraph()
+        pid = uuid4()
+        graph.add_constraint(
+            AnchorRef(pid, AnchorType.ENDPOINT, 2),
+            AnchorRef(pid, AnchorType.ENDPOINT, 3),
+            100.0,
+        )
+
+        # Insert a vertex at index 1 — both anchored vertices shift to 3 and 4.
+        graph.shift_vertex_indices(pid, threshold=1, delta=+1)
+        c = next(iter(graph.constraints.values()))
+        assert c.anchor_a.anchor_index == 3
+        assert c.anchor_b.anchor_index == 4
+
+    def test_delete_drops_referencing_constraints_then_shifts(self, qtbot) -> None:
+        """Deleting a vertex drops constraints on it, shifts higher down."""
+        graph = ConstraintGraph()
+        pid = uuid4()
+        # v2-v3 constraint and v3-v4 constraint (both touch v3).
+        graph.add_constraint(
+            AnchorRef(pid, AnchorType.ENDPOINT, 2),
+            AnchorRef(pid, AnchorType.ENDPOINT, 3),
+            100.0,
+        )
+        graph.add_constraint(
+            AnchorRef(pid, AnchorType.ENDPOINT, 3),
+            AnchorRef(pid, AnchorType.ENDPOINT, 4),
+            100.0,
+        )
+
+        # Delete v3: both constraints reference it directly, so both go away.
+        removed = graph.remove_vertex_constraints(pid, vertex_index=3)
+        assert len(removed) == 2
+        assert len(graph.constraints) == 0
+
+    def test_shift_on_delete_only_higher_indices(self, qtbot) -> None:
+        """A constraint anchored at v4 shifts to v3 when v0 is deleted."""
+        graph = ConstraintGraph()
+        pid = uuid4()
+        graph.add_constraint(
+            AnchorRef(pid, AnchorType.ENDPOINT, 3),
+            AnchorRef(pid, AnchorType.ENDPOINT, 4),
+            100.0,
+        )
+
+        # Simulate deletion of v0: shift indices >= 1 down by one.
+        graph.shift_vertex_indices(pid, threshold=1, delta=-1)
+        c = next(iter(graph.constraints.values()))
+        assert c.anchor_a.anchor_index == 2
+        assert c.anchor_b.anchor_index == 3
