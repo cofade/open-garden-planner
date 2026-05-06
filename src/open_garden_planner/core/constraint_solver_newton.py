@@ -255,6 +255,10 @@ def newton_refine(
     F = eval_residuals(x)
     max_err = float(np.max(np.abs(F))) if F.size > 0 else 0.0
     if max_err <= tol:
+        # Write back even on the no-op path so callers always observe a
+        # consistent (positions, vertex_pos) — guards live-drag callers
+        # against tolerance-band slack regressions.
+        write_x(x)
         return True, max_err
 
     n = x.size

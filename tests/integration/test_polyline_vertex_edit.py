@@ -98,6 +98,63 @@ class TestPolylineVertexDragStability:
         result = canvas._canvas_scene.project_vertex_drag(polyline, 0, target)
         assert result == target
 
+    def test_no_drift_dragging_fully_constrained_vertex(
+        self, canvas: CanvasView, qtbot: object,
+    ) -> None:
+        """Live drag of a fully constrained vertex must not drift the polyline.
+
+        Reproduces the post-merge manual test failure on PR #169: when every
+        adjacent edge of the fence carries an EDGE_LENGTH constraint and the
+        user pulls on a middle vertex, all vertices used to slip ~0.2 cm per
+        frame in the cursor direction.  This drives the full live-drag pipeline
+        (project_vertex_drag → project_to_feasible → newton_refine →
+        _move_vertex_to) for 100 frames of a near-stationary cursor and
+        asserts no per-vertex drift accumulates.
+        """
+        polyline = _draw_fence(canvas)
+        graph = canvas._canvas_scene.constraint_graph
+        # EDGE_LENGTH between every adjacent pair — fully constrains the chain.
+        for i in range(4):
+            graph.add_constraint(
+                AnchorRef(polyline.item_id, AnchorType.ENDPOINT, i),
+                AnchorRef(polyline.item_id, AnchorType.ENDPOINT, i + 1),
+                100.0,
+            )
+
+        before_pos = QPointF(polyline.pos())
+        before_scene = [polyline.mapToScene(p) for p in polyline.points]
+
+        # Simulate the exact pipeline VertexHandle.mouseMoveEvent runs each
+        # frame: project a near-stationary cursor, then write the result via
+        # _move_vertex_to.  Cursor wobbles 0.3 cm around v2's scene position.
+        v2_scene = before_scene[2]
+        for frame in range(100):
+            cursor = QPointF(
+                v2_scene.x() + 0.3 * (1.0 if frame % 2 else -1.0),
+                v2_scene.y() + 0.3 * (1.0 if frame % 4 < 2 else -1.0),
+            )
+            projected = canvas._canvas_scene.project_vertex_drag(polyline, 2, cursor)
+            polyline._move_vertex_to(2, polyline.mapFromScene(projected))
+
+        # Polyline pos() must be unchanged after 100 frames.
+        assert polyline.pos() == before_pos, "polyline.pos() drifted"
+
+        # Non-moving vertices in scene coords must be unchanged.
+        after_scene = [polyline.mapToScene(p) for p in polyline.points]
+        for i in (0, 1, 3, 4):
+            dx = after_scene[i].x() - before_scene[i].x()
+            dy = after_scene[i].y() - before_scene[i].y()
+            assert abs(dx) < 1e-3 and abs(dy) < 1e-3, (
+                f"v{i} drifted by ({dx:.4f}, {dy:.4f})"
+            )
+
+        # Moving vertex itself must remain on the constraint set.
+        v1, v2, v3 = after_scene[1], after_scene[2], after_scene[3]
+        d12 = ((v2.x() - v1.x()) ** 2 + (v2.y() - v1.y()) ** 2) ** 0.5
+        d23 = ((v3.x() - v2.x()) ** 2 + (v3.y() - v2.y()) ** 2) ** 0.5
+        assert abs(d12 - 100.0) < 1e-2, f"v1-v2 length drifted: {d12}"
+        assert abs(d23 - 100.0) < 1e-2, f"v2-v3 length drifted: {d23}"
+
 
 class TestVertexHandleContextMenu:
     """Issue #167: VertexHandle context menu offers Insert Before/After + Delete."""

@@ -1330,7 +1330,7 @@ class ConstraintGraph:
         anchor_offsets: dict[tuple[UUID, AnchorType, int], tuple[float, float]],
         deformable_items: set[UUID],
         deformable_vertices: dict[UUID, list[tuple[float, float]]],
-        tolerance: float = 0.5,
+        tolerance: float = 1e-4,
     ) -> tuple[float, float]:
         """Project ``desired_scene_pos`` onto the feasible set for ``moving_vertex``.
 
@@ -1341,6 +1341,15 @@ class ConstraintGraph:
 
         Returns ``desired_scene_pos`` unchanged when no constraint touches the
         moving vertex, so callers can short-circuit without a solver run.
+
+        ``tolerance`` is sub-render-precision (1e-4 cm) on purpose.  Why:
+        ``newton_refine`` early-returns without writing back when the initial
+        residual already satisfies ``tol``.  At a cm-scale tolerance, the
+        starting state ``vertex_pos[moving] = cursor`` falls inside the slack
+        band on most frames of a near-stationary drag — so the function
+        returns the cursor unchanged and the moving vertex slips with it.
+        ``solve_anchored`` keeps its cm-scale tolerance for full-graph solves;
+        only the live-drag path is tightened here.
         """
         from open_garden_planner.core.constraint_solver_newton import (  # noqa: PLC0415
             newton_refine,

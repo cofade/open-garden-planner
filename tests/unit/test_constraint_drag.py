@@ -452,6 +452,61 @@ class TestPolylineVertexDragIsolation:
         for i in (0, 1, 3, 4):
             assert verts[i] == before[i], f"v{i} moved; should be pinned"
 
+    def test_no_per_frame_drift_on_fully_constrained_vertex(self, qtbot) -> None:
+        """Repeated near-stationary projections must not accumulate drift.
+
+        Reproduces the post-merge manual test failure on PR #169: a fully
+        constrained middle vertex (EDGE_LENGTH on both incident edges) was
+        slipping ~0.2 cm per frame because newton_refine early-returned on
+        its cm-scale tolerance, leaving ``vertex_pos[moving]`` at the cursor.
+        Drives 100 frames of cursor sitting 0.3 cm off the original v_i and
+        asserts the projected point stays on the constraint set throughout.
+        """
+        graph = ConstraintGraph()
+        pid = uuid4()
+        # Chain v0=(0,0), v1=(100,0), v2=(200,0), v3=(300,0), v4=(400,0)
+        # with EDGE_LENGTH between every adjacent pair.
+        for i in range(4):
+            graph.add_constraint(
+                AnchorRef(pid, AnchorType.ENDPOINT, i),
+                AnchorRef(pid, AnchorType.ENDPOINT, i + 1),
+                100.0,
+            )
+
+        item_positions = {pid: (0.0, 0.0)}
+        anchor_offsets = {
+            (pid, AnchorType.ENDPOINT, i): (i * 100.0, 0.0) for i in range(5)
+        }
+        original = [(i * 100.0, 0.0) for i in range(5)]
+
+        # Simulate 100 mouse frames of cursor wobbling 0.3 cm off v2.
+        for frame in range(100):
+            # Cursor offset in tight 0.3 cm circle centred on v2.
+            theta = (frame / 100.0) * 2.0 * math.pi
+            cursor = (
+                200.0 + 0.3 * math.cos(theta),
+                0.0 + 0.3 * math.sin(theta),
+            )
+            deformable_vertices = {pid: list(original)}
+            result = graph.project_to_feasible(
+                moving_vertex=(pid, 2),
+                desired_scene_pos=cursor,
+                item_positions=item_positions,
+                anchor_offsets=anchor_offsets,
+                deformable_items={pid},
+                deformable_vertices=deformable_vertices,
+            )
+            # Result must lie exactly on the v1=(100,0)/v3=(300,0) intersection
+            # — i.e. v2's original position — within sub-mm precision.
+            d_v1 = math.hypot(result[0] - 100.0, result[1])
+            d_v3 = math.hypot(result[0] - 300.0, result[1])
+            assert abs(d_v1 - 100.0) < 1e-2, (
+                f"frame {frame}: |v2-v1|={d_v1:.6f} drifted from 100"
+            )
+            assert abs(d_v3 - 100.0) < 1e-2, (
+                f"frame {frame}: |v2-v3|={d_v3:.6f} drifted from 100"
+            )
+
 
 # --- Issue #168 + #167: Constraint anchor index shift on vertex add/delete ---
 
