@@ -178,4 +178,4 @@ Full history: see `docs/roadmap.md`.
 | Status | Issue / PR | Description                                                          |
 | ------ | ---------- | -------------------------------------------------------------------- |
 | ✅     | #170 / #174 | Auto-populate plant species data on drop + bundled species DB (118 records, ADR-014). Auto-fires US-12.10d warnings. |
-| 🐛     | #173        | US-12.10d soil-warning has stale state on plant move/reparent (filed during #170 testing). |
+| ✅     | #173 / #175 | Soil-warning refresh on reparent + plant z-elevation above bed; bonus fix for edit-via-history duplicate guard. |

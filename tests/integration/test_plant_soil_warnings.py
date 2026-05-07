@@ -289,3 +289,113 @@ class TestDashboardCards:
         assert any(
             "Veggie Bed" in t.display_name for t in captured
         ), f"Expected 'Veggie Bed' in task names; got: {[t.display_name for t in captured]}"
+
+
+# ---------------------------------------------------------------------------
+# TestRefreshOnReparent — issue #173: warning state must update when a plant
+# moves into or out of a bed without waiting on the 500 ms debounce.
+
+
+class TestRefreshOnReparent:
+    """The bed soil-mismatch level must re-evaluate immediately when plant
+    parenting changes via _update_plant_bed_relationships (drag-and-drop).
+    """
+
+    def _build_view_with_bed_and_plant(
+        self, qtbot, plant_inside_bed: bool
+    ):
+        from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+
+        bed = RectangleItem(
+            x=0, y=0, width=400, height=400,
+            object_type=ObjectType.GARDEN_BED,
+            name="Bed 1",
+        )
+        scene.addItem(bed)
+
+        # Plant centre depends on whether we want it inside the bed or outside.
+        cx = 100 if plant_inside_bed else 800
+        plant = CircleItem(
+            center_x=cx, center_y=100, radius=20,
+            object_type=ObjectType.TREE, name="Tomato",
+        )
+        plant.metadata["plant_species"] = {
+            "common_name": "Tomato",
+            "scientific_name": "Solanum lycopersicum",
+            "ph_min": 6.0,
+            "ph_max": 7.5,
+        }
+        scene.addItem(plant)
+        return view, bed, plant
+
+    def test_attach_via_command_sets_warning_immediately(self, qtbot) -> None:
+        """Plant moved INTO a bed with hostile pH → warning must appear w/o debounce."""
+        view, bed, plant = self._build_view_with_bed_and_plant(
+            qtbot, plant_inside_bed=False
+        )
+        svc = MagicMock()
+        svc.get_effective_record.return_value = _make_record(ph=4.0)  # very acidic
+        view.set_soil_service(svc)
+        # set_soil_service already calls _update_soil_mismatches synchronously.
+        assert bed._soil_mismatch_level is None
+
+        # Simulate the post-move parent re-evaluation: plant moves INTO bed.
+        plant.setSelected(True)
+        plant.setPos(plant.pos().x() - 800, plant.pos().y())  # center is in bed
+        view._update_plant_bed_relationships()
+
+        # Bug #173: this should be set without waiting 500 ms for the debounce.
+        assert bed._soil_mismatch_level == "warning"
+
+    def test_detach_via_command_clears_warning_immediately(self, qtbot) -> None:
+        """Plant moved OUT of a bed → warning must clear w/o debounce."""
+        view, bed, plant = self._build_view_with_bed_and_plant(
+            qtbot, plant_inside_bed=True
+        )
+        # Pre-attach the plant (mimic state after a previous drop).
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        svc = MagicMock()
+        svc.get_effective_record.return_value = _make_record(ph=4.0)
+        view.set_soil_service(svc)
+        assert bed._soil_mismatch_level == "warning"
+
+        # Move plant outside the bed and re-evaluate.
+        plant.setSelected(True)
+        plant.setPos(plant.pos().x() + 800, plant.pos().y())
+        view._update_plant_bed_relationships()
+
+        # Bug #173: warning must clear immediately.
+        assert bed._soil_mismatch_level is None
+
+    def test_unlink_via_properties_panel_clears_warning_immediately(
+        self, qtbot
+    ) -> None:
+        """Properties-panel "Unlink" calls SetParentBedCommand directly (not via
+        _update_plant_bed_relationships). The fix must still cover this path
+        because the command itself triggers the soil-mismatch refresh.
+        """
+        from open_garden_planner.core.commands import (
+            CommandManager,
+            SetParentBedCommand,
+        )
+
+        view, bed, plant = self._build_view_with_bed_and_plant(
+            qtbot, plant_inside_bed=True
+        )
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        svc = MagicMock()
+        svc.get_effective_record.return_value = _make_record(ph=4.0)
+        view.set_soil_service(svc)
+        assert bed._soil_mismatch_level == "warning"
+
+        # Mimic the properties-panel _do_unlink flow exactly.
+        cmd = SetParentBedCommand(view._canvas_scene, plant, bed.item_id, None)
+        CommandManager().execute(cmd)
+
+        assert bed._soil_mismatch_level is None

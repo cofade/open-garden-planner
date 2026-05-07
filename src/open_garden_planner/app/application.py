@@ -91,6 +91,38 @@ def _records_equivalent(a: object, b: object) -> bool:
     return all(getattr(a, f, None) == getattr(b, f, None) for f in fields)
 
 
+def _should_skip_add_after_dialog(
+    form_record: object,
+    existing_pre_dialog: object,
+    latest_after_dialog: object,
+) -> bool:
+    """Decide whether to skip ``AddSoilTestCommand`` after the soil test dialog closes.
+
+    Two cases must skip the Add:
+
+    1. **No-op outer OK.** The user clicked OK without touching the entry
+       tab. The form values therefore equal the originally-shown
+       ``existing_pre_dialog`` record — this also covers the
+       Edit-via-History flow where an inner ``EditSoilTestCommand`` already
+       committed the change but the outer entry tab still displays the
+       *pre-edit* values. Comparing against ``latest_after_dialog`` alone
+       would miss this case (regression discovered 2026-05-07).
+
+    2. **Form happens to match the current latest.** Defensive: if the
+       form ended up identical to whatever record is currently latest
+       (e.g. user re-typed the existing values), don't append a duplicate.
+
+    Otherwise return False so the Add proceeds normally.
+    """
+    if existing_pre_dialog is not None and _records_equivalent(
+        form_record, existing_pre_dialog
+    ):
+        return True
+    return latest_after_dialog is not None and _records_equivalent(
+        form_record, latest_after_dialog
+    )
+
+
 class GardenPlannerApp(QMainWindow):
     """Main application window for Open Garden Planner.
 
@@ -3172,14 +3204,8 @@ class GardenPlannerApp(QMainWindow):
             return
 
         record = dialog.result_record()
-        # Duplicate guard (F12 / F2.6c): if the user clicked OK without
-        # changing anything (common after Edit-via-History), don't append a
-        # stale copy of `existing`. Re-read the latest record AFTER the dialog
-        # closed because the user may have edited or deleted records via the
-        # History tab (issue #171); the constructor-time `existing` could be
-        # stale or even point at a deleted record.
         latest_after = self._soil_service.get_history(target_id).latest
-        if latest_after is not None and _records_equivalent(record, latest_after):
+        if _should_skip_add_after_dialog(record, existing, latest_after):
             self.statusBar().showMessage(self.tr("No changes"), 3000)
             return
         cmd = AddSoilTestCommand(self._project_manager, target_id, record)
