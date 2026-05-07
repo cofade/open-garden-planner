@@ -119,3 +119,90 @@ class TestDeleteSoilTestCommand:
         records = SoilTestHistory.from_dict(pm.soil_tests[bed_id]).records
         assert len(records) == 1
         assert records[0].id == new_rec.id
+
+
+class TestEditViaHistoryDuplicateGuard:
+    """Regression: editing a soil test via the History tab and then clicking
+    OK on the outer dialog must NOT append a duplicate of the pre-edit
+    record. The guard must compare the outer entry-tab values against the
+    originally-shown `existing` (which the form is still displaying after
+    the inner edit dialog commits), NOT only against the post-edit latest.
+    """
+
+    def test_outer_ok_after_inner_edit_does_not_duplicate(self) -> None:
+        """The full Edit-via-History flow with the actual public helper.
+
+        Previously only ``_records_equivalent(record, latest_after)`` was
+        checked, which silently let through the form-still-shows-old-values
+        case (regression introduced during the US-12.10 epic squash).
+        """
+        from open_garden_planner.app.application import (
+            _should_skip_add_after_dialog,
+        )
+
+        bed_id = "bed-A"
+        original = _record("2026-04-01", ph=5.5, n_level=1)
+        pm = _seeded_pm(bed_id, original)
+        existing = SoilTestHistory.from_dict(pm.soil_tests[bed_id]).latest
+
+        edited = SoilTestRecord(id=original.id, date="2026-04-01", ph=6.5, n_level=1)
+        EditSoilTestCommand(pm, bed_id, edited).execute()
+
+        form_record = SoilTestRecord(date="2026-04-01", ph=5.5, n_level=1)
+        latest_after = SoilTestHistory.from_dict(pm.soil_tests[bed_id]).latest
+
+        assert _should_skip_add_after_dialog(form_record, existing, latest_after) is True
+
+    def test_pre_fix_logic_would_have_let_duplicate_through(self) -> None:
+        """Documents the regression: the pre-fix guard checked only
+        ``latest_after`` and missed the pre-edit-form-values case.
+
+        This test exercises ``_records_equivalent`` directly (which existed
+        on master before the fix) to prove that a guard built on
+        ``latest_after`` alone — the buggy version — would NOT have caught
+        the duplicate. With the fix, ``_should_skip_add_after_dialog``
+        compares against ``existing`` too, and the duplicate is prevented
+        (asserted in the test above).
+        """
+        from open_garden_planner.app.application import _records_equivalent
+
+        bed_id = "bed-A"
+        original = _record("2026-04-01", ph=5.5, n_level=1)
+        pm = _seeded_pm(bed_id, original)
+        existing = SoilTestHistory.from_dict(pm.soil_tests[bed_id]).latest
+        edited = SoilTestRecord(id=original.id, date="2026-04-01", ph=6.5, n_level=1)
+        EditSoilTestCommand(pm, bed_id, edited).execute()
+        form_record = SoilTestRecord(date="2026-04-01", ph=5.5, n_level=1)
+        latest_after = SoilTestHistory.from_dict(pm.soil_tests[bed_id]).latest
+
+        # The buggy logic — checking only latest_after — would NOT skip:
+        buggy_skip = (
+            latest_after is not None
+            and _records_equivalent(form_record, latest_after)
+        )
+        assert buggy_skip is False  # pre-fix: would have wrongly added a duplicate
+
+        # The correct logic must also check existing:
+        correct_skip = (
+            existing is not None and _records_equivalent(form_record, existing)
+        ) or buggy_skip
+        assert correct_skip is True
+
+    def test_outer_ok_with_modified_entry_tab_still_adds(self) -> None:
+        """User edits the entry tab → guard must NOT fire (Add must proceed)."""
+        from open_garden_planner.app.application import (
+            _should_skip_add_after_dialog,
+        )
+
+        existing = _record("2026-04-01", ph=5.5, n_level=1)
+        form_record = SoilTestRecord(date="2026-05-01", ph=6.5, n_level=1)
+        assert _should_skip_add_after_dialog(form_record, existing, existing) is False
+
+    def test_first_record_with_no_existing_proceeds(self) -> None:
+        """First-time entry (no prior records) → Add must proceed."""
+        from open_garden_planner.app.application import (
+            _should_skip_add_after_dialog,
+        )
+
+        form_record = SoilTestRecord(date="2026-04-01", ph=5.5)
+        assert _should_skip_add_after_dialog(form_record, None, None) is False
