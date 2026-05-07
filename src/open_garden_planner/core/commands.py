@@ -1070,6 +1070,8 @@ class SetParentBedCommand(Command):
             new_bed = self._scene.find_item_by_id(attach_id)
             if new_bed is not None and isinstance(new_bed, GardenItemMixin):
                 new_bed.add_child_id(self._plant.item_id)
+                if self._plant.zValue() <= new_bed.zValue():
+                    self._plant.setZValue(new_bed.zValue() + 1)
         self._plant.parent_bed_id = attach_id
 
 

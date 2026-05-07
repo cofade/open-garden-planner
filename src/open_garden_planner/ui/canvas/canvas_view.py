@@ -3194,6 +3194,7 @@ class CanvasView(QGraphicsView):
         from open_garden_planner.core.plant_renderer import is_plant_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
+        parenting_changed = False
         for item in self.scene().selectedItems():
             if not isinstance(item, GardenItemMixin):
                 continue
@@ -3218,6 +3219,12 @@ class CanvasView(QGraphicsView):
                     new_parent_id,
                 )
                 self._command_manager.execute(cmd)
+                parenting_changed = True
+
+        # Parent-link mutations don't fire QGraphicsScene.changed, so the 500 ms
+        # debounce wouldn't refresh the soil-mismatch borders. Force it here.
+        if parenting_changed:
+            self._update_soil_mismatches()
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the background."""

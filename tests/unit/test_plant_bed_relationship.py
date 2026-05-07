@@ -245,6 +245,52 @@ class TestSetParentBedCommand:
         assert plant.parent_bed_id == bed.item_id
         assert plant.item_id in bed.child_item_ids
 
+    def test_attach_elevates_plant_z_above_bed(self, scene, manager) -> None:
+        """Issue #173: plant drawn before bed must render on top after move-into."""
+        bed = _make_bed()
+        plant = _make_plant()
+        scene.addItem(bed)
+        scene.addItem(plant)
+        # Plant created first, then bed → both share the layer's default z=0.
+        bed.setZValue(0)
+        plant.setZValue(0)
+
+        cmd = SetParentBedCommand(scene, plant, None, bed.item_id)
+        manager.execute(cmd)
+
+        assert plant.zValue() > bed.zValue()
+
+    def test_attach_does_not_lower_plant_already_above_bed(
+        self, scene, manager
+    ) -> None:
+        bed = _make_bed()
+        plant = _make_plant()
+        scene.addItem(bed)
+        scene.addItem(plant)
+        bed.setZValue(0)
+        plant.setZValue(50)  # already well above
+
+        cmd = SetParentBedCommand(scene, plant, None, bed.item_id)
+        manager.execute(cmd)
+
+        assert plant.zValue() == 50
+
+    def test_detach_does_not_change_z(self, scene, manager) -> None:
+        bed = _make_bed()
+        plant = _make_plant()
+        scene.addItem(bed)
+        scene.addItem(plant)
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        bed.setZValue(0)
+        plant.setZValue(1)
+
+        cmd = SetParentBedCommand(scene, plant, bed.item_id, None)
+        manager.execute(cmd)
+
+        # Detach should not touch z — plant stays where it is.
+        assert plant.zValue() == 1
+
 
 # ---------------------------------------------------------------------------
 # DeleteItemsCommand relationship handling
