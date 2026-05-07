@@ -3883,6 +3883,8 @@ class CanvasView(QGraphicsView):
 
         # Rebuild parent-child relationships with new UUIDs
         if pasted_items:
+            from open_garden_planner.core.commands import ensure_z_above_parent
+
             old_id_to_new: dict[str, QGraphicsItem] = {}
             for obj_data, item in zip(clipboard_data, pasted_items, strict=True):
                 old_id = obj_data.get("item_id")
@@ -3896,19 +3898,15 @@ class CanvasView(QGraphicsView):
                 item._parent_bed_id = None
                 item._child_item_ids = []
 
-                # Remap parent
+                # Remap parent — plants must render above their bed even
+                # when source/target share a layer's default z.
                 old_parent = obj_data.get("parent_bed_id")
                 if old_parent and old_parent in old_id_to_new:
                     parent = old_id_to_new[old_parent]
                     if isinstance(parent, GardenItemMixin):
                         item.parent_bed_id = parent.item_id
                         parent.add_child_id(item.item_id)
-                        # Plants must render above their bed even when
-                        # source/target share a layer's default z.
-                        from open_garden_planner.core.commands import (
-                            _ensure_z_above_parent,
-                        )
-                        _ensure_z_above_parent(item, parent)
+                        ensure_z_above_parent(item, parent)
 
             # Use command for undo support
             from open_garden_planner.core import CreateItemsCommand
@@ -3990,6 +3988,8 @@ class CanvasView(QGraphicsView):
 
         # Rebuild parent-child relationships with new UUIDs
         if duplicated_items:
+            from open_garden_planner.core.commands import ensure_z_above_parent
+
             old_id_to_new: dict[str, QGraphicsItem] = {}
             for obj_data, item in zip(dup_source, duplicated_items, strict=True):
                 old_id = obj_data.get("item_id")
@@ -4008,10 +4008,7 @@ class CanvasView(QGraphicsView):
                     if isinstance(parent, GardenItemMixin):
                         item.parent_bed_id = parent.item_id
                         parent.add_child_id(item.item_id)
-                        from open_garden_planner.core.commands import (
-                            _ensure_z_above_parent,
-                        )
-                        _ensure_z_above_parent(item, parent)
+                        ensure_z_above_parent(item, parent)
 
             from open_garden_planner.core import CreateItemsCommand
 

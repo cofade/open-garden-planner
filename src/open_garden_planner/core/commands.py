@@ -133,7 +133,7 @@ class CommandManager(QObject):
         return None
 
 
-def _ensure_z_above_parent(child: QGraphicsItem, parent: QGraphicsItem) -> None:
+def ensure_z_above_parent(child: QGraphicsItem, parent: QGraphicsItem) -> None:
     """Elevate *child*'s z-value above *parent*'s when they tie.
 
     Plants and beds typically share a layer's default z (=0). Without this,
@@ -145,7 +145,7 @@ def _ensure_z_above_parent(child: QGraphicsItem, parent: QGraphicsItem) -> None:
         child.setZValue(parent.zValue() + 1)
 
 
-def _trigger_soil_mismatch_refresh(scene: QGraphicsScene) -> None:
+def trigger_soil_mismatch_refresh(scene: QGraphicsScene) -> None:
     """Force the canvas view to recompute soil-mismatch borders now.
 
     QGraphicsScene.changed only fires on geometry/visibility changes, not on
@@ -182,7 +182,7 @@ def _auto_parent_plant(scene: QGraphicsScene, item: QGraphicsItem) -> None:
     if best_bed is not None and isinstance(best_bed, GardenItemMixin):
         item.parent_bed_id = best_bed.item_id
         best_bed.add_child_id(item.item_id)
-        _ensure_z_above_parent(item, best_bed)
+        ensure_z_above_parent(item, best_bed)
 
 
 def _detach_from_parent(scene: QGraphicsScene, item: QGraphicsItem) -> None:
@@ -374,7 +374,7 @@ class DeleteItemsCommand(Command):
                         child = self._scene.find_item_by_id(child_id)
                         if child is not None and isinstance(child, GardenItemMixin):
                             child.parent_bed_id = iid
-                            _ensure_z_above_parent(child, item)
+                            ensure_z_above_parent(child, item)
             if iid in self._plant_parents:
                 item.parent_bed_id = self._plant_parents[iid]
                 # Also re-add to parent's child list (if parent is in scene)
@@ -1096,7 +1096,7 @@ class SetParentBedCommand(Command):
             new_bed = self._scene.find_item_by_id(attach_id)
             if new_bed is not None and isinstance(new_bed, GardenItemMixin):
                 new_bed.add_child_id(self._plant.item_id)
-                _ensure_z_above_parent(self._plant, new_bed)
+                ensure_z_above_parent(self._plant, new_bed)
         elif restore_z:
             # Undoing an attach (now fully detached) — return to the user's
             # original z so the elevation is symmetric across execute/undo.
@@ -1104,7 +1104,7 @@ class SetParentBedCommand(Command):
         self._plant.parent_bed_id = attach_id
         # Parent-link mutations don't fire QGraphicsScene.changed; refresh now
         # so callers (drag-and-drop, properties-panel Unlink, …) all stay in sync.
-        _trigger_soil_mismatch_refresh(self._scene)
+        trigger_soil_mismatch_refresh(self._scene)
 
 
 class GroupCommand(Command):

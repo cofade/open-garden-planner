@@ -307,6 +307,26 @@ class TestSetParentBedCommand:
 
         assert plant.zValue() == 0  # restored on undo
 
+    def test_undo_attach_restores_non_zero_pre_attach_z(self, scene, manager) -> None:
+        """Snapshot must be the actual pre-execute z, not a hardcoded 0.
+
+        If the user explicitly elevated the plant before attaching it (e.g.
+        z=5 to put it above another bed), undo must restore z=5, not 0.
+        """
+        bed = _make_bed()
+        plant = _make_plant()
+        scene.addItem(bed)
+        scene.addItem(plant)
+        bed.setZValue(0)
+        plant.setZValue(5)  # user explicitly elevated the plant
+
+        cmd = SetParentBedCommand(scene, plant, None, bed.item_id)
+        manager.execute(cmd)
+        assert plant.zValue() == 5  # already above bed, so unchanged
+        manager.undo()
+
+        assert plant.zValue() == 5  # restored to user's pre-attach value
+
 
 # ---------------------------------------------------------------------------
 # DeleteItemsCommand relationship handling
