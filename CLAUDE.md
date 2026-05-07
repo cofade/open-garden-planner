@@ -172,3 +172,10 @@ Full history: see `docs/roadmap.md`.
 
 > **US-12.10 implementation details**: `docs/roadmap.md` § "US-12.10: Soil Health Tracking & Amendment Calculator"
 > Sub-stories (execute in order): **12.10a** data model + entry → **12.10b** canvas overlay → **12.10c** amendment calculator → **12.10d** plant-soil warnings → **12.10e** history + seasonal badge
+
+## Phase 12 issue work
+
+| Status | Issue / PR | Description                                                          |
+| ------ | ---------- | -------------------------------------------------------------------- |
+| ✅     | #170 / #174 | Auto-populate plant species data on drop + bundled species DB (118 records, ADR-014). Auto-fires US-12.10d warnings. |
+| 🐛     | #173        | US-12.10d soil-warning has stale state on plant move/reparent (filed during #170 testing). |
