@@ -172,6 +172,13 @@ class CircleTool(BaseTool):
                 item.plant_category = self._plant_category
             if self._plant_species:
                 item.plant_species = self._plant_species
+                # Mirror the canvas drop path: populate species metadata so
+                # the plant detail panel has data the moment the user clicks
+                # the new circle.
+                from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
+                    populate_item_species_metadata,
+                )
+                populate_item_species_metadata(item, self._plant_species)
             self._view.add_item(item, "circle")
 
         self._reset_state()

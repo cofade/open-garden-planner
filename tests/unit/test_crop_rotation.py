@@ -219,7 +219,7 @@ class TestConstants:
 
 
 class TestPlantingCalendarCropRotationData:
-    """Verify that planting_calendar.json has family and nutrient_demand for all species."""
+    """Verify that plant_species.json has family and nutrient_demand for all species."""
 
     def test_all_species_have_family(self) -> None:
         import json
@@ -231,7 +231,7 @@ class TestPlantingCalendarCropRotationData:
             / "open_garden_planner"
             / "resources"
             / "data"
-            / "planting_calendar.json"
+            / "plant_species.json"
         )
         with open(calendar_path, encoding="utf-8") as f:
             data = json.load(f)
@@ -251,7 +251,7 @@ class TestPlantingCalendarCropRotationData:
             / "open_garden_planner"
             / "resources"
             / "data"
-            / "planting_calendar.json"
+            / "plant_species.json"
         )
         with open(calendar_path, encoding="utf-8") as f:
             data = json.load(f)
@@ -272,7 +272,7 @@ class TestPlantingCalendarCropRotationData:
             / "open_garden_planner"
             / "resources"
             / "data"
-            / "planting_calendar.json"
+            / "plant_species.json"
         )
         with open(calendar_path, encoding="utf-8") as f:
             data = json.load(f)

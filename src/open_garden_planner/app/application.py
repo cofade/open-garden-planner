@@ -2894,7 +2894,7 @@ class GardenPlannerApp(QMainWindow):
 
                 if plant_item:
                     # Update existing plant with species data (merge local calendar DB)
-                    from open_garden_planner.services.planting_calendar_db import (
+                    from open_garden_planner.services.bundled_species_db import (
                         merge_calendar_data,  # noqa: PLC0415
                     )
                     if not hasattr(plant_item, 'metadata') or plant_item.metadata is None:

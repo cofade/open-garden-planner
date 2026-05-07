@@ -126,6 +126,8 @@ Pre-defined object types for common property elements:
   3. Permapeople API (tertiary)
   4. Bundled plant database (offline)
   5. User-defined custom entries (always available)
+- **FR-PLANT-15** *(issue #170)*: On canvas drop or tool draw of a plant, look up the species in the bundled DB (`resources/data/plant_species.json`) by scientific name → common name → alias (case-insensitive). On hit, populate `metadata["plant_species"]` with the full record (pH, NPK demand, sun, water, calendar, hardiness) so the plant detail panel shows data immediately and US-12.10d soil-mismatch warnings fire automatically.
+- **FR-PLANT-16** *(issue #170)*: Bundled DB ships records for **every species exposed by the gallery** (currently 118 entries: trees, shrubs, vegetables, herbs, berries, fruits, ornamentals). Every record has `ph_min`, `ph_max`, `nutrient_demand`, `n_demand`, `p_demand`, `k_demand` populated. Where the gallery's species string differs from the canonical common name (e.g. "pea" vs "Garden Pea", "apple tree" vs "Apple Tree"), records carry an optional `aliases` array. Misses fall through to the existing API search button (FR-PLANT-14).
 
 ## FR-6: Garden Beds
 

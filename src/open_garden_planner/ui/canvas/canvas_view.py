@@ -1332,6 +1332,16 @@ class CanvasView(QGraphicsView):
             if plant_category is not None:
                 item.plant_category = plant_category
 
+            # Auto-populate species metadata from the bundled DB so the plant
+            # detail panel and US-12.10d soil-mismatch warnings light up
+            # without the user having to click "Suchen". Misses fall through
+            # to the existing API search button.
+            if species:
+                from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
+                    populate_item_species_metadata,
+                )
+                populate_item_species_metadata(item, species)
+
             # Assign to active layer
             active_layer = self._canvas_scene.active_layer
             if active_layer:

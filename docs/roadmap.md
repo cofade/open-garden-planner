@@ -862,7 +862,7 @@ Icon designs per tool:
   min_germination_temp_c: float | None = None
   seed_depth_cm: float | None = None
   ```
-- New local database: `resources/data/planting_calendar.json` — curated data for 50+ common vegetables/herbs
+- New local database: `resources/data/planting_calendar.json` — curated data for 50+ common vegetables/herbs *(superseded in issue #170 — now `resources/data/plant_species.json`, see ADR-014)*
 - Merge logic: local DB has priority, API data fills gaps
 
 ### US-8.5: Planting Calendar View
@@ -1081,7 +1081,7 @@ Icon designs per tool:
 **Technical Notes**:
 - Extend `PlanningCalendarView` with propagation sub-steps
 - New model: `models/propagation.py` — `PropagationPlan` with steps
-- Default step durations in `planting_calendar.json`:
+- Default step durations in `plant_species.json` (formerly `planting_calendar.json`, see ADR-014):
   ```json
   {
     "tomato": {
@@ -1253,7 +1253,7 @@ Icon designs per tool:
       records: list[PlantingRecord]
   ```
 - Store as `"crop_rotation"` key in `.ogp` file
-- Nutrient demand data in `resources/data/planting_calendar.json` (extend existing)
+- Nutrient demand data in `resources/data/plant_species.json` (formerly `planting_calendar.json`, see ADR-014)
 
 ### US-10.6: Crop Rotation Recommendations
 
