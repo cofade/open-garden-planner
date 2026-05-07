@@ -3,7 +3,7 @@
 import pytest
 
 from open_garden_planner.models.plant_data import PlantSpeciesData
-from open_garden_planner.services.planting_calendar_db import (
+from open_garden_planner.services.bundled_species_db import (
     get_calendar_db,
     get_calendar_entry,
     merge_calendar_data,

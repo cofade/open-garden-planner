@@ -8,6 +8,7 @@
 | **Canvas** | The main drawing area where garden objects are placed and manipulated |
 | **Canopy Diameter** | The spread/width of a tree or shrub's foliage when viewed from above |
 | **Amendment** | Soil-improving substance (lime, blood meal, compost, etc.) loaded from `resources/data/amendments.json`. Carries application rate (g/m²) and per-fix effect coefficients used by the calculator |
+| **Bundled Species DB** | Curated `resources/data/plant_species.json` shipped with the app (~120 records covering every gallery thumbnail, full pH/NPK/sun/water/calendar fields per species). Looked up on canvas drop and tool draw by scientific name → common name → alias to auto-populate `metadata["plant_species"]`; the long tail still falls through to the on-demand API search (issue #170) |
 | **AmendmentRecommendation** | Calculator output for one substance applied to one bed: amendment + grams + rationale (e.g. "Raises pH 5.8 → 6.5") |
 | **Calibration** | The process of marking a known distance on an image to establish metric scale |
 | **Command Pattern** | Design pattern where every modification is wrapped in an object with execute/undo methods |

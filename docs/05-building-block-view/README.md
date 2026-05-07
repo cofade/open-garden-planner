@@ -116,6 +116,7 @@ src/open_garden_planner/
 │   │   ├── permapeople_client.py
 │   │   └── trefle_client.py
 │   ├── plant_library.py          # Local plant library management
+│   ├── bundled_species_db.py     # Bundled species DB loader + drop-flow hook (issue #170)
 │   ├── export_service.py         # PDF/image export
 │   ├── autosave_service.py       # Autosave logic
 │   ├── soil_service.py           # Soil test history facade (US-12.10a)
@@ -125,6 +126,11 @@ src/open_garden_planner/
     ├── textures/                 # Tileable PNG textures
     ├── plants/                   # Plant SVG illustrations
     ├── translations/             # .ts source & .qm compiled translations
+    ├── data/
+    │   ├── plant_species.json    # Bundled species DB (118 records, issue #170)
+    │   ├── amendments.json       # Soil amendment substances (US-12.10c)
+    │   ├── companion_planting.json
+    │   └── seed_viability.json
     └── objects/                  # Object SVG illustrations
         ├── furniture/            # Outdoor furniture SVGs
         └── infrastructure/       # Garden infrastructure SVGs

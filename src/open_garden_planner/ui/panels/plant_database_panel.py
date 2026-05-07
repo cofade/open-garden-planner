@@ -32,7 +32,7 @@ from open_garden_planner.models.plant_data import (
     WaterNeeds,
 )
 from open_garden_planner.services import get_plant_library
-from open_garden_planner.services.planting_calendar_db import merge_calendar_data
+from open_garden_planner.services.bundled_species_db import merge_calendar_data
 
 
 class ClickableDateEdit(QDateEdit):
