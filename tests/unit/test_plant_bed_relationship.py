@@ -291,6 +291,22 @@ class TestSetParentBedCommand:
         # Detach should not touch z — plant stays where it is.
         assert plant.zValue() == 1
 
+    def test_undo_attach_restores_pre_attach_z(self, scene, manager) -> None:
+        """Undo of attach must put z back where the user had it (symmetric)."""
+        bed = _make_bed()
+        plant = _make_plant()
+        scene.addItem(bed)
+        scene.addItem(plant)
+        bed.setZValue(0)
+        plant.setZValue(0)  # original z before attach
+
+        cmd = SetParentBedCommand(scene, plant, None, bed.item_id)
+        manager.execute(cmd)
+        assert plant.zValue() == 1  # elevated by attach
+        manager.undo()
+
+        assert plant.zValue() == 0  # restored on undo
+
 
 # ---------------------------------------------------------------------------
 # DeleteItemsCommand relationship handling

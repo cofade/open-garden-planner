@@ -340,14 +340,12 @@ class TestRefreshOnReparent:
         svc = MagicMock()
         svc.get_effective_record.return_value = _make_record(ph=4.0)  # very acidic
         view.set_soil_service(svc)
-        # Initial state: no children → no mismatch.
-        view.refresh_soil_mismatches()
+        # set_soil_service already calls _update_soil_mismatches synchronously.
         assert bed._soil_mismatch_level is None
 
         # Simulate the post-move parent re-evaluation: plant moves INTO bed.
         plant.setSelected(True)
-        # Move plant into bed, then trigger the same code path mouseReleaseEvent uses.
-        plant.setPos(plant.pos().x() - 800, plant.pos().y())  # move so center is in bed
+        plant.setPos(plant.pos().x() - 800, plant.pos().y())  # center is in bed
         view._update_plant_bed_relationships()
 
         # Bug #173: this should be set without waiting 500 ms for the debounce.
@@ -364,7 +362,6 @@ class TestRefreshOnReparent:
         svc = MagicMock()
         svc.get_effective_record.return_value = _make_record(ph=4.0)
         view.set_soil_service(svc)
-        view.refresh_soil_mismatches()
         assert bed._soil_mismatch_level == "warning"
 
         # Move plant outside the bed and re-evaluate.
@@ -373,4 +370,32 @@ class TestRefreshOnReparent:
         view._update_plant_bed_relationships()
 
         # Bug #173: warning must clear immediately.
+        assert bed._soil_mismatch_level is None
+
+    def test_unlink_via_properties_panel_clears_warning_immediately(
+        self, qtbot
+    ) -> None:
+        """Properties-panel "Unlink" calls SetParentBedCommand directly (not via
+        _update_plant_bed_relationships). The fix must still cover this path
+        because the command itself triggers the soil-mismatch refresh.
+        """
+        from open_garden_planner.core.commands import (
+            CommandManager,
+            SetParentBedCommand,
+        )
+
+        view, bed, plant = self._build_view_with_bed_and_plant(
+            qtbot, plant_inside_bed=True
+        )
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        svc = MagicMock()
+        svc.get_effective_record.return_value = _make_record(ph=4.0)
+        view.set_soil_service(svc)
+        assert bed._soil_mismatch_level == "warning"
+
+        # Mimic the properties-panel _do_unlink flow exactly.
+        cmd = SetParentBedCommand(view._canvas_scene, plant, bed.item_id, None)
+        CommandManager().execute(cmd)
+
         assert bed._soil_mismatch_level is None

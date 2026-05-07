@@ -73,6 +73,10 @@ Hard-won lessons from implementation. Read these before modifying the related su
 
 - **DXF Y-axis: scene Y is already Y-up, no negation needed**: OGP scene uses Y-up (scene Y=0 = visual bottom). DXF also uses Y-up. The formula `dxf_y = canvas_h - scene_y` double-flips. Correct mapping: `dxf_y = scene_y`. Similarly for import: `scene_y = dxf_y * scale` (no negation).
 
+- **`QGraphicsScene.changed` only fires on geometry/visibility, not on Python attribute mutations** (issue #173): The 500 ms debounce timer in `CanvasView` that drives `_update_soil_mismatches` is wired to `scene.changed`. Mutating `parent_bed_id` / `_child_item_ids` on a `GardenItemMixin` instance is a plain Python attribute write — no signal, no scene invalidation, no debounce trigger. Any code path that re-parents a plant (drag-and-drop, properties-panel "Unlink", paste, duplicate, future callers) must explicitly call `_trigger_soil_mismatch_refresh(scene)` (in `commands.py`), or the warning borders go stale until the next unrelated scene change. Funnel attach/detach through `SetParentBedCommand` whenever possible — it triggers the refresh itself.
+
+- **Plants stack behind beds when both share a layer's default z**: A new `CircleItem` and a new `RectangleItem` placed on the same layer both get `z_order * 100` from the layer (typically `0`). With equal z-values, Qt stacks by add-order. So a plant drawn *before* its bed renders behind it, even when correctly attached as a child. Fix is to elevate the plant above the bed at every attach site: `_ensure_z_above_parent(plant, bed)` in `commands.py`. Already wired into `_auto_parent_plant`, `SetParentBedCommand`, `DeleteItemsCommand.undo`, paste, and duplicate. Any new path that establishes a plant-bed parent link must also call this helper.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

@@ -3194,7 +3194,6 @@ class CanvasView(QGraphicsView):
         from open_garden_planner.core.plant_renderer import is_plant_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
-        parenting_changed = False
         for item in self.scene().selectedItems():
             if not isinstance(item, GardenItemMixin):
                 continue
@@ -3218,13 +3217,10 @@ class CanvasView(QGraphicsView):
                     current_parent_id,
                     new_parent_id,
                 )
+                # SetParentBedCommand triggers _update_soil_mismatches itself
+                # (issue #173) so all attach/detach call sites stay in sync —
+                # including the properties-panel Unlink button.
                 self._command_manager.execute(cmd)
-                parenting_changed = True
-
-        # Parent-link mutations don't fire QGraphicsScene.changed, so the 500 ms
-        # debounce wouldn't refresh the soil-mismatch borders. Force it here.
-        if parenting_changed:
-            self._update_soil_mismatches()
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the background."""
@@ -3907,6 +3903,12 @@ class CanvasView(QGraphicsView):
                     if isinstance(parent, GardenItemMixin):
                         item.parent_bed_id = parent.item_id
                         parent.add_child_id(item.item_id)
+                        # Plants must render above their bed even when
+                        # source/target share a layer's default z.
+                        from open_garden_planner.core.commands import (
+                            _ensure_z_above_parent,
+                        )
+                        _ensure_z_above_parent(item, parent)
 
             # Use command for undo support
             from open_garden_planner.core import CreateItemsCommand
@@ -4006,6 +4008,10 @@ class CanvasView(QGraphicsView):
                     if isinstance(parent, GardenItemMixin):
                         item.parent_bed_id = parent.item_id
                         parent.add_child_id(item.item_id)
+                        from open_garden_planner.core.commands import (
+                            _ensure_z_above_parent,
+                        )
+                        _ensure_z_above_parent(item, parent)
 
             from open_garden_planner.core import CreateItemsCommand
 
