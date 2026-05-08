@@ -463,15 +463,29 @@ def _render_legend(
         y += row_h
 
 
+def _shopping_list_fits(items: list[Any], page_rect: QRectF) -> bool:
+    """Return True when ``items`` (plus title + header + footer slack) all fit
+    on a single page of size ``page_rect``."""
+    title_h = _pt(14)
+    row_h = _pt(7)
+    footer_slack = _pt(20)
+    available = page_rect.bottom() - page_rect.top() - title_h - _pt(4) - row_h - footer_slack
+    return len(items) * row_h <= available
+
+
 def _render_shopping_list(
     painter: QPainter,
     page_rect: QRectF,
     items: list[Any],
+    grand_total: float | None = None,
 ) -> int:
     """Render shopping list rows into ``page_rect``.
 
     Returns the index of the first item that did not fit so the caller can
     paginate; returns ``len(items)`` when everything fit.
+
+    ``grand_total`` is the whole-list total to print as a footer; pass it only
+    on the final page to avoid showing per-page subtotals labelled "Grand total".
     """
     title_font = QFont("Arial", 14)
     title_font.setBold(True)
@@ -517,8 +531,6 @@ def _render_shopping_list(
     y += row_h
 
     painter.setFont(row_font)
-    grand_total = 0.0
-    grand_total_set = False
     rendered = 0
     for idx, item in enumerate(items):
         if y + row_h > page_rect.bottom() - _pt(20):
@@ -527,11 +539,7 @@ def _render_shopping_list(
         painter.fillRect(QRectF(page_rect.left(), y, page_rect.width(), row_h), bg)
         painter.setPen(QColor("#333333"))
         price_str = "" if item.price_each is None else f"{item.price_each:.2f}"
-        total_str = ""
-        if item.total_cost is not None:
-            total_str = f"{item.total_cost:.2f}"
-            grand_total += item.total_cost
-            grand_total_set = True
+        total_str = "" if item.total_cost is None else f"{item.total_cost:.2f}"
         values = [
             item.category.value,
             item.name,
@@ -553,7 +561,7 @@ def _render_shopping_list(
         y += row_h
         rendered = idx + 1
 
-    if grand_total_set:
+    if grand_total is not None:
         y += _pt(4)
         painter.setFont(header_font)
         painter.setPen(QColor("#2e7d32"))
@@ -690,6 +698,9 @@ class PdfReportService:
             QPageLayout.Unit.Millimeter,
         ))
 
+        priced = [i.total_cost for i in items if i.total_cost is not None]
+        grand_total = sum(priced) if priced else None
+
         painter = QPainter()
         if not painter.begin(writer):
             raise RuntimeError("Failed to start PDF painter")
@@ -704,9 +715,19 @@ class PdfReportService:
                 painter.setRenderHint(QPainter.RenderHint.Antialiasing)
                 painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
                 painter.fillRect(page_rect, QColor("white"))
-                rendered = _render_shopping_list(painter, page_rect, remaining)
+                # Probe whether the whole remaining slice fits on this page;
+                # if so, this is the final page → emit the grand total here.
+                fits_on_page = _shopping_list_fits(remaining, page_rect)
+                rendered = _render_shopping_list(
+                    painter, page_rect, remaining,
+                    grand_total=grand_total if fits_on_page else None,
+                )
                 if rendered >= len(remaining):
                     break
+                if rendered == 0:
+                    raise RuntimeError(
+                        "Shopping list row too large to fit on a page"
+                    )
                 remaining = remaining[rendered:]
         finally:
             painter.end()

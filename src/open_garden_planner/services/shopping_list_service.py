@@ -20,6 +20,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from PyQt6.QtCore import QCoreApplication
+
 from open_garden_planner.core.measurements import calculate_area_and_perimeter
 from open_garden_planner.core.object_types import ObjectType, is_bed_type
 from open_garden_planner.models.amendment import Amendment
@@ -35,6 +37,25 @@ if TYPE_CHECKING:
 
 
 _PLANT_OBJECT_TYPES = (ObjectType.TREE, ObjectType.SHRUB, ObjectType.PERENNIAL)
+
+
+def _tr(text: str) -> str:
+    return QCoreApplication.translate("ShoppingListService", text)
+
+
+def _norm_species_key(value: str) -> str:
+    """Lowercase + trim a species identifier for case-insensitive matching."""
+    return value.strip().lower()
+
+
+def _active_language() -> str:
+    """Return the active app language code (or "en" if settings unavailable)."""
+    try:
+        from open_garden_planner.app.settings import get_settings  # noqa: PLC0415
+
+        return get_settings().language or "en"
+    except Exception:  # noqa: BLE001
+        return "en"
 
 
 @dataclass
@@ -74,7 +95,7 @@ def aggregate_amendments(
         recs = SoilService.calculate_amendments(record, bed_area_m2=area)
         if not recs:
             continue
-        bed_name = str(getattr(item, "name", "") or "Bed")
+        bed_name = str(getattr(item, "name", "") or _tr("Bed"))
         for rec in recs:
             slot = by_id.setdefault(
                 rec.amendment.id, AggregatedAmendment(amendment=rec.amendment)
@@ -142,7 +163,7 @@ class ShoppingListService:
                 plant_species.get("common_name")
                 or plant_species.get("scientific_name")
                 or getattr(item, "name", "")
-                or "Unknown plant"
+                or _tr("Unknown plant")
             )
             spread = plant_instance.get("current_spread_cm") or plant_instance.get(
                 "current_diameter_cm"
@@ -160,14 +181,14 @@ class ShoppingListService:
             size = ""
             if slot["spreads"]:
                 avg = sum(slot["spreads"]) / len(slot["spreads"])
-                size = f"~{avg:.0f} cm spread"
+                size = _tr("~{avg} cm spread").format(avg=f"{avg:.0f}")
             out.append(
                 ShoppingListItem(
                     id=f"plant:{species_id}",
                     category=ShoppingListCategory.PLANTS,
                     name=slot["name"],
                     quantity=float(slot["count"]),
-                    unit="plants",
+                    unit=_tr("plants"),
                     size_descriptor=size,
                     notes=slot["type_name"],
                 )
@@ -176,7 +197,12 @@ class ShoppingListService:
 
     def _collect_seed_gaps(self) -> list[ShoppingListItem]:
         """Emit one packet-sized row per species placed on the canvas with no
-        matching packet in the project seed inventory."""
+        matching packet in the project seed inventory.
+
+        Lookup is case-insensitive and trims whitespace so that a packet
+        ``species_id="solanum lycopersicum"`` matches a plant
+        ``scientific_name="Solanum lycopersicum"``.
+        """
         placed_species: dict[str, str] = {}
         for item in self._scene.items():
             if getattr(item, "object_type", None) not in _PLANT_OBJECT_TYPES:
@@ -197,14 +223,16 @@ class ShoppingListService:
                 or str(sid),
             )
 
-        owned_species: set[str] = set()
+        owned_keys: set[str] = set()
         for packet in self._project_manager.seed_inventory:
-            sid = packet.get("species_id") or packet.get("species_name")
-            if sid:
-                owned_species.add(str(sid))
+            for raw in (packet.get("species_id"), packet.get("species_name")):
+                if raw:
+                    owned_keys.add(_norm_species_key(str(raw)))
 
         gaps = sorted(
-            (sid, name) for sid, name in placed_species.items() if sid not in owned_species
+            (sid, name)
+            for sid, name in placed_species.items()
+            if _norm_species_key(sid) not in owned_keys
         )
         return [
             ShoppingListItem(
@@ -212,8 +240,8 @@ class ShoppingListService:
                 category=ShoppingListCategory.SEEDS,
                 name=name,
                 quantity=1.0,
-                unit="packet",
-                notes="Not in project seed inventory",
+                unit=_tr("packet"),
+                notes=_tr("Not in project seed inventory"),
             )
             for sid, name in gaps
         ]
@@ -221,14 +249,15 @@ class ShoppingListService:
     def _collect_materials(self) -> list[ShoppingListItem]:
         """Roll the cross-bed amendment totals into shopping-list rows."""
         out: list[ShoppingListItem] = []
+        lang = _active_language()
         for agg in aggregate_amendments(self._scene, self._soil_service):
             out.append(
                 ShoppingListItem(
                     id=f"amendment:{agg.amendment.id}",
                     category=ShoppingListCategory.MATERIALS,
-                    name=agg.amendment.name,
+                    name=agg.amendment.display_name(lang),
                     quantity=round(agg.total_g, 1),
-                    unit="g",
+                    unit=_tr("g"),
                     notes=", ".join(agg.bed_names),
                 )
             )
@@ -244,10 +273,13 @@ class ShoppingListService:
                 item.price_each = float(price)
 
     def update_price(self, item: ShoppingListItem, price: float | None) -> None:
-        """Mutate ``item`` and persist the change to ``ProjectManager``."""
+        """Mutate ``item`` and persist the change to ``ProjectManager``.
+
+        Zero is a real price and round-trips; only ``None`` clears the entry.
+        """
         item.price_each = price
         prices = dict(self._project_manager.shopping_list_prices)
-        if price is None or price == 0:
+        if price is None:
             prices.pop(item.id, None)
         else:
             prices[item.id] = float(price)
@@ -259,10 +291,7 @@ class ShoppingListService:
     def _object_type_label(object_type: ObjectType) -> str:
         from open_garden_planner.core.object_types import get_style
 
-        try:
-            return get_style(object_type).display_name
-        except Exception:  # noqa: BLE001
-            return object_type.name.replace("_", " ").title()
+        return QCoreApplication.translate("CanvasView", get_style(object_type).display_name)
 
 
 __all__ = [

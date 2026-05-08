@@ -218,3 +218,64 @@ class TestPricePersistence:
         svc.update_price(plant, 2.50)
         svc.update_price(plant, None)
         assert pm.shopping_list_prices == {}
+
+    def test_zero_price_is_persisted_as_real_value(self, qtbot) -> None:  # noqa: ARG002
+        """Zero is a valid price (free); only None clears the entry."""
+        scene = _make_scene()
+        _add_plant(scene, common_name="Tomato", source_id="t")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+        plant = next(i for i in svc.build() if i.category is ShoppingListCategory.PLANTS)
+        svc.update_price(plant, 0.0)
+        assert pm.shopping_list_prices == {plant.id: 0.0}
+        rebuilt = next(i for i in svc.build() if i.id == plant.id)
+        assert rebuilt.price_each == 0.0
+        assert rebuilt.total_cost == 0.0
+
+
+# ── Edge cases & robustness ───────────────────────────────────────────────────
+
+
+class TestEdgeCases:
+    def test_plant_with_empty_metadata_does_not_crash(self, qtbot) -> None:  # noqa: ARG002
+        scene = _make_scene()
+        plant = CircleItem(
+            center_x=50, center_y=50, radius=20,
+            object_type=ObjectType.PERENNIAL, name="orphan",
+        )
+        # plant_species absent → service falls back to item.name then "Unknown plant"
+        scene.addItem(plant)
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+        plants = [i for i in svc.build() if i.category is ShoppingListCategory.PLANTS]
+        assert len(plants) == 1
+        assert plants[0].name == "orphan"
+
+    def test_seed_packet_with_no_keys_is_skipped(self, qtbot) -> None:  # noqa: ARG002
+        scene = _make_scene()
+        _add_plant(scene, common_name="Tomato", source_id="t")
+        pm = ProjectManager()
+        pm.set_seed_inventory([
+            {"quantity": 10},  # neither species_id nor species_name
+        ])
+        svc = ShoppingListService(scene, MagicMock(), pm)
+        seeds = [i for i in svc.build() if i.category is ShoppingListCategory.SEEDS]
+        assert len(seeds) == 1  # gap still present
+
+    def test_seed_gap_match_is_case_insensitive(self, qtbot) -> None:  # noqa: ARG002
+        scene = _make_scene()
+        plant = CircleItem(
+            center_x=50, center_y=50, radius=20,
+            object_type=ObjectType.PERENNIAL, name="Tomato",
+        )
+        plant.metadata["plant_species"] = {
+            "scientific_name": "Solanum lycopersicum",
+        }
+        scene.addItem(plant)
+        pm = ProjectManager()
+        pm.set_seed_inventory([
+            {"species_id": "  solanum LYCOPERSICUM ", "quantity": 10},
+        ])
+        svc = ShoppingListService(scene, MagicMock(), pm)
+        seeds = [i for i in svc.build() if i.category is ShoppingListCategory.SEEDS]
+        assert seeds == []

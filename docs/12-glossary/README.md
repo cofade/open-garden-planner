@@ -26,6 +26,10 @@
 | **QGraphicsView** | Qt class that provides the viewport/widget for displaying the scene |
 | **Rapitest scale** | Categorical NPK / Ca-Mg-S labels (Depleted/Deficient/Adequate/Sufficient/Surplus and Low/Medium/High) used by consumer soil test kits and stored on `SoilTestRecord` |
 | **Scene Coordinates** | Real-world metric coordinates used internally (centimeters) |
+| **Seed Gap** | A species placed on the canvas that has no matching packet in `ProjectData.seed_inventory` — surfaces as a row in the Shopping List Seeds category |
+| **Shopping List** | Aggregated buying list (Plants / Seeds / Materials) produced from the current plan; only user-entered prices persist with the project, the rows themselves are recomputed on each open |
+| **ShoppingListItem** | One purchasable row: stable ID (e.g. `plant:<species_id>`), category, name, quantity, unit, optional price |
+| **ShoppingListCategory** | Top-level group in the shopping list: `PLANTS`, `SEEDS`, or `MATERIALS` |
 | **SoilTestRecord** | Single soil test entry: date, pH, NPK levels, secondary nutrients, optional ppm values, notes |
 | **SoilTestHistory** | Time-ordered list of `SoilTestRecord`s for one target (a bed UUID or `"global"` default) |
 | **Screen Coordinates** | Pixel coordinates on the display; converted via QGraphicsView transform |

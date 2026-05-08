@@ -283,9 +283,9 @@ class ProjectManager(QObject):
     def set_shopping_list_prices(self, prices: dict[str, float]) -> None:
         """Replace the shopping-list price overrides and mark project dirty.
 
-        Empty (or zero) entries are dropped to keep the saved file compact.
+        Zero is a valid price and round-trips; only ``None`` values are dropped.
         """
-        cleaned = {k: float(v) for k, v in prices.items() if v}
+        cleaned = {k: float(v) for k, v in prices.items() if v is not None}
         if cleaned == self._shopping_list_prices:
             return
         self._shopping_list_prices = cleaned

@@ -282,7 +282,7 @@ Pre-defined object types for common property elements:
 ## FR-16: Shopping List (Phase 12, US-12.6)
 
 - **FR-SHOP-01**: Garden → Shopping List… opens a modal dialog grouping items into Plants / Seeds / Materials.
-- **FR-SHOP-02**: Plants are aggregated from canvas TREE/SHRUB/PERENNIAL items by `metadata.plant_species.source_id`; the row shows count and the average current spread.
+- **FR-SHOP-02**: Plants are aggregated from canvas TREE/SHRUB/PERENNIAL items by the first available identifier on `metadata.plant_species` — `source_id`, then `scientific_name`, then `common_name`. Bundled-DB plants (where `source_id == ""`) are aggregated by `scientific_name`. The row shows count and the average current spread.
 - **FR-SHOP-03**: Seed gaps = species placed in the plan but not present in the project's `seed_inventory`; one packet-sized row per gap.
 - **FR-SHOP-04**: Materials roll in soil amendments aggregated across beds via `SoilService.calculate_amendments`, mirroring the totals shown by the Amendment Plan dialog (US-12.10c).
 - **FR-SHOP-05**: User-entered prices are editable in the dialog and persist with the project file under `shopping_list_prices` (keyed by item ID); reopening the project restores them.

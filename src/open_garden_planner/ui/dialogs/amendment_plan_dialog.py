@@ -39,10 +39,6 @@ if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
 
-# Backwards-compatible alias — early callers/tests still import this name.
-_AggregatedAmendment = AggregatedAmendment
-
-
 class AmendmentPlanDialog(QDialog):
     """Modal dialog showing the cross-bed amendment plan."""
 
@@ -123,7 +119,12 @@ class AmendmentPlanDialog(QDialog):
 
     def _populate_table(self) -> None:
         """Compute aggregations from the scene and populate the table."""
-        self._aggregated = self._aggregate_recommendations()
+        if self._canvas_scene is None or self._soil_service is None:
+            self._aggregated = []
+        else:
+            self._aggregated = aggregate_amendments(
+                self._canvas_scene, self._soil_service
+            )
         self._table.setRowCount(len(self._aggregated))
         if not self._aggregated:
             self._empty_label.setVisible(True)
@@ -144,12 +145,6 @@ class AmendmentPlanDialog(QDialog):
             self._table.setItem(
                 row, 2, QTableWidgetItem(", ".join(agg.bed_names))
             )
-
-    def _aggregate_recommendations(self) -> list[AggregatedAmendment]:
-        """Walk all beds and group amendment recommendations by substance."""
-        if self._canvas_scene is None or self._soil_service is None:
-            return []
-        return aggregate_amendments(self._canvas_scene, self._soil_service)
 
     # ── Actions ──────────────────────────────────────────────────────────────
 

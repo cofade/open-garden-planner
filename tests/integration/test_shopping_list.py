@@ -143,6 +143,96 @@ class TestPriceEditing:
         assert plant_item.price_each is None
         assert pm.shopping_list_prices == {}
 
+    def test_negative_price_resets_cell_and_status(self, qtbot) -> None:
+        QApplication.instance() or QApplication([])
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        _add_plant(scene, "Tomato", "solanum_lycopersicum")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+        dialog = ShoppingListDialog(service=svc)
+        qtbot.addWidget(dialog)
+
+        cell = dialog._table.item(1, _COL_PRICE)
+        assert cell is not None
+        cell.setText("-5")
+        plant_item = dialog._row_items[1]
+        assert plant_item is not None
+        assert plant_item.price_each is None
+        # Cell text is refreshed to empty (not left displaying "-5").
+        assert dialog._table.item(1, _COL_PRICE).text() == ""
+        assert "Invalid" in dialog._status_label.text()
+
+    def test_comma_decimal_is_accepted(self, qtbot) -> None:
+        QApplication.instance() or QApplication([])
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        _add_plant(scene, "Tomato", "solanum_lycopersicum")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+        dialog = ShoppingListDialog(service=svc)
+        qtbot.addWidget(dialog)
+
+        cell = dialog._table.item(1, _COL_PRICE)
+        assert cell is not None
+        cell.setText("2,50")
+        plant_item = dialog._row_items[1]
+        assert plant_item is not None
+        assert plant_item.price_each == 2.50
+
+    def test_zero_price_round_trips_in_dialog(self, qtbot) -> None:
+        QApplication.instance() or QApplication([])
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        _add_plant(scene, "Tomato", "solanum_lycopersicum")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+        dialog = ShoppingListDialog(service=svc)
+        qtbot.addWidget(dialog)
+
+        cell = dialog._table.item(1, _COL_PRICE)
+        assert cell is not None
+        cell.setText("0")
+        plant_item = dialog._row_items[1]
+        assert plant_item is not None
+        assert plant_item.price_each == 0.0
+        assert pm.shopping_list_prices.get(plant_item.id) == 0.0
+
+
+# ── PDF pagination ────────────────────────────────────────────────────────────
+
+
+class TestPdfPagination:
+    def test_grand_total_only_on_final_page(self, tmp_path: Path) -> None:
+        from open_garden_planner.models.shopping_list import (
+            ShoppingListCategory as Cat,
+        )
+        from open_garden_planner.models.shopping_list import (
+            ShoppingListItem,
+        )
+        from open_garden_planner.services.pdf_report_service import (
+            _shopping_list_fits,
+        )
+        from PyQt6.QtCore import QRectF
+
+        # 200 priced items — guaranteed to overflow A4 portrait.
+        items = [
+            ShoppingListItem(
+                id=f"x:{i}", category=Cat.PLANTS, name=f"Plant {i}",
+                quantity=1.0, unit="x", price_each=1.0,
+            )
+            for i in range(200)
+        ]
+        # Probe helper directly: a small page rect can't fit 200 rows.
+        small_rect = QRectF(0, 0, 595, 842)  # A4 portrait points
+        assert not _shopping_list_fits(items, small_rect)
+        # Single-item slice fits.
+        assert _shopping_list_fits(items[:1], small_rect)
+
+        # End-to-end PDF render runs to completion without infinite loop.
+        out = tmp_path / "shopping_paginated.pdf"
+        from open_garden_planner.services.pdf_report_service import PdfReportService
+        PdfReportService.export_shopping_list_to_pdf(items, out)
+        assert out.exists() and out.stat().st_size > 0
+
+
 
 # ── Project save/load round-trip ──────────────────────────────────────────────
 

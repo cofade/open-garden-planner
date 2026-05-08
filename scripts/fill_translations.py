@@ -1488,6 +1488,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Shopping list not available.": "Einkaufsliste nicht verfügbar.",
     },
 
+    # ── ShoppingListService (US-12.6) ──
+    "ShoppingListService": {
+        "Bed": "Beet",
+        "Unknown plant": "Unbekannte Pflanze",
+        "~{avg} cm spread": "~{avg} cm Wuchsbreite",
+        "plants": "Pflanzen",
+        "packet": "Tüte",
+        "Not in project seed inventory": "Nicht im Projekt-Saatgutbestand",
+        "g": "g",
+    },
+
     # ── ShoppingListDialog (US-12.6) ──
     "ShoppingListDialog": {
         "Shopping List": "Einkaufsliste",

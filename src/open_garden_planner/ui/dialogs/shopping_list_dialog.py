@@ -259,7 +259,12 @@ class ShoppingListDialog(QDialog):
                 self._refresh_price_cell(row, item)
                 return
             if new_price < 0:
-                new_price = None
+                self._status_label.setText(self.tr("Invalid price — ignored."))
+                self._service.update_price(item, None)
+                self._refresh_price_cell(row, item)
+                self._refresh_total_cell(row, item)
+                self._update_grand_total()
+                return
         self._service.update_price(item, new_price)
         self._refresh_total_cell(row, item)
         self._update_grand_total()
@@ -357,7 +362,7 @@ class ShoppingListDialog(QDialog):
             return
         try:
             PdfReportService.export_shopping_list_to_pdf(self._items, path)
-        except RuntimeError as exc:
+        except (RuntimeError, OSError) as exc:
             QMessageBox.critical(self, self.tr("Export failed"), str(exc))
             return
         self._status_label.setText(

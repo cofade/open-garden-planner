@@ -8095,4 +8095,35 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Kategorie</translation>
         </message>
     </context>
+    <context>
+        <name>ShoppingListService</name>
+        <message>
+            <source>Bed</source>
+            <translation>Beet</translation>
+        </message>
+        <message>
+            <source>Unknown plant</source>
+            <translation>Unbekannte Pflanze</translation>
+        </message>
+        <message>
+            <source>~{avg} cm spread</source>
+            <translation>~{avg} cm Wuchsbreite</translation>
+        </message>
+        <message>
+            <source>plants</source>
+            <translation>Pflanzen</translation>
+        </message>
+        <message>
+            <source>packet</source>
+            <translation>Tüte</translation>
+        </message>
+        <message>
+            <source>Not in project seed inventory</source>
+            <translation>Nicht im Projekt-Saatgutbestand</translation>
+        </message>
+        <message>
+            <source>g</source>
+            <translation>g</translation>
+        </message>
+    </context>
 </TS>
