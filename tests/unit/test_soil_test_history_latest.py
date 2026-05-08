@@ -53,3 +53,19 @@ class TestLatestTieBreak:
         latest = history.latest
         assert latest is not None
         assert latest.notes == "last"
+
+
+class TestSoilTextureRoundTrip:
+    """US-12.11: ``soil_texture`` survives ``to_dict`` / ``from_dict``."""
+
+    def test_none_is_omitted_from_dict(self) -> None:
+        record = SoilTestRecord(date="2026-05-02")
+        d = record.to_dict()
+        assert "soil_texture" not in d
+        assert SoilTestRecord.from_dict(d).soil_texture is None
+
+    def test_each_texture_value_round_trips(self) -> None:
+        for texture in ("sandy", "loamy", "clayey", "compacted"):
+            record = SoilTestRecord(date="2026-05-02", soil_texture=texture)
+            restored = SoilTestRecord.from_dict(record.to_dict())
+            assert restored.soil_texture == texture

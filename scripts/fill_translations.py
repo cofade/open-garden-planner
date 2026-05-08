@@ -1439,6 +1439,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "(no pH)": "(kein pH)",
         "{date} — pH {ph}, N{n} P{p} K{k}":
             "{date} — pH {ph}, N{n} P{p} K{k}",
+        # US-12.11: soil texture combo
+        "Soil texture": "Bodenart",
+        "(unknown)": "(unbekannt)",
+        "Sandy": "Sandig",
+        "Loamy": "Lehmig",
+        "Clayey": "Tonig",
+        "Compacted": "Verdichtet",
     },
 
     # ── SoilSparklineWidget (US-12.10e) ──
@@ -1486,6 +1493,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Bed": "Beet",
         "Add to Shopping List": "Zur Einkaufsliste hinzufügen",
         "Shopping list not available.": "Einkaufsliste nicht verfügbar.",
+        # US-12.11: amendment-library panel
+        "Available amendments": "Verfügbare Bodenverbesserer",
+        "Prefer organic": "Organisch bevorzugen",
+        "When two substances cover the same deficits, pick the organic "
+        "one. Disable to let mineral compounds compete on equal footing.":
+            "Wenn zwei Substanzen die gleichen Mängel beheben, wird die "
+            "organische bevorzugt. Deaktivieren, damit mineralische Verbindungen "
+            "gleichberechtigt mitspielen.",
+        "Enable all": "Alle aktivieren",
+        "Organic": "Organisch",
+        "Mineral": "Mineralisch",
+        "Structural": "Strukturell",
     },
 
     # ── ShoppingListService (US-12.6) ──

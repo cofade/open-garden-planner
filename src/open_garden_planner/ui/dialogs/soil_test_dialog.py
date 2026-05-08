@@ -164,6 +164,15 @@ class SoilTestDialog(QDialog):
         self._mode_combo.addItem(self.tr("Lab (ppm)"), userData="lab")
         self._mode_combo.currentIndexChanged.connect(self._on_mode_changed)
         meta_form.addRow(self.tr("Mode"), self._mode_combo)
+
+        # Soil texture (US-12.11) — drives structural amendment recommendations.
+        self._soil_texture_combo = QComboBox()
+        self._soil_texture_combo.addItem(self.tr("(unknown)"), userData=None)
+        self._soil_texture_combo.addItem(self.tr("Sandy"), userData="sandy")
+        self._soil_texture_combo.addItem(self.tr("Loamy"), userData="loamy")
+        self._soil_texture_combo.addItem(self.tr("Clayey"), userData="clayey")
+        self._soil_texture_combo.addItem(self.tr("Compacted"), userData="compacted")
+        meta_form.addRow(self.tr("Soil texture"), self._soil_texture_combo)
         layout.addLayout(meta_form)
 
         # pH (shared between both modes)
@@ -197,6 +206,8 @@ class SoilTestDialog(QDialog):
             self._ca_combo, self._mg_combo, self._s_combo,
         ):
             combo.currentIndexChanged.connect(self._refresh_amendments)
+        # US-12.11: structural picks update when texture changes.
+        self._soil_texture_combo.currentIndexChanged.connect(self._refresh_amendments)
 
         # Notes
         notes_label = QLabel(self.tr("Notes"))
@@ -603,6 +614,11 @@ class SoilTestDialog(QDialog):
             for k in ("n_ppm", "p_ppm", "k_ppm", "ca_ppm", "mg_ppm", "s_ppm")
         ):
             self._mode_combo.setCurrentIndex(1)
+        # US-12.11: restore soil-texture selection (None → index 0).
+        for idx in range(self._soil_texture_combo.count()):
+            if self._soil_texture_combo.itemData(idx) == record.soil_texture:
+                self._soil_texture_combo.setCurrentIndex(idx)
+                break
 
     @staticmethod
     def _set_combo_value(combo: QComboBox, level: int | None) -> None:
@@ -643,6 +659,7 @@ class SoilTestDialog(QDialog):
             "s_ppm": self._ppm_value(self._s_ppm_spin),
             "notes": self._notes_edit.toPlainText().strip(),
             "mode": mode,
+            "soil_texture": self._soil_texture_combo.currentData(),
         }
         if self._edit_record_id is not None:
             kwargs["id"] = self._edit_record_id

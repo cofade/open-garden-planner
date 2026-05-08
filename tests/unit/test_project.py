@@ -55,6 +55,32 @@ class TestProjectData:
         assert data.canvas_width == 5000.0
         assert data.canvas_height == 3000.0
 
+    def test_enabled_amendments_round_trip_none(self) -> None:
+        """``None`` (default) is omitted from the JSON and decodes back to None."""
+        data = ProjectData()
+        assert data.enabled_amendments is None
+        result = data.to_dict()
+        assert "enabled_amendments" not in result
+        assert ProjectData.from_dict(result).enabled_amendments is None
+
+    def test_enabled_amendments_round_trip_explicit_list(self) -> None:
+        """An explicit allowlist round-trips through to_dict / from_dict."""
+        data = ProjectData(enabled_amendments=["compost", "blood_meal"])
+        result = data.to_dict()
+        assert result["enabled_amendments"] == ["blood_meal", "compost"]  # sorted
+        restored = ProjectData.from_dict(result)
+        assert sorted(restored.enabled_amendments or []) == ["blood_meal", "compost"]
+
+    def test_prefer_organic_round_trip(self) -> None:
+        """Default True is omitted; explicit False round-trips."""
+        default = ProjectData()
+        assert default.prefer_organic is True
+        assert "prefer_organic" not in default.to_dict()
+        flipped = ProjectData(prefer_organic=False)
+        result = flipped.to_dict()
+        assert result["prefer_organic"] is False
+        assert ProjectData.from_dict(result).prefer_organic is False
+
 
 class TestProjectManager:
     """Tests for ProjectManager class."""

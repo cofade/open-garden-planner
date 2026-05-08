@@ -7887,6 +7887,30 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source> [Lab]</source>
             <translation> [Labor]</translation>
         </message>
+        <message>
+            <source>Soil texture</source>
+            <translation>Bodenart</translation>
+        </message>
+        <message>
+            <source>(unknown)</source>
+            <translation>(unbekannt)</translation>
+        </message>
+        <message>
+            <source>Sandy</source>
+            <translation>Sandig</translation>
+        </message>
+        <message>
+            <source>Loamy</source>
+            <translation>Lehmig</translation>
+        </message>
+        <message>
+            <source>Clayey</source>
+            <translation>Tonig</translation>
+        </message>
+        <message>
+            <source>Compacted</source>
+            <translation>Verdichtet</translation>
+        </message>
     </context>
     <context>
         <name>AmendmentPlanDialog</name>
@@ -7937,6 +7961,34 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Shopping list not available.</source>
             <translation>Einkaufsliste nicht verfügbar.</translation>
+        </message>
+        <message>
+            <source>Available amendments</source>
+            <translation>Verfügbare Bodenverbesserer</translation>
+        </message>
+        <message>
+            <source>Prefer organic</source>
+            <translation>Organisch bevorzugen</translation>
+        </message>
+        <message>
+            <source>When two substances cover the same deficits, pick the organic one. Disable to let mineral compounds compete on equal footing.</source>
+            <translation>Wenn zwei Substanzen die gleichen Mängel beheben, wird die organische bevorzugt. Deaktivieren, damit mineralische Verbindungen gleichberechtigt mitspielen.</translation>
+        </message>
+        <message>
+            <source>Enable all</source>
+            <translation>Alle aktivieren</translation>
+        </message>
+        <message>
+            <source>Organic</source>
+            <translation>Organisch</translation>
+        </message>
+        <message>
+            <source>Mineral</source>
+            <translation>Mineralisch</translation>
+        </message>
+        <message>
+            <source>Structural</source>
+            <translation>Strukturell</translation>
         </message>
     </context>
     <context>

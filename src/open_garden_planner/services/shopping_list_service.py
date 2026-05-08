@@ -74,11 +74,17 @@ class AggregatedAmendment:
 def aggregate_amendments(
     scene: CanvasScene,
     soil_service: SoilService,
+    enabled_ids: set[str] | None = None,
+    prefer_organic: bool = True,
 ) -> list[AggregatedAmendment]:
     """Walk every bed in ``scene`` and group amendment recommendations by substance.
 
     Returns substances ordered by descending total grams (matches the existing
     Amendment Plan dialog ordering).
+
+    ``enabled_ids`` and ``prefer_organic`` (US-12.11) are forwarded to
+    :meth:`SoilService.calculate_amendments` so the user's library toggles in
+    the Amendment Plan dialog change which substances populate the totals.
     """
     by_id: dict[str, AggregatedAmendment] = {}
     for item in scene.items():
@@ -92,7 +98,12 @@ def aggregate_amendments(
         if area <= 0.0:
             continue
         record = soil_service.get_effective_record(target_id)
-        recs = SoilService.calculate_amendments(record, bed_area_m2=area)
+        recs = SoilService.calculate_amendments(
+            record,
+            bed_area_m2=area,
+            enabled_ids=enabled_ids,
+            prefer_organic=prefer_organic,
+        )
         if not recs:
             continue
         bed_name = str(getattr(item, "name", "") or _tr("Bed"))
@@ -250,7 +261,14 @@ class ShoppingListService:
         """Roll the cross-bed amendment totals into shopping-list rows."""
         out: list[ShoppingListItem] = []
         lang = _active_language()
-        for agg in aggregate_amendments(self._scene, self._soil_service):
+        enabled = self._project_manager.enabled_amendments
+        enabled_set = set(enabled) if enabled is not None else None
+        for agg in aggregate_amendments(
+            self._scene,
+            self._soil_service,
+            enabled_ids=enabled_set,
+            prefer_organic=self._project_manager.prefer_organic,
+        ):
             out.append(
                 ShoppingListItem(
                     id=f"amendment:{agg.amendment.id}",

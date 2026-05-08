@@ -30,8 +30,12 @@
 | **Shopping List** | Aggregated buying list (Plants / Seeds / Materials) produced from the current plan; only user-entered prices persist with the project, the rows themselves are recomputed on each open |
 | **ShoppingListItem** | One purchasable row: stable ID (e.g. `plant:<species_id>`), category, name, quantity, unit, optional price |
 | **ShoppingListCategory** | Top-level group in the shopping list: `PLANTS`, `SEEDS`, or `MATERIALS` |
-| **SoilTestRecord** | Single soil test entry: date, pH, NPK levels, secondary nutrients, optional ppm values, notes |
+| **SoilTestRecord** | Single soil test entry: date, pH, NPK levels, secondary nutrients, optional ppm values, notes, optional soil texture |
 | **SoilTestHistory** | Time-ordered list of `SoilTestRecord`s for one target (a bed UUID or `"global"` default) |
+| **Smart composition** | US-12.11 calculator policy: each pick fully closes its primary nutrient deficit and credits all co-fixed nutrients at the same dose factor; greedy by breadth (count of outstanding deficits the substance touches), with organic-preferred and JSON-order tie-breakers |
+| **Structural amendment** | Substance added to fix soil texture rather than nutrient levels — sand (drainage), perlite (aeration + drainage), vermiculite (water retention + aeration + CEC), diatomaceous earth (water retention + silica). Driven by `SoilTestRecord.soil_texture` |
+| **Soil texture** | Optional `SoilTestRecord` field — `"sandy"`, `"loamy"`, `"clayey"`, or `"compacted"` (or `None`). Drives the structural-pick phase of the calculator |
+| **Enabled set / Amendment library** | Per-project allowlist (`ProjectData.enabled_amendments`) of substance IDs the calculator may pick from. `None` (the default) means every bundled amendment is enabled; the user manages the allowlist via the checkbox panel inside the Amendment Plan dialog |
 | **Screen Coordinates** | Pixel coordinates on the display; converted via QGraphicsView transform |
 | **SVG** | Scalable Vector Graphics — vector image format used for icons and plant illustrations |
 | **Tileable Texture** | A small image that can be seamlessly repeated to fill any area |

@@ -3268,6 +3268,7 @@ class GardenPlannerApp(QMainWindow):
             canvas_scene=scene,
             soil_service=self._soil_service,
             on_add_to_shopping_list=self._on_shopping_list,
+            project_manager=self._project_manager,
         )
         dialog.exec()
 

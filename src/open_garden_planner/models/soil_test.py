@@ -52,6 +52,10 @@ class SoilTestRecord:
     # the user left the ppm fields at zero (US-12.10/F5). Older records lacking
     # this field fall back to the ppm-presence heuristic.
     mode: str = "kit"  # "kit" | "lab"
+    # Soil texture / structural condition (US-12.11). Drives structural
+    # amendment recommendations (sand/perlite/vermiculite/diatomaceous earth).
+    # None = unknown, no structural picks.
+    soil_texture: str | None = None  # "sandy" | "loamy" | "clayey" | "compacted"
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def to_dict(self) -> dict[str, Any]:
@@ -72,6 +76,8 @@ class SoilTestRecord:
         # Only emit non-default mode to keep diffs minimal for legacy records.
         if self.mode and self.mode != "kit":
             d["mode"] = self.mode
+        if self.soil_texture is not None:
+            d["soil_texture"] = self.soil_texture
         return d
 
     @classmethod
@@ -95,6 +101,7 @@ class SoilTestRecord:
             s_ppm=data.get("s_ppm"),
             notes=data.get("notes", ""),
             mode=data.get("mode", "kit"),
+            soil_texture=data.get("soil_texture"),
         )
 
 
