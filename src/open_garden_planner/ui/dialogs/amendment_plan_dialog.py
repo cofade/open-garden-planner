@@ -4,12 +4,15 @@ Garden → Amendment Plan… opens this dialog. It walks every bed in the scene,
 computes amendment recommendations for each from its effective soil test,
 groups results by substance, and shows totals in a single shopping-list view.
 
-The "Copy to clipboard" button writes plain text — a stand-in for the real
-shopping-list integration that lands with US-12.6.
+Aggregation logic now lives in
+:mod:`open_garden_planner.services.shopping_list_service` so the totals
+shown here match the Materials category in the US-12.6 Shopping List dialog.
+The "Add to Shopping List" button hands off to that dialog when wired by the
+caller; otherwise it falls back to copying a plain-text dump to the clipboard.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from PyQt6.QtWidgets import (
@@ -25,9 +28,10 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.measurements import calculate_area_and_perimeter
-from open_garden_planner.core.object_types import is_bed_type
-from open_garden_planner.models.amendment import Amendment
+from open_garden_planner.services.shopping_list_service import (
+    AggregatedAmendment,
+    aggregate_amendments,
+)
 from open_garden_planner.services.soil_service import SoilService
 from open_garden_planner.ui.dialogs.soil_test_dialog import _amendment_display_lang
 
@@ -35,13 +39,8 @@ if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
 
-@dataclass
-class _AggregatedAmendment:
-    """Sum of one substance across all beds in the plan."""
-
-    amendment: Amendment
-    total_g: float = 0.0
-    bed_names: list[str] = field(default_factory=list)
+# Backwards-compatible alias — early callers/tests still import this name.
+_AggregatedAmendment = AggregatedAmendment
 
 
 class AmendmentPlanDialog(QDialog):
@@ -52,6 +51,7 @@ class AmendmentPlanDialog(QDialog):
         parent: QWidget | None = None,
         canvas_scene: CanvasScene | None = None,
         soil_service: SoilService | None = None,
+        on_add_to_shopping_list: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Amendment Plan"))
@@ -60,7 +60,8 @@ class AmendmentPlanDialog(QDialog):
 
         self._canvas_scene = canvas_scene
         self._soil_service = soil_service
-        self._aggregated: list[_AggregatedAmendment] = []
+        self._on_add_to_shopping_list = on_add_to_shopping_list
+        self._aggregated: list[AggregatedAmendment] = []
 
         self._setup_ui()
         self._populate_table()
@@ -100,13 +101,20 @@ class AmendmentPlanDialog(QDialog):
         self._empty_label.setVisible(False)
         layout.addWidget(self._empty_label)
 
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+
+        self._add_to_list_button = QPushButton(self.tr("Add to Shopping List"))
+        self._add_to_list_button.clicked.connect(self._on_add_to_shopping_list_clicked)
+        button_box.addButton(
+            self._add_to_list_button, QDialogButtonBox.ButtonRole.ActionRole
+        )
+
         self._copy_button = QPushButton(self.tr("Copy to clipboard"))
         self._copy_button.clicked.connect(self._on_copy_clicked)
-
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         button_box.addButton(
             self._copy_button, QDialogButtonBox.ButtonRole.ActionRole
         )
+
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
 
@@ -120,9 +128,11 @@ class AmendmentPlanDialog(QDialog):
         if not self._aggregated:
             self._empty_label.setVisible(True)
             self._copy_button.setEnabled(False)
+            self._add_to_list_button.setEnabled(False)
             return
         self._empty_label.setVisible(False)
         self._copy_button.setEnabled(True)
+        self._add_to_list_button.setEnabled(True)
         lang = _amendment_display_lang()
         for row, agg in enumerate(self._aggregated):
             self._table.setItem(
@@ -135,36 +145,11 @@ class AmendmentPlanDialog(QDialog):
                 row, 2, QTableWidgetItem(", ".join(agg.bed_names))
             )
 
-    def _aggregate_recommendations(self) -> list[_AggregatedAmendment]:
+    def _aggregate_recommendations(self) -> list[AggregatedAmendment]:
         """Walk all beds and group amendment recommendations by substance."""
         if self._canvas_scene is None or self._soil_service is None:
             return []
-        by_id: dict[str, _AggregatedAmendment] = {}
-        for item in self._canvas_scene.items():
-            object_type = getattr(item, "object_type", None)
-            if not is_bed_type(object_type):
-                continue
-            target_id = str(getattr(item, "item_id", ""))
-            if not target_id:
-                continue
-            area = _bed_area_m2(item)
-            if area <= 0.0:
-                continue
-            record = self._soil_service.get_effective_record(target_id)
-            recs = SoilService.calculate_amendments(
-                record, bed_area_m2=area
-            )
-            if not recs:
-                continue
-            bed_name = str(getattr(item, "name", "") or self.tr("Bed"))
-            for rec in recs:
-                slot = by_id.setdefault(
-                    rec.amendment.id, _AggregatedAmendment(amendment=rec.amendment)
-                )
-                slot.total_g += rec.quantity_g
-                if bed_name not in slot.bed_names:
-                    slot.bed_names.append(bed_name)
-        return sorted(by_id.values(), key=lambda a: -a.total_g)
+        return aggregate_amendments(self._canvas_scene, self._soil_service)
 
     # ── Actions ──────────────────────────────────────────────────────────────
 
@@ -175,6 +160,14 @@ class AmendmentPlanDialog(QDialog):
             return
         clipboard.setText(self._build_clipboard_text())
         self._status_label.setText(self.tr("Amendment plan copied to clipboard."))
+
+    def _on_add_to_shopping_list_clicked(self) -> None:
+        """Hand off to the Shopping List dialog when wired by the host."""
+        if self._on_add_to_shopping_list is None:
+            self._status_label.setText(self.tr("Shopping list not available."))
+            return
+        self.accept()
+        self._on_add_to_shopping_list()
 
     def _build_clipboard_text(self) -> str:
         """Render the aggregations as a tab-separated table for paste-into-spreadsheet."""
@@ -196,15 +189,6 @@ class AmendmentPlanDialog(QDialog):
                 )
             )
         return "\n".join(lines)
-
-
-def _bed_area_m2(item: object) -> float:
-    """Return bed area in m², or 0.0 if the item type isn't supported."""
-    result = calculate_area_and_perimeter(item)  # type: ignore[arg-type]
-    if result is None:
-        return 0.0
-    area_cm2, _ = result
-    return area_cm2 / 10_000.0
 
 
 def _format_quantity(grams: float) -> str:

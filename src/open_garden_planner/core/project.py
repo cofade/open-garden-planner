@@ -48,6 +48,8 @@ class ProjectData:
     # US-12.10a: per-bed (and "global" default) soil test history
     # shape: {target_id: SoilTestHistory.to_dict()} where target_id is bed UUID or "global"
     soil_tests: dict[str, Any] = field(default_factory=dict)
+    # US-12.6: user-entered prices for the shopping list, keyed by ShoppingListItem.id
+    shopping_list_prices: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -83,6 +85,8 @@ class ProjectData:
             data["linked_seasons"] = self.linked_seasons
         if self.soil_tests:
             data["soil_tests"] = self.soil_tests
+        if self.shopping_list_prices:
+            data["shopping_list_prices"] = self.shopping_list_prices
         return data
 
     @classmethod
@@ -104,6 +108,7 @@ class ProjectData:
             season_year=data.get("season_year"),
             linked_seasons=data.get("linked_seasons", []),
             soil_tests=data.get("soil_tests", {}),
+            shopping_list_prices=data.get("shopping_list_prices", {}),
         )
 
 
@@ -124,6 +129,7 @@ class ProjectManager(QObject):
     crop_rotation_changed = pyqtSignal(object)  # dict
     season_changed = pyqtSignal(object)  # int year or None
     soil_tests_changed = pyqtSignal(object)  # dict[str, dict]
+    shopping_list_prices_changed = pyqtSignal(object)  # dict[str, float]
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -138,6 +144,7 @@ class ProjectManager(QObject):
         self._season_year: int | None = None
         self._linked_seasons: list[dict[str, Any]] = []
         self._soil_tests: dict[str, Any] = {}
+        self._shopping_list_prices: dict[str, float] = {}
 
     @property
     def current_file(self) -> Path | None:
@@ -268,6 +275,23 @@ class ProjectManager(QObject):
         self.soil_tests_changed.emit(self._soil_tests)
         self.mark_dirty()
 
+    @property
+    def shopping_list_prices(self) -> dict[str, float]:
+        """User-entered prices for the shopping list, keyed by item ID (US-12.6)."""
+        return dict(self._shopping_list_prices)
+
+    def set_shopping_list_prices(self, prices: dict[str, float]) -> None:
+        """Replace the shopping-list price overrides and mark project dirty.
+
+        Empty (or zero) entries are dropped to keep the saved file compact.
+        """
+        cleaned = {k: float(v) for k, v in prices.items() if v}
+        if cleaned == self._shopping_list_prices:
+            return
+        self._shopping_list_prices = cleaned
+        self.shopping_list_prices_changed.emit(self._shopping_list_prices)
+        self.mark_dirty()
+
     def restore_soil_test_history(self, target_id: str, history_dict: dict[str, Any] | None) -> None:
         """Restore (or delete) the soil test history for ``target_id``.
 
@@ -316,6 +340,7 @@ class ProjectManager(QObject):
         self._season_year = None
         self._linked_seasons = []
         self._soil_tests = {}
+        self._shopping_list_prices = {}
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
@@ -325,6 +350,7 @@ class ProjectManager(QObject):
         self.crop_rotation_changed.emit({})
         self.season_changed.emit(None)
         self.soil_tests_changed.emit({})
+        self.shopping_list_prices_changed.emit({})
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -342,6 +368,7 @@ class ProjectManager(QObject):
         data.season_year = self._season_year
         data.linked_seasons = list(self._linked_seasons)
         data.soil_tests = dict(self._soil_tests)
+        data.shopping_list_prices = dict(self._shopping_list_prices)
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -389,6 +416,9 @@ class ProjectManager(QObject):
         # Restore soil test history (US-12.10a)
         self._soil_tests = dict(data.soil_tests)
         self.soil_tests_changed.emit(self._soil_tests)
+        # Restore shopping list prices (US-12.6)
+        self._shopping_list_prices = dict(data.shopping_list_prices)
+        self.shopping_list_prices_changed.emit(self._shopping_list_prices)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)

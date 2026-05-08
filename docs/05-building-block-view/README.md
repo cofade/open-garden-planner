@@ -103,6 +103,7 @@ src/open_garden_planner/
 │   │   ├── print_dialog.py
 │   │   ├── shortcuts_dialog.py
 │   │   ├── plant_search_dialog.py
+│   │   ├── shopping_list_dialog.py # Garden→Shopping List dialog (US-12.6)
 │   │   └── properties_dialog.py
 │   ├── widgets/
 │   │   ├── toolbar.py            # MainToolbar
@@ -120,6 +121,7 @@ src/open_garden_planner/
 │   ├── export_service.py         # PDF/image export
 │   ├── autosave_service.py       # Autosave logic
 │   ├── soil_service.py           # Soil test history facade (US-12.10a)
+│   ├── shopping_list_service.py  # Plants/seed-gap/material aggregator (US-12.6)
 │   └── update_checker.py         # GitHub releases update check (frozen exe only)
 └── resources/
     ├── icons/                    # App icons, banner, tool SVGs

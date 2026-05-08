@@ -463,6 +463,118 @@ def _render_legend(
         y += row_h
 
 
+def _render_shopping_list(
+    painter: QPainter,
+    page_rect: QRectF,
+    items: list[Any],
+) -> int:
+    """Render shopping list rows into ``page_rect``.
+
+    Returns the index of the first item that did not fit so the caller can
+    paginate; returns ``len(items)`` when everything fit.
+    """
+    title_font = QFont("Arial", 14)
+    title_font.setBold(True)
+    header_font = QFont("Arial", 9)
+    header_font.setBold(True)
+    row_font = QFont("Arial", 8)
+
+    painter.setFont(title_font)
+    painter.setPen(QColor("#2e7d32"))
+
+    title_h = _pt(14)
+    painter.drawText(
+        QRectF(page_rect.left(), page_rect.top(), page_rect.width(), title_h),
+        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+        _tr("Shopping List"),
+    )
+
+    cols = [
+        (_tr("Category"), 0.13),
+        (_tr("Item"), 0.32),
+        (_tr("Quantity"), 0.12),
+        (_tr("Unit"), 0.10),
+        (_tr("Price"), 0.10),
+        (_tr("Total"), 0.10),
+        (_tr("Notes"), 0.13),
+    ]
+
+    row_h = _pt(7)
+    y = page_rect.top() + title_h + _pt(4)
+
+    painter.fillRect(QRectF(page_rect.left(), y, page_rect.width(), row_h), QColor("#2e7d32"))
+    painter.setFont(header_font)
+    painter.setPen(QColor("white"))
+    x = page_rect.left()
+    for label, frac in cols:
+        col_w = page_rect.width() * frac
+        painter.drawText(
+            QRectF(x + _pt(2), y, col_w - _pt(4), row_h),
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+            label,
+        )
+        x += col_w
+    y += row_h
+
+    painter.setFont(row_font)
+    grand_total = 0.0
+    grand_total_set = False
+    rendered = 0
+    for idx, item in enumerate(items):
+        if y + row_h > page_rect.bottom() - _pt(20):
+            return idx
+        bg = QColor("#f9f9f9") if idx % 2 == 0 else QColor("white")
+        painter.fillRect(QRectF(page_rect.left(), y, page_rect.width(), row_h), bg)
+        painter.setPen(QColor("#333333"))
+        price_str = "" if item.price_each is None else f"{item.price_each:.2f}"
+        total_str = ""
+        if item.total_cost is not None:
+            total_str = f"{item.total_cost:.2f}"
+            grand_total += item.total_cost
+            grand_total_set = True
+        values = [
+            item.category.value,
+            item.name,
+            f"{item.quantity:g}",
+            item.unit,
+            price_str,
+            total_str,
+            item.notes,
+        ]
+        x = page_rect.left()
+        for val, frac in zip(values, [f for _, f in cols], strict=True):
+            col_w = page_rect.width() * frac
+            painter.drawText(
+                QRectF(x + _pt(2), y, col_w - _pt(4), row_h),
+                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+                str(val)[:60],
+            )
+            x += col_w
+        y += row_h
+        rendered = idx + 1
+
+    if grand_total_set:
+        y += _pt(4)
+        painter.setFont(header_font)
+        painter.setPen(QColor("#2e7d32"))
+        painter.drawText(
+            QRectF(page_rect.left(), y, page_rect.width(), row_h),
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+            f"{_tr('Grand total')}: {grand_total:.2f}",
+        )
+
+    if not items:
+        painter.setFont(row_font)
+        painter.setPen(QColor("#777777"))
+        painter.drawText(
+            QRectF(page_rect.left(), y + _pt(4), page_rect.width(), _pt(10)),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            _tr("Shopping list is empty."),
+        )
+
+    return rendered
+
+
 # ---------------------------------------------------------------------------
 # Main service class
 # ---------------------------------------------------------------------------
@@ -560,6 +672,44 @@ class PdfReportService:
 
         if progress_callback:
             progress_callback(total, total)
+
+    @staticmethod
+    def export_shopping_list_to_pdf(
+        items: list[Any],
+        file_path: Path | str,
+        paper_size: str = "A4",
+    ) -> None:
+        """Render a shopping list (US-12.6) to a single-or-multi-page PDF."""
+        writer = QPdfWriter(str(file_path))
+        writer.setResolution(72)
+        page_size_id = _PAGE_SIZE_MAP.get(paper_size, QPageSize.PageSizeId.A4)
+        writer.setPageLayout(QPageLayout(
+            QPageSize(page_size_id),
+            QPageLayout.Orientation.Portrait,
+            QMarginsF(_MARGIN_MM, _MARGIN_MM, _MARGIN_MM, _MARGIN_MM),
+            QPageLayout.Unit.Millimeter,
+        ))
+
+        painter = QPainter()
+        if not painter.begin(writer):
+            raise RuntimeError("Failed to start PDF painter")
+        try:
+            remaining = list(items)
+            first = True
+            while True:
+                if not first:
+                    writer.newPage()
+                first = False
+                page_rect = QRectF(painter.viewport())
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+                painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+                painter.fillRect(page_rect, QColor("white"))
+                rendered = _render_shopping_list(painter, page_rect, remaining)
+                if rendered >= len(remaining):
+                    break
+                remaining = remaining[rendered:]
+        finally:
+            painter.end()
 
     @staticmethod
     def _find_beds(scene: CanvasScene) -> list[Any]:

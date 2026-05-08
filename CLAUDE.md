@@ -164,7 +164,7 @@ Full history: see `docs/roadmap.md`.
 | ✅     | 12.3  | DXF export                               | Interoperability   |
 | ✅     | 12.4  | DXF import                               | Interoperability   |
 | ✅     | 12.5  | Multi-page PDF export                    | Interoperability   |
-|        | 12.6  | Shopping list generation                 | Smart Features     |
+| ✅     | 12.6  | Shopping list generation                 | Smart Features     |
 |        | 12.7  | Pest & disease log                       | Smart Features     |
 |        | 12.8  | Succession planting                      | Smart Features     |
 |        | 12.9  | Garden journal (map-linked notes)        | Smart Features     |

@@ -278,3 +278,13 @@ Pre-defined object types for common property elements:
 - **FR-SOIL-08** (US-12.10d): Plant-soil compatibility warnings draw an amber (1 mismatch) or red (≥2 mismatches) border on beds whose hosted plants conflict with the effective soil record; mismatches also surface as Dashboard cards
 - **FR-SOIL-09** (US-12.10e): The soil-test dialog's History tab lists past records date-descending and renders pH/N/P/K trend sparklines
 - **FR-SOIL-10** (US-12.10e): Seasonal reminder badge — a clock icon at a bed's top-right corner, shown only in sampling months (Mar/Apr, Sep/Oct) when the latest test is older than 180 days; clicking it opens the soil-test dialog. Untested beds are deliberately not flagged.
+
+## FR-16: Shopping List (Phase 12, US-12.6)
+
+- **FR-SHOP-01**: Garden → Shopping List… opens a modal dialog grouping items into Plants / Seeds / Materials.
+- **FR-SHOP-02**: Plants are aggregated from canvas TREE/SHRUB/PERENNIAL items by `metadata.plant_species.source_id`; the row shows count and the average current spread.
+- **FR-SHOP-03**: Seed gaps = species placed in the plan but not present in the project's `seed_inventory`; one packet-sized row per gap.
+- **FR-SHOP-04**: Materials roll in soil amendments aggregated across beds via `SoilService.calculate_amendments`, mirroring the totals shown by the Amendment Plan dialog (US-12.10c).
+- **FR-SHOP-05**: User-entered prices are editable in the dialog and persist with the project file under `shopping_list_prices` (keyed by item ID); reopening the project restores them.
+- **FR-SHOP-06**: Export targets — CSV (`ExportService.export_shopping_list_to_csv`), PDF (`PdfReportService.export_shopping_list_to_pdf`), and tab-separated clipboard text.
+- **FR-SHOP-07**: Amendment Plan dialog hands off to the shopping list via an "Add to Shopping List" button (replacing the prior plain-text clipboard placeholder).
