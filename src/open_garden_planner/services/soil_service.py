@@ -20,6 +20,9 @@ from open_garden_planner.models.amendment import (
     FIX_ADDS_N,
     FIX_ADDS_P,
     FIX_ADDS_S,
+    FIX_IMPROVES_AERATION,
+    FIX_IMPROVES_DRAINAGE,
+    FIX_IMPROVES_WATER_RETENTION,
     FIX_LOWERS_PH,
     FIX_RAISES_PH,
     Amendment,
@@ -112,6 +115,22 @@ def _level_deficit(current: int | None, target: int) -> int:
     return max(0, target - current)
 
 
+_NUTRIENT_KINDS: tuple[str, ...] = ("n", "p", "k", "ca", "mg", "s")
+_NUTRIENT_FIX: dict[str, str] = {
+    "n": FIX_ADDS_N,
+    "p": FIX_ADDS_P,
+    "k": FIX_ADDS_K,
+    "ca": FIX_ADDS_CA,
+    "mg": FIX_ADDS_MG,
+    "s": FIX_ADDS_S,
+}
+
+
+def _level_effect(amendment: Amendment, kind: str) -> int:
+    """Return the per-application Rapitest-step effect of ``amendment`` on ``kind``."""
+    return int(getattr(amendment, f"{kind}_level_effect", 0))
+
+
 def _pick_ph(
     current_ph: float | None,
     target_ph: float,
@@ -133,16 +152,97 @@ def _pick_ph(
     return None
 
 
-def _pick_nutrient(
+def _pick_best_coverage(
+    amendments: list[Amendment],
+    used: set[str],
+    deficits: dict[str, int],
+    prefer_organic: bool,
+) -> tuple[Amendment, str] | None:
+    """Pick the unused amendment that covers the most outstanding nutrient deficits.
+
+    Returns ``(amendment, primary_kind)`` — primary is the nutrient with the
+    biggest current deficit among those this substance touches; it sets the
+    recommendation's ``target_kind`` and the gram-quantity scale (``deficit ×
+    application_rate``). All other nutrients with non-zero ``*_level_effect``
+    are credited toward their deficits at the same dose factor.
+
+    Scoring (lexicographic): breadth (number of outstanding deficits covered)
+    → prefer-organic (when enabled) → earlier JSON position (preserves the
+    historical organic-first bias when both flags favour the same direction).
+    """
+    best: tuple[Amendment, str] | None = None
+    best_key: tuple[int, int, int] | None = None
+    for index, candidate in enumerate(amendments):
+        if candidate.id in used:
+            continue
+        covered: list[str] = []
+        for kind in _NUTRIENT_KINDS:
+            if deficits.get(kind, 0) <= 0:
+                continue
+            if _level_effect(candidate, kind) <= 0:
+                continue
+            covered.append(kind)
+        if not covered:
+            continue
+        # Primary = nutrient with the largest outstanding deficit; ties broken
+        # by ``_NUTRIENT_KINDS`` order (N before P before K …) for determinism.
+        primary_kind = max(covered, key=lambda k: (deficits[k], -_NUTRIENT_KINDS.index(k)))
+        breadth = len(covered)
+        organic_score = (1 if candidate.organic else 0) if prefer_organic else 0
+        key = (breadth, organic_score, -index)
+        if best_key is None or key > best_key:
+            best_key = key
+            best = (candidate, primary_kind)
+    return best
+
+
+def _pick_structural(
     fix_tag: str, amendments: list[Amendment], used: set[str]
 ) -> Amendment | None:
-    """Return the first unused amendment that carries ``fix_tag``."""
+    """Return the first unused amendment that carries the structural ``fix_tag``."""
     for amendment in amendments:
         if amendment.id in used:
             continue
         if fix_tag in amendment.fixes:
             return amendment
     return None
+
+
+def _structural_fixes_for(soil_texture: str | None) -> list[str]:
+    """Map a soil-texture descriptor to the structural fix tags that address it."""
+    if soil_texture == "sandy":
+        return [FIX_IMPROVES_WATER_RETENTION]
+    if soil_texture == "clayey":
+        return [FIX_IMPROVES_DRAINAGE, FIX_IMPROVES_AERATION]
+    if soil_texture == "compacted":
+        return [FIX_IMPROVES_AERATION]
+    return []
+
+
+def _credit_secondaries(
+    pick: Amendment,
+    deficits: dict[str, int],
+    currents: dict[str, int],
+    targets: dict[str, int],
+    rec: AmendmentRecommendation,
+) -> None:
+    """Decrement Ca/Mg/S deficits when a non-nutrient-primary pick (pH) covers them.
+
+    Used by the pH phase: lime also adds Ca, dolomite also adds Mg, elemental
+    sulfur also adds S. Each covered secondary is appended to ``rec.credits``
+    so the rationale text says e.g. ``"Raises pH 5.8 → 6.5 + also raises CA 0→1"``.
+    """
+    for kind in ("ca", "mg", "s"):
+        effect = _level_effect(pick, kind)
+        if effect <= 0:
+            continue
+        if deficits.get(kind, 0) <= 0:
+            continue
+        current = currents[kind]
+        target = targets[kind]
+        rec.credits.append((kind, float(current), float(target)))
+        deficits[kind] = max(0, deficits[kind] - effect)
+        currents[kind] = min(target, current + effect)
 
 
 def _compute_ph(
@@ -181,6 +281,20 @@ def _compute_nutrient(
         target_kind=kind,
         current_value=float(current_level),
         target_value=float(target_level),
+    )
+
+
+def _compute_structural(
+    amendment: Amendment, fix_tag: str, bed_area_m2: float
+) -> AmendmentRecommendation:
+    """Build a structural AmendmentRecommendation (one full application per bed)."""
+    return AmendmentRecommendation(
+        amendment=amendment,
+        quantity_g=amendment.application_rate_g_m2 * bed_area_m2,
+        target_kind="structure",
+        current_value=0.0,
+        target_value=1.0,
+        structural_fix=fix_tag,
     )
 
 
@@ -281,82 +395,120 @@ class SoilService:
         target_k: int = 3,
         bed_area_m2: float = 0.0,
         loader: AmendmentLoader | None = None,
+        enabled_ids: set[str] | None = None,
+        prefer_organic: bool = True,
     ) -> list[AmendmentRecommendation]:
-        """Compute amendment recommendations for one bed.
+        """Compute amendment recommendations for one bed (US-12.11).
 
-        Walks deficits in the priority order **pH → N → P → K → Ca → Mg → S**
-        and picks the first matching substance for each. Each substance can
-        appear at most once per bed.
+        Walks pH first (the pH-shift formula differs from the level math), then
+        repeatedly picks the unused substance with the largest combined credit
+        toward outstanding NPK + Ca/Mg/S deficits — so a compound NPK fertilizer
+        is chosen once and credited toward all three nutrients in a single pick
+        rather than burning three separate picks. Finally, derives structural
+        fix tags from ``record.soil_texture`` and emits one structural pick per
+        tag.
 
-        Returns ``[]`` when ``record`` is ``None``, ``bed_area_m2 <= 0``, or
-        no deficits exist. The function is pure: no I/O, no service state.
+        ``enabled_ids`` (optional) restricts the candidate pool to the user's
+        toggled-on set; ``None`` means "all amendments enabled" (default).
+        ``prefer_organic`` controls the tie-breaker; turning it off lets mineral
+        compounds win when their coverage equals an organic candidate's.
+
+        Returns ``[]`` when ``record`` is ``None``, ``bed_area_m2 <= 0``, or no
+        deficits exist. The function is pure: no I/O, no service state.
         """
         if record is None or bed_area_m2 <= 0.0:
             return []
 
-        amendments = (loader or get_default_loader()).get_amendments()
+        all_amendments = (loader or get_default_loader()).get_amendments()
+        if enabled_ids is None:
+            pool = list(all_amendments)
+        else:
+            pool = [a for a in all_amendments if a.id in enabled_ids]
         used_ids: set[str] = set()
         results: list[AmendmentRecommendation] = []
 
-        # Track Ca/Mg/S deficits dynamically — adding lime also adds Ca, so we
-        # decrement the secondary-nutrient deficit after picking it.
-        ca_deficit = _level_deficit(record.ca_level, _SECONDARY_TARGET)
-        mg_deficit = _level_deficit(record.mg_level, _SECONDARY_TARGET)
-        s_deficit = _level_deficit(record.s_level, _SECONDARY_TARGET)
+        # Build the deficit map. pH is tracked separately because its formula
+        # is a real-valued shift, not an integer level step.
+        deficits: dict[str, int] = {
+            "n": _level_deficit(record.n_level, target_n),
+            "p": _level_deficit(record.p_level, target_p),
+            "k": _level_deficit(record.k_level, target_k),
+            "ca": _level_deficit(record.ca_level, _SECONDARY_TARGET),
+            "mg": _level_deficit(record.mg_level, _SECONDARY_TARGET),
+            "s": _level_deficit(record.s_level, _SECONDARY_TARGET),
+        }
+        currents: dict[str, int] = {
+            "n": record.n_level or 0,
+            "p": record.p_level or 0,
+            "k": record.k_level or 0,
+            "ca": record.ca_level or 0,
+            "mg": record.mg_level or 0,
+            "s": record.s_level or 0,
+        }
+        targets: dict[str, int] = {
+            "n": target_n, "p": target_p, "k": target_k,
+            "ca": _SECONDARY_TARGET, "mg": _SECONDARY_TARGET, "s": _SECONDARY_TARGET,
+        }
 
-        # 1. pH
-        ph_pick = _pick_ph(record.ph, target_ph, amendments, used_ids)
+        # 1. pH (own formula, single pick).
+        ph_pick = _pick_ph(record.ph, target_ph, pool, used_ids)
         if ph_pick is not None:
-            results.append(_compute_ph(ph_pick, record.ph, target_ph, bed_area_m2))
+            ph_rec = _compute_ph(ph_pick, record.ph, target_ph, bed_area_m2)
+            _credit_secondaries(ph_pick, deficits, currents, targets, ph_rec)
+            results.append(ph_rec)
             used_ids.add(ph_pick.id)
-            # Lime / ash also raise Ca; sulfur adds S; dolomite adds Mg.
-            if ph_pick.ca_level_effect > 0:
-                ca_deficit = max(0, ca_deficit - 1)
-            if ph_pick.mg_level_effect > 0:
-                mg_deficit = max(0, mg_deficit - 1)
-            if ph_pick.s_level_effect > 0:
-                s_deficit = max(0, s_deficit - 1)
 
-        # 2-4. NPK
-        for fix, current, target, kind in (
-            (FIX_ADDS_N, record.n_level, target_n, "n"),
-            (FIX_ADDS_P, record.p_level, target_p, "p"),
-            (FIX_ADDS_K, record.k_level, target_k, "k"),
-        ):
-            deficit = _level_deficit(current, target)
-            if deficit < 1:
-                continue
-            pick = _pick_nutrient(fix, amendments, used_ids)
+        # 2. Nutrient phase — greedy breadth-first pick. One pick fully closes
+        #    its primary nutrient's deficit (quantity_g scales with deficit);
+        #    co-fixed nutrients are credited at the same dose factor and their
+        #    deficits decremented accordingly. Loop until pool exhausted or
+        #    every deficit cleared.
+        while any(v > 0 for v in deficits.values()):
+            pick = _pick_best_coverage(pool, used_ids, deficits, prefer_organic)
             if pick is None:
-                continue
-            results.append(
-                _compute_nutrient(pick, current or 0, target, kind, bed_area_m2)
+                break
+            amendment, primary_kind = pick
+            primary_deficit = deficits[primary_kind]
+            primary_current = currents[primary_kind]
+            primary_target = targets[primary_kind]
+            rec = _compute_nutrient(
+                amendment,
+                primary_current,
+                primary_target,
+                primary_kind,
+                bed_area_m2,
             )
-            used_ids.add(pick.id)
-            # An NPK pick can also bump secondaries (e.g. compost gives N+P+K).
-            if pick.ca_level_effect > 0:
-                ca_deficit = max(0, ca_deficit - 1)
-            if pick.mg_level_effect > 0:
-                mg_deficit = max(0, mg_deficit - 1)
-            if pick.s_level_effect > 0:
-                s_deficit = max(0, s_deficit - 1)
-
-        # 5-7. Ca, Mg, S — only if still deficient after the pH/NPK picks.
-        for fix, deficit, current, kind in (
-            (FIX_ADDS_CA, ca_deficit, record.ca_level, "ca"),
-            (FIX_ADDS_MG, mg_deficit, record.mg_level, "mg"),
-            (FIX_ADDS_S, s_deficit, record.s_level, "s"),
-        ):
-            if deficit < 1:
-                continue
-            pick = _pick_nutrient(fix, amendments, used_ids)
-            if pick is None:
-                continue
-            results.append(
-                _compute_nutrient(
-                    pick, current or 0, _SECONDARY_TARGET, kind, bed_area_m2
+            # Primary is fully covered by this single application.
+            deficits[primary_kind] = 0
+            currents[primary_kind] = primary_target
+            # Co-fixed nutrients: applying ``primary_deficit`` × base rate gives
+            # ``primary_deficit × effect`` steps of credit toward each of them,
+            # capped at that nutrient's outstanding deficit.
+            for kind in _NUTRIENT_KINDS:
+                if kind == primary_kind:
+                    continue
+                kind_effect = _level_effect(amendment, kind)
+                if kind_effect <= 0:
+                    continue
+                if deficits.get(kind, 0) <= 0:
+                    continue
+                kind_current = currents[kind]
+                kind_target = targets[kind]
+                credit = min(deficits[kind], primary_deficit * kind_effect)
+                rec.credits.append(
+                    (kind, float(kind_current), float(min(kind_target, kind_current + credit)))
                 )
-            )
+                deficits[kind] = max(0, deficits[kind] - credit)
+                currents[kind] = min(kind_target, kind_current + credit)
+            results.append(rec)
+            used_ids.add(amendment.id)
+
+        # 3. Structural phase — soil-texture-driven picks. One pick per fix tag.
+        for fix in _structural_fixes_for(record.soil_texture):
+            pick = _pick_structural(fix, pool, used_ids)
+            if pick is None:
+                continue
+            results.append(_compute_structural(pick, fix, bed_area_m2))
             used_ids.add(pick.id)
 
         return results

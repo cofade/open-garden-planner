@@ -725,6 +725,14 @@ class GardenPlannerApp(QMainWindow):
         amendment_plan_action.triggered.connect(self._on_amendment_plan)
         menu.addAction(amendment_plan_action)
 
+        # Shopping list (US-12.6)
+        shopping_list_action = QAction(self.tr("&Shopping List…"), self)
+        shopping_list_action.setStatusTip(
+            self.tr("Generate a shopping list of plants, seeds, and materials")
+        )
+        shopping_list_action.triggered.connect(self._on_shopping_list)
+        menu.addAction(shopping_list_action)
+
     def _setup_help_menu(self, menu: QMenu) -> None:
         """Set up the Help menu actions."""
         # Keyboard Shortcuts
@@ -3259,7 +3267,28 @@ class GardenPlannerApp(QMainWindow):
             parent=self,
             canvas_scene=scene,
             soil_service=self._soil_service,
+            on_add_to_shopping_list=self._on_shopping_list,
+            project_manager=self._project_manager,
         )
+        dialog.exec()
+
+    def _on_shopping_list(self) -> None:
+        """Open the Shopping List dialog (US-12.6)."""
+        from open_garden_planner.services.shopping_list_service import (  # noqa: PLC0415
+            ShoppingListService,
+        )
+        from open_garden_planner.ui.dialogs import ShoppingListDialog  # noqa: PLC0415
+
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None)
+            or self.canvas_view.scene()
+        )
+        service = ShoppingListService(
+            scene=scene,
+            soil_service=self._soil_service,
+            project_manager=self._project_manager,
+        )
+        dialog = ShoppingListDialog(service=service, parent=self)
         dialog.exec()
 
     def _on_location_changed(self, location: object) -> None:

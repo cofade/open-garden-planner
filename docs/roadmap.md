@@ -1717,7 +1717,7 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 | US-12.3 | DXF export | Should | ✅ |
 | US-12.4 | DXF import | Should | ✅ |
 | US-12.5 | Multi-page PDF export | Should | ✅ |
-| US-12.6 | Shopping list generation | Could | |
+| US-12.6 | Shopping list generation | Could | ✅ |
 | US-12.7 | Pest & disease log | Could | |
 | US-12.8 | Succession planting | Could | |
 | US-12.9 | Garden journal (map-linked notes) | Could | |
@@ -2163,6 +2163,37 @@ Sets `_soil_mismatch_level: str` on each bed item → read in `paint()`.
 - `mousePressEvent` → emit `soil_test_badge_clicked(bed_id)` signal → `Application` opens dialog
 
 **Integration test** `tests/integration/test_soil_history_and_reminders.py`
+
+---
+
+#### US-12.11: Smart Amendment Composition + User-Toggleable Library + Soil Texture ✅
+
+**Branch**: `claude/roadmap-progress-GwILR`
+
+**Goal**: Make the soil-amendment subsystem usable with the substances people actually own. Real-world fertilizers carry multiple nutrients per bag; the legacy first-pick-per-fix calculator emitted up to three separate rows when one compound product would do. Users on the German market also wanted to disable substances they don't have on hand, plus add structural amendments (sand, perlite, vermiculite, diatomaceous earth) driven by a soil-texture rating.
+
+**Acceptance criteria**:
+- Amendment library expanded with eight chemical-generic mineral fertilizers (NPK compound 15-6-12, slow-release lawn fertilizer IBDU, potassium-magnesium sulfate, PK with rock phosphate, ammonium sulfate nitrate, single superphosphate, organo-mineral guano tomato fertilizer) and four structural amendments (diatomaceous earth, perlite, vermiculite, coarse silica sand).
+- Calculator rewritten as a deficit-map + greedy max-coverage loop: one pick can credit all nutrients it covers (`AmendmentRecommendation.credits`), reducing a typical NPK-deficient row from three substances to one.
+- New `SoilTestRecord.soil_texture` field (`sandy` | `loamy` | `clayey` | `compacted` | `None`) drives a structural-pick phase: clayey → drainage + aeration; sandy → water retention; compacted → aeration.
+- Amendment Plan dialog hosts an inline collapsible "Available amendments" panel grouping every substance Organic / Mineral / Structural. Toggling a checkbox triggers immediate recompute. `Prefer organic` toggle. `Enable all` button.
+- `ProjectData.enabled_amendments: list[str] | None` (default `None` = all enabled) and `ProjectData.prefer_organic: bool` (default `True`) round-trip through the .ogp file via the `shopping_list_prices` pattern; legacy projects load unchanged.
+- Soil-test dialog gains a "Soil texture" combo box (Date / Mode / Soil texture row); the inline amendments preview includes structural rows when texture is set.
+- All new strings translated (German). i18n test passes.
+- New tests cover: multi-nutrient credit, disabled-amendment skip, organic tie-break flip, structural picks for clayey / sandy / loamy soils, ProjectData round-trip, soil_texture round-trip, and the dialog checkbox-toggle integration.
+
+**Implementation files**:
+- Data: `src/open_garden_planner/resources/data/amendments.json` (12 → 23 entries)
+- Model: `src/open_garden_planner/models/amendment.py` (4 new FIX_* constants, `AmendmentRecommendation.credits`), `src/open_garden_planner/models/soil_test.py` (`soil_texture` field)
+- Calculator: `src/open_garden_planner/services/soil_service.py` (`calculate_amendments` rewrite + `_pick_best_coverage`, `_credit_secondaries`, `_structural_fixes_for`, `_pick_structural`, `_compute_structural`)
+- Persistence: `src/open_garden_planner/core/project.py` (ProjectData `enabled_amendments` + `prefer_organic`; ProjectManager proxies + signals; new_project / save / load round-trip)
+- UI: `src/open_garden_planner/ui/dialogs/amendment_plan_dialog.py` (CollapsiblePanel + checkboxes + Reset + Prefer-organic), `src/open_garden_planner/ui/dialogs/soil_test_dialog.py` (Soil texture combo)
+- Aggregation: `src/open_garden_planner/services/shopping_list_service.py` (`aggregate_amendments` accepts `enabled_ids` + `prefer_organic`; `_collect_materials` reads them from ProjectManager)
+- Translations: `scripts/fill_translations.py`
+- Tests: `tests/integration/test_amendment_calculator.py` (+7 cases), `tests/unit/test_project.py` (+3 cases), `tests/unit/test_soil_test_history_latest.py` (+2 cases)
+- Docs: ADR-015 (design rationale), FR-SOIL-11/12/13, glossary entries (Smart composition, Structural amendment, Soil texture, Enabled set / Amendment library)
+
+**Label-verification follow-up**: Three of the eight commercial fertilizer entries carry a label-derived assumption pending bag re-verification — `slow_release_lawn_fertilizer_ibdu` (IBDU vs methylene-urea), `ammonium_sulfate_nitrate` (S vs SO₃ unit), `single_superphosphate` (single vs triple). Documented in `_notes` of `amendments.json`; corrections land via JSON edits without code changes.
 
 ---
 

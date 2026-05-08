@@ -699,3 +699,43 @@ class ExportService:
             data["data_source"] = plant_species.get("data_source", "")
 
         return data
+
+    @staticmethod
+    def export_shopping_list_to_csv(
+        items: list[Any],
+        file_path: Path | str,
+    ) -> int:
+        """Export a shopping list (US-12.6) to CSV.
+
+        Args:
+            items: List of ``ShoppingListItem`` instances.
+            file_path: Path to save the CSV file.
+
+        Returns:
+            Number of rows written (excluding header).
+
+        Raises:
+            ValueError: If writing fails.
+        """
+        file_path = Path(file_path)
+        headers = [
+            "category",
+            "name",
+            "quantity",
+            "unit",
+            "size",
+            "price_each",
+            "total_cost",
+            "notes",
+        ]
+        try:
+            # utf-8-sig writes a BOM so Excel on Windows recognises the file as
+            # UTF-8 instead of Latin-1; otherwise German Umlauts arrive mojibake'd.
+            with open(file_path, "w", newline="", encoding="utf-8-sig") as f:
+                writer = csv.DictWriter(f, fieldnames=headers, extrasaction="ignore")
+                writer.writeheader()
+                for item in items:
+                    writer.writerow(item.to_export_row())
+        except Exception as e:
+            raise ValueError(f"Failed to write shopping list CSV to {file_path}: {e}") from e
+        return len(items)

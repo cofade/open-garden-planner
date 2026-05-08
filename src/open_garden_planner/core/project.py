@@ -4,6 +4,7 @@ Handles project state, serialization, and file I/O.
 """
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -48,6 +49,18 @@ class ProjectData:
     # US-12.10a: per-bed (and "global" default) soil test history
     # shape: {target_id: SoilTestHistory.to_dict()} where target_id is bed UUID or "global"
     soil_tests: dict[str, Any] = field(default_factory=dict)
+    # US-12.6: user-entered prices for the shopping list, keyed by ShoppingListItem.id
+    shopping_list_prices: dict[str, float] = field(default_factory=dict)
+    # US-12.6: shopping-list rows the user already owns. Excluded from CSV /
+    # PDF / clipboard export and from the dialog's grand total, but still
+    # rendered (dimmed) in the table so the toggle is discoverable.
+    excluded_shopping_items: list[str] = field(default_factory=list)
+    # US-12.11: amendment-library allowlist + organic-preference flag.
+    # ``None`` means "every amendment in the bundled library is enabled" — the
+    # default for new projects so the calculator behaves identically to legacy
+    # files. A non-``None`` list is the user's explicit toggleable allowlist.
+    enabled_amendments: list[str] | None = None
+    prefer_organic: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -83,6 +96,14 @@ class ProjectData:
             data["linked_seasons"] = self.linked_seasons
         if self.soil_tests:
             data["soil_tests"] = self.soil_tests
+        if self.shopping_list_prices:
+            data["shopping_list_prices"] = self.shopping_list_prices
+        if self.excluded_shopping_items:
+            data["excluded_shopping_items"] = sorted(self.excluded_shopping_items)
+        if self.enabled_amendments is not None:
+            data["enabled_amendments"] = sorted(self.enabled_amendments)
+        if self.prefer_organic is False:
+            data["prefer_organic"] = False
         return data
 
     @classmethod
@@ -104,6 +125,10 @@ class ProjectData:
             season_year=data.get("season_year"),
             linked_seasons=data.get("linked_seasons", []),
             soil_tests=data.get("soil_tests", {}),
+            shopping_list_prices=data.get("shopping_list_prices", {}),
+            excluded_shopping_items=list(data.get("excluded_shopping_items", [])),
+            enabled_amendments=data.get("enabled_amendments"),
+            prefer_organic=bool(data.get("prefer_organic", True)),
         )
 
 
@@ -124,6 +149,10 @@ class ProjectManager(QObject):
     crop_rotation_changed = pyqtSignal(object)  # dict
     season_changed = pyqtSignal(object)  # int year or None
     soil_tests_changed = pyqtSignal(object)  # dict[str, dict]
+    shopping_list_prices_changed = pyqtSignal(object)  # dict[str, float]
+    excluded_shopping_items_changed = pyqtSignal(object)  # set[str]
+    enabled_amendments_changed = pyqtSignal(object)  # list[str] or None
+    prefer_organic_changed = pyqtSignal(bool)
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -138,6 +167,10 @@ class ProjectManager(QObject):
         self._season_year: int | None = None
         self._linked_seasons: list[dict[str, Any]] = []
         self._soil_tests: dict[str, Any] = {}
+        self._shopping_list_prices: dict[str, float] = {}
+        self._excluded_shopping_items: set[str] = set()
+        self._enabled_amendments: list[str] | None = None
+        self._prefer_organic: bool = True
 
     @property
     def current_file(self) -> Path | None:
@@ -268,6 +301,95 @@ class ProjectManager(QObject):
         self.soil_tests_changed.emit(self._soil_tests)
         self.mark_dirty()
 
+    @property
+    def shopping_list_prices(self) -> dict[str, float]:
+        """User-entered prices for the shopping list, keyed by item ID (US-12.6)."""
+        return dict(self._shopping_list_prices)
+
+    def set_shopping_list_prices(self, prices: dict[str, float]) -> None:
+        """Replace the shopping-list price overrides and mark project dirty.
+
+        Zero is a valid price and round-trips; only ``None`` values are dropped.
+        """
+        cleaned = {k: float(v) for k, v in prices.items() if v is not None}
+        if cleaned == self._shopping_list_prices:
+            return
+        self._shopping_list_prices = cleaned
+        self.shopping_list_prices_changed.emit(self._shopping_list_prices)
+        self.mark_dirty()
+
+    @property
+    def excluded_shopping_items(self) -> set[str]:
+        """Shopping-list rows the user already owns (US-12.6)."""
+        return set(self._excluded_shopping_items)
+
+    def set_excluded_shopping_items(self, ids: Iterable[str]) -> None:
+        """Replace the excluded-row set wholesale and mark project dirty."""
+        new_value = set(ids)
+        if new_value == self._excluded_shopping_items:
+            return
+        self._excluded_shopping_items = new_value
+        self.excluded_shopping_items_changed.emit(set(self._excluded_shopping_items))
+        self.mark_dirty()
+
+    def set_shopping_item_excluded(self, item_id: str, excluded: bool) -> None:
+        """Toggle a single shopping-list row's owned state and mark project dirty."""
+        if excluded:
+            if item_id in self._excluded_shopping_items:
+                return
+            self._excluded_shopping_items.add(item_id)
+        else:
+            if item_id not in self._excluded_shopping_items:
+                return
+            self._excluded_shopping_items.discard(item_id)
+        self.excluded_shopping_items_changed.emit(set(self._excluded_shopping_items))
+        self.mark_dirty()
+
+    def is_shopping_item_excluded(self, item_id: str) -> bool:
+        """Whether the given shopping-list row is marked as already-owned."""
+        return item_id in self._excluded_shopping_items
+
+    @property
+    def enabled_amendments(self) -> list[str] | None:
+        """Return the user's amendment allowlist (US-12.11).
+
+        ``None`` means every bundled amendment is enabled — the default for new
+        and legacy projects. A non-``None`` list is the explicit allowlist
+        managed via the Amendment Plan dialog's checkbox panel.
+        """
+        if self._enabled_amendments is None:
+            return None
+        return list(self._enabled_amendments)
+
+    def set_enabled_amendments(self, ids: list[str] | None) -> None:
+        """Replace the amendment allowlist and mark project dirty.
+
+        Pass ``None`` to reset to "all enabled". A list — even empty — is
+        stored verbatim.
+        """
+        if ids is None:
+            new_value: list[str] | None = None
+        else:
+            new_value = sorted(set(ids))
+        if new_value == self._enabled_amendments:
+            return
+        self._enabled_amendments = new_value
+        self.enabled_amendments_changed.emit(new_value)
+        self.mark_dirty()
+
+    @property
+    def prefer_organic(self) -> bool:
+        """Whether the calculator prefers organic substances on tie (US-12.11)."""
+        return self._prefer_organic
+
+    def set_prefer_organic(self, value: bool) -> None:
+        """Replace the organic-preference flag and mark project dirty."""
+        if bool(value) == self._prefer_organic:
+            return
+        self._prefer_organic = bool(value)
+        self.prefer_organic_changed.emit(self._prefer_organic)
+        self.mark_dirty()
+
     def restore_soil_test_history(self, target_id: str, history_dict: dict[str, Any] | None) -> None:
         """Restore (or delete) the soil test history for ``target_id``.
 
@@ -316,6 +438,10 @@ class ProjectManager(QObject):
         self._season_year = None
         self._linked_seasons = []
         self._soil_tests = {}
+        self._shopping_list_prices = {}
+        self._excluded_shopping_items = set()
+        self._enabled_amendments = None
+        self._prefer_organic = True
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
@@ -325,6 +451,10 @@ class ProjectManager(QObject):
         self.crop_rotation_changed.emit({})
         self.season_changed.emit(None)
         self.soil_tests_changed.emit({})
+        self.shopping_list_prices_changed.emit({})
+        self.excluded_shopping_items_changed.emit(set())
+        self.enabled_amendments_changed.emit(None)
+        self.prefer_organic_changed.emit(True)
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -342,6 +472,14 @@ class ProjectManager(QObject):
         data.season_year = self._season_year
         data.linked_seasons = list(self._linked_seasons)
         data.soil_tests = dict(self._soil_tests)
+        data.shopping_list_prices = dict(self._shopping_list_prices)
+        data.excluded_shopping_items = sorted(self._excluded_shopping_items)
+        data.enabled_amendments = (
+            list(self._enabled_amendments)
+            if self._enabled_amendments is not None
+            else None
+        )
+        data.prefer_organic = self._prefer_organic
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -389,6 +527,21 @@ class ProjectManager(QObject):
         # Restore soil test history (US-12.10a)
         self._soil_tests = dict(data.soil_tests)
         self.soil_tests_changed.emit(self._soil_tests)
+        # Restore shopping list prices (US-12.6)
+        self._shopping_list_prices = dict(data.shopping_list_prices)
+        self.shopping_list_prices_changed.emit(self._shopping_list_prices)
+        # Restore shopping-list owned-row exclusions (US-12.6)
+        self._excluded_shopping_items = set(data.excluded_shopping_items)
+        self.excluded_shopping_items_changed.emit(set(self._excluded_shopping_items))
+        # Restore amendment library state (US-12.11)
+        self._enabled_amendments = (
+            list(data.enabled_amendments)
+            if data.enabled_amendments is not None
+            else None
+        )
+        self.enabled_amendments_changed.emit(self._enabled_amendments)
+        self._prefer_organic = bool(data.prefer_organic)
+        self.prefer_organic_changed.emit(self._prefer_organic)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)

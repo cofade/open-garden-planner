@@ -27,6 +27,10 @@ FIX_ADDS_K = "adds_K"
 FIX_ADDS_CA = "adds_Ca"
 FIX_ADDS_MG = "adds_Mg"
 FIX_ADDS_S = "adds_S"
+FIX_ADDS_SI = "adds_Si"
+FIX_IMPROVES_AERATION = "improves_aeration"
+FIX_IMPROVES_DRAINAGE = "improves_drainage"
+FIX_IMPROVES_WATER_RETENTION = "improves_water_retention"
 
 
 @dataclass
@@ -97,26 +101,41 @@ class AmendmentRecommendation:
 
     amendment: Amendment
     quantity_g: float
-    target_kind: str       # one of "ph", "n", "p", "k", "ca", "mg", "s"
+    target_kind: str       # one of "ph", "n", "p", "k", "ca", "mg", "s", "structure"
     current_value: float   # numeric current value (pH or 0–4 level)
     target_value: float    # numeric target value
     bed_id: str = ""       # populated by the plan dialog when aggregating; "" for inline
     bed_name: str = ""     # human-readable bed label for the plan dialog
+    # Multi-nutrient credit (US-12.11). When a compound substance also covers
+    # other deficits beyond ``target_kind``, each is recorded here as
+    # ``(kind, current, target)``. Empty for single-nutrient picks.
+    credits: list[tuple[str, float, float]] = field(default_factory=list)
+    # For structural picks the fix tag drives the rationale text.
+    structural_fix: str = ""
 
     @property
     def rationale_en(self) -> str:
         """Default English rationale string. Dialogs override with self.tr() versions."""
         if self.target_kind == "ph":
-            return (
+            base = (
                 f"Raises pH {self.current_value:.1f} → {self.target_value:.1f}"
                 if self.target_value > self.current_value
                 else f"Lowers pH {self.current_value:.1f} → {self.target_value:.1f}"
             )
-        nutrient = self.target_kind.upper()
-        return (
-            f"Raises {nutrient} level "
-            f"{int(self.current_value)} → {int(self.target_value)}"
-        )
+        elif self.target_kind == "structure":
+            base = f"Improves {self.structural_fix}"
+        else:
+            nutrient = self.target_kind.upper()
+            base = (
+                f"Raises {nutrient} level "
+                f"{int(self.current_value)} → {int(self.target_value)}"
+            )
+        if self.credits:
+            extras = ", ".join(
+                f"{k.upper()} {int(c)}→{int(t)}" for k, c, t in self.credits
+            )
+            base = f"{base} + also raises {extras}"
+        return base
 
 
 __all__ = [
@@ -128,6 +147,10 @@ __all__ = [
     "FIX_ADDS_N",
     "FIX_ADDS_P",
     "FIX_ADDS_S",
+    "FIX_ADDS_SI",
+    "FIX_IMPROVES_AERATION",
+    "FIX_IMPROVES_DRAINAGE",
+    "FIX_IMPROVES_WATER_RETENTION",
     "FIX_LOWERS_PH",
     "FIX_RAISES_PH",
 ]

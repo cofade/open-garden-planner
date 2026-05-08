@@ -388,6 +388,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "&Amendment Plan…": "&Bodenverbesserungs-Plan…",
         "View amendment recommendations for deficient beds":
             "Empfehlungen für mangelhafte Beete anzeigen",
+        # US-12.6 — Shopping List menu
+        "&Shopping List…": "&Einkaufsliste…",
+        "Generate a shopping list of plants, seeds, and materials":
+            "Eine Einkaufsliste mit Pflanzen, Samen und Materialien erstellen",
         # Soil-health overlay (US-12.10b)
         "Soil &Health Overlay": "Boden&gesundheits-Overlay",
         "Tint beds by soil-health rating (excluded from exports)":
@@ -1435,6 +1439,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "(no pH)": "(kein pH)",
         "{date} — pH {ph}, N{n} P{p} K{k}":
             "{date} — pH {ph}, N{n} P{p} K{k}",
+        # US-12.11: soil texture combo
+        "Soil texture": "Bodenart",
+        "(unknown)": "(unbekannt)",
+        "Sandy": "Sandig",
+        "Loamy": "Lehmig",
+        "Clayey": "Tonig",
+        "Compacted": "Verdichtet",
     },
 
     # ── SoilSparklineWidget (US-12.10e) ──
@@ -1480,6 +1491,86 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "No deficient beds found.": "Keine mangelhaften Beete gefunden.",
         "Amendment plan copied to clipboard.": "Bodenverbesserungs-Plan in Zwischenablage kopiert.",
         "Bed": "Beet",
+        "Add to Shopping List": "Zur Einkaufsliste hinzufügen",
+        "Shopping list not available.": "Einkaufsliste nicht verfügbar.",
+        # US-12.11: amendment-library panel
+        "Available amendments": "Verfügbare Bodenverbesserer",
+        "Prefer organic": "Organisch bevorzugen",
+        "When two substances cover the same deficits, pick the organic "
+        "one. Disable to let mineral compounds compete on equal footing.":
+            "Wenn zwei Substanzen die gleichen Mängel beheben, wird die "
+            "organische bevorzugt. Deaktivieren, damit mineralische Verbindungen "
+            "gleichberechtigt mitspielen.",
+        "Enable all": "Alle aktivieren",
+        "Organic": "Organisch",
+        "Mineral": "Mineralisch",
+        "Structural": "Strukturell",
+    },
+
+    # ── ShoppingListService (US-12.6) ──
+    "ShoppingListService": {
+        "Bed": "Beet",
+        "Unknown plant": "Unbekannte Pflanze",
+        "~{avg} cm spread": "~{avg} cm Wuchsbreite",
+        "plants": "Pflanzen",
+        "packet": "Tüte",
+        "Not in project seed inventory": "Nicht im Projekt-Saatgutbestand",
+        "g": "g",
+        "kg": "kg",
+    },
+
+    # ── ShoppingListDialog (US-12.6) ──
+    "ShoppingListDialog": {
+        "Shopping List": "Einkaufsliste",
+        "Items needed to realise the current plan. Enter prices to "
+        "estimate the total cost — prices are saved with the project.":
+            "Artikel, die zur Umsetzung des aktuellen Plans benötigt werden. "
+            "Geben Sie Preise ein, um die Gesamtkosten zu schätzen — Preise "
+            "werden mit dem Projekt gespeichert.",
+        "Item": "Artikel",
+        "Quantity": "Menge",
+        "Unit": "Einheit",
+        "Size": "Größe",
+        "Price": "Preis",
+        "Total": "Gesamt",
+        "Notes": "Notizen",
+        "Plants": "Pflanzen",
+        "Seeds": "Samen",
+        "Materials": "Materialien",
+        "Shopping list is empty — place plants or run a soil test first.":
+            "Einkaufsliste ist leer — platzieren Sie zuerst Pflanzen oder führen Sie eine Bodenprobe durch.",
+        "Copy to clipboard": "In Zwischenablage kopieren",
+        "Export CSV…": "CSV exportieren…",
+        "Export PDF…": "PDF exportieren…",
+        "Close": "Schließen",
+        "Shopping list copied to clipboard.": "Einkaufsliste in Zwischenablage kopiert.",
+        "Export Shopping List as CSV": "Einkaufsliste als CSV exportieren",
+        "Export Shopping List as PDF": "Einkaufsliste als PDF exportieren",
+        "CSV files (*.csv)": "CSV-Dateien (*.csv)",
+        "PDF files (*.pdf)": "PDF-Dateien (*.pdf)",
+        "Export failed": "Export fehlgeschlagen",
+        "Wrote {count} rows to {path}": "{count} Zeilen nach {path} geschrieben",
+        "Wrote PDF to {path}": "PDF nach {path} geschrieben",
+        "Invalid price — ignored.": "Ungültiger Preis — ignoriert.",
+        "Grand total: {amount:.2f}": "Gesamtsumme: {amount:.2f}",
+        "Category": "Kategorie",
+        "Have": "Habe ich",
+        "Tick if you already have this item — excludes it from totals and exports.":
+            "Anhaken, wenn Sie diesen Artikel bereits besitzen — er wird dann von Summen und Exporten ausgenommen.",
+    },
+
+    # ── PdfReportService extensions for shopping list (US-12.6) ──
+    "PdfReportService": {
+        "Shopping List": "Einkaufsliste",
+        "Category": "Kategorie",
+        "Item": "Artikel",
+        "Quantity": "Menge",
+        "Unit": "Einheit",
+        "Price": "Preis",
+        "Total": "Gesamt",
+        "Notes": "Notizen",
+        "Grand total": "Gesamtsumme",
+        "Shopping list is empty.": "Einkaufsliste ist leer.",
     },
 }
 

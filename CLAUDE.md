@@ -164,11 +164,12 @@ Full history: see `docs/roadmap.md`.
 | ✅     | 12.3  | DXF export                               | Interoperability   |
 | ✅     | 12.4  | DXF import                               | Interoperability   |
 | ✅     | 12.5  | Multi-page PDF export                    | Interoperability   |
-|        | 12.6  | Shopping list generation                 | Smart Features     |
+| ✅     | 12.6  | Shopping list generation                 | Smart Features     |
 |        | 12.7  | Pest & disease log                       | Smart Features     |
 |        | 12.8  | Succession planting                      | Smart Features     |
 |        | 12.9  | Garden journal (map-linked notes)        | Smart Features     |
 | ✅     | 12.10 | Soil health tracking & amendment calc    | Smart Features (all 5 sub-stories complete) |
+| ✅     | 12.11 | Smart amendment composition + toggleable library + soil texture | Smart Features |
 
 > **US-12.10 implementation details**: `docs/roadmap.md` § "US-12.10: Soil Health Tracking & Amendment Calculator"
 > Sub-stories (execute in order): **12.10a** data model + entry → **12.10b** canvas overlay → **12.10c** amendment calculator → **12.10d** plant-soil warnings → **12.10e** history + seasonal badge

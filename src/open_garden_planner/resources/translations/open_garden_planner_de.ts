@@ -3753,6 +3753,14 @@ Neue Saison jetzt öffnen?</translation>
             <source>No changes</source>
             <translation>Keine Änderungen</translation>
         </message>
+        <message>
+            <source>&amp;Shopping List…</source>
+            <translation>&amp;Einkaufsliste…</translation>
+        </message>
+        <message>
+            <source>Generate a shopping list of plants, seeds, and materials</source>
+            <translation>Eine Einkaufsliste mit Pflanzen, Samen und Materialien erstellen</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -7633,6 +7641,46 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Created with Open Garden Planner</source>
             <translation>Erstellt mit Open Garden Planner</translation>
         </message>
+        <message>
+            <source>Shopping List</source>
+            <translation>Einkaufsliste</translation>
+        </message>
+        <message>
+            <source>Category</source>
+            <translation>Kategorie</translation>
+        </message>
+        <message>
+            <source>Item</source>
+            <translation>Artikel</translation>
+        </message>
+        <message>
+            <source>Quantity</source>
+            <translation>Menge</translation>
+        </message>
+        <message>
+            <source>Unit</source>
+            <translation>Einheit</translation>
+        </message>
+        <message>
+            <source>Price</source>
+            <translation>Preis</translation>
+        </message>
+        <message>
+            <source>Total</source>
+            <translation>Gesamt</translation>
+        </message>
+        <message>
+            <source>Notes</source>
+            <translation>Notizen</translation>
+        </message>
+        <message>
+            <source>Grand total</source>
+            <translation>Gesamtsumme</translation>
+        </message>
+        <message>
+            <source>Shopping list is empty.</source>
+            <translation>Einkaufsliste ist leer.</translation>
+        </message>
     </context>
     <context>
         <name>MidpointHandle</name>
@@ -7839,6 +7887,30 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source> [Lab]</source>
             <translation> [Labor]</translation>
         </message>
+        <message>
+            <source>Soil texture</source>
+            <translation>Bodenart</translation>
+        </message>
+        <message>
+            <source>(unknown)</source>
+            <translation>(unbekannt)</translation>
+        </message>
+        <message>
+            <source>Sandy</source>
+            <translation>Sandig</translation>
+        </message>
+        <message>
+            <source>Loamy</source>
+            <translation>Lehmig</translation>
+        </message>
+        <message>
+            <source>Clayey</source>
+            <translation>Tonig</translation>
+        </message>
+        <message>
+            <source>Compacted</source>
+            <translation>Verdichtet</translation>
+        </message>
     </context>
     <context>
         <name>AmendmentPlanDialog</name>
@@ -7882,6 +7954,42 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Bed</source>
             <translation>Beet</translation>
         </message>
+        <message>
+            <source>Add to Shopping List</source>
+            <translation>Zur Einkaufsliste hinzufügen</translation>
+        </message>
+        <message>
+            <source>Shopping list not available.</source>
+            <translation>Einkaufsliste nicht verfügbar.</translation>
+        </message>
+        <message>
+            <source>Available amendments</source>
+            <translation>Verfügbare Bodenverbesserer</translation>
+        </message>
+        <message>
+            <source>Prefer organic</source>
+            <translation>Organisch bevorzugen</translation>
+        </message>
+        <message>
+            <source>When two substances cover the same deficits, pick the organic one. Disable to let mineral compounds compete on equal footing.</source>
+            <translation>Wenn zwei Substanzen die gleichen Mängel beheben, wird die organische bevorzugt. Deaktivieren, damit mineralische Verbindungen gleichberechtigt mitspielen.</translation>
+        </message>
+        <message>
+            <source>Enable all</source>
+            <translation>Alle aktivieren</translation>
+        </message>
+        <message>
+            <source>Organic</source>
+            <translation>Organisch</translation>
+        </message>
+        <message>
+            <source>Mineral</source>
+            <translation>Mineralisch</translation>
+        </message>
+        <message>
+            <source>Structural</source>
+            <translation>Strukturell</translation>
+        </message>
     </context>
     <context>
         <name>SoilSparklineWidget</name>
@@ -7922,6 +8030,164 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>{name} is a heavy K feeder (current level: {lvl})</source>
             <translation>{name} ist ein K-Starkzehrer (aktueller Wert: {lvl})</translation>
+        </message>
+    </context>
+    <context>
+        <name>ShoppingListDialog</name>
+        <message>
+            <source>Shopping List</source>
+            <translation>Einkaufsliste</translation>
+        </message>
+        <message>
+            <source>Items needed to realise the current plan. Enter prices to estimate the total cost — prices are saved with the project.</source>
+            <translation>Artikel, die zur Umsetzung des aktuellen Plans benötigt werden. Geben Sie Preise ein, um die Gesamtkosten zu schätzen — Preise werden mit dem Projekt gespeichert.</translation>
+        </message>
+        <message>
+            <source>Item</source>
+            <translation>Artikel</translation>
+        </message>
+        <message>
+            <source>Quantity</source>
+            <translation>Menge</translation>
+        </message>
+        <message>
+            <source>Unit</source>
+            <translation>Einheit</translation>
+        </message>
+        <message>
+            <source>Size</source>
+            <translation>Größe</translation>
+        </message>
+        <message>
+            <source>Price</source>
+            <translation>Preis</translation>
+        </message>
+        <message>
+            <source>Total</source>
+            <translation>Gesamt</translation>
+        </message>
+        <message>
+            <source>Notes</source>
+            <translation>Notizen</translation>
+        </message>
+        <message>
+            <source>Plants</source>
+            <translation>Pflanzen</translation>
+        </message>
+        <message>
+            <source>Seeds</source>
+            <translation>Samen</translation>
+        </message>
+        <message>
+            <source>Materials</source>
+            <translation>Materialien</translation>
+        </message>
+        <message>
+            <source>Shopping list is empty — place plants or run a soil test first.</source>
+            <translation>Einkaufsliste ist leer — platzieren Sie zuerst Pflanzen oder führen Sie eine Bodenprobe durch.</translation>
+        </message>
+        <message>
+            <source>Copy to clipboard</source>
+            <translation>In Zwischenablage kopieren</translation>
+        </message>
+        <message>
+            <source>Export CSV…</source>
+            <translation>CSV exportieren…</translation>
+        </message>
+        <message>
+            <source>Export PDF…</source>
+            <translation>PDF exportieren…</translation>
+        </message>
+        <message>
+            <source>Close</source>
+            <translation>Schließen</translation>
+        </message>
+        <message>
+            <source>Shopping list copied to clipboard.</source>
+            <translation>Einkaufsliste in Zwischenablage kopiert.</translation>
+        </message>
+        <message>
+            <source>Export Shopping List as CSV</source>
+            <translation>Einkaufsliste als CSV exportieren</translation>
+        </message>
+        <message>
+            <source>Export Shopping List as PDF</source>
+            <translation>Einkaufsliste als PDF exportieren</translation>
+        </message>
+        <message>
+            <source>CSV files (*.csv)</source>
+            <translation>CSV-Dateien (*.csv)</translation>
+        </message>
+        <message>
+            <source>PDF files (*.pdf)</source>
+            <translation>PDF-Dateien (*.pdf)</translation>
+        </message>
+        <message>
+            <source>Export failed</source>
+            <translation>Export fehlgeschlagen</translation>
+        </message>
+        <message>
+            <source>Wrote {count} rows to {path}</source>
+            <translation>{count} Zeilen nach {path} geschrieben</translation>
+        </message>
+        <message>
+            <source>Wrote PDF to {path}</source>
+            <translation>PDF nach {path} geschrieben</translation>
+        </message>
+        <message>
+            <source>Invalid price — ignored.</source>
+            <translation>Ungültiger Preis — ignoriert.</translation>
+        </message>
+        <message>
+            <source>Grand total: {amount:.2f}</source>
+            <translation>Gesamtsumme: {amount:.2f}</translation>
+        </message>
+        <message>
+            <source>Category</source>
+            <translation>Kategorie</translation>
+        </message>
+        <message>
+            <source>Have</source>
+            <translation>Habe ich</translation>
+        </message>
+        <message>
+            <source>Tick if you already have this item — excludes it from totals and exports.</source>
+            <translation>Anhaken, wenn Sie diesen Artikel bereits besitzen — er wird dann von Summen und Exporten ausgenommen.</translation>
+        </message>
+    </context>
+    <context>
+        <name>ShoppingListService</name>
+        <message>
+            <source>Bed</source>
+            <translation>Beet</translation>
+        </message>
+        <message>
+            <source>Unknown plant</source>
+            <translation>Unbekannte Pflanze</translation>
+        </message>
+        <message>
+            <source>~{avg} cm spread</source>
+            <translation>~{avg} cm Wuchsbreite</translation>
+        </message>
+        <message>
+            <source>plants</source>
+            <translation>Pflanzen</translation>
+        </message>
+        <message>
+            <source>packet</source>
+            <translation>Tüte</translation>
+        </message>
+        <message>
+            <source>Not in project seed inventory</source>
+            <translation>Nicht im Projekt-Saatgutbestand</translation>
+        </message>
+        <message>
+            <source>g</source>
+            <translation>g</translation>
+        </message>
+        <message>
+            <source>kg</source>
+            <translation>kg</translation>
         </message>
     </context>
 </TS>
