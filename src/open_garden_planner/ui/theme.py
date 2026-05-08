@@ -62,6 +62,9 @@ class ThemeColors:
         # Selection colors
         "selection": "#c8e6c9",
         "selection_inactive": "#dddcce",
+        # Section-header background (e.g. category-row stripes in tables).
+        # Light-pastel green that reads as a banded heading on a cream surface.
+        "section_header": "#e8f5e9",
     }
 
     # Dark theme colors - slate with soft sage-green accents
@@ -106,6 +109,9 @@ class ThemeColors:
         # Selection colors
         "selection": "#2e5630",
         "selection_inactive": "#353d32",
+        # Section-header background — sage-toned dark green that stays
+        # readable against the dark surface and matches the accent palette.
+        "section_header": "#264a2c",
     }
 
     @classmethod

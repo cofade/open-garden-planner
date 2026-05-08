@@ -729,7 +729,9 @@ class ExportService:
             "notes",
         ]
         try:
-            with open(file_path, "w", newline="", encoding="utf-8") as f:
+            # utf-8-sig writes a BOM so Excel on Windows recognises the file as
+            # UTF-8 instead of Latin-1; otherwise German Umlauts arrive mojibake'd.
+            with open(file_path, "w", newline="", encoding="utf-8-sig") as f:
                 writer = csv.DictWriter(f, fieldnames=headers, extrasaction="ignore")
                 writer.writeheader()
                 for item in items:

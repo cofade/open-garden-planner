@@ -1516,6 +1516,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "packet": "Tüte",
         "Not in project seed inventory": "Nicht im Projekt-Saatgutbestand",
         "g": "g",
+        "kg": "kg",
     },
 
     # ── ShoppingListDialog (US-12.6) ──

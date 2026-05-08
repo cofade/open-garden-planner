@@ -269,13 +269,22 @@ class ShoppingListService:
             enabled_ids=enabled_set,
             prefer_organic=self._project_manager.prefer_organic,
         ):
+            qty_g = round(agg.total_g, 1)
+            # Auto-promote to kg once the row crosses 1 kg — easier to read
+            # in the dialog and in CSV/PDF exports. Below threshold stays in g.
+            if qty_g >= 1000.0:
+                quantity = round(qty_g / 1000.0, 2)
+                unit = _tr("kg")
+            else:
+                quantity = qty_g
+                unit = _tr("g")
             out.append(
                 ShoppingListItem(
                     id=f"amendment:{agg.amendment.id}",
                     category=ShoppingListCategory.MATERIALS,
                     name=agg.amendment.display_name(lang),
-                    quantity=round(agg.total_g, 1),
-                    unit=_tr("g"),
+                    quantity=quantity,
+                    unit=unit,
                     notes=", ".join(agg.bed_names),
                 )
             )

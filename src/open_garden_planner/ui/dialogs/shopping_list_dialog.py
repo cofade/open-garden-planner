@@ -35,6 +35,7 @@ from open_garden_planner.models.shopping_list import (
 )
 from open_garden_planner.services.export_service import ExportService
 from open_garden_planner.services.pdf_report_service import PdfReportService
+from open_garden_planner.ui.theme import ThemeColors, ThemeMode
 
 if TYPE_CHECKING:
     from open_garden_planner.services.shopping_list_service import ShoppingListService
@@ -189,7 +190,11 @@ class ShoppingListDialog(QDialog):
         font = QFont()
         font.setBold(True)
         cell.setFont(font)
-        cell.setBackground(QBrush(QColor("#e8f5e9")))
+        # Pull from the active palette so dark mode gets a readable sage stripe
+        # instead of the light-pastel green that washes out on dark surfaces.
+        colors = ThemeColors.get_colors(ThemeMode.SYSTEM)
+        cell.setBackground(QBrush(QColor(colors["section_header"])))
+        cell.setForeground(QBrush(QColor(colors["text_primary"])))
         cell.setFlags(Qt.ItemFlag.ItemIsEnabled)
         self._table.setItem(row, 0, cell)
         self._table.setSpan(row, 0, 1, self._table.columnCount())

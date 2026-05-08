@@ -289,6 +289,22 @@ class TestCsvExport:
         assert "Tomato" in names
         assert "Basil" in names
 
+    def test_csv_export_uses_utf8_bom(self, tmp_path: Path, qtbot) -> None:  # noqa: ARG002
+        """Excel on Windows reads UTF-8 as Latin-1 unless a BOM is present."""
+        QApplication.instance() or QApplication([])
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        _add_plant(scene, "Tomato", "solanum_lycopersicum")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+        items = svc.build()
+
+        from open_garden_planner.services.export_service import ExportService
+        out = tmp_path / "shopping.csv"
+        ExportService.export_shopping_list_to_csv(items, out)
+
+        raw = out.read_bytes()
+        assert raw.startswith(b"\xef\xbb\xbf"), "CSV should start with UTF-8 BOM"
+
 
 # ── Amendment Plan handoff ────────────────────────────────────────────────────
 

@@ -8177,5 +8177,9 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>g</source>
             <translation>g</translation>
         </message>
+        <message>
+            <source>kg</source>
+            <translation>kg</translation>
+        </message>
     </context>
 </TS>
