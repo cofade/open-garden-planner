@@ -29,13 +29,14 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.app.settings import get_settings
 from open_garden_planner.models.shopping_list import (
     ShoppingListCategory,
     ShoppingListItem,
 )
 from open_garden_planner.services.export_service import ExportService
 from open_garden_planner.services.pdf_report_service import PdfReportService
-from open_garden_planner.ui.theme import ThemeColors, ThemeMode
+from open_garden_planner.ui.theme import ThemeColors
 
 if TYPE_CHECKING:
     from open_garden_planner.services.shopping_list_service import ShoppingListService
@@ -72,6 +73,10 @@ class ShoppingListDialog(QDialog):
         # Map row index → ShoppingListItem (None for category header rows).
         self._row_items: list[ShoppingListItem | None] = []
         self._suppress_changes = False
+        # Translated once so we don't re-look up the same string per row.
+        self._have_tooltip = self.tr(
+            "Tick if you already have this item — excludes it from totals and exports."
+        )
 
         self._setup_ui()
         self._populate_table()
@@ -197,7 +202,7 @@ class ShoppingListDialog(QDialog):
         cell.setFont(font)
         # Pull from the active palette so dark mode gets a readable sage stripe
         # instead of the light-pastel green that washes out on dark surfaces.
-        colors = ThemeColors.get_colors(ThemeMode.SYSTEM)
+        colors = ThemeColors.get_colors(get_settings().theme_mode)
         cell.setBackground(QBrush(QColor(colors["section_header"])))
         cell.setForeground(QBrush(QColor(colors["text_primary"])))
         cell.setFlags(Qt.ItemFlag.ItemIsEnabled)
@@ -215,9 +220,7 @@ class ShoppingListDialog(QDialog):
         have_cell.setCheckState(
             Qt.CheckState.Checked if excluded else Qt.CheckState.Unchecked
         )
-        have_cell.setToolTip(
-            self.tr("Tick if you already have this item — excludes it from totals and exports.")
-        )
+        have_cell.setToolTip(self._have_tooltip)
 
         name_cell = QTableWidgetItem(item.name)
         name_cell.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
@@ -317,7 +320,7 @@ class ShoppingListDialog(QDialog):
         """Dim every cell in ``row`` and strike through the Item cell."""
         self._suppress_changes = True
         try:
-            colors = ThemeColors.get_colors(ThemeMode.SYSTEM)
+            colors = ThemeColors.get_colors(get_settings().theme_mode)
             faded = QBrush(QColor(colors["text_secondary"]))
             for col in (
                 _COL_ITEM,
@@ -340,10 +343,16 @@ class ShoppingListDialog(QDialog):
             self._suppress_changes = False
 
     def _clear_excluded_style(self, row: int) -> None:
-        """Restore default look for a row that was previously dimmed."""
+        """Restore default look for a row that was previously dimmed.
+
+        Use the palette's ``text_primary`` brush rather than a default-
+        constructed ``QBrush`` (which has ``Qt.NoBrush`` style and can leak
+        through stylesheet selection rules to the wrong colour).
+        """
         self._suppress_changes = True
         try:
-            default_brush = QBrush()
+            colors = ThemeColors.get_colors(get_settings().theme_mode)
+            default_brush = QBrush(QColor(colors["text_primary"]))
             for col in (
                 _COL_ITEM,
                 _COL_QUANTITY,
