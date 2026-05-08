@@ -8146,6 +8146,14 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Category</source>
             <translation>Kategorie</translation>
         </message>
+        <message>
+            <source>Have</source>
+            <translation>Habe ich</translation>
+        </message>
+        <message>
+            <source>Tick if you already have this item — excludes it from totals and exports.</source>
+            <translation>Anhaken, wenn Sie diesen Artikel bereits besitzen — er wird dann von Summen und Exporten ausgenommen.</translation>
+        </message>
     </context>
     <context>
         <name>ShoppingListService</name>

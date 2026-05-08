@@ -42,13 +42,16 @@ if TYPE_CHECKING:
 
 
 # Column indexes — kept central so cell handlers stay readable.
-_COL_ITEM = 0
-_COL_QUANTITY = 1
-_COL_UNIT = 2
-_COL_SIZE = 3
-_COL_PRICE = 4
-_COL_TOTAL = 5
-_COL_NOTES = 6
+# Column 0 is the "Have" checkbox: ticked rows stay visible (dimmed) but are
+# excluded from CSV / PDF / clipboard exports and from the grand total.
+_COL_HAVE = 0
+_COL_ITEM = 1
+_COL_QUANTITY = 2
+_COL_UNIT = 3
+_COL_SIZE = 4
+_COL_PRICE = 5
+_COL_TOTAL = 6
+_COL_NOTES = 7
 
 
 class ShoppingListDialog(QDialog):
@@ -87,8 +90,9 @@ class ShoppingListDialog(QDialog):
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
-        self._table = QTableWidget(0, 7, self)
+        self._table = QTableWidget(0, 8, self)
         self._table.setHorizontalHeaderLabels([
+            self.tr("Have"),
             self.tr("Item"),
             self.tr("Quantity"),
             self.tr("Unit"),
@@ -98,6 +102,7 @@ class ShoppingListDialog(QDialog):
             self.tr("Notes"),
         ])
         header = self._table.horizontalHeader()
+        header.setSectionResizeMode(_COL_HAVE, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(_COL_ITEM, QHeaderView.ResizeMode.Stretch)
         for col in (_COL_QUANTITY, _COL_UNIT, _COL_SIZE, _COL_PRICE, _COL_TOTAL):
             header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
@@ -200,6 +205,20 @@ class ShoppingListDialog(QDialog):
         self._table.setSpan(row, 0, 1, self._table.columnCount())
 
     def _set_data_row(self, row: int, item: ShoppingListItem) -> None:
+        pm = self._service.project_manager
+        excluded = pm.is_shopping_item_excluded(item.id)
+
+        have_cell = QTableWidgetItem("")
+        have_cell.setFlags(
+            Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
+        )
+        have_cell.setCheckState(
+            Qt.CheckState.Checked if excluded else Qt.CheckState.Unchecked
+        )
+        have_cell.setToolTip(
+            self.tr("Tick if you already have this item — excludes it from totals and exports.")
+        )
+
         name_cell = QTableWidgetItem(item.name)
         name_cell.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
 
@@ -227,6 +246,7 @@ class ShoppingListDialog(QDialog):
         notes_cell = QTableWidgetItem(item.notes)
         notes_cell.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
 
+        self._table.setItem(row, _COL_HAVE, have_cell)
         self._table.setItem(row, _COL_ITEM, name_cell)
         self._table.setItem(row, _COL_QUANTITY, qty_cell)
         self._table.setItem(row, _COL_UNIT, unit_cell)
@@ -234,6 +254,9 @@ class ShoppingListDialog(QDialog):
         self._table.setItem(row, _COL_PRICE, price_cell)
         self._table.setItem(row, _COL_TOTAL, total_cell)
         self._table.setItem(row, _COL_NOTES, notes_cell)
+
+        if excluded:
+            self._apply_excluded_style(row)
 
     @staticmethod
     def _format_total(item: ShoppingListItem) -> str:
@@ -244,13 +267,17 @@ class ShoppingListDialog(QDialog):
     def _on_item_changed(self, cell: QTableWidgetItem) -> None:
         if self._suppress_changes:
             return
-        if cell.column() != _COL_PRICE:
-            return
+        column = cell.column()
         row = cell.row()
         if row >= len(self._row_items):
             return
         item = self._row_items[row]
         if item is None:
+            return
+        if column == _COL_HAVE:
+            self._on_have_toggled(row, item, cell)
+            return
+        if column != _COL_PRICE:
             return
         text = cell.text().strip().replace(",", ".")
         new_price: float | None
@@ -274,6 +301,69 @@ class ShoppingListDialog(QDialog):
         self._refresh_total_cell(row, item)
         self._update_grand_total()
 
+    def _on_have_toggled(
+        self, row: int, item: ShoppingListItem, cell: QTableWidgetItem
+    ) -> None:
+        excluded = cell.checkState() == Qt.CheckState.Checked
+        pm = self._service.project_manager
+        pm.set_shopping_item_excluded(item.id, excluded)
+        if excluded:
+            self._apply_excluded_style(row)
+        else:
+            self._clear_excluded_style(row)
+        self._update_grand_total()
+
+    def _apply_excluded_style(self, row: int) -> None:
+        """Dim every cell in ``row`` and strike through the Item cell."""
+        self._suppress_changes = True
+        try:
+            colors = ThemeColors.get_colors(ThemeMode.SYSTEM)
+            faded = QBrush(QColor(colors["text_secondary"]))
+            for col in (
+                _COL_ITEM,
+                _COL_QUANTITY,
+                _COL_UNIT,
+                _COL_SIZE,
+                _COL_PRICE,
+                _COL_TOTAL,
+                _COL_NOTES,
+            ):
+                cell = self._table.item(row, col)
+                if cell is not None:
+                    cell.setForeground(faded)
+            name_cell = self._table.item(row, _COL_ITEM)
+            if name_cell is not None:
+                font = name_cell.font()
+                font.setStrikeOut(True)
+                name_cell.setFont(font)
+        finally:
+            self._suppress_changes = False
+
+    def _clear_excluded_style(self, row: int) -> None:
+        """Restore default look for a row that was previously dimmed."""
+        self._suppress_changes = True
+        try:
+            default_brush = QBrush()
+            for col in (
+                _COL_ITEM,
+                _COL_QUANTITY,
+                _COL_UNIT,
+                _COL_SIZE,
+                _COL_PRICE,
+                _COL_TOTAL,
+                _COL_NOTES,
+            ):
+                cell = self._table.item(row, col)
+                if cell is not None:
+                    cell.setForeground(default_brush)
+            name_cell = self._table.item(row, _COL_ITEM)
+            if name_cell is not None:
+                font = name_cell.font()
+                font.setStrikeOut(False)
+                name_cell.setFont(font)
+        finally:
+            self._suppress_changes = False
+
     def _refresh_price_cell(self, row: int, item: ShoppingListItem) -> None:
         self._suppress_changes = True
         try:
@@ -295,7 +385,9 @@ class ShoppingListDialog(QDialog):
             self._suppress_changes = False
 
     def _update_grand_total(self) -> None:
-        priced = [i for i in self._items if i.total_cost is not None]
+        priced = [
+            i for i in self._exportable_items() if i.total_cost is not None
+        ]
         if not priced:
             self._grand_total_label.setText("")
             return
@@ -303,6 +395,11 @@ class ShoppingListDialog(QDialog):
         self._grand_total_label.setText(
             self.tr("Grand total: {amount:.2f}").format(amount=total)
         )
+
+    def _exportable_items(self) -> list[ShoppingListItem]:
+        """Return only items the user hasn't ticked as already-owned."""
+        pm = self._service.project_manager
+        return [i for i in self._items if not pm.is_shopping_item_excluded(i.id)]
 
     # ── Actions ───────────────────────────────────────────────────────────────
 
@@ -325,7 +422,7 @@ class ShoppingListDialog(QDialog):
             self.tr("Notes"),
         ]
         lines = ["\t".join(headers)]
-        for item in self._items:
+        for item in self._exportable_items():
             lines.append("\t".join([
                 item.category.value,
                 item.name,
@@ -348,7 +445,9 @@ class ShoppingListDialog(QDialog):
         if not path:
             return
         try:
-            count = ExportService.export_shopping_list_to_csv(self._items, path)
+            count = ExportService.export_shopping_list_to_csv(
+                self._exportable_items(), path
+            )
         except ValueError as exc:
             QMessageBox.critical(self, self.tr("Export failed"), str(exc))
             return
@@ -366,7 +465,9 @@ class ShoppingListDialog(QDialog):
         if not path:
             return
         try:
-            PdfReportService.export_shopping_list_to_pdf(self._items, path)
+            PdfReportService.export_shopping_list_to_pdf(
+                self._exportable_items(), path
+            )
         except (RuntimeError, OSError) as exc:
             QMessageBox.critical(self, self.tr("Export failed"), str(exc))
             return

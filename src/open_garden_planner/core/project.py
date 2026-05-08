@@ -4,6 +4,7 @@ Handles project state, serialization, and file I/O.
 """
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -50,6 +51,10 @@ class ProjectData:
     soil_tests: dict[str, Any] = field(default_factory=dict)
     # US-12.6: user-entered prices for the shopping list, keyed by ShoppingListItem.id
     shopping_list_prices: dict[str, float] = field(default_factory=dict)
+    # US-12.6: shopping-list rows the user already owns. Excluded from CSV /
+    # PDF / clipboard export and from the dialog's grand total, but still
+    # rendered (dimmed) in the table so the toggle is discoverable.
+    excluded_shopping_items: list[str] = field(default_factory=list)
     # US-12.11: amendment-library allowlist + organic-preference flag.
     # ``None`` means "every amendment in the bundled library is enabled" — the
     # default for new projects so the calculator behaves identically to legacy
@@ -93,6 +98,8 @@ class ProjectData:
             data["soil_tests"] = self.soil_tests
         if self.shopping_list_prices:
             data["shopping_list_prices"] = self.shopping_list_prices
+        if self.excluded_shopping_items:
+            data["excluded_shopping_items"] = sorted(self.excluded_shopping_items)
         if self.enabled_amendments is not None:
             data["enabled_amendments"] = sorted(self.enabled_amendments)
         if self.prefer_organic is False:
@@ -119,6 +126,7 @@ class ProjectData:
             linked_seasons=data.get("linked_seasons", []),
             soil_tests=data.get("soil_tests", {}),
             shopping_list_prices=data.get("shopping_list_prices", {}),
+            excluded_shopping_items=list(data.get("excluded_shopping_items", [])),
             enabled_amendments=data.get("enabled_amendments"),
             prefer_organic=bool(data.get("prefer_organic", True)),
         )
@@ -142,6 +150,7 @@ class ProjectManager(QObject):
     season_changed = pyqtSignal(object)  # int year or None
     soil_tests_changed = pyqtSignal(object)  # dict[str, dict]
     shopping_list_prices_changed = pyqtSignal(object)  # dict[str, float]
+    excluded_shopping_items_changed = pyqtSignal(object)  # set[str]
     enabled_amendments_changed = pyqtSignal(object)  # list[str] or None
     prefer_organic_changed = pyqtSignal(bool)
 
@@ -159,6 +168,7 @@ class ProjectManager(QObject):
         self._linked_seasons: list[dict[str, Any]] = []
         self._soil_tests: dict[str, Any] = {}
         self._shopping_list_prices: dict[str, float] = {}
+        self._excluded_shopping_items: set[str] = set()
         self._enabled_amendments: list[str] | None = None
         self._prefer_organic: bool = True
 
@@ -309,6 +319,37 @@ class ProjectManager(QObject):
         self.mark_dirty()
 
     @property
+    def excluded_shopping_items(self) -> set[str]:
+        """Shopping-list rows the user already owns (US-12.6)."""
+        return set(self._excluded_shopping_items)
+
+    def set_excluded_shopping_items(self, ids: Iterable[str]) -> None:
+        """Replace the excluded-row set wholesale and mark project dirty."""
+        new_value = set(ids)
+        if new_value == self._excluded_shopping_items:
+            return
+        self._excluded_shopping_items = new_value
+        self.excluded_shopping_items_changed.emit(set(self._excluded_shopping_items))
+        self.mark_dirty()
+
+    def set_shopping_item_excluded(self, item_id: str, excluded: bool) -> None:
+        """Toggle a single shopping-list row's owned state and mark project dirty."""
+        if excluded:
+            if item_id in self._excluded_shopping_items:
+                return
+            self._excluded_shopping_items.add(item_id)
+        else:
+            if item_id not in self._excluded_shopping_items:
+                return
+            self._excluded_shopping_items.discard(item_id)
+        self.excluded_shopping_items_changed.emit(set(self._excluded_shopping_items))
+        self.mark_dirty()
+
+    def is_shopping_item_excluded(self, item_id: str) -> bool:
+        """Whether the given shopping-list row is marked as already-owned."""
+        return item_id in self._excluded_shopping_items
+
+    @property
     def enabled_amendments(self) -> list[str] | None:
         """Return the user's amendment allowlist (US-12.11).
 
@@ -398,6 +439,7 @@ class ProjectManager(QObject):
         self._linked_seasons = []
         self._soil_tests = {}
         self._shopping_list_prices = {}
+        self._excluded_shopping_items = set()
         self._enabled_amendments = None
         self._prefer_organic = True
         self.project_changed.emit(None)
@@ -410,6 +452,7 @@ class ProjectManager(QObject):
         self.season_changed.emit(None)
         self.soil_tests_changed.emit({})
         self.shopping_list_prices_changed.emit({})
+        self.excluded_shopping_items_changed.emit(set())
         self.enabled_amendments_changed.emit(None)
         self.prefer_organic_changed.emit(True)
 
@@ -430,6 +473,7 @@ class ProjectManager(QObject):
         data.linked_seasons = list(self._linked_seasons)
         data.soil_tests = dict(self._soil_tests)
         data.shopping_list_prices = dict(self._shopping_list_prices)
+        data.excluded_shopping_items = sorted(self._excluded_shopping_items)
         data.enabled_amendments = (
             list(self._enabled_amendments)
             if self._enabled_amendments is not None
@@ -486,6 +530,9 @@ class ProjectManager(QObject):
         # Restore shopping list prices (US-12.6)
         self._shopping_list_prices = dict(data.shopping_list_prices)
         self.shopping_list_prices_changed.emit(self._shopping_list_prices)
+        # Restore shopping-list owned-row exclusions (US-12.6)
+        self._excluded_shopping_items = set(data.excluded_shopping_items)
+        self.excluded_shopping_items_changed.emit(set(self._excluded_shopping_items))
         # Restore amendment library state (US-12.11)
         self._enabled_amendments = (
             list(data.enabled_amendments)

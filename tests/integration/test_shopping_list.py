@@ -29,6 +29,7 @@ from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.dialogs.amendment_plan_dialog import AmendmentPlanDialog
 from open_garden_planner.ui.dialogs.shopping_list_dialog import (
+    _COL_HAVE,
     _COL_PRICE,
     ShoppingListDialog,
 )
@@ -304,6 +305,113 @@ class TestCsvExport:
 
         raw = out.read_bytes()
         assert raw.startswith(b"\xef\xbb\xbf"), "CSV should start with UTF-8 BOM"
+
+
+# ── Owned-item exclusion (Have toggle) ────────────────────────────────────────
+
+
+class TestExcludedItems:
+    """The Have checkbox dims rows + excludes them from totals and exports."""
+
+    def test_csv_export_skips_excluded_items(self, tmp_path: Path, qtbot) -> None:  # noqa: ARG002
+        from PyQt6.QtCore import Qt as _Qt
+        QApplication.instance() or QApplication([])
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        _add_plant(scene, "Tomato", "solanum_lycopersicum")
+        _add_plant(scene, "Basil", "ocimum_basilicum")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+        dialog = ShoppingListDialog(service=svc)
+        qtbot.addWidget(dialog)
+
+        # Tick "Have" on the first plant data row → exclusion persists to pm.
+        plant_row = 1
+        excluded_item = dialog._row_items[plant_row]
+        assert excluded_item is not None
+        have_cell = dialog._table.item(plant_row, _COL_HAVE)
+        assert have_cell is not None
+        have_cell.setCheckState(_Qt.CheckState.Checked)
+        assert pm.is_shopping_item_excluded(excluded_item.id)
+
+        # CSV writes only the non-excluded rows. Each species also appears as
+        # a seed-gap row, so assert by (category, name) to disambiguate from
+        # the seed entry that legitimately stays.
+        from open_garden_planner.services.export_service import ExportService
+        out = tmp_path / "shopping.csv"
+        n = ExportService.export_shopping_list_to_csv(dialog._exportable_items(), out)
+        with open(out, encoding="utf-8-sig") as f:
+            rows = list(csv.DictReader(f))
+        assert n == len(rows)
+        plant_rows = {(r["category"], r["name"]) for r in rows
+                      if r["category"] == ShoppingListCategory.PLANTS.value}
+        assert (ShoppingListCategory.PLANTS.value, excluded_item.name) not in plant_rows
+        # The other plant must still be present.
+        kept = next(i for i in dialog._items
+                    if i.category is ShoppingListCategory.PLANTS and i.id != excluded_item.id)
+        assert (ShoppingListCategory.PLANTS.value, kept.name) in plant_rows
+
+    def test_grand_total_excludes_owned_items(self, qtbot) -> None:
+        from PyQt6.QtCore import Qt as _Qt
+        QApplication.instance() or QApplication([])
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        _add_plant(scene, "Tomato", "solanum_lycopersicum")
+        _add_plant(scene, "Basil", "ocimum_basilicum")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+        dialog = ShoppingListDialog(service=svc)
+        qtbot.addWidget(dialog)
+
+        # Two priced rows: 4.00 and 7.00 → grand total = 11.00.
+        for row, price in ((1, "4.00"), (2, "7.00")):
+            cell = dialog._table.item(row, _COL_PRICE)
+            assert cell is not None
+            cell.setText(price)
+        assert "11.00" in dialog._grand_total_label.text()
+
+        # Tick Have on row 1 → grand total drops by that row's total (4.00 → 7.00 left).
+        excluded_item = dialog._row_items[1]
+        assert excluded_item is not None
+        have_cell = dialog._table.item(1, _COL_HAVE)
+        assert have_cell is not None
+        have_cell.setCheckState(_Qt.CheckState.Checked)
+        assert "7.00" in dialog._grand_total_label.text()
+        assert "11.00" not in dialog._grand_total_label.text()
+
+    def test_have_checkbox_persists_through_round_trip(self, tmp_path: Path, qtbot) -> None:
+        from PyQt6.QtCore import Qt as _Qt
+        QApplication.instance() or QApplication([])
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        _add_plant(scene, "Tomato", "solanum_lycopersicum")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+        dialog = ShoppingListDialog(service=svc)
+        qtbot.addWidget(dialog)
+
+        plant_row = 1
+        excluded_item = dialog._row_items[plant_row]
+        assert excluded_item is not None
+        have_cell = dialog._table.item(plant_row, _COL_HAVE)
+        assert have_cell is not None
+        have_cell.setCheckState(_Qt.CheckState.Checked)
+
+        save_path = tmp_path / "garden.ogp"
+        pm.save(scene, save_path)
+
+        # Reopen with a fresh manager + scene → exclusion restored.
+        pm2 = ProjectManager()
+        scene2 = CanvasScene(width_cm=5000, height_cm=3000)
+        pm2.load(scene2, save_path)
+        assert pm2.is_shopping_item_excluded(excluded_item.id)
+
+        # And the dialog rebuilt against the loaded project pre-ticks the box.
+        # Rebuild plant since load wipes scene; add the same plant ID.
+        _add_plant(scene2, "Tomato", "solanum_lycopersicum")
+        svc2 = ShoppingListService(scene2, MagicMock(), pm2)
+        dialog2 = ShoppingListDialog(service=svc2)
+        qtbot.addWidget(dialog2)
+        cell2 = dialog2._table.item(plant_row, _COL_HAVE)
+        assert cell2 is not None
+        assert cell2.checkState() == _Qt.CheckState.Checked
 
 
 # ── Amendment Plan handoff ────────────────────────────────────────────────────

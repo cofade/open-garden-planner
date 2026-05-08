@@ -139,6 +139,15 @@ class ShoppingListService:
         self._soil_service = soil_service
         self._project_manager = project_manager
 
+    @property
+    def project_manager(self) -> ProjectManager:
+        """Read-only handle to the underlying project manager.
+
+        The dialog needs this to check / toggle per-row owned-state without
+        a second pm injection at the call site.
+        """
+        return self._project_manager
+
     # ── Public API ────────────────────────────────────────────────────────────
 
     def build(self) -> list[ShoppingListItem]:
