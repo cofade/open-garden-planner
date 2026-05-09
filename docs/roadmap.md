@@ -1718,7 +1718,9 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 | US-12.4 | DXF import | Should | ✅ |
 | US-12.5 | Multi-page PDF export | Should | ✅ |
 | US-12.6 | Shopping list generation | Could | ✅ |
+| US-12.7 | Pest & disease log | Could | ✅ |
 | US-12.7 | Pest & disease log | Could | |
+
 | US-12.8 | Succession planting | Could | |
 | US-12.9 | Garden journal (map-linked notes) | Could | |
 | US-12.10 | Soil health tracking & amendment calculator | Must | ✅ |
@@ -1870,6 +1872,14 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 - History viewable per-bed and per-plant
 - Overview panel showing all active issues across the garden
 - Data serialized in project file
+
+**Implementation Notes**:
+- Data model: `PestLogRecord` / `PestLogHistory` in `src/open_garden_planner/models/pest_log.py`. Severity is categorical (`low`/`medium`/`high`); type is `pest` or `disease`.
+- Persistence: serialised under top-level `pest_disease_logs` key as `{target_id: PestLogHistory.to_dict()}`. Photos copied into `{project_dir}/pest_photos/` and stored as project-relative POSIX paths so the .ogp file stays portable.
+- Commands: `AddPestLogCommand`, `EditPestLogCommand`, `DeletePestLogCommand` — all undoable, snapshotting prior history for clean restore.
+- UI: `PestLogDialog` (Entry + History tabs) opens from the right-click menu on rectangle/circle items (beds and plants). Sidebar `PestOverviewPanel` lists every unresolved entry with double-click reactivation.
+- Season carryover: only `resolved=False` records carry to the new season. Resolved entries stay in the previous season as historical record. This makes permanent issues (tree borers) persist while treated outbreaks (a one-off aphid bloom) drop off.
+- Photo attachment is gated on a saved project — the button is disabled with tooltip *"Save project first to attach photos"* until `project_manager.current_file` is set.
 
 ---
 

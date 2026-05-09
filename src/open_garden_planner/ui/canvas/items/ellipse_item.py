@@ -247,9 +247,12 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         # US-12.10a: Add soil test entry for bed-typed ellipses
         from open_garden_planner.core.object_types import is_bed_type
         add_soil_test_action = None
+        add_pest_log_action = None
         if is_bed_type(self.object_type):
             menu.addSeparator()
             add_soil_test_action = menu.addAction(_("EllipseItem", "Add soil test…"))
+            # US-12.7: Pest/disease log entry for beds
+            add_pest_log_action = menu.addAction(_("EllipseItem", "Log Pest/Disease…"))
 
         menu.addSeparator()
 
@@ -307,6 +310,12 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
                 views = scene.views()
                 if views and hasattr(views[0], "request_soil_test"):
                     views[0].request_soil_test(str(self.item_id), self.name)
+        elif action == add_pest_log_action and add_pest_log_action is not None:
+            scene = self.scene()
+            if scene:
+                views = scene.views()
+                if views and hasattr(views[0], "request_pest_log"):
+                    views[0].request_pest_log(str(self.item_id), self.name)
         elif action == show_area_action:
             self.area_label_visible = not self._area_label_visible
         elif action == delete_action:

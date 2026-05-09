@@ -384,6 +384,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Eine projektweite Bodenprobe festlegen, falls einzelne Beete keine eigene haben",
         "Soil test recorded": "Bodenprobe gespeichert",
         "No changes": "Keine Änderungen",
+        # US-12.7 — Pest/disease log
+        "Pest/disease log recorded": "Schädlings-/Krankheitseintrag gespeichert",
+        "Active Pest/Disease Issues": "Aktive Schädlinge/Krankheiten",
         # US-12.10c — Amendment Plan menu
         "&Amendment Plan…": "&Bodenverbesserungs-Plan…",
         "View amendment recommendations for deficient beds":
@@ -1185,12 +1188,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "CircleItem": {
         "Show Area": "Fläche anzeigen",
         "Add soil test…": "Bodenprobe hinzufügen…",
+        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
     },
 
     # ── EllipseItem — area label (US-11.9) and soil test (US-12.10a) ──
     "EllipseItem": {
         "Show Area": "Fläche anzeigen",
         "Add soil test…": "Bodenprobe hinzufügen…",
+        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
     },
 
     # ── FindReplacePanel (US-11.24) ──
@@ -1215,12 +1220,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "PolygonItem": {
         "Show Area": "Fläche anzeigen",
         "Add soil test…": "Bodenprobe hinzufügen…",
+        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
     },
 
     # ── RectangleItem — area label (US-11.9) and soil test (US-12.10a) ──
     "RectangleItem": {
         "Show Area": "Fläche anzeigen",
         "Add soil test…": "Bodenprobe hinzufügen…",
+        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
     },
 
     # ── ObjectType (from QT_TR_NOOP in object_types.py — missing from pylupdate6) ──
@@ -1453,6 +1460,70 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "No history yet": "Noch kein Verlauf",
     },
 
+    # ── PestLogDialog (US-12.7) ──
+    "PestLogDialog": {
+        "Pest/Disease Log": "Schädlings-/Krankheitseintrag",
+        "Pest/Disease Log — {name}": "Schädlings-/Krankheitseintrag — {name}",
+        "Edit Pest/Disease Log": "Eintrag bearbeiten",
+        "Entry": "Eintrag",
+        "History": "Verlauf",
+        "Date": "Datum",
+        "Type": "Typ",
+        "Pest": "Schädling",
+        "Disease": "Krankheit",
+        "Name": "Name",
+        "e.g. Aphids, Powdery mildew": "z. B. Blattläuse, Echter Mehltau",
+        "Severity": "Schwere",
+        "Low": "Niedrig",
+        "Medium": "Mittel",
+        "High": "Hoch",
+        "Treatment": "Behandlung",
+        "e.g. Neem oil spray, weekly": "z. B. Neemöl-Spray, wöchentlich",
+        "Notes": "Notizen",
+        "(no photo)": "(kein Foto)",
+        "(unsaved)": "(ungespeichert)",
+        "(missing)": "(fehlt)",
+        "Attach Photo…": "Foto anhängen…",
+        "Remove Photo": "Foto entfernen",
+        "Save project first to attach photos":
+            "Projekt zuerst speichern, um Fotos anzuhängen",
+        "Resolved": "Behoben",
+        "Past entries": "Frühere Einträge",
+        "No past entries": "Keine früheren Einträge",
+        "Edit": "Bearbeiten",
+        "Delete": "Löschen",
+        "{date} — {type} — {name} ({severity})":
+            "{date} — {type} — {name} ({severity})",
+        " [Resolved]": " [Behoben]",
+        "(unnamed)": "(unbenannt)",
+        "Delete the entry from {date}?":
+            "Eintrag vom {date} löschen?",
+        "Delete pest/disease entry": "Eintrag löschen",
+        "Empty name": "Leerer Name",
+        "Save entry with empty name?":
+            "Eintrag mit leerem Namen speichern?",
+        "Select photo": "Foto auswählen",
+        "Images (*.png *.jpg *.jpeg *.gif *.bmp *.webp)":
+            "Bilder (*.png *.jpg *.jpeg *.gif *.bmp *.webp)",
+        "Photo attach failed": "Foto-Anhang fehlgeschlagen",
+        "Could not copy photo: {err}":
+            "Foto konnte nicht kopiert werden: {err}",
+        "Click to open in image viewer": "Klicken, um in Bildbetrachter zu öffnen",
+    },
+
+    # ── PestOverviewPanel (US-12.7) ──
+    "PestOverviewPanel": {
+        "Active issues:": "Aktive Probleme:",
+        "No active issues": "Keine aktiven Probleme",
+        "(deleted item)": "(gelöschtes Objekt)",
+        "(unnamed)": "(unbenannt)",
+        "low": "niedrig",
+        "medium": "mittel",
+        "high": "hoch",
+        "{display} > {name} ({severity}) — {date}":
+            "{display} > {name} ({severity}) — {date}",
+    },
+
     # ── SoilBadgeItem (US-12.10e) ──
     "SoilBadgeItem": {
         "Soil test overdue — click to record":
@@ -1517,6 +1588,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Not in project seed inventory": "Nicht im Projekt-Saatgutbestand",
         "g": "g",
         "kg": "kg",
+
     },
 
     # ── ShoppingListDialog (US-12.6) ──
@@ -1557,6 +1629,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Have": "Habe ich",
         "Tick if you already have this item — excludes it from totals and exports.":
             "Anhaken, wenn Sie diesen Artikel bereits besitzen — er wird dann von Summen und Exporten ausgenommen.",
+
     },
 
     # ── PdfReportService extensions for shopping list (US-12.6) ──

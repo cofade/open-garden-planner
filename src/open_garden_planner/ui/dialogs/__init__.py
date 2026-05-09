@@ -10,6 +10,7 @@ from open_garden_planner.ui.dialogs.custom_plants_dialog import CustomPlantsDial
 from open_garden_planner.ui.dialogs.grid_array_dialog import GridArrayDialog
 from open_garden_planner.ui.dialogs.linear_array_dialog import LinearArrayDialog
 from open_garden_planner.ui.dialogs.new_project_dialog import NewProjectDialog
+from open_garden_planner.ui.dialogs.pest_log_dialog import PestLogDialog
 from open_garden_planner.ui.dialogs.plant_search_dialog import PlantSearchDialog
 from open_garden_planner.ui.dialogs.preferences_dialog import PreferencesDialog
 from open_garden_planner.ui.dialogs.print_dialog import GardenPrintManager, PrintOptionsDialog
@@ -30,6 +31,7 @@ __all__ = [
     "GridArrayDialog",
     "LinearArrayDialog",
     "NewProjectDialog",
+    "PestLogDialog",
     "PlantSearchDialog",
     "PreferencesDialog",
     "PrintOptionsDialog",

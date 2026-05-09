@@ -53,6 +53,7 @@ from open_garden_planner.ui.panels import (
     CropRotationPanel,
     GalleryPanel,
     LayersPanel,
+    PestOverviewPanel,
     PlantDatabasePanel,
     PlantSearchPanel,
     PropertiesPanel,
@@ -863,6 +864,11 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_view.soil_test_badge_clicked.connect(
             self._on_soil_test_badge_clicked
         )
+        # US-12.7: bed/plant → "Log Pest/Disease…" routes through CanvasView
+        self.canvas_view.pest_log_requested.connect(self._on_pest_log_requested)
+        self._project_manager.pest_logs_changed.connect(
+            self._on_pest_logs_changed
+        )
 
         # Connect scene selection changes to status bar and panels
         self.canvas_scene.selectionChanged.connect(self._on_selection_changed)
@@ -1107,6 +1113,18 @@ class GardenPlannerApp(QMainWindow):
         )
         self.crop_rotation_collapsible.setVisible(False)  # Hidden by default
         sidebar_layout.addWidget(self.crop_rotation_collapsible)
+
+        # 9. Active Pest/Disease overview (US-12.7)
+        self.pest_overview_panel = PestOverviewPanel()
+        self.pest_overview_panel.item_activated.connect(
+            self._on_pest_log_requested
+        )
+        self.pest_overview_collapsible = CollapsiblePanel(
+            self.tr("Active Pest/Disease Issues"),
+            self.pest_overview_panel,
+            expanded=True,
+        )
+        sidebar_layout.addWidget(self.pest_overview_collapsible)
 
         # Add stretch at the bottom to push panels to top
         sidebar_layout.addStretch()
@@ -3227,6 +3245,78 @@ class GardenPlannerApp(QMainWindow):
         # Recompute seasonal reminder badges (US-12.10e).
         self.canvas_view.refresh_soil_badges()
         self.calendar_view.refresh()
+
+    def _on_pest_log_requested(self, target_id: str, display_name: str) -> None:
+        """Open PestLogDialog for a bed/plant (US-12.7)."""
+        self._open_pest_log_dialog(target_id, display_name)
+
+    def _on_pest_logs_changed(self, _pest_logs: object) -> None:
+        """Refresh the overview panel whenever pest logs change."""
+        self._refresh_pest_overview()
+
+    def _open_pest_log_dialog(self, target_id: str, display_name: str) -> None:
+        """Open the pest/disease dialog and execute AddPestLogCommand on accept."""
+        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+
+        from open_garden_planner.core import AddPestLogCommand  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs import PestLogDialog  # noqa: PLC0415
+
+        if not display_name:
+            display_name = self._lookup_bed_display_name(target_id) or self._lookup_item_name(target_id)
+        history = self._project_manager.get_pest_log_history(target_id)
+        dialog = PestLogDialog(
+            parent=self,
+            target_id=target_id,
+            target_name=display_name,
+            existing_history=history,
+            project_manager=self._project_manager,
+            command_manager=self.canvas_view.command_manager,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        if not dialog.has_new_entry:
+            # User managed history (edit/delete) without adding a new entry.
+            self._refresh_pest_overview()
+            return
+
+        record = dialog.result_record()
+        cmd = AddPestLogCommand(self._project_manager, target_id, record)
+        self.canvas_view.command_manager.execute(cmd)
+        self.statusBar().showMessage(self.tr("Pest/disease log recorded"), 3000)
+        self._refresh_pest_overview()
+
+    def _lookup_item_name(self, target_id: str) -> str:
+        """Return the display name for any scene item (bed or plant) by id, else ''."""
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None) or self.canvas_view.scene()
+        )
+        if scene is None:
+            return ""
+        for item in scene.items():
+            if str(getattr(item, "item_id", "")) == target_id:
+                return getattr(item, "name", "") or ""
+        return ""
+
+    def _refresh_pest_overview(self) -> None:
+        """Rebuild the Active Pest/Disease Issues panel (US-12.7)."""
+        panel = getattr(self, "pest_overview_panel", None)
+        if panel is None:
+            return
+        items_by_id: dict[str, str] = {}
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None)
+            or self.canvas_view.scene()
+        )
+        if scene is not None:
+            for item in scene.items():
+                iid = getattr(item, "item_id", None)
+                if iid is None:
+                    continue
+                name = getattr(item, "name", "") or ""
+                if name:
+                    items_by_id[str(iid)] = name
+        panel.refresh(self._project_manager.pest_logs, items_by_id)
 
     def _lookup_bed_area_m2(self, target_id: str) -> float:
         """Return the area of the bed identified by ``target_id`` in m².

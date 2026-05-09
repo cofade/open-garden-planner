@@ -291,3 +291,15 @@ Pre-defined object types for common property elements:
 - **FR-SHOP-05**: User-entered prices are editable in the dialog and persist with the project file under `shopping_list_prices` (keyed by item ID); reopening the project restores them.
 - **FR-SHOP-06**: Export targets — CSV (`ExportService.export_shopping_list_to_csv`), PDF (`PdfReportService.export_shopping_list_to_pdf`), and tab-separated clipboard text.
 - **FR-SHOP-07**: Amendment Plan dialog hands off to the shopping list via an "Add to Shopping List" button (replacing the prior plain-text clipboard placeholder).
+
+## FR-17: Pest & Disease Log (Phase 12, US-12.7)
+
+- **FR-PEST-01**: Right-click on any bed (rectangle/circle/polygon with a bed-type) or any plant (circle item) shows "Log Pest/Disease…" in the context menu, opening `PestLogDialog`.
+- **FR-PEST-02**: Each entry stores date, type (`pest`/`disease`), name, severity (`low`/`medium`/`high`), treatment notes, free-form notes, optional photo, and a `resolved` flag (`PestLogRecord` in `models/pest_log.py`).
+- **FR-PEST-03**: Records are persisted under top-level key `pest_disease_logs` in the .ogp file, shape `{target_id: PestLogHistory.to_dict()}` where `target_id` is the bed or plant UUID.
+- **FR-PEST-04**: Photos attached via the dialog are copied into `{project_dir}/pest_photos/{uuid}_{filename}`; the record stores a project-relative POSIX path so the project file remains portable. Attaching a photo requires a saved project (button disabled with explanatory tooltip otherwise).
+- **FR-PEST-05**: All add/edit/delete actions go through `AddPestLogCommand` / `EditPestLogCommand` / `DeletePestLogCommand`, which snapshot the prior history dict for undo/redo.
+- **FR-PEST-06**: A "History" tab in the dialog lists past entries for the same target sorted newest-first, with per-row Edit and Delete buttons; resolved rows are visually flagged but not hidden.
+- **FR-PEST-07**: A sidebar `PestOverviewPanel` ("Active Pest/Disease Issues") aggregates every unresolved record across the garden, sorted newest-first; double-clicking a row reopens the dialog focused on that target. Targets that no longer exist on the canvas display as "(deleted item)".
+- **FR-PEST-08**: When a new season is created (Garden → New Season), only `resolved=False` records carry forward to the new season file. Resolved entries stay in the previous season file as historical record. This makes permanent issues (e.g. tree borers) persist while one-off treated outbreaks (e.g. an aphid bloom) drop off automatically.
+

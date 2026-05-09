@@ -106,6 +106,7 @@ class TestProjectData:
         ]
 
 
+
 class TestProjectManager:
     """Tests for ProjectManager class."""
 
