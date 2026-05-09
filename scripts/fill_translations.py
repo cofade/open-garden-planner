@@ -1587,6 +1587,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "packet": "Tüte",
         "Not in project seed inventory": "Nicht im Projekt-Saatgutbestand",
         "g": "g",
+        "kg": "kg",
+
     },
 
     # ── ShoppingListDialog (US-12.6) ──
@@ -1624,6 +1626,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Invalid price — ignored.": "Ungültiger Preis — ignoriert.",
         "Grand total: {amount:.2f}": "Gesamtsumme: {amount:.2f}",
         "Category": "Kategorie",
+        "Have": "Habe ich",
+        "Tick if you already have this item — excludes it from totals and exports.":
+            "Anhaken, wenn Sie diesen Artikel bereits besitzen — er wird dann von Summen und Exporten ausgenommen.",
+
     },
 
     # ── PdfReportService extensions for shopping list (US-12.6) ──

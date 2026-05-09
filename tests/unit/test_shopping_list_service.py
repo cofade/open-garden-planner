@@ -186,7 +186,55 @@ class TestMaterialsAggregation:
         svc = ShoppingListService(scene, soil_service, pm)
         materials = [i for i in svc.build() if i.category is ShoppingListCategory.MATERIALS]
         assert len(materials) == 1
-        assert materials[0].unit == "g"
+        # Two 2 m² beds at pH 5.8 push the lime total over 1 kg → auto-promoted.
+        assert materials[0].unit == "kg"
+
+
+class TestMaterialsKgAutoFormat:
+    """Quantities below 1 kg stay in grams; ≥ 1000 g auto-promotes to kg."""
+
+    def test_materials_stay_in_g_below_threshold(self, qtbot) -> None:  # noqa: ARG002
+        scene = _make_scene()
+        # Tiny bed → recommendation comfortably below 1 kg.
+        bed = RectangleItem(0, 0, 200, 100, object_type=ObjectType.GARDEN_BED, name="Bed A")
+        scene.addItem(bed)
+
+        record = SoilTestRecord(date="2026-04-01", ph=5.8, n_level=3, p_level=3, k_level=3)
+        soil_service = MagicMock()
+        soil_service.get_effective_record.return_value = record
+
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, soil_service, pm)
+        materials = [i for i in svc.build() if i.category is ShoppingListCategory.MATERIALS]
+        assert materials, "expected at least one material recommendation"
+        for mat in materials:
+            assert mat.unit == "g", f"{mat.name} should stay in g below 1 kg ({mat.quantity})"
+            assert mat.quantity < 1000.0
+
+    def test_materials_auto_kg_above_threshold(self, qtbot) -> None:  # noqa: ARG002
+        scene = _make_scene()
+        # Large bed → at least one amendment crosses the 1 kg threshold.
+        bed = RectangleItem(
+            0, 0, 1000, 500, object_type=ObjectType.GARDEN_BED, name="Big Bed"
+        )
+        scene.addItem(bed)
+
+        record = SoilTestRecord(date="2026-04-01", ph=5.8, n_level=3, p_level=3, k_level=3)
+        soil_service = MagicMock()
+        soil_service.get_effective_record.return_value = record
+
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, soil_service, pm)
+        materials = [i for i in svc.build() if i.category is ShoppingListCategory.MATERIALS]
+        assert materials, "expected at least one material recommendation"
+        # The biggest item should be promoted to kg with two-decimal precision.
+        kg_items = [m for m in materials if m.unit == "kg"]
+        assert kg_items, "expected at least one kg-formatted amendment"
+        biggest = max(kg_items, key=lambda m: m.quantity)
+        # 1.00–999.99 kg sanity range.
+        assert 1.0 <= biggest.quantity < 1000.0
+        # Two-decimal rounding (no third decimal place leaking through).
+        assert round(biggest.quantity, 2) == biggest.quantity
 
 
 # ── Price persistence ─────────────────────────────────────────────────────────

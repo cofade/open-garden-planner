@@ -166,6 +166,8 @@ Full history: see `docs/roadmap.md`.
 | ✅     | 12.5  | Multi-page PDF export                    | Interoperability   |
 | ✅     | 12.6  | Shopping list generation                 | Smart Features     |
 | ✅     | 12.7  | Pest & disease log                       | Smart Features     |
+|        | 12.7  | Pest & disease log                       | Smart Features     |
+
 |        | 12.8  | Succession planting                      | Smart Features     |
 |        | 12.9  | Garden journal (map-linked notes)        | Smart Features     |
 | ✅     | 12.10 | Soil health tracking & amendment calc    | Smart Features (all 5 sub-stories complete) |

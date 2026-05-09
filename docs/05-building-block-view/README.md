@@ -107,6 +107,7 @@ src/open_garden_planner/
 │   │   ├── plant_search_dialog.py
 │   │   ├── shopping_list_dialog.py # Garden→Shopping List dialog (US-12.6)
 │   │   ├── pest_log_dialog.py    # Pest/disease log entry (US-12.7)
+
 │   │   └── properties_dialog.py
 │   ├── widgets/
 │   │   ├── toolbar.py            # MainToolbar

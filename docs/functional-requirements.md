@@ -302,3 +302,4 @@ Pre-defined object types for common property elements:
 - **FR-PEST-06**: A "History" tab in the dialog lists past entries for the same target sorted newest-first, with per-row Edit and Delete buttons; resolved rows are visually flagged but not hidden.
 - **FR-PEST-07**: A sidebar `PestOverviewPanel` ("Active Pest/Disease Issues") aggregates every unresolved record across the garden, sorted newest-first; double-clicking a row reopens the dialog focused on that target. Targets that no longer exist on the canvas display as "(deleted item)".
 - **FR-PEST-08**: When a new season is created (Garden → New Season), only `resolved=False` records carry forward to the new season file. Resolved entries stay in the previous season file as historical record. This makes permanent issues (e.g. tree borers) persist while one-off treated outbreaks (e.g. an aphid bloom) drop off automatically.
+

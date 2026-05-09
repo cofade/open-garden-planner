@@ -81,6 +81,31 @@ class TestProjectData:
         assert result["prefer_organic"] is False
         assert ProjectData.from_dict(result).prefer_organic is False
 
+    def test_excluded_shopping_items_round_trip_empty(self) -> None:
+        """Empty exclusion list is omitted and decodes back to empty."""
+        data = ProjectData()
+        assert data.excluded_shopping_items == []
+        result = data.to_dict()
+        assert "excluded_shopping_items" not in result
+        assert ProjectData.from_dict(result).excluded_shopping_items == []
+
+    def test_excluded_shopping_items_round_trip_explicit(self) -> None:
+        """A non-empty exclusion list round-trips sorted."""
+        data = ProjectData(
+            excluded_shopping_items=["plant:rose", "amendment:compost"]
+        )
+        result = data.to_dict()
+        assert result["excluded_shopping_items"] == [
+            "amendment:compost",
+            "plant:rose",
+        ]  # sorted
+        restored = ProjectData.from_dict(result)
+        assert sorted(restored.excluded_shopping_items) == [
+            "amendment:compost",
+            "plant:rose",
+        ]
+
+
 
 class TestProjectManager:
     """Tests for ProjectManager class."""

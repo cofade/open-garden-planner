@@ -139,6 +139,15 @@ class ShoppingListService:
         self._soil_service = soil_service
         self._project_manager = project_manager
 
+    @property
+    def project_manager(self) -> ProjectManager:
+        """Read-only handle to the underlying project manager.
+
+        The dialog needs this to check / toggle per-row owned-state without
+        a second pm injection at the call site.
+        """
+        return self._project_manager
+
     # ── Public API ────────────────────────────────────────────────────────────
 
     def build(self) -> list[ShoppingListItem]:
@@ -269,13 +278,27 @@ class ShoppingListService:
             enabled_ids=enabled_set,
             prefer_organic=self._project_manager.prefer_organic,
         ):
+            qty_g = round(agg.total_g, 1)
+            # Auto-promote to kg once the row crosses 1 kg — easier to read
+            # in the dialog and in CSV/PDF exports. Below threshold stays in g.
+            # The unit suffix is part of the id (locale-stable: always "g"/"kg")
+            # so a saved per-unit price never bleeds across a unit flip when
+            # the underlying total moves above/below the threshold.
+            if qty_g >= 1000.0:
+                quantity = round(qty_g / 1000.0, 2)
+                unit_id = "kg"
+                unit_display = _tr("kg")
+            else:
+                quantity = qty_g
+                unit_id = "g"
+                unit_display = _tr("g")
             out.append(
                 ShoppingListItem(
-                    id=f"amendment:{agg.amendment.id}",
+                    id=f"amendment:{agg.amendment.id}:{unit_id}",
                     category=ShoppingListCategory.MATERIALS,
                     name=agg.amendment.display_name(lang),
-                    quantity=round(agg.total_g, 1),
-                    unit=_tr("g"),
+                    quantity=quantity,
+                    unit=unit_display,
                     notes=", ".join(agg.bed_names),
                 )
             )
