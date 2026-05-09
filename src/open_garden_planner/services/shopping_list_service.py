@@ -25,6 +25,7 @@ from PyQt6.QtCore import QCoreApplication
 from open_garden_planner.core.measurements import calculate_area_and_perimeter
 from open_garden_planner.core.object_types import ObjectType, is_bed_type
 from open_garden_planner.models.amendment import Amendment
+from open_garden_planner.models.plant_data import species_key
 from open_garden_planner.models.shopping_list import (
     ShoppingListCategory,
     ShoppingListItem,
@@ -41,11 +42,6 @@ _PLANT_OBJECT_TYPES = (ObjectType.TREE, ObjectType.SHRUB, ObjectType.PERENNIAL)
 
 def _tr(text: str) -> str:
     return QCoreApplication.translate("ShoppingListService", text)
-
-
-def _norm_species_key(value: str) -> str:
-    """Lowercase + trim a species identifier for case-insensitive matching."""
-    return value.strip().lower()
 
 
 def _active_language() -> str:
@@ -173,12 +169,7 @@ class ShoppingListService:
             plant_species = metadata.get("plant_species") or {}
             plant_instance = metadata.get("plant_instance") or {}
 
-            species_id = (
-                plant_species.get("source_id")
-                or plant_species.get("scientific_name")
-                or plant_species.get("common_name")
-                or "_unknown"
-            )
+            species_id = species_key(plant_species)
             display_name = (
                 plant_species.get("common_name")
                 or plant_species.get("scientific_name")
@@ -229,30 +220,29 @@ class ShoppingListService:
                 continue
             metadata = getattr(item, "metadata", None) or {}
             plant_species = metadata.get("plant_species") or {}
-            sid = (
-                plant_species.get("source_id")
-                or plant_species.get("scientific_name")
-                or plant_species.get("common_name")
-            )
-            if not sid:
+            sid = species_key(plant_species)
+            if sid == "_unknown":
                 continue
             placed_species.setdefault(
-                str(sid),
+                sid,
                 plant_species.get("common_name")
                 or plant_species.get("scientific_name")
-                or str(sid),
+                or sid,
             )
 
         owned_keys: set[str] = set()
         for packet in self._project_manager.seed_inventory:
-            for raw in (packet.get("species_id"), packet.get("species_name")):
-                if raw:
-                    owned_keys.add(_norm_species_key(str(raw)))
+            pkt_key = species_key({
+                "scientific_name": str(packet.get("species_id") or ""),
+                "common_name": str(packet.get("species_name") or ""),
+            })
+            if pkt_key != "_unknown":
+                owned_keys.add(pkt_key)
 
         gaps = sorted(
             (sid, name)
             for sid, name in placed_species.items()
-            if _norm_species_key(sid) not in owned_keys
+            if sid not in owned_keys
         )
         return [
             ShoppingListItem(
@@ -267,7 +257,9 @@ class ShoppingListService:
         ]
 
     def _collect_materials(self) -> list[ShoppingListItem]:
-        """Roll the cross-bed amendment totals into shopping-list rows."""
+        """Roll the cross-bed amendment totals, soil fill volume, and mulch area
+        into shopping-list rows (issues #177 + original US-12.6).
+        """
         out: list[ShoppingListItem] = []
         lang = _active_language()
         enabled = self._project_manager.enabled_amendments
@@ -302,6 +294,43 @@ class ShoppingListService:
                     notes=", ".join(agg.bed_names),
                 )
             )
+
+        # Soil fill volume and mulch area aggregated across all beds (issue #177).
+        # IDs are locale-stable aggregate keys so saved prices survive rebuilds.
+        total_soil_m3 = 0.0
+        total_mulch_m2 = 0.0
+        for item in self._scene.items():
+            object_type = getattr(item, "object_type", None)
+            if not is_bed_type(object_type):
+                continue
+            area = _bed_area_m2(item)
+            if area <= 0.0:
+                continue
+            depth_m = item.metadata.get("soil_depth_cm", 30) / 100.0  # type: ignore[union-attr]
+            total_soil_m3 += area * depth_m
+            total_mulch_m2 += area
+
+        if total_soil_m3 > 0:
+            out.append(
+                ShoppingListItem(
+                    id="soil_fill:m3",
+                    category=ShoppingListCategory.MATERIALS,
+                    name=_tr("Soil fill"),
+                    quantity=round(total_soil_m3, 3),
+                    unit=_tr("m³"),
+                )
+            )
+        if total_mulch_m2 > 0:
+            out.append(
+                ShoppingListItem(
+                    id="mulch:m2",
+                    category=ShoppingListCategory.MATERIALS,
+                    name=_tr("Mulch"),
+                    quantity=round(total_mulch_m2, 2),
+                    unit=_tr("m²"),
+                )
+            )
+
         return out
 
     # ── Price persistence ─────────────────────────────────────────────────────
@@ -325,6 +354,21 @@ class ShoppingListService:
         else:
             prices[item.id] = float(price)
         self._project_manager.set_shopping_list_prices(prices)
+
+    def prune_stale_prices(self) -> None:
+        """Drop price entries whose item ID is no longer in the current list.
+
+        Called on project save (issue #178) to prevent indefinite growth of the
+        prices dict when plants or amendments are removed from the canvas.
+        Only marks the project dirty if stale keys were actually found.
+        """
+        current_ids = {item.id for item in self.build()}
+        saved = self._project_manager.shopping_list_prices
+        stale = saved.keys() - current_ids
+        if stale:
+            self._project_manager.set_shopping_list_prices(
+                {k: v for k, v in saved.items() if k in current_ids}
+            )
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 

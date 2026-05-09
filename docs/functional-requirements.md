@@ -287,8 +287,9 @@ Pre-defined object types for common property elements:
 - **FR-SHOP-01**: Garden → Shopping List… opens a modal dialog grouping items into Plants / Seeds / Materials.
 - **FR-SHOP-02**: Plants are aggregated from canvas TREE/SHRUB/PERENNIAL items by the first available identifier on `metadata.plant_species` — `source_id`, then `scientific_name`, then `common_name`. Bundled-DB plants (where `source_id == ""`) are aggregated by `scientific_name`. The row shows count and the average current spread.
 - **FR-SHOP-03**: Seed gaps = species placed in the plan but not present in the project's `seed_inventory`; one packet-sized row per gap.
-- **FR-SHOP-04**: Materials roll in soil amendments aggregated across beds via `SoilService.calculate_amendments`, mirroring the totals shown by the Amendment Plan dialog (US-12.10c).
-- **FR-SHOP-05**: User-entered prices are editable in the dialog and persist with the project file under `shopping_list_prices` (keyed by item ID); reopening the project restores them.
+- **FR-SHOP-04**: Materials roll in: (a) soil amendments aggregated across beds via `SoilService.calculate_amendments`, mirroring the Amendment Plan dialog totals; (b) one "Soil fill" row (m³) — total bed area × per-bed fill depth (default 30 cm, configurable via Properties Panel → "Soil depth" spinbox stored in `metadata["soil_depth_cm"]`); (c) one "Mulch" row (m²) — total bed area. IDs `"soil_fill:m3"` and `"mulch:m2"` are stable so saved prices survive plan rebuilds.
+- **FR-SHOP-05**: User-entered prices are editable in the dialog and persist with the project file under `shopping_list_prices` (keyed by item ID); reopening the project restores them. Orphan entries (items no longer in the plan) are pruned on project save.
+- **FR-SHOP-08**: Canonical species key — `models.plant_data.species_key(species_dict)` is the single sanctioned way to derive a stable dict key from a species dict (priority: `source_id` → `scientific_name` → `common_name`, normalised lower+strip). See ADR-016.
 - **FR-SHOP-06**: Export targets — CSV (`ExportService.export_shopping_list_to_csv`), PDF (`PdfReportService.export_shopping_list_to_pdf`), and tab-separated clipboard text.
 - **FR-SHOP-07**: Amendment Plan dialog hands off to the shopping list via an "Add to Shopping List" button (replacing the prior plain-text clipboard placeholder).
 

@@ -3773,7 +3773,6 @@ Neue Saison jetzt öffnen?</translation>
             <source>Active Pest/Disease Issues</source>
             <translation>Aktive Schädlinge/Krankheiten</translation>
         </message>
-
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -5995,6 +5994,18 @@ noch nicht implementiert</translation>
             <translation>Frostempfindlichkeit überschreiben:
 ☑ Immer schützen  ☐ Nie schützen  ‒ Datenbankstandard verwenden</translation>
         </message>
+        <message>
+            <source>Soil Fill</source>
+            <translation>Bodensubstrat</translation>
+        </message>
+        <message>
+            <source>Soil depth:</source>
+            <translation>Bodentiefe:</translation>
+        </message>
+        <message>
+            <source>Fill depth used to calculate soil volume in the Shopping List</source>
+            <translation>Fülltiefe zur Berechnung des Bodenvolumens in der Einkaufsliste</translation>
+        </message>
     </context>
     <context>
         <name>RectangleItem</name>
@@ -8179,7 +8190,6 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Tick if you already have this item — excludes it from totals and exports.</source>
             <translation>Anhaken, wenn Sie diesen Artikel bereits besitzen — er wird dann von Summen und Exporten ausgenommen.</translation>
         </message>
-
     </context>
     <context>
         <name>ShoppingListService</name>
@@ -8210,6 +8220,26 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>g</source>
             <translation>g</translation>
+        </message>
+        <message>
+            <source>kg</source>
+            <translation>kg</translation>
+        </message>
+        <message>
+            <source>Soil fill</source>
+            <translation>Bodensubstrat</translation>
+        </message>
+        <message>
+            <source>m³</source>
+            <translation>m³</translation>
+        </message>
+        <message>
+            <source>Mulch</source>
+            <translation>Mulch</translation>
+        </message>
+        <message>
+            <source>m²</source>
+            <translation>m²</translation>
         </message>
     </context>
     <context>
@@ -8414,7 +8444,6 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>{display} &gt; {name} ({severity}) — {date}</translation>
             <source>kg</source>
             <translation>kg</translation>
-
         </message>
     </context>
 </TS>

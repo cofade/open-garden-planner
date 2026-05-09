@@ -34,6 +34,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.models.plant_data import PlantSpeciesData
+from open_garden_planner.models.plant_data import species_key as _species_key
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
 from open_garden_planner.services.weather_service import get_frost_alerts
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
@@ -1100,12 +1101,12 @@ class PlantingCalendarView(QWidget):
                 continue
             if not any(getattr(species, f) is not None for f in _CALENDAR_FIELDS):
                 continue
-            key = species.scientific_name or species.common_name
-            if key and key not in seen:
+            key = _species_key({"source_id": species.source_id, "scientific_name": species.scientific_name, "common_name": species.common_name})
+            if key != "_unknown" and key not in seen:
                 name = species.common_name or species.scientific_name
                 seen[key] = _PlantRow(display_name=name, species=species, species_key=key)
             # Collect seed packet link (first one found wins per species)
-            if key and key not in seed_links and item.metadata:
+            if key != "_unknown" and key not in seed_links and item.metadata:
                 pi = item.metadata.get("plant_instance", {})
                 packet_id = pi.get("seed_packet_id")
                 if packet_id:

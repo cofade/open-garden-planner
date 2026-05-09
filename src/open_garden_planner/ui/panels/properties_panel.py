@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QSpinBox,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -291,6 +292,9 @@ class PropertiesPanel(QWidget):
 
         # Grid overlay section (for bed types only)
         self._add_grid_properties(item)
+
+        # Soil depth section (for bed types only)
+        self._add_soil_depth_properties(item)
 
         # Spacing radius section (for plant types only)
         self._add_spacing_properties(item)
@@ -694,6 +698,31 @@ class PropertiesPanel(QWidget):
         self._form_layout.addRow(self.tr("Spacing:"), spacing_spin)
         if cell_count_label is not None:
             self._form_layout.addRow(self.tr("Cells:"), cell_count_label)
+
+    def _add_soil_depth_properties(self, item: QGraphicsItem) -> None:
+        """Add soil fill depth control (bed types only, issue #177)."""
+        if not hasattr(item, "object_type") or not is_bed_type(item.object_type):
+            return
+        if not hasattr(item, "metadata"):
+            return
+
+        separator = QLabel(self.tr("Soil Fill"))
+        separator.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        self._form_layout.addRow(separator)
+
+        depth_spin = QSpinBox()
+        depth_spin.setRange(1, 200)
+        depth_spin.setSuffix(" cm")
+        depth_spin.setValue(int(item.metadata.get("soil_depth_cm", 30)))
+        depth_spin.setToolTip(self.tr("Fill depth used to calculate soil volume in the Shopping List"))
+
+        def on_depth_changed(val: int) -> None:
+            if self._updating:
+                return
+            item.metadata["soil_depth_cm"] = val
+
+        depth_spin.valueChanged.connect(on_depth_changed)
+        self._form_layout.addRow(self.tr("Soil depth:"), depth_spin)
 
     def _add_spacing_properties(self, item: QGraphicsItem) -> None:
         """Add plant spacing radius control (plant types only)."""

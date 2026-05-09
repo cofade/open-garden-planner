@@ -1860,6 +1860,11 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 - Optional cost column (user enters prices per item)
 - Groups by category (plants, seeds, materials)
 
+**Follow-up issues (all resolved in one PR):**
+- ✅ **#176**: ADR-016 — canonical `species_key()` helper in `models/plant_data.py`; migrated all call sites.
+- ✅ **#177**: Extended Materials with "Soil fill" (m³, per-bed configurable depth) and "Mulch" (m²) rows.
+- ✅ **#178**: Prune orphan `shopping_list_prices` entries on project save.
+
 ---
 
 ### US-12.7: Pest & Disease Log

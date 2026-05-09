@@ -185,9 +185,10 @@ class TestMaterialsAggregation:
         pm = ProjectManager()
         svc = ShoppingListService(scene, soil_service, pm)
         materials = [i for i in svc.build() if i.category is ShoppingListCategory.MATERIALS]
-        assert len(materials) == 1
+        amendments = [m for m in materials if m.id.startswith("amendment:")]
+        assert len(amendments) == 1
         # Two 2 m² beds at pH 5.8 push the lime total over 1 kg → auto-promoted.
-        assert materials[0].unit == "kg"
+        assert amendments[0].unit == "kg"
 
 
 class TestMaterialsKgAutoFormat:
@@ -206,8 +207,9 @@ class TestMaterialsKgAutoFormat:
         pm = ProjectManager()
         svc = ShoppingListService(scene, soil_service, pm)
         materials = [i for i in svc.build() if i.category is ShoppingListCategory.MATERIALS]
-        assert materials, "expected at least one material recommendation"
-        for mat in materials:
+        amendments = [m for m in materials if m.id.startswith("amendment:")]
+        assert amendments, "expected at least one amendment recommendation"
+        for mat in amendments:
             assert mat.unit == "g", f"{mat.name} should stay in g below 1 kg ({mat.quantity})"
             assert mat.quantity < 1000.0
 
@@ -327,3 +329,155 @@ class TestEdgeCases:
         svc = ShoppingListService(scene, MagicMock(), pm)
         seeds = [i for i in svc.build() if i.category is ShoppingListCategory.SEEDS]
         assert seeds == []
+
+
+# ── Orphan price pruning (issue #178) ─────────────────────────────────────────
+
+
+class TestPricePrune:
+    def test_prune_removes_stale_keys(self, qtbot) -> None:  # noqa: ARG002
+        scene = _make_scene()
+        plant = _add_plant(scene, common_name="Tomato", source_id="t")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+
+        items = svc.build()
+        plant_item = next(i for i in items if i.category is ShoppingListCategory.PLANTS)
+        svc.update_price(plant_item, 3.00)
+        assert pm.shopping_list_prices  # price recorded
+
+        scene.removeItem(plant)  # remove the plant
+        svc.prune_stale_prices()
+
+        assert pm.shopping_list_prices == {}
+
+    def test_prune_keeps_prices_for_current_items(self, qtbot) -> None:  # noqa: ARG002
+        scene = _make_scene()
+        _add_plant(scene, common_name="Tomato", source_id="t")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+
+        items = svc.build()
+        plant_item = next(i for i in items if i.category is ShoppingListCategory.PLANTS)
+        svc.update_price(plant_item, 3.00)
+        svc.prune_stale_prices()
+
+        assert pm.shopping_list_prices == {plant_item.id: 3.00}
+
+    def test_prune_does_not_mark_dirty_when_nothing_stale(self, qtbot) -> None:  # noqa: ARG002
+        scene = _make_scene()
+        _add_plant(scene, common_name="Tomato", source_id="t")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+
+        items = svc.build()
+        plant_item = next(i for i in items if i.category is ShoppingListCategory.PLANTS)
+        svc.update_price(plant_item, 3.00)
+        pm.mark_clean()  # reset dirty flag
+
+        svc.prune_stale_prices()  # nothing stale
+
+        assert not pm.is_dirty  # no spurious dirty mark
+
+
+# ── Soil fill + mulch materials (issue #177) ──────────────────────────────────
+
+
+def _add_bed(scene: CanvasScene, width: float, height: float,
+             name: str = "Bed", object_type: ObjectType = ObjectType.GARDEN_BED) -> RectangleItem:
+    bed = RectangleItem(0, 0, width, height, object_type=object_type, name=name)
+    scene.addItem(bed)
+    return bed
+
+
+def _no_amendments_soil_service() -> MagicMock:
+    """Return a mock SoilService that skips amendment calculation (record=None)."""
+    svc = MagicMock()
+    svc.get_effective_record.return_value = None
+    return svc
+
+
+class TestSoilFillMaterials:
+    def test_soil_fill_default_depth(self, qtbot) -> None:  # noqa: ARG002
+        """100 cm × 100 cm bed with default 30 cm depth → 1 m² × 0.3 m = 0.3 m³."""
+        scene = _make_scene()
+        _add_bed(scene, 100, 100)  # 1 m²
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, _no_amendments_soil_service(), pm)
+        materials = [i for i in svc.build() if i.category is ShoppingListCategory.MATERIALS]
+        soil = next((m for m in materials if m.id == "soil_fill:m3"), None)
+        assert soil is not None
+        assert soil.unit == "m³"
+        assert soil.quantity == pytest.approx(0.3, abs=0.001)
+
+    def test_soil_fill_custom_depth(self, qtbot) -> None:  # noqa: ARG002
+        """Per-bed soil_depth_cm=50 → 1 m² × 0.5 m = 0.5 m³."""
+        scene = _make_scene()
+        bed = _add_bed(scene, 100, 100)
+        bed.metadata["soil_depth_cm"] = 50
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, _no_amendments_soil_service(), pm)
+        soil = next(
+            (m for m in svc.build() if m.id == "soil_fill:m3"), None
+        )
+        assert soil is not None
+        assert soil.quantity == pytest.approx(0.5, abs=0.001)
+
+    def test_soil_fill_aggregates_multiple_beds(self, qtbot) -> None:  # noqa: ARG002
+        """Two 1 m² beds → combined 2 m² × 0.3 m = 0.6 m³ in one row."""
+        scene = _make_scene()
+        _add_bed(scene, 100, 100, "Bed A")
+        _add_bed(scene, 100, 100, "Bed B")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, _no_amendments_soil_service(), pm)
+        soil_rows = [m for m in svc.build() if m.id == "soil_fill:m3"]
+        assert len(soil_rows) == 1  # always one aggregate row
+        assert soil_rows[0].quantity == pytest.approx(0.6, abs=0.001)
+
+    def test_no_soil_fill_when_no_beds(self, qtbot) -> None:  # noqa: ARG002
+        scene = _make_scene()
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, _no_amendments_soil_service(), pm)
+        soil_rows = [m for m in svc.build() if m.id == "soil_fill:m3"]
+        assert soil_rows == []
+
+    def test_soil_fill_price_survives_rebuild(self, qtbot) -> None:  # noqa: ARG002
+        """Stable item ID means a saved price is reattached on subsequent builds."""
+        scene = _make_scene()
+        _add_bed(scene, 100, 100)
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, _no_amendments_soil_service(), pm)
+        soil = next(m for m in svc.build() if m.id == "soil_fill:m3")
+        svc.update_price(soil, 12.50)
+        rebuilt = next(m for m in svc.build() if m.id == "soil_fill:m3")
+        assert rebuilt.price_each == pytest.approx(12.50)
+
+
+class TestMulchMaterials:
+    def test_mulch_area_single_bed(self, qtbot) -> None:  # noqa: ARG002
+        """100 cm × 100 cm bed → 1 m² mulch row."""
+        scene = _make_scene()
+        _add_bed(scene, 100, 100)
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, _no_amendments_soil_service(), pm)
+        mulch = next((m for m in svc.build() if m.id == "mulch:m2"), None)
+        assert mulch is not None
+        assert mulch.unit == "m²"
+        assert mulch.quantity == pytest.approx(1.0, abs=0.01)
+
+    def test_mulch_area_aggregates_beds(self, qtbot) -> None:  # noqa: ARG002
+        """Two 1 m² beds → 2 m² mulch in one row."""
+        scene = _make_scene()
+        _add_bed(scene, 100, 100, "A")
+        _add_bed(scene, 100, 100, "B")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, _no_amendments_soil_service(), pm)
+        mulch_rows = [m for m in svc.build() if m.id == "mulch:m2"]
+        assert len(mulch_rows) == 1
+        assert mulch_rows[0].quantity == pytest.approx(2.0, abs=0.01)
+
+    def test_no_mulch_when_no_beds(self, qtbot) -> None:  # noqa: ARG002
+        scene = _make_scene()
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, _no_amendments_soil_service(), pm)
+        assert [m for m in svc.build() if m.id == "mulch:m2"] == []
