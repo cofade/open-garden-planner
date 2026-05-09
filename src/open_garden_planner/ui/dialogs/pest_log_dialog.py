@@ -18,8 +18,8 @@ from datetime import date as _date
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import QDate, Qt
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import QDate, Qt, QUrl
+from PyQt6.QtGui import QDesktopServices, QPixmap
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -377,6 +377,10 @@ class PestLogDialog(QDialog):
         self._update_photo_thumbnail()
 
     def _update_photo_thumbnail(self) -> None:
+        self._photo_label.mousePressEvent = lambda _e: None  # reset
+        self._photo_label.setCursor(Qt.CursorShape.ArrowCursor)
+        self._photo_label.setToolTip("")
+
         if self._photo_path is None:
             self._photo_label.setPixmap(QPixmap())
             self._photo_label.setText(self.tr("(no photo)"))
@@ -401,6 +405,18 @@ class PestLogDialog(QDialog):
                 )
             )
             self._photo_label.setText("")
+            self._photo_label.setCursor(Qt.CursorShape.PointingHandCursor)
+            self._photo_label.setToolTip(self.tr("Click to open in image viewer"))
+            _jail = (project_dir / "pest_photos").resolve()
+            def _open_photo(_e, _path=full, _jail=_jail):
+                if _e.button() != Qt.MouseButton.LeftButton:
+                    return
+                try:
+                    _path.resolve().relative_to(_jail)
+                except ValueError:
+                    return
+                QDesktopServices.openUrl(QUrl.fromLocalFile(str(_path)))
+            self._photo_label.mousePressEvent = _open_photo
         self._remove_photo_btn.setEnabled(True)
 
     # ── Behaviour ────────────────────────────────────────────────────────────
@@ -429,8 +445,10 @@ class PestLogDialog(QDialog):
         self._resolved_check.setChecked(record.resolved)
 
     def _on_accept(self) -> None:
-        # Soft-warn on empty name; the user can still proceed.
-        if not self._name_edit.text().strip():
+        name_filled = bool(self._name_edit.text().strip())
+        on_entry_tab = not hasattr(self, "_tabs") or self._tabs.currentIndex() == 0
+        # Empty-name warning only when Entry tab is active AND name is blank.
+        if on_entry_tab and not name_filled:
             reply = QMessageBox.question(
                 self,
                 self.tr("Empty name"),
@@ -440,7 +458,24 @@ class PestLogDialog(QDialog):
             )
             if reply != QMessageBox.StandardButton.Yes:
                 return
+            # User confirmed: force-add even though name is empty.
+            self._force_new_entry = True
+        else:
+            self._force_new_entry = False
         self.accept()
+
+    @property
+    def has_new_entry(self) -> bool:
+        """True when a new record should be added on accept.
+
+        Checks name content rather than active tab so that filling the Entry
+        tab, switching to History, then clicking OK still persists the entry.
+        """
+        if self._edit_mode:
+            return False
+        if getattr(self, "_force_new_entry", False):
+            return True
+        return bool(self._name_edit.text().strip())
 
     # ── Public API ───────────────────────────────────────────────────────────
 

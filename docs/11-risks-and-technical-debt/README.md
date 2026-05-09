@@ -77,6 +77,14 @@ Hard-won lessons from implementation. Read these before modifying the related su
 
 - **Plants stack behind beds when both share a layer's default z**: A new `CircleItem` and a new `RectangleItem` placed on the same layer both get `z_order * 100` from the layer (typically `0`). With equal z-values, Qt stacks by add-order. So a plant drawn *before* its bed renders behind it, even when correctly attached as a child. Fix is to elevate the plant above the bed at every attach site: `ensure_z_above_parent(plant, bed)` in `commands.py`. Already wired into `_auto_parent_plant`, `SetParentBedCommand`, `DeleteItemsCommand.undo`, paste, and duplicate. Any new path that establishes a plant-bed parent link must also call this helper.
 
+- **Context-menu wiring must cover all bed-shape item types**: OGP has four independently-implemented item classes for beds (`RectangleItem`, `PolygonItem`, `EllipseItem`, `CircleItem`). Every new context-menu action added to one must be explicitly added to all others — there is no shared base-class hook for context menus. US-12.7 initially missed `PolygonItem` and `EllipseItem`; both were discovered missing during manual testing.
+
+- **Two-tab dialog: OK must not trigger entry-tab validation when user is on History tab**: Dialogs with an Entry tab (add a new record) and a History tab (view/edit past records) share one OK button. If the user is on the History tab and clicks OK to dismiss the dialog, any validation on the Entry tab (e.g. "empty name" warning) fires incorrectly against an empty form. Guard with `self._tabs.currentIndex() == 0` before running entry-tab validation.
+
+- **Two-tab dialog: caller must not create a new record when user clicked OK from History tab**: When the outer dialog returns `Accepted`, the caller (`_open_pest_log_dialog` in `application.py`) must not unconditionally call `AddPestLogCommand`. If the user was on the History tab, edits were already committed via `EditPestLogCommand` inside the dialog; the outer accept is just a close. Add a `has_new_entry` property to the dialog (set in `_on_accept` based on which tab is active) and gate the add-command on it. Same pattern applies to the soil-test dialog.
+
+- **`mousePressEvent` monkey-patch must return None, not the result of `openUrl()`**: Overriding `mousePressEvent` on a `QLabel` instance via assignment works, but the assigned callable must return `None` (C++ void). `QDesktopServices.openUrl()` returns `bool`. A lambda `lambda _e: QDesktopServices.openUrl(...)` forwards that bool, and PyQt6/SIP raises `TypeError: invalid argument to sipBadCatcherResult()` on return. Fix: use a named inner function (implicit `None` return) or add `, None)[1]` to discard the bool.
+
 ## 11.5 Community and Governance
 
 **Feature Requests**: Open to community input, pivots, and voting. The goal is to avoid a dead project — community engagement is welcome.

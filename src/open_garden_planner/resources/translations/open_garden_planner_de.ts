@@ -5289,6 +5289,10 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <source>Add soil test…</source>
             <translation>Bodenprobe hinzufügen…</translation>
         </message>
+        <message>
+            <source>Log Pest/Disease…</source>
+            <translation>Schädling/Krankheit eintragen…</translation>
+        </message>
     </context>
     <context>
         <name>PolygonTool</name>
@@ -7368,6 +7372,10 @@ Starten Sie Open Garden Planner als Administrator, oder laden Sie das Installati
             <source>Add soil test…</source>
             <translation>Bodenprobe hinzufügen…</translation>
         </message>
+        <message>
+            <source>Log Pest/Disease…</source>
+            <translation>Schädling/Krankheit eintragen…</translation>
+        </message>
     </context>
     <context>
         <name>EllipseTool</name>
@@ -8355,6 +8363,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Could not copy photo: {err}</source>
             <translation>Foto konnte nicht kopiert werden: {err}</translation>
+        </message>
+        <message>
+            <source>Click to open in image viewer</source>
+            <translation>Klicken, um in Bildbetrachter zu öffnen</translation>
         </message>
     </context>
     <context>

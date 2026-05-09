@@ -1195,6 +1195,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "EllipseItem": {
         "Show Area": "Fläche anzeigen",
         "Add soil test…": "Bodenprobe hinzufügen…",
+        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
     },
 
     # ── FindReplacePanel (US-11.24) ──
@@ -1219,6 +1220,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "PolygonItem": {
         "Show Area": "Fläche anzeigen",
         "Add soil test…": "Bodenprobe hinzufügen…",
+        "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
     },
 
     # ── RectangleItem — area label (US-11.9) and soil test (US-12.10a) ──
@@ -1506,6 +1508,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Photo attach failed": "Foto-Anhang fehlgeschlagen",
         "Could not copy photo: {err}":
             "Foto konnte nicht kopiert werden: {err}",
+        "Click to open in image viewer": "Klicken, um in Bildbetrachter zu öffnen",
     },
 
     # ── PestOverviewPanel (US-12.7) ──

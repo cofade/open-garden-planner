@@ -3275,6 +3275,11 @@ class GardenPlannerApp(QMainWindow):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
 
+        if not dialog.has_new_entry:
+            # User managed history (edit/delete) without adding a new entry.
+            self._refresh_pest_overview()
+            return
+
         record = dialog.result_record()
         cmd = AddPestLogCommand(self._project_manager, target_id, record)
         self.canvas_view.command_manager.execute(cmd)
