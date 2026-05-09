@@ -736,6 +736,10 @@
             <source>Add soil test…</source>
             <translation>Bodenprobe hinzufügen…</translation>
         </message>
+        <message>
+            <source>Log Pest/Disease…</source>
+            <translation>Schädling/Krankheit eintragen…</translation>
+        </message>
     </context>
     <context>
         <name>CircleTool</name>
@@ -3761,6 +3765,14 @@ Neue Saison jetzt öffnen?</translation>
             <source>Generate a shopping list of plants, seeds, and materials</source>
             <translation>Eine Einkaufsliste mit Pflanzen, Samen und Materialien erstellen</translation>
         </message>
+        <message>
+            <source>Pest/disease log recorded</source>
+            <translation>Schädlings-/Krankheitseintrag gespeichert</translation>
+        </message>
+        <message>
+            <source>Active Pest/Disease Issues</source>
+            <translation>Aktive Schädlinge/Krankheiten</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -6050,6 +6062,10 @@ noch nicht implementiert</translation>
             <source>Add soil test…</source>
             <translation>Bodenprobe hinzufügen…</translation>
         </message>
+        <message>
+            <source>Log Pest/Disease…</source>
+            <translation>Schädling/Krankheit eintragen…</translation>
+        </message>
     </context>
     <context>
         <name>RectangleTool</name>
@@ -8176,6 +8192,204 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>g</source>
             <translation>g</translation>
+        </message>
+    </context>
+    <context>
+        <name>PestLogDialog</name>
+        <message>
+            <source>Pest/Disease Log</source>
+            <translation>Schädlings-/Krankheitseintrag</translation>
+        </message>
+        <message>
+            <source>Pest/Disease Log — {name}</source>
+            <translation>Schädlings-/Krankheitseintrag — {name}</translation>
+        </message>
+        <message>
+            <source>Edit Pest/Disease Log</source>
+            <translation>Eintrag bearbeiten</translation>
+        </message>
+        <message>
+            <source>Entry</source>
+            <translation>Eintrag</translation>
+        </message>
+        <message>
+            <source>History</source>
+            <translation>Verlauf</translation>
+        </message>
+        <message>
+            <source>Date</source>
+            <translation>Datum</translation>
+        </message>
+        <message>
+            <source>Type</source>
+            <translation>Typ</translation>
+        </message>
+        <message>
+            <source>Pest</source>
+            <translation>Schädling</translation>
+        </message>
+        <message>
+            <source>Disease</source>
+            <translation>Krankheit</translation>
+        </message>
+        <message>
+            <source>Name</source>
+            <translation>Name</translation>
+        </message>
+        <message>
+            <source>e.g. Aphids, Powdery mildew</source>
+            <translation>z. B. Blattläuse, Echter Mehltau</translation>
+        </message>
+        <message>
+            <source>Severity</source>
+            <translation>Schwere</translation>
+        </message>
+        <message>
+            <source>Low</source>
+            <translation>Niedrig</translation>
+        </message>
+        <message>
+            <source>Medium</source>
+            <translation>Mittel</translation>
+        </message>
+        <message>
+            <source>High</source>
+            <translation>Hoch</translation>
+        </message>
+        <message>
+            <source>Treatment</source>
+            <translation>Behandlung</translation>
+        </message>
+        <message>
+            <source>e.g. Neem oil spray, weekly</source>
+            <translation>z. B. Neemöl-Spray, wöchentlich</translation>
+        </message>
+        <message>
+            <source>Notes</source>
+            <translation>Notizen</translation>
+        </message>
+        <message>
+            <source>(no photo)</source>
+            <translation>(kein Foto)</translation>
+        </message>
+        <message>
+            <source>(unsaved)</source>
+            <translation>(ungespeichert)</translation>
+        </message>
+        <message>
+            <source>(missing)</source>
+            <translation>(fehlt)</translation>
+        </message>
+        <message>
+            <source>Attach Photo…</source>
+            <translation>Foto anhängen…</translation>
+        </message>
+        <message>
+            <source>Remove Photo</source>
+            <translation>Foto entfernen</translation>
+        </message>
+        <message>
+            <source>Save project first to attach photos</source>
+            <translation>Projekt zuerst speichern, um Fotos anzuhängen</translation>
+        </message>
+        <message>
+            <source>Resolved</source>
+            <translation>Behoben</translation>
+        </message>
+        <message>
+            <source>Past entries</source>
+            <translation>Frühere Einträge</translation>
+        </message>
+        <message>
+            <source>No past entries</source>
+            <translation>Keine früheren Einträge</translation>
+        </message>
+        <message>
+            <source>Edit</source>
+            <translation>Bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete</source>
+            <translation>Löschen</translation>
+        </message>
+        <message>
+            <source>{date} — {type} — {name} ({severity})</source>
+            <translation>{date} — {type} — {name} ({severity})</translation>
+        </message>
+        <message>
+            <source> [Resolved]</source>
+            <translation> [Behoben]</translation>
+        </message>
+        <message>
+            <source>(unnamed)</source>
+            <translation>(unbenannt)</translation>
+        </message>
+        <message>
+            <source>Delete the entry from {date}?</source>
+            <translation>Eintrag vom {date} löschen?</translation>
+        </message>
+        <message>
+            <source>Delete pest/disease entry</source>
+            <translation>Eintrag löschen</translation>
+        </message>
+        <message>
+            <source>Empty name</source>
+            <translation>Leerer Name</translation>
+        </message>
+        <message>
+            <source>Save entry with empty name?</source>
+            <translation>Eintrag mit leerem Namen speichern?</translation>
+        </message>
+        <message>
+            <source>Select photo</source>
+            <translation>Foto auswählen</translation>
+        </message>
+        <message>
+            <source>Images (*.png *.jpg *.jpeg *.gif *.bmp *.webp)</source>
+            <translation>Bilder (*.png *.jpg *.jpeg *.gif *.bmp *.webp)</translation>
+        </message>
+        <message>
+            <source>Photo attach failed</source>
+            <translation>Foto-Anhang fehlgeschlagen</translation>
+        </message>
+        <message>
+            <source>Could not copy photo: {err}</source>
+            <translation>Foto konnte nicht kopiert werden: {err}</translation>
+        </message>
+    </context>
+    <context>
+        <name>PestOverviewPanel</name>
+        <message>
+            <source>Active issues:</source>
+            <translation>Aktive Probleme:</translation>
+        </message>
+        <message>
+            <source>No active issues</source>
+            <translation>Keine aktiven Probleme</translation>
+        </message>
+        <message>
+            <source>(deleted item)</source>
+            <translation>(gelöschtes Objekt)</translation>
+        </message>
+        <message>
+            <source>(unnamed)</source>
+            <translation>(unbenannt)</translation>
+        </message>
+        <message>
+            <source>low</source>
+            <translation>niedrig</translation>
+        </message>
+        <message>
+            <source>medium</source>
+            <translation>mittel</translation>
+        </message>
+        <message>
+            <source>high</source>
+            <translation>hoch</translation>
+        </message>
+        <message>
+            <source>{display} &gt; {name} ({severity}) — {date}</source>
+            <translation>{display} &gt; {name} ({severity}) — {date}</translation>
         </message>
     </context>
 </TS>

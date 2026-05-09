@@ -48,6 +48,9 @@ class ProjectData:
     # US-12.10a: per-bed (and "global" default) soil test history
     # shape: {target_id: SoilTestHistory.to_dict()} where target_id is bed UUID or "global"
     soil_tests: dict[str, Any] = field(default_factory=dict)
+    # US-12.7: per-bed and per-plant pest/disease log history
+    # shape: {target_id: PestLogHistory.to_dict()} where target_id is a bed or plant UUID
+    pest_disease_logs: dict[str, Any] = field(default_factory=dict)
     # US-12.6: user-entered prices for the shopping list, keyed by ShoppingListItem.id
     shopping_list_prices: dict[str, float] = field(default_factory=dict)
     # US-12.11: amendment-library allowlist + organic-preference flag.
@@ -91,6 +94,8 @@ class ProjectData:
             data["linked_seasons"] = self.linked_seasons
         if self.soil_tests:
             data["soil_tests"] = self.soil_tests
+        if self.pest_disease_logs:
+            data["pest_disease_logs"] = self.pest_disease_logs
         if self.shopping_list_prices:
             data["shopping_list_prices"] = self.shopping_list_prices
         if self.enabled_amendments is not None:
@@ -118,6 +123,7 @@ class ProjectData:
             season_year=data.get("season_year"),
             linked_seasons=data.get("linked_seasons", []),
             soil_tests=data.get("soil_tests", {}),
+            pest_disease_logs=data.get("pest_disease_logs", {}),
             shopping_list_prices=data.get("shopping_list_prices", {}),
             enabled_amendments=data.get("enabled_amendments"),
             prefer_organic=bool(data.get("prefer_organic", True)),
@@ -141,6 +147,7 @@ class ProjectManager(QObject):
     crop_rotation_changed = pyqtSignal(object)  # dict
     season_changed = pyqtSignal(object)  # int year or None
     soil_tests_changed = pyqtSignal(object)  # dict[str, dict]
+    pest_logs_changed = pyqtSignal(object)  # dict[str, dict]
     shopping_list_prices_changed = pyqtSignal(object)  # dict[str, float]
     enabled_amendments_changed = pyqtSignal(object)  # list[str] or None
     prefer_organic_changed = pyqtSignal(bool)
@@ -158,6 +165,7 @@ class ProjectManager(QObject):
         self._season_year: int | None = None
         self._linked_seasons: list[dict[str, Any]] = []
         self._soil_tests: dict[str, Any] = {}
+        self._pest_logs: dict[str, Any] = {}
         self._shopping_list_prices: dict[str, float] = {}
         self._enabled_amendments: list[str] | None = None
         self._prefer_organic: bool = True
@@ -362,6 +370,40 @@ class ProjectManager(QObject):
         self.soil_tests_changed.emit(self._soil_tests)
         self.mark_dirty()
 
+    @property
+    def pest_logs(self) -> dict[str, Any]:
+        """Per-target pest/disease log history dicts (US-12.7)."""
+        return dict(self._pest_logs)
+
+    def get_pest_log_history(self, target_id: str) -> Any:
+        """Return the ``PestLogHistory`` for ``target_id`` (empty when absent)."""
+        from open_garden_planner.models.pest_log import PestLogHistory  # noqa: PLC0415
+
+        raw = self._pest_logs.get(target_id)
+        if raw is None:
+            return PestLogHistory(target_id=target_id)
+        return PestLogHistory.from_dict(raw)
+
+    def set_pest_log_history(self, target_id: str, history: Any) -> None:
+        """Replace the pest log history for ``target_id`` and mark project dirty."""
+        self._pest_logs[target_id] = history.to_dict()
+        self.pest_logs_changed.emit(self._pest_logs)
+        self.mark_dirty()
+
+    def restore_pest_log_history(
+        self, target_id: str, history_dict: dict[str, Any] | None
+    ) -> None:
+        """Restore (or delete) the pest log history for ``target_id``.
+
+        Used by undo/redo to revert to a previous snapshot.
+        """
+        if history_dict is None:
+            self._pest_logs.pop(target_id, None)
+        else:
+            self._pest_logs[target_id] = history_dict
+        self.pest_logs_changed.emit(self._pest_logs)
+        self.mark_dirty()
+
     def set_location(self, location: dict[str, Any] | None) -> None:
         """Set the garden location and mark project as dirty.
 
@@ -397,6 +439,7 @@ class ProjectManager(QObject):
         self._season_year = None
         self._linked_seasons = []
         self._soil_tests = {}
+        self._pest_logs = {}
         self._shopping_list_prices = {}
         self._enabled_amendments = None
         self._prefer_organic = True
@@ -409,6 +452,7 @@ class ProjectManager(QObject):
         self.crop_rotation_changed.emit({})
         self.season_changed.emit(None)
         self.soil_tests_changed.emit({})
+        self.pest_logs_changed.emit({})
         self.shopping_list_prices_changed.emit({})
         self.enabled_amendments_changed.emit(None)
         self.prefer_organic_changed.emit(True)
@@ -429,6 +473,7 @@ class ProjectManager(QObject):
         data.season_year = self._season_year
         data.linked_seasons = list(self._linked_seasons)
         data.soil_tests = dict(self._soil_tests)
+        data.pest_disease_logs = dict(self._pest_logs)
         data.shopping_list_prices = dict(self._shopping_list_prices)
         data.enabled_amendments = (
             list(self._enabled_amendments)
@@ -483,6 +528,9 @@ class ProjectManager(QObject):
         # Restore soil test history (US-12.10a)
         self._soil_tests = dict(data.soil_tests)
         self.soil_tests_changed.emit(self._soil_tests)
+        # Restore pest/disease log history (US-12.7)
+        self._pest_logs = dict(data.pest_disease_logs)
+        self.pest_logs_changed.emit(self._pest_logs)
         # Restore shopping list prices (US-12.6)
         self._shopping_list_prices = dict(data.shopping_list_prices)
         self.shopping_list_prices_changed.emit(self._shopping_list_prices)
@@ -533,6 +581,19 @@ class ProjectManager(QObject):
         current_data.propagation_overrides = dict(self._propagation_overrides)
         current_data.crop_rotation = dict(self._crop_rotation)
         current_data.soil_tests = dict(self._soil_tests)
+        # US-12.7: only carry unresolved pest/disease records to the new season
+        # (resolved entries stay in the previous season as historical record).
+        from open_garden_planner.models.pest_log import PestLogHistory  # noqa: PLC0415
+
+        carried_pests: dict[str, Any] = {}
+        for tid, raw in self._pest_logs.items():
+            history = PestLogHistory.from_dict(raw)
+            keep = [r for r in history.records if not r.resolved]
+            if keep:
+                carried_pests[tid] = PestLogHistory(
+                    target_id=tid, records=keep
+                ).to_dict()
+        current_data.pest_disease_logs = carried_pests
 
         # Filter objects based on keep_plants flag
         if not keep_plants:
