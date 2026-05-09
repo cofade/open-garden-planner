@@ -988,6 +988,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Grid:": "Raster:",
         "Spacing:": "Abstand:",
         "Cells:": "Zellen:",
+        "Soil Fill": "Bodensubstrat",
+        "Soil depth:": "Bodentiefe:",
+        "Fill depth used to calculate soil volume in the Shopping List":
+            "Fülltiefe zur Berechnung des Bodenvolumens in der Einkaufsliste",
         "—": "—",
         "Recommended spacing radius (half of plant spread)":
             "Empfohlener Abstandsradius (halbe Pflanzenbreite)",
@@ -1588,6 +1592,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Not in project seed inventory": "Nicht im Projekt-Saatgutbestand",
         "g": "g",
         "kg": "kg",
+        "Soil fill": "Bodensubstrat",
+        "m³": "m³",
+        "Mulch": "Mulch",
+        "m²": "m²",
 
     },
 

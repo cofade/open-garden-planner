@@ -1626,6 +1626,15 @@ class GardenPlannerApp(QMainWindow):
     def _save_to_file(self, file_path: Path) -> None:
         """Save the project to a specific file."""
         try:
+            # Prune orphan shopping-list price entries before writing (issue #178)
+            from open_garden_planner.services.shopping_list_service import (
+                ShoppingListService,  # noqa: PLC0415
+            )
+            ShoppingListService(
+                scene=self.canvas_scene,
+                soil_service=self._soil_service,
+                project_manager=self._project_manager,
+            ).prune_stale_prices()
             self._project_manager.save(self.canvas_scene, file_path)
             # Clear the auto-save file since we've saved manually
             self._autosave_manager.clear_autosave()

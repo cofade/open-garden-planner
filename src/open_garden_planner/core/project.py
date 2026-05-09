@@ -252,6 +252,7 @@ class ProjectManager(QObject):
             start: ISO date string for step start.
             end: ISO date string for step end.
         """
+        species_key = species_key.strip().lower()  # normalise per ADR-016
         if species_key not in self._propagation_overrides:
             self._propagation_overrides[species_key] = {}
         self._propagation_overrides[species_key][step_id] = {"start": start, "end": end}
@@ -260,6 +261,7 @@ class ProjectManager(QObject):
 
     def clear_propagation_override(self, species_key: str, step_id: str) -> None:
         """Remove a propagation step override and mark project dirty."""
+        species_key = species_key.strip().lower()  # normalise per ADR-016
         sp_overrides = self._propagation_overrides.get(species_key, {})
         sp_overrides.pop(step_id, None)
         if not sp_overrides:

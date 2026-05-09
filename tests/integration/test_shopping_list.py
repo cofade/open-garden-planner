@@ -16,6 +16,8 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.core import ProjectManager
@@ -453,3 +455,96 @@ def _make_global_history():  # type: ignore[no-untyped-def]
         SoilTestRecord(date="2026-04-01", ph=5.8, n_level=3, p_level=3, k_level=3)
     )
     return history
+
+
+# ── Orphan price pruning (issue #178) ─────────────────────────────────────────
+
+
+class TestPricePrune:
+    def test_prune_removes_orphan_entry_on_save_reload(self, qtbot, tmp_path) -> None:
+        """Prices for removed plants must not survive a save/reload cycle."""
+        QApplication.instance() or QApplication([])
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        plant = _add_plant(scene, "Tomato", "tomato-1")
+
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+
+        # Record a price for the plant.
+        items = svc.build()
+        plant_item = next(i for i in items if i.category is ShoppingListCategory.PLANTS)
+        svc.update_price(plant_item, 2.50)
+        assert pm.shopping_list_prices
+
+        # Remove the plant, then simulate what save() does: prune + save.
+        scene.removeItem(plant)
+        svc.prune_stale_prices()
+
+        project_path = tmp_path / "prune_test.ogp"
+        pm.save(scene, project_path)
+
+        # Reload and verify no orphan price.
+        pm2 = ProjectManager()
+        pm2.load(CanvasScene(width_cm=5000, height_cm=3000), project_path)
+        assert pm2.shopping_list_prices == {}
+
+    def test_prune_preserves_price_for_surviving_item(self, qtbot, tmp_path) -> None:
+        """Prices for plants still on the canvas survive a prune."""
+        QApplication.instance() or QApplication([])
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        _add_plant(scene, "Basil", "basil-1")
+
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+
+        items = svc.build()
+        plant_item = next(i for i in items if i.category is ShoppingListCategory.PLANTS)
+        svc.update_price(plant_item, 1.50)
+        svc.prune_stale_prices()  # nothing stale
+
+        assert pm.shopping_list_prices == {plant_item.id: 1.50}
+
+
+# ── Soil fill + mulch in dialog (issue #177) ──────────────────────────────────
+
+
+def _no_amendments_soil_service() -> MagicMock:
+    """Return a mock SoilService that skips amendment calculation (record=None)."""
+    svc = MagicMock()
+    svc.get_effective_record.return_value = None
+    return svc
+
+
+class TestSoilMulchMaterials:
+    def test_soil_and_mulch_rows_appear_in_dialog(self, qtbot) -> None:
+        """Materials section must include Soil fill (m³) and Mulch (m²) when beds exist."""
+        QApplication.instance() or QApplication([])
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        bed = RectangleItem(0, 0, 100, 100, object_type=ObjectType.GARDEN_BED, name="Bed A")
+        scene.addItem(bed)
+
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, _no_amendments_soil_service(), pm)
+        items = svc.build()
+
+        material_ids = {i.id for i in items if i.category.name == "MATERIALS"}
+        assert "soil_fill:m3" in material_ids
+        assert "mulch:m2" in material_ids
+
+    def test_soil_fill_price_persists_through_dialog(self, qtbot) -> None:
+        """A price entered for the Soil fill row must round-trip through build()."""
+        QApplication.instance() or QApplication([])
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        bed = RectangleItem(0, 0, 100, 100, object_type=ObjectType.GARDEN_BED, name="Bed A")
+        scene.addItem(bed)
+
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, _no_amendments_soil_service(), pm)
+        dialog = ShoppingListDialog(service=svc, parent=None)
+        qtbot.addWidget(dialog)
+
+        soil_item = next(i for i in svc.build() if i.id == "soil_fill:m3")
+        svc.update_price(soil_item, 15.00)
+
+        rebuilt = next(i for i in svc.build() if i.id == "soil_fill:m3")
+        assert rebuilt.price_each == pytest.approx(15.00)

@@ -365,3 +365,17 @@ class PlantInstance:
             custom_fields=data.get("custom_fields", {}),
             species_data=species_data,
         )
+
+
+def species_key(species: dict[str, str]) -> str:
+    """Canonical dict key for a plant species dict (ADR-016).
+
+    Priority: source_id → scientific_name → common_name.
+    Output is always stripped and lowercased for case-insensitive comparison.
+    Returns '_unknown' if all fields are absent or empty.
+    """
+    for key in ("source_id", "scientific_name", "common_name"):
+        val = species.get(key, "").strip()
+        if val:
+            return val.lower()
+    return "_unknown"
