@@ -119,6 +119,9 @@ class CanvasView(QGraphicsView):
     # US-12.7: emitted when a bed/plant's "Log Pest/Disease…" action fires.
     # Args: target_id (UUID string), display_name (informational)
     pest_log_requested = pyqtSignal(str, str)
+    # US-12.8: emitted when a bed's "Plan Succession…" action fires.
+    # Args: bed_id (UUID string), display_name (informational)
+    succession_plan_requested = pyqtSignal(str, str)
 
     # Zoom limits
     min_zoom: float = 0.01  # 1% - very zoomed out
@@ -574,6 +577,10 @@ class CanvasView(QGraphicsView):
     def request_pest_log(self, target_id: str, display_name: str = "") -> None:
         """Forward a pest/disease-log request from an item's context menu (US-12.7)."""
         self.pest_log_requested.emit(target_id, display_name or "")
+
+    def request_succession_plan(self, bed_id: str, display_name: str = "") -> None:
+        """Forward a succession-plan request from a bed's context menu (US-12.8)."""
+        self.succession_plan_requested.emit(bed_id, display_name or "")
 
     @property
     def active_tool(self) -> object | None:

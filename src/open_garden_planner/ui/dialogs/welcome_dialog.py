@@ -175,10 +175,10 @@ class WelcomeDialog(QDialog):
                 color: #4CAF50;
             }
             QPushButton:hover {
-                background-color: rgba(76, 175, 80, 0.1);
+                background-color: rgba(76, 175, 80, 26);
             }
             QPushButton:pressed {
-                background-color: rgba(76, 175, 80, 0.2);
+                background-color: rgba(76, 175, 80, 51);
             }
             QPushButton:disabled {
                 border-color: palette(disabled, mid);

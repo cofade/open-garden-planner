@@ -176,14 +176,14 @@ class UpdateBar(QFrame):
             "  font-weight: bold;"
             "}"
             "#UpdateBar QPushButton {"
-            "  background-color: rgba(255,255,255,0.20);"
+            "  background-color: rgba(255,255,255,51);"   # 0.20 * 255
             "  color: white;"
-            "  border: 1px solid rgba(255,255,255,0.50);"
+            "  border: 1px solid rgba(255,255,255,128);"  # 0.50 * 255
             "  border-radius: 4px;"
             "  padding: 2px 10px;"
             "}"
             "#UpdateBar QPushButton:hover {"
-            "  background-color: rgba(255,255,255,0.35);"
+            "  background-color: rgba(255,255,255,89);"   # 0.35 * 255
             "}"
         )
 

@@ -387,6 +387,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         # US-12.7 — Pest/disease log
         "Pest/disease log recorded": "Schädlings-/Krankheitseintrag gespeichert",
         "Active Pest/Disease Issues": "Aktive Schädlinge/Krankheiten",
+        # US-12.8 — Succession planting
+        "Succession plan saved": "Anbaufolge gespeichert",
         # US-12.10c — Amendment Plan menu
         "&Amendment Plan…": "&Bodenverbesserungs-Plan…",
         "View amendment recommendations for deficient beds":
@@ -892,6 +894,55 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Harden off": "Abhärten",
         "Bed": "Beet",
         "Soil mismatch in {bed}: {plants}": "Bodenkonflikt in {bed}: {plants}",
+        "Sow {name} in {bed} (succession)": "{name} in {bed} säen (Anbaufolge)",
+        "Clear {name} from {bed} (succession)": "{name} aus {bed} räumen (Anbaufolge)",
+    },
+
+    # ── BedActions (shared context menu items for bed-capable shapes — ADR-017) ──
+    "BedActions": {
+        "Hide Grid": "Raster ausblenden",
+        "Show Grid": "Raster einblenden",
+        "Add soil test…": "Bodentest hinzufügen…",
+        "Log Pest/Disease…": "Schädling/Krankheit erfassen…",
+        "Plan Succession…": "Anbaufolge planen…",
+    },
+
+    # ── SuccessionPlanDialog (US-12.8) ──
+    "SuccessionPlanDialog": {
+        "Succession Plan: {name}": "Anbaufolge: {name}",
+        "Succession Plan": "Anbaufolge",
+        "Year": "Jahr",
+        "Early Spring": "Frühling (früh)",
+        "Late Spring": "Frühling (spät)",
+        "Summer": "Sommer",
+        "Fall": "Herbst",
+        "Season": "Saison",
+        "Plant": "Pflanze",
+        "Start Date": "Startdatum",
+        "End Date": "Enddatum",
+        "Add Entry": "Eintrag hinzufügen",
+        "Edit Entry": "Eintrag bearbeiten",
+        "Delete Entry": "Eintrag löschen",
+        "Crop Compatibility": "Kulturverträglichkeit",
+        "No compatibility data for current entries.": "Keine Verträglichkeitsdaten für aktuelle Einträge.",
+        "Set project location for accurate dates": "Projektstandort festlegen für genaue Daten",
+        "{a} overlaps {b}: antagonist": "{a} überschneidet sich mit {b}: unverträglich",
+    },
+
+    # ── _EntryDialog (US-12.8 succession entry editor) ──
+    "_EntryDialog": {
+        "Add Succession Entry": "Anbaufolge-Eintrag hinzufügen",
+        "Edit Succession Entry": "Anbaufolge-Eintrag bearbeiten",
+        "Plant name": "Pflanzenname",
+        "Start": "Start",
+        "End": "Ende",
+        "Notes": "Notizen",
+        "Validation": "Validierung",
+        "Plant name is required.": "Pflanzenname ist erforderlich.",
+        "End date must not be before start date.": "Enddatum darf nicht vor dem Startdatum liegen.",
+        "Season:": "Saison:",
+        "Cancel": "Abbrechen",
+        "OK": "OK",
     },
 
     # ── PrintOptionsDialog ──

@@ -785,17 +785,22 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         from open_garden_planner.core.object_types import get_valid_types_for_shape
         change_type_menu = self._build_change_type_menu(menu, get_valid_types_for_shape("circle"))
 
-        # F9: Add soil test entry for circular bed types.
+        # Bed-specific actions are built centrally — see ADR-017 / §8.12.
+        # Circles can also be plants; for plant-type circles we only offer the
+        # pest/disease log (the bed builder otherwise covers it for bed types).
         from open_garden_planner.core.object_types import is_bed_type
-        add_soil_test_action = None
-        add_pest_log_action = None
+        from open_garden_planner.ui.canvas.items.garden_item import BedMenuActions
+        bed_actions = BedMenuActions()
+        plant_pest_log_action = None
         if is_bed_type(self.object_type):
+            bed_actions = self.build_bed_context_menu(
+                menu, grid_enabled=self._grid_enabled, supports_grid=False
+            )
+        else:
             menu.addSeparator()
-            add_soil_test_action = menu.addAction(_("CircleItem", "Add soil test…"))
-        # US-12.7: pest/disease log applies to plants AND beds.
-        if add_soil_test_action is None:
-            menu.addSeparator()
-        add_pest_log_action = menu.addAction(_("CircleItem", "Log Pest/Disease…"))
+            plant_pest_log_action = menu.addAction(
+                _("CircleItem", "Log Pest/Disease…")
+            )
 
         # Show Area toggle
         show_area_action = menu.addAction(_("CircleItem", "Show Area"))
@@ -848,13 +853,11 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
-        if action == add_soil_test_action and add_soil_test_action is not None:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views and hasattr(views[0], "request_soil_test"):
-                    views[0].request_soil_test(str(self.item_id), self.name)
-        elif action == add_pest_log_action and add_pest_log_action is not None:
+        # Dispatch bed-specific actions via the shared mixin handler.
+        if self.dispatch_bed_action(action, bed_actions):
+            return
+
+        if action == plant_pest_log_action and plant_pest_log_action is not None:
             scene = self.scene()
             if scene:
                 views = scene.views()

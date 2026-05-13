@@ -247,3 +247,55 @@ class TestCustomRules:
         assert rel is not None
         assert rel.type == ANTAGONISTIC
         assert len(fresh_svc.get_custom_rules()) == 1
+
+
+class TestLocalisedNameLookup:
+    """Free-text plant names in the user's language must resolve to canonical plants."""
+
+    def test_german_name_resolves_to_canonical(self, svc: CompanionPlantingService) -> None:
+        assert svc.resolve_name("Tomate") == "tomato"
+        assert svc.resolve_name("tomate") == "tomato"
+
+    def test_german_pair_returns_beneficial(self, svc: CompanionPlantingService) -> None:
+        rel = svc.get_relationship("Tomate", "Basilikum")
+        assert rel is not None
+        assert rel.type == BENEFICIAL
+
+    def test_german_pair_returns_antagonistic(self, svc: CompanionPlantingService) -> None:
+        rel = svc.get_relationship("Tomate", "Fenchel")
+        assert rel is not None
+        assert rel.type == ANTAGONISTIC
+
+    def test_unknown_free_text_returns_none(self, svc: CompanionPlantingService) -> None:
+        assert svc.get_relationship("Xenoplant", "Whatever") is None
+
+
+class TestBidirectionalReasonDe:
+    """Reverse-direction queries must carry the German reason too.
+
+    History: ``_add_to_adjacency`` originally constructed the reversed
+    ``CompanionRelationship`` without copying ``reason_de``, so any query
+    using the opposite plant order silently fell back to English. Symptom:
+    Basilikum↔Fenchel showed "Fennel's allelopathic compounds inhibit basil
+    growth" in the German UI because the DB stores the pair as
+    fennel→basil and the reverse copy had ``reason_de=""``.
+    """
+
+    def test_reverse_direction_has_german_reason(
+        self, svc: CompanionPlantingService
+    ) -> None:
+        forward = svc.get_relationship("fennel", "basil")
+        reverse = svc.get_relationship("basil", "fennel")
+        assert forward is not None and reverse is not None
+        assert forward.reason_de  # sanity: forward direction has German
+        assert reverse.reason_de == forward.reason_de
+
+    def test_get_relationship_reason_de_works_in_reverse(
+        self, svc: CompanionPlantingService
+    ) -> None:
+        reason_de = svc.get_relationship_reason(
+            svc.get_relationship("basil", "fennel"), lang="de"
+        )
+        # Must be the German text, not the English fallback
+        assert "allelopathische" in reason_de or "Basilikum" in reason_de
+        assert "inhibit" not in reason_de

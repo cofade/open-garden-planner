@@ -75,10 +75,16 @@ class ColorButton(QPushButton):
         self._update_style()
 
     def _update_style(self) -> None:
-        """Update the button style to show the current color."""
+        """Update the button style to show the current color.
+
+        Uses Qt's stylesheet rgba() with **integer 0-255 alpha** — Qt 6's CSS
+        parser rejects the long-float CSS-standard form (e.g. ``0.50196…``)
+        and logs ``Could not parse stylesheet of object QPushButton`` for each
+        repaint cycle. Integer alpha avoids the warning entirely.
+        """
         self.setStyleSheet(
             f"background-color: rgba({self._color.red()}, {self._color.green()}, "
-            f"{self._color.blue()}, {self._color.alpha() / 255.0}); "
+            f"{self._color.blue()}, {self._color.alpha()}); "
             f"border: 1px solid #888;"
         )
 

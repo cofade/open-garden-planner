@@ -60,6 +60,7 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 | Integration test policy (MANDATORY)  | `docs/08-crosscutting-concepts/` section 8.10         |
 | Security scanning / SAST (Bandit)    | `docs/08-crosscutting-concepts/` section 8.11         |
 | Known pitfalls, technical debt       | `docs/11-risks-and-technical-debt/` section 11.4      |
+| **Bed-only features (menu, badge, …) — READ FIRST before adding any bed feature** | `docs/08-crosscutting-concepts/` § 8.14 + ADR-017     |
 | Functional requirements (FR-*)       | `docs/functional-requirements.md`                     |
 | Architecture decisions (ADRs)        | `docs/09-architecture-decisions/`                     |
 | Glossary                             | `docs/12-glossary.md`                                 |
@@ -132,6 +133,8 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 - `QGraphicsItem` context menus (non-QObject) → `QCoreApplication.translate("ClassName", "string")`
 - Module-level dicts → `QT_TR_NOOP("string")`, translate later with `QCoreApplication.translate()`
 - `CollapsiblePanel(title)` → wrap at the **call site**, not inside the panel
+- **Hardcoded English f-strings (`f"{a} overlaps {b}"`) bypass `tr()` and never reach Qt Linguist** — use `self.tr("{a} overlaps {b}").format(a=…, b=…)`. The `test_german_ts_has_no_unfinished` test only catches MISSING translations of REGISTERED strings; it cannot see plain-string call sites. Pattern: if it's user-visible text, it MUST go through `tr()` / `QT_TR_NOOP` / `QCoreApplication.translate()` — registering it in `scripts/fill_translations.py` alone is insufficient.
+- **NEVER use PowerShell `Set-Content -Encoding UTF8`** for files with non-ASCII (umlauts etc.) — double-encodes UTF-8 into mojibake. Use the `Edit` tool or Python `open(..., encoding="utf-8")`.
 
 Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crosscutting-concepts/` section 8.3.
 

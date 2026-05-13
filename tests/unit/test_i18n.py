@@ -138,3 +138,101 @@ class TestTranslatedDisplayNames:
         """Spot-check: House should return 'House' in English (no translator loaded)."""
         name = get_translated_display_name(ObjectType.HOUSE)
         assert name == "House"
+
+
+class TestNoHardcodedEnglish:
+    """Catch user-visible English strings that bypass tr() / QT_TR_NOOP.
+
+    The existing ``test_german_ts_has_no_unfinished`` only sees strings already
+    in the ``.ts`` file. Strings hardcoded in f-strings or dict literals that
+    never reach pylupdate6 stay English in every locale and slip past that
+    check. This test greps the source tree for a curated list of phrases that
+    were observed shipping un-translated; the list grows whenever a new
+    leakage is found in user testing.
+
+    Each entry MUST appear inside a ``tr()``, ``QT_TR_NOOP()``,
+    ``QCoreApplication.translate(...)``, or ``self.tr(...)`` call. Hits
+    elsewhere fail the test and force the developer to wrap the string.
+    """
+
+    # Curated list of phrases known to leak past tr() in this codebase.
+    # Add new entries here every time a user-visible English string is
+    # discovered in a non-English locale.
+    SUSPICIOUS_PHRASES = [
+        " overlaps ",                 # succession overlap warning (US-12.8)
+        ": antagonist",               # succession overlap warning (US-12.8)
+        '"Early Spring"',             # _SEGMENT_LABELS (US-12.8)
+        '"Late Spring"',
+        '"Plan Anbaufolge',           # German hardcoded source — must be English (US-12.8)
+        "Plan Anbaufolge",
+    ]
+
+    # File-level allowlist is intentionally minimal — broad allowlisting
+    # neuters the test in the very file the strings live in. Per-line
+    # exemption via a trailing ``# i18n-source`` comment is preferred for
+    # source-of-truth dict literals that are translated at lookup time.
+    ALLOWED_FILES = (
+        "fill_translations.py",      # translation registry — defines the strings
+        "test_i18n.py",              # this test file
+    )
+
+    def test_no_hardcoded_english_in_src(self, qtbot) -> None:  # noqa: ARG002
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[2] / "src"
+        offenders: list[str] = []
+        for path in root.rglob("*.py"):
+            if path.name in self.ALLOWED_FILES:
+                continue
+            for lineno, raw_line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), start=1
+            ):
+                # Skip pure comment lines (false positives like "# Check overlaps").
+                stripped = raw_line.lstrip()
+                if stripped.startswith("#"):
+                    continue
+                # Per-line escape for source-of-truth literals translated
+                # elsewhere (e.g. _SEGMENT_LABELS dict consumed by
+                # _segment_label() which calls QCoreApplication.translate).
+                if "i18n-source" in raw_line:
+                    continue
+                for phrase in self.SUSPICIOUS_PHRASES:
+                    if phrase not in raw_line:
+                        continue
+                    # Require the match to be inside a string literal — guards
+                    # against in-line comments and variable names that happen
+                    # to share a substring.
+                    if not _phrase_is_in_string_literal(raw_line, phrase):
+                        continue
+                    # Also accept if the line itself routes through tr() etc.
+                    if any(t in raw_line for t in ("tr(", "QT_TR_NOOP", "translate(")):
+                        continue
+                    offenders.append(
+                        f"{path.relative_to(root)}:{lineno}: {phrase!r} → {raw_line.strip()}"
+                    )
+        assert not offenders, (
+            "Suspicious un-translated phrases found in source. Wrap with "
+            "tr() / QT_TR_NOOP / QCoreApplication.translate(), add an "
+            "``# i18n-source`` per-line escape if it is a source-of-truth "
+            "literal translated elsewhere, or add the file to ALLOWED_FILES "
+            "if it is a registry:\n  "
+            + "\n  ".join(offenders)
+        )
+
+
+def _phrase_is_in_string_literal(line: str, phrase: str) -> bool:
+    """Return True if ``phrase`` appears inside a quoted string on ``line``.
+
+    Cheap heuristic: locate the phrase and require an unescaped quote
+    character (``"`` or ``'``) to appear both before and after it on the
+    same line. Good enough for the curated phrase list — pathological cases
+    (multi-line strings, escapes) can be added to ALLOWED_FILES.
+    """
+    idx = line.find(phrase)
+    if idx == -1:
+        return False
+    before = line[:idx]
+    after = line[idx + len(phrase):]
+    has_quote_before = any(q in before for q in ('"', "'"))
+    has_quote_after = any(q in after for q in ('"', "'"))
+    return has_quote_before and has_quote_after
