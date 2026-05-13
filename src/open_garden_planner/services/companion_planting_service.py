@@ -217,22 +217,36 @@ class CompanionPlantingService:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _resolve(self, name: str) -> str:
+    def resolve_name(self, name: str) -> str:
         """Resolve any name to its canonical lowercase common name.
 
         Falls back to returning the lowercased input if no entry is found,
-        so unknown plants still work for custom-rule lookups.
+        so unknown plants still work for custom-rule lookups. Public because
+        callers outside the service (succession dialog, application code)
+        need to canonicalise free-text plant names before storing or
+        comparing.
         """
         return self._name_index.get(name.lower(), name.lower())
 
+    # Internal alias retained because every existing internal call site uses
+    # ``self._resolve(...)``; switching all of them is a separate cleanup.
+    _resolve = resolve_name
+
     def _add_to_adjacency(self, rel: CompanionRelationship) -> None:
-        """Insert a relationship into the adjacency index in both directions."""
+        """Insert a relationship into the adjacency index in both directions.
+
+        The reverse direction must carry the same ``reason`` AND ``reason_de``
+        — otherwise queries in the reverse direction (e.g. basil↔fennel when
+        the DB stores fennel↔basil) fall back to English because ``reason_de``
+        is empty on the reversed copy.
+        """
         self._adjacency.setdefault(rel.plant_a, []).append(rel)
         reversed_rel = CompanionRelationship(
             plant_a=rel.plant_b,
             plant_b=rel.plant_a,
             type=rel.type,
             reason=rel.reason,
+            reason_de=rel.reason_de,
             is_custom=rel.is_custom,
         )
         self._adjacency.setdefault(rel.plant_b, []).append(reversed_rel)
@@ -281,6 +295,11 @@ class CompanionPlantingService:
                 self._name_index[sci] = canonical
             for alias in meta.get("aliases", []):
                 self._name_index[alias.lower()] = canonical
+            # Localised common names — enables free-text lookup in any UI language.
+            for lang_key in ("name_de", "name_fr", "name_es"):
+                localised = meta.get(lang_key, "").lower().strip()
+                if localised:
+                    self._name_index.setdefault(localised, canonical)
 
         for entry in self._db.get("relationships", []):
             rel = CompanionRelationship(

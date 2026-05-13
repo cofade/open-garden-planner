@@ -66,6 +66,10 @@ class ProjectData:
     enabled_amendments: list[str] | None = None
     prefer_organic: bool = True
 
+    # US-12.8: per-bed succession plans
+    # shape: {bed_id: SuccessionPlan.to_dict()} where bed_id is a bed UUID string
+    succession_plans: dict[str, Any] = field(default_factory=dict)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         data: dict[str, Any] = {
@@ -111,6 +115,8 @@ class ProjectData:
             data["enabled_amendments"] = sorted(self.enabled_amendments)
         if self.prefer_organic is False:
             data["prefer_organic"] = False
+        if self.succession_plans:
+            data["succession_plans"] = self.succession_plans
         return data
 
     @classmethod
@@ -138,6 +144,7 @@ class ProjectData:
 
             enabled_amendments=data.get("enabled_amendments"),
             prefer_organic=bool(data.get("prefer_organic", True)),
+            succession_plans=data.get("succession_plans", {}),
         )
 
 
@@ -164,6 +171,7 @@ class ProjectManager(QObject):
 
     enabled_amendments_changed = pyqtSignal(object)  # list[str] or None
     prefer_organic_changed = pyqtSignal(bool)
+    succession_plans_changed = pyqtSignal(object)  # dict[str, dict]
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -184,6 +192,7 @@ class ProjectManager(QObject):
 
         self._enabled_amendments: list[str] | None = None
         self._prefer_organic: bool = True
+        self._succession_plans: dict[str, Any] = {}
 
     @property
     def current_file(self) -> Path | None:
@@ -453,6 +462,31 @@ class ProjectManager(QObject):
         self.pest_logs_changed.emit(self._pest_logs)
         self.mark_dirty()
 
+    @property
+    def succession_plans(self) -> dict[str, Any]:
+        """Per-bed succession plan dicts (US-12.8) keyed by bed UUID string."""
+        return dict(self._succession_plans)
+
+    def set_succession_plan(self, bed_id: str, plan_dict: dict[str, Any]) -> None:
+        """Replace the succession plan for ``bed_id`` and mark project dirty."""
+        self._succession_plans[bed_id] = plan_dict
+        self.succession_plans_changed.emit(self._succession_plans)
+        self.mark_dirty()
+
+    def restore_succession_plan(
+        self, bed_id: str, plan_dict: dict[str, Any] | None
+    ) -> None:
+        """Restore (or delete) the succession plan for ``bed_id``.
+
+        Used by undo/redo to revert to a previous snapshot.
+        """
+        if plan_dict is None:
+            self._succession_plans.pop(bed_id, None)
+        else:
+            self._succession_plans[bed_id] = plan_dict
+        self.succession_plans_changed.emit(self._succession_plans)
+        self.mark_dirty()
+
     def set_location(self, location: dict[str, Any] | None) -> None:
         """Set the garden location and mark project as dirty.
 
@@ -494,6 +528,7 @@ class ProjectManager(QObject):
 
         self._enabled_amendments = None
         self._prefer_organic = True
+        self._succession_plans = {}
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
@@ -509,6 +544,7 @@ class ProjectManager(QObject):
 
         self.enabled_amendments_changed.emit(None)
         self.prefer_organic_changed.emit(True)
+        self.succession_plans_changed.emit({})
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -536,6 +572,7 @@ class ProjectManager(QObject):
             else None
         )
         data.prefer_organic = self._prefer_organic
+        data.succession_plans = dict(self._succession_plans)
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -602,6 +639,9 @@ class ProjectManager(QObject):
         self.enabled_amendments_changed.emit(self._enabled_amendments)
         self._prefer_organic = bool(data.prefer_organic)
         self.prefer_organic_changed.emit(self._prefer_organic)
+        # Restore succession plans (US-12.8)
+        self._succession_plans = dict(data.succession_plans)
+        self.succession_plans_changed.emit(self._succession_plans)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)

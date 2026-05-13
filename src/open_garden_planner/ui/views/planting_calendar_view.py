@@ -1469,8 +1469,77 @@ class PlantingCalendarView(QWidget):
                     species_key="",
                 )
             )
-        if soil_tasks:
-            self._dashboard.set_data(self._current_dashboard_tasks + soil_tasks)
+        extra = soil_tasks + self._collect_succession_tasks()
+        if extra:
+            self._dashboard.set_data(self._current_dashboard_tasks + extra)
+
+    def _collect_succession_tasks(self) -> list[_DashboardTask]:
+        """Return upcoming succession sow/clear tasks for the dashboard (US-12.8)."""
+        if not hasattr(self._project_manager, "succession_plans"):
+            return []
+
+        from open_garden_planner.models.succession import SuccessionPlan  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items import GardenItemMixin  # noqa: PLC0415
+
+        today = datetime.date.today()
+        plans = self._project_manager.succession_plans
+        if not plans:
+            return []
+
+        bed_names: dict[str, str] = {
+            str(item.item_id): (item.name or str(item.item_id)[:8])
+            for item in self._canvas_scene.items()
+            if isinstance(item, GardenItemMixin)
+        }
+
+        tasks: list[_DashboardTask] = []
+        for bed_id, plan_dict in plans.items():
+            try:
+                plan = SuccessionPlan.from_dict(plan_dict)
+            except Exception:
+                continue
+            bed_name = bed_names.get(bed_id, bed_id[:8])
+            for entry in plan.entries_sorted():
+                if not entry.start_date or not entry.end_date:
+                    continue
+                try:
+                    start = datetime.date.fromisoformat(entry.start_date)
+                    end = datetime.date.fromisoformat(entry.end_date)
+                except ValueError:
+                    continue
+
+                sow_urgency = _classify_urgency(start, start, today)
+                if sow_urgency is not None:
+                    tasks.append(
+                        _DashboardTask(
+                            task_id=f"succession:sow:{bed_id}:{entry.id}",
+                            task_type="succession_sow",
+                            display_name=self.tr(
+                                "Sow {name} in {bed} (succession)"
+                            ).format(name=entry.common_name, bed=bed_name),
+                            task_date=start,
+                            end_date=start,
+                            urgency=sow_urgency,
+                            species_key=entry.species_key,
+                        )
+                    )
+
+                end_delta = (end - today).days
+                if 0 <= end_delta <= 5:
+                    tasks.append(
+                        _DashboardTask(
+                            task_id=f"succession:clear:{bed_id}:{entry.id}",
+                            task_type="succession_clear",
+                            display_name=self.tr(
+                                "Clear {name} from {bed} (succession)"
+                            ).format(name=entry.common_name, bed=bed_name),
+                            task_date=end,
+                            end_date=end,
+                            urgency="this_week",
+                            species_key=entry.species_key,
+                        )
+                    )
+        return tasks
 
     def _on_weather_failed(self, message: str) -> None:
         """Weather forecast fetch failed — no frost alerts shown."""

@@ -1,17 +1,154 @@
-"""Base mixin for garden canvas items."""
+"""Base mixin for garden canvas items.
+
+Bed-specific feature pattern
+----------------------------
+Bed-capable shapes (RectangleItem, PolygonItem, EllipseItem, CircleItem) share
+a small set of context-menu actions: grid toggle, soil test, pest/disease log,
+succession plan. To avoid divergence — historically each new bed feature was
+hand-copied into each shape and one shape was always forgotten — the menu
+construction and action dispatch live HERE on the mixin. Shape items must call
+``build_bed_context_menu`` and ``dispatch_bed_action`` from their
+``contextMenuEvent``. A parametrised regression test enforces that every
+bed-capable shape exposes all bed actions
+(`tests/integration/test_bed_context_menu.py`). See also ADR-017 and
+`docs/08-crosscutting-concepts/` § 8.12.
+"""
 
 import uuid
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QFont, QPen
-from PyQt6.QtWidgets import QGraphicsSimpleTextItem, QGraphicsTextItem
+from PyQt6.QtCore import QCoreApplication, QRectF, Qt
+from PyQt6.QtGui import QAction, QColor, QFont, QFontMetricsF, QPainter, QPen
+from PyQt6.QtWidgets import (
+    QGraphicsItem,
+    QGraphicsSimpleTextItem,
+    QGraphicsTextItem,
+)
 
 if TYPE_CHECKING:
-    from PyQt6.QtWidgets import QMenu
+    from PyQt6.QtWidgets import QMenu, QStyleOptionGraphicsItem, QWidget
 
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
+
+
+@dataclass(slots=True)
+class BedMenuActions:
+    """Container for the bed-specific QActions added to a shape's context menu.
+
+    All four fields are ``None`` when the shape is not a bed type; otherwise
+    populated by ``GardenItemMixin.build_bed_context_menu``.
+    """
+
+    toggle_grid: QAction | None = None
+    add_soil_test: QAction | None = None
+    log_pest_disease: QAction | None = None
+    plan_succession: QAction | None = None
+
+
+class SuccessionBadgeItem(QGraphicsItem):
+    """Multi-line succession-plan badge that renders upright on the Y-flipped canvas.
+
+    Set ``ItemIgnoresTransformations`` so the badge stays at a constant pixel
+    size and is not mirrored by the view's ``scale(zoom, -zoom)`` (US-12.8).
+    Its bounding rect extends *upward* from its anchor point so positioning at
+    the bed's scene-coordinate ``rect.top()`` (which is the visual bottom-left
+    after the Y-flip) places the badge inside the bed.
+    """
+
+    _PADDING = 5.0
+    _LINE_HEIGHT = 12.0
+    _ROW_GAP = 1.0
+    _BG = QColor(46, 125, 50, 215)
+    _COLOR_CURRENT = QColor(255, 255, 255)
+    _COLOR_FUTURE = QColor(225, 240, 225)
+    _COLOR_OVERFLOW = QColor(190, 210, 190)
+
+    def __init__(self, parent: QGraphicsItem) -> None:
+        super().__init__(parent)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        self.setZValue(50)  # above bed paint, below selection handles
+        self._lines: list[tuple[str, bool]] = []
+        self._max_rows: int = 4
+        self._font = QFont()
+        self._font.setPointSize(7)
+        self._font_bold = QFont(self._font)
+        self._font_bold.setBold(True)
+        self._cached_w: float = 0.0
+        self._cached_h: float = 0.0
+
+    def set_lines(self, lines: list[tuple[str, bool]]) -> None:
+        if lines == self._lines:
+            return
+        self.prepareGeometryChange()
+        self._lines = list(lines)
+        self._recompute_size()
+        self.update()
+
+    def _rendered_rows(self) -> list[tuple[str, bool, bool]]:
+        """Return (text, is_current, is_overflow) for each row that will be drawn."""
+        visible = self._lines[: self._max_rows]
+        rendered: list[tuple[str, bool, bool]] = [
+            (("▶ " if cur else "→ ") + name, cur, False) for name, cur in visible
+        ]
+        remainder = len(self._lines) - len(visible)
+        if remainder > 0:
+            rendered.append((f"+{remainder} more", False, True))
+        return rendered
+
+    def _recompute_size(self) -> None:
+        rendered = self._rendered_rows()
+        if not rendered:
+            self._cached_w = 0.0
+            self._cached_h = 0.0
+            return
+        fm = QFontMetricsF(self._font)
+        fm_bold = QFontMetricsF(self._font_bold)
+        max_w = max(
+            (fm_bold if cur else fm).horizontalAdvance(text)
+            for text, cur, _ in rendered
+        )
+        self._cached_w = max_w + self._PADDING * 2
+        self._cached_h = (
+            len(rendered) * self._LINE_HEIGHT
+            + (len(rendered) - 1) * self._ROW_GAP
+            + self._PADDING * 2
+        )
+
+    def boundingRect(self) -> QRectF:
+        if not self._lines:
+            return QRectF(0.0, 0.0, 0.0, 0.0)
+        # Extend upward from anchor so the badge sits ABOVE its anchor point on
+        # screen — letting callers anchor at the bed's visual bottom-left.
+        return QRectF(0.0, -self._cached_h, self._cached_w, self._cached_h)
+
+    def paint(
+        self,
+        painter: QPainter,
+        option: "QStyleOptionGraphicsItem",  # noqa: ARG002
+        widget: "QWidget | None" = None,  # noqa: ARG002
+    ) -> None:
+        if not self._lines:
+            return
+        rect = self.boundingRect()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(self._BG)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRoundedRect(rect, 4.0, 4.0)
+        rendered = self._rendered_rows()
+        y = rect.top() + self._PADDING + self._LINE_HEIGHT - 2.0
+        for text, is_current, is_overflow in rendered:
+            painter.setFont(self._font_bold if is_current else self._font)
+            if is_overflow:
+                colour = self._COLOR_OVERFLOW
+            elif is_current:
+                colour = self._COLOR_CURRENT
+            else:
+                colour = self._COLOR_FUTURE
+            painter.setPen(QPen(colour))
+            painter.drawText(int(self._PADDING), int(y), text)
+            y += self._LINE_HEIGHT + self._ROW_GAP
 
 
 class GardenItemMixin:
@@ -80,6 +217,10 @@ class GardenItemMixin:
         self._frost_protection_needed: bool | None = None  # Per-plant frost override (US-12.2)
         self._spacing_overlap: str | None = None  # "overlap" | "ideal" | None
         self._soil_mismatch_level: str | None = None  # "warning" | "critical" | None (US-12.10d)
+        # US-12.8: succession-plan badge state. List of (common_name, is_current)
+        # tuples in chronological order; rendered upright via SuccessionBadgeItem.
+        self._succession_lines: list[tuple[str, bool]] = []
+        self._succession_badge_item: SuccessionBadgeItem | None = None
         self._spacing_circles_visible: bool = True  # Global toggle from scene
         self._grid_enabled: bool = self._metadata.get("grid_enabled", False)
         self._grid_spacing: float = self._metadata.get("grid_spacing", 30.0)
@@ -260,6 +401,128 @@ class GardenItemMixin:
             self.prepareGeometryChange()  # type: ignore[attr-defined]
         if hasattr(self, 'update'):
             self.update()  # type: ignore[attr-defined]
+
+    def set_succession_indicator(
+        self, lines: list[tuple[str, bool]] | None
+    ) -> None:
+        """Set the succession-planting badge content (US-12.8).
+
+        Args:
+            lines: List of ``(common_name, is_current)`` tuples in chronological
+                order. ``None`` or empty list clears the badge.
+
+        The badge renders upright on the Y-flipped canvas via a child
+        ``SuccessionBadgeItem`` with ``ItemIgnoresTransformations``.
+        """
+        new_lines = list(lines) if lines else []
+        if new_lines == self._succession_lines:
+            return
+        self._succession_lines = new_lines
+        if not new_lines:
+            if self._succession_badge_item is not None:
+                self._succession_badge_item.setVisible(False)
+            return
+        badge = self._ensure_succession_badge_item()
+        if badge is None:
+            return
+        badge.set_lines(new_lines)
+        badge.setVisible(True)
+        self._position_succession_badge()
+
+    def _ensure_succession_badge_item(self) -> "SuccessionBadgeItem | None":
+        """Lazily create the badge child graphics item."""
+        if self._succession_badge_item is not None:
+            return self._succession_badge_item
+        if not isinstance(self, QGraphicsItem):
+            return None
+        self._succession_badge_item = SuccessionBadgeItem(self)
+        return self._succession_badge_item
+
+    def _position_succession_badge(self) -> None:
+        """Anchor the badge at the bed's visual bottom-left.
+
+        The view applies ``scale(zoom, -zoom)`` so smaller scene-Y maps to a
+        higher screen-Y (visual bottom). Anchoring at ``rect.top()`` therefore
+        positions the badge at the visual bottom; the badge's own bounding rect
+        extends upward into the bed.
+        """
+        if self._succession_badge_item is None or not hasattr(self, "boundingRect"):
+            return
+        bounds = self.boundingRect()  # type: ignore[attr-defined]
+        margin = 4.0
+        self._succession_badge_item.setPos(
+            bounds.left() + margin, bounds.top() + margin
+        )
+
+    def build_bed_context_menu(
+        self,
+        menu: "QMenu",
+        *,
+        grid_enabled: bool,
+        supports_grid: bool = True,
+    ) -> BedMenuActions:
+        """Add the standard bed-specific menu items to ``menu``.
+
+        Single source of truth for bed actions across all shape items. Callers
+        must guard with ``is_bed_type(self.object_type)``. The returned
+        ``BedMenuActions`` is then passed to ``dispatch_bed_action`` after
+        ``menu.exec()`` to dispatch whichever action the user picked.
+        """
+        actions = BedMenuActions()
+        menu.addSeparator()
+        if supports_grid:
+            label = (
+                QCoreApplication.translate("BedActions", "Hide Grid")
+                if grid_enabled
+                else QCoreApplication.translate("BedActions", "Show Grid")
+            )
+            actions.toggle_grid = menu.addAction(label)
+        actions.add_soil_test = menu.addAction(
+            QCoreApplication.translate("BedActions", "Add soil test…")
+        )
+        actions.log_pest_disease = menu.addAction(
+            QCoreApplication.translate("BedActions", "Log Pest/Disease…")
+        )
+        actions.plan_succession = menu.addAction(
+            QCoreApplication.translate("BedActions", "Plan Succession…")
+        )
+        return actions
+
+    def dispatch_bed_action(
+        self, action: QAction | None, actions: BedMenuActions
+    ) -> bool:
+        """Handle a bed-specific menu action; return True if it was handled.
+
+        Shape items call this after ``menu.exec()`` to route bed actions to
+        the canvas view. Returns ``False`` for non-bed actions so the caller
+        can continue its own elif chain.
+        """
+        if action is None:
+            return False
+        scene = getattr(self, "scene", lambda: None)()
+        if scene is None:
+            return False
+        if action is actions.toggle_grid and actions.toggle_grid is not None:
+            self.grid_enabled = not self._grid_enabled  # type: ignore[attr-defined]
+            scene.selectionChanged.emit()
+            return True
+        views = scene.views()
+        if not views:
+            return False
+        view = views[0]
+        if action is actions.add_soil_test and actions.add_soil_test is not None:
+            if hasattr(view, "request_soil_test"):
+                view.request_soil_test(str(self.item_id), self.name)
+            return True
+        if action is actions.log_pest_disease and actions.log_pest_disease is not None:
+            if hasattr(view, "request_pest_log"):
+                view.request_pest_log(str(self.item_id), self.name)
+            return True
+        if action is actions.plan_succession and actions.plan_succession is not None:
+            if hasattr(view, "request_succession_plan"):
+                view.request_succession_plan(str(self.item_id), self.name)
+            return True
+        return False
 
     @property
     def spacing_radius_cm(self) -> float | None:

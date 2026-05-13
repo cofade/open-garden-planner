@@ -3773,6 +3773,10 @@ Neue Saison jetzt öffnen?</translation>
             <source>Active Pest/Disease Issues</source>
             <translation>Aktive Schädlinge/Krankheiten</translation>
         </message>
+        <message>
+            <source>Succession plan saved</source>
+            <translation>Anbaufolge gespeichert</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -5217,6 +5221,14 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
         <message>
             <source>Soil mismatch in {bed}: {plants}</source>
             <translation>Bodenkonflikt in {bed}: {plants}</translation>
+        </message>
+        <message>
+            <source>Sow {name} in {bed} (succession)</source>
+            <translation>{name} in {bed} säen (Anbaufolge)</translation>
+        </message>
+        <message>
+            <source>Clear {name} from {bed} (succession)</source>
+            <translation>{name} aus {bed} räumen (Anbaufolge)</translation>
         </message>
     </context>
     <context>
@@ -8444,6 +8456,159 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>{display} &gt; {name} ({severity}) — {date}</translation>
             <source>kg</source>
             <translation>kg</translation>
+        </message>
+    </context>
+    <context>
+        <name>BedActions</name>
+        <message>
+            <source>Hide Grid</source>
+            <translation>Raster ausblenden</translation>
+        </message>
+        <message>
+            <source>Show Grid</source>
+            <translation>Raster einblenden</translation>
+        </message>
+        <message>
+            <source>Add soil test…</source>
+            <translation>Bodentest hinzufügen…</translation>
+        </message>
+        <message>
+            <source>Log Pest/Disease…</source>
+            <translation>Schädling/Krankheit erfassen…</translation>
+        </message>
+        <message>
+            <source>Plan Anbaufolge…</source>
+            <translation>Anbaufolge planen…</translation>
+        </message>
+        <message>
+            <source>Plan Succession…</source>
+            <translation>Anbaufolge planen…</translation>
+        </message>
+    </context>
+    <context>
+        <name>SuccessionPlanDialog</name>
+        <message>
+            <source>Succession Plan: {name}</source>
+            <translation>Anbaufolge: {name}</translation>
+        </message>
+        <message>
+            <source>Succession Plan</source>
+            <translation>Anbaufolge</translation>
+        </message>
+        <message>
+            <source>Year</source>
+            <translation>Jahr</translation>
+        </message>
+        <message>
+            <source>Early Spring</source>
+            <translation>Frühling (früh)</translation>
+        </message>
+        <message>
+            <source>Late Spring</source>
+            <translation>Frühling (spät)</translation>
+        </message>
+        <message>
+            <source>Summer</source>
+            <translation>Sommer</translation>
+        </message>
+        <message>
+            <source>Fall</source>
+            <translation>Herbst</translation>
+        </message>
+        <message>
+            <source>Season</source>
+            <translation>Saison</translation>
+        </message>
+        <message>
+            <source>Plant</source>
+            <translation>Pflanze</translation>
+        </message>
+        <message>
+            <source>Start Date</source>
+            <translation>Startdatum</translation>
+        </message>
+        <message>
+            <source>End Date</source>
+            <translation>Enddatum</translation>
+        </message>
+        <message>
+            <source>Add Entry</source>
+            <translation>Eintrag hinzufügen</translation>
+        </message>
+        <message>
+            <source>Edit Entry</source>
+            <translation>Eintrag bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete Entry</source>
+            <translation>Eintrag löschen</translation>
+        </message>
+        <message>
+            <source>Crop Compatibility</source>
+            <translation>Kulturverträglichkeit</translation>
+        </message>
+        <message>
+            <source>No compatibility data for current entries.</source>
+            <translation>Keine Verträglichkeitsdaten für aktuelle Einträge.</translation>
+        </message>
+        <message>
+            <source>Set project location for accurate dates</source>
+            <translation>Projektstandort festlegen für genaue Daten</translation>
+        </message>
+        <message>
+            <source>{a} overlaps {b}: antagonist</source>
+            <translation>{a} überschneidet sich mit {b}: unverträglich</translation>
+        </message>
+    </context>
+    <context>
+        <name>_EntryDialog</name>
+        <message>
+            <source>Add Succession Entry</source>
+            <translation>Anbaufolge-Eintrag hinzufügen</translation>
+        </message>
+        <message>
+            <source>Edit Succession Entry</source>
+            <translation>Anbaufolge-Eintrag bearbeiten</translation>
+        </message>
+        <message>
+            <source>Plant name</source>
+            <translation>Pflanzenname</translation>
+        </message>
+        <message>
+            <source>Start</source>
+            <translation>Start</translation>
+        </message>
+        <message>
+            <source>End</source>
+            <translation>Ende</translation>
+        </message>
+        <message>
+            <source>Notes</source>
+            <translation>Notizen</translation>
+        </message>
+        <message>
+            <source>Validation</source>
+            <translation>Validierung</translation>
+        </message>
+        <message>
+            <source>Plant name is required.</source>
+            <translation>Pflanzenname ist erforderlich.</translation>
+        </message>
+        <message>
+            <source>End date must not be before start date.</source>
+            <translation>Enddatum darf nicht vor dem Startdatum liegen.</translation>
+        </message>
+        <message>
+            <source>Season:</source>
+            <translation>Saison:</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>Abbrechen</translation>
+        </message>
+        <message>
+            <source>OK</source>
+            <translation>OK</translation>
         </message>
     </context>
 </TS>

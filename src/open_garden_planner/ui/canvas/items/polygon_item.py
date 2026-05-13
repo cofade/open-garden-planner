@@ -821,22 +821,14 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # Edit label action
         edit_label_action = menu.addAction(_("PolygonItem", "Edit Label"))
 
-        # Grid toggle for bed types
-        toggle_grid_action = None
-        add_soil_test_action = None
-        add_pest_log_action = None
+        # Bed-specific actions (grid toggle, soil test, pest log, succession)
+        # are built centrally on GardenItemMixin — see ADR-017 / §8.12.
+        from open_garden_planner.ui.canvas.items.garden_item import BedMenuActions
+        bed_actions = BedMenuActions()
         if is_bed_type(self.object_type):
-            menu.addSeparator()
-            grid_label = (
-                _("PolygonItem", "Hide Grid")
-                if self._grid_enabled
-                else _("PolygonItem", "Show Grid")
+            bed_actions = self.build_bed_context_menu(
+                menu, grid_enabled=self._grid_enabled, supports_grid=True
             )
-            toggle_grid_action = menu.addAction(grid_label)
-            # US-12.10a: Add soil test entry for beds
-            add_soil_test_action = menu.addAction(_("PolygonItem", "Add soil test…"))
-            # US-12.7: Pest/disease log entry for beds
-            add_pest_log_action = menu.addAction(_("PolygonItem", "Log Pest/Disease…"))
 
         menu.addSeparator()
 
@@ -897,6 +889,10 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # Execute menu and handle result
         action = menu.exec(event.screenPos())
 
+        # Dispatch bed-specific actions via the shared mixin handler.
+        if self.dispatch_bed_action(action, bed_actions):
+            return
+
         if action == edit_vertices_action and edit_vertices_action is not None:
             # Enter vertex edit mode and switch to Select tool
             self.enter_vertex_edit_mode()
@@ -916,24 +912,6 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             self.start_label_edit()
         elif action == show_area_action:
             self.area_label_visible = not self._area_label_visible
-        elif action == toggle_grid_action and toggle_grid_action is not None:
-            self.grid_enabled = not self._grid_enabled
-            # Refresh properties panel to reflect new state
-            scene = self.scene()
-            if scene:
-                scene.selectionChanged.emit()
-        elif action == add_soil_test_action and add_soil_test_action is not None:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views and hasattr(views[0], "request_soil_test"):
-                    views[0].request_soil_test(str(self.item_id), self.name)
-        elif action == add_pest_log_action and add_pest_log_action is not None:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views and hasattr(views[0], "request_pest_log"):
-                    views[0].request_pest_log(str(self.item_id), self.name)
         elif action == delete_action:
             # Delete this item and any other selected items
             scene = self.scene()

@@ -869,6 +869,13 @@ class GardenPlannerApp(QMainWindow):
         self._project_manager.pest_logs_changed.connect(
             self._on_pest_logs_changed
         )
+        # US-12.8: bed → "Plan Succession…" routes through CanvasView
+        self.canvas_view.succession_plan_requested.connect(
+            self._on_succession_plan_requested
+        )
+        self._project_manager.succession_plans_changed.connect(
+            self._on_succession_plans_changed
+        )
 
         # Connect scene selection changes to status bar and panels
         self.canvas_scene.selectionChanged.connect(self._on_selection_changed)
@@ -1411,7 +1418,7 @@ class GardenPlannerApp(QMainWindow):
                 if not self._is_canvas_plant(item):
                     continue
                 item_species = self._companion_species_name(item)
-                if item_species and self._companion_service._resolve(item_species) == self._companion_service._resolve(species):  # noqa: SLF001
+                if item_species and self._companion_service.resolve_name(item_species) == self._companion_service.resolve_name(species):
                     item.setSelected(True)
                     matched.append(item)
             # Scroll canvas to the first matched item so the user can see it
@@ -3294,6 +3301,100 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_view.command_manager.execute(cmd)
         self.statusBar().showMessage(self.tr("Pest/disease log recorded"), 3000)
         self._refresh_pest_overview()
+
+    def _on_succession_plan_requested(self, bed_id: str, display_name: str) -> None:
+        """Open SuccessionPlanDialog for a bed (US-12.8)."""
+        self._open_succession_plan_dialog(bed_id, display_name)
+
+    def _on_succession_plans_changed(self, _plans: object) -> None:
+        """Refresh bed succession indicators whenever plans change (US-12.8)."""
+        self._refresh_succession_indicators()
+
+    def _open_succession_plan_dialog(self, bed_id: str, display_name: str) -> None:
+        """Open the succession plan dialog and execute SetSuccessionPlanCommand on accept."""
+        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+
+        from open_garden_planner.core.commands import SetSuccessionPlanCommand  # noqa: PLC0415
+        from open_garden_planner.models.succession import SuccessionPlan  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs.succession_plan_dialog import (  # noqa: PLC0415
+            SuccessionPlanDialog,
+        )
+
+        if not display_name:
+            display_name = self._lookup_item_name(bed_id)
+
+        existing_raw = self._project_manager.succession_plans.get(bed_id)
+        existing_plan = SuccessionPlan.from_dict(existing_raw) if existing_raw else None
+
+        dialog = SuccessionPlanDialog(
+            parent=self,
+            bed_id=bed_id,
+            bed_name=display_name,
+            existing_plan=existing_plan,
+            frost_dates=self._project_manager.location,
+            project_manager=self._project_manager,
+            command_manager=self.canvas_view.command_manager,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        plan = dialog.result_plan()
+        cmd = SetSuccessionPlanCommand(self._project_manager, bed_id, plan)
+        self.canvas_view.command_manager.execute(cmd)
+        self._refresh_succession_indicators()
+        self.statusBar().showMessage(self.tr("Succession plan saved"), 3000)
+
+    def _refresh_succession_indicators(self) -> None:
+        """Update the succession badge on every bed-capable canvas item (US-12.8).
+
+        Builds an ordered ``[(common_name, is_current), ...]`` list for each
+        bed and hands it to the mixin's ``set_succession_indicator``. Past
+        entries are skipped; the current entry (if any) is marked with
+        ``is_current=True`` so the badge can highlight it. Works for any
+        bed shape (Rectangle/Polygon/Ellipse/Circle) since the badge is a
+        graphics-item child managed in ``GardenItemMixin``.
+        """
+        import datetime  # noqa: PLC0415
+
+        from open_garden_planner.core.object_types import is_bed_type  # noqa: PLC0415
+        from open_garden_planner.models.succession import SuccessionPlan  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.garden_item import (  # noqa: PLC0415
+            GardenItemMixin,
+        )
+
+        today = datetime.date.today()
+        plans = self._project_manager.succession_plans
+        scene = getattr(self.canvas_view, "_canvas_scene", None) or self.canvas_view.scene()
+        if scene is None:
+            return
+
+        bed_map = {
+            str(item.item_id): item
+            for item in scene.items()
+            if isinstance(item, GardenItemMixin) and is_bed_type(item.object_type)
+        }
+
+        for item in bed_map.values():
+            item.set_succession_indicator(None)
+
+        for bed_id, plan_dict in plans.items():
+            item = bed_map.get(bed_id)
+            if item is None:
+                continue
+            plan = SuccessionPlan.from_dict(plan_dict)
+            current = plan.current_entry(today)
+            lines: list[tuple[str, bool]] = []
+            for entry in plan.entries_sorted():
+                if not entry.end_date:
+                    continue
+                try:
+                    end = datetime.date.fromisoformat(entry.end_date)
+                except ValueError:
+                    continue
+                if end < today:
+                    continue  # skip past entries
+                lines.append((entry.common_name, entry is current))
+            item.set_succession_indicator(lines or None)
 
     def _lookup_item_name(self, target_id: str) -> str:
         """Return the display name for any scene item (bed or plant) by id, else ''."""

@@ -553,3 +553,79 @@ The `SoilTestDialog` is split into two tabs (`QTabWidget`):
 **Badge.** `SoilBadgeItem` is a `QGraphicsObject` (so it can carry a `pyqtSignal`) with `ItemIgnoresTransformations` so it stays 16 × 16 px regardless of zoom. It anchors to the bed's top-right corner (8 px screen-fixed offset, view-scale-aware just like `RotationHandle`). Click → `clicked = pyqtSignal(str)` carrying the bed UUID; `CanvasView` re-emits as `soil_test_badge_clicked`, which the `Application` wires into the same `_open_soil_test_dialog` flow used by the bed context menu.
 
 Lifecycle: the existing 500 ms debounce timer in `CanvasView.set_soil_service` (introduced for 12.10d mismatch borders) was extended — its `timeout` now calls `_on_soil_debounce_tick` which runs both `_update_soil_mismatches()` and `_update_soil_badges()`. After a soil-test save, `Application._open_soil_test_dialog` calls `refresh_soil_badges()` for an immediate clear (so the badge disappears before the debounce window elapses).
+
+## 8.14 Bed-Specific Features Across All Shape Items (US-12.8 follow-up)
+
+**Why this section exists.** Bed-capable shapes are not one class but four — historical reasons:
+
+| Shape class    | Default bed object_type | Tool that creates it |
+|----------------|-------------------------|----------------------|
+| `RectangleItem`| `RAISED_BED`            | `Raised Bed` tool    |
+| `PolygonItem`  | `GARDEN_BED`            | `Garden Bed` tool    |
+| `EllipseItem`  | `GARDEN_BED`            | Generic ellipse → change type |
+| `CircleItem`   | `GARDEN_BED`            | Generic circle → change type  |
+
+Twice in three months a new bed-only feature shipped missing from one or more shapes (Pest log on PolygonItem/EllipseItem — fixed in #173; Plan Anbaufolge on all three non-rectangle shapes — fixed post-US-12.8). Root cause: each shape's `contextMenuEvent` hand-rolled its own bed-action block, and there was no test that caught a missed shape.
+
+**Central pattern.** Bed-specific actions are built by **one** method on `GardenItemMixin`:
+
+```python
+# garden_item.py
+@dataclass(slots=True)
+class BedMenuActions:
+    toggle_grid: QAction | None = None
+    add_soil_test: QAction | None = None
+    log_pest_disease: QAction | None = None
+    plan_succession: QAction | None = None
+
+def build_bed_context_menu(
+    self, menu: QMenu, *, grid_enabled: bool, supports_grid: bool = True
+) -> BedMenuActions: ...
+
+def dispatch_bed_action(self, action: QAction | None, actions: BedMenuActions) -> bool: ...
+```
+
+Every bed-capable shape's `contextMenuEvent` follows the same skeleton:
+
+```python
+bed_actions = BedMenuActions()
+if is_bed_type(self.object_type):
+    bed_actions = self.build_bed_context_menu(
+        menu, grid_enabled=self._grid_enabled, supports_grid=<True for rect/poly, False for round>
+    )
+# ...assemble the rest of the menu...
+action = menu.exec(event.screenPos())
+if self.dispatch_bed_action(action, bed_actions):
+    return
+# ...handle shape-specific actions...
+```
+
+**Why a mixin method, not a base class.** `GardenItemMixin` is already shared by all four shapes; adding methods there avoids a deeper refactor and keeps the change minimal. The mixin handles `request_soil_test`, `request_pest_log`, `request_succession_plan` view dispatch and the grid-toggle side effect (`scene.selectionChanged.emit()`) so each shape only has to translate its surrounding non-bed menu items.
+
+**Regression test (the part that prevents recurrence).** `tests/integration/test_bed_context_menu.py` parametrises across all four shape classes and asserts that every bed action exists on every shape:
+
+```python
+@pytest.mark.parametrize("factory,supports_grid", BED_SHAPES)
+def test_bed_context_menu_has_all_features(factory, supports_grid, qtbot):
+    item = factory()
+    menu = QMenu()
+    actions = item.build_bed_context_menu(menu, grid_enabled=False, supports_grid=supports_grid)
+    assert actions.add_soil_test is not None
+    assert actions.log_pest_disease is not None
+    assert actions.plan_succession is not None
+```
+
+**Adding a future bed feature** (the playbook):
+
+1. Add a `QAction | None` field to `BedMenuActions`.
+2. Add `actions.<new_field> = menu.addAction(...)` in `build_bed_context_menu`.
+3. Add a routing branch in `dispatch_bed_action` that calls a `request_*` method on the canvas view.
+4. Add the matching `request_*` method + signal on `CanvasView`.
+5. Wire the signal in `Application.__init__`.
+6. **Extend `test_bed_context_menu.py` with one new `assert actions.<new_field> is not None` line per parametrised shape.**
+
+If you forget step 1–5 the existing test still passes; if you forget step 6 the test will not catch a future regression. The single-line addition in step 6 is the linchpin — treat it as mandatory.
+
+**Upright text badges on the Y-flipped canvas.** Related lesson from the same bug batch: text drawn via `painter.drawText()` inside an item's `paint()` inherits the view's `scale(zoom, -zoom)` and renders **upside-down**. Use `QGraphicsSimpleTextItem` (or a custom `QGraphicsItem` subclass) as a **child** of the item with `ItemIgnoresTransformations`. See `SuccessionBadgeItem` in `garden_item.py` for the multi-line-with-pill-background example; bed name labels (`_label_item`) use `QGraphicsSimpleTextItem` for the simple single-line case.
+
+Cross-references: ADR-017 (decision rationale), `tests/integration/test_bed_context_menu.py` (enforcement), `tests/integration/test_succession.py::TestSuccessionBadgeIndicator` (badge state machine).

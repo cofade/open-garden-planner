@@ -1672,3 +1672,41 @@ class DeletePestLogCommand(Command):
 
     def undo(self) -> None:
         self._pm.restore_pest_log_history(self._target_id, self._prior_history_dict)
+
+
+class SetSuccessionPlanCommand(Command):
+    """Replace the succession plan for a bed atomically — undoable (US-12.8).
+
+    Snapshots the prior plan dict on construction so undo restores the
+    previous state exactly. ``new_plan`` is a ``SuccessionPlan`` instance;
+    passing ``None`` deletes the plan for the bed.
+    """
+
+    def __init__(
+        self,
+        project_manager: "Any",
+        bed_id: str,
+        new_plan: "Any",  # SuccessionPlan | None
+    ) -> None:
+        self._pm = project_manager
+        self._bed_id = bed_id
+        self._new: dict[str, Any] | None = (
+            new_plan.to_dict() if new_plan is not None else None
+        )
+        existing = self._pm.succession_plans.get(bed_id)
+        self._old: dict[str, Any] | None = (
+            dict(existing) if existing is not None else None
+        )
+
+    @property
+    def description(self) -> str:
+        return "Set succession plan"
+
+    def execute(self) -> None:
+        if self._new is None:
+            self._pm.restore_succession_plan(self._bed_id, None)
+        else:
+            self._pm.set_succession_plan(self._bed_id, self._new)
+
+    def undo(self) -> None:
+        self._pm.restore_succession_plan(self._bed_id, self._old)
