@@ -3777,6 +3777,22 @@ Neue Saison jetzt öffnen?</translation>
             <source>Succession plan saved</source>
             <translation>Anbaufolge gespeichert</translation>
         </message>
+        <message>
+            <source>Garden Journal</source>
+            <translation>Gartentagebuch</translation>
+        </message>
+        <message>
+            <source>Journal note added</source>
+            <translation>Tagebuchnotiz hinzugefügt</translation>
+        </message>
+        <message>
+            <source>Delete journal note</source>
+            <translation>Tagebuchnotiz löschen</translation>
+        </message>
+        <message>
+            <source>Delete this journal note?</source>
+            <translation>Diese Tagebuchnotiz löschen?</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -4163,6 +4179,14 @@ Ergebnisse werden lokal für ein Jahr zwischengespeichert.</translation>
             <source>Place a callout annotation with leader line</source>
             <translation>Beschriftungspfeil mit Führungslinie platzieren</translation>
         </message>
+        <message>
+            <source>Journal Pin</source>
+            <translation>Tagebuch-Nadel</translation>
+        </message>
+        <message>
+            <source>Drop a garden-journal note pin</source>
+            <translation>Tagebuchnotiz-Nadel platzieren</translation>
+        </message>
     </context>
     <context>
         <name>MeasureTool</name>
@@ -4367,6 +4391,10 @@ Ergebnisse werden lokal für ein Jahr zwischengespeichert.</translation>
         <message>
             <source>Callout</source>
             <translation>Beschriftungspfeil</translation>
+        </message>
+        <message>
+            <source>Journal Pin</source>
+            <translation>Tagebuch-Nadel</translation>
         </message>
     </context>
     <context>
@@ -7662,6 +7690,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>A progress dialog will appear during export.</source>
             <translation>Während des Exports wird ein Fortschrittsdialog angezeigt.</translation>
         </message>
+        <message>
+            <source>Garden journal notes</source>
+            <translation>Gartentagebuch-Notizen</translation>
+        </message>
     </context>
     <context>
         <name>PdfReportService</name>
@@ -8609,6 +8641,119 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>OK</source>
             <translation>OK</translation>
+        </message>
+    </context>
+    <context>
+        <name>JournalNoteDialog</name>
+        <message>
+            <source>New Journal Note</source>
+            <translation>Neue Tagebuchnotiz</translation>
+        </message>
+        <message>
+            <source>Edit Journal Note</source>
+            <translation>Tagebuchnotiz bearbeiten</translation>
+        </message>
+        <message>
+            <source>Date</source>
+            <translation>Datum</translation>
+        </message>
+        <message>
+            <source>Note</source>
+            <translation>Notiz</translation>
+        </message>
+        <message>
+            <source>What happened here? Observations, weather, plans…</source>
+            <translation>Was ist hier passiert? Beobachtungen, Wetter, Pläne…</translation>
+        </message>
+        <message>
+            <source>(no photo)</source>
+            <translation>(kein Foto)</translation>
+        </message>
+        <message>
+            <source>(unsaved)</source>
+            <translation>(ungespeichert)</translation>
+        </message>
+        <message>
+            <source>(missing)</source>
+            <translation>(fehlt)</translation>
+        </message>
+        <message>
+            <source>Attach Photo…</source>
+            <translation>Foto anhängen…</translation>
+        </message>
+        <message>
+            <source>Remove Photo</source>
+            <translation>Foto entfernen</translation>
+        </message>
+        <message>
+            <source>Save project first to attach photos</source>
+            <translation>Projekt zuerst speichern, um Fotos anzuhängen</translation>
+        </message>
+        <message>
+            <source>Select photo</source>
+            <translation>Foto auswählen</translation>
+        </message>
+        <message>
+            <source>Images (*.png *.jpg *.jpeg *.gif *.bmp *.webp)</source>
+            <translation>Bilder (*.png *.jpg *.jpeg *.gif *.bmp *.webp)</translation>
+        </message>
+        <message>
+            <source>Photo attach failed</source>
+            <translation>Foto-Anhang fehlgeschlagen</translation>
+        </message>
+        <message>
+            <source>Could not copy photo: {err}</source>
+            <translation>Foto konnte nicht kopiert werden: {err}</translation>
+        </message>
+        <message>
+            <source>Click to open in image viewer</source>
+            <translation>Klicken, um in Bildbetrachter zu öffnen</translation>
+        </message>
+    </context>
+    <context>
+        <name>JournalPanel</name>
+        <message>
+            <source>Garden journal:</source>
+            <translation>Gartentagebuch:</translation>
+        </message>
+        <message>
+            <source>Search notes…</source>
+            <translation>Notizen durchsuchen…</translation>
+        </message>
+        <message>
+            <source>Date range</source>
+            <translation>Datumsbereich</translation>
+        </message>
+        <message>
+            <source>No journal notes yet</source>
+            <translation>Noch keine Tagebuchnotizen</translation>
+        </message>
+        <message>
+            <source>No matching notes</source>
+            <translation>Keine passenden Notizen</translation>
+        </message>
+        <message>
+            <source>{date} — {snippet}{photo}</source>
+            <translation>{date} — {snippet}{photo}</translation>
+        </message>
+        <message>
+            <source>{date} — (empty){photo}</source>
+            <translation>{date} — (leer){photo}</translation>
+        </message>
+    </context>
+    <context>
+        <name>JournalPinItem</name>
+        <message>
+            <source>Garden journal note (double-click to edit)</source>
+            <translation>Tagebuchnotiz (Doppelklick zum Bearbeiten)</translation>
+        </message>
+        <message>
+            <source>Edit Note…</source>
+            <translation>Notiz bearbeiten…</translation>
+        </message>
+        <message>
+            <source>Delete</source>
+            <translation>Löschen</translation>
         </message>
     </context>
 </TS>

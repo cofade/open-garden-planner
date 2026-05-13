@@ -41,6 +41,7 @@ class PdfReportDialog(QDialog):
         self._cb_overview: QCheckBox
         self._cb_bed_details: QCheckBox
         self._cb_plant_list: QCheckBox
+        self._cb_garden_notes: QCheckBox
         self._cb_legend: QCheckBox
 
         self._setup_ui(project_name, author)
@@ -101,6 +102,8 @@ class PdfReportDialog(QDialog):
         self._cb_bed_details.setChecked(False)
         self._cb_plant_list = QCheckBox(self.tr("Plant list"))
         self._cb_plant_list.setChecked(True)
+        self._cb_garden_notes = QCheckBox(self.tr("Garden journal notes"))
+        self._cb_garden_notes.setChecked(False)
         self._cb_legend = QCheckBox(self.tr("Legend (layers)"))
         self._cb_legend.setChecked(True)
 
@@ -109,6 +112,7 @@ class PdfReportDialog(QDialog):
             self._cb_overview,
             self._cb_bed_details,
             self._cb_plant_list,
+            self._cb_garden_notes,
             self._cb_legend,
         ):
             pages_vbox.addWidget(cb)
@@ -165,6 +169,10 @@ class PdfReportDialog(QDialog):
     @property
     def include_plant_list(self) -> bool:
         return self._cb_plant_list.isChecked()
+
+    @property
+    def include_garden_notes(self) -> bool:
+        return self._cb_garden_notes.isChecked()
 
     @property
     def include_legend(self) -> bool:

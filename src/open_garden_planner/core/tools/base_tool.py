@@ -89,6 +89,8 @@ class ToolType(Enum):
     TEXT = auto()
     # Callout / leader line annotation
     CALLOUT = auto()
+    # Garden journal map-linked note pin (US-12.9)
+    JOURNAL_PIN = auto()
 
     # Construction geometry (helper lines/circles, not in exports)
     CONSTRUCTION_LINE = auto()

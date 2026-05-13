@@ -389,6 +389,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Active Pest/Disease Issues": "Aktive Schädlinge/Krankheiten",
         # US-12.8 — Succession planting
         "Succession plan saved": "Anbaufolge gespeichert",
+        # US-12.9 — Garden journal map-linked notes
+        "Garden Journal": "Gartentagebuch",
+        "Journal note added": "Tagebuchnotiz hinzugefügt",
+        "Delete journal note": "Tagebuchnotiz löschen",
+        "Delete this journal note?": "Diese Tagebuchnotiz löschen?",
         # US-12.10c — Amendment Plan menu
         "&Amendment Plan…": "&Bodenverbesserungs-Plan…",
         "View amendment recommendations for deficient beds":
@@ -713,6 +718,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Place a text annotation": "Eine Textanmerkung platzieren",
         "Callout": "Beschriftungspfeil",
         "Place a callout annotation with leader line": "Beschriftungspfeil mit Führungslinie platzieren",
+        "Journal Pin": "Tagebuch-Nadel",
+        "Drop a garden-journal note pin": "Tagebuchnotiz-Nadel platzieren",
     },
 
     # ── MeasureTool ──
@@ -1323,6 +1330,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Water Tap": "Wasserhahn",
         "Text": "Text",
         "Callout": "Beschriftungspfeil",
+        "Journal Pin": "Tagebuch-Nadel",
     },
 
     # ── PreferencesDialog (US-12.2 weather section) ──
@@ -1429,6 +1437,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Plan overview (full garden)": "Planübersicht (gesamter Garten)",
         "Bed detail views (one page per bed)": "Beet-Detailansichten (eine Seite pro Beet)",
         "Plant list": "Pflanzenliste",
+        "Garden journal notes": "Gartentagebuch-Notizen",
         "Legend (layers)": "Legende (Ebenen)",
         "A progress dialog will appear during export.":
             "Während des Exports wird ein Fortschrittsdialog angezeigt.",
@@ -1442,6 +1451,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Bed": "Beet",
         "No plants found in this project.": "Keine Pflanzen in diesem Projekt gefunden.",
         "Created with Open Garden Planner": "Erstellt mit Open Garden Planner",
+        "Garden Notes": "Tagebuchnotizen",
+        "No journal notes recorded.": "Keine Tagebuchnotizen vorhanden.",
+        "(no date)": "(kein Datum)",
+        "(empty)": "(leer)",
+        "(photo: {filename})": "(Foto: {filename})",
     },
 
     # ── SoilTestDialog (US-12.10a, extended in US-12.10c) ──
@@ -1577,6 +1591,49 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "high": "hoch",
         "{display} > {name} ({severity}) — {date}":
             "{display} > {name} ({severity}) — {date}",
+    },
+
+    # ── JournalNoteDialog (US-12.9) ──
+    "JournalNoteDialog": {
+        "New Journal Note": "Neue Tagebuchnotiz",
+        "Edit Journal Note": "Tagebuchnotiz bearbeiten",
+        "Date": "Datum",
+        "Note": "Notiz",
+        "What happened here? Observations, weather, plans…":
+            "Was ist hier passiert? Beobachtungen, Wetter, Pläne…",
+        "(no photo)": "(kein Foto)",
+        "(unsaved)": "(ungespeichert)",
+        "(missing)": "(fehlt)",
+        "Attach Photo…": "Foto anhängen…",
+        "Remove Photo": "Foto entfernen",
+        "Save project first to attach photos":
+            "Projekt zuerst speichern, um Fotos anzuhängen",
+        "Select photo": "Foto auswählen",
+        "Images (*.png *.jpg *.jpeg *.gif *.bmp *.webp)":
+            "Bilder (*.png *.jpg *.jpeg *.gif *.bmp *.webp)",
+        "Photo attach failed": "Foto-Anhang fehlgeschlagen",
+        "Could not copy photo: {err}":
+            "Foto konnte nicht kopiert werden: {err}",
+        "Click to open in image viewer": "Klicken, um in Bildbetrachter zu öffnen",
+    },
+
+    # ── JournalPanel (US-12.9) ──
+    "JournalPanel": {
+        "Garden journal:": "Gartentagebuch:",
+        "Search notes…": "Notizen durchsuchen…",
+        "Date range": "Datumsbereich",
+        "No journal notes yet": "Noch keine Tagebuchnotizen",
+        "No matching notes": "Keine passenden Notizen",
+        "{date} — {snippet}{photo}": "{date} — {snippet}{photo}",
+        "{date} — (empty){photo}": "{date} — (leer){photo}",
+    },
+
+    # ── JournalPinItem (US-12.9) ──
+    "JournalPinItem": {
+        "Garden journal note (double-click to edit)":
+            "Tagebuchnotiz (Doppelklick zum Bearbeiten)",
+        "Edit Note…": "Notiz bearbeiten…",
+        "Delete": "Löschen",
     },
 
     # ── SoilBadgeItem (US-12.10e) ──

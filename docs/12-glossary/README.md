@@ -36,6 +36,8 @@
 | **Structural amendment** | Substance added to fix soil texture rather than nutrient levels — sand (drainage), perlite (aeration + drainage), vermiculite (water retention + aeration + CEC), diatomaceous earth (water retention + silica). Driven by `SoilTestRecord.soil_texture` |
 | **Soil texture** | Optional `SoilTestRecord` field — `"sandy"`, `"loamy"`, `"clayey"`, or `"compacted"` (or `None`). Drives the structural-pick phase of the calculator |
 | **Enabled set / Amendment library** | Per-project allowlist (`ProjectData.enabled_amendments`) of substance IDs the calculator may pick from. `None` (the default) means every bundled amendment is enabled; the user manages the allowlist via the checkbox panel inside the Amendment Plan dialog |
+| **Garden Journal** | Free-standing, map-linked notes pinned to canvas locations. Each entry carries a date, plain text, optional photo, and scene coordinates (`JournalNote` in `models/journal_note.py`); the dedicated sidebar panel supports text search and date-range filtering |
+| **Journal Pin** | The constant-screen-size `JournalPinItem` marker dropped on the canvas. Carries only the `note_id` reference; the note body lives in `ProjectData.garden_journal_notes` keyed by that id |
 | **Screen Coordinates** | Pixel coordinates on the display; converted via QGraphicsView transform |
 | **SVG** | Scalable Vector Graphics — vector image format used for icons and plant illustrations |
 | **Tileable Texture** | A small image that can be seamlessly repeated to fill any area |

@@ -38,6 +38,11 @@ class PdfReportOptions:
     include_bed_details: bool = False
     include_plant_list: bool = True
     include_legend: bool = True
+    # US-12.9: optional Garden Notes page. ``garden_journal_notes`` must be
+    # populated when ``include_garden_notes`` is True — pass the raw dict from
+    # ``ProjectManager.garden_journal_notes``. ``None`` is treated as empty.
+    include_garden_notes: bool = False
+    garden_journal_notes: dict[str, Any] | None = None
     project_name: str = "Garden Plan"
     author: str = ""
     export_date: str = field(default_factory=lambda: date.today().isoformat())
@@ -413,6 +418,149 @@ def _render_plant_list(
         )
 
 
+def _render_garden_notes(
+    painter: QPainter,
+    page_rect: QRectF,
+    _scene: CanvasScene,
+    opts: PdfReportOptions,
+) -> None:
+    """Render the Garden Notes page (US-12.9): chronological list of journal entries.
+
+    Paginates automatically — when content runs past ``page_rect.bottom()``, calls
+    ``painter.device().newPage()`` and continues on a fresh page with the same
+    "Garden Notes" header. No content is silently truncated.
+    """
+    from pathlib import Path as _Path  # noqa: PLC0415
+
+    from PyQt6.QtGui import QFontMetricsF  # noqa: PLC0415
+
+    from open_garden_planner.models.journal_note import JournalNote  # noqa: PLC0415
+
+    notes_raw = opts.garden_journal_notes or {}
+    notes: list[JournalNote] = []
+    for raw in notes_raw.values():
+        if not isinstance(raw, dict):
+            continue
+        notes.append(JournalNote.from_dict(raw))
+    notes.sort(key=lambda n: n.date or "", reverse=True)
+
+    title_font = QFont("Arial", 14)
+    title_font.setBold(True)
+    date_font = QFont("Arial", 10)
+    date_font.setBold(True)
+    body_font = QFont("Arial", 9)
+    meta_font = QFont("Arial", 8)
+    meta_font.setItalic(True)
+    body_metrics = QFontMetricsF(body_font)
+
+    title_h = _pt(14)
+    body_line_h = _pt(4.5)
+    spacing = _pt(3)
+    bottom_limit = page_rect.bottom() - _pt(2)
+
+    def _draw_header() -> float:
+        painter.setFont(title_font)
+        painter.setPen(QColor("#2e7d32"))
+        painter.drawText(
+            QRectF(page_rect.left(), page_rect.top(), page_rect.width(), title_h),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            _tr("Garden Notes"),
+        )
+        return page_rect.top() + title_h + _pt(4)
+
+    def _new_page_if_needed(current_y: float, needed: float) -> float:
+        """Open a new page when ``needed`` more vertical space won't fit."""
+        if current_y + needed <= bottom_limit:
+            return current_y
+        device = painter.device()
+        if hasattr(device, "newPage"):
+            device.newPage()
+            painter.fillRect(page_rect, QColor("white"))
+        return _draw_header()
+
+    y = _draw_header()
+
+    if not notes:
+        painter.setFont(body_font)
+        painter.setPen(QColor("#777777"))
+        painter.drawText(
+            QRectF(page_rect.left(), y, page_rect.width(), _pt(10)),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            _tr("No journal notes recorded."),
+        )
+        return
+
+    for note in notes:
+        y = _new_page_if_needed(y, _pt(6) + body_line_h)
+
+        painter.setFont(date_font)
+        painter.setPen(QColor("#333333"))
+        painter.drawText(
+            QRectF(page_rect.left(), y, page_rect.width(), _pt(6)),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            note.date or _tr("(no date)"),
+        )
+        y += _pt(6)
+
+        painter.setFont(body_font)
+        painter.setPen(QColor("#222222"))
+        text_block = note.text.strip() or _tr("(empty)")
+        paragraphs = text_block.splitlines() or [text_block]
+        for paragraph in paragraphs:
+            wrapped = _wrap_to_width(
+                paragraph or " ", page_rect.width(), body_metrics
+            )
+            for line in wrapped:
+                y = _new_page_if_needed(y, body_line_h)
+                painter.setFont(body_font)
+                painter.setPen(QColor("#222222"))
+                painter.drawText(
+                    QRectF(page_rect.left(), y, page_rect.width(), body_line_h),
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                    line,
+                )
+                y += body_line_h
+
+        if note.photo_path:
+            y = _new_page_if_needed(y, body_line_h)
+            painter.setFont(meta_font)
+            painter.setPen(QColor("#666666"))
+            painter.drawText(
+                QRectF(page_rect.left(), y, page_rect.width(), body_line_h),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                _tr("(photo: {filename})").format(
+                    filename=_Path(note.photo_path).name
+                ),
+            )
+            y += body_line_h
+
+        y += spacing
+
+
+def _wrap_to_width(
+    text: str, width_pt: float, metrics: Any
+) -> list[str]:
+    """Greedy word-wrap helper for the Garden Notes renderer."""
+    if not text:
+        return [""]
+    words = text.split()
+    if not words:
+        return [text]
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = (current + " " + word).strip()
+        if metrics.horizontalAdvance(candidate) <= width_pt - _pt(2):
+            current = candidate
+        else:
+            if current:
+                lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines
+
+
 def _render_legend(
     painter: QPainter,
     page_rect: QRectF,
@@ -637,6 +785,8 @@ class PdfReportService:
                 pages.append(("bed", bed))
         if opts.include_plant_list:
             pages.append(("plant_list", None))
+        if opts.include_garden_notes:
+            pages.append(("garden_notes", None))
         if opts.include_legend:
             pages.append(("legend", None))
 
@@ -672,6 +822,8 @@ class PdfReportService:
                     _render_bed_detail(painter, page_rect, scene, data, opts)
                 elif page_type == "plant_list":
                     _render_plant_list(painter, page_rect, scene, opts)
+                elif page_type == "garden_notes":
+                    _render_garden_notes(painter, page_rect, scene, opts)
                 elif page_type == "legend":
                     _render_legend(painter, page_rect, scene, opts)
 

@@ -204,6 +204,9 @@ class ObjectType(Enum):
     # Callout / leader line annotation
     GENERIC_CALLOUT = auto()
 
+    # Garden journal map-linked note pin (US-12.9)
+    GARDEN_JOURNAL_PIN = auto()
+
 
 @dataclass(frozen=True)
 class ObjectStyle:
@@ -483,6 +486,13 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         stroke_color=QColor(30, 30, 30, 255),
         stroke_width=1.5,
         display_name=QT_TR_NOOP("Callout"),
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.GARDEN_JOURNAL_PIN: ObjectStyle(
+        fill_color=QColor(255, 200, 0, 255),
+        stroke_color=QColor(120, 80, 0, 255),
+        stroke_width=1.0,
+        display_name=QT_TR_NOOP("Journal Pin"),
         fill_pattern=FillPattern.SOLID,
     ),
 }
