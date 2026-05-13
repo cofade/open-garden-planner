@@ -1710,3 +1710,106 @@ class SetSuccessionPlanCommand(Command):
 
     def undo(self) -> None:
         self._pm.restore_succession_plan(self._bed_id, self._old)
+
+
+class AddJournalNoteCommand(Command):
+    """Place a garden journal pin and persist its note dict — undoable (US-12.9).
+
+    Holds a reference to the pre-built :class:`JournalPinItem` so undo/redo
+    cycle the same Qt object in and out of the scene rather than recreating
+    it (matching :class:`CreateItemCommand`). The ``JournalNote`` body is
+    stored on the project manager via ``set_journal_note``.
+    """
+
+    def __init__(
+        self,
+        project_manager: "Any",
+        scene: QGraphicsScene,
+        pin_item: "Any",   # JournalPinItem
+        note: "Any",       # JournalNote
+    ) -> None:
+        self._pm = project_manager
+        self._scene = scene
+        self._pin = pin_item
+        self._note = note
+
+    @property
+    def description(self) -> str:
+        return "Add garden journal note"
+
+    def execute(self) -> None:
+        if self._pin.scene() is None:
+            self._scene.addItem(self._pin)
+        self._pm.set_journal_note(self._note)
+
+    def undo(self) -> None:
+        self._pm.delete_journal_note(self._note.id)
+        if self._pin.scene() is not None:
+            self._scene.removeItem(self._pin)
+
+
+class EditJournalNoteCommand(Command):
+    """Edit an existing journal note — undoable (US-12.9).
+
+    Snapshots the prior note dict on construction so undo restores it
+    field-for-field. If the note no longer exists at execute-time the
+    command is a no-op.
+    """
+
+    def __init__(
+        self,
+        project_manager: "Any",
+        new_note: "Any",   # JournalNote
+    ) -> None:
+        self._pm = project_manager
+        self._new_note = new_note
+        existing = self._pm.garden_journal_notes.get(new_note.id)
+        self._old_dict: dict[str, Any] | None = (
+            dict(existing) if existing is not None else None
+        )
+
+    @property
+    def description(self) -> str:
+        return "Edit garden journal note"
+
+    def execute(self) -> None:
+        if self._old_dict is None:
+            return
+        self._pm.set_journal_note(self._new_note)
+
+    def undo(self) -> None:
+        self._pm.restore_journal_note(self._new_note.id, self._old_dict)
+
+
+class DeleteJournalNoteCommand(Command):
+    """Remove a journal pin and its note dict — undoable (US-12.9)."""
+
+    def __init__(
+        self,
+        project_manager: "Any",
+        scene: QGraphicsScene,
+        pin_item: "Any",   # JournalPinItem
+    ) -> None:
+        self._pm = project_manager
+        self._scene = scene
+        self._pin = pin_item
+        self._note_id = pin_item.note_id
+        existing = self._pm.garden_journal_notes.get(self._note_id)
+        self._old_dict: dict[str, Any] | None = (
+            dict(existing) if existing is not None else None
+        )
+
+    @property
+    def description(self) -> str:
+        return "Delete garden journal note"
+
+    def execute(self) -> None:
+        self._pm.delete_journal_note(self._note_id)
+        if self._pin.scene() is not None:
+            self._scene.removeItem(self._pin)
+
+    def undo(self) -> None:
+        if self._old_dict is not None:
+            self._pm.restore_journal_note(self._note_id, self._old_dict)
+        if self._pin.scene() is None:
+            self._scene.addItem(self._pin)

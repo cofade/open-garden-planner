@@ -89,6 +89,10 @@ class MainToolbar(QToolBar):
             ToolType.CALLOUT, "callout_annotation", self.tr("Callout"),
             self.tr("Place a callout annotation with leader line"), "",
         )
+        self._add_tool_button(
+            ToolType.JOURNAL_PIN, "journal_pin", self.tr("Journal Pin"),
+            self.tr("Drop a garden-journal note pin"), "J",
+        )
 
         # Select tool is default
         self._buttons[ToolType.SELECT].setChecked(True)

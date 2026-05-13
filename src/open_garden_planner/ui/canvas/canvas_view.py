@@ -60,6 +60,7 @@ from open_garden_planner.core.tools import (
     FixedConstraintTool,
     HorizontalConstraintTool,
     HorizontalDistanceConstraintTool,
+    JournalPinTool,
     MeasureTool,
     OffsetTool,
     ParallelConstraintTool,
@@ -122,6 +123,21 @@ class CanvasView(QGraphicsView):
     # US-12.8: emitted when a bed's "Plan Succession…" action fires.
     # Args: bed_id (UUID string), display_name (informational)
     succession_plan_requested = pyqtSignal(str, str)
+    # US-12.9: emitted when the Journal Pin tool drops a new pin.
+    # Args: scene_x, scene_y (canvas coords, cm).
+    journal_note_requested = pyqtSignal(float, float)
+    # US-12.9: emitted when an existing pin is double-clicked or the user picks
+    # "Edit Note…" from its context menu. Args: note_id (string).
+    journal_note_edit_requested = pyqtSignal(str)
+    # US-12.9: emitted when an existing pin's "Delete" context-menu entry fires
+    # (single pin, with confirmation dialog).
+    journal_note_delete_requested = pyqtSignal(str)
+    # US-12.9: emitted when one or more journal pins are part of a keyboard
+    # Delete-key batch (no per-pin confirmation; matches Delete-key UX for
+    # regular items and is undoable). Args: list[str] of note ids.
+    journal_notes_batch_delete_requested = pyqtSignal(list)
+    # US-12.9: emitted when the sidebar requests viewport centering on a pin.
+    journal_note_focus_requested = pyqtSignal(str)
 
     # Zoom limits
     min_zoom: float = 0.01  # 1% - very zoomed out
@@ -273,6 +289,9 @@ class CanvasView(QGraphicsView):
 
         callout_tool = CalloutTool(self)
         self._tool_manager.register_tool(callout_tool)
+
+        journal_pin_tool = JournalPinTool(self)
+        self._tool_manager.register_tool(journal_pin_tool)
 
         # Register property object tools (polygon-based)
         house_tool = PolygonTool(self, object_type=ObjectType.HOUSE)
@@ -581,6 +600,34 @@ class CanvasView(QGraphicsView):
     def request_succession_plan(self, bed_id: str, display_name: str = "") -> None:
         """Forward a succession-plan request from a bed's context menu (US-12.8)."""
         self.succession_plan_requested.emit(bed_id, display_name or "")
+
+    def request_journal_note(self, scene_x: float, scene_y: float) -> None:
+        """Forward a new-journal-note request from :class:`JournalPinTool` (US-12.9)."""
+        self.journal_note_requested.emit(float(scene_x), float(scene_y))
+
+    def request_journal_note_edit(self, note_id: str) -> None:
+        """Forward an edit request for an existing pin's note (US-12.9)."""
+        self.journal_note_edit_requested.emit(str(note_id))
+
+    def request_journal_note_delete(self, note_id: str) -> None:
+        """Forward a delete request for an existing pin's note (US-12.9)."""
+        self.journal_note_delete_requested.emit(str(note_id))
+
+    def focus_on_journal_pin(self, note_id: str) -> None:
+        """Center the viewport on the pin matching ``note_id`` (US-12.9)."""
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+            JournalPinItem,
+        )
+
+        scene = self.scene()
+        if scene is None:
+            return
+        for item in scene.items():
+            if isinstance(item, JournalPinItem) and item.note_id == note_id:
+                self.centerOn(item.pos())
+                scene.clearSelection()
+                item.setSelected(True)
+                return
 
     @property
     def active_tool(self) -> object | None:
@@ -2979,9 +3026,25 @@ class CanvasView(QGraphicsView):
             cmd = RemoveConstraintCommand(graph, constraint)
             self._command_manager.execute(cmd)
 
-        # Then delete items
-        command = DeleteItemsCommand(self.scene(), selected)
-        self._command_manager.execute(command)
+        # Split journal pins off so each goes through DeleteJournalNoteCommand,
+        # which also prunes the matching note dict from ProjectData. Otherwise
+        # the keyboard-Delete path would orphan the note (the right-click
+        # "Delete" menu already routes correctly via the view signal).
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+            JournalPinItem,
+        )
+
+        journal_pin_ids = [
+            i.note_id for i in selected if isinstance(i, JournalPinItem)
+        ]
+        regular_items = [i for i in selected if not isinstance(i, JournalPinItem)]
+
+        if journal_pin_ids:
+            self.journal_notes_batch_delete_requested.emit(journal_pin_ids)
+
+        if regular_items:
+            command = DeleteItemsCommand(self.scene(), regular_items)
+            self._command_manager.execute(command)
 
     def _move_selected_items(self, event: QKeyEvent) -> None:
         """Move selected items based on arrow key with undo support.

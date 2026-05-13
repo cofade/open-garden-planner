@@ -52,6 +52,7 @@ from open_garden_planner.ui.panels import (
     ConstraintsPanel,
     CropRotationPanel,
     GalleryPanel,
+    JournalPanel,
     LayersPanel,
     PestOverviewPanel,
     PlantDatabasePanel,
@@ -876,6 +877,22 @@ class GardenPlannerApp(QMainWindow):
         self._project_manager.succession_plans_changed.connect(
             self._on_succession_plans_changed
         )
+        # US-12.9: Journal Pin tool + pin double-click / delete
+        self.canvas_view.journal_note_requested.connect(
+            self._on_journal_note_placement
+        )
+        self.canvas_view.journal_note_edit_requested.connect(
+            self._on_journal_note_edit
+        )
+        self.canvas_view.journal_note_delete_requested.connect(
+            self._on_journal_note_delete
+        )
+        self.canvas_view.journal_notes_batch_delete_requested.connect(
+            self._on_journal_notes_batch_delete
+        )
+        self._project_manager.garden_journal_notes_changed.connect(
+            self._on_garden_journal_notes_changed
+        )
 
         # Connect scene selection changes to status bar and panels
         self.canvas_scene.selectionChanged.connect(self._on_selection_changed)
@@ -1132,6 +1149,16 @@ class GardenPlannerApp(QMainWindow):
             expanded=True,
         )
         sidebar_layout.addWidget(self.pest_overview_collapsible)
+
+        # 10. Garden journal (US-12.9) — map-linked notes browser
+        self.journal_panel = JournalPanel()
+        self.journal_panel.note_activated.connect(self._on_journal_note_activated)
+        self.journal_collapsible = CollapsiblePanel(
+            self.tr("Garden Journal"),
+            self.journal_panel,
+            expanded=False,
+        )
+        sidebar_layout.addWidget(self.journal_collapsible)
 
         # Add stretch at the bottom to push panels to top
         sidebar_layout.addStretch()
@@ -1907,6 +1934,12 @@ class GardenPlannerApp(QMainWindow):
             include_overview=dialog.include_overview,
             include_bed_details=dialog.include_bed_details,
             include_plant_list=dialog.include_plant_list,
+            include_garden_notes=dialog.include_garden_notes,
+            garden_journal_notes=(
+                self._project_manager.garden_journal_notes
+                if dialog.include_garden_notes
+                else None
+            ),
             include_legend=dialog.include_legend,
             project_name=dialog.project_name,
             author=dialog.author,
@@ -2781,6 +2814,7 @@ class GardenPlannerApp(QMainWindow):
             "Measure": ToolType.MEASURE,
             "Text": ToolType.TEXT,
             "Callout": ToolType.CALLOUT,
+            "Journal Pin": ToolType.JOURNAL_PIN,
         }
         constraint_tool_map = {
             "Distance Constraint": ToolType.CONSTRAINT,
@@ -3407,6 +3441,148 @@ class GardenPlannerApp(QMainWindow):
             if str(getattr(item, "item_id", "")) == target_id:
                 return getattr(item, "name", "") or ""
         return ""
+
+    # ── Garden journal (US-12.9) ──────────────────────────────────────────
+
+    def _on_journal_note_placement(self, scene_x: float, scene_y: float) -> None:
+        """Open dialog for a new pin placed at ``(scene_x, scene_y)``."""
+        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+
+        from open_garden_planner.core import AddJournalNoteCommand  # noqa: PLC0415
+        from open_garden_planner.models.journal_note import JournalNote  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+            JournalPinItem,
+        )
+        from open_garden_planner.ui.dialogs.journal_note_dialog import (  # noqa: PLC0415
+            JournalNoteDialog,
+        )
+
+        note = JournalNote(scene_x=scene_x, scene_y=scene_y)
+        dialog = JournalNoteDialog(
+            parent=self,
+            note=note,
+            project_manager=self._project_manager,
+            edit_mode=False,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        result = dialog.result_note()
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None)
+            or self.canvas_view.scene()
+        )
+        if scene is None:
+            return
+        layer_id = (
+            scene.active_layer.id
+            if hasattr(scene, "active_layer") and scene.active_layer
+            else None
+        )
+        pin = JournalPinItem(
+            x=result.scene_x,
+            y=result.scene_y,
+            note_id=result.id,
+            layer_id=layer_id,
+        )
+        cmd = AddJournalNoteCommand(self._project_manager, scene, pin, result)
+        self.canvas_view.command_manager.execute(cmd)
+        self.statusBar().showMessage(self.tr("Journal note added"), 3000)
+
+    def _on_journal_note_edit(self, note_id: str) -> None:
+        """Open the dialog to edit an existing journal note."""
+        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+
+        from open_garden_planner.core import EditJournalNoteCommand  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs.journal_note_dialog import (  # noqa: PLC0415
+            JournalNoteDialog,
+        )
+
+        note = self._project_manager.get_journal_note(note_id)
+        if note is None:
+            return
+        dialog = JournalNoteDialog(
+            parent=self,
+            note=note,
+            project_manager=self._project_manager,
+            edit_mode=True,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        updated = dialog.result_note()
+        cmd = EditJournalNoteCommand(self._project_manager, updated)
+        self.canvas_view.command_manager.execute(cmd)
+
+    def _on_journal_note_delete(self, note_id: str) -> None:
+        """Confirm + remove the pin and its note."""
+        from PyQt6.QtWidgets import QMessageBox  # noqa: PLC0415
+
+        from open_garden_planner.core import DeleteJournalNoteCommand  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+            JournalPinItem,
+        )
+
+        reply = QMessageBox.question(
+            self,
+            self.tr("Delete journal note"),
+            self.tr("Delete this journal note?"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None)
+            or self.canvas_view.scene()
+        )
+        if scene is None:
+            return
+        for item in scene.items():
+            if isinstance(item, JournalPinItem) and item.note_id == note_id:
+                cmd = DeleteJournalNoteCommand(self._project_manager, scene, item)
+                self.canvas_view.command_manager.execute(cmd)
+                return
+
+    def _on_journal_notes_batch_delete(self, note_ids: list[str]) -> None:
+        """Keyboard-Delete batch: drop pins + notes for every id, no per-pin prompt.
+
+        Matches the Delete-key UX for regular items (no confirmation; undo is
+        available). The right-click "Delete" path stays single-pin + confirmed.
+        """
+        from open_garden_planner.core import DeleteJournalNoteCommand  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+            JournalPinItem,
+        )
+
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None)
+            or self.canvas_view.scene()
+        )
+        if scene is None:
+            return
+        pins_by_id: dict[str, JournalPinItem] = {
+            item.note_id: item
+            for item in scene.items()
+            if isinstance(item, JournalPinItem)
+        }
+        for note_id in note_ids:
+            pin = pins_by_id.get(note_id)
+            if pin is None:
+                continue
+            self.canvas_view.command_manager.execute(
+                DeleteJournalNoteCommand(self._project_manager, scene, pin)
+            )
+
+    def _on_journal_note_activated(self, note_id: str) -> None:
+        """Sidebar double-click → centre viewport on pin + open editor."""
+        self.canvas_view.focus_on_journal_pin(note_id)
+        self._on_journal_note_edit(note_id)
+
+    def _on_garden_journal_notes_changed(self, notes: object) -> None:
+        """Refresh the sidebar panel when notes change (added / edited / removed)."""
+        panel = getattr(self, "journal_panel", None)
+        if panel is None or not isinstance(notes, dict):
+            return
+        panel.refresh(notes)
 
     def _refresh_pest_overview(self) -> None:
         """Rebuild the Active Pest/Disease Issues panel (US-12.7)."""

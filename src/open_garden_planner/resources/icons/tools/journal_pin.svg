@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- Map pin: rounded body on top, tip at bottom -->
+  <path d="M32 8 C42 8 50 16 50 26 C50 38 32 56 32 56 C32 56 14 38 14 26 C14 16 22 8 32 8 Z"
+        fill="#FFC800" stroke="#785000" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Inner dot -->
+  <circle cx="32" cy="25" r="5" fill="#3C2800"/>
+</svg>

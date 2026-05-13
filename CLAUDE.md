@@ -144,21 +144,21 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
-1. Check **Phase 11 or Phase 12 progress table** below for next unchecked US
-2. Read user story in `docs/roadmap.md`
-3. Check `git status` and recent git history
-4. Create feature branch and implement
+1. Phases 1–12 are complete (see progress table below). Next milestone = **Phase 13 (v2.0)** — 3D Visualization & Sun/Shade.
+2. Read the relevant section in `docs/roadmap.md` for the user story or follow-up issue you're tackling.
+3. Check `git status` and recent git history (`git log --oneline -20`).
+4. Create feature branch and implement.
 
 **Maintaining this file:** Update progress table when US status changes; add new patterns when discovered; keep Quick Reference commands current.
 
-## Phases 1-11 Complete
+## Phases 1-12 Complete
 
-All user stories from Phase 1 through Phase 11 are delivered.
+All user stories from Phase 1 through Phase 12 are delivered (verified per-US against code).
 Full history: see `docs/roadmap.md`.
 
 > **Version note**: CI release workflow (`release.yml`) is the sole source of truth for versions. Never create git tags manually.
 
-## Progress (Phase 12: Weather & Smart Features v1.9.x)
+## Phase 12 ✅ Complete (v1.9.0 – v1.10.x)
 
 | Status | US    | Description                              | Block              |
 | ------ | ----- | ---------------------------------------- | ------------------ |
@@ -170,12 +170,11 @@ Full history: see `docs/roadmap.md`.
 | ✅     | 12.6  | Shopping list generation                 | Smart Features     |
 | ✅     | 12.7  | Pest & disease log                       | Smart Features     |
 | ✅     | 12.8  | Succession planting                      | Smart Features     |
-|        | 12.9  | Garden journal (map-linked notes)        | Smart Features     |
+| ✅     | 12.9  | Garden journal (map-linked notes)        | Smart Features     |
 | ✅     | 12.10 | Soil health tracking & amendment calc    | Smart Features (all 5 sub-stories complete) |
 | ✅     | 12.11 | Smart amendment composition + toggleable library + soil texture | Smart Features |
 
-> **US-12.10 implementation details**: `docs/roadmap.md` § "US-12.10: Soil Health Tracking & Amendment Calculator"
-> Sub-stories (execute in order): **12.10a** data model + entry → **12.10b** canvas overlay → **12.10c** amendment calculator → **12.10d** plant-soil warnings → **12.10e** history + seasonal badge
+Next: **Phase 13 (v2.0)** — 3D Visualization & Sun/Shade (Future). See `docs/roadmap.md`.
 
 ## Phase 12 issue work
 

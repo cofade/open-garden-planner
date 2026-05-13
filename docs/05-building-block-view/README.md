@@ -73,6 +73,7 @@ src/open_garden_planner/
 │   ├── layer.py                  # Layer model
 │   ├── soil_test.py              # SoilTestRecord & SoilTestHistory (US-12.10a)
 │   ├── pest_log.py               # PestLogRecord & PestLogHistory (US-12.7)
+│   ├── journal_note.py           # JournalNote — map-linked notes (US-12.9)
 │   └── amendment.py              # Amendment & AmendmentRecommendation (US-12.10c)
 ├── ui/
 │   ├── canvas/
@@ -94,7 +95,8 @@ src/open_garden_planner/
 │   │   ├── gallery_panel.py      # Thumbnail gallery sidebar
 │   │   ├── plant_database_panel.py
 │   │   ├── plant_search_panel.py
-│   │   └── pest_overview_panel.py # Active pest/disease overview (US-12.7)
+│   │   ├── pest_overview_panel.py # Active pest/disease overview (US-12.7)
+│   │   └── journal_panel.py      # Garden-journal browser w/ search + date range (US-12.9)
 │   ├── dialogs/
 │   │   ├── new_project_dialog.py
 │   │   ├── welcome_dialog.py
@@ -107,7 +109,7 @@ src/open_garden_planner/
 │   │   ├── plant_search_dialog.py
 │   │   ├── shopping_list_dialog.py # Garden→Shopping List dialog (US-12.6)
 │   │   ├── pest_log_dialog.py    # Pest/disease log entry (US-12.7)
-
+│   │   ├── journal_note_dialog.py # Garden-journal note editor (US-12.9)
 │   │   └── properties_dialog.py
 │   ├── widgets/
 │   │   ├── toolbar.py            # MainToolbar

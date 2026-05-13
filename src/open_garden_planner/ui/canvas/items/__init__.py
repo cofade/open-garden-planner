@@ -7,6 +7,7 @@ from .construction_item import ConstructionCircleItem, ConstructionLineItem
 from .ellipse_item import EllipseItem
 from .garden_item import GardenItemMixin
 from .group_item import GroupItem
+from .journal_pin_item import JournalPinItem
 from .polygon_item import PolygonItem
 from .polyline_item import PolylineItem
 from .rectangle_item import RectangleItem
@@ -24,6 +25,7 @@ __all__ = [
     "GardenItemMixin",
     "GroupItem",
     "HandlePosition",
+    "JournalPinItem",
     "PolygonItem",
     "PolylineItem",
     "RectangleItem",

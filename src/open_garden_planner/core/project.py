@@ -70,6 +70,10 @@ class ProjectData:
     # shape: {bed_id: SuccessionPlan.to_dict()} where bed_id is a bed UUID string
     succession_plans: dict[str, Any] = field(default_factory=dict)
 
+    # US-12.9: garden journal map-linked notes
+    # shape: {note_id: JournalNote.to_dict()}; canvas pins reference notes by id
+    garden_journal_notes: dict[str, Any] = field(default_factory=dict)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         data: dict[str, Any] = {
@@ -117,6 +121,8 @@ class ProjectData:
             data["prefer_organic"] = False
         if self.succession_plans:
             data["succession_plans"] = self.succession_plans
+        if self.garden_journal_notes:
+            data["garden_journal_notes"] = self.garden_journal_notes
         return data
 
     @classmethod
@@ -145,6 +151,7 @@ class ProjectData:
             enabled_amendments=data.get("enabled_amendments"),
             prefer_organic=bool(data.get("prefer_organic", True)),
             succession_plans=data.get("succession_plans", {}),
+            garden_journal_notes=data.get("garden_journal_notes", {}),
         )
 
 
@@ -172,6 +179,7 @@ class ProjectManager(QObject):
     enabled_amendments_changed = pyqtSignal(object)  # list[str] or None
     prefer_organic_changed = pyqtSignal(bool)
     succession_plans_changed = pyqtSignal(object)  # dict[str, dict]
+    garden_journal_notes_changed = pyqtSignal(object)  # dict[str, dict]
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -193,6 +201,7 @@ class ProjectManager(QObject):
         self._enabled_amendments: list[str] | None = None
         self._prefer_organic: bool = True
         self._succession_plans: dict[str, Any] = {}
+        self._garden_journal_notes: dict[str, Any] = {}
 
     @property
     def current_file(self) -> Path | None:
@@ -487,6 +496,67 @@ class ProjectManager(QObject):
         self.succession_plans_changed.emit(self._succession_plans)
         self.mark_dirty()
 
+    @property
+    def garden_journal_notes(self) -> dict[str, Any]:
+        """Per-note garden journal entry dicts (US-12.9) keyed by note UUID string."""
+        return dict(self._garden_journal_notes)
+
+    def get_journal_note(self, note_id: str) -> Any:
+        """Return the ``JournalNote`` for ``note_id`` (``None`` when absent)."""
+        from open_garden_planner.models.journal_note import JournalNote  # noqa: PLC0415
+
+        raw = self._garden_journal_notes.get(note_id)
+        if raw is None:
+            return None
+        return JournalNote.from_dict(raw)
+
+    def set_journal_note(self, note: Any) -> None:
+        """Insert or replace a journal note keyed by ``note.id``; mark project dirty."""
+        self._garden_journal_notes[note.id] = note.to_dict()
+        self.garden_journal_notes_changed.emit(self._garden_journal_notes)
+        self.mark_dirty()
+
+    def delete_journal_note(self, note_id: str) -> None:
+        """Remove a journal note and mark project dirty (no-op when absent)."""
+        if note_id not in self._garden_journal_notes:
+            return
+        self._garden_journal_notes.pop(note_id, None)
+        self.garden_journal_notes_changed.emit(self._garden_journal_notes)
+        self.mark_dirty()
+
+    def restore_journal_note(
+        self, note_id: str, note_dict: dict[str, Any] | None
+    ) -> None:
+        """Restore (or delete) a journal note for undo/redo."""
+        if note_dict is None:
+            self._garden_journal_notes.pop(note_id, None)
+        else:
+            self._garden_journal_notes[note_id] = note_dict
+        self.garden_journal_notes_changed.emit(self._garden_journal_notes)
+        self.mark_dirty()
+
+    def _sync_journal_note_positions(self, scene: QGraphicsScene) -> None:
+        """Copy each ``JournalPinItem.pos()`` into its matching note dict (US-12.9).
+
+        The pin's position is updated by the standard Qt drag pathway, but the
+        ``JournalNote`` model also carries scene coordinates (used at load time
+        to recreate pins, and exposed to headless consumers). Without this
+        save-time reconciliation, a dragged pin's note would stay stuck at its
+        original placement coordinates after save/reload.
+        """
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+            JournalPinItem,
+        )
+
+        for item in scene.items():
+            if not isinstance(item, JournalPinItem):
+                continue
+            raw = self._garden_journal_notes.get(item.note_id)
+            if raw is None:
+                continue
+            raw["scene_x"] = item.pos().x()
+            raw["scene_y"] = item.pos().y()
+
     def set_location(self, location: dict[str, Any] | None) -> None:
         """Set the garden location and mark project as dirty.
 
@@ -529,6 +599,7 @@ class ProjectManager(QObject):
         self._enabled_amendments = None
         self._prefer_organic = True
         self._succession_plans = {}
+        self._garden_journal_notes = {}
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
@@ -545,6 +616,7 @@ class ProjectManager(QObject):
         self.enabled_amendments_changed.emit(None)
         self.prefer_organic_changed.emit(True)
         self.succession_plans_changed.emit({})
+        self.garden_journal_notes_changed.emit({})
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -573,6 +645,11 @@ class ProjectManager(QObject):
         )
         data.prefer_organic = self._prefer_organic
         data.succession_plans = dict(self._succession_plans)
+        # US-12.9: the pin's pos() on the canvas is the source of truth for
+        # journal-note coordinates; sync each note dict's scene_x/y from the
+        # matching pin before serialising so dragged pins round-trip cleanly.
+        self._sync_journal_note_positions(scene)
+        data.garden_journal_notes = dict(self._garden_journal_notes)
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -642,6 +719,9 @@ class ProjectManager(QObject):
         # Restore succession plans (US-12.8)
         self._succession_plans = dict(data.succession_plans)
         self.succession_plans_changed.emit(self._succession_plans)
+        # Restore garden journal notes (US-12.9)
+        self._garden_journal_notes = dict(data.garden_journal_notes)
+        self.garden_journal_notes_changed.emit(self._garden_journal_notes)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)
@@ -700,6 +780,14 @@ class ProjectManager(QObject):
                 obj for obj in current_data.objects
                 if not self._is_removable_plant_object(obj)
             ]
+
+        # US-12.9: garden-journal notes are date-pinned historical records; the
+        # previous season file keeps them, the new season starts with a blank
+        # journal. Drop both the canvas pins and the body dicts.
+        current_data.objects = [
+            obj for obj in current_data.objects if obj.get("type") != "journal_pin"
+        ]
+        current_data.garden_journal_notes = {}
 
         # Build linked_seasons: include all previous links + current season
         linked = list(self._linked_seasons)
@@ -1140,6 +1228,10 @@ class ProjectManager(QObject):
         if isinstance(item, CalloutItem):
             return item.to_dict()
 
+        from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
+        if isinstance(item, JournalPinItem):
+            return item.to_dict()
+
         from open_garden_planner.ui.canvas.items.group_item import GroupItem
         if isinstance(item, GroupItem):
             children: list[dict[str, Any]] = []
@@ -1184,6 +1276,7 @@ class ProjectManager(QObject):
             scene._dimension_line_manager.clear()
 
         # Clear existing items (including construction geometry)
+        from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
         for item in list(scene.items()):
             if isinstance(
                 item,
@@ -1196,6 +1289,7 @@ class ProjectManager(QObject):
                     BackgroundImageItem,
                     ConstructionLineItem,
                     ConstructionCircleItem,
+                    JournalPinItem,
                 ),
             ):
                 scene.removeItem(item)
@@ -1597,4 +1691,9 @@ class ProjectManager(QObject):
         elif obj_type == "callout":
             from open_garden_planner.ui.canvas.items.callout_item import CalloutItem
             return CalloutItem.from_dict(obj)
+        elif obj_type == "journal_pin":
+            from open_garden_planner.ui.canvas.items.journal_pin_item import (
+                JournalPinItem,
+            )
+            return JournalPinItem.from_dict(obj)
         return None

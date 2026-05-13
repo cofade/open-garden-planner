@@ -20,6 +20,7 @@ from .constraint_tool import (
 )
 from .construction_tool import ConstructionCircleTool, ConstructionLineTool
 from .ellipse_tool import EllipseTool
+from .journal_pin_tool import JournalPinTool
 from .measure_tool import MeasureTool
 from .offset_tool import OffsetTool
 from .polygon_tool import PolygonTool
@@ -45,6 +46,7 @@ __all__ = [
     "ConstructionLineTool",
     "HorizontalConstraintTool",
     "HorizontalDistanceConstraintTool",
+    "JournalPinTool",
     "MeasureTool",
     "OffsetTool",
     "ParallelConstraintTool",

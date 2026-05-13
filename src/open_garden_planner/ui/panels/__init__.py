@@ -4,6 +4,7 @@ from .companion_panel import CompanionPanel
 from .constraints_panel import ConstraintsPanel
 from .crop_rotation_panel import CropRotationPanel
 from .gallery_panel import GalleryPanel
+from .journal_panel import JournalPanel
 from .layers_panel import LayersPanel
 from .pest_overview_panel import PestOverviewPanel
 from .plant_database_panel import PlantDatabasePanel
@@ -15,6 +16,7 @@ __all__ = [
     "ConstraintsPanel",
     "CropRotationPanel",
     "GalleryPanel",
+    "JournalPanel",
     "LayersPanel",
     "PestOverviewPanel",
     "PlantDatabasePanel",

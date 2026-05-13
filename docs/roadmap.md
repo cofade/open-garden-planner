@@ -15,8 +15,8 @@
 | **8** | **v1.7 – v1.8.3** | **✅ Complete** | **Location, Climate & Planting Calendar** |
 | **9** | **v1.8.5 – v1.8.6** | **✅ Complete** | **Seed Inventory & Propagation Planning** |
 | **10** | **v1.8.6 – v1.8.12** | **✅ Complete** | **Companion Planting & Crop Rotation** |
-| **11** | **v1.8.13+** | **🔨 In Progress** | **Bed Interior Design, Visual Polish & Advanced 2D Tools** |
-| 12 | v1.9.0 | Future | Weather & Smart Features |
+| **11** | **v1.8.13+** | **✅ Complete** | **Bed Interior Design, Visual Polish & Advanced 2D Tools** |
+| **12** | **v1.9.0 – v1.10.x** | **✅ Complete** | **Weather & Smart Features** |
 | 13 | v2.0 | Future | 3D Visualization & Sun/Shade |
 | 14 | v2.1+ | Future | Platform & Community |
 
@@ -1292,9 +1292,17 @@ Icon designs per tool:
 
 ---
 
-## Phase 11: Bed Interior Design, Visual Polish & Advanced 2D Tools (v1.8.x)
+## Phase 11: Bed Interior Design, Visual Polish & Advanced 2D Tools (v1.8.x) ✅ Complete
 
 **Goal**: Perfect the 2D garden planning experience — bed interior design, visual polish, annotations, shape operations, drawing tools, interoperability, and workflow improvements.
+
+> **Status (audited 2026-05-13)**: All Phase 11 user stories shipped. Per-US verification against code:
+> US-11.1 ✅ `_parent_bed_id` in `garden_item.py`; 11.2 ✅ `_spacing_radius_cm`; 11.3 ✅ `_grid_enabled`;
+> 11.5 ✅ 22 textures in `resources/textures/`; 11.6 ✅ 108 species SVGs in `resources/plants/species/`;
+> 11.7 ✅ `minimap_widget.py`; 11.8 ✅ `text_item.py` + `text_tool.py`; 11.9 ✅ `area_label_visible`;
+> 11.10 ✅ `callout_item.py`; 11.11 ✅ `group_item.py`; 11.12 ✅ `BooleanShapeCommand`;
+> 11.13 ✅ `ArrayAlongPathCommand`; 11.14 ✅ `ellipse_item.py`; 11.15 ✅ `offset_tool.py`;
+> 11.16 ✅ `trim_tool.py`; 11.24 ✅ `find_replace_panel.py`.
 
 ### Block 1: Bed Interior Design (Top Priority)
 
@@ -1706,24 +1714,23 @@ Features identified through competitive analysis of 15+ CAD tools (LibreCAD, QCA
 
 ---
 
-## Phase 12: Weather & Smart Features (v1.9.0)
+## Phase 12: Weather & Smart Features (v1.9.0 – v1.10.x) ✅ Complete
 
-**Goal**: Bring live weather data into the garden planning workflow — forecast-based watering decisions and plant-aware frost warnings, fetched at startup via Open-Meteo (no API key required).
+**Goal**: Bring live weather data into the garden planning workflow — forecast-based watering decisions and plant-aware frost warnings, fetched at startup via Open-Meteo (no API key required) — plus interoperability (DXF, multi-page PDF) and smart features (shopping list, pest/disease log, succession planting, garden journal, soil health & amendments).
 
-| ID | User Story | Priority | Status |
-|----|------------|----------|--------|
-| US-12.1 | Weather forecast widget in Dashboard | Must | ✅ |
-| US-12.2 | Frost alert & plant-aware warnings | Must | ✅ |
-| US-12.3 | DXF export | Should | ✅ |
-| US-12.4 | DXF import | Should | ✅ |
-| US-12.5 | Multi-page PDF export | Should | ✅ |
-| US-12.6 | Shopping list generation | Could | ✅ |
-| US-12.7 | Pest & disease log | Could | ✅ |
-| US-12.7 | Pest & disease log | Could | |
-
-| US-12.8 | Succession planting | Could | |
-| US-12.9 | Garden journal (map-linked notes) | Could | |
-| US-12.10 | Soil health tracking & amendment calculator | Must | ✅ |
+| ID       | User Story                                  | Priority | Status |
+|----------|---------------------------------------------|----------|--------|
+| US-12.1  | Weather forecast widget in Dashboard         | Must     | ✅     |
+| US-12.2  | Frost alert & plant-aware warnings           | Must     | ✅     |
+| US-12.3  | DXF export                                   | Should   | ✅     |
+| US-12.4  | DXF import                                   | Should   | ✅     |
+| US-12.5  | Multi-page PDF export                        | Should   | ✅     |
+| US-12.6  | Shopping list generation                     | Could    | ✅     |
+| US-12.7  | Pest & disease log                           | Could    | ✅     |
+| US-12.8  | Succession planting                          | Could    | ✅     |
+| US-12.9  | Garden journal (map-linked notes)            | Could    | ✅     |
+| US-12.10 | Soil health tracking & amendment calculator  | Must     | ✅     |
+| US-12.11 | Smart amendment composition + library toggle | Should   | ✅     |
 
 ### US-12.1: Weather Forecast Widget
 
