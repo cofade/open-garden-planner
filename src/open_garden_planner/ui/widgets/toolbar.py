@@ -1,4 +1,8 @@
-"""Main toolbar with core drawing and selection tools (CAD-style)."""
+"""Main toolbar with core drawing and selection tools (CAD-style).
+
+Object-category dropdowns and the global object search live in the
+separate `CategoryToolbar`, added to the right of the constraint toolbar.
+"""
 
 from pathlib import Path
 
@@ -18,10 +22,7 @@ _ICONS_DIR = Path(__file__).parent.parent.parent / "resources" / "icons" / "tool
 
 
 class MainToolbar(QToolBar):
-    """CAD-style top toolbar with core tools: Select, Measure, basic shapes.
-
-    All garden-specific objects (structures, plants, surfaces, etc.) live
-    in the Object Gallery sidebar panel instead.
+    """CAD-style top toolbar with core tools: Select, Measure, annotations.
 
     Signals:
         tool_selected: Emitted when a tool button is clicked (ToolType)
@@ -30,11 +31,6 @@ class MainToolbar(QToolBar):
     tool_selected = pyqtSignal(ToolType)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        """Initialize the toolbar.
-
-        Args:
-            parent: Parent widget
-        """
         super().__init__(self.tr("Tools"), parent)
 
         self._button_group = QButtonGroup(self)
@@ -45,14 +41,6 @@ class MainToolbar(QToolBar):
         self._connect_signals()
 
     def _load_icon(self, icon_name: str) -> QIcon | None:
-        """Load an SVG icon from the tools icon directory.
-
-        Args:
-            icon_name: SVG filename without extension
-
-        Returns:
-            QIcon if found, None otherwise
-        """
         svg_path = _ICONS_DIR / f"{icon_name}.svg"
         if not svg_path.exists():
             return None
@@ -67,12 +55,10 @@ class MainToolbar(QToolBar):
         return QIcon(pixmap)
 
     def _setup_toolbar(self) -> None:
-        """Create tool buttons."""
         self.setMovable(False)
         self.setOrientation(Qt.Orientation.Horizontal)
         self.setIconSize(QSize(24, 24))
 
-        # --- Selection & Measurement ---
         self._add_tool_button(
             ToolType.SELECT, "select", self.tr("Select (V)"),
             self.tr("Select and move objects"), "V",
@@ -94,7 +80,6 @@ class MainToolbar(QToolBar):
             self.tr("Drop a garden-journal note pin"), "J",
         )
 
-        # Select tool is default
         self._buttons[ToolType.SELECT].setChecked(True)
 
     def _add_tool_button(
@@ -105,20 +90,10 @@ class MainToolbar(QToolBar):
         tooltip: str,
         shortcut: str,
     ) -> None:
-        """Add a tool button with icon and tooltip.
-
-        Args:
-            tool_type: The tool type this button activates
-            icon_name: SVG icon filename (without .svg)
-            label: Short label for the button
-            tooltip: Detailed tooltip text
-            shortcut: Keyboard shortcut letter
-        """
         button = QToolButton()
         button.setCheckable(True)
         button.setToolTip(f"{tooltip} ({shortcut})" if shortcut else tooltip)
 
-        # Load SVG icon
         icon = self._load_icon(icon_name)
         if icon:
             button.setIcon(icon)
@@ -137,25 +112,11 @@ class MainToolbar(QToolBar):
         self.addWidget(button)
 
     def _connect_signals(self) -> None:
-        """Connect button signals."""
         for tool_type, button in self._buttons.items():
             button.clicked.connect(
-                lambda _checked, tt=tool_type: self._on_button_clicked(tt)
+                lambda _checked, tt=tool_type: self.tool_selected.emit(tt)
             )
 
-    def _on_button_clicked(self, tool_type: ToolType) -> None:
-        """Handle button click.
-
-        Args:
-            tool_type: The tool type that was selected
-        """
-        self.tool_selected.emit(tool_type)
-
     def set_active_tool(self, tool_type: ToolType) -> None:
-        """Update the toolbar to reflect the active tool.
-
-        Args:
-            tool_type: The currently active tool
-        """
         if tool_type in self._buttons:
             self._buttons[tool_type].setChecked(True)

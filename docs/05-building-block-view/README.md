@@ -92,7 +92,6 @@ src/open_garden_planner/
 │   │   ├── drawing_tools_panel.py
 │   │   ├── properties_panel.py
 │   │   ├── layers_panel.py
-│   │   ├── gallery_panel.py      # Thumbnail gallery sidebar
 │   │   ├── plant_database_panel.py
 │   │   ├── plant_search_panel.py
 │   │   ├── pest_overview_panel.py # Active pest/disease overview (US-12.7)
@@ -112,7 +111,12 @@ src/open_garden_planner/
 │   │   ├── journal_note_dialog.py # Garden-journal note editor (US-12.9)
 │   │   └── properties_dialog.py
 │   ├── widgets/
-│   │   ├── toolbar.py            # MainToolbar
+│   │   ├── toolbar.py            # MainToolbar (5 CAD-style core tools)
+│   │   ├── constraint_toolbar.py # ConstraintToolbar (CAD constraints)
+│   │   ├── category_toolbar.py   # CategoryToolbar (10 category dropdowns + global search) (ADR-018)
+│   │   ├── category_dropdown.py  # Popup palette under each category button (ADR-018)
+│   │   ├── global_search.py      # Toolbar object search across all categories (ADR-018)
+│   │   ├── gallery_data.py       # Source of truth for placeable objects (ADR-018)
 │   │   └── collapsible_panel.py
 │   └── theme.py                  # Light/Dark theme system
 ├── services/

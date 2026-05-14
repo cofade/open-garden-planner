@@ -51,7 +51,6 @@ from open_garden_planner.ui.panels import (
     CompanionPanel,
     ConstraintsPanel,
     CropRotationPanel,
-    GalleryPanel,
     JournalPanel,
     LayersPanel,
     PestOverviewPanel,
@@ -63,6 +62,7 @@ from open_garden_planner.ui.theme import ThemeMode, apply_theme
 from open_garden_planner.ui.views.planting_calendar_view import PlantingCalendarView
 from open_garden_planner.ui.views.seed_inventory_view import SeedInventoryView
 from open_garden_planner.ui.widgets import (
+    CategoryToolbar,
     CollapsiblePanel,
     ConstraintToolbar,
     MainToolbar,
@@ -137,6 +137,12 @@ class GardenPlannerApp(QMainWindow):
 
         self.setMinimumSize(800, 600)
 
+        # Persistent UI state (window geometry, splitter, collapsible panels)
+        from open_garden_planner.app.ui_state import UiStateStore
+        self._ui_state = UiStateStore()
+        # Maps a stable key → CollapsiblePanel for save-on-toggle wiring.
+        self._tracked_panels: dict[str, CollapsiblePanel] = {}
+
         # Project manager for save/load
         self._project_manager = ProjectManager(self)
         self._project_manager.project_changed.connect(self._update_window_title)
@@ -149,6 +155,7 @@ class GardenPlannerApp(QMainWindow):
         self._setup_menu_bar()
         self._setup_status_bar()
         self._setup_central_widget()
+        self._restore_ui_state()
 
         # Set up auto-save manager
         self._setup_autosave()
@@ -160,8 +167,10 @@ class GardenPlannerApp(QMainWindow):
         # Initial window title
         self._update_window_title()
 
-        # Show maximized and fit canvas after window is fully displayed
-        self.showMaximized()
+        # First-launch fallback: maximize. On subsequent launches the persisted
+        # geometry from _restore_ui_state() above is honoured instead.
+        if not self._geometry_restored:
+            self.showMaximized()
         QTimer.singleShot(100, self.canvas_view.fit_in_view)
 
         # Check for recovery files after UI is fully loaded
@@ -803,13 +812,18 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_scene = CanvasScene(width_cm=5000, height_cm=3000)
         self.canvas_view = CanvasView(self.canvas_scene)
 
-        # Add CAD-style top toolbar (Select, Measure)
+        # Three top toolbars on the same row, left → right:
+        #   MainToolbar (core tools)
+        #   ConstraintToolbar (CAD constraints)
+        #   CategoryToolbar (object categories + global search)
         self.main_toolbar = MainToolbar(self)
         self.addToolBar(self.main_toolbar)
 
-        # Add constraint toolbar (all constraint tools, FreeCAD-style)
         self.constraint_toolbar = ConstraintToolbar(self)
         self.addToolBar(self.constraint_toolbar)
+
+        self.category_toolbar = CategoryToolbar(self)
+        self.addToolBar(self.category_toolbar)
 
         # ── Companion planting service (shared by sidebar panel and highlights) ─
         self._companion_service = CompanionPlantingService()
@@ -832,14 +846,15 @@ class GardenPlannerApp(QMainWindow):
         self._setup_sidebar()
 
         # Create splitter for canvas and sidebar
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self.canvas_view)
-        splitter.addWidget(self.sidebar)
-        splitter.setStretchFactor(0, 1)  # Canvas takes most space
-        splitter.setStretchFactor(1, 0)  # Sidebar fixed width
-        splitter.setHandleWidth(1)  # Minimal splitter handle
+        self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._main_splitter.addWidget(self.canvas_view)
+        self._main_splitter.addWidget(self.sidebar)
+        self._main_splitter.setStretchFactor(0, 1)  # Canvas takes most space
+        self._main_splitter.setStretchFactor(1, 0)  # Sidebar fixed width
+        self._main_splitter.setHandleWidth(1)  # Minimal splitter handle
         # Set initial sizes: give sidebar 450px, canvas gets the rest
-        splitter.setSizes([1000, 450])
+        self._main_splitter.setSizes([1000, 450])
+        splitter = self._main_splitter
 
         # Connect canvas signals to status bar updates
         self.canvas_view.coordinates_changed.connect(self.update_coordinates)
@@ -849,11 +864,12 @@ class GardenPlannerApp(QMainWindow):
         self.grid_action.triggered.connect(self._on_toggle_grid)
         self.snap_action.triggered.connect(self._on_toggle_snap)
 
-        # Connect toolbar and gallery to canvas view
+        # Connect toolbars to canvas view: core tools, constraints, and the
+        # category dropdowns + global search live on three separate toolbars.
         self.main_toolbar.tool_selected.connect(self._on_tool_selected)
         self.constraint_toolbar.tool_selected.connect(self._on_tool_selected)
-        self.gallery_panel.tool_selected.connect(self._on_tool_selected)
-        self.gallery_panel.item_selected.connect(self._on_gallery_item_selected)
+        self.category_toolbar.tool_selected.connect(self._on_tool_selected)
+        self.category_toolbar.item_selected.connect(self._on_gallery_item_selected)
         self.canvas_view.tool_changed.connect(self.update_tool)
         self.canvas_view.tool_changed.connect(self._sync_toolbar_state)
         self.canvas_view.import_background_image_requested.connect(
@@ -1038,12 +1054,8 @@ class GardenPlannerApp(QMainWindow):
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(4)
 
-        # 1. Object Gallery Panel (collapsible) - visual thumbnail gallery
-        self.gallery_panel = GalleryPanel()
-        gallery_collapsible = CollapsiblePanel(self.tr("Object Gallery"), self.gallery_panel, expanded=True)
-        sidebar_layout.addWidget(gallery_collapsible)
-
-        # 2. Properties Panel (collapsible)
+        # Properties Panel (collapsible) - first in the sidebar since the
+        # Object Gallery moved into the top toolbar (category dropdowns).
         self.properties_panel = PropertiesPanel(
             command_manager=self.canvas_view.command_manager
         )
@@ -1159,6 +1171,40 @@ class GardenPlannerApp(QMainWindow):
             expanded=False,
         )
         sidebar_layout.addWidget(self.journal_collapsible)
+
+        # Reorder so selection-related panels sit directly under Properties.
+        # Done via layout manipulation to keep the per-panel construction
+        # blocks above readable and avoid Unicode-sensitive source edits.
+        target_order: list[tuple[str, CollapsiblePanel]] = [
+            ("properties", props_panel),
+            ("plant_details", self.plant_details_collapsible),
+            ("companion", self.companion_collapsible),
+            ("crop_rotation", self.crop_rotation_collapsible),
+            ("layers", layers_panel),
+            ("constraints", constraints_collapsible),
+            ("pest_overview", self.pest_overview_collapsible),
+            ("plant_search", plant_search_collapsible),
+            ("journal", self.journal_collapsible),
+        ]
+        for _key, panel in target_order:
+            sidebar_layout.removeWidget(panel)
+        for _key, panel in target_order:
+            sidebar_layout.addWidget(panel)
+
+        # Register tracked panels so UiStateStore can restore their
+        # expanded/collapsed state and live-save on every toggle.
+        # Selection-conditional panels (plant_details, companion,
+        # crop_rotation) are registered for reorder but NOT live-saved —
+        # their visibility is driven by selection, persisting a collapsed
+        # state would surprise the user next time the panel appears.
+        _selection_conditional = {"plant_details", "companion", "crop_rotation"}
+        for key, panel in target_order:
+            self._tracked_panels[key] = panel
+            if key in _selection_conditional:
+                continue
+            panel.expanded_changed.connect(
+                lambda expanded, k=key: self._ui_state.save_panel_state(k, expanded)
+            )
 
         # Add stretch at the bottom to push panels to top
         sidebar_layout.addStretch()
@@ -2000,6 +2046,8 @@ class GardenPlannerApp(QMainWindow):
     def closeEvent(self, event: QCloseEvent) -> None:
         """Handle window close - prompt to save if dirty."""
         if self._confirm_discard_changes():
+            # Persist window/splitter/panel state before tearing down.
+            self._save_ui_state()
             # Stop auto-save timer
             self._autosave_manager.stop()
             # Clear auto-save file (user chose to save or discard)
@@ -2007,6 +2055,37 @@ class GardenPlannerApp(QMainWindow):
             event.accept()
         else:
             event.ignore()
+
+    def _restore_ui_state(self) -> None:
+        """Restore persisted window geometry, splitter sizes, and panel state.
+
+        Sets ``self._geometry_restored`` so the caller can decide whether to
+        fall back to ``showMaximized()`` on a fresh install.
+        """
+        self._geometry_restored = self._ui_state.restore_geometry(self)
+        self._ui_state.restore_splitter("main", self._main_splitter)
+        # Skip persistence for selection-conditional panels — they are
+        # toggled visible/invisible programmatically, so persisting a user-
+        # collapsed state would surprise them on the next selection.
+        skip_persist = {"plant_details", "companion", "crop_rotation"}
+        for key, panel in self._tracked_panels.items():
+            if key in skip_persist:
+                continue
+            restored = self._ui_state.restore_panel_state(key, panel.is_expanded())
+            if restored != panel.is_expanded():
+                panel.set_expanded(restored, emit=False)
+
+    def _save_ui_state(self) -> None:
+        """Persist current window geometry, splitter sizes, and panel state."""
+        self._ui_state.save_geometry(self)
+        self._ui_state.save_splitter("main", self._main_splitter)
+        # Match the skip-list in _restore_ui_state — these panels are
+        # selection-driven, not user-driven, so we do not persist them.
+        skip_persist = {"plant_details", "companion", "crop_rotation"}
+        for key, panel in self._tracked_panels.items():
+            if key in skip_persist:
+                continue
+            self._ui_state.save_panel_state(key, panel.is_expanded())
 
     def _on_undo(self) -> None:
         """Handle Undo action."""

@@ -1637,18 +1637,6 @@ This will remove it from your custom library. Plants already placed in projects 
         <translation>🔒 Fix in place</translation>
     </message>
 </context><context>
-    <name>GalleryPanel</name>
-    <message>
-        <location filename="..\..\ui\panels\gallery_panel.py" line="719" />
-        <source>Search objects...</source>
-        <translation>Search objects...</translation>
-    </message>
-    <message>
-        <location filename="..\..\ui\panels\gallery_panel.py" line="726" />
-        <source>All Categories</source>
-        <translation>All Categories</translation>
-    </message>
-</context><context>
     <name>GardenItemMixin</name>
     <message>
         <location filename="..\..\ui\canvas\items\garden_item.py" line="719" />
@@ -2347,12 +2335,7 @@ This will remove it from your custom library. Plants already placed in projects 
         <source>Seed Inventory</source>
         <translation type="unfinished">Seed Inventory</translation>
     </message>
-    <message>
-        <location filename="..\..\app\application.py" line="855" />
-        <source>Object Gallery</source>
-        <translation type="unfinished">Object Gallery</translation>
-    </message>
-    <message>
+<message>
         <location filename="..\..\app\application.py" line="865" />
         <source>Properties</source>
         <translation type="unfinished">Properties</translation>
