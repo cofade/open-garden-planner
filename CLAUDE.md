@@ -182,3 +182,4 @@ Next: **Phase 13 (v2.0)** — 3D Visualization & Sun/Shade (Future). See `docs/r
 | ------ | ---------- | -------------------------------------------------------------------- |
 | ✅     | #170 / #174 | Auto-populate plant species data on drop + bundled species DB (118 records, ADR-014). Auto-fires US-12.10d warnings. |
 | ✅     | #173 / #175 | Soil-warning refresh on reparent + plant z-elevation above bed; bonus fix for edit-via-history duplicate guard. |
+| ✅     | PR #184    | Sims-style toolbar: Object Gallery moves out of sidebar into 10 category dropdowns + global search (ADR-018). Adds `UiStateStore` for window/splitter/panel persistence. |
