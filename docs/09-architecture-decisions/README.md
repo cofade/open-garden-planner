@@ -148,6 +148,24 @@ Architecture Decision Records (ADRs) for significant technical choices.
 - *Normalise inside every caller* — the status quo. Rejected: each caller diverged slightly; the inconsistency was already causing phantom seed-gap misses in US-12.6.
 **Consequences**: Keys in `propagation_overrides` and `shopping_list_prices` are stable unless a plant's `source_id` changes (API re-imports only — rare). `crop_rotation_service.py` was not migrated because it keys exclusively on botanical family name, not species identity.
 
+## ADR-018: Object Gallery Moves to Top Toolbar (Sims-style Category Dropdowns + Global Search)
+
+**Status**: Accepted (Phase 12 — UI refactor)
+**Context**: The `GalleryPanel` sidebar widget held all ~120 placeable objects (beds, shapes, plants, structures, surfaces, furniture, infrastructure, fences) in 11 stacked categories with a search box and category dropdown. It was the first of 10 collapsible panels in a 450 px right sidebar. Three problems compounded: (a) the most-used action — "draw a garden bed" — sat as the *tenth* category (`Paths & Surfaces`), requiring the user to scroll past 100+ plants/objects first; (b) the sidebar overall was dense with 10 panels visible at once; (c) the toolbar at the top was intentionally minimal (5 tools) and left horizontal screen real estate unused.
+**Decision**: Replace the sidebar gallery with **10 category-icon buttons in the top toolbar**, each opening a popup dropdown of 64×64 thumbnails (3-column grid) with an in-popup filter field. A separate **global search field** on the toolbar searches across every object regardless of category. The toolbar layout is `[5 core tools] | [10 category buttons] | [stretch] | [search field]`. Icons are SVG; 7 of 10 categories reuse existing icons from `resources/icons/tools/`, 3 new SVGs were added (`vegetable`, `furniture`, `infrastructure`).
+**Alternatives considered**:
+- *Sims-style left-rail "Build / Plant / Manage" modes* — bigger UX shift, would have required mode switching for previously-single-screen workflows. Rejected as too invasive for the value delivered.
+- *Sidebar tabs (Objects / Plan / Garden)* — preserved the gallery in the sidebar, but did not solve the "scroll past 100 plants to find a bed" problem.
+- *Promote only the top-3 shapes to the toolbar, keep gallery* — solves discoverability for beds but leaves the dense sidebar untouched.
+- *Floating inspector for selection-dependent panels* — orthogonal concern, deferred. Selection panels currently still live in the sidebar.
+**Consequences**: One-click access to every category. The "Garden Bed" tool is now the first item in the first dropdown (`Beds & Surfaces`), reflecting actual usage frequency. Gallery data lives in a single source (`ui/widgets/gallery_data.py`) consumed by both the dropdowns and the global search. `GalleryPanel`, its `_panels/__init__.py` export, and its test file are removed; translation strings migrated from context `GalleryPanel` to `GalleryData`. The sidebar drops from 10 to 9 panels and is reordered so selection-related panels (Properties → Plant Details → Companion → Crop Rotation) sit directly under each other. Drag-from-dropdown to canvas is preserved (same MIME format the canvas already accepts).
+
+**Toolbar layout note (3-toolbar split):** The category buttons live in a *separate* `CategoryToolbar` rather than being embedded in `MainToolbar`. Three top-row toolbars are added in this order: `MainToolbar` (Select/Measure/Text/Callout/Pin) → `ConstraintToolbar` (CAD constraints) → `CategoryToolbar` (10 category dropdowns + global search). Qt's `addToolBar` ordering puts them left-to-right on the same row, with the search field naturally rightmost. Splitting also keeps the icon-lookup for category buttons free of `_CATEGORY_ICON_MAP` glue: the icon filename now lives on `GalleryCategory.icon_name` itself, set at construction (before any `tr()` translation), so locale-independent lookup is intrinsic to the data.
+
+**Search-popup focus note:** The global search uses a `Qt.ToolTip`-flagged, `WA_ShowWithoutActivating` results popup with a no-focus QListWidget. Without these, the `Qt.Popup` window activates on every `show()` and steals keyboard focus from the QLineEdit — every keystroke after the first lands on the popup and is lost.
+
+**Persistence:** Window geometry, the main splitter, and each tracked `CollapsiblePanel`'s expanded state are persisted to `QSettings` (`UiState/…` group) by the lightweight `app/ui_state.py` wrapper. Save on `closeEvent` plus a live-save on every `expanded_changed` signal.
+
 ## ADR-017: Bed-Specific Features Built Centrally on `GardenItemMixin`
 
 **Status**: Accepted (Phase 12 — US-12.8 post-bug)

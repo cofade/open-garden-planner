@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- Rain barrel body -->
+  <rect x="14" y="18" width="36" height="36" rx="3" fill="#3B82F6" fill-opacity="0.25" stroke="#1E40AF" stroke-width="2.5"/>
+  <!-- Top rim -->
+  <ellipse cx="32" cy="18" rx="18" ry="4" fill="#60A5FA" fill-opacity="0.3" stroke="#1E40AF" stroke-width="2.5"/>
+  <!-- Metal bands -->
+  <line x1="14" y1="28" x2="50" y2="28" stroke="#1E40AF" stroke-width="2" stroke-linecap="round"/>
+  <line x1="14" y1="44" x2="50" y2="44" stroke="#1E40AF" stroke-width="2" stroke-linecap="round"/>
+  <!-- Water droplet on side -->
+  <path d="M44 36 C 44 38 42 40 40 40 C 38 40 36 38 36 36 C 36 33 40 30 40 30 C 40 30 44 33 44 36 Z" fill="#3B82F6" fill-opacity="0.5" stroke="#1E40AF" stroke-width="1.5"/>
+  <!-- Spigot -->
+  <path d="M50 38 L56 38 L56 44" stroke="#1E40AF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

@@ -57,7 +57,7 @@ class TestBundledSpeciesDb:
         """Every species the gallery can drop must hit the bundled DB.
 
         The gallery passes ``svg_filename.replace("_", " ")`` (lower-cased,
-        space-separated) — see [gallery_panel.py](src/open_garden_planner/ui/panels/gallery_panel.py).
+        space-separated) — see [gallery_data.py](src/open_garden_planner/ui/widgets/gallery_data.py).
         Anything missing here means a user dropping that thumbnail still
         sees "Keine Artdaten" — failing the AC.
         """

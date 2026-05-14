@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- Carrot body -->
+  <path d="M22 28 L32 56 L42 28 Z" fill="#F97316" fill-opacity="0.45" stroke="#9A3412" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Carrot ridges -->
+  <line x1="26" y1="34" x2="28" y2="34" stroke="#9A3412" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="36" y1="34" x2="38" y2="34" stroke="#9A3412" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="28" y1="42" x2="30" y2="42" stroke="#9A3412" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="34" y1="42" x2="36" y2="42" stroke="#9A3412" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Leaves -->
+  <path d="M32 28 C 26 18 20 14 18 8" stroke="#15803D" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M32 28 C 32 18 32 12 32 6" stroke="#15803D" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M32 28 C 38 18 44 14 46 8" stroke="#15803D" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- Leaf tufts -->
+  <circle cx="18" cy="8" r="3" fill="#22C55E" fill-opacity="0.6"/>
+  <circle cx="32" cy="6" r="3" fill="#22C55E" fill-opacity="0.6"/>
+  <circle cx="46" cy="8" r="3" fill="#22C55E" fill-opacity="0.6"/>
+</svg>

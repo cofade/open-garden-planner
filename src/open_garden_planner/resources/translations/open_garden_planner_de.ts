@@ -1714,692 +1714,7 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
             <translation>🔒 Fixieren</translation>
         </message>
     </context>
-    <context>
-        <name>GalleryPanel</name>
-        <message>
-            <location filename="..\..\ui\panels\gallery_panel.py" line="719" />
-            <source>Search objects...</source>
-            <translation>Objekte suchen...</translation>
-        </message>
-        <message>
-            <location filename="..\..\ui\panels\gallery_panel.py" line="726" />
-            <source>All Categories</source>
-            <translation>Alle Kategorien</translation>
-        </message>
-        <message>
-            <source>Basic Shapes</source>
-            <translation>Grundformen</translation>
-        </message>
-        <message>
-            <source>Rectangle</source>
-            <translation>Rechteck</translation>
-        </message>
-        <message>
-            <source>Polygon</source>
-            <translation>Polygon</translation>
-        </message>
-        <message>
-            <source>Circle</source>
-            <translation>Kreis</translation>
-        </message>
-        <message>
-            <source>Trees</source>
-            <translation>Bäume</translation>
-        </message>
-        <message>
-            <source>Round Deciduous</source>
-            <translation type="vanished">Laubbaum (rund)</translation>
-        </message>
-        <message>
-            <source>Columnar Tree</source>
-            <translation type="vanished">Säulenbaum</translation>
-        </message>
-        <message>
-            <source>Weeping Tree</source>
-            <translation type="vanished">Trauerform</translation>
-        </message>
-        <message>
-            <source>Conifer</source>
-            <translation type="vanished">Nadelbaum</translation>
-        </message>
-        <message>
-            <source>Fruit Tree</source>
-            <translation type="vanished">Obstbaum</translation>
-        </message>
-        <message>
-            <source>Palm</source>
-            <translation type="vanished">Palme</translation>
-        </message>
-        <message>
-            <source>Apple Tree</source>
-            <translation>Apfelbaum</translation>
-        </message>
-        <message>
-            <source>Cherry Tree</source>
-            <translation>Kirschbaum</translation>
-        </message>
-        <message>
-            <source>Shrubs</source>
-            <translation>Sträucher</translation>
-        </message>
-        <message>
-            <source>Spreading Shrub</source>
-            <translation type="vanished">Breitstrauch</translation>
-        </message>
-        <message>
-            <source>Compact Shrub</source>
-            <translation type="vanished">Kompaktstrauch</translation>
-        </message>
-        <message>
-            <source>Boxwood</source>
-            <translation>Buchsbaum</translation>
-        </message>
-        <message>
-            <source>Rhododendron</source>
-            <translation>Rhododendron</translation>
-        </message>
-        <message>
-            <source>Hedge Section</source>
-            <translation type="vanished">Heckenabschnitt</translation>
-        </message>
-        <message>
-            <source>Flowers &amp; Perennials</source>
-            <translation type="vanished">Blumen &amp; Stauden</translation>
-        </message>
-        <message>
-            <source>Flowering Perennial</source>
-            <translation type="vanished">Blühstaude</translation>
-        </message>
-        <message>
-            <source>Ornamental Grass</source>
-            <translation>Ziergras</translation>
-        </message>
-        <message>
-            <source>Ground Cover</source>
-            <translation type="vanished">Bodendecker</translation>
-        </message>
-        <message>
-            <source>Climbing Plant</source>
-            <translation type="vanished">Kletterpflanze</translation>
-        </message>
-        <message>
-            <source>Rose</source>
-            <translation type="vanished">Rose</translation>
-        </message>
-        <message>
-            <source>Lavender</source>
-            <translation>Lavendel</translation>
-        </message>
-        <message>
-            <source>Sunflower</source>
-            <translation type="vanished">Sonnenblume</translation>
-        </message>
-        <message>
-            <source>Vegetables &amp; Herbs</source>
-            <translation type="vanished">Gemüse &amp; Kräuter</translation>
-        </message>
-        <message>
-            <source>Vegetable</source>
-            <translation type="vanished">Gemüse</translation>
-        </message>
-        <message>
-            <source>Herb</source>
-            <translation type="vanished">Kraut</translation>
-        </message>
-        <message>
-            <source>Tomato</source>
-            <translation type="vanished">Tomate</translation>
-        </message>
-        <message>
-            <source>Structures</source>
-            <translation>Gebäude</translation>
-        </message>
-        <message>
-            <source>House</source>
-            <translation>Haus</translation>
-        </message>
-        <message>
-            <source>Garage/Shed</source>
-            <translation>Garage/Schuppen</translation>
-        </message>
-        <message>
-            <source>Greenhouse</source>
-            <translation>Gewächshaus</translation>
-        </message>
-        <message>
-            <source>Furniture</source>
-            <translation>Möbel</translation>
-        </message>
-        <message>
-            <source>Table (Rect.)</source>
-            <translation type="vanished">Tisch (eckig)</translation>
-        </message>
-        <message>
-            <source>Table (Round)</source>
-            <translation>Tisch (rund)</translation>
-        </message>
-        <message>
-            <source>Chair</source>
-            <translation>Stuhl</translation>
-        </message>
-        <message>
-            <source>Bench</source>
-            <translation>Bank</translation>
-        </message>
-        <message>
-            <source>Parasol</source>
-            <translation>Sonnenschirm</translation>
-        </message>
-        <message>
-            <source>Lounger</source>
-            <translation>Liege</translation>
-        </message>
-        <message>
-            <source>BBQ/Grill</source>
-            <translation>Grill</translation>
-        </message>
-        <message>
-            <source>Fire Pit</source>
-            <translation>Feuerstelle</translation>
-        </message>
-        <message>
-            <source>Gardening</source>
-            <translation type="vanished">Gartenbau</translation>
-        </message>
-        <message>
-            <source>Planter/Pot</source>
-            <translation>Pflanzgefäß/Topf</translation>
-        </message>
-        <message>
-            <source>Garden Infrastructure</source>
-            <translation type="vanished">Garteninfrastruktur</translation>
-        </message>
-        <message>
-            <source>Raised Bed</source>
-            <translation>Hochbeet</translation>
-        </message>
-        <message>
-            <source>Compost Bin</source>
-            <translation>Komposter</translation>
-        </message>
-        <message>
-            <source>Cold Frame</source>
-            <translation>Frühbeet</translation>
-        </message>
-        <message>
-            <source>Rain Barrel</source>
-            <translation>Regentonne</translation>
-        </message>
-        <message>
-            <source>Water Tap</source>
-            <translation>Wasserhahn</translation>
-        </message>
-        <message>
-            <source>Tool Shed</source>
-            <translation>Geräteschuppen</translation>
-        </message>
-        <message>
-            <source>Paths &amp; Surfaces</source>
-            <translation type="vanished">Wege &amp; Flächen</translation>
-        </message>
-        <message>
-            <source>Lawn</source>
-            <translation>Rasen</translation>
-        </message>
-        <message>
-            <source>Terrace/Patio</source>
-            <translation>Terrasse/Patio</translation>
-        </message>
-        <message>
-            <source>Driveway</source>
-            <translation>Einfahrt</translation>
-        </message>
-        <message>
-            <source>Garden Bed</source>
-            <translation>Gartenbeet</translation>
-        </message>
-        <message>
-            <source>Pond/Pool</source>
-            <translation>Teich/Pool</translation>
-        </message>
-        <message>
-            <source>Fences &amp; Walls</source>
-            <translation type="vanished">Zäune &amp; Mauern</translation>
-        </message>
-        <message>
-            <source>Fence</source>
-            <translation>Zaun</translation>
-        </message>
-        <message>
-            <source>Wall</source>
-            <translation>Mauer</translation>
-        </message>
-        <message>
-            <source>Path</source>
-            <translation>Weg</translation>
-        </message>
-        <message>
-            <source>Hedge</source>
-            <translation>Hecke</translation>
-        </message>
-        <message>
-            <source>Pear Tree</source>
-            <translation>Birnbaum</translation>
-        </message>
-        <message>
-            <source>Plum Tree</source>
-            <translation>Pflaumenbaum</translation>
-        </message>
-        <message>
-            <source>Peach Tree</source>
-            <translation type="vanished">Pfirsichbaum</translation>
-        </message>
-        <message>
-            <source>Fig Tree</source>
-            <translation>Feigenbaum</translation>
-        </message>
-        <message>
-            <source>Olive Tree</source>
-            <translation>Olivenbaum</translation>
-        </message>
-        <message>
-            <source>Lemon Tree</source>
-            <translation>Zitronenbaum</translation>
-        </message>
-        <message>
-            <source>Orange Tree</source>
-            <translation type="vanished">Orangenbaum</translation>
-        </message>
-        <message>
-            <source>Walnut Tree</source>
-            <translation>Walnussbaum</translation>
-        </message>
-        <message>
-            <source>Oak</source>
-            <translation type="vanished">Eiche</translation>
-        </message>
-        <message>
-            <source>Maple</source>
-            <translation type="vanished">Ahorn</translation>
-        </message>
-        <message>
-            <source>Birch</source>
-            <translation type="vanished">Birke</translation>
-        </message>
-        <message>
-            <source>Willow</source>
-            <translation type="vanished">Weide</translation>
-        </message>
-        <message>
-            <source>Magnolia</source>
-            <translation type="vanished">Magnolie</translation>
-        </message>
-        <message>
-            <source>Pine</source>
-            <translation type="vanished">Kiefer</translation>
-        </message>
-        <message>
-            <source>Spruce</source>
-            <translation type="vanished">Fichte</translation>
-        </message>
-        <message>
-            <source>Blueberry</source>
-            <translation type="vanished">Heidelbeere</translation>
-        </message>
-        <message>
-            <source>Raspberry</source>
-            <translation type="vanished">Himbeere</translation>
-        </message>
-        <message>
-            <source>Blackberry</source>
-            <translation type="vanished">Brombeere</translation>
-        </message>
-        <message>
-            <source>Gooseberry</source>
-            <translation>Stachelbeere</translation>
-        </message>
-        <message>
-            <source>Currant</source>
-            <translation type="vanished">Johannisbeere</translation>
-        </message>
-        <message>
-            <source>Holly</source>
-            <translation>Stechpalme</translation>
-        </message>
-        <message>
-            <source>Juniper</source>
-            <translation>Wacholder</translation>
-        </message>
-        <message>
-            <source>Forsythia</source>
-            <translation>Forsythie</translation>
-        </message>
-        <message>
-            <source>Lilac</source>
-            <translation>Flieder</translation>
-        </message>
-        <message>
-            <source>Elderberry</source>
-            <translation type="vanished">Holunder</translation>
-        </message>
-        <message>
-            <source>Privet</source>
-            <translation type="vanished">Liguster</translation>
-        </message>
-        <message>
-            <source>Viburnum</source>
-            <translation type="vanished">Schneeball</translation>
-        </message>
-        <message>
-            <source>Barberry</source>
-            <translation type="vanished">Berberitze</translation>
-        </message>
-        <message>
-            <source>Camellia</source>
-            <translation type="vanished">Kamelie</translation>
-        </message>
-        <message>
-            <source>Spirea</source>
-            <translation type="vanished">Spierstrauch</translation>
-        </message>
-        <message>
-            <source>Tulip</source>
-            <translation type="vanished">Tulpe</translation>
-        </message>
-        <message>
-            <source>Daffodil</source>
-            <translation type="vanished">Narzisse</translation>
-        </message>
-        <message>
-            <source>Dahlia</source>
-            <translation type="vanished">Dahlie</translation>
-        </message>
-        <message>
-            <source>Peony</source>
-            <translation>Pfingstrose</translation>
-        </message>
-        <message>
-            <source>Iris</source>
-            <translation>Schwertlilie</translation>
-        </message>
-        <message>
-            <source>Lily</source>
-            <translation type="vanished">Lilie</translation>
-        </message>
-        <message>
-            <source>Marigold</source>
-            <translation type="vanished">Tagetes</translation>
-        </message>
-        <message>
-            <source>Zinnia</source>
-            <translation type="vanished">Zinnie</translation>
-        </message>
-        <message>
-            <source>Cosmos</source>
-            <translation type="vanished">Schmuckkörbchen</translation>
-        </message>
-        <message>
-            <source>Aster</source>
-            <translation>Aster</translation>
-        </message>
-        <message>
-            <source>Chrysanthemum</source>
-            <translation type="vanished">Chrysantheme</translation>
-        </message>
-        <message>
-            <source>Geranium</source>
-            <translation>Storchschnabel</translation>
-        </message>
-        <message>
-            <source>Petunia</source>
-            <translation type="vanished">Petunie</translation>
-        </message>
-        <message>
-            <source>Pansy</source>
-            <translation type="vanished">Stiefmütterchen</translation>
-        </message>
-        <message>
-            <source>Hydrangea</source>
-            <translation>Hortensie</translation>
-        </message>
-        <message>
-            <source>Clematis</source>
-            <translation type="vanished">Waldrebe</translation>
-        </message>
-        <message>
-            <source>Wisteria</source>
-            <translation type="vanished">Blauregen</translation>
-        </message>
-        <message>
-            <source>Jasmine</source>
-            <translation type="vanished">Jasmin</translation>
-        </message>
-        <message>
-            <source>Hibiscus</source>
-            <translation type="vanished">Hibiskus</translation>
-        </message>
-        <message>
-            <source>Crocus</source>
-            <translation type="vanished">Krokus</translation>
-        </message>
-        <message>
-            <source>Pepper</source>
-            <translation type="vanished">Paprika</translation>
-        </message>
-        <message>
-            <source>Eggplant</source>
-            <translation type="vanished">Aubergine</translation>
-        </message>
-        <message>
-            <source>Zucchini</source>
-            <translation type="vanished">Zucchini</translation>
-        </message>
-        <message>
-            <source>Cucumber</source>
-            <translation type="vanished">Gurke</translation>
-        </message>
-        <message>
-            <source>Pumpkin</source>
-            <translation type="vanished">Kürbis</translation>
-        </message>
-        <message>
-            <source>Bean</source>
-            <translation type="vanished">Bohne</translation>
-        </message>
-        <message>
-            <source>Pea</source>
-            <translation type="vanished">Erbse</translation>
-        </message>
-        <message>
-            <source>Corn</source>
-            <translation type="vanished">Mais</translation>
-        </message>
-        <message>
-            <source>Carrot</source>
-            <translation type="vanished">Möhre</translation>
-        </message>
-        <message>
-            <source>Radish</source>
-            <translation type="vanished">Radieschen</translation>
-        </message>
-        <message>
-            <source>Potato</source>
-            <translation type="vanished">Kartoffel</translation>
-        </message>
-        <message>
-            <source>Onion</source>
-            <translation type="vanished">Zwiebel</translation>
-        </message>
-        <message>
-            <source>Garlic</source>
-            <translation type="vanished">Knoblauch</translation>
-        </message>
-        <message>
-            <source>Lettuce</source>
-            <translation type="vanished">Salat</translation>
-        </message>
-        <message>
-            <source>Spinach</source>
-            <translation type="vanished">Spinat</translation>
-        </message>
-        <message>
-            <source>Cabbage</source>
-            <translation type="vanished">Kohl</translation>
-        </message>
-        <message>
-            <source>Kale</source>
-            <translation type="vanished">Grünkohl</translation>
-        </message>
-        <message>
-            <source>Broccoli</source>
-            <translation type="vanished">Brokkoli</translation>
-        </message>
-        <message>
-            <source>Basil</source>
-            <translation type="vanished">Basilikum</translation>
-        </message>
-        <message>
-            <source>Rosemary</source>
-            <translation type="vanished">Rosmarin</translation>
-        </message>
-        <message>
-            <source>Thyme</source>
-            <translation type="vanished">Thymian</translation>
-        </message>
-        <message>
-            <source>Sage</source>
-            <translation type="vanished">Salbei</translation>
-        </message>
-        <message>
-            <source>Mint</source>
-            <translation type="vanished">Minze</translation>
-        </message>
-        <message>
-            <source>Parsley</source>
-            <translation type="vanished">Petersilie</translation>
-        </message>
-        <message>
-            <source>Cilantro</source>
-            <translation type="vanished">Koriander</translation>
-        </message>
-        <message>
-            <source>Dill</source>
-            <translation type="vanished">Dill</translation>
-        </message>
-        <message>
-            <source>Chives</source>
-            <translation type="vanished">Schnittlauch</translation>
-        </message>
-        <message>
-            <source>Oregano</source>
-            <translation type="vanished">Oregano</translation>
-        </message>
-        <message>
-            <source>Oak Tree</source>
-            <translation>Eiche</translation>
-        </message>
-        <message>
-            <source>Maple Tree</source>
-            <translation>Ahorn</translation>
-        </message>
-        <message>
-            <source>Birch Tree</source>
-            <translation>Birke</translation>
-        </message>
-        <message>
-            <source>Willow Tree</source>
-            <translation>Weide</translation>
-        </message>
-        <message>
-            <source>Pine Tree</source>
-            <translation>Kiefer</translation>
-        </message>
-        <message>
-            <source>Spruce Tree</source>
-            <translation>Fichte</translation>
-        </message>
-        <message>
-            <source>Rose Bush</source>
-            <translation>Rosenstrauch</translation>
-        </message>
-        <message>
-            <source>Azalea</source>
-            <translation>Azalee</translation>
-        </message>
-        <message>
-            <source>Blueberry Bush</source>
-            <translation>Heidelbeerstrauch</translation>
-        </message>
-        <message>
-            <source>Raspberry Bush</source>
-            <translation>Himbeerstrauch</translation>
-        </message>
-        <message>
-            <source>Currant Bush</source>
-            <translation>Johannisbeerstrauch</translation>
-        </message>
-        <message>
-            <source>Perennials</source>
-            <translation>Stauden</translation>
-        </message>
-        <message>
-            <source>Hosta</source>
-            <translation>Funkie</translation>
-        </message>
-        <message>
-            <source>Daylily</source>
-            <translation>Taglilie</translation>
-        </message>
-        <message>
-            <source>Echinacea</source>
-            <translation>Sonnenhut</translation>
-        </message>
-        <message>
-            <source>Black-Eyed Susan</source>
-            <translation>Rudbeckie</translation>
-        </message>
-        <message>
-            <source>Sedum</source>
-            <translation>Fetthenne</translation>
-        </message>
-        <message>
-            <source>Fern</source>
-            <translation>Farn</translation>
-        </message>
-        <message>
-            <source>Salvia</source>
-            <translation>Salbei</translation>
-        </message>
-        <message>
-            <source>Catmint</source>
-            <translation>Katzenminze</translation>
-        </message>
-        <message>
-            <source>Hardscape</source>
-            <translation>Befestigte Flächen</translation>
-        </message>
-        <message>
-            <source>Garden</source>
-            <translation>Garten</translation>
-        </message>
-        <message>
-            <source>Linear Features</source>
-            <translation>Lineare Elemente</translation>
-        </message>
-        <message>
-            <source>Table (Rectangular)</source>
-            <translation>Tisch (rechteckig)</translation>
-        </message>
-        <message>
-            <source>Infrastructure</source>
-            <translation>Infrastruktur</translation>
-        </message>
-        <message>
-            <source>Ellipse</source>
-            <translation>Ellipse</translation>
-        </message>
-    </context>
-    <context>
+<context>
         <name>GardenItemMixin</name>
         <message>
             <location filename="..\..\ui\canvas\items\garden_item.py" line="719" />
@@ -3099,12 +2414,7 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
             <source>Seed Inventory</source>
             <translation>Saatgutbestand</translation>
         </message>
-        <message>
-            <location filename="..\..\app\application.py" line="855" />
-            <source>Object Gallery</source>
-            <translation>Objektgalerie</translation>
-        </message>
-        <message>
+<message>
             <location filename="..\..\app\application.py" line="865" />
             <source>Properties</source>
             <translation>Eigenschaften</translation>
@@ -8754,6 +8064,594 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Delete</source>
             <translation>Löschen</translation>
+        </message>
+    </context>
+    <context>
+        <name>GalleryData</name>
+        <message>
+            <source>Beds &amp; Surfaces</source>
+            <translation>Beete &amp; Flächen</translation>
+        </message>
+        <message>
+            <source>Basic Shapes</source>
+            <translation>Grundformen</translation>
+        </message>
+        <message>
+            <source>Trees</source>
+            <translation>Bäume</translation>
+        </message>
+        <message>
+            <source>Shrubs &amp; Hedges</source>
+            <translation>Sträucher &amp; Hecken</translation>
+        </message>
+        <message>
+            <source>Flowers &amp; Perennials</source>
+            <translation>Blumen &amp; Stauden</translation>
+        </message>
+        <message>
+            <source>Vegetables &amp; Herbs</source>
+            <translation>Gemüse &amp; Kräuter</translation>
+        </message>
+        <message>
+            <source>Structures</source>
+            <translation>Strukturen</translation>
+        </message>
+        <message>
+            <source>Furniture</source>
+            <translation>Möbel</translation>
+        </message>
+        <message>
+            <source>Fences &amp; Walls</source>
+            <translation>Zäune &amp; Mauern</translation>
+        </message>
+        <message>
+            <source>Infrastructure</source>
+            <translation>Infrastruktur</translation>
+        </message>
+        <message>
+            <source>Rectangle</source>
+            <translation>Rechteck</translation>
+        </message>
+        <message>
+            <source>Polygon</source>
+            <translation>Polygon</translation>
+        </message>
+        <message>
+            <source>Circle</source>
+            <translation>Kreis</translation>
+        </message>
+        <message>
+            <source>Ellipse</source>
+            <translation>Ellipse</translation>
+        </message>
+        <message>
+            <source>Round Deciduous</source>
+            <translation>Rundkronen-Laubbaum</translation>
+        </message>
+        <message>
+            <source>Columnar Tree</source>
+            <translation>Säulenbaum</translation>
+        </message>
+        <message>
+            <source>Weeping Tree</source>
+            <translation>Trauerbaum</translation>
+        </message>
+        <message>
+            <source>Conifer</source>
+            <translation>Nadelbaum</translation>
+        </message>
+        <message>
+            <source>Fruit Tree</source>
+            <translation>Obstbaum</translation>
+        </message>
+        <message>
+            <source>Palm</source>
+            <translation>Palme</translation>
+        </message>
+        <message>
+            <source>Apple Tree</source>
+            <translation>Apfelbaum</translation>
+        </message>
+        <message>
+            <source>Cherry Tree</source>
+            <translation>Kirschbaum</translation>
+        </message>
+        <message>
+            <source>Pear Tree</source>
+            <translation>Birnbaum</translation>
+        </message>
+        <message>
+            <source>Plum Tree</source>
+            <translation>Pflaumenbaum</translation>
+        </message>
+        <message>
+            <source>Peach Tree</source>
+            <translation>Pfirsichbaum</translation>
+        </message>
+        <message>
+            <source>Fig Tree</source>
+            <translation>Feigenbaum</translation>
+        </message>
+        <message>
+            <source>Olive Tree</source>
+            <translation>Olivenbaum</translation>
+        </message>
+        <message>
+            <source>Lemon Tree</source>
+            <translation>Zitronenbaum</translation>
+        </message>
+        <message>
+            <source>Orange Tree</source>
+            <translation>Orangenbaum</translation>
+        </message>
+        <message>
+            <source>Walnut Tree</source>
+            <translation>Walnussbaum</translation>
+        </message>
+        <message>
+            <source>Oak</source>
+            <translation>Eiche</translation>
+        </message>
+        <message>
+            <source>Maple</source>
+            <translation>Ahorn</translation>
+        </message>
+        <message>
+            <source>Birch</source>
+            <translation>Birke</translation>
+        </message>
+        <message>
+            <source>Willow</source>
+            <translation>Weide</translation>
+        </message>
+        <message>
+            <source>Magnolia</source>
+            <translation>Magnolie</translation>
+        </message>
+        <message>
+            <source>Pine</source>
+            <translation>Kiefer</translation>
+        </message>
+        <message>
+            <source>Spruce</source>
+            <translation>Fichte</translation>
+        </message>
+        <message>
+            <source>Spreading Shrub</source>
+            <translation>Ausladender Strauch</translation>
+        </message>
+        <message>
+            <source>Compact Shrub</source>
+            <translation>Kompakter Strauch</translation>
+        </message>
+        <message>
+            <source>Boxwood</source>
+            <translation>Buchsbaum</translation>
+        </message>
+        <message>
+            <source>Rhododendron</source>
+            <translation>Rhododendron</translation>
+        </message>
+        <message>
+            <source>Blueberry</source>
+            <translation>Heidelbeere</translation>
+        </message>
+        <message>
+            <source>Raspberry</source>
+            <translation>Himbeere</translation>
+        </message>
+        <message>
+            <source>Blackberry</source>
+            <translation>Brombeere</translation>
+        </message>
+        <message>
+            <source>Gooseberry</source>
+            <translation>Stachelbeere</translation>
+        </message>
+        <message>
+            <source>Currant</source>
+            <translation>Johannisbeere</translation>
+        </message>
+        <message>
+            <source>Holly</source>
+            <translation>Stechpalme</translation>
+        </message>
+        <message>
+            <source>Juniper</source>
+            <translation>Wacholder</translation>
+        </message>
+        <message>
+            <source>Forsythia</source>
+            <translation>Forsythie</translation>
+        </message>
+        <message>
+            <source>Lilac</source>
+            <translation>Flieder</translation>
+        </message>
+        <message>
+            <source>Elderberry</source>
+            <translation>Holunder</translation>
+        </message>
+        <message>
+            <source>Privet</source>
+            <translation>Liguster</translation>
+        </message>
+        <message>
+            <source>Viburnum</source>
+            <translation>Schneeball</translation>
+        </message>
+        <message>
+            <source>Barberry</source>
+            <translation>Berberitze</translation>
+        </message>
+        <message>
+            <source>Camellia</source>
+            <translation>Kamelie</translation>
+        </message>
+        <message>
+            <source>Spirea</source>
+            <translation>Spierstrauch</translation>
+        </message>
+        <message>
+            <source>Hedge</source>
+            <translation>Hecke</translation>
+        </message>
+        <message>
+            <source>Flowering Perennial</source>
+            <translation>Blütenstaude</translation>
+        </message>
+        <message>
+            <source>Ornamental Grass</source>
+            <translation>Ziergras</translation>
+        </message>
+        <message>
+            <source>Ground Cover</source>
+            <translation>Bodendecker</translation>
+        </message>
+        <message>
+            <source>Climbing Plant</source>
+            <translation>Kletterpflanze</translation>
+        </message>
+        <message>
+            <source>Rose</source>
+            <translation>Rose</translation>
+        </message>
+        <message>
+            <source>Lavender</source>
+            <translation>Lavendel</translation>
+        </message>
+        <message>
+            <source>Sunflower</source>
+            <translation>Sonnenblume</translation>
+        </message>
+        <message>
+            <source>Tulip</source>
+            <translation>Tulpe</translation>
+        </message>
+        <message>
+            <source>Daffodil</source>
+            <translation>Narzisse</translation>
+        </message>
+        <message>
+            <source>Dahlia</source>
+            <translation>Dahlie</translation>
+        </message>
+        <message>
+            <source>Peony</source>
+            <translation>Pfingstrose</translation>
+        </message>
+        <message>
+            <source>Iris</source>
+            <translation>Schwertlilie</translation>
+        </message>
+        <message>
+            <source>Lily</source>
+            <translation>Lilie</translation>
+        </message>
+        <message>
+            <source>Marigold</source>
+            <translation>Ringelblume</translation>
+        </message>
+        <message>
+            <source>Zinnia</source>
+            <translation>Zinnie</translation>
+        </message>
+        <message>
+            <source>Cosmos</source>
+            <translation>Kosmee</translation>
+        </message>
+        <message>
+            <source>Aster</source>
+            <translation>Aster</translation>
+        </message>
+        <message>
+            <source>Chrysanthemum</source>
+            <translation>Chrysantheme</translation>
+        </message>
+        <message>
+            <source>Geranium</source>
+            <translation>Storchschnabel</translation>
+        </message>
+        <message>
+            <source>Petunia</source>
+            <translation>Petunie</translation>
+        </message>
+        <message>
+            <source>Pansy</source>
+            <translation>Stiefmütterchen</translation>
+        </message>
+        <message>
+            <source>Hydrangea</source>
+            <translation>Hortensie</translation>
+        </message>
+        <message>
+            <source>Clematis</source>
+            <translation>Waldrebe</translation>
+        </message>
+        <message>
+            <source>Wisteria</source>
+            <translation>Glyzinie</translation>
+        </message>
+        <message>
+            <source>Jasmine</source>
+            <translation>Jasmin</translation>
+        </message>
+        <message>
+            <source>Hibiscus</source>
+            <translation>Hibiskus</translation>
+        </message>
+        <message>
+            <source>Crocus</source>
+            <translation>Krokus</translation>
+        </message>
+        <message>
+            <source>Vegetable</source>
+            <translation>Gemüse</translation>
+        </message>
+        <message>
+            <source>Herb</source>
+            <translation>Kräuter</translation>
+        </message>
+        <message>
+            <source>Tomato</source>
+            <translation>Tomate</translation>
+        </message>
+        <message>
+            <source>Pepper</source>
+            <translation>Paprika</translation>
+        </message>
+        <message>
+            <source>Eggplant</source>
+            <translation>Aubergine</translation>
+        </message>
+        <message>
+            <source>Zucchini</source>
+            <translation>Zucchini</translation>
+        </message>
+        <message>
+            <source>Cucumber</source>
+            <translation>Gurke</translation>
+        </message>
+        <message>
+            <source>Pumpkin</source>
+            <translation>Kürbis</translation>
+        </message>
+        <message>
+            <source>Bean</source>
+            <translation>Bohne</translation>
+        </message>
+        <message>
+            <source>Pea</source>
+            <translation>Erbse</translation>
+        </message>
+        <message>
+            <source>Corn</source>
+            <translation>Mais</translation>
+        </message>
+        <message>
+            <source>Carrot</source>
+            <translation>Karotte</translation>
+        </message>
+        <message>
+            <source>Radish</source>
+            <translation>Radieschen</translation>
+        </message>
+        <message>
+            <source>Potato</source>
+            <translation>Kartoffel</translation>
+        </message>
+        <message>
+            <source>Onion</source>
+            <translation>Zwiebel</translation>
+        </message>
+        <message>
+            <source>Garlic</source>
+            <translation>Knoblauch</translation>
+        </message>
+        <message>
+            <source>Lettuce</source>
+            <translation>Salat</translation>
+        </message>
+        <message>
+            <source>Spinach</source>
+            <translation>Spinat</translation>
+        </message>
+        <message>
+            <source>Cabbage</source>
+            <translation>Kohl</translation>
+        </message>
+        <message>
+            <source>Kale</source>
+            <translation>Grünkohl</translation>
+        </message>
+        <message>
+            <source>Broccoli</source>
+            <translation>Brokkoli</translation>
+        </message>
+        <message>
+            <source>Basil</source>
+            <translation>Basilikum</translation>
+        </message>
+        <message>
+            <source>Rosemary</source>
+            <translation>Rosmarin</translation>
+        </message>
+        <message>
+            <source>Thyme</source>
+            <translation>Thymian</translation>
+        </message>
+        <message>
+            <source>Sage</source>
+            <translation>Salbei</translation>
+        </message>
+        <message>
+            <source>Mint</source>
+            <translation>Minze</translation>
+        </message>
+        <message>
+            <source>Parsley</source>
+            <translation>Petersilie</translation>
+        </message>
+        <message>
+            <source>Cilantro</source>
+            <translation>Koriander</translation>
+        </message>
+        <message>
+            <source>Dill</source>
+            <translation>Dill</translation>
+        </message>
+        <message>
+            <source>Chives</source>
+            <translation>Schnittlauch</translation>
+        </message>
+        <message>
+            <source>Oregano</source>
+            <translation>Oregano</translation>
+        </message>
+        <message>
+            <source>House</source>
+            <translation>Haus</translation>
+        </message>
+        <message>
+            <source>Garage/Shed</source>
+            <translation>Garage/Schuppen</translation>
+        </message>
+        <message>
+            <source>Greenhouse</source>
+            <translation>Gewächshaus</translation>
+        </message>
+        <message>
+            <source>Table (Rect.)</source>
+            <translation>Tisch (rechteckig)</translation>
+        </message>
+        <message>
+            <source>Table (Round)</source>
+            <translation>Tisch (rund)</translation>
+        </message>
+        <message>
+            <source>Chair</source>
+            <translation>Stuhl</translation>
+        </message>
+        <message>
+            <source>Bench</source>
+            <translation>Bank</translation>
+        </message>
+        <message>
+            <source>Parasol</source>
+            <translation>Sonnenschirm</translation>
+        </message>
+        <message>
+            <source>Lounger</source>
+            <translation>Liege</translation>
+        </message>
+        <message>
+            <source>BBQ/Grill</source>
+            <translation>Grill</translation>
+        </message>
+        <message>
+            <source>Fire Pit</source>
+            <translation>Feuerstelle</translation>
+        </message>
+        <message>
+            <source>Fence</source>
+            <translation>Zaun</translation>
+        </message>
+        <message>
+            <source>Wall</source>
+            <translation>Mauer</translation>
+        </message>
+        <message>
+            <source>Path</source>
+            <translation>Weg</translation>
+        </message>
+        <message>
+            <source>Garden Bed</source>
+            <translation>Gartenbeet</translation>
+        </message>
+        <message>
+            <source>Lawn</source>
+            <translation>Rasen</translation>
+        </message>
+        <message>
+            <source>Terrace/Patio</source>
+            <translation>Terrasse/Patio</translation>
+        </message>
+        <message>
+            <source>Driveway</source>
+            <translation>Einfahrt</translation>
+        </message>
+        <message>
+            <source>Pond/Pool</source>
+            <translation>Teich/Pool</translation>
+        </message>
+        <message>
+            <source>Raised Bed</source>
+            <translation>Hochbeet</translation>
+        </message>
+        <message>
+            <source>Cold Frame</source>
+            <translation>Frühbeet</translation>
+        </message>
+        <message>
+            <source>Planter/Pot</source>
+            <translation>Pflanzgefäß/Topf</translation>
+        </message>
+        <message>
+            <source>Compost Bin</source>
+            <translation>Komposter</translation>
+        </message>
+        <message>
+            <source>Rain Barrel</source>
+            <translation>Regentonne</translation>
+        </message>
+        <message>
+            <source>Water Tap</source>
+            <translation>Wasserhahn</translation>
+        </message>
+        <message>
+            <source>Tool Shed</source>
+            <translation>Geräteschuppen</translation>
+        </message>
+    </context>
+    <context>
+        <name>CategoryDropdown</name>
+        <message>
+            <source>Filter…</source>
+            <translation>Filtern…</translation>
+        </message>
+    </context>
+    <context>
+        <name>GlobalSearchField</name>
+        <message>
+            <source>Search object…</source>
+            <translation>Objekt suchen…</translation>
+        </message>
+    </context>
+    <context>
+        <name>CategoryToolbar</name>
+        <message>
+            <source>Categories</source>
+            <translation>Kategorien</translation>
         </message>
     </context>
 </TS>

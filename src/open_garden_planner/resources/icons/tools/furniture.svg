@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- Chair backrest -->
+  <rect x="14" y="10" width="36" height="26" rx="3" fill="#A78BFA" fill-opacity="0.3" stroke="#5B21B6" stroke-width="2.5"/>
+  <!-- Backrest slats -->
+  <line x1="22" y1="14" x2="22" y2="32" stroke="#5B21B6" stroke-width="1.5"/>
+  <line x1="32" y1="14" x2="32" y2="32" stroke="#5B21B6" stroke-width="1.5"/>
+  <line x1="42" y1="14" x2="42" y2="32" stroke="#5B21B6" stroke-width="1.5"/>
+  <!-- Seat -->
+  <rect x="10" y="34" width="44" height="10" rx="2" fill="#C4B5FD" fill-opacity="0.4" stroke="#5B21B6" stroke-width="2.5"/>
+  <!-- Legs -->
+  <line x1="14" y1="44" x2="14" y2="58" stroke="#5B21B6" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="50" y1="44" x2="50" y2="58" stroke="#5B21B6" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

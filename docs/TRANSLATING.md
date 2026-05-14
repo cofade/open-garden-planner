@@ -44,9 +44,9 @@ This creates a `.ts` XML file with all `self.tr()` and `QCoreApplication.transla
 
 `pylupdate6` cannot extract strings from:
 - **`QT_TR_NOOP()`** calls at module level without a class context (e.g., `object_types.py`)
-- **Helper functions** that wrap `QCoreApplication.translate()` (e.g., gallery panel `_tr()`)
+- **Helper functions** that wrap `QCoreApplication.translate()` (e.g., the `_tr()` helper in `gallery_data.py`)
 
-These strings are maintained in `scripts/fill_translations.py` under the `"ObjectType"` and expanded `"GalleryPanel"` contexts. After running `pylupdate6`, run the fill script or manually add these contexts to your `.ts` file.
+These strings are maintained in `scripts/fill_translations.py` under the `"ObjectType"`, `"GalleryData"`, `"CategoryDropdown"`, `"CategoryToolbar"`, and `"GlobalSearchField"` contexts. After running `pylupdate6`, run the fill script or manually add these contexts to your `.ts` file.
 
 ### 4. Translate the strings
 
