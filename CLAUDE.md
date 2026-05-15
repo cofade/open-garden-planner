@@ -119,11 +119,12 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 | 4a | Update translations | Add strings to `scripts/fill_translations.py`, run `PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py` then `compile_translations.py`; `pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` must pass |
 | 5 | **Write integration test** in `tests/integration/test_<feature>.py` | **Mandatory** — end-to-end UI workflow. See `docs/08-crosscutting-concepts/` 8.10 |
 | 6 | Build & verify exe | See Quick Reference |
-| 7 | **WAIT for user approval** Provide testing checklist | Never commit before approval |
-| 8 | Commit: `feat(US-X.X): Description` | Conventional commit format |
-| 9 | Push & create PR | Use GitHub CLI: `pr create`, `pr merge --squash --delete-branch --admin` |
-| 10 | Sync version on master | See Versioning Protocol |
-| 11 | `/clear` context | Clear Claude context
+| 7 | **Run senior-reviewer pass** | Launch the `senior-reviewer` agent in a fresh worktree against the branch diff. Address any P0/P1 findings before proceeding. Re-run after fixes for a clean re-review. The `finalize-us` skill repeats this step pre-PR. |
+| 8 | **WAIT for user approval** Provide testing checklist | Never commit before approval |
+| 9 | Commit: `feat(US-X.X): Description` | Conventional commit format |
+| 10 | Push & create PR | Use GitHub CLI: `pr create`, `pr merge --squash --delete-branch --admin` |
+| 11 | Sync version on master | See Versioning Protocol |
+| 12 | `/clear` context | Clear Claude context
 
 ## Translation (i18n)
 
@@ -183,3 +184,4 @@ Next: **Phase 13 (v2.0)** — 3D Visualization & Sun/Shade (Future). See `docs/r
 | ✅     | #170 / #174 | Auto-populate plant species data on drop + bundled species DB (118 records, ADR-014). Auto-fires US-12.10d warnings. |
 | ✅     | #173 / #175 | Soil-warning refresh on reparent + plant z-elevation above bed; bonus fix for edit-via-history duplicate guard. |
 | ✅     | PR #184    | Sims-style toolbar: Object Gallery moves out of sidebar into 10 category dropdowns + global search (ADR-018). Adds `UiStateStore` for window/splitter/panel persistence. |
+| ✅     | satellite picker | Embedded Google Maps satellite background picker (ADR-019). New `MapPickerDialog` (`QWebEngineView` + JS Maps API + Static Maps fetch with mosaic stitching), drag-to-define rectangle, analytical pixel→meter scale from Web-Mercator, canvas auto-resizes to the selection, geo metadata persists in `.ogp`. API key via `OGP_GOOGLE_MAPS_KEY` in `.env`. |

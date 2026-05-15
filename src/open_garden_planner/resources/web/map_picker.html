@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self';
+                 connect-src https://maps.googleapis.com https://*.googleapis.com https://*.gstatic.com;
+                 script-src 'self' 'unsafe-inline' qrc: https://maps.googleapis.com https://*.googleapis.com https://*.gstatic.com;
+                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+                 img-src 'self' data: https://*.googleapis.com https://*.gstatic.com;
+                 font-src 'self' https://fonts.gstatic.com;">
+  <title>Map Picker</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, sans-serif; }
+    #map { position: absolute; top: 56px; left: 0; right: 0; bottom: 0; }
+    #toolbar {
+      position: absolute; top: 0; left: 0; right: 0; height: 56px;
+      background: #f5f5f5; border-bottom: 1px solid #ccc;
+      display: flex; align-items: center; padding: 0 12px; gap: 8px; z-index: 10;
+    }
+    #search { flex: 1; padding: 8px 10px; border: 1px solid #bbb; border-radius: 4px; font-size: 14px; }
+    .btn { padding: 8px 14px; border: 1px solid #888; background: #fff; border-radius: 4px;
+           cursor: pointer; font-size: 14px; }
+    .btn-primary { background: #1976d2; color: #fff; border-color: #1976d2; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #hint { position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,0.65);
+            color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 12px; z-index: 5; }
+    #hint.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <input id="search" type="text" placeholder="Search address...">
+    <button id="draw-btn" class="btn">Draw rectangle</button>
+    <button id="clear-btn" class="btn" disabled>Clear</button>
+  </div>
+  <div id="map"></div>
+  <div id="hint">Click "Draw rectangle", then drag a rectangle on the map.</div>
+
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+  <script>
+    let map = null;
+    let drawingRectangle = null;
+    let dragStartCorner = null;
+    let mouseDownListener = null;
+    let mouseMoveListener = null;
+    let mouseUpListener = null;
+    let bridge = null;
+    let i18n = {};
+
+    new QWebChannel(qt.webChannelTransport, function(channel) {
+      bridge = channel.objects.bridge;
+      bridge.setupReady.connect(function(apiKey, locale, strings) {
+        i18n = strings || {};
+        applyTranslations();
+        loadMapsApi(apiKey, locale);
+      });
+      bridge.ready();
+    });
+
+    function applyTranslations() {
+      if (i18n.searchPlaceholder) {
+        document.getElementById('search').placeholder = i18n.searchPlaceholder;
+      }
+      if (i18n.drawButton) {
+        document.getElementById('draw-btn').textContent = i18n.drawButton;
+      }
+      if (i18n.clearButton) {
+        document.getElementById('clear-btn').textContent = i18n.clearButton;
+      }
+      if (i18n.hintInitial) {
+        document.getElementById('hint').textContent = i18n.hintInitial;
+      }
+    }
+
+    function loadMapsApi(apiKey, locale) {
+      if (window.google && window.google.maps) return;
+      // The Python side passes a "lang|REGION" payload (e.g. "de|DE") that
+      // is already locale-safe — Qt's QLocale.territory() is authoritative
+      // even for locales whose BCP47 second subtag is a script (zh-Hant-TW).
+      const parts = (locale || 'en|EN').split('|');
+      const langTag = parts[0] || 'en';
+      const regionTag = (parts[1] || langTag).toUpperCase();
+      const script = document.createElement('script');
+      script.src = 'https://maps.googleapis.com/maps/api/js?key=' +
+                   encodeURIComponent(apiKey) +
+                   '&libraries=places&v=quarterly&callback=initMap' +
+                   '&language=' + encodeURIComponent(langTag) +
+                   '&region=' + encodeURIComponent(regionTag);
+      script.async = true;
+      script.defer = true;
+      script.onerror = function() {
+        if (bridge) bridge.reportError('Failed to load Google Maps JS API. Check your network or API key.');
+      };
+      document.head.appendChild(script);
+    }
+
+    window.initMap = function() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 52.5200, lng: 13.4050 },
+        zoom: 18,
+        mapTypeId: 'satellite',
+        tilt: 0,
+        disableDefaultUI: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        mapTypeControl: false,  // We always want satellite — no toggle UI.
+      });
+
+      const searchInput = document.getElementById('search');
+      const autocomplete = new google.maps.places.Autocomplete(searchInput, {
+        fields: ['geometry'],
+      });
+      autocomplete.bindTo('bounds', map);
+      autocomplete.addListener('place_changed', function() {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) return;
+        if (place.geometry.viewport) {
+          map.fitBounds(place.geometry.viewport);
+        } else {
+          map.setCenter(place.geometry.location);
+          map.setZoom(19);
+        }
+      });
+
+      document.getElementById('draw-btn').addEventListener('click', startDrawing);
+      document.getElementById('clear-btn').addEventListener('click', clearRectangle);
+    };
+
+    function startDrawing() {
+      clearRectangle();
+      document.getElementById('hint').classList.remove('hidden');
+      document.getElementById('hint').textContent =
+        i18n.hintDrawing || 'Drag on the map to draw the rectangle.';
+      // Disable map panning while drawing — otherwise the mousedown→drag
+      // pans the map instead of starting a rectangle.
+      map.setOptions({draggable: false, gestureHandling: 'none'});
+      document.getElementById('map').style.cursor = 'crosshair';
+      mouseDownListener = map.addListener('mousedown', onDragStart);
+    }
+
+    function onDragStart(e) {
+      dragStartCorner = e.latLng;
+      drawingRectangle = new google.maps.Rectangle({
+        bounds: new google.maps.LatLngBounds(dragStartCorner, dragStartCorner),
+        strokeColor: '#1976d2',
+        strokeWeight: 2,
+        fillColor: '#1976d2',
+        fillOpacity: 0.15,
+        map: map,
+        clickable: false,  // let mouse events pass through to the map.
+      });
+      mouseMoveListener = map.addListener('mousemove', onDragMove);
+      mouseUpListener = map.addListener('mouseup', onDragEnd);
+    }
+
+    function onDragMove(e) {
+      if (!drawingRectangle || !dragStartCorner) return;
+      const bounds = new google.maps.LatLngBounds();
+      bounds.extend(dragStartCorner);
+      bounds.extend(e.latLng);
+      drawingRectangle.setBounds(bounds);
+    }
+
+    function onDragEnd(e) {
+      removeDrawingListeners();
+      map.setOptions({draggable: true, gestureHandling: 'auto'});
+      document.getElementById('map').style.cursor = '';
+      document.getElementById('hint').classList.add('hidden');
+      if (drawingRectangle && dragStartCorner) {
+        // Promote the rectangle to interactive editing: handles + draggable.
+        drawingRectangle.setOptions({
+          editable: true,
+          draggable: true,
+          clickable: true,
+        });
+        drawingRectangle.addListener('bounds_changed', publishBounds);
+        publishBounds();
+        document.getElementById('clear-btn').disabled = false;
+      }
+      dragStartCorner = null;
+    }
+
+    function removeDrawingListeners() {
+      if (mouseDownListener) {
+        google.maps.event.removeListener(mouseDownListener);
+        mouseDownListener = null;
+      }
+      if (mouseMoveListener) {
+        google.maps.event.removeListener(mouseMoveListener);
+        mouseMoveListener = null;
+      }
+      if (mouseUpListener) {
+        google.maps.event.removeListener(mouseUpListener);
+        mouseUpListener = null;
+      }
+    }
+
+    function clearRectangle() {
+      if (drawingRectangle) {
+        drawingRectangle.setMap(null);
+        drawingRectangle = null;
+      }
+      dragStartCorner = null;
+      removeDrawingListeners();
+      if (map) {
+        map.setOptions({draggable: true, gestureHandling: 'auto'});
+        document.getElementById('map').style.cursor = '';
+      }
+      document.getElementById('clear-btn').disabled = true;
+      document.getElementById('hint').classList.remove('hidden');
+      document.getElementById('hint').textContent =
+        i18n.hintInitial || 'Click "Draw rectangle", then drag a rectangle on the map.';
+      if (bridge) bridge.boundsCleared();
+    }
+
+    function publishBounds() {
+      if (!drawingRectangle || !bridge) return;
+      const b = drawingRectangle.getBounds();
+      const ne = b.getNorthEast();
+      const sw = b.getSouthWest();
+      bridge.boundsChanged(ne.lat(), sw.lng(), sw.lat(), ne.lng());
+    }
+  </script>
+</body>
+</html>

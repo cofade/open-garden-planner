@@ -1714,7 +1714,7 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
             <translation>🔒 Fixieren</translation>
         </message>
     </context>
-<context>
+    <context>
         <name>GardenItemMixin</name>
         <message>
             <location filename="..\..\ui\canvas\items\garden_item.py" line="719" />
@@ -2414,7 +2414,7 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
             <source>Seed Inventory</source>
             <translation>Saatgutbestand</translation>
         </message>
-<message>
+        <message>
             <location filename="..\..\app\application.py" line="865" />
             <source>Properties</source>
             <translation>Eigenschaften</translation>
@@ -3102,6 +3102,38 @@ Neue Saison jetzt öffnen?</translation>
         <message>
             <source>Delete this journal note?</source>
             <translation>Diese Tagebuchnotiz löschen?</translation>
+        </message>
+        <message>
+            <source>Object Gallery</source>
+            <translation>Objektgalerie</translation>
+        </message>
+        <message>
+            <source>Load &amp;Satellite Background...</source>
+            <translation>&amp;Satellitenbild laden...</translation>
+        </message>
+        <message>
+            <source>Pick an area on Google Maps and load it as a true-to-scale satellite background</source>
+            <translation>Bereich auf Google Maps auswählen und maßstabsgetreu als Satellitenbild laden</translation>
+        </message>
+        <message>
+            <source>Set OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading</source>
+            <translation>OGP_GOOGLE_MAPS_KEY in der .env-Datei setzen, um Satellitenbilder laden zu können</translation>
+        </message>
+        <message>
+            <source>Set OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading.</source>
+            <translation>OGP_GOOGLE_MAPS_KEY in der .env-Datei setzen, um Satellitenbilder laden zu können.</translation>
+        </message>
+        <message>
+            <source>API key missing</source>
+            <translation>API-Schlüssel fehlt</translation>
+        </message>
+        <message>
+            <source>Loaded satellite background ({cols}x{rows} tiles, zoom {zoom})</source>
+            <translation>Satellitenbild geladen ({cols}x{rows} Kacheln, Zoom {zoom})</translation>
+        </message>
+        <message>
+            <source>Loaded satellite background ({cols}x{rows} tiles, zoom {zoom}) — canvas resized to {w_m:.0f}m x {h_m:.0f}m</source>
+            <translation>Satellitenbild geladen ({cols}x{rows} Kacheln, Zoom {zoom}) — Leinwand auf {w_m:.0f}m x {h_m:.0f}m angepasst</translation>
         </message>
     </context>
     <context>
@@ -8652,6 +8684,85 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Categories</source>
             <translation>Kategorien</translation>
+        </message>
+    </context>
+    <context>
+        <name>MapPickerDialog</name>
+        <message>
+            <source>Load Satellite Background</source>
+            <translation>Satellitenbild laden</translation>
+        </message>
+        <message>
+            <source>Search for an address, then draw a rectangle on the map.</source>
+            <translation>Adresse suchen, dann ein Rechteck auf der Karte aufziehen.</translation>
+        </message>
+        <message>
+            <source>Rectangle selected. Click 'Load image' to fetch.</source>
+            <translation>Rechteck ausgewählt. Auf 'Bild laden' klicken, um es abzurufen.</translation>
+        </message>
+        <message>
+            <source>Fetching satellite image...</source>
+            <translation>Satellitenbild wird geladen...</translation>
+        </message>
+        <message>
+            <source>Try again, or pick a smaller area.</source>
+            <translation>Erneut versuchen oder einen kleineren Bereich wählen.</translation>
+        </message>
+        <message>
+            <source>Load image</source>
+            <translation>Bild laden</translation>
+        </message>
+        <message>
+            <source>API key missing</source>
+            <translation>API-Schlüssel fehlt</translation>
+        </message>
+        <message>
+            <source>Map error</source>
+            <translation>Kartenfehler</translation>
+        </message>
+        <message>
+            <source>Failed to fetch image</source>
+            <translation>Bildabruf fehlgeschlagen</translation>
+        </message>
+        <message>
+            <source>Cancelling...</source>
+            <translation>Wird abgebrochen...</translation>
+        </message>
+        <message>
+            <source>Fetch cancelled.</source>
+            <translation>Abruf abgebrochen.</translation>
+        </message>
+        <message>
+            <source>Search address...</source>
+            <translation>Adresse suchen...</translation>
+        </message>
+        <message>
+            <source>Draw rectangle</source>
+            <translation>Rechteck zeichnen</translation>
+        </message>
+        <message>
+            <source>Clear</source>
+            <translation>Zurücksetzen</translation>
+        </message>
+        <message>
+            <source>Click 'Draw rectangle', then click two corners on the map.</source>
+            <translation>'Rechteck zeichnen' anklicken, dann zwei Ecken auf der Karte wählen.</translation>
+        </message>
+        <message>
+            <source>Click the first corner of your area.</source>
+            <translation>Erste Ecke des Bereichs anklicken.</translation>
+        </message>
+        <message>
+            <source>Click the opposite corner.</source>
+            <translation>Gegenüberliegende Ecke anklicken.</translation>
+        </message>
+        <message>
+            <source>Click 'Draw rectangle', then drag a rectangle on the map.</source>
+            <translation>Auf 'Rechteck zeichnen' klicken, dann auf der Karte ein Rechteck aufziehen.</translation>
+        </message>
+        <message>
+            <source>Drag on the map to draw the rectangle.</source>
+            <translation>Auf der Karte ein Rechteck aufziehen.</translation>
         </message>
     </context>
 </TS>

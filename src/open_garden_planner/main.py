@@ -5,11 +5,26 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load environment variables from .env file in project root
-# Find the .env file relative to this source file
-_src_dir = Path(__file__).parent.parent.parent  # Go up to project root
-_env_file = _src_dir / ".env"
-load_dotenv(_env_file)
+# QtWebEngineWidgets (used by the satellite map picker) must be imported
+# before QApplication is created — Qt enforces this so it can configure
+# OpenGL sharing in time. Importing here at module load satisfies the
+# requirement regardless of whether the picker is opened this session.
+from PyQt6 import QtWebEngineWidgets  # noqa: F401, E402
+
+# Load environment variables from a ``.env`` file. Two layouts to support:
+# - Dev (source run): repo-root ``.env`` (three parents up from this file).
+# - Frozen (PyInstaller exe): ``.env`` placed next to the .exe by the user;
+#   ``__file__`` is inside ``_internal/`` so the source-relative lookup
+#   misses, leaving the menu permanently disabled. Check both — the first
+#   hit wins.
+_dev_env = Path(__file__).parent.parent.parent / ".env"
+_frozen_env = (
+    Path(sys.executable).parent / ".env" if getattr(sys, "frozen", False) else None
+)
+for _candidate in (_frozen_env, _dev_env):
+    if _candidate and _candidate.is_file():
+        load_dotenv(_candidate)
+        break
 
 # Windows-specific imports for taskbar icon support
 try:

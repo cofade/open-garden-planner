@@ -43,6 +43,32 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Abstand: {pixels} Pixel. Geben Sie den realen Abstand unten ein.",
     },
 
+    # ── MapPickerDialog ──
+    "MapPickerDialog": {
+        "Load Satellite Background": "Satellitenbild laden",
+        "Search for an address, then draw a rectangle on the map.":
+            "Adresse suchen, dann ein Rechteck auf der Karte aufziehen.",
+        "Rectangle selected. Click 'Load image' to fetch.":
+            "Rechteck ausgewählt. Auf 'Bild laden' klicken, um es abzurufen.",
+        "Fetching satellite image...": "Satellitenbild wird geladen...",
+        "Cancelling...": "Wird abgebrochen...",
+        "Fetch cancelled.": "Abruf abgebrochen.",
+        "Try again, or pick a smaller area.":
+            "Erneut versuchen oder einen kleineren Bereich wählen.",
+        "Load image": "Bild laden",
+        "API key missing": "API-Schlüssel fehlt",
+        "Map error": "Kartenfehler",
+        "Failed to fetch image": "Bildabruf fehlgeschlagen",
+        # HTML-side picker UI (passed to JS via the bridge):
+        "Search address...": "Adresse suchen...",
+        "Draw rectangle": "Rechteck zeichnen",
+        "Clear": "Zurücksetzen",
+        "Click 'Draw rectangle', then drag a rectangle on the map.":
+            "Auf 'Rechteck zeichnen' klicken, dann auf der Karte ein Rechteck aufziehen.",
+        "Drag on the map to draw the rectangle.":
+            "Auf der Karte ein Rechteck aufziehen.",
+    },
+
     # ── CanvasView ──
     "CanvasView": {
         "Distance in cm": "Abstand in cm",
@@ -710,6 +736,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Imported: {path}": "Importiert: {path}",
         "Failed to import image:\n{error}":
             "Bild konnte nicht importiert werden:\n{error}",
+        "Load &Satellite Background...": "&Satellitenbild laden...",
+        "Pick an area on Google Maps and load it as a true-to-scale satellite background":
+            "Bereich auf Google Maps auswählen und maßstabsgetreu als Satellitenbild laden",
+        "Set OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading":
+            "OGP_GOOGLE_MAPS_KEY in der .env-Datei setzen, um Satellitenbilder laden zu können",
+        "Set OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading.":
+            "OGP_GOOGLE_MAPS_KEY in der .env-Datei setzen, um Satellitenbilder laden zu können.",
+        "API key missing": "API-Schlüssel fehlt",
+        "Loaded satellite background ({cols}x{rows} tiles, zoom {zoom})":
+            "Satellitenbild geladen ({cols}x{rows} Kacheln, Zoom {zoom})",
+        "Loaded satellite background ({cols}x{rows} tiles, zoom {zoom}) — canvas resized to {w_m:.0f}m x {h_m:.0f}m":
+            "Satellitenbild geladen ({cols}x{rows} Kacheln, Zoom {zoom}) — Leinwand auf {w_m:.0f}m x {h_m:.0f}m angepasst",
         "&Language": "&Sprache",
         "Language Changed": "Sprache geändert",
         "Language has been set to {language}.\n\nPlease restart the application for the change to take effect.":
