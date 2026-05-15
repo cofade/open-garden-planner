@@ -109,6 +109,7 @@ src/open_garden_planner/
 │   │   ├── shopping_list_dialog.py # Garden→Shopping List dialog (US-12.6)
 │   │   ├── pest_log_dialog.py    # Pest/disease log entry (US-12.7)
 │   │   ├── journal_note_dialog.py # Garden-journal note editor (US-12.9)
+│   │   ├── map_picker_dialog.py  # Embedded Google Maps satellite picker (ADR-019)
 │   │   └── properties_dialog.py
 │   ├── widgets/
 │   │   ├── toolbar.py            # MainToolbar (5 CAD-style core tools)
@@ -132,6 +133,7 @@ src/open_garden_planner/
 │   ├── autosave_service.py       # Autosave logic
 │   ├── soil_service.py           # Soil test history facade (US-12.10a)
 │   ├── shopping_list_service.py  # Plants/seed-gap/material aggregator (US-12.6)
+│   ├── google_maps_service.py    # Static Maps HTTP + tile-mosaic stitching (ADR-019)
 │   └── update_checker.py         # GitHub releases update check (frozen exe only)
 └── resources/
     ├── icons/                    # App icons, banner, tool SVGs
@@ -143,9 +145,11 @@ src/open_garden_planner/
     │   ├── amendments.json       # Soil amendment substances (US-12.10c)
     │   ├── companion_planting.json
     │   └── seed_viability.json
-    └── objects/                  # Object SVG illustrations
-        ├── furniture/            # Outdoor furniture SVGs
-        └── infrastructure/       # Garden infrastructure SVGs
+    ├── objects/                  # Object SVG illustrations
+    │   ├── furniture/            # Outdoor furniture SVGs
+    │   └── infrastructure/       # Garden infrastructure SVGs
+    └── web/                      # HTML loaded by QWebEngineView (ADR-019)
+        └── map_picker.html       # Google Maps picker UI for satellite import
 
 installer/                        # Windows installer build files
 ├── ogp.spec                      # PyInstaller spec (--onedir bundle)

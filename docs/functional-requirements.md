@@ -24,6 +24,9 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
 - **FR-IMG-05**: Lock/unlock image layer to prevent accidental movement
 - **FR-IMG-06**: Image stored as reference in project (path or embedded, user choice)
 - **FR-IMG-07**: Multiple background images supported (e.g., different areas of property)
+- **FR-IMG-08**: Load satellite imagery directly from Google Maps via an embedded picker dialog: address search (Places Autocomplete), navigate the map, drag a rectangle, fetch via Static Maps API. Available when `OGP_GOOGLE_MAPS_KEY` is configured in the project `.env` (ADR-019).
+- **FR-IMG-09**: Satellite imports land on the canvas at true real-world scale automatically (no manual two-point calibration), with `meters_per_pixel` derived analytically from the Web-Mercator zoom level and latitude. The manual `Calibrate Scale…` context-menu action remains available as an override.
+- **FR-IMG-10**: Satellite imports persist in the `.ogp` project file with geo metadata (center, NW/SE bbox corners, zoom, source, timestamp) — older projects without this metadata continue to load unchanged.
 
 ## FR-2: Drawing Tools
 

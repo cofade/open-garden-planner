@@ -26,6 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "PyQt6>=6.6.0",
+    "PyQt6-WebEngine>=6.10.0,<6.11",
     "Pillow>=10.0.0",
     "requests>=2.31.0",
     "python-dotenv>=1.0.0",

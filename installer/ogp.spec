@@ -56,6 +56,12 @@ for f in (RESOURCES / "data").rglob("*"):
         rel = f.relative_to(SRC)
         datas.append((str(f), str(rel.parent)))
 
+# Web resources (Google Maps picker HTML loaded by QWebEngineView)
+for f in (RESOURCES / "web").rglob("*"):
+    if f.is_file():
+        rel = f.relative_to(SRC)
+        datas.append((str(f), str(rel.parent)))
+
 a = Analysis(
     [str(SRC / "open_garden_planner" / "__main__.py")],
     pathex=[str(SRC)],
@@ -71,6 +77,11 @@ a = Analysis(
         "open_garden_planner.core.i18n",
         "open_garden_planner.ui",
         "open_garden_planner.ui.theme",
+        # QtWebEngine — needed for the satellite map picker dialog.
+        # The import must run before QApplication is created (handled in main.py).
+        "PyQt6.QtWebEngineCore",
+        "PyQt6.QtWebEngineWidgets",
+        "PyQt6.QtWebChannel",
         "ezdxf",
         "ezdxf.xclip",
         "ezdxf.fonts",

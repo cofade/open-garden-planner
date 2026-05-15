@@ -629,3 +629,45 @@ If you forget step 1–5 the existing test still passes; if you forget step 6 th
 **Upright text badges on the Y-flipped canvas.** Related lesson from the same bug batch: text drawn via `painter.drawText()` inside an item's `paint()` inherits the view's `scale(zoom, -zoom)` and renders **upside-down**. Use `QGraphicsSimpleTextItem` (or a custom `QGraphicsItem` subclass) as a **child** of the item with `ItemIgnoresTransformations`. See `SuccessionBadgeItem` in `garden_item.py` for the multi-line-with-pill-background example; bed name labels (`_label_item`) use `QGraphicsSimpleTextItem` for the simple single-line case.
 
 Cross-references: ADR-017 (decision rationale), `tests/integration/test_bed_context_menu.py` (enforcement), `tests/integration/test_succession.py::TestSuccessionBadgeIndicator` (badge state machine).
+
+## 8.15 Google Maps API Key for the Satellite Background Picker (ADR-019)
+
+**What needs the key.** The "File → Load Satellite Background…" menu opens `MapPickerDialog`, which uses two Google Maps Platform APIs:
+
+| API | Used for | Free tier |
+|-----|----------|-----------|
+| Maps JS API | The embedded picker map (display + drawing + Places Autocomplete) | Free for display in apps (no $200 credit deduction) |
+| Static Maps API | The final satellite image fetch (1–9 calls per import, depending on bbox size) | $200/month credit → ~100k calls free |
+
+**Key location, in priority order:**
+
+1. `OGP_GOOGLE_MAPS_KEY` environment variable (set by your shell or CI).
+2. A line in the project-root `.env` file (loaded by `python-dotenv` in `main.py` before anything else).
+3. *(future)* Per-user UI in `PreferencesDialog` — stored under `QSettings("cofade", "Open Garden Planner")` at `Network/GoogleMapsApiKey`. Not implemented yet — `services/google_maps_service.has_api_key()` reads only the env var as of ADR-019.
+
+When the key is absent, the menu item is disabled and its tooltip explains where to set it. There is no fallback to a different provider — the dialog is unavailable until the user provides a key.
+
+**One-time setup (developer):**
+
+1. Sign in to <https://console.cloud.google.com/> with the Google account that should pay for any overage.
+2. Create a project ("Open Garden Planner Dev").
+3. Enable the three APIs the dialog needs: **Maps JavaScript API**, **Places API**, **Maps Static API**.
+4. *Billing → Budgets & alerts*: create a budget alert at €1/month so you get pinged if anything ever escapes the $200 free credit.
+5. *APIs & Services → Credentials*: create an API key. Restrict it: **API restrictions** = the three APIs above only. **Application restrictions** can stay on "None" for desktop use (HTTP-referrer/IP/Android-package restrictions don't apply to a `.exe`).
+6. Paste the key into the project-root `.env`:
+
+   ```dotenv
+   OGP_GOOGLE_MAPS_KEY=AIza...
+   ```
+
+**Never bundle the key into the release `.exe`.** Anything pinned into the PyInstaller binary can be extracted with `strings` and abused on your bill. Specifically:
+
+- The CI release workflow must NOT inject the secret into the build artifact.
+- A GitHub-Action secret is only safe if it stays in CI (e.g. for an integration test) and never ends up in the shipped `.exe`.
+- Distributing the key to other users requires them to obtain their own (cheap, ~5 minutes via the steps above).
+
+**Mosaic vs single call.** The Static Maps API caps a single image at 640×640 base × 2 scale = 1280×1280 effective pixels. For typical garden-sized bboxes (≤ ~200 m on a side at high latitudes) one call is enough; for larger areas `google_maps_service.fetch_bbox` falls back to a 2×2 or 3×3 mosaic at the highest zoom that fits the configured `_MAX_GRID = 3` budget (`pick_zoom_and_grid`). Resulting image is stitched with Pillow before reaching the canvas as a single `BackgroundImageItem`.
+
+**Pixel→meter scale is analytical.** Because Static Maps uses Web-Mercator with a known tile pixel size, the scale of the returned image is `mpp = cos(lat) × 2π × 6378137 / (256 × 2^zoom)`. The new `BackgroundImageItem(geo_metadata=…)` constructor reads `meters_per_pixel` from this dict and sets `_scale_factor = 0.01 / mpp` (px-per-cm) automatically — no calibration click. The existing manual calibration (`Calibrate Scale…` context menu) is still available as an override; on reload, a saved `scale_factor` wins over the geo-derived one.
+
+**QtWebEngine import timing.** `from PyQt6 import QtWebEngineWidgets` must run *before* `QApplication(...)` is created — Qt enforces this so it can configure OpenGL sharing. `main.py` does this at module level. Tests that exercise the dialog must either match the same ordering or use a `QWidget` stand-in for `QWebEngineView` (see `tests/integration/test_map_picker_dialog.py::_DummyWebView`).

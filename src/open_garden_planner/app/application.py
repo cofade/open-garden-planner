@@ -260,6 +260,32 @@ class GardenPlannerApp(QMainWindow):
         import_image_action.triggered.connect(self._on_import_background_image)
         menu.addAction(import_image_action)
 
+        # Load Satellite Background (via embedded Google Maps picker)
+        load_satellite_action = QAction(self.tr("Load &Satellite Background..."), self)
+        _enabled_hint = self.tr(
+            "Pick an area on Google Maps and load it as a true-to-scale "
+            "satellite background"
+        )
+        load_satellite_action.setStatusTip(_enabled_hint)
+        load_satellite_action.setToolTip(_enabled_hint)
+        load_satellite_action.triggered.connect(self._on_load_satellite_background)
+        # Disable when API key not configured; explain why in both status bar
+        # and tooltip (QMenu defaults to NOT showing action tooltips, so we
+        # turn them on with ``setToolTipsVisible`` below).
+        from open_garden_planner.services.google_maps_service import (  # noqa: PLC0415
+            has_api_key as _has_maps_key,
+        )
+        if not _has_maps_key():
+            load_satellite_action.setEnabled(False)
+            _disabled_hint = self.tr(
+                "Set OGP_GOOGLE_MAPS_KEY in your .env file to enable "
+                "satellite background loading"
+            )
+            load_satellite_action.setStatusTip(_disabled_hint)
+            load_satellite_action.setToolTip(_disabled_hint)
+        menu.setToolTipsVisible(True)
+        menu.addAction(load_satellite_action)
+
         # Import DXF
         import_dxf_action = QAction(self.tr("Import &DXF..."), self)
         import_dxf_action.setStatusTip(self.tr("Import a DXF CAD file onto the canvas"))
@@ -3282,6 +3308,93 @@ class GardenPlannerApp(QMainWindow):
                 self.statusBar().showMessage(self.tr("Imported: {path}").format(path=file_path))
             except Exception as e:
                 QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to import image:\n{error}").format(error=e))
+
+    def _on_load_satellite_background(self) -> None:
+        """Open the embedded Google Maps picker and import the chosen area."""
+        import io  # noqa: PLC0415
+        from datetime import UTC, datetime  # noqa: PLC0415
+
+        from open_garden_planner.ui.canvas.items import BackgroundImageItem  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs.map_picker_dialog import (  # noqa: PLC0415
+            MapPickerDialog,
+        )
+
+        if not MapPickerDialog.is_available():
+            QMessageBox.warning(
+                self,
+                self.tr("API key missing"),
+                self.tr(
+                    "Set OGP_GOOGLE_MAPS_KEY in your .env file to enable "
+                    "satellite background loading."
+                ),
+            )
+            return
+
+        dialog = MapPickerDialog(self)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        result = dialog.fetch_result
+        if result is None:
+            return
+
+        # PIL image → PNG bytes.
+        buf = io.BytesIO()
+        result.image.save(buf, format="PNG")
+        png_bytes = buf.getvalue()
+
+        # Replace any existing background image (a project has at most one
+        # logical 'satellite layer'; stacking would only confuse the user).
+        scene = self.canvas_scene
+        for item in list(scene.items()):
+            if isinstance(item, BackgroundImageItem):
+                scene.removeItem(item)
+
+        image_item = BackgroundImageItem.from_fetch_result(
+            image_path=f"google_satellite_z{result.zoom}.png",
+            png_bytes=png_bytes,
+            meters_per_pixel=result.meters_per_pixel,
+            bbox_nw=(result.bbox.nw_lat, result.bbox.nw_lng),
+            bbox_se=(result.bbox.se_lat, result.bbox.se_lng),
+            zoom=result.zoom,
+            fetched_at=datetime.now(UTC).isoformat(timespec="seconds"),
+        )
+        scene.addItem(image_item)
+
+        # Resize the canvas to match the selected area so the satellite image
+        # IS the canvas. Image scene-size in cm = image_local_size_px / scale_factor
+        # (px/cm). Using the item's own dimensions keeps us in sync with the
+        # cropped image, no matter what the service returned.
+        image_rect = image_item.boundingRect()
+        canvas_w_cm = image_rect.width() / image_item.scale_factor
+        canvas_h_cm = image_rect.height() / image_item.scale_factor
+        scene.resize_canvas(canvas_w_cm, canvas_h_cm)
+
+        # Centre on the new canvas. ``boundingRect()`` is in local (pre-scale)
+        # coords; because ``transformOriginPoint`` is at the local centre, the
+        # scene centre after ``setPos(pos)`` is ``pos + (w/2, h/2)`` regardless
+        # of the scale factor — so we must NOT multiply by ``scale`` here.
+        canvas_center = scene.canvas_rect.center()
+        image_item.setPos(
+            canvas_center.x() - image_rect.width() / 2,
+            canvas_center.y() - image_rect.height() / 2,
+        )
+
+        # Zoom the view to the new canvas so the user sees the whole import.
+        self.canvas_view.fit_in_view()
+
+        self._project_manager.mark_dirty()
+        self.statusBar().showMessage(
+            self.tr(
+                "Loaded satellite background ({cols}x{rows} tiles, zoom {zoom}) — "
+                "canvas resized to {w_m:.0f}m x {h_m:.0f}m"
+            ).format(
+                cols=result.tile_grid[0],
+                rows=result.tile_grid[1],
+                zoom=result.zoom,
+                w_m=canvas_w_cm / 100,
+                h_m=canvas_h_cm / 100,
+            )
+        )
 
     def _on_set_location(self) -> None:
         """Handle Set Garden Location action."""
