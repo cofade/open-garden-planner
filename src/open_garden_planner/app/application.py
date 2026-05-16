@@ -557,6 +557,43 @@ class GardenPlannerApp(QMainWindow):
         self._object_snap_action.triggered.connect(self._on_toggle_object_snap)
         menu.addAction(self._object_snap_action)
 
+        # Toggle Midpoint Snap (Package A - US-A3)
+        self._midpoint_snap_action = QAction(self.tr("Snap to &Midpoints"), self)
+        self._midpoint_snap_action.setCheckable(True)
+        self._midpoint_snap_action.setChecked(True)
+        self._midpoint_snap_action.setStatusTip(
+            self.tr("Toggle snap to the midpoint of any straight edge")
+        )
+        self._midpoint_snap_action.triggered.connect(self._on_toggle_midpoint_snap)
+        menu.addAction(self._midpoint_snap_action)
+
+        # Toggle Intersection Snap (Package A - US-A3)
+        self._intersection_snap_action = QAction(
+            self.tr("Snap to &Intersections"), self
+        )
+        self._intersection_snap_action.setCheckable(True)
+        self._intersection_snap_action.setChecked(True)
+        self._intersection_snap_action.setStatusTip(
+            self.tr("Toggle snap to intersections of straight edges")
+        )
+        self._intersection_snap_action.triggered.connect(
+            self._on_toggle_intersection_snap
+        )
+        menu.addAction(self._intersection_snap_action)
+
+        # Toggle Dynamic Input (Package A - US-A4)
+        self._dynamic_input_action = QAction(self.tr("Enable Dynamic &Input"), self)
+        self._dynamic_input_action.setCheckable(True)
+        self._dynamic_input_action.setChecked(True)
+        self._dynamic_input_action.setStatusTip(
+            self.tr(
+                "Toggle typed distance/angle input next to the cursor and in "
+                "the status bar"
+            )
+        )
+        self._dynamic_input_action.triggered.connect(self._on_toggle_dynamic_input)
+        menu.addAction(self._dynamic_input_action)
+
         menu.addSeparator()
 
         # Toggle Shadows
@@ -2634,9 +2671,22 @@ class GardenPlannerApp(QMainWindow):
         """Initialize object snap state from persisted settings."""
         from open_garden_planner.app.settings import get_settings
 
-        enabled = get_settings().object_snap_enabled
+        settings = get_settings()
+        enabled = settings.object_snap_enabled
         self._object_snap_action.setChecked(enabled)
         self.canvas_view.set_object_snap_enabled(enabled)
+
+        mid = settings.midpoint_snap_enabled
+        self._midpoint_snap_action.setChecked(mid)
+        self.canvas_view.set_midpoint_snap_enabled(mid)
+
+        inter = settings.intersection_snap_enabled
+        self._intersection_snap_action.setChecked(inter)
+        self.canvas_view.set_intersection_snap_enabled(inter)
+
+        dyn = settings.dynamic_input_enabled
+        self._dynamic_input_action.setChecked(dyn)
+        self.canvas_view.set_dynamic_input_enabled(dyn)
 
     def _on_toggle_preview_mode(self, checked: bool) -> None:
         """Handle toggle preview mode action."""
@@ -2753,6 +2803,27 @@ class GardenPlannerApp(QMainWindow):
 
         self.canvas_view.set_object_snap_enabled(checked)
         get_settings().object_snap_enabled = checked
+
+    def _on_toggle_midpoint_snap(self, checked: bool) -> None:
+        """Handle toggle midpoint snap action (Package A US-A3)."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_view.set_midpoint_snap_enabled(checked)
+        get_settings().midpoint_snap_enabled = checked
+
+    def _on_toggle_intersection_snap(self, checked: bool) -> None:
+        """Handle toggle intersection snap action (Package A US-A3)."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_view.set_intersection_snap_enabled(checked)
+        get_settings().intersection_snap_enabled = checked
+
+    def _on_toggle_dynamic_input(self, checked: bool) -> None:
+        """Handle toggle dynamic input action (Package A US-A4)."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_view.set_dynamic_input_enabled(checked)
+        get_settings().dynamic_input_enabled = checked
 
     def _on_align_left(self) -> None:
         """Align selected objects to the left edge."""

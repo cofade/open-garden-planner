@@ -45,6 +45,19 @@ from open_garden_planner.core.alignment import (
     distribute_items,
 )
 from open_garden_planner.core.object_types import ObjectType, is_bed_type
+from open_garden_planner.core.snap import (
+    PointSnapper,
+    SnapCandidate,
+    SnapCandidateKind,
+    SnapRegistry,
+)
+from open_garden_planner.core.snap.providers import (
+    CenterSnapProvider,
+    EdgeCardinalSnapProvider,
+    EndpointSnapProvider,
+    IntersectionSnapProvider,
+    MidpointSnapProvider,
+)
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
     AngleConstraintTool,
@@ -157,13 +170,34 @@ class CanvasView(QGraphicsView):
         self._grid_visible = False
         self._snap_enabled = True
         self._object_snap_enabled = True
+        self._midpoint_snap_enabled = True
+        self._intersection_snap_enabled = True
+        self._dynamic_input_enabled = True
         self._grid_size = 50.0  # 50cm default grid
         self._scale_bar_visible = True
 
-        # Object snapping engine and visual guides
+        # Drag-time bounding-box snapping engine and visual guides
         self._object_snapper = ObjectSnapper(threshold=10.0)
         self._snap_guides: list[SnapGuide] = []
         self._snap_guide_color = QColor(255, 0, 128, 180)  # Magenta
+
+        # Click-time point snapper (Package A US-A3): endpoint/center/edge
+        # come from the legacy anchor system, midpoint/intersection are
+        # new providers.  Provider activation tracks the View menu toggles.
+        self._snap_registry = SnapRegistry(
+            [
+                EndpointSnapProvider(),
+                IntersectionSnapProvider(),
+                MidpointSnapProvider(),
+                CenterSnapProvider(),
+                EdgeCardinalSnapProvider(),
+            ]
+        )
+        self._point_snapper = PointSnapper(self._snap_registry)
+        self._current_snap: SnapCandidate | None = None
+        self._snap_indicator_item = None  # QGraphicsItem placeholder
+        self._snap_index_dirty = True
+        scene.changed.connect(self._on_scene_changed_for_snap)
 
         # Pan state
         self._panning = False
@@ -842,6 +876,53 @@ class CanvasView(QGraphicsView):
     def set_object_snap_enabled(self, enabled: bool) -> None:
         """Set snap to objects enabled."""
         self._object_snap_enabled = enabled
+        self._refresh_snap_registry()
+
+    def set_midpoint_snap_enabled(self, enabled: bool) -> None:
+        """Set midpoint snap (Package A US-A3) enabled."""
+        self._midpoint_snap_enabled = enabled
+        self._refresh_snap_registry()
+
+    def set_intersection_snap_enabled(self, enabled: bool) -> None:
+        """Set intersection snap (Package A US-A3) enabled."""
+        self._intersection_snap_enabled = enabled
+        self._refresh_snap_registry()
+
+    def set_dynamic_input_enabled(self, enabled: bool) -> None:
+        """Set dynamic input (Package A US-A4) enabled."""
+        self._dynamic_input_enabled = enabled
+
+    @property
+    def dynamic_input_enabled(self) -> bool:
+        return self._dynamic_input_enabled
+
+    @property
+    def point_snapper(self) -> "PointSnapper":
+        """The shared click-time point snapper (Package A US-A3)."""
+        return self._point_snapper
+
+    def _refresh_snap_registry(self) -> None:
+        """Sync provider activation with the four user-toggles."""
+        reg = self._snap_registry
+        if self._object_snap_enabled and not reg.has(EndpointSnapProvider):
+            reg.add(EndpointSnapProvider())
+            reg.add(CenterSnapProvider())
+            reg.add(EdgeCardinalSnapProvider())
+        elif not self._object_snap_enabled and reg.has(EndpointSnapProvider):
+            reg.remove(EndpointSnapProvider)
+            reg.remove(CenterSnapProvider)
+            reg.remove(EdgeCardinalSnapProvider)
+        if self._midpoint_snap_enabled and not reg.has(MidpointSnapProvider):
+            reg.add(MidpointSnapProvider())
+        elif not self._midpoint_snap_enabled and reg.has(MidpointSnapProvider):
+            reg.remove(MidpointSnapProvider)
+        if self._intersection_snap_enabled and not reg.has(IntersectionSnapProvider):
+            reg.add(IntersectionSnapProvider())
+        elif (
+            not self._intersection_snap_enabled
+            and reg.has(IntersectionSnapProvider)
+        ):
+            reg.remove(IntersectionSnapProvider)
 
     def set_grid_size(self, size: float) -> None:
         """Set grid size in centimeters."""
@@ -1299,6 +1380,76 @@ class CanvasView(QGraphicsView):
         # Re-clamp after snapping (grid snap near border could push outside)
         return self.clamp_to_canvas(snapped)
 
+    def _on_scene_changed_for_snap(self, _rects: object) -> None:
+        """Mark the snap spatial index for rebuild on next query."""
+        self._snap_index_dirty = True
+
+    def _ensure_snap_index(self) -> None:
+        """Lazily rebuild the spatial index from the current scene."""
+        if not self._snap_index_dirty:
+            return
+        from PyQt6.QtWidgets import QGraphicsItem as _QGI
+
+        items = [
+            it
+            for it in self._canvas_scene.items()
+            if (it.flags() & _QGI.GraphicsItemFlag.ItemIsSelectable)
+        ]
+        self._point_snapper.update_scene(items, scene_bounds=self.scene().sceneRect())
+        self._snap_index_dirty = False
+
+    def anchor_snap(
+        self,
+        scene_pos: QPointF,
+        threshold: float = 15.0,
+    ) -> tuple[QPointF, "SnapCandidate | None"]:
+        """Snap ``scene_pos`` to the closest enabled anchor candidate.
+
+        Returns the (possibly unchanged) point and the snap candidate that
+        produced it (``None`` if no provider matched within ``threshold``).
+        Caller can use the candidate's ``kind`` to render a glyph.
+        """
+        if not self._snap_registry.providers():
+            return scene_pos, None
+        self._ensure_snap_index()
+        hit = self._point_snapper.snap(scene_pos, threshold=threshold)
+        if hit is None:
+            return scene_pos, None
+        return QPointF(hit.point), hit
+
+    def _maybe_apply_anchor_snap(self, tool: object, scene_pos: QPointF) -> QPointF:
+        """Apply Package A point snap for non-select drawing tools.
+
+        The select tool needs the raw cursor position to perform item
+        hit-testing; everything else can benefit from anchor snap.
+        Constraint tools snap explicitly via the legacy
+        ``find_nearest_anchor`` and would double-snap, so they opt out
+        here too.
+        """
+        if tool is None:
+            return scene_pos
+        tt = getattr(tool, "tool_type", None)
+        if tt is None or tt == ToolType.SELECT:
+            self._set_current_snap(None)
+            return scene_pos
+        # Constraint tools and the measure tool run their own anchor logic.
+        name = tt.name if hasattr(tt, "name") else ""
+        if name.startswith("CONSTRAINT") or name == "MEASURE":
+            self._set_current_snap(None)
+            return scene_pos
+        snapped, candidate = self.anchor_snap(scene_pos)
+        self._set_current_snap(candidate)
+        return snapped
+
+    def _set_current_snap(self, candidate: "SnapCandidate | None") -> None:
+        """Update the current snap candidate; trigger redraw on change."""
+        previous = self._current_snap
+        self._current_snap = candidate
+        if previous is None and candidate is None:
+            return
+        # Repainting the viewport draws (or clears) the indicator glyph.
+        self.viewport().update()
+
     # Drag-and-drop from gallery panel
 
     def dragEnterEvent(self, event) -> None:
@@ -1530,6 +1681,7 @@ class CanvasView(QGraphicsView):
         tool = self._tool_manager.active_tool
         if tool:
             scene_pos = self.mapToScene(event.position().toPoint())
+            scene_pos = self._maybe_apply_anchor_snap(tool, scene_pos)
             if tool.mouse_press(event, scene_pos):
                 event.accept()
                 return
@@ -1634,11 +1786,14 @@ class CanvasView(QGraphicsView):
         ):
             self._active_drag_handle.grabMouse()
 
-        # Delegate to active tool
+        # Delegate to active tool (with anchor snap pre-applied for non-select
+        # drawing tools, Package A US-A3).
         tool = self._tool_manager.active_tool
-        if tool and tool.mouse_move(event, scene_pos):
-            event.accept()
-            return
+        if tool:
+            scene_pos = self._maybe_apply_anchor_snap(tool, scene_pos)
+            if tool.mouse_move(event, scene_pos):
+                event.accept()
+                return
 
         super().mouseMoveEvent(event)
 
@@ -2252,6 +2407,7 @@ class CanvasView(QGraphicsView):
         tool = self._tool_manager.active_tool
         if tool:
             scene_pos = self.mapToScene(event.position().toPoint())
+            scene_pos = self._maybe_apply_anchor_snap(tool, scene_pos)
             if tool.mouse_release(event, scene_pos):
                 event.accept()
                 self._drag_start_positions.clear()
@@ -3324,6 +3480,10 @@ class CanvasView(QGraphicsView):
         if self._snap_guides:
             self._draw_snap_guides(painter, rect)
 
+        # Draw the live point-snap glyph (Package A US-A3).
+        if self._current_snap is not None:
+            self._draw_point_snap_glyph(painter)
+
         # Draw persistent guide lines
         if self._guides_visible and self._canvas_scene.guide_lines:
             self._draw_guide_lines(painter, rect)
@@ -3454,6 +3614,54 @@ class CanvasView(QGraphicsView):
                     QPointF(guide.start.x(), rect.top()),
                     QPointF(guide.start.x(), rect.bottom()),
                 )
+
+    def _draw_point_snap_glyph(self, painter: QPainter) -> None:
+        """Render the Package A point-snap glyph at the current candidate.
+
+        Each snap kind uses a distinct mark so users can tell which mode
+        produced the snap without reading the menu.  The glyph size is
+        scaled by 1/zoom so it stays at a constant on-screen size.
+        """
+        candidate = self._current_snap
+        if candidate is None:
+            return
+        size = 8.0 / max(self._zoom_factor, 0.01)
+        pen = QPen(QColor(0, 180, 0, 220))
+        pen.setWidth(0)
+        pen.setCosmetic(True)
+        painter.save()
+        painter.setPen(pen)
+        painter.setBrush(QColor(0, 180, 0, 90))
+        cx = candidate.point.x()
+        cy = candidate.point.y()
+        kind = candidate.kind
+        if kind == SnapCandidateKind.ENDPOINT:
+            painter.drawRect(QRectF(cx - size / 2, cy - size / 2, size, size))
+        elif kind == SnapCandidateKind.CENTER:
+            painter.drawEllipse(QPointF(cx, cy), size / 2, size / 2)
+        elif kind == SnapCandidateKind.MIDPOINT:
+            from PyQt6.QtGui import QPolygonF
+
+            tri = QPolygonF(
+                [
+                    QPointF(cx, cy - size / 2),
+                    QPointF(cx + size / 2, cy + size / 2),
+                    QPointF(cx - size / 2, cy + size / 2),
+                ]
+            )
+            painter.drawPolygon(tri)
+        elif kind == SnapCandidateKind.INTERSECTION:
+            painter.drawLine(
+                QPointF(cx - size / 2, cy - size / 2),
+                QPointF(cx + size / 2, cy + size / 2),
+            )
+            painter.drawLine(
+                QPointF(cx - size / 2, cy + size / 2),
+                QPointF(cx + size / 2, cy - size / 2),
+            )
+        else:  # EDGE
+            painter.drawEllipse(QPointF(cx, cy), size / 3, size / 3)
+        painter.restore()
 
     def _draw_guide_lines(self, painter: QPainter, rect: QRectF) -> None:
         """Draw persistent guide lines in scene coordinates.
