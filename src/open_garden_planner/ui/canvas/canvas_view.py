@@ -202,6 +202,8 @@ class CanvasView(QGraphicsView):
 
         # Shared typed-coordinate buffer (Package A US-A1/A2/A4).
         self._input_buffer = CoordinateInputBuffer(self)
+        # Lazily-created cursor overlay (US-A4).
+        self._dynamic_overlay: object | None = None
 
         # Pan state
         self._panning = False
@@ -900,6 +902,38 @@ class CanvasView(QGraphicsView):
     def set_dynamic_input_enabled(self, enabled: bool) -> None:
         """Set dynamic input (Package A US-A4) enabled."""
         self._dynamic_input_enabled = enabled
+        if not enabled and self._dynamic_overlay is not None:
+            self._dynamic_overlay.hide_overlay()
+
+    def _ensure_dynamic_overlay(self) -> object:
+        """Create the cursor overlay on first use."""
+        if self._dynamic_overlay is None:
+            from open_garden_planner.ui.widgets.dynamic_input_overlay import (
+                DynamicInputOverlay,
+            )
+
+            self._dynamic_overlay = DynamicInputOverlay(self, self._input_buffer)
+            self._dynamic_overlay.commit_requested.connect(self.commit_typed_coordinate)
+        return self._dynamic_overlay
+
+    def _update_dynamic_overlay(self, viewport_pos: object) -> None:
+        """Show or hide the Dynamic Input overlay based on context."""
+        if not self._dynamic_input_enabled:
+            if self._dynamic_overlay is not None:
+                self._dynamic_overlay.hide_overlay()
+            return
+        tool = self._tool_manager.active_tool
+        if tool is None or getattr(tool, "tool_type", None) == ToolType.SELECT:
+            if self._dynamic_overlay is not None:
+                self._dynamic_overlay.hide_overlay()
+            return
+        if getattr(tool, "last_point", None) is None:
+            # Hide until the first click anchors the polar input.
+            if self._dynamic_overlay is not None:
+                self._dynamic_overlay.hide_overlay()
+            return
+        overlay = self._ensure_dynamic_overlay()
+        overlay.show_near(viewport_pos)
 
     @property
     def dynamic_input_enabled(self) -> bool:
@@ -1759,6 +1793,9 @@ class CanvasView(QGraphicsView):
         # Update coordinates display
         scene_pos = self.mapToScene(event.position().toPoint())
         self.coordinates_changed.emit(scene_pos.x(), scene_pos.y())
+
+        # Dynamic Input overlay (Package A US-A4): track the cursor.
+        self._update_dynamic_overlay(event.position().toPoint())
 
         # ── Guide drag ─────────────────────────────────────────────────────
         if self._dragging_guide is not None:
