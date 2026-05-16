@@ -210,3 +210,27 @@ class BaseTool(ABC):
         Override in subclasses to clean up any in-progress operations.
         Default implementation does nothing.
         """
+
+    # ------------------------------------------------------------------
+    # Typed coordinate input (Package A US-A1/A2/A4)
+    # ------------------------------------------------------------------
+
+    @property
+    def last_point(self) -> QPointF | None:
+        """Return the tool's anchor point for relative/polar typed input.
+
+        For multi-click tools (polyline, polygon, ...) this is the most
+        recently placed vertex.  Returns ``None`` when no anchor exists
+        yet, in which case typed coordinates are treated as absolute.
+        """
+        return None
+
+    def commit_typed_coordinate(self, _point: QPointF) -> bool:
+        """Commit a typed coordinate as if the user had clicked at it.
+
+        Subclasses override this to extend the same code path used by
+        ``mouse_press``.  Returns ``True`` if the input was accepted.
+        Default no-op returns ``False`` so unsupported tools can be
+        detected by the caller (status-bar input shows an error).
+        """
+        return False

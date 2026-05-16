@@ -201,3 +201,30 @@ class CircleTool(BaseTool):
         """Cancel the current circle drawing operation."""
         self._cleanup_preview()
         self._reset_state()
+
+    @property
+    def last_point(self) -> QPointF | None:
+        """Anchor for relative/polar typed input: the circle center after click 1."""
+        if self._is_drawing and self._center_point is not None:
+            return QPointF(self._center_point)
+        return None
+
+    def commit_typed_coordinate(self, point: QPointF) -> bool:
+        """Set the center on the first call, finalize the radius on the second."""
+        if not self._is_drawing:
+            self._center_point = QPointF(point)
+            self._is_drawing = True
+            self._preview_circle = QGraphicsEllipseItem()
+            self._preview_circle.setPen(
+                QPen(QColor(0, 100, 255), 1, Qt.PenStyle.DashLine)
+            )
+            self._preview_circle.setBrush(QBrush(QColor(100, 100, 255, 50)))
+            self._view.scene().addItem(self._preview_circle)
+            self._preview_line = QGraphicsLineItem()
+            self._preview_line.setPen(
+                QPen(QColor(100, 100, 100), 1, Qt.PenStyle.DashLine)
+            )
+            self._view.scene().addItem(self._preview_line)
+            return True
+        self._finalize_circle(QPointF(point))
+        return True

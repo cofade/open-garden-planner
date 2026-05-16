@@ -111,6 +111,23 @@ class PolylineTool(BaseTool):
         self._cleanup_preview()
         self._reset_state()
 
+    @property
+    def last_point(self) -> QPointF | None:
+        """Anchor for relative/polar typed input."""
+        if self._points:
+            return QPointF(self._points[-1])
+        return None
+
+    def commit_typed_coordinate(self, point: QPointF) -> bool:
+        """Add a vertex at ``point`` exactly (no grid snap)."""
+        self._points.append(QPointF(point))
+        self._add_vertex_marker(point)
+        if not self._is_drawing:
+            self._is_drawing = True
+            self._create_preview_path()
+        self._update_preview_path(point)
+        return True
+
     def _reset_state(self) -> None:
         """Reset tool state."""
         self._points = []
