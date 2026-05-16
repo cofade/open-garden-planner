@@ -832,12 +832,20 @@ class GardenPlannerApp(QMainWindow):
 
     def _setup_status_bar(self) -> None:
         """Set up the status bar with coordinate and zoom display."""
+        from open_garden_planner.ui.widgets.coordinate_input_field import (
+            CoordinateInputField,
+        )
+
         status_bar = self.statusBar()
 
         # Coordinate label (left side, permanent)
         self.coord_label = QLabel(self.tr("X: 0.00 cm  Y: 0.00 cm"))
         self.coord_label.setMinimumWidth(200)
         status_bar.addPermanentWidget(self.coord_label)
+
+        # Typed coordinate input (Package A US-A1/A2). Wired up after
+        # _setup_central_widget runs (which creates canvas_view).
+        self.coordinate_input_field: CoordinateInputField | None = None
 
         # Zoom label
         self.zoom_label = QLabel("100%")
@@ -871,9 +879,25 @@ class GardenPlannerApp(QMainWindow):
 
     def _setup_central_widget(self) -> None:
         """Set up the central widget area with canvas and sidebar panels."""
+        from open_garden_planner.ui.widgets.coordinate_input_field import (
+            CoordinateInputField,
+        )
+
         # Create canvas scene and view
         self.canvas_scene = CanvasScene(width_cm=5000, height_cm=3000)
         self.canvas_view = CanvasView(self.canvas_scene)
+
+        # Status-bar typed coordinate input (Package A US-A1/A2). Created
+        # here so it can attach to the canvas_view's shared input buffer.
+        self.coordinate_input_field = CoordinateInputField(
+            self.canvas_view.coordinate_input_buffer, self
+        )
+        self.coordinate_input_field.commit_requested.connect(
+            self.canvas_view.commit_typed_coordinate
+        )
+        # Insert between the coordinate label and the zoom label.
+        status_bar = self.statusBar()
+        status_bar.insertPermanentWidget(1, self.coordinate_input_field)
 
         # Three top toolbars on the same row, left → right:
         #   MainToolbar (core tools)

@@ -44,6 +44,7 @@ from open_garden_planner.core.alignment import (
     align_items,
     distribute_items,
 )
+from open_garden_planner.core.coordinate_input import CoordinateInputBuffer
 from open_garden_planner.core.object_types import ObjectType, is_bed_type
 from open_garden_planner.core.snap import (
     PointSnapper,
@@ -198,6 +199,9 @@ class CanvasView(QGraphicsView):
         self._snap_indicator_item = None  # QGraphicsItem placeholder
         self._snap_index_dirty = True
         scene.changed.connect(self._on_scene_changed_for_snap)
+
+        # Shared typed-coordinate buffer (Package A US-A1/A2/A4).
+        self._input_buffer = CoordinateInputBuffer(self)
 
         # Pan state
         self._panning = False
@@ -675,6 +679,11 @@ class CanvasView(QGraphicsView):
             tool_type: The tool type to activate
         """
         self._tool_manager.set_active_tool(tool_type)
+        # Refresh the typed-input anchor (Package A US-A1/A2): previous
+        # tool's last_point is stale when switching tools.
+        self.refresh_input_anchor()
+        # Clear any pending typed input from the previous tool.
+        self._input_buffer.clear()
 
     # Zoom methods
 
@@ -1417,6 +1426,34 @@ class CanvasView(QGraphicsView):
             return scene_pos, None
         return QPointF(hit.point), hit
 
+    @property
+    def coordinate_input_buffer(self) -> "CoordinateInputBuffer":
+        """The shared typed-coordinate buffer (Package A US-A1/A2/A4)."""
+        return self._input_buffer
+
+    def refresh_input_anchor(self) -> None:
+        """Sync the shared input buffer's anchor with the active tool."""
+        tool = self._tool_manager.active_tool
+        if tool is None:
+            self._input_buffer.set_anchor(None)
+            return
+        self._input_buffer.set_anchor(getattr(tool, "last_point", None))
+
+    def commit_typed_coordinate(self, point: QPointF) -> bool:
+        """Forward a parsed coordinate to the active drawing tool.
+
+        Returns ``True`` when accepted; refreshes the input anchor either
+        way so the next input is anchored correctly.
+        """
+        tool = self._tool_manager.active_tool
+        if tool is None:
+            return False
+        try:
+            accepted = bool(tool.commit_typed_coordinate(point))
+        finally:
+            self.refresh_input_anchor()
+        return accepted
+
     def _maybe_apply_anchor_snap(self, tool: object, scene_pos: QPointF) -> QPointF:
         """Apply Package A point snap for non-select drawing tools.
 
@@ -1683,6 +1720,8 @@ class CanvasView(QGraphicsView):
             scene_pos = self.mapToScene(event.position().toPoint())
             scene_pos = self._maybe_apply_anchor_snap(tool, scene_pos)
             if tool.mouse_press(event, scene_pos):
+                # Tool consumed a click - refresh the typed-input anchor.
+                self.refresh_input_anchor()
                 event.accept()
                 return
 
@@ -2409,6 +2448,7 @@ class CanvasView(QGraphicsView):
             scene_pos = self.mapToScene(event.position().toPoint())
             scene_pos = self._maybe_apply_anchor_snap(tool, scene_pos)
             if tool.mouse_release(event, scene_pos):
+                self.refresh_input_anchor()
                 event.accept()
                 self._drag_start_positions.clear()
                 self._constraint_propagated_starts.clear()
@@ -2566,6 +2606,7 @@ class CanvasView(QGraphicsView):
 
         tool = self._tool_manager.active_tool
         if tool and tool.mouse_double_click(event, scene_pos):
+            self.refresh_input_anchor()
             event.accept()
             return
 
@@ -2688,6 +2729,7 @@ class CanvasView(QGraphicsView):
         # Delegate to active tool first
         tool = self._tool_manager.active_tool
         if tool and tool.key_press(event):
+            self.refresh_input_anchor()
             event.accept()
             return
 
