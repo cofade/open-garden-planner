@@ -8,16 +8,11 @@ active tool's :meth:`commit_typed_coordinate`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from PyQt6.QtCore import QCoreApplication, QPointF, pyqtSignal
+from PyQt6.QtCore import QPointF, pyqtSignal
 from PyQt6.QtGui import QFocusEvent
 from PyQt6.QtWidgets import QLineEdit
 
 from open_garden_planner.core.coordinate_input import CoordinateInputBuffer
-
-if TYPE_CHECKING:
-    pass
 
 
 class CoordinateInputField(QLineEdit):
@@ -29,11 +24,6 @@ class CoordinateInputField(QLineEdit):
 
     commit_requested = pyqtSignal(QPointF)
 
-    PLACEHOLDER = QCoreApplication.translate(
-        "CoordinateInputField",
-        "@dx,dy   @dist<angle   x,y",
-    )
-
     def __init__(
         self,
         buffer: CoordinateInputBuffer,
@@ -41,13 +31,14 @@ class CoordinateInputField(QLineEdit):
     ) -> None:
         super().__init__(parent)
         self._buffer = buffer
-        self.setPlaceholderText(self.PLACEHOLDER)
+        # Translate via self.tr() inside __init__ so the active QTranslator
+        # is honoured even if it was installed after this module's import.
+        self.setPlaceholderText(self.tr("@dx,dy   @dist<angle   x,y"))
         self.setToolTip(
-            QCoreApplication.translate(
-                "CoordinateInputField",
+            self.tr(
                 "Typed coordinate input. Examples: @500,0 (relative), "
                 "@300<45 (polar, 0deg = east, CCW positive), 1000,500 "
-                "(absolute). Press Enter to commit.",
+                "(absolute). Press Enter to commit."
             )
         )
         self.setClearButtonEnabled(True)

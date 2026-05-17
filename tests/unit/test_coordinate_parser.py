@@ -146,6 +146,13 @@ class TestPolar:
         with pytest.raises(ParseError):
             parse("@100<45<90", last_point=QPointF(0, 0))
 
+    def test_polar_without_anchor_raises(self) -> None:
+        """A silent fallback to origin would surprise the user; we raise instead."""
+        with pytest.raises(ParseError, match="anchor"):
+            parse("@100<45", last_point=None)
+        with pytest.raises(ParseError, match="anchor"):
+            parse("100<45", last_point=None)
+
 
 class TestErrors:
     def test_empty(self) -> None:

@@ -22,6 +22,10 @@ class MeasureTool(BaseTool):
     but not persisted (temporary).
     """
 
+    # Has its own anchor-snap via find_nearest_anchor (green indicator);
+    # opt out of CanvasView's Package A snap to avoid double-snapping.
+    skip_anchor_snap = True
+
     def __init__(self, view) -> None:
         """Initialize the measure tool.
 

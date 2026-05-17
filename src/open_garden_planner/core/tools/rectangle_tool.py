@@ -46,9 +46,20 @@ class RectangleTool(BaseTool):
         self._is_drawing = False
 
     def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
-        """Start drawing rectangle on left click."""
+        """Start drawing rectangle on left click.
+
+        If a typed-coordinate commit already placed the first corner,
+        treat this click as the second corner (finalize), otherwise
+        start a new rectangle.  Without this branch, a typed first
+        corner followed by a clicked corner would leak the previous
+        preview into the scene.
+        """
         if event.button() != Qt.MouseButton.LeftButton:
             return False
+
+        if self._is_drawing and self._start_point is not None:
+            snapped_pos = self._view.snap_point(scene_pos)
+            return self.commit_typed_coordinate(snapped_pos)
 
         # Snap the start point to grid if enabled
         self._start_point = self._view.snap_point(scene_pos)

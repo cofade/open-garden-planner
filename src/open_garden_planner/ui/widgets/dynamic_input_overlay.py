@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import (
-    QCoreApplication,
+    QEvent,
     QPoint,
     QPointF,
     Qt,
@@ -74,15 +74,11 @@ class DynamicInputOverlay(QFrame):
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         self._distance_edit = _DynamicLineEdit(self)
-        self._distance_edit.setPlaceholderText(
-            QCoreApplication.translate("DynamicInputOverlay", "dist")
-        )
+        self._distance_edit.setPlaceholderText(self.tr("dist"))
         self._distance_edit.setMaximumWidth(70)
 
         self._angle_edit = _DynamicLineEdit(self)
-        self._angle_edit.setPlaceholderText(
-            QCoreApplication.translate("DynamicInputOverlay", "ang")
-        )
+        self._angle_edit.setPlaceholderText(self.tr("ang"))
         self._angle_edit.setMaximumWidth(50)
 
         layout = QHBoxLayout(self)
@@ -104,9 +100,26 @@ class DynamicInputOverlay(QFrame):
         self.adjustSize()
         self.hide()
 
+        # Re-clamp on viewport resize so the overlay doesn't drift off-screen
+        # when the user drags the canvas/sidebar splitter.
+        view.viewport().installEventFilter(self)
+        self._last_anchor_pos: QPoint | None = None
+
+    def eventFilter(  # noqa: N802 (Qt)
+        self, _watched: object, event: QEvent
+    ) -> bool:
+        if (
+            event.type() == QEvent.Type.Resize
+            and self.isVisible()
+            and self._last_anchor_pos is not None
+        ):
+            self.show_near(self._last_anchor_pos)
+        return False
+
     # --- Visibility ----------------------------------------------------
 
     def show_near(self, viewport_pos: QPoint) -> None:
+        self._last_anchor_pos = QPoint(viewport_pos)
         target = viewport_pos + self.OFFSET
         parent = self.parentWidget()
         if parent is not None:

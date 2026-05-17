@@ -1489,23 +1489,15 @@ class CanvasView(QGraphicsView):
         return accepted
 
     def _maybe_apply_anchor_snap(self, tool: object, scene_pos: QPointF) -> QPointF:
-        """Apply Package A point snap for non-select drawing tools.
+        """Apply Package A point snap unless the tool opts out.
 
-        The select tool needs the raw cursor position to perform item
-        hit-testing; everything else can benefit from anchor snap.
-        Constraint tools snap explicitly via the legacy
-        ``find_nearest_anchor`` and would double-snap, so they opt out
-        here too.
+        Tools that run their own anchor logic (select, measure,
+        constraint family) set ``BaseTool.skip_anchor_snap = True``.
+        Using a class flag avoids the fragile string-prefix match on
+        ``tool_type.name`` that would have silently mis-classified a
+        future tool type whose name happens to share a prefix.
         """
-        if tool is None:
-            return scene_pos
-        tt = getattr(tool, "tool_type", None)
-        if tt is None or tt == ToolType.SELECT:
-            self._set_current_snap(None)
-            return scene_pos
-        # Constraint tools and the measure tool run their own anchor logic.
-        name = tt.name if hasattr(tt, "name") else ""
-        if name.startswith("CONSTRAINT") or name == "MEASURE":
+        if tool is None or getattr(tool, "skip_anchor_snap", False):
             self._set_current_snap(None)
             return scene_pos
         snapped, candidate = self.anchor_snap(scene_pos)

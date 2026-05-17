@@ -102,17 +102,15 @@ def parse(
             raise ParseError("Polar input requires distance and angle")
         distance = _parse_number(dist_str)
         angle_deg = _parse_number(ang_str)
-        if not relative:
-            # Polar without '@' is interpreted as relative to origin if no last
-            # point is known, otherwise as relative to the last point. This
-            # matches CAD convention where polar always implies a base point.
-            base = last_point if last_point is not None else QPointF(0.0, 0.0)
-        else:
-            if last_point is None:
-                raise ParseError(
-                    "Relative input requires an existing point to anchor to"
-                )
-            base = last_point
+        # Polar input always implies a base point — CAD convention.
+        # We require an anchor whether or not the user typed '@'; a silent
+        # fallback to origin would place a vertex far from the cursor
+        # without feedback.
+        if last_point is None:
+            raise ParseError(
+                "Polar input requires an existing point to anchor to"
+            )
+        base = last_point
         rad = math.radians(angle_deg)
         # Scene Y axis points down; we keep math convention (CCW positive) and
         # flip Y when applying so 45 deg points up-and-to-the-right on screen.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from PyQt6.QtCore import QPointF
 
+from open_garden_planner.core.tools.base_tool import ToolType
 from open_garden_planner.core.tools.circle_tool import CircleTool
 from open_garden_planner.core.tools.construction_tool import (
     ConstructionCircleTool,
@@ -69,6 +70,39 @@ class TestRectangleTypedInput:
         tool.commit_typed_coordinate(QPointF(0, 0))
         assert tool.last_point == QPointF(0, 0)
         tool.commit_typed_coordinate(QPointF(100, 50))
+        assert tool.last_point is None
+
+    def test_typed_first_corner_then_click_does_not_leak_preview(
+        self, view: CanvasView, qtbot
+    ) -> None:
+        """Mixing typed + clicked input must not orphan preview rectangles."""
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QMouseEvent
+        from PyQt6.QtWidgets import QGraphicsRectItem
+
+        view.set_active_tool(ToolType.RECTANGLE)
+        tool = view._tool_manager.active_tool
+        assert isinstance(tool, RectangleTool)
+        # Typed first corner opens a preview rectangle.
+        tool.commit_typed_coordinate(QPointF(0, 0))
+        # Simulated click at the would-be second corner.
+        event = QMouseEvent(
+            QMouseEvent.Type.MouseButtonPress,
+            QPointF(0, 0),
+            QPointF(0, 0),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        tool.mouse_press(event, QPointF(100, 50))
+        # Only the finalized item should remain - no leftover preview.
+        preview_items = [
+            i
+            for i in view.scene().items()
+            if isinstance(i, QGraphicsRectItem) and i.pen().style() == Qt.PenStyle.DashLine
+        ]
+        assert preview_items == []
+        # Finalize state cleared.
         assert tool.last_point is None
 
 

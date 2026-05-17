@@ -113,6 +113,13 @@ class BaseTool(ABC):
     shortcut: str
     cursor: Qt.CursorShape = Qt.CursorShape.ArrowCursor
 
+    #: If ``True``, CanvasView's Package A point-snap is skipped before
+    #: dispatching mouse events to this tool.  Tools that run their own
+    #: anchor logic (measure, constraint, select) set this to avoid
+    #: double-snapping.  Defaults to ``False`` so new drawing tools get
+    #: anchor snap automatically.
+    skip_anchor_snap: bool = False
+
     def __init__(self, view: "CanvasView") -> None:
         """Initialize the tool.
 
