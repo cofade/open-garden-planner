@@ -42,6 +42,17 @@
 | **SVG** | Scalable Vector Graphics — vector image format used for icons and plant illustrations |
 | **Tileable Texture** | A small image that can be seamlessly repeated to fill any area |
 | **tr()** | Qt translation function used to mark strings for internationalization |
+| **Relative coordinate input** | Typed point of the form `@dx,dy` interpreted relative to the active tool's `last_point`. Y is math-positive (up); the parser flips to scene-down. Empty anchor → input rejected. See ADR-021 |
+| **Polar coordinate input** | Typed point of the form `@dist<angle` with angle in degrees, `0° = east`, CCW positive. `dist` and `angle` accept either decimal mark. Without an `@`, polar input is still interpreted as relative to `last_point` (CAD convention). See ADR-021 |
+| **Dynamic Input** | The frameless distance/angle overlay that floats next to the cursor in the canvas viewport during multi-click drawing. Mirrors the same `CoordinateInputBuffer` as the status-bar field. Hidden when the active tool has no anchor point. See ADR-021 |
+| **CoordinateInputBuffer** | `QObject` singleton (per CanvasView) that holds the typed coordinate text and the current anchor. Both the status-bar field and the Dynamic Input overlay subscribe to its signals; this single state prevents the two UI surfaces from drifting out of sync |
+| **SnapProvider** | One snap mode (endpoint, center, edge, midpoint, intersection). Subclass of `core/snap/provider.SnapProvider`; yields `SnapCandidate`s for items near a query position. Activation toggled via the View menu and persisted in `AppSettings`. See ADR-020 |
+| **SnapCandidate** | One potential snap point produced by a provider. Carries the point, the kind, a priority (lower wins on ties) and the source item |
+| **SnapRegistry** | Collection of active `SnapProvider`s with priority-based tie-breaking. Owned by `CanvasView`; its content is driven by the View menu toggles |
+| **PointSnapper** | Click-time entry point that combines the `SnapRegistry` with the quadtree spatial index. `CanvasView._maybe_apply_anchor_snap` calls it before every non-select tool mouse event |
+| **Midpoint snap** | Snap to the midpoint of any straight edge from a rectangle, polygon, polyline or construction line. Glyph: filled green triangle |
+| **Intersection snap** | Snap to the intersection of two straight edges from different items. Glyph: green X. Capped at 60 segments per query for predictable latency |
+| **QuadTree (snap)** | Bounded-depth (max 6) spatial index built lazily on `QGraphicsScene.changed`; pre-filters items to a 4×threshold window around the cursor before providers run. Build < 60 ms / 1000 items, query < 1 ms |
 
 ## 12.2 Keyboard Shortcuts
 

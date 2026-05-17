@@ -54,7 +54,17 @@ src/open_garden_planner/
 │   ├── constraint_solver_newton.py # Newton-Raphson refinement + circle-circle fast path
 │   ├── measure_snapper.py        # Anchor-point snapper for measure tool
 │   ├── measurements.py           # Measurement data model
-│   ├── snapping.py               # Object snapping logic
+│   ├── snapping.py               # Object snapping logic (drag-time bbox)
+│   ├── snap/                     # Unified snap engine (ADR-020, Package A US-A3)
+│   │   ├── provider.py           #   SnapProvider ABC, SnapCandidate dataclass
+│   │   ├── registry.py           #   Active-providers + best() tie-breaking
+│   │   ├── point_snapper.py      #   QuadTree-backed point-snap entry point
+│   │   ├── spatial_index.py      #   Bounded-depth QuadTree (~60ms / 1000 items)
+│   │   ├── geometry.py           #   item_edges, segment_intersection
+│   │   └── providers/            #   Endpoint, Center, EdgeCardinal, Midpoint, Intersection
+│   ├── coordinate_input/         # Typed coordinate pipeline (ADR-021, Package A US-A1/A2/A4)
+│   │   ├── parser.py             #   parse(@dx,dy / @dist<angle / x,y), smart decimal
+│   │   └── buffer.py             #   CoordinateInputBuffer(QObject) — shared state
 │   ├── alignment.py              # Object alignment helpers
 │   ├── i18n.py                   # Internationalization, translator loading
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
@@ -118,6 +128,8 @@ src/open_garden_planner/
 │   │   ├── category_dropdown.py  # Popup palette under each category button (ADR-018)
 │   │   ├── global_search.py      # Toolbar object search across all categories (ADR-018)
 │   │   ├── gallery_data.py       # Source of truth for placeable objects (ADR-018)
+│   │   ├── coordinate_input_field.py # Status-bar typed coordinate input (ADR-021)
+│   │   ├── dynamic_input_overlay.py  # Cursor-anchored Dynamic Input overlay (ADR-021)
 │   │   └── collapsible_panel.py
 │   └── theme.py                  # Light/Dark theme system
 ├── services/

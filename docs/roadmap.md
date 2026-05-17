@@ -2232,7 +2232,35 @@ Sets `_soil_mismatch_level: str` on each bed item → read in `paint()`.
 
 ---
 
-## Phase 13: 3D Visualization & Sun/Shade (Future, v2.0)
+## Phase 13: CAD Precision Boost — Package A (v1.11.0)
+
+**Goal**: Close the most-cited CAD precision gaps in one PR — typed coordinate input (relative + polar), two new snap modes (midpoint + intersection) under a unified snap engine, and a Dynamic Input cursor overlay. See ADR-020 (snap engine) and ADR-021 (input pipeline). Bundled as GitHub issue #186.
+
+| Status | US    | Description                                                      |
+| ------ | ----- | ---------------------------------------------------------------- |
+| ✅     | A1    | Relative coordinate input `@dx,dy` (status bar + cursor overlay) |
+| ✅     | A2    | Polar coordinate input `@dist<angle`                             |
+| ✅     | A3    | Midpoint + intersection snap modes, View-menu toggles            |
+| ✅     | A4    | Dynamic Input cursor-anchored overlay                            |
+
+### Acceptance highlights
+- Smart decimal/separator parsing handles `,` and `.` deterministically across locales (rules A–F in `core/coordinate_input/parser.py`).
+- Single shared `CoordinateInputBuffer` keeps status-bar and cursor overlay in sync.
+- Snap providers register on a `SnapRegistry` with priority tie-breaking; quadtree pre-filter holds end-to-end snap < 16 ms on 1000-item scenes (perf gate in tests).
+- All drawing tools (polyline, polygon, rectangle, circle, ellipse, construction line/circle) accept typed coordinates via `BaseTool.commit_typed_coordinate`.
+
+### Docs to update on completion
+| Document | Section |
+|----------|---------|
+| `docs/05-building-block-view/` | new `core/snap/`, `core/coordinate_input/`, `ui/widgets/coordinate_input_field.py`, `ui/widgets/dynamic_input_overlay.py` |
+| `docs/08-crosscutting-concepts/` | section 8.16 — typed input + unified snap engine |
+| `docs/09-architecture-decisions/` | ADR-020 Snap Provider Registry, ADR-021 Coordinate Input Pipeline |
+| `docs/functional-requirements.md` | FR-INPUT-01…04, FR-SNAP-04…06 |
+| `docs/12-glossary/` | Relative/Polar input, Dynamic Input, SnapProvider, SnapCandidate, SnapRegistry, PointSnapper, midpoint/intersection snap, QuadTree |
+
+---
+
+## Phase 14: 3D Visualization & Sun/Shade (Future, v2.0)
 
 **Goal**: Full three-dimensional garden view with sun/shade simulation — the milestone that justifies a major version bump.
 
@@ -2244,7 +2272,7 @@ Sets `_soil_mismatch_level: str` on each bed item → read in `paint()`.
 
 ---
 
-## Phase 14: Platform & Community (Future, v2.1+)
+## Phase 15: Platform & Community (Future, v2.1+)
 
 **Goal**: Extend the platform with community features, plugins, and cross-platform support.
 
