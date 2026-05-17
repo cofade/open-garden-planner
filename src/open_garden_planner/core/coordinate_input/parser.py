@@ -203,9 +203,16 @@ def _split_cartesian(s: str, *, prefer_locale_decimal: bool) -> tuple[str, str]:
 
 def _parse_number(token: str) -> float:
     """Parse a single numeric token. Accepts ``.`` or ``,`` as decimal mark."""
+    from PyQt6.QtCore import QCoreApplication
+
     token = token.strip()
     if not _NUMBER_RE.match(token):
-        raise ParseError(f"Not a number: '{token}'")
+        # Translate the template first so format() substitutes into the
+        # localised string, not the English original.
+        template = QCoreApplication.translate(
+            "ParseError", "Not a number: '{token}'"
+        )
+        raise ParseError(template.format(token=token))
     return float(token.replace(",", "."))
 
 

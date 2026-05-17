@@ -34,13 +34,12 @@ class CoordinateInputField(QLineEdit):
         # Translate via self.tr() inside __init__ so the active QTranslator
         # is honoured even if it was installed after this module's import.
         self.setPlaceholderText(self.tr("@dx,dy   @dist<angle   x,y"))
-        self.setToolTip(
-            self.tr(
-                "Typed coordinate input. Examples: @500,0 (relative), "
-                "@300<45 (polar, 0deg = east, CCW positive), 1000,500 "
-                "(absolute). Press Enter to commit."
-            )
+        self._help_tooltip = self.tr(
+            "Typed coordinate input. Examples: @500,0 (relative), "
+            "@300<45 (polar, 0deg = east, CCW positive), 1000,500 "
+            "(absolute). Press Enter to commit."
         )
+        self.setToolTip(self._help_tooltip)
         self.setClearButtonEnabled(True)
         self.setMaxLength(40)
         self.setMinimumWidth(180)
@@ -58,6 +57,11 @@ class CoordinateInputField(QLineEdit):
     def _on_text_edited(self, text: str) -> None:
         # Set the buffer without echoing back to ourselves.
         self._buffer.set_text(text)
+        # Clear the stuck error tooltip (if any) on the first keystroke
+        # after a ParseError; the user is correcting the input now.
+        if self.toolTip() != self._help_tooltip:
+            self.setToolTip(self._help_tooltip)
+            self._clear_error_styling()
 
     def _on_return(self) -> None:
         result = self._buffer.commit()
@@ -93,13 +97,7 @@ class CoordinateInputField(QLineEdit):
     def _on_committed(self, _point: QPointF) -> None:
         self._clear_error_styling()
         # Restore the help tooltip after a clean commit.
-        self.setToolTip(
-            self.tr(
-                "Typed coordinate input. Examples: @500,0 (relative), "
-                "@300<45 (polar, 0deg = east, CCW positive), 1000,500 "
-                "(absolute). Press Enter to commit."
-            )
-        )
+        self.setToolTip(self._help_tooltip)
 
     # --- Visual ---------------------------------------------------------
 

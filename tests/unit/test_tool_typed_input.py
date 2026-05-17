@@ -105,6 +105,33 @@ class TestRectangleTypedInput:
         # Finalize state cleared.
         assert tool.last_point is None
 
+    def test_typed_first_corner_then_shift_click_constrains_to_square(
+        self, view: CanvasView, qtbot  # noqa: ARG002
+    ) -> None:
+        """Shift modifier on the closing click must produce a square."""
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QMouseEvent
+        from open_garden_planner.ui.canvas.items import RectangleItem
+
+        view.set_active_tool(ToolType.RECTANGLE)
+        tool = view._tool_manager.active_tool
+        assert isinstance(tool, RectangleTool)
+        tool.commit_typed_coordinate(QPointF(0, 0))
+        event = QMouseEvent(
+            QMouseEvent.Type.MouseButtonPress,
+            QPointF(0, 0),
+            QPointF(0, 0),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.ShiftModifier,
+        )
+        tool.mouse_press(event, QPointF(300, 80))
+        # Shift forces width == height; the longer axis wins.
+        rects = [i for i in view.scene().items() if isinstance(i, RectangleItem)]
+        assert len(rects) == 1
+        r = rects[0].rect()
+        assert abs(r.width() - r.height()) < 1e-6
+
 
 class TestEllipseTypedInput:
     def test_two_corners(self, view: CanvasView) -> None:
@@ -113,6 +140,32 @@ class TestEllipseTypedInput:
         assert tool.last_point == QPointF(10, 10)
         tool.commit_typed_coordinate(QPointF(60, 30))
         assert tool.last_point is None
+
+    def test_typed_first_corner_then_shift_click_constrains_to_circle(
+        self, view: CanvasView, qtbot  # noqa: ARG002
+    ) -> None:
+        """Shift modifier on the closing click must produce a circle (1:1)."""
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QMouseEvent
+        from open_garden_planner.ui.canvas.items import EllipseItem
+
+        view.set_active_tool(ToolType.ELLIPSE)
+        tool = view._tool_manager.active_tool
+        assert isinstance(tool, EllipseTool)
+        tool.commit_typed_coordinate(QPointF(0, 0))
+        event = QMouseEvent(
+            QMouseEvent.Type.MouseButtonPress,
+            QPointF(0, 0),
+            QPointF(0, 0),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.ShiftModifier,
+        )
+        tool.mouse_press(event, QPointF(300, 100))
+        ells = [i for i in view.scene().items() if isinstance(i, EllipseItem)]
+        assert len(ells) == 1
+        r = ells[0].rect()
+        assert abs(r.width() - r.height()) < 1e-6
 
 
 class TestConstructionTypedInput:

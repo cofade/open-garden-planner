@@ -896,6 +896,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Erwarte zwei Werte; kein Trennzeichen gefunden",
         "Too many ',' separators to disambiguate":
             "Zu viele ',' für eindeutige Auflösung",
+        "Not a number: '{token}'": "Keine Zahl: '{token}'",
     },
 
     # ── NewProjectDialog ──

@@ -8857,5 +8857,9 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Too many ',' separators to disambiguate</source>
             <translation>Zu viele ',' für eindeutige Auflösung</translation>
         </message>
+        <message>
+            <source>Not a number: '{token}'</source>
+            <translation>Keine Zahl: '{token}'</translation>
+        </message>
     </context>
 </TS>
