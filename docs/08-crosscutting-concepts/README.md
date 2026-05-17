@@ -671,3 +671,49 @@ When the key is absent, the menu item is disabled and its tooltip explains where
 **Pixel→meter scale is analytical.** Because Static Maps uses Web-Mercator with a known tile pixel size, the scale of the returned image is `mpp = cos(lat) × 2π × 6378137 / (256 × 2^zoom)`. The new `BackgroundImageItem(geo_metadata=…)` constructor reads `meters_per_pixel` from this dict and sets `_scale_factor = 0.01 / mpp` (px-per-cm) automatically — no calibration click. The existing manual calibration (`Calibrate Scale…` context menu) is still available as an override; on reload, a saved `scale_factor` wins over the geo-derived one.
 
 **QtWebEngine import timing.** `from PyQt6 import QtWebEngineWidgets` must run *before* `QApplication(...)` is created — Qt enforces this so it can configure OpenGL sharing. `main.py` does this at module level. Tests that exercise the dialog must either match the same ordering or use a `QWidget` stand-in for `QWebEngineView` (see `tests/integration/test_map_picker_dialog.py::_DummyWebView`).
+
+
+## 8.16 Typed Coordinate Input + Unified Snap Engine (Package A — ADRs 020 + 021)
+
+This concept covers four user stories that ship together in Phase 13: relative input `@dx,dy`, polar input `@dist<angle`, midpoint + intersection snap, and the Dynamic Input cursor overlay. The architecture decisions live in **ADR-020** (snap engine) and **ADR-021** (input pipeline); this section captures the cross-cutting *rules* a developer must follow when extending either system.
+
+### 8.16.1 Snap engine layering
+
+* `core/snap/` is the orchestration layer. It does **not** own any geometry — every provider delegates to `measure_snapper.get_anchor_points` or to `core/snap/geometry.item_edges`. Do not duplicate point enumeration; if a new anchor type is needed, add it to `AnchorType` first and a provider second.
+* Every provider has a `priority`. Lower wins on ties. Defaults: endpoint 10, intersection 15, center 20, midpoint 30, edge 40. When tuning, remember that two candidates within sub-pixel distance frequently exist (e.g. a corner is also two edge endpoints).
+* The `QuadTree` is rebuilt lazily by `CanvasView._ensure_snap_index()` on the first snap query after `QGraphicsScene.changed` fires. Do **not** rebuild eagerly on every signal — for thousand-item gardens the build cost (~3 ms) dominates if you do.
+* Items spanning multiple quadrants are inserted into every overlapping child rather than parked at the parent; `_query` collects them via an `id()` set so duplicates never surface. Keep this in mind when changing `_insert_into_children` — switching to a "store at parent" strategy is also valid but must be paired with removing the dedup set.
+* `PointSnapper.snap()` widens the query window to `4 × threshold` so that intersection candidates from edges starting outside the cursor area still surface. If you raise the threshold drastically, also revisit `MAX_SEGMENTS_PER_QUERY = 60` in `providers/intersection.py` — the O(n²) intersection step is the soft ceiling.
+
+### 8.16.2 Drawing-tool integration
+
+* `CanvasView._maybe_apply_anchor_snap(tool, scene_pos)` is the single entry point. It runs *before* the tool's `mouse_press/move/release`. Tools that own their anchor logic — `SelectTool`, `MeasureTool`, every `ConstraintTool` family member — set `BaseTool.skip_anchor_snap = True` to opt out (the previous string-prefix match on `tool_type.name` is gone). When adding a new tool that does its own anchor picking, set the flag; otherwise leave it `False` and the dispatcher will apply Package A point snap automatically.
+* **Composition rule with grid snap**: `CanvasView.snap_point()` short-circuits the grid-rounding step when `_current_snap is not None`, so an anchor-snap match always wins over grid snap on the click path. Tools may still call `view.snap_point(scene_pos)` defensively — when the dispatcher matched a midpoint/intersection/endpoint, that call is a no-op apart from the canvas-bounds clamp. Do NOT short-circuit the snap inside the tool: the dispatcher is the single owner of this decision.
+* The current snap candidate is rendered by `_draw_point_snap_glyph` in `drawForeground`. Glyph mapping is intentionally pictographic and lives in one switch: square = endpoint, circle = center, triangle = midpoint, X = intersection, dot = edge. Add a new kind by extending `SnapCandidateKind` *and* `_draw_point_snap_glyph`; reviewers will reject a half-done mapping.
+
+### 8.16.3 Typed-input invariants
+
+* There is exactly **one** `CoordinateInputBuffer` per `CanvasView`. Both the status-bar field and the Dynamic Input overlay subscribe to its signals; they must never own buffer state of their own. If you add a third surface (e.g. a command palette), wire it the same way.
+* The buffer's `anchor` is refreshed by `CanvasView.refresh_input_anchor()`. It is called after every `set_active_tool`, `mouse_press`, `mouse_release`, `mouse_double_click` and `key_press`. Add a new lifecycle hook? Add the refresh call.
+* The Y-flip lives **only** in `parser.py`. The user-entered Y is math-positive (up); the parser converts to scene Y (down). Adding a second flip site elsewhere will break relative input in subtle, locale-specific ways.
+* The smart decimal/separator rules (A–F) in the parser docstring are not negotiable per call site — they are global. When extending the grammar (e.g. a future `@3,4@2` array-along-path syntax), add a new rule **before** D and write a regression test that covers the same ambiguous input under both old and new rules.
+
+### 8.16.4 Adding typed-coordinate support to a new drawing tool
+
+Three steps, no more:
+
+1. Override `last_point` to return the current anchor (`None` outside an active draw sequence).
+2. Override `commit_typed_coordinate(point)` to perform the same action a left click at `point` would, **without** re-applying grid snap (the user has typed exact coords).
+3. If the tool finalises on the second click (rectangle/circle/ellipse pattern), call `_reset_state()` and return `True` from `commit_typed_coordinate` after finalisation so `last_point` becomes `None` again.
+
+The integration tests in `tests/unit/test_tool_typed_input.py` cover this contract; a new tool must add a similar parametrised test case.
+
+### 8.16.5 Dynamic Input overlay visibility — three hard rules
+
+The floating overlay is *visible* only when **all** of:
+
+1. `dynamic_input_enabled` is True (View menu / settings).
+2. The active tool exists and is not SELECT.
+3. The tool's `last_point` is **not** `None` (no anchor → no polar/relative makes sense).
+
+Any other state must hide the overlay. The implementation lives in `CanvasView._update_dynamic_overlay`. If you add a new hide-condition, do it there; do not add visibility logic inside the overlay widget itself — it has no knowledge of the active tool by design.

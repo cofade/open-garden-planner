@@ -137,6 +137,23 @@ class PolygonTool(BaseTool):
         self._cleanup_preview()
         self._reset_state()
 
+    @property
+    def last_point(self) -> QPointF | None:
+        """Anchor for relative/polar typed input."""
+        if self._vertices:
+            return QPointF(self._vertices[-1])
+        return None
+
+    def commit_typed_coordinate(self, point: QPointF) -> bool:
+        """Add a vertex at ``point`` exactly (no grid snap)."""
+        self._vertices.append(QPointF(point))
+        self._add_vertex_marker(point)
+        if not self._is_drawing:
+            self._is_drawing = True
+            self._create_preview_items()
+        self._update_preview_polygon()
+        return True
+
     def _reset_state(self) -> None:
         """Reset tool state."""
         self._vertices = []

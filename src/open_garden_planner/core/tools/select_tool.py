@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 class SelectTool(BaseTool):
     """Tool for selecting items on the canvas.
 
+    Hit-tests on the raw cursor; never receives a snapped scene_pos.
+
     Features:
         - Click to select single item
         - Shift+click to add/remove from selection
@@ -27,6 +29,7 @@ class SelectTool(BaseTool):
     display_name = QT_TR_NOOP("Select")
     shortcut = "V"
     cursor = Qt.CursorShape.ArrowCursor
+    skip_anchor_snap = True  # Selection hit-test needs raw cursor position.
 
     # Box selection colors
     ENCLOSING_COLOR = QColor(0, 120, 215)  # Blue for left-to-right

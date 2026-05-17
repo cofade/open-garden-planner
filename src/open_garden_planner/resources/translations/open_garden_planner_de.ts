@@ -3135,6 +3135,30 @@ Neue Saison jetzt öffnen?</translation>
             <source>Loaded satellite background ({cols}x{rows} tiles, zoom {zoom}) — canvas resized to {w_m:.0f}m x {h_m:.0f}m</source>
             <translation>Satellitenbild geladen ({cols}x{rows} Kacheln, Zoom {zoom}) — Leinwand auf {w_m:.0f}m x {h_m:.0f}m angepasst</translation>
         </message>
+        <message>
+            <source>Snap to &amp;Midpoints</source>
+            <translation>An &amp;Mittelpunkten einrasten</translation>
+        </message>
+        <message>
+            <source>Toggle snap to the midpoint of any straight edge</source>
+            <translation>Einrasten auf den Mittelpunkt jeder geraden Kante umschalten</translation>
+        </message>
+        <message>
+            <source>Snap to &amp;Intersections</source>
+            <translation>An &amp;Schnittpunkten einrasten</translation>
+        </message>
+        <message>
+            <source>Toggle snap to intersections of straight edges</source>
+            <translation>Einrasten auf Schnittpunkte gerader Kanten umschalten</translation>
+        </message>
+        <message>
+            <source>Enable Dynamic &amp;Input</source>
+            <translation>Dynamische &amp;Eingabe aktivieren</translation>
+        </message>
+        <message>
+            <source>Toggle typed distance/angle input next to the cursor and in the status bar</source>
+            <translation>Eingabe von Distanz/Winkel am Cursor und in der Statusleiste umschalten</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -8763,6 +8787,79 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Drag on the map to draw the rectangle.</source>
             <translation>Auf der Karte ein Rechteck aufziehen.</translation>
+        </message>
+    </context>
+    <context>
+        <name>CoordinateInputField</name>
+        <message>
+            <source>@dx,dy   @dist&lt;angle   x,y</source>
+            <translation>@dx,dy   @dist&lt;Winkel   x,y</translation>
+        </message>
+        <message>
+            <source>Typed coordinate input. Examples: @500,0 (relative), @300&lt;45 (polar, 0deg = east, CCW positive), 1000,500 (absolute). Press Enter to commit.</source>
+            <translation>Eingabe von Koordinaten. Beispiele: @500,0 (relativ), @300&lt;45 (polar, 0° = Osten, gegen den Uhrzeigersinn positiv), 1000,500 (absolut). Mit Enter bestätigen.</translation>
+        </message>
+    </context>
+    <context>
+        <name>DynamicInputOverlay</name>
+        <message>
+            <source>dist</source>
+            <translation>Dist</translation>
+        </message>
+        <message>
+            <source>ang</source>
+            <translation>Winkel</translation>
+        </message>
+    </context>
+    <context>
+        <name>ParseError</name>
+        <message>
+            <source>Empty input</source>
+            <translation>Leere Eingabe</translation>
+        </message>
+        <message>
+            <source>Missing coordinate after '@'</source>
+            <translation>Koordinate nach '@' fehlt</translation>
+        </message>
+        <message>
+            <source>Polar input requires exactly one '&lt;'</source>
+            <translation>Polare Eingabe erfordert genau ein '&lt;'</translation>
+        </message>
+        <message>
+            <source>Polar input requires distance and angle</source>
+            <translation>Polare Eingabe erfordert Distanz und Winkel</translation>
+        </message>
+        <message>
+            <source>Polar input requires an existing point to anchor to</source>
+            <translation>Polare Eingabe erfordert einen vorhandenen Bezugspunkt</translation>
+        </message>
+        <message>
+            <source>Relative input requires an existing point to anchor to</source>
+            <translation>Relative Eingabe erfordert einen vorhandenen Bezugspunkt</translation>
+        </message>
+        <message>
+            <source>Expected two values separated by ';'</source>
+            <translation>Erwarte zwei Werte, getrennt durch ';'</translation>
+        </message>
+        <message>
+            <source>Expected two whitespace-separated values</source>
+            <translation>Erwarte zwei durch Leerzeichen getrennte Werte</translation>
+        </message>
+        <message>
+            <source>Expected two values when mixing '.' and ','</source>
+            <translation>Erwarte zwei Werte bei gemischter Verwendung von '.' und ','</translation>
+        </message>
+        <message>
+            <source>Expected two values; no separator found</source>
+            <translation>Erwarte zwei Werte; kein Trennzeichen gefunden</translation>
+        </message>
+        <message>
+            <source>Too many ',' separators to disambiguate</source>
+            <translation>Zu viele ',' für eindeutige Auflösung</translation>
+        </message>
+        <message>
+            <source>Not a number: '{token}'</source>
+            <translation>Keine Zahl: '{token}'</translation>
         </message>
     </context>
 </TS>

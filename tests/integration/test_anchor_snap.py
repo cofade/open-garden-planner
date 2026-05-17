@@ -1,0 +1,165 @@
+"""Integration tests for midpoint + intersection snap (Package A US-A3)."""
+
+from __future__ import annotations
+
+import pytest
+from PyQt6.QtCore import QPointF
+
+from open_garden_planner.app.application import GardenPlannerApp
+from open_garden_planner.core.snap.provider import SnapCandidateKind
+from open_garden_planner.core.snap.providers import (
+    IntersectionSnapProvider,
+    MidpointSnapProvider,
+)
+from open_garden_planner.core.tools.base_tool import ToolType
+from open_garden_planner.ui.canvas.items import PolylineItem, RectangleItem
+
+
+@pytest.fixture
+def window(qtbot) -> GardenPlannerApp:
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    win.resize(900, 600)
+    win.show()
+    qtbot.waitExposed(win)
+    return win
+
+
+def test_midpoint_action_persists_setting(window: GardenPlannerApp) -> None:
+    """Toggling the View menu action flips both runtime + AppSettings."""
+    from open_garden_planner.app.settings import get_settings
+
+    window._midpoint_snap_action.setChecked(False)
+    window._on_toggle_midpoint_snap(False)
+    assert get_settings().midpoint_snap_enabled is False
+    assert not window.canvas_view._snap_registry.has(MidpointSnapProvider)
+
+    window._midpoint_snap_action.setChecked(True)
+    window._on_toggle_midpoint_snap(True)
+    assert get_settings().midpoint_snap_enabled is True
+    assert window.canvas_view._snap_registry.has(MidpointSnapProvider)
+
+
+def test_intersection_action_persists_setting(window: GardenPlannerApp) -> None:
+    """Same lifecycle for the intersection toggle."""
+    from open_garden_planner.app.settings import get_settings
+
+    window._intersection_snap_action.setChecked(False)
+    window._on_toggle_intersection_snap(False)
+    assert get_settings().intersection_snap_enabled is False
+    assert not window.canvas_view._snap_registry.has(IntersectionSnapProvider)
+
+    window._intersection_snap_action.setChecked(True)
+    window._on_toggle_intersection_snap(True)
+    assert get_settings().intersection_snap_enabled is True
+    assert window.canvas_view._snap_registry.has(IntersectionSnapProvider)
+
+
+def test_midpoint_snap_pulls_vertex_to_edge_centre(
+    window: GardenPlannerApp,
+) -> None:
+    """End-to-end: scene populated → drawing tool → cursor near edge midpoint
+    → vertex lands on the midpoint."""
+    rect = RectangleItem(0, 0, 200, 100)
+    window.canvas_view.scene().addItem(rect)
+    window.canvas_view.set_active_tool(ToolType.FENCE)
+    tool = window.canvas_view._tool_manager.active_tool
+
+    # Right-edge midpoint of the rect is at (200, 50).  Cursor 3 cm off.
+    snapped, candidate = window.canvas_view.anchor_snap(QPointF(198, 51))
+    assert candidate is not None
+    assert candidate.kind in (
+        SnapCandidateKind.MIDPOINT,
+        SnapCandidateKind.EDGE,
+        SnapCandidateKind.ENDPOINT,
+    )
+    # If midpoint is enabled and the cursor is near the edge midpoint,
+    # the midpoint candidate must win (endpoint is 50 cm away).
+    assert candidate.kind == SnapCandidateKind.MIDPOINT
+    assert abs(snapped.x() - 200) < 1e-6
+    assert abs(snapped.y() - 50) < 1e-6
+
+    tool.commit_typed_coordinate(snapped)
+    last = tool.last_point
+    assert last is not None
+    assert abs(last.x() - 200) < 1e-6
+    assert abs(last.y() - 50) < 1e-6
+
+
+def test_intersection_snap_pulls_to_cross(window: GardenPlannerApp) -> None:
+    """Two crossing polylines: cursor near the cross → snaps to (50, 50)."""
+    horiz = PolylineItem([QPointF(-100, 50), QPointF(200, 50)])
+    vert = PolylineItem([QPointF(50, -100), QPointF(50, 200)])
+    window.canvas_view.scene().addItem(horiz)
+    window.canvas_view.scene().addItem(vert)
+    window.canvas_view.set_active_tool(ToolType.FENCE)
+
+    snapped, candidate = window.canvas_view.anchor_snap(QPointF(52, 48))
+    assert candidate is not None
+    assert candidate.kind == SnapCandidateKind.INTERSECTION
+    assert abs(snapped.x() - 50) < 1e-6
+    assert abs(snapped.y() - 50) < 1e-6
+
+
+def test_midpoint_disabled_falls_back_to_endpoint(
+    window: GardenPlannerApp,
+) -> None:
+    """When midpoint snap is off, only endpoint/center/edge candidates surface."""
+    rect = RectangleItem(0, 0, 200, 100)
+    window.canvas_view.scene().addItem(rect)
+    window.canvas_view.set_active_tool(ToolType.FENCE)
+
+    window._on_toggle_midpoint_snap(False)
+    snapped, candidate = window.canvas_view.anchor_snap(QPointF(100, 1))
+    # The top-edge midpoint at (100, 0) is no longer offered; the closest
+    # candidate is the top-edge cardinal point at (100, 0) from
+    # EdgeCardinalSnapProvider.
+    assert candidate is None or candidate.kind != SnapCandidateKind.MIDPOINT
+
+
+def test_grid_snap_does_not_override_anchor_snap(
+    window: GardenPlannerApp,
+) -> None:
+    """Composition rule: anchor snap wins over grid snap (regression).
+
+    Verifies that ``CanvasView.snap_point`` short-circuits the grid
+    rounding step when ``_current_snap`` is set by the dispatcher.
+    Previously each drawing tool's internal ``self._view.snap_point``
+    call would have rounded an anchor-snapped midpoint at e.g.
+    (175, 100) back to the nearest grid line (200, 100 on the default
+    50 cm grid), silently destroying the snap.
+    """
+    rect = RectangleItem(0, 0, 350, 100)
+    window.canvas_view.scene().addItem(rect)
+    # Default grid is 50 cm and on; midpoint at (175, 100) is OFF the grid.
+    assert window.canvas_view.snap_enabled is True
+    assert window.canvas_view._grid_size == 50.0
+    # Other tests in this module flip the midpoint toggle; restore here so
+    # this test is independent of order.
+    window._on_toggle_midpoint_snap(True)
+
+    window.canvas_view.set_active_tool(ToolType.FENCE)
+    tool = window.canvas_view._tool_manager.active_tool
+
+    # Reproduce the dispatcher path: anchor snap → set _current_snap →
+    # the tool then calls view.snap_point on the anchor-snapped value.
+    raw = QPointF(173, 98)
+    snapped, candidate = window.canvas_view.anchor_snap(raw)
+    assert candidate is not None and candidate.kind == SnapCandidateKind.MIDPOINT
+    window.canvas_view._set_current_snap(candidate)
+
+    # The internal grid-snap call inside the tool must NOT round
+    # (175, 100) back to the nearest grid line.
+    after_grid = window.canvas_view.snap_point(snapped)
+    assert abs(after_grid.x() - 175) < 1e-6, (
+        f"grid snap overrode anchor snap: x={after_grid.x():.2f}"
+    )
+    assert abs(after_grid.y() - 100) < 1e-6
+
+    # And when no anchor candidate is set, grid snap still works.
+    window.canvas_view._set_current_snap(None)
+    rounded = window.canvas_view.snap_point(QPointF(173, 98))
+    assert rounded.x() == 150.0 or rounded.x() == 200.0  # nearest grid line
+    # Commit to the tool to round-trip the typed/click path.
+    tool.commit_typed_coordinate(QPointF(175, 100))
+    assert tool.last_point == QPointF(175, 100)
