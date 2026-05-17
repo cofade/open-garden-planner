@@ -687,7 +687,8 @@ This concept covers four user stories that ship together in Phase 13: relative i
 
 ### 8.16.2 Drawing-tool integration
 
-* `CanvasView._maybe_apply_anchor_snap(tool, scene_pos)` is the single entry point. It runs *before* the tool's `mouse_press/move/release`. SELECT, MEASURE and any tool whose `tool_type.name` starts with `CONSTRAINT` opt out (they have their own anchor logic and would double-snap).
+* `CanvasView._maybe_apply_anchor_snap(tool, scene_pos)` is the single entry point. It runs *before* the tool's `mouse_press/move/release`. Tools that own their anchor logic — `SelectTool`, `MeasureTool`, every `ConstraintTool` family member — set `BaseTool.skip_anchor_snap = True` to opt out (the previous string-prefix match on `tool_type.name` is gone). When adding a new tool that does its own anchor picking, set the flag; otherwise leave it `False` and the dispatcher will apply Package A point snap automatically.
+* **Composition rule with grid snap**: `CanvasView.snap_point()` short-circuits the grid-rounding step when `_current_snap is not None`, so an anchor-snap match always wins over grid snap on the click path. Tools may still call `view.snap_point(scene_pos)` defensively — when the dispatcher matched a midpoint/intersection/endpoint, that call is a no-op apart from the canvas-bounds clamp. Do NOT short-circuit the snap inside the tool: the dispatcher is the single owner of this decision.
 * The current snap candidate is rendered by `_draw_point_snap_glyph` in `drawForeground`. Glyph mapping is intentionally pictographic and lives in one switch: square = endpoint, circle = center, triangle = midpoint, X = intersection, dot = edge. Add a new kind by extending `SnapCandidateKind` *and* `_draw_point_snap_glyph`; reviewers will reject a half-done mapping.
 
 ### 8.16.3 Typed-input invariants

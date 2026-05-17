@@ -79,11 +79,27 @@ class CoordinateInputField(QLineEdit):
         finally:
             self._suppress_buffer_signal = False
 
-    def _on_parse_error(self, _message: str) -> None:
+    def _on_parse_error(self, message: str) -> None:
         self._flash_error()
+        # Thread the parser's diagnostic into the field tooltip so the
+        # user gets feedback beyond a red flash (e.g. polar without
+        # anchor, malformed number, ambiguous separator).  Translate
+        # via the "ParseError" context registered in fill_translations.py.
+        if message:
+            from PyQt6.QtCore import QCoreApplication
+
+            self.setToolTip(QCoreApplication.translate("ParseError", message))
 
     def _on_committed(self, _point: QPointF) -> None:
         self._clear_error_styling()
+        # Restore the help tooltip after a clean commit.
+        self.setToolTip(
+            self.tr(
+                "Typed coordinate input. Examples: @500,0 (relative), "
+                "@300<45 (polar, 0deg = east, CCW positive), 1000,500 "
+                "(absolute). Press Enter to commit."
+            )
+        )
 
     # --- Visual ---------------------------------------------------------
 

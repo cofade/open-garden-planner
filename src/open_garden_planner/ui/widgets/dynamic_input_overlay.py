@@ -108,12 +108,11 @@ class DynamicInputOverlay(QFrame):
     def eventFilter(  # noqa: N802 (Qt)
         self, _watched: object, event: QEvent
     ) -> bool:
-        if (
-            event.type() == QEvent.Type.Resize
-            and self.isVisible()
-            and self._last_anchor_pos is not None
-        ):
-            self.show_near(self._last_anchor_pos)
+        if event.type() == QEvent.Type.Resize and self.isVisible():
+            # Hide rather than re-clamp against a stale cursor anchor;
+            # the next mouseMoveEvent will reposition us correctly.
+            self.hide()
+            self._last_anchor_pos = None
         return False
 
     # --- Visibility ----------------------------------------------------

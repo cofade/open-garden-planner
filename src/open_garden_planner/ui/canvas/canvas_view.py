@@ -1407,12 +1407,20 @@ class CanvasView(QGraphicsView):
             point: Point in canvas coordinates
 
         Returns:
-            Point snapped to grid (if enabled) and clamped to canvas borders
+            Point snapped to grid (if enabled) and clamped to canvas borders.
+
+        Anchor-snap takes precedence (Package A US-A3): if the dispatcher
+        already matched a midpoint / intersection / endpoint candidate
+        for this event, applying grid snap would round it back to the
+        grid (e.g. a midpoint at (175, 50) becomes (200, 50) with a
+        50 cm grid) and silently override the user's intent.  When
+        ``_current_snap`` is set, grid snap is skipped and only the
+        canvas-bounds clamp remains.
         """
         # Always clamp to canvas borders first
         clamped = self.clamp_to_canvas(point)
 
-        if not self._snap_enabled:
+        if not self._snap_enabled or self._current_snap is not None:
             return clamped
 
         snapped = QPointF(

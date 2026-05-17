@@ -8811,4 +8811,51 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Winkel</translation>
         </message>
     </context>
+    <context>
+        <name>ParseError</name>
+        <message>
+            <source>Empty input</source>
+            <translation>Leere Eingabe</translation>
+        </message>
+        <message>
+            <source>Missing coordinate after '@'</source>
+            <translation>Koordinate nach '@' fehlt</translation>
+        </message>
+        <message>
+            <source>Polar input requires exactly one '&lt;'</source>
+            <translation>Polare Eingabe erfordert genau ein '&lt;'</translation>
+        </message>
+        <message>
+            <source>Polar input requires distance and angle</source>
+            <translation>Polare Eingabe erfordert Distanz und Winkel</translation>
+        </message>
+        <message>
+            <source>Polar input requires an existing point to anchor to</source>
+            <translation>Polare Eingabe erfordert einen vorhandenen Bezugspunkt</translation>
+        </message>
+        <message>
+            <source>Relative input requires an existing point to anchor to</source>
+            <translation>Relative Eingabe erfordert einen vorhandenen Bezugspunkt</translation>
+        </message>
+        <message>
+            <source>Expected two values separated by ';'</source>
+            <translation>Erwarte zwei Werte, getrennt durch ';'</translation>
+        </message>
+        <message>
+            <source>Expected two whitespace-separated values</source>
+            <translation>Erwarte zwei durch Leerzeichen getrennte Werte</translation>
+        </message>
+        <message>
+            <source>Expected two values when mixing '.' and ','</source>
+            <translation>Erwarte zwei Werte bei gemischter Verwendung von '.' und ','</translation>
+        </message>
+        <message>
+            <source>Expected two values; no separator found</source>
+            <translation>Erwarte zwei Werte; kein Trennzeichen gefunden</translation>
+        </message>
+        <message>
+            <source>Too many ',' separators to disambiguate</source>
+            <translation>Zu viele ',' für eindeutige Auflösung</translation>
+        </message>
+    </context>
 </TS>

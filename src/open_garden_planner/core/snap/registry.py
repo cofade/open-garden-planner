@@ -41,11 +41,15 @@ class SnapRegistry:
         items: Iterable[QGraphicsItem],
         threshold: float = DEFAULT_THRESHOLD,
     ) -> SnapCandidate | None:
-        """Return the closest candidate within ``threshold`` or ``None``.
+        """Return the best candidate within ``threshold`` or ``None``.
 
-        Tie-breaking: lower ``priority`` wins (endpoint > intersection >
-        midpoint > center > edge by default).  Items are iterated once
-        and shared across all providers.
+        Selection rule: **lower ``priority`` always wins** (a distant
+        endpoint beats a nearby midpoint).  Same-priority candidates
+        break by Euclidean distance to ``scene_pos`` (closer wins).
+        Default priorities: endpoint 10 < intersection 15 < center 20 <
+        midpoint 30 < edge 40 — chosen so the "snap I most expected as
+        a CAD user" wins regardless of cursor jitter.  Items are
+        iterated once and shared across all providers.
         """
         items_list = list(items)
         threshold_sq = threshold * threshold

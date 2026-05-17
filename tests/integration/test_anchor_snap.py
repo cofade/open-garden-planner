@@ -20,6 +20,8 @@ def window(qtbot) -> GardenPlannerApp:
     win = GardenPlannerApp()
     qtbot.addWidget(win)
     win.resize(900, 600)
+    win.show()
+    qtbot.waitExposed(win)
     return win
 
 
@@ -113,3 +115,51 @@ def test_midpoint_disabled_falls_back_to_endpoint(
     # candidate is the top-edge cardinal point at (100, 0) from
     # EdgeCardinalSnapProvider.
     assert candidate is None or candidate.kind != SnapCandidateKind.MIDPOINT
+
+
+def test_grid_snap_does_not_override_anchor_snap(
+    window: GardenPlannerApp,
+) -> None:
+    """Composition rule: anchor snap wins over grid snap (regression).
+
+    Verifies that ``CanvasView.snap_point`` short-circuits the grid
+    rounding step when ``_current_snap`` is set by the dispatcher.
+    Previously each drawing tool's internal ``self._view.snap_point``
+    call would have rounded an anchor-snapped midpoint at e.g.
+    (175, 100) back to the nearest grid line (200, 100 on the default
+    50 cm grid), silently destroying the snap.
+    """
+    rect = RectangleItem(0, 0, 350, 100)
+    window.canvas_view.scene().addItem(rect)
+    # Default grid is 50 cm and on; midpoint at (175, 100) is OFF the grid.
+    assert window.canvas_view.snap_enabled is True
+    assert window.canvas_view._grid_size == 50.0
+    # Other tests in this module flip the midpoint toggle; restore here so
+    # this test is independent of order.
+    window._on_toggle_midpoint_snap(True)
+
+    window.canvas_view.set_active_tool(ToolType.FENCE)
+    tool = window.canvas_view._tool_manager.active_tool
+
+    # Reproduce the dispatcher path: anchor snap → set _current_snap →
+    # the tool then calls view.snap_point on the anchor-snapped value.
+    raw = QPointF(173, 98)
+    snapped, candidate = window.canvas_view.anchor_snap(raw)
+    assert candidate is not None and candidate.kind == SnapCandidateKind.MIDPOINT
+    window.canvas_view._set_current_snap(candidate)
+
+    # The internal grid-snap call inside the tool must NOT round
+    # (175, 100) back to the nearest grid line.
+    after_grid = window.canvas_view.snap_point(snapped)
+    assert abs(after_grid.x() - 175) < 1e-6, (
+        f"grid snap overrode anchor snap: x={after_grid.x():.2f}"
+    )
+    assert abs(after_grid.y() - 100) < 1e-6
+
+    # And when no anchor candidate is set, grid snap still works.
+    window.canvas_view._set_current_snap(None)
+    rounded = window.canvas_view.snap_point(QPointF(173, 98))
+    assert rounded.x() == 150.0 or rounded.x() == 200.0  # nearest grid line
+    # Commit to the tool to round-trip the typed/click path.
+    tool.commit_typed_coordinate(QPointF(175, 100))
+    assert tool.last_point == QPointF(175, 100)

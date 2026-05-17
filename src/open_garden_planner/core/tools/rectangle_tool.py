@@ -58,8 +58,10 @@ class RectangleTool(BaseTool):
             return False
 
         if self._is_drawing and self._start_point is not None:
-            snapped_pos = self._view.snap_point(scene_pos)
-            return self.commit_typed_coordinate(snapped_pos)
+            # Typed first corner already opened the preview.  Reuse the
+            # normal release path so Shift (square constraint) modifier
+            # is honoured even after a typed start.
+            return self.mouse_release(event, scene_pos)
 
         # Snap the start point to grid if enabled
         self._start_point = self._view.snap_point(scene_pos)

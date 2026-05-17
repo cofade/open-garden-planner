@@ -44,11 +44,11 @@ class EllipseTool(BaseTool):
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
-        # Typed first corner already opened the preview - treat this click
-        # as the second corner instead of leaking another preview item.
+        # Typed first corner already opened the preview - reuse the
+        # release path so Shift (circle) and Alt (centre-out) modifiers
+        # are honoured even after a typed start.
         if self._is_drawing and self._start_point is not None:
-            snapped_pos = self._view.snap_point(scene_pos)
-            return self.commit_typed_coordinate(snapped_pos)
+            return self.mouse_release(event, scene_pos)
 
         self._start_point = self._view.snap_point(scene_pos)
         self._is_drawing = True

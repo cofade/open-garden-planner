@@ -874,6 +874,30 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ang": "Winkel",
     },
 
+    # ── ParseError messages routed to the input field tooltip (Package A) ──
+    "ParseError": {
+        "Empty input": "Leere Eingabe",
+        "Missing coordinate after '@'": "Koordinate nach '@' fehlt",
+        "Polar input requires exactly one '<'":
+            "Polare Eingabe erfordert genau ein '<'",
+        "Polar input requires distance and angle":
+            "Polare Eingabe erfordert Distanz und Winkel",
+        "Polar input requires an existing point to anchor to":
+            "Polare Eingabe erfordert einen vorhandenen Bezugspunkt",
+        "Relative input requires an existing point to anchor to":
+            "Relative Eingabe erfordert einen vorhandenen Bezugspunkt",
+        "Expected two values separated by ';'":
+            "Erwarte zwei Werte, getrennt durch ';'",
+        "Expected two whitespace-separated values":
+            "Erwarte zwei durch Leerzeichen getrennte Werte",
+        "Expected two values when mixing '.' and ','":
+            "Erwarte zwei Werte bei gemischter Verwendung von '.' und ','",
+        "Expected two values; no separator found":
+            "Erwarte zwei Werte; kein Trennzeichen gefunden",
+        "Too many ',' separators to disambiguate":
+            "Zu viele ',' für eindeutige Auflösung",
+    },
+
     # ── NewProjectDialog ──
     "NewProjectDialog": {
         "New Project": "Neues Projekt",
