@@ -216,6 +216,29 @@ def _parse_number(token: str) -> float:
     return float(token.replace(",", "."))
 
 
+def looks_like_explicit_coord(text: str) -> bool:
+    """True when ``text`` already encodes a full coordinate string.
+
+    The Dynamic Input overlay's distance field doubles as a "raw mode" entry
+    point — if the user types something that is *clearly* a complete coord
+    (leading ``@``, polar ``<``, semicolon separator, whitespace separator,
+    or ≥ 2 commas), the overlay forwards it to the buffer untouched instead
+    of treating the field's contents as a polar distance.  This helper
+    centralises the rule so the overlay and any future caller agree on what
+    "explicit" means without re-deriving the heuristic.
+    """
+    s = text.strip()
+    if not s:
+        return False
+    return (
+        s.startswith("@")
+        or "<" in s
+        or ";" in s
+        or " " in s
+        or s.count(",") >= 2
+    )
+
+
 def parse_alternative(
     text: str,
     last_point: QPointF | None = None,

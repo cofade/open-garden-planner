@@ -955,6 +955,27 @@ class CanvasView(QGraphicsView):
             return False
         return text in "0123456789.,;@<-+ "
 
+    def forward_synthetic_key(self, key: Qt.Key) -> bool:
+        """Forward a synthetic ``QKeyEvent(KeyPress, key)`` to the active tool.
+
+        Public surface so the Dynamic Input overlay can ask the active tool
+        to handle Enter (empty-buffer finalize) without reaching into
+        ``_tool_manager`` directly.  Returns the tool's ``key_press`` result
+        (True iff the event was handled).  Anchor is refreshed on success.
+        """
+        from PyQt6.QtGui import QKeyEvent
+
+        tool = self._tool_manager.active_tool
+        if tool is None:
+            return False
+        event = QKeyEvent(
+            QKeyEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier
+        )
+        handled = bool(tool.key_press(event))
+        if handled:
+            self.refresh_input_anchor()
+        return handled
+
     @property
     def point_snapper(self) -> "PointSnapper":
         """The shared click-time point snapper (Package A US-A3)."""
@@ -2776,9 +2797,13 @@ class CanvasView(QGraphicsView):
         # Input overlay so the user can type `@500,0`, `@300<45`, etc. without
         # ever clicking into the floating fields.  Runs before the tool-shortcut
         # dispatcher: coordinate characters never overlap with tool letters,
-        # but explicit ordering avoids surprises if a future tool grabs e.g. ',').
+        # but explicit ordering avoids surprises if a future tool grabs e.g. ','.
+        # ``not event.modifiers()`` mirrors the guard on the tool-shortcut
+        # dispatcher below so e.g. a future ``Ctrl+,`` menu accelerator is not
+        # silently swallowed here.
         if (
             self._dynamic_input_enabled
+            and not event.modifiers()
             and not _in_text_edit
             and event.text()
             and self._is_coord_input_char(event.text())

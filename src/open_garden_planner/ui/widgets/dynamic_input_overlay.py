@@ -32,7 +32,10 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
 )
 
-from open_garden_planner.core.coordinate_input import CoordinateInputBuffer
+from open_garden_planner.core.coordinate_input import (
+    CoordinateInputBuffer,
+    looks_like_explicit_coord,
+)
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -88,11 +91,12 @@ class DynamicInputOverlay(QFrame):
         layout.addWidget(QLabel("<"))
         layout.addWidget(self._angle_edit)
 
-        # Wiring
+        # Wiring.  Return/Enter is intercepted inside ``_DynamicLineEdit``
+        # (so the Enter cannot bubble to the canvas and finalize the active
+        # tool — see § 11.4) — that interceptor calls ``_on_return`` directly,
+        # so we deliberately do NOT connect to ``returnPressed`` here.
         self._distance_edit.textEdited.connect(self._on_field_changed)
         self._angle_edit.textEdited.connect(self._on_field_changed)
-        self._distance_edit.returnPressed.connect(self._on_return)
-        self._angle_edit.returnPressed.connect(self._on_return)
 
         buffer.text_changed.connect(self._on_buffer_text_changed)
         buffer.anchor_changed.connect(self._on_anchor_changed)
@@ -147,21 +151,22 @@ class DynamicInputOverlay(QFrame):
         if not dist and not ang:
             self._buffer.set_text("")
             return
-        # If the distance field carries an explicit coordinate string —
-        # leading `@`, polar `<`, semicolon, whitespace, or ≥2 commas — pass
-        # it through to the buffer untouched so cartesian / multi-form input
-        # typed via the canvas-routed path still parses.  Otherwise fall back
-        # to the original polar assembly (dist + Tab + angle entry).
-        if dist and (
-            dist.startswith("@")
-            or "<" in dist
-            or ";" in dist
-            or " " in dist
-            or dist.count(",") >= 2
-        ):
+        # When the distance field already carries an explicit coordinate
+        # string (leading ``@``, polar ``<``, ``;``, whitespace, or ≥ 2
+        # commas) AND the user has not separately typed an angle, forward
+        # the field text untouched so cartesian/raw input typed via the
+        # canvas-routed path still parses.  If an angle IS present, the
+        # user is clearly composing polar in two fields and the angle
+        # must be honoured — even a leading ``@`` in the distance just
+        # means "relative", not "ignore the angle".
+        if dist and not ang and looks_like_explicit_coord(dist):
             text = dist
         else:
-            text = f"@{dist or '0'}<{ang or '0'}"
+            # Strip a leading ``@`` from the distance: the assembly path
+            # always emits ``@dist<ang`` so a user-typed ``@`` would
+            # otherwise produce ``@@…``.
+            dist_body = dist.lstrip("@").strip() or "0"
+            text = f"@{dist_body}<{ang or '0'}"
         self._suppress_buffer_signal = True
         try:
             self._buffer.set_text(text)
@@ -169,10 +174,14 @@ class DynamicInputOverlay(QFrame):
             self._suppress_buffer_signal = False
 
     def _on_return(self) -> None:
-        # Empty input: forward Enter to the active tool so e.g. the polyline
-        # tool can finalize.  This matches the CAD convention "Enter on empty
-        # buffer ends the chain".
-        if not self._buffer.text.strip():
+        # Both fields actually empty: forward Enter to the active tool so
+        # e.g. the polyline tool can finalize.  We check the field text
+        # rather than the buffer alone — whitespace-only input would
+        # otherwise be misread as "finalize" and silently end the chain.
+        if (
+            not self._distance_edit.text().strip()
+            and not self._angle_edit.text().strip()
+        ):
             self._finalize_via_tool()
             return
         result = self._buffer.commit()
@@ -189,16 +198,7 @@ class DynamicInputOverlay(QFrame):
         """Forward a synthetic Enter to the active tool, then return focus."""
         self.hide_overlay()
         self._view.setFocus(Qt.FocusReason.OtherFocusReason)
-        tool = self._view._tool_manager.active_tool  # noqa: SLF001
-        if tool is None:
-            return
-        synthetic = QKeyEvent(
-            QKeyEvent.Type.KeyPress,
-            Qt.Key.Key_Return,
-            Qt.KeyboardModifier.NoModifier,
-        )
-        if tool.key_press(synthetic):
-            self._view.refresh_input_anchor()
+        self._view.forward_synthetic_key(Qt.Key.Key_Return)
 
     def _on_buffer_text_changed(self, text: str) -> None:
         if self._suppress_buffer_signal:
@@ -269,6 +269,12 @@ class DynamicInputOverlay(QFrame):
         chain because the edit now owns the keyboard.
         """
         if not text:
+            return
+        if self._last_anchor_pos is None:
+            # Keyboard-first interaction before any mouseMove has positioned
+            # the overlay — drop the key rather than popping the overlay at
+            # the viewport's (0, 0).  The next mouseMove will call
+            # ``show_near`` and routing resumes.
             return
         if not self.isVisible():
             self.show()

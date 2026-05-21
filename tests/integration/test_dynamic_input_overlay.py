@@ -262,10 +262,12 @@ def test_empty_enter_forwards_to_active_tool(
 ) -> None:
     """Enter on an empty overlay buffer should forward to the active tool.
 
-    Verified by monkeypatching ``tool.key_press`` — we don't want to
-    finalize a real polyline here because the resulting ``add_item``
-    autosaves to disk and (under pytest-qt on Windows) destabilises
-    subsequent tests' app startup.
+    Verified by monkeypatching ``tool.key_press`` because letting the real
+    polyline finalize via ``add_item`` triggers autosave on disk and
+    destabilises later tests' app-startup teardown under pytest-qt on
+    Windows.  TODO: replace the monkeypatch with a real finalize once
+    autosave can be disabled from the test fixture (see PR #189 review
+    follow-ups).
     """
     view = window.canvas_view
     view.set_active_tool(ToolType.FENCE)

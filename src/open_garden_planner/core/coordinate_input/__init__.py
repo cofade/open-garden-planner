@@ -11,7 +11,14 @@ from open_garden_planner.core.coordinate_input.buffer import CoordinateInputBuff
 from open_garden_planner.core.coordinate_input.parser import (
     ParsedCoordinate,
     ParseError,
+    looks_like_explicit_coord,
     parse,
 )
 
-__all__ = ["CoordinateInputBuffer", "ParseError", "ParsedCoordinate", "parse"]
+__all__ = [
+    "CoordinateInputBuffer",
+    "ParseError",
+    "ParsedCoordinate",
+    "looks_like_explicit_coord",
+    "parse",
+]
