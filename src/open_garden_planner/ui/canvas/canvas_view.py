@@ -933,11 +933,27 @@ class CanvasView(QGraphicsView):
                 self._dynamic_overlay.hide_overlay()
             return
         overlay = self._ensure_dynamic_overlay()
+        # Freeze the overlay in place once the user starts typing — otherwise
+        # ``show_near`` on every mouseMove slides it ahead of the cursor and
+        # the user can never reach (or finish typing in) the fields.
+        if overlay.is_capturing_input() and overlay.isVisible():
+            return
         overlay.show_near(viewport_pos)
 
     @property
     def dynamic_input_enabled(self) -> bool:
         return self._dynamic_input_enabled
+
+    @staticmethod
+    def _is_coord_input_char(text: str) -> bool:
+        """Bare characters that should route into the Dynamic Input overlay.
+
+        Covers every character the coordinate parser understands: digits,
+        decimal/separator marks, polar/relative prefixes, sign, and space.
+        """
+        if not text or len(text) != 1:
+            return False
+        return text in "0123456789.,;@<-+ "
 
     @property
     def point_snapper(self) -> "PointSnapper":
@@ -2755,6 +2771,29 @@ class CanvasView(QGraphicsView):
         # Guard: no modifier keys; scene not editing text (label edit in progress).
         _focus = self._canvas_scene.focusItem()
         _in_text_edit = _focus is not None and hasattr(_focus, 'toPlainText')
+
+        # Route coordinate-input characters (Package A US-A4) into the Dynamic
+        # Input overlay so the user can type `@500,0`, `@300<45`, etc. without
+        # ever clicking into the floating fields.  Runs before the tool-shortcut
+        # dispatcher: coordinate characters never overlap with tool letters,
+        # but explicit ordering avoids surprises if a future tool grabs e.g. ',').
+        if (
+            self._dynamic_input_enabled
+            and not _in_text_edit
+            and event.text()
+            and self._is_coord_input_char(event.text())
+        ):
+            tool = self._tool_manager.active_tool
+            if (
+                tool is not None
+                and getattr(tool, "tool_type", None) != ToolType.SELECT
+                and getattr(tool, "last_point", None) is not None
+            ):
+                overlay = self._ensure_dynamic_overlay()
+                overlay.forward_keystroke(event.text())
+                event.accept()
+                return
+
         if not event.modifiers() and not _in_text_edit and event.text():
             _key = event.text().upper()
             for _tool in self._tool_manager._tools.values():

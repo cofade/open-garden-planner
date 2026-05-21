@@ -147,9 +147,21 @@ class DynamicInputOverlay(QFrame):
         if not dist and not ang:
             self._buffer.set_text("")
             return
-        # Build a polar string; user must supply at least the distance for
-        # the parser to succeed, but partial input is still mirrored.
-        text = f"@{dist or '0'}<{ang or '0'}"
+        # If the distance field carries an explicit coordinate string —
+        # leading `@`, polar `<`, semicolon, whitespace, or ≥2 commas — pass
+        # it through to the buffer untouched so cartesian / multi-form input
+        # typed via the canvas-routed path still parses.  Otherwise fall back
+        # to the original polar assembly (dist + Tab + angle entry).
+        if dist and (
+            dist.startswith("@")
+            or "<" in dist
+            or ";" in dist
+            or " " in dist
+            or dist.count(",") >= 2
+        ):
+            text = dist
+        else:
+            text = f"@{dist or '0'}<{ang or '0'}"
         self._suppress_buffer_signal = True
         try:
             self._buffer.set_text(text)
@@ -157,15 +169,48 @@ class DynamicInputOverlay(QFrame):
             self._suppress_buffer_signal = False
 
     def _on_return(self) -> None:
+        # Empty input: forward Enter to the active tool so e.g. the polyline
+        # tool can finalize.  This matches the CAD convention "Enter on empty
+        # buffer ends the chain".
+        if not self._buffer.text.strip():
+            self._finalize_via_tool()
+            return
         result = self._buffer.commit()
         if result is None:
             self._flash_error()
             return
         self.commit_requested.emit(result.point)
         self._buffer.clear()
+        # Return focus to the canvas so further mouse / shortcut input and
+        # the canvas-side keystroke router keep working without an extra Esc.
+        self._view.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def _finalize_via_tool(self) -> None:
+        """Forward a synthetic Enter to the active tool, then return focus."""
+        self.hide_overlay()
+        self._view.setFocus(Qt.FocusReason.OtherFocusReason)
+        tool = self._view._tool_manager.active_tool  # noqa: SLF001
+        if tool is None:
+            return
+        synthetic = QKeyEvent(
+            QKeyEvent.Type.KeyPress,
+            Qt.Key.Key_Return,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        if tool.key_press(synthetic):
+            self._view.refresh_input_anchor()
 
     def _on_buffer_text_changed(self, text: str) -> None:
         if self._suppress_buffer_signal:
+            return
+        if not text:
+            # Buffer cleared (e.g. after a successful commit) -> wipe both
+            # fields so ``is_capturing_input`` flips back to False and the
+            # overlay can resume cursor-tracking.
+            if self._distance_edit.text():
+                self._distance_edit.clear()
+            if self._angle_edit.text():
+                self._angle_edit.clear()
             return
         # Try to split a polar string; otherwise reset the fields.
         if "<" in text:
@@ -197,6 +242,45 @@ class DynamicInputOverlay(QFrame):
         self._distance_edit.setFocus(Qt.FocusReason.OtherFocusReason)
         self._distance_edit.selectAll()
 
+    # --- Canvas keystroke routing -------------------------------------
+
+    def is_capturing_input(self) -> bool:
+        """True while the user is typing into the overlay.
+
+        Used by :class:`CanvasView` to freeze the overlay in place — without
+        this, ``show_near`` on every ``mouseMoveEvent`` would slide the
+        fields out from under the cursor while the user is still typing.
+        """
+        if self._distance_edit.hasFocus() or self._angle_edit.hasFocus():
+            return True
+        return bool(
+            self._distance_edit.text().strip()
+            or self._angle_edit.text().strip()
+        )
+
+    def forward_keystroke(self, text: str) -> None:
+        """Append ``text`` into the distance field and give it focus.
+
+        Called from :meth:`CanvasView.keyPressEvent` when a bare coordinate
+        character (digit, ``@``, ``<``, ``,``, ``.``, ``;``, space, ``-``,
+        ``+``) is typed while the canvas has focus and a drawing tool with
+        an anchor is active.  The first such keystroke focuses the
+        distance edit; subsequent keys go directly through Qt's focus
+        chain because the edit now owns the keyboard.
+        """
+        if not text:
+            return
+        if not self.isVisible():
+            self.show()
+            self.raise_()
+        if not self._distance_edit.hasFocus():
+            self._distance_edit.setFocus(Qt.FocusReason.OtherFocusReason)
+        # Insert at the cursor so a partially typed value is preserved.
+        self._distance_edit.insert(text)
+        # ``insert`` does not fire ``textEdited``, so trigger the buffer
+        # sync ourselves.
+        self._on_field_changed(self._distance_edit.text())
+
 
 class _DynamicLineEdit(QLineEdit):
     """Internal QLineEdit that escapes to the parent canvas on Esc."""
@@ -220,6 +304,15 @@ class _DynamicLineEdit(QLineEdit):
             )
             other.setFocus(Qt.FocusReason.TabFocusReason)
             other.selectAll()
+            event.accept()
+            return
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            # Drive commit / finalize from the overlay and accept the event so
+            # it never bubbles to the canvas — QLineEdit's default keyPressEvent
+            # calls event.ignore() for Return, which would propagate the Enter
+            # to CanvasView.keyPressEvent and finalize the polyline tool right
+            # after our typed vertex was committed.
+            self._overlay._on_return()  # noqa: SLF001
             event.accept()
             return
         super().keyPressEvent(event)
