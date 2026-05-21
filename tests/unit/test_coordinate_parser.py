@@ -9,6 +9,7 @@ from PyQt6.QtCore import QPointF
 
 from open_garden_planner.core.coordinate_input.parser import (
     ParseError,
+    looks_like_explicit_coord,
     parse,
     parse_alternative,
 )
@@ -197,3 +198,46 @@ class TestAlternative:
 
     def test_polar_has_no_alternative(self) -> None:
         assert parse_alternative("@100<45", last_point=QPointF(0, 0)) is None
+
+
+class TestLooksLikeExplicitCoord:
+    """Pin down the raw-mode heuristic used by the Dynamic Input overlay.
+
+    The rule is "explicit when the user has already typed something that
+    a single polar-distance value cannot be — leading ``@``, polar ``<``,
+    semicolon, whitespace, or ≥ 2 commas".  Changing any of these triggers
+    breaks the overlay's behaviour and should fail this test loudly.
+    """
+
+    def test_empty_and_whitespace(self) -> None:
+        assert not looks_like_explicit_coord("")
+        assert not looks_like_explicit_coord("   ")
+
+    def test_bare_number_is_not_explicit(self) -> None:
+        assert not looks_like_explicit_coord("500")
+        assert not looks_like_explicit_coord("500.5")
+        assert not looks_like_explicit_coord("500,5")  # locale decimal
+
+    def test_single_comma_is_not_explicit(self) -> None:
+        # ``500,5`` (locale) and ``1,2`` (cartesian-pair) both have a single
+        # comma; the overlay must NOT latch raw-mode here so a polar pairing
+        # with a typed angle still composes correctly.
+        assert not looks_like_explicit_coord("1,2")
+
+    def test_leading_at_is_explicit(self) -> None:
+        assert looks_like_explicit_coord("@500")
+        assert looks_like_explicit_coord("@500,0")
+
+    def test_polar_marker_is_explicit(self) -> None:
+        assert looks_like_explicit_coord("300<45")
+        assert looks_like_explicit_coord("@300<45")
+
+    def test_semicolon_is_explicit(self) -> None:
+        assert looks_like_explicit_coord("1,5;2,5")
+
+    def test_whitespace_separator_is_explicit(self) -> None:
+        assert looks_like_explicit_coord("1 2")
+
+    def test_two_or_more_commas_is_explicit(self) -> None:
+        assert looks_like_explicit_coord("1,5,2")
+        assert looks_like_explicit_coord("1,5,2,5")

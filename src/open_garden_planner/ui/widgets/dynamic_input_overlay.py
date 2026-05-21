@@ -159,6 +159,12 @@ class DynamicInputOverlay(QFrame):
         # user is clearly composing polar in two fields and the angle
         # must be honoured — even a leading ``@`` in the distance just
         # means "relative", not "ignore the angle".
+        #
+        # Edge: ``dist == "@"`` alone hits this branch (``looks_like_…``
+        # returns True for a bare ``@``).  The buffer text becomes ``"@"``
+        # and the parser raises ``ParseError("Missing coordinate after
+        # '@'")`` only at commit — incremental keystrokes don't trip it.
+        # That is the desired behaviour: the user is mid-typing.
         if dist and not ang and looks_like_explicit_coord(dist):
             text = dist
         else:
@@ -174,10 +180,11 @@ class DynamicInputOverlay(QFrame):
             self._suppress_buffer_signal = False
 
     def _on_return(self) -> None:
-        # Both fields actually empty: forward Enter to the active tool so
-        # e.g. the polyline tool can finalize.  We check the field text
-        # rather than the buffer alone — whitespace-only input would
-        # otherwise be misread as "finalize" and silently end the chain.
+        # Both fields actually empty (after strip): forward Enter to the
+        # active tool so e.g. the polyline tool can finalize.  We read the
+        # raw field text rather than ``self._buffer.text`` so a future
+        # change to ``_on_field_changed``'s buffer-assembly cannot turn a
+        # whitespace-only Enter into a parser error instead of a finalize.
         if (
             not self._distance_edit.text().strip()
             and not self._angle_edit.text().strip()

@@ -962,9 +962,14 @@ class CanvasView(QGraphicsView):
         to handle Enter (empty-buffer finalize) without reaching into
         ``_tool_manager`` directly.  Returns the tool's ``key_press`` result
         (True iff the event was handled).  Anchor is refreshed on success.
-        """
-        from PyQt6.QtGui import QKeyEvent
 
+        Caveat: this bypasses ``QApplication.sendEvent``.  Tools that inspect
+        event metadata (``event.timestamp()``, ``event.spontaneous()``, or
+        the current ``QApplication.focusWidget()`` at delivery time) will
+        see a stripped event.  Today's tools only read ``event.key()`` so
+        the synthetic path is equivalent; revisit if a future tool needs
+        more than that.
+        """
         tool = self._tool_manager.active_tool
         if tool is None:
             return False
