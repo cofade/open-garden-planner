@@ -30,6 +30,9 @@ class AppSettings:
     KEY_SHOW_LABELS = "appearance/show_labels"
     KEY_SHOW_CONSTRAINTS = "appearance/show_constraints"
     KEY_OBJECT_SNAP = "canvas/object_snap_enabled"
+    KEY_MIDPOINT_SNAP = "canvas/midpoint_snap_enabled"
+    KEY_INTERSECTION_SNAP = "canvas/intersection_snap_enabled"
+    KEY_DYNAMIC_INPUT = "canvas/dynamic_input_enabled"
     KEY_LANGUAGE = "appearance/language"
     KEY_SHOW_SPACING_CIRCLES = "appearance/show_spacing_circles"
     KEY_SKIPPED_VERSION = "updates/skipped_version"
@@ -53,6 +56,9 @@ class AppSettings:
     DEFAULT_SHOW_CONSTRAINTS = True
     DEFAULT_SHOW_SPACING_CIRCLES = True
     DEFAULT_OBJECT_SNAP = True
+    DEFAULT_MIDPOINT_SNAP = True
+    DEFAULT_INTERSECTION_SNAP = True
+    DEFAULT_DYNAMIC_INPUT = True
     DEFAULT_LANGUAGE = "en"
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
     MIN_AUTOSAVE_INTERVAL_MINUTES = 1
@@ -279,6 +285,45 @@ class AppSettings:
     def object_snap_enabled(self, enabled: bool) -> None:
         """Set whether snap-to-object is enabled."""
         self._settings.setValue(self.KEY_OBJECT_SNAP, enabled)
+
+    @property
+    def midpoint_snap_enabled(self) -> bool:
+        """Whether the midpoint snap mode is enabled."""
+        return self._settings.value(
+            self.KEY_MIDPOINT_SNAP,
+            self.DEFAULT_MIDPOINT_SNAP,
+            type=bool,
+        )
+
+    @midpoint_snap_enabled.setter
+    def midpoint_snap_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_MIDPOINT_SNAP, enabled)
+
+    @property
+    def intersection_snap_enabled(self) -> bool:
+        """Whether the intersection snap mode is enabled."""
+        return self._settings.value(
+            self.KEY_INTERSECTION_SNAP,
+            self.DEFAULT_INTERSECTION_SNAP,
+            type=bool,
+        )
+
+    @intersection_snap_enabled.setter
+    def intersection_snap_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_INTERSECTION_SNAP, enabled)
+
+    @property
+    def dynamic_input_enabled(self) -> bool:
+        """Whether typed coordinate input (status bar + cursor overlay) is on."""
+        return self._settings.value(
+            self.KEY_DYNAMIC_INPUT,
+            self.DEFAULT_DYNAMIC_INPUT,
+            type=bool,
+        )
+
+    @dynamic_input_enabled.setter
+    def dynamic_input_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_DYNAMIC_INPUT, enabled)
 
     @property
     def language(self) -> str:

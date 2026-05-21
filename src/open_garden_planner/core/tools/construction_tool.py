@@ -85,6 +85,20 @@ class ConstructionLineTool(BaseTool):
             self._preview = None
         self._start = None
 
+    @property
+    def last_point(self) -> QPointF | None:
+        return QPointF(self._start) if self._start is not None else None
+
+    def commit_typed_coordinate(self, point: QPointF) -> bool:
+        if self._start is None:
+            self._start = QPointF(point)
+            self._preview = QGraphicsLineItem(QLineF(self._start, self._start))
+            self._preview.setPen(QPen(_PREVIEW_COLOR, 1.2, Qt.PenStyle.DashLine))
+            self._view.scene().addItem(self._preview)
+            return True
+        self._finish(QPointF(point))
+        return True
+
     def _finish(self, end: QPointF) -> None:
         if self._preview is not None:
             self._view.scene().removeItem(self._preview)
@@ -168,6 +182,21 @@ class ConstructionCircleTool(BaseTool):
             self._view.scene().removeItem(self._preview)
             self._preview = None
         self._center = None
+
+    @property
+    def last_point(self) -> QPointF | None:
+        return QPointF(self._center) if self._center is not None else None
+
+    def commit_typed_coordinate(self, point: QPointF) -> bool:
+        if self._center is None:
+            self._center = QPointF(point)
+            self._preview = QGraphicsEllipseItem(point.x(), point.y(), 0, 0)
+            self._preview.setPen(QPen(_PREVIEW_COLOR, 1.2, Qt.PenStyle.DashLine))
+            self._preview.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+            self._view.scene().addItem(self._preview)
+            return True
+        self._finish(QPointF(point))
+        return True
 
     def _finish(self, rim: QPointF) -> None:
         if self._preview is not None:

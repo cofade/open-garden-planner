@@ -44,6 +44,12 @@ class EllipseTool(BaseTool):
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
+        # Typed first corner already opened the preview - reuse the
+        # release path so Shift (circle) and Alt (centre-out) modifiers
+        # are honoured even after a typed start.
+        if self._is_drawing and self._start_point is not None:
+            return self.mouse_release(event, scene_pos)
+
         self._start_point = self._view.snap_point(scene_pos)
         self._is_drawing = True
 
@@ -101,6 +107,50 @@ class EllipseTool(BaseTool):
             self._view.scene().removeItem(self._preview_item)
             self._preview_item = None
         self._reset_state()
+
+    @property
+    def last_point(self) -> QPointF | None:
+        if self._is_drawing and self._start_point is not None:
+            return QPointF(self._start_point)
+        return None
+
+    def commit_typed_coordinate(self, point: QPointF) -> bool:
+        """Two clicks: corner-to-corner bounding rect for the ellipse."""
+        if not self._is_drawing:
+            self._start_point = QPointF(point)
+            self._is_drawing = True
+            self._preview_item = QGraphicsEllipseItem()
+            self._preview_item.setPen(
+                QPen(QColor(0, 100, 255), 1, Qt.PenStyle.DashLine)
+            )
+            self._preview_item.setBrush(QBrush(QColor(100, 100, 255, 50)))
+            self._view.scene().addItem(self._preview_item)
+            return True
+        start = self._start_point
+        if start is None:
+            return False
+        x = min(start.x(), point.x())
+        y = min(start.y(), point.y())
+        w = abs(point.x() - start.x())
+        h = abs(point.y() - start.y())
+        if self._preview_item:
+            self._view.scene().removeItem(self._preview_item)
+            self._preview_item = None
+        if w > 1 and h > 1:
+            from open_garden_planner.ui.canvas.items import EllipseItem
+
+            scene = self._view.scene()
+            layer_id = (
+                scene.active_layer.id
+                if hasattr(scene, "active_layer") and scene.active_layer
+                else None
+            )
+            item = EllipseItem(
+                x, y, w, h, object_type=self._object_type, layer_id=layer_id
+            )
+            self._view.add_item(item, "ellipse")
+        self._reset_state()
+        return True
 
     def _reset_state(self) -> None:
         self._start_point = None

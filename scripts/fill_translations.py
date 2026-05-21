@@ -618,6 +618,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Snap to &Objects": "An &Objekten einrasten",
         "Toggle snap to object edges and centers":
             "Einrasten an Objektkanten und -mittelpunkten umschalten",
+        # Package A US-A3 / US-A4
+        "Snap to &Midpoints": "An &Mittelpunkten einrasten",
+        "Toggle snap to the midpoint of any straight edge":
+            "Einrasten auf den Mittelpunkt jeder geraden Kante umschalten",
+        "Snap to &Intersections": "An &Schnittpunkten einrasten",
+        "Toggle snap to intersections of straight edges":
+            "Einrasten auf Schnittpunkte gerader Kanten umschalten",
+        "Enable Dynamic &Input": "Dynamische &Eingabe aktivieren",
+        "Toggle typed distance/angle input next to the cursor and in the status bar":
+            "Eingabe von Distanz/Winkel am Cursor und in der Statusleiste umschalten",
         "Show &Shadows": "&Schatten anzeigen",
         "Toggle drop shadows on objects": "Schlagschatten auf Objekten umschalten",
         "Show Scale &Bar": "Maßstabs&leiste anzeigen",
@@ -845,6 +855,48 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── MeasureTool ──
     "MeasureTool": {
         "Measure": "Messen",
+    },
+
+    # ── CoordinateInputField (Package A US-A1/A2) ──
+    "CoordinateInputField": {
+        "@dx,dy   @dist<angle   x,y": "@dx,dy   @dist<Winkel   x,y",
+        "Typed coordinate input. Examples: @500,0 (relative), "
+        "@300<45 (polar, 0deg = east, CCW positive), 1000,500 "
+        "(absolute). Press Enter to commit.":
+            "Eingabe von Koordinaten. Beispiele: @500,0 (relativ), "
+            "@300<45 (polar, 0° = Osten, gegen den Uhrzeigersinn positiv), "
+            "1000,500 (absolut). Mit Enter bestätigen.",
+    },
+
+    # ── DynamicInputOverlay (Package A US-A4) ──
+    "DynamicInputOverlay": {
+        "dist": "Dist",
+        "ang": "Winkel",
+    },
+
+    # ── ParseError messages routed to the input field tooltip (Package A) ──
+    "ParseError": {
+        "Empty input": "Leere Eingabe",
+        "Missing coordinate after '@'": "Koordinate nach '@' fehlt",
+        "Polar input requires exactly one '<'":
+            "Polare Eingabe erfordert genau ein '<'",
+        "Polar input requires distance and angle":
+            "Polare Eingabe erfordert Distanz und Winkel",
+        "Polar input requires an existing point to anchor to":
+            "Polare Eingabe erfordert einen vorhandenen Bezugspunkt",
+        "Relative input requires an existing point to anchor to":
+            "Relative Eingabe erfordert einen vorhandenen Bezugspunkt",
+        "Expected two values separated by ';'":
+            "Erwarte zwei Werte, getrennt durch ';'",
+        "Expected two whitespace-separated values":
+            "Erwarte zwei durch Leerzeichen getrennte Werte",
+        "Expected two values when mixing '.' and ','":
+            "Erwarte zwei Werte bei gemischter Verwendung von '.' und ','",
+        "Expected two values; no separator found":
+            "Erwarte zwei Werte; kein Trennzeichen gefunden",
+        "Too many ',' separators to disambiguate":
+            "Zu viele ',' für eindeutige Auflösung",
+        "Not a number: '{token}'": "Keine Zahl: '{token}'",
     },
 
     # ── NewProjectDialog ──

@@ -175,7 +175,18 @@ Full history: see `docs/roadmap.md`.
 | ✅     | 12.10 | Soil health tracking & amendment calc    | Smart Features (all 5 sub-stories complete) |
 | ✅     | 12.11 | Smart amendment composition + toggleable library + soil texture | Smart Features |
 
-Next: **Phase 13 (v2.0)** — 3D Visualization & Sun/Shade (Future). See `docs/roadmap.md`.
+## Phase 13 ✅ Complete (Package A — CAD Precision Boost, v1.11.0)
+
+| Status | US    | Description                                                      |
+| ------ | ----- | ---------------------------------------------------------------- |
+| ✅     | A1    | Relative coordinate input `@dx,dy` (status bar + cursor overlay) |
+| ✅     | A2    | Polar coordinate input `@dist<angle`                             |
+| ✅     | A3    | Midpoint + intersection snap modes, View-menu toggles            |
+| ✅     | A4    | Dynamic Input cursor-anchored overlay                            |
+
+See **ADR-020** (snap engine: provider registry + quadtree spatial index) and **ADR-021** (input pipeline: shared `CoordinateInputBuffer`).
+
+Next: **Phase 14 (v2.0)** — 3D Visualization & Sun/Shade (Future). See `docs/roadmap.md`.
 
 ## Phase 12 issue work
 

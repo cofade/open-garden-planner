@@ -112,6 +112,11 @@ class ConstraintTool(BaseTool):
     5. The constraint is added via undo/redo.
     """
 
+    # All constraint tools run their own anchor pick (legacy AnchorPoint
+    # picker driven by find_nearest_anchor); opt out of Package A's
+    # CanvasView snap so the click position stays raw.
+    skip_anchor_snap = True
+
     # Subclasses override these to fix the constraint type and visual style
     _CONSTRAINT_TYPE: ConstraintType = ConstraintType.DISTANCE
     _PREVIEW_COLOR: QColor = PREVIEW_LINE_COLOR
@@ -1093,6 +1098,8 @@ class AngleConstraintTool(BaseTool):
     The angle constraint fixes the angle A-B-C at vertex B.
     """
 
+    skip_anchor_snap = True  # Runs its own anchor picker.
+
     def __init__(self, view) -> None:
         super().__init__(view)
         self._anchor_a: AnchorPoint | None = None
@@ -1471,6 +1478,8 @@ class SymmetryConstraintTool(BaseTool):
     4. Choose axis (H or V) in dialog.
     5. The symmetry constraint is added: B mirrors A across the midpoint axis.
     """
+
+    skip_anchor_snap = True  # Runs its own anchor picker.
 
     def __init__(self, view) -> None:
         super().__init__(view)
@@ -2197,6 +2206,8 @@ PREVIEW_EQUAL_COLOR = QColor(200, 100, 0, 200)  # Amber for equal-size constrain
 class EdgeLengthConstraintTool(BaseTool):
     """Tool for creating direct edge-length constraints by clicking an edge."""
 
+    skip_anchor_snap = True  # Runs its own anchor picker.
+
     def __init__(self, view) -> None:
         super().__init__(view)
         self._edge_indicators: list = []
@@ -2392,6 +2403,8 @@ class EqualConstraintTool(BaseTool):
        its corresponding dimension equals object A's dimension.
     4. The constraint is stored with undo/redo bundling the resize.
     """
+
+    skip_anchor_snap = True  # Runs its own anchor picker.
 
     def __init__(self, view) -> None:
         super().__init__(view)
@@ -2665,6 +2678,8 @@ class ParallelConstraintTool(BaseTool):
        rotated so its selected edge is parallel to object A's edge.
     4. The constraint is stored with undo/redo bundling the rotation.
     """
+
+    skip_anchor_snap = True  # Runs its own anchor picker.
 
     def __init__(self, view) -> None:
         super().__init__(view)
@@ -2992,6 +3007,8 @@ class PerpendicularConstraintTool(BaseTool):
        rotated so its selected edge is perpendicular (90°) to object A's edge.
     4. The constraint is stored with undo/redo bundling the rotation.
     """
+
+    skip_anchor_snap = True  # Runs its own anchor picker.
 
     def __init__(self, view) -> None:
         super().__init__(view)
@@ -3569,6 +3586,8 @@ class FixedConstraintTool(BaseTool):
     3. To release the item, remove the FIXED constraint from the Constraints
        panel or via Ctrl+Z.
     """
+
+    skip_anchor_snap = True  # Runs its own anchor picker.
 
     def __init__(self, view) -> None:
         super().__init__(view)
