@@ -92,9 +92,13 @@ class TitleBlockItem(QGraphicsRectItem):
         painter.save()
         # In Y-down item-local coords the natural text orientation is
         # already top-to-bottom, so we draw the lines top-down without
-        # any extra flipping.
+        # any extra flipping. setPointSizeF(0.5) was the previous value
+        # — that's 0.5 *points* (sub-pixel), well below DirectWrite's
+        # glyph-metric floor, which spams warnings and falls back to
+        # placeholder rendering. Use a real point size; the text scales
+        # with the view zoom which is fine for a print-MVP.
         font = QFont()
-        font.setPointSizeF(0.5)  # 0.5 cm tall — readable on print
+        font.setPointSizeF(6.0)
         painter.setFont(font)
         painter.setPen(QColor(20, 20, 20))
 

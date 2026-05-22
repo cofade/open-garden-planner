@@ -84,8 +84,14 @@ class ScaleBarItem(QGraphicsRectItem):
         total_model_cm = bar_paper_cm / max(self._scale_factor, 1e-9)
         seg_model_cm = total_model_cm / _TICKS
 
+        # Scene coords are in cm. With a cm-coord painter, the font size
+        # passes through the view transform; a sub-pt size like 0.35 ends
+        # up well below DirectWrite's minimum and spams
+        # `GetDesignGlyphMetrics failed` on Windows + falls back to
+        # placeholder glyph rendering. Use a real point size — the text
+        # will scale with zoom, which is fine for a print-MVP.
         font = QFont()
-        font.setPointSizeF(0.35)
+        font.setPointSizeF(4.0)
         painter.setFont(font)
         painter.setPen(QColor(20, 20, 20))
         painter.setBrush(Qt.BrushStyle.NoBrush)
