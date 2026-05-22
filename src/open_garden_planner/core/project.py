@@ -213,6 +213,8 @@ class ProjectManager(QObject):
         self._prefer_organic: bool = True
         self._succession_plans: dict[str, Any] = {}
         self._garden_journal_notes: dict[str, Any] = {}
+        # Phase 13 Package B (US-B7): paper-space layouts.
+        self._paper_layouts: list[dict[str, Any]] = []
 
     @property
     def current_file(self) -> Path | None:
@@ -661,6 +663,7 @@ class ProjectManager(QObject):
         # matching pin before serialising so dragged pins round-trip cleanly.
         self._sync_journal_note_positions(scene)
         data.garden_journal_notes = dict(self._garden_journal_notes)
+        data.paper_layouts = list(self._paper_layouts)
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -733,6 +736,8 @@ class ProjectManager(QObject):
         # Restore garden journal notes (US-12.9)
         self._garden_journal_notes = dict(data.garden_journal_notes)
         self.garden_journal_notes_changed.emit(self._garden_journal_notes)
+        # Restore paper-space layouts (US-B7)
+        self._paper_layouts = list(data.paper_layouts)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)

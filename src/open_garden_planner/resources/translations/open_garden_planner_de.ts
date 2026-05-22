@@ -3199,6 +3199,10 @@ Neue Saison jetzt öffnen?</translation>
             <source>Toggle snap to the tangent point on a circle or arc from the last drawn point</source>
             <translation>Fangen auf den Tangentialpunkt eines Kreises oder Bogens vom letzten gezeichneten Punkt umschalten</translation>
         </message>
+        <message>
+            <source>Layout</source>
+            <translation>Layout</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -8970,6 +8974,25 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Chamfer distance: {distance:.1f} cm — press D to change</source>
             <translation>Anfasabstand: {distance:.1f} cm — D drücken zum Ändern</translation>
+        </message>
+    </context>
+    <context>
+        <name>TitleBlockItem</name>
+        <message>
+            <source>Project:</source>
+            <translation>Projekt:</translation>
+        </message>
+        <message>
+            <source>Date:</source>
+            <translation>Datum:</translation>
+        </message>
+        <message>
+            <source>Scale:</source>
+            <translation>Maßstab:</translation>
+        </message>
+        <message>
+            <source>(unsaved)</source>
+            <translation>(nicht gespeichert)</translation>
         </message>
     </context>
 </TS>

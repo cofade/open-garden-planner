@@ -847,6 +847,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Garden Plan": "Gartenplan",
         "Planting Calendar": "Pflanzkalender",
         "Seed Inventory": "Saatgutbestand",
+        "Layout": "Layout",
         "Constraints": "Randbedingungen",
         "Delete all constraints": "Alle Randbedingungen löschen",
         "Companion Planting": "Mischkulturen",
@@ -1323,6 +1324,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Fillet (Shift+F) — round a corner": "Abrunden (Umschalt+F) — Ecke abrunden",
         "Chamfer (Shift+C) — bevel a corner":
             "Anfasen (Umschalt+C) — Ecke abschrägen",
+    },
+
+    # ── Paper Space (Phase 13 Package B — US-B7) ──
+    "TitleBlockItem": {
+        "Project:": "Projekt:",
+        "Date:": "Datum:",
+        "Scale:": "Maßstab:",
+        "(unsaved)": "(nicht gespeichert)",
     },
 
     # ── RectangleItem (context menu — pylupdate6 cannot extract _ alias) ──

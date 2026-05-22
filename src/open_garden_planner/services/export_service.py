@@ -226,21 +226,31 @@ class ExportService:
                 else:
                     image.fill(Qt.GlobalColor.white)
 
-            # Create painter and render scene
+            # Render via the shared helper. Text/overlay/construction
+            # bookkeeping is already done outside this block, so disable
+            # the helper's own bookkeeping to avoid double-applying.
+            from open_garden_planner.services.scene_rendering import (
+                render_scene_region,
+            )
+
             painter = QPainter(image)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
             painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
 
-            # Pre-flip Y so scene Y=0 (visual bottom in OGP's Y-up view) maps to
-            # image bottom. translate(0, H) then scale(1,-1) maps scene y → H - y·scale.
-            painter.save()
-            painter.translate(0, height_px)
-            painter.scale(1.0, -1.0)
-            scene.render(painter, QRectF(0, 0, width_px, height_px), canvas_rect)
-            painter.restore()
-
-            painter.end()
+            try:
+                render_scene_region(
+                    scene=scene,
+                    painter=painter,
+                    target_rect=QRectF(0, 0, width_px, height_px),
+                    source_rect=canvas_rect,
+                    hide_overlays=False,
+                    hide_construction=False,
+                    text_point_size=None,
+                    y_flip=True,
+                )
+            finally:
+                painter.end()
 
             # Save the image
             if not image.save(str(file_path), "PNG"):
