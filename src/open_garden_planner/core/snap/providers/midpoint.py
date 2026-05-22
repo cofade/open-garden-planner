@@ -29,6 +29,7 @@ class MidpointSnapProvider(SnapProvider):
         scene_pos: QPointF,
         items: Iterable[QGraphicsItem],
         threshold: float,
+        reference_point: QPointF | None = None,  # noqa: ARG002
     ) -> Iterable[SnapCandidate]:
         for item in items:
             if not (item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable):

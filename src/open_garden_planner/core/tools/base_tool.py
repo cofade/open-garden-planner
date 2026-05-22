@@ -99,6 +99,11 @@ class ToolType(Enum):
     # CAD editing tools
     TRIM_EXTEND = auto()
     OFFSET = auto()
+    # Phase 13 Package B (US-B1/B2/B3)
+    BEZIER = auto()
+    ARC = auto()
+    FILLET = auto()
+    CHAMFER = auto()
 
 
 class BaseTool(ABC):

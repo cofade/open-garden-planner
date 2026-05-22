@@ -20,8 +20,12 @@ from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_b
 from open_garden_planner.core.object_types import PathFenceStyle, StrokeStyle
 from open_garden_planner.models.layer import Layer, create_default_layers
 
-# File format version for backward compatibility
-FILE_VERSION = "1.3"
+# File format version for backward compatibility.
+#
+# 1.4 (Phase 13 Package B): adds ``bezier`` and ``arc`` item types and the
+# top-level ``paper_layouts`` array. v1.3 files load transparently with
+# forward-filled defaults (empty layouts, no new items).
+FILE_VERSION = "1.4"
 
 
 @dataclass
@@ -74,6 +78,10 @@ class ProjectData:
     # shape: {note_id: JournalNote.to_dict()}; canvas pins reference notes by id
     garden_journal_notes: dict[str, Any] = field(default_factory=dict)
 
+    # Phase 13 Package B (B7): paper-space layouts.
+    # Each entry describes a page: size, viewport rect/scale, title block fields.
+    paper_layouts: list[dict[str, Any]] = field(default_factory=list)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         data: dict[str, Any] = {
@@ -123,6 +131,8 @@ class ProjectData:
             data["succession_plans"] = self.succession_plans
         if self.garden_journal_notes:
             data["garden_journal_notes"] = self.garden_journal_notes
+        if self.paper_layouts:
+            data["paper_layouts"] = self.paper_layouts
         return data
 
     @classmethod
@@ -152,6 +162,7 @@ class ProjectData:
             prefer_organic=bool(data.get("prefer_organic", True)),
             succession_plans=data.get("succession_plans", {}),
             garden_journal_notes=data.get("garden_journal_notes", {}),
+            paper_layouts=list(data.get("paper_layouts", [])),
         )
 
 

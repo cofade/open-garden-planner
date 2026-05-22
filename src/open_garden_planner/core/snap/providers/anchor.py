@@ -57,6 +57,7 @@ class EndpointSnapProvider(SnapProvider):
         scene_pos: QPointF,
         items: Iterable[QGraphicsItem],
         threshold: float,
+        reference_point: QPointF | None = None,  # noqa: ARG002
     ) -> Iterable[SnapCandidate]:
         for item in _items_within(scene_pos, items, threshold):
             for anchor in get_anchor_points(item):
@@ -80,6 +81,7 @@ class CenterSnapProvider(SnapProvider):
         scene_pos: QPointF,
         items: Iterable[QGraphicsItem],
         threshold: float,
+        reference_point: QPointF | None = None,  # noqa: ARG002
     ) -> Iterable[SnapCandidate]:
         for item in _items_within(scene_pos, items, threshold):
             for anchor in get_anchor_points(item):
@@ -103,6 +105,7 @@ class EdgeCardinalSnapProvider(SnapProvider):
         scene_pos: QPointF,
         items: Iterable[QGraphicsItem],
         threshold: float,
+        reference_point: QPointF | None = None,  # noqa: ARG002
     ) -> Iterable[SnapCandidate]:
         for item in _items_within(scene_pos, items, threshold):
             for anchor in get_anchor_points(item):

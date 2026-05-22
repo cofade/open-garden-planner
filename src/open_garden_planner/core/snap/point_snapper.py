@@ -53,6 +53,7 @@ class PointSnapper:
         self,
         scene_pos: QPointF,
         threshold: float = DEFAULT_THRESHOLD,
+        reference_point: QPointF | None = None,
     ) -> SnapCandidate | None:
         if not self._items or self._index is None:
             return None
@@ -68,4 +69,6 @@ class PointSnapper:
         candidates = self._index.query(region)
         if not candidates:
             return None
-        return self._registry.best(scene_pos, candidates, threshold)
+        return self._registry.best(
+            scene_pos, candidates, threshold, reference_point=reference_point
+        )

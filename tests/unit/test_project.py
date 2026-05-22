@@ -105,6 +105,38 @@ class TestProjectData:
             "plant:rose",
         ]
 
+    def test_paper_layouts_default_empty(self) -> None:
+        """Phase 13 B7: paper_layouts defaults to empty list."""
+        data = ProjectData()
+        assert data.paper_layouts == []
+
+    def test_paper_layouts_omitted_when_empty(self) -> None:
+        """to_dict() omits paper_layouts when empty (keeps files small)."""
+        data = ProjectData()
+        assert "paper_layouts" not in data.to_dict()
+
+    def test_paper_layouts_roundtrip(self) -> None:
+        """paper_layouts survives to_dict / from_dict roundtrip."""
+        layout = {
+            "name": "Default Layout",
+            "page_size": "A4",
+            "viewport": {"x": 10, "y": 10, "w": 180, "h": 120, "scale": 100},
+        }
+        data = ProjectData(paper_layouts=[layout])
+        restored = ProjectData.from_dict(data.to_dict())
+        assert restored.paper_layouts == [layout]
+
+    def test_v1_3_file_loads_with_defaults(self) -> None:
+        """A pre-Package-B (v1.3) file loads with paper_layouts defaulted to []."""
+        v1_3_raw = {
+            "version": "1.3",
+            "canvas": {"width": 5000.0, "height": 3000.0},
+            "layers": [],
+            "objects": [],
+        }
+        data = ProjectData.from_dict(v1_3_raw)
+        assert data.paper_layouts == []
+
 
 
 class TestProjectManager:
