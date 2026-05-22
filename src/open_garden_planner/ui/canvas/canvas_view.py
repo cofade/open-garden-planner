@@ -1561,6 +1561,18 @@ class CanvasView(QGraphicsView):
         self._point_snapper.update_scene(items, scene_bounds=self.scene().sceneRect())
         self._snap_index_dirty = False
 
+    @property
+    def current_snap_candidate(self) -> "SnapCandidate | None":
+        """The most recent snap result, or ``None`` if the cursor isn't snapped.
+
+        Drawing tools read this in `mouse_press` to record *which* snap kind
+        and source item produced each committed vertex, so the auto-
+        constraint emitter (Package B follow-up) can decide whether to
+        attach a POINT_ON_EDGE / POINT_ON_CIRCLE / PERPENDICULAR constraint
+        on finalization.
+        """
+        return self._current_snap
+
     def anchor_snap(
         self,
         scene_pos: QPointF,
