@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- 3-point arc: open curve through three click points -->
+  <!-- Arc from (10, 48) through (32, 14) to (54, 48), as a circular arc -->
+  <path d="M 10 48 A 25 25 0 0 1 54 48" stroke="#047857" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- Three click-point markers -->
+  <circle cx="10" cy="48" r="3.5" fill="#10B981"/>
+  <circle cx="32" cy="14" r="3.5" fill="#047857"/>
+  <circle cx="54" cy="48" r="3.5" fill="#10B981"/>
+</svg>

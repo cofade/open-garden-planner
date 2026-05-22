@@ -62,6 +62,7 @@ from open_garden_planner.core.snap.providers import (
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
     AngleConstraintTool,
+    ArcTool,
     CalloutTool,
     CircleTool,
     CoincidentConstraintTool,
@@ -323,6 +324,10 @@ class CanvasView(QGraphicsView):
         ellipse_tool = EllipseTool(self, object_type=ObjectType.GENERIC_ELLIPSE)
         ellipse_tool.shortcut = "E"
         self._tool_manager.register_tool(ellipse_tool)
+
+        # Phase 13 Package B (US-B2): 3-point arc tool.
+        arc_tool = ArcTool(self)
+        self._tool_manager.register_tool(arc_tool)
 
         text_tool = TextTool(self)
         self._tool_manager.register_tool(text_tool)

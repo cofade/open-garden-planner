@@ -212,6 +212,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Circle": "Kreis",
     },
 
+    # ── ArcItem / ArcTool (Phase 13 Package B — US-B2) ──
+    "ArcItem": {
+        "Delete Arc": "Bogen löschen",
+    },
+    "ArcTool": {
+        "Arc (3-point)": "Bogen (3 Punkte)",
+        "Points are collinear; drew a line instead":
+            "Punkte sind kollinear; stattdessen wurde eine Linie gezeichnet",
+    },
+
     # ── EdgeLengthConstraintTool ──
     "EdgeLengthConstraintTool": {
         "Edge Length Constraint": "Kantenlängenrandbedingung",

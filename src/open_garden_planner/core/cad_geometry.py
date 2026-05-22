@@ -158,3 +158,96 @@ def rectangle_to_scene_segments(
         p2 = item.mapToScene(corners_local[(i + 1) % n])  # type: ignore[attr-defined]
         result.append((p1, p2))
     return result
+
+
+# ---------------------------------------------------------------------------
+# Arc geometry (Phase 13 Package B — US-B2)
+# ---------------------------------------------------------------------------
+
+# Tolerance below which three points are treated as collinear (no unique
+# circle). Expressed as the absolute value of twice the signed triangle
+# area (cm² × 2). A sagitta < 0.1 cm on a 100 cm chord — visually flat —
+# yields ``abs(d) ≈ 20`` and is treated as a curve; a sagitta < 0.005 cm
+# yields ``abs(d) ≈ 1`` and is treated as a line, catching click-jitter
+# without rejecting genuinely curved input.
+COLLINEAR_TOLERANCE: float = 1.0
+
+
+def arc_from_three_points(
+    p1: QPointF,
+    p2: QPointF,
+    p3: QPointF,
+) -> tuple[QPointF, float, float, float] | None:
+    """Compute the unique circular arc through three points.
+
+    The arc passes through ``p1`` (start), ``p2`` (through-point), and
+    ``p3`` (end). The through-point determines which of the two possible
+    arc sweeps between the endpoints is chosen.
+
+    Args:
+        p1: Start point of the arc.
+        p2: Through-point lying on the arc between p1 and p3.
+        p3: End point of the arc.
+
+    Returns:
+        ``(center, radius, start_deg, span_deg)`` where:
+            - ``center`` is the QPointF arc center,
+            - ``radius`` is the arc radius (always positive),
+            - ``start_deg`` is the start angle in degrees, CCW from +X,
+              measured from the center to ``p1``,
+            - ``span_deg`` is the signed sweep in degrees (positive CCW,
+              negative CW); always non-zero, magnitude in ``(0, 360)``.
+
+        Returns ``None`` if the three points are collinear (no unique
+        circle exists), letting callers fall back to a polyline.
+    """
+    ax, ay = p1.x(), p1.y()
+    bx, by = p2.x(), p2.y()
+    cx, cy = p3.x(), p3.y()
+
+    # Twice the signed area of the triangle (p1, p2, p3). Zero iff the
+    # points are collinear; sign indicates winding (positive = CCW).
+    d = 2.0 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+    if abs(d) < COLLINEAR_TOLERANCE:
+        return None
+
+    a_sq = ax * ax + ay * ay
+    b_sq = bx * bx + by * by
+    c_sq = cx * cx + cy * cy
+
+    center_x = (a_sq * (by - cy) + b_sq * (cy - ay) + c_sq * (ay - by)) / d
+    center_y = (a_sq * (cx - bx) + b_sq * (ax - cx) + c_sq * (bx - ax)) / d
+    center = QPointF(center_x, center_y)
+
+    radius = math.hypot(ax - center_x, ay - center_y)
+
+    # Angles from the center to each input point.
+    a1 = math.atan2(ay - center_y, ax - center_x)
+    a2 = math.atan2(by - center_y, bx - center_x)
+    a3 = math.atan2(cy - center_y, cx - center_x)
+
+    # Pick the sweep direction so the arc passes through the
+    # through-point. d > 0 means p1 -> p2 -> p3 winds CCW around the
+    # center (because we constructed d from the same vectors); d < 0
+    # means CW.
+    if d > 0:
+        # CCW from a1 to a3.
+        span = a3 - a1
+        if span <= 0:
+            span += 2.0 * math.pi
+    else:
+        # CW from a1 to a3 — span is negative.
+        span = a3 - a1
+        if span >= 0:
+            span -= 2.0 * math.pi
+
+    start_deg = math.degrees(a1)
+    span_deg = math.degrees(span)
+
+    # Sanity: the through-point really should lie on the arc, but
+    # numerical noise can push it just outside. We don't reject — the
+    # arc still passes within micro-cm of p2 in practice. The unit
+    # tests verify this.
+    _ = a2  # noqa: F841
+
+    return center, radius, start_deg, span_deg

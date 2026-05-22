@@ -1021,6 +1021,7 @@ class ProjectManager(QObject):
         """Core serialization logic for a single graphics item."""
         # Import here to avoid circular dependency
         from open_garden_planner.ui.canvas.items import (
+            ArcItem,
             BackgroundImageItem,
             CircleItem,
             ConstructionCircleItem,
@@ -1031,7 +1032,7 @@ class ProjectManager(QObject):
             RectangleItem,
         )
 
-        if isinstance(item, (ConstructionLineItem, ConstructionCircleItem, BackgroundImageItem)):
+        if isinstance(item, (ConstructionLineItem, ConstructionCircleItem, BackgroundImageItem, ArcItem)):
             return item.to_dict()
         elif isinstance(item, RectangleItem):
             rect = item.rect()
@@ -1374,6 +1375,7 @@ class ProjectManager(QObject):
         # Import here to avoid circular dependency
         from open_garden_planner.core.object_types import ObjectType
         from open_garden_planner.ui.canvas.items import (
+            ArcItem,
             BackgroundImageItem,
             CircleItem,
             EllipseItem,
@@ -1392,6 +1394,8 @@ class ProjectManager(QObject):
             return ConstructionLineItem.from_dict(obj)
         elif obj_type == "construction_circle":
             return ConstructionCircleItem.from_dict(obj)
+        elif obj_type == "arc":
+            return ArcItem.from_dict(obj)
         elif obj_type == "group":
             import contextlib
             from uuid import UUID as _UUID

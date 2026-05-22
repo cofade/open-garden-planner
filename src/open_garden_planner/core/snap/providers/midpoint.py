@@ -1,6 +1,9 @@
 """Midpoint snap provider.
 
 Yields the midpoint of every straight edge from items near the cursor.
+Also yields the angular midpoint of any ``ArcItem`` (Phase 13 B2): the
+arc has no straight edges, but its midpoint is the CAD-conventional snap
+point for centering symmetric constructions.
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ from open_garden_planner.core.snap.provider import (
 
 
 class MidpointSnapProvider(SnapProvider):
-    """Snap to the midpoint of any straight edge."""
+    """Snap to the midpoint of any straight edge or arc."""
 
     kind = SnapCandidateKind.MIDPOINT
     priority = 30
@@ -31,6 +34,9 @@ class MidpointSnapProvider(SnapProvider):
         threshold: float,
         reference_point: QPointF | None = None,  # noqa: ARG002
     ) -> Iterable[SnapCandidate]:
+        # Local import to avoid a circular dependency at module import.
+        from open_garden_planner.ui.canvas.items import ArcItem
+
         for item in items:
             if not (item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable):
                 continue
@@ -41,6 +47,14 @@ class MidpointSnapProvider(SnapProvider):
                 <= scene_pos.y()
                 <= brect.bottom() + threshold
             ):
+                continue
+            if isinstance(item, ArcItem):
+                yield SnapCandidate(
+                    point=item.midpoint(),
+                    kind=SnapCandidateKind.MIDPOINT,
+                    priority=self.priority,
+                    item=item,
+                )
                 continue
             for edge in item_edges(item):
                 mid = QPointF(

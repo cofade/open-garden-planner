@@ -8862,4 +8862,22 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Keine Zahl: '{token}'</translation>
         </message>
     </context>
+    <context>
+        <name>ArcItem</name>
+        <message>
+            <source>Delete Arc</source>
+            <translation>Bogen löschen</translation>
+        </message>
+    </context>
+    <context>
+        <name>ArcTool</name>
+        <message>
+            <source>Arc (3-point)</source>
+            <translation>Bogen (3 Punkte)</translation>
+        </message>
+        <message>
+            <source>Points are collinear; drew a line instead</source>
+            <translation>Punkte sind kollinear; stattdessen wurde eine Linie gezeichnet</translation>
+        </message>
+    </context>
 </TS>

@@ -49,6 +49,7 @@ def get_anchor_points(item: QGraphicsItem) -> list[AnchorPoint]:
         List of AnchorPoint instances in scene coordinates.
     """
     from open_garden_planner.ui.canvas.items import (
+        ArcItem,
         CircleItem,
         EllipseItem,
         PolygonItem,
@@ -76,8 +77,33 @@ def get_anchor_points(item: QGraphicsItem) -> list[AnchorPoint]:
         anchors = _construction_line_anchors(item)
     elif isinstance(item, ConstructionCircleItem):
         anchors = _construction_circle_anchors(item)
+    elif isinstance(item, ArcItem):
+        anchors = _arc_anchors(item)
 
     return anchors
+
+
+def _arc_anchors(item: QGraphicsItem) -> list[AnchorPoint]:
+    """Anchors for an arc: center + two endpoints.
+
+    The angular midpoint of the arc is exposed separately by
+    ``MidpointSnapProvider`` (see ``core/snap/providers/midpoint.py``)
+    so it gets the correct snap glyph and priority.
+    """
+    from open_garden_planner.ui.canvas.items import ArcItem
+
+    assert isinstance(item, ArcItem)
+    return [
+        AnchorPoint(point=item.center, anchor_type=AnchorType.CENTER, item=item),
+        AnchorPoint(
+            point=item.start_point(), anchor_type=AnchorType.ENDPOINT, item=item,
+            anchor_index=0,
+        ),
+        AnchorPoint(
+            point=item.end_point(), anchor_type=AnchorType.ENDPOINT, item=item,
+            anchor_index=1,
+        ),
+    ]
 
 
 def _rect_anchors(item: QGraphicsItem) -> list[AnchorPoint]:
