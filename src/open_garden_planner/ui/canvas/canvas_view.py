@@ -63,6 +63,7 @@ from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
     AngleConstraintTool,
     ArcTool,
+    BezierTool,
     CalloutTool,
     CircleTool,
     CoincidentConstraintTool,
@@ -329,6 +330,10 @@ class CanvasView(QGraphicsView):
         arc_tool = ArcTool(self)
         self._tool_manager.register_tool(arc_tool)
 
+        # Phase 13 Package B (US-B1): cubic Bezier pen tool.
+        bezier_tool = BezierTool(self)
+        self._tool_manager.register_tool(bezier_tool)
+
         text_tool = TextTool(self)
         self._tool_manager.register_tool(text_tool)
 
@@ -375,7 +380,10 @@ class CanvasView(QGraphicsView):
         garden_bed_tool = PolygonTool(self, object_type=ObjectType.GARDEN_BED)
         garden_bed_tool.tool_type = ToolType.GARDEN_BED
         garden_bed_tool.display_name = self.tr("Garden Bed")
-        garden_bed_tool.shortcut = "B"
+        # Shortcut freed in Phase 13 B1 — "B" now maps to Bezier per the
+        # CAD-tool convention (Inkscape / Illustrator / Figma). Garden
+        # Bed remains accessible from the Beds & Surfaces gallery.
+        garden_bed_tool.shortcut = ""
         self._tool_manager.register_tool(garden_bed_tool)
 
         lawn_tool = PolygonTool(self, object_type=ObjectType.LAWN)

@@ -8880,4 +8880,18 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Punkte sind kollinear; stattdessen wurde eine Linie gezeichnet</translation>
         </message>
     </context>
+    <context>
+        <name>BezierItem</name>
+        <message>
+            <source>Delete Bezier</source>
+            <translation>Bezier-Kurve löschen</translation>
+        </message>
+    </context>
+    <context>
+        <name>BezierTool</name>
+        <message>
+            <source>Bezier</source>
+            <translation>Bezier-Kurve</translation>
+        </message>
+    </context>
 </TS>

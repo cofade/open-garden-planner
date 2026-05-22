@@ -222,6 +222,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Punkte sind kollinear; stattdessen wurde eine Linie gezeichnet",
     },
 
+    # ── BezierItem / BezierTool (Phase 13 Package B — US-B1) ──
+    "BezierItem": {
+        "Delete Bezier": "Bezier-Kurve löschen",
+    },
+    "BezierTool": {
+        "Bezier": "Bezier-Kurve",
+    },
+
     # ── EdgeLengthConstraintTool ──
     "EdgeLengthConstraintTool": {
         "Edge Length Constraint": "Kantenlängenrandbedingung",

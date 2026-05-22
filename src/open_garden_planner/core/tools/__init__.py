@@ -2,6 +2,7 @@
 
 from .arc_tool import ArcTool
 from .base_tool import BaseTool, ToolType
+from .bezier_tool import BezierTool
 from .callout_tool import CalloutTool
 from .circle_tool import CircleTool
 from .constraint_tool import (
@@ -36,6 +37,7 @@ __all__ = [
     "AngleConstraintTool",
     "ArcTool",
     "BaseTool",
+    "BezierTool",
     "CalloutTool",
     "CircleTool",
     "CoincidentConstraintTool",

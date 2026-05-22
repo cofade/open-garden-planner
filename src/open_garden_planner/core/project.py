@@ -1023,6 +1023,7 @@ class ProjectManager(QObject):
         from open_garden_planner.ui.canvas.items import (
             ArcItem,
             BackgroundImageItem,
+            BezierItem,
             CircleItem,
             ConstructionCircleItem,
             ConstructionLineItem,
@@ -1032,7 +1033,16 @@ class ProjectManager(QObject):
             RectangleItem,
         )
 
-        if isinstance(item, (ConstructionLineItem, ConstructionCircleItem, BackgroundImageItem, ArcItem)):
+        if isinstance(
+            item,
+            (
+                ConstructionLineItem,
+                ConstructionCircleItem,
+                BackgroundImageItem,
+                ArcItem,
+                BezierItem,
+            ),
+        ):
             return item.to_dict()
         elif isinstance(item, RectangleItem):
             rect = item.rect()
@@ -1377,6 +1387,7 @@ class ProjectManager(QObject):
         from open_garden_planner.ui.canvas.items import (
             ArcItem,
             BackgroundImageItem,
+            BezierItem,
             CircleItem,
             EllipseItem,
             PolygonItem,
@@ -1396,6 +1407,8 @@ class ProjectManager(QObject):
             return ConstructionCircleItem.from_dict(obj)
         elif obj_type == "arc":
             return ArcItem.from_dict(obj)
+        elif obj_type == "bezier":
+            return BezierItem.from_dict(obj)
         elif obj_type == "group":
             import contextlib
             from uuid import UUID as _UUID
