@@ -123,9 +123,13 @@ class TestPolylineAutoConstraint:
             for c in graph.constraints.values()
         )
 
-    def test_perpendicular_snap_emits_perpendicular_constraint(
+    def test_perpendicular_snap_is_noop_pending_us_b12(
         self, canvas: CanvasView
     ) -> None:
+        """PERPENDICULAR auto-emit needs edge-level identification on the
+        SnapCandidate to construct a solver-enforceable constraint. The
+        previous draft emitted against the source's CENTER which produced
+        phantom violated constraints. Deferred to issue #196 (US-B12)."""
         rect = RectangleItem(0, 0, 200, 100)
         canvas.scene().addItem(rect)
         snap = SnapCandidate(
@@ -134,18 +138,14 @@ class TestPolylineAutoConstraint:
             priority=25,
             item=rect,
         )
+        graph = canvas.scene().constraint_graph
+        before = len(graph.constraints)
 
-        poly = _commit_polyline_with_snap_on_second_vertex(
+        _commit_polyline_with_snap_on_second_vertex(
             canvas, snap, QPointF(500, 500), QPointF(150, 50)
         )
 
-        graph = canvas.scene().constraint_graph
-        assert any(
-            c.constraint_type == ConstraintType.PERPENDICULAR
-            and c.anchor_a.item_id == poly.item_id
-            and c.anchor_b.item_id == rect.item_id
-            for c in graph.constraints.values()
-        )
+        assert len(graph.constraints) == before
 
     def test_no_snap_emits_nothing(self, canvas: CanvasView) -> None:
         rect = RectangleItem(0, 0, 200, 100)

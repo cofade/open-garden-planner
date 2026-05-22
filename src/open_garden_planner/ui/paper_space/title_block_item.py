@@ -90,15 +90,16 @@ class TitleBlockItem(QGraphicsRectItem):
         rect = self.rect()
 
         painter.save()
-        # In Y-down item-local coords the natural text orientation is
-        # already top-to-bottom, so we draw the lines top-down without
-        # any extra flipping. setPointSizeF(0.5) was the previous value
-        # — that's 0.5 *points* (sub-pixel), well below DirectWrite's
-        # glyph-metric floor, which spams warnings and falls back to
-        # placeholder rendering. Use a real point size; the text scales
-        # with the view zoom which is fine for a print-MVP.
+        # `setPointSizeF(6)` rendered as effectively invisible at the
+        # default Paper Space zoom (PR #191 manual-test feedback).
+        # `setPixelSize(N)` is device-pixel deterministic so the text
+        # stays at a consistent physical size on screen regardless of
+        # the user's view zoom. ~20 device-pixel text reads cleanly at
+        # the layout's default 2× zoom; if a user zooms in extremely
+        # close the title block rect grows but the text stays the same
+        # — that's the standard CAD convention for label text.
         font = QFont()
-        font.setPointSizeF(6.0)
+        font.setPixelSize(20)
         painter.setFont(font)
         painter.setPen(QColor(20, 20, 20))
 
