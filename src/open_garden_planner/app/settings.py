@@ -34,6 +34,7 @@ class AppSettings:
     KEY_INTERSECTION_SNAP = "canvas/intersection_snap_enabled"
     KEY_NEAREST_SNAP = "canvas/nearest_snap_enabled"
     KEY_PERPENDICULAR_SNAP = "canvas/perpendicular_snap_enabled"
+    KEY_TANGENT_SNAP = "canvas/tangent_snap_enabled"
     KEY_DYNAMIC_INPUT = "canvas/dynamic_input_enabled"
     KEY_LANGUAGE = "appearance/language"
     KEY_SHOW_SPACING_CIRCLES = "appearance/show_spacing_circles"
@@ -67,6 +68,9 @@ class AppSettings:
     # Phase 13 Package B (US-B5): perpendicular snap from the active
     # tool's anchor, defaults off (opt-in CAD precision aid).
     DEFAULT_PERPENDICULAR_SNAP = False
+    # Phase 13 Package B (US-B6): tangent snap from the active tool's
+    # anchor onto circles / arcs, defaults off (opt-in CAD precision aid).
+    DEFAULT_TANGENT_SNAP = False
     DEFAULT_DYNAMIC_INPUT = True
     DEFAULT_LANGUAGE = "en"
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
@@ -346,6 +350,19 @@ class AppSettings:
     @perpendicular_snap_enabled.setter
     def perpendicular_snap_enabled(self, enabled: bool) -> None:
         self._settings.setValue(self.KEY_PERPENDICULAR_SNAP, enabled)
+
+    @property
+    def tangent_snap_enabled(self) -> bool:
+        """Whether tangent snap (from tool last_point onto circles/arcs) is enabled."""
+        return self._settings.value(
+            self.KEY_TANGENT_SNAP,
+            self.DEFAULT_TANGENT_SNAP,
+            type=bool,
+        )
+
+    @tangent_snap_enabled.setter
+    def tangent_snap_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_TANGENT_SNAP, enabled)
 
     @property
     def dynamic_input_enabled(self) -> bool:

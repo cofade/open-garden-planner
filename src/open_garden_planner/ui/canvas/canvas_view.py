@@ -60,6 +60,7 @@ from open_garden_planner.core.snap.providers import (
     MidpointSnapProvider,
     NearestSnapProvider,
     PerpendicularSnapProvider,
+    TangentSnapProvider,
 )
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
@@ -183,6 +184,9 @@ class CanvasView(QGraphicsView):
         # Phase 13 Package B (US-B5): perpendicular snap from tool's
         # last_point, off by default.
         self._perpendicular_snap_enabled = False
+        # Phase 13 Package B (US-B6): tangent snap from tool's last_point
+        # onto circles / arcs, off by default.
+        self._tangent_snap_enabled = False
         self._dynamic_input_enabled = True
         self._grid_size = 50.0  # 50cm default grid
         self._scale_bar_visible = True
@@ -930,6 +934,11 @@ class CanvasView(QGraphicsView):
         self._perpendicular_snap_enabled = enabled
         self._refresh_snap_registry()
 
+    def set_tangent_snap_enabled(self, enabled: bool) -> None:
+        """Set tangent snap (Package B US-B6) enabled."""
+        self._tangent_snap_enabled = enabled
+        self._refresh_snap_registry()
+
     def set_dynamic_input_enabled(self, enabled: bool) -> None:
         """Set dynamic input (Package A US-A4) enabled."""
         self._dynamic_input_enabled = enabled
@@ -1053,6 +1062,10 @@ class CanvasView(QGraphicsView):
             and reg.has(PerpendicularSnapProvider)
         ):
             reg.remove(PerpendicularSnapProvider)
+        if self._tangent_snap_enabled and not reg.has(TangentSnapProvider):
+            reg.add(TangentSnapProvider())
+        elif not self._tangent_snap_enabled and reg.has(TangentSnapProvider):
+            reg.remove(TangentSnapProvider)
 
     def set_grid_size(self, size: float) -> None:
         """Set grid size in centimeters."""
@@ -3902,6 +3915,13 @@ class CanvasView(QGraphicsView):
             painter.drawLine(
                 QPointF(cx, cy + size / 3),
                 QPointF(cx, cy - size / 2),
+            )
+        elif kind == SnapCandidateKind.TANGENT:
+            # Small circle with a horizontal tangent line above it.
+            painter.drawEllipse(QPointF(cx, cy + size / 4), size / 3, size / 3)
+            painter.drawLine(
+                QPointF(cx - size / 2, cy - size / 2),
+                QPointF(cx + size / 2, cy - size / 2),
             )
         else:  # EDGE
             painter.drawEllipse(QPointF(cx, cy), size / 3, size / 3)

@@ -3175,6 +3175,14 @@ Neue Saison jetzt öffnen?</translation>
             <source>Toggle snap to the perpendicular foot from the last drawn point onto the nearest edge</source>
             <translation>Fangen auf den Senkrechten-Fußpunkt vom letzten gezeichneten Punkt zur nächsten Kante umschalten</translation>
         </message>
+        <message>
+            <source>Snap &amp;Tangent</source>
+            <translation>Tangential fangen</translation>
+        </message>
+        <message>
+            <source>Toggle snap to the tangent point on a circle or arc from the last drawn point</source>
+            <translation>Fangen auf den Tangentialpunkt eines Kreises oder Bogens vom letzten gezeichneten Punkt umschalten</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>

@@ -611,6 +611,20 @@ class GardenPlannerApp(QMainWindow):
         )
         menu.addAction(self._perpendicular_snap_action)
 
+        # Toggle Tangent Snap (Package B — US-B6). Snaps to the tangent
+        # point on a circle / arc from the active tool's anchor.
+        self._tangent_snap_action = QAction(self.tr("Snap &Tangent"), self)
+        self._tangent_snap_action.setCheckable(True)
+        self._tangent_snap_action.setChecked(False)
+        self._tangent_snap_action.setStatusTip(
+            self.tr(
+                "Toggle snap to the tangent point on a circle or arc from "
+                "the last drawn point"
+            )
+        )
+        self._tangent_snap_action.triggered.connect(self._on_toggle_tangent_snap)
+        menu.addAction(self._tangent_snap_action)
+
         # Toggle Dynamic Input (Package A - US-A4)
         self._dynamic_input_action = QAction(self.tr("Enable Dynamic &Input"), self)
         self._dynamic_input_action.setCheckable(True)
@@ -2746,6 +2760,10 @@ class GardenPlannerApp(QMainWindow):
         self._perpendicular_snap_action.setChecked(perp)
         self.canvas_view.set_perpendicular_snap_enabled(perp)
 
+        tan = settings.tangent_snap_enabled
+        self._tangent_snap_action.setChecked(tan)
+        self.canvas_view.set_tangent_snap_enabled(tan)
+
         dyn = settings.dynamic_input_enabled
         self._dynamic_input_action.setChecked(dyn)
         self.canvas_view.set_dynamic_input_enabled(dyn)
@@ -2893,6 +2911,13 @@ class GardenPlannerApp(QMainWindow):
 
         self.canvas_view.set_perpendicular_snap_enabled(checked)
         get_settings().perpendicular_snap_enabled = checked
+
+    def _on_toggle_tangent_snap(self, checked: bool) -> None:
+        """Handle toggle tangent snap (Package B US-B6)."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_view.set_tangent_snap_enabled(checked)
+        get_settings().tangent_snap_enabled = checked
 
     def _on_toggle_dynamic_input(self, checked: bool) -> None:
         """Handle toggle dynamic input action (Package A US-A4)."""

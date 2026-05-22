@@ -13,6 +13,7 @@ from open_garden_planner.core.snap.providers.nearest import NearestSnapProvider
 from open_garden_planner.core.snap.providers.perpendicular import (
     PerpendicularSnapProvider,
 )
+from open_garden_planner.core.snap.providers.tangent import TangentSnapProvider
 
 __all__ = [
     "CenterSnapProvider",
@@ -22,4 +23,5 @@ __all__ = [
     "MidpointSnapProvider",
     "NearestSnapProvider",
     "PerpendicularSnapProvider",
+    "TangentSnapProvider",
 ]

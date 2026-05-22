@@ -651,6 +651,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Snap &Perpendicular": "Senkrecht fangen",
         "Toggle snap to the perpendicular foot from the last drawn point onto the nearest edge":
             "Fangen auf den Senkrechten-Fußpunkt vom letzten gezeichneten Punkt zur nächsten Kante umschalten",
+        # Phase 13 Package B — US-B6
+        "Snap &Tangent": "Tangential fangen",
+        "Toggle snap to the tangent point on a circle or arc from the last drawn point":
+            "Fangen auf den Tangentialpunkt eines Kreises oder Bogens vom letzten gezeichneten Punkt umschalten",
         "Enable Dynamic &Input": "Dynamische &Eingabe aktivieren",
         "Toggle typed distance/angle input next to the cursor and in the status bar":
             "Eingabe von Distanz/Winkel am Cursor und in der Statusleiste umschalten",
