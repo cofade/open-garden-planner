@@ -108,6 +108,27 @@ def _scaled_text(scene: QGraphicsScene, point_size: int) -> Iterator[None]:
             item.setFont(original)  # type: ignore[union-attr]
 
 
+def compute_export_font_size(scale: float, dpi: int) -> int:
+    """Return the point size text items should use when rendered for export.
+
+    For 1:100 scale at 150 DPI, 10pt is the reference. Smaller scale
+    (more zoomed out) needs slightly larger fonts so labels stay
+    readable. Used by ``ExportService.export_to_png`` so all rendering
+    bookkeeping goes through ``render_scene_region``.
+    """
+    import math
+
+    reference_scale = 0.01  # 1:100
+    reference_font_size = 10
+    reference_dpi = 150
+
+    scale_ratio = scale / reference_scale if reference_scale > 0 else 1.0
+    base = reference_font_size * math.sqrt(max(scale_ratio, 1e-9))
+    base = max(6.0, min(14.0, base))
+    target = int(base * (dpi / reference_dpi))
+    return max(4, target)
+
+
 def render_scene_region(
     scene: QGraphicsScene,
     painter: QPainter,

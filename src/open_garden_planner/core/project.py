@@ -28,6 +28,27 @@ from open_garden_planner.models.layer import Layer, create_default_layers
 FILE_VERSION = "1.4"
 
 
+def _is_newer_file_version(file_version: str, supported_version: str) -> bool:
+    """Return True if ``file_version`` is strictly newer than ``supported_version``.
+
+    Versions are ``X.Y`` strings. Unparseable strings are treated as
+    equal-or-older so legacy files (e.g. an early build that wrote
+    "1.0" or no version key at all) still open.
+    """
+    def _parse(v: str) -> tuple[int, int] | None:
+        try:
+            parts = v.split(".")
+            return (int(parts[0]), int(parts[1]))
+        except (ValueError, IndexError):
+            return None
+
+    a = _parse(file_version)
+    b = _parse(supported_version)
+    if a is None or b is None:
+        return False
+    return a > b
+
+
 @dataclass
 class ProjectData:
     """Data structure for a project."""
@@ -237,6 +258,26 @@ class ProjectManager(QObject):
     def location(self) -> dict[str, Any] | None:
         """Garden location data, or None if not set."""
         return self._location
+
+    @property
+    def paper_layouts(self) -> list[dict[str, Any]]:
+        """Paper-space layouts persisted with the project (US-B7).
+
+        Returns a shallow copy so external callers can't mutate the
+        manager's state by accident.
+        """
+        return list(self._paper_layouts)
+
+    def set_paper_layouts(self, layouts: list[dict[str, Any]]) -> None:
+        """Replace the paper-space layouts and mark the project dirty.
+
+        Used by the Layout tab when the user has opened it and made
+        changes. If the Layout tab was never opened, callers should
+        leave the loaded value alone (don't call this with an empty
+        list) — see ``GardenPlannerApp._save_to_file``.
+        """
+        self._paper_layouts = list(layouts)
+        self.mark_dirty()
 
     @property
     def task_completions(self) -> set[str]:
@@ -682,9 +723,29 @@ class ProjectManager(QObject):
         Args:
             scene: The scene to load objects into
             file_path: Path to load from
+
+        Raises:
+            ValueError: If the file was created by a newer version of
+                Open Garden Planner. Old binaries opening newer files
+                silently drop unknown item types and keys on save,
+                which corrupts the user's data — better to fail loudly.
         """
         with open(file_path, encoding="utf-8") as f:
             raw_data = json.load(f)
+
+        # Forward-compat guard: older binaries reading a newer file would
+        # silently drop unknown content on save (issue surfaced in the
+        # P1 review pass). Accept ``X.Y`` ≤ ``FILE_VERSION``; reject
+        # anything higher. Unknown version strings are treated as "old"
+        # to keep legacy files loadable.
+        file_version = str(raw_data.get("version", "1.0"))
+        if _is_newer_file_version(file_version, FILE_VERSION):
+            raise ValueError(
+                f"Project file was created by a newer version of Open "
+                f"Garden Planner (file format {file_version}, this build "
+                f"supports up to {FILE_VERSION}). Please update the app "
+                f"before opening this project."
+            )
 
         data = ProjectData.from_dict(raw_data)
         self._deserialize_to_scene(scene, data)

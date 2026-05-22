@@ -1857,7 +1857,14 @@ class GardenPlannerApp(QMainWindow):
                 project_manager=self._project_manager,
             ).prune_stale_prices()
             # Sync paper-space layout into the project manager before writing.
-            self._project_manager._paper_layouts = self._paper_layouts_for_save()
+            # Only overwrite when the user has actually opened the Layout
+            # tab — otherwise the previously loaded layouts are silently
+            # stripped (P0 data-loss bug). When the tab was never built,
+            # whatever was loaded from disk stays untouched.
+            if self._paper_space_scene is not None:
+                self._project_manager.set_paper_layouts(
+                    [self._paper_space_scene.to_dict()]
+                )
             self._project_manager.save(self.canvas_scene, file_path)
             # Clear the auto-save file since we've saved manually
             self._autosave_manager.clear_autosave()
@@ -4226,9 +4233,7 @@ class GardenPlannerApp(QMainWindow):
         # If the project has a stored layout, restore it; otherwise the
         # scene populates a sensible default (one viewport + title block
         # + scale bar at A4 landscape).
-        saved_layouts = getattr(
-            self._project_manager, "_paper_layouts", []
-        )
+        saved_layouts = self._project_manager.paper_layouts
         self._paper_space_scene = PaperSpaceScene(self.canvas_scene)
         if saved_layouts:
             self._paper_space_scene.load_from_dict(saved_layouts[0])
@@ -4255,9 +4260,17 @@ class GardenPlannerApp(QMainWindow):
             return str(cur)
 
     def _paper_layouts_for_save(self) -> list[dict]:
-        """Return the current paper-space layout(s) for save serialisation."""
+        """Return the current paper-space layout(s) for save serialisation.
+
+        When the Layout tab has never been visited, returns whatever was
+        already on the project manager (typically the layouts loaded
+        from disk). Visiting the tab and then saving picks up the live
+        scene's state instead. The save path (`_save_to_file`) handles
+        the no-tab case directly so it doesn't overwrite loaded layouts
+        with an empty list.
+        """
         if self._paper_space_scene is None:
-            return []
+            return self._project_manager.paper_layouts
         return [self._paper_space_scene.to_dict()]
 
     def _on_frost_alert_ready(self, count: int, max_severity: str) -> None:

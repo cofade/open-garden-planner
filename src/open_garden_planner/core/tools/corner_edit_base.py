@@ -240,3 +240,82 @@ class CornerEditTool(BaseTool):
     def apply_to_target(self, target: CornerTarget) -> None:
         """Subclasses override to execute the actual modification."""
         raise NotImplementedError
+
+
+def rebuild_with_corner_replaced(
+    target: CornerTarget,
+    point_in_scene: QPointF,
+    point_out_scene: QPointF,
+) -> QGraphicsItem | None:
+    """Return a copy of the host item with one corner split into two new vertices.
+
+    Used by both fillet (where the arc is created separately by the
+    tool) and chamfer (where the two new vertices alone form the
+    bevelled corner). Polyline / polygon copies preserve their type and
+    styling; rectangles are destructively converted to a 5-vertex
+    polygon because rectangles have no slot for per-corner geometry —
+    the undo command keeps a reference to the original rectangle so
+    "undo" restores it whole (see ADR-022).
+    """
+    from PyQt6.QtGui import QBrush, QPen
+
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+    from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+    item = target.item
+
+    if isinstance(item, PolylineItem):
+        pts_local = item.points
+        p_in_local = item.mapFromScene(point_in_scene)
+        p_out_local = item.mapFromScene(point_out_scene)
+        new_pts = (
+            pts_local[: target.vertex_index]
+            + [p_in_local, p_out_local]
+            + pts_local[target.vertex_index + 1 :]
+        )
+        return item.clone_with_points(new_pts)
+
+    if isinstance(item, PolygonItem):
+        poly = item.polygon()
+        n = poly.count()
+        verts_local = [poly.at(j) for j in range(n)]
+        p_in_local = item.mapFromScene(point_in_scene)
+        p_out_local = item.mapFromScene(point_out_scene)
+        new_verts = (
+            verts_local[: target.vertex_index]
+            + [p_in_local, p_out_local]
+            + verts_local[target.vertex_index + 1 :]
+        )
+        clone = PolygonItem(
+            vertices=new_verts,
+            object_type=item.object_type,
+            layer_id=item.layer_id,
+        )
+        clone.setPen(QPen(item.pen()))
+        clone.setBrush(QBrush(item.brush()))
+        clone.setPos(item.pos())
+        clone.setRotation(item.rotation())
+        return clone
+
+    if isinstance(item, RectangleItem):
+        corners_local = rectangle_corners_local(item)
+        p_in_local = item.mapFromScene(point_in_scene)
+        p_out_local = item.mapFromScene(point_out_scene)
+        new_verts = (
+            corners_local[: target.vertex_index]
+            + [p_in_local, p_out_local]
+            + corners_local[target.vertex_index + 1 :]
+        )
+        clone = PolygonItem(
+            vertices=new_verts,
+            object_type=item.object_type,
+            layer_id=item.layer_id,
+        )
+        clone.setPen(QPen(item.pen()))
+        clone.setBrush(QBrush(item.brush()))
+        clone.setPos(item.pos())
+        clone.setRotation(item.rotation())
+        return clone
+
+    return None

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtCore import QObject, QPointF, QRectF, Qt, QTimer
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QGraphicsItem,
@@ -35,6 +35,40 @@ if TYPE_CHECKING:
 # scene changes, so a few hundred pixels per side is plenty for paper-
 # space preview at typical print densities.
 _MAX_PIXMAP_DIM = 2400  # px per side
+
+# Coalesce rapid ``source_scene.changed`` bursts (a single drag emits
+# many) into one cache rebuild. The trade-off: model edits show up in
+# the paper-space view with a ~150 ms lag, which is invisible in normal
+# tab-switching workflows.
+_INVALIDATION_DEBOUNCE_MS = 150
+
+
+class _InvalidationDebouncer(QObject):
+    """Tiny QObject helper so the viewport can own a QTimer.
+
+    ``QGraphicsRectItem`` doesn't inherit from ``QObject``, so it can't
+    receive ``QTimer`` events directly. This wrapper exists purely to
+    hold the debouncing timer and call back into the viewport when it
+    fires.
+    """
+
+    def __init__(self, viewport: ViewportItem) -> None:
+        super().__init__()
+        self._viewport = viewport
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.setInterval(_INVALIDATION_DEBOUNCE_MS)
+        self._timer.timeout.connect(self._fire)
+
+    def schedule(self) -> None:
+        # Restarts the timer if already running — coalesces bursts.
+        self._timer.start()
+
+    def cancel(self) -> None:
+        self._timer.stop()
+
+    def _fire(self) -> None:
+        self._viewport.invalidate_cache()
 
 
 class ViewportItem(QGraphicsRectItem):
@@ -71,9 +105,14 @@ class ViewportItem(QGraphicsRectItem):
         self.setBrush(QBrush(QColor(245, 245, 245)))
 
         # Watch the source scene for any change — items added, moved,
-        # styled, etc. Each change invalidates the cache so the next
-        # paint regenerates it.
+        # styled, etc. Each change schedules a debounced cache rebuild
+        # so a drag burst (many ``changed`` signals per second) doesn't
+        # collapse the cache on every signal. ``_signal_connected`` lets
+        # ``cleanup()`` disconnect exactly once even if it's called
+        # multiple times.
+        self._debouncer = _InvalidationDebouncer(self)
         source_scene.changed.connect(self._on_source_changed)
+        self._signal_connected = True
 
     # ── Properties ─────────────────────────────────────────────────────
 
@@ -125,7 +164,28 @@ class ViewportItem(QGraphicsRectItem):
         self.update()
 
     def _on_source_changed(self, _region: object = None) -> None:
-        self.invalidate_cache()
+        # Don't invalidate immediately — schedule a debounced rebuild
+        # so a burst of ``scene.changed`` signals (e.g. mid-drag)
+        # coalesces into one pixmap rebuild instead of N.
+        self._debouncer.schedule()
+
+    def cleanup(self) -> None:
+        """Disconnect from the source scene's ``changed`` signal.
+
+        Called by ``PaperSpaceScene.load_from_dict`` before clearing the
+        scene so the slot doesn't fire on a half-destroyed item. Safe to
+        call multiple times — the ``_signal_connected`` flag guards
+        against the second disconnect raising.
+        """
+        import contextlib
+
+        if self._signal_connected:
+            # Already disconnected, or source scene was destroyed —
+            # neither is a real failure here, so swallow.
+            with contextlib.suppress(TypeError, RuntimeError):
+                self._source_scene.changed.disconnect(self._on_source_changed)
+            self._signal_connected = False
+            self._debouncer.cancel()
 
     def _build_pixmap(self) -> QPixmap:
         """Render the source region into a fresh pixmap at the item's size."""

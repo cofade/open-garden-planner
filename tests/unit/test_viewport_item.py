@@ -59,7 +59,7 @@ class TestCacheInvalidation:
         assert vp._cached_pixmap is None
 
     def test_source_scene_change_invalidates_cache(
-        self, source_scene: CanvasScene
+        self, source_scene: CanvasScene, qtbot
     ) -> None:
         vp = ViewportItem(
             source_scene=source_scene,
@@ -69,12 +69,11 @@ class TestCacheInvalidation:
         vp._cached_pixmap = vp._build_pixmap()
         assert vp._cached_pixmap is not None
 
-        # Adding an item emits scene.changed → cache should drop.
+        # Adding an item emits scene.changed → schedules a debounced
+        # invalidation. Wait past the debounce window so the timer
+        # fires and the cache actually drops.
         source_scene.addItem(CircleItem(500, 400, 50))
-        # The signal is queued in Qt; pump events so the handler runs.
-        from PyQt6.QtCore import QCoreApplication
-
-        QCoreApplication.processEvents()
+        qtbot.wait(250)  # debounce is 150ms; 250ms is comfortable margin
         assert vp._cached_pixmap is None
 
 

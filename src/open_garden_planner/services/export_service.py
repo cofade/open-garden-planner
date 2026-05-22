@@ -207,59 +207,50 @@ class ExportService:
         # Calculate scale for text adjustment
         scale = output_width_cm / canvas_width
 
-        # Prepare text items for export
-        saved_text_state = ExportService._prepare_text_for_export(scene, scale, dpi)
-        hidden_construction = ExportService._hide_construction_items(scene)
-        hidden_overlay, prior_selection = ExportService._hide_overlay_items(scene)
+        from open_garden_planner.services.scene_rendering import (
+            compute_export_font_size,
+            render_scene_region,
+        )
+
+        text_point_size = compute_export_font_size(scale, dpi)
+
+        # Create image with the calculated dimensions
+        image = QImage(width_px, height_px, QImage.Format.Format_ARGB32)
+
+        # Fill with background color
+        if background_color:
+            image.fill(QColor(background_color))
+        elif hasattr(scene, 'CANVAS_COLOR'):
+            image.fill(scene.CANVAS_COLOR)
+        else:
+            image.fill(Qt.GlobalColor.white)
+
+        painter = QPainter(image)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
 
         try:
-            # Create image with the calculated dimensions
-            image = QImage(width_px, height_px, QImage.Format.Format_ARGB32)
-
-            # Fill with background color
-            if background_color:
-                image.fill(QColor(background_color))
-            else:
-                # Use scene's canvas color if available
-                if hasattr(scene, 'CANVAS_COLOR'):
-                    image.fill(scene.CANVAS_COLOR)
-                else:
-                    image.fill(Qt.GlobalColor.white)
-
-            # Render via the shared helper. Text/overlay/construction
-            # bookkeeping is already done outside this block, so disable
-            # the helper's own bookkeeping to avoid double-applying.
-            from open_garden_planner.services.scene_rendering import (
-                render_scene_region,
+            # Single helper call owns ALL bookkeeping: overlay hide,
+            # construction hide, text scaling, Y-flip, and scene render.
+            # No legacy `_hide_*` / `_prepare_text_*` calls — this is the
+            # deduplication promised by ADR-023.
+            render_scene_region(
+                scene=scene,
+                painter=painter,
+                target_rect=QRectF(0, 0, width_px, height_px),
+                source_rect=canvas_rect,
+                hide_overlays=True,
+                hide_construction=True,
+                text_point_size=text_point_size,
+                y_flip=True,
             )
-
-            painter = QPainter(image)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-            painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-
-            try:
-                render_scene_region(
-                    scene=scene,
-                    painter=painter,
-                    target_rect=QRectF(0, 0, width_px, height_px),
-                    source_rect=canvas_rect,
-                    hide_overlays=False,
-                    hide_construction=False,
-                    text_point_size=None,
-                    y_flip=True,
-                )
-            finally:
-                painter.end()
-
-            # Save the image
-            if not image.save(str(file_path), "PNG"):
-                raise ValueError(f"Failed to save PNG to {file_path}")
         finally:
-            # Always restore items to original state
-            ExportService._restore_text_after_export(saved_text_state)
-            ExportService._restore_construction_items(hidden_construction)
-            ExportService._restore_overlay_items(hidden_overlay, prior_selection)
+            painter.end()
+
+        # Save the image
+        if not image.save(str(file_path), "PNG"):
+            raise ValueError(f"Failed to save PNG to {file_path}")
 
     @staticmethod
     def export_to_svg(

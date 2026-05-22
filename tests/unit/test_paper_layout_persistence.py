@@ -49,7 +49,7 @@ class TestProjectFileIncludesPaperLayouts:
         layouts_in = [ps.to_dict()]
 
         pm = ProjectManager()
-        pm._paper_layouts = layouts_in
+        pm.set_paper_layouts(layouts_in)
         out_path = tmp_path / "layout.ogp"
         pm.save(canvas, out_path)
 
@@ -57,8 +57,29 @@ class TestProjectFileIncludesPaperLayouts:
         pm2 = ProjectManager()
         canvas2 = CanvasScene(width_cm=5000, height_cm=3000)
         pm2.load(canvas2, out_path)
-        assert len(pm2._paper_layouts) == 1
-        assert pm2._paper_layouts[0]["page_name"] == "A4"
+        assert len(pm2.paper_layouts) == 1
+        assert pm2.paper_layouts[0]["page_name"] == "A4"
+
+    def test_newer_file_version_is_rejected(
+        self, canvas: CanvasScene, tmp_path
+    ) -> None:
+        """A 1.5 file on a 1.4 binary must fail loud rather than silently dropping data."""
+        future = {
+            "version": "1.5",
+            "metadata": {"modified": "2030-01-01T00:00:00+00:00"},
+            "canvas": {"width": 5000, "height": 3000},
+            "layers": [],
+            "objects": [],
+            "paper_layouts": [],
+            "some_future_key": "data we don't know how to handle",
+        }
+        out_path = tmp_path / "future.ogp"
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(future, f)
+
+        pm = ProjectManager()
+        with pytest.raises(ValueError, match="newer version"):
+            pm.load(canvas, out_path)
 
     def test_v1_3_file_loads_without_paper_layouts(
         self, canvas: CanvasScene, tmp_path
@@ -77,7 +98,7 @@ class TestProjectFileIncludesPaperLayouts:
 
         pm = ProjectManager()
         pm.load(canvas, out_path)
-        assert pm._paper_layouts == []
+        assert pm.paper_layouts == []
 
 
 if __name__ == "__main__":

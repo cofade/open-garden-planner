@@ -124,6 +124,11 @@ class PaperSpaceScene(QGraphicsScene):
         """
         self._page_name = str(data.get("page_name", DEFAULT_PAGE_NAME))
         self._orientation = str(data.get("orientation", DEFAULT_ORIENTATION))
+        # Disconnect signal handlers on viewport items *before* clearing
+        # the scene — otherwise scene.changed (emitted by clear()) fires
+        # on slots whose receivers are about to be destroyed.
+        if self._viewport is not None:
+            self._viewport.cleanup()
         self.clear()
         self._viewport = None
         self._title_block = None

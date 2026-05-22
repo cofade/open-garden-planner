@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QCoreApplication, QPointF
-from PyQt6.QtGui import QBrush, QKeyEvent, QPen
-from PyQt6.QtWidgets import QGraphicsItem, QInputDialog
+from PyQt6.QtCore import QCoreApplication
+from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtWidgets import QInputDialog
 
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.cad_geometry import chamfer_corner
@@ -15,7 +15,7 @@ from open_garden_planner.core.tools.base_tool import ToolType
 from open_garden_planner.core.tools.corner_edit_base import (
     CornerEditTool,
     CornerTarget,
-    rectangle_corners_local,
+    rebuild_with_corner_replaced,
 )
 
 if TYPE_CHECKING:
@@ -87,7 +87,7 @@ class ChamferTool(CornerEditTool):
 
         cut_in_scene, cut_out_scene = result
 
-        new_host = _rebuild_with_corner_replaced(
+        new_host = rebuild_with_corner_replaced(
             target, cut_in_scene, cut_out_scene
         )
         if new_host is None:
@@ -106,76 +106,3 @@ class ChamferTool(CornerEditTool):
         )
         if hasattr(self._view, "set_status_message"):
             self._view.set_status_message(msg)
-
-
-def _rebuild_with_corner_replaced(
-    target: CornerTarget,
-    cut_in_scene: QPointF,
-    cut_out_scene: QPointF,
-) -> QGraphicsItem | None:
-    """Return a copy of the host item with one corner replaced by two cut points.
-
-    Mirrors the helper in ``fillet_tool`` but kept separate so each tool's
-    "rebuild" stays tightly scoped — a chamfer never spawns an arc and a
-    fillet never collapses to a single straight segment.
-    """
-    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
-    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
-    from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
-
-    item = target.item
-
-    if isinstance(item, PolylineItem):
-        pts_local = item.points
-        cin_local = item.mapFromScene(cut_in_scene)
-        cout_local = item.mapFromScene(cut_out_scene)
-        new_pts = (
-            pts_local[: target.vertex_index]
-            + [cin_local, cout_local]
-            + pts_local[target.vertex_index + 1 :]
-        )
-        return item.clone_with_points(new_pts)
-
-    if isinstance(item, PolygonItem):
-        poly = item.polygon()
-        n = poly.count()
-        verts_local = [poly.at(j) for j in range(n)]
-        cin_local = item.mapFromScene(cut_in_scene)
-        cout_local = item.mapFromScene(cut_out_scene)
-        new_verts = (
-            verts_local[: target.vertex_index]
-            + [cin_local, cout_local]
-            + verts_local[target.vertex_index + 1 :]
-        )
-        clone = PolygonItem(
-            vertices=new_verts,
-            object_type=item.object_type,
-            layer_id=item.layer_id,
-        )
-        clone.setPen(QPen(item.pen()))
-        clone.setBrush(QBrush(item.brush()))
-        clone.setPos(item.pos())
-        clone.setRotation(item.rotation())
-        return clone
-
-    if isinstance(item, RectangleItem):
-        corners_local = rectangle_corners_local(item)
-        cin_local = item.mapFromScene(cut_in_scene)
-        cout_local = item.mapFromScene(cut_out_scene)
-        new_verts = (
-            corners_local[: target.vertex_index]
-            + [cin_local, cout_local]
-            + corners_local[target.vertex_index + 1 :]
-        )
-        clone = PolygonItem(
-            vertices=new_verts,
-            object_type=item.object_type,
-            layer_id=item.layer_id,
-        )
-        clone.setPen(QPen(item.pen()))
-        clone.setBrush(QBrush(item.brush()))
-        clone.setPos(item.pos())
-        clone.setRotation(item.rotation())
-        return clone
-
-    return None

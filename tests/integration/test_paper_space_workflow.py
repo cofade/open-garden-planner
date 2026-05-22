@@ -36,6 +36,40 @@ class TestLayoutTab:
         # Viewport + title block + scale bar.
         assert len(items) == 3
 
+    def test_save_without_visiting_layout_tab_preserves_loaded_layout(
+        self, window: GardenPlannerApp, tmp_path
+    ) -> None:
+        """Regression for P0 data-loss bug.
+
+        Scenario: user opens a 1.4 file that has a stored layout,
+        edits only the Garden Plan tab, and saves. The Layout tab is
+        never built. Without the fix, ``_paper_space_scene`` stays
+        ``None``, ``_paper_layouts_for_save()`` returns ``[]``, and
+        the loaded layout gets stripped from the file on save.
+        """
+        from open_garden_planner.ui.paper_space import PaperSpaceScene
+
+        # Step 1: stash a layout on the project manager and save it.
+        ps = PaperSpaceScene(window.canvas_scene)
+        original_layout = ps.to_dict()
+        window._project_manager.set_paper_layouts([original_layout])
+        out_path = tmp_path / "with_layout.ogp"
+        window._save_to_file(out_path)
+
+        # Step 2: load the file back. Do NOT touch the Layout tab.
+        window._project_manager.load(window.canvas_scene, out_path)
+        assert window._paper_space_scene is None  # tab never opened
+        assert len(window._project_manager.paper_layouts) == 1
+
+        # Step 3: save back to disk. The bug stripped layouts here.
+        window._save_to_file(out_path)
+
+        # Step 4: load again and verify the layout survived.
+        window._project_manager.load(window.canvas_scene, out_path)
+        assert len(window._project_manager.paper_layouts) == 1
+        assert window._project_manager.paper_layouts[0]["page_name"] == \
+            original_layout["page_name"]
+
     def test_layout_persists_through_save_reload(
         self, window: GardenPlannerApp, tmp_path
     ) -> None:

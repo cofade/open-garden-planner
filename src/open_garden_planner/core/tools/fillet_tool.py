@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QCoreApplication, QPointF
-from PyQt6.QtGui import QBrush, QKeyEvent, QPen
+from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import QGraphicsItem, QInputDialog
 
 from open_garden_planner.app.settings import get_settings
@@ -15,7 +15,7 @@ from open_garden_planner.core.tools.base_tool import ToolType
 from open_garden_planner.core.tools.corner_edit_base import (
     CornerEditTool,
     CornerTarget,
-    rectangle_corners_local,
+    rebuild_with_corner_replaced,
 )
 
 if TYPE_CHECKING:
@@ -116,7 +116,7 @@ class FilletTool(CornerEditTool):
             layer_id=_layer_of(target.item),
         )
 
-        new_host = _rebuild_with_corner_replaced(
+        new_host = rebuild_with_corner_replaced(
             target, tin_scene, tout_scene
         )
         if new_host is None:
@@ -146,78 +146,3 @@ def _radial_distance(center: QPointF, p: QPointF) -> float:
 
 def _layer_of(item: QGraphicsItem) -> object:
     return getattr(item, "layer_id", None)
-
-
-def _rebuild_with_corner_replaced(
-    target: CornerTarget,
-    tin_scene: QPointF,
-    tout_scene: QPointF,
-) -> QGraphicsItem | None:
-    """Return a new item with the picked corner split into two tangent points.
-
-    Polyline / polygon: same class as the original, identical styling.
-    Rectangle: destructive conversion to polygon (rectangles can't carry
-    per-corner geometry). The original rectangle stays referenced by the
-    command so undo restores it.
-    """
-
-    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
-    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
-    from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
-
-    item = target.item
-
-    if isinstance(item, PolylineItem):
-        pts_local = item.points
-        tin_local = item.mapFromScene(tin_scene)
-        tout_local = item.mapFromScene(tout_scene)
-        new_pts = (
-            pts_local[: target.vertex_index]
-            + [tin_local, tout_local]
-            + pts_local[target.vertex_index + 1 :]
-        )
-        return item.clone_with_points(new_pts)
-
-    if isinstance(item, PolygonItem):
-        poly = item.polygon()
-        n = poly.count()
-        verts_local = [poly.at(j) for j in range(n)]
-        tin_local = item.mapFromScene(tin_scene)
-        tout_local = item.mapFromScene(tout_scene)
-        new_verts = (
-            verts_local[: target.vertex_index]
-            + [tin_local, tout_local]
-            + verts_local[target.vertex_index + 1 :]
-        )
-        clone = PolygonItem(
-            vertices=new_verts,
-            object_type=item.object_type,
-            layer_id=item.layer_id,
-        )
-        clone.setPen(QPen(item.pen()))
-        clone.setBrush(QBrush(item.brush()))
-        clone.setPos(item.pos())
-        clone.setRotation(item.rotation())
-        return clone
-
-    if isinstance(item, RectangleItem):
-        corners_local = rectangle_corners_local(item)
-        tin_local = item.mapFromScene(tin_scene)
-        tout_local = item.mapFromScene(tout_scene)
-        new_verts = (
-            corners_local[: target.vertex_index]
-            + [tin_local, tout_local]
-            + corners_local[target.vertex_index + 1 :]
-        )
-        clone = PolygonItem(
-            vertices=new_verts,
-            object_type=item.object_type,
-            layer_id=item.layer_id,
-        )
-        clone.setPen(QPen(item.pen()))
-        clone.setBrush(QBrush(item.brush()))
-        clone.setPos(item.pos())
-        clone.setRotation(item.rotation())
-        return clone
-
-    return None

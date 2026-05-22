@@ -116,6 +116,18 @@ def _tangents_on_circle(
     if cr is None:
         return []
     center, radius = cr
+    return _tangents_on_circle_at(center, radius, ref)
+
+
+def _tangents_on_circle_at(
+    center: QPointF, radius: float, ref: QPointF
+) -> list[QPointF]:
+    """Lower-level tangent math operating on a centre + radius directly.
+
+    Pulled out so ``_tangents_on_arc`` doesn't have to round-trip
+    through a fake ``QGraphicsItem`` proxy just to get back the
+    centre/radius it already has via ``ArcItem``'s public API.
+    """
     dx = ref.x() - center.x()
     dy = ref.y() - center.y()
     d_sq = dx * dx + dy * dy
@@ -156,11 +168,14 @@ def _tangents_on_arc(item: QGraphicsItem, ref: QPointF) -> list[QPointF]:
     from open_garden_planner.ui.canvas.items import ArcItem
 
     assert isinstance(item, ArcItem)
-    cr = _circle_center_radius(_ArcCircleProxy(item))
-    if cr is None:
+    # ArcItem exposes ``center`` (scene coords) and ``radius`` directly —
+    # no proxy needed. Build a synthetic circle-equivalent for the
+    # tangent math.
+    center = item.center
+    radius = item.radius
+    if radius <= 0:
         return []
-    center, radius = cr
-    pts = _tangents_on_circle(_ArcCircleProxy(item), ref)
+    pts = _tangents_on_circle_at(center, radius, ref)
     if not pts:
         return []
     start = item.start_deg
@@ -179,31 +194,3 @@ def _tangents_on_arc(item: QGraphicsItem, ref: QPointF) -> list[QPointF]:
     return out
 
 
-class _ArcCircleProxy:
-    """Thin shim that lets ``_circle_center_radius`` and
-    ``_tangents_on_circle`` work against an ``ArcItem`` by exposing the
-    underlying circle's ``rect()`` and ``mapToScene``.
-
-    Avoids duplicating the tangent math in a second function.
-    """
-
-    def __init__(self, arc: object) -> None:
-        self._arc = arc
-
-    def rect(self) -> object:
-        from PyQt6.QtCore import QRectF
-
-        center = self._arc._center  # type: ignore[attr-defined]
-        radius = self._arc.radius  # type: ignore[attr-defined]
-        return QRectF(
-            center.x() - radius,
-            center.y() - radius,
-            2 * radius,
-            2 * radius,
-        )
-
-    def mapToScene(self, point: QPointF) -> QPointF:
-        return self._arc.mapToScene(point)  # type: ignore[attr-defined]
-
-    def flags(self) -> object:  # pragma: no cover — never queried here
-        return self._arc.flags()  # type: ignore[attr-defined]
