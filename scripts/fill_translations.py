@@ -647,6 +647,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Snap to &Nearest Point": "Auf nächsten Punkt fangen",
         "Toggle snap to the closest point on any visible edge or curve":
             "Fangen auf den nächsten Punkt jeder sichtbaren Kante oder Kurve umschalten",
+        # Phase 13 Package B — US-B5
+        "Snap &Perpendicular": "Senkrecht fangen",
+        "Toggle snap to the perpendicular foot from the last drawn point onto the nearest edge":
+            "Fangen auf den Senkrechten-Fußpunkt vom letzten gezeichneten Punkt zur nächsten Kante umschalten",
         "Enable Dynamic &Input": "Dynamische &Eingabe aktivieren",
         "Toggle typed distance/angle input next to the cursor and in the status bar":
             "Eingabe von Distanz/Winkel am Cursor und in der Statusleiste umschalten",

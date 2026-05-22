@@ -59,6 +59,7 @@ from open_garden_planner.core.snap.providers import (
     IntersectionSnapProvider,
     MidpointSnapProvider,
     NearestSnapProvider,
+    PerpendicularSnapProvider,
 )
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
@@ -179,6 +180,9 @@ class CanvasView(QGraphicsView):
         # Phase 13 Package B (US-B4): nearest-point fallback snap, off by
         # default to preserve the existing free-placement-near-edges UX.
         self._nearest_snap_enabled = False
+        # Phase 13 Package B (US-B5): perpendicular snap from tool's
+        # last_point, off by default.
+        self._perpendicular_snap_enabled = False
         self._dynamic_input_enabled = True
         self._grid_size = 50.0  # 50cm default grid
         self._scale_bar_visible = True
@@ -921,6 +925,11 @@ class CanvasView(QGraphicsView):
         self._nearest_snap_enabled = enabled
         self._refresh_snap_registry()
 
+    def set_perpendicular_snap_enabled(self, enabled: bool) -> None:
+        """Set perpendicular snap (Package B US-B5) enabled."""
+        self._perpendicular_snap_enabled = enabled
+        self._refresh_snap_registry()
+
     def set_dynamic_input_enabled(self, enabled: bool) -> None:
         """Set dynamic input (Package A US-A4) enabled."""
         self._dynamic_input_enabled = enabled
@@ -1034,6 +1043,16 @@ class CanvasView(QGraphicsView):
             reg.add(NearestSnapProvider())
         elif not self._nearest_snap_enabled and reg.has(NearestSnapProvider):
             reg.remove(NearestSnapProvider)
+        if (
+            self._perpendicular_snap_enabled
+            and not reg.has(PerpendicularSnapProvider)
+        ):
+            reg.add(PerpendicularSnapProvider())
+        elif (
+            not self._perpendicular_snap_enabled
+            and reg.has(PerpendicularSnapProvider)
+        ):
+            reg.remove(PerpendicularSnapProvider)
 
     def set_grid_size(self, size: float) -> None:
         """Set grid size in centimeters."""
@@ -1527,14 +1546,35 @@ class CanvasView(QGraphicsView):
         Returns the (possibly unchanged) point and the snap candidate that
         produced it (``None`` if no provider matched within ``threshold``).
         Caller can use the candidate's ``kind`` to render a glyph.
+
+        Phase 13 B5: the active drawing tool's ``last_point`` is
+        forwarded to the registry as ``reference_point`` so the
+        perpendicular and tangent providers can operate against it.
         """
         if not self._snap_registry.providers():
             return scene_pos, None
         self._ensure_snap_index()
-        hit = self._point_snapper.snap(scene_pos, threshold=threshold)
+        ref = self._active_tool_reference_point()
+        hit = self._point_snapper.snap(
+            scene_pos, threshold=threshold, reference_point=ref
+        )
         if hit is None:
             return scene_pos, None
         return QPointF(hit.point), hit
+
+    def _active_tool_reference_point(self) -> "QPointF | None":
+        """Return the active drawing tool's anchor for perpendicular/tangent.
+
+        Reads ``last_point`` from the tool — ``None`` when no tool is
+        active, the tool exposes no anchor, or the select tool is up.
+        """
+        tool = self._tool_manager.active_tool
+        if tool is None:
+            return None
+        last = getattr(tool, "last_point", None)
+        if last is None:
+            return None
+        return QPointF(last)
 
     @property
     def coordinate_input_buffer(self) -> "CoordinateInputBuffer":
@@ -3853,6 +3893,16 @@ class CanvasView(QGraphicsView):
             )
             painter.drawPolygon(top)
             painter.drawPolygon(bot)
+        elif kind == SnapCandidateKind.PERPENDICULAR:
+            # ⊥ symbol — short horizontal base + vertical stem upward.
+            painter.drawLine(
+                QPointF(cx - size / 2, cy + size / 3),
+                QPointF(cx + size / 2, cy + size / 3),
+            )
+            painter.drawLine(
+                QPointF(cx, cy + size / 3),
+                QPointF(cx, cy - size / 2),
+            )
         else:  # EDGE
             painter.drawEllipse(QPointF(cx, cy), size / 3, size / 3)
         painter.restore()

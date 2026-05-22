@@ -3167,6 +3167,14 @@ Neue Saison jetzt öffnen?</translation>
             <source>Toggle snap to the closest point on any visible edge or curve</source>
             <translation>Fangen auf den nächsten Punkt jeder sichtbaren Kante oder Kurve umschalten</translation>
         </message>
+        <message>
+            <source>Snap &amp;Perpendicular</source>
+            <translation>Senkrecht fangen</translation>
+        </message>
+        <message>
+            <source>Toggle snap to the perpendicular foot from the last drawn point onto the nearest edge</source>
+            <translation>Fangen auf den Senkrechten-Fußpunkt vom letzten gezeichneten Punkt zur nächsten Kante umschalten</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>

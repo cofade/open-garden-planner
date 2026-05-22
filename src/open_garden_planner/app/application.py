@@ -592,6 +592,25 @@ class GardenPlannerApp(QMainWindow):
         self._nearest_snap_action.triggered.connect(self._on_toggle_nearest_snap)
         menu.addAction(self._nearest_snap_action)
 
+        # Toggle Perpendicular Snap (Package B — US-B5). Drops the
+        # perpendicular foot from the active tool's anchor onto a
+        # hovered edge; off by default.
+        self._perpendicular_snap_action = QAction(
+            self.tr("Snap &Perpendicular"), self
+        )
+        self._perpendicular_snap_action.setCheckable(True)
+        self._perpendicular_snap_action.setChecked(False)
+        self._perpendicular_snap_action.setStatusTip(
+            self.tr(
+                "Toggle snap to the perpendicular foot from the last "
+                "drawn point onto the nearest edge"
+            )
+        )
+        self._perpendicular_snap_action.triggered.connect(
+            self._on_toggle_perpendicular_snap
+        )
+        menu.addAction(self._perpendicular_snap_action)
+
         # Toggle Dynamic Input (Package A - US-A4)
         self._dynamic_input_action = QAction(self.tr("Enable Dynamic &Input"), self)
         self._dynamic_input_action.setCheckable(True)
@@ -2723,6 +2742,10 @@ class GardenPlannerApp(QMainWindow):
         self._nearest_snap_action.setChecked(near)
         self.canvas_view.set_nearest_snap_enabled(near)
 
+        perp = settings.perpendicular_snap_enabled
+        self._perpendicular_snap_action.setChecked(perp)
+        self.canvas_view.set_perpendicular_snap_enabled(perp)
+
         dyn = settings.dynamic_input_enabled
         self._dynamic_input_action.setChecked(dyn)
         self.canvas_view.set_dynamic_input_enabled(dyn)
@@ -2863,6 +2886,13 @@ class GardenPlannerApp(QMainWindow):
 
         self.canvas_view.set_nearest_snap_enabled(checked)
         get_settings().nearest_snap_enabled = checked
+
+    def _on_toggle_perpendicular_snap(self, checked: bool) -> None:
+        """Handle toggle perpendicular snap (Package B US-B5)."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_view.set_perpendicular_snap_enabled(checked)
+        get_settings().perpendicular_snap_enabled = checked
 
     def _on_toggle_dynamic_input(self, checked: bool) -> None:
         """Handle toggle dynamic input action (Package A US-A4)."""

@@ -33,6 +33,7 @@ class AppSettings:
     KEY_MIDPOINT_SNAP = "canvas/midpoint_snap_enabled"
     KEY_INTERSECTION_SNAP = "canvas/intersection_snap_enabled"
     KEY_NEAREST_SNAP = "canvas/nearest_snap_enabled"
+    KEY_PERPENDICULAR_SNAP = "canvas/perpendicular_snap_enabled"
     KEY_DYNAMIC_INPUT = "canvas/dynamic_input_enabled"
     KEY_LANGUAGE = "appearance/language"
     KEY_SHOW_SPACING_CIRCLES = "appearance/show_spacing_circles"
@@ -63,6 +64,9 @@ class AppSettings:
     # other snap kinds, defaults off so it doesn't surprise users who
     # rely on free placement near edges.
     DEFAULT_NEAREST_SNAP = False
+    # Phase 13 Package B (US-B5): perpendicular snap from the active
+    # tool's anchor, defaults off (opt-in CAD precision aid).
+    DEFAULT_PERPENDICULAR_SNAP = False
     DEFAULT_DYNAMIC_INPUT = True
     DEFAULT_LANGUAGE = "en"
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
@@ -329,6 +333,19 @@ class AppSettings:
     @nearest_snap_enabled.setter
     def nearest_snap_enabled(self, enabled: bool) -> None:
         self._settings.setValue(self.KEY_NEAREST_SNAP, enabled)
+
+    @property
+    def perpendicular_snap_enabled(self) -> bool:
+        """Whether perpendicular snap (from tool last_point) is enabled."""
+        return self._settings.value(
+            self.KEY_PERPENDICULAR_SNAP,
+            self.DEFAULT_PERPENDICULAR_SNAP,
+            type=bool,
+        )
+
+    @perpendicular_snap_enabled.setter
+    def perpendicular_snap_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_PERPENDICULAR_SNAP, enabled)
 
     @property
     def dynamic_input_enabled(self) -> bool:
