@@ -125,6 +125,14 @@ class BaseTool(ABC):
     #: anchor snap automatically.
     skip_anchor_snap: bool = False
 
+    #: If ``True``, the Dynamic Input overlay (Package A US-A2/A4 —
+    #: polar `dist`/`angle` input) shows once this tool has a
+    #: ``last_point``. Tools whose second click is a *geometric* pick
+    #: rather than a polar offset (e.g. 3-point arc — the second click
+    #: is the through-point, not a vector from p1) override this to
+    #: ``False`` so the overlay does not appear.
+    accepts_typed_coordinates: bool = True
+
     def __init__(self, view: "CanvasView") -> None:
         """Initialize the tool.
 

@@ -51,6 +51,10 @@ class ArcTool(BaseTool):
     display_name = QCoreApplication.translate("ArcTool", "Arc (3-point)")
     shortcut = "A"
     cursor = Qt.CursorShape.CrossCursor
+    # The second + third clicks pick geometric points (through-point,
+    # end), not polar offsets from p1 — the Dist/Angle overlay would
+    # mislead users into expecting it to control sweep direction.
+    accepts_typed_coordinates = False
 
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)

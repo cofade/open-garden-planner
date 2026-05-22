@@ -972,6 +972,13 @@ class CanvasView(QGraphicsView):
             if self._dynamic_overlay is not None:
                 self._dynamic_overlay.hide_overlay()
             return
+        if not getattr(tool, "accepts_typed_coordinates", True):
+            # Tools whose next click is a geometric pick (3-point arc,
+            # etc.) opt out so users don't see a misleading Dist/Angle
+            # prompt.
+            if self._dynamic_overlay is not None:
+                self._dynamic_overlay.hide_overlay()
+            return
         if getattr(tool, "last_point", None) is None:
             # Hide until the first click anchors the polar input.
             if self._dynamic_overlay is not None:
