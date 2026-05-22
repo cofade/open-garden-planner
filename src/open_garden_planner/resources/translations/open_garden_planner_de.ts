@@ -3159,6 +3159,14 @@ Neue Saison jetzt öffnen?</translation>
             <source>Toggle typed distance/angle input next to the cursor and in the status bar</source>
             <translation>Eingabe von Distanz/Winkel am Cursor und in der Statusleiste umschalten</translation>
         </message>
+        <message>
+            <source>Snap to &amp;Nearest Point</source>
+            <translation>Auf nächsten Punkt fangen</translation>
+        </message>
+        <message>
+            <source>Toggle snap to the closest point on any visible edge or curve</source>
+            <translation>Fangen auf den nächsten Punkt jeder sichtbaren Kante oder Kurve umschalten</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>

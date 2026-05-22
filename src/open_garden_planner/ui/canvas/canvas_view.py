@@ -58,6 +58,7 @@ from open_garden_planner.core.snap.providers import (
     EndpointSnapProvider,
     IntersectionSnapProvider,
     MidpointSnapProvider,
+    NearestSnapProvider,
 )
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
@@ -175,6 +176,9 @@ class CanvasView(QGraphicsView):
         self._object_snap_enabled = True
         self._midpoint_snap_enabled = True
         self._intersection_snap_enabled = True
+        # Phase 13 Package B (US-B4): nearest-point fallback snap, off by
+        # default to preserve the existing free-placement-near-edges UX.
+        self._nearest_snap_enabled = False
         self._dynamic_input_enabled = True
         self._grid_size = 50.0  # 50cm default grid
         self._scale_bar_visible = True
@@ -912,6 +916,11 @@ class CanvasView(QGraphicsView):
         self._intersection_snap_enabled = enabled
         self._refresh_snap_registry()
 
+    def set_nearest_snap_enabled(self, enabled: bool) -> None:
+        """Set nearest-point fallback snap (Package B US-B4) enabled."""
+        self._nearest_snap_enabled = enabled
+        self._refresh_snap_registry()
+
     def set_dynamic_input_enabled(self, enabled: bool) -> None:
         """Set dynamic input (Package A US-A4) enabled."""
         self._dynamic_input_enabled = enabled
@@ -1021,6 +1030,10 @@ class CanvasView(QGraphicsView):
             and reg.has(IntersectionSnapProvider)
         ):
             reg.remove(IntersectionSnapProvider)
+        if self._nearest_snap_enabled and not reg.has(NearestSnapProvider):
+            reg.add(NearestSnapProvider())
+        elif not self._nearest_snap_enabled and reg.has(NearestSnapProvider):
+            reg.remove(NearestSnapProvider)
 
     def set_grid_size(self, size: float) -> None:
         """Set grid size in centimeters."""
@@ -3820,6 +3833,26 @@ class CanvasView(QGraphicsView):
                 QPointF(cx - size / 2, cy + size / 2),
                 QPointF(cx + size / 2, cy - size / 2),
             )
+        elif kind == SnapCandidateKind.NEAREST:
+            # Hourglass — two triangles meeting at the snap point.
+            from PyQt6.QtGui import QPolygonF
+
+            top = QPolygonF(
+                [
+                    QPointF(cx - size / 2, cy - size / 2),
+                    QPointF(cx + size / 2, cy - size / 2),
+                    QPointF(cx, cy),
+                ]
+            )
+            bot = QPolygonF(
+                [
+                    QPointF(cx - size / 2, cy + size / 2),
+                    QPointF(cx + size / 2, cy + size / 2),
+                    QPointF(cx, cy),
+                ]
+            )
+            painter.drawPolygon(top)
+            painter.drawPolygon(bot)
         else:  # EDGE
             painter.drawEllipse(QPointF(cx, cy), size / 3, size / 3)
         painter.restore()

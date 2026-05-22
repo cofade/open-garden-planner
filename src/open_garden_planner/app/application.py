@@ -581,6 +581,17 @@ class GardenPlannerApp(QMainWindow):
         )
         menu.addAction(self._intersection_snap_action)
 
+        # Toggle Nearest Snap (Package B — US-B4). Fallback below the
+        # other snap kinds; off by default so it doesn't surprise users.
+        self._nearest_snap_action = QAction(self.tr("Snap to &Nearest Point"), self)
+        self._nearest_snap_action.setCheckable(True)
+        self._nearest_snap_action.setChecked(False)
+        self._nearest_snap_action.setStatusTip(
+            self.tr("Toggle snap to the closest point on any visible edge or curve")
+        )
+        self._nearest_snap_action.triggered.connect(self._on_toggle_nearest_snap)
+        menu.addAction(self._nearest_snap_action)
+
         # Toggle Dynamic Input (Package A - US-A4)
         self._dynamic_input_action = QAction(self.tr("Enable Dynamic &Input"), self)
         self._dynamic_input_action.setCheckable(True)
@@ -2708,6 +2719,10 @@ class GardenPlannerApp(QMainWindow):
         self._intersection_snap_action.setChecked(inter)
         self.canvas_view.set_intersection_snap_enabled(inter)
 
+        near = settings.nearest_snap_enabled
+        self._nearest_snap_action.setChecked(near)
+        self.canvas_view.set_nearest_snap_enabled(near)
+
         dyn = settings.dynamic_input_enabled
         self._dynamic_input_action.setChecked(dyn)
         self.canvas_view.set_dynamic_input_enabled(dyn)
@@ -2841,6 +2856,13 @@ class GardenPlannerApp(QMainWindow):
 
         self.canvas_view.set_intersection_snap_enabled(checked)
         get_settings().intersection_snap_enabled = checked
+
+    def _on_toggle_nearest_snap(self, checked: bool) -> None:
+        """Handle toggle nearest-point fallback snap (Package B US-B4)."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_view.set_nearest_snap_enabled(checked)
+        get_settings().nearest_snap_enabled = checked
 
     def _on_toggle_dynamic_input(self, checked: bool) -> None:
         """Handle toggle dynamic input action (Package A US-A4)."""

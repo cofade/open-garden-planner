@@ -32,6 +32,7 @@ class AppSettings:
     KEY_OBJECT_SNAP = "canvas/object_snap_enabled"
     KEY_MIDPOINT_SNAP = "canvas/midpoint_snap_enabled"
     KEY_INTERSECTION_SNAP = "canvas/intersection_snap_enabled"
+    KEY_NEAREST_SNAP = "canvas/nearest_snap_enabled"
     KEY_DYNAMIC_INPUT = "canvas/dynamic_input_enabled"
     KEY_LANGUAGE = "appearance/language"
     KEY_SHOW_SPACING_CIRCLES = "appearance/show_spacing_circles"
@@ -58,6 +59,10 @@ class AppSettings:
     DEFAULT_OBJECT_SNAP = True
     DEFAULT_MIDPOINT_SNAP = True
     DEFAULT_INTERSECTION_SNAP = True
+    # Phase 13 Package B (US-B4): nearest snap is a fallback below the
+    # other snap kinds, defaults off so it doesn't surprise users who
+    # rely on free placement near edges.
+    DEFAULT_NEAREST_SNAP = False
     DEFAULT_DYNAMIC_INPUT = True
     DEFAULT_LANGUAGE = "en"
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
@@ -311,6 +316,19 @@ class AppSettings:
     @intersection_snap_enabled.setter
     def intersection_snap_enabled(self, enabled: bool) -> None:
         self._settings.setValue(self.KEY_INTERSECTION_SNAP, enabled)
+
+    @property
+    def nearest_snap_enabled(self) -> bool:
+        """Whether the nearest-point fallback snap mode is enabled."""
+        return self._settings.value(
+            self.KEY_NEAREST_SNAP,
+            self.DEFAULT_NEAREST_SNAP,
+            type=bool,
+        )
+
+    @nearest_snap_enabled.setter
+    def nearest_snap_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_NEAREST_SNAP, enabled)
 
     @property
     def dynamic_input_enabled(self) -> bool:
