@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QCoreApplication
 from PyQt6.QtGui import QKeyEvent
-from PyQt6.QtWidgets import QInputDialog
+from PyQt6.QtWidgets import QApplication, QInputDialog
 
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.cad_geometry import chamfer_corner
@@ -41,6 +41,8 @@ class ChamferTool(CornerEditTool):
 
     def activate(self) -> None:
         super().activate()
+        if _is_interactive_platform():
+            self._prompt_for_distance()
         if hasattr(self._view, "set_status_message"):
             msg = QCoreApplication.translate(
                 "ChamferTool",
@@ -106,3 +108,9 @@ class ChamferTool(CornerEditTool):
         )
         if hasattr(self._view, "set_status_message"):
             self._view.set_status_message(msg)
+
+
+def _is_interactive_platform() -> bool:
+    """Skip activation prompts under the offscreen Qt platform used by CI/tests."""
+    app = QApplication.instance()
+    return app is not None and app.platformName() != "offscreen"

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QCoreApplication, QPointF
 from PyQt6.QtGui import QKeyEvent
-from PyQt6.QtWidgets import QGraphicsItem, QInputDialog
+from PyQt6.QtWidgets import QApplication, QGraphicsItem, QInputDialog
 
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.cad_geometry import fillet_corner
@@ -47,11 +47,8 @@ class FilletTool(CornerEditTool):
 
     def activate(self) -> None:
         super().activate()
-        # Show the current radius in the status bar so the user knows what
-        # will be applied. R re-opens the input dialog if they want to
-        # change it. We deliberately do NOT pop a modal dialog on
-        # activation — it blocks under offscreen Qt (broken in CI) and
-        # interrupts users who already filleted at the right radius.
+        if _is_interactive_platform():
+            self._prompt_for_radius()
         if hasattr(self._view, "set_status_message"):
             msg = QCoreApplication.translate(
                 "FilletTool",
@@ -115,6 +112,12 @@ class FilletTool(CornerEditTool):
             span_deg=span_deg,
             layer_id=_layer_of(target.item),
         )
+        # Match the host's pen so the rounded corner reads as one shape,
+        # not "chamfer cut + faint gray arc".
+        host_pen = getattr(target.item, "pen", lambda: None)()
+        if host_pen is not None:
+            arc_item.stroke_color = host_pen.color()
+            arc_item.stroke_width = host_pen.widthF()
 
         new_host = rebuild_with_corner_replaced(
             target, tin_scene, tout_scene
@@ -146,3 +149,9 @@ def _radial_distance(center: QPointF, p: QPointF) -> float:
 
 def _layer_of(item: QGraphicsItem) -> object:
     return getattr(item, "layer_id", None)
+
+
+def _is_interactive_platform() -> bool:
+    """Skip activation prompts under the offscreen Qt platform used by CI/tests."""
+    app = QApplication.instance()
+    return app is not None and app.platformName() != "offscreen"

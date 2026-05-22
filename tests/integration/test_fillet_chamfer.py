@@ -179,6 +179,29 @@ class TestFilletWorkflow:
         assert (20.0, 0.0) in coord_set
         assert (0.0, 20.0) in coord_set
 
+    def test_fillet_arc_inherits_host_pen(self, canvas: CanvasView) -> None:
+        """Manual-test feedback: a fillet arc rendered in default gray over a
+        coloured polyline reads as 'chamfer cut + faint gray arc' rather than
+        a true rounded corner. The arc must adopt the host's pen colour
+        and width."""
+        from PyQt6.QtGui import QColor, QPen
+
+        pl = PolylineItem(
+            points=[QPointF(100, 0), QPointF(0, 0), QPointF(0, 100)],
+        )
+        host_pen = QPen(QColor(20, 140, 40), 3.5)
+        pl.setPen(host_pen)
+        canvas.scene().addItem(pl)
+
+        tool = _activate_fillet(canvas, radius_cm=20.0)
+        tool.mouse_press(_left_click_event(), QPointF(0, 0))
+
+        arc = next(
+            i for i in canvas.scene().items() if isinstance(i, ArcItem)
+        )
+        assert arc.stroke_color.rgba() == host_pen.color().rgba()
+        assert arc.stroke_width == pytest.approx(host_pen.widthF())
+
 
 # ─────────────────────────────────────────────────────────────────────────
 # Chamfer
