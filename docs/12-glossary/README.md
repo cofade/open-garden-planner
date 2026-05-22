@@ -53,6 +53,15 @@
 | **Midpoint snap** | Snap to the midpoint of any straight edge from a rectangle, polygon, polyline or construction line. Glyph: filled green triangle |
 | **Intersection snap** | Snap to the intersection of two straight edges from different items. Glyph: green X. Capped at 60 segments per query for predictable latency |
 | **QuadTree (snap)** | Bounded-depth (max 6) spatial index built lazily on `QGraphicsScene.changed`; pre-filters items to a 4×threshold window around the cursor before providers run. Build < 60 ms / 1000 items, query < 1 ms |
+| **Arc (3-point)** | Circular arc constructed from start + through-point + end via the circumcenter formula in `core/cad_geometry.arc_from_three_points`. Stored as `ArcItem` with `center`, `radius`, `start_deg`, `span_deg` (math convention — CCW from +X). Collinear inputs fall back to a 2-vertex polyline. See ADR-022 |
+| **Cubic Bezier** | Smooth curve item with two handles per anchor (`handles_in[i]`, `handles_out[i]`). Authored via a pen tool (`B`), edited by dragging anchor or handle widgets. Single curve model in the app — quadratic / NURBS variants are out of scope. See ADR-022 |
+| **Fillet** | Round a corner with a tangent arc. Tangent points sit at distance `r/tan(α)` along each adjacent edge; the arc center is on the bisector at `r/sin(α)`. Applied to a polyline / polygon vertex in place; rectangle fillet is a destructive rect → polygon conversion (undo restores the rect). See ADR-022 |
+| **Chamfer** | Bevel a corner with a straight cut at distance `d` along each adjacent edge. Same picking + persistence model as Fillet, but no arc is created. See ADR-022 |
+| **Nearest snap** | Fallback snap mode (priority 45, lowest) that yields the closest point on any visible edge or curve to the cursor. Default off. Glyph: hourglass. See ADR-023 |
+| **Perpendicular snap** | Foot of perpendicular from the active tool's `last_point` to the nearest straight edge. Requires a reference anchor; pure-cursor perpendicular has no meaning. Priority 25. Glyph: ⊥. See ADR-023 |
+| **Tangent snap** | Contact point of a line from `last_point` to a circle/arc's tangent (`α = acos(r/|RC|)`). Two solutions exist for an external point; cursor disambiguates. Priority 26. Glyph: small circle + tangent line. See ADR-023 |
+| **Reference point (snap)** | Optional `QPointF` passed to `SnapProvider.candidates()` that names the active tool's anchor (`last_point`). Required by perpendicular and tangent snaps; ignored by the older providers. See ADR-023 |
+| **render_scene_region** | Shared scene-region renderer in `services/scene_rendering.py`. Hides selection / construction / soil-badge overlays, optionally rescales text, paints `source_rect` of a scene into `target_rect` on any painter, applies the standard Y-flip, and restores everything afterwards. Currently used by PNG export; SVG export + print dialog migration is tracked as follow-up |
 
 ## 12.2 Keyboard Shortcuts
 
@@ -82,6 +91,15 @@
 | Plant Tool | T |
 | Fullscreen Preview | F11 |
 | Print | Ctrl+P |
+| Garden Plan tab | Ctrl+1 |
+| Planting Calendar tab | Ctrl+2 |
+| Seed Inventory tab | Ctrl+3 |
+| Bezier Tool | B |
+| Arc Tool (3-point) | A |
+| Fillet Tool | Shift+F |
+| Chamfer Tool | Shift+C |
+| Fillet — change radius (while active) | R |
+| Chamfer — change distance (while active) | D |
 
 ## 12.3 References
 

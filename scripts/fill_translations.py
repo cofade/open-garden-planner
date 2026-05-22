@@ -212,6 +212,42 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Circle": "Kreis",
     },
 
+    # ── ArcItem / ArcTool (Phase 13 Package B — US-B2) ──
+    "ArcItem": {
+        "Delete Arc": "Bogen löschen",
+    },
+    "ArcTool": {
+        "Arc (3-point)": "Bogen (3 Punkte)",
+        "Points are collinear; drew a line instead":
+            "Punkte sind kollinear; stattdessen wurde eine Linie gezeichnet",
+    },
+
+    # ── BezierItem / BezierTool (Phase 13 Package B — US-B1) ──
+    "BezierItem": {
+        "Delete Bezier": "Bezier-Kurve löschen",
+    },
+    "BezierTool": {
+        "Bezier": "Bezier-Kurve",
+    },
+
+    # ── FilletTool / ChamferTool (Phase 13 Package B — US-B3) ──
+    "FilletTool": {
+        "Fillet": "Abrunden",
+        "Radius (cm):": "Radius (cm):",
+        "Fillet radius too large for this corner":
+            "Abrundungsradius zu groß für diese Ecke",
+        "Fillet radius: {radius:.1f} cm — press R to change":
+            "Abrundungsradius: {radius:.1f} cm — R drücken zum Ändern",
+    },
+    "ChamferTool": {
+        "Chamfer": "Anfasen",
+        "Distance (cm):": "Abstand (cm):",
+        "Chamfer distance too large for this corner":
+            "Anfasabstand zu groß für diese Ecke",
+        "Chamfer distance: {distance:.1f} cm — press D to change":
+            "Anfasabstand: {distance:.1f} cm — D drücken zum Ändern",
+    },
+
     # ── EdgeLengthConstraintTool ──
     "EdgeLengthConstraintTool": {
         "Edge Length Constraint": "Kantenlängenrandbedingung",
@@ -625,6 +661,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Snap to &Intersections": "An &Schnittpunkten einrasten",
         "Toggle snap to intersections of straight edges":
             "Einrasten auf Schnittpunkte gerader Kanten umschalten",
+        # Phase 13 Package B — US-B4
+        "Snap to &Nearest Point": "Auf nächsten Punkt fangen",
+        "Toggle snap to the closest point on any visible edge or curve":
+            "Fangen auf den nächsten Punkt jeder sichtbaren Kante oder Kurve umschalten",
+        # Phase 13 Package B — US-B5
+        "Snap &Perpendicular": "Senkrecht fangen",
+        "Toggle snap to the perpendicular foot from the last drawn point onto the nearest edge":
+            "Fangen auf den Senkrechten-Fußpunkt vom letzten gezeichneten Punkt zur nächsten Kante umschalten",
+        # Phase 13 Package B — US-B6
+        "Snap &Tangent": "Tangential fangen",
+        "Toggle snap to the tangent point on a circle or arc from the last drawn point":
+            "Fangen auf den Tangentialpunkt eines Kreises oder Bogens vom letzten gezeichneten Punkt umschalten",
         "Enable Dynamic &Input": "Dynamische &Eingabe aktivieren",
         "Toggle typed distance/angle input next to the cursor and in the status bar":
             "Eingabe von Distanz/Winkel am Cursor und in der Statusleiste umschalten",
@@ -799,6 +847,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Garden Plan": "Gartenplan",
         "Planting Calendar": "Pflanzkalender",
         "Seed Inventory": "Saatgutbestand",
+        "Layout": "Layout",
         "Constraints": "Randbedingungen",
         "Delete all constraints": "Alle Randbedingungen löschen",
         "Companion Planting": "Mischkulturen",
@@ -1264,6 +1313,25 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── OffsetTool / CanvasView strings for offset ──
     "OffsetTool": {
         "Offset": "Versatz",
+    },
+
+    # ── ConstraintToolbar (button tooltips for CAD-editing tools) ──
+    "ConstraintToolbar": {
+        "Constraints": "Randbedingungen",
+        "Trim/Extend (I) — X toggles mode": "Trimmen/Erweitern (I) — X wechselt Modus",
+        "Offset (O) — parallel copy inward/outward":
+            "Versatz (O) — parallele Kopie nach innen/außen",
+        "Fillet (Shift+F) — round a corner": "Abrunden (Umschalt+F) — Ecke abrunden",
+        "Chamfer (Shift+C) — bevel a corner":
+            "Anfasen (Umschalt+C) — Ecke abschrägen",
+    },
+
+    # ── Paper Space (Phase 13 Package B — US-B7) ──
+    "TitleBlockItem": {
+        "Project:": "Projekt:",
+        "Date:": "Datum:",
+        "Scale:": "Maßstab:",
+        "(unsaved)": "(nicht gespeichert)",
     },
 
     # ── RectangleItem (context menu — pylupdate6 cannot extract _ alias) ──

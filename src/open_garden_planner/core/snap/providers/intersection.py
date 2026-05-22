@@ -35,6 +35,7 @@ class IntersectionSnapProvider(SnapProvider):
         scene_pos: QPointF,
         items: Iterable[QGraphicsItem],
         threshold: float,
+        reference_point: QPointF | None = None,  # noqa: ARG002
     ) -> Iterable[SnapCandidate]:
         segments: list[tuple[QLineF, QGraphicsItem]] = []
         for item in items:

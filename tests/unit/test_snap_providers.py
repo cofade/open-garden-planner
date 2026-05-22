@@ -202,7 +202,7 @@ class TestCustomProvider:
             kind = SnapCandidateKind.CENTER
             priority = 5
 
-            def candidates(self, _scene_pos, _items, _threshold):  # type: ignore[override]
+            def candidates(self, _scene_pos, _items, _threshold, reference_point=None):  # type: ignore[override]  # noqa: ARG002
                 yield SnapCandidate(
                     point=QPointF(1, 1),
                     kind=SnapCandidateKind.CENTER,

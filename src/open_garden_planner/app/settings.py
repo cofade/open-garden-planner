@@ -32,6 +32,9 @@ class AppSettings:
     KEY_OBJECT_SNAP = "canvas/object_snap_enabled"
     KEY_MIDPOINT_SNAP = "canvas/midpoint_snap_enabled"
     KEY_INTERSECTION_SNAP = "canvas/intersection_snap_enabled"
+    KEY_NEAREST_SNAP = "canvas/nearest_snap_enabled"
+    KEY_PERPENDICULAR_SNAP = "canvas/perpendicular_snap_enabled"
+    KEY_TANGENT_SNAP = "canvas/tangent_snap_enabled"
     KEY_DYNAMIC_INPUT = "canvas/dynamic_input_enabled"
     KEY_LANGUAGE = "appearance/language"
     KEY_SHOW_SPACING_CIRCLES = "appearance/show_spacing_circles"
@@ -40,6 +43,10 @@ class AppSettings:
     # Frost alert thresholds (US-12.2)
     KEY_FROST_WARNING_ORANGE_C = "weather/frost_warning_orange_c"
     KEY_FROST_WARNING_RED_C = "weather/frost_warning_red_c"
+
+    # Phase 13 Package B (US-B3) — fillet/chamfer "last used" values
+    KEY_FILLET_LAST_RADIUS_CM = "tools/fillet_last_radius_cm"
+    KEY_CHAMFER_LAST_DISTANCE_CM = "tools/chamfer_last_distance_cm"
 
     # API key settings
     KEY_TREFLE_API_TOKEN = "api_keys/trefle_token"
@@ -58,6 +65,16 @@ class AppSettings:
     DEFAULT_OBJECT_SNAP = True
     DEFAULT_MIDPOINT_SNAP = True
     DEFAULT_INTERSECTION_SNAP = True
+    # Phase 13 Package B (US-B4): nearest snap is a fallback below the
+    # other snap kinds, defaults off so it doesn't surprise users who
+    # rely on free placement near edges.
+    DEFAULT_NEAREST_SNAP = False
+    # Phase 13 Package B (US-B5): perpendicular snap from the active
+    # tool's anchor, defaults off (opt-in CAD precision aid).
+    DEFAULT_PERPENDICULAR_SNAP = False
+    # Phase 13 Package B (US-B6): tangent snap from the active tool's
+    # anchor onto circles / arcs, defaults off (opt-in CAD precision aid).
+    DEFAULT_TANGENT_SNAP = False
     DEFAULT_DYNAMIC_INPUT = True
     DEFAULT_LANGUAGE = "en"
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
@@ -66,6 +83,12 @@ class AppSettings:
     DEFAULT_THEME_MODE = "system"
     DEFAULT_FROST_WARNING_ORANGE_C = 5.0
     DEFAULT_FROST_WARNING_RED_C = 2.0
+
+    # Phase 13 Package B (US-B3): default fillet radius / chamfer distance
+    # in cm. These are the "last used" values that prefill the input dialog
+    # so repeat applications don't require retyping.
+    DEFAULT_FILLET_LAST_RADIUS_CM = 25.0
+    DEFAULT_CHAMFER_LAST_DISTANCE_CM = 25.0
 
     def __init__(self) -> None:
         """Initialize the settings manager."""
@@ -313,6 +336,45 @@ class AppSettings:
         self._settings.setValue(self.KEY_INTERSECTION_SNAP, enabled)
 
     @property
+    def nearest_snap_enabled(self) -> bool:
+        """Whether the nearest-point fallback snap mode is enabled."""
+        return self._settings.value(
+            self.KEY_NEAREST_SNAP,
+            self.DEFAULT_NEAREST_SNAP,
+            type=bool,
+        )
+
+    @nearest_snap_enabled.setter
+    def nearest_snap_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_NEAREST_SNAP, enabled)
+
+    @property
+    def perpendicular_snap_enabled(self) -> bool:
+        """Whether perpendicular snap (from tool last_point) is enabled."""
+        return self._settings.value(
+            self.KEY_PERPENDICULAR_SNAP,
+            self.DEFAULT_PERPENDICULAR_SNAP,
+            type=bool,
+        )
+
+    @perpendicular_snap_enabled.setter
+    def perpendicular_snap_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_PERPENDICULAR_SNAP, enabled)
+
+    @property
+    def tangent_snap_enabled(self) -> bool:
+        """Whether tangent snap (from tool last_point onto circles/arcs) is enabled."""
+        return self._settings.value(
+            self.KEY_TANGENT_SNAP,
+            self.DEFAULT_TANGENT_SNAP,
+            type=bool,
+        )
+
+    @tangent_snap_enabled.setter
+    def tangent_snap_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_TANGENT_SNAP, enabled)
+
+    @property
     def dynamic_input_enabled(self) -> bool:
         """Whether typed coordinate input (status bar + cursor overlay) is on."""
         return self._settings.value(
@@ -432,6 +494,36 @@ class AppSettings:
     def frost_warning_red_c(self, value: float) -> None:
         """Set the red frost alert threshold."""
         self._settings.setValue(self.KEY_FROST_WARNING_RED_C, value)
+
+    @property
+    def fillet_last_radius_cm(self) -> float:
+        """Most recently used fillet radius (cm)."""
+        return float(
+            self._settings.value(
+                self.KEY_FILLET_LAST_RADIUS_CM,
+                self.DEFAULT_FILLET_LAST_RADIUS_CM,
+                type=float,
+            )
+        )
+
+    @fillet_last_radius_cm.setter
+    def fillet_last_radius_cm(self, value: float) -> None:
+        self._settings.setValue(self.KEY_FILLET_LAST_RADIUS_CM, float(value))
+
+    @property
+    def chamfer_last_distance_cm(self) -> float:
+        """Most recently used chamfer distance (cm)."""
+        return float(
+            self._settings.value(
+                self.KEY_CHAMFER_LAST_DISTANCE_CM,
+                self.DEFAULT_CHAMFER_LAST_DISTANCE_CM,
+                type=float,
+            )
+        )
+
+    @chamfer_last_distance_cm.setter
+    def chamfer_last_distance_cm(self, value: float) -> None:
+        self._settings.setValue(self.KEY_CHAMFER_LAST_DISTANCE_CM, float(value))
 
     def sync(self) -> None:
         """Force settings to be written to storage."""

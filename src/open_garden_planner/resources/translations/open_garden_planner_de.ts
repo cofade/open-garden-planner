@@ -1225,6 +1225,22 @@
             <source>Construction Circle</source>
             <translation type="vanished">Hilfskreis</translation>
         </message>
+        <message>
+            <source>Trim/Extend (I) — X toggles mode</source>
+            <translation>Trimmen/Erweitern (I) — X wechselt Modus</translation>
+        </message>
+        <message>
+            <source>Offset (O) — parallel copy inward/outward</source>
+            <translation>Versatz (O) — parallele Kopie nach innen/außen</translation>
+        </message>
+        <message>
+            <source>Fillet (Shift+F) — round a corner</source>
+            <translation>Abrunden (Umschalt+F) — Ecke abrunden</translation>
+        </message>
+        <message>
+            <source>Chamfer (Shift+C) — bevel a corner</source>
+            <translation>Anfasen (Umschalt+C) — Ecke abschrägen</translation>
+        </message>
     </context>
     <context>
         <name>ConstraintsPanel</name>
@@ -3158,6 +3174,34 @@ Neue Saison jetzt öffnen?</translation>
         <message>
             <source>Toggle typed distance/angle input next to the cursor and in the status bar</source>
             <translation>Eingabe von Distanz/Winkel am Cursor und in der Statusleiste umschalten</translation>
+        </message>
+        <message>
+            <source>Snap to &amp;Nearest Point</source>
+            <translation>Auf nächsten Punkt fangen</translation>
+        </message>
+        <message>
+            <source>Toggle snap to the closest point on any visible edge or curve</source>
+            <translation>Fangen auf den nächsten Punkt jeder sichtbaren Kante oder Kurve umschalten</translation>
+        </message>
+        <message>
+            <source>Snap &amp;Perpendicular</source>
+            <translation>Senkrecht fangen</translation>
+        </message>
+        <message>
+            <source>Toggle snap to the perpendicular foot from the last drawn point onto the nearest edge</source>
+            <translation>Fangen auf den Senkrechten-Fußpunkt vom letzten gezeichneten Punkt zur nächsten Kante umschalten</translation>
+        </message>
+        <message>
+            <source>Snap &amp;Tangent</source>
+            <translation>Tangential fangen</translation>
+        </message>
+        <message>
+            <source>Toggle snap to the tangent point on a circle or arc from the last drawn point</source>
+            <translation>Fangen auf den Tangentialpunkt eines Kreises oder Bogens vom letzten gezeichneten Punkt umschalten</translation>
+        </message>
+        <message>
+            <source>Layout</source>
+            <translation>Layout</translation>
         </message>
     </context>
     <context>
@@ -8860,6 +8904,95 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Not a number: '{token}'</source>
             <translation>Keine Zahl: '{token}'</translation>
+        </message>
+    </context>
+    <context>
+        <name>ArcItem</name>
+        <message>
+            <source>Delete Arc</source>
+            <translation>Bogen löschen</translation>
+        </message>
+    </context>
+    <context>
+        <name>ArcTool</name>
+        <message>
+            <source>Arc (3-point)</source>
+            <translation>Bogen (3 Punkte)</translation>
+        </message>
+        <message>
+            <source>Points are collinear; drew a line instead</source>
+            <translation>Punkte sind kollinear; stattdessen wurde eine Linie gezeichnet</translation>
+        </message>
+    </context>
+    <context>
+        <name>BezierItem</name>
+        <message>
+            <source>Delete Bezier</source>
+            <translation>Bezier-Kurve löschen</translation>
+        </message>
+    </context>
+    <context>
+        <name>BezierTool</name>
+        <message>
+            <source>Bezier</source>
+            <translation>Bezier-Kurve</translation>
+        </message>
+    </context>
+    <context>
+        <name>FilletTool</name>
+        <message>
+            <source>Fillet</source>
+            <translation>Abrunden</translation>
+        </message>
+        <message>
+            <source>Radius (cm):</source>
+            <translation>Radius (cm):</translation>
+        </message>
+        <message>
+            <source>Fillet radius too large for this corner</source>
+            <translation>Abrundungsradius zu groß für diese Ecke</translation>
+        </message>
+        <message>
+            <source>Fillet radius: {radius:.1f} cm — press R to change</source>
+            <translation>Abrundungsradius: {radius:.1f} cm — R drücken zum Ändern</translation>
+        </message>
+    </context>
+    <context>
+        <name>ChamferTool</name>
+        <message>
+            <source>Chamfer</source>
+            <translation>Anfasen</translation>
+        </message>
+        <message>
+            <source>Distance (cm):</source>
+            <translation>Abstand (cm):</translation>
+        </message>
+        <message>
+            <source>Chamfer distance too large for this corner</source>
+            <translation>Anfasabstand zu groß für diese Ecke</translation>
+        </message>
+        <message>
+            <source>Chamfer distance: {distance:.1f} cm — press D to change</source>
+            <translation>Anfasabstand: {distance:.1f} cm — D drücken zum Ändern</translation>
+        </message>
+    </context>
+    <context>
+        <name>TitleBlockItem</name>
+        <message>
+            <source>Project:</source>
+            <translation>Projekt:</translation>
+        </message>
+        <message>
+            <source>Date:</source>
+            <translation>Datum:</translation>
+        </message>
+        <message>
+            <source>Scale:</source>
+            <translation>Maßstab:</translation>
+        </message>
+        <message>
+            <source>(unsaved)</source>
+            <translation>(nicht gespeichert)</translation>
         </message>
     </context>
 </TS>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- Cubic Bezier: anchors at (10, 50) and (54, 50); control handles point up -->
+  <path d="M 10 50 C 10 18, 54 18, 54 50" stroke="#047857" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- Handle lines (light grey, dotted look via a thin stroke) -->
+  <line x1="10" y1="50" x2="10" y2="22" stroke="#999" stroke-width="1.2" stroke-dasharray="3 3"/>
+  <line x1="54" y1="50" x2="54" y2="22" stroke="#999" stroke-width="1.2" stroke-dasharray="3 3"/>
+  <!-- Anchor (filled square) and handle (hollow circle) markers -->
+  <rect x="6" y="46" width="8" height="8" fill="#047857"/>
+  <rect x="50" y="46" width="8" height="8" fill="#047857"/>
+  <circle cx="10" cy="22" r="3.5" fill="white" stroke="#999" stroke-width="1.5"/>
+  <circle cx="54" cy="22" r="3.5" fill="white" stroke="#999" stroke-width="1.5"/>
+</svg>

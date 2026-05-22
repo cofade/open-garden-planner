@@ -55,13 +55,15 @@ src/open_garden_planner/
 │   ├── measure_snapper.py        # Anchor-point snapper for measure tool
 │   ├── measurements.py           # Measurement data model
 │   ├── snapping.py               # Object snapping logic (drag-time bbox)
-│   ├── snap/                     # Unified snap engine (ADR-020, Package A US-A3)
-│   │   ├── provider.py           #   SnapProvider ABC, SnapCandidate dataclass
+│   ├── snap/                     # Unified snap engine (ADR-020 + ADR-023, Package A/B)
+│   │   ├── provider.py           #   SnapProvider ABC (+reference_point in v2), SnapCandidate
 │   │   ├── registry.py           #   Active-providers + best() tie-breaking
 │   │   ├── point_snapper.py      #   QuadTree-backed point-snap entry point
 │   │   ├── spatial_index.py      #   Bounded-depth QuadTree (~60ms / 1000 items)
 │   │   ├── geometry.py           #   item_edges, segment_intersection
-│   │   └── providers/            #   Endpoint, Center, EdgeCardinal, Midpoint, Intersection
+│   │   └── providers/            #   Endpoint, Center, EdgeCardinal, Midpoint,
+│   │                             #     Intersection, Nearest, Perpendicular, Tangent
+│   ├── cad_geometry.py           # arc_from_three_points, fillet_corner, chamfer_corner
 │   ├── coordinate_input/         # Typed coordinate pipeline (ADR-021, Package A US-A1/A2/A4)
 │   │   ├── parser.py             #   parse(@dx,dy / @dist<angle / x,y), smart decimal
 │   │   └── buffer.py             #   CoordinateInputBuffer(QObject) — shared state
@@ -76,6 +78,13 @@ src/open_garden_planner/
 │       ├── polygon_tool.py       # Polygon drawing
 │       ├── circle_tool.py        # Circle drawing
 │       ├── polyline_tool.py      # Polyline/path drawing
+│       ├── arc_tool.py           # 3-point arc drawing (Package B US-B2)
+│       ├── bezier_tool.py        # Cubic Bezier pen tool (Package B US-B1)
+│       ├── corner_edit_base.py   # Shared corner-picking for Fillet / Chamfer
+│       ├── fillet_tool.py        # Round-corner tool (Package B US-B3)
+│       ├── chamfer_tool.py       # Bevel-corner tool (Package B US-B3)
+│       ├── trim_tool.py          # Trim/Extend (US-11.16)
+│       ├── offset_tool.py        # Parallel-copy offset (US-11.15)
 │       ├── measure_tool.py       # Distance measurement
 │       └── constraint_tool.py    # Distance constraint creation
 ├── models/
@@ -96,6 +105,8 @@ src/open_garden_planner/
 │   │       ├── polygon_item.py
 │   │       ├── circle_item.py
 │   │       ├── polyline_item.py
+│   │       ├── arc_item.py       # ArcItem (Package B US-B2)
+│   │       ├── bezier_item.py    # BezierItem (Package B US-B1)
 │   │       ├── background_image_item.py
 │   │       └── resize_handle.py
 │   ├── panels/
@@ -141,6 +152,7 @@ src/open_garden_planner/
 │   │   └── trefle_client.py
 │   ├── plant_library.py          # Local plant library management
 │   ├── bundled_species_db.py     # Bundled species DB loader + drop-flow hook (issue #170)
+│   ├── scene_rendering.py        # Shared region-render helper (ADR-023, used by PNG + viewport)
 │   ├── export_service.py         # PDF/image export
 │   ├── autosave_service.py       # Autosave logic
 │   ├── soil_service.py           # Soil test history facade (US-12.10a)

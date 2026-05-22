@@ -40,6 +40,7 @@ class SnapRegistry:
         scene_pos: QPointF,
         items: Iterable[QGraphicsItem],
         threshold: float = DEFAULT_THRESHOLD,
+        reference_point: QPointF | None = None,
     ) -> SnapCandidate | None:
         """Return the best candidate within ``threshold`` or ``None``.
 
@@ -50,6 +51,9 @@ class SnapRegistry:
         midpoint 30 < edge 40 — chosen so the "snap I most expected as
         a CAD user" wins regardless of cursor jitter.  Items are
         iterated once and shared across all providers.
+
+        ``reference_point`` is forwarded to providers that need a draw-from
+        anchor (perpendicular, tangent). Ignored by all others.
         """
         items_list = list(items)
         threshold_sq = threshold * threshold
@@ -57,7 +61,9 @@ class SnapRegistry:
         best: SnapCandidate | None = None
         best_dist_sq = threshold_sq
         for provider in self._providers:
-            for candidate in provider.candidates(scene_pos, items_list, threshold):
+            for candidate in provider.candidates(
+                scene_pos, items_list, threshold, reference_point=reference_point
+            ):
                 dx = candidate.point.x() - scene_pos.x()
                 dy = candidate.point.y() - scene_pos.y()
                 d_sq = dx * dx + dy * dy

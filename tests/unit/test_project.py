@@ -105,6 +105,20 @@ class TestProjectData:
             "plant:rose",
         ]
 
+    def test_paper_layouts_key_silently_ignored(self) -> None:
+        """Earlier draft builds of PR #191 wrote a top-level paper_layouts
+        array for the Paper Space MVP that was dropped before merge.
+        Loader must ignore it so those draft-build files still open."""
+        data = ProjectData.from_dict({
+            "version": "1.4",
+            "canvas": {"width": 5000.0, "height": 3000.0},
+            "layers": [],
+            "objects": [],
+            "paper_layouts": [{"name": "old"}],
+        })
+        # No crash, no warning, no field exposed.
+        assert not hasattr(data, "paper_layouts")
+
 
 
 class TestProjectManager:

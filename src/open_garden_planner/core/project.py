@@ -20,8 +20,39 @@ from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_b
 from open_garden_planner.core.object_types import PathFenceStyle, StrokeStyle
 from open_garden_planner.models.layer import Layer, create_default_layers
 
-# File format version for backward compatibility
-FILE_VERSION = "1.3"
+# File format version for backward compatibility.
+#
+# 1.4 (Phase 13 Package B): adds ``bezier`` and ``arc`` item types.
+# v1.3 files load transparently with no new items.
+#
+# A short-lived earlier draft also wrote a top-level ``paper_layouts``
+# array for the Paper Space MVP; that feature was dropped before PR
+# #191 merged because the existing ``pdf_report_service`` already
+# covers print-to-PDF at chosen paper sizes. The loader silently
+# ignores any ``paper_layouts`` key it encounters so projects saved by
+# those draft builds still open.
+FILE_VERSION = "1.4"
+
+
+def _is_newer_file_version(file_version: str, supported_version: str) -> bool:
+    """Return True if ``file_version`` is strictly newer than ``supported_version``.
+
+    Versions are ``X.Y`` strings. Unparseable strings are treated as
+    equal-or-older so legacy files (e.g. an early build that wrote
+    "1.0" or no version key at all) still open.
+    """
+    def _parse(v: str) -> tuple[int, int] | None:
+        try:
+            parts = v.split(".")
+            return (int(parts[0]), int(parts[1]))
+        except (ValueError, IndexError):
+            return None
+
+    a = _parse(file_version)
+    b = _parse(supported_version)
+    if a is None or b is None:
+        return False
+    return a > b
 
 
 @dataclass
@@ -152,6 +183,10 @@ class ProjectData:
             prefer_organic=bool(data.get("prefer_organic", True)),
             succession_plans=data.get("succession_plans", {}),
             garden_journal_notes=data.get("garden_journal_notes", {}),
+            # Note: `data.get("paper_layouts", ...)` is intentionally
+            # not consumed here — the Paper Space feature was dropped
+            # before PR #191 merged but earlier draft builds may have
+            # written this key. Silently ignored.
         )
 
 
@@ -668,9 +703,29 @@ class ProjectManager(QObject):
         Args:
             scene: The scene to load objects into
             file_path: Path to load from
+
+        Raises:
+            ValueError: If the file was created by a newer version of
+                Open Garden Planner. Old binaries opening newer files
+                silently drop unknown item types and keys on save,
+                which corrupts the user's data — better to fail loudly.
         """
         with open(file_path, encoding="utf-8") as f:
             raw_data = json.load(f)
+
+        # Forward-compat guard: older binaries reading a newer file would
+        # silently drop unknown content on save (issue surfaced in the
+        # P1 review pass). Accept ``X.Y`` ≤ ``FILE_VERSION``; reject
+        # anything higher. Unknown version strings are treated as "old"
+        # to keep legacy files loadable.
+        file_version = str(raw_data.get("version", "1.0"))
+        if _is_newer_file_version(file_version, FILE_VERSION):
+            raise ValueError(
+                f"Project file was created by a newer version of Open "
+                f"Garden Planner (file format {file_version}, this build "
+                f"supports up to {FILE_VERSION}). Please update the app "
+                f"before opening this project."
+            )
 
         data = ProjectData.from_dict(raw_data)
         self._deserialize_to_scene(scene, data)
@@ -1010,7 +1065,9 @@ class ProjectManager(QObject):
         """Core serialization logic for a single graphics item."""
         # Import here to avoid circular dependency
         from open_garden_planner.ui.canvas.items import (
+            ArcItem,
             BackgroundImageItem,
+            BezierItem,
             CircleItem,
             ConstructionCircleItem,
             ConstructionLineItem,
@@ -1020,7 +1077,16 @@ class ProjectManager(QObject):
             RectangleItem,
         )
 
-        if isinstance(item, (ConstructionLineItem, ConstructionCircleItem, BackgroundImageItem)):
+        if isinstance(
+            item,
+            (
+                ConstructionLineItem,
+                ConstructionCircleItem,
+                BackgroundImageItem,
+                ArcItem,
+                BezierItem,
+            ),
+        ):
             return item.to_dict()
         elif isinstance(item, RectangleItem):
             rect = item.rect()
@@ -1363,7 +1429,9 @@ class ProjectManager(QObject):
         # Import here to avoid circular dependency
         from open_garden_planner.core.object_types import ObjectType
         from open_garden_planner.ui.canvas.items import (
+            ArcItem,
             BackgroundImageItem,
+            BezierItem,
             CircleItem,
             EllipseItem,
             PolygonItem,
@@ -1381,6 +1449,10 @@ class ProjectManager(QObject):
             return ConstructionLineItem.from_dict(obj)
         elif obj_type == "construction_circle":
             return ConstructionCircleItem.from_dict(obj)
+        elif obj_type == "arc":
+            return ArcItem.from_dict(obj)
+        elif obj_type == "bezier":
+            return BezierItem.from_dict(obj)
         elif obj_type == "group":
             import contextlib
             from uuid import UUID as _UUID

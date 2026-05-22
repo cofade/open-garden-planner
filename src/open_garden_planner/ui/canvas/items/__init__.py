@@ -1,6 +1,8 @@
 """Canvas item classes for the garden planner."""
 
+from .arc_item import ArcItem
 from .background_image_item import BackgroundImageItem
+from .bezier_item import BezierItem
 from .callout_item import CalloutItem
 from .circle_item import CircleItem
 from .construction_item import ConstructionCircleItem, ConstructionLineItem
@@ -16,7 +18,9 @@ from .soil_badge_item import SoilBadgeItem
 from .text_item import TextItem
 
 __all__ = [
+    "ArcItem",
     "BackgroundImageItem",
+    "BezierItem",
     "CalloutItem",
     "CircleItem",
     "ConstructionCircleItem",

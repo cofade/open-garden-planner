@@ -153,6 +153,10 @@ def _shape_items() -> list[GalleryItem]:
         (_tr("Polygon"), ToolType.POLYGON, ObjectType.GENERIC_POLYGON, "polygon"),
         (_tr("Circle"), ToolType.CIRCLE, ObjectType.GENERIC_CIRCLE, "circle"),
         (_tr("Ellipse"), ToolType.ELLIPSE, ObjectType.GENERIC_ELLIPSE, "ellipse"),
+        # Phase 13 Package B (US-B2): 3-point arc.
+        (_tr("Arc (3-point)"), ToolType.ARC, ObjectType.GENERIC_CIRCLE, "arc"),
+        # Phase 13 Package B (US-B1): cubic Bezier pen tool.
+        (_tr("Bezier"), ToolType.BEZIER, ObjectType.GENERIC_POLYGON, "bezier"),
     ]:
         thumb = render_tool_icon_thumbnail(icon) or render_color_circle_thumbnail(
             OBJECT_STYLES[obj].fill_color

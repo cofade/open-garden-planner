@@ -31,6 +31,10 @@ class SnapCandidateKind(Enum):
     EDGE = auto()
     MIDPOINT = auto()
     INTERSECTION = auto()
+    # Phase 13 Package B (US-B4/B5/B6)
+    NEAREST = auto()
+    PERPENDICULAR = auto()
+    TANGENT = auto()
 
 
 @dataclass(frozen=True)
@@ -58,6 +62,13 @@ class SnapProvider(ABC):
         scene_pos: QPointF,
         items: Iterable[QGraphicsItem],
         threshold: float,
+        reference_point: QPointF | None = None,
     ) -> Iterable[SnapCandidate]:
-        """Yield candidates within ``threshold`` of ``scene_pos``."""
+        """Yield candidates within ``threshold`` of ``scene_pos``.
+
+        ``reference_point`` is the anchor that the active drawing tool is
+        drawing from (e.g. the previous polyline vertex). Required by
+        perpendicular/tangent providers; all others ignore it. ``None``
+        means no drawing tool is active or it has no anchor yet.
+        """
         raise NotImplementedError

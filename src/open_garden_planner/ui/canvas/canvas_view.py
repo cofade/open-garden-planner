@@ -58,11 +58,17 @@ from open_garden_planner.core.snap.providers import (
     EndpointSnapProvider,
     IntersectionSnapProvider,
     MidpointSnapProvider,
+    NearestSnapProvider,
+    PerpendicularSnapProvider,
+    TangentSnapProvider,
 )
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
 from open_garden_planner.core.tools import (
     AngleConstraintTool,
+    ArcTool,
+    BezierTool,
     CalloutTool,
+    ChamferTool,
     CircleTool,
     CoincidentConstraintTool,
     ConstraintTool,
@@ -71,6 +77,7 @@ from open_garden_planner.core.tools import (
     EdgeLengthConstraintTool,
     EllipseTool,
     EqualConstraintTool,
+    FilletTool,
     FixedConstraintTool,
     HorizontalConstraintTool,
     HorizontalDistanceConstraintTool,
@@ -173,6 +180,15 @@ class CanvasView(QGraphicsView):
         self._object_snap_enabled = True
         self._midpoint_snap_enabled = True
         self._intersection_snap_enabled = True
+        # Phase 13 Package B (US-B4): nearest-point fallback snap, off by
+        # default to preserve the existing free-placement-near-edges UX.
+        self._nearest_snap_enabled = False
+        # Phase 13 Package B (US-B5): perpendicular snap from tool's
+        # last_point, off by default.
+        self._perpendicular_snap_enabled = False
+        # Phase 13 Package B (US-B6): tangent snap from tool's last_point
+        # onto circles / arcs, off by default.
+        self._tangent_snap_enabled = False
         self._dynamic_input_enabled = True
         self._grid_size = 50.0  # 50cm default grid
         self._scale_bar_visible = True
@@ -306,6 +322,9 @@ class CanvasView(QGraphicsView):
         # Register CAD editing tools
         self._tool_manager.register_tool(TrimExtendTool(self))
         self._tool_manager.register_tool(OffsetTool(self))
+        # Phase 13 Package B (US-B3): fillet & chamfer corner editors.
+        self._tool_manager.register_tool(FilletTool(self))
+        self._tool_manager.register_tool(ChamferTool(self))
 
         # Register generic shape tools
         rect_tool = RectangleTool(self, object_type=ObjectType.GENERIC_RECTANGLE)
@@ -323,6 +342,14 @@ class CanvasView(QGraphicsView):
         ellipse_tool = EllipseTool(self, object_type=ObjectType.GENERIC_ELLIPSE)
         ellipse_tool.shortcut = "E"
         self._tool_manager.register_tool(ellipse_tool)
+
+        # Phase 13 Package B (US-B2): 3-point arc tool.
+        arc_tool = ArcTool(self)
+        self._tool_manager.register_tool(arc_tool)
+
+        # Phase 13 Package B (US-B1): cubic Bezier pen tool.
+        bezier_tool = BezierTool(self)
+        self._tool_manager.register_tool(bezier_tool)
 
         text_tool = TextTool(self)
         self._tool_manager.register_tool(text_tool)
@@ -370,7 +397,10 @@ class CanvasView(QGraphicsView):
         garden_bed_tool = PolygonTool(self, object_type=ObjectType.GARDEN_BED)
         garden_bed_tool.tool_type = ToolType.GARDEN_BED
         garden_bed_tool.display_name = self.tr("Garden Bed")
-        garden_bed_tool.shortcut = "B"
+        # Shortcut freed in Phase 13 B1 — "B" now maps to Bezier per the
+        # CAD-tool convention (Inkscape / Illustrator / Figma). Garden
+        # Bed remains accessible from the Beds & Surfaces gallery.
+        garden_bed_tool.shortcut = ""
         self._tool_manager.register_tool(garden_bed_tool)
 
         lawn_tool = PolygonTool(self, object_type=ObjectType.LAWN)
@@ -899,6 +929,21 @@ class CanvasView(QGraphicsView):
         self._intersection_snap_enabled = enabled
         self._refresh_snap_registry()
 
+    def set_nearest_snap_enabled(self, enabled: bool) -> None:
+        """Set nearest-point fallback snap (Package B US-B4) enabled."""
+        self._nearest_snap_enabled = enabled
+        self._refresh_snap_registry()
+
+    def set_perpendicular_snap_enabled(self, enabled: bool) -> None:
+        """Set perpendicular snap (Package B US-B5) enabled."""
+        self._perpendicular_snap_enabled = enabled
+        self._refresh_snap_registry()
+
+    def set_tangent_snap_enabled(self, enabled: bool) -> None:
+        """Set tangent snap (Package B US-B6) enabled."""
+        self._tangent_snap_enabled = enabled
+        self._refresh_snap_registry()
+
     def set_dynamic_input_enabled(self, enabled: bool) -> None:
         """Set dynamic input (Package A US-A4) enabled."""
         self._dynamic_input_enabled = enabled
@@ -924,6 +969,13 @@ class CanvasView(QGraphicsView):
             return
         tool = self._tool_manager.active_tool
         if tool is None or getattr(tool, "tool_type", None) == ToolType.SELECT:
+            if self._dynamic_overlay is not None:
+                self._dynamic_overlay.hide_overlay()
+            return
+        if not getattr(tool, "accepts_typed_coordinates", True):
+            # Tools whose next click is a geometric pick (3-point arc,
+            # etc.) opt out so users don't see a misleading Dist/Angle
+            # prompt.
             if self._dynamic_overlay is not None:
                 self._dynamic_overlay.hide_overlay()
             return
@@ -1008,6 +1060,24 @@ class CanvasView(QGraphicsView):
             and reg.has(IntersectionSnapProvider)
         ):
             reg.remove(IntersectionSnapProvider)
+        if self._nearest_snap_enabled and not reg.has(NearestSnapProvider):
+            reg.add(NearestSnapProvider())
+        elif not self._nearest_snap_enabled and reg.has(NearestSnapProvider):
+            reg.remove(NearestSnapProvider)
+        if (
+            self._perpendicular_snap_enabled
+            and not reg.has(PerpendicularSnapProvider)
+        ):
+            reg.add(PerpendicularSnapProvider())
+        elif (
+            not self._perpendicular_snap_enabled
+            and reg.has(PerpendicularSnapProvider)
+        ):
+            reg.remove(PerpendicularSnapProvider)
+        if self._tangent_snap_enabled and not reg.has(TangentSnapProvider):
+            reg.add(TangentSnapProvider())
+        elif not self._tangent_snap_enabled and reg.has(TangentSnapProvider):
+            reg.remove(TangentSnapProvider)
 
     def set_grid_size(self, size: float) -> None:
         """Set grid size in centimeters."""
@@ -1491,6 +1561,18 @@ class CanvasView(QGraphicsView):
         self._point_snapper.update_scene(items, scene_bounds=self.scene().sceneRect())
         self._snap_index_dirty = False
 
+    @property
+    def current_snap_candidate(self) -> "SnapCandidate | None":
+        """The most recent snap result, or ``None`` if the cursor isn't snapped.
+
+        Drawing tools read this in `mouse_press` to record *which* snap kind
+        and source item produced each committed vertex, so the auto-
+        constraint emitter (Package B follow-up) can decide whether to
+        attach a POINT_ON_EDGE / POINT_ON_CIRCLE / PERPENDICULAR constraint
+        on finalization.
+        """
+        return self._current_snap
+
     def anchor_snap(
         self,
         scene_pos: QPointF,
@@ -1501,14 +1583,35 @@ class CanvasView(QGraphicsView):
         Returns the (possibly unchanged) point and the snap candidate that
         produced it (``None`` if no provider matched within ``threshold``).
         Caller can use the candidate's ``kind`` to render a glyph.
+
+        Phase 13 B5: the active drawing tool's ``last_point`` is
+        forwarded to the registry as ``reference_point`` so the
+        perpendicular and tangent providers can operate against it.
         """
         if not self._snap_registry.providers():
             return scene_pos, None
         self._ensure_snap_index()
-        hit = self._point_snapper.snap(scene_pos, threshold=threshold)
+        ref = self._active_tool_reference_point()
+        hit = self._point_snapper.snap(
+            scene_pos, threshold=threshold, reference_point=ref
+        )
         if hit is None:
             return scene_pos, None
         return QPointF(hit.point), hit
+
+    def _active_tool_reference_point(self) -> "QPointF | None":
+        """Return the active drawing tool's anchor for perpendicular/tangent.
+
+        Reads ``last_point`` from the tool — ``None`` when no tool is
+        active, the tool exposes no anchor, or the select tool is up.
+        """
+        tool = self._tool_manager.active_tool
+        if tool is None:
+            return None
+        last = getattr(tool, "last_point", None)
+        if last is None:
+            return None
+        return QPointF(last)
 
     @property
     def coordinate_input_buffer(self) -> "CoordinateInputBuffer":
@@ -3805,6 +3908,43 @@ class CanvasView(QGraphicsView):
             )
             painter.drawLine(
                 QPointF(cx - size / 2, cy + size / 2),
+                QPointF(cx + size / 2, cy - size / 2),
+            )
+        elif kind == SnapCandidateKind.NEAREST:
+            # Hourglass — two triangles meeting at the snap point.
+            from PyQt6.QtGui import QPolygonF
+
+            top = QPolygonF(
+                [
+                    QPointF(cx - size / 2, cy - size / 2),
+                    QPointF(cx + size / 2, cy - size / 2),
+                    QPointF(cx, cy),
+                ]
+            )
+            bot = QPolygonF(
+                [
+                    QPointF(cx - size / 2, cy + size / 2),
+                    QPointF(cx + size / 2, cy + size / 2),
+                    QPointF(cx, cy),
+                ]
+            )
+            painter.drawPolygon(top)
+            painter.drawPolygon(bot)
+        elif kind == SnapCandidateKind.PERPENDICULAR:
+            # ⊥ symbol — short horizontal base + vertical stem upward.
+            painter.drawLine(
+                QPointF(cx - size / 2, cy + size / 3),
+                QPointF(cx + size / 2, cy + size / 3),
+            )
+            painter.drawLine(
+                QPointF(cx, cy + size / 3),
+                QPointF(cx, cy - size / 2),
+            )
+        elif kind == SnapCandidateKind.TANGENT:
+            # Small circle with a horizontal tangent line above it.
+            painter.drawEllipse(QPointF(cx, cy + size / 4), size / 3, size / 3)
+            painter.drawLine(
+                QPointF(cx - size / 2, cy - size / 2),
                 QPointF(cx + size / 2, cy - size / 2),
             )
         else:  # EDGE

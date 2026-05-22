@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- Original sharp corner shown as faint dashed lines -->
+  <path d="M 3 4 L 19 4 L 19 20" stroke="#bbb" stroke-width="1.4" stroke-dasharray="2,1.5" fill="none" stroke-linecap="round"/>
+  <!-- Filleted corner: horizontal in, quarter arc, vertical out -->
+  <path d="M 3 4 L 12 4 A 7 7 0 0 1 19 11 L 19 20" stroke="#333" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Centre dot of the fillet arc -->
+  <circle cx="12" cy="11" r="1.1" fill="#1976d2"/>
+</svg>

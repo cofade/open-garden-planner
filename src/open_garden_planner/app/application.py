@@ -581,6 +581,50 @@ class GardenPlannerApp(QMainWindow):
         )
         menu.addAction(self._intersection_snap_action)
 
+        # Toggle Nearest Snap (Package B — US-B4). Fallback below the
+        # other snap kinds; off by default so it doesn't surprise users.
+        self._nearest_snap_action = QAction(self.tr("Snap to &Nearest Point"), self)
+        self._nearest_snap_action.setCheckable(True)
+        self._nearest_snap_action.setChecked(False)
+        self._nearest_snap_action.setStatusTip(
+            self.tr("Toggle snap to the closest point on any visible edge or curve")
+        )
+        self._nearest_snap_action.triggered.connect(self._on_toggle_nearest_snap)
+        menu.addAction(self._nearest_snap_action)
+
+        # Toggle Perpendicular Snap (Package B — US-B5). Drops the
+        # perpendicular foot from the active tool's anchor onto a
+        # hovered edge; off by default.
+        self._perpendicular_snap_action = QAction(
+            self.tr("Snap &Perpendicular"), self
+        )
+        self._perpendicular_snap_action.setCheckable(True)
+        self._perpendicular_snap_action.setChecked(False)
+        self._perpendicular_snap_action.setStatusTip(
+            self.tr(
+                "Toggle snap to the perpendicular foot from the last "
+                "drawn point onto the nearest edge"
+            )
+        )
+        self._perpendicular_snap_action.triggered.connect(
+            self._on_toggle_perpendicular_snap
+        )
+        menu.addAction(self._perpendicular_snap_action)
+
+        # Toggle Tangent Snap (Package B — US-B6). Snaps to the tangent
+        # point on a circle / arc from the active tool's anchor.
+        self._tangent_snap_action = QAction(self.tr("Snap &Tangent"), self)
+        self._tangent_snap_action.setCheckable(True)
+        self._tangent_snap_action.setChecked(False)
+        self._tangent_snap_action.setStatusTip(
+            self.tr(
+                "Toggle snap to the tangent point on a circle or arc from "
+                "the last drawn point"
+            )
+        )
+        self._tangent_snap_action.triggered.connect(self._on_toggle_tangent_snap)
+        menu.addAction(self._tangent_snap_action)
+
         # Toggle Dynamic Input (Package A - US-A4)
         self._dynamic_input_action = QAction(self.tr("Enable Dynamic &Input"), self)
         self._dynamic_input_action.setCheckable(True)
@@ -1072,7 +1116,10 @@ class GardenPlannerApp(QMainWindow):
         self.seed_inventory_view.set_canvas_scene(self.canvas_scene)  # US-9.6: bidirectional links
         self._tab_widget.addTab(self.seed_inventory_view, self.tr("Seed Inventory"))
 
-        # Keyboard shortcuts: Ctrl+1 / Ctrl+2 / Ctrl+3 to switch tabs
+        # Keyboard shortcuts: Ctrl+1 / Ctrl+2 / Ctrl+3 to switch tabs.
+        # (The "Layout / Paper Space" tab was dropped — `pdf_report_service`
+        # already produces multi-page PDFs at chosen paper sizes, so a
+        # second-space CAD-style print workflow added no value on top.)
         tab0_shortcut = QAction(self)
         tab0_shortcut.setShortcut(QKeySequence("Ctrl+1"))
         tab0_shortcut.triggered.connect(lambda: self._tab_widget.setCurrentIndex(0))
@@ -2708,6 +2755,18 @@ class GardenPlannerApp(QMainWindow):
         self._intersection_snap_action.setChecked(inter)
         self.canvas_view.set_intersection_snap_enabled(inter)
 
+        near = settings.nearest_snap_enabled
+        self._nearest_snap_action.setChecked(near)
+        self.canvas_view.set_nearest_snap_enabled(near)
+
+        perp = settings.perpendicular_snap_enabled
+        self._perpendicular_snap_action.setChecked(perp)
+        self.canvas_view.set_perpendicular_snap_enabled(perp)
+
+        tan = settings.tangent_snap_enabled
+        self._tangent_snap_action.setChecked(tan)
+        self.canvas_view.set_tangent_snap_enabled(tan)
+
         dyn = settings.dynamic_input_enabled
         self._dynamic_input_action.setChecked(dyn)
         self.canvas_view.set_dynamic_input_enabled(dyn)
@@ -2841,6 +2900,27 @@ class GardenPlannerApp(QMainWindow):
 
         self.canvas_view.set_intersection_snap_enabled(checked)
         get_settings().intersection_snap_enabled = checked
+
+    def _on_toggle_nearest_snap(self, checked: bool) -> None:
+        """Handle toggle nearest-point fallback snap (Package B US-B4)."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_view.set_nearest_snap_enabled(checked)
+        get_settings().nearest_snap_enabled = checked
+
+    def _on_toggle_perpendicular_snap(self, checked: bool) -> None:
+        """Handle toggle perpendicular snap (Package B US-B5)."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_view.set_perpendicular_snap_enabled(checked)
+        get_settings().perpendicular_snap_enabled = checked
+
+    def _on_toggle_tangent_snap(self, checked: bool) -> None:
+        """Handle toggle tangent snap (Package B US-B6)."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_view.set_tangent_snap_enabled(checked)
+        get_settings().tangent_snap_enabled = checked
 
     def _on_toggle_dynamic_input(self, checked: bool) -> None:
         """Handle toggle dynamic input action (Package A US-A4)."""

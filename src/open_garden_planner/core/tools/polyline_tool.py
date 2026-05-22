@@ -45,6 +45,11 @@ class PolylineTool(BaseTool):
         super().__init__(view)
         self._object_type = object_type
         self._points: list[QPointF] = []
+        # Per-vertex snap context (Package B follow-up) — parallel to
+        # _points; each entry is the SnapCandidate that produced the
+        # vertex, or None for a free-placed click. Used by
+        # `auto_constraint.emit_for_polyline` on finalization.
+        self._snap_contexts: list[object | None] = []
         self._preview_path: QGraphicsPathItem | None = None
         self._vertex_markers: list[QGraphicsEllipseItem] = []
         self._is_drawing = False
@@ -56,6 +61,11 @@ class PolylineTool(BaseTool):
 
         # Snap the position to grid if enabled
         snapped_pos = self._view.snap_point(scene_pos)
+
+        # Capture the click-time snap candidate before any further
+        # mouse movement clears it; this drives the auto-constraint
+        # emitter on finalization.
+        self._snap_contexts.append(self._view.current_snap_candidate)
 
         # Add point
         self._points.append(snapped_pos)
@@ -121,6 +131,9 @@ class PolylineTool(BaseTool):
     def commit_typed_coordinate(self, point: QPointF) -> bool:
         """Add a vertex at ``point`` exactly (no grid snap)."""
         self._points.append(QPointF(point))
+        # Typed coordinates aren't snapped — record None so the indices
+        # of _points and _snap_contexts stay aligned.
+        self._snap_contexts.append(None)
         self._add_vertex_marker(point)
         if not self._is_drawing:
             self._is_drawing = True
@@ -131,6 +144,7 @@ class PolylineTool(BaseTool):
     def _reset_state(self) -> None:
         """Reset tool state."""
         self._points = []
+        self._snap_contexts = []
         self._preview_path = None
         self._vertex_markers = []
         self._is_drawing = False
@@ -176,6 +190,8 @@ class PolylineTool(BaseTool):
         """Remove the last added point."""
         if self._points:
             self._points.pop()
+        if self._snap_contexts:
+            self._snap_contexts.pop()
         if self._vertex_markers:
             marker = self._vertex_markers.pop()
             self._view.scene().removeItem(marker)
@@ -197,6 +213,13 @@ class PolylineTool(BaseTool):
             layer_id = scene.active_layer.id if hasattr(scene, 'active_layer') and scene.active_layer else None
             item = PolylineItem(self._points, object_type=self._object_type, layer_id=layer_id)
             self._view.add_item(item, "polyline")
+            # Auto-emit constraints for any vertex that landed on a
+            # nearest / perpendicular snap. Tangent is a no-op pending
+            # US-B8 (no constraint type yet).
+            from open_garden_planner.core.auto_constraint import (
+                emit_for_polyline,
+            )
+            emit_for_polyline(self._view, item, self._snap_contexts)
 
         self._reset_state()
 

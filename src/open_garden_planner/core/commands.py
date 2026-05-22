@@ -1418,6 +1418,105 @@ class ExtendPolylineCommand(Command):
         self._item._rebuild_path()  # type: ignore[attr-defined]
 
 
+# ────────────────────────────────────────────────────────────────────────────
+# Fillet / Chamfer corner commands (Phase 13 Package B — US-B3)
+# ────────────────────────────────────────────────────────────────────────────
+
+
+class FilletCornerCommand(Command):
+    """Round one corner of a polyline / polygon / rectangle with a tangent arc.
+
+    Execute:
+        - Polyline / polygon: replace the corner vertex with the two tangent
+          points; spawn a separate ``ArcItem`` for the rounded fillet.
+        - Rectangle: convert to a 5-vertex polygon (one corner becomes two
+          tangent points); spawn the arc. On undo the rectangle is restored
+          unchanged.
+
+    The arc itself is created externally and passed in already-built so the
+    command stays pure-Python and doesn't depend on Qt geometry calls during
+    undo/redo.
+    """
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        original_item: QGraphicsItem,
+        new_item: QGraphicsItem,
+        arc_item: QGraphicsItem,
+    ) -> None:
+        """Initialize.
+
+        Args:
+            scene: Canvas scene.
+            original_item: The polyline / polygon / rectangle being modified.
+            new_item: Replacement item carrying the corner-split vertex list.
+                For polylines / polygons this is a fresh ``PolylineItem`` /
+                ``PolygonItem`` with the same styling. For rectangles it is
+                a ``PolygonItem`` (the destructive rect→polygon conversion).
+            arc_item: Pre-built ``ArcItem`` representing the fillet arc.
+        """
+        self._scene = scene
+        self._original = original_item
+        self._new = new_item
+        self._arc = arc_item
+
+    @property
+    def description(self) -> str:
+        return "Fillet corner"
+
+    def execute(self) -> None:
+        if self._original.scene() is not None:
+            self._scene.removeItem(self._original)
+        if self._new.scene() is None:
+            self._scene.addItem(self._new)
+        if self._arc.scene() is None:
+            self._scene.addItem(self._arc)
+
+    def undo(self) -> None:
+        if self._arc.scene() is not None:
+            self._scene.removeItem(self._arc)
+        if self._new.scene() is not None:
+            self._scene.removeItem(self._new)
+        if self._original.scene() is None:
+            self._scene.addItem(self._original)
+
+
+class ChamferCornerCommand(Command):
+    """Bevel one corner of a polyline / polygon / rectangle with a straight cut.
+
+    Like ``FilletCornerCommand`` but without an arc — the corner vertex is
+    simply replaced by two cut-points so the two adjacent edges keep their
+    direction and a new straight segment bridges them.
+    """
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        original_item: QGraphicsItem,
+        new_item: QGraphicsItem,
+    ) -> None:
+        self._scene = scene
+        self._original = original_item
+        self._new = new_item
+
+    @property
+    def description(self) -> str:
+        return "Chamfer corner"
+
+    def execute(self) -> None:
+        if self._original.scene() is not None:
+            self._scene.removeItem(self._original)
+        if self._new.scene() is None:
+            self._scene.addItem(self._new)
+
+    def undo(self) -> None:
+        if self._new.scene() is not None:
+            self._scene.removeItem(self._new)
+        if self._original.scene() is None:
+            self._scene.addItem(self._original)
+
+
 class AddSoilTestCommand(Command):
     """Add a soil test record to a bed (or the global default) — undoable.
 

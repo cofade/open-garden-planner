@@ -186,6 +186,21 @@ Full history: see `docs/roadmap.md`.
 
 See **ADR-020** (snap engine: provider registry + quadtree spatial index) and **ADR-021** (input pipeline: shared `CoordinateInputBuffer`).
 
+## Phase 13 ✅ Complete (Package B — closing the CAD precision gap, v1.12.0)
+
+| Status | US    | Description                                                      |
+| ------ | ----- | ---------------------------------------------------------------- |
+| ✅     | B1    | Cubic Bezier pen tool (`B`) — click-drag per anchor, smooth tangent default |
+| ✅     | B2    | 3-point Arc tool (`A`) — circumcenter math + collinear → polyline fallback |
+| ✅     | B3    | Fillet (`Shift+F`) + Chamfer (`Shift+C`) — polyline/polygon mutate in place; rectangle → polygon-with-arc (destructive, undoable) |
+| ✅     | B4    | Nearest-point fallback snap (priority 45, default off)           |
+| ✅     | B5    | Perpendicular snap from active tool's `last_point` (priority 25) |
+| ✅     | B6    | Tangent snap onto circles + arcs from `last_point` (priority 26) |
+
+> US-B7 (Paper Space MVP) was dropped during PR #191 manual-test review: the existing `pdf_report_service` already covers print-to-PDF at chosen paper sizes, so a second-space CAD-style print workflow added nothing on top. `FILE_VERSION` stays at 1.4 (bezier + arc item types). The `paper_layouts` key written by short-lived draft builds is silently ignored on load.
+
+See **ADR-022** (Bezier model + filleted-rectangle conversion) and **ADR-023** (snap pipeline v2).
+
 Next: **Phase 14 (v2.0)** — 3D Visualization & Sun/Shade (Future). See `docs/roadmap.md`.
 
 ## Phase 12 issue work
