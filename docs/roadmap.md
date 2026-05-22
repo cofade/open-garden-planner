@@ -2260,6 +2260,43 @@ Sets `_soil_mismatch_level: str` on each bed item → read in `paint()`.
 
 ---
 
+## Phase 13: CAD Precision Boost — Package B (v1.12.0)
+
+**Goal**: Close the remaining CAD precision gaps in one coordinated release — curve tools (cubic Bezier + 3-point arc), corner editors (fillet + chamfer), three new reference-point-aware snap modes (nearest, perpendicular, tangent), and a Paper Space MVP for print layouts. See ADR-022 (Bezier model + filleted-rectangle conversion) and ADR-023 (snap pipeline v2 + paper space).
+
+| Status | US    | Description                                                      |
+| ------ | ----- | ---------------------------------------------------------------- |
+| ✅     | B1    | Cubic Bezier pen tool + handle editing                           |
+| ✅     | B2    | 3-point Arc tool (collinear → polyline fallback)                 |
+| ✅     | B3    | Fillet (`Shift+F`) + Chamfer (`Shift+C`) corner editors          |
+| ✅     | B4    | Nearest-point fallback snap                                      |
+| ✅     | B5    | Perpendicular snap from active tool's `last_point`               |
+| ✅     | B6    | Tangent snap onto circles + arcs from `last_point`               |
+| ✅     | B7    | Paper Space MVP (Layout tab — one page, one viewport)            |
+
+### Acceptance highlights
+- `SnapProvider.candidates()` extended with `reference_point: QPointF | None = None`; all in-tree providers updated atomically; existing tests still green.
+- File format `FILE_VERSION` bumped 1.3 → 1.4 with forward-fill defaults (new `paper_layouts` key, new `arc` / `bezier` item types). v1.3 files load unchanged — regression test in place.
+- Filleted rectangles convert destructively to polygon-with-arc; undo restores the rectangle (ADR-022).
+- Shared `services/scene_rendering.render_scene_region()` helper backs both PNG export and paper-space viewports — PNG export refactored as the proof-of-life second caller and regression-tested.
+- Viewport renders cached as `QPixmap`; cache invalidates on `CanvasScene.changed` so model edits propagate without per-frame jank.
+
+### Out of scope (deferred)
+- Multi-viewport / multi-page / multiple layouts / custom title-block templates
+- Alt-break-symmetry handles on Bezier (smooth-only in MVP)
+- Native DXF export of cubic Beziers (rasterised for now)
+- `pdf_report_service` + `print_dialog` migration to `render_scene_region` — only `export_to_png` migrated in this PR; the others land in a follow-up
+
+### Docs updated on completion
+| Document | Section |
+|----------|---------|
+| `docs/05-building-block-view/` | new `ui/paper_space/`, `services/scene_rendering.py`, `core/cad_geometry.py` additions, new `*_tool.py` + `*_item.py` files |
+| `docs/09-architecture-decisions/` | ADR-022 Bezier + filleted rect, ADR-023 Snap pipeline v2 + paper space |
+| `docs/functional-requirements.md` | FR-20 (curves, corners, ref-point snaps, paper space) — FR-DRAW-08/09, FR-EDIT-10/11, FR-SNAP-07/08/09, FR-LAYOUT-01…06 |
+| `docs/12-glossary/` | Arc (3-point), Cubic Bezier, Fillet, Chamfer, Nearest/Perpendicular/Tangent snap, Reference point, Model/Paper space, Viewport, Title block, Scale bar, render_scene_region |
+
+---
+
 ## Phase 14: 3D Visualization & Sun/Shade (Future, v2.0)
 
 **Goal**: Full three-dimensional garden view with sun/shade simulation — the milestone that justifies a major version bump.
