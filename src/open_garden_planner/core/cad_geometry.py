@@ -251,3 +251,158 @@ def arc_from_three_points(
     _ = a2  # noqa: F841
 
     return center, radius, start_deg, span_deg
+
+
+# ---------------------------------------------------------------------------
+# Fillet / Chamfer corner geometry (Phase 13 Package B — US-B3)
+# ---------------------------------------------------------------------------
+
+
+def fillet_corner(
+    p_prev: QPointF,
+    p_corner: QPointF,
+    p_next: QPointF,
+    radius: float,
+) -> tuple[QPointF, QPointF, QPointF, float, float] | None:
+    """Compute a fillet arc tangent to two edges meeting at ``p_corner``.
+
+    The corner is formed by the edges ``p_prev → p_corner`` and
+    ``p_corner → p_next``. The fillet replaces the sharp corner with a
+    circular arc of the given radius, tangent to both edges. The tangent
+    points lie on the edges at distance ``radius / tan(α)`` from the
+    corner, where ``2α`` is the interior angle.
+
+    Args:
+        p_prev: Previous vertex (start of incoming edge).
+        p_corner: The corner vertex being filleted.
+        p_next: Next vertex (end of outgoing edge).
+        radius: Desired arc radius (must be positive).
+
+    Returns:
+        ``(tangent_in, tangent_out, arc_center, start_deg, span_deg)``
+        where ``tangent_in`` lies on ``p_prev → p_corner``, ``tangent_out``
+        lies on ``p_corner → p_next``, ``arc_center`` is the arc center
+        on the bisector at distance ``radius / sin(α)``, and the angles
+        follow the math convention used by ``ArcItem`` (CCW from +X,
+        signed span). Span magnitude equals ``π - 2α``.
+
+        Returns ``None`` if the radius is too large to fit between the
+        corner and either neighbouring vertex, if the corner is
+        degenerate (straight, doubled-back, or zero-length edge), or if
+        ``radius <= 0``.
+    """
+    if radius <= 0:
+        return None
+
+    ax = p_prev.x() - p_corner.x()
+    ay = p_prev.y() - p_corner.y()
+    cx_ = p_next.x() - p_corner.x()
+    cy_ = p_next.y() - p_corner.y()
+
+    len_a = math.hypot(ax, ay)
+    len_c = math.hypot(cx_, cy_)
+    if len_a < PARALLEL_EPSILON or len_c < PARALLEL_EPSILON:
+        return None
+
+    u1x, u1y = ax / len_a, ay / len_a
+    u2x, u2y = cx_ / len_c, cy_ / len_c
+
+    cos_2a = u1x * u2x + u1y * u2y
+    cos_2a = max(-1.0, min(1.0, cos_2a))
+    if cos_2a > 1.0 - 1e-9 or cos_2a < -1.0 + 1e-9:
+        return None
+
+    two_alpha = math.acos(cos_2a)
+    alpha = two_alpha / 2.0
+    sin_a = math.sin(alpha)
+    tan_a = math.tan(alpha)
+    if sin_a < 1e-9 or tan_a < 1e-9:
+        return None
+
+    edge_offset = radius / tan_a
+    if edge_offset > len_a + 1e-9 or edge_offset > len_c + 1e-9:
+        return None
+
+    tangent_in = QPointF(
+        p_corner.x() + u1x * edge_offset,
+        p_corner.y() + u1y * edge_offset,
+    )
+    tangent_out = QPointF(
+        p_corner.x() + u2x * edge_offset,
+        p_corner.y() + u2y * edge_offset,
+    )
+
+    bx_, by_ = u1x + u2x, u1y + u2y
+    bl = math.hypot(bx_, by_)
+    if bl < 1e-9:
+        return None
+    bx_ /= bl
+    by_ /= bl
+
+    center_dist = radius / sin_a
+    center = QPointF(
+        p_corner.x() + bx_ * center_dist,
+        p_corner.y() + by_ * center_dist,
+    )
+
+    theta_in = math.atan2(tangent_in.y() - center.y(), tangent_in.x() - center.x())
+    theta_out = math.atan2(tangent_out.y() - center.y(), tangent_out.x() - center.x())
+
+    span = theta_out - theta_in
+    while span > math.pi:
+        span -= 2.0 * math.pi
+    while span < -math.pi:
+        span += 2.0 * math.pi
+
+    return tangent_in, tangent_out, center, math.degrees(theta_in), math.degrees(span)
+
+
+def chamfer_corner(
+    p_prev: QPointF,
+    p_corner: QPointF,
+    p_next: QPointF,
+    distance: float,
+) -> tuple[QPointF, QPointF] | None:
+    """Compute a chamfer (straight bevel) at ``p_corner``.
+
+    The two cut points sit at ``distance`` along each adjacent edge from
+    the corner. The corner is replaced by a straight segment connecting
+    them.
+
+    Args:
+        p_prev: Previous vertex.
+        p_corner: The corner vertex being chamfered.
+        p_next: Next vertex.
+        distance: Cut-back distance along each edge (must be positive).
+
+    Returns:
+        ``(cut_in, cut_out)`` where ``cut_in`` lies on
+        ``p_prev → p_corner`` and ``cut_out`` lies on
+        ``p_corner → p_next``. Returns ``None`` if ``distance`` exceeds
+        either edge length, if an edge is zero-length, or if
+        ``distance <= 0``.
+    """
+    if distance <= 0:
+        return None
+
+    ax = p_prev.x() - p_corner.x()
+    ay = p_prev.y() - p_corner.y()
+    cx_ = p_next.x() - p_corner.x()
+    cy_ = p_next.y() - p_corner.y()
+
+    len_a = math.hypot(ax, ay)
+    len_c = math.hypot(cx_, cy_)
+    if len_a < PARALLEL_EPSILON or len_c < PARALLEL_EPSILON:
+        return None
+    if distance > len_a + 1e-9 or distance > len_c + 1e-9:
+        return None
+
+    cut_in = QPointF(
+        p_corner.x() + (ax / len_a) * distance,
+        p_corner.y() + (ay / len_a) * distance,
+    )
+    cut_out = QPointF(
+        p_corner.x() + (cx_ / len_c) * distance,
+        p_corner.y() + (cy_ / len_c) * distance,
+    )
+    return cut_in, cut_out

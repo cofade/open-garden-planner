@@ -99,6 +99,12 @@ _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
     _ToolEntry(
         "offset", "Offset (O) — parallel copy inward/outward", "O", ToolType.OFFSET
     ),
+    _ToolEntry(
+        "fillet", "Fillet (Shift+F) — round a corner", "Shift+F", ToolType.FILLET
+    ),
+    _ToolEntry(
+        "chamfer", "Chamfer (Shift+C) — bevel a corner", "Shift+C", ToolType.CHAMFER
+    ),
 ]
 
 

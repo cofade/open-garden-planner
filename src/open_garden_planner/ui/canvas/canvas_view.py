@@ -68,6 +68,7 @@ from open_garden_planner.core.tools import (
     ArcTool,
     BezierTool,
     CalloutTool,
+    ChamferTool,
     CircleTool,
     CoincidentConstraintTool,
     ConstraintTool,
@@ -76,6 +77,7 @@ from open_garden_planner.core.tools import (
     EdgeLengthConstraintTool,
     EllipseTool,
     EqualConstraintTool,
+    FilletTool,
     FixedConstraintTool,
     HorizontalConstraintTool,
     HorizontalDistanceConstraintTool,
@@ -320,6 +322,9 @@ class CanvasView(QGraphicsView):
         # Register CAD editing tools
         self._tool_manager.register_tool(TrimExtendTool(self))
         self._tool_manager.register_tool(OffsetTool(self))
+        # Phase 13 Package B (US-B3): fillet & chamfer corner editors.
+        self._tool_manager.register_tool(FilletTool(self))
+        self._tool_manager.register_tool(ChamferTool(self))
 
         # Register generic shape tools
         rect_tool = RectangleTool(self, object_type=ObjectType.GENERIC_RECTANGLE)

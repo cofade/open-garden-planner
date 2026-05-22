@@ -44,6 +44,10 @@ class AppSettings:
     KEY_FROST_WARNING_ORANGE_C = "weather/frost_warning_orange_c"
     KEY_FROST_WARNING_RED_C = "weather/frost_warning_red_c"
 
+    # Phase 13 Package B (US-B3) — fillet/chamfer "last used" values
+    KEY_FILLET_LAST_RADIUS_CM = "tools/fillet_last_radius_cm"
+    KEY_CHAMFER_LAST_DISTANCE_CM = "tools/chamfer_last_distance_cm"
+
     # API key settings
     KEY_TREFLE_API_TOKEN = "api_keys/trefle_token"
     KEY_PERENUAL_API_KEY = "api_keys/perenual_key"
@@ -79,6 +83,12 @@ class AppSettings:
     DEFAULT_THEME_MODE = "system"
     DEFAULT_FROST_WARNING_ORANGE_C = 5.0
     DEFAULT_FROST_WARNING_RED_C = 2.0
+
+    # Phase 13 Package B (US-B3): default fillet radius / chamfer distance
+    # in cm. These are the "last used" values that prefill the input dialog
+    # so repeat applications don't require retyping.
+    DEFAULT_FILLET_LAST_RADIUS_CM = 25.0
+    DEFAULT_CHAMFER_LAST_DISTANCE_CM = 25.0
 
     def __init__(self) -> None:
         """Initialize the settings manager."""
@@ -484,6 +494,36 @@ class AppSettings:
     def frost_warning_red_c(self, value: float) -> None:
         """Set the red frost alert threshold."""
         self._settings.setValue(self.KEY_FROST_WARNING_RED_C, value)
+
+    @property
+    def fillet_last_radius_cm(self) -> float:
+        """Most recently used fillet radius (cm)."""
+        return float(
+            self._settings.value(
+                self.KEY_FILLET_LAST_RADIUS_CM,
+                self.DEFAULT_FILLET_LAST_RADIUS_CM,
+                type=float,
+            )
+        )
+
+    @fillet_last_radius_cm.setter
+    def fillet_last_radius_cm(self, value: float) -> None:
+        self._settings.setValue(self.KEY_FILLET_LAST_RADIUS_CM, float(value))
+
+    @property
+    def chamfer_last_distance_cm(self) -> float:
+        """Most recently used chamfer distance (cm)."""
+        return float(
+            self._settings.value(
+                self.KEY_CHAMFER_LAST_DISTANCE_CM,
+                self.DEFAULT_CHAMFER_LAST_DISTANCE_CM,
+                type=float,
+            )
+        )
+
+    @chamfer_last_distance_cm.setter
+    def chamfer_last_distance_cm(self, value: float) -> None:
+        self._settings.setValue(self.KEY_CHAMFER_LAST_DISTANCE_CM, float(value))
 
     def sync(self) -> None:
         """Force settings to be written to storage."""

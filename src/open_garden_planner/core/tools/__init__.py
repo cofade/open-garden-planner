@@ -4,6 +4,7 @@ from .arc_tool import ArcTool
 from .base_tool import BaseTool, ToolType
 from .bezier_tool import BezierTool
 from .callout_tool import CalloutTool
+from .chamfer_tool import ChamferTool
 from .circle_tool import CircleTool
 from .constraint_tool import (
     AngleConstraintTool,
@@ -22,6 +23,7 @@ from .constraint_tool import (
 )
 from .construction_tool import ConstructionCircleTool, ConstructionLineTool
 from .ellipse_tool import EllipseTool
+from .fillet_tool import FilletTool
 from .journal_pin_tool import JournalPinTool
 from .measure_tool import MeasureTool
 from .offset_tool import OffsetTool
@@ -39,12 +41,14 @@ __all__ = [
     "BaseTool",
     "BezierTool",
     "CalloutTool",
+    "ChamferTool",
     "CircleTool",
     "CoincidentConstraintTool",
     "ConstraintTool",
     "EdgeLengthConstraintTool",
     "EllipseTool",
     "EqualConstraintTool",
+    "FilletTool",
     "FixedConstraintTool",
     "ConstructionCircleTool",
     "ConstructionLineTool",

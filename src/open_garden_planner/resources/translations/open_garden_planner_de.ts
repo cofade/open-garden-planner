@@ -1225,6 +1225,22 @@
             <source>Construction Circle</source>
             <translation type="vanished">Hilfskreis</translation>
         </message>
+        <message>
+            <source>Trim/Extend (I) — X toggles mode</source>
+            <translation>Trimmen/Erweitern (I) — X wechselt Modus</translation>
+        </message>
+        <message>
+            <source>Offset (O) — parallel copy inward/outward</source>
+            <translation>Versatz (O) — parallele Kopie nach innen/außen</translation>
+        </message>
+        <message>
+            <source>Fillet (Shift+F) — round a corner</source>
+            <translation>Abrunden (Umschalt+F) — Ecke abrunden</translation>
+        </message>
+        <message>
+            <source>Chamfer (Shift+C) — bevel a corner</source>
+            <translation>Anfasen (Umschalt+C) — Ecke abschrägen</translation>
+        </message>
     </context>
     <context>
         <name>ConstraintsPanel</name>
@@ -8916,6 +8932,44 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Bezier</source>
             <translation>Bezier-Kurve</translation>
+        </message>
+    </context>
+    <context>
+        <name>FilletTool</name>
+        <message>
+            <source>Fillet</source>
+            <translation>Abrunden</translation>
+        </message>
+        <message>
+            <source>Radius (cm):</source>
+            <translation>Radius (cm):</translation>
+        </message>
+        <message>
+            <source>Fillet radius too large for this corner</source>
+            <translation>Abrundungsradius zu groß für diese Ecke</translation>
+        </message>
+        <message>
+            <source>Fillet radius: {radius:.1f} cm — press R to change</source>
+            <translation>Abrundungsradius: {radius:.1f} cm — R drücken zum Ändern</translation>
+        </message>
+    </context>
+    <context>
+        <name>ChamferTool</name>
+        <message>
+            <source>Chamfer</source>
+            <translation>Anfasen</translation>
+        </message>
+        <message>
+            <source>Distance (cm):</source>
+            <translation>Abstand (cm):</translation>
+        </message>
+        <message>
+            <source>Chamfer distance too large for this corner</source>
+            <translation>Anfasabstand zu groß für diese Ecke</translation>
+        </message>
+        <message>
+            <source>Chamfer distance: {distance:.1f} cm — press D to change</source>
+            <translation>Anfasabstand: {distance:.1f} cm — D drücken zum Ändern</translation>
         </message>
     </context>
 </TS>

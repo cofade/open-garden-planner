@@ -230,6 +230,24 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Bezier": "Bezier-Kurve",
     },
 
+    # ── FilletTool / ChamferTool (Phase 13 Package B — US-B3) ──
+    "FilletTool": {
+        "Fillet": "Abrunden",
+        "Radius (cm):": "Radius (cm):",
+        "Fillet radius too large for this corner":
+            "Abrundungsradius zu groß für diese Ecke",
+        "Fillet radius: {radius:.1f} cm — press R to change":
+            "Abrundungsradius: {radius:.1f} cm — R drücken zum Ändern",
+    },
+    "ChamferTool": {
+        "Chamfer": "Anfasen",
+        "Distance (cm):": "Abstand (cm):",
+        "Chamfer distance too large for this corner":
+            "Anfasabstand zu groß für diese Ecke",
+        "Chamfer distance: {distance:.1f} cm — press D to change":
+            "Anfasabstand: {distance:.1f} cm — D drücken zum Ändern",
+    },
+
     # ── EdgeLengthConstraintTool ──
     "EdgeLengthConstraintTool": {
         "Edge Length Constraint": "Kantenlängenrandbedingung",
@@ -1294,6 +1312,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── OffsetTool / CanvasView strings for offset ──
     "OffsetTool": {
         "Offset": "Versatz",
+    },
+
+    # ── ConstraintToolbar (button tooltips for CAD-editing tools) ──
+    "ConstraintToolbar": {
+        "Constraints": "Randbedingungen",
+        "Trim/Extend (I) — X toggles mode": "Trimmen/Erweitern (I) — X wechselt Modus",
+        "Offset (O) — parallel copy inward/outward":
+            "Versatz (O) — parallele Kopie nach innen/außen",
+        "Fillet (Shift+F) — round a corner": "Abrunden (Umschalt+F) — Ecke abrunden",
+        "Chamfer (Shift+C) — bevel a corner":
+            "Anfasen (Umschalt+C) — Ecke abschrägen",
     },
 
     # ── RectangleItem (context menu — pylupdate6 cannot extract _ alias) ──
