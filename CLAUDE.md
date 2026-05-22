@@ -196,9 +196,10 @@ See **ADR-020** (snap engine: provider registry + quadtree spatial index) and **
 | ✅     | B4    | Nearest-point fallback snap (priority 45, default off)           |
 | ✅     | B5    | Perpendicular snap from active tool's `last_point` (priority 25) |
 | ✅     | B6    | Tangent snap onto circles + arcs from `last_point` (priority 26) |
-| ✅     | B7    | Paper Space MVP — Layout tab (Ctrl+4), one page / one viewport / title block / scale bar; pixmap-cached viewport, FILE_VERSION 1.4 |
 
-See **ADR-022** (Bezier model + filleted-rectangle conversion) and **ADR-023** (snap pipeline v2 + paper space).
+> US-B7 (Paper Space MVP) was dropped during PR #191 manual-test review: the existing `pdf_report_service` already covers print-to-PDF at chosen paper sizes, so a second-space CAD-style print workflow added nothing on top. `FILE_VERSION` stays at 1.4 (bezier + arc item types). The `paper_layouts` key written by short-lived draft builds is silently ignored on load.
+
+See **ADR-022** (Bezier model + filleted-rectangle conversion) and **ADR-023** (snap pipeline v2).
 
 Next: **Phase 14 (v2.0)** — 3D Visualization & Sun/Shade (Future). See `docs/roadmap.md`.
 

@@ -61,12 +61,7 @@
 | **Perpendicular snap** | Foot of perpendicular from the active tool's `last_point` to the nearest straight edge. Requires a reference anchor; pure-cursor perpendicular has no meaning. Priority 25. Glyph: ⊥. See ADR-023 |
 | **Tangent snap** | Contact point of a line from `last_point` to a circle/arc's tangent (`α = acos(r/|RC|)`). Two solutions exist for an external point; cursor disambiguates. Priority 26. Glyph: small circle + tangent line. See ADR-023 |
 | **Reference point (snap)** | Optional `QPointF` passed to `SnapProvider.candidates()` that names the active tool's anchor (`last_point`). Required by perpendicular and tangent snaps; ignored by the older providers. See ADR-023 |
-| **Model space** | The user's drawing scene (`CanvasScene`) — true real-world cm coordinates, no scaling. Where all editing happens |
-| **Paper space** | A separate scene (`PaperSpaceScene`) that holds a printable page composed of viewports onto the model scene plus title block and scale bar. One unit = 1 paper-cm. See ADR-023 |
-| **Viewport (paper space)** | Rectangular "window" in paper space showing a region of the model scene. Stores `source_rect` (model-cm) and a paper-rect; `scale_factor = paper_rect.width / source_rect.width`. Cached as a `QPixmap`, invalidated on `source_scene.changed`. See ADR-023 |
-| **Title block** | Three-field corner panel on a paper-space page: project name (from project filename), date (today's ISO), scale label (1:N from viewport scale) |
-| **Scale bar** | Labelled tick bar that translates a fixed paper-cm length into model-space distance using the viewport's scale factor |
-| **render_scene_region** | Shared scene-region renderer in `services/scene_rendering.py`. Hides selection / construction / soil-badge overlays, optionally rescales text, paints `source_rect` of a scene into `target_rect` on any painter, applies the standard Y-flip, and restores everything afterwards. Used by both PNG export and paper-space viewports |
+| **render_scene_region** | Shared scene-region renderer in `services/scene_rendering.py`. Hides selection / construction / soil-badge overlays, optionally rescales text, paints `source_rect` of a scene into `target_rect` on any painter, applies the standard Y-flip, and restores everything afterwards. Currently used by PNG export; SVG export + print dialog migration is tracked as follow-up |
 
 ## 12.2 Keyboard Shortcuts
 
@@ -99,7 +94,6 @@
 | Garden Plan tab | Ctrl+1 |
 | Planting Calendar tab | Ctrl+2 |
 | Seed Inventory tab | Ctrl+3 |
-| Layout (Paper Space) tab | Ctrl+4 |
 | Bezier Tool | B |
 | Arc Tool (3-point) | A |
 | Fillet Tool | Shift+F |

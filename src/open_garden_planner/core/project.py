@@ -22,9 +22,15 @@ from open_garden_planner.models.layer import Layer, create_default_layers
 
 # File format version for backward compatibility.
 #
-# 1.4 (Phase 13 Package B): adds ``bezier`` and ``arc`` item types and the
-# top-level ``paper_layouts`` array. v1.3 files load transparently with
-# forward-filled defaults (empty layouts, no new items).
+# 1.4 (Phase 13 Package B): adds ``bezier`` and ``arc`` item types.
+# v1.3 files load transparently with no new items.
+#
+# A short-lived earlier draft also wrote a top-level ``paper_layouts``
+# array for the Paper Space MVP; that feature was dropped before PR
+# #191 merged because the existing ``pdf_report_service`` already
+# covers print-to-PDF at chosen paper sizes. The loader silently
+# ignores any ``paper_layouts`` key it encounters so projects saved by
+# those draft builds still open.
 FILE_VERSION = "1.4"
 
 
@@ -99,10 +105,6 @@ class ProjectData:
     # shape: {note_id: JournalNote.to_dict()}; canvas pins reference notes by id
     garden_journal_notes: dict[str, Any] = field(default_factory=dict)
 
-    # Phase 13 Package B (B7): paper-space layouts.
-    # Each entry describes a page: size, viewport rect/scale, title block fields.
-    paper_layouts: list[dict[str, Any]] = field(default_factory=list)
-
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         data: dict[str, Any] = {
@@ -152,8 +154,6 @@ class ProjectData:
             data["succession_plans"] = self.succession_plans
         if self.garden_journal_notes:
             data["garden_journal_notes"] = self.garden_journal_notes
-        if self.paper_layouts:
-            data["paper_layouts"] = self.paper_layouts
         return data
 
     @classmethod
@@ -183,7 +183,10 @@ class ProjectData:
             prefer_organic=bool(data.get("prefer_organic", True)),
             succession_plans=data.get("succession_plans", {}),
             garden_journal_notes=data.get("garden_journal_notes", {}),
-            paper_layouts=list(data.get("paper_layouts", [])),
+            # Note: `data.get("paper_layouts", ...)` is intentionally
+            # not consumed here — the Paper Space feature was dropped
+            # before PR #191 merged but earlier draft builds may have
+            # written this key. Silently ignored.
         )
 
 
@@ -234,8 +237,6 @@ class ProjectManager(QObject):
         self._prefer_organic: bool = True
         self._succession_plans: dict[str, Any] = {}
         self._garden_journal_notes: dict[str, Any] = {}
-        # Phase 13 Package B (US-B7): paper-space layouts.
-        self._paper_layouts: list[dict[str, Any]] = []
 
     @property
     def current_file(self) -> Path | None:
@@ -258,26 +259,6 @@ class ProjectManager(QObject):
     def location(self) -> dict[str, Any] | None:
         """Garden location data, or None if not set."""
         return self._location
-
-    @property
-    def paper_layouts(self) -> list[dict[str, Any]]:
-        """Paper-space layouts persisted with the project (US-B7).
-
-        Returns a shallow copy so external callers can't mutate the
-        manager's state by accident.
-        """
-        return list(self._paper_layouts)
-
-    def set_paper_layouts(self, layouts: list[dict[str, Any]]) -> None:
-        """Replace the paper-space layouts and mark the project dirty.
-
-        Used by the Layout tab when the user has opened it and made
-        changes. If the Layout tab was never opened, callers should
-        leave the loaded value alone (don't call this with an empty
-        list) — see ``GardenPlannerApp._save_to_file``.
-        """
-        self._paper_layouts = list(layouts)
-        self.mark_dirty()
 
     @property
     def task_completions(self) -> set[str]:
@@ -704,7 +685,6 @@ class ProjectManager(QObject):
         # matching pin before serialising so dragged pins round-trip cleanly.
         self._sync_journal_note_positions(scene)
         data.garden_journal_notes = dict(self._garden_journal_notes)
-        data.paper_layouts = list(self._paper_layouts)
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -797,8 +777,6 @@ class ProjectManager(QObject):
         # Restore garden journal notes (US-12.9)
         self._garden_journal_notes = dict(data.garden_journal_notes)
         self.garden_journal_notes_changed.emit(self._garden_journal_notes)
-        # Restore paper-space layouts (US-B7)
-        self._paper_layouts = list(data.paper_layouts)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)

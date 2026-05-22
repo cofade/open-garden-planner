@@ -1116,13 +1116,10 @@ class GardenPlannerApp(QMainWindow):
         self.seed_inventory_view.set_canvas_scene(self.canvas_scene)  # US-9.6: bidirectional links
         self._tab_widget.addTab(self.seed_inventory_view, self.tr("Seed Inventory"))
 
-        # Tab 3: Layout / Paper Space (US-B7) — created lazily on first visit.
-        self._paper_space_view = None
-        self._paper_space_scene = None
-        self._paper_space_placeholder = QWidget()
-        self._tab_widget.addTab(self._paper_space_placeholder, self.tr("Layout"))
-
-        # Keyboard shortcuts: Ctrl+1 / Ctrl+2 / Ctrl+3 / Ctrl+4 to switch tabs
+        # Keyboard shortcuts: Ctrl+1 / Ctrl+2 / Ctrl+3 to switch tabs.
+        # (The "Layout / Paper Space" tab was dropped — `pdf_report_service`
+        # already produces multi-page PDFs at chosen paper sizes, so a
+        # second-space CAD-style print workflow added no value on top.)
         tab0_shortcut = QAction(self)
         tab0_shortcut.setShortcut(QKeySequence("Ctrl+1"))
         tab0_shortcut.triggered.connect(lambda: self._tab_widget.setCurrentIndex(0))
@@ -1135,10 +1132,6 @@ class GardenPlannerApp(QMainWindow):
         tab2_shortcut.setShortcut(QKeySequence("Ctrl+3"))
         tab2_shortcut.triggered.connect(lambda: self._tab_widget.setCurrentIndex(2))
         self.addAction(tab2_shortcut)
-        tab3_shortcut = QAction(self)
-        tab3_shortcut.setShortcut(QKeySequence("Ctrl+4"))
-        tab3_shortcut.triggered.connect(lambda: self._tab_widget.setCurrentIndex(3))
-        self.addAction(tab3_shortcut)
 
         # Refresh calendar on tab switch and on canvas/location changes
         self._tab_widget.currentChanged.connect(self._on_tab_changed)
@@ -1856,15 +1849,6 @@ class GardenPlannerApp(QMainWindow):
                 soil_service=self._soil_service,
                 project_manager=self._project_manager,
             ).prune_stale_prices()
-            # Sync paper-space layout into the project manager before writing.
-            # Only overwrite when the user has actually opened the Layout
-            # tab — otherwise the previously loaded layouts are silently
-            # stripped (P0 data-loss bug). When the tab was never built,
-            # whatever was loaded from disk stays untouched.
-            if self._paper_space_scene is not None:
-                self._project_manager.set_paper_layouts(
-                    [self._paper_space_scene.to_dict()]
-                )
             self._project_manager.save(self.canvas_scene, file_path)
             # Clear the auto-save file since we've saved manually
             self._autosave_manager.clear_autosave()
@@ -4218,60 +4202,6 @@ class GardenPlannerApp(QMainWindow):
             self.calendar_view.refresh()
         elif index == 2:
             self.seed_inventory_view.refresh()
-        elif index == 3:
-            self._ensure_paper_space()
-
-    def _ensure_paper_space(self) -> None:
-        """Lazy-create the paper-space tab on first visit (US-B7)."""
-        if self._paper_space_view is not None:
-            return
-        from open_garden_planner.ui.paper_space import (
-            PaperSpaceScene,
-            PaperSpaceView,
-        )
-
-        # If the project has a stored layout, restore it; otherwise the
-        # scene populates a sensible default (one viewport + title block
-        # + scale bar at A4 landscape).
-        saved_layouts = self._project_manager.paper_layouts
-        self._paper_space_scene = PaperSpaceScene(self.canvas_scene)
-        if saved_layouts:
-            self._paper_space_scene.load_from_dict(saved_layouts[0])
-        self._paper_space_scene.sync_derived_fields(
-            project_name=self._project_display_name()
-        )
-        self._paper_space_view = PaperSpaceView(self._paper_space_scene)
-
-        # Swap the placeholder out for the real view.
-        idx = self._tab_widget.indexOf(self._paper_space_placeholder)
-        self._tab_widget.removeTab(idx)
-        self._tab_widget.insertTab(idx, self._paper_space_view, self.tr("Layout"))
-        self._tab_widget.setCurrentIndex(idx)
-        self._paper_space_view.fit_page()
-
-    def _project_display_name(self) -> str:
-        """Pull a clean display name out of the current project path."""
-        cur = getattr(self._project_manager, "_current_file", None)
-        if cur is None:
-            return ""
-        try:
-            return cur.stem
-        except AttributeError:
-            return str(cur)
-
-    def _paper_layouts_for_save(self) -> list[dict]:
-        """Return the current paper-space layout(s) for save serialisation.
-
-        When the Layout tab has never been visited, returns whatever was
-        already on the project manager (typically the layouts loaded
-        from disk). Visiting the tab and then saving picks up the live
-        scene's state instead. The save path (`_save_to_file`) handles
-        the no-tab case directly so it doesn't overwrite loaded layouts
-        with an empty list.
-        """
-        if self._paper_space_scene is None:
-            return self._project_manager.paper_layouts
-        return [self._paper_space_scene.to_dict()]
 
     def _on_frost_alert_ready(self, count: int, max_severity: str) -> None:
         """Update the frost alert corner badge."""

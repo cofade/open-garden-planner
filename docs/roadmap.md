@@ -2262,7 +2262,7 @@ Sets `_soil_mismatch_level: str` on each bed item → read in `paint()`.
 
 ## Phase 13: CAD Precision Boost — Package B (v1.12.0)
 
-**Goal**: Close the remaining CAD precision gaps in one coordinated release — curve tools (cubic Bezier + 3-point arc), corner editors (fillet + chamfer), three new reference-point-aware snap modes (nearest, perpendicular, tangent), and a Paper Space MVP for print layouts. See ADR-022 (Bezier model + filleted-rectangle conversion) and ADR-023 (snap pipeline v2 + paper space).
+**Goal**: Close the remaining CAD precision gaps in one coordinated release — curve tools (cubic Bezier + 3-point arc), corner editors (fillet + chamfer), and three new reference-point-aware snap modes (nearest, perpendicular, tangent). See ADR-022 (Bezier model + filleted-rectangle conversion) and ADR-023 (snap pipeline v2).
 
 | Status | US    | Description                                                      |
 | ------ | ----- | ---------------------------------------------------------------- |
@@ -2272,17 +2272,19 @@ Sets `_soil_mismatch_level: str` on each bed item → read in `paint()`.
 | ✅     | B4    | Nearest-point fallback snap                                      |
 | ✅     | B5    | Perpendicular snap from active tool's `last_point`               |
 | ✅     | B6    | Tangent snap onto circles + arcs from `last_point`               |
-| ✅     | B7    | Paper Space MVP (Layout tab — one page, one viewport)            |
+| ⛔     | B7    | Paper Space MVP — *dropped*; see note below                      |
+
+### US-B7 dropped during manual-test review
+
+US-B7 originally added a "Layout" tab (`Ctrl+4`) with one page / one viewport / title block / scale bar. Manual testing made it clear the abstraction added no user-visible value on top of what `pdf_report_service` already does (multi-page PDF at A4 / A3 / Letter / Legal, with the model rendered at fit-to-page scale and a built-in scale bar). The Layout tab, viewport item, title block, scale bar item, and `paper_layouts` schema were all removed from PR #191 before merge. `FILE_VERSION` stays at 1.4 because the bezier and arc item types — also part of this phase — are still real. The loader silently ignores the `paper_layouts` key it may encounter in `.ogp` files saved by short-lived draft builds of PR #191.
 
 ### Acceptance highlights
 - `SnapProvider.candidates()` extended with `reference_point: QPointF | None = None`; all in-tree providers updated atomically; existing tests still green.
-- File format `FILE_VERSION` bumped 1.3 → 1.4 with forward-fill defaults (new `paper_layouts` key, new `arc` / `bezier` item types). v1.3 files load unchanged — regression test in place.
+- File format `FILE_VERSION` bumped 1.3 → 1.4 to register the new `arc` / `bezier` item types. v1.3 files load unchanged — regression test in place.
 - Filleted rectangles convert destructively to polygon-with-arc; undo restores the rectangle (ADR-022).
-- Shared `services/scene_rendering.render_scene_region()` helper backs both PNG export and paper-space viewports — PNG export refactored as the proof-of-life second caller and regression-tested.
-- Viewport renders cached as `QPixmap`; cache invalidates on `CanvasScene.changed` so model edits propagate without per-frame jank.
+- Shared `services/scene_rendering.render_scene_region()` helper consolidates PNG export's overlay-hiding / Y-flip / text-scaling bookkeeping into one place. PNG export refactored to use it; SVG export + print dialog migration tracked as follow-up.
 
 ### Out of scope (deferred)
-- Multi-viewport / multi-page / multiple layouts / custom title-block templates
 - Alt-break-symmetry handles on Bezier (smooth-only in MVP)
 - Native DXF export of cubic Beziers (rasterised for now)
 - `pdf_report_service` + `print_dialog` migration to `render_scene_region` — only `export_to_png` migrated in this PR; the others land in a follow-up
@@ -2290,10 +2292,10 @@ Sets `_soil_mismatch_level: str` on each bed item → read in `paint()`.
 ### Docs updated on completion
 | Document | Section |
 |----------|---------|
-| `docs/05-building-block-view/` | new `ui/paper_space/`, `services/scene_rendering.py`, `core/cad_geometry.py` additions, new `*_tool.py` + `*_item.py` files |
-| `docs/09-architecture-decisions/` | ADR-022 Bezier + filleted rect, ADR-023 Snap pipeline v2 + paper space |
-| `docs/functional-requirements.md` | FR-20 (curves, corners, ref-point snaps, paper space) — FR-DRAW-08/09, FR-EDIT-10/11, FR-SNAP-07/08/09, FR-LAYOUT-01…06 |
-| `docs/12-glossary/` | Arc (3-point), Cubic Bezier, Fillet, Chamfer, Nearest/Perpendicular/Tangent snap, Reference point, Model/Paper space, Viewport, Title block, Scale bar, render_scene_region |
+| `docs/05-building-block-view/` | `services/scene_rendering.py`, `core/cad_geometry.py` additions, new `*_tool.py` + `*_item.py` files |
+| `docs/09-architecture-decisions/` | ADR-022 Bezier + filleted rect, ADR-023 Snap pipeline v2 |
+| `docs/functional-requirements.md` | FR-20 (curves, corners, ref-point snaps) — FR-DRAW-08/09, FR-EDIT-10/11, FR-SNAP-07/08/09 |
+| `docs/12-glossary/` | Arc (3-point), Cubic Bezier, Fillet, Chamfer, Nearest/Perpendicular/Tangent snap, Reference point, render_scene_region |
 
 ---
 

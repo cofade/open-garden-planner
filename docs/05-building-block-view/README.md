@@ -109,13 +109,6 @@ src/open_garden_planner/
 │   │       ├── bezier_item.py    # BezierItem (Package B US-B1)
 │   │       ├── background_image_item.py
 │   │       └── resize_handle.py
-│   ├── paper_space/              # Paper Space layout (Package B US-B7, ADR-023)
-│   │   ├── paper_space_scene.py  #   One-page printable scene
-│   │   ├── paper_space_view.py   #   QGraphicsView for paper space
-│   │   ├── viewport_item.py      #   Pixmap-cached window onto the model scene
-│   │   ├── title_block_item.py   #   Project / date / scale field block
-│   │   ├── scale_bar_item.py     #   Tick-bar scale reference
-│   │   └── page_sizes.py         #   A4 / A3 / Letter dimensions
 │   ├── panels/
 │   │   ├── drawing_tools_panel.py
 │   │   ├── properties_panel.py
