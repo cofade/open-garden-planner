@@ -9,7 +9,7 @@ reference (e.g. "0 — 1 m — 2 m" at 1:50, "0 — 2 m — 4 m" at 1:100).
 from __future__ import annotations
 
 from PyQt6.QtCore import QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsRectItem,
@@ -33,8 +33,10 @@ class ScaleBarItem(QGraphicsRectItem):
         super().__init__(QRectF(0, 0, _DEFAULT_WIDTH_CM, _HEIGHT_CM))
         self._scale_factor = scale_factor
 
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+        # Same rationale as TitleBlockItem: the scale bar is layout
+        # decoration, not a user-drag target.
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
 
         self.setPen(QPen(QColor(20, 20, 20), 0.3))
         self.setBrush(QBrush(Qt.BrushStyle.NoBrush))
@@ -65,7 +67,6 @@ class ScaleBarItem(QGraphicsRectItem):
 
         bar_height = rect.height() * 0.4
         bar_top = rect.y()
-        bar_bottom = bar_top + bar_height
         seg_w = rect.width() / _TICKS
 
         painter.setPen(QPen(QColor(20, 20, 20), 0.4))
@@ -79,33 +80,13 @@ class ScaleBarItem(QGraphicsRectItem):
             painter.setBrush(brush)
             painter.drawRect(QRectF(x_start, bar_top, seg_w, bar_height))
 
-        # Total bar length in model-cm.
-        bar_paper_cm = rect.width()
-        total_model_cm = bar_paper_cm / max(self._scale_factor, 1e-9)
-        seg_model_cm = total_model_cm / _TICKS
-
-        # `setPointSizeF` in a transformed scene-cm painter rendered
-        # invisible text at the default zoom (PR #191 manual-test
-        # feedback). `setPixelSize` is device-pixel deterministic and
-        # keeps text legible regardless of view zoom.
-        font = QFont()
-        font.setPixelSize(14)
-        painter.setFont(font)
-        painter.setPen(QColor(20, 20, 20))
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        for i in range(_TICKS + 1):
-            x = rect.x() + i * seg_w
-            label = _format_distance(i * seg_model_cm)
-            text_rect = QRectF(
-                x - seg_w / 2.0,
-                bar_bottom + 0.05,
-                seg_w,
-                rect.height() - bar_height - 0.05,
-            )
-            painter.drawText(
-                text_rect, int(Qt.AlignmentFlag.AlignCenter), label
-            )
-
+        # The tick distance labels (e.g. "0 — 1 m — 2 m") are deferred
+        # to issue #194. `painter.drawText` in a transformed, Y-flipped
+        # Paper Space painter produced unreliable visual output on the
+        # PR #191 manual-test baseline (invisible glyphs at small point
+        # sizes, white-bar placeholders at pixel sizes). The #194 pass
+        # replaces the manual text drawing with QGraphicsSimpleTextItem
+        # children which Qt renders predictably in transformed scenes.
         painter.restore()
 
     # ── Serialization ──────────────────────────────────────────────────

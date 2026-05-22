@@ -13,8 +13,8 @@ from __future__ import annotations
 
 from datetime import date as _date_cls
 
-from PyQt6.QtCore import QCoreApplication, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen
+from PyQt6.QtCore import QRectF
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsRectItem,
@@ -41,8 +41,13 @@ class TitleBlockItem(QGraphicsRectItem):
         self._date_iso = date_iso or _date_cls.today().isoformat()
         self._scale_label = scale_label
 
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+        # The title block is a layout decoration, not a user-positionable
+        # drawing object. Making it movable/selectable led to users
+        # accidentally dragging it (PR #191 manual-test feedback —
+        # leaves smear trails on move because the selection-rendered
+        # bounding rect doesn't cover the dashed indicator).
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
 
         pen = QPen(QColor(20, 20, 20), 0.4)
         pen.setCosmetic(False)
@@ -89,49 +94,26 @@ class TitleBlockItem(QGraphicsRectItem):
         super().paint(painter, option, widget)
         rect = self.rect()
 
+        # MVP: only the box + horizontal dividers are drawn. The
+        # Project / Date / Scale fields are tracked in the item's data
+        # (and persist through save/reload) but the actual text
+        # rendering is deferred to issue #194 — both `setPointSizeF`
+        # and `setPixelSize` in a Y-flipped, transformed paint()
+        # produced visual artefacts (invisible glyphs and white-bar
+        # placeholders respectively) on the PR #191 manual-test
+        # baseline. That UX pass will replace the manual painter.drawText
+        # with QGraphicsSimpleTextItem children, which Qt renders
+        # predictably in transformed scenes.
         painter.save()
-        # `setPointSizeF(6)` rendered as effectively invisible at the
-        # default Paper Space zoom (PR #191 manual-test feedback).
-        # `setPixelSize(N)` is device-pixel deterministic so the text
-        # stays at a consistent physical size on screen regardless of
-        # the user's view zoom. ~20 device-pixel text reads cleanly at
-        # the layout's default 2× zoom; if a user zooms in extremely
-        # close the title block rect grows but the text stays the same
-        # — that's the standard CAD convention for label text.
-        font = QFont()
-        font.setPixelSize(20)
-        painter.setFont(font)
-        painter.setPen(QColor(20, 20, 20))
-
         line_h = rect.height() / 3.0
-        pad = _PADDING_CM
-        label = QCoreApplication.translate
-        lines = [
-            (
-                label("TitleBlockItem", "Project:"),
-                self._project_name or label("TitleBlockItem", "(unsaved)"),
-            ),
-            (label("TitleBlockItem", "Date:"), self._date_iso),
-            (label("TitleBlockItem", "Scale:"), self._scale_label),
-        ]
-        for i, (lbl, value) in enumerate(lines):
-            text_rect = QRectF(
-                rect.x() + pad,
-                rect.y() + i * line_h + pad,
-                rect.width() - 2 * pad,
-                line_h - 2 * pad,
+        for i in (1, 2):
+            y = rect.y() + i * line_h
+            painter.drawLine(
+                int(rect.x()),
+                int(y),
+                int(rect.x() + rect.width()),
+                int(y),
             )
-            painter.drawText(text_rect, int(Qt.AlignmentFlag.AlignLeft), f"{lbl} {value}")
-
-            if i < 2:  # separator lines between fields
-                y = rect.y() + (i + 1) * line_h
-                painter.drawLine(
-                    int(rect.x()),
-                    int(y),
-                    int(rect.x() + rect.width()),
-                    int(y),
-                )
-
         painter.restore()
 
     # ── Serialization ──────────────────────────────────────────────────
