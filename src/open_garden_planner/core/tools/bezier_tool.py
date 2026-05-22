@@ -1,17 +1,20 @@
 """Cubic Bezier pen tool (Phase 13 Package B — US-B1).
 
-Authoring follows the standard pen-tool convention:
+Authoring follows a forgiving variant of the standard pen-tool convention:
 
-- Mouse press at point ``A``: place anchor ``A`` with both handles at
-  ``A`` (corner anchor, zero-length handles).
+- Mouse press at point ``A``: place anchor ``A`` with zero-length
+  handles for the time being.
 - Drag (while button held) at ``A``: stretch the *outgoing* handle from
   ``A`` toward the cursor; the incoming handle is the mirror around
-  ``A`` (smooth tangent).
+  ``A`` (smooth tangent set explicitly by the user).
 - Release: handle locked in.
 - Mouse press at ``B``: same workflow for the next anchor; the rubber
   band shows the cubic segment ``A → B`` continuously.
-- Enter / Return / double-click: finalize the curve (requires ≥ 2
-  anchors).
+- Enter / Return / double-click: finalize. **Any anchor where the user
+  did NOT drag** has its handles auto-computed from the neighboring
+  anchors using a Catmull-Rom-style tangent (tension 0.5), so casual
+  click-only authoring produces a smooth curve through the points.
+  Anchors with explicitly-dragged handles are left untouched.
 - Backspace: remove the most recent anchor.
 - Escape: cancel.
 
@@ -250,6 +253,7 @@ class BezierTool(BaseTool):
         if len(self._anchors) < 2:
             self.cancel()
             return
+        self._auto_smooth_click_only_anchors()
         self._cleanup_preview()
         scene = self._view.scene()
         layer_id = None
@@ -263,6 +267,48 @@ class BezierTool(BaseTool):
         )
         self._view.add_item(item, "bezier")
         self._reset_state()
+
+    def _auto_smooth_click_only_anchors(self) -> None:
+        """Replace zero-length handles with Catmull-Rom tangents.
+
+        For every anchor whose outgoing AND incoming handles are still
+        coincident with the anchor itself, compute a smooth tangent so
+        plain-click authoring produces a curve through the points
+        instead of a polyline. Anchors the user dragged are left
+        untouched.
+        """
+        n = len(self._anchors)
+        for i in range(n):
+            anchor = self._anchors[i]
+            if not (
+                _points_equal(self._handles_out[i], anchor)
+                and _points_equal(self._handles_in[i], anchor)
+            ):
+                continue  # user dragged — preserve explicit tangent
+            if 0 < i < n - 1:
+                # Symmetric Catmull-Rom (tension 0.5):
+                #   out = anchor + (next - prev) / 6
+                #   in  = anchor - (next - prev) / 6
+                prev_pt = self._anchors[i - 1]
+                next_pt = self._anchors[i + 1]
+                tx = (next_pt.x() - prev_pt.x()) / 6.0
+                ty = (next_pt.y() - prev_pt.y()) / 6.0
+                self._handles_out[i] = QPointF(anchor.x() + tx, anchor.y() + ty)
+                self._handles_in[i] = QPointF(anchor.x() - tx, anchor.y() - ty)
+            elif i == 0 and n >= 2:
+                # First anchor: handle points 1/3 of the way to the
+                # second anchor (Bessel/finite-difference endpoint).
+                next_pt = self._anchors[1]
+                self._handles_out[i] = QPointF(
+                    anchor.x() + (next_pt.x() - anchor.x()) / 3.0,
+                    anchor.y() + (next_pt.y() - anchor.y()) / 3.0,
+                )
+            else:  # i == n - 1
+                prev_pt = self._anchors[i - 1]
+                self._handles_in[i] = QPointF(
+                    anchor.x() + (prev_pt.x() - anchor.x()) / 3.0,
+                    anchor.y() + (prev_pt.y() - anchor.y()) / 3.0,
+                )
 
     def _cleanup_preview(self) -> None:
         scene = self._view.scene()

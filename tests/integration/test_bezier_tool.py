@@ -120,6 +120,58 @@ class TestBezierToolWorkflow:
         assert tool._handles_out[0].x() == 80
         assert tool._handles_in[0].x() == 20
 
+    def test_click_only_anchors_get_catmull_rom_tangents(
+        self, canvas: CanvasView
+    ) -> None:
+        """Manual-test feedback from PR #191: plain-click authoring should
+        produce a smooth curve through the clicked points, not a polyline."""
+        canvas.set_active_tool(ToolType.BEZIER)
+        tool = canvas.tool_manager.active_tool
+        _click_anchor(tool, 0, 0)
+        _click_anchor(tool, 100, 50)
+        _click_anchor(tool, 200, 0)
+        assert tool.key_press(_enter_event()) is True
+
+        item = _bezier_items(canvas)[0]
+        # First anchor: handle_out at 1/3 of the way to anchor[1].
+        assert item.handles_out[0].x() == pytest.approx(100 / 3.0)
+        assert item.handles_out[0].y() == pytest.approx(50 / 3.0)
+        # Middle anchor: symmetric Catmull-Rom (tension 0.5).
+        #   tx = (200 - 0) / 6 = 33.333..., ty = (0 - 0) / 6 = 0
+        assert item.handles_out[1].x() == pytest.approx(100 + 200 / 6.0)
+        assert item.handles_out[1].y() == pytest.approx(50)
+        assert item.handles_in[1].x() == pytest.approx(100 - 200 / 6.0)
+        assert item.handles_in[1].y() == pytest.approx(50)
+        # Last anchor: handle_in at 1/3 of the way back to anchor[n-2].
+        assert item.handles_in[2].x() == pytest.approx(200 - 100 / 3.0)
+        assert item.handles_in[2].y() == pytest.approx(50 / 3.0)
+
+    def test_dragged_anchor_keeps_explicit_handles(
+        self, canvas: CanvasView
+    ) -> None:
+        """Auto-smooth only fires on click-only anchors. Explicitly-dragged
+        anchors must keep their user-set tangents."""
+        canvas.set_active_tool(ToolType.BEZIER)
+        tool = canvas.tool_manager.active_tool
+        # Anchor 0: click only (no drag).
+        _click_anchor(tool, 0, 0)
+        # Anchor 1: press, drag handle to (150, 50), release.
+        event = _left_click_event()
+        tool.mouse_press(event, QPointF(100, 0))
+        tool.mouse_move(event, QPointF(150, 50))
+        tool.mouse_release(event, QPointF(150, 50))
+        # Anchor 2: click only.
+        _click_anchor(tool, 200, 0)
+        assert tool.key_press(_enter_event()) is True
+
+        item = _bezier_items(canvas)[0]
+        # Middle anchor was dragged → handle_out at (150, 50), handle_in
+        # mirrored to (50, -50). Auto-smooth must leave these alone.
+        assert item.handles_out[1].x() == pytest.approx(150)
+        assert item.handles_out[1].y() == pytest.approx(50)
+        assert item.handles_in[1].x() == pytest.approx(50)
+        assert item.handles_in[1].y() == pytest.approx(-50)
+
     def test_persists_through_save_and_reload(
         self, canvas: CanvasView, tmp_path
     ) -> None:
