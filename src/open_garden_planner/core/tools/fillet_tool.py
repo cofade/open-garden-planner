@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QCoreApplication, QPointF
+from PyQt6.QtCore import QCoreApplication, QPointF, QTimer
 from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import QApplication, QGraphicsItem, QInputDialog
 
@@ -47,14 +47,30 @@ class FilletTool(CornerEditTool):
 
     def activate(self) -> None:
         super().activate()
-        if _is_interactive_platform():
-            self._prompt_for_radius()
         if hasattr(self._view, "set_status_message"):
             msg = QCoreApplication.translate(
                 "FilletTool",
                 "Fillet radius: {radius:.1f} cm — press R to change",
             ).format(radius=self._radius)
             self._view.set_status_message(msg)
+        # Defer the modal dialog onto the next event-loop tick so tool
+        # activation fully completes first and the canvas keeps its mouse
+        # focus / hover tracking after the dialog closes. Running the
+        # modal synchronously inside `activate()` was leaving the view
+        # unable to receive mouse_move events afterwards (PR #191
+        # manual-test feedback). Skipped under offscreen Qt (CI / tests).
+        if _is_interactive_platform():
+            QTimer.singleShot(0, self._prompt_for_radius_and_refocus)
+
+    def _prompt_for_radius_and_refocus(self) -> None:
+        self._prompt_for_radius()
+        # Explicitly hand focus back to the view so the next mouse_move
+        # is delivered to this tool. QInputDialog.exec() can leave focus
+        # on the dialog's parent rather than on the graphics view itself.
+        if hasattr(self._view, "viewport"):
+            self._view.viewport().setMouseTracking(True)
+        if hasattr(self._view, "setFocus"):
+            self._view.setFocus()
 
     def key_press(self, event: QKeyEvent) -> bool:
         from PyQt6.QtCore import Qt

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QCoreApplication
+from PyQt6.QtCore import QCoreApplication, QTimer
 from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import QApplication, QInputDialog
 
@@ -41,14 +41,23 @@ class ChamferTool(CornerEditTool):
 
     def activate(self) -> None:
         super().activate()
-        if _is_interactive_platform():
-            self._prompt_for_distance()
         if hasattr(self._view, "set_status_message"):
             msg = QCoreApplication.translate(
                 "ChamferTool",
                 "Chamfer distance: {distance:.1f} cm — press D to change",
             ).format(distance=self._distance)
             self._view.set_status_message(msg)
+        # Defer the modal dialog onto the next event-loop tick — see the
+        # matching note in `FilletTool.activate()`.
+        if _is_interactive_platform():
+            QTimer.singleShot(0, self._prompt_for_distance_and_refocus)
+
+    def _prompt_for_distance_and_refocus(self) -> None:
+        self._prompt_for_distance()
+        if hasattr(self._view, "viewport"):
+            self._view.viewport().setMouseTracking(True)
+        if hasattr(self._view, "setFocus"):
+            self._view.setFocus()
 
     def key_press(self, event: QKeyEvent) -> bool:
         from PyQt6.QtCore import Qt
