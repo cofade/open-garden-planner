@@ -201,6 +201,25 @@ See **ADR-020** (snap engine: provider registry + quadtree spatial index) and **
 
 See **ADR-022** (Bezier model + filleted-rectangle conversion) and **ADR-023** (snap pipeline v2).
 
+## Package B Follow-ups — PR Plan (TEMPORARY)
+
+> **Self-removal protocol.** This whole section is scratch planning, not durable docs.
+> - When a PR below is merged, **delete that PR's subsection** in the same `chore:` version-sync commit that follows the merge.
+> - When the **last** remaining PR subsection is deleted, **delete this entire "Package B Follow-ups — PR Plan" heading and its intro** too — leave nothing behind.
+> - Epic #188 (Package C) is **not** part of this section; it stays an open epic on its own track.
+
+Eight open issues (validated against code) consolidate into three near-term PRs. Issue numbers are the source of truth; this table is just the batching.
+
+### PR 1 — "Make snap-constraints real" (#197 + #196 + #192, folds in #190)
+One feature sliced thin, not three. #196 is decorative without #197's drag-time enforcement; #196's TANGENT branch is blocked on #192. All touch `core/auto_constraint.py`, `core/constraints.py`, `core/snap/provider.py` (`SnapCandidate.source_edge_index`), `core/constraint_solver_newton.py`. #190 (autosave test-isolation) folds in because this PR adds polyline-finalize integration tests — the exact path that triggers the Windows autosave heap corruption #190 dodges.
+Branch: `feature/B-followups-pr1-constraints-real`. **Delete this PR-1 subsection on merge.**
+
+### PR 2 — "Curve item polish" (#195 + #193)
+Both center on `ArcItem` / `BezierItem`. #195 fixes 3-point-arc endpoint drift; #193 adds `VertexEditMixin`-style edit handles to the same items. Fix endpoints first, then add draggable handles on top. **Delete this PR-2 subsection on merge.**
+
+### PR 3 — Mirror tool (#187 remainder)
+The only undelivered slice of Package B epic #187 (US-B4). Standalone Modify-tool feature; close the epic with it. **Delete this PR-3 subsection on merge — and if it is the last subsection left, delete the whole section per the protocol above.**
+
 Next: **Phase 14 (v2.0)** — 3D Visualization & Sun/Shade (Future). See `docs/roadmap.md`.
 
 ## Phase 12 issue work

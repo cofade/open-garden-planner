@@ -9,16 +9,31 @@ from PyQt6.QtGui import QKeyEvent, QMouseEvent
 from open_garden_planner.app.application import GardenPlannerApp
 from open_garden_planner.core.tools.base_tool import ToolType
 from open_garden_planner.core.tools.polyline_tool import PolylineTool
+from open_garden_planner.ui.canvas.items import PolylineItem
 
 
 @pytest.fixture
-def window(qtbot) -> GardenPlannerApp:
+def window(qtbot, tmp_path, monkeypatch) -> GardenPlannerApp:
+    """Build the app with autosave isolated to ``tmp_path`` (issue #190).
+
+    Untitled auto-saves and the startup recovery scan both resolve through
+    ``tempfile.gettempdir()``; redirecting it at ``tmp_path`` sandboxes the
+    deferred autosave write so it can't corrupt a later test's startup
+    recovery scan on Windows. The autosave timer is also stopped on teardown
+    so no write fires during widget destruction — which lets these tests
+    exercise the *real* polyline finalize path instead of monkeypatching it.
+    """
+    import tempfile
+
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
     win = GardenPlannerApp()
     qtbot.addWidget(win)
     win.resize(800, 600)
     win.show()
     qtbot.waitExposed(win)
-    return win
+    yield win
+    if getattr(win, "_autosave_manager", None) is not None:
+        win._autosave_manager.stop()
 
 
 def _move_cursor(view, viewport_pos: QPoint) -> None:
@@ -260,19 +275,21 @@ def test_typed_enter_does_not_finalize_polyline(
 def test_empty_enter_forwards_to_active_tool(
     window: GardenPlannerApp,
 ) -> None:
-    """Enter on an empty overlay buffer should forward to the active tool.
+    """Empty-Enter on the overlay forwards Return to the active tool, which
+    finalizes the real polyline.
 
-    Verified by monkeypatching ``tool.key_press`` because letting the real
-    polyline finalize via ``add_item`` triggers autosave on disk and
-    destabilises later tests' app-startup teardown under pytest-qt on
-    Windows.  Follow-up: see issue #190 for the autosave-fixture work
-    that will let us exercise the real finalize path.
+    Exercises the genuine ``PolylineTool`` finalize path end-to-end (issue
+    #190): two vertices are committed, then an empty-Enter on the overlay
+    forwards a synthetic Return that the tool turns into a committed
+    ``PolylineItem``. The autosave write this triggers is sandboxed by the
+    ``window`` fixture, so no heap corruption leaks into later tests.
     """
     view = window.canvas_view
     view.set_active_tool(ToolType.FENCE)
     tool = view._tool_manager.active_tool
     assert isinstance(tool, PolylineTool)
     tool.commit_typed_coordinate(QPointF(0, 0))
+    tool.commit_typed_coordinate(QPointF(100, 0))
     view.refresh_input_anchor()
     _move_cursor(view, QPoint(100, 100))
 
@@ -280,28 +297,23 @@ def test_empty_enter_forwards_to_active_tool(
     assert overlay is not None
     assert overlay.isVisible()
 
-    received: list[int] = []
+    polys_before = [i for i in view.scene().items() if isinstance(i, PolylineItem)]
 
-    def fake_key_press(event: QKeyEvent) -> bool:
-        received.append(event.key())
-        return True
-
-    tool.key_press = fake_key_press  # type: ignore[method-assign]
-    try:
-        enter = QKeyEvent(
-            QKeyEvent.Type.KeyPress,
-            Qt.Key.Key_Return,
-            Qt.KeyboardModifier.NoModifier,
-            "\r",
-        )
-        overlay._distance_edit.keyPressEvent(enter)  # noqa: SLF001
-    finally:
-        del tool.key_press  # restore bound method
-
-    assert received == [Qt.Key.Key_Return.value], (
-        "Empty-Enter on the overlay must forward a synthetic Return to the "
-        "active tool so e.g. the polyline tool can finalize."
+    enter = QKeyEvent(
+        QKeyEvent.Type.KeyPress,
+        Qt.Key.Key_Return,
+        Qt.KeyboardModifier.NoModifier,
+        "\r",
     )
+    overlay._distance_edit.keyPressEvent(enter)  # noqa: SLF001
+
+    # Real finalize: a new PolylineItem is committed and the tool stops drawing.
+    polys_after = [i for i in view.scene().items() if isinstance(i, PolylineItem)]
+    assert len(polys_after) == len(polys_before) + 1, (
+        "Empty-Enter on the overlay must forward Return so the polyline tool "
+        "finalizes a real PolylineItem."
+    )
+    assert not tool._is_drawing  # noqa: SLF001
     # Overlay hidden after the empty-Enter forward.
     assert not overlay.isVisible()
 

@@ -81,6 +81,9 @@ class NearestSnapProvider(SnapProvider):
                 continue
 
             nearest: QPointF | None = None
+            # Set only when the projection lands on a specific straight
+            # edge; circle/arc/path projections leave it None.
+            edge_index: int | None = None
             if isinstance(item, ArcItem):
                 nearest = _nearest_on_arc(item, scene_pos)
             elif isinstance(item, (CircleItem, ConstructionCircleItem)):
@@ -92,7 +95,7 @@ class NearestSnapProvider(SnapProvider):
                 # Try straight-edge projection first (cheap and exact);
                 # if that yields nothing, fall back to path sampling so
                 # bezier curves work without an explicit branch.
-                nearest = _nearest_on_straight_edges(item, scene_pos)
+                edge_index, nearest = _nearest_on_straight_edges(item, scene_pos)
                 if nearest is None and isinstance(item, QGraphicsPathItem):
                     nearest = _nearest_on_path_item(item, scene_pos)
 
@@ -107,6 +110,7 @@ class NearestSnapProvider(SnapProvider):
                 kind=SnapCandidateKind.NEAREST,
                 priority=self.priority,
                 item=item,
+                source_edge_index=edge_index,
             )
 
 
@@ -131,11 +135,17 @@ def _project_on_segment(p: QPointF, line: QLineF) -> QPointF:
 
 def _nearest_on_straight_edges(
     item: QGraphicsItem, scene_pos: QPointF
-) -> QPointF | None:
-    """Return the closest point on any straight edge yielded by item_edges."""
+) -> tuple[int | None, QPointF | None]:
+    """Closest point on any straight edge yielded by item_edges.
+
+    Returns ``(edge_index, point)``; ``(None, None)`` when the item has no
+    straight edges. ``edge_index`` identifies which edge won so callers can
+    build an edge-anchored constraint.
+    """
     best: QPointF | None = None
+    best_index: int | None = None
     best_dsq = float("inf")
-    for edge in item_edges(item):
+    for edge_index, edge in enumerate(item_edges(item)):
         pt = _project_on_segment(scene_pos, edge)
         dx = pt.x() - scene_pos.x()
         dy = pt.y() - scene_pos.y()
@@ -143,7 +153,8 @@ def _nearest_on_straight_edges(
         if dsq < best_dsq:
             best_dsq = dsq
             best = pt
-    return best
+            best_index = edge_index
+    return best_index, best
 
 
 def _nearest_on_circle(item: QGraphicsItem, scene_pos: QPointF) -> QPointF | None:

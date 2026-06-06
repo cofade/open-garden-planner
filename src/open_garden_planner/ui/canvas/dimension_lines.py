@@ -390,6 +390,33 @@ class DimensionLineManager:
                 COLOR_COINCIDENT_SATISFIED if satisfied else COLOR_COINCIDENT_VIOLATED
             )
             self._build_point_on_edge_marker(group, pos_a, proj, pos_b, pos_c, color)
+        elif constraint.constraint_type == ConstraintType.TANGENT:
+            # pos_a = contact, pos_b = circle centre, anchor_c = far vertex.
+            # Tangent when the edge (pos_a→anchor_c) ⟂ the radius (pos_b−pos_a),
+            # i.e. the radius projected onto the edge is ~0. target_distance is
+            # the radius (display only).
+            radius = abs(constraint.target_distance)
+            satisfied = True
+            if constraint.anchor_c is not None:
+                pos_c = self._resolve_anchor_position(
+                    constraint.anchor_c.item_id,
+                    constraint.anchor_c.anchor_type,
+                    constraint.anchor_c.anchor_index,
+                )
+                if pos_c is not None:
+                    edx, edy = pos_c.x() - pos_a.x(), pos_c.y() - pos_a.y()
+                    edge_len = math.sqrt(edx * edx + edy * edy)
+                    if edge_len > 1e-9:
+                        proj = (
+                            (pos_b.x() - pos_a.x()) * edx
+                            + (pos_b.y() - pos_a.y()) * edy
+                        ) / edge_len
+                        satisfied = abs(proj) < 1.0  # 1 cm tolerance
+            color = (
+                COLOR_COINCIDENT_SATISFIED if satisfied else COLOR_COINCIDENT_VIOLATED
+            )
+            # Reuse the circle marker (centre + radius ring at the contact).
+            self._build_point_on_circle_marker(group, pos_a, pos_b, radius, color)
         else:
             # DISTANCE constraint
             current_dist = QLineF(pos_a, pos_b).length()

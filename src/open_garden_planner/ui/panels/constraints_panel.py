@@ -137,6 +137,12 @@ class ConstraintListItem(QWidget):
         elif constraint_type_name == "COINCIDENT":
             detail = self.tr("⦿ Coincident")
             tooltip = self.tr("{a} coincident with {b}").format(a=label_a, b=label_b)
+        elif constraint_type_name == "TANGENT":
+            dist_m = abs(target_distance) / 100.0  # target is signed (±radius)
+            detail = self.tr("◯ Tangent")
+            tooltip = self.tr("{a} tangent to {b} (r={d:.2f} m)").format(
+                a=label_a, b=label_b, d=dist_m
+            )
         elif constraint_type_name == "PARALLEL":
             detail = self.tr("\u2225 Parallel")
             tooltip = self.tr("{a} parallel to {b}").format(a=label_a, b=label_b)
@@ -176,6 +182,8 @@ class ConstraintListItem(QWidget):
             text = f"∠ {label_a}–{label_b}–…   {detail}"
         elif constraint_type_name == "COINCIDENT":
             text = f"⦿ {label_a}  ↔  {label_b}   {detail}"
+        elif constraint_type_name == "TANGENT":
+            text = f"◯ {label_a}  ⌒  {label_b}   {detail}"
         elif constraint_type_name == "PARALLEL":
             text = f"\u2225 {label_a}  \u2225  {label_b}"
         elif constraint_type_name == "PERPENDICULAR":
