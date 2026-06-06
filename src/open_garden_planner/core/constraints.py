@@ -43,9 +43,11 @@ class ConstraintType(Enum):
     POINT_ON_CIRCLE = (
         auto()
     )  # Constrain point A to lie on circle centred at B with radius = target_distance
-    TANGENT = auto()  # Line A–C tangent to circle B (radius = target_distance):
-    # the perpendicular distance from B's centre to the infinite line
-    # through anchors A and C equals target_distance.
+    TANGENT = auto()  # Edge A–C tangent to circle B at contact A: the edge
+    # (anchor_a→anchor_c) is perpendicular to the radius (anchor_b−anchor_a),
+    # residual (C−v1)·(v0−v1) = 0. Pair with POINT_ON_CIRCLE (non-degenerate)
+    # to weld the contact AND hold tangency. target_distance = radius (display
+    # only; the residual ignores it).
 
 
 class ConstraintStatus(Enum):

@@ -38,6 +38,11 @@ edge) rather than the rotation-only `ConstraintType.PERPENDICULAR`: the latter
 rotates a whole item and is skipped by the position solver, so it would not
 hold a single drawn edge at 90°. A true edge⟂edge residual is deferred.
 
+Sources without straight edges or a circular outline (ellipses, beziers, other
+`QGraphicsPathItem`s) carry no `source_edge_index` and no circle centre/radius,
+so a snap onto them emits *nothing* (a no-op, logged at debug). Extending
+coverage to those is future work.
+
 Drawing tools call `emit_for_polyline(view, item, snap_contexts)` immediately
 after creating the final item; constraints land in the project graph via the
 standard `AddConstraintCommand` so undo + dimension-line refresh fire.
@@ -45,9 +50,12 @@ standard `AddConstraintCommand` so undo + dimension-line refresh fire.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QLineF, QPointF
+
+_log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -111,13 +119,13 @@ def emit_for_polyline(
                 cmd.execute()
             added += 1
 
-    if added > 0:
-        # Snap the geometry to satisfy the new constraints right away, then
-        # refresh the dimension-line overlay so they're visible from creation.
-        if hasattr(view, "apply_constraint_solver"):
-            view.apply_constraint_solver()
-        if hasattr(view, "update_dimension_lines"):
-            view.update_dimension_lines()
+    if added > 0 and hasattr(view, "update_dimension_lines"):
+        # The snapped geometry already satisfies every emitted constraint (the
+        # vertex was placed at the snap point), so no solve is needed at
+        # creation — running one would only risk moving geometry off the undo
+        # stack. Just refresh the dimension-line overlay so the new constraints
+        # are visible immediately.
+        view.update_dimension_lines()
     return added
 
 
@@ -216,6 +224,12 @@ def _constraints_for_snap(
         )
         mid_anchor = _match_anchor(source, source_id, mid, _EDGE_MID_TYPES)
         if mid_anchor is None:
+            _log.debug(
+                "auto_constraint: MIDPOINT snap on edge %s of %s did not match a "
+                "catalogued midpoint anchor; no constraint emitted",
+                snap.source_edge_index,
+                type(source).__name__,
+            )
             return []
         return [(ConstraintType.COINCIDENT, vertex_anchor, mid_anchor, None, 0.0)]
 
@@ -223,6 +237,13 @@ def _constraints_for_snap(
         a_end = _match_anchor(source, source_id, edge.p1(), _VERTEX_TYPES)
         b_end = _match_anchor(source, source_id, edge.p2(), _VERTEX_TYPES)
         if a_end is None or b_end is None:
+            _log.debug(
+                "auto_constraint: %s snap on edge %s of %s did not match both edge "
+                "endpoints to catalogued anchors; no constraint emitted",
+                snap.kind.name,
+                snap.source_edge_index,
+                type(source).__name__,
+            )
             return []
         return [(ConstraintType.POINT_ON_EDGE, vertex_anchor, a_end, b_end, 0.0)]
 

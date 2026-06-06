@@ -138,7 +138,7 @@ class ConstraintListItem(QWidget):
             detail = self.tr("⦿ Coincident")
             tooltip = self.tr("{a} coincident with {b}").format(a=label_a, b=label_b)
         elif constraint_type_name == "TANGENT":
-            dist_m = abs(target_distance) / 100.0  # target is signed (±radius)
+            dist_m = abs(target_distance) / 100.0  # abs() defensive; target = radius
             detail = self.tr("◯ Tangent")
             tooltip = self.tr("{a} tangent to {b} (r={d:.2f} m)").format(
                 a=label_a, b=label_b, d=dist_m

@@ -1284,7 +1284,7 @@ class CanvasView(QGraphicsView):
                 ConstraintType.POINT_ON_CIRCLE,
                 ConstraintType.TANGENT,
             ):
-                # TANGENT stores a signed radius; show the magnitude.
+                # abs() is defensive; TANGENT's target is the (non-negative) radius.
                 rows.append((cid, f"{name} — {abs(c.target_distance) / 100.0:.2f} m"))
             elif c.constraint_type == ConstraintType.ANGLE:
                 rows.append((cid, f"{name} — {c.target_distance:.1f}°"))
