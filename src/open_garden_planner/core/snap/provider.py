@@ -42,12 +42,21 @@ class SnapCandidate:
     """A point produced by a :class:`SnapProvider`.
 
     Lower ``priority`` wins on ties (endpoint beats midpoint beats edge).
+
+    ``source_edge_index`` records which straight edge of ``item`` produced
+    this candidate (rectangle 0=top/1=right/2=bottom/3=left; polygon /
+    polyline edge ``i`` = vertex ``i``→``i+1``). It is ``None`` for
+    candidates that don't project onto a specific straight edge (circle /
+    arc projections, arc midpoints). The auto-constraint emitter uses it to
+    build a well-formed POINT_ON_EDGE / COINCIDENT constraint that names the
+    two edge endpoints — see :mod:`open_garden_planner.core.auto_constraint`.
     """
 
     point: QPointF
     kind: SnapCandidateKind
     priority: int = 100
     item: QGraphicsItem | None = None
+    source_edge_index: int | None = None
 
 
 class SnapProvider(ABC):

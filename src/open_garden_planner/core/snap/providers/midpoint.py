@@ -56,7 +56,7 @@ class MidpointSnapProvider(SnapProvider):
                     item=item,
                 )
                 continue
-            for edge in item_edges(item):
+            for edge_index, edge in enumerate(item_edges(item)):
                 mid = QPointF(
                     (edge.x1() + edge.x2()) / 2.0,
                     (edge.y1() + edge.y2()) / 2.0,
@@ -66,4 +66,5 @@ class MidpointSnapProvider(SnapProvider):
                     kind=SnapCandidateKind.MIDPOINT,
                     priority=self.priority,
                     item=item,
+                    source_edge_index=edge_index,
                 )

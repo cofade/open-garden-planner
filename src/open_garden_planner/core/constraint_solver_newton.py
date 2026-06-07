@@ -229,6 +229,25 @@ def newton_refine(
                 F.append(
                     math.sqrt((ax - bx) ** 2 + (ay - by) ** 2) - c.target_distance
                 )
+            elif ct == ConstraintType.TANGENT:
+                # Tangent at the contact: the edge (anchor_a→anchor_c) is
+                # perpendicular to the radius (anchor_b−anchor_a), i.e. the
+                # projection of the radius onto the edge is zero. Paired with
+                # POINT_ON_CIRCLE (which pins the radial distance) this is
+                # non-degenerate: this residual's gradient is along the edge,
+                # orthogonal to POINT_ON_CIRCLE's radial gradient. target is
+                # unused (stored only for display).
+                if c.anchor_c is None:
+                    F.append(0.0)
+                    continue
+                cx, cy = anchor_xy(x, c.anchor_c.item_id, c.anchor_c)
+                edx, edy = cx - ax, cy - ay  # edge = anchor_c − anchor_a
+                edge_len = math.sqrt(edx * edx + edy * edy)
+                if edge_len < 1e-6:
+                    F.append(0.0)
+                    continue
+                # radius·edge / |edge|  (== 0 when edge ⟂ radius)
+                F.append(((bx - ax) * edx + (by - ay) * edy) / edge_len)
             elif ct == ConstraintType.ANGLE:
                 if c.anchor_c is None:
                     F.append(0.0)

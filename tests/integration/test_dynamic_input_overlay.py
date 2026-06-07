@@ -9,16 +9,58 @@ from PyQt6.QtGui import QKeyEvent, QMouseEvent
 from open_garden_planner.app.application import GardenPlannerApp
 from open_garden_planner.core.tools.base_tool import ToolType
 from open_garden_planner.core.tools.polyline_tool import PolylineTool
+from open_garden_planner.ui.canvas.items import PolylineItem
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _no_blocking_modals() -> object:
+    """Neutralise the two modal dialogs that block the offscreen harness.
+
+    These tests drive the genuine polyline-finalize path, which dirties the
+    project. Two modals would then block forever offscreen:
+
+    - ``_startup_sequence`` (deferred 500 ms via ``QTimer.singleShot`` in
+      ``__init__``) runs the recovery scan and a modal welcome
+      ``WelcomeDialog.exec()``;
+    - ``_confirm_discard_changes`` opens a "save changes?" ``QMessageBox`` from
+      ``closeEvent`` when the project is dirty.
+
+    Patching them per-test is *not* enough: pytest-qt auto-closes the widget in
+    its own ``pytest_runtest_teardown`` (``_close_widgets``) whose ordering
+    versus a fixture finalizer isn't guaranteed, and a stray startup
+    ``singleShot`` can fire during final Qt teardown after a per-test patch has
+    reverted. Patching at **module scope** (never reverted between tests) makes
+    every firing a no-op / auto-proceed regardless of timing. (issue #190)
+    """
+    from unittest.mock import patch
+
+    with (
+        patch.object(GardenPlannerApp, "_startup_sequence", lambda *_: None),
+        patch.object(GardenPlannerApp, "_confirm_discard_changes", lambda *_: True),
+    ):
+        yield
 
 
 @pytest.fixture
-def window(qtbot) -> GardenPlannerApp:
+def window(qtbot, tmp_path, monkeypatch) -> GardenPlannerApp:
+    """Build the app sandboxed so tests can exercise the *real* finalize path.
+
+    ``tempfile.gettempdir`` → ``tmp_path`` sandboxes untitled auto-save writes
+    (keeping them off the real temp dir and out of a later test's startup
+    recovery scan). The autosave timer is stopped on teardown. The blocking
+    startup/close modals are handled module-wide by ``_no_blocking_modals``.
+    """
+    import tempfile
+
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
     win = GardenPlannerApp()
     qtbot.addWidget(win)
     win.resize(800, 600)
     win.show()
     qtbot.waitExposed(win)
-    return win
+    yield win
+    if getattr(win, "_autosave_manager", None) is not None:
+        win._autosave_manager.stop()
 
 
 def _move_cursor(view, viewport_pos: QPoint) -> None:
@@ -260,19 +302,21 @@ def test_typed_enter_does_not_finalize_polyline(
 def test_empty_enter_forwards_to_active_tool(
     window: GardenPlannerApp,
 ) -> None:
-    """Enter on an empty overlay buffer should forward to the active tool.
+    """Empty-Enter on the overlay forwards Return to the active tool, which
+    finalizes the real polyline.
 
-    Verified by monkeypatching ``tool.key_press`` because letting the real
-    polyline finalize via ``add_item`` triggers autosave on disk and
-    destabilises later tests' app-startup teardown under pytest-qt on
-    Windows.  Follow-up: see issue #190 for the autosave-fixture work
-    that will let us exercise the real finalize path.
+    Exercises the genuine ``PolylineTool`` finalize path end-to-end (issue
+    #190): two vertices are committed, then an empty-Enter on the overlay
+    forwards a synthetic Return that the tool turns into a committed
+    ``PolylineItem``. The autosave write this triggers is sandboxed by the
+    ``window`` fixture, so no heap corruption leaks into later tests.
     """
     view = window.canvas_view
     view.set_active_tool(ToolType.FENCE)
     tool = view._tool_manager.active_tool
     assert isinstance(tool, PolylineTool)
     tool.commit_typed_coordinate(QPointF(0, 0))
+    tool.commit_typed_coordinate(QPointF(100, 0))
     view.refresh_input_anchor()
     _move_cursor(view, QPoint(100, 100))
 
@@ -280,28 +324,23 @@ def test_empty_enter_forwards_to_active_tool(
     assert overlay is not None
     assert overlay.isVisible()
 
-    received: list[int] = []
+    polys_before = [i for i in view.scene().items() if isinstance(i, PolylineItem)]
 
-    def fake_key_press(event: QKeyEvent) -> bool:
-        received.append(event.key())
-        return True
-
-    tool.key_press = fake_key_press  # type: ignore[method-assign]
-    try:
-        enter = QKeyEvent(
-            QKeyEvent.Type.KeyPress,
-            Qt.Key.Key_Return,
-            Qt.KeyboardModifier.NoModifier,
-            "\r",
-        )
-        overlay._distance_edit.keyPressEvent(enter)  # noqa: SLF001
-    finally:
-        del tool.key_press  # restore bound method
-
-    assert received == [Qt.Key.Key_Return.value], (
-        "Empty-Enter on the overlay must forward a synthetic Return to the "
-        "active tool so e.g. the polyline tool can finalize."
+    enter = QKeyEvent(
+        QKeyEvent.Type.KeyPress,
+        Qt.Key.Key_Return,
+        Qt.KeyboardModifier.NoModifier,
+        "\r",
     )
+    overlay._distance_edit.keyPressEvent(enter)  # noqa: SLF001
+
+    # Real finalize: a new PolylineItem is committed and the tool stops drawing.
+    polys_after = [i for i in view.scene().items() if isinstance(i, PolylineItem)]
+    assert len(polys_after) == len(polys_before) + 1, (
+        "Empty-Enter on the overlay must forward Return so the polyline tool "
+        "finalizes a real PolylineItem."
+    )
+    assert not tool._is_drawing  # noqa: SLF001
     # Overlay hidden after the empty-Enter forward.
     assert not overlay.isVisible()
 

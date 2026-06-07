@@ -213,9 +213,9 @@ class PolylineTool(BaseTool):
             layer_id = scene.active_layer.id if hasattr(scene, 'active_layer') and scene.active_layer else None
             item = PolylineItem(self._points, object_type=self._object_type, layer_id=layer_id)
             self._view.add_item(item, "polyline")
-            # Auto-emit constraints for any vertex that landed on a
-            # nearest / perpendicular snap. Tangent is a no-op pending
-            # US-B8 (no constraint type yet).
+            # Auto-emit constraints for any vertex that landed on a snap
+            # (nearest / midpoint / perpendicular / tangent → POINT_ON_EDGE /
+            # COINCIDENT / POINT_ON_CIRCLE / TANGENT). See auto_constraint.
             from open_garden_planner.core.auto_constraint import (
                 emit_for_polyline,
             )

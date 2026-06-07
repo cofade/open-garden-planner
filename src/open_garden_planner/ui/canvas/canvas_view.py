@@ -1268,6 +1268,7 @@ class CanvasView(QGraphicsView):
             ConstraintType.SYMMETRY_VERTICAL: self.tr("Vertical symmetry"),
             ConstraintType.POINT_ON_EDGE: self.tr("Point on edge"),
             ConstraintType.POINT_ON_CIRCLE: self.tr("Point on circle"),
+            ConstraintType.TANGENT: self.tr("Tangent"),
         }
         rows: list[tuple] = []
         for cid in conflict_ids:
@@ -1281,8 +1282,10 @@ class CanvasView(QGraphicsView):
                 ConstraintType.HORIZONTAL_DISTANCE,
                 ConstraintType.VERTICAL_DISTANCE,
                 ConstraintType.POINT_ON_CIRCLE,
+                ConstraintType.TANGENT,
             ):
-                rows.append((cid, f"{name} — {c.target_distance / 100.0:.2f} m"))
+                # abs() is defensive; TANGENT's target is the (non-negative) radius.
+                rows.append((cid, f"{name} — {abs(c.target_distance) / 100.0:.2f} m"))
             elif c.constraint_type == ConstraintType.ANGLE:
                 rows.append((cid, f"{name} — {c.target_distance:.1f}°"))
             else:
@@ -2500,6 +2503,22 @@ class CanvasView(QGraphicsView):
             if gitem and gitem not in self._constraint_propagated_starts:
                 self._constraint_propagated_starts[gitem] = gitem.pos()
 
+        # Items participating in a TANGENT constraint must NOT be reverted to
+        # their drag-start position each frame: tangency to a circle has two
+        # solutions (one per side), so the solver needs the *previous frame's*
+        # position as a warm start to track continuously. Reverting to the
+        # original drawn position makes a large circle drag re-project the
+        # contact onto the wrong side, flipping the line through the centre and
+        # trapping it on the opposite tangent. Other constraint types have no
+        # such ambiguity, so they keep the clean-delta revert.
+        tangent_item_ids: set = set()
+        for c in graph.constraints.values():
+            if c.constraint_type == ConstraintType.TANGENT:
+                tangent_item_ids.add(c.anchor_a.item_id)
+                tangent_item_ids.add(c.anchor_b.item_id)
+                if c.anchor_c is not None:
+                    tangent_item_ids.add(c.anchor_c.item_id)
+
         # Revert non-soft propagated garden items to start positions so the solver
         # computes deltas from a clean state each frame
         for gitem, start_pos in self._constraint_propagated_starts.items():
@@ -2507,6 +2526,7 @@ class CanvasView(QGraphicsView):
                 isinstance(gitem, GardenItemMixin)
                 and gitem.item_id in propagated_ids
                 and gitem.item_id not in soft_dragged
+                and gitem.item_id not in tangent_item_ids
             ):
                 gitem.setPos(start_pos)
 

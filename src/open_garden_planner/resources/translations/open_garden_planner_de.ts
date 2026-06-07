@@ -684,6 +684,10 @@
             <source>outward</source>
             <translation>auswärts</translation>
         </message>
+        <message>
+            <source>Tangent</source>
+            <translation>Tangente</translation>
+        </message>
     </context>
     <context>
         <name>CircleItem</name>
@@ -1082,6 +1086,14 @@
             <location filename="..\..\ui\panels\constraints_panel.py" line="203" />
             <source>Delete constraint</source>
             <translation>Randbedingung löschen</translation>
+        </message>
+        <message>
+            <source>◯ Tangent</source>
+            <translation>◯ Tangente</translation>
+        </message>
+        <message>
+            <source>{a} tangent to {b} (r={d:.2f} m)</source>
+            <translation>{a} tangential zu {b} (r={d:.2f} m)</translation>
         </message>
     </context>
     <context>

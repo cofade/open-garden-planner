@@ -126,6 +126,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Vertical symmetry": "Vertikale Symmetrie",
         "Point on edge": "Punkt auf Kante",
         "Point on circle": "Punkt auf Kreis",
+        "Tangent": "Tangente",
         "Delete Bed": "Beet löschen",
         "The selected bed(s) contain plants. What would you like to do?":
             "Das/die ausgewählte(n) Beet(e) enthält/enthalten Pflanzen. Was möchten Sie tun?",
@@ -170,6 +171,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── ConstraintListItem ──
     "ConstraintListItem": {
+        "◯ Tangent": "◯ Tangente",
+        "{a} tangent to {b} (r={d:.2f} m)": "{a} tangential zu {b} (r={d:.2f} m)",
         "= Equal": "= Gleich",
         "{a} equal size to {b}": "{a} gleiche Größe wie {b}",
         "🔒 Fixed": "🔒 Fixiert",

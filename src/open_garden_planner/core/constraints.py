@@ -43,6 +43,11 @@ class ConstraintType(Enum):
     POINT_ON_CIRCLE = (
         auto()
     )  # Constrain point A to lie on circle centred at B with radius = target_distance
+    TANGENT = auto()  # Edge A–C tangent to circle B at contact A: the edge
+    # (anchor_a→anchor_c) is perpendicular to the radius (anchor_b−anchor_a),
+    # residual (C−v1)·(v0−v1) = 0. Pair with POINT_ON_CIRCLE (non-degenerate)
+    # to weld the contact AND hold tangency. target_distance = radius (display
+    # only; the residual ignores it).
 
 
 class ConstraintStatus(Enum):
@@ -1157,6 +1162,45 @@ class ConstraintGraph:
                         continue
                     if not a_pinned:
                         _set_pos(id_a, constraint.anchor_a, off_a, proj_x, proj_y)
+                    continue
+
+                if constraint.constraint_type == ConstraintType.TANGENT:
+                    # Tangent at the contact: the edge (anchor_a→anchor_c) is
+                    # perpendicular to the radius (anchor_b−anchor_a). Residual is
+                    # the radius projected onto the edge direction; == 0 at 90°.
+                    # Paired with POINT_ON_CIRCLE this is non-degenerate (this
+                    # gradient is along the edge, orthogonal to the radial one).
+                    if constraint.anchor_c is None:
+                        continue
+                    id_c = constraint.anchor_c.item_id
+                    if id_c not in positions:
+                        continue
+                    key_c = (
+                        id_c,
+                        constraint.anchor_c.anchor_type,
+                        constraint.anchor_c.anchor_index,
+                    )
+                    off_c = anchor_offsets.get(key_c, (0.0, 0.0))
+                    cx, cy = _anchor_pos(id_c, constraint.anchor_c, off_c)
+                    edx, edy = cx - ax, cy - ay  # edge = anchor_c − anchor_a
+                    edge_len = math.sqrt(edx * edx + edy * edy)
+                    if edge_len < 1e-9:
+                        continue
+                    ex, ey = edx / edge_len, edy / edge_len  # unit edge
+                    error = (bx - ax) * ex + (by - ay) * ey  # radius·ê (→ 0)
+                    max_error = max(max_error, abs(error))
+                    if abs(error) < 1e-9:
+                        continue
+                    # Closed-form correction (error is linear in a rigid shift):
+                    # moving the *line* (A & C) by error·ê drives the radius
+                    # projection to 0; moving the *circle* (B) by −error·ê does
+                    # the same. A deformable A-vertex would change the edge
+                    # direction, breaking this linearisation — defer to Newton.
+                    a_is_vtx = _is_vtx(id_a, constraint.anchor_a)
+                    if not a_pinned and not a_is_vtx:
+                        _move(id_a, constraint.anchor_a, error * ex, error * ey)
+                    elif not b_pinned:
+                        _move(id_b, constraint.anchor_b, -error * ex, -error * ey)
                     continue
 
                 if constraint.constraint_type in (

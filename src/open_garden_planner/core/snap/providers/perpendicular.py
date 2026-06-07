@@ -69,21 +69,23 @@ class PerpendicularSnapProvider(SnapProvider):
             ):
                 continue
 
-            feet: list[QPointF] = []
+            # Each foot is paired with the source edge index it projected
+            # onto, or None for circle/arc radial feet (no straight edge).
+            feet: list[tuple[int | None, QPointF]] = []
             if isinstance(item, ArcItem):
                 foot = _perp_on_arc(item, reference_point)
                 if foot is not None:
-                    feet.append(foot)
+                    feet.append((None, foot))
             elif isinstance(item, (CircleItem, ConstructionCircleItem)):
                 foot = _perp_on_circle(item, reference_point)
                 if foot is not None:
-                    feet.append(foot)
+                    feet.append((None, foot))
             else:
                 # One perpendicular foot per straight edge — lets the
                 # cursor-distance filter pick the edge the user meant.
                 feet.extend(_perp_feet_on_straight_edges(item, reference_point))
 
-            for foot in feet:
+            for edge_index, foot in feet:
                 dx = foot.x() - scene_pos.x()
                 dy = foot.y() - scene_pos.y()
                 if dx * dx + dy * dy > thr_sq:
@@ -93,6 +95,7 @@ class PerpendicularSnapProvider(SnapProvider):
                     kind=SnapCandidateKind.PERPENDICULAR,
                     priority=self.priority,
                     item=item,
+                    source_edge_index=edge_index,
                 )
 
 
@@ -126,18 +129,19 @@ def _foot_on_segment_strict(
 
 def _perp_feet_on_straight_edges(
     item: QGraphicsItem, ref: QPointF
-) -> list[QPointF]:
+) -> list[tuple[int, QPointF]]:
     """All valid perpendicular feet from ``ref`` to each straight edge.
 
-    The caller filters by cursor distance so the user picks the edge
-    by hover. Edges where the foot falls outside the segment are
-    omitted entirely.
+    Returns ``(edge_index, foot)`` pairs so the caller can record which
+    edge each candidate belongs to. The caller filters by cursor distance
+    so the user picks the edge by hover. Edges where the foot falls outside
+    the segment are omitted entirely.
     """
-    feet: list[QPointF] = []
-    for edge in item_edges(item):
+    feet: list[tuple[int, QPointF]] = []
+    for edge_index, edge in enumerate(item_edges(item)):
         foot = _foot_on_segment_strict(ref, edge)
         if foot is not None:
-            feet.append(foot)
+            feet.append((edge_index, foot))
     return feet
 
 
