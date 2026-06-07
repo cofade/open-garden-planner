@@ -210,10 +210,6 @@ See **ADR-022** (Bezier model + filleted-rectangle conversion) and **ADR-023** (
 
 Eight open issues (validated against code) consolidate into three near-term PRs. Issue numbers are the source of truth; this table is just the batching.
 
-### PR 1 — "Make snap-constraints real" (#197 + #196 + #192, folds in #190)
-One feature sliced thin, not three. #196 is decorative without #197's drag-time enforcement; #196's TANGENT branch is blocked on #192. All touch `core/auto_constraint.py`, `core/constraints.py`, `core/snap/provider.py` (`SnapCandidate.source_edge_index`), `core/constraint_solver_newton.py`. #190 (autosave test-isolation) folds in because this PR adds polyline-finalize integration tests — the exact path that triggers the Windows autosave heap corruption #190 dodges.
-Branch: `feature/B-followups-pr1-constraints-real`. **Delete this PR-1 subsection on merge.**
-
 ### PR 2 — "Curve item polish" (#195 + #193)
 Both center on `ArcItem` / `BezierItem`. #195 fixes 3-point-arc endpoint drift; #193 adds `VertexEditMixin`-style edit handles to the same items. Fix endpoints first, then add draggable handles on top. **Delete this PR-2 subsection on merge.**
 
