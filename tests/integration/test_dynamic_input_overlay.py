@@ -12,16 +12,43 @@ from open_garden_planner.core.tools.polyline_tool import PolylineTool
 from open_garden_planner.ui.canvas.items import PolylineItem
 
 
+@pytest.fixture(autouse=True, scope="module")
+def _no_blocking_modals() -> object:
+    """Neutralise the two modal dialogs that block the offscreen harness.
+
+    These tests drive the genuine polyline-finalize path, which dirties the
+    project. Two modals would then block forever offscreen:
+
+    - ``_startup_sequence`` (deferred 500 ms via ``QTimer.singleShot`` in
+      ``__init__``) runs the recovery scan and a modal welcome
+      ``WelcomeDialog.exec()``;
+    - ``_confirm_discard_changes`` opens a "save changes?" ``QMessageBox`` from
+      ``closeEvent`` when the project is dirty.
+
+    Patching them per-test is *not* enough: pytest-qt auto-closes the widget in
+    its own ``pytest_runtest_teardown`` (``_close_widgets``) whose ordering
+    versus a fixture finalizer isn't guaranteed, and a stray startup
+    ``singleShot`` can fire during final Qt teardown after a per-test patch has
+    reverted. Patching at **module scope** (never reverted between tests) makes
+    every firing a no-op / auto-proceed regardless of timing. (issue #190)
+    """
+    from unittest.mock import patch
+
+    with (
+        patch.object(GardenPlannerApp, "_startup_sequence", lambda *_: None),
+        patch.object(GardenPlannerApp, "_confirm_discard_changes", lambda *_: True),
+    ):
+        yield
+
+
 @pytest.fixture
 def window(qtbot, tmp_path, monkeypatch) -> GardenPlannerApp:
-    """Build the app with autosave isolated to ``tmp_path`` (issue #190).
+    """Build the app sandboxed so tests can exercise the *real* finalize path.
 
-    Untitled auto-saves and the startup recovery scan both resolve through
-    ``tempfile.gettempdir()``; redirecting it at ``tmp_path`` sandboxes the
-    deferred autosave write so it can't corrupt a later test's startup
-    recovery scan on Windows. The autosave timer is also stopped on teardown
-    so no write fires during widget destruction — which lets these tests
-    exercise the *real* polyline finalize path instead of monkeypatching it.
+    ``tempfile.gettempdir`` → ``tmp_path`` sandboxes untitled auto-save writes
+    (keeping them off the real temp dir and out of a later test's startup
+    recovery scan). The autosave timer is stopped on teardown. The blocking
+    startup/close modals are handled module-wide by ``_no_blocking_modals``.
     """
     import tempfile
 
