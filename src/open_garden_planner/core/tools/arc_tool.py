@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
+from PyQt6.QtCore import QCoreApplication, QPointF, Qt
 from PyQt6.QtGui import (
     QColor,
     QKeyEvent,
@@ -19,7 +19,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import QGraphicsLineItem, QGraphicsPathItem
 
-from open_garden_planner.core.cad_geometry import arc_from_three_points
+from open_garden_planner.core.cad_geometry import arc_from_three_points, arc_to_painter_path
 
 from .base_tool import BaseTool, ToolType
 
@@ -32,34 +32,40 @@ _PREVIEW_WIDTH = 1.0
 
 
 class ArcTool(BaseTool):
-    """3-click arc tool: start → through-point → end.
+    """3-click arc tool: start → end → bulge.
 
     Workflow:
-        - Click 1: place start point. A short dashed line previews the
+        - Click 1: place the start point. A short dashed line previews the
           straight-line segment to the cursor.
-        - Click 2: place the through-point. Now the preview shows the
-          unique arc passing through start, through-point, and cursor.
-          A straight-line preview is shown if the three are collinear.
-        - Click 3: commit. If the three points form an arc, an
-          ``ArcItem`` is added to the scene; otherwise a 2-vertex
-          ``PolylineItem`` is created and a status message explains the
-          fallback.
+        - Click 2: place the end point. The dashed line now shows the
+          start→end chord, and the preview arc bulges through the cursor.
+          A straight-line preview is shown if the three points are collinear.
+        - Click 3: place the bulge / through-point and commit. If the three
+          points form an arc an ``ArcItem`` is added to the scene; otherwise a
+          2-vertex ``PolylineItem`` (start→end) is created and a status
+          message explains the fallback.
         - Escape: cancel at any time.
+
+    The arc still passes through all three points; only the click *order*
+    differs from a classic 3-point arc — the end is picked second so the user
+    fixes the span first, then dials in the curvature (issue #195 follow-up).
+    Internally ``_p1`` = start, ``_p2`` = end, and the third click is the
+    through / bulge point stored on ``ArcItem``.
     """
 
     tool_type = ToolType.ARC
     display_name = QCoreApplication.translate("ArcTool", "Arc (3-point)")
     shortcut = "A"
     cursor = Qt.CursorShape.CrossCursor
-    # The second + third clicks pick geometric points (through-point,
-    # end), not polar offsets from p1 — the Dist/Angle overlay would
-    # mislead users into expecting it to control sweep direction.
+    # The second + third clicks pick geometric points (end, then bulge),
+    # not polar offsets from p1 — the Dist/Angle overlay would mislead
+    # users into expecting it to control sweep direction.
     accepts_typed_coordinates = False
 
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
-        self._p1: QPointF | None = None
-        self._p2: QPointF | None = None
+        self._p1: QPointF | None = None  # start
+        self._p2: QPointF | None = None  # end
         self._preview_line: QGraphicsLineItem | None = None
         self._preview_path: QGraphicsPathItem | None = None
 
@@ -162,35 +168,30 @@ class ArcTool(BaseTool):
     def _update_preview_path(self, cursor: QPointF) -> None:
         if self._preview_path is None or self._p1 is None or self._p2 is None:
             return
-        result = arc_from_three_points(self._p1, self._p2, cursor)
-        path = QPainterPath()
+        # p1 = start, p2 = end, cursor = the bulge / through-point.
+        result = arc_from_three_points(self._p1, cursor, self._p2)
         if result is None:
-            # Collinear preview — straight segment p1 → cursor.
+            # Collinear bulge — straight chord start → end.
+            path = QPainterPath()
             path.moveTo(self._p1)
-            path.lineTo(cursor)
+            path.lineTo(self._p2)
         else:
             center, radius, start_deg, span_deg = result
-            rect = QRectF(
-                center.x() - radius,
-                center.y() - radius,
-                2 * radius,
-                2 * radius,
-            )
-            # Negate angles for Qt's Y-down arc convention (see ArcItem._rebuild_path).
-            path.arcMoveTo(rect, -start_deg)
-            path.arcTo(rect, -start_deg, -span_deg)
+            # Same exact-endpoint builder ArcItem uses, so preview == final.
+            path = arc_to_painter_path(center, radius, start_deg, span_deg)
         self._preview_path.setPath(path)
 
     # ------------------------------------------------------------------
     # Finalize
     # ------------------------------------------------------------------
 
-    def _finalize(self, p3: QPointF) -> None:
+    def _finalize(self, through: QPointF) -> None:
         from open_garden_planner.ui.canvas.items import ArcItem, PolylineItem
 
         if self._p1 is None or self._p2 is None:
             return
-        result = arc_from_three_points(self._p1, self._p2, p3)
+        # p1 = start, p2 = end, through = the 3rd-click bulge / through-point.
+        result = arc_from_three_points(self._p1, through, self._p2)
         self._cleanup_preview()
 
         scene = self._view.scene()
@@ -199,10 +200,10 @@ class ArcTool(BaseTool):
             layer_id = scene.active_layer.id
 
         if result is None:
-            # Collinear fallback: place a 2-vertex polyline.
+            # Collinear fallback: a straight 2-vertex polyline from start to end.
             try:
                 item = PolylineItem(
-                    points=[QPointF(self._p1), QPointF(p3)],
+                    points=[QPointF(self._p1), QPointF(self._p2)],
                     layer_id=layer_id,
                 )
                 self._view.add_item(item, "polyline")
@@ -217,6 +218,7 @@ class ArcTool(BaseTool):
                 start_deg=start_deg,
                 span_deg=span_deg,
                 layer_id=layer_id,
+                through=QPointF(through),  # keep the user's bulge point for editing
             )
             self._view.add_item(item, "arc")
         self._reset_state()

@@ -12,10 +12,8 @@ The cubic segment between anchors i and i+1 uses control points
 ``handles_out[N-1]`` are unused for an open curve but kept for symmetry
 and to simplify a future closed-curve / handle-editing model.
 
-The MVP renders the curve and supports selection / movement / delete.
-Per-anchor handle editing (drag a handle to reshape) is deferred to a
-B1.1 follow-up alongside arc vertex editing — both share the same
-``VertexHandle`` infrastructure.
+Selecting a placed curve shows draggable control handles for in-place
+reshaping (issue #193); see :class:`BezierItem` and ``CurveEditMixin``.
 """
 
 from __future__ import annotations
@@ -33,13 +31,28 @@ from PyQt6.QtWidgets import (
     QMenu,
 )
 
+from .resize_handle import (
+    CURVE_KIND_ANCHOR,
+    CURVE_KIND_HANDLE_IN,
+    CURVE_KIND_HANDLE_OUT,
+    CurveEditMixin,
+)
+
 _BEZIER_DEFAULT_COLOR = QColor(60, 60, 60)
 _BEZIER_DEFAULT_PEN_WIDTH = 1.5
 _MIN_ANCHORS = 2
 
 
-class BezierItem(QGraphicsPathItem):
-    """Multi-segment cubic Bezier curve."""
+class BezierItem(CurveEditMixin, QGraphicsPathItem):
+    """Multi-segment cubic Bezier curve.
+
+    Selecting a placed curve (sole selection) shows draggable control handles
+    (issue #193): an on-curve handle per anchor (moves the anchor and both its
+    tangent handles together) plus tangent handles for each anchor's active
+    control point. Dragging a tangent keeps the opposite tangent mirrored for a
+    smooth (C1) join; hold **Alt** to break it into a corner. Each drag commits
+    one undo step via :class:`SetCurveGeometryCommand`.
+    """
 
     def __init__(
         self,
@@ -75,6 +88,7 @@ class BezierItem(QGraphicsPathItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        self.init_curve_edit()
 
     # ------------------------------------------------------------------
     # Identity / properties
@@ -178,6 +192,89 @@ class BezierItem(QGraphicsPathItem):
         base = super().boundingRect()
         m = self._stroke_width / 2.0 + 1.0
         return base.adjusted(-m, -m, m, m)
+
+    # ------------------------------------------------------------------
+    # Control-handle editing (issue #193)
+    # ------------------------------------------------------------------
+
+    def itemChange(
+        self,
+        change: QGraphicsItem.GraphicsItemChange,
+        value: Any,
+    ) -> Any:
+        if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
+            self.sync_curve_edit_to_selection()
+        elif (
+            change == QGraphicsItem.GraphicsItemChange.ItemSceneChange
+            and value is None
+        ):
+            self.exit_curve_edit_mode()
+        return super().itemChange(change, value)
+
+    def _curve_control_specs(self) -> list[tuple[str, int, QPointF]]:
+        """One on-curve anchor handle per anchor, plus each anchor's active
+        tangent handle(s). Endpoint anchors expose only the live tangent."""
+        specs: list[tuple[str, int, QPointF]] = []
+        n = len(self._anchors)
+        for i in range(n):
+            specs.append((CURVE_KIND_ANCHOR, i, QPointF(self._anchors[i])))
+            if i > 0:
+                specs.append((CURVE_KIND_HANDLE_IN, i, QPointF(self._handles_in[i])))
+            if i < n - 1:
+                specs.append((CURVE_KIND_HANDLE_OUT, i, QPointF(self._handles_out[i])))
+        return specs
+
+    def _curve_connectors(self) -> list[tuple[QPointF, QPointF]]:
+        lines: list[tuple[QPointF, QPointF]] = []
+        n = len(self._anchors)
+        for i in range(n):
+            if i > 0:
+                lines.append((QPointF(self._anchors[i]), QPointF(self._handles_in[i])))
+            if i < n - 1:
+                lines.append((QPointF(self._anchors[i]), QPointF(self._handles_out[i])))
+        return lines
+
+    def _move_control(
+        self, kind: str, index: int, local_pos: QPointF, alt: bool
+    ) -> None:
+        n = len(self._anchors)
+        if not 0 <= index < n:
+            return
+        if kind == CURVE_KIND_ANCHOR:
+            # Move the anchor and carry both its tangent handles along.
+            delta = local_pos - self._anchors[index]
+            self._anchors[index] = QPointF(local_pos)
+            self._handles_in[index] = self._handles_in[index] + delta
+            self._handles_out[index] = self._handles_out[index] + delta
+        elif kind == CURVE_KIND_HANDLE_OUT:
+            self._handles_out[index] = QPointF(local_pos)
+            if not alt and 0 < index < n - 1:
+                # Keep a smooth (C1) join: mirror the incoming tangent.
+                self._handles_in[index] = self._anchors[index] * 2.0 - local_pos
+        elif kind == CURVE_KIND_HANDLE_IN:
+            self._handles_in[index] = QPointF(local_pos)
+            if not alt and 0 < index < n - 1:
+                self._handles_out[index] = self._anchors[index] * 2.0 - local_pos
+        else:
+            return
+        self._rebuild_path()
+        self._update_control_handles()
+
+    def _capture_geometry(self) -> tuple[Any, ...]:
+        return (
+            "bezier",
+            tuple((p.x(), p.y()) for p in self._anchors),
+            tuple((p.x(), p.y()) for p in self._handles_in),
+            tuple((p.x(), p.y()) for p in self._handles_out),
+        )
+
+    def _restore_geometry(self, state: Any) -> None:
+        _, anchors, handles_in, handles_out = state
+        self._anchors = [QPointF(x, y) for x, y in anchors]
+        self._handles_in = [QPointF(x, y) for x, y in handles_in]
+        self._handles_out = [QPointF(x, y) for x, y in handles_out]
+        self._rebuild_path()
+        self._update_control_handles()
 
     # ------------------------------------------------------------------
     # Context menu

@@ -158,5 +158,41 @@ class TestBezierItemSerialization:
         assert _approx(clone.stroke_width, 2.25)
 
 
+class TestBezierReshape:
+    """Issue #193: control-handle reshaping of a placed Bezier."""
+
+    def test_capture_restore_roundtrip(self, smooth_bezier: BezierItem) -> None:
+        snap = smooth_bezier._capture_geometry()
+        smooth_bezier._move_control("anchor", 1, QPointF(120, 80), False)
+        assert smooth_bezier._capture_geometry() != snap
+        smooth_bezier._restore_geometry(snap)
+        assert smooth_bezier._capture_geometry() == snap
+
+    def test_anchor_drag_carries_tangents(self, smooth_bezier: BezierItem) -> None:
+        a1 = QPointF(smooth_bezier.anchors[1])
+        hi = QPointF(smooth_bezier.handles_in[1])
+        ho = QPointF(smooth_bezier.handles_out[1])
+        smooth_bezier._move_control("anchor", 1, QPointF(a1.x() + 10, a1.y() + 5), False)
+        assert smooth_bezier.anchors[1] == QPointF(a1.x() + 10, a1.y() + 5)
+        assert smooth_bezier.handles_in[1] == QPointF(hi.x() + 10, hi.y() + 5)
+        assert smooth_bezier.handles_out[1] == QPointF(ho.x() + 10, ho.y() + 5)
+
+    def test_smooth_handle_mirrors_opposite(self, smooth_bezier: BezierItem) -> None:
+        smooth_bezier._move_control("handle_out", 1, QPointF(160, 20), False)
+        mirror = smooth_bezier.anchors[1] * 2.0 - QPointF(160, 20)
+        assert smooth_bezier.handles_in[1] == mirror
+
+    def test_alt_drag_breaks_smoothness(self, smooth_bezier: BezierItem) -> None:
+        before_in = QPointF(smooth_bezier.handles_in[1])
+        smooth_bezier._move_control("handle_out", 1, QPointF(170, 10), True)
+        assert smooth_bezier.handles_in[1] == before_in
+
+    def test_endpoint_handle_does_not_mirror(self, smooth_bezier: BezierItem) -> None:
+        # Anchor 0 is an endpoint: dragging its out-handle has no opposite to mirror.
+        before_in0 = QPointF(smooth_bezier.handles_in[0])
+        smooth_bezier._move_control("handle_out", 0, QPointF(30, 40), False)
+        assert smooth_bezier.handles_in[0] == before_in0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

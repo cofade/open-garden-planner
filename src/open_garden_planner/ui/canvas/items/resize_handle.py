@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QGraphicsEllipseItem,
     QGraphicsItem,
+    QGraphicsLineItem,
     QGraphicsPathItem,
     QGraphicsRectItem,
     QGraphicsSceneContextMenuEvent,
@@ -3019,3 +3020,255 @@ class PolylineVertexEditMixin:
 
         if hasattr(self, '_position_label'):
             self._position_label()  # type: ignore[attr-defined]
+
+
+# ---------------------------------------------------------------------------
+# Curve (Bezier / Arc) control-handle editing — issue #193 (US-B9)
+# ---------------------------------------------------------------------------
+
+# On-curve anchors / arc endpoints (blue squares), tangent + arc through-point
+# (green squares), and a read-only arc center marker (gray). Handles render at a
+# fixed screen size like the polygon/polyline vertex handles.
+CURVE_ANCHOR_SIZE = 8.0  # pixels (cosmetic)
+CURVE_TANGENT_SIZE = 7.0  # pixels (cosmetic)
+CURVE_ANCHOR_COLOR = QColor(0, 120, 215)  # blue — on-curve anchor / arc endpoint
+CURVE_TANGENT_COLOR = QColor(46, 204, 113)  # green — bezier tangent / arc through-point
+CURVE_HANDLE_HOVER_COLOR = QColor(0, 180, 255)  # lighter blue on hover
+CURVE_CENTER_COLOR = QColor(150, 150, 150)  # gray — read-only arc center
+CURVE_CONNECTOR_COLOR = QColor(120, 120, 120)  # thin anchor↔tangent connector
+
+# Control-handle "kind" tags shared between CurveControlHandle and the host item.
+CURVE_KIND_ANCHOR = "anchor"
+CURVE_KIND_HANDLE_IN = "handle_in"
+CURVE_KIND_HANDLE_OUT = "handle_out"
+CURVE_KIND_ARC_START = "arc_start"
+CURVE_KIND_ARC_THROUGH = "arc_through"
+CURVE_KIND_ARC_END = "arc_end"
+CURVE_KIND_CENTER = "center"  # read-only display, not draggable
+
+_CURVE_TANGENT_KINDS = frozenset(
+    {CURVE_KIND_HANDLE_IN, CURVE_KIND_HANDLE_OUT, CURVE_KIND_ARC_THROUGH}
+)
+
+
+class CurveControlHandle(QGraphicsRectItem):
+    """A draggable control point for reshaping a placed Bezier or Arc.
+
+    Each handle is a fixed-screen-size square parented to the curve item. On
+    drag it asks the parent to mutate its geometry via ``_move_control`` and,
+    on release, to commit a single undo step via ``_end_curve_edit``. The
+    ``CURVE_KIND_CENTER`` handle is a read-only marker (not draggable).
+    """
+
+    def __init__(self, kind: str, index: int, parent: "ParentItem") -> None:
+        super().__init__(parent)
+        self._kind = kind
+        self._index = index
+        self._parent_item = parent
+        self._is_dragging = False
+
+        is_anchor = kind in (CURVE_KIND_ANCHOR, CURVE_KIND_ARC_START, CURVE_KIND_ARC_END)
+        size = CURVE_ANCHOR_SIZE if is_anchor else CURVE_TANGENT_SIZE
+        half = size / 2.0
+        self.setRect(-half, -half, size, size)
+
+        if kind == CURVE_KIND_CENTER:
+            self._base_color = CURVE_CENTER_COLOR
+        elif is_anchor:
+            self._base_color = CURVE_ANCHOR_COLOR
+        else:
+            self._base_color = CURVE_TANGENT_COLOR
+        self.setPen(QPen(HANDLE_BORDER_COLOR, 1.0))
+        self.setBrush(QBrush(self._base_color))
+
+        self.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        self.setZValue(10_002)  # above resize/rotation handles
+        if kind != CURVE_KIND_CENTER:
+            self.setAcceptHoverEvents(True)
+            self.setCursor(Qt.CursorShape.SizeAllCursor)
+
+    @property
+    def kind(self) -> str:
+        return self._kind
+
+    @property
+    def control_index(self) -> int:
+        return self._index
+
+    def update_position(self, pos: QPointF) -> None:
+        """Move the handle to a parent-local position."""
+        self.setPos(pos)
+
+    def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
+        self.setBrush(QBrush(CURVE_HANDLE_HOVER_COLOR))
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event: QGraphicsSceneHoverEvent) -> None:
+        self.setBrush(QBrush(self._base_color))
+        super().hoverLeaveEvent(event)
+
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        if self._kind == CURVE_KIND_CENTER or event.button() != Qt.MouseButton.LeftButton:
+            super().mousePressEvent(event)
+            return
+        self._is_dragging = True
+        if hasattr(self._parent_item, "_begin_curve_edit"):
+            self._parent_item._begin_curve_edit()
+        self.grabMouse()
+        event.accept()
+
+    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        if not self._is_dragging or self._parent_item is None:
+            super().mouseMoveEvent(event)
+            return
+        scene_pos = _clamp_pos_to_canvas(event.scenePos(), self._parent_item)
+        local = self._parent_item.mapFromScene(scene_pos)
+        alt = bool(event.modifiers() & Qt.KeyboardModifier.AltModifier)
+        if hasattr(self._parent_item, "_move_control"):
+            self._parent_item._move_control(self._kind, self._index, local, alt)
+        event.accept()
+
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton and self._is_dragging:
+            self.ungrabMouse()
+            self._is_dragging = False
+            if hasattr(self._parent_item, "_end_curve_edit"):
+                self._parent_item._end_curve_edit()
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+
+class CurveEditMixin:
+    """Selection-driven control-handle editing for Bezier / Arc items.
+
+    Unlike the polygon/polyline ``*VertexEditMixin`` (double-click, insert/delete
+    vertices), curve editing is purely *reshape*: handles appear while the curve
+    is selected and disappear on deselect. The host item MUST implement **all** of:
+
+    - ``_curve_control_specs() -> list[(kind, index, local_pos)]``
+    - ``_curve_connectors() -> list[(local_p1, local_p2)]`` (thin guide lines)
+    - ``_move_control(kind, index, local_pos, alt)`` — mutate geometry live
+    - ``_capture_geometry()`` / ``_restore_geometry(state)`` — undo snapshots
+
+    The host wires its ``itemChange`` to call :meth:`sync_curve_edit_to_selection`.
+    """
+
+    _control_handles: list[CurveControlHandle]
+    _connector_lines: list[QGraphicsItem]
+    _is_curve_edit_mode: bool
+    _edit_snapshot: Any
+
+    def init_curve_edit(self) -> None:
+        """Initialise curve editing (call in subclass ``__init__``)."""
+        self._control_handles = []
+        self._connector_lines = []
+        self._is_curve_edit_mode = False
+        self._edit_snapshot = None
+
+    @property
+    def is_curve_edit_mode(self) -> bool:
+        return self._is_curve_edit_mode
+
+    def sync_curve_edit_to_selection(self) -> None:
+        """Show control handles while this curve is selected, hide them otherwise.
+
+        Keyed on this item's own selection state so every item's ``itemChange``
+        stays self-consistent (a scene-wide "sole selection" gate would leave
+        stale handles on an item whose own selection did not change when another
+        item joined the selection).
+        """
+        if self.isSelected() and not _is_item_fixed(self):  # type: ignore[attr-defined, arg-type]
+            self.enter_curve_edit_mode()
+        else:
+            self.exit_curve_edit_mode()
+
+    def enter_curve_edit_mode(self) -> None:
+        if self._is_curve_edit_mode:
+            return
+        self._is_curve_edit_mode = True
+        self._create_control_handles()
+
+    def exit_curve_edit_mode(self) -> None:
+        if not self._is_curve_edit_mode:
+            return
+        self._is_curve_edit_mode = False
+        self._remove_control_handles()
+
+    def _create_control_handles(self) -> None:
+        # Only ever reached via enter_curve_edit_mode on a real host (Bezier/Arc),
+        # which implements the full hook contract documented on the class.
+        self._remove_control_handles()
+        for p1, p2 in self._curve_connectors():  # type: ignore[attr-defined]
+            line = QGraphicsLineItem(p1.x(), p1.y(), p2.x(), p2.y(), self)  # type: ignore[call-overload]
+            pen = QPen(CURVE_CONNECTOR_COLOR, 0.0)  # cosmetic 1px, scales-independent
+            line.setPen(pen)
+            line.setZValue(10_001)
+            line.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+            self._connector_lines.append(line)
+        for kind, index, local_pos in self._curve_control_specs():  # type: ignore[attr-defined]
+            handle = CurveControlHandle(kind, index, self)  # type: ignore[arg-type]
+            handle.update_position(local_pos)
+            self._control_handles.append(handle)
+
+    def _remove_control_handles(self) -> None:
+        for handle in self._control_handles:
+            if handle.scene() is not None:
+                handle.scene().removeItem(handle)
+        self._control_handles = []
+        for line in self._connector_lines:
+            if line.scene() is not None:
+                line.scene().removeItem(line)
+        self._connector_lines = []
+
+    def _update_control_handles(self) -> None:
+        """Reposition existing handles + connectors after a live geometry change.
+
+        Repositions in place (never recreates) so the handle currently grabbing
+        the mouse is not destroyed mid-drag. Falls back to a full rebuild if the
+        control count changed unexpectedly.
+        """
+        if not self._is_curve_edit_mode:
+            return
+        specs = self._curve_control_specs()  # type: ignore[attr-defined]
+        connectors = self._curve_connectors()  # type: ignore[attr-defined]
+        if len(specs) != len(self._control_handles) or len(connectors) != len(
+            self._connector_lines
+        ):
+            self._create_control_handles()
+            return
+        for handle, (_kind, _index, local_pos) in zip(
+            self._control_handles, specs, strict=True
+        ):
+            handle.update_position(local_pos)
+        for line, (p1, p2) in zip(self._connector_lines, connectors, strict=True):
+            line.setLine(p1.x(), p1.y(), p2.x(), p2.y())  # type: ignore[attr-defined]
+
+    # -- undo snapshot bracketing (shared by all curve hosts) ---------------
+
+    def _begin_curve_edit(self) -> None:
+        self._edit_snapshot = self._capture_geometry()  # type: ignore[attr-defined]
+
+    def _end_curve_edit(self) -> None:
+        old = self._edit_snapshot
+        self._edit_snapshot = None
+        if old is None:
+            return
+        new = self._capture_geometry()  # type: ignore[attr-defined]
+        if new == old:
+            return
+        scene = self.scene()  # type: ignore[attr-defined]
+        if scene is None or not hasattr(scene, "get_command_manager"):
+            return
+        command_manager = scene.get_command_manager()
+        if command_manager is None:
+            return
+        from open_garden_planner.core.commands import SetCurveGeometryCommand
+
+        command = SetCurveGeometryCommand(self, old, new)  # type: ignore[arg-type]
+        # Geometry is already applied by the live drag — register without re-exec.
+        command_manager._undo_stack.append(command)
+        command_manager._redo_stack.clear()
+        command_manager.can_undo_changed.emit(True)
+        command_manager.can_redo_changed.emit(False)
+        command_manager.command_executed.emit(command.description)
