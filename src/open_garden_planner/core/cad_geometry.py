@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from PyQt6.QtCore import QPointF
 
 if TYPE_CHECKING:
-    pass
+    from PyQt6.QtGui import QPainterPath
 
 HOVER_TOLERANCE: float = 10.0
 PARALLEL_EPSILON: float = 1e-9
@@ -251,6 +251,63 @@ def arc_from_three_points(
     _ = a2  # noqa: F841
 
     return center, radius, start_deg, span_deg
+
+
+def arc_to_painter_path(
+    center: QPointF,
+    radius: float,
+    start_deg: float,
+    span_deg: float,
+) -> QPainterPath:
+    """Build a ``QPainterPath`` for a circular arc from exact cubic-Bézier segments.
+
+    ``QPainterPath.arcMoveTo`` / ``arcTo`` drift the *rendered* endpoints — their
+    internal angle→point conversion lands a few mm past the analytic endpoint on a
+    shallow, large-radius arc (issue #195). This builder instead places each
+    Bézier segment's **anchor points exactly** on the analytic circle, so the
+    rendered curve starts at ``start_deg`` and ends at ``start_deg + span_deg`` to
+    full double precision and passes through ``ArcItem.start_point()`` /
+    ``end_point()`` / ``midpoint()``.
+
+    Angles use the same math convention as ``ArcItem``: degrees CCW from +X, with
+    the point at angle θ being ``center + radius·(cos θ, sin θ)``. ``span_deg`` is
+    signed (positive CCW, negative CW); the signed ``tan(Δ/4)`` control factor
+    extends the handles in the correct sweep direction for either sign.
+    """
+    from PyQt6.QtGui import QPainterPath
+
+    path = QPainterPath()
+    cx, cy = center.x(), center.y()
+    start_rad = math.radians(start_deg)
+    span_rad = math.radians(span_deg)
+
+    path.moveTo(cx + radius * math.cos(start_rad), cy + radius * math.sin(start_rad))
+    if abs(span_rad) < 1e-12:
+        return path
+
+    # Split into ≤45° segments. Each segment's anchor points are exact on the
+    # circle (so the arc's start/end are exact — the whole point of #195); the
+    # cubic only approximates the *interior*, with max radial error ≈ O(θ⁶·r):
+    # ~2.7e-4·r at 90°, but ~4e-6·r at 45° (sub-0.05 mm even at a 10 m radius).
+    n_segments = max(1, math.ceil(abs(span_rad) / (math.pi / 4.0)))
+    seg = span_rad / n_segments
+    k = (4.0 / 3.0) * math.tan(seg / 4.0)
+
+    phi = start_rad
+    for _ in range(n_segments):
+        phi_next = phi + seg
+        cos0, sin0 = math.cos(phi), math.sin(phi)
+        cos1, sin1 = math.cos(phi_next), math.sin(phi_next)
+        # Anchor points lie exactly on the arc.
+        p0x, p0y = cx + radius * cos0, cy + radius * sin0
+        p3x, p3y = cx + radius * cos1, cy + radius * sin1
+        # Control points run along the tangents (derivative of (cos φ, sin φ)).
+        c1x, c1y = p0x + k * radius * (-sin0), p0y + k * radius * cos0
+        c2x, c2y = p3x - k * radius * (-sin1), p3y - k * radius * cos1
+        path.cubicTo(c1x, c1y, c2x, c2y, p3x, p3y)
+        phi = phi_next
+
+    return path
 
 
 # ---------------------------------------------------------------------------

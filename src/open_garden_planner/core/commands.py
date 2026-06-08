@@ -593,6 +593,38 @@ class MoveVertexCommand(Command):
         self._apply_func(self._item, self._vertex_index, self._old_pos)
 
 
+class SetCurveGeometryCommand(Command):
+    """Reshape a Bezier / Arc curve by restoring a geometry snapshot.
+
+    Used by the curve edit handles (issue #193). A handle drag mutates the
+    item's geometry live, so by release the *new* state is already applied;
+    this command only needs to (re-)apply it on redo and restore the *old*
+    state on undo. ``old_state`` / ``new_state`` are the opaque, comparable
+    snapshots returned by the item's ``_capture_geometry()``; the item's
+    ``_restore_geometry()`` is the inverse.
+    """
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        old_state: Any,
+        new_state: Any,
+    ) -> None:
+        self._item = item
+        self._old = old_state
+        self._new = new_state
+
+    @property
+    def description(self) -> str:
+        return "Reshape curve"
+
+    def execute(self) -> None:
+        self._item._restore_geometry(self._new)  # type: ignore[attr-defined]
+
+    def undo(self) -> None:
+        self._item._restore_geometry(self._old)  # type: ignore[attr-defined]
+
+
 class AddVertexCommand(Command):
     """Command for adding a vertex to a polygon."""
 

@@ -2266,7 +2266,7 @@ Sets `_soil_mismatch_level: str` on each bed item → read in `paint()`.
 
 | Status | US    | Description                                                      |
 | ------ | ----- | ---------------------------------------------------------------- |
-| ✅     | B1    | Cubic Bezier pen tool + handle editing                           |
+| ✅     | B1    | Cubic Bezier pen tool (drawing only; placed-curve editing → US-B9) |
 | ✅     | B2    | 3-point Arc tool (collinear → polyline fallback)                 |
 | ✅     | B3    | Fillet (`Shift+F`) + Chamfer (`Shift+C`) corner editors          |
 | ✅     | B4    | Nearest-point fallback snap                                      |
@@ -2277,6 +2277,16 @@ Sets `_soil_mismatch_level: str` on each bed item → read in `paint()`.
 ### US-B7 dropped during manual-test review
 
 US-B7 originally added a "Layout" tab (`Ctrl+4`) with one page / one viewport / title block / scale bar. Manual testing made it clear the abstraction added no user-visible value on top of what `pdf_report_service` already does (multi-page PDF at A4 / A3 / Letter / Legal, with the model rendered at fit-to-page scale and a built-in scale bar). The Layout tab, viewport item, title block, scale bar item, and `paper_layouts` schema were all removed from PR #191 before merge. `FILE_VERSION` stays at 1.4 because the bezier and arc item types — also part of this phase — are still real. The loader silently ignores the `paper_layouts` key it may encounter in `.ogp` files saved by short-lived draft builds of PR #191.
+
+### Package B follow-ups (post-v1.12.0)
+
+Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
+
+| Status | US    | Description                                                      |
+| ------ | ----- | ---------------------------------------------------------------- |
+| ✅     | B8    | Snap engagements emit *enforceable* constraints + new `TANGENT` type (#192/#196/#197, PR #198, v1.13.0) — see ADR-024 |
+| ✅     | B9    | Vertex/handle editing for placed Bezier + Arc (#193) — dedicated `CurveEditMixin` + `CurveControlHandle`, one-undo reshape — see ADR-025 |
+| ✅     | B11   | 3-point arc endpoint precision (#195) — exact cubic-Bézier rendering (`arc_to_painter_path`); arc tool reordered to **start → end → bulge** per user feedback |
 
 ### Acceptance highlights
 - `SnapProvider.candidates()` extended with `reference_point: QPointF | None = None`; all in-tree providers updated atomically; existing tests still green.

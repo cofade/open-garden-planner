@@ -43,22 +43,44 @@ def _polyline_items(view: CanvasView) -> list[PolylineItem]:
 
 class TestArcToolWorkflow:
     def test_three_clicks_create_an_arc(self, canvas: CanvasView) -> None:
-        """Click start → through-point → end produces a single ArcItem."""
+        """Click start → end → bulge produces a single ArcItem through all 3 points."""
         canvas.set_active_tool(ToolType.ARC)
         tool = canvas.tool_manager.active_tool
         event = _left_click_event()
 
-        tool.mouse_press(event, QPointF(0, 0))
-        tool.mouse_press(event, QPointF(50, 50))
-        tool.mouse_press(event, QPointF(100, 0))
+        clicks = [QPointF(0, 0), QPointF(100, 0), QPointF(50, 50)]
+        for c in clicks:
+            tool.mouse_press(event, c)
 
         arcs = _arc_items(canvas)
         assert len(arcs) == 1
         arc = arcs[0]
-        # The through-point (50, 50) must lie on the arc within tolerance.
+        # All three clicked points lie on the arc within tolerance.
         center = arc.center
-        dist = math.hypot(50 - center.x(), 50 - center.y())
-        assert abs(dist - arc.radius) < 1e-3
+        for c in clicks:
+            dist = math.hypot(c.x() - center.x(), c.y() - center.y())
+            assert abs(dist - arc.radius) < 1e-3
+
+    def test_click_order_is_start_end_bulge(self, canvas: CanvasView) -> None:
+        """The 2nd click is the arc END; the 3rd click is the bulge / through-point."""
+        canvas.set_active_tool(ToolType.ARC)
+        tool = canvas.tool_manager.active_tool
+        event = _left_click_event()
+        start, end, bulge = QPointF(0, 0), QPointF(100, 0), QPointF(50, 40)
+        tool.mouse_press(event, start)
+        tool.mouse_press(event, end)
+        tool.mouse_press(event, bulge)
+
+        arc = _arc_items(canvas)[0]
+
+        def near(a: QPointF, b: QPointF) -> bool:
+            return math.hypot(a.x() - b.x(), a.y() - b.y()) < 1e-3
+
+        # 1st click = start, 2nd click = end (the user's expected order).
+        assert near(arc.start_point(), start)
+        assert near(arc.end_point(), end)
+        # 3rd click = the bulge, stored as the editable through-point.
+        assert near(arc.mapToScene(arc._through), bulge)
 
     def test_collinear_clicks_fall_back_to_polyline(self, canvas: CanvasView) -> None:
         """Three collinear clicks create a 2-vertex polyline (line fallback)."""

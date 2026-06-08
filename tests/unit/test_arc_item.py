@@ -9,6 +9,10 @@ import pytest
 from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QGraphicsScene
 
+from open_garden_planner.core.cad_geometry import (
+    arc_from_three_points,
+    arc_to_painter_path,
+)
 from open_garden_planner.ui.canvas.items import ArcItem
 
 
@@ -157,6 +161,124 @@ class TestArcAnchorPoints:
         types = [a.anchor_type for a in anchors]
         assert AnchorType.CENTER in types
         assert types.count(AnchorType.ENDPOINT) == 2
+
+
+class TestArcRenderedEndpointPrecision:
+    """Issue #195: the *rendered* path must terminate exactly on p1 / p3.
+
+    The analytic geometry was always exact; Qt's ``arcMoveTo``/``arcTo`` drifted
+    the rendered endpoint by up to a few mm on shallow, large-radius arcs. The
+    cubic-Bézier builder (:func:`arc_to_painter_path`) pins the endpoints.
+    """
+
+    @pytest.mark.parametrize(
+        "p1,p2,p3",
+        [
+            (QPointF(0, 0), QPointF(50, 20), QPointF(100, 0)),  # gentle
+            (QPointF(0, 0), QPointF(-30, 60), QPointF(20, 90)),  # big sweep
+            (QPointF(0, 0), QPointF(50, 1), QPointF(100, 0)),  # near-collinear (the bug)
+            (QPointF(0, 0), QPointF(40, -15), QPointF(85, -2)),  # clockwise
+        ],
+    )
+    def test_rendered_endpoints_match_clicks(
+        self, qtbot: object, p1: QPointF, p2: QPointF, p3: QPointF
+    ) -> None:
+        result = arc_from_three_points(p1, p2, p3)
+        assert result is not None
+        center, radius, start_deg, span_deg = result
+        arc = ArcItem(
+            center=center, radius=radius, start_deg=start_deg, span_deg=span_deg
+        )
+        path = arc.path()
+        first = path.elementAt(0)
+        last = path.elementAt(path.elementCount() - 1)
+        assert math.hypot(first.x - p1.x(), first.y - p1.y()) < 1e-3
+        assert math.hypot(last.x - p3.x(), last.y - p3.y()) < 1e-3
+
+    def test_arc_to_painter_path_endpoints_on_circle(self, qtbot: object) -> None:
+        center = QPointF(10, -5)
+        radius = 250.0
+        path = arc_to_painter_path(center, radius, 30.0, 200.0)
+        first = path.elementAt(0)
+        last = path.elementAt(path.elementCount() - 1)
+        for el in (first, last):
+            r = math.hypot(el.x - center.x(), el.y - center.y())
+            assert _approx(r, radius, tol=1e-6)
+
+    def test_empty_span_is_single_moveto(self, qtbot: object) -> None:
+        path = arc_to_painter_path(QPointF(0, 0), 100.0, 0.0, 0.0)
+        assert path.elementCount() == 1
+
+
+class TestArcThroughPoint:
+    """Issue #193: the arc stores a through-point so reshape handles round-trip."""
+
+    def test_default_through_is_angular_midpoint(self, qtbot: object) -> None:
+        arc = ArcItem(QPointF(0, 0), 100.0, 0.0, 180.0)
+        mid = arc.midpoint()
+        assert _approx(arc._through.x(), mid.x())
+        assert _approx(arc._through.y(), mid.y())
+
+    def test_through_roundtrips_through_serialization(self, qtbot: object) -> None:
+        c, r, sd, sp = arc_from_three_points(
+            QPointF(0, 0), QPointF(50, 20), QPointF(100, 0)
+        )
+        arc = ArcItem(center=c, radius=r, start_deg=sd, span_deg=sp, through=QPointF(50, 20))
+        d = arc.to_dict()
+        assert "through_x" in d and "through_y" in d
+        clone = ArcItem.from_dict(d)
+        assert _approx(clone._through.x(), 50.0)
+        assert _approx(clone._through.y(), 20.0)
+
+    def test_legacy_file_without_through_derives_midpoint(self, qtbot: object) -> None:
+        arc = ArcItem(QPointF(0, 0), 100.0, 0.0, 90.0)
+        d = arc.to_dict()
+        del d["through_x"]
+        del d["through_y"]
+        clone = ArcItem.from_dict(d)
+        mid = clone._angular_midpoint_local()
+        assert _approx(clone._through.x(), mid.x())
+        assert _approx(clone._through.y(), mid.y())
+
+
+class TestArcReshape:
+    """Issue #193: dragging a control point recomputes the 3-point arc."""
+
+    def _arc(self) -> ArcItem:
+        c, r, sd, sp = arc_from_three_points(
+            QPointF(0, 0), QPointF(50, 20), QPointF(100, 0)
+        )
+        return ArcItem(center=c, radius=r, start_deg=sd, span_deg=sp, through=QPointF(50, 20))
+
+    def test_drag_through_keeps_endpoints(self, qtbot: object) -> None:
+        arc = self._arc()
+        s0, e0 = arc._start_local(), arc._end_local()
+        arc._move_control("arc_through", 0, QPointF(50, 45), False)
+        assert math.hypot(arc._start_local().x() - s0.x(), arc._start_local().y() - s0.y()) < 1e-4
+        assert math.hypot(arc._end_local().x() - e0.x(), arc._end_local().y() - e0.y()) < 1e-4
+        assert math.hypot(arc._through.x() - 50, arc._through.y() - 45) < 1e-9
+
+    def test_drag_start_keeps_end(self, qtbot: object) -> None:
+        arc = self._arc()
+        e0 = arc._end_local()
+        arc._move_control("arc_start", 0, QPointF(-10, 0), False)
+        assert math.hypot(arc._start_local().x() - (-10), arc._start_local().y() - 0) < 1e-4
+        assert math.hypot(arc._end_local().x() - e0.x(), arc._end_local().y() - e0.y()) < 1e-4
+
+    def test_collinear_drag_is_rejected(self, qtbot: object) -> None:
+        arc = self._arc()
+        snap = arc._capture_geometry()
+        # Drag the through-point onto the start→end chord → no unique circle.
+        arc._move_control("arc_through", 0, QPointF(50, 0), False)
+        assert arc._capture_geometry() == snap
+
+    def test_capture_restore_roundtrip(self, qtbot: object) -> None:
+        arc = self._arc()
+        snap = arc._capture_geometry()
+        arc._move_control("arc_end", 0, QPointF(110, 30), False)
+        assert arc._capture_geometry() != snap
+        arc._restore_geometry(snap)
+        assert arc._capture_geometry() == snap
 
 
 if __name__ == "__main__":
