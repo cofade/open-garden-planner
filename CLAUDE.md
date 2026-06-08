@@ -208,10 +208,7 @@ See **ADR-022** (Bezier model + filleted-rectangle conversion) and **ADR-023** (
 > - When the **last** remaining PR subsection is deleted, **delete this entire "Package B Follow-ups — PR Plan" heading and its intro** too — leave nothing behind.
 > - Epic #188 (Package C) is **not** part of this section; it stays an open epic on its own track.
 
-Eight open issues (validated against code) consolidate into three near-term PRs. Issue numbers are the source of truth; this table is just the batching.
-
-### PR 2 — "Curve item polish" (#195 + #193)
-Both center on `ArcItem` / `BezierItem`. #195 fixes 3-point-arc endpoint drift; #193 adds `VertexEditMixin`-style edit handles to the same items. Fix endpoints first, then add draggable handles on top. **Delete this PR-2 subsection on merge.**
+One Package B follow-up remains (PR 1 → #198 v1.13.0 and PR 2 → #202 v1.14.0 are merged). Issue numbers are the source of truth.
 
 ### PR 3 — Mirror tool (#187 remainder)
 The only undelivered slice of Package B epic #187 (US-B4). Standalone Modify-tool feature; close the epic with it. **Delete this PR-3 subsection on merge — and if it is the last subsection left, delete the whole section per the protocol above.**
