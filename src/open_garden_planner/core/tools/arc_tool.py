@@ -159,7 +159,7 @@ class ArcTool(BaseTool):
         pen = QPen(_PREVIEW_COLOR, _PREVIEW_WIDTH, Qt.PenStyle.DashLine)
         self._preview_path.setPen(pen)
         self._view.scene().addItem(self._preview_path)
-        # Re-purpose the straight line as the start→through indicator.
+        # Re-purpose the straight line as the start→end chord indicator.
         if self._preview_line is not None and self._p1 is not None and self._p2 is not None:
             self._preview_line.setLine(
                 self._p1.x(), self._p1.y(), self._p2.x(), self._p2.y()
