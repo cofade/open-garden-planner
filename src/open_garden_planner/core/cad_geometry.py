@@ -463,3 +463,63 @@ def chamfer_corner(
         p_corner.y() + (cy_ / len_c) * distance,
     )
     return cut_in, cut_out
+
+
+# ---------------------------------------------------------------------------
+# Mirror / reflection helpers (US-B4)
+# ---------------------------------------------------------------------------
+
+
+def reflect_point(p: QPointF, a: QPointF, b: QPointF) -> QPointF:
+    """Reflect ``p`` across the infinite line through ``a`` and ``b``.
+
+    Projects ``p`` onto the line to find the foot of the perpendicular,
+    then mirrors ``p`` to the opposite side: ``2·foot - p``.
+
+    The caller must guarantee ``a != b`` (a non-zero axis); a degenerate
+    axis (``|b-a|`` below ``PARALLEL_EPSILON``) returns ``p`` unchanged.
+    """
+    dx = b.x() - a.x()
+    dy = b.y() - a.y()
+    len_sq = dx * dx + dy * dy
+    if len_sq < PARALLEL_EPSILON:
+        return QPointF(p)
+    t = ((p.x() - a.x()) * dx + (p.y() - a.y()) * dy) / len_sq
+    foot_x = a.x() + t * dx
+    foot_y = a.y() + t * dy
+    return QPointF(2.0 * foot_x - p.x(), 2.0 * foot_y - p.y())
+
+
+def reflect_angle_deg(angle_deg: float, a: QPointF, b: QPointF) -> float:
+    """Reflect an orientation ``angle_deg`` across the axis ``a → b``.
+
+    A reflection across a line at direction angle ``φ`` maps an orientation
+    ``θ`` to ``2φ - θ``. Result is normalised to ``[0, 360)``. Uses the same
+    screen convention (degrees, clockwise-positive in Qt's y-down space) as
+    ``RotationHandleMixin._apply_rotation`` / ``rotation_angle``.
+    """
+    phi = math.degrees(math.atan2(b.y() - a.y(), b.x() - a.x()))
+    return (2.0 * phi - angle_deg) % 360.0
+
+
+def snap_point_to_axis_step(
+    origin: QPointF, target: QPointF, step_deg: float = 45.0
+) -> QPointF:
+    """Snap the ``origin → target`` direction to the nearest multiple of ``step_deg``.
+
+    Keeps the original distance from ``origin``; only the angle is quantised.
+    Used to constrain a mirror axis to 0/45/90° while the user holds Shift.
+    Returns ``target`` unchanged when it coincides with ``origin``.
+    """
+    dx = target.x() - origin.x()
+    dy = target.y() - origin.y()
+    dist = math.hypot(dx, dy)
+    if dist < PARALLEL_EPSILON:
+        return QPointF(target)
+    angle = math.atan2(dy, dx)
+    step_rad = math.radians(step_deg)
+    snapped = round(angle / step_rad) * step_rad
+    return QPointF(
+        origin.x() + dist * math.cos(snapped),
+        origin.y() + dist * math.sin(snapped),
+    )

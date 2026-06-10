@@ -1253,6 +1253,10 @@
             <source>Chamfer (Shift+C) — bevel a corner</source>
             <translation>Anfasen (Umschalt+C) — Ecke abschrägen</translation>
         </message>
+        <message>
+            <source>Mirror (Shift+M) — reflect selection across an axis</source>
+            <translation>Spiegeln (Umschalt+M) — Auswahl an einer Achse spiegeln</translation>
+        </message>
     </context>
     <context>
         <name>ConstraintsPanel</name>
@@ -9005,6 +9009,61 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>(unsaved)</source>
             <translation>(nicht gespeichert)</translation>
+        </message>
+    </context>
+    <context>
+        <name>MirrorTool</name>
+        <message>
+            <source>Mirror</source>
+            <translation>Spiegeln</translation>
+        </message>
+        <message>
+            <source>Select shapes to mirror first, then pick the axis</source>
+            <translation>Zuerst Formen zum Spiegeln auswählen, dann die Achse festlegen</translation>
+        </message>
+        <message>
+            <source>Mirror: click axis start</source>
+            <translation>Spiegeln: Achsen-Startpunkt anklicken</translation>
+        </message>
+        <message>
+            <source>Select shapes to mirror first</source>
+            <translation>Zuerst Formen zum Spiegeln auswählen</translation>
+        </message>
+        <message>
+            <source>Click axis end (hold Shift for 45°)</source>
+            <translation>Achsen-Endpunkt anklicken (Umschalt für 45°)</translation>
+        </message>
+        <message>
+            <source>Axis must have a length</source>
+            <translation>Die Achse muss eine Länge haben</translation>
+        </message>
+        <message>
+            <source>Mirror the selection across the axis?</source>
+            <translation>Die Auswahl an der Achse spiegeln?</translation>
+        </message>
+        <message>
+            <source>Copy</source>
+            <translation>Kopieren</translation>
+        </message>
+        <message>
+            <source>Move</source>
+            <translation>Verschieben</translation>
+        </message>
+        <message>
+            <source>Nothing mirrored ({skipped} unsupported)</source>
+            <translation>Nichts gespiegelt ({skipped} nicht unterstützt)</translation>
+        </message>
+        <message>
+            <source>Mirrored {count} item(s)</source>
+            <translation>{count} Element(e) gespiegelt</translation>
+        </message>
+        <message>
+            <source>({skipped} unsupported skipped)</source>
+            <translation>({skipped} nicht unterstützte übersprungen)</translation>
+        </message>
+        <message>
+            <source>— copies are unconstrained</source>
+            <translation>— Kopien sind ohne Randbedingungen</translation>
         </message>
     </context>
 </TS>

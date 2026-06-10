@@ -26,6 +26,7 @@ from .ellipse_tool import EllipseTool
 from .fillet_tool import FilletTool
 from .journal_pin_tool import JournalPinTool
 from .measure_tool import MeasureTool
+from .mirror_tool import MirrorTool
 from .offset_tool import OffsetTool
 from .polygon_tool import PolygonTool
 from .polyline_tool import PolylineTool
@@ -56,6 +57,7 @@ __all__ = [
     "HorizontalDistanceConstraintTool",
     "JournalPinTool",
     "MeasureTool",
+    "MirrorTool",
     "OffsetTool",
     "ParallelConstraintTool",
     "PerpendicularConstraintTool",

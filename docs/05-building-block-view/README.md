@@ -63,7 +63,9 @@ src/open_garden_planner/
 │   │   ├── geometry.py           #   item_edges, segment_intersection
 │   │   └── providers/            #   Endpoint, Center, EdgeCardinal, Midpoint,
 │   │                             #     Intersection, Nearest, Perpendicular, Tangent
-│   ├── cad_geometry.py           # arc_from_three_points, fillet_corner, chamfer_corner
+│   ├── cad_geometry.py           # arc_from_three_points, fillet_corner, chamfer_corner,
+│   │                             #   reflect_point/reflect_angle_deg/snap_point_to_axis_step (US-B4)
+│   ├── mirror_geometry.py        # build_mirrored_item — per-type reflection rebuild (US-B4, ADR-026)
 │   ├── coordinate_input/         # Typed coordinate pipeline (ADR-021, Package A US-A1/A2/A4)
 │   │   ├── parser.py             #   parse(@dx,dy / @dist<angle / x,y), smart decimal
 │   │   └── buffer.py             #   CoordinateInputBuffer(QObject) — shared state
@@ -83,6 +85,7 @@ src/open_garden_planner/
 │       ├── corner_edit_base.py   # Shared corner-picking for Fillet / Chamfer
 │       ├── fillet_tool.py        # Round-corner tool (Package B US-B3)
 │       ├── chamfer_tool.py       # Bevel-corner tool (Package B US-B3)
+│       ├── mirror_tool.py        # Mirror selection across an axis (Package B US-B4)
 │       ├── trim_tool.py          # Trim/Extend (US-11.16)
 │       ├── offset_tool.py        # Parallel-copy offset (US-11.15)
 │       ├── measure_tool.py       # Distance measurement

@@ -186,6 +186,10 @@ class ArcItem(CurveEditMixin, QGraphicsPathItem):
         """Scene coordinates of the arc's angular midpoint."""
         return self.mapToScene(self._angular_midpoint_local())
 
+    def through_point(self) -> QPointF:
+        """Scene coordinates of the arc's stored through / bulge point."""
+        return self.mapToScene(self._through)
+
     # ------------------------------------------------------------------
     # Painting / hit-testing
     # ------------------------------------------------------------------

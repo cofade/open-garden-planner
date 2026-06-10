@@ -83,6 +83,7 @@ from open_garden_planner.core.tools import (
     HorizontalDistanceConstraintTool,
     JournalPinTool,
     MeasureTool,
+    MirrorTool,
     OffsetTool,
     ParallelConstraintTool,
     PerpendicularConstraintTool,
@@ -326,6 +327,8 @@ class CanvasView(QGraphicsView):
         # Phase 13 Package B (US-B3): fillet & chamfer corner editors.
         self._tool_manager.register_tool(FilletTool(self))
         self._tool_manager.register_tool(ChamferTool(self))
+        # Phase 13 Package B (US-B4): mirror selection across an axis.
+        self._tool_manager.register_tool(MirrorTool(self))
 
         # Register generic shape tools
         rect_tool = RectangleTool(self, object_type=ObjectType.GENERIC_RECTANGLE)
