@@ -1024,6 +1024,52 @@ class CircularArrayCommand(Command):
                 self._scene.removeItem(item)
 
 
+class MirrorItemsCommand(Command):
+    """Command for mirroring a selection across an axis (US-B4).
+
+    ``mirrored`` are the freshly-built reflected items. In **copy** mode the
+    originals are left untouched and the copies are added. In **move** mode the
+    originals are removed and replaced by the reflected items (which carry the
+    originals' ``item_id`` so existing constraints stay bound). One drag = one
+    undoable step.
+    """
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        originals: "list[QGraphicsItem]",
+        mirrored: "list[QGraphicsItem]",
+        copy: bool,
+    ) -> None:
+        self._scene = scene
+        self._originals = list(originals)
+        self._mirrored = list(mirrored)
+        self._copy = copy
+
+    @property
+    def description(self) -> str:
+        verb = "copy" if self._copy else "move"
+        return f"Mirror {len(self._mirrored)} item(s) ({verb})"
+
+    def execute(self) -> None:
+        if not self._copy:
+            for item in self._originals:
+                if item.scene() is self._scene:
+                    self._scene.removeItem(item)
+        for item in self._mirrored:
+            if item.scene() is None:
+                self._scene.addItem(item)
+
+    def undo(self) -> None:
+        for item in self._mirrored:
+            if item.scene() is self._scene:
+                self._scene.removeItem(item)
+        if not self._copy:
+            for item in self._originals:
+                if item.scene() is None:
+                    self._scene.addItem(item)
+
+
 class EditConstraintDistanceCommand(Command):
     """Command for editing a constraint's target distance.
 

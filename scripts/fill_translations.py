@@ -1327,6 +1327,31 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Fillet (Shift+F) — round a corner": "Abrunden (Umschalt+F) — Ecke abrunden",
         "Chamfer (Shift+C) — bevel a corner":
             "Anfasen (Umschalt+C) — Ecke abschrägen",
+        "Mirror (Shift+M) — reflect selection across an axis":
+            "Spiegeln (Umschalt+M) — Auswahl an einer Achse spiegeln",
+    },
+
+    # ── MirrorTool (US-B4) ──
+    "MirrorTool": {
+        "Mirror": "Spiegeln",
+        "Select shapes to mirror first, then pick the axis":
+            "Zuerst Formen zum Spiegeln auswählen, dann die Achse festlegen",
+        "Mirror: click axis start": "Spiegeln: Achsen-Startpunkt anklicken",
+        "Select shapes to mirror first":
+            "Zuerst Formen zum Spiegeln auswählen",
+        "Click axis end (hold Shift for 45°)":
+            "Achsen-Endpunkt anklicken (Umschalt für 45°)",
+        "Axis must have a length": "Die Achse muss eine Länge haben",
+        "Mirror the selection across the axis?":
+            "Die Auswahl an der Achse spiegeln?",
+        "Copy": "Kopieren",
+        "Move": "Verschieben",
+        "Nothing mirrored ({skipped} unsupported)":
+            "Nichts gespiegelt ({skipped} nicht unterstützt)",
+        "Mirrored {count} item(s)": "{count} Element(e) gespiegelt",
+        "({skipped} unsupported skipped)":
+            "({skipped} nicht unterstützte übersprungen)",
+        "— copies are unconstrained": "— Kopien sind ohne Randbedingungen",
     },
 
     # ── Paper Space (Phase 13 Package B — US-B7) ──

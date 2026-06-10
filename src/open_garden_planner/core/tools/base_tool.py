@@ -104,6 +104,8 @@ class ToolType(Enum):
     ARC = auto()
     FILLET = auto()
     CHAMFER = auto()
+    # Phase 13 Package B (US-B4) — reflect selection across an axis
+    MIRROR = auto()
 
 
 class BaseTool(ABC):

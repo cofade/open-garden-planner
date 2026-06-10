@@ -57,6 +57,8 @@
 | **Cubic Bezier** | Smooth curve item with two handles per anchor (`handles_in[i]`, `handles_out[i]`). Authored via a pen tool (`B`), edited by dragging anchor or handle widgets. Single curve model in the app — quadratic / NURBS variants are out of scope. See ADR-022 |
 | **Fillet** | Round a corner with a tangent arc. Tangent points sit at distance `r/tan(α)` along each adjacent edge; the arc center is on the bisector at `r/sin(α)`. Applied to a polyline / polygon vertex in place; rectangle fillet is a destructive rect → polygon conversion (undo restores the rect). See ADR-022 |
 | **Chamfer** | Bevel a corner with a straight cut at distance `d` along each adjacent edge. Same picking + persistence model as Fillet, but no arc is created. See ADR-022 |
+| **Mirror (tool)** | Modify tool (`Shift+M`) that reflects the selected shapes across a two-click **reflection axis**, in **Copy** (keep originals) or **Move** (replace, preserving `item_id` so constraints stay bound) mode. Reflects by rebuilding each item (`core/mirror_geometry.build_mirrored_item`), so SVG glyphs render un-flipped. Distinct from the **Symmetry constraint** (a persistent relationship). See ADR-026 |
+| **Reflection axis** | The user-defined line (two clicks) the Mirror tool reflects across. Hold **Shift** while picking the end to constrain it to 0/45/90°. |
 | **Nearest snap** | Fallback snap mode (priority 45, lowest) that yields the closest point on any visible edge or curve to the cursor. Default off. Glyph: hourglass. See ADR-023 |
 | **Perpendicular snap** | Foot of perpendicular from the active tool's `last_point` to the nearest straight edge. Requires a reference anchor; pure-cursor perpendicular has no meaning. Priority 25. Glyph: ⊥. See ADR-023 |
 | **Tangent snap** | Contact point of a line from `last_point` to a circle/arc's tangent (`α = acos(r/|RC|)`). Two solutions exist for an external point; cursor disambiguates. Priority 26. Glyph: small circle + tangent line. See ADR-023 |
@@ -105,6 +107,7 @@
 | Chamfer Tool | Shift+C |
 | Fillet — change radius (while active) | R |
 | Chamfer — change distance (while active) | D |
+| Mirror Tool | Shift+M |
 
 ## 12.3 References
 

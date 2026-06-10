@@ -105,6 +105,12 @@ _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
     _ToolEntry(
         "chamfer", "Chamfer (Shift+C) — bevel a corner", "Shift+C", ToolType.CHAMFER
     ),
+    _ToolEntry(
+        "mirror",
+        "Mirror (Shift+M) — reflect selection across an axis",
+        "Shift+M",
+        ToolType.MIRROR,
+    ),
 ]
 
 

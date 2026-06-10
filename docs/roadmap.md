@@ -2287,6 +2287,7 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 | ✅     | B8    | Snap engagements emit *enforceable* constraints + new `TANGENT` type (#192/#196/#197, PR #198, v1.13.0) — see ADR-024 |
 | ✅     | B9    | Vertex/handle editing for placed Bezier + Arc (#193) — dedicated `CurveEditMixin` + `CurveControlHandle`, one-undo reshape — see ADR-025 |
 | ✅     | B11   | 3-point arc endpoint precision (#195) — exact cubic-Bézier rendering (`arc_to_painter_path`); arc tool reordered to **start → end → bulge** per user feedback |
+| ✅     | B4    | Mirror tool (#187 remainder) — reflect selection across a two-click axis (Shift = 45°), Copy/Move; per-type rebuild (`core/mirror_geometry.py`), Move preserves `item_id` so constraints stay bound — see ADR-026. Closes epic #187 |
 
 ### Acceptance highlights
 - `SnapProvider.candidates()` extended with `reference_point: QPointF | None = None`; all in-tree providers updated atomically; existing tests still green.
