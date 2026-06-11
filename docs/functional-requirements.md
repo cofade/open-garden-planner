@@ -168,6 +168,7 @@ Pre-defined object types for common property elements:
 - **FR-FILE-05**: Save/Save As/Open dialogs with recent files list
 - **FR-FILE-06**: Auto-save to temp location (configurable interval)
 - **FR-FILE-07**: Crash recovery from auto-save
+- **FR-FILE-08** (issue #199): Save/Open/export dialogs default to a safe, writable location — the open project's folder when one exists, otherwise `<Documents>/Open Garden Planner` (`app/paths.get_projects_dir()`). They must **never** default to the process working directory, which for a packaged build is the install folder; user data stored there is destroyed on upgrade/uninstall. Complemented installer-side by user-data preservation (see deployment view §7.2): the uninstaller backs up any `$INSTDIR\*.ogp` to `Documents\Open Garden Planner\Recovered Plans` before removing the install directory.
 
 ### FR-9.2 Export
 - **FR-EXP-01**: Export to PNG (configurable DPI: 72, 150, 300)

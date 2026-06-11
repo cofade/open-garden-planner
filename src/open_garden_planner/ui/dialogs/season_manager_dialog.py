@@ -24,6 +24,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.app.paths import get_projects_dir
+
 if TYPE_CHECKING:
     from open_garden_planner.core.project import ProjectManager
 
@@ -219,7 +221,9 @@ class SeasonManagerDialog(QDialog):
             base = parts[0] if len(parts) == 2 and parts[1].isdigit() else stem
             suggested = current_file.parent / f"{base}_{year}.ogp"
         else:
-            suggested = Path(f"garden_{year}.ogp")
+            # No saved project yet — default to the safe projects folder, never
+            # the process working dir (the install folder for packaged builds, #199).
+            suggested = get_projects_dir() / f"garden_{year}.ogp"
 
         file_path, _ = QFileDialog.getSaveFileName(
             self,

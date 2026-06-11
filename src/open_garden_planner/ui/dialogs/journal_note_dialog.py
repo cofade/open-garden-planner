@@ -31,6 +31,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.app.paths import default_dialog_dir
 from open_garden_planner.models.journal_note import JournalNote
 
 
@@ -160,7 +161,7 @@ class JournalNoteDialog(QDialog):
         path_str, _filter = QFileDialog.getOpenFileName(
             self,
             self.tr("Select photo"),
-            "",
+            str(default_dialog_dir()),
             self.tr("Images (*.png *.jpg *.jpeg *.gif *.bmp *.webp)"),
         )
         if not path_str:

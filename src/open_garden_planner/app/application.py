@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.app.paths import default_dialog_dir, default_save_path
 from open_garden_planner.core import (
     ProjectManager,
     calculate_area_and_perimeter,
@@ -1729,6 +1730,19 @@ class GardenPlannerApp(QMainWindow):
                     )
                 )
 
+    def _default_dialog_dir(self) -> Path:
+        """Resolve the directory file dialogs should open in (issue #199).
+
+        Delegates to the shared chokepoint, anchoring on the currently open
+        project's folder when there is one. Never resolves to the install
+        directory, where user files get wiped on upgrade.
+        """
+        return default_dialog_dir(self._project_manager.current_file)
+
+    def _default_save_path(self, filename: str) -> str:
+        """Build a full default path (dir + filename) for a save dialog."""
+        return default_save_path(filename, self._project_manager.current_file)
+
     def _on_open_project(self) -> None:
         """Handle Open Project action."""
         if not self._confirm_discard_changes():
@@ -1737,7 +1751,7 @@ class GardenPlannerApp(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             self.tr("Open Project"),
-            "",
+            str(self._default_dialog_dir()),
             self.tr("Open Garden Planner (*.ogp);;All Files (*)"),
         )
         if file_path:
@@ -1831,7 +1845,7 @@ class GardenPlannerApp(QMainWindow):
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             self.tr("Save Project As"),
-            self._project_manager.project_name + ".ogp",
+            self._default_save_path(self._project_manager.project_name + ".ogp"),
             self.tr("Open Garden Planner (*.ogp);;All Files (*)"),
         )
         if file_path:
@@ -1871,7 +1885,7 @@ class GardenPlannerApp(QMainWindow):
             return
 
         # Get file path
-        default_name = self._project_manager.project_name + ".png"
+        default_name = self._default_save_path(self._project_manager.project_name + ".png")
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             self.tr("Export as PNG"),
@@ -1901,7 +1915,7 @@ class GardenPlannerApp(QMainWindow):
     def _on_export_svg(self) -> None:
         """Handle Export as SVG action."""
         # Get file path
-        default_name = self._project_manager.project_name + ".svg"
+        default_name = self._default_save_path(self._project_manager.project_name + ".svg")
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             self.tr("Export as SVG"),
@@ -1932,7 +1946,7 @@ class GardenPlannerApp(QMainWindow):
     def _on_export_plant_csv(self) -> None:
         """Handle Export Plant List as CSV action."""
         # Get file path
-        default_name = self._project_manager.project_name + "_plants.csv"
+        default_name = self._default_save_path(self._project_manager.project_name + "_plants.csv")
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             self.tr("Export Plant List as CSV"),
@@ -2008,7 +2022,7 @@ class GardenPlannerApp(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             self.tr("Import DXF"),
-            "",
+            str(self._default_dialog_dir()),
             self.tr("DXF Files (*.dxf);;All Files (*)"),
         )
         if not file_path:
@@ -2054,7 +2068,7 @@ class GardenPlannerApp(QMainWindow):
         """Handle Export as DXF action."""
         from open_garden_planner.services.dxf_service import DxfExportService
 
-        default_name = self._project_manager.project_name + ".dxf"
+        default_name = self._default_save_path(self._project_manager.project_name + ".dxf")
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             self.tr("Export as DXF"),
@@ -2093,7 +2107,7 @@ class GardenPlannerApp(QMainWindow):
         if dialog.exec() != PdfReportDialog.DialogCode.Accepted:
             return
 
-        default_name = self._project_manager.project_name + ".pdf"
+        default_name = self._default_save_path(self._project_manager.project_name + ".pdf")
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             self.tr("Export PDF Report"),
@@ -3461,7 +3475,7 @@ class GardenPlannerApp(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             self.tr("Import Background Image"),
-            "",
+            str(self._default_dialog_dir()),
             self.tr("Images (*.png *.jpg *.jpeg *.tiff *.bmp);;All Files (*)"),
         )
         if file_path:
