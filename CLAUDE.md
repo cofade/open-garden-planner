@@ -120,10 +120,10 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 | 5 | **Write integration test** in `tests/integration/test_<feature>.py` | **Mandatory** — end-to-end UI workflow. See `docs/08-crosscutting-concepts/` 8.10 |
 | 6 | Build & verify exe | See Quick Reference |
 | 7 | **Run senior-reviewer pass** | Launch the `senior-reviewer` agent in a fresh worktree against the branch diff. Address any P0/P1 findings before proceeding. Re-run after fixes for a clean re-review. The `finalize-us` skill repeats this step pre-PR. |
-| 8 | **WAIT for user approval** Provide testing checklist | Never commit before approval |
+| 8 | Provide testing checklist | Surface a manual-testing checklist alongside the work |
 | 9 | Commit: `feat(US-X.X): Description` | Conventional commit format |
-| 10 | Push & create PR | Use GitHub CLI: `pr create`, `pr merge --squash --delete-branch --admin` |
-| 11 | Sync version on master | See Versioning Protocol |
+| 10 | Push & **auto-open PR** | Always open the PR automatically after pushing (`pr create`). **Do NOT merge** until the user confirms manual testing passed — only then `pr merge --squash --delete-branch --admin` |
+| 11 | Sync version on master | See Versioning Protocol (after merge) |
 | 12 | `/clear` context | Clear Claude context
 
 ## Translation (i18n)
