@@ -69,8 +69,18 @@ python installer/build_installer.py --skip-pyinstaller
 | **Custom File Icon** | OGP logo icon for `.ogp` files in Explorer |
 | **Upgrade Support** | Detects existing installation, offers silent uninstall before upgrade |
 | **Uninstaller** | Clean removal via Add/Remove Programs |
+| **User-Data Preservation** | Before wiping `$INSTDIR`, the uninstaller copies any `*.ogp` plans found there to `Documents\Open Garden Planner\Recovered Plans` (issue #199) |
 | **Installer Size** | ~34 MB (LZMA compressed, well under 100 MB target) |
 | **Languages** | English, German |
+
+> **Why user-data preservation matters (issue #199):** The uninstall section runs
+> `RMDir /r "$INSTDIR"`, and the upgrade path silently invokes the *old* uninstaller
+> before installing the new build — so an in-place update wipes the entire install
+> directory. Users who had saved `.ogp` plans inside the install folder lost them. Two
+> guards now exist: (1) the app defaults all save/open/export dialogs to
+> `Documents\Open Garden Planner` (`app/paths.get_projects_dir()`) so new data never
+> lands under `$INSTDIR`; (2) the uninstaller backs up any pre-existing `$INSTDIR\*.ogp`
+> to `Documents\Open Garden Planner\Recovered Plans` before the recursive delete.
 
 ### File Association
 

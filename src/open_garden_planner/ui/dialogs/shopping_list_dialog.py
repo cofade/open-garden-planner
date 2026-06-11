@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.app.paths import default_save_path
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.models.shopping_list import (
     ShoppingListCategory,
@@ -448,7 +449,7 @@ class ShoppingListDialog(QDialog):
         path, _ = QFileDialog.getSaveFileName(
             self,
             self.tr("Export Shopping List as CSV"),
-            "shopping_list.csv",
+            default_save_path("shopping_list.csv"),
             self.tr("CSV files (*.csv)"),
         )
         if not path:
@@ -468,7 +469,7 @@ class ShoppingListDialog(QDialog):
         path, _ = QFileDialog.getSaveFileName(
             self,
             self.tr("Export Shopping List as PDF"),
-            "shopping_list.pdf",
+            default_save_path("shopping_list.pdf"),
             self.tr("PDF files (*.pdf)"),
         )
         if not path:

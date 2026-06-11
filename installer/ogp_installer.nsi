@@ -170,6 +170,31 @@ SectionEnd
 ;---------------------------------------------------------------------------
 Section "Uninstall"
 
+  ; --- Preserve user .ogp plans before wiping the install dir (issue #199) ---
+  ; Some users saved projects directly inside the install directory. Because an
+  ; upgrade silently runs this uninstaller (see .onInit), RMDir /r would destroy
+  ; them. Copy any top-level *.ogp files to the same folder the app now defaults
+  ; to, so recovered plans appear right where users will look for them.
+  StrCpy $R2 0                                      ; recovered-file counter
+  FindFirst $R1 $R3 "$INSTDIR\*.ogp"
+  StrCmp $R3 "" close_backup                        ; nothing to back up
+  CreateDirectory "$DOCUMENTS\Open Garden Planner\Recovered Plans"
+loop_backup:
+  StrCmp $R3 "" close_backup
+  CopyFiles /SILENT "$INSTDIR\$R3" "$DOCUMENTS\Open Garden Planner\Recovered Plans\$R3"
+  IntOp $R2 $R2 + 1
+  FindNext $R1 $R3
+  Goto loop_backup
+close_backup:
+  FindClose $R1
+  ; Inform the user. /SD IDOK auto-selects OK in silent mode so the silent
+  ; upgrade uninstall (.onInit → ExecWait '... /S ...') never blocks on a modal.
+  IntCmp $R2 0 done_backup
+  MessageBox MB_OK|MB_ICONINFORMATION \
+    "$R2 garden plan(s) found in the program folder were copied to:$\r$\n$DOCUMENTS\Open Garden Planner\Recovered Plans" \
+    /SD IDOK
+done_backup:
+
   ; Remove files (entire install directory)
   RMDir /r "$INSTDIR"
 
