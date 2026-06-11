@@ -204,12 +204,25 @@ class PropertiesPanel(QWidget):
         Args:
             items: List of selected graphics items
         """
-        # Don't rebuild the form while the user is actively typing in a spin box.
-        # This prevents the focused widget from being destroyed mid-input when
-        # command_executed triggers _update_properties_panel.
-        from PyQt6.QtWidgets import QApplication, QDoubleSpinBox
+        # Don't rebuild the form while the user is actively editing one of its
+        # input widgets — rebuilding deletes the focused widget mid-input,
+        # dropping focus and the caret (issue #200). Every keystroke in the Name
+        # (QLineEdit) or Text Content (QTextEdit) field emits
+        # can_undo/redo_changed, which deferred-calls _update_properties_panel ->
+        # set_selected_items. QAbstractSpinBox covers the original spin-box case
+        # (incl. QSpinBox) and each widget's internal QLineEdit.
+        from PyQt6.QtWidgets import (
+            QAbstractSpinBox,
+            QApplication,
+            QLineEdit,
+            QTextEdit,
+        )
         fw = QApplication.focusWidget()
-        if fw is not None and isinstance(fw, QDoubleSpinBox) and self.isAncestorOf(fw):
+        if (
+            fw is not None
+            and isinstance(fw, (QAbstractSpinBox, QLineEdit, QTextEdit))
+            and self.isAncestorOf(fw)
+        ):
             return
 
         self._current_items = items
