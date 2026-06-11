@@ -152,8 +152,6 @@ class TestNumericDimensionInput:
 
     def test_circle_diameter_change_updates_radius(self, qtbot):  # noqa: ARG002
         """Changing diameter spin updates circle radius and keeps center fixed."""
-        from PyQt6.QtWidgets import QDoubleSpinBox
-
         item = CircleItem(50.0, 50.0, 25.0)
         # Initial center in item coords (since pos is at 0,0): (25, 25) in item local space
         # Scene center = pos + rect.center = (0,0) + (25,25) = (25,25)
@@ -173,8 +171,6 @@ class TestNumericDimensionInput:
 
     def test_circle_diameter_change_preserves_center(self, qtbot):  # noqa: ARG002
         """Changing diameter keeps scene center position fixed."""
-        from PyQt6.QtWidgets import QDoubleSpinBox
-
         item = CircleItem(0.0, 0.0, 30.0)
         # pos = (0,0), rect = (0,0,60,60), scene center = (30, 30)
         item.setPos(0.0, 0.0)
@@ -280,8 +276,6 @@ class TestNumericDimensionInput:
 
     def test_circle_resize_creates_undo_command(self, qtbot):  # noqa: ARG002
         """Resizing a circle via the panel creates a ResizeItemCommand."""
-        from PyQt6.QtWidgets import QDoubleSpinBox
-
         from open_garden_planner.core.commands import CommandManager
 
         item = CircleItem(0.0, 0.0, 25.0)
@@ -317,4 +311,122 @@ class TestNumericDimensionInput:
 
         assert len(cmd_manager._undo_stack) > initial_undo_count, (
             "Expected undo command to be created after width change"
+        )
+
+
+class TestFocusPreservation:
+    """Regression tests for issue #200: live-edit fields must not lose focus.
+
+    Typing in the Name (``QLineEdit``) or Text Content (``QTextEdit``) field
+    emits ``can_undo_changed`` / ``can_redo_changed``, which (wired up in
+    ``application.py``) deferred-calls ``set_selected_items``. If the panel's
+    focus-preservation guard does not cover the focused widget, the whole form
+    is rebuilt and the field being typed into is destroyed — dropping focus and
+    the caret after every keystroke.
+    """
+
+    @staticmethod
+    def _find_field_by_label(panel: PropertiesPanel, label_text: str):
+        """Return the field widget whose form-row label contains label_text."""
+        from PyQt6.QtWidgets import QLabel
+
+        form = panel._form_layout
+        for i in range(form.rowCount()):
+            label_item = form.itemAt(i, form.ItemRole.LabelRole)
+            field_item = form.itemAt(i, form.ItemRole.FieldRole)
+            if label_item is None or field_item is None:
+                continue
+            label_widget = label_item.widget()
+            if isinstance(label_widget, QLabel) and label_text in label_widget.text():
+                return field_item.widget()
+        return None
+
+    def test_name_field_survives_rebuild_while_focused(self, qtbot, monkeypatch):  # noqa: ARG002
+        """Issue #200: the Name field keeps its widget (and focus) across a rebuild."""
+        from PyQt6.QtWidgets import QApplication, QLineEdit
+
+        from open_garden_planner.core.commands import CommandManager
+
+        item = RectangleItem(0, 0, 100, 50)
+        panel = PropertiesPanel(command_manager=CommandManager())
+        panel.set_selected_items([item])
+
+        name_edit = self._find_field_by_label(panel, "Name")
+        assert isinstance(name_edit, QLineEdit), "Name field not found in panel"
+
+        # Simulate the field holding keyboard focus (deterministic, no window).
+        monkeypatch.setattr(QApplication, "focusWidget", lambda: name_edit)  # type: ignore[attr-defined]
+
+        # Mimic the per-keystroke rebuild trigger (can_undo/redo_changed).
+        panel.set_selected_items([item])
+
+        after = self._find_field_by_label(panel, "Name")
+        assert after is name_edit, (
+            "Name field was rebuilt while focused — focus/caret would be lost (#200)"
+        )
+
+    def test_name_field_rebuilds_when_unfocused(self, qtbot, monkeypatch):  # noqa: ARG002
+        """Guard is not over-broad: an unfocused panel still rebuilds normally."""
+        from PyQt6.QtWidgets import QApplication, QLineEdit
+
+        item = RectangleItem(0, 0, 100, 50)
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+
+        # Nothing in the panel holds focus → the rebuild must proceed.
+        monkeypatch.setattr(QApplication, "focusWidget", lambda: None)  # type: ignore[attr-defined]
+        panel.set_selected_items([item])
+
+        name_edit = self._find_field_by_label(panel, "Name")
+        assert isinstance(name_edit, QLineEdit), (
+            "Name field should still render after an unfocused rebuild"
+        )
+
+    def test_panel_rebuilds_when_focus_outside_panel(self, qtbot, monkeypatch):  # noqa: ARG002
+        """Guard fires only for the panel's own widgets: external focus still rebuilds.
+
+        Locks the ``and self.isAncestorOf(fw)`` clause — a focused editable widget
+        that is *not* a descendant of the panel must not suppress the rebuild.
+        """
+        from PyQt6.QtWidgets import QApplication, QLineEdit
+
+        item = RectangleItem(0, 0, 100, 50)
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+
+        before = self._find_field_by_label(panel, "Name")
+        assert isinstance(before, QLineEdit), "Name field not found in panel"
+
+        # Focus a QLineEdit that is NOT parented to the panel → isAncestorOf is
+        # False → the rebuild must proceed (the Name widget is recreated).
+        stray = QLineEdit()
+        monkeypatch.setattr(QApplication, "focusWidget", lambda: stray)  # type: ignore[attr-defined]
+        panel.set_selected_items([item])
+
+        after = self._find_field_by_label(panel, "Name")
+        assert isinstance(after, QLineEdit)
+        assert after is not before, (
+            "Form should rebuild when the focused widget is outside the panel"
+        )
+
+    def test_text_content_field_survives_rebuild_while_focused(self, qtbot, monkeypatch):  # noqa: ARG002
+        """Latent #200 sibling: the Text annotation Content box must also survive."""
+        from PyQt6.QtWidgets import QApplication, QTextEdit
+
+        from open_garden_planner.core.commands import CommandManager
+        from open_garden_planner.ui.canvas.items import TextItem
+
+        item = TextItem(10, 10, content="Hello")
+        panel = PropertiesPanel(command_manager=CommandManager())
+        panel.set_selected_items([item])
+
+        content_edit = self._find_field_by_label(panel, "Content")
+        assert isinstance(content_edit, QTextEdit), "Content field not found in panel"
+
+        monkeypatch.setattr(QApplication, "focusWidget", lambda: content_edit)  # type: ignore[attr-defined]
+        panel.set_selected_items([item])
+
+        after = self._find_field_by_label(panel, "Content")
+        assert after is content_edit, (
+            "Text Content field was rebuilt while focused — focus would be lost (#200)"
         )
