@@ -211,6 +211,11 @@ class PropertiesPanel(QWidget):
         # can_undo/redo_changed, which deferred-calls _update_properties_panel ->
         # set_selected_items. QAbstractSpinBox covers the original spin-box case
         # (incl. QSpinBox) and each widget's internal QLineEdit.
+        # Trade-off: if the canvas selection changes to a *different* item while
+        # a panel field still holds focus, this skips that rebuild too, so the
+        # panel briefly shows the previous item until the next trigger. That path
+        # is hard to hit (clicking a new item moves focus off the field first)
+        # and keeping focus is worth it — do NOT remove the guard to "fix" it.
         from PyQt6.QtWidgets import (
             QAbstractSpinBox,
             QApplication,

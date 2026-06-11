@@ -382,6 +382,33 @@ class TestFocusPreservation:
             "Name field should still render after an unfocused rebuild"
         )
 
+    def test_panel_rebuilds_when_focus_outside_panel(self, qtbot, monkeypatch):  # noqa: ARG002
+        """Guard fires only for the panel's own widgets: external focus still rebuilds.
+
+        Locks the ``and self.isAncestorOf(fw)`` clause — a focused editable widget
+        that is *not* a descendant of the panel must not suppress the rebuild.
+        """
+        from PyQt6.QtWidgets import QApplication, QLineEdit
+
+        item = RectangleItem(0, 0, 100, 50)
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+
+        before = self._find_field_by_label(panel, "Name")
+        assert isinstance(before, QLineEdit), "Name field not found in panel"
+
+        # Focus a QLineEdit that is NOT parented to the panel → isAncestorOf is
+        # False → the rebuild must proceed (the Name widget is recreated).
+        stray = QLineEdit()
+        monkeypatch.setattr(QApplication, "focusWidget", lambda: stray)  # type: ignore[attr-defined]
+        panel.set_selected_items([item])
+
+        after = self._find_field_by_label(panel, "Name")
+        assert isinstance(after, QLineEdit)
+        assert after is not before, (
+            "Form should rebuild when the focused widget is outside the panel"
+        )
+
     def test_text_content_field_survives_rebuild_while_focused(self, qtbot, monkeypatch):  # noqa: ARG002
         """Latent #200 sibling: the Text annotation Content box must also survive."""
         from PyQt6.QtWidgets import QApplication, QTextEdit
