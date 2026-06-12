@@ -9,7 +9,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from PyQt6.QtCore import QObject, QPointF, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QObject, QPointF, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 if TYPE_CHECKING:
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
         ConstraintGraph,
         ConstraintType,
     )
+    from open_garden_planner.models.layer import Layer
 
 
 class Command(ABC):
@@ -1369,6 +1370,273 @@ class MoveToLayerCommand(Command):
             item.layer_id = old_layer_id  # type: ignore[union-attr]
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         self._scene._update_items_z_order()  # type: ignore[attr-defined]
+
+
+class AddLayerCommand(Command):
+    """Add a new layer at the top of the layer order and activate it (undoable).
+
+    Implements the user-facing "Add Layer" behavior (FR-LAYER-08 / issue #201):
+    the layer is inserted at list index 0, which ``reorder_layers`` maps to the
+    highest z_order, and becomes the active layer so newly drawn elements land
+    on it. Undo restores the previous order, the exact per-layer z_orders
+    (imported layers may carry z_orders that do not match the position
+    formula), and the previously active layer.
+    """
+
+    def __init__(self, scene: QGraphicsScene, layer: "Layer") -> None:
+        """Initialise the command.
+
+        Args:
+            scene: The canvas scene.
+            layer: The (not yet added) layer to insert at the top.
+        """
+        self._scene = scene
+        self._layer = layer
+        self._prev_active: Layer | None = scene.active_layer  # type: ignore[attr-defined]
+        self._prev_z: list[tuple[Layer, int]] = [
+            (lyr, lyr.z_order)
+            for lyr in scene.layers  # type: ignore[attr-defined]
+        ]
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Add layer '{name}'").format(
+            name=self._layer.name
+        )
+
+    def execute(self) -> None:
+        """Insert the layer at the top of the order and make it active."""
+        layers = self._scene.layers  # type: ignore[attr-defined]
+        if self._layer not in layers:
+            layers.insert(0, self._layer)
+        # reorder_layers recomputes z_order from list position (index 0 = top),
+        # emits layers_changed and refreshes item stacking.
+        self._scene.reorder_layers(layers)  # type: ignore[attr-defined]
+        self._scene.set_active_layer(self._layer)  # type: ignore[attr-defined]
+
+    def undo(self) -> None:
+        """Remove the layer and restore previous z_orders and active layer."""
+        layers = self._scene.layers  # type: ignore[attr-defined]
+        if self._layer in layers:
+            layers.remove(self._layer)
+        for lyr, z in self._prev_z:
+            lyr.z_order = z
+        self._scene.layers_changed.emit()  # type: ignore[attr-defined]
+        self._scene._update_items_z_order()  # type: ignore[attr-defined]
+        # Last on purpose: the layers_changed-driven panel rebuild may select a
+        # fallback row; restoring the active layer afterwards wins and re-syncs
+        # the panel selection via active_layer_changed.
+        self._scene.set_active_layer(self._prev_active)  # type: ignore[attr-defined]
+
+
+class DeleteLayerCommand(Command):
+    """Delete a layer, moving its items to a replacement layer (undoable).
+
+    Mirrors ``CanvasScene.remove_layer`` (same replacement-layer rule, no
+    recompute of survivor z_orders) but snapshots enough state to restore the
+    layer at its original index, give the moved items back their original
+    ``layer_id``, and reinstate the previously active layer on undo.
+
+    The caller must guarantee the scene has at least two layers.
+    """
+
+    def __init__(self, scene: QGraphicsScene, layer_id: UUID) -> None:
+        """Initialise the command.
+
+        Args:
+            scene: The canvas scene.
+            layer_id: ID of the layer to delete (must exist).
+        """
+        self._scene = scene
+        layer = scene.get_layer_by_id(layer_id)  # type: ignore[attr-defined]
+        if layer is None:
+            raise ValueError(f"No layer with id {layer_id}")
+        self._layer: Layer = layer
+        layers = scene.layers  # type: ignore[attr-defined]
+        self._index: int = layers.index(layer)
+        # Same replacement rule as CanvasScene.remove_layer.
+        self._replacement: Layer = layers[0] if self._index > 0 else layers[1]
+        self._prev_active: Layer | None = scene.active_layer  # type: ignore[attr-defined]
+        self._moved_items: list[QGraphicsItem] = []
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Delete layer '{name}'").format(
+            name=self._layer.name
+        )
+
+    def execute(self) -> None:
+        """Move the layer's items to the replacement layer and remove it."""
+        # Re-capture on every execute (incl. redo): the linear stack guarantees
+        # the same items are back on this layer by the time a redo runs.
+        self._moved_items = [
+            item
+            for item in self._scene.items()
+            if getattr(item, "layer_id", None) == self._layer.id
+        ]
+        for item in self._moved_items:
+            item.layer_id = self._replacement.id  # type: ignore[union-attr]
+        layers = self._scene.layers  # type: ignore[attr-defined]
+        if self._layer in layers:
+            layers.remove(self._layer)
+        if self._scene.active_layer is self._layer:  # type: ignore[attr-defined]
+            self._scene.set_active_layer(self._replacement)  # type: ignore[attr-defined]
+        self._scene.layers_changed.emit()  # type: ignore[attr-defined]
+        self._scene._update_items_visibility()  # type: ignore[attr-defined]
+        self._scene._update_items_z_order()  # type: ignore[attr-defined]
+
+    def undo(self) -> None:
+        """Re-insert the layer, restore item assignments and active layer."""
+        layers = self._scene.layers  # type: ignore[attr-defined]
+        if self._layer not in layers:
+            layers.insert(min(self._index, len(layers)), self._layer)
+        for item in self._moved_items:
+            item.layer_id = self._layer.id  # type: ignore[union-attr]
+        self._scene.layers_changed.emit()  # type: ignore[attr-defined]
+        self._scene._update_items_visibility()  # type: ignore[attr-defined]
+        self._scene._update_items_z_order()  # type: ignore[attr-defined]
+        self._scene.set_active_layer(self._prev_active)  # type: ignore[attr-defined]
+
+
+class RenameLayerCommand(Command):
+    """Rename a layer (undoable)."""
+
+    def __init__(self, scene: QGraphicsScene, layer: "Layer", new_name: str) -> None:
+        """Initialise the command.
+
+        Args:
+            scene: The canvas scene.
+            layer: The layer to rename (its current name is snapshotted).
+            new_name: The new layer name.
+        """
+        self._scene = scene
+        self._layer = layer
+        self._old_name = layer.name
+        self._new_name = new_name
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate(
+            "Commands", "Rename layer to '{name}'"
+        ).format(name=self._new_name)
+
+    def execute(self) -> None:
+        self._layer.name = self._new_name
+        self._scene.layers_changed.emit()  # type: ignore[attr-defined]
+
+    def undo(self) -> None:
+        self._layer.name = self._old_name
+        self._scene.layers_changed.emit()  # type: ignore[attr-defined]
+
+
+class ReorderLayersCommand(Command):
+    """Reorder the layer stack (undoable).
+
+    Undo restores the exact previous order AND each layer's exact previous
+    z_order rather than recomputing from position — imported layers (e.g. DXF)
+    may carry z_orders that do not match the ``len - 1 - index`` formula.
+    """
+
+    def __init__(self, scene: QGraphicsScene, new_order: list["Layer"]) -> None:
+        """Initialise the command.
+
+        Args:
+            scene: The canvas scene.
+            new_order: The new layer order (first in list = top).
+        """
+        self._scene = scene
+        self._new_order = list(new_order)
+        self._old_state: list[tuple[Layer, int]] = [
+            (lyr, lyr.z_order)
+            for lyr in scene.layers  # type: ignore[attr-defined]
+        ]
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Reorder layers")
+
+    def execute(self) -> None:
+        self._scene.reorder_layers(list(self._new_order))  # type: ignore[attr-defined]
+
+    def undo(self) -> None:
+        self._scene._layers = [lyr for lyr, _ in self._old_state]  # type: ignore[attr-defined]
+        for lyr, z in self._old_state:
+            lyr.z_order = z
+        self._scene.layers_changed.emit()  # type: ignore[attr-defined]
+        self._scene._update_items_z_order()  # type: ignore[attr-defined]
+
+
+class SetLayerPropertyCommand(Command):
+    """Set a layer's ``visible``, ``locked`` or ``opacity`` property (undoable).
+
+    Delegates to the existing CanvasScene setters, which mutate the layer,
+    refresh item visibility/selectability/opacity, and emit ``layers_changed``
+    (rebuilding the layers panel so icons and the opacity slider follow).
+    """
+
+    _SETTERS = {
+        "visible": "update_layer_visibility",
+        "locked": "update_layer_lock",
+        "opacity": "update_layer_opacity",
+    }
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        layer: "Layer",
+        prop: str,
+        old_value: Any,
+        new_value: Any,
+    ) -> None:
+        """Initialise the command.
+
+        Args:
+            scene: The canvas scene.
+            layer: The layer to modify.
+            prop: One of ``"visible"``, ``"locked"``, ``"opacity"``.
+            old_value: The property value before the change.
+            new_value: The property value to apply.
+        """
+        if prop not in self._SETTERS:
+            raise ValueError(f"Unsupported layer property: {prop}")
+        self._scene = scene
+        self._layer = layer
+        self._prop = prop
+        self._old_value = old_value
+        self._new_value = new_value
+
+    @property
+    def description(self) -> str:
+        name = self._layer.name
+        if self._prop == "visible":
+            if self._new_value:
+                return QCoreApplication.translate(
+                    "Commands", "Show layer '{name}'"
+                ).format(name=name)
+            return QCoreApplication.translate(
+                "Commands", "Hide layer '{name}'"
+            ).format(name=name)
+        if self._prop == "locked":
+            if self._new_value:
+                return QCoreApplication.translate(
+                    "Commands", "Lock layer '{name}'"
+                ).format(name=name)
+            return QCoreApplication.translate(
+                "Commands", "Unlock layer '{name}'"
+            ).format(name=name)
+        return QCoreApplication.translate(
+            "Commands", "Set opacity of layer '{name}' to {pct}%"
+        ).format(name=name, pct=round(self._new_value * 100))
+
+    def _apply(self, value: Any) -> None:
+        setter = getattr(self._scene, self._SETTERS[self._prop])
+        setter(self._layer.id, value)
+
+    def execute(self) -> None:
+        self._apply(self._new_value)
+
+    def undo(self) -> None:
+        self._apply(self._old_value)
 
 
 class TrimPolylineCommand(Command):

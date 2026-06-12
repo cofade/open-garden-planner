@@ -586,7 +586,12 @@ class CanvasScene(QGraphicsScene):
         self._update_items_visibility()
 
     def add_layer(self, layer: Layer) -> None:
-        """Add a new layer.
+        """Append a layer at the bottom of the order (lowest z_order).
+
+        This is the low-level primitive used for bulk/import flows (e.g. DXF
+        import) where the incoming layer order must be preserved as-is. The
+        user-facing "Add Layer" action does NOT use this — it inserts at the top
+        of the order via LayersPanel (see FR-LAYER-08 / issue #201).
 
         Args:
             layer: Layer to add
@@ -636,7 +641,7 @@ class CanvasScene(QGraphicsScene):
         """Reorder layers.
 
         Args:
-            new_order: New layer order (first in list = bottom, last = top)
+            new_order: New layer order (first in list = top, last = bottom)
         """
         self._layers = new_order
         # Update z_order values based on new position
@@ -776,6 +781,23 @@ class CanvasScene(QGraphicsScene):
             layer.opacity = max(0.0, min(1.0, opacity))
             self._update_items_visibility()
             self.layers_changed.emit()
+
+    def preview_layer_opacity(self, layer_id: UUID, opacity: float) -> None:
+        """Live, NON-undoable opacity preview during slider drags.
+
+        Same mutation as :meth:`update_layer_opacity` but does NOT emit
+        ``layers_changed``, so the layers panel is not rebuilt on every slider
+        tick. The final value is committed as one undoable
+        ``SetLayerPropertyCommand`` on slider release.
+
+        Args:
+            layer_id: Layer ID
+            opacity: Preview opacity (0.0 to 1.0)
+        """
+        layer = self.get_layer_by_id(layer_id)
+        if layer:
+            layer.opacity = max(0.0, min(1.0, opacity))
+            self._update_items_visibility()
 
     # ── Compare overlay (US-10.7) ─────────────────────────────────────────
 
