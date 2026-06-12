@@ -21,6 +21,21 @@ TS_FILE = (
 
 # ── Complete English → German translation mapping ─────────────────────────
 TRANSLATIONS: dict[str, dict[str, str]] = {
+    # ── Commands (undo/redo descriptions shown in the status bar;
+    #    pylupdate6 cannot extract QCoreApplication.translate from non-QObject
+    #    command classes) ──
+    "Commands": {
+        "Add layer '{name}'": "Ebene '{name}' hinzufügen",
+        "Delete layer '{name}'": "Ebene '{name}' löschen",
+        "Rename layer to '{name}'": "Ebene umbenennen in '{name}'",
+        "Reorder layers": "Ebenen neu anordnen",
+        "Show layer '{name}'": "Ebene '{name}' einblenden",
+        "Hide layer '{name}'": "Ebene '{name}' ausblenden",
+        "Lock layer '{name}'": "Ebene '{name}' sperren",
+        "Unlock layer '{name}'": "Ebene '{name}' entsperren",
+        "Set opacity of layer '{name}' to {pct}%": "Deckkraft der Ebene '{name}' auf {pct}% setzen",
+    },
+
     # ── BackgroundImageItem ──
     "BackgroundImageItem": {
         "Calibrate Scale...": "Skalierung kalibrieren...",

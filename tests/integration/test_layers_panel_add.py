@@ -22,7 +22,9 @@ import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QMouseEvent
 
+from open_garden_planner.core.commands import AddLayerCommand
 from open_garden_planner.core.tools import ToolType
+from open_garden_planner.models.layer import Layer
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items import RectangleItem
@@ -45,6 +47,17 @@ def wired(qtbot: object) -> tuple[CanvasView, LayersPanel, CanvasScene]:
     # (application.py:1217): reorder_layers emits layers_changed, which rebuilds
     # the panel list. _on_add_layer relies on this path for its refresh.
     scene.layers_changed.connect(lambda: panel.set_layers(scene.layers))
+    # Mirror GardenPlannerApp._on_layer_add_requested: the panel only requests
+    # the add; an undoable AddLayerCommand performs the top-insert + activation.
+    panel.layer_add_requested.connect(
+        lambda name: view.command_manager.execute(
+            AddLayerCommand(scene, Layer(name=name))
+        )
+    )
+    # Mirror the scene -> panel active-layer sync (select the new top layer).
+    scene.active_layer_changed.connect(
+        lambda layer: panel.select_layer(layer.id) if layer else None
+    )
 
     def _activate(layer_id: object) -> None:
         layer = scene.get_layer_by_id(layer_id)  # type: ignore[arg-type]

@@ -1204,18 +1204,25 @@ class GardenPlannerApp(QMainWindow):
         self.layers_panel = LayersPanel()
         self.layers_panel.set_layers(self.canvas_scene.layers)
 
-        # Connect layers panel signals to scene
+        # Connect layers panel signals. All layer mutations are routed through
+        # undoable commands created here; the panel itself never mutates layers.
         self.layers_panel.active_layer_changed.connect(self._on_active_layer_changed)
-        self.layers_panel.layer_visibility_changed.connect(self.canvas_scene.update_layer_visibility)
-        self.layers_panel.layer_lock_changed.connect(self.canvas_scene.update_layer_lock)
-        self.layers_panel.layer_opacity_changed.connect(self.canvas_scene.update_layer_opacity)
+        self.layers_panel.layer_visibility_changed.connect(self._on_layer_visibility_change_requested)
+        self.layers_panel.layer_lock_changed.connect(self._on_layer_lock_change_requested)
+        # Live slider preview is non-undoable; the drag commits once on release.
+        self.layers_panel.layer_opacity_changed.connect(self.canvas_scene.preview_layer_opacity)
+        self.layers_panel.layer_opacity_committed.connect(self._on_layer_opacity_committed)
         self.layers_panel.layers_reordered.connect(self._on_layers_reordered)
         self.layers_panel.layer_renamed.connect(self._on_layer_renamed)
         self.layers_panel.layer_deleted.connect(self._on_layer_deleted)
+        self.layers_panel.layer_add_requested.connect(self._on_layer_add_requested)
 
         # Connect scene layer changes to panel
         self.canvas_scene.layers_changed.connect(lambda: self.layers_panel.set_layers(self.canvas_scene.layers))
         self.canvas_scene.layer_auto_unhidden.connect(self._on_layer_auto_unhidden)
+        # Keep the panel selection in sync when the active layer changes from
+        # outside the panel (e.g. undo/redo of layer commands).
+        self.canvas_scene.active_layer_changed.connect(self._on_scene_active_layer_changed)
 
         layers_panel = CollapsiblePanel(self.tr("Layers"), self.layers_panel, expanded=True)
         sidebar_layout.addWidget(layers_panel)
@@ -3135,36 +3142,161 @@ class GardenPlannerApp(QMainWindow):
             # Scene has been deleted, ignore
             pass
 
-    def _on_layers_reordered(self, new_order) -> None:
-        """Handle layer reordering from layers panel.
+    def _on_layer_add_requested(self, name: str) -> None:
+        """Create a new layer at the top of the order (undoable).
 
         Args:
-            new_order: New list of layers in order
+            name: Unique name computed by the layers panel
         """
+        from open_garden_planner.core.commands import AddLayerCommand  # noqa: PLC0415
+        from open_garden_planner.models.layer import Layer  # noqa: PLC0415
+
         try:
-            self.canvas_scene.reorder_layers(new_order)
-            self._project_manager.mark_dirty()
+            layer = Layer(name=name)
+            self.canvas_view.command_manager.execute(
+                AddLayerCommand(self.canvas_scene, layer)
+            )
         except RuntimeError:
             # Scene has been deleted, ignore
             pass
 
-    def _on_layer_renamed(self, _layer_id, _new_name) -> None:
-        """Handle layer rename from layers panel.
+    def _on_layers_reordered(self, new_order) -> None:
+        """Handle layer reordering from layers panel (undoable).
 
         Args:
-            _layer_id: UUID of the renamed layer (unused)
-            _new_name: New layer name (unused)
+            new_order: New list of layers in order
         """
-        self._project_manager.mark_dirty()
+        from open_garden_planner.core.commands import ReorderLayersCommand  # noqa: PLC0415
+
+        try:
+            if [lyr.id for lyr in new_order] == [
+                lyr.id for lyr in self.canvas_scene.layers
+            ]:
+                return  # No-op drag — don't push an empty undo step
+            self.canvas_view.command_manager.execute(
+                ReorderLayersCommand(self.canvas_scene, new_order)
+            )
+        except RuntimeError:
+            # Scene has been deleted, ignore
+            pass
+
+    def _on_layer_renamed(self, layer_id, new_name: str) -> None:
+        """Handle layer rename from layers panel (undoable).
+
+        Args:
+            layer_id: UUID of the layer to rename
+            new_name: Requested new name
+        """
+        from open_garden_planner.core.commands import RenameLayerCommand  # noqa: PLC0415
+
+        try:
+            layer = self.canvas_scene.get_layer_by_id(layer_id)
+            if layer is None or layer.name == new_name:
+                return
+            self.canvas_view.command_manager.execute(
+                RenameLayerCommand(self.canvas_scene, layer, new_name)
+            )
+        except RuntimeError:
+            # Scene has been deleted, ignore
+            pass
 
     def _on_layer_deleted(self, layer_id) -> None:
-        """Handle layer deletion from layers panel.
+        """Handle layer deletion from layers panel (undoable).
 
         Args:
             layer_id: UUID of the layer to delete
         """
-        self.canvas_scene.remove_layer(layer_id)
-        self._project_manager.mark_dirty()
+        from open_garden_planner.core.commands import DeleteLayerCommand  # noqa: PLC0415
+
+        try:
+            if len(self.canvas_scene.layers) <= 1:
+                return  # Must keep at least one layer
+            if self.canvas_scene.get_layer_by_id(layer_id) is None:
+                return
+            self.canvas_view.command_manager.execute(
+                DeleteLayerCommand(self.canvas_scene, layer_id)
+            )
+        except RuntimeError:
+            # Scene has been deleted, ignore
+            pass
+
+    def _on_layer_visibility_change_requested(self, layer_id, visible: bool) -> None:
+        """Toggle a layer's visibility (undoable).
+
+        Args:
+            layer_id: UUID of the layer
+            visible: New visibility state
+        """
+        from open_garden_planner.core.commands import SetLayerPropertyCommand  # noqa: PLC0415
+
+        try:
+            layer = self.canvas_scene.get_layer_by_id(layer_id)
+            if layer is None or layer.visible == visible:
+                return
+            self.canvas_view.command_manager.execute(
+                SetLayerPropertyCommand(
+                    self.canvas_scene, layer, "visible", layer.visible, visible
+                )
+            )
+        except RuntimeError:
+            # Scene has been deleted, ignore
+            pass
+
+    def _on_layer_lock_change_requested(self, layer_id, locked: bool) -> None:
+        """Toggle a layer's lock state (undoable).
+
+        Args:
+            layer_id: UUID of the layer
+            locked: New lock state
+        """
+        from open_garden_planner.core.commands import SetLayerPropertyCommand  # noqa: PLC0415
+
+        try:
+            layer = self.canvas_scene.get_layer_by_id(layer_id)
+            if layer is None or layer.locked == locked:
+                return
+            self.canvas_view.command_manager.execute(
+                SetLayerPropertyCommand(
+                    self.canvas_scene, layer, "locked", layer.locked, locked
+                )
+            )
+        except RuntimeError:
+            # Scene has been deleted, ignore
+            pass
+
+    def _on_layer_opacity_committed(self, layer_id, old: float, new: float) -> None:
+        """Commit an opacity change as one undoable step.
+
+        Args:
+            layer_id: UUID of the layer
+            old: Opacity before the change (snapshotted at drag start)
+            new: Final opacity
+        """
+        from open_garden_planner.core.commands import SetLayerPropertyCommand  # noqa: PLC0415
+
+        try:
+            layer = self.canvas_scene.get_layer_by_id(layer_id)
+            if layer is None or abs(old - new) < 1e-9:
+                return
+            self.canvas_view.command_manager.execute(
+                SetLayerPropertyCommand(self.canvas_scene, layer, "opacity", old, new)
+            )
+        except RuntimeError:
+            # Scene has been deleted, ignore
+            pass
+
+    def _on_scene_active_layer_changed(self, layer) -> None:
+        """Sync the layers panel selection with the scene's active layer.
+
+        Args:
+            layer: The newly active Layer (or None)
+        """
+        try:
+            if layer is not None:
+                self.layers_panel.select_layer(layer.id)
+        except RuntimeError:
+            # Panel has been deleted, ignore
+            pass
 
     def _on_layer_auto_unhidden(self, layer_id) -> None:
         """Update the layers panel when the scene auto-unhides a hidden layer."""

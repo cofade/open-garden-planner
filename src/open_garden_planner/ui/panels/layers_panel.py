@@ -73,7 +73,7 @@ class LayerListItem(QWidget):
     lock_changed = pyqtSignal(UUID, bool)
     delete_requested = pyqtSignal(UUID)
     layer_selected = pyqtSignal(UUID)
-    rename_requested = pyqtSignal(UUID)
+    rename_requested = pyqtSignal(UUID, str)
 
     def __init__(self, layer: Layer, parent: QWidget | None = None) -> None:
         """Initialize the layer list item.
@@ -154,13 +154,18 @@ class LayerListItem(QWidget):
 
     def _finish_editing(self) -> None:
         """Finish inline editing of layer name."""
+        # One-shot guard: Enter fires both returnPressed and editingFinished,
+        # which would emit rename_requested twice for a single edit.
+        if self.name_edit.isHidden():
+            return
         new_name = self.name_edit.text().strip()
-        if new_name and new_name != self.layer.name:
-            self.layer.name = new_name
-            self.name_label.setText(new_name)
-            self.rename_requested.emit(self.layer.id)
         self.name_edit.hide()
         self.name_label.show()
+        # Do NOT mutate self.layer here — the rename is applied by an undoable
+        # RenameLayerCommand; the resulting layers_changed rebuild updates the
+        # label. Emit last: the rebuild deletes this widget.
+        if new_name and new_name != self.layer.name:
+            self.rename_requested.emit(self.layer.id, new_name)
 
     def contextMenuEvent(self, event):
         """Show context menu for layer operations."""
@@ -175,22 +180,20 @@ class LayerListItem(QWidget):
             self.delete_requested.emit(self.layer.id)
 
     def _on_visibility_toggled(self, checked: bool) -> None:
-        """Handle visibility toggle."""
-        self.layer.visible = checked
-        self.visibility_btn.setIcon(
-            self._eye_open_icon if checked else self._eye_closed_icon
-        )
+        """Handle visibility toggle.
+
+        Emit-only: the change is applied by an undoable command whose
+        layers_changed emission rebuilds this widget with the new state.
+        """
         self.visibility_changed.emit(self.layer.id, checked)
-        self._update_styling()
 
     def _on_lock_toggled(self, checked: bool) -> None:
-        """Handle lock toggle."""
-        self.layer.locked = checked
-        self.lock_btn.setIcon(
-            self._lock_closed_icon if checked else self._lock_open_icon
-        )
+        """Handle lock toggle.
+
+        Emit-only: the change is applied by an undoable command whose
+        layers_changed emission rebuilds this widget with the new state.
+        """
         self.lock_changed.emit(self.layer.id, checked)
-        self._update_styling()
 
     def _update_styling(self) -> None:
         """Update visual styling based on layer state."""
@@ -230,10 +233,16 @@ class LayersPanel(QWidget):
     active_layer_changed = pyqtSignal(UUID)
     layer_visibility_changed = pyqtSignal(UUID, bool)
     layer_lock_changed = pyqtSignal(UUID, bool)
+    # Live (non-undoable) opacity preview while the slider is being dragged.
     layer_opacity_changed = pyqtSignal(UUID, float)
+    # Final opacity commit: (layer_id, old_opacity, new_opacity) — one per
+    # slider drag (or per keyboard/groove-click change).
+    layer_opacity_committed = pyqtSignal(UUID, float, float)
     layers_reordered = pyqtSignal(list)
     layer_renamed = pyqtSignal(UUID, str)
     layer_deleted = pyqtSignal(UUID)
+    # Request to create a new layer with the given (unique) name.
+    layer_add_requested = pyqtSignal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Initialize the layers panel.
@@ -243,6 +252,10 @@ class LayersPanel(QWidget):
         """
         super().__init__(parent)
         self._layers: list[Layer] = []
+        # Opacity snapshot taken on sliderPressed so the whole drag coalesces
+        # into a single undoable command on release.
+        self._opacity_drag_origin: float | None = None
+        self._opacity_drag_layer_id: UUID | None = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -270,6 +283,8 @@ class LayersPanel(QWidget):
         self.opacity_slider.setValue(100)
         self.opacity_slider.setToolTip(self.tr("Layer opacity"))
         self.opacity_slider.valueChanged.connect(self._on_opacity_changed)
+        self.opacity_slider.sliderPressed.connect(self._on_opacity_drag_started)
+        self.opacity_slider.sliderReleased.connect(self._on_opacity_drag_finished)
         opacity_layout.addWidget(self.opacity_slider)
 
         self.opacity_value_label = QLabel("100%")
@@ -292,7 +307,10 @@ class LayersPanel(QWidget):
         Args:
             layers: List of layers
         """
-        self._layers = layers
+        # Defensive copy: the scene hands over its LIVE list (see risk §11.4).
+        # The panel must never mutate the scene's list structure — all
+        # structural changes go through undoable commands.
+        self._layers = list(layers)
         self._refresh_list()
 
     def _refresh_list(self) -> None:
@@ -390,15 +408,53 @@ class LayersPanel(QWidget):
     def _on_opacity_changed(self, value: int) -> None:
         """Handle opacity slider change.
 
+        While the slider is being dragged this emits the live (non-undoable)
+        preview signal; the drag is committed as one undoable step on release
+        (see _on_opacity_drag_finished). Keyboard / groove-click changes have
+        no press/release pair, so they commit immediately.
+
         Args:
             value: Slider value (0-100)
         """
         self.opacity_value_label.setText(f"{value}%")
+        opacity = value / 100.0
+        if self.opacity_slider.isSliderDown():
+            # Preview against the layer snapshotted at drag start, so a
+            # selection change mid-drag cannot make the preview and the
+            # commit-on-release target different layers.
+            if self._opacity_drag_layer_id is not None:
+                self.layer_opacity_changed.emit(self._opacity_drag_layer_id, opacity)
+            return
+        row = self.layer_list.currentRow()
+        if not (0 <= row < len(self._layers)):
+            return
+        layer = self._layers[row]
+        if opacity != layer.opacity:
+            # layer.opacity still holds the old value — the panel no longer
+            # mutates it; the command does.
+            self.layer_opacity_committed.emit(layer.id, layer.opacity, opacity)
+
+    def _on_opacity_drag_started(self) -> None:
+        """Snapshot the opacity at drag start for commit-on-release."""
         row = self.layer_list.currentRow()
         if 0 <= row < len(self._layers):
             layer = self._layers[row]
-            opacity = value / 100.0
-            self.layer_opacity_changed.emit(layer.id, opacity)
+            self._opacity_drag_layer_id = layer.id
+            self._opacity_drag_origin = layer.opacity
+
+    def _on_opacity_drag_finished(self) -> None:
+        """Commit the whole slider drag as a single undoable change."""
+        if (
+            self._opacity_drag_origin is not None
+            and self._opacity_drag_layer_id is not None
+        ):
+            final = self.opacity_slider.value() / 100.0
+            if final != self._opacity_drag_origin:
+                self.layer_opacity_committed.emit(
+                    self._opacity_drag_layer_id, self._opacity_drag_origin, final
+                )
+        self._opacity_drag_origin = None
+        self._opacity_drag_layer_id = None
 
     def _on_layers_reordered(self) -> None:
         """Handle layer reordering via drag-and-drop."""
@@ -411,48 +467,41 @@ class LayersPanel(QWidget):
                 new_order.append(widget.layer)
 
         if new_order:
-            self._layers = new_order
+            # Do NOT touch self._layers here — the panel never mutates layer
+            # state (risk §11.4); the command's layers_changed → set_layers
+            # round-trip rebuilds the list.
             self.layers_reordered.emit(new_order)
 
     def _on_add_layer(self) -> None:
-        """Handle add layer button click."""
-        # Create a new layer with a unique name
+        """Handle add layer button click.
+
+        Computes a unique name and emits layer_add_requested; the actual
+        insertion (top of the order, highest z_order, activation — issue #201)
+        is performed by an undoable AddLayerCommand, whose layers_changed /
+        active_layer_changed emissions rebuild this list and select the new
+        layer.
+        """
         existing_names = {layer.name for layer in self._layers}
         layer_num = 1
         layer_base = self.tr("Layer")
         while f"{layer_base} {layer_num}" in existing_names:
             layer_num += 1
-        # Insert at the top of the order (index 0). reorder_layers() in the scene
-        # treats index 0 as the highest z_order, so the new layer renders on top of
-        # all existing layers and its elements stay visible/selectable (issue #201).
-        new_layer = Layer(name=f"{layer_base} {layer_num}")
-        self._layers.insert(0, new_layer)
-        # Emit layers_reordered so the scene recomputes z_order from the new list
-        # positions and rebuilds this list via the layers_changed -> set_layers
-        # round-trip (same path the drag handler relies on; see _on_layers_reordered).
-        self.layers_reordered.emit(self._layers)
-        # Select and activate the new top layer so newly drawn elements land on it.
-        # Block the list's selection signal so active_layer_changed is emitted
-        # exactly once, here, rather than racing with the refresh's selection restore.
-        self.layer_list.blockSignals(True)
-        self.layer_list.setCurrentRow(0)
-        self.layer_list.blockSignals(False)
-        self._on_layer_selected(0)
+        self.layer_add_requested.emit(f"{layer_base} {layer_num}")
 
-    def _on_rename_layer(self, layer_id: UUID) -> None:
+    def _on_rename_layer(self, layer_id: UUID, new_name: str) -> None:
         """Handle layer rename request (emitted from LayerListItem).
 
         Args:
-            layer_id: ID of layer that was renamed
+            layer_id: ID of the layer to rename
+            new_name: Requested new name (the layer still holds the old one)
         """
-        # Signal that the layer was renamed (for marking project dirty)
-        for layer in self._layers:
-            if layer.id == layer_id:
-                self.layer_renamed.emit(layer_id, layer.name)
-                break
+        self.layer_renamed.emit(layer_id, new_name)
 
     def _on_delete_layer(self, layer_id: UUID) -> None:
         """Handle layer delete request.
+
+        Emit-only: the deletion is performed by an undoable command whose
+        layers_changed emission rebuilds this list.
 
         Args:
             layer_id: ID of layer to delete
@@ -460,9 +509,27 @@ class LayersPanel(QWidget):
         if len(self._layers) <= 1:
             return  # Must keep at least one layer
         self.layer_deleted.emit(layer_id)
-        # Remove from local list and refresh
-        self._layers = [layer for layer in self._layers if layer.id != layer_id]
-        self._refresh_list()
+
+    def select_layer(self, layer_id: UUID) -> None:
+        """Select the given layer in the list without re-emitting activation.
+
+        Called when the scene's active layer changes from outside the panel
+        (e.g. undo/redo of layer commands), so the visible selection and the
+        opacity slider follow the scene state.
+
+        Args:
+            layer_id: ID of the layer to select
+        """
+        for i, layer in enumerate(self._layers):
+            if layer.id == layer_id:
+                self.layer_list.blockSignals(True)
+                self.layer_list.setCurrentRow(i)
+                self.layer_list.blockSignals(False)
+                self.opacity_slider.blockSignals(True)
+                self.opacity_slider.setValue(int(layer.opacity * 100))
+                self.opacity_slider.blockSignals(False)
+                self.opacity_value_label.setText(f"{int(layer.opacity * 100)}%")
+                return
 
     def update_layer(self, layer: Layer) -> None:
         """Update a specific layer in the list.
