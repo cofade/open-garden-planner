@@ -12,8 +12,6 @@ from uuid import UUID
 from PyQt6.QtCore import QCoreApplication, QObject, QPointF, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
-from open_garden_planner.models.layer import Layer
-
 if TYPE_CHECKING:
     from open_garden_planner.core.constraints import (
         AnchorRef,
@@ -21,6 +19,7 @@ if TYPE_CHECKING:
         ConstraintGraph,
         ConstraintType,
     )
+    from open_garden_planner.models.layer import Layer
 
 
 class Command(ABC):
@@ -1384,7 +1383,7 @@ class AddLayerCommand(Command):
     formula), and the previously active layer.
     """
 
-    def __init__(self, scene: QGraphicsScene, layer: Layer) -> None:
+    def __init__(self, scene: QGraphicsScene, layer: "Layer") -> None:
         """Initialise the command.
 
         Args:
@@ -1502,7 +1501,7 @@ class DeleteLayerCommand(Command):
 class RenameLayerCommand(Command):
     """Rename a layer (undoable)."""
 
-    def __init__(self, scene: QGraphicsScene, layer: Layer, new_name: str) -> None:
+    def __init__(self, scene: QGraphicsScene, layer: "Layer", new_name: str) -> None:
         """Initialise the command.
 
         Args:
@@ -1538,7 +1537,7 @@ class ReorderLayersCommand(Command):
     may carry z_orders that do not match the ``len - 1 - index`` formula.
     """
 
-    def __init__(self, scene: QGraphicsScene, new_order: list[Layer]) -> None:
+    def __init__(self, scene: QGraphicsScene, new_order: list["Layer"]) -> None:
         """Initialise the command.
 
         Args:
@@ -1584,7 +1583,7 @@ class SetLayerPropertyCommand(Command):
     def __init__(
         self,
         scene: QGraphicsScene,
-        layer: Layer,
+        layer: "Layer",
         prop: str,
         old_value: Any,
         new_value: Any,

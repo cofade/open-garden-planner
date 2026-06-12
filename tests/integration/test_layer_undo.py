@@ -217,6 +217,7 @@ class TestRenameLayerUndo:
         old_name = layer.name
         widget = _item_widget(panel, 0)
 
+        widget._start_editing()
         widget.name_edit.setText("Vegetables")
         widget._finish_editing()
 
@@ -236,10 +237,30 @@ class TestRenameLayerUndo:
         view, panel, scene = wired
         widget = _item_widget(panel, 0)
 
+        widget._start_editing()
         widget.name_edit.setText(scene.layers[0].name)
         widget._finish_editing()
 
         assert not view.command_manager.can_undo
+
+    def test_enter_key_double_signal_pushes_one_command(
+        self, wired: tuple[CanvasView, LayersPanel, CanvasScene]
+    ) -> None:
+        """Enter fires returnPressed AND editingFinished — still one command.
+
+        Guards the one-shot in _finish_editing: the second invocation finds
+        the editor already hidden and returns without emitting again.
+        """
+        view, panel, scene = wired
+        widget = _item_widget(panel, 0)
+
+        widget._start_editing()
+        widget.name_edit.setText("Herbs")
+        widget._finish_editing()
+        widget._finish_editing()  # second signal of the same Enter press
+
+        assert scene.layers[0].name == "Herbs"
+        assert len(view.command_manager._undo_stack) == 1
 
 
 class TestReorderLayersUndo:
@@ -383,6 +404,38 @@ class TestOpacityCoalescing:
         assert layer.opacity == pytest.approx(1.0)
         assert not manager.can_undo
 
+    def test_selection_change_mid_drag_commits_to_drag_layer(
+        self, wired: tuple[CanvasView, LayersPanel, CanvasScene]
+    ) -> None:
+        """Preview and commit both target the layer snapshotted at drag start.
+
+        If the current row changes mid-drag, the drag must keep affecting the
+        layer it started on — not the newly selected one.
+        """
+        view, panel, scene = wired
+        manager = view.command_manager
+        panel._on_add_layer()
+        manager.clear()
+        drag_layer, other_layer = scene.layers[0], scene.layers[1]
+        panel.layer_list.setCurrentRow(0)
+
+        panel.opacity_slider.setSliderDown(True)
+        panel._on_opacity_drag_started()
+        panel.opacity_slider.setValue(60)
+        # Selection changes mid-drag (e.g. keyboard navigation).
+        panel.layer_list.setCurrentRow(1)
+        panel.opacity_slider.setValue(30)
+        panel.opacity_slider.setSliderDown(False)
+        panel._on_opacity_drag_finished()
+
+        assert drag_layer.opacity == pytest.approx(0.3)
+        assert other_layer.opacity == pytest.approx(1.0)
+        assert len(manager._undo_stack) == 1
+
+        manager.undo()
+
+        assert drag_layer.opacity == pytest.approx(1.0)
+
 
 class TestFullRoundTrip:
     def test_undo_all_redo_all(
@@ -396,6 +449,7 @@ class TestFullRoundTrip:
         panel._on_add_layer()  # 1: add
         added = scene.layers[0]
         widget = _item_widget(panel, 0)
+        widget._start_editing()
         widget.name_edit.setText("Plants")
         widget._finish_editing()  # 2: rename
         qtbot.mouseClick(_item_widget(panel, 1).visibility_btn, Qt.MouseButton.LeftButton)  # 3: hide base

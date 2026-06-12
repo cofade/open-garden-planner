@@ -154,6 +154,10 @@ class LayerListItem(QWidget):
 
     def _finish_editing(self) -> None:
         """Finish inline editing of layer name."""
+        # One-shot guard: Enter fires both returnPressed and editingFinished,
+        # which would emit rename_requested twice for a single edit.
+        if self.name_edit.isHidden():
+            return
         new_name = self.name_edit.text().strip()
         self.name_edit.hide()
         self.name_label.show()
@@ -413,14 +417,19 @@ class LayersPanel(QWidget):
             value: Slider value (0-100)
         """
         self.opacity_value_label.setText(f"{value}%")
+        opacity = value / 100.0
+        if self.opacity_slider.isSliderDown():
+            # Preview against the layer snapshotted at drag start, so a
+            # selection change mid-drag cannot make the preview and the
+            # commit-on-release target different layers.
+            if self._opacity_drag_layer_id is not None:
+                self.layer_opacity_changed.emit(self._opacity_drag_layer_id, opacity)
+            return
         row = self.layer_list.currentRow()
         if not (0 <= row < len(self._layers)):
             return
         layer = self._layers[row]
-        opacity = value / 100.0
-        if self.opacity_slider.isSliderDown():
-            self.layer_opacity_changed.emit(layer.id, opacity)
-        elif opacity != layer.opacity:
+        if opacity != layer.opacity:
             # layer.opacity still holds the old value — the panel no longer
             # mutates it; the command does.
             self.layer_opacity_committed.emit(layer.id, layer.opacity, opacity)
@@ -458,7 +467,9 @@ class LayersPanel(QWidget):
                 new_order.append(widget.layer)
 
         if new_order:
-            self._layers = new_order
+            # Do NOT touch self._layers here — the panel never mutates layer
+            # state (risk §11.4); the command's layers_changed → set_layers
+            # round-trip rebuilds the list.
             self.layers_reordered.emit(new_order)
 
     def _on_add_layer(self) -> None:
