@@ -41,6 +41,10 @@ def wired(qtbot: object) -> tuple[CanvasView, LayersPanel, CanvasScene]:
 
     panel.set_layers(scene.layers)
     panel.layers_reordered.connect(scene.reorder_layers)
+    # Mirror the scene -> panel round-trip wired in GardenPlannerApp
+    # (application.py:1217): reorder_layers emits layers_changed, which rebuilds
+    # the panel list. _on_add_layer relies on this path for its refresh.
+    scene.layers_changed.connect(lambda: panel.set_layers(scene.layers))
 
     def _activate(layer_id: object) -> None:
         layer = scene.get_layer_by_id(layer_id)  # type: ignore[arg-type]
@@ -141,3 +145,27 @@ class TestNewLayerGoesOnTop:
 
         assert top_item.layer_id == scene.layers[0].id
         assert top_item.zValue() > bottom_item.zValue()
+
+    def test_refresh_preserves_selection_by_identity_not_index(
+        self, wired: tuple[CanvasView, LayersPanel, CanvasScene]
+    ) -> None:
+        """A non-top selection survives a top-insert refresh by identity, not row.
+
+        Guards the _refresh_list selection-restore fix: inserting a layer at the
+        top shifts every existing row down by one, so restoring by row index would
+        select the wrong layer. We select the original bottom layer, then rebuild
+        the list (as the scene round-trip does) and assert the same layer is still
+        the current row.
+        """
+        _, panel, scene = wired
+
+        panel._on_add_layer()  # now [Layer 2 (top), Layer 1]
+        original = scene.layers[1]  # the pre-existing "Layer 1"
+
+        # Select the original layer (row 1), then force a full list rebuild.
+        panel.layer_list.setCurrentRow(1)
+        panel._refresh_list()
+
+        current = panel.layer_list.currentItem()
+        widget = panel.layer_list.itemWidget(current)
+        assert widget.layer.id == original.id

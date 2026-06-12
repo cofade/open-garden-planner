@@ -297,7 +297,17 @@ class LayersPanel(QWidget):
 
     def _refresh_list(self) -> None:
         """Refresh the layer list display."""
-        current_row = self.layer_list.currentRow()
+        # Remember the selected layer by identity (not row index): the order can
+        # change between refreshes — e.g. a new layer inserted at the top shifts
+        # every existing row down by one (issue #201) — so a saved row index would
+        # point at the wrong layer after the rebuild.
+        selected_id = None
+        current_item = self.layer_list.currentItem()
+        if current_item is not None:
+            current_widget = self.layer_list.itemWidget(current_item)
+            if isinstance(current_widget, LayerListItem):
+                selected_id = current_widget.layer.id
+
         self.layer_list.clear()
 
         for layer in self._layers:
@@ -314,10 +324,15 @@ class LayersPanel(QWidget):
             self.layer_list.addItem(item)
             self.layer_list.setItemWidget(item, widget)
 
-        # Restore selection
-        if 0 <= current_row < len(self._layers):
-            self.layer_list.setCurrentRow(current_row)
-        elif self._layers:
+        # Restore selection by layer id, falling back to the top layer.
+        restored = False
+        if selected_id is not None:
+            for i, layer in enumerate(self._layers):
+                if layer.id == selected_id:
+                    self.layer_list.setCurrentRow(i)
+                    restored = True
+                    break
+        if not restored and self._layers:
             self.layer_list.setCurrentRow(0)
 
         # Adjust height based on number of layers (max 5 visible, then scroll)
@@ -412,11 +427,16 @@ class LayersPanel(QWidget):
         # all existing layers and its elements stay visible/selectable (issue #201).
         new_layer = Layer(name=f"{layer_base} {layer_num}")
         self._layers.insert(0, new_layer)
-        # Let the scene recompute z_order values from the new list positions.
+        # Emit layers_reordered so the scene recomputes z_order from the new list
+        # positions and rebuilds this list via the layers_changed -> set_layers
+        # round-trip (same path the drag handler relies on; see _on_layers_reordered).
         self.layers_reordered.emit(self._layers)
-        self._refresh_list()
         # Select and activate the new top layer so newly drawn elements land on it.
+        # Block the list's selection signal so active_layer_changed is emitted
+        # exactly once, here, rather than racing with the refresh's selection restore.
+        self.layer_list.blockSignals(True)
         self.layer_list.setCurrentRow(0)
+        self.layer_list.blockSignals(False)
         self._on_layer_selected(0)
 
     def _on_rename_layer(self, layer_id: UUID) -> None:

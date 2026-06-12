@@ -586,7 +586,12 @@ class CanvasScene(QGraphicsScene):
         self._update_items_visibility()
 
     def add_layer(self, layer: Layer) -> None:
-        """Add a new layer.
+        """Append a layer at the bottom of the order (lowest z_order).
+
+        This is the low-level primitive used for bulk/import flows (e.g. DXF
+        import) where the incoming layer order must be preserved as-is. The
+        user-facing "Add Layer" action does NOT use this — it inserts at the top
+        of the order via LayersPanel (see FR-LAYER-08 / issue #201).
 
         Args:
             layer: Layer to add
