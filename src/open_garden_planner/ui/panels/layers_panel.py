@@ -407,10 +407,17 @@ class LayersPanel(QWidget):
         layer_base = self.tr("Layer")
         while f"{layer_base} {layer_num}" in existing_names:
             layer_num += 1
-        new_layer = Layer(name=f"{layer_base} {layer_num}", z_order=len(self._layers))
-        self._layers.append(new_layer)
-        self._refresh_list()
+        # Insert at the top of the order (index 0). reorder_layers() in the scene
+        # treats index 0 as the highest z_order, so the new layer renders on top of
+        # all existing layers and its elements stay visible/selectable (issue #201).
+        new_layer = Layer(name=f"{layer_base} {layer_num}")
+        self._layers.insert(0, new_layer)
+        # Let the scene recompute z_order values from the new list positions.
         self.layers_reordered.emit(self._layers)
+        self._refresh_list()
+        # Select and activate the new top layer so newly drawn elements land on it.
+        self.layer_list.setCurrentRow(0)
+        self._on_layer_selected(0)
 
     def _on_rename_layer(self, layer_id: UUID) -> None:
         """Handle layer rename request (emitted from LayerListItem).

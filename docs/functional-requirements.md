@@ -66,6 +66,7 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
 - **FR-LAYER-05**: Layer opacity
 - **FR-LAYER-06**: Layer reordering (drag in layer panel)
 - **FR-LAYER-07**: Assign objects to layers (default based on object type, manual override)
+- **FR-LAYER-08**: New layers are created at the top of the layer order and become the active layer, so newly drawn elements stay visible and selectable (issue #201)
 
 ## FR-4: Property Objects
 

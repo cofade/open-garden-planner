@@ -636,7 +636,7 @@ class CanvasScene(QGraphicsScene):
         """Reorder layers.
 
         Args:
-            new_order: New layer order (first in list = bottom, last = top)
+            new_order: New layer order (first in list = top, last = bottom)
         """
         self._layers = new_order
         # Update z_order values based on new position
