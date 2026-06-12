@@ -782,6 +782,23 @@ class CanvasScene(QGraphicsScene):
             self._update_items_visibility()
             self.layers_changed.emit()
 
+    def preview_layer_opacity(self, layer_id: UUID, opacity: float) -> None:
+        """Live, NON-undoable opacity preview during slider drags.
+
+        Same mutation as :meth:`update_layer_opacity` but does NOT emit
+        ``layers_changed``, so the layers panel is not rebuilt on every slider
+        tick. The final value is committed as one undoable
+        ``SetLayerPropertyCommand`` on slider release.
+
+        Args:
+            layer_id: Layer ID
+            opacity: Preview opacity (0.0 to 1.0)
+        """
+        layer = self.get_layer_by_id(layer_id)
+        if layer:
+            layer.opacity = max(0.0, min(1.0, opacity))
+            self._update_items_visibility()
+
     # ── Compare overlay (US-10.7) ─────────────────────────────────────────
 
     @property

@@ -67,6 +67,7 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
 - **FR-LAYER-06**: Layer reordering (drag in layer panel)
 - **FR-LAYER-07**: Assign objects to layers (default based on object type, manual override)
 - **FR-LAYER-08**: New layers are created at the top of the layer order and become the active layer, so newly drawn elements stay visible and selectable (issue #201)
+- **FR-LAYER-09**: All layer operations are undoable via Ctrl+Z/Ctrl+Y: create, delete (including the item reassignment it causes), rename, reorder, visibility, lock, and opacity — an opacity slider drag coalesces into a single undo step
 
 ## FR-4: Property Objects
 

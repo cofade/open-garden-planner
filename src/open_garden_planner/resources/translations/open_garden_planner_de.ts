@@ -9066,4 +9066,43 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>— Kopien sind ohne Randbedingungen</translation>
         </message>
     </context>
+    <context>
+        <name>Commands</name>
+        <message>
+            <source>Add layer '{name}'</source>
+            <translation>Ebene '{name}' hinzufügen</translation>
+        </message>
+        <message>
+            <source>Delete layer '{name}'</source>
+            <translation>Ebene '{name}' löschen</translation>
+        </message>
+        <message>
+            <source>Rename layer to '{name}'</source>
+            <translation>Ebene umbenennen in '{name}'</translation>
+        </message>
+        <message>
+            <source>Reorder layers</source>
+            <translation>Ebenen neu anordnen</translation>
+        </message>
+        <message>
+            <source>Show layer '{name}'</source>
+            <translation>Ebene '{name}' einblenden</translation>
+        </message>
+        <message>
+            <source>Hide layer '{name}'</source>
+            <translation>Ebene '{name}' ausblenden</translation>
+        </message>
+        <message>
+            <source>Lock layer '{name}'</source>
+            <translation>Ebene '{name}' sperren</translation>
+        </message>
+        <message>
+            <source>Unlock layer '{name}'</source>
+            <translation>Ebene '{name}' entsperren</translation>
+        </message>
+        <message>
+            <source>Set opacity of layer '{name}' to {pct}%</source>
+            <translation>Deckkraft der Ebene '{name}' auf {pct}% setzen</translation>
+        </message>
+    </context>
 </TS>
