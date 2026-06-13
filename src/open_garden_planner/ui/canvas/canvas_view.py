@@ -2722,12 +2722,7 @@ class CanvasView(QGraphicsView):
                 all_moves.append((item, i, old_v, QPointF(new_v)))
 
         cmd = MultiVertexMoveCommand(all_moves)
-        cm = self.command_manager
-        cm._undo_stack.append(cmd)
-        cm._redo_stack.clear()
-        cm.can_undo_changed.emit(True)
-        cm.can_redo_changed.emit(False)
-        cm.command_executed.emit(cmd.description)
+        self.command_manager.register_applied(cmd)
 
         self._canvas_scene.update_dimension_lines()
 

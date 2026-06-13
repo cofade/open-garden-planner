@@ -1226,10 +1226,7 @@ class GardenItemMixin:
             _apply(item, new_state)
             cmd = ChangePropertyCommand(item, "type", old_state, new_state, _apply)
             if hasattr(scene, "_command_manager") and scene._command_manager:  # type: ignore[attr-defined]
-                scene._command_manager._undo_stack.append(cmd)  # type: ignore[attr-defined]
-                scene._command_manager._redo_stack.clear()  # type: ignore[attr-defined]
-                scene._command_manager.can_undo_changed.emit(True)  # type: ignore[attr-defined]
-                scene._command_manager.can_redo_changed.emit(False)  # type: ignore[attr-defined]
+                scene._command_manager.register_applied(cmd)  # type: ignore[attr-defined]
 
         # Refresh the properties panel by re-emitting the selection signal
         scene.selectionChanged.emit()  # type: ignore[attr-defined]

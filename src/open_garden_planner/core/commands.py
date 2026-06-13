@@ -83,6 +83,28 @@ class CommandManager(QObject):
         self.command_executed.emit(command.description)
         self.stack_changed.emit()
 
+    def register_applied(self, command: Command) -> None:
+        """Register a command whose effect is already applied, without re-running it.
+
+        For interactive gestures (resize/vertex drags, live property edits) the
+        change is applied incrementally during the gesture, so calling
+        ``command.execute()`` again would double-apply it. This records the
+        command on the undo stack and emits the SAME signals as :meth:`execute`
+        — crucially including ``command_executed`` and ``stack_changed`` — so the
+        document is marked dirty and panels refresh. The single chokepoint keeps
+        every "already applied" call site in sync with :meth:`execute`; do NOT
+        hand-roll ``_undo_stack.append`` + signal emits at call sites (issue #209).
+        """
+        self._undo_stack.append(command)
+        had_redo = len(self._redo_stack) > 0
+        self._redo_stack.clear()
+
+        self.can_undo_changed.emit(True)
+        if had_redo:
+            self.can_redo_changed.emit(False)
+        self.command_executed.emit(command.description)
+        self.stack_changed.emit()
+
     def undo(self) -> None:
         """Undo the last command."""
         if not self._undo_stack:

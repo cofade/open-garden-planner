@@ -898,11 +898,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         )
 
         # Add to undo stack without executing (rotation already applied)
-        command_manager._undo_stack.append(command)
-        command_manager._redo_stack.clear()
-        command_manager.can_undo_changed.emit(True)
-        command_manager.can_redo_changed.emit(False)
-        command_manager.command_executed.emit(command.description)
+        command_manager.register_applied(command)
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show context menu on right-click."""

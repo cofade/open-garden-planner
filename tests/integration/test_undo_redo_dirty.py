@@ -14,12 +14,13 @@ so we wire one here exactly as application.py does.
 
 from unittest.mock import MagicMock
 
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QMouseEvent
 
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.canvas.items import RectangleItem
 
 
 def _left_click_event() -> MagicMock:
@@ -61,6 +62,38 @@ class TestUndoRedoMarksDirty:
         manager.mark_clean()
         canvas.command_manager.redo()
         assert manager.is_dirty, "Redo must mark the project dirty (issue #209)"
+
+    def test_direct_append_edit_path_marks_dirty(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """Interactive edits register undo via register_applied (NOT execute()).
+
+        These ~30 direct-append sites (resize handles, vertex drags, live
+        property edits) used to dirty the document by manually emitting
+        command_executed. After #209 moved mark_dirty onto stack_changed, they
+        must route through CommandManager.register_applied so they still dirty.
+        This drives a real resize-end path (rectangle_item._on_resize_end →
+        register_applied) — the regression that the execute()-only test misses.
+        """
+        manager = ProjectManager()
+        canvas.command_manager.stack_changed.connect(manager.mark_dirty)
+
+        _draw_rect(canvas, 100, 100, 400, 300)
+        rect = next(
+            i for i in canvas.scene().items() if isinstance(i, RectangleItem)
+        )
+
+        manager.mark_clean()
+        initial_rect = QRectF(rect.rect())
+        initial_pos = QPointF(rect.pos())
+        # Simulate the geometry change an interactive resize applies live, then
+        # register it the way the resize handle does on mouse-release.
+        rect.setRect(rect.rect().adjusted(0, 0, 50, 50))
+        rect._on_resize_end(initial_rect, initial_pos)
+
+        assert manager.is_dirty, (
+            "Resize via register_applied must mark the project dirty (issue #209)"
+        )
 
     def test_stack_changed_emitted_on_execute_undo_redo(
         self, canvas: CanvasView, qtbot

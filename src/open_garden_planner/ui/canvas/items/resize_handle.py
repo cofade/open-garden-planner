@@ -1929,11 +1929,7 @@ class VertexEditMixin:
         )
 
         # Add to undo stack without executing (move already applied)
-        command_manager._undo_stack.append(command)
-        command_manager._redo_stack.clear()
-        command_manager.can_undo_changed.emit(True)
-        command_manager.can_redo_changed.emit(False)
-        command_manager.command_executed.emit(command.description)
+        command_manager.register_applied(command)
 
     def _on_vertex_add(self, vertex_index: int, pos: QPointF) -> None:
         """Called when a vertex is added. Registers undo command.
@@ -1971,11 +1967,7 @@ class VertexEditMixin:
         )
 
         # Add to undo stack without executing (add already applied)
-        command_manager._undo_stack.append(command)
-        command_manager._redo_stack.clear()
-        command_manager.can_undo_changed.emit(True)
-        command_manager.can_redo_changed.emit(False)
-        command_manager.command_executed.emit(command.description)
+        command_manager.register_applied(command)
 
     def _on_vertex_delete(self, vertex_index: int, pos: QPointF) -> None:
         """Called when a vertex is deleted. Registers undo command.
@@ -2013,11 +2005,7 @@ class VertexEditMixin:
         )
 
         # Add to undo stack without executing (delete already applied)
-        command_manager._undo_stack.append(command)
-        command_manager._redo_stack.clear()
-        command_manager.can_undo_changed.emit(True)
-        command_manager.can_redo_changed.emit(False)
-        command_manager.command_executed.emit(command.description)
+        command_manager.register_applied(command)
 
     def _insert_vertex(self, index: int, pos: QPointF) -> None:
         """Insert a vertex at a specific index (for undo/redo).
@@ -2559,11 +2547,7 @@ class RectVertexEditMixin:
         )
 
         # Add to undo stack without executing (move already applied)
-        command_manager._undo_stack.append(command)
-        command_manager._redo_stack.clear()
-        command_manager.can_undo_changed.emit(True)
-        command_manager.can_redo_changed.emit(False)
-        command_manager.command_executed.emit(command.description)
+        command_manager.register_applied(command)
 
 
 # Minimum vertices for polylines (need at least 2 points for a line)
@@ -2912,11 +2896,7 @@ class PolylineVertexEditMixin:
             apply_vertex_pos,
         )
 
-        command_manager._undo_stack.append(command)
-        command_manager._redo_stack.clear()
-        command_manager.can_undo_changed.emit(True)
-        command_manager.can_redo_changed.emit(False)
-        command_manager.command_executed.emit(command.description)
+        command_manager.register_applied(command)
 
     def _on_vertex_add(self, vertex_index: int, pos: QPointF) -> None:
         """Called when a vertex is added. Registers undo command."""
@@ -2946,11 +2926,7 @@ class PolylineVertexEditMixin:
             apply_remove_vertex,
         )
 
-        command_manager._undo_stack.append(command)
-        command_manager._redo_stack.clear()
-        command_manager.can_undo_changed.emit(True)
-        command_manager.can_redo_changed.emit(False)
-        command_manager.command_executed.emit(command.description)
+        command_manager.register_applied(command)
 
     def _on_vertex_delete(self, vertex_index: int, pos: QPointF) -> None:
         """Called when a vertex is deleted. Registers undo command."""
@@ -2980,11 +2956,7 @@ class PolylineVertexEditMixin:
             apply_remove_vertex,
         )
 
-        command_manager._undo_stack.append(command)
-        command_manager._redo_stack.clear()
-        command_manager.can_undo_changed.emit(True)
-        command_manager.can_redo_changed.emit(False)
-        command_manager.command_executed.emit(command.description)
+        command_manager.register_applied(command)
 
     def _insert_vertex(self, index: int, pos: QPointF) -> None:
         """Insert a vertex at a specific index (for undo/redo)."""
@@ -3267,8 +3239,4 @@ class CurveEditMixin:
 
         command = SetCurveGeometryCommand(self, old, new)  # type: ignore[arg-type]
         # Geometry is already applied by the live drag — register without re-exec.
-        command_manager._undo_stack.append(command)
-        command_manager._redo_stack.clear()
-        command_manager.can_undo_changed.emit(True)
-        command_manager.can_redo_changed.emit(False)
-        command_manager.command_executed.emit(command.description)
+        command_manager.register_applied(command)
