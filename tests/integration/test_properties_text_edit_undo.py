@@ -91,6 +91,31 @@ class TestNameFieldUndoGranularity:
         manager.undo()
         assert item.name == ""
 
+    def test_pending_edit_flushed_when_selection_changes(self, qtbot) -> None:  # noqa: ARG002
+        """P1 (round-2 review): a pending debounced edit must not be lost when
+        the panel rebuilds for a different item. Selecting another item while a
+        debounce is still armed must flush the edit to a real undo command, not
+        silently apply it to the model with an empty undo stack."""
+        manager = CommandManager()
+        panel = PropertiesPanel()
+        panel.set_command_manager(manager)
+        item_a = RectangleItem(0, 0, 100, 50)
+        item_b = RectangleItem(0, 0, 100, 50)
+        panel.set_selected_items([item_a])
+        name_edit = _name_edit(panel)
+
+        # Type into A but do NOT fire editingFinished and do NOT wait for the
+        # debounce — simulate a selection change landing first.
+        name_edit.setText("Apple")
+        assert not manager.can_undo
+        assert item_a.name == "Apple", "live edit applied to the model"
+
+        # Selection changes to B -> rebuild. The pending edit on A must commit.
+        panel.set_selected_items([item_b])
+        assert manager.can_undo, "A's pending edit must be flushed to a command"
+        manager.undo()
+        assert item_a.name == "", "the flushed command undoes A's edit in one step"
+
     def test_commit_without_change_is_noop(self, qtbot) -> None:  # noqa: ARG002
         manager = CommandManager()
         panel = PropertiesPanel()

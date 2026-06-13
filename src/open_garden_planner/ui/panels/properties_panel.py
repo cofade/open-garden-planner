@@ -1,5 +1,7 @@
 """Properties panel for live editing of selected objects."""
 
+from collections.abc import Callable
+
 from PyQt6.QtCore import QCoreApplication, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFocusEvent, QIcon, QPen
 from PyQt6.QtWidgets import (
@@ -162,6 +164,10 @@ class PropertiesPanel(QWidget):
         self._command_manager = command_manager
         self._current_items: list[QGraphicsItem] = []
         self._updating = False  # Prevent feedback loops
+        # Commit callbacks for the free-text fields with a pending debounce
+        # (Name, Text Content). Flushed before any form rebuild so a pending
+        # edit is not destroyed with its widget and lost from undo (#210).
+        self._pending_text_commits: list[Callable[[], None]] = []
         self._setup_ui()
 
     def set_command_manager(self, command_manager: CommandManager) -> None:
@@ -266,6 +272,12 @@ class PropertiesPanel(QWidget):
         ):
             return
 
+        # Commit any pending debounced free-text edit BEFORE rebuilding — the
+        # rebuild deletes the field and its debounce timer synchronously, so an
+        # un-flushed edit would be applied to the model but never recorded as a
+        # command (lost from undo history). The fields are still alive here.
+        self._flush_pending_text_commits()
+
         self._current_items = items
 
         if not items:
@@ -274,6 +286,18 @@ class PropertiesPanel(QWidget):
             self._show_multi_selection(len(items))
         else:
             self._show_single_item(items[0])
+
+    def _flush_pending_text_commits(self) -> None:
+        """Commit any pending debounced free-text edits, then clear the queue.
+
+        Each commit is idempotent (no-op when the value is unchanged) and stops
+        its own debounce timer, so this is safe to call on every rebuild. New
+        fields re-register their callbacks as they are built. See #210.
+        """
+        pending = self._pending_text_commits
+        self._pending_text_commits = []
+        for commit in pending:
+            commit()
 
     def _show_single_item(self, item: QGraphicsItem) -> None:
         """Show properties for a single selected item.
@@ -1535,18 +1559,21 @@ class PropertiesPanel(QWidget):
             if views and hasattr(views[0], 'apply_constraint_solver'):
                 views[0].apply_constraint_solver()
 
-    def _attach_commit_timer(self, edit: QWidget, on_timeout) -> None:
+    def _attach_commit_timer(self, edit: QWidget, on_commit: Callable[[], None]) -> None:
         """Attach a single-shot debounce timer that commits a free-text edit.
 
-        Stored on the widget as ``_ogp_commit_timer``; restarted on each
-        keystroke by the live handler and stopped by the commit handler. See
+        The timer is stored on the widget as ``_ogp_commit_timer`` (restarted on
+        each keystroke by the live handler, stopped by the commit handler). The
+        same ``on_commit`` callback is also queued in ``_pending_text_commits``
+        so a rebuild flushes the edit before the widget is destroyed. See
         _TEXT_COMMIT_DEBOUNCE_MS (issue #210).
         """
         timer = QTimer(edit)
         timer.setSingleShot(True)
         timer.setInterval(_TEXT_COMMIT_DEBOUNCE_MS)
-        timer.timeout.connect(on_timeout)
+        timer.timeout.connect(on_commit)
         edit._ogp_commit_timer = timer  # type: ignore[attr-defined]
+        self._pending_text_commits.append(on_commit)
 
     def _on_name_text_changed(self, item: QGraphicsItem, text: str, edit: QLineEdit) -> None:
         """Live-update the canvas label as the user types the Name field.
