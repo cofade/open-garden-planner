@@ -9328,5 +9328,77 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Distribute items</source>
             <translation>Objekte verteilen</translation>
         </message>
+        <message>
+            <source>frost protection</source>
+            <translation>Frostschutz</translation>
+        </message>
+        <message>
+            <source>spacing radius</source>
+            <translation>Pflanzabstand</translation>
+        </message>
+        <message>
+            <source>text content</source>
+            <translation>Textinhalt</translation>
+        </message>
+        <message>
+            <source>font</source>
+            <translation>Schriftart</translation>
+        </message>
+        <message>
+            <source>font size</source>
+            <translation>Schriftgröße</translation>
+        </message>
+        <message>
+            <source>bold</source>
+            <translation>Fett</translation>
+        </message>
+        <message>
+            <source>italic</source>
+            <translation>Kursiv</translation>
+        </message>
+        <message>
+            <source>text color</source>
+            <translation>Textfarbe</translation>
+        </message>
+        <message>
+            <source>type</source>
+            <translation>Typ</translation>
+        </message>
+        <message>
+            <source>name</source>
+            <translation>Name</translation>
+        </message>
+        <message>
+            <source>label visibility</source>
+            <translation>Beschriftungssichtbarkeit</translation>
+        </message>
+        <message>
+            <source>layer</source>
+            <translation>Ebene</translation>
+        </message>
+        <message>
+            <source>fill pattern</source>
+            <translation>Füllmuster</translation>
+        </message>
+        <message>
+            <source>stroke width</source>
+            <translation>Linienbreite</translation>
+        </message>
+        <message>
+            <source>stroke style</source>
+            <translation>Linienstil</translation>
+        </message>
+        <message>
+            <source>path/fence style</source>
+            <translation>Pfad-/Zaunstil</translation>
+        </message>
+        <message>
+            <source>fill color</source>
+            <translation>Füllfarbe</translation>
+        </message>
+        <message>
+            <source>stroke color</source>
+            <translation>Linienfarbe</translation>
+        </message>
     </context>
 </TS>
