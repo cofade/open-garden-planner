@@ -54,6 +54,14 @@ _TEXT_PROPERTY_LABELS = {
     "italic": "italic",
 }
 
+# Free-text fields (Name, Text Content) live-update the item on every keystroke
+# but only commit ONE undo command per typing burst. The command is committed
+# after the user pauses for this long, or immediately on focus-out — whichever
+# comes first. The debounce (rather than focus-out only) is what lets Ctrl+Z
+# work while the field still has focus: without a committed command the Undo
+# action stays disabled and Ctrl+Z is a no-op (issue #210 manual-test finding).
+_TEXT_COMMIT_DEBOUNCE_MS = 600
+
 
 class FocusOutTextEdit(QTextEdit):
     """QTextEdit that emits ``editing_finished`` when it loses focus.
@@ -317,12 +325,15 @@ class PropertiesPanel(QWidget):
         if hasattr(item, 'name'):
             name_edit = QLineEdit(item.name)
             # Live-update the canvas label on every keystroke, but commit a
-            # single undo command on editingFinished (Enter / focus-out) — see
-            # _on_name_text_changed / _on_name_commit (issue #210). The start
-            # value is captured here because the field is rebuilt per selection.
+            # single undo command after a typing pause (debounce) or on
+            # focus-out — whichever first (issue #210). The start value is
+            # captured here because the field is rebuilt per selection.
             name_edit._ogp_name_start = item.name  # type: ignore[attr-defined]
+            self._attach_commit_timer(
+                name_edit, lambda: self._on_name_commit(item, name_edit)
+            )
             name_edit.textChanged.connect(
-                lambda text, it=item: self._on_name_text_changed(it, text)
+                lambda text, it=item, edit=name_edit: self._on_name_text_changed(it, text, edit)
             )
             name_edit.editingFinished.connect(
                 lambda it=item, edit=name_edit: self._on_name_commit(it, edit)
@@ -885,15 +896,19 @@ class PropertiesPanel(QWidget):
         self._form_layout.addRow(header)
 
         # Content (multi-line). Live-update the item on every keystroke but
-        # commit one undo command on focus-out (issue #210) — FocusOutTextEdit
-        # adds the editing_finished signal QTextEdit lacks. Start value is
-        # captured here because the field is rebuilt per selection.
+        # commit one undo command after a typing pause (debounce) or on focus-out
+        # (issue #210) — FocusOutTextEdit adds the editing_finished signal
+        # QTextEdit lacks. Start value is captured here (field rebuilt per
+        # selection). Enter inserts a newline as usual — it does not commit.
         content_edit = FocusOutTextEdit()
         content_edit.setPlainText(item.content)
         content_edit.setFixedHeight(80)
         content_edit._ogp_content_start = item.content  # type: ignore[attr-defined]
+        self._attach_commit_timer(
+            content_edit, lambda: self._on_text_content_commit(item, content_edit)
+        )
         content_edit.textChanged.connect(
-            lambda: self._on_text_content_live(item, content_edit.toPlainText())
+            lambda: self._on_text_content_live(item, content_edit.toPlainText(), content_edit)
         )
         content_edit.editing_finished.connect(
             lambda it=item, edit=content_edit: self._on_text_content_commit(it, edit)
@@ -944,19 +959,26 @@ class PropertiesPanel(QWidget):
         )
         self._form_layout.addRow(self.tr("Color:"), color_btn)
 
-    def _on_text_content_live(self, item: "TextItem", value: str) -> None:
+    def _on_text_content_live(self, item: "TextItem", value: str, edit: QTextEdit) -> None:
         """Live-apply text content as the user types (visual only, no command).
 
-        The single undo command is registered on focus-out by
-        _on_text_content_commit (issue #210). Guarded by _updating so the
-        programmatic setPlainText during a rebuild does not mutate the item.
+        The single undo command is committed by _on_text_content_commit after a
+        typing pause (debounce) or on focus-out (issue #210). Guarded by
+        _updating so the programmatic setPlainText during a rebuild does not
+        mutate the item.
         """
         if self._updating:
             return
         item.content = value
+        timer = getattr(edit, '_ogp_commit_timer', None)
+        if timer is not None:
+            timer.start()  # (re)start the debounce — commit when typing pauses
 
     def _on_text_content_commit(self, item: "TextItem", edit: QTextEdit) -> None:
-        """Commit a text-content edit as one undo step on focus-out."""
+        """Commit a text-content edit as one undo step (debounce or focus-out)."""
+        timer = getattr(edit, '_ogp_commit_timer', None)
+        if timer is not None:
+            timer.stop()
         if self._updating or self._command_manager is None:
             return
         old_content = getattr(edit, '_ogp_content_start', item.content)
@@ -1513,28 +1535,47 @@ class PropertiesPanel(QWidget):
             if views and hasattr(views[0], 'apply_constraint_solver'):
                 views[0].apply_constraint_solver()
 
-    def _on_name_text_changed(self, item: QGraphicsItem, text: str) -> None:
+    def _attach_commit_timer(self, edit: QWidget, on_timeout) -> None:
+        """Attach a single-shot debounce timer that commits a free-text edit.
+
+        Stored on the widget as ``_ogp_commit_timer``; restarted on each
+        keystroke by the live handler and stopped by the commit handler. See
+        _TEXT_COMMIT_DEBOUNCE_MS (issue #210).
+        """
+        timer = QTimer(edit)
+        timer.setSingleShot(True)
+        timer.setInterval(_TEXT_COMMIT_DEBOUNCE_MS)
+        timer.timeout.connect(on_timeout)
+        edit._ogp_commit_timer = timer  # type: ignore[attr-defined]
+
+    def _on_name_text_changed(self, item: QGraphicsItem, text: str, edit: QLineEdit) -> None:
         """Live-update the canvas label as the user types the Name field.
 
-        Visual feedback only — no undo command and no calendar refresh. The
-        single command is registered on editingFinished by _on_name_commit
-        (issue #210). Guarded by _updating so programmatic setText during a
-        panel rebuild does not mutate the item.
+        Visual feedback only — no undo command and no calendar refresh; the
+        single command is committed by _on_name_commit after a typing pause
+        (debounce) or on focus-out (issue #210). Guarded by _updating so
+        programmatic setText during a panel rebuild does not mutate the item.
         """
         if self._updating:
             return
         item.name = text  # type: ignore[attr-defined]
         if hasattr(item, '_update_label'):
             item._update_label()
+        timer = getattr(edit, '_ogp_commit_timer', None)
+        if timer is not None:
+            timer.start()  # (re)start the debounce — commit when typing pauses
 
     def _on_name_commit(self, item: QGraphicsItem, edit: QLineEdit) -> None:
-        """Commit a Name edit as one undo step when the field loses focus.
+        """Commit a Name edit as one undo step (debounce timeout or focus-out).
 
         Compares against the value captured when the field was built; registers
         a single ChangePropertyCommand only if it actually changed, then resets
-        the captured start so a no-op focus-out (or the Enter+focus-out double
-        fire) does not push a duplicate command.
+        the captured start so the debounce-then-focus-out double fire (or a no-op
+        focus-out) does not push a duplicate command.
         """
+        timer = getattr(edit, '_ogp_commit_timer', None)
+        if timer is not None:
+            timer.stop()
         if self._updating or self._command_manager is None:
             return
         old_name = getattr(edit, '_ogp_name_start', item.name)

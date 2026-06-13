@@ -72,6 +72,25 @@ class TestNameFieldUndoGranularity:
         manager.redo()
         assert item.name == "Tomato"
 
+    def test_debounce_commits_without_focus_out(self, qtbot) -> None:
+        """Bug-1 fix: a typing pause commits one command WITHOUT a focus-out, so
+        the Undo action is enabled and Ctrl+Z works while the field still has
+        focus. Previously the command only landed on focus-out -> nothing to undo
+        mid-edit -> 'name stays'."""
+        manager = CommandManager()
+        panel = PropertiesPanel()
+        panel.set_command_manager(manager)
+        item = RectangleItem(0, 0, 100, 50)
+        panel.set_selected_items([item])
+        name_edit = _name_edit(panel)
+
+        name_edit.setText("Tomato")
+        assert not manager.can_undo, "command must not commit on the keystroke itself"
+        # No editingFinished — just wait for the debounce timer to fire.
+        qtbot.waitUntil(lambda: manager.can_undo, timeout=2000)
+        manager.undo()
+        assert item.name == ""
+
     def test_commit_without_change_is_noop(self, qtbot) -> None:  # noqa: ARG002
         manager = CommandManager()
         panel = PropertiesPanel()
