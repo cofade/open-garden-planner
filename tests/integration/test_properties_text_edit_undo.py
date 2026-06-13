@@ -12,7 +12,7 @@ properties_panel `register_applied` path had no direct integration coverage.
 
 from PyQt6.QtWidgets import QLineEdit
 
-from open_garden_planner.core.commands import CommandManager
+from open_garden_planner.core.commands import ChangePropertyCommand, CommandManager
 from open_garden_planner.ui.canvas.items import RectangleItem, TextItem
 from open_garden_planner.ui.panels import PropertiesPanel
 from open_garden_planner.ui.panels.properties_panel import FocusOutTextEdit
@@ -59,10 +59,18 @@ class TestNameFieldUndoGranularity:
         assert manager.can_undo
         assert len(refreshes) == 1, "exactly one refresh per completed edit"
 
-        # A single undo restores the original name in one step.
+        # The post-commit panel rebuild (command_executed -> set_selected_items
+        # in the real app) must not lose the committed value or crash.
+        panel.set_selected_items([item])
+        assert item.name == "Tomato"
+
+        # A single undo restores the original name in one step; redo re-applies
+        # the whole value (not one character).
         manager.undo()
         assert item.name == ""
         assert not manager.can_undo
+        manager.redo()
+        assert item.name == "Tomato"
 
     def test_commit_without_change_is_noop(self, qtbot) -> None:  # noqa: ARG002
         manager = CommandManager()
@@ -78,7 +86,8 @@ class TestNameFieldUndoGranularity:
         assert not manager.can_undo, "unchanged focus-out must not push a command"
 
     def test_double_commit_pushes_single_command(self, qtbot) -> None:  # noqa: ARG002
-        """Enter fires returnPressed AND editingFinished — must not double-push."""
+        """editingFinished can fire twice (Enter, then focus-out) — the
+        start-value reset must keep that to a single recorded command."""
         manager = CommandManager()
         panel = PropertiesPanel()
         panel.set_command_manager(manager)
@@ -129,3 +138,45 @@ class TestTextContentUndoGranularity:
 
         content_edit.editing_finished.emit()
         assert not manager.can_undo
+
+    def test_real_focus_out_event_commits(self, qtbot) -> None:  # noqa: ARG002
+        """A genuine QFocusEvent through FocusOutTextEdit.focusOutEvent commits
+        one command — exercises the new subclass code, not just the signal."""
+        from PyQt6.QtCore import QEvent
+        from PyQt6.QtGui import QFocusEvent
+        from PyQt6.QtWidgets import QApplication
+
+        manager = CommandManager()
+        panel = PropertiesPanel()
+        panel.set_command_manager(manager)
+        item = TextItem(0, 0, "")
+        panel.set_selected_items([item])
+        content_edit = _content_edit(panel)
+
+        content_edit.setPlainText("Note")
+        assert not manager.can_undo
+        QApplication.sendEvent(content_edit, QFocusEvent(QEvent.Type.FocusOut))
+        assert manager.can_undo
+        manager.undo()
+        assert item.content == ""
+
+
+class TestCommandDescriptionLocalized:
+    """The {property} fragment localizes end-to-end via the compiled .qm (#210)."""
+
+    def test_german_description_is_fully_localized(self, qtbot) -> None:  # noqa: ARG002
+        from PyQt6.QtWidgets import QApplication, QGraphicsRectItem
+
+        from open_garden_planner.core.i18n import load_translator
+
+        app = QApplication.instance()
+        item = QGraphicsRectItem(0, 0, 10, 10)
+        cmd = ChangePropertyCommand(item, "text content", "a", "b", lambda *_: None)
+
+        load_translator(app, "de")
+        try:
+            # Guards code<->registration drift: a typo'd fragment would silently
+            # fall back to English here and the i18n gate would not catch it.
+            assert cmd.description == "Textinhalt ändern"
+        finally:
+            load_translator(app, "en")  # restore source language for other tests

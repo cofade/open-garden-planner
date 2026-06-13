@@ -738,12 +738,12 @@ class TestChangePropertyDescription:
 
     def test_fragment_is_interpolated(self, qtbot) -> None:  # noqa: ARG002
         item = QGraphicsRectItem(0, 0, 10, 10)
-        cmd = ChangePropertyCommand(item, "name", "old", "new", lambda i, v: None)
+        cmd = ChangePropertyCommand(item, "name", "old", "new", lambda *_: None)
         assert cmd.description == "Change name"
 
     def test_each_fragment_distinct(self, qtbot) -> None:  # noqa: ARG002
         item = QGraphicsRectItem(0, 0, 10, 10)
-        width = ChangePropertyCommand(item, "stroke width", 1, 2, lambda i, v: None)
-        fill = ChangePropertyCommand(item, "fill color", "a", "b", lambda i, v: None)
+        width = ChangePropertyCommand(item, "stroke width", 1, 2, lambda *_: None)
+        fill = ChangePropertyCommand(item, "fill color", "a", "b", lambda *_: None)
         assert width.description == "Change stroke width"
         assert fill.description == "Change fill color"
