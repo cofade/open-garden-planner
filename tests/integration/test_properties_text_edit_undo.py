@@ -112,6 +112,10 @@ class TestNameFieldUndoGranularity:
 
         # Selection changes to B -> rebuild. The pending edit on A must commit.
         panel.set_selected_items([item_b])
+        # Pin the mechanism: A's field was actually destroyed by the rebuild
+        # (so its debounce timer can never fire) — the flush is what saved it.
+        from PyQt6 import sip
+        assert sip.isdeleted(name_edit), "A's field must be destroyed by the rebuild"
         assert manager.can_undo, "A's pending edit must be flushed to a command"
         manager.undo()
         assert item_a.name == "", "the flushed command undoes A's edit in one step"
