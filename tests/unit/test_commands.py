@@ -52,6 +52,39 @@ class TestCommandManager:
         assert not manager.can_redo
         assert manager.undo_description == "Create test"
 
+    def test_register_applied_records_without_executing(self, manager, qtbot) -> None:
+        """register_applied records an already-applied command without re-running it.
+
+        The interactive gesture (drag/edit) already applied the change, so the
+        command must NOT be executed again — yet command_executed AND
+        stack_changed must still fire so the document is marked dirty. This is
+        the contract the whole #209 chokepoint hinges on.
+        """
+        from open_garden_planner.core.commands import Command
+
+        class _CountingCommand(Command):
+            def __init__(self) -> None:
+                self.execute_calls = 0
+
+            @property
+            def description(self) -> str:
+                return "counting"
+
+            def execute(self) -> None:
+                self.execute_calls += 1
+
+            def undo(self) -> None:
+                pass
+
+        command = _CountingCommand()
+        with qtbot.waitSignals([manager.command_executed, manager.stack_changed]):
+            manager.register_applied(command)
+
+        assert command.execute_calls == 0, "register_applied must NOT re-execute the command"
+        assert manager.can_undo
+        assert not manager.can_redo
+        assert manager.undo_description == "counting"
+
     def test_undo_moves_to_redo_stack(self, manager, scene) -> None:
         """Test that undo moves command to redo stack."""
         item = QGraphicsRectItem(0, 0, 100, 100)
