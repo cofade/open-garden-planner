@@ -1,6 +1,6 @@
 """Properties panel for live editing of selected objects."""
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QPen
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -911,10 +911,7 @@ class PropertiesPanel(QWidget):
             def apply_func(itm, val):
                 itm.content = val
             cmd = ChangePropertyCommand(item, "text content", old_content, value, apply_func)
-            self._command_manager._undo_stack.append(cmd)
-            self._command_manager._redo_stack.clear()
-            self._command_manager.can_undo_changed.emit(True)
-            self._command_manager.can_redo_changed.emit(False)
+            self._command_manager.register_applied(cmd)
 
     def _on_text_property_changed(self, item: "TextItem", prop: str, value: object) -> None:
         """Handle font property change from properties panel."""
@@ -926,10 +923,7 @@ class PropertiesPanel(QWidget):
             def apply_func(itm, val, p=prop):
                 setattr(itm, p, val)
             cmd = ChangePropertyCommand(item, f"text {prop}", old_val, value, apply_func)
-            self._command_manager._undo_stack.append(cmd)
-            self._command_manager._redo_stack.clear()
-            self._command_manager.can_undo_changed.emit(True)
-            self._command_manager.can_redo_changed.emit(False)
+            self._command_manager.register_applied(cmd)
         scene = item.scene()
         if scene:
             scene.update()
@@ -945,10 +939,7 @@ class PropertiesPanel(QWidget):
             def apply_func(itm, val):
                 itm.text_color = val
             cmd = ChangePropertyCommand(item, "text color", old_color, new_color, apply_func)
-            self._command_manager._undo_stack.append(cmd)
-            self._command_manager._redo_stack.clear()
-            self._command_manager.can_undo_changed.emit(True)
-            self._command_manager.can_redo_changed.emit(False)
+            self._command_manager.register_applied(cmd)
         scene = item.scene()
         if scene:
             scene.update()
@@ -1269,7 +1260,10 @@ class PropertiesPanel(QWidget):
                             all_deltas = [(item, delta)]
                             all_deltas.extend(propagated_deltas)
                             command = AlignItemsCommand(
-                                all_deltas, "Move item (constrained)"
+                                all_deltas,
+                                QCoreApplication.translate(
+                                    "Commands", "Move item (constrained)"
+                                ),
                             )
                             if self._command_manager:
                                 self._command_manager.execute(command)
@@ -1359,11 +1353,7 @@ class PropertiesPanel(QWidget):
 
             if self._command_manager:
                 cmd = ResizeItemCommand(item, old_geometry, new_geometry, apply_circle)
-                self._command_manager._undo_stack.append(cmd)
-                self._command_manager._redo_stack.clear()
-                self._command_manager.can_undo_changed.emit(True)
-                self._command_manager.can_redo_changed.emit(False)
-                self._command_manager.command_executed.emit(cmd.description)
+                self._command_manager.register_applied(cmd)
 
         elif (
             dimension_type == 'rect_size'
@@ -1410,11 +1400,7 @@ class PropertiesPanel(QWidget):
 
             if self._command_manager:
                 cmd = ResizeItemCommand(item, old_geometry, new_geometry, apply_rect)
-                self._command_manager._undo_stack.append(cmd)
-                self._command_manager._redo_stack.clear()
-                self._command_manager.can_undo_changed.emit(True)
-                self._command_manager.can_redo_changed.emit(False)
-                self._command_manager.command_executed.emit(cmd.description)
+                self._command_manager.register_applied(cmd)
 
         elif (
             dimension_type == 'ellipse_axes'
@@ -1452,11 +1438,7 @@ class PropertiesPanel(QWidget):
 
             if self._command_manager:
                 cmd = ResizeItemCommand(item, old_geometry, new_geometry, apply_ellipse)
-                self._command_manager._undo_stack.append(cmd)
-                self._command_manager._redo_stack.clear()
-                self._command_manager.can_undo_changed.emit(True)
-                self._command_manager.can_redo_changed.emit(False)
-                self._command_manager.command_executed.emit(cmd.description)
+                self._command_manager.register_applied(cmd)
 
         else:
             return
@@ -1503,10 +1485,7 @@ class PropertiesPanel(QWidget):
                     self._apply_item_state(itm, state)
                 cmd = ChangePropertyCommand(item, "type", old_state, new_state, apply_func)
                 # Don't execute - already applied, just add to stack
-                self._command_manager._undo_stack.append(cmd)
-                self._command_manager._redo_stack.clear()
-                self._command_manager.can_undo_changed.emit(True)
-                self._command_manager.can_redo_changed.emit(False)
+                self._command_manager.register_applied(cmd)
 
             # Defer panel refresh to avoid destroying widgets while signal is processing
             QTimer.singleShot(0, lambda: self.set_selected_items([item]))
@@ -1526,10 +1505,7 @@ class PropertiesPanel(QWidget):
                     if hasattr(itm, '_update_label'):
                         itm._update_label()
                 cmd = ChangePropertyCommand(item, "name", old_name, value, apply_name)
-                self._command_manager._undo_stack.append(cmd)
-                self._command_manager._redo_stack.clear()
-                self._command_manager.can_undo_changed.emit(True)
-                self._command_manager.can_redo_changed.emit(False)
+                self._command_manager.register_applied(cmd)
 
         elif property_name == 'label_visible' and hasattr(item, 'label_visible'):
             old_visible = item.label_visible
@@ -1539,10 +1515,7 @@ class PropertiesPanel(QWidget):
                 def apply_label_visible(itm, val):
                     itm.label_visible = val
                 cmd = ChangePropertyCommand(item, "label visibility", old_visible, value, apply_label_visible)
-                self._command_manager._undo_stack.append(cmd)
-                self._command_manager._redo_stack.clear()
-                self._command_manager.can_undo_changed.emit(True)
-                self._command_manager.can_redo_changed.emit(False)
+                self._command_manager.register_applied(cmd)
 
         elif property_name == 'layer_id' and hasattr(item, 'layer_id'):
             old_layer = item.layer_id
@@ -1562,10 +1535,7 @@ class PropertiesPanel(QWidget):
                         if lyr:
                             itm.setZValue(lyr.z_order * 100)
                 cmd = ChangePropertyCommand(item, "layer", old_layer, value, apply_layer)
-                self._command_manager._undo_stack.append(cmd)
-                self._command_manager._redo_stack.clear()
-                self._command_manager.can_undo_changed.emit(True)
-                self._command_manager.can_redo_changed.emit(False)
+                self._command_manager.register_applied(cmd)
 
         elif property_name == 'fill_pattern':
             old_pattern = item.fill_pattern if hasattr(item, 'fill_pattern') else FillPattern.SOLID
@@ -1582,10 +1552,7 @@ class PropertiesPanel(QWidget):
                     c = itm.fill_color if hasattr(itm, 'fill_color') and itm.fill_color else itm.brush().color()
                     itm.setBrush(create_pattern_brush(val, c))
                 cmd = ChangePropertyCommand(item, "fill pattern", old_pattern, value, apply_pattern)
-                self._command_manager._undo_stack.append(cmd)
-                self._command_manager._redo_stack.clear()
-                self._command_manager.can_undo_changed.emit(True)
-                self._command_manager.can_redo_changed.emit(False)
+                self._command_manager.register_applied(cmd)
 
         elif property_name == 'stroke_width':
             old_width = item.stroke_width if hasattr(item, 'stroke_width') else item.pen().widthF()
@@ -1603,10 +1570,7 @@ class PropertiesPanel(QWidget):
                     p.setWidthF(val)
                     itm.setPen(p)
                 cmd = ChangePropertyCommand(item, "stroke width", old_width, value, apply_width)
-                self._command_manager._undo_stack.append(cmd)
-                self._command_manager._redo_stack.clear()
-                self._command_manager.can_undo_changed.emit(True)
-                self._command_manager.can_redo_changed.emit(False)
+                self._command_manager.register_applied(cmd)
 
         elif property_name == 'stroke_style':
             old_style = item.stroke_style if hasattr(item, 'stroke_style') else StrokeStyle.SOLID
@@ -1624,10 +1588,7 @@ class PropertiesPanel(QWidget):
                     p.setStyle(val.to_qt_pen_style())
                     itm.setPen(p)
                 cmd = ChangePropertyCommand(item, "stroke style", old_style, value, apply_stroke_style)
-                self._command_manager._undo_stack.append(cmd)
-                self._command_manager._redo_stack.clear()
-                self._command_manager.can_undo_changed.emit(True)
-                self._command_manager.can_redo_changed.emit(False)
+                self._command_manager.register_applied(cmd)
 
         elif property_name == 'path_fence_style':
             old_pfs = item.path_fence_style if hasattr(item, 'path_fence_style') else PathFenceStyle.NONE
@@ -1645,10 +1606,7 @@ class PropertiesPanel(QWidget):
                         itm.apply_style_preset()
                     itm.update()
                 cmd = ChangePropertyCommand(item, "path/fence style", old_pfs, value, apply_pfs)
-                self._command_manager._undo_stack.append(cmd)
-                self._command_manager._redo_stack.clear()
-                self._command_manager.can_undo_changed.emit(True)
-                self._command_manager.can_redo_changed.emit(False)
+                self._command_manager.register_applied(cmd)
 
         # Mark scene as modified
         scene = item.scene()
@@ -1688,10 +1646,7 @@ class PropertiesPanel(QWidget):
                     p = itm.fill_pattern if hasattr(itm, 'fill_pattern') else FillPattern.SOLID
                     itm.setBrush(create_pattern_brush(p, val))
                 cmd = ChangePropertyCommand(item, "fill color", old_color, color, apply_fill_color)
-                self._command_manager._undo_stack.append(cmd)
-                self._command_manager._redo_stack.clear()
-                self._command_manager.can_undo_changed.emit(True)
-                self._command_manager.can_redo_changed.emit(False)
+                self._command_manager.register_applied(cmd)
 
         elif property_name == 'stroke_color':
             # Capture old value for undo
@@ -1714,10 +1669,7 @@ class PropertiesPanel(QWidget):
                     p.setColor(val)
                     itm.setPen(p)
                 cmd = ChangePropertyCommand(item, "stroke color", old_color, color, apply_stroke_color)
-                self._command_manager._undo_stack.append(cmd)
-                self._command_manager._redo_stack.clear()
-                self._command_manager.can_undo_changed.emit(True)
-                self._command_manager.can_redo_changed.emit(False)
+                self._command_manager.register_applied(cmd)
 
         # Mark scene as modified
         scene = item.scene()

@@ -195,11 +195,7 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         }
 
         command = ResizeItemCommand(self, old_geometry, new_geometry, apply_geometry)
-        command_manager._undo_stack.append(command)
-        command_manager._redo_stack.clear()
-        command_manager.can_undo_changed.emit(True)
-        command_manager.can_redo_changed.emit(False)
-        command_manager.command_executed.emit(command.description)
+        command_manager.register_applied(command)
 
     def _on_rotation_end(self, initial_angle: float) -> None:
         scene = self.scene()
@@ -221,11 +217,7 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
                 item._apply_rotation(angle)
 
         command = RotateItemCommand(self, initial_angle, current_angle, apply_rotation)
-        command_manager._undo_stack.append(command)
-        command_manager._redo_stack.clear()
-        command_manager.can_undo_changed.emit(True)
-        command_manager.can_redo_changed.emit(False)
-        command_manager.command_executed.emit(command.description)
+        command_manager.register_applied(command)
 
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:

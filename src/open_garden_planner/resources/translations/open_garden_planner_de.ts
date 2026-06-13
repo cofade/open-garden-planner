@@ -9104,5 +9104,229 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Set opacity of layer '{name}' to {pct}%</source>
             <translation>Deckkraft der Ebene '{name}' auf {pct}% setzen</translation>
         </message>
+        <message>
+            <source>Create {item_type}</source>
+            <translation>{item_type} erstellen</translation>
+        </message>
+        <message>
+            <source>Create {count} {item_type}</source>
+            <translation>{count} {item_type} erstellen</translation>
+        </message>
+        <message>
+            <source>Delete item</source>
+            <translation>Objekt löschen</translation>
+        </message>
+        <message>
+            <source>Delete {count} items</source>
+            <translation>{count} Objekte löschen</translation>
+        </message>
+        <message>
+            <source>Move item</source>
+            <translation>Objekt verschieben</translation>
+        </message>
+        <message>
+            <source>Move {count} items</source>
+            <translation>{count} Objekte verschieben</translation>
+        </message>
+        <message>
+            <source>Change {property}</source>
+            <translation>{property} ändern</translation>
+        </message>
+        <message>
+            <source>Resize item</source>
+            <translation>Objektgröße ändern</translation>
+        </message>
+        <message>
+            <source>Rotate item</source>
+            <translation>Objekt drehen</translation>
+        </message>
+        <message>
+            <source>Move vertex</source>
+            <translation>Stützpunkt verschieben</translation>
+        </message>
+        <message>
+            <source>Reshape curve</source>
+            <translation>Kurve umformen</translation>
+        </message>
+        <message>
+            <source>Add vertex</source>
+            <translation>Stützpunkt hinzufügen</translation>
+        </message>
+        <message>
+            <source>Delete vertex</source>
+            <translation>Stützpunkt löschen</translation>
+        </message>
+        <message>
+            <source>Add constraint</source>
+            <translation>Bedingung hinzufügen</translation>
+        </message>
+        <message>
+            <source>Remove constraint</source>
+            <translation>Bedingung entfernen</translation>
+        </message>
+        <message>
+            <source>Edit constraint distance</source>
+            <translation>Bedingungsabstand bearbeiten</translation>
+        </message>
+        <message>
+            <source>Ungroup</source>
+            <translation>Gruppierung aufheben</translation>
+        </message>
+        <message>
+            <source>Create linear array ({count} items)</source>
+            <translation>Lineares Raster erstellen ({count} Objekte)</translation>
+        </message>
+        <message>
+            <source>Create grid array ({count} items)</source>
+            <translation>Gitterraster erstellen ({count} Objekte)</translation>
+        </message>
+        <message>
+            <source>Create circular array ({count} items)</source>
+            <translation>Kreisraster erstellen ({count} Objekte)</translation>
+        </message>
+        <message>
+            <source>Mirror {count} item(s) (copy)</source>
+            <translation>{count} Objekt(e) spiegeln (kopieren)</translation>
+        </message>
+        <message>
+            <source>Mirror {count} item(s) (move)</source>
+            <translation>{count} Objekt(e) spiegeln (verschieben)</translation>
+        </message>
+        <message>
+            <source>Detach plant from bed</source>
+            <translation>Pflanze vom Beet lösen</translation>
+        </message>
+        <message>
+            <source>Attach plant to bed</source>
+            <translation>Pflanze dem Beet zuordnen</translation>
+        </message>
+        <message>
+            <source>Group {count} items</source>
+            <translation>{count} Objekte gruppieren</translation>
+        </message>
+        <message>
+            <source>Boolean {operation}</source>
+            <translation>Boolesche Operation {operation}</translation>
+        </message>
+        <message>
+            <source>Array along path ({count} copies)</source>
+            <translation>Reihung entlang Pfad ({count} Kopien)</translation>
+        </message>
+        <message>
+            <source>Move {count} item(s) to layer '{name}'</source>
+            <translation>{count} Objekt(e) auf Ebene '{name}' verschieben</translation>
+        </message>
+        <message>
+            <source>Trim polyline</source>
+            <translation>Polylinie stutzen</translation>
+        </message>
+        <message>
+            <source>Trim polygon edge</source>
+            <translation>Polygonkante stutzen</translation>
+        </message>
+        <message>
+            <source>Trim rectangle edge</source>
+            <translation>Rechteckkante stutzen</translation>
+        </message>
+        <message>
+            <source>Extend polyline</source>
+            <translation>Polylinie verlängern</translation>
+        </message>
+        <message>
+            <source>Fillet corner</source>
+            <translation>Ecke abrunden</translation>
+        </message>
+        <message>
+            <source>Chamfer corner</source>
+            <translation>Ecke abschrägen</translation>
+        </message>
+        <message>
+            <source>Add soil test</source>
+            <translation>Bodenprobe hinzufügen</translation>
+        </message>
+        <message>
+            <source>Edit soil test</source>
+            <translation>Bodenprobe bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete soil test</source>
+            <translation>Bodenprobe löschen</translation>
+        </message>
+        <message>
+            <source>Add pest/disease log</source>
+            <translation>Schädlings-/Krankheitseintrag hinzufügen</translation>
+        </message>
+        <message>
+            <source>Edit pest/disease log</source>
+            <translation>Schädlings-/Krankheitseintrag bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete pest/disease log</source>
+            <translation>Schädlings-/Krankheitseintrag löschen</translation>
+        </message>
+        <message>
+            <source>Set succession plan</source>
+            <translation>Folgepflanzung festlegen</translation>
+        </message>
+        <message>
+            <source>Add garden journal note</source>
+            <translation>Gartentagebuch-Notiz hinzufügen</translation>
+        </message>
+        <message>
+            <source>Edit garden journal note</source>
+            <translation>Gartentagebuch-Notiz bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete garden journal note</source>
+            <translation>Gartentagebuch-Notiz löschen</translation>
+        </message>
+        <message>
+            <source>Align items</source>
+            <translation>Objekte ausrichten</translation>
+        </message>
+        <message>
+            <source>Move item (constrained)</source>
+            <translation>Objekt verschieben (mit Bedingung)</translation>
+        </message>
+        <message>
+            <source>Move items (constrained)</source>
+            <translation>Objekte verschieben (mit Bedingung)</translation>
+        </message>
+        <message>
+            <source>Align left</source>
+            <translation>Links ausrichten</translation>
+        </message>
+        <message>
+            <source>Align right</source>
+            <translation>Rechts ausrichten</translation>
+        </message>
+        <message>
+            <source>Align top</source>
+            <translation>Oben ausrichten</translation>
+        </message>
+        <message>
+            <source>Align bottom</source>
+            <translation>Unten ausrichten</translation>
+        </message>
+        <message>
+            <source>Align center horizontally</source>
+            <translation>Horizontal zentrieren</translation>
+        </message>
+        <message>
+            <source>Align center vertically</source>
+            <translation>Vertikal zentrieren</translation>
+        </message>
+        <message>
+            <source>Distribute horizontally</source>
+            <translation>Horizontal verteilen</translation>
+        </message>
+        <message>
+            <source>Distribute vertically</source>
+            <translation>Vertikal verteilen</translation>
+        </message>
+        <message>
+            <source>Distribute items</source>
+            <translation>Objekte verteilen</translation>
+        </message>
     </context>
 </TS>

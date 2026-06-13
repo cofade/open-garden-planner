@@ -110,6 +110,8 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 
 **CRITICAL: Always use feature branches — NEVER commit directly to master.**
 
+> **MUST — every coding job ends with a draft PR.** Any task that changes code (feature, bug fix, refactor, doc-in-code, chore) finishes by pushing the branch and opening a **draft** pull request — never leave the work as just a pushed branch. Open the draft only **after** the `senior-reviewer` pass is fully satisfied (no outstanding P0/P1). The PR stays a **draft** until the user confirms manual testing passed; only then mark it ready and merge. Do NOT open a non-draft PR or merge without explicit user confirmation.
+
 | Step | Action | Notes |
 |------|--------|-------|
 | 1 | Create branch: `git checkout -b feature/US-X.X-short-description` | Before any changes |
@@ -122,7 +124,7 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 | 7 | **Run senior-reviewer pass** | Launch the `senior-reviewer` agent in a fresh worktree against the branch diff. Address any P0/P1 findings before proceeding. Re-run after fixes for a clean re-review. The `finalize-us` skill repeats this step pre-PR. |
 | 8 | Provide testing checklist | Surface a manual-testing checklist alongside the work |
 | 9 | Commit: `feat(US-X.X): Description` | Conventional commit format |
-| 10 | Push & **auto-open PR** | Always open the PR automatically after pushing (`pr create`). **Do NOT merge** until the user confirms manual testing passed — only then `pr merge --squash --delete-branch --admin` |
+| 10 | Push & **open DRAFT PR** | After a clean senior-reviewer pass, push and open a **draft** PR automatically (`pr create --draft`). **Every coding job ends here — never stop at just a pushed branch.** Keep it a draft and **do NOT merge** until the user confirms manual testing passed — only then mark ready (`pr ready`) and `pr merge --squash --delete-branch --admin` |
 | 11 | Sync version on master | See Versioning Protocol (after merge) |
 | 12 | `/clear` context | Clear Claude context
 

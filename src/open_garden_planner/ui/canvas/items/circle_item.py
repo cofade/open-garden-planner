@@ -716,11 +716,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         )
 
         # Add to undo stack without executing (geometry already applied)
-        command_manager._undo_stack.append(command)
-        command_manager._redo_stack.clear()
-        command_manager.can_undo_changed.emit(True)
-        command_manager.can_redo_changed.emit(False)
-        command_manager.command_executed.emit(command.description)
+        command_manager.register_applied(command)
 
     def _on_rotation_end(self, initial_angle: float) -> None:
         """Called when rotation operation completes. Registers undo command."""
@@ -754,11 +750,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         )
 
         # Add to undo stack without executing (rotation already applied)
-        command_manager._undo_stack.append(command)
-        command_manager._redo_stack.clear()
-        command_manager.can_undo_changed.emit(True)
-        command_manager.can_redo_changed.emit(False)
-        command_manager.command_executed.emit(command.description)
+        command_manager.register_applied(command)
 
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Handle double-click to edit label inline."""
