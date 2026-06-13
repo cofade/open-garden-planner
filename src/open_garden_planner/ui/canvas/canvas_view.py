@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
 
-from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
     QBrush,
     QColor,
@@ -3561,7 +3561,10 @@ class CanvasView(QGraphicsView):
                     (item, delta) for item in selected
                 ]
                 all_deltas.extend(propagated_deltas)
-                command = AlignItemsCommand(all_deltas, "Move items (constrained)")
+                command = AlignItemsCommand(
+                    all_deltas,
+                    QCoreApplication.translate("Commands", "Move items (constrained)"),
+                )
                 self._command_manager.execute(command)
                 return
 
@@ -3653,7 +3656,11 @@ class CanvasView(QGraphicsView):
             # Use AlignItemsCommand for per-item deltas (supports undo)
             has_propagated = len(self._constraint_propagated_starts) > 0
             has_children = len(child_start_positions) > 0
-            desc = "Move items (constrained)" if has_propagated else "Move item"
+            desc = (
+                QCoreApplication.translate("Commands", "Move items (constrained)")
+                if has_propagated
+                else QCoreApplication.translate("Commands", "Move item")
+            )
             if len(item_deltas) == 1 and not has_propagated and not has_children:
                 # Single item, uniform delta — use simple MoveItemsCommand
                 command = MoveItemsCommand([item_deltas[0][0]], item_deltas[0][1])
@@ -5825,10 +5832,20 @@ class CanvasView(QGraphicsView):
         if not non_zero:
             return
 
-        desc = f"Align {mode.name.lower().replace('_', ' ')}"
+        align_labels = {
+            "LEFT": QCoreApplication.translate("Commands", "Align left"),
+            "RIGHT": QCoreApplication.translate("Commands", "Align right"),
+            "TOP": QCoreApplication.translate("Commands", "Align top"),
+            "BOTTOM": QCoreApplication.translate("Commands", "Align bottom"),
+            "CENTER_H": QCoreApplication.translate("Commands", "Align center horizontally"),
+            "CENTER_V": QCoreApplication.translate("Commands", "Align center vertically"),
+        }
+        desc = align_labels.get(
+            mode.name, QCoreApplication.translate("Commands", "Align items")
+        )
         command = AlignItemsCommand(non_zero, desc)
         self._command_manager.execute(command)
-        self.set_status_message(desc.capitalize())
+        self.set_status_message(desc)
 
     def distribute_selected(self, mode: DistributeMode) -> None:
         """Distribute selected items using the given mode.
@@ -5847,10 +5864,16 @@ class CanvasView(QGraphicsView):
         if not non_zero:
             return
 
-        desc = f"Distribute {mode.name.lower()}"
+        distribute_labels = {
+            "HORIZONTAL": QCoreApplication.translate("Commands", "Distribute horizontally"),
+            "VERTICAL": QCoreApplication.translate("Commands", "Distribute vertically"),
+        }
+        desc = distribute_labels.get(
+            mode.name, QCoreApplication.translate("Commands", "Distribute items")
+        )
         command = AlignItemsCommand(non_zero, desc)
         self._command_manager.execute(command)
-        self.set_status_message(desc.capitalize())
+        self.set_status_message(desc)
 
     def set_status_message(self, message: str) -> None:
         """Set status message (to be picked up by main window).

@@ -49,11 +49,15 @@ class CommandManager(QObject):
         can_undo_changed: Emitted when undo availability changes
         can_redo_changed: Emitted when redo availability changes
         command_executed: Emitted after a command is executed (description)
+        stack_changed: Emitted whenever the stack mutates via execute/undo/redo
+            (but NOT clear). Wire mark_dirty to this so undo/redo dirty the
+            document too — command_executed only fires on execute. See issue #209.
     """
 
     can_undo_changed = pyqtSignal(bool)
     can_redo_changed = pyqtSignal(bool)
     command_executed = pyqtSignal(str)
+    stack_changed = pyqtSignal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the command manager."""
@@ -77,6 +81,7 @@ class CommandManager(QObject):
         if had_redo:
             self.can_redo_changed.emit(False)
         self.command_executed.emit(command.description)
+        self.stack_changed.emit()
 
     def undo(self) -> None:
         """Undo the last command."""
@@ -89,6 +94,7 @@ class CommandManager(QObject):
 
         self.can_undo_changed.emit(len(self._undo_stack) > 0)
         self.can_redo_changed.emit(True)
+        self.stack_changed.emit()
 
     def redo(self) -> None:
         """Redo the last undone command."""
@@ -101,6 +107,7 @@ class CommandManager(QObject):
 
         self.can_undo_changed.emit(True)
         self.can_redo_changed.emit(len(self._redo_stack) > 0)
+        self.stack_changed.emit()
 
     def clear(self) -> None:
         """Clear all undo/redo history."""
@@ -225,7 +232,9 @@ class CreateItemCommand(Command):
     @property
     def description(self) -> str:
         """Human-readable description."""
-        return f"Create {self._item_type}"
+        return QCoreApplication.translate("Commands", "Create {item_type}").format(
+            item_type=self._item_type
+        )
 
     def execute(self) -> None:
         """Add the item to the scene."""
@@ -265,8 +274,12 @@ class CreateItemsCommand(Command):
         """Human-readable description."""
         count = len(self._items)
         if count == 1:
-            return f"Create {self._item_type}"
-        return f"Create {count} {self._item_type}"
+            return QCoreApplication.translate("Commands", "Create {item_type}").format(
+                item_type=self._item_type
+            )
+        return QCoreApplication.translate("Commands", "Create {count} {item_type}").format(
+            count=count, item_type=self._item_type
+        )
 
     def execute(self) -> None:
         """Add the items to the scene."""
@@ -322,8 +335,10 @@ class DeleteItemsCommand(Command):
         """Human-readable description."""
         count = len(self._items)
         if count == 1:
-            return "Delete item"
-        return f"Delete {count} items"
+            return QCoreApplication.translate("Commands", "Delete item")
+        return QCoreApplication.translate("Commands", "Delete {count} items").format(
+            count=count
+        )
 
     def execute(self) -> None:
         """Remove items from the scene."""
@@ -407,8 +422,10 @@ class MoveItemsCommand(Command):
         """Human-readable description."""
         count = len(self._items)
         if count == 1:
-            return "Move item"
-        return f"Move {count} items"
+            return QCoreApplication.translate("Commands", "Move item")
+        return QCoreApplication.translate("Commands", "Move {count} items").format(
+            count=count
+        )
 
     def execute(self) -> None:
         """Move items by delta."""
@@ -450,7 +467,9 @@ class ChangePropertyCommand(Command):
     @property
     def description(self) -> str:
         """Human-readable description."""
-        return f"Change {self._property_name}"
+        return QCoreApplication.translate("Commands", "Change {property}").format(
+            property=self._property_name
+        )
 
     def execute(self) -> None:
         """Apply the new value."""
@@ -502,7 +521,7 @@ class ResizeItemCommand(Command):
     @property
     def description(self) -> str:
         """Human-readable description."""
-        return "Resize item"
+        return QCoreApplication.translate("Commands", "Resize item")
 
     def execute(self) -> None:
         """Apply the new geometry (and partner new sizes)."""
@@ -543,7 +562,7 @@ class RotateItemCommand(Command):
     @property
     def description(self) -> str:
         """Human-readable description."""
-        return "Rotate item"
+        return QCoreApplication.translate("Commands", "Rotate item")
 
     def execute(self) -> None:
         """Apply the new rotation."""
@@ -583,7 +602,7 @@ class MoveVertexCommand(Command):
     @property
     def description(self) -> str:
         """Human-readable description."""
-        return "Move vertex"
+        return QCoreApplication.translate("Commands", "Move vertex")
 
     def execute(self) -> None:
         """Apply the new vertex position."""
@@ -617,7 +636,7 @@ class SetCurveGeometryCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Reshape curve"
+        return QCoreApplication.translate("Commands", "Reshape curve")
 
     def execute(self) -> None:
         self._item._restore_geometry(self._new)  # type: ignore[attr-defined]
@@ -655,7 +674,7 @@ class AddVertexCommand(Command):
     @property
     def description(self) -> str:
         """Human-readable description."""
-        return "Add vertex"
+        return QCoreApplication.translate("Commands", "Add vertex")
 
     def execute(self) -> None:
         """Add the vertex."""
@@ -676,13 +695,15 @@ class AlignItemsCommand(Command):
     def __init__(
         self,
         item_deltas: list[tuple[QGraphicsItem, QPointF]],
-        description_text: str = "Align items",
+        description_text: str | None = None,
     ) -> None:
         """Initialize the alignment command.
 
         Args:
             item_deltas: List of (item, delta) tuples.
-            description_text: Human-readable description for undo menu.
+            description_text: Already-translated description for the undo menu;
+                callers should pass a tr()/translate() result. Falls back to a
+                translated generic label when omitted.
         """
         self._item_deltas = list(item_deltas)
         self._description_text = description_text
@@ -690,7 +711,9 @@ class AlignItemsCommand(Command):
     @property
     def description(self) -> str:
         """Human-readable description."""
-        return self._description_text
+        if self._description_text is not None:
+            return self._description_text
+        return QCoreApplication.translate("Commands", "Align items")
 
     def execute(self) -> None:
         """Move each item by its individual delta."""
@@ -732,7 +755,7 @@ class DeleteVertexCommand(Command):
     @property
     def description(self) -> str:
         """Human-readable description."""
-        return "Delete vertex"
+        return QCoreApplication.translate("Commands", "Delete vertex")
 
     def execute(self) -> None:
         """Remove the vertex."""
@@ -753,7 +776,7 @@ class MultiVertexMoveCommand(Command):
     def __init__(
         self,
         vertex_moves: "list[tuple[QGraphicsItem, int, QPointF, QPointF]]",
-        description: str = "Move vertex",
+        description: str | None = None,
     ) -> None:
         """Initialize with a list of (item, vertex_index, old_local, new_local) tuples."""
         self._vertex_moves = vertex_moves
@@ -761,7 +784,9 @@ class MultiVertexMoveCommand(Command):
 
     @property
     def description(self) -> str:
-        return self._desc
+        if self._desc is not None:
+            return self._desc
+        return QCoreApplication.translate("Commands", "Move vertex")
 
     def execute(self) -> None:
         for item, idx, _old, new in self._vertex_moves:
@@ -812,7 +837,7 @@ class AddConstraintCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Add constraint"
+        return QCoreApplication.translate("Commands", "Add constraint")
 
     def execute(self) -> None:
         c = self._graph.add_constraint(
@@ -860,7 +885,7 @@ class RemoveConstraintCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Remove constraint"
+        return QCoreApplication.translate("Commands", "Remove constraint")
 
     def execute(self) -> None:
         self._graph.remove_constraint(self._constraint.constraint_id)
@@ -909,7 +934,9 @@ class LinearArrayCommand(Command):
 
     @property
     def description(self) -> str:
-        return f"Create linear array ({len(self._items) + 1} items)"
+        return QCoreApplication.translate("Commands", "Create linear array ({count} items)").format(
+            count=len(self._items) + 1
+        )
 
     def execute(self) -> None:
         """Add items and constraints to the scene."""
@@ -964,7 +991,9 @@ class GridArrayCommand(Command):
 
     @property
     def description(self) -> str:
-        return f"Create grid array ({len(self._items) + 1} items)"
+        return QCoreApplication.translate("Commands", "Create grid array ({count} items)").format(
+            count=len(self._items) + 1
+        )
 
     def execute(self) -> None:
         """Add items and constraints to the scene."""
@@ -1010,7 +1039,9 @@ class CircularArrayCommand(Command):
 
     @property
     def description(self) -> str:
-        return f"Create circular array ({len(self._items) + 1} items)"
+        return QCoreApplication.translate(
+            "Commands", "Create circular array ({count} items)"
+        ).format(count=len(self._items) + 1)
 
     def execute(self) -> None:
         """Add items to the scene."""
@@ -1049,8 +1080,14 @@ class MirrorItemsCommand(Command):
 
     @property
     def description(self) -> str:
-        verb = "copy" if self._copy else "move"
-        return f"Mirror {len(self._mirrored)} item(s) ({verb})"
+        count = len(self._mirrored)
+        if self._copy:
+            return QCoreApplication.translate(
+                "Commands", "Mirror {count} item(s) (copy)"
+            ).format(count=count)
+        return QCoreApplication.translate(
+            "Commands", "Mirror {count} item(s) (move)"
+        ).format(count=count)
 
     def execute(self) -> None:
         if not self._copy:
@@ -1106,7 +1143,7 @@ class EditConstraintDistanceCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Edit constraint distance"
+        return QCoreApplication.translate("Commands", "Edit constraint distance")
 
     def execute(self) -> None:
         c = self._graph.constraints.get(self._constraint_id)
@@ -1149,8 +1186,8 @@ class SetParentBedCommand(Command):
     @property
     def description(self) -> str:
         if self._new_parent_id is None:
-            return "Detach plant from bed"
-        return "Attach plant to bed"
+            return QCoreApplication.translate("Commands", "Detach plant from bed")
+        return QCoreApplication.translate("Commands", "Attach plant to bed")
 
     def execute(self) -> None:
         self._set_parent(self._new_parent_id, self._old_parent_id, restore_z=False)
@@ -1196,7 +1233,9 @@ class GroupCommand(Command):
 
     @property
     def description(self) -> str:
-        return f"Group {len(self._items)} items"
+        return QCoreApplication.translate("Commands", "Group {count} items").format(
+            count=len(self._items)
+        )
 
     def execute(self) -> None:
         from open_garden_planner.ui.canvas.items.group_item import GroupItem
@@ -1239,7 +1278,7 @@ class UngroupCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Ungroup"
+        return QCoreApplication.translate("Commands", "Ungroup")
 
     def execute(self) -> None:
         for item in self._items:
@@ -1277,7 +1316,9 @@ class BooleanShapeCommand(Command):
 
     @property
     def description(self) -> str:
-        return f"Boolean {self._operation}"
+        return QCoreApplication.translate("Commands", "Boolean {operation}").format(
+            operation=self._operation
+        )
 
     def execute(self) -> None:
         if self._item_a.scene() is not None:
@@ -1307,7 +1348,9 @@ class ArrayAlongPathCommand(Command):
 
     @property
     def description(self) -> str:
-        return f"Array along path ({len(self._items)} copies)"
+        return QCoreApplication.translate("Commands", "Array along path ({count} copies)").format(
+            count=len(self._items)
+        )
 
     def execute(self) -> None:
         for item in self._items:
@@ -1355,7 +1398,9 @@ class MoveToLayerCommand(Command):
     @property
     def description(self) -> str:
         n = len(self._moves)
-        return f"Move {n} item(s) to layer '{self._target_layer_name}'"
+        return QCoreApplication.translate(
+            "Commands", "Move {count} item(s) to layer '{name}'"
+        ).format(count=n, name=self._target_layer_name)
 
     def execute(self) -> None:
         """Assign all items to the target layer and refresh scene visuals."""
@@ -1663,7 +1708,7 @@ class TrimPolylineCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Trim polyline"
+        return QCoreApplication.translate("Commands", "Trim polyline")
 
     def execute(self) -> None:
         if self._original.scene() is not None:
@@ -1702,7 +1747,7 @@ class TrimPolygonCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Trim polygon edge"
+        return QCoreApplication.translate("Commands", "Trim polygon edge")
 
     def execute(self) -> None:
         if self._polygon.scene() is not None:
@@ -1722,7 +1767,7 @@ class TrimRectangleCommand(TrimPolygonCommand):
 
     @property
     def description(self) -> str:
-        return "Trim rectangle edge"
+        return QCoreApplication.translate("Commands", "Trim rectangle edge")
 
 
 class ExtendPolylineCommand(Command):
@@ -1748,7 +1793,7 @@ class ExtendPolylineCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Extend polyline"
+        return QCoreApplication.translate("Commands", "Extend polyline")
 
     def execute(self) -> None:
         pts = self._item.points  # type: ignore[attr-defined]
@@ -1809,7 +1854,7 @@ class FilletCornerCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Fillet corner"
+        return QCoreApplication.translate("Commands", "Fillet corner")
 
     def execute(self) -> None:
         if self._original.scene() is not None:
@@ -1848,7 +1893,7 @@ class ChamferCornerCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Chamfer corner"
+        return QCoreApplication.translate("Commands", "Chamfer corner")
 
     def execute(self) -> None:
         if self._original.scene() is not None:
@@ -1898,7 +1943,7 @@ class AddSoilTestCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Add soil test"
+        return QCoreApplication.translate("Commands", "Add soil test")
 
     def execute(self) -> None:
         # Build the new history from the prior snapshot (or fresh) + the new record
@@ -1942,7 +1987,7 @@ class EditSoilTestCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Edit soil test"
+        return QCoreApplication.translate("Commands", "Edit soil test")
 
     def execute(self) -> None:
         if self._prior_history_dict is None:
@@ -1986,7 +2031,7 @@ class DeleteSoilTestCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Delete soil test"
+        return QCoreApplication.translate("Commands", "Delete soil test")
 
     def execute(self) -> None:
         if self._prior_history_dict is None:
@@ -2026,7 +2071,7 @@ class AddPestLogCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Add pest/disease log"
+        return QCoreApplication.translate("Commands", "Add pest/disease log")
 
     def execute(self) -> None:
         if self._prior_history_dict is None:
@@ -2066,7 +2111,7 @@ class EditPestLogCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Edit pest/disease log"
+        return QCoreApplication.translate("Commands", "Edit pest/disease log")
 
     def execute(self) -> None:
         if self._prior_history_dict is None:
@@ -2106,7 +2151,7 @@ class DeletePestLogCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Delete pest/disease log"
+        return QCoreApplication.translate("Commands", "Delete pest/disease log")
 
     def execute(self) -> None:
         if self._prior_history_dict is None:
@@ -2145,7 +2190,7 @@ class SetSuccessionPlanCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Set succession plan"
+        return QCoreApplication.translate("Commands", "Set succession plan")
 
     def execute(self) -> None:
         if self._new is None:
@@ -2180,7 +2225,7 @@ class AddJournalNoteCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Add garden journal note"
+        return QCoreApplication.translate("Commands", "Add garden journal note")
 
     def execute(self) -> None:
         if self._pin.scene() is None:
@@ -2215,7 +2260,7 @@ class EditJournalNoteCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Edit garden journal note"
+        return QCoreApplication.translate("Commands", "Edit garden journal note")
 
     def execute(self) -> None:
         if self._old_dict is None:
@@ -2246,7 +2291,7 @@ class DeleteJournalNoteCommand(Command):
 
     @property
     def description(self) -> str:
-        return "Delete garden journal note"
+        return QCoreApplication.translate("Commands", "Delete garden journal note")
 
     def execute(self) -> None:
         self._pm.delete_journal_note(self._note_id)

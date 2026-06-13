@@ -1086,8 +1086,10 @@ class GardenPlannerApp(QMainWindow):
         cmd_mgr.can_undo_changed.connect(self._undo_action.setEnabled)
         cmd_mgr.can_redo_changed.connect(self._redo_action.setEnabled)
 
-        # Mark project dirty when commands are executed
-        cmd_mgr.command_executed.connect(lambda _: self._project_manager.mark_dirty())
+        # Mark project dirty on any stack mutation — execute AND undo/redo.
+        # command_executed only fires on execute, so wiring mark_dirty there left
+        # undo/redo silently "clean" (issue #209). stack_changed covers all three.
+        cmd_mgr.stack_changed.connect(self._project_manager.mark_dirty)
 
         # Refresh constraints panel after any command (add/remove/edit/undo/redo)
         cmd_mgr.command_executed.connect(lambda _: self.constraints_panel.refresh())

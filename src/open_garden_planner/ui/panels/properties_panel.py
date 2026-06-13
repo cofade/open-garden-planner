@@ -1,6 +1,6 @@
 """Properties panel for live editing of selected objects."""
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QPen
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -1269,7 +1269,10 @@ class PropertiesPanel(QWidget):
                             all_deltas = [(item, delta)]
                             all_deltas.extend(propagated_deltas)
                             command = AlignItemsCommand(
-                                all_deltas, "Move item (constrained)"
+                                all_deltas,
+                                QCoreApplication.translate(
+                                    "Commands", "Move item (constrained)"
+                                ),
                             )
                             if self._command_manager:
                                 self._command_manager.execute(command)
