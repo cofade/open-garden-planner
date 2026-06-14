@@ -321,7 +321,8 @@ class PlantSearchPanel(QWidget):
         """
         # The panel (or scene) may have been torn down between scheduling this
         # deferred call and it firing; touching deleted Qt C++ objects raises
-        # RuntimeError. Swallow that race the same way the scene-change slot does.
+        # RuntimeError. Swallow that race (same guard as the debounced refresh slot
+        # in application._on_scene_changed_for_plant_search).
         with contextlib.suppress(RuntimeError):
             scene = getattr(self, "_scene", None)
             if scene is None:

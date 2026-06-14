@@ -235,7 +235,11 @@ class TestPlantSearchPanel:
         assert payload == tree.item_id
 
     def test_click_selects_correct_item_after_rebuild(self, qtbot):
-        """After a list rebuild, clicking a row still selects the matching plant."""
+        """Smoke test: clicking a row routes to the correct plant after a rebuild.
+
+        (The id-vs-reference regression is pinned by
+        test_rows_store_item_id_not_graphics_item above; this only checks routing.)
+        """
         panel = PlantSearchPanel()
         scene = CanvasScene()
 
