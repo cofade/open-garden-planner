@@ -1,5 +1,6 @@
 """Tests for plant search panel."""
 
+from unittest.mock import patch
 from uuid import UUID
 
 from PyQt6.QtCore import Qt
@@ -260,6 +261,74 @@ class TestPlantSearchPanel:
 
         qtbot.waitUntil(lambda: tree_b.isSelected())
         assert not tree_a.isSelected()
+
+    def test_noop_refresh_does_not_rebuild(self, qtbot):  # noqa: ARG002
+        """A refresh with an unchanged plant set must NOT clear/rebuild the list.
+
+        The destructive rebuild on every chatty scene.changed reset the scroll
+        position and tore down rows mid-click (#212). With the signature guard a
+        no-op refresh leaves the existing rows (and scroll/selection) untouched.
+        """
+        panel = PlantSearchPanel()
+        scene = CanvasScene()
+
+        tree = CircleItem(100, 100, 50, object_type=ObjectType.TREE)
+        tree.name = "Apple Tree"
+        scene.addItem(tree)
+
+        panel.set_canvas_scene(scene)
+        before = [panel.results_list.item(i) for i in range(panel.results_list.count())]
+
+        # Same scene → same visible set → must short-circuit before clear().
+        with patch.object(
+            panel.results_list, "clear", wraps=panel.results_list.clear
+        ) as clear_spy:
+            panel.refresh_plant_list()
+        clear_spy.assert_not_called()
+
+        after = [panel.results_list.item(i) for i in range(panel.results_list.count())]
+        assert after == before  # same QListWidgetItem objects, not recreated
+
+    def test_selection_preserved_across_rebuild(self, qtbot):  # noqa: ARG002
+        """When the list IS rebuilt, the previously-selected row is re-selected."""
+        panel = PlantSearchPanel()
+        scene = CanvasScene()
+
+        apple = CircleItem(100, 100, 50, object_type=ObjectType.TREE)
+        apple.name = "Apple Tree"
+        scene.addItem(apple)
+
+        panel.set_canvas_scene(scene)
+        panel.results_list.setCurrentItem(panel.results_list.item(0))
+        selected_id = panel.results_list.currentItem().data(Qt.ItemDataRole.UserRole)
+
+        # Membership change forces a real rebuild.
+        birch = CircleItem(300, 100, 50, object_type=ObjectType.TREE)
+        birch.name = "Birch Tree"
+        scene.addItem(birch)
+        panel.refresh_plant_list()
+
+        assert panel.results_list.count() == 2
+        current = panel.results_list.currentItem()
+        assert current is not None
+        assert current.data(Qt.ItemDataRole.UserRole) == selected_id
+
+    def test_row_widget_is_mouse_transparent(self, qtbot):  # noqa: ARG002
+        """Row widgets must be transparent to the mouse so clicks reach the list.
+
+        Otherwise a press on the row widget body is swallowed and itemClicked
+        doesn't fire → "single-click sometimes needs a second click" (#212).
+        """
+        panel = PlantSearchPanel()
+        scene = CanvasScene()
+
+        tree = CircleItem(100, 100, 50, object_type=ObjectType.TREE)
+        tree.name = "Apple Tree"
+        scene.addItem(tree)
+
+        panel.set_canvas_scene(scene)
+        widget = panel.results_list.itemWidget(panel.results_list.item(0))
+        assert widget.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
     def test_refresh_updates_list(self, qtbot):  # noqa: ARG002
         """Test that refresh_plant_list updates the list."""
