@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsScene
 from open_garden_planner.core.commands import (
     AddLayerCommand,
     AddVertexCommand,
+    ChangePropertyCommand,
     CommandManager,
     CreateItemCommand,
     DeleteItemsCommand,
@@ -724,3 +725,25 @@ class TestSetLayerPropertyCommand:
         assert lock.description == "Lock layer 'Top'"
         assert unlock.description == "Unlock layer 'Top'"
         assert opacity.description == "Set opacity of layer 'Top' to 40%"
+
+
+class TestChangePropertyDescription:
+    """The {property} fragment must be interpolated into the description (#210).
+
+    Without a German translator loaded, QCoreApplication.translate returns the
+    source unchanged, so we can assert the English shape — this guards the
+    fragment-interpolation wiring that lets the German .ts localize the whole
+    label ("Textinhalt ändern") instead of half of it ("text content ändern").
+    """
+
+    def test_fragment_is_interpolated(self, qtbot) -> None:  # noqa: ARG002
+        item = QGraphicsRectItem(0, 0, 10, 10)
+        cmd = ChangePropertyCommand(item, "name", "old", "new", lambda *_: None)
+        assert cmd.description == "Change name"
+
+    def test_each_fragment_distinct(self, qtbot) -> None:  # noqa: ARG002
+        item = QGraphicsRectItem(0, 0, 10, 10)
+        width = ChangePropertyCommand(item, "stroke width", 1, 2, lambda *_: None)
+        fill = ChangePropertyCommand(item, "fill color", "a", "b", lambda *_: None)
+        assert width.description == "Change stroke width"
+        assert fill.description == "Change fill color"

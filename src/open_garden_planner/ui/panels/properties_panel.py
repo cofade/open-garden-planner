@@ -1,7 +1,9 @@
 """Properties panel for live editing of selected objects."""
 
+from collections.abc import Callable
+
 from PyQt6.QtCore import QCoreApplication, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QIcon, QPen
+from PyQt6.QtGui import QColor, QFocusEvent, QIcon, QPen
 from PyQt6.QtWidgets import (
     QCheckBox,
     QColorDialog,
@@ -42,6 +44,42 @@ from open_garden_planner.ui.canvas.items import (
     RectangleItem,
     TextItem,
 )
+
+# Clean, translatable description fragments for TextItem font properties.
+# The raw attribute names (font_family, font_size) make ugly undo labels
+# ("Change text font_family"); these map them to nouns registered under the
+# "Commands" i18n context (scripts/fill_translations.py).
+_TEXT_PROPERTY_LABELS = {
+    "font_family": "font",
+    "font_size": "font size",
+    "bold": "bold",
+    "italic": "italic",
+}
+
+# Free-text fields (Name, Text Content) live-update the item on every keystroke
+# but only commit ONE undo command per typing burst. The command is committed
+# after the user pauses for this long, or immediately on focus-out — whichever
+# comes first. The debounce (rather than focus-out only) is what lets Ctrl+Z
+# work while the field still has focus: without a committed command the Undo
+# action stays disabled and Ctrl+Z is a no-op (issue #210 manual-test finding).
+_TEXT_COMMIT_DEBOUNCE_MS = 600
+
+
+class FocusOutTextEdit(QTextEdit):
+    """QTextEdit that emits ``editing_finished`` when it loses focus.
+
+    QTextEdit (unlike QLineEdit) has no ``editingFinished`` signal. Mirrors the
+    focus-out pattern used by the in-canvas text editors (text_item.py,
+    callout_item.py) so a multi-line edit can be committed as a single undo
+    step on click-away instead of one command per keystroke.
+    """
+
+    editing_finished = pyqtSignal()
+
+    def focusOutEvent(self, event: QFocusEvent) -> None:  # noqa: N802 (Qt)
+        """Emit ``editing_finished`` after the default focus-out handling."""
+        super().focusOutEvent(event)
+        self.editing_finished.emit()
 
 
 class ColorButton(QPushButton):
@@ -126,6 +164,10 @@ class PropertiesPanel(QWidget):
         self._command_manager = command_manager
         self._current_items: list[QGraphicsItem] = []
         self._updating = False  # Prevent feedback loops
+        # Commit callbacks for the free-text fields with a pending debounce
+        # (Name, Text Content). Flushed before any form rebuild so a pending
+        # edit is not destroyed with its widget and lost from undo (#210).
+        self._pending_text_commits: list[Callable[[], None]] = []
         self._setup_ui()
 
     def set_command_manager(self, command_manager: CommandManager) -> None:
@@ -230,6 +272,12 @@ class PropertiesPanel(QWidget):
         ):
             return
 
+        # Commit any pending debounced free-text edit BEFORE rebuilding — the
+        # rebuild deletes the field and its debounce timer synchronously, so an
+        # un-flushed edit would be applied to the model but never recorded as a
+        # command (lost from undo history). The fields are still alive here.
+        self._flush_pending_text_commits()
+
         self._current_items = items
 
         if not items:
@@ -238,6 +286,18 @@ class PropertiesPanel(QWidget):
             self._show_multi_selection(len(items))
         else:
             self._show_single_item(items[0])
+
+    def _flush_pending_text_commits(self) -> None:
+        """Commit any pending debounced free-text edits, then clear the queue.
+
+        Each commit is idempotent (no-op when the value is unchanged) and stops
+        its own debounce timer, so this is safe to call on every rebuild. New
+        fields re-register their callbacks as they are built. See #210.
+        """
+        pending = self._pending_text_commits
+        self._pending_text_commits = []
+        for commit in pending:
+            commit()
 
     def _show_single_item(self, item: QGraphicsItem) -> None:
         """Show properties for a single selected item.
@@ -288,8 +348,19 @@ class PropertiesPanel(QWidget):
         # Name/Label
         if hasattr(item, 'name'):
             name_edit = QLineEdit(item.name)
+            # Live-update the canvas label on every keystroke, but commit a
+            # single undo command after a typing pause (debounce) or on
+            # focus-out — whichever first (issue #210). The start value is
+            # captured here because the field is rebuilt per selection.
+            name_edit._ogp_name_start = item.name  # type: ignore[attr-defined]
+            self._attach_commit_timer(
+                name_edit, lambda: self._on_name_commit(item, name_edit)
+            )
             name_edit.textChanged.connect(
-                lambda text: self._on_property_changed(item, 'name', text)
+                lambda text, it=item, edit=name_edit: self._on_name_text_changed(it, text, edit)
+            )
+            name_edit.editingFinished.connect(
+                lambda it=item, edit=name_edit: self._on_name_commit(it, edit)
             )
             self._form_layout.addRow(self.tr("Name:"), name_edit)
 
@@ -814,7 +885,7 @@ class PropertiesPanel(QWidget):
             itm.frost_protection_needed = val  # type: ignore[attr-defined]
 
         cmd = ChangePropertyCommand(
-            item, "frost_protection_needed", old_val, new_val,
+            item, "frost protection", old_val, new_val,
             apply_func=apply_func,
         )
         if self._command_manager:
@@ -832,7 +903,7 @@ class PropertiesPanel(QWidget):
             itm.spacing_radius_cm = val  # type: ignore[attr-defined]
 
         cmd = ChangePropertyCommand(
-            item, "spacing_radius_cm", old_value, new_value,
+            item, "spacing radius", old_value, new_value,
             apply_func=apply_func,
         )
         if self._command_manager:
@@ -848,12 +919,23 @@ class PropertiesPanel(QWidget):
         header.setStyleSheet("font-weight: bold; margin-top: 4px;")
         self._form_layout.addRow(header)
 
-        # Content (multi-line)
-        content_edit = QTextEdit()
+        # Content (multi-line). Live-update the item on every keystroke but
+        # commit one undo command after a typing pause (debounce) or on focus-out
+        # (issue #210) — FocusOutTextEdit adds the editing_finished signal
+        # QTextEdit lacks. Start value is captured here (field rebuilt per
+        # selection). Enter inserts a newline as usual — it does not commit.
+        content_edit = FocusOutTextEdit()
         content_edit.setPlainText(item.content)
         content_edit.setFixedHeight(80)
+        content_edit._ogp_content_start = item.content  # type: ignore[attr-defined]
+        self._attach_commit_timer(
+            content_edit, lambda: self._on_text_content_commit(item, content_edit)
+        )
         content_edit.textChanged.connect(
-            lambda: self._on_text_content_changed(item, content_edit.toPlainText())
+            lambda: self._on_text_content_live(item, content_edit.toPlainText(), content_edit)
+        )
+        content_edit.editing_finished.connect(
+            lambda it=item, edit=content_edit: self._on_text_content_commit(it, edit)
         )
         self._form_layout.addRow(self.tr("Content:"), content_edit)
 
@@ -901,17 +983,41 @@ class PropertiesPanel(QWidget):
         )
         self._form_layout.addRow(self.tr("Color:"), color_btn)
 
-    def _on_text_content_changed(self, item: "TextItem", value: str) -> None:
-        """Handle text content change from properties panel."""
+    def _on_text_content_live(self, item: "TextItem", value: str, edit: QTextEdit) -> None:
+        """Live-apply text content as the user types (visual only, no command).
+
+        The single undo command is committed by _on_text_content_commit after a
+        typing pause (debounce) or on focus-out (issue #210). Guarded by
+        _updating so the programmatic setPlainText during a rebuild does not
+        mutate the item.
+        """
         if self._updating:
             return
-        old_content = item.content
         item.content = value
-        if self._command_manager:
-            def apply_func(itm, val):
-                itm.content = val
-            cmd = ChangePropertyCommand(item, "text content", old_content, value, apply_func)
-            self._command_manager.register_applied(cmd)
+        timer = getattr(edit, '_ogp_commit_timer', None)
+        if timer is not None:
+            timer.start()  # (re)start the debounce — commit when typing pauses
+
+    def _on_text_content_commit(self, item: "TextItem", edit: QTextEdit) -> None:
+        """Commit a text-content edit as one undo step (debounce or focus-out)."""
+        timer = getattr(edit, '_ogp_commit_timer', None)
+        if timer is not None:
+            timer.stop()
+        if self._updating or self._command_manager is None:
+            return
+        old_content = getattr(edit, '_ogp_content_start', item.content)
+        new_content = edit.toPlainText()
+        if new_content == old_content:
+            return
+
+        def apply_func(itm: "TextItem", val: str) -> None:
+            itm.content = val
+
+        # The live edit already applied new_content; register without
+        # re-executing so undo restores old_content in a single step.
+        cmd = ChangePropertyCommand(item, "text content", old_content, new_content, apply_func)
+        self._command_manager.register_applied(cmd)
+        edit._ogp_content_start = new_content  # type: ignore[attr-defined]
 
     def _on_text_property_changed(self, item: "TextItem", prop: str, value: object) -> None:
         """Handle font property change from properties panel."""
@@ -922,7 +1028,9 @@ class PropertiesPanel(QWidget):
         if self._command_manager:
             def apply_func(itm, val, p=prop):
                 setattr(itm, p, val)
-            cmd = ChangePropertyCommand(item, f"text {prop}", old_val, value, apply_func)
+            # Clean, translatable description fragment (not "text font_family").
+            label = _TEXT_PROPERTY_LABELS.get(prop, prop)
+            cmd = ChangePropertyCommand(item, label, old_val, value, apply_func)
             self._command_manager.register_applied(cmd)
         scene = item.scene()
         if scene:
@@ -1451,6 +1559,68 @@ class PropertiesPanel(QWidget):
             if views and hasattr(views[0], 'apply_constraint_solver'):
                 views[0].apply_constraint_solver()
 
+    def _attach_commit_timer(self, edit: QWidget, on_commit: Callable[[], None]) -> None:
+        """Attach a single-shot debounce timer that commits a free-text edit.
+
+        The timer is stored on the widget as ``_ogp_commit_timer`` (restarted on
+        each keystroke by the live handler, stopped by the commit handler). The
+        same ``on_commit`` callback is also queued in ``_pending_text_commits``
+        so a rebuild flushes the edit before the widget is destroyed. See
+        _TEXT_COMMIT_DEBOUNCE_MS (issue #210).
+        """
+        timer = QTimer(edit)
+        timer.setSingleShot(True)
+        timer.setInterval(_TEXT_COMMIT_DEBOUNCE_MS)
+        timer.timeout.connect(on_commit)
+        edit._ogp_commit_timer = timer  # type: ignore[attr-defined]
+        self._pending_text_commits.append(on_commit)
+
+    def _on_name_text_changed(self, item: QGraphicsItem, text: str, edit: QLineEdit) -> None:
+        """Live-update the canvas label as the user types the Name field.
+
+        Visual feedback only — no undo command and no calendar refresh; the
+        single command is committed by _on_name_commit after a typing pause
+        (debounce) or on focus-out (issue #210). Guarded by _updating so
+        programmatic setText during a panel rebuild does not mutate the item.
+        """
+        if self._updating:
+            return
+        item.name = text  # type: ignore[attr-defined]
+        if hasattr(item, '_update_label'):
+            item._update_label()
+        timer = getattr(edit, '_ogp_commit_timer', None)
+        if timer is not None:
+            timer.start()  # (re)start the debounce — commit when typing pauses
+
+    def _on_name_commit(self, item: QGraphicsItem, edit: QLineEdit) -> None:
+        """Commit a Name edit as one undo step (debounce timeout or focus-out).
+
+        Compares against the value captured when the field was built; registers
+        a single ChangePropertyCommand only if it actually changed, then resets
+        the captured start so the debounce-then-focus-out double fire (or a no-op
+        focus-out) does not push a duplicate command.
+        """
+        timer = getattr(edit, '_ogp_commit_timer', None)
+        if timer is not None:
+            timer.stop()
+        if self._updating or self._command_manager is None:
+            return
+        old_name = getattr(edit, '_ogp_name_start', item.name)
+        new_name = edit.text()
+        if new_name == old_name:
+            return
+
+        def apply_name(itm: QGraphicsItem, val: str) -> None:
+            itm.name = val  # type: ignore[attr-defined]
+            if hasattr(itm, '_update_label'):
+                itm._update_label()
+
+        # The live edit already applied new_name to the item; register without
+        # re-executing so undo restores old_name in a single step.
+        cmd = ChangePropertyCommand(item, "name", old_name, new_name, apply_name)
+        self._command_manager.register_applied(cmd)
+        edit._ogp_name_start = new_name  # type: ignore[attr-defined]
+
     def _on_property_changed(self, item: QGraphicsItem, property_name: str, value) -> None:
         """Handle property change with undo support.
 
@@ -1493,19 +1663,6 @@ class PropertiesPanel(QWidget):
             # Notify other panels that the object type changed
             QTimer.singleShot(0, self.object_type_changed.emit)
 
-        elif property_name == 'name' and hasattr(item, 'name'):
-            old_name = item.name
-            item.name = value
-            if hasattr(item, '_update_label'):
-                item._update_label()
-
-            if self._command_manager:
-                def apply_name(itm, val):
-                    itm.name = val
-                    if hasattr(itm, '_update_label'):
-                        itm._update_label()
-                cmd = ChangePropertyCommand(item, "name", old_name, value, apply_name)
-                self._command_manager.register_applied(cmd)
 
         elif property_name == 'label_visible' and hasattr(item, 'label_visible'):
             old_visible = item.label_visible

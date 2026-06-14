@@ -488,9 +488,16 @@ class ChangePropertyCommand(Command):
 
     @property
     def description(self) -> str:
-        """Human-readable description."""
+        """Human-readable description.
+
+        The property fragment is itself translated under the "Commands" context
+        (registered in scripts/fill_translations.py) so the whole label localizes
+        — e.g. "Textinhalt ändern" rather than the half-English "text content
+        ändern". An unregistered fragment falls through to its English source.
+        """
+        prop = QCoreApplication.translate("Commands", self._property_name)
         return QCoreApplication.translate("Commands", "Change {property}").format(
-            property=self._property_name
+            property=prop
         )
 
     def execute(self) -> None:
