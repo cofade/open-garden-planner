@@ -14,13 +14,22 @@ from open_garden_planner.app.ui_state import UiStateStore
 
 @pytest.fixture()
 def isolated_settings(tmp_path, monkeypatch):
-    """Force QSettings to use an INI file in tmp_path."""
+    """Redirect UiStateStore's QSettings to an INI file in tmp_path.
+
+    Uses ``monkeypatch`` to swap the ``QSettings`` symbol that ``UiStateStore``
+    resolves, so no *process-global* QSettings state (``setDefaultFormat`` /
+    ``setPath``) is mutated. Those statics are never reverted by Qt, and leaking
+    them poisons every QSettings created later in the session (the default format
+    would point at this now-deleted tmp dir), which silently breaks unrelated
+    settings tests downstream.
+    """
     ini_path = tmp_path / "ogp-test.ini"
-    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
-    QSettings.setPath(
-        QSettings.Format.IniFormat,
-        QSettings.Scope.UserScope,
-        str(tmp_path),
+
+    def _file_settings(*_args: object, **_kwargs: object) -> QSettings:
+        return QSettings(str(ini_path), QSettings.Format.IniFormat)
+
+    monkeypatch.setattr(
+        "open_garden_planner.app.ui_state.QSettings", _file_settings
     )
     yield ini_path
 
@@ -44,7 +53,7 @@ class TestUiStateStorePanelState:
 
     def test_string_true_decoded_to_bool(self, isolated_settings) -> None:
         """QSettings on some backends stores bools as strings."""
-        s = QSettings("cofade", "Open Garden Planner")
+        s = QSettings(str(isolated_settings), QSettings.Format.IniFormat)
         s.setValue("UiState/panel_xyz", "true")
         s.sync()
 
