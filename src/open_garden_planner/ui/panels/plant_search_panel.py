@@ -1,5 +1,6 @@
 """Plant search panel for finding and filtering plants in the project."""
 
+import contextlib
 from uuid import UUID
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
@@ -318,26 +319,30 @@ class PlantSearchPanel(QWidget):
             pan: If True, center the view on the item; otherwise only scroll it
                 into view when it is off-screen.
         """
-        scene = getattr(self, "_scene", None)
-        if scene is None:
-            return
+        # The panel (or scene) may have been torn down between scheduling this
+        # deferred call and it firing; touching deleted Qt C++ objects raises
+        # RuntimeError. Swallow that race the same way the scene-change slot does.
+        with contextlib.suppress(RuntimeError):
+            scene = getattr(self, "_scene", None)
+            if scene is None:
+                return
 
-        graphics_item = scene.find_item_by_id(item_id)
-        if graphics_item is None:
-            # The item is gone (e.g. deleted/undone). Heal the stale list and bail.
-            self.refresh_plant_list()
-            return
+            graphics_item = scene.find_item_by_id(item_id)
+            if graphics_item is None:
+                # The item is gone (e.g. deleted/undone). Heal the list and bail.
+                self.refresh_plant_list()
+                return
 
-        scene.clearSelection()
-        graphics_item.setSelected(True)
+            scene.clearSelection()
+            graphics_item.setSelected(True)
 
-        views = scene.views()
-        if views:
-            view = views[0]
-            if pan:
-                view.centerOn(graphics_item.sceneBoundingRect().center())
-            else:
-                # Scroll only when the plant is not already visible.
-                view.ensureVisible(graphics_item)
+            views = scene.views()
+            if views:
+                view = views[0]
+                if pan:
+                    view.centerOn(graphics_item.sceneBoundingRect().center())
+                else:
+                    # Scroll only when the plant is not already visible.
+                    view.ensureVisible(graphics_item)
 
-        self.plant_selected.emit(item_id)
+            self.plant_selected.emit(item_id)

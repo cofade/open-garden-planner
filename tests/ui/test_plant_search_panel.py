@@ -1,5 +1,8 @@
 """Tests for plant search panel."""
 
+from uuid import UUID
+
+from PyQt6.QtCore import Qt
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -212,8 +215,27 @@ class TestPlantSearchPanel:
         panel._on_item_clicked(list_item)
         qtbot.waitUntil(lambda: panel.results_list.count() == 0)
 
+    def test_rows_store_item_id_not_graphics_item(self, qtbot):  # noqa: ARG002
+        """Rows must store the stable item id (a UUID), never a live item reference.
+
+        This pins the fix for #212: caching a QGraphicsItem in the row went stale
+        after scene mutations. Against the old tuple-storing code this fails.
+        """
+        panel = PlantSearchPanel()
+        scene = CanvasScene()
+
+        tree = CircleItem(100, 100, 50, object_type=ObjectType.TREE)
+        tree.name = "Apple Tree"
+        scene.addItem(tree)
+
+        panel.set_canvas_scene(scene)
+
+        payload = panel.results_list.item(0).data(Qt.ItemDataRole.UserRole)
+        assert isinstance(payload, UUID)
+        assert payload == tree.item_id
+
     def test_click_selects_correct_item_after_rebuild(self, qtbot):
-        """ID-based lookup selects the right plant even after the list is rebuilt."""
+        """After a list rebuild, clicking a row still selects the matching plant."""
         panel = PlantSearchPanel()
         scene = CanvasScene()
 
@@ -226,17 +248,14 @@ class TestPlantSearchPanel:
         scene.addItem(tree_b)
 
         panel.set_canvas_scene(scene)
-
-        # Rebuild the list (simulating a scene-change refresh) - any cached
-        # QGraphicsItem references in the old rows would now be stale.
+        # Rebuild the list (as a scene-change refresh would).
         panel.refresh_plant_list()
 
-        # Click the first row (Apple Tree, alphabetically first).
-        list_item = panel.results_list.item(0)
-        panel._on_item_clicked(list_item)
+        # Click the second row (Birch Tree) to prove the right id is resolved.
+        panel._on_item_clicked(panel.results_list.item(1))
 
-        qtbot.waitUntil(lambda: tree_a.isSelected())
-        assert not tree_b.isSelected()
+        qtbot.waitUntil(lambda: tree_b.isSelected())
+        assert not tree_a.isSelected()
 
     def test_refresh_updates_list(self, qtbot):  # noqa: ARG002
         """Test that refresh_plant_list updates the list."""
@@ -294,8 +313,6 @@ class TestPlantSearchPanel:
 
     def test_alphabetical_order(self, qtbot):  # noqa: ARG002
         """Test that plants are listed in alphabetical order."""
-        from PyQt6.QtCore import Qt
-
         panel = PlantSearchPanel()
         scene = CanvasScene()
 
