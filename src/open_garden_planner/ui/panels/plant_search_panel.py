@@ -2,10 +2,9 @@
 
 from uuid import UUID
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QCheckBox,
-    QGraphicsItem,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -96,7 +95,10 @@ class PlantSearchPanel(QWidget):
             parent: Parent widget
         """
         super().__init__(parent)
-        self._all_plants: list[tuple[UUID, str, str, ObjectType, QGraphicsItem]] = []
+        # (item_id, name, species, family, object_type). No live QGraphicsItem is
+        # cached - selection resolves the item by id via the scene (see
+        # _apply_selection), which keeps it reliable across undo/redo/delete (#212).
+        self._all_plants: list[tuple[UUID, str, str, str, ObjectType]] = []
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -199,8 +201,8 @@ class PlantSearchPanel(QWidget):
                         species = species_data.scientific_name or ""
                         family = species_data.family or ""
 
-            # Store plant info: (id, name, species, family, type, item)
-            self._all_plants.append((item_id, name, species, family, object_type, item))
+            # Store plant info: (id, name, species, family, type)
+            self._all_plants.append((item_id, name, species, family, object_type))
 
         # Sort alphabetically by name (case-insensitive)
         self._all_plants.sort(key=lambda p: (p[1] or "").lower())
@@ -232,7 +234,7 @@ class PlantSearchPanel(QWidget):
 
         matching_count = 0
 
-        for item_id, name, species, family, plant_type, graphics_item in self._all_plants:
+        for item_id, name, species, family, plant_type in self._all_plants:
             # Filter by type
             if plant_type not in enabled_types:
                 continue
@@ -247,7 +249,11 @@ class PlantSearchPanel(QWidget):
             list_item = QListWidgetItem()
             widget = PlantListItem(item_id, name, species, plant_type)
             list_item.setSizeHint(widget.sizeHint())
-            list_item.setData(Qt.ItemDataRole.UserRole, (item_id, graphics_item))
+            # Store only the stable item id, never a live QGraphicsItem reference:
+            # the latter goes stale after undo/redo/delete and makes selection flaky
+            # (issue #212). The live item is resolved at click time via
+            # scene.find_item_by_id().
+            list_item.setData(Qt.ItemDataRole.UserRole, item_id)
 
             self.results_list.addItem(list_item)
             self.results_list.setItemWidget(list_item, widget)
@@ -267,53 +273,71 @@ class PlantSearchPanel(QWidget):
             )
 
     def _on_item_clicked(self, item: QListWidgetItem) -> None:
-        """Handle single click on a plant item - select it."""
-        data = item.data(Qt.ItemDataRole.UserRole)
-        if data:
-            item_id, graphics_item = data
-            self._select_plant(graphics_item)
+        """Handle single click on a plant item - select and reveal it."""
+        item_id = item.data(Qt.ItemDataRole.UserRole)
+        if item_id is not None:
+            self._select_plant(item_id)
 
     def _on_item_double_clicked(self, item: QListWidgetItem) -> None:
         """Handle double click on a plant item - select and pan to it."""
-        data = item.data(Qt.ItemDataRole.UserRole)
-        if data:
-            item_id, graphics_item = data
-            self._select_and_pan_to_plant(graphics_item)
+        item_id = item.data(Qt.ItemDataRole.UserRole)
+        if item_id is not None:
+            self._select_and_pan_to_plant(item_id)
 
-    def _select_plant(self, graphics_item: QGraphicsItem) -> None:
-        """Select a plant on the canvas.
+    def _select_plant(self, item_id: UUID) -> None:
+        """Select the plant with *item_id* on the canvas and reveal it if off-screen.
 
         Args:
-            graphics_item: The graphics item to select
+            item_id: The UUID of the graphics item to select
         """
         if not hasattr(self, "_scene") or self._scene is None:
             return
+        # Defer the scene mutation so it runs after the QListWidget finishes its own
+        # click processing (which itself triggers selectionChanged); selecting inline
+        # can clear the panel mid-click. Mirrors _on_companion_highlight_species.
+        QTimer.singleShot(0, lambda: self._apply_selection(item_id, pan=False))
 
-        # Clear current selection and select this item
-        self._scene.clearSelection()
+    def _select_and_pan_to_plant(self, item_id: UUID) -> None:
+        """Select the plant with *item_id* and center the view on it.
+
+        Args:
+            item_id: The UUID of the graphics item to select and pan to
+        """
+        if not hasattr(self, "_scene") or self._scene is None:
+            return
+        QTimer.singleShot(0, lambda: self._apply_selection(item_id, pan=True))
+
+    def _apply_selection(self, item_id: UUID, *, pan: bool) -> None:
+        """Resolve *item_id* against the live scene and select it.
+
+        Looking the item up fresh (rather than trusting a stored QGraphicsItem
+        reference) keeps selection reliable across undo/redo/delete (issue #212).
+
+        Args:
+            item_id: The UUID of the graphics item to select.
+            pan: If True, center the view on the item; otherwise only scroll it
+                into view when it is off-screen.
+        """
+        scene = getattr(self, "_scene", None)
+        if scene is None:
+            return
+
+        graphics_item = scene.find_item_by_id(item_id)
+        if graphics_item is None:
+            # The item is gone (e.g. deleted/undone). Heal the stale list and bail.
+            self.refresh_plant_list()
+            return
+
+        scene.clearSelection()
         graphics_item.setSelected(True)
 
-    def _select_and_pan_to_plant(self, graphics_item: QGraphicsItem) -> None:
-        """Select a plant and pan the view to center on it.
-
-        Args:
-            graphics_item: The graphics item to select and pan to
-        """
-        if not hasattr(self, "_scene") or self._scene is None:
-            return
-
-        # Select the item
-        self._select_plant(graphics_item)
-
-        # Pan to center on the item
-        views = self._scene.views()
+        views = scene.views()
         if views:
             view = views[0]
-            # Get item center in scene coordinates
-            item_center = graphics_item.sceneBoundingRect().center()
-            view.centerOn(item_center)
+            if pan:
+                view.centerOn(graphics_item.sceneBoundingRect().center())
+            else:
+                # Scroll only when the plant is not already visible.
+                view.ensureVisible(graphics_item)
 
-            # Emit signal for any additional handling
-            item_id = getattr(graphics_item, "item_id", None)
-            if item_id:
-                self.plant_selected.emit(item_id)
+        self.plant_selected.emit(item_id)

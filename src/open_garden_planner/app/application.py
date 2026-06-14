@@ -1259,7 +1259,15 @@ class GardenPlannerApp(QMainWindow):
         self.plant_search_panel = PlantSearchPanel()
         self.plant_search_panel.set_canvas_scene(self.canvas_scene)
 
-        # Connect scene changes to refresh plant list
+        # Debounce timer so the very chatty QGraphicsScene.changed signal does not
+        # rebuild the whole list on every repaint (which tore down rows mid-click and
+        # made selection flaky - issue #212).
+        self._plant_search_refresh_timer = QTimer(self)
+        self._plant_search_refresh_timer.setSingleShot(True)
+        self._plant_search_refresh_timer.setInterval(150)
+        self._plant_search_refresh_timer.timeout.connect(self._refresh_plant_search_panel)
+
+        # Connect scene changes to (debounced) refresh of the plant list
         self.canvas_scene.changed.connect(self._on_scene_changed_for_plant_search)
 
         plant_search_collapsible = CollapsiblePanel(self.tr("Find Plants"), self.plant_search_panel, expanded=False)
@@ -3306,7 +3314,12 @@ class GardenPlannerApp(QMainWindow):
         self._project_manager.mark_dirty()
 
     def _on_scene_changed_for_plant_search(self) -> None:
-        """Handle scene changes to refresh plant search panel."""
+        """Coalesce bursts of scene changes into a single debounced refresh."""
+        with contextlib.suppress(RuntimeError):
+            self._plant_search_refresh_timer.start()
+
+    def _refresh_plant_search_panel(self) -> None:
+        """Refresh the plant search panel (debounce timer slot)."""
         with contextlib.suppress(RuntimeError):
             self.plant_search_panel.refresh_plant_list()
 

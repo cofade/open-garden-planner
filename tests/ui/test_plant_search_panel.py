@@ -171,8 +171,8 @@ class TestPlantSearchPanel:
         panel.search_input.setText("Rosaceae")
         assert panel.results_list.count() == 1
 
-    def test_click_selects_plant(self, qtbot):  # noqa: ARG002
-        """Test that clicking a plant in the list selects it."""
+    def test_click_selects_plant(self, qtbot):
+        """Test that clicking a plant in the list selects it (deferred)."""
         panel = PlantSearchPanel()
         scene = CanvasScene()
 
@@ -184,12 +184,59 @@ class TestPlantSearchPanel:
         # Initially not selected
         assert not tree.isSelected()
 
-        # Click on the item in the list
+        # Click on the item in the list (selection is applied on the event loop)
         list_item = panel.results_list.item(0)
         panel._on_item_clicked(list_item)
 
-        # Should now be selected
-        assert tree.isSelected()
+        # Should become selected once the deferred QTimer fires
+        qtbot.waitUntil(lambda: tree.isSelected())
+
+    def test_click_after_item_deleted_does_not_crash(self, qtbot):
+        """Clicking a row whose item was deleted must not crash and must self-heal."""
+        panel = PlantSearchPanel()
+        scene = CanvasScene()
+
+        tree = CircleItem(100, 100, 50, object_type=ObjectType.TREE)
+        tree.name = "Apple Tree"
+        scene.addItem(tree)
+
+        panel.set_canvas_scene(scene)
+        assert panel.results_list.count() == 1
+
+        list_item = panel.results_list.item(0)
+
+        # Remove the item from the scene so the row's stored id is now stale.
+        scene.removeItem(tree)
+
+        # Clicking must not raise and must rebuild the (now empty) list.
+        panel._on_item_clicked(list_item)
+        qtbot.waitUntil(lambda: panel.results_list.count() == 0)
+
+    def test_click_selects_correct_item_after_rebuild(self, qtbot):
+        """ID-based lookup selects the right plant even after the list is rebuilt."""
+        panel = PlantSearchPanel()
+        scene = CanvasScene()
+
+        tree_a = CircleItem(100, 100, 50, object_type=ObjectType.TREE)
+        tree_a.name = "Apple Tree"
+        scene.addItem(tree_a)
+
+        tree_b = CircleItem(300, 100, 50, object_type=ObjectType.TREE)
+        tree_b.name = "Birch Tree"
+        scene.addItem(tree_b)
+
+        panel.set_canvas_scene(scene)
+
+        # Rebuild the list (simulating a scene-change refresh) - any cached
+        # QGraphicsItem references in the old rows would now be stale.
+        panel.refresh_plant_list()
+
+        # Click the first row (Apple Tree, alphabetically first).
+        list_item = panel.results_list.item(0)
+        panel._on_item_clicked(list_item)
+
+        qtbot.waitUntil(lambda: tree_a.isSelected())
+        assert not tree_b.isSelected()
 
     def test_refresh_updates_list(self, qtbot):  # noqa: ARG002
         """Test that refresh_plant_list updates the list."""
@@ -270,12 +317,13 @@ class TestPlantSearchPanel:
         # Verify alphabetical order
         assert panel.results_list.count() == 3
 
-        # Get names from list items
+        # Get names from list items - rows now store only the item id; resolve the
+        # live item via the scene.
         names = []
         for i in range(panel.results_list.count()):
             item = panel.results_list.item(i)
-            data = item.data(Qt.ItemDataRole.UserRole)
-            _, graphics_item = data
+            item_id = item.data(Qt.ItemDataRole.UserRole)
+            graphics_item = scene.find_item_by_id(item_id)
             names.append(graphics_item.name)
 
         assert names == ["Apple Tree", "Cherry Tree", "Zebra Plant"]
