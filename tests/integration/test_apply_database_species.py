@@ -1,14 +1,16 @@
 """Integration tests for issue #213 — apply database species to an existing plant.
 
-When a generic plant already on the canvas has a database species assigned to it
-(via the plant database panel), its properties must update to match the database:
+When a database species is assigned to a generic plant already on the canvas, the
+plant's properties must update to match the database and the canvas must reflect
+it:
   * ``metadata['plant_species']`` is populated, and
-  * the on-canvas spacing circle refreshes (``effective_spacing_radius()`` derives
-    from the species' ``max_spread_cm`` when no manual override exists).
+  * on "apply database values" the drawn footprint is resized so its diameter
+    equals the species' ``max_spread_cm`` (the visible change the issue asks for).
 
-A manual spacing-radius override that differs from the database value triggers an
-"Apply database values / Keep custom values" prompt. The whole assignment is a
-single undoable step.
+A drawn footprint (or manual spacing override) that differs from the database
+triggers an "Apply database values / Keep custom values" prompt; "Apply" resizes
+the footprint and clears any override, "Keep" preserves the placed size. The
+whole assignment is a single undoable step.
 """
 
 from __future__ import annotations
@@ -26,9 +28,11 @@ from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.panels.plant_database_panel import PlantDatabasePanel
 from open_garden_planner.ui.plant_species_assignment import apply_species_to_item
 
-# Tomato: max_spread_cm == 90 → spacing radius 45 cm.
+# Tomato: max_spread_cm == 90 → footprint radius 45 cm (diameter == max_spread).
 _SPECIES_NAME = "Solanum lycopersicum"
-_DB_SPACING = 45.0
+_DB_RADIUS = 45.0
+# A placed plant whose footprint differs from the database size.
+_PLACED_RADIUS = 20.0
 
 
 @pytest.fixture()
@@ -43,7 +47,7 @@ def canvas(qtbot: object) -> CanvasView:
 @pytest.fixture()
 def generic_plant(canvas: CanvasView) -> CircleItem:
     """A generic plant on the canvas with no species metadata."""
-    item = CircleItem(100.0, 100.0, 20.0, object_type=ObjectType.SHRUB)
+    item = CircleItem(100.0, 100.0, _PLACED_RADIUS, object_type=ObjectType.SHRUB)
     canvas.scene().addItem(item)
     return item
 
@@ -60,84 +64,117 @@ def _species_dict() -> dict:
     return merge_calendar_data(dict(lookup_species(_SPECIES_NAME)))
 
 
+def _stub(panel: PlantDatabasePanel, monkeypatch, *, apply: bool) -> None:
+    monkeypatch.setattr(panel, "_confirm_apply_database_values", lambda: apply)
+
+
 # ---------------------------------------------------------------------------
-# Auto-apply with no manual override
+# Apply database values resizes the drawn footprint
 
 
-def test_apply_species_populates_metadata_and_spacing(
-    panel: PlantDatabasePanel, generic_plant: CircleItem
+def test_apply_resizes_footprint_to_max_spread(
+    panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
 ) -> None:
     assert generic_plant.metadata.get("plant_species") is None
+    assert generic_plant.radius == pytest.approx(_PLACED_RADIUS)
+    _stub(panel, monkeypatch, apply=True)
 
     panel._apply_species_to_item(generic_plant, _species_dict())
 
     species = generic_plant.metadata.get("plant_species")
     assert species is not None
     assert species["scientific_name"] == _SPECIES_NAME
-    # No manual override → spacing cascades from max_spread_cm / 2.
-    assert generic_plant.effective_spacing_radius() == pytest.approx(_DB_SPACING)
+    # The drawn circle adopts the real plant size (the visible change #213 wants).
+    assert generic_plant.radius == pytest.approx(_DB_RADIUS)
+    assert generic_plant.effective_spacing_radius() == pytest.approx(_DB_RADIUS)
 
 
-def test_apply_species_is_a_single_undo_step(
-    canvas: CanvasView, panel: PlantDatabasePanel, generic_plant: CircleItem
+def test_apply_is_a_single_undo_step(
+    canvas: CanvasView, panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
 ) -> None:
     cmd_mgr = canvas.command_manager
+    _stub(panel, monkeypatch, apply=True)
 
     panel._apply_species_to_item(generic_plant, _species_dict())
     assert generic_plant.metadata.get("plant_species") is not None
+    assert generic_plant.radius == pytest.approx(_DB_RADIUS)
     assert cmd_mgr.can_undo
 
     cmd_mgr.undo()
+    # Both metadata and the footprint revert in one step.
     assert generic_plant.metadata.get("plant_species") is None
+    assert generic_plant.radius == pytest.approx(_PLACED_RADIUS)
 
     cmd_mgr.redo()
     assert generic_plant.metadata.get("plant_species") is not None
-    assert generic_plant.effective_spacing_radius() == pytest.approx(_DB_SPACING)
+    assert generic_plant.radius == pytest.approx(_DB_RADIUS)
 
 
-# ---------------------------------------------------------------------------
-# Manual override reconciliation prompt
-
-
-def test_override_apply_clears_custom_value(
+def test_keep_preserves_placed_footprint(
     panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
 ) -> None:
-    generic_plant.spacing_radius_cm = 10.0  # custom value, differs from DB (45)
-    monkeypatch.setattr(panel, "_confirm_apply_database_values", lambda: True)
+    _stub(panel, monkeypatch, apply=False)
 
     panel._apply_species_to_item(generic_plant, _species_dict())
 
-    # Override cleared → database value wins.
+    # Footprint kept; metadata still updated. The spacing circle still derives
+    # from the database max_spread (no override set).
+    assert generic_plant.radius == pytest.approx(_PLACED_RADIUS)
+    assert generic_plant.metadata.get("plant_species") is not None
+    assert generic_plant.effective_spacing_radius() == pytest.approx(_DB_RADIUS)
+
+
+# ---------------------------------------------------------------------------
+# Manual spacing override reconciliation
+
+
+def test_override_apply_clears_custom_and_resizes(
+    panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
+) -> None:
+    generic_plant.spacing_radius_cm = 10.0  # custom override, differs from DB
+    _stub(panel, monkeypatch, apply=True)
+
+    panel._apply_species_to_item(generic_plant, _species_dict())
+
+    # Override cleared + footprint resized → database value wins.
     assert generic_plant.spacing_radius_cm is None
-    assert generic_plant.effective_spacing_radius() == pytest.approx(_DB_SPACING)
+    assert generic_plant.radius == pytest.approx(_DB_RADIUS)
+    assert generic_plant.effective_spacing_radius() == pytest.approx(_DB_RADIUS)
 
 
 def test_override_keep_preserves_custom_value(
     panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
 ) -> None:
     generic_plant.spacing_radius_cm = 10.0
-    monkeypatch.setattr(panel, "_confirm_apply_database_values", lambda: False)
+    _stub(panel, monkeypatch, apply=False)
 
     panel._apply_species_to_item(generic_plant, _species_dict())
 
-    # Custom override preserved; metadata still updated.
+    # Custom override + placed footprint preserved; metadata still updated.
     assert generic_plant.spacing_radius_cm == pytest.approx(10.0)
+    assert generic_plant.radius == pytest.approx(_PLACED_RADIUS)
     assert generic_plant.effective_spacing_radius() == pytest.approx(10.0)
     assert generic_plant.metadata.get("plant_species") is not None
 
 
-def test_no_prompt_when_override_matches_database(
+# ---------------------------------------------------------------------------
+# No prompt when nothing differs / when suppressed
+
+
+def test_no_prompt_when_already_matches_database(
     panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
 ) -> None:
-    generic_plant.spacing_radius_cm = _DB_SPACING  # equals DB value → no prompt
+    # Footprint already equals the database size and no override → no difference.
+    generic_plant.set_radius_centered(_DB_RADIUS)
 
     def _fail() -> bool:
-        raise AssertionError("prompt should not appear when override matches DB")
+        raise AssertionError("prompt should not appear when nothing differs")
 
     monkeypatch.setattr(panel, "_confirm_apply_database_values", _fail)
 
     panel._apply_species_to_item(generic_plant, _species_dict())
-    assert generic_plant.spacing_radius_cm == pytest.approx(_DB_SPACING)
+    assert generic_plant.radius == pytest.approx(_DB_RADIUS)
+    assert generic_plant.metadata.get("plant_species") is not None
 
 
 def test_prompt_suppressed_when_prompt_false(
@@ -151,8 +188,9 @@ def test_prompt_suppressed_when_prompt_false(
     monkeypatch.setattr(panel, "_confirm_apply_database_values", _fail)
 
     panel._apply_species_to_item(generic_plant, _species_dict(), prompt=False)
-    # Override untouched, metadata updated.
+    # Footprint + override untouched, metadata updated.
     assert generic_plant.spacing_radius_cm == pytest.approx(10.0)
+    assert generic_plant.radius == pytest.approx(_PLACED_RADIUS)
     assert generic_plant.metadata.get("plant_species") is not None
 
 
@@ -161,18 +199,16 @@ def test_prompt_suppressed_when_prompt_false(
 
 
 def test_module_apply_with_confirm_callback(generic_plant: CircleItem) -> None:
-    """The standalone helper honours the confirm callback (apply → clears)."""
-    generic_plant.spacing_radius_cm = 10.0
+    """The standalone helper honours the confirm callback (apply → resize)."""
     apply_species_to_item(generic_plant, _species_dict(), confirm=lambda: True)
-    assert generic_plant.spacing_radius_cm is None
-    assert generic_plant.effective_spacing_radius() == pytest.approx(_DB_SPACING)
+    assert generic_plant.radius == pytest.approx(_DB_RADIUS)
+    assert generic_plant.effective_spacing_radius() == pytest.approx(_DB_RADIUS)
 
 
-def test_module_apply_keeps_override_without_confirm(
+def test_module_apply_keeps_footprint_without_confirm(
     generic_plant: CircleItem,
 ) -> None:
-    """With no confirm callback the differing override is preserved (no prompt)."""
-    generic_plant.spacing_radius_cm = 10.0
+    """With no confirm callback the placed footprint is preserved (no prompt)."""
     apply_species_to_item(generic_plant, _species_dict(), confirm=None)
-    assert generic_plant.spacing_radius_cm == pytest.approx(10.0)
+    assert generic_plant.radius == pytest.approx(_PLACED_RADIUS)
     assert generic_plant.metadata.get("plant_species") is not None

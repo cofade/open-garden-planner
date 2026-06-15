@@ -455,6 +455,30 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         """Get circle radius."""
         return self._radius
 
+    def set_radius_centered(self, new_radius: float) -> None:
+        """Resize the circle to ``new_radius`` while keeping its scene center fixed.
+
+        Used when applying a database species so the drawn footprint adopts the
+        plant's real size (diameter == ``max_spread_cm``) without drifting on the
+        canvas (issue #213). No-op when the radius is unchanged or non-positive.
+        """
+        if new_radius <= 0 or abs(new_radius - self._radius) < 1e-6:
+            return
+        scene_center = self.mapToScene(self.rect().center())
+        self.prepareGeometryChange()
+        diameter = new_radius * 2
+        self.setRect(0, 0, diameter, diameter)
+        self._center = QPointF(new_radius, new_radius)
+        self._radius = new_radius
+        # Reposition so the (possibly rotated) center stays where it was.
+        new_center = self.mapToScene(QPointF(new_radius, new_radius))
+        self.setPos(self.pos() + (scene_center - new_center))
+        if hasattr(self, "update_resize_handles"):
+            self.update_resize_handles()
+        self._update_circle_annotations()
+        self._update_area_label()
+        self.update()
+
     def itemChange(
         self,
         change: QGraphicsItem.GraphicsItemChange,

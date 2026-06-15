@@ -72,14 +72,17 @@ def apply_species_to_item(
         plant_item: The plant item to update (CircleItem).
         species_dict: The species record to assign (already merged via
             ``merge_calendar_data``).
-        prompt: When False, never reconcile a differing manual override (used by
-            live field edits / library saves where the override must not change).
-        confirm: Callable returning True to apply database values when a manual
-            override differs. Required for the prompt to fire; when None the
-            override is preserved.
+        prompt: When False, never reconcile differing custom values (used by
+            live field edits / library saves where the drawn size and override
+            must not change).
+        confirm: Callable returning True to apply database values when the drawn
+            footprint or a manual override differs from the database. Required
+            for the prompt to fire; when None the custom values are preserved.
 
-    Note: this triggers the spacing-circle repaint (via the ``spacing_radius_cm``
-    setter's ``prepareGeometryChange()``/``update()``). The neighbour-collision
+    On "apply database values" the drawn footprint is resized so its diameter
+    equals the species' ``max_spread_cm`` (and any manual spacing override is
+    cleared so the database value cascades); otherwise the placed size is kept.
+    Either way ``metadata['plant_species']`` is updated. The neighbour-collision
     *overlap* indicator is recomputed separately by the main window's
     ``_update_spacing_overlaps`` on the resulting ``scene.changed`` — it is not
     re-flagged here.
@@ -90,31 +93,54 @@ def apply_species_to_item(
         old_species = existing
 
     old_override = getattr(plant_item, "spacing_radius_cm", None)
+    old_radius = getattr(plant_item, "radius", None)
 
-    # Spacing radius the database would yield (max_spread_cm / 2).
+    # Footprint radius / spacing radius the database would yield. The drawn
+    # circle's diameter should equal max_spread_cm, so both derive from
+    # max_spread_cm / 2.
     max_spread = species_dict.get("max_spread_cm")
-    db_spacing = (
+    db_radius = (
         float(max_spread) / 2.0
         if isinstance(max_spread, (int, float)) and max_spread > 0
         else None
     )
 
-    # Default: leave the override untouched.
+    # Default: leave the placed footprint and the override untouched.
     new_override = old_override
+    new_radius = old_radius
 
-    # Reconcile a manual override that disagrees with the database value.
+    # Would applying the database values actually change anything visible?
+    footprint_differs = (
+        db_radius is not None
+        and old_radius is not None
+        and abs(old_radius - db_radius) > _SPACING_EPSILON_CM
+    )
+    override_differs = (
+        db_radius is not None
+        and old_override is not None
+        and abs(old_override - db_radius) > _SPACING_EPSILON_CM
+    )
+
+    # Reconcile custom values that disagree with the database (footprint size or
+    # a manual spacing override). Default is to apply the database values.
     if (
         prompt
-        and old_override is not None
-        and db_spacing is not None
-        and abs(old_override - db_spacing) > _SPACING_EPSILON_CM
+        and db_radius is not None
+        and (footprint_differs or override_differs)
         and confirm is not None
         and confirm()
     ):
-        new_override = None  # let the database cascade win
+        new_radius = db_radius  # drawn circle adopts the real plant size
+        new_override = None  # let the database spacing cascade win
 
     command = ApplySpeciesCommand(
-        plant_item, old_species, species_dict, old_override, new_override
+        plant_item,
+        old_species,
+        species_dict,
+        old_override,
+        new_override,
+        old_radius,
+        new_radius,
     )
 
     scene = plant_item.scene()
