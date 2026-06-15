@@ -33,6 +33,10 @@ from open_garden_planner.models.plant_data import (
 )
 from open_garden_planner.services import get_plant_library
 from open_garden_planner.services.bundled_species_db import merge_calendar_data
+from open_garden_planner.ui.plant_species_assignment import (
+    apply_species_to_item,
+    confirm_apply_database_values,
+)
 
 
 class ClickableDateEdit(QDateEdit):
@@ -727,11 +731,11 @@ class PlantDatabasePanel(QWidget):
             self.nutrient_demand_combo.currentData()
         )
 
-        # Save back to item metadata and custom library
+        # Save back to item metadata and custom library. (metadata is a
+        # read-only property backed by a dict that's always present, so there's
+        # nothing to initialize — the old `metadata = {}` write here would have
+        # raised AttributeError on an item with empty metadata.)
         if hasattr(self._current_plant_item, "metadata"):
-            if not self._current_plant_item.metadata:
-                self._current_plant_item.metadata = {}
-
             library = get_plant_library()
 
             if self._current_plant_data.data_source == "custom":
@@ -745,10 +749,19 @@ class PlantDatabasePanel(QWidget):
                 plant_id = library.add_plant(self._current_plant_data)
                 self._current_plant_data.source_id = plant_id
 
-            # Save updated data to item metadata (merge local calendar DB data)
+            # Save updated data to item metadata (merge local calendar DB data).
+            # Live field edits are intentionally NOT wrapped in a command (that
+            # would create one undo entry per keystroke — see #210); species
+            # *assignment* goes through _apply_species_to_item instead.
             self._current_plant_item.metadata["plant_species"] = merge_calendar_data(
                 self._current_plant_data.to_dict()
             )
+
+            # Repaint so the spacing circle reflects a live max_spread edit.
+            if hasattr(self._current_plant_item, "prepareGeometryChange"):
+                self._current_plant_item.prepareGeometryChange()
+            if hasattr(self._current_plant_item, "update"):
+                self._current_plant_item.update()
 
             # Mark project as dirty + refresh soil-mismatch borders (US-12.10d)
             scene = self._current_plant_item.scene()
@@ -990,10 +1003,8 @@ class PlantDatabasePanel(QWidget):
         if not self._current_plant_item:
             return
 
-        # Ensure metadata exists
-        if not hasattr(self._current_plant_item, "metadata") or self._current_plant_item.metadata is None:
-            self._current_plant_item.metadata = {}
-
+        # metadata is a read-only property backed by a dict that always exists,
+        # so there's nothing to initialize here.
         # Get or create plant_instance dict
         if "plant_instance" not in self._current_plant_item.metadata:
             self._current_plant_item.metadata["plant_instance"] = {}
@@ -1351,6 +1362,29 @@ class PlantDatabasePanel(QWidget):
                 break
             parent_widget = parent_widget.parent()
 
+    def _apply_species_to_item(
+        self, plant_item: QGraphicsItem, species_dict: dict, *, prompt: bool = True
+    ) -> None:
+        """Assign a database species dict to a plant item (undoable + repaints).
+
+        Thin wrapper over :func:`apply_species_to_item` that supplies this panel
+        as the dialog parent. See issue #213.
+        """
+        apply_species_to_item(
+            plant_item,
+            species_dict,
+            prompt=prompt,
+            confirm=self._confirm_apply_database_values,
+        )
+
+    def _confirm_apply_database_values(self) -> bool:
+        """Ask whether to overwrite a differing manual override with the DB value.
+
+        Returns True to apply database values, False to keep the custom value.
+        A separate method so tests can stub the user's choice.
+        """
+        return confirm_apply_database_values(self)
+
     def _on_load_custom_plant(self) -> None:
         """Handle Load Custom Plant button click."""
         # Check if we have a selected plant item
@@ -1384,26 +1418,14 @@ class PlantDatabasePanel(QWidget):
         dialog = CustomPlantsDialog(self)
         dialog.setWindowTitle(self.tr("Select Custom Plant"))
         if dialog.exec() and dialog.selected_plant:
-            # Assign selected plant to the item
+            # Assign selected plant to the item (undoable + repaints canvas)
             plant_item = self._current_plant_item
-            if not hasattr(plant_item, "metadata") or plant_item.metadata is None:
-                plant_item.metadata = {}
-            plant_item.metadata["plant_species"] = merge_calendar_data(
-                dialog.selected_plant.to_dict()
+            self._apply_species_to_item(
+                plant_item, merge_calendar_data(dialog.selected_plant.to_dict())
             )
 
             # Show the plant data for editing
             self._show_plant_data(dialog.selected_plant, plant_item)
-
-            # Mark project as dirty
-            scene = plant_item.scene()
-            if scene and hasattr(scene, "views"):
-                for view in scene.views():
-                    if hasattr(view, "window"):
-                        window = view.window()
-                        if hasattr(window, "_project_manager"):
-                            window._project_manager.mark_dirty()
-                            break
 
     def _on_create_custom_plant(self) -> None:
         """Handle Create Custom Plant button click."""
@@ -1426,30 +1448,17 @@ class PlantDatabasePanel(QWidget):
         # Store the current plant item reference
         plant_item = self._current_plant_item
 
-        # Assign to the selected plant item
-        if not hasattr(plant_item, "metadata") or plant_item.metadata is None:
-            plant_item.metadata = {}
-        plant_item.metadata["plant_species"] = merge_calendar_data(custom_plant.to_dict())
-
-        # Add to the custom plant library
+        # Build the species record, register it in the library, stamp source_id.
+        species_dict = merge_calendar_data(custom_plant.to_dict())
         library = get_plant_library()
         plant_id = library.add_plant(custom_plant)
+        species_dict["source_id"] = plant_id
 
-        # Update the source_id in the item's metadata
-        plant_item.metadata["plant_species"]["source_id"] = plant_id
+        # Assign to the selected plant item (undoable + repaints canvas)
+        self._apply_species_to_item(plant_item, species_dict)
 
         # Show the plant data for editing
         self._show_plant_data(custom_plant, plant_item)
-
-        # Mark project as dirty
-        scene = plant_item.scene()
-        if scene and hasattr(scene, "views"):
-            for view in scene.views():
-                if hasattr(view, "window"):
-                    window = view.window()
-                    if hasattr(window, "_project_manager"):
-                        window._project_manager.mark_dirty()
-                        break
 
     def _save_to_custom_library(self) -> None:
         """Save the current plant data to the custom library."""
@@ -1469,8 +1478,11 @@ class PlantDatabasePanel(QWidget):
             self._current_plant_data.data_source = "custom"
             plant_id = library.add_plant(self._current_plant_data)
 
-            # Update the item's metadata with new source info
+            # Update the item's metadata with new source info (undoable, no
+            # prompt — saving to the library must not change spacing overrides).
             if hasattr(self._current_plant_item, "metadata"):
-                self._current_plant_item.metadata["plant_species"] = merge_calendar_data(
-                    self._current_plant_data.to_dict()
+                self._apply_species_to_item(
+                    self._current_plant_item,
+                    merge_calendar_data(self._current_plant_data.to_dict()),
+                    prompt=False,
                 )

@@ -515,6 +515,71 @@ class ChangePropertyCommand(Command):
             setattr(self._item, self._property_name, self._old_value)
 
 
+class ApplySpeciesCommand(Command):
+    """Command for assigning a database species to an existing plant item.
+
+    Captures both the ``metadata['plant_species']`` dict and the user's
+    ``spacing_radius_cm`` override so assigning a species is a single, undoable
+    step. The visual spacing circle derives from the species' ``max_spread_cm``
+    (via ``effective_spacing_radius()``) only when no manual override exists, so
+    execute/undo set both and force a repaint. See issue #213.
+    """
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        old_species: dict[str, Any] | None,
+        new_species: dict[str, Any] | None,
+        old_spacing_override: float | None,
+        new_spacing_override: float | None,
+    ) -> None:
+        """Initialize the apply-species command.
+
+        Args:
+            item: The plant item to modify (must expose ``metadata`` and
+                ``spacing_radius_cm``).
+            old_species: Previous ``metadata['plant_species']`` dict (or None).
+            new_species: Species dict to assign.
+            old_spacing_override: Previous ``spacing_radius_cm`` value.
+            new_spacing_override: ``spacing_radius_cm`` value after applying.
+        """
+        self._item = item
+        # Defensive copies so later mutations of the source dicts can't alias
+        # the undo state.
+        self._old_species = dict(old_species) if old_species is not None else None
+        self._new_species = dict(new_species) if new_species is not None else None
+        self._old_spacing_override = old_spacing_override
+        self._new_spacing_override = new_spacing_override
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return QCoreApplication.translate("Commands", "Apply species data")
+
+    def _apply(
+        self, species: dict[str, Any] | None, spacing_override: float | None
+    ) -> None:
+        # ``metadata`` is a read-only property returning the item's live dict, so
+        # mutate it in place (a plant item always has one; a non-plant item would
+        # — correctly — raise rather than silently no-op).
+        metadata = self._item.metadata  # type: ignore[attr-defined]
+        if species is None:
+            metadata.pop("plant_species", None)
+        else:
+            metadata["plant_species"] = dict(species)
+        # The setter triggers prepareGeometryChange()/update(); set it last so
+        # the spacing circle repaints with the new metadata in place.
+        self._item.spacing_radius_cm = spacing_override  # type: ignore[attr-defined]
+
+    def execute(self) -> None:
+        """Apply the new species + spacing override."""
+        self._apply(self._new_species, self._new_spacing_override)
+
+    def undo(self) -> None:
+        """Restore the previous species + spacing override."""
+        self._apply(self._old_species, self._old_spacing_override)
+
+
 class ResizeItemCommand(Command):
     """Command for resizing an item.
 

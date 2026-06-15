@@ -4307,6 +4307,22 @@ Verwenden Sie 'Eigene erstellen', um Pflanzen hinzuzufügen, oder das Pflanzen-M
             <source>Fixer (legume)</source>
             <translation>Sammler (Hülsenfrüchtler)</translation>
         </message>
+        <message>
+            <source>Apply Database Values</source>
+            <translation>Datenbankwerte anwenden</translation>
+        </message>
+        <message>
+            <source>This plant has custom values that differ from the database. Apply the database values?</source>
+            <translation>Diese Pflanze hat benutzerdefinierte Werte, die von der Datenbank abweichen. Datenbankwerte anwenden?</translation>
+        </message>
+        <message>
+            <source>Apply database values</source>
+            <translation>Datenbankwerte anwenden</translation>
+        </message>
+        <message>
+            <source>Keep custom values</source>
+            <translation>Benutzerdefinierte Werte behalten</translation>
+        </message>
     </context>
     <context>
         <name>PlantSearchDialog</name>
@@ -9399,6 +9415,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>stroke color</source>
             <translation>Linienfarbe</translation>
+        </message>
+        <message>
+            <source>Apply species data</source>
+            <translation>Artdaten anwenden</translation>
         </message>
     </context>
 </TS>

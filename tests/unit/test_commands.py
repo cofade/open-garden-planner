@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsScene
 from open_garden_planner.core.commands import (
     AddLayerCommand,
     AddVertexCommand,
+    ApplySpeciesCommand,
     ChangePropertyCommand,
     CommandManager,
     CreateItemCommand,
@@ -747,3 +748,63 @@ class TestChangePropertyDescription:
         fill = ChangePropertyCommand(item, "fill color", "a", "b", lambda *_: None)
         assert width.description == "Change stroke width"
         assert fill.description == "Change fill color"
+
+
+class _FakePlant:
+    """Minimal stand-in exposing the attributes ApplySpeciesCommand touches."""
+
+    def __init__(self) -> None:
+        self.metadata: dict = {}
+        self.spacing_radius_cm: float | None = None
+
+
+class TestApplySpeciesCommand:
+    """Tests for ApplySpeciesCommand (issue #213)."""
+
+    def test_assign_from_generic_sets_species_and_clears_on_undo(
+        self, qtbot  # noqa: ARG002
+    ) -> None:
+        item = _FakePlant()
+        new = {"scientific_name": "Solanum lycopersicum", "max_spread_cm": 90.0}
+
+        cmd = ApplySpeciesCommand(item, None, new, None, 45.0)
+        cmd.execute()
+        assert item.metadata["plant_species"]["scientific_name"] == "Solanum lycopersicum"
+        assert item.spacing_radius_cm == 45.0
+
+        cmd.undo()
+        assert "plant_species" not in item.metadata
+        assert item.spacing_radius_cm is None
+
+    def test_reassign_over_existing_species_restores_prior_on_undo(
+        self, qtbot  # noqa: ARG002
+    ) -> None:
+        old = {"scientific_name": "Old species", "max_spread_cm": 20.0}
+        item = _FakePlant()
+        item.metadata["plant_species"] = old
+        item.spacing_radius_cm = 10.0
+        new = {"scientific_name": "New species", "max_spread_cm": 90.0}
+
+        cmd = ApplySpeciesCommand(item, old, new, 10.0, None)
+        cmd.execute()
+        assert item.metadata["plant_species"]["scientific_name"] == "New species"
+        assert item.spacing_radius_cm is None
+
+        cmd.undo()
+        assert item.metadata["plant_species"]["scientific_name"] == "Old species"
+        assert item.spacing_radius_cm == 10.0
+
+    def test_old_species_copy_is_not_aliased(self, qtbot) -> None:  # noqa: ARG002
+        old = {"scientific_name": "Old", "max_spread_cm": 20.0}
+        item = _FakePlant()
+        item.metadata["plant_species"] = old
+        cmd = ApplySpeciesCommand(item, old, {"scientific_name": "New"}, None, None)
+        cmd.execute()
+        # Mutating the live dict must not corrupt the captured undo state.
+        item.metadata["plant_species"]["scientific_name"] = "Mutated"
+        cmd.undo()
+        assert item.metadata["plant_species"]["scientific_name"] == "Old"
+
+    def test_description_localizable(self, qtbot) -> None:  # noqa: ARG002
+        cmd = ApplySpeciesCommand(_FakePlant(), None, {}, None, None)
+        assert cmd.description == "Apply species data"

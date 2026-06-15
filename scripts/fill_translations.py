@@ -112,6 +112,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Distribute horizontally": "Horizontal verteilen",
         "Distribute vertically": "Vertikal verteilen",
         "Distribute items": "Objekte verteilen",
+        "Apply species data": "Artdaten anwenden",
     },
 
     # ── BackgroundImageItem ──
@@ -1058,6 +1059,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── PlantDatabasePanel ──
     "PlantDatabasePanel": {
+        # Issue #213 — override reconciliation when assigning a database species
+        "Apply Database Values": "Datenbankwerte anwenden",
+        "This plant has custom values that differ from the database. "
+        "Apply the database values?":
+            "Diese Pflanze hat benutzerdefinierte Werte, die von der Datenbank "
+            "abweichen. Datenbankwerte anwenden?",
+        "Apply database values": "Datenbankwerte anwenden",
+        "Keep custom values": "Benutzerdefinierte Werte behalten",
         "Search": "Suchen",
         "Search for plant species in online databases":
             "Pflanzenarten in Online-Datenbanken suchen",
