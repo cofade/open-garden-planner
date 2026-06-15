@@ -461,18 +461,29 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         Used when applying a database species so the drawn footprint adopts the
         plant's real size (diameter == ``max_spread_cm``) without drifting on the
         canvas (issue #213). No-op when the radius is unchanged or non-positive.
+
+        Keeps the codebase's circle invariant intact: ``transformOriginPoint ==
+        center == rect.center()``. The serializer stores a circle's centre as
+        ``pos + center`` (rotation is a separate angle pivoting on the centre), so
+        the rotation origin **must** track the new centre — otherwise a rotated
+        plant resized here would save a displaced ``center_x/center_y`` and drift
+        on reload (and jump on the next rotation).
         """
         if new_radius <= 0 or abs(new_radius - self._radius) < 1e-6:
             return
+        # Scene-space centre of the current circle (correct under any rotation).
         scene_center = self.mapToScene(self.rect().center())
         self.prepareGeometryChange()
         diameter = new_radius * 2
         self.setRect(0, 0, diameter, diameter)
-        self._center = QPointF(new_radius, new_radius)
+        new_center = QPointF(new_radius, new_radius)
+        self._center = new_center
         self._radius = new_radius
-        # Reposition so the (possibly rotated) center stays where it was.
-        new_center = self.mapToScene(QPointF(new_radius, new_radius))
-        self.setPos(self.pos() + (scene_center - new_center))
+        # Move the rotation pivot onto the new centre so rotation stays about the
+        # centre; with the origin on the centre, mapToScene(centre) == pos +
+        # centre, so position the item to keep that centre where it was.
+        self.setTransformOriginPoint(new_center)
+        self.setPos(scene_center - new_center)
         if hasattr(self, "update_resize_handles"):
             self.update_resize_handles()
         self._update_circle_annotations()

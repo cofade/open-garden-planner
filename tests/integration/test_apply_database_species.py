@@ -212,3 +212,44 @@ def test_module_apply_keeps_footprint_without_confirm(
     apply_species_to_item(generic_plant, _species_dict(), confirm=None)
     assert generic_plant.radius == pytest.approx(_PLACED_RADIUS)
     assert generic_plant.metadata.get("plant_species") is not None
+
+
+# ---------------------------------------------------------------------------
+# Footprint resize must not displace a ROTATED plant (regression: the serializer
+# stores a circle's centre as pos + center, so the resize must keep that centre
+# fixed and the rotation pivot on it — otherwise save/reload drifts the plant).
+
+
+def _serialized_center(item: CircleItem) -> tuple[float, float]:
+    # Mirrors core.project serialization: center_x/center_y = pos + center.
+    return (item.pos().x() + item.center.x(), item.pos().y() + item.center.y())
+
+
+def test_apply_keeps_rotated_plant_centered(
+    canvas: CanvasView, panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
+) -> None:
+    generic_plant._apply_rotation(37.0)
+    before_serialized = _serialized_center(generic_plant)
+    before_visual = generic_plant.mapToScene(generic_plant.rect().center())
+    _stub(panel, monkeypatch, apply=True)
+
+    panel._apply_species_to_item(generic_plant, _species_dict())
+
+    assert generic_plant.radius == pytest.approx(_DB_RADIUS)
+    # Both the on-screen centre and the value the .ogp file would store are
+    # preserved (no drift on save/reload, no jump on the next rotation).
+    after_serialized = _serialized_center(generic_plant)
+    after_visual = generic_plant.mapToScene(generic_plant.rect().center())
+    assert after_serialized[0] == pytest.approx(before_serialized[0])
+    assert after_serialized[1] == pytest.approx(before_serialized[1])
+    assert after_visual.x() == pytest.approx(before_visual.x())
+    assert after_visual.y() == pytest.approx(before_visual.y())
+    # The rotation pivot tracks the new centre (invariant the serializer relies on).
+    assert generic_plant.transformOriginPoint() == generic_plant.rect().center()
+
+    # Undo restores size and centre in one step.
+    canvas.command_manager.undo()
+    assert generic_plant.radius == pytest.approx(_PLACED_RADIUS)
+    undone_serialized = _serialized_center(generic_plant)
+    assert undone_serialized[0] == pytest.approx(before_serialized[0])
+    assert undone_serialized[1] == pytest.approx(before_serialized[1])
