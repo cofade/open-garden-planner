@@ -1,18 +1,15 @@
 """Shared helper for assigning a database species to an existing plant item.
 
-Used by both the plant database panel (Load Custom / Create Custom / Save to
-library) and the Plants-menu species search so that every "assign species to an
-existing plant" path behaves identically (issue #213):
+Used by both the plant database panel (Load Custom / Create Custom) and the
+Plants-menu species search so that every "assign species to an existing plant"
+path behaves identically (issue #213):
 
   * writes ``metadata['plant_species']``;
-  * refreshes the on-canvas spacing circle (derived from the species'
-    ``max_spread_cm`` via ``effective_spacing_radius()``);
-  * reconciles a manual ``spacing_radius_cm`` override via an optional prompt;
+  * resizes the drawn footprint so its diameter equals the species'
+    ``max_spread_cm`` (the visible change the issue requires) — silently, unless
+    a manual ``spacing_radius_cm`` override conflicts, in which case the user is
+    prompted to apply the database values or keep their custom ones;
   * records a single undoable step (``ApplySpeciesCommand``).
-
-The drawn circle diameter is intentionally left unchanged — consistent with the
-drag-and-drop populate path (FR-PLANT-15); only the spacing circle and metadata
-update.
 """
 
 from __future__ import annotations
@@ -137,7 +134,11 @@ def apply_species_to_item(
     )
 
     scene = plant_item.scene()
-    cmd_mgr = getattr(scene, "_command_manager", None) if scene else None
+    cmd_mgr = (
+        scene.get_command_manager()
+        if scene is not None and hasattr(scene, "get_command_manager")
+        else None
+    )
     if cmd_mgr is not None:
         # Dirties the document via the stack_changed → mark_dirty wiring (#209).
         cmd_mgr.execute(command)
