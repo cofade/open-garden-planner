@@ -1363,7 +1363,7 @@ class PlantDatabasePanel(QWidget):
             parent_widget = parent_widget.parent()
 
     def _apply_species_to_item(
-        self, plant_item: QGraphicsItem, species_dict: dict, *, prompt: bool = True
+        self, plant_item: QGraphicsItem, species_dict: dict
     ) -> None:
         """Assign a database species dict to a plant item (undoable + repaints).
 
@@ -1373,7 +1373,6 @@ class PlantDatabasePanel(QWidget):
         apply_species_to_item(
             plant_item,
             species_dict,
-            prompt=prompt,
             confirm=self._confirm_apply_database_values,
         )
 
@@ -1459,30 +1458,3 @@ class PlantDatabasePanel(QWidget):
 
         # Show the plant data for editing
         self._show_plant_data(custom_plant, plant_item)
-
-    def _save_to_custom_library(self) -> None:
-        """Save the current plant data to the custom library."""
-        if not self._current_plant_data or not self._current_plant_item:
-            return
-
-        library = get_plant_library()
-
-        # Check if this is already a custom plant
-        if self._current_plant_data.data_source == "custom":
-            # Update existing custom plant
-            plant_id = self._current_plant_data.source_id
-            if plant_id:
-                library.update_plant(plant_id, self._current_plant_data)
-        else:
-            # Add as new custom plant (copy from API source)
-            self._current_plant_data.data_source = "custom"
-            plant_id = library.add_plant(self._current_plant_data)
-
-            # Update the item's metadata with new source info (undoable, no
-            # prompt — saving to the library must not change spacing overrides).
-            if hasattr(self._current_plant_item, "metadata"):
-                self._apply_species_to_item(
-                    self._current_plant_item,
-                    merge_calendar_data(self._current_plant_data.to_dict()),
-                    prompt=False,
-                )

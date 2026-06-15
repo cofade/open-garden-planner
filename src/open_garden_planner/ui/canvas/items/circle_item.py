@@ -341,32 +341,32 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 if self._spacing_circles_visible and (
                     self.isSelected() or self._spacing_overlap is not None
                 ):
-                        spacing_r = self.effective_spacing_radius()
-                        if spacing_r is not None and spacing_r > self._radius:
-                            center = rect.center()
-                            spacing_rect = QRectF(
-                                center.x() - spacing_r,
-                                center.y() - spacing_r,
-                                spacing_r * 2,
-                                spacing_r * 2,
-                            )
-                            if self._spacing_overlap == "overlap":
-                                fill_c = self._SPACING_FILL_RED
-                                stroke_c = self._SPACING_STROKE_RED
-                            elif self._spacing_overlap == "ideal":
-                                fill_c = self._SPACING_FILL_GREEN
-                                stroke_c = self._SPACING_STROKE_GREEN
-                            else:
-                                fill_c = self._SPACING_FILL_NEUTRAL
-                                stroke_c = self._SPACING_STROKE_NEUTRAL
-                            painter.save()
-                            pen = QPen(stroke_c)
-                            pen.setWidthF(self._SPACING_STROKE_WIDTH)
-                            pen.setStyle(Qt.PenStyle.DashLine)
-                            painter.setPen(pen)
-                            painter.setBrush(QBrush(fill_c))
-                            painter.drawEllipse(spacing_rect)
-                            painter.restore()
+                    spacing_r = self.effective_spacing_radius()
+                    if spacing_r is not None and spacing_r > self._radius:
+                        center = rect.center()
+                        spacing_rect = QRectF(
+                            center.x() - spacing_r,
+                            center.y() - spacing_r,
+                            spacing_r * 2,
+                            spacing_r * 2,
+                        )
+                        if self._spacing_overlap == "overlap":
+                            fill_c = self._SPACING_FILL_RED
+                            stroke_c = self._SPACING_STROKE_RED
+                        elif self._spacing_overlap == "ideal":
+                            fill_c = self._SPACING_FILL_GREEN
+                            stroke_c = self._SPACING_STROKE_GREEN
+                        else:
+                            fill_c = self._SPACING_FILL_NEUTRAL
+                            stroke_c = self._SPACING_STROKE_NEUTRAL
+                        painter.save()
+                        pen = QPen(stroke_c)
+                        pen.setWidthF(self._SPACING_STROKE_WIDTH)
+                        pen.setStyle(Qt.PenStyle.DashLine)
+                        painter.setPen(pen)
+                        painter.setBrush(QBrush(fill_c))
+                        painter.drawEllipse(spacing_rect)
+                        painter.restore()
 
                 # Draw companion planting highlight ring
                 if self._companion_highlight is not None:

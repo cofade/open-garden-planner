@@ -63,7 +63,6 @@ def apply_species_to_item(
     plant_item: QGraphicsItem,
     species_dict: dict[str, Any],
     *,
-    prompt: bool = True,
     confirm: Callable[[], bool] | None = None,
 ) -> None:
     """Assign ``species_dict`` to ``plant_item`` (undoable + repaints canvas).
@@ -72,18 +71,17 @@ def apply_species_to_item(
         plant_item: The plant item to update (CircleItem).
         species_dict: The species record to assign (already merged via
             ``merge_calendar_data``).
-        prompt: When False, never reconcile differing custom values (used by
-            live field edits / library saves where the drawn size and override
-            must not change).
-        confirm: Callable returning True to apply database values when the drawn
-            footprint or a manual override differs from the database. Required
-            for the prompt to fire; when None the custom values are preserved.
+        confirm: Callable returning True to apply database values when a manual
+            ``spacing_radius_cm`` override conflicts with the database. Required
+            for the prompt to fire; when None a conflicting override is preserved.
 
-    On "apply database values" the drawn footprint is resized so its diameter
-    equals the species' ``max_spread_cm`` (and any manual spacing override is
-    cleared so the database value cascades); otherwise the placed size is kept.
-    Either way ``metadata['plant_species']`` is updated. The neighbour-collision
-    *overlap* indicator is recomputed separately by the main window's
+    The drawn footprint is resized so its diameter equals the species'
+    ``max_spread_cm`` — silently in the common case (no conflicting manual
+    spacing override). Only a manual override that disagrees with the database
+    triggers the prompt: "apply" clears the override and resizes the footprint;
+    "keep" preserves both the override and the placed size. Either way
+    ``metadata['plant_species']`` is updated. The neighbour-collision *overlap*
+    indicator is recomputed separately by the main window's
     ``_update_spacing_overlaps`` on the resulting ``scene.changed`` — it is not
     re-flagged here.
     """
@@ -109,29 +107,24 @@ def apply_species_to_item(
     new_override = old_override
     new_radius = old_radius
 
-    # Would applying the database values actually change anything visible?
-    footprint_differs = (
-        db_radius is not None
-        and old_radius is not None
-        and abs(old_radius - db_radius) > _SPACING_EPSILON_CM
-    )
-    override_differs = (
+    # A manual spacing override that disagrees with the database is the only
+    # "custom value" we ask about (the footprint resize itself is silent).
+    override_conflicts = (
         db_radius is not None
         and old_override is not None
         and abs(old_override - db_radius) > _SPACING_EPSILON_CM
     )
 
-    # Reconcile custom values that disagree with the database (footprint size or
-    # a manual spacing override). Default is to apply the database values.
-    if (
-        prompt
-        and db_radius is not None
-        and (footprint_differs or override_differs)
-        and confirm is not None
-        and confirm()
-    ):
-        new_radius = db_radius  # drawn circle adopts the real plant size
-        new_override = None  # let the database spacing cascade win
+    if db_radius is not None:
+        if override_conflicts:
+            # Ask before discarding the manual override. "Keep" leaves the
+            # override and the placed footprint exactly as they are.
+            if confirm is not None and confirm():
+                new_radius = db_radius  # drawn circle adopts the real plant size
+                new_override = None  # let the database spacing cascade win
+        else:
+            # No conflicting override → silently adopt the database footprint.
+            new_radius = db_radius
 
     command = ApplySpeciesCommand(
         plant_item,
