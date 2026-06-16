@@ -435,6 +435,9 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     geom['height'],
                 )
                 item.setPos(geom['pos_x'], geom['pos_y'])
+                # Re-pin the rotation origin so undo/redo of a rotated resize
+                # restores the pivot too, not just rect + pos (#218).
+                item.setTransformOriginPoint(item.rect().center())
                 item.update_resize_handles()
                 item._position_label()
 

@@ -43,6 +43,91 @@ def _clamp_pos_to_canvas(pos: QPointF, parent_item: QGraphicsItem) -> QPointF:
     return pos
 
 
+def resize_rect_item_keeping_anchor(
+    item: QGraphicsItem,
+    new_rect: QRectF,
+    scene_anchor: QPointF,
+    local_anchor: QPointF,
+) -> None:
+    """Resize a rect-bearing item, keeping ``local_anchor`` pinned to ``scene_anchor``.
+
+    The one rotation-correct "resize about a scene point" primitive (#218). It
+    applies ``new_rect``, re-pins the rotation origin to the new rect centre
+    (the serializer's invariant ``transformOriginPoint == rect().center()``,
+    #219), and sets ``pos`` so that ``local_anchor`` (a point in the new local
+    rect) lands exactly on ``scene_anchor`` (a scene point).
+
+    Qt maps a local point ``p`` to scene as ``pos + O + R(θ)·(p − O)`` where
+    ``O = transformOriginPoint`` and ``θ = item.rotation()``. Pinning
+    ``O = new_rect.center()`` and solving the anchor invariant gives the unique
+    position::
+
+        pos = scene_anchor − O − R(θ)·(local_anchor − O)
+
+    For the centre-anchor case (``local_anchor == O``) this collapses to
+    ``pos = scene_anchor − O`` — exactly what ``CircleItem.set_radius_centered``
+    needs. For an edge/corner-fixed drag, ``scene_anchor`` is the fixed corner's
+    pre-resize scene position and ``local_anchor`` is that corner in the new rect.
+
+    Bookkeeping (``_center``/``_radius``, handles, labels) stays with the caller;
+    this primitive only touches geometry.
+    """
+    item.setRect(new_rect)  # type: ignore[attr-defined]
+    origin = new_rect.center()
+    item.setTransformOriginPoint(origin)
+    angle_rad = math.radians(item.rotation())
+    cos_a = math.cos(angle_rad)
+    sin_a = math.sin(angle_rad)
+    dx = local_anchor.x() - origin.x()
+    dy = local_anchor.y() - origin.y()
+    rot_dx = dx * cos_a - dy * sin_a
+    rot_dy = dx * sin_a + dy * cos_a
+    item.setPos(
+        scene_anchor.x() - origin.x() - rot_dx,
+        scene_anchor.y() - origin.y() - rot_dy,
+    )
+
+
+def _reanchor_after_rotated_resize(
+    item: QGraphicsItem,
+    init_rect: QRectF,
+    init_pos: QPointF,
+    left_fixed: bool,
+    top_fixed: bool,
+    cos_a: float,
+    sin_a: float,
+) -> None:
+    """Correct a rotated rect item's pivot + position after an axis-aligned resize.
+
+    The per-item ``_apply_resize`` math keeps the dragged-opposite edge fixed
+    assuming the item is axis-aligned and never updates ``transformOriginPoint``.
+    For a rotated item that drifts (the serialized ``pos + rect.center()`` stops
+    matching the on-screen centre — issue #218 / §11.4). This recomputes the
+    fixed corner's true scene position (rotation-aware, pivoting on the rect
+    centre — the invariant that holds at resize start) and re-applies geometry
+    through :func:`resize_rect_item_keeping_anchor`.
+
+    Only invoked when ``item.rotation() != 0``; the axis-aligned path is already
+    correct and is left byte-for-byte unchanged.
+    """
+    new_rect = item.rect()  # type: ignore[attr-defined]
+    init_center = init_rect.center()
+    # The fixed corner in the *old* local rect (whichever edges did not move).
+    old_fx = init_rect.left() if left_fixed else init_rect.right()
+    old_fy = init_rect.top() if top_fixed else init_rect.bottom()
+    odx = old_fx - init_center.x()
+    ody = old_fy - init_center.y()
+    # Its scene position under the start transform (origin == init rect centre).
+    scene_anchor = QPointF(
+        init_pos.x() + init_center.x() + odx * cos_a - ody * sin_a,
+        init_pos.y() + init_center.y() + odx * sin_a + ody * cos_a,
+    )
+    # The same corner in the *new* local rect.
+    new_fx = new_rect.left() if left_fixed else new_rect.right()
+    new_fy = new_rect.top() if top_fixed else new_rect.bottom()
+    resize_rect_item_keeping_anchor(item, new_rect, scene_anchor, QPointF(new_fx, new_fy))
+
+
 class HandlePosition(Enum):
     """Position of resize handle on an item's bounding rect."""
 
@@ -517,6 +602,34 @@ class ResizeHandle(QGraphicsRectItem):
                 init_pos.x() + scene_pos_dx,
                 init_pos.y() + scene_pos_dy,
             )
+
+            # The per-item math above is axis-aligned and never re-pins the
+            # rotation origin, so a rotated item drifts (pivot diverges from
+            # rect().center(); save/reload + next rotation jump — #218). When
+            # the item is rotated, correct the pivot + position so the fixed
+            # corner stays put. rect-bearing items only (Circle/Rectangle/
+            # Ellipse); polygons/text scale differently and serialize absolute
+            # geometry, so they keep the existing path (cf. #219 rect() gate).
+            if (
+                rotation != 0.0
+                and hasattr(self._parent_item, 'rect')
+                and hasattr(self._parent_item, 'setTransformOriginPoint')
+            ):
+                left_fixed = pos_dx == 0.0
+                top_fixed = pos_dy == 0.0
+                _reanchor_after_rotated_resize(
+                    self._parent_item,
+                    init_rect,
+                    init_pos,
+                    left_fixed,
+                    top_fixed,
+                    cos_a,
+                    sin_a,
+                )
+                if hasattr(self._parent_item, 'update_resize_handles'):
+                    self._parent_item.update_resize_handles()
+                if hasattr(self._parent_item, '_position_label'):
+                    self._parent_item._position_label()
 
 
 class AngleDisplay(QGraphicsItem):

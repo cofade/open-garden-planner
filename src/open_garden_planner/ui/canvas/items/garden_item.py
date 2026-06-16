@@ -588,16 +588,13 @@ class GardenItemMixin:
 
         Priority: user override > max_spread_cm/2 from plant database.
         Returns None when no real spacing data exists (no circle drawn).
+
+        Delegates to the single sizing resolver (``core.plant_sizing``) so the
+        precedence lives in one place (#218).
         """
-        if self._spacing_radius_cm is not None:
-            return self._spacing_radius_cm
-        meta = self._metadata or {}
-        species_data = meta.get("plant_species")
-        if isinstance(species_data, dict):
-            max_spread = species_data.get("max_spread_cm")
-            if max_spread is not None and max_spread > 0:
-                return float(max_spread) / 2.0
-        return None
+        from open_garden_planner.core.plant_sizing import sizing_for_item
+
+        return sizing_for_item(self).effective_spacing_radius_cm
 
     # ── Grid overlay properties ──────────────────────────────────
 

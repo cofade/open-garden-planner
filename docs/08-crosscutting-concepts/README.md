@@ -292,6 +292,10 @@ self.setFixedSize(w, h)
 self._reposition()
 ```
 
+### 8.9.8 Rotatable-item geometry invariant — keep `transformOriginPoint == rect().center()`
+
+Rect-bearing items (`CircleItem`/`RectangleItem`/`EllipseItem`) serialize their position as `pos + rect.center()` with rotation stored as a *separate* angle pivoting on the centre (`core/project.py`). Every geometry mutation on such an item — rotate, programmatic resize, interactive drag-resize, and the undo/redo of any of them — **must end with `transformOriginPoint() == rect().center()`**, or a rotated item's saved centre diverges from its on-screen centre and it drifts on reload / jumps on the next rotation. Do not re-derive this per gesture: route resizes through the single primitive `resize_handle.resize_rect_item_keeping_anchor(item, new_rect, scene_anchor, local_anchor)` (it applies the rect, re-pins the origin, and repositions so a chosen scene point stays fixed), and rotation through `RotationHandleMixin._apply_rotation` (pivots on `rect().center()`). The pivot must come from the *geometric* `rect()`, never the decoration-expanded `boundingRect()` (a runtime-only badge expands the latter asymmetrically). See ADR-028 and §11.4 (#218/#219). Sizing precedence (footprint vs. spacing override vs. DB `max_spread_cm`) likewise has one home: the Qt-free `core/plant_sizing.py` resolver.
+
 ## 8.8 Settings Storage
 
 User preferences stored via QSettings (platform-native):
