@@ -469,13 +469,12 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         plant resized here would save a displaced ``center_x/center_y`` and drift
         on reload (and jump on the next rotation).
 
-        Caveat: this keeps the *visual* centre (``mapToScene(rect().center())``)
-        fixed and snaps the serialized ``pos + center`` to it. When a rotation
-        was applied with an asymmetric ``boundingRect`` (e.g. an antagonist
-        badge), that pivot was already off ``rect().center()`` so the two
-        differed slightly beforehand; this resize reconciles them to the
-        on-screen centre. That pre-existing asymmetric-pivot quirk is out of
-        scope here.
+        This keeps the *visual* centre (``mapToScene(rect().center())``) fixed
+        and snaps the serialized ``pos + center`` to it. Since #219 the rotation
+        pivot is always ``rect().center()`` (no longer the asymmetric
+        ``boundingRect().center()`` for a badged plant), so the two no longer
+        diverge beforehand and this resize simply preserves an already-consistent
+        centre.
         """
         if new_radius <= 0 or abs(new_radius - self._radius) < 1e-6:
             return
