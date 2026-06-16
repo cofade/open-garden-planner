@@ -271,10 +271,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             and is_plant_type(self.object_type)
             and (self.isSelected() or self._spacing_overlap is not None)
         ):
-            sizing = sizing_for_item(self)
-            if sizing.shows_spacing_ring:
-                spacing_r = sizing.effective_spacing_radius_cm
-                assert spacing_r is not None  # guaranteed by shows_spacing_ring
+            spacing_r = sizing_for_item(self).spacing_ring_radius_cm
+            if spacing_r is not None:
                 extra = spacing_r - self._radius + self._SPACING_STROKE_WIDTH
                 base = base.adjusted(-extra, -extra, extra, extra)
         return base
@@ -345,9 +343,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 if self._spacing_circles_visible and (
                     self.isSelected() or self._spacing_overlap is not None
                 ):
-                    sizing = sizing_for_item(self)
-                    spacing_r = sizing.effective_spacing_radius_cm
-                    if sizing.shows_spacing_ring and spacing_r is not None:
+                    spacing_r = sizing_for_item(self).spacing_ring_radius_cm
+                    if spacing_r is not None:
                         center = rect.center()
                         spacing_rect = QRectF(
                             center.x() - spacing_r,

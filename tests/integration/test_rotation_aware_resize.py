@@ -61,6 +61,8 @@ def _drag_resize(item: object, handle_pos: HandlePosition, delta: QPointF) -> No
 # Drag-resizing a rotated item keeps the fixed corner put + pivot on centre.
 
 
+# Both a generic angle and one past 90° (catches R(θ) quadrant/sign errors).
+@pytest.mark.parametrize("angle", [37.0, 215.0])
 @pytest.mark.parametrize(
     "factory",
     [
@@ -69,10 +71,12 @@ def _drag_resize(item: object, handle_pos: HandlePosition, delta: QPointF) -> No
         lambda: EllipseItem(80.0, 90.0, 200.0, 120.0),
     ],
 )
-def test_rotated_drag_resize_keeps_fixed_corner(canvas: CanvasView, factory) -> None:
+def test_rotated_drag_resize_keeps_fixed_corner(
+    canvas: CanvasView, factory, angle: float
+) -> None:
     item = factory()
     canvas.scene().addItem(item)
-    item._apply_rotation(_ROTATION)
+    item._apply_rotation(angle)
 
     # Bottom-right drag → top-left corner is the fixed anchor.
     init_rect = QRectF(item.rect())
