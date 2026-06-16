@@ -3,6 +3,7 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -84,6 +85,8 @@ class CustomPlantsDialog(QDialog):
         self.table.setColumnHidden(4, True)
 
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
+        # Double-clicking a row confirms the selection (picker convenience).
+        self.table.itemDoubleClicked.connect(lambda _item: self.accept())
         layout.addWidget(self.table)
 
         # Button row
@@ -112,15 +115,14 @@ class CustomPlantsDialog(QDialog):
         self.info_label.setStyleSheet("color: palette(text); font-style: italic; opacity: 0.7;")
         layout.addWidget(self.info_label)
 
-        # Dialog buttons
-        dialog_buttons = QHBoxLayout()
-        dialog_buttons.addStretch()
-
-        close_btn = QPushButton(self.tr("Close"))
-        close_btn.clicked.connect(self.accept)
-        dialog_buttons.addWidget(close_btn)
-
-        layout.addLayout(dialog_buttons)
+        # Dialog buttons: OK confirms the current selection (when used as a
+        # picker), Cancel dismisses without assigning.
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
 
     def _load_plants(self) -> None:
         """Load plants from the library into the table."""

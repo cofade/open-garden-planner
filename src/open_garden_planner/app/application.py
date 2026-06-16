@@ -3442,19 +3442,25 @@ class GardenPlannerApp(QMainWindow):
                         break
 
                 if plant_item:
-                    # Update existing plant with species data (merge local calendar DB)
+                    # Update existing plant with species data (merge local calendar
+                    # DB). Routed through the shared assignment helper so the spacing
+                    # circle refreshes, a manual override is reconciled, and the
+                    # change is a single undoable step (issue #213).
                     from open_garden_planner.services.bundled_species_db import (
                         merge_calendar_data,  # noqa: PLC0415
                     )
-                    if not hasattr(plant_item, 'metadata') or plant_item.metadata is None:
-                        plant_item.metadata = {}
-                    plant_item.metadata['plant_species'] = merge_calendar_data(plant_data.to_dict())
+                    from open_garden_planner.ui.plant_species_assignment import (
+                        apply_species_to_item,  # noqa: PLC0415
+                        confirm_apply_database_values,  # noqa: PLC0415
+                    )
+                    apply_species_to_item(
+                        plant_item,
+                        merge_calendar_data(plant_data.to_dict()),
+                        confirm=lambda: confirm_apply_database_values(self),
+                    )
 
                     # Update the panel display
                     self._update_plant_database_panel()
-
-                    # Mark project as dirty
-                    self._project_manager.mark_dirty()
 
                     self.statusBar().showMessage(
                         self.tr("Updated plant with species: {name}").format(

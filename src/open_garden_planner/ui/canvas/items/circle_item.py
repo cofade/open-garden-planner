@@ -341,32 +341,32 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 if self._spacing_circles_visible and (
                     self.isSelected() or self._spacing_overlap is not None
                 ):
-                        spacing_r = self.effective_spacing_radius()
-                        if spacing_r is not None and spacing_r > self._radius:
-                            center = rect.center()
-                            spacing_rect = QRectF(
-                                center.x() - spacing_r,
-                                center.y() - spacing_r,
-                                spacing_r * 2,
-                                spacing_r * 2,
-                            )
-                            if self._spacing_overlap == "overlap":
-                                fill_c = self._SPACING_FILL_RED
-                                stroke_c = self._SPACING_STROKE_RED
-                            elif self._spacing_overlap == "ideal":
-                                fill_c = self._SPACING_FILL_GREEN
-                                stroke_c = self._SPACING_STROKE_GREEN
-                            else:
-                                fill_c = self._SPACING_FILL_NEUTRAL
-                                stroke_c = self._SPACING_STROKE_NEUTRAL
-                            painter.save()
-                            pen = QPen(stroke_c)
-                            pen.setWidthF(self._SPACING_STROKE_WIDTH)
-                            pen.setStyle(Qt.PenStyle.DashLine)
-                            painter.setPen(pen)
-                            painter.setBrush(QBrush(fill_c))
-                            painter.drawEllipse(spacing_rect)
-                            painter.restore()
+                    spacing_r = self.effective_spacing_radius()
+                    if spacing_r is not None and spacing_r > self._radius:
+                        center = rect.center()
+                        spacing_rect = QRectF(
+                            center.x() - spacing_r,
+                            center.y() - spacing_r,
+                            spacing_r * 2,
+                            spacing_r * 2,
+                        )
+                        if self._spacing_overlap == "overlap":
+                            fill_c = self._SPACING_FILL_RED
+                            stroke_c = self._SPACING_STROKE_RED
+                        elif self._spacing_overlap == "ideal":
+                            fill_c = self._SPACING_FILL_GREEN
+                            stroke_c = self._SPACING_STROKE_GREEN
+                        else:
+                            fill_c = self._SPACING_FILL_NEUTRAL
+                            stroke_c = self._SPACING_STROKE_NEUTRAL
+                        painter.save()
+                        pen = QPen(stroke_c)
+                        pen.setWidthF(self._SPACING_STROKE_WIDTH)
+                        pen.setStyle(Qt.PenStyle.DashLine)
+                        painter.setPen(pen)
+                        painter.setBrush(QBrush(fill_c))
+                        painter.drawEllipse(spacing_rect)
+                        painter.restore()
 
                 # Draw companion planting highlight ring
                 if self._companion_highlight is not None:
@@ -454,6 +454,49 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
     def radius(self) -> float:
         """Get circle radius."""
         return self._radius
+
+    def set_radius_centered(self, new_radius: float) -> None:
+        """Resize the circle to ``new_radius`` while keeping its scene center fixed.
+
+        Used when applying a database species so the drawn footprint adopts the
+        plant's real size (diameter == ``max_spread_cm``) without drifting on the
+        canvas (issue #213). No-op when the radius is unchanged or non-positive.
+
+        Keeps the codebase's circle invariant intact: ``transformOriginPoint ==
+        center == rect.center()``. The serializer stores a circle's centre as
+        ``pos + center`` (rotation is a separate angle pivoting on the centre), so
+        the rotation origin **must** track the new centre — otherwise a rotated
+        plant resized here would save a displaced ``center_x/center_y`` and drift
+        on reload (and jump on the next rotation).
+
+        Caveat: this keeps the *visual* centre (``mapToScene(rect().center())``)
+        fixed and snaps the serialized ``pos + center`` to it. When a rotation
+        was applied with an asymmetric ``boundingRect`` (e.g. an antagonist
+        badge), that pivot was already off ``rect().center()`` so the two
+        differed slightly beforehand; this resize reconciles them to the
+        on-screen centre. That pre-existing asymmetric-pivot quirk is out of
+        scope here.
+        """
+        if new_radius <= 0 or abs(new_radius - self._radius) < 1e-6:
+            return
+        # Scene-space centre of the current circle (correct under any rotation).
+        scene_center = self.mapToScene(self.rect().center())
+        self.prepareGeometryChange()
+        diameter = new_radius * 2
+        self.setRect(0, 0, diameter, diameter)
+        new_center = QPointF(new_radius, new_radius)
+        self._center = new_center
+        self._radius = new_radius
+        # Move the rotation pivot onto the new centre so rotation stays about the
+        # centre; with the origin on the centre, mapToScene(centre) == pos +
+        # centre, so position the item to keep that centre where it was.
+        self.setTransformOriginPoint(new_center)
+        self.setPos(scene_center - new_center)
+        if hasattr(self, "update_resize_handles"):
+            self.update_resize_handles()
+        self._update_circle_annotations()
+        self._update_area_label()
+        self.update()
 
     def itemChange(
         self,
