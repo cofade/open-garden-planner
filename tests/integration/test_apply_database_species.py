@@ -270,3 +270,21 @@ def test_rotation_pivots_about_rect_center_with_badge(
     sx, sy = _serialized_center(generic_plant)
     assert sx == pytest.approx(after_visual.x())
     assert sy == pytest.approx(after_visual.y())
+
+
+def test_rect_bearing_items_pivot_on_rect_center(canvas: CanvasView) -> None:
+    """The rect() branch must not shift the pivot of decoration-free rect items.
+
+    RectangleItem/EllipseItem have no asymmetric expansion, so their pivot stays
+    the geometric centre — bit-for-bit what boundingRect().center() gave before.
+    """
+    from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
+    from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+    for item in (
+        RectangleItem(50.0, 60.0, 200.0, 120.0),
+        EllipseItem(50.0, 60.0, 200.0, 120.0),
+    ):
+        canvas.scene().addItem(item)
+        item._apply_rotation(53.0)
+        assert item.transformOriginPoint() == item.rect().center()
