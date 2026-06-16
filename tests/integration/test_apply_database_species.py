@@ -239,3 +239,52 @@ def test_apply_keeps_rotated_plant_centered(
     undone_serialized = _serialized_center(generic_plant)
     assert undone_serialized[0] == pytest.approx(before_serialized[0])
     assert undone_serialized[1] == pytest.approx(before_serialized[1])
+
+
+# ---------------------------------------------------------------------------
+# Rotation pivot must be the geometric rect centre, not the badge-expanded
+# boundingRect centre (#219). The antagonist badge is runtime-only (not
+# serialized), so a pivot that depends on it makes the save-time pivot
+# (badge on) disagree with the load-time pivot (badge off) → drift.
+
+
+def test_rotation_pivots_about_rect_center_with_badge(
+    generic_plant: CircleItem,
+) -> None:
+    center_before = generic_plant.mapToScene(generic_plant.rect().center())
+
+    # Badge ON expands boundingRect asymmetrically (+x/+y); rect() is unchanged.
+    generic_plant.set_antagonist_warning(True)
+    assert generic_plant.boundingRect().center() != generic_plant.rect().center()
+
+    generic_plant._apply_rotation(37.0)
+
+    # Pivot is the geometric centre regardless of the badge.
+    assert generic_plant.transformOriginPoint() == generic_plant.rect().center()
+    # Rotating about the centre leaves the visual centre put.
+    after_visual = generic_plant.mapToScene(generic_plant.rect().center())
+    assert after_visual.x() == pytest.approx(center_before.x())
+    assert after_visual.y() == pytest.approx(center_before.y())
+    # What the .ogp file stores (pos + center) matches the on-screen centre, so
+    # reopening (badge off) reproduces the same position — no save/reload drift.
+    sx, sy = _serialized_center(generic_plant)
+    assert sx == pytest.approx(after_visual.x())
+    assert sy == pytest.approx(after_visual.y())
+
+
+def test_rect_bearing_items_pivot_on_rect_center(canvas: CanvasView) -> None:
+    """The rect() branch must not shift the pivot of decoration-free rect items.
+
+    RectangleItem/EllipseItem have no asymmetric expansion, so their pivot stays
+    the geometric centre — bit-for-bit what boundingRect().center() gave before.
+    """
+    from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
+    from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+    for item in (
+        RectangleItem(50.0, 60.0, 200.0, 120.0),
+        EllipseItem(50.0, 60.0, 200.0, 120.0),
+    ):
+        canvas.scene().addItem(item)
+        item._apply_rotation(53.0)
+        assert item.transformOriginPoint() == item.rect().center()

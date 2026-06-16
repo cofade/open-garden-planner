@@ -1046,14 +1046,22 @@ class RotationHandleMixin:
 
         # Apply the rotation transform to the item
         if hasattr(self, 'setRotation'):
-            # Get the center of the bounding rect for rotation pivot
-            if hasattr(self, 'boundingRect'):
-                rect = self.boundingRect()  # type: ignore[attr-defined]
-                center = rect.center()
+            # Pivot about the geometric centre, not the decoration-expanded
+            # bounding box, so the pivot is invariant to runtime-only badges
+            # (#219). rect() is the serializer's centre (stored as
+            # pos + rect.center()); boundingRect() grows asymmetrically for the
+            # antagonist badge and would shift the pivot off-centre, so a
+            # rotated badged plant drifts on save/reload (badge not persisted).
+            if hasattr(self, 'rect'):
+                center = self.rect().center()  # type: ignore[attr-defined]
+            elif hasattr(self, 'boundingRect'):
+                center = self.boundingRect().center()  # type: ignore[attr-defined]
+            else:
+                center = None
 
-                # Set transform origin to center
-                if hasattr(self, 'setTransformOriginPoint'):
-                    self.setTransformOriginPoint(center)  # type: ignore[attr-defined]
+            # Set transform origin to center
+            if center is not None and hasattr(self, 'setTransformOriginPoint'):
+                self.setTransformOriginPoint(center)  # type: ignore[attr-defined]
 
             self.setRotation(angle)  # type: ignore[attr-defined]
 
