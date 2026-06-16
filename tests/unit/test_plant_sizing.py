@@ -51,6 +51,13 @@ def test_non_numeric_max_spread_degrades_to_no_data() -> None:
     assert s.shows_spacing_ring is False
 
 
+def test_bool_max_spread_is_not_treated_as_number() -> None:
+    # bool is a subclass of int; the guard must reject it so True != 1 cm.
+    s = PlantSizing(footprint_radius_cm=10.0, spacing_override_cm=None, db_max_spread_cm=True)
+    assert s.effective_spacing_radius_cm is None
+    assert s.spacing_source == "none"
+
+
 def test_override_zero_still_wins_over_database() -> None:
     # Historical behaviour: any non-None override is returned verbatim, even 0.
     s = PlantSizing(footprint_radius_cm=10.0, spacing_override_cm=0.0, db_max_spread_cm=90.0)
