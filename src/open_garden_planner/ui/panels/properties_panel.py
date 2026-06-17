@@ -351,10 +351,13 @@ class PropertiesPanel(QWidget):
     def _relationship_summary_key(self, item: QGraphicsItem) -> object:
         """Text signature of the read-only Parent Bed / Contained Plants rows.
 
-        Mirrors the name derivation in `_add_parent_bed_section` /
+        Follows the same name derivation as `_add_parent_bed_section` /
         `_add_bed_children_section` (a related item's ``name``, falling back to
-        its translated type name). Folded into the identity so a rename of the
-        related item forces a rebuild and the summary can't go stale (#206).
+        its translated type name) for the cases those rows actually render — a
+        related item gated by `is_bed_type`/`is_plant_type` always has an
+        ``object_type``, so the typeless "Plant"/"Bed" fallback in the renderers
+        is unreachable here. Folded into the identity so a rename of the related
+        item forces a rebuild and the summary can't go stale (#206).
         """
         from open_garden_planner.core.object_types import is_bed_type
         from open_garden_planner.core.plant_renderer import is_plant_type

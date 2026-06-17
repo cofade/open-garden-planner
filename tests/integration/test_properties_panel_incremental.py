@@ -199,8 +199,15 @@ class TestReadOnlySummaryRowsStayFresh:
         assert "Bed A" in _label_texts(panel), "Parent Bed name not shown"
 
         # Rename the bed (a command) while the PLANT stays selected, then run the
-        # deferred panel update. The Parent Bed row must show the new name.
+        # deferred panel update. The Parent Bed row must show the new name. The
+        # ONLY thing that can flip the plant's identity here is the relationship
+        # summary key (id/class/object_type/id-sets are all unchanged) — assert
+        # it actually flipped so the rebuild can't be masked by an unrelated cause.
+        identity_before = panel._compute_identity([plant])
         manager.execute(ChangePropertyCommand(bed, "name", "Bed A", "Bed B", _set_name))
+        assert panel._compute_identity([plant]) != identity_before, (
+            "related-item rename must change the plant's structural identity"
+        )
         panel.set_selected_items([plant])
         labels = _label_texts(panel)
         assert "Bed B" in labels and "Bed A" not in labels, (
