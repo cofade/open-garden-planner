@@ -4,6 +4,8 @@ from datetime import date
 
 from PyQt6.QtCore import QDate, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
+    QAbstractSpinBox,
+    QApplication,
     QCheckBox,
     QComboBox,
     QDateEdit,
@@ -1031,6 +1033,20 @@ class PlantDatabasePanel(QWidget):
         Args:
             items: List of selected graphics items
         """
+        # Defensive backstop (#206): this panel reuses persistent widgets and
+        # re-pushes values via _show_plant_data on every call. If it is called
+        # for the *same* item that is already displayed while one of its own
+        # editable fields holds focus (e.g. a stray signal mid-edit), skip the
+        # re-push so it cannot stomp the active edit / drop the caret — the sole
+        # reason the unguarded sibling here was "safe only by luck" (issue #200).
+        # A genuine selection change still falls through and updates the panel.
+        if (
+            len(items) == 1
+            and items[0] is self._current_plant_item
+            and self._holds_field_focus()
+        ):
+            return
+
         # Check if exactly one plant item is selected
         if len(items) != 1:
             self._hide_details()
@@ -1073,6 +1089,15 @@ class PlantDatabasePanel(QWidget):
                 self._show_no_metadata()
         except Exception:
             self._show_no_metadata()
+
+    def _holds_field_focus(self) -> bool:
+        """True when one of this panel's editable input widgets currently has focus."""
+        fw = QApplication.focusWidget()
+        return (
+            fw is not None
+            and isinstance(fw, (QAbstractSpinBox, QLineEdit, QPlainTextEdit))
+            and self.isAncestorOf(fw)
+        )
 
     def _hide_details(self) -> None:
         """Hide plant details and show 'no selection' message."""
