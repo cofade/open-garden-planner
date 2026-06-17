@@ -292,6 +292,9 @@ class PropertiesPanel(QWidget):
         # model values into them instead of rebuilding. Rebuild only on a
         # genuine selection/structure change. This removes the per-signal
         # teardown that was the root cause of the #200 focus loss.
+        # The refresh path applies only when refreshers exist (a single editable
+        # item). Multi-selection and GroupItem register none, so they harmlessly
+        # fall through to a (cheap, no editable fields) rebuild on every signal.
         new_identity = self._compute_identity(items)
         if new_identity == self._current_identity and self._field_refreshers:
             self._current_items = items
@@ -317,6 +320,18 @@ class PropertiesPanel(QWidget):
         ``object_type`` (which fields exist), the bed's contained-plant ids
         (Contained Plants summary) and a plant's parent bed (Parent Bed summary)
         — so any of those forces a rebuild while pure scalar edits do not (#206).
+
+        It also folds in the *rendered text* of the read-only summary rows
+        (`_relationship_summary_key`): those rows show a **related** item's name,
+        which the id set alone does not capture, so a rename/undo of the related
+        item while this item stays selected would otherwise leave them stale on
+        the refresh path (no refresher covers a variable-row summary list).
+
+        Keying on ``id(item)`` is correct only because every command mutates the
+        selected item *in place* and reuses the same object across undo/redo (see
+        CreateItemCommand/DeleteItemsCommand). A command that ever *replaces* the
+        object for the same selection must add a discriminator here or it will
+        wrongly take the stale refresh path.
         """
         if len(items) != 1:
             return tuple(id(it) for it in items)
@@ -330,7 +345,45 @@ class PropertiesPanel(QWidget):
         if child_ids is not None:
             parts.append(tuple(child_ids))
         parts.append(getattr(item, "parent_bed_id", None))
+        parts.append(self._relationship_summary_key(item))
         return tuple(parts)
+
+    def _relationship_summary_key(self, item: QGraphicsItem) -> object:
+        """Text signature of the read-only Parent Bed / Contained Plants rows.
+
+        Mirrors the name derivation in `_add_parent_bed_section` /
+        `_add_bed_children_section` (a related item's ``name``, falling back to
+        its translated type name). Folded into the identity so a rename of the
+        related item forces a rebuild and the summary can't go stale (#206).
+        """
+        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        if not isinstance(item, GardenItemMixin):
+            return None
+        scene = item.scene()
+        if scene is None:
+            return None
+
+        def _label(it: GardenItemMixin) -> str:
+            if it.name:
+                return it.name
+            return get_translated_display_name(it.object_type) if it.object_type else ""
+
+        by_id = {
+            si.item_id: si for si in scene.items() if isinstance(si, GardenItemMixin)
+        }
+        if is_bed_type(item.object_type):
+            return tuple(
+                sorted(
+                    _label(by_id[cid]) for cid in item.child_item_ids if cid in by_id
+                )
+            )
+        if is_plant_type(item.object_type) and item.parent_bed_id is not None:
+            parent = by_id.get(item.parent_bed_id)
+            return _label(parent) if parent is not None else None
+        return None
 
     def _is_focused(self, widget: QWidget) -> bool:
         """True when ``widget`` (or a child, e.g. a spin box's editor) has focus."""

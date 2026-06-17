@@ -15,11 +15,18 @@ widgets in place. These tests lock that contract:
 - the in-place refresh never stomps a focused field.
 """
 
+from PyQt6.QtCore import QPointF
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QDoubleSpinBox, QLabel, QLineEdit
 
-from open_garden_planner.core.commands import ChangePropertyCommand, CommandManager
-from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+from open_garden_planner.core.commands import (
+    ChangePropertyCommand,
+    CommandManager,
+    SetParentBedCommand,
+)
+from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 from open_garden_planner.ui.panels import PropertiesPanel
 from open_garden_planner.ui.panels.properties_panel import ColorButton
 
@@ -152,6 +159,83 @@ class TestRebuildOnSelectionChange:
 
         panel.set_selected_items([])
         assert _field_by_label(panel, "Name") is None
+
+
+def _label_texts(panel: PropertiesPanel) -> list[str]:
+    """All QLabel texts currently shown in the form."""
+    return [lbl.text() for lbl in panel.findChildren(QLabel)]
+
+
+def _set_name(item, value: str) -> None:
+    item.name = value
+
+
+def _make_bed(name: str) -> PolygonItem:
+    bed = PolygonItem(
+        [QPointF(0, 0), QPointF(400, 0), QPointF(400, 400), QPointF(0, 400)],
+        object_type=ObjectType.GARDEN_BED,
+    )
+    bed.name = name
+    return bed
+
+
+class TestReadOnlySummaryRowsStayFresh:
+    """#206 senior-review P1: the Parent Bed / Contained Plants summary rows show
+    a *related* item's name. A rename/undo of that related item, while the
+    current item stays selected, must not leave the summary stale — the
+    relationship summary key in _compute_identity forces a rebuild for it."""
+
+    def test_parent_bed_name_refreshes_on_rename_undo(self, qtbot) -> None:  # noqa: ARG002
+        scene = CanvasScene(2000, 2000)
+        manager = CommandManager()
+        bed = _make_bed("Bed A")
+        plant = CircleItem(200, 200, 20, object_type=ObjectType.TREE)
+        scene.addItem(bed)
+        scene.addItem(plant)
+        manager.execute(SetParentBedCommand(scene, plant, None, bed.item_id))
+
+        panel = PropertiesPanel(command_manager=manager)
+        panel.set_selected_items([plant])
+        assert "Bed A" in _label_texts(panel), "Parent Bed name not shown"
+
+        # Rename the bed (a command) while the PLANT stays selected, then run the
+        # deferred panel update. The Parent Bed row must show the new name.
+        manager.execute(ChangePropertyCommand(bed, "name", "Bed A", "Bed B", _set_name))
+        panel.set_selected_items([plant])
+        labels = _label_texts(panel)
+        assert "Bed B" in labels and "Bed A" not in labels, (
+            "Parent Bed summary went stale after a related-item rename (#206 P1)"
+        )
+
+        # Undo the rename — the summary must revert too.
+        manager.undo()
+        panel.set_selected_items([plant])
+        labels = _label_texts(panel)
+        assert "Bed A" in labels and "Bed B" not in labels, (
+            "Parent Bed summary went stale after undo of a related-item rename"
+        )
+
+    def test_contained_plants_summary_refreshes_on_rename(self, qtbot) -> None:  # noqa: ARG002
+        scene = CanvasScene(2000, 2000)
+        manager = CommandManager()
+        bed = _make_bed("Bed A")
+        plant = CircleItem(200, 200, 20, object_type=ObjectType.TREE)
+        plant.name = "Apple"
+        scene.addItem(bed)
+        scene.addItem(plant)
+        manager.execute(SetParentBedCommand(scene, plant, None, bed.item_id))
+
+        panel = PropertiesPanel(command_manager=manager)
+        panel.set_selected_items([bed])
+        assert any("Apple" in t for t in _label_texts(panel)), "child name not listed"
+
+        # Rename the child plant while the BED stays selected.
+        manager.execute(ChangePropertyCommand(plant, "name", "Apple", "Pear", _set_name))
+        panel.set_selected_items([bed])
+        texts = _label_texts(panel)
+        assert any("Pear" in t for t in texts) and not any("Apple" in t for t in texts), (
+            "Contained Plants summary went stale after a child rename (#206 P1)"
+        )
 
 
 class TestRefreshSkipsFocusedWidget:
