@@ -168,6 +168,20 @@ class PropertiesPanel(QWidget):
         # (Name, Text Content). Flushed before any form rebuild so a pending
         # edit is not destroyed with its widget and lost from undo (#210).
         self._pending_text_commits: list[Callable[[], None]] = []
+        # Selection signature of the form currently built (#206). When
+        # set_selected_items is called with the same signature we push fresh
+        # values into the existing widgets (_refresh_field_values) instead of
+        # tearing the whole form down and rebuilding it.
+        self._current_signature: tuple | None = None
+        # One-shot flag forcing a full structural rebuild even when the
+        # signature is unchanged — used when a derived read-only section
+        # (e.g. Parent Bed) must refresh (see _do_unlink).
+        self._force_rebuild = False
+        # Co-located value refreshers: (widget, push_fn) pairs registered as
+        # each editable widget is built. _refresh_field_values calls them to
+        # update values in place without destroying widgets. Cleared on every
+        # structural rebuild (_clear_form).
+        self._value_refreshers: list[tuple[QWidget, Callable[[], None]]] = []
         self._setup_ui()
 
     def set_command_manager(self, command_manager: CommandManager) -> None:
@@ -210,8 +224,32 @@ class PropertiesPanel(QWidget):
 
     def _clear_form(self) -> None:
         """Clear all widgets from the form."""
+        # Drop refreshers first — their widgets are about to be destroyed (#206).
+        self._value_refreshers = []
         while self._form_layout.rowCount() > 0:
             self._form_layout.removeRow(0)
+
+    def _register_refresher(
+        self, widget: QWidget, push_fn: Callable[[], None]
+    ) -> None:
+        """Register a value refresher for an editable widget (#206).
+
+        ``push_fn`` re-reads the current value from the model and writes it into
+        ``widget`` in place. It is called by _refresh_field_values when the
+        selection is unchanged, so the form never has to be torn down for a
+        pure value update (resize, undo/redo). Refreshers run under
+        ``self._updating = True`` so the resulting valueChanged/textChanged
+        signals are ignored by the change handlers (no command churn).
+        """
+        self._value_refreshers.append((widget, push_fn))
+
+    @staticmethod
+    def _set_combo_to_data(combo: QComboBox, data: object) -> None:
+        """Select the combo entry whose itemData equals ``data`` (no-op if absent)."""
+        for i in range(combo.count()):
+            if combo.itemData(i) == data:
+                combo.setCurrentIndex(i)
+                return
 
     def _show_no_selection(self) -> None:
         """Show message when nothing is selected."""
@@ -246,13 +284,15 @@ class PropertiesPanel(QWidget):
         Args:
             items: List of selected graphics items
         """
-        # Don't rebuild the form while the user is actively editing one of its
-        # input widgets — rebuilding deletes the focused widget mid-input,
-        # dropping focus and the caret (issue #200). Every keystroke in the Name
-        # (QLineEdit) or Text Content (QTextEdit) field emits
-        # can_undo/redo_changed, which deferred-calls _update_properties_panel ->
-        # set_selected_items. QAbstractSpinBox covers the original spin-box case
-        # (incl. QSpinBox) and each widget's internal QLineEdit.
+        # Don't touch the form while the user is actively editing one of its
+        # input widgets. Since #206 a same-selection update refreshes values in
+        # place rather than tearing the form down, but even an in-place setText/
+        # setValue on the focused field would stomp the caret. And a debounced
+        # free-text commit (#210) can fire stack_changed -> set_selected_items
+        # while the field still holds focus. QAbstractSpinBox covers the spin-box
+        # case (incl. QSpinBox) and each widget's internal QLineEdit. This guard
+        # is now a backstop (the primary churn fix is the signature cache below),
+        # but it is still required — do NOT remove it.
         # Trade-off: if the canvas selection changes to a *different* item while
         # a panel field still holds focus, this skips that rebuild too, so the
         # panel briefly shows the previous item until the next trigger. That path
@@ -278,6 +318,18 @@ class PropertiesPanel(QWidget):
         # command (lost from undo history). The fields are still alive here.
         self._flush_pending_text_commits()
 
+        # Same selection as the currently-built form? Push fresh values into the
+        # existing widgets instead of tearing the form down and rebuilding it
+        # (#206). The signature includes each item's class and object_type, so an
+        # in-place object-type change differs and forces a structural rebuild.
+        new_sig = self._selection_signature(items)
+        if new_sig == self._current_signature and not self._force_rebuild:
+            self._current_items = items
+            self._refresh_field_values()
+            return
+
+        self._force_rebuild = False
+        self._current_signature = new_sig
         self._current_items = items
 
         if not items:
@@ -286,6 +338,50 @@ class PropertiesPanel(QWidget):
             self._show_multi_selection(len(items))
         else:
             self._show_single_item(items[0])
+
+    @staticmethod
+    def _selection_signature(items: list[QGraphicsItem]) -> tuple:
+        """Structural signature of a selection (#206).
+
+        Captures identity AND the determinants of *which* widgets the form
+        renders (concrete class + object_type), but NOT the editable values.
+        A pure value change keeps the signature stable (→ in-place refresh); a
+        selection change or an in-place type change changes it (→ rebuild).
+        """
+        return tuple(
+            (id(it), type(it).__name__, getattr(it, "object_type", None))
+            for it in items
+        )
+
+    def _refresh_field_values(self) -> None:
+        """Push fresh model values into the existing widgets, no teardown (#206).
+
+        Runs the co-located refreshers registered during the last structural
+        rebuild. The widget that currently holds focus is skipped so a value
+        push never stomps the caret (the focus guard in set_selected_items
+        already short-circuits while a text/spin field is focused; this is a
+        defensive backstop that also covers combos/buttons). Read-only derived
+        sections (Contained Plants, Parent Bed) register no refreshers, so they
+        are intentionally left untouched on the value path — callers that mutate
+        them force a structural rebuild instead (see _do_unlink).
+        """
+        if not self._value_refreshers:
+            return
+        from PyQt6.QtWidgets import QApplication
+
+        fw = QApplication.focusWidget()
+        self._updating = True
+        try:
+            for widget, push_fn in self._value_refreshers:
+                try:
+                    if fw is not None and (widget is fw or widget.isAncestorOf(fw)):
+                        continue
+                    push_fn()
+                except RuntimeError:
+                    # Widget was deleted out from under us — skip it.
+                    continue
+        finally:
+            self._updating = False
 
     def _flush_pending_text_commits(self) -> None:
         """Commit any pending debounced free-text edits, then clear the queue.
@@ -319,6 +415,10 @@ class PropertiesPanel(QWidget):
                     lambda: self._on_property_changed(item, 'layer_id', layer_combo.currentData())
                 )
                 self._form_layout.addRow(self.tr("Layer:"), layer_combo)
+                self._register_refresher(
+                    layer_combo,
+                    lambda lc=layer_combo, it=item: self._set_combo_to_data(lc, it.layer_id),
+                )
             self._updating = False
             return
 
@@ -364,6 +464,12 @@ class PropertiesPanel(QWidget):
             )
             self._form_layout.addRow(self.tr("Name:"), name_edit)
 
+            def _refresh_name(edit: QLineEdit = name_edit, it: QGraphicsItem = item) -> None:
+                edit.setText(it.name)
+                edit._ogp_name_start = it.name  # type: ignore[attr-defined]
+
+            self._register_refresher(name_edit, _refresh_name)
+
         # Show Label checkbox
         if hasattr(item, 'label_visible'):
             label_check = QCheckBox(self.tr("Show label on canvas"))
@@ -372,6 +478,10 @@ class PropertiesPanel(QWidget):
                 lambda checked: self._on_property_changed(item, 'label_visible', checked)
             )
             self._form_layout.addRow(self.tr("Label:"), label_check)
+            self._register_refresher(
+                label_check,
+                lambda lc=label_check, it=item: lc.setChecked(it.label_visible),
+            )
 
         # Layer
         if hasattr(item, 'layer_id'):
@@ -381,6 +491,10 @@ class PropertiesPanel(QWidget):
                 lambda: self._on_property_changed(item, 'layer_id', layer_combo.currentData())
             )
             self._form_layout.addRow(self.tr("Layer:"), layer_combo)
+            self._register_refresher(
+                layer_combo,
+                lambda lc=layer_combo, it=item: self._set_combo_to_data(lc, it.layer_id),
+            )
 
         # Geometry section
         self._add_geometry_properties(item)
@@ -578,7 +692,10 @@ class PropertiesPanel(QWidget):
                 scene, item, item.parent_bed_id, None,
             )
             self._command_manager.execute(cmd)
-            # Refresh panel
+            # Refresh panel. The Parent Bed row is a derived read-only section
+            # with no value refresher, so force a structural rebuild to drop it
+            # (#206 — value-only path would leave it stale).
+            self._force_rebuild = True
             self.set_selected_items([item])
 
         unlink_btn.clicked.connect(_do_unlink)
@@ -651,6 +768,15 @@ class PropertiesPanel(QWidget):
         pos_widget.setLayout(pos_layout)
         self._form_layout.addRow(self.tr("Position:"), pos_widget)
 
+        def _refresh_position(
+            xs: QDoubleSpinBox = x_spin, ys: QDoubleSpinBox = y_spin, it: QGraphicsItem = item
+        ) -> None:
+            tl = it.mapToScene(it.boundingRect().topLeft())
+            xs.setValue(tl.x())
+            ys.setValue(tl.y())
+
+        self._register_refresher(x_spin, _refresh_position)
+
         # Type-specific geometry (editable)
         if isinstance(item, CircleItem):
             diameter_spin = QDoubleSpinBox()
@@ -666,6 +792,10 @@ class PropertiesPanel(QWidget):
                 lambda val: self._on_dimension_changed(item, 'circle_diameter', val)
             )
             self._form_layout.addRow(self.tr("Diameter:"), diameter_spin)
+            self._register_refresher(
+                diameter_spin,
+                lambda ds=diameter_spin, it=item: ds.setValue(it.radius * 2),
+            )
         elif isinstance(item, RectangleItem):
             rect = item.rect()
             size_layout = QHBoxLayout()
@@ -705,6 +835,15 @@ class PropertiesPanel(QWidget):
             size_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             size_widget.setLayout(size_layout)
             self._form_layout.addRow(self.tr("Size:"), size_widget)
+
+            def _refresh_size(
+                ws: QDoubleSpinBox = w_spin, hs: QDoubleSpinBox = h_spin, it: RectangleItem = item
+            ) -> None:
+                r = it.rect()
+                ws.setValue(r.width())
+                hs.setValue(r.height())
+
+            self._register_refresher(w_spin, _refresh_size)
         elif isinstance(item, EllipseItem):
             rect = item.rect()
             axes_layout = QHBoxLayout()
@@ -746,6 +885,15 @@ class PropertiesPanel(QWidget):
             axes_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             axes_widget.setLayout(axes_layout)
             self._form_layout.addRow(self.tr("Semi-axes:"), axes_widget)
+
+            def _refresh_axes(
+                rxs: QDoubleSpinBox = rx_spin, rys: QDoubleSpinBox = ry_spin, it: EllipseItem = item
+            ) -> None:
+                r = it.rect()
+                rxs.setValue(r.width() / 2)
+                rys.setValue(r.height() / 2)
+
+            self._register_refresher(rx_spin, _refresh_axes)
 
     def _add_grid_properties(self, item: QGraphicsItem) -> None:
         """Add grid overlay controls (bed types only)."""
@@ -794,6 +942,19 @@ class PropertiesPanel(QWidget):
         if cell_count_label is not None:
             self._form_layout.addRow(self.tr("Cells:"), cell_count_label)
 
+        def _refresh_grid(
+            gc: QCheckBox = grid_check,
+            ss: QDoubleSpinBox = spacing_spin,
+            ccl: QLabel | None = cell_count_label,
+            it: QGraphicsItem = item,
+        ) -> None:
+            gc.setChecked(it.grid_enabled)
+            ss.setValue(it.grid_spacing)
+            if ccl is not None:
+                ccl.setText(str(it.grid_cell_count()))
+
+        self._register_refresher(grid_check, _refresh_grid)
+
     def _add_soil_depth_properties(self, item: QGraphicsItem) -> None:
         """Add soil fill depth control (bed types only, issue #177)."""
         if not hasattr(item, "object_type") or not is_bed_type(item.object_type):
@@ -818,6 +979,10 @@ class PropertiesPanel(QWidget):
 
         depth_spin.valueChanged.connect(on_depth_changed)
         self._form_layout.addRow(self.tr("Soil depth:"), depth_spin)
+        self._register_refresher(
+            depth_spin,
+            lambda ds=depth_spin, it=item: ds.setValue(int(it.metadata.get("soil_depth_cm", 30))),
+        )
 
     def _add_spacing_properties(self, item: QGraphicsItem) -> None:
         """Add plant spacing radius control (plant types only)."""
@@ -844,6 +1009,12 @@ class PropertiesPanel(QWidget):
         )
         self._form_layout.addRow(self.tr("Spacing radius:"), spacing_spin)
 
+        def _refresh_spacing(ss: QDoubleSpinBox = spacing_spin, it: CircleItem = item) -> None:
+            eff = it.effective_spacing_radius()
+            ss.setValue(eff if eff is not None else 0.0)
+
+        self._register_refresher(spacing_spin, _refresh_spacing)
+
         # Frost protection tristate checkbox (US-12.2)
         frost_check = QCheckBox(self.tr("Needs frost protection"))
         frost_check.setTristate(True)
@@ -868,6 +1039,18 @@ class PropertiesPanel(QWidget):
             lambda state, it=item: self._on_frost_protection_changed(it, state)
         )
         self._form_layout.addRow(self.tr("Frost protection:"), frost_check)
+
+        def _refresh_frost(
+            fc: QCheckBox = frost_check, sm: dict = state_map, it: QGraphicsItem = item
+        ) -> None:
+            fc.setCheckState(
+                sm.get(
+                    getattr(it, "frost_protection_needed", None),
+                    Qt.CheckState.PartiallyChecked,
+                )
+            )
+
+        self._register_refresher(frost_check, _refresh_frost)
 
     def _on_frost_protection_changed(self, item: QGraphicsItem, state: Qt.CheckState) -> None:
         """Handle frost protection tristate change with undo support."""
@@ -939,6 +1122,12 @@ class PropertiesPanel(QWidget):
         )
         self._form_layout.addRow(self.tr("Content:"), content_edit)
 
+        def _refresh_content(edit: FocusOutTextEdit = content_edit, it: TextItem = item) -> None:
+            edit.setPlainText(it.content)
+            edit._ogp_content_start = it.content  # type: ignore[attr-defined]
+
+        self._register_refresher(content_edit, _refresh_content)
+
         # Font family
         font_combo = QFontComboBox()
         font_combo.setCurrentFont(item.font())
@@ -946,6 +1135,9 @@ class PropertiesPanel(QWidget):
             lambda f: self._on_text_property_changed(item, "font_family", f.family())
         )
         self._form_layout.addRow(self.tr("Font:"), font_combo)
+        self._register_refresher(
+            font_combo, lambda fc=font_combo, it=item: fc.setCurrentFont(it.font())
+        )
 
         # Font size (in cm, matching scene units)
         size_spin = QDoubleSpinBox()
@@ -958,6 +1150,9 @@ class PropertiesPanel(QWidget):
             lambda v: self._on_text_property_changed(item, "font_size", v)
         )
         self._form_layout.addRow(self.tr("Size:"), size_spin)
+        self._register_refresher(
+            size_spin, lambda ss=size_spin, it=item: ss.setValue(it.font_size)
+        )
 
         # Bold / Italic row
         style_row = QHBoxLayout()
@@ -975,6 +1170,12 @@ class PropertiesPanel(QWidget):
         style_row.addWidget(italic_check)
         style_row.addStretch()
         self._form_layout.addRow(self.tr("Style:"), style_row)
+        self._register_refresher(
+            bold_check, lambda bc=bold_check, it=item: bc.setChecked(it.bold)
+        )
+        self._register_refresher(
+            italic_check, lambda ic=italic_check, it=item: ic.setChecked(it.italic)
+        )
 
         # Text color
         color_btn = ColorButton(item.text_color)
@@ -982,6 +1183,9 @@ class PropertiesPanel(QWidget):
             lambda: self._on_text_color_changed(item, color_btn)
         )
         self._form_layout.addRow(self.tr("Color:"), color_btn)
+        self._register_refresher(
+            color_btn, lambda cb=color_btn, it=item: cb.set_color(it.text_color)
+        )
 
     def _on_text_content_live(self, item: "TextItem", value: str, edit: QTextEdit) -> None:
         """Live-apply text content as the user types (visual only, no command).
@@ -1104,6 +1308,12 @@ class PropertiesPanel(QWidget):
                 if style_combo.currentData() is not None else None
             )
             self._form_layout.addRow(self.tr("Style:"), style_combo)
+            self._register_refresher(
+                style_combo,
+                lambda sc=style_combo, it=item: self._set_combo_to_data(
+                    sc, getattr(it, 'path_fence_style', PathFenceStyle.NONE)
+                ),
+            )
 
         # Fill color (not for polylines)
         if not isinstance(item, PolylineItem):
@@ -1113,6 +1323,12 @@ class PropertiesPanel(QWidget):
                 lambda: self._on_color_changed(item, 'fill_color', fill_btn)
             )
             self._form_layout.addRow(self.tr("Fill Color:"), fill_btn)
+            self._register_refresher(
+                fill_btn,
+                lambda fb=fill_btn, it=item: fb.set_color(
+                    it.fill_color if getattr(it, 'fill_color', None) else it.brush().color()
+                ),
+            )
 
             # Fill pattern
             pattern_combo = QComboBox()
@@ -1154,6 +1370,12 @@ class PropertiesPanel(QWidget):
                 lambda: self._on_property_changed(item, 'fill_pattern', pattern_combo.currentData())
             )
             self._form_layout.addRow(self.tr("Fill Pattern:"), pattern_combo)
+            self._register_refresher(
+                pattern_combo,
+                lambda pc=pattern_combo, it=item: self._set_combo_to_data(
+                    pc, getattr(it, 'fill_pattern', FillPattern.SOLID)
+                ),
+            )
 
         # Stroke color
         stroke_color = item.stroke_color if hasattr(item, 'stroke_color') and item.stroke_color else item.pen().color()
@@ -1162,6 +1384,12 @@ class PropertiesPanel(QWidget):
             lambda: self._on_color_changed(item, 'stroke_color', stroke_btn)
         )
         self._form_layout.addRow(self.tr("Stroke Color:"), stroke_btn)
+        self._register_refresher(
+            stroke_btn,
+            lambda sb=stroke_btn, it=item: sb.set_color(
+                it.stroke_color if getattr(it, 'stroke_color', None) else it.pen().color()
+            ),
+        )
 
         # Stroke width
         width_spin = QDoubleSpinBox()
@@ -1176,6 +1404,12 @@ class PropertiesPanel(QWidget):
             lambda val: self._on_property_changed(item, 'stroke_width', val)
         )
         self._form_layout.addRow(self.tr("Stroke Width:"), width_spin)
+        self._register_refresher(
+            width_spin,
+            lambda ws=width_spin, it=item: ws.setValue(
+                it.stroke_width if getattr(it, 'stroke_width', None) else it.pen().widthF()
+            ),
+        )
 
         # Stroke style
         stroke_style_combo = QComboBox()
@@ -1198,6 +1432,12 @@ class PropertiesPanel(QWidget):
             lambda: self._on_property_changed(item, 'stroke_style', stroke_style_combo.currentData())
         )
         self._form_layout.addRow(self.tr("Stroke Style:"), stroke_style_combo)
+        self._register_refresher(
+            stroke_style_combo,
+            lambda sc=stroke_style_combo, it=item: self._set_combo_to_data(
+                sc, getattr(it, 'stroke_style', StrokeStyle.SOLID)
+            ),
+        )
 
     def _capture_item_state(self, item: QGraphicsItem) -> dict:
         """Capture the current state of an item for undo purposes.

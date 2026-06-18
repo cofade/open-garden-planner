@@ -386,13 +386,18 @@ class TestFocusPreservation:
         """Guard fires only for the panel's own widgets: external focus still rebuilds.
 
         Locks the ``and self.isAncestorOf(fw)`` clause — a focused editable widget
-        that is *not* a descendant of the panel must not suppress the rebuild.
+        that is *not* a descendant of the panel must not suppress a needed rebuild.
+        A *different* item is selected so the rebuild is a genuine structural one
+        (a same-item call would take the #206 value-refresh fast path instead).
         """
         from PyQt6.QtWidgets import QApplication, QLineEdit
 
-        item = RectangleItem(0, 0, 100, 50)
+        item_a = RectangleItem(0, 0, 100, 50)
+        item_a.name = "A"
+        item_b = RectangleItem(0, 0, 100, 50)
+        item_b.name = "B"
         panel = PropertiesPanel()
-        panel.set_selected_items([item])
+        panel.set_selected_items([item_a])
 
         before = self._find_field_by_label(panel, "Name")
         assert isinstance(before, QLineEdit), "Name field not found in panel"
@@ -401,13 +406,14 @@ class TestFocusPreservation:
         # False → the rebuild must proceed (the Name widget is recreated).
         stray = QLineEdit()
         monkeypatch.setattr(QApplication, "focusWidget", lambda: stray)  # type: ignore[attr-defined]
-        panel.set_selected_items([item])
+        panel.set_selected_items([item_b])
 
         after = self._find_field_by_label(panel, "Name")
         assert isinstance(after, QLineEdit)
         assert after is not before, (
             "Form should rebuild when the focused widget is outside the panel"
         )
+        assert after.text() == "B", "Rebuilt form should show the newly selected item"
 
     def test_text_content_field_survives_rebuild_while_focused(self, qtbot, monkeypatch):  # noqa: ARG002
         """Latent #200 sibling: the Text annotation Content box must also survive."""
@@ -430,3 +436,106 @@ class TestFocusPreservation:
         assert after is content_edit, (
             "Text Content field was rebuilt while focused — focus would be lost (#200)"
         )
+
+
+class TestSelectionCacheValueRefresh:
+    """Issue #206: same-selection updates refresh values in place, no teardown."""
+
+    @staticmethod
+    def _field(panel: PropertiesPanel, label_text: str):
+        from PyQt6.QtWidgets import QLabel
+
+        form = panel._form_layout
+        for i in range(form.rowCount()):
+            label_item = form.itemAt(i, form.ItemRole.LabelRole)
+            field_item = form.itemAt(i, form.ItemRole.FieldRole)
+            if label_item is None or field_item is None:
+                continue
+            label_widget = label_item.widget()
+            if isinstance(label_widget, QLabel) and label_text in label_widget.text():
+                return field_item.widget()
+        return None
+
+    @staticmethod
+    def _spinboxes(widget):
+        from PyQt6.QtWidgets import QDoubleSpinBox
+
+        return widget.findChildren(QDoubleSpinBox)
+
+    def test_rect_resize_refreshes_in_place(self, qtbot, monkeypatch):  # noqa: ARG002
+        """Mutating a still-selected rect's size updates W/H without rebuilding."""
+        from PyQt6.QtWidgets import QApplication
+
+        monkeypatch.setattr(QApplication, "focusWidget", lambda: None)  # type: ignore[attr-defined]
+        item = RectangleItem(0, 0, 100, 50)
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+
+        size_widget = self._field(panel, "Size")
+        w_spin, h_spin = self._spinboxes(size_widget)
+        assert (w_spin.value(), h_spin.value()) == (100.0, 50.0)
+
+        # Resize the model, then re-set the SAME selection (mimics a resize
+        # command's stack_changed -> set_selected_items).
+        item.setRect(0, 0, 300, 200)
+        panel.set_selected_items([item])
+
+        # Same widget objects (no teardown) and refreshed values.
+        again = self._field(panel, "Size")
+        assert again is size_widget, "Size row was torn down — should refresh in place"
+        assert (w_spin.value(), h_spin.value()) == (300.0, 200.0)
+
+    def test_circle_resize_refreshes_diameter_in_place(self, qtbot, monkeypatch):  # noqa: ARG002
+        from PyQt6.QtWidgets import QApplication
+
+        monkeypatch.setattr(QApplication, "focusWidget", lambda: None)  # type: ignore[attr-defined]
+        item = CircleItem(0, 0, 25)  # radius 25 -> diameter 50
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+
+        diameter = self._field(panel, "Diameter")
+        assert diameter.value() == 50.0
+
+        item.set_radius_centered(40)  # diameter 80
+        panel.set_selected_items([item])
+
+        again = self._field(panel, "Diameter")
+        assert again is diameter, "Diameter row was torn down — should refresh in place"
+        assert diameter.value() == 80.0
+
+    def test_value_refresh_does_not_push_commands(self, qtbot, monkeypatch):  # noqa: ARG002
+        """The in-place refresh must not create undo commands (guarded by _updating)."""
+        from PyQt6.QtWidgets import QApplication
+
+        from open_garden_planner.core.commands import CommandManager
+
+        monkeypatch.setattr(QApplication, "focusWidget", lambda: None)  # type: ignore[attr-defined]
+        manager = CommandManager()
+        item = RectangleItem(0, 0, 100, 50)
+        panel = PropertiesPanel(command_manager=manager)
+        panel.set_selected_items([item])
+
+        item.setRect(0, 0, 300, 200)
+        panel.set_selected_items([item])
+
+        assert not manager.can_undo, "Value refresh must not register a command"
+
+    def test_object_type_change_forces_structural_rebuild(self, qtbot, monkeypatch):  # noqa: ARG002
+        """Changing object_type in place differs the signature -> full rebuild."""
+        from PyQt6.QtWidgets import QApplication
+
+        monkeypatch.setattr(QApplication, "focusWidget", lambda: None)  # type: ignore[attr-defined]
+        item = RectangleItem(0, 0, 100, 50)
+        item.object_type = ObjectType.GENERIC_RECTANGLE
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+
+        before = self._field(panel, "Size")
+        assert before is not None
+
+        item.object_type = ObjectType.HOUSE
+        panel.set_selected_items([item])
+
+        after = self._field(panel, "Size")
+        # A genuine rebuild recreates the row's widget.
+        assert after is not before, "Type change should force a structural rebuild"
