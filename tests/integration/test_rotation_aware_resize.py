@@ -34,7 +34,9 @@ from open_garden_planner.ui.canvas.items.resize_handle import (
 
 _ANGLES = [0.0, 45.0, 215.0]
 _CORNER = HandlePosition.BOTTOM_RIGHT
-_EDGE = HandlePosition.MIDDLE_LEFT
+_EDGE = HandlePosition.MIDDLE_LEFT  # horizontal edge (drives width)
+_EDGE_V = HandlePosition.TOP_CENTER  # vertical edge (drives height)
+_HANDLES = [_CORNER, _EDGE, _EDGE_V]
 
 _LEFT = {HandlePosition.TOP_LEFT, HandlePosition.MIDDLE_LEFT, HandlePosition.BOTTOM_LEFT}
 _RIGHT = {HandlePosition.TOP_RIGHT, HandlePosition.MIDDLE_RIGHT, HandlePosition.BOTTOM_RIGHT}
@@ -103,7 +105,7 @@ def _diag(item: object) -> float:
 
 @pytest.mark.parametrize("shape", ["circle", "rect", "ellipse"])
 @pytest.mark.parametrize("angle", _ANGLES)
-@pytest.mark.parametrize("handle", [_CORNER, _EDGE])
+@pytest.mark.parametrize("handle", _HANDLES)
 def test_fixed_reference_stays_put(
     canvas: CanvasView, shape: str, angle: float, handle: HandlePosition
 ) -> None:
@@ -143,7 +145,7 @@ def test_fixed_reference_stays_put(
 
 @pytest.mark.parametrize("shape", ["circle", "rect", "ellipse"])
 @pytest.mark.parametrize("angle", _ANGLES)
-@pytest.mark.parametrize("handle", [_CORNER, _EDGE])
+@pytest.mark.parametrize("handle", _HANDLES)
 def test_outward_grows_inward_shrinks(
     canvas: CanvasView, shape: str, angle: float, handle: HandlePosition
 ) -> None:
@@ -160,6 +162,30 @@ def test_outward_grows_inward_shrinks(
     start2 = _diag(shrink)
     _seed(shrink, handle)._apply_resize(_outward_delta(handle, angle, -20.0))
     assert _diag(shrink) < start2 - 1.0
+
+
+@pytest.mark.parametrize("shape", ["rect", "ellipse"])
+@pytest.mark.parametrize("angle", _ANGLES)
+@pytest.mark.parametrize(
+    ("handle", "keeps"),
+    [(_EDGE, "height"), (_EDGE_V, "width")],
+)
+def test_edge_handle_keeps_perpendicular_dimension(
+    canvas: CanvasView, shape: str, angle: float, handle: HandlePosition, keeps: str
+) -> None:
+    """A rect/ellipse edge drag changes only the driven axis (non-square items)."""
+    item = _make(shape)
+    canvas.scene().addItem(item)
+    item._apply_rotation(angle)
+    before = item.rect()
+    _seed(item, handle)._apply_resize(_outward_delta(handle, angle, 40.0))
+    after = item.rect()
+    if keeps == "height":
+        assert after.height() == pytest.approx(before.height())
+        assert after.width() > before.width()
+    else:
+        assert after.width() == pytest.approx(before.width())
+        assert after.height() > before.height()
 
 
 def test_circle_middle_handle_can_grow(canvas: CanvasView) -> None:

@@ -483,13 +483,12 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             return
         # Scene-space centre of the current circle (correct under any rotation).
         scene_center = self.mapToScene(self.rect().center())
-        self.prepareGeometryChange()
         diameter = new_radius * 2
         new_center = QPointF(new_radius, new_radius)
         # Keep the scene centre fixed: the centre-anchor case of the shared
-        # rotation-aware primitive (#218). It applies the rect, re-pins the
-        # rotation origin onto the new centre, and repositions so the centre
-        # stays put — the serializer's pos + center invariant.
+        # rotation-aware primitive (#218). It calls prepareGeometryChange(),
+        # applies the rect, re-pins the rotation origin onto the new centre,
+        # and repositions so the centre stays put — the pos + center invariant.
         resize_rect_item_keeping_anchor(
             self, QRectF(0, 0, diameter, diameter), scene_center, new_center
         )
@@ -607,6 +606,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         elif height_driven:
             diameter = new_height
         else:
+            # Unreachable for the 8 handle positions (each drives ≥1 axis);
+            # guards a hypothetical future centre handle.
             diameter = self._radius * 2.0
         diameter = max(diameter, MINIMUM_SIZE_CM)
         return diameter, diameter
