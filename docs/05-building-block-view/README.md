@@ -49,6 +49,7 @@ src/open_garden_planner/
 │   ├── object_types.py           # ObjectType enum, default styles
 │   ├── fill_patterns.py          # Texture/pattern rendering
 │   ├── plant_renderer.py         # Plant SVG loading, caching, rendering
+│   ├── plant_sizing.py           # PlantSizing resolver — footprint/override/max_spread precedence (ADR-028)
 │   ├── furniture_renderer.py     # Furniture/hedge SVG rendering & caching
 │   ├── constraints.py            # All 16 constraint types + hybrid solver (see §8.12)
 │   ├── constraint_solver_newton.py # Newton-Raphson refinement + circle-circle fast path

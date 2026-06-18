@@ -398,6 +398,22 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         self._position_label()
         self._update_area_label()
 
+    def _after_resize_geometry(self) -> None:
+        """Sync bookkeeping after the shared rotation-aware resize primitive.
+
+        Interactive-resize hook (``ResizeHandle._apply_resize``). The geometry
+        (rect, position, transform origin) is already applied; this refreshes
+        the dimension feedback, handles and labels. #218 follow-up.
+        """
+        if hasattr(self, '_dimension_display') and self._dimension_display is not None:
+            r = self.rect()
+            self._dimension_display.update_dimensions(
+                r.width(), r.height(), self.mapToScene(r.bottomRight())
+            )
+        self.update_resize_handles()
+        self._position_label()
+        self._update_area_label()
+
     def _on_resize_end(
         self,
         initial_rect: QRectF | None,
@@ -428,6 +444,7 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
             """Apply geometry to the item."""
             if isinstance(item, RectangleItem):
+                item.prepareGeometryChange()
                 item.setRect(
                     geom['rect_x'],
                     geom['rect_y'],
@@ -435,6 +452,9 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     geom['height'],
                 )
                 item.setPos(geom['pos_x'], geom['pos_y'])
+                # Re-pin the rotation origin so undo/redo of a rotated resize
+                # restores the pivot too, not just rect + pos (#218).
+                item.setTransformOriginPoint(item.rect().center())
                 item.update_resize_handles()
                 item._position_label()
 

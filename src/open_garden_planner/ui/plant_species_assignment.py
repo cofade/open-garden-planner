@@ -21,6 +21,7 @@ from PyQt6.QtCore import QCoreApplication
 from PyQt6.QtWidgets import QGraphicsItem, QMessageBox, QWidget
 
 from open_garden_planner.core.commands import ApplySpeciesCommand
+from open_garden_planner.core.plant_sizing import db_spacing_radius_cm
 
 # Spacing radii within this many cm are treated as equal (avoids prompting on
 # float round-trip noise).
@@ -92,13 +93,8 @@ def apply_species_to_item(
 
     # Footprint radius / spacing radius the database would yield. The drawn
     # circle's diameter should equal max_spread_cm, so both derive from
-    # max_spread_cm / 2.
-    max_spread = species_dict.get("max_spread_cm")
-    db_radius = (
-        float(max_spread) / 2.0
-        if isinstance(max_spread, (int, float)) and max_spread > 0
-        else None
-    )
+    # max_spread_cm / 2 (resolved by the single sizing helper, #218).
+    db_radius = db_spacing_radius_cm(species_dict)
 
     # Default: leave the placed footprint and the override untouched.
     new_override = old_override
