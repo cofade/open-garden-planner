@@ -13,7 +13,7 @@ signal wiring (multiplicity + undo/redo coverage), which is the core
 regression risk of dropping the `can_undo/redo_changed` wirings.
 """
 
-# ruff: noqa: ARG002
+# ruff: noqa: ARG002, ARG005
 
 from PyQt6.QtWidgets import QApplication, QDoubleSpinBox, QLabel
 

@@ -171,12 +171,12 @@ class PropertiesPanel(QWidget):
         # Selection signature of the form currently built (#206). When
         # set_selected_items is called with the same signature we push fresh
         # values into the existing widgets (_refresh_field_values) instead of
-        # tearing the whole form down and rebuilding it.
+        # tearing the whole form down and rebuilding it. The signature captures
+        # everything that determines *which widgets/contents* the form renders
+        # (class, object_type, the layer list the Layer combo is built from, and
+        # the relationship-section determinants), so any such change forces a
+        # rebuild automatically — no out-of-band "force rebuild" flag.
         self._current_signature: tuple | None = None
-        # One-shot flag forcing a full structural rebuild even when the
-        # signature is unchanged — used when a derived read-only section
-        # (e.g. Parent Bed) must refresh (see _do_unlink).
-        self._force_rebuild = False
         # Co-located value refreshers: (widget, push_fn) pairs registered as
         # each editable widget is built. _refresh_field_values calls them to
         # update values in place without destroying widgets. Cleared on every
@@ -320,15 +320,15 @@ class PropertiesPanel(QWidget):
 
         # Same selection as the currently-built form? Push fresh values into the
         # existing widgets instead of tearing the form down and rebuilding it
-        # (#206). The signature includes each item's class and object_type, so an
-        # in-place object-type change differs and forces a structural rebuild.
+        # (#206). The signature includes each item's class, object_type, the
+        # Layer combo's source list, and relationship determinants, so a change
+        # to any of those differs and forces a structural rebuild.
         new_sig = self._selection_signature(items)
-        if new_sig == self._current_signature and not self._force_rebuild:
+        if new_sig == self._current_signature:
             self._current_items = items
             self._refresh_field_values()
             return
 
-        self._force_rebuild = False
         self._current_signature = new_sig
         self._current_items = items
 
@@ -339,19 +339,40 @@ class PropertiesPanel(QWidget):
         else:
             self._show_single_item(items[0])
 
-    @staticmethod
-    def _selection_signature(items: list[QGraphicsItem]) -> tuple:
+    @classmethod
+    def _selection_signature(cls, items: list[QGraphicsItem]) -> tuple:
         """Structural signature of a selection (#206).
 
-        Captures identity AND the determinants of *which* widgets the form
-        renders (concrete class + object_type), but NOT the editable values.
-        A pure value change keeps the signature stable (→ in-place refresh); a
-        selection change or an in-place type change changes it (→ rebuild).
+        Captures identity AND every determinant of *which* widgets and contents
+        the form renders, but NOT the editable values. A pure value change keeps
+        the signature stable (→ in-place refresh); anything that changes the
+        form's structure changes it (→ rebuild).
         """
-        return tuple(
-            (id(it), type(it).__name__, getattr(it, "object_type", None))
-            for it in items
-        )
+        return tuple(cls._item_signature(it) for it in items)
+
+    @staticmethod
+    def _item_signature(it: QGraphicsItem) -> tuple:
+        """Structural determinants for a single item (#206).
+
+        Beyond class + object_type, this folds in state that is rendered from
+        *external* sources and would otherwise go stale on the in-place value
+        path: the Layer combo is populated from ``scene.layers`` (so a layer
+        add/rename/delete must rebuild even though the selection is unchanged),
+        and the read-only relationship sections depend on bed/plant links.
+        """
+        parts: list[object] = [
+            id(it),
+            type(it).__name__,
+            getattr(it, "object_type", None),
+        ]
+        scene = it.scene()
+        if hasattr(it, "layer_id") and scene is not None and hasattr(scene, "layers"):
+            parts.append(tuple((layer.id, layer.name) for layer in scene.layers))
+        if hasattr(it, "child_item_ids"):  # bed → "Contained Plants" section
+            parts.append(("children", tuple(it.child_item_ids)))
+        if hasattr(it, "parent_bed_id"):  # plant → "Parent Bed" section
+            parts.append(("parent", it.parent_bed_id))
+        return tuple(parts)
 
     def _refresh_field_values(self) -> None:
         """Push fresh model values into the existing widgets, no teardown (#206).
@@ -361,9 +382,10 @@ class PropertiesPanel(QWidget):
         push never stomps the caret (the focus guard in set_selected_items
         already short-circuits while a text/spin field is focused; this is a
         defensive backstop that also covers combos/buttons). Read-only derived
-        sections (Contained Plants, Parent Bed) register no refreshers, so they
-        are intentionally left untouched on the value path — callers that mutate
-        them force a structural rebuild instead (see _do_unlink).
+        sections (Contained Plants, Parent Bed) register no refreshers — they are
+        instead folded into the selection signature (see _item_signature), so any
+        change to them differs the signature and triggers a structural rebuild
+        rather than reaching this value-only path.
         """
         if not self._value_refreshers:
             return
@@ -692,10 +714,9 @@ class PropertiesPanel(QWidget):
                 scene, item, item.parent_bed_id, None,
             )
             self._command_manager.execute(cmd)
-            # Refresh panel. The Parent Bed row is a derived read-only section
-            # with no value refresher, so force a structural rebuild to drop it
-            # (#206 — value-only path would leave it stale).
-            self._force_rebuild = True
+            # Refresh panel. Unlinking cleared parent_bed_id, which is part of the
+            # selection signature (#206), so this triggers a structural rebuild
+            # and the Parent Bed row is dropped.
             self.set_selected_items([item])
 
         unlink_btn.clicked.connect(_do_unlink)

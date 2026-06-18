@@ -539,3 +539,64 @@ class TestSelectionCacheValueRefresh:
         after = self._field(panel, "Size")
         # A genuine rebuild recreates the row's widget.
         assert after is not before, "Type change should force a structural rebuild"
+
+    def test_layer_added_repopulates_layer_combo(self, qtbot, monkeypatch):  # noqa: ARG002
+        """A layer add (stack_changed, selection unchanged) must rebuild the combo.
+
+        Regression for the senior-review P1: the Layer combo is populated from
+        scene.layers; folding the layer list into the selection signature makes
+        an add/rename/delete differ the signature and force a structural rebuild,
+        so the combo's *contents* stay current (not just its selected index).
+        """
+        from PyQt6.QtWidgets import QApplication, QComboBox
+
+        from open_garden_planner.models.layer import Layer
+        from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+
+        monkeypatch.setattr(QApplication, "focusWidget", lambda: None)  # type: ignore[attr-defined]
+        scene = CanvasScene(width_cm=500, height_cm=500)
+        item = RectangleItem(0, 0, 100, 50)
+        scene.addItem(item)
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+
+        layer_combo = self._field(panel, "Layer")
+        assert isinstance(layer_combo, QComboBox)
+        before_count = layer_combo.count()
+
+        # Add a layer while the same item stays selected.
+        scene.add_layer(Layer(name="New Layer"))
+        panel.set_selected_items([item])
+
+        after = self._field(panel, "Layer")
+        assert after.count() == before_count + 1, "Layer combo must gain the new layer"
+        names = [after.itemText(i) for i in range(after.count())]
+        assert "New Layer" in names
+
+    def test_value_refresh_skips_focused_combo(self, qtbot, monkeypatch):  # noqa: ARG002
+        """The focus-skip branch of _refresh_field_values must not stomp a focused
+        combo, while still refreshing the other (unfocused) widgets in place."""
+        from PyQt6.QtWidgets import QApplication
+
+        item = RectangleItem(0, 0, 100, 50)
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+
+        stroke_combo = self._field(panel, "Stroke Style")
+        size_widget = self._field(panel, "Size")
+        w_spin = self._spinboxes(size_widget)[0]
+        assert stroke_combo is not None
+
+        # Pretend the stroke-style combo holds focus (combos aren't covered by
+        # the set_selected_items early-return guard, only by this skip).
+        monkeypatch.setattr(QApplication, "focusWidget", lambda: stroke_combo)  # type: ignore[attr-defined]
+        stroke_combo.setCurrentIndex(1)
+        focused_index = stroke_combo.currentIndex()
+
+        # Same selection, mutated geometry -> value path runs.
+        item.setRect(0, 0, 250, 150)
+        panel.set_selected_items([item])
+
+        # Focused combo untouched; unfocused spin box refreshed.
+        assert stroke_combo.currentIndex() == focused_index, "focused combo was stomped"
+        assert w_spin.value() == 250.0, "unfocused field should still refresh"
