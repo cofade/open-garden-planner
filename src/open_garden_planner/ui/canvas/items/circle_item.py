@@ -27,6 +27,7 @@ from open_garden_planner.core.plant_sizing import sizing_for_item
 
 from .garden_item import GardenItemMixin
 from .resize_handle import (
+    MINIMUM_SIZE_CM,
     AnnotationLabel,
     ResizeHandlesMixin,
     RotationHandleMixin,
@@ -583,6 +584,62 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         self._resize_initial_rect = self.rect()
         self._resize_initial_pos = self.pos()
 
+    def _constrain_resize_size(
+        self,
+        new_width: float,
+        new_height: float,
+        *,
+        width_driven: bool,
+        height_driven: bool,
+    ) -> tuple[float, float]:
+        """Square the resize rect so the circle stays circular and tracks the cursor.
+
+        Interactive-resize hook (``ResizeHandle._apply_resize``). The diameter
+        follows whichever axis the dragged handle drives so the handle tracks
+        the cursor: a corner handle reaches the farther axis (``max``), an edge
+        handle follows its own axis (so a side handle can grow *or* shrink the
+        circle — the old ``min(w, h)`` capped growth). #218 follow-up.
+        """
+        if width_driven and height_driven:
+            diameter = max(new_width, new_height)
+        elif width_driven:
+            diameter = new_width
+        elif height_driven:
+            diameter = new_height
+        else:
+            diameter = self._radius * 2.0
+        diameter = max(diameter, MINIMUM_SIZE_CM)
+        return diameter, diameter
+
+    def _after_resize_geometry(self) -> None:
+        """Sync circle bookkeeping after the shared primitive set rect/pos/origin.
+
+        Interactive-resize hook. The geometry (rect, position, transform origin)
+        is already applied; this updates the derived ``_center``/``_radius``,
+        the dimension feedback, handles, labels and annotations.
+        """
+        r = self.rect()
+        self._center = QPointF(r.width() / 2.0, r.height() / 2.0)
+        self._radius = r.width() / 2.0
+        # Single dimension readout: the circle annotates its own diameter ("Ø")
+        # when annotations are visible, so only fall back to the handle's
+        # width×height box when they are not (avoids the double label, #218).
+        annotations_visible = (
+            self._center_label is not None and self._center_label.isVisible()
+        )
+        if (
+            not annotations_visible
+            and hasattr(self, '_dimension_display')
+            and self._dimension_display is not None
+        ):
+            self._dimension_display.update_dimensions(
+                r.width(), r.height(), self.mapToScene(r.bottomRight())
+            )
+        self.update_resize_handles()
+        self._position_label()
+        self._update_area_label()
+        self._update_circle_annotations()
+
     def _apply_resize(
         self,
         _x: float,
@@ -708,6 +765,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
             """Apply geometry to the item."""
             if isinstance(item, CircleItem):
+                item.prepareGeometryChange()
                 item.setRect(
                     geom['rect_x'],
                     geom['rect_y'],

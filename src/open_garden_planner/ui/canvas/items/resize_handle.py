@@ -72,6 +72,10 @@ def resize_rect_item_keeping_anchor(
     Bookkeeping (``_center``/``_radius``, handles, labels) stays with the caller;
     this primitive only touches geometry.
     """
+    # Invalidate the OLD (possibly larger) bounding region before the geometry
+    # shrinks, else Qt leaves stale pixels — e.g. the spacing-ring "ghost" disc
+    # seen when a plant's footprint is dragged smaller (#218 follow-up).
+    item.prepareGeometryChange()
     item.setRect(new_rect)  # type: ignore[attr-defined]
     origin = new_rect.center()
     item.setTransformOriginPoint(origin)
@@ -86,46 +90,6 @@ def resize_rect_item_keeping_anchor(
         scene_anchor.x() - origin.x() - rot_dx,
         scene_anchor.y() - origin.y() - rot_dy,
     )
-
-
-def _reanchor_after_rotated_resize(
-    item: QGraphicsItem,
-    init_rect: QRectF,
-    init_pos: QPointF,
-    left_fixed: bool,
-    top_fixed: bool,
-    cos_a: float,
-    sin_a: float,
-) -> None:
-    """Correct a rotated rect item's pivot + position after an axis-aligned resize.
-
-    The per-item ``_apply_resize`` math keeps the dragged-opposite edge fixed
-    assuming the item is axis-aligned and never updates ``transformOriginPoint``.
-    For a rotated item that drifts (the serialized ``pos + rect.center()`` stops
-    matching the on-screen centre — issue #218 / §11.4). This recomputes the
-    fixed corner's true scene position (rotation-aware, pivoting on the rect
-    centre — the invariant that holds at resize start) and re-applies geometry
-    through :func:`resize_rect_item_keeping_anchor`.
-
-    Only invoked when ``item.rotation() != 0``; the axis-aligned path is already
-    correct and is left byte-for-byte unchanged.
-    """
-    new_rect = item.rect()  # type: ignore[attr-defined]
-    init_center = init_rect.center()
-    # The fixed corner in the *old* local rect (whichever edges did not move).
-    old_fx = init_rect.left() if left_fixed else init_rect.right()
-    old_fy = init_rect.top() if top_fixed else init_rect.bottom()
-    odx = old_fx - init_center.x()
-    ody = old_fy - init_center.y()
-    # Its scene position under the start transform (origin == init rect centre).
-    scene_anchor = QPointF(
-        init_pos.x() + init_center.x() + odx * cos_a - ody * sin_a,
-        init_pos.y() + init_center.y() + odx * sin_a + ody * cos_a,
-    )
-    # The same corner in the *new* local rect.
-    new_fx = new_rect.left() if left_fixed else new_rect.right()
-    new_fy = new_rect.top() if top_fixed else new_rect.bottom()
-    resize_rect_item_keeping_anchor(item, new_rect, scene_anchor, QPointF(new_fx, new_fy))
 
 
 class HandlePosition(Enum):
@@ -576,25 +540,85 @@ class ResizeHandle(QGraphicsRectItem):
         new_width = max(new_width, MINIMUM_SIZE_CM)
         new_height = max(new_height, MINIMUM_SIZE_CM)
 
-        # Transform local position offset back to scene coordinates
-        # Forward rotation: local -> scene
+        parent = self._parent_item
+
+        # Rect-bearing items (Circle/Rectangle/Ellipse) resize through the one
+        # rotation-aware primitive: the corner/edge OPPOSITE the dragged handle
+        # stays fixed in the scene and the rotation origin is re-pinned to the
+        # new rect centre. The handle position is the AUTHORITATIVE source of
+        # which side is fixed — no scene-space or pos_dx inference, which used
+        # to disagree under rotation and drift the item (#218 follow-up).
+        if (
+            hasattr(parent, 'rect')
+            and hasattr(parent, 'setTransformOriginPoint')
+            and hasattr(parent, '_after_resize_geometry')
+        ):
+            is_left = self._position in {
+                HandlePosition.TOP_LEFT,
+                HandlePosition.MIDDLE_LEFT,
+                HandlePosition.BOTTOM_LEFT,
+            }
+            is_right = self._position in {
+                HandlePosition.TOP_RIGHT,
+                HandlePosition.MIDDLE_RIGHT,
+                HandlePosition.BOTTOM_RIGHT,
+            }
+            is_top = self._position in {
+                HandlePosition.TOP_LEFT,
+                HandlePosition.TOP_CENTER,
+                HandlePosition.TOP_RIGHT,
+            }
+            is_bottom = self._position in {
+                HandlePosition.BOTTOM_LEFT,
+                HandlePosition.BOTTOM_CENTER,
+                HandlePosition.BOTTOM_RIGHT,
+            }
+
+            # Item-specific size constraint (a circle squares the rect so the
+            # dragged handle tracks the cursor; rect/ellipse keep w/h as-is).
+            if hasattr(parent, '_constrain_resize_size'):
+                norm_w, norm_h = parent._constrain_resize_size(
+                    new_width,
+                    new_height,
+                    width_driven=is_left or is_right,
+                    height_driven=is_top or is_bottom,
+                )
+            else:
+                norm_w, norm_h = new_width, new_height
+            new_rect = QRectF(init_rect.x(), init_rect.y(), norm_w, norm_h)
+
+            # Fixed reference = the side opposite the handle (centre on an axis
+            # the handle does not drive). Take its scene position under the
+            # start transform (origin == init rect centre — the invariant that
+            # holds at resize start) and its position in the new rect.
+            oc = init_rect.center()
+            old_fx = init_rect.right() if is_left else init_rect.left() if is_right else oc.x()
+            old_fy = init_rect.bottom() if is_top else init_rect.top() if is_bottom else oc.y()
+            adx = old_fx - oc.x()
+            ady = old_fy - oc.y()
+            scene_anchor = QPointF(
+                init_pos.x() + oc.x() + adx * cos_a - ady * sin_a,
+                init_pos.y() + oc.y() + adx * sin_a + ady * cos_a,
+            )
+            nc = new_rect.center()
+            new_fx = new_rect.right() if is_left else new_rect.left() if is_right else nc.x()
+            new_fy = new_rect.bottom() if is_top else new_rect.top() if is_bottom else nc.y()
+
+            resize_rect_item_keeping_anchor(
+                parent, new_rect, scene_anchor, QPointF(new_fx, new_fy)
+            )
+            parent._after_resize_geometry()
+            return
+
+        # Non-rect items (polygon/text): existing axis-aligned path.
         scene_pos_dx = pos_dx * cos_a - pos_dy * sin_a
         scene_pos_dy = pos_dx * sin_a + pos_dy * cos_a
-
-        # Update dimension display
-        if (hasattr(self._parent_item, '_dimension_display') and
-            self._parent_item._dimension_display is not None):
-            # Get cursor position for display
-            cursor_pos = self.scenePos()
-            self._parent_item._dimension_display.update_dimensions(
-                new_width,
-                new_height,
-                cursor_pos,
+        if hasattr(parent, '_dimension_display') and parent._dimension_display is not None:
+            parent._dimension_display.update_dimensions(
+                new_width, new_height, self.scenePos()
             )
-
-        # Apply the resize to parent
-        if hasattr(self._parent_item, '_apply_resize'):
-            self._parent_item._apply_resize(
+        if hasattr(parent, '_apply_resize'):
+            parent._apply_resize(
                 new_x,
                 new_y,
                 new_width,
@@ -602,34 +626,6 @@ class ResizeHandle(QGraphicsRectItem):
                 init_pos.x() + scene_pos_dx,
                 init_pos.y() + scene_pos_dy,
             )
-
-            # The per-item math above is axis-aligned and never re-pins the
-            # rotation origin, so a rotated item drifts (pivot diverges from
-            # rect().center(); save/reload + next rotation jump — #218). When
-            # the item is rotated, correct the pivot + position so the fixed
-            # corner stays put. rect-bearing items only (Circle/Rectangle/
-            # Ellipse); polygons/text scale differently and serialize absolute
-            # geometry, so they keep the existing path (cf. #219 rect() gate).
-            if (
-                rotation != 0.0
-                and hasattr(self._parent_item, 'rect')
-                and hasattr(self._parent_item, 'setTransformOriginPoint')
-            ):
-                left_fixed = pos_dx == 0.0
-                top_fixed = pos_dy == 0.0
-                _reanchor_after_rotated_resize(
-                    self._parent_item,
-                    init_rect,
-                    init_pos,
-                    left_fixed,
-                    top_fixed,
-                    cos_a,
-                    sin_a,
-                )
-                if hasattr(self._parent_item, 'update_resize_handles'):
-                    self._parent_item.update_resize_handles()
-                if hasattr(self._parent_item, '_position_label'):
-                    self._parent_item._position_label()
 
 
 class AngleDisplay(QGraphicsItem):

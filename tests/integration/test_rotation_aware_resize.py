@@ -1,19 +1,21 @@
-"""Integration tests for rotation-aware drag-resize (issue #218).
+"""Integration tests for rotation-aware drag-resize (issue #218 + follow-up).
 
-The interactive resize path historically kept the dragged-opposite edge fixed
-with axis-aligned math and never re-pinned ``transformOriginPoint``. For a
-*rotated* item that drifts: the serialized centre (``pos + rect.center()``)
-stops matching the on-screen centre, so the item jumps on the next rotation and
-on save/reload. #219 fixed this for the rotation gesture; #218 closes it for the
-resize gesture by routing every rect-bearing resize through one rotation-aware
-"resize about a scene anchor" primitive.
+The interactive resize routes every rect-bearing item (Circle/Rectangle/Ellipse)
+through one rotation-aware "resize about a scene anchor" primitive: the corner or
+edge OPPOSITE the dragged handle stays fixed in the scene, the rotation origin is
+re-pinned to the new rect centre, and a circle stays circular with the dragged
+handle tracking the cursor.
 
-These tests drive ``ResizeHandle._apply_resize(delta)`` directly (what a real
-handle drag calls per mouse-move), with the initial state seeded as
-``mousePressEvent`` would.
+The earlier bug (PR #221 manual test): a rotated circle resize was incoherent —
+``min(width, height)`` + a scene-space fixed-edge guess that disagreed with the
+rotated frame, so the diameter collapsed/refused to grow and the centre drifted.
+These tests drive the real ``ResizeHandle._apply_resize(delta)`` (one call per
+mouse-move) with the initial state seeded as ``mousePressEvent`` does.
 """
 
 from __future__ import annotations
+
+import math
 
 import pytest
 from PyQt6.QtCore import QPointF, QRectF
@@ -30,128 +32,190 @@ from open_garden_planner.ui.canvas.items.resize_handle import (
     resize_rect_item_keeping_anchor,
 )
 
-_ROTATION = 37.0
+_ANGLES = [0.0, 45.0, 215.0]
+_CORNER = HandlePosition.BOTTOM_RIGHT
+_EDGE = HandlePosition.MIDDLE_LEFT
+
+_LEFT = {HandlePosition.TOP_LEFT, HandlePosition.MIDDLE_LEFT, HandlePosition.BOTTOM_LEFT}
+_RIGHT = {HandlePosition.TOP_RIGHT, HandlePosition.MIDDLE_RIGHT, HandlePosition.BOTTOM_RIGHT}
+_TOP = {HandlePosition.TOP_LEFT, HandlePosition.TOP_CENTER, HandlePosition.TOP_RIGHT}
+_BOTTOM = {HandlePosition.BOTTOM_LEFT, HandlePosition.BOTTOM_CENTER, HandlePosition.BOTTOM_RIGHT}
 
 
 @pytest.fixture()
 def canvas(qtbot: object) -> CanvasView:
-    scene = CanvasScene(width_cm=5000, height_cm=3000)
+    scene = CanvasScene(width_cm=8000, height_cm=6000)
     view = CanvasView(scene)
     qtbot.addWidget(view)  # type: ignore[attr-defined]
     view.set_snap_enabled(False)
     return view
 
 
-def _serialized_center(item: object) -> QPointF:
-    """Mirror core.project: a rect-bearing item stores pos + rect.center()."""
-    pos = item.pos()  # type: ignore[attr-defined]
-    c = item.rect().center()  # type: ignore[attr-defined]
-    return QPointF(pos.x() + c.x(), pos.y() + c.y())
+def _make(shape: str) -> CircleItem | RectangleItem | EllipseItem:
+    if shape == "circle":
+        return CircleItem(300.0, 300.0, 50.0, object_type=ObjectType.SHRUB)
+    if shape == "rect":
+        return RectangleItem(250.0, 260.0, 100.0, 80.0)
+    return EllipseItem(250.0, 260.0, 100.0, 80.0)
 
 
-def _drag_resize(item: object, handle_pos: HandlePosition, delta: QPointF) -> None:
-    """Drive one handle drag of ``delta`` (scene coords), seeding initial state."""
-    handle = ResizeHandle(handle_pos, item)  # type: ignore[arg-type]
+def _fixed_local(rect: QRectF, pos: HandlePosition) -> QPointF:
+    """The corner/edge point OPPOSITE the handle (centre on a non-driven axis)."""
+    x = (
+        rect.right() if pos in _LEFT
+        else rect.left() if pos in _RIGHT
+        else rect.center().x()
+    )
+    y = (
+        rect.bottom() if pos in _TOP
+        else rect.top() if pos in _BOTTOM
+        else rect.center().y()
+    )
+    return QPointF(x, y)
+
+
+def _outward_delta(pos: HandlePosition, angle_deg: float, mag: float) -> QPointF:
+    """Scene delta that drives ``pos`` outward by ``mag`` in the item's local frame."""
+    lx = -1.0 if pos in _LEFT else 1.0 if pos in _RIGHT else 0.0
+    ly = -1.0 if pos in _TOP else 1.0 if pos in _BOTTOM else 0.0
+    rad = math.radians(angle_deg)
+    c, s = math.cos(rad), math.sin(rad)
+    return QPointF((lx * c - ly * s) * mag, (lx * s + ly * c) * mag)
+
+
+def _seed(item: object, pos: HandlePosition) -> ResizeHandle:
+    handle = ResizeHandle(pos, item)  # type: ignore[arg-type]
     handle._initial_rect = QRectF(item.rect())  # type: ignore[attr-defined]
     handle._initial_parent_pos = item.pos()  # type: ignore[attr-defined]
-    handle._apply_resize(delta)
+    handle._drag_start_pos = QPointF(0, 0)
+    handle._is_dragging = True
+    return handle
+
+
+def _diag(item: object) -> float:
+    r = item.rect()  # type: ignore[attr-defined]
+    return math.hypot(r.width(), r.height())
 
 
 # ---------------------------------------------------------------------------
-# Drag-resizing a rotated item keeps the fixed corner put + pivot on centre.
+# The fixed corner/edge stays put across a multi-step drag; invariants hold.
 
 
-# Both a generic angle and one past 90° (catches R(θ) quadrant/sign errors).
-@pytest.mark.parametrize("angle", [37.0, 215.0])
-@pytest.mark.parametrize(
-    "factory",
-    [
-        lambda: CircleItem(100.0, 100.0, 30.0, object_type=ObjectType.SHRUB),
-        lambda: RectangleItem(80.0, 90.0, 200.0, 120.0),
-        lambda: EllipseItem(80.0, 90.0, 200.0, 120.0),
-    ],
-)
-def test_rotated_drag_resize_keeps_fixed_corner(
-    canvas: CanvasView, factory, angle: float
+@pytest.mark.parametrize("shape", ["circle", "rect", "ellipse"])
+@pytest.mark.parametrize("angle", _ANGLES)
+@pytest.mark.parametrize("handle", [_CORNER, _EDGE])
+def test_fixed_reference_stays_put(
+    canvas: CanvasView, shape: str, angle: float, handle: HandlePosition
 ) -> None:
-    item = factory()
+    item = _make(shape)
     canvas.scene().addItem(item)
     item._apply_rotation(angle)
 
-    # Bottom-right drag → top-left corner is the fixed anchor.
-    init_rect = QRectF(item.rect())
-    anchor_before = item.mapToScene(init_rect.topLeft())
+    anchor0 = item.mapToScene(_fixed_local(item.rect(), handle))
+    h = _seed(item, handle)
 
-    _drag_resize(item, HandlePosition.BOTTOM_RIGHT, QPointF(40.0, 40.0))
+    for mag in (20.0, 55.0, 110.0):  # cumulative deltas, as mouse-move sends
+        h._apply_resize(_outward_delta(handle, angle, mag))
 
-    # Pivot tracks the new geometric centre (the serializer invariant).
-    assert item.transformOriginPoint() == item.rect().center()
-    # The fixed corner stayed exactly where it was on screen.
-    anchor_after = item.mapToScene(item.rect().topLeft())
-    assert anchor_after.x() == pytest.approx(anchor_before.x(), abs=1e-6)
-    assert anchor_after.y() == pytest.approx(anchor_before.y(), abs=1e-6)
-    # What the .ogp file stores matches the on-screen centre → no save/reload
-    # drift when reopened (rotation re-applied about the same centre).
-    serialized = _serialized_center(item)
-    visual = item.mapToScene(item.rect().center())
-    assert serialized.x() == pytest.approx(visual.x(), abs=1e-6)
-    assert serialized.y() == pytest.approx(visual.y(), abs=1e-6)
-
-
-def test_unrotated_resize_is_unchanged(canvas: CanvasView) -> None:
-    """Rotation == 0 must not invoke the re-anchor (byte-for-byte old behaviour)."""
-    rect = RectangleItem(0.0, 0.0, 100.0, 50.0)
-    canvas.scene().addItem(rect)
-    _drag_resize(rect, HandlePosition.BOTTOM_RIGHT, QPointF(50.0, 25.0))
-    # Top-left fixed, no rotation → grows in place from the origin.
-    assert rect.pos() == QPointF(0.0, 0.0)
-    assert rect.rect().width() == pytest.approx(150.0)
-    assert rect.rect().height() == pytest.approx(75.0)
+        # The side opposite the handle has not moved on screen.
+        anchor = item.mapToScene(_fixed_local(item.rect(), handle))
+        assert anchor.x() == pytest.approx(anchor0.x(), abs=1e-6)
+        assert anchor.y() == pytest.approx(anchor0.y(), abs=1e-6)
+        # Pivot tracks the new geometric centre, and what the .ogp stores equals
+        # the on-screen centre (no save/reload drift).
+        assert item.transformOriginPoint() == item.rect().center()
+        ser = QPointF(
+            item.pos().x() + item.rect().center().x(),
+            item.pos().y() + item.rect().center().y(),
+        )
+        vis = item.mapToScene(item.rect().center())
+        assert ser.x() == pytest.approx(vis.x(), abs=1e-6)
+        assert ser.y() == pytest.approx(vis.y(), abs=1e-6)
+        if shape == "circle":
+            assert item.rect().width() == pytest.approx(item.rect().height())
 
 
 # ---------------------------------------------------------------------------
-# Undo of a rotated resize restores pivot + centre, not just rect + pos.
+# The dragged handle tracks the cursor: outward grows, inward shrinks — for
+# corner AND edge handles, at every angle. (The old bug: a circle could not grow
+# at all from a middle handle, and a 45deg corner drag collapsed it.)
 
 
-def test_undo_rotated_resize_restores_pivot_and_centre(canvas: CanvasView) -> None:
-    circle = CircleItem(150.0, 150.0, 40.0, object_type=ObjectType.SHRUB)
+@pytest.mark.parametrize("shape", ["circle", "rect", "ellipse"])
+@pytest.mark.parametrize("angle", _ANGLES)
+@pytest.mark.parametrize("handle", [_CORNER, _EDGE])
+def test_outward_grows_inward_shrinks(
+    canvas: CanvasView, shape: str, angle: float, handle: HandlePosition
+) -> None:
+    grow = _make(shape)
+    canvas.scene().addItem(grow)
+    grow._apply_rotation(angle)
+    start = _diag(grow)
+    _seed(grow, handle)._apply_resize(_outward_delta(handle, angle, 60.0))
+    assert _diag(grow) > start + 1.0  # genuinely larger (not capped/collapsed)
+
+    shrink = _make(shape)
+    canvas.scene().addItem(shrink)
+    shrink._apply_rotation(angle)
+    start2 = _diag(shrink)
+    _seed(shrink, handle)._apply_resize(_outward_delta(handle, angle, -20.0))
+    assert _diag(shrink) < start2 - 1.0
+
+
+def test_circle_middle_handle_can_grow(canvas: CanvasView) -> None:
+    """Regression: min(w,h) used to cap a circle's growth from an edge handle."""
+    c = CircleItem(300.0, 300.0, 50.0, object_type=ObjectType.SHRUB)
+    canvas.scene().addItem(c)
+    _seed(c, HandlePosition.MIDDLE_RIGHT)._apply_resize(_outward_delta(HandlePosition.MIDDLE_RIGHT, 0.0, 40.0))
+    assert c.radius > 50.0
+
+
+@pytest.mark.parametrize("angle", _ANGLES)
+def test_small_drag_does_not_collapse(canvas: CanvasView, angle: float) -> None:
+    """A small drag yields a small change — not a collapse to ~MINIMUM_SIZE_CM."""
+    c = CircleItem(300.0, 300.0, 50.0, object_type=ObjectType.SHRUB)
+    canvas.scene().addItem(c)
+    c._apply_rotation(angle)
+    _seed(c, _CORNER)._apply_resize(_outward_delta(_CORNER, angle, 6.0))
+    assert c.radius == pytest.approx(53.0, abs=1.0)  # ~ +3cm radius, not collapsed
+
+
+# ---------------------------------------------------------------------------
+# Undo of a rotated resize restores geometry, position AND pivot.
+
+
+def test_undo_rotated_resize_restores_everything(canvas: CanvasView) -> None:
+    circle = CircleItem(300.0, 300.0, 40.0, object_type=ObjectType.SHRUB)
     canvas.scene().addItem(circle)
-    circle._apply_rotation(_ROTATION)
-
+    circle._apply_rotation(45.0)
     init_rect = QRectF(circle.rect())
     init_pos = circle.pos()
-    before_serialized = _serialized_center(circle)
 
-    _drag_resize(circle, HandlePosition.BOTTOM_RIGHT, QPointF(60.0, 60.0))
-    # Register the undo command exactly as mouseRelease would.
-    circle._on_resize_end(init_rect, init_pos)
+    h = _seed(circle, _CORNER)
+    h._apply_resize(_outward_delta(_CORNER, 45.0, 60.0))
+    circle._on_resize_end(init_rect, init_pos)  # registers the undo command
 
     cmd_mgr = canvas.command_manager
     assert cmd_mgr.can_undo
-
     cmd_mgr.undo()
-    # Geometry, position AND pivot are all back to the pre-resize state.
+
     assert circle.rect() == init_rect
     assert circle.pos() == init_pos
     assert circle.transformOriginPoint() == init_rect.center()
-    undone = _serialized_center(circle)
-    assert undone.x() == pytest.approx(before_serialized.x(), abs=1e-6)
-    assert undone.y() == pytest.approx(before_serialized.y(), abs=1e-6)
 
 
 # ---------------------------------------------------------------------------
-# The shared primitive reproduces the centre-anchor case (no #213/#219 regress).
+# The shared primitive still reproduces the centre-anchor case (#213/#219).
 
 
 def test_helper_matches_set_radius_centered(canvas: CanvasView) -> None:
-    a = CircleItem(200.0, 200.0, 25.0, object_type=ObjectType.SHRUB)
-    b = CircleItem(200.0, 200.0, 25.0, object_type=ObjectType.SHRUB)
+    a = CircleItem(300.0, 300.0, 25.0, object_type=ObjectType.SHRUB)
+    b = CircleItem(300.0, 300.0, 25.0, object_type=ObjectType.SHRUB)
     canvas.scene().addItem(a)
     canvas.scene().addItem(b)
-    a._apply_rotation(_ROTATION)
-    b._apply_rotation(_ROTATION)
+    a._apply_rotation(45.0)
+    b._apply_rotation(45.0)
 
-    # set_radius_centered goes through the helper; replicate it by hand on b.
     a.set_radius_centered(60.0)
 
     scene_center = b.mapToScene(b.rect().center())
