@@ -1091,16 +1091,30 @@ class GardenPlannerApp(QMainWindow):
         # undo/redo silently "clean" (issue #209). stack_changed covers all three.
         cmd_mgr.stack_changed.connect(self._project_manager.mark_dirty)
 
-        # Refresh constraints panel after any command (add/remove/edit/undo/redo)
-        cmd_mgr.command_executed.connect(lambda _: self.constraints_panel.refresh())
-        cmd_mgr.can_undo_changed.connect(lambda _: self.constraints_panel.refresh())
-        cmd_mgr.can_redo_changed.connect(lambda _: self.constraints_panel.refresh())
+        # Refresh dependent panels after any stack mutation (add/remove/edit/
+        # undo/redo). stack_changed fires exactly once per execute/register_applied
+        # /undo/redo — unlike command_executed (which misses undo/redo) and the
+        # can_undo/redo_changed booleans (which fire redundantly and exist only to
+        # drive the toolbar Undo/Redo actions, wired at 1086-1087). A single
+        # stack_changed wiring collapses the former three-signal fan-out to one
+        # refresh per command and gives correct undo/redo coverage.
+        cmd_mgr.stack_changed.connect(self.constraints_panel.refresh)
 
-        # Refresh properties panel after any command (move/resize/vertex edit/undo/redo)
-        # Use QTimer.singleShot to defer the update and avoid crash during spin box interaction
-        cmd_mgr.command_executed.connect(lambda _: QTimer.singleShot(0, self._update_properties_panel))
-        cmd_mgr.can_undo_changed.connect(lambda _: QTimer.singleShot(0, self._update_properties_panel))
-        cmd_mgr.can_redo_changed.connect(lambda _: QTimer.singleShot(0, self._update_properties_panel))
+        # Properties panel: defer via QTimer.singleShot to avoid rebuilding mid
+        # spin-box interaction. The panel itself only rebuilds when the selection
+        # changes; an unchanged selection refreshes values in place (#206/#222).
+        cmd_mgr.stack_changed.connect(
+            lambda: QTimer.singleShot(0, self._update_properties_panel)
+        )
+
+        # Plant database panel: refresh on undo/redo too — e.g. undoing a species
+        # assignment while the plant stays selected. Without this it was wired
+        # only to selectionChanged/object_type_changed, so an undo/redo left the
+        # species details stale until reselection. set_selected_items uses an
+        # incremental toggle-visibility update, so this is cheap.
+        cmd_mgr.stack_changed.connect(
+            lambda: QTimer.singleShot(0, self._update_plant_database_panel)
+        )
 
         # ── Tab-based main window (US-8.7) ──────────────────────────────────────
         self._tab_widget = QTabWidget()
