@@ -463,7 +463,7 @@ class PropertiesPanel(QWidget):
                 self._form_layout.addRow(self.tr("Layer:"), layer_combo)
                 self._register_refresh(
                     layer_combo,
-                    lambda c=layer_combo, it=item: c.setCurrentIndex(max(0, c.findData(it.layer_id))),
+                    lambda c=layer_combo, it=item: self._refresh_layer_combo(c, it),
                 )
             self._updating = False
             return
@@ -545,7 +545,7 @@ class PropertiesPanel(QWidget):
             self._form_layout.addRow(self.tr("Layer:"), layer_combo)
             self._register_refresh(
                 layer_combo,
-                lambda c=layer_combo, it=item: c.setCurrentIndex(max(0, c.findData(it.layer_id))),
+                lambda c=layer_combo, it=item: self._refresh_layer_combo(c, it),
             )
 
         # Geometry section
@@ -660,6 +660,20 @@ class PropertiesPanel(QWidget):
                 if hasattr(item, 'layer_id') and item.layer_id == layer.id:
                     current_idx = idx
             combo.setCurrentIndex(current_idx)
+
+    def _refresh_layer_combo(self, combo: QComboBox, item: QGraphicsItem) -> None:
+        """Re-populate the Layer combo from the (mutable) scene layer list.
+
+        Unlike the other combos, this one's *items* — not just its selected
+        index — come from external mutable state (`scene.layers`). A plain
+        re-index refresher would leave a renamed layer showing its old name, or
+        omit a newly-added layer, on the in-place refresh path. So the refresher
+        must clear + repopulate the list (#206/#222). The refresher wrapper runs
+        this under `blockSignals`, so the clear()+addItem()+setCurrentIndex fire
+        no `currentIndexChanged` (no spurious layer-change command).
+        """
+        combo.clear()
+        self._populate_layer_combo(combo, item)
 
     def _add_bed_children_section(self, item: QGraphicsItem) -> None:
         """Show contained plants list when a bed is selected."""

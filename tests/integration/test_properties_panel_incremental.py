@@ -161,6 +161,59 @@ class TestRebuildOnSelectionChange:
         assert _field_by_label(panel, "Name") is None
 
 
+class TestLayerComboRefresh:
+    """The Layer combo's *items* come from mutable external state (`scene.layers`),
+    so the refresh path must repopulate the list, not just re-index — a layer
+    rename/add while an item stays selected must reach the dropdown (#206/#222
+    senior-review P1: a plain re-index left the old name / omitted a new layer)."""
+
+    def _layer_combo(self, panel: PropertiesPanel):
+        from PyQt6.QtWidgets import QComboBox
+
+        widget = _field_by_label(panel, "Layer")
+        assert isinstance(widget, QComboBox), "Layer combo not found in panel"
+        return widget
+
+    def test_layer_rename_reaches_combo_on_refresh(self, qtbot) -> None:  # noqa: ARG002
+        scene = CanvasScene(2000, 2000)
+        item = RectangleItem(0, 0, 100, 50)
+        item.layer_id = scene.layers[0].id
+        scene.addItem(item)
+
+        panel = PropertiesPanel(command_manager=CommandManager())
+        panel.set_selected_items([item])
+        combo = self._layer_combo(panel)
+        original = scene.layers[0].name
+        assert combo.currentText() == original
+
+        # Rename the layer (model change, no identity delta) then re-trigger the
+        # deferred panel update — the refresh path must show the new name.
+        scene.layers[0].name = "RENAMED-LAYER"
+        panel.set_selected_items([item])
+        assert combo is self._layer_combo(panel), "Layer combo rebuilt, not refreshed"
+        assert combo.currentText() == "RENAMED-LAYER", (
+            "Layer rename must reach the combo on the refresh path (#222)"
+        )
+
+    def test_new_layer_appears_in_combo_on_refresh(self, qtbot) -> None:  # noqa: ARG002
+        from open_garden_planner.models.layer import Layer
+
+        scene = CanvasScene(2000, 2000)
+        item = RectangleItem(0, 0, 100, 50)
+        item.layer_id = scene.layers[0].id
+        scene.addItem(item)
+
+        panel = PropertiesPanel(command_manager=CommandManager())
+        panel.set_selected_items([item])
+        combo = self._layer_combo(panel)
+        count_before = combo.count()
+
+        scene.add_layer(Layer(name="Extra Layer"))
+        panel.set_selected_items([item])
+        assert combo.count() == count_before + 1, "new layer must appear on refresh"
+        assert "Extra Layer" in [combo.itemText(i) for i in range(combo.count())]
+
+
 def _label_texts(panel: PropertiesPanel) -> list[str]:
     """All QLabel texts currently shown in the form."""
     return [lbl.text() for lbl in panel.findChildren(QLabel)]
