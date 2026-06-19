@@ -60,6 +60,7 @@ def test_bed_context_menu_has_all_features(
     assert actions.add_soil_test is not None, "Add soil test action missing"
     assert actions.log_pest_disease is not None, "Pest/disease log action missing"
     assert actions.plan_succession is not None, "Succession plan action missing"
+    assert actions.log_harvest is not None, "Harvest log action missing"
     if supports_grid:
         assert actions.toggle_grid is not None, "Grid toggle missing on rectangular bed"
     else:
@@ -80,6 +81,7 @@ def test_bed_menu_actions_have_translated_text(
     assert actions.add_soil_test.text(), "soil test action has empty text"
     assert actions.log_pest_disease.text(), "pest log action has empty text"
     assert actions.plan_succession.text(), "succession action has empty text"
+    assert actions.log_harvest.text(), "harvest log action has empty text"
 
 
 # ---------------------------------------------------------------------------

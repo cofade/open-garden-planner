@@ -2,6 +2,7 @@
 
 from open_garden_planner.core.commands import (
     AddConstraintCommand,
+    AddHarvestEntryCommand,
     AddJournalNoteCommand,
     AddPestLogCommand,
     AddSoilTestCommand,
@@ -13,11 +14,13 @@ from open_garden_planner.core.commands import (
     CommandManager,
     CreateItemCommand,
     CreateItemsCommand,
+    DeleteHarvestEntryCommand,
     DeleteItemsCommand,
     DeleteJournalNoteCommand,
     DeletePestLogCommand,
     DeleteSoilTestCommand,
     EditConstraintDistanceCommand,
+    EditHarvestEntryCommand,
     EditJournalNoteCommand,
     EditPestLogCommand,
     EditSoilTestCommand,
@@ -41,6 +44,7 @@ from open_garden_planner.core.project import (
 
 __all__ = [
     "AddConstraintCommand",
+    "AddHarvestEntryCommand",
     "AddJournalNoteCommand",
     "AddPestLogCommand",
     "AddSoilTestCommand",
@@ -52,11 +56,13 @@ __all__ = [
     "CommandManager",
     "CreateItemCommand",
     "CreateItemsCommand",
+    "DeleteHarvestEntryCommand",
     "DeleteItemsCommand",
     "DeleteJournalNoteCommand",
     "DeletePestLogCommand",
     "DeleteSoilTestCommand",
     "EditConstraintDistanceCommand",
+    "EditHarvestEntryCommand",
     "EditJournalNoteCommand",
     "EditPestLogCommand",
     "EditSoilTestCommand",

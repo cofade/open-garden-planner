@@ -744,6 +744,10 @@
             <source>Log Pest/Disease…</source>
             <translation>Schädling/Krankheit eintragen…</translation>
         </message>
+        <message>
+            <source>Log Harvest…</source>
+            <translation>Ernte erfassen…</translation>
+        </message>
     </context>
     <context>
         <name>CircleTool</name>
@@ -3218,6 +3222,22 @@ Neue Saison jetzt öffnen?</translation>
         <message>
             <source>Layout</source>
             <translation>Layout</translation>
+        </message>
+        <message>
+            <source>Harvest Log</source>
+            <translation>Ernteprotokoll</translation>
+        </message>
+        <message>
+            <source>Harvest recorded</source>
+            <translation>Ernte erfasst</translation>
+        </message>
+        <message>
+            <source>[harvest] {qty:g} {unit} — {name}</source>
+            <translation>[Ernte] {qty:g} {unit} — {name}</translation>
+        </message>
+        <message>
+            <source>plant</source>
+            <translation>Pflanze</translation>
         </message>
     </context>
     <context>
@@ -7136,6 +7156,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Garden journal notes</source>
             <translation>Gartentagebuch-Notizen</translation>
         </message>
+        <message>
+            <source>Harvest summary</source>
+            <translation>Ernteübersicht</translation>
+        </message>
     </context>
     <context>
         <name>PdfReportService</name>
@@ -7957,6 +7981,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Plan Succession…</source>
             <translation>Anbaufolge planen…</translation>
+        </message>
+        <message>
+            <source>Log Harvest…</source>
+            <translation>Ernte erfassen…</translation>
         </message>
     </context>
     <context>
@@ -9419,6 +9447,212 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Apply species data</source>
             <translation>Artdaten anwenden</translation>
+        </message>
+        <message>
+            <source>Add harvest entry</source>
+            <translation>Ernteeintrag hinzufügen</translation>
+        </message>
+        <message>
+            <source>Edit harvest entry</source>
+            <translation>Ernteeintrag bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete harvest entry</source>
+            <translation>Ernteeintrag löschen</translation>
+        </message>
+    </context>
+    <context>
+        <name>HarvestLogDialog</name>
+        <message>
+            <source>Harvest Log</source>
+            <translation>Ernteprotokoll</translation>
+        </message>
+        <message>
+            <source>Harvest Log — {name}</source>
+            <translation>Ernteprotokoll — {name}</translation>
+        </message>
+        <message>
+            <source>Edit Harvest Entry</source>
+            <translation>Ernteeintrag bearbeiten</translation>
+        </message>
+        <message>
+            <source>Entry</source>
+            <translation>Eintrag</translation>
+        </message>
+        <message>
+            <source>History</source>
+            <translation>Verlauf</translation>
+        </message>
+        <message>
+            <source>Date</source>
+            <translation>Datum</translation>
+        </message>
+        <message>
+            <source>Quantity</source>
+            <translation>Menge</translation>
+        </message>
+        <message>
+            <source>Unit</source>
+            <translation>Einheit</translation>
+        </message>
+        <message>
+            <source>Quality</source>
+            <translation>Qualität</translation>
+        </message>
+        <message>
+            <source>e.g. excellent, slightly bitter</source>
+            <translation>z. B. ausgezeichnet, leicht bitter</translation>
+        </message>
+        <message>
+            <source>Notes</source>
+            <translation>Notizen</translation>
+        </message>
+        <message>
+            <source>(no photo)</source>
+            <translation>(kein Foto)</translation>
+        </message>
+        <message>
+            <source>(unsaved)</source>
+            <translation>(ungespeichert)</translation>
+        </message>
+        <message>
+            <source>(missing)</source>
+            <translation>(fehlt)</translation>
+        </message>
+        <message>
+            <source>Attach Photo…</source>
+            <translation>Foto anhängen…</translation>
+        </message>
+        <message>
+            <source>Remove Photo</source>
+            <translation>Foto entfernen</translation>
+        </message>
+        <message>
+            <source>Save project first to attach photos</source>
+            <translation>Projekt zuerst speichern, um Fotos anzuhängen</translation>
+        </message>
+        <message>
+            <source>Past entries</source>
+            <translation>Frühere Einträge</translation>
+        </message>
+        <message>
+            <source>No past entries</source>
+            <translation>Keine früheren Einträge</translation>
+        </message>
+        <message>
+            <source>Totals by year</source>
+            <translation>Summen pro Jahr</translation>
+        </message>
+        <message>
+            <source>—</source>
+            <translation>—</translation>
+        </message>
+        <message>
+            <source>{year}: {total:g} {unit}</source>
+            <translation>{year}: {total:g} {unit}</translation>
+        </message>
+        <message>
+            <source>Edit</source>
+            <translation>Bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete</source>
+            <translation>Löschen</translation>
+        </message>
+        <message>
+            <source>{date} — {qty:g} {unit}</source>
+            <translation>{date} — {qty:g} {unit}</translation>
+        </message>
+        <message>
+            <source> ({quality})</source>
+            <translation> ({quality})</translation>
+        </message>
+        <message>
+            <source>Delete the harvest entry from {date}?</source>
+            <translation>Ernteeintrag vom {date} löschen?</translation>
+        </message>
+        <message>
+            <source>Delete harvest entry</source>
+            <translation>Ernteeintrag löschen</translation>
+        </message>
+        <message>
+            <source>Zero quantity</source>
+            <translation>Menge null</translation>
+        </message>
+        <message>
+            <source>Save entry with zero quantity?</source>
+            <translation>Eintrag mit Menge null speichern?</translation>
+        </message>
+        <message>
+            <source>Select photo</source>
+            <translation>Foto auswählen</translation>
+        </message>
+        <message>
+            <source>Images (*.png *.jpg *.jpeg *.gif *.bmp *.webp)</source>
+            <translation>Bilder (*.png *.jpg *.jpeg *.gif *.bmp *.webp)</translation>
+        </message>
+        <message>
+            <source>Photo attach failed</source>
+            <translation>Foto-Anhang fehlgeschlagen</translation>
+        </message>
+        <message>
+            <source>Could not copy photo: {err}</source>
+            <translation>Foto konnte nicht kopiert werden: {err}</translation>
+        </message>
+        <message>
+            <source>Click to open in image viewer</source>
+            <translation>Klicken, um in Bildbetrachter zu öffnen</translation>
+        </message>
+    </context>
+    <context>
+        <name>HarvestLogView</name>
+        <message>
+            <source>Harvest Yields</source>
+            <translation>Ernteerträge</translation>
+        </message>
+        <message>
+            <source>Export CSV…</source>
+            <translation>CSV exportieren…</translation>
+        </message>
+        <message>
+            <source>No harvests logged yet.</source>
+            <translation>Noch keine Ernten erfasst.</translation>
+        </message>
+        <message>
+            <source>Crop</source>
+            <translation>Kultur</translation>
+        </message>
+        <message>
+            <source>Unit</source>
+            <translation>Einheit</translation>
+        </message>
+        <message>
+            <source>Total</source>
+            <translation>Gesamt</translation>
+        </message>
+        <message>
+            <source>Export Harvest Log</source>
+            <translation>Ernteprotokoll exportieren</translation>
+        </message>
+        <message>
+            <source>There are no harvests to export.</source>
+            <translation>Es gibt keine Ernten zum Exportieren.</translation>
+        </message>
+        <message>
+            <source>CSV files (*.csv)</source>
+            <translation>CSV-Dateien (*.csv)</translation>
+        </message>
+        <message>
+            <source>Export failed</source>
+            <translation>Export fehlgeschlagen</translation>
+        </message>
+        <message>
+            <source>Could not export harvest log: {err}</source>
+            <translation>Ernteprotokoll konnte nicht exportiert werden: {err}</translation>
+        </message>
+        <message>
+            <source>Exported {count} harvest entries.</source>
+            <translation>{count} Ernteeinträge exportiert.</translation>
         </message>
     </context>
 </TS>

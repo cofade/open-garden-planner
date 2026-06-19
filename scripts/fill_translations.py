@@ -100,6 +100,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Add garden journal note": "Gartentagebuch-Notiz hinzufügen",
         "Edit garden journal note": "Gartentagebuch-Notiz bearbeiten",
         "Delete garden journal note": "Gartentagebuch-Notiz löschen",
+        "Add harvest entry": "Ernteeintrag hinzufügen",
+        "Edit harvest entry": "Ernteeintrag bearbeiten",
+        "Delete harvest entry": "Ernteeintrag löschen",
         "Align items": "Objekte ausrichten",
         "Move item (constrained)": "Objekt verschieben (mit Bedingung)",
         "Move items (constrained)": "Objekte verschieben (mit Bedingung)",
@@ -302,6 +305,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Intersect": "Schnittmenge",
         "Subtract": "Subtraktion",
         "Array Along Path...": "Muster entlang Pfad...",
+        "Log Harvest…": "Ernte erfassen…",
     },
 
     # ── CircleTool ──
@@ -625,6 +629,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Active Pest/Disease Issues": "Aktive Schädlinge/Krankheiten",
         # US-12.8 — Succession planting
         "Succession plan saved": "Anbaufolge gespeichert",
+        # US-C1 (#188) — Harvest log
+        "Harvest Log": "Ernteprotokoll",
+        "Harvest recorded": "Ernte erfasst",
+        "[harvest] {qty:g} {unit} — {name}": "[Ernte] {qty:g} {unit} — {name}",
+        "plant": "Pflanze",
         # US-12.9 — Garden journal map-linked notes
         "Garden Journal": "Gartentagebuch",
         "Journal note added": "Tagebuchnotiz hinzugefügt",
@@ -1238,6 +1247,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Add soil test…": "Bodentest hinzufügen…",
         "Log Pest/Disease…": "Schädling/Krankheit erfassen…",
         "Plan Succession…": "Anbaufolge planen…",
+        "Log Harvest…": "Ernte erfassen…",
     },
 
     # ── SuccessionPlanDialog (US-12.8) ──
@@ -1621,6 +1631,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Show Area": "Fläche anzeigen",
         "Add soil test…": "Bodenprobe hinzufügen…",
         "Log Pest/Disease…": "Schädling/Krankheit eintragen…",
+        "Log Harvest…": "Ernte erfassen…",
     },
 
     # ── EllipseItem — area label (US-11.9) and soil test (US-12.10a) ──
@@ -1808,6 +1819,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Bed detail views (one page per bed)": "Beet-Detailansichten (eine Seite pro Beet)",
         "Plant list": "Pflanzenliste",
         "Garden journal notes": "Gartentagebuch-Notizen",
+        "Harvest summary": "Ernteübersicht",
         "Legend (layers)": "Legende (Ebenen)",
         "A progress dialog will appear during export.":
             "Während des Exports wird ein Fortschrittsdialog angezeigt.",
@@ -1826,6 +1838,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "(no date)": "(kein Datum)",
         "(empty)": "(leer)",
         "(photo: {filename})": "(Foto: {filename})",
+        "Harvest Summary": "Ernteübersicht",
+        "No harvests logged.": "Keine Ernten erfasst.",
+        "Crop": "Kultur",
+        "Unit": "Einheit",
+        "Total": "Gesamt",
+        "Plant": "Pflanze",
     },
 
     # ── SoilTestDialog (US-12.10a, extended in US-12.10c) ──
@@ -1948,6 +1966,65 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Could not copy photo: {err}":
             "Foto konnte nicht kopiert werden: {err}",
         "Click to open in image viewer": "Klicken, um in Bildbetrachter zu öffnen",
+    },
+
+    # ── HarvestLogDialog (US-C1, #188) ──
+    "HarvestLogDialog": {
+        "Harvest Log": "Ernteprotokoll",
+        "Harvest Log — {name}": "Ernteprotokoll — {name}",
+        "Edit Harvest Entry": "Ernteeintrag bearbeiten",
+        "Entry": "Eintrag",
+        "History": "Verlauf",
+        "Date": "Datum",
+        "Quantity": "Menge",
+        "Unit": "Einheit",
+        "Quality": "Qualität",
+        "e.g. excellent, slightly bitter": "z. B. ausgezeichnet, leicht bitter",
+        "Notes": "Notizen",
+        "(no photo)": "(kein Foto)",
+        "(unsaved)": "(ungespeichert)",
+        "(missing)": "(fehlt)",
+        "Attach Photo…": "Foto anhängen…",
+        "Remove Photo": "Foto entfernen",
+        "Save project first to attach photos":
+            "Projekt zuerst speichern, um Fotos anzuhängen",
+        "Past entries": "Frühere Einträge",
+        "No past entries": "Keine früheren Einträge",
+        "Totals by year": "Summen pro Jahr",
+        "—": "—",
+        "{year}: {total:g} {unit}": "{year}: {total:g} {unit}",
+        "Edit": "Bearbeiten",
+        "Delete": "Löschen",
+        "{date} — {qty:g} {unit}": "{date} — {qty:g} {unit}",
+        " ({quality})": " ({quality})",
+        "Delete the harvest entry from {date}?": "Ernteeintrag vom {date} löschen?",
+        "Delete harvest entry": "Ernteeintrag löschen",
+        "Zero quantity": "Menge null",
+        "Save entry with zero quantity?": "Eintrag mit Menge null speichern?",
+        "Select photo": "Foto auswählen",
+        "Images (*.png *.jpg *.jpeg *.gif *.bmp *.webp)":
+            "Bilder (*.png *.jpg *.jpeg *.gif *.bmp *.webp)",
+        "Photo attach failed": "Foto-Anhang fehlgeschlagen",
+        "Could not copy photo: {err}":
+            "Foto konnte nicht kopiert werden: {err}",
+        "Click to open in image viewer": "Klicken, um in Bildbetrachter zu öffnen",
+    },
+
+    # ── HarvestLogView (US-C1, #188) ──
+    "HarvestLogView": {
+        "Harvest Yields": "Ernteerträge",
+        "Export CSV…": "CSV exportieren…",
+        "No harvests logged yet.": "Noch keine Ernten erfasst.",
+        "Crop": "Kultur",
+        "Unit": "Einheit",
+        "Total": "Gesamt",
+        "Export Harvest Log": "Ernteprotokoll exportieren",
+        "There are no harvests to export.": "Es gibt keine Ernten zum Exportieren.",
+        "CSV files (*.csv)": "CSV-Dateien (*.csv)",
+        "Export failed": "Export fehlgeschlagen",
+        "Could not export harvest log: {err}":
+            "Ernteprotokoll konnte nicht exportiert werden: {err}",
+        "Exported {count} harvest entries.": "{count} Ernteeinträge exportiert.",
     },
 
     # ── PestOverviewPanel (US-12.7) ──

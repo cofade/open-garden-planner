@@ -323,6 +323,17 @@ Pre-defined object types for common property elements:
 - **FR-JOURNAL-08**: Journal notes are date-pinned historical records and do **not** carry over when a new season is created (`create_new_season` drops `journal_pin` canvas items and clears `garden_journal_notes` on the new season's data). The previous season file retains them as the canonical record.
 
 
+## FR-SMART-HARVEST: Harvest Tracking / Yield Log (Package C, US-C1, #188)
+
+- **FR-HARVEST-01**: Right-click a plant (circle item) or a bed shows "Log Harvest…" in the context menu, opening `HarvestLogDialog` (mirrors `PestLogDialog`). The bed action is added centrally via `GardenItemMixin.build_bed_context_menu` (§8.14).
+- **FR-HARVEST-02**: Each entry stores date, quantity, unit (free-text/editable; g/kg/pcs/bunches presets), quality note, free-form notes, an optional photo, and the id of its auto-created journal note (`HarvestEntry` in `models/harvest_log.py`).
+- **FR-HARVEST-03**: Entries are persisted under top-level key `harvest_logs` in the .ogp file, shape `{target_id: HarvestLogHistory.to_dict()}` keyed by the plant (or bed) UUID. The key is additive — older files without it load with an empty log (no `FILE_VERSION` bump). Unlike pest logs, harvest entries are a permanent dated record and are **not** filtered on season rollover; per-year totals derive from `HarvestEntry.date[:4]`.
+- **FR-HARVEST-04**: Add/edit/delete go through `AddHarvestEntryCommand` / `EditHarvestEntryCommand` / `DeleteHarvestEntryCommand` (snapshot prior history for undo/redo). Adding a harvest also auto-creates a dated garden-journal note tagged `[harvest]` (US-12.9) plus its pin at the plant's position; the add command adds/removes the entry, note, and pin atomically.
+- **FR-HARVEST-05**: Photos are copied into `{project_dir}/harvest_photos/{uuid}_{filename}` and stored as project-relative POSIX paths; attaching requires a saved project (button disabled with tooltip otherwise).
+- **FR-HARVEST-06**: A top-level **Harvest Log** tab (Ctrl+4) shows garden-wide per-crop, per-year yield totals aggregated by `services/harvest_aggregation.aggregate_yields` (grouped by `(species, unit)` so incompatible units never sum), refreshed on `harvest_logs_changed`, with a **CSV export** button (`ExportService.export_harvest_log_to_csv`).
+- **FR-HARVEST-07**: An optional "Harvest summary" checkbox on the PDF export dialog adds a per-crop/per-year totals page (`_render_harvest_summary` in `pdf_report_service.py`), plumbed via `PdfReportOptions.include_harvest_summary` + `harvest_data`.
+
+
 ## FR-19: CAD Precision — Typed Coordinate Input + Unified Snap (Phase 13, Package A)
 
 - **FR-INPUT-01** (US-A1): Relative coordinate input `@dx,dy` types a vertex at `(last_point.x + dx, last_point.y − dy)`. The Y-flip implements math convention (`+dy` = up on screen). Available on every multi-click drawing tool (polyline, polygon, rectangle, circle, ellipse, construction line, construction circle) via the status-bar field and the Dynamic Input overlay. Without an anchor point, relative input is rejected with an inline red error tint *and* the parser's diagnostic surfaces in the field's tooltip (e.g. "Relative input requires an existing point to anchor to"); the diagnostic clears on the next keystroke or successful commit.

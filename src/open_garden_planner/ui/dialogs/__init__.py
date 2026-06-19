@@ -8,6 +8,7 @@ from open_garden_planner.ui.dialogs.constraint_conflict_dialog import (
 )
 from open_garden_planner.ui.dialogs.custom_plants_dialog import CustomPlantsDialog
 from open_garden_planner.ui.dialogs.grid_array_dialog import GridArrayDialog
+from open_garden_planner.ui.dialogs.harvest_log_dialog import HarvestLogDialog
 from open_garden_planner.ui.dialogs.linear_array_dialog import LinearArrayDialog
 from open_garden_planner.ui.dialogs.new_project_dialog import NewProjectDialog
 from open_garden_planner.ui.dialogs.pest_log_dialog import PestLogDialog
@@ -29,6 +30,7 @@ __all__ = [
     "CustomPlantsDialog",
     "GardenPrintManager",
     "GridArrayDialog",
+    "HarvestLogDialog",
     "LinearArrayDialog",
     "NewProjectDialog",
     "PestLogDialog",

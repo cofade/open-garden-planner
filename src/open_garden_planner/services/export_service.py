@@ -596,6 +596,54 @@ class ExportService:
         return len(plant_items)
 
     @staticmethod
+    def export_harvest_log_to_csv(
+        harvest_logs: dict[str, dict],
+        display_name_by_target: dict[str, str],
+        file_path: Path | str,
+    ) -> int:
+        """Export every harvest entry to a CSV file (US-C1, #188).
+
+        One row per harvest entry across all targets, chronological within each
+        crop. ``display_name_by_target`` maps a target UUID to a human label
+        (resolved by the caller from the scene); unknown targets fall back to
+        the raw id.
+
+        Returns:
+            Number of harvest entries written.
+        """
+        from open_garden_planner.models.harvest_log import (  # noqa: PLC0415
+            HarvestLogHistory,
+        )
+
+        file_path = Path(file_path)
+        headers = ["crop", "date", "quantity", "unit", "quality", "notes"]
+        rows: list[dict[str, Any]] = []
+        for target_id, hist_dict in harvest_logs.items():
+            history = HarvestLogHistory.from_dict(hist_dict)
+            crop = display_name_by_target.get(target_id, target_id)
+            for entry in sorted(history.entries, key=lambda e: e.date):
+                rows.append(
+                    {
+                        "crop": crop,
+                        "date": entry.date,
+                        "quantity": entry.quantity,
+                        "unit": entry.unit,
+                        "quality": entry.quality,
+                        "notes": entry.notes,
+                    }
+                )
+
+        try:
+            with open(file_path, "w", newline="", encoding="utf-8-sig") as f:
+                writer = csv.DictWriter(f, fieldnames=headers, extrasaction="ignore")
+                writer.writeheader()
+                writer.writerows(rows)
+        except Exception as e:
+            raise ValueError(f"Failed to write CSV to {file_path}: {e}") from e
+
+        return len(rows)
+
+    @staticmethod
     def _get_csv_headers(include_species_data: bool) -> list[str]:
         """Get CSV column headers.
 

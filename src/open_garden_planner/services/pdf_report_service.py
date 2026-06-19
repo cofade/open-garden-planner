@@ -43,6 +43,11 @@ class PdfReportOptions:
     # ``ProjectManager.garden_journal_notes``. ``None`` is treated as empty.
     include_garden_notes: bool = False
     garden_journal_notes: dict[str, Any] | None = None
+    # US-C1 (#188): optional Harvest Summary page. ``harvest_data`` must be
+    # populated when ``include_harvest_summary`` is True — pass the raw dict from
+    # ``ProjectManager.harvest_logs``. ``None`` is treated as empty.
+    include_harvest_summary: bool = False
+    harvest_data: dict[str, Any] | None = None
     project_name: str = "Garden Plan"
     author: str = ""
     export_date: str = field(default_factory=lambda: date.today().isoformat())
@@ -537,6 +542,112 @@ def _render_garden_notes(
         y += spacing
 
 
+def _render_harvest_summary(
+    painter: QPainter,
+    page_rect: QRectF,
+    scene: CanvasScene,
+    opts: PdfReportOptions,
+) -> None:
+    """Render the Harvest Summary page (US-C1): per-crop, per-year yield totals.
+
+    Paginates like ``_render_garden_notes`` — opens a fresh page with the same
+    header when the next row would overflow.
+    """
+    from open_garden_planner.services.harvest_aggregation import (  # noqa: PLC0415
+        aggregate_yields,
+        all_years,
+    )
+
+    # Resolve crop labels from the scene (item.name → species common name → id).
+    name_map: dict[str, str] = {}
+    for item in scene.items():
+        item_id = getattr(item, "item_id", None)
+        if item_id is None:
+            continue
+        label = (getattr(item, "name", "") or "").strip()
+        if not label:
+            metadata = getattr(item, "metadata", None) or {}
+            species = metadata.get("plant_species") if isinstance(metadata, dict) else None
+            if isinstance(species, dict):
+                label = (species.get("common_name") or "").strip()
+        name_map[str(item_id)] = label or _tr("Plant")
+
+    rows = aggregate_yields(opts.harvest_data or {}, name_map)
+    years = all_years(rows)
+
+    title_font = QFont("Arial", 14)
+    title_font.setBold(True)
+    header_font = QFont("Arial", 9)
+    header_font.setBold(True)
+    row_font = QFont("Arial", 9)
+
+    title_h = _pt(14)
+    line_h = _pt(6)
+    bottom_limit = page_rect.bottom() - _pt(2)
+
+    def _draw_header() -> float:
+        painter.setFont(title_font)
+        painter.setPen(QColor("#2e7d32"))
+        painter.drawText(
+            QRectF(page_rect.left(), page_rect.top(), page_rect.width(), title_h),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            _tr("Harvest Summary"),
+        )
+        return page_rect.top() + title_h + _pt(4)
+
+    def _columns() -> list[tuple[str, float]]:
+        # (label, x-offset) — Crop, Unit, one per year, Total.
+        labels = [_tr("Crop"), _tr("Unit")] + [str(y) for y in years] + [_tr("Total")]
+        n = len(labels)
+        col_w = page_rect.width() / max(n, 1)
+        return [(lbl, page_rect.left() + i * col_w) for i, lbl in enumerate(labels)]
+
+    def _draw_row(values: list[str], y: float, *, bold: bool) -> None:
+        painter.setFont(header_font if bold else row_font)
+        painter.setPen(QColor("#333333") if bold else QColor("#222222"))
+        cols = _columns()
+        col_w = page_rect.width() / max(len(cols), 1)
+        for (_, x), text in zip(cols, values, strict=False):
+            painter.drawText(
+                QRectF(x, y, col_w - _pt(1), line_h),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                text,
+            )
+
+    y = _draw_header()
+
+    if not rows:
+        painter.setFont(row_font)
+        painter.setPen(QColor("#777777"))
+        painter.drawText(
+            QRectF(page_rect.left(), y, page_rect.width(), _pt(10)),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            _tr("No harvests logged."),
+        )
+        return
+
+    _draw_row([lbl for lbl, _ in _columns()], y, bold=True)
+    y += line_h
+
+    for row in rows:
+        if y + line_h > bottom_limit:
+            device = painter.device()
+            if hasattr(device, "newPage"):
+                device.newPage()
+                painter.fillRect(page_rect, QColor("white"))
+            y = _draw_header()
+            _draw_row([lbl for lbl, _ in _columns()], y, bold=True)
+            y += line_h
+        values = [row.species, row.unit]
+        values += [
+            f"{row.totals_by_year[yr]:g}" if yr in row.totals_by_year else ""
+            for yr in years
+        ]
+        values.append(f"{row.total:g}")
+        _draw_row(values, y, bold=False)
+        y += line_h
+
+
 def _wrap_to_width(
     text: str, width_pt: float, metrics: Any
 ) -> list[str]:
@@ -787,6 +898,8 @@ class PdfReportService:
             pages.append(("plant_list", None))
         if opts.include_garden_notes:
             pages.append(("garden_notes", None))
+        if opts.include_harvest_summary:
+            pages.append(("harvest_summary", None))
         if opts.include_legend:
             pages.append(("legend", None))
 
@@ -824,6 +937,8 @@ class PdfReportService:
                     _render_plant_list(painter, page_rect, scene, opts)
                 elif page_type == "garden_notes":
                     _render_garden_notes(painter, page_rect, scene, opts)
+                elif page_type == "harvest_summary":
+                    _render_harvest_summary(painter, page_rect, scene, opts)
                 elif page_type == "legend":
                     _render_legend(painter, page_rect, scene, opts)
 

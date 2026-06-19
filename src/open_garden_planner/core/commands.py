@@ -2413,3 +2413,157 @@ class DeleteJournalNoteCommand(Command):
             self._pm.restore_journal_note(self._note_id, self._old_dict)
         if self._pin.scene() is None:
             self._scene.addItem(self._pin)
+
+
+class AddHarvestEntryCommand(Command):
+    """Add a harvest entry to a target and auto-create a journal note — undoable (US-C1).
+
+    Snapshots the prior history dict so undo restores the exact pre-state. When
+    ``note``/``pin_item``/``scene`` are supplied, the harvest also creates a
+    dated garden-journal note (US-12.9) and places its pin; undo removes both
+    the entry and the note+pin together (the issue requires each harvest to
+    auto-create a journal entry tagged ``harvest``).
+    """
+
+    def __init__(
+        self,
+        project_manager: "Any",
+        target_id: str,
+        entry: "Any",                 # HarvestEntry
+        *,
+        scene: QGraphicsScene | None = None,
+        pin_item: "Any" = None,       # JournalPinItem | None
+        note: "Any" = None,           # JournalNote | None
+    ) -> None:
+        from open_garden_planner.models.harvest_log import (  # noqa: PLC0415
+            HarvestLogHistory,
+        )
+
+        self._pm = project_manager
+        self._target_id = target_id
+        self._entry = entry
+        self._scene = scene
+        self._pin = pin_item
+        self._note = note
+        self._HarvestLogHistory = HarvestLogHistory
+        existing = self._pm.harvest_logs.get(target_id)
+        self._prior_history_dict: dict[str, Any] | None = (
+            dict(existing) if existing is not None else None
+        )
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Add harvest entry")
+
+    def execute(self) -> None:
+        if self._prior_history_dict is None:
+            history = self._HarvestLogHistory(target_id=self._target_id)
+        else:
+            history = self._HarvestLogHistory.from_dict(self._prior_history_dict)
+        if not any(e.id == self._entry.id for e in history.entries):
+            history.entries.append(self._entry)
+        self._pm.set_harvest_history(self._target_id, history)
+        if self._note is not None:
+            self._pm.set_journal_note(self._note)
+        if (
+            self._pin is not None
+            and self._scene is not None
+            and self._pin.scene() is None
+        ):
+            self._scene.addItem(self._pin)
+
+    def undo(self) -> None:
+        self._pm.restore_harvest_history(self._target_id, self._prior_history_dict)
+        if self._note is not None:
+            self._pm.delete_journal_note(self._note.id)
+        if self._pin is not None and self._pin.scene() is not None:
+            self._scene.removeItem(self._pin)
+
+
+class EditHarvestEntryCommand(Command):
+    """Edit an existing harvest entry — undoable (US-C1).
+
+    Matches the entry by ``entry.id``; if absent, execute is a no-op. The linked
+    journal note is left untouched (it stays as a historical record).
+    """
+
+    def __init__(
+        self,
+        project_manager: "Any",
+        target_id: str,
+        new_entry: "Any",             # HarvestEntry
+    ) -> None:
+        from open_garden_planner.models.harvest_log import (  # noqa: PLC0415
+            HarvestLogHistory,
+        )
+
+        self._pm = project_manager
+        self._target_id = target_id
+        self._new_entry = new_entry
+        self._HarvestLogHistory = HarvestLogHistory
+        existing = self._pm.harvest_logs.get(target_id)
+        self._prior_history_dict: dict[str, Any] | None = (
+            dict(existing) if existing is not None else None
+        )
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Edit harvest entry")
+
+    def execute(self) -> None:
+        if self._prior_history_dict is None:
+            return
+        history = self._HarvestLogHistory.from_dict(self._prior_history_dict)
+        for idx, e in enumerate(history.entries):
+            if e.id == self._new_entry.id:
+                # Preserve the link to the auto-created journal note.
+                if self._new_entry.journal_note_id is None:
+                    self._new_entry.journal_note_id = e.journal_note_id
+                history.entries[idx] = self._new_entry
+                break
+        else:
+            return
+        self._pm.set_harvest_history(self._target_id, history)
+
+    def undo(self) -> None:
+        self._pm.restore_harvest_history(self._target_id, self._prior_history_dict)
+
+
+class DeleteHarvestEntryCommand(Command):
+    """Delete a harvest entry from a target's history — undoable (US-C1).
+
+    The linked journal note is left untouched (historical record).
+    """
+
+    def __init__(
+        self,
+        project_manager: "Any",
+        target_id: str,
+        entry_id: str,
+    ) -> None:
+        from open_garden_planner.models.harvest_log import (  # noqa: PLC0415
+            HarvestLogHistory,
+        )
+
+        self._pm = project_manager
+        self._target_id = target_id
+        self._entry_id = entry_id
+        self._HarvestLogHistory = HarvestLogHistory
+        existing = self._pm.harvest_logs.get(target_id)
+        self._prior_history_dict: dict[str, Any] | None = (
+            dict(existing) if existing is not None else None
+        )
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Delete harvest entry")
+
+    def execute(self) -> None:
+        if self._prior_history_dict is None:
+            return
+        history = self._HarvestLogHistory.from_dict(self._prior_history_dict)
+        history.entries = [e for e in history.entries if e.id != self._entry_id]
+        self._pm.set_harvest_history(self._target_id, history)
+
+    def undo(self) -> None:
+        self._pm.restore_harvest_history(self._target_id, self._prior_history_dict)

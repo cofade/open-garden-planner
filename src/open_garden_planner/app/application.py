@@ -60,6 +60,7 @@ from open_garden_planner.ui.panels import (
     PropertiesPanel,
 )
 from open_garden_planner.ui.theme import ThemeMode, apply_theme
+from open_garden_planner.ui.views.harvest_log_view import HarvestLogView
 from open_garden_planner.ui.views.planting_calendar_view import PlantingCalendarView
 from open_garden_planner.ui.views.seed_inventory_view import SeedInventoryView
 from open_garden_planner.ui.widgets import (
@@ -1018,6 +1019,8 @@ class GardenPlannerApp(QMainWindow):
         self._project_manager.pest_logs_changed.connect(
             self._on_pest_logs_changed
         )
+        # US-C1 (#188): plant/bed → "Log Harvest…" routes through CanvasView
+        self.canvas_view.harvest_log_requested.connect(self._on_harvest_log_requested)
         # US-12.8: bed → "Plan Succession…" routes through CanvasView
         self.canvas_view.succession_plan_requested.connect(
             self._on_succession_plan_requested
@@ -1131,7 +1134,11 @@ class GardenPlannerApp(QMainWindow):
         self.seed_inventory_view.set_canvas_scene(self.canvas_scene)  # US-9.6: bidirectional links
         self._tab_widget.addTab(self.seed_inventory_view, self.tr("Seed Inventory"))
 
-        # Keyboard shortcuts: Ctrl+1 / Ctrl+2 / Ctrl+3 to switch tabs.
+        # Tab 3: Harvest Log (US-C1, #188)
+        self.harvest_log_view = HarvestLogView(self.canvas_scene, self._project_manager)
+        self._tab_widget.addTab(self.harvest_log_view, self.tr("Harvest Log"))
+
+        # Keyboard shortcuts: Ctrl+1 / Ctrl+2 / Ctrl+3 / Ctrl+4 to switch tabs.
         # (The "Layout / Paper Space" tab was dropped — `pdf_report_service`
         # already produces multi-page PDFs at chosen paper sizes, so a
         # second-space CAD-style print workflow added no value on top.)
@@ -1147,6 +1154,10 @@ class GardenPlannerApp(QMainWindow):
         tab2_shortcut.setShortcut(QKeySequence("Ctrl+3"))
         tab2_shortcut.triggered.connect(lambda: self._tab_widget.setCurrentIndex(2))
         self.addAction(tab2_shortcut)
+        tab3_shortcut = QAction(self)
+        tab3_shortcut.setShortcut(QKeySequence("Ctrl+4"))
+        tab3_shortcut.triggered.connect(lambda: self._tab_widget.setCurrentIndex(3))
+        self.addAction(tab3_shortcut)
 
         # Refresh calendar on tab switch and on canvas/location changes
         self._tab_widget.currentChanged.connect(self._on_tab_changed)
@@ -2161,6 +2172,12 @@ class GardenPlannerApp(QMainWindow):
             garden_journal_notes=(
                 self._project_manager.garden_journal_notes
                 if dialog.include_garden_notes
+                else None
+            ),
+            include_harvest_summary=dialog.include_harvest_summary,
+            harvest_data=(
+                self._project_manager.harvest_logs
+                if dialog.include_harvest_summary
                 else None
             ),
             include_legend=dialog.include_legend,
@@ -3881,6 +3898,94 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_view.command_manager.execute(cmd)
         self.statusBar().showMessage(self.tr("Pest/disease log recorded"), 3000)
         self._refresh_pest_overview()
+
+    def _on_harvest_log_requested(self, target_id: str, display_name: str) -> None:
+        """Open HarvestLogDialog for a plant/bed (US-C1, #188)."""
+        self._open_harvest_log_dialog(target_id, display_name)
+
+    def _open_harvest_log_dialog(self, target_id: str, display_name: str) -> None:
+        """Open the harvest dialog; on accept add the entry + an auto journal note.
+
+        Each new harvest auto-creates a dated garden-journal note tagged
+        ``harvest`` (US-12.9 linkage), placed at the target item's position. The
+        entry, note, and pin are added/removed together as one undoable command.
+        """
+        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+
+        from open_garden_planner.core import AddHarvestEntryCommand  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs import HarvestLogDialog  # noqa: PLC0415
+
+        if not display_name:
+            display_name = (
+                self._lookup_bed_display_name(target_id)
+                or self._lookup_item_name(target_id)
+            )
+        history = self._project_manager.get_harvest_history(target_id)
+        dialog = HarvestLogDialog(
+            parent=self,
+            target_id=target_id,
+            target_name=display_name,
+            existing_history=history,
+            project_manager=self._project_manager,
+            command_manager=self.canvas_view.command_manager,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        if not dialog.has_new_entry:
+            return
+
+        entry = dialog.result_entry()
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None)
+            or self.canvas_view.scene()
+        )
+        note, pin = self._build_harvest_journal_note(scene, target_id, display_name, entry)
+        cmd = AddHarvestEntryCommand(
+            self._project_manager, target_id, entry, scene=scene, pin_item=pin, note=note
+        )
+        self.canvas_view.command_manager.execute(cmd)
+        self.statusBar().showMessage(self.tr("Harvest recorded"), 3000)
+
+    def _build_harvest_journal_note(
+        self, scene: object, target_id: str, display_name: str, entry: object
+    ) -> tuple[object, object]:
+        """Build the auto journal note + pin for a harvest entry (US-C1).
+
+        Returns ``(note, pin)``; both are ``None`` when the target item can't be
+        located on the scene (the harvest is still recorded, just without a pin).
+        """
+        from open_garden_planner.models.journal_note import JournalNote  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+            JournalPinItem,
+        )
+
+        item = None
+        if scene is not None:
+            for candidate in scene.items():
+                if str(getattr(candidate, "item_id", "")) == target_id:
+                    item = candidate
+                    break
+        if item is None or scene is None:
+            return None, None
+
+        center = item.sceneBoundingRect().center()
+        name = display_name or self.tr("plant")
+        text = self.tr("[harvest] {qty:g} {unit} — {name}").format(
+            qty=entry.quantity, unit=entry.unit, name=name
+        )
+        note = JournalNote(
+            date=entry.date, text=text, scene_x=center.x(), scene_y=center.y()
+        )
+        entry.journal_note_id = note.id
+        layer_id = (
+            scene.active_layer.id
+            if hasattr(scene, "active_layer") and scene.active_layer
+            else None
+        )
+        pin = JournalPinItem(
+            x=center.x(), y=center.y(), note_id=note.id, layer_id=layer_id
+        )
+        return note, pin
 
     def _on_succession_plan_requested(self, bed_id: str, display_name: str) -> None:
         """Open SuccessionPlanDialog for a bed (US-12.8)."""

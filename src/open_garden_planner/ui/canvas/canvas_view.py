@@ -146,6 +146,9 @@ class CanvasView(QGraphicsView):
     # US-12.8: emitted when a bed's "Plan Succession…" action fires.
     # Args: bed_id (UUID string), display_name (informational)
     succession_plan_requested = pyqtSignal(str, str)
+    # US-C1 (#188): emitted when a plant/bed's "Log Harvest…" action fires.
+    # Args: target_id (UUID string), display_name (informational)
+    harvest_log_requested = pyqtSignal(str, str)
     # US-12.9: emitted when the Journal Pin tool drops a new pin.
     # Args: scene_x, scene_y (canvas coords, cm).
     journal_note_requested = pyqtSignal(float, float)
@@ -674,6 +677,10 @@ class CanvasView(QGraphicsView):
     def request_succession_plan(self, bed_id: str, display_name: str = "") -> None:
         """Forward a succession-plan request from a bed's context menu (US-12.8)."""
         self.succession_plan_requested.emit(bed_id, display_name or "")
+
+    def request_log_harvest(self, target_id: str, display_name: str = "") -> None:
+        """Forward a harvest-log request from a plant/bed context menu (US-C1)."""
+        self.harvest_log_requested.emit(target_id, display_name or "")
 
     def request_journal_note(self, scene_x: float, scene_y: float) -> None:
         """Forward a new-journal-note request from :class:`JournalPinTool` (US-12.9)."""

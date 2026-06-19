@@ -45,6 +45,7 @@ class BedMenuActions:
     add_soil_test: QAction | None = None
     log_pest_disease: QAction | None = None
     plan_succession: QAction | None = None
+    log_harvest: QAction | None = None
 
 
 class SuccessionBadgeItem(QGraphicsItem):
@@ -486,6 +487,9 @@ class GardenItemMixin:
         actions.plan_succession = menu.addAction(
             QCoreApplication.translate("BedActions", "Plan Succession…")
         )
+        actions.log_harvest = menu.addAction(
+            QCoreApplication.translate("BedActions", "Log Harvest…")
+        )
         return actions
 
     def dispatch_bed_action(
@@ -521,6 +525,10 @@ class GardenItemMixin:
         if action is actions.plan_succession and actions.plan_succession is not None:
             if hasattr(view, "request_succession_plan"):
                 view.request_succession_plan(str(self.item_id), self.name)
+            return True
+        if action is actions.log_harvest and actions.log_harvest is not None:
+            if hasattr(view, "request_log_harvest"):
+                view.request_log_harvest(str(self.item_id), self.name)
             return True
         return False
 

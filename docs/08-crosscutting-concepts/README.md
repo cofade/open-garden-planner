@@ -581,6 +581,7 @@ class BedMenuActions:
     add_soil_test: QAction | None = None
     log_pest_disease: QAction | None = None
     plan_succession: QAction | None = None
+    log_harvest: QAction | None = None  # US-C1 (#188)
 
 def build_bed_context_menu(
     self, menu: QMenu, *, grid_enabled: bool, supports_grid: bool = True
@@ -617,6 +618,7 @@ def test_bed_context_menu_has_all_features(factory, supports_grid, qtbot):
     assert actions.add_soil_test is not None
     assert actions.log_pest_disease is not None
     assert actions.plan_succession is not None
+    assert actions.log_harvest is not None  # US-C1 (#188)
 ```
 
 **Adding a future bed feature** (the playbook):
