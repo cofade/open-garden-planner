@@ -23,14 +23,17 @@ from open_garden_planner.core.plant_renderer import (
     is_plant_type,
     render_plant_pixmap,
 )
+from open_garden_planner.core.plant_sizing import sizing_for_item
 
 from .garden_item import GardenItemMixin
 from .resize_handle import (
+    MINIMUM_SIZE_CM,
     AnnotationLabel,
     ResizeHandlesMixin,
     RotationHandleMixin,
     _format_coordinate,
     _format_edge_length,
+    resize_rect_item_keeping_anchor,
 )
 
 
@@ -269,8 +272,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             and is_plant_type(self.object_type)
             and (self.isSelected() or self._spacing_overlap is not None)
         ):
-            spacing_r = self.effective_spacing_radius()
-            if spacing_r is not None and spacing_r > self._radius:
+            spacing_r = sizing_for_item(self).spacing_ring_radius_cm
+            if spacing_r is not None:
                 extra = spacing_r - self._radius + self._SPACING_STROKE_WIDTH
                 base = base.adjusted(-extra, -extra, extra, extra)
         return base
@@ -341,8 +344,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 if self._spacing_circles_visible and (
                     self.isSelected() or self._spacing_overlap is not None
                 ):
-                    spacing_r = self.effective_spacing_radius()
-                    if spacing_r is not None and spacing_r > self._radius:
+                    spacing_r = sizing_for_item(self).spacing_ring_radius_cm
+                    if spacing_r is not None:
                         center = rect.center()
                         spacing_rect = QRectF(
                             center.x() - spacing_r,
@@ -480,17 +483,17 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             return
         # Scene-space centre of the current circle (correct under any rotation).
         scene_center = self.mapToScene(self.rect().center())
-        self.prepareGeometryChange()
         diameter = new_radius * 2
-        self.setRect(0, 0, diameter, diameter)
         new_center = QPointF(new_radius, new_radius)
+        # Keep the scene centre fixed: the centre-anchor case of the shared
+        # rotation-aware primitive (#218). It calls prepareGeometryChange(),
+        # applies the rect, re-pins the rotation origin onto the new centre,
+        # and repositions so the centre stays put — the pos + center invariant.
+        resize_rect_item_keeping_anchor(
+            self, QRectF(0, 0, diameter, diameter), scene_center, new_center
+        )
         self._center = new_center
         self._radius = new_radius
-        # Move the rotation pivot onto the new centre so rotation stays about the
-        # centre; with the origin on the centre, mapToScene(centre) == pos +
-        # centre, so position the item to keep that centre where it was.
-        self.setTransformOriginPoint(new_center)
-        self.setPos(scene_center - new_center)
         if hasattr(self, "update_resize_handles"):
             self.update_resize_handles()
         self._update_circle_annotations()
@@ -579,6 +582,64 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # Store the rect (not boundingRect) for accurate calculations
         self._resize_initial_rect = self.rect()
         self._resize_initial_pos = self.pos()
+
+    def _constrain_resize_size(
+        self,
+        new_width: float,
+        new_height: float,
+        *,
+        width_driven: bool,
+        height_driven: bool,
+    ) -> tuple[float, float]:
+        """Square the resize rect so the circle stays circular and tracks the cursor.
+
+        Interactive-resize hook (``ResizeHandle._apply_resize``). The diameter
+        follows whichever axis the dragged handle drives so the handle tracks
+        the cursor: a corner handle reaches the farther axis (``max``), an edge
+        handle follows its own axis (so a side handle can grow *or* shrink the
+        circle — the old ``min(w, h)`` capped growth). #218 follow-up.
+        """
+        if width_driven and height_driven:
+            diameter = max(new_width, new_height)
+        elif width_driven:
+            diameter = new_width
+        elif height_driven:
+            diameter = new_height
+        else:
+            # Unreachable for the 8 handle positions (each drives ≥1 axis);
+            # guards a hypothetical future centre handle.
+            diameter = self._radius * 2.0
+        diameter = max(diameter, MINIMUM_SIZE_CM)
+        return diameter, diameter
+
+    def _after_resize_geometry(self) -> None:
+        """Sync circle bookkeeping after the shared primitive set rect/pos/origin.
+
+        Interactive-resize hook. The geometry (rect, position, transform origin)
+        is already applied; this updates the derived ``_center``/``_radius``,
+        the dimension feedback, handles, labels and annotations.
+        """
+        r = self.rect()
+        self._center = QPointF(r.width() / 2.0, r.height() / 2.0)
+        self._radius = r.width() / 2.0
+        # Single dimension readout: the circle annotates its own diameter ("Ø")
+        # when annotations are visible, so only fall back to the handle's
+        # width×height box when they are not (avoids the double label, #218).
+        annotations_visible = (
+            self._center_label is not None and self._center_label.isVisible()
+        )
+        if (
+            not annotations_visible
+            and hasattr(self, '_dimension_display')
+            and self._dimension_display is not None
+        ):
+            self._dimension_display.update_dimensions(
+                r.width(), r.height(), self.mapToScene(r.bottomRight())
+            )
+        self.update_resize_handles()
+        self._position_label()
+        self._update_area_label()
+        self._update_circle_annotations()
 
     def _apply_resize(
         self,
@@ -705,6 +766,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
             """Apply geometry to the item."""
             if isinstance(item, CircleItem):
+                item.prepareGeometryChange()
                 item.setRect(
                     geom['rect_x'],
                     geom['rect_y'],
@@ -714,6 +776,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 item._center = QPointF(geom['center_x'], geom['center_y'])
                 item._radius = geom['radius']
                 item.setPos(geom['pos_x'], geom['pos_y'])
+                # Re-pin the rotation origin so undo/redo of a rotated resize
+                # restores the pivot too, not just rect + pos (#218).
+                item.setTransformOriginPoint(item.rect().center())
                 item.update_resize_handles()
                 item._position_label()
 
