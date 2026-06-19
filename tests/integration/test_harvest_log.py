@@ -89,6 +89,13 @@ class TestHarvestCommands:
         assert not any(isinstance(i, JournalPinItem) for i in scene.items())
         assert "p1" not in pm.harvest_logs
 
+        # Redo must restore entry + note + pin atomically, with no duplication.
+        mgr.redo()
+        assert note.id in pm.garden_journal_notes
+        pins = [i for i in scene.items() if isinstance(i, JournalPinItem)]
+        assert len(pins) == 1
+        assert len(pm.get_harvest_history("p1").entries) == 1
+
 
 class TestHarvestPersistence:
     def test_round_trip_ogp(self, qtbot, pm: ProjectManager, tmp_path: Path) -> None:
@@ -100,6 +107,23 @@ class TestHarvestPersistence:
         pm2 = ProjectManager()
         scene2 = CanvasScene(width_cm=500, height_cm=500)
         pm2.load(scene2, target)
+        assert pm2.get_harvest_history("p1").entries[0].quantity == 1.5
+
+    def test_new_season_carries_harvest_logs(
+        self, qtbot, pm: ProjectManager, tmp_path: Path
+    ) -> None:
+        # Harvest entries are a permanent dated record: a season rollover must
+        # carry them into the new season file (unlike journal notes, which drop).
+        scene = CanvasScene(width_cm=500, height_cm=500)
+        CommandManager().execute(AddHarvestEntryCommand(pm, "p1", _entry()))
+        pm.save(scene, tmp_path / "season1.ogp")
+
+        new_file = tmp_path / "season2.ogp"
+        pm.create_new_season(scene, new_year=2027, new_file_path=new_file)
+
+        pm2 = ProjectManager()
+        scene2 = CanvasScene(width_cm=500, height_cm=500)
+        pm2.load(scene2, new_file)
         assert pm2.get_harvest_history("p1").entries[0].quantity == 1.5
 
     def test_backwards_compat_missing_key(

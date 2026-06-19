@@ -305,7 +305,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Intersect": "Schnittmenge",
         "Subtract": "Subtraktion",
         "Array Along Path...": "Muster entlang Pfad...",
-        "Log Harvest…": "Ernte erfassen…",
     },
 
     # ── CircleTool ──
@@ -2008,6 +2007,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Could not copy photo: {err}":
             "Foto konnte nicht kopiert werden: {err}",
         "Click to open in image viewer": "Klicken, um in Bildbetrachter zu öffnen",
+    },
+
+    # ── HarvestLog (US-C1, #188) — shared crop-name fallback (services) ──
+    "HarvestLog": {
+        "Plant": "Pflanze",
     },
 
     # ── HarvestLogView (US-C1, #188) ──

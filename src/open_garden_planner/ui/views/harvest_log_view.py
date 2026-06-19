@@ -23,31 +23,11 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.app.paths import default_save_path
-from open_garden_planner.services.harvest_aggregation import aggregate_yields, all_years
-
-
-def display_name_map(scene: Any) -> dict[str, str]:
-    """Map each scene item's UUID string to a human label for harvest crops.
-
-    Prefers the item's ``name``; falls back to the bound species' common name,
-    then to a generic ``Plant`` label. Kept module-level so the export path can
-    reuse the exact same resolution as the table.
-    """
-    names: dict[str, str] = {}
-    if scene is None:
-        return names
-    for item in scene.items():
-        item_id = getattr(item, "item_id", None)
-        if item_id is None:
-            continue
-        label = (getattr(item, "name", "") or "").strip()
-        if not label:
-            metadata = getattr(item, "metadata", None) or {}
-            species = metadata.get("plant_species") if isinstance(metadata, dict) else None
-            if isinstance(species, dict):
-                label = (species.get("common_name") or "").strip()
-        names[str(item_id)] = label or "Plant"
-    return names
+from open_garden_planner.services.harvest_aggregation import (
+    aggregate_yields,
+    all_years,
+    crop_display_name_map,
+)
 
 
 class HarvestLogView(QWidget):
@@ -86,7 +66,7 @@ class HarvestLogView(QWidget):
     def refresh(self) -> None:
         """Rebuild the totals table from the current harvest logs."""
         logs = self._project_manager.harvest_logs
-        rows = aggregate_yields(logs, display_name_map(self._canvas_scene))
+        rows = aggregate_yields(logs, crop_display_name_map(self._canvas_scene))
         years = all_years(rows)
 
         self._empty_label.setVisible(not rows)
@@ -138,7 +118,7 @@ class HarvestLogView(QWidget):
             return
         try:
             count = ExportService.export_harvest_log_to_csv(
-                logs, display_name_map(self._canvas_scene), path_str
+                logs, crop_display_name_map(self._canvas_scene), path_str
             )
         except ValueError as exc:
             QMessageBox.warning(
@@ -154,4 +134,4 @@ class HarvestLogView(QWidget):
         )
 
 
-__all__ = ["HarvestLogView", "display_name_map"]
+__all__ = ["HarvestLogView"]

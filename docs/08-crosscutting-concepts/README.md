@@ -632,6 +632,8 @@ def test_bed_context_menu_has_all_features(factory, supports_grid, qtbot):
 
 If you forget step 1–5 the existing test still passes; if you forget step 6 the test will not catch a future regression. The single-line addition in step 6 is the linchpin — treat it as mandatory.
 
+**Harvest log (US-C1, #188) follows this playbook** (`log_harvest` action on plants + beds). One deliberate asymmetry to know: `AddHarvestEntryCommand` auto-creates a linked `[harvest]` journal note + pin (added/removed atomically with the entry on execute/undo/redo), but `EditHarvestEntryCommand`/`DeleteHarvestEntryCommand` intentionally **do not** touch that note — the note is a dated historical record, so after an edit its text keeps the original qty/unit and after a delete it is left as an orphan. This one-directional coupling is by design; don't "fix" it into a sync without a reason.
+
 **Upright text badges on the Y-flipped canvas.** Related lesson from the same bug batch: text drawn via `painter.drawText()` inside an item's `paint()` inherits the view's `scale(zoom, -zoom)` and renders **upside-down**. Use `QGraphicsSimpleTextItem` (or a custom `QGraphicsItem` subclass) as a **child** of the item with `ItemIgnoresTransformations`. See `SuccessionBadgeItem` in `garden_item.py` for the multi-line-with-pill-background example; bed name labels (`_label_item`) use `QGraphicsSimpleTextItem` for the simple single-line case.
 
 Cross-references: ADR-017 (decision rationale), `tests/integration/test_bed_context_menu.py` (enforcement), `tests/integration/test_succession.py::TestSuccessionBadgeIndicator` (badge state machine).

@@ -92,14 +92,16 @@ class TestAggregateYields:
         units = {r.unit: r.total for r in rows}
         assert units == {"g": 500, "pcs": 3}
 
-    def test_unknown_target_falls_back_to_id(self) -> None:
+    def test_unknown_target_falls_back_to_plant_label(self) -> None:
         logs = {
             "p9": HarvestLogHistory(
                 "p9", [HarvestEntry(date="2026-06-01", quantity=1, unit="kg", id="a")]
             ).to_dict(),
         }
         rows = aggregate_yields(logs, {})
-        assert rows[0].species == "p9"
+        # Unknown target → single translated fallback (source string when no
+        # translator is installed), never the raw UUID.
+        assert rows[0].species == "Plant"
 
     def test_entry_without_year_counts_in_total_only(self) -> None:
         logs = {

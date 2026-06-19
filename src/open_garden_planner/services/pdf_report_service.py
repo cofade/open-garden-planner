@@ -556,23 +556,10 @@ def _render_harvest_summary(
     from open_garden_planner.services.harvest_aggregation import (  # noqa: PLC0415
         aggregate_yields,
         all_years,
+        crop_display_name_map,
     )
 
-    # Resolve crop labels from the scene (item.name → species common name → id).
-    name_map: dict[str, str] = {}
-    for item in scene.items():
-        item_id = getattr(item, "item_id", None)
-        if item_id is None:
-            continue
-        label = (getattr(item, "name", "") or "").strip()
-        if not label:
-            metadata = getattr(item, "metadata", None) or {}
-            species = metadata.get("plant_species") if isinstance(metadata, dict) else None
-            if isinstance(species, dict):
-                label = (species.get("common_name") or "").strip()
-        name_map[str(item_id)] = label or _tr("Plant")
-
-    rows = aggregate_yields(opts.harvest_data or {}, name_map)
+    rows = aggregate_yields(opts.harvest_data or {}, crop_display_name_map(scene))
     years = all_years(rows)
 
     title_font = QFont("Arial", 14)

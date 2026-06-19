@@ -8,6 +8,9 @@ crop logged in both grams and pieces never sums incompatible units.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
+
+from PyQt6.QtCore import QCoreApplication
 
 from open_garden_planner.models.harvest_log import HarvestLogHistory
 
@@ -22,6 +25,44 @@ class YieldRow:
     total: float = 0.0
 
 
+def _plant_fallback() -> str:
+    """Translated label for a harvest target that has no resolvable name."""
+    return QCoreApplication.translate("HarvestLog", "Plant")
+
+
+def crop_display_name_map(scene: Any) -> dict[str, str]:
+    """Map each scene item's UUID string to a crop label (US-C1, #188).
+
+    The single source of truth for crop-name resolution shared by the Harvest
+    Log tab, CSV export, and the PDF summary page — prefers the item's ``name``,
+    then the bound species' common name. Items without a usable name are omitted
+    so ``resolve_crop_name`` supplies the one translated ``Plant`` fallback
+    (this also covers harvest history whose target object no longer exists, e.g.
+    a plant removed on season rollover).
+    """
+    names: dict[str, str] = {}
+    if scene is None:
+        return names
+    for item in scene.items():
+        item_id = getattr(item, "item_id", None)
+        if item_id is None:
+            continue
+        label = (getattr(item, "name", "") or "").strip()
+        if not label:
+            metadata = getattr(item, "metadata", None) or {}
+            species = metadata.get("plant_species") if isinstance(metadata, dict) else None
+            if isinstance(species, dict):
+                label = (species.get("common_name") or "").strip()
+        if label:
+            names[str(item_id)] = label
+    return names
+
+
+def resolve_crop_name(target_id: str, display_name_by_target: dict[str, str]) -> str:
+    """Resolve a harvest target's crop label, with one translated fallback."""
+    return display_name_by_target.get(target_id) or _plant_fallback()
+
+
 def aggregate_yields(
     harvest_logs: dict[str, dict],
     display_name_by_target: dict[str, str],
@@ -32,7 +73,8 @@ def aggregate_yields(
         harvest_logs: ``{target_id: HarvestLogHistory.to_dict()}`` as stored on
             the project.
         display_name_by_target: maps each ``target_id`` to a human label
-            (resolved by the caller from the scene; falls back to the raw id).
+            (resolved by the caller via ``crop_display_name_map``); unknown
+            targets fall back to a single translated ``Plant`` label.
 
     Returns:
         ``YieldRow`` list sorted by species then unit. ``totals_by_year`` holds
@@ -41,7 +83,7 @@ def aggregate_yields(
     by_key: dict[tuple[str, str], YieldRow] = {}
     for target_id, hist_dict in harvest_logs.items():
         history = HarvestLogHistory.from_dict(hist_dict)
-        species = display_name_by_target.get(target_id, target_id)
+        species = resolve_crop_name(target_id, display_name_by_target)
         for entry in history.entries:
             key = (species, entry.unit)
             row = by_key.get(key)

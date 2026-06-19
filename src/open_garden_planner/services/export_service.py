@@ -614,13 +614,16 @@ class ExportService:
         from open_garden_planner.models.harvest_log import (  # noqa: PLC0415
             HarvestLogHistory,
         )
+        from open_garden_planner.services.harvest_aggregation import (  # noqa: PLC0415
+            resolve_crop_name,
+        )
 
         file_path = Path(file_path)
         headers = ["crop", "date", "quantity", "unit", "quality", "notes"]
         rows: list[dict[str, Any]] = []
         for target_id, hist_dict in harvest_logs.items():
             history = HarvestLogHistory.from_dict(hist_dict)
-            crop = display_name_by_target.get(target_id, target_id)
+            crop = resolve_crop_name(target_id, display_name_by_target)
             for entry in sorted(history.entries, key=lambda e: e.date):
                 rows.append(
                     {

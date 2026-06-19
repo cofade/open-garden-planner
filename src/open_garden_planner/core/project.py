@@ -877,6 +877,12 @@ class ProjectManager(QObject):
                     target_id=tid, records=keep
                 ).to_dict()
         current_data.pest_disease_logs = carried_pests
+        # US-C1 (#188): harvest entries are a permanent dated record — carry the
+        # full history forward to the new season (the previous season file keeps
+        # its copy too). History whose plant was not carried over still travels
+        # with the file; the Harvest Log tab labels such orphaned targets with
+        # the generic "Plant" fallback.
+        current_data.harvest_logs = dict(self._harvest_logs)
 
         # Filter objects based on keep_plants flag
         if not keep_plants:
