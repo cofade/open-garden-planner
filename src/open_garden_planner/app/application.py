@@ -1154,6 +1154,10 @@ class GardenPlannerApp(QMainWindow):
         self._tab_widget.currentChanged.connect(self._on_tab_changed)
         self._project_manager.location_changed.connect(lambda _: self.calendar_view.refresh())
         self._project_manager.task_completions_changed.connect(lambda _: self.calendar_view.refresh())
+        # Deliberately on command_executed (not stack_changed): calendar_view.refresh()
+        # is heavyweight (see #210) and is intentionally NOT run on undo/redo. This
+        # leaves the calendar stale on undo/redo of a calendar-affecting command —
+        # a pre-existing, accepted trade-off tracked in #225 (panel staleness on undo/redo).
         cmd_mgr.command_executed.connect(lambda _: self.calendar_view.refresh())
 
         # Highlight plant on canvas when user clicks a dashboard task (US-8.6)
