@@ -62,11 +62,13 @@ from open_garden_planner.ui.panels import (
 from open_garden_planner.ui.theme import ThemeMode, apply_theme
 from open_garden_planner.ui.views.planting_calendar_view import PlantingCalendarView
 from open_garden_planner.ui.views.seed_inventory_view import SeedInventoryView
+from open_garden_planner.ui.views.tasks_view import TasksView
 from open_garden_planner.ui.widgets import (
     CategoryToolbar,
     CollapsiblePanel,
     ConstraintToolbar,
     MainToolbar,
+    TaskReminderBar,
     UpdateBar,
 )
 
@@ -1133,6 +1135,14 @@ class GardenPlannerApp(QMainWindow):
         self.seed_inventory_view.set_canvas_scene(self.canvas_scene)  # US-9.6: bidirectional links
         self._tab_widget.addTab(self.seed_inventory_view, self.tr("Seed Inventory"))
 
+        # Tab: Tasks (US-C2, #188) — appended last (keeps existing tab indices,
+        # the frost-badge setCurrentIndex(1), and Ctrl+1..4 valid).
+        self.tasks_view = TasksView(
+            self.canvas_scene, self._project_manager, cmd_mgr
+        )
+        self.tasks_view.set_soil_service(self._soil_service)
+        self._tab_widget.addTab(self.tasks_view, self.tr("Tasks"))
+
         # Keyboard shortcuts: Ctrl+1 / Ctrl+2 / Ctrl+3 to switch tabs.
         # (The "Layout / Paper Space" tab was dropped — `pdf_report_service`
         # already produces multi-page PDFs at chosen paper sizes, so a
@@ -1173,14 +1183,53 @@ class GardenPlannerApp(QMainWindow):
         self._tab_widget.setCornerWidget(self._frost_badge, Qt.Corner.TopRightCorner)
         self.calendar_view.frost_alert_ready.connect(self._on_frost_alert_ready)
 
-        # Wrap tab widget + update bar in a container
+        # ── Tasks tab wiring (US-C2, #188) ───────────────────────────────────
+        # Ctrl shortcut for the Tasks tab — resolve its index (don't hardcode).
+        tasks_shortcut = QAction(self)
+        tasks_shortcut.setShortcut(QKeySequence("Ctrl+5"))
+        tasks_shortcut.triggered.connect(
+            lambda: self._tab_widget.setCurrentIndex(
+                self._tab_widget.indexOf(self.tasks_view)
+            )
+        )
+        self.addAction(tasks_shortcut)
+        # Reuse the calendar's single weather fetch for frost tasks.
+        self.calendar_view.frost_alerts_ready.connect(self.tasks_view.set_frost_alerts)
+        # Regenerate (debounced inside the view) on relevant project changes.
+        self._project_manager.location_changed.connect(
+            lambda _: self.tasks_view.schedule_refresh()
+        )
+        self._project_manager.task_states_changed.connect(
+            lambda _: self.tasks_view.schedule_refresh()
+        )
+        self._project_manager.manual_tasks_changed.connect(
+            lambda _: self.tasks_view.schedule_refresh()
+        )
+        self._project_manager.succession_plans_changed.connect(
+            lambda _: self.tasks_view.schedule_refresh()
+        )
+        cmd_mgr.command_executed.connect(lambda _: self.tasks_view.schedule_refresh())
+        # Task → canvas navigation.
+        self.tasks_view.navigate_to_bed.connect(self._on_navigate_to_bed)
+        self.tasks_view.navigate_to_species.connect(self._on_highlight_species)
+        self.tasks_view.navigate_to_items.connect(self._on_navigate_to_items)
+
+        # Wrap tab widget + update/reminder bars in a container
         self._update_bar = UpdateBar(self)
         self._update_bar.skip_version_requested.connect(self._on_skip_version)
+        # Overdue-task reminder bar (US-C2, #188) — persistent, dismissible.
+        self._task_reminder_bar = TaskReminderBar(self)
+        self._task_reminder_bar.show_tasks_requested.connect(
+            lambda: self._tab_widget.setCurrentIndex(
+                self._tab_widget.indexOf(self.tasks_view)
+            )
+        )
         container = QWidget()
         container_layout = QVBoxLayout(container)
         container_layout.setContentsMargins(0, 0, 0, 0)
         container_layout.setSpacing(0)
         container_layout.addWidget(self._update_bar)
+        container_layout.addWidget(self._task_reminder_bar)
         container_layout.addWidget(self._tab_widget)
         self.setCentralWidget(container)
 
@@ -1387,6 +1436,44 @@ class GardenPlannerApp(QMainWindow):
         # Then show welcome dialog if enabled and no recovery was handled
         if not recovery_handled:
             self._show_welcome_dialog()
+        # Deferred so it runs after the modal Welcome dialog is gone and the
+        # event queue has drained — a bar shown behind a modal dialog is unseen.
+        QTimer.singleShot(0, self._check_overdue_tasks)
+
+    def _check_overdue_tasks(self) -> None:
+        """Show (or hide) the overdue-MANUAL-task reminder bar (US-C2).
+
+        Scoped to manual tasks deliberately: auto-generated tasks depend on the
+        scene + an async weather fetch that aren't guaranteed ready this early.
+        Uses a persistent, dismissible bar rather than a status-bar message —
+        the latter is invisible behind the modal Welcome dialog and is easily
+        clobbered by other status writes (see §11.4). Gated by a Preferences
+        toggle (default ON). Idempotent: safe to call from multiple deferred
+        startup/open paths.
+        """
+        from datetime import date  # noqa: PLC0415
+
+        from open_garden_planner.app.settings import get_settings  # noqa: PLC0415
+
+        if not get_settings().notify_overdue_tasks_on_startup:
+            self._task_reminder_bar.hide()
+            return
+        today_iso = date.today().isoformat()
+        states = self._project_manager.task_states
+        overdue = 0
+        for tid, raw in self._project_manager.manual_tasks.items():
+            due = raw.get("date", "")
+            if not due or due >= today_iso:
+                continue
+            st = states.get(tid, {})
+            if st.get("status") in ("done", "dismissed"):
+                continue
+            snooze = st.get("snooze_until")
+            if snooze and snooze >= today_iso:
+                continue
+            overdue += 1
+        # show_reminder() hides the bar when the count is 0.
+        self._task_reminder_bar.show_reminder(overdue)
 
     def _show_welcome_dialog(self) -> None:
         """Show the welcome dialog if enabled in settings."""
@@ -1727,6 +1814,9 @@ class GardenPlannerApp(QMainWindow):
             self._compare_overlay_action.setEnabled(False)
             self._compare_overlay_action.setChecked(False)
 
+            # A fresh project has no overdue tasks — clear any stale reminder.
+            self._task_reminder_bar.hide()
+
             # Update status bar
             width_m = width_cm / 100.0
             height_m = height_cm / 100.0
@@ -1811,6 +1901,10 @@ class GardenPlannerApp(QMainWindow):
             self.statusBar().showMessage(self.tr("Opened: {path}").format(path=file_path))
             # Load compare overlay if previous seasons are linked (US-10.7)
             self._load_compare_overlay_from_previous_season()
+            self.tasks_view.refresh()
+            # Deferred: when opened from the modal Welcome dialog, a bar shown
+            # now would sit behind it. singleShot(0) runs after it closes.
+            QTimer.singleShot(0, self._check_overdue_tasks)
         except Exception as e:
             QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=e))
 
@@ -4387,6 +4481,8 @@ class GardenPlannerApp(QMainWindow):
             self.calendar_view.refresh()
         elif index == 2:
             self.seed_inventory_view.refresh()
+        elif index == self._tab_widget.indexOf(self.tasks_view):
+            self.tasks_view.refresh()
 
     def _on_frost_alert_ready(self, count: int, max_severity: str) -> None:
         """Update the frost alert corner badge."""
@@ -4438,3 +4534,28 @@ class GardenPlannerApp(QMainWindow):
                     item.setSelected(True)
             except Exception:
                 continue
+
+    def _select_items_by_id(self, ids: set[str]) -> None:
+        """Switch to Garden Plan and select/center the items with these UUIDs."""
+        self._tab_widget.setCurrentIndex(0)
+
+        def _do_select() -> None:
+            self.canvas_scene.clearSelection()
+            first = None
+            for item in self.canvas_scene.items():
+                if hasattr(item, "item_id") and str(item.item_id) in ids:
+                    item.setSelected(True)
+                    if first is None:
+                        first = item
+            if first is not None:
+                self.canvas_view.centerOn(first)
+
+        QTimer.singleShot(0, _do_select)
+
+    def _on_navigate_to_bed(self, bed_id: str) -> None:
+        """Navigate to a single bed from a task (US-C2)."""
+        self._select_items_by_id({bed_id})
+
+    def _on_navigate_to_items(self, ids: object) -> None:
+        """Navigate to a set of items from a task (US-C2, e.g. frost-affected)."""
+        self._select_items_by_id({str(i) for i in (ids or [])})

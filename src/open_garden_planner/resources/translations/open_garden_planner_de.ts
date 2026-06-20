@@ -3219,6 +3219,10 @@ Neue Saison jetzt öffnen?</translation>
             <source>Layout</source>
             <translation>Layout</translation>
         </message>
+        <message>
+            <source>Tasks</source>
+            <translation>Aufgaben</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -4997,6 +5001,18 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
         <message>
             <source>Temperature at or below which tender plants are at risk</source>
             <translation>Temperatur, bei der oder darunter empfindliche Pflanzen gefährdet sind</translation>
+        </message>
+        <message>
+            <source>Tasks</source>
+            <translation>Aufgaben</translation>
+        </message>
+        <message>
+            <source>Notify about overdue tasks on startup</source>
+            <translation>Beim Start über überfällige Aufgaben benachrichtigen</translation>
+        </message>
+        <message>
+            <source>Show a reminder on startup when the open project has overdue tasks</source>
+            <translation>Beim Start an überfällige Aufgaben im geöffneten Projekt erinnern</translation>
         </message>
     </context>
     <context>
@@ -9419,6 +9435,162 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Apply species data</source>
             <translation>Artdaten anwenden</translation>
+        </message>
+        <message>
+            <source>Add task</source>
+            <translation>Aufgabe hinzufügen</translation>
+        </message>
+        <message>
+            <source>Edit task</source>
+            <translation>Aufgabe bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete task</source>
+            <translation>Aufgabe löschen</translation>
+        </message>
+    </context>
+    <context>
+        <name>Tasks</name>
+        <message>
+            <source>Frost {temp}°C</source>
+            <translation>Frost {temp}°C</translation>
+        </message>
+    </context>
+    <context>
+        <name>TasksView</name>
+        <message>
+            <source>Tasks</source>
+            <translation>Aufgaben</translation>
+        </message>
+        <message>
+            <source>Add Task</source>
+            <translation>Aufgabe hinzufügen</translation>
+        </message>
+        <message>
+            <source>Overdue</source>
+            <translation>Überfällig</translation>
+        </message>
+        <message>
+            <source>Today</source>
+            <translation>Heute</translation>
+        </message>
+        <message>
+            <source>This Week</source>
+            <translation>Diese Woche</translation>
+        </message>
+        <message>
+            <source>Upcoming</source>
+            <translation>Demnächst</translation>
+        </message>
+        <message>
+            <source>No date</source>
+            <translation>Ohne Datum</translation>
+        </message>
+        <message>
+            <source>Snoozed</source>
+            <translation>Zurückgestellt</translation>
+        </message>
+        <message>
+            <source>Done</source>
+            <translation>Erledigt</translation>
+        </message>
+        <message>
+            <source>No tasks — you're all caught up.</source>
+            <translation>Keine Aufgaben — alles erledigt.</translation>
+        </message>
+        <message>
+            <source>Show on canvas</source>
+            <translation>Auf der Zeichenfläche anzeigen</translation>
+        </message>
+        <message>
+            <source>Un-snooze</source>
+            <translation>Zurückstellung aufheben</translation>
+        </message>
+        <message>
+            <source>Snooze</source>
+            <translation>Zurückstellen</translation>
+        </message>
+        <message>
+            <source>Edit</source>
+            <translation>Bearbeiten</translation>
+        </message>
+        <message>
+            <source>Delete</source>
+            <translation>Löschen</translation>
+        </message>
+        <message>
+            <source>Dismiss</source>
+            <translation>Verwerfen</translation>
+        </message>
+        <message>
+            <source>Reopen</source>
+            <translation>Wieder öffnen</translation>
+        </message>
+        <message>
+            <source>1 day</source>
+            <translation>1 Tag</translation>
+        </message>
+        <message>
+            <source>1 week</source>
+            <translation>1 Woche</translation>
+        </message>
+        <message>
+            <source>2 weeks</source>
+            <translation>2 Wochen</translation>
+        </message>
+    </context>
+    <context>
+        <name>TaskDialog</name>
+        <message>
+            <source>New Task</source>
+            <translation>Neue Aufgabe</translation>
+        </message>
+        <message>
+            <source>Edit Task</source>
+            <translation>Aufgabe bearbeiten</translation>
+        </message>
+        <message>
+            <source>Due Date</source>
+            <translation>Fälligkeitsdatum</translation>
+        </message>
+        <message>
+            <source>Title</source>
+            <translation>Titel</translation>
+        </message>
+        <message>
+            <source>Task summary…</source>
+            <translation>Kurzbeschreibung…</translation>
+        </message>
+        <message>
+            <source>Linked Bed</source>
+            <translation>Verknüpftes Beet</translation>
+        </message>
+        <message>
+            <source>(No bed)</source>
+            <translation>(Kein Beet)</translation>
+        </message>
+        <message>
+            <source>Notes</source>
+            <translation>Notizen</translation>
+        </message>
+        <message>
+            <source>Details…</source>
+            <translation>Details…</translation>
+        </message>
+    </context>
+    <context>
+        <name>TaskReminderBar</name>
+        <message>
+            <source>Show Tasks</source>
+            <translation>Aufgaben anzeigen</translation>
+        </message>
+        <message>
+            <source>Dismiss</source>
+            <translation>Verwerfen</translation>
+        </message>
+        <message>
+            <source>You have {n} overdue manual task(s).</source>
+            <translation>Sie haben {n} überfällige manuelle Aufgabe(n).</translation>
         </message>
     </context>
 </TS>

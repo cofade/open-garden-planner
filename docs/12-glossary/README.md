@@ -69,6 +69,10 @@
 | **Through-point (arc)** | A point the arc passes through between its endpoints — the 3rd click ("bulge") of the start→end→bulge arc tool. Stored on `ArcItem` (`_through`, persisted as `through_x`/`through_y`; legacy files derive the angular midpoint) as the third degree of freedom held fixed while dragging an endpoint, and itself draggable to change curvature. See ADR-025 |
 | **arc_to_painter_path** | Builds an arc's `QPainterPath` from exact cubic-Bézier segments (≤45° each, anchors placed analytically on the circle, control factor `k=4/3·tan(Δ/4)`). Replaces Qt's `arcMoveTo`/`arcTo`, whose rendered endpoints drift on shallow large-radius arcs (issue #195). Used by `ArcItem` and the arc-tool preview. See ADR-025 |
 | **render_scene_region** | Shared scene-region renderer in `services/scene_rendering.py`. Hides selection / construction / soil-badge overlays, optionally rescales text, paints `source_rect` of a scene into `target_rect` on any painter, applies the standard Y-flip, and restores everything afterwards. Currently used by PNG export; SVG export + print dialog migration is tracked as follow-up |
+| **Manual task** | A user-created reminder (`ManualTask` in `models/task.py`): date, title, notes, optional linked bed. Created/edited via `TaskDialog`, persisted under the additive `.ogp` key `manual_tasks`, and undoable. Shown on the Tasks tab alongside the auto-generated tasks. See ADR-029 |
+| **Task state** | The stored raw status of one task keyed by `task_id` (`task_states` in the `.ogp` file): open / snoozed (until a date) / done (on a date) / dismissed. Written at both write chokepoints (`set_task_status`, `set_task_completion`), which also keep the legacy `task_completions` done-set in sync. See ADR-029 |
+| **Task generator** | One of six pure, Qt-free `(PlanState) -> list[Task]` functions in `services/task_generator.py` — planting-calendar windows, propagation, succession sow/clear, soil amendments, frost protection, manual tasks. `generate_all` flat-maps and dedups by `task_id`. Pure so they unit-test without a running app. See ADR-029 |
+| **Effective status** | The render-time status of a task computed by `services/task_status.effective_status` from its stored `Task state` and "today": open / snoozed / done / dismissed / archived. No background scheduler — an expired snooze reads as open and a task done > 7 days ago reads as archived (done-then-archive window) on the next render. See ADR-029 |
 
 ## 12.2 Keyboard Shortcuts
 
@@ -101,6 +105,7 @@
 | Garden Plan tab | Ctrl+1 |
 | Planting Calendar tab | Ctrl+2 |
 | Seed Inventory tab | Ctrl+3 |
+| Tasks tab | Ctrl+5 |
 | Bezier Tool | B |
 | Arc Tool (3-point) | A |
 | Fillet Tool | Shift+F |

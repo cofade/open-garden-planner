@@ -44,6 +44,9 @@ class AppSettings:
     KEY_FROST_WARNING_ORANGE_C = "weather/frost_warning_orange_c"
     KEY_FROST_WARNING_RED_C = "weather/frost_warning_red_c"
 
+    # Task management (US-C2)
+    KEY_NOTIFY_OVERDUE_TASKS = "tasks/notify_overdue_on_startup"
+
     # Phase 13 Package B (US-B3) — fillet/chamfer "last used" values
     KEY_FILLET_LAST_RADIUS_CM = "tools/fillet_last_radius_cm"
     KEY_CHAMFER_LAST_DISTANCE_CM = "tools/chamfer_last_distance_cm"
@@ -83,6 +86,7 @@ class AppSettings:
     DEFAULT_THEME_MODE = "system"
     DEFAULT_FROST_WARNING_ORANGE_C = 5.0
     DEFAULT_FROST_WARNING_RED_C = 2.0
+    DEFAULT_NOTIFY_OVERDUE_TASKS = True
 
     # Phase 13 Package B (US-B3): default fillet radius / chamfer distance
     # in cm. These are the "last used" values that prefill the input dialog
@@ -494,6 +498,20 @@ class AppSettings:
     def frost_warning_red_c(self, value: float) -> None:
         """Set the red frost alert threshold."""
         self._settings.setValue(self.KEY_FROST_WARNING_RED_C, value)
+
+    @property
+    def notify_overdue_tasks_on_startup(self) -> bool:
+        """Whether to notify about overdue tasks on startup."""
+        return self._settings.value(
+            self.KEY_NOTIFY_OVERDUE_TASKS,
+            self.DEFAULT_NOTIFY_OVERDUE_TASKS,
+            type=bool,
+        )
+
+    @notify_overdue_tasks_on_startup.setter
+    def notify_overdue_tasks_on_startup(self, value: bool) -> None:
+        """Set whether to notify about overdue tasks on startup."""
+        self._settings.setValue(self.KEY_NOTIFY_OVERDUE_TASKS, bool(value))
 
     @property
     def fillet_last_radius_cm(self) -> float:

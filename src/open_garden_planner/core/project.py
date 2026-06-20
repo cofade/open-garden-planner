@@ -105,6 +105,16 @@ class ProjectData:
     # shape: {note_id: JournalNote.to_dict()}; canvas pins reference notes by id
     garden_journal_notes: dict[str, Any] = field(default_factory=dict)
 
+    # US-C2 (#188): task management.
+    # manual_tasks shape: {task_id: ManualTask.to_dict()} (user-created tasks).
+    manual_tasks: dict[str, Any] = field(default_factory=dict)
+    # task_states shape: {task_id: {"status": "done"|"dismissed"|"open",
+    #   "done_date"?: "YYYY-MM-DD", "snooze_until"?: "YYYY-MM-DD"}} — per-task
+    # status for BOTH generated (deterministic id) and manual tasks. Sparse:
+    # plain "open" with no snooze is never stored. Legacy task_completions are
+    # folded into this on load (see ProjectManager.load).
+    task_states: dict[str, Any] = field(default_factory=dict)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         data: dict[str, Any] = {
@@ -154,6 +164,10 @@ class ProjectData:
             data["succession_plans"] = self.succession_plans
         if self.garden_journal_notes:
             data["garden_journal_notes"] = self.garden_journal_notes
+        if self.manual_tasks:
+            data["manual_tasks"] = self.manual_tasks
+        if self.task_states:
+            data["task_states"] = self.task_states
         return data
 
     @classmethod
@@ -183,6 +197,8 @@ class ProjectData:
             prefer_organic=bool(data.get("prefer_organic", True)),
             succession_plans=data.get("succession_plans", {}),
             garden_journal_notes=data.get("garden_journal_notes", {}),
+            manual_tasks=data.get("manual_tasks", {}),
+            task_states=data.get("task_states", {}),
             # Note: `data.get("paper_layouts", ...)` is intentionally
             # not consumed here — the Paper Space feature was dropped
             # before PR #191 merged but earlier draft builds may have
@@ -215,6 +231,8 @@ class ProjectManager(QObject):
     prefer_organic_changed = pyqtSignal(bool)
     succession_plans_changed = pyqtSignal(object)  # dict[str, dict]
     garden_journal_notes_changed = pyqtSignal(object)  # dict[str, dict]
+    manual_tasks_changed = pyqtSignal(object)  # dict[str, dict] (US-C2)
+    task_states_changed = pyqtSignal(object)  # dict[str, dict] (US-C2)
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -237,6 +255,8 @@ class ProjectManager(QObject):
         self._prefer_organic: bool = True
         self._succession_plans: dict[str, Any] = {}
         self._garden_journal_notes: dict[str, Any] = {}
+        self._manual_tasks: dict[str, Any] = {}
+        self._task_states: dict[str, Any] = {}
 
     @property
     def current_file(self) -> Path | None:
@@ -266,12 +286,24 @@ class ProjectManager(QObject):
         return set(self._task_completions)
 
     def set_task_completion(self, task_id: str, done: bool) -> None:
-        """Mark a task as done or not done, persisting to the project file."""
+        """Mark a task done/not-done from the planting-calendar dashboard.
+
+        Writes BOTH the legacy ``task_completions`` set (read by that dashboard)
+        AND the US-C2 ``task_states`` store (read by the Tasks tab), so the two
+        surfaces of the same task stay consistent (the Tasks tab's
+        ``set_task_status`` mirrors the other direction). See ADR-029.
+        """
         if done:
             self._task_completions.add(task_id)
+            self._task_states[task_id] = {
+                "status": "done",
+                "done_date": datetime.now().date().isoformat(),  # noqa: DTZ005
+            }
         else:
             self._task_completions.discard(task_id)
+            self._task_states.pop(task_id, None)
         self.task_completions_changed.emit(self._task_completions)
+        self.task_states_changed.emit(self._task_states)
         self.mark_dirty()
 
     @property
@@ -570,6 +602,84 @@ class ProjectManager(QObject):
         self.garden_journal_notes_changed.emit(self._garden_journal_notes)
         self.mark_dirty()
 
+    # ── Task management (US-C2, #188) ────────────────────────────────────────
+    @property
+    def manual_tasks(self) -> dict[str, Any]:
+        """User-created task dicts keyed by ManualTask UUID string."""
+        return dict(self._manual_tasks)
+
+    def get_manual_task(self, task_id: str) -> Any:
+        """Return the ``ManualTask`` for ``task_id`` (``None`` when absent)."""
+        from open_garden_planner.models.task import ManualTask  # noqa: PLC0415
+
+        raw = self._manual_tasks.get(task_id)
+        if raw is None:
+            return None
+        return ManualTask.from_dict(raw)
+
+    def set_manual_task(self, task: Any) -> None:
+        """Insert or replace a manual task keyed by ``task.id``; mark dirty."""
+        self._manual_tasks[task.id] = task.to_dict()
+        self.manual_tasks_changed.emit(self._manual_tasks)
+        self.mark_dirty()
+
+    def delete_manual_task(self, task_id: str) -> None:
+        """Remove a manual task (no-op when absent); mark dirty."""
+        if task_id not in self._manual_tasks:
+            return
+        self._manual_tasks.pop(task_id, None)
+        self.manual_tasks_changed.emit(self._manual_tasks)
+        self.mark_dirty()
+
+    def restore_manual_task(
+        self, task_id: str, task_dict: dict[str, Any] | None
+    ) -> None:
+        """Restore (or delete) a manual task for undo/redo."""
+        if task_dict is None:
+            self._manual_tasks.pop(task_id, None)
+        else:
+            self._manual_tasks[task_id] = task_dict
+        self.manual_tasks_changed.emit(self._manual_tasks)
+        self.mark_dirty()
+
+    @property
+    def task_states(self) -> dict[str, Any]:
+        """Per-task status dicts keyed by task_id (generated or manual)."""
+        return dict(self._task_states)
+
+    def set_task_status(
+        self,
+        task_id: str,
+        status: str,
+        *,
+        done_date: str | None = None,
+        snooze_until: str | None = None,
+    ) -> None:
+        """Set a task's status, persisting it. Sparse: a plain "open" with no
+        snooze clears the stored state (keeps the file small)."""
+        if status == "open" and not snooze_until:
+            self._task_states.pop(task_id, None)
+        else:
+            entry: dict[str, Any] = {"status": status}
+            if done_date:
+                entry["done_date"] = done_date
+            if snooze_until:
+                entry["snooze_until"] = snooze_until
+            self._task_states[task_id] = entry
+        # Keep legacy task_completions in sync so the (untouched) planting-calendar
+        # dashboard still hides done tasks (#188 parallel-coexistence).
+        if status == "done":
+            self._task_completions.add(task_id)
+        else:
+            self._task_completions.discard(task_id)
+        self.task_states_changed.emit(self._task_states)
+        self.task_completions_changed.emit(self._task_completions)
+        self.mark_dirty()
+
+    def clear_task_status(self, task_id: str) -> None:
+        """Reset a task to open (remove any stored state)."""
+        self.set_task_status(task_id, "open")
+
     def _sync_journal_note_positions(self, scene: QGraphicsScene) -> None:
         """Copy each ``JournalPinItem.pos()`` into its matching note dict (US-12.9).
 
@@ -635,6 +745,8 @@ class ProjectManager(QObject):
         self._prefer_organic = True
         self._succession_plans = {}
         self._garden_journal_notes = {}
+        self._manual_tasks = {}
+        self._task_states = {}
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
@@ -652,6 +764,8 @@ class ProjectManager(QObject):
         self.prefer_organic_changed.emit(True)
         self.succession_plans_changed.emit({})
         self.garden_journal_notes_changed.emit({})
+        self.manual_tasks_changed.emit({})
+        self.task_states_changed.emit({})
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -685,6 +799,8 @@ class ProjectManager(QObject):
         # matching pin before serialising so dragged pins round-trip cleanly.
         self._sync_journal_note_positions(scene)
         data.garden_journal_notes = dict(self._garden_journal_notes)
+        data.manual_tasks = dict(self._manual_tasks)
+        data.task_states = dict(self._task_states)
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -777,6 +893,15 @@ class ProjectManager(QObject):
         # Restore garden journal notes (US-12.9)
         self._garden_journal_notes = dict(data.garden_journal_notes)
         self.garden_journal_notes_changed.emit(self._garden_journal_notes)
+        # Restore task management (US-C2). Fold any legacy task_completions
+        # (pre-US-C2 done set) into task_states as archived done entries (no
+        # done_date) so they stay hidden but never resurface as actionable.
+        self._manual_tasks = dict(data.manual_tasks)
+        self._task_states = dict(data.task_states)
+        for tid in data.task_completions:
+            self._task_states.setdefault(tid, {"status": "done"})
+        self.manual_tasks_changed.emit(self._manual_tasks)
+        self.task_states_changed.emit(self._task_states)
 
         # Sync custom plants from project to app library
         self._sync_custom_plants(scene)
@@ -843,6 +968,26 @@ class ProjectManager(QObject):
             obj for obj in current_data.objects if obj.get("type") != "journal_pin"
         ]
         current_data.garden_journal_notes = {}
+
+        # US-C2: carry forward only still-relevant manual tasks (due today or in
+        # the future, or undated); past-due manual tasks stay in the old season.
+        # Local "today" to match the manual-task dates entered in the dialog.
+        today_iso = datetime.now().date().isoformat()  # noqa: DTZ005
+        current_data.manual_tasks = {
+            tid: raw
+            for tid, raw in self._manual_tasks.items()
+            if not raw.get("date") or raw.get("date", "") >= today_iso
+        }
+        # Carry only still-future snooze states (effective_status treats a snooze
+        # as active only while snooze_until > today); done/dismissed/archived are
+        # season-specific and dropped (generated-task ids also embed the year, so
+        # they naturally won't match next season's ids).
+        carried_states: dict[str, Any] = {}
+        for tid, st in self._task_states.items():
+            snooze = st.get("snooze_until")
+            if snooze and snooze > today_iso:
+                carried_states[tid] = {"status": "open", "snooze_until": snooze}
+        current_data.task_states = carried_states
 
         # Build linked_seasons: include all previous links + current season
         linked = list(self._linked_seasons)

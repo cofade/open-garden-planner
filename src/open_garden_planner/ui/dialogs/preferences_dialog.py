@@ -5,6 +5,7 @@ import logging
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QDialog,
     QDoubleSpinBox,
     QFormLayout,
@@ -188,6 +189,22 @@ class PreferencesDialog(QDialog):
 
         layout.addWidget(weather_group)
 
+        # --- Tasks (US-C2) ---
+        tasks_group = QGroupBox(self.tr("Tasks"))
+        tasks_layout = QFormLayout(tasks_group)
+
+        self._notify_overdue_check = QCheckBox(
+            self.tr("Notify about overdue tasks on startup")
+        )
+        self._notify_overdue_check.setToolTip(
+            self.tr(
+                "Show a reminder on startup when the open project has overdue tasks"
+            )
+        )
+        tasks_layout.addRow(self._notify_overdue_check)
+
+        layout.addWidget(tasks_group)
+
         layout.addStretch()
 
         # --- Buttons ---
@@ -215,6 +232,7 @@ class PreferencesDialog(QDialog):
         self._permapeople_key_secret.setText(settings.permapeople_key_secret)
         self._frost_orange_spin.setValue(settings.frost_warning_orange_c)
         self._frost_red_spin.setValue(settings.frost_warning_red_c)
+        self._notify_overdue_check.setChecked(settings.notify_overdue_tasks_on_startup)
 
     def _save_and_accept(self) -> None:
         from open_garden_planner.app.settings import get_settings
@@ -226,6 +244,7 @@ class PreferencesDialog(QDialog):
         settings.permapeople_key_secret = self._permapeople_key_secret.text().strip()
         settings.frost_warning_orange_c = self._frost_orange_spin.value()
         settings.frost_warning_red_c = self._frost_red_spin.value()
+        settings.notify_overdue_tasks_on_startup = self._notify_overdue_check.isChecked()
         settings.sync()
         self.accept()
 
