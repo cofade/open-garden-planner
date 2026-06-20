@@ -36,6 +36,7 @@ from open_garden_planner.app.settings import get_settings
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_data import species_key as _species_key
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
+from open_garden_planner.services.task_generator import make_calendar_task_id
 from open_garden_planner.services.weather_service import get_frost_alerts
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
@@ -202,7 +203,7 @@ def _generate_dashboard_tasks(
             urgency = _classify_urgency(start_date, end_date, today)
             if urgency is None:
                 continue
-            task_id = f"{species_key}:{task_type}:{year}"
+            task_id = make_calendar_task_id(species_key, task_type, year)
             if task_id in completed_ids:
                 continue
             tasks.append(_DashboardTask(
@@ -236,7 +237,7 @@ def _generate_dashboard_tasks(
             urgency = _classify_urgency(start_date, end_date, today)
             if urgency is None:
                 continue
-            task_id = f"{species_key}:{task_type}:{year}"
+            task_id = make_calendar_task_id(species_key, task_type, year)
             if task_id in completed_ids:
                 continue
             tasks.append(_DashboardTask(

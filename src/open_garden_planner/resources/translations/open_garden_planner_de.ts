@@ -3223,14 +3223,6 @@ Neue Saison jetzt öffnen?</translation>
             <source>Tasks</source>
             <translation>Aufgaben</translation>
         </message>
-        <message>
-            <source>You have {n} overdue task(s) — see the Tasks tab.</source>
-            <translation>Sie haben {n} überfällige Aufgabe(n) — siehe Reiter „Aufgaben“.</translation>
-        </message>
-        <message>
-            <source>You have {n} overdue manual task(s) — see the Tasks tab.</source>
-            <translation>Sie haben {n} überfällige manuelle Aufgabe(n) — siehe Reiter „Aufgaben“.</translation>
-        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -9584,6 +9576,21 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Details…</source>
             <translation>Details…</translation>
+        </message>
+    </context>
+    <context>
+        <name>TaskReminderBar</name>
+        <message>
+            <source>Show Tasks</source>
+            <translation>Aufgaben anzeigen</translation>
+        </message>
+        <message>
+            <source>Dismiss</source>
+            <translation>Verwerfen</translation>
+        </message>
+        <message>
+            <source>You have {n} overdue manual task(s).</source>
+            <translation>Sie haben {n} überfällige manuelle Aufgabe(n).</translation>
         </message>
     </context>
 </TS>

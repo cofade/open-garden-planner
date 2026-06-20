@@ -165,6 +165,18 @@ _CALENDAR_TASK_DEFS: tuple[tuple[str, str, str], ...] = (
 _PROPAGATION_STEP_IDS: tuple[str, ...] = ("prick_out", "harden_off")
 
 
+def make_calendar_task_id(species_key: str, task_type: str, year: int) -> str:
+    """Canonical ``task_id`` for a calendar / propagation task.
+
+    The SINGLE source of this id format. Both this generator and the
+    planting-calendar dashboard (``planting_calendar_view._generate_dashboard_tasks``)
+    must build the id through here, so per-task status keys can never diverge
+    across the two surfaces (the #12 desync bug; see ADR-029 addendum + §11.4).
+    Callers are responsible for passing the canonical ``species_key`` (ADR-016).
+    """
+    return f"{species_key}:{task_type}:{year}"
+
+
 # ── Generators ───────────────────────────────────────────────────────────────
 
 def generate_calendar_tasks(state: PlanState) -> list[Task]:
@@ -184,7 +196,7 @@ def generate_calendar_tasks(state: PlanState) -> list[Task]:
             if classify_urgency(start, end, state.today) is None:
                 continue
             tasks.append(Task(
-                task_id=f"{row.species_key}:{task_type}:{state.year}",
+                task_id=make_calendar_task_id(row.species_key, task_type, state.year),
                 source="calendar",
                 task_type=task_type,
                 title=row.display_name,
@@ -210,7 +222,7 @@ def generate_propagation_tasks(state: PlanState) -> list[Task]:
             if classify_urgency(step.start_date, step.end_date, state.today) is None:
                 continue
             tasks.append(Task(
-                task_id=f"{row.species_key}:{step_id}:{state.year}",
+                task_id=make_calendar_task_id(row.species_key, step_id, state.year),
                 source="propagation",
                 task_type=step_id,
                 title=row.display_name,

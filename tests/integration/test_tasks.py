@@ -4,7 +4,7 @@ Covers persistence round-trip + backwards-compat, season carryover, the status
 flows (done/snooze/dismiss + legacy fold), and the Tasks tab view (rendering,
 manual-task CRUD via TaskDialog, navigation signals).
 """
-# ruff: noqa: ARG002
+# ruff: noqa: ARG001, ARG002, ARG005
 
 import datetime
 
@@ -134,6 +134,197 @@ class TestManualTaskCommands:
         assert "t1" not in pm.manual_tasks
         cmd.undo()
         assert "t1" in pm.manual_tasks
+
+
+class TestOverdueReminderBar:
+    """#16: the overdue reminder must reach the user via a persistent bar, not a
+    status-bar message hidden behind the modal Welcome dialog."""
+
+    def test_bar_shows_count_and_hides_on_zero(self, qtbot) -> None:
+        from open_garden_planner.ui.widgets import TaskReminderBar
+
+        bar = TaskReminderBar()
+        qtbot.addWidget(bar)
+        bar.show_reminder(3)
+        assert not bar.isHidden()
+        assert "3" in bar._label.text()
+        bar.show_reminder(0)
+        assert bar.isHidden()
+
+    def _make_app(self, qtbot, monkeypatch):
+        from PyQt6.QtWidgets import QMessageBox
+
+        from open_garden_planner.app.application import GardenPlannerApp
+
+        monkeypatch.setattr(
+            QMessageBox, "question",
+            lambda *a, **k: QMessageBox.StandardButton.Discard,
+        )
+        monkeypatch.setattr(QApplication, "focusWidget", lambda: None)
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)
+        return win
+
+    def _set_toggle(self, monkeypatch, enabled: bool) -> None:
+        from open_garden_planner.app.settings import AppSettings
+
+        monkeypatch.setattr(
+            AppSettings, "notify_overdue_tasks_on_startup",
+            property(lambda self: enabled),
+        )
+
+    def test_check_shows_bar_when_enabled(self, qtbot, monkeypatch) -> None:
+        self._set_toggle(monkeypatch, True)
+        win = self._make_app(qtbot, monkeypatch)
+        calls: list[int] = []
+        monkeypatch.setattr(win._task_reminder_bar, "show_reminder", calls.append)
+
+        past = (datetime.date.today() - datetime.timedelta(days=5)).isoformat()
+        win._project_manager.set_manual_task(
+            ManualTask(id="o1", date=past, title="overdue thing")
+        )
+        win._check_overdue_tasks()
+        assert calls == [1]
+
+    def test_check_hides_bar_when_disabled(self, qtbot, monkeypatch) -> None:
+        self._set_toggle(monkeypatch, False)
+        win = self._make_app(qtbot, monkeypatch)
+        shown: list[int] = []
+        hidden: list[bool] = []
+        monkeypatch.setattr(win._task_reminder_bar, "show_reminder", shown.append)
+        monkeypatch.setattr(win._task_reminder_bar, "hide", lambda: hidden.append(True))
+
+        past = (datetime.date.today() - datetime.timedelta(days=5)).isoformat()
+        win._project_manager.set_manual_task(
+            ManualTask(id="o1", date=past, title="overdue thing")
+        )
+        win._check_overdue_tasks()
+        assert shown == []      # never shown when the toggle is off
+        assert hidden == [True]
+
+    def test_open_project_schedules_deferred_check(
+        self, qtbot, monkeypatch, tmp_path
+    ) -> None:
+        # The #16 fix: _open_project_file must DEFER the reminder check (so a bar
+        # shown from the modal Welcome dialog lands after it closes), not call it
+        # inline. Pin the singleShot(0) wiring.
+        self._set_toggle(monkeypatch, True)
+        win = self._make_app(qtbot, monkeypatch)
+        past = (datetime.date.today() - datetime.timedelta(days=5)).isoformat()
+        win._project_manager.set_manual_task(
+            ManualTask(id="o1", date=past, title="overdue thing")
+        )
+        from pathlib import Path
+
+        path = Path(tmp_path) / "p.ogp"
+        win._project_manager.save(win.canvas_scene, path)
+
+        calls: list[int] = []
+        monkeypatch.setattr(win, "_check_overdue_tasks", lambda: calls.append(1))
+        win._open_project_file(str(path))
+        assert calls == []        # deferred, not inline
+        qtbot.wait(50)            # let singleShot(0) fire
+        assert calls == [1]
+
+    def test_future_and_done_tasks_not_counted(self, qtbot, monkeypatch) -> None:
+        self._set_toggle(monkeypatch, True)
+        win = self._make_app(qtbot, monkeypatch)
+        calls: list[int] = []
+        monkeypatch.setattr(win._task_reminder_bar, "show_reminder", calls.append)
+
+        today = datetime.date.today()
+        future = (today + datetime.timedelta(days=5)).isoformat()
+        past = (today - datetime.timedelta(days=5)).isoformat()
+        pm = win._project_manager
+        pm.set_manual_task(ManualTask(id="future", date=future, title="later"))
+        pm.set_manual_task(ManualTask(id="done", date=past, title="finished"))
+        pm.set_manual_task(ManualTask(id="open", date=past, title="still due"))
+        pm.set_task_status("done", "done", done_date=today.isoformat())
+        win._check_overdue_tasks()
+        assert calls == [1]  # only the open past-dated task counts
+
+
+class TestCrossSurfaceSync:
+    """#12: the Tasks tab and Planting Calendar must key task status by the SAME
+    canonical species_key (ADR-016), or done/snooze never syncs across surfaces.
+
+    Regression: ``build_plan_state`` used a raw ``scientific_name or common_name``
+    key (no source_id, not lowercased), so DB species produced a different
+    ``task_id`` than the calendar dashboard and status never crossed over.
+    """
+
+    def _scene_with_db_species(self):
+        from types import SimpleNamespace
+
+        # harvest window open *today* (last_frost == today, week offset 0..0).
+        meta = {"plant_species": {
+            "scientific_name": "Solanum Lycopersicum",  # mixed case on purpose
+            "common_name": "Tomato",
+            "source_id": "12345",                       # DB-sourced species
+            "harvest_start": 0,
+            "harvest_end": 0,
+        }}
+        item = SimpleNamespace(
+            object_type="plant", metadata=meta, name="", item_id="p1"
+        )
+        return SimpleNamespace(items=lambda: [item])
+
+    def _pm_today_frost(self) -> ProjectManager:
+        pm = ProjectManager()
+        today = datetime.date.today()
+        pm.set_location(
+            {"frost_dates": {"last_spring_frost": today.strftime("%m-%d")}}
+        )
+        return pm
+
+    def _canonical_harvest_id(self) -> str:
+        from open_garden_planner.models.plant_data import species_key
+
+        key = species_key({
+            "source_id": "12345",
+            "scientific_name": "Solanum Lycopersicum",
+            "common_name": "Tomato",
+        })
+        return f"{key}:harvest:{datetime.date.today().year}"
+
+    def test_taskid_uses_canonical_species_key(self, qtbot) -> None:
+        from open_garden_planner.services.task_generator import generate_all
+        from open_garden_planner.ui.views.tasks_view import build_plan_state
+
+        pm = self._pm_today_frost()
+        scene = self._scene_with_db_species()
+        ids = {t.task_id for t in generate_all(build_plan_state(scene, pm))}
+
+        # Canonical: source_id wins, lowercased (matches the calendar dashboard).
+        assert self._canonical_harvest_id() in ids
+        # NOT the old raw, non-canonical id.
+        year = datetime.date.today().year
+        assert f"Solanum Lycopersicum:harvest:{year}" not in ids
+
+    def test_calendar_done_visible_on_tasks_tab(self, qtbot) -> None:
+        from open_garden_planner.services.task_generator import generate_all
+        from open_garden_planner.services.task_status import effective_status
+        from open_garden_planner.ui.views.tasks_view import build_plan_state
+
+        pm = self._pm_today_frost()
+        scene = self._scene_with_db_species()
+        tid = self._canonical_harvest_id()
+
+        # Calendar dashboard marks the task done …
+        pm.set_task_completion(tid, True)
+        # … and the Tasks tab (same canonical id) sees it as done.
+        tasks = generate_all(build_plan_state(scene, pm))
+        match = next(t for t in tasks if t.task_id == tid)
+        today = datetime.date.today()
+        assert effective_status(pm.task_states.get(match.task_id), today) == "done"
+
+    def test_tasks_tab_done_hides_on_calendar(self, qtbot) -> None:
+        # Reverse direction: marking done on the Tasks tab (set_task_status)
+        # writes the legacy task_completions the calendar dashboard reads to skip.
+        pm = self._pm_today_frost()
+        tid = self._canonical_harvest_id()
+        pm.set_task_status(tid, "done", done_date=datetime.date.today().isoformat())
+        assert tid in pm.task_completions
 
 
 class TestTasksView:

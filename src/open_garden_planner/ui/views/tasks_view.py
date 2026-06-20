@@ -85,7 +85,10 @@ def build_plan_state(
         get_translated_display_name,
         is_bed_type,
     )
-    from open_garden_planner.models.plant_data import PlantSpeciesData  # noqa: PLC0415
+    from open_garden_planner.models.plant_data import (  # noqa: PLC0415
+        PlantSpeciesData,
+        species_key,
+    )
     from open_garden_planner.models.task import ManualTask  # noqa: PLC0415
 
     today = datetime.date.today()
@@ -111,11 +114,19 @@ def build_plan_state(
                 except Exception:
                     sp = None
                 if sp is not None:
-                    species_key = sp.scientific_name or sp.common_name or getattr(item, "name", "")
-                    if species_key:
+                    # MUST match the planting-calendar dashboard's key derivation
+                    # (canonical species_key, ADR-016: source_id → scientific →
+                    # common, lowercased) so the generated task_ids align and
+                    # done/snooze status syncs across both surfaces (#188 #12).
+                    sp_key = species_key({
+                        "source_id": sp.source_id,
+                        "scientific_name": sp.scientific_name,
+                        "common_name": sp.common_name,
+                    })
+                    if sp_key != "_unknown":
                         plant_rows.append(PlantRowInput(
-                            display_name=(getattr(item, "name", "") or sp.common_name or species_key),
-                            species_key=species_key,
+                            display_name=(getattr(item, "name", "") or sp.common_name or sp_key),
+                            species_key=sp_key,
                             indoor_sow_start=sp.indoor_sow_start,
                             indoor_sow_end=sp.indoor_sow_end,
                             direct_sow_start=sp.direct_sow_start,

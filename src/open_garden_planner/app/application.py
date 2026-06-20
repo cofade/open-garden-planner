@@ -68,6 +68,7 @@ from open_garden_planner.ui.widgets import (
     CollapsiblePanel,
     ConstraintToolbar,
     MainToolbar,
+    TaskReminderBar,
     UpdateBar,
 )
 
@@ -1213,14 +1214,22 @@ class GardenPlannerApp(QMainWindow):
         self.tasks_view.navigate_to_species.connect(self._on_highlight_species)
         self.tasks_view.navigate_to_items.connect(self._on_navigate_to_items)
 
-        # Wrap tab widget + update bar in a container
+        # Wrap tab widget + update/reminder bars in a container
         self._update_bar = UpdateBar(self)
         self._update_bar.skip_version_requested.connect(self._on_skip_version)
+        # Overdue-task reminder bar (US-C2, #188) — persistent, dismissible.
+        self._task_reminder_bar = TaskReminderBar(self)
+        self._task_reminder_bar.show_tasks_requested.connect(
+            lambda: self._tab_widget.setCurrentIndex(
+                self._tab_widget.indexOf(self.tasks_view)
+            )
+        )
         container = QWidget()
         container_layout = QVBoxLayout(container)
         container_layout.setContentsMargins(0, 0, 0, 0)
         container_layout.setSpacing(0)
         container_layout.addWidget(self._update_bar)
+        container_layout.addWidget(self._task_reminder_bar)
         container_layout.addWidget(self._tab_widget)
         self.setCentralWidget(container)
 
@@ -1427,29 +1436,32 @@ class GardenPlannerApp(QMainWindow):
         # Then show welcome dialog if enabled and no recovery was handled
         if not recovery_handled:
             self._show_welcome_dialog()
-        self._check_overdue_tasks()
+        # Deferred so it runs after the modal Welcome dialog is gone and the
+        # event queue has drained — a bar shown behind a modal dialog is unseen.
+        QTimer.singleShot(0, self._check_overdue_tasks)
 
     def _check_overdue_tasks(self) -> None:
-        """Notify (once) on startup about overdue MANUAL tasks (US-C2).
+        """Show (or hide) the overdue-MANUAL-task reminder bar (US-C2).
 
         Scoped to manual tasks deliberately: auto-generated tasks depend on the
-        scene + an async weather fetch that aren't guaranteed ready this early,
-        so the message is worded "manual task(s)" to stay honest. Non-modal
-        status-bar message; gated by a Preferences toggle (default ON).
+        scene + an async weather fetch that aren't guaranteed ready this early.
+        Uses a persistent, dismissible bar rather than a status-bar message —
+        the latter is invisible behind the modal Welcome dialog and is easily
+        clobbered by other status writes (see §11.4). Gated by a Preferences
+        toggle (default ON). Idempotent: safe to call from multiple deferred
+        startup/open paths.
         """
         from datetime import date  # noqa: PLC0415
 
         from open_garden_planner.app.settings import get_settings  # noqa: PLC0415
 
         if not get_settings().notify_overdue_tasks_on_startup:
-            return
-        manual = self._project_manager.manual_tasks
-        if not manual:
+            self._task_reminder_bar.hide()
             return
         today_iso = date.today().isoformat()
         states = self._project_manager.task_states
         overdue = 0
-        for tid, raw in manual.items():
+        for tid, raw in self._project_manager.manual_tasks.items():
             due = raw.get("date", "")
             if not due or due >= today_iso:
                 continue
@@ -1460,11 +1472,8 @@ class GardenPlannerApp(QMainWindow):
             if snooze and snooze >= today_iso:
                 continue
             overdue += 1
-        if overdue:
-            msg = self.tr(
-                "You have {n} overdue manual task(s) — see the Tasks tab."
-            ).format(n=overdue)
-            self.statusBar().showMessage(msg, 10000)
+        # show_reminder() hides the bar when the count is 0.
+        self._task_reminder_bar.show_reminder(overdue)
 
     def _show_welcome_dialog(self) -> None:
         """Show the welcome dialog if enabled in settings."""
@@ -1805,6 +1814,9 @@ class GardenPlannerApp(QMainWindow):
             self._compare_overlay_action.setEnabled(False)
             self._compare_overlay_action.setChecked(False)
 
+            # A fresh project has no overdue tasks — clear any stale reminder.
+            self._task_reminder_bar.hide()
+
             # Update status bar
             width_m = width_cm / 100.0
             height_m = height_cm / 100.0
@@ -1890,7 +1902,9 @@ class GardenPlannerApp(QMainWindow):
             # Load compare overlay if previous seasons are linked (US-10.7)
             self._load_compare_overlay_from_previous_season()
             self.tasks_view.refresh()
-            self._check_overdue_tasks()
+            # Deferred: when opened from the modal Welcome dialog, a bar shown
+            # now would sit behind it. singleShot(0) runs after it closes.
+            QTimer.singleShot(0, self._check_overdue_tasks)
         except Exception as e:
             QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=e))
 

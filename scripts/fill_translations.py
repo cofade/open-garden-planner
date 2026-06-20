@@ -614,8 +614,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── GardenPlannerApp ──
     "GardenPlannerApp": {
         "Tasks": "Aufgaben",
-        "You have {n} overdue manual task(s) — see the Tasks tab.":
-            "Sie haben {n} überfällige manuelle Aufgabe(n) — siehe Reiter „Aufgaben“.",
         "&File": "&Datei",
         "&Edit": "&Bearbeiten",
         "&View": "&Ansicht",
@@ -1737,6 +1735,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "1 day": "1 Tag",
         "1 week": "1 Woche",
         "2 weeks": "2 Wochen",
+    },
+
+    # ── TaskReminderBar (US-C2 #188 — overdue-task reminder bar) ──
+    "TaskReminderBar": {
+        "You have {n} overdue manual task(s).":
+            "Sie haben {n} überfällige manuelle Aufgabe(n).",
+        "Show Tasks": "Aufgaben anzeigen",
+        "Dismiss": "Verwerfen",
     },
 
     # ── TaskDialog (US-C2 #188 — manual task add/edit dialog) ──
