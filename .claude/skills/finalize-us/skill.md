@@ -14,6 +14,7 @@ Run the full post-approval wrap-up for a completed user story. This skill assume
 - Do not finalize from `master`; work from the feature branch first.
 - Before opening or merging a PR, run an independent PR review in a fresh agent context and address anything actionable.
 - Never create git tags manually; GitHub release automation owns tags and versions.
+- Wait on CI/releases by a **state transition** — `gh pr checks --watch --fail-fast` for PR checks, and a release-tag change (top `tagName` differs from the one captured before merge) for releases. Never grep `$(date ...)`: local-vs-UTC `createdAt` mismatches and same-day re-runs make date matching unreliable, and a date match cannot detect failure (issue #229).
 - Prefer the repo's Windows-safe `gh.exe` path: `"C:\Program Files\GitHub CLI\gh.exe"`.
 - Ask for confirmation before any irreversible remote action if the user has not already approved finalization.
 
@@ -54,21 +55,39 @@ Run the full post-approval wrap-up for a completed user story. This skill assume
    ```
    Body must include `## Summary` (bullet points), `## Test plan` (checklist), and the Claude Code footer. Include a short note if an independent PR review was run and whether it produced changes.
 
-8. **Merge** via GitHub CLI:
+8. **Gate on CI, capture the current tag, then merge.**
+
+   First **wait for the PR's checks to pass** — `--fail-fast` exits non-zero on the first failure, so a red CI is surfaced instead of silently waited on. Do not merge if this fails; stop and report the failing check.
+   ```bash
+   "C:\Program Files\GitHub CLI\gh.exe" pr checks <PR#> --watch --fail-fast
    ```
+
+   Then **capture the latest release tag _before_ merging** (the merge is what triggers `release.yml`), so step 9 can wait on the tag *changing* rather than on a date:
+   ```bash
+   before_tag=$("C:\Program Files\GitHub CLI\gh.exe" release list --limit 1 --json tagName --jq '.[0].tagName')
+   ```
+
+   Then **merge** via GitHub CLI (`--admin` covers branch protection / draft→ready; checks are already green):
+   ```bash
    "C:\Program Files\GitHub CLI\gh.exe" pr merge <PR#> --squash --delete-branch --admin
    ```
 
-9. **Wait for CI release** — the CI release workflow (`release.yml`) auto-creates a release + tag on every non-chore push to master. Default is patch bump. For minor/major bumps, add the `minor` or `major` label to the PR before merging.
+9. **Wait for the CI release by tag transition** — the CI release workflow (`release.yml`) auto-creates a release + tag on every non-chore push to master. Default is patch bump; for minor/major add the `minor` or `major` label to the PR **before** merging.
 
-   Poll by today's date — not by tag prefix:
+   Poll until the top tag differs from `before_tag` (timezone-independent; also correct when two releases land the same day). **Never** match on `$(date ...)` — local-vs-UTC `createdAt` mismatches make date matching unreliable (issue #229).
    ```bash
-   until "C:\Program Files\GitHub CLI\gh.exe" release list --limit 1 --json tagName,createdAt \
-     --jq '.[0].createdAt' 2>/dev/null | grep -q "$(date +%Y-%m-%d)"; do
+   new_tag="$before_tag"
+   for _ in $(seq 1 40); do          # ~10 min ceiling; the release runs in ~3 min
+     new_tag=$("C:\Program Files\GitHub CLI\gh.exe" release list --limit 1 --json tagName --jq '.[0].tagName')
+     [ "$new_tag" != "$before_tag" ] && break
      sleep 15
    done
+   if [ "$new_tag" = "$before_tag" ]; then
+     echo "No new release after merge — check the release workflow before continuing."; exit 1
+   fi
    "C:\Program Files\GitHub CLI\gh.exe" release list --limit 1
    ```
+   If no new tag appears, **stop and report** — do not run the version bump against the stale tag.
 
 10. **Version bump** — sync source files to the CI-created release:
    ```
