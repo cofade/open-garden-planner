@@ -34,6 +34,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Lock layer '{name}'": "Ebene '{name}' sperren",
         "Unlock layer '{name}'": "Ebene '{name}' entsperren",
         "Set opacity of layer '{name}' to {pct}%": "Deckkraft der Ebene '{name}' auf {pct}% setzen",
+        # ── Task management (US-C2, #188) ──
+        "Add task": "Aufgabe hinzufügen",
+        "Edit task": "Aufgabe bearbeiten",
+        "Delete task": "Aufgabe löschen",
         # ── Legacy command descriptions migrated from English f-strings (#209) ──
         "Create {item_type}": "{item_type} erstellen",
         "Create {count} {item_type}": "{count} {item_type} erstellen",
@@ -609,6 +613,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── GardenPlannerApp ──
     "GardenPlannerApp": {
+        "Tasks": "Aufgaben",
+        "You have {n} overdue task(s) — see the Tasks tab.":
+            "Sie haben {n} überfällige Aufgabe(n) — siehe Reiter „Aufgaben“.",
         "&File": "&Datei",
         "&Edit": "&Bearbeiten",
         "&View": "&Ansicht",
@@ -1703,8 +1710,55 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Journal Pin": "Tagebuch-Nadel",
     },
 
+    # ── Tasks (US-C2 #188 — QCoreApplication.translate in task_generator.py) ──
+    "Tasks": {
+        "Frost {temp}°C": "Frost {temp}°C",
+    },
+
+    # ── TasksView (US-C2 #188 — the Tasks dashboard tab) ──
+    "TasksView": {
+        "Tasks": "Aufgaben",
+        "Add Task": "Aufgabe hinzufügen",
+        "Overdue": "Überfällig",
+        "Today": "Heute",
+        "This Week": "Diese Woche",
+        "Upcoming": "Demnächst",
+        "No date": "Ohne Datum",
+        "Snoozed": "Zurückgestellt",
+        "Done": "Erledigt",
+        "No tasks — you're all caught up.": "Keine Aufgaben — alles erledigt.",
+        "Show on canvas": "Auf der Zeichenfläche anzeigen",
+        "Un-snooze": "Zurückstellung aufheben",
+        "Snooze": "Zurückstellen",
+        "Edit": "Bearbeiten",
+        "Delete": "Löschen",
+        "Dismiss": "Verwerfen",
+        "Reopen": "Wieder öffnen",
+        "1 day": "1 Tag",
+        "1 week": "1 Woche",
+        "2 weeks": "2 Wochen",
+    },
+
+    # ── TaskDialog (US-C2 #188 — manual task add/edit dialog) ──
+    "TaskDialog": {
+        "New Task": "Neue Aufgabe",
+        "Edit Task": "Aufgabe bearbeiten",
+        "Due Date": "Fälligkeitsdatum",
+        "Title": "Titel",
+        "Task summary…": "Kurzbeschreibung…",
+        "Linked Bed": "Verknüpftes Beet",
+        "(No bed)": "(Kein Beet)",
+        "Notes": "Notizen",
+        "Details…": "Details…",
+    },
+
     # ── PreferencesDialog (US-12.2 weather section) ──
     "PreferencesDialog": {
+        "Tasks": "Aufgaben",
+        "Notify about overdue tasks on startup":
+            "Beim Start über überfällige Aufgaben benachrichtigen",
+        "Show a reminder on startup when the open project has overdue tasks":
+            "Beim Start an überfällige Aufgaben im geöffneten Projekt erinnern",
         "Preferences": "Einstellungen",
         "Configure your plant database API keys below. "
         "Keys are stored locally and never shared. "

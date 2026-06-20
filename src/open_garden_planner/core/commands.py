@@ -2413,3 +2413,73 @@ class DeleteJournalNoteCommand(Command):
             self._pm.restore_journal_note(self._note_id, self._old_dict)
         if self._pin.scene() is None:
             self._scene.addItem(self._pin)
+
+
+class AddManualTaskCommand(Command):
+    """Add a manual task — undoable (US-C2, #188).
+
+    Snapshots any prior task with the same id on construction so undo restores
+    the exact pre-state (normally absence, for a brand-new task).
+    """
+
+    def __init__(self, project_manager: "Any", task: "Any") -> None:
+        self._pm = project_manager
+        self._task = task
+        existing = self._pm.manual_tasks.get(task.id)
+        self._prior_dict: dict[str, Any] | None = (
+            dict(existing) if existing is not None else None
+        )
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Add task")
+
+    def execute(self) -> None:
+        self._pm.set_manual_task(self._task)
+
+    def undo(self) -> None:
+        self._pm.restore_manual_task(self._task.id, self._prior_dict)
+
+
+class EditManualTaskCommand(Command):
+    """Edit an existing manual task — undoable (US-C2, #188)."""
+
+    def __init__(self, project_manager: "Any", new_task: "Any") -> None:
+        self._pm = project_manager
+        self._new_task = new_task
+        existing = self._pm.manual_tasks.get(new_task.id)
+        self._prior_dict: dict[str, Any] | None = (
+            dict(existing) if existing is not None else None
+        )
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Edit task")
+
+    def execute(self) -> None:
+        self._pm.set_manual_task(self._new_task)
+
+    def undo(self) -> None:
+        self._pm.restore_manual_task(self._new_task.id, self._prior_dict)
+
+
+class DeleteManualTaskCommand(Command):
+    """Delete a manual task — undoable (US-C2, #188)."""
+
+    def __init__(self, project_manager: "Any", task_id: str) -> None:
+        self._pm = project_manager
+        self._task_id = task_id
+        existing = self._pm.manual_tasks.get(task_id)
+        self._prior_dict: dict[str, Any] | None = (
+            dict(existing) if existing is not None else None
+        )
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Delete task")
+
+    def execute(self) -> None:
+        self._pm.delete_manual_task(self._task_id)
+
+    def undo(self) -> None:
+        self._pm.restore_manual_task(self._task_id, self._prior_dict)

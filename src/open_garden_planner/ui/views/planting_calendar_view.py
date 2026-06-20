@@ -972,11 +972,16 @@ class PlantingCalendarView(QWidget):
     #: Emitted after frost alerts are computed: (alert_count, max_severity).
     #: max_severity is "red", "orange", or "" when there are no alerts.
     frost_alert_ready = pyqtSignal(int, str)
+    #: Emitted with the full ``list[FrostAlert]`` after each weather fetch, so
+    #: the US-C2 Tasks tab can reuse this single forecast (no second fetch).
+    frost_alerts_ready = pyqtSignal(object)
 
     def __init__(self, canvas_scene: Any, project_manager: Any, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._canvas_scene = canvas_scene
         self._project_manager = project_manager
+        #: Latest frost alerts from the most recent weather fetch (US-C2).
+        self._current_frost_alerts: list = []
         self._rows: list[_PlantRow] = []
         self._prop_plans: dict[str, PropagationPlan] = {}
         self._current_dashboard_tasks: list[_DashboardTask] = []
@@ -1328,7 +1333,15 @@ class PlantingCalendarView(QWidget):
         self._weather.apply_frost_thresholds(orange_c, red_c)
         plants = self._collect_plant_info()
         alerts = get_frost_alerts(forecast, plants, orange_c, red_c)
+        self._current_frost_alerts = alerts
         self._inject_frost_tasks(alerts)
+        # Share the computed alerts with the US-C2 Tasks tab (single fetch).
+        self.frost_alerts_ready.emit(alerts)
+
+    @property
+    def current_frost_alerts(self) -> list:
+        """Latest frost alerts from the most recent weather fetch (US-C2)."""
+        return list(self._current_frost_alerts)
 
     def _collect_plant_info(self) -> list[dict]:
         """Return a list of plant info dicts for all plant items on the canvas."""
