@@ -203,6 +203,15 @@ See **ADR-020** (snap engine: provider registry + quadtree spatial index) and **
 
 See **ADR-022** (Bezier model + filleted-rectangle conversion) and **ADR-023** (snap pipeline v2).
 
+## Phase 13 — Package C (Garden Smart Features, epic #188) — in progress
+
+| Status | US    | Description                                                      |
+| ------ | ----- | ---------------------------------------------------------------- |
+| ⬜     | C1    | Harvest tracking / yield log                                     |
+| ✅     | C2    | Task management & reminders (v1.17.0, PR #227) — unified **Tasks** tab (Ctrl+5): pure Qt-free generators (calendar/propagation/succession/soil/frost/manual) + render-time status (done/snooze/dismiss/archive), undoable manual tasks, additive `.ogp` keys (no FILE_VERSION bump), startup overdue-reminder bar. **Post-merge fixes (#12/#16):** cross-surface done/snooze sync (both surfaces now build the `task_id` via the canonical `species_key()` + shared `make_calendar_task_id()`); startup reminder moved off the modal-hidden status bar onto a persistent `TaskReminderBar` shown via deferred `singleShot(0)`. See **ADR-029**, FR-21, §11.4. |
+| ⬜     | C3    | Vertical gardening + container gardening                         |
+| ⬜     | C4    | Parametric blocks / smart symbols                               |
+
 Next: **Phase 14 (v2.0)** — 3D Visualization & Sun/Shade (Future). See `docs/roadmap.md`.
 
 ## Phase 12 issue work
