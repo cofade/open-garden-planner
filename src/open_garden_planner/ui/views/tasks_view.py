@@ -207,7 +207,7 @@ class TasksView(QWidget):
         self._refresh_timer = QTimer(self)
         self._refresh_timer.setSingleShot(True)
         self._refresh_timer.setInterval(_REFRESH_DEBOUNCE_MS)
-        self._refresh_timer.timeout.connect(self.refresh)
+        self._refresh_timer.timeout.connect(self._on_refresh_timer)
 
         self._build_ui()
         self.refresh()
@@ -252,6 +252,13 @@ class TasksView(QWidget):
     def schedule_refresh(self) -> None:
         """Coalesce refresh requests to at most one per second (#188)."""
         self._refresh_timer.start()
+
+    def _on_refresh_timer(self) -> None:
+        """Debounced refresh — skip the heavy rebuild while the tab is hidden
+        (the tab-switch handler refreshes it when it next becomes visible)."""
+        if not self.isVisible():
+            return
+        self.refresh()
 
     def refresh(self) -> None:
         """Rebuild the task list from current project state."""
@@ -434,7 +441,10 @@ class TasksView(QWidget):
         )
 
     def _snooze_menu(self, task: Task, anchor: QWidget) -> None:
+        from PyQt6.QtCore import Qt  # noqa: PLC0415
+
         menu = QMenu(self)
+        menu.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         today = datetime.date.today()
         options = [
             (self.tr("1 day"), 1),

@@ -614,8 +614,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── GardenPlannerApp ──
     "GardenPlannerApp": {
         "Tasks": "Aufgaben",
-        "You have {n} overdue task(s) — see the Tasks tab.":
-            "Sie haben {n} überfällige Aufgabe(n) — siehe Reiter „Aufgaben“.",
+        "You have {n} overdue manual task(s) — see the Tasks tab.":
+            "Sie haben {n} überfällige manuelle Aufgabe(n) — siehe Reiter „Aufgaben“.",
         "&File": "&Datei",
         "&Edit": "&Bearbeiten",
         "&View": "&Ansicht",

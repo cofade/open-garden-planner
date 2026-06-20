@@ -1430,10 +1430,12 @@ class GardenPlannerApp(QMainWindow):
         self._check_overdue_tasks()
 
     def _check_overdue_tasks(self) -> None:
-        """Notify (once) on startup if the open project has overdue tasks (US-C2).
+        """Notify (once) on startup about overdue MANUAL tasks (US-C2).
 
-        Status-bar message + a corner affordance is intentionally non-modal so it
-        never blocks startup. Gated by a Preferences toggle (default ON).
+        Scoped to manual tasks deliberately: auto-generated tasks depend on the
+        scene + an async weather fetch that aren't guaranteed ready this early,
+        so the message is worded "manual task(s)" to stay honest. Non-modal
+        status-bar message; gated by a Preferences toggle (default ON).
         """
         from datetime import date  # noqa: PLC0415
 
@@ -1459,9 +1461,9 @@ class GardenPlannerApp(QMainWindow):
                 continue
             overdue += 1
         if overdue:
-            msg = self.tr("You have {n} overdue task(s) — see the Tasks tab.").format(
-                n=overdue
-            )
+            msg = self.tr(
+                "You have {n} overdue manual task(s) — see the Tasks tab."
+            ).format(n=overdue)
             self.statusBar().showMessage(msg, 10000)
 
     def _show_welcome_dialog(self) -> None:

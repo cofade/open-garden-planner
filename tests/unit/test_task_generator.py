@@ -203,7 +203,7 @@ class TestSoilAmendmentTasks:
         tasks = generate_soil_amendment_tasks(_state(beds=(bed,)))
         assert len(tasks) == 2
         first = tasks[0]
-        assert first.task_id == "soil_amendment:bed-1:0"
+        assert first.task_id == "soil_amendment:bed-1:Garden lime"
         assert first.source == "soil"
         assert first.task_type == "soil_amendment"
         assert first.title == "Garden lime — North Bed"
@@ -212,7 +212,7 @@ class TestSoilAmendmentTasks:
         assert first.start_date == TODAY
         assert first.end_date == TODAY
         assert first.dismissible is True
-        assert tasks[1].task_id == "soil_amendment:bed-1:1"
+        assert tasks[1].task_id == "soil_amendment:bed-1:Blood meal"
 
     def test_no_recs_no_tasks(self) -> None:
         bed = BedInput(bed_id="bed-1", name="North Bed")

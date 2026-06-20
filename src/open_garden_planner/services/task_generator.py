@@ -15,10 +15,11 @@ sources:
 * **manual**       — user-authored :class:`~open_garden_planner.models.task.ManualTask`.
 
 Each generator is a pure function ``(PlanState) -> list[Task]``. They take no
-Qt objects, perform no I/O, and never reach back into services — the soil
+Qt *widgets*, perform no I/O, and never reach back into services — the soil
 recommendations, frost alerts and propagation plans are all handed in via the
-snapshot. This keeps the engine trivially unit-testable and importable without a
-running ``QApplication``.
+snapshot. (The module does import ``QCoreApplication`` purely to translate
+synthesized labels; ``.translate()`` is safe with no running ``QApplication``.)
+This keeps the engine trivially unit-testable and importable without a GUI.
 
 Urgency is *not* stored on a :class:`Task`; it is recomputed at render time via
 :func:`classify_urgency`, mirroring the planting-calendar view's logic.
@@ -262,9 +263,11 @@ def generate_soil_amendment_tasks(state: PlanState) -> list[Task]:
     """One task per precomputed amendment recommendation per bed (always due today)."""
     tasks: list[Task] = []
     for bed in state.beds:
-        for i, (name, rationale) in enumerate(bed.amendment_recs):
+        for name, rationale in bed.amendment_recs:
+            # Key by amendment identity (not list position) so a done/snooze
+            # marker stays pinned to the right amendment if the order changes.
             tasks.append(Task(
-                task_id=f"soil_amendment:{bed.bed_id}:{i}",
+                task_id=f"soil_amendment:{bed.bed_id}:{name}",
                 source="soil",
                 task_type="soil_amendment",
                 title=f"{name} — {bed.name}",

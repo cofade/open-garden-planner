@@ -97,6 +97,19 @@ class TestStatusFlows:
         pm.set_task_status("x", "open", snooze_until="2099-01-01")
         assert pm.task_states["x"]["snooze_until"] == "2099-01-01"
 
+    def test_calendar_done_toggle_syncs_task_states(self, qtbot) -> None:
+        # ADR-029: marking a task done on the calendar dashboard
+        # (set_task_completion) must also reflect in task_states so the Tasks
+        # tab sees it as done (no one-way divergence).
+        pm = ProjectManager()
+        tid = "tomato:harvest:2026"
+        pm.set_task_completion(tid, True)
+        assert pm.task_states[tid]["status"] == "done"
+        assert tid in pm.task_completions
+        pm.set_task_completion(tid, False)
+        assert tid not in pm.task_states
+        assert tid not in pm.task_completions
+
 
 class TestManualTaskCommands:
     def test_add_undo_redo(self, qtbot) -> None:

@@ -2310,6 +2310,34 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 ---
 
+## Phase 13: Smart Features — Package C (v1.17.0)
+
+**Goal**: Give the plan a single, actionable to-do list. One unified **Tasks** dashboard tab that aggregates every auto-derived action — planting-calendar windows, succession sow/clear, soil amendments, frost protection — plus user-created manual tasks, with persistent done / snooze / dismiss state. See ADR-029 (pure generators + render-time status + dual-store coexistence) and FR-21.
+
+| Status | US    | Description                                                      |
+| ------ | ----- | ---------------------------------------------------------------- |
+| ✅     | C2    | Task management & reminders — unified Tasks tab (#188) — see ADR-029 |
+
+### US-C2 acceptance highlights
+
+- **Unified Tasks tab** (Ctrl+5, appended after Seed Inventory via `indexOf` so existing shortcuts/badges are untouched) groups tasks Overdue / Today / This Week / Upcoming / No date, with collapsible **Snoozed** and **Done** sections.
+- **Auto-generated tasks** come from six pure, Qt-free `(PlanState) -> list[Task]` generators (`services/task_generator.py`): planting-calendar windows, propagation steps, succession sow/clear, one soil-amendment task per recommendation per bed, frost protection (from the weather service's frost alerts), and manual tasks; `generate_all` flat-maps + dedups by `task_id`.
+- **Manual tasks** (`models/task.py` `ManualTask`: date, title, notes, optional bed link) are created/edited via `TaskDialog`; Add/Edit/Delete are undoable.
+- **Status is render-time** (`services/task_status.effective_status`): open / snoozed / done / dismissed / archived computed against "today" — no scheduler; expired snoozes reappear, done > 7 days auto-archives.
+- **Additive persistence**: new `.ogp` keys `manual_tasks` + `task_states`, no `FILE_VERSION` bump; older files load with empty dicts and legacy `task_completions` is folded to archived-done on load.
+- **Dual-store coexistence**: `set_task_status` and `set_task_completion` both write `task_states` and the legacy `task_completions` done-set, so the (untouched) planting-calendar dashboard stays consistent with the Tasks tab; a convergence follow-up is planned.
+- **Navigate-to-bed** from a task selects/centres the linked bed/species/items on the Garden Plan tab; frost tasks reuse the planting calendar's single weather fetch (`frost_alerts_ready`) — no second forecast request.
+
+### Docs updated on completion
+| Document | Section |
+|----------|---------|
+| `docs/09-architecture-decisions/` | ADR-029 (pure generators, render-time status, dual-store coexistence) |
+| `docs/05-building-block-view/` | §5.5 Task subsystem; `services/task_generator.py`, `services/task_status.py`, `models/task.py`, `ui/views/tasks_view.py`, `ui/dialogs/task_dialog.py` |
+| `docs/functional-requirements.md` | FR-21 (FR-TASK-01…09) |
+| `docs/12-glossary/` | Manual task, Task state, Task generator, Effective status; Ctrl+5 shortcut |
+
+---
+
 ## Phase 14: 3D Visualization & Sun/Shade (Future, v2.0)
 
 **Goal**: Full three-dimensional garden view with sun/shade simulation — the milestone that justifies a major version bump.

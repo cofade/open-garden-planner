@@ -3227,6 +3227,10 @@ Neue Saison jetzt öffnen?</translation>
             <source>You have {n} overdue task(s) — see the Tasks tab.</source>
             <translation>Sie haben {n} überfällige Aufgabe(n) — siehe Reiter „Aufgaben“.</translation>
         </message>
+        <message>
+            <source>You have {n} overdue manual task(s) — see the Tasks tab.</source>
+            <translation>Sie haben {n} überfällige manuelle Aufgabe(n) — siehe Reiter „Aufgaben“.</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>

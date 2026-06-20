@@ -97,7 +97,8 @@ src/open_garden_planner/
 │   ├── soil_test.py              # SoilTestRecord & SoilTestHistory (US-12.10a)
 │   ├── pest_log.py               # PestLogRecord & PestLogHistory (US-12.7)
 │   ├── journal_note.py           # JournalNote — map-linked notes (US-12.9)
-│   └── amendment.py              # Amendment & AmendmentRecommendation (US-12.10c)
+│   ├── amendment.py              # Amendment & AmendmentRecommendation (US-12.10c)
+│   └── task.py                   # ManualTask — user-created reminder (US-C2, ADR-029)
 ├── ui/
 │   ├── canvas/
 │   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling
@@ -135,7 +136,10 @@ src/open_garden_planner/
 │   │   ├── pest_log_dialog.py    # Pest/disease log entry (US-12.7)
 │   │   ├── journal_note_dialog.py # Garden-journal note editor (US-12.9)
 │   │   ├── map_picker_dialog.py  # Embedded Google Maps satellite picker (ADR-019)
+│   │   ├── task_dialog.py        # Create/edit a ManualTask (US-C2, ADR-029)
 │   │   └── properties_dialog.py
+│   ├── views/
+│   │   └── tasks_view.py         # Unified Tasks dashboard tab + build_plan_state (US-C2, ADR-029)
 │   ├── widgets/
 │   │   ├── toolbar.py            # MainToolbar (5 CAD-style core tools)
 │   │   ├── constraint_toolbar.py # ConstraintToolbar (CAD constraints)
@@ -160,6 +164,8 @@ src/open_garden_planner/
 │   ├── export_service.py         # PDF/image export
 │   ├── autosave_service.py       # Autosave logic
 │   ├── soil_service.py           # Soil test history facade (US-12.10a)
+│   ├── task_generator.py         # Pure (PlanState)->list[Task] generators + generate_all (US-C2, ADR-029)
+│   ├── task_status.py            # Render-time effective_status (open/snoozed/done/dismissed/archived) (US-C2)
 │   ├── shopping_list_service.py  # Plants/seed-gap/material aggregator (US-12.6)
 │   ├── google_maps_service.py    # Static Maps HTTP + tile-mosaic stitching (ADR-019)
 │   └── update_checker.py         # GitHub releases update check (frozen exe only)
@@ -263,3 +269,14 @@ Concrete shape types: `RectangleObject` (house, garage, terrace, driveway), `Pol
   "plant_library": {...}
 }
 ```
+
+## 5.5 Task Subsystem (US-C2)
+
+Black-box view of the unified Tasks tab. See ADR-029 and FR-21.
+
+| Building block | Responsibility | Interface (in → out) |
+|----------------|----------------|----------------------|
+| `services/task_generator.py` | Derive the actionable to-do list from a project snapshot. Owns the frozen `Task` value object, the `PlanState` snapshot, six pure `(PlanState) -> list[Task]` generators (planting-calendar windows, propagation, succession sow/clear, soil amendments, frost protection, manual tasks) and `generate_all` (flat-map + dedup by `task_id`). Qt-free. | `PlanState` in → `list[Task]` out |
+| `services/task_status.py` | Resolve a stored raw task state against "today" into a render-time status. No scheduler — expired snoozes read `open`, done > 7 days reads `archived`. | raw state + today → `effective_status` ∈ {open, snoozed, done, dismissed, archived} |
+| `models/task.py` (`ManualTask`) | Data model for a user-created reminder (date, title, notes, optional bed link). Serialized under the additive `.ogp` key `manual_tasks`; Add/Edit/Delete are undoable. | dict ⇄ `ManualTask` |
+| `ui/views/tasks_view.py` (`TasksView`) | Dashboard tab (Ctrl+5, appended after Seed Inventory). Builds the Qt-side `PlanState` (`build_plan_state`), runs the generators, applies `effective_status`, groups Overdue/Today/This Week/Upcoming/No date plus Snoozed/Done sections, and writes done/snooze/dismiss through `set_task_status` (which keeps the legacy `task_completions` store in sync). Reuses the planting calendar's single weather fetch via `frost_alerts_ready`. | project state + signals in → grouped task UI |

@@ -286,12 +286,24 @@ class ProjectManager(QObject):
         return set(self._task_completions)
 
     def set_task_completion(self, task_id: str, done: bool) -> None:
-        """Mark a task as done or not done, persisting to the project file."""
+        """Mark a task done/not-done from the planting-calendar dashboard.
+
+        Writes BOTH the legacy ``task_completions`` set (read by that dashboard)
+        AND the US-C2 ``task_states`` store (read by the Tasks tab), so the two
+        surfaces of the same task stay consistent (the Tasks tab's
+        ``set_task_status`` mirrors the other direction). See ADR-029.
+        """
         if done:
             self._task_completions.add(task_id)
+            self._task_states[task_id] = {
+                "status": "done",
+                "done_date": datetime.now().date().isoformat(),  # noqa: DTZ005
+            }
         else:
             self._task_completions.discard(task_id)
+            self._task_states.pop(task_id, None)
         self.task_completions_changed.emit(self._task_completions)
+        self.task_states_changed.emit(self._task_states)
         self.mark_dirty()
 
     @property
@@ -959,19 +971,21 @@ class ProjectManager(QObject):
 
         # US-C2: carry forward only still-relevant manual tasks (due today or in
         # the future, or undated); past-due manual tasks stay in the old season.
-        today_iso = datetime.now(UTC).date().isoformat()
+        # Local "today" to match the manual-task dates entered in the dialog.
+        today_iso = datetime.now().date().isoformat()  # noqa: DTZ005
         current_data.manual_tasks = {
             tid: raw
             for tid, raw in self._manual_tasks.items()
             if not raw.get("date") or raw.get("date", "") >= today_iso
         }
-        # Carry only future snooze states; done/dismissed/archived are
-        # season-specific and dropped (generated-task ids also embed the year,
-        # so they naturally won't match next season's ids).
+        # Carry only still-future snooze states (effective_status treats a snooze
+        # as active only while snooze_until > today); done/dismissed/archived are
+        # season-specific and dropped (generated-task ids also embed the year, so
+        # they naturally won't match next season's ids).
         carried_states: dict[str, Any] = {}
         for tid, st in self._task_states.items():
             snooze = st.get("snooze_until")
-            if snooze and snooze >= today_iso:
+            if snooze and snooze > today_iso:
                 carried_states[tid] = {"status": "open", "snooze_until": snooze}
         current_data.task_states = carried_states
 
