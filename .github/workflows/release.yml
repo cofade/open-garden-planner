@@ -13,7 +13,10 @@ jobs:
     runs-on: windows-latest
     # Skip chore/sync commits — they follow a real release and race-condition
     # the tag lookup, causing the workflow to compute a stale version number.
-    if: "!startsWith(github.event.head_commit.message, 'chore:')"
+    # Matches both a bare `chore:` and a scoped `chore(...)` prefix (a scoped
+    # message like `chore(finalize-us):` previously slipped through and wrongly
+    # triggered a release).
+    if: "!startsWith(github.event.head_commit.message, 'chore:') && !startsWith(github.event.head_commit.message, 'chore(')"
     steps:
       - uses: actions/checkout@v4
         with:
