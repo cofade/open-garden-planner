@@ -61,6 +61,11 @@ class TestHelpers:
 def _make_mock_project(location: dict | None = None):
     pm = MagicMock()
     pm.location = location
+    # The calendar dashboard now runs the unified task engine (#228), which
+    # snapshots these project stores — give them real, empty containers.
+    pm.manual_tasks = {}
+    pm.succession_plans = {}
+    pm.task_states = {}
     return pm
 
 
@@ -117,6 +122,7 @@ class TestPlantingCalendarViewWithData:
         )
         item = MagicMock()
         item.metadata = {"plant_species": species.to_dict()}
+        item.name = ""  # unnamed → display falls back to the species name
         return item
 
     def _location(self) -> dict:
@@ -167,6 +173,7 @@ class TestPlantingCalendarViewWithData:
         species_no_cal = PlantSpeciesData(scientific_name="Foo bar", common_name="Foo")
         item = MagicMock()
         item.metadata = {"plant_species": species_no_cal.to_dict()}
+        item.name = ""
 
         view = PlantingCalendarView(
             _make_mock_scene([item]),
@@ -193,6 +200,7 @@ class TestPlantingCalendarRefresh:
         )
         item = MagicMock()
         item.metadata = {"plant_species": sp.to_dict()}
+        item.name = ""
         return item
 
     def test_refresh_updates_rows(self, qtbot) -> None:

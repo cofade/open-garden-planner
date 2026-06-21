@@ -6692,6 +6692,14 @@ Starten Sie Open Garden Planner als Administrator, oder laden Sie das Installati
             <source>❄ Hard frost: %1</source>
             <translation>❄ Starker Frost: %1</translation>
         </message>
+        <message>
+            <source>⚠ %1</source>
+            <translation>⚠ %1</translation>
+        </message>
+        <message>
+            <source>❄ %1</source>
+            <translation>❄ %1</translation>
+        </message>
     </context>
     <context>
         <name>_DetailPanel</name>
@@ -9454,6 +9462,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Frost {temp}°C</source>
             <translation>Frost {temp}°C</translation>
+        </message>
+        <message>
+            <source>Soil mismatch in {bed}: {plants}</source>
+            <translation>Bodenkonflikt in {bed}: {plants}</translation>
         </message>
     </context>
     <context>

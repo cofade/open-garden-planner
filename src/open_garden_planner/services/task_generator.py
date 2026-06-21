@@ -29,6 +29,7 @@ from __future__ import annotations
 import datetime
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 from PyQt6.QtCore import QCoreApplication
 
@@ -85,17 +86,20 @@ class PlantRowInput:
 
 @dataclass(frozen=True)
 class BedInput:
-    """A bed plus its precomputed amendment recommendations.
+    """A bed plus its precomputed soil tasks.
 
-    ``amendment_recs`` is a tuple of ``(amendment_name, rationale)`` pairs so the
-    generator stays Qt-free and needs no soil-service import — the caller flattens
-    each :class:`~open_garden_planner.models.amendment.AmendmentRecommendation`
-    into a small display pair.
+    ``amendment_recs`` is a tuple of ``(amendment_name, rationale)`` pairs and
+    ``mismatch_plants`` a tuple of plant display names whose soil preference
+    clashes with the bed — both precomputed by the caller so the generators stay
+    Qt-free and need no soil-service import. The caller flattens each
+    :class:`~open_garden_planner.models.amendment.AmendmentRecommendation` into a
+    small display pair.
     """
 
     bed_id: str
     name: str
     amendment_recs: tuple[tuple[str, str], ...] = ()
+    mismatch_plants: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -291,6 +295,28 @@ def generate_soil_amendment_tasks(state: PlanState) -> list[Task]:
     return tasks
 
 
+def generate_soil_mismatch_tasks(state: PlanState) -> list[Task]:
+    """One warning per bed whose child plants prefer different soil (US-12.10d)."""
+    tasks: list[Task] = []
+    for bed in state.beds:
+        if not bed.mismatch_plants:
+            continue
+        title = QCoreApplication.translate(
+            "Tasks", "Soil mismatch in {bed}: {plants}"
+        ).format(bed=bed.name, plants=", ".join(bed.mismatch_plants))
+        tasks.append(Task(
+            task_id=f"soil_mismatch:{bed.bed_id}",
+            source="soil",
+            task_type="soil_mismatch",
+            title=title,
+            bed_id=bed.bed_id,
+            start_date=state.today,
+            end_date=state.today,
+            dismissible=True,
+        ))
+    return tasks
+
+
 def generate_frost_tasks(state: PlanState) -> list[Task]:
     """Frost-alert reminder tasks from the weather service's alerts."""
     tasks: list[Task] = []
@@ -350,6 +376,7 @@ GENERATORS: list[GeneratorFn] = [
     generate_propagation_tasks,
     generate_succession_tasks,
     generate_soil_amendment_tasks,
+    generate_soil_mismatch_tasks,
     generate_frost_tasks,
     generate_manual_tasks,
 ]
@@ -370,3 +397,177 @@ def generate_all(state: PlanState) -> list[Task]:
             seen.add(task.task_id)
             result.append(task)
     return result
+
+
+# ── Snapshot builder (shared by the Tasks tab and the planting-calendar) ───────
+
+def _parse_frost(mmdd: str, year: int) -> datetime.date | None:
+    """Parse an ``'MM-DD'`` frost date for ``year`` (None on failure)."""
+    try:
+        m, d = (int(x) for x in mmdd.split("-"))
+        return datetime.date(year, m, d)
+    except (ValueError, AttributeError):
+        return None
+
+
+def build_plan_state(
+    scene: Any,
+    project_manager: Any,
+    frost_alerts: list | None = None,
+    soil_service: Any | None = None,
+    prop_plans: dict[str, PropagationPlan] | None = None,
+) -> PlanState:
+    """Snapshot the live scene + project into a Qt-free :class:`PlanState`.
+
+    The single source of the snapshot for **both** task surfaces (the Tasks tab
+    and the planting-calendar dashboard). Reuses the same data sources as the
+    dashboard (species week-offsets, the location's last-frost date, succession
+    plans) and the soil engine (amendment recommendations + mismatch warnings).
+
+    ``prop_plans`` is supplied only by the planting calendar (its precomputed
+    per-species propagation plans, gated by the calendar's propagation toggle);
+    the Tasks tab passes ``None`` so pricking-out / hardening-off steps stay
+    calendar-only.
+    """
+    from open_garden_planner.core.object_types import (  # noqa: PLC0415
+        get_translated_display_name,
+        is_bed_type,
+    )
+    from open_garden_planner.models.plant_data import (  # noqa: PLC0415
+        PlantSpeciesData,
+        species_key,
+    )
+    from open_garden_planner.models.task import ManualTask  # noqa: PLC0415
+
+    today = datetime.date.today()
+    year = today.year
+
+    last_frost: datetime.date | None = None
+    location = project_manager.location or {}
+    frost_dates = location.get("frost_dates") or {}
+    lsf = frost_dates.get("last_spring_frost")
+    if lsf:
+        last_frost = _parse_frost(lsf, year)
+
+    all_items = list(scene.items()) if scene is not None else []
+    items_by_id = {
+        str(getattr(item, "item_id", "")): item for item in all_items
+    }
+
+    plant_rows: list[PlantRowInput] = []
+    beds: list[BedInput] = []
+    for item in all_items:
+        object_type = getattr(item, "object_type", None)
+        metadata = getattr(item, "metadata", None) or {}
+        ps_dict = metadata.get("plant_species") if isinstance(metadata, dict) else None
+        if ps_dict:
+            try:
+                sp = PlantSpeciesData.from_dict(ps_dict)
+            except Exception:
+                sp = None
+            if sp is not None:
+                # MUST match the planting-calendar dashboard's key derivation
+                # (canonical species_key, ADR-016: source_id → scientific →
+                # common, lowercased) so the generated task_ids align and
+                # done/snooze status syncs across both surfaces (#188 #12).
+                sp_key = species_key({
+                    "source_id": sp.source_id,
+                    "scientific_name": sp.scientific_name,
+                    "common_name": sp.common_name,
+                })
+                if sp_key != "_unknown":
+                    plant_rows.append(PlantRowInput(
+                        display_name=(getattr(item, "name", "") or sp.common_name or sp_key),
+                        species_key=sp_key,
+                        indoor_sow_start=sp.indoor_sow_start,
+                        indoor_sow_end=sp.indoor_sow_end,
+                        direct_sow_start=sp.direct_sow_start,
+                        direct_sow_end=sp.direct_sow_end,
+                        transplant_start=sp.transplant_start,
+                        transplant_end=sp.transplant_end,
+                        harvest_start=sp.harvest_start,
+                        harvest_end=sp.harvest_end,
+                    ))
+        if is_bed_type(object_type):
+            bed_id = str(getattr(item, "item_id", ""))
+            if not bed_id:
+                continue
+            name = getattr(item, "name", "") or get_translated_display_name(object_type)
+            beds.append(BedInput(
+                bed_id=bed_id,
+                name=name,
+                amendment_recs=_bed_amendment_recs(bed_id, item, soil_service),
+                mismatch_plants=_bed_mismatch_plants(item, items_by_id, soil_service),
+            ))
+
+    manual_tasks = tuple(
+        ManualTask.from_dict(d) for d in project_manager.manual_tasks.values()
+    )
+
+    return PlanState(
+        today=today,
+        year=year,
+        last_frost=last_frost,
+        plant_rows=tuple(plant_rows),
+        prop_plans=dict(prop_plans or {}),
+        beds=tuple(beds),
+        succession_plans=dict(project_manager.succession_plans),
+        manual_tasks=manual_tasks,
+        frost_alerts=tuple(frost_alerts or ()),
+    )
+
+
+def _bed_amendment_recs(
+    bed_id: str, item: Any, soil_service: Any | None
+) -> tuple[tuple[str, str], ...]:
+    """Flatten a bed's amendment recommendations into (name, rationale) pairs."""
+    if soil_service is None:
+        return ()
+    record = soil_service.get_effective_record(bed_id)
+    if record is None:
+        return ()
+    from open_garden_planner.core.measurements import (  # noqa: PLC0415
+        calculate_area_and_perimeter,
+    )
+    from open_garden_planner.services.soil_service import SoilService  # noqa: PLC0415
+
+    result = calculate_area_and_perimeter(item)
+    if result is None:
+        return ()
+    area_m2 = result[0] / 10_000.0
+    if area_m2 <= 0.0:
+        return ()
+    recs = SoilService.calculate_amendments(record, bed_area_m2=area_m2)
+    pairs: list[tuple[str, str]] = []
+    for rec in recs:
+        name = rec.amendment.display_name()
+        pairs.append((name, f"~{rec.quantity_g:.0f} g"))
+    return tuple(pairs)
+
+
+def _bed_mismatch_plants(
+    item: Any, items_by_id: dict[str, Any], soil_service: Any | None
+) -> tuple[str, ...]:
+    """Names of a bed's child plants whose soil preference clashes (US-12.10d)."""
+    if soil_service is None:
+        return ()
+    from open_garden_planner.models.plant_data import PlantSpeciesData  # noqa: PLC0415
+    from open_garden_planner.services.soil_service import SoilService  # noqa: PLC0415
+
+    bed_id = str(getattr(item, "item_id", ""))
+    record = soil_service.get_effective_record(bed_id)
+    child_ids = {str(c) for c in getattr(item, "_child_item_ids", [])}
+    specs: list[PlantSpeciesData] = []
+    for cid in child_ids:
+        child = items_by_id.get(cid)
+        if child is None:
+            continue
+        metadata = getattr(child, "metadata", None) or {}
+        ps_dict = metadata.get("plant_species") if isinstance(metadata, dict) else None
+        if ps_dict and isinstance(ps_dict, dict):
+            try:
+                specs.append(PlantSpeciesData.from_dict(ps_dict))
+            except Exception:
+                continue
+    mismatches = SoilService.get_mismatched_plants(record, specs)
+    return tuple(s.common_name or s.scientific_name or "?" for s, _ in mismatches)

@@ -1118,6 +1118,12 @@ class GardenPlannerApp(QMainWindow):
             lambda: QTimer.singleShot(0, self._update_plant_database_panel)
         )
 
+        # Companion + crop-rotation panels reflect command-mutated state (species,
+        # reparent, nearby plants) — refresh on undo/redo too, not just on
+        # selectionChanged (#225). Cheap list rebuilds, no editable fields.
+        cmd_mgr.stack_changed.connect(self._update_companion_panel)
+        cmd_mgr.stack_changed.connect(self._update_crop_rotation_panel)
+
         # ── Tab-based main window (US-8.7) ──────────────────────────────────────
         self._tab_widget = QTabWidget()
         self._tab_widget.setDocumentMode(True)
@@ -1160,15 +1166,18 @@ class GardenPlannerApp(QMainWindow):
         tab2_shortcut.triggered.connect(lambda: self._tab_widget.setCurrentIndex(2))
         self.addAction(tab2_shortcut)
 
-        # Refresh calendar on tab switch and on canvas/location changes
+        # Refresh calendar on tab switch and on canvas/location/status changes.
+        # The calendar now uses a debounced schedule_refresh() that skips work
+        # while its tab is hidden, so it can be wired to stack_changed (covers
+        # undo/redo) without the heavyweight churn #210 flagged — fixes #225.
         self._tab_widget.currentChanged.connect(self._on_tab_changed)
-        self._project_manager.location_changed.connect(lambda _: self.calendar_view.refresh())
-        self._project_manager.task_completions_changed.connect(lambda _: self.calendar_view.refresh())
-        # Deliberately on command_executed (not stack_changed): calendar_view.refresh()
-        # is heavyweight (see #210) and is intentionally NOT run on undo/redo. This
-        # leaves the calendar stale on undo/redo of a calendar-affecting command —
-        # a pre-existing, accepted trade-off tracked in #225 (panel staleness on undo/redo).
-        cmd_mgr.command_executed.connect(lambda _: self.calendar_view.refresh())
+        self._project_manager.location_changed.connect(
+            lambda _: self.calendar_view.schedule_refresh()
+        )
+        self._project_manager.task_states_changed.connect(
+            lambda _: self.calendar_view.schedule_refresh()
+        )
+        cmd_mgr.stack_changed.connect(lambda: self.calendar_view.schedule_refresh())
 
         # Highlight plant on canvas when user clicks a dashboard task (US-8.6)
         self.calendar_view.highlight_species.connect(self._on_highlight_species)

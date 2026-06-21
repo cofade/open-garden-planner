@@ -319,8 +319,9 @@ class TestCrossSurfaceSync:
         assert effective_status(pm.task_states.get(match.task_id), today) == "done"
 
     def test_tasks_tab_done_hides_on_calendar(self, qtbot) -> None:
-        # Reverse direction: marking done on the Tasks tab (set_task_status)
-        # writes the legacy task_completions the calendar dashboard reads to skip.
+        # Reverse direction: marking done on the Tasks tab (set_task_status) keeps
+        # the legacy task_completions mirror in sync (#228: the calendar now reads
+        # effective_status, but the mirror persists for .ogp forward/back compat).
         pm = self._pm_today_frost()
         tid = self._canonical_harvest_id()
         pm.set_task_status(tid, "done", done_date=datetime.date.today().isoformat())
