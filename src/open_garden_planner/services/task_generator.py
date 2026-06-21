@@ -331,7 +331,7 @@ def generate_frost_tasks(state: PlanState) -> list[Task]:
         )
         title = QCoreApplication.translate(
             "Tasks", "Frost {temp}°C"
-        ).format(temp=alert.min_temp)
+        ).format(temp=f"{alert.min_temp:.1f}")
         tasks.append(Task(
             task_id=f"frost:{alert.date}:{alert.severity}",
             source="frost",

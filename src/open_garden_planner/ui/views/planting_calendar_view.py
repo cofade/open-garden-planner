@@ -1181,10 +1181,15 @@ class PlantingCalendarView(QWidget):
             self._detail.hide()
 
     def _on_task_toggled(self, task_id: str, done: bool) -> None:
-        """Persist task completion state, then refresh the dashboard."""
+        """Persist task completion, then rebuild only the dashboard.
+
+        Rebuild the dashboard (not a full ``refresh()``) so toggling Done doesn't
+        kick off a redundant weather fetch; the resulting ``task_states_changed``
+        already schedules a (debounced) full refresh in the app.
+        """
         if hasattr(self._project_manager, "set_task_completion"):
             self._project_manager.set_task_completion(task_id, done)
-        self.refresh()
+        self._rebuild_dashboard()
 
     def _on_propagation_toggled(self, checked: bool) -> None:
         """Enable/disable propagation sub-rows in the Gantt and detail panel."""
@@ -1377,6 +1382,13 @@ class PlantingCalendarView(QWidget):
         urgency = classify_urgency(task.start_date, task.end_date, today)
         if urgency is None:
             return None
+        # Frost rows carry no species_key; their "→" highlight selects the
+        # affected plants via the canvas "frost_items:" navigation branch
+        # (application._on_highlight_species), so encode the item ids there.
+        if task.task_type.startswith("frost_alert"):
+            highlight_key = "frost_items:" + ",".join(task.item_ids)
+        else:
+            highlight_key = task.species_key
         return _DashboardTask(
             task_id=task.task_id,
             task_type=task.task_type,
@@ -1385,7 +1397,7 @@ class PlantingCalendarView(QWidget):
             end_date=task.end_date,
             # The engine's "upcoming" is the dashboard's "coming_up" bucket.
             urgency="coming_up" if urgency == "upcoming" else urgency,
-            species_key=task.species_key,
+            species_key=highlight_key,
         )
 
     def _dashboard_display(self, task: Task, bed_names: dict[str, str]) -> str:

@@ -161,6 +161,45 @@ class TestGetFrostAlerts:
 # ─── WeatherWidget strip tinting ────────────────────────────────────────────────
 
 
+class TestFrostDashboardNavigation:
+    """The frost row's "→" highlight must select the affected plants on the
+    canvas, i.e. its species_key must carry the ``frost_items:<ids>`` prefix that
+    ``application._on_highlight_species`` routes on (#228 convergence regression
+    guard: the unified engine stores ids in ``Task.item_ids``, so the calendar
+    adapter has to re-encode them into the dashboard row's species_key)."""
+
+    def test_frost_row_species_key_carries_item_ids(self, qtbot: object) -> None:
+        from open_garden_planner.core.project import ProjectManager
+        from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+        from open_garden_planner.ui.views.planting_calendar_view import (
+            PlantingCalendarView,
+        )
+
+        today = datetime.date.today()
+        scene = CanvasScene(width_cm=1000, height_cm=1000)
+        pm = ProjectManager()
+        pm.set_location({"frost_dates": {"last_spring_frost": today.strftime("%m-%d")}})
+        view = PlantingCalendarView(scene, pm)
+        qtbot.addWidget(view)
+
+        view._current_frost_alerts = [
+            FrostAlert(
+                date=today.isoformat(),
+                min_temp=-1.0,
+                severity="red",
+                affected_plant_ids=["p1", "p2"],
+            ),
+        ]
+        view._rebuild_dashboard()
+
+        frost = [
+            t for t in view._current_dashboard_tasks
+            if t.task_type.startswith("frost_alert")
+        ]
+        assert len(frost) == 1
+        assert frost[0].species_key == "frost_items:p1,p2"
+
+
 class TestWeatherWidgetFrostTinting:
     def test_red_tint_applied(self, qtbot: object) -> None:
         widget = WeatherWidget()

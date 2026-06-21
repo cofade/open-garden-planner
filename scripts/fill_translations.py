@@ -1226,12 +1226,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
 
     # ── PlantingCalendarView ──
+    # NOTE: "Soil mismatch in {bed}: {plants}" moved to the "Tasks" context (#228,
+    # now emitted by services/task_generator.generate_soil_mismatch_tasks).
     "PlantingCalendarView": {
         "Germination": "Keimung",
         "Prick out": "Pikieren",
         "Harden off": "Abhärten",
-        "Bed": "Beet",
-        "Soil mismatch in {bed}: {plants}": "Bodenkonflikt in {bed}: {plants}",
         "Sow {name} in {bed} (succession)": "{name} in {bed} säen (Anbaufolge)",
         "Clear {name} from {bed} (succession)": "{name} aus {bed} räumen (Anbaufolge)",
     },
