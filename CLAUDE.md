@@ -106,6 +106,14 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 
 **Never create git tags manually.**
 
+## Plan Mode
+
+**Avoid the recurring "File has not been read yet" Write failure on the plan file.**
+Plan mode pre-creates the plan file, so `Write` (and `Edit`) reject it until it's been read this
+session. Build the plan with the **`Edit`** tool (incremental edits — what plan mode tells you to
+do). If you must overwrite it wholesale, **`Read` the plan file once first, then `Write`.** Never
+`Write`/`Edit` a pre-existing file blind — the same rule applies to any file you didn't create this session.
+
 ## Workflow
 
 **CRITICAL: Always use feature branches — NEVER commit directly to master.**
