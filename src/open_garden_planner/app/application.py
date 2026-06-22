@@ -2627,7 +2627,11 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_scene_changed_for_companion(self) -> None:
         """Debounce companion highlight refresh when scene items move."""
-        self._companion_update_timer.start()
+        # Guarded: the scene can emit `changed` during teardown after the timer's
+        # C++ object is gone — an unguarded slot RuntimeError aborts the interpreter
+        # (matches _on_scene_changed_for_plant_search).
+        with contextlib.suppress(RuntimeError):
+            self._companion_update_timer.start()
 
     @staticmethod
     def _companion_species_name(item: object) -> str:
@@ -2738,7 +2742,8 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_scene_changed_for_spacing(self) -> None:
         """Debounce spacing overlap refresh when scene items move."""
-        self._spacing_update_timer.start()
+        with contextlib.suppress(RuntimeError):
+            self._spacing_update_timer.start()
 
     def _clear_spacing_overlaps(self) -> None:
         """Clear all spacing overlap indicators."""
