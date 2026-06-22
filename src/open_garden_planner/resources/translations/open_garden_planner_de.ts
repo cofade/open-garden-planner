@@ -4704,6 +4704,10 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <source>Clear {name} from {bed} (succession)</source>
             <translation>{name} aus {bed} räumen (Anbaufolge)</translation>
         </message>
+        <message>
+            <source>{title} — {names}</source>
+            <translation>{title} — {names}</translation>
+        </message>
     </context>
     <context>
         <name>PolygonItem</name>

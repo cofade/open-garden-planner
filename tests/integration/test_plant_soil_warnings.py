@@ -4,7 +4,7 @@ Covers:
   * Pure ``SoilService.get_mismatched_plants`` rules.
   * Legacy ``nutrient_demand`` fallback via ``_effective_demand``.
   * Severity level set on bed items via ``_update_soil_mismatches``.
-  * Dashboard ``_inject_soil_mismatch_tasks`` card injection.
+  * Soil-mismatch cards on the calendar dashboard via the unified engine (#228).
 """
 from __future__ import annotations
 

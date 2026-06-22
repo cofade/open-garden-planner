@@ -1413,7 +1413,11 @@ class PlantingCalendarView(QWidget):
             return template.format(name=task.title, bed=bed)
         if tt.startswith("frost_alert"):
             names = ", ".join(self._names_for_ids(list(task.item_ids)))
-            return f"{task.title} — {names}" if names else task.title
+            if names:
+                return self.tr("{title} — {names}").format(
+                    title=task.title, names=names
+                )
+            return task.title
         # calendar / propagation: bare plant name (the panel template adds the
         # verb). soil_mismatch / soil_amendment / manual: title is a full label.
         return task.title

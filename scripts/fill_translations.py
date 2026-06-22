@@ -1234,6 +1234,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Harden off": "Abhärten",
         "Sow {name} in {bed} (succession)": "{name} in {bed} säen (Anbaufolge)",
         "Clear {name} from {bed} (succession)": "{name} aus {bed} räumen (Anbaufolge)",
+        "{title} — {names}": "{title} — {names}",
     },
 
     # ── BedActions (shared context menu items for bed-capable shapes — ADR-017) ──

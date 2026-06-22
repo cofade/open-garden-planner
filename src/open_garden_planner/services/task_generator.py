@@ -172,11 +172,12 @@ _PROPAGATION_STEP_IDS: tuple[str, ...] = ("prick_out", "harden_off")
 def make_calendar_task_id(species_key: str, task_type: str, year: int) -> str:
     """Canonical ``task_id`` for a calendar / propagation task.
 
-    The SINGLE source of this id format. Both this generator and the
-    planting-calendar dashboard (``planting_calendar_view._generate_dashboard_tasks``)
-    must build the id through here, so per-task status keys can never diverge
-    across the two surfaces (the #12 desync bug; see ADR-029 addendum + §11.4).
-    Callers are responsible for passing the canonical ``species_key`` (ADR-016).
+    The SINGLE source of this id format. Both surfaces build the id through here
+    via the shared ``build_plan_state`` → ``generate_calendar_tasks`` /
+    ``generate_propagation_tasks`` engine (the planting-calendar dashboard adapts
+    those tasks in ``planting_calendar_view._adapt_task``), so per-task status keys
+    can never diverge across the two surfaces (the #12 desync bug; see ADR-029
+    addendum + §11.4). Callers must pass the canonical ``species_key`` (ADR-016).
     """
     return f"{species_key}:{task_type}:{year}"
 

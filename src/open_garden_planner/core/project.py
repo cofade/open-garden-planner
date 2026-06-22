@@ -661,8 +661,9 @@ class ProjectManager(QObject):
             if snooze_until:
                 entry["snooze_until"] = snooze_until
             self._task_states[task_id] = entry
-        # Keep legacy task_completions in sync so the (untouched) planting-calendar
-        # dashboard still hides done tasks (#188 parallel-coexistence).
+        # Keep the legacy task_completions set in sync as a write-only .ogp
+        # forward/back-compat mirror (#228: the calendar now reads effective_status,
+        # so nothing in-app reads task_completions anymore).
         if status == "done":
             self._task_completions.add(task_id)
         else:
