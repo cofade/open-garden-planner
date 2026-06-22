@@ -114,6 +114,24 @@ def test_collapsible_panel_pin_toggled_on_header_click(qtbot):
     assert clicks == [True]
 
 
+def test_header_child_widget_click_does_not_pin(qtbot):
+    """A click on a header child widget (e.g. the Constraints delete-all button)
+    must not emit pin_toggled — the child consumes its own press (US-226)."""
+    from PyQt6.QtWidgets import QToolButton
+
+    panel = CollapsiblePanel("Test Panel", QLabel("content"))
+    qtbot.addWidget(panel)
+    button = QToolButton()
+    panel.add_header_widget(button)
+    panel.show()
+
+    pins: list[bool] = []
+    panel.header.pin_toggled.connect(pins.append)
+
+    qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
+    assert pins == []  # the button consumed the click; the header never pinned
+
+
 def test_collapsible_panel_visual_state_property(qtbot):
     """set_visual_state sets the dynamic panelState property (US-226)."""
     content = QLabel("Test Content")

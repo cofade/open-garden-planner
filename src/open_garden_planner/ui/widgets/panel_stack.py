@@ -4,7 +4,7 @@
 (:class:`PanelState`). Collapsed and peeking bars live directly in a top-level
 ``QVBoxLayout``; pinned panels are *moved* into a lazily-created vertical
 ``QSplitter`` that always holds a subset of panels in canonical order, sharing
-the available height equally (user-draggable). See ADR-029 / arc42 §8.17.
+the available height equally (user-draggable). See ADR-030 / arc42 §8.17.
 """
 
 from __future__ import annotations
@@ -28,6 +28,10 @@ _PEEK_CLOSE_MS = 220
 
 # Minimum usable body height for a peeking panel.
 _PEEK_MIN_BODY = 200
+
+# Cap on deferred equalize retries while the splitter still has zero height
+# (laid out but not yet shown). Prevents an unbounded singleShot(0) busy loop.
+_EQUALIZE_MAX_RETRIES = 20
 
 
 class PanelState(Enum):
@@ -374,13 +378,19 @@ class SidebarController(QWidget):
         if self._splitter is None or self._splitter.count() == 0:
             return
 
-        def _apply() -> None:
+        # Bounded retry: a fresh insert has height 0 until layout runs, so we
+        # re-defer a few ticks. The cap stops an unbounded singleShot(0) busy
+        # loop if the controller is laid out at zero height (e.g. sidebar hidden
+        # while something pins) — without it the retry would spin the event loop
+        # until the sidebar is shown.
+        def _apply(attempts: int = 0) -> None:
             sp = self._splitter
             if sp is None or sp.count() == 0:
                 return  # torn down before this deferred tick fired
             total = sp.height()
             if total <= 0:
-                QTimer.singleShot(0, _apply)  # height not laid out yet; retry
+                if attempts < _EQUALIZE_MAX_RETRIES:
+                    QTimer.singleShot(0, lambda: _apply(attempts + 1))
                 return
             n = sp.count()
             share = total // n

@@ -709,6 +709,11 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         border: 1px solid {colors['border']};
     }}
 
+    /* Instant hover affordance before the peek debounce commits (~140 ms). */
+    CollapsiblePanel[panelState="collapsed"] > QFrame:hover {{
+        background-color: {colors['surface_alt']};
+    }}
+
     /* Peeking: hover-expanded in place — accent border + lighter fill. */
     CollapsiblePanel[panelState="peeking"] > QFrame {{
         background-color: {colors['surface_alt']};

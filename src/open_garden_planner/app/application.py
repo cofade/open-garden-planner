@@ -1404,7 +1404,7 @@ class GardenPlannerApp(QMainWindow):
         # the canonical order — selection-related panels sit directly under
         # Properties, then plan tools, then garden state. The controller owns all
         # layout/state; no per-panel expand persistence (always collapsed at
-        # startup). See ADR-029 / arc42 §8.17.
+        # startup). See ADR-030 / arc42 §8.17.
         canonical_panels: list[tuple[str, CollapsiblePanel]] = [
             ("properties", props_panel),
             ("plant_details", self.plant_details_collapsible),
@@ -2340,7 +2340,7 @@ class GardenPlannerApp(QMainWindow):
         Sets ``self._geometry_restored`` so the caller can decide whether to
         fall back to ``showMaximized()`` on a fresh install. Per-panel state is
         deliberately NOT restored — the sidebar accordion always starts fully
-        collapsed every session (US-226, ADR-029).
+        collapsed every session (US-226, ADR-030).
         """
         self._geometry_restored = self._ui_state.restore_geometry(self)
         self._ui_state.restore_splitter("main", self._main_splitter)
@@ -2348,7 +2348,7 @@ class GardenPlannerApp(QMainWindow):
     def _save_ui_state(self) -> None:
         """Persist current window geometry and the main splitter sizes.
 
-        Pin/peek state is intentionally not persisted (US-226, ADR-029).
+        Pin/peek state is intentionally not persisted (US-226, ADR-030).
         """
         self._ui_state.save_geometry(self)
         self._ui_state.save_splitter("main", self._main_splitter)

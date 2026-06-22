@@ -7,7 +7,7 @@ group so they don't collide with app-domain settings handled by
 
 Note: per-panel collapse/expand state is intentionally NOT persisted. The
 sidebar accordion always starts fully collapsed every session (US-226,
-ADR-029), so the old ``save_panel_state`` / ``restore_panel_state`` helpers
+ADR-030), so the old ``save_panel_state`` / ``restore_panel_state`` helpers
 were removed.
 """
 
