@@ -1,10 +1,14 @@
 """Integration test: sidebar panels appear in the design-spec order.
 
 The Object Gallery moved into the top toolbar; the sidebar's remaining
-panels are reordered so selection-related panels (Properties, Plant
+panels are ordered so selection-related panels (Properties, Plant
 Details, Companion, Crop Rotation) sit directly under each other, then
 plan tools (Layers, Constraints), then garden state (Pests, Find
 Plants, Journal).
+
+Since US-226 (accordion), panels live inside the ``SidebarController`` (not
+directly under ``sidebar.layout()``), so canonical order is read from
+``controller.panels()`` rather than the layout.
 """
 
 # ruff: noqa: ARG002
@@ -17,16 +21,9 @@ class TestSidebarOrder:
         win = GardenPlannerApp()
         qtbot.addWidget(win)  # type: ignore[attr-defined]
 
-        layout = win.sidebar.layout()
-        # Filter to widget items only (skip the trailing addStretch spacer).
-        order = []
-        for i in range(layout.count()):
-            item = layout.itemAt(i)
-            w = item.widget() if item is not None else None
-            if w is not None:
-                order.append(w)
+        # Canonical order is owned by the controller (US-226).
+        order = win._sidebar_controller.panels()
 
-        # Maps target index → tracked-panel key (matches application.py).
         expected_keys = [
             "properties",
             "plant_details",

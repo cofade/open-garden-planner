@@ -371,3 +371,12 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 - **FR-TASK-09**: On new-season rollover, future-dated (and undated) manual tasks carry forward and future snoozes are preserved; past-due manual tasks and done/dismissed states stay in the previous season file.
 
 > Scope note: US-C2 builds a *new* unified Tasks tab on pure generators; the existing planting-calendar "today" dashboard is intentionally left in place (it reads the same project state, so the two cannot diverge in data). A convergence follow-up to refactor that dashboard onto `services/task_generator.py` is tracked separately.
+
+## FR-22: Sidebar Accordion — Hover-Peek + Click-to-Pin (issue #226, ADR-030)
+
+- **FR-UI-SIDEBAR-01**: Every sidebar panel starts **collapsed** (header-only bar) on each launch; no panel/pin state is persisted across sessions.
+- **FR-UI-SIDEBAR-02**: **Hovering** a collapsed bar peeks it open in place after a short debounce (pushing bars below it down); leaving collapses it again after a longer debounce. Fast pointer sweeps do not flicker the bars (re-entering a bar cancels its pending close).
+- **FR-UI-SIDEBAR-03**: **Clicking** a panel title pins it open; clicking again unpins it. Pinned panels move into a shared vertical splitter.
+- **FR-UI-SIDEBAR-04**: Two or more pinned panels **share the available height equally** by default and are re-equalized whenever the pinned set changes; the dividers between them are user-draggable.
+- **FR-UI-SIDEBAR-05**: Selecting a single plant **auto-pins** Plant Details and Companion Planting; selecting a single bed auto-pins Crop Rotation. Clearing the selection unpins those auto-pinned panels — unless the user clicked one (which upgrades it to a manual pin that survives selection clearing).
+- **FR-UI-SIDEBAR-06**: Peek and pin are visually distinct (peek = accent border; pin = left accent rail). Keyboard equivalents and open/collapse animation are deferred (v1 is mouse-only, no animation).

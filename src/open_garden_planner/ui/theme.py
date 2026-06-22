@@ -638,6 +638,15 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         height: 1px;
     }}
 
+    /* Pinned-panel splitter (US-226): grabbable handle, accent-tinted. */
+    QSplitter#pinnedSplitter::handle:vertical {{
+        height: 5px;
+        background-color: {colors['border']};
+    }}
+    QSplitter#pinnedSplitter::handle:vertical:hover {{
+        background-color: {colors['accent']};
+    }}
+
     /* Progress bars */
     QProgressBar {{
         background-color: {colors['surface_alt']};
@@ -694,14 +703,23 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         border: 1px solid {colors['border']};
     }}
 
-    /* Collapsible Panel Headers */
+    /* Collapsible Panel Headers (US-226 accordion: panelState property) */
     CollapsiblePanel > QFrame {{
         background-color: {colors['surface']};
         border: 1px solid {colors['border']};
     }}
 
-    CollapsiblePanel > QFrame:hover {{
+    /* Peeking: hover-expanded in place — accent border + lighter fill. */
+    CollapsiblePanel[panelState="peeking"] > QFrame {{
         background-color: {colors['surface_alt']};
+        border: 1px solid {colors['accent']};
+    }}
+
+    /* Pinned: 3px left accent rail marks panels held open by the user. */
+    CollapsiblePanel[panelState="pinned"] > QFrame {{
+        background-color: {colors['surface']};
+        border: 1px solid {colors['border']};
+        border-left: 3px solid {colors['accent']};
     }}
 
     CollapsiblePanel QLabel {{

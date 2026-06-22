@@ -1,8 +1,9 @@
 """Tests for collapsible panel widget."""
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QLabel
 
-from open_garden_planner.ui.widgets import CollapsiblePanel
+from open_garden_planner.ui.widgets import CollapsiblePanel, PanelState
 
 
 def test_collapsible_panel_creation(qtbot):  # noqa: ARG001
@@ -97,3 +98,44 @@ def test_collapsible_panel_signal(qtbot):  # noqa: ARG001
     panel.toggle()
     assert len(expanded_states) == 2
     assert expanded_states[1] is True
+
+
+def test_collapsible_panel_pin_toggled_on_header_click(qtbot):
+    """A left-click on the header bar emits pin_toggled (US-226)."""
+    content = QLabel("Test Content")
+    panel = CollapsiblePanel("Test Panel", content, expanded=True)
+    qtbot.addWidget(panel)
+    panel.show()
+
+    clicks: list[bool] = []
+    panel.header.pin_toggled.connect(clicks.append)
+
+    qtbot.mouseClick(panel.header, Qt.MouseButton.LeftButton)
+    assert clicks == [True]
+
+
+def test_collapsible_panel_visual_state_property(qtbot):
+    """set_visual_state sets the dynamic panelState property (US-226)."""
+    content = QLabel("Test Content")
+    panel = CollapsiblePanel("Test Panel", content, expanded=True)
+    qtbot.addWidget(panel)
+    panel.show()
+
+    panel.set_visual_state(PanelState.PEEKING)
+    assert panel.property("panelState") == "peeking"
+
+    panel.set_visual_state(PanelState.PINNED)
+    assert panel.property("panelState") == "pinned"
+
+    panel.set_visual_state(PanelState.COLLAPSED)
+    assert panel.property("panelState") == "collapsed"
+
+
+def test_collapsible_panel_header_height(qtbot):
+    """header_height() returns the header's natural pixel height (US-226)."""
+    content = QLabel("Test Content")
+    panel = CollapsiblePanel("Test Panel", content, expanded=True)
+    qtbot.addWidget(panel)
+    panel.show()
+
+    assert panel.header_height() > 0

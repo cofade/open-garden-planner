@@ -1,6 +1,7 @@
 """Collapsible panel widget for sidebar organization."""
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, Qt, pyqtSignal
+from PyQt6.QtGui import QEnterEvent, QMouseEvent
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -8,6 +9,34 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+
+class _HeaderFrame(QFrame):
+    """Header bar that reports hover and click as signals.
+
+    Replaces the old ``mousePressEvent = lambda: toggle()`` assignment so the
+    owning :class:`~open_garden_planner.ui.widgets.panel_stack.SidebarController`
+    can route hover-peek and pin-toggle independently. Child widgets added via
+    :meth:`CollapsiblePanel.add_header_widget` (e.g. the Constraints delete-all
+    button) consume their own clicks first, so they never reach ``pin_toggled``.
+    """
+
+    hover_enter = pyqtSignal()
+    hover_leave = pyqtSignal()
+    pin_toggled = pyqtSignal(bool)
+
+    def enterEvent(self, event: QEnterEvent) -> None:  # noqa: N802 (Qt override)
+        self.hover_enter.emit()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        self.hover_leave.emit()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802 (Qt override)
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.pin_toggled.emit(True)
+        super().mousePressEvent(event)
 
 
 class CollapsiblePanel(QWidget):
@@ -48,11 +77,12 @@ class CollapsiblePanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Header frame with background
-        self._header = QFrame()
+        # Header frame with background. _HeaderFrame emits hover/pin signals;
+        # the SidebarController decides what a header click/hover does (peek vs
+        # pin), so no toggle handler is wired here.
+        self._header = _HeaderFrame()
         self._header.setFrameShape(QFrame.Shape.StyledPanel)
         self._header.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._header.mousePressEvent = lambda _: self.toggle()
 
         header_layout = QHBoxLayout(self._header)
         header_layout.setContentsMargins(6, 4, 6, 4)
@@ -172,3 +202,38 @@ class CollapsiblePanel(QWidget):
                 self._info_label.setVisible(True)
             else:
                 self._info_label.setVisible(False)
+
+    @property
+    def header(self) -> _HeaderFrame:
+        """The header bar (exposes ``hover_enter``/``hover_leave``/``pin_toggled``)."""
+        return self._header
+
+    def header_height(self) -> int:
+        """Natural pixel height of the header row (the COLLAPSED clamp target)."""
+        return self._header.sizeHint().height()
+
+    def set_visual_state(self, state: object) -> None:
+        """Drive a dynamic ``panelState`` QSS property + re-polish the header.
+
+        Args:
+            state: A ``PanelState`` enum member; ``state.name.lower()`` becomes the
+                property value so QSS can target each state. Duck-typed on
+                ``.name`` to avoid a cyclic import of ``panel_stack``.
+        """
+        name = state.name.lower()  # type: ignore[attr-defined]
+        self.setProperty("panelState", name)
+        # Tooltip hints the click affordance for the current state.
+        if name == "pinned":
+            self._header.setToolTip(self.tr("Pinned — click to unpin"))
+        else:
+            self._header.setToolTip(self.tr("Click to pin open"))
+        # Dynamic-property changes require an unpolish/polish cycle to repaint
+        # (Qt does not re-evaluate property selectors otherwise). The header is
+        # styled via `CollapsiblePanel[panelState=...] > QFrame`, so re-polish it
+        # too — re-polishing only the parent leaves the child header stale.
+        style = self.style()
+        if style is not None:
+            style.unpolish(self)
+            style.polish(self)
+            style.unpolish(self._header)
+            style.polish(self._header)

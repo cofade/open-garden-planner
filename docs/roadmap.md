@@ -2338,6 +2338,31 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 ---
 
+## UI/UX: Sidebar Accordion (issue #226)
+
+**Goal**: Declutter the right sidebar. Replace the static stack of 9 always-expanded panels with a hover-peek + click-to-pin accordion.
+
+| Status | Issue | Description                                                      |
+| ------ | ----- | ---------------------------------------------------------------- |
+| ✅     | #226  | Hover-peek + click-to-pin sidebar accordion — see ADR-030       |
+
+### Acceptance highlights
+- All panels **collapsed at startup** every session (no pin/panel-state persistence).
+- **Hover** a bar → peeks open in place (reflow pushes bars below down); leave → collapses (asymmetric debounce, no flicker on fast sweeps).
+- **Click** title → pins open; click again → unpins. Two+ pinned panels share height equally with draggable dividers.
+- Selecting a plant auto-pins Plant Details + Companion; selecting a bed auto-pins Crop Rotation; clearing collapses them (a user click upgrades an auto-pin so it survives the clear).
+- New `SidebarController` (`ui/widgets/panel_stack.py`) owns the layout + `PanelState`/`PinSource` machine; hybrid `QVBoxLayout` (collapsed/peeking bars) + lazy vertical `QSplitter` (pinned subset).
+- Deferred (documented): keyboard equivalents + open/collapse animation.
+
+### Docs updated on completion
+| Document | Section |
+|----------|---------|
+| `docs/09-architecture-decisions/` | ADR-030 (accordion interaction model, rejected single-splitter, no-persistence; refines ADR-005) |
+| `docs/08-crosscutting-concepts/` | §8.17 (PanelState machine, debounce, splitter rules, dynamic-property QSS gotcha) |
+| `docs/functional-requirements.md` | FR-22 (FR-UI-SIDEBAR-01…06) |
+
+---
+
 ## Phase 14: 3D Visualization & Sun/Shade (Future, v2.0)
 
 **Goal**: Full three-dimensional garden view with sun/shade simulation — the milestone that justifies a major version bump.
