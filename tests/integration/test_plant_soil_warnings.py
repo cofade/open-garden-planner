@@ -4,7 +4,7 @@ Covers:
   * Pure ``SoilService.get_mismatched_plants`` rules.
   * Legacy ``nutrient_demand`` fallback via ``_effective_demand``.
   * Severity level set on bed items via ``_update_soil_mismatches``.
-  * Dashboard ``_inject_soil_mismatch_tasks`` card injection.
+  * Soil-mismatch cards on the calendar dashboard via the unified engine (#228).
 """
 from __future__ import annotations
 
@@ -227,13 +227,11 @@ class TestSeverityLevel:
 
 
 # ---------------------------------------------------------------------------
-# TestDashboardCards — _inject_soil_mismatch_tasks
+# TestDashboardCards — soil mismatch via the unified engine (#228)
 
 
 class TestDashboardCards:
     def test_dashboard_shows_amber_card_for_mismatch(self, qtbot) -> None:
-        from unittest.mock import patch
-
         from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
         from open_garden_planner.ui.canvas.items.circle_item import CircleItem
         from open_garden_planner.ui.views.planting_calendar_view import (
@@ -243,7 +241,9 @@ class TestDashboardCards:
         scene = CanvasScene(width_cm=5000, height_cm=3000)
         pm = MagicMock()
         pm.location = None
-        pm.task_completions = set()
+        pm.manual_tasks = {}
+        pm.succession_plans = {}
+        pm.task_states = {}
 
         view = PlantingCalendarView(canvas_scene=scene, project_manager=pm)
         qtbot.addWidget(view)
@@ -273,7 +273,8 @@ class TestDashboardCards:
         svc.get_effective_record.return_value = _make_record(ph=5.0)  # mismatch
         view.set_soil_service(svc)
 
-        # Capture the task list passed to _dashboard.set_data
+        # Capture the task list passed to _dashboard.set_data by the converged
+        # generation path (build_plan_state → generate_soil_mismatch_tasks).
         captured: list = []
         original_set_data = view._dashboard.set_data
 
@@ -282,8 +283,7 @@ class TestDashboardCards:
             original_set_data(tasks)
 
         view._dashboard.set_data = capturing_set_data
-        view._current_dashboard_tasks = []
-        view._inject_soil_mismatch_tasks()
+        view._rebuild_dashboard()
 
         # Should have produced a task mentioning the bed name
         assert any(

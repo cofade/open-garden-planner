@@ -789,9 +789,7 @@ class CanvasView(QGraphicsView):
             self._soil_mismatch_timer.setInterval(500)
             self._soil_mismatch_timer.timeout.connect(self._on_soil_debounce_tick)
             if self._canvas_scene is not None:
-                self._canvas_scene.changed.connect(
-                    lambda _rects: self._soil_mismatch_timer.start()
-                )
+                self._canvas_scene.changed.connect(self._on_scene_changed_for_soil)
         if self._soil_overlay_visible:
             self.viewport().update()
         self._update_soil_mismatches()
@@ -804,6 +802,17 @@ class CanvasView(QGraphicsView):
     def refresh_soil_badges(self) -> None:
         """Force an immediate overdue-badge recompute (call after a soil test is saved)."""
         self._update_soil_badges()
+
+    def _on_scene_changed_for_soil(self, _rects: object = None) -> None:
+        """Restart the soil-mismatch debounce on any scene change.
+
+        Guarded against the C++ ``QTimer`` having been torn down already: during
+        widget/app teardown the scene can still emit ``changed`` after the view's
+        timer is deleted, and an unguarded access raises ``RuntimeError`` inside a
+        Qt slot — which aborts the interpreter. (Was a bare lambda before.)
+        """
+        with contextlib.suppress(RuntimeError):
+            self._soil_mismatch_timer.start()
 
     def _on_soil_debounce_tick(self) -> None:
         """Run by the 500 ms debounce timer; refreshes mismatch borders + badges."""

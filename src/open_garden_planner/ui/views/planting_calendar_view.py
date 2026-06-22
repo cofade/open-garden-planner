@@ -12,12 +12,11 @@ transplanting), with user-adjustable per-step dates.
 """
 from __future__ import annotations
 
-import contextlib
 import datetime
 from dataclasses import dataclass
 from typing import Any
 
-from PyQt6.QtCore import QDate, QLocale, QPoint, QRect, Qt, pyqtSignal
+from PyQt6.QtCore import QDate, QLocale, QPoint, QRect, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPolygon
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -36,7 +35,13 @@ from open_garden_planner.app.settings import get_settings
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_data import species_key as _species_key
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
-from open_garden_planner.services.task_generator import make_calendar_task_id
+from open_garden_planner.services.task_generator import (
+    Task,
+    build_plan_state,
+    classify_urgency,
+    generate_all,
+)
+from open_garden_planner.services.task_status import effective_status
 from open_garden_planner.services.weather_service import get_frost_alerts
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
@@ -87,6 +92,10 @@ _URGENCY_COLORS: dict[str, QColor] = {
 
 # All task types including propagation steps
 _PROP_TASK_TYPES = ("prick_out", "harden_off")
+
+# Refresh debounce — coalesce edit/undo bursts and skip work while the tab is
+# hidden (refresh() is heavyweight, #210/#225). Mirrors the Tasks tab pattern.
+_REFRESH_DEBOUNCE_MS = 250
 
 
 def _month_abbr(month_1: int) -> str:
@@ -143,114 +152,6 @@ def _parse_frost(mmdd: str, year: int) -> datetime.date | None:
         return datetime.date(year, m, d)
     except (ValueError, AttributeError):
         return None
-
-
-def _classify_urgency(
-    start: datetime.date, end: datetime.date, today: datetime.date
-) -> str | None:
-    """Return the urgency bucket for a task window, or None if not actionable."""
-    if start <= today <= end:
-        return "today"
-    delta_end = (today - end).days
-    if 1 <= delta_end <= 14:
-        return "overdue"
-    delta_start = (start - today).days
-    if 1 <= delta_start <= 7:
-        return "this_week"
-    if 8 <= delta_start <= 30:
-        return "coming_up"
-    return None
-
-
-def _generate_dashboard_tasks(
-    rows: list[_PlantRow],
-    last_frost: datetime.date,
-    today: datetime.date,
-    completed_ids: set[str],
-    prop_plans: dict[str, PropagationPlan] | None = None,
-) -> list[_DashboardTask]:
-    """Generate actionable dashboard tasks from plant rows and frost dates.
-
-    Includes standard planting tasks (indoor sow, direct sow, transplant,
-    harvest) plus propagation tasks (pricking out, hardening off) from US-9.5.
-    """
-    year = today.year
-    year_start = datetime.date(year, 1, 1)
-    year_end = datetime.date(year, 12, 31)
-    task_defs = [
-        ("indoor_sow",  "indoor_sow_start",  "indoor_sow_end"),
-        ("direct_sow",  "direct_sow_start",  "direct_sow_end"),
-        ("transplant",  "transplant_start",  "transplant_end"),
-        ("harvest",     "harvest_start",     "harvest_end"),
-    ]
-
-    tasks: list[_DashboardTask] = []
-    for row in rows:
-        sp = row.species
-        # Use explicit key if set, otherwise derive from species data
-        species_key = row.species_key or (sp.scientific_name or sp.common_name or row.display_name)
-
-        # Standard calendar tasks
-        for task_type, start_attr, end_attr in task_defs:
-            start_w = getattr(sp, start_attr)
-            end_w = getattr(sp, end_attr)
-            if start_w is None or end_w is None:
-                continue
-            start_date = last_frost + datetime.timedelta(weeks=start_w)
-            end_date = last_frost + datetime.timedelta(weeks=end_w)
-            if end_date < year_start or start_date > year_end:
-                continue
-            urgency = _classify_urgency(start_date, end_date, today)
-            if urgency is None:
-                continue
-            task_id = make_calendar_task_id(species_key, task_type, year)
-            if task_id in completed_ids:
-                continue
-            tasks.append(_DashboardTask(
-                task_id=task_id,
-                task_type=task_type,
-                display_name=row.display_name,
-                task_date=start_date,
-                end_date=end_date,
-                urgency=urgency,
-                species_key=species_key,
-            ))
-
-        # Propagation tasks (US-9.5): prick_out and harden_off
-        if prop_plans is None:
-            continue
-        plan = prop_plans.get(species_key)
-        if plan is None:
-            continue
-        prop_task_defs = [
-            ("prick_out",  "prick_out"),
-            ("harden_off", "harden_off"),
-        ]
-        for task_type, step_id in prop_task_defs:
-            step = plan.get_step(step_id)
-            if step is None:
-                continue
-            start_date = step.start_date
-            end_date = step.end_date
-            if end_date < year_start or start_date > year_end:
-                continue
-            urgency = _classify_urgency(start_date, end_date, today)
-            if urgency is None:
-                continue
-            task_id = make_calendar_task_id(species_key, task_type, year)
-            if task_id in completed_ids:
-                continue
-            tasks.append(_DashboardTask(
-                task_id=task_id,
-                task_type=task_type,
-                display_name=row.display_name,
-                task_date=start_date,
-                end_date=end_date,
-                urgency=urgency,
-                species_key=species_key,
-            ))
-
-    return tasks
 
 
 # ─── Dashboard panel ───────────────────────────────────────────────────────────
@@ -349,6 +250,9 @@ class _DashboardPanel(QFrame):
             "this_week": self.tr("This Week"),
             "coming_up": self.tr("Coming Up"),
         }
+        # Templates substitute the task's display_name into %1. Types not listed
+        # (succession_sow/clear, soil_mismatch, soil_amendment, manual) fall
+        # through to "%1" — their display_name is already a complete label.
         task_templates = {
             "indoor_sow":         self.tr("Start indoor sowing of %1"),
             "direct_sow":         self.tr("Direct sow %1"),
@@ -356,8 +260,8 @@ class _DashboardPanel(QFrame):
             "harvest":            self.tr("Harvest %1"),
             "prick_out":          self.tr("Prick out %1 seedlings"),
             "harden_off":         self.tr("Start hardening off %1"),
-            "frost_alert_orange": self.tr("⚠ Frost: %1"),
-            "frost_alert_red":    self.tr("❄ Hard frost: %1"),
+            "frost_alert_orange": self.tr("⚠ %1"),
+            "frost_alert_red":    self.tr("❄ %1"),
         }
 
         for urgency in _URGENCY_ORDER:
@@ -987,11 +891,28 @@ class PlantingCalendarView(QWidget):
         self._prop_plans: dict[str, PropagationPlan] = {}
         self._current_dashboard_tasks: list[_DashboardTask] = []
         self._soil_service: Any | None = None
+        # Debounced refresh so the view can be wired to stack_changed (undo/redo)
+        # without heavyweight churn; skips work while the tab is hidden (#225).
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.setSingleShot(True)
+        self._refresh_timer.setInterval(_REFRESH_DEBOUNCE_MS)
+        self._refresh_timer.timeout.connect(self._on_refresh_timer)
         self._build_ui()
 
     def set_soil_service(self, service: Any | None) -> None:
         """Inject the SoilService so the dashboard can show soil mismatch cards (US-12.10d)."""
         self._soil_service = service
+
+    def schedule_refresh(self) -> None:
+        """Coalesce refresh requests (debounced) — safe to wire to stack_changed."""
+        self._refresh_timer.start()
+
+    def _on_refresh_timer(self) -> None:
+        """Debounced refresh — skip the heavy rebuild while the tab is hidden
+        (``_on_tab_changed`` refreshes the view when it next becomes visible)."""
+        if not self.isVisible():
+            return
+        self.refresh()
 
     # ── construction ───────────────────────────────────────────────────────────
 
@@ -1203,23 +1124,8 @@ class PlantingCalendarView(QWidget):
         else:
             self._prop_plans = {}
 
-        # Update dashboard (US-8.6 + US-9.5)
-        today = datetime.date.today()
-        completed_ids: set[str] = set()
-        if hasattr(self._project_manager, "task_completions"):
-            completed_ids = self._project_manager.task_completions
-        if last_frost is not None and rows:
-            tasks = _generate_dashboard_tasks(
-                rows, last_frost, today, completed_ids,
-                prop_plans=self._prop_plans if self._prop_toggle.isChecked() else None,
-            )
-        else:
-            tasks = []
-        self._current_dashboard_tasks: list[_DashboardTask] = tasks
-        self._dashboard.set_data(tasks)
-
-        # Merge soil mismatch alerts into dashboard (US-12.10d)
-        self._inject_soil_mismatch_tasks()
+        # Update dashboard via the single unified engine (#228).
+        self._rebuild_dashboard()
 
         # Update Gantt translated marker labels
         self._gantt.label_today = self.tr("Today")
@@ -1254,7 +1160,7 @@ class PlantingCalendarView(QWidget):
             return
 
         self._empty_lbl.hide()
-        year = today.year
+        year = datetime.date.today().year
         self._gantt.set_data(rows, year, last_frost, first_fall, self._prop_plans)
         self._scroll.show()
 
@@ -1275,10 +1181,15 @@ class PlantingCalendarView(QWidget):
             self._detail.hide()
 
     def _on_task_toggled(self, task_id: str, done: bool) -> None:
-        """Persist task completion state, then refresh the dashboard."""
+        """Persist task completion, then rebuild only the dashboard.
+
+        Rebuild the dashboard (not a full ``refresh()``) so toggling Done doesn't
+        kick off a redundant weather fetch; the resulting ``task_states_changed``
+        already schedules a (debounced) full refresh in the app.
+        """
         if hasattr(self._project_manager, "set_task_completion"):
             self._project_manager.set_task_completion(task_id, done)
-        self.refresh()
+        self._rebuild_dashboard()
 
     def _on_propagation_toggled(self, checked: bool) -> None:
         """Enable/disable propagation sub-rows in the Gantt and detail panel."""
@@ -1324,7 +1235,8 @@ class PlantingCalendarView(QWidget):
     # ─── Weather widget slots (US-12.1 / US-12.2) ────────────────────
 
     def _on_weather_ready(self) -> None:
-        """Apply frost tinting and inject frost alerts into the dashboard."""
+        """Apply frost tinting; frost alerts flow into the dashboard via the
+        unified engine (build_plan_state → generate_frost_tasks) on refresh."""
         forecast = self._weather.forecast()
         if forecast is None:
             return
@@ -1335,9 +1247,29 @@ class PlantingCalendarView(QWidget):
         plants = self._collect_plant_info()
         alerts = get_frost_alerts(forecast, plants, orange_c, red_c)
         self._current_frost_alerts = alerts
-        self._inject_frost_tasks(alerts)
+        # Update the frost corner badge (was emitted from the old _inject path).
+        actionable = [a for a in alerts if self._frost_alert_actionable(a)]
+        max_severity = ""
+        if any(a.severity == "red" for a in actionable):
+            max_severity = "red"
+        elif actionable:
+            max_severity = "orange"
+        self.frost_alert_ready.emit(len(actionable), max_severity)
         # Share the computed alerts with the US-C2 Tasks tab (single fetch).
         self.frost_alerts_ready.emit(alerts)
+        # Regenerate the dashboard with the new alerts. Rebuild only the
+        # dashboard (NOT a full refresh — that would re-trigger the weather
+        # fetch and loop).
+        self._rebuild_dashboard()
+
+    @staticmethod
+    def _frost_alert_actionable(alert: Any) -> bool:
+        """Whether a frost alert falls inside the actionable urgency window."""
+        try:
+            d = datetime.date.fromisoformat(alert.date)
+        except (ValueError, AttributeError):
+            return False
+        return classify_urgency(d, d, datetime.date.today()) is not None
 
     @property
     def current_frost_alerts(self) -> list:
@@ -1378,39 +1310,6 @@ class PlantingCalendarView(QWidget):
             })
         return result
 
-    def _inject_frost_tasks(self, alerts: list) -> None:
-        """Merge frost alerts into the dashboard task list."""
-        today = datetime.date.today()
-        frost_tasks: list[_DashboardTask] = []
-        for alert in alerts:
-            alert_date = datetime.date.fromisoformat(alert.date)
-            urgency = _classify_urgency(alert_date, alert_date, today)
-            if urgency is None:
-                continue
-            plant_names = self._names_for_ids(alert.affected_plant_ids)
-            temp_str = QLocale().toString(float(alert.min_temp), "f", 1)
-            display = f"{temp_str}°C — {', '.join(plant_names)}"
-            task_type = "frost_alert_red" if alert.severity == "red" else "frost_alert_orange"
-            species_key = "frost_items:" + ",".join(alert.affected_plant_ids)
-            frost_tasks.append(
-                _DashboardTask(
-                    task_id=f"frost:{alert.date}:{alert.severity}",
-                    task_type=task_type,
-                    display_name=display,
-                    task_date=alert_date,
-                    end_date=alert_date,
-                    urgency=urgency,
-                    species_key=species_key,
-                )
-            )
-        self._dashboard.set_data(self._current_dashboard_tasks + frost_tasks)
-        max_severity = ""
-        if any(t.task_type == "frost_alert_red" for t in frost_tasks):
-            max_severity = "red"
-        elif frost_tasks:
-            max_severity = "orange"
-        self.frost_alert_ready.emit(len(frost_tasks), max_severity)
-
     def _names_for_ids(self, item_ids: list[str]) -> list[str]:
         """Return plant names for the given item IDs."""
         from open_garden_planner.ui.canvas.items import GardenItemMixin
@@ -1434,126 +1333,94 @@ class PlantingCalendarView(QWidget):
             names.append(name or "?")
         return names
 
-    def _inject_soil_mismatch_tasks(self) -> None:
-        """Merge soil mismatch alerts into the dashboard task list (US-12.10d)."""
-        if self._soil_service is None:
-            return
-        from open_garden_planner.core.object_types import is_bed_type
-        from open_garden_planner.models.plant_data import PlantSpeciesData
-        from open_garden_planner.services.soil_service import SoilService
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
+    # ── dashboard generation (unified engine, #228) ─────────────────────────────
 
+    def _rebuild_dashboard(self) -> None:
+        """Regenerate the Today's-Tasks dashboard from the unified engine.
+
+        Separate from :meth:`refresh` so the async weather callback can update
+        the frost rows without re-triggering the weather fetch (which would loop).
+        """
         today = datetime.date.today()
-        soil_tasks: list[_DashboardTask] = []
-        all_items = list(self._canvas_scene.items())
-        for item in all_items:
-            if not isinstance(item, GardenItemMixin):
+        state = build_plan_state(
+            self._canvas_scene,
+            self._project_manager,
+            frost_alerts=self._current_frost_alerts,
+            soil_service=self._soil_service,
+            prop_plans=self._prop_plans if self._prop_toggle.isChecked() else None,
+        )
+        task_states = self._project_manager.task_states
+        bed_names = self._bed_name_map()
+        dash: list[_DashboardTask] = []
+        for task in generate_all(state):
+            # Calendar shows only actionable, still-open tasks (done / snoozed /
+            # dismissed / archived are hidden via the shared status resolver).
+            if effective_status(task_states.get(task.task_id), today) != "open":
                 continue
-            if not is_bed_type(getattr(item, "object_type", None)):
-                continue
-            bed_id = str(getattr(item, "item_id", ""))
-            record = self._soil_service.get_effective_record(bed_id)
-            child_ids = {str(c) for c in getattr(item, "_child_item_ids", [])}
-            specs: list[PlantSpeciesData] = []
-            for child in all_items:
-                if str(getattr(child, "item_id", "")) not in child_ids:
-                    continue
-                ps_dict = getattr(child, "metadata", {}).get("plant_species")
-                if ps_dict and isinstance(ps_dict, dict):
-                    with contextlib.suppress(Exception):
-                        specs.append(PlantSpeciesData.from_dict(ps_dict))
-            mismatches = SoilService.get_mismatched_plants(record, specs)
-            if not mismatches:
-                continue
-            bed_name = str(getattr(item, "name", "") or self.tr("Bed"))
-            plant_names = ", ".join(
-                s.common_name or s.scientific_name or "?" for s, _ in mismatches
-            )
-            display = self.tr("Soil mismatch in {bed}: {plants}").format(
-                bed=bed_name, plants=plant_names
-            )
-            soil_tasks.append(
-                _DashboardTask(
-                    task_id=f"soil_mismatch:{bed_id}",
-                    task_type="soil_mismatch",
-                    display_name=display,
-                    task_date=today,
-                    end_date=today,
-                    urgency="today",
-                    species_key="",
-                )
-            )
-        extra = soil_tasks + self._collect_succession_tasks()
-        if extra:
-            self._dashboard.set_data(self._current_dashboard_tasks + extra)
+            adapted = self._adapt_task(task, today, bed_names)
+            if adapted is not None:
+                dash.append(adapted)
+        self._current_dashboard_tasks = dash
+        self._dashboard.set_data(dash)
 
-    def _collect_succession_tasks(self) -> list[_DashboardTask]:
-        """Return upcoming succession sow/clear tasks for the dashboard (US-12.8)."""
-        if not hasattr(self._project_manager, "succession_plans"):
-            return []
-
-        from open_garden_planner.models.succession import SuccessionPlan  # noqa: PLC0415
+    def _bed_name_map(self) -> dict[str, str]:
+        """item_id → display name for every garden item (for succession rows)."""
         from open_garden_planner.ui.canvas.items import GardenItemMixin  # noqa: PLC0415
-
-        today = datetime.date.today()
-        plans = self._project_manager.succession_plans
-        if not plans:
-            return []
-
-        bed_names: dict[str, str] = {
+        return {
             str(item.item_id): (item.name or str(item.item_id)[:8])
             for item in self._canvas_scene.items()
             if isinstance(item, GardenItemMixin)
         }
 
-        tasks: list[_DashboardTask] = []
-        for bed_id, plan_dict in plans.items():
-            try:
-                plan = SuccessionPlan.from_dict(plan_dict)
-            except Exception:
-                continue
-            bed_name = bed_names.get(bed_id, bed_id[:8])
-            for entry in plan.entries_sorted():
-                if not entry.start_date or not entry.end_date:
-                    continue
-                try:
-                    start = datetime.date.fromisoformat(entry.start_date)
-                    end = datetime.date.fromisoformat(entry.end_date)
-                except ValueError:
-                    continue
+    def _adapt_task(
+        self, task: Task, today: datetime.date, bed_names: dict[str, str]
+    ) -> _DashboardTask | None:
+        """Map a unified :class:`Task` to a compact dashboard row, or None when
+        it falls outside the calendar's actionable window (undated/too far)."""
+        if task.start_date is None or task.end_date is None:
+            return None
+        urgency = classify_urgency(task.start_date, task.end_date, today)
+        if urgency is None:
+            return None
+        # Frost rows carry no species_key; their "→" highlight selects the
+        # affected plants via the canvas "frost_items:" navigation branch
+        # (application._on_highlight_species), so encode the item ids there.
+        if task.task_type.startswith("frost_alert"):
+            highlight_key = "frost_items:" + ",".join(task.item_ids)
+        else:
+            highlight_key = task.species_key
+        return _DashboardTask(
+            task_id=task.task_id,
+            task_type=task.task_type,
+            display_name=self._dashboard_display(task, bed_names),
+            task_date=task.start_date,
+            end_date=task.end_date,
+            # The engine's "upcoming" is the dashboard's "coming_up" bucket.
+            urgency="coming_up" if urgency == "upcoming" else urgency,
+            species_key=highlight_key,
+        )
 
-                sow_urgency = _classify_urgency(start, start, today)
-                if sow_urgency is not None:
-                    tasks.append(
-                        _DashboardTask(
-                            task_id=f"succession:sow:{bed_id}:{entry.id}",
-                            task_type="succession_sow",
-                            display_name=self.tr(
-                                "Sow {name} in {bed} (succession)"
-                            ).format(name=entry.common_name, bed=bed_name),
-                            task_date=start,
-                            end_date=start,
-                            urgency=sow_urgency,
-                            species_key=entry.species_key,
-                        )
-                    )
-
-                end_delta = (end - today).days
-                if 0 <= end_delta <= 5:
-                    tasks.append(
-                        _DashboardTask(
-                            task_id=f"succession:clear:{bed_id}:{entry.id}",
-                            task_type="succession_clear",
-                            display_name=self.tr(
-                                "Clear {name} from {bed} (succession)"
-                            ).format(name=entry.common_name, bed=bed_name),
-                            task_date=end,
-                            end_date=end,
-                            urgency="this_week",
-                            species_key=entry.species_key,
-                        )
-                    )
-        return tasks
+    def _dashboard_display(self, task: Task, bed_names: dict[str, str]) -> str:
+        """Row text for a task, matching the dashboard panel's templates."""
+        tt = task.task_type
+        if tt in ("succession_sow", "succession_clear"):
+            bed = bed_names.get(task.bed_id or "", (task.bed_id or "")[:8])
+            template = (
+                self.tr("Sow {name} in {bed} (succession)")
+                if tt == "succession_sow"
+                else self.tr("Clear {name} from {bed} (succession)")
+            )
+            return template.format(name=task.title, bed=bed)
+        if tt.startswith("frost_alert"):
+            names = ", ".join(self._names_for_ids(list(task.item_ids)))
+            if names:
+                return self.tr("{title} — {names}").format(
+                    title=task.title, names=names
+                )
+            return task.title
+        # calendar / propagation: bare plant name (the panel template adds the
+        # verb). soil_mismatch / soil_amendment / manual: title is a full label.
+        return task.title
 
     def _on_weather_failed(self, message: str) -> None:
         """Weather forecast fetch failed — no frost alerts shown."""

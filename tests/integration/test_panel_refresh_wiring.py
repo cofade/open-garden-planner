@@ -23,6 +23,8 @@ from PyQt6.QtWidgets import QApplication, QMessageBox
 from open_garden_planner.core.commands import MoveItemsCommand
 from open_garden_planner.ui.canvas.items import RectangleItem
 from open_garden_planner.ui.panels import ConstraintsPanel
+from open_garden_planner.ui.panels.companion_panel import CompanionPanel
+from open_garden_planner.ui.panels.crop_rotation_panel import CropRotationPanel
 
 
 def _silence_close_prompt(monkeypatch) -> None:
@@ -118,3 +120,43 @@ class TestStackChangedDrivesPanels:
         mgr.undo()
         assert not win._undo_action.isEnabled()
         assert win._redo_action.isEnabled()
+
+
+class TestCompanionCropRotationRefreshOnUndoRedo:
+    """#225: companion + crop-rotation panels were wired only to selectionChanged,
+    so undo/redo of a species/reparent change left them stale. They are now wired
+    to ``stack_changed`` as well — assert they refresh on undo and redo."""
+
+    def test_panels_refresh_on_undo_redo(self, qtbot, monkeypatch) -> None:
+        companion_calls: list[int] = []
+        crop_calls: list[int] = []
+        orig_comp = CompanionPanel.update_for_plant
+        orig_crop = CropRotationPanel.update_for_bed
+
+        def _spy_comp(self, item):
+            companion_calls.append(1)
+            return orig_comp(self, item)
+
+        def _spy_crop(self, item, area_id):
+            crop_calls.append(1)
+            return orig_crop(self, item, area_id)
+
+        # Patch the class methods before the app is built (the bound-method
+        # connections are captured at wiring time).
+        monkeypatch.setattr(CompanionPanel, "update_for_plant", _spy_comp)
+        monkeypatch.setattr(CropRotationPanel, "update_for_bed", _spy_crop)
+
+        win = _make_app(qtbot, monkeypatch)
+        item = RectangleItem(0, 0, 100, 50)
+        win.canvas_scene.addItem(item)
+        item.setSelected(True)
+        mgr = win.canvas_view.command_manager
+
+        mgr.execute(MoveItemsCommand([item], QPointF(10, 0)))
+        for action in ("undo", "redo"):
+            companion_calls.clear()
+            crop_calls.clear()
+            getattr(mgr, action)()
+            qtbot.waitUntil(lambda: bool(companion_calls) and bool(crop_calls))
+            assert companion_calls, f"companion panel must refresh on {action} (#225)"
+            assert crop_calls, f"crop-rotation panel must refresh on {action} (#225)"

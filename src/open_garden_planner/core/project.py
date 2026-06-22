@@ -286,25 +286,20 @@ class ProjectManager(QObject):
         return set(self._task_completions)
 
     def set_task_completion(self, task_id: str, done: bool) -> None:
-        """Mark a task done/not-done from the planting-calendar dashboard.
+        """Mark a task done/not-done from the planting-calendar dashboard's
+        "Done" toggle.
 
-        Writes BOTH the legacy ``task_completions`` set (read by that dashboard)
-        AND the US-C2 ``task_states`` store (read by the Tasks tab), so the two
-        surfaces of the same task stay consistent (the Tasks tab's
-        ``set_task_status`` mirrors the other direction). See ADR-029.
+        Thin compatibility shim — delegates to :meth:`set_task_status`, the
+        single source of truth for task status (#228). ``set_task_status`` keeps
+        the legacy ``task_completions`` set in sync for ``.ogp`` forward/back
+        compatibility, so there is now exactly one write-path. See ADR-029.
         """
         if done:
-            self._task_completions.add(task_id)
-            self._task_states[task_id] = {
-                "status": "done",
-                "done_date": datetime.now().date().isoformat(),  # noqa: DTZ005
-            }
+            self.set_task_status(
+                task_id, "done", done_date=datetime.now().date().isoformat()  # noqa: DTZ005
+            )
         else:
-            self._task_completions.discard(task_id)
-            self._task_states.pop(task_id, None)
-        self.task_completions_changed.emit(self._task_completions)
-        self.task_states_changed.emit(self._task_states)
-        self.mark_dirty()
+            self.set_task_status(task_id, "open")
 
     @property
     def seed_inventory(self) -> list[dict[str, Any]]:
@@ -666,8 +661,9 @@ class ProjectManager(QObject):
             if snooze_until:
                 entry["snooze_until"] = snooze_until
             self._task_states[task_id] = entry
-        # Keep legacy task_completions in sync so the (untouched) planting-calendar
-        # dashboard still hides done tasks (#188 parallel-coexistence).
+        # Keep the legacy task_completions set in sync as a write-only .ogp
+        # forward/back-compat mirror (#228: the calendar now reads effective_status,
+        # so nothing in-app reads task_completions anymore).
         if status == "done":
             self._task_completions.add(task_id)
         else:

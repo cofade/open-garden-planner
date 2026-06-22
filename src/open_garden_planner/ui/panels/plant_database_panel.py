@@ -340,6 +340,9 @@ class PlantDatabasePanel(QWidget):
             PlantCycle.BIENNIAL: self.tr("Biennial"),
             PlantCycle.PERENNIAL: self.tr("Perennial"),
         }
+        # Leading neutral entry so a species with no cycle data shows "—" rather
+        # than being misrepresented as the first concrete option (#231).
+        self.cycle_combo.addItem(self.tr("—"), PlantCycle.UNKNOWN.value)
         for item in PlantCycle:
             if item != PlantCycle.UNKNOWN:
                 self.cycle_combo.addItem(cycle_labels.get(item, item.value), item.value)
@@ -357,6 +360,7 @@ class PlantDatabasePanel(QWidget):
             FlowerType.DIOECIOUS_MALE: self.tr("Dioecious Male (\u2642 only)"),
             FlowerType.DIOECIOUS_FEMALE: self.tr("Dioecious Female (\u2640 only)"),
         }
+        self.flower_type_combo.addItem(self.tr("—"), FlowerType.UNKNOWN.value)
         for item in FlowerType:
             if item != FlowerType.UNKNOWN:
                 label = flower_type_labels.get(item, item.value.replace("_", " ").title())
@@ -373,6 +377,7 @@ class PlantDatabasePanel(QWidget):
             PollinationType.SELF_STERILE: self.tr("Self-sterile (needs partner)"),
             PollinationType.TRIPLOID: self.tr("Triploid (sterile pollen)"),
         }
+        self.pollination_combo.addItem(self.tr("—"), PollinationType.UNKNOWN.value)
         for item in PollinationType:
             if item != PollinationType.UNKNOWN:
                 label = pollination_labels.get(item, item.value.replace("_", " ").title())
@@ -391,6 +396,7 @@ class PlantDatabasePanel(QWidget):
             SunRequirement.PARTIAL_SHADE: self.tr("Partial Shade"),
             SunRequirement.FULL_SHADE: self.tr("Full Shade"),
         }
+        self.sun_combo.addItem(self.tr("—"), SunRequirement.UNKNOWN.value)
         for item in SunRequirement:
             if item != SunRequirement.UNKNOWN:
                 self.sun_combo.addItem(sun_labels.get(item, item.value), item.value)
@@ -405,6 +411,7 @@ class PlantDatabasePanel(QWidget):
             WaterNeeds.MEDIUM: self.tr("Medium"),
             WaterNeeds.HIGH: self.tr("High"),
         }
+        self.water_combo.addItem(self.tr("—"), WaterNeeds.UNKNOWN.value)
         for item in WaterNeeds:
             if item != WaterNeeds.UNKNOWN:
                 self.water_combo.addItem(water_labels.get(item, item.value), item.value)

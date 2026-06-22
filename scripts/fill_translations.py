@@ -1226,14 +1226,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
 
     # ── PlantingCalendarView ──
+    # NOTE: "Soil mismatch in {bed}: {plants}" moved to the "Tasks" context (#228,
+    # now emitted by services/task_generator.generate_soil_mismatch_tasks).
     "PlantingCalendarView": {
         "Germination": "Keimung",
         "Prick out": "Pikieren",
         "Harden off": "Abhärten",
-        "Bed": "Beet",
-        "Soil mismatch in {bed}: {plants}": "Bodenkonflikt in {bed}: {plants}",
         "Sow {name} in {bed} (succession)": "{name} in {bed} säen (Anbaufolge)",
         "Clear {name} from {bed} (succession)": "{name} aus {bed} räumen (Anbaufolge)",
+        "{title} — {names}": "{title} — {names}",
     },
 
     # ── BedActions (shared context menu items for bed-capable shapes — ADR-017) ──
@@ -1339,10 +1340,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Forecast unavailable": "Vorhersage nicht verfügbar",
     },
 
-    # ── _DashboardPanel (US-12.2 frost task templates) ──
+    # ── _DashboardPanel (US-12.2 frost task templates; #228 converged) ──
     "_DashboardPanel": {
-        "⚠ Frost: %1": "⚠ Frost: %1",
-        "❄ Hard frost: %1": "❄ Starker Frost: %1",
+        # Frost task titles already start with "Frost …", so the template just
+        # prefixes the warning icon (the temperature + plant names are in %1).
+        "⚠ %1": "⚠ %1",
+        "❄ %1": "❄ %1",
     },
 
     # ── PropertiesPanel ──
@@ -1711,6 +1714,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── Tasks (US-C2 #188 — QCoreApplication.translate in task_generator.py) ──
     "Tasks": {
         "Frost {temp}°C": "Frost {temp}°C",
+        "Soil mismatch in {bed}: {plants}": "Bodenkonflikt in {bed}: {plants}",
     },
 
     # ── TasksView (US-C2 #188 — the Tasks dashboard tab) ──

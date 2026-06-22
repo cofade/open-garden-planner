@@ -33,14 +33,16 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.services.task_generator import (
-    BedInput,
-    PlanState,
-    PlantRowInput,
     Task,
+    build_plan_state,
     classify_urgency,
     generate_all,
 )
 from open_garden_planner.services.task_status import effective_status
+
+# ``build_plan_state`` lives in the (Qt-free) task_generator module now and is
+# shared with the planting-calendar dashboard (#228); re-exported here for the
+# Tasks tab's own use and for callers/tests importing it from this module.
 
 # Refresh debounce — coalesce edit bursts to at most one regeneration/second.
 _REFRESH_DEBOUNCE_MS = 1000
@@ -56,139 +58,6 @@ _URGENCY_COLOR = {
     "upcoming": "#27ae60",
     "no_date": "#7f8c8d",
 }
-
-
-def _parse_frost(mmdd: str, year: int) -> datetime.date | None:
-    """Parse an 'MM-DD' frost date for ``year`` (None on failure)."""
-    try:
-        m, d = (int(x) for x in mmdd.split("-"))
-        return datetime.date(year, m, d)
-    except (ValueError, AttributeError):
-        return None
-
-
-def build_plan_state(
-    scene: Any,
-    project_manager: Any,
-    frost_alerts: list | None = None,
-    soil_service: Any | None = None,
-) -> PlanState:
-    """Snapshot the live scene + project into a Qt-free :class:`PlanState`.
-
-    Reuses the same data sources as the planting-calendar dashboard
-    (species week-offsets, the location's last-frost date, succession plans) and
-    the soil amendment engine. Propagation steps are intentionally NOT fed here —
-    they remain surfaced on the calendar dashboard (US-C2 scope is calendar /
-    succession / soil / frost / manual).
-    """
-    from open_garden_planner.core.object_types import (  # noqa: PLC0415
-        get_translated_display_name,
-        is_bed_type,
-    )
-    from open_garden_planner.models.plant_data import (  # noqa: PLC0415
-        PlantSpeciesData,
-        species_key,
-    )
-    from open_garden_planner.models.task import ManualTask  # noqa: PLC0415
-
-    today = datetime.date.today()
-    year = today.year
-
-    last_frost: datetime.date | None = None
-    location = project_manager.location or {}
-    frost_dates = location.get("frost_dates") or {}
-    lsf = frost_dates.get("last_spring_frost")
-    if lsf:
-        last_frost = _parse_frost(lsf, year)
-
-    plant_rows: list[PlantRowInput] = []
-    beds: list[BedInput] = []
-    if scene is not None:
-        for item in scene.items():
-            object_type = getattr(item, "object_type", None)
-            metadata = getattr(item, "metadata", None) or {}
-            ps_dict = metadata.get("plant_species") if isinstance(metadata, dict) else None
-            if ps_dict:
-                try:
-                    sp = PlantSpeciesData.from_dict(ps_dict)
-                except Exception:
-                    sp = None
-                if sp is not None:
-                    # MUST match the planting-calendar dashboard's key derivation
-                    # (canonical species_key, ADR-016: source_id → scientific →
-                    # common, lowercased) so the generated task_ids align and
-                    # done/snooze status syncs across both surfaces (#188 #12).
-                    sp_key = species_key({
-                        "source_id": sp.source_id,
-                        "scientific_name": sp.scientific_name,
-                        "common_name": sp.common_name,
-                    })
-                    if sp_key != "_unknown":
-                        plant_rows.append(PlantRowInput(
-                            display_name=(getattr(item, "name", "") or sp.common_name or sp_key),
-                            species_key=sp_key,
-                            indoor_sow_start=sp.indoor_sow_start,
-                            indoor_sow_end=sp.indoor_sow_end,
-                            direct_sow_start=sp.direct_sow_start,
-                            direct_sow_end=sp.direct_sow_end,
-                            transplant_start=sp.transplant_start,
-                            transplant_end=sp.transplant_end,
-                            harvest_start=sp.harvest_start,
-                            harvest_end=sp.harvest_end,
-                        ))
-            if is_bed_type(object_type):
-                bed_id = str(getattr(item, "item_id", ""))
-                if not bed_id:
-                    continue
-                name = getattr(item, "name", "") or get_translated_display_name(object_type)
-                beds.append(BedInput(
-                    bed_id=bed_id,
-                    name=name,
-                    amendment_recs=_bed_amendment_recs(bed_id, item, soil_service),
-                ))
-
-    manual_tasks = tuple(
-        ManualTask.from_dict(d) for d in project_manager.manual_tasks.values()
-    )
-
-    return PlanState(
-        today=today,
-        year=year,
-        last_frost=last_frost,
-        plant_rows=tuple(plant_rows),
-        beds=tuple(beds),
-        succession_plans=dict(project_manager.succession_plans),
-        manual_tasks=manual_tasks,
-        frost_alerts=tuple(frost_alerts or ()),
-    )
-
-
-def _bed_amendment_recs(
-    bed_id: str, item: Any, soil_service: Any | None
-) -> tuple[tuple[str, str], ...]:
-    """Flatten a bed's amendment recommendations into (name, rationale) pairs."""
-    if soil_service is None:
-        return ()
-    record = soil_service.get_effective_record(bed_id)
-    if record is None:
-        return ()
-    from open_garden_planner.core.measurements import (  # noqa: PLC0415
-        calculate_area_and_perimeter,
-    )
-    from open_garden_planner.services.soil_service import SoilService  # noqa: PLC0415
-
-    result = calculate_area_and_perimeter(item)
-    if result is None:
-        return ()
-    area_m2 = result[0] / 10_000.0
-    if area_m2 <= 0.0:
-        return ()
-    recs = SoilService.calculate_amendments(record, bed_area_m2=area_m2)
-    pairs: list[tuple[str, str]] = []
-    for rec in recs:
-        name = rec.amendment.display_name()
-        pairs.append((name, f"~{rec.quantity_g:.0f} g"))
-    return tuple(pairs)
 
 
 class TasksView(QWidget):

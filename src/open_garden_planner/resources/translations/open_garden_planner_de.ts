@@ -4704,6 +4704,10 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <source>Clear {name} from {bed} (succession)</source>
             <translation>{name} aus {bed} räumen (Anbaufolge)</translation>
         </message>
+        <message>
+            <source>{title} — {names}</source>
+            <translation>{title} — {names}</translation>
+        </message>
     </context>
     <context>
         <name>PolygonItem</name>
@@ -6691,6 +6695,14 @@ Starten Sie Open Garden Planner als Administrator, oder laden Sie das Installati
         <message>
             <source>❄ Hard frost: %1</source>
             <translation>❄ Starker Frost: %1</translation>
+        </message>
+        <message>
+            <source>⚠ %1</source>
+            <translation>⚠ %1</translation>
+        </message>
+        <message>
+            <source>❄ %1</source>
+            <translation>❄ %1</translation>
         </message>
     </context>
     <context>
@@ -9454,6 +9466,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Frost {temp}°C</source>
             <translation>Frost {temp}°C</translation>
+        </message>
+        <message>
+            <source>Soil mismatch in {bed}: {plants}</source>
+            <translation>Bodenkonflikt in {bed}: {plants}</translation>
         </message>
     </context>
     <context>

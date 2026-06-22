@@ -18,6 +18,7 @@ from open_garden_planner.services.task_generator import (
     generate_manual_tasks,
     generate_propagation_tasks,
     generate_soil_amendment_tasks,
+    generate_soil_mismatch_tasks,
     generate_succession_tasks,
 )
 from open_garden_planner.services.weather_service import FrostAlert
@@ -219,6 +220,31 @@ class TestSoilAmendmentTasks:
         assert generate_soil_amendment_tasks(_state(beds=(bed,))) == []
 
 
+class TestSoilMismatchTasks:
+    def test_one_warning_per_bed_with_mismatch(self) -> None:
+        bed = BedInput(
+            bed_id="bed-1",
+            name="North Bed",
+            mismatch_plants=("Tomato", "Basil"),
+        )
+        tasks = generate_soil_mismatch_tasks(_state(beds=(bed,)))
+        assert len(tasks) == 1
+        t = tasks[0]
+        assert t.task_id == "soil_mismatch:bed-1"
+        assert t.source == "soil"
+        assert t.task_type == "soil_mismatch"
+        assert "North Bed" in t.title
+        assert "Tomato" in t.title and "Basil" in t.title
+        assert t.bed_id == "bed-1"
+        assert t.start_date == TODAY
+        assert t.end_date == TODAY
+        assert t.dismissible is True
+
+    def test_no_mismatch_no_tasks(self) -> None:
+        bed = BedInput(bed_id="bed-1", name="North Bed")
+        assert generate_soil_mismatch_tasks(_state(beds=(bed,))) == []
+
+
 class TestFrostTasks:
     def test_red_and_orange(self) -> None:
         alerts = (
@@ -307,12 +333,16 @@ class TestGenerateAll:
             bed_id="bed-1",
             name="North",
             amendment_recs=(("Lime", "Raises pH"),),
+            mismatch_plants=("Tomato",),
         )
         tasks = generate_all(
             _state(plant_rows=(row,), manual_tasks=(manual,), beds=(bed,))
         )
         sources = {t.source for t in tasks}
         assert {"calendar", "manual", "soil"} <= sources
+        task_types = {t.task_type for t in tasks}
+        # Both soil task types flow through the unified engine (#228).
+        assert {"soil_amendment", "soil_mismatch"} <= task_types
 
     def test_dedups_by_task_id_keeping_first(self) -> None:
         # A manual task whose id collides with the calendar task's id.
