@@ -1088,6 +1088,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Family:": "Familie:",
         "Enter variety or cultivar...": "Sorte oder Kultivar eingeben...",
         "Variety:": "Sorte:",
+        # Neutral "unset" placeholder shared by the characteristic combos and the
+        # dimension/pH/hardiness spin-boxes (#231); em-dash stays an em-dash in German.
+        "—": "—",
         "Cycle:": "Lebenszyklus:",
         "Flower Type:": "Blütentyp:",
         "Pollination:": "Bestäubung:",

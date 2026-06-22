@@ -4327,6 +4327,10 @@ Verwenden Sie 'Eigene erstellen', um Pflanzen hinzuzufügen, oder das Pflanzen-M
             <source>Keep custom values</source>
             <translation>Benutzerdefinierte Werte behalten</translation>
         </message>
+        <message>
+            <source>—</source>
+            <translation>—</translation>
+        </message>
     </context>
     <context>
         <name>PlantSearchDialog</name>

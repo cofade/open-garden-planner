@@ -427,7 +427,9 @@ class PlantDatabasePanel(QWidget):
         self.max_height_spin.setSingleStep(10)
         self.max_height_spin.setDecimals(0)
         self.max_height_spin.setSuffix(" cm")
-        self.max_height_spin.setSpecialValueText("")  # Empty when 0
+        # A non-empty special-value text is required to engage Qt's placeholder:
+        # the minimum (0) is the "unset" sentinel, shown as "—" not "0 cm" (#231).
+        self.max_height_spin.setSpecialValueText(self.tr("—"))
         self.max_height_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.max_height_spin.valueChanged.connect(self._on_field_changed)
         self.details_form.addRow(self.tr("Max Height:"), self.max_height_spin)
@@ -438,7 +440,7 @@ class PlantDatabasePanel(QWidget):
         self.max_spread_spin.setSingleStep(10)
         self.max_spread_spin.setDecimals(0)
         self.max_spread_spin.setSuffix(" cm")
-        self.max_spread_spin.setSpecialValueText("")  # Empty when 0
+        self.max_spread_spin.setSpecialValueText(self.tr("—"))  # — when unset (#231)
         self.max_spread_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.max_spread_spin.valueChanged.connect(self._on_field_changed)
         self.details_form.addRow(self.tr("Max Spread:"), self.max_spread_spin)
@@ -449,7 +451,7 @@ class PlantDatabasePanel(QWidget):
         self.current_height_spin.setSingleStep(10)
         self.current_height_spin.setDecimals(0)
         self.current_height_spin.setSuffix(" cm")
-        self.current_height_spin.setSpecialValueText("")  # Empty when 0
+        self.current_height_spin.setSpecialValueText(self.tr("—"))  # — when unset (#231)
         self.current_height_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.current_height_spin.valueChanged.connect(self._on_current_height_changed)
         self.details_form.addRow(self.tr("Current Height:"), self.current_height_spin)
@@ -460,7 +462,7 @@ class PlantDatabasePanel(QWidget):
         self.current_spread_spin.setSingleStep(10)
         self.current_spread_spin.setDecimals(0)
         self.current_spread_spin.setSuffix(" cm")
-        self.current_spread_spin.setSpecialValueText("")  # Empty when 0
+        self.current_spread_spin.setSpecialValueText(self.tr("—"))  # — when unset (#231)
         self.current_spread_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.current_spread_spin.valueChanged.connect(self._on_current_spread_changed)
         self.details_form.addRow(self.tr("Current Spread:"), self.current_spread_spin)
@@ -493,7 +495,7 @@ class PlantDatabasePanel(QWidget):
         self.hardiness_min_spin.setRange(0, 13)
         self.hardiness_min_spin.setSingleStep(1)
         self.hardiness_min_spin.setDecimals(0)
-        self.hardiness_min_spin.setSpecialValueText("")
+        self.hardiness_min_spin.setSpecialValueText(self.tr("—"))  # — when unset (#231)
         self.hardiness_min_spin.setMinimumWidth(60)  # Ensure arrows are visible
         self.hardiness_min_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.hardiness_min_spin.valueChanged.connect(self._on_field_changed)
@@ -507,7 +509,7 @@ class PlantDatabasePanel(QWidget):
         self.hardiness_max_spin.setRange(0, 13)
         self.hardiness_max_spin.setSingleStep(1)
         self.hardiness_max_spin.setDecimals(0)
-        self.hardiness_max_spin.setSpecialValueText("")
+        self.hardiness_max_spin.setSpecialValueText(self.tr("—"))  # — when unset (#231)
         self.hardiness_max_spin.setMinimumWidth(60)  # Ensure arrows are visible
         self.hardiness_max_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.hardiness_max_spin.valueChanged.connect(self._on_field_changed)
@@ -526,7 +528,7 @@ class PlantDatabasePanel(QWidget):
         self.ph_min_spin.setRange(0.0, 14.0)
         self.ph_min_spin.setSingleStep(0.1)
         self.ph_min_spin.setDecimals(1)
-        self.ph_min_spin.setSpecialValueText("")  # Empty when 0.0 (= unknown)
+        self.ph_min_spin.setSpecialValueText(self.tr("—"))  # — when 0.0 (= unknown) (#231)
         self.ph_min_spin.setMinimumWidth(60)
         self.ph_min_spin.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
@@ -539,7 +541,7 @@ class PlantDatabasePanel(QWidget):
         self.ph_max_spin.setRange(0.0, 14.0)
         self.ph_max_spin.setSingleStep(0.1)
         self.ph_max_spin.setDecimals(1)
-        self.ph_max_spin.setSpecialValueText("")
+        self.ph_max_spin.setSpecialValueText(self.tr("—"))  # — when unset (#231)
         self.ph_max_spin.setMinimumWidth(60)
         self.ph_max_spin.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
