@@ -22,7 +22,8 @@ class TestSidebarOrder:
         qtbot.addWidget(win)  # type: ignore[attr-defined]
 
         # Canonical order is owned by the controller (US-226).
-        order = win._sidebar_controller.panels()
+        controller = win._sidebar_controller
+        actual_keys = controller.panel_keys()
 
         expected_keys = [
             "properties",
@@ -35,10 +36,14 @@ class TestSidebarOrder:
             "plant_search",
             "journal",
         ]
-        # Build inverse map: panel widget → key.
-        key_by_widget = {w: k for k, w in win._tracked_panels.items()}
-        actual_keys = [key_by_widget.get(w, type(w).__name__) for w in order]
-
         assert actual_keys == expected_keys, (
             f"sidebar order mismatch:\n  expected={expected_keys}\n  actual  ={actual_keys}"
         )
+
+        # The visible layout order must match the canonical order too (the
+        # panels are never reparented, so opening one cannot reorder the list).
+        layout = controller._layout
+        visible_order = sorted(
+            controller.panels(), key=lambda p: layout.indexOf(p)
+        )
+        assert visible_order == controller.panels()

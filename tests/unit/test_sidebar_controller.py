@@ -1,13 +1,14 @@
-"""Unit tests for SidebarController — the hover-peek/click-to-pin state machine.
+"""Unit tests for SidebarController — the hover-peek / click-to-toggle accordion.
 
-Hover transitions go through asymmetric debounce timers; tests either drive the
-commit slots directly (deterministic) or wait on the real timer via qtbot to
-exercise the wiring. Equalize uses ``QTimer.singleShot(0, ...)`` so tests that
-assert on splitter sizes pump the event loop first.
+Panel state is set synchronously at the start of each transition (the
+``maximumHeight`` tween that follows is cosmetic), so tests assert on
+``state_of`` / ``is_open`` without waiting on the animation. Hover transitions
+go through debounce timers, so those tests wait on the committed state.
 """
 
 from __future__ import annotations
 
+import pytest
 from PyQt6.QtWidgets import QLabel
 
 from open_garden_planner.ui.widgets import CollapsiblePanel
@@ -39,31 +40,48 @@ def test_startup_all_collapsed(qtbot):
     assert ctrl.pinned_keys() == []
 
 
-def test_panels_returns_canonical_order(qtbot):
+def test_panels_and_keys_canonical_order(qtbot):
     ctrl = _make_controller(qtbot)
-    titles = [p._title for p in ctrl.panels()]
-    assert titles == ["Panel a", "Panel b", "Panel c", "Panel d"]
+    assert ctrl.panel_keys() == _KEYS
+    assert [p._title for p in ctrl.panels()] == [f"Panel {k}" for k in _KEYS]
+    assert ctrl.panel("c") is ctrl.panels()[2]
+    assert ctrl.panel("nope") is None
 
 
-def test_click_pins_and_unpins(qtbot):
+def test_click_opens_then_closes(qtbot):
     ctrl = _make_controller(qtbot)
     ctrl._on_title_click("b")
     assert ctrl.state_of("b") is PanelState.PINNED
-    assert ctrl.pinned_keys() == ["b"]
+    assert ctrl._entries["b"].pin_source is PinSource.USER
+    assert ctrl.panel("b").is_expanded()
 
-    ctrl._on_title_click("b")
+    ctrl._on_title_click("b")  # click again closes
     assert ctrl.state_of("b") is PanelState.COLLAPSED
-    assert ctrl.pinned_keys() == []
+
+
+def test_pinning_does_not_reorder_panels(qtbot):
+    """The original bug: opening a panel moved it to the bottom. Panels now
+    keep their fixed layout slot regardless of state."""
+    ctrl = _make_controller(qtbot)
+    panels = ctrl.panels()
+    before = [ctrl._layout.indexOf(p) for p in panels]
+
+    ctrl._on_title_click("a")  # pin the FIRST panel
+    ctrl._on_title_click("c")  # and a middle one
+    after = [ctrl._layout.indexOf(p) for p in panels]
+
+    assert before == after, "panels must not move in the layout when toggled"
+    assert ctrl.is_open("a") and ctrl.is_open("c")
 
 
 def test_hover_peeks_then_leave_collapses(qtbot):
     ctrl = _make_controller(qtbot)
     ctrl._on_hover_enter("a")
-    assert ctrl.state_of("a") is PanelState.COLLAPSED  # not yet — debounced
+    assert ctrl.state_of("a") is PanelState.COLLAPSED  # debounced
     qtbot.waitUntil(lambda: ctrl.state_of("a") is PanelState.PEEKING, timeout=1000)
 
     ctrl._on_hover_leave("a")
-    assert ctrl.state_of("a") is PanelState.PEEKING  # still — close debounced
+    assert ctrl.state_of("a") is PanelState.PEEKING  # close debounced
     qtbot.waitUntil(lambda: ctrl.state_of("a") is PanelState.COLLAPSED, timeout=1000)
 
 
@@ -73,13 +91,23 @@ def test_reenter_cancels_pending_close(qtbot):
     ctrl._commit_pending_open()
     assert ctrl.state_of("a") is PanelState.PEEKING
 
-    ctrl._on_hover_leave("a")  # schedules close
+    ctrl._on_hover_leave("a")
     assert ctrl._pending_close_key == "a"
-    ctrl._on_hover_enter("a")  # re-enter cancels it
+    ctrl._on_hover_enter("a")  # re-enter cancels the close
     assert ctrl._pending_close_key is None
-    # Pending-close slot is now a no-op; panel stays peeking.
-    ctrl._commit_pending_close()
+    ctrl._commit_pending_close()  # now a no-op
     assert ctrl.state_of("a") is PanelState.PEEKING
+
+
+def test_click_promotes_peek_to_pin(qtbot):
+    ctrl = _make_controller(qtbot)
+    ctrl._on_hover_enter("a")
+    ctrl._commit_pending_open()
+    assert ctrl.state_of("a") is PanelState.PEEKING
+
+    ctrl._on_title_click("a")  # clicking a peek pins it
+    assert ctrl.state_of("a") is PanelState.PINNED
+    assert ctrl._entries["a"].pin_source is PinSource.USER
 
 
 def test_pinned_panel_ignores_hover(qtbot):
@@ -88,48 +116,9 @@ def test_pinned_panel_ignores_hover(qtbot):
     assert ctrl.state_of("a") is PanelState.PINNED
 
     ctrl._on_hover_enter("a")
-    assert ctrl._pending_open_key is None  # never scheduled
+    assert ctrl._pending_open_key is None
     ctrl._on_hover_leave("a")
     assert ctrl.state_of("a") is PanelState.PINNED
-
-
-def test_peek_while_pinned_does_not_touch_splitter(qtbot):
-    ctrl = _make_controller(qtbot)
-    ctrl._on_title_click("a")  # pin a
-    splitter = ctrl._splitter
-    assert splitter is not None and splitter.count() == 1
-
-    ctrl._on_hover_enter("b")
-    ctrl._commit_pending_open()
-    assert ctrl.state_of("b") is PanelState.PEEKING
-    assert splitter.count() == 1  # peek never enters the splitter
-
-
-def test_two_pins_share_equally(qtbot):
-    ctrl = _make_controller(qtbot)
-    ctrl._on_title_click("a")
-    ctrl._on_title_click("c")
-    qtbot.wait(50)  # let the deferred equalize run
-
-    sizes = ctrl._splitter.sizes()
-    assert len(sizes) == 2
-    assert abs(sizes[0] - sizes[1]) <= 1  # equal up to int-division remainder
-
-
-def test_pinned_subset_keeps_canonical_order(qtbot):
-    ctrl = _make_controller(qtbot)
-    # Pin out of canonical order: d, then b, then a.
-    ctrl._on_title_click("d")
-    ctrl._on_title_click("b")
-    ctrl._on_title_click("a")
-
-    # pinned_keys() is canonical; the splitter widgets must match it.
-    assert ctrl.pinned_keys() == ["a", "b", "d"]
-    splitter = ctrl._splitter
-    splitter_titles = [
-        splitter.widget(i)._title for i in range(splitter.count())
-    ]
-    assert splitter_titles == ["Panel a", "Panel b", "Panel d"]
 
 
 def test_selection_autopin_and_clear(qtbot):
@@ -142,22 +131,38 @@ def test_selection_autopin_and_clear(qtbot):
     assert ctrl.state_of("b") is PanelState.COLLAPSED
 
 
-def test_user_click_upgrades_selection_pin(qtbot):
+def test_click_closes_selection_pinned_panel(qtbot):
+    """Regression: a selection-opened panel (e.g. Companion on a plant) must be
+    closable with a single click — the old code upgraded it instead."""
     ctrl = _make_controller(qtbot)
     ctrl.set_selection_pinned("b", True)
-    ctrl._on_title_click("b")  # upgrade SELECTION -> USER
-    assert ctrl.state_of("b") is PanelState.PINNED
-    assert ctrl._entries["b"].pin_source is PinSource.USER
-
-    # A selection-clear must NOT unpin a user-pinned panel.
-    ctrl.set_selection_pinned("b", False)
     assert ctrl.state_of("b") is PanelState.PINNED
 
+    ctrl._on_title_click("b")  # one click closes it
+    assert ctrl.state_of("b") is PanelState.COLLAPSED
+    assert ctrl._entries["b"].selection_dismissed is True
 
-def test_selection_clear_does_not_unpin_user_pin(qtbot):
+
+def test_dismissed_panel_does_not_reopen_until_selection_changes(qtbot):
+    """After the user closes a selection panel, a selection *re-notify* (scene
+    move / undo, same selection) must not reopen it; a real selection change does."""
+    ctrl = _make_controller(qtbot)
+    ctrl.set_selection_pinned("b", True)
+    ctrl._on_title_click("b")  # user closes it → dismissed
+    assert ctrl.state_of("b") is PanelState.COLLAPSED
+
+    ctrl.set_selection_pinned("b", True)  # re-notify for the SAME selection
+    assert ctrl.state_of("b") is PanelState.COLLAPSED  # stays closed
+
+    ctrl.reset_selection_dismissals()  # genuine selection change
+    ctrl.set_selection_pinned("b", True)
+    assert ctrl.state_of("b") is PanelState.PINNED  # reopens for the new selection
+
+
+def test_user_pin_survives_selection_clear(qtbot):
     ctrl = _make_controller(qtbot)
     ctrl._on_title_click("b")  # USER pin
-    ctrl.set_selection_pinned("b", False)
+    ctrl.set_selection_pinned("b", False)  # selection clears
     assert ctrl.state_of("b") is PanelState.PINNED
 
 
@@ -172,27 +177,9 @@ def test_collapse_all(qtbot):
     for key in _KEYS:
         assert ctrl.state_of(key) is PanelState.COLLAPSED
     assert ctrl.pinned_keys() == []
-    assert ctrl._splitter is None  # splitter torn down when empty
-
-
-def test_reequalize_on_unpin(qtbot):
-    ctrl = _make_controller(qtbot)
-    ctrl._on_title_click("a")
-    ctrl._on_title_click("b")
-    ctrl._on_title_click("c")
-    qtbot.wait(50)
-    assert ctrl._splitter.count() == 3
-
-    ctrl._on_title_click("b")  # unpin the middle one
-    qtbot.wait(50)
-    sizes = ctrl._splitter.sizes()
-    assert len(sizes) == 2
-    assert abs(sizes[0] - sizes[1]) <= 1
 
 
 def test_duplicate_key_rejected(qtbot):
     ctrl = _make_controller(qtbot, keys=["a"])
-    import pytest
-
     with pytest.raises(ValueError, match="already registered"):
         ctrl.add_panel("a", CollapsiblePanel("dup", QLabel("x")))

@@ -722,43 +722,58 @@ The floating overlay is *visible* only when **all** of:
 
 Any other state must hide the overlay. The implementation lives in `CanvasView._update_dynamic_overlay`. If you add a new hide-condition, do it there; do not add visibility logic inside the overlay widget itself — it has no knowledge of the active tool by design.
 
-## 8.17 Sidebar Accordion — Hover-Peek + Click-to-Pin (ADR-030, issue #226)
+## 8.17 Sidebar Accordion — Hover-Peek + Click-to-Toggle (ADR-030, issue #226)
 
-The right sidebar is an accordion owned by `SidebarController` (`ui/widgets/panel_stack.py`). It is the single source of truth for every panel's state; `CollapsiblePanel` is a dumb show/hide primitive underneath it.
+The right sidebar is an accordion owned by `SidebarController` (`ui/widgets/panel_stack.py`). It is the single source of truth for every panel's state; `CollapsiblePanel` is a dumb show/hide-and-tween primitive underneath it.
+
+> The first cut used a bottom `QSplitter` that pinned panels *reparented* into (equal-share, draggable). It failed manual testing — opening a panel made it jump to the bottom (reorder), there was no animation, and selection-opened panels were unclosable. This section documents the **revised** model (ADR-030 addendum): one scrollable layout, no reparenting, animated, click-toggles.
 
 ### 8.17.1 The state machine
 
-Each panel is `COLLAPSED`, `PEEKING`, or `PINNED`, with a `PinSource` of `USER` or `SELECTION` when pinned:
+Each panel is `COLLAPSED`, `PEEKING`, or `PINNED`, with a `PinSource` of `USER` or `SELECTION` when open:
 
-- **COLLAPSED** — content hidden (`set_expanded(False, emit=False)`); `setMinimumHeight(0)` **then** `setMaximumHeight(header_height())`. Reset the minimum *before* clamping the max, or a stale pin-era minimum keeps the "collapsed" bar tall.
-- **PEEKING** — hover-expanded in place: `set_expanded(True)`, `setMaximumHeight(min(sizeHint, max(200, available)))`; stays in the `QVBoxLayout` so the reflow pushes bars below it down. Hover never touches the splitter.
-- **PINNED** — *moved* into the lazy vertical `QSplitter`: release the clamp (`setMaximumHeight(QWIDGETSIZE_MAX)` — **before** `insertWidget`, else the pane can't grow past header height), set min = header height, insert at the canonical index within the pinned subset, `show()`, then equalize.
+- **COLLAPSED** — content hidden; `setMinimumHeight(0)` **then** `setMaximumHeight(header_height())`. Reset the minimum *before* clamping the max.
+- **PEEKING** — hover-opened (auto-collapses on leave); content grows to its size.
+- **PINNED** — click- or selection-opened; stays open until the title is clicked again. `USER` (click) survives a selection clear; `SELECTION` (auto) is collapsed when the selection no longer matches.
 
-A `USER` click on a `SELECTION`-pinned panel upgrades it to `USER`; `set_selection_pinned(key, False)` only unpins `SELECTION`-source pins.
+`is_open(key)` ⇔ state ∈ {PEEKING, PINNED}. Clicking the title of **any** open panel collapses it (see §8.17.5).
 
-### 8.17.2 Layout: hybrid, not one splitter
+### 8.17.2 Layout: one scrollable stack, no reparenting
 
 ```
-SidebarController → QVBoxLayout(spacing 2)
-  ├── CollapsiblePanel × 9   # COLLAPSED / PEEKING bars
-  ├── QSplitter(Vertical)    # lazy; ONLY pinned panels, canonical order
-  └── addStretch()           # always last item; absorbs slack when 0 pinned
+SidebarController → QVBoxLayout
+  └── QScrollArea (setWidgetResizable, h-scrollbar off)
+        └── inner QWidget → QVBoxLayout(spacing 2)
+              ├── CollapsiblePanel × 9   # ALWAYS here, fixed canonical order
+              └── addStretch()           # last; keeps bars top-aligned when short
 ```
 
-A single splitter holding everything was rejected (handle between every pane + fragile size/clamp balancing — see ADR-030). The splitter is created on first pin and destroyed when it empties; `setStretchFactor(splitter, 1)` lets it (not the trailing stretch) eat leftover vertical space. The canonical splitter insert index = count of earlier-canonical panels already pinned, computed **before** flipping the entry's state to `PINNED` (or the panel counts itself).
+**Panels are never reparented** — a state change only adjusts the panel's height clamp, so opening/closing one can never reorder the list (the reported bug). An open panel grows to its **content height**; when the open panels overflow the viewport the `QScrollArea` scrolls (the `addStretch()` contributes 0 height once content exceeds the viewport, so the scroll engages). There is no splitter, no equal-share, no draggable divider.
 
-### 8.17.3 Debounce + anti-flicker
+### 8.17.3 Animation (organic expand/collapse)
 
-Two controller-level single-shot timers — open (~140 ms) and close (~220 ms, longer so a fast diagonal sweep to the canvas doesn't cascade-peek). The pointer leaves only one bar at a time, so a single `_pending_open_key` / `_pending_close_key` suffices; re-entering a bar cancels its pending close. Timer slots re-fetch the entry via `.get(key)` and bail on `None`; `start()`/`stop()` are wrapped in `contextlib.suppress(RuntimeError)` (teardown-safe, matching the plant-search debounce convention).
+Each panel owns a lazy `QPropertyAnimation` on `maximumHeight` (`CollapsiblePanel.animate_expand`/`animate_collapse`, ~160 ms `InOutCubic`):
+- **Expand**: `set_expanded(True)` first so the content is visible and `sizeHint()` is valid, then tween the clamp `header → sizeHint`; on finish release the clamp to `QWIDGETSIZE_MAX` so the panel tracks later content-size changes (e.g. a list populating after `update_for_plant`).
+- **Collapse**: flip the chevron + logical state immediately (responsive, and keeps `is_expanded()` correct for tests/state), keep the content widget *visible* during the shrink so it is drawn clipped, tween `height → header`, and hide the content on finish.
+- `_restart_anim` stops any running tween and reconnects a fresh `finished` handler, so rapid open↔close toggles are safe. `expand_now`/`collapse_now` are the non-animated variants used at startup and `collapse_all()`.
 
-### 8.17.4 Equal share + the geometry-timing gotcha
+### 8.17.4 Debounce + anti-flicker (hover-peek)
 
-`setSizes` is recomputed to equal pixel shares on every pin/unpin (user drags honoured until the next change). A freshly-inserted pane has height 0 until layout runs, so equalize is deferred with `QTimer.singleShot(0, _apply)` and **re-defers once** if `splitter.height() <= 0`; the closure re-checks `self._splitter is None / count()==0` (a rapid pin→unpin can destroy the splitter before the tick fires).
+Two controller-level single-shot timers — open (~140 ms) and close (~220 ms, longer so a fast diagonal sweep to the canvas doesn't cascade-peek). The pointer leaves only one bar at a time, so a single `_pending_open_key` / `_pending_close_key` suffices; re-entering a bar cancels its pending close. `PINNED` panels ignore hover. Timer slots re-fetch the entry via `.get(key)` and bail on `None`; `start()`/`stop()` are wrapped in `contextlib.suppress(RuntimeError)` (teardown-safe).
 
-### 8.17.5 The dynamic-property QSS gotcha
+### 8.17.5 Click-toggle + selection dismissal
 
-`set_visual_state(state)` sets a `panelState` dynamic property (`collapsed`/`peeking`/`pinned`) — but Qt does **not** re-evaluate property selectors until you `style().unpolish(w); style().polish(w)`. The header is styled via `CollapsiblePanel[panelState=…] > QFrame`, so **both** the panel and its header must be re-polished (re-polishing only the parent leaves the child header stale). The pinned splitter carries object name `pinnedSplitter` so a dedicated QSS rule restores a grabbable 5 px handle over the global 1 px vertical-handle rule.
+`_on_title_click`:
+- **PINNED** → collapse. If it was `SELECTION`-opened, set `selection_dismissed = True` so it does **not** re-open on the next selection *re-notify* (a scene move / undo fires `set_selection_pinned(True)` again for the same selection).
+- **PEEKING** → promote the hover-peek to a sticky `USER` pin (already open).
+- **COLLAPSED** → open as a `USER` pin.
 
-### 8.17.6 No persistence
+`set_selection_pinned(key, True)` opens as `SELECTION` *unless* `selection_dismissed`. `reset_selection_dismissals()` clears all dismissals and is called from `application._on_selection_changed` (wired to `selectionChanged` **before** the `_update_*_panel` slots), so a genuine selection change re-opens the contextual panels for the newly selected item. When wiring a selection signal to a contextual panel, call `set_selection_pinned(...)` for visibility **and** keep the panel's own content-update call (`set_selected_items` / `update_for_plant` / `update_for_bed`).
 
-Startup is always fully collapsed; pin/peek state is never saved. The `UiStateStore` panel-state helpers were removed (window geometry + the horizontal `main` splitter are still persisted). When wiring a selection signal to a contextual panel, call `set_selection_pinned(...)` for visibility but keep the panel's own content-update call (`set_selected_items` / `update_for_plant` / `update_for_bed`).
+### 8.17.6 The dynamic-property QSS gotcha
+
+`set_visual_state(state)` sets a `panelState` dynamic property (`collapsed`/`peeking`/`pinned`) — but Qt does **not** re-evaluate property selectors until you `style().unpolish(w); style().polish(w)`. The header is styled via `CollapsiblePanel[panelState=…] > QFrame`, so **both** the panel and its header must be re-polished (re-polishing only the parent leaves the child header stale). Peeking = accent border; pinned = 3 px left accent rail; collapsed has a cheap `:hover` highlight for instant affordance before the peek debounce commits.
+
+### 8.17.7 No persistence
+
+Startup is always fully collapsed; pin/peek/dismissal state is never saved. The `UiStateStore` panel-state helpers were removed (window geometry + the horizontal `main` splitter are still persisted).

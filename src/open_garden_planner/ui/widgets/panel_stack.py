@@ -1,10 +1,11 @@
-"""Sidebar panel stack with hover-peek and click-to-pin behaviour.
+"""Sidebar panel stack: hover-peek, click-to-toggle, content-height accordion.
 
 ``SidebarController`` owns the sidebar layout and a per-panel state machine
-(:class:`PanelState`). Collapsed and peeking bars live directly in a top-level
-``QVBoxLayout``; pinned panels are *moved* into a lazily-created vertical
-``QSplitter`` that always holds a subset of panels in canonical order, sharing
-the available height equally (user-draggable). See ADR-030 / arc42 §8.17.
+(:class:`PanelState`). All panels live — in a fixed canonical order that never
+changes — in a single ``QVBoxLayout`` inside a ``QScrollArea``: a panel is never
+reparented, so opening/closing one cannot reorder the list. Opening a panel grows
+it to its content height (animated); the sidebar scrolls when the open panels
+overflow. See ADR-030 / arc42 §8.17.
 """
 
 from __future__ import annotations
@@ -13,12 +14,9 @@ import contextlib
 from enum import Enum, auto
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QSplitter, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
 from open_garden_planner.ui.widgets.collapsible_panel import CollapsiblePanel
-
-# Qt's QWIDGETSIZE_MAX sentinel — assign to maximumHeight to release a clamp.
-_QWIDGETSIZE_MAX = 16777215
 
 # Hover debounce (ms). Asymmetric on purpose: opening is snappy, closing is
 # forgiving so a fast diagonal sweep toward the canvas does not cascade-peek and
@@ -26,49 +24,45 @@ _QWIDGETSIZE_MAX = 16777215
 _PEEK_OPEN_MS = 140
 _PEEK_CLOSE_MS = 220
 
-# Minimum usable body height for a peeking panel.
-_PEEK_MIN_BODY = 200
-
-# Cap on deferred equalize retries while the splitter still has zero height
-# (laid out but not yet shown). Prevents an unbounded singleShot(0) busy loop.
-_EQUALIZE_MAX_RETRIES = 20
-
 
 class PanelState(Enum):
     """Lifecycle state of a single panel within the stack."""
 
     COLLAPSED = auto()
-    PEEKING = auto()
-    PINNED = auto()
+    PEEKING = auto()  # hover-opened; auto-collapses when the pointer leaves
+    PINNED = auto()  # click- or selection-opened; stays open until toggled
 
 
 class PinSource(Enum):
-    """Why a panel is pinned. Governs who is allowed to unpin it."""
+    """Why a panel is pinned. Governs whether a selection change may close it."""
 
     USER = auto()  # explicit title click — survives selection clearing
-    SELECTION = auto()  # auto-pinned because a matching item is selected
+    SELECTION = auto()  # auto-opened because a matching item is selected
 
 
 class _PanelEntry:
     """Per-panel bookkeeping. One instance per registered panel."""
 
-    __slots__ = ("key", "panel", "state", "pin_source")
+    __slots__ = ("key", "panel", "state", "pin_source", "selection_dismissed")
 
     def __init__(self, key: str, panel: CollapsiblePanel) -> None:
         self.key = key
         self.panel = panel
         self.state = PanelState.COLLAPSED
         self.pin_source: PinSource | None = None
+        # True when the user explicitly closed this panel while a matching item
+        # is selected — suppresses auto-reopen until the selection changes.
+        self.selection_dismissed = False
 
 
 class SidebarController(QWidget):
     """Owns the sidebar layout and the COLLAPSED/PEEKING/PINNED state machine.
 
-    Panels are registered in canonical order via :meth:`add_panel`. Collapsed and
-    peeking bars live directly in the top-level ``QVBoxLayout``; pinned panels are
-    *moved* into a lazily-created vertical ``QSplitter`` that holds a subset of
-    panels in canonical order. A trailing stretch keeps bars top-aligned while no
-    panel is pinned.
+    Panels are registered in canonical order via :meth:`add_panel` and live in a
+    single scrollable ``QVBoxLayout``; they are never reparented, so a state
+    change never reorders the list. An open panel grows to its content height
+    (animated); a trailing stretch keeps bars top-aligned and the surrounding
+    ``QScrollArea`` scrolls when the open panels overflow the viewport.
     """
 
     # (key, PanelState) — emitted after every committed transition.
@@ -81,18 +75,30 @@ class SidebarController(QWidget):
         self._entries: dict[str, _PanelEntry] = {}
         self._order: list[str] = []
 
-        self._splitter: QSplitter | None = None
-
-        # The pointer leaves only one bar at a time, so a single pending-close
-        # (and pending-open) key is sufficient; the lone timer slot reads the key
-        # to know which panel to act on.
+        # The pointer leaves only one bar at a time, so a single pending-open /
+        # pending-close key is sufficient; the lone timer slot reads the key to
+        # know which panel to act on.
         self._pending_open_key: str | None = None
         self._pending_close_key: str | None = None
 
-        self._layout = QVBoxLayout(self)
+        # Scrollable inner stack: panels + trailing stretch live in `_layout`.
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        self._scroll = QScrollArea(self)
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        inner = QWidget()
+        self._inner = inner
+        self._layout = QVBoxLayout(inner)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(2)
-        self._layout.addStretch()  # MUST stay the last item; inserts go above it
+        self._layout.addStretch()  # MUST stay last; inserts go above it
+        self._scroll.setWidget(inner)
+        outer.addWidget(self._scroll)
 
         self._open_timer = QTimer(self)
         self._open_timer.setSingleShot(True)
@@ -127,11 +133,20 @@ class SidebarController(QWidget):
         panel.header.hover_leave.connect(lambda k=key: self._on_hover_leave(k))
         panel.header.pin_toggled.connect(lambda _c, k=key: self._on_title_click(k))
 
-        self._apply_collapsed(entry, emit=True)
+        self._collapse(entry, animate=False, emit=True)
 
     def panels(self) -> list[CollapsiblePanel]:
         """All panels in canonical order."""
         return [self._entries[k].panel for k in self._order]
+
+    def panel_keys(self) -> list[str]:
+        """All panel keys in canonical order."""
+        return list(self._order)
+
+    def panel(self, key: str) -> CollapsiblePanel | None:
+        """The panel registered under *key*, or ``None`` if unknown."""
+        entry = self._entries.get(key)
+        return entry.panel if entry is not None else None
 
     def pinned_keys(self) -> list[str]:
         """Keys of currently-pinned panels, in canonical order."""
@@ -144,26 +159,49 @@ class SidebarController(QWidget):
         entry = self._entries.get(key)
         return entry.state if entry is not None else None
 
+    def is_open(self, key: str) -> bool:
+        """True if *key* is currently expanded (peeking or pinned)."""
+        return self.state_of(key) in (PanelState.PEEKING, PanelState.PINNED)
+
     # ----- public commands ----------------------------------------------
 
     def set_selection_pinned(self, key: str, pinned: bool) -> None:
-        """Pin/unpin a panel driven by canvas selection (source SELECTION).
+        """Open/close a panel driven by canvas selection (source SELECTION).
 
-        Unpinning only affects SELECTION-pinned panels; a USER-pinned panel is
-        never torn down by selection clearing. Idempotent — safe to call from the
-        several selection signals that fan in.
+        Opening is suppressed if the user has explicitly dismissed the panel for
+        the current selection (see :meth:`reset_selection_dismissals`). Closing
+        only affects SELECTION-pinned panels; a USER-pinned panel is never torn
+        down by a selection change. Idempotent — safe to call from the several
+        selection signals that fan in.
         """
         entry = self._entries.get(key)
         if entry is None:
             return
         if pinned:
+            if entry.selection_dismissed:
+                return  # user closed it for this selection
             if entry.state is not PanelState.PINNED:
-                self._pin(entry, PinSource.SELECTION)
-        elif (
-            entry.state is PanelState.PINNED
-            and entry.pin_source is PinSource.SELECTION
-        ):
-            self._unpin(entry)
+                self._cancel_pending_for(key)
+                self._open(entry, PanelState.PINNED, PinSource.SELECTION, animate=True)
+            # already PINNED (USER or SELECTION) → leave as-is
+        else:
+            if (
+                entry.state is PanelState.PINNED
+                and entry.pin_source is PinSource.SELECTION
+            ):
+                self._collapse(entry, animate=True, emit=True)
+            # selection no longer matches → allow auto-open again next time
+            entry.selection_dismissed = False
+
+    def reset_selection_dismissals(self) -> None:
+        """Clear every per-panel dismissal flag.
+
+        Called on a genuine selection change so a freshly-selected item re-opens
+        its contextual panels even if the user had dismissed them for the
+        previous selection.
+        """
+        for entry in self._entries.values():
+            entry.selection_dismissed = False
 
     def collapse_all(self) -> None:
         """Force every panel back to COLLAPSED (startup / reset)."""
@@ -171,10 +209,9 @@ class SidebarController(QWidget):
         self._cancel_close()
         for key in self._order:
             entry = self._entries[key]
-            if entry.state is PanelState.PINNED:
-                self._unpin(entry)
-            elif entry.state is PanelState.PEEKING:
-                self._apply_collapsed(entry, emit=True)
+            entry.selection_dismissed = False
+            if entry.state is not PanelState.COLLAPSED:
+                self._collapse(entry, animate=False, emit=True)
 
     # ----- hover routing -------------------------------------------------
 
@@ -213,7 +250,7 @@ class SidebarController(QWidget):
             return
         entry = self._entries.get(key)
         if entry is not None and entry.state is PanelState.COLLAPSED:
-            self._apply_peeking(entry)
+            self._open(entry, PanelState.PEEKING, None, animate=True)
 
     def _commit_pending_close(self) -> None:
         key, self._pending_close_key = self._pending_close_key, None
@@ -221,7 +258,7 @@ class SidebarController(QWidget):
             return
         entry = self._entries.get(key)
         if entry is not None and entry.state is PanelState.PEEKING:
-            self._apply_collapsed(entry, emit=True)
+            self._collapse(entry, animate=True, emit=True)
 
     def _cancel_open(self) -> None:
         self._pending_open_key = None
@@ -233,169 +270,62 @@ class SidebarController(QWidget):
         with contextlib.suppress(RuntimeError):
             self._close_timer.stop()
 
-    # ----- title click (pin toggle) -------------------------------------
+    def _cancel_pending_for(self, key: str) -> None:
+        if self._pending_open_key == key:
+            self._cancel_open()
+        if self._pending_close_key == key:
+            self._cancel_close()
+
+    # ----- title click (toggle) -----------------------------------------
 
     def _on_title_click(self, key: str) -> None:
         entry = self._entries.get(key)
         if entry is None:
             return
+        self._cancel_pending_for(key)
         if entry.state is PanelState.PINNED:
+            # A click always closes an open panel. If it was opened by the
+            # selection, remember the dismissal so it does not immediately
+            # re-open on the next selection re-notify (scene move, undo, …).
             if entry.pin_source is PinSource.SELECTION:
-                # A USER click UPGRADES a selection-pin to USER; stays pinned so
-                # it survives the selection clearing.
-                entry.pin_source = PinSource.USER
-                return
-            self._unpin(entry)
-        else:
-            self._pin(entry, PinSource.USER)
+                entry.selection_dismissed = True
+            self._collapse(entry, animate=True, emit=True)
+        elif entry.state is PanelState.PEEKING:
+            # Promote a hover-peek to a sticky user pin (already open).
+            self._open(entry, PanelState.PINNED, PinSource.USER, animate=False)
+        else:  # COLLAPSED
+            self._open(entry, PanelState.PINNED, PinSource.USER, animate=True)
 
     # ----- state appliers -----------------------------------------------
 
-    def _apply_collapsed(self, entry: _PanelEntry, *, emit: bool) -> None:
+    def _open(
+        self,
+        entry: _PanelEntry,
+        new_state: PanelState,
+        source: PinSource | None,
+        *,
+        animate: bool,
+    ) -> None:
         panel = entry.panel
-        panel.set_expanded(False, emit=False)
-        panel.setMinimumHeight(0)  # drop any pin-era minimum first
-        panel.setMaximumHeight(panel.header_height())
-        panel.set_visual_state(PanelState.COLLAPSED)
+        was_open = entry.state in (PanelState.PEEKING, PanelState.PINNED)
+        if not was_open:
+            if animate:
+                panel.animate_expand()
+            else:
+                panel.expand_now()
+        entry.state = new_state
+        entry.pin_source = source
+        panel.set_visual_state(new_state)
+        self.panel_state_changed.emit(entry.key, new_state)
+
+    def _collapse(self, entry: _PanelEntry, *, animate: bool, emit: bool) -> None:
+        panel = entry.panel
+        if animate:
+            panel.animate_collapse()
+        else:
+            panel.collapse_now()
         entry.state = PanelState.COLLAPSED
+        entry.pin_source = None
+        panel.set_visual_state(PanelState.COLLAPSED)
         if emit:
             self.panel_state_changed.emit(entry.key, PanelState.COLLAPSED)
-
-    def _apply_peeking(self, entry: _PanelEntry) -> None:
-        panel = entry.panel
-        panel.set_expanded(True, emit=False)
-        available = max(0, self.height())
-        cap = min(panel.sizeHint().height(), max(_PEEK_MIN_BODY, available))
-        panel.setMinimumHeight(0)
-        panel.setMaximumHeight(cap)
-        panel.set_visual_state(PanelState.PEEKING)
-        entry.state = PanelState.PEEKING
-        self.panel_state_changed.emit(entry.key, PanelState.PEEKING)
-
-    def _pin(self, entry: _PanelEntry, source: PinSource) -> None:
-        # Neutralise any pending timer referencing this key.
-        if self._pending_open_key == entry.key:
-            self._cancel_open()
-        if self._pending_close_key == entry.key:
-            self._cancel_close()
-
-        splitter = self._ensure_splitter()
-        panel = entry.panel
-
-        # 1) Detach the LAYOUT ITEM from the vbox (widget still parented to self).
-        self._layout.removeWidget(panel)
-
-        # 2) Release the peek/collapse clamp BEFORE handing to the splitter, else
-        #    the splitter cannot grow the panel past its header height.
-        panel.set_expanded(True, emit=False)
-        panel.setMaximumHeight(_QWIDGETSIZE_MAX)
-        panel.setMinimumHeight(panel.header_height())
-
-        # 3) Insert at the canonical index WITHIN the pinned subset. Computed
-        #    BEFORE flipping state to PINNED so the panel does not count itself.
-        index = self._splitter_insert_index(entry.key)
-        splitter.insertWidget(index, panel)  # reparents into the splitter
-        panel.show()  # insertWidget may leave it hidden
-
-        panel.set_visual_state(PanelState.PINNED)
-        entry.state = PanelState.PINNED  # set AFTER insert (see index note)
-        entry.pin_source = source
-
-        self._equalize_splitter()
-        self.panel_state_changed.emit(entry.key, PanelState.PINNED)
-
-    def _unpin(self, entry: _PanelEntry) -> None:
-        panel = entry.panel
-        splitter = self._splitter
-        if splitter is not None:
-            panel.setParent(None)  # QSplitter has no removeWidget; reparent away
-
-        self._layout.insertWidget(self._vbox_insert_index(entry.key), panel)
-        panel.show()
-
-        entry.pin_source = None
-        self._apply_collapsed(entry, emit=True)  # also resets min/max height
-
-        if splitter is not None:
-            if splitter.count() == 0:
-                self._destroy_splitter()
-            else:
-                self._equalize_splitter()
-
-    # ----- splitter lifecycle & indexing --------------------------------
-
-    def _ensure_splitter(self) -> QSplitter:
-        if self._splitter is None:
-            sp = QSplitter(Qt.Orientation.Vertical, self)
-            sp.setObjectName("pinnedSplitter")  # QSS targets a grabbable handle
-            sp.setChildrenCollapsible(False)  # no pane draggable to 0 px
-            sp.setHandleWidth(5)  # grabbable, vs the 1 px main splitter
-            # Insert above the trailing stretch and let it (not the stretch)
-            # absorb leftover vertical space.
-            self._layout.insertWidget(self._layout.count() - 1, sp)
-            self._layout.setStretchFactor(sp, 1)
-            self._splitter = sp
-        return self._splitter
-
-    def _destroy_splitter(self) -> None:
-        sp, self._splitter = self._splitter, None
-        if sp is not None:
-            self._layout.removeWidget(sp)
-            sp.deleteLater()
-
-    def _splitter_insert_index(self, key: str) -> int:
-        """Index inside the splitter that preserves canonical order.
-
-        The splitter holds a SUBSET of panels; the correct index is the count of
-        already-pinned panels that precede ``key`` in canonical order.
-        """
-        index = 0
-        for other_key in self._order:
-            if other_key == key:
-                break
-            if self._entries[other_key].state is PanelState.PINNED:
-                index += 1
-        return index
-
-    def _vbox_insert_index(self, key: str) -> int:
-        """Index in the vbox for a non-pinned bar (canonical order among bars).
-
-        The vbox also contains the splitter (when present) and the trailing
-        stretch, but a returned index N still lands the bar after N earlier
-        non-pinned bars, which is the canonical position relative to its peers.
-        """
-        index = 0
-        for other_key in self._order:
-            if other_key == key:
-                break
-            if self._entries[other_key].state is not PanelState.PINNED:
-                index += 1
-        return index
-
-    # ----- equalize -----------------------------------------------------
-
-    def _equalize_splitter(self) -> None:
-        if self._splitter is None or self._splitter.count() == 0:
-            return
-
-        # Bounded retry: a fresh insert has height 0 until layout runs, so we
-        # re-defer a few ticks. The cap stops an unbounded singleShot(0) busy
-        # loop if the controller is laid out at zero height (e.g. sidebar hidden
-        # while something pins) — without it the retry would spin the event loop
-        # until the sidebar is shown.
-        def _apply(attempts: int = 0) -> None:
-            sp = self._splitter
-            if sp is None or sp.count() == 0:
-                return  # torn down before this deferred tick fired
-            total = sp.height()
-            if total <= 0:
-                if attempts < _EQUALIZE_MAX_RETRIES:
-                    QTimer.singleShot(0, lambda: _apply(attempts + 1))
-                return
-            n = sp.count()
-            share = total // n
-            sizes = [share] * n
-            sizes[-1] += total - share * n  # absorb integer-division remainder
-            sp.setSizes(sizes)
-
-        QTimer.singleShot(0, _apply)  # defer so a fresh insert has real geometry

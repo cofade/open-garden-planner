@@ -9616,12 +9616,16 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
     <context>
         <name>CollapsiblePanel</name>
         <message>
-            <source>Click to pin open</source>
-            <translation>Zum Anheften klicken</translation>
+            <source>Click to open</source>
+            <translation>Zum Öffnen klicken</translation>
         </message>
         <message>
-            <source>Pinned — click to unpin</source>
-            <translation>Angeheftet — zum Lösen klicken</translation>
+            <source>Click to keep open</source>
+            <translation>Zum Offenhalten klicken</translation>
+        </message>
+        <message>
+            <source>Click to collapse</source>
+            <translation>Zum Einklappen klicken</translation>
         </message>
     </context>
 </TS>

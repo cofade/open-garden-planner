@@ -141,11 +141,9 @@ class GardenPlannerApp(QMainWindow):
 
         self.setMinimumSize(800, 600)
 
-        # Persistent UI state (window geometry, splitter, collapsible panels)
+        # Persistent UI state (window geometry, main splitter)
         from open_garden_planner.app.ui_state import UiStateStore
         self._ui_state = UiStateStore()
-        # Maps a stable key → CollapsiblePanel for save-on-toggle wiring.
-        self._tracked_panels: dict[str, CollapsiblePanel] = {}
 
         # Project manager for save/load
         self._project_manager = ProjectManager(self)
@@ -1400,11 +1398,13 @@ class GardenPlannerApp(QMainWindow):
 
         # Route every panel through the SidebarController (US-226 accordion):
         # all bars start collapsed; hover peeks them open in place, a title click
-        # pins them into a shared vertical splitter. add_panel call order defines
-        # the canonical order — selection-related panels sit directly under
-        # Properties, then plan tools, then garden state. The controller owns all
-        # layout/state; no per-panel expand persistence (always collapsed at
-        # startup). See ADR-030 / arc42 §8.17.
+        # toggles them open/closed. Panels keep a fixed canonical order (they are
+        # never reparented) and grow to their content height when open, the
+        # sidebar scrolling on overflow. add_panel call order defines the order —
+        # selection-related panels sit directly under Properties, then plan
+        # tools, then garden state. The controller owns all layout/state; no
+        # per-panel expand persistence (always collapsed at startup). See
+        # ADR-030 / arc42 §8.17.
         canonical_panels: list[tuple[str, CollapsiblePanel]] = [
             ("properties", props_panel),
             ("plant_details", self.plant_details_collapsible),
@@ -1424,7 +1424,6 @@ class GardenPlannerApp(QMainWindow):
         self._sidebar_controller = SidebarController()
         for key, panel in canonical_panels:
             self._sidebar_controller.add_panel(key, panel)
-            self._tracked_panels[key] = panel  # read-only mirror (order tests etc.)
         self._sidebar_controller.collapse_all()
 
         sidebar_layout.addWidget(self._sidebar_controller)
@@ -3431,6 +3430,11 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_selection_changed(self) -> None:
         """Handle selection changes in the canvas scene."""
+        # A genuine selection change clears per-panel dismissals so a newly
+        # selected item re-opens its contextual panels even if the user had
+        # closed them for the previous selection (US-226). This runs before the
+        # _update_*_panel slots (connected after this one) call set_selection_pinned.
+        self._sidebar_controller.reset_selection_dismissals()
         # Guard against accessing deleted scene (can happen during shutdown or dialog execution)
         try:
             selected_items = self.canvas_scene.selectedItems()

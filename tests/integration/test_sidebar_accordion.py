@@ -1,8 +1,9 @@
-"""Integration tests for the hover-peek / click-to-pin sidebar accordion (US-226).
+"""Integration tests for the click-to-toggle / hover-peek sidebar accordion (US-226).
 
 End-to-end against the real ``GardenPlannerApp``: every panel starts collapsed;
-a header click pins/unpins; multiple pins share the splitter; and selecting a
-plant/bed auto-pins the matching contextual panels (unpinning on clear).
+a header click toggles open/closed without reordering the list; selecting a
+plant/bed auto-opens the matching contextual panels; and an auto-opened panel can
+be closed with a single click (and stays closed for that selection).
 """
 
 # ruff: noqa: ARG001, ARG002, ARG005
@@ -49,15 +50,14 @@ def test_startup_all_collapsed(qtbot, monkeypatch):
     win = _make_app(qtbot, monkeypatch)
     ctrl = win._sidebar_controller
     assert ctrl.pinned_keys() == []
-    for panel in ctrl.panels():
-        key = next(k for k, p in win._tracked_panels.items() if p is panel)
+    for key in ctrl.panel_keys():
         assert ctrl.state_of(key) is PanelState.COLLAPSED
 
 
-def test_click_pins_and_unpins(qtbot, monkeypatch):
+def test_click_toggles_open_and_closed(qtbot, monkeypatch):
     win = _make_app(qtbot, monkeypatch)
     ctrl = win._sidebar_controller
-    header = win._tracked_panels["layers"].header
+    header = ctrl.panel("layers").header
 
     header.pin_toggled.emit(True)  # simulate a title-bar click
     assert ctrl.state_of("layers") is PanelState.PINNED
@@ -67,20 +67,17 @@ def test_click_pins_and_unpins(qtbot, monkeypatch):
     assert ctrl.state_of("layers") is PanelState.COLLAPSED
 
 
-def test_multiple_pins_share_space(qtbot, monkeypatch):
+def test_opening_a_panel_does_not_reorder(qtbot, monkeypatch):
+    """The reported bug: toggling a panel moved it to the end of the list."""
     win = _make_app(qtbot, monkeypatch)
     ctrl = win._sidebar_controller
-    win.resize(1200, 900)
-    win.show()
+    layout = ctrl._layout
+    panels = ctrl.panels()
+    before = [layout.indexOf(p) for p in panels]
 
-    win._tracked_panels["layers"].header.pin_toggled.emit(True)
-    win._tracked_panels["constraints"].header.pin_toggled.emit(True)
-    qtbot.wait(50)  # let the deferred equalize run
-
-    assert ctrl.pinned_keys() == ["layers", "constraints"]
-    sizes = ctrl._splitter.sizes()
-    assert len(sizes) == 2
-    assert abs(sizes[0] - sizes[1]) <= 2
+    ctrl.panel("properties").header.pin_toggled.emit(True)  # open the first panel
+    after = [layout.indexOf(p) for p in panels]
+    assert before == after
 
 
 def test_plant_selection_autopins_details_and_companion(qtbot, monkeypatch):
@@ -91,7 +88,6 @@ def test_plant_selection_autopins_details_and_companion(qtbot, monkeypatch):
     plant.setSelected(True)
     assert ctrl.state_of("plant_details") is PanelState.PINNED
     assert ctrl.state_of("companion") is PanelState.PINNED
-    assert ctrl._entries["plant_details"].pin_source is PinSource.SELECTION
 
     win.canvas_scene.clearSelection()
     assert ctrl.state_of("plant_details") is PanelState.COLLAPSED
@@ -105,23 +101,47 @@ def test_bed_selection_autopins_crop_rotation(qtbot, monkeypatch):
 
     bed.setSelected(True)
     assert ctrl.state_of("crop_rotation") is PanelState.PINNED
-    # A bed is not a plant, so the plant panels stay collapsed.
     assert ctrl.state_of("plant_details") is PanelState.COLLAPSED
 
     win.canvas_scene.clearSelection()
     assert ctrl.state_of("crop_rotation") is PanelState.COLLAPSED
 
 
-def test_user_pin_survives_selection_clear(qtbot, monkeypatch):
+def test_companion_closable_while_plant_selected(qtbot, monkeypatch):
+    """The reported bug: with a plant selected, 'Companion' could not be closed."""
     win = _make_app(qtbot, monkeypatch)
     ctrl = win._sidebar_controller
     plant = _add_plant(win)
 
     plant.setSelected(True)
-    assert ctrl.state_of("plant_details") is PanelState.PINNED
-    # User clicks the auto-pinned panel -> upgrade to a USER pin.
-    win._tracked_panels["plant_details"].header.pin_toggled.emit(True)
-    assert ctrl._entries["plant_details"].pin_source is PinSource.USER
+    assert ctrl.state_of("companion") is PanelState.PINNED
+
+    ctrl.panel("companion").header.pin_toggled.emit(True)  # user clicks to close
+    assert ctrl.state_of("companion") is PanelState.COLLAPSED
+
+    # A re-notify for the same selection (e.g. scene change) must not reopen it.
+    win._update_companion_panel()
+    assert ctrl.state_of("companion") is PanelState.COLLAPSED
+
+
+def test_reselecting_reopens_dismissed_panel(qtbot, monkeypatch):
+    win = _make_app(qtbot, monkeypatch)
+    ctrl = win._sidebar_controller
+    p1 = _add_plant(win, "Tomato")
+    p2 = _add_plant(win, "Basil")
+
+    p1.setSelected(True)
+    ctrl.panel("companion").header.pin_toggled.emit(True)  # dismiss for p1
+    assert ctrl.state_of("companion") is PanelState.COLLAPSED
 
     win.canvas_scene.clearSelection()
-    assert ctrl.state_of("plant_details") is PanelState.PINNED  # survives clear
+    p2.setSelected(True)  # genuine selection change → dismissal reset
+    assert ctrl.state_of("companion") is PanelState.PINNED
+
+
+def test_user_pin_survives_selection_clear(qtbot, monkeypatch):
+    win = _make_app(qtbot, monkeypatch)
+    ctrl = win._sidebar_controller
+    ctrl.panel("layers").header.pin_toggled.emit(True)  # USER pin, not selection
+    win.canvas_scene.clearSelection()
+    assert ctrl.state_of("layers") is PanelState.PINNED

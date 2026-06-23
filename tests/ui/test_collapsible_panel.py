@@ -157,3 +157,39 @@ def test_collapsible_panel_header_height(qtbot):
     panel.show()
 
     assert panel.header_height() > 0
+
+
+def test_collapse_now_and_expand_now(qtbot):
+    """The instant geometry primitives clamp/release maximumHeight (US-226)."""
+    content = QLabel("Test Content\nwith two lines")
+    panel = CollapsiblePanel("Test Panel", content, expanded=True)
+    qtbot.addWidget(panel)
+    panel.show()
+
+    panel.collapse_now()
+    assert not panel.is_expanded()
+    assert not content.isVisible()
+    assert panel.maximumHeight() == panel.header_height()
+
+    panel.expand_now()
+    assert panel.is_expanded()
+    assert content.isVisible()
+    assert panel.maximumHeight() > panel.header_height()
+
+
+def test_animate_expand_collapse_reach_end_state(qtbot):
+    """The animated transitions settle in the right end state (US-226)."""
+    content = QLabel("Test Content\nwith two lines")
+    panel = CollapsiblePanel("Test Panel", content, expanded=False)
+    qtbot.addWidget(panel)
+    panel.collapse_now()
+    panel.show()
+
+    panel.animate_expand()
+    assert panel.is_expanded()  # logical state flips synchronously
+    qtbot.waitUntil(lambda: panel.maximumHeight() > panel.header_height(), timeout=1000)
+
+    panel.animate_collapse()
+    assert not panel.is_expanded()
+    qtbot.waitUntil(lambda: not content.isVisible(), timeout=1000)
+    assert panel.maximumHeight() == panel.header_height()

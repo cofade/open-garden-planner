@@ -638,15 +638,6 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         height: 1px;
     }}
 
-    /* Pinned-panel splitter (US-226): grabbable handle, accent-tinted. */
-    QSplitter#pinnedSplitter::handle:vertical {{
-        height: 5px;
-        background-color: {colors['border']};
-    }}
-    QSplitter#pinnedSplitter::handle:vertical:hover {{
-        background-color: {colors['accent']};
-    }}
-
     /* Progress bars */
     QProgressBar {{
         background-color: {colors['surface_alt']};
