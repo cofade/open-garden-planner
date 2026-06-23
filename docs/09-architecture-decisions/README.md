@@ -164,7 +164,7 @@ Architecture Decision Records (ADRs) for significant technical choices.
 
 **Search-popup focus note:** The global search uses a `Qt.ToolTip`-flagged, `WA_ShowWithoutActivating` results popup with a no-focus QListWidget. Without these, the `Qt.Popup` window activates on every `show()` and steals keyboard focus from the QLineEdit — every keystroke after the first lands on the popup and is lost.
 
-**Persistence:** Window geometry, the main splitter, and each tracked `CollapsiblePanel`'s expanded state are persisted to `QSettings` (`UiState/…` group) by the lightweight `app/ui_state.py` wrapper. Save on `closeEvent` plus a live-save on every `expanded_changed` signal.
+**Persistence:** Window geometry and the main splitter are persisted to `QSettings` (`UiState/…` group) by the lightweight `app/ui_state.py` wrapper, saved on `closeEvent`. (Per-panel expanded state was persisted in earlier versions but was removed in #226 — the sidebar accordion always starts collapsed; see **ADR-030**.)
 
 ## ADR-017: Bed-Specific Features Built Centrally on `GardenItemMixin`
 

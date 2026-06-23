@@ -128,6 +128,10 @@ class SidebarController(QWidget):
         # Bars sit ABOVE the trailing stretch (which is always last).
         self._layout.insertWidget(self._layout.count() - 1, panel)
 
+        # Take over the header: drop the panel's default self-toggle so the
+        # controller drives hover-peek / click-to-toggle instead.
+        panel.take_over_header()
+
         # Default-arg binding so each lambda captures its own key (not the loop var).
         panel.header.hover_enter.connect(lambda k=key: self._on_hover_enter(k))
         panel.header.hover_leave.connect(lambda k=key: self._on_hover_leave(k))

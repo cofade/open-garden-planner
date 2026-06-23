@@ -114,6 +114,36 @@ def test_collapsible_panel_pin_toggled_on_header_click(qtbot):
     assert clicks == [True]
 
 
+def test_standalone_header_click_toggles_expansion(qtbot):
+    """A standalone CollapsiblePanel (no controller) toggles on header click.
+
+    Regression: #226 moved the click handler into SidebarController, which broke
+    standalone panels (e.g. the Amendment Plan dialog's library panel)."""
+    content = QLabel("Test Content")
+    panel = CollapsiblePanel("Test Panel", content, expanded=False)
+    qtbot.addWidget(panel)
+    panel.show()
+    assert not panel.is_expanded()
+
+    qtbot.mouseClick(panel.header, Qt.MouseButton.LeftButton)
+    assert panel.is_expanded()
+    qtbot.mouseClick(panel.header, Qt.MouseButton.LeftButton)
+    assert not panel.is_expanded()
+
+
+def test_take_over_header_disables_default_toggle(qtbot):
+    """After take_over_header(), a header click no longer self-toggles the panel
+    (the SidebarController drives it instead)."""
+    content = QLabel("Test Content")
+    panel = CollapsiblePanel("Test Panel", content, expanded=False)
+    qtbot.addWidget(panel)
+    panel.take_over_header()
+    panel.show()
+
+    qtbot.mouseClick(panel.header, Qt.MouseButton.LeftButton)
+    assert not panel.is_expanded()  # default toggle disconnected
+
+
 def test_header_child_widget_click_does_not_pin(qtbot):
     """A click on a header child widget (e.g. the Constraints delete-all button)
     must not emit pin_toggled — the child consumes its own press (US-226)."""

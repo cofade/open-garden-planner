@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import QMainWindow, QSplitter
 
 
 class UiStateStore:
-    """Persist and restore UI-only state (window/splitter/panel)."""
+    """Persist and restore UI-only state (window geometry + main splitter)."""
 
     GROUP = "UiState"
 

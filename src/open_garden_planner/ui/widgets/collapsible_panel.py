@@ -93,12 +93,15 @@ class CollapsiblePanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Header frame with background. _HeaderFrame emits hover/pin signals;
-        # the SidebarController decides what a header click/hover does (peek vs
-        # pin), so no toggle handler is wired here.
+        # Header frame with background. _HeaderFrame emits hover/pin signals.
+        # By default a header click toggles this panel (so a standalone
+        # CollapsiblePanel — e.g. in the Amendment Plan dialog — works on its
+        # own); a SidebarController takes over via take_over_header() to drive
+        # hover-peek/pin instead.
         self._header = _HeaderFrame()
         self._header.setFrameShape(QFrame.Shape.StyledPanel)
         self._header.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._header.pin_toggled.connect(self._on_header_pin_toggled)
 
         header_layout = QHBoxLayout(self._header)
         header_layout.setContentsMargins(6, 4, 6, 4)
@@ -218,6 +221,24 @@ class CollapsiblePanel(QWidget):
                 self._info_label.setVisible(True)
             else:
                 self._info_label.setVisible(False)
+
+    def _on_header_pin_toggled(self, _checked: bool) -> None:
+        """Default header-click behaviour: toggle this panel's own expansion.
+
+        A standalone panel relies on this. Managed panels have it removed by
+        :meth:`take_over_header` so the controller drives state instead.
+        """
+        self.toggle()
+
+    def take_over_header(self) -> None:
+        """Disconnect the default self-toggle so an owner can drive the header.
+
+        Called by ``SidebarController.add_panel`` — afterwards a header click no
+        longer toggles the panel directly; the controller's ``pin_toggled`` slot
+        decides what happens (peek/pin/collapse).
+        """
+        with contextlib.suppress(TypeError):
+            self._header.pin_toggled.disconnect(self._on_header_pin_toggled)
 
     @property
     def header(self) -> _HeaderFrame:
