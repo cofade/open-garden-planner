@@ -2358,8 +2358,8 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 ### Docs updated on completion
 | Document | Section |
 |----------|---------|
-| `docs/09-architecture-decisions/` | ADR-030 (accordion interaction model, rejected single-splitter, no-persistence; refines ADR-005) |
-| `docs/08-crosscutting-concepts/` | §8.17 (PanelState machine, debounce, splitter rules, dynamic-property QSS gotcha) |
+| `docs/09-architecture-decisions/` | ADR-030 + manual-test addendum (accordion interaction model, no-splitter rework, no-persistence; refines ADR-005) |
+| `docs/08-crosscutting-concepts/` | §8.17 (PanelState machine, no-reparent layout, animation, debounce, dynamic-property QSS gotcha) |
 | `docs/functional-requirements.md` | FR-22 (FR-UI-SIDEBAR-01…06) |
 
 ---

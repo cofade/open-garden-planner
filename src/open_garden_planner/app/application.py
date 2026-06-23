@@ -1678,11 +1678,11 @@ class GardenPlannerApp(QMainWindow):
                 ):
                     show_panel = True
 
-            # Auto-pin the plant details panel for a plant selection (US-226).
-            self._sidebar_controller.set_selection_pinned("plant_details", show_panel)
-
-            # Update panel content
+            # Update content BEFORE auto-pinning so the open animation tweens to
+            # the real content height (else it grows to the stale height, then
+            # snaps when the clamp releases — US-226).
             self.plant_database_panel.set_selected_items(selected_items)
+            self._sidebar_controller.set_selection_pinned("plant_details", show_panel)
         except RuntimeError:
             # Scene has been deleted, ignore
             pass
@@ -1697,8 +1697,9 @@ class GardenPlannerApp(QMainWindow):
                 plant_item = selected_items[0]
                 show_panel = bool(self._companion_species_name(plant_item))
 
-            self._sidebar_controller.set_selection_pinned("companion", show_panel)
+            # Content before pin so the open animation tweens to the real height.
             self.companion_panel.update_for_plant(plant_item)
+            self._sidebar_controller.set_selection_pinned("companion", show_panel)
         except RuntimeError:
             pass
 
@@ -1716,8 +1717,9 @@ class GardenPlannerApp(QMainWindow):
                     area_id = str(item.item_id)
                     show_panel = True
 
-            self._sidebar_controller.set_selection_pinned("crop_rotation", show_panel)
+            # Content before pin so the open animation tweens to the real height.
             self.crop_rotation_panel.update_for_bed(bed_item, area_id)
+            self._sidebar_controller.set_selection_pinned("crop_rotation", show_panel)
         except RuntimeError:
             pass
 
