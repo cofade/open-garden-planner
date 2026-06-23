@@ -6,10 +6,16 @@ Build with:
 """
 
 import os
+import platform
 import sys
 from pathlib import Path
 
 block_cipher = None
+
+# Platform detection
+IS_WINDOWS = platform.system() == "Windows"
+IS_LINUX = platform.system() == "Linux"
+IS_MAC = platform.system() == "Darwin"
 
 # Project root
 ROOT = Path(SPECPATH).parent
@@ -104,6 +110,16 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# Platform-specific icon: .ico for Windows, .png for Linux, .icns for Mac
+if IS_WINDOWS:
+    icon_file = str(INSTALLER / "ogp_app.ico")
+elif IS_MAC:
+    # macOS uses .icns format (to be created if needed)
+    icon_file = str(INSTALLER / "ogp_app.icns") if (INSTALLER / "ogp_app.icns").exists() else None
+else:
+    # Linux: icon embedded in desktop file, not in the binary
+    icon_file = None
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -120,7 +136,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(INSTALLER / "ogp_app.ico"),
+    icon=icon_file,
 )
 
 coll = COLLECT(

@@ -1,14 +1,20 @@
-"""Build script for Open Garden Planner Windows installer.
+"""Build script for Open Garden Planner installer (cross-platform).
 
 Usage:
-    python installer/build_installer.py [--skip-pyinstaller] [--skip-nsis]
+    python installer/build_installer.py [--skip-pyinstaller] [--skip-packaging]
+
+On Windows: Creates NSIS installer (.exe)
+On Linux: Creates AppImage (.AppImage)
+On macOS: Creates .dmg (future)
 
 Prerequisites:
     - PyInstaller: pip install pyinstaller
-    - NSIS: https://nsis.sourceforge.io/ (must be in PATH or at default location)
+    - Windows: NSIS (https://nsis.sourceforge.io/)
+    - Linux: appimagetool (https://github.com/AppImage/AppImageKit/releases)
 """
 
 import argparse
+import platform
 import shutil
 import subprocess
 import sys
@@ -19,12 +25,18 @@ INSTALLER_DIR = ROOT / "installer"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build"
 
+# Platform detection
+PLATFORM = platform.system()
+IS_WINDOWS = PLATFORM == "Windows"
+IS_LINUX = PLATFORM == "Linux"
+IS_MAC = PLATFORM == "Darwin"
+
 # App metadata
 APP_NAME = "Open Garden Planner"
 APP_VERSION = "1.0.0"
 APP_EXE_NAME = "OpenGardenPlanner"
 
-# NSIS paths to search
+# NSIS paths to search (Windows only)
 NSIS_PATHS = [
     Path(r"C:\Program Files (x86)\NSIS\makensis.exe"),
     Path(r"C:\Program Files\NSIS\makensis.exe"),
@@ -160,20 +172,54 @@ def _write_version_module(version: str) -> None:
     print(f"Wrote version {version} to {version_file}")
 
 
+def run_linux_packaging() -> None:
+    """Delegate to build_appimage.py for Linux packaging."""
+    print("\n" + "=" * 60)
+    print("Step 2: Building Linux AppImage")
+    print("=" * 60)
+
+    build_script = INSTALLER_DIR / "build_appimage.py"
+    if not build_script.exists():
+        print(f"ERROR: Linux build script not found: {build_script}")
+        sys.exit(1)
+
+    cmd = [
+        sys.executable,
+        str(build_script),
+        "--skip-pyinstaller",
+        "--version",
+        APP_VERSION,
+    ]
+
+    print(f"Running: {' '.join(cmd)}")
+    result = subprocess.run(cmd, cwd=str(ROOT))
+    if result.returncode != 0:
+        print("ERROR: Linux AppImage build failed!")
+        sys.exit(1)
+
+
 def main() -> None:
     """Run the build process."""
     global APP_VERSION
 
     parser = argparse.ArgumentParser(description="Build Open Garden Planner installer")
     parser.add_argument("--skip-pyinstaller", action="store_true", help="Skip PyInstaller step")
-    parser.add_argument("--skip-nsis", action="store_true", help="Skip NSIS step")
+    parser.add_argument(
+        "--skip-packaging",
+        action="store_true",
+        help="Skip platform-specific packaging (NSIS/AppImage/DMG)",
+    )
+    # Keep legacy --skip-nsis for backwards compatibility
+    parser.add_argument("--skip-nsis", action="store_true", help="(Legacy) Same as --skip-packaging")
     parser.add_argument("--version", type=str, help="Override version (e.g. 1.2.0)")
     args = parser.parse_args()
 
     if args.version:
         APP_VERSION = args.version
 
-    print(f"Building {APP_NAME} v{APP_VERSION}")
+    skip_packaging = args.skip_packaging or args.skip_nsis
+
+    print(f"Building {APP_NAME} v{APP_VERSION} for {PLATFORM}")
     print(f"Project root: {ROOT}")
 
     if not args.skip_pyinstaller:
@@ -182,10 +228,19 @@ def main() -> None:
     else:
         print("Skipping PyInstaller (--skip-pyinstaller)")
 
-    if not args.skip_nsis:
-        run_nsis()
+    if not skip_packaging:
+        if IS_WINDOWS:
+            run_nsis()
+        elif IS_LINUX:
+            run_linux_packaging()
+        elif IS_MAC:
+            print("macOS packaging not yet implemented")
+            print("Run PyInstaller bundle directly from dist/OpenGardenPlanner/")
+        else:
+            print(f"Unknown platform: {PLATFORM}")
+            print("Packaging step skipped")
     else:
-        print("Skipping NSIS (--skip-nsis)")
+        print("Skipping packaging step")
 
     print("\n" + "=" * 60)
     print("Build complete!")

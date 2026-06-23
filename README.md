@@ -32,13 +32,15 @@ Open Garden Planner fills the gap: **engineering-grade precision meets gardener-
 
 ## Installation
 
-### Windows Installer (recommended)
+### Pre-built Packages (Recommended)
 
-Download the latest installer from the [Releases](https://github.com/cofade/open-garden-planner/releases) page:
+Download the latest release for your platform from the [Releases](https://github.com/cofade/open-garden-planner/releases) page:
 
-> **[Download Latest Installer](https://github.com/cofade/open-garden-planner/releases/latest)**
+> **[Download Latest Release](https://github.com/cofade/open-garden-planner/releases/latest)**
 
-Run the installer and follow the wizard. It will:
+#### Windows
+
+Download `OpenGardenPlanner-v*-Setup.exe` and run the installer. It will:
 - Install to `C:\Program Files\Open Garden Planner` (configurable)
 - Create Start Menu and optional desktop shortcuts
 - Optionally associate `.ogp` files so you can double-click to open them
@@ -46,16 +48,38 @@ Run the installer and follow the wizard. It will:
 
 **System requirements:** Windows 10+ (64-bit), 4 GB RAM, 200 MB disk space.
 
+#### Linux
+
+Download `Open_Garden_Planner-v*-x86_64.AppImage`:
+
+```bash
+# Make executable
+chmod +x Open_Garden_Planner-v*.AppImage
+
+# Run directly (no installation needed)
+./Open_Garden_Planner-v*.AppImage
+
+# Optional: Move to a permanent location
+mv Open_Garden_Planner-v*.AppImage ~/Applications/
+# or
+sudo mv Open_Garden_Planner-v*.AppImage /usr/local/bin/open-garden-planner
+```
+
+**System requirements:** Modern Linux distribution (Ubuntu 20.04+, Fedora 35+, etc.), 4 GB RAM, 200 MB disk space. Requires FUSE2 (`sudo apt install libfuse2` on Ubuntu/Debian).
+
 #### Verify your download
 
-Each release includes a `SHA256SUMS.txt` file. To verify the installer integrity:
+Each release includes checksum files (`SHA256SUMS.txt` for Windows, `SHA256SUMS-linux.txt` for Linux):
 
-```powershell
-# PowerShell — replace <version> with the actual version you downloaded
+```bash
+# Linux/macOS
+sha256sum -c SHA256SUMS-linux.txt
+
+# Windows PowerShell — replace <version> with actual version
 (Get-FileHash .\OpenGardenPlanner-<version>-Setup.exe -Algorithm SHA256).Hash
 ```
 
-Compare the output with the hash in `SHA256SUMS.txt` from the release page.
+Compare the output with the hash in the checksum file from the release page.
 
 ### Install from source
 
@@ -65,29 +89,40 @@ Requires Python 3.11+ and Git.
 git clone https://github.com/cofade/open-garden-planner.git
 cd open-garden-planner
 python -m venv venv
-venv\Scripts\activate     # Windows
-# source venv/bin/activate  # Linux/Mac
+
+# Windows:
+venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
+
 pip install -e .
 python -m open_garden_planner
 ```
 
-### Build the installer yourself
+### Build the package yourself
 
-If you prefer to build the installer from source:
+If you prefer to build from source:
 
 ```bash
 git clone https://github.com/cofade/open-garden-planner.git
 cd open-garden-planner
 python -m venv venv
+
+# Windows:
 venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
+
 pip install -e .
 pip install pyinstaller
 
-# Build PyInstaller bundle + NSIS installer (requires NSIS: https://nsis.sourceforge.io/)
-python installer/build_installer.py
+# Build platform-specific package
+# Windows: Creates NSIS installer (requires NSIS: https://nsis.sourceforge.io/)
+# Linux: Creates AppImage (requires appimagetool)
+python installer/build_installer.py --version 1.0.0
 ```
 
-The installer will be created in the `dist\` directory.
+The package will be created in the `dist/` directory.
 
 ### Plant Database (optional)
 

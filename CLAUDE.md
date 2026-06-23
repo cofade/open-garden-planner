@@ -4,27 +4,39 @@ PyQt6 desktop app for precision garden planning with CAD-like metric accuracy.
 
 ## Quick Reference
 
+**Note:** Commands use `venv/Scripts/python.exe` (Windows) or `venv/bin/python` (Linux/macOS). Adjust as needed.
+
 ```bash
 # Run app
+# Windows:
 venv/Scripts/python.exe -m open_garden_planner
+# Linux/macOS:
+venv/bin/python -m open_garden_planner
 
 # Run tests
-venv/Scripts/python.exe -m pytest tests/ -v
+python -m pytest tests/ -v
 
 # Lint
-venv/Scripts/python.exe -m ruff check src/
+python -m ruff check src/
 
 # Security scan
-venv/Scripts/python.exe -m bandit -r src/ --severity-level high
+python -m bandit -r src/ --severity-level high
 
-# Build & verify exe (before every merge)
-venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
+# Build installer (platform-specific: NSIS on Windows, AppImage on Linux)
+python installer/build_installer.py --version 1.0.0
+
+# Build & verify executable (before every merge)
+# Windows:
+python -m PyInstaller installer/ogp.spec --noconfirm
 timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe
+# Linux:
+python -m PyInstaller installer/ogp.spec --noconfirm
+timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner
 # Exit code 124 (killed by timeout) = success
 
 # Update & compile translations (after adding/changing any UI strings)
-PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py
-PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
+PYTHONUTF8=1 python scripts/fill_translations.py
+PYTHONUTF8=1 python scripts/compile_translations.py
 # pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished
 # verifies zero unfinished strings — fails if any string was missed
 ```
