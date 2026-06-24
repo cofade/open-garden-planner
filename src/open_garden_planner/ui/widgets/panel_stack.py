@@ -201,6 +201,26 @@ class SidebarController(QWidget):
             # selection no longer matches → allow auto-open again next time
             entry.selection_dismissed = False
 
+    def set_panel_visible(self, key: str, visible: bool) -> None:
+        """Show or hide a panel's bar entirely (orthogonal to open/collapse).
+
+        For selection-driven contextual panels (Plant Details / Companion / Crop
+        Rotation) that have nothing to show unless a matching item is selected:
+        when irrelevant the bar is hidden so it occupies no space and is NOT
+        shown as an empty collapsed bar the user could open onto a placeholder.
+        Hiding collapses the panel first so it reopens clean when it next becomes
+        relevant. Non-contextual panels are simply never hidden.
+        """
+        entry = self._entries.get(key)
+        if entry is None:
+            return
+        if not visible:
+            self._cancel_pending_for(key)
+            if entry.state is not PanelState.COLLAPSED:
+                self._collapse(entry, animate=False, emit=True)
+            entry.selection_dismissed = False
+        entry.panel.setVisible(visible)
+
     def reset_selection_dismissals(self) -> None:
         """Clear every per-panel dismissal flag.
 
@@ -363,9 +383,13 @@ class SidebarController(QWidget):
         content = entry.panel.sizeHint().height()
         if available <= 0:
             return content
-        used = sum(
-            self._entries[k].panel.height() for k in self._order if k != entry.key
-        )
-        used += self._layout.spacing() * len(self._order)  # inter-item gaps
+        # Sum only VISIBLE other panels — hidden contextual bars take no space.
+        visible_others = [
+            self._entries[k].panel
+            for k in self._order
+            if k != entry.key and not self._entries[k].panel.isHidden()
+        ]
+        used = sum(p.height() for p in visible_others)
+        used += self._layout.spacing() * (len(visible_others) + 1)  # inter-item gaps
         fill = available - used
         return max(content, min(fill, available))

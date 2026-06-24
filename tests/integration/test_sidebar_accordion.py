@@ -145,3 +145,44 @@ def test_user_pin_survives_selection_clear(qtbot, monkeypatch):
     ctrl.panel("layers").header.pin_toggled.emit(True)  # USER pin, not selection
     win.canvas_scene.clearSelection()
     assert ctrl.state_of("layers") is PanelState.PINNED
+
+
+def test_contextual_panels_hidden_until_relevant(qtbot, monkeypatch):
+    """The selection-driven panels are hidden entirely until a matching item is
+    selected — no empty placeholder bars (restored pre-US-226 behaviour)."""
+    win = _make_app(qtbot, monkeypatch)
+    ctrl = win._sidebar_controller
+    contextual = ("plant_details", "companion", "crop_rotation")
+
+    # Startup: nothing selected → all three hidden.
+    for key in contextual:
+        assert ctrl.panel(key).isHidden(), f"{key} should start hidden"
+
+    # Plant selected → Plant Details + Companion shown; Crop Rotation stays hidden.
+    plant = _add_plant(win)
+    plant.setSelected(True)
+    assert not ctrl.panel("plant_details").isHidden()
+    assert not ctrl.panel("companion").isHidden()
+    assert ctrl.panel("crop_rotation").isHidden()
+
+    # Bed selected → Crop Rotation shown; plant panels hidden again.
+    win.canvas_scene.clearSelection()
+    bed = _add_bed(win)
+    bed.setSelected(True)
+    assert not ctrl.panel("crop_rotation").isHidden()
+    assert ctrl.panel("plant_details").isHidden()
+    assert ctrl.panel("companion").isHidden()
+
+
+def test_non_plant_non_bed_selection_hides_all_contextual(qtbot, monkeypatch):
+    """The reported issue: selecting a non-plant/non-bed object must not leave an
+    openable empty Plant Details panel."""
+    win = _make_app(qtbot, monkeypatch)
+    ctrl = win._sidebar_controller
+    house = RectangleItem(
+        x=0, y=0, width=100, height=50, object_type=ObjectType.HOUSE, name="House"
+    )
+    win.canvas_scene.addItem(house)
+    house.setSelected(True)
+    for key in ("plant_details", "companion", "crop_rotation"):
+        assert ctrl.panel(key).isHidden(), f"{key} should be hidden for a non-plant"

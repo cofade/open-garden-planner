@@ -1425,6 +1425,11 @@ class GardenPlannerApp(QMainWindow):
         for key, panel in canonical_panels:
             self._sidebar_controller.add_panel(key, panel)
         self._sidebar_controller.collapse_all()
+        # The selection-driven panels have nothing to show until a matching item
+        # is selected — hide their bars entirely until then (restored pre-US-226
+        # behaviour; the selection updaters re-show them on a relevant selection).
+        for key in ("plant_details", "companion", "crop_rotation"):
+            self._sidebar_controller.set_panel_visible(key, False)
 
         sidebar_layout.addWidget(self._sidebar_controller)
 
@@ -1680,8 +1685,10 @@ class GardenPlannerApp(QMainWindow):
 
             # Update content BEFORE auto-pinning so the open animation tweens to
             # the real content height (else it grows to the stale height, then
-            # snaps when the clamp releases — US-226).
+            # snaps when the clamp releases — US-226). The bar is hidden entirely
+            # when no plant is selected (no empty placeholder bar).
             self.plant_database_panel.set_selected_items(selected_items)
+            self._sidebar_controller.set_panel_visible("plant_details", show_panel)
             self._sidebar_controller.set_selection_pinned("plant_details", show_panel)
         except RuntimeError:
             # Scene has been deleted, ignore
@@ -1697,8 +1704,10 @@ class GardenPlannerApp(QMainWindow):
                 plant_item = selected_items[0]
                 show_panel = bool(self._companion_species_name(plant_item))
 
-            # Content before pin so the open animation tweens to the real height.
+            # Content before pin so the open animation tweens to the real height;
+            # the bar is hidden when there is no companion data to show.
             self.companion_panel.update_for_plant(plant_item)
+            self._sidebar_controller.set_panel_visible("companion", show_panel)
             self._sidebar_controller.set_selection_pinned("companion", show_panel)
         except RuntimeError:
             pass
@@ -1717,8 +1726,10 @@ class GardenPlannerApp(QMainWindow):
                     area_id = str(item.item_id)
                     show_panel = True
 
-            # Content before pin so the open animation tweens to the real height.
+            # Content before pin so the open animation tweens to the real height;
+            # the bar is hidden when no bed is selected.
             self.crop_rotation_panel.update_for_bed(bed_item, area_id)
+            self._sidebar_controller.set_panel_visible("crop_rotation", show_panel)
             self._sidebar_controller.set_selection_pinned("crop_rotation", show_panel)
         except RuntimeError:
             pass

@@ -210,6 +210,25 @@ def test_user_pin_survives_selection_clear(qtbot):
     assert ctrl.state_of("b") is PanelState.PINNED
 
 
+def test_set_panel_visible_hides_and_shows(qtbot):
+    """A contextual panel's bar can be hidden entirely (not just collapsed)."""
+    ctrl = _make_controller(qtbot)
+    ctrl.set_panel_visible("b", False)
+    assert ctrl.panel("b").isHidden()
+    ctrl.set_panel_visible("b", True)
+    assert not ctrl.panel("b").isHidden()
+
+
+def test_hiding_an_open_panel_collapses_it(qtbot):
+    """Hiding an open panel collapses it first so it reopens clean (US-226)."""
+    ctrl = _make_controller(qtbot)
+    ctrl._on_title_click("b")
+    assert ctrl.is_open("b")
+    ctrl.set_panel_visible("b", False)
+    assert ctrl.panel("b").isHidden()
+    assert ctrl.state_of("b") is PanelState.COLLAPSED
+
+
 def test_collapse_all(qtbot):
     ctrl = _make_controller(qtbot)
     ctrl._on_title_click("a")

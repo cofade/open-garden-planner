@@ -775,7 +775,11 @@ Two controller-level single-shot timers — open (~140 ms) and close (~220 ms, l
 - **PEEKING** → promote the hover-peek to a sticky `USER` pin (already open).
 - **COLLAPSED** → open as a `USER` pin.
 
-`set_selection_pinned(key, True)` opens as `SELECTION` *unless* `selection_dismissed`. `reset_selection_dismissals()` clears all dismissals and is called from `application._on_selection_changed` (wired to `selectionChanged` **before** the `_update_*_panel` slots), so a genuine selection change re-opens the contextual panels for the newly selected item. When wiring a selection signal to a contextual panel, call `set_selection_pinned(...)` for visibility **and** keep the panel's own content-update call (`set_selected_items` / `update_for_plant` / `update_for_bed`).
+`set_selection_pinned(key, True)` opens as `SELECTION` *unless* `selection_dismissed`. `reset_selection_dismissals()` clears all dismissals and is called from `application._on_selection_changed` (wired to `selectionChanged` **before** the `_update_*_panel` slots), so a genuine selection change re-opens the contextual panels for the newly selected item. When wiring a selection signal to a contextual panel, keep the panel's own content-update call (`set_selected_items` / `update_for_plant` / `update_for_bed`), then call `set_panel_visible(key, relevant)` **and** `set_selection_pinned(key, relevant)`.
+
+### 8.17.6a Contextual-panel visibility
+
+Plant Details / Companion / Crop Rotation have nothing to show unless a matching item is selected, so their **bar is hidden entirely** when irrelevant (they are NOT left as empty collapsed bars the user could open onto a placeholder — this restores the pre-US-226 `setVisible(False)` behaviour). `set_panel_visible(key, visible)` is **orthogonal** to open/collapse: hiding (`visible=False`) cancels any pending hover, collapses the panel instantly (so it reopens clean) and `setVisible(False)`s it (a hidden widget takes no layout space); showing re-adds the bar. The three panels are hidden at startup in `_setup_sidebar` and toggled by the selection updaters via `show_panel`. Non-contextual panels are never hidden. `_fill_target` and the surplus share ignore hidden panels (they occupy no space).
 
 ### 8.17.6 The dynamic-property QSS gotcha
 
