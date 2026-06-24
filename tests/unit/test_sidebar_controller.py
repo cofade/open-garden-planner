@@ -220,9 +220,14 @@ def test_set_panel_visible_hides_and_shows(qtbot):
 
 
 def test_hiding_an_open_panel_collapses_it(qtbot):
-    """Hiding an open panel collapses it first so it reopens clean (US-226)."""
+    """Hiding collapses an open panel first so it reopens clean — and does so
+    EVEN for a USER pin: a contextual panel is gated purely by relevance, so it
+    hides when irrelevant regardless of how it was opened (it would otherwise
+    show an empty placeholder). The 'USER pin survives a selection clear'
+    invariant therefore applies only to non-contextual panels (US-226)."""
     ctrl = _make_controller(qtbot)
-    ctrl._on_title_click("b")
+    ctrl._on_title_click("b")  # USER pin
+    assert ctrl._entries["b"].pin_source is PinSource.USER
     assert ctrl.is_open("b")
     ctrl.set_panel_visible("b", False)
     assert ctrl.panel("b").isHidden()

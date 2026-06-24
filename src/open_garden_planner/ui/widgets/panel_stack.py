@@ -217,7 +217,13 @@ class SidebarController(QWidget):
         if not visible:
             self._cancel_pending_for(key)
             if entry.state is not PanelState.COLLAPSED:
+                # Source-agnostic: even a USER pin is collapsed+hidden when the
+                # panel becomes irrelevant (it has no content to show). Relevance
+                # gates the three contextual panels; "USER pins survive a
+                # selection clear" applies only to non-contextual panels.
                 self._collapse(entry, animate=False, emit=True)
+            # The hide path's caller also clears this via set_selection_pinned();
+            # cleared here too so a standalone hide leaves no stale dismissal.
             entry.selection_dismissed = False
         entry.panel.setVisible(visible)
 

@@ -186,3 +186,5 @@ def test_non_plant_non_bed_selection_hides_all_contextual(qtbot, monkeypatch):
     house.setSelected(True)
     for key in ("plant_details", "companion", "crop_rotation"):
         assert ctrl.panel(key).isHidden(), f"{key} should be hidden for a non-plant"
+    # A non-contextual panel must NOT be hidden by the same selection.
+    assert not ctrl.panel("layers").isHidden()

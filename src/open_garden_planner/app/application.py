@@ -1271,8 +1271,12 @@ class GardenPlannerApp(QMainWindow):
         self.properties_panel = PropertiesPanel(
             command_manager=self.canvas_view.command_manager
         )
-        # Connect object type change to update plant details and crop rotation panels
+        # Re-evaluate all three contextual panels when the selected item's type
+        # changes (e.g. tree → house): each may need to show or hide. Companion is
+        # included explicitly so its visibility does not rely on the incidental
+        # stack_changed signal alone.
         self.properties_panel.object_type_changed.connect(self._update_plant_database_panel)
+        self.properties_panel.object_type_changed.connect(self._update_companion_panel)
         self.properties_panel.object_type_changed.connect(self._update_crop_rotation_panel)
         props_panel = CollapsiblePanel(self.tr("Properties"), self.properties_panel, expanded=True)
         sidebar_layout.addWidget(props_panel)
