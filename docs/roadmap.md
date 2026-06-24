@@ -2338,6 +2338,32 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 ---
 
+## UI/UX: Sidebar Accordion (issue #226)
+
+**Goal**: Declutter the right sidebar. Replace the static stack of 9 always-expanded panels with a hover-peek + click-to-pin accordion.
+
+| Status | Issue | Description                                                      |
+| ------ | ----- | ---------------------------------------------------------------- |
+| ✅     | #226  | Hover-peek + click-to-pin sidebar accordion — see ADR-030       |
+
+### Acceptance highlights (revised after manual test — ADR-030 addendum)
+- All panels **collapsed at startup** every session (no pin/panel-state persistence).
+- **Hover** a bar → peeks open in place (reflow pushes bars below down); leave → collapses (asymmetric debounce, no flicker on fast sweeps).
+- **Click** title → toggles open/closed, **animated** (organic height expansion). Panels keep a **fixed order** — opening one never reorders the list.
+- Open panels **fill the available space** (content-weighted) instead of leaving an empty gap: one open panel fills the sidebar; several share the surplus by content size; combined overflow **scrolls**. (Equal-share + draggable dividers from the first cut were dropped.)
+- Selecting a plant auto-opens Plant Details + Companion; selecting a bed auto-opens Crop Rotation; clearing closes them. An auto-opened panel is **closable with one click** and stays closed for that selection; a different selection re-opens it. Manually-opened panels survive a selection clear.
+- New `SidebarController` (`ui/widgets/panel_stack.py`) owns the layout + `PanelState`/`PinSource` machine: one `QVBoxLayout` in a `QScrollArea`, panels never reparented.
+- First cut used a bottom `QSplitter` (reparent-on-pin) — reworked after manual testing surfaced reordering, no animation, and unclosable selection panels.
+
+### Docs updated on completion
+| Document | Section |
+|----------|---------|
+| `docs/09-architecture-decisions/` | ADR-030 + manual-test addendum (accordion interaction model, no-splitter rework, no-persistence; refines ADR-005) |
+| `docs/08-crosscutting-concepts/` | §8.17 (PanelState machine, no-reparent layout, animation, debounce, dynamic-property QSS gotcha) |
+| `docs/functional-requirements.md` | FR-22 (FR-UI-SIDEBAR-01…06) |
+
+---
+
 ## Phase 14: 3D Visualization & Sun/Shade (Future, v2.0)
 
 **Goal**: Full three-dimensional garden view with sun/shade simulation — the milestone that justifies a major version bump.

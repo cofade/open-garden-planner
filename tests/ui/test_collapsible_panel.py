@@ -1,8 +1,9 @@
 """Tests for collapsible panel widget."""
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QLabel
 
-from open_garden_planner.ui.widgets import CollapsiblePanel
+from open_garden_planner.ui.widgets import CollapsiblePanel, PanelState
 
 
 def test_collapsible_panel_creation(qtbot):  # noqa: ARG001
@@ -97,3 +98,140 @@ def test_collapsible_panel_signal(qtbot):  # noqa: ARG001
     panel.toggle()
     assert len(expanded_states) == 2
     assert expanded_states[1] is True
+
+
+def test_collapsible_panel_pin_toggled_on_header_click(qtbot):
+    """A left-click on the header bar emits pin_toggled (US-226)."""
+    content = QLabel("Test Content")
+    panel = CollapsiblePanel("Test Panel", content, expanded=True)
+    qtbot.addWidget(panel)
+    panel.show()
+
+    clicks: list[bool] = []
+    panel.header.pin_toggled.connect(clicks.append)
+
+    qtbot.mouseClick(panel.header, Qt.MouseButton.LeftButton)
+    assert clicks == [True]
+
+
+def test_standalone_header_click_toggles_expansion(qtbot):
+    """A standalone CollapsiblePanel (no controller) toggles on header click.
+
+    Regression: #226 moved the click handler into SidebarController, which broke
+    standalone panels (e.g. the Amendment Plan dialog's library panel)."""
+    content = QLabel("Test Content")
+    panel = CollapsiblePanel("Test Panel", content, expanded=False)
+    qtbot.addWidget(panel)
+    panel.show()
+    assert not panel.is_expanded()
+
+    qtbot.mouseClick(panel.header, Qt.MouseButton.LeftButton)
+    assert panel.is_expanded()
+    qtbot.mouseClick(panel.header, Qt.MouseButton.LeftButton)
+    assert not panel.is_expanded()
+
+
+def test_take_over_header_disables_default_toggle(qtbot):
+    """After take_over_header(), a header click no longer self-toggles the panel
+    (the SidebarController drives it instead)."""
+    content = QLabel("Test Content")
+    panel = CollapsiblePanel("Test Panel", content, expanded=False)
+    qtbot.addWidget(panel)
+    panel.take_over_header()
+    panel.show()
+
+    qtbot.mouseClick(panel.header, Qt.MouseButton.LeftButton)
+    assert not panel.is_expanded()  # default toggle disconnected
+
+
+def test_header_child_widget_click_does_not_pin(qtbot):
+    """A click on a header child widget (e.g. the Constraints delete-all button)
+    must not emit pin_toggled — the child consumes its own press (US-226)."""
+    from PyQt6.QtWidgets import QToolButton
+
+    panel = CollapsiblePanel("Test Panel", QLabel("content"))
+    qtbot.addWidget(panel)
+    button = QToolButton()
+    panel.add_header_widget(button)
+    panel.show()
+
+    pins: list[bool] = []
+    panel.header.pin_toggled.connect(pins.append)
+
+    qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
+    assert pins == []  # the button consumed the click; the header never pinned
+
+
+def test_collapsible_panel_visual_state_property(qtbot):
+    """set_visual_state sets the dynamic panelState property (US-226)."""
+    content = QLabel("Test Content")
+    panel = CollapsiblePanel("Test Panel", content, expanded=True)
+    qtbot.addWidget(panel)
+    panel.show()
+
+    panel.set_visual_state(PanelState.PEEKING)
+    assert panel.property("panelState") == "peeking"
+
+    panel.set_visual_state(PanelState.PINNED)
+    assert panel.property("panelState") == "pinned"
+
+    panel.set_visual_state(PanelState.COLLAPSED)
+    assert panel.property("panelState") == "collapsed"
+
+
+def test_collapsible_panel_header_height(qtbot):
+    """header_height() returns the header's natural pixel height (US-226)."""
+    content = QLabel("Test Content")
+    panel = CollapsiblePanel("Test Panel", content, expanded=True)
+    qtbot.addWidget(panel)
+    panel.show()
+
+    assert panel.header_height() > 0
+
+
+def test_collapse_now_and_expand_now(qtbot):
+    """The instant geometry primitives clamp/release maximumHeight (US-226)."""
+    content = QLabel("Test Content\nwith two lines")
+    panel = CollapsiblePanel("Test Panel", content, expanded=True)
+    qtbot.addWidget(panel)
+    panel.show()
+
+    panel.collapse_now()
+    assert not panel.is_expanded()
+    assert not content.isVisible()
+    assert panel.maximumHeight() == panel.header_height()
+    # Collapse drops the content floor so the bar can be header-sized (Qt reports
+    # the effective minimum, which the header clamp pins at the header height).
+    assert panel.minimumHeight() <= panel.header_height()
+
+    panel.expand_now()
+    assert panel.is_expanded()
+    assert content.isVisible()
+    assert panel.maximumHeight() > panel.header_height()
+    # An open panel floors at its content height — and the floor must never sit
+    # above the (released) clamp, or the panel would jump.
+    assert panel.minimumHeight() == panel.sizeHint().height()
+    assert panel.minimumHeight() <= panel.maximumHeight()
+
+
+def test_animate_expand_collapse_reach_end_state(qtbot):
+    """The animated transitions settle in the right end state (US-226)."""
+    content = QLabel("Test Content\nwith two lines")
+    panel = CollapsiblePanel("Test Panel", content, expanded=False)
+    qtbot.addWidget(panel)
+    panel.collapse_now()
+    panel.show()
+
+    panel.animate_expand()
+    assert panel.is_expanded()  # logical state flips synchronously
+    qtbot.waitUntil(lambda: panel.maximumHeight() > panel.header_height(), timeout=1000)
+    # The content floor is set when the open animation finishes (never during,
+    # else min above the animating max would jump the panel).
+    qtbot.waitUntil(lambda: panel.minimumHeight() > 0, timeout=1000)
+    assert panel.minimumHeight() <= panel.maximumHeight()
+
+    panel.animate_collapse()
+    assert not panel.is_expanded()
+    assert panel.minimumHeight() == 0  # floor dropped synchronously on collapse
+    qtbot.waitUntil(lambda: not content.isVisible(), timeout=1000)
+    assert panel.maximumHeight() == panel.header_height()

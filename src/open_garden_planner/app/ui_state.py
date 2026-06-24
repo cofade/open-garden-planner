@@ -1,9 +1,14 @@
-"""Persist & restore window geometry, splitter sizes, and panel collapse state.
+"""Persist & restore window geometry and splitter sizes.
 
 Thin wrapper around `QSettings` so that the application doesn't sprinkle
 raw key strings throughout `application.py`. Keys live under the `UiState/`
 group so they don't collide with app-domain settings handled by
 `app/settings.py`.
+
+Note: per-panel collapse/expand state is intentionally NOT persisted. The
+sidebar accordion always starts fully collapsed every session (US-226,
+ADR-030), so the old ``save_panel_state`` / ``restore_panel_state`` helpers
+were removed.
 """
 
 from PyQt6.QtCore import QSettings
@@ -11,7 +16,7 @@ from PyQt6.QtWidgets import QMainWindow, QSplitter
 
 
 class UiStateStore:
-    """Persist and restore UI-only state (window/splitter/panel)."""
+    """Persist and restore UI-only state (window geometry + main splitter)."""
 
     GROUP = "UiState"
 
@@ -44,17 +49,3 @@ class UiStateStore:
             return False
         splitter.restoreState(state)
         return True
-
-    def save_panel_state(self, key: str, expanded: bool) -> None:
-        self._settings.setValue(f"{self.GROUP}/panel_{key}", expanded)
-
-    def restore_panel_state(self, key: str, default: bool) -> bool:
-        raw = self._settings.value(f"{self.GROUP}/panel_{key}")
-        if raw is None:
-            return default
-        # QSettings on some platforms stores bools as strings.
-        if isinstance(raw, bool):
-            return raw
-        if isinstance(raw, str):
-            return raw.lower() in ("true", "1", "yes")
-        return bool(raw)

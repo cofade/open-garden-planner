@@ -1,10 +1,14 @@
 """Integration test: sidebar panels appear in the design-spec order.
 
 The Object Gallery moved into the top toolbar; the sidebar's remaining
-panels are reordered so selection-related panels (Properties, Plant
+panels are ordered so selection-related panels (Properties, Plant
 Details, Companion, Crop Rotation) sit directly under each other, then
 plan tools (Layers, Constraints), then garden state (Pests, Find
 Plants, Journal).
+
+Since US-226 (accordion), panels live inside the ``SidebarController`` (not
+directly under ``sidebar.layout()``), so canonical order is read from
+``controller.panels()`` rather than the layout.
 """
 
 # ruff: noqa: ARG002
@@ -17,16 +21,10 @@ class TestSidebarOrder:
         win = GardenPlannerApp()
         qtbot.addWidget(win)  # type: ignore[attr-defined]
 
-        layout = win.sidebar.layout()
-        # Filter to widget items only (skip the trailing addStretch spacer).
-        order = []
-        for i in range(layout.count()):
-            item = layout.itemAt(i)
-            w = item.widget() if item is not None else None
-            if w is not None:
-                order.append(w)
+        # Canonical order is owned by the controller (US-226).
+        controller = win._sidebar_controller
+        actual_keys = controller.panel_keys()
 
-        # Maps target index → tracked-panel key (matches application.py).
         expected_keys = [
             "properties",
             "plant_details",
@@ -38,10 +36,14 @@ class TestSidebarOrder:
             "plant_search",
             "journal",
         ]
-        # Build inverse map: panel widget → key.
-        key_by_widget = {w: k for k, w in win._tracked_panels.items()}
-        actual_keys = [key_by_widget.get(w, type(w).__name__) for w in order]
-
         assert actual_keys == expected_keys, (
             f"sidebar order mismatch:\n  expected={expected_keys}\n  actual  ={actual_keys}"
         )
+
+        # The visible layout order must match the canonical order too (the
+        # panels are never reparented, so opening one cannot reorder the list).
+        layout = controller._layout
+        visible_order = sorted(
+            controller.panels(), key=lambda p: layout.indexOf(p)
+        )
+        assert visible_order == controller.panels()

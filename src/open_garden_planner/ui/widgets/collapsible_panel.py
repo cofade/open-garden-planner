@@ -1,6 +1,15 @@
 """Collapsible panel widget for sidebar organization."""
 
-from PyQt6.QtCore import Qt, pyqtSignal
+import contextlib
+
+from PyQt6.QtCore import (
+    QEasingCurve,
+    QEvent,
+    QPropertyAnimation,
+    Qt,
+    pyqtSignal,
+)
+from PyQt6.QtGui import QEnterEvent, QMouseEvent
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -8,6 +17,41 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+# Qt's QWIDGETSIZE_MAX sentinel — assign to maximumHeight to release a clamp.
+_QWIDGETSIZE_MAX = 16777215
+
+# Open/collapse animation duration (ms). Short enough to feel responsive,
+# long enough to read as an organic expansion rather than a hard switch.
+_PANEL_ANIM_MS = 160
+
+
+class _HeaderFrame(QFrame):
+    """Header bar that reports hover and click as signals.
+
+    Replaces the old ``mousePressEvent = lambda: toggle()`` assignment so the
+    owning :class:`~open_garden_planner.ui.widgets.panel_stack.SidebarController`
+    can route hover-peek and pin-toggle independently. Child widgets added via
+    :meth:`CollapsiblePanel.add_header_widget` (e.g. the Constraints delete-all
+    button) consume their own clicks first, so they never reach ``pin_toggled``.
+    """
+
+    hover_enter = pyqtSignal()
+    hover_leave = pyqtSignal()
+    pin_toggled = pyqtSignal(bool)
+
+    def enterEvent(self, event: QEnterEvent) -> None:  # noqa: N802 (Qt override)
+        self.hover_enter.emit()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+        self.hover_leave.emit()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802 (Qt override)
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.pin_toggled.emit(True)
+        super().mousePressEvent(event)
 
 
 class CollapsiblePanel(QWidget):
@@ -38,6 +82,7 @@ class CollapsiblePanel(QWidget):
         self._expanded = expanded
         self._content_widget = content
         self._info_label: QLabel | None = None
+        self._anim: QPropertyAnimation | None = None
 
         self._setup_ui()
         self.set_expanded(expanded, emit=False)
@@ -48,11 +93,15 @@ class CollapsiblePanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Header frame with background
-        self._header = QFrame()
+        # Header frame with background. _HeaderFrame emits hover/pin signals.
+        # By default a header click toggles this panel (so a standalone
+        # CollapsiblePanel — e.g. in the Amendment Plan dialog — works on its
+        # own); a SidebarController takes over via take_over_header() to drive
+        # hover-peek/pin instead.
+        self._header = _HeaderFrame()
         self._header.setFrameShape(QFrame.Shape.StyledPanel)
         self._header.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._header.mousePressEvent = lambda _: self.toggle()
+        self._header.pin_toggled.connect(self._on_header_pin_toggled)
 
         header_layout = QHBoxLayout(self._header)
         header_layout.setContentsMargins(6, 4, 6, 4)
@@ -172,3 +221,150 @@ class CollapsiblePanel(QWidget):
                 self._info_label.setVisible(True)
             else:
                 self._info_label.setVisible(False)
+
+    def _on_header_pin_toggled(self, _checked: bool) -> None:
+        """Default header-click behaviour: toggle this panel's own expansion.
+
+        A standalone panel relies on this. Managed panels have it removed by
+        :meth:`take_over_header` so the controller drives state instead.
+        """
+        self.toggle()
+
+    def take_over_header(self) -> None:
+        """Disconnect the default self-toggle so an owner can drive the header.
+
+        Called by ``SidebarController.add_panel`` — afterwards a header click no
+        longer toggles the panel directly; the controller's ``pin_toggled`` slot
+        decides what happens (peek/pin/collapse).
+        """
+        with contextlib.suppress(TypeError):
+            self._header.pin_toggled.disconnect(self._on_header_pin_toggled)
+
+    @property
+    def header(self) -> _HeaderFrame:
+        """The header bar (exposes ``hover_enter``/``hover_leave``/``pin_toggled``)."""
+        return self._header
+
+    def header_height(self) -> int:
+        """Natural pixel height of the header row (the COLLAPSED clamp target)."""
+        return self._header.sizeHint().height()
+
+    def set_visual_state(self, state: object) -> None:
+        """Drive a dynamic ``panelState`` QSS property + re-polish the header.
+
+        Args:
+            state: A ``PanelState`` enum member; ``state.name.lower()`` becomes the
+                property value so QSS can target each state. Duck-typed on
+                ``.name`` to avoid a cyclic import of ``panel_stack``.
+        """
+        name = state.name.lower()  # type: ignore[attr-defined]
+        self.setProperty("panelState", name)
+        # Tooltip hints the click affordance for the current state.
+        if name == "pinned":
+            self._header.setToolTip(self.tr("Click to collapse"))
+        elif name == "peeking":
+            self._header.setToolTip(self.tr("Click to keep open"))
+        else:
+            self._header.setToolTip(self.tr("Click to open"))
+        # Dynamic-property changes require an unpolish/polish cycle to repaint
+        # (Qt does not re-evaluate property selectors otherwise). The header is
+        # styled via `CollapsiblePanel[panelState=...] > QFrame`, so re-polish it
+        # too — re-polishing only the parent leaves the child header stale.
+        style = self.style()
+        if style is not None:
+            style.unpolish(self)
+            style.polish(self)
+            style.unpolish(self._header)
+            style.polish(self._header)
+
+    # ----- geometry primitives (driven by SidebarController) -------------
+    #
+    # The panel's open/closed geometry is a height clamp on ``maximumHeight``:
+    # collapsed clamps to the header height (content hidden); open releases the
+    # clamp so the layout sizes the panel to its content. The ``animate_*``
+    # variants tween the clamp for an organic expansion; the ``*_now`` variants
+    # snap (used at startup / bulk reset).
+
+    def _set_indicator(self, expanded: bool) -> None:
+        """Flip the ▼/▶ chevron + logical state without touching content."""
+        self._expanded = expanded
+        self._indicator.setText("▼" if expanded else "▶")
+
+    def _ensure_anim(self) -> QPropertyAnimation:
+        if self._anim is None:
+            anim = QPropertyAnimation(self, b"maximumHeight", self)
+            anim.setDuration(_PANEL_ANIM_MS)
+            anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+            self._anim = anim
+        return self._anim
+
+    def _restart_anim(self, start: int, end: int, on_finished) -> None:
+        anim = self._ensure_anim()
+        anim.stop()
+        with contextlib.suppress(TypeError):
+            anim.finished.disconnect()
+        anim.setStartValue(int(start))
+        anim.setEndValue(int(end))
+        anim.finished.connect(on_finished)
+        anim.start()
+
+    def expand_now(self) -> None:
+        """Snap to open: content visible, height clamp released."""
+        if self._anim is not None:
+            self._anim.stop()
+        self.set_expanded(True, emit=False)
+        self.setMaximumHeight(_QWIDGETSIZE_MAX)
+        # Floor at the content height so a stretchy open panel never shrinks
+        # below its content (it grows ABOVE this to absorb surplus space).
+        self.setMinimumHeight(self.sizeHint().height())
+
+    def collapse_now(self) -> None:
+        """Snap to collapsed: content hidden, height clamped to the header."""
+        if self._anim is not None:
+            self._anim.stop()
+        self.set_expanded(False, emit=False)
+        self.setMinimumHeight(0)
+        self.setMaximumHeight(self.header_height())
+
+    def animate_expand(self, target_height: int | None = None) -> None:
+        """Tween open: reveal content as the height clamp grows.
+
+        Args:
+            target_height: The height to tween to. Defaults to the content's
+                ``sizeHint``; the owning controller passes a larger "fill" target
+                when the panel should absorb surplus sidebar space. The clamp is
+                released on finish, so the final height is whatever the layout
+                gives the (stretchy) panel regardless of this estimate.
+        """
+        self.set_expanded(True, emit=False)  # show content so sizeHint is valid
+        self.setMinimumHeight(0)
+        start = self.height()
+        if target_height is None:
+            target_height = self.sizeHint().height()
+        end = max(self.header_height(), int(target_height))
+        self._restart_anim(start, end, self._after_animate_expand)
+
+    def _after_animate_expand(self) -> None:
+        # Release the clamp so the panel tracks its content size from now on
+        # (e.g. when a list populates after the open animation), and floor the
+        # height at the content size so it never shrinks below its content when
+        # several panels share the surplus space. Min is set only now — during
+        # the tween it stays 0, else min > the animating max would jump the panel.
+        self.setMaximumHeight(_QWIDGETSIZE_MAX)
+        self.setMinimumHeight(self.sizeHint().height())
+
+    def animate_collapse(self) -> None:
+        """Tween closed: shrink the height clamp to the header, then hide content."""
+        # Flip the chevron + logical state immediately for responsiveness, but
+        # keep the content widget visible so it is drawn (clipped) during the
+        # shrink; it is hidden when the animation finishes.
+        self._set_indicator(False)
+        self.setMinimumHeight(0)
+        start = self.height()
+        end = self.header_height()
+        self._restart_anim(start, end, self._after_animate_collapse)
+
+    def _after_animate_collapse(self) -> None:
+        if self._content_widget is not None:
+            self._content_widget.setVisible(False)
+        self.setMaximumHeight(self.header_height())

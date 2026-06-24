@@ -1050,6 +1050,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Not a number: '{token}'": "Keine Zahl: '{token}'",
     },
 
+    # ── CollapsiblePanel (US-226 sidebar accordion: header click tooltips) ──
+    "CollapsiblePanel": {
+        "Click to open": "Zum Öffnen klicken",
+        "Click to keep open": "Zum Offenhalten klicken",
+        "Click to collapse": "Zum Einklappen klicken",
+    },
+
     # ── NewProjectDialog ──
     "NewProjectDialog": {
         "New Project": "Neues Projekt",
