@@ -768,6 +768,8 @@ Each panel owns a lazy `QPropertyAnimation` on `maximumHeight` (`CollapsiblePane
 
 Two controller-level single-shot timers — open (~140 ms) and close (~220 ms, longer so a fast diagonal sweep to the canvas doesn't cascade-peek). The pointer leaves only one bar at a time, so a single `_pending_open_key` / `_pending_close_key` suffices; re-entering a bar cancels its pending close. `PINNED` panels ignore hover. Timer slots re-fetch the entry via `.get(key)` and bail on `None`; `start()`/`stop()` are wrapped in `contextlib.suppress(RuntimeError)` (teardown-safe).
 
+> **Deliberate sharp edge:** the content widget is a *sibling* of `_HeaderFrame`, not a child, so moving the pointer from the header down into a peeked panel's body fires the header's `leaveEvent` and schedules the close — a peek can collapse while the pointer is over its content. This is intentional: peek is transient (the tooltip says "Click to keep open", and a click pins it), and the asymmetric debounce is tuned for the sweep-to-canvas case. Do **not** "fix" it by widening the hover region to include the body — that would break the fast-sweep behaviour.
+
 ### 8.17.5 Click-toggle + selection dismissal
 
 `_on_title_click`:

@@ -1427,8 +1427,7 @@ class GardenPlannerApp(QMainWindow):
 
         self._sidebar_controller = SidebarController()
         for key, panel in canonical_panels:
-            self._sidebar_controller.add_panel(key, panel)
-        self._sidebar_controller.collapse_all()
+            self._sidebar_controller.add_panel(key, panel)  # registers COLLAPSED
         # The selection-driven panels have nothing to show until a matching item
         # is selected — hide their bars entirely until then (restored pre-US-226
         # behaviour; the selection updaters re-show them on a relevant selection).
