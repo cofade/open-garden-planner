@@ -115,6 +115,11 @@ class ProjectData:
     # folded into this on load (see ProjectManager.load).
     task_states: dict[str, Any] = field(default_factory=dict)
 
+    # US-C1 (#188): harvest / yield log.
+    # shape: {target_id: HarvestHistory.to_dict()} where target_id is a plant
+    # or bed UUID string.
+    harvest_logs: dict[str, Any] = field(default_factory=dict)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         data: dict[str, Any] = {
@@ -168,6 +173,8 @@ class ProjectData:
             data["manual_tasks"] = self.manual_tasks
         if self.task_states:
             data["task_states"] = self.task_states
+        if self.harvest_logs:
+            data["harvest_logs"] = self.harvest_logs
         return data
 
     @classmethod
@@ -199,6 +206,7 @@ class ProjectData:
             garden_journal_notes=data.get("garden_journal_notes", {}),
             manual_tasks=data.get("manual_tasks", {}),
             task_states=data.get("task_states", {}),
+            harvest_logs=data.get("harvest_logs", {}),
             # Note: `data.get("paper_layouts", ...)` is intentionally
             # not consumed here — the Paper Space feature was dropped
             # before PR #191 merged but earlier draft builds may have
@@ -233,6 +241,7 @@ class ProjectManager(QObject):
     garden_journal_notes_changed = pyqtSignal(object)  # dict[str, dict]
     manual_tasks_changed = pyqtSignal(object)  # dict[str, dict] (US-C2)
     task_states_changed = pyqtSignal(object)  # dict[str, dict] (US-C2)
+    harvest_logs_changed = pyqtSignal(object)  # dict[str, dict] (US-C1)
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -257,6 +266,7 @@ class ProjectManager(QObject):
         self._garden_journal_notes: dict[str, Any] = {}
         self._manual_tasks: dict[str, Any] = {}
         self._task_states: dict[str, Any] = {}
+        self._harvest_logs: dict[str, Any] = {}
 
     @property
     def current_file(self) -> Path | None:
@@ -533,6 +543,38 @@ class ProjectManager(QObject):
         self.pest_logs_changed.emit(self._pest_logs)
         self.mark_dirty()
 
+    # ── Harvest / yield log (US-C1, #188) ────────────────────────────────────
+    @property
+    def harvest_logs(self) -> dict[str, Any]:
+        """Per-target harvest log history dicts (US-C1) keyed by item UUID string."""
+        return dict(self._harvest_logs)
+
+    def get_harvest_history(self, target_id: str) -> Any:
+        """Return the ``HarvestHistory`` for ``target_id`` (empty when absent)."""
+        from open_garden_planner.models.harvest_log import HarvestHistory  # noqa: PLC0415
+
+        raw = self._harvest_logs.get(target_id)
+        if raw is None:
+            return HarvestHistory(target_id=target_id)
+        return HarvestHistory.from_dict(raw)
+
+    def set_harvest_history(self, target_id: str, history: Any) -> None:
+        """Replace the harvest history for ``target_id`` and mark project dirty."""
+        self._harvest_logs[target_id] = history.to_dict()
+        self.harvest_logs_changed.emit(self._harvest_logs)
+        self.mark_dirty()
+
+    def restore_harvest_history(
+        self, target_id: str, history_dict: dict[str, Any] | None
+    ) -> None:
+        """Restore (or delete) the harvest history for ``target_id`` (undo/redo)."""
+        if history_dict is None:
+            self._harvest_logs.pop(target_id, None)
+        else:
+            self._harvest_logs[target_id] = history_dict
+        self.harvest_logs_changed.emit(self._harvest_logs)
+        self.mark_dirty()
+
     @property
     def succession_plans(self) -> dict[str, Any]:
         """Per-bed succession plan dicts (US-12.8) keyed by bed UUID string."""
@@ -743,6 +785,7 @@ class ProjectManager(QObject):
         self._garden_journal_notes = {}
         self._manual_tasks = {}
         self._task_states = {}
+        self._harvest_logs = {}
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
@@ -762,6 +805,7 @@ class ProjectManager(QObject):
         self.garden_journal_notes_changed.emit({})
         self.manual_tasks_changed.emit({})
         self.task_states_changed.emit({})
+        self.harvest_logs_changed.emit({})
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -797,6 +841,7 @@ class ProjectManager(QObject):
         data.garden_journal_notes = dict(self._garden_journal_notes)
         data.manual_tasks = dict(self._manual_tasks)
         data.task_states = dict(self._task_states)
+        data.harvest_logs = dict(self._harvest_logs)
         file_path = file_path.with_suffix(".ogp")
 
         with open(file_path, "w", encoding="utf-8") as f:
@@ -867,6 +912,9 @@ class ProjectManager(QObject):
         # Restore pest/disease log history (US-12.7)
         self._pest_logs = dict(data.pest_disease_logs)
         self.pest_logs_changed.emit(self._pest_logs)
+        # Restore harvest / yield log history (US-C1)
+        self._harvest_logs = dict(data.harvest_logs)
+        self.harvest_logs_changed.emit(self._harvest_logs)
         # Restore shopping list prices (US-12.6)
         self._shopping_list_prices = dict(data.shopping_list_prices)
         self.shopping_list_prices_changed.emit(self._shopping_list_prices)
@@ -949,6 +997,23 @@ class ProjectManager(QObject):
                     target_id=tid, records=keep
                 ).to_dict()
         current_data.pest_disease_logs = carried_pests
+        # US-C1: harvest records are year-stamped yield history; carry them all
+        # forward so the garden-wide dashboard keeps year-over-year totals even
+        # across season rotations (species identity is cached on each history,
+        # so totals survive even when the plant objects are not kept). The new
+        # season starts with a blank journal (cleared below), so sever each
+        # carried record's journal_note_id to avoid a dangling reference.
+        from open_garden_planner.models.harvest_log import (  # noqa: PLC0415
+            HarvestHistory,
+        )
+
+        carried_harvest: dict[str, Any] = {}
+        for tid, raw in self._harvest_logs.items():
+            history = HarvestHistory.from_dict(raw)
+            for rec in history.records:
+                rec.journal_note_id = None
+            carried_harvest[tid] = history.to_dict()
+        current_data.harvest_logs = carried_harvest
 
         # Filter objects based on keep_plants flag
         if not keep_plants:

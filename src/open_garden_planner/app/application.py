@@ -60,6 +60,7 @@ from open_garden_planner.ui.panels import (
     PropertiesPanel,
 )
 from open_garden_planner.ui.theme import ThemeMode, apply_theme
+from open_garden_planner.ui.views.harvest_view import HarvestView
 from open_garden_planner.ui.views.planting_calendar_view import PlantingCalendarView
 from open_garden_planner.ui.views.seed_inventory_view import SeedInventoryView
 from open_garden_planner.ui.views.tasks_view import TasksView
@@ -1020,6 +1021,8 @@ class GardenPlannerApp(QMainWindow):
         self._project_manager.pest_logs_changed.connect(
             self._on_pest_logs_changed
         )
+        # US-C1: bed/plant → "Log Harvest…" routes through CanvasView
+        self.canvas_view.harvest_log_requested.connect(self._on_harvest_log_requested)
         # US-12.8: bed → "Plan Succession…" routes through CanvasView
         self.canvas_view.succession_plan_requested.connect(
             self._on_succession_plan_requested
@@ -1149,6 +1152,11 @@ class GardenPlannerApp(QMainWindow):
         self.tasks_view.set_soil_service(self._soil_service)
         self._tab_widget.addTab(self.tasks_view, self.tr("Tasks"))
 
+        # Tab: Harvest (US-C1, #188) — appended last (keeps existing tab indices
+        # and the frost-badge setCurrentIndex(1) valid).
+        self.harvest_view = HarvestView(self.canvas_scene, self._project_manager)
+        self._tab_widget.addTab(self.harvest_view, self.tr("Harvest"))
+
         # Keyboard shortcuts: Ctrl+1 / Ctrl+2 / Ctrl+3 to switch tabs.
         # (The "Layout / Paper Space" tab was dropped — `pdf_report_service`
         # already produces multi-page PDFs at chosen paper sizes, so a
@@ -1222,6 +1230,23 @@ class GardenPlannerApp(QMainWindow):
         self.tasks_view.navigate_to_bed.connect(self._on_navigate_to_bed)
         self.tasks_view.navigate_to_species.connect(self._on_highlight_species)
         self.tasks_view.navigate_to_items.connect(self._on_navigate_to_items)
+
+        # ── Harvest tab wiring (US-C1, #188) ─────────────────────────────────
+        harvest_shortcut = QAction(self)
+        harvest_shortcut.setShortcut(QKeySequence("Ctrl+6"))
+        harvest_shortcut.triggered.connect(
+            lambda: self._tab_widget.setCurrentIndex(
+                self._tab_widget.indexOf(self.harvest_view)
+            )
+        )
+        self.addAction(harvest_shortcut)
+        # Regenerate (debounced inside the view) when harvest logs change or on
+        # undo/redo (stack_changed); skipped while the tab is hidden.
+        self._project_manager.harvest_logs_changed.connect(
+            lambda _: self.harvest_view.schedule_refresh()
+        )
+        cmd_mgr.stack_changed.connect(lambda: self.harvest_view.schedule_refresh())
+        self.harvest_view.navigate_to_species.connect(self._on_highlight_species)
 
         # Wrap tab widget + update/reminder bars in a container
         self._update_bar = UpdateBar(self)
@@ -2270,6 +2295,12 @@ class GardenPlannerApp(QMainWindow):
             garden_journal_notes=(
                 self._project_manager.garden_journal_notes
                 if dialog.include_garden_notes
+                else None
+            ),
+            include_harvest_summary=dialog.include_harvest_summary,
+            harvest_logs=(
+                self._project_manager.harvest_logs
+                if dialog.include_harvest_summary
                 else None
             ),
             include_legend=dialog.include_legend,
@@ -3996,6 +4027,84 @@ class GardenPlannerApp(QMainWindow):
         self.statusBar().showMessage(self.tr("Pest/disease log recorded"), 3000)
         self._refresh_pest_overview()
 
+    # ── Harvest log (US-C1) ───────────────────────────────────────────────────
+
+    def _on_harvest_log_requested(self, target_id: str, display_name: str) -> None:
+        """Open HarvestLogDialog for a bed/plant (US-C1)."""
+        self._open_harvest_dialog(target_id, display_name)
+
+    def _harvest_species_for_target(
+        self, target_id: str, display_name: str
+    ) -> tuple[str, str]:
+        """Return ``(species_key, species_name)`` cached on a harvest history.
+
+        Reads the target item's ``plant_species`` metadata; falls back to the
+        display name (e.g. for beds without an assigned species).
+        """
+        from open_garden_planner.models.plant_data import (  # noqa: PLC0415
+            species_key as _species_key,
+        )
+
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None) or self.canvas_view.scene()
+        )
+        species: dict = {}
+        if scene is not None:
+            for item in scene.items():
+                if str(getattr(item, "item_id", "")) == target_id:
+                    meta = getattr(item, "metadata", {}) or {}
+                    species = meta.get("plant_species", {}) or {}
+                    break
+        key = _species_key(species) if species else ""
+        name = (
+            species.get("common_name")
+            or species.get("scientific_name")
+            or display_name
+        )
+        return key, name
+
+    def _open_harvest_dialog(self, target_id: str, display_name: str) -> None:
+        """Open the harvest dialog and execute AddHarvestRecordCommand on accept."""
+        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+
+        from open_garden_planner.core import AddHarvestRecordCommand  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs import HarvestLogDialog  # noqa: PLC0415
+
+        if not display_name:
+            display_name = (
+                self._lookup_bed_display_name(target_id)
+                or self._lookup_item_name(target_id)
+            )
+        history = self._project_manager.get_harvest_history(target_id)
+        dialog = HarvestLogDialog(
+            parent=self,
+            target_id=target_id,
+            target_name=display_name,
+            existing_history=history,
+            project_manager=self._project_manager,
+            command_manager=self.canvas_view.command_manager,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        if not dialog.has_new_entry:
+            # User managed history (edit/delete) without adding a new entry.
+            return
+
+        species_key, species_name = self._harvest_species_for_target(
+            target_id, display_name
+        )
+        record = dialog.result_record()
+        cmd = AddHarvestRecordCommand(
+            self._project_manager,
+            target_id,
+            record,
+            species_key=species_key,
+            species_name=species_name,
+        )
+        self.canvas_view.command_manager.execute(cmd)
+        self.statusBar().showMessage(self.tr("Harvest recorded"), 3000)
+
     def _on_succession_plan_requested(self, bed_id: str, display_name: str) -> None:
         """Open SuccessionPlanDialog for a bed (US-12.8)."""
         self._open_succession_plan_dialog(bed_id, display_name)
@@ -4497,6 +4606,8 @@ class GardenPlannerApp(QMainWindow):
             self.seed_inventory_view.refresh()
         elif index == self._tab_widget.indexOf(self.tasks_view):
             self.tasks_view.refresh()
+        elif index == self._tab_widget.indexOf(self.harvest_view):
+            self.harvest_view.refresh()
 
     def _on_frost_alert_ready(self, count: int, max_severity: str) -> None:
         """Update the frost alert corner badge."""

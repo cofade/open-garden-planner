@@ -891,6 +891,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         from open_garden_planner.ui.canvas.items.garden_item import BedMenuActions
         bed_actions = BedMenuActions()
         plant_pest_log_action = None
+        plant_harvest_log_action = None
         if is_bed_type(self.object_type):
             bed_actions = self.build_bed_context_menu(
                 menu, grid_enabled=self._grid_enabled, supports_grid=False
@@ -899,6 +900,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             menu.addSeparator()
             plant_pest_log_action = menu.addAction(
                 _("CircleItem", "Log Pest/Disease…")
+            )
+            plant_harvest_log_action = menu.addAction(
+                _("CircleItem", "Log Harvest…")
             )
 
         # Show Area toggle
@@ -962,6 +966,12 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 views = scene.views()
                 if views and hasattr(views[0], "request_pest_log"):
                     views[0].request_pest_log(str(self.item_id), self.name)
+        elif action == plant_harvest_log_action and plant_harvest_log_action is not None:
+            scene = self.scene()
+            if scene:
+                views = scene.views()
+                if views and hasattr(views[0], "request_harvest_log"):
+                    views[0].request_harvest_log(str(self.item_id), self.name)
         elif action == show_area_action:
             self.area_label_visible = not self._area_label_visible
         elif action == delete_action:

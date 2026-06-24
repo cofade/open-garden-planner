@@ -29,6 +29,9 @@ class JournalNote:
     # Scene coordinates of the pin (canvas centimetres).
     scene_x: float = 0.0
     scene_y: float = 0.0
+    # Free-form tags, e.g. ``["harvest"]`` for the pin-less notes auto-created
+    # by the harvest log (US-C1). Empty for ordinary user notes.
+    tags: list[str] = field(default_factory=list)
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def to_dict(self) -> dict[str, Any]:
@@ -42,6 +45,8 @@ class JournalNote:
         }
         if self.photo_path is not None:
             d["photo_path"] = self.photo_path
+        if self.tags:
+            d["tags"] = list(self.tags)
         return d
 
     @classmethod
@@ -54,6 +59,7 @@ class JournalNote:
             photo_path=data.get("photo_path"),
             scene_x=float(data.get("scene_x", 0.0)),
             scene_y=float(data.get("scene_y", 0.0)),
+            tags=list(data.get("tags", [])),
         )
 
 
