@@ -748,7 +748,14 @@ SidebarController → QVBoxLayout
               └── addStretch()           # last; keeps bars top-aligned when short
 ```
 
-**Panels are never reparented** — a state change only adjusts the panel's height clamp, so opening/closing one can never reorder the list (the reported bug). An open panel grows to its **content height**; when the open panels overflow the viewport the `QScrollArea` scrolls (the `addStretch()` contributes 0 height once content exceeds the viewport, so the scroll engages). There is no splitter, no equal-share, no draggable divider.
+**Panels are never reparented** — a state change only adjusts the panel's height clamp, so opening/closing one can never reorder the list (the reported bug). There is no splitter and no draggable divider.
+
+**Open panels fill the surplus space.** An open panel's floor is its content height (`setMinimumHeight(sizeHint)`, set on open) and it carries a **content-weighted layout stretch factor** (`setStretchFactor(panel, sizeHint().height())`); collapsed panels have stretch 0 and are clamped to the header. So:
+- One panel open → it absorbs all the surplus and fills the sidebar (no empty gap at the bottom — the reported polish item). A panel with an internal scroll area (e.g. Plant Details) thus reveals more of its content.
+- Several open → each gets at least its content height, and the leftover surplus is shared **weighted by content size** (the panel with more to show gets proportionally more, instead of an equal half a light panel can't fill).
+- Combined content exceeds the viewport → the `QScrollArea` scrolls (the minimum heights force the inner widget past the viewport; the trailing `addStretch()` contributes 0 height, so scroll engages) and each panel sits at its content height.
+
+The stretch is set **after** the content is revealed (`set_expanded(True)` first) so `sizeHint()` reflects the content, not the header-only collapsed height. The minimum is set only **after** the open animation finishes (during the tween it stays 0, else a min above the animating `maximumHeight` would jump the panel).
 
 ### 8.17.3 Animation (organic expand/collapse)
 

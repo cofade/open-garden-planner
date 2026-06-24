@@ -313,8 +313,10 @@ class CollapsiblePanel(QWidget):
         if self._anim is not None:
             self._anim.stop()
         self.set_expanded(True, emit=False)
-        self.setMinimumHeight(0)
         self.setMaximumHeight(_QWIDGETSIZE_MAX)
+        # Floor at the content height so a stretchy open panel never shrinks
+        # below its content (it grows ABOVE this to absorb surplus space).
+        self.setMinimumHeight(self.sizeHint().height())
 
     def collapse_now(self) -> None:
         """Snap to collapsed: content hidden, height clamped to the header."""
@@ -324,18 +326,32 @@ class CollapsiblePanel(QWidget):
         self.setMinimumHeight(0)
         self.setMaximumHeight(self.header_height())
 
-    def animate_expand(self) -> None:
-        """Tween open: reveal content as the height clamp grows to content size."""
+    def animate_expand(self, target_height: int | None = None) -> None:
+        """Tween open: reveal content as the height clamp grows.
+
+        Args:
+            target_height: The height to tween to. Defaults to the content's
+                ``sizeHint``; the owning controller passes a larger "fill" target
+                when the panel should absorb surplus sidebar space. The clamp is
+                released on finish, so the final height is whatever the layout
+                gives the (stretchy) panel regardless of this estimate.
+        """
         self.set_expanded(True, emit=False)  # show content so sizeHint is valid
         self.setMinimumHeight(0)
         start = self.height()
-        end = max(self.header_height(), self.sizeHint().height())
+        if target_height is None:
+            target_height = self.sizeHint().height()
+        end = max(self.header_height(), int(target_height))
         self._restart_anim(start, end, self._after_animate_expand)
 
     def _after_animate_expand(self) -> None:
         # Release the clamp so the panel tracks its content size from now on
-        # (e.g. when a list populates after the open animation).
+        # (e.g. when a list populates after the open animation), and floor the
+        # height at the content size so it never shrinks below its content when
+        # several panels share the surplus space. Min is set only now — during
+        # the tween it stays 0, else min > the animating max would jump the panel.
         self.setMaximumHeight(_QWIDGETSIZE_MAX)
+        self.setMinimumHeight(self.sizeHint().height())
 
     def animate_collapse(self) -> None:
         """Tween closed: shrink the height clamp to the header, then hide content."""

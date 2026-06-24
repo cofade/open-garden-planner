@@ -74,6 +74,20 @@ def test_pinning_does_not_reorder_panels(qtbot):
     assert ctrl.is_open("a") and ctrl.is_open("c")
 
 
+def test_open_panel_gets_stretch_to_fill_space(qtbot):
+    """An open panel takes a (content-weighted) layout stretch factor so it
+    absorbs surplus sidebar space instead of leaving an empty gap (US-226)."""
+    ctrl = _make_controller(qtbot)
+    layout = ctrl._layout
+    panel = ctrl.panel("a")
+
+    assert layout.stretch(layout.indexOf(panel)) == 0  # collapsed: no stretch
+    ctrl._on_title_click("a")
+    assert layout.stretch(layout.indexOf(panel)) > 0  # open: fills surplus
+    ctrl._on_title_click("a")
+    assert layout.stretch(layout.indexOf(panel)) == 0  # collapsed again
+
+
 def test_hover_peeks_then_leave_collapses(qtbot):
     ctrl = _make_controller(qtbot)
     ctrl._on_hover_enter("a")

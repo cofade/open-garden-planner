@@ -312,9 +312,20 @@ class SidebarController(QWidget):
     ) -> None:
         panel = entry.panel
         was_open = entry.state in (PanelState.PEEKING, PanelState.PINNED)
+        # Reveal the content first so sizeHint() reflects it (it returns the
+        # header-only height while the content is hidden).
+        if not was_open:
+            panel.set_expanded(True, emit=False)
+        # An open panel gets a layout stretch factor so it absorbs the surplus
+        # sidebar space (instead of leaving an empty gap at the bottom). The
+        # factor is weighted by content size so that when several are open the
+        # panel with more to show gets proportionally more of the surplus (a
+        # content-light panel doesn't claim an equal half it can't fill). They
+        # scroll once their combined content overflows.
+        self._layout.setStretchFactor(panel, max(1, panel.sizeHint().height()))
         if not was_open:
             if animate:
-                panel.animate_expand()
+                panel.animate_expand(self._fill_target(entry))
             else:
                 panel.expand_now()
         entry.state = new_state
@@ -324,6 +335,7 @@ class SidebarController(QWidget):
 
     def _collapse(self, entry: _PanelEntry, *, animate: bool, emit: bool) -> None:
         panel = entry.panel
+        self._layout.setStretchFactor(panel, 0)  # no longer competes for surplus
         if animate:
             panel.animate_collapse()
         else:
@@ -333,3 +345,23 @@ class SidebarController(QWidget):
         panel.set_visual_state(PanelState.COLLAPSED)
         if emit:
             self.panel_state_changed.emit(entry.key, PanelState.COLLAPSED)
+
+    def _fill_target(self, entry: _PanelEntry) -> int:
+        """Estimate the height an opening panel will settle at, so the tween ends
+        near it (the released clamp + stretch give the exact height afterwards).
+
+        The target is the viewport height minus what the other panels currently
+        occupy — i.e. the surplus this panel will absorb — but never below the
+        panel's own content height (a taller panel just overflows into the
+        sidebar scroll).
+        """
+        available = self._scroll.viewport().height()
+        content = entry.panel.sizeHint().height()
+        if available <= 0:
+            return content
+        used = sum(
+            self._entries[k].panel.height() for k in self._order if k != entry.key
+        )
+        used += self._layout.spacing() * len(self._order)  # inter-item gaps
+        fill = available - used
+        return max(content, min(fill, available))

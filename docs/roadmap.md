@@ -2350,7 +2350,7 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 - All panels **collapsed at startup** every session (no pin/panel-state persistence).
 - **Hover** a bar → peeks open in place (reflow pushes bars below down); leave → collapses (asymmetric debounce, no flicker on fast sweeps).
 - **Click** title → toggles open/closed, **animated** (organic height expansion). Panels keep a **fixed order** — opening one never reorders the list.
-- An open panel grows to its **content height**; the sidebar **scrolls** when open panels overflow. (Equal-share + draggable dividers from the first cut were dropped.)
+- Open panels **fill the available space** (content-weighted) instead of leaving an empty gap: one open panel fills the sidebar; several share the surplus by content size; combined overflow **scrolls**. (Equal-share + draggable dividers from the first cut were dropped.)
 - Selecting a plant auto-opens Plant Details + Companion; selecting a bed auto-opens Crop Rotation; clearing closes them. An auto-opened panel is **closable with one click** and stays closed for that selection; a different selection re-opens it. Manually-opened panels survive a selection clear.
 - New `SidebarController` (`ui/widgets/panel_stack.py`) owns the layout + `PanelState`/`PinSource` machine: one `QVBoxLayout` in a `QScrollArea`, panels never reparented.
 - First cut used a bottom `QSplitter` (reparent-on-pin) — reworked after manual testing surfaced reordering, no animation, and unclosable selection panels.
