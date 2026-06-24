@@ -88,6 +88,36 @@ def test_open_panel_gets_stretch_to_fill_space(qtbot):
     assert layout.stretch(layout.indexOf(panel)) == 0  # collapsed again
 
 
+def test_open_panels_share_surplus_weighted_by_content(qtbot):
+    """Two open panels: the one with more content gets a larger stretch factor,
+    so it receives proportionally more of the surplus space (US-226)."""
+    from PyQt6.QtWidgets import QVBoxLayout, QWidget
+
+    def content(rows: int) -> QWidget:
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        for i in range(rows):
+            label = QLabel(f"row {i}")
+            label.setMinimumHeight(20)
+            lay.addWidget(label)
+        return w
+
+    ctrl = SidebarController()
+    qtbot.addWidget(ctrl)
+    ctrl.add_panel("big", CollapsiblePanel("big", content(20)))
+    ctrl.add_panel("small", CollapsiblePanel("small", content(3)))
+    ctrl.resize(300, 800)
+    ctrl.show()
+
+    ctrl.set_selection_pinned("big", True)
+    ctrl.set_selection_pinned("small", True)
+
+    layout = ctrl._layout
+    big = layout.stretch(layout.indexOf(ctrl.panel("big")))
+    small = layout.stretch(layout.indexOf(ctrl.panel("small")))
+    assert big > small  # taller content → larger share of the surplus
+
+
 def test_hover_peeks_then_leave_collapses(qtbot):
     ctrl = _make_controller(qtbot)
     ctrl._on_hover_enter("a")

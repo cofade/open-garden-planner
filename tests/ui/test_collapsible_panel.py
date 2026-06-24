@@ -200,11 +200,18 @@ def test_collapse_now_and_expand_now(qtbot):
     assert not panel.is_expanded()
     assert not content.isVisible()
     assert panel.maximumHeight() == panel.header_height()
+    # Collapse drops the content floor so the bar can be header-sized (Qt reports
+    # the effective minimum, which the header clamp pins at the header height).
+    assert panel.minimumHeight() <= panel.header_height()
 
     panel.expand_now()
     assert panel.is_expanded()
     assert content.isVisible()
     assert panel.maximumHeight() > panel.header_height()
+    # An open panel floors at its content height — and the floor must never sit
+    # above the (released) clamp, or the panel would jump.
+    assert panel.minimumHeight() == panel.sizeHint().height()
+    assert panel.minimumHeight() <= panel.maximumHeight()
 
 
 def test_animate_expand_collapse_reach_end_state(qtbot):
@@ -218,8 +225,13 @@ def test_animate_expand_collapse_reach_end_state(qtbot):
     panel.animate_expand()
     assert panel.is_expanded()  # logical state flips synchronously
     qtbot.waitUntil(lambda: panel.maximumHeight() > panel.header_height(), timeout=1000)
+    # The content floor is set when the open animation finishes (never during,
+    # else min above the animating max would jump the panel).
+    qtbot.waitUntil(lambda: panel.minimumHeight() > 0, timeout=1000)
+    assert panel.minimumHeight() <= panel.maximumHeight()
 
     panel.animate_collapse()
     assert not panel.is_expanded()
+    assert panel.minimumHeight() == 0  # floor dropped synchronously on collapse
     qtbot.waitUntil(lambda: not content.isVisible(), timeout=1000)
     assert panel.maximumHeight() == panel.header_height()

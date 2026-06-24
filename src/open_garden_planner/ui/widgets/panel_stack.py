@@ -1,11 +1,13 @@
-"""Sidebar panel stack: hover-peek, click-to-toggle, content-height accordion.
+"""Sidebar panel stack: hover-peek, click-to-toggle, fill-the-surplus accordion.
 
 ``SidebarController`` owns the sidebar layout and a per-panel state machine
 (:class:`PanelState`). All panels live — in a fixed canonical order that never
 changes — in a single ``QVBoxLayout`` inside a ``QScrollArea``: a panel is never
-reparented, so opening/closing one cannot reorder the list. Opening a panel grows
-it to its content height (animated); the sidebar scrolls when the open panels
-overflow. See ADR-030 / arc42 §8.17.
+reparented, so opening/closing one cannot reorder the list. An open panel floors
+at its content height and carries a content-weighted layout stretch factor, so it
+absorbs the surplus sidebar space (one open panel fills the sidebar; several share
+the surplus weighted by content size); the sidebar scrolls when their combined
+content overflows. See ADR-030 / arc42 §8.17.
 """
 
 from __future__ import annotations
@@ -60,9 +62,11 @@ class SidebarController(QWidget):
 
     Panels are registered in canonical order via :meth:`add_panel` and live in a
     single scrollable ``QVBoxLayout``; they are never reparented, so a state
-    change never reorders the list. An open panel grows to its content height
-    (animated); a trailing stretch keeps bars top-aligned and the surrounding
-    ``QScrollArea`` scrolls when the open panels overflow the viewport.
+    change never reorders the list. An open panel floors at its content height and
+    takes a content-weighted stretch factor so it absorbs the surplus space (it
+    animates open); a trailing stretch keeps bars top-aligned while nothing is
+    open, and the surrounding ``QScrollArea`` scrolls when the open panels'
+    combined content overflows the viewport.
     """
 
     # (key, PanelState) — emitted after every committed transition.
