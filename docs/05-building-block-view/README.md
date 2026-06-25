@@ -96,6 +96,7 @@ src/open_garden_planner/
 │   ├── layer.py                  # Layer model
 │   ├── soil_test.py              # SoilTestRecord & SoilTestHistory (US-12.10a)
 │   ├── pest_log.py               # PestLogRecord & PestLogHistory (US-12.7)
+│   ├── harvest_log.py            # HarvestRecord & HarvestHistory (US-C1)
 │   ├── journal_note.py           # JournalNote — map-linked notes (US-12.9)
 │   ├── amendment.py              # Amendment & AmendmentRecommendation (US-12.10c)
 │   └── task.py                   # ManualTask — user-created reminder (US-C2, ADR-029)
@@ -165,6 +166,7 @@ src/open_garden_planner/
 │   ├── autosave_service.py       # Autosave logic
 │   ├── soil_service.py           # Soil test history facade (US-12.10a)
 │   ├── task_generator.py         # Pure (PlanState)->list[Task] generators + generate_all (US-C2, ADR-029)
+│   ├── harvest_aggregation.py    # Pure per-species/year/unit harvest totals (US-C1)
 │   ├── task_status.py            # Render-time effective_status (open/snoozed/done/dismissed/archived) (US-C2)
 │   ├── shopping_list_service.py  # Plants/seed-gap/material aggregator (US-12.6)
 │   ├── google_maps_service.py    # Static Maps HTTP + tile-mosaic stitching (ADR-019)
@@ -279,4 +281,6 @@ Black-box view of the unified Tasks tab. See ADR-029 and FR-21.
 | `services/task_generator.py` | Derive the actionable to-do list from a project snapshot. Owns the frozen `Task` value object, the `PlanState` snapshot, six pure `(PlanState) -> list[Task]` generators (planting-calendar windows, propagation, succession sow/clear, soil amendments, frost protection, manual tasks) and `generate_all` (flat-map + dedup by `task_id`). Qt-free. | `PlanState` in → `list[Task]` out |
 | `services/task_status.py` | Resolve a stored raw task state against "today" into a render-time status. No scheduler — expired snoozes read `open`, done > 7 days reads `archived`. | raw state + today → `effective_status` ∈ {open, snoozed, done, dismissed, archived} |
 | `models/task.py` (`ManualTask`) | Data model for a user-created reminder (date, title, notes, optional bed link). Serialized under the additive `.ogp` key `manual_tasks`; Add/Edit/Delete are undoable. | dict ⇄ `ManualTask` |
+| `services/harvest_aggregation.py` | Roll the project's `harvest_logs` into per-species, per-year, per-unit totals for the Harvest dashboard tab, CSV export and PDF summary page. Groups by `(species, year, unit)` — different units never summed. Qt-free. | `harvest_logs` dict → `list[AggregatedHarvest]` |
+| `models/harvest_log.py` (`HarvestRecord`/`HarvestHistory`) | Per-target (plant/bed) yield records (date, quantity, unit, quality, notes, photo, linked journal-note id). Serialized under the additive `.ogp` key `harvest_logs` keyed by item UUID; history caches `species_key`/`species_name`. Add/Edit/Delete undoable, auto-maintaining a pin-less `harvest`-tagged journal note. | dict ⇄ `HarvestHistory` |
 | `ui/views/tasks_view.py` (`TasksView`) | Dashboard tab (Ctrl+5, appended after Seed Inventory). Builds the Qt-side `PlanState` (`build_plan_state`), runs the generators, applies `effective_status`, groups Overdue/Today/This Week/Upcoming/No date plus Snoozed/Done sections, and writes done/snooze/dismiss through `set_task_status` (which keeps the legacy `task_completions` store in sync). Reuses the planting calendar's single weather fetch via `frost_alerts_ready`. | project state + signals in → grouped task UI |

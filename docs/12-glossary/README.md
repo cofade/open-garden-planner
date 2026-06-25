@@ -73,6 +73,8 @@
 | **Task state** | The stored raw status of one task keyed by `task_id` (`task_states` in the `.ogp` file): open / snoozed (until a date) / done (on a date) / dismissed. Written at both write chokepoints (`set_task_status`, `set_task_completion`), which also keep the legacy `task_completions` done-set in sync. See ADR-029 |
 | **Task generator** | One of six pure, Qt-free `(PlanState) -> list[Task]` functions in `services/task_generator.py` — planting-calendar windows, propagation, succession sow/clear, soil amendments, frost protection, manual tasks. `generate_all` flat-maps and dedups by `task_id`. Pure so they unit-test without a running app. See ADR-029 |
 | **Effective status** | The render-time status of a task computed by `services/task_status.effective_status` from its stored `Task state` and "today": open / snoozed / done / dismissed / archived. No background scheduler — an expired snooze reads as open and a task done > 7 days ago reads as archived (done-then-archive window) on the next render. See ADR-029 |
+| **Harvest log** | Per-target (plant/bed) yield records (`HarvestRecord`/`HarvestHistory` in `models/harvest_log.py`): date, quantity, unit, quality, notes, optional photo. Persisted under the additive `.ogp` key `harvest_logs` keyed by item UUID; each history caches `species_key` + `species_name` so totals resolve even after the plant is deleted. Add/Edit/Delete are undoable and auto-maintain a pin-less `harvest`-tagged journal note. See FR-23 (US-C1) |
+| **Harvest aggregation** | The pure, Qt-free `services/harvest_aggregation.aggregate_by_species_year` that rolls `harvest_logs` into per-species, per-year, per-unit totals for the garden-wide **Harvest** dashboard tab, CSV export, and PDF summary page. Groups by `(species, year, unit)` — quantities in different units are never summed |
 
 ## 12.2 Keyboard Shortcuts
 
@@ -106,6 +108,7 @@
 | Planting Calendar tab | Ctrl+2 |
 | Seed Inventory tab | Ctrl+3 |
 | Tasks tab | Ctrl+5 |
+| Harvest tab | Ctrl+6 |
 | Bezier Tool | B |
 | Arc Tool (3-point) | A |
 | Fillet Tool | Shift+F |

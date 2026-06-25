@@ -43,6 +43,11 @@ class PdfReportOptions:
     # ``ProjectManager.garden_journal_notes``. ``None`` is treated as empty.
     include_garden_notes: bool = False
     garden_journal_notes: dict[str, Any] | None = None
+    # US-C1: optional Harvest Summary page. ``harvest_logs`` must be populated
+    # when ``include_harvest_summary`` is True — pass the raw dict from
+    # ``ProjectManager.harvest_logs``. ``None`` is treated as empty.
+    include_harvest_summary: bool = False
+    harvest_logs: dict[str, Any] | None = None
     project_name: str = "Garden Plan"
     author: str = ""
     export_date: str = field(default_factory=lambda: date.today().isoformat())
@@ -418,6 +423,98 @@ def _render_plant_list(
         )
 
 
+def _render_harvest_summary(
+    painter: QPainter,
+    page_rect: QRectF,
+    _scene: CanvasScene,
+    opts: PdfReportOptions,
+) -> None:
+    """Render the Harvest Summary page (US-C1): per-species, per-year totals."""
+    from open_garden_planner.services.harvest_aggregation import (
+        aggregate_by_species_year,
+    )
+
+    rows = aggregate_by_species_year(opts.harvest_logs or {})
+
+    header_font = QFont("Arial", 9)
+    header_font.setBold(True)
+    row_font = QFont("Arial", 8)
+    title_font = QFont("Arial", 14)
+    title_font.setBold(True)
+
+    painter.setFont(title_font)
+    painter.setPen(QColor("#2e7d32"))
+    title_h = _pt(14)
+    painter.drawText(
+        QRectF(page_rect.left(), page_rect.top(), page_rect.width(), title_h),
+        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+        _tr("Harvest Summary"),
+    )
+
+    cols = [
+        (_tr("Species"), 0.40),
+        (_tr("Year"), 0.15),
+        (_tr("Total"), 0.20),
+        (_tr("Unit"), 0.13),
+        (_tr("Entries"), 0.12),
+    ]
+
+    row_h = _pt(7)
+    y = page_rect.top() + title_h + _pt(4)
+
+    # Header row
+    painter.fillRect(
+        QRectF(page_rect.left(), y, page_rect.width(), row_h), QColor("#2e7d32")
+    )
+    painter.setFont(header_font)
+    painter.setPen(QColor("white"))
+    x = page_rect.left()
+    for label, frac in cols:
+        col_w = page_rect.width() * frac
+        painter.drawText(
+            QRectF(x + _pt(2), y, col_w - _pt(4), row_h),
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+            label,
+        )
+        x += col_w
+    y += row_h
+
+    # Data rows
+    painter.setFont(row_font)
+    for idx, agg in enumerate(rows):
+        if y + row_h > page_rect.bottom() - _pt(8):
+            break  # Don't overflow page
+        bg = QColor("#f9f9f9") if idx % 2 == 0 else QColor("white")
+        painter.fillRect(QRectF(page_rect.left(), y, page_rect.width(), row_h), bg)
+        painter.setPen(QColor("#333333"))
+        values = [
+            agg.species_name or _tr("Unnamed"),
+            str(agg.year),
+            f"{agg.total_quantity:g}",
+            agg.unit,
+            str(agg.entry_count),
+        ]
+        x = page_rect.left()
+        for val, frac in zip(values, [f for _, f in cols], strict=True):
+            col_w = page_rect.width() * frac
+            painter.drawText(
+                QRectF(x + _pt(2), y, col_w - _pt(4), row_h),
+                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+                val[:40],
+            )
+            x += col_w
+        y += row_h
+
+    if not rows:
+        painter.setFont(row_font)
+        painter.setPen(QColor("#777777"))
+        painter.drawText(
+            QRectF(page_rect.left(), y + _pt(4), page_rect.width(), _pt(10)),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            _tr("No harvests logged in this project."),
+        )
+
+
 def _render_garden_notes(
     painter: QPainter,
     page_rect: QRectF,
@@ -787,6 +884,8 @@ class PdfReportService:
             pages.append(("plant_list", None))
         if opts.include_garden_notes:
             pages.append(("garden_notes", None))
+        if opts.include_harvest_summary:
+            pages.append(("harvest_summary", None))
         if opts.include_legend:
             pages.append(("legend", None))
 
@@ -824,6 +923,8 @@ class PdfReportService:
                     _render_plant_list(painter, page_rect, scene, opts)
                 elif page_type == "garden_notes":
                     _render_garden_notes(painter, page_rect, scene, opts)
+                elif page_type == "harvest_summary":
+                    _render_harvest_summary(painter, page_rect, scene, opts)
                 elif page_type == "legend":
                     _render_legend(painter, page_rect, scene, opts)
 

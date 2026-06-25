@@ -4,7 +4,7 @@ import csv
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import QRectF, QSize, Qt
+from PyQt6.QtCore import QCoreApplication, QRectF, QSize, Qt
 from PyQt6.QtGui import QColor, QFont, QImage, QPainter
 from PyQt6.QtSvg import QSvgGenerator
 from PyQt6.QtWidgets import QGraphicsScene, QGraphicsSimpleTextItem, QGraphicsTextItem
@@ -740,3 +740,52 @@ class ExportService:
         except Exception as e:
             raise ValueError(f"Failed to write shopping list CSV to {file_path}: {e}") from e
         return len(items)
+
+    @staticmethod
+    def export_harvest_to_csv(
+        harvest_logs: dict[str, Any],
+        file_path: Path | str,
+    ) -> int:
+        """Export garden-wide harvest totals (US-C1) to CSV.
+
+        Aggregates ``harvest_logs`` into per-species, per-year, per-unit totals
+        (via :mod:`services.harvest_aggregation`) and writes one row per total.
+
+        Args:
+            harvest_logs: ``ProjectManager.harvest_logs``.
+            file_path: Path to save the CSV file.
+
+        Returns:
+            Number of rows written (excluding header).
+
+        Raises:
+            ValueError: If writing fails.
+        """
+        from open_garden_planner.services.harvest_aggregation import (  # noqa: PLC0415
+            HARVEST_CSV_HEADERS,
+            aggregate_by_species_year,
+            harvest_csv_rows,
+        )
+
+        file_path = Path(file_path)
+        rows = harvest_csv_rows(aggregate_by_species_year(harvest_logs))
+        # Keep the CSV consistent with the dashboard table + PDF summary: an
+        # unnamed, species-less target has a blank name — show the same
+        # localized "Unnamed" label rather than an empty cell.
+        unnamed = QCoreApplication.translate("HarvestView", "Unnamed")
+        for row in rows:
+            if not row.get("species"):
+                row["species"] = unnamed
+        try:
+            # utf-8-sig writes a BOM so Excel on Windows recognises the file as
+            # UTF-8 instead of Latin-1; otherwise German Umlauts arrive mojibake'd.
+            with open(file_path, "w", newline="", encoding="utf-8-sig") as f:
+                writer = csv.DictWriter(
+                    f, fieldnames=HARVEST_CSV_HEADERS, extrasaction="ignore"
+                )
+                writer.writeheader()
+                for row in rows:
+                    writer.writerow(row)
+        except Exception as e:
+            raise ValueError(f"Failed to write harvest CSV to {file_path}: {e}") from e
+        return len(rows)

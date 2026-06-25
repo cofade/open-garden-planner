@@ -44,6 +44,7 @@ class BedMenuActions:
     toggle_grid: QAction | None = None
     add_soil_test: QAction | None = None
     log_pest_disease: QAction | None = None
+    log_harvest: QAction | None = None
     plan_succession: QAction | None = None
 
 
@@ -483,6 +484,9 @@ class GardenItemMixin:
         actions.log_pest_disease = menu.addAction(
             QCoreApplication.translate("BedActions", "Log Pest/Disease…")
         )
+        actions.log_harvest = menu.addAction(
+            QCoreApplication.translate("BedActions", "Log Harvest…")
+        )
         actions.plan_succession = menu.addAction(
             QCoreApplication.translate("BedActions", "Plan Succession…")
         )
@@ -517,6 +521,10 @@ class GardenItemMixin:
         if action is actions.log_pest_disease and actions.log_pest_disease is not None:
             if hasattr(view, "request_pest_log"):
                 view.request_pest_log(str(self.item_id), self.name)
+            return True
+        if action is actions.log_harvest and actions.log_harvest is not None:
+            if hasattr(view, "request_harvest_log"):
+                view.request_harvest_log(str(self.item_id), self.name)
             return True
         if action is actions.plan_succession and actions.plan_succession is not None:
             if hasattr(view, "request_succession_plan"):

@@ -51,6 +51,9 @@ class JournalNoteDialog(QDialog):
         self._note_id: str = note.id if note is not None else str(uuid.uuid4())
         self._scene_x: float = note.scene_x if note is not None else 0.0
         self._scene_y: float = note.scene_y if note is not None else 0.0
+        # Preserve any tags (e.g. ["harvest"] for harvest-linked notes) so an
+        # edit through this dialog never silently strips them (US-C1).
+        self._tags: list[str] = list(note.tags) if note is not None else []
         self._photo_path: str | None = note.photo_path if note is not None else None
 
         self.setWindowTitle(
@@ -250,6 +253,7 @@ class JournalNoteDialog(QDialog):
             photo_path=self._photo_path,
             scene_x=self._scene_x,
             scene_y=self._scene_y,
+            tags=list(self._tags),
         )
 
     # Test helper — populate the editor without going through user input.

@@ -2208,6 +2208,109 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 }
 
 
+# ── US-C1 harvest / yield log strings (#188) ─────────────────────────────────
+# Merged into TRANSLATIONS below so additions land on the *effective* (last-wins)
+# context dicts even where a context name appears more than once in the literal.
+_HARVEST_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "Commands": {
+        "Add harvest entry": "Ernte-Eintrag hinzufügen",
+        "Edit harvest entry": "Ernte-Eintrag bearbeiten",
+        "Delete harvest entry": "Ernte-Eintrag löschen",
+    },
+    "HarvestJournal": {
+        "Harvested {qty} {unit} of {name}": "{qty} {unit} {name} geerntet",
+        "Harvested {qty} {unit}": "{qty} {unit} geerntet",
+    },
+    "BedActions": {
+        "Log Harvest…": "Ernte erfassen…",
+    },
+    "CircleItem": {
+        "Log Harvest…": "Ernte erfassen…",
+    },
+    "GardenPlannerApp": {
+        "Harvest": "Ernte",
+        "Harvest recorded": "Ernte erfasst",
+    },
+    "HarvestLogDialog": {
+        "Edit Harvest Entry": "Ernte-Eintrag bearbeiten",
+        "Harvest Log — {name}": "Ernteprotokoll — {name}",
+        "Harvest Log": "Ernteprotokoll",
+        "Entry": "Eintrag",
+        "History": "Verlauf",
+        "Date": "Datum",
+        "Quantity": "Menge",
+        "Unit": "Einheit",
+        "Quality": "Qualität",
+        "e.g. excellent, sweet": "z. B. ausgezeichnet, süß",
+        "Notes": "Notizen",
+        "Attach Photo…": "Foto anhängen…",
+        "Remove Photo": "Foto entfernen",
+        "Save project first to attach photos": (
+            "Projekt zuerst speichern, um Fotos anzuhängen"
+        ),
+        "Past entries": "Frühere Einträge",
+        "No past entries": "Keine früheren Einträge",
+        "{year} — {totals}": "{year} — {totals}",
+        "Edit": "Bearbeiten",
+        "Delete": "Löschen",
+        "{date} — {qty} {unit}": "{date} — {qty} {unit}",
+        " ({quality})": " ({quality})",
+        "Delete the harvest entry from {date}?": (
+            "Ernte-Eintrag vom {date} löschen?"
+        ),
+        "Delete harvest entry": "Ernte-Eintrag löschen",
+        "Select photo": "Foto auswählen",
+        "Images (*.png *.jpg *.jpeg *.gif *.bmp *.webp)": (
+            "Bilder (*.png *.jpg *.jpeg *.gif *.bmp *.webp)"
+        ),
+        "Photo attach failed": "Foto anhängen fehlgeschlagen",
+        "Could not copy photo: {err}": "Foto konnte nicht kopiert werden: {err}",
+        "(no photo)": "(kein Foto)",
+        "(unsaved)": "(nicht gespeichert)",
+        "(missing)": "(fehlt)",
+        "Click to open in image viewer": "Zum Öffnen im Bildbetrachter klicken",
+        "Zero quantity": "Menge null",
+        "Save entry with zero quantity?": "Eintrag mit Menge null speichern?",
+    },
+    "HarvestView": {
+        "Harvest": "Ernte",
+        "Export CSV…": "CSV exportieren…",
+        "Species": "Art",
+        "Year": "Jahr",
+        "Total": "Gesamt",
+        "Unit": "Einheit",
+        "Entries": "Einträge",
+        "No harvests logged yet. Right-click a plant → “Log Harvest…”.": (
+            "Noch keine Ernten erfasst. Rechtsklick auf eine Pflanze "
+            "→ „Ernte erfassen…“."
+        ),
+        "Export Harvest Totals as CSV": "Erntesummen als CSV exportieren",
+        "CSV files (*.csv)": "CSV-Dateien (*.csv)",
+        "Export failed": "Export fehlgeschlagen",
+        "Wrote {count} rows to {name}": "{count} Zeilen in {name} geschrieben",
+        "Unnamed": "Unbenannt",
+    },
+    "PdfReportService": {
+        "Harvest Summary": "Erntezusammenfassung",
+        "Species": "Art",
+        "Year": "Jahr",
+        "Total": "Gesamt",
+        "Unit": "Einheit",
+        "Entries": "Einträge",
+        "No harvests logged in this project.": (
+            "Keine Ernten in diesem Projekt erfasst."
+        ),
+        "Unnamed": "Unbenannt",
+    },
+    "PdfReportDialog": {
+        "Harvest summary": "Erntezusammenfassung",
+    },
+}
+
+for _ctx, _strings in _HARVEST_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)

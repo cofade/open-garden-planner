@@ -9,6 +9,8 @@ does *not* steal keyboard focus from the QLineEdit — otherwise every
 keystroke after the first would land on the popup and be lost.
 """
 
+import contextlib
+
 from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
@@ -120,9 +122,15 @@ class GlobalSearchField(QLineEdit):
         app = QApplication.instance()
         if app is not None:
             app.focusChanged.connect(self._on_focus_changed)
-            self.destroyed.connect(
-                lambda _: app.focusChanged.disconnect(self._on_focus_changed)
-            )
+            # Disconnect on destroy so a future rebuild (theme reload, language
+            # switch) doesn't accumulate stale connections. Qt already auto-
+            # disconnects a destroyed receiver, so the explicit disconnect can
+            # race to a "not connected" TypeError during teardown — suppress it.
+            def _disconnect(_obj: object = None, _app: object = app) -> None:
+                with contextlib.suppress(TypeError, RuntimeError):
+                    _app.focusChanged.disconnect(self._on_focus_changed)
+
+            self.destroyed.connect(_disconnect)
 
     def _on_text_changed(self, text: str) -> None:
         needle = text.strip().lower()
@@ -139,15 +147,22 @@ class GlobalSearchField(QLineEdit):
         self._popup.show()
 
     def _on_focus_changed(self, _old: QWidget | None, new: QWidget | None) -> None:
-        if not self._popup.isVisible():
+        # This is connected to the *application*-wide focusChanged, which
+        # outlives the field. During teardown a stray callback can arrive after
+        # this field's (or its popup's) C++ object is gone — ignore it rather
+        # than raise from the dangling connection.
+        try:
+            if not self._popup.isVisible():
+                return
+            # Keep popup open if focus stays in the field or its clear-button
+            # children, hide it otherwise.
+            if new is self:
+                return
+            if new is not None and self.isAncestorOf(new):
+                return
+            self._popup.hide()
+        except RuntimeError:
             return
-        # Keep popup open if focus stays in the field or its clear-button
-        # children, hide it otherwise.
-        if new is self:
-            return
-        if new is not None and self.isAncestorOf(new):
-            return
-        self._popup.hide()
 
     def _on_item_chosen(self, item: GalleryItem) -> None:
         self.tool_selected.emit(item.tool_type)
