@@ -9870,4 +9870,19 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Unbenannt</translation>
         </message>
     </context>
+    <context>
+        <name>CollapsiblePanel</name>
+        <message>
+            <source>Click to open</source>
+            <translation>Zum Öffnen klicken</translation>
+        </message>
+        <message>
+            <source>Click to keep open</source>
+            <translation>Zum Offenhalten klicken</translation>
+        </message>
+        <message>
+            <source>Click to collapse</source>
+            <translation>Zum Einklappen klicken</translation>
+        </message>
+    </context>
 </TS>

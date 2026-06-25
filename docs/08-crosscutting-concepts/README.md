@@ -721,3 +721,72 @@ The floating overlay is *visible* only when **all** of:
 3. The tool's `last_point` is **not** `None` (no anchor → no polar/relative makes sense).
 
 Any other state must hide the overlay. The implementation lives in `CanvasView._update_dynamic_overlay`. If you add a new hide-condition, do it there; do not add visibility logic inside the overlay widget itself — it has no knowledge of the active tool by design.
+
+## 8.17 Sidebar Accordion — Hover-Peek + Click-to-Toggle (ADR-030, issue #226)
+
+The right sidebar is an accordion owned by `SidebarController` (`ui/widgets/panel_stack.py`). It is the single source of truth for every panel's state; `CollapsiblePanel` is a dumb show/hide-and-tween primitive underneath it.
+
+> The first cut used a bottom `QSplitter` that pinned panels *reparented* into (equal-share, draggable). It failed manual testing — opening a panel made it jump to the bottom (reorder), there was no animation, and selection-opened panels were unclosable. This section documents the **revised** model (ADR-030 addendum): one scrollable layout, no reparenting, animated, click-toggles.
+
+### 8.17.1 The state machine
+
+Each panel is `COLLAPSED`, `PEEKING`, or `PINNED`, with a `PinSource` of `USER` or `SELECTION` when open:
+
+- **COLLAPSED** — content hidden; `setMinimumHeight(0)` **then** `setMaximumHeight(header_height())`. Reset the minimum *before* clamping the max.
+- **PEEKING** — hover-opened (auto-collapses on leave); content grows to its size.
+- **PINNED** — click- or selection-opened; stays open until the title is clicked again. `USER` (click) survives a selection clear; `SELECTION` (auto) is collapsed when the selection no longer matches.
+
+`is_open(key)` ⇔ state ∈ {PEEKING, PINNED}. Clicking the title of **any** open panel collapses it (see §8.17.5).
+
+### 8.17.2 Layout: one scrollable stack, no reparenting
+
+```
+SidebarController → QVBoxLayout
+  └── QScrollArea (setWidgetResizable, h-scrollbar off)
+        └── inner QWidget → QVBoxLayout(spacing 2)
+              ├── CollapsiblePanel × 9   # ALWAYS here, fixed canonical order
+              └── addStretch()           # last; keeps bars top-aligned when short
+```
+
+**Panels are never reparented** — a state change only adjusts the panel's height clamp, so opening/closing one can never reorder the list (the reported bug). There is no splitter and no draggable divider.
+
+**Open panels fill the surplus space.** An open panel's floor is its content height (`setMinimumHeight(sizeHint)`, set on open) and it carries a **content-weighted layout stretch factor** (`setStretchFactor(panel, sizeHint().height())`); collapsed panels have stretch 0 and are clamped to the header. So:
+- One panel open → it absorbs all the surplus and fills the sidebar (no empty gap at the bottom — the reported polish item). A panel with an internal scroll area (e.g. Plant Details) thus reveals more of its content.
+- Several open → each gets at least its content height, and the leftover surplus is shared **weighted by content size** (the panel with more to show gets proportionally more, instead of an equal half a light panel can't fill).
+- Combined content exceeds the viewport → the `QScrollArea` scrolls (the minimum heights force the inner widget past the viewport; the trailing `addStretch()` contributes 0 height, so scroll engages) and each panel sits at its content height.
+
+The stretch is set **after** the content is revealed (`set_expanded(True)` first) so `sizeHint()` reflects the content, not the header-only collapsed height. The minimum is set only **after** the open animation finishes (during the tween it stays 0, else a min above the animating `maximumHeight` would jump the panel).
+
+### 8.17.3 Animation (organic expand/collapse)
+
+Each panel owns a lazy `QPropertyAnimation` on `maximumHeight` (`CollapsiblePanel.animate_expand`/`animate_collapse`, ~160 ms `InOutCubic`):
+- **Expand**: `set_expanded(True)` first so the content is visible and `sizeHint()` is valid, then tween the clamp `header → sizeHint`; on finish release the clamp to `QWIDGETSIZE_MAX` so the panel tracks later content-size changes (e.g. a list populating after `update_for_plant`).
+- **Collapse**: flip the chevron + logical state immediately (responsive, and keeps `is_expanded()` correct for tests/state), keep the content widget *visible* during the shrink so it is drawn clipped, tween `height → header`, and hide the content on finish.
+- `_restart_anim` stops any running tween and reconnects a fresh `finished` handler, so rapid open↔close toggles are safe. `expand_now`/`collapse_now` are the non-animated variants used at startup and `collapse_all()`.
+
+### 8.17.4 Debounce + anti-flicker (hover-peek)
+
+Two controller-level single-shot timers — open (~140 ms) and close (~220 ms, longer so a fast diagonal sweep to the canvas doesn't cascade-peek). The pointer leaves only one bar at a time, so a single `_pending_open_key` / `_pending_close_key` suffices; re-entering a bar cancels its pending close. `PINNED` panels ignore hover. Timer slots re-fetch the entry via `.get(key)` and bail on `None`; `start()`/`stop()` are wrapped in `contextlib.suppress(RuntimeError)` (teardown-safe).
+
+> **Deliberate sharp edge:** the content widget is a *sibling* of `_HeaderFrame`, not a child, so moving the pointer from the header down into a peeked panel's body fires the header's `leaveEvent` and schedules the close — a peek can collapse while the pointer is over its content. This is intentional: peek is transient (the tooltip says "Click to keep open", and a click pins it), and the asymmetric debounce is tuned for the sweep-to-canvas case. Do **not** "fix" it by widening the hover region to include the body — that would break the fast-sweep behaviour.
+
+### 8.17.5 Click-toggle + selection dismissal
+
+`_on_title_click`:
+- **PINNED** → collapse. If it was `SELECTION`-opened, set `selection_dismissed = True` so it does **not** re-open on the next selection *re-notify* (a scene move / undo fires `set_selection_pinned(True)` again for the same selection).
+- **PEEKING** → promote the hover-peek to a sticky `USER` pin (already open).
+- **COLLAPSED** → open as a `USER` pin.
+
+`set_selection_pinned(key, True)` opens as `SELECTION` *unless* `selection_dismissed`. `reset_selection_dismissals()` clears all dismissals and is called from `application._on_selection_changed` (wired to `selectionChanged` **before** the `_update_*_panel` slots), so a genuine selection change re-opens the contextual panels for the newly selected item. When wiring a selection signal to a contextual panel, keep the panel's own content-update call (`set_selected_items` / `update_for_plant` / `update_for_bed`), then call `set_panel_visible(key, relevant)` **and** `set_selection_pinned(key, relevant)`.
+
+### 8.17.6a Contextual-panel visibility
+
+Plant Details / Companion / Crop Rotation have nothing to show unless a matching item is selected, so their **bar is hidden entirely** when irrelevant (they are NOT left as empty collapsed bars the user could open onto a placeholder — this restores the pre-US-226 `setVisible(False)` behaviour). `set_panel_visible(key, visible)` is **orthogonal** to open/collapse: hiding (`visible=False`) cancels any pending hover, collapses the panel instantly (so it reopens clean) and `setVisible(False)`s it (a hidden widget takes no layout space); showing re-adds the bar. The three panels are hidden at startup in `_setup_sidebar` and toggled by the selection updaters via `show_panel`. Non-contextual panels are never hidden. `_fill_target` and the surplus share ignore hidden panels (they occupy no space).
+
+### 8.17.6 The dynamic-property QSS gotcha
+
+`set_visual_state(state)` sets a `panelState` dynamic property (`collapsed`/`peeking`/`pinned`) — but Qt does **not** re-evaluate property selectors until you `style().unpolish(w); style().polish(w)`. The header is styled via `CollapsiblePanel[panelState=…] > QFrame`, so **both** the panel and its header must be re-polished (re-polishing only the parent leaves the child header stale). Peeking = accent border; pinned = 3 px left accent rail; collapsed has a cheap `:hover` highlight for instant affordance before the peek debounce commits.
+
+### 8.17.7 No persistence
+
+Startup is always fully collapsed; pin/peek/dismissal state is never saved. The `UiStateStore` panel-state helpers were removed (window geometry + the horizontal `main` splitter are still persisted).

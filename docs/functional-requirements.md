@@ -372,8 +372,16 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 
 > Scope note: US-C2 builds a *new* unified Tasks tab on pure generators; the existing planting-calendar "today" dashboard is intentionally left in place (it reads the same project state, so the two cannot diverge in data). A convergence follow-up to refactor that dashboard onto `services/task_generator.py` is tracked separately.
 
+## FR-22: Sidebar Accordion — Hover-Peek + Click-to-Toggle (issue #226, ADR-030)
 
-## FR-22: Harvest Tracking / Yield Log (Phase 13, Package C, US-C1, issue #188)
+- **FR-UI-SIDEBAR-01**: Every sidebar panel starts **collapsed** (header-only bar) on each launch; no panel/pin state is persisted across sessions.
+- **FR-UI-SIDEBAR-02**: **Hovering** a collapsed bar peeks it open in place after a short debounce (pushing bars below it down); leaving collapses it again after a longer debounce. Fast pointer sweeps do not flicker the bars (re-entering a bar cancels its pending close).
+- **FR-UI-SIDEBAR-03**: **Clicking** a panel title toggles it open/closed. Open and close are **animated** (an organic height expansion, not a hard switch). Panels keep a **fixed order** — opening or closing one never reorders the list.
+- **FR-UI-SIDEBAR-04**: Open panels **fill the available space** rather than leaving an empty gap: a single open panel expands to fill the sidebar; when several are open each keeps at least its content height and the surplus is shared weighted by content size; when their combined content exceeds the sidebar height it **scrolls**. (There is no draggable divider.)
+- **FR-UI-SIDEBAR-05**: The three selection-driven panels (Plant Details, Companion Planting, Crop Rotation) are **hidden entirely** unless a matching item is selected — they do not linger as empty placeholder bars. Selecting a single plant **shows + auto-opens** Plant Details and Companion Planting; selecting a single bed shows + auto-opens Crop Rotation; selecting anything else (or nothing) hides all three. The user can **close a shown panel with a single click**, and it stays closed for that selection; a different selection re-opens it. These three panels are gated purely by relevance — even one the user manually opened is hidden when it becomes irrelevant. (A non-contextual panel the user opens manually, e.g. Layers, stays open across selection changes — see FR-UI-SIDEBAR-03.)
+- **FR-UI-SIDEBAR-06**: Peek and pin are visually distinct (peek = accent border; pin = left accent rail), with an instant hover highlight on collapsed bars. Keyboard equivalents are deferred (v1 is mouse-only).
+
+## FR-23: Harvest Tracking / Yield Log (Phase 13, Package C, US-C1, issue #188)
 
 - **FR-HARVEST-01**: Right-click on any plant (circle item) or bed shows **"Log Harvest…"** in the context menu, opening `HarvestLogDialog` (`ui/dialogs/harvest_log_dialog.py`). Routed through `CanvasView.harvest_log_requested` → `GardenPlannerApp._open_harvest_dialog`, mirroring the pest-log entry point.
 - **FR-HARVEST-02**: Each entry stores ISO date, quantity (float), unit (editable — `kg`/`g`/`pcs`/`bunch`/`L` or free text), free-text quality note, notes, optional photo, and the id of its linked journal note (`HarvestRecord` in `models/harvest_log.py`).

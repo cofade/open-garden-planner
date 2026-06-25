@@ -69,6 +69,7 @@ from open_garden_planner.ui.widgets import (
     CollapsiblePanel,
     ConstraintToolbar,
     MainToolbar,
+    SidebarController,
     TaskReminderBar,
     UpdateBar,
 )
@@ -141,11 +142,9 @@ class GardenPlannerApp(QMainWindow):
 
         self.setMinimumSize(800, 600)
 
-        # Persistent UI state (window geometry, splitter, collapsible panels)
+        # Persistent UI state (window geometry, main splitter)
         from open_garden_planner.app.ui_state import UiStateStore
         self._ui_state = UiStateStore()
-        # Maps a stable key → CollapsiblePanel for save-on-toggle wiring.
-        self._tracked_panels: dict[str, CollapsiblePanel] = {}
 
         # Project manager for save/load
         self._project_manager = ProjectManager(self)
@@ -1297,8 +1296,12 @@ class GardenPlannerApp(QMainWindow):
         self.properties_panel = PropertiesPanel(
             command_manager=self.canvas_view.command_manager
         )
-        # Connect object type change to update plant details and crop rotation panels
+        # Re-evaluate all three contextual panels when the selected item's type
+        # changes (e.g. tree → house): each may need to show or hide. Companion is
+        # included explicitly so its visibility does not rely on the incidental
+        # stack_changed signal alone.
         self.properties_panel.object_type_changed.connect(self._update_plant_database_panel)
+        self.properties_panel.object_type_changed.connect(self._update_companion_panel)
         self.properties_panel.object_type_changed.connect(self._update_crop_rotation_panel)
         props_panel = CollapsiblePanel(self.tr("Properties"), self.properties_panel, expanded=True)
         sidebar_layout.addWidget(props_panel)
@@ -1378,7 +1381,6 @@ class GardenPlannerApp(QMainWindow):
         self.plant_database_panel = PlantDatabasePanel()
         self.plant_database_panel.search_button.clicked.connect(self._on_search_plant_database)
         self.plant_details_collapsible = CollapsiblePanel(self.tr("Plant Details"), self.plant_database_panel, expanded=True)
-        self.plant_details_collapsible.setVisible(False)  # Hidden by default
         sidebar_layout.addWidget(self.plant_details_collapsible)
 
         # 7. Companion Planting Panel (collapsible, US-10.3) — only shown for plant selection
@@ -1391,7 +1393,6 @@ class GardenPlannerApp(QMainWindow):
         self.companion_collapsible = CollapsiblePanel(
             self.tr("Companion Planting"), self.companion_panel, expanded=True
         )
-        self.companion_collapsible.setVisible(False)  # Hidden by default
         sidebar_layout.addWidget(self.companion_collapsible)
 
         # 8. Crop Rotation Panel (collapsible, US-10.6) — only shown for bed selection
@@ -1400,7 +1401,6 @@ class GardenPlannerApp(QMainWindow):
         self.crop_rotation_collapsible = CollapsiblePanel(
             self.tr("Crop Rotation"), self.crop_rotation_panel, expanded=True
         )
-        self.crop_rotation_collapsible.setVisible(False)  # Hidden by default
         sidebar_layout.addWidget(self.crop_rotation_collapsible)
 
         # 9. Active Pest/Disease overview (US-12.7)
@@ -1425,10 +1425,16 @@ class GardenPlannerApp(QMainWindow):
         )
         sidebar_layout.addWidget(self.journal_collapsible)
 
-        # Reorder so selection-related panels sit directly under Properties.
-        # Done via layout manipulation to keep the per-panel construction
-        # blocks above readable and avoid Unicode-sensitive source edits.
-        target_order: list[tuple[str, CollapsiblePanel]] = [
+        # Route every panel through the SidebarController (US-226 accordion):
+        # all bars start collapsed; hover peeks them open in place, a title click
+        # toggles them open/closed. Panels keep a fixed canonical order (they are
+        # never reparented) and grow to their content height when open, the
+        # sidebar scrolling on overflow. add_panel call order defines the order —
+        # selection-related panels sit directly under Properties, then plan
+        # tools, then garden state. The controller owns all layout/state; no
+        # per-panel expand persistence (always collapsed at startup). See
+        # ADR-030 / arc42 §8.17.
+        canonical_panels: list[tuple[str, CollapsiblePanel]] = [
             ("properties", props_panel),
             ("plant_details", self.plant_details_collapsible),
             ("companion", self.companion_collapsible),
@@ -1439,28 +1445,21 @@ class GardenPlannerApp(QMainWindow):
             ("plant_search", plant_search_collapsible),
             ("journal", self.journal_collapsible),
         ]
-        for _key, panel in target_order:
+        # Detach each panel from the scratch build layout before handing it to the
+        # controller (panels were addWidget'd above purely to set their parent).
+        for _key, panel in canonical_panels:
             sidebar_layout.removeWidget(panel)
-        for _key, panel in target_order:
-            sidebar_layout.addWidget(panel)
 
-        # Register tracked panels so UiStateStore can restore their
-        # expanded/collapsed state and live-save on every toggle.
-        # Selection-conditional panels (plant_details, companion,
-        # crop_rotation) are registered for reorder but NOT live-saved —
-        # their visibility is driven by selection, persisting a collapsed
-        # state would surprise the user next time the panel appears.
-        _selection_conditional = {"plant_details", "companion", "crop_rotation"}
-        for key, panel in target_order:
-            self._tracked_panels[key] = panel
-            if key in _selection_conditional:
-                continue
-            panel.expanded_changed.connect(
-                lambda expanded, k=key: self._ui_state.save_panel_state(k, expanded)
-            )
+        self._sidebar_controller = SidebarController()
+        for key, panel in canonical_panels:
+            self._sidebar_controller.add_panel(key, panel)  # registers COLLAPSED
+        # The selection-driven panels have nothing to show until a matching item
+        # is selected — hide their bars entirely until then (restored pre-US-226
+        # behaviour; the selection updaters re-show them on a relevant selection).
+        for key in ("plant_details", "companion", "crop_rotation"):
+            self._sidebar_controller.set_panel_visible(key, False)
 
-        # Add stretch at the bottom to push panels to top
-        sidebar_layout.addStretch()
+        sidebar_layout.addWidget(self._sidebar_controller)
 
     def _startup_sequence(self) -> None:
         """Handle startup sequence: recovery check, then welcome dialog."""
@@ -1712,11 +1711,13 @@ class GardenPlannerApp(QMainWindow):
                 ):
                     show_panel = True
 
-            # Show/hide the plant details collapsible panel
-            self.plant_details_collapsible.setVisible(show_panel)
-
-            # Update panel content
+            # Update content BEFORE auto-pinning so the open animation tweens to
+            # the real content height (else it grows to the stale height, then
+            # snaps when the clamp releases — US-226). The bar is hidden entirely
+            # when no plant is selected (no empty placeholder bar).
             self.plant_database_panel.set_selected_items(selected_items)
+            self._sidebar_controller.set_panel_visible("plant_details", show_panel)
+            self._sidebar_controller.set_selection_pinned("plant_details", show_panel)
         except RuntimeError:
             # Scene has been deleted, ignore
             pass
@@ -1731,8 +1732,11 @@ class GardenPlannerApp(QMainWindow):
                 plant_item = selected_items[0]
                 show_panel = bool(self._companion_species_name(plant_item))
 
-            self.companion_collapsible.setVisible(show_panel)
+            # Content before pin so the open animation tweens to the real height;
+            # the bar is hidden when there is no companion data to show.
             self.companion_panel.update_for_plant(plant_item)
+            self._sidebar_controller.set_panel_visible("companion", show_panel)
+            self._sidebar_controller.set_selection_pinned("companion", show_panel)
         except RuntimeError:
             pass
 
@@ -1750,8 +1754,11 @@ class GardenPlannerApp(QMainWindow):
                     area_id = str(item.item_id)
                     show_panel = True
 
-            self.crop_rotation_collapsible.setVisible(show_panel)
+            # Content before pin so the open animation tweens to the real height;
+            # the bar is hidden when no bed is selected.
             self.crop_rotation_panel.update_for_bed(bed_item, area_id)
+            self._sidebar_controller.set_panel_visible("crop_rotation", show_panel)
+            self._sidebar_controller.set_selection_pinned("crop_rotation", show_panel)
         except RuntimeError:
             pass
 
@@ -2374,35 +2381,23 @@ class GardenPlannerApp(QMainWindow):
             event.ignore()
 
     def _restore_ui_state(self) -> None:
-        """Restore persisted window geometry, splitter sizes, and panel state.
+        """Restore persisted window geometry and the main splitter sizes.
 
         Sets ``self._geometry_restored`` so the caller can decide whether to
-        fall back to ``showMaximized()`` on a fresh install.
+        fall back to ``showMaximized()`` on a fresh install. Per-panel state is
+        deliberately NOT restored — the sidebar accordion always starts fully
+        collapsed every session (US-226, ADR-030).
         """
         self._geometry_restored = self._ui_state.restore_geometry(self)
         self._ui_state.restore_splitter("main", self._main_splitter)
-        # Skip persistence for selection-conditional panels — they are
-        # toggled visible/invisible programmatically, so persisting a user-
-        # collapsed state would surprise them on the next selection.
-        skip_persist = {"plant_details", "companion", "crop_rotation"}
-        for key, panel in self._tracked_panels.items():
-            if key in skip_persist:
-                continue
-            restored = self._ui_state.restore_panel_state(key, panel.is_expanded())
-            if restored != panel.is_expanded():
-                panel.set_expanded(restored, emit=False)
 
     def _save_ui_state(self) -> None:
-        """Persist current window geometry, splitter sizes, and panel state."""
+        """Persist current window geometry and the main splitter sizes.
+
+        Pin/peek state is intentionally not persisted (US-226, ADR-030).
+        """
         self._ui_state.save_geometry(self)
         self._ui_state.save_splitter("main", self._main_splitter)
-        # Match the skip-list in _restore_ui_state — these panels are
-        # selection-driven, not user-driven, so we do not persist them.
-        skip_persist = {"plant_details", "companion", "crop_rotation"}
-        for key, panel in self._tracked_panels.items():
-            if key in skip_persist:
-                continue
-            self._ui_state.save_panel_state(key, panel.is_expanded())
 
     def _on_undo(self) -> None:
         """Handle Undo action."""
@@ -3482,6 +3477,11 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_selection_changed(self) -> None:
         """Handle selection changes in the canvas scene."""
+        # A genuine selection change clears per-panel dismissals so a newly
+        # selected item re-opens its contextual panels even if the user had
+        # closed them for the previous selection (US-226). This runs before the
+        # _update_*_panel slots (connected after this one) call set_selection_pinned.
+        self._sidebar_controller.reset_selection_dismissals()
         # Guard against accessing deleted scene (can happen during shutdown or dialog execution)
         try:
             selected_items = self.canvas_scene.selectedItems()

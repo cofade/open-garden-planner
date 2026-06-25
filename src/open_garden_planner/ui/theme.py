@@ -694,14 +694,28 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         border: 1px solid {colors['border']};
     }}
 
-    /* Collapsible Panel Headers */
+    /* Collapsible Panel Headers (US-226 accordion: panelState property) */
     CollapsiblePanel > QFrame {{
         background-color: {colors['surface']};
         border: 1px solid {colors['border']};
     }}
 
-    CollapsiblePanel > QFrame:hover {{
+    /* Instant hover affordance before the peek debounce commits (~140 ms). */
+    CollapsiblePanel[panelState="collapsed"] > QFrame:hover {{
         background-color: {colors['surface_alt']};
+    }}
+
+    /* Peeking: hover-expanded in place — accent border + lighter fill. */
+    CollapsiblePanel[panelState="peeking"] > QFrame {{
+        background-color: {colors['surface_alt']};
+        border: 1px solid {colors['accent']};
+    }}
+
+    /* Pinned: 3px left accent rail marks panels held open by the user. */
+    CollapsiblePanel[panelState="pinned"] > QFrame {{
+        background-color: {colors['surface']};
+        border: 1px solid {colors['border']};
+        border-left: 3px solid {colors['accent']};
     }}
 
     CollapsiblePanel QLabel {{
