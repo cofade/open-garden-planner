@@ -4656,6 +4656,12 @@ class GardenPlannerApp(QMainWindow):
             QTimer.singleShot(0, _do_select)
             return
 
+        # Harvest dashboard rows for an unkeyed target (a bed, or a species-less
+        # plant) carry a ``target:<uuid>`` key — select that one item by id.
+        if species_key.startswith("target:"):
+            self._select_items_by_id({species_key[len("target:"):]})
+            return
+
         from open_garden_planner.models.plant_data import species_key as _species_key
 
         self._tab_widget.setCurrentIndex(0)

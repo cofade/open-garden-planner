@@ -268,6 +268,25 @@ class TestAggregationAndExport:
         assert "Tomato" in text
         assert "Lettuce" in text
 
+    def test_csv_unnamed_target_shows_label_not_blank(
+        self, project_manager: ProjectManager, tmp_path: Path
+    ) -> None:
+        # Consistency with the table + PDF: an unnamed, species-less target
+        # exports the localized "Unnamed" label, not an empty species cell nor
+        # the internal target:<uuid> key.
+        from PyQt6.QtCore import QCoreApplication
+
+        AddHarvestRecordCommand(
+            project_manager, "bed-1",
+            HarvestRecord(date="2026-06-24", quantity=2.0, unit="kg"),
+            species_key="", species_name="",
+        ).execute()
+        path = tmp_path / "harvest.csv"
+        ExportService.export_harvest_to_csv(project_manager.harvest_logs, path)
+        text = path.read_text(encoding="utf-8-sig")
+        assert "target:" not in text
+        assert QCoreApplication.translate("HarvestView", "Unnamed") in text
+
 
 # ---------------------------------------------------------------------------
 # Dashboard view (end-to-end UI)
@@ -322,11 +341,12 @@ class TestHarvestView:
         shown = view._table.item(0, 0).text()
         assert not shown.startswith("target:")
         assert shown == view.tr("Unnamed")
-        # An unkeyed target is not a species → double-click navigates nowhere.
+        # An unkeyed target still navigates — by its target id, so the one item
+        # (e.g. the bed) gets selected on the canvas.
         captured: list[str] = []
         view.navigate_to_species.connect(captured.append)
         view._on_row_double_clicked(view._table.item(0, 0))
-        assert captured == []
+        assert captured == ["target:bed-1"]
 
 
 # ---------------------------------------------------------------------------
@@ -406,3 +426,50 @@ class TestHarvestNavigation:
 
         assert plum.isSelected()
         assert not other.isSelected()
+
+    def test_double_click_bed_row_selects_bed_on_canvas(
+        self, qtbot: object
+    ) -> None:
+        # A bed (or any species-less target) row carries a ``target:<uuid>`` key
+        # and must select that one item by id — previously it navigated nowhere.
+        from open_garden_planner.app.application import GardenPlannerApp
+        from open_garden_planner.core.object_types import ObjectType as _OT
+        from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)  # type: ignore[attr-defined]
+
+        bed = RectangleItem(100, 100, 200, 150, object_type=_OT.RAISED_BED)
+        win.canvas_scene.addItem(bed)
+        other = RectangleItem(600, 600, 100, 100, object_type=_OT.RAISED_BED)
+        win.canvas_scene.addItem(other)
+
+        win._on_highlight_species(f"target:{bed.item_id}")
+
+        # Selection is deferred via QTimer in _select_items_by_id.
+        qtbot.waitUntil(lambda: bed.isSelected())  # type: ignore[attr-defined]
+        assert not other.isSelected()
+
+    def test_harvest_species_for_unnamed_bed_uses_type_name(
+        self, qtbot: object
+    ) -> None:
+        # Logging a harvest on a live unnamed bed must cache the bed's localized
+        # object-type name (e.g. "Raised Bed"), never an empty name (which would
+        # surface as the internal target:<uuid> key on the dashboard).
+        from open_garden_planner.app.application import GardenPlannerApp
+        from open_garden_planner.core.object_types import ObjectType as _OT
+        from open_garden_planner.core.object_types import (
+            get_translated_display_name,
+        )
+        from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)  # type: ignore[attr-defined]
+
+        bed = RectangleItem(100, 100, 200, 150, object_type=_OT.RAISED_BED)
+        bed.name = ""
+        win.canvas_scene.addItem(bed)
+
+        key, name = win._harvest_species_for_target(str(bed.item_id), "")
+        assert key == ""
+        assert name == get_translated_display_name(_OT.RAISED_BED)

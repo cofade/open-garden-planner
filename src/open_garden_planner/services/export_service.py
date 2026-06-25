@@ -4,7 +4,7 @@ import csv
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import QRectF, QSize, Qt
+from PyQt6.QtCore import QCoreApplication, QRectF, QSize, Qt
 from PyQt6.QtGui import QColor, QFont, QImage, QPainter
 from PyQt6.QtSvg import QSvgGenerator
 from PyQt6.QtWidgets import QGraphicsScene, QGraphicsSimpleTextItem, QGraphicsTextItem
@@ -769,6 +769,13 @@ class ExportService:
 
         file_path = Path(file_path)
         rows = harvest_csv_rows(aggregate_by_species_year(harvest_logs))
+        # Keep the CSV consistent with the dashboard table + PDF summary: an
+        # unnamed, species-less target has a blank name — show the same
+        # localized "Unnamed" label rather than an empty cell.
+        unnamed = QCoreApplication.translate("HarvestView", "Unnamed")
+        for row in rows:
+            if not row.get("species"):
+                row["species"] = unnamed
         try:
             # utf-8-sig writes a BOM so Excel on Windows recognises the file as
             # UTF-8 instead of Latin-1; otherwise German Umlauts arrive mojibake'd.

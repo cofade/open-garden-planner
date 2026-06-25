@@ -38,7 +38,9 @@ _REFRESH_DEBOUNCE_MS = 1000
 class HarvestView(QWidget):
     """The Harvest dashboard tab."""
 
-    #: Switch to the canvas and select all items of this species key.
+    #: Switch to the canvas and select the row's target: a canonical species
+    #: key selects every plant of that species; a ``target:<uuid>`` key selects
+    #: that one item by id. Routed to ``application._on_highlight_species``.
     navigate_to_species = pyqtSignal(str)
 
     def __init__(
@@ -128,10 +130,10 @@ class HarvestView(QWidget):
             self._table.insertRow(r)
 
             species_item = QTableWidgetItem(agg.species_name or self.tr("Unnamed"))
-            # Stash the real species key (empty for unkeyed targets) so a
-            # double-click only navigates when there is a species to select.
-            nav_key = "" if agg.species_key.startswith("target:") else agg.species_key
-            species_item.setData(Qt.ItemDataRole.UserRole, nav_key)
+            # Stash the grouping key so a double-click can navigate. A canonical
+            # species key selects every plant of that species; a ``target:<uuid>``
+            # key (unnamed bed / species-less plant) selects that one item by id.
+            species_item.setData(Qt.ItemDataRole.UserRole, agg.species_key)
             self._table.setItem(r, 0, species_item)
 
             year_item = QTableWidgetItem(str(agg.year))
