@@ -127,7 +127,7 @@ class HarvestView(QWidget):
             r = self._table.rowCount()
             self._table.insertRow(r)
 
-            species_item = QTableWidgetItem(agg.species_name)
+            species_item = QTableWidgetItem(agg.species_name or self.tr("Unnamed"))
             # Stash the real species key (empty for unkeyed targets) so a
             # double-click only navigates when there is a species to select.
             nav_key = "" if agg.species_key.startswith("target:") else agg.species_key

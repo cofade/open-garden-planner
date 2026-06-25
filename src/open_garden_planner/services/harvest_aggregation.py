@@ -67,7 +67,10 @@ def aggregate_by_species_year(
         # Stable grouping key: prefer the cached species key; fall back to the
         # target id so distinct unkeyed targets (e.g. beds) never merge.
         species_key = history.species_key or f"target:{target_id}"
-        species_name = history.species_name or species_key
+        # Display name may be empty for an unnamed, species-less target — leave
+        # it blank rather than leaking the internal ``target:<uuid>`` key as a
+        # user-facing name; the display layer substitutes a localized label.
+        species_name = history.species_name
 
         for rec in history.records:
             year = _year_of(rec.date)

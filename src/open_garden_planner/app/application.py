@@ -4039,8 +4039,13 @@ class GardenPlannerApp(QMainWindow):
         """Return ``(species_key, species_name)`` cached on a harvest history.
 
         Reads the target item's ``plant_species`` metadata; falls back to the
-        display name (e.g. for beds without an assigned species).
+        display name, then to the item's localized object-type name (e.g. "Bed")
+        so an unnamed bed/plant never caches an empty name (which would surface
+        as the internal ``target:<uuid>`` key on the dashboard).
         """
+        from open_garden_planner.core.object_types import (  # noqa: PLC0415
+            get_translated_display_name,
+        )
         from open_garden_planner.models.plant_data import (  # noqa: PLC0415
             species_key as _species_key,
         )
@@ -4049,17 +4054,25 @@ class GardenPlannerApp(QMainWindow):
             getattr(self.canvas_view, "_canvas_scene", None) or self.canvas_view.scene()
         )
         species: dict = {}
+        type_fallback = ""
         if scene is not None:
             for item in scene.items():
                 if str(getattr(item, "item_id", "")) == target_id:
                     meta = getattr(item, "metadata", {}) or {}
                     species = meta.get("plant_species", {}) or {}
+                    obj_type = getattr(item, "object_type", None)
+                    if obj_type is not None:
+                        try:
+                            type_fallback = get_translated_display_name(obj_type)
+                        except Exception:
+                            type_fallback = ""
                     break
         key = _species_key(species) if species else ""
         name = (
             species.get("common_name")
             or species.get("scientific_name")
             or display_name
+            or type_fallback
         )
         return key, name
 
@@ -4643,10 +4656,15 @@ class GardenPlannerApp(QMainWindow):
             QTimer.singleShot(0, _do_select)
             return
 
-        from open_garden_planner.models.plant_data import PlantSpeciesData
+        from open_garden_planner.models.plant_data import species_key as _species_key
 
         self._tab_widget.setCurrentIndex(0)
         self.canvas_scene.clearSelection()
+        # The signal carries a canonical species_key (ADR-016: source_id →
+        # scientific → common, lowercased) — emitted identically by the planting
+        # calendar, Tasks tab and Harvest tab. Match on the same canonical key on
+        # both sides; comparing against the raw-cased display name never matched.
+        first = None
         for item in self.canvas_scene.items():
             if not hasattr(item, "metadata") or not item.metadata:
                 continue
@@ -4654,11 +4672,14 @@ class GardenPlannerApp(QMainWindow):
             if not ps_dict:
                 continue
             try:
-                species = PlantSpeciesData.from_dict(ps_dict)
-                if (species.scientific_name or species.common_name) == species_key:
+                if _species_key(ps_dict) == species_key:
                     item.setSelected(True)
+                    if first is None:
+                        first = item
             except Exception:
                 continue
+        if first is not None:
+            self.canvas_view.centerOn(first)
 
     def _select_items_by_id(self, ids: set[str]) -> None:
         """Switch to Garden Plan and select/center the items with these UUIDs."""

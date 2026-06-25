@@ -304,6 +304,30 @@ class TestHarvestView:
         assert not view._empty_label.isHidden()
         assert view._table.isHidden()
 
+    def test_unnamed_target_shows_label_not_internal_key(
+        self, qtbot: object, project_manager: ProjectManager, scene: CanvasScene
+    ) -> None:
+        # A harvest logged on an unnamed, species-less target (empty species
+        # name) must render a friendly label, never the internal "target:<uuid>"
+        # grouping key (the bug seen on the dashboard for an unnamed bed).
+        AddHarvestRecordCommand(
+            project_manager, "bed-1",
+            HarvestRecord(date="2026-06-24", quantity=2.0, unit="kg"),
+            species_key="", species_name="",
+        ).execute()
+        view = HarvestView(scene, project_manager)
+        qtbot.addWidget(view)  # type: ignore[attr-defined]
+        view.refresh()
+        assert view._table.rowCount() == 1
+        shown = view._table.item(0, 0).text()
+        assert not shown.startswith("target:")
+        assert shown == view.tr("Unnamed")
+        # An unkeyed target is not a species → double-click navigates nowhere.
+        captured: list[str] = []
+        view.navigate_to_species.connect(captured.append)
+        view._on_row_double_clicked(view._table.item(0, 0))
+        assert captured == []
+
 
 # ---------------------------------------------------------------------------
 # Dialog (UI)
@@ -338,3 +362,47 @@ class TestHarvestLogDialog:
         dlg = JournalNoteDialog(note=note)
         qtbot.addWidget(dlg)  # type: ignore[attr-defined]
         assert dlg.result_note().tags == ["harvest"]
+
+
+# ---------------------------------------------------------------------------
+# Dashboard → canvas navigation (full app)
+# ---------------------------------------------------------------------------
+
+class TestHarvestNavigation:
+    """Double-clicking a species row selects the matching plant on the canvas.
+
+    The dashboard emits a canonical ``species_key`` (ADR-016: lowercased
+    source_id→scientific→common). ``_on_highlight_species`` previously compared
+    that key against the plant's raw-cased display name and never matched, so
+    nothing got selected (manual-test #7). It now matches on the canonical key.
+    """
+
+    def test_double_click_row_selects_species_on_canvas(
+        self, qtbot: object
+    ) -> None:
+        from open_garden_planner.app.application import GardenPlannerApp
+        from open_garden_planner.models.plant_data import species_key
+        from open_garden_planner.ui.canvas.items import CircleItem
+
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)  # type: ignore[attr-defined]
+
+        sp = {"common_name": "Goose Plum", "scientific_name": "Prunus americana"}
+        plum = CircleItem(
+            center_x=200, center_y=200, radius=20,
+            object_type=ObjectType.TREE, name="Goose Plum",
+        )
+        plum.metadata["plant_species"] = dict(sp)
+        win.canvas_scene.addItem(plum)
+
+        other = CircleItem(
+            center_x=900, center_y=900, radius=20,
+            object_type=ObjectType.TREE, name="Birch",
+        )
+        win.canvas_scene.addItem(other)
+
+        # Emit exactly what the Harvest dashboard double-click emits.
+        win._on_highlight_species(species_key(sp))
+
+        assert plum.isSelected()
+        assert not other.isSelected()

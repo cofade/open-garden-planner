@@ -98,6 +98,22 @@ class TestAggregateBySpeciesYear:
     def test_empty(self) -> None:
         assert aggregate_by_species_year({}) == []
 
+    def test_unnamed_target_name_is_blank_not_internal_key(self) -> None:
+        # An unnamed, species-less target (e.g. a bed) caches an empty name. The
+        # aggregation must NOT leak the internal ``target:<uuid>`` grouping key
+        # as the user-facing species name (regression: it surfaced verbatim on
+        # the dashboard). The key still falls back so distinct beds stay split.
+        logs = {
+            "bed-uuid": _history(
+                "bed-uuid", "", "",
+                [HarvestRecord(date="2026-06-15", quantity=1, unit="kg")],
+            ),
+        }
+        rows = aggregate_by_species_year(logs)
+        assert len(rows) == 1
+        assert rows[0].species_key == "target:bed-uuid"
+        assert rows[0].species_name == ""
+
 
 class TestCsvRows:
     def test_headers_and_values(self) -> None:

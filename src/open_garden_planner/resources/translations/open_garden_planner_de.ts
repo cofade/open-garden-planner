@@ -7271,6 +7271,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>No harvests logged in this project.</source>
             <translation>Keine Ernten in diesem Projekt erfasst.</translation>
         </message>
+        <message>
+            <source>Unnamed</source>
+            <translation>Unbenannt</translation>
+        </message>
     </context>
     <context>
         <name>MidpointHandle</name>
@@ -9860,6 +9864,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Wrote {count} rows to {name}</source>
             <translation>{count} Zeilen in {name} geschrieben</translation>
+        </message>
+        <message>
+            <source>Unnamed</source>
+            <translation>Unbenannt</translation>
         </message>
     </context>
 </TS>

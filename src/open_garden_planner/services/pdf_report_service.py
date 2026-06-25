@@ -488,7 +488,7 @@ def _render_harvest_summary(
         painter.fillRect(QRectF(page_rect.left(), y, page_rect.width(), row_h), bg)
         painter.setPen(QColor("#333333"))
         values = [
-            agg.species_name,
+            agg.species_name or _tr("Unnamed"),
             str(agg.year),
             f"{agg.total_quantity:g}",
             agg.unit,

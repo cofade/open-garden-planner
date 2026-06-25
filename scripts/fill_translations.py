@@ -2281,6 +2281,7 @@ _HARVEST_TRANSLATIONS: dict[str, dict[str, str]] = {
         "CSV files (*.csv)": "CSV-Dateien (*.csv)",
         "Export failed": "Export fehlgeschlagen",
         "Wrote {count} rows to {name}": "{count} Zeilen in {name} geschrieben",
+        "Unnamed": "Unbenannt",
     },
     "PdfReportService": {
         "Harvest Summary": "Erntezusammenfassung",
@@ -2292,6 +2293,7 @@ _HARVEST_TRANSLATIONS: dict[str, dict[str, str]] = {
         "No harvests logged in this project.": (
             "Keine Ernten in diesem Projekt erfasst."
         ),
+        "Unnamed": "Unbenannt",
     },
     "PdfReportDialog": {
         "Harvest summary": "Erntezusammenfassung",
