@@ -8,6 +8,7 @@ from open_garden_planner.models.smart_symbol import (
     PolygonSpec,
     RectSpec,
     SmartSymbolDefinition,
+    SmartSymbolError,
 )
 
 
@@ -129,11 +130,37 @@ class TestUntrustedInputCaps:
                                "element": {"kind": "circle", "cx": "i", "cy": 0, "r": 1}}]}
             )
 
-    def test_divide_by_zero_raises_arithmeticerror(self) -> None:
+    def test_divide_by_zero_raises_symbol_error(self) -> None:
+        # generate() funnels every eval failure into ONE SmartSymbolError (a
+        # ValueError subclass) so the loader + item layer catch a single type.
         d = SmartSymbolDefinition.from_dict(
             {"id": "dz", "version": 1, "name": "DZ", "category": "c",
              "parameters": [{"name": "n", "type": "number", "label": "N", "default": 2}],
              "elements": [{"kind": "line", "x1": 0, "y1": 0, "x2": "10 / n", "y2": 0}]}
         )
-        with pytest.raises(ArithmeticError):
+        with pytest.raises(SmartSymbolError):
             d.generate({"n": 0})
+        assert issubclass(SmartSymbolError, ValueError)
+
+    def test_overflow_expression_wrapped_not_raised_raw(self) -> None:
+        # Float-power overflow (9**9**9) raises OverflowError (an ArithmeticError,
+        # NOT a ValueError) inside the evaluator — it must surface as the wrapped
+        # SmartSymbolError, never the raw type that the fallback sites don't catch.
+        d = SmartSymbolDefinition.from_dict(
+            {"id": "ov", "version": 1, "name": "OV", "category": "c", "parameters": [],
+             "elements": [{"kind": "rect", "x": 0, "y": 0, "w": 1, "h": 1}]}
+        )
+        d.elements = [{"kind": "rect", "x": 0, "y": 0, "w": "9 ** 9 ** 9", "h": 1}]
+        with pytest.raises(SmartSymbolError):
+            d.generate({})
+
+    def test_bad_round_argument_wrapped(self) -> None:
+        # round(x, <huge int>) raises OverflowError/TypeError — also wrapped.
+        d = SmartSymbolDefinition.from_dict(
+            {"id": "rd", "version": 1, "name": "RD", "category": "c", "parameters": [],
+             "elements": [{"kind": "rect", "x": 0, "y": 0, "w": 1, "h": 1}]}
+        )
+        d.elements = [{"kind": "rect", "x": 0, "y": 0,
+                       "w": "round(1, 99999999999999999999)", "h": 1}]
+        with pytest.raises(SmartSymbolError):
+            d.generate({})

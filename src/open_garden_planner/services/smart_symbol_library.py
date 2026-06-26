@@ -78,6 +78,11 @@ class SmartSymbolLibrary:
                 definition = SmartSymbolDefinition.from_dict(data)
                 symbols[definition.id] = definition  # user may override a bundled id
             except (OSError, json.JSONDecodeError, ValueError) as exc:
+                # ``ValueError`` covers both structural errors and ``SmartSymbol
+                # Error`` (its subclass), which ``from_dict``'s dry-run raises for
+                # a divide-by-zero / overflow / bad-round / over-budget-repeat
+                # expression — so a poisoned user file is skipped, never crashes
+                # startup (the module-docstring contract).
                 logger.warning("Skipping invalid smart-symbol file %s: %s", path, exc)
         self._symbols = symbols
 

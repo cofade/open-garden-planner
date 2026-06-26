@@ -41,6 +41,22 @@ from open_garden_planner.core.parametric_eval import safe_eval
 _PARAM_TYPES = {"number", "length", "choice"}
 _ELEMENT_KINDS = {"rect", "line", "polyline", "polygon", "circle"}
 
+
+class SmartSymbolError(ValueError):
+    """A smart-symbol definition could not be turned into geometry.
+
+    Wraps **every** non-structural failure of :meth:`SmartSymbolDefinition.
+    generate` — a bad/unknown-variable expression, divide-by-zero or overflow
+    (``ArithmeticError``), a bad ``round`` argument (``TypeError``), or an
+    over-budget repeat — in ONE exception type, raised at the model boundary.
+    It subclasses ``ValueError`` so the two fallback sites (the user-file
+    loader and the canvas item's runtime regeneration) each catch a single
+    type that cannot drift out of sync with the evaluator's raw exception
+    surface. Untrusted JSON must never crash the app; this is the seam that
+    guarantees it. Structural load errors (missing ``id``, empty ``elements``,
+    etc.) stay plain ``ValueError`` — they are programmer/packaging-visible.
+    """
+
 # Guard rails — symbol files (incl. user-dropped JSON) are untrusted input.
 # A runaway repeat or expression must not freeze the app; these caps make a
 # bad definition raise ``ValueError`` (→ crash-loud at load for bundled files,
@@ -188,9 +204,20 @@ class SmartSymbolDefinition:
         """Resolve ``elements`` against ``params`` into concrete geometry specs.
 
         Numeric/length params become evaluator variables; non-numeric (choice)
-        params are ignored for coordinates. Raises ``ValueError`` on a bad
-        expression, unknown variable, or unknown element kind.
+        params are ignored for coordinates. Any failure to produce geometry —
+        a bad expression, unknown variable/kind, divide-by-zero, overflow, a
+        bad ``round`` argument, or an over-budget repeat — is raised as a single
+        :class:`SmartSymbolError` (a ``ValueError`` subclass), so callers that
+        must degrade gracefully on untrusted input catch exactly one type.
         """
+        try:
+            return self._generate(params)
+        except SmartSymbolError:
+            raise
+        except (ArithmeticError, TypeError, ValueError) as exc:
+            raise SmartSymbolError(str(exc)) from exc
+
+    def _generate(self, params: dict[str, Any]) -> list[PrimitiveSpec]:
         merged = {**self.param_defaults(), **(params or {})}
         variables: dict[str, float] = {}
         for key, value in merged.items():

@@ -1141,8 +1141,17 @@ class PropertiesPanel(QWidget):
         def update_feedback() -> None:
             litres = cm.effective_soil_volume_litres(meta, footprint_cm2())
             effective_label.setText(self.tr("{litres:.1f} L").format(litres=litres))
-            hint = cm.watering_hint(cm.container_material(meta), cm.container_has_drainage(meta))
-            hint_label.setText(QCoreApplication.translate("ContainerModel", hint))
+            # Translate the two atoms separately and join — never translate a
+            # runtime-concatenated combined string (keeps the registered source
+            # set small + non-combinatorial; see container_model.material_hint).
+            hint = QCoreApplication.translate(
+                "ContainerModel", cm.material_hint(cm.container_material(meta))
+            )
+            if not cm.container_has_drainage(meta):
+                hint = hint + " " + QCoreApplication.translate(
+                    "ContainerModel", cm.NO_DRAINAGE_HINT
+                )
+            hint_label.setText(hint)
 
         def on_material_changed(_index: int) -> None:
             if self._updating:

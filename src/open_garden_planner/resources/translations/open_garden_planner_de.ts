@@ -10012,20 +10012,8 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Metall heizt in der Sonne auf und trocknet den Wurzelbereich — an heißen Tagen beobachten.</translation>
         </message>
         <message>
-            <source>Porous terracotta dries out fast — water frequently. No drainage holes: water carefully — risk of waterlogging.</source>
-            <translation>Poröser Ton trocknet schnell aus — häufig gießen. Keine Abzugslöcher: vorsichtig gießen — Gefahr von Staunässe.</translation>
-        </message>
-        <message>
-            <source>Plastic retains moisture — water sparingly to avoid root rot. No drainage holes: water carefully — risk of waterlogging.</source>
-            <translation>Kunststoff hält Feuchtigkeit — sparsam gießen, um Wurzelfäule zu vermeiden. Keine Abzugslöcher: vorsichtig gießen — Gefahr von Staunässe.</translation>
-        </message>
-        <message>
-            <source>Wood holds moisture moderately, but can rot if kept waterlogged. No drainage holes: water carefully — risk of waterlogging.</source>
-            <translation>Holz hält Feuchtigkeit mäßig, kann bei Staunässe aber faulen. Keine Abzugslöcher: vorsichtig gießen — Gefahr von Staunässe.</translation>
-        </message>
-        <message>
-            <source>Metal heats up in sun and dries the root zone — monitor on hot days. No drainage holes: water carefully — risk of waterlogging.</source>
-            <translation>Metall heizt in der Sonne auf und trocknet den Wurzelbereich — an heißen Tagen beobachten. Keine Abzugslöcher: vorsichtig gießen — Gefahr von Staunässe.</translation>
+            <source>No drainage holes: water carefully — risk of waterlogging.</source>
+            <translation>Keine Abzugslöcher: vorsichtig gießen — Gefahr von Staunässe.</translation>
         </message>
     </context>
     <context>

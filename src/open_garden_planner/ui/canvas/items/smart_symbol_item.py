@@ -29,6 +29,7 @@ from open_garden_planner.models.smart_symbol import (
     PolylineSpec,
     PrimitiveSpec,
     RectSpec,
+    SmartSymbolError,
 )
 
 from .group_item import GroupItem
@@ -92,10 +93,11 @@ class SmartSymbolItem(GroupItem):
                 specs = definition.generate(self.params)
                 self._cached_specs = specs
                 return specs
-            except (ValueError, ArithmeticError) as exc:
-                # Untrusted JSON: a bad expression, divide-by-zero/overflow, or
-                # an over-budget repeat must never crash the GUI — keep the last
-                # good geometry (cached) and warn.
+            except SmartSymbolError as exc:
+                # Untrusted JSON: a bad expression, divide-by-zero/overflow, a
+                # bad round() arg, or an over-budget repeat must never crash the
+                # GUI. generate() funnels every such failure into one type, so
+                # the last good geometry (cached) is kept and we warn.
                 logger.warning("Smart symbol %s failed to generate: %s", self.symbol_id, exc)
         elif definition is not None:
             logger.warning(
@@ -112,7 +114,7 @@ class SmartSymbolItem(GroupItem):
         if definition is not None:
             try:
                 return definition.generate(self.params)
-            except (ValueError, ArithmeticError):
+            except SmartSymbolError:
                 return []
         return []
 

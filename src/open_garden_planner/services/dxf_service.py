@@ -227,7 +227,7 @@ class DxfExportService:
         """
         import hashlib
 
-        sig = f"{symbol.symbol_id}|{sorted(symbol.params.items())}"
+        sig = f"{symbol.symbol_id}|{symbol.symbol_version}|{sorted(symbol.params.items())}"
         # Not a security hash — just a stable block-name suffix to dedup blocks.
         digest = hashlib.sha1(sig.encode("utf-8"), usedforsecurity=False).hexdigest()[:8]
         safe_id = "".join(c if c.isalnum() else "_" for c in symbol.symbol_id)

@@ -1772,23 +1772,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Metal heats up in sun and dries the root zone — monitor on hot days.":
             "Metall heizt in der Sonne auf und trocknet den Wurzelbereich — an heißen "
             "Tagen beobachten.",
-        "Porous terracotta dries out fast — water frequently. No drainage holes: "
-        "water carefully — risk of waterlogging.":
-            "Poröser Ton trocknet schnell aus — häufig gießen. Keine Abzugslöcher: "
-            "vorsichtig gießen — Gefahr von Staunässe.",
-        "Plastic retains moisture — water sparingly to avoid root rot. No drainage "
-        "holes: water carefully — risk of waterlogging.":
-            "Kunststoff hält Feuchtigkeit — sparsam gießen, um Wurzelfäule zu vermeiden. "
+        # Atomic no-drainage suffix — the UI translates this and the material
+        # hint separately and joins them, so no per-material combined strings.
+        "No drainage holes: water carefully — risk of waterlogging.":
             "Keine Abzugslöcher: vorsichtig gießen — Gefahr von Staunässe.",
-        "Wood holds moisture moderately, but can rot if kept waterlogged. No drainage "
-        "holes: water carefully — risk of waterlogging.":
-            "Holz hält Feuchtigkeit mäßig, kann bei Staunässe aber faulen. Keine "
-            "Abzugslöcher: vorsichtig gießen — Gefahr von Staunässe.",
-        "Metal heats up in sun and dries the root zone — monitor on hot days. No "
-        "drainage holes: water carefully — risk of waterlogging.":
-            "Metall heizt in der Sonne auf und trocknet den Wurzelbereich — an heißen "
-            "Tagen beobachten. Keine Abzugslöcher: vorsichtig gießen — Gefahr von "
-            "Staunässe.",
     },
 
     # ── Tasks (US-C2 #188 — QCoreApplication.translate in task_generator.py) ──

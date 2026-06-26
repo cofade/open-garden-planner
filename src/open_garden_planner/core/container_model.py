@@ -41,8 +41,9 @@ _MATERIAL_HINTS: dict[str, str] = {
     WOOD: "Wood holds moisture moderately, but can rot if kept waterlogged.",
     METAL: "Metal heats up in sun and dries the root zone — monitor on hot days.",
 }
-# Appended when the container has no drainage holes.
-_NO_DRAINAGE_HINT = "No drainage holes: water carefully — risk of waterlogging."
+# Appended when the container has no drainage holes. Public so the UI can
+# translate it as a standalone atom (see ``material_hint`` note below).
+NO_DRAINAGE_HINT = "No drainage holes: water carefully — risk of waterlogging."
 
 
 def _positive_number(value: Any) -> float | None:
@@ -111,15 +112,27 @@ def effective_soil_volume_litres(
     return auto_soil_volume_litres(footprint_cm2, resolved_height)
 
 
+def material_hint(material: str) -> str:
+    """Return the per-material base watering hint (source English).
+
+    Exposed so the UI can translate this **atom** and :data:`NO_DRAINAGE_HINT`
+    separately and join them, instead of translating a runtime-concatenated
+    combined string. That keeps the registered ``"ContainerModel"`` source set
+    small and non-combinatorial (4 materials + 1 no-drainage atom, not 4×2).
+    """
+    return _MATERIAL_HINTS.get(material, _MATERIAL_HINTS[DEFAULT_MATERIAL])
+
+
 def watering_hint(material: str, drainage: bool) -> str:
     """Return a source-English watering hint for a material + drainage combo.
 
-    The returned strings are registered for translation under the
-    ``"ContainerModel"`` context and translated by the caller (UI layer).
+    Convenience composing :func:`material_hint` + :data:`NO_DRAINAGE_HINT` for
+    non-UI callers/tests; the UI translates the parts individually (see
+    :func:`material_hint`).
     """
-    base = _MATERIAL_HINTS.get(material, _MATERIAL_HINTS[DEFAULT_MATERIAL])
+    base = material_hint(material)
     if not drainage:
-        return f"{base} {_NO_DRAINAGE_HINT}"
+        return f"{base} {NO_DRAINAGE_HINT}"
     return base
 
 
