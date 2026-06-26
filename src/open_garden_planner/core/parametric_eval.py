@@ -48,9 +48,12 @@ _UNARY_OPS: dict[type, Any] = {
 # untrusted JSON file (e.g. a 5000-term ``1+1+1+…`` chain) would otherwise blow
 # the Python stack with ``RecursionError`` — a ``RuntimeError`` that the value/
 # arithmetic-error handling downstream does NOT expect. Bounding the node count
-# keeps the recursion depth well under the interpreter limit and makes this
-# module's failure surface provably ``ValueError`` (caps are far above any real
-# coordinate formula; the bundled symbols use <20 nodes each).
+# keeps the recursion depth well under the interpreter limit, so the evaluator's
+# *recursion* surface is bounded to ``ValueError``. (Arithmetic/type errors —
+# divide-by-zero, overflow, a float ``round`` ndigits — still surface at eval
+# time and are wrapped one level up by ``SmartSymbolDefinition.generate``.) The
+# cap is far above any real coordinate formula; the bundled symbols use <20
+# nodes each.
 _MAX_NODES = 250
 
 

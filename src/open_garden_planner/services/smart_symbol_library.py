@@ -69,7 +69,15 @@ class SmartSymbolLibrary:
                 data = json.load(f)
             definition = SmartSymbolDefinition.from_dict(data)
             symbols[definition.id] = definition
-        # User: skip-with-warning on malformed (a bad user file must not crash).
+        # User: skip-with-warning on ANY failure (a bad user file must never
+        # crash startup). This loop is THE trust boundary for untrusted JSON, so
+        # it catches ``Exception`` rather than a hand-picked tuple — every prior
+        # crash here was a too-narrow catch missing a new exception family
+        # (ValueError → ArithmeticError → RecursionError → AttributeError from a
+        # non-dict ``parameters`` entry). A blind catch makes "a user file never
+        # crashes the app" total by construction; ``BaseException`` (Ctrl-C /
+        # SystemExit) still propagates, and the bundled loop above stays
+        # narrow-and-loud so OUR packaging bugs are never silently swallowed.
         user_dir = self._user_dir if self._user_dir is not None else _user_dir()
         for path in sorted(user_dir.glob("*.json")):
             try:
@@ -77,12 +85,7 @@ class SmartSymbolLibrary:
                     data = json.load(f)
                 definition = SmartSymbolDefinition.from_dict(data)
                 symbols[definition.id] = definition  # user may override a bundled id
-            except (OSError, json.JSONDecodeError, ValueError) as exc:
-                # ``ValueError`` covers both structural errors and ``SmartSymbol
-                # Error`` (its subclass), which ``from_dict``'s dry-run raises for
-                # a divide-by-zero / overflow / bad-round / over-budget-repeat
-                # expression — so a poisoned user file is skipped, never crashes
-                # startup (the module-docstring contract).
+            except Exception as exc:  # noqa: BLE001 — untrusted-input boundary (see above)
                 logger.warning("Skipping invalid smart-symbol file %s: %s", path, exc)
         self._symbols = symbols
 

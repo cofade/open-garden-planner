@@ -45,16 +45,18 @@ _ELEMENT_KINDS = {"rect", "line", "polyline", "polygon", "circle"}
 class SmartSymbolError(ValueError):
     """A smart-symbol definition could not be turned into geometry.
 
-    Wraps **every** non-structural failure of :meth:`SmartSymbolDefinition.
-    generate` — a bad/unknown-variable expression, divide-by-zero or overflow
-    (``ArithmeticError``), a bad ``round`` argument (``TypeError``), or an
-    over-budget repeat — in ONE exception type, raised at the model boundary.
-    It subclasses ``ValueError`` so the two fallback sites (the user-file
-    loader and the canvas item's runtime regeneration) each catch a single
-    type that cannot drift out of sync with the evaluator's raw exception
-    surface. Untrusted JSON must never crash the app; this is the seam that
-    guarantees it. Structural load errors (missing ``id``, empty ``elements``,
-    etc.) stay plain ``ValueError`` — they are programmer/packaging-visible.
+    Wraps **every** non-``BaseException`` failure of :meth:`SmartSymbolDefinition.
+    generate` — whatever the evaluator throws (a bad/unknown-variable expression,
+    divide-by-zero, overflow, a bad ``round`` argument, a too-complex expression,
+    an over-budget repeat) — in ONE exception type, raised at the model boundary
+    by a blind ``except Exception`` (NOT a hand-picked family list, which is how
+    new exception families kept slipping through). It subclasses ``ValueError``
+    so the canvas item's runtime regeneration catches a single type. The
+    user-file **loader** is the real untrusted-input boundary and catches
+    ``Exception`` directly (it must also survive failures of ``from_dict``'s
+    *structural* phase, which runs before ``generate``). Structural load errors
+    (missing ``id``, non-dict param, empty ``elements``, …) stay plain
+    ``ValueError`` so the bundled "crash loud" path still surfaces packaging bugs.
     """
 
 # Guard rails — symbol files (incl. user-dropped JSON) are untrusted input.
@@ -132,6 +134,8 @@ class SmartSymbolParam:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SmartSymbolParam:
+        if not isinstance(data, dict):
+            raise ValueError(f"smart-symbol parameter must be an object, got {type(data).__name__}")
         name = data.get("name")
         ptype = data.get("type")
         if not isinstance(name, str) or not name:
@@ -174,6 +178,8 @@ class SmartSymbolDefinition:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SmartSymbolDefinition:
+        if not isinstance(data, dict):
+            raise ValueError(f"smart symbol must be a JSON object, got {type(data).__name__}")
         sid = data.get("id")
         if not isinstance(sid, str) or not sid:
             raise ValueError("smart symbol missing 'id'")

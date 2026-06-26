@@ -118,6 +118,19 @@ class TestValidation:
                  "parameters": [], "elements": [{"kind": "rect", "x": 0, "y": 0, "w": 1, "h": 1}]}
             )
 
+    def test_non_dict_parameter_entry_raises_valueerror_not_attributeerror(self) -> None:
+        # A non-dict entry in ``parameters`` must be a structural ValueError, not
+        # an AttributeError from ``.get`` (which would escape the loader's catch).
+        with pytest.raises(ValueError):
+            SmartSymbolDefinition.from_dict(
+                {"id": "x", "version": 1, "parameters": [42],
+                 "elements": [{"kind": "rect", "x": 0, "y": 0, "w": 1, "h": 1}]}
+            )
+
+    def test_non_dict_document_raises_valueerror(self) -> None:
+        with pytest.raises(ValueError):
+            SmartSymbolDefinition.from_dict([1, 2, 3])  # type: ignore[arg-type]
+
 
 class TestUntrustedInputCaps:
     """User JSON is untrusted — runaway repeats / blowups must raise, not freeze."""

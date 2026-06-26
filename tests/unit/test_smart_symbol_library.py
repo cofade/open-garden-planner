@@ -73,6 +73,39 @@ def test_poisoned_user_file_is_skipped_not_fatal(tmp_path: Path) -> None:
     assert lib.get("rec") is None
 
 
+@pytest.mark.parametrize("bad_params", [42, "x", None, [1, 2], [42], ["x"], [None]])
+def test_structurally_poisoned_user_file_is_skipped(tmp_path: Path, bad_params) -> None:
+    # A non-dict ``parameters`` value (or non-dict entry) makes the STRUCTURAL
+    # phase of from_dict raise AttributeError/TypeError — which runs BEFORE the
+    # dry-run generate() and so is not covered by generate()'s wrapper. The
+    # loader's untrusted-input boundary must still skip it, never crash.
+    bundled = tmp_path / "bundled"
+    user = tmp_path / "user"
+    bundled.mkdir()
+    user.mkdir()
+    _write(bundled, "ok", _VALID)
+    _write(user, "bad", {**_VALID, "id": "bad", "parameters": bad_params})
+    _write(user, "good", {**_VALID, "id": "good"})
+
+    lib = SmartSymbolLibrary(bundled_dir=bundled, user_dir=user)
+    assert {d.id for d in lib.definitions()} == {"ok", "good"}
+    assert lib.get("bad") is None
+
+
+def test_non_object_user_file_is_skipped(tmp_path: Path) -> None:
+    # The whole JSON document is a list/number, not an object.
+    bundled = tmp_path / "bundled"
+    user = tmp_path / "user"
+    bundled.mkdir()
+    user.mkdir()
+    _write(bundled, "ok", _VALID)
+    (user / "arr.json").write_text("[1, 2, 3]", encoding="utf-8")
+    (user / "num.json").write_text("42", encoding="utf-8")
+
+    lib = SmartSymbolLibrary(bundled_dir=bundled, user_dir=user)
+    assert {d.id for d in lib.definitions()} == {"ok"}
+
+
 def test_malformed_json_user_file_is_skipped(tmp_path: Path) -> None:
     bundled = tmp_path / "bundled"
     user = tmp_path / "user"
