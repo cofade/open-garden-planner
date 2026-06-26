@@ -2820,15 +2820,72 @@ class GardenPlannerApp(QMainWindow):
             else:
                 orphans.append(plant)
 
-        # Check overlaps within each group
-        for group in list(bed_groups.values()) + ([orphans] if orphans else []):
-            self._check_spacing_group(group, math.hypot)
+        # Index every item by id once so each group can resolve its parent
+        # without an O(n) scan (US-C3b: trellis groups need a 1-D distance).
+        by_id: dict[str, object] = {}
+        for it in scene_items:
+            iid = getattr(it, "item_id", None)
+            if iid is not None:
+                by_id[str(iid)] = it
 
-    def _check_spacing_group(self, plants: list, hypot: object) -> None:
+        # Check overlaps within each group. A TRELLIS parent uses a 1-D distance
+        # measured along its long axis (climbers are spaced along the bar; their
+        # perpendicular/canvas-Y offset is placement noise — US-C3b).
+        from open_garden_planner.core.object_types import ObjectType
+
+        for key, group in bed_groups.items():
+            parent = by_id.get(key)
+            if parent is not None and getattr(parent, "object_type", None) is ObjectType.TRELLIS:
+                distance = self._trellis_axis_distance_fn(parent)
+            else:
+                distance = math.hypot
+            self._check_spacing_group(group, distance)
+        if orphans:
+            self._check_spacing_group(orphans, math.hypot)
+
+    def _trellis_axis_distance_fn(self, trellis: object):
+        """Return a 1-D distance callable projecting onto the trellis long axis.
+
+        Climbers on a trellis are spaced along its long (rotation-aware) edge;
+        the perpendicular component of the separation is discarded. Returns a
+        ``(dx, dy) -> float`` callable measuring ``|separation · axis_unit|`` in
+        scene space. Falls back to ``math.hypot`` for a degenerate (zero-size)
+        rectangle.
+        """
+        import math
+
+        from PyQt6.QtCore import QPointF
+
+        # TRELLIS is rectangle-only for app-authored files, but a hand-edited or
+        # future-imported .ogp could tag a non-rect shape — degrade to 2-D rather
+        # than crash the whole spacing refresh.
+        if not hasattr(trellis, "rect"):
+            return math.hypot
+        rect = trellis.rect()  # type: ignore[attr-defined]
+        if rect.width() >= rect.height():
+            p0 = QPointF(rect.left(), rect.center().y())
+            p1 = QPointF(rect.right(), rect.center().y())
+        else:
+            p0 = QPointF(rect.center().x(), rect.top())
+            p1 = QPointF(rect.center().x(), rect.bottom())
+        s0 = trellis.mapToScene(p0)  # type: ignore[attr-defined]
+        s1 = trellis.mapToScene(p1)  # type: ignore[attr-defined]
+        vx, vy = s1.x() - s0.x(), s1.y() - s0.y()
+        mag = math.hypot(vx, vy)
+        if mag == 0:
+            return math.hypot
+        ux, uy = vx / mag, vy / mag
+        return lambda dx, dy: abs(dx * ux + dy * uy)
+
+    def _check_spacing_group(self, plants: list, distance: object) -> None:
         """Check spacing overlaps within a group of sibling plants.
 
         Only plants with real spacing data (from database or user override)
         participate in overlap detection. Plants without data are skipped.
+
+        ``distance`` is a ``(dx, dy) -> float`` callable: ``math.hypot`` for the
+        normal 2-D case, or a 1-D along-axis projection for a trellis group
+        (US-C3b). Both have the same signature, so the loop below is identical.
         """
         # Filter to plants that have spacing data
         with_data = [
@@ -2851,7 +2908,7 @@ class GardenPlannerApp(QMainWindow):
                 center_b = plant_b.mapToScene(plant_b.rect().center())  # type: ignore[attr-defined]
                 radius_b = plant_b.effective_spacing_radius()  # type: ignore[attr-defined]
 
-                dist = hypot(  # type: ignore[operator]
+                dist = distance(  # type: ignore[operator]
                     center_a.x() - center_b.x(),
                     center_a.y() - center_b.y(),
                 )

@@ -580,22 +580,27 @@ class BedMenuActions:
     toggle_grid: QAction | None = None
     add_soil_test: QAction | None = None
     log_pest_disease: QAction | None = None
+    log_harvest: QAction | None = None        # US-C1
     plan_succession: QAction | None = None
 
 def build_bed_context_menu(
-    self, menu: QMenu, *, grid_enabled: bool, supports_grid: bool = True
+    self, menu: QMenu, *, grid_enabled: bool,
+    supports_grid: bool = True, supports_soil: bool = True,   # supports_soil: US-C3b
 ) -> BedMenuActions: ...
 
 def dispatch_bed_action(self, action: QAction | None, actions: BedMenuActions) -> bool: ...
 ```
 
-Every bed-capable shape's `contextMenuEvent` follows the same skeleton:
+`supports_grid=False` drops the grid toggle (round/vertical shapes); `supports_soil=False` drops **only** the soil-test action (the trellis — a plant-parent that holds no soil — keeps pest/harvest/succession). Every **plant-parent** shape's `contextMenuEvent` follows the same skeleton (the guard is `is_plant_parent_type`, not `is_bed_type`, so the trellis is included — US-C3b):
 
 ```python
 bed_actions = BedMenuActions()
-if is_bed_type(self.object_type):
+if is_plant_parent_type(self.object_type):
+    soil = is_bed_type(self.object_type)   # trellis → False; beds/containers → True
     bed_actions = self.build_bed_context_menu(
-        menu, grid_enabled=self._grid_enabled, supports_grid=<True for rect/poly, False for round>
+        menu, grid_enabled=self._grid_enabled,
+        supports_grid=soil,                # round shapes pass False regardless
+        supports_soil=soil,
     )
 # ...assemble the rest of the menu...
 action = menu.exec(event.screenPos())
@@ -604,19 +609,22 @@ if self.dispatch_bed_action(action, bed_actions):
 # ...handle shape-specific actions...
 ```
 
-**Why a mixin method, not a base class.** `GardenItemMixin` is already shared by all four shapes; adding methods there avoids a deeper refactor and keeps the change minimal. The mixin handles `request_soil_test`, `request_pest_log`, `request_succession_plan` view dispatch and the grid-toggle side effect (`scene.selectionChanged.emit()`) so each shape only has to translate its surrounding non-bed menu items.
+**Why a mixin method, not a base class.** `GardenItemMixin` is already shared by all four shapes; adding methods there avoids a deeper refactor and keeps the change minimal. The mixin handles `request_soil_test`, `request_pest_log`, `request_harvest_log`, `request_succession_plan` view dispatch and the grid-toggle side effect (`scene.selectionChanged.emit()`) so each shape only has to translate its surrounding non-bed menu items.
 
-**Regression test (the part that prevents recurrence).** `tests/integration/test_bed_context_menu.py` parametrises across all four shape classes and asserts that every bed action exists on every shape:
+**Regression test (the part that prevents recurrence).** `tests/integration/test_bed_context_menu.py` parametrises across every plant-parent shape (incl. containers + trellis) and asserts the soil-test is present iff `supports_soil`:
 
 ```python
-@pytest.mark.parametrize("factory,supports_grid", BED_SHAPES)
-def test_bed_context_menu_has_all_features(factory, supports_grid, qtbot):
+@pytest.mark.parametrize("factory,supports_grid,supports_soil", BED_SHAPES)
+def test_bed_context_menu_has_all_features(factory, supports_grid, supports_soil, qtbot):
     item = factory()
     menu = QMenu()
-    actions = item.build_bed_context_menu(menu, grid_enabled=False, supports_grid=supports_grid)
-    assert actions.add_soil_test is not None
+    actions = item.build_bed_context_menu(
+        menu, grid_enabled=False, supports_grid=supports_grid, supports_soil=supports_soil)
     assert actions.log_pest_disease is not None
+    assert actions.log_harvest is not None
     assert actions.plan_succession is not None
+    assert (actions.add_soil_test is not None) == supports_soil   # trellis → None
+    assert (actions.toggle_grid is not None) == supports_grid
 ```
 
 **Adding a future bed feature** (the playbook):
@@ -634,7 +642,7 @@ If you forget step 1–5 the existing test still passes; if you forget step 6 th
 
 Cross-references: ADR-017 (decision rationale), `tests/integration/test_bed_context_menu.py` (enforcement), `tests/integration/test_succession.py::TestSuccessionBadgeIndicator` (badge state machine).
 
-**Update (US-C3 — containers join the soil predicate).** `is_bed_type()` is now the **soil-capable** predicate, not literally "bed": it returns true for `GARDEN_BED`, `RAISED_BED`, **and** the container types `CONTAINER`/`CONTAINER_ROUND`/`WALL_PLANTER`. So containers ride the same `build_bed_context_menu` path and bed-feature playbook above with no extra work. The parent/relationship behaviour (reparenting, drag/copy propagation, "Contained Plants") moved to a second predicate `is_plant_parent_type()` = soil containers **plus** `TRELLIS` (a plant-parent that holds no soil). When adding a feature, pick the predicate by seam: soil → `is_bed_type`; parent/relationship → `is_plant_parent_type`. The grid overlay and bed-style context menu stay on `is_bed_type` on purpose (containers get a grid + bed menu; the trellis does not). Container fill is measured by height in litres via the Qt-free `core/container_model.py` (not bed soil-depth). See ADR-031.
+**Update (US-C3 — containers join the soil predicate).** `is_bed_type()` is now the **soil-capable** predicate, not literally "bed": it returns true for `GARDEN_BED`, `RAISED_BED`, **and** the container types `CONTAINER`/`CONTAINER_ROUND`/`WALL_PLANTER`. So containers ride the same `build_bed_context_menu` path and bed-feature playbook above with no extra work. The parent/relationship behaviour (reparenting, drag/copy propagation, "Contained Plants", **and the bed-style context menu**) gates on a second predicate `is_plant_parent_type()` = soil containers **plus** `TRELLIS` (a plant-parent that holds no soil). When adding a feature, pick the predicate by seam: soil → `is_bed_type`; parent/relationship → `is_plant_parent_type`. The four shape items call `build_bed_context_menu(..., supports_grid=…, supports_soil=…)` under an `is_plant_parent_type` guard; for the trellis both flags are `False` (via `is_bed_type(self.object_type)`), so it shows **Pest / Harvest / Succession** but no Grid / Soil-test (US-C3b). The **grid overlay** stays purely on `is_bed_type` — a grid on a vertical surface is meaningless. Container fill is measured by height in litres via the Qt-free `core/container_model.py` (not bed soil-depth). See ADR-031.
 
 ## 8.15 Google Maps API Key for the Satellite Background Picker (ADR-019)
 

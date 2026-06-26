@@ -483,13 +483,18 @@ class GardenItemMixin:
         *,
         grid_enabled: bool,
         supports_grid: bool = True,
+        supports_soil: bool = True,
     ) -> BedMenuActions:
-        """Add the standard bed-specific menu items to ``menu``.
+        """Add the standard plant-parent menu items to ``menu``.
 
-        Single source of truth for bed actions across all shape items. Callers
-        must guard with ``is_bed_type(self.object_type)``. The returned
-        ``BedMenuActions`` is then passed to ``dispatch_bed_action`` after
-        ``menu.exec()`` to dispatch whichever action the user picked.
+        Single source of truth for the bed-style actions across all shape items.
+        Callers must guard with ``is_plant_parent_type(self.object_type)``. Pass
+        ``supports_grid=False`` for round/vertical shapes and
+        ``supports_soil=False`` for non-soil parents (the trellis, US-C3b) — the
+        latter omits the soil-test action while keeping pest/harvest/succession,
+        which are meaningful for climbing crops. The returned ``BedMenuActions``
+        is then passed to ``dispatch_bed_action`` after ``menu.exec()`` to
+        dispatch whichever action the user picked.
         """
         actions = BedMenuActions()
         menu.addSeparator()
@@ -500,9 +505,10 @@ class GardenItemMixin:
                 else QCoreApplication.translate("BedActions", "Show Grid")
             )
             actions.toggle_grid = menu.addAction(label)
-        actions.add_soil_test = menu.addAction(
-            QCoreApplication.translate("BedActions", "Add soil test…")
-        )
+        if supports_soil:
+            actions.add_soil_test = menu.addAction(
+                QCoreApplication.translate("BedActions", "Add soil test…")
+            )
         actions.log_pest_disease = menu.addAction(
             QCoreApplication.translate("BedActions", "Log Pest/Disease…")
         )

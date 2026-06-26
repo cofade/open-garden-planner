@@ -578,11 +578,18 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
 
         # Bed-specific actions (grid toggle, soil test, pest log, succession)
         # are built centrally on GardenItemMixin — see ADR-017 / §8.12.
+        from open_garden_planner.core.object_types import is_plant_parent_type
         from open_garden_planner.ui.canvas.items.garden_item import BedMenuActions
         bed_actions = BedMenuActions()
-        if is_bed_type(self.object_type):
+        if is_plant_parent_type(self.object_type):
+            # Grid + soil-test gate on the SOIL seam (is_bed_type): containers
+            # get them, the trellis (parent-but-not-soil) does not.
+            soil = is_bed_type(self.object_type)
             bed_actions = self.build_bed_context_menu(
-                menu, grid_enabled=self._grid_enabled, supports_grid=True
+                menu,
+                grid_enabled=self._grid_enabled,
+                supports_grid=soil,
+                supports_soil=soil,
             )
 
         menu.addSeparator()

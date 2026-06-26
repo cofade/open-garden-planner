@@ -890,14 +890,17 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # Bed-specific actions are built centrally — see ADR-017 / §8.12.
         # Circles can also be plants; for plant-type circles we only offer the
         # pest/disease log (the bed builder otherwise covers it for bed types).
-        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.core.object_types import is_bed_type, is_plant_parent_type
         from open_garden_planner.ui.canvas.items.garden_item import BedMenuActions
         bed_actions = BedMenuActions()
         plant_pest_log_action = None
         plant_harvest_log_action = None
-        if is_bed_type(self.object_type):
+        if is_plant_parent_type(self.object_type):
             bed_actions = self.build_bed_context_menu(
-                menu, grid_enabled=self._grid_enabled, supports_grid=False
+                menu,
+                grid_enabled=self._grid_enabled,
+                supports_grid=False,
+                supports_soil=is_bed_type(self.object_type),
             )
         else:
             menu.addSeparator()

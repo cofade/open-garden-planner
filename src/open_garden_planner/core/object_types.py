@@ -560,13 +560,15 @@ def get_translated_display_name(object_type: ObjectType) -> str:
 #
 # PLANT_PARENT_TYPES — anything a plant can be a child of: the soil containers
 # PLUS the trellis (a vertical structure that hosts climbers but holds no soil).
-# is_plant_parent_type() gates reparenting, drag/copy propagation, and the
-# "Contained Plants" panel section. Trellis is the only type that is a
-# plant-parent but NOT soil-capable, which is exactly why two predicates exist.
+# is_plant_parent_type() gates reparenting, drag/copy propagation, the
+# "Contained Plants" panel section, and the bed-style context menu (the trellis
+# gets pest/harvest/succession; its soil-test action is gated off via
+# supports_soil=False — US-C3b). Trellis is the only type that is a plant-parent
+# but NOT soil-capable, which is exactly why two predicates exist.
 #
-# Note: the square-foot grid overlay and the bed-style context menu stay on the
-# SOIL seam (is_bed_type) on purpose — containers get a planting grid, the
-# trellis does not (a grid on a vertical surface is meaningless).
+# Note: the square-foot grid overlay stays on the SOIL seam (is_bed_type) on
+# purpose — containers get a planting grid, the trellis does not (a grid on a
+# vertical surface is meaningless).
 SOIL_CONTAINER_TYPES: frozenset[ObjectType] = frozenset(
     {
         ObjectType.GARDEN_BED,
@@ -607,9 +609,10 @@ def is_plant_parent_type(object_type: ObjectType | None) -> bool:
     """Check if a plant can be a child of this object type.
 
     Covers every soil container (see :func:`is_bed_type`) plus the trellis.
-    Gates reparenting, drag/copy/duplicate propagation, grid overlay, and the
-    bed-style context menu — anything about the parent/child relationship
-    rather than soil.
+    Gates reparenting, drag/copy/duplicate propagation, the "Contained Plants"
+    panel, and the bed-style context menu (the trellis gets pest/harvest/
+    succession via ``supports_soil=False``). The grid overlay stays on the SOIL
+    seam (:func:`is_bed_type`) — a grid on a vertical trellis is meaningless.
     """
     if object_type is None:
         return False
