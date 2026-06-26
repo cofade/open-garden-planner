@@ -211,7 +211,7 @@ See **ADR-020** (snap engine: provider registry + quadtree spatial index) and **
 
 See **ADR-022** (Bezier model + filleted-rectangle conversion) and **ADR-023** (snap pipeline v2).
 
-## Phase 13 — Package C (Garden Smart Features, epic #188) — in progress
+## Phase 13 — Package C (Garden Smart Features, epic #188) ✅ Complete (v1.20.0)
 
 | Status | US    | Description                                                      |
 | ------ | ----- | ---------------------------------------------------------------- |
