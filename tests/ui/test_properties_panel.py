@@ -435,3 +435,83 @@ class TestFocusPreservation:
         assert after is content_edit, (
             "Text Content field was rebuilt while focused — focus would be lost (#200)"
         )
+
+
+class TestContainerProperties:
+    """US-C3: container material/drainage/height/soil-volume controls."""
+
+    def _labels(self, panel: PropertiesPanel) -> list:
+        from PyQt6.QtWidgets import QLabel
+
+        out = []
+        for i in range(panel._form_layout.rowCount()):
+            field = panel._form_layout.itemAt(i, panel._form_layout.ItemRole.LabelRole)
+            if field and isinstance(field.widget(), QLabel):
+                out.append(field.widget().text())
+        return out
+
+    def test_container_section_shown_for_container(self, qtbot):  # noqa: ARG002
+        item = RectangleItem(0, 0, 80, 50, object_type=ObjectType.CONTAINER)
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+        labels = self._labels(panel)
+        assert "Material:" in labels
+        assert "Height:" in labels
+        assert "Soil volume:" in labels
+
+    def test_container_section_absent_for_plain_bed(self, qtbot):  # noqa: ARG002
+        item = RectangleItem(0, 0, 80, 50, object_type=ObjectType.GARDEN_BED)
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+        assert "Material:" not in self._labels(panel)
+
+    def test_editing_material_updates_metadata(self, qtbot):  # noqa: ARG002
+        from PyQt6.QtWidgets import QComboBox
+
+        from open_garden_planner.core import container_model as cm
+
+        item = RectangleItem(0, 0, 80, 50, object_type=ObjectType.CONTAINER)
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+
+        combo = None
+        for i in range(panel._form_layout.rowCount()):
+            field = panel._form_layout.itemAt(i, panel._form_layout.ItemRole.FieldRole)
+            widget = field.widget() if field else None
+            if isinstance(widget, QComboBox) and widget.currentData() in cm.MATERIALS:
+                combo = widget
+                break
+        assert combo is not None, "material combo not found"
+        idx = cm.MATERIALS.index(cm.WOOD)
+        combo.setCurrentIndex(idx)
+        assert item.metadata["container_material"] == cm.WOOD
+
+    def test_effective_volume_refreshes_on_footprint_change(self, qtbot):  # noqa: ARG002
+        """The derived 'Effective' volume must re-compute on incremental refresh
+        (e.g. after a canvas resize changes the footprint), not go stale."""
+        from PyQt6.QtWidgets import QLabel
+
+        item = RectangleItem(0, 0, 100, 100, object_type=ObjectType.CONTAINER)
+        panel = PropertiesPanel()
+        panel.set_selected_items([item])
+
+        def effective_text() -> str:
+            for i in range(panel._form_layout.rowCount()):
+                lbl = panel._form_layout.itemAt(i, panel._form_layout.ItemRole.LabelRole)
+                fld = panel._form_layout.itemAt(i, panel._form_layout.ItemRole.FieldRole)
+                if (
+                    lbl and isinstance(lbl.widget(), QLabel)
+                    and lbl.widget().text() == "Effective:"
+                    and fld and isinstance(fld.widget(), QLabel)
+                ):
+                    return fld.widget().text()
+            return ""
+
+        before = effective_text()
+        # Shrink the footprint, then trigger an incremental refresh (no rebuild).
+        item.setRect(0, 0, 50, 50)
+        panel._refresh_field_values()
+        after = effective_text()
+        assert before and after and before != after, (
+            f"Effective volume did not refresh on footprint change: {before!r} -> {after!r}"
+        )

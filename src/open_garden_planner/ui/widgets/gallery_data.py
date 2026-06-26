@@ -396,8 +396,30 @@ def _infrastructure_items() -> list[GalleryItem]:
     return items
 
 
+def _vertical_container_items() -> list[GalleryItem]:
+    """Vertical & container gardening objects (US-C3).
+
+    Containers/wall planters are soil-bearing plant-parents; the trellis is a
+    vertical structure (plant-parent, no soil). All ride existing shape items.
+    """
+    items: list[GalleryItem] = []
+    container_specs = [
+        (_tr("Container"), ToolType.CONTAINER_RECT, ObjectType.CONTAINER),
+        (_tr("Round Container"), ToolType.CONTAINER_ROUND, ObjectType.CONTAINER_ROUND),
+        (_tr("Wall Planter"), ToolType.WALL_PLANTER, ObjectType.WALL_PLANTER),
+        (_tr("Trellis"), ToolType.TRELLIS, ObjectType.TRELLIS),
+    ]
+    for name, tool, obj in container_specs:
+        style = OBJECT_STYLES[obj]
+        thumb = render_texture_thumbnail(style.fill_pattern, style.fill_color)
+        if thumb is None:
+            thumb = render_color_circle_thumbnail(style.fill_color)
+        items.append(GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb))
+    return items
+
+
 def build_toolbar_categories() -> list[GalleryCategory]:
-    """Build the 10 toolbar categories that drive the category dropdowns.
+    """Build the 11 toolbar categories that drive the category dropdowns.
 
     Order is by expected frequency of use. Each category maps 1:1 to a
     toolbar button and a Sims-style dropdown palette. The icon_name is the
@@ -414,6 +436,9 @@ def build_toolbar_categories() -> list[GalleryCategory]:
         GalleryCategory(_tr("Furniture"), _furniture_items(), "furniture"),
         GalleryCategory(_tr("Fences & Walls"), _fence_items(), "fence"),
         GalleryCategory(_tr("Infrastructure"), _infrastructure_items(), "infrastructure"),
+        GalleryCategory(
+            _tr("Vertical & Container"), _vertical_container_items(), "garden_bed"
+        ),
     ]
 
 

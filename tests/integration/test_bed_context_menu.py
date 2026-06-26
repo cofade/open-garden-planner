@@ -38,11 +38,27 @@ def _make_circle() -> CircleItem:
     return CircleItem(0, 0, 30, object_type=ObjectType.GARDEN_BED)
 
 
+def _make_container_rect() -> RectangleItem:
+    return RectangleItem(0, 0, 100, 60, object_type=ObjectType.CONTAINER)
+
+
+def _make_wall_planter() -> RectangleItem:
+    return RectangleItem(0, 0, 120, 40, object_type=ObjectType.WALL_PLANTER)
+
+
+def _make_container_round() -> CircleItem:
+    return CircleItem(0, 0, 30, object_type=ObjectType.CONTAINER_ROUND)
+
+
 BED_SHAPES = [
     pytest.param(_make_rectangle, True,  id="RectangleItem-raised-bed"),
     pytest.param(_make_polygon,   True,  id="PolygonItem-garden-bed"),
     pytest.param(_make_ellipse,   False, id="EllipseItem-garden-bed"),
     pytest.param(_make_circle,    False, id="CircleItem-garden-bed"),
+    # US-C3: containers are soil-capable (is_bed_type) → same bed menu.
+    pytest.param(_make_container_rect,  True,  id="RectangleItem-container"),
+    pytest.param(_make_wall_planter,    True,  id="RectangleItem-wall-planter"),
+    pytest.param(_make_container_round, False, id="CircleItem-round-container"),
 ]
 
 

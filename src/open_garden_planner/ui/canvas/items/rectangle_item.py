@@ -324,6 +324,8 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         # Draw soil mismatch border outside rotation border (US-12.10d)
         if is_bed_type(self.object_type):
             self._draw_soil_mismatch_border(painter)
+        # Container over-capacity badge (US-C3)
+        self._draw_capacity_badge(painter)
         # The succession badge is a graphics-item child (managed in the mixin)
         # so it renders upright despite the canvas Y-flip.
 

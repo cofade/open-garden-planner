@@ -2788,6 +2788,10 @@ class GardenPlannerApp(QMainWindow):
         """
         import math
 
+        # Container capacity is independent of the spacing-circle toggle, so it
+        # runs first — on the same triggers (timer, selection, create/move).
+        self._update_container_capacity()
+
         if not self._spacing_circles_enabled:
             return
 
@@ -2861,6 +2865,44 @@ class GardenPlannerApp(QMainWindow):
                 plant.set_spacing_overlap("overlap")  # type: ignore[attr-defined]
             else:
                 plant.set_spacing_overlap("ideal")  # type: ignore[attr-defined]
+
+    def _update_container_capacity(self) -> None:
+        """Flag containers whose plants overflow their footprint (US-C3).
+
+        Sums each container's child plant footprints (true drawn area, not the
+        spacing circle) and compares to the container footprint via
+        ``container_model.is_capacity_exceeded``; sets the per-item badge state.
+        """
+        from open_garden_planner.core import container_model as cm
+        from open_garden_planner.core.object_types import is_container_type
+        from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
+
+        try:
+            scene_items = list(self.canvas_scene.items())
+        except RuntimeError:
+            return
+
+        by_id: dict[str, object] = {}
+        for it in scene_items:
+            iid = getattr(it, "item_id", None)
+            if iid is not None:
+                by_id[str(iid)] = it
+
+        for item in scene_items:
+            if not isinstance(item, GardenItemMixin):
+                continue
+            if not is_container_type(getattr(item, "object_type", None)):
+                continue
+            footprint = item._compute_area_cm2() or 0.0
+            child_areas: list[float] = []
+            for child_id in item.child_item_ids:
+                child = by_id.get(str(child_id))
+                if child is None:
+                    continue
+                area = child._compute_area_cm2() if hasattr(child, "_compute_area_cm2") else None
+                if area:
+                    child_areas.append(float(area))
+            item.set_capacity_overrun(cm.is_capacity_exceeded(footprint, child_areas))
 
     # -- Constraints panel handlers --
 

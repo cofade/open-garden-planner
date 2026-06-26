@@ -688,6 +688,22 @@
             <source>Tangent</source>
             <translation>Tangente</translation>
         </message>
+        <message>
+            <source>Container</source>
+            <translation>Pflanzgefäß</translation>
+        </message>
+        <message>
+            <source>Round Container</source>
+            <translation>Rundes Pflanzgefäß</translation>
+        </message>
+        <message>
+            <source>Wall Planter</source>
+            <translation>Wandpflanzgefäß</translation>
+        </message>
+        <message>
+            <source>Trellis</source>
+            <translation>Rankgitter</translation>
+        </message>
     </context>
     <context>
         <name>CircleItem</name>
@@ -3838,6 +3854,22 @@ Ergebnisse werden lokal für ein Jahr zwischengespeichert.</translation>
             <source>Journal Pin</source>
             <translation>Tagebuch-Nadel</translation>
         </message>
+        <message>
+            <source>Container</source>
+            <translation>Pflanzgefäß</translation>
+        </message>
+        <message>
+            <source>Round Container</source>
+            <translation>Rundes Pflanzgefäß</translation>
+        </message>
+        <message>
+            <source>Wall Planter</source>
+            <translation>Wandpflanzgefäß</translation>
+        </message>
+        <message>
+            <source>Trellis</source>
+            <translation>Rankgitter</translation>
+        </message>
     </context>
     <context>
         <name>ParallelConstraintTool</name>
@@ -5427,7 +5459,7 @@ noch nicht implementiert</translation>
         <message>
             <location filename="..\..\ui\panels\properties_panel.py" line="893" />
             <source>Terracotta</source>
-            <translation>Terrakotta</translation>
+            <translation>Ton</translation>
         </message>
         <message>
             <location filename="..\..\ui\panels\properties_panel.py" line="894" />
@@ -5523,6 +5555,54 @@ noch nicht implementiert</translation>
         <message>
             <source>Fill depth used to calculate soil volume in the Shopping List</source>
             <translation>Fülltiefe zur Berechnung des Bodenvolumens in der Einkaufsliste</translation>
+        </message>
+        <message>
+            <source>Container</source>
+            <translation>Pflanzgefäß</translation>
+        </message>
+        <message>
+            <source>Material:</source>
+            <translation>Material:</translation>
+        </message>
+        <message>
+            <source>Plastic</source>
+            <translation>Kunststoff</translation>
+        </message>
+        <message>
+            <source>Metal</source>
+            <translation>Metall</translation>
+        </message>
+        <message>
+            <source>Drainage:</source>
+            <translation>Drainage:</translation>
+        </message>
+        <message>
+            <source>Has drainage holes</source>
+            <translation>Hat Abzugslöcher</translation>
+        </message>
+        <message>
+            <source>Height:</source>
+            <translation>Höhe:</translation>
+        </message>
+        <message>
+            <source>Soil volume:</source>
+            <translation>Bodenvolumen:</translation>
+        </message>
+        <message>
+            <source>Auto</source>
+            <translation>Auto</translation>
+        </message>
+        <message>
+            <source>0 = auto-compute from footprint × height; set a value to override</source>
+            <translation>0 = automatisch aus Grundfläche × Höhe; Wert zum Überschreiben eingeben</translation>
+        </message>
+        <message>
+            <source>Effective:</source>
+            <translation>Effektiv:</translation>
+        </message>
+        <message>
+            <source>{litres:.1f} L</source>
+            <translation>{litres:.1f} L</translation>
         </message>
     </context>
     <context>
@@ -8840,6 +8920,26 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Tool Shed</source>
             <translation>Geräteschuppen</translation>
         </message>
+        <message>
+            <source>Vertical &amp; Container</source>
+            <translation>Vertikal &amp; Gefäße</translation>
+        </message>
+        <message>
+            <source>Container</source>
+            <translation>Pflanzgefäß</translation>
+        </message>
+        <message>
+            <source>Round Container</source>
+            <translation>Rundes Pflanzgefäß</translation>
+        </message>
+        <message>
+            <source>Wall Planter</source>
+            <translation>Wandpflanzgefäß</translation>
+        </message>
+        <message>
+            <source>Trellis</source>
+            <translation>Rankgitter</translation>
+        </message>
     </context>
     <context>
         <name>CategoryDropdown</name>
@@ -9883,6 +9983,41 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Click to collapse</source>
             <translation>Zum Einklappen klicken</translation>
+        </message>
+    </context>
+    <context>
+        <name>ContainerModel</name>
+        <message>
+            <source>Porous terracotta dries out fast — water frequently.</source>
+            <translation>Poröser Ton trocknet schnell aus — häufig gießen.</translation>
+        </message>
+        <message>
+            <source>Plastic retains moisture — water sparingly to avoid root rot.</source>
+            <translation>Kunststoff hält Feuchtigkeit — sparsam gießen, um Wurzelfäule zu vermeiden.</translation>
+        </message>
+        <message>
+            <source>Wood holds moisture moderately, but can rot if kept waterlogged.</source>
+            <translation>Holz hält Feuchtigkeit mäßig, kann bei Staunässe aber faulen.</translation>
+        </message>
+        <message>
+            <source>Metal heats up in sun and dries the root zone — monitor on hot days.</source>
+            <translation>Metall heizt in der Sonne auf und trocknet den Wurzelbereich — an heißen Tagen beobachten.</translation>
+        </message>
+        <message>
+            <source>Porous terracotta dries out fast — water frequently. No drainage holes: water carefully — risk of waterlogging.</source>
+            <translation>Poröser Ton trocknet schnell aus — häufig gießen. Keine Abzugslöcher: vorsichtig gießen — Gefahr von Staunässe.</translation>
+        </message>
+        <message>
+            <source>Plastic retains moisture — water sparingly to avoid root rot. No drainage holes: water carefully — risk of waterlogging.</source>
+            <translation>Kunststoff hält Feuchtigkeit — sparsam gießen, um Wurzelfäule zu vermeiden. Keine Abzugslöcher: vorsichtig gießen — Gefahr von Staunässe.</translation>
+        </message>
+        <message>
+            <source>Wood holds moisture moderately, but can rot if kept waterlogged. No drainage holes: water carefully — risk of waterlogging.</source>
+            <translation>Holz hält Feuchtigkeit mäßig, kann bei Staunässe aber faulen. Keine Abzugslöcher: vorsichtig gießen — Gefahr von Staunässe.</translation>
+        </message>
+        <message>
+            <source>Metal heats up in sun and dries the root zone — monitor on hot days. No drainage holes: water carefully — risk of waterlogging.</source>
+            <translation>Metall heizt in der Sonne auf und trocknet den Wurzelbereich — an heißen Tagen beobachten. Keine Abzugslöcher: vorsichtig gießen — Gefahr von Staunässe.</translation>
         </message>
     </context>
 </TS>

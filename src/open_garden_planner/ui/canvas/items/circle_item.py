@@ -448,6 +448,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # Draw soil mismatch border for circular beds (US-12.10d)
         self._draw_soil_mismatch_border(painter)
 
+        # Container over-capacity badge (US-C3)
+        self._draw_capacity_badge(painter)
+
     @property
     def center(self) -> QPointF:
         """Get circle center point."""

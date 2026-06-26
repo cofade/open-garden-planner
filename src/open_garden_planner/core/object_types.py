@@ -192,6 +192,15 @@ class ObjectType(Enum):
     WATER_TAP = auto()
     TOOL_SHED = auto()
 
+    # Vertical & container gardening (US-C3). Plant-parent objects that are
+    # NOT garden beds. CONTAINER/WALL_PLANTER are rectangle-based, CONTAINER_ROUND
+    # is circle-based; all three are soil containers. TRELLIS (US-C3b) is a
+    # vertical structure — a plant-parent but NOT a soil container.
+    CONTAINER = auto()
+    CONTAINER_ROUND = auto()
+    WALL_PLANTER = auto()
+    TRELLIS = auto()
+
     # Generic geometric shapes (for backwards compatibility)
     GENERIC_RECTANGLE = auto()
     GENERIC_POLYGON = auto()
@@ -446,6 +455,34 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         display_name=QT_TR_NOOP("Tool Shed"),
         fill_pattern=FillPattern.SOLID,
     ),
+    ObjectType.CONTAINER: ObjectStyle(
+        fill_color=QColor(170, 110, 70, 255),  # Terracotta brown
+        stroke_color=QColor(120, 70, 35),  # Dark terracotta
+        stroke_width=2.0,
+        display_name=QT_TR_NOOP("Container"),
+        fill_pattern=FillPattern.SOIL,
+    ),
+    ObjectType.CONTAINER_ROUND: ObjectStyle(
+        fill_color=QColor(170, 110, 70, 255),  # Terracotta brown
+        stroke_color=QColor(120, 70, 35),  # Dark terracotta
+        stroke_width=2.0,
+        display_name=QT_TR_NOOP("Round Container"),
+        fill_pattern=FillPattern.SOIL,
+    ),
+    ObjectType.WALL_PLANTER: ObjectStyle(
+        fill_color=QColor(150, 120, 90, 255),  # Wood/box brown
+        stroke_color=QColor(100, 75, 45),  # Dark wood
+        stroke_width=2.0,
+        display_name=QT_TR_NOOP("Wall Planter"),
+        fill_pattern=FillPattern.SOIL,
+    ),
+    ObjectType.TRELLIS: ObjectStyle(
+        fill_color=QColor(180, 150, 110, 120),  # Light translucent wood
+        stroke_color=QColor(110, 80, 45),  # Dark wood
+        stroke_width=2.0,
+        display_name=QT_TR_NOOP("Trellis"),
+        fill_pattern=FillPattern.SOLID,
+    ),
     ObjectType.GENERIC_RECTANGLE: ObjectStyle(
         fill_color=QColor(144, 238, 144, 255),  # Light green
         stroke_color=QColor(34, 139, 34),  # Forest green
@@ -514,11 +551,80 @@ def get_translated_display_name(object_type: ObjectType) -> str:
     return QCoreApplication.translate("ObjectType", style.display_name)
 
 
+# US-C3: two distinct seams that historically both went through is_bed_type().
+#
+# SOIL_CONTAINER_TYPES — objects that hold soil: beds + containers + wall
+# planters. They get soil tests, mismatch borders, amendment/shopping volume.
+# is_bed_type() is the "soil-capable" predicate (it already returned True for
+# the non-"bed" RAISED_BED) and now also covers containers/wall planters.
+#
+# PLANT_PARENT_TYPES — anything a plant can be a child of: the soil containers
+# PLUS the trellis (a vertical structure that hosts climbers but holds no soil).
+# is_plant_parent_type() gates reparenting, drag/copy propagation, and the
+# "Contained Plants" panel section. Trellis is the only type that is a
+# plant-parent but NOT soil-capable, which is exactly why two predicates exist.
+#
+# Note: the square-foot grid overlay and the bed-style context menu stay on the
+# SOIL seam (is_bed_type) on purpose — containers get a planting grid, the
+# trellis does not (a grid on a vertical surface is meaningless).
+SOIL_CONTAINER_TYPES: frozenset[ObjectType] = frozenset(
+    {
+        ObjectType.GARDEN_BED,
+        ObjectType.RAISED_BED,
+        ObjectType.CONTAINER,
+        ObjectType.CONTAINER_ROUND,
+        ObjectType.WALL_PLANTER,
+    }
+)
+
+PLANT_PARENT_TYPES: frozenset[ObjectType] = SOIL_CONTAINER_TYPES | {ObjectType.TRELLIS}
+
+# Container types whose soil fill is measured by container height (litres),
+# not bed soil-depth. Used by the properties panel and shopping-list volume.
+CONTAINER_TYPES: frozenset[ObjectType] = frozenset(
+    {
+        ObjectType.CONTAINER,
+        ObjectType.CONTAINER_ROUND,
+        ObjectType.WALL_PLANTER,
+    }
+)
+
+
 def is_bed_type(object_type: ObjectType | None) -> bool:
-    """Check if an ObjectType is a bed type (GARDEN_BED or RAISED_BED)."""
+    """Check if an ObjectType is soil-capable (bed, raised bed, or container).
+
+    Despite the historical name, this is the *soil container* predicate: it
+    gates soil tests, mismatch warnings, amendment/shopping volume, and the
+    soil-depth UI. Trellis is deliberately excluded (it holds no soil) —
+    use :func:`is_plant_parent_type` for parent/relationship behaviour.
+    """
     if object_type is None:
         return False
-    return object_type in (ObjectType.GARDEN_BED, ObjectType.RAISED_BED)
+    return object_type in SOIL_CONTAINER_TYPES
+
+
+def is_plant_parent_type(object_type: ObjectType | None) -> bool:
+    """Check if a plant can be a child of this object type.
+
+    Covers every soil container (see :func:`is_bed_type`) plus the trellis.
+    Gates reparenting, drag/copy/duplicate propagation, grid overlay, and the
+    bed-style context menu — anything about the parent/child relationship
+    rather than soil.
+    """
+    if object_type is None:
+        return False
+    return object_type in PLANT_PARENT_TYPES
+
+
+def is_container_type(object_type: ObjectType | None) -> bool:
+    """Check if an ObjectType is a pot/wall-planter container (US-C3).
+
+    Containers are soil-capable like beds but measure their fill by height
+    (litres) rather than bed soil-depth, and carry material/drainage props.
+    """
+    if object_type is None:
+        return False
+    return object_type in CONTAINER_TYPES
 
 
 def get_valid_types_for_shape(
@@ -539,6 +645,7 @@ def get_valid_types_for_shape(
             ObjectType.PARASOL,
             ObjectType.FIRE_PIT,
             ObjectType.PLANTER_POT,
+            ObjectType.CONTAINER_ROUND,
             ObjectType.RAIN_BARREL,
             ObjectType.WATER_TAP,
             ObjectType.POND_POOL,
@@ -577,6 +684,9 @@ def get_valid_types_for_shape(
             ObjectType.COMPOST_BIN,
             ObjectType.COLD_FRAME,
             ObjectType.TOOL_SHED,
+            ObjectType.CONTAINER,
+            ObjectType.WALL_PLANTER,
+            ObjectType.TRELLIS,
         ]
     if shape == "ellipse":
         # F9: oval in-ground beds (decorative borders). RAISED_BED is

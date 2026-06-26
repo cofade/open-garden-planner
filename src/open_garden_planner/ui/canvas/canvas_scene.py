@@ -908,19 +908,20 @@ class CanvasScene(QGraphicsScene):
         return None
 
     def find_smallest_bed_containing(self, scene_point: QPointF) -> QGraphicsItem | None:
-        """Find the smallest bed whose shape contains *scene_point*.
+        """Find the smallest plant-parent whose shape contains *scene_point*.
 
-        When beds are nested (e.g. a raised bed inside a garden bed),
-        the smallest enclosing bed is returned so that the plant is
-        parented to the most specific container.
+        Plant-parents are beds, containers, wall planters, and trellises
+        (:func:`is_plant_parent_type`). When they are nested (e.g. a raised
+        bed inside a garden bed, or a pot inside a bed), the smallest enclosing
+        parent is returned so the plant is parented to the most specific one.
 
         Args:
             scene_point: Point in scene coordinates.
 
         Returns:
-            The best-matching bed item, or None.
+            The best-matching plant-parent item, or None.
         """
-        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.core.object_types import is_plant_parent_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         best_bed: QGraphicsItem | None = None
@@ -929,7 +930,7 @@ class CanvasScene(QGraphicsScene):
         for item in self.items():
             if not isinstance(item, GardenItemMixin):
                 continue
-            if not is_bed_type(item.object_type):
+            if not is_plant_parent_type(item.object_type):
                 continue
             local_pt = item.mapFromScene(scene_point)  # type: ignore[union-attr]
             if item.contains(local_pt):  # type: ignore[union-attr]

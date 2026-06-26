@@ -634,6 +634,8 @@ If you forget step 1–5 the existing test still passes; if you forget step 6 th
 
 Cross-references: ADR-017 (decision rationale), `tests/integration/test_bed_context_menu.py` (enforcement), `tests/integration/test_succession.py::TestSuccessionBadgeIndicator` (badge state machine).
 
+**Update (US-C3 — containers join the soil predicate).** `is_bed_type()` is now the **soil-capable** predicate, not literally "bed": it returns true for `GARDEN_BED`, `RAISED_BED`, **and** the container types `CONTAINER`/`CONTAINER_ROUND`/`WALL_PLANTER`. So containers ride the same `build_bed_context_menu` path and bed-feature playbook above with no extra work. The parent/relationship behaviour (reparenting, drag/copy propagation, "Contained Plants") moved to a second predicate `is_plant_parent_type()` = soil containers **plus** `TRELLIS` (a plant-parent that holds no soil). When adding a feature, pick the predicate by seam: soil → `is_bed_type`; parent/relationship → `is_plant_parent_type`. The grid overlay and bed-style context menu stay on `is_bed_type` on purpose (containers get a grid + bed menu; the trellis does not). Container fill is measured by height in litres via the Qt-free `core/container_model.py` (not bed soil-depth). See ADR-031.
+
 ## 8.15 Google Maps API Key for the Satellite Background Picker (ADR-019)
 
 **What needs the key.** The "File → Load Satellite Background…" menu opens `MapPickerDialog`, which uses two Google Maps Platform APIs:

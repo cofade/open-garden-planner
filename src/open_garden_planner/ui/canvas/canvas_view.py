@@ -45,7 +45,11 @@ from open_garden_planner.core.alignment import (
     distribute_items,
 )
 from open_garden_planner.core.coordinate_input import CoordinateInputBuffer
-from open_garden_planner.core.object_types import ObjectType, is_bed_type
+from open_garden_planner.core.object_types import (
+    ObjectType,
+    is_bed_type,
+    is_plant_parent_type,
+)
 from open_garden_planner.core.snap import (
     PointSnapper,
     SnapCandidate,
@@ -512,6 +516,26 @@ class CanvasView(QGraphicsView):
             tool.tool_type = tool_type
             tool.display_name = display_name
             self._tool_manager.register_tool(tool)
+
+        # Register vertical & container gardening tools (US-C3). Containers,
+        # wall planters, and trellises are plain shape items tagged with their
+        # ObjectType (same pattern as raised beds), so they ride the existing
+        # RectangleTool / CircleTool.
+        rect_containers = [
+            (ObjectType.CONTAINER, ToolType.CONTAINER_RECT, self.tr("Container")),
+            (ObjectType.WALL_PLANTER, ToolType.WALL_PLANTER, self.tr("Wall Planter")),
+            (ObjectType.TRELLIS, ToolType.TRELLIS, self.tr("Trellis")),
+        ]
+        for obj_type, tool_type, display_name in rect_containers:
+            tool = RectangleTool(self, object_type=obj_type)
+            tool.tool_type = tool_type
+            tool.display_name = display_name
+            self._tool_manager.register_tool(tool)
+
+        round_container = CircleTool(self, object_type=ObjectType.CONTAINER_ROUND)
+        round_container.tool_type = ToolType.CONTAINER_ROUND
+        round_container.display_name = self.tr("Round Container")
+        self._tool_manager.register_tool(round_container)
 
         # Connect tool change signal
         self._tool_manager.tool_changed.connect(self.tool_changed.emit)
@@ -3371,19 +3395,18 @@ class CanvasView(QGraphicsView):
         if not selected:
             return
 
-        from open_garden_planner.core.object_types import is_bed_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
             ConstructionLineItem,
         )
 
-        # Check for beds with children
+        # Check for plant-parents (beds/containers/trellises) with children
         beds_with_children = [
             item
             for item in selected
             if isinstance(item, GardenItemMixin)
-            and is_bed_type(item.object_type)
+            and is_plant_parent_type(item.object_type)
             and item.has_children
         ]
 
@@ -3500,7 +3523,6 @@ class CanvasView(QGraphicsView):
 
         # Exclude items that are FIXED (pinned in place)
         from open_garden_planner.core.constraints import ConstraintType
-        from open_garden_planner.core.object_types import is_bed_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         fixed_ids = {
@@ -3520,7 +3542,9 @@ class CanvasView(QGraphicsView):
         selected_set = {id(i) for i in selected}
         extra_children: list[QGraphicsItem] = []
         for item in selected:
-            if isinstance(item, GardenItemMixin) and is_bed_type(item.object_type):
+            if isinstance(item, GardenItemMixin) and is_plant_parent_type(
+                item.object_type
+            ):
                 for child_id in item.child_item_ids:
                     child = self._canvas_scene.find_item_by_id(child_id)
                     if (
@@ -3628,13 +3652,12 @@ class CanvasView(QGraphicsView):
             if delta.x() != 0 or delta.y() != 0:
                 item_deltas.append((item, delta))
 
-        # Propagate bed movement to child plants
-        from open_garden_planner.core.object_types import is_bed_type
+        # Propagate parent (bed/container/trellis) movement to child plants
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         child_start_positions: dict[QGraphicsItem, QPointF] = {}
         for item, delta in list(item_deltas):
-            if not isinstance(item, GardenItemMixin) or not is_bed_type(
+            if not isinstance(item, GardenItemMixin) or not is_plant_parent_type(
                 item.object_type
             ):
                 continue
@@ -3692,11 +3715,10 @@ class CanvasView(QGraphicsView):
         if not self._drag_start_positions:
             return
 
-        from open_garden_planner.core.object_types import is_bed_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         for item, start_pos in self._drag_start_positions.items():
-            if not isinstance(item, GardenItemMixin) or not is_bed_type(
+            if not isinstance(item, GardenItemMixin) or not is_plant_parent_type(
                 item.object_type
             ):
                 continue
@@ -4406,20 +4428,21 @@ class CanvasView(QGraphicsView):
         self.set_status_message(self.tr("Ungrouped"))
 
     def copy_selected(self) -> None:
-        """Copy selected items to clipboard (auto-includes bed children)."""
-        from open_garden_planner.core.object_types import is_bed_type
+        """Copy selected items to clipboard (auto-includes plant-parent children)."""
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         selected = list(self.scene().selectedItems())
         if not selected:
             return
 
-        # Auto-include children of selected beds
+        # Auto-include children of selected plant-parents (beds/containers/trellises)
         selected_ids = {
             item.item_id for item in selected if isinstance(item, GardenItemMixin)
         }
         for item in list(selected):
-            if isinstance(item, GardenItemMixin) and is_bed_type(item.object_type):
+            if isinstance(item, GardenItemMixin) and is_plant_parent_type(
+                item.object_type
+            ):
                 for child_id in item.child_item_ids:
                     if child_id not in selected_ids:
                         child = self._canvas_scene.find_item_by_id(child_id)
@@ -4539,7 +4562,6 @@ class CanvasView(QGraphicsView):
 
     def duplicate_selected(self) -> None:
         """Duplicate selected items (copy and paste in one action)."""
-        from open_garden_planner.core.object_types import is_bed_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         selected = list(self.scene().selectedItems())
@@ -4547,12 +4569,14 @@ class CanvasView(QGraphicsView):
             self.set_status_message(self.tr("Nothing to duplicate"))
             return
 
-        # Auto-include children of selected beds
+        # Auto-include children of selected plant-parents (beds/containers/trellises)
         selected_ids = {
             item.item_id for item in selected if isinstance(item, GardenItemMixin)
         }
         for item in list(selected):
-            if isinstance(item, GardenItemMixin) and is_bed_type(item.object_type):
+            if isinstance(item, GardenItemMixin) and is_plant_parent_type(
+                item.object_type
+            ):
                 for child_id in item.child_item_ids:
                     if child_id not in selected_ids:
                         child = self._canvas_scene.find_item_by_id(child_id)

@@ -557,6 +557,9 @@ class PropertiesPanel(QWidget):
         # Soil depth section (for bed types only)
         self._add_soil_depth_properties(item)
 
+        # Container section (material/drainage/height/soil volume) — US-C3
+        self._add_container_properties(item)
+
         # Spacing radius section (for plant types only)
         self._add_spacing_properties(item)
 
@@ -676,13 +679,17 @@ class PropertiesPanel(QWidget):
         self._populate_layer_combo(combo, item)
 
     def _add_bed_children_section(self, item: QGraphicsItem) -> None:
-        """Show contained plants list when a bed is selected."""
-        from open_garden_planner.core.object_types import is_bed_type
+        """Show contained plants list when a plant-parent is selected.
+
+        Covers beds, containers, wall planters, and trellises
+        (:func:`is_plant_parent_type`).
+        """
+        from open_garden_planner.core.object_types import is_plant_parent_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         if not isinstance(item, GardenItemMixin):
             return
-        if not is_bed_type(item.object_type):
+        if not is_plant_parent_type(item.object_type):
             return
 
         children = item.child_item_ids
@@ -1013,8 +1020,16 @@ class PropertiesPanel(QWidget):
             )
 
     def _add_soil_depth_properties(self, item: QGraphicsItem) -> None:
-        """Add soil fill depth control (bed types only, issue #177)."""
+        """Add soil fill depth control (beds only, issue #177).
+
+        Containers are excluded: their fill is measured by container height
+        (litres) via :meth:`_add_container_properties`, not bed soil-depth.
+        """
+        from open_garden_planner.core.object_types import is_container_type
+
         if not hasattr(item, "object_type") or not is_bed_type(item.object_type):
+            return
+        if is_container_type(item.object_type):
             return
         if not hasattr(item, "metadata"):
             return
@@ -1040,6 +1055,145 @@ class PropertiesPanel(QWidget):
             depth_spin,
             lambda s=depth_spin, it=item: s.setValue(int(it.metadata.get("soil_depth_cm", 30))),
         )
+
+    def _add_container_properties(self, item: QGraphicsItem) -> None:
+        """Add container material/drainage/height/soil-volume controls (US-C3).
+
+        Containers (pots, wall planters) measure their fill by height in litres
+        and carry a material + drainage that drive a watering hint. Values live
+        in ``metadata`` (additive, like bed ``soil_depth_cm``); edits mutate the
+        item directly, mirroring :meth:`_add_soil_depth_properties`.
+        """
+        from open_garden_planner.core import container_model as cm
+        from open_garden_planner.core.object_types import is_container_type
+
+        if not hasattr(item, "object_type") or not is_container_type(item.object_type):
+            return
+        if not hasattr(item, "metadata"):
+            return
+
+        meta = item.metadata
+
+        header = QLabel(self.tr("Container"))
+        header.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        self._form_layout.addRow(header)
+
+        # Material combo — value stored is the cm.* identifier, label translated.
+        material_labels = {
+            cm.TERRACOTTA: self.tr("Terracotta"),
+            cm.PLASTIC: self.tr("Plastic"),
+            cm.WOOD: self.tr("Wood"),
+            cm.METAL: self.tr("Metal"),
+        }
+        material_combo = QComboBox()
+        for ident in cm.MATERIALS:
+            material_combo.addItem(material_labels[ident], ident)
+        material_combo.setCurrentIndex(cm.MATERIALS.index(cm.container_material(meta)))
+        self._form_layout.addRow(self.tr("Material:"), material_combo)
+
+        # Drainage checkbox
+        drainage_check = QCheckBox(self.tr("Has drainage holes"))
+        drainage_check.setChecked(cm.container_has_drainage(meta))
+        self._form_layout.addRow(self.tr("Drainage:"), drainage_check)
+
+        # Height spin (drives auto soil volume)
+        height_spin = QSpinBox()
+        height_spin.setRange(1, 300)
+        height_spin.setSuffix(" cm")
+        height_spin.setValue(int(cm.container_height_cm(meta)))
+        self._form_layout.addRow(self.tr("Height:"), height_spin)
+
+        # Soil volume override — 0 means "auto-compute from footprint × height".
+        volume_spin = QDoubleSpinBox()
+        volume_spin.setRange(0.0, 100000.0)
+        volume_spin.setDecimals(1)
+        volume_spin.setSuffix(" L")
+        volume_spin.setSpecialValueText(self.tr("Auto"))
+        override = meta.get("container_soil_volume_l")
+        volume_spin.setValue(float(override) if override else 0.0)
+        volume_spin.setToolTip(
+            self.tr("0 = auto-compute from footprint × height; set a value to override")
+        )
+        self._form_layout.addRow(self.tr("Soil volume:"), volume_spin)
+
+        # Effective volume + watering hint (read-only feedback labels)
+        effective_label = QLabel()
+        effective_label.setStyleSheet("color: #666;")
+        self._form_layout.addRow(self.tr("Effective:"), effective_label)
+
+        hint_label = QLabel()
+        hint_label.setWordWrap(True)
+        hint_label.setStyleSheet("color: #2e7d32; font-style: italic;")
+        self._form_layout.addRow(hint_label)
+
+        def footprint_cm2() -> float:
+            area = item._compute_area_cm2() if hasattr(item, "_compute_area_cm2") else None
+            return float(area) if area else 0.0
+
+        def update_feedback() -> None:
+            litres = cm.effective_soil_volume_litres(meta, footprint_cm2())
+            effective_label.setText(self.tr("{litres:.1f} L").format(litres=litres))
+            hint = cm.watering_hint(cm.container_material(meta), cm.container_has_drainage(meta))
+            hint_label.setText(QCoreApplication.translate("ContainerModel", hint))
+
+        def on_material_changed(_index: int) -> None:
+            if self._updating:
+                return
+            meta["container_material"] = material_combo.currentData()
+            update_feedback()
+
+        def on_drainage_changed(checked: bool) -> None:
+            if self._updating:
+                return
+            meta["container_drainage"] = bool(checked)
+            update_feedback()
+
+        def on_height_changed(val: int) -> None:
+            if self._updating:
+                return
+            meta["container_height_cm"] = float(val)
+            update_feedback()
+
+        def on_volume_changed(val: float) -> None:
+            if self._updating:
+                return
+            meta["container_soil_volume_l"] = None if val <= 0 else float(val)
+            update_feedback()
+
+        material_combo.currentIndexChanged.connect(on_material_changed)
+        drainage_check.toggled.connect(on_drainage_changed)
+        height_spin.valueChanged.connect(on_height_changed)
+        volume_spin.valueChanged.connect(on_volume_changed)
+        update_feedback()
+
+        # Incremental-refresh registration (#206): push fresh model values back
+        # into the live widgets without rebuilding the form.
+        self._register_refresh(
+            material_combo,
+            lambda c=material_combo, it=item: c.setCurrentIndex(
+                cm.MATERIALS.index(cm.container_material(it.metadata))
+            ),
+        )
+        self._register_refresh(
+            drainage_check,
+            lambda c=drainage_check, it=item: c.setChecked(
+                cm.container_has_drainage(it.metadata)
+            ),
+        )
+        self._register_refresh(
+            height_spin,
+            lambda s=height_spin, it=item: s.setValue(int(cm.container_height_cm(it.metadata))),
+        )
+        self._register_refresh(
+            volume_spin,
+            lambda s=volume_spin, it=item: s.setValue(
+                float(it.metadata.get("container_soil_volume_l") or 0.0)
+            ),
+        )
+        # The derived feedback labels have no input signal of their own, so an
+        # incremental refresh (e.g. after a canvas resize changes the footprint)
+        # must re-run update_feedback() to keep "Effective" volume honest.
+        self._register_refresh(effective_label, update_feedback)
 
     def _add_spacing_properties(self, item: QGraphicsItem) -> None:
         """Add plant spacing radius control (plant types only)."""
