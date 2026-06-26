@@ -2,7 +2,7 @@
 
 The CategoryToolbar sits to the right of MainToolbar (core tools) and
 ConstraintToolbar (CAD constraints). It holds:
-  - 10 category icon-buttons, each opens a dropdown of placeable objects
+  - 11 category icon-buttons, each opens a dropdown of placeable objects
   - a global search field that searches across every gallery item
 """
 
@@ -21,11 +21,11 @@ from open_garden_planner.ui.widgets.global_search import GlobalSearchField
 class TestCategoryToolbarStructure:
     """Static structure: categories, icons, and search field are all wired up."""
 
-    def test_toolbar_has_10_categories_and_search(self, qtbot: object) -> None:
+    def test_toolbar_has_11_categories_and_search(self, qtbot: object) -> None:
         tb = CategoryToolbar()
         qtbot.addWidget(tb)  # type: ignore[attr-defined]
-        assert len(tb._category_buttons) == 10
-        assert len(tb._category_dropdowns) == 10
+        assert len(tb._category_buttons) == 11
+        assert len(tb._category_dropdowns) == 11
         assert tb._search_field is not None
 
     def test_first_category_is_beds_and_surfaces(self, qtbot: object) -> None:

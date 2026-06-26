@@ -18,7 +18,7 @@ import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtCore import QCoreApplication, QRectF, Qt
+from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QAction, QColor, QFont, QFontMetricsF, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsItem,
@@ -218,6 +218,7 @@ class GardenItemMixin:
         self._frost_protection_needed: bool | None = None  # Per-plant frost override (US-12.2)
         self._spacing_overlap: str | None = None  # "overlap" | "ideal" | None
         self._soil_mismatch_level: str | None = None  # "warning" | "critical" | None (US-12.10d)
+        self._capacity_overrun: bool = False  # Container over capacity badge (US-C3)
         # US-12.8: succession-plan badge state. List of (common_name, is_current)
         # tuples in chronological order; rendered upright via SuccessionBadgeItem.
         self._succession_lines: list[tuple[str, bool]] = []
@@ -370,6 +371,27 @@ class GardenItemMixin:
         if hasattr(self, 'update'):
             self.update()  # type: ignore[attr-defined]
 
+    @property
+    def capacity_overrun(self) -> bool:
+        """Whether this container's plants overflow its footprint (US-C3)."""
+        return self._capacity_overrun
+
+    def set_capacity_overrun(self, overrun: bool) -> None:
+        """Show or hide the container capacity-overrun badge.
+
+        Args:
+            overrun: True when the combined plant footprint exceeds the
+                container footprint; draws a warning badge.
+        """
+        if self._capacity_overrun == overrun:
+            return
+        self._capacity_overrun = overrun
+        # The badge paints strictly inside boundingRect() (inset top-left), so a
+        # repaint suffices — no geometry invalidation needed (unlike the
+        # antagonist badge, which can extend the bounds).
+        if hasattr(self, 'update'):
+            self.update()  # type: ignore[attr-defined]
+
     def set_companion_highlight(self, highlight_type: str | None) -> None:
         """Set or clear the companion planting highlight for this item.
 
@@ -461,13 +483,18 @@ class GardenItemMixin:
         *,
         grid_enabled: bool,
         supports_grid: bool = True,
+        supports_soil: bool = True,
     ) -> BedMenuActions:
-        """Add the standard bed-specific menu items to ``menu``.
+        """Add the standard plant-parent menu items to ``menu``.
 
-        Single source of truth for bed actions across all shape items. Callers
-        must guard with ``is_bed_type(self.object_type)``. The returned
-        ``BedMenuActions`` is then passed to ``dispatch_bed_action`` after
-        ``menu.exec()`` to dispatch whichever action the user picked.
+        Single source of truth for the bed-style actions across all shape items.
+        Callers must guard with ``is_plant_parent_type(self.object_type)``. Pass
+        ``supports_grid=False`` for round/vertical shapes and
+        ``supports_soil=False`` for non-soil parents (the trellis, US-C3b) — the
+        latter omits the soil-test action while keeping pest/harvest/succession,
+        which are meaningful for climbing crops. The returned ``BedMenuActions``
+        is then passed to ``dispatch_bed_action`` after ``menu.exec()`` to
+        dispatch whichever action the user picked.
         """
         actions = BedMenuActions()
         menu.addSeparator()
@@ -478,9 +505,10 @@ class GardenItemMixin:
                 else QCoreApplication.translate("BedActions", "Show Grid")
             )
             actions.toggle_grid = menu.addAction(label)
-        actions.add_soil_test = menu.addAction(
-            QCoreApplication.translate("BedActions", "Add soil test…")
-        )
+        if supports_soil:
+            actions.add_soil_test = menu.addAction(
+                QCoreApplication.translate("BedActions", "Add soil test…")
+            )
         actions.log_pest_disease = menu.addAction(
             QCoreApplication.translate("BedActions", "Log Pest/Disease…")
         )
@@ -889,6 +917,53 @@ class GardenItemMixin:
                 return
         # Rect / circle / ellipse: shape() returns a closed outline path.
         painter.drawPath(self.shape())  # type: ignore[attr-defined]
+        painter.restore()
+
+    def _draw_capacity_badge(self, painter: Any) -> None:
+        """Draw a red warning triangle when a container is over capacity (US-C3).
+
+        Placed at the visual top-left of the bounding rect so it does not collide
+        with the antagonist/spacing badges (which sit top-right on plants).
+        Reuses the bar+dot "!" convention so no text is drawn (text would render
+        upside-down on the Y-flipped canvas, see §8.14).
+        """
+        if not self._capacity_overrun:
+            return
+        # Guard against a stale flag after Change Type (CONTAINER → generic):
+        # _update_container_capacity only clears the flag for items that are
+        # still containers, so gate the actual draw on the live type.
+        from open_garden_planner.core.object_types import is_container_type
+
+        if not is_container_type(self.object_type):  # type: ignore[attr-defined]
+            return
+        rect = self.boundingRect()  # type: ignore[attr-defined]
+        s = min(rect.width(), rect.height()) * 0.28
+        if s <= 0:
+            return
+        s = min(s, 18.0)
+        h = s * 0.866
+        # Visual top-left: small x, large y (positive Y = visually up on the flip).
+        cx = rect.left() + s * 0.7
+        cy = rect.bottom() - s * 0.7
+        triangle = [
+            QPointF(cx, cy + h * 0.55),
+            QPointF(cx + s * 0.5, cy - h * 0.45),
+            QPointF(cx - s * 0.5, cy - h * 0.45),
+        ]
+        painter.save()
+        painter.setBrush(QColor(210, 40, 40, 235))
+        warn_pen = QPen(QColor(120, 20, 20, 235))
+        warn_pen.setWidthF(s * 0.08)
+        painter.setPen(warn_pen)
+        painter.drawPolygon(*triangle)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(255, 255, 255, 245))
+        bar_w = s * 0.09
+        bar_h = s * 0.27
+        bar_bot = cy + h * 0.07
+        painter.drawRect(QRectF(cx - bar_w / 2, bar_bot, bar_w, bar_h))
+        dot_r = bar_w * 0.75
+        painter.drawEllipse(QPointF(cx, bar_bot - dot_r * 2.2), dot_r, dot_r)
         painter.restore()
 
     def _compute_area_cm2(self) -> float | None:

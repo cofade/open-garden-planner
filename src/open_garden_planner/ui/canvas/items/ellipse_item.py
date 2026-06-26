@@ -257,12 +257,15 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         edit_label_action = menu.addAction(_("EllipseItem", "Edit Label"))
 
         # Bed-specific actions are built centrally — see ADR-017 / §8.12.
-        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.core.object_types import is_bed_type, is_plant_parent_type
         from open_garden_planner.ui.canvas.items.garden_item import BedMenuActions
         bed_actions = BedMenuActions()
-        if is_bed_type(self.object_type):
+        if is_plant_parent_type(self.object_type):
             bed_actions = self.build_bed_context_menu(
-                menu, grid_enabled=self._grid_enabled, supports_grid=False
+                menu,
+                grid_enabled=self._grid_enabled,
+                supports_grid=False,
+                supports_soil=is_bed_type(self.object_type),
             )
 
         menu.addSeparator()

@@ -58,6 +58,7 @@ from open_garden_planner.ui.panels import (
     PlantDatabasePanel,
     PlantSearchPanel,
     PropertiesPanel,
+    SmartSymbolsPanel,
 )
 from open_garden_planner.ui.theme import ThemeMode, apply_theme
 from open_garden_planner.ui.views.harvest_view import HarvestView
@@ -1425,6 +1426,16 @@ class GardenPlannerApp(QMainWindow):
         )
         sidebar_layout.addWidget(self.journal_collapsible)
 
+        # 11. Smart Symbols library (US-C4) — parametric blocks
+        self.smart_symbols_panel = SmartSymbolsPanel()
+        self.smart_symbols_panel.symbol_selected.connect(self._on_smart_symbol_selected)
+        self.smart_symbols_collapsible = CollapsiblePanel(
+            self.tr("Smart Symbols"),
+            self.smart_symbols_panel,
+            expanded=False,
+        )
+        sidebar_layout.addWidget(self.smart_symbols_collapsible)
+
         # Route every panel through the SidebarController (US-226 accordion):
         # all bars start collapsed; hover peeks them open in place, a title click
         # toggles them open/closed. Panels keep a fixed canonical order (they are
@@ -1444,6 +1455,7 @@ class GardenPlannerApp(QMainWindow):
             ("pest_overview", self.pest_overview_collapsible),
             ("plant_search", plant_search_collapsible),
             ("journal", self.journal_collapsible),
+            ("smart_symbols", self.smart_symbols_collapsible),
         ]
         # Detach each panel from the scratch build layout before handing it to the
         # controller (panels were addWidget'd above purely to set their parent).
@@ -1458,6 +1470,11 @@ class GardenPlannerApp(QMainWindow):
         # behaviour; the selection updaters re-show them on a relevant selection).
         for key in ("plant_details", "companion", "crop_rotation"):
             self._sidebar_controller.set_panel_visible(key, False)
+        # US-C4: the Smart Symbols engine, persistence, and DXF export ship, but
+        # the sidebar panel is deferred from the UI for now. It stays registered
+        # (so order/wiring are untouched) but its bar is permanently hidden —
+        # nothing re-shows it. Re-enable by deleting this one line.
+        self._sidebar_controller.set_panel_visible("smart_symbols", False)
 
         sidebar_layout.addWidget(self._sidebar_controller)
 
@@ -2788,6 +2805,10 @@ class GardenPlannerApp(QMainWindow):
         """
         import math
 
+        # Container capacity is independent of the spacing-circle toggle, so it
+        # runs first — on the same triggers (timer, selection, create/move).
+        self._update_container_capacity()
+
         if not self._spacing_circles_enabled:
             return
 
@@ -2816,15 +2837,72 @@ class GardenPlannerApp(QMainWindow):
             else:
                 orphans.append(plant)
 
-        # Check overlaps within each group
-        for group in list(bed_groups.values()) + ([orphans] if orphans else []):
-            self._check_spacing_group(group, math.hypot)
+        # Index every item by id once so each group can resolve its parent
+        # without an O(n) scan (US-C3b: trellis groups need a 1-D distance).
+        by_id: dict[str, object] = {}
+        for it in scene_items:
+            iid = getattr(it, "item_id", None)
+            if iid is not None:
+                by_id[str(iid)] = it
 
-    def _check_spacing_group(self, plants: list, hypot: object) -> None:
+        # Check overlaps within each group. A TRELLIS parent uses a 1-D distance
+        # measured along its long axis (climbers are spaced along the bar; their
+        # perpendicular/canvas-Y offset is placement noise — US-C3b).
+        from open_garden_planner.core.object_types import ObjectType
+
+        for key, group in bed_groups.items():
+            parent = by_id.get(key)
+            if parent is not None and getattr(parent, "object_type", None) is ObjectType.TRELLIS:
+                distance = self._trellis_axis_distance_fn(parent)
+            else:
+                distance = math.hypot
+            self._check_spacing_group(group, distance)
+        if orphans:
+            self._check_spacing_group(orphans, math.hypot)
+
+    def _trellis_axis_distance_fn(self, trellis: object):
+        """Return a 1-D distance callable projecting onto the trellis long axis.
+
+        Climbers on a trellis are spaced along its long (rotation-aware) edge;
+        the perpendicular component of the separation is discarded. Returns a
+        ``(dx, dy) -> float`` callable measuring ``|separation · axis_unit|`` in
+        scene space. Falls back to ``math.hypot`` for a degenerate (zero-size)
+        rectangle.
+        """
+        import math
+
+        from PyQt6.QtCore import QPointF
+
+        # TRELLIS is rectangle-only for app-authored files, but a hand-edited or
+        # future-imported .ogp could tag a non-rect shape — degrade to 2-D rather
+        # than crash the whole spacing refresh.
+        if not hasattr(trellis, "rect"):
+            return math.hypot
+        rect = trellis.rect()  # type: ignore[attr-defined]
+        if rect.width() >= rect.height():
+            p0 = QPointF(rect.left(), rect.center().y())
+            p1 = QPointF(rect.right(), rect.center().y())
+        else:
+            p0 = QPointF(rect.center().x(), rect.top())
+            p1 = QPointF(rect.center().x(), rect.bottom())
+        s0 = trellis.mapToScene(p0)  # type: ignore[attr-defined]
+        s1 = trellis.mapToScene(p1)  # type: ignore[attr-defined]
+        vx, vy = s1.x() - s0.x(), s1.y() - s0.y()
+        mag = math.hypot(vx, vy)
+        if mag == 0:
+            return math.hypot
+        ux, uy = vx / mag, vy / mag
+        return lambda dx, dy: abs(dx * ux + dy * uy)
+
+    def _check_spacing_group(self, plants: list, distance: object) -> None:
         """Check spacing overlaps within a group of sibling plants.
 
         Only plants with real spacing data (from database or user override)
         participate in overlap detection. Plants without data are skipped.
+
+        ``distance`` is a ``(dx, dy) -> float`` callable: ``math.hypot`` for the
+        normal 2-D case, or a 1-D along-axis projection for a trellis group
+        (US-C3b). Both have the same signature, so the loop below is identical.
         """
         # Filter to plants that have spacing data
         with_data = [
@@ -2847,7 +2925,7 @@ class GardenPlannerApp(QMainWindow):
                 center_b = plant_b.mapToScene(plant_b.rect().center())  # type: ignore[attr-defined]
                 radius_b = plant_b.effective_spacing_radius()  # type: ignore[attr-defined]
 
-                dist = hypot(  # type: ignore[operator]
+                dist = distance(  # type: ignore[operator]
                     center_a.x() - center_b.x(),
                     center_a.y() - center_b.y(),
                 )
@@ -2861,6 +2939,44 @@ class GardenPlannerApp(QMainWindow):
                 plant.set_spacing_overlap("overlap")  # type: ignore[attr-defined]
             else:
                 plant.set_spacing_overlap("ideal")  # type: ignore[attr-defined]
+
+    def _update_container_capacity(self) -> None:
+        """Flag containers whose plants overflow their footprint (US-C3).
+
+        Sums each container's child plant footprints (true drawn area, not the
+        spacing circle) and compares to the container footprint via
+        ``container_model.is_capacity_exceeded``; sets the per-item badge state.
+        """
+        from open_garden_planner.core import container_model as cm
+        from open_garden_planner.core.object_types import is_container_type
+        from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
+
+        try:
+            scene_items = list(self.canvas_scene.items())
+        except RuntimeError:
+            return
+
+        by_id: dict[str, object] = {}
+        for it in scene_items:
+            iid = getattr(it, "item_id", None)
+            if iid is not None:
+                by_id[str(iid)] = it
+
+        for item in scene_items:
+            if not isinstance(item, GardenItemMixin):
+                continue
+            if not is_container_type(getattr(item, "object_type", None)):
+                continue
+            footprint = item._compute_area_cm2() or 0.0
+            child_areas: list[float] = []
+            for child_id in item.child_item_ids:
+                child = by_id.get(str(child_id))
+                if child is None:
+                    continue
+                area = child._compute_area_cm2() if hasattr(child, "_compute_area_cm2") else None
+                if area:
+                    child_areas.append(float(area))
+            item.set_capacity_overrun(cm.is_capacity_exceeded(footprint, child_areas))
 
     # -- Constraints panel handlers --
 
@@ -4358,6 +4474,45 @@ class GardenPlannerApp(QMainWindow):
         """Sidebar double-click → centre viewport on pin + open editor."""
         self.canvas_view.focus_on_journal_pin(note_id)
         self._on_journal_note_edit(note_id)
+
+    def _on_smart_symbol_selected(self, symbol_id: str) -> None:
+        """Drop a parametric smart symbol at the viewport centre (US-C4)."""
+        from open_garden_planner.core.commands import CreateItemCommand
+        from open_garden_planner.services.smart_symbol_library import (
+            get_smart_symbol_library,
+        )
+        from open_garden_planner.ui.canvas.items.smart_symbol_item import SmartSymbolItem
+
+        definition = get_smart_symbol_library().get(symbol_id)
+        if definition is None:
+            return
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None)
+            or self.canvas_view.scene()
+        )
+        if scene is None:
+            return
+        layer_id = (
+            scene.active_layer.id
+            if getattr(scene, "active_layer", None)
+            else None
+        )
+        # No canvas name → no floating label child to entangle with the
+        # regenerated geometry; the panel header shows the symbol's name.
+        symbol = SmartSymbolItem(
+            symbol_id=symbol_id,
+            symbol_version=definition.version,
+            params=definition.param_defaults(),
+            layer_id=layer_id,
+        )
+        center = self.canvas_view.mapToScene(
+            self.canvas_view.viewport().rect().center()
+        )
+        symbol.setPos(center)
+        symbol.regenerate_geometry()
+        self.canvas_view.command_manager.execute(CreateItemCommand(scene, symbol))
+        scene.clearSelection()
+        symbol.setSelected(True)
 
     def _on_garden_journal_notes_changed(self, notes: object) -> None:
         """Refresh the sidebar panel when notes change (added / edited / removed)."""

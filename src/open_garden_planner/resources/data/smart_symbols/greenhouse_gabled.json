@@ -1,0 +1,15 @@
+{
+  "id": "greenhouse_gabled",
+  "version": 1,
+  "name": "Greenhouse (gabled)",
+  "name_de": "Gewächshaus (Giebel)",
+  "category": "structures",
+  "parameters": [
+    {"name": "L", "type": "length", "label": "Length", "label_de": "Länge", "default": 300, "min": 100, "max": 1200, "unit": "cm"},
+    {"name": "W", "type": "length", "label": "Width", "label_de": "Breite", "default": 250, "min": 100, "max": 600, "unit": "cm"}
+  ],
+  "elements": [
+    {"kind": "rect", "x": 0, "y": 0, "w": "L", "h": "W", "object_type": "GREENHOUSE"},
+    {"kind": "line", "x1": 0, "y1": "W / 2", "x2": "L", "y2": "W / 2"}
+  ]
+}

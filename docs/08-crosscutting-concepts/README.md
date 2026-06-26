@@ -580,22 +580,27 @@ class BedMenuActions:
     toggle_grid: QAction | None = None
     add_soil_test: QAction | None = None
     log_pest_disease: QAction | None = None
+    log_harvest: QAction | None = None        # US-C1
     plan_succession: QAction | None = None
 
 def build_bed_context_menu(
-    self, menu: QMenu, *, grid_enabled: bool, supports_grid: bool = True
+    self, menu: QMenu, *, grid_enabled: bool,
+    supports_grid: bool = True, supports_soil: bool = True,   # supports_soil: US-C3b
 ) -> BedMenuActions: ...
 
 def dispatch_bed_action(self, action: QAction | None, actions: BedMenuActions) -> bool: ...
 ```
 
-Every bed-capable shape's `contextMenuEvent` follows the same skeleton:
+`supports_grid=False` drops the grid toggle (round/vertical shapes); `supports_soil=False` drops **only** the soil-test action (the trellis — a plant-parent that holds no soil — keeps pest/harvest/succession). Every **plant-parent** shape's `contextMenuEvent` follows the same skeleton (the guard is `is_plant_parent_type`, not `is_bed_type`, so the trellis is included — US-C3b):
 
 ```python
 bed_actions = BedMenuActions()
-if is_bed_type(self.object_type):
+if is_plant_parent_type(self.object_type):
+    soil = is_bed_type(self.object_type)   # trellis → False; beds/containers → True
     bed_actions = self.build_bed_context_menu(
-        menu, grid_enabled=self._grid_enabled, supports_grid=<True for rect/poly, False for round>
+        menu, grid_enabled=self._grid_enabled,
+        supports_grid=soil,                # round shapes pass False regardless
+        supports_soil=soil,
     )
 # ...assemble the rest of the menu...
 action = menu.exec(event.screenPos())
@@ -604,19 +609,22 @@ if self.dispatch_bed_action(action, bed_actions):
 # ...handle shape-specific actions...
 ```
 
-**Why a mixin method, not a base class.** `GardenItemMixin` is already shared by all four shapes; adding methods there avoids a deeper refactor and keeps the change minimal. The mixin handles `request_soil_test`, `request_pest_log`, `request_succession_plan` view dispatch and the grid-toggle side effect (`scene.selectionChanged.emit()`) so each shape only has to translate its surrounding non-bed menu items.
+**Why a mixin method, not a base class.** `GardenItemMixin` is already shared by all four shapes; adding methods there avoids a deeper refactor and keeps the change minimal. The mixin handles `request_soil_test`, `request_pest_log`, `request_harvest_log`, `request_succession_plan` view dispatch and the grid-toggle side effect (`scene.selectionChanged.emit()`) so each shape only has to translate its surrounding non-bed menu items.
 
-**Regression test (the part that prevents recurrence).** `tests/integration/test_bed_context_menu.py` parametrises across all four shape classes and asserts that every bed action exists on every shape:
+**Regression test (the part that prevents recurrence).** `tests/integration/test_bed_context_menu.py` parametrises across every plant-parent shape (incl. containers + trellis) and asserts the soil-test is present iff `supports_soil`:
 
 ```python
-@pytest.mark.parametrize("factory,supports_grid", BED_SHAPES)
-def test_bed_context_menu_has_all_features(factory, supports_grid, qtbot):
+@pytest.mark.parametrize("factory,supports_grid,supports_soil", BED_SHAPES)
+def test_bed_context_menu_has_all_features(factory, supports_grid, supports_soil, qtbot):
     item = factory()
     menu = QMenu()
-    actions = item.build_bed_context_menu(menu, grid_enabled=False, supports_grid=supports_grid)
-    assert actions.add_soil_test is not None
+    actions = item.build_bed_context_menu(
+        menu, grid_enabled=False, supports_grid=supports_grid, supports_soil=supports_soil)
     assert actions.log_pest_disease is not None
+    assert actions.log_harvest is not None
     assert actions.plan_succession is not None
+    assert (actions.add_soil_test is not None) == supports_soil   # trellis → None
+    assert (actions.toggle_grid is not None) == supports_grid
 ```
 
 **Adding a future bed feature** (the playbook):
@@ -633,6 +641,8 @@ If you forget step 1–5 the existing test still passes; if you forget step 6 th
 **Upright text badges on the Y-flipped canvas.** Related lesson from the same bug batch: text drawn via `painter.drawText()` inside an item's `paint()` inherits the view's `scale(zoom, -zoom)` and renders **upside-down**. Use `QGraphicsSimpleTextItem` (or a custom `QGraphicsItem` subclass) as a **child** of the item with `ItemIgnoresTransformations`. See `SuccessionBadgeItem` in `garden_item.py` for the multi-line-with-pill-background example; bed name labels (`_label_item`) use `QGraphicsSimpleTextItem` for the simple single-line case.
 
 Cross-references: ADR-017 (decision rationale), `tests/integration/test_bed_context_menu.py` (enforcement), `tests/integration/test_succession.py::TestSuccessionBadgeIndicator` (badge state machine).
+
+**Update (US-C3 — containers join the soil predicate).** `is_bed_type()` is now the **soil-capable** predicate, not literally "bed": it returns true for `GARDEN_BED`, `RAISED_BED`, **and** the container types `CONTAINER`/`CONTAINER_ROUND`/`WALL_PLANTER`. So containers ride the same `build_bed_context_menu` path and bed-feature playbook above with no extra work. The parent/relationship behaviour (reparenting, drag/copy propagation, "Contained Plants", **and the bed-style context menu**) gates on a second predicate `is_plant_parent_type()` = soil containers **plus** `TRELLIS` (a plant-parent that holds no soil). When adding a feature, pick the predicate by seam: soil → `is_bed_type`; parent/relationship → `is_plant_parent_type`. The four shape items call `build_bed_context_menu(..., supports_grid=…, supports_soil=…)` under an `is_plant_parent_type` guard; for the trellis both flags are `False` (via `is_bed_type(self.object_type)`), so it shows **Pest / Harvest / Succession** but no Grid / Soil-test (US-C3b). The **grid overlay** stays purely on `is_bed_type` — a grid on a vertical surface is meaningless. Container fill is measured by height in litres via the Qt-free `core/container_model.py` (not bed soil-depth). See ADR-031.
 
 ## 8.15 Google Maps API Key for the Satellite Background Picker (ADR-019)
 
@@ -790,3 +800,60 @@ Plant Details / Companion / Crop Rotation have nothing to show unless a matching
 ### 8.17.7 No persistence
 
 Startup is always fully collapsed; pin/peek/dismissal state is never saved. The `UiStateStore` panel-state helpers were removed (window geometry + the horizontal `main` splitter are still persisted).
+
+## 8.18 Smart Symbol Authoring (US-C4)
+
+Smart symbols are **parametric blocks** defined in JSON. Bundled definitions
+live in `resources/data/smart_symbols/*.json`; users add their own by dropping a
+file in `<app-data>/smart_symbols/` (it appears in the **Smart Symbols** panel on
+next launch). See ADR-032 for the architecture.
+
+**File shape** (one symbol per file; `id` should match the filename):
+
+```json
+{
+  "id": "raised_bed_rows",
+  "version": 1,
+  "name": "Raised Bed (rows)",
+  "name_de": "Hochbeet (Reihen)",
+  "category": "beds",
+  "parameters": [
+    {"name": "L", "type": "length", "label": "Length", "label_de": "Länge",
+     "default": 200, "min": 20, "max": 1000, "unit": "cm"},
+    {"name": "W", "type": "length", "label": "Width", "default": 100},
+    {"name": "rows", "type": "number", "label": "Rows", "default": 4, "min": 1, "max": 20}
+  ],
+  "elements": [
+    {"kind": "rect", "x": 0, "y": 0, "w": "L", "h": "W"},
+    {"repeat": {"var": "i", "from": 1, "to": "rows - 1"},
+     "element": {"kind": "line", "x1": 0, "y1": "W * i / rows", "x2": "L", "y2": "W * i / rows"}}
+  ]
+}
+```
+
+- **Parameters** — `type` is `number` (integer spin), `length` (float spin, with
+  optional `unit`), or `choice` (`choices: [...]`, combo). `name`/`name_de` and
+  per-param `label`/`label_de` provide localisation (German falls back to
+  English); these are **data strings**, not Qt `tr()`.
+- **Elements** — `kind` ∈ `rect{x,y,w,h}`, `line{x1,y1,x2,y2}`,
+  `polyline{points:[[x,y],…]}`, `polygon{points}`, `circle{cx,cy,r}`. Every
+  coordinate is a number **or** an arithmetic **expression string** over the
+  parameters (and the active `repeat` variable `i`). A `repeat{var,from,to}`
+  block (inclusive integer range; endpoints may be expressions) emits its inner
+  `element` once per value.
+- **Expressions** are evaluated by `core/parametric_eval.safe_eval` — `+ - * / %
+  ** //`, parentheses, parameter names, and `min/max/abs/round/floor/ceil/sqrt`.
+  Anything else (attribute access, arbitrary calls, unknown names) is rejected:
+  symbol files are treated as untrusted input, never `eval()`'d. All param values
+  are coerced to **float**, so a parameter cannot be used as the `ndigits` arg of
+  `round(x, n)` (that needs an int — `round(x, rows)` raises and the symbol falls
+  back to cached geometry). Keep expressions small: an over-complex or deeply
+  nested formula is rejected (a node-count cap guards against stack-exhausting
+  input); coordinate formulas are a few terms, not a program.
+- **Versioning** — bump `version` when a definition changes incompatibly. A
+  saved plan stores the instance's `version`; on load, a mismatch (or a missing
+  definition) falls back to the cached geometry embedded in the file and logs a
+  warning, so old plans never break.
+
+`tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
+(loads, validates, every expression parses, generates ≥1 primitive).

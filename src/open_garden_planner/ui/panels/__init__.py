@@ -14,6 +14,7 @@ from .pest_overview_panel import PestOverviewPanel
 from .plant_database_panel import PlantDatabasePanel
 from .plant_search_panel import PlantSearchPanel
 from .properties_panel import PropertiesPanel
+from .smart_symbols_panel import SmartSymbolsPanel
 
 __all__ = [
     "CompanionPanel",
@@ -25,4 +26,5 @@ __all__ = [
     "PlantDatabasePanel",
     "PlantSearchPanel",
     "PropertiesPanel",
+    "SmartSymbolsPanel",
 ]

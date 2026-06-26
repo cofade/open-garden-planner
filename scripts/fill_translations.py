@@ -200,6 +200,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Tool Shed": "Geräteschuppen",
         "Rain Barrel": "Regentonne",
         "Water Tap": "Wasserhahn",
+        "Container": "Pflanzgefäß",
+        "Round Container": "Rundes Pflanzgefäß",
+        "Wall Planter": "Wandpflanzgefäß",
+        "Trellis": "Rankgitter",
         "Copied {count} item(s)": "{count} Element(e) kopiert",
         "Cut {count} item(s)": "{count} Element(e) ausgeschnitten",
         "Nothing to paste": "Nichts zum Einfügen",
@@ -458,6 +462,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Furniture": "Möbel",
         "Fences & Walls": "Zäune & Mauern",
         "Infrastructure": "Infrastruktur",
+        "Vertical & Container": "Vertikal & Gefäße",
+        # Vertical & container gardening objects (US-C3)
+        "Container": "Pflanzgefäß",
+        "Round Container": "Rundes Pflanzgefäß",
+        "Wall Planter": "Wandpflanzgefäß",
+        "Trellis": "Rankgitter",
         # Basic shapes
         "Rectangle": "Rechteck",
         "Polygon": "Polygon",
@@ -614,6 +624,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── GardenPlannerApp ──
     "GardenPlannerApp": {
         "Tasks": "Aufgaben",
+        "Smart Symbols": "Smart-Symbole",
         "&File": "&Datei",
         "&Edit": "&Bearbeiten",
         "&View": "&Ansicht",
@@ -1358,10 +1369,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "❄ %1": "❄ %1",
     },
 
+    # ── SmartSymbolsPanel (US-C4) ──
+    "SmartSymbolsPanel": {
+        "Search symbols…": "Symbole suchen…",
+        "Insert": "Einfügen",
+    },
+
     # ── PropertiesPanel ──
     "PropertiesPanel": {
         "No objects selected": "Keine Objekte ausgewählt",
         "{count} objects selected": "{count} Objekte ausgewählt",
+        "Symbol definition not found — showing cached geometry.":
+            "Symboldefinition nicht gefunden — zwischengespeicherte Geometrie wird angezeigt.",
         "Multi-selection editing\nnot yet implemented":
             "Mehrfachauswahl-Bearbeitung\nnoch nicht implementiert",
         "Type:": "Typ:",
@@ -1394,6 +1413,22 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Soil depth:": "Bodentiefe:",
         "Fill depth used to calculate soil volume in the Shopping List":
             "Fülltiefe zur Berechnung des Bodenvolumens in der Einkaufsliste",
+        # ── Container properties (US-C3) ──
+        "Container": "Pflanzgefäß",
+        "Material:": "Material:",
+        "Terracotta": "Ton",
+        "Plastic": "Kunststoff",
+        "Wood": "Holz",
+        "Metal": "Metall",
+        "Drainage:": "Drainage:",
+        "Has drainage holes": "Hat Abzugslöcher",
+        "Height:": "Höhe:",
+        "Soil volume:": "Bodenvolumen:",
+        "Auto": "Auto",
+        "0 = auto-compute from footprint × height; set a value to override":
+            "0 = automatisch aus Grundfläche × Höhe; Wert zum Überschreiben eingeben",
+        "Effective:": "Effektiv:",
+        "{litres:.1f} L": "{litres:.1f} L",
         "—": "—",
         "Recommended spacing radius (half of plant spread)":
             "Empfohlener Abstandsradius (halbe Pflanzenbreite)",
@@ -1716,9 +1751,31 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Tool Shed": "Geräteschuppen",
         "Rain Barrel": "Regentonne",
         "Water Tap": "Wasserhahn",
+        # ── Vertical & container gardening (US-C3) ──
+        "Container": "Pflanzgefäß",
+        "Round Container": "Rundes Pflanzgefäß",
+        "Wall Planter": "Wandpflanzgefäß",
+        "Trellis": "Rankgitter",
         "Text": "Text",
         "Callout": "Beschriftungspfeil",
         "Journal Pin": "Tagebuch-Nadel",
+    },
+
+    # ── ContainerModel (US-C3 — watering hints, QCoreApplication.translate) ──
+    "ContainerModel": {
+        "Porous terracotta dries out fast — water frequently.":
+            "Poröser Ton trocknet schnell aus — häufig gießen.",
+        "Plastic retains moisture — water sparingly to avoid root rot.":
+            "Kunststoff hält Feuchtigkeit — sparsam gießen, um Wurzelfäule zu vermeiden.",
+        "Wood holds moisture moderately, but can rot if kept waterlogged.":
+            "Holz hält Feuchtigkeit mäßig, kann bei Staunässe aber faulen.",
+        "Metal heats up in sun and dries the root zone — monitor on hot days.":
+            "Metall heizt in der Sonne auf und trocknet den Wurzelbereich — an heißen "
+            "Tagen beobachten.",
+        # Atomic no-drainage suffix — the UI translates this and the material
+        # hint separately and joins them, so no per-material combined strings.
+        "No drainage holes: water carefully — risk of waterlogging.":
+            "Keine Abzugslöcher: vorsichtig gießen — Gefahr von Staunässe.",
     },
 
     # ── Tasks (US-C2 #188 — QCoreApplication.translate in task_generator.py) ──

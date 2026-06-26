@@ -38,48 +38,86 @@ def _make_circle() -> CircleItem:
     return CircleItem(0, 0, 30, object_type=ObjectType.GARDEN_BED)
 
 
+def _make_container_rect() -> RectangleItem:
+    return RectangleItem(0, 0, 100, 60, object_type=ObjectType.CONTAINER)
+
+
+def _make_wall_planter() -> RectangleItem:
+    return RectangleItem(0, 0, 120, 40, object_type=ObjectType.WALL_PLANTER)
+
+
+def _make_container_round() -> CircleItem:
+    return CircleItem(0, 0, 30, object_type=ObjectType.CONTAINER_ROUND)
+
+
+def _make_trellis() -> RectangleItem:
+    return RectangleItem(0, 0, 150, 20, object_type=ObjectType.TRELLIS)
+
+
+# (factory, supports_grid, supports_soil) — supports_soil is False only for the
+# trellis (a plant-parent that holds no soil, US-C3b).
 BED_SHAPES = [
-    pytest.param(_make_rectangle, True,  id="RectangleItem-raised-bed"),
-    pytest.param(_make_polygon,   True,  id="PolygonItem-garden-bed"),
-    pytest.param(_make_ellipse,   False, id="EllipseItem-garden-bed"),
-    pytest.param(_make_circle,    False, id="CircleItem-garden-bed"),
+    pytest.param(_make_rectangle, True,  True,  id="RectangleItem-raised-bed"),
+    pytest.param(_make_polygon,   True,  True,  id="PolygonItem-garden-bed"),
+    pytest.param(_make_ellipse,   False, True,  id="EllipseItem-garden-bed"),
+    pytest.param(_make_circle,    False, True,  id="CircleItem-garden-bed"),
+    # US-C3a: containers are soil-capable (is_bed_type) → same bed menu.
+    pytest.param(_make_container_rect,  True,  True,  id="RectangleItem-container"),
+    pytest.param(_make_wall_planter,    True,  True,  id="RectangleItem-wall-planter"),
+    pytest.param(_make_container_round, False, True,  id="CircleItem-round-container"),
+    # US-C3b: trellis is a plant-parent but NOT soil — no grid, no soil test.
+    pytest.param(_make_trellis,         False, False, id="RectangleItem-trellis"),
 ]
 
 
-@pytest.mark.parametrize("factory,supports_grid", BED_SHAPES)
+@pytest.mark.parametrize("factory,supports_grid,supports_soil", BED_SHAPES)
 def test_bed_context_menu_has_all_features(
-    factory, supports_grid: bool, qtbot
+    factory, supports_grid: bool, supports_soil: bool, qtbot
 ) -> None:  # noqa: ARG001 — qtbot needed for Qt init
-    """Every bed-capable shape must expose all bed-specific menu actions."""
+    """Every plant-parent shape exposes the non-soil bed actions; soil-test +
+    grid are gated by supports_soil / supports_grid (trellis omits both)."""
     item = factory()
     menu = QMenu()
     actions = item.build_bed_context_menu(
-        menu, grid_enabled=False, supports_grid=supports_grid
+        menu,
+        grid_enabled=False,
+        supports_grid=supports_grid,
+        supports_soil=supports_soil,
     )
 
-    assert actions.add_soil_test is not None, "Add soil test action missing"
+    # Pest / harvest / succession are present on every plant-parent (climbers
+    # get pests, get harvested, can be succession-planted).
     assert actions.log_pest_disease is not None, "Pest/disease log action missing"
+    assert actions.log_harvest is not None, "Harvest log action missing"
     assert actions.plan_succession is not None, "Succession plan action missing"
+    if supports_soil:
+        assert actions.add_soil_test is not None, "Add soil test action missing"
+    else:
+        assert actions.add_soil_test is None, "Trellis must not offer a soil test"
     if supports_grid:
         assert actions.toggle_grid is not None, "Grid toggle missing on rectangular bed"
     else:
-        assert actions.toggle_grid is None, "Round beds should not have grid toggle"
+        assert actions.toggle_grid is None, "Round/vertical shapes have no grid toggle"
 
 
-@pytest.mark.parametrize("factory,supports_grid", BED_SHAPES)
+@pytest.mark.parametrize("factory,supports_grid,supports_soil", BED_SHAPES)
 def test_bed_menu_actions_have_translated_text(
-    factory, supports_grid: bool, qtbot
+    factory, supports_grid: bool, supports_soil: bool, qtbot
 ) -> None:  # noqa: ARG001
-    """Each bed action must have non-empty label text (i18n-ready)."""
+    """Each present bed action must have non-empty label text (i18n-ready)."""
     item = factory()
     menu = QMenu()
     actions = item.build_bed_context_menu(
-        menu, grid_enabled=False, supports_grid=supports_grid
+        menu,
+        grid_enabled=False,
+        supports_grid=supports_grid,
+        supports_soil=supports_soil,
     )
 
-    assert actions.add_soil_test.text(), "soil test action has empty text"
     assert actions.log_pest_disease.text(), "pest log action has empty text"
     assert actions.plan_succession.text(), "succession action has empty text"
+    if supports_soil:
+        assert actions.add_soil_test.text(), "soil test action has empty text"
 
 
 # ---------------------------------------------------------------------------

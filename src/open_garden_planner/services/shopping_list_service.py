@@ -22,8 +22,9 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QCoreApplication
 
+from open_garden_planner.core import container_model as _container_model
 from open_garden_planner.core.measurements import calculate_area_and_perimeter
-from open_garden_planner.core.object_types import ObjectType, is_bed_type
+from open_garden_planner.core.object_types import ObjectType, is_bed_type, is_container_type
 from open_garden_planner.models.amendment import Amendment
 from open_garden_planner.models.plant_data import species_key
 from open_garden_planner.models.shopping_list import (
@@ -306,9 +307,19 @@ class ShoppingListService:
             area = _bed_area_m2(item)
             if area <= 0.0:
                 continue
-            depth_m = item.metadata.get("soil_depth_cm", 30) / 100.0  # type: ignore[union-attr]
-            total_soil_m3 += area * depth_m
-            total_mulch_m2 += area
+            if is_container_type(object_type):
+                # Containers measure fill by height (litres); 1000 L = 1 m³.
+                # Honours an explicit container_soil_volume_l override. No mulch.
+                footprint_cm2 = area * 10_000.0  # m² → cm²
+                litres = _container_model.effective_soil_volume_litres(
+                    item.metadata,  # type: ignore[union-attr]
+                    footprint_cm2,
+                )
+                total_soil_m3 += litres / 1000.0
+            else:
+                depth_m = item.metadata.get("soil_depth_cm", 30) / 100.0  # type: ignore[union-attr]
+                total_soil_m3 += area * depth_m
+                total_mulch_m2 += area
 
         if total_soil_m3 > 0:
             out.append(

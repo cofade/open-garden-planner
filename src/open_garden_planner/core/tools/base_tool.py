@@ -79,6 +79,12 @@ class ToolType(Enum):
     WATER_TAP = auto()
     TOOL_SHED = auto()
 
+    # Vertical & container gardening (US-C3)
+    CONTAINER_RECT = auto()
+    CONTAINER_ROUND = auto()
+    WALL_PLANTER = auto()
+    TRELLIS = auto()
+
     # Generic geometric shapes (backwards compatibility)
     RECTANGLE = auto()
     POLYGON = auto()

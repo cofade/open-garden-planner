@@ -1,0 +1,22 @@
+{
+  "id": "pergola",
+  "version": 1,
+  "name": "Pergola",
+  "name_de": "Pergola",
+  "category": "structures",
+  "parameters": [
+    {"name": "L", "type": "length", "label": "Length", "label_de": "Länge", "default": 400, "min": 100, "max": 1500, "unit": "cm"},
+    {"name": "W", "type": "length", "label": "Width", "label_de": "Breite", "default": 300, "min": 100, "max": 800, "unit": "cm"},
+    {"name": "beams", "type": "number", "label": "Cross beams", "label_de": "Querbalken", "default": 5, "min": 2, "max": 20},
+    {"name": "post", "type": "length", "label": "Post size", "label_de": "Pfostengröße", "default": 12, "min": 5, "max": 30, "unit": "cm"}
+  ],
+  "elements": [
+    {"kind": "rect", "x": 0, "y": 0, "w": "L", "h": "W"},
+    {"kind": "rect", "x": 0, "y": 0, "w": "post", "h": "post"},
+    {"kind": "rect", "x": "L - post", "y": 0, "w": "post", "h": "post"},
+    {"kind": "rect", "x": 0, "y": "W - post", "w": "post", "h": "post"},
+    {"kind": "rect", "x": "L - post", "y": "W - post", "w": "post", "h": "post"},
+    {"repeat": {"var": "i", "from": 1, "to": "beams - 2"},
+     "element": {"kind": "line", "x1": "L * i / (beams - 1)", "y1": 0, "x2": "L * i / (beams - 1)", "y2": "W"}}
+  ]
+}
