@@ -35,6 +35,7 @@ class TestSidebarOrder:
             "pest_overview",
             "plant_search",
             "journal",
+            "smart_symbols",
         ]
         assert actual_keys == expected_keys, (
             f"sidebar order mismatch:\n  expected={expected_keys}\n  actual  ={actual_keys}"

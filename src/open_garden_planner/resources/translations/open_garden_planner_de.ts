@@ -3251,6 +3251,10 @@ Neue Saison jetzt öffnen?</translation>
             <source>Harvest recorded</source>
             <translation>Ernte erfasst</translation>
         </message>
+        <message>
+            <source>Smart Symbols</source>
+            <translation>Smart-Symbole</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -5603,6 +5607,10 @@ noch nicht implementiert</translation>
         <message>
             <source>{litres:.1f} L</source>
             <translation>{litres:.1f} L</translation>
+        </message>
+        <message>
+            <source>Symbol definition not found — showing cached geometry.</source>
+            <translation>Symboldefinition nicht gefunden — zwischengespeicherte Geometrie wird angezeigt.</translation>
         </message>
     </context>
     <context>
@@ -10018,6 +10026,17 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Metal heats up in sun and dries the root zone — monitor on hot days. No drainage holes: water carefully — risk of waterlogging.</source>
             <translation>Metall heizt in der Sonne auf und trocknet den Wurzelbereich — an heißen Tagen beobachten. Keine Abzugslöcher: vorsichtig gießen — Gefahr von Staunässe.</translation>
+        </message>
+    </context>
+    <context>
+        <name>SmartSymbolsPanel</name>
+        <message>
+            <source>Search symbols…</source>
+            <translation>Symbole suchen…</translation>
+        </message>
+        <message>
+            <source>Insert</source>
+            <translation>Einfügen</translation>
         </message>
     </context>
 </TS>

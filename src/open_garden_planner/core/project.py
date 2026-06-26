@@ -1522,6 +1522,21 @@ class ProjectManager(QObject):
                 group_data["layer_id"] = str(item.layer_id)
             if item.name:
                 group_data["name"] = item.name
+            # US-C4: a smart symbol is a group + parametric metadata. Stored as
+            # type:"group" so an older app loads it as a plain group (the
+            # serialized children are the cached geometry); a current app reads
+            # the smart_symbol key and restores parametric behaviour.
+            from open_garden_planner.ui.canvas.items.smart_symbol_item import (
+                SmartSymbolItem,
+            )
+            if isinstance(item, SmartSymbolItem):
+                group_data["smart_symbol"] = {
+                    "id": item.symbol_id,
+                    "version": item.symbol_version,
+                    "params": item.params,
+                }
+                if abs(item.rotation()) > 1e-6:
+                    group_data["rotation"] = item.rotation()
             return group_data
 
         return None
@@ -1537,6 +1552,7 @@ class ProjectManager(QObject):
             ConstructionCircleItem,
             ConstructionLineItem,
             EllipseItem,
+            GroupItem,
             PolygonItem,
             PolylineItem,
             RectangleItem,
@@ -1562,6 +1578,7 @@ class ProjectManager(QObject):
                     ConstructionLineItem,
                     ConstructionCircleItem,
                     JournalPinItem,
+                    GroupItem,
                 ),
             ):
                 scene.removeItem(item)
@@ -1667,6 +1684,40 @@ class ProjectManager(QObject):
             layer_id = None
             with contextlib.suppress(ValueError, TypeError, KeyError):
                 layer_id = _UUID(obj["layer_id"])
+
+            # US-C4: a group dict carrying a "smart_symbol" key is a parametric
+            # symbol. If the live definition matches the stored version,
+            # regenerate; otherwise rebuild from the serialized children (the
+            # cached snapshot) so an unknown/changed symbol still renders.
+            symbol_meta = obj.get("smart_symbol")
+            if isinstance(symbol_meta, dict):
+                from open_garden_planner.ui.canvas.items.smart_symbol_item import (
+                    SmartSymbolItem,
+                )
+                symbol = SmartSymbolItem(
+                    symbol_id=symbol_meta.get("id", ""),
+                    symbol_version=symbol_meta.get("version", 1),
+                    params=symbol_meta.get("params", {}),
+                    layer_id=layer_id,
+                    name=obj.get("name", ""),
+                )
+                with contextlib.suppress(ValueError, TypeError, KeyError):
+                    symbol._item_id = _UUID(obj["item_id"])
+                definition = symbol._definition()
+                if definition is not None and definition.version == symbol.symbol_version:
+                    symbol.regenerate_geometry()
+                else:
+                    for child_data in obj.get("children", []):
+                        child = self._deserialize_item_core(child_data)
+                        if child is not None:
+                            symbol.addToGroup(child)
+                if "x" in obj and "y" in obj:
+                    symbol.setPos(float(obj["x"]), float(obj["y"]))
+                if "rotation" in obj:
+                    with contextlib.suppress(ValueError, TypeError):
+                        symbol.setRotation(float(obj["rotation"]))
+                return symbol
+
             group = GroupItem(layer_id=layer_id, name=obj.get("name", ""))
             with contextlib.suppress(ValueError, TypeError, KeyError):
                 group._item_id = _UUID(obj["item_id"])

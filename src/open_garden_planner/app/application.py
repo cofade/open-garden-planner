@@ -58,6 +58,7 @@ from open_garden_planner.ui.panels import (
     PlantDatabasePanel,
     PlantSearchPanel,
     PropertiesPanel,
+    SmartSymbolsPanel,
 )
 from open_garden_planner.ui.theme import ThemeMode, apply_theme
 from open_garden_planner.ui.views.harvest_view import HarvestView
@@ -1425,6 +1426,16 @@ class GardenPlannerApp(QMainWindow):
         )
         sidebar_layout.addWidget(self.journal_collapsible)
 
+        # 11. Smart Symbols library (US-C4) — parametric blocks
+        self.smart_symbols_panel = SmartSymbolsPanel()
+        self.smart_symbols_panel.symbol_selected.connect(self._on_smart_symbol_selected)
+        self.smart_symbols_collapsible = CollapsiblePanel(
+            self.tr("Smart Symbols"),
+            self.smart_symbols_panel,
+            expanded=False,
+        )
+        sidebar_layout.addWidget(self.smart_symbols_collapsible)
+
         # Route every panel through the SidebarController (US-226 accordion):
         # all bars start collapsed; hover peeks them open in place, a title click
         # toggles them open/closed. Panels keep a fixed canonical order (they are
@@ -1444,6 +1455,7 @@ class GardenPlannerApp(QMainWindow):
             ("pest_overview", self.pest_overview_collapsible),
             ("plant_search", plant_search_collapsible),
             ("journal", self.journal_collapsible),
+            ("smart_symbols", self.smart_symbols_collapsible),
         ]
         # Detach each panel from the scratch build layout before handing it to the
         # controller (panels were addWidget'd above purely to set their parent).
@@ -4457,6 +4469,45 @@ class GardenPlannerApp(QMainWindow):
         """Sidebar double-click → centre viewport on pin + open editor."""
         self.canvas_view.focus_on_journal_pin(note_id)
         self._on_journal_note_edit(note_id)
+
+    def _on_smart_symbol_selected(self, symbol_id: str) -> None:
+        """Drop a parametric smart symbol at the viewport centre (US-C4)."""
+        from open_garden_planner.core.commands import CreateItemCommand
+        from open_garden_planner.services.smart_symbol_library import (
+            get_smart_symbol_library,
+        )
+        from open_garden_planner.ui.canvas.items.smart_symbol_item import SmartSymbolItem
+
+        definition = get_smart_symbol_library().get(symbol_id)
+        if definition is None:
+            return
+        scene = (
+            getattr(self.canvas_view, "_canvas_scene", None)
+            or self.canvas_view.scene()
+        )
+        if scene is None:
+            return
+        layer_id = (
+            scene.active_layer.id
+            if getattr(scene, "active_layer", None)
+            else None
+        )
+        # No canvas name → no floating label child to entangle with the
+        # regenerated geometry; the panel header shows the symbol's name.
+        symbol = SmartSymbolItem(
+            symbol_id=symbol_id,
+            symbol_version=definition.version,
+            params=definition.param_defaults(),
+            layer_id=layer_id,
+        )
+        center = self.canvas_view.mapToScene(
+            self.canvas_view.viewport().rect().center()
+        )
+        symbol.setPos(center)
+        symbol.regenerate_geometry()
+        self.canvas_view.command_manager.execute(CreateItemCommand(scene, symbol))
+        scene.clearSelection()
+        symbol.setSelected(True)
 
     def _on_garden_journal_notes_changed(self, notes: object) -> None:
         """Refresh the sidebar panel when notes change (added / edited / removed)."""

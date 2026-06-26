@@ -624,6 +624,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── GardenPlannerApp ──
     "GardenPlannerApp": {
         "Tasks": "Aufgaben",
+        "Smart Symbols": "Smart-Symbole",
         "&File": "&Datei",
         "&Edit": "&Bearbeiten",
         "&View": "&Ansicht",
@@ -1368,10 +1369,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "❄ %1": "❄ %1",
     },
 
+    # ── SmartSymbolsPanel (US-C4) ──
+    "SmartSymbolsPanel": {
+        "Search symbols…": "Symbole suchen…",
+        "Insert": "Einfügen",
+    },
+
     # ── PropertiesPanel ──
     "PropertiesPanel": {
         "No objects selected": "Keine Objekte ausgewählt",
         "{count} objects selected": "{count} Objekte ausgewählt",
+        "Symbol definition not found — showing cached geometry.":
+            "Symboldefinition nicht gefunden — zwischengespeicherte Geometrie wird angezeigt.",
         "Multi-selection editing\nnot yet implemented":
             "Mehrfachauswahl-Bearbeitung\nnoch nicht implementiert",
         "Type:": "Typ:",

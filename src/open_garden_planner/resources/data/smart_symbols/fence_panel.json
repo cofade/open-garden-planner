@@ -1,0 +1,17 @@
+{
+  "id": "fence_panel",
+  "version": 1,
+  "name": "Fence Panel",
+  "name_de": "Zaunfeld",
+  "category": "structures",
+  "parameters": [
+    {"name": "L", "type": "length", "label": "Length", "label_de": "Länge", "default": 180, "min": 30, "max": 600, "unit": "cm"},
+    {"name": "H", "type": "length", "label": "Depth", "label_de": "Tiefe", "default": 10, "min": 4, "max": 30, "unit": "cm"},
+    {"name": "pickets", "type": "number", "label": "Pickets", "label_de": "Latten", "default": 9, "min": 2, "max": 40}
+  ],
+  "elements": [
+    {"kind": "line", "x1": 0, "y1": "H / 2", "x2": "L", "y2": "H / 2", "object_type": "FENCE"},
+    {"repeat": {"var": "i", "from": 0, "to": "pickets - 1"},
+     "element": {"kind": "line", "x1": "L * i / (pickets - 1)", "y1": 0, "x2": "L * i / (pickets - 1)", "y2": "H"}}
+  ]
+}

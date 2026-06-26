@@ -800,3 +800,55 @@ Plant Details / Companion / Crop Rotation have nothing to show unless a matching
 ### 8.17.7 No persistence
 
 Startup is always fully collapsed; pin/peek/dismissal state is never saved. The `UiStateStore` panel-state helpers were removed (window geometry + the horizontal `main` splitter are still persisted).
+
+## 8.18 Smart Symbol Authoring (US-C4)
+
+Smart symbols are **parametric blocks** defined in JSON. Bundled definitions
+live in `resources/data/smart_symbols/*.json`; users add their own by dropping a
+file in `<app-data>/smart_symbols/` (it appears in the **Smart Symbols** panel on
+next launch). See ADR-032 for the architecture.
+
+**File shape** (one symbol per file; `id` should match the filename):
+
+```json
+{
+  "id": "raised_bed_rows",
+  "version": 1,
+  "name": "Raised Bed (rows)",
+  "name_de": "Hochbeet (Reihen)",
+  "category": "beds",
+  "parameters": [
+    {"name": "L", "type": "length", "label": "Length", "label_de": "Länge",
+     "default": 200, "min": 20, "max": 1000, "unit": "cm"},
+    {"name": "W", "type": "length", "label": "Width", "default": 100},
+    {"name": "rows", "type": "number", "label": "Rows", "default": 4, "min": 1, "max": 20}
+  ],
+  "elements": [
+    {"kind": "rect", "x": 0, "y": 0, "w": "L", "h": "W"},
+    {"repeat": {"var": "i", "from": 1, "to": "rows - 1"},
+     "element": {"kind": "line", "x1": 0, "y1": "W * i / rows", "x2": "L", "y2": "W * i / rows"}}
+  ]
+}
+```
+
+- **Parameters** — `type` is `number` (integer spin), `length` (float spin, with
+  optional `unit`), or `choice` (`choices: [...]`, combo). `name`/`name_de` and
+  per-param `label`/`label_de` provide localisation (German falls back to
+  English); these are **data strings**, not Qt `tr()`.
+- **Elements** — `kind` ∈ `rect{x,y,w,h}`, `line{x1,y1,x2,y2}`,
+  `polyline{points:[[x,y],…]}`, `polygon{points}`, `circle{cx,cy,r}`. Every
+  coordinate is a number **or** an arithmetic **expression string** over the
+  parameters (and the active `repeat` variable `i`). A `repeat{var,from,to}`
+  block (inclusive integer range; endpoints may be expressions) emits its inner
+  `element` once per value.
+- **Expressions** are evaluated by `core/parametric_eval.safe_eval` — `+ - * / %
+  ** //`, parentheses, parameter names, and `min/max/abs/round/floor/ceil/sqrt`.
+  Anything else (attribute access, arbitrary calls, unknown names) is rejected:
+  symbol files are treated as untrusted input, never `eval()`'d.
+- **Versioning** — bump `version` when a definition changes incompatibly. A
+  saved plan stores the instance's `version`; on load, a mismatch (or a missing
+  definition) falls back to the cached geometry embedded in the file and logs a
+  warning, so old plans never break.
+
+`tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
+(loads, validates, every expression parses, generates ≥1 primitive).
