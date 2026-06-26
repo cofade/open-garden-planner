@@ -164,3 +164,15 @@ class TestUntrustedInputCaps:
                        "w": "round(1, 99999999999999999999)", "h": 1}]
         with pytest.raises(SmartSymbolError):
             d.generate({})
+
+    def test_deep_recursion_expression_wrapped(self) -> None:
+        # A 5000-term chain would raise RecursionError (a RuntimeError, outside
+        # the arithmetic/value families) without the evaluator node cap — the
+        # generate() seam must still surface it as a single SmartSymbolError.
+        d = SmartSymbolDefinition.from_dict(
+            {"id": "rec", "version": 1, "name": "R", "category": "c", "parameters": [],
+             "elements": [{"kind": "rect", "x": 0, "y": 0, "w": 1, "h": 1}]}
+        )
+        d.elements = [{"kind": "rect", "x": 0, "y": 0, "w": "+".join(["1"] * 5000), "h": 1}]
+        with pytest.raises(SmartSymbolError):
+            d.generate({})

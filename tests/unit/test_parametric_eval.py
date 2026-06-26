@@ -76,3 +76,17 @@ class TestRejections:
         with pytest.raises((ValueError,)):
             safe_eval("sqrt(-1)")
         assert math.isnan(float("nan"))  # sanity
+
+    def test_deeply_nested_expression_raises_valueerror_not_recursionerror(self) -> None:
+        # A long flat operator chain from untrusted JSON nests the AST deeply;
+        # without the node cap the recursive evaluator blows the stack with
+        # RecursionError (a RuntimeError, NOT a ValueError). The cap must reject
+        # it as a plain ValueError so the failure surface stays bounded.
+        bomb = "+".join(["1"] * 5000)
+        with pytest.raises(ValueError):
+            safe_eval(bomb)
+
+    def test_node_cap_allows_real_formulas(self) -> None:
+        # The cap must be comfortably above any legitimate coordinate formula.
+        assert safe_eval("max(L - 2*margin, 0) + W*i/rows",
+                         {"L": 200, "margin": 10, "W": 100, "i": 2, "rows": 4}) == 230.0

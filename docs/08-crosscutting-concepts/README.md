@@ -844,7 +844,12 @@ next launch). See ADR-032 for the architecture.
 - **Expressions** are evaluated by `core/parametric_eval.safe_eval` — `+ - * / %
   ** //`, parentheses, parameter names, and `min/max/abs/round/floor/ceil/sqrt`.
   Anything else (attribute access, arbitrary calls, unknown names) is rejected:
-  symbol files are treated as untrusted input, never `eval()`'d.
+  symbol files are treated as untrusted input, never `eval()`'d. All param values
+  are coerced to **float**, so a parameter cannot be used as the `ndigits` arg of
+  `round(x, n)` (that needs an int — `round(x, rows)` raises and the symbol falls
+  back to cached geometry). Keep expressions small: an over-complex or deeply
+  nested formula is rejected (a node-count cap guards against stack-exhausting
+  input); coordinate formulas are a few terms, not a program.
 - **Versioning** — bump `version` when a definition changes incompatibly. A
   saved plan stores the instance's `version`; on load, a mismatch (or a missing
   definition) falls back to the cached geometry embedded in the file and logs a

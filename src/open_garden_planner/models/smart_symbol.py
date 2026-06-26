@@ -214,7 +214,17 @@ class SmartSymbolDefinition:
             return self._generate(params)
         except SmartSymbolError:
             raise
-        except (ArithmeticError, TypeError, ValueError) as exc:
+        except Exception as exc:
+            # This seam exists precisely so callers catch ONE type. Generation
+            # is a pure function over untrusted data, so any failure — arithmetic
+            # (divide-by-zero/overflow), TypeError, a too-complex expression
+            # (ValueError), or a deep-recursion RecursionError (RuntimeError) —
+            # is a generation failure, not a control-flow signal. A blind catch
+            # (not a hand-picked tuple) is deliberate: enumerating families is
+            # how RecursionError slipped through before. BaseException
+            # (KeyboardInterrupt/SystemExit) still propagates. The evaluator's
+            # node cap keeps the common surface to ValueError; this is the
+            # backstop that makes "untrusted JSON never crashes the app" total.
             raise SmartSymbolError(str(exc)) from exc
 
     def _generate(self, params: dict[str, Any]) -> list[PrimitiveSpec]:

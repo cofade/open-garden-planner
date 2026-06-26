@@ -37,6 +37,16 @@ _POISONED_OVERFLOW = {
     "elements": [{"kind": "rect", "x": 0, "y": 0, "w": "9 ** 9 ** 9", "h": 1}],
 }
 
+# A deeply-chained expression — without the evaluator's node cap this blows the
+# stack with RecursionError (a RuntimeError, NOT a ValueError/ArithmeticError),
+# the family that escaped the first fix. Must be skipped, not fatal.
+_POISONED_RECURSION = {
+    "id": "rec", "version": 1, "name": "Rec", "name_de": "Rec", "category": "c",
+    "parameters": [],
+    "elements": [{"kind": "rect", "x": 0, "y": 0,
+                  "w": "+".join(["1"] * 5000), "h": 1}],
+}
+
 
 def _write(d: Path, name: str, data: dict) -> None:
     with open(d / f"{name}.json", "w", encoding="utf-8") as f:
@@ -51,6 +61,7 @@ def test_poisoned_user_file_is_skipped_not_fatal(tmp_path: Path) -> None:
     _write(bundled, "ok", _VALID)
     _write(user, "boom", _POISONED_DIVZERO)
     _write(user, "ov", _POISONED_OVERFLOW)
+    _write(user, "rec", _POISONED_RECURSION)
     _write(user, "good", {**_VALID, "id": "good"})
 
     lib = SmartSymbolLibrary(bundled_dir=bundled, user_dir=user)
@@ -59,6 +70,7 @@ def test_poisoned_user_file_is_skipped_not_fatal(tmp_path: Path) -> None:
     assert ids == {"ok", "good"}
     assert lib.get("boom") is None
     assert lib.get("ov") is None
+    assert lib.get("rec") is None
 
 
 def test_malformed_json_user_file_is_skipped(tmp_path: Path) -> None:

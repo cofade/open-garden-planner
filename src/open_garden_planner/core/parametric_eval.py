@@ -44,6 +44,15 @@ _UNARY_OPS: dict[type, Any] = {
     ast.USub: lambda a: -a,
 }
 
+# The evaluator walks the AST recursively, so a deeply-nested expression from an
+# untrusted JSON file (e.g. a 5000-term ``1+1+1+…`` chain) would otherwise blow
+# the Python stack with ``RecursionError`` — a ``RuntimeError`` that the value/
+# arithmetic-error handling downstream does NOT expect. Bounding the node count
+# keeps the recursion depth well under the interpreter limit and makes this
+# module's failure surface provably ``ValueError`` (caps are far above any real
+# coordinate formula; the bundled symbols use <20 nodes each).
+_MAX_NODES = 250
+
 
 def safe_eval(expr: str, variables: dict[str, float] | None = None) -> float:
     """Evaluate an arithmetic ``expr`` over ``variables`` and return a float.
@@ -56,8 +65,18 @@ def safe_eval(expr: str, variables: dict[str, float] | None = None) -> float:
     variables = variables or {}
     try:
         tree = ast.parse(expr, mode="eval")
-    except SyntaxError as exc:
+    except (SyntaxError, ValueError, MemoryError, RecursionError) as exc:
+        # ast.parse can raise SyntaxError, ValueError (e.g. null bytes),
+        # MemoryError, or RecursionError ("maximum recursion depth exceeded
+        # during ast construction" — a deeply-nested chain blows the stack
+        # *inside the parser*, before our node-count check) on pathological
+        # input — all mean "this expression is unusable", surfaced as ValueError.
         raise ValueError(f"Invalid expression {expr!r}: {exc}") from exc
+    node_count = sum(1 for _ in ast.walk(tree.body))
+    if node_count > _MAX_NODES:
+        raise ValueError(
+            f"Expression too complex: {node_count} nodes > {_MAX_NODES} limit"
+        )
     return float(_eval_node(tree.body, variables))
 
 
