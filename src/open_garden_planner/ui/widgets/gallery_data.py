@@ -146,6 +146,26 @@ def render_color_circle_thumbnail(color: QColor, size: int = THUMB_SIZE) -> QPix
     return QPixmap.fromImage(image)
 
 
+def render_color_rect_thumbnail(color: QColor, size: int = THUMB_SIZE) -> QPixmap:
+    """Fallback colored rounded-rect when no SVG/texture is available.
+
+    The rectangular sibling of :func:`render_color_circle_thumbnail`, so a
+    rectangle-shaped object (e.g. a trellis whose ``SOLID`` fill has no texture
+    file) gets a rectangular icon instead of a misleading round one.
+    """
+    image = QImage(size, size, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setBrush(color)
+    pen_color = QColor(color.red() // 2, color.green() // 2, color.blue() // 2)
+    painter.setPen(QPen(pen_color, 2))
+    margin = 6
+    painter.drawRoundedRect(QRectF(margin, margin, size - 2 * margin, size - 2 * margin), 4, 4)
+    painter.end()
+    return QPixmap.fromImage(image)
+
+
 def _shape_items() -> list[GalleryItem]:
     items: list[GalleryItem] = []
     for name, tool, obj, icon in [
@@ -403,17 +423,23 @@ def _vertical_container_items() -> list[GalleryItem]:
     vertical structure (plant-parent, no soil). All ride existing shape items.
     """
     items: list[GalleryItem] = []
+    # ``shape`` drives the thumbnail so the icon matches the drawn object: the
+    # round container gets a circular icon, the rectangle-based container / wall
+    # planter / trellis get rectangular ones (the trellis' SOLID fill has no
+    # texture, so it must not fall through to the round fallback — US-C3).
     container_specs = [
-        (_tr("Container"), ToolType.CONTAINER_RECT, ObjectType.CONTAINER),
-        (_tr("Round Container"), ToolType.CONTAINER_ROUND, ObjectType.CONTAINER_ROUND),
-        (_tr("Wall Planter"), ToolType.WALL_PLANTER, ObjectType.WALL_PLANTER),
-        (_tr("Trellis"), ToolType.TRELLIS, ObjectType.TRELLIS),
+        (_tr("Container"), ToolType.CONTAINER_RECT, ObjectType.CONTAINER, "rect"),
+        (_tr("Round Container"), ToolType.CONTAINER_ROUND, ObjectType.CONTAINER_ROUND, "circle"),
+        (_tr("Wall Planter"), ToolType.WALL_PLANTER, ObjectType.WALL_PLANTER, "rect"),
+        (_tr("Trellis"), ToolType.TRELLIS, ObjectType.TRELLIS, "rect"),
     ]
-    for name, tool, obj in container_specs:
+    for name, tool, obj, shape in container_specs:
         style = OBJECT_STYLES[obj]
-        thumb = render_texture_thumbnail(style.fill_pattern, style.fill_color)
-        if thumb is None:
+        if shape == "circle":
             thumb = render_color_circle_thumbnail(style.fill_color)
+        else:
+            thumb = render_texture_thumbnail(style.fill_pattern, style.fill_color) or \
+                render_color_rect_thumbnail(style.fill_color)
         items.append(GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb))
     return items
 

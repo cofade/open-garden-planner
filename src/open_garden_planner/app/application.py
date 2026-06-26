@@ -1470,6 +1470,11 @@ class GardenPlannerApp(QMainWindow):
         # behaviour; the selection updaters re-show them on a relevant selection).
         for key in ("plant_details", "companion", "crop_rotation"):
             self._sidebar_controller.set_panel_visible(key, False)
+        # US-C4: the Smart Symbols engine, persistence, and DXF export ship, but
+        # the sidebar panel is deferred from the UI for now. It stays registered
+        # (so order/wiring are untouched) but its bar is permanently hidden —
+        # nothing re-shows it. Re-enable by deleting this one line.
+        self._sidebar_controller.set_panel_visible("smart_symbols", False)
 
         sidebar_layout.addWidget(self._sidebar_controller)
 
