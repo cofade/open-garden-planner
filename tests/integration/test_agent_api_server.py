@@ -48,10 +48,18 @@ def test_get_plan_summary_end_to_end(canvas: Any, qtbot: Any) -> None:
     def run_client() -> None:
         async def drive() -> None:
             from mcp import ClientSession
-            from mcp.client.streamable_http import streamablehttp_client
+
+            try:  # SDK renamed it; fall back for the pinned floor (mcp>=1.12)
+                from mcp.client.streamable_http import (
+                    streamable_http_client as http_client,
+                )
+            except ImportError:
+                from mcp.client.streamable_http import (
+                    streamablehttp_client as http_client,
+                )
 
             async with (
-                streamablehttp_client(server.url) as (read, write, _),
+                http_client(server.url) as (read, write, _),
                 ClientSession(read, write) as session,
             ):
                 await session.initialize()
