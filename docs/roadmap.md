@@ -2380,6 +2380,69 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 ---
 
+## Phase 13: Agent Integration — Package D (MCP Server) 📋 Planned
+
+**Goal**: Expose the garden plan to AI agents (Claude, Cursor, any MCP client) so they can read, visualise, and export a plan — and, in later phases, edit it. The running app embeds a **Model Context Protocol server over streamable-HTTP** on `127.0.0.1` (opt-in, loopback-only). v1 ships a **read + visualise + export** surface on a deliberately **write-ready core**; editing and domain intelligence follow. See ADR-033 (Agent Integration Architecture) + ADR-034 (Curated Agent Schema & Addressing), FR-26, and GitHub epic #237.
+
+### Design decisions (from the planning session)
+| Axis | Decision |
+|------|----------|
+| Transport | Embedded **MCP server over streamable-HTTP** hosted by the running app (no separate relay process) |
+| Execution | Operates on the **live running app** — reads reflect the open plan; edits (later phases) go through the undo stack |
+| Connection | App binds `127.0.0.1:<port>` (configurable); agent client connects by URL |
+| Security | **Opt-in** (Settings toggle, default OFF), **loopback-only** bind, no token in v1 (token auth = deferred hardening) |
+| Approval (writes) | Auto-apply, **fully undoable** — one undo step per agent operation (the contract for D2) |
+| Concurrency | **Free co-editing** — agent calls marshaled onto the Qt main thread and serialised |
+| Abstraction | **Layered** — domain-level API + low-level geometry escape hatches |
+| MCP surface | **Tools + resources + prompts** |
+| Read model | **Curated, stable agent schema** (decoupled from `.ogp` FILE_VERSION) with a **raw** escape hatch |
+| Addressing | **Stable object UUIDs** primary |
+| Vision | **`render_canvas_image` tool** (PNG) + structured data |
+
+### Phasing
+| Phase | Scope |
+|-------|-------|
+| **D1 (v1, MVP)** | Write-ready core + read/query tools + render-image tool + export tools + resources + read-analysis prompts |
+| **D2** | Write/edit tools (create/move/resize/delete beds, containers, plants, shapes; assign species; layers) — auto-apply, one-undo-per-op, free co-edit; low-level geometry escape hatches |
+| **D3** | Domain-intelligence tools + guided write prompts (companion-aware placement, succession, calendar/tasks, soil amendment planning) |
+
+### US table (D1 = MVP)
+| Status | US | Description |
+| ------ | -- | ----------- |
+| 📋 | D1.1 | **Embedded MCP server + opt-in core** — streamable-HTTP server on `127.0.0.1:<port>`, runs on a background asyncio thread alongside Qt; Settings toggle (default OFF); main-thread marshaling boundary; new `mcp` dependency bundled in the exe |
+| 📋 | D1.2 | **Read/query tools** — `get_plan_summary`, `list_objects`/`get_object`, spatial queries (`objects_in_region`, `plants_in_bed`, `nearest_objects`, `measure`), `get_diagnostics` (companion/spacing/soil/capacity) |
+| 📋 | D1.3 | **Vision** — `render_canvas_image(region?, layers?, width?)` returns a PNG via `services/scene_rendering.render_scene_region` |
+| 📋 | D1.4 | **Export tools** — `export_pdf`, `export_dxf`, `export_csv` (shopping/harvest), `save_plan` (save / save-as) |
+| 📋 | D1.5 | **Resources + prompts** — `garden://plan` (curated), `garden://plan/raw`, `garden://canvas.png`, `garden://diagnostics`, `garden://species`; read-analysis prompts (audit-plan, describe-garden) |
+
+### Acceptance highlights (D1)
+- Server is **off by default**; enabling it in Settings binds **loopback only** and shows the connect URL (e.g. `http://127.0.0.1:8765/mcp`) to paste into an MCP client. Disabling stops it cleanly.
+- All Qt-touching work (scene snapshot, render, export, save) is **marshaled onto the main thread** from the server's asyncio thread; the `agent_api` core is otherwise Qt-free and unit-testable.
+- Reads return the **curated agent schema** (stable, documented Pydantic models) by default; `raw=True` returns the serializer dict. No `FILE_VERSION` change.
+- Objects are addressed by **stable UUID** (`item_id`); every list/query returns ids.
+- `render_canvas_image` reuses `render_scene_region` (overlay-hiding / Y-flip / text-scaling already handled).
+- **Integration test** boots the embedded server in-process and exercises tools end-to-end over an MCP client; **PyInstaller** build bundles `mcp` + `uvicorn`/`starlette`/`anyio` (hidden imports) and the exe smoke-test confirms the server starts.
+- MCP **tool/resource/prompt descriptions are English** (an API contract for agents, not UI) — exempt from i18n; only the **Settings UI** strings go through `tr()`.
+
+### Risks / open questions
+- **PyInstaller bundling** of the MCP/uvicorn/starlette stack (hidden imports, `anyio` backends) — validate early in D1.1.
+- Running an asyncio/uvicorn loop **alongside the Qt event loop** without blocking the UI — a background thread owns the loop; never call Qt from it directly.
+- **Port conflicts** — configurable port + a clear error if the port is taken.
+- **Loopback trust** — any local process can reach the server while enabled; **token auth** is the planned hardening (deferred from v1 per the session).
+
+### Docs to update on completion
+| Document | Section |
+|----------|---------|
+| `docs/09-architecture-decisions/` | ADR-033 Agent Integration Architecture (embedded MCP-over-HTTP in Qt; marshaling boundary), ADR-034 Curated Agent Schema & UUID addressing |
+| `docs/05-building-block-view/` | new `agent_api/` (server, tool/resource/prompt registry, schema, Qt bridge) |
+| `docs/06-runtime-view/` | agent read/render/export sequence (asyncio thread → main-thread marshal → reply) |
+| `docs/08-crosscutting-concepts/` | new §8.19 — Agent API & thread marshaling; §8.11 security note (loopback, opt-in, deferred token) |
+| `docs/07-deployment-view/` | PyInstaller hidden-imports for `mcp`/`uvicorn`/`starlette` |
+| `docs/functional-requirements.md` | FR-26 (FR-AGENT-01…) |
+| `docs/12-glossary.md` | MCP, MCP tool/resource/prompt, Agent API, curated schema, marshaling boundary, loopback |
+
+---
+
 ## Phase 14: 3D Visualization & Sun/Shade (Future, v2.0)
 
 **Goal**: Full three-dimensional garden view with sun/shade simulation — the milestone that justifies a major version bump.
