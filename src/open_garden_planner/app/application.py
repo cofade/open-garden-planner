@@ -3,6 +3,7 @@
 import contextlib
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
@@ -74,6 +75,9 @@ from open_garden_planner.ui.widgets import (
     TaskReminderBar,
     UpdateBar,
 )
+
+if TYPE_CHECKING:
+    from open_garden_planner.agent_api import AgentApiServer
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +187,71 @@ class GardenPlannerApp(QMainWindow):
 
         # Check for updates in background (2-second delay so UI is fully ready)
         QTimer.singleShot(2000, self._start_update_check)
+
+        # Agent API (US-D1.1): bridge + opt-in embedded MCP server.
+        self._setup_agent_api()
+
+    def _setup_agent_api(self) -> None:
+        """Create the main-thread bridge and defer auto-start if the user enabled it."""
+        from open_garden_planner.agent_api import MainThreadBridge
+
+        self._agent_bridge = MainThreadBridge(self)
+        self._agent_server: AgentApiServer | None = None
+        # Auto-start shortly after launch (when enabled in Preferences).
+        QTimer.singleShot(1500, self._maybe_start_agent_api)
+
+    def _agent_snapshot(self) -> dict[str, Any]:
+        """Read a snapshot of the live plan ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._project_manager.snapshot_dict(self.canvas_scene)
+        )
+
+    def _maybe_start_agent_api(self) -> None:
+        """Start the Agent API server iff it is enabled in settings."""
+        from open_garden_planner.app.settings import get_settings
+
+        if get_settings().agent_api_enabled:
+            self._start_agent_api()
+
+    def _start_agent_api(self) -> None:
+        """Start the embedded MCP server, surfacing failures in the status bar."""
+        from open_garden_planner.agent_api import AgentApiServer, PortInUseError
+        from open_garden_planner.app.settings import get_settings
+
+        if self._agent_server is not None and self._agent_server.is_running:
+            return
+        port = get_settings().agent_api_port
+        try:
+            server = AgentApiServer(self._agent_snapshot, port=port)
+            server.start()
+        except PortInUseError:
+            self._agent_server = None
+            self.statusBar().showMessage(
+                self.tr("Agent API: port {port} is already in use").format(port=port),
+                8000,
+            )
+            return
+        except Exception:
+            self._agent_server = None
+            logger.exception("Agent API failed to start")
+            self.statusBar().showMessage(
+                self.tr("Agent API failed to start (see log)"), 8000
+            )
+            return
+        self._agent_server = server
+        self.statusBar().showMessage(
+            self.tr("Agent API running at {url}").format(url=server.url), 5000
+        )
+
+    def _stop_agent_api(self) -> None:
+        """Stop the embedded MCP server if it is running."""
+        if self._agent_server is not None:
+            # Abort any in-flight main-thread hops first so the server thread's
+            # tool handler returns at once — otherwise stop()'s join could wait
+            # on a queued call the (now tearing-down) main thread won't service.
+            self._agent_bridge.abort_pending()
+            self._agent_server.stop()
+            self._agent_server = None
 
     def _setup_menu_bar(self) -> None:
         """Set up the menu bar with File, Edit, View, Help menus."""
@@ -2387,6 +2456,8 @@ class GardenPlannerApp(QMainWindow):
     def closeEvent(self, event: QCloseEvent) -> None:
         """Handle window close - prompt to save if dirty."""
         if self._confirm_discard_changes():
+            # Stop the Agent API server first, while the scene/bridge still exist.
+            self._stop_agent_api()
             # Persist window/splitter/panel state before tearing down.
             self._save_ui_state()
             # Stop auto-save timer
@@ -3651,11 +3722,20 @@ class GardenPlannerApp(QMainWindow):
             return "en"
 
     def _on_preferences(self) -> None:
-        """Handle Preferences action."""
+        """Handle Preferences action; apply Agent API changes live."""
+        from open_garden_planner.app.settings import get_settings
         from open_garden_planner.ui.dialogs import PreferencesDialog
 
+        settings = get_settings()
+        before = (settings.agent_api_enabled, settings.agent_api_port)
         dialog = PreferencesDialog(self)
-        dialog.exec()
+        if dialog.exec():
+            after = (settings.agent_api_enabled, settings.agent_api_port)
+            if before != after:
+                # Restart so a toggle or port change takes effect immediately.
+                self._stop_agent_api()
+                if after[0]:
+                    self._start_agent_api()
 
     def _on_search_plant_database(self) -> None:
         """Handle Search Plant Database action."""

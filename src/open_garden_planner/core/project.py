@@ -814,6 +814,33 @@ class ProjectManager(QObject):
             scene: The scene containing objects to save
             file_path: Path to save to
         """
+        data = self._build_project_data(scene, sync_journal=True)
+        file_path = file_path.with_suffix(".ogp")
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data.to_dict(), f, indent=2)
+
+        self._current_file = file_path
+        self.mark_clean()
+        self.project_changed.emit(str(file_path))
+
+        # Track in recent files
+        get_settings().add_recent_file(str(file_path))
+
+    def _build_project_data(
+        self, scene: QGraphicsScene, *, sync_journal: bool = True
+    ) -> ProjectData:
+        """Build an in-memory ``ProjectData`` snapshot of the scene + metadata.
+
+        Shared by :meth:`save` (which writes it to disk) and
+        :meth:`snapshot_dict` (read-only in-memory export for the Agent API).
+
+        Args:
+            scene: The scene containing objects to serialise.
+            sync_journal: When ``True``, reconcile dragged journal-pin positions
+                into the note dicts (needed before persisting). Read-only callers
+                pass ``False`` so the snapshot never mutates project state.
+        """
         data = self._serialize_scene(scene)
         data.location = self._location
         data.task_completions = sorted(self._task_completions)
@@ -834,25 +861,31 @@ class ProjectManager(QObject):
         )
         data.prefer_organic = self._prefer_organic
         data.succession_plans = dict(self._succession_plans)
-        # US-12.9: the pin's pos() on the canvas is the source of truth for
-        # journal-note coordinates; sync each note dict's scene_x/y from the
-        # matching pin before serialising so dragged pins round-trip cleanly.
-        self._sync_journal_note_positions(scene)
+        if sync_journal:
+            # US-12.9: the pin's pos() on the canvas is the source of truth for
+            # journal-note coordinates; sync each note dict's scene_x/y from the
+            # matching pin before serialising so dragged pins round-trip cleanly.
+            self._sync_journal_note_positions(scene)
         data.garden_journal_notes = dict(self._garden_journal_notes)
         data.manual_tasks = dict(self._manual_tasks)
         data.task_states = dict(self._task_states)
         data.harvest_logs = dict(self._harvest_logs)
-        file_path = file_path.with_suffix(".ogp")
+        return data
 
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(data.to_dict(), f, indent=2)
+    def snapshot_dict(self, scene: QGraphicsScene) -> dict[str, Any]:
+        """Return a read-only ``.ogp``-shaped dict of the current plan.
 
-        self._current_file = file_path
-        self.mark_clean()
-        self.project_changed.emit(str(file_path))
-
-        # Track in recent files
-        get_settings().add_recent_file(str(file_path))
+        Lets the Agent API expose the live plan without writing a file. Unlike
+        :meth:`save`, it does NOT reconcile journal-pin positions, so reading
+        the plan never mutates scene or project state. An extra ``agent_meta``
+        key carries runtime info the on-disk format doesn't store.
+        """
+        out = self._build_project_data(scene, sync_journal=False).to_dict()
+        out["agent_meta"] = {
+            "file_name": self._current_file.name if self._current_file else None,
+            "is_dirty": self._dirty,
+        }
+        return out
 
     def load(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Load a project from a file.

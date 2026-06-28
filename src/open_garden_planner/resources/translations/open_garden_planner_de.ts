@@ -3255,6 +3255,18 @@ Neue Saison jetzt öffnen?</translation>
             <source>Smart Symbols</source>
             <translation>Smart-Symbole</translation>
         </message>
+        <message>
+            <source>Agent API running at {url}</source>
+            <translation>Agent-API läuft unter {url}</translation>
+        </message>
+        <message>
+            <source>Agent API: port {port} is already in use</source>
+            <translation>Agent-API: Port {port} wird bereits verwendet</translation>
+        </message>
+        <message>
+            <source>Agent API failed to start (see log)</source>
+            <translation>Agent-API konnte nicht gestartet werden (siehe Protokoll)</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -5069,6 +5081,26 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
         <message>
             <source>Show a reminder on startup when the open project has overdue tasks</source>
             <translation>Beim Start an überfällige Aufgaben im geöffneten Projekt erinnern</translation>
+        </message>
+        <message>
+            <source>Agent API</source>
+            <translation>Agent-API</translation>
+        </message>
+        <message>
+            <source>Enable Agent API (local MCP server)</source>
+            <translation>Agent-API aktivieren (lokaler MCP-Server)</translation>
+        </message>
+        <message>
+            <source>Run a local MCP server so AI agents can read this garden plan. Binds to 127.0.0.1 (this computer) only; off by default.</source>
+            <translation>Lokalen MCP-Server starten, damit KI-Agenten diesen Gartenplan lesen können. Bindet nur an 127.0.0.1 (diesen Computer); standardmäßig aus.</translation>
+        </message>
+        <message>
+            <source>Port:</source>
+            <translation>Port:</translation>
+        </message>
+        <message>
+            <source>Server URL:</source>
+            <translation>Server-URL:</translation>
         </message>
     </context>
     <context>

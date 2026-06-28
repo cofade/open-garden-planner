@@ -284,3 +284,16 @@ Black-box view of the unified Tasks tab. See ADR-029 and FR-21.
 | `services/harvest_aggregation.py` | Roll the project's `harvest_logs` into per-species, per-year, per-unit totals for the Harvest dashboard tab, CSV export and PDF summary page. Groups by `(species, year, unit)` — different units never summed. Qt-free. | `harvest_logs` dict → `list[AggregatedHarvest]` |
 | `models/harvest_log.py` (`HarvestRecord`/`HarvestHistory`) | Per-target (plant/bed) yield records (date, quantity, unit, quality, notes, photo, linked journal-note id). Serialized under the additive `.ogp` key `harvest_logs` keyed by item UUID; history caches `species_key`/`species_name`. Add/Edit/Delete undoable, auto-maintaining a pin-less `harvest`-tagged journal note. | dict ⇄ `HarvestHistory` |
 | `ui/views/tasks_view.py` (`TasksView`) | Dashboard tab (Ctrl+5, appended after Seed Inventory). Builds the Qt-side `PlanState` (`build_plan_state`), runs the generators, applies `effective_status`, groups Overdue/Today/This Week/Upcoming/No date plus Snoozed/Done sections, and writes done/snooze/dismiss through `set_task_status` (which keeps the legacy `task_completions` store in sync). Reuses the planting calendar's single weather fetch via `frost_alerts_ready`. | project state + signals in → grouped task UI |
+
+## 5.6 Agent API Subsystem (US-D1.1)
+
+Black-box view of the embedded MCP server for AI agents. See ADR-033/034, FR-26, §8.19. Opt-in, loopback-only, read-only in this spike (tool: `get_plan_summary`); built write-ready.
+
+| Building block | Responsibility | Interface (in → out) |
+|----------------|----------------|----------------------|
+| `agent_api/server.py` (`AgentApiServer`, `build_server`) | Build a `FastMCP`, mount its `streamable_http_app()`, and run `uvicorn` on a daemon thread (own asyncio loop). Lifecycle: `start()` (pre-bind port → `PortInUseError`, poll `started`), `stop()` (`should_exit` + join), `is_running`, `url`. `mcp`/`uvicorn` imported lazily. | `snapshot_provider` + host/port → running server |
+| `agent_api/bridge.py` (`MainThreadBridge`) | Run a callable on the Qt main thread from any thread and return the result (queued signal + `concurrent.futures.Future`). `abort_pending()` fails in-flight calls for clean shutdown. The reusable write-ready core. | `run_on_main(fn) → fn()`'s result |
+| `agent_api/schema.py` (`PlanSummary`) | Curated, stable pydantic contract for agents, decoupled from `.ogp`/`FILE_VERSION`. Qt-free. | model |
+| `agent_api/mapping.py` (`plan_summary_from_snapshot`) | Pure map from a `snapshot_dict` to `PlanSummary`; classifies beds/plants/shapes by `object_type` (name sets drift-guarded). Qt-free. | dict → `PlanSummary` |
+| `core/project.py` (`ProjectManager.snapshot_dict`) | In-memory, read-only `.ogp`-shaped dict (+ `agent_meta`) via the extracted `_build_project_data(scene, sync_journal=False)` — reading never mutates state. | scene → dict |
+| `app/application.py` (wiring) | `_setup_agent_api` (bridge + deferred auto-start), `_start/_stop_agent_api`, `_on_preferences` (live restart), `closeEvent` (abort + stop). | settings + signals → server lifecycle |

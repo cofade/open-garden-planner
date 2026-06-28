@@ -393,6 +393,8 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 **Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
 
+**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener, so it follows a least-exposure posture: **opt-in** (off by default), **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply), and read-only in this phase. There is no auth yet (loopback trust); **token auth is a planned hardening** before write tools ship, since any local process can reach a loopback port. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
+
 ## 8.12 Constraint Solver Architecture
 
 The constraint solver lives in [`core/constraints.py`](../../src/open_garden_planner/core/constraints.py) and [`core/constraint_solver_newton.py`](../../src/open_garden_planner/core/constraint_solver_newton.py). It supports 16 constraint types and runs in two phases.
@@ -857,3 +859,50 @@ next launch). See ADR-032 for the architecture.
 
 `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
 (loads, validates, every expression parses, generates ≥1 primitive).
+
+## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1, ADR-033/034)
+
+The app can host an **MCP server over streamable-HTTP** so AI agents read the
+plan currently open in the GUI (epic #237). Package: `agent_api/`
+(`bridge.py`, `server.py`, `schema.py`, `mapping.py`, `__init__.py`).
+
+**Lifecycle.** `AgentApiServer` builds a `FastMCP`, takes its
+`streamable_http_app()` ASGI app, and runs a `uvicorn.Server` we own on a
+**daemon `threading.Thread`** with its own asyncio loop. `start()` pre-binds the
+port (precise `PortInUseError`) then polls `server.started`; `stop()` sets
+`should_exit` and joins. Opt-in via Preferences (`AppSettings.agent_api_enabled`
+default off, `agent_api_port` default 8765), **auto-starts on launch when
+enabled**, bound to **127.0.0.1 only**. Wired in `application.py`:
+`_setup_agent_api` (deferred auto-start) / `_on_preferences` (live restart on
+toggle/port change) / `closeEvent` (stop).
+
+**Thread-marshaling boundary (`MainThreadBridge`).** Tool handlers run on the
+server thread and must never touch Qt directly. `run_on_main(fn)` emits a
+`QueuedConnection` signal carrying `(fn, Future)`; the slot runs `fn` on the main
+thread and resolves the future; the worker blocks on `future.result(timeout)`.
+This is the reusable, write-ready core (D2 edit tools route through it the same
+way reads do).
+
+**Pitfall — sync vs async tool dispatch (verified mcp 1.28.1).** The SDK runs a
+**sync** tool handler *inline on the event loop*; only `async` handlers yield it.
+So a Qt-touching tool MUST be `async def` and offload the blocking main-thread hop
+to a worker: `await anyio.to_thread.run_sync(snapshot_provider)`. A sync handler
+calling `run_on_main` would block the uvicorn loop on `future.result()`.
+
+**Pitfall — shutdown deadlock.** During `closeEvent` the main thread stops pumping
+the Qt loop (it's in `stop()`'s `join`), so an in-flight `run_on_main` could hang.
+`MainThreadBridge.abort_pending()` (called *before* `server.stop()`) fails any
+in-flight hop immediately so the handler returns and the join completes fast.
+
+**Read model (ADR-034).** Reads go through `ProjectManager.snapshot_dict()` — an
+in-memory, read-only `.ogp`-shaped dict (it does NOT run the journal-pin sync that
+`save()` does, so reading never mutates state). The Qt-free `mapping.py` maps it to
+the curated pydantic `schema.py` (`PlanSummary`); object classification inlines the
+bed/plant `ObjectType` name sets, drift-guarded by `tests/unit/test_agent_api_mapping.py`.
+
+**i18n.** MCP tool/resource/prompt descriptions are an English API contract
+(exempt). Only the Settings UI strings go through `tr()`.
+
+**Packaging.** See §7 deployment view — the `mcp`/`uvicorn`/`starlette` stack
+needs `collect_submodules` + `copy_metadata` in `ogp.spec`, must NOT walk
+`mcp.cli`, and must NOT exclude `multiprocessing` (uvicorn imports it).

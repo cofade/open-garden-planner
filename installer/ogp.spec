@@ -62,6 +62,56 @@ for f in (RESOURCES / "web").rglob("*"):
         rel = f.relative_to(SRC)
         datas.append((str(f), str(rel.parent)))
 
+# Agent API (US-D1.1): the MCP server stack (mcp / uvicorn / starlette / anyio /
+# sse-starlette / pydantic) imports protocol, loop and lifespan submodules
+# dynamically, and several of these packages read their distribution metadata at
+# import time. Collect submodules AND metadata so the frozen exe can start the
+# embedded server.
+from PyInstaller.utils.hooks import collect_submodules, copy_metadata
+
+
+def _safe_collect_submodules(pkg):
+    # collect_submodules imports every submodule to enumerate it. Some optional
+    # submodules hard-fail on import when their extra isn't installed (e.g.
+    # ``mcp.cli`` calls sys.exit(1) without the ``cli`` extra), surfacing as a
+    # RuntimeError from the isolated child. We don't use those, so skip on error.
+    try:
+        return collect_submodules(pkg)
+    except Exception as exc:  # noqa: BLE001 - optional-dep import failures are expected
+        print(f"ogp.spec: skipping collect_submodules({pkg!r}): {exc}")
+        return []
+
+
+_mcp_hiddenimports = []
+# Use mcp's concrete subpackages, NOT top-level "mcp" — walking "mcp" would
+# import "mcp.cli" (needs the unbundled ``typer`` extra) and abort the build.
+for _pkg in (
+    "mcp.server",
+    "mcp.shared",
+    "mcp.types",
+    "uvicorn",
+    "starlette",
+    "anyio",
+    "sse_starlette",
+    "pydantic",
+    "pydantic_settings",  # imported eagerly by FastMCP; has dynamic submodules
+    "httpx_sse",
+):
+    _mcp_hiddenimports += _safe_collect_submodules(_pkg)
+
+for _pkg in (
+    "mcp",
+    "uvicorn",
+    "starlette",
+    "anyio",
+    "sse_starlette",
+    "pydantic",
+    "pydantic_core",
+    "pydantic_settings",
+    "httpx_sse",
+):
+    datas += copy_metadata(_pkg)
+
 a = Analysis(
     [str(SRC / "open_garden_planner" / "__main__.py")],
     pathex=[str(SRC)],
@@ -85,7 +135,7 @@ a = Analysis(
         "ezdxf",
         "ezdxf.xclip",
         "ezdxf.fonts",
-    ],
+    ] + _mcp_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -94,7 +144,9 @@ a = Analysis(
         "unittest",
         "pydoc",
         "doctest",
-        "multiprocessing",
+        # NOTE: do NOT exclude "multiprocessing" — uvicorn imports it eagerly
+        # (uvicorn.supervisors -> basereload -> _subprocess) even though we run
+        # single-process; excluding it breaks the embedded Agent API (US-D1.1).
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -130,6 +182,10 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=True,
-    upx_exclude=[],
+    upx_exclude=[
+        # pydantic_core ships a compiled extension that UPX can corrupt; it is
+        # imported at runtime by the Agent API (US-D1.1), so keep it uncompressed.
+        "pydantic_core*.pyd",
+    ],
     name="OpenGardenPlanner",
 )

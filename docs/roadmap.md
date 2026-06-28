@@ -2409,8 +2409,8 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 ### US table (D1 = MVP)
 | Status | US | Description |
 | ------ | -- | ----------- |
-| 📋 | D1.1 | **Embedded MCP server + opt-in core** — streamable-HTTP server on `127.0.0.1:<port>`, runs on a background asyncio thread alongside Qt; Settings toggle (default OFF); main-thread marshaling boundary; new `mcp` dependency bundled in the exe |
-| 📋 | D1.2 | **Read/query tools** — `get_plan_summary`, `list_objects`/`get_object`, spatial queries (`objects_in_region`, `plants_in_bed`, `nearest_objects`, `measure`), `get_diagnostics` (companion/spacing/soil/capacity) |
+| ✅ | D1.1 | **Embedded MCP server + opt-in core** (spike) — streamable-HTTP server on `127.0.0.1:<port>` on a background asyncio thread; Settings toggle (default OFF); `MainThreadBridge` marshaling boundary; `get_plan_summary` tracer tool; `mcp`/`uvicorn` bundled into the exe (frozen-server verified). See ADR-033/034, FR-26, §8.19. *(branch `feature/US-D1.1-embedded-mcp-spike` — PR pending manual test)* |
+| 📋 | D1.2 | **Read/query tools** — `get_plan_summary` (shipped in D1.1), `list_objects`/`get_object`, spatial queries (`objects_in_region`, `plants_in_bed`, `nearest_objects`, `measure`), `get_diagnostics` (companion/spacing/soil/capacity) |
 | 📋 | D1.3 | **Vision** — `render_canvas_image(region?, layers?, width?)` returns a PNG via `services/scene_rendering.render_scene_region` |
 | 📋 | D1.4 | **Export tools** — `export_pdf`, `export_dxf`, `export_csv` (shopping/harvest), `save_plan` (save / save-as) |
 | 📋 | D1.5 | **Resources + prompts** — `garden://plan` (curated), `garden://plan/raw`, `garden://canvas.png`, `garden://diagnostics`, `garden://species`; read-analysis prompts (audit-plan, describe-garden) |

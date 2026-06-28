@@ -417,3 +417,13 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 - **FR-SYMBOL-05**: `.ogp` persistence is backwards-compatible (no `FILE_VERSION` bump): a symbol is stored as a `group` + a `smart_symbol` metadata key + its generated children as a cached snapshot. An older app loads it as a plain group; a current app regenerates if the live definition's version matches, else uses the cached geometry and logs a warning. A missing/unknown symbol likewise falls back to the cached geometry.
 - **FR-SYMBOL-06**: DXF export emits each symbol as a **BLOCK + INSERT** (block geometry in symbol-local coords; insert at the symbol's position/rotation; identical params reuse a block); the symbol's children are never exported as duplicate flat entities.
 - **FR-SYMBOL-07**: A CI test validates every bundled symbol file (loads, validates, expressions parse, generates ≥1 primitive). Symbol/parameter display names are localized via `name`/`name_de` + `label`/`label_de` data fields; panel chrome is localized via `tr()`.
+
+## FR-26: Agent API — Embedded MCP Server (Phase 13, Package D, US-D1.1, epic #237)
+
+> **Scope (spike):** US-D1.1 ships the server, the opt-in toggle, the main-thread marshaling boundary, and ONE read tool (`get_plan_summary`) + the PyInstaller bundling. The wider read/visualise/export surface (D1.2–D1.5) and write/domain tools (D2/D3) follow. See ADR-033, ADR-034, §8.19.
+
+- **FR-AGENT-01**: The app can host an **MCP server over streamable-HTTP** for AI agents (Claude, Cursor, any MCP client), embedded in the running GUI on a background thread and reachable at `http://127.0.0.1:<port>/mcp`.
+- **FR-AGENT-02**: The server is **opt-in** — a Preferences → **Agent API** group (Enable checkbox + Port spin-box 1024–65535 + read-only connect-URL label) persisted in `AppSettings` (`agent_api/enabled` default **off**, `agent_api/port` default **8765**). Enabling starts it immediately and **auto-starts it on every launch** until disabled.
+- **FR-AGENT-03**: The server binds **127.0.0.1 only** (never the LAN); there is no token/auth in this phase (loopback trust; token auth is a planned hardening). A port already in use is reported in the status bar without crashing.
+- **FR-AGENT-04**: Tool **`get_plan_summary`** returns a curated, stable summary of the open plan: bed/plant/other-shape counts, canvas size (cm), layer names, file name, and unsaved-changes flag. Reading the plan never mutates it.
+- **FR-AGENT-05**: Agent edits (later phases) and reads are marshaled onto the Qt main thread; the server stops cleanly when the toggle is turned off and on app close. Tool/resource/prompt descriptions are an English API contract (exempt from i18n); only the Settings UI strings are translated.

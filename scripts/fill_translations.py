@@ -1872,6 +1872,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Temperatur, bei der oder darunter halbharte Pflanzen gefährdet sind",
         "Temperature at or below which tender plants are at risk":
             "Temperatur, bei der oder darunter empfindliche Pflanzen gefährdet sind",
+        # Agent API section (US-D1.1)
+        "Agent API": "Agent-API",
+        "Enable Agent API (local MCP server)":
+            "Agent-API aktivieren (lokaler MCP-Server)",
+        "Run a local MCP server so AI agents can read this garden plan. "
+        "Binds to 127.0.0.1 (this computer) only; off by default.":
+            "Lokalen MCP-Server starten, damit KI-Agenten diesen Gartenplan lesen "
+            "können. Bindet nur an 127.0.0.1 (diesen Computer); standardmäßig aus.",
+        "Port:": "Port:",
+        "Server URL:": "Server-URL:",
     },
 
     # ── UpdateBar ──
@@ -2287,6 +2297,12 @@ _HARVEST_TRANSLATIONS: dict[str, dict[str, str]] = {
     "GardenPlannerApp": {
         "Harvest": "Ernte",
         "Harvest recorded": "Ernte erfasst",
+        # Agent API (US-D1.1)
+        "Agent API running at {url}": "Agent-API läuft unter {url}",
+        "Agent API: port {port} is already in use":
+            "Agent-API: Port {port} wird bereits verwendet",
+        "Agent API failed to start (see log)":
+            "Agent-API konnte nicht gestartet werden (siehe Protokoll)",
     },
     "HarvestLogDialog": {
         "Edit Harvest Entry": "Ernte-Eintrag bearbeiten",
