@@ -80,13 +80,14 @@ def _no_weather_network():
 
 
 @pytest.fixture(autouse=True)
-def _disable_agent_api_server():
+def _disable_agent_api_server(_reset_app_settings):
     """Never auto-start the embedded Agent API server during tests.
 
     The server defaults to ON in production (US-D1.1) but tests must not bind a
-    real loopback port; force it off in the isolated settings store. Runs after
-    `_reset_app_settings` (which clears the store) so the value sticks for the
-    test. Tests that exercise the server build `AgentApiServer` directly.
+    real loopback port. Depends on `_reset_app_settings` so this runs strictly
+    AFTER its store-clearing setup (autouse same-scope order is not otherwise
+    guaranteed — an earlier version ran first and had its write wiped by the
+    clear). Tests that exercise the server build `AgentApiServer` directly.
     """
     from PyQt6.QtCore import QSettings
 

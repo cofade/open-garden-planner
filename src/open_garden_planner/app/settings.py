@@ -558,7 +558,7 @@ class AppSettings:
 
     @property
     def agent_api_enabled(self) -> bool:
-        """Whether the embedded Agent API MCP server is enabled (default off)."""
+        """Whether the embedded Agent API MCP server is enabled (default on)."""
         return self._settings.value(
             self.KEY_AGENT_API_ENABLED,
             self.DEFAULT_AGENT_API_ENABLED,
