@@ -2414,7 +2414,7 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 | 📋 | D1.3 | **Vision** — `render_canvas_image(region?, layers?, width?)` returns a PNG via `services/scene_rendering.render_scene_region` |
 | 📋 | D1.4 | **Export tools** — `export_pdf`, `export_dxf`, `export_csv` (shopping/harvest), `save_plan` (save / save-as) |
 | 📋 | D1.5 | **Resources + prompts** — `garden://plan` (curated), `garden://plan/raw`, `garden://canvas.png`, `garden://diagnostics`, `garden://species`; read-analysis prompts (audit-plan, describe-garden) |
-| 📋 | D1.6 | **AI client onboarding** — in-app "Connect your AI assistant" helper: show/copy the URL, **detect installed clients** (Claude Desktop, Claude Code, Cursor, …) and one-click register the server in each client's config, with copy-paste snippet fallback. Solves discovery — a running server is useless until the user's client knows its URL. |
+| 📋 | D1.6 | **AI client onboarding** (#240) — in-app "Connect your AI assistant" helper: show/copy the URL, **detect installed clients** (Claude Desktop, Claude Code, Cursor, …) and one-click register the server in each client's config, with copy-paste snippet fallback. Solves discovery — a running server is useless until the user's client knows its URL. |
 
 ### Acceptance highlights (D1)
 - Server is **on by default (read-only)**, binds **loopback only**, and shows the connect URL (e.g. `http://127.0.0.1:8765/mcp`); a Preferences toggle disables it and stops it cleanly. (Getting that URL into each user's AI client is the D1.6 onboarding follow-up.)
