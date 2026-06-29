@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -205,6 +206,39 @@ class PreferencesDialog(QDialog):
 
         layout.addWidget(tasks_group)
 
+        # --- Agent API (US-D1.1) ---
+        from open_garden_planner.app.settings import AppSettings
+
+        agent_group = QGroupBox(self.tr("Agent API"))
+        agent_layout = QFormLayout(agent_group)
+
+        self._agent_api_check = QCheckBox(
+            self.tr("Enable Agent API (local MCP server)")
+        )
+        self._agent_api_check.setToolTip(
+            self.tr(
+                "Run a local MCP server so AI assistants can read this garden "
+                "plan. Binds to 127.0.0.1 (this computer) only; read-only."
+            )
+        )
+        self._agent_api_check.toggled.connect(self._on_agent_api_toggled)
+        agent_layout.addRow(self._agent_api_check)
+
+        self._agent_api_port_spin = QSpinBox()
+        self._agent_api_port_spin.setRange(
+            AppSettings.MIN_AGENT_API_PORT, AppSettings.MAX_AGENT_API_PORT
+        )
+        self._agent_api_port_spin.valueChanged.connect(self._update_agent_api_url)
+        agent_layout.addRow(self.tr("Port:"), self._agent_api_port_spin)
+
+        self._agent_api_url_label = QLabel()
+        self._agent_api_url_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        agent_layout.addRow(self.tr("Server URL:"), self._agent_api_url_label)
+
+        layout.addWidget(agent_group)
+
         layout.addStretch()
 
         # --- Buttons ---
@@ -233,6 +267,20 @@ class PreferencesDialog(QDialog):
         self._frost_orange_spin.setValue(settings.frost_warning_orange_c)
         self._frost_red_spin.setValue(settings.frost_warning_red_c)
         self._notify_overdue_check.setChecked(settings.notify_overdue_tasks_on_startup)
+        self._agent_api_check.setChecked(settings.agent_api_enabled)
+        self._agent_api_port_spin.setValue(settings.agent_api_port)
+        self._update_agent_api_url()
+        self._on_agent_api_toggled(settings.agent_api_enabled)
+
+    def _on_agent_api_toggled(self, enabled: bool) -> None:
+        """Enable/disable the port + URL rows alongside the Agent API checkbox."""
+        self._agent_api_port_spin.setEnabled(enabled)
+        self._agent_api_url_label.setEnabled(enabled)
+
+    def _update_agent_api_url(self) -> None:
+        """Refresh the displayed connect URL when the port changes."""
+        port = self._agent_api_port_spin.value()
+        self._agent_api_url_label.setText(f"http://127.0.0.1:{port}/mcp")
 
     def _save_and_accept(self) -> None:
         from open_garden_planner.app.settings import get_settings
@@ -245,6 +293,8 @@ class PreferencesDialog(QDialog):
         settings.frost_warning_orange_c = self._frost_orange_spin.value()
         settings.frost_warning_red_c = self._frost_red_spin.value()
         settings.notify_overdue_tasks_on_startup = self._notify_overdue_check.isChecked()
+        settings.agent_api_enabled = self._agent_api_check.isChecked()
+        settings.agent_api_port = self._agent_api_port_spin.value()
         settings.sync()
         self.accept()
 

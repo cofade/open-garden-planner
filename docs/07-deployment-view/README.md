@@ -241,3 +241,33 @@ flowchart TD
 | **Display** | 1280x720 |
 | **GPU** | Any (Qt uses software rendering fallback) |
 | **Internet** | Optional (for plant database search) |
+
+## 7.6 Agent API / MCP Bundling (US-D1.1)
+
+The embedded MCP server (`agent_api/`, see §8.19, ADR-033) adds the `mcp` /
+`uvicorn` / `starlette` / `pydantic` stack (+ transitive `anyio`,
+`sse-starlette`, `pydantic-core`, `pydantic-settings`, `httpx`, `cryptography`).
+Freezing this stack into the PyInstaller exe required three fixes in
+`installer/ogp.spec`, each found by actually running the **frozen** server (the
+US-D1.1 bundling proof) — dev tests don't surface them:
+
+- **Collect dynamic submodules + metadata.** uvicorn/anyio/starlette load
+  protocol, loop and lifespan submodules dynamically, and several packages read
+  their distribution metadata at import; so the spec does
+  `collect_submodules(...)` + `copy_metadata(...)` for the stack.
+- **Do NOT walk top-level `mcp`.** `collect_submodules("mcp")` imports
+  `mcp.cli`, which calls `sys.exit(1)` when the optional `cli` (`typer`) extra is
+  absent, aborting the build. The spec collects the concrete subpackages
+  (`mcp.server`, `mcp.shared`, `mcp.types`) instead, wrapped in a
+  `_safe_collect_submodules` guard.
+- **Do NOT exclude `multiprocessing`.** uvicorn imports it eagerly
+  (`uvicorn.supervisors → basereload → _subprocess`) even when run
+  single-process; excluding it makes the frozen server raise
+  `ModuleNotFoundError: multiprocessing` at start (the GUI still runs, the server
+  silently fails). It was removed from the spec `excludes`.
+- **UPX.** `pydantic_core*.pyd` is `upx_exclude`d (UPX can corrupt the compiled
+  extension).
+
+**Verify after any change to the stack:** build the exe, enable the Agent API
+(Preferences), and confirm an MCP client can reach `http://127.0.0.1:8765/mcp`
+from the *frozen* app — not just from `pytest`.

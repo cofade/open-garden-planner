@@ -47,6 +47,10 @@ class AppSettings:
     # Task management (US-C2)
     KEY_NOTIFY_OVERDUE_TASKS = "tasks/notify_overdue_on_startup"
 
+    # Agent API (US-D1.1) — embedded MCP server
+    KEY_AGENT_API_ENABLED = "agent_api/enabled"
+    KEY_AGENT_API_PORT = "agent_api/port"
+
     # Phase 13 Package B (US-B3) — fillet/chamfer "last used" values
     KEY_FILLET_LAST_RADIUS_CM = "tools/fillet_last_radius_cm"
     KEY_CHAMFER_LAST_DISTANCE_CM = "tools/chamfer_last_distance_cm"
@@ -87,6 +91,15 @@ class AppSettings:
     DEFAULT_FROST_WARNING_ORANGE_C = 5.0
     DEFAULT_FROST_WARNING_RED_C = 2.0
     DEFAULT_NOTIFY_OVERDUE_TASKS = True
+
+    # Agent API (US-D1.1): embedded MCP server. Default ON (read-only,
+    # loopback-only) so AI assistants can connect without hunting through
+    # Preferences; users can disable it. Port within the IANA user range.
+    # NOTE: token auth must land before write tools default-expose mutate access.
+    DEFAULT_AGENT_API_ENABLED = True
+    DEFAULT_AGENT_API_PORT = 8765
+    MIN_AGENT_API_PORT = 1024
+    MAX_AGENT_API_PORT = 65535
 
     # Phase 13 Package B (US-B3): default fillet radius / chamfer distance
     # in cm. These are the "last used" values that prefill the input dialog
@@ -542,6 +555,36 @@ class AppSettings:
     @chamfer_last_distance_cm.setter
     def chamfer_last_distance_cm(self, value: float) -> None:
         self._settings.setValue(self.KEY_CHAMFER_LAST_DISTANCE_CM, float(value))
+
+    @property
+    def agent_api_enabled(self) -> bool:
+        """Whether the embedded Agent API MCP server is enabled (default on)."""
+        return self._settings.value(
+            self.KEY_AGENT_API_ENABLED,
+            self.DEFAULT_AGENT_API_ENABLED,
+            type=bool,
+        )
+
+    @agent_api_enabled.setter
+    def agent_api_enabled(self, value: bool) -> None:
+        """Set whether the embedded Agent API MCP server is enabled."""
+        self._settings.setValue(self.KEY_AGENT_API_ENABLED, bool(value))
+
+    @property
+    def agent_api_port(self) -> int:
+        """TCP port for the embedded Agent API server (loopback only)."""
+        value = self._settings.value(
+            self.KEY_AGENT_API_PORT,
+            self.DEFAULT_AGENT_API_PORT,
+            type=int,
+        )
+        return max(self.MIN_AGENT_API_PORT, min(self.MAX_AGENT_API_PORT, value))
+
+    @agent_api_port.setter
+    def agent_api_port(self, value: int) -> None:
+        """Set the Agent API port, clamped to the IANA user range."""
+        clamped = max(self.MIN_AGENT_API_PORT, min(self.MAX_AGENT_API_PORT, value))
+        self._settings.setValue(self.KEY_AGENT_API_PORT, clamped)
 
     def sync(self) -> None:
         """Force settings to be written to storage."""
