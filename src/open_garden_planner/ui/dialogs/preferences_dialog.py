@@ -217,8 +217,8 @@ class PreferencesDialog(QDialog):
         )
         self._agent_api_check.setToolTip(
             self.tr(
-                "Run a local MCP server so AI agents can read this garden plan. "
-                "Binds to 127.0.0.1 (this computer) only; off by default."
+                "Run a local MCP server so AI assistants can read this garden "
+                "plan. Binds to 127.0.0.1 (this computer) only; read-only."
             )
         )
         self._agent_api_check.toggled.connect(self._on_agent_api_toggled)

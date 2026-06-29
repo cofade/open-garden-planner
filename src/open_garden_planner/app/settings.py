@@ -92,9 +92,11 @@ class AppSettings:
     DEFAULT_FROST_WARNING_RED_C = 2.0
     DEFAULT_NOTIFY_OVERDUE_TASKS = True
 
-    # Agent API (US-D1.1): embedded MCP server, opt-in (default OFF),
-    # loopback-only. Port is configurable within the IANA user range.
-    DEFAULT_AGENT_API_ENABLED = False
+    # Agent API (US-D1.1): embedded MCP server. Default ON (read-only,
+    # loopback-only) so AI assistants can connect without hunting through
+    # Preferences; users can disable it. Port within the IANA user range.
+    # NOTE: token auth must land before write tools default-expose mutate access.
+    DEFAULT_AGENT_API_ENABLED = True
     DEFAULT_AGENT_API_PORT = 8765
     MIN_AGENT_API_PORT = 1024
     MAX_AGENT_API_PORT = 65535

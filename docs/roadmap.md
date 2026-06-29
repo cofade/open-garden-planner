@@ -2382,7 +2382,7 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 ## Phase 13: Agent Integration — Package D (MCP Server) 📋 Planned
 
-**Goal**: Expose the garden plan to AI agents (Claude, Cursor, any MCP client) so they can read, visualise, and export a plan — and, in later phases, edit it. The running app embeds a **Model Context Protocol server over streamable-HTTP** on `127.0.0.1` (opt-in, loopback-only). v1 ships a **read + visualise + export** surface on a deliberately **write-ready core**; editing and domain intelligence follow. See ADR-033 (Agent Integration Architecture) + ADR-034 (Curated Agent Schema & Addressing), FR-26, and GitHub epic #237.
+**Goal**: Expose the garden plan to AI agents (Claude, Cursor, any MCP client) so they can read, visualise, and export a plan — and, in later phases, edit it. The running app embeds a **Model Context Protocol server over streamable-HTTP** on `127.0.0.1` (on by default, read-only, loopback-only; toggle to disable). v1 ships a **read + visualise + export** surface on a deliberately **write-ready core**; editing and domain intelligence follow. See ADR-033 (Agent Integration Architecture) + ADR-034 (Curated Agent Schema & Addressing), FR-26, and GitHub epic #237.
 
 ### Design decisions (from the planning session)
 | Axis | Decision |
@@ -2390,7 +2390,7 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 | Transport | Embedded **MCP server over streamable-HTTP** hosted by the running app (no separate relay process) |
 | Execution | Operates on the **live running app** — reads reflect the open plan; edits (later phases) go through the undo stack |
 | Connection | App binds `127.0.0.1:<port>` (configurable); agent client connects by URL |
-| Security | **Opt-in** (Settings toggle, default OFF), **loopback-only** bind, no token in v1 (token auth = deferred hardening) |
+| Security | **On by default (read-only)**, Settings toggle to disable, **loopback-only** bind, no token in v1 (token auth = hard prerequisite before D2 writes). *Revised from the original opt-in/default-off after manual testing — see D1.1.* |
 | Approval (writes) | Auto-apply, **fully undoable** — one undo step per agent operation (the contract for D2) |
 | Concurrency | **Free co-editing** — agent calls marshaled onto the Qt main thread and serialised |
 | Abstraction | **Layered** — domain-level API + low-level geometry escape hatches |
@@ -2409,14 +2409,15 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 ### US table (D1 = MVP)
 | Status | US | Description |
 | ------ | -- | ----------- |
-| ✅ | D1.1 | **Embedded MCP server + opt-in core** (spike) — streamable-HTTP server on `127.0.0.1:<port>` on a background asyncio thread; Settings toggle (default OFF); `MainThreadBridge` marshaling boundary; `get_plan_summary` tracer tool; `mcp`/`uvicorn` bundled into the exe (frozen-server verified). See ADR-033/034, FR-26, §8.19. *(branch `feature/US-D1.1-embedded-mcp-spike` — PR pending manual test)* |
+| ✅ | D1.1 | **Embedded MCP server core** (spike) — streamable-HTTP server on `127.0.0.1:<port>` on a background asyncio thread; **on by default (read-only)**, Settings toggle to disable; `MainThreadBridge` marshaling boundary; `get_plan_summary` tracer tool; `mcp`/`uvicorn` bundled into the exe (frozen-server verified). See ADR-033/034, FR-26, §8.19. *(PR #239)* |
 | 📋 | D1.2 | **Read/query tools** — `get_plan_summary` (shipped in D1.1), `list_objects`/`get_object`, spatial queries (`objects_in_region`, `plants_in_bed`, `nearest_objects`, `measure`), `get_diagnostics` (companion/spacing/soil/capacity) |
 | 📋 | D1.3 | **Vision** — `render_canvas_image(region?, layers?, width?)` returns a PNG via `services/scene_rendering.render_scene_region` |
 | 📋 | D1.4 | **Export tools** — `export_pdf`, `export_dxf`, `export_csv` (shopping/harvest), `save_plan` (save / save-as) |
 | 📋 | D1.5 | **Resources + prompts** — `garden://plan` (curated), `garden://plan/raw`, `garden://canvas.png`, `garden://diagnostics`, `garden://species`; read-analysis prompts (audit-plan, describe-garden) |
+| 📋 | D1.6 | **AI client onboarding** — in-app "Connect your AI assistant" helper: show/copy the URL, **detect installed clients** (Claude Desktop, Claude Code, Cursor, …) and one-click register the server in each client's config, with copy-paste snippet fallback. Solves discovery — a running server is useless until the user's client knows its URL. |
 
 ### Acceptance highlights (D1)
-- Server is **off by default**; enabling it in Settings binds **loopback only** and shows the connect URL (e.g. `http://127.0.0.1:8765/mcp`) to paste into an MCP client. Disabling stops it cleanly.
+- Server is **on by default (read-only)**, binds **loopback only**, and shows the connect URL (e.g. `http://127.0.0.1:8765/mcp`); a Preferences toggle disables it and stops it cleanly. (Getting that URL into each user's AI client is the D1.6 onboarding follow-up.)
 - All Qt-touching work (scene snapshot, render, export, save) is **marshaled onto the main thread** from the server's asyncio thread; the `agent_api` core is otherwise Qt-free and unit-testable.
 - Reads return the **curated agent schema** (stable, documented Pydantic models) by default; `raw=True` returns the serializer dict. No `FILE_VERSION` change.
 - Objects are addressed by **stable UUID** (`item_id`); every list/query returns ids.

@@ -1876,10 +1876,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Agent API": "Agent-API",
         "Enable Agent API (local MCP server)":
             "Agent-API aktivieren (lokaler MCP-Server)",
-        "Run a local MCP server so AI agents can read this garden plan. "
-        "Binds to 127.0.0.1 (this computer) only; off by default.":
-            "Lokalen MCP-Server starten, damit KI-Agenten diesen Gartenplan lesen "
-            "können. Bindet nur an 127.0.0.1 (diesen Computer); standardmäßig aus.",
+        "Run a local MCP server so AI assistants can read this garden "
+        "plan. Binds to 127.0.0.1 (this computer) only; read-only.":
+            "Lokalen MCP-Server starten, damit KI-Assistenten diesen Gartenplan "
+            "lesen können. Bindet nur an 127.0.0.1 (diesen Computer); nur Lesen.",
         "Port:": "Port:",
         "Server URL:": "Server-URL:",
     },

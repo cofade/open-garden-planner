@@ -5102,6 +5102,10 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <source>Server URL:</source>
             <translation>Server-URL:</translation>
         </message>
+        <message>
+            <source>Run a local MCP server so AI assistants can read this garden plan. Binds to 127.0.0.1 (this computer) only; read-only.</source>
+            <translation>Lokalen MCP-Server starten, damit KI-Assistenten diesen Gartenplan lesen können. Bindet nur an 127.0.0.1 (diesen Computer); nur Lesen.</translation>
+        </message>
     </context>
     <context>
         <name>PrintOptionsDialog</name>

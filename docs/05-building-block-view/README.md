@@ -287,7 +287,7 @@ Black-box view of the unified Tasks tab. See ADR-029 and FR-21.
 
 ## 5.6 Agent API Subsystem (US-D1.1)
 
-Black-box view of the embedded MCP server for AI agents. See ADR-033/034, FR-26, §8.19. Opt-in, loopback-only, read-only in this spike (tool: `get_plan_summary`); built write-ready.
+Black-box view of the embedded MCP server for AI agents. See ADR-033/034, FR-26, §8.19. Default-on (read-only), loopback-only, toggle to disable; read-only in this spike (tool: `get_plan_summary`); built write-ready.
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|

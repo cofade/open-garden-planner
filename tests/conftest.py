@@ -77,3 +77,20 @@ def _no_weather_network():
     """Stub out the weather fetch thread so tests never make real network requests."""
     with patch("open_garden_planner.ui.widgets.weather_widget._WeatherFetchWorker"):
         yield
+
+
+@pytest.fixture(autouse=True)
+def _disable_agent_api_server():
+    """Never auto-start the embedded Agent API server during tests.
+
+    The server defaults to ON in production (US-D1.1) but tests must not bind a
+    real loopback port; force it off in the isolated settings store. Runs after
+    `_reset_app_settings` (which clears the store) so the value sticks for the
+    test. Tests that exercise the server build `AgentApiServer` directly.
+    """
+    from PyQt6.QtCore import QSettings
+
+    QSettings("cofade_test", "Open Garden Planner Test").setValue(
+        "agent_api/enabled", False
+    )
+    yield

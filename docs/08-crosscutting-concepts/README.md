@@ -393,7 +393,7 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 **Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
 
-**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener, so it follows a least-exposure posture: **opt-in** (off by default), **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply), and read-only in this phase. There is no auth yet (loopback trust); **token auth is a planned hardening** before write tools ship, since any local process can reach a loopback port. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
+**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. There is no auth yet (loopback trust); **token auth is a hard prerequisite before any write tool ships** (a default-on, unauthenticated *mutate* surface reachable by any local process would not be acceptable). The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
 
 ## 8.12 Constraint Solver Architecture
 
@@ -870,9 +870,9 @@ plan currently open in the GUI (epic #237). Package: `agent_api/`
 `streamable_http_app()` ASGI app, and runs a `uvicorn.Server` we own on a
 **daemon `threading.Thread`** with its own asyncio loop. `start()` pre-binds the
 port (precise `PortInUseError`) then polls `server.started`; `stop()` sets
-`should_exit` and joins. Opt-in via Preferences (`AppSettings.agent_api_enabled`
-default off, `agent_api_port` default 8765), **auto-starts on launch when
-enabled**, bound to **127.0.0.1 only**. Wired in `application.py`:
+`should_exit` and joins. **On by default** (`AppSettings.agent_api_enabled`
+default **True**, `agent_api_port` default 8765; a Preferences toggle disables
+it), **auto-starts on launch**, bound to **127.0.0.1 only**. Wired in `application.py`:
 `_setup_agent_api` (deferred auto-start) / `_on_preferences` (live restart on
 toggle/port change) / `closeEvent` (stop).
 
