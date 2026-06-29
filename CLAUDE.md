@@ -222,7 +222,13 @@ See **ADR-022** (Bezier model + filleted-rectangle conversion) and **ADR-023** (
 
 **Package C (#188) complete** — US-C1…C4 all shipped.
 
-Next: **Phase 14 (v2.0)** — 3D Visualization & Sun/Shade (Future). See `docs/roadmap.md`.
+## Phase 13 — Package D (Agent Integration MCP server, epic #237)
+
+| Status | US    | Description                                                      |
+| ------ | ----- | ---------------------------------------------------------------- |
+| ✅     | D1.1  | Embedded MCP server spike (v1.21.0, PR #239) — **on-by-default**, read-only, loopback-only streamable-HTTP server in the running GUI exposing `get_plan_summary`; `MainThreadBridge` marshaling boundary (write-ready); `mcp`/`uvicorn` bundled (frozen-server verified). See ADR-033/034, FR-26, §8.19. Distribution/onboarding (D1.6, #240) + more read tools (D1.2–D1.5) + write/domain (D2/D3) follow. **Token auth gates D2 writes.** |
+
+Next: **Package D follow-ups** (D1.2–D1.6, D2/D3) or **Phase 14 (v2.0)** — 3D Visualization & Sun/Shade. See `docs/roadmap.md`.
 
 ## Phase 12 issue work
 
