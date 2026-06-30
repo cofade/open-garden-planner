@@ -860,11 +860,12 @@ next launch). See ADR-032 for the architecture.
 `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
 (loads, validates, every expression parses, generates ≥1 primitive).
 
-## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1, ADR-033/034)
+## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2, ADR-033/034)
 
 The app can host an **MCP server over streamable-HTTP** so AI agents read the
 plan currently open in the GUI (epic #237). Package: `agent_api/`
-(`bridge.py`, `server.py`, `schema.py`, `mapping.py`, `__init__.py`).
+(`bridge.py`, `server.py`, `schema.py`, `mapping.py`, `queries.py`,
+`diagnostics.py`, `providers.py`, `__init__.py`).
 
 **Lifecycle.** `AgentApiServer` builds a `FastMCP`, takes its
 `streamable_http_app()` ASGI app, and runs a `uvicorn.Server` we own on a
@@ -899,6 +900,26 @@ in-memory, read-only `.ogp`-shaped dict (it does NOT run the journal-pin sync th
 `save()` does, so reading never mutates state). The Qt-free `mapping.py` maps it to
 the curated pydantic `schema.py` (`PlanSummary`); object classification inlines the
 bed/plant `ObjectType` name sets, drift-guarded by `tests/unit/test_agent_api_mapping.py`.
+
+**Read/query tools (US-D1.2).** `build_server`/`AgentApiServer` take an
+`AgentProviders` bundle (Qt-free) of main-thread-marshaled callables (`snapshot`,
+`diagnostics`) — the extension seam for render/export/write later. Tools:
+- **Structural/spatial** — `list_objects`, `get_object`, `objects_in_region`,
+  `objects_in`, `plants_in_bed`, `nearest_objects`, `measure_distance` are pure
+  functions over the snapshot (`agent_api/queries.py`, Qt-free, **linear scan** not
+  the live quadtree). Coordinates are the **native scene frame** (cm, origin
+  top-left, +y down); shapes are summarised by `object_bbox` (handles every
+  serialised geometry). `raw=True` returns the serialiser dict(s) via a **dict-first
+  union return** (`list[dict] | list[ObjectRef]`) so FastMCP keeps a clean `anyOf`
+  schema **and** preserves unknown keys on raw (model-first would coerce raw dicts
+  back into the model and drop keys — verified mcp 1.28.1).
+- **`get_diagnostics`** reports the plan's **already-computed** warnings, not a
+  recomputation: `ProjectManager.diagnostics_snapshot` harvests each garden item's
+  badge flags (`antagonist_warning` / `spacing_overlap` / `capacity_overrun` /
+  `soil_mismatch_level` / `rotation_status`) on the main thread into Qt-free records,
+  and the Qt-free `diagnostics.py` maps them to `Diagnostic`. Positive indicators
+  (spacing `"ideal"`, rotation `"good"`) are not reported; values reflect the last
+  computed badge state (may lag a debounce tick — fine for read-only inspection).
 
 **i18n.** MCP tool/resource/prompt descriptions are an English API contract
 (exempt). Only the Settings UI strings go through `tr()`.

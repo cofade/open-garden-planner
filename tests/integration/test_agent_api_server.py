@@ -4,7 +4,8 @@ Boots ``AgentApiServer`` in-process on an ephemeral port against a real scene,
 then drives it with the real MCP streamable-HTTP client from a worker thread
 while the main thread pumps the Qt event loop (so the bridge can marshal the
 scene read onto the main thread). This exercises the full chain:
-client -> server thread -> tool handler -> MainThreadBridge -> snapshot_dict.
+client -> server thread -> tool handler -> MainThreadBridge -> snapshot_dict /
+diagnostics_snapshot.
 """
 
 from __future__ import annotations
@@ -12,9 +13,14 @@ from __future__ import annotations
 import asyncio
 import socket
 import threading
+from collections.abc import Callable
 from typing import Any
 
-from open_garden_planner.agent_api import AgentApiServer, MainThreadBridge
+from open_garden_planner.agent_api import (
+    AgentApiServer,
+    AgentProviders,
+    MainThreadBridge,
+)
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
@@ -28,69 +34,163 @@ def _free_port() -> int:
     return port
 
 
+def _providers(scene: Any) -> AgentProviders:
+    bridge = MainThreadBridge()
+    project_manager = ProjectManager()
+    return AgentProviders(
+        snapshot=lambda: bridge.run_on_main(
+            lambda: project_manager.snapshot_dict(scene)
+        ),
+        diagnostics=lambda: bridge.run_on_main(
+            lambda: project_manager.diagnostics_snapshot(scene)
+        ),
+    )
+
+
+def _drive(server: AgentApiServer, body: Callable[[Any], Any], result: dict[str, Any]) -> None:
+    """Run an MCP client session against ``server`` and call ``body(session)``."""
+
+    async def run() -> None:
+        from mcp import ClientSession
+
+        try:  # SDK renamed it; fall back for the pinned floor (mcp>=1.12)
+            from mcp.client.streamable_http import (
+                streamable_http_client as http_client,
+            )
+        except ImportError:
+            from mcp.client.streamable_http import (
+                streamablehttp_client as http_client,
+            )
+
+        async with (
+            http_client(server.url) as (read, write, _),
+            ClientSession(read, write) as session,
+        ):
+            await session.initialize()
+            await body(session)
+
+    try:
+        asyncio.run(run())
+    except Exception as exc:  # noqa: BLE001 - surface to the assertion below
+        result["error"] = exc
+    finally:
+        result["done"] = True
+
+
 def test_get_plan_summary_end_to_end(canvas: Any, qtbot: Any) -> None:
     scene = canvas.scene()
     scene.addItem(RectangleItem(0, 0, 100, 80, object_type=ObjectType.RAISED_BED))
     scene.addItem(CircleItem(200, 200, 30, object_type=ObjectType.TREE))
 
-    bridge = MainThreadBridge()
-    project_manager = ProjectManager()
-
-    def snapshot() -> dict[str, Any]:
-        return bridge.run_on_main(lambda: project_manager.snapshot_dict(scene))
-
-    server = AgentApiServer(snapshot, port=_free_port())
+    server = AgentApiServer(_providers(scene), port=_free_port())
     server.start()
     assert server.is_running
 
     result: dict[str, Any] = {}
 
-    def run_client() -> None:
-        async def drive() -> None:
-            from mcp import ClientSession
+    async def body(session: Any) -> None:
+        tools = await session.list_tools()
+        result["tools"] = [t.name for t in tools.tools]
+        call = await session.call_tool("get_plan_summary", {})
+        result["summary"] = call.structuredContent
 
-            try:  # SDK renamed it; fall back for the pinned floor (mcp>=1.12)
-                from mcp.client.streamable_http import (
-                    streamable_http_client as http_client,
-                )
-            except ImportError:
-                from mcp.client.streamable_http import (
-                    streamablehttp_client as http_client,
-                )
-
-            async with (
-                http_client(server.url) as (read, write, _),
-                ClientSession(read, write) as session,
-            ):
-                await session.initialize()
-                tools = await session.list_tools()
-                result["tools"] = [t.name for t in tools.tools]
-                call = await session.call_tool("get_plan_summary", {})
-                result["summary"] = call.structuredContent
-
-        try:
-            asyncio.run(drive())
-        except Exception as exc:  # noqa: BLE001 - surface to the assertion below
-            result["error"] = exc
-        finally:
-            result["done"] = True
-
-    client_thread = threading.Thread(target=run_client, name="mcp-test-client")
-    client_thread.start()
+    threading.Thread(
+        target=_drive, args=(server, body, result), name="mcp-test-client"
+    ).start()
     try:
-        # Pump the Qt event loop so the bridge can service the snapshot read
-        # while the client call is in flight.
         qtbot.waitUntil(lambda: result.get("done", False), timeout=15000)
-        client_thread.join(timeout=5.0)
-
         assert result.get("error") is None, result.get("error")
         assert "get_plan_summary" in result["tools"]
+        # All US-D1.2 read/query tools are registered alongside the summary.
+        for name in (
+            "list_objects",
+            "get_object",
+            "objects_in_region",
+            "objects_in",
+            "plants_in_bed",
+            "nearest_objects",
+            "measure_distance",
+            "get_diagnostics",
+        ):
+            assert name in result["tools"], name
         summary = result["summary"]
         assert summary["bed_count"] == 1
         assert summary["plant_count"] == 1
         assert summary["shape_count"] == 0
         assert summary["canvas_width_cm"] == scene.width_cm
         assert summary["is_dirty"] is False
+    finally:
+        server.stop()
+
+    assert server.is_running is False
+
+
+def test_read_query_tools_end_to_end(canvas: Any, qtbot: Any) -> None:
+    scene = canvas.scene()
+    bed = RectangleItem(0, 0, 200, 100, object_type=ObjectType.RAISED_BED)
+    bed.name = "Bed A"
+    tree = CircleItem(50, 50, 15, object_type=ObjectType.TREE)
+    tree.name = "Apple"
+    herb = CircleItem(150, 50, 10, object_type=ObjectType.PERENNIAL)
+    herb.name = "Mint"
+    tree.parent_bed_id = bed.item_id
+    herb.parent_bed_id = bed.item_id
+    bed._child_item_ids = [tree.item_id, herb.item_id]
+    # A computed warning the canvas would badge: companion conflict on the tree.
+    tree.set_antagonist_warning(True)
+    for item in (bed, tree, herb):
+        scene.addItem(item)
+
+    bed_id = str(bed.item_id)
+    tree_id = str(tree.item_id)
+    herb_id = str(herb.item_id)
+
+    server = AgentApiServer(_providers(scene), port=_free_port())
+    server.start()
+    assert server.is_running
+
+    result: dict[str, Any] = {}
+
+    async def body(session: Any) -> None:
+        plants = await session.call_tool("list_objects", {"type": "plant"})
+        result["plants"] = plants.structuredContent["result"]
+
+        detail = await session.call_tool("get_object", {"item_id": tree_id})
+        result["tree"] = detail.structuredContent["result"]
+
+        in_bed = await session.call_tool("plants_in_bed", {"bed_id": bed_id})
+        result["in_bed"] = in_bed.structuredContent["result"]
+
+        measure = await session.call_tool(
+            "measure_distance", {"id_a": tree_id, "id_b": herb_id}
+        )
+        result["measure"] = measure.structuredContent["result"]
+
+        diags = await session.call_tool("get_diagnostics", {})
+        result["diagnostics"] = diags.structuredContent["result"]
+
+    threading.Thread(
+        target=_drive, args=(server, body, result), name="mcp-test-client"
+    ).start()
+    try:
+        qtbot.waitUntil(lambda: result.get("done", False), timeout=15000)
+        assert result.get("error") is None, result.get("error")
+
+        assert {p["item_id"] for p in result["plants"]} == {tree_id, herb_id}
+
+        tree = result["tree"]
+        assert tree["object_type"] == "TREE"
+        assert tree["parent_bed_id"] == bed_id
+        assert tree["center_x_cm"] == 50.0
+
+        assert {p["item_id"] for p in result["in_bed"]} == {tree_id, herb_id}
+
+        assert result["measure"]["distance_cm"] == 100.0
+
+        diags = result["diagnostics"]
+        assert len(diags) == 1
+        assert diags[0]["kind"] == "companion_conflict"
+        assert diags[0]["item_ids"] == [tree_id]
     finally:
         server.stop()
 

@@ -16,19 +16,25 @@ import logging
 import socket
 import threading
 import time
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from open_garden_planner.agent_api import queries
+from open_garden_planner.agent_api.diagnostics import diagnostics_from_records
 from open_garden_planner.agent_api.mapping import plan_summary_from_snapshot
-from open_garden_planner.agent_api.schema import PlanSummary
+from open_garden_planner.agent_api.providers import AgentProviders
+from open_garden_planner.agent_api.schema import (
+    Diagnostic,
+    Measurement,
+    ObjectDetail,
+    ObjectRef,
+    PlanSummary,
+)
 
 if TYPE_CHECKING:
     import uvicorn
     from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
-
-SnapshotProvider = Callable[[], dict[str, Any]]
 
 # Max time start() blocks the caller waiting for uvicorn to report "listening".
 _READY_TIMEOUT_S = 5.0
@@ -47,13 +53,22 @@ class PortInUseError(RuntimeError):
 
 
 def build_server(
-    snapshot_provider: SnapshotProvider, *, stateless_http: bool = True
+    providers: AgentProviders, *, stateless_http: bool = True
 ) -> FastMCP:
-    """Create a configured ``FastMCP`` instance with the read tools registered.
+    """Create a configured ``FastMCP`` instance with the read/query tools registered.
 
-    Decoupled from the GUI: the only dependency is ``snapshot_provider``, a
-    callable returning a read-only ``.ogp``-shaped dict of the live plan (in the
-    app it hops to the Qt main thread via ``MainThreadBridge``).
+    Decoupled from the GUI: the only dependency is ``providers``, a bundle of
+    callables returning read-only plain data about the live plan (in the app each
+    hops to the Qt main thread via ``MainThreadBridge``).
+
+    Every Qt-touching tool is ``async def`` and offloads its provider via
+    ``anyio.to_thread.run_sync`` — see the :class:`MainThreadBridge` house rule:
+    the SDK runs *sync* handlers inline on the event loop, so a sync handler that
+    blocks on a main-thread hop would stall the uvicorn loop.
+
+    Coordinates throughout are the plan's native scene frame (centimetres, origin
+    top-left, +x right, +y down). Read-only ``raw=True`` switches a tool from the
+    curated agent schema to the underlying ``.ogp`` serialiser dict(s).
     """
     import anyio
     from mcp.server.fastmcp import FastMCP
@@ -61,8 +76,12 @@ def build_server(
     mcp = FastMCP(
         "Open Garden Planner",
         instructions=(
-            "Read and reason about the garden plan currently open in Open "
-            "Garden Planner. This spike exposes a single read tool."
+            "Read and reason about the garden plan currently open in Open Garden "
+            "Planner. Objects are addressed by a stable UUID (item_id) and "
+            "located in centimetres on the canvas. Use list_objects/get_object to "
+            "inspect structure, the spatial tools to locate and measure, and "
+            "get_diagnostics for the plan's current warnings. This server is "
+            "read-only."
         ),
         stateless_http=stateless_http,
         log_level="WARNING",
@@ -75,12 +94,131 @@ def build_server(
         Returns object counts (beds, plants, other shapes), canvas size, layer
         names, the file name, and whether there are unsaved changes.
         """
-        # ASYNC handler (see MainThreadBridge house rule): the SDK runs sync
-        # handlers inline on the event loop, so offload snapshot_provider — which
-        # blocks on a hop to the Qt main thread — to a worker thread, keeping the
-        # loop free.
-        snapshot = await anyio.to_thread.run_sync(snapshot_provider)
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
         return plan_summary_from_snapshot(snapshot)
+
+    @mcp.tool()
+    async def list_objects(
+        type: str | None = None,
+        layer: str | None = None,
+        parent: str | None = None,
+        raw: bool = False,
+    ) -> list[dict[str, Any]] | list[ObjectRef]:
+        """List the plan's top-level objects, newest filters applied.
+
+        Args:
+            type: Optional filter — an ObjectType name ('TREE', 'RAISED_BED'), a
+                category ('bed', 'plant', 'shape'), or a geometry kind ('circle').
+            layer: Optional layer name or layer id to restrict to.
+            parent: Optional bed/container id — only its direct children.
+            raw: If true, return the underlying serialiser dicts instead of the
+                curated schema.
+        """
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        return queries.list_objects(
+            snapshot, type=type, layer=layer, parent=parent, raw=raw
+        )
+
+    @mcp.tool()
+    async def get_object(
+        item_id: str, raw: bool = False
+    ) -> dict[str, Any] | ObjectDetail | None:
+        """Return full detail for one object by its UUID, or null if not found.
+
+        Args:
+            item_id: The object's stable UUID.
+            raw: If true, return the underlying serialiser dict instead of the
+                curated schema.
+        """
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        return queries.get_object(snapshot, item_id, raw=raw)
+
+    @mcp.tool()
+    async def objects_in_region(
+        x: float, y: float, width: float, height: float, raw: bool = False
+    ) -> list[dict[str, Any]] | list[ObjectRef]:
+        """Objects whose bounding box intersects a rectangle (scene cm).
+
+        Args:
+            x: Left edge of the query rectangle, in scene cm.
+            y: Top edge of the query rectangle, in scene cm.
+            width: Rectangle width in cm.
+            height: Rectangle height in cm.
+            raw: If true, return serialiser dicts instead of the curated schema.
+        """
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        return queries.objects_in_region(snapshot, x, y, width, height, raw=raw)
+
+    @mcp.tool()
+    async def objects_in(
+        parent_id: str, raw: bool = False
+    ) -> list[dict[str, Any]] | list[ObjectRef]:
+        """Objects contained in a bed/container (its direct children).
+
+        Args:
+            parent_id: UUID of the bed/container.
+            raw: If true, return serialiser dicts instead of the curated schema.
+        """
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        return queries.objects_in(snapshot, parent_id, raw=raw)
+
+    @mcp.tool()
+    async def plants_in_bed(
+        bed_id: str, raw: bool = False
+    ) -> list[dict[str, Any]] | list[ObjectRef]:
+        """Plant objects contained in the given bed/container.
+
+        Args:
+            bed_id: UUID of the bed/container.
+            raw: If true, return serialiser dicts instead of the curated schema.
+        """
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        return queries.plants_in_bed(snapshot, bed_id, raw=raw)
+
+    @mcp.tool()
+    async def nearest_objects(
+        x: float,
+        y: float,
+        k: int = 5,
+        type: str | None = None,
+        raw: bool = False,
+    ) -> list[dict[str, Any]] | list[ObjectRef]:
+        """The k objects whose centres are closest to a point (scene cm).
+
+        Args:
+            x: Point X in scene cm.
+            y: Point Y in scene cm.
+            k: Maximum number of objects to return (closest first).
+            type: Optional type/category/geometry filter (see list_objects).
+            raw: If true, return serialiser dicts instead of the curated schema.
+        """
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        return queries.nearest_objects(snapshot, x, y, k=k, type=type, raw=raw)
+
+    @mcp.tool()
+    async def measure_distance(id_a: str, id_b: str) -> Measurement | None:
+        """Centre-to-centre distance between two objects, or null if either is unknown.
+
+        Args:
+            id_a: UUID of the first object.
+            id_b: UUID of the second object.
+        """
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        return queries.measure_distance(snapshot, id_a, id_b)
+
+    @mcp.tool()
+    async def get_diagnostics(kind: str | None = None) -> list[Diagnostic]:
+        """Report the plan's current warnings (the same ones shown as canvas badges).
+
+        Covers companion conflicts, spacing overlaps, soil/pH mismatches,
+        container capacity overruns, and crop-rotation conflicts.
+
+        Args:
+            kind: Optional filter — one of 'companion_conflict', 'spacing_overlap',
+                'soil_mismatch', 'capacity_overrun', 'crop_rotation'.
+        """
+        records = await anyio.to_thread.run_sync(providers.diagnostics)
+        return diagnostics_from_records(records, kind=kind)
 
     return mcp
 
@@ -90,13 +228,13 @@ class AgentApiServer:
 
     def __init__(
         self,
-        snapshot_provider: SnapshotProvider,
+        providers: AgentProviders,
         *,
         host: str = "127.0.0.1",
         port: int = 8765,
         path: str = "/mcp",
     ) -> None:
-        self._snapshot_provider = snapshot_provider
+        self._providers = providers
         self._host = host
         self._port = port
         self._path = path if path.startswith("/") else f"/{path}"
@@ -135,7 +273,7 @@ class AgentApiServer:
     def _start_locked(self) -> None:
         import uvicorn
 
-        mcp = build_server(self._snapshot_provider)
+        mcp = build_server(self._providers)
         mcp.settings.streamable_http_path = self._path
         app = mcp.streamable_http_app()
 

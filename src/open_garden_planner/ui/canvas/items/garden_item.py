@@ -407,6 +407,16 @@ class GardenItemMixin:
             self.update()  # type: ignore[attr-defined]
 
     @property
+    def soil_mismatch_level(self) -> str | None:
+        """Current soil/pH mismatch level: 'warning', 'critical', or None (US-12.10d).
+
+        Read-only accessor for the runtime flag drawn by
+        :meth:`_draw_soil_mismatch_border`; consumed by the Agent API's
+        ``get_diagnostics`` to report the same warning the canvas shows.
+        """
+        return self._soil_mismatch_level
+
+    @property
     def rotation_status(self) -> str | None:
         """Current crop rotation status: 'good', 'suboptimal', 'violation', or None."""
         return self._rotation_status

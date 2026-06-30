@@ -887,6 +887,57 @@ class ProjectManager(QObject):
         }
         return out
 
+    def diagnostics_snapshot(self, scene: QGraphicsScene) -> list[dict[str, Any]]:
+        """Harvest each garden item's already-computed warning flags (read-only).
+
+        The Agent API's ``get_diagnostics`` reports the same warnings the canvas
+        paints as badges rather than recomputing anything (see ADR-031/US-12.10d).
+        Walks the scene reading the runtime flags off every garden item and
+        returns one plain dict per item that currently has at least one active
+        warning; the Qt-free
+        :func:`open_garden_planner.agent_api.diagnostics.diagnostics_from_records`
+        turns those into the agent schema. Never mutates the scene.
+        """
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        records: list[dict[str, Any]] = []
+        for item in scene.items():
+            if not isinstance(item, GardenItemMixin):
+                continue
+            antagonist = bool(getattr(item, "antagonist_warning", False))
+            spacing = getattr(item, "spacing_overlap", None)
+            capacity = bool(getattr(item, "capacity_overrun", False))
+            soil = getattr(item, "soil_mismatch_level", None)
+            rotation = getattr(item, "rotation_status", None)
+            # Only "overlap"/"suboptimal"/"violation" and the soil levels are
+            # warnings; "ideal"/"good" are positive indicators, not problems.
+            has_warning = (
+                antagonist
+                or spacing == "overlap"
+                or capacity
+                or soil in ("warning", "critical")
+                or rotation in ("suboptimal", "violation")
+            )
+            if not has_warning:
+                continue
+            records.append(
+                {
+                    "item_id": str(getattr(item, "item_id", "")),
+                    "name": getattr(item, "name", None),
+                    "object_type": (
+                        item.object_type.name
+                        if getattr(item, "object_type", None)
+                        else None
+                    ),
+                    "antagonist_warning": antagonist,
+                    "spacing_overlap": spacing,
+                    "capacity_overrun": capacity,
+                    "soil_mismatch_level": soil,
+                    "rotation_status": rotation,
+                }
+            )
+        return records
+
     def load(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Load a project from a file.
 
