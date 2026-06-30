@@ -46,6 +46,17 @@ def object_bbox(obj: dict[str, Any]) -> tuple[float, float, float, float]:
 
     Indeterminate shapes collapse to a zero-size box at their anchor point.
     """
+    children = obj.get("children")  # group / smart symbol
+    if children:
+        # Children serialise in the group's LOCAL frame; the group dict carries
+        # only x/y (no width/height), so union the child boxes offset by (x, y).
+        gx, gy = float(obj.get("x", 0.0)), float(obj.get("y", 0.0))
+        boxes = [object_bbox(child) for child in children]
+        x0 = min(gx + b[0] for b in boxes)
+        y0 = min(gy + b[1] for b in boxes)
+        x1 = max(gx + b[0] + b[2] for b in boxes)
+        y1 = max(gy + b[1] + b[3] for b in boxes)
+        return (x0, y0, x1 - x0, y1 - y0)
     if "width" in obj and "x" in obj:  # rectangle (group has x but no width)
         return (
             float(obj["x"]),
@@ -64,7 +75,13 @@ def object_bbox(obj: dict[str, Any]) -> tuple[float, float, float, float]:
         x1, y1 = float(obj["x1"]), float(obj.get("y1", 0.0))
         x2, y2 = float(obj["x2"]), float(obj.get("y2", 0.0))
         return (min(x1, x2), min(y1, y2), abs(x2 - x1), abs(y2 - y1))
-    points = obj.get("points") or obj.get("anchors")  # polyline/polygon, bezier
+    points = obj.get("points")  # polyline / polygon
+    if points is None and "anchors" in obj:  # bezier — bound by the control hull
+        points = (
+            list(obj["anchors"])
+            + list(obj.get("handles_in") or [])
+            + list(obj.get("handles_out") or [])
+        )
     if points:
         xs = [float(p["x"]) for p in points]
         ys = [float(p["y"]) for p in points]
@@ -143,6 +160,16 @@ def _layer_matches(obj: dict[str, Any], layer_filter: str, names: dict[str, str]
     if layer_filter == lid:
         return True
     return names.get(lid, "") == layer_filter  # match by layer name
+
+
+def _has_parent(obj: dict[str, Any], parent_id: str) -> bool:
+    """True only if ``obj`` actually has ``parent_id`` as its parent bed/container.
+
+    Guards against an empty ``parent_id`` matching every unparented object (whose
+    ``parent_bed_id`` is absent): an empty filter addresses nothing.
+    """
+    pbid = obj.get("parent_bed_id")
+    return bool(pbid) and bool(parent_id) and str(pbid) == str(parent_id)
 
 
 def _species_key(obj: dict[str, Any]) -> str | None:
@@ -233,7 +260,7 @@ def list_objects(
             continue
         if layer is not None and not _layer_matches(obj, layer, layer_names):
             continue
-        if parent is not None and str(obj.get("parent_bed_id") or "") != str(parent):
+        if parent is not None and not _has_parent(obj, parent):
             continue
         out.append(obj if raw else _object_ref(obj, layer_names))
     return out
@@ -278,7 +305,7 @@ def objects_in(
     out: list[Any] = [
         obj if raw else _object_ref(obj, layer_names)
         for obj in snapshot.get("objects") or []
-        if str(obj.get("parent_bed_id") or "") == target
+        if _has_parent(obj, target)
     ]
     return out
 
@@ -292,7 +319,7 @@ def plants_in_bed(
     out: list[Any] = [
         obj if raw else _object_ref(obj, layer_names)
         for obj in snapshot.get("objects") or []
-        if str(obj.get("parent_bed_id") or "") == target
+        if _has_parent(obj, target)
         and obj.get("object_type") in _PLANT_TYPE_NAMES
     ]
     return out

@@ -1,9 +1,10 @@
-"""Embedded MCP server for the Agent API (US-D1.1 spike).
+"""Embedded MCP server for the Agent API (US-D1.1/D1.2).
 
 Runs an MCP streamable-HTTP server inside the running GUI on a background daemon
-thread, bound to loopback only. Read-only in this spike: a single tool,
-``get_plan_summary``. Built write-ready — later phases reuse the same
-``MainThreadBridge`` boundary (via the injected ``snapshot_provider``) for edits.
+thread, bound to loopback only. Read-only: structural, spatial, and diagnostics
+query tools over the live plan. Built write-ready — later phases reuse the same
+``MainThreadBridge`` boundary (via the injected ``AgentProviders`` callables) for
+edits.
 
 ``mcp``/``uvicorn`` are imported lazily inside functions so importing the
 package costs nothing until the server is actually started.

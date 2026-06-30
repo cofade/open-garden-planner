@@ -180,6 +180,12 @@ class TestSpatialQueries:
         out = queries.objects_in(_snapshot(), "bed1")
         assert {o.item_id for o in out} == {"p1", "p2"}
 
+    def test_empty_parent_matches_nothing(self) -> None:
+        # An empty parent id must NOT match every unparented object.
+        assert queries.list_objects(_snapshot(), parent="") == []
+        assert queries.objects_in(_snapshot(), "") == []
+        assert queries.plants_in_bed(_snapshot(), "") == []
+
     def test_plants_in_bed_excludes_non_plants(self) -> None:
         # Even if a non-plant were parented, plants_in_bed only returns plants.
         snap = _snapshot()
@@ -281,6 +287,41 @@ class TestBboxNormaliserPerShape:
     def test_background_image_position(self) -> None:
         bg = {"type": "background_image", "position": {"x": 100.0, "y": 200.0}, "scale_factor": 1.0}
         assert queries.object_bbox(bg) == (100.0, 200.0, 0.0, 0.0)
+
+    def test_group_unions_child_boxes_in_group_frame(self) -> None:
+        # Group/smart-symbol children serialise in the group's LOCAL frame; the
+        # group dict has only x/y, so the bbox must union the offset child boxes
+        # (not collapse to a zero-size point at the origin).
+        group = {
+            "type": "group",
+            "item_id": "g1",
+            "x": 100.0,
+            "y": 100.0,
+            "children": [
+                {"type": "rectangle", "item_id": "c1", "x": 0.0, "y": 0.0,
+                 "width": 50.0, "height": 50.0},
+                {"type": "circle", "item_id": "c2", "center_x": 200.0,
+                 "center_y": 200.0, "radius": 10.0},
+            ],
+        }
+        # child1 abs (100,100,50,50); child2 abs (290,290,20,20) -> union:
+        assert queries.object_bbox(group) == (100.0, 100.0, 210.0, 210.0)
+
+    def test_bezier_bbox_includes_control_handles(self) -> None:
+        # The control hull bounds the curve; ignoring handles under-approximates.
+        bez = {
+            "type": "bezier",
+            "item_id": "b1",
+            "anchors": [{"x": 0.0, "y": 0.0}, {"x": 100.0, "y": 0.0}],
+            "handles_in": [{"x": 0.0, "y": 0.0}, {"x": 70.0, "y": 200.0}],
+            "handles_out": [{"x": 30.0, "y": -150.0}, {"x": 100.0, "y": 0.0}],
+        }
+        assert queries.object_bbox(bez) == (0.0, -150.0, 100.0, 350.0)
+
+    def test_bezier_without_handles_uses_anchors(self) -> None:
+        bez = {"type": "bezier", "item_id": "b2",
+               "anchors": [{"x": 0.0, "y": 0.0}, {"x": 10.0, "y": 20.0}]}
+        assert queries.object_bbox(bez) == (0.0, 0.0, 10.0, 20.0)
 
 
 class TestBboxNormaliser:
