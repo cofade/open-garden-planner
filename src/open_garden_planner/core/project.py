@@ -899,10 +899,15 @@ class ProjectManager(QObject):
         turns those into the agent schema. Never mutates the scene.
         """
         from open_garden_planner.ui.canvas.items import GardenItemMixin
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
 
         records: list[dict[str, Any]] = []
         for item in scene.items():
             if not isinstance(item, GardenItemMixin):
+                continue
+            # Mirror _serialize_item: group children are not top-level objects, so
+            # skip them — a diagnostic id must be resolvable via get_object/list_objects.
+            if isinstance(item.parentItem(), GroupItem):
                 continue
             antagonist = bool(getattr(item, "antagonist_warning", False))
             spacing = getattr(item, "spacing_overlap", None)

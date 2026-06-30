@@ -169,6 +169,13 @@ def test_read_query_tools_end_to_end(canvas: Any, qtbot: Any) -> None:
         diags = await session.call_tool("get_diagnostics", {})
         result["diagnostics"] = diags.structuredContent["result"]
 
+        # raw=True must preserve serialiser-only keys through FastMCP's structured
+        # content — the dict-first union return guards against the model coercing
+        # them away (verified vs mcp 1.28.1). Pin it end-to-end so an SDK bump or a
+        # union-order "tidy" can't silently regress raw mode with the suite green.
+        raw = await session.call_tool("list_objects", {"type": "circle", "raw": True})
+        result["raw"] = raw.structuredContent["result"]
+
     threading.Thread(
         target=_drive, args=(server, body, result), name="mcp-test-client"
     ).start()
@@ -191,6 +198,11 @@ def test_read_query_tools_end_to_end(canvas: Any, qtbot: Any) -> None:
         assert len(diags) == 1
         assert diags[0]["kind"] == "companion_conflict"
         assert diags[0]["item_ids"] == [tree_id]
+
+        raw = result["raw"]
+        assert {r["item_id"] for r in raw} == {tree_id, herb_id}
+        # 'radius'/'center_x' are serialiser-only keys absent from the curated ObjectRef.
+        assert all("radius" in r and "center_x" in r for r in raw)
     finally:
         server.stop()
 

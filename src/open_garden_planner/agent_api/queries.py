@@ -31,6 +31,8 @@ def _anchor_point(obj: dict[str, Any]) -> tuple[float, float]:
         return float(obj["center_x"]), float(obj.get("center_y", 0.0))
     if "target_x" in obj:  # callout
         return float(obj["target_x"]), float(obj.get("target_y", 0.0))
+    if "x1" in obj:  # line segment (construction_line) — defensive
+        return float(obj["x1"]), float(obj.get("y1", 0.0))
     if "x" in obj:  # group, journal_pin
         return float(obj["x"]), float(obj.get("y", 0.0))
     pos = obj.get("position")  # background_image
@@ -58,6 +60,10 @@ def object_bbox(obj: dict[str, Any]) -> tuple[float, float, float, float]:
         cx, cy = float(obj["center_x"]), float(obj["center_y"])
         sx, sy = float(obj["semi_x"]), float(obj["semi_y"])
         return (cx - sx, cy - sy, 2 * sx, 2 * sy)
+    if "x1" in obj and "x2" in obj:  # construction_line segment
+        x1, y1 = float(obj["x1"]), float(obj.get("y1", 0.0))
+        x2, y2 = float(obj["x2"]), float(obj.get("y2", 0.0))
+        return (min(x1, x2), min(y1, y2), abs(x2 - x1), abs(y2 - y1))
     points = obj.get("points") or obj.get("anchors")  # polyline/polygon, bezier
     if points:
         xs = [float(p["x"]) for p in points]
@@ -197,6 +203,10 @@ def _object_detail(obj: dict[str, Any], layer_names: dict[str, str]) -> ObjectDe
 
 def _find(snapshot: dict[str, Any], item_id: str) -> dict[str, Any] | None:
     target = str(item_id)
+    if not target:
+        # Some shapes (callout, background image) serialise without an item_id and
+        # would all match ""; an empty id addresses nothing.
+        return None
     objects: list[dict[str, Any]] = snapshot.get("objects") or []
     for obj in objects:
         if str(obj.get("item_id")) == target:
@@ -306,7 +316,7 @@ def nearest_objects(
         cx, cy = object_center(obj)
         scored.append((math.hypot(cx - x, cy - y), obj))
     scored.sort(key=lambda pair: pair[0])
-    chosen = scored[:k] if k and k > 0 else scored
+    chosen = scored[:k] if k > 0 else []  # k<=0 returns none (k is a hard cap)
     out: list[Any] = [obj if raw else _object_ref(obj, layer_names) for _, obj in chosen]
     return out
 

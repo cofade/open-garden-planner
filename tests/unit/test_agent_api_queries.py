@@ -207,6 +207,81 @@ class TestSpatialQueries:
     def test_measure_distance_unknown_id(self) -> None:
         assert queries.measure_distance(_snapshot(), "p1", "nope") is None
 
+    def test_nearest_k_zero_or_negative_returns_none(self) -> None:
+        assert queries.nearest_objects(_snapshot(), 0.0, 0.0, k=0) == []
+        assert queries.nearest_objects(_snapshot(), 0.0, 0.0, k=-3) == []
+
+    def test_empty_item_id_addresses_nothing(self) -> None:
+        # callout/background serialise without an item_id; "" must not resolve.
+        snap = _snapshot()
+        snap["objects"].append({"type": "callout", "target_x": 10, "target_y": 20})
+        assert queries.get_object(snap, "") is None
+        assert queries.measure_distance(snap, "", "p1") is None
+
+
+class TestBboxNormaliserPerShape:
+    """Every serialised geometry kind must yield a sane (non-garbage) bbox.
+
+    Dicts mirror the real per-type serialisers (project.py ``_serialize_item_core``
+    and each item's ``to_dict``); ``test_agent_api_geometry.py`` round-trips real
+    items to guard these keys against drift.
+    """
+
+    def test_construction_line_segment(self) -> None:
+        # Regression: x1/y1/x2/y2 previously fell through to (0,0,0,0).
+        line = {
+            "type": "construction_line",
+            "item_id": "cl",
+            "x1": 500.0,
+            "y1": 600.0,
+            "x2": 700.0,
+            "y2": 800.0,
+        }
+        assert queries.object_bbox(line) == (500.0, 600.0, 200.0, 200.0)
+        assert queries.object_center(line) == (600.0, 700.0)
+
+    def test_construction_circle(self) -> None:
+        circ = {
+            "type": "construction_circle",
+            "item_id": "cc",
+            "center_x": 100.0,
+            "center_y": 50.0,
+            "radius": 20.0,
+        }
+        assert queries.object_bbox(circ) == (80.0, 30.0, 40.0, 40.0)
+
+    def test_arc_uses_radius(self) -> None:
+        arc = {
+            "type": "arc",
+            "item_id": "a",
+            "center_x": 10.0,
+            "center_y": 10.0,
+            "radius": 5.0,
+            "start_deg": 0.0,
+            "span_deg": 90.0,
+        }
+        assert queries.object_bbox(arc) == (5.0, 5.0, 10.0, 10.0)
+
+    def test_polyline(self) -> None:
+        poly = {
+            "type": "polyline",
+            "item_id": "pl",
+            "points": [{"x": 0.0, "y": 0.0}, {"x": 30.0, "y": 10.0}, {"x": 10.0, "y": 40.0}],
+        }
+        assert queries.object_bbox(poly) == (0.0, 0.0, 30.0, 40.0)
+
+    def test_callout_is_point(self) -> None:
+        callout = {"type": "callout", "target_x": 12.0, "target_y": 34.0, "box_dx": 5, "box_dy": 5}
+        assert queries.object_bbox(callout) == (12.0, 34.0, 0.0, 0.0)
+
+    def test_journal_pin_is_point(self) -> None:
+        pin = {"type": "journal_pin", "item_id": "jp", "x": 7.0, "y": 8.0, "note_id": "n"}
+        assert queries.object_bbox(pin) == (7.0, 8.0, 0.0, 0.0)
+
+    def test_background_image_position(self) -> None:
+        bg = {"type": "background_image", "position": {"x": 100.0, "y": 200.0}, "scale_factor": 1.0}
+        assert queries.object_bbox(bg) == (100.0, 200.0, 0.0, 0.0)
+
 
 class TestBboxNormaliser:
     def test_point_like_shapes_collapse_to_zero_size(self) -> None:
