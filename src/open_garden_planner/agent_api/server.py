@@ -1,13 +1,23 @@
-"""Embedded MCP server for the Agent API (US-D1.1/D1.2).
+"""Embedded MCP server for the Agent API (US-D1.1/D1.2/D1.3).
 
 Runs an MCP streamable-HTTP server inside the running GUI on a background daemon
-thread, bound to loopback only. Read-only: structural, spatial, and diagnostics
-query tools over the live plan. Built write-ready — later phases reuse the same
-``MainThreadBridge`` boundary (via the injected ``AgentProviders`` callables) for
-edits.
+thread, bound to loopback only. Read-only: structural, spatial, diagnostics, and
+vision (render) query tools over the live plan. Built write-ready — later phases
+reuse the same ``MainThreadBridge`` boundary (via the injected ``AgentProviders``
+callables) for edits.
 
-``mcp``/``uvicorn`` are imported lazily inside functions so importing the
-package costs nothing until the server is actually started.
+``FastMCP``/``uvicorn`` are imported lazily inside functions so importing the
+``agent_api`` package costs nothing until the server is actually started (see
+``agent_api/__init__.py``'s own lazy ``__getattr__`` gate, which is what keeps
+importing *this* module itself deferred). ``Image`` is imported eagerly at
+module level: with ``from __future__ import annotations`` in effect, FastMCP's
+``@mcp.tool()`` resolves each stringified annotation via the *function's*
+``__globals__`` — not the enclosing ``build_server()`` call's locals — so a
+tool parameter/return type must be a real module-level name, not merely
+imported inside ``build_server()`` (empirically confirmed: the latter raises
+``NameError`` at server-build time). Both names live under the same
+``mcp.server.fastmcp`` package, so this costs nothing extra beyond what
+``FastMCP`` already pays the moment the server actually starts.
 """
 
 from __future__ import annotations
@@ -19,16 +29,20 @@ import threading
 import time
 from typing import TYPE_CHECKING, Any
 
+from mcp.server.fastmcp.utilities.types import Image
+
 from open_garden_planner.agent_api import queries
 from open_garden_planner.agent_api.diagnostics import diagnostics_from_records
 from open_garden_planner.agent_api.mapping import plan_summary_from_snapshot
 from open_garden_planner.agent_api.providers import AgentProviders
+from open_garden_planner.agent_api.render import DEFAULT_IMAGE_PX
 from open_garden_planner.agent_api.schema import (
     Diagnostic,
     Measurement,
     ObjectDetail,
     ObjectRef,
     PlanSummary,
+    RenderMeta,
 )
 
 if TYPE_CHECKING:
@@ -72,7 +86,7 @@ def build_server(
     curated agent schema to the underlying ``.ogp`` serialiser dict(s).
     """
     import anyio
-    from mcp.server.fastmcp import FastMCP
+    from mcp.server.fastmcp import FastMCP, Image
 
     mcp = FastMCP(
         "Open Garden Planner",
@@ -220,6 +234,60 @@ def build_server(
         """
         records = await anyio.to_thread.run_sync(providers.diagnostics)
         return diagnostics_from_records(records, kind=kind)
+
+    # structured_output=False: Image is not pydantic-representable, so the
+    # default schema-generation path crashes build_server() at decoration time
+    # (verified against mcp 1.28.1). This skips schema/model creation and lets
+    # _convert_to_content() flatten the list into [ImageContent, TextContent]
+    # directly — this tool has no structuredContent, unlike the other 9.
+    @mcp.tool(structured_output=False)
+    async def render_canvas_image(
+        x: float | None = None,
+        y: float | None = None,
+        width: float | None = None,
+        height: float | None = None,
+        layers: list[str] | None = None,
+        image_width_px: int = DEFAULT_IMAGE_PX,
+    ) -> list[Image | RenderMeta]:
+        """Render a PNG screenshot of the garden plan canvas, plus render metadata.
+
+        Args:
+            x: Left edge of the region to render, scene cm. Must be given
+                together with y/width/height, or all four omitted (full canvas).
+            y: Top edge of the region to render, scene cm.
+            width: Region width in cm.
+            height: Region height in cm.
+            layers: Optional layer-name allowlist; unknown names are ignored.
+                Omit to render the current live layer visibility as-is.
+            image_width_px: Output width in pixels, clamped to [128, 2048];
+                default 1024. Output height is derived from the region's
+                aspect ratio and independently clamped to the same bounds.
+        """
+        region: tuple[float, float, float, float] | None
+        if x is None and y is None and width is None and height is None:
+            region = None
+        elif x is not None and y is not None and width is not None and height is not None:
+            region = (x, y, width, height)
+        else:
+            raise ValueError(
+                "x, y, width, and height must all be given together, or all omitted."
+            )
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.render(region, layers, image_width_px)
+        )
+        return [
+            Image(data=result["png_bytes"], format="png"),
+            RenderMeta(
+                region_x_cm=result["region"][0],
+                region_y_cm=result["region"][1],
+                region_width_cm=result["region"][2],
+                region_height_cm=result["region"][3],
+                image_width_px=result["image_width_px"],
+                image_height_px=result["image_height_px"],
+                px_per_cm=result["px_per_cm"],
+                layers_rendered=result["layers_rendered"],
+            ),
+        ]
 
     return mcp
 
