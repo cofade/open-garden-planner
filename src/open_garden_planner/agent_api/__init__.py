@@ -13,8 +13,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from open_garden_planner.agent_api.bridge import MainThreadBridge
+from open_garden_planner.agent_api.diagnostics import diagnostics_from_records
 from open_garden_planner.agent_api.mapping import plan_summary_from_snapshot
-from open_garden_planner.agent_api.schema import PlanSummary
+from open_garden_planner.agent_api.providers import AgentProviders
+from open_garden_planner.agent_api.schema import (
+    Diagnostic,
+    Measurement,
+    ObjectDetail,
+    ObjectRef,
+    PlanSummary,
+)
 
 if TYPE_CHECKING:
     from open_garden_planner.agent_api.server import (
@@ -25,10 +33,16 @@ if TYPE_CHECKING:
 
 __all__ = [
     "AgentApiServer",
+    "AgentProviders",
+    "Diagnostic",
     "MainThreadBridge",
+    "Measurement",
+    "ObjectDetail",
+    "ObjectRef",
     "PlanSummary",
     "PortInUseError",
     "build_server",
+    "diagnostics_from_records",
     "plan_summary_from_snapshot",
 ]
 

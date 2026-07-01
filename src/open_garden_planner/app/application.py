@@ -206,6 +206,12 @@ class GardenPlannerApp(QMainWindow):
             lambda: self._project_manager.snapshot_dict(self.canvas_scene)
         )
 
+    def _agent_diagnostics(self) -> list[dict[str, Any]]:
+        """Harvest the plan's current warnings ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._project_manager.diagnostics_snapshot(self.canvas_scene)
+        )
+
     def _maybe_start_agent_api(self) -> None:
         """Start the Agent API server iff it is enabled in settings."""
         from open_garden_planner.app.settings import get_settings
@@ -215,14 +221,22 @@ class GardenPlannerApp(QMainWindow):
 
     def _start_agent_api(self) -> None:
         """Start the embedded MCP server, surfacing failures in the status bar."""
-        from open_garden_planner.agent_api import AgentApiServer, PortInUseError
+        from open_garden_planner.agent_api import (
+            AgentApiServer,
+            AgentProviders,
+            PortInUseError,
+        )
         from open_garden_planner.app.settings import get_settings
 
         if self._agent_server is not None and self._agent_server.is_running:
             return
         port = get_settings().agent_api_port
+        providers = AgentProviders(
+            snapshot=self._agent_snapshot,
+            diagnostics=self._agent_diagnostics,
+        )
         try:
-            server = AgentApiServer(self._agent_snapshot, port=port)
+            server = AgentApiServer(providers, port=port)
             server.start()
         except PortInUseError:
             self._agent_server = None
