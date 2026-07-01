@@ -227,8 +227,9 @@ See **ADR-022** (Bezier model + filleted-rectangle conversion) and **ADR-023** (
 | Status | US    | Description                                                      |
 | ------ | ----- | ---------------------------------------------------------------- |
 | ✅     | D1.1  | Embedded MCP server spike (v1.21.0, PR #239) — **on-by-default**, read-only, loopback-only streamable-HTTP server in the running GUI exposing `get_plan_summary`; `MainThreadBridge` marshaling boundary (write-ready); `mcp`/`uvicorn` bundled (frozen-server verified). See ADR-033/034, FR-26, §8.19. Distribution/onboarding (D1.6, #240) + more read tools (D1.2–D1.5) + write/domain (D2/D3) follow. **Token auth gates D2 writes.** |
+| ✅     | D1.2  | Read/query tools (v1.22.0, PR #241) — `list_objects`/`get_object` (UUID-addressed, curated schema + `raw=True`), spatial tools (`objects_in_region`/`objects_in`/`plants_in_bed`/`nearest_objects`/`measure_distance`), and `get_diagnostics` (reads already-computed canvas warnings, no recompute). Qt-free `queries.py`/`diagnostics.py` over `snapshot_dict`; `AgentProviders` bundle (extension seam for render/export/writes); per-geometry `object_bbox` normaliser; dict-first union return preserves `raw` keys (verified mcp 1.28.1). No FILE_VERSION change. Two adversarial review passes (senior + 7-lens workflow) fully addressed. See ADR-034 addendum, §8.19, FR-AGENT-06/07/08. |
 
-Next: **Package D follow-ups** (D1.2–D1.6, D2/D3) or **Phase 14 (v2.0)** — 3D Visualization & Sun/Shade. See `docs/roadmap.md`.
+Next: **Package D follow-ups** (D1.3–D1.6, D2/D3) or **Phase 14 (v2.0)** — 3D Visualization & Sun/Shade. See `docs/roadmap.md`.
 
 ## Phase 12 issue work
 
