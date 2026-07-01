@@ -75,7 +75,11 @@ def _hidden_layers_not_in(
     ``agent_api.queries._layer_matches`` but over live scene items instead of
     a snapshot dict. ``allowed=None`` renders the scene's current live
     visibility as-is (no filtering). Unknown names in ``allowed`` are
-    tolerated — they simply match nothing.
+    tolerated — they simply match nothing. A ``GroupItem``/``SmartSymbolItem``
+    child whose own layer differs from its (hidden) parent group's is hidden
+    too — Qt suppresses painting for any descendant of a hidden item,
+    regardless of the child's own layer — the same inherent limitation
+    ``_hidden_overlay_items``/``_hidden_construction_items`` already have.
     """
     if allowed is None:
         yield
