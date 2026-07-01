@@ -145,3 +145,38 @@ class Measurement(BaseModel):
     distance_cm: float = Field(description="Straight-line centre-to-centre distance, cm.")
     dx_cm: float = Field(description="X offset (object B centre − object A centre), cm.")
     dy_cm: float = Field(description="Y offset (object B centre − object A centre), cm.")
+
+
+# --- US-D1.3: vision tool ---------------------------------------------------
+#
+# render_canvas_image renders with y_flip=True (matching the live CAD view and
+# every existing PNG/PDF export), which INVERTS the D1.2 y-down scene frame in
+# the output pixel buffer — see RenderMeta.px_per_cm below for the correction
+# formula. Empirically verified in
+# tests/unit/test_agent_api_render_coordinate_frame.py.
+
+
+class RenderMeta(BaseModel):
+    """Structured metadata alongside a ``render_canvas_image`` PNG."""
+
+    region_x_cm: float = Field(description="Left edge of the rendered region, scene cm.")
+    region_y_cm: float = Field(
+        description="Top edge of the rendered region, scene cm (native D1.2 frame)."
+    )
+    region_width_cm: float = Field(description="Rendered region width, cm.")
+    region_height_cm: float = Field(description="Rendered region height, cm.")
+    image_width_px: int = Field(description="Output image width, pixels.")
+    image_height_px: int = Field(description="Output image height, pixels.")
+    px_per_cm: float = Field(
+        description="Pixels per cm (uniform — aspect ratio preserved). Maps a "
+        "D1.2 object position (scene cm, +y down) to a pixel in this image: "
+        "px_x = (x_cm - region_x_cm) * px_per_cm; "
+        "px_y = image_height_px - (y_cm - region_y_cm) * px_per_cm "
+        "(the image is Y-up/CAD-style like the live canvas view, so the D1.2 "
+        "y-down frame is inverted relative to pixel rows)."
+    )
+    layers_rendered: list[str] | None = Field(
+        default=None,
+        description="Layer names included, or null if all currently-visible "
+        "layers were rendered.",
+    )

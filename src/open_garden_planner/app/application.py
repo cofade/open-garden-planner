@@ -212,6 +212,19 @@ class GardenPlannerApp(QMainWindow):
             lambda: self._project_manager.diagnostics_snapshot(self.canvas_scene)
         )
 
+    def _agent_render(
+        self,
+        region: tuple[float, float, float, float] | None,
+        layers: list[str] | None,
+        image_width_px: int,
+    ) -> dict[str, Any]:
+        """Render a PNG of the live plan ON the Qt main thread (for the server)."""
+        from open_garden_planner.agent_api.render import render_canvas_image
+
+        return self._agent_bridge.run_on_main(
+            lambda: render_canvas_image(self.canvas_scene, region, layers, image_width_px)
+        )
+
     def _maybe_start_agent_api(self) -> None:
         """Start the Agent API server iff it is enabled in settings."""
         from open_garden_planner.app.settings import get_settings
@@ -234,6 +247,7 @@ class GardenPlannerApp(QMainWindow):
         providers = AgentProviders(
             snapshot=self._agent_snapshot,
             diagnostics=self._agent_diagnostics,
+            render=self._agent_render,
         )
         try:
             server = AgentApiServer(providers, port=port)

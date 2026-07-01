@@ -21,6 +21,7 @@ from open_garden_planner.agent_api import (
     AgentProviders,
     MainThreadBridge,
 )
+from open_garden_planner.agent_api.render import render_canvas_image
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
@@ -43,6 +44,9 @@ def _providers(scene: Any) -> AgentProviders:
         ),
         diagnostics=lambda: bridge.run_on_main(
             lambda: project_manager.diagnostics_snapshot(scene)
+        ),
+        render=lambda region, layers, width_px: bridge.run_on_main(
+            lambda: render_canvas_image(scene, region, layers, width_px)
         ),
     )
 
@@ -101,7 +105,7 @@ def test_get_plan_summary_end_to_end(canvas: Any, qtbot: Any) -> None:
         qtbot.waitUntil(lambda: result.get("done", False), timeout=15000)
         assert result.get("error") is None, result.get("error")
         assert "get_plan_summary" in result["tools"]
-        # All US-D1.2 read/query tools are registered alongside the summary.
+        # All US-D1.2/D1.3 read/query/vision tools are registered alongside the summary.
         for name in (
             "list_objects",
             "get_object",
@@ -111,6 +115,7 @@ def test_get_plan_summary_end_to_end(canvas: Any, qtbot: Any) -> None:
             "nearest_objects",
             "measure_distance",
             "get_diagnostics",
+            "render_canvas_image",
         ):
             assert name in result["tools"], name
         summary = result["summary"]
