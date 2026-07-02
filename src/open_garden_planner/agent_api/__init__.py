@@ -22,6 +22,7 @@ from open_garden_planner.agent_api.schema import (
     ObjectDetail,
     ObjectRef,
     PlanSummary,
+    RenderMeta,
 )
 
 if TYPE_CHECKING:
@@ -41,6 +42,7 @@ __all__ = [
     "ObjectRef",
     "PlanSummary",
     "PortInUseError",
+    "RenderMeta",
     "build_server",
     "diagnostics_from_records",
     "plan_summary_from_snapshot",

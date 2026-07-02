@@ -860,12 +860,12 @@ next launch). See ADR-032 for the architecture.
 `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
 (loads, validates, every expression parses, generates ≥1 primitive).
 
-## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2, ADR-033/034)
+## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3, ADR-033/034)
 
 The app can host an **MCP server over streamable-HTTP** so AI agents read the
 plan currently open in the GUI (epic #237). Package: `agent_api/`
 (`bridge.py`, `server.py`, `schema.py`, `mapping.py`, `queries.py`,
-`diagnostics.py`, `providers.py`, `__init__.py`).
+`diagnostics.py`, `render.py`, `providers.py`, `__init__.py`).
 
 **Lifecycle.** `AgentApiServer` builds a `FastMCP`, takes its
 `streamable_http_app()` ASGI app, and runs a `uvicorn.Server` we own on a
@@ -920,6 +920,42 @@ bed/plant `ObjectType` name sets, drift-guarded by `tests/unit/test_agent_api_ma
   and the Qt-free `diagnostics.py` maps them to `Diagnostic`. Positive indicators
   (spacing `"ideal"`, rotation `"good"`) are not reported; values reflect the last
   computed badge state (may lag a debounce tick — fine for read-only inspection).
+
+**Vision tool (US-D1.3).** `render_canvas_image(x?, y?, width?, height?, layers?,
+image_width_px?)` returns a PNG of the live canvas plus a `RenderMeta` block,
+reusing `services/scene_rendering.render_scene_region` — the exact pipeline
+`ExportService.export_to_png`/the PDF report already use, no new rendering
+logic. `agent_api/render.py` is the one Qt-**touching** module in the package
+(says so in its own docstring): `resolve_image_pixel_size` (pure, no Qt) clamps
+the requested width **and** the aspect-ratio-derived height independently to
+`[128, 2048]` so a pathological region can't produce a runaway image; the
+provider resolves the default region (full canvas), temporarily forces
+layer-bearing item visibility to match `layers` (`_hidden_layers_not_in` —
+a full override of what's shown, not a subtractive filter, so an allowed
+layer the user has toggled off live is shown anyway; restores every item's
+*original* visibility afterward), renders, and PNG-encodes — all in **one**
+atomic main-thread hop (`AgentProviders.render`, the first *parametrized*
+provider). Two things were **empirically verified**, not assumed:
+- `Image` (from `mcp.server.fastmcp.utilities.types`) isn't pydantic-representable,
+  so the natural `-> list[Image | RenderMeta]` annotation crashes `build_server()`
+  at decoration time; `@mcp.tool(structured_output=False)` is the verified fix,
+  at the cost of this one tool having no `structuredContent` (parse the
+  `TextContent` block's JSON instead). Relatedly: with `from __future__ import
+  annotations` in effect, `Image` must be a genuine module-level import in
+  `server.py` — importing it only inside `build_server()` (as `FastMCP` is)
+  raises `NameError` at server-build time, since FastMCP resolves stringified
+  annotations via the function's own `__globals__`, not the enclosing call's
+  locals.
+- The rendered image's pixel Y-axis is **inverted** relative to the D1.2 scene
+  frame — `render_scene_region`'s `y_flip=True` (kept for parity with the live
+  CAD view and every other export) means a small scene-y lands near the
+  **bottom** of the image, not the top. Pinned by rendering a known-position
+  item and scanning actual pixels (`tests/unit/test_agent_api_render_coordinate_frame.py`).
+  The correction formula is documented on `RenderMeta.px_per_cm`:
+  `px_x = (x_cm - region_x_cm) * px_per_cm`;
+  `px_y = image_height_px - (y_cm - region_y_cm) * px_per_cm`.
+
+See ADR-034 addendum (US-D1.3) for the full reasoning.
 
 **i18n.** MCP tool/resource/prompt descriptions are an English API contract
 (exempt). Only the Settings UI strings go through `tr()`.
