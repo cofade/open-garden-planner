@@ -69,40 +69,43 @@ def resolve_image_pixel_size(
 def _hidden_layers_not_in(
     scene: QGraphicsScene, allowed: list[str] | None
 ) -> Iterator[None]:
-    """Temporarily hide layer-bearing items whose layer isn't in ``allowed``.
+    """Temporarily force layer-bearing item visibility to match ``allowed``.
 
     Matches by layer id or layer name, mirroring
     ``agent_api.queries._layer_matches`` but over live scene items instead of
     a snapshot dict. ``allowed=None`` renders the scene's current live
     visibility as-is (no filtering). Unknown names in ``allowed`` are
-    tolerated — they simply match nothing. A ``GroupItem``/``SmartSymbolItem``
-    child whose own layer differs from its (hidden) parent group's is hidden
-    too — Qt suppresses painting for any descendant of a hidden item,
-    regardless of the child's own layer — the same inherent limitation
-    ``_hidden_overlay_items``/``_hidden_construction_items`` already have.
+    tolerated — they simply match nothing.
+
+    This is a **full override**, not a subtractive filter: an allowed layer
+    the user currently has toggled off in the Layers panel is shown anyway
+    (an agent asking for "Layer A" gets Layer A, regardless of an unrelated
+    live UI toggle it can't see), and every layer-bearing item's *original*
+    visibility — shown or hidden — is restored afterward, not just the ones
+    this function itself hid. A ``GroupItem``/``SmartSymbolItem`` child whose
+    own layer differs from its (forced-hidden) parent group's is suppressed
+    too — Qt hides descendants of a hidden item regardless of the child's own
+    layer — the same inherent limitation ``_hidden_overlay_items``/
+    ``_hidden_construction_items`` already have.
     """
     if allowed is None:
         yield
         return
     names_by_id = {str(layer.id): layer.name for layer in getattr(scene, "layers", [])}
     wanted = set(allowed)
-    hidden: list[Any] = []
+    original: list[tuple[Any, bool]] = []
     for item in scene.items():
-        if not hasattr(item, "layer_id"):
+        if not hasattr(item, "layer_id") or item.layer_id is None:
             continue
-        layer_id = item.layer_id
-        if layer_id is None or not item.isVisible():
-            continue
-        lid = str(layer_id)
-        if lid in wanted or names_by_id.get(lid, "") in wanted:
-            continue
-        item.setVisible(False)
-        hidden.append(item)
+        lid = str(item.layer_id)
+        should_show = lid in wanted or names_by_id.get(lid, "") in wanted
+        original.append((item, item.isVisible()))
+        item.setVisible(should_show)
     try:
         yield
     finally:
-        for item in hidden:
-            item.setVisible(True)
+        for item, was_visible in original:
+            item.setVisible(was_visible)
 
 
 def render_canvas_image(

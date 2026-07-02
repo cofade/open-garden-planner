@@ -929,11 +929,13 @@ logic. `agent_api/render.py` is the one Qt-**touching** module in the package
 (says so in its own docstring): `resolve_image_pixel_size` (pure, no Qt) clamps
 the requested width **and** the aspect-ratio-derived height independently to
 `[128, 2048]` so a pathological region can't produce a runaway image; the
-provider resolves the default region (full canvas), temporarily hides
-non-allowlisted layers (mirrors `_hidden_overlay_items`'s hide-then-restore
-shape), renders, and PNG-encodes — all in **one** atomic main-thread hop
-(`AgentProviders.render`, the first *parametrized* provider). Two things were
-**empirically verified**, not assumed:
+provider resolves the default region (full canvas), temporarily forces
+layer-bearing item visibility to match `layers` (`_hidden_layers_not_in` —
+a full override of what's shown, not a subtractive filter, so an allowed
+layer the user has toggled off live is shown anyway; restores every item's
+*original* visibility afterward), renders, and PNG-encodes — all in **one**
+atomic main-thread hop (`AgentProviders.render`, the first *parametrized*
+provider). Two things were **empirically verified**, not assumed:
 - `Image` (from `mcp.server.fastmcp.utilities.types`) isn't pydantic-representable,
   so the natural `-> list[Image | RenderMeta]` annotation crashes `build_server()`
   at decoration time; `@mcp.tool(structured_output=False)` is the verified fix,

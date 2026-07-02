@@ -263,6 +263,62 @@ def test_render_canvas_image_layers_filter_hides_and_restores(canvas: Any, qtbot
         server.stop()
 
 
+def test_render_canvas_image_layers_filter_shows_layer_hidden_in_ui(
+    canvas: Any, qtbot: Any
+) -> None:
+    """An allowed layer must render even if the user has it toggled off live.
+
+    Regression test: ``layers`` is a full override of what's shown, not a
+    subtractive filter layered on top of the live Layers-panel state — an
+    agent explicitly asking for "Layer B" must get it, even if a human
+    happens to have that layer hidden in the GUI right now.
+    """
+    scene = canvas.scene()
+    layer_a = Layer(name="Layer A")
+    layer_b = Layer(name="Layer B")
+    scene.set_layers([layer_a, layer_b])
+
+    red = CircleItem(1000, 1000, 80, object_type=ObjectType.GENERIC_CIRCLE, layer_id=layer_a.id)
+    red.setBrush(QColor(255, 0, 0))
+    blue = CircleItem(3000, 1000, 80, object_type=ObjectType.GENERIC_CIRCLE, layer_id=layer_b.id)
+    blue.setBrush(QColor(0, 0, 255))
+    scene.addItem(red)
+    scene.addItem(blue)
+    scene.update_layer_visibility(layer_b.id, False)
+    assert blue.isVisible() is False  # sanity: the UI really has it hidden
+
+    server = AgentApiServer(_providers(scene), port=_free_port())
+    server.start()
+
+    result: dict[str, Any] = {}
+
+    async def body(session: Any) -> None:
+        result["call"] = await session.call_tool("render_canvas_image", {"layers": ["Layer B"]})
+
+    threading.Thread(
+        target=_drive, args=(server, body, result), name="mcp-test-client"
+    ).start()
+    try:
+        qtbot.waitUntil(lambda: result.get("done", False), timeout=15000)
+        assert result.get("error") is None, result.get("error")
+
+        image_block, text_block = result["call"].content
+        meta = json.loads(text_block.text)
+
+        img = _decode_png(image_block)
+        background = img.pixelColor(0, 0)
+        blue_px = _cm_to_px(meta, 3000, 1000)
+        # Layer B was explicitly requested: it must appear even though the
+        # live UI currently has it hidden.
+        assert img.pixelColor(*blue_px) != background
+
+        # Restored to the pre-render (hidden) state afterward, not left visible.
+        assert blue.isVisible() is False
+        assert red.isVisible() is True
+    finally:
+        server.stop()
+
+
 def test_render_canvas_image_unknown_layer_name_is_tolerated(canvas: Any, qtbot: Any) -> None:
     scene = canvas.scene()
     layer_a = Layer(name="Layer A")
