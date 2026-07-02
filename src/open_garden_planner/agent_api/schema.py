@@ -168,8 +168,10 @@ class RenderMeta(BaseModel):
     image_width_px: int = Field(description="Output image width, pixels.")
     image_height_px: int = Field(description="Output image height, pixels.")
     px_per_cm: float = Field(
-        description="Pixels per cm (uniform — aspect ratio preserved). Maps a "
-        "D1.2 object position (scene cm, +y down) to a pixel in this image: "
+        description="Pixels per cm (uniform — aspect ratio preserved, except at "
+        "the extreme end of the output-size clamp — see image_width_px/"
+        "image_height_px). Maps a D1.2 object position (scene cm, +y down) to "
+        "a pixel in this image: "
         "px_x = (x_cm - region_x_cm) * px_per_cm; "
         "px_y = image_height_px - (y_cm - region_y_cm) * px_per_cm "
         "(the image is Y-up/CAD-style like the live canvas view, so the D1.2 "

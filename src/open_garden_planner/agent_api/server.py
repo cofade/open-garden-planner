@@ -10,14 +10,16 @@ callables) for edits.
 ``agent_api`` package costs nothing until the server is actually started (see
 ``agent_api/__init__.py``'s own lazy ``__getattr__`` gate, which is what keeps
 importing *this* module itself deferred). ``Image`` is imported eagerly at
-module level: with ``from __future__ import annotations`` in effect, FastMCP's
-``@mcp.tool()`` resolves each stringified annotation via the *function's*
-``__globals__`` — not the enclosing ``build_server()`` call's locals — so a
-tool parameter/return type must be a real module-level name, not merely
-imported inside ``build_server()`` (empirically confirmed: the latter raises
-``NameError`` at server-build time). Both names live under the same
-``mcp.server.fastmcp`` package, so this costs nothing extra beyond what
-``FastMCP`` already pays the moment the server actually starts.
+module level: with ``from __future__ import annotations`` in effect, every
+``@mcp.tool()`` registration calls ``inspect.signature(func, eval_str=True)``
+inside the SDK's ``func_metadata`` (this runs unconditionally, regardless of
+``structured_output``) to resolve each stringified annotation via the
+*function's own* ``__globals__`` — not the enclosing ``build_server()``
+call's locals — so a tool parameter/return type must be a real module-level
+name, not merely imported inside ``build_server()`` (empirically confirmed:
+the latter raises ``NameError`` at server-build time). Both names live under
+the same ``mcp.server.fastmcp`` package, so this costs nothing extra beyond
+what ``FastMCP`` already pays the moment the server actually starts.
 """
 
 from __future__ import annotations

@@ -47,7 +47,12 @@ def resolve_image_pixel_size(
 
     Both dimensions are independently clamped to ``[min_px, max_px]`` so a
     pathological region aspect ratio (e.g. a 1cm x 10 000cm strip) can't turn a
-    modest width request into a runaway-large image.
+    modest width request into a runaway-large image. At that extreme (still
+    out of range on the *other* axis even after the first correction), the
+    final pair no longer preserves the requested aspect ratio exactly — a
+    bounded image is the right tradeoff over a faithful but enormous one, but
+    it means the caller's uniform ``px_per_cm`` (derived from width) is not
+    exact for the Y axis in this edge case.
     """
     if region_width_cm <= 0 or region_height_cm <= 0:
         raise ValueError("region_width_cm and region_height_cm must be positive.")
@@ -93,13 +98,17 @@ def _hidden_layers_not_in(
         return
     names_by_id = {str(layer.id): layer.name for layer in getattr(scene, "layers", [])}
     wanted = set(allowed)
-    original: list[tuple[Any, bool]] = []
-    for item in scene.items():
-        if not hasattr(item, "layer_id") or item.layer_id is None:
-            continue
+    layer_items = [
+        item
+        for item in scene.items()
+        if hasattr(item, "layer_id") and item.layer_id is not None
+    ]
+    # Snapshot every original state in a first pass, before mutating anything,
+    # so a restore is never left partial if a later setVisible() ever raised.
+    original = [(item, item.isVisible()) for item in layer_items]
+    for item in layer_items:
         lid = str(item.layer_id)
         should_show = lid in wanted or names_by_id.get(lid, "") in wanted
-        original.append((item, item.isVisible()))
         item.setVisible(should_show)
     try:
         yield
