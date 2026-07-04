@@ -190,9 +190,12 @@ class RenderMeta(BaseModel):
 # returning bytes/dicts. save_plan/export_pdf/export_dxf/export_csv write a
 # file to disk by calling the same services the GUI's File > Export/Save menu
 # already uses — they do not need token auth (deferred to D2's scene-mutating
-# write tools, ADR-033): save_plan persists exactly what a human already has
-# on screen (the same effect as Ctrl+S), and the export tools produce a new
-# deliverable file, never mutating the live plan.
+# write tools, ADR-033): save_plan persists the plan a human already has on
+# screen, and the export tools produce a new deliverable file, never mutating
+# the live plan. Neither is overwrite-safe the way a QFileDialog save prompt
+# is — an explicit file_path pointing at an unrelated existing file is
+# overwritten without confirmation, acceptable only under the loopback trust
+# model (ADR-033).
 
 
 class ExportResult(BaseModel):

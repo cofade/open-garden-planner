@@ -66,7 +66,7 @@ def _providers(
             lambda: render_canvas_image(scene, region, layers, width_px)
         ),
         save_plan=lambda file_path: bridge.run_on_main(
-            lambda: save_plan_file(scene, project_manager, file_path)
+            lambda: save_plan_file(scene, project_manager, soil_service, file_path)
         ),
         export_pdf=lambda file_path, paper_size, orientation: bridge.run_on_main(
             lambda: export_pdf_file(
@@ -215,6 +215,36 @@ def test_save_plan_save_as_new_path_reports_previous(
         assert payload["previous_file_path"] == str(original)
         assert new_path.exists()
         assert project_manager.current_file == new_path
+    finally:
+        server.stop()
+
+
+def test_save_plan_first_save_reports_null_previous_file(
+    canvas: Any, qtbot: Any, tmp_path: Path
+) -> None:
+    """A never-saved project's first save-as must report previous_file_path as
+    null, not the literal string "None" (regression: previous_file_path started
+    as None, and `str(None) if previous_file_path != final_path else None` was
+    True for a first save, stringifying None instead of reporting null)."""
+    scene = canvas.scene()
+    project_manager = ProjectManager()
+    assert project_manager.current_file is None
+    soil_service = SoilService(project_manager)
+    server = AgentApiServer(_providers(scene, project_manager, soil_service), port=_free_port())
+    server.start()
+
+    new_path = tmp_path / "first_save.ogp"
+
+    async def body(session: Any) -> None:
+        result["call"] = await session.call_tool("save_plan", {"file_path": str(new_path)})
+
+    result: dict[str, Any] = {}
+    try:
+        _run(server, qtbot, result, body)
+        payload = result["call"].structuredContent
+        assert payload["file_path"] == str(new_path)
+        assert payload["previous_file_path"] is None
+        assert new_path.exists()
     finally:
         server.stop()
 

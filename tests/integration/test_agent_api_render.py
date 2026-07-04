@@ -69,7 +69,7 @@ def _providers(scene: Any) -> AgentProviders:
             lambda: render_canvas_image(scene, region, layers, width_px)
         ),
         save_plan=lambda file_path: bridge.run_on_main(
-            lambda: save_plan_file(scene, project_manager, file_path)
+            lambda: save_plan_file(scene, project_manager, soil_service, file_path)
         ),
         export_pdf=lambda file_path, paper_size, orientation: bridge.run_on_main(
             lambda: export_pdf_file(

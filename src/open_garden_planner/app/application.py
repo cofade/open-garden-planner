@@ -230,11 +230,16 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.agent_api.exports import save_plan_file
 
         return self._agent_bridge.run_on_main(
-            lambda: save_plan_file(self.canvas_scene, self._project_manager, file_path)
+            lambda: save_plan_file(
+                self.canvas_scene, self._project_manager, self._soil_service, file_path
+            )
         )
 
     def _agent_export_pdf(
-        self, file_path: str | None, paper_size: str, orientation: str
+        self,
+        file_path: str | None,
+        paper_size: Literal["A4", "A3", "Letter", "Legal"],
+        orientation: Literal["landscape", "portrait"],
     ) -> dict[str, Any]:
         """Export the PDF report ON the Qt main thread (for the server)."""
         from open_garden_planner.agent_api.exports import export_pdf_file

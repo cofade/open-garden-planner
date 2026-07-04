@@ -978,10 +978,13 @@ the prior file so a caller can tell whether the call redirected the project.
 None of these tools return `Image`, so D1.3's `structured_output=False`
 workaround doesn't apply — all four register normally and share one
 `ExportResult` schema. **No token auth needed:** these tools don't mutate the
-in-memory plan (`save_plan` persists exactly what's already on screen, the
-same effect as Ctrl+S); the token-auth gate stays reserved for D2's
-scene-mutating write tools (ADR-033). See ADR-034 addendum (US-D1.4) for the
-full reasoning, including the file-write threat-model note.
+in-memory plan (`save_plan` persists what's already on screen, mirroring
+`application._save_to_file` including its issue-#178 stale-price prune); the
+token-auth gate stays reserved for D2's scene-mutating write tools (ADR-033).
+None of the four are overwrite-safe the way a `QFileDialog` prompt is — an
+explicit path pointing at an unrelated file is overwritten without
+confirmation, accepted under the loopback-trust model. See ADR-034 addendum
+(US-D1.4) for the full reasoning.
 
 **i18n.** MCP tool/resource/prompt descriptions are an English API contract
 (exempt). Only the Settings UI strings go through `tr()`.

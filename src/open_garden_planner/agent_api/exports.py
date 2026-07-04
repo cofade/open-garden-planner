@@ -36,12 +36,14 @@ if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
 CsvKind = Literal["shopping_list", "harvest"]
+PaperSize = Literal["A4", "A3", "Letter", "Legal"]
+Orientation = Literal["landscape", "portrait"]
 
 
 def resolve_export_path(
     requested: str | None,
     *,
-    default_filename: str,
+    default_filename: str | None = None,
     suffix: str,
     project_manager: ProjectManager,
 ) -> Path:
@@ -49,14 +51,17 @@ def resolve_export_path(
 
     ``requested is None`` -> the same default location the GUI's export dialogs
     open in (``default_save_path``: next to the current project, or
-    ``<Documents>/Open Garden Planner``), named ``default_filename``. A given
-    path is expanded and, if relative, resolved against that same default
-    directory; either way ``suffix`` is force-applied (mirrors every
-    ``_on_export_*`` handler's own ``.with_suffix()`` call) and the parent
-    directory must already exist — mirrors what a save dialog would allow, and
-    avoids silently creating an arbitrary directory tree from a typo'd path.
+    ``<Documents>/Open Garden Planner``), named ``default_filename`` (required
+    in this branch). A given path is expanded and, if relative, resolved
+    against that same default directory; either way ``suffix`` is
+    force-applied (mirrors every ``_on_export_*`` handler's own
+    ``.with_suffix()`` call) and the parent directory must already exist —
+    mirrors what a save dialog would allow, and avoids silently creating an
+    arbitrary directory tree from a typo'd path.
     """
     if requested is None:
+        if default_filename is None:
+            raise ValueError("default_filename is required when requested is None.")
         path = Path(default_save_path(default_filename, project_manager.current_file))
     else:
         path = Path(requested).expanduser()
@@ -71,14 +76,22 @@ def resolve_export_path(
 def save_plan_file(
     scene: CanvasScene,
     project_manager: ProjectManager,
+    soil_service: SoilService,
     file_path: str | None,
 ) -> dict[str, Any]:
-    """Save the live plan to ``.ogp`` — ``ProjectManager.save``, same as Ctrl+S / Save As.
+    """Save the live plan to ``.ogp`` — ``ProjectManager.save``, Save / Save As semantics.
 
     ``file_path is None`` requires a project already open (``current_file``
     set) — mirrors the GUI, where a brand-new project always needs an explicit
     Save-As dialog interaction before a filename exists; this tool won't
-    silently invent one.
+    silently invent one. Not overwrite-safe: an explicit ``file_path`` pointing
+    at an unrelated existing file is overwritten without the confirmation a
+    ``QFileDialog`` would give a human — acceptable only under the loopback
+    trust model (ADR-033), same as every other file-producing tool here.
+
+    Mirrors ``application._save_to_file`` exactly, including pruning stale
+    shopping-list price entries (issue #178) before writing, so an agent-saved
+    ``.ogp`` doesn't drift from what the GUI would have produced.
     """
     previous_file_path = project_manager.current_file
     if file_path is None:
@@ -88,21 +101,20 @@ def save_plan_file(
             )
         resolved = previous_file_path
     else:
-        resolved = resolve_export_path(
-            file_path,
-            default_filename=project_manager.project_name + ".ogp",
-            suffix=".ogp",
-            project_manager=project_manager,
-        )
+        resolved = resolve_export_path(file_path, suffix=".ogp", project_manager=project_manager)
+    ShoppingListService(scene, soil_service, project_manager).prune_stale_prices()
     project_manager.save(scene, resolved)
     final_path = project_manager.current_file
-    assert final_path is not None  # save() always sets it
+    if final_path is None:
+        raise RuntimeError("ProjectManager.save() did not set current_file.")
     return {
         "file_path": str(final_path),
         "format": "ogp",
         "row_count": None,
         "previous_file_path": (
-            str(previous_file_path) if previous_file_path != final_path else None
+            str(previous_file_path)
+            if previous_file_path is not None and previous_file_path != final_path
+            else None
         ),
     }
 
@@ -111,8 +123,8 @@ def export_pdf_file(
     scene: CanvasScene,
     project_manager: ProjectManager,
     file_path: str | None,
-    paper_size: str,
-    orientation: str,
+    paper_size: PaperSize,
+    orientation: Orientation,
 ) -> dict[str, Any]:
     """Render the full garden PDF report — same pipeline as File > Export PDF Report."""
     resolved = resolve_export_path(

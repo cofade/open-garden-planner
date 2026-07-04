@@ -133,6 +133,24 @@ class TestResolveExportPathExplicit:
                 project_manager=project_manager,
             )
 
+    def test_default_filename_not_needed_when_path_given(
+        self, project_manager: ProjectManager, tmp_path: Path
+    ) -> None:
+        """default_filename is only consulted when requested is None — omitting
+        it when an explicit path is given must not raise (save_plan_file's
+        explicit-path branch relies on this)."""
+        requested = tmp_path / "explicit.ogp"
+
+        path = resolve_export_path(str(requested), suffix=".ogp", project_manager=project_manager)
+
+        assert path == requested
+
+    def test_missing_default_filename_raises_when_path_omitted(
+        self, project_manager: ProjectManager
+    ) -> None:
+        with pytest.raises(ValueError, match="default_filename is required"):
+            resolve_export_path(None, suffix=".pdf", project_manager=project_manager)
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

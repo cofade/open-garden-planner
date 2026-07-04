@@ -55,6 +55,9 @@ class AgentProviders:
         dict[str, Any],
     ]
     save_plan: Callable[[str | None], dict[str, Any]]
-    export_pdf: Callable[[str | None, str, str], dict[str, Any]]
+    export_pdf: Callable[
+        [str | None, Literal["A4", "A3", "Letter", "Legal"], Literal["landscape", "portrait"]],
+        dict[str, Any],
+    ]
     export_dxf: Callable[[str | None], dict[str, Any]]
     export_csv: Callable[[Literal["shopping_list", "harvest"], str | None], dict[str, Any]]

@@ -318,15 +318,15 @@ def build_server(
     @mcp.tool()
     async def export_pdf(
         file_path: str | None = None,
-        paper_size: str = "A4",
-        orientation: str = "landscape",
+        paper_size: Literal["A4", "A3", "Letter", "Legal"] = "A4",
+        orientation: Literal["landscape", "portrait"] = "landscape",
     ) -> ExportResult:
         """Export the full garden PDF report (cover, overview, plant list, legend).
 
         Args:
             file_path: Optional destination path. Omit for a default name next
                 to the open project (or the app's Documents folder).
-            paper_size: One of 'A4', 'A3', 'Letter', 'Legal'.
+            paper_size: 'A4', 'A3', 'Letter', or 'Legal'.
             orientation: 'landscape' or 'portrait'.
         """
         result = await anyio.to_thread.run_sync(
