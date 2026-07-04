@@ -21,9 +21,16 @@ from open_garden_planner.agent_api import (
     AgentProviders,
     MainThreadBridge,
 )
+from open_garden_planner.agent_api.exports import (
+    export_csv_file,
+    export_dxf_file,
+    export_pdf_file,
+    save_plan_file,
+)
 from open_garden_planner.agent_api.render import render_canvas_image
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.services.soil_service import SoilService
 from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
 
 
@@ -38,6 +45,7 @@ def _free_port() -> int:
 def _providers(scene: Any) -> AgentProviders:
     bridge = MainThreadBridge()
     project_manager = ProjectManager()
+    soil_service = SoilService(project_manager)
     return AgentProviders(
         snapshot=lambda: bridge.run_on_main(
             lambda: project_manager.snapshot_dict(scene)
@@ -47,6 +55,20 @@ def _providers(scene: Any) -> AgentProviders:
         ),
         render=lambda region, layers, width_px: bridge.run_on_main(
             lambda: render_canvas_image(scene, region, layers, width_px)
+        ),
+        save_plan=lambda file_path: bridge.run_on_main(
+            lambda: save_plan_file(scene, project_manager, file_path)
+        ),
+        export_pdf=lambda file_path, paper_size, orientation: bridge.run_on_main(
+            lambda: export_pdf_file(
+                scene, project_manager, file_path, paper_size, orientation
+            )
+        ),
+        export_dxf=lambda file_path: bridge.run_on_main(
+            lambda: export_dxf_file(scene, project_manager, file_path)
+        ),
+        export_csv=lambda kind, file_path: bridge.run_on_main(
+            lambda: export_csv_file(scene, project_manager, soil_service, kind, file_path)
         ),
     )
 
@@ -105,7 +127,8 @@ def test_get_plan_summary_end_to_end(canvas: Any, qtbot: Any) -> None:
         qtbot.waitUntil(lambda: result.get("done", False), timeout=15000)
         assert result.get("error") is None, result.get("error")
         assert "get_plan_summary" in result["tools"]
-        # All US-D1.2/D1.3 read/query/vision tools are registered alongside the summary.
+        # All US-D1.2/D1.3/D1.4 read/query/vision/export tools are registered
+        # alongside the summary.
         for name in (
             "list_objects",
             "get_object",
@@ -116,6 +139,10 @@ def test_get_plan_summary_end_to_end(canvas: Any, qtbot: Any) -> None:
             "measure_distance",
             "get_diagnostics",
             "render_canvas_image",
+            "save_plan",
+            "export_pdf",
+            "export_dxf",
+            "export_csv",
         ):
             assert name in result["tools"], name
         summary = result["summary"]
