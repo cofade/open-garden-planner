@@ -66,6 +66,38 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 | Glossary                             | `docs/12-glossary.md`                                 |
 | GitHub wiki (sync with roadmap)      | `../open-garden-planner.wiki/Roadmap.md`              |
 
+### Skill Library (`.claude/skills/`)
+
+Claude Code auto-loads each skill's `name` + `description` and invokes it via the
+Skill tool when a task matches. **The authoritative trigger for each skill is its
+frontmatter `description`** — this table is a routing map, not a substitute. Reach
+for a skill *before* acting, not after. Three pre-existing skills (`debug-verbose`,
+`finalize-us`, `analyze-pr`) plus the `senior-reviewer` agent are documented elsewhere
+in this file; the 16 `ogp-*` continuity skills below cover the rest.
+
+| Skill | Reach for it when… |
+| ----- | ------------------ |
+| `ogp-change-control` | starting any change, branching, opening/merging a PR, versioning, or unsure whether an action is allowed |
+| `ogp-architecture-contract` | designing a feature, adding a module, or touching serialization / undo / layers / beds / agent_api — "is this allowed architecturally?" |
+| `ogp-failure-archaeology` | about to change a subsystem with history, or tempted to "fix" code that looks wrong (it may be a scar) |
+| `ogp-debugging-playbook` | a bug is reported, a test fails unexpectedly, CI is red while local is green, or a canvas/export glitch appears |
+| `ogp-qt-cad-reference` | touching canvas items, coordinates/Y-flip, rendering/export, rotation/resize, snapping/constraints, handles, or Qt tests |
+| `ogp-garden-domain-reference` | touching species / beds / soil / tasks / calendar / harvest / companion logic, or decoding a diagnostic or domain term |
+| `ogp-config-and-flags` | adding/changing a setting or flag, configuring env, or a feature seems mysteriously disabled |
+| `ogp-build-and-run` | setting up the env, running the app or tests, building the exe/installer, or an import/build error appears |
+| `ogp-diagnostics-and-tooling` | you need to MEASURE instead of eyeball — quality gates, live-plan inspection, mojibake, git archaeology |
+| `ogp-validation-and-qa` | writing tests, deciding if work is "done", preparing a PR, or judging whether evidence suffices |
+| `ogp-docs-and-writing` | finishing any feature/fix and owing doc updates, writing an ADR/FR/§11.4 entry, or unsure where knowledge lives |
+| `ogp-external-positioning` | writing README/release notes, adding a dependency/service, licensing questions, or any public capability claim |
+| `ogp-3d-sunshade-campaign` | starting or resuming Phase 14 (3D, sun/shade, shadows, height property, solar math) |
+| `ogp-proof-and-analysis-toolkit` | about to assert a library/geometry/tolerance/coordinate-frame fact — "prove it, don't just install it" |
+| `ogp-research-frontier` | picking the next big direction, or scoping D2/D3 / Phase-14+ ambitions |
+| `ogp-research-methodology` | starting an investigation, forming a hypothesis, or deciding whether evidence suffices to adopt a change |
+
+**Maintaining this table:** add a one-line row when a new skill lands; keep the real
+trigger in the skill's `description`. If a row and a `description` disagree, the
+`description` wins — fix the row.
+
 ### Contributing to Documentation
 
 **After implementing a feature:**
