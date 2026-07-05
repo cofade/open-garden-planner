@@ -9,7 +9,7 @@ from the project's i18n rules.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -181,4 +181,33 @@ class RenderMeta(BaseModel):
         default=None,
         description="Layer names included, or null if all currently-visible "
         "layers were rendered.",
+    )
+
+
+# --- US-D1.4: export / save tools -------------------------------------------
+#
+# These are the first Agent API tools with a filesystem side effect beyond
+# returning bytes/dicts. save_plan/export_pdf/export_dxf/export_csv write a
+# file to disk by calling the same services the GUI's File > Export/Save menu
+# already uses — they do not need token auth (deferred to D2's scene-mutating
+# write tools, ADR-033): save_plan persists the plan a human already has on
+# screen, and the export tools produce a new deliverable file, never mutating
+# the live plan. Neither is overwrite-safe the way a QFileDialog save prompt
+# is — an explicit file_path pointing at an unrelated existing file is
+# overwritten without confirmation, acceptable only under the loopback trust
+# model (ADR-033).
+
+
+class ExportResult(BaseModel):
+    """Result of a file-producing Agent API tool (export_pdf/export_dxf/export_csv/save_plan)."""
+
+    file_path: str = Field(description="Absolute path of the file written.")
+    format: Literal["pdf", "dxf", "csv", "ogp"] = Field(description="File format written.")
+    row_count: int | None = Field(
+        default=None, description="Rows written, for export_csv only; null otherwise."
+    )
+    previous_file_path: str | None = Field(
+        default=None,
+        description="The project's prior current_file (save_plan only), if this call "
+        "changed it — e.g. a save-as to a new path. Null if unchanged or not applicable.",
     )

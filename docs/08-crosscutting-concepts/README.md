@@ -860,12 +860,12 @@ next launch). See ADR-032 for the architecture.
 `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
 (loads, validates, every expression parses, generates ≥1 primitive).
 
-## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3, ADR-033/034)
+## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4, ADR-033/034)
 
 The app can host an **MCP server over streamable-HTTP** so AI agents read the
 plan currently open in the GUI (epic #237). Package: `agent_api/`
 (`bridge.py`, `server.py`, `schema.py`, `mapping.py`, `queries.py`,
-`diagnostics.py`, `render.py`, `providers.py`, `__init__.py`).
+`diagnostics.py`, `render.py`, `exports.py`, `providers.py`, `__init__.py`).
 
 **Lifecycle.** `AgentApiServer` builds a `FastMCP`, takes its
 `streamable_http_app()` ASGI app, and runs a `uvicorn.Server` we own on a
@@ -956,6 +956,35 @@ provider). Two things were **empirically verified**, not assumed:
   `px_y = image_height_px - (y_cm - region_y_cm) * px_per_cm`.
 
 See ADR-034 addendum (US-D1.3) for the full reasoning.
+
+**Export/save tools (US-D1.4).** `save_plan(file_path?)`, `export_pdf(file_path?,
+paper_size?, orientation?)`, `export_dxf(file_path?)`, and `export_csv(kind,
+file_path?)` are the first Agent API tools with a **filesystem side effect**
+beyond returning bytes/dicts — each writes a real file to disk by calling the
+exact same services the GUI's File > Export/Save menu already calls
+(`PdfReportService`, `DxfExportService`, `ExportService`, `ShoppingListService`,
+`ProjectManager.save`). `agent_api/exports.py::resolve_export_path` is the
+shared path-resolution helper: with no `file_path`, it uses the same
+`app/paths.py` chokepoint the GUI dialogs use (`default_save_path`/
+`default_dialog_dir`, the #199/#204 data-loss fix — next to the currently open
+project, or `<Documents>/Open Garden Planner`); with an explicit `file_path`,
+it force-applies the correct suffix and requires the parent directory already
+exist (a typo'd path fails clearly rather than silently creating a directory
+tree). `save_plan` with no `file_path` and no project open raises rather than
+inventing an `Untitled.ogp` — mirrors the GUI, where a brand-new project always
+needs an explicit Save-As first; given a path, it becomes the project's file
+going forward (Save As semantics), and `ExportResult.previous_file_path` reports
+the prior file so a caller can tell whether the call redirected the project.
+None of these tools return `Image`, so D1.3's `structured_output=False`
+workaround doesn't apply — all four register normally and share one
+`ExportResult` schema. **No token auth needed:** these tools don't mutate the
+in-memory plan (`save_plan` persists what's already on screen, mirroring
+`application._save_to_file` including its issue-#178 stale-price prune); the
+token-auth gate stays reserved for D2's scene-mutating write tools (ADR-033).
+None of the four are overwrite-safe the way a `QFileDialog` prompt is — an
+explicit path pointing at an unrelated file is overwritten without
+confirmation, accepted under the loopback-trust model. See ADR-034 addendum
+(US-D1.4) for the full reasoning.
 
 **i18n.** MCP tool/resource/prompt descriptions are an English API contract
 (exempt). Only the Settings UI strings go through `tr()`.

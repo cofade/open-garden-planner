@@ -141,12 +141,20 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         "tkinter",
-        "unittest",
         "pydoc",
         "doctest",
         # NOTE: do NOT exclude "multiprocessing" — uvicorn imports it eagerly
         # (uvicorn.supervisors -> basereload -> _subprocess) even though we run
         # single-process; excluding it breaks the embedded Agent API (US-D1.1).
+        # NOTE: do NOT exclude "unittest" — ezdxf's query support (used by any
+        # `import ezdxf`, so both DXF export AND import) pulls in pyparsing,
+        # whose top-level `pyparsing/__init__.py` unconditionally imports
+        # `pyparsing.testing`, which imports `unittest.TestCase` at module
+        # level. Excluding it breaks every DXF-touching feature (US-12.3/12.4,
+        # US-D1.4's export_dxf) the first time `ezdxf` is imported in a frozen
+        # build — found via the Agent API's export_dxf tool, which was the
+        # first codepath in this branch to actually exercise a DXF operation
+        # in a fresh frozen build (see tests/manual verification for US-D1.4).
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

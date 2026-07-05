@@ -3,7 +3,7 @@
 import contextlib
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
@@ -225,6 +225,51 @@ class GardenPlannerApp(QMainWindow):
             lambda: render_canvas_image(self.canvas_scene, region, layers, image_width_px)
         )
 
+    def _agent_save_plan(self, file_path: str | None) -> dict[str, Any]:
+        """Save the live plan to disk ON the Qt main thread (for the server)."""
+        from open_garden_planner.agent_api.exports import save_plan_file
+
+        return self._agent_bridge.run_on_main(
+            lambda: save_plan_file(
+                self.canvas_scene, self._project_manager, self._soil_service, file_path
+            )
+        )
+
+    def _agent_export_pdf(
+        self,
+        file_path: str | None,
+        paper_size: Literal["A4", "A3", "Letter", "Legal"],
+        orientation: Literal["landscape", "portrait"],
+    ) -> dict[str, Any]:
+        """Export the PDF report ON the Qt main thread (for the server)."""
+        from open_garden_planner.agent_api.exports import export_pdf_file
+
+        return self._agent_bridge.run_on_main(
+            lambda: export_pdf_file(
+                self.canvas_scene, self._project_manager, file_path, paper_size, orientation
+            )
+        )
+
+    def _agent_export_dxf(self, file_path: str | None) -> dict[str, Any]:
+        """Export a DXF drawing ON the Qt main thread (for the server)."""
+        from open_garden_planner.agent_api.exports import export_dxf_file
+
+        return self._agent_bridge.run_on_main(
+            lambda: export_dxf_file(self.canvas_scene, self._project_manager, file_path)
+        )
+
+    def _agent_export_csv(
+        self, kind: Literal["shopping_list", "harvest"], file_path: str | None
+    ) -> dict[str, Any]:
+        """Export a shopping-list/harvest CSV ON the Qt main thread (for the server)."""
+        from open_garden_planner.agent_api.exports import export_csv_file
+
+        return self._agent_bridge.run_on_main(
+            lambda: export_csv_file(
+                self.canvas_scene, self._project_manager, self._soil_service, kind, file_path
+            )
+        )
+
     def _maybe_start_agent_api(self) -> None:
         """Start the Agent API server iff it is enabled in settings."""
         from open_garden_planner.app.settings import get_settings
@@ -248,6 +293,10 @@ class GardenPlannerApp(QMainWindow):
             snapshot=self._agent_snapshot,
             diagnostics=self._agent_diagnostics,
             render=self._agent_render,
+            save_plan=self._agent_save_plan,
+            export_pdf=self._agent_export_pdf,
+            export_dxf=self._agent_export_dxf,
+            export_csv=self._agent_export_csv,
         )
         try:
             server = AgentApiServer(providers, port=port)

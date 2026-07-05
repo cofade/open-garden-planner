@@ -18,6 +18,7 @@ from open_garden_planner.agent_api.mapping import plan_summary_from_snapshot
 from open_garden_planner.agent_api.providers import AgentProviders
 from open_garden_planner.agent_api.schema import (
     Diagnostic,
+    ExportResult,
     Measurement,
     ObjectDetail,
     ObjectRef,
@@ -36,6 +37,7 @@ __all__ = [
     "AgentApiServer",
     "AgentProviders",
     "Diagnostic",
+    "ExportResult",
     "MainThreadBridge",
     "Measurement",
     "ObjectDetail",

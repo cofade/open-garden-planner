@@ -34,10 +34,17 @@ from open_garden_planner.agent_api import (
     AgentProviders,
     MainThreadBridge,
 )
+from open_garden_planner.agent_api.exports import (
+    export_csv_file,
+    export_dxf_file,
+    export_pdf_file,
+    save_plan_file,
+)
 from open_garden_planner.agent_api.render import render_canvas_image
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.layer import Layer
+from open_garden_planner.services.soil_service import SoilService
 from open_garden_planner.ui.canvas.items import CircleItem
 
 
@@ -52,6 +59,7 @@ def _free_port() -> int:
 def _providers(scene: Any) -> AgentProviders:
     bridge = MainThreadBridge()
     project_manager = ProjectManager()
+    soil_service = SoilService(project_manager)
     return AgentProviders(
         snapshot=lambda: bridge.run_on_main(lambda: project_manager.snapshot_dict(scene)),
         diagnostics=lambda: bridge.run_on_main(
@@ -59,6 +67,20 @@ def _providers(scene: Any) -> AgentProviders:
         ),
         render=lambda region, layers, width_px: bridge.run_on_main(
             lambda: render_canvas_image(scene, region, layers, width_px)
+        ),
+        save_plan=lambda file_path: bridge.run_on_main(
+            lambda: save_plan_file(scene, project_manager, soil_service, file_path)
+        ),
+        export_pdf=lambda file_path, paper_size, orientation: bridge.run_on_main(
+            lambda: export_pdf_file(
+                scene, project_manager, file_path, paper_size, orientation
+            )
+        ),
+        export_dxf=lambda file_path: bridge.run_on_main(
+            lambda: export_dxf_file(scene, project_manager, file_path)
+        ),
+        export_csv=lambda kind, file_path: bridge.run_on_main(
+            lambda: export_csv_file(scene, project_manager, soil_service, kind, file_path)
         ),
     )
 

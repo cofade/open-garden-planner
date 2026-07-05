@@ -5,15 +5,15 @@ of callables that each already hop to the Qt main thread (via
 :class:`~open_garden_planner.agent_api.bridge.MainThreadBridge`) and return plain
 data. Bundling them keeps :func:`~open_garden_planner.agent_api.server.build_server`
 stable as the surface grows: US-D1.2 needs ``snapshot`` + ``diagnostics``; US-D1.3
-adds ``render``; later stories add exports/save (D1.4) and write ops (D2) as new
-fields.
+adds ``render``; US-D1.4 adds ``save_plan``/``export_pdf``/``export_dxf``/
+``export_csv``; later stories add write ops (D2) as new fields.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 
 @dataclass(frozen=True)
@@ -33,6 +33,19 @@ class AgentProviders:
             ``diagnostics`` this callable takes parameters — it resolves the
             default region and does the hide/render/encode work in one atomic
             main-thread hop.
+        save_plan: Saves the live plan to its ``.ogp`` file (or a new path,
+            i.e. Save As). Takes an optional destination path; returns a plain
+            dict (``agent_api.exports.save_plan_file``).
+        export_pdf: Renders the full garden PDF report. Takes an optional
+            destination path, paper size, and orientation; returns a plain
+            dict (``agent_api.exports.export_pdf_file``).
+        export_dxf: Exports the plan to a DXF drawing. Takes an optional
+            destination path; returns a plain dict
+            (``agent_api.exports.export_dxf_file``).
+        export_csv: Exports a CSV — the shopping list or garden-wide harvest
+            totals. Takes the kind and an optional destination path; returns a
+            plain dict, including a row count
+            (``agent_api.exports.export_csv_file``).
     """
 
     snapshot: Callable[[], dict[str, Any]]
@@ -41,3 +54,10 @@ class AgentProviders:
         [tuple[float, float, float, float] | None, list[str] | None, int],
         dict[str, Any],
     ]
+    save_plan: Callable[[str | None], dict[str, Any]]
+    export_pdf: Callable[
+        [str | None, Literal["A4", "A3", "Letter", "Legal"], Literal["landscape", "portrait"]],
+        dict[str, Any],
+    ]
+    export_dxf: Callable[[str | None], dict[str, Any]]
+    export_csv: Callable[[Literal["shopping_list", "harvest"], str | None], dict[str, Any]]

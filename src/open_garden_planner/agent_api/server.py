@@ -1,10 +1,16 @@
-"""Embedded MCP server for the Agent API (US-D1.1/D1.2/D1.3).
+"""Embedded MCP server for the Agent API (US-D1.1/D1.2/D1.3/D1.4).
 
 Runs an MCP streamable-HTTP server inside the running GUI on a background daemon
-thread, bound to loopback only. Read-only: structural, spatial, diagnostics, and
-vision (render) query tools over the live plan. Built write-ready — later phases
-reuse the same ``MainThreadBridge`` boundary (via the injected ``AgentProviders``
-callables) for edits.
+thread, bound to loopback only. Structural, spatial, diagnostics, and vision
+(render) query tools are read-only. US-D1.4 adds four file-producing tools
+(``save_plan``/``export_pdf``/``export_dxf``/``export_csv``) that write a file
+to disk via the same services the GUI's File > Export/Save menu already calls
+— they don't need the token auth D2's scene-mutating write tools will require
+(ADR-033): ``save_plan`` persists exactly what's already on screen (the same
+effect as Ctrl+S), and the export tools produce a new deliverable file without
+touching the live plan. Built write-ready — later phases reuse the same
+``MainThreadBridge`` boundary (via the injected ``AgentProviders`` callables)
+for scene edits.
 
 ``FastMCP``/``uvicorn`` are imported lazily inside functions so importing the
 ``agent_api`` package costs nothing until the server is actually started (see
@@ -29,7 +35,7 @@ import logging
 import socket
 import threading
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from mcp.server.fastmcp.utilities.types import Image
 
@@ -40,6 +46,7 @@ from open_garden_planner.agent_api.providers import AgentProviders
 from open_garden_planner.agent_api.render import DEFAULT_IMAGE_PX
 from open_garden_planner.agent_api.schema import (
     Diagnostic,
+    ExportResult,
     Measurement,
     ObjectDetail,
     ObjectRef,
@@ -97,8 +104,10 @@ def build_server(
             "Planner. Objects are addressed by a stable UUID (item_id) and "
             "located in centimetres on the canvas. Use list_objects/get_object to "
             "inspect structure, the spatial tools to locate and measure, and "
-            "get_diagnostics for the plan's current warnings. This server is "
-            "read-only."
+            "get_diagnostics for the plan's current warnings. save_plan/"
+            "export_pdf/export_dxf/export_csv write a file to disk (the "
+            "project's own .ogp, or a PDF/DXF/CSV deliverable) but do not "
+            "otherwise modify the plan."
         ),
         stateless_http=stateless_http,
         log_level="WARNING",
@@ -290,6 +299,69 @@ def build_server(
                 layers_rendered=result["layers_rendered"],
             ),
         ]
+
+    @mcp.tool()
+    async def save_plan(file_path: str | None = None) -> ExportResult:
+        """Save the live plan to its ``.ogp`` file (Save), or to a new path (Save As).
+
+        Args:
+            file_path: Optional destination path. Omit to save to the
+                currently open file — this requires a project already open,
+                otherwise an error is raised (mirrors the GUI: a brand-new
+                project always needs an explicit Save As first). Given a
+                path, this becomes the project's file going forward, same as
+                File > Save As.
+        """
+        result = await anyio.to_thread.run_sync(lambda: providers.save_plan(file_path))
+        return ExportResult(**result)
+
+    @mcp.tool()
+    async def export_pdf(
+        file_path: str | None = None,
+        paper_size: Literal["A4", "A3", "Letter", "Legal"] = "A4",
+        orientation: Literal["landscape", "portrait"] = "landscape",
+    ) -> ExportResult:
+        """Export the full garden PDF report (cover, overview, plant list, legend).
+
+        Args:
+            file_path: Optional destination path. Omit for a default name next
+                to the open project (or the app's Documents folder).
+            paper_size: 'A4', 'A3', 'Letter', or 'Legal'.
+            orientation: 'landscape' or 'portrait'.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.export_pdf(file_path, paper_size, orientation)
+        )
+        return ExportResult(**result)
+
+    @mcp.tool()
+    async def export_dxf(file_path: str | None = None) -> ExportResult:
+        """Export the plan to a DXF drawing (visible, non-construction items only).
+
+        Args:
+            file_path: Optional destination path. Omit for a default name next
+                to the open project (or the app's Documents folder).
+        """
+        result = await anyio.to_thread.run_sync(lambda: providers.export_dxf(file_path))
+        return ExportResult(**result)
+
+    @mcp.tool()
+    async def export_csv(
+        kind: Literal["shopping_list", "harvest"] = "shopping_list",
+        file_path: str | None = None,
+    ) -> ExportResult:
+        """Export a CSV: the shopping list, or garden-wide harvest totals.
+
+        Args:
+            kind: 'shopping_list' (plants/seeds/materials to buy) or
+                'harvest' (per-species/year totals from the harvest log).
+            file_path: Optional destination path. Omit for a default name next
+                to the open project (or the app's Documents folder).
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.export_csv(kind, file_path)
+        )
+        return ExportResult(**result)
 
     return mcp
 
