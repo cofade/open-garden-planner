@@ -15,6 +15,40 @@
 !.claude/skills/analyze-pr/
 .claude/skills/analyze-pr/*
 !.claude/skills/analyze-pr/SKILL.md
+# Continuity skill library (ogp-*): whitelist each skill dir and everything under it
+# (SKILL.md plus any scripts/ helpers). Recursive re-include after .claude/skills/* above.
+!.claude/skills/ogp-architecture-contract/
+!.claude/skills/ogp-architecture-contract/**
+!.claude/skills/ogp-build-and-run/
+!.claude/skills/ogp-build-and-run/**
+!.claude/skills/ogp-change-control/
+!.claude/skills/ogp-change-control/**
+!.claude/skills/ogp-config-and-flags/
+!.claude/skills/ogp-config-and-flags/**
+!.claude/skills/ogp-debugging-playbook/
+!.claude/skills/ogp-debugging-playbook/**
+!.claude/skills/ogp-diagnostics-and-tooling/
+!.claude/skills/ogp-diagnostics-and-tooling/**
+!.claude/skills/ogp-docs-and-writing/
+!.claude/skills/ogp-docs-and-writing/**
+!.claude/skills/ogp-external-positioning/
+!.claude/skills/ogp-external-positioning/**
+!.claude/skills/ogp-failure-archaeology/
+!.claude/skills/ogp-failure-archaeology/**
+!.claude/skills/ogp-garden-domain-reference/
+!.claude/skills/ogp-garden-domain-reference/**
+!.claude/skills/ogp-proof-and-analysis-toolkit/
+!.claude/skills/ogp-proof-and-analysis-toolkit/**
+!.claude/skills/ogp-qt-cad-reference/
+!.claude/skills/ogp-qt-cad-reference/**
+!.claude/skills/ogp-research-frontier/
+!.claude/skills/ogp-research-frontier/**
+!.claude/skills/ogp-research-methodology/
+!.claude/skills/ogp-research-methodology/**
+!.claude/skills/ogp-validation-and-qa/
+!.claude/skills/ogp-validation-and-qa/**
+!.claude/skills/ogp-3d-sunshade-campaign/
+!.claude/skills/ogp-3d-sunshade-campaign/**
 
 # Windows
 nul
