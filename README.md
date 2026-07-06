@@ -24,9 +24,13 @@ Open Garden Planner fills the gap: **engineering-grade precision meets gardener-
 - **Image Calibration**: Import satellite imagery and calibrate to real-world scale
 - **Rich Plant Metadata**: Track species, varieties, planting dates, and growing requirements
 - **Online Plant Database**: Search Trefle.io, Perenual, and Permapeople for plant data
-- **Object Library**: Property structures, garden beds, plants, paths, fences
+- **Object Library**: Property structures, garden beds, containers, trellises, plants, paths, fences
+- **CAD Precision Tools**: Relative/polar coordinate input, snapping (midpoint, intersection, tangent, perpendicular), Bezier/arc drawing, fillet/chamfer
+- **Smart Symbols**: Reusable parametric blocks (raised beds, pergolas, greenhouses) that regenerate on parameter edit
 - **Layers**: Organize objects into manageable layers with visibility/lock controls
-- **Standard Formats**: JSON project files (.ogp), PNG/SVG export, CSV plant lists
+- **Standard Formats**: JSON project files (.ogp), PNG/SVG/PDF/DXF export, CSV plant lists
+- **Garden Smart Features**: Harvest tracking, task management & reminders, succession planting, soil health tracking
+- **AI Agent Integration**: Embedded MCP server exposes the live plan to AI assistants for reading, visualizing, and exporting
 - **Modern UI**: Clean interface with light and dark modes, keyboard shortcuts
 - **Auto-Save**: Periodic auto-save with crash recovery
 
@@ -102,9 +106,10 @@ To enable online plant search, see the [Plant API Setup Guide](docs/03-context-a
 
 ## Status
 
-**Phases 1-5 complete.** Currently working on Phase 6: Visual Polish & Public Release (v1.0).
-
-See the [Development Roadmap](docs/roadmap.md) for detailed progress.
+**Phases 1-13 shipped** (v1.23.0) — CAD precision tooling, garden smart features, and an
+embedded AI agent integration (MCP server) are all live. See the
+[Development Roadmap](docs/roadmap.md) for the authoritative, up-to-date phase/user-story
+table.
 
 ## Documentation
 
