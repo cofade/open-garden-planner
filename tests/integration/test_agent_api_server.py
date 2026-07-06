@@ -11,6 +11,8 @@ diagnostics_snapshot.
 from __future__ import annotations
 
 import asyncio
+import base64
+import json
 import socket
 import threading
 from collections.abc import Callable
@@ -235,6 +237,122 @@ def test_read_query_tools_end_to_end(canvas: Any, qtbot: Any) -> None:
         assert {r["item_id"] for r in raw} == {tree_id, herb_id}
         # 'radius'/'center_x' are serialiser-only keys absent from the curated ObjectRef.
         assert all("radius" in r and "center_x" in r for r in raw)
+    finally:
+        server.stop()
+
+    assert server.is_running is False
+
+
+def test_resources_end_to_end(canvas: Any, qtbot: Any) -> None:
+    scene = canvas.scene()
+    bed = RectangleItem(0, 0, 200, 100, object_type=ObjectType.RAISED_BED)
+    tree = CircleItem(50, 50, 15, object_type=ObjectType.TREE)
+    tree.name = "Apple"
+    tree.parent_bed_id = bed.item_id
+    bed._child_item_ids = [tree.item_id]
+    tree.set_antagonist_warning(True)
+    for item in (bed, tree):
+        scene.addItem(item)
+
+    server = AgentApiServer(_providers(scene), port=_free_port())
+    server.start()
+    assert server.is_running
+
+    result: dict[str, Any] = {}
+
+    async def body(session: Any) -> None:
+        listing = await session.list_resources()
+        result["uris"] = {str(r.uri) for r in listing.resources}
+
+        plan = await session.read_resource("garden://plan")
+        result["plan"] = json.loads(plan.contents[0].text)
+
+        plan_raw = await session.read_resource("garden://plan/raw")
+        result["plan_raw"] = json.loads(plan_raw.contents[0].text)
+
+        canvas_png = await session.read_resource("garden://canvas.png")
+        blob = canvas_png.contents[0]
+        result["canvas_png_mime"] = blob.mimeType
+        result["canvas_png_bytes"] = base64.b64decode(blob.blob)
+
+        diagnostics = await session.read_resource("garden://diagnostics")
+        result["diagnostics"] = json.loads(diagnostics.contents[0].text)
+
+        species = await session.read_resource("garden://species")
+        result["species"] = json.loads(species.contents[0].text)
+
+    threading.Thread(
+        target=_drive, args=(server, body, result), name="mcp-test-client"
+    ).start()
+    try:
+        qtbot.waitUntil(lambda: result.get("done", False), timeout=15000)
+        assert result.get("error") is None, result.get("error")
+
+        assert result["uris"] == {
+            "garden://plan",
+            "garden://plan/raw",
+            "garden://canvas.png",
+            "garden://diagnostics",
+            "garden://species",
+        }
+
+        assert result["plan"]["bed_count"] == 1
+        assert result["plan"]["plant_count"] == 1
+
+        raw_objects = result["plan_raw"]["objects"]
+        assert any("center_x" in obj for obj in raw_objects)  # raw-only key
+
+        assert result["canvas_png_mime"] == "image/png"
+        assert result["canvas_png_bytes"].startswith(b"\x89PNG")
+
+        assert len(result["diagnostics"]) == 1
+        assert result["diagnostics"][0]["kind"] == "companion_conflict"
+
+        from open_garden_planner.services.bundled_species_db import get_species_db
+
+        assert len(result["species"]) == len(get_species_db())
+        assert all("scientific_name" in s and "common_name" in s for s in result["species"])
+    finally:
+        server.stop()
+
+    assert server.is_running is False
+
+
+def test_prompts_end_to_end(canvas: Any, qtbot: Any) -> None:
+    scene = canvas.scene()
+    bed = RectangleItem(0, 0, 200, 100, object_type=ObjectType.RAISED_BED)
+    tree = CircleItem(50, 50, 15, object_type=ObjectType.TREE)
+    tree.name = "Apple"
+    scene.addItem(bed)
+    scene.addItem(tree)
+
+    server = AgentApiServer(_providers(scene), port=_free_port())
+    server.start()
+    assert server.is_running
+
+    result: dict[str, Any] = {}
+
+    async def body(session: Any) -> None:
+        listing = await session.list_prompts()
+        result["names"] = {p.name for p in listing.prompts}
+
+        audit = await session.get_prompt("audit-plan")
+        result["audit_text"] = audit.messages[0].content.text
+
+        describe = await session.get_prompt("describe-garden")
+        result["describe_text"] = describe.messages[0].content.text
+
+    threading.Thread(
+        target=_drive, args=(server, body, result), name="mcp-test-client"
+    ).start()
+    try:
+        qtbot.waitUntil(lambda: result.get("done", False), timeout=15000)
+        assert result.get("error") is None, result.get("error")
+
+        assert result["names"] == {"audit-plan", "describe-garden"}
+        assert "Beds/containers: 1" in result["audit_text"]
+        assert "Plants: 1" in result["audit_text"]
+        assert "Apple" in result["describe_text"]
     finally:
         server.stop()
 

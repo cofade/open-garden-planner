@@ -1,4 +1,4 @@
-"""Embedded MCP server for the Agent API (US-D1.1/D1.2/D1.3/D1.4).
+"""Embedded MCP server for the Agent API (US-D1.1/D1.2/D1.3/D1.4/D1.5).
 
 Runs an MCP streamable-HTTP server inside the running GUI on a background daemon
 thread, bound to loopback only. Structural, spatial, diagnostics, and vision
@@ -10,7 +10,11 @@ to disk via the same services the GUI's File > Export/Save menu already calls
 effect as Ctrl+S), and the export tools produce a new deliverable file without
 touching the live plan. Built write-ready — later phases reuse the same
 ``MainThreadBridge`` boundary (via the injected ``AgentProviders`` callables)
-for scene edits.
+for scene edits. US-D1.5 adds 5 read-only resources (``garden://plan``,
+``garden://plan/raw``, ``garden://canvas.png``, ``garden://diagnostics``,
+``garden://species``) and 2 read-analysis prompts (``audit-plan``,
+``describe-garden``) — see the resource/prompt registrations at the bottom of
+``build_server()`` below.
 
 ``FastMCP``/``uvicorn`` are imported lazily inside functions so importing the
 ``agent_api`` package costs nothing until the server is actually started (see
@@ -26,6 +30,25 @@ name, not merely imported inside ``build_server()`` (empirically confirmed:
 the latter raises ``NameError`` at server-build time). Both names live under
 the same ``mcp.server.fastmcp`` package, so this costs nothing extra beyond
 what ``FastMCP`` already pays the moment the server actually starts.
+
+**Resources are simpler than tools** (verified by reading ``mcp`` 1.28.1's
+``fastmcp/server.py``/``fastmcp/resources/types.py``/``lowlevel/server.py``
+source directly, US-D1.5): ``@mcp.resource(uri)`` only calls plain
+``inspect.signature(fn)`` (no ``eval_str``) to detect URI/function params, and
+every resource here is zero-argument, so the tool-only ``NameError`` gotcha
+above does not apply. ``FunctionResource.read()`` returns ``bytes`` as-is,
+``str`` as-is, and anything else (a pydantic model, a plain ``dict``/``list``)
+via ``pydantic_core.to_json(..., fallback=str)`` — no manual
+``json.dumps``/``model_dump_json()`` needed for ``garden://plan``/``garden://
+plan/raw``/``garden://diagnostics``/``garden://species``. The lowlevel
+``read_resource`` handler then pattern-matches the result: ``bytes`` ->
+``BlobResourceContents`` (base64-encoded, using the resource's declared
+``mime_type``), ``str`` -> ``TextResourceContents``. So ``garden://
+canvas.png`` just returns raw PNG ``bytes`` with ``mime_type="image/png"`` on
+the decorator — **no** ``Image``/``structured_output=False`` workaround (that
+was specifically a tool-dispatch quirk, D1.3). ``@mcp.prompt()`` is equally
+direct: a plain ``str`` return is wrapped as
+``[UserMessage(TextContent(text=result))]`` automatically.
 """
 
 from __future__ import annotations
@@ -39,6 +62,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from mcp.server.fastmcp.utilities.types import Image
 
+from open_garden_planner.agent_api import prompts as agent_prompts
 from open_garden_planner.agent_api import queries
 from open_garden_planner.agent_api.diagnostics import diagnostics_from_records
 from open_garden_planner.agent_api.mapping import plan_summary_from_snapshot
@@ -53,6 +77,7 @@ from open_garden_planner.agent_api.schema import (
     PlanSummary,
     RenderMeta,
 )
+from open_garden_planner.services.bundled_species_db import get_species_db
 
 if TYPE_CHECKING:
     import uvicorn
@@ -362,6 +387,55 @@ def build_server(
             lambda: providers.export_csv(kind, file_path)
         )
         return ExportResult(**result)
+
+    # --- US-D1.5: resources + read-analysis prompts -------------------------
+
+    @mcp.resource("garden://plan", mime_type="application/json")
+    async def plan_resource() -> PlanSummary:
+        """The curated plan summary — same data as get_plan_summary()."""
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        return plan_summary_from_snapshot(snapshot)
+
+    @mcp.resource("garden://plan/raw", mime_type="application/json")
+    async def plan_raw_resource() -> dict[str, Any]:
+        """The underlying .ogp-shaped snapshot dict, uncurated."""
+        return await anyio.to_thread.run_sync(providers.snapshot)
+
+    @mcp.resource("garden://canvas.png", mime_type="image/png")
+    async def canvas_png_resource() -> bytes:
+        """A PNG render of the full live canvas (no region/layer filtering)."""
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.render(None, None, DEFAULT_IMAGE_PX)
+        )
+        return result["png_bytes"]
+
+    @mcp.resource("garden://diagnostics", mime_type="application/json")
+    async def diagnostics_resource() -> list[Diagnostic]:
+        """The plan's current warnings — same data as get_diagnostics()."""
+        records = await anyio.to_thread.run_sync(providers.diagnostics)
+        return diagnostics_from_records(records)
+
+    @mcp.resource("garden://species", mime_type="application/json")
+    async def species_resource() -> list[dict[str, Any]]:
+        """The bundled species database (static data — no main-thread hop needed)."""
+        return list(get_species_db().values())
+
+    @mcp.prompt(name="audit-plan")
+    async def audit_plan() -> str:
+        """Summarise the plan's layout + diagnostics and suggest improvements."""
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        records = await anyio.to_thread.run_sync(providers.diagnostics)
+        return agent_prompts.render_audit_plan_prompt(
+            plan_summary_from_snapshot(snapshot), diagnostics_from_records(records)
+        )
+
+    @mcp.prompt(name="describe-garden")
+    async def describe_garden() -> str:
+        """A narrative description of the garden plan for a human or agent."""
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        return agent_prompts.render_describe_garden_prompt(
+            plan_summary_from_snapshot(snapshot), queries.list_objects(snapshot)
+        )
 
     return mcp
 
