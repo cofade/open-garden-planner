@@ -321,7 +321,7 @@ class DxfImportService:
         """Parse a DXF file and return scene items ready to be added.
 
         The caller is responsible for adding items to the scene via a Command.
-        Y-coordinates are negated (DXF Y-up → Qt Y-down) and scaled.
+        Y-coordinates are scaled only; no negation (DXF Y-up matches OGP scene Y-up).
         """
         import ezdxf
 
