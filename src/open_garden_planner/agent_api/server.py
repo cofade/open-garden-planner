@@ -417,12 +417,21 @@ def build_server(
 
     @mcp.resource("garden://species", mime_type="application/json")
     async def species_resource() -> list[dict[str, Any]]:
-        """The bundled species database (static data — no main-thread hop needed)."""
-        return list(get_species_db().values())
+        """The bundled species database (static data — no main-thread hop needed).
+
+        Still offloaded to a worker thread (not called inline) so the
+        first-call JSON load/parse can never block the uvicorn event loop,
+        matching every other resource/tool handler here.
+        """
+        return await anyio.to_thread.run_sync(lambda: list(get_species_db().values()))
 
     @mcp.prompt(name="audit-plan")
     async def audit_plan() -> str:
         """Summarise the plan's layout + diagnostics and suggest improvements."""
+        # Two separate main-thread hops (benign TOCTOU): this is read-only
+        # advisory text, not an atomic action — unlike render's single-hop
+        # region+layers+encode, a snapshot/diagnostics pair drifting by one
+        # scene edit between hops has no correctness consequence here.
         snapshot = await anyio.to_thread.run_sync(providers.snapshot)
         records = await anyio.to_thread.run_sync(providers.diagnostics)
         return agent_prompts.render_audit_plan_prompt(
