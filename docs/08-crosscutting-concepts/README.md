@@ -986,6 +986,28 @@ explicit path pointing at an unrelated file is overwritten without
 confirmation, accepted under the loopback-trust model. See ADR-034 addendum
 (US-D1.4) for the full reasoning.
 
+**Resources & prompts (US-D1.5).** Five read-only resources — `garden://plan`
+(curated `PlanSummary`), `garden://plan/raw` (uncurated snapshot dict),
+`garden://canvas.png` (full-canvas PNG, no region/layer args), `garden://
+diagnostics`, `garden://species` (bundled species DB, 118 records) — and two
+read-analysis prompts, `audit-plan` and `describe-garden` (new Qt-free
+`agent_api/prompts.py`), round out the epic's "tools + resources + prompts"
+MCP surface. Four of the five resources are one-line reuses of existing
+D1.2–D1.4 functions; `garden://species` calls `services/bundled_species_db
+.get_species_db()` directly with **no `AgentProviders` field and no
+main-thread hop** — that module is Qt-free static bundled data, not live-plan
+state. Verified directly against the installed `mcp==1.28.1` source (not
+assumed, same discipline as D1.3's `Image` discovery): resource functions are
+simpler than tools — `@mcp.resource(uri)` only inspects params via plain
+`inspect.signature(fn)` (every D1.5 resource is zero-argument, so the
+tool-only `eval_str`/module-level-import gotcha doesn't apply), a `bytes`
+return with an explicit `mime_type` produces a base64-encoded
+`BlobResourceContents` automatically (**no** `Image`/`structured_output=False`
+workaround — that was tool-dispatch-only), and any other return (a pydantic
+model, a `dict`, a `list`) auto-serializes via `pydantic_core.to_json`. A
+plain `str` prompt return is likewise wrapped into a `UserMessage`
+automatically. See ADR-034 addendum (US-D1.5) for the full reasoning.
+
 **i18n.** MCP tool/resource/prompt descriptions are an English API contract
 (exempt). Only the Settings UI strings go through `tr()`.
 

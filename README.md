@@ -106,10 +106,10 @@ To enable online plant search, see the [Plant API Setup Guide](docs/03-context-a
 
 ## Status
 
-**Phases 1-13 shipped** (v1.23.0) — CAD precision tooling, garden smart features, and an
-embedded AI agent integration (MCP server) are all live. See the
-[Development Roadmap](docs/roadmap.md) for the authoritative, up-to-date phase/user-story
-table.
+**Phases 1-12 shipped, Phase 13 landing incrementally** — CAD precision tooling and garden
+smart features are complete; an embedded AI agent integration (MCP server) is live and
+growing package by package. See the [Development Roadmap](docs/roadmap.md) for the
+authoritative, up-to-date phase/user-story table and current version.
 
 ## Documentation
 
