@@ -82,6 +82,10 @@ class TestAuditPlanPrompt:
         text = render_audit_plan_prompt(_summary(file_name=None, is_dirty=True), [])
         assert "unsaved" in text.lower()
 
+    def test_saved_plan_with_pending_edits_flagged(self) -> None:
+        text = render_audit_plan_prompt(_summary(file_name="demo.ogp", is_dirty=True), [])
+        assert "demo.ogp (unsaved changes)" in text
+
 
 class TestDescribeGardenPrompt:
     def test_includes_plan_summary(self) -> None:
@@ -99,3 +103,13 @@ class TestDescribeGardenPrompt:
         assert "Apple" in text
         assert "Mint" in text
         assert "Plants" in text  # layer_name surfaced
+
+    def test_caps_object_list_and_notes_remainder(self) -> None:
+        objs = [
+            _object_ref(item_id=str(i), name=f"Plant {i}") for i in range(55)
+        ]
+        text = render_describe_garden_prompt(_summary(), objs)
+        assert "Plant 0" in text
+        assert "Plant 49" in text
+        assert "Plant 50" not in text
+        assert "...and 5 more — use list_objects for the full list." in text
