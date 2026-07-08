@@ -3267,6 +3267,14 @@ Neue Saison jetzt öffnen?</translation>
             <source>Agent API failed to start (see log)</source>
             <translation>Agent-API konnte nicht gestartet werden (siehe Protokoll)</translation>
         </message>
+        <message>
+            <source>Connect AI Assistant…</source>
+            <translation>KI-Assistenten verbinden…</translation>
+        </message>
+        <message>
+            <source>Register this plan's MCP server with your AI assistant</source>
+            <translation>Den MCP-Server dieses Plans mit Ihrem KI-Assistenten registrieren</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -5105,6 +5113,14 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
         <message>
             <source>Run a local MCP server so AI assistants can read this garden plan. Binds to 127.0.0.1 (this computer) only; read-only.</source>
             <translation>Lokalen MCP-Server starten, damit KI-Assistenten diesen Gartenplan lesen können. Bindet nur an 127.0.0.1 (diesen Computer); nur Lesen.</translation>
+        </message>
+        <message>
+            <source>Connect AI Assistant…</source>
+            <translation>KI-Assistenten verbinden…</translation>
+        </message>
+        <message>
+            <source>Show this URL and help register it with an AI assistant</source>
+            <translation>Diese URL anzeigen und bei der Registrierung mit einem KI-Assistenten helfen</translation>
         </message>
     </context>
     <context>
@@ -10061,6 +10077,73 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Insert</source>
             <translation>Einfügen</translation>
+        </message>
+    </context>
+    <context>
+        <name>ConnectAiAssistantDialog</name>
+        <message>
+            <source>Connect Your AI Assistant</source>
+            <translation>KI-Assistenten verbinden</translation>
+        </message>
+        <message>
+            <source>The Agent API is currently disabled, so no AI assistant can connect yet. Enable it in Preferences → Agent API first.</source>
+            <translation>Die Agent-API ist derzeit deaktiviert, daher kann sich noch kein KI-Assistent verbinden. Aktivieren Sie sie zuerst unter Einstellungen → Agent-API.</translation>
+        </message>
+        <message>
+            <source>Close</source>
+            <translation>Schließen</translation>
+        </message>
+        <message>
+            <source>Connect URL</source>
+            <translation>Verbindungs-URL</translation>
+        </message>
+        <message>
+            <source>Copy URL</source>
+            <translation>URL kopieren</translation>
+        </message>
+        <message>
+            <source>Transport: Streamable HTTP</source>
+            <translation>Übertragung: Streamable HTTP</translation>
+        </message>
+        <message>
+            <source>Detected</source>
+            <translation>Erkannt</translation>
+        </message>
+        <message>
+            <source>Not detected</source>
+            <translation>Nicht erkannt</translation>
+        </message>
+        <message>
+            <source>Add to {client}</source>
+            <translation>Zu {client} hinzufügen</translation>
+        </message>
+        <message>
+            <source>Show manual snippet</source>
+            <translation>Manuellen Code-Schnipsel anzeigen</translation>
+        </message>
+        <message>
+            <source>Add this to your global Cursor MCP config file:</source>
+            <translation>Fügen Sie dies zu Ihrer globalen Cursor-MCP-Konfigurationsdatei hinzu:</translation>
+        </message>
+        <message>
+            <source>Run this command in a terminal:</source>
+            <translation>Führen Sie diesen Befehl in einem Terminal aus:</translation>
+        </message>
+        <message>
+            <source>In Claude Desktop, go to Settings → Connectors → "Add custom connector" and paste this URL:</source>
+            <translation>Gehen Sie in Claude Desktop zu Einstellungen → Connectors → "Benutzerdefinierten Connector hinzufügen" und fügen Sie diese URL ein:</translation>
+        </message>
+        <message>
+            <source>URL copied to clipboard.</source>
+            <translation>URL in die Zwischenablage kopiert.</translation>
+        </message>
+        <message>
+            <source>Added to {client}.</source>
+            <translation>Zu {client} hinzugefügt.</translation>
+        </message>
+        <message>
+            <source>Could not add to {client}: {detail}</source>
+            <translation>Konnte nicht zu {client} hinzugefügt werden: {detail}</translation>
         </message>
     </context>
 </TS>

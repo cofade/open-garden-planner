@@ -237,6 +237,13 @@ class PreferencesDialog(QDialog):
         )
         agent_layout.addRow(self.tr("Server URL:"), self._agent_api_url_label)
 
+        self._agent_api_connect_btn = QPushButton(self.tr("Connect AI Assistant…"))
+        self._agent_api_connect_btn.setToolTip(
+            self.tr("Show this URL and help register it with an AI assistant")
+        )
+        self._agent_api_connect_btn.clicked.connect(self._on_connect_ai_assistant)
+        agent_layout.addRow("", self._agent_api_connect_btn)
+
         layout.addWidget(agent_group)
 
         layout.addStretch()
@@ -276,11 +283,30 @@ class PreferencesDialog(QDialog):
         """Enable/disable the port + URL rows alongside the Agent API checkbox."""
         self._agent_api_port_spin.setEnabled(enabled)
         self._agent_api_url_label.setEnabled(enabled)
+        self._agent_api_connect_btn.setEnabled(enabled)
 
     def _update_agent_api_url(self) -> None:
         """Refresh the displayed connect URL when the port changes."""
         port = self._agent_api_port_spin.value()
         self._agent_api_url_label.setText(f"http://127.0.0.1:{port}/mcp")
+
+    def _on_connect_ai_assistant(self) -> None:
+        """Open the Connect AI Assistant dialog (US-D1.6) for the URL shown above.
+
+        Uses the currently displayed checkbox/port, not necessarily the
+        already-running server — matches the existing "Server URL:" label,
+        which is likewise a live preview of the pending settings, not a query
+        of the running server.
+        """
+        from open_garden_planner.ui.dialogs.connect_ai_assistant_dialog import (
+            ConnectAiAssistantDialog,
+        )
+
+        server_url = (
+            self._agent_api_url_label.text() if self._agent_api_check.isChecked() else None
+        )
+        dialog = ConnectAiAssistantDialog(server_url, self)
+        dialog.exec()
 
     def _save_and_accept(self) -> None:
         from open_garden_planner.app.settings import get_settings

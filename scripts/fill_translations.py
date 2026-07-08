@@ -2384,6 +2384,51 @@ for _ctx, _strings in _HARVEST_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── US-D1.6 AI client onboarding strings ─────────────────────────────────────
+_D16_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "GardenPlannerApp": {
+        "Connect AI Assistant…": "KI-Assistenten verbinden…",
+        "Register this plan's MCP server with your AI assistant":
+            "Den MCP-Server dieses Plans mit Ihrem KI-Assistenten registrieren",
+    },
+    "PreferencesDialog": {
+        "Connect AI Assistant…": "KI-Assistenten verbinden…",
+        "Show this URL and help register it with an AI assistant":
+            "Diese URL anzeigen und bei der Registrierung mit einem KI-Assistenten helfen",
+    },
+    "ConnectAiAssistantDialog": {
+        "Connect Your AI Assistant": "KI-Assistenten verbinden",
+        "The Agent API is currently disabled, so no AI assistant can "
+        "connect yet. Enable it in Preferences → Agent API first.":
+            "Die Agent-API ist derzeit deaktiviert, daher kann sich noch kein "
+            "KI-Assistent verbinden. Aktivieren Sie sie zuerst unter "
+            "Einstellungen → Agent-API.",
+        "Close": "Schließen",
+        "Connect URL": "Verbindungs-URL",
+        "Copy URL": "URL kopieren",
+        "Transport: Streamable HTTP": "Übertragung: Streamable HTTP",
+        "Detected": "Erkannt",
+        "Not detected": "Nicht erkannt",
+        "Add to {client}": "Zu {client} hinzufügen",
+        "Show manual snippet": "Manuellen Code-Schnipsel anzeigen",
+        "Add this to your global Cursor MCP config file:":
+            "Fügen Sie dies zu Ihrer globalen Cursor-MCP-Konfigurationsdatei hinzu:",
+        "Run this command in a terminal:": "Führen Sie diesen Befehl in einem Terminal aus:",
+        "In Claude Desktop, go to Settings → Connectors → "
+        '"Add custom connector" and paste this URL:':
+            "Gehen Sie in Claude Desktop zu Einstellungen → Connectors → "
+            '"Benutzerdefinierten Connector hinzufügen" und fügen Sie diese URL ein:',
+        "URL copied to clipboard.": "URL in die Zwischenablage kopiert.",
+        "Added to {client}.": "Zu {client} hinzugefügt.",
+        "Could not add to {client}: {detail}":
+            "Konnte nicht zu {client} hinzugefügt werden: {detail}",
+    },
+}
+
+for _ctx, _strings in _D16_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)

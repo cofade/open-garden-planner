@@ -1010,6 +1010,14 @@ class GardenPlannerApp(QMainWindow):
         shortcuts_action.triggered.connect(self._on_keyboard_shortcuts)
         menu.addAction(shortcuts_action)
 
+        # Connect AI Assistant (US-D1.6)
+        connect_ai_action = QAction(self.tr("Connect AI Assistant…"), self)
+        connect_ai_action.setStatusTip(
+            self.tr("Register this plan's MCP server with your AI assistant")
+        )
+        connect_ai_action.triggered.connect(self._on_connect_ai_assistant)
+        menu.addAction(connect_ai_action)
+
         menu.addSeparator()
 
         # About
@@ -3910,6 +3918,18 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.ui.dialogs import ShortcutsDialog
 
         dialog = ShortcutsDialog(self)
+        dialog.exec()
+
+    def _on_connect_ai_assistant(self) -> None:
+        """Handle Connect AI Assistant action (US-D1.6)."""
+        from open_garden_planner.ui.dialogs import ConnectAiAssistantDialog
+
+        server_url = (
+            self._agent_server.url
+            if self._agent_server is not None and self._agent_server.is_running
+            else None
+        )
+        dialog = ConnectAiAssistantDialog(server_url, self)
         dialog.exec()
 
     def _on_about(self) -> None:

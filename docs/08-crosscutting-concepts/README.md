@@ -860,7 +860,7 @@ next launch). See ADR-032 for the architecture.
 `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
 (loads, validates, every expression parses, generates ≥1 primitive).
 
-## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4, ADR-033/034)
+## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6, ADR-033/034/035)
 
 The app can host an **MCP server over streamable-HTTP** so AI agents read the
 plan currently open in the GUI (epic #237). Package: `agent_api/`
@@ -1007,6 +1007,30 @@ workaround — that was tool-dispatch-only), and any other return (a pydantic
 model, a `dict`, a `list`) auto-serializes via `pydantic_core.to_json`. A
 plain `str` prompt return is likewise wrapped into a `UserMessage`
 automatically. See ADR-034 addendum (US-D1.5) for the full reasoning.
+
+**AI client onboarding (US-D1.6).** A running server is useless until the
+user's AI client knows its URL — there's no universal localhost-MCP
+auto-discovery. The Help → "Connect AI Assistant…" dialog
+(`ConnectAiAssistantDialog`) and a new Qt-free `services/ai_client_onboarding
+.py` close that gap: `detect_clients()` checks each client's known config
+location (`~/.cursor`, `claude` on `PATH` / `~/.claude.json`, the platform
+Claude Desktop app-data dir), and `install_to_client()` registers the URL
+where each client's own docs support a safe automatic path — **Cursor** via a
+direct JSON merge into `~/.cursor/mcp.json`, **Claude Code** via the `claude
+mcp add --transport http --scope user` CLI (preferred over hand-editing
+`~/.claude.json`'s nested per-project schema). **Claude Desktop is
+detection-only**: its `claude_desktop_config.json` only documents *stdio*
+servers, and a plain local HTTP endpoint is registered through the app's own
+Settings → Connectors → "Add custom connector" UI, not a config file — every
+client without (or before) automatic support falls back to a copy-paste
+snippet with a short "where to put this" note. This is the **first
+atomic-write pattern in the codebase**: every prior JSON writer here only
+ever wrote its own file with a bare `open(path, "w")`; because this one edits
+files *owned by other applications*, `_atomic_merge_mcp_server` backs up the
+original to `<name>.bak` first, preserves every other key/server, and writes
+via a same-directory temp file + `os.replace()`. See ADR-035 for the full
+per-client reasoning (including why Claude Desktop's config isn't
+auto-written) and §11.4 if a client's schema needs revisiting.
 
 **i18n.** MCP tool/resource/prompt descriptions are an English API contract
 (exempt). Only the Settings UI strings go through `tr()`.
