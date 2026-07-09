@@ -264,6 +264,32 @@ class TestInstallToClient:
         assert "removed" in result.detail.lower()
         assert "network unreachable" in result.detail
 
+    def test_claude_code_already_exists_but_remove_itself_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression: if `claude mcp remove` itself fails, the detail must
+        say so — not silently repeat the original 'already exists' message,
+        which would misleadingly suggest nothing was attempted."""
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: "/usr/local/bin/claude")
+        responses = iter(
+            [
+                subprocess.CompletedProcess([], 1, stdout="", stderr="Error: server already exists"),
+                subprocess.CompletedProcess([], 1, stdout="", stderr="permission denied"),
+            ]
+        )
+
+        def fake_run(args: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            return next(responses)
+
+        monkeypatch.setattr(onboarding.subprocess, "run", fake_run)
+
+        result = onboarding.install_to_client("claude_code", url=_URL)
+
+        assert result.success is False
+        assert "remove" in result.detail.lower()
+        assert "permission denied" in result.detail
+        assert "already exists" not in result.detail.lower()
+
     def test_claude_code_cli_success(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: "/usr/local/bin/claude")
         calls: list[list[str]] = []

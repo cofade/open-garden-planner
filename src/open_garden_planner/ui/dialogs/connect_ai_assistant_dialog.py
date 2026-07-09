@@ -99,7 +99,9 @@ class ConnectAiAssistantDialog(QDialog):
         if client.install_method != "manual":
             add_btn = QPushButton(self.tr("Add to {client}").format(client=client.display_name))
             add_btn.setEnabled(client.detected)
-            add_btn.clicked.connect(lambda _checked=False, c=client: self._on_add_clicked(c))
+            add_btn.clicked.connect(
+                lambda _checked=False, c=client, b=add_btn: self._on_add_clicked(c, b)
+            )
             actions_row.addWidget(add_btn)
 
         snippet_toggle = QPushButton(self.tr("Show manual snippet"))
@@ -146,20 +148,31 @@ class ConnectAiAssistantDialog(QDialog):
         clipboard.setText(self._server_url)
         self._status_label.setText(self.tr("URL copied to clipboard."))
 
-    def _on_add_clicked(self, client: onboarding.ClientInfo) -> None:
+    def _on_add_clicked(self, client: onboarding.ClientInfo, button: QPushButton) -> None:
         if self._server_url is None:
             return
+        # Claude Code's install can shell out to the `claude` CLI (up to three
+        # blocking subprocess calls, ~15s timeout each) — give visible feedback
+        # for the whole call, mirroring preferences_dialog._test_api's
+        # setCursor/unsetCursor around its own blocking network call.
+        button.setEnabled(False)
+        self.setCursor(Qt.CursorShape.WaitCursor)
         try:
-            result = onboarding.install_to_client(client.client_id, url=self._server_url)
-        except Exception as exc:  # noqa: BLE001 — UI trust boundary: a failed
-            # install must never crash the app, even if a future client
-            # strategy raises something install_to_client doesn't yet guard.
-            self._status_label.setText(
-                self.tr("Could not add to {client}: {detail}").format(
-                    client=client.display_name, detail=str(exc)
+            try:
+                result = onboarding.install_to_client(client.client_id, url=self._server_url)
+            except Exception as exc:  # noqa: BLE001 — UI trust boundary: a failed
+                # install must never crash the app, even if a future client
+                # strategy raises something install_to_client doesn't yet guard.
+                self._status_label.setText(
+                    self.tr("Could not add to {client}: {detail}").format(
+                        client=client.display_name, detail=str(exc)
+                    )
                 )
-            )
-            return
+                return
+        finally:
+            self.unsetCursor()
+            button.setEnabled(client.detected)
+
         if result.success:
             self._status_label.setText(
                 self.tr("Added to {client}.").format(client=client.display_name)

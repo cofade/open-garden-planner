@@ -291,16 +291,34 @@ class PreferencesDialog(QDialog):
         self._agent_api_url_label.setText(f"http://127.0.0.1:{port}/mcp")
 
     def _on_connect_ai_assistant(self) -> None:
-        """Open the Connect AI Assistant dialog (US-D1.6) for the URL shown above.
+        """Open the Connect AI Assistant dialog (US-D1.6) for the running server.
 
-        Uses the currently displayed checkbox/port, not necessarily the
-        already-running server — matches the existing "Server URL:" label,
-        which is likewise a live preview of the pending settings, not a query
-        of the running server.
+        Registering a client writes a persistent entry into that client's own
+        config — unlike the "Server URL:" label, which merely displays a
+        preview, this has a real external effect. So it must not offer up an
+        unsaved port/enabled change the server isn't actually running yet;
+        that would silently register a dead endpoint. Refuses with a message
+        instead when the displayed values don't match what's saved.
         """
+        from open_garden_planner.app.settings import get_settings
         from open_garden_planner.ui.dialogs.connect_ai_assistant_dialog import (
             ConnectAiAssistantDialog,
         )
+
+        settings = get_settings()
+        if (
+            self._agent_api_check.isChecked() != settings.agent_api_enabled
+            or self._agent_api_port_spin.value() != settings.agent_api_port
+        ):
+            QMessageBox.information(
+                self,
+                self.tr("Connect AI Assistant"),
+                self.tr(
+                    "Save your changes first, then reopen this dialog to "
+                    "connect using the running server."
+                ),
+            )
+            return
 
         server_url = (
             self._agent_api_url_label.text() if self._agent_api_check.isChecked() else None

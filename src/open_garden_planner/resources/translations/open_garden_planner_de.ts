@@ -5122,6 +5122,14 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <source>Show this URL and help register it with an AI assistant</source>
             <translation>Diese URL anzeigen und bei der Registrierung mit einem KI-Assistenten helfen</translation>
         </message>
+        <message>
+            <source>Connect AI Assistant</source>
+            <translation>KI-Assistenten verbinden</translation>
+        </message>
+        <message>
+            <source>Save your changes first, then reopen this dialog to connect using the running server.</source>
+            <translation>Speichern Sie zuerst Ihre Änderungen und öffnen Sie diesen Dialog erneut, um sich mit dem laufenden Server zu verbinden.</translation>
+        </message>
     </context>
     <context>
         <name>PrintOptionsDialog</name>

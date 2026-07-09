@@ -296,6 +296,8 @@ def _install_claude_code(*, url: str, name: str) -> InstallResult:
                     f"Removed the existing entry but could not re-add it: "
                     f"{retry.stderr.strip()}"
                 )
+            else:
+                stderr = f"Could not remove the existing entry to update it: {removed.stderr.strip()}"
     except (subprocess.SubprocessError, OSError) as exc:
         return InstallResult(client_id="claude_code", success=False, detail=str(exc))
 
