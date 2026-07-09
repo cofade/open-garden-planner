@@ -206,6 +206,64 @@ class TestInstallToClient:
         assert result.success is False
         assert "not found" in result.detail.lower()
 
+    def test_claude_code_cli_timeout_does_not_raise(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Regression: a hung `claude` CLI must surface as a failed InstallResult,
+        not crash the caller — the module's whole contract is 'never raises into
+        the UI', but subprocess.TimeoutExpired isn't an OSError subclass."""
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: "/usr/local/bin/claude")
+
+        def fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            raise subprocess.TimeoutExpired(cmd=args, timeout=kwargs.get("timeout", 15))
+
+        monkeypatch.setattr(onboarding.subprocess, "run", fake_run)
+
+        result = onboarding.install_to_client("claude_code", url=_URL)
+
+        assert result.success is False
+        assert result.detail
+
+    def test_claude_code_cli_missing_at_runtime_does_not_raise(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression: shutil.which found it, but a TOCTOU removal before the
+        actual subprocess.run call raises FileNotFoundError (an OSError)."""
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: "/usr/local/bin/claude")
+
+        def fake_run(args: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            raise FileNotFoundError("claude")
+
+        monkeypatch.setattr(onboarding.subprocess, "run", fake_run)
+
+        result = onboarding.install_to_client("claude_code", url=_URL)
+
+        assert result.success is False
+        assert result.detail
+
+    def test_claude_code_already_exists_but_readd_fails_reports_removal(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression: if remove succeeds but the retry add fails, the user
+        must be told the old entry is gone, not just given the raw add error."""
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: "/usr/local/bin/claude")
+        responses = iter(
+            [
+                subprocess.CompletedProcess([], 1, stdout="", stderr="Error: server already exists"),
+                subprocess.CompletedProcess([], 0, stdout="removed", stderr=""),
+                subprocess.CompletedProcess([], 1, stdout="", stderr="network unreachable"),
+            ]
+        )
+
+        def fake_run(args: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            return next(responses)
+
+        monkeypatch.setattr(onboarding.subprocess, "run", fake_run)
+
+        result = onboarding.install_to_client("claude_code", url=_URL)
+
+        assert result.success is False
+        assert "removed" in result.detail.lower()
+        assert "network unreachable" in result.detail
+
     def test_claude_code_cli_success(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: "/usr/local/bin/claude")
         calls: list[list[str]] = []

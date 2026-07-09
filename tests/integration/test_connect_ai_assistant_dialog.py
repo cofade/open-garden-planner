@@ -78,6 +78,28 @@ class TestConnectAiAssistantDialogEnabled:
         assert data["mcpServers"]["open-garden-planner"] == {"url": _URL}
         assert "Added to Cursor" in dialog._status_label.text()
 
+    def test_add_to_cursor_failure_shows_translated_status(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        """A real (not mocked) fs-level failure — mcp.json is a directory, so
+        the write really raises IsADirectoryError — exercises the dialog's
+        failure branch end-to-end, not just its success branch."""
+        config_path = isolated_clients / ".cursor" / "mcp.json"
+        config_path.mkdir()  # a directory where a file is expected
+
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        cursor_group = _group(dialog, "Cursor")
+        add_btn = next(
+            b for b in cursor_group.findChildren(QPushButton) if b.text() == "Add to Cursor"
+        )
+        qtbot.mouseClick(add_btn, Qt.MouseButton.LeftButton)
+
+        status = dialog._status_label.text()
+        assert "Could not add to Cursor" in status
+        assert config_path.is_dir()  # untouched — the failure didn't corrupt anything
+
     def test_claude_desktop_has_no_add_button_only_snippet(
         self, qtbot, isolated_clients: Path
     ) -> None:

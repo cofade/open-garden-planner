@@ -149,7 +149,17 @@ class ConnectAiAssistantDialog(QDialog):
     def _on_add_clicked(self, client: onboarding.ClientInfo) -> None:
         if self._server_url is None:
             return
-        result = onboarding.install_to_client(client.client_id, url=self._server_url)
+        try:
+            result = onboarding.install_to_client(client.client_id, url=self._server_url)
+        except Exception as exc:  # noqa: BLE001 — UI trust boundary: a failed
+            # install must never crash the app, even if a future client
+            # strategy raises something install_to_client doesn't yet guard.
+            self._status_label.setText(
+                self.tr("Could not add to {client}: {detail}").format(
+                    client=client.display_name, detail=str(exc)
+                )
+            )
+            return
         if result.success:
             self._status_label.setText(
                 self.tr("Added to {client}.").format(client=client.display_name)

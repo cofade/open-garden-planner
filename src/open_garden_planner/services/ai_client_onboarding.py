@@ -126,10 +126,13 @@ def _atomic_merge_mcp_server(path: Path, *, name: str, entry: dict[str, object])
     """Read-modify-write ``path``'s ``mcpServers.<name>`` entry.
 
     Preserves every other key in the file (other servers, unrelated config).
-    Backs up the original file to ``<name>.bak`` first if it existed (returns
-    that path; ``None`` if there was nothing to back up). Writes via a
-    same-directory temp file + ``os.replace`` so a crash mid-write can never
-    leave a truncated/partial config behind.
+    Backs up the file's current contents to ``<name>.bak`` first if it
+    existed (returns that path; ``None`` if there was nothing to back up) —
+    note a second call overwrites ``.bak`` with the state from just before
+    *that* call, not the original file from before OGP ever touched it; only
+    the most recent pre-write snapshot survives. Writes via a same-directory
+    temp file + ``os.replace`` so a crash mid-write can never leave a
+    truncated/partial config behind.
 
     A malformed or non-object existing file is treated as untrusted input
     (this reads a config OGP doesn't own) — logged and replaced rather than
@@ -268,21 +271,33 @@ def _install_claude_code(*, url: str, name: str) -> InstallResult:
             detail="claude CLI not found on PATH.",
         )
 
-    result = _run_claude_mcp(claude, "add", "--transport", "http", "--scope", "user", name, url)
-    if result.returncode == 0:
-        return InstallResult(client_id="claude_code", success=True, detail=result.stdout.strip())
+    # Every module docstring/ADR-035 promise is "a failed install never raises
+    # into the UI" — the CLI can hang (first-run login prompt, network stall)
+    # or simply not exist despite shutil.which finding a stale PATH entry, so
+    # every subprocess call in this function is inside this one try/except.
+    try:
+        result = _run_claude_mcp(claude, "add", "--transport", "http", "--scope", "user", name, url)
+        if result.returncode == 0:
+            return InstallResult(client_id="claude_code", success=True, detail=result.stdout.strip())
 
-    stderr = result.stderr.strip()
-    if "already exists" in stderr.lower():
-        # Re-registering under the same name is an update, not a clobber —
-        # remove-then-add so a changed port takes effect. Other servers in
-        # ~/.claude.json are untouched either way.
-        removed = _run_claude_mcp(claude, "remove", name, "--scope", "user")
-        if removed.returncode == 0:
-            retry = _run_claude_mcp(claude, "add", "--transport", "http", "--scope", "user", name, url)
-            if retry.returncode == 0:
-                return InstallResult(client_id="claude_code", success=True, detail=retry.stdout.strip())
-            stderr = retry.stderr.strip()
+        stderr = result.stderr.strip()
+        if "already exists" in stderr.lower():
+            # Re-registering under the same name is an update, not a clobber —
+            # remove-then-add so a changed port takes effect. Other servers in
+            # ~/.claude.json are untouched either way.
+            removed = _run_claude_mcp(claude, "remove", name, "--scope", "user")
+            if removed.returncode == 0:
+                retry = _run_claude_mcp(
+                    claude, "add", "--transport", "http", "--scope", "user", name, url
+                )
+                if retry.returncode == 0:
+                    return InstallResult(client_id="claude_code", success=True, detail=retry.stdout.strip())
+                stderr = (
+                    f"Removed the existing entry but could not re-add it: "
+                    f"{retry.stderr.strip()}"
+                )
+    except (subprocess.SubprocessError, OSError) as exc:
+        return InstallResult(client_id="claude_code", success=False, detail=str(exc))
 
     return InstallResult(client_id="claude_code", success=False, detail=stderr or "claude mcp add failed.")
 
