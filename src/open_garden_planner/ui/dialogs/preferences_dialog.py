@@ -295,35 +295,20 @@ class PreferencesDialog(QDialog):
 
         Registering a client writes a persistent entry into that client's own
         config — unlike the "Server URL:" label, which merely displays a
-        preview, this has a real external effect. So it must not offer up an
-        unsaved port/enabled change the server isn't actually running yet;
-        that would silently register a dead endpoint. Refuses with a message
-        instead when the displayed values don't match what's saved.
+        preview, this has a real external effect. So the URL must come from
+        asking whether the server is actually running (the app's parent
+        window owns that), never reconstructed from settings/widget state —
+        a saved-and-applied port can still not be live (e.g. `PortInUseError`
+        at startup), and that must never be silently registered as if it
+        worked. ``ConnectAiAssistantDialog`` already shows a clear "disabled"
+        view for ``None``.
         """
-        from open_garden_planner.app.settings import get_settings
         from open_garden_planner.ui.dialogs.connect_ai_assistant_dialog import (
             ConnectAiAssistantDialog,
         )
 
-        settings = get_settings()
-        if (
-            self._agent_api_check.isChecked() != settings.agent_api_enabled
-            or self._agent_api_port_spin.value() != settings.agent_api_port
-        ):
-            QMessageBox.information(
-                self,
-                self.tr("Connect AI Assistant"),
-                self.tr(
-                    "Save your changes first, then reopen this dialog to "
-                    "connect using the running server."
-                ),
-            )
-            return
-
-        server_url = (
-            self._agent_api_url_label.text() if self._agent_api_check.isChecked() else None
-        )
-        dialog = ConnectAiAssistantDialog(server_url, self)
+        running_url = getattr(self.parent(), "agent_api_running_url", lambda: None)()
+        dialog = ConnectAiAssistantDialog(running_url, self)
         dialog.exec()
 
     def _save_and_accept(self) -> None:

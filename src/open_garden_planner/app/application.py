@@ -3920,16 +3920,22 @@ class GardenPlannerApp(QMainWindow):
         dialog = ShortcutsDialog(self)
         dialog.exec()
 
+    def agent_api_running_url(self) -> str | None:
+        """The Agent API's connect URL if the server is actually running, else
+        None — the one place both the Help menu and Preferences dialog (D1.6)
+        ask "is there a live server to register?" so neither can reconstruct
+        a URL from settings/widget state and hand a dead endpoint to an AI
+        client's config.
+        """
+        if self._agent_server is not None and self._agent_server.is_running:
+            return self._agent_server.url
+        return None
+
     def _on_connect_ai_assistant(self) -> None:
         """Handle Connect AI Assistant action (US-D1.6)."""
         from open_garden_planner.ui.dialogs import ConnectAiAssistantDialog
 
-        server_url = (
-            self._agent_server.url
-            if self._agent_server is not None and self._agent_server.is_running
-            else None
-        )
-        dialog = ConnectAiAssistantDialog(server_url, self)
+        dialog = ConnectAiAssistantDialog(self.agent_api_running_url(), self)
         dialog.exec()
 
     def _on_about(self) -> None:

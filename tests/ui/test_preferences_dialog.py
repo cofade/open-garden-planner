@@ -41,9 +41,21 @@ class TestPreferencesDialog:
         assert dialog._trefle_token.text() == "test-token-123"
 
 
+class _FakeParentWindow:
+    """Stands in for GardenPlannerApp: only agent_api_running_url() matters."""
+
+    def __init__(self, running_url: str | None) -> None:
+        self._running_url = running_url
+
+    def agent_api_running_url(self) -> str | None:
+        return self._running_url
+
+
 class TestConnectAiAssistantEntryPoint:
-    """US-D1.6: the Preferences 'Connect AI Assistant…' button must never
-    register an unsaved (possibly not-yet-running) port/enabled state."""
+    """US-D1.6: the Preferences 'Connect AI Assistant…' button must ask
+    whether the server is actually *running* — never reconstruct a URL from
+    settings/widget state, which can look fine while the server itself
+    failed to start (e.g. a port conflict at launch)."""
 
     @pytest.fixture()
     def dialog(self, qtbot):
@@ -58,40 +70,7 @@ class TestConnectAiAssistantEntryPoint:
         dialog._agent_api_check.setChecked(True)
         assert dialog._agent_api_connect_btn.isEnabled() is True
 
-    def test_unsaved_port_change_warns_instead_of_opening_dialog(
-        self, dialog, monkeypatch
-    ) -> None:
-        opened = []
-        monkeypatch.setattr(
-            "open_garden_planner.ui.dialogs.connect_ai_assistant_dialog."
-            "ConnectAiAssistantDialog",
-            lambda *a: opened.append(a),
-        )
-        warned = []
-        monkeypatch.setattr(
-            "open_garden_planner.ui.dialogs.preferences_dialog.QMessageBox.information",
-            lambda *a: warned.append(a),
-        )
-
-        dialog._agent_api_check.setChecked(True)
-        dialog._agent_api_port_spin.setValue(dialog._agent_api_port_spin.value() + 1)
-        dialog._on_connect_ai_assistant()
-
-        assert warned
-        assert not opened
-
-    def test_saved_state_opens_dialog_with_running_url(self, dialog, monkeypatch) -> None:
-        from open_garden_planner.app.settings import get_settings
-
-        # conftest's autouse fixture forces agent_api_enabled=False for tests
-        # (so the suite never starts a real server) — persist a matching
-        # "saved" enabled+port pair explicitly rather than relying on defaults.
-        settings = get_settings()
-        settings.agent_api_enabled = True
-        settings.agent_api_port = 9191
-        dialog._agent_api_check.setChecked(settings.agent_api_enabled)
-        dialog._agent_api_port_spin.setValue(settings.agent_api_port)
-
+    def _open_and_capture_url(self, dialog, monkeypatch) -> dict:
         captured = {}
 
         class _FakeDialog:
@@ -106,7 +85,35 @@ class TestConnectAiAssistantEntryPoint:
             "ConnectAiAssistantDialog",
             _FakeDialog,
         )
-
         dialog._on_connect_ai_assistant()
+        return captured
 
-        assert captured["url"] == f"http://127.0.0.1:{settings.agent_api_port}/mcp"
+    def test_no_parent_window_passes_none(self, dialog, monkeypatch) -> None:
+        """The `dialog` fixture builds PreferencesDialog with no parent at all
+        (as tests do) — must degrade to None, not raise."""
+        assert dialog.parent() is None
+        captured = self._open_and_capture_url(dialog, monkeypatch)
+        assert captured["url"] is None
+
+    def test_server_not_running_passes_none_even_if_settings_look_fine(
+        self, dialog, monkeypatch
+    ) -> None:
+        """The exact bug this fixes: settings/widgets can look perfectly
+        configured while the server itself never started (PortInUseError at
+        launch) — the dialog must still get None, not a reconstructed URL."""
+        monkeypatch.setattr(dialog, "parent", lambda: _FakeParentWindow(None))
+        dialog._agent_api_check.setChecked(True)
+        dialog._agent_api_port_spin.setValue(8765)
+
+        captured = self._open_and_capture_url(dialog, monkeypatch)
+
+        assert captured["url"] is None
+
+    def test_server_running_passes_its_url(self, dialog, monkeypatch) -> None:
+        monkeypatch.setattr(
+            dialog, "parent", lambda: _FakeParentWindow("http://127.0.0.1:9191/mcp")
+        )
+
+        captured = self._open_and_capture_url(dialog, monkeypatch)
+
+        assert captured["url"] == "http://127.0.0.1:9191/mcp"

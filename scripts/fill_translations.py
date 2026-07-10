@@ -2395,11 +2395,6 @@ _D16_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Connect AI Assistant…": "KI-Assistenten verbinden…",
         "Show this URL and help register it with an AI assistant":
             "Diese URL anzeigen und bei der Registrierung mit einem KI-Assistenten helfen",
-        "Connect AI Assistant": "KI-Assistenten verbinden",
-        "Save your changes first, then reopen this dialog to "
-        "connect using the running server.":
-            "Speichern Sie zuerst Ihre Änderungen und öffnen Sie diesen Dialog "
-            "erneut, um sich mit dem laufenden Server zu verbinden.",
     },
     "ConnectAiAssistantDialog": {
         "Connect Your AI Assistant": "KI-Assistenten verbinden",

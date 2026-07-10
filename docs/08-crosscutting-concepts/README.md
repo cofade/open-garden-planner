@@ -1027,8 +1027,10 @@ snippet with a short "where to put this" note. This is the **first
 atomic-write pattern in the codebase**: every prior JSON writer here only
 ever wrote its own file with a bare `open(path, "w")`; because this one edits
 files *owned by other applications*, `_atomic_merge_mcp_server` backs up the
-original to `<name>.bak` first, preserves every other key/server, and writes
-via a same-directory temp file + `os.replace()`. See ADR-035 for the full
+file's current contents to `<name>.bak` first (a second call overwrites
+`.bak` with the state from just before *that* call, not the pristine
+original), preserves every other key/server, and writes via a same-directory
+temp file + `os.replace()`. See ADR-035 for the full
 per-client reasoning (including why Claude Desktop's config isn't
 auto-written) and §11.4 if a client's schema needs revisiting.
 
