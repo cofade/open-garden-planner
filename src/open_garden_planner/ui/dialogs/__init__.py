@@ -3,6 +3,9 @@
 from open_garden_planner.ui.dialogs.amendment_plan_dialog import AmendmentPlanDialog
 from open_garden_planner.ui.dialogs.calibration_dialog import CalibrationDialog
 from open_garden_planner.ui.dialogs.companion_check_dialog import CompanionCheckDialog
+from open_garden_planner.ui.dialogs.connect_ai_assistant_dialog import (
+    ConnectAiAssistantDialog,
+)
 from open_garden_planner.ui.dialogs.constraint_conflict_dialog import (
     ConstraintConflictDialog,
 )
@@ -26,6 +29,7 @@ __all__ = [
     "AmendmentPlanDialog",
     "CalibrationDialog",
     "CompanionCheckDialog",
+    "ConnectAiAssistantDialog",
     "ConstraintConflictDialog",
     "CustomPlantsDialog",
     "GardenPrintManager",
