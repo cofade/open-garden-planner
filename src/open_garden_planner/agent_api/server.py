@@ -608,6 +608,18 @@ class AgentApiServer:
         return f"http://{self._host}:{self._port}{self._path}"
 
     @property
+    def write_token(self) -> str | None:
+        """The bearer token this server was started with, or None if writes are off.
+
+        This — not the current settings value — is the authoritative token a
+        client must present, because the running server validates the token it
+        was *built* with. Regenerating the settings token without a restart
+        doesn't change what this server accepts (mirrors ``url`` deriving from
+        the live server, US-D1.6 round 3).
+        """
+        return self._write_token if self._writes_enabled else None
+
+    @property
     def is_running(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
 

@@ -287,14 +287,32 @@ class GardenPlannerApp(QMainWindow):
         item = self._resolve_agent_item(item_id)
         cmd = MoveItemsCommand([item], QPointF(float(dx), float(dy)))
         self.canvas_view.command_manager.execute(cmd)
-        center = item.sceneBoundingRect().center()
+        cx, cy = self._agent_item_center(item)
         return {
             "item_id": item_id,
             "action": "move",
             "undo_description": cmd.description,
-            "x": center.x(),
-            "y": center.y(),
+            "x": cx,
+            "y": cy,
         }
+
+    def _agent_item_center(self, item: Any) -> tuple[float, float]:
+        """The object's centre in scene cm, using the SAME source the read tools do.
+
+        ``get_object``/``list_objects`` report the serialised-geometry centre
+        (``agent_api.queries.object_center``); reusing it here keeps a moved
+        object's returned x/y identical to what a follow-up read reports —
+        ``sceneBoundingRect().center()`` would diverge for a plant showing the
+        runtime-only antagonist badge (asymmetric boundingRect, invariant #2).
+        Falls back to the bounding-rect centre only if the item can't serialise.
+        """
+        from open_garden_planner.agent_api import queries
+
+        data = self._project_manager._serialize_item(item)
+        if data is not None:
+            return queries.object_center(data)
+        c = item.sceneBoundingRect().center()
+        return c.x(), c.y()
 
     def _agent_delete_object(self, item_id: str) -> dict[str, Any]:
         """Delete one object ON the Qt main thread (for the server)."""
@@ -4020,18 +4038,17 @@ class GardenPlannerApp(QMainWindow):
     def agent_api_write_token(self) -> str | None:
         """The bearer token to hand a client, or None if writes aren't live.
 
-        Returns the token only when the server is actually running AND agent
-        editing is enabled — so the Connect dialog embeds a token exactly when
-        write tools are available, never a stale one from settings alone.
+        Returns the token the *running server* was started with — never the raw
+        settings value — so the Connect dialog can only ever hand out a token the
+        live server will actually accept. Regenerating the token in Preferences
+        without saving persists a new settings value but doesn't restart the
+        server; deriving from the server (like ``agent_api_running_url``) avoids
+        registering a client with a token the server would reject.
         """
-        from open_garden_planner.app.settings import get_settings
-
-        if self.agent_api_running_url() is None:
+        server = self._agent_server
+        if server is None or not server.is_running:
             return None
-        settings = get_settings()
-        if not settings.agent_api_writes_enabled:
-            return None
-        return settings.agent_api_token
+        return server.write_token
 
     def _on_connect_ai_assistant(self) -> None:
         """Handle Connect AI Assistant action (US-D1.6)."""
