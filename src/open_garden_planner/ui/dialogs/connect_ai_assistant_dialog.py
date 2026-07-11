@@ -30,11 +30,21 @@ from open_garden_planner.services import ai_client_onboarding as onboarding
 class ConnectAiAssistantDialog(QDialog):
     """Shows the Agent API connect URL and helps register it with AI clients."""
 
-    def __init__(self, server_url: str | None, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        server_url: str | None,
+        parent: QWidget | None = None,
+        *,
+        token: str | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Connect Your AI Assistant"))
         self.setMinimumSize(560, 480)
         self._server_url = server_url
+        # Present only when AI editing is enabled AND the server is live — the
+        # caller (application.agent_api_write_token) enforces both. When set, the
+        # client is registered to send it so the D2 write tools are reachable.
+        self._token = token
         self._status_label = QLabel("")
         self._setup_ui()
 
@@ -57,6 +67,21 @@ class ConnectAiAssistantDialog(QDialog):
         layout.addWidget(url_group)
 
         layout.addWidget(QLabel(self.tr("Transport: Streamable HTTP")))
+
+        editing_note = QLabel(
+            self.tr(
+                "AI editing is ON — clients added here can modify your plan. "
+                "Each edit is a single undo step. Turn it off in "
+                "Preferences → Agent API."
+            )
+            if self._token
+            else self.tr(
+                "Clients added here can read your plan but not edit it. To allow "
+                "editing, enable it in Preferences → Agent API."
+            )
+        )
+        editing_note.setWordWrap(True)
+        layout.addWidget(editing_note)
 
         self._status_label.setWordWrap(True)
         layout.addWidget(self._status_label)
@@ -119,7 +144,9 @@ class ConnectAiAssistantDialog(QDialog):
         snippet_text.setReadOnly(True)
         assert self._server_url is not None
         snippet_text.setPlainText(
-            onboarding.snippet_for_client(client.client_id, url=self._server_url)
+            onboarding.snippet_for_client(
+                client.client_id, url=self._server_url, token=self._token
+            )
         )
         snippet_text.setMaximumHeight(90)
         snippet_text.setVisible(False)
@@ -159,7 +186,9 @@ class ConnectAiAssistantDialog(QDialog):
         self.setCursor(Qt.CursorShape.WaitCursor)
         try:
             try:
-                result = onboarding.install_to_client(client.client_id, url=self._server_url)
+                result = onboarding.install_to_client(
+                    client.client_id, url=self._server_url, token=self._token
+                )
             except Exception as exc:  # noqa: BLE001 — UI trust boundary: a failed
                 # install must never crash the app, even if a future client
                 # strategy raises something install_to_client doesn't yet guard.

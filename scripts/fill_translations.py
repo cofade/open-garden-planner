@@ -2429,6 +2429,55 @@ for _ctx, _strings in _D16_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── US-D2.0: Agent write path — token gate + writes toggle ──
+_D20_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "PreferencesDialog": {
+        "Run a local MCP server so AI assistants can read this garden "
+        "plan. Binds to 127.0.0.1 (this computer) only. Editing stays "
+        "off unless you enable it below.":
+            "Einen lokalen MCP-Server ausführen, damit KI-Assistenten diesen "
+            "Gartenplan lesen können. Bindet nur an 127.0.0.1 (dieser Computer). "
+            "Bearbeiten bleibt aus, sofern Sie es unten nicht aktivieren.",
+        "Allow AI assistants to edit the plan":
+            "KI-Assistenten das Bearbeiten des Plans erlauben",
+        "Let connected assistants move and delete objects. Each edit is a "
+        "single undo step. Requires the token below; off by default.":
+            "Verbundene Assistenten dürfen Objekte verschieben und löschen. Jede "
+            "Änderung ist ein einzelner Rückgängig-Schritt. Erfordert das Token "
+            "unten; standardmäßig aus.",
+        "The access token an assistant must present to edit the plan. "
+        '"Connect AI Assistant…" hands it to the client for you.':
+            "Das Zugriffstoken, das ein Assistent zum Bearbeiten des Plans "
+            'vorlegen muss. „KI-Assistenten verbinden…“ übergibt es für Sie an '
+            "den Client.",
+        "Copy": "Kopieren",
+        "Regenerate": "Neu erzeugen",
+        "Replace the token; assistants using the old one must reconnect.":
+            "Das Token ersetzen; Assistenten mit dem alten Token müssen sich neu "
+            "verbinden.",
+        "Access token:": "Zugriffstoken:",
+        "Enable AI editing to generate a token":
+            "KI-Bearbeitung aktivieren, um ein Token zu erzeugen",
+    },
+    "ConnectAiAssistantDialog": {
+        "AI editing is ON — clients added here can modify your plan. "
+        "Each edit is a single undo step. Turn it off in "
+        "Preferences → Agent API.":
+            "KI-Bearbeitung ist AN – hier hinzugefügte Clients können Ihren Plan "
+            "ändern. Jede Änderung ist ein einzelner Rückgängig-Schritt. "
+            "Schalten Sie sie unter Einstellungen → Agent-API aus.",
+        "Clients added here can read your plan but not edit it. To allow "
+        "editing, enable it in Preferences → Agent API.":
+            "Hier hinzugefügte Clients können Ihren Plan lesen, aber nicht "
+            "bearbeiten. Um die Bearbeitung zu erlauben, aktivieren Sie sie "
+            "unter Einstellungen → Agent-API.",
+    },
+}
+
+for _ctx, _strings in _D20_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)

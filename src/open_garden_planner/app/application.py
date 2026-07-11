@@ -270,6 +270,68 @@ class GardenPlannerApp(QMainWindow):
             )
         )
 
+    def _agent_move_object(self, item_id: str, dx: float, dy: float) -> dict[str, Any]:
+        """Move one object by (dx, dy) scene cm ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_move_object(item_id, dx, dy)
+        )
+
+    def _do_agent_move_object(
+        self, item_id: str, dx: float, dy: float
+    ) -> dict[str, Any]:
+        """Main-thread body of ``move_object``: one undoable ``MoveItemsCommand``."""
+        from PyQt6.QtCore import QPointF
+
+        from open_garden_planner.core.commands import MoveItemsCommand
+
+        item = self._resolve_agent_item(item_id)
+        cmd = MoveItemsCommand([item], QPointF(float(dx), float(dy)))
+        self.canvas_view.command_manager.execute(cmd)
+        center = item.sceneBoundingRect().center()
+        return {
+            "item_id": item_id,
+            "action": "move",
+            "undo_description": cmd.description,
+            "x": center.x(),
+            "y": center.y(),
+        }
+
+    def _agent_delete_object(self, item_id: str) -> dict[str, Any]:
+        """Delete one object ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_delete_object(item_id)
+        )
+
+    def _do_agent_delete_object(self, item_id: str) -> dict[str, Any]:
+        """Main-thread body of ``delete_object``: one undoable ``DeleteItemsCommand``."""
+        from open_garden_planner.core.commands import DeleteItemsCommand
+
+        item = self._resolve_agent_item(item_id)
+        cmd = DeleteItemsCommand(self.canvas_scene, [item])
+        self.canvas_view.command_manager.execute(cmd)
+        return {
+            "item_id": item_id,
+            "action": "delete",
+            "undo_description": cmd.description,
+        }
+
+    def _resolve_agent_item(self, item_id: str) -> Any:
+        """Look up a scene item by UUID string for a write tool, or raise.
+
+        Raising here surfaces to the agent as a failed tool call (the bridge
+        propagates the exception across the main-thread hop).
+        """
+        from uuid import UUID
+
+        try:
+            uuid = UUID(item_id)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"Not a valid object id: {item_id!r}") from exc
+        item = self.canvas_scene.find_item_by_id(uuid)
+        if item is None:
+            raise ValueError(f"No object with id {item_id}")
+        return item
+
     def _maybe_start_agent_api(self) -> None:
         """Start the Agent API server iff it is enabled in settings."""
         from open_garden_planner.app.settings import get_settings
@@ -288,7 +350,8 @@ class GardenPlannerApp(QMainWindow):
 
         if self._agent_server is not None and self._agent_server.is_running:
             return
-        port = get_settings().agent_api_port
+        settings = get_settings()
+        port = settings.agent_api_port
         providers = AgentProviders(
             snapshot=self._agent_snapshot,
             diagnostics=self._agent_diagnostics,
@@ -297,9 +360,20 @@ class GardenPlannerApp(QMainWindow):
             export_pdf=self._agent_export_pdf,
             export_dxf=self._agent_export_dxf,
             export_csv=self._agent_export_csv,
+            move_object=self._agent_move_object,
+            delete_object=self._agent_delete_object,
         )
+        writes_enabled = settings.agent_api_writes_enabled
+        # Only read (and thus auto-generate) the token when writes are on, so a
+        # user who never enables editing never has a token sitting in settings.
+        write_token = settings.agent_api_token if writes_enabled else None
         try:
-            server = AgentApiServer(providers, port=port)
+            server = AgentApiServer(
+                providers,
+                port=port,
+                write_token=write_token,
+                writes_enabled=writes_enabled,
+            )
             server.start()
         except PortInUseError:
             self._agent_server = None
@@ -3812,12 +3886,24 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.ui.dialogs import PreferencesDialog
 
         settings = get_settings()
-        before = (settings.agent_api_enabled, settings.agent_api_port)
+
+        def _agent_api_state() -> tuple[bool, int, bool, str]:
+            # Include writes-enabled + token so toggling AI editing or
+            # regenerating the token also restarts the server (re-registering the
+            # write tools / applying the new token).
+            return (
+                settings.agent_api_enabled,
+                settings.agent_api_port,
+                settings.agent_api_writes_enabled,
+                settings.agent_api_token if settings.agent_api_writes_enabled else "",
+            )
+
+        before = _agent_api_state()
         dialog = PreferencesDialog(self)
         if dialog.exec():
-            after = (settings.agent_api_enabled, settings.agent_api_port)
+            after = _agent_api_state()
             if before != after:
-                # Restart so a toggle or port change takes effect immediately.
+                # Restart so a toggle, port, writes or token change takes effect.
                 self._stop_agent_api()
                 if after[0]:
                     self._start_agent_api()
@@ -3931,11 +4017,29 @@ class GardenPlannerApp(QMainWindow):
             return self._agent_server.url
         return None
 
+    def agent_api_write_token(self) -> str | None:
+        """The bearer token to hand a client, or None if writes aren't live.
+
+        Returns the token only when the server is actually running AND agent
+        editing is enabled — so the Connect dialog embeds a token exactly when
+        write tools are available, never a stale one from settings alone.
+        """
+        from open_garden_planner.app.settings import get_settings
+
+        if self.agent_api_running_url() is None:
+            return None
+        settings = get_settings()
+        if not settings.agent_api_writes_enabled:
+            return None
+        return settings.agent_api_token
+
     def _on_connect_ai_assistant(self) -> None:
         """Handle Connect AI Assistant action (US-D1.6)."""
         from open_garden_planner.ui.dialogs import ConnectAiAssistantDialog
 
-        dialog = ConnectAiAssistantDialog(self.agent_api_running_url(), self)
+        dialog = ConnectAiAssistantDialog(
+            self.agent_api_running_url(), self, token=self.agent_api_write_token()
+        )
         dialog.exec()
 
     def _on_about(self) -> None:

@@ -219,17 +219,32 @@ def detect_clients() -> list[ClientInfo]:
     return clients
 
 
-def install_to_client(client_id: ClientId, *, url: str, name: str = SERVER_NAME) -> InstallResult:
+def _auth_header_value(token: str) -> str:
+    """The ``Authorization`` header value a client sends to reach write tools."""
+    return f"Bearer {token}"
+
+
+def install_to_client(
+    client_id: ClientId,
+    *,
+    url: str,
+    name: str = SERVER_NAME,
+    token: str | None = None,
+) -> InstallResult:
     """Register ``url`` under ``name`` in the given client's config.
+
+    When ``token`` is given, the client is configured to send it as an
+    ``Authorization: Bearer <token>`` header so the Agent API's write tools
+    (D2) are reachable; without it the client can still use all read tools.
 
     Raises ``ValueError`` for an unknown ``client_id`` (a programming error,
     not a runtime condition the caller should handle) — everything else comes
     back as an ``InstallResult`` so a failed install never raises into the UI.
     """
     if client_id == "cursor":
-        return _install_cursor(url=url, name=name)
+        return _install_cursor(url=url, name=name, token=token)
     if client_id == "claude_code":
-        return _install_claude_code(url=url, name=name)
+        return _install_claude_code(url=url, name=name, token=token)
     if client_id == "claude_desktop":
         return InstallResult(
             client_id=client_id,
@@ -243,10 +258,21 @@ def install_to_client(client_id: ClientId, *, url: str, name: str = SERVER_NAME)
     raise ValueError(f"Unknown client_id: {client_id}")
 
 
-def _install_cursor(*, url: str, name: str) -> InstallResult:
+def _cursor_entry(url: str, token: str | None) -> dict[str, object]:
+    """Cursor's ``mcpServers.<name>`` entry — with the bearer header if a token
+    is given (Cursor's documented remote-server schema supports ``headers``)."""
+    entry: dict[str, object] = {"url": url}
+    if token:
+        entry["headers"] = {"Authorization": _auth_header_value(token)}
+    return entry
+
+
+def _install_cursor(*, url: str, name: str, token: str | None = None) -> InstallResult:
     path = _cursor_config_path()
     try:
-        backup = _atomic_merge_mcp_server(path, name=name, entry={"url": url})
+        backup = _atomic_merge_mcp_server(
+            path, name=name, entry=_cursor_entry(url, token)
+        )
     except OSError as exc:
         return InstallResult(client_id="cursor", success=False, detail=str(exc))
     return InstallResult(client_id="cursor", success=True, detail=str(path), backup_path=backup)
@@ -262,7 +288,15 @@ def _run_claude_mcp(claude: str, *args: str) -> subprocess.CompletedProcess[str]
     )
 
 
-def _install_claude_code(*, url: str, name: str) -> InstallResult:
+def _claude_code_add_args(name: str, url: str, token: str | None) -> tuple[str, ...]:
+    """Args for ``claude mcp add`` — inserting ``--header`` when a token is set."""
+    header: tuple[str, ...] = (
+        ("--header", f"Authorization: {_auth_header_value(token)}") if token else ()
+    )
+    return ("add", "--transport", "http", "--scope", "user", *header, name, url)
+
+
+def _install_claude_code(*, url: str, name: str, token: str | None = None) -> InstallResult:
     claude = shutil.which("claude")
     if claude is None:
         return InstallResult(
@@ -271,25 +305,25 @@ def _install_claude_code(*, url: str, name: str) -> InstallResult:
             detail="claude CLI not found on PATH.",
         )
 
+    add_args = _claude_code_add_args(name, url, token)
+
     # Every module docstring/ADR-035 promise is "a failed install never raises
     # into the UI" — the CLI can hang (first-run login prompt, network stall)
     # or simply not exist despite shutil.which finding a stale PATH entry, so
     # every subprocess call in this function is inside this one try/except.
     try:
-        result = _run_claude_mcp(claude, "add", "--transport", "http", "--scope", "user", name, url)
+        result = _run_claude_mcp(claude, *add_args)
         if result.returncode == 0:
             return InstallResult(client_id="claude_code", success=True, detail=result.stdout.strip())
 
         stderr = result.stderr.strip()
         if "already exists" in stderr.lower():
             # Re-registering under the same name is an update, not a clobber —
-            # remove-then-add so a changed port takes effect. Other servers in
-            # ~/.claude.json are untouched either way.
+            # remove-then-add so a changed port/token takes effect. Other servers
+            # in ~/.claude.json are untouched either way.
             removed = _run_claude_mcp(claude, "remove", name, "--scope", "user")
             if removed.returncode == 0:
-                retry = _run_claude_mcp(
-                    claude, "add", "--transport", "http", "--scope", "user", name, url
-                )
+                retry = _run_claude_mcp(claude, *add_args)
                 if retry.returncode == 0:
                     return InstallResult(client_id="claude_code", success=True, detail=retry.stdout.strip())
                 stderr = (
@@ -304,15 +338,23 @@ def _install_claude_code(*, url: str, name: str) -> InstallResult:
     return InstallResult(client_id="claude_code", success=False, detail=stderr or "claude mcp add failed.")
 
 
-def snippet_for_client(client_id: ClientId, *, url: str, name: str = SERVER_NAME) -> str:
+def snippet_for_client(
+    client_id: ClientId, *, url: str, name: str = SERVER_NAME, token: str | None = None
+) -> str:
     """Copy-paste fallback text for a client — raw payload only (JSON/command),
     no descriptive prose; the dialog supplies its own translated "where to put
     this" note per client.
+
+    When ``token`` is given the snippet includes the ``Authorization: Bearer``
+    header so a hand-registered client can reach the write tools too.
     """
     if client_id == "cursor":
-        return json.dumps({"mcpServers": {name: {"url": url}}}, indent=2)
+        return json.dumps(
+            {"mcpServers": {name: _cursor_entry(url, token)}}, indent=2
+        )
     if client_id == "claude_code":
-        return f"claude mcp add --transport http --scope user {name} {url}"
+        header = f' --header "Authorization: {_auth_header_value(token)}"' if token else ""
+        return f"claude mcp add --transport http --scope user{header} {name} {url}"
     if client_id == "claude_desktop":
         return url
     raise ValueError(f"Unknown client_id: {client_id}")

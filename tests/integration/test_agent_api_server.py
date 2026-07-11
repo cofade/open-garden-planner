@@ -72,7 +72,14 @@ def _providers(scene: Any) -> AgentProviders:
         export_csv=lambda kind, file_path: bridge.run_on_main(
             lambda: export_csv_file(scene, project_manager, soil_service, kind, file_path)
         ),
+        # Write providers are unused by these read-only server tests.
+        move_object=lambda *_a: _unused("move_object"),
+        delete_object=lambda *_a: _unused("delete_object"),
     )
+
+
+def _unused(name: str) -> dict[str, Any]:
+    raise AssertionError(f"{name} should not be called in a read-only test")
 
 
 def _drive(server: AgentApiServer, body: Callable[[Any], Any], result: dict[str, Any]) -> None:

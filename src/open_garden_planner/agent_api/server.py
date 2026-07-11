@@ -54,7 +54,9 @@ direct: a plain ``str`` return is wrapped as
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
+import secrets
 import socket
 import threading
 import time
@@ -76,6 +78,7 @@ from open_garden_planner.agent_api.schema import (
     ObjectRef,
     PlanSummary,
     RenderMeta,
+    WriteResult,
 )
 from open_garden_planner.services.bundled_species_db import get_species_db
 
@@ -84,6 +87,73 @@ if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
+
+# --- Write-tool bearer-token gate (US-D2.0) --------------------------------
+#
+# Reads stay open (loopback trust, ADR-033) so D1 clients onboarded without a
+# token keep working; only the scene-mutating write tools require the token. We
+# therefore gate PER TOOL, not with a blanket middleware over the whole server.
+#
+# ``_bearer_token_middleware`` (applied to the ASGI app in ``_start_locked``)
+# reads the ``Authorization: Bearer <token>`` header off every HTTP request and
+# stashes the presented value in this ContextVar. Each write tool's ``async``
+# handler then calls ``_require_write_auth`` — which runs in the SAME request
+# task as the middleware, so it sees that request's token — BEFORE any thread
+# offload. Verified end-to-end against mcp 1.28.1 with ``stateless_http=True``.
+_presented_token: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "agent_api_presented_token", default=None
+)
+
+
+class WriteAuthError(Exception):
+    """Raised when a write tool is called without a valid bearer token.
+
+    Surfaces to the MCP client as a failed tool call (the SDK renders a raised
+    exception as an error result), telling the agent the token is missing/wrong
+    without leaking the expected value.
+    """
+
+
+def _require_write_auth(expected_token: str | None) -> None:
+    """Reject the current write-tool call unless the request bore the token.
+
+    ``expected_token`` is the server's configured token; ``None`` means writes
+    are not configured at all (defensive — the write tools aren't even
+    registered in that case). Comparison is constant-time.
+    """
+    presented = _presented_token.get()
+    if not expected_token or not presented or not secrets.compare_digest(
+        presented, expected_token
+    ):
+        raise WriteAuthError(
+            "This tool requires the Agent API write token. Enable AI editing and "
+            "copy the token from Open Garden Planner's Preferences > Agent API "
+            "(or the 'Connect AI Assistant' dialog), then send it as an "
+            "'Authorization: Bearer <token>' header."
+        )
+
+
+def _bearer_token_middleware(app: Any) -> Any:
+    """Wrap an ASGI ``app`` so each request's bearer token lands in the ContextVar.
+
+    Pure ASGI (no Starlette ``BaseHTTPMiddleware``) so it adds no per-request
+    task hop and can't interfere with the streamable-HTTP body streaming. Only
+    HTTP scopes carry headers; anything else passes straight through.
+    """
+
+    async def wrapped(scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope.get("type") == "http":
+            token: str | None = None
+            for key, value in scope.get("headers") or []:
+                if key == b"authorization":
+                    raw = value.decode("latin-1")
+                    if raw[:7].lower() == "bearer ":
+                        token = raw[7:].strip()
+                    break
+            _presented_token.set(token)
+        await app(scope, receive, send)
+
+    return wrapped
 
 # Max time start() blocks the caller waiting for uvicorn to report "listening".
 _READY_TIMEOUT_S = 5.0
@@ -102,7 +172,11 @@ class PortInUseError(RuntimeError):
 
 
 def build_server(
-    providers: AgentProviders, *, stateless_http: bool = True
+    providers: AgentProviders,
+    *,
+    stateless_http: bool = True,
+    write_token: str | None = None,
+    writes_enabled: bool = False,
 ) -> FastMCP:
     """Create a configured ``FastMCP`` instance with the read/query tools registered.
 
@@ -118,10 +192,26 @@ def build_server(
     Coordinates throughout are the plan's native scene frame (centimetres, origin
     top-left, +x right, +y down). Read-only ``raw=True`` switches a tool from the
     curated agent schema to the underlying ``.ogp`` serialiser dict(s).
+
+    Args:
+        writes_enabled: When true AND ``write_token`` is set, the scene-mutating
+            write tools (``move_object``/``delete_object``) are registered. When
+            either is missing the write tools are omitted entirely — they don't
+            appear in the agent's tool list. This gating (plus the per-call
+            token check) is the D2 write gate ADR-033 requires.
+        write_token: The bearer token every write call must present (see
+            ``_require_write_auth``). Read tools never require it.
     """
     import anyio
     from mcp.server.fastmcp import FastMCP, Image
 
+    writes_active = bool(writes_enabled and write_token)
+    write_note = (
+        " move_object/delete_object edit the live plan (each is one undoable "
+        "step) and require an 'Authorization: Bearer <token>' header."
+        if writes_active
+        else ""
+    )
     mcp = FastMCP(
         "Open Garden Planner",
         instructions=(
@@ -132,7 +222,7 @@ def build_server(
             "get_diagnostics for the plan's current warnings. save_plan/"
             "export_pdf/export_dxf/export_csv write a file to disk (the "
             "project's own .ogp, or a PDF/DXF/CSV deliverable) but do not "
-            "otherwise modify the plan."
+            "otherwise modify the plan." + write_note
         ),
         stateless_http=stateless_http,
         log_level="WARNING",
@@ -388,6 +478,46 @@ def build_server(
         )
         return ExportResult(**result)
 
+    # --- US-D2.0: scene-mutating write tools (token-gated) ------------------
+    # Registered only when writes are enabled AND a token is configured. Each
+    # tool checks the token first (in this async task, before the thread hop),
+    # then routes through a provider that runs ONE undoable command on the Qt
+    # main thread — invariants #3/#4/#13: one agent write = one Ctrl-Z step.
+    if writes_active:
+
+        @mcp.tool()
+        async def move_object(item_id: str, dx: float, dy: float) -> WriteResult:
+            """Move one object by a relative offset (one undoable step).
+
+            Args:
+                item_id: The object's stable UUID (from list_objects/get_object).
+                dx: Horizontal offset in scene cm (+x is right).
+                dy: Vertical offset in scene cm (+y is down) — the SAME frame the
+                    read tools report positions in, so you can move an object
+                    relative to a position you just read without flipping any axis.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.move_object(item_id, dx, dy)
+            )
+            return WriteResult(**result)
+
+        @mcp.tool()
+        async def delete_object(item_id: str) -> WriteResult:
+            """Delete one object from the plan (one undoable step).
+
+            Deleting a bed/container also detaches its contained plants; undo
+            restores the object and its relationships.
+
+            Args:
+                item_id: The object's stable UUID (from list_objects/get_object).
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.delete_object(item_id)
+            )
+            return WriteResult(**result)
+
     # --- US-D1.5: resources + read-analysis prompts -------------------------
 
     @mcp.resource("garden://plan", mime_type="application/json")
@@ -459,11 +589,15 @@ class AgentApiServer:
         host: str = "127.0.0.1",
         port: int = 8765,
         path: str = "/mcp",
+        write_token: str | None = None,
+        writes_enabled: bool = False,
     ) -> None:
         self._providers = providers
         self._host = host
         self._port = port
         self._path = path if path.startswith("/") else f"/{path}"
+        self._write_token = write_token
+        self._writes_enabled = writes_enabled
         self._thread: threading.Thread | None = None
         self._server: uvicorn.Server | None = None
         self._lock = threading.Lock()
@@ -499,9 +633,15 @@ class AgentApiServer:
     def _start_locked(self) -> None:
         import uvicorn
 
-        mcp = build_server(self._providers)
+        mcp = build_server(
+            self._providers,
+            write_token=self._write_token,
+            writes_enabled=self._writes_enabled,
+        )
         mcp.settings.streamable_http_path = self._path
-        app = mcp.streamable_http_app()
+        # Wrap so each request's bearer token reaches the write tools' auth check
+        # via the module ContextVar. Reads ignore it (loopback trust unchanged).
+        app = _bearer_token_middleware(mcp.streamable_http_app())
 
         config = uvicorn.Config(
             app,

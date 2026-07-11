@@ -373,3 +373,76 @@ class TestSnippetForClient:
     def test_unknown_client_raises(self) -> None:
         with pytest.raises(ValueError):
             onboarding.snippet_for_client("bogus", url=_URL)  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Bearer token (US-D2.0): the write-access token must be threaded into each
+# client's config so a one-click install can actually reach the write tools.
+# ---------------------------------------------------------------------------
+
+_TOKEN = "write-token-abc123"
+
+
+class TestBearerTokenThreading:
+    def test_cursor_install_writes_bearer_header(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        result = onboarding.install_to_client("cursor", url=_URL, token=_TOKEN)
+
+        assert result.success is True
+        data = json.loads((tmp_path / ".cursor" / "mcp.json").read_text(encoding="utf-8"))
+        entry = data["mcpServers"][onboarding.SERVER_NAME]
+        assert entry["url"] == _URL
+        assert entry["headers"] == {"Authorization": f"Bearer {_TOKEN}"}
+
+    def test_cursor_install_without_token_has_no_headers(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        onboarding.install_to_client("cursor", url=_URL)
+
+        data = json.loads((tmp_path / ".cursor" / "mcp.json").read_text(encoding="utf-8"))
+        assert data["mcpServers"][onboarding.SERVER_NAME] == {"url": _URL}
+
+    def test_cursor_snippet_includes_bearer_header(self) -> None:
+        data = json.loads(
+            onboarding.snippet_for_client("cursor", url=_URL, token=_TOKEN)
+        )
+        entry = data["mcpServers"][onboarding.SERVER_NAME]
+        assert entry["headers"] == {"Authorization": f"Bearer {_TOKEN}"}
+
+    def test_claude_code_add_args_include_header(self) -> None:
+        args = onboarding._claude_code_add_args(onboarding.SERVER_NAME, _URL, _TOKEN)
+        assert "--header" in args
+        i = args.index("--header")
+        assert args[i + 1] == f"Authorization: Bearer {_TOKEN}"
+
+    def test_claude_code_add_args_omit_header_without_token(self) -> None:
+        args = onboarding._claude_code_add_args(onboarding.SERVER_NAME, _URL, None)
+        assert "--header" not in args
+
+    def test_claude_code_snippet_includes_header(self) -> None:
+        snippet = onboarding.snippet_for_client("claude_code", url=_URL, token=_TOKEN)
+        assert f'--header "Authorization: Bearer {_TOKEN}"' in snippet
+
+    def test_claude_code_install_passes_header_to_cli(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: "/usr/local/bin/claude")
+        seen: dict[str, list[str]] = {}
+
+        def fake_run(args: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            seen["args"] = args
+            return subprocess.CompletedProcess(args, 0, stdout="ok", stderr="")
+
+        monkeypatch.setattr(onboarding.subprocess, "run", fake_run)
+
+        result = onboarding.install_to_client("claude_code", url=_URL, token=_TOKEN)
+
+        assert result.success is True
+        assert "--header" in seen["args"]
+        i = seen["args"].index("--header")
+        assert seen["args"][i + 1] == f"Authorization: Bearer {_TOKEN}"

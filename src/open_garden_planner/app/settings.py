@@ -50,6 +50,9 @@ class AppSettings:
     # Agent API (US-D1.1) — embedded MCP server
     KEY_AGENT_API_ENABLED = "agent_api/enabled"
     KEY_AGENT_API_PORT = "agent_api/port"
+    # Agent API writes (US-D2.0) — scene-mutating tools + bearer-token gate
+    KEY_AGENT_API_WRITES_ENABLED = "agent_api/writes_enabled"
+    KEY_AGENT_API_TOKEN = "agent_api/token"
 
     # Phase 13 Package B (US-B3) — fillet/chamfer "last used" values
     KEY_FILLET_LAST_RADIUS_CM = "tools/fillet_last_radius_cm"
@@ -100,6 +103,9 @@ class AppSettings:
     DEFAULT_AGENT_API_PORT = 8765
     MIN_AGENT_API_PORT = 1024
     MAX_AGENT_API_PORT = 65535
+    # Writes are OFF by default: even with a valid token, an agent cannot mutate
+    # the plan until the user opts in (belt-and-suspenders over loopback trust).
+    DEFAULT_AGENT_API_WRITES_ENABLED = False
 
     # Phase 13 Package B (US-B3): default fillet radius / chamfer distance
     # in cm. These are the "last used" values that prefill the input dialog
@@ -585,6 +591,52 @@ class AppSettings:
         """Set the Agent API port, clamped to the IANA user range."""
         clamped = max(self.MIN_AGENT_API_PORT, min(self.MAX_AGENT_API_PORT, value))
         self._settings.setValue(self.KEY_AGENT_API_PORT, clamped)
+
+    @property
+    def agent_api_writes_enabled(self) -> bool:
+        """Whether agents may mutate the plan via write tools (default off).
+
+        The bearer token still gates every write even when this is on; this
+        toggle is the user's explicit opt-in to agent editing on top of that.
+        """
+        return self._settings.value(
+            self.KEY_AGENT_API_WRITES_ENABLED,
+            self.DEFAULT_AGENT_API_WRITES_ENABLED,
+            type=bool,
+        )
+
+    @agent_api_writes_enabled.setter
+    def agent_api_writes_enabled(self, value: bool) -> None:
+        """Set whether agents may mutate the plan via write tools."""
+        self._settings.setValue(self.KEY_AGENT_API_WRITES_ENABLED, bool(value))
+
+    @property
+    def agent_api_token(self) -> str:
+        """The bearer token an agent must present to call write tools.
+
+        Auto-generated on first access (and persisted) so a user who enables
+        writes always has a token to hand to their client — they never have to
+        invent one. Reads never require it (loopback trust, unchanged).
+        """
+        import secrets
+
+        token = self._settings.value(self.KEY_AGENT_API_TOKEN, "", type=str)
+        if not token:
+            token = secrets.token_urlsafe(32)
+            self._settings.setValue(self.KEY_AGENT_API_TOKEN, token)
+        return token
+
+    def regenerate_agent_api_token(self) -> str:
+        """Replace the Agent API bearer token with a fresh one and return it.
+
+        Any client configured with the old token stops being able to write
+        until re-registered — the intended effect of "revoke access".
+        """
+        import secrets
+
+        token = secrets.token_urlsafe(32)
+        self._settings.setValue(self.KEY_AGENT_API_TOKEN, token)
+        return token
 
     def sync(self) -> None:
         """Force settings to be written to storage."""

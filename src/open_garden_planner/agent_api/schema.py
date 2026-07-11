@@ -211,3 +211,33 @@ class ExportResult(BaseModel):
         description="The project's prior current_file (save_plan only), if this call "
         "changed it — e.g. a save-as to a new path. Null if unchanged or not applicable.",
     )
+
+
+# --- US-D2.0: scene-mutating write tools ------------------------------------
+#
+# The first Agent API tools that mutate the live plan (move_object/
+# delete_object). Each requires a bearer token (ADR-033/ADR-036) and runs as
+# exactly one undoable command on the Qt main thread. WriteResult is the curated
+# confirmation returned to the agent — decoupled from the .ogp serializer.
+
+
+class WriteResult(BaseModel):
+    """Result of a scene-mutating Agent API write tool (move_object/delete_object)."""
+
+    item_id: str = Field(description="Stable UUID of the object that was modified.")
+    action: Literal["move", "delete"] = Field(
+        description="The mutation performed."
+    )
+    undo_description: str = Field(
+        description="Human-readable label of the single undo step this created "
+        "(the user can reverse it with one Ctrl+Z)."
+    )
+    x: float | None = Field(
+        default=None,
+        description="Resulting object centre X in scene cm (move only; null for delete).",
+    )
+    y: float | None = Field(
+        default=None,
+        description="Resulting object centre Y in scene cm, +y down (move only; null "
+        "for delete).",
+    )

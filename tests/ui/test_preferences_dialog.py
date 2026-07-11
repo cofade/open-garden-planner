@@ -74,8 +74,9 @@ class TestConnectAiAssistantEntryPoint:
         captured = {}
 
         class _FakeDialog:
-            def __init__(self, url, _parent):
+            def __init__(self, url, _parent, *, token=None):
                 captured["url"] = url
+                captured["token"] = token
 
             def exec(self):
                 return None

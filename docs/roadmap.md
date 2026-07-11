@@ -2403,7 +2403,7 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 | Phase | Scope |
 |-------|-------|
 | **D1 (v1, MVP)** | Write-ready core + read/query tools + render-image tool + export tools + resources + read-analysis prompts |
-| **D2** | Write/edit tools (create/move/resize/delete beds, containers, plants, shapes; assign species; layers) — auto-apply, one-undo-per-op, free co-edit; low-level geometry escape hatches. **Prerequisite: token auth** (FR-AGENT-03 / §8.11) must land before any write tool — a loopback port reachable by any local process must not gain mutate access unauthenticated |
+| **D2** | Write/edit tools (create/move/resize/delete beds, containers, plants, shapes; assign species; layers) — auto-apply, one-undo-per-op, free co-edit; low-level geometry escape hatches. **Prerequisite: token auth** (FR-AGENT-03 / §8.11) must land before any write tool — a loopback port reachable by any local process must not gain mutate access unauthenticated. **D2.0 ✅ shipped** the token gate + first write slice (`move_object`/`delete_object`, ADR-036); remaining tools (create/resize/rotate/species/reparent/layers) follow behind the same gate |
 | **D3** | Domain-intelligence tools + guided write prompts (companion-aware placement, succession, calendar/tasks, soil amendment planning) |
 
 ### US table (D1 = MVP)
