@@ -416,17 +416,34 @@ class TestBearerTokenThreading:
 
     def test_claude_code_add_args_include_header(self) -> None:
         args = onboarding._claude_code_add_args(onboarding.SERVER_NAME, _URL, _TOKEN)
-        assert "--header" in args
-        i = args.index("--header")
-        assert args[i + 1] == f"Authorization: Bearer {_TOKEN}"
+        # Exact order matters: --header is variadic in the Claude CLI and must
+        # come AFTER the name+url positionals, or it swallows them ("missing
+        # required argument 'name'"). Pin the whole sequence.
+        assert args == (
+            "add", "--transport", "http", "--scope", "user",
+            onboarding.SERVER_NAME, _URL,
+            "--header", f"Authorization: Bearer {_TOKEN}",
+        )
+
+    def test_claude_code_add_args_header_after_positionals(self) -> None:
+        # Regression: the header option must follow name and url, never precede.
+        args = onboarding._claude_code_add_args(onboarding.SERVER_NAME, _URL, _TOKEN)
+        assert args.index("--header") > args.index(onboarding.SERVER_NAME)
+        assert args.index("--header") > args.index(_URL)
 
     def test_claude_code_add_args_omit_header_without_token(self) -> None:
         args = onboarding._claude_code_add_args(onboarding.SERVER_NAME, _URL, None)
         assert "--header" not in args
+        assert args == (
+            "add", "--transport", "http", "--scope", "user", onboarding.SERVER_NAME, _URL
+        )
 
     def test_claude_code_snippet_includes_header(self) -> None:
         snippet = onboarding.snippet_for_client("claude_code", url=_URL, token=_TOKEN)
         assert f'--header "Authorization: Bearer {_TOKEN}"' in snippet
+        # The header must come after name+url in the command string, not before.
+        assert snippet.index("--header") > snippet.index(_URL)
+        assert snippet.index("--header") > snippet.index(onboarding.SERVER_NAME)
 
     def test_claude_code_install_passes_header_to_cli(
         self, monkeypatch: pytest.MonkeyPatch

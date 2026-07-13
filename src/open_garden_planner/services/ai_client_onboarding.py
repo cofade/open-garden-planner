@@ -289,11 +289,18 @@ def _run_claude_mcp(claude: str, *args: str) -> subprocess.CompletedProcess[str]
 
 
 def _claude_code_add_args(name: str, url: str, token: str | None) -> tuple[str, ...]:
-    """Args for ``claude mcp add`` — inserting ``--header`` when a token is set."""
+    """Args for ``claude mcp add``, with ``--header`` when a token is set.
+
+    ``--header`` is a *variadic* option in the Claude CLI — it consumes every
+    following token — so it MUST come AFTER the positional ``name`` and ``url``,
+    or it swallows them and the CLI fails with "missing required argument
+    'name'". This matches the official syntax:
+    ``claude mcp add --transport http <name> <url> --header "Authorization: ..."``.
+    """
     header: tuple[str, ...] = (
         ("--header", f"Authorization: {_auth_header_value(token)}") if token else ()
     )
-    return ("add", "--transport", "http", "--scope", "user", *header, name, url)
+    return ("add", "--transport", "http", "--scope", "user", name, url, *header)
 
 
 def _install_claude_code(*, url: str, name: str, token: str | None = None) -> InstallResult:
@@ -353,8 +360,9 @@ def snippet_for_client(
             {"mcpServers": {name: _cursor_entry(url, token)}}, indent=2
         )
     if client_id == "claude_code":
+        # --header is variadic and must come AFTER name+url (see _claude_code_add_args).
         header = f' --header "Authorization: {_auth_header_value(token)}"' if token else ""
-        return f"claude mcp add --transport http --scope user{header} {name} {url}"
+        return f"claude mcp add --transport http --scope user {name} {url}{header}"
     if client_id == "claude_desktop":
         return url
     raise ValueError(f"Unknown client_id: {client_id}")
