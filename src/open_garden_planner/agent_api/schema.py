@@ -216,9 +216,13 @@ class ExportResult(BaseModel):
 # --- US-D2.0: scene-mutating write tools ------------------------------------
 #
 # The first Agent API tools that mutate the live plan (move_object/
-# delete_object). Each requires a bearer token (ADR-033/ADR-036) and runs as
-# exactly one undoable command on the Qt main thread. WriteResult is the curated
-# confirmation returned to the agent — decoupled from the .ogp serializer.
+# delete_object). Each requires a bearer token (ADR-033/ADR-036) and runs on
+# the Qt main thread via the same commands the GUI itself uses. WriteResult is
+# the curated confirmation returned to the agent — decoupled from the .ogp
+# serializer. move_object is ONE undo step for a lone item, but — mirroring
+# CanvasView's own drag-release behaviour — TWO when the move also carries a
+# bed's contained plants along and/or crosses a bed boundary and reparents a
+# plant; children_moved/bed_membership_changed/new_parent_bed_id surface that.
 
 
 class WriteResult(BaseModel):
@@ -229,8 +233,9 @@ class WriteResult(BaseModel):
         description="The mutation performed."
     )
     undo_description: str = Field(
-        description="Human-readable label of the single undo step this created "
-        "(the user can reverse it with one Ctrl+Z)."
+        description="Human-readable label of the primary undo step this created "
+        "(the user can reverse it with Ctrl+Z; see bed_membership_changed for "
+        "whether a second step was also created)."
     )
     x: float | None = Field(
         default=None,
@@ -240,4 +245,20 @@ class WriteResult(BaseModel):
         default=None,
         description="Resulting object centre Y in scene cm, +y down (move only; null "
         "for delete).",
+    )
+    children_moved: int = Field(
+        default=0,
+        description="Contained plants moved along with this object, e.g. moving a "
+        "bed carries its plants (move only; always 0 for delete).",
+    )
+    bed_membership_changed: bool = Field(
+        default=False,
+        description="True if this move crossed a bed boundary and the plant's "
+        "parent bed was updated as a second undo step (move only, plants only).",
+    )
+    new_parent_bed_id: str | None = Field(
+        default=None,
+        description="The plant's new parent bed UUID if bed_membership_changed is "
+        "true and it entered a bed; null if it left a bed, is unchanged, or is not "
+        "applicable.",
     )

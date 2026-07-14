@@ -57,6 +57,15 @@ def test_require_write_auth_rejects_bad_token(presented: str | None) -> None:
         _require_write_auth("s3cret")
 
 
+def test_require_write_auth_rejects_non_ascii_without_raising_typeerror() -> None:
+    """secrets.compare_digest raises TypeError on non-ASCII str input; a
+    malformed/hostile Authorization header must fail closed as a normal
+    WriteAuthError, never propagate an unhandled exception."""
+    _presented_token.set("café")
+    with pytest.raises(WriteAuthError):
+        _require_write_auth("s3cret")
+
+
 def test_require_write_auth_rejects_when_no_token_configured() -> None:
     # Even a present header can't authorise if the server has no token.
     _presented_token.set("anything")

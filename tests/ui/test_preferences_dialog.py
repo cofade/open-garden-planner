@@ -42,13 +42,19 @@ class TestPreferencesDialog:
 
 
 class _FakeParentWindow:
-    """Stands in for GardenPlannerApp: only agent_api_running_url() matters."""
+    """Stands in for GardenPlannerApp: agent_api_running_url()/agent_api_write_token()."""
 
-    def __init__(self, running_url: str | None) -> None:
+    def __init__(
+        self, running_url: str | None, write_token: str | None = None
+    ) -> None:
         self._running_url = running_url
+        self._write_token = write_token
 
     def agent_api_running_url(self) -> str | None:
         return self._running_url
+
+    def agent_api_write_token(self) -> str | None:
+        return self._write_token
 
 
 class TestConnectAiAssistantEntryPoint:
@@ -118,3 +124,81 @@ class TestConnectAiAssistantEntryPoint:
         captured = self._open_and_capture_url(dialog, monkeypatch)
 
         assert captured["url"] == "http://127.0.0.1:9191/mcp"
+
+
+class TestAgentApiTokenField:
+    """US-D2.0: the token field must never let Copy silently hand out a value
+    the running server doesn't actually accept. Regenerate persists to
+    settings immediately, but the running server keeps validating whatever it
+    was started with until a restart (Save) — so a visible note covers the gap
+    instead of Copy/the field diverging silently."""
+
+    @pytest.fixture()
+    def dialog(self, qtbot):
+        dlg = PreferencesDialog()
+        qtbot.addWidget(dlg)
+        dlg._agent_api_check.setChecked(True)
+        dlg._agent_api_writes_check.setChecked(True)
+        return dlg
+
+    def test_no_note_when_running_token_matches_settings(self, dialog, monkeypatch) -> None:
+        from open_garden_planner.app.settings import get_settings
+
+        current = get_settings().agent_api_token
+        monkeypatch.setattr(
+            dialog, "parent", lambda: _FakeParentWindow("http://127.0.0.1:8765/mcp", current)
+        )
+
+        dialog._refresh_agent_api_token_field()
+
+        assert dialog._agent_api_token_edit.text() == current
+        # isVisible() is compound with the (never-shown) top-level dialog and
+        # would always read False here; isHidden() reflects setVisible()
+        # directly regardless of ancestor state.
+        assert dialog._agent_api_token_pending_note.isHidden() is True
+
+    def test_note_shown_when_running_token_differs_after_regenerate(
+        self, dialog, monkeypatch
+    ) -> None:
+        """The exact scenario the reviewer flagged: Regenerate persists a new
+        settings token immediately, but a still-running server was started
+        with the old one — Copy would hand out a token that doesn't work yet."""
+        stale_running_token = "token-the-live-server-still-accepts"
+        monkeypatch.setattr(
+            dialog,
+            "parent",
+            lambda: _FakeParentWindow("http://127.0.0.1:8765/mcp", stale_running_token),
+        )
+
+        dialog._on_regenerate_agent_api_token()
+
+        assert dialog._agent_api_token_edit.text() != stale_running_token
+        # isVisible() is compound with the (never-shown) top-level dialog and
+        # would always read False here; isHidden() reflects setVisible()
+        # directly regardless of ancestor state.
+        assert dialog._agent_api_token_pending_note.isHidden() is False
+
+    def test_no_note_when_no_server_running(self, dialog, monkeypatch) -> None:
+        monkeypatch.setattr(dialog, "parent", lambda: _FakeParentWindow(None, None))
+
+        dialog._refresh_agent_api_token_field()
+
+        # isVisible() is compound with the (never-shown) top-level dialog and
+        # would always read False here; isHidden() reflects setVisible()
+        # directly regardless of ancestor state.
+        assert dialog._agent_api_token_pending_note.isHidden() is True
+
+    def test_note_hidden_when_writes_disabled(self, dialog, monkeypatch) -> None:
+        monkeypatch.setattr(
+            dialog,
+            "parent",
+            lambda: _FakeParentWindow("http://127.0.0.1:8765/mcp", "some-other-token"),
+        )
+        dialog._agent_api_token_pending_note.setVisible(True)  # force a prior state
+
+        dialog._agent_api_writes_check.setChecked(False)
+
+        # isVisible() is compound with the (never-shown) top-level dialog and
+        # would always read False here; isHidden() reflects setVisible()
+        # directly regardless of ancestor state.
+        assert dialog._agent_api_token_pending_note.isHidden() is True

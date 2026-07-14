@@ -5166,6 +5166,10 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <source>Enable AI editing to generate a token</source>
             <translation>KI-Bearbeitung aktivieren, um ein Token zu erzeugen</translation>
         </message>
+        <message>
+            <source>The running server still uses the previous token until you click Save — copying now won't work for a client yet.</source>
+            <translation>Der laufende Server verwendet weiterhin das vorherige Token, bis Sie auf Speichern klicken – ein jetzt kopiertes Token funktioniert für einen Client noch nicht.</translation>
+        </message>
     </context>
     <context>
         <name>PrintOptionsDialog</name>

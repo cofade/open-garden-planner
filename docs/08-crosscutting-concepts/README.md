@@ -1051,14 +1051,20 @@ the `anyio.to_thread.run_sync` main-thread hop. Verified end-to-end against
 `mcp==1.28.1` with `stateless_http=True` that the ContextVar set in middleware
 is visible in the tool handler for the same request (chosen over a `ctx:
 Context` header read so the gate doesn't depend on FastMCP internals). The
-write itself reuses the GUI's own path exactly: an `AgentProviders` callable
-hops to the main thread, resolves the item by UUID (`scene.find_item_by_id`),
-builds one existing `Command` (`MoveItemsCommand`/`DeleteItemsCommand`), and
-runs `canvas_view.command_manager.execute(cmd)` — so **one agent write = one
-undoable step** that marks the plan dirty (invariants #3/#4/#13; no parallel
-mutation path). The token is surfaced (Copy/Regenerate) in Preferences → Agent
-API and injected into each client's config by the D1.6 onboarding writers as
-the `Authorization` header. See ADR-036; §8.11 for the security note.
+write itself hops to the main thread via an `AgentProviders` callable,
+resolves the item by UUID (`scene.find_item_by_id`), and runs
+`canvas_view.command_manager.execute(cmd)` — matching GUI *behaviour*, not
+merely reusing a `Command` class: `delete_object` is `DeleteItemsCommand`
+(already detaches contained plants, restored on undo). `move_object` mirrors
+`CanvasView`'s whole drag-release sequence — a bed/container/trellis's
+contained plants move with it (`AlignItemsCommand` over item+children), and a
+moved plant's bed membership is re-evaluated afterward (`SetParentBedCommand`
+on a boundary crossing) — so **one agent write is one undoable step for a lone
+item, and two when a move also reparents a plant**, never more; every command
+still marks the plan dirty (invariants #3/#4/#13; no parallel mutation path).
+The token is surfaced (Copy/Regenerate) in Preferences → Agent API and
+injected into each client's config by the D1.6 onboarding writers as the
+`Authorization` header. See ADR-036; §8.11 for the security note.
 
 **i18n.** MCP tool/resource/prompt descriptions are an English API contract
 (exempt). Only the Settings UI strings go through `tr()`.

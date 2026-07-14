@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from PyQt6.QtCore import QPointF
 
 from open_garden_planner.app.application import GardenPlannerApp
 from open_garden_planner.app.settings import get_settings
@@ -138,12 +139,123 @@ def test_do_agent_move_object_is_one_undoable_step(qtbot: Any, monkeypatch: Any)
         assert moved.y() == start.y() + 10.0
         assert result["action"] == "move"
         assert result["x"] == moved.x() and result["y"] == moved.y()
-        # Exactly one undo step, and it reverses cleanly.
+        assert result["children_moved"] == 0
+        assert result["bed_membership_changed"] is False
+        # Invariants #3/#4/#13: one undo step, it dirties the document, and
+        # it reverses cleanly.
+        assert win._project_manager.is_dirty
         assert win.canvas_view.command_manager.can_undo
         win.canvas_view.command_manager.undo()
         back = item.sceneBoundingRect().center()
         assert back.x() == start.x() and back.y() == start.y()
         assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_move_bed_with_children_propagates_to_plants(qtbot: Any, monkeypatch: Any) -> None:
+    """P0 regression: moving a bed must carry its contained plants along —
+    mirroring CanvasView._propagate_bed_children_during_drag's release-time
+    commit — not silently abandon them at their old position while
+    child_item_ids still (falsely) claims they're inside the bed."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = RectangleItem(100, 100, 400, 300, object_type=ObjectType.RAISED_BED)
+        win.canvas_scene.addItem(bed)
+        plant_a = CircleItem(200, 200, 20, object_type=ObjectType.TREE)
+        plant_b = CircleItem(350, 250, 20, object_type=ObjectType.PERENNIAL)
+        win.canvas_scene.addItem(plant_a)
+        win.canvas_scene.addItem(plant_b)
+        bed.add_child_id(plant_a.item_id)
+        bed.add_child_id(plant_b.item_id)
+        plant_a.parent_bed_id = bed.item_id
+        plant_b.parent_bed_id = bed.item_id
+
+        bed_start, a_start, b_start = bed.pos(), plant_a.pos(), plant_b.pos()
+
+        result = win._do_agent_move_object(str(bed.item_id), 50.0, 30.0)
+
+        assert result["children_moved"] == 2
+        assert bed.pos() == bed_start + QPointF(50.0, 30.0)
+        assert plant_a.pos() == a_start + QPointF(50.0, 30.0)
+        assert plant_b.pos() == b_start + QPointF(50.0, 30.0)
+        # One undo step restores the bed AND both plants together.
+        assert win.canvas_view.command_manager.can_undo
+        win.canvas_view.command_manager.undo()
+        assert bed.pos() == bed_start
+        assert plant_a.pos() == a_start
+        assert plant_b.pos() == b_start
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_move_plant_into_bed_reconciles_parent(qtbot: Any, monkeypatch: Any) -> None:
+    """P1 regression: moving a plant across a bed boundary must reparent it —
+    mirroring CanvasView._update_plant_bed_relationships — otherwise
+    plants_in_bed/soil-mismatch diagnostics never see the new membership."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = RectangleItem(500, 500, 400, 300, object_type=ObjectType.RAISED_BED)
+        win.canvas_scene.addItem(bed)
+        plant = CircleItem(50, 50, 20, object_type=ObjectType.TREE)
+        win.canvas_scene.addItem(plant)
+        assert plant.parent_bed_id is None
+
+        # Move the plant's centre well inside the bed's interior (x:500-900, y:500-800).
+        result = win._do_agent_move_object(str(plant.item_id), 620.0, 620.0)
+
+        assert result["bed_membership_changed"] is True
+        assert result["new_parent_bed_id"] == str(bed.item_id)
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
+        # Two undo steps: the reparent (executed second) undoes first, then the move.
+        assert win.canvas_view.command_manager.can_undo
+        win.canvas_view.command_manager.undo()
+        assert plant.parent_bed_id is None
+        assert plant.item_id not in bed.child_item_ids
+        assert win.canvas_view.command_manager.can_undo
+        win.canvas_view.command_manager.undo()
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_move_plant_out_of_bed_detaches_parent(qtbot: Any, monkeypatch: Any) -> None:
+    """Mirror of the above: moving a plant OUT of its bed must detach it, not
+    leave a stale parent_bed_id/child_item_ids link the diagnostics act on."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = RectangleItem(500, 500, 400, 300, object_type=ObjectType.RAISED_BED)
+        win.canvas_scene.addItem(bed)
+        # Plant starts inside the bed and is already attached.
+        plant = CircleItem(670, 620, 20, object_type=ObjectType.TREE)
+        win.canvas_scene.addItem(plant)
+        bed.add_child_id(plant.item_id)
+        plant.parent_bed_id = bed.item_id
+
+        # Move it far outside the bed.
+        result = win._do_agent_move_object(str(plant.item_id), -1000.0, -1000.0)
+
+        assert result["bed_membership_changed"] is True
+        assert result["new_parent_bed_id"] is None
+        assert plant.parent_bed_id is None
+        assert plant.item_id not in bed.child_item_ids
     finally:
         win._stop_agent_api()
 

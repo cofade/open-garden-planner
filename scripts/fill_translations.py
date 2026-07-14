@@ -2458,6 +2458,11 @@ _D20_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Access token:": "Zugriffstoken:",
         "Enable AI editing to generate a token":
             "KI-Bearbeitung aktivieren, um ein Token zu erzeugen",
+        "The running server still uses the previous token until you "
+        "click Save — copying now won't work for a client yet.":
+            "Der laufende Server verwendet weiterhin das vorherige Token, bis Sie "
+            "auf Speichern klicken – ein jetzt kopiertes Token funktioniert für "
+            "einen Client noch nicht.",
     },
     "ConnectAiAssistantDialog": {
         "AI editing is ON — clients added here can modify your plan. "

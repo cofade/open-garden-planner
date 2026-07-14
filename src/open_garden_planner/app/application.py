@@ -279,22 +279,102 @@ class GardenPlannerApp(QMainWindow):
     def _do_agent_move_object(
         self, item_id: str, dx: float, dy: float
     ) -> dict[str, Any]:
-        """Main-thread body of ``move_object``: one undoable ``MoveItemsCommand``."""
+        """Main-thread body of ``move_object``.
+
+        Mirrors what a drag-release does in ``CanvasView`` (invariant #13 means
+        "behaves like the GUI's own move", not merely "calls a Command class"):
+        a bed/container/trellis carries its contained plants along
+        (``_propagate_bed_children_during_drag`` + the multi-item
+        ``AlignItemsCommand`` branch at drag-release), and a moved plant has its
+        bed membership re-evaluated afterward (``_update_plant_bed_relationships``).
+        Skipping either step — the first cut of this tool did — silently
+        abandons a bed's plants where they sit, or leaves stale
+        parent/child links that soil-mismatch diagnostics then act on.
+
+        Like the GUI, this can be ONE undo step (a lone item, no reparenting)
+        or TWO (the move, plus a separate ``SetParentBedCommand`` only when the
+        move actually crosses a bed boundary) — never more.
+        """
         from PyQt6.QtCore import QPointF
 
-        from open_garden_planner.core.commands import MoveItemsCommand
+        from open_garden_planner.core.commands import AlignItemsCommand, MoveItemsCommand
 
         item = self._resolve_agent_item(item_id)
-        cmd = MoveItemsCommand([item], QPointF(float(dx), float(dy)))
-        self.canvas_view.command_manager.execute(cmd)
+        delta = QPointF(float(dx), float(dy))
+
+        item_deltas = self._agent_move_item_deltas(item, delta)
+        if len(item_deltas) == 1:
+            move_cmd = MoveItemsCommand([item], delta)
+        else:
+            # Matches CanvasView's own wording: the description names the
+            # primary item being moved, not every propagated child.
+            from PyQt6.QtCore import QCoreApplication
+
+            move_cmd = AlignItemsCommand(
+                item_deltas, QCoreApplication.translate("Commands", "Move item")
+            )
+        self.canvas_view.command_manager.execute(move_cmd)
+
+        reparented, new_parent_bed_id = self._agent_reconcile_bed_membership(item)
+
         cx, cy = self._agent_item_center(item)
         return {
             "item_id": item_id,
             "action": "move",
-            "undo_description": cmd.description,
+            "undo_description": move_cmd.description,
             "x": cx,
             "y": cy,
+            "children_moved": len(item_deltas) - 1,
+            "bed_membership_changed": reparented,
+            "new_parent_bed_id": new_parent_bed_id,
         }
+
+    def _agent_move_item_deltas(
+        self, item: Any, delta: Any
+    ) -> list[tuple[Any, Any]]:
+        """``(item, delta)`` pairs for one move: the item plus every contained
+        plant, uniformly offset — the release-time equivalent of
+        ``CanvasView._propagate_bed_children_during_drag``. A plain plant/shape
+        with no children returns just itself."""
+        from open_garden_planner.core.object_types import is_plant_parent_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        item_deltas: list[tuple[Any, Any]] = [(item, delta)]
+        if isinstance(item, GardenItemMixin) and is_plant_parent_type(item.object_type):
+            for child_id in item.child_item_ids:
+                child = self.canvas_scene.find_item_by_id(child_id)
+                if child is not None:
+                    item_deltas.append((child, delta))
+        return item_deltas
+
+    def _agent_reconcile_bed_membership(self, item: Any) -> tuple[bool, str | None]:
+        """After moving a plant, re-evaluate its bed membership — the
+        release-time equivalent of ``CanvasView._update_plant_bed_relationships``.
+        Returns ``(changed, new_parent_bed_id)``; a non-plant item or an
+        unchanged membership returns ``(False, None)``."""
+        from open_garden_planner.core.commands import SetParentBedCommand
+        from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        if not isinstance(item, GardenItemMixin) or not is_plant_type(item.object_type):
+            return False, None
+
+        plant_center = item.mapToScene(item.boundingRect().center())
+        current_parent_id = item.parent_bed_id
+        new_bed = self.canvas_scene.find_smallest_bed_containing(plant_center)
+        new_parent_id = (
+            new_bed.item_id
+            if new_bed is not None and isinstance(new_bed, GardenItemMixin)
+            else None
+        )
+        if new_parent_id == current_parent_id:
+            return False, None
+
+        cmd = SetParentBedCommand(
+            self.canvas_scene, item, current_parent_id, new_parent_id
+        )
+        self.canvas_view.command_manager.execute(cmd)
+        return True, str(new_parent_id) if new_parent_id is not None else None
 
     def _agent_item_center(self, item: Any) -> tuple[float, float]:
         """The object's centre in scene cm, using the SAME source the read tools do.

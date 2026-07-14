@@ -281,6 +281,16 @@ class PreferencesDialog(QDialog):
         token_widget.setLayout(token_row)
         agent_layout.addRow(self.tr("Access token:"), token_widget)
 
+        self._agent_api_token_pending_note = QLabel(
+            self.tr(
+                "The running server still uses the previous token until you "
+                "click Save — copying now won't work for a client yet."
+            )
+        )
+        self._agent_api_token_pending_note.setWordWrap(True)
+        self._agent_api_token_pending_note.setVisible(False)
+        agent_layout.addRow("", self._agent_api_token_pending_note)
+
         layout.addWidget(agent_group)
 
         layout.addStretch()
@@ -343,16 +353,29 @@ class PreferencesDialog(QDialog):
         Reading ``settings.agent_api_token`` auto-generates and persists a token
         on first access, so only touch it when writes are actually on — a user
         who never enables editing never gets a token written to settings.
+
+        The field always shows the *settings* value (so clicking Regenerate is
+        visibly effective) — but Regenerate persists immediately while the
+        running server keeps validating whatever it was started with until a
+        restart (which Save triggers). Rather than have Copy silently hand out
+        a different value than what's displayed, the mismatch is surfaced as an
+        explicit note instead.
         """
         from open_garden_planner.app.settings import get_settings
 
         if self._agent_api_check.isChecked() and self._agent_api_writes_check.isChecked():
-            self._agent_api_token_edit.setText(get_settings().agent_api_token)
+            settings_token = get_settings().agent_api_token
+            self._agent_api_token_edit.setText(settings_token)
+            running_token = getattr(self.parent(), "agent_api_write_token", lambda: None)()
+            self._agent_api_token_pending_note.setVisible(
+                running_token is not None and running_token != settings_token
+            )
         else:
             self._agent_api_token_edit.clear()
             self._agent_api_token_edit.setPlaceholderText(
                 self.tr("Enable AI editing to generate a token")
             )
+            self._agent_api_token_pending_note.setVisible(False)
 
     def _on_copy_agent_api_token(self) -> None:
         from PyQt6.QtWidgets import QApplication

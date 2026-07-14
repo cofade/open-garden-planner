@@ -119,12 +119,22 @@ def _require_write_auth(expected_token: str | None) -> None:
 
     ``expected_token`` is the server's configured token; ``None`` means writes
     are not configured at all (defensive — the write tools aren't even
-    registered in that case). Comparison is constant-time.
+    registered in that case). Comparison is constant-time. ``secrets.
+    compare_digest`` raises ``TypeError`` on non-ASCII ``str`` input — our own
+    tokens are always ASCII (``secrets.token_urlsafe``), but a malformed or
+    hostile ``Authorization`` header is untrusted input and must fail closed
+    (a rejection), not propagate an unhandled exception; the ``isascii()``
+    guard short-circuits before ever calling it with unsupported input.
     """
     presented = _presented_token.get()
-    if not expected_token or not presented or not secrets.compare_digest(
-        presented, expected_token
-    ):
+    valid = (
+        bool(expected_token)
+        and presented is not None
+        and presented.isascii()
+        and expected_token.isascii()
+        and secrets.compare_digest(presented, expected_token)
+    )
+    if not valid:
         raise WriteAuthError(
             "This tool requires the Agent API write token. Enable AI editing and "
             "copy the token from Open Garden Planner's Preferences > Agent API "
@@ -487,7 +497,13 @@ def build_server(
 
         @mcp.tool()
         async def move_object(item_id: str, dx: float, dy: float) -> WriteResult:
-            """Move one object by a relative offset (one undoable step).
+            """Move one object by a relative offset.
+
+            Moving a bed/container/trellis carries its contained plants along.
+            Moving a plant re-evaluates its bed membership afterward — crossing
+            into or out of a bed reparents it. This is usually one undo step;
+            it becomes two only when reparenting happens (see the result's
+            children_moved/bed_membership_changed/new_parent_bed_id).
 
             Args:
                 item_id: The object's stable UUID (from list_objects/get_object).
