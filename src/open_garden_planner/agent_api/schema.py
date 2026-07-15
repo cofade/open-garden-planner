@@ -262,3 +262,15 @@ class WriteResult(BaseModel):
         "true and it entered a bed; null if it left a bed, is unchanged, or is not "
         "applicable.",
     )
+    linked_items_deleted: int = Field(
+        default=0,
+        description="Other items deleted alongside this one because they were "
+        "structurally linked to it — currently a HOUSE's roof ridge (delete only, "
+        "always 0 for move).",
+    )
+    constraints_removed: int = Field(
+        default=0,
+        description="Geometric constraints removed because they referenced this "
+        "object (delete only, always 0 for move; move_object refuses outright on a "
+        "constrained object instead — see its own error).",
+    )

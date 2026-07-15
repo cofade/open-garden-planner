@@ -505,6 +505,10 @@ def build_server(
             it becomes two only when reparenting happens (see the result's
             children_moved/bed_membership_changed/new_parent_bed_id).
 
+            Fails if the object (or a plant it contains) participates in a
+            geometric constraint, or if it's a journal pin — neither is
+            supported yet; use the app for those.
+
             Args:
                 item_id: The object's stable UUID (from list_objects/get_object).
                 dx: Horizontal offset in scene cm (+x is right).
@@ -522,8 +526,12 @@ def build_server(
         async def delete_object(item_id: str) -> WriteResult:
             """Delete one object from the plan (one undoable step).
 
-            Deleting a bed/container also detaches its contained plants; undo
-            restores the object and its relationships.
+            Deleting a bed/container detaches its contained plants (kept, not
+            deleted); a HOUSE's linked roof ridge is deleted along with it; any
+            geometric constraint referencing the object is removed. Undo
+            restores the object and all of the above together.
+
+            Fails if the object is a journal pin — not supported yet.
 
             Args:
                 item_id: The object's stable UUID (from list_objects/get_object).

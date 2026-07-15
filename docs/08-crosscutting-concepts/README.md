@@ -1054,14 +1054,24 @@ Context` header read so the gate doesn't depend on FastMCP internals). The
 write itself hops to the main thread via an `AgentProviders` callable,
 resolves the item by UUID (`scene.find_item_by_id`), and runs
 `canvas_view.command_manager.execute(cmd)` — matching GUI *behaviour*, not
-merely reusing a `Command` class: `delete_object` is `DeleteItemsCommand`
-(already detaches contained plants, restored on undo). `move_object` mirrors
+merely reusing a `Command` class: `delete_object` mirrors
+`CanvasView._delete_selected_items`'s full orchestration, not just
+`DeleteItemsCommand` — it also removes any constraint referencing the object
+(`RemoveConstraintCommand`, else the constraint graph keeps a dangling UUID)
+and deletes a `HOUSE`'s linked roof ridge (a `metadata["ridge_item_id"]`
+association, else orphaned); contained plants are still detached, not
+deleted, matching the GUI's "Keep plants" choice. `move_object` mirrors
 `CanvasView`'s whole drag-release sequence — a bed/container/trellis's
 contained plants move with it (`AlignItemsCommand` over item+children), and a
 moved plant's bed membership is re-evaluated afterward (`SetParentBedCommand`
 on a boundary crossing) — so **one agent write is one undoable step for a lone
 item, and two when a move also reparents a plant**, never more; every command
 still marks the plan dirty (invariants #3/#4/#13; no parallel mutation path).
+Both tools **refuse** rather than silently mishandle two out-of-scope cases:
+an object (or, for `move_object`, a bed child) participating in a geometric
+constraint — `CanvasView`'s live solver computes per-item deltas that a
+one-shot agent call doesn't replicate — and a journal pin, whose delete needs
+a `ProjectData` note-record prune no bare `DeleteItemsCommand` performs.
 The token is surfaced (Copy/Regenerate) in Preferences → Agent API and
 injected into each client's config by the D1.6 onboarding writers as the
 `Authorization` header. See ADR-036; §8.11 for the security note.

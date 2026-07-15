@@ -260,6 +260,160 @@ def test_move_plant_out_of_bed_detaches_parent(qtbot: Any, monkeypatch: Any) -> 
         win._stop_agent_api()
 
 
+def _add_distance_constraint(win: GardenPlannerApp, item: Any, other_id: Any) -> None:
+    """Attach a plain distance constraint between ``item`` and an arbitrary
+    other UUID — mirrors the graph shape CanvasView's drag-release solver
+    checks for, without needing a second real scene item."""
+    from open_garden_planner.core.constraints import AnchorRef
+    from open_garden_planner.core.measure_snapper import AnchorType
+
+    graph = win.canvas_scene.constraint_graph
+    graph.add_constraint(
+        AnchorRef(item.item_id, AnchorType.CENTER),
+        AnchorRef(other_id, AnchorType.CENTER),
+        100.0,
+    )
+
+
+def test_move_object_refuses_when_item_has_constraint(qtbot: Any, monkeypatch: Any) -> None:
+    """Replicating CanvasView's live constraint solver for a one-shot agent
+    move is out of scope for this tool — a constrained item must be refused,
+    not silently moved while its constraint goes unsatisfied."""
+    from uuid import uuid4
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        item = _add_tree(win)
+        _add_distance_constraint(win, item, uuid4())
+        start = item.pos()
+
+        with pytest.raises(ValueError, match="constraint"):
+            win._do_agent_move_object(str(item.item_id), 40.0, 10.0)
+
+        assert item.pos() == start
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_move_object_refuses_when_bed_child_has_constraint(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The constraint check must cover propagated bed children too, not just
+    the primary item being moved."""
+    from uuid import uuid4
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = RectangleItem(100, 100, 400, 300, object_type=ObjectType.RAISED_BED)
+        win.canvas_scene.addItem(bed)
+        plant = CircleItem(200, 200, 20, object_type=ObjectType.TREE)
+        win.canvas_scene.addItem(plant)
+        bed.add_child_id(plant.item_id)
+        plant.parent_bed_id = bed.item_id
+        _add_distance_constraint(win, plant, uuid4())
+
+        with pytest.raises(ValueError, match="constraint"):
+            win._do_agent_move_object(str(bed.item_id), 50.0, 30.0)
+
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_delete_object_removes_constraints_referencing_item(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Mirrors CanvasView._delete_selected_items: a dangling constraint
+    referencing a deleted item's UUID must not survive the delete."""
+    from uuid import uuid4
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        item = _add_tree(win)
+        _add_distance_constraint(win, item, uuid4())
+        graph = win.canvas_scene.constraint_graph
+        assert graph.get_item_constraints(item.item_id)
+
+        result = win._do_agent_delete_object(str(item.item_id))
+
+        assert graph.get_item_constraints(item.item_id) == []
+        assert result["constraints_removed"] == 1
+    finally:
+        win._stop_agent_api()
+
+
+def test_delete_object_deletes_linked_roof_ridge(qtbot: Any, monkeypatch: Any) -> None:
+    """Mirrors CanvasView._delete_selected_items's ridge_item_id expansion:
+    deleting a HOUSE must also delete its linked roof ridge, not orphan it."""
+    from PyQt6.QtCore import QPointF
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        house = PolygonItem(
+            [QPointF(0, 0), QPointF(500, 0), QPointF(500, 400), QPointF(0, 400)],
+            object_type=ObjectType.HOUSE,
+        )
+        win.canvas_scene.addItem(house)
+        ridge = PolylineItem(
+            [QPointF(0, 200), QPointF(500, 200)], object_type=ObjectType.ROOF_RIDGE
+        )
+        win.canvas_scene.addItem(ridge)
+        house.metadata["ridge_item_id"] = str(ridge.item_id)
+        ridge_id = ridge.item_id
+
+        result = win._do_agent_delete_object(str(house.item_id))
+
+        assert win.canvas_scene.find_item_by_id(house.item_id) is None
+        assert win.canvas_scene.find_item_by_id(ridge_id) is None
+        assert result["linked_items_deleted"] == 1
+        # One undo step restores both together.
+        assert win.canvas_view.command_manager.can_undo
+        win.canvas_view.command_manager.undo()
+        assert win.canvas_scene.find_item_by_id(house.item_id) is not None
+        assert win.canvas_scene.find_item_by_id(ridge_id) is not None
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_move_and_delete_reject_journal_pin(qtbot: Any, monkeypatch: Any) -> None:
+    """Journal pins have a ProjectData-linked delete path (pruning the note
+    dict) that DeleteItemsCommand alone doesn't replicate — must be refused,
+    not silently mishandled."""
+    from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        pin = JournalPinItem(100, 100, note_id="note-1")
+        win.canvas_scene.addItem(pin)
+
+        with pytest.raises(ValueError, match="journal pin"):
+            win._do_agent_move_object(str(pin.item_id), 10.0, 10.0)
+        with pytest.raises(ValueError, match="journal pin"):
+            win._do_agent_delete_object(str(pin.item_id))
+
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
 def test_move_returned_center_matches_read_layer_with_badge(
     qtbot: Any, monkeypatch: Any
 ) -> None:

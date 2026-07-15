@@ -294,6 +294,15 @@ class GardenPlannerApp(QMainWindow):
         Like the GUI, this can be ONE undo step (a lone item, no reparenting)
         or TWO (the move, plus a separate ``SetParentBedCommand`` only when the
         move actually crosses a bed boundary) — never more.
+
+        Refuses (raises) rather than silently violating a geometric
+        constraint: ``CanvasView`` runs an iterative solver
+        (``_propagate_constraints_during_drag``) to move every item linked to
+        the dragged one by a distance/fixed/tangent constraint, computing a
+        per-item delta that generally is NOT the dragged item's own delta.
+        Replicating that solver for a one-shot agent call is out of scope for
+        this tool — moving a constrained item without it would silently leave
+        the constraint violated, which is worse than refusing outright.
         """
         from PyQt6.QtCore import QPointF
 
@@ -303,6 +312,14 @@ class GardenPlannerApp(QMainWindow):
         delta = QPointF(float(dx), float(dy))
 
         item_deltas = self._agent_move_item_deltas(item, delta)
+        for constrained_item, _ in item_deltas:
+            if self._agent_item_constraints(constrained_item):
+                raise ValueError(
+                    f"{item_id} (or a plant it contains) participates in a "
+                    "geometric constraint; move_object doesn't support "
+                    "constrained objects yet — remove the constraint first, "
+                    "or move it from the app."
+                )
         if len(item_deltas) == 1:
             move_cmd = MoveItemsCommand([item], delta)
         else:
@@ -401,17 +418,59 @@ class GardenPlannerApp(QMainWindow):
         )
 
     def _do_agent_delete_object(self, item_id: str) -> dict[str, Any]:
-        """Main-thread body of ``delete_object``: one undoable ``DeleteItemsCommand``."""
-        from open_garden_planner.core.commands import DeleteItemsCommand
+        """Main-thread body of ``delete_object``.
+
+        Mirrors ``CanvasView._delete_selected_items``, not just
+        ``DeleteItemsCommand`` in isolation: that method also (a) removes any
+        constraint referencing the deleted item — left alone, the constraint
+        graph would keep a dangling reference to a UUID no longer in the
+        scene — and (b) deletes a HOUSE's linked roof ridge (a
+        metadata-``ridge_item_id`` association, not a Qt-child or bed
+        relationship), which would otherwise be orphaned. Contained plants are
+        detached (not deleted) by ``DeleteItemsCommand`` itself, matching the
+        GUI's "Keep plants" choice — the only sensible default for a
+        single-object programmatic delete, which can't prompt.
+        """
+        from open_garden_planner.core.commands import DeleteItemsCommand, RemoveConstraintCommand
 
         item = self._resolve_agent_item(item_id)
-        cmd = DeleteItemsCommand(self.canvas_scene, [item])
+
+        constraints = self._agent_item_constraints(item)
+        for constraint in constraints:
+            self.canvas_view.command_manager.execute(
+                RemoveConstraintCommand(self.canvas_scene.constraint_graph, constraint)
+            )
+
+        linked_ridge = self._agent_linked_roof_ridge(item)
+        cmd = DeleteItemsCommand(self.canvas_scene, [item, *linked_ridge])
         self.canvas_view.command_manager.execute(cmd)
         return {
             "item_id": item_id,
             "action": "delete",
             "undo_description": cmd.description,
+            "linked_items_deleted": len(linked_ridge),
+            "constraints_removed": len(constraints),
         }
+
+    def _agent_linked_roof_ridge(self, item: Any) -> list[Any]:
+        """A HOUSE's linked ``ROOF_RIDGE`` item, if any — mirroring
+        ``CanvasView._delete_selected_items``'s ``ridge_item_id`` expansion so
+        deleting a house doesn't orphan its ridge polyline."""
+        from uuid import UUID
+
+        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        if not isinstance(item, GardenItemMixin) or item.object_type != ObjectType.HOUSE:
+            return []
+        ridge_id_str = item.metadata.get("ridge_item_id")
+        if not ridge_id_str:
+            return []
+        try:
+            ridge = self.canvas_scene.find_item_by_id(UUID(ridge_id_str))
+        except ValueError:
+            return []
+        return [ridge] if ridge is not None else []
 
     def _resolve_agent_item(self, item_id: str) -> Any:
         """Look up a scene item by UUID string for a write tool, or raise.
@@ -421,6 +480,8 @@ class GardenPlannerApp(QMainWindow):
         """
         from uuid import UUID
 
+        from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
+
         try:
             uuid = UUID(item_id)
         except (ValueError, TypeError) as exc:
@@ -428,7 +489,20 @@ class GardenPlannerApp(QMainWindow):
         item = self.canvas_scene.find_item_by_id(uuid)
         if item is None:
             raise ValueError(f"No object with id {item_id}")
+        if isinstance(item, JournalPinItem):
+            # Journal pins have their own ProjectData-linked delete path
+            # (DeleteJournalNoteCommand prunes the note dict; a plain
+            # DeleteItemsCommand would remove the pin but silently orphan the
+            # note record). Not supported by move_object/delete_object yet.
+            raise ValueError(
+                f"{item_id} is a journal pin, not a garden object — "
+                "move_object/delete_object don't support journal pins yet."
+            )
         return item
+
+    def _agent_item_constraints(self, item: Any) -> list[Any]:
+        """Every constraint (distance/fixed/tangent/…) referencing ``item``."""
+        return self.canvas_scene.constraint_graph.get_item_constraints(item.item_id)
 
     def _maybe_start_agent_api(self) -> None:
         """Start the Agent API server iff it is enabled in settings."""
