@@ -1067,11 +1067,20 @@ moved plant's bed membership is re-evaluated afterward (`SetParentBedCommand`
 on a boundary crossing) — so **one agent write is one undoable step for a lone
 item, and two when a move also reparents a plant**, never more; every command
 still marks the plan dirty (invariants #3/#4/#13; no parallel mutation path).
-Both tools **refuse** rather than silently mishandle two out-of-scope cases:
-an object (or, for `move_object`, a bed child) participating in a geometric
-constraint — `CanvasView`'s live solver computes per-item deltas that a
-one-shot agent call doesn't replicate — and a journal pin, whose delete needs
-a `ProjectData` note-record prune no bare `DeleteItemsCommand` performs.
+Both tools **refuse** (in the shared `_resolve_agent_item` chokepoint, so
+future write tools inherit it) rather than silently mishandle cases the agent
+could otherwise reach by resolving a UUID directly but the GUI forbids: an
+object (or, for `move_object`, a bed child) in a geometric constraint —
+`CanvasView`'s live solver computes per-item deltas a one-shot agent call
+doesn't replicate; a journal pin, whose delete needs a `ProjectData`
+note-record prune no bare `DeleteItemsCommand` performs; an item on a **locked
+layer** (the GUI enforces the lock by clearing `ItemIsSelectable`/
+`ItemIsMovable`, which selection-based GUI edits respect but a UUID lookup
+bypasses); and an individual **group member** (a raw snapshot exposes its id,
+but `moveBy` on a `QGraphicsItemGroup` child displaces it within the group —
+address the group itself). `GroupItem`/`SmartSymbolItem` moves need no special
+handling: they are real Qt groups, so `moveBy`/delete cascade to members
+natively (the bed↔plant link is *logical*, which is why beds don't).
 The token is surfaced (Copy/Regenerate) in Preferences → Agent API and
 injected into each client's config by the D1.6 onboarding writers as the
 `Authorization` header. See ADR-036; §8.11 for the security note.

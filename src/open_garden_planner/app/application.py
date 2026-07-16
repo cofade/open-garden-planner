@@ -480,6 +480,7 @@ class GardenPlannerApp(QMainWindow):
         """
         from uuid import UUID
 
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
         from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
 
         try:
@@ -489,6 +490,16 @@ class GardenPlannerApp(QMainWindow):
         item = self.canvas_scene.find_item_by_id(uuid)
         if item is None:
             raise ValueError(f"No object with id {item_id}")
+        if isinstance(item.parentItem(), GroupItem):
+            # A group member isn't a top-level object (list_objects/get_object
+            # skip it; only a raw snapshot exposes its id nested in the group).
+            # The GUI never lets you select a lone member — you move/delete the
+            # whole group — and moveBy on a QGraphicsItemGroup child would
+            # displace it *within* the group. Address the group by its own id.
+            raise ValueError(
+                f"{item_id} is a member of a group; move or delete the group "
+                "itself (its own id), not an individual member."
+            )
         if isinstance(item, JournalPinItem):
             # Journal pins have their own ProjectData-linked delete path
             # (DeleteJournalNoteCommand prunes the note dict; a plain
@@ -498,7 +509,26 @@ class GardenPlannerApp(QMainWindow):
                 f"{item_id} is a journal pin, not a garden object — "
                 "move_object/delete_object don't support journal pins yet."
             )
+        if self._agent_item_is_locked(item):
+            # The GUI enforces layer-lock by clearing ItemIsSelectable/
+            # ItemIsMovable, so a locked-layer item can't be dragged, arrow-
+            # moved, or deleted at all (every GUI edit works off selectedItems()).
+            # The agent resolves by UUID, bypassing selection — so honour the
+            # lock explicitly here, the one chokepoint every write tool shares.
+            raise ValueError(
+                f"{item_id} is on a locked layer; unlock the layer in the app "
+                "before editing this object."
+            )
         return item
+
+    def _agent_item_is_locked(self, item: Any) -> bool:
+        """Whether ``item`` sits on a locked layer (which the GUI makes
+        entirely non-interactive)."""
+        layer_id = getattr(item, "layer_id", None)
+        if layer_id is None:
+            return False
+        layer = self.canvas_scene.get_layer_by_id(layer_id)
+        return bool(layer is not None and layer.locked)
 
     def _agent_item_constraints(self, item: Any) -> list[Any]:
         """Every constraint (distance/fixed/tangent/…) referencing ``item``."""

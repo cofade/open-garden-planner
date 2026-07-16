@@ -414,6 +414,79 @@ def test_move_and_delete_reject_journal_pin(qtbot: Any, monkeypatch: Any) -> Non
         win._stop_agent_api()
 
 
+def test_move_and_delete_refuse_locked_layer_item(qtbot: Any, monkeypatch: Any) -> None:
+    """The GUI enforces layer-lock by clearing ItemIsSelectable/ItemIsMovable,
+    so a locked-layer item can't be moved or deleted at all. The agent resolves
+    by UUID (bypassing selection), so it must honour the lock explicitly — a
+    user who locked a layer to protect it expects nothing, agent included, to
+    edit it."""
+    from open_garden_planner.models.layer import Layer
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        locked = Layer(name="Locked", locked=True)
+        win.canvas_scene.add_layer(locked)
+        item = _add_tree(win)
+        item.layer_id = locked.id
+        start = item.pos()
+
+        with pytest.raises(ValueError, match="locked layer"):
+            win._do_agent_move_object(str(item.item_id), 40.0, 10.0)
+        with pytest.raises(ValueError, match="locked layer"):
+            win._do_agent_delete_object(str(item.item_id))
+
+        assert item.pos() == start
+        assert win.canvas_scene.find_item_by_id(item.item_id) is not None
+        assert win.canvas_view.command_manager.can_undo is False
+
+        # Unlocking makes it editable again.
+        locked.locked = False
+        result = win._do_agent_move_object(str(item.item_id), 40.0, 10.0)
+        assert result["action"] == "move"
+        assert item.pos() == start + QPointF(40.0, 10.0)
+    finally:
+        win._stop_agent_api()
+
+
+def test_move_and_delete_refuse_group_member(qtbot: Any, monkeypatch: Any) -> None:
+    """A group member isn't a top-level object (only a raw snapshot exposes its
+    id, nested in the group). The GUI never lets you move/delete a lone member —
+    you address the group. moveBy on a QGraphicsItemGroup child would displace it
+    within the group, so the agent must refuse and point at the group id."""
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem
+    from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        a = CircleItem(100, 100, 20, object_type=ObjectType.TREE)
+        b = CircleItem(300, 100, 20, object_type=ObjectType.TREE)
+        win.canvas_scene.addItem(a)
+        win.canvas_scene.addItem(b)
+        win.canvas_view.command_manager.execute(GroupCommand(win.canvas_scene, [a, b]))
+        group = a.parentItem()
+        assert isinstance(group, GroupItem)
+
+        # A lone member is refused, pointing at the group.
+        with pytest.raises(ValueError, match="member of a group"):
+            win._do_agent_move_object(str(a.item_id), 40.0, 10.0)
+        with pytest.raises(ValueError, match="member of a group"):
+            win._do_agent_delete_object(str(a.item_id))
+
+        # The group itself moves fine — Qt cascades to members natively.
+        group_start = group.pos()
+        result = win._do_agent_move_object(str(group.item_id), 40.0, 10.0)
+        assert result["action"] == "move"
+        assert group.pos() == group_start + QPointF(40.0, 10.0)
+    finally:
+        win._stop_agent_api()
+
+
 def test_move_returned_center_matches_read_layer_with_badge(
     qtbot: Any, monkeypatch: Any
 ) -> None:
