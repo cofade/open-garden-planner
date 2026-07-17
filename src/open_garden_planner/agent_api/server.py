@@ -136,10 +136,15 @@ def _require_write_auth(expected_token: str | None) -> None:
     )
     if not valid:
         raise WriteAuthError(
-            "This tool requires the Agent API write token. Enable AI editing and "
-            "copy the token from Open Garden Planner's Preferences > Agent API "
-            "(or the 'Connect AI Assistant' dialog), then send it as an "
-            "'Authorization: Bearer <token>' header."
+            "This tool requires the Agent API write token, but this request "
+            "didn't send a valid one. Most often the MCP client connected "
+            "before the token was in place: if you just enabled AI editing or "
+            "registered this client, reconnect (or restart) it so it sends the "
+            "'Authorization: Bearer <token>' header on new requests — an "
+            "already-open session won't pick up a newly added header. To "
+            "register a client automatically, use Open Garden Planner's "
+            "'Connect AI Assistant' dialog (Help menu); it writes the token "
+            "into the client config for you."
         )
 
 
