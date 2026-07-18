@@ -162,6 +162,49 @@ def test_move_object_end_to_end(canvas: Any, qtbot: Any) -> None:
     assert back.y() == start.y()
 
 
+def test_move_object_authenticated_via_query_param(canvas: Any, qtbot: Any) -> None:
+    """The ``?token=`` URL route with NO Authorization header — Claude Code does
+    not transmit configured headers on tool-call requests (anthropics/claude-code
+    #50464), so the token rides the URL, which every client always sends."""
+    view = canvas
+    scene = view.scene()
+    circle = CircleItem(200, 200, 30, object_type=ObjectType.TREE)
+    scene.addItem(circle)
+    item_id = str(circle.item_id)
+    start = circle.sceneBoundingRect().center()
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        # Token in the URL query string; no headers kwarg at all.
+        async with (
+            http_client(f"{url}?token={TOKEN}") as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            await session.call_tool(
+                "move_object", {"item_id": item_id, "dx": 50.0, "dy": -25.0}
+            )
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    moved = circle.sceneBoundingRect().center()
+    assert moved.x() == start.x() + 50.0
+    assert moved.y() == start.y() - 25.0
+    assert view.command_manager.can_undo
+    view.command_manager.undo()
+    back = circle.sceneBoundingRect().center()
+    assert back.x() == start.x()
+    assert back.y() == start.y()
+
+
 def test_delete_object_end_to_end(canvas: Any, qtbot: Any) -> None:
     view = canvas
     scene = view.scene()

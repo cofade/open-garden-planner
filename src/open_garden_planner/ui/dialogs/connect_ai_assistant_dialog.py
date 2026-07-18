@@ -58,7 +58,7 @@ class ConnectAiAssistantDialog(QDialog):
 
         url_group = QGroupBox(self.tr("Connect URL"))
         url_layout = QHBoxLayout(url_group)
-        url_label = QLabel(self._server_url)
+        url_label = QLabel(self._connect_url())
         url_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         url_layout.addWidget(url_label, 1)
         copy_btn = QPushButton(self.tr("Copy URL"))
@@ -168,11 +168,19 @@ class ConnectAiAssistantDialog(QDialog):
         }
         return notes.get(client_id, "")
 
+    def _connect_url(self) -> str:
+        """The URL to display/copy: token-embedded when AI editing is on (so the
+        copied URL is write-capable), the bare read-only URL otherwise. The token
+        rides the URL because some clients don't transmit auth headers on tool
+        calls (see ``ai_client_onboarding.url_with_token``)."""
+        assert self._server_url is not None
+        return onboarding.url_with_token(self._server_url, self._token)
+
     def _on_copy_url(self) -> None:
         clipboard = QApplication.clipboard()
         if clipboard is None or self._server_url is None:
             return
-        clipboard.setText(self._server_url)
+        clipboard.setText(self._connect_url())
         self._status_label.setText(self.tr("URL copied to clipboard."))
 
     def _on_add_clicked(self, client: onboarding.ClientInfo, button: QPushButton) -> None:

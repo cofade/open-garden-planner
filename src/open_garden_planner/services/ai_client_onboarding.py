@@ -40,6 +40,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -219,9 +220,28 @@ def detect_clients() -> list[ClientInfo]:
     return clients
 
 
-def _auth_header_value(token: str) -> str:
-    """The ``Authorization`` header value a client sends to reach write tools."""
-    return f"Bearer {token}"
+def url_with_token(url: str, token: str | None) -> str:
+    """Return ``url`` carrying the write token as a ``?token=<token>`` query param.
+
+    We deliver the D2 write token in the URL rather than an ``Authorization``
+    header because some MCP clients — notably Claude Code on streamable-HTTP
+    (anthropics/claude-code#50464 / #28293) — store a configured header but omit
+    it on tool-call POSTs, while the configured URL (query string included) is
+    always transmitted since it's the request target. This preserves the same
+    threat model (a caller without the token can't write) without depending on
+    header transmission. Merges with any existing query string, replaces a stale
+    ``token`` param, and returns ``url`` unchanged when ``token`` is falsy.
+    """
+    if not token:
+        return url
+    parts = urllib.parse.urlsplit(url)
+    query = [
+        (k, v)
+        for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+        if k != "token"
+    ]
+    query.append(("token", token))
+    return urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query)))
 
 
 def install_to_client(
@@ -233,9 +253,10 @@ def install_to_client(
 ) -> InstallResult:
     """Register ``url`` under ``name`` in the given client's config.
 
-    When ``token`` is given, the client is configured to send it as an
-    ``Authorization: Bearer <token>`` header so the Agent API's write tools
-    (D2) are reachable; without it the client can still use all read tools.
+    When ``token`` is given, the client is configured to reach the Agent API's
+    write tools (D2) by carrying the token as a ``?token=<token>`` query param
+    on the server URL (see ``url_with_token``); without it the client can still
+    use all read tools.
 
     Raises ``ValueError`` for an unknown ``client_id`` (a programming error,
     not a runtime condition the caller should handle) — everything else comes
@@ -259,12 +280,10 @@ def install_to_client(
 
 
 def _cursor_entry(url: str, token: str | None) -> dict[str, object]:
-    """Cursor's ``mcpServers.<name>`` entry — with the bearer header if a token
-    is given (Cursor's documented remote-server schema supports ``headers``)."""
-    entry: dict[str, object] = {"url": url}
-    if token:
-        entry["headers"] = {"Authorization": _auth_header_value(token)}
-    return entry
+    """Cursor's ``mcpServers.<name>`` entry — the token rides the URL as a
+    ``?token=`` query param (see ``url_with_token``), the delivery route that
+    works uniformly across clients."""
+    return {"url": url_with_token(url, token)}
 
 
 def _install_cursor(*, url: str, name: str, token: str | None = None) -> InstallResult:
@@ -289,18 +308,16 @@ def _run_claude_mcp(claude: str, *args: str) -> subprocess.CompletedProcess[str]
 
 
 def _claude_code_add_args(name: str, url: str, token: str | None) -> tuple[str, ...]:
-    """Args for ``claude mcp add``, with ``--header`` when a token is set.
+    """Args for ``claude mcp add``; the token rides the URL as ``?token=``.
 
-    ``--header`` is a *variadic* option in the Claude CLI — it consumes every
-    following token — so it MUST come AFTER the positional ``name`` and ``url``,
-    or it swallows them and the CLI fails with "missing required argument
-    'name'". This matches the official syntax:
-    ``claude mcp add --transport http <name> <url> --header "Authorization: ..."``.
+    Claude Code stores a configured ``--header`` but does not send it on
+    tool-call requests for streamable-HTTP servers (anthropics/claude-code
+    #50464 / #28293), so a header would leave write tools unreachable. The URL
+    (query string included) is always transmitted, so the token goes there via
+    ``url_with_token`` — no ``--header``, which also removes the variadic-
+    ordering footgun the old header form carried.
     """
-    header: tuple[str, ...] = (
-        ("--header", f"Authorization: {_auth_header_value(token)}") if token else ()
-    )
-    return ("add", "--transport", "http", "--scope", "user", name, url, *header)
+    return ("add", "--transport", "http", "--scope", "user", name, url_with_token(url, token))
 
 
 def _install_claude_code(*, url: str, name: str, token: str | None = None) -> InstallResult:
@@ -352,17 +369,19 @@ def snippet_for_client(
     no descriptive prose; the dialog supplies its own translated "where to put
     this" note per client.
 
-    When ``token`` is given the snippet includes the ``Authorization: Bearer``
-    header so a hand-registered client can reach the write tools too.
+    When ``token`` is given the snippet carries it in the server URL as a
+    ``?token=`` query param (see ``url_with_token``) so a hand-registered
+    client can reach the write tools too.
     """
     if client_id == "cursor":
         return json.dumps(
             {"mcpServers": {name: _cursor_entry(url, token)}}, indent=2
         )
     if client_id == "claude_code":
-        # --header is variadic and must come AFTER name+url (see _claude_code_add_args).
-        header = f' --header "Authorization: {_auth_header_value(token)}"' if token else ""
-        return f"claude mcp add --transport http --scope user {name} {url}{header}"
+        return (
+            f"claude mcp add --transport http --scope user "
+            f"{name} {url_with_token(url, token)}"
+        )
     if client_id == "claude_desktop":
-        return url
+        return url_with_token(url, token)
     raise ValueError(f"Unknown client_id: {client_id}")

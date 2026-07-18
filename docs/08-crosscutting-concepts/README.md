@@ -393,7 +393,7 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 **Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
 
-**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0) are token-gated**: the scene-mutating tools (`move_object`/`delete_object`) ship only when the user enables editing (off by default) AND require an `Authorization: Bearer <token>` header checked with constant-time comparison — a default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19). The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
+**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0) are token-gated**: the scene-mutating tools (`move_object`/`delete_object`) ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of the token appearing in local request logs. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
 
 ## 8.12 Constraint Solver Architecture
 
@@ -1041,13 +1041,20 @@ behind **two independent guards**: a **writes-enabled** Settings toggle
 (`agent_api_token`, auto-generated with `secrets.token_urlsafe(32)`). The tools
 are **registered only when both are present** (`writes_enabled and write_token`)
 — when either is missing they don't appear in the tool list at all — and each
-call must carry `Authorization: Bearer <token>`. Reads stay open (loopback
+call must carry the token, **either in the connect URL as a `?token=` query
+param or as an `Authorization: Bearer <token>` header** (header wins when both
+are present). The URL route is the reliable one: Claude Code on streamable-HTTP
+stores a configured header but omits it on tool-call requests (anthropics/
+claude-code#50464 / #28293), while the URL — being the request target — is
+always transmitted; delivering the secret there preserves the same threat model
+(a caller still needs the token) at the cost of the token appearing in local
+request logs. Reads stay open (loopback
 trust, unchanged), so the gate is **per-tool, not a server-wide middleware**
 that would break read-only D1 clients: a pure-ASGI wrapper
-(`_bearer_token_middleware`) stashes each request's token in a
-`contextvars.ContextVar`, and each write handler calls `_require_write_auth`
-(constant-time `secrets.compare_digest`) in the same request task, **before**
-the `anyio.to_thread.run_sync` main-thread hop. Verified end-to-end against
+(`_bearer_token_middleware`) reads each request's token from the header or the
+`?token=` query string into a `contextvars.ContextVar`, and each write handler
+calls `_require_write_auth` (constant-time `secrets.compare_digest`) in the same
+request task, **before** the `anyio.to_thread.run_sync` main-thread hop. Verified end-to-end against
 `mcp==1.28.1` with `stateless_http=True` that the ContextVar set in middleware
 is visible in the tool handler for the same request (chosen over a `ctx:
 Context` header read so the gate doesn't depend on FastMCP internals). The
@@ -1082,8 +1089,9 @@ address the group itself). `GroupItem`/`SmartSymbolItem` moves need no special
 handling: they are real Qt groups, so `moveBy`/delete cascade to members
 natively (the bed↔plant link is *logical*, which is why beds don't).
 The token is surfaced (Copy/Regenerate) in Preferences → Agent API and
-injected into each client's config by the D1.6 onboarding writers as the
-`Authorization` header. See ADR-036; §8.11 for the security note.
+injected into each client's config by the D1.6 onboarding writers as a
+`?token=` query param on the connect URL (`ai_client_onboarding.url_with_token`).
+See ADR-036 (and its URL-delivery addendum); §8.11 for the security note.
 
 **i18n.** MCP tool/resource/prompt descriptions are an English API contract
 (exempt). Only the Settings UI strings go through `tr()`.

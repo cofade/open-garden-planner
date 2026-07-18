@@ -376,15 +376,39 @@ class TestSnippetForClient:
 
 
 # ---------------------------------------------------------------------------
-# Bearer token (US-D2.0): the write-access token must be threaded into each
-# client's config so a one-click install can actually reach the write tools.
+# url_with_token (US-D2.0): the write-access token rides the server URL as a
+# ``?token=`` query param — the delivery route that reaches clients (notably
+# Claude Code) which don't transmit auth headers on tool-call requests.
 # ---------------------------------------------------------------------------
 
 _TOKEN = "write-token-abc123"
 
 
-class TestBearerTokenThreading:
-    def test_cursor_install_writes_bearer_header(
+class TestUrlWithToken:
+    def test_appends_token(self) -> None:
+        assert onboarding.url_with_token(_URL, _TOKEN) == f"{_URL}?token={_TOKEN}"
+
+    def test_no_token_returns_url_unchanged(self) -> None:
+        assert onboarding.url_with_token(_URL, None) == _URL
+        assert onboarding.url_with_token(_URL, "") == _URL
+
+    def test_merges_with_existing_query(self) -> None:
+        got = onboarding.url_with_token(f"{_URL}?foo=bar", _TOKEN)
+        assert got == f"{_URL}?foo=bar&token={_TOKEN}"
+
+    def test_replaces_stale_token_and_is_idempotent(self) -> None:
+        once = onboarding.url_with_token(_URL, _TOKEN)
+        twice = onboarding.url_with_token(once, _TOKEN)
+        # Re-applying the same token doesn't accumulate duplicate params.
+        assert twice == once
+        assert twice.count("token=") == 1
+
+
+class TestWriteTokenThreading:
+    """The write token must be threaded into each client's config (in the URL)
+    so a one-click install can actually reach the D2 write tools."""
+
+    def test_cursor_install_embeds_token_in_url(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
@@ -394,10 +418,11 @@ class TestBearerTokenThreading:
         assert result.success is True
         data = json.loads((tmp_path / ".cursor" / "mcp.json").read_text(encoding="utf-8"))
         entry = data["mcpServers"][onboarding.SERVER_NAME]
-        assert entry["url"] == _URL
-        assert entry["headers"] == {"Authorization": f"Bearer {_TOKEN}"}
+        assert entry["url"] == onboarding.url_with_token(_URL, _TOKEN)
+        # Token rides the URL now, not a header.
+        assert "headers" not in entry
 
-    def test_cursor_install_without_token_has_no_headers(
+    def test_cursor_install_without_token_uses_bare_url(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
@@ -407,45 +432,40 @@ class TestBearerTokenThreading:
         data = json.loads((tmp_path / ".cursor" / "mcp.json").read_text(encoding="utf-8"))
         assert data["mcpServers"][onboarding.SERVER_NAME] == {"url": _URL}
 
-    def test_cursor_snippet_includes_bearer_header(self) -> None:
+    def test_cursor_snippet_embeds_token_in_url(self) -> None:
         data = json.loads(
             onboarding.snippet_for_client("cursor", url=_URL, token=_TOKEN)
         )
         entry = data["mcpServers"][onboarding.SERVER_NAME]
-        assert entry["headers"] == {"Authorization": f"Bearer {_TOKEN}"}
+        assert entry["url"] == onboarding.url_with_token(_URL, _TOKEN)
+        assert "headers" not in entry
 
-    def test_claude_code_add_args_include_header(self) -> None:
+    def test_claude_code_add_args_embed_token_in_url(self) -> None:
         args = onboarding._claude_code_add_args(onboarding.SERVER_NAME, _URL, _TOKEN)
-        # Exact order matters: --header is variadic in the Claude CLI and must
-        # come AFTER the name+url positionals, or it swallows them ("missing
-        # required argument 'name'"). Pin the whole sequence.
         assert args == (
             "add", "--transport", "http", "--scope", "user",
-            onboarding.SERVER_NAME, _URL,
-            "--header", f"Authorization: Bearer {_TOKEN}",
+            onboarding.SERVER_NAME, onboarding.url_with_token(_URL, _TOKEN),
         )
+        # No --header at all: dropping it removes the variadic-ordering footgun.
+        assert "--header" not in args
 
-    def test_claude_code_add_args_header_after_positionals(self) -> None:
-        # Regression: the header option must follow name and url, never precede.
-        args = onboarding._claude_code_add_args(onboarding.SERVER_NAME, _URL, _TOKEN)
-        assert args.index("--header") > args.index(onboarding.SERVER_NAME)
-        assert args.index("--header") > args.index(_URL)
-
-    def test_claude_code_add_args_omit_header_without_token(self) -> None:
+    def test_claude_code_add_args_bare_url_without_token(self) -> None:
         args = onboarding._claude_code_add_args(onboarding.SERVER_NAME, _URL, None)
         assert "--header" not in args
         assert args == (
             "add", "--transport", "http", "--scope", "user", onboarding.SERVER_NAME, _URL
         )
 
-    def test_claude_code_snippet_includes_header(self) -> None:
+    def test_claude_code_snippet_embeds_token_in_url(self) -> None:
         snippet = onboarding.snippet_for_client("claude_code", url=_URL, token=_TOKEN)
-        assert f'--header "Authorization: Bearer {_TOKEN}"' in snippet
-        # The header must come after name+url in the command string, not before.
-        assert snippet.index("--header") > snippet.index(_URL)
-        assert snippet.index("--header") > snippet.index(onboarding.SERVER_NAME)
+        assert onboarding.url_with_token(_URL, _TOKEN) in snippet
+        assert "--header" not in snippet
 
-    def test_claude_code_install_passes_header_to_cli(
+    def test_claude_desktop_snippet_embeds_token_in_url(self) -> None:
+        snippet = onboarding.snippet_for_client("claude_desktop", url=_URL, token=_TOKEN)
+        assert snippet == onboarding.url_with_token(_URL, _TOKEN)
+
+    def test_claude_code_install_passes_token_url_to_cli(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: "/usr/local/bin/claude")
@@ -460,6 +480,5 @@ class TestBearerTokenThreading:
         result = onboarding.install_to_client("claude_code", url=_URL, token=_TOKEN)
 
         assert result.success is True
-        assert "--header" in seen["args"]
-        i = seen["args"].index("--header")
-        assert seen["args"][i + 1] == f"Authorization: Bearer {_TOKEN}"
+        assert "--header" not in seen["args"]
+        assert onboarding.url_with_token(_URL, _TOKEN) in seen["args"]

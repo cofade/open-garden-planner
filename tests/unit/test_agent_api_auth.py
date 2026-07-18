@@ -2,7 +2,9 @@
 
 These exercise the pure gate logic without a running server:
   - ``_require_write_auth`` accepts the exact token, rejects wrong/missing.
-  - ``_bearer_token_middleware`` extracts the header into the ContextVar.
+  - ``_bearer_token_middleware`` extracts the token from either the
+    ``Authorization: Bearer`` header or the ``?token=`` query param into the
+    ContextVar (header wins when both are present).
   - the write tools are registered only when writes are enabled AND a token
     is configured (the ADR-033/ADR-036 gate).
 """
@@ -97,7 +99,9 @@ def test_write_tools_present_when_enabled_and_tokened() -> None:
     assert "delete_object" in names
 
 
-def _run_middleware(headers: list[tuple[bytes, bytes]]) -> str | None:
+def _run_middleware(
+    headers: list[tuple[bytes, bytes]], query_string: bytes = b""
+) -> str | None:
     """Drive the ASGI middleware with a fake HTTP scope; return the captured token."""
     captured: dict[str, str | None] = {}
 
@@ -108,7 +112,8 @@ def _run_middleware(headers: list[tuple[bytes, bytes]]) -> str | None:
 
     async def drive() -> None:
         _presented_token.set("stale-from-a-previous-request")
-        await wrapped({"type": "http", "headers": headers}, None, None)
+        scope = {"type": "http", "headers": headers, "query_string": query_string}
+        await wrapped(scope, None, None)
 
     asyncio.run(drive())
     return captured["token"]
@@ -129,3 +134,32 @@ def test_middleware_sets_none_without_header() -> None:
 
 def test_middleware_ignores_non_bearer_scheme() -> None:
     assert _run_middleware([(b"authorization", b"Basic Zm9v")]) is None
+
+
+def test_middleware_extracts_query_param_token() -> None:
+    # The ?token= route Claude Code needs (headers not transmitted on tool calls).
+    assert _run_middleware([], query_string=b"token=abc123") == "abc123"
+
+
+def test_middleware_query_token_among_other_params() -> None:
+    assert _run_middleware([], query_string=b"foo=bar&token=abc123&baz=1") == "abc123"
+
+
+def test_middleware_header_wins_over_query_token() -> None:
+    # Both present: the Authorization header takes precedence.
+    got = _run_middleware(
+        [(b"authorization", b"Bearer from-header")], query_string=b"token=from-query"
+    )
+    assert got == "from-header"
+
+
+def test_middleware_falls_back_to_query_when_header_non_bearer() -> None:
+    # A non-Bearer header yields no header token, so the query param is used.
+    got = _run_middleware(
+        [(b"authorization", b"Basic Zm9v")], query_string=b"token=from-query"
+    )
+    assert got == "from-query"
+
+
+def test_middleware_sets_none_without_header_or_query() -> None:
+    assert _run_middleware([], query_string=b"") is None

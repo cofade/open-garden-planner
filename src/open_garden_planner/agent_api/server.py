@@ -60,6 +60,7 @@ import secrets
 import socket
 import threading
 import time
+import urllib.parse
 from typing import TYPE_CHECKING, Any, Literal
 
 from mcp.server.fastmcp.utilities.types import Image
@@ -122,9 +123,10 @@ def _require_write_auth(expected_token: str | None) -> None:
     registered in that case). Comparison is constant-time. ``secrets.
     compare_digest`` raises ``TypeError`` on non-ASCII ``str`` input — our own
     tokens are always ASCII (``secrets.token_urlsafe``), but a malformed or
-    hostile ``Authorization`` header is untrusted input and must fail closed
-    (a rejection), not propagate an unhandled exception; the ``isascii()``
-    guard short-circuits before ever calling it with unsupported input.
+    hostile token (from either the ``Authorization`` header or the ``?token=``
+    query param) is untrusted input and must fail closed (a rejection), not
+    propagate an unhandled exception; the ``isascii()`` guard short-circuits
+    before ever calling it with unsupported input.
     """
     presented = _presented_token.get()
     valid = (
@@ -137,23 +139,38 @@ def _require_write_auth(expected_token: str | None) -> None:
     if not valid:
         raise WriteAuthError(
             "This tool requires the Agent API write token, but this request "
-            "didn't send a valid one. Most often the MCP client connected "
-            "before the token was in place: if you just enabled AI editing or "
-            "registered this client, reconnect (or restart) it so it sends the "
-            "'Authorization: Bearer <token>' header on new requests — an "
-            "already-open session won't pick up a newly added header. To "
-            "register a client automatically, use Open Garden Planner's "
-            "'Connect AI Assistant' dialog (Help menu); it writes the token "
-            "into the client config for you."
+            "didn't send a valid one. The reliable way to supply it is in the "
+            "server URL as a query parameter — 'http://127.0.0.1:<port>/mcp"
+            "?token=<token>' — which every MCP client transmits on every "
+            "request. Open Garden Planner's 'Connect AI Assistant' dialog (Help "
+            "menu) sets this up for you; after (re)registering, reconnect or "
+            "restart the client so it picks up the new URL. (An 'Authorization: "
+            "Bearer <token>' header also works for clients that reliably send "
+            "it, but some — notably Claude Code on streamable-HTTP — store the "
+            "header yet omit it on tool-call requests, so prefer the URL token.)"
         )
 
 
 def _bearer_token_middleware(app: Any) -> Any:
-    """Wrap an ASGI ``app`` so each request's bearer token lands in the ContextVar.
+    """Wrap an ASGI ``app`` so each request's presented token lands in the ContextVar.
 
     Pure ASGI (no Starlette ``BaseHTTPMiddleware``) so it adds no per-request
     task hop and can't interfere with the streamable-HTTP body streaming. Only
-    HTTP scopes carry headers; anything else passes straight through.
+    HTTP scopes carry a token; anything else passes straight through.
+
+    A client may present the token two ways, checked in this order:
+
+    1. ``Authorization: Bearer <token>`` header — the conventional route.
+    2. A ``?token=<token>`` URL query parameter — the fallback, because some
+       MCP clients (notably Claude Code on streamable-HTTP, anthropics/
+       claude-code#50464 / #28293) store a configured header but omit it on
+       tool-call POSTs, while the configured URL (query string included) is
+       always transmitted since it's the request target. Delivering the secret
+       in the URL preserves the same threat model (a caller without the token
+       still can't write) without depending on header transmission.
+
+    The header wins when both are present. Validation (constant-time compare,
+    ASCII guard) happens later in ``_require_write_auth``.
     """
 
     async def wrapped(scope: dict[str, Any], receive: Any, send: Any) -> None:
@@ -165,6 +182,12 @@ def _bearer_token_middleware(app: Any) -> Any:
                     if raw[:7].lower() == "bearer ":
                         token = raw[7:].strip()
                     break
+            if token is None:
+                qs = scope.get("query_string") or b""
+                if qs:
+                    values = urllib.parse.parse_qs(qs.decode("latin-1")).get("token")
+                    if values:
+                        token = values[0]
             _presented_token.set(token)
         await app(scope, receive, send)
 
