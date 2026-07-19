@@ -103,10 +103,19 @@ class TestAppWorkflow:
     contracts (ProjectManager.location dict, sim_datetime_utc,
     canvas_scene.width_cm) a rename would otherwise break silently."""
 
-    def test_menu_open_sun_close_cycle(self, qtbot) -> None:
+    def test_menu_open_sun_close_cycle(self, qtbot, monkeypatch) -> None:
         from datetime import UTC, datetime
 
         from open_garden_planner.app.application import GardenPlannerApp
+        from open_garden_planner.ui.view3d.view3d_window import View3DWindow
+
+        # Never actually show(): a SHOWN Qt3DWindow starts the RHI render
+        # thread, which outlives this test (the window persists by design)
+        # and segfaults later full-app tests. All glue below still runs;
+        # real rendering is the frozen-exe/manual gate's job.
+        monkeypatch.setattr(View3DWindow, "show", lambda self: None)
+        monkeypatch.setattr(View3DWindow, "raise_", lambda self: None)
+        monkeypatch.setattr(View3DWindow, "activateWindow", lambda self: None)
 
         win = GardenPlannerApp()
         qtbot.addWidget(win)
