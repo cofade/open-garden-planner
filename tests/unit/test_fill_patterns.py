@@ -27,12 +27,13 @@ class TestFillPatternEnum:
             "WATER", "SOIL", "MULCH", "ROOF_TILES", "SAND", "STONE", "GLASS", "HEDGE",
             "BRICK", "BARK", "WILDFLOWER", "TERRACOTTA", "PEBBLES",
             "SLATE", "LATTICE", "COMPOST", "FLAGSTONE", "CLAY",
+            "DECKING", "CORTEN",  # US-E9 asset-forge pilots
         ]
         for name in expected:
             assert hasattr(FillPattern, name), f"Missing pattern: {name}"
 
     def test_pattern_count(self, qtbot: object) -> None:
-        assert len(FillPattern) == 23
+        assert len(FillPattern) == 25
 
 
 class TestTextureFiles:
