@@ -346,6 +346,14 @@ class TestAppWiring:
         qtbot.wait(400)
         assert controller.recompute_count == baseline + 2
 
+        # Negative control: without the wiring, the same edit goes unseen —
+        # proving the connection (not some hidden side channel) is what
+        # keeps shadows fresh.
+        cmd_mgr.stack_changed.disconnect(controller.schedule_recompute)
+        cmd_mgr.redo()
+        qtbot.wait(400)
+        assert controller.recompute_count == baseline + 2
+
     def test_app_wires_stack_changed_to_sun_controller(self) -> None:
         """Source tripwire for the application.py connect line the behavioral
         test above replicates — deleting the line fails HERE."""

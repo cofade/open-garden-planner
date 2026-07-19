@@ -2874,6 +2874,11 @@ class GardenPlannerApp(QMainWindow):
             self._stop_agent_api()
             # Persist window/splitter/panel state before tearing down.
             self._save_ui_state()
+            # Flush a pending debounced sim-time write (closing within 1 s of
+            # the last slider change must not lose the instant).
+            if self._sun_time_save_timer.isActive():
+                self._sun_time_save_timer.stop()
+                self._save_sun_sim_time()
             # Stop auto-save timer
             self._autosave_manager.stop()
             # Clear auto-save file (user chose to save or discard)

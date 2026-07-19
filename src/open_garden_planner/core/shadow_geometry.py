@@ -193,9 +193,9 @@ def _swept_boundary_int(
     try:
         swept = pyclipper.MinkowskiSum([(0, 0), (dx, dy)], int_fp, True)
     except (pyclipper.ClipperException, TypeError, ValueError, OverflowError):
-        # pragma: no cover — defensive: binding-specific failure; the
-        # staircase fallback below keeps shadows correct (tip/direction
-        # exact, a few % of edge-notch area).
+        # Binding-specific failure — the staircase fallback below keeps
+        # shadows correct (tip/direction exact, a few % of edge-notch area).
+        # Exercised by the fallback-equivalence unit test.
         swept = None
     if swept:
         return list(swept)
