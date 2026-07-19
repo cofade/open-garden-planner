@@ -45,10 +45,28 @@ def test_known_good_calibrators_pass() -> None:
 
 
 def test_metric_rejects_non_tileable() -> None:
+    # Horizontal gradient exercises the x branch…
     gradient = np.tile(
         np.linspace(0, 255, 256, dtype=np.uint8), (256, 1)
     )
     image = Image.fromarray(gradient, mode="L").convert("RGB")
+    assert not _mod.is_tileable(image)
+    # …its transpose the y branch (is_tileable short-circuits on `and`).
+    transposed = Image.fromarray(gradient.T.copy(), mode="L").convert("RGB")
+    assert not _mod.is_tileable(transposed)
+
+
+def test_metric_rejects_detailed_non_tiling_texture() -> None:
+    """A DETAILED image that doesn't tile must also fail — teeth beyond the
+    trivial gradient. Fixture: a real shipped texture under a luminance
+    ramp, the classic uneven-lighting defect of photo/AI-generated
+    candidates (texture detail intact, wrap seam = a lighting jump)."""
+    wood = np.asarray(
+        Image.open(_TEXTURES / "wood.png").convert("L"), dtype=np.float64
+    )
+    ramp = 0.55 + 0.45 * np.linspace(0.0, 1.0, wood.shape[1])[None, :]
+    lit = np.clip(wood * ramp, 0, 255).astype(np.uint8)
+    image = Image.fromarray(lit, mode="L").convert("RGB")
     assert not _mod.is_tileable(image)
 
 

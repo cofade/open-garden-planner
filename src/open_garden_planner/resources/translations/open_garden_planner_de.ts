@@ -5752,6 +5752,14 @@ noch nicht implementiert</translation>
             <source>No height — casts no shadow</source>
             <translation>Keine Höhe — wirft keinen Schatten</translation>
         </message>
+        <message>
+            <source>Decking</source>
+            <translation>Terrassendielen</translation>
+        </message>
+        <message>
+            <source>Corten steel</source>
+            <translation>Cortenstahl</translation>
+        </message>
     </context>
     <context>
         <name>RectangleItem</name>

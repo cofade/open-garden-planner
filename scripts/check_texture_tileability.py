@@ -16,6 +16,11 @@ synthetic gradient fails by an order of magnitude. Several LEGACY textures
 (e.g. glass, flagstone, stone) fail — real seams, recorded in the test's
 known-seamed list as future regeneration candidates for this very skill.
 
+Known limitation (documented, accepted): the metric works on LUMINANCE —
+a seam purely in hue at matched brightness is invisible to it. The shipped
+set is tonal, so this doesn't bite; the style gate (owner's eyes) remains
+the backstop for chroma-only defects.
+
 Usage:  venv/Scripts/python.exe scripts/check_texture_tileability.py [paths...]
 (no paths = check every PNG in resources/textures/)
 """
@@ -28,6 +33,11 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+# Calibration note: decking.png (the flagship STRUCTURED pilot — a board
+# gap sits legitimately at the wrap seam) scores x=1.55; the threshold
+# deliberately leaves it only ~3 % of headroom, so a regenerated structured
+# texture may need re-calibration here — that is a feature (the gate stays
+# tight), not an accident.
 SEAM_RATIO_THRESHOLD = 1.6
 
 #: Percentile of the internal step distribution the seam is measured

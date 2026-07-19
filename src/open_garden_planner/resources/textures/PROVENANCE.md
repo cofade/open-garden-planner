@@ -9,7 +9,10 @@ GPL-3 distribution rationale.
 - **Generator**: `scripts/generate_asset_forge_textures.py` (procedural,
   pure Pillow, deterministic seed 42) — no external model or service.
 - **Date**: 2026-07-20
-- **Reproduction**: run the script; identical bytes for the same seed.
+- **Reproduction**: run the script; identical bytes for the same seed
+  AND Pillow version (verified on Pillow 12.1.0 — `GaussianBlur` output
+  is not contractually stable across Pillow releases, so reproducibility
+  is in-practice per environment, not in-principle).
 - **License basis**: original work generated in-repo; no third-party
   input. Distributed under the project license (GPL-3.0-or-later).
 - **Tileability**: mechanically verified — `scripts/check_texture_tileability.py`
