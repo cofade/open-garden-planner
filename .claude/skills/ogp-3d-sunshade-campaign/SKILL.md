@@ -20,6 +20,12 @@ description: >
 was read from the repo at v1.23.0 (post-US-D1.3). Everything marked
 **TO BUILD** is FUTURE work — none of it exists yet. Do not conflate the two.
 
+**Re-verified 2026-07-19 at v1.24.3 (epic filed as #255, US issues #256–#264):**
+inventory facts held EXCEPT ADR numbering — US-D1.6/D2.0 consumed ADR-035/036,
+so the campaign's ADRs are now **ADR-037** (solar + shadow architecture) and
+**ADR-038** (3D engine choice); next free §8.x is **§8.20**. All ADR references
+below have been updated accordingly.
+
 This is a runbook, not an essay. Work the phases in order. Every phase ends
 in a **gate**: a command, an expected observation (often an exact number),
 and an explicit branch if you see something else. Success at each gate is
@@ -88,7 +94,7 @@ You are NOT starting from zero. These assets exist and were read from source:
 | Decorative shadows toggle | `app/settings.py` `KEY_SHOW_SHADOWS = "appearance/show_shadows"` (line 28, property line 246) → `application.py` `_on_toggle_shadows` (~line 2628) → `canvas_scene.set_shadows_enabled` (line 154) → per-item painted drop shadow (`garden_item.py` lines 211/718) | **Cosmetic only.** Phase 14 must NOT reuse this key or its menu item; rename risk is a UX decision — see Phase 3 step 5. |
 | Roadmap + open question | `docs/roadmap.md` line 2447 "Phase 14: 3D Visualization & Sun/Shade (Future, v2.0)" (Qt3D integration, object heights, sun path sim, walkthrough, growth vis); `docs/11-risks-and-technical-debt/README.md` line 10: "Qt6 3D capabilities vs dedicated engine? Prototype with Qt3D, evaluate PyVista" | The scope contract and the mandated Phase 5 spike. |
 | License | `pyproject.toml` line 10: **GPL-3.0-or-later** | Any new dep must be GPL-compatible (Phase 5 table). |
-| ADR home | `docs/09-architecture-decisions/README.md` — single file, ADR-001…ADR-034. **Next free number: ADR-035** | Where the solar-architecture and 3D-engine ADRs go. |
+| ADR home | `docs/09-architecture-decisions/README.md` — single file, ADR-001…ADR-036 (as of v1.24.3). **Next free number: ADR-037** | Where the solar-architecture (ADR-037) and 3D-engine (ADR-038) ADRs go. |
 
 Quick re-verification (run before trusting this table if months have passed —
 also see "Provenance and maintenance" at the end):
@@ -326,7 +332,7 @@ in `metadata`, which v1.x preserves on load/save (verified: `project.py`
 serializes `item.metadata` wholesale, and unknown keys are untouched). No
 migration, no warning needed.
 
-### Design decisions (make them explicitly, record in ADR-035)
+### Design decisions (make them explicitly, record in ADR-037)
 
 1. **One Qt-free resolver** — `core/object_height.py` (pattern:
    `core/plant_sizing.py`). Precedence:
@@ -476,7 +482,7 @@ band definitions in `docs/12-glossary/`).
 **Performance budget (stated up front):** target garden 30 m × 20 m at 10 cm
 cells = 60 000 cells × ~64 daylight samples (Jun 21 Berlin ≈ 16.7 h / 15 min).
 Python point-in-polygon per (cell, sample) is ~4 M tests — too slow. Use one
-of two vectorized routes (pick in ADR-035):
+of two vectorized routes (pick in ADR-037):
 1. **Rasterize per sample** (recommended): paint the sample's shadow polygons
    into a monochrome `QImage` at grid resolution and accumulate with numpy
    (`QImage` painting is documented thread-safe off the GUI thread, unlike
@@ -551,7 +557,7 @@ at spike time** — the commands are the deliverable, not remembered claims:
 | Installer size delta | compare `dist/` size before/after | < +150 MB or owner explicitly accepts |
 | GPL compatibility of the chosen dep | read its license file, cross-check SPDX | Must be GPL-3-compatible; if a sibling `ogp-external-positioning` skill exists, follow its process |
 
-**Spike deliverable:** ADR-036 "3D engine choice" with the filled-in table,
+**Spike deliverable:** ADR-038 "3D engine choice" with the filled-in table,
 the frozen-exe screenshot, and the decision.
 
 **Kill criteria (write them in the ADR before starting):**
@@ -596,10 +602,10 @@ due north." — the numbers come from the Appendix, so a failed manual test
 localizes instantly to render-vs-math.
 
 **Documentation duties (per `ogp-change-control` / CLAUDE.md matrix):**
-- **ADR-035**: solar engine + shadow architecture (Qt-free core, canvas-frame
-  math, overlay non-serialization, aggregation strategy). **ADR-036**: 3D
+- **ADR-037**: solar engine + shadow architecture (Qt-free core, canvas-frame
+  math, overlay non-serialization, aggregation strategy). **ADR-038**: 3D
   engine GO/NO-GO. (ADRs live in `docs/09-architecture-decisions/README.md`;
-  034 is the last used as of 2026-07-04.)
+  036 is the last used as of 2026-07-19 / v1.24.3.)
 - **FR entries** in `docs/functional-requirements.md` (suggest FR-SUN-01…):
   height property, shadow overlay, time control, heatmap, empty states, and
   the explicit exclusions (flat-ground assumption; refraction ignored;
@@ -611,7 +617,7 @@ localizes instantly to render-vs-math.
   elevation angle, equation of time, hour angle, solar noon, full sun /
   partial shade / full shade bands.
 - **Roadmap + wiki**: mark the USes, sync `../open-garden-planner.wiki/Roadmap.md`.
-- **§11.1**: close/update the Qt3D open-question row with the ADR-036 outcome.
+- **§11.1**: close/update the Qt3D open-question row with the ADR-038 outcome.
 
 ---
 
@@ -665,8 +671,9 @@ lit 14:40–sunset (~19:20, sun W→NW).
 
 ## Provenance and maintenance
 
-All repo facts verified 2026-07-04 against the working tree at v1.23.0.
-One-line re-verification commands (run from repo root):
+All repo facts verified 2026-07-04 against the working tree at v1.23.0;
+re-verified 2026-07-19 at v1.24.3 (ADR numbering corrected to 037/038, all
+other facts held). One-line re-verification commands (run from repo root):
 
 - Solar oracle still green: `python3 .claude/skills/ogp-3d-sunshade-campaign/scripts/solar_reference.py --quiet; echo $?` → expect final `RESULT: ALL CHECKS PASSED`, exit 0.
 - Phase 14 roadmap section: `grep -n "Phase 14" docs/roadmap.md` → line ~2447.
@@ -676,4 +683,4 @@ One-line re-verification commands (run from repo root):
 - pyclipper + numpy deps: `grep -nE "pyclipper|numpy" pyproject.toml`.
 - Species height coverage: the python3 one-liner in §0 → `118 / 118` (or more records, same full coverage expected).
 - Cosmetic-shadow collision: `grep -n "KEY_SHOW_SHADOWS" src/open_garden_planner/app/settings.py` → `appearance/show_shadows` still cosmetic-only.
-- Next ADR number: `grep -c "^## ADR-" docs/09-architecture-decisions/README.md` and take max+1 (034 as of 2026-07-04).
+- Next ADR number: `grep -oE "^## ADR-[0-9]+" docs/09-architecture-decisions/README.md | sort -V | tail -1` and take max+1 (036 as of 2026-07-19; campaign reserves 037 + 038). (`grep -c` would miscount if numbering ever gains a gap.)

@@ -187,7 +187,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
-1. Phases 1–12 are complete (see progress table below). Next milestone = **Phase 13 (v2.0)** — 3D Visualization & Sun/Shade.
+1. Phases 1–12 are complete, Phase 13 Packages A–C shipped and Package D1+D2.0 shipped (see progress tables below). Next milestone = **Phase 14 (v2.0)** — 3D Visualization & Sun/Shade: **planned as epic [#255](https://github.com/cofade/open-garden-planner/issues/255)** (US-E1…E9 = issues #256–#264, full US table in `docs/roadmap.md` Phase 14; load the `ogp-3d-sunshade-campaign` skill before starting any of them).
 2. Read the relevant section in `docs/roadmap.md` for the user story or follow-up issue you're tackling.
 3. Check `git status` and recent git history (`git log --oneline -20`).
 4. Create feature branch and implement.
