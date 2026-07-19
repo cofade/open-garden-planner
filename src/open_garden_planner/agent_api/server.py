@@ -96,8 +96,9 @@ logger = logging.getLogger(__name__)
 # therefore gate PER TOOL, not with a blanket middleware over the whole server.
 #
 # ``_bearer_token_middleware`` (applied to the ASGI app in ``_start_locked``)
-# reads the ``Authorization: Bearer <token>`` header off every HTTP request and
-# stashes the presented value in this ContextVar. Each write tool's ``async``
+# reads the token off every HTTP request (from the ``Authorization: Bearer``
+# header or a ``?token=`` URL query param) and stashes it in this ContextVar.
+# Each write tool's ``async``
 # handler then calls ``_require_write_auth`` — which runs in the SAME request
 # task as the middleware, so it sees that request's token — BEFORE any thread
 # offload. Verified end-to-end against mcp 1.28.1 with ``stateless_http=True``.
@@ -259,8 +260,9 @@ def build_server(
 
     writes_active = bool(writes_enabled and write_token)
     write_note = (
-        " move_object/delete_object edit the live plan (each is one undoable "
-        "step) and require an 'Authorization: Bearer <token>' header."
+        " move_object/delete_object edit the live plan (undoable) and require "
+        "the write token, delivered in the server URL as '?token=<token>' "
+        "(the 'Connect AI Assistant' dialog sets this up for a client)."
         if writes_active
         else ""
     )
