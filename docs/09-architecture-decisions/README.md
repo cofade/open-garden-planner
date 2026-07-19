@@ -618,3 +618,28 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 **Core split**: `core/shade_aggregation.py` is Qt-free — daylight sampling (gate α > 0 with the shadow call clamped to ≥ 0.5°: dropping grazing dawn/dusk samples entirely would undercount every cell by ~10 min/day at Berlin's solstice, while at 0.5° a shadow is already ~115 m per meter of height so sunward cells stay correctly shaded — this is what keeps the toy case at exactly 0 min winter / 540 min summer), band thresholds (<2 h / 2–4 h / 4–6 h / ≥6 h), grid math (row 0 = SOUTH edge, §8.20 discipline), and the sampling loop with an injected rasterizer. The Qt side (`ui/canvas/sun_heatmap.py`) holds the QImage rasterizer, the `_WeatherFetchWorker`-shaped `HeatmapWorker(QThread)` (plain-data snapshots in — `collect_shadow_casters` runs on the GUI thread — signals out), the runtime-only `SunHeatmapOverlayItem(QGraphicsPixmapItem)` (z −450, never serialized, `scene.clear()`-guarded like the shadow overlay), and the controller.
 
 **Recompute on demand only**: the heatmap costs seconds, not milliseconds, so it is NEVER wired to `scene.changed` — an explicit "Hours of Sun" toolbar button computes it, a date change (not a time-of-day change — the map aggregates the whole day) or disabling the sim clears it, and `closeEvent` joins a running worker (`shutdown()`) because a `QThread` destroyed while running aborts the process (#230 class). Full sun (≥6 h) renders fully transparent — the map paints the *problem* (shade), not the good news.
+
+## ADR-038: 3D Engine Choice — GO/NO-GO Spike (Phase 14, US-E5)
+
+**Status**: In evaluation (2026-07-19, spike running) | **Context**: Epic #255, issue #260, `docs/11` §11.1 open question ("Qt6 3D capabilities vs dedicated engine? Prototype with Qt3D, evaluate PyVista"). Timebox: 5 working days, hard stop.
+
+**Decision criteria (written BEFORE gathering evidence — the issue's discipline):**
+
+| Criterion | GO threshold |
+|---|---|
+| Wheel availability & maintenance | wheel exists for the installed PyQt6 minor (6.11), clean import on Windows, release < 12 months old |
+| Feature fit | can render extruded prisms from footprints × US-E2 heights, orbit camera, directional light from the US-E1 solar vector; walkthrough (US-E7) reachable as a camera mode |
+| **Packaging under PyInstaller (DECISIVE)** | frozen `dist/OpenGardenPlanner.exe` opens the 3D spike window showing lit, extruded boxes derived from a real plan — verified on a real Windows box, machine-checked (spike auto-saves a screenshot + clean exit) |
+| Installer size delta | < +150 MB on `dist/`, or the owner explicitly accepts |
+| License | GPL-3-compatible (project is GPL-3.0-or-later) |
+| Support burden | no per-machine GPU-driver workarounds needed in testing |
+
+**Kill criteria (pre-committed):**
+- No candidate passes the frozen-exe gate within the timebox → **NO-GO**: US-E1…E4 ship as v2.0's sun/shade story; the 2.5D isometric `QGraphicsScene` fallback (always available, zero deps) is filed as a later US; §11.1 updated with findings.
+- A candidate imports in dev but dies frozen and resists one focused day of spec work → NO-GO for that candidate (the mcp/uvicorn packaging saga is the precedent — hidden-import archaeology has a budget).
+- A candidate needs per-machine GPU workarounds → NO-GO for that candidate.
+- GO → unblocks US-E6/E7/E8; this ADR names the engine and the adapter-boundary rule (engine imports confined to ONE module).
+
+**Candidates under evaluation** (all cells REQUIRES-VERIFICATION-AT-SPIKE-TIME; evidence recorded below as gathered): PyQt6-3D (native Qt scene graph; GPL-3 wheel from Riverbank), PyVista/pyvistaqt (VTK; MIT/BSD-3/MIT — all GPL-compatible — but ~100 MB wheel), pyqtgraph.opengl + PyOpenGL (MIT, tiny, no built-in shadow mapping — acceptable: US-E3 already computes shadows analytically), zero-dep 2.5D isometric fallback (the DEFER outcome, not a failure).
+
+**Evidence log**: *(filled during the spike — see the evidence sections appended below)*
