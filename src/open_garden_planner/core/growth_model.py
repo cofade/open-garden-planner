@@ -37,6 +37,11 @@ YEARS_TO_MATURITY_ANNUAL = 150.0 / 365.0  # ≈ a growing season
 _MIN_FRACTION_FALLBACK = 0.1
 
 
+def _is_number(value: Any) -> bool:
+    """True for real numbers — bools excluded (mirrors object_height)."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
 def _parse_iso_date(value: Any) -> date | None:
     if isinstance(value, date):
         return value
@@ -63,13 +68,15 @@ def years_to_maturity(
     days_min = species.get("days_to_maturity_min")
     days_max = species.get("days_to_maturity_max")
     days: list[float] = [
-        float(d) for d in (days_min, days_max) if isinstance(d, (int, float)) and d > 0
+        float(d) for d in (days_min, days_max) if _is_number(d) and d > 0
     ]
     if days:
         return max(sum(days) / len(days) / 365.0, 1.0 / 365.0)
     if object_type_name == "TREE":
         return YEARS_TO_MATURITY_TREE
-    cycle = str(species.get("plant_cycle", "")).lower()
+    # Real species dicts serialize the life cycle under "cycle"
+    # (PlantSpeciesData.to_dict) — review-caught: "plant_cycle" never exists.
+    cycle = str(species.get("cycle", "")).lower()
     if "annual" in cycle and "perennial" not in cycle:
         return YEARS_TO_MATURITY_ANNUAL
     return YEARS_TO_MATURITY_DEFAULT
@@ -88,9 +95,9 @@ def growth_fraction(
 def _interpolate(
     minimum: Any, maximum: Any, fraction: float
 ) -> float | None:
-    if not isinstance(maximum, (int, float)) or maximum <= 0:
+    if not _is_number(maximum) or maximum <= 0:
         return None
-    if isinstance(minimum, (int, float)) and 0 < minimum <= maximum:
+    if _is_number(minimum) and 0 < minimum <= maximum:
         low = float(minimum)
     else:
         low = float(maximum) * _MIN_FRACTION_FALLBACK
