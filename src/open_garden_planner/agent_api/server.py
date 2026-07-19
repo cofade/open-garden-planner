@@ -169,26 +169,40 @@ def _bearer_token_middleware(app: Any) -> Any:
        in the URL preserves the same threat model (a caller without the token
        still can't write) without depending on header transmission.
 
-    The header wins when both are present. Validation (constant-time compare,
-    ASCII guard) happens later in ``_require_write_auth``.
+    The **URL query token wins** when both are present: it is the reliable
+    primary channel (some clients drop configured headers on tool calls), so a
+    stale legacy ``Authorization`` header left in a config can't shadow a fresh
+    URL token. Validation (constant-time compare, ASCII guard) happens later in
+    ``_require_write_auth``.
+
+    A query token is **stripped from ``scope["query_string"]`` immediately**
+    (whether or not a header is also present) so no downstream ASGI handler or
+    access log can observe the secret (defense-in-depth; the MCP app routes on
+    the path, not the query, so nothing after us needs the ``token`` param).
     """
 
     async def wrapped(scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope.get("type") == "http":
-            token: str | None = None
+            header_token: str | None = None
             for key, value in scope.get("headers") or []:
                 if key == b"authorization":
                     raw = value.decode("latin-1")
                     if raw[:7].lower() == "bearer ":
-                        token = raw[7:].strip()
+                        header_token = raw[7:].strip()
                     break
-            if token is None:
-                qs = scope.get("query_string") or b""
-                if qs:
-                    values = urllib.parse.parse_qs(qs.decode("latin-1")).get("token")
-                    if values:
-                        token = values[0]
-            _presented_token.set(token)
+            query_token: str | None = None
+            qs = scope.get("query_string") or b""
+            if qs:
+                params = urllib.parse.parse_qsl(qs.decode("latin-1"))
+                for key, value in params:
+                    if key == "token":
+                        query_token = value
+                        break
+                if query_token is not None:
+                    scope["query_string"] = urllib.parse.urlencode(
+                        [(k, v) for k, v in params if k != "token"]
+                    ).encode("latin-1")
+            _presented_token.set(query_token if query_token is not None else header_token)
         await app(scope, receive, send)
 
     return wrapped
@@ -712,6 +726,11 @@ class AgentApiServer:
             host=self._host,
             port=self._port,
             log_level="warning",
+            # Never write an access log: request URLs carry the write token as a
+            # ?token= query param (ADR-036 URL-delivery addendum), so logging the
+            # request line would persist the secret. Explicit, not merely implied
+            # by the warning log level.
+            access_log=False,
             lifespan="on",
         )
         server = uvicorn.Server(config)

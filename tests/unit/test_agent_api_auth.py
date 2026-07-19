@@ -4,7 +4,7 @@ These exercise the pure gate logic without a running server:
   - ``_require_write_auth`` accepts the exact token, rejects wrong/missing.
   - ``_bearer_token_middleware`` extracts the token from either the
     ``Authorization: Bearer`` header or the ``?token=`` query param into the
-    ContextVar (header wins when both are present).
+    ContextVar (the URL query token wins when both are present).
   - the write tools are registered only when writes are enabled AND a token
     is configured (the ADR-033/ADR-036 gate).
 """
@@ -103,10 +103,19 @@ def _run_middleware(
     headers: list[tuple[bytes, bytes]], query_string: bytes = b""
 ) -> str | None:
     """Drive the ASGI middleware with a fake HTTP scope; return the captured token."""
-    captured: dict[str, str | None] = {}
+    return _run_middleware_full(headers, query_string)["token"]
+
+
+def _run_middleware_full(
+    headers: list[tuple[bytes, bytes]], query_string: bytes = b""
+) -> dict[str, Any]:
+    """Like ``_run_middleware`` but also returns the (possibly mutated) scope's
+    ``query_string`` as seen by the downstream app."""
+    captured: dict[str, Any] = {}
 
     async def inner(scope: dict[str, Any], receive: Any, send: Any) -> None:
         captured["token"] = _presented_token.get()
+        captured["downstream_query_string"] = scope.get("query_string")
 
     wrapped = _bearer_token_middleware(inner)
 
@@ -116,7 +125,7 @@ def _run_middleware(
         await wrapped(scope, None, None)
 
     asyncio.run(drive())
-    return captured["token"]
+    return captured
 
 
 def test_middleware_extracts_bearer_token() -> None:
@@ -145,12 +154,13 @@ def test_middleware_query_token_among_other_params() -> None:
     assert _run_middleware([], query_string=b"foo=bar&token=abc123&baz=1") == "abc123"
 
 
-def test_middleware_header_wins_over_query_token() -> None:
-    # Both present: the Authorization header takes precedence.
+def test_middleware_query_token_wins_over_header() -> None:
+    # Both present: the URL query token wins (it's the reliable primary channel;
+    # a stale legacy header must not shadow a fresh URL token).
     got = _run_middleware(
         [(b"authorization", b"Bearer from-header")], query_string=b"token=from-query"
     )
-    assert got == "from-header"
+    assert got == "from-query"
 
 
 def test_middleware_falls_back_to_query_when_header_non_bearer() -> None:
@@ -163,3 +173,36 @@ def test_middleware_falls_back_to_query_when_header_non_bearer() -> None:
 
 def test_middleware_sets_none_without_header_or_query() -> None:
     assert _run_middleware([], query_string=b"") is None
+
+
+def test_middleware_strips_token_from_scope_for_downstream() -> None:
+    # Defense-in-depth: the secret must not survive in the scope the MCP app /
+    # any access logger sees.
+    got = _run_middleware_full([], query_string=b"foo=bar&token=s3cret&baz=1")
+    assert got["token"] == "s3cret"
+    downstream = got["downstream_query_string"].decode("latin-1")
+    assert "token" not in downstream
+    assert "s3cret" not in downstream
+    # Other params are preserved.
+    assert "foo=bar" in downstream
+    assert "baz=1" in downstream
+
+
+def test_middleware_leaves_scope_untouched_when_token_in_header() -> None:
+    # No query token to strip; the query string passes through unchanged.
+    got = _run_middleware_full(
+        [(b"authorization", b"Bearer h")], query_string=b"foo=bar"
+    )
+    assert got["token"] == "h"
+    assert got["downstream_query_string"] == b"foo=bar"
+
+
+def test_middleware_strips_query_token_even_when_header_present() -> None:
+    # A query token is stripped from the scope regardless of whether a header is
+    # also present — the secret must never survive downstream.
+    got = _run_middleware_full(
+        [(b"authorization", b"Bearer h")], query_string=b"token=s3cret&keep=1"
+    )
+    downstream = got["downstream_query_string"].decode("latin-1")
+    assert "s3cret" not in downstream
+    assert "keep=1" in downstream

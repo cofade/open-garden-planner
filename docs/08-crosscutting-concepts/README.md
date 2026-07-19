@@ -393,7 +393,7 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 **Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
 
-**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0) are token-gated**: the scene-mutating tools (`move_object`/`delete_object`) ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of the token appearing in local request logs. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
+**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0) are token-gated**: the scene-mutating tools (`move_object`/`delete_object`) ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
 
 ## 8.12 Constraint Solver Architecture
 
@@ -1042,13 +1042,14 @@ behind **two independent guards**: a **writes-enabled** Settings toggle
 are **registered only when both are present** (`writes_enabled and write_token`)
 — when either is missing they don't appear in the tool list at all — and each
 call must carry the token, **either in the connect URL as a `?token=` query
-param or as an `Authorization: Bearer <token>` header** (header wins when both
-are present). The URL route is the reliable one: Claude Code on streamable-HTTP
+param or as an `Authorization: Bearer <token>` header** (the URL token wins when
+both are present, so a stale legacy header can't shadow it). The URL route is the reliable one: Claude Code on streamable-HTTP
 stores a configured header but omits it on tool-call requests (anthropics/
 claude-code#50464 / #28293), while the URL — being the request target — is
 always transmitted; delivering the secret there preserves the same threat model
-(a caller still needs the token) at the cost of the token appearing in local
-request logs. Reads stay open (loopback
+(a caller still needs the token) at the cost of a URL-borne secret (mitigated:
+uvicorn access log off + the `token` param is stripped from the request scope
+right after extraction, so nothing downstream logs it). Reads stay open (loopback
 trust, unchanged), so the gate is **per-tool, not a server-wide middleware**
 that would break read-only D1 clients: a pure-ASGI wrapper
 (`_bearer_token_middleware`) reads each request's token from the header or the

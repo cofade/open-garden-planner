@@ -422,6 +422,37 @@ class TestWriteTokenThreading:
         # Token rides the URL now, not a header.
         assert "headers" not in entry
 
+    def test_cursor_reinstall_drops_stale_headers_key(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        # Migration guard: a prior header-based install left a `headers` key. A
+        # re-install must replace the entry wholesale so no stale header (which,
+        # with a regenerated token, would be a WRONG credential) survives.
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        cursor_dir = tmp_path / ".cursor"
+        cursor_dir.mkdir()
+        (cursor_dir / "mcp.json").write_text(
+            json.dumps(
+                {
+                    "mcpServers": {
+                        onboarding.SERVER_NAME: {
+                            "url": _URL,
+                            "headers": {"Authorization": "Bearer stale-old-token"},
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        onboarding.install_to_client("cursor", url=_URL, token=_TOKEN)
+
+        entry = json.loads((cursor_dir / "mcp.json").read_text(encoding="utf-8"))[
+            "mcpServers"
+        ][onboarding.SERVER_NAME]
+        assert "headers" not in entry
+        assert entry["url"] == onboarding.url_with_token(_URL, _TOKEN)
+
     def test_cursor_install_without_token_uses_bare_url(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
