@@ -323,10 +323,11 @@ def _cursor_entry(url: str, token: str | None) -> dict[str, object]:
 
 def _claude_code_entry(url: str, token: str | None) -> dict[str, object]:
     """Claude Code / VS Code extension ``mcpServers.<name>`` entry for
-    ``~/.claude.json``. ``type: "http"`` is REQUIRED — an entry with only a
-    ``url`` is parsed as a stdio *command* server and ignored (worse, could be
-    run as a command). The token rides the URL (``url_with_token``); no
-    ``headers`` (Claude Code omits configured headers on tool calls)."""
+    ``~/.claude.json``. ``type: "http"`` is REQUIRED — without it the entry is
+    not recognised as an HTTP server and is silently ignored (a ``url``-only
+    entry doesn't match the stdio-*command* shape either, so it simply never
+    connects). The token rides the URL (``url_with_token``); no ``headers``
+    (Claude Code omits configured headers on tool calls)."""
     return {"type": "http", "url": url_with_token(url, token)}
 
 

@@ -10213,5 +10213,9 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Added to Claude Code. Start a new Claude Code session (or restart it) to pick up the change.</source>
             <translation>Zu Claude Code hinzugefügt. Starten Sie eine neue Claude-Code-Sitzung (oder starten Sie sie neu), um die Änderung zu übernehmen.</translation>
         </message>
+        <message>
+            <source>Merge this into your ~/.claude.json file:</source>
+            <translation>Fügen Sie dies in Ihre ~/.claude.json-Datei ein:</translation>
+        </message>
     </context>
 </TS>

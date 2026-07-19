@@ -39,11 +39,18 @@ def _group(dialog: ConnectAiAssistantDialog, title: str) -> QGroupBox:
 
 @pytest.fixture()
 def isolated_clients(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """Redirect client detection/install to tmp_path; only Cursor is detected."""
+    """Redirect client detection/install to tmp_path; only Cursor is detected by
+    default (a test may seed ~/.claude.json to make Claude Code detected too).
+
+    Clearing ``CLAUDE_CONFIG_DIR`` is load-bearing: ``_claude_code_user_config
+    _path`` honours it, so leaving a real value set would make the Claude Code
+    direct-merge tests write to the developer's actual config location instead
+    of ``tmp_path``."""
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setattr(
         "open_garden_planner.services.ai_client_onboarding.shutil.which", lambda _cmd: None
     )
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     (tmp_path / ".cursor").mkdir()
     return tmp_path
 
@@ -153,6 +160,63 @@ class TestConnectAiAssistantDialogEnabled:
 
 
 _TOKEN = "connect-dialog-token-xyz"
+
+
+class TestConnectAiAssistantDialogClaudeCodeOneClick:
+    """The headline of issue #253: one-click Claude Code registration works
+    WITHOUT the `claude` CLI — via a direct ~/.claude.json merge — end-to-end
+    through the dialog (§8.10 mandatory integration coverage for the new
+    user-facing capability)."""
+
+    def test_add_to_claude_code_merges_config_and_shows_reconnect_note(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        # isolated_clients mocks `shutil.which` -> None (no CLI on PATH); an
+        # existing ~/.claude.json makes Claude Code detected, so the button is
+        # enabled and install falls back to a direct atomic merge.
+        claude_json = isolated_clients / ".claude.json"
+        claude_json.write_text(
+            json.dumps({"projects": {"/x": {"trust": True}}}), encoding="utf-8"
+        )
+
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        cc_group = _group(dialog, "Claude Code")
+        add_btn = next(
+            b for b in cc_group.findChildren(QPushButton) if b.text() == "Add to Claude Code"
+        )
+        assert add_btn.isEnabled()
+        qtbot.mouseClick(add_btn, Qt.MouseButton.LeftButton)
+
+        data = json.loads(claude_json.read_text(encoding="utf-8"))
+        # type:"http" is required (a url-only entry is ignored), and the
+        # pre-existing top-level keys must survive the merge.
+        assert data["mcpServers"]["open-garden-planner"] == {"type": "http", "url": _URL}
+        assert data["projects"] == {"/x": {"trust": True}}
+        # The Claude-Code-specific reconnect note is shown (a user-scope server
+        # is only read at session start), not the generic "Added to {client}.".
+        assert "new claude code session" in dialog._status_label.text().lower()
+
+    def test_add_to_claude_code_embeds_token_in_merged_url(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        claude_json = isolated_clients / ".claude.json"
+        claude_json.write_text("{}", encoding="utf-8")
+
+        dialog = ConnectAiAssistantDialog(_URL, token=_TOKEN)
+        qtbot.addWidget(dialog)
+
+        cc_group = _group(dialog, "Claude Code")
+        add_btn = next(
+            b for b in cc_group.findChildren(QPushButton) if b.text() == "Add to Claude Code"
+        )
+        qtbot.mouseClick(add_btn, Qt.MouseButton.LeftButton)
+
+        entry = json.loads(claude_json.read_text(encoding="utf-8"))["mcpServers"][
+            "open-garden-planner"
+        ]
+        assert entry == {"type": "http", "url": f"{_URL}?token={_TOKEN}"}
 
 
 class TestConnectAiAssistantDialogWithToken:

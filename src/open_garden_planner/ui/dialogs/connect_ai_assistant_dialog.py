@@ -203,10 +203,7 @@ class ConnectAiAssistantDialog(QDialog):
     def _manual_note_for(self, client_id: str) -> str:
         notes = {
             "cursor": self.tr("Add this to your global Cursor MCP config file:"),
-            "claude_code": self.tr(
-                'Merge this into your ~/.claude.json file, under the top-level '
-                '"mcpServers" key:'
-            ),
+            "claude_code": self.tr("Merge this into your ~/.claude.json file:"),
             "claude_desktop": self.tr(
                 "Claude Desktop can't connect to a local server like this one — "
                 "its connectors are reached from Anthropic's cloud and reject "
