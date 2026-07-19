@@ -9,6 +9,7 @@ Sim time persists in ``UiStateStore`` (UI state), never in the ``.ogp``.
 
 from __future__ import annotations
 
+import html
 from datetime import datetime
 
 from PyQt6.QtCore import QDate, Qt, QTimer, pyqtSignal
@@ -89,19 +90,26 @@ class SunSimToolbar(QToolBar):
         self._legend_label = QLabel("", self)
         self._legend_label.setTextFormat(Qt.TextFormat.RichText)
         self._legend_label.setContentsMargins(8, 0, 0, 0)
-        # Swatch hexes are the opaque display versions of
-        # sun_heatmap.BAND_COLORS; labels go through tr() and are HTML-escaped.
-        import html
+        # Swatches derive from sun_heatmap.BAND_COLORS (blended over the
+        # canvas color) — one source of truth, the legend cannot drift from
+        # the overlay tints. Labels go through tr() and are HTML-escaped.
+        from open_garden_planner.ui.canvas.sun_heatmap import legend_swatch_hexes
 
+        swatches = legend_swatch_hexes()
+        labels = [
+            html.escape(self.tr("<2 h")),
+            html.escape(self.tr("2–4 h")),
+            html.escape(self.tr("4–6 h")),
+            html.escape(self.tr("≥6 h full sun")),
+        ]
+        # Band 3 (full sun) is transparent on canvas → outline glyph.
+        glyphs = ["■", "■", "■", "□"]
         self._legend_label.setText(
-            "<span style='color:#283454'>■</span> {deep} "
-            "<span style='color:#485c91'>■</span> {light} "
-            "<span style='color:#b8a34a'>■</span> {partial} "
-            "<span style='color:#7a9a4d'>□</span> {full}".format(
-                deep=html.escape(self.tr("<2 h")),
-                light=html.escape(self.tr("2–4 h")),
-                partial=html.escape(self.tr("4–6 h")),
-                full=html.escape(self.tr("≥6 h full sun")),
+            " ".join(
+                f"<span style='color:{swatch}'>{glyph}</span> {label}"
+                for swatch, glyph, label in zip(
+                    swatches, glyphs, labels, strict=True
+                )
             )
         )
         self._legend_label.setToolTip(

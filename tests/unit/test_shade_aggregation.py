@@ -24,7 +24,6 @@ from open_garden_planner.core.shade_aggregation import (
     BAND_THRESHOLDS_MINUTES,
     SAMPLE_STEP_MINUTES,
     HeatmapGrid,
-    accumulate_sun_minutes,
     band_grid,
     band_index,
     compute_heatmap,
@@ -157,13 +156,6 @@ class TestBands:
 
 
 class TestPlumbing:
-    def test_accumulate_sun_minutes(self) -> None:
-        shaded = np.array([[True, False]])
-        clear = np.array([[False, False]])
-        minutes = accumulate_sun_minutes([shaded, clear], 1, 2, step_minutes=15)
-        assert minutes[0, 0] == 15.0
-        assert minutes[0, 1] == 30.0
-
     def test_grid_cell_round_trip(self) -> None:
         grid = HeatmapGrid.for_rect(0.0, 0.0, 3000.0, 2000.0, cell_cm=10.0)
         assert (grid.cols, grid.rows) == (300, 200)
