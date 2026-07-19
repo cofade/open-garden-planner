@@ -132,8 +132,9 @@ a = Analysis(
         "PyQt6.QtWebEngineCore",
         "PyQt6.QtWebEngineWidgets",
         "PyQt6.QtWebChannel",
-        # Qt3D — US-E5 spike (--spike-3d) / US-E6 3D view. PyInstaller's PyQt6
-        # hook collects the Qt3D DLLs once these bindings are named. NOTE:
+        # Qt3D — US-E6 3D view (ADR-038; engine imports live only in
+        # ui/view3d/qt3d_adapter.py, loaded lazily). PyInstaller's PyQt6 hook
+        # collects the Qt3D DLLs once these bindings are named. NOTE:
         # PyQt6-3D-Qt6 must version-match PyQt6-Qt6 (6.11.0) — a newer micro
         # fails at import with 'Die angegebene Prozedur wurde nicht gefunden'
         # (ADR-038).
@@ -143,8 +144,10 @@ a = Analysis(
         "PyQt6.Qt3DInput",
         "PyQt6.Qt3DLogic",
         "PyQt6.Qt3DAnimation",
-        "open_garden_planner.spike3d",
-        "open_garden_planner.spike3d.qt3d_spike",
+        "open_garden_planner.ui.view3d",
+        "open_garden_planner.ui.view3d.snapshot",
+        "open_garden_planner.ui.view3d.qt3d_adapter",
+        "open_garden_planner.ui.view3d.view3d_window",
         "ezdxf",
         "ezdxf.xclip",
         "ezdxf.fonts",
