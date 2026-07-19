@@ -373,3 +373,143 @@ class TestSnippetForClient:
     def test_unknown_client_raises(self) -> None:
         with pytest.raises(ValueError):
             onboarding.snippet_for_client("bogus", url=_URL)  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# url_with_token (US-D2.0): the write-access token rides the server URL as a
+# ``?token=`` query param — the delivery route that reaches clients (notably
+# Claude Code) which don't transmit auth headers on tool-call requests.
+# ---------------------------------------------------------------------------
+
+_TOKEN = "write-token-abc123"
+
+
+class TestUrlWithToken:
+    def test_appends_token(self) -> None:
+        assert onboarding.url_with_token(_URL, _TOKEN) == f"{_URL}?token={_TOKEN}"
+
+    def test_no_token_returns_url_unchanged(self) -> None:
+        assert onboarding.url_with_token(_URL, None) == _URL
+        assert onboarding.url_with_token(_URL, "") == _URL
+
+    def test_merges_with_existing_query(self) -> None:
+        got = onboarding.url_with_token(f"{_URL}?foo=bar", _TOKEN)
+        assert got == f"{_URL}?foo=bar&token={_TOKEN}"
+
+    def test_replaces_stale_token_and_is_idempotent(self) -> None:
+        once = onboarding.url_with_token(_URL, _TOKEN)
+        twice = onboarding.url_with_token(once, _TOKEN)
+        # Re-applying the same token doesn't accumulate duplicate params.
+        assert twice == once
+        assert twice.count("token=") == 1
+
+
+class TestWriteTokenThreading:
+    """The write token must be threaded into each client's config (in the URL)
+    so a one-click install can actually reach the D2 write tools."""
+
+    def test_cursor_install_embeds_token_in_url(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        result = onboarding.install_to_client("cursor", url=_URL, token=_TOKEN)
+
+        assert result.success is True
+        data = json.loads((tmp_path / ".cursor" / "mcp.json").read_text(encoding="utf-8"))
+        entry = data["mcpServers"][onboarding.SERVER_NAME]
+        assert entry["url"] == onboarding.url_with_token(_URL, _TOKEN)
+        # Token rides the URL now, not a header.
+        assert "headers" not in entry
+
+    def test_cursor_reinstall_drops_stale_headers_key(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        # Migration guard: a prior header-based install left a `headers` key. A
+        # re-install must replace the entry wholesale so no stale header (which,
+        # with a regenerated token, would be a WRONG credential) survives.
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        cursor_dir = tmp_path / ".cursor"
+        cursor_dir.mkdir()
+        (cursor_dir / "mcp.json").write_text(
+            json.dumps(
+                {
+                    "mcpServers": {
+                        onboarding.SERVER_NAME: {
+                            "url": _URL,
+                            "headers": {"Authorization": "Bearer stale-old-token"},
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        onboarding.install_to_client("cursor", url=_URL, token=_TOKEN)
+
+        entry = json.loads((cursor_dir / "mcp.json").read_text(encoding="utf-8"))[
+            "mcpServers"
+        ][onboarding.SERVER_NAME]
+        assert "headers" not in entry
+        assert entry["url"] == onboarding.url_with_token(_URL, _TOKEN)
+
+    def test_cursor_install_without_token_uses_bare_url(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        onboarding.install_to_client("cursor", url=_URL)
+
+        data = json.loads((tmp_path / ".cursor" / "mcp.json").read_text(encoding="utf-8"))
+        assert data["mcpServers"][onboarding.SERVER_NAME] == {"url": _URL}
+
+    def test_cursor_snippet_embeds_token_in_url(self) -> None:
+        data = json.loads(
+            onboarding.snippet_for_client("cursor", url=_URL, token=_TOKEN)
+        )
+        entry = data["mcpServers"][onboarding.SERVER_NAME]
+        assert entry["url"] == onboarding.url_with_token(_URL, _TOKEN)
+        assert "headers" not in entry
+
+    def test_claude_code_add_args_embed_token_in_url(self) -> None:
+        args = onboarding._claude_code_add_args(onboarding.SERVER_NAME, _URL, _TOKEN)
+        assert args == (
+            "add", "--transport", "http", "--scope", "user",
+            onboarding.SERVER_NAME, onboarding.url_with_token(_URL, _TOKEN),
+        )
+        # No --header at all: dropping it removes the variadic-ordering footgun.
+        assert "--header" not in args
+
+    def test_claude_code_add_args_bare_url_without_token(self) -> None:
+        args = onboarding._claude_code_add_args(onboarding.SERVER_NAME, _URL, None)
+        assert "--header" not in args
+        assert args == (
+            "add", "--transport", "http", "--scope", "user", onboarding.SERVER_NAME, _URL
+        )
+
+    def test_claude_code_snippet_embeds_token_in_url(self) -> None:
+        snippet = onboarding.snippet_for_client("claude_code", url=_URL, token=_TOKEN)
+        assert onboarding.url_with_token(_URL, _TOKEN) in snippet
+        assert "--header" not in snippet
+
+    def test_claude_desktop_snippet_embeds_token_in_url(self) -> None:
+        snippet = onboarding.snippet_for_client("claude_desktop", url=_URL, token=_TOKEN)
+        assert snippet == onboarding.url_with_token(_URL, _TOKEN)
+
+    def test_claude_code_install_passes_token_url_to_cli(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: "/usr/local/bin/claude")
+        seen: dict[str, list[str]] = {}
+
+        def fake_run(args: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            seen["args"] = args
+            return subprocess.CompletedProcess(args, 0, stdout="ok", stderr="")
+
+        monkeypatch.setattr(onboarding.subprocess, "run", fake_run)
+
+        result = onboarding.install_to_client("claude_code", url=_URL, token=_TOKEN)
+
+        assert result.success is True
+        assert "--header" not in seen["args"]
+        assert onboarding.url_with_token(_URL, _TOKEN) in seen["args"]

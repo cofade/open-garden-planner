@@ -5130,6 +5130,46 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <source>Save your changes first, then reopen this dialog to connect using the running server.</source>
             <translation>Speichern Sie zuerst Ihre Änderungen und öffnen Sie diesen Dialog erneut, um sich mit dem laufenden Server zu verbinden.</translation>
         </message>
+        <message>
+            <source>Run a local MCP server so AI assistants can read this garden plan. Binds to 127.0.0.1 (this computer) only. Editing stays off unless you enable it below.</source>
+            <translation>Einen lokalen MCP-Server ausführen, damit KI-Assistenten diesen Gartenplan lesen können. Bindet nur an 127.0.0.1 (dieser Computer). Bearbeiten bleibt aus, sofern Sie es unten nicht aktivieren.</translation>
+        </message>
+        <message>
+            <source>Allow AI assistants to edit the plan</source>
+            <translation>KI-Assistenten das Bearbeiten des Plans erlauben</translation>
+        </message>
+        <message>
+            <source>Let connected assistants move and delete objects. Each edit is a single undo step. Requires the token below; off by default.</source>
+            <translation>Verbundene Assistenten dürfen Objekte verschieben und löschen. Jede Änderung ist ein einzelner Rückgängig-Schritt. Erfordert das Token unten; standardmäßig aus.</translation>
+        </message>
+        <message>
+            <source>The access token an assistant must present to edit the plan. "Connect AI Assistant…" hands it to the client for you.</source>
+            <translation>Das Zugriffstoken, das ein Assistent zum Bearbeiten des Plans vorlegen muss. „KI-Assistenten verbinden…“ übergibt es für Sie an den Client.</translation>
+        </message>
+        <message>
+            <source>Copy</source>
+            <translation>Kopieren</translation>
+        </message>
+        <message>
+            <source>Regenerate</source>
+            <translation>Neu erzeugen</translation>
+        </message>
+        <message>
+            <source>Replace the token; assistants using the old one must reconnect.</source>
+            <translation>Das Token ersetzen; Assistenten mit dem alten Token müssen sich neu verbinden.</translation>
+        </message>
+        <message>
+            <source>Access token:</source>
+            <translation>Zugriffstoken:</translation>
+        </message>
+        <message>
+            <source>Enable AI editing to generate a token</source>
+            <translation>KI-Bearbeitung aktivieren, um ein Token zu erzeugen</translation>
+        </message>
+        <message>
+            <source>The running server still uses the previous token until you click Save — copying now won't work for a client yet.</source>
+            <translation>Der laufende Server verwendet weiterhin das vorherige Token, bis Sie auf Speichern klicken – ein jetzt kopiertes Token funktioniert für einen Client noch nicht.</translation>
+        </message>
     </context>
     <context>
         <name>PrintOptionsDialog</name>
@@ -10152,6 +10192,14 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Could not add to {client}: {detail}</source>
             <translation>Konnte nicht zu {client} hinzugefügt werden: {detail}</translation>
+        </message>
+        <message>
+            <source>AI editing is ON — clients added here can modify your plan. Each edit is a single undo step. Turn it off in Preferences → Agent API.</source>
+            <translation>KI-Bearbeitung ist AN – hier hinzugefügte Clients können Ihren Plan ändern. Jede Änderung ist ein einzelner Rückgängig-Schritt. Schalten Sie sie unter Einstellungen → Agent-API aus.</translation>
+        </message>
+        <message>
+            <source>Clients added here can read your plan but not edit it. To allow editing, enable it in Preferences → Agent API.</source>
+            <translation>Hier hinzugefügte Clients können Ihren Plan lesen, aber nicht bearbeiten. Um die Bearbeitung zu erlauben, aktivieren Sie sie unter Einstellungen → Agent-API.</translation>
         </message>
     </context>
 </TS>

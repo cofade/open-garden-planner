@@ -130,6 +130,41 @@ class TestConnectAiAssistantDialogEnabled:
         assert snippet.toPlainText() == _URL
 
 
+_TOKEN = "connect-dialog-token-xyz"
+
+
+class TestConnectAiAssistantDialogWithToken:
+    """When AI editing is on, a token is passed and must ride the URL (the
+    delivery route that works with clients that drop auth headers)."""
+
+    def test_copy_url_includes_token(self, qtbot, isolated_clients: Path) -> None:
+        dialog = ConnectAiAssistantDialog(_URL, token=_TOKEN)
+        qtbot.addWidget(dialog)
+
+        copy_btn = _group(dialog, "Connect URL").findChild(QPushButton)
+        qtbot.mouseClick(copy_btn, Qt.MouseButton.LeftButton)
+
+        clipboard = QApplication.clipboard()
+        assert clipboard is not None
+        assert clipboard.text() == f"{_URL}?token={_TOKEN}"
+
+    def test_add_to_cursor_embeds_token_in_url(self, qtbot, isolated_clients: Path) -> None:
+        dialog = ConnectAiAssistantDialog(_URL, token=_TOKEN)
+        qtbot.addWidget(dialog)
+
+        cursor_group = _group(dialog, "Cursor")
+        add_btn = next(
+            b for b in cursor_group.findChildren(QPushButton) if b.text() == "Add to Cursor"
+        )
+        qtbot.mouseClick(add_btn, Qt.MouseButton.LeftButton)
+
+        data = json.loads(
+            (isolated_clients / ".cursor" / "mcp.json").read_text(encoding="utf-8")
+        )
+        entry = data["mcpServers"]["open-garden-planner"]
+        assert entry == {"url": f"{_URL}?token={_TOKEN}"}
+
+
 class TestConnectAiAssistantDialogDisabled:
     def test_shows_warning_and_no_client_rows(self, qtbot) -> None:
         dialog = ConnectAiAssistantDialog(None)

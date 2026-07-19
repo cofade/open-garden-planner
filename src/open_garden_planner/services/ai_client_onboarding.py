@@ -40,6 +40,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -219,17 +220,52 @@ def detect_clients() -> list[ClientInfo]:
     return clients
 
 
-def install_to_client(client_id: ClientId, *, url: str, name: str = SERVER_NAME) -> InstallResult:
+def url_with_token(url: str, token: str | None) -> str:
+    """Return ``url`` carrying the write token as a ``?token=<token>`` query param.
+
+    We deliver the D2 write token in the URL rather than an ``Authorization``
+    header because some MCP clients — notably Claude Code on streamable-HTTP
+    (anthropics/claude-code#50464 / #28293) — store a configured header but omit
+    it on tool-call POSTs, while the configured URL (query string included) is
+    always transmitted since it's the request target. This preserves the same
+    threat model (a caller without the token can't write) without depending on
+    header transmission. Merges with any existing query string, replaces a stale
+    ``token`` param, and returns ``url`` unchanged when ``token`` is falsy.
+    """
+    if not token:
+        return url
+    parts = urllib.parse.urlsplit(url)
+    query = [
+        (k, v)
+        for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+        if k != "token"
+    ]
+    query.append(("token", token))
+    return urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query)))
+
+
+def install_to_client(
+    client_id: ClientId,
+    *,
+    url: str,
+    name: str = SERVER_NAME,
+    token: str | None = None,
+) -> InstallResult:
     """Register ``url`` under ``name`` in the given client's config.
+
+    When ``token`` is given, the client is configured to reach the Agent API's
+    write tools (D2) by carrying the token as a ``?token=<token>`` query param
+    on the server URL (see ``url_with_token``); without it the client can still
+    use all read tools.
 
     Raises ``ValueError`` for an unknown ``client_id`` (a programming error,
     not a runtime condition the caller should handle) — everything else comes
     back as an ``InstallResult`` so a failed install never raises into the UI.
     """
     if client_id == "cursor":
-        return _install_cursor(url=url, name=name)
+        return _install_cursor(url=url, name=name, token=token)
     if client_id == "claude_code":
-        return _install_claude_code(url=url, name=name)
+        return _install_claude_code(url=url, name=name, token=token)
     if client_id == "claude_desktop":
         return InstallResult(
             client_id=client_id,
@@ -243,10 +279,19 @@ def install_to_client(client_id: ClientId, *, url: str, name: str = SERVER_NAME)
     raise ValueError(f"Unknown client_id: {client_id}")
 
 
-def _install_cursor(*, url: str, name: str) -> InstallResult:
+def _cursor_entry(url: str, token: str | None) -> dict[str, object]:
+    """Cursor's ``mcpServers.<name>`` entry — the token rides the URL as a
+    ``?token=`` query param (see ``url_with_token``), the delivery route that
+    works uniformly across clients."""
+    return {"url": url_with_token(url, token)}
+
+
+def _install_cursor(*, url: str, name: str, token: str | None = None) -> InstallResult:
     path = _cursor_config_path()
     try:
-        backup = _atomic_merge_mcp_server(path, name=name, entry={"url": url})
+        backup = _atomic_merge_mcp_server(
+            path, name=name, entry=_cursor_entry(url, token)
+        )
     except OSError as exc:
         return InstallResult(client_id="cursor", success=False, detail=str(exc))
     return InstallResult(client_id="cursor", success=True, detail=str(path), backup_path=backup)
@@ -262,7 +307,20 @@ def _run_claude_mcp(claude: str, *args: str) -> subprocess.CompletedProcess[str]
     )
 
 
-def _install_claude_code(*, url: str, name: str) -> InstallResult:
+def _claude_code_add_args(name: str, url: str, token: str | None) -> tuple[str, ...]:
+    """Args for ``claude mcp add``; the token rides the URL as ``?token=``.
+
+    Claude Code stores a configured ``--header`` but does not send it on
+    tool-call requests for streamable-HTTP servers (anthropics/claude-code
+    #50464 / #28293), so a header would leave write tools unreachable. The URL
+    (query string included) is always transmitted, so the token goes there via
+    ``url_with_token`` — no ``--header``, which also removes the variadic-
+    ordering footgun the old header form carried.
+    """
+    return ("add", "--transport", "http", "--scope", "user", name, url_with_token(url, token))
+
+
+def _install_claude_code(*, url: str, name: str, token: str | None = None) -> InstallResult:
     claude = shutil.which("claude")
     if claude is None:
         return InstallResult(
@@ -271,25 +329,25 @@ def _install_claude_code(*, url: str, name: str) -> InstallResult:
             detail="claude CLI not found on PATH.",
         )
 
+    add_args = _claude_code_add_args(name, url, token)
+
     # Every module docstring/ADR-035 promise is "a failed install never raises
     # into the UI" — the CLI can hang (first-run login prompt, network stall)
     # or simply not exist despite shutil.which finding a stale PATH entry, so
     # every subprocess call in this function is inside this one try/except.
     try:
-        result = _run_claude_mcp(claude, "add", "--transport", "http", "--scope", "user", name, url)
+        result = _run_claude_mcp(claude, *add_args)
         if result.returncode == 0:
             return InstallResult(client_id="claude_code", success=True, detail=result.stdout.strip())
 
         stderr = result.stderr.strip()
         if "already exists" in stderr.lower():
             # Re-registering under the same name is an update, not a clobber —
-            # remove-then-add so a changed port takes effect. Other servers in
-            # ~/.claude.json are untouched either way.
+            # remove-then-add so a changed port/token takes effect. Other servers
+            # in ~/.claude.json are untouched either way.
             removed = _run_claude_mcp(claude, "remove", name, "--scope", "user")
             if removed.returncode == 0:
-                retry = _run_claude_mcp(
-                    claude, "add", "--transport", "http", "--scope", "user", name, url
-                )
+                retry = _run_claude_mcp(claude, *add_args)
                 if retry.returncode == 0:
                     return InstallResult(client_id="claude_code", success=True, detail=retry.stdout.strip())
                 stderr = (
@@ -304,15 +362,26 @@ def _install_claude_code(*, url: str, name: str) -> InstallResult:
     return InstallResult(client_id="claude_code", success=False, detail=stderr or "claude mcp add failed.")
 
 
-def snippet_for_client(client_id: ClientId, *, url: str, name: str = SERVER_NAME) -> str:
+def snippet_for_client(
+    client_id: ClientId, *, url: str, name: str = SERVER_NAME, token: str | None = None
+) -> str:
     """Copy-paste fallback text for a client — raw payload only (JSON/command),
     no descriptive prose; the dialog supplies its own translated "where to put
     this" note per client.
+
+    When ``token`` is given the snippet carries it in the server URL as a
+    ``?token=`` query param (see ``url_with_token``) so a hand-registered
+    client can reach the write tools too.
     """
     if client_id == "cursor":
-        return json.dumps({"mcpServers": {name: {"url": url}}}, indent=2)
+        return json.dumps(
+            {"mcpServers": {name: _cursor_entry(url, token)}}, indent=2
+        )
     if client_id == "claude_code":
-        return f"claude mcp add --transport http --scope user {name} {url}"
+        return (
+            f"claude mcp add --transport http --scope user "
+            f"{name} {url_with_token(url, token)}"
+        )
     if client_id == "claude_desktop":
-        return url
+        return url_with_token(url, token)
     raise ValueError(f"Unknown client_id: {client_id}")

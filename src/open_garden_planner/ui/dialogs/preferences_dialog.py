@@ -218,7 +218,8 @@ class PreferencesDialog(QDialog):
         self._agent_api_check.setToolTip(
             self.tr(
                 "Run a local MCP server so AI assistants can read this garden "
-                "plan. Binds to 127.0.0.1 (this computer) only; read-only."
+                "plan. Binds to 127.0.0.1 (this computer) only. Editing stays "
+                "off unless you enable it below."
             )
         )
         self._agent_api_check.toggled.connect(self._on_agent_api_toggled)
@@ -243,6 +244,52 @@ class PreferencesDialog(QDialog):
         )
         self._agent_api_connect_btn.clicked.connect(self._on_connect_ai_assistant)
         agent_layout.addRow("", self._agent_api_connect_btn)
+
+        # --- Agent API writes (US-D2.0) ---
+        self._agent_api_writes_check = QCheckBox(
+            self.tr("Allow AI assistants to edit the plan")
+        )
+        self._agent_api_writes_check.setToolTip(
+            self.tr(
+                "Let connected assistants move and delete objects. Each edit is a "
+                "single undo step. Requires the token below; off by default."
+            )
+        )
+        self._agent_api_writes_check.toggled.connect(self._on_agent_api_writes_toggled)
+        agent_layout.addRow(self._agent_api_writes_check)
+
+        self._agent_api_token_edit = QLineEdit()
+        self._agent_api_token_edit.setReadOnly(True)
+        self._agent_api_token_edit.setToolTip(
+            self.tr(
+                "The access token an assistant must present to edit the plan. "
+                '"Connect AI Assistant…" hands it to the client for you.'
+            )
+        )
+        token_row = QHBoxLayout()
+        token_row.addWidget(self._agent_api_token_edit, 1)
+        self._agent_api_token_copy_btn = QPushButton(self.tr("Copy"))
+        self._agent_api_token_copy_btn.clicked.connect(self._on_copy_agent_api_token)
+        token_row.addWidget(self._agent_api_token_copy_btn)
+        self._agent_api_token_regen_btn = QPushButton(self.tr("Regenerate"))
+        self._agent_api_token_regen_btn.setToolTip(
+            self.tr("Replace the token; assistants using the old one must reconnect.")
+        )
+        self._agent_api_token_regen_btn.clicked.connect(self._on_regenerate_agent_api_token)
+        token_row.addWidget(self._agent_api_token_regen_btn)
+        token_widget = QWidget()
+        token_widget.setLayout(token_row)
+        agent_layout.addRow(self.tr("Access token:"), token_widget)
+
+        self._agent_api_token_pending_note = QLabel(
+            self.tr(
+                "The running server still uses the previous token until you "
+                "click Save — copying now won't work for a client yet."
+            )
+        )
+        self._agent_api_token_pending_note.setWordWrap(True)
+        self._agent_api_token_pending_note.setVisible(False)
+        agent_layout.addRow("", self._agent_api_token_pending_note)
 
         layout.addWidget(agent_group)
 
@@ -276,7 +323,9 @@ class PreferencesDialog(QDialog):
         self._notify_overdue_check.setChecked(settings.notify_overdue_tasks_on_startup)
         self._agent_api_check.setChecked(settings.agent_api_enabled)
         self._agent_api_port_spin.setValue(settings.agent_api_port)
+        self._agent_api_writes_check.setChecked(settings.agent_api_writes_enabled)
         self._update_agent_api_url()
+        self._refresh_agent_api_token_field()
         self._on_agent_api_toggled(settings.agent_api_enabled)
 
     def _on_agent_api_toggled(self, enabled: bool) -> None:
@@ -284,6 +333,65 @@ class PreferencesDialog(QDialog):
         self._agent_api_port_spin.setEnabled(enabled)
         self._agent_api_url_label.setEnabled(enabled)
         self._agent_api_connect_btn.setEnabled(enabled)
+        self._agent_api_writes_check.setEnabled(enabled)
+        # Token controls follow both toggles: API on AND writes on.
+        self._on_agent_api_writes_toggled(
+            enabled and self._agent_api_writes_check.isChecked()
+        )
+
+    def _on_agent_api_writes_toggled(self, enabled: bool) -> None:
+        """Enable the token row only when both API and writes are on; refresh it."""
+        active = enabled and self._agent_api_check.isChecked()
+        self._agent_api_token_edit.setEnabled(active)
+        self._agent_api_token_copy_btn.setEnabled(active)
+        self._agent_api_token_regen_btn.setEnabled(active)
+        self._refresh_agent_api_token_field()
+
+    def _refresh_agent_api_token_field(self) -> None:
+        """Show the token when writes are enabled, else a placeholder.
+
+        Reading ``settings.agent_api_token`` auto-generates and persists a token
+        on first access, so only touch it when writes are actually on — a user
+        who never enables editing never gets a token written to settings.
+
+        The field always shows the *settings* value (so clicking Regenerate is
+        visibly effective) — but Regenerate persists immediately while the
+        running server keeps validating whatever it was started with until a
+        restart (which Save triggers). Rather than have Copy silently hand out
+        a different value than what's displayed, the mismatch is surfaced as an
+        explicit note instead.
+        """
+        from open_garden_planner.app.settings import get_settings
+
+        if self._agent_api_check.isChecked() and self._agent_api_writes_check.isChecked():
+            settings_token = get_settings().agent_api_token
+            self._agent_api_token_edit.setText(settings_token)
+            running_token = getattr(self.parent(), "agent_api_write_token", lambda: None)()
+            self._agent_api_token_pending_note.setVisible(
+                running_token is not None and running_token != settings_token
+            )
+        else:
+            self._agent_api_token_edit.clear()
+            self._agent_api_token_edit.setPlaceholderText(
+                self.tr("Enable AI editing to generate a token")
+            )
+            self._agent_api_token_pending_note.setVisible(False)
+
+    def _on_copy_agent_api_token(self) -> None:
+        from PyQt6.QtWidgets import QApplication
+
+        token = self._agent_api_token_edit.text()
+        clipboard = QApplication.clipboard()
+        if token and clipboard is not None:
+            clipboard.setText(token)
+
+    def _on_regenerate_agent_api_token(self) -> None:
+        """Replace the token immediately (a deliberate revoke). Takes effect on
+        the next server restart, which Save triggers via the change check."""
+        from open_garden_planner.app.settings import get_settings
+
+        get_settings().regenerate_agent_api_token()
+        self._refresh_agent_api_token_field()
 
     def _update_agent_api_url(self) -> None:
         """Refresh the displayed connect URL when the port changes."""
@@ -307,8 +415,10 @@ class PreferencesDialog(QDialog):
             ConnectAiAssistantDialog,
         )
 
-        running_url = getattr(self.parent(), "agent_api_running_url", lambda: None)()
-        dialog = ConnectAiAssistantDialog(running_url, self)
+        parent = self.parent()
+        running_url = getattr(parent, "agent_api_running_url", lambda: None)()
+        token = getattr(parent, "agent_api_write_token", lambda: None)()
+        dialog = ConnectAiAssistantDialog(running_url, self, token=token)
         dialog.exec()
 
     def _save_and_accept(self) -> None:
@@ -324,6 +434,7 @@ class PreferencesDialog(QDialog):
         settings.notify_overdue_tasks_on_startup = self._notify_overdue_check.isChecked()
         settings.agent_api_enabled = self._agent_api_check.isChecked()
         settings.agent_api_port = self._agent_api_port_spin.value()
+        settings.agent_api_writes_enabled = self._agent_api_writes_check.isChecked()
         settings.sync()
         self.accept()
 

@@ -211,3 +211,66 @@ class ExportResult(BaseModel):
         description="The project's prior current_file (save_plan only), if this call "
         "changed it — e.g. a save-as to a new path. Null if unchanged or not applicable.",
     )
+
+
+# --- US-D2.0: scene-mutating write tools ------------------------------------
+#
+# The first Agent API tools that mutate the live plan (move_object/
+# delete_object). Each requires a bearer token (ADR-033/ADR-036) and runs on
+# the Qt main thread via the same commands the GUI itself uses. WriteResult is
+# the curated confirmation returned to the agent — decoupled from the .ogp
+# serializer. move_object is ONE undo step for a lone item, but — mirroring
+# CanvasView's own drag-release behaviour — TWO when the move also carries a
+# bed's contained plants along and/or crosses a bed boundary and reparents a
+# plant; children_moved/bed_membership_changed/new_parent_bed_id surface that.
+
+
+class WriteResult(BaseModel):
+    """Result of a scene-mutating Agent API write tool (move_object/delete_object)."""
+
+    item_id: str = Field(description="Stable UUID of the object that was modified.")
+    action: Literal["move", "delete"] = Field(
+        description="The mutation performed."
+    )
+    undo_description: str = Field(
+        description="Human-readable label of the primary undo step this created "
+        "(the user can reverse it with Ctrl+Z; see bed_membership_changed for "
+        "whether a second step was also created)."
+    )
+    x: float | None = Field(
+        default=None,
+        description="Resulting object centre X in scene cm (move only; null for delete).",
+    )
+    y: float | None = Field(
+        default=None,
+        description="Resulting object centre Y in scene cm, +y down (move only; null "
+        "for delete).",
+    )
+    children_moved: int = Field(
+        default=0,
+        description="Contained plants moved along with this object, e.g. moving a "
+        "bed carries its plants (move only; always 0 for delete).",
+    )
+    bed_membership_changed: bool = Field(
+        default=False,
+        description="True if this move crossed a bed boundary and the plant's "
+        "parent bed was updated as a second undo step (move only, plants only).",
+    )
+    new_parent_bed_id: str | None = Field(
+        default=None,
+        description="The plant's new parent bed UUID if bed_membership_changed is "
+        "true and it entered a bed; null if it left a bed, is unchanged, or is not "
+        "applicable.",
+    )
+    linked_items_deleted: int = Field(
+        default=0,
+        description="Other items deleted alongside this one because they were "
+        "structurally linked to it — currently a HOUSE's roof ridge (delete only, "
+        "always 0 for move).",
+    )
+    constraints_removed: int = Field(
+        default=0,
+        description="Geometric constraints removed because they referenced this "
+        "object (delete only, always 0 for move; move_object refuses outright on a "
+        "constrained object instead — see its own error).",
+    )

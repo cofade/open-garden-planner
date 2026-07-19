@@ -393,7 +393,7 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 **Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
 
-**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. There is no auth yet (loopback trust); **token auth is a hard prerequisite before any write tool ships** (a default-on, unauthenticated *mutate* surface reachable by any local process would not be acceptable). The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
+**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0) are token-gated**: the scene-mutating tools (`move_object`/`delete_object`) ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
 
 ## 8.12 Constraint Solver Architecture
 
@@ -860,7 +860,7 @@ next launch). See ADR-032 for the architecture.
 `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
 (loads, validates, every expression parses, generates ≥1 primitive).
 
-## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6, ADR-033/034/035)
+## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0, ADR-033/034/035/036)
 
 The app can host an **MCP server over streamable-HTTP** so AI agents read the
 plan currently open in the GUI (epic #237). Package: `agent_api/`
@@ -1033,6 +1033,66 @@ original), preserves every other key/server, and writes via a same-directory
 temp file + `os.replace()`. See ADR-035 for the full
 per-client reasoning (including why Claude Desktop's config isn't
 auto-written) and §11.4 if a client's schema needs revisiting.
+
+**Agent write path & token gate (US-D2.0, ADR-036).** The first scene-mutating
+tools — `move_object(item_id, dx, dy)` and `delete_object(item_id)` — sit
+behind **two independent guards**: a **writes-enabled** Settings toggle
+(`agent_api_writes_enabled`, **default OFF**) and a **bearer token**
+(`agent_api_token`, auto-generated with `secrets.token_urlsafe(32)`). The tools
+are **registered only when both are present** (`writes_enabled and write_token`)
+— when either is missing they don't appear in the tool list at all — and each
+call must carry the token, **either in the connect URL as a `?token=` query
+param or as an `Authorization: Bearer <token>` header** (the URL token wins when
+both are present, so a stale legacy header can't shadow it). The URL route is the reliable one: Claude Code on streamable-HTTP
+stores a configured header but omits it on tool-call requests (anthropics/
+claude-code#50464 / #28293), while the URL — being the request target — is
+always transmitted; delivering the secret there preserves the same threat model
+(a caller still needs the token) at the cost of a URL-borne secret (mitigated:
+uvicorn access log off + the `token` param is stripped from the request scope
+right after extraction, so nothing downstream logs it). Reads stay open (loopback
+trust, unchanged), so the gate is **per-tool, not a server-wide middleware**
+that would break read-only D1 clients: a pure-ASGI wrapper
+(`_bearer_token_middleware`) reads each request's token from the header or the
+`?token=` query string into a `contextvars.ContextVar`, and each write handler
+calls `_require_write_auth` (constant-time `secrets.compare_digest`) in the same
+request task, **before** the `anyio.to_thread.run_sync` main-thread hop. Verified end-to-end against
+`mcp==1.28.1` with `stateless_http=True` that the ContextVar set in middleware
+is visible in the tool handler for the same request (chosen over a `ctx:
+Context` header read so the gate doesn't depend on FastMCP internals). The
+write itself hops to the main thread via an `AgentProviders` callable,
+resolves the item by UUID (`scene.find_item_by_id`), and runs
+`canvas_view.command_manager.execute(cmd)` — matching GUI *behaviour*, not
+merely reusing a `Command` class: `delete_object` mirrors
+`CanvasView._delete_selected_items`'s full orchestration, not just
+`DeleteItemsCommand` — it also removes any constraint referencing the object
+(`RemoveConstraintCommand`, else the constraint graph keeps a dangling UUID)
+and deletes a `HOUSE`'s linked roof ridge (a `metadata["ridge_item_id"]`
+association, else orphaned); contained plants are still detached, not
+deleted, matching the GUI's "Keep plants" choice. `move_object` mirrors
+`CanvasView`'s whole drag-release sequence — a bed/container/trellis's
+contained plants move with it (`AlignItemsCommand` over item+children), and a
+moved plant's bed membership is re-evaluated afterward (`SetParentBedCommand`
+on a boundary crossing) — so **one agent write is one undoable step for a lone
+item, and two when a move also reparents a plant**, never more; every command
+still marks the plan dirty (invariants #3/#4/#13; no parallel mutation path).
+Both tools **refuse** (in the shared `_resolve_agent_item` chokepoint, so
+future write tools inherit it) rather than silently mishandle cases the agent
+could otherwise reach by resolving a UUID directly but the GUI forbids: an
+object (or, for `move_object`, a bed child) in a geometric constraint —
+`CanvasView`'s live solver computes per-item deltas a one-shot agent call
+doesn't replicate; a journal pin, whose delete needs a `ProjectData`
+note-record prune no bare `DeleteItemsCommand` performs; an item on a **locked
+layer** (the GUI enforces the lock by clearing `ItemIsSelectable`/
+`ItemIsMovable`, which selection-based GUI edits respect but a UUID lookup
+bypasses); and an individual **group member** (a raw snapshot exposes its id,
+but `moveBy` on a `QGraphicsItemGroup` child displaces it within the group —
+address the group itself). `GroupItem`/`SmartSymbolItem` moves need no special
+handling: they are real Qt groups, so `moveBy`/delete cascade to members
+natively (the bed↔plant link is *logical*, which is why beds don't).
+The token is surfaced (Copy/Regenerate) in Preferences → Agent API and
+injected into each client's config by the D1.6 onboarding writers as a
+`?token=` query param on the connect URL (`ai_client_onboarding.url_with_token`).
+See ADR-036 (and its URL-delivery addendum); §8.11 for the security note.
 
 **i18n.** MCP tool/resource/prompt descriptions are an English API contract
 (exempt). Only the Settings UI strings go through `tr()`.
