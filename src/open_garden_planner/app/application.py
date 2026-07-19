@@ -3137,7 +3137,6 @@ class GardenPlannerApp(QMainWindow):
 
             window = View3DWindow(None)  # top-level sibling window
             window.refresh_requested.connect(self._refresh_3d_view)
-            window.closed.connect(self._on_3d_view_closed)
             self._view3d_window = window
         self._refresh_3d_view()
         self._apply_sun_to_3d()
@@ -3178,11 +3177,11 @@ class GardenPlannerApp(QMainWindow):
             position.elevation_deg, position.azimuth_deg
         )
 
-    def _on_3d_view_closed(self) -> None:
-        window = self._view3d_window
-        self._view3d_window = None
-        if window is not None:
-            window.deleteLater()
+    # NOTE: the 3D window is created ONCE per session and merely hides on
+    # close (QMainWindow default) — destroying a live Qt3DWindow mid-session
+    # (deleteLater on close) races the RHI render thread and segfaults
+    # (#230-class, reproduced by the E2E workflow test). Reopening reuses
+    # the window and re-snapshots the plan.
 
     def _init_scale_bar_from_settings(self) -> None:
         """Initialize scale bar state from persisted settings."""

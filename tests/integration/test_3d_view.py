@@ -140,8 +140,13 @@ class TestAppWorkflow:
         window.refresh_requested.emit()
         assert window.adapter.rebuild_count == 2
 
+        # Close hides; the window persists for the session (destroying a
+        # live Qt3DWindow mid-session segfaults — see application.py note).
         window.close()
-        assert win._view3d_window is None
+        assert win._view3d_window is window
+        win._view3d_action.trigger()  # reopen → same window, fresh snapshot
+        assert win._view3d_window is window
+        assert window.adapter.rebuild_count == 3
 
 
 @requires_windows_3d
