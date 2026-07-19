@@ -2504,6 +2504,32 @@ for _ctx, _strings in _D20_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── US-E3: sun & shade shadow overlay + time control (#258) ──
+_E3_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "GardenPlannerApp": {
+        "S&un && Shade Simulation": "S&onnen- && Schatten-Simulation",
+        "Simulate solar shadows for a chosen date and time of day":
+            "Sonnenschatten für ein gewähltes Datum und eine Uhrzeit simulieren",
+        "Set garden location first: File → Set Garden Location…":
+            "Zuerst Gartenstandort festlegen: Datei → Gartenstandort festlegen…",
+        "Night — the sun is below the horizon":
+            "Nacht — die Sonne ist unter dem Horizont",
+    },
+    "SunSimToolbar": {
+        "Sun & Shade Simulation": "Sonnen- & Schatten-Simulation",
+        "Date:": "Datum:",
+        "Simulation date": "Simulationsdatum",
+        "Time of day": "Uhrzeit",
+        "Animate": "Animieren",
+        "Animate the sun across the day":
+            "Sonnenverlauf über den Tag animieren",
+    },
+}
+
+for _ctx, _strings in _E3_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)
