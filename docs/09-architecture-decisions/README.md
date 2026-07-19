@@ -658,7 +658,7 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 **Consequences / rules for US-E6+**:
 - Dependencies land in `pyproject.toml` with US-E6 (the spike deliberately left it out — evidence, not production): `PyQt6-3D==6.11.0` **and** `PyQt6-3D-Qt6==6.11.0`; the `-Qt6` pin must always track `PyQt6-Qt6`'s micro (evidence item 2).
 - **One import boundary**: only the US-E6 engine-adapter module may import `PyQt6.Qt3D*` — the engine-swap insurance the epic demands.
-- The spike package (`spike3d/`, `--spike-3d`) stays dormant-but-runnable until US-E6 replaces it, guarded by `tests/unit/test_spike3d_isolation.py` (never imported at startup; no module-level Qt3D imports).
+- The spike package (`spike3d/`, `--spike-3d`) stays dormant-but-runnable until US-E6 replaces it, guarded by `tests/unit/test_spike3d_isolation.py` (never imported at startup; no module-level Qt3D imports). *(Retired as promised — US-E6 deleted the package, flag and guard test; see the retirement note in the US-E6 addendum below.)*
 - The spike window's strings are deliberately NOT translated (dev evidence tooling, same exemption as MCP tool descriptions — §8.19).
 
 ### ADR-038 addendum: US-E6 implementation (3D view MVP)
