@@ -54,21 +54,22 @@ BAND_COLORS: tuple[QColor, ...] = (
 #: below every layer item (≥ 0).
 _HEATMAP_Z = -450.0
 
-#: The canvas background the legend swatches are composited over.
-_CANVAS_BG = QColor("#f5f5dc")
-
-
 def legend_swatch_hexes() -> list[str]:
     """Opaque display hex per band — BAND_COLORS alpha-blended over the
-    canvas color, so the toolbar legend can never drift from the real
-    overlay tints (single source of truth; pinned by test)."""
+    default canvas color, so the legend tracks the real overlay tints
+    (band→legend is single-source; pinned by test). The blend base is the
+    DEFAULT canvas color — a theme override shifts the on-canvas blend
+    slightly, which a static legend approximation accepts."""
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+
+    background = CanvasScene.CANVAS_COLOR
     hexes: list[str] = []
     for color in BAND_COLORS:
         alpha = color.alphaF()
         blended = QColor(
-            round(color.red() * alpha + _CANVAS_BG.red() * (1 - alpha)),
-            round(color.green() * alpha + _CANVAS_BG.green() * (1 - alpha)),
-            round(color.blue() * alpha + _CANVAS_BG.blue() * (1 - alpha)),
+            round(color.red() * alpha + background.red() * (1 - alpha)),
+            round(color.green() * alpha + background.green() * (1 - alpha)),
+            round(color.blue() * alpha + background.blue() * (1 - alpha)),
         )
         hexes.append(blended.name())
     return hexes
