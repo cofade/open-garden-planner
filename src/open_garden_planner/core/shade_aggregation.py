@@ -19,7 +19,7 @@ shade, 4–6 h = partial sun, ≥ 6 h = full sun.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import NamedTuple
@@ -224,15 +224,3 @@ def compute_heatmap(
             progress(index + 1, total)
     return minutes
 
-
-def accumulate_sun_minutes(
-    shadow_masks: Iterable[np.ndarray],
-    rows: int,
-    cols: int,
-    step_minutes: int = SAMPLE_STEP_MINUTES,
-) -> np.ndarray:
-    """Pure accumulation helper: sun minutes from per-sample shade masks."""
-    minutes = np.zeros((rows, cols), dtype=np.float32)
-    for mask in shadow_masks:
-        minutes += np.where(mask, 0.0, float(step_minutes))
-    return minutes

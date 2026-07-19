@@ -54,6 +54,25 @@ BAND_COLORS: tuple[QColor, ...] = (
 #: below every layer item (≥ 0).
 _HEATMAP_Z = -450.0
 
+#: The canvas background the legend swatches are composited over.
+_CANVAS_BG = QColor("#f5f5dc")
+
+
+def legend_swatch_hexes() -> list[str]:
+    """Opaque display hex per band — BAND_COLORS alpha-blended over the
+    canvas color, so the toolbar legend can never drift from the real
+    overlay tints (single source of truth; pinned by test)."""
+    hexes: list[str] = []
+    for color in BAND_COLORS:
+        alpha = color.alphaF()
+        blended = QColor(
+            round(color.red() * alpha + _CANVAS_BG.red() * (1 - alpha)),
+            round(color.green() * alpha + _CANVAS_BG.green() * (1 - alpha)),
+            round(color.blue() * alpha + _CANVAS_BG.blue() * (1 - alpha)),
+        )
+        hexes.append(blended.name())
+    return hexes
+
 
 def rasterize_polygons_qimage(
     polygons: list[Polygon], grid: HeatmapGrid
@@ -156,6 +175,13 @@ class HeatmapWorker(QThread):
             self.success.emit(minutes)
 
 
+# NOTE on the sampling window: ``daylight_samples`` walks the UTC civil day.
+# Far from Greenwich that window is offset against the local day, but over
+# any 24 h UTC window the sun still completes one full diurnal arc, so
+# per-cell daily totals are preserved to within day-to-day declination
+# drift — do NOT "fix" this into a local-day loop.
+
+
 class SunHeatmapController(QObject):
     """Owns the heatmap worker + overlay. Recompute on demand only."""
 
@@ -200,7 +226,8 @@ class SunHeatmapController(QObject):
 
     def run_for_day(self, day: date, cell_cm: float = GRID_CELL_CM) -> bool:
         """Snapshot the scene and launch the worker. False if it can't run
-        (no location / already running)."""
+        (no location / already running — incl. a just-cancelled worker still
+        winding down; the button re-enables on its ``finished``)."""
         if self.is_running:
             return False
         location = self._location_provider()
@@ -226,13 +253,22 @@ class SunHeatmapController(QObject):
         self.last_grid = grid
         self._computed_day = day
         self._success_seen = False
+        self._result_wanted = True
         self.run_count += 1
         worker.start()
         self.started.emit()
         return True
 
     def clear(self) -> None:
-        """Hide the overlay (does not cancel a running compute)."""
+        """Hide the overlay AND drop any in-flight compute.
+
+        Cancelling matters: on a large canvas the compute takes seconds, and
+        a date change / sim-off mid-compute must not let ``_on_success``
+        paint an orphaned or stale-day map afterwards (senior-review P1).
+        There is no result caching, so a cancelled compute buys nothing.
+        """
+        self._result_wanted = False
+        self.cancel()
         overlay = self._alive_overlay()
         if overlay is not None:
             overlay.setVisible(False)
@@ -253,7 +289,9 @@ class SunHeatmapController(QObject):
 
     def _on_success(self, minutes: np.ndarray) -> None:  # GUI thread
         grid = self._grid
-        if grid is None:
+        # A clear() may land between the worker's success emission and this
+        # queued slot — the result is no longer wanted, don't paint it.
+        if grid is None or not getattr(self, "_result_wanted", True):
             return
         self.last_minutes = minutes
         image = build_heatmap_image(minutes)

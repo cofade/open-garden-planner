@@ -169,6 +169,20 @@ class TestWorkerEndToEnd:
         assert controller.run_for_day(SUMMER) is False
         assert controller.run_count == 0
 
+    def test_clear_mid_compute_drops_the_result(self, qtbot, wall_scene) -> None:
+        """Senior-review P1: a date change / sim-off mid-compute calls
+        clear() — the in-flight worker must be cancelled and its late result
+        must NOT paint an orphaned overlay."""
+        controller = SunHeatmapController(wall_scene, lambda: BERLIN)
+        with qtbot.waitSignal(controller.finished, timeout=60000) as blocker:
+            assert controller.run_for_day(SUMMER, cell_cm=2.0)
+            controller.clear()
+        assert blocker.args == [False]
+        assert not controller.heatmap_visible()
+        qtbot.wait(100)  # any stray queued success slot lands here
+        assert not controller.heatmap_visible()
+        controller.shutdown()
+
     def test_cancel_and_shutdown_mid_compute(self, qtbot, wall_scene) -> None:
         controller = SunHeatmapController(wall_scene, lambda: BERLIN)
         with qtbot.waitSignal(controller.finished, timeout=60000) as blocker:
@@ -302,6 +316,45 @@ class TestToolbarHeatmapControls:
         assert "■" in toolbar._legend_label.text()
         toolbar.set_heatmap_active(False)
         assert not toolbar._heatmap_button.isChecked()
+
+
+class TestLegendDerivation:
+    def test_swatches_derive_from_band_colors(self, qtbot) -> None:
+        """The legend can never drift from the overlay tints (review P2):
+        every swatch hex in the label equals BAND_COLORS blended over the
+        canvas color."""
+        from open_garden_planner.ui.canvas.sun_heatmap import legend_swatch_hexes
+
+        toolbar = SunSimToolbar()
+        qtbot.addWidget(toolbar)
+        text = toolbar._legend_label.text()
+        for swatch in legend_swatch_hexes():
+            assert swatch in text
+
+
+class TestAppGlue:
+    def test_date_change_clears_heatmap_but_time_change_keeps_it(
+        self, qtbot
+    ) -> None:
+        """The FR-SUN-05 stale rule lives in application._on_sun_sim_datetime:
+        a TIME change keeps the (whole-day) map, a DATE change clears it."""
+        from datetime import UTC, datetime
+
+        from open_garden_planner.app.application import GardenPlannerApp
+
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)
+        heatmap = win._sun_heatmap
+        heatmap._ensure_overlay().setVisible(True)
+        heatmap._computed_day = SUMMER
+        win._sun_toolbar.set_heatmap_active(True)
+
+        win._on_sun_sim_datetime(datetime(2026, 6, 21, 15, 0, tzinfo=UTC))
+        assert heatmap.heatmap_visible(), "time-of-day change must keep the map"
+
+        win._on_sun_sim_datetime(datetime(2026, 6, 22, 15, 0, tzinfo=UTC))
+        assert not heatmap.heatmap_visible(), "date change must clear the map"
+        assert not win._sun_toolbar._heatmap_button.isChecked()
 
 
 class TestPerf:
