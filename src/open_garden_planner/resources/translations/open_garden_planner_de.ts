@@ -10174,14 +10174,6 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Fügen Sie dies zu Ihrer globalen Cursor-MCP-Konfigurationsdatei hinzu:</translation>
         </message>
         <message>
-            <source>Run this command in a terminal:</source>
-            <translation>Führen Sie diesen Befehl in einem Terminal aus:</translation>
-        </message>
-        <message>
-            <source>In Claude Desktop, go to Settings → Connectors → "Add custom connector" and paste this URL:</source>
-            <translation>Gehen Sie in Claude Desktop zu Einstellungen → Connectors → "Benutzerdefinierten Connector hinzufügen" und fügen Sie diese URL ein:</translation>
-        </message>
-        <message>
             <source>URL copied to clipboard.</source>
             <translation>URL in die Zwischenablage kopiert.</translation>
         </message>
@@ -10200,10 +10192,6 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Clients added here can read your plan but not edit it. To allow editing, enable it in Preferences → Agent API.</source>
             <translation>Hier hinzugefügte Clients können Ihren Plan lesen, aber nicht bearbeiten. Um die Bearbeitung zu erlauben, aktivieren Sie sie unter Einstellungen → Agent-API.</translation>
-        </message>
-        <message>
-            <source>Merge this into your ~/.claude.json file, under the top-level "mcpServers" key:</source>
-            <translation>Fügen Sie dies in Ihre ~/.claude.json-Datei unter dem Schlüssel „mcpServers“ auf oberster Ebene ein:</translation>
         </message>
         <message>
             <source>Claude Desktop can't connect to a local server like this one — its connectors are reached from Anthropic's cloud and reject localhost URLs. Use Claude Code or Cursor for this local Agent API instead.</source>

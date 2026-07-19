@@ -2413,11 +2413,6 @@ _D16_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Show manual snippet": "Manuellen Code-Schnipsel anzeigen",
         "Add this to your global Cursor MCP config file:":
             "Fügen Sie dies zu Ihrer globalen Cursor-MCP-Konfigurationsdatei hinzu:",
-        "Run this command in a terminal:": "Führen Sie diesen Befehl in einem Terminal aus:",
-        "In Claude Desktop, go to Settings → Connectors → "
-        '"Add custom connector" and paste this URL:':
-            "Gehen Sie in Claude Desktop zu Einstellungen → Connectors → "
-            '"Benutzerdefinierten Connector hinzufügen" und fügen Sie diese URL ein:',
         # US-D2.0 follow-up (issue #253): CLI-independent Claude Code merge
         # note, honest Claude Desktop redirect, and the reconnect hint.
         "Merge this into your ~/.claude.json file:":

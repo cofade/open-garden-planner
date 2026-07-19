@@ -20,6 +20,18 @@ from open_garden_planner.services import ai_client_onboarding as onboarding
 _URL = "http://127.0.0.1:8765/mcp"
 
 
+@pytest.fixture(autouse=True)
+def _neutralize_claude_config_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``_claude_code_user_config_path`` honours ``$CLAUDE_CONFIG_DIR`` ahead of
+    ``Path.home()``, so a real value set on the dev/CI machine (common for Claude
+    Code users — this project is developed with it) would make the direct-merge
+    install/detect tests read, merge, and rewrite the developer's REAL
+    ``~/.claude.json`` (OAuth + trust) OUTSIDE the ``tmp_path`` sandbox and drop a
+    ``.bak`` beside it. Neutralise it for every test in this module; the one test
+    that needs the var sets it explicitly in its own body (fixtures run first)."""
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+
+
 # ---------------------------------------------------------------------------
 # _atomic_merge_mcp_server
 # ---------------------------------------------------------------------------
