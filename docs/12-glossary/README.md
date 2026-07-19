@@ -93,6 +93,7 @@
 | **Sun & shade simulation** | The runtime-only canvas overlay (US-E3) painting the union of all object shadows for a simulated date/time at the project's location. Distinct from the cosmetic per-item drop shadows ("Show Shadows", `appearance/show_shadows`) |
 | **Hours-of-sun bands** | Horticultural classification of a spot's daily direct sun (US-E4, `core/shade_aggregation.py`): **deep shade** < 2 h, **light shade** 2–4 h, **partial sun** 4–6 h, **full sun** ≥ 6 h. Computed by 15-min sampling of the daylight period on the flat-ground assumption; "full sun = 6+ h direct sun" is the standard nursery-label criterion for sun-loving vegetables |
 | **Hours-of-sun heatmap** | The on-demand, runtime-only canvas overlay (US-E4) coloring each 10 cm cell by its hours-of-sun band for a chosen date; full-sun cells stay transparent. Computed in a worker thread; never serialized |
+| **Years to maturity** | How long a plant takes to reach full size in the growth model (US-E8, `core/growth_model.py`): from the species' `days_to_maturity` when present, else by kind — tree 10 y, perennial/shrub 3 y, annual ≈ a season (150 days). Drives the linear min→max size interpolation from the planting date |
 
 ## 12.2 Keyboard Shortcuts
 

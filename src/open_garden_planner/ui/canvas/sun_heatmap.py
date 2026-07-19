@@ -244,7 +244,9 @@ class SunHeatmapController(QObject):
         else:
             x0, y0, w, h = 0.0, 0.0, float(width), float(height)
         grid = HeatmapGrid.for_rect(x0, y0, w, h, cell_cm)
-        casters = collect_shadow_casters(self._scene)
+        # US-E8: heatmap sees the same date-projected plant sizes as the
+        # shadow overlay — one growth timeline everywhere.
+        casters = collect_shadow_casters(self._scene, at_date=day)
         worker = HeatmapWorker(casters, latitude, longitude, day, grid, self)
         worker.progress.connect(self.progress)
         worker.success.connect(self._on_success)

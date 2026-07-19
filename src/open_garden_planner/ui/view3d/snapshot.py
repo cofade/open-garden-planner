@@ -29,12 +29,16 @@ def _item_color_rgba(item: Any) -> tuple[int, int, int, int]:
     return _FALLBACK_COLOR
 
 
-def collect_scene3d_records(scene: QGraphicsScene) -> list[Scene3DRecord]:
+def collect_scene3d_records(
+    scene: QGraphicsScene, at_date=None
+) -> list[Scene3DRecord]:
     """Every visible item with a footprint → an engine-ready record.
 
     Items with an effective height become extruded prisms; the rest
     (lawns, paths, in-ground beds …) become thin ground decals, so the
-    2D layout stays recognizable from above.
+    2D layout stays recognizable from above. ``at_date`` (US-E8) projects
+    dated plants to their grown height and canopy spread — scrub the sim
+    date and trees grow in 3D.
     """
     raw: list[dict] = []
     # Bottom-to-top stacking order (scene.items() is top-first) so flat decals
@@ -46,10 +50,10 @@ def collect_scene3d_records(scene: QGraphicsScene) -> list[Scene3DRecord]:
         if object_type is None:
             continue
         metadata = getattr(item, "metadata", None)
-        height = effective_height_cm(object_type, metadata)
+        height = effective_height_cm(object_type, metadata, at_date=at_date)
         color = _item_color_rgba(item)
         name = str(getattr(item, "name", "") or object_type.name)
-        for footprint in _item_footprints(item):
+        for footprint in _item_footprints(item, at_date):
             if len(footprint) >= 3:
                 raw.append(
                     {

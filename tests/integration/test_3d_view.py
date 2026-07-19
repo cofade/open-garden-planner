@@ -81,6 +81,37 @@ class TestSnapshot:
         assert collect_scene3d_records(plan_scene) == []
 
 
+class TestGrowthIn3D:
+    """US-E8: the 3D snapshot shares the growth timeline."""
+
+    def test_records_project_height_and_spread(self, qtbot) -> None:  # noqa: ARG002
+        from datetime import date
+
+        scene = CanvasScene(1000.0, 800.0)
+        tree = CircleItem(300, 300, 200, object_type=ObjectType.TREE)
+        tree.metadata["plant_species"] = {
+            "min_height_cm": 100.0,
+            "max_height_cm": 500.0,
+            "min_spread_cm": 50.0,
+            "max_spread_cm": 400.0,
+        }
+        tree.metadata["plant_instance"] = {"planting_date": "2026-01-01"}
+        scene.addItem(tree)
+
+        young = collect_scene3d_records(scene, at_date=date(2026, 1, 1))
+        mature = collect_scene3d_records(scene, at_date=date(2040, 1, 1))
+        undated = collect_scene3d_records(scene)
+        assert young[0].height_cm == pytest.approx(100.0)
+        assert mature[0].height_cm == pytest.approx(500.0)
+        assert undated[0].height_cm == pytest.approx(500.0)  # no date → mature
+        # Canopy footprint shrinks for the young tree (spread 50 vs 400).
+        young_xs = [x for x, _ in young[0].footprint]
+        mature_xs = [x for x, _ in mature[0].footprint]
+        assert (max(young_xs) - min(young_xs)) < (
+            max(mature_xs) - min(mature_xs)
+        )
+
+
 class TestStartupCost:
     def test_app_construction_does_not_import_qt3d(self, qtbot) -> None:
         """ADR-038: Qt3D loads only behind the 3D-view menu action —
