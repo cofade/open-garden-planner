@@ -32,9 +32,11 @@ sets against the real enum so a rename cannot silently break the mapping.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from .container_model import container_height_cm
+from .growth_model import grown_height_cm
 
 METADATA_KEY = "object_height_cm"
 
@@ -112,9 +114,19 @@ def _species_height_cm(metadata: dict[str, Any] | None) -> float | None:
 
 
 def effective_height_cm(
-    object_type: Any, metadata: dict[str, Any] | None
+    object_type: Any,
+    metadata: dict[str, Any] | None,
+    at_date: date | None = None,
 ) -> float | None:
-    """Resolve the effective above-ground height in cm (see precedence above)."""
+    """Resolve the effective above-ground height in cm (see precedence above).
+
+    ``at_date`` (US-E8): when given, a plant WITH a species and a planting
+    date resolves to its DATE-PROJECTED height via ``core/growth_model``
+    (linear min→max over years-to-maturity) instead of the mature
+    ``max_height_cm`` — so shadows (US-E3/E4) and the 3D view (US-E6)
+    automatically see the grown size. An explicit user override still wins
+    (the user said so); undated plants and non-plants are unaffected.
+    """
     explicit = explicit_height_cm(metadata)
     if explicit is not None:
         return explicit
@@ -126,9 +138,15 @@ def effective_height_cm(
         # user sets one. There is no separate above-ground source to draw
         # from in this slice; revisit when shadow accuracy matters (#258).
         return container_height_cm(metadata if metadata else None)
-    species = _species_height_cm(metadata)
-    if species is not None:
-        return species
+    species_dict = (metadata or {}).get("plant_species")
+    if isinstance(species_dict, dict):
+        if at_date is not None:
+            grown = grown_height_cm(species_dict, metadata, at_date, name)
+            if grown is not None:
+                return grown
+        mature = _positive_number(species_dict.get("max_height_cm"))
+        if mature is not None:
+            return mature
     return DEFAULT_HEIGHTS_CM.get(name)
 
 

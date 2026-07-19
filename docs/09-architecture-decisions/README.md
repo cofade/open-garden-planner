@@ -661,6 +661,16 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 - The spike package (`spike3d/`, `--spike-3d`) stays dormant-but-runnable until US-E6 replaces it, guarded by `tests/unit/test_spike3d_isolation.py` (never imported at startup; no module-level Qt3D imports). *(Retired as promised — US-E6 deleted the package, flag and guard test; see the retirement note in the US-E6 addendum below.)*
 - The spike window's strings are deliberately NOT translated (dev evidence tooling, same exemption as MCP tool descriptions — §8.19).
 
+### ADR-037 addendum: growth-over-time model (US-E8, #263)
+
+**Status**: Accepted (2026-07-20) | **Context**: issue #263, campaign growth slice
+
+**One interpolation, consumed everywhere.** `core/growth_model.py` (Qt-free): `size(t) = min + (max−min)·clamp(years_since_planting / years_to_maturity, 0, 1)` for height AND canopy spread. `years_to_maturity` = the species' `days_to_maturity_min/max` average when present (annual vegetables ripen within the season), else TREE 10 y / everything else 3 y / annual-cycle ≈150 days; a species without a minimum starts at 10 % of its maximum (a seedling isn't size zero). **No new metadata key**: the issue's "verify first" paid off — plants already carry `metadata["plant_instance"]["planting_date"]` (ISO string, editable in the Plant Details panel since Phase 8), serialized wholesale and old-app compatible. No FILE_VERSION change.
+
+**Routing**: `object_height.effective_height_cm` gained an optional `at_date`; when given, a dated plant resolves to its projected height (explicit user override still wins; undated plants and non-plants are byte-identical to pre-E8). `collect_shadow_casters(scene, at_date)` also shrinks a dated plant's canopy circle to its projected spread (the drawn circle is the MATURE canopy per #213). Consumers all pass the **sim timeline's date**: the shadow overlay (`sim_datetime_utc.date()`), the heatmap (its chosen day), and the 3D snapshot — so scrubbing the sun slider ahead five years regrows every dated tree in 2D shadows, hours-of-sun, and 3D at once, from ONE model.
+
+**Display-only, always**: the stored item geometry is never mutated by scrubbing (pinned by a byte-identical-objects save test — the #218/#219 scars). **Deliberate MVP choices** (FR-SUN-08): no seasonal dieback, no sigmoid curves, no toggle — the sim timeline IS the growth timeline, and without a planting date nothing changes anywhere (the compatibility contract); the 2D canvas keeps drawing the stored (mature) footprint — growth is visible in shadow size, heatmap and the 3D view, not by rescaling canvas circles (rejected: a display-scale on live items perturbs selection/snap/`mapToScene`, exactly the #218/#219 territory).
+
 ### ADR-038 addendum: US-E6 implementation (3D view MVP)
 
 **Status**: Accepted (2026-07-20) | **Context**: issue #261; the GO decision above

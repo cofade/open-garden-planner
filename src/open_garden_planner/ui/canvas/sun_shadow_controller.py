@@ -199,12 +199,40 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         painter.restore()
 
 
-def _item_footprints(item: Any) -> list[Polygon]:
+def _growth_footprint_scale(item: Any, at_date: Any) -> float:
+    """Canopy scale for a plant circle at ``at_date`` (1.0 = as drawn).
+
+    The DRAWN circle is the mature canopy (diameter == max_spread, #213);
+    a dated plant's shadow footprint shrinks to its date-projected spread.
+    Display-only — the stored item geometry is never touched (#218/#219).
+    """
+    if at_date is None:
+        return 1.0
+    metadata = getattr(item, "metadata", None)
+    species = (metadata or {}).get("plant_species")
+    if not isinstance(species, dict):
+        return 1.0
+    mature = species.get("max_spread_cm")
+    if not isinstance(mature, (int, float)) or mature <= 0:
+        return 1.0
+    from open_garden_planner.core.growth_model import grown_spread_cm
+
+    object_type = getattr(item, "object_type", None)
+    grown = grown_spread_cm(
+        species, metadata, at_date, getattr(object_type, "name", "")
+    )
+    if grown is None:
+        return 1.0
+    return max(0.02, min(1.0, grown / float(mature)))
+
+
+def _item_footprints(item: Any, at_date: Any = None) -> list[Polygon]:
     """Scene-space footprint polygon(s) of one canvas item.
 
     Vertices are mapped through the item's own transform (``mapToScene``),
     so rotation/position are Qt's answer, not a re-derivation — the
-    #218/#219 geometry lessons.
+    #218/#219 geometry lessons. ``at_date`` (US-E8) shrinks a dated
+    plant's canopy circle to its projected spread — display/shadow only.
     """
     from open_garden_planner.ui.canvas.items.circle_item import CircleItem
     from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
@@ -214,7 +242,8 @@ def _item_footprints(item: Any) -> list[Polygon]:
 
     if isinstance(item, CircleItem):
         center = item.mapToScene(item.center)
-        return [circle_footprint(center.x(), center.y(), item.radius)]
+        scale = _growth_footprint_scale(item, at_date)
+        return [circle_footprint(center.x(), center.y(), item.radius * scale)]
     if isinstance(item, EllipseItem):
         rect = item.rect()
         cx, cy = rect.center().x(), rect.center().y()
@@ -249,11 +278,13 @@ def _item_footprints(item: Any) -> list[Polygon]:
 
 def collect_shadow_casters(
     scene: QGraphicsScene,
+    at_date: Any = None,
 ) -> list[tuple[Polygon, float]]:
     """Snapshot every visible item with an effective height as (footprint, h).
 
     Plain-data output — the same snapshot shape the US-E4 worker thread
-    consumes (never live QGraphicsItems).
+    consumes (never live QGraphicsItems). ``at_date`` (US-E8) projects
+    dated plants to their grown height AND canopy spread at that date.
     """
     casters: list[tuple[Polygon, float]] = []
     for item in scene.items():
@@ -262,10 +293,12 @@ def collect_shadow_casters(
         object_type = getattr(item, "object_type", None)
         if object_type is None:
             continue
-        height = effective_height_cm(object_type, getattr(item, "metadata", None))
+        height = effective_height_cm(
+            object_type, getattr(item, "metadata", None), at_date=at_date
+        )
         if height is None:
             continue
-        for footprint in _item_footprints(item):
+        for footprint in _item_footprints(item, at_date):
             if len(footprint) >= 3:
                 casters.append((footprint, height))
     return casters
@@ -361,7 +394,11 @@ class SunShadowController(QObject):
             self._show_night_overlay(canvas_rect)
             self._set_state(STATE_NIGHT)
             return
-        casters = collect_shadow_casters(self._scene)
+        # US-E8: the sim instant doubles as the growth timeline — dated
+        # plants cast their date-projected (grown) shadows.
+        casters = collect_shadow_casters(
+            self._scene, at_date=self._sim_dt_utc.date()
+        )
         canvas_key = (
             (round(canvas_rect.width(), 3), round(canvas_rect.height(), 3))
             if canvas_rect is not None

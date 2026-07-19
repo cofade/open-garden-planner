@@ -328,6 +328,101 @@ class TestNeverSerialized:
         assert any(isinstance(i, SunShadowOverlayItem) for i in scene.items())
 
 
+class TestGrowthCoupledShadows:
+    """US-E8 (#263): the sim instant doubles as the growth timeline — a
+    dated tree's shadow lengthens as the years scrub forward, while the
+    STORED item geometry never changes (the #218/#219 scars)."""
+
+    SPECIES = {
+        "min_height_cm": 100.0,
+        "max_height_cm": 500.0,
+        "min_spread_cm": 50.0,
+        "max_spread_cm": 400.0,
+    }
+
+    def _make_tree(self, scene):
+        from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+        tree = CircleItem(200, 200, 200, object_type=ObjectType.TREE)
+        tree.metadata["plant_species"] = dict(self.SPECIES)
+        tree.metadata["plant_instance"] = {"planting_date": "2026-01-01"}
+        scene.addItem(tree)
+        return tree
+
+    def test_scrubbing_years_regrows_the_shadow(self, qtbot, scene) -> None:  # noqa: ARG002
+        self._make_tree(scene)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(datetime(2026, 6, 21, 12, 0, tzinfo=UTC))
+        controller.set_enabled(True)
+        young = controller._overlay.path().boundingRect()
+        count_young = controller.recompute_count
+
+        # Same solar instant five years on (TREE matures over 10 y) — the
+        # only change is growth, and it must trigger a real recompute.
+        controller.set_sim_datetime(datetime(2031, 6, 21, 12, 0, tzinfo=UTC))
+        grown = controller._overlay.path().boundingRect()
+        assert controller.recompute_count == count_young + 1
+        assert grown.width() * grown.height() > young.width() * young.height()
+
+    def test_stored_geometry_untouched_by_scrubbing(
+        self, qtbot, scene, tmp_path
+    ) -> None:  # noqa: ARG002
+        import json
+
+        tree = self._make_tree(scene)
+        radius_before = tree.radius
+        manager = ProjectManager()
+        first = tmp_path / "before.ogp"
+        manager.save(scene, first)
+
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(datetime(2026, 6, 21, 12, 0, tzinfo=UTC))
+        controller.set_enabled(True)
+        controller.set_sim_datetime(datetime(2031, 6, 21, 12, 0, tzinfo=UTC))
+        controller.set_sim_datetime(datetime(2027, 3, 1, 9, 0, tzinfo=UTC))
+
+        assert tree.radius == radius_before
+        second = tmp_path / "after.ogp"
+        manager.save(scene, second)
+        assert json.loads(first.read_text(encoding="utf-8"))["objects"] == (
+            json.loads(second.read_text(encoding="utf-8"))["objects"]
+        )
+
+    def test_planting_date_round_trips(self, qtbot, scene, tmp_path) -> None:  # noqa: ARG002
+        self._make_tree(scene)
+        manager = ProjectManager()
+        path = tmp_path / "tree.ogp"
+        manager.save(scene, path)
+        scene.clear()
+        manager.load(scene, path)
+        from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+        loaded = next(i for i in scene.items() if isinstance(i, CircleItem))
+        assert (
+            loaded.metadata["plant_instance"]["planting_date"] == "2026-01-01"
+        )
+
+    def test_undated_plants_unchanged(self, qtbot, scene) -> None:  # noqa: ARG002
+        """No planting date → mature size at every sim date — behavior
+        identical to pre-E8 (the compatibility contract)."""
+        from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+        tree = CircleItem(200, 200, 200, object_type=ObjectType.TREE)
+        tree.metadata["plant_species"] = dict(self.SPECIES)
+        scene.addItem(tree)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(datetime(2026, 6, 21, 12, 0, tzinfo=UTC))
+        controller.set_enabled(True)
+        first = controller._overlay.path().boundingRect()
+        controller.set_sim_datetime(datetime(2031, 6, 21, 12, 0, tzinfo=UTC))
+        # The sun differs microscopically year-to-year (declination/EoT
+        # drift), so a recompute may fire — but with no growth data the
+        # shadow itself must be unchanged to sub-centimeter precision.
+        second = controller._overlay.path().boundingRect()
+        assert second.width() == pytest.approx(first.width(), abs=1.0)
+        assert second.height() == pytest.approx(first.height(), abs=1.0)
+
+
 class TestPerf:
     def test_recompute_200_items_perf(self, qtbot, scene) -> None:  # noqa: ARG002
         for i in range(200):

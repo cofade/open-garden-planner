@@ -3149,7 +3149,11 @@ class GardenPlannerApp(QMainWindow):
             return
         from open_garden_planner.ui.view3d.snapshot import collect_scene3d_records
 
-        records = collect_scene3d_records(self.canvas_scene)
+        # US-E8: the 3D view shares the sim growth timeline.
+        records = collect_scene3d_records(
+            self.canvas_scene,
+            at_date=self._sun_controller.sim_datetime_utc.date(),
+        )
         self._view3d_window.rebuild(
             records, self.canvas_scene.width_cm, self.canvas_scene.height_cm
         )
