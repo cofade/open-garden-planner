@@ -14,9 +14,12 @@ must and does agree with it (pinned in ``tests/unit/test_scene3d.py``).
 
 from __future__ import annotations
 
+import contextlib
+
 import numpy as np
 from PyQt6.Qt3DCore import QAttribute, QBuffer, QEntity, QGeometry, QTransform
 from PyQt6.Qt3DExtras import (
+    QFirstPersonCameraController,
     QOrbitCameraController,
     QPhongMaterial,
     QPlaneMesh,
@@ -34,6 +37,10 @@ from open_garden_planner.core.scene3d import (
     to_engine_frame,
 )
 from open_garden_planner.core.shadow_geometry import MIN_SUN_ELEVATION_DEG
+from open_garden_planner.core.walk_camera import (
+    EYE_HEIGHT_CM,
+    clamp_walk_position,
+)
 
 _SKY = QColor(168, 200, 228)
 _GROUND = QColor(118, 148, 92)
@@ -75,10 +82,22 @@ class Garden3DView:
         # stretched at any non-16:9 window size (review P2).
         self._view.widthChanged.connect(self._update_aspect_ratio)
         self._view.heightChanged.connect(self._update_aspect_ratio)
-        controller = QOrbitCameraController(self._root)
-        controller.setCamera(camera)
-        controller.setLinearSpeed(2500.0)
-        controller.setLookSpeed(180.0)
+        self._orbit_controller = QOrbitCameraController(self._root)
+        self._orbit_controller.setCamera(camera)
+        self._orbit_controller.setLinearSpeed(2500.0)
+        self._orbit_controller.setLookSpeed(180.0)
+
+        # Walkthrough (US-E7): the engine's first-person controller handles
+        # input; enabled state decides which controller drives the camera.
+        self._walk_controller = QFirstPersonCameraController(self._root)
+        self._walk_controller.setCamera(camera)
+        self._walk_controller.setLinearSpeed(700.0)  # ≈ brisk walk, cm/s
+        self._walk_controller.setLookSpeed(160.0)
+        self._walk_controller.setEnabled(False)
+
+        self._camera_mode = "orbit"
+        self._saved_orbit: tuple | None = None
+        self._plan_size: tuple[float, float] = (1000.0, 800.0)
 
         self._view.setRootEntity(self._root)
 
@@ -129,7 +148,9 @@ class Garden3DView:
             self._add_prism(content, record)
 
         self._content = content
-        self._frame_camera(width_cm, height_cm)
+        self._plan_size = (width_cm, height_cm)
+        if self._camera_mode == "orbit":
+            self._frame_camera(width_cm, height_cm)
         self.rebuild_count += 1
 
     def set_sun(self, elevation_deg: float, azimuth_deg: float) -> None:
@@ -153,6 +174,69 @@ class Garden3DView:
             self._light.setIntensity(1.0)
         self._light.setWorldDirection(QVector3D(*engine))
         self.last_light_engine = engine
+
+    # ── walkthrough camera mode (US-E7) ─────────────────────────────
+
+    @property
+    def camera_mode(self) -> str:
+        return self._camera_mode
+
+    def set_camera_mode(self, mode: str) -> None:
+        """Switch orbit ⇄ walk. Walk pins the eye at EYE_HEIGHT_CM on the
+        (flat) ground and clamps to plan bounds + margin; leaving walk
+        restores the orbit camera exactly as it was (issue #262 gate)."""
+        if mode == self._camera_mode:
+            return
+        camera = self._view.camera()
+        if mode == "walk":
+            self._saved_orbit = (
+                camera.position(),
+                camera.viewCenter(),
+                camera.upVector(),
+            )
+            self._orbit_controller.setEnabled(False)
+            width_cm, height_cm = self._plan_size
+            east, north = clamp_walk_position(
+                camera.position().x(), -camera.position().z(),
+                width_cm, height_cm,
+            )
+            position = QVector3D(east, EYE_HEIGHT_CM, -north)
+            camera.setPosition(position)
+            # Look toward the plan center at eye level — a defined start.
+            camera.setViewCenter(
+                QVector3D(width_cm / 2.0, EYE_HEIGHT_CM, -height_cm / 2.0)
+            )
+            camera.setUpVector(QVector3D(0.0, 1.0, 0.0))
+            camera.positionChanged.connect(self._clamp_walk_camera)
+            self._walk_controller.setEnabled(True)
+            self._camera_mode = "walk"
+        else:
+            with contextlib.suppress(TypeError):
+                camera.positionChanged.disconnect(self._clamp_walk_camera)
+            self._walk_controller.setEnabled(False)
+            if self._saved_orbit is not None:
+                position, view_center, up_vector = self._saved_orbit
+                camera.setPosition(position)
+                camera.setViewCenter(view_center)
+                camera.setUpVector(up_vector)
+            self._orbit_controller.setEnabled(True)
+            self._camera_mode = "orbit"
+
+    def _clamp_walk_camera(self) -> None:
+        """Keep the walker at eye height inside the plan (+margin).
+
+        Re-entrancy safe: the corrected position satisfies the clamp, so
+        the second positionChanged emission changes nothing.
+        """
+        camera = self._view.camera()
+        position = camera.position()
+        width_cm, height_cm = self._plan_size
+        east, north = clamp_walk_position(
+            position.x(), -position.z(), width_cm, height_cm
+        )
+        corrected = QVector3D(east, EYE_HEIGHT_CM, -north)
+        if corrected != position:
+            camera.setPosition(corrected)
 
     # ── internals ──────────────────────────────────────────────
 
