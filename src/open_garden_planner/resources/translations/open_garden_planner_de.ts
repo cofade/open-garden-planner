@@ -10331,5 +10331,17 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Rebuild the 3D scene from the current plan</source>
             <translation>3D-Szene aus dem aktuellen Plan neu aufbauen</translation>
         </message>
+        <message>
+            <source>&amp;Walk</source>
+            <translation>&amp;Rundgang</translation>
+        </message>
+        <message>
+            <source>Walk the garden at eye level — WASD/arrow keys move, hold the left mouse button to look around, Esc exits</source>
+            <translation>Durch den Garten auf Augenhöhe gehen — WASD/Pfeiltasten bewegen, linke Maustaste gedrückt halten zum Umschauen, Esc beendet</translation>
+        </message>
+        <message>
+            <source>WASD/arrows move · hold left mouse to look · Esc exits</source>
+            <translation>WASD/Pfeile bewegen · linke Maustaste zum Umschauen · Esc beendet</translation>
+        </message>
     </context>
 </TS>

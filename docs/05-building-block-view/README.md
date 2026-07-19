@@ -55,6 +55,7 @@ src/open_garden_planner/
 │   ├── shadow_geometry.py        # Qt-free shadow sweep/union — L=h/tanα, Minkowski sweep, pyclipper union (US-E3, ADR-037)
 │   ├── shade_aggregation.py      # Qt-free hours-of-sun sampling/bands/grid — rasterizer injected (US-E4, ADR-037)
 │   ├── scene3d.py                # Qt-free 3D mesh math — ear-clip triangulation, prism extrusion, sun vector, frame map (US-E6, ADR-038)
+│   ├── walk_camera.py            # Qt-free walkthrough rules — eye height, bounds clamp, pitch-limited look vector (US-E7)
 │   ├── furniture_renderer.py     # Furniture/hedge SVG rendering & caching
 │   ├── constraints.py            # All 16 constraint types + hybrid solver (see §8.12)
 │   ├── constraint_solver_newton.py # Newton-Raphson refinement + circle-circle fast path

@@ -194,6 +194,87 @@ class TestAdapter:
 
 
 @requires_windows_3d
+class TestWalkthrough:
+    """US-E7 (#262): walk is a camera MODE — orbit state round-trips."""
+
+    def test_mode_toggle_round_trip_preserves_orbit_camera(
+        self, qtbot, plan_scene
+    ) -> None:  # noqa: ARG002
+        from open_garden_planner.core.walk_camera import EYE_HEIGHT_CM
+        from open_garden_planner.ui.view3d.qt3d_adapter import Garden3DView
+
+        adapter = Garden3DView()
+        adapter.rebuild(collect_scene3d_records(plan_scene), 1000.0, 800.0)
+        camera = adapter._view.camera()
+        orbit_pos = (
+            camera.position().x(), camera.position().y(), camera.position().z()
+        )
+        orbit_center = (
+            camera.viewCenter().x(), camera.viewCenter().y(), camera.viewCenter().z()
+        )
+
+        adapter.set_camera_mode("walk")
+        assert adapter.camera_mode == "walk"
+        assert camera.position().y() == pytest.approx(EYE_HEIGHT_CM)
+
+        adapter.set_camera_mode("orbit")
+        assert adapter.camera_mode == "orbit"
+        restored_pos = (
+            camera.position().x(), camera.position().y(), camera.position().z()
+        )
+        restored_center = (
+            camera.viewCenter().x(), camera.viewCenter().y(), camera.viewCenter().z()
+        )
+        assert restored_pos == pytest.approx(orbit_pos)
+        assert restored_center == pytest.approx(orbit_center)
+
+    def test_walk_camera_clamped_to_bounds_and_eye_height(
+        self, qtbot, plan_scene
+    ) -> None:  # noqa: ARG002
+        from PyQt6.QtGui import QVector3D
+
+        from open_garden_planner.core.walk_camera import (
+            BOUNDS_MARGIN_CM,
+            EYE_HEIGHT_CM,
+        )
+        from open_garden_planner.ui.view3d.qt3d_adapter import Garden3DView
+
+        adapter = Garden3DView()
+        adapter.rebuild(collect_scene3d_records(plan_scene), 1000.0, 800.0)
+        adapter.set_camera_mode("walk")
+        camera = adapter._view.camera()
+        # Simulate the controller flying far outside and off the ground.
+        camera.setPosition(QVector3D(-50000.0, 9000.0, 50000.0))
+        assert camera.position().x() == pytest.approx(-BOUNDS_MARGIN_CM)
+        assert camera.position().y() == pytest.approx(EYE_HEIGHT_CM)
+        # engine z = -north: far positive z = far south → clamped to -margin…
+        assert camera.position().z() == pytest.approx(BOUNDS_MARGIN_CM)
+
+    def test_escape_exits_walk_mode(self, qtbot, plan_scene) -> None:
+        from PyQt6.QtCore import Qt
+
+        from open_garden_planner.ui.view3d.view3d_window import View3DWindow
+
+        window = View3DWindow()
+        qtbot.addWidget(window)
+        window.rebuild(collect_scene3d_records(plan_scene), 1000.0, 800.0)
+        window._walk_action.setChecked(True)
+        assert window.adapter.camera_mode == "walk"
+        qtbot.keyPress(window, Qt.Key.Key_Escape)
+        assert window.adapter.camera_mode == "orbit"
+        assert not window._walk_action.isChecked()
+
+    def test_close_mid_walk_is_clean(self, qtbot, plan_scene) -> None:
+        from open_garden_planner.ui.view3d.view3d_window import View3DWindow
+
+        window = View3DWindow()
+        qtbot.addWidget(window)
+        window.rebuild(collect_scene3d_records(plan_scene), 1000.0, 800.0)
+        window._walk_action.setChecked(True)
+        window.close()  # must not crash (#230-class teardown)
+
+
+@requires_windows_3d
 class TestWindowLifecycle:
     def test_open_refresh_close_cleanly(self, qtbot, plan_scene) -> None:
         from open_garden_planner.ui.view3d.view3d_window import View3DWindow

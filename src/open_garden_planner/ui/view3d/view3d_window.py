@@ -39,6 +39,25 @@ class View3DWindow(QMainWindow):
         )
         refresh_action.triggered.connect(self.refresh_requested)
         toolbar.addAction(refresh_action)
+
+        # Walkthrough (US-E7): orbit ⇄ walk camera-mode toggle.
+        self._walk_action = QAction(self.tr("&Walk"), self)
+        self._walk_action.setCheckable(True)
+        self._walk_action.setStatusTip(
+            self.tr(
+                "Walk the garden at eye level — WASD/arrow keys move, hold "
+                "the left mouse button to look around, Esc exits"
+            )
+        )
+        self._walk_action.toggled.connect(self._on_walk_toggled)
+        toolbar.addAction(self._walk_action)
+
+        from PyQt6.QtWidgets import QLabel
+
+        self._walk_hint = QLabel("", self)
+        self._walk_hint.setStyleSheet("color: #666; font-style: italic;")
+        self._walk_hint.setContentsMargins(12, 0, 0, 0)
+        toolbar.addWidget(self._walk_hint)
         self.addToolBar(toolbar)
 
     @property
@@ -55,6 +74,26 @@ class View3DWindow(QMainWindow):
 
     def set_sun(self, elevation_deg: float, azimuth_deg: float) -> None:
         self._adapter.set_sun(elevation_deg, azimuth_deg)
+
+    def _on_walk_toggled(self, checked: bool) -> None:
+        self._adapter.set_camera_mode("walk" if checked else "orbit")
+        self._walk_hint.setText(
+            self.tr("WASD/arrows move · hold left mouse to look · Esc exits")
+            if checked
+            else ""
+        )
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802 — Qt override
+        from PyQt6.QtCore import Qt
+
+        if (
+            event.key() == Qt.Key.Key_Escape
+            and self._adapter.camera_mode == "walk"
+        ):
+            self._walk_action.setChecked(False)
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.closed.emit()
