@@ -10,17 +10,20 @@ client's own docs actually support, not a one-size-fits-all writer:
   schema (``{"mcpServers": {"<name>": {"url": "..."}}}``), safe to read-modify
   -write.
 * **Claude Code** — ``claude mcp add --transport http --scope user`` via the
-  CLI when found on PATH. Preferred over hand-editing ``~/.claude.json``,
-  which nests per-project scopes and isn't meant to be edited directly; the
-  CLI is the officially documented registration path and validates its own
-  writes.
-* **Claude Desktop** — detection only. Its local config
-  (``claude_desktop_config.json``) only documents *stdio* servers
-  (``command``/``args``); a plain local HTTP endpoint like ours is registered
-  through the app's own Settings -> Connectors -> "Add custom connector" flow,
-  not a static config edit. Writing to that file with a guessed schema would
-  risk corrupting it for no guaranteed benefit, so this target is always
-  "manual" here.
+  CLI when it's on PATH (it validates its own writes and self-heals an existing
+  entry); otherwise a direct atomic merge into the TOP-LEVEL ``mcpServers`` of
+  ``~/.claude.json`` (the same user-scope location the CLI writes, read by both
+  the CLI and the VS Code extension). The CLI is frequently NOT on PATH (e.g.
+  the native ``~/.local/bin`` installer dir, or an extension-only install), so
+  the direct-merge fallback is what makes one-click work without a terminal.
+  The merge fails CLOSED on an unreadable ``~/.claude.json`` (it also holds
+  OAuth / projects / trust) rather than replacing it.
+* **Claude Desktop** — detection only, and *cannot* connect to this server:
+  Anthropic's connector UI reaches servers from its own cloud and rejects
+  ``localhost`` / ``http://`` URLs, and ``claude_desktop_config.json`` is
+  stdio-only (writing a ``url`` field makes Claude Desktop silently delete the
+  whole ``mcpServers`` block). So OGP writes nothing here and the dialog
+  redirects the user to Claude Code or Cursor.
 
 Every write path preserves unknown keys/other servers, backs up the original
 file before touching it, and writes atomically (temp file + ``os.replace``) —
@@ -98,7 +101,9 @@ def _cursor_dir_exists() -> bool:
 
 
 def _claude_code_user_config_path() -> Path:
-    return Path.home() / ".claude.json"
+    # $CLAUDE_CONFIG_DIR overrides the location (matches the Claude CLI).
+    env = os.environ.get("CLAUDE_CONFIG_DIR")
+    return (Path(env) if env else Path.home()) / ".claude.json"
 
 
 def _claude_desktop_config_dir() -> Path | None:
@@ -123,7 +128,20 @@ def _claude_desktop_config_path() -> Path | None:
 # ---------------------------------------------------------------------------
 
 
-def _atomic_merge_mcp_server(path: Path, *, name: str, entry: dict[str, object]) -> Path | None:
+class _ConfigMergeError(Exception):
+    """A config file existed but could not be safely merged (unparseable /
+    non-object). Raised only when ``replace_on_parse_error=False`` so the caller
+    reports failure and leaves a file OGP doesn't own (``~/.claude.json``)
+    untouched instead of replacing it."""
+
+
+def _atomic_merge_mcp_server(
+    path: Path,
+    *,
+    name: str,
+    entry: dict[str, object],
+    replace_on_parse_error: bool = True,
+) -> Path | None:
     """Read-modify-write ``path``'s ``mcpServers.<name>`` entry.
 
     Preserves every other key in the file (other servers, unrelated config).
@@ -135,9 +153,14 @@ def _atomic_merge_mcp_server(path: Path, *, name: str, entry: dict[str, object])
     temp file + ``os.replace`` so a crash mid-write can never leave a
     truncated/partial config behind.
 
-    A malformed or non-object existing file is treated as untrusted input
-    (this reads a config OGP doesn't own) — logged and replaced rather than
-    raised, mirroring ``smart_symbol_library``'s user-file trust boundary.
+    A malformed or non-object existing file is, by default
+    (``replace_on_parse_error=True``), treated as untrusted input and replaced
+    (mirrors ``smart_symbol_library``'s user-file trust boundary) — fine for a
+    small file OGP effectively owns (Cursor's ``mcp.json``). Pass
+    ``replace_on_parse_error=False`` for a file OGP must NOT clobber
+    (``~/.claude.json`` also holds OAuth / projects / trust state): an
+    unreadable or non-object file then raises ``_ConfigMergeError`` and is left
+    untouched (the ``.bak`` copy is still made first).
     """
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -149,12 +172,19 @@ def _atomic_merge_mcp_server(path: Path, *, name: str, entry: dict[str, object])
         try:
             with open(path, encoding="utf-8") as f:
                 loaded = json.load(f)
-            if isinstance(loaded, dict):
-                data = loaded
-            else:
-                logger.warning("%s does not contain a JSON object; replacing it", path)
         except (json.JSONDecodeError, OSError) as exc:
+            if not replace_on_parse_error:
+                raise _ConfigMergeError(
+                    f"Could not read existing {path} ({exc}); left untouched."
+                ) from exc
             logger.warning("Could not parse existing %s (%s); replacing it", path, exc)
+            loaded = {}
+        if isinstance(loaded, dict):
+            data = loaded
+        elif not replace_on_parse_error:
+            raise _ConfigMergeError(f"{path} is not a JSON object; left untouched.")
+        else:
+            logger.warning("%s does not contain a JSON object; replacing it", path)
 
     servers = data.get("mcpServers")
     if not isinstance(servers, dict):
@@ -201,8 +231,12 @@ def detect_clients() -> list[ClientInfo]:
             client_id="claude_code",
             display_name="Claude Code",
             detected=claude_cli is not None or claude_code_config.exists(),
-            install_method="cli" if claude_cli is not None else "manual",
-            config_path=claude_code_config if claude_code_config.exists() else None,
+            # Even without the `claude` CLI on PATH, we can register by a direct
+            # atomic merge into ~/.claude.json (the user-scope location shared by
+            # the CLI AND the VS Code extension), so a CLI-less machine still
+            # gets a working one-click instead of a dead terminal command.
+            install_method="cli" if claude_cli is not None else "json_merge",
+            config_path=claude_code_config,
         )
     )
 
@@ -271,9 +305,10 @@ def install_to_client(
             client_id=client_id,
             success=False,
             detail=(
-                "Claude Desktop registers local MCP servers through its own "
-                'Settings > Connectors > "Add custom connector" dialog, not a '
-                "config file OGP can safely edit."
+                "Claude Desktop can't reach a local server: its connectors are "
+                "reached from Anthropic's servers, and it rejects localhost / "
+                "http:// URLs. Use Claude Code or Cursor for this local Agent "
+                "API instead."
             ),
         )
     raise ValueError(f"Unknown client_id: {client_id}")
@@ -284,6 +319,16 @@ def _cursor_entry(url: str, token: str | None) -> dict[str, object]:
     ``?token=`` query param (see ``url_with_token``), the delivery route that
     works uniformly across clients."""
     return {"url": url_with_token(url, token)}
+
+
+def _claude_code_entry(url: str, token: str | None) -> dict[str, object]:
+    """Claude Code / VS Code extension ``mcpServers.<name>`` entry for
+    ``~/.claude.json``. ``type: "http"`` is REQUIRED — without it the entry is
+    not recognised as an HTTP server and is silently ignored (a ``url``-only
+    entry doesn't match the stdio-*command* shape either, so it simply never
+    connects). The token rides the URL (``url_with_token``); no ``headers``
+    (Claude Code omits configured headers on tool calls)."""
+    return {"type": "http", "url": url_with_token(url, token)}
 
 
 def _install_cursor(*, url: str, name: str, token: str | None = None) -> InstallResult:
@@ -323,10 +368,23 @@ def _claude_code_add_args(name: str, url: str, token: str | None) -> tuple[str, 
 def _install_claude_code(*, url: str, name: str, token: str | None = None) -> InstallResult:
     claude = shutil.which("claude")
     if claude is None:
+        # No `claude` on PATH — register by a direct atomic merge into the
+        # top-level `mcpServers` of ~/.claude.json (the exact user-scope entry
+        # `claude mcp add --scope user` writes, read by both the CLI and the VS
+        # Code extension). Fail CLOSED on a parse error: this file also holds
+        # OAuth / projects / trust and must never be replaced if unreadable.
+        path = _claude_code_user_config_path()
+        try:
+            backup = _atomic_merge_mcp_server(
+                path,
+                name=name,
+                entry=_claude_code_entry(url, token),
+                replace_on_parse_error=False,
+            )
+        except (OSError, _ConfigMergeError) as exc:
+            return InstallResult(client_id="claude_code", success=False, detail=str(exc))
         return InstallResult(
-            client_id="claude_code",
-            success=False,
-            detail="claude CLI not found on PATH.",
+            client_id="claude_code", success=True, detail=str(path), backup_path=backup
         )
 
     add_args = _claude_code_add_args(name, url, token)
@@ -378,9 +436,8 @@ def snippet_for_client(
             {"mcpServers": {name: _cursor_entry(url, token)}}, indent=2
         )
     if client_id == "claude_code":
-        return (
-            f"claude mcp add --transport http --scope user "
-            f"{name} {url_with_token(url, token)}"
+        return json.dumps(
+            {"mcpServers": {name: _claude_code_entry(url, token)}}, indent=2
         )
     if client_id == "claude_desktop":
         return url_with_token(url, token)
