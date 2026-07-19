@@ -7,7 +7,7 @@
 | Trefle.io rate limits and reliability? | Plant search UX | Test API, implement robust caching, Permapeople as fallback, bundled DB as last resort |
 | Texture licensing for fill patterns? | Legal | Use AI-generated or CC0/public domain textures, document sources |
 | DXF export complexity for future versions? | Interoperability | Evaluate ezdxf library, may need simplification |
-| Qt6 3D capabilities vs dedicated engine? | Future 3D feature | Prototype with Qt3D, evaluate PyVista as alternative |
+| ~~Qt6 3D capabilities vs dedicated engine?~~ **RESOLVED (US-E5, ADR-038, 2026-07-20)**: PyQt6-3D chosen — version-matched 6.11.0 wheel, frozen-exe gate passed (+13 MB), built-in orbit + first-person cameras; PyVista rejected on size (+466 MB), pyqtgraph.opengl on feature fit. Pin `PyQt6-3D-Qt6` to `PyQt6-Qt6`'s micro or imports fail | 3D feature (Phase 14) | Done — see ADR-038 evidence log |
 | Bundled plant database source? | Offline functionality | Evaluate USDA Plants Database, consider one-time Trefle.io bulk export |
 | AI-generated SVG quality consistency? | Visual appeal | Test with multiple prompts, establish style guide, manual cleanup if needed |
 | NSIS installer signing? | Trust/distribution | Unsigned initially, document for users; investigate free code signing options |

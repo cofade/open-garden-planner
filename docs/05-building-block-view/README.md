@@ -111,6 +111,7 @@ src/open_garden_planner/
 │   │   ├── dimension_lines.py    # Dimension line rendering & management
 │   │   ├── sun_shadow_controller.py # Runtime-only solar shadow overlay + debounced recompute (US-E3, ADR-037)
 │   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + heatmap overlay/controller (US-E4)
+│   ├── spike3d/                  # US-E5 ADR-038 evidence — Qt3D spike behind --spike-3d, never imported at startup
 │   │   └── items/                # Canvas item types
 │   │       ├── garden_item.py    # GardenItem base class
 │   │       ├── rectangle_item.py

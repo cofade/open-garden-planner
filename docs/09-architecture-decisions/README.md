@@ -642,4 +642,21 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 
 **Candidates under evaluation** (all cells REQUIRES-VERIFICATION-AT-SPIKE-TIME; evidence recorded below as gathered): PyQt6-3D (native Qt scene graph; GPL-3 wheel from Riverbank), PyVista/pyvistaqt (VTK; MIT/BSD-3/MIT — all GPL-compatible — but ~100 MB wheel), pyqtgraph.opengl + PyOpenGL (MIT, tiny, no built-in shadow mapping — acceptable: US-E3 already computes shadows analytically), zero-dep 2.5D isometric fallback (the DEFER outcome, not a failure).
 
-**Evidence log**: *(filled during the spike — see the evidence sections appended below)*
+**Evidence log** (all commands run 2026-07-19/20 on the real Windows dev machine, Python 3.12.9, PyQt6 6.11.0 / PyQt6-Qt6 6.11.0):
+
+1. **Availability** — `pip index versions PyQt6-3D` → `PyQt6-3D (6.11.0)`, continuous release history 6.0.0 … 6.11.0: Riverbank still ships a version-matched Qt3D wheel for every PyQt6 minor. PyVista probe: `pyvista 0.48.4` + `pyvistaqt` import clean. pyqtgraph probe: `pyqtgraph 0.14.0`, `GLViewWidget` present.
+2. **The micro-version pin (the one packaging trap found)** — in the main venv, `pip install PyQt6-3D==6.11.0` pulled `PyQt6-3D-Qt6 6.11.1` next to the installed `PyQt6-Qt6 6.11.0`, and `from PyQt6.Qt3DCore import QEntity` failed with *"DLL load failed … Die angegebene Prozedur wurde nicht gefunden"* (Qt3D DLLs built against a newer Qt micro). **Fix: pin `PyQt6-3D-Qt6==6.11.0` to match `PyQt6-Qt6`** → full-surface import OK including `QOrbitCameraController`, **`QFirstPersonCameraController`** (US-E7's camera, built in), `QDirectionalLight`, `QCuboidMesh`/`QPlaneMesh`, `QPhongMaterial`. US-E6 must carry both pins.
+3. **Size** — throwaway-venv site-packages: PyQt6-only baseline ≈ 230 MB; +Qt3D = 239 MB; **+PyVista/VTK = 705 MB (≈ +466 MB — kills the ≤ +150 MB criterion outright)**; +pyqtgraph ≈ tiny. Frozen `dist/OpenGardenPlanner` measured **606 MB → 619 MB (+13 MB)** with the full Qt3D stack bundled.
+4. **Feature fit** — pyqtgraph.opengl's built-in shaders have **no configurable light direction** (the sun-light-follows-sim-time requirement would need custom GLSL) and no first-person controller; Qt3D has both natively. PyVista fits features but fails size.
+5. **Dev spike** — `python -m open_garden_planner --spike-3d --spike-screenshot … --spike-autoclose 6` → exit 0; screenshot shows the demo plan (saved + reloaded through `ProjectManager` — a real `.ogp`) as lit extruded boxes on a green ground plane with clearly directional sun shading (US-E1 vector, Berlin Jun-21 noon), mid-rotation (proves live rendering).
+6. **THE DECISIVE FROZEN-EXE GATE** — `pyinstaller installer/ogp.spec` with the Qt3D hiddenimports: BUILD_EXIT=0; `dist/OpenGardenPlanner/OpenGardenPlanner.exe --spike-3d --spike-screenshot … --spike-autoclose 6` → **exit 0, screenshot identical to the dev run** (`assets/adr-038-qt3d-frozen-spike.png`); the normal app afterwards still passes the 8-s smoke (exit 124). No GPU/driver workarounds, default RHI backend.
+
+![Frozen-exe Qt3D spike screenshot](assets/adr-038-qt3d-frozen-spike.png)
+
+**Decision: GO — PyQt6-3D** (owner sign-off pending on the US-E5 PR, per the issue's DoD). PyVista: rejected on size (+466 MB). pyqtgraph.opengl: rejected on feature fit (no directional-light control without custom GLSL, no first-person camera). 2.5D fallback: not needed.
+
+**Consequences / rules for US-E6+**:
+- Dependencies land in `pyproject.toml` with US-E6 (the spike deliberately left it out — evidence, not production): `PyQt6-3D==6.11.0` **and** `PyQt6-3D-Qt6==6.11.0`; the `-Qt6` pin must always track `PyQt6-Qt6`'s micro (evidence item 2).
+- **One import boundary**: only the US-E6 engine-adapter module may import `PyQt6.Qt3D*` — the engine-swap insurance the epic demands.
+- The spike package (`spike3d/`, `--spike-3d`) stays dormant-but-runnable until US-E6 replaces it, guarded by `tests/unit/test_spike3d_isolation.py` (never imported at startup; no module-level Qt3D imports).
+- The spike window's strings are deliberately NOT translated (dev evidence tooling, same exemption as MCP tool descriptions — §8.19).
