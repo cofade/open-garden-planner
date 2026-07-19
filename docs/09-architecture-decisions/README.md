@@ -660,3 +660,13 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 - **One import boundary**: only the US-E6 engine-adapter module may import `PyQt6.Qt3D*` — the engine-swap insurance the epic demands.
 - The spike package (`spike3d/`, `--spike-3d`) stays dormant-but-runnable until US-E6 replaces it, guarded by `tests/unit/test_spike3d_isolation.py` (never imported at startup; no module-level Qt3D imports).
 - The spike window's strings are deliberately NOT translated (dev evidence tooling, same exemption as MCP tool descriptions — §8.19).
+
+### ADR-038 addendum: US-E6 implementation (3D view MVP)
+
+**Status**: Accepted (2026-07-20) | **Context**: issue #261; the GO decision above
+
+The implementation followed the spike's plan with one deliberate upgrade: real **prism extrusion** of arbitrary (convex AND concave) footprints instead of the spike's bounding boxes. All mesh math is Qt-free in `core/scene3d.py` — ear-clipping triangulation (fan fallback for pathological input), side-wall + top-cap triangle soup with per-face normals (bottom cap omitted: prisms sit on the ground), the solar sun vector, and the single scene→engine frame mapping `(E, N, up) → (E, up, −N)` (determinant +1, so triangle winding survives) — pinned headless by `tests/unit/test_scene3d.py`, including the issue's light gate (Berlin Jun-21 noon → (−0.2056, −0.4675, 0.8598)) and the invariant that the sun vector's ground projection is exactly opposite `shadow_geometry.shadow_direction_scene` (2D and 3D can never disagree).
+
+**Import boundary held**: `ui/view3d/qt3d_adapter.py` is the only `PyQt6.Qt3D*` importer in the codebase; it packs the triangle soup into `QGeometry`/`QBuffer` (interleaved float32 pos+normal, verified attribute names `vertexPosition`/`vertexNormal`), owns light/camera/ground, and exposes plain-data instruments (`last_sun_scene`/`last_light_engine`) so light updates are testable without rendering. The whole `view3d` package loads lazily behind the menu action — pinned by a startup test (constructing `GardenPlannerApp` adds no `PyQt6.Qt3D*` modules).
+
+**Snapshot boundary**: `view3d/snapshot.py` reuses the US-E3 footprint extraction (`_item_footprints` — pinned identical by test), so 3D solids and 2D shadows can never diverge; records are plain data (the US-E4 worker discipline). **MVP choices** (FR-SUN-06): manual Refresh over live sync; lighting-only (Qt3D's forward renderer has no out-of-the-box shadow maps — exact shadow shapes stay the 2D overlay's job); read-only viewer. Qt3D window tests run Windows-only (CI's offscreen platform can't create an RHI context); the Windows dev machine is the reference environment for every exe gate anyway.

@@ -2550,6 +2550,25 @@ for _ctx, _strings in _E4_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── US-E6: 3D view MVP (#261) ──
+_E6_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "GardenPlannerApp": {
+        "&3D View…": "&3D-Ansicht…",
+        "Open a 3D view of the plan with solar lighting":
+            "3D-Ansicht des Plans mit Sonnenlicht öffnen",
+    },
+    "View3DWindow": {
+        "3D View": "3D-Ansicht",
+        "&Refresh": "&Aktualisieren",
+        "Rebuild the 3D scene from the current plan":
+            "3D-Szene aus dem aktuellen Plan neu aufbauen",
+    },
+}
+
+for _ctx, _strings in _E6_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)
