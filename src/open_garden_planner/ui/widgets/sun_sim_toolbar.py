@@ -36,7 +36,7 @@ class SunSimToolbar(QToolBar):
     datetime_changed = pyqtSignal(object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("Sun & Shade Simulation", parent)
+        super().__init__("", parent)
         self.setObjectName("SunSimToolbar")  # required for QMainWindow.saveState
         self.setWindowTitle(self.tr("Sun & Shade Simulation"))
         self.setMovable(False)

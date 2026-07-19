@@ -1534,9 +1534,17 @@ class GardenPlannerApp(QMainWindow):
         self.addToolBar(self._sun_toolbar)
         self._sun_toolbar.setVisible(False)
         self._sun_toolbar.datetime_changed.connect(self._on_sun_sim_datetime)
+        # QMainWindow's built-in toolbar context menu can show/hide the toolbar
+        # behind our back — keep the menu action + controller in sync.
+        self._sun_toolbar.visibilityChanged.connect(self._on_sun_toolbar_visibility)
+        # Persisting on every datetime_changed would hammer QSettings during
+        # animation (5 writes/s); a 1 s debounce writes once per pause instead.
+        self._sun_time_save_timer = QTimer(self)
+        self._sun_time_save_timer.setSingleShot(True)
+        self._sun_time_save_timer.setInterval(1000)
+        self._sun_time_save_timer.timeout.connect(self._save_sun_sim_time)
         restored_sim_time = self._ui_state.restore_sun_sim_time()
         if restored_sim_time:
-            import contextlib
             from datetime import datetime as _datetime
 
             # A corrupt stored value keeps the "now" default.
@@ -3028,9 +3036,31 @@ class GardenPlannerApp(QMainWindow):
             self._sun_controller.set_enabled(False)
 
     def _on_sun_sim_datetime(self, dt) -> None:
-        """A new sim instant from the toolbar — recompute + persist (UI state)."""
+        """A new sim instant from the toolbar — recompute now, persist debounced."""
         self._sun_controller.set_sim_datetime(dt)
-        self._ui_state.save_sun_sim_time(dt.isoformat())
+        with contextlib.suppress(RuntimeError):  # #230 teardown guard
+            self._sun_time_save_timer.start()
+
+    def _save_sun_sim_time(self) -> None:
+        """Debounced UiStateStore write of the last-used sim instant."""
+        self._ui_state.save_sun_sim_time(
+            self._sun_toolbar.current_datetime_local().isoformat()
+        )
+
+    def _on_sun_toolbar_visibility(self, visible: bool) -> None:
+        """Sync menu action + controller when the toolbar is shown/hidden via
+        QMainWindow's built-in toolbar context menu (bypassing our action)."""
+        if visible == self._sun_controller.enabled:
+            return
+        self._sun_sim_action.setChecked(visible)
+        if visible:
+            self._sun_controller.set_sim_datetime(
+                self._sun_toolbar.current_datetime_local()
+            )
+            self._sun_controller.set_enabled(True)
+        else:
+            self._sun_toolbar.stop_animation()
+            self._sun_controller.set_enabled(False)
 
     def _on_sun_state_changed(self, state: str) -> None:
         """Surface the simulation's empty states as a toolbar hint."""

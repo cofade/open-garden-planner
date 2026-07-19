@@ -181,7 +181,7 @@ class TestShadowPolygon:
         reference = shadow_polygon(SQUARE, 100.0, 59.29, 203.74)
 
         def _raise(*_args, **_kwargs):
-            raise RuntimeError("probe: MinkowskiSum unavailable")
+            raise pyclipper.ClipperException("probe: MinkowskiSum unavailable")
 
         monkeypatch.setattr(pyclipper, "MinkowskiSum", _raise)
         fallback = sg.shadow_polygon(SQUARE, 100.0, 59.29, 203.74)

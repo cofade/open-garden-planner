@@ -306,3 +306,59 @@ class TestAppWiring:
         win._sun_sim_action.trigger()
         assert not win._sun_controller.enabled
         assert win._sun_controller.state == "disabled"
+
+    def test_height_edit_via_command_recomputes_shadows(self, qtbot, scene) -> None:
+        """A metadata-only height edit repaints nothing, so scene.changed never
+        fires — the stack_changed → schedule_recompute wiring is the only
+        thing keeping shadows fresh after a height edit (senior review P1).
+        Replicates the exact application.py wiring on a lean scene (a full
+        GardenPlannerApp would drag the calendar/weather refresh chain into
+        the test); the companion source-tripwire test below pins the real
+        connect line itself."""
+        from open_garden_planner.core.commands import ChangePropertyCommand, CommandManager
+
+        item = _make_caster(scene)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+        controller.set_enabled(True)
+        cmd_mgr = CommandManager()
+        # The exact wiring _setup_central_widget applies:
+        cmd_mgr.stack_changed.connect(controller.schedule_recompute)
+        qtbot.wait(400)  # let add-item scene.changed echoes settle
+        baseline = controller.recompute_count
+
+        def apply_height(target, value) -> None:
+            # Mirrors the properties panel's apply_func: metadata only,
+            # no repaint — the exact path scene.changed cannot see.
+            target.metadata[METADATA_KEY] = value
+
+        cmd_mgr.execute(
+            ChangePropertyCommand(item, "object height", 100.0, 250.0, apply_height)
+        )
+        qtbot.wait(400)  # debounce + settle
+        assert controller.recompute_count == baseline + 1, (
+            "height edit through the command stack must trigger exactly one "
+            "effective shadow recompute"
+        )
+        # And the recomputed shadow really reflects the new height: undo →
+        # another recompute back to the shorter shadow.
+        cmd_mgr.undo()
+        qtbot.wait(400)
+        assert controller.recompute_count == baseline + 2
+
+    def test_app_wires_stack_changed_to_sun_controller(self) -> None:
+        """Source tripwire for the application.py connect line the behavioral
+        test above replicates — deleting the line fails HERE."""
+        import inspect
+
+        from open_garden_planner.app import application
+
+        source = inspect.getsource(application)
+        assert (
+            "stack_changed.connect(self._sun_controller.schedule_recompute)"
+            in source
+        ), (
+            "application.py must wire cmd_mgr.stack_changed to the sun "
+            "controller — metadata-only height edits repaint nothing, so "
+            "scene.changed alone misses them"
+        )
