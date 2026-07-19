@@ -5,8 +5,9 @@ main thread, these functions enumerate, locate, and measure objects. No PyQt6,
 no mcp — unit-testable without a GUI. The bed/plant ``ObjectType`` name sets are
 shared with :mod:`open_garden_planner.agent_api.mapping` (drift-guarded there).
 
-Coordinates are the plan's native scene frame: centimetres, origin top-left,
-+x right and +y down (see :mod:`open_garden_planner.agent_api.schema`). Geometry
+Coordinates are the plan's native scene frame: centimetres, CAD Y-up (ADR-002):
+origin at the south-west (bottom-left) corner, +x east/right and +y north/up (a
+larger y is further north; see :mod:`open_garden_planner.agent_api.schema`). Geometry
 is summarised by each object's axis-aligned bounding box; the serialiser stores
 a different shape per object kind (rectangle ``x/y/width/height``; circle/arc
 ``center_x/center_y/radius``; ellipse ``semi_x/semi_y``; polyline/polygon
