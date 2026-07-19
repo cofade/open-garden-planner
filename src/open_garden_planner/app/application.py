@@ -1085,6 +1085,14 @@ class GardenPlannerApp(QMainWindow):
         self._sun_sim_action.triggered.connect(self._on_toggle_sun_sim)
         menu.addAction(self._sun_sim_action)
 
+        # 3D view (US-E6) — viewer window, engine per ADR-038 (PyQt6-3D).
+        self._view3d_action = QAction(self.tr("&3D View…"), self)
+        self._view3d_action.setStatusTip(
+            self.tr("Open a 3D view of the plan with solar lighting")
+        )
+        self._view3d_action.triggered.connect(self._on_open_3d_view)
+        menu.addAction(self._view3d_action)
+
         # Toggle Scale Bar
         self._scale_bar_action = QAction(self.tr("Show Scale &Bar"), self)
         self._scale_bar_action.setCheckable(True)
@@ -1553,6 +1561,9 @@ class GardenPlannerApp(QMainWindow):
         self._sun_heatmap.finished.connect(self._on_heatmap_finished)
         self._sun_toolbar.heatmap_requested.connect(self._on_heatmap_requested)
         self._sun_toolbar.heatmap_cleared.connect(self._sun_heatmap.clear)
+
+        # ── 3D view (US-E6) — created lazily on first menu use ────────────
+        self._view3d_window = None
 
         # ── Find & Replace panel (US-11.24) ──────────────────────────────────
         from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
@@ -3049,6 +3060,8 @@ class GardenPlannerApp(QMainWindow):
         ):
             self._sun_heatmap.clear()
             self._sun_toolbar.set_heatmap_active(False)
+        if self._view3d_window is not None:
+            self._apply_sun_to_3d()  # 3D light follows the sim time (US-E6)
 
     def _on_heatmap_requested(self) -> None:
         """Heatmap button checked — compute the shown date's hours of sun."""
@@ -3108,6 +3121,68 @@ class GardenPlannerApp(QMainWindow):
     def _on_location_changed_for_sun(self, _location: object) -> None:
         """Location edits re-solve the sun position immediately (no debounce)."""
         self._sun_controller.recompute_now()
+        if self._view3d_window is not None:
+            self._apply_sun_to_3d()
+
+    # ── 3D view (US-E6) ──────────────────────────────────────────
+
+    def _on_open_3d_view(self) -> None:
+        """Open (or raise) the 3D viewer; snapshot the plan on open.
+
+        Lazy import — the view3d package (and with it PyQt6.Qt3D*) loads
+        only when the user actually asks for 3D (ADR-038 boundary).
+        """
+        if self._view3d_window is None:
+            from open_garden_planner.ui.view3d.view3d_window import View3DWindow
+
+            window = View3DWindow(None)  # top-level sibling window
+            window.refresh_requested.connect(self._refresh_3d_view)
+            window.closed.connect(self._on_3d_view_closed)
+            self._view3d_window = window
+        self._refresh_3d_view()
+        self._apply_sun_to_3d()
+        self._view3d_window.show()
+        self._view3d_window.raise_()
+        self._view3d_window.activateWindow()
+
+    def _refresh_3d_view(self) -> None:
+        if self._view3d_window is None:
+            return
+        from open_garden_planner.ui.view3d.snapshot import collect_scene3d_records
+
+        records = collect_scene3d_records(self.canvas_scene)
+        self._view3d_window.rebuild(
+            records, self.canvas_scene.width_cm, self.canvas_scene.height_cm
+        )
+
+    def _apply_sun_to_3d(self) -> None:
+        """Drive the 3D light from the sim instant + project location.
+
+        Without a location there is no solar position — a pleasant fixed
+        default (elev 50°, az 180° ≈ southern midday sun) keeps the view
+        usable; documented in FR-SUN-06."""
+        if self._view3d_window is None:
+            return
+        from open_garden_planner.core.solar import solar_position
+
+        location = self._project_manager.location
+        latitude = location.get("latitude") if isinstance(location, dict) else None
+        longitude = location.get("longitude") if isinstance(location, dict) else None
+        if latitude is None or longitude is None:
+            self._view3d_window.set_sun(50.0, 180.0)
+            return
+        position = solar_position(
+            latitude, longitude, self._sun_controller.sim_datetime_utc
+        )
+        self._view3d_window.set_sun(
+            position.elevation_deg, position.azimuth_deg
+        )
+
+    def _on_3d_view_closed(self) -> None:
+        window = self._view3d_window
+        self._view3d_window = None
+        if window is not None:
+            window.deleteLater()
 
     def _init_scale_bar_from_settings(self) -> None:
         """Initialize scale bar state from persisted settings."""

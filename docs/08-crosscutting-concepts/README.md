@@ -1164,3 +1164,12 @@ the QImage license is pinned by a 2-thread smoke test), recompute **on
 demand only** (a button — never `scene.changed`), and **join the worker
 before teardown** (`shutdown()` from `closeEvent`): a `QThread` destroyed
 while running aborts the interpreter (#230 class).
+
+**The 3D frame (US-E6)** adds ONE more mapping, applied exactly once at
+the engine-adapter boundary: scene `(E, N, up)` → Qt3D Y-up
+`(E, up, −N)` (`core/scene3d.to_engine_frame`; determinant +1, winding
+preserved). All mesh math stays in the scene frame in Qt-free
+`core/scene3d.py`; only `ui/view3d/qt3d_adapter.py` may import
+`PyQt6.Qt3D*` (ADR-038's engine-swap insurance). The sun vector's ground
+projection is pinned exactly opposite the 2D shadow direction — if the
+3D light and the 2D overlay ever disagree, a unit test fails first.

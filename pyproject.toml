@@ -27,6 +27,11 @@ classifiers = [
 dependencies = [
     "PyQt6>=6.6.0",
     "PyQt6-WebEngine>=6.10.0,<6.11",
+    # 3D view (US-E6, ADR-038). The -Qt6 runtime wheel MUST version-match
+    # PyQt6-Qt6's micro or Qt3DCore fails to import (DLL 'Prozedur nicht
+    # gefunden') — hence the hard pins; bump both together with PyQt6-Qt6.
+    "PyQt6-3D==6.11.0",
+    "PyQt6-3D-Qt6==6.11.0",
     "Pillow>=10.0.0",
     "requests>=2.31.0",
     "python-dotenv>=1.0.0",
