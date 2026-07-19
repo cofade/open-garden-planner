@@ -8,6 +8,7 @@ so the 3D solids can never disagree with the 2D shadow footprints.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from PyQt6.QtGui import QColor
@@ -30,7 +31,7 @@ def _item_color_rgba(item: Any) -> tuple[int, int, int, int]:
 
 
 def collect_scene3d_records(
-    scene: QGraphicsScene, at_date=None
+    scene: QGraphicsScene, at_date: date | None = None
 ) -> list[Scene3DRecord]:
     """Every visible item with a footprint → an engine-ready record.
 

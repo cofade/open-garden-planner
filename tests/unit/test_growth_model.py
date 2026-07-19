@@ -63,8 +63,23 @@ class TestMaturityHorizon:
             {"days_to_maturity_min": 365, "days_to_maturity_max": 365}, "TREE"
         ) == pytest.approx(1.0)
 
-    def test_annual_cycle_without_days(self) -> None:
-        horizon = years_to_maturity({"plant_cycle": "Annual"}, "PERENNIAL")
+    def test_annual_cycle_without_days_via_real_serializer(self) -> None:
+        """Fixture built through the REAL PlantSpeciesData.to_dict() so the
+        cycle key can never drift from the serializer again (the review
+        caught a phantom 'plant_cycle' key pinned by a hand-built dict)."""
+        from open_garden_planner.models.plant_data import (
+            PlantCycle,
+            PlantSpeciesData,
+        )
+
+        species = PlantSpeciesData(
+            scientific_name="Lactuca sativa",
+            common_name="Lettuce",
+            cycle=PlantCycle.ANNUAL,
+            max_height_cm=30.0,
+        ).to_dict()
+        assert "cycle" in species and "plant_cycle" not in species
+        horizon = years_to_maturity(species, "PERENNIAL")
         assert horizon == pytest.approx(150.0 / 365.0)
 
 

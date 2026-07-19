@@ -31,7 +31,7 @@ from __future__ import annotations
 import contextlib
 import math
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from PyQt6.QtCore import QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
@@ -199,7 +199,7 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         painter.restore()
 
 
-def _growth_footprint_scale(item: Any, at_date: Any) -> float:
+def _growth_footprint_scale(item: Any, at_date: date | None) -> float:
     """Canopy scale for a plant circle at ``at_date`` (1.0 = as drawn).
 
     The DRAWN circle is the mature canopy (diameter == max_spread, #213);
@@ -226,7 +226,7 @@ def _growth_footprint_scale(item: Any, at_date: Any) -> float:
     return max(0.02, min(1.0, grown / float(mature)))
 
 
-def _item_footprints(item: Any, at_date: Any = None) -> list[Polygon]:
+def _item_footprints(item: Any, at_date: date | None = None) -> list[Polygon]:
     """Scene-space footprint polygon(s) of one canvas item.
 
     Vertices are mapped through the item's own transform (``mapToScene``),
@@ -278,7 +278,7 @@ def _item_footprints(item: Any, at_date: Any = None) -> list[Polygon]:
 
 def collect_shadow_casters(
     scene: QGraphicsScene,
-    at_date: Any = None,
+    at_date: date | None = None,
 ) -> list[tuple[Polygon, float]]:
     """Snapshot every visible item with an effective height as (footprint, h).
 
