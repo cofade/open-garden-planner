@@ -105,7 +105,6 @@ src/open_garden_planner/
 │   ├── journal_note.py           # JournalNote — map-linked notes (US-12.9)
 │   ├── amendment.py              # Amendment & AmendmentRecommendation (US-12.10c)
 │   └── task.py                   # ManualTask — user-created reminder (US-C2, ADR-029)
-├── spike3d/                      # US-E5 ADR-038 evidence — Qt3D spike behind --spike-3d, never imported at startup
 ├── ui/
 │   ├── canvas/
 │   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling
