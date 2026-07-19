@@ -10201,5 +10201,17 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Clients added here can read your plan but not edit it. To allow editing, enable it in Preferences → Agent API.</source>
             <translation>Hier hinzugefügte Clients können Ihren Plan lesen, aber nicht bearbeiten. Um die Bearbeitung zu erlauben, aktivieren Sie sie unter Einstellungen → Agent-API.</translation>
         </message>
+        <message>
+            <source>Merge this into your ~/.claude.json file, under the top-level "mcpServers" key:</source>
+            <translation>Fügen Sie dies in Ihre ~/.claude.json-Datei unter dem Schlüssel „mcpServers“ auf oberster Ebene ein:</translation>
+        </message>
+        <message>
+            <source>Claude Desktop can't connect to a local server like this one — its connectors are reached from Anthropic's cloud and reject localhost URLs. Use Claude Code or Cursor for this local Agent API instead.</source>
+            <translation>Claude Desktop kann keine Verbindung zu einem lokalen Server wie diesem herstellen – seine Connectors werden aus der Cloud von Anthropic erreicht und lehnen localhost-URLs ab. Verwenden Sie stattdessen Claude Code oder Cursor für diese lokale Agent-API.</translation>
+        </message>
+        <message>
+            <source>Added to Claude Code. Start a new Claude Code session (or restart it) to pick up the change.</source>
+            <translation>Zu Claude Code hinzugefügt. Starten Sie eine neue Claude-Code-Sitzung (oder starten Sie sie neu), um die Änderung zu übernehmen.</translation>
+        </message>
     </context>
 </TS>

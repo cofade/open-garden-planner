@@ -2418,6 +2418,24 @@ _D16_TRANSLATIONS: dict[str, dict[str, str]] = {
         '"Add custom connector" and paste this URL:':
             "Gehen Sie in Claude Desktop zu Einstellungen → Connectors → "
             '"Benutzerdefinierten Connector hinzufügen" und fügen Sie diese URL ein:',
+        # US-D2.0 follow-up (issue #253): CLI-independent Claude Code merge
+        # note, honest Claude Desktop redirect, and the reconnect hint.
+        'Merge this into your ~/.claude.json file, under the top-level '
+        '"mcpServers" key:':
+            'Fügen Sie dies in Ihre ~/.claude.json-Datei unter dem Schlüssel '
+            '„mcpServers“ auf oberster Ebene ein:',
+        "Claude Desktop can't connect to a local server like this one — "
+        "its connectors are reached from Anthropic's cloud and reject "
+        "localhost URLs. Use Claude Code or Cursor for this local Agent "
+        "API instead.":
+            "Claude Desktop kann keine Verbindung zu einem lokalen Server wie "
+            "diesem herstellen – seine Connectors werden aus der Cloud von "
+            "Anthropic erreicht und lehnen localhost-URLs ab. Verwenden Sie "
+            "stattdessen Claude Code oder Cursor für diese lokale Agent-API.",
+        "Added to Claude Code. Start a new Claude Code session "
+        "(or restart it) to pick up the change.":
+            "Zu Claude Code hinzugefügt. Starten Sie eine neue Claude-Code-Sitzung "
+            "(oder starten Sie sie neu), um die Änderung zu übernehmen.",
         "URL copied to clipboard.": "URL in die Zwischenablage kopiert.",
         "Added to {client}.": "Zu {client} hinzugefügt.",
         "Could not add to {client}: {detail}":

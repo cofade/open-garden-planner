@@ -1017,22 +1017,26 @@ location (`~/.cursor`, `claude` on `PATH` / `~/.claude.json`, the platform
 Claude Desktop app-data dir), and `install_to_client()` registers the URL
 where each client's own docs support a safe automatic path — **Cursor** via a
 direct JSON merge into `~/.cursor/mcp.json`, **Claude Code** via the `claude
-mcp add --transport http --scope user` CLI (preferred over hand-editing
-`~/.claude.json`'s nested per-project schema). **Claude Desktop is
-detection-only**: its `claude_desktop_config.json` only documents *stdio*
-servers, and a plain local HTTP endpoint is registered through the app's own
-Settings → Connectors → "Add custom connector" UI, not a config file — every
-client without (or before) automatic support falls back to a copy-paste
-snippet with a short "where to put this" note. This is the **first
+mcp add --transport http --scope user` CLI when it's on `PATH`, else a
+**direct atomic merge into the top-level `mcpServers` of `~/.claude.json`**
+(the same user-scope `type: "http"` entry the CLI writes, read by both the
+CLI and the VS Code extension — so onboarding works without a terminal; the
+merge fails *closed* on an unreadable file, since `~/.claude.json` also holds
+OAuth/trust). **Claude Desktop is detection-only and cannot reach a localhost
+server** (its connectors are reached from Anthropic's cloud and reject
+`localhost`), so its row shows an honest "use Claude Code or Cursor instead"
+note — no button, no snippet. Every client with an automatic path also gets a
+copy-paste JSON snippet with a short "where to put this" note. This is the **first
 atomic-write pattern in the codebase**: every prior JSON writer here only
 ever wrote its own file with a bare `open(path, "w")`; because this one edits
 files *owned by other applications*, `_atomic_merge_mcp_server` backs up the
 file's current contents to `<name>.bak` first (a second call overwrites
 `.bak` with the state from just before *that* call, not the pristine
 original), preserves every other key/server, and writes via a same-directory
-temp file + `os.replace()`. See ADR-035 for the full
-per-client reasoning (including why Claude Desktop's config isn't
-auto-written) and §11.4 if a client's schema needs revisiting.
+temp file + `os.replace()`. See ADR-035 (and its issue-#253 addendum for the
+CLI-independent Claude Code merge + honest Claude Desktop note + dialog
+sizing) for the full per-client reasoning (including why Claude Desktop can't
+be auto-registered) and §11.4 if a client's schema needs revisiting.
 
 **Agent write path & token gate (US-D2.0, ADR-036).** The first scene-mutating
 tools — `move_object(item_id, dx, dy)` and `delete_object(item_id)` — sit

@@ -14,7 +14,14 @@ from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication, QGroupBox, QLabel, QPlainTextEdit, QPushButton
+from PyQt6.QtWidgets import (
+    QApplication,
+    QGroupBox,
+    QLabel,
+    QPlainTextEdit,
+    QPushButton,
+    QScrollArea,
+)
 
 from open_garden_planner.ui.dialogs.connect_ai_assistant_dialog import (
     ConnectAiAssistantDialog,
@@ -100,34 +107,49 @@ class TestConnectAiAssistantDialogEnabled:
         assert "Could not add to Cursor" in status
         assert config_path.is_dir()  # untouched — the failure didn't corrupt anything
 
-    def test_claude_desktop_has_no_add_button_only_snippet(
+    def test_claude_desktop_has_no_add_button_and_no_snippet(
         self, qtbot, isolated_clients: Path
     ) -> None:
+        """Claude Desktop can't reach a localhost server, so its row is an honest
+        redirect note only — no add button and no (misleading) snippet to paste
+        (issue #253)."""
         dialog = ConnectAiAssistantDialog(_URL)
         qtbot.addWidget(dialog)
 
         desktop_group = _group(dialog, "Claude Desktop")
-        add_buttons = [
-            b for b in desktop_group.findChildren(QPushButton) if b.text().startswith("Add to")
-        ]
-        assert add_buttons == []
+        assert desktop_group.findChildren(QPushButton) == []
+        assert desktop_group.findChild(QPlainTextEdit) is None
+        note = " ".join(w.text() for w in desktop_group.findChildren(QLabel))
+        assert "claude code or cursor" in note.lower()
 
-    def test_show_manual_snippet_reveals_url(self, qtbot, isolated_clients: Path) -> None:
+    def test_client_rows_are_in_a_resizable_scroll_area(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        """Client rows scroll so a revealed snippet grows the scroll region
+        instead of pushing Close off a fixed-size dialog (issue #253)."""
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        scroll = dialog.findChild(QScrollArea)
+        assert scroll is not None
+        assert scroll.widgetResizable() is True
+
+    def test_show_manual_snippet_reveals_snippet(self, qtbot, isolated_clients: Path) -> None:
         dialog = ConnectAiAssistantDialog(_URL)
         qtbot.addWidget(dialog)
         dialog.show()  # isVisible() composes with ancestor visibility
 
-        desktop_group = _group(dialog, "Claude Desktop")
+        cursor_group = _group(dialog, "Cursor")
         toggle = next(
-            b for b in desktop_group.findChildren(QPushButton) if b.text() == "Show manual snippet"
+            b for b in cursor_group.findChildren(QPushButton) if b.text() == "Show manual snippet"
         )
-        snippet = desktop_group.findChild(QPlainTextEdit)
+        snippet = cursor_group.findChild(QPlainTextEdit)
         assert snippet.isVisible() is False
 
         qtbot.mouseClick(toggle, Qt.MouseButton.LeftButton)
 
         assert snippet.isVisible() is True
-        assert snippet.toPlainText() == _URL
+        assert _URL in snippet.toPlainText()
 
 
 _TOKEN = "connect-dialog-token-xyz"

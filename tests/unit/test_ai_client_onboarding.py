@@ -93,6 +93,54 @@ class TestAtomicMergeMcpServer:
 
         assert list(tmp_path.iterdir()) == [path]
 
+    def test_replace_on_parse_error_false_raises_and_leaves_corrupt_untouched(
+        self, tmp_path: Path
+    ) -> None:
+        """Fail-closed mode (used for ~/.claude.json, which also holds OAuth /
+        projects / trust): an unparseable file raises and is left byte-for-byte
+        untouched — never silently replaced — though a .bak is still taken."""
+        path = tmp_path / "config.json"
+        path.write_text("not json {{{", encoding="utf-8")
+
+        with pytest.raises(onboarding._ConfigMergeError):
+            onboarding._atomic_merge_mcp_server(
+                path, name="og", entry={"url": _URL}, replace_on_parse_error=False
+            )
+
+        assert path.read_text(encoding="utf-8") == "not json {{{"
+        assert path.with_name("config.json.bak").read_text(encoding="utf-8") == "not json {{{"
+
+    def test_replace_on_parse_error_false_raises_on_non_object(self, tmp_path: Path) -> None:
+        path = tmp_path / "config.json"
+        path.write_text("[1, 2, 3]", encoding="utf-8")
+
+        with pytest.raises(onboarding._ConfigMergeError):
+            onboarding._atomic_merge_mcp_server(
+                path, name="og", entry={"url": _URL}, replace_on_parse_error=False
+            )
+
+        assert path.read_text(encoding="utf-8") == "[1, 2, 3]"
+
+
+class TestClaudeCodeConfigPath:
+    def test_defaults_to_home_claude_json(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+
+        assert onboarding._claude_code_user_config_path() == tmp_path / ".claude.json"
+
+    def test_honors_claude_config_dir_env(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """$CLAUDE_CONFIG_DIR relocates the config (matches the Claude CLI), so
+        onboarding must merge into the same file the CLI would."""
+        custom = tmp_path / "cfgdir"
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(custom))
+
+        assert onboarding._claude_code_user_config_path() == custom / ".claude.json"
+
 
 # ---------------------------------------------------------------------------
 # detect_clients
@@ -136,7 +184,9 @@ class TestDetectClients:
         clients = {c.client_id: c for c in onboarding.detect_clients()}
 
         assert clients["claude_code"].detected is True
-        assert clients["claude_code"].install_method == "manual"
+        # Without the CLI we register by a direct ~/.claude.json merge, so the
+        # one-click path is still available (issue #253) — not "manual".
+        assert clients["claude_code"].install_method == "json_merge"
 
     def test_claude_code_not_detected_without_cli_or_config(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -190,21 +240,105 @@ class TestInstallToClient:
         data = json.loads(path.read_text(encoding="utf-8"))
         assert data["mcpServers"][onboarding.SERVER_NAME] == {"url": _URL}
 
-    def test_claude_desktop_is_always_manual(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_claude_desktop_is_detection_only_with_honest_detail(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Claude Desktop can't reach a localhost server, so an install attempt
+        returns an honest failure that redirects to Claude Code / Cursor rather
+        than the old (misleading) "Add custom connector" guidance."""
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
         result = onboarding.install_to_client("claude_desktop", url=_URL)
 
         assert result.success is False
-        assert "custom connector" in result.detail.lower()
+        assert "local server" in result.detail.lower()
+        assert "claude code or cursor" in result.detail.lower()
 
-    def test_claude_code_cli_not_found(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_claude_code_direct_merge_when_cli_absent(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """No `claude` CLI on PATH: registration falls back to a direct atomic
+        merge into ~/.claude.json's top-level mcpServers (the same user-scope
+        location the CLI writes), so a CLI-less machine still gets a working
+        one-click (issue #253). The entry MUST carry ``type: "http"`` — a
+        url-only entry is parsed as a stdio command server — and every
+        pre-existing top-level key (projects / oauth / trust) is preserved."""
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: None)
+        (tmp_path / ".claude.json").write_text(
+            json.dumps({"projects": {"/x": {"trust": True}}, "oauthAccount": {"id": 1}}),
+            encoding="utf-8",
+        )
+
+        result = onboarding.install_to_client("claude_code", url=_URL)
+
+        assert result.success is True
+        data = json.loads((tmp_path / ".claude.json").read_text(encoding="utf-8"))
+        assert data["mcpServers"][onboarding.SERVER_NAME] == {"type": "http", "url": _URL}
+        assert data["projects"] == {"/x": {"trust": True}}
+        assert data["oauthAccount"] == {"id": 1}
+
+    def test_claude_code_direct_merge_creates_config_when_absent(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """With neither CLI nor an existing ~/.claude.json, the direct merge
+        creates the file (it's the user-scope target) rather than failing."""
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
         monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: None)
 
         result = onboarding.install_to_client("claude_code", url=_URL)
 
+        assert result.success is True
+        data = json.loads((tmp_path / ".claude.json").read_text(encoding="utf-8"))
+        assert data["mcpServers"][onboarding.SERVER_NAME] == {"type": "http", "url": _URL}
+
+    def test_claude_code_direct_merge_fail_safe_on_corrupt_config(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """A corrupt ~/.claude.json is left UNTOUCHED (it also holds OAuth /
+        projects / trust) — the install reports failure instead of replacing it,
+        but a .bak snapshot is still taken before the aborted write."""
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: None)
+        corrupt = '{"projects": broken not json'
+        config = tmp_path / ".claude.json"
+        config.write_text(corrupt, encoding="utf-8")
+
+        result = onboarding.install_to_client("claude_code", url=_URL)
+
         assert result.success is False
-        assert "not found" in result.detail.lower()
+        assert config.read_text(encoding="utf-8") == corrupt
+        assert (tmp_path / ".claude.json.bak").read_text(encoding="utf-8") == corrupt
+
+    def test_claude_code_direct_merge_drops_stale_headers(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """A re-install replaces the whole entry, so a stale `headers` key from an
+        old header-based install can't survive with a now-wrong token."""
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: None)
+        (tmp_path / ".claude.json").write_text(
+            json.dumps(
+                {
+                    "mcpServers": {
+                        onboarding.SERVER_NAME: {
+                            "type": "http",
+                            "url": _URL,
+                            "headers": {"Authorization": "Bearer stale-old-token"},
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        onboarding.install_to_client("claude_code", url=_URL, token=_TOKEN)
+
+        entry = json.loads((tmp_path / ".claude.json").read_text(encoding="utf-8"))[
+            "mcpServers"
+        ][onboarding.SERVER_NAME]
+        assert "headers" not in entry
+        assert entry == {"type": "http", "url": onboarding.url_with_token(_URL, _TOKEN)}
 
     def test_claude_code_cli_timeout_does_not_raise(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Regression: a hung `claude` CLI must surface as a failed InstallResult,
@@ -363,9 +497,12 @@ class TestSnippetForClient:
         data = json.loads(snippet)
         assert data["mcpServers"][onboarding.SERVER_NAME]["url"] == _URL
 
-    def test_claude_code_snippet_is_cli_command(self) -> None:
-        snippet = onboarding.snippet_for_client("claude_code", url=_URL)
-        assert snippet == f"claude mcp add --transport http --scope user {onboarding.SERVER_NAME} {_URL}"
+    def test_claude_code_snippet_is_json_with_http_entry(self) -> None:
+        """The Claude Code snippet is now the ~/.claude.json JSON block (not a
+        `claude mcp add` command), so it works whether or not the CLI is on
+        PATH. It MUST carry ``type: "http"``."""
+        data = json.loads(onboarding.snippet_for_client("claude_code", url=_URL))
+        assert data["mcpServers"][onboarding.SERVER_NAME] == {"type": "http", "url": _URL}
 
     def test_claude_desktop_snippet_is_bare_url(self) -> None:
         assert onboarding.snippet_for_client("claude_desktop", url=_URL) == _URL
