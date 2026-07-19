@@ -10276,5 +10276,37 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Animate the sun across the day</source>
             <translation>Sonnenverlauf über den Tag animieren</translation>
         </message>
+        <message>
+            <source>Hours of Sun</source>
+            <translation>Sonnenstunden</translation>
+        </message>
+        <message>
+            <source>Compute a full-day hours-of-sun heatmap for the shown date</source>
+            <translation>Sonnenstunden-Heatmap für den ganzen angezeigten Tag berechnen</translation>
+        </message>
+        <message>
+            <source>Computing…</source>
+            <translation>Berechne…</translation>
+        </message>
+        <message>
+            <source>&lt;2 h</source>
+            <translation>&lt;2 h</translation>
+        </message>
+        <message>
+            <source>2–4 h</source>
+            <translation>2–4 h</translation>
+        </message>
+        <message>
+            <source>4–6 h</source>
+            <translation>4–6 h</translation>
+        </message>
+        <message>
+            <source>≥6 h full sun</source>
+            <translation>≥6 h volle Sonne</translation>
+        </message>
+        <message>
+            <source>Hours of direct sun per spot on the chosen day</source>
+            <translation>Stunden direkter Sonne je Stelle am gewählten Tag</translation>
+        </message>
     </context>
 </TS>

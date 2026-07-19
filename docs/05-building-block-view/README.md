@@ -53,6 +53,7 @@ src/open_garden_planner/
 │   ├── solar.py                  # Qt-free NOAA solar position engine — elevation/azimuth/declination/EoT (US-E1, ADR-037)
 │   ├── object_height.py          # Qt-free effective-height resolver — explicit/container/species/type-default (US-E2, ADR-037)
 │   ├── shadow_geometry.py        # Qt-free shadow sweep/union — L=h/tanα, Minkowski sweep, pyclipper union (US-E3, ADR-037)
+│   ├── shade_aggregation.py      # Qt-free hours-of-sun sampling/bands/grid — rasterizer injected (US-E4, ADR-037)
 │   ├── furniture_renderer.py     # Furniture/hedge SVG rendering & caching
 │   ├── constraints.py            # All 16 constraint types + hybrid solver (see §8.12)
 │   ├── constraint_solver_newton.py # Newton-Raphson refinement + circle-circle fast path
@@ -109,6 +110,7 @@ src/open_garden_planner/
 │   │   ├── canvas_scene.py       # Scene (holds objects)
 │   │   ├── dimension_lines.py    # Dimension line rendering & management
 │   │   ├── sun_shadow_controller.py # Runtime-only solar shadow overlay + debounced recompute (US-E3, ADR-037)
+│   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + heatmap overlay/controller (US-E4)
 │   │   └── items/                # Canvas item types
 │   │       ├── garden_item.py    # GardenItem base class
 │   │       ├── rectangle_item.py

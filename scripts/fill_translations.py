@@ -2530,6 +2530,26 @@ for _ctx, _strings in _E3_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── US-E4: hours-of-sun heatmap (#259) ──
+_E4_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "SunSimToolbar": {
+        "Hours of Sun": "Sonnenstunden",
+        "Compute a full-day hours-of-sun heatmap for the shown date":
+            "Sonnenstunden-Heatmap für den ganzen angezeigten Tag berechnen",
+        "Computing…": "Berechne…",
+        "<2 h": "<2 h",
+        "2–4 h": "2–4 h",
+        "4–6 h": "4–6 h",
+        "≥6 h full sun": "≥6 h volle Sonne",
+        "Hours of direct sun per spot on the chosen day":
+            "Stunden direkter Sonne je Stelle am gewählten Tag",
+    },
+}
+
+for _ctx, _strings in _E4_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)
