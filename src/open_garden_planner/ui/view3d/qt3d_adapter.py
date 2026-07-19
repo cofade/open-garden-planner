@@ -33,6 +33,7 @@ from open_garden_planner.core.scene3d import (
     sun_direction_scene,
     to_engine_frame,
 )
+from open_garden_planner.core.shadow_geometry import MIN_SUN_ELEVATION_DEG
 
 _SKY = QColor(168, 200, 228)
 _GROUND = QColor(118, 148, 92)
@@ -70,6 +71,10 @@ class Garden3DView:
 
         camera = self._view.camera()
         camera.lens().setPerspectiveProjection(45.0, 16.0 / 9.0, 10.0, 200000.0)
+        # Track the real surface size — a hardcoded aspect ratio renders
+        # stretched at any non-16:9 window size (review P2).
+        self._view.widthChanged.connect(self._update_aspect_ratio)
+        self._view.heightChanged.connect(self._update_aspect_ratio)
         controller = QOrbitCameraController(self._root)
         controller.setCamera(camera)
         controller.setLinearSpeed(2500.0)
@@ -134,7 +139,9 @@ class Garden3DView:
         readable at night (documented MVP behavior, FR-SUN-06).
         """
         self.last_sun_scene = sun_direction_scene(elevation_deg, azimuth_deg)
-        if elevation_deg <= 0.0:
+        # One horizon definition for 2D and 3D: below the shadow module's
+        # minimum the 2D overlay shows night, so the 3D light does too.
+        if elevation_deg < MIN_SUN_ELEVATION_DEG:
             engine = (0.15, -1.0, 0.1)
             self._light.setColor(_NIGHT_BLUE)
             self._light.setIntensity(0.35)
@@ -206,6 +213,11 @@ class Garden3DView:
 
         entity.addComponent(renderer)
         entity.addComponent(material)
+
+    def _update_aspect_ratio(self) -> None:
+        width, height = self._view.width(), self._view.height()
+        if width > 0 and height > 0:
+            self._view.camera().setAspectRatio(width / height)
 
     def _frame_camera(self, width_cm: float, height_cm: float) -> None:
         center = QVector3D(width_cm / 2.0, 0.0, -height_cm / 2.0)

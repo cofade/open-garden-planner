@@ -96,6 +96,55 @@ class TestStartupCost:
 
 
 @requires_windows_3d
+class TestAppWorkflow:
+    """The §8.10-mandated end-to-end workflow (senior review P1): menu
+    action → open → rebuilt → sun applied (with and without location) →
+    sim-time forwarding → close → released. Pins the app-glue attribute
+    contracts (ProjectManager.location dict, sim_datetime_utc,
+    canvas_scene.width_cm) a rename would otherwise break silently."""
+
+    def test_menu_open_sun_close_cycle(self, qtbot) -> None:
+        from datetime import UTC, datetime
+
+        from open_garden_planner.app.application import GardenPlannerApp
+
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)
+        item = RectangleItem(100, 100, 300, 200, object_type=ObjectType.TOOL_SHED)
+        win.canvas_scene.addItem(item)
+
+        win._view3d_action.trigger()
+        window = win._view3d_window
+        assert window is not None
+        assert window.adapter.rebuild_count == 1
+        # No project location → the documented default sun (50°, 180°).
+        assert window.adapter.last_sun_scene is not None
+        default_sun = window.adapter.last_sun_scene
+
+        # Location set silently (avoids the weather-fetch thread) → the
+        # location_changed forward is exercised via the slot directly.
+        win._project_manager._location = {"latitude": 52.52, "longitude": 13.405}
+        win._sun_controller.set_sim_datetime(
+            datetime(2026, 6, 21, 12, 0, tzinfo=UTC)
+        )
+        win._apply_sun_to_3d()
+        berlin_noon_sun = window.adapter.last_sun_scene
+        assert berlin_noon_sun != default_sun
+        assert berlin_noon_sun[2] == pytest.approx(0.8598, abs=0.001)
+
+        # Sim-time forwarding: the datetime slot must move the light.
+        win._on_sun_sim_datetime(datetime(2026, 12, 21, 12, 0, tzinfo=UTC))
+        assert window.adapter.last_sun_scene != berlin_noon_sun
+
+        # Refresh through the window's own action wiring.
+        window.refresh_requested.emit()
+        assert window.adapter.rebuild_count == 2
+
+        window.close()
+        assert win._view3d_window is None
+
+
+@requires_windows_3d
 class TestAdapter:
     def test_set_sun_day_vectors(self, qtbot) -> None:  # noqa: ARG002
         from open_garden_planner.ui.view3d.qt3d_adapter import Garden3DView
