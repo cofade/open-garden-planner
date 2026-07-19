@@ -84,6 +84,14 @@ def _build_demo_plan(scene) -> None:
 
 def run_spike(argv: list[str]) -> int:
     """Open the spike window; returns the process exit code."""
+    try:
+        from PyQt6.Qt3DCore import QEntity  # noqa: F401 — availability probe
+    except ImportError:
+        sys.stderr.write(
+            "3D spike unavailable: this build has no PyQt6-3D "
+            "(install PyQt6-3D==6.11.0 PyQt6-3D-Qt6==6.11.0). See ADR-038.\n"
+        )
+        return 2
     from PyQt6.Qt3DCore import QEntity, QTransform
     from PyQt6.Qt3DExtras import (
         QCuboidMesh,
@@ -131,6 +139,7 @@ def run_spike(argv: list[str]) -> int:
     spin = QEntity(root)
     spin_transform = QTransform()
     spin.addComponent(spin_transform)
+    # Parent = spin_transform only for LIFETIME; the target is set below.
     animation = QPropertyAnimation(spin_transform)
     animation.setTargetObject(spin_transform)
     animation.setPropertyName(b"rotationY")
@@ -161,7 +170,7 @@ def run_spike(argv: list[str]) -> int:
         ys = [p[1] for p in footprint]
         w = max(xs) - min(xs)
         d = max(ys) - min(ys)
-        if w <= 0 or d <= 0 or height is None or height <= 0:
+        if w <= 0 or d <= 0 or height <= 0:  # casters always carry a height
             continue
         cx = (max(xs) + min(xs)) / 2.0
         cy = (max(ys) + min(ys)) / 2.0
