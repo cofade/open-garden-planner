@@ -15,6 +15,7 @@ must and does agree with it (pinned in ``tests/unit/test_scene3d.py``).
 from __future__ import annotations
 
 import contextlib
+import math
 
 import numpy as np
 from PyQt6.Qt3DCore import QAttribute, QBuffer, QEntity, QGeometry, QTransform
@@ -39,7 +40,9 @@ from open_garden_planner.core.scene3d import (
 from open_garden_planner.core.shadow_geometry import MIN_SUN_ELEVATION_DEG
 from open_garden_planner.core.walk_camera import (
     EYE_HEIGHT_CM,
+    PITCH_LIMIT_DEG,
     clamp_walk_position,
+    look_direction,
 )
 
 _SKY = QColor(168, 200, 228)
@@ -96,7 +99,7 @@ class Garden3DView:
         self._walk_controller.setEnabled(False)
 
         self._camera_mode = "orbit"
-        self._saved_orbit: tuple | None = None
+        self._saved_orbit: tuple[QVector3D, QVector3D, QVector3D] | None = None
         self._plan_size: tuple[float, float] = (1000.0, 800.0)
 
         self._view.setRootEntity(self._root)
@@ -108,6 +111,12 @@ class Garden3DView:
         self.rebuild_count = 0
 
     # ── public API ─────────────────────────────────────────────
+
+    def window_handle(self) -> Qt3DWindow:
+        """The underlying Qt3DWindow — the real keyboard-focus target while
+        walking (the container embeds a foreign QWindow, so key events land
+        HERE, not on the ancestor widgets; review P1)."""
+        return self._view
 
     def container(self, parent: QWidget | None = None) -> QWidget:
         """The embeddable window container (created once)."""
@@ -151,6 +160,10 @@ class Garden3DView:
         self._plan_size = (width_cm, height_cm)
         if self._camera_mode == "orbit":
             self._frame_camera(width_cm, height_cm)
+        else:
+            # Refreshing onto a smaller plan must not strand the walker
+            # outside the new bounds (review P2) — re-clamp immediately.
+            self._clamp_walk_camera()
         self.rebuild_count += 1
 
     def set_sun(self, elevation_deg: float, azimuth_deg: float) -> None:
@@ -208,11 +221,14 @@ class Garden3DView:
             )
             camera.setUpVector(QVector3D(0.0, 1.0, 0.0))
             camera.positionChanged.connect(self._clamp_walk_camera)
+            camera.viewCenterChanged.connect(self._clamp_walk_view)
             self._walk_controller.setEnabled(True)
             self._camera_mode = "walk"
         else:
             with contextlib.suppress(TypeError):
                 camera.positionChanged.disconnect(self._clamp_walk_camera)
+            with contextlib.suppress(TypeError):
+                camera.viewCenterChanged.disconnect(self._clamp_walk_view)
             self._walk_controller.setEnabled(False)
             if self._saved_orbit is not None:
                 position, view_center, up_vector = self._saved_orbit
@@ -237,6 +253,34 @@ class Garden3DView:
         corrected = QVector3D(east, EYE_HEIGHT_CM, -north)
         if corrected != position:
             camera.setPosition(corrected)
+
+    def _clamp_walk_view(self) -> None:
+        """Enforce the ±89° pitch limit on the walk look direction.
+
+        QFirstPersonCameraController tilts without any limit; this slot is
+        what makes core/walk_camera's pitch rule REAL at runtime (review
+        P1): when the look pitch exceeds the limit, the view center is
+        re-projected through ``look_direction`` (which clamps). Re-entrancy
+        safe — the corrected pitch satisfies the limit, so the second
+        emission returns early.
+        """
+        camera = self._view.camera()
+        position = camera.position()
+        look = camera.viewCenter() - position
+        east, north, up = look.x(), -look.z(), look.y()
+        horizontal = math.hypot(east, north)
+        distance = math.sqrt(east * east + north * north + up * up)
+        if distance <= 1e-6:
+            return
+        pitch = math.degrees(math.atan2(up, horizontal))
+        if abs(pitch) <= PITCH_LIMIT_DEG:
+            return
+        yaw = math.degrees(math.atan2(east, north))
+        new_e, new_n, new_up = look_direction(yaw, pitch)
+        camera.setViewCenter(
+            position
+            + QVector3D(new_e * distance, new_up * distance, -new_n * distance)
+        )
 
     # ── internals ──────────────────────────────────────────────
 

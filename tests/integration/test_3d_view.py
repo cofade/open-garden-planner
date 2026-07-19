@@ -213,12 +213,26 @@ class TestWalkthrough:
             camera.viewCenter().x(), camera.viewCenter().y(), camera.viewCenter().z()
         )
 
+        orbit_up = (
+            camera.upVector().x(), camera.upVector().y(), camera.upVector().z()
+        )
+
         adapter.set_camera_mode("walk")
         assert adapter.camera_mode == "walk"
         assert camera.position().y() == pytest.approx(EYE_HEIGHT_CM)
+        # Mutual exclusivity — exactly one controller drives the camera
+        # (review P2 pin).
+        assert not adapter._orbit_controller.isEnabled()
+        assert adapter._walk_controller.isEnabled()
 
         adapter.set_camera_mode("orbit")
         assert adapter.camera_mode == "orbit"
+        assert adapter._orbit_controller.isEnabled()
+        assert not adapter._walk_controller.isEnabled()
+        restored_up = (
+            camera.upVector().x(), camera.upVector().y(), camera.upVector().z()
+        )
+        assert restored_up == pytest.approx(orbit_up)
         restored_pos = (
             camera.position().x(), camera.position().y(), camera.position().z()
         )
@@ -251,7 +265,12 @@ class TestWalkthrough:
         assert camera.position().z() == pytest.approx(BOUNDS_MARGIN_CM)
 
     def test_escape_exits_walk_mode(self, qtbot, plan_scene) -> None:
-        from PyQt6.QtCore import Qt
+        """Esc is delivered to the REAL focus target while walking — the
+        embedded Qt3DWindow, not the QMainWindow (review P1): key events on
+        a foreign QWindow don't bubble into the widget hierarchy, so the
+        window installs an event filter on it; this test drives that path."""
+        from PyQt6.QtCore import QCoreApplication, QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
 
         from open_garden_planner.ui.view3d.view3d_window import View3DWindow
 
@@ -260,9 +279,55 @@ class TestWalkthrough:
         window.rebuild(collect_scene3d_records(plan_scene), 1000.0, 800.0)
         window._walk_action.setChecked(True)
         assert window.adapter.camera_mode == "walk"
-        qtbot.keyPress(window, Qt.Key.Key_Escape)
+        escape = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_Escape,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        QCoreApplication.sendEvent(window.adapter.window_handle(), escape)
         assert window.adapter.camera_mode == "orbit"
         assert not window._walk_action.isChecked()
+
+    def test_pitch_clamp_enforced_on_live_camera(self, qtbot, plan_scene) -> None:
+        """The ±89° rule is RUNTIME behavior, not a dead helper (review P1):
+        pointing the walk camera past the zenith gets re-projected."""
+        from PyQt6.QtGui import QVector3D
+
+        from open_garden_planner.core.walk_camera import PITCH_LIMIT_DEG
+        from open_garden_planner.ui.view3d.qt3d_adapter import Garden3DView
+
+        adapter = Garden3DView()
+        adapter.rebuild(collect_scene3d_records(plan_scene), 1000.0, 800.0)
+        adapter.set_camera_mode("walk")
+        camera = adapter._view.camera()
+        # Look almost straight up (≈ 89.9°): beyond the limit.
+        camera.setViewCenter(
+            camera.position() + QVector3D(0.0, 1000.0, -1.0)
+        )
+        look = camera.viewCenter() - camera.position()
+        import math as _math
+
+        pitch = _math.degrees(
+            _math.atan2(look.y(), _math.hypot(look.x(), look.z()))
+        )
+        assert pitch <= PITCH_LIMIT_DEG + 0.01
+
+    def test_rebuild_during_walk_reclamps(self, qtbot, plan_scene) -> None:
+        """Refresh onto a smaller plan must not strand the walker outside
+        the new bounds (review P2)."""
+        from open_garden_planner.core.walk_camera import BOUNDS_MARGIN_CM
+        from open_garden_planner.ui.view3d.qt3d_adapter import Garden3DView
+
+        adapter = Garden3DView()
+        adapter.rebuild(collect_scene3d_records(plan_scene), 5000.0, 4000.0)
+        adapter.set_camera_mode("walk")
+        camera = adapter._view.camera()
+        from PyQt6.QtGui import QVector3D
+
+        camera.setPosition(QVector3D(4800.0, 165.0, -3800.0))
+        adapter.rebuild(collect_scene3d_records(plan_scene), 1000.0, 800.0)
+        assert camera.position().x() <= 1000.0 + BOUNDS_MARGIN_CM
+        assert -camera.position().z() <= 800.0 + BOUNDS_MARGIN_CM
 
     def test_close_mid_walk_is_clean(self, qtbot, plan_scene) -> None:
         from open_garden_planner.ui.view3d.view3d_window import View3DWindow
