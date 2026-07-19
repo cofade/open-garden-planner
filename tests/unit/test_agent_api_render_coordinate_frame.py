@@ -1,12 +1,12 @@
-"""Pins the D1.3 render tool's pixel frame against D1.2's documented scene frame.
+"""Pins the D1.3 render tool's pixel frame against the scene coordinate frame.
 
-D1.2 reports object positions in cm, origin top-left, +y DOWN (schema.py).
-``render_scene_region``'s ``y_flip=True`` (kept for visual parity with the live
-CAD view and every existing PNG/PDF export) inverts that relationship in the
-rendered pixel buffer: a small scene-y lands near the BOTTOM of the image, not
-the top. This test pins the exact correction formula documented on
-``RenderMeta.px_per_cm`` so a future refactor can't silently break agent visual
-grounding without a red test.
+Object positions are reported in cm, CAD Y-up (schema.py / ADR-002): a larger
+scene y is further north. ``render_scene_region``'s ``y_flip=True`` (kept for
+visual parity with the live CAD view and every existing PNG/PDF export) makes the
+output PNG Y-up too (north at the top), so — because pixel rows count top-down —
+a small scene-y lands near the BOTTOM of the image. This test pins the exact
+correction formula documented on ``RenderMeta.px_per_cm`` so a future refactor
+can't silently break agent visual grounding without a red test.
 """
 
 from __future__ import annotations
@@ -45,7 +45,8 @@ def _marker_row_band(img: QImage, x: int, background: QColor) -> tuple[int, int]
 
 class TestRenderPixelFrameVsD12SceneFrame:
     def test_small_scene_y_lands_near_image_bottom(self, scene: CanvasScene) -> None:
-        """A circle near the D1.2 frame's 'top' (y=50cm) must NOT land near pixel row 0."""
+        """A circle low in the scene (y=50cm, near the south edge) lands in the
+        BOTTOM half of the Y-up render, NOT near pixel row 0 (the north/top)."""
         scene.addItem(CircleItem(500, 50, 30))
         img = _render(scene, w=100, h=80)
         background = img.pixelColor(0, 0)

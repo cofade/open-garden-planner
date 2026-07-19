@@ -17,8 +17,9 @@
 | **10** | **v1.8.6 – v1.8.12** | **✅ Complete** | **Companion Planting & Crop Rotation** |
 | **11** | **v1.8.13+** | **✅ Complete** | **Bed Interior Design, Visual Polish & Advanced 2D Tools** |
 | **12** | **v1.9.0 – v1.10.x** | **✅ Complete** | **Weather & Smart Features** |
-| 13 | v2.0 | Future | 3D Visualization & Sun/Shade |
-| 14 | v2.1+ | Future | Platform & Community |
+| **13** | **v1.11 – v1.24.x** | **✅ Complete** | **CAD Precision, Smart Features & Agent Integration (Packages A–D)** |
+| 14 | v2.0 | Planned ([epic #255](https://github.com/cofade/open-garden-planner/issues/255)) | 3D Visualization & Sun/Shade |
+| 15 | v2.1+ | Future | Platform & Community |
 
 ---
 
@@ -2448,11 +2449,29 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 **Goal**: Full three-dimensional garden view with sun/shade simulation — the milestone that justifies a major version bump.
 
-- 3D visualization (Qt3D integration)
+- 3D visualization (engine decided by the US-E5 spike — Qt3D vs PyVista vs pyqtgraph.opengl vs 2.5D fallback)
 - Object height properties (walls, fences, trees, structures)
 - Sun path simulation (shade calculation by season, time-of-day animation, seasonal analysis)
 - First-person walkthrough mode
 - Plant growth over time visualization (seedling → mature)
+
+**Planned 2026-07-19 — epic [#255](https://github.com/cofade/open-garden-planner/issues/255).** Each US carries a full stand-alone implementation spec in its issue; the authoritative runbook is the `ogp-3d-sunshade-campaign` skill (load it plus `ogp-change-control` + `ogp-architecture-contract` before starting any US). Slice order is deliberately 2D-first: the sun/shade value (US-E1…E4) ships even if the 3D spike NO-GOs.
+
+| Status | US    | Description                                                        | Issue | Depends on |
+| ------ | ----- | ------------------------------------------------------------------ | ----- | ---------- |
+| ⬜     | US-E1 | Solar position engine — Qt-free `core/solar.py` (NOAA/Meeus, pinned oracle numbers) | [#256](https://github.com/cofade/open-garden-planner/issues/256) | — |
+| ⬜     | US-E2 | Object height property — additive `object_height_cm` + Qt-free resolver + undoable panel editor (no FILE_VERSION bump) | [#257](https://github.com/cofade/open-garden-planner/issues/257) | — |
+| ⬜     | US-E3 | 2D analytic shadow overlay + sun date/time control (`L = h/tan α`, pyclipper union, runtime-only overlay) | [#258](https://github.com/cofade/open-garden-planner/issues/258) | E1, E2 |
+| ⬜     | US-E4 | Hours-of-sun heatmap — threaded 15-min aggregation, horticultural bands | [#259](https://github.com/cofade/open-garden-planner/issues/259) | E3 |
+| ⬜     | US-E5 | 3D engine spike — GO/NO-GO, timebox 5 days, decisive frozen-exe gate, ADR-038 | [#260](https://github.com/cofade/open-garden-planner/issues/260) | E2 |
+| ⬜     | US-E6 | 3D view MVP — extruded footprints, orbit camera, solar light *(conditional: E5 GO)* | [#261](https://github.com/cofade/open-garden-planner/issues/261) | E5 GO |
+| ⬜     | US-E7 | First-person walkthrough *(conditional)* | [#262](https://github.com/cofade/open-garden-planner/issues/262) | E6 |
+| ⬜     | US-E8 | Growth-over-time visualization — `min→max_height_cm` interpolation (118/118 species coverage) *(conditional)* | [#263](https://github.com/cofade/open-garden-planner/issues/263) | E6 (or 2.5D fallback) |
+| ⬜     | US-E9 | *(Optional)* AI asset-generation dev tooling feeding the `fill_patterns.py` texture seam | [#264](https://github.com/cofade/open-garden-planner/issues/264) | — (off critical path) |
+
+Reserved identifiers: **ADR-037** (solar + shadow architecture), **ADR-038** (3D engine choice), **§8.20**, **FR-SUN-\***. `FILE_VERSION` stays `"1.4"` (heights/planted-date are additive metadata).
+
+> **Decision (2026-07-19):** the external `claude-skill-game-assets-enhancer` skill was evaluated for 3D asset generation and rejected — it produces 2D game sprites via a paid fal.ai API, no 3D assets; Phase 14's 3D pipeline is procedural (extruded footprints). The salvageable idea (AI-generated textures through the existing `fill_patterns.py` seam, already sanctioned by §11.1) is captured as optional US-E9. Full rationale in epic #255.
 
 ---
 

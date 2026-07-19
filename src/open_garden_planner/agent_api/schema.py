@@ -56,12 +56,12 @@ class PlanSummary(BaseModel):
 
 # --- US-D1.2: read / query tools -------------------------------------------
 #
-# Coordinates are in the plan's native scene frame: centimetres, origin at the
-# top-left, +x right and +y DOWN (the Qt scene frame the file format stores).
-# This is the same frame used by every object's stored position. (Aligning the
-# y-axis with the rendered canvas image is deferred to US-D1.3, where the render
-# tool lands and the two can be reconciled together.) Non-rectangular shapes are
-# summarised by their axis-aligned bounding box.
+# Coordinates are in the plan's native scene frame: centimetres, CAD Y-up
+# (ADR-002) — origin at the south-west (bottom-left) corner, +x east/right and
+# +y NORTH/up. A larger y is further north / higher on the rendered canvas.
+# This is the same frame used by every object's stored position AND by
+# move_object, so an agent can move an object relative to a position it just
+# read. Non-rectangular shapes are summarised by their axis-aligned bounding box.
 
 
 class ObjectRef(BaseModel):
@@ -150,10 +150,11 @@ class Measurement(BaseModel):
 # --- US-D1.3: vision tool ---------------------------------------------------
 #
 # render_canvas_image renders with y_flip=True (matching the live CAD view and
-# every existing PNG/PDF export), which INVERTS the D1.2 y-down scene frame in
-# the output pixel buffer — see RenderMeta.px_per_cm below for the correction
-# formula. Empirically verified in
-# tests/unit/test_agent_api_render_coordinate_frame.py.
+# every existing PNG/PDF export): the output PNG is Y-up like the canvas, so
+# NORTH (a larger scene y) is at the TOP of the image. Because image pixel ROWS
+# count from the top down, a scene point's pixel row is inverted relative to its
+# scene y — see RenderMeta.px_per_cm below for the exact formula. Empirically
+# verified in tests/unit/test_agent_api_render_coordinate_frame.py.
 
 
 class RenderMeta(BaseModel):
@@ -161,7 +162,8 @@ class RenderMeta(BaseModel):
 
     region_x_cm: float = Field(description="Left edge of the rendered region, scene cm.")
     region_y_cm: float = Field(
-        description="Top edge of the rendered region, scene cm (native D1.2 frame)."
+        description="South edge of the rendered region — its minimum scene y; the "
+        "region extends north to region_y_cm + region_height_cm (the scene is Y-up)."
     )
     region_width_cm: float = Field(description="Rendered region width, cm.")
     region_height_cm: float = Field(description="Rendered region height, cm.")
@@ -170,12 +172,13 @@ class RenderMeta(BaseModel):
     px_per_cm: float = Field(
         description="Pixels per cm (uniform — aspect ratio preserved, except at "
         "the extreme end of the output-size clamp — see image_width_px/"
-        "image_height_px). Maps a D1.2 object position (scene cm, +y down) to "
-        "a pixel in this image: "
+        "image_height_px). Maps an object position (scene cm, Y-up) to a pixel "
+        "in this image: "
         "px_x = (x_cm - region_x_cm) * px_per_cm; "
         "px_y = image_height_px - (y_cm - region_y_cm) * px_per_cm "
-        "(the image is Y-up/CAD-style like the live canvas view, so the D1.2 "
-        "y-down frame is inverted relative to pixel rows)."
+        "(the image is Y-up/CAD-style like the live canvas view — north at the "
+        "top — while pixel rows count top-down, so a larger scene y maps to a "
+        "smaller pixel row)."
     )
     layers_rendered: list[str] | None = Field(
         default=None,
@@ -243,8 +246,8 @@ class WriteResult(BaseModel):
     )
     y: float | None = Field(
         default=None,
-        description="Resulting object centre Y in scene cm, +y down (move only; null "
-        "for delete).",
+        description="Resulting object centre Y in scene cm (Y-up: a larger y is "
+        "further north; move only; null for delete).",
     )
     children_moved: int = Field(
         default=0,

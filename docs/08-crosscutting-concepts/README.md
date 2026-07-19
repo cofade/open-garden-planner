@@ -355,8 +355,18 @@ def canvas(qtbot):
 
 ### Coordinate system reminder
 
-- **Scene coordinates** (Y-down, what tools receive): `(0, 0)` is top-left
-- **Canvas coordinates** (Y-up, what the user sees): `(0, 0)` is bottom-left
+> **Framing note.** The "Y-down / (0,0) top-left" label below is Qt's *abstract*
+> convention for the raw scene numbers, kept here for test-authoring mechanics (a
+> tool test passes raw `scene_pos` numbers and the compass doesn't matter). OGP's
+> view applies `scale(zoom, -zoom)`, so those *same* raw coordinates render
+> **Y-up**: a larger scene y is visually higher = **north** (§11.4 "Canvas Y-axis
+> flip" is the operative rule). That is why the Agent API — which reports the
+> identical raw scene y — describes the frame as "origin bottom-left, +y north."
+> Both statements are true of the same numbers; they differ only in whether they
+> name Qt's storage convention or the on-screen compass.
+
+- **Scene coordinates** (Y-down abstract convention, what tools receive): `(0, 0)` is top-left
+- **Canvas coordinates** (Y-up, what the user sees): `(0, 0)` is bottom-left, +y north
 - Pass scene coordinates to tool methods; use `view.scene_to_canvas()` / `view.canvas_to_scene()` when conversion is needed
 
 ### What integration tests cover
@@ -907,8 +917,8 @@ bed/plant `ObjectType` name sets, drift-guarded by `tests/unit/test_agent_api_ma
 - **Structural/spatial** — `list_objects`, `get_object`, `objects_in_region`,
   `objects_in`, `plants_in_bed`, `nearest_objects`, `measure_distance` are pure
   functions over the snapshot (`agent_api/queries.py`, Qt-free, **linear scan** not
-  the live quadtree). Coordinates are the **native scene frame** (cm, origin
-  top-left, +y down); shapes are summarised by `object_bbox` (handles every
+  the live quadtree). Coordinates are the **native scene frame** (cm, CAD Y-up per
+  ADR-002: origin bottom-left, +y north/up); shapes are summarised by `object_bbox` (handles every
   serialised geometry). `raw=True` returns the serialiser dict(s) via a **dict-first
   union return** (`list[dict] | list[ObjectRef]`) so FastMCP keeps a clean `anyOf`
   schema **and** preserves unknown keys on raw (model-first would coerce raw dicts

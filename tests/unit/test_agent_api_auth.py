@@ -99,6 +99,24 @@ def test_write_tools_present_when_enabled_and_tokened() -> None:
     assert "delete_object" in names
 
 
+def test_move_object_description_uses_y_up_compass_frame() -> None:
+    """Regression (#267): the move_object description must tell the agent the
+    canvas is Y-up (a positive dy moves NORTH, a negative dy SOUTH). It used to
+    say "+y is down", so an agent asked to move an object south computed a
+    positive dy and moved it the wrong way (north)."""
+    tools = asyncio.run(
+        build_server(
+            _stub_providers(), writes_enabled=True, write_token="tok"
+        ).list_tools()
+    )
+    move = next(t for t in tools if t.name == "move_object")
+    desc = (move.description or "").lower()
+    assert "north" in desc and "south" in desc
+    # The exact mis-description that caused the bug must not reappear.
+    assert "+y is down" not in desc
+    assert "+y down" not in desc
+
+
 def _run_middleware(
     headers: list[tuple[bytes, bytes]], query_string: bytes = b""
 ) -> str | None:
