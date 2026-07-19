@@ -242,9 +242,11 @@ def build_server(
     the SDK runs *sync* handlers inline on the event loop, so a sync handler that
     blocks on a main-thread hop would stall the uvicorn loop.
 
-    Coordinates throughout are the plan's native scene frame (centimetres, origin
-    top-left, +x right, +y down). Read-only ``raw=True`` switches a tool from the
-    curated agent schema to the underlying ``.ogp`` serialiser dict(s).
+    Coordinates throughout are the plan's native scene frame: centimetres, CAD
+    **Y-up** (ADR-002) — origin at the south-west (bottom-left) corner, +x is
+    east/right and **+y is north/up** (a larger y is further north / higher on
+    the canvas). Read-only ``raw=True`` switches a tool from the curated agent
+    schema to the underlying ``.ogp`` serialiser dict(s).
 
     Args:
         writes_enabled: When true AND ``write_token`` is set, the scene-mutating
@@ -335,8 +337,9 @@ def build_server(
         """Objects whose bounding box intersects a rectangle (scene cm).
 
         Args:
-            x: Left edge of the query rectangle, in scene cm.
-            y: Top edge of the query rectangle, in scene cm.
+            x: West (minimum-x) edge of the query rectangle, in scene cm.
+            y: South (minimum-y) edge of the query rectangle, in scene cm; the
+                rectangle extends north to y + height (the scene is Y-up).
             width: Rectangle width in cm.
             height: Rectangle height in cm.
             raw: If true, return serialiser dicts instead of the curated schema.
@@ -432,9 +435,11 @@ def build_server(
         """Render a PNG screenshot of the garden plan canvas, plus render metadata.
 
         Args:
-            x: Left edge of the region to render, scene cm. Must be given
-                together with y/width/height, or all four omitted (full canvas).
-            y: Top edge of the region to render, scene cm.
+            x: West (minimum-x) edge of the region to render, scene cm. Must be
+                given together with y/width/height, or all four omitted (full
+                canvas).
+            y: South (minimum-y) edge of the region to render, scene cm; the
+                region extends north to y + height (the scene is Y-up).
             width: Region width in cm.
             height: Region height in cm.
             layers: Optional layer-name allowlist; unknown names are ignored.
@@ -543,6 +548,12 @@ def build_server(
         async def move_object(item_id: str, dx: float, dy: float) -> WriteResult:
             """Move one object by a relative offset.
 
+            The canvas is CAD Y-up: a positive dy moves the object NORTH (up on
+            screen), a negative dy moves it SOUTH (down); a positive dx moves it
+            east (right), a negative dx west. Offsets are in the same scene frame
+            the read tools report, so to move an object south you pass a NEGATIVE
+            dy.
+
             Moving a bed/container/trellis carries its contained plants along.
             Moving a plant re-evaluates its bed membership afterward — crossing
             into or out of a bed reparents it. This is usually one undo step;
@@ -555,10 +566,14 @@ def build_server(
 
             Args:
                 item_id: The object's stable UUID (from list_objects/get_object).
-                dx: Horizontal offset in scene cm (+x is right).
-                dy: Vertical offset in scene cm (+y is down) — the SAME frame the
-                    read tools report positions in, so you can move an object
-                    relative to a position you just read without flipping any axis.
+                dx: Horizontal offset in scene cm: a positive dx moves the object
+                    east (right), a negative dx moves it west (left).
+                dy: Vertical offset in scene cm. The canvas is CAD Y-up, so a
+                    positive dy moves the object NORTH (up on screen) and a
+                    negative dy moves it SOUTH (down). This is the SAME frame the
+                    read tools report positions in (a larger y is further north),
+                    so you can move relative to a position you just read without
+                    flipping any axis. To move an object SOUTH, pass a NEGATIVE dy.
             """
             _require_write_auth(write_token)
             result = await anyio.to_thread.run_sync(

@@ -47,8 +47,9 @@ class AgentProviders:
             plain dict, including a row count
             (``agent_api.exports.export_csv_file``).
         move_object: **Write (D2).** Moves one object by a relative offset
-            (dx, dy in scene cm, +y down). Takes ``(item_id, dx, dy)``; runs one
-            undoable ``MoveItemsCommand`` on the main thread and returns a plain
+            (dx, dy in scene cm; +x east, +y north — the canvas is Y-up, so a
+            negative dy moves south). Takes ``(item_id, dx, dy)``; runs one
+            undoable move command on the main thread and returns a plain
             ``WriteResult``-shaped dict. Raises if the id is unknown.
         delete_object: **Write (D2).** Deletes one object by id. Takes
             ``(item_id,)``; runs one undoable ``DeleteItemsCommand`` on the main
