@@ -8,9 +8,9 @@ follows the US-E3 sim time control while the window is open.
 
 from __future__ import annotations
 
-from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtGui import QAction, QCloseEvent
-from PyQt6.QtWidgets import QMainWindow, QToolBar, QWidget
+from PyQt6.QtCore import QEvent, QObject, Qt, pyqtSignal
+from PyQt6.QtGui import QAction, QCloseEvent, QKeyEvent
+from PyQt6.QtWidgets import QLabel, QMainWindow, QToolBar, QWidget
 
 from open_garden_planner.core.scene3d import Scene3DRecord
 
@@ -52,13 +52,17 @@ class View3DWindow(QMainWindow):
         self._walk_action.toggled.connect(self._on_walk_toggled)
         toolbar.addAction(self._walk_action)
 
-        from PyQt6.QtWidgets import QLabel
-
         self._walk_hint = QLabel("", self)
         self._walk_hint.setStyleSheet("color: #666; font-style: italic;")
         self._walk_hint.setContentsMargins(12, 0, 0, 0)
         toolbar.addWidget(self._walk_hint)
         self.addToolBar(toolbar)
+
+        # While walking, keyboard focus sits on the embedded Qt3DWindow (a
+        # foreign QWindow) — key events do NOT bubble to this QMainWindow's
+        # keyPressEvent, so Esc is caught by an event filter on the real
+        # focus target (senior review P1).
+        self._adapter.window_handle().installEventFilter(self)
 
     @property
     def adapter(self) -> Garden3DView:
@@ -83,9 +87,19 @@ class View3DWindow(QMainWindow):
             else ""
         )
 
-    def keyPressEvent(self, event) -> None:  # noqa: N802 — Qt override
-        from PyQt6.QtCore import Qt
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        if (
+            watched is self._adapter.window_handle()
+            and event.type() == QEvent.Type.KeyPress
+            and isinstance(event, QKeyEvent)
+            and event.key() == Qt.Key.Key_Escape
+            and self._adapter.camera_mode == "walk"
+        ):
+            self._walk_action.setChecked(False)
+            return True
+        return super().eventFilter(watched, event)
 
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 — Qt override
         if (
             event.key() == Qt.Key.Key_Escape
             and self._adapter.camera_mode == "walk"
@@ -96,5 +110,9 @@ class View3DWindow(QMainWindow):
         super().keyPressEvent(event)
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        # Leave walk mode first — symmetric teardown (disconnects the
+        # clamp slots) instead of relying on C++-side disconnection.
+        if self._walk_action.isChecked():
+            self._walk_action.setChecked(False)
         self.closed.emit()
         super().closeEvent(event)
