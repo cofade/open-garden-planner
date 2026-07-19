@@ -17,7 +17,7 @@
 | **10** | **v1.8.6 – v1.8.12** | **✅ Complete** | **Companion Planting & Crop Rotation** |
 | **11** | **v1.8.13+** | **✅ Complete** | **Bed Interior Design, Visual Polish & Advanced 2D Tools** |
 | **12** | **v1.9.0 – v1.10.x** | **✅ Complete** | **Weather & Smart Features** |
-| **13** | **v1.11 – v1.24.x** | **✅ Complete** | **CAD Precision, Smart Features & Agent Integration (Packages A–D)** |
+| **13** | **v1.11 – v1.24.x** | **✅ A–C complete, D: D1+D2.0 shipped** | **CAD Precision, Smart Features & Agent Integration** |
 | 14 | v2.0 | Planned ([epic #255](https://github.com/cofade/open-garden-planner/issues/255)) | 3D Visualization & Sun/Shade |
 | 15 | v2.1+ | Future | Platform & Community |
 
@@ -2445,7 +2445,7 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 ---
 
-## Phase 14: 3D Visualization & Sun/Shade (Future, v2.0)
+## Phase 14: 3D Visualization & Sun/Shade (Planned, v2.0 — epic #255)
 
 **Goal**: Full three-dimensional garden view with sun/shade simulation — the milestone that justifies a major version bump.
 
@@ -2459,8 +2459,8 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 | Status | US    | Description                                                        | Issue | Depends on |
 | ------ | ----- | ------------------------------------------------------------------ | ----- | ---------- |
-| ⬜     | US-E1 | Solar position engine — Qt-free `core/solar.py` (NOAA/Meeus, pinned oracle numbers) | [#256](https://github.com/cofade/open-garden-planner/issues/256) | — |
-| ⬜     | US-E2 | Object height property — additive `object_height_cm` + Qt-free resolver + undoable panel editor (no FILE_VERSION bump) | [#257](https://github.com/cofade/open-garden-planner/issues/257) | — |
+| ✅     | US-E1 | Solar position engine — Qt-free `core/solar.py` (NOAA/Meeus, math copied verbatim from the campaign oracle; pinned tests ±0.05° vs oracle + Meeus Example 25.a literature row + physical identities). See ADR-037, FR-SUN-01 | [#256](https://github.com/cofade/open-garden-planner/issues/256) | — |
+| ✅     | US-E2 | Object height property — additive `object_height_cm` + Qt-free `core/object_height.py` resolver (explicit → container fill → species `max_height_cm` → per-type default → None; type-matching by enum *name* keeps it Qt-free, name sets pinned against the enum) + undoable "Object height:" panel spin (effective value shown, 0 = Auto clears, `ChangePropertyCommand` apply_func — one undo step). No FILE_VERSION bump. See ADR-037, FR-SUN-02 | [#257](https://github.com/cofade/open-garden-planner/issues/257) | — |
 | ⬜     | US-E3 | 2D analytic shadow overlay + sun date/time control (`L = h/tan α`, pyclipper union, runtime-only overlay) | [#258](https://github.com/cofade/open-garden-planner/issues/258) | E1, E2 |
 | ⬜     | US-E4 | Hours-of-sun heatmap — threaded 15-min aggregation, horticultural bands | [#259](https://github.com/cofade/open-garden-planner/issues/259) | E3 |
 | ⬜     | US-E5 | 3D engine spike — GO/NO-GO, timebox 5 days, decisive frozen-exe gate, ADR-038 | [#260](https://github.com/cofade/open-garden-planner/issues/260) | E2 |

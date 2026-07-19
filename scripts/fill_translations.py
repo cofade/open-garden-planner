@@ -51,6 +51,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         # localizes (e.g. "Textinhalt ändern" not "text content ändern"). #210.
         "frost protection": "Frostschutz",
         "spacing radius": "Pflanzabstand",
+        "object height": "Objekthöhe",
         "text content": "Textinhalt",
         "font": "Schriftart",
         "font size": "Schriftgröße",
@@ -1430,6 +1431,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Effective:": "Effektiv:",
         "{litres:.1f} L": "{litres:.1f} L",
         "—": "—",
+        # ── Object height (US-E2, sun/shade) ──
+        "Object height:": "Objekthöhe:",
+        "Custom height (0 = back to automatic)":
+            "Eigene Höhe (0 = zurück zu automatisch)",
+        "From container fill height": "Aus Gefäß-Füllhöhe",
+        "From assigned species (max height)":
+            "Aus zugewiesener Pflanzenart (max. Höhe)",
+        "Default for this object type": "Standard für diesen Objekttyp",
+        "No height — casts no shadow": "Keine Höhe — wirft keinen Schatten",
         "Recommended spacing radius (half of plant spread)":
             "Empfohlener Abstandsradius (halbe Pflanzenbreite)",
         "Spacing radius:": "Abstandsradius:",
