@@ -1537,21 +1537,9 @@ class GardenPlannerApp(QMainWindow):
         # QMainWindow's built-in toolbar context menu can show/hide the toolbar
         # behind our back — keep the menu action + controller in sync.
         self._sun_toolbar.visibilityChanged.connect(self._on_sun_toolbar_visibility)
-        # Persisting on every datetime_changed would hammer QSettings during
-        # animation (5 writes/s); a 1 s debounce writes once per pause instead.
-        self._sun_time_save_timer = QTimer(self)
-        self._sun_time_save_timer.setSingleShot(True)
-        self._sun_time_save_timer.setInterval(1000)
-        self._sun_time_save_timer.timeout.connect(self._save_sun_sim_time)
-        restored_sim_time = self._ui_state.restore_sun_sim_time()
-        if restored_sim_time:
-            from datetime import datetime as _datetime
-
-            # A corrupt stored value keeps the "now" default.
-            with contextlib.suppress(ValueError):
-                self._sun_toolbar.set_datetime_local(
-                    _datetime.fromisoformat(restored_sim_time)
-                )
+        # The sim instant is deliberately NOT persisted: it defaults to the
+        # current date/time on every app start (the toolbar seeds "now" in its
+        # constructor), so a fresh simulation always reflects today.
         self._project_manager.location_changed.connect(
             self._on_location_changed_for_sun
         )
@@ -2874,11 +2862,6 @@ class GardenPlannerApp(QMainWindow):
             self._stop_agent_api()
             # Persist window/splitter/panel state before tearing down.
             self._save_ui_state()
-            # Flush a pending debounced sim-time write (closing within 1 s of
-            # the last slider change must not lose the instant).
-            if self._sun_time_save_timer.isActive():
-                self._sun_time_save_timer.stop()
-                self._save_sun_sim_time()
             # Stop auto-save timer
             self._autosave_manager.stop()
             # Clear auto-save file (user chose to save or discard)
@@ -3041,16 +3024,8 @@ class GardenPlannerApp(QMainWindow):
             self._sun_controller.set_enabled(False)
 
     def _on_sun_sim_datetime(self, dt) -> None:
-        """A new sim instant from the toolbar — recompute now, persist debounced."""
+        """A new sim instant from the toolbar — recompute the overlay."""
         self._sun_controller.set_sim_datetime(dt)
-        with contextlib.suppress(RuntimeError):  # #230 teardown guard
-            self._sun_time_save_timer.start()
-
-    def _save_sun_sim_time(self) -> None:
-        """Debounced UiStateStore write of the last-used sim instant."""
-        self._ui_state.save_sun_sim_time(
-            self._sun_toolbar.current_datetime_local().isoformat()
-        )
 
     def _on_sun_toolbar_visibility(self, visible: bool) -> None:
         """Sync menu action + controller when the toolbar is shown/hidden via

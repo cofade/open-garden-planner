@@ -107,7 +107,9 @@ class TestBindingPixel:
         assert tip[1] > 194.0 and tip[0] > 163.0
 
         inside = (tip[0] - dx * 3.0, tip[1] - dy * 3.0)
-        beyond = (tip[0] + dx * 3.0, tip[1] + dy * 3.0)
+        # Far enough past the tip to clear the soft outward penumbra (a few cm
+        # halo, US-E3 soft-edge follow-up) so "beyond" is genuinely untouched.
+        beyond = (tip[0] + dx * 15.0, tip[1] + dy * 15.0)
         h = after.height()
         inside_px = _pixel(region, px_per_cm, h, *inside)
         beyond_px = _pixel(region, px_per_cm, h, *beyond)
@@ -133,6 +135,30 @@ class TestBindingPixel:
         assert before == after
 
 
+class TestCanvasClip:
+    def test_shadow_clipped_to_canvas_bounds(self, qtbot, scene) -> None:  # noqa: ARG002
+        # A tall caster near the north edge throws a shadow far past the top of
+        # the canvas; the overlay must be cut off at the canvas boundary, not
+        # spill onto the grey area outside the garden.
+        item = RectangleItem(
+            240, 450, 40, 40, object_type=ObjectType.GENERIC_RECTANGLE
+        )
+        item.metadata[METADATA_KEY] = 300.0  # ~178 cm shadow — well past y=500
+        scene.addItem(item)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+
+        # A band entirely OUTSIDE the canvas (scene-y > 500 = north of the top
+        # edge) that the *unclipped* shadow would otherwise cover.
+        outside = QRectF(240, 510, 120, 90)
+        before = _render(scene, outside, 2.0)
+        controller.set_enabled(True)
+        assert controller.state == STATE_ACTIVE
+        assert _render(scene, outside, 2.0) == before, (
+            "shadow overlay must be clipped to the canvas — nothing outside it"
+        )
+
+
 class TestRecomputeDiscipline:
     def test_one_effective_recompute_per_change_event(self, qtbot, scene) -> None:
         item = _make_caster(scene)
@@ -152,6 +178,32 @@ class TestRecomputeDiscipline:
 
         qtbot.wait(300)  # no further changes → no further rebuilds
         assert controller.recompute_count == 2
+
+    def test_night_holds_no_churn(self, qtbot, scene) -> None:
+        # The night full-canvas fill triggers the overlay's own scene.changed
+        # echo; the night snapshot key must swallow it — no rebuild storm (the
+        # exact invariant the night short-circuit exists to hold).
+        _make_caster(scene)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(JUNE_NIGHT_UTC)
+        controller.set_enabled(True)
+        assert controller.state == STATE_NIGHT
+        night_count = controller.recompute_count
+        qtbot.wait(400)
+        assert controller.recompute_count == night_count
+
+    def test_canvas_resize_forces_rebuild(self, qtbot, scene) -> None:  # noqa: ARG002
+        # A canvas resize (satellite picker) changes the clip bounds with the
+        # sun and casters unchanged; canvas_key must break the snapshot guard,
+        # else the overlay stays pinned to the stale canvas.
+        _make_caster(scene)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+        controller.set_enabled(True)
+        count = controller.recompute_count
+        scene.resize_canvas(800.0, 800.0)
+        controller.recompute_now()
+        assert controller.recompute_count == count + 1
 
     def test_sim_time_change_recomputes_immediately(self, qtbot, scene) -> None:  # noqa: ARG002
         _make_caster(scene)
@@ -174,7 +226,10 @@ class TestEmptyStates:
         assert controller.state == STATE_NO_LOCATION
         assert STATE_NO_LOCATION in states
 
-    def test_night_state_no_shadow_painted(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_night_shades_whole_canvas(self, qtbot, scene) -> None:  # noqa: ARG002
+        # US-E3 follow-up: at night the shadows do NOT vanish — the entire
+        # garden lies in shade. The overlay fills (and is clipped to) the
+        # canvas, so an interior region renders darker than the bare scene.
         _make_caster(scene)
         controller = SunShadowController(scene, lambda: BERLIN)
         controller.set_sim_datetime(JUNE_NIGHT_UTC)
@@ -182,7 +237,17 @@ class TestEmptyStates:
         before = _render(scene, region, 2.0)
         controller.set_enabled(True)
         assert controller.state == STATE_NIGHT
-        assert _render(scene, region, 2.0) == before
+        assert _render(scene, region, 2.0) != before
+        overlay = next(
+            i for i in scene.items() if isinstance(i, SunShadowOverlayItem)
+        )
+        assert overlay.isVisible()
+        assert overlay.path().boundingRect().width() == pytest.approx(
+            scene.canvas_rect.width()
+        )
+        assert overlay.path().boundingRect().height() == pytest.approx(
+            scene.canvas_rect.height()
+        )
 
     def test_location_set_recovers_from_empty_state(self, qtbot, scene) -> None:  # noqa: ARG002
         _make_caster(scene)

@@ -4,7 +4,9 @@ A plain ``QToolBar``: date picker + time-of-day slider + animate button +
 hint label. The widget works in the SYSTEM LOCAL timezone (the pragmatic
 choice — the garden and the computer share a timezone in practice) and
 emits timezone-aware local datetimes; the controller converts to UTC.
-Sim time persists in ``UiStateStore`` (UI state), never in the ``.ogp``.
+The sim time defaults to the current date/time each session (seeded in the
+constructor) and is deliberately NOT persisted — not in ``UiStateStore``, not
+in the ``.ogp`` — so a fresh run always reflects today.
 """
 
 from __future__ import annotations

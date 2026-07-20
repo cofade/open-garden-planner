@@ -49,14 +49,3 @@ class UiStateStore:
             return False
         splitter.restoreState(state)
         return True
-
-    # ── Sun & shade simulation (US-E3) ──────────────────────────────
-    # The last-used sim instant is UI state (like window geometry), NOT
-    # project data — deliberately kept out of the .ogp.
-
-    def save_sun_sim_time(self, iso_datetime: str) -> None:
-        self._settings.setValue(f"{self.GROUP}/sun_sim_time", iso_datetime)
-
-    def restore_sun_sim_time(self) -> str | None:
-        value = self._settings.value(f"{self.GROUP}/sun_sim_time")
-        return str(value) if value else None
