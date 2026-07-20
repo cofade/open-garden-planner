@@ -1114,3 +1114,43 @@ See ADR-036 (and its URL-delivery addendum); §8.11 for the security note.
 **Packaging.** See §7 deployment view — the `mcp`/`uvicorn`/`starlette` stack
 needs `collect_submodules` + `copy_metadata` in `ogp.spec`, must NOT walk
 `mcp.cli`, and must NOT exclude `multiprocessing` (uvicorn imports it).
+
+## 8.20 Solar Coordinate Discipline (Phase 14 sun/shade)
+
+The one rule: **do all solar/shadow math in scene centimeters, once, and
+flip nothing.** Scene coordinates ARE the CAD coordinates the user sees —
++x = East, +y = North (ADR-002; `ogp-qt-cad-reference` §1 owns the
+reconciliation with Qt's abstract Y-down description). Only pixel-facing
+surfaces (render/export/minimap) apply a Y-flip, and they already do it
+themselves (`render_scene_region(y_flip=True)`).
+
+**From compass azimuth to scene vector.** Azimuth `Az` is a compass bearing
+clockwise from true north, so the sun's horizontal direction in the scene
+frame is `(sin Az, cos Az)` and the shadow extends opposite:
+`d_scene = (−sin Az, −cos Az)`. Shadow length is `L = h / tan α`
+(`core/shadow_geometry.shadow_length_cm`, geometric elevation, flat ground).
+
+**Worked example (oracle-pinned).** Berlin 52.52N/13.405E,
+2026-06-21 12:00 UTC → α = 59.29°, Az = 203.74°. `sin Az = −0.4025`,
+`cos Az = −0.9154` → `d_scene = (+0.4025, +0.9154)` — mostly **north**,
+slightly east (early-afternoon sun just west of south → shadow falls NNE).
+A 100 cm object casts `L = 59.4 cm`; its tip sits at
+`base + 59.4·(0.4025, 0.9154)`.
+
+**In a rendered image** (`y_flip=True`, §8.19 formula
+`px_y = image_height_px − (y_cm − region_y_cm)·px_per_cm`): the northward
+tip has the *larger* scene-y → the *smaller* pixel-y → nearer the image
+top — exactly where North renders. Consistent, not a paradox.
+
+**The classic bug** is "correcting" the y-component a second time at some
+item-construction or render boundary — that double flip mirrors every
+shadow south. The binding pixel test in
+`tests/integration/test_shadow_overlay.py` renders the live scene and
+asserts the tip lands at the formula-predicted pixel; if a change mirrors
+shadows, that test fails before any human has to eyeball a canvas.
+
+**Recompute discipline** for canvas-scale overlays (shadow overlay now;
+heatmap US-E4 next): precompute on change — `scene.changed` debounced
+(150 ms) + `stack_changed` for repaint-less metadata edits — cache the
+result, and let `paint()` only draw the cached path. Guard every timer
+start with `contextlib.suppress(RuntimeError)` (#230).

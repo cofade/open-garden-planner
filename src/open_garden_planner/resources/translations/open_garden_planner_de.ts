@@ -3275,6 +3275,22 @@ Neue Saison jetzt öffnen?</translation>
             <source>Register this plan's MCP server with your AI assistant</source>
             <translation>Den MCP-Server dieses Plans mit Ihrem KI-Assistenten registrieren</translation>
         </message>
+        <message>
+            <source>S&amp;un &amp;&amp; Shade Simulation</source>
+            <translation>S&amp;onnen- &amp;&amp; Schatten-Simulation</translation>
+        </message>
+        <message>
+            <source>Simulate solar shadows for a chosen date and time of day</source>
+            <translation>Sonnenschatten für ein gewähltes Datum und eine Uhrzeit simulieren</translation>
+        </message>
+        <message>
+            <source>Set garden location first: File → Set Garden Location…</source>
+            <translation>Zuerst Gartenstandort festlegen: Datei → Gartenstandort festlegen…</translation>
+        </message>
+        <message>
+            <source>Night — the sun is below the horizon</source>
+            <translation>Nacht — die Sonne ist unter dem Horizont</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -10232,6 +10248,33 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Merge this into your ~/.claude.json file:</source>
             <translation>Fügen Sie dies in Ihre ~/.claude.json-Datei ein:</translation>
+        </message>
+    </context>
+    <context>
+        <name>SunSimToolbar</name>
+        <message>
+            <source>Sun &amp; Shade Simulation</source>
+            <translation>Sonnen- &amp; Schatten-Simulation</translation>
+        </message>
+        <message>
+            <source>Date:</source>
+            <translation>Datum:</translation>
+        </message>
+        <message>
+            <source>Simulation date</source>
+            <translation>Simulationsdatum</translation>
+        </message>
+        <message>
+            <source>Time of day</source>
+            <translation>Uhrzeit</translation>
+        </message>
+        <message>
+            <source>Animate</source>
+            <translation>Animieren</translation>
+        </message>
+        <message>
+            <source>Animate the sun across the day</source>
+            <translation>Sonnenverlauf über den Tag animieren</translation>
         </message>
     </context>
 </TS>

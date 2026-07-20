@@ -89,6 +89,8 @@
 | **Hour angle (H)** | How far the sun is past local solar noon, 15°/hour, negative in the morning, 0 at solar noon |
 | **Solar noon** | The instant the sun crosses the local meridian (hour angle 0) — its highest point of the day; due south in northern mid-latitudes |
 | **Effective height** | An object's resolved above-ground height in cm (`core/object_height.py`, US-E2): explicit `object_height_cm` metadata → container fill height → species `max_height_cm` → per-type default → none. Drives shadow casting (US-E3) and 3D extrusion (US-E6). Distinct from a container's *fill* height, which keeps driving soil volume |
+| **Shadow length** | `L = h / tan α` — the ground shadow length of an object of effective height *h* under geometric sun elevation α, on the v2.0 flat-ground assumption (`core/shadow_geometry.py`, US-E3). Below α = 0.5° no shadow is drawn (lengths explode near the horizon) |
+| **Sun & shade simulation** | The runtime-only canvas overlay (US-E3) painting the union of all object shadows for a simulated date/time at the project's location. Distinct from the cosmetic per-item drop shadows ("Show Shadows", `appearance/show_shadows`) |
 
 ## 12.2 Keyboard Shortcuts
 

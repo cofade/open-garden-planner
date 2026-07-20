@@ -1074,6 +1074,17 @@ class GardenPlannerApp(QMainWindow):
         self._shadows_action.triggered.connect(self._on_toggle_shadows)
         menu.addAction(self._shadows_action)
 
+        # Sun & shade simulation (US-E3) — deliberately named distinctly from
+        # the cosmetic per-item drop shadows above; different machinery.
+        self._sun_sim_action = QAction(self.tr("S&un && Shade Simulation"), self)
+        self._sun_sim_action.setCheckable(True)
+        self._sun_sim_action.setChecked(False)  # always starts off (runtime-only)
+        self._sun_sim_action.setStatusTip(
+            self.tr("Simulate solar shadows for a chosen date and time of day")
+        )
+        self._sun_sim_action.triggered.connect(self._on_toggle_sun_sim)
+        menu.addAction(self._sun_sim_action)
+
         # Toggle Scale Bar
         self._scale_bar_action = QAction(self.tr("Show Scale &Bar"), self)
         self._scale_bar_action.setCheckable(True)
@@ -1508,6 +1519,31 @@ class GardenPlannerApp(QMainWindow):
 
         self._minimap = MinimapWidget(self.canvas_view, self.canvas_scene)
 
+        # ── Sun & shade simulation (US-E3) ─────────────────────────────
+        from open_garden_planner.ui.canvas.sun_shadow_controller import (
+            SunShadowController,
+        )
+        from open_garden_planner.ui.widgets.sun_sim_toolbar import SunSimToolbar
+
+        self._sun_controller = SunShadowController(
+            self.canvas_scene, lambda: self._project_manager.location, self
+        )
+        self._sun_controller.state_changed.connect(self._on_sun_state_changed)
+        self._sun_toolbar = SunSimToolbar(self)
+        self.addToolBarBreak()
+        self.addToolBar(self._sun_toolbar)
+        self._sun_toolbar.setVisible(False)
+        self._sun_toolbar.datetime_changed.connect(self._on_sun_sim_datetime)
+        # QMainWindow's built-in toolbar context menu can show/hide the toolbar
+        # behind our back — keep the menu action + controller in sync.
+        self._sun_toolbar.visibilityChanged.connect(self._on_sun_toolbar_visibility)
+        # The sim instant is deliberately NOT persisted: it defaults to the
+        # current date/time on every app start (the toolbar seeds "now" in its
+        # constructor), so a fresh simulation always reflects today.
+        self._project_manager.location_changed.connect(
+            self._on_location_changed_for_sun
+        )
+
         # ── Find & Replace panel (US-11.24) ──────────────────────────────────
         from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
 
@@ -1534,6 +1570,11 @@ class GardenPlannerApp(QMainWindow):
         # stack_changed wiring collapses the former three-signal fan-out to one
         # refresh per command and gives correct undo/redo coverage.
         cmd_mgr.stack_changed.connect(self.constraints_panel.refresh)
+
+        # Sun shadow overlay: metadata-only edits (e.g. an object-height change)
+        # repaint nothing, so scene.changed alone would miss them — stack_changed
+        # closes that gap; the controller's snapshot key makes duplicates free.
+        cmd_mgr.stack_changed.connect(self._sun_controller.schedule_recompute)
 
         # Properties panel: defer via QTimer.singleShot to avoid rebuilding mid
         # spin-box interaction. The panel itself only rebuilds when the selection
@@ -2839,6 +2880,10 @@ class GardenPlannerApp(QMainWindow):
         """
         self._geometry_restored = self._ui_state.restore_geometry(self)
         self._ui_state.restore_splitter("main", self._main_splitter)
+        # QMainWindow.restoreState may re-show the sun-sim toolbar from a past
+        # session; the simulation itself always starts OFF (runtime-only), so
+        # keep menu action, toolbar and overlay in sync by forcing it hidden.
+        self._sun_toolbar.setVisible(False)
 
     def _save_ui_state(self) -> None:
         """Persist current window geometry and the main splitter sizes.
@@ -2965,6 +3010,59 @@ class GardenPlannerApp(QMainWindow):
 
         self.canvas_scene.set_shadows_enabled(checked)
         get_settings().show_shadows = checked
+
+    def _on_toggle_sun_sim(self, checked: bool) -> None:
+        """Toggle the sun & shade simulation overlay + its time toolbar (US-E3)."""
+        self._sun_toolbar.setVisible(checked)
+        if checked:
+            self._sun_controller.set_sim_datetime(
+                self._sun_toolbar.current_datetime_local()
+            )
+            self._sun_controller.set_enabled(True)
+        else:
+            self._sun_toolbar.stop_animation()
+            self._sun_controller.set_enabled(False)
+
+    def _on_sun_sim_datetime(self, dt) -> None:
+        """A new sim instant from the toolbar — recompute the overlay."""
+        self._sun_controller.set_sim_datetime(dt)
+
+    def _on_sun_toolbar_visibility(self, visible: bool) -> None:
+        """Sync menu action + controller when the toolbar is shown/hidden via
+        QMainWindow's built-in toolbar context menu (bypassing our action)."""
+        if visible == self._sun_controller.enabled:
+            return
+        self._sun_sim_action.setChecked(visible)
+        if visible:
+            self._sun_controller.set_sim_datetime(
+                self._sun_toolbar.current_datetime_local()
+            )
+            self._sun_controller.set_enabled(True)
+        else:
+            self._sun_toolbar.stop_animation()
+            self._sun_controller.set_enabled(False)
+
+    def _on_sun_state_changed(self, state: str) -> None:
+        """Surface the simulation's empty states as a toolbar hint."""
+        from open_garden_planner.ui.canvas.sun_shadow_controller import (
+            STATE_NIGHT,
+            STATE_NO_LOCATION,
+        )
+
+        if state == STATE_NO_LOCATION:
+            self._sun_toolbar.set_hint(
+                self.tr("Set garden location first: File → Set Garden Location…")
+            )
+        elif state == STATE_NIGHT:
+            self._sun_toolbar.set_hint(
+                self.tr("Night — the sun is below the horizon")
+            )
+        else:
+            self._sun_toolbar.set_hint("")
+
+    def _on_location_changed_for_sun(self, _location: object) -> None:
+        """Location edits re-solve the sun position immediately (no debounce)."""
+        self._sun_controller.recompute_now()
 
     def _init_scale_bar_from_settings(self) -> None:
         """Initialize scale bar state from persisted settings."""
