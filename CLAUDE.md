@@ -187,7 +187,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
-1. Phases 1–12 are complete, Phase 13 Packages A–C shipped and Package D1+D2.0 shipped (see progress tables below). Current milestone = **Phase 14 (v2.0)** — 3D Visualization & Sun/Shade: epic [#255](https://github.com/cofade/open-garden-planner/issues/255) (US-E1…E9 = issues #256–#264, full US table in `docs/roadmap.md` Phase 14; load the `ogp-3d-sunshade-campaign` skill before starting any of them). **US-E1 (solar engine `core/solar.py`) + US-E2 (`object_height_cm` + resolver + panel field) shipped together** (ADR-037, FR-SUN-01/02) — next up: US-E3 shadow overlay (#258) and/or US-E5 3D spike (#260), now both unblocked.
+1. Phases 1–12 are complete, Phase 13 Packages A–C shipped and Package D1+D2.0 shipped (see progress tables below). Current milestone = **Phase 14 (v2.0)** — 3D Visualization & Sun/Shade: epic [#255](https://github.com/cofade/open-garden-planner/issues/255) (US-E1…E9 = issues #256–#264, full US table in `docs/roadmap.md` Phase 14; load the `ogp-3d-sunshade-campaign` skill before starting any of them). **US-E1 (solar engine `core/solar.py`) + US-E2 (`object_height_cm` + resolver + panel field) shipped together** (v1.24.5, ADR-037, FR-SUN-01/02); **US-E3 (2D analytic shadow overlay + sun date/time control) shipped** (v1.24.6, PR #269, ADR-037 addendum, FR-SUN-03/04, §8.20) — next up: US-E4 hours-of-sun heatmap (#259) and/or US-E5 3D spike (#260).
 2. Read the relevant section in `docs/roadmap.md` for the user story or follow-up issue you're tackling.
 3. Check `git status` and recent git history (`git log --oneline -20`).
 4. Create feature branch and implement.
