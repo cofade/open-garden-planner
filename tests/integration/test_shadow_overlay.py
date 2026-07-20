@@ -158,6 +158,38 @@ class TestCanvasClip:
             "shadow overlay must be clipped to the canvas — nothing outside it"
         )
 
+    def test_soft_feather_extends_just_past_shadow(self, qtbot, scene) -> None:  # noqa: ARG002
+        # The soft edge is an OUTWARD penumbra: it tints a few cm past the
+        # geometric shadow tip (proving the feather is painted and points
+        # outward), while well beyond it the background is untouched.
+        _make_caster(scene)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+        region = QRectF(50, 50, 200, 200)
+        before = _render(scene, region, 2.0)
+        controller.set_enabled(True)
+        after = _render(scene, region, 2.0)
+
+        position = solar_position(
+            BERLIN["latitude"], BERLIN["longitude"], JUNE_NOON_UTC
+        )
+        length = shadow_length_cm(100.0, position.elevation_deg)
+        dx, dy = shadow_direction_scene(position.azimuth_deg)
+        tip = (140.0 + dx * length, 140.0 + dy * length)
+        # ~5 cm past the tip is inside the widest feather stroke's ~7 cm reach;
+        # 15 cm past is clear of it (matches the binding test's untouched point).
+        penumbra = (tip[0] + dx * 5.0, tip[1] + dy * 5.0)
+        far = (tip[0] + dx * 15.0, tip[1] + dy * 15.0)
+        h = after.height()
+        pen_px = _pixel(region, 2.0, h, *penumbra)
+        far_px = _pixel(region, 2.0, h, *far)
+        assert after.pixel(*pen_px) != before.pixel(*pen_px), (
+            "soft feather should tint a few cm past the shadow tip"
+        )
+        assert after.pixel(*far_px) == before.pixel(*far_px), (
+            "no tint well past the feather's reach"
+        )
+
 
 class TestRecomputeDiscipline:
     def test_one_effective_recompute_per_change_event(self, qtbot, scene) -> None:
