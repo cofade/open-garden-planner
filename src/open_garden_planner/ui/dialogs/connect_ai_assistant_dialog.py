@@ -1,12 +1,18 @@
 """Connect-your-AI-assistant dialog (US-D1.6).
 
 Thin Qt shell over ``services/ai_client_onboarding.py`` — shows the Agent
-API's connect URL and, per detected client, either a one-click "Add to …"
-button (Cursor, Claude Code) or a guided copy-paste snippet (Claude Desktop,
-and any client without automatic support). All prose here is UI copy and
-goes through ``self.tr()``; the URL/server name/snippet payloads are agent
-data and are never translated (mirrors ADR-033's "MCP tool/resource
-descriptions are English" precedent).
+API's connect URL and, per detected client, a one-click "Add to …" button
+(Cursor, Claude Code) plus a guided copy-paste JSON snippet. Claude Desktop
+is the exception: it can't reach a localhost server at all, so its row shows
+an honest "use Claude Code or Cursor instead" note with no button and no
+snippet (issue #253). All prose here is UI copy and goes through
+``self.tr()``; the URL/server name/snippet payloads are agent data and are
+never translated (mirrors ADR-033's "MCP tool/resource descriptions are
+English" precedent).
+
+Client rows sit inside a ``QScrollArea`` so revealing a manual snippet
+scrolls it into view instead of pushing the Close button off a fixed-size
+dialog.
 """
 
 from __future__ import annotations
@@ -20,6 +26,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -46,6 +53,9 @@ class ConnectAiAssistantDialog(QDialog):
         # client is registered to send it so the D2 write tools are reachable.
         self._token = token
         self._status_label = QLabel("")
+        # Set in _setup_ui's enabled branch; the client rows scroll so a
+        # revealed snippet can be scrolled into view (issue #253).
+        self._clients_scroll: QScrollArea | None = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -86,10 +96,21 @@ class ConnectAiAssistantDialog(QDialog):
         self._status_label.setWordWrap(True)
         layout.addWidget(self._status_label)
 
+        # Client rows live in a scroll area so revealing a manual snippet grows
+        # the scrollable region (and scrolls it into view) instead of pushing
+        # the Close button off the bottom of a fixed-size dialog (issue #253).
+        clients_container = QWidget()
+        clients_layout = QVBoxLayout(clients_container)
+        clients_layout.setContentsMargins(0, 0, 0, 0)
         for client in onboarding.detect_clients():
-            layout.addWidget(self._build_client_row(client))
+            clients_layout.addWidget(self._build_client_row(client))
+        clients_layout.addStretch()
 
-        layout.addStretch()
+        self._clients_scroll = QScrollArea()
+        self._clients_scroll.setWidgetResizable(True)
+        self._clients_scroll.setWidget(clients_container)
+        layout.addWidget(self._clients_scroll, 1)
+
         layout.addLayout(self._build_close_row())
 
     def _setup_disabled_ui(self, layout: QVBoxLayout) -> None:
@@ -120,6 +141,17 @@ class ConnectAiAssistantDialog(QDialog):
         status_text = self.tr("Detected") if client.detected else self.tr("Not detected")
         v.addWidget(QLabel(status_text))
 
+        if client.client_id == "claude_desktop":
+            # Detection-only AND unreachable: Claude Desktop can't connect to a
+            # localhost server (its connectors are reached from Anthropic's
+            # cloud and reject localhost URLs). Show the honest redirect note
+            # only — no add button, and no snippet (there is no config the user
+            # could paste that would make it work). See issue #253 / ADR-035.
+            note_label = QLabel(self._manual_note_for(client.client_id))
+            note_label.setWordWrap(True)
+            v.addWidget(note_label)
+            return group
+
         actions_row = QHBoxLayout()
         if client.install_method != "manual":
             add_btn = QPushButton(self.tr("Add to {client}").format(client=client.display_name))
@@ -148,22 +180,35 @@ class ConnectAiAssistantDialog(QDialog):
                 client.client_id, url=self._server_url, token=self._token
             )
         )
-        snippet_text.setMaximumHeight(90)
+        # The JSON merge snippet needs several lines; a 90px cap clipped it
+        # behind the Close row (issue #253). Give it room and let the enclosing
+        # scroll area handle any overflow rather than the dialog itself.
+        snippet_text.setMinimumHeight(110)
+        snippet_text.setMaximumHeight(240)
         snippet_text.setVisible(False)
         v.addWidget(snippet_text)
 
-        snippet_toggle.toggled.connect(note_label.setVisible)
-        snippet_toggle.toggled.connect(snippet_text.setVisible)
+        def _reveal(checked: bool) -> None:
+            note_label.setVisible(checked)
+            snippet_text.setVisible(checked)
+            if checked:
+                self.adjustSize()
+                if self._clients_scroll is not None:
+                    self._clients_scroll.ensureWidgetVisible(snippet_text)
+
+        snippet_toggle.toggled.connect(_reveal)
 
         return group
 
     def _manual_note_for(self, client_id: str) -> str:
         notes = {
             "cursor": self.tr("Add this to your global Cursor MCP config file:"),
-            "claude_code": self.tr("Run this command in a terminal:"),
+            "claude_code": self.tr("Merge this into your ~/.claude.json file:"),
             "claude_desktop": self.tr(
-                "In Claude Desktop, go to Settings → Connectors → "
-                '"Add custom connector" and paste this URL:'
+                "Claude Desktop can't connect to a local server like this one — "
+                "its connectors are reached from Anthropic's cloud and reject "
+                "localhost URLs. Use Claude Code or Cursor for this local Agent "
+                "API instead."
             ),
         }
         return notes.get(client_id, "")
@@ -211,9 +256,21 @@ class ConnectAiAssistantDialog(QDialog):
             button.setEnabled(client.detected)
 
         if result.success:
-            self._status_label.setText(
-                self.tr("Added to {client}.").format(client=client.display_name)
-            )
+            if client.client_id == "claude_code":
+                # A user-scope MCP server (whether written by the CLI or merged
+                # directly into ~/.claude.json) is only read at session start,
+                # so tell the user to reconnect rather than leaving them to
+                # wonder why a running session doesn't see it (issue #253).
+                self._status_label.setText(
+                    self.tr(
+                        "Added to Claude Code. Start a new Claude Code session "
+                        "(or restart it) to pick up the change."
+                    )
+                )
+            else:
+                self._status_label.setText(
+                    self.tr("Added to {client}.").format(client=client.display_name)
+                )
         else:
             self._status_label.setText(
                 self.tr("Could not add to {client}: {detail}").format(

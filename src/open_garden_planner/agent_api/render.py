@@ -5,13 +5,14 @@ genuinely touches Qt — it builds a ``QImage``/``QPainter`` and reads live scen
 items. ``render_canvas_image`` must run on the Qt main thread (marshaled via
 ``MainThreadBridge.run_on_main``, same as the other providers).
 
-Coordinate-frame note: D1.2 reports object positions in the native scene frame
-(cm, origin top-left, +y down). ``render_scene_region``'s ``y_flip=True``
-(kept here for visual consistency with the live CAD view and every other
-export) inverts that relationship in the rendered pixel buffer — see
-``RenderMeta.px_per_cm``'s field description in ``schema.py`` for the exact
-correction formula, and ``tests/unit/test_agent_api_render_coordinate_frame.py``
-for the empirical proof.
+Coordinate-frame note: the read tools report object positions in the native
+scene frame (cm, CAD Y-up per ADR-002 — origin bottom-left, +y north/up).
+``render_scene_region``'s ``y_flip=True`` (kept for visual parity with the live
+CAD view and every other export) means the output PNG is also Y-up — north at
+the top — so a scene point's pixel ROW is inverted relative to its scene y
+(pixel rows count top-down). See ``RenderMeta.px_per_cm``'s field description in
+``schema.py`` for the exact correction formula, and
+``tests/unit/test_agent_api_render_coordinate_frame.py`` for the empirical proof.
 """
 
 from __future__ import annotations

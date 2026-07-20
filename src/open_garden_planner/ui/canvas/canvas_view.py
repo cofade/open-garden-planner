@@ -1433,7 +1433,10 @@ class CanvasView(QGraphicsView):
     def scene_to_canvas(self, scene_point: QPointF) -> QPointF:
         """Convert scene coordinates to canvas coordinates (Y-flip).
 
-        Scene: Y-down, origin top-left (Qt convention)
+        Scene: Y-down, origin top-left (Qt's abstract convention for the raw
+            numbers). NOTE: OGP's view flip renders the same raw scene frame
+            Y-up, so a larger scene y is visually north (§11.4 "Canvas Y-axis
+            flip") — the frame the Agent API describes to agents.
         Canvas: Y-up, origin bottom-left (CAD convention)
 
         Args:
