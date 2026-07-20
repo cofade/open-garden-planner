@@ -5712,6 +5712,30 @@ noch nicht implementiert</translation>
             <source>Symbol definition not found — showing cached geometry.</source>
             <translation>Symboldefinition nicht gefunden — zwischengespeicherte Geometrie wird angezeigt.</translation>
         </message>
+        <message>
+            <source>Object height:</source>
+            <translation>Objekthöhe:</translation>
+        </message>
+        <message>
+            <source>Custom height (0 = back to automatic)</source>
+            <translation>Eigene Höhe (0 = zurück zu automatisch)</translation>
+        </message>
+        <message>
+            <source>From container fill height</source>
+            <translation>Aus Gefäß-Füllhöhe</translation>
+        </message>
+        <message>
+            <source>From assigned species (max height)</source>
+            <translation>Aus zugewiesener Pflanzenart (max. Höhe)</translation>
+        </message>
+        <message>
+            <source>Default for this object type</source>
+            <translation>Standard für diesen Objekttyp</translation>
+        </message>
+        <message>
+            <source>No height — casts no shadow</source>
+            <translation>Keine Höhe — wirft keinen Schatten</translation>
+        </message>
     </context>
     <context>
         <name>RectangleItem</name>
@@ -9727,6 +9751,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Delete harvest entry</source>
             <translation>Ernte-Eintrag löschen</translation>
+        </message>
+        <message>
+            <source>object height</source>
+            <translation>Objekthöhe</translation>
         </message>
     </context>
     <context>

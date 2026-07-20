@@ -568,6 +568,9 @@ class PropertiesPanel(QWidget):
         # Container section (material/drainage/height/soil volume) — US-C3
         self._add_container_properties(item)
 
+        # Object height (sun/shade simulation) — US-E2
+        self._add_object_height_properties(item)
+
         # Spacing radius section (for plant types only)
         self._add_spacing_properties(item)
 
@@ -1211,6 +1214,81 @@ class PropertiesPanel(QWidget):
         # incremental refresh (e.g. after a canvas resize changes the footprint)
         # must re-run update_feedback() to keep "Effective" volume honest.
         self._register_refresh(effective_label, update_feedback)
+
+    def _add_object_height_properties(self, item: QGraphicsItem) -> None:
+        """Add the above-ground object height control (US-E2, #257).
+
+        The spin displays the *effective* height from the Qt-free resolver
+        (``core/object_height``): an explicit ``object_height_cm`` metadata
+        value, else container fill height / species ``max_height_cm`` / the
+        per-type default. Setting a value stores an explicit override;
+        setting 0 clears it (back to automatic) — the same semantics as the
+        spacing-radius field above. Edits go through ``ChangePropertyCommand``
+        (one undo step, #209); the container section's direct metadata writes
+        are documented debt, not the pattern.
+        """
+        from open_garden_planner.core import object_height as oh
+
+        if not hasattr(item, "object_type") or not hasattr(item, "metadata"):
+            return
+        if not oh.has_height_semantics(item.object_type, item.metadata):
+            return
+
+        height_spin = QDoubleSpinBox()
+        height_spin.setRange(0.0, 5000.0)
+        height_spin.setDecimals(0)
+        height_spin.setSingleStep(10.0)
+        height_spin.setSuffix(" cm")
+        # Non-empty special-value text — an empty string DISABLES the feature
+        # (the #231/#232 Qt trap).
+        height_spin.setSpecialValueText(self.tr("Auto"))
+        height_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        height_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+        source_texts = {
+            oh.SOURCE_CUSTOM: self.tr("Custom height (0 = back to automatic)"),
+            oh.SOURCE_CONTAINER: self.tr("From container fill height"),
+            oh.SOURCE_SPECIES: self.tr("From assigned species (max height)"),
+            oh.SOURCE_DEFAULT: self.tr("Default for this object type"),
+            oh.SOURCE_NONE: self.tr("No height — casts no shadow"),
+        }
+
+        def refresh_height(s: QDoubleSpinBox = height_spin, it: QGraphicsItem = item) -> None:
+            effective = oh.effective_height_cm(it.object_type, it.metadata)
+            s.setValue(effective if effective is not None else 0.0)
+            s.setToolTip(source_texts[oh.height_source(it.object_type, it.metadata)])
+
+        refresh_height()
+        height_spin.valueChanged.connect(
+            lambda val, it=item: self._on_object_height_changed(it, val)
+        )
+        self._form_layout.addRow(self.tr("Object height:"), height_spin)
+        self._register_refresh(height_spin, refresh_height)
+
+    def _on_object_height_changed(self, item: QGraphicsItem, value: float) -> None:
+        """Handle object height change with undo support (US-E2)."""
+        if self._updating:
+            return
+        from open_garden_planner.core import object_height as oh
+
+        old_value = oh.explicit_height_cm(item.metadata)
+        # 0 means "no override" → clear the key (reverts to the resolver chain)
+        new_value = float(value) if value > 0.0 else None
+        if new_value == old_value:
+            return
+
+        def apply_func(itm: QGraphicsItem, val: float | None) -> None:
+            if val is None:
+                itm.metadata.pop(oh.METADATA_KEY, None)
+            else:
+                itm.metadata[oh.METADATA_KEY] = val
+
+        cmd = ChangePropertyCommand(
+            item, "object height", old_value, new_value,
+            apply_func=apply_func,
+        )
+        if self._command_manager:
+            self._command_manager.execute(cmd)
 
     def _add_smart_symbol_properties(self, item: QGraphicsItem) -> None:
         """Render typed parameter widgets for a selected smart symbol (US-C4).

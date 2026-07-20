@@ -82,6 +82,13 @@
 | **MainThreadBridge** | The thread-marshaling boundary (`agent_api/bridge.py`): runs a callable on the Qt main thread from the server's worker thread via a queued signal + `Future`, returning the result/exception. `abort_pending()` releases in-flight calls on shutdown. The reusable write-ready core. See ADR-033 |
 | **Curated agent schema** | The stable pydantic contract (`agent_api/schema.py`, e.g. `PlanSummary`) the Agent API returns to clients — decoupled from the `.ogp` save format / `FILE_VERSION` so agent integrations don't break on format changes. Built from `ProjectManager.snapshot_dict` by the Qt-free `agent_api/mapping.py`. See ADR-034 |
 | **snapshot_dict** | `ProjectManager.snapshot_dict(scene)` — an in-memory, read-only `.ogp`-shaped dict (plus an `agent_meta` block) used by the Agent API. Unlike `save()`, it does NOT reconcile journal-pin positions, so reading the plan never mutates state |
+| **Azimuth** | Compass bearing of the sun, degrees clockwise from true north (N=0, E=90, S=180, W=270). Computed by `core/solar.py` (US-E1) |
+| **Elevation angle (solar)** | The sun's angle above the horizon (α). Geometric (airless) by default; shadow features use the geometric value. `elevation_refracted_deg` carries the NOAA refraction correction |
+| **Declination (δ)** | Angle of the sun above/below Earth's equatorial plane; ranges ±23.44° over the year (the axial tilt) |
+| **Equation of time (EoT)** | True solar time minus mean clock time, in minutes; ranges about −14.2 … +16.4 min over the year |
+| **Hour angle (H)** | How far the sun is past local solar noon, 15°/hour, negative in the morning, 0 at solar noon |
+| **Solar noon** | The instant the sun crosses the local meridian (hour angle 0) — its highest point of the day; due south in northern mid-latitudes |
+| **Effective height** | An object's resolved above-ground height in cm (`core/object_height.py`, US-E2): explicit `object_height_cm` metadata → container fill height → species `max_height_cm` → per-type default → none. Drives shadow casting (US-E3) and 3D extrusion (US-E6). Distinct from a container's *fill* height, which keeps driving soil volume |
 
 ## 12.2 Keyboard Shortcuts
 
