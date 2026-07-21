@@ -22,6 +22,7 @@ pixel-band integration test.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from datetime import date
 from typing import Any
@@ -51,7 +52,9 @@ from open_garden_planner.core.heatmap_render import (
     build_sun_lut,
     hour_levels,
     iso_segments,
+    label_points_along,
     smooth_field,
+    stitch_segments,
     sun_fraction,
 )
 from open_garden_planner.core.shade_aggregation import (
@@ -76,6 +79,13 @@ _LABEL_Z = -448.0
 _CONTOUR_COLOR = QColor(24, 30, 54, 205)
 _LABEL_TEXT_COLOR = QColor(18, 22, 42)
 _LABEL_HALO_COLOR = QColor(255, 255, 255, 220)
+
+# Hour labels are distributed along each contour COMPONENT: ~one per
+# _LABEL_SPACING_CM of arc, skipping any within _LABEL_MIN_DIST_CM of an
+# already-placed label (dedups nested/parallel rings); every component keeps at
+# least one so closed loops stay interpretable.
+_LABEL_SPACING_CM = 500.0
+_LABEL_MIN_DIST_CM = 160.0
 
 # Cool→warm sun ramp LUT (single source of truth, core/heatmap_render). ARGB32
 # is B,G,R,A on little-endian, so keep a reordered copy for direct pixel packing.
@@ -396,6 +406,7 @@ class SunHeatmapController(QObject):
         # the blur can flatten a sharp 1-cell peak below its own top hour.
         field = smooth_field(minutes, passes=2)
         max_minutes = float(field.max()) if field.size else 0.0
+        placed_labels: list[tuple[float, float]] = []
         for threshold in hour_levels(max_minutes):
             segments = iso_segments(field, threshold)
             if not segments:
@@ -418,36 +429,79 @@ class SunHeatmapController(QObject):
             self._scene.addItem(line)
             self._contour_items.append(line)
             if even:
-                label = self._make_hour_label(hour, segments, grid)
-                self._scene.addItem(label)
-                self._contour_items.append(label)
+                self._label_contour(hour, segments, grid, placed_labels)
 
-    def _make_hour_label(
+    def _label_contour(
         self,
         hour: int,
         segments: list[tuple[tuple[float, float], tuple[float, float]]],
         grid: HeatmapGrid,
-    ) -> QGraphicsSimpleTextItem:
-        """A zoom-stable '{n} h' label at a representative point on the contour.
+        placed: list[tuple[float, float]],
+    ) -> None:
+        """Distribute '{n} h' labels along each contour COMPONENT.
 
-        Reuses the dimension-line idiom: ``ItemIgnoresTransformations`` keeps the
-        text a fixed on-screen size, with a light halo pen for legibility over
-        the coloured map.
+        Every closed loop (a component) is labeled at least once; labels are
+        spaced by arc length and skip spots within ``_LABEL_MIN_DIST_CM`` of an
+        already-placed one (dedups nested/parallel rings). ``placed`` carries
+        scene points across all levels so nothing collides.
         """
-        (ax, ay), (bx, by) = segments[len(segments) // 2]
-        mid = ((ax + bx) / 2.0, (ay + by) / 2.0)
-        sx, sy = self._grid_to_scene(mid, grid)
-        label = QGraphicsSimpleTextItem(self.tr("{n} h").format(n=hour))
-        label.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
-        font = QFont()
-        font.setPointSize(9)
-        font.setBold(True)
-        label.setFont(font)
-        label.setBrush(QBrush(_LABEL_TEXT_COLOR))
-        halo = QPen(_LABEL_HALO_COLOR)
-        halo.setWidthF(2.0)
-        label.setPen(halo)
-        label.setZValue(_LABEL_Z)
-        label.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
-        label.setPos(sx, sy)
-        return label
+        text = self.tr("{n} h").format(n=hour)
+        spacing = _LABEL_SPACING_CM / grid.cell_cm  # contour is in grid units
+        for polyline in stitch_segments(segments):
+            scene_points = [
+                self._grid_to_scene(p, grid)
+                for p in label_points_along(polyline, spacing)
+            ]
+            if not scene_points:
+                continue
+            drew = False
+            for sx, sy in scene_points:
+                if self._nearest_label_dist(sx, sy, placed) < _LABEL_MIN_DIST_CM:
+                    continue
+                self._add_label(text, sx, sy)
+                placed.append((sx, sy))
+                drew = True
+            if not drew:
+                # The whole component was crowded out — force its least-crowded
+                # point so every closed loop keeps a label (manual-test finding).
+                sx, sy = max(
+                    scene_points,
+                    key=lambda p: self._nearest_label_dist(p[0], p[1], placed),
+                )
+                self._add_label(text, sx, sy)
+                placed.append((sx, sy))
+
+    @staticmethod
+    def _nearest_label_dist(
+        x: float, y: float, placed: list[tuple[float, float]]
+    ) -> float:
+        if not placed:
+            return float("inf")
+        return min(math.hypot(x - px, y - py) for px, py in placed)
+
+    def _add_label(self, text: str, sx: float, sy: float) -> None:
+        """A readable zoom-stable label: dark text over a light halo (two
+        stacked ``QGraphicsSimpleTextItem``s), legible over any map colour.
+        """
+        for brush_color, pen_width, z in (
+            (_LABEL_HALO_COLOR, 3.0, _LABEL_Z - 0.5),  # fat light halo behind
+            (_LABEL_TEXT_COLOR, 0.0, _LABEL_Z),  # crisp dark text in front
+        ):
+            item = QGraphicsSimpleTextItem(text)
+            item.setFlag(
+                QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
+            )
+            font = QFont()
+            font.setPointSize(9)
+            font.setBold(True)
+            item.setFont(font)
+            item.setBrush(QBrush(brush_color))
+            if pen_width:
+                pen = QPen(brush_color)
+                pen.setWidthF(pen_width)
+                item.setPen(pen)
+            item.setZValue(z)
+            item.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+            item.setPos(sx, sy)
+            self._scene.addItem(item)
+            self._contour_items.append(item)

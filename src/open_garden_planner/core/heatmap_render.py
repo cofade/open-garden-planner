@@ -17,6 +17,8 @@ scene cm with that same +0.5 cell-centre offset — no Y-flip here (§8.20).
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 #: Cool→warm ramp control stops as ``(fraction, r, g, b, a)`` with fraction in
@@ -150,6 +152,84 @@ def iso_segments(grid: np.ndarray, threshold: float) -> list[Segment]:
             segments.append((top, left))  # type: ignore[arg-type]
             segments.append((right, bottom))  # type: ignore[arg-type]
     return segments
+
+
+Point = tuple[float, float]
+
+
+def stitch_segments(segments: list[Segment]) -> list[list[Point]]:
+    """Join marching-squares segments into connected polylines (components).
+
+    A crossing on a grid edge shared by two cells is computed identically by
+    both, so endpoints match exactly and stitch by tuple identity. Returns one
+    point-list per connected component (open curves and closed loops alike) —
+    the unit a label distributes along, so every closed loop is its own
+    component and can be guaranteed a label.
+    """
+    adjacency: dict[Point, list[tuple[Point, int]]] = {}
+    for index, (a, b) in enumerate(segments):
+        adjacency.setdefault(a, []).append((b, index))
+        adjacency.setdefault(b, []).append((a, index))
+    used = [False] * len(segments)
+
+    def walk(start: Point) -> list[Point]:
+        line = [start]
+        current = start
+        while True:
+            nxt: Point | None = None
+            for other, edge in adjacency[current]:
+                if not used[edge]:
+                    used[edge] = True
+                    nxt = other
+                    break
+            if nxt is None:
+                break
+            line.append(nxt)
+            current = nxt
+        return line
+
+    polylines: list[list[Point]] = []
+    # Open curves first (a degree-1 point is a grid-boundary end).
+    for point, edges in adjacency.items():
+        if len(edges) == 1 and not used[edges[0][1]]:
+            polylines.append(walk(point))
+    # Whatever is left is closed loops.
+    for index in range(len(segments)):
+        if not used[index]:
+            polylines.append(walk(segments[index][0]))
+    return polylines
+
+
+def _polyline_cumulative(points: list[Point]) -> list[float]:
+    cumulative = [0.0]
+    for (x1, y1), (x2, y2) in zip(points, points[1:], strict=False):
+        cumulative.append(cumulative[-1] + math.hypot(x2 - x1, y2 - y1))
+    return cumulative
+
+
+def label_points_along(points: list[Point], spacing: float) -> list[Point]:
+    """Evenly spaced points along a polyline (always ≥ 1), offset by half a step
+    so labels don't land on the endpoints. ``spacing`` is in the polyline's own
+    units; a component shorter than ``spacing`` still yields exactly one point.
+    """
+    if len(points) < 2:
+        return list(points[:1])
+    cumulative = _polyline_cumulative(points)
+    length = cumulative[-1]
+    if length == 0.0:
+        return [points[0]]
+    count = max(1, round(length / spacing))
+    result: list[Point] = []
+    for k in range(count):
+        target = length * (k + 0.5) / count
+        for j in range(len(cumulative) - 1):
+            if cumulative[j] <= target <= cumulative[j + 1]:
+                span = cumulative[j + 1] - cumulative[j]
+                t = 0.0 if span == 0 else (target - cumulative[j]) / span
+                (x1, y1), (x2, y2) = points[j], points[j + 1]
+                result.append((x1 + t * (x2 - x1), y1 + t * (y2 - y1)))
+                break
+    return result
 
 
 def hour_levels(max_minutes: float) -> list[int]:

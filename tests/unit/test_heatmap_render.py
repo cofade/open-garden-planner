@@ -12,7 +12,9 @@ from open_garden_planner.core.heatmap_render import (
     build_sun_lut,
     hour_levels,
     iso_segments,
+    label_points_along,
     smooth_field,
+    stitch_segments,
     sun_fraction,
 )
 
@@ -134,3 +136,39 @@ class TestIsoSegments:
         assert len(segments) == 2
         points = {p for seg in segments for p in seg}
         assert points == {(0.5, 0.0), (1.0, 0.5), (0.5, 1.0), (0.0, 0.5)}
+
+
+class TestStitchSegments:
+    def test_open_curve_is_one_polyline(self) -> None:
+        segments = [((0.0, 0.0), (1.0, 0.0)), ((1.0, 0.0), (2.0, 0.0))]
+        polylines = stitch_segments(segments)
+        assert len(polylines) == 1
+        assert polylines[0][0] == (0.0, 0.0)
+        assert polylines[0][-1] == (2.0, 0.0)
+        assert len(polylines[0]) == 3
+
+    def test_closed_loop_is_one_component(self) -> None:
+        corners = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+        segments = [(corners[i], corners[(i + 1) % 4]) for i in range(4)]
+        polylines = stitch_segments(segments)
+        assert len(polylines) == 1
+        assert set(polylines[0]) == set(corners)  # visits every corner
+        assert polylines[0][0] == polylines[0][-1]  # and closes
+
+    def test_two_disjoint_loops(self) -> None:
+        a = [((0.0, 0.0), (1.0, 0.0)), ((1.0, 0.0), (0.0, 0.0))]
+        b = [((5.0, 5.0), (6.0, 5.0)), ((6.0, 5.0), (5.0, 5.0))]
+        assert len(stitch_segments(a + b)) == 2
+
+
+class TestLabelPointsAlong:
+    def test_even_spacing_along_a_line(self) -> None:
+        out = label_points_along([(0.0, 0.0), (10.0, 0.0)], spacing=5.0)
+        assert out == [(2.5, 0.0), (7.5, 0.0)]
+
+    def test_short_component_gets_exactly_one(self) -> None:
+        out = label_points_along([(0.0, 0.0), (1.0, 0.0)], spacing=100.0)
+        assert len(out) == 1
+
+    def test_single_point_is_returned(self) -> None:
+        assert label_points_along([(3.0, 4.0)], spacing=5.0) == [(3.0, 4.0)]
