@@ -1371,6 +1371,15 @@ class GardenPlannerApp(QMainWindow):
         self.season_label.setToolTip(self.tr("Current season year — use File > Manage Seasons to configure"))
         status_bar.addPermanentWidget(self.season_label)
 
+        # Sun & shade simulation hint (US-E3/E4) — night / no-location notes.
+        # Lives here, NOT on the sun toolbar: a variable-width label in the
+        # toolbar's flow reflowed Qt's overflow popup and bumped the Animate
+        # button to another row when the night text toggled (2026-07 fix).
+        self._sun_hint_label = QLabel("")
+        self._sun_hint_label.setStyleSheet("color: #806a00; font-style: italic;")
+        self._sun_hint_label.setVisible(False)
+        status_bar.addPermanentWidget(self._sun_hint_label)
+
         # Show ready message
         status_bar.showMessage(self.tr("Ready"))
 
@@ -3072,7 +3081,7 @@ class GardenPlannerApp(QMainWindow):
         # Refused: already running, or no garden location.
         self._sun_toolbar.set_heatmap_active(False)
         if not self._sun_heatmap.is_running:
-            self._sun_toolbar.set_hint(
+            self._set_sun_hint(
                 self.tr("Set garden location first: File → Set Garden Location…")
             )
 
@@ -3108,15 +3117,25 @@ class GardenPlannerApp(QMainWindow):
         )
 
         if state == STATE_NO_LOCATION:
-            self._sun_toolbar.set_hint(
+            self._set_sun_hint(
                 self.tr("Set garden location first: File → Set Garden Location…")
             )
         elif state == STATE_NIGHT:
-            self._sun_toolbar.set_hint(
+            self._set_sun_hint(
                 self.tr("Night — the sun is below the horizon")
             )
         else:
-            self._sun_toolbar.set_hint("")
+            self._set_sun_hint("")
+
+    def _set_sun_hint(self, text: str) -> None:
+        """Show/clear the sun-sim hint on the STATUS BAR (empty text hides it).
+
+        Deliberately not a sun-toolbar widget: a variable-width label in the
+        toolbar's flow reflowed Qt's overflow popup and bumped the Animate
+        button to another row when the night text toggled on/off (2026-07).
+        """
+        self._sun_hint_label.setText(text)
+        self._sun_hint_label.setVisible(bool(text))
 
     def _on_location_changed_for_sun(self, _location: object) -> None:
         """Location edits re-solve the sun position immediately (no debounce)."""

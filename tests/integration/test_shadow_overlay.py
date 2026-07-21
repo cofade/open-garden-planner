@@ -493,11 +493,45 @@ class TestAppWiring:
         assert win._sun_controller.enabled
         # No location on a fresh project → the empty-state hint shows.
         assert win._sun_controller.state == STATE_NO_LOCATION
-        assert win._sun_toolbar._hint_label.text() != ""
+        # The hint now lives on the status bar, not the sun toolbar (2026-07
+        # fix — a variable-width toolbar label reflowed the overflow popup).
+        assert win._sun_hint_label.text() != ""
+        assert not hasattr(win._sun_toolbar, "_hint_label")
 
         win._sun_sim_action.trigger()
         assert not win._sun_controller.enabled
         assert win._sun_controller.state == "disabled"
+
+    def test_sun_hint_on_status_bar_keeps_toolbar_width_stable(self, qtbot) -> None:
+        """Regression: the night / no-location hint is a STATUS-BAR label, not
+        a sun-toolbar widget. A variable-width label in the toolbar's flow
+        reflowed Qt's overflow popup and bumped the Animate button to another
+        row when the night text toggled on/off (2026-07 fix). With the hint
+        off the toolbar, its width demand is identical day vs night."""
+        from open_garden_planner.app.application import GardenPlannerApp
+        from open_garden_planner.ui.canvas.sun_shadow_controller import (
+            STATE_ACTIVE,
+            STATE_NIGHT,
+        )
+
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)
+        win._sun_sim_action.trigger()  # reveal the sun toolbar
+
+        assert not hasattr(win._sun_toolbar, "_hint_label")
+
+        win._on_sun_state_changed(STATE_ACTIVE)
+        day_width = win._sun_toolbar.sizeHint().width()
+        assert win._sun_hint_label.text() == ""
+
+        win._on_sun_state_changed(STATE_NIGHT)
+        night_width = win._sun_toolbar.sizeHint().width()
+        assert win._sun_hint_label.text() != ""
+
+        assert day_width == night_width, (
+            "sun toolbar width must be identical across sun states — a "
+            "state-dependent width reflows the overflow popup (button jump)"
+        )
 
     def test_height_edit_via_command_recomputes_shadows(self, qtbot, scene) -> None:
         """A metadata-only height edit repaints nothing, so scene.changed never

@@ -120,11 +120,11 @@ class SunSimToolbar(QToolBar):
         self._legend_label.setVisible(False)
         self.addWidget(self._legend_label)
 
-        self._hint_label = QLabel("", self)
-        self._hint_label.setStyleSheet("color: #806a00; font-style: italic;")
-        self._hint_label.setContentsMargins(12, 0, 0, 0)
-        self.addWidget(self._hint_label)
-
+        # NOTE: the night / no-location HINT is deliberately NOT a widget here.
+        # A variable-width label in this toolbar's flow reflowed Qt's overflow
+        # popup and bumped the Animate button to another row when the night
+        # text toggled on/off; the hint now lives on the status bar instead
+        # (GardenPlannerApp._set_sun_hint). 2026-07 fix.
         self._animate_timer = QTimer(self)
         self._animate_timer.setInterval(_ANIMATE_INTERVAL_MS)
         self._animate_timer.timeout.connect(self._on_animate_tick)
@@ -160,10 +160,6 @@ class SunSimToolbar(QToolBar):
             self._date_edit.blockSignals(False)
             self._slider.blockSignals(False)
         self._update_time_label()
-
-    def set_hint(self, text: str) -> None:
-        """Show an empty-state hint (no location / night), or clear with ''."""
-        self._hint_label.setText(text)
 
     def stop_animation(self) -> None:
         self._animate_button.setChecked(False)
