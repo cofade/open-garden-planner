@@ -54,6 +54,7 @@ src/open_garden_planner/
 │   ├── object_height.py          # Qt-free effective-height resolver — explicit/container/species/type-default (US-E2, ADR-037)
 │   ├── shadow_geometry.py        # Qt-free shadow sweep/union — L=h/tanα, Minkowski sweep, pyclipper union (US-E3, ADR-037)
 │   ├── shade_aggregation.py      # Qt-free hours-of-sun sampling/bands/grid — rasterizer injected (US-E4, ADR-037)
+│   ├── heatmap_render.py         # Qt-free heatmap rendering — cool→warm ramp LUT + marching-squares hour contours (US-E4)
 │   ├── scene3d.py                # Qt-free 3D mesh math — ear-clip triangulation, prism extrusion, sun vector, frame map (US-E6, ADR-038)
 │   ├── walk_camera.py            # Qt-free walkthrough rules — eye height, bounds clamp, pitch-limited look vector (US-E7)
 │   ├── growth_model.py           # Qt-free planting-date→size interpolation — one model for shadows/heatmap/3D (US-E8, ADR-037)
@@ -113,7 +114,7 @@ src/open_garden_planner/
 │   │   ├── canvas_scene.py       # Scene (holds objects)
 │   │   ├── dimension_lines.py    # Dimension line rendering & management
 │   │   ├── sun_shadow_controller.py # Runtime-only solar shadow overlay + debounced recompute (US-E3, ADR-037)
-│   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + heatmap overlay/controller (US-E4)
+│   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + cool→warm ramp overlay + hourly contour lines/labels (US-E4)
 │   │   └── items/                # Canvas item types
 │   │       ├── garden_item.py    # GardenItem base class
 │   │       ├── rectangle_item.py

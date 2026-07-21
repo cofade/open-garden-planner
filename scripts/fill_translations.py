@@ -2537,12 +2537,10 @@ _E4_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Compute a full-day hours-of-sun heatmap for the shown date":
             "Sonnenstunden-Heatmap für den ganzen angezeigten Tag berechnen",
         "Computing…": "Berechne…",
-        "<2 h": "<2 h",
-        "2–4 h": "2–4 h",
-        "4–6 h": "4–6 h",
-        "≥6 h full sun": "≥6 h volle Sonne",
-        "Hours of direct sun per spot on the chosen day":
-            "Stunden direkter Sonne je Stelle am gewählten Tag",
+    },
+    "SunHeatmapController": {
+        # Hour label on the heatmap's topographic contour lines ("4 h").
+        "{n} h": "{n} h",
     },
 }
 

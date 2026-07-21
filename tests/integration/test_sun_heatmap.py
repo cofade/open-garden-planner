@@ -20,7 +20,7 @@ from datetime import date
 import numpy as np
 import pytest
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
-from PyQt6.QtGui import QImage, QPainter
+from PyQt6.QtGui import QColor, QImage, QPainter
 
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.object_height import METADATA_KEY
@@ -207,10 +207,10 @@ class TestWorkerEndToEnd:
 
 
 class TestPixelBand:
-    def test_winter_bands_land_at_predicted_pixels(self, qtbot, wall_scene) -> None:
-        """§8.19 formula, same discipline as US-E3's binding pixel test:
-        deep-shade band tints the north point, the full-sun band is
-        transparent at the south point."""
+    def test_winter_ramp_tints_shade_darker(self, qtbot, wall_scene) -> None:
+        """§8.19 formula, same discipline as US-E3's binding pixel test: the
+        cool→warm ramp tints the shaded north point and renders it darker than
+        the sunnier south point."""
         controller = SunHeatmapController(wall_scene, lambda: BERLIN)
         _run_and_wait(qtbot, controller, WINTER)
 
@@ -246,11 +246,18 @@ class TestPixelBand:
 
         north_px = pixel(*POINT_NORTH)
         south_px = pixel(*POINT_SOUTH)
+
+        def _lum(image: QImage, xy: tuple[int, int]) -> int:
+            color = QColor(image.pixel(*xy))
+            return color.red() + color.green() + color.blue()
+
+        # Deep shade (north, 0 min) is tinted; and the cool→warm ramp renders
+        # fewer sun-hours DARKER than more sun-hours (south, near full day).
         assert with_heatmap.pixel(*north_px) != without_heatmap.pixel(*north_px), (
-            "deep-shade band must tint the point north of the wall"
+            "deep shade must tint the point north of the wall"
         )
-        assert with_heatmap.pixel(*south_px) == without_heatmap.pixel(*south_px), (
-            "full-sun band is transparent — south point renders unchanged"
+        assert _lum(with_heatmap, north_px) < _lum(with_heatmap, south_px), (
+            "cool→warm ramp: fewer sun-hours must render darker than more"
         )
 
 
@@ -312,24 +319,32 @@ class TestToolbarHeatmapControls:
         assert toolbar._heatmap_button.isEnabled()
         toolbar.set_heatmap_active(True)
         assert toolbar._heatmap_button.isChecked()
-        # Legend uses translated, HTML-escaped labels.
-        assert "■" in toolbar._legend_label.text()
         toolbar.set_heatmap_active(False)
         assert not toolbar._heatmap_button.isChecked()
 
 
-class TestLegendDerivation:
-    def test_swatches_derive_from_band_colors(self, qtbot) -> None:
-        """The legend can never drift from the overlay tints (review P2):
-        every swatch hex in the label equals BAND_COLORS blended over the
-        canvas color."""
-        from open_garden_planner.ui.canvas.sun_heatmap import legend_swatch_hexes
+class TestContours:
+    def test_contours_built_and_cleared(self, qtbot, wall_scene) -> None:
+        """Hourly lines + even-hour labels are created on success and fully
+        removed on clear() (runtime-only, never serialized)."""
+        from PyQt6.QtWidgets import QGraphicsSimpleTextItem
 
-        toolbar = SunSimToolbar()
-        qtbot.addWidget(toolbar)
-        text = toolbar._legend_label.text()
-        for swatch in legend_swatch_hexes():
-            assert swatch in text
+        controller = SunHeatmapController(wall_scene, lambda: BERLIN)
+        _run_and_wait(qtbot, controller, SUMMER)
+        assert controller._contour_items, "summer heatmap must draw hour contours"
+        labels = [
+            i
+            for i in controller._contour_items
+            if isinstance(i, QGraphicsSimpleTextItem)
+        ]
+        assert labels, "even-hour contours must be labeled"
+        assert any("h" in label.text() for label in labels)
+
+        controller.clear()
+        assert controller._contour_items == []
+        assert not any(
+            isinstance(i, QGraphicsSimpleTextItem) for i in wall_scene.items()
+        )
 
 
 class TestAppGlue:

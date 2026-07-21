@@ -28,51 +28,57 @@ from typing import Any
 
 import numpy as np
 from PyQt6.QtCore import QObject, QPointF, Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QColor, QImage, QPainter, QPainterPath, QPixmap, QPolygonF
-from PyQt6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QFont,
+    QImage,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+    QPolygonF,
+)
+from PyQt6.QtWidgets import (
+    QGraphicsItem,
+    QGraphicsPathItem,
+    QGraphicsPixmapItem,
+    QGraphicsScene,
+    QGraphicsSimpleTextItem,
+)
 
+from open_garden_planner.core.heatmap_render import (
+    build_sun_lut,
+    hour_levels,
+    iso_segments,
+    sun_fraction,
+)
 from open_garden_planner.core.shade_aggregation import (
     GRID_CELL_CM,
+    SAMPLE_STEP_MINUTES,
     HeatmapGrid,
-    band_grid,
     compute_heatmap,
+    daylight_samples,
 )
 from open_garden_planner.core.shadow_geometry import Polygon
 
 from .sun_shadow_controller import collect_shadow_casters
 
-# Band colors, index 0..3 (deep shade → full sun). Full sun is fully
-# transparent — the garden shows through where the light is good.
-BAND_COLORS: tuple[QColor, ...] = (
-    QColor(40, 52, 84, 150),  # < 2 h — deep shade
-    QColor(72, 92, 145, 110),  # 2–4 h — light shade
-    QColor(205, 185, 95, 80),  # 4–6 h — partial sun
-    QColor(0, 0, 0, 0),  # ≥ 6 h — full sun (transparent)
-)
-
-#: Above the background image (−1000) and the shadow overlay (−500),
-#: below every layer item (≥ 0).
+#: Above the background image (−1000) and the shadow overlay (−500), below
+#: every layer item (≥ 0). Contour lines and their hour labels sit just above
+#: the fill, still behind user content.
 _HEATMAP_Z = -450.0
+_CONTOUR_Z = -449.0
+_LABEL_Z = -448.0
 
-def legend_swatch_hexes() -> list[str]:
-    """Opaque display hex per band — BAND_COLORS alpha-blended over the
-    default canvas color, so the legend tracks the real overlay tints
-    (band→legend is single-source; pinned by test). The blend base is the
-    DEFAULT canvas color — a theme override shifts the on-canvas blend
-    slightly, which a static legend approximation accepts."""
-    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+# Dark cool ink for the topographic hour lines + a light halo for their labels.
+_CONTOUR_COLOR = QColor(24, 30, 54, 205)
+_LABEL_TEXT_COLOR = QColor(18, 22, 42)
+_LABEL_HALO_COLOR = QColor(255, 255, 255, 220)
 
-    background = CanvasScene.CANVAS_COLOR
-    hexes: list[str] = []
-    for color in BAND_COLORS:
-        alpha = color.alphaF()
-        blended = QColor(
-            round(color.red() * alpha + background.red() * (1 - alpha)),
-            round(color.green() * alpha + background.green() * (1 - alpha)),
-            round(color.blue() * alpha + background.blue() * (1 - alpha)),
-        )
-        hexes.append(blended.name())
-    return hexes
+# Cool→warm sun ramp LUT (single source of truth, core/heatmap_render). ARGB32
+# is B,G,R,A on little-endian, so keep a reordered copy for direct pixel packing.
+_SUN_LUT_BGRA = build_sun_lut()[:, [2, 1, 0, 3]].copy()
 
 
 def rasterize_polygons_qimage(
@@ -108,20 +114,25 @@ def rasterize_polygons_qimage(
     return (raw > 127).copy()
 
 
-def build_heatmap_image(sun_minutes: np.ndarray) -> QImage:
-    """Band-colored ARGB image, one pixel per grid cell (GUI thread)."""
-    bands = band_grid(sun_minutes)
-    # Format_ARGB32 on little-endian is B,G,R,A per pixel.
-    palette = np.array(
-        [(c.blue(), c.green(), c.red(), c.alpha()) for c in BAND_COLORS],
-        dtype=np.uint8,
-    )
-    rgba = palette[bands]
-    rows, cols = bands.shape
+def build_heatmap_image(
+    sun_minutes: np.ndarray, daylight_minutes: float
+) -> QImage:
+    """Continuous cool→warm ARGB image, one pixel per grid cell (GUI thread).
+
+    Each cell's sun-minutes are normalized against the day's daylight duration
+    and mapped through the shared sun ramp LUT (single source of truth for the
+    tints). The overlay draws this with SmoothTransformation, so the coarse grid
+    renders as a smooth surface rather than hard blocks.
+    """
+    fraction = sun_fraction(sun_minutes, daylight_minutes)
+    n = _SUN_LUT_BGRA.shape[0]
+    idx = np.clip(np.round(fraction * (n - 1)).astype(np.intp), 0, n - 1)
+    bgra = _SUN_LUT_BGRA[idx]  # (rows, cols, 4) uint8, B,G,R,A
+    rows, cols = fraction.shape
     image = QImage(
-        rgba.tobytes(), cols, rows, cols * 4, QImage.Format.Format_ARGB32
+        bgra.tobytes(), cols, rows, cols * 4, QImage.Format.Format_ARGB32
     )
-    return image.copy()  # detach from the numpy buffer
+    return image.copy()  # detach from the temporary buffer
 
 
 class SunHeatmapOverlayItem(QGraphicsPixmapItem):
@@ -132,7 +143,7 @@ class SunHeatmapOverlayItem(QGraphicsPixmapItem):
         super().__init__()
         self.setZValue(_HEATMAP_Z)
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
-        self.setTransformationMode(Qt.TransformationMode.FastTransformation)
+        self.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
 
 
 class HeatmapWorker(QThread):
@@ -210,6 +221,10 @@ class SunHeatmapController(QObject):
         self.last_minutes: np.ndarray | None = None
         #: Grid of the last launch (cell lookup for tests / tooltips).
         self.last_grid: HeatmapGrid | None = None
+        #: Runtime-only contour lines + hour labels (rebuilt on each success).
+        self._contour_items: list[QGraphicsItem] = []
+        #: Full daylight duration (min) of the last launched day — ramp scale.
+        self._daylight_minutes: float = 0.0
 
     # ── public API ─────────────────────────────────────────────
 
@@ -244,6 +259,9 @@ class SunHeatmapController(QObject):
         else:
             x0, y0, w, h = 0.0, 0.0, float(width), float(height)
         grid = HeatmapGrid.for_rect(x0, y0, w, h, cell_cm)
+        self._daylight_minutes = float(
+            len(daylight_samples(latitude, longitude, day)) * SAMPLE_STEP_MINUTES
+        )
         # US-E8: heatmap sees the same date-projected plant sizes as the
         # shadow overlay — one growth timeline everywhere.
         casters = collect_shadow_casters(self._scene, at_date=day)
@@ -275,6 +293,7 @@ class SunHeatmapController(QObject):
         overlay = self._alive_overlay()
         if overlay is not None:
             overlay.setVisible(False)
+        self._clear_contours()
 
     def cancel(self) -> None:
         if self._worker is not None:
@@ -297,12 +316,13 @@ class SunHeatmapController(QObject):
         if grid is None or not getattr(self, "_result_wanted", True):
             return
         self.last_minutes = minutes
-        image = build_heatmap_image(minutes)
+        image = build_heatmap_image(minutes, self._daylight_minutes)
         overlay = self._ensure_overlay()
         overlay.setPixmap(QPixmap.fromImage(image))
         overlay.setScale(grid.cell_cm)
         overlay.setPos(grid.x0_cm, grid.y0_cm)
         overlay.setVisible(True)
+        self._rebuild_contours(minutes, grid)
         self._success_seen = True
 
     def _on_worker_finished(self) -> None:  # GUI thread
@@ -332,3 +352,92 @@ class SunHeatmapController(QObject):
             self._scene.addItem(overlay)
             self._overlay = overlay
         return overlay
+
+    # ── contour lines + hour labels ─────────────────────────
+
+    def _grid_to_scene(
+        self, point: tuple[float, float], grid: HeatmapGrid
+    ) -> tuple[float, float]:
+        """Grid (col, row) → scene cm, at the cell CENTRE (matches the raster)."""
+        col, row = point
+        return (
+            grid.x0_cm + (col + 0.5) * grid.cell_cm,
+            grid.y0_cm + (row + 0.5) * grid.cell_cm,
+        )
+
+    def _clear_contours(self) -> None:
+        for item in self._contour_items:
+            try:
+                scene = item.scene()
+            except RuntimeError:  # C++ object already deleted by scene.clear()
+                continue
+            if scene is not None:
+                scene.removeItem(item)
+        self._contour_items = []
+
+    def _rebuild_contours(
+        self, minutes: np.ndarray, grid: HeatmapGrid
+    ) -> None:
+        """Draw one topographic line per whole hour of sun; labels on even hours.
+
+        Runtime-only ``QGraphicsPathItem`` / ``QGraphicsSimpleTextItem`` — not
+        ``GardenItemMixin``, so ``project._serialize_item_core`` drops them, and
+        their negative z keeps them behind user content.
+        """
+        self._clear_contours()
+        max_minutes = float(minutes.max()) if minutes.size else 0.0
+        for threshold in hour_levels(max_minutes):
+            segments = iso_segments(minutes, threshold)
+            if not segments:
+                continue
+            hour = threshold // 60
+            even = hour % 2 == 0
+            path = QPainterPath()
+            for start, end in segments:
+                sx, sy = self._grid_to_scene(start, grid)
+                ex, ey = self._grid_to_scene(end, grid)
+                path.moveTo(sx, sy)
+                path.lineTo(ex, ey)
+            line = QGraphicsPathItem(path)
+            pen = QPen(_CONTOUR_COLOR)
+            pen.setCosmetic(True)  # crisp, ~constant width at any zoom
+            pen.setWidthF(1.6 if even else 0.7)
+            line.setPen(pen)
+            line.setZValue(_CONTOUR_Z)
+            line.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+            self._scene.addItem(line)
+            self._contour_items.append(line)
+            if even:
+                label = self._make_hour_label(hour, segments, grid)
+                self._scene.addItem(label)
+                self._contour_items.append(label)
+
+    def _make_hour_label(
+        self,
+        hour: int,
+        segments: list[tuple[tuple[float, float], tuple[float, float]]],
+        grid: HeatmapGrid,
+    ) -> QGraphicsSimpleTextItem:
+        """A zoom-stable '{n} h' label at a representative point on the contour.
+
+        Reuses the dimension-line idiom: ``ItemIgnoresTransformations`` keeps the
+        text a fixed on-screen size, with a light halo pen for legibility over
+        the coloured map.
+        """
+        (ax, ay), (bx, by) = segments[len(segments) // 2]
+        mid = ((ax + bx) / 2.0, (ay + by) / 2.0)
+        sx, sy = self._grid_to_scene(mid, grid)
+        label = QGraphicsSimpleTextItem(self.tr("{n} h").format(n=hour))
+        label.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        font = QFont()
+        font.setPointSize(8)
+        font.setBold(True)
+        label.setFont(font)
+        label.setBrush(QBrush(_LABEL_TEXT_COLOR))
+        halo = QPen(_LABEL_HALO_COLOR)
+        halo.setWidthF(1.5)
+        label.setPen(halo)
+        label.setZValue(_LABEL_Z)
+        label.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+        label.setPos(sx, sy)
+        return label
