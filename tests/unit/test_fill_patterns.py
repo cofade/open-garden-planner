@@ -27,12 +27,13 @@ class TestFillPatternEnum:
             "WATER", "SOIL", "MULCH", "ROOF_TILES", "SAND", "STONE", "GLASS", "HEDGE",
             "BRICK", "BARK", "WILDFLOWER", "TERRACOTTA", "PEBBLES",
             "SLATE", "LATTICE", "COMPOST", "FLAGSTONE", "CLAY",
+            "DECKING", "CORTEN",  # US-E9 asset-forge pilots
         ]
         for name in expected:
             assert hasattr(FillPattern, name), f"Missing pattern: {name}"
 
     def test_pattern_count(self, qtbot: object) -> None:
-        assert len(FillPattern) == 23
+        assert len(FillPattern) == 25
 
 
 class TestTextureFiles:
@@ -48,7 +49,7 @@ class TestTextureFiles:
 
     @pytest.mark.parametrize(
         "filename",
-        ["grass", "gravel", "concrete", "wood", "water", "soil", "mulch", "sand", "stone", "roof_tiles", "glass", "hedge", "brick", "bark", "wildflower", "terracotta", "pebbles", "slate", "lattice", "compost", "flagstone", "clay"],
+        ["grass", "gravel", "concrete", "wood", "water", "soil", "mulch", "sand", "stone", "roof_tiles", "glass", "hedge", "brick", "bark", "wildflower", "terracotta", "pebbles", "slate", "lattice", "compost", "flagstone", "clay", "decking", "corten"],
     )
     def test_texture_file_exists(self, textures_dir: Path, filename: str) -> None:
         path = textures_dir / f"{filename}.png"
@@ -57,7 +58,7 @@ class TestTextureFiles:
 
     @pytest.mark.parametrize(
         "filename",
-        ["grass", "gravel", "concrete", "wood", "water", "soil", "mulch", "sand", "stone", "roof_tiles", "glass", "hedge", "brick", "bark", "wildflower", "terracotta", "pebbles", "slate", "lattice", "compost", "flagstone", "clay"],
+        ["grass", "gravel", "concrete", "wood", "water", "soil", "mulch", "sand", "stone", "roof_tiles", "glass", "hedge", "brick", "bark", "wildflower", "terracotta", "pebbles", "slate", "lattice", "compost", "flagstone", "clay", "decking", "corten"],
     )
     def test_texture_file_is_valid_png(self, textures_dir: Path, filename: str) -> None:
         path = textures_dir / f"{filename}.png"
@@ -68,7 +69,7 @@ class TestTextureFiles:
 
     @pytest.mark.parametrize(
         "filename",
-        ["grass", "gravel", "concrete", "wood", "water", "soil", "mulch", "sand", "stone", "roof_tiles", "glass", "hedge", "brick", "bark", "wildflower", "terracotta", "pebbles", "slate", "lattice", "compost", "flagstone", "clay"],
+        ["grass", "gravel", "concrete", "wood", "water", "soil", "mulch", "sand", "stone", "roof_tiles", "glass", "hedge", "brick", "bark", "wildflower", "terracotta", "pebbles", "slate", "lattice", "compost", "flagstone", "clay", "decking", "corten"],
     )
     def test_texture_file_is_256x256(self, textures_dir: Path, filename: str, qtbot: object) -> None:
         path = textures_dir / f"{filename}.png"

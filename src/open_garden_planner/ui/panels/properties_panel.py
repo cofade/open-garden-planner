@@ -1745,6 +1745,8 @@ class PropertiesPanel(QWidget):
                 FillPattern.COMPOST: self.tr("Compost"),
                 FillPattern.FLAGSTONE: self.tr("Flagstone"),
                 FillPattern.CLAY: self.tr("Clay"),
+                FillPattern.DECKING: self.tr("Decking"),
+                FillPattern.CORTEN: self.tr("Corten steel"),
             }
             for pattern in FillPattern:
                 pattern_combo.addItem(_pattern_names.get(pattern, pattern.name), pattern)
