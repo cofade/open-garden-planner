@@ -390,10 +390,12 @@ class SunHeatmapController(QObject):
         their negative z keeps them behind user content.
         """
         self._clear_contours()
-        max_minutes = float(minutes.max()) if minutes.size else 0.0
         # Contour on a softened copy so the hour lines are smooth curves, not
-        # grid-aligned staircases; the fill still uses the raw minutes.
+        # grid-aligned staircases; the fill still uses the raw minutes. Levels
+        # come from the FIELD's max (not raw), so they match what's contoured:
+        # the blur can flatten a sharp 1-cell peak below its own top hour.
         field = smooth_field(minutes, passes=2)
+        max_minutes = float(field.max()) if field.size else 0.0
         for threshold in hour_levels(max_minutes):
             segments = iso_segments(field, threshold)
             if not segments:
