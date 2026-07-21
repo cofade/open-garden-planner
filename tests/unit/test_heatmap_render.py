@@ -49,6 +49,10 @@ class TestSunLut:
         assert int(alpha.argmin()) == len(alpha) - 1, (
             "full sun must be the most transparent"
         )
+        # The design's selling point: full sun is nearly transparent (the
+        # garden shows through), deep shade clearly reads as shade.
+        assert alpha[-1] < 60, "full sun must be nearly transparent"
+        assert alpha[0] > 120, "deep shade must be clearly visible"
 
 
 class TestSunFraction:
@@ -120,3 +124,13 @@ class TestIsoSegments:
 
     def test_degenerate_grid_is_safe(self) -> None:
         assert iso_segments(np.zeros((1, 5), dtype=np.float32), 0.0) == []
+
+    def test_saddle_splits_into_two_segments(self) -> None:
+        """Diagonally-opposite corners above the threshold => all four edges
+        cross; the saddle resolves to two segments (top-left / right-bottom),
+        each crossing at an edge midpoint."""
+        grid = np.array([[600.0, 0.0], [0.0, 600.0]], dtype=np.float32)
+        segments = iso_segments(grid, 300.0)
+        assert len(segments) == 2
+        points = {p for seg in segments for p in seg}
+        assert points == {(0.5, 0.0), (1.0, 0.5), (0.5, 1.0), (0.0, 0.5)}

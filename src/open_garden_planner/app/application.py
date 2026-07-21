@@ -3086,7 +3086,7 @@ class GardenPlannerApp(QMainWindow):
             )
 
     def _on_heatmap_finished(self, success: bool) -> None:
-        """Worker done — clear busy state, sync button + legend."""
+        """Worker done — clear busy state, sync the button."""
         self._sun_toolbar.set_heatmap_busy(False)
         self._sun_toolbar.set_heatmap_active(
             success and self._sun_heatmap.heatmap_visible()

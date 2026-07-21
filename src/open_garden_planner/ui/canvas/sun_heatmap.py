@@ -260,6 +260,10 @@ class SunHeatmapController(QObject):
         else:
             x0, y0, w, h = 0.0, 0.0, float(width), float(height)
         grid = HeatmapGrid.for_rect(x0, y0, w, h, cell_cm)
+        # Ramp ceiling = the worker's maximum possible accumulation. MUST use
+        # the same (lat, lon, day, step) compute_heatmap samples with, or a
+        # fully-sunny cell won't reach fraction 1.0 (they agree by construction
+        # today: both use SAMPLE_STEP_MINUTES).
         self._daylight_minutes = float(
             len(daylight_samples(latitude, longitude, day)) * SAMPLE_STEP_MINUTES
         )
