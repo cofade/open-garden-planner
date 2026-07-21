@@ -440,34 +440,23 @@ class SunHeatmapController(QObject):
     ) -> None:
         """Distribute '{n} h' labels along each contour COMPONENT.
 
-        Every closed loop (a component) is labeled at least once; labels are
-        spaced by arc length and skip spots within ``_LABEL_MIN_DIST_CM`` of an
-        already-placed one (dedups nested/parallel rings). ``placed`` carries
-        scene points across all levels so nothing collides.
+        Labels are spaced by arc length and skip any spot within
+        ``_LABEL_MIN_DIST_CM`` of an already-placed label — so labels stay
+        separated both ALONG a line and ACROSS nested/parallel rings, with no
+        exceptions (an isolated loop still gets one, since its candidates aren't
+        near any other label). ``placed`` carries scene points across all levels
+        so nothing collides. No forced per-component label: a component whose
+        candidates are all crowded out already has a label right beside it, and
+        forcing one there was exactly what packed '14 h 14 h 14 h' onto a jagged
+        edge (manual-test finding).
         """
         text = self.tr("{n} h").format(n=hour)
         spacing = _LABEL_SPACING_CM / grid.cell_cm  # contour is in grid units
         for polyline in stitch_segments(segments):
-            scene_points = [
-                self._grid_to_scene(p, grid)
-                for p in label_points_along(polyline, spacing)
-            ]
-            if not scene_points:
-                continue
-            drew = False
-            for sx, sy in scene_points:
+            for point in label_points_along(polyline, spacing):
+                sx, sy = self._grid_to_scene(point, grid)
                 if self._nearest_label_dist(sx, sy, placed) < _LABEL_MIN_DIST_CM:
                     continue
-                self._add_label(text, sx, sy)
-                placed.append((sx, sy))
-                drew = True
-            if not drew:
-                # The whole component was crowded out — force its least-crowded
-                # point so every closed loop keeps a label (manual-test finding).
-                sx, sy = max(
-                    scene_points,
-                    key=lambda p: self._nearest_label_dist(p[0], p[1], placed),
-                )
                 self._add_label(text, sx, sy)
                 placed.append((sx, sy))
 

@@ -346,6 +346,36 @@ class TestContours:
             isinstance(i, QGraphicsSimpleTextItem) for i in wall_scene.items()
         )
 
+    def test_labels_respect_minimum_distance(self, qtbot, wall_scene) -> None:
+        """Every hour label is >= _LABEL_MIN_DIST_CM from every other — no
+        same-line pile-ups (the manual-test invariant; the per-component force
+        that once bypassed it is gone)."""
+        import math
+
+        from PyQt6.QtWidgets import QGraphicsSimpleTextItem
+
+        from open_garden_planner.ui.canvas.sun_heatmap import _LABEL_MIN_DIST_CM
+
+        controller = SunHeatmapController(wall_scene, lambda: BERLIN)
+        _run_and_wait(qtbot, controller, SUMMER)
+        labels = [
+            i
+            for i in controller._contour_items
+            if isinstance(i, QGraphicsSimpleTextItem)
+        ]
+        # halo + text share a position; dedup to one anchor per label.
+        anchors = sorted(
+            {(round(i.pos().x(), 3), round(i.pos().y(), 3)) for i in labels}
+        )
+        for a in range(len(anchors)):
+            for b in range(a + 1, len(anchors)):
+                dist = math.hypot(
+                    anchors[a][0] - anchors[b][0], anchors[a][1] - anchors[b][1]
+                )
+                assert dist >= _LABEL_MIN_DIST_CM - 1e-6, (
+                    f"two labels only {dist:.0f} cm apart"
+                )
+
 
 class TestAppGlue:
     def test_date_change_clears_heatmap_but_time_change_keeps_it(

@@ -125,6 +125,11 @@ def iso_segments(grid: np.ndarray, threshold: float) -> list[Segment]:
         v_bl, v_br = g[r + 1, c], g[r + 1, c + 1]
         a_tl, a_tr = above[r, c], above[r, c + 1]
         a_bl, a_br = above[r + 1, c], above[r + 1, c + 1]
+        # INVARIANT: the (<=2) cells adjacent to a shared edge compute that
+        # edge's crossing with identical _edge_point args, so the points are
+        # bitwise-equal (IEEE-754 deterministic). ``stitch_segments`` relies on
+        # that exact-tuple identity to join components — keep the arg order
+        # stable for any shared edge if this is ever refactored.
         top = (
             _edge_point(v_tl, v_tr, c, r, c + 1, r, threshold)
             if a_tl != a_tr
