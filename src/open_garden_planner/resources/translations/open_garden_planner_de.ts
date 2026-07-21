@@ -10344,4 +10344,11 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>WASD/Pfeile bewegen · linke Maustaste zum Umschauen · Esc beendet</translation>
         </message>
     </context>
+    <context>
+        <name>SunHeatmapController</name>
+        <message>
+            <source>{n} h</source>
+            <translation>{n} h</translation>
+        </message>
+    </context>
 </TS>
