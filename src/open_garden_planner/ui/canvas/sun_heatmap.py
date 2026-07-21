@@ -51,6 +51,7 @@ from open_garden_planner.core.heatmap_render import (
     build_sun_lut,
     hour_levels,
     iso_segments,
+    smooth_field,
     sun_fraction,
 )
 from open_garden_planner.core.shade_aggregation import (
@@ -386,8 +387,11 @@ class SunHeatmapController(QObject):
         """
         self._clear_contours()
         max_minutes = float(minutes.max()) if minutes.size else 0.0
+        # Contour on a softened copy so the hour lines are smooth curves, not
+        # grid-aligned staircases; the fill still uses the raw minutes.
+        field = smooth_field(minutes, passes=2)
         for threshold in hour_levels(max_minutes):
-            segments = iso_segments(minutes, threshold)
+            segments = iso_segments(field, threshold)
             if not segments:
                 continue
             hour = threshold // 60
@@ -430,12 +434,12 @@ class SunHeatmapController(QObject):
         label = QGraphicsSimpleTextItem(self.tr("{n} h").format(n=hour))
         label.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
         font = QFont()
-        font.setPointSize(8)
+        font.setPointSize(9)
         font.setBold(True)
         label.setFont(font)
         label.setBrush(QBrush(_LABEL_TEXT_COLOR))
         halo = QPen(_LABEL_HALO_COLOR)
-        halo.setWidthF(1.5)
+        halo.setWidthF(2.0)
         label.setPen(halo)
         label.setZValue(_LABEL_Z)
         label.setAcceptedMouseButtons(Qt.MouseButton.NoButton)

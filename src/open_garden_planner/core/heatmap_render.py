@@ -62,6 +62,23 @@ def sun_fraction(minutes: np.ndarray, daylight_minutes: float) -> np.ndarray:
     return np.clip(minutes / daylight_minutes, 0.0, 1.0).astype(np.float32)
 
 
+def smooth_field(grid: np.ndarray, passes: int = 2) -> np.ndarray:
+    """Edge-padded 3-wide separable box blur, ``passes`` times (≈ Gaussian).
+
+    Softens the hard 0→high shadow boundaries BEFORE contouring, so the
+    marching-squares iso-lines read as smooth topographic curves instead of
+    grid-aligned staircases. Contour-only: the ramp fill and the toy-case gates
+    keep using the raw minutes.
+    """
+    out = grid.astype(np.float32, copy=True)
+    for _ in range(max(0, passes)):
+        padded = np.pad(out, ((1, 1), (0, 0)), mode="edge")
+        out = (padded[:-2, :] + padded[1:-1, :] + padded[2:, :]) / 3.0
+        padded = np.pad(out, ((0, 0), (1, 1)), mode="edge")
+        out = (padded[:, :-2] + padded[:, 1:-1] + padded[:, 2:]) / 3.0
+    return out
+
+
 def _edge_point(
     v_a: float,
     v_b: float,

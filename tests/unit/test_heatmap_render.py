@@ -12,6 +12,7 @@ from open_garden_planner.core.heatmap_render import (
     build_sun_lut,
     hour_levels,
     iso_segments,
+    smooth_field,
     sun_fraction,
 )
 
@@ -75,6 +76,31 @@ class TestHourLevels:
 
     def test_below_one_hour(self) -> None:
         assert hour_levels(45.0) == []
+
+
+class TestSmoothField:
+    def test_preserves_shape_and_constant(self) -> None:
+        grid = np.full((6, 8), 300.0, dtype=np.float32)
+        out = smooth_field(grid, passes=3)
+        assert out.shape == grid.shape
+        assert np.allclose(out, 300.0)  # a flat field is unchanged
+
+    def test_zero_passes_is_a_copy(self) -> None:
+        grid = np.array([[0.0, 600.0]], dtype=np.float32)
+        out = smooth_field(grid, passes=0)
+        assert np.array_equal(out, grid)
+        assert out is not grid
+
+    def test_softens_a_step_edge(self) -> None:
+        """A hard 0|600 step is spread into intermediate values, but the
+        left→right ramp direction is preserved (no overshoot)."""
+        row = np.where(np.arange(10) < 5, 0.0, 600.0)
+        grid = np.tile(row, (5, 1)).astype(np.float32)
+        out = smooth_field(grid, passes=2)
+        profile = out[2, :]
+        assert ((profile > 0.0) & (profile < 600.0)).any(), "edge not softened"
+        assert np.all(np.diff(profile) >= -1e-4), "blur must not overshoot"
+        assert profile.min() >= 0.0 and profile.max() <= 600.0
 
 
 class TestIsoSegments:
