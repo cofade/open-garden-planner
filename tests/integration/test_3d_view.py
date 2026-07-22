@@ -149,17 +149,26 @@ class TestAppWorkflow:
         window.refresh_requested.emit()
         assert window.adapter.rebuild_count == 2
 
-        # Close hides; reopening creates a FRESH window — a reused (hidden→
-        # reshown) Qt3DWindow renders white (Qt3D never rebuilds its RHI
-        # swapchain for the re-exposed surface). The old window is retired
-        # (deleteLater) once hidden/idle, never in closeEvent (that raced the
-        # live render thread and segfaulted).
+        # Closing nulls the open reference (so 'is open' guards read true and
+        # sun/refresh updates stop targeting it); the hidden window is retired
+        # at the next open — a reused hidden→reshown Qt3DWindow renders white
+        # (Qt3D never rebuilds its RHI swapchain), and deleteLater in
+        # closeEvent would race the live render thread.
         window.close()
-        assert win._view3d_window is window
+        assert win._view3d_window is None
         old_window = window
         win._view3d_action.trigger()  # reopen → fresh window, fresh snapshot
+        assert win._view3d_window is not None
         assert win._view3d_window is not old_window
         assert win._view3d_window.adapter.rebuild_count == 1
+
+        # Closing the MAIN window clears the 3D viewer so the app can actually
+        # quit — a visible parentless Qt3DWindow would otherwise keep the
+        # process alive under Qt's quitOnLastWindowClosed (senior-review P1).
+        monkeypatch.setattr(win, "_confirm_discard_changes", lambda: True)
+        win.close()
+        assert win._view3d_window is None
+        assert win._view3d_window_retiring is None
 
 
 @requires_windows_3d

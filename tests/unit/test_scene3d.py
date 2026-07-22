@@ -95,6 +95,26 @@ class TestExtrusion:
                 px - cx
             ) ** 2 + (py - cy) ** 2
 
+    def test_concave_l_shape_prism(self) -> None:
+        """Exercise the concave extrusion path (per-edge side quads +
+        ear-clipped cap) end-to-end, not just triangulate_polygon alone."""
+        positions, normals = extrude_footprint(L_SHAPE, 200.0)
+        # 6 side quads × 6 verts + 4 cap triangles × 3 verts = 48 vertices.
+        assert len(positions) == 48 * 3
+        assert len(normals) == len(positions)
+        zs = positions[2::3]
+        assert min(zs) == 0.0
+        assert max(zs) == 200.0
+        # Top cap = last 4 triangles (12 verts); their normals point up.
+        cap_normals = normals[-12 * 3:]
+        assert cap_normals[2::3] == [1.0] * 12
+        # Every side normal is a horizontal unit vector.
+        side_n = normals[: -12 * 3]
+        for i in range(0, len(side_n), 3):
+            nx, ny, nz = side_n[i], side_n[i + 1], side_n[i + 2]
+            assert nz == 0.0
+            assert math.hypot(nx, ny) == pytest.approx(1.0)
+
     def test_degenerate_inputs(self) -> None:
         assert extrude_footprint([(0.0, 0.0), (1.0, 0.0)], 100.0) == ([], [])
         assert extrude_footprint(SQUARE, 0.0) == ([], [])
