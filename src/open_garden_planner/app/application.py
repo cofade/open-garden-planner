@@ -1085,6 +1085,14 @@ class GardenPlannerApp(QMainWindow):
         self._sun_sim_action.triggered.connect(self._on_toggle_sun_sim)
         menu.addAction(self._sun_sim_action)
 
+        # 3D view (US-E6) — viewer window, engine per ADR-038 (PyQt6-3D).
+        self._view3d_action = QAction(self.tr("&3D View…"), self)
+        self._view3d_action.setStatusTip(
+            self.tr("Open a 3D view of the plan with solar lighting")
+        )
+        self._view3d_action.triggered.connect(self._on_open_3d_view)
+        menu.addAction(self._view3d_action)
+
         # Toggle Scale Bar
         self._scale_bar_action = QAction(self.tr("Show Scale &Bar"), self)
         self._scale_bar_action.setCheckable(True)
@@ -1553,6 +1561,10 @@ class GardenPlannerApp(QMainWindow):
         self._sun_heatmap.finished.connect(self._on_heatmap_finished)
         self._sun_toolbar.heatmap_requested.connect(self._on_heatmap_requested)
         self._sun_toolbar.heatmap_cleared.connect(self._sun_heatmap.clear)
+
+        # ── 3D view (US-E6) — created lazily on first menu use ────────────
+        self._view3d_window = None  # the currently-OPEN viewer, or None
+        self._view3d_window_retiring = None  # closed, awaiting safe teardown
 
         # ── Find & Replace panel (US-11.24) ──────────────────────────────────
         from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
@@ -2873,6 +2885,15 @@ class GardenPlannerApp(QMainWindow):
             # Join a running heatmap worker — a QThread destroyed while
             # running aborts the process (the #230 class).
             self._sun_heatmap.shutdown()
+            # Close any open/pending 3D viewer so the app can actually quit —
+            # a visible parentless top-level Qt3DWindow keeps the process alive
+            # under Qt's default quitOnLastWindowClosed. Hide (not delete): the
+            # exiting process reclaims it without racing the Qt3D render thread.
+            for _w in (self._view3d_window, self._view3d_window_retiring):
+                if _w is not None:
+                    _w.hide()
+            self._view3d_window = None
+            self._view3d_window_retiring = None
             # Persist window/splitter/panel state before tearing down.
             self._save_ui_state()
             # Stop auto-save timer
@@ -3032,6 +3053,8 @@ class GardenPlannerApp(QMainWindow):
                 self._sun_toolbar.current_datetime_local()
             )
             self._sun_controller.set_enabled(True)
+            if self._view3d_window is not None:
+                self._apply_sun_to_3d()  # refresh 3D light on sim enable (US-E6)
         else:
             self._sun_toolbar.stop_animation()
             self._sun_controller.set_enabled(False)
@@ -3049,6 +3072,8 @@ class GardenPlannerApp(QMainWindow):
         ):
             self._sun_heatmap.clear()
             self._sun_toolbar.set_heatmap_active(False)
+        if self._view3d_window is not None:
+            self._apply_sun_to_3d()  # 3D light follows the sim time (US-E6)
 
     def _on_heatmap_requested(self) -> None:
         """Heatmap button checked — compute the shown date's hours of sun."""
@@ -3081,6 +3106,8 @@ class GardenPlannerApp(QMainWindow):
                 self._sun_toolbar.current_datetime_local()
             )
             self._sun_controller.set_enabled(True)
+            if self._view3d_window is not None:
+                self._apply_sun_to_3d()  # refresh 3D light on sim enable (US-E6)
         else:
             self._sun_toolbar.stop_animation()
             self._sun_controller.set_enabled(False)
@@ -3108,6 +3135,99 @@ class GardenPlannerApp(QMainWindow):
     def _on_location_changed_for_sun(self, _location: object) -> None:
         """Location edits re-solve the sun position immediately (no debounce)."""
         self._sun_controller.recompute_now()
+        if self._view3d_window is not None:
+            self._apply_sun_to_3d()
+
+    # ── 3D view (US-E6) ──────────────────────────────────────────
+
+    def _on_open_3d_view(self) -> None:
+        """Open the 3D viewer; snapshot the plan on open.
+
+        A window that is still open is refreshed and raised (its RHI swapchain
+        is live). A window that was closed is retired and a FRESH one built —
+        a reused hidden→re-shown Qt3DWindow paints white because Qt3D never
+        rebuilds its swapchain for the re-exposed surface. Lazy import keeps
+        PyQt6.Qt3D* off startup (ADR-038 boundary).
+        """
+        if self._view3d_window is not None:
+            self._refresh_3d_view()
+            self._apply_sun_to_3d()
+            self._view3d_window.raise_()
+            self._view3d_window.activateWindow()
+            return
+
+        from open_garden_planner.ui.view3d.view3d_window import View3DWindow
+
+        # Retire the previously-closed window HERE: it has been hidden since
+        # its close so its render thread is idle — deleteLater in closeEvent
+        # would race the LIVE thread and segfault (the reason reuse was first
+        # chosen). A fresh window gets a fresh RHI surface.
+        self._retire_closed_3d_window()
+
+        window = View3DWindow(None)  # top-level sibling window
+        window.refresh_requested.connect(self._refresh_3d_view)
+        window.closed.connect(self._on_3d_view_closed)
+        self._view3d_window = window
+        self._refresh_3d_view()
+        self._apply_sun_to_3d()
+        window.show()
+        window.raise_()
+        window.activateWindow()
+
+    def _on_3d_view_closed(self) -> None:
+        """The user closed the 3D viewer. Null the open reference so sun/
+        refresh updates stop targeting it and the ``is not None`` guards read
+        true open-state; keep the hidden window for retirement at the next
+        open (deleting it now would race its still-live render thread)."""
+        self._retire_closed_3d_window()
+        self._view3d_window_retiring = self._view3d_window
+        self._view3d_window = None
+
+    def _retire_closed_3d_window(self) -> None:
+        """deleteLater a 3D window closed on an earlier cycle — safe because it
+        has been hidden since its close, so its Qt3D render thread is idle."""
+        win = self._view3d_window_retiring
+        self._view3d_window_retiring = None
+        if win is not None:
+            win.deleteLater()
+
+    def _refresh_3d_view(self) -> None:
+        if self._view3d_window is None:
+            return
+        from open_garden_planner.ui.view3d.snapshot import collect_scene3d_records
+
+        records = collect_scene3d_records(self.canvas_scene)
+        self._view3d_window.rebuild(
+            records, self.canvas_scene.width_cm, self.canvas_scene.height_cm
+        )
+
+    def _apply_sun_to_3d(self) -> None:
+        """Drive the 3D light from the sim instant + project location.
+
+        Without a location there is no solar position — a pleasant fixed
+        default (elev 50°, az 180° ≈ southern midday sun) keeps the view
+        usable; documented in FR-SUN-06."""
+        if self._view3d_window is None:
+            return
+        from open_garden_planner.core.solar import solar_position
+
+        location = self._project_manager.location
+        latitude = location.get("latitude") if isinstance(location, dict) else None
+        longitude = location.get("longitude") if isinstance(location, dict) else None
+        if latitude is None or longitude is None:
+            self._view3d_window.set_sun(50.0, 180.0)
+            return
+        position = solar_position(
+            latitude, longitude, self._sun_controller.sim_datetime_utc
+        )
+        self._view3d_window.set_sun(
+            position.elevation_deg, position.azimuth_deg
+        )
+
+    # 3D window lifecycle: see _on_open_3d_view / _on_3d_view_closed /
+    # _retire_closed_3d_window. Recreated per open (Qt3D can't reuse its RHI
+    # swapchain after a hide), retired only once hidden/idle (deleteLater on a
+    # live window races the render thread and segfaults, #230-class).
 
     def _init_scale_bar_from_settings(self) -> None:
         """Initialize scale bar state from persisted settings."""

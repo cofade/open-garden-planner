@@ -44,14 +44,6 @@ def get_icon_path() -> Path:
 
 def main() -> int:
     """Run the Open Garden Planner application."""
-    # US-E5 3D engine spike (ADR-038 evidence tooling, not a user feature).
-    # Isolated entry: spike code is imported ONLY when the flag is present,
-    # so it never taxes normal startup.
-    if "--spike-3d" in sys.argv:
-        from open_garden_planner.spike3d.qt3d_spike import run_spike
-
-        return run_spike(sys.argv)
-
     # Import here to avoid slow startup for --help, --version, etc.
     from PyQt6.QtGui import QIcon
     from PyQt6.QtWidgets import QApplication

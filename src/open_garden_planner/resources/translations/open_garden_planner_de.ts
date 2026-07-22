@@ -3291,6 +3291,14 @@ Neue Saison jetzt öffnen?</translation>
             <source>Night — the sun is below the horizon</source>
             <translation>Nacht — die Sonne ist unter dem Horizont</translation>
         </message>
+        <message>
+            <source>&amp;3D View…</source>
+            <translation>&amp;3D-Ansicht…</translation>
+        </message>
+        <message>
+            <source>Open a 3D view of the plan with solar lighting</source>
+            <translation>3D-Ansicht des Plans mit Sonnenlicht öffnen</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -10307,6 +10315,21 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Hours of direct sun per spot on the chosen day</source>
             <translation>Stunden direkter Sonne je Stelle am gewählten Tag</translation>
+        </message>
+    </context>
+    <context>
+        <name>View3DWindow</name>
+        <message>
+            <source>3D View</source>
+            <translation>3D-Ansicht</translation>
+        </message>
+        <message>
+            <source>&amp;Refresh</source>
+            <translation>&amp;Aktualisieren</translation>
+        </message>
+        <message>
+            <source>Rebuild the 3D scene from the current plan</source>
+            <translation>3D-Szene aus dem aktuellen Plan neu aufbauen</translation>
         </message>
     </context>
 </TS>

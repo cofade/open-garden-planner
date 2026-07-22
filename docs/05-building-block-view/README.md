@@ -54,6 +54,7 @@ src/open_garden_planner/
 │   ├── object_height.py          # Qt-free effective-height resolver — explicit/container/species/type-default (US-E2, ADR-037)
 │   ├── shadow_geometry.py        # Qt-free shadow sweep/union — L=h/tanα, Minkowski sweep, pyclipper union (US-E3, ADR-037)
 │   ├── shade_aggregation.py      # Qt-free hours-of-sun sampling/bands/grid — rasterizer injected (US-E4, ADR-037)
+│   ├── scene3d.py                # Qt-free 3D mesh math — ear-clip triangulation, prism extrusion, sun vector, frame map (US-E6, ADR-038)
 │   ├── furniture_renderer.py     # Furniture/hedge SVG rendering & caching
 │   ├── constraints.py            # All 16 constraint types + hybrid solver (see §8.12)
 │   ├── constraint_solver_newton.py # Newton-Raphson refinement + circle-circle fast path
@@ -104,7 +105,6 @@ src/open_garden_planner/
 │   ├── journal_note.py           # JournalNote — map-linked notes (US-12.9)
 │   ├── amendment.py              # Amendment & AmendmentRecommendation (US-12.10c)
 │   └── task.py                   # ManualTask — user-created reminder (US-C2, ADR-029)
-├── spike3d/                      # US-E5 ADR-038 evidence — Qt3D spike behind --spike-3d, never imported at startup
 ├── ui/
 │   ├── canvas/
 │   │   ├── canvas_view.py        # Pan/zoom, key/mouse handling
@@ -122,6 +122,7 @@ src/open_garden_planner/
 │   │       ├── bezier_item.py    # BezierItem (Package B US-B1)
 │   │       ├── background_image_item.py
 │   │       └── resize_handle.py
+│   ├── view3d/                   # 3D view MVP (US-E6): snapshot.py (plan→records) + qt3d_adapter.py (ONLY Qt3D importer) + view3d_window.py
 │   ├── panels/
 │   │   ├── drawing_tools_panel.py
 │   │   ├── properties_panel.py
