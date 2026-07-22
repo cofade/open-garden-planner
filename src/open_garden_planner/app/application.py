@@ -3127,17 +3127,30 @@ class GardenPlannerApp(QMainWindow):
     # ── 3D view (US-E6) ──────────────────────────────────────────
 
     def _on_open_3d_view(self) -> None:
-        """Open (or raise) the 3D viewer; snapshot the plan on open.
+        """Open a fresh 3D viewer window; snapshot the plan on open.
 
         Lazy import — the view3d package (and with it PyQt6.Qt3D*) loads
         only when the user actually asks for 3D (ADR-038 boundary).
         """
-        if self._view3d_window is None:
-            from open_garden_planner.ui.view3d.view3d_window import View3DWindow
+        from open_garden_planner.ui.view3d.view3d_window import View3DWindow
 
-            window = View3DWindow(None)  # top-level sibling window
-            window.refresh_requested.connect(self._refresh_3d_view)
-            self._view3d_window = window
+        # Recreate a fresh 3D window each open. A reused window (hidden on
+        # close, re-shown on reopen) paints white: Qt3D's RHI backend keeps
+        # its original swapchain and never rebuilds it for the re-exposed
+        # surface (verified — reused window is exposed, sized, re-snapshotted,
+        # yet blank). A new Qt3DWindow gets a fresh RHI surface. Retire the
+        # previous window HERE, where it has been hidden since its close and
+        # its render thread is idle — deleteLater in closeEvent raced the live
+        # render thread and segfaulted (the original reason reuse was chosen).
+        old = self._view3d_window
+        self._view3d_window = None
+        if old is not None:
+            old.hide()
+            old.deleteLater()
+
+        window = View3DWindow(None)  # top-level sibling window
+        window.refresh_requested.connect(self._refresh_3d_view)
+        self._view3d_window = window
         self._refresh_3d_view()
         self._apply_sun_to_3d()
         self._view3d_window.show()
@@ -3177,11 +3190,13 @@ class GardenPlannerApp(QMainWindow):
             position.elevation_deg, position.azimuth_deg
         )
 
-    # NOTE: the 3D window is created ONCE per session and merely hides on
-    # close (QMainWindow default) — destroying a live Qt3DWindow mid-session
-    # (deleteLater on close) races the RHI render thread and segfaults
-    # (#230-class, reproduced by the E2E workflow test). Reopening reuses
-    # the window and re-snapshots the plan.
+    # NOTE: the 3D window is RECREATED on every open — a reused (hidden→
+    # reshown) Qt3DWindow renders white because Qt3D's RHI backend never
+    # rebuilds its swapchain for the re-exposed surface. The previous window
+    # is retired (hide + deleteLater) at the next open, where it has been
+    # hidden since its close and its render thread is idle; deleteLater in
+    # closeEvent instead races the LIVE render thread and segfaults
+    # (#230-class). Reopening therefore builds a fresh RHI surface.
 
     def _init_scale_bar_from_settings(self) -> None:
         """Initialize scale bar state from persisted settings."""

@@ -149,13 +149,17 @@ class TestAppWorkflow:
         window.refresh_requested.emit()
         assert window.adapter.rebuild_count == 2
 
-        # Close hides; the window persists for the session (destroying a
-        # live Qt3DWindow mid-session segfaults — see application.py note).
+        # Close hides; reopening creates a FRESH window — a reused (hidden→
+        # reshown) Qt3DWindow renders white (Qt3D never rebuilds its RHI
+        # swapchain for the re-exposed surface). The old window is retired
+        # (deleteLater) once hidden/idle, never in closeEvent (that raced the
+        # live render thread and segfaulted).
         window.close()
         assert win._view3d_window is window
-        win._view3d_action.trigger()  # reopen → same window, fresh snapshot
-        assert win._view3d_window is window
-        assert window.adapter.rebuild_count == 3
+        old_window = window
+        win._view3d_action.trigger()  # reopen → fresh window, fresh snapshot
+        assert win._view3d_window is not old_window
+        assert win._view3d_window.adapter.rebuild_count == 1
 
 
 @requires_windows_3d
