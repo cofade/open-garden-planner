@@ -1544,6 +1544,16 @@ class GardenPlannerApp(QMainWindow):
             self._on_location_changed_for_sun
         )
 
+        # ── Hours-of-sun heatmap (US-E4) — recompute on demand only ────────
+        from open_garden_planner.ui.canvas.sun_heatmap import SunHeatmapController
+
+        self._sun_heatmap = SunHeatmapController(
+            self.canvas_scene, lambda: self._project_manager.location, self
+        )
+        self._sun_heatmap.finished.connect(self._on_heatmap_finished)
+        self._sun_toolbar.heatmap_requested.connect(self._on_heatmap_requested)
+        self._sun_toolbar.heatmap_cleared.connect(self._sun_heatmap.clear)
+
         # ── Find & Replace panel (US-11.24) ──────────────────────────────────
         from open_garden_planner.ui.panels.find_replace_panel import FindReplacePanel
 
@@ -2860,6 +2870,9 @@ class GardenPlannerApp(QMainWindow):
         if self._confirm_discard_changes():
             # Stop the Agent API server first, while the scene/bridge still exist.
             self._stop_agent_api()
+            # Join a running heatmap worker — a QThread destroyed while
+            # running aborts the process (the #230 class).
+            self._sun_heatmap.shutdown()
             # Persist window/splitter/panel state before tearing down.
             self._save_ui_state()
             # Stop auto-save timer
@@ -3022,10 +3035,40 @@ class GardenPlannerApp(QMainWindow):
         else:
             self._sun_toolbar.stop_animation()
             self._sun_controller.set_enabled(False)
+            self._sun_heatmap.clear()
+            self._sun_toolbar.set_heatmap_active(False)
 
     def _on_sun_sim_datetime(self, dt) -> None:
         """A new sim instant from the toolbar — recompute the overlay."""
         self._sun_controller.set_sim_datetime(dt)
+        # A daily heatmap goes stale when the DATE changes; a time-of-day
+        # change leaves it valid (it aggregates the whole day).
+        if (
+            self._sun_heatmap.heatmap_visible()
+            and self._sun_heatmap.computed_day != dt.date()
+        ):
+            self._sun_heatmap.clear()
+            self._sun_toolbar.set_heatmap_active(False)
+
+    def _on_heatmap_requested(self) -> None:
+        """Heatmap button checked — compute the shown date's hours of sun."""
+        day = self._sun_toolbar.current_datetime_local().date()
+        if self._sun_heatmap.run_for_day(day):
+            self._sun_toolbar.set_heatmap_busy(True)
+            return
+        # Refused: already running, or no garden location.
+        self._sun_toolbar.set_heatmap_active(False)
+        if not self._sun_heatmap.is_running:
+            self._sun_toolbar.set_hint(
+                self.tr("Set garden location first: File → Set Garden Location…")
+            )
+
+    def _on_heatmap_finished(self, success: bool) -> None:
+        """Worker done — clear busy state, sync button + legend."""
+        self._sun_toolbar.set_heatmap_busy(False)
+        self._sun_toolbar.set_heatmap_active(
+            success and self._sun_heatmap.heatmap_visible()
+        )
 
     def _on_sun_toolbar_visibility(self, visible: bool) -> None:
         """Sync menu action + controller when the toolbar is shown/hidden via
@@ -3041,6 +3084,8 @@ class GardenPlannerApp(QMainWindow):
         else:
             self._sun_toolbar.stop_animation()
             self._sun_controller.set_enabled(False)
+            self._sun_heatmap.clear()
+            self._sun_toolbar.set_heatmap_active(False)
 
     def _on_sun_state_changed(self, state: str) -> None:
         """Surface the simulation's empty states as a toolbar hint."""

@@ -11,6 +11,7 @@ in the ``.ogp`` — so a fresh run always reflects today.
 
 from __future__ import annotations
 
+import html
 from datetime import datetime
 
 from PyQt6.QtCore import QDate, Qt, QTimer, pyqtSignal
@@ -36,6 +37,10 @@ class SunSimToolbar(QToolBar):
     """
 
     datetime_changed = pyqtSignal(object)
+    #: Heatmap button checked — the app should compute & show the heatmap.
+    heatmap_requested = pyqtSignal()
+    #: Heatmap button unchecked — the app should hide the heatmap.
+    heatmap_cleared = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__("", parent)
@@ -71,6 +76,50 @@ class SunSimToolbar(QToolBar):
         )
         self.addWidget(self._animate_button)
 
+        self.addSeparator()
+
+        # ── Hours-of-sun heatmap (US-E4) — recompute on demand only ───────
+        self._heatmap_button = QToolButton(self)
+        self._heatmap_button.setText(self.tr("Hours of Sun"))
+        self._heatmap_button.setCheckable(True)
+        self._heatmap_button.setToolTip(
+            self.tr(
+                "Compute a full-day hours-of-sun heatmap for the shown date"
+            )
+        )
+        self.addWidget(self._heatmap_button)
+
+        self._legend_label = QLabel("", self)
+        self._legend_label.setTextFormat(Qt.TextFormat.RichText)
+        self._legend_label.setContentsMargins(8, 0, 0, 0)
+        # Swatches derive from sun_heatmap.BAND_COLORS (blended over the
+        # canvas color) — one source of truth, the legend cannot drift from
+        # the overlay tints. Labels go through tr() and are HTML-escaped.
+        from open_garden_planner.ui.canvas.sun_heatmap import legend_swatch_hexes
+
+        swatches = legend_swatch_hexes()
+        labels = [
+            html.escape(self.tr("<2 h")),
+            html.escape(self.tr("2–4 h")),
+            html.escape(self.tr("4–6 h")),
+            html.escape(self.tr("≥6 h full sun")),
+        ]
+        # Band 3 (full sun) is transparent on canvas → outline glyph.
+        glyphs = ["■", "■", "■", "□"]
+        self._legend_label.setText(
+            " ".join(
+                f"<span style='color:{swatch}'>{glyph}</span> {label}"
+                for swatch, glyph, label in zip(
+                    swatches, glyphs, labels, strict=True
+                )
+            )
+        )
+        self._legend_label.setToolTip(
+            self.tr("Hours of direct sun per spot on the chosen day")
+        )
+        self._legend_label.setVisible(False)
+        self.addWidget(self._legend_label)
+
         self._hint_label = QLabel("", self)
         self._hint_label.setStyleSheet("color: #806a00; font-style: italic;")
         self._hint_label.setContentsMargins(12, 0, 0, 0)
@@ -83,6 +132,7 @@ class SunSimToolbar(QToolBar):
         self._date_edit.dateChanged.connect(self._on_inputs_changed)
         self._slider.valueChanged.connect(self._on_inputs_changed)
         self._animate_button.toggled.connect(self._on_animate_toggled)
+        self._heatmap_button.toggled.connect(self._on_heatmap_toggled)
 
         now = datetime.now().astimezone()
         self.set_datetime_local(now)
@@ -118,6 +168,22 @@ class SunSimToolbar(QToolBar):
     def stop_animation(self) -> None:
         self._animate_button.setChecked(False)
 
+    def set_heatmap_busy(self, busy: bool) -> None:
+        """Busy indication while the worker computes."""
+        self._heatmap_button.setEnabled(not busy)
+        self._heatmap_button.setText(
+            self.tr("Computing…") if busy else self.tr("Hours of Sun")
+        )
+
+    def set_heatmap_active(self, active: bool) -> None:
+        """Reflect heatmap visibility (button check + legend), no signals."""
+        self._heatmap_button.blockSignals(True)
+        try:
+            self._heatmap_button.setChecked(active)
+        finally:
+            self._heatmap_button.blockSignals(False)
+        self._legend_label.setVisible(active)
+
     # ── internals ──────────────────────────────────────────────
 
     def _update_time_label(self) -> None:
@@ -133,6 +199,13 @@ class SunSimToolbar(QToolBar):
             self._animate_timer.start()
         else:
             self._animate_timer.stop()
+
+    def _on_heatmap_toggled(self, checked: bool) -> None:
+        if checked:
+            self.heatmap_requested.emit()
+        else:
+            self._legend_label.setVisible(False)
+            self.heatmap_cleared.emit()
 
     def _on_animate_tick(self) -> None:
         # Advancing the slider fires valueChanged → one recompute per tick.
