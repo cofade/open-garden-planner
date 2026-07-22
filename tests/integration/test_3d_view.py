@@ -149,6 +149,12 @@ class TestAppWorkflow:
         window.refresh_requested.emit()
         assert window.adapter.rebuild_count == 2
 
+        # Re-triggering the menu while the viewer is still OPEN refreshes and
+        # raises the SAME window (live swapchain — no recreate).
+        win._view3d_action.trigger()
+        assert win._view3d_window is window
+        assert window.adapter.rebuild_count == 3
+
         # Closing nulls the open reference (so 'is open' guards read true and
         # sun/refresh updates stop targeting it); the hidden window is retired
         # at the next open — a reused hidden→reshown Qt3DWindow renders white
