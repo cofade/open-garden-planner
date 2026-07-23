@@ -312,6 +312,12 @@ class Garden3DView:
     def walk_key_release(self, key: int) -> None:
         self._walk_keys.discard(int(key))
 
+    def walk_clear_keys(self) -> None:
+        """Drop all held movement keys — e.g. the 3D window lost focus, so the
+        KeyRelease for a held key will never arrive (would strand the walker
+        drifting until the next mode toggle)."""
+        self._walk_keys.clear()
+
     def _walk_move_tick(self) -> None:
         """Advance the walker one frame from the held keys — HORIZONTAL only.
 

@@ -94,22 +94,29 @@ class View3DWindow(QMainWindow):
         if (
             watched is self._adapter.window_handle()
             and self._adapter.camera_mode == "walk"
-            and isinstance(event, QKeyEvent)
         ):
-            if event.type() == QEvent.Type.KeyPress:
-                if event.key() == Qt.Key.Key_Escape:
-                    self._walk_action.setChecked(False)
-                    return True
-                if not event.isAutoRepeat():
-                    self._adapter.walk_key_press(event.key())
-            elif (
-                event.type() == QEvent.Type.KeyRelease
-                and not event.isAutoRepeat()
-            ):
-                self._adapter.walk_key_release(event.key())
+            if isinstance(event, QKeyEvent):
+                if event.type() == QEvent.Type.KeyPress:
+                    if event.key() == Qt.Key.Key_Escape:
+                        self._walk_action.setChecked(False)
+                        return True
+                    if not event.isAutoRepeat():
+                        self._adapter.walk_key_press(event.key())
+                elif (
+                    event.type() == QEvent.Type.KeyRelease
+                    and not event.isAutoRepeat()
+                ):
+                    self._adapter.walk_key_release(event.key())
+            elif event.type() == QEvent.Type.FocusOut:
+                # Focus left the 3D window (alt-tab, toolbar click): the
+                # KeyRelease for a held key never arrives, so drop held keys.
+                self._adapter.walk_clear_keys()
         return super().eventFilter(watched, event)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 — Qt override
+        # Esc when THIS QMainWindow holds focus (before the user has clicked
+        # into the 3D scene). The event filter above covers Esc once focus is
+        # on the embedded Qt3D window — two focus targets, both must exit.
         if (
             event.key() == Qt.Key.Key_Escape
             and self._adapter.camera_mode == "walk"

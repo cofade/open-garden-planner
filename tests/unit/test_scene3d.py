@@ -162,6 +162,16 @@ class TestDecalStacking:
         )
         assert records[2].base_cm == 0.0  # extruded sits on the ground
 
+    def test_lift_is_capped_for_many_decals(self) -> None:
+        from open_garden_planner.core.scene3d import DECAL_MAX_LIFT_CM
+
+        records = records_from_raw(
+            [{"footprint": SQUARE, "height_cm": None, "name": f"d{i}"}
+             for i in range(40)]
+        )
+        assert all(r.base_cm <= DECAL_MAX_LIFT_CM for r in records)
+        assert records[-1].base_cm == pytest.approx(DECAL_MAX_LIFT_CM)
+
     def test_base_cm_lifts_the_geometry(self) -> None:
         positions, _ = extrude_footprint(SQUARE, 2.0, base_cm=5.0)
         zs = positions[2::3]

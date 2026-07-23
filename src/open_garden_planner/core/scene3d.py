@@ -30,6 +30,10 @@ FLAT_THICKNESS_CM = 2.0
 #: intersecting. Small enough to still read as flat ground markings.
 DECAL_LIFT_CM = 1.0
 DECAL_STACK_STEP_CM = 1.0
+#: Cap the cumulative lift so a plan with many flat decals doesn't float its
+#: top paths so high they stop reading as ground markings (beyond this depth,
+#: overlapping decals are rare enough that residual z-fighting is acceptable).
+DECAL_MAX_LIFT_CM = 10.0
 
 
 class Scene3DRecord(NamedTuple):
@@ -66,7 +70,10 @@ def records_from_raw(
             kind, height_cm, base_cm = "extruded", float(height), 0.0
         else:
             kind, height_cm = "flat", FLAT_THICKNESS_CM
-            base_cm = DECAL_LIFT_CM + decal_rank * DECAL_STACK_STEP_CM
+            base_cm = min(
+                DECAL_LIFT_CM + decal_rank * DECAL_STACK_STEP_CM,
+                DECAL_MAX_LIFT_CM,
+            )
             decal_rank += 1
         color = raw.get("color_rgba") or (150, 150, 150, 255)
         records.append(
