@@ -22,6 +22,12 @@ BOUNDS_MARGIN_CM = 150.0
 #: Pitch limit — stops the gimbal flip at straight-up/straight-down.
 PITCH_LIMIT_DEG = 89.0
 
+#: Ground movement speed (cm/s) — a brisk walk. Movement is HORIZONTAL: the
+#: engine's first-person controller would move along the (pitched) view
+#: vector, so looking up would lift the walker off the ground and slow the
+#: forward pace by cos(pitch); we drive movement ourselves instead.
+WALK_SPEED_CM_S = 350.0
+
 
 def clamp_walk_position(
     east: float,
@@ -34,6 +40,36 @@ def clamp_walk_position(
     return (
         min(max(east, -margin_cm), width_cm + margin_cm),
         min(max(north, -margin_cm), height_cm + margin_cm),
+    )
+
+
+def walk_step(
+    east: float,
+    north: float,
+    yaw_deg: float,
+    forward: float,
+    strafe: float,
+    distance: float,
+) -> tuple[float, float]:
+    """Advance a ground position horizontally along compass ``yaw``.
+
+    ``forward`` (+1 ahead / −1 back) moves along the yaw heading; ``strafe``
+    (+1 right / −1 left) along its right-hand perpendicular. The pitch is
+    deliberately ignored — walking speed never depends on where you look
+    (the fix for "forward is slow / drifts up when looking up"). Diagonal
+    input is normalized so it isn't faster than a cardinal step.
+    """
+    magnitude = math.hypot(forward, strafe)
+    if magnitude <= 1e-9 or distance == 0.0:
+        return (east, north)
+    forward /= magnitude
+    strafe /= magnitude
+    yaw = math.radians(yaw_deg)
+    sin_yaw, cos_yaw = math.sin(yaw), math.cos(yaw)
+    # forward heading = (sin, cos); right-hand perpendicular = (cos, −sin).
+    return (
+        east + distance * (forward * sin_yaw + strafe * cos_yaw),
+        north + distance * (forward * cos_yaw - strafe * sin_yaw),
     )
 
 

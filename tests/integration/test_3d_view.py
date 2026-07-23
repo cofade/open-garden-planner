@@ -348,6 +348,38 @@ class TestWalkthrough:
         assert camera.position().x() <= 1000.0 + BOUNDS_MARGIN_CM
         assert -camera.position().z() <= 800.0 + BOUNDS_MARGIN_CM
 
+    def test_walk_movement_is_horizontal_and_wasd(
+        self, qtbot, plan_scene
+    ) -> None:  # noqa: ARG002
+        """Movement stays at eye height even while looking UP (no vertical
+        drift, no tilt), advances along the heading, and WASD works like the
+        arrows — the three manual-test findings on the first cut."""
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QVector3D
+
+        from open_garden_planner.core.walk_camera import EYE_HEIGHT_CM
+        from open_garden_planner.ui.view3d.qt3d_adapter import Garden3DView
+
+        adapter = Garden3DView()
+        adapter.rebuild(collect_scene3d_records(plan_scene), 1000.0, 800.0)
+        adapter.set_camera_mode("walk")
+        camera = adapter._view.camera()
+        # Face north, look UP (pitched) — the old bug lifted the walker.
+        camera.setPosition(QVector3D(500.0, EYE_HEIGHT_CM, -400.0))
+        camera.setViewCenter(QVector3D(500.0, EYE_HEIGHT_CM + 50.0, -500.0))
+        look_before = camera.viewCenter() - camera.position()
+
+        adapter.walk_key_press(Qt.Key.Key_W)  # WASD, not only arrows
+        adapter._walk_move_tick()
+        adapter.walk_key_release(Qt.Key.Key_W)
+
+        assert camera.position().y() == pytest.approx(EYE_HEIGHT_CM)
+        assert -camera.position().z() > 400.0  # advanced north
+        look_after = camera.viewCenter() - camera.position()
+        assert look_after.x() == pytest.approx(look_before.x())
+        assert look_after.y() == pytest.approx(look_before.y())
+        assert look_after.z() == pytest.approx(look_before.z())
+
     def test_close_mid_walk_is_clean(self, qtbot, plan_scene) -> None:
         from open_garden_planner.ui.view3d.view3d_window import View3DWindow
 

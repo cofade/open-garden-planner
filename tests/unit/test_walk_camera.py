@@ -12,6 +12,7 @@ from open_garden_planner.core.walk_camera import (
     PITCH_LIMIT_DEG,
     clamp_walk_position,
     look_direction,
+    walk_step,
 )
 
 
@@ -61,3 +62,32 @@ class TestLookDirection:
         # "forward" stays defined (stability at the limits).
         east, north, _up = look_direction(0.0, PITCH_LIMIT_DEG)
         assert math.hypot(east, north) > 0.01
+
+
+class TestWalkStep:
+    def test_forward_moves_along_yaw_heading(self) -> None:
+        # Facing north (yaw 0): forward increases north, not east.
+        east, north = walk_step(500.0, 300.0, 0.0, 1.0, 0.0, 100.0)
+        assert east == pytest.approx(500.0)
+        assert north == pytest.approx(400.0)
+
+    def test_strafe_right_goes_east_when_facing_north(self) -> None:
+        east, north = walk_step(500.0, 300.0, 0.0, 0.0, 1.0, 100.0)
+        assert east == pytest.approx(600.0)
+        assert north == pytest.approx(300.0)
+
+    def test_facing_east_forward_goes_east(self) -> None:
+        east, north = walk_step(500.0, 300.0, 90.0, 1.0, 0.0, 100.0)
+        assert east == pytest.approx(600.0)
+        assert north == pytest.approx(300.0, abs=1e-9)
+
+    def test_diagonal_normalized_not_faster(self) -> None:
+        # One axis and a diagonal both cover the same ground distance.
+        e1, n1 = walk_step(0.0, 0.0, 0.0, 1.0, 0.0, 100.0)
+        e2, n2 = walk_step(0.0, 0.0, 0.0, 1.0, 1.0, 100.0)
+        assert math.hypot(e1, n1) == pytest.approx(100.0)
+        assert math.hypot(e2, n2) == pytest.approx(100.0)
+
+    def test_no_input_or_zero_distance_is_stationary(self) -> None:
+        assert walk_step(500.0, 300.0, 45.0, 0.0, 0.0, 100.0) == (500.0, 300.0)
+        assert walk_step(500.0, 300.0, 45.0, 1.0, 0.0, 0.0) == (500.0, 300.0)

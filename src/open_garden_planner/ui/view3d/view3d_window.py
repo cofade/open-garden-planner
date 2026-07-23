@@ -88,15 +88,25 @@ class View3DWindow(QMainWindow):
         )
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        # While walking, key events land on the embedded Qt3DWindow (a foreign
+        # QWindow), not this QMainWindow. Esc exits; WASD/arrow press+release
+        # feed the adapter's horizontal walk loop.
         if (
             watched is self._adapter.window_handle()
-            and event.type() == QEvent.Type.KeyPress
-            and isinstance(event, QKeyEvent)
-            and event.key() == Qt.Key.Key_Escape
             and self._adapter.camera_mode == "walk"
+            and isinstance(event, QKeyEvent)
         ):
-            self._walk_action.setChecked(False)
-            return True
+            if event.type() == QEvent.Type.KeyPress:
+                if event.key() == Qt.Key.Key_Escape:
+                    self._walk_action.setChecked(False)
+                    return True
+                if not event.isAutoRepeat():
+                    self._adapter.walk_key_press(event.key())
+            elif (
+                event.type() == QEvent.Type.KeyRelease
+                and not event.isAutoRepeat()
+            ):
+                self._adapter.walk_key_release(event.key())
         return super().eventFilter(watched, event)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 — Qt override

@@ -27,7 +27,7 @@ from PyQt6.Qt3DExtras import (
     Qt3DWindow,
 )
 from PyQt6.Qt3DRender import QDirectionalLight, QGeometryRenderer
-from PyQt6.QtCore import QByteArray
+from PyQt6.QtCore import QByteArray, Qt, QTimer
 from PyQt6.QtGui import QColor, QVector3D
 from PyQt6.QtWidgets import QWidget
 
@@ -41,14 +41,23 @@ from open_garden_planner.core.shadow_geometry import MIN_SUN_ELEVATION_DEG
 from open_garden_planner.core.walk_camera import (
     EYE_HEIGHT_CM,
     PITCH_LIMIT_DEG,
+    WALK_SPEED_CM_S,
     clamp_walk_position,
     look_direction,
+    walk_step,
 )
 
 _SKY = QColor(168, 200, 228)
 _GROUND = QColor(118, 148, 92)
 _SUN_WARM = QColor(255, 249, 228)
 _NIGHT_BLUE = QColor(150, 165, 210)
+
+# Walk movement key groups (US-E7) — WASD and arrows are equivalent. Stored as
+# plain ints (what QKeyEvent.key() yields) so set membership is hash-safe.
+_WALK_FORWARD = frozenset({int(Qt.Key.Key_W), int(Qt.Key.Key_Up)})
+_WALK_BACK = frozenset({int(Qt.Key.Key_S), int(Qt.Key.Key_Down)})
+_WALK_RIGHT = frozenset({int(Qt.Key.Key_D), int(Qt.Key.Key_Right)})
+_WALK_LEFT = frozenset({int(Qt.Key.Key_A), int(Qt.Key.Key_Left)})
 
 
 def _scene_to_engine_array(triples: list[float]) -> np.ndarray:
@@ -90,13 +99,22 @@ class Garden3DView:
         self._orbit_controller.setLinearSpeed(2500.0)
         self._orbit_controller.setLookSpeed(180.0)
 
-        # Walkthrough (US-E7): the engine's first-person controller handles
-        # input; enabled state decides which controller drives the camera.
+        # Walkthrough (US-E7): the first-person controller drives mouse-LOOK
+        # only. Its translation moves along the pitched view vector (looking
+        # up lifts the walker + slows the ground pace) and binds arrows only,
+        # so movement is our own horizontal loop — linearSpeed 0 disables its.
         self._walk_controller = QFirstPersonCameraController(self._root)
         self._walk_controller.setCamera(camera)
-        self._walk_controller.setLinearSpeed(700.0)  # ≈ brisk walk, cm/s
+        self._walk_controller.setLinearSpeed(0.0)
         self._walk_controller.setLookSpeed(160.0)
         self._walk_controller.setEnabled(False)
+
+        # Horizontal keyboard movement (WASD + arrows): a frame timer steps
+        # the walker along the look's ground projection while keys are held.
+        self._walk_keys: set[int] = set()
+        self._walk_timer = QTimer()
+        self._walk_timer.setInterval(16)  # ~60 fps
+        self._walk_timer.timeout.connect(self._walk_move_tick)
 
         self._camera_mode = "orbit"
         self._saved_orbit: tuple[QVector3D, QVector3D, QVector3D] | None = None
@@ -223,6 +241,8 @@ class Garden3DView:
             camera.positionChanged.connect(self._clamp_walk_camera)
             camera.viewCenterChanged.connect(self._clamp_walk_view)
             self._walk_controller.setEnabled(True)
+            self._walk_keys.clear()
+            self._walk_timer.start()
             self._camera_mode = "walk"
         else:
             with contextlib.suppress(TypeError):
@@ -230,6 +250,8 @@ class Garden3DView:
             with contextlib.suppress(TypeError):
                 camera.viewCenterChanged.disconnect(self._clamp_walk_view)
             self._walk_controller.setEnabled(False)
+            self._walk_timer.stop()
+            self._walk_keys.clear()
             if self._saved_orbit is not None:
                 position, view_center, up_vector = self._saved_orbit
                 camera.setPosition(position)
@@ -281,6 +303,46 @@ class Garden3DView:
             position
             + QVector3D(new_e * distance, new_up * distance, -new_n * distance)
         )
+
+    def walk_key_press(self, key: int) -> None:
+        """Register a held movement key (forwarded from the window's event
+        filter on the Qt3D window — the real keyboard-focus target)."""
+        self._walk_keys.add(int(key))
+
+    def walk_key_release(self, key: int) -> None:
+        self._walk_keys.discard(int(key))
+
+    def _walk_move_tick(self) -> None:
+        """Advance the walker one frame from the held keys — HORIZONTAL only.
+
+        Moves position AND viewCenter by the same ground delta so the look
+        direction is preserved (no tilt when walking while pitched), then
+        clamps to plan bounds + eye height. WASD and arrows are equivalent,
+        and speed is independent of pitch.
+        """
+        keys = self._walk_keys
+        if not keys:
+            return
+        forward = bool(keys & _WALK_FORWARD) - bool(keys & _WALK_BACK)
+        strafe = bool(keys & _WALK_RIGHT) - bool(keys & _WALK_LEFT)
+        if forward == 0 and strafe == 0:
+            return
+        camera = self._view.camera()
+        position = camera.position()
+        look = camera.viewCenter() - position
+        yaw = math.degrees(math.atan2(look.x(), -look.z()))
+        distance = WALK_SPEED_CM_S * (self._walk_timer.interval() / 1000.0)
+        width_cm, height_cm = self._plan_size
+        east, north = walk_step(
+            position.x(), -position.z(), yaw, forward, strafe, distance
+        )
+        east, north = clamp_walk_position(east, north, width_cm, height_cm)
+        new_position = QVector3D(east, EYE_HEIGHT_CM, -north)
+        delta = new_position - position
+        if delta.isNull():
+            return
+        camera.setPosition(new_position)
+        camera.setViewCenter(camera.viewCenter() + delta)
 
     # ── internals ──────────────────────────────────────────────
 
