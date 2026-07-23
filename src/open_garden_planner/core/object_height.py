@@ -14,9 +14,19 @@ Height precedence (ADR-037):
    ``core/container_model``). NOTE: the two keys are deliberately distinct
    and never aliased: a tall pot on legs can have ``object_height_cm`` 90
    with a fill height of 30; the fill height keeps driving soil volume.
-3. Plants with an assigned species — the embedded species dict's
-   ``max_height_cm`` (the established linkage, cf.
-   ``plant_sizing.sizing_for_item``).
+3. Plants — in order:
+   a. with a species, a planting date AND a measured current height, and
+      when ``at_date`` is given — the DATE-PROJECTED height from
+      ``core/growth_model`` (current → species max over years-to-maturity);
+   b. else the measured ``current_height_cm`` (``plant_instance``) if set —
+      the owner-chosen "current height anchors it" rule, so the field the
+      user types drives the shadow directly. Applies even with NO species
+      attached (an unknown/custom name is a supported state). NOTE this
+      rule is metadata-driven, not type-driven: any object carrying a
+      ``plant_instance`` height gets it. Only plant items are given that
+      metadata today, so the distinction is currently inert;
+   c. else, with a species, its mature ``max_height_cm`` (the established
+      linkage, cf. ``plant_sizing.sizing_for_item``).
 4. A per-object-type default (``DEFAULT_HEIGHTS_CM`` below).
 5. ``None`` — the object has no meaningful height and casts no shadow.
 
@@ -32,9 +42,15 @@ sets against the real enum so a rename cannot silently break the mapping.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from .container_model import container_height_cm
+from .growth_model import (
+    current_height_from_metadata,
+    effective_current_height_cm,
+    grown_height_cm,
+)
 
 METADATA_KEY = "object_height_cm"
 
@@ -73,6 +89,7 @@ _PLANT_TYPE_NAMES = frozenset({"TREE", "SHRUB", "PERENNIAL"})
 # height_source() return values (stable identifiers, not user-visible text).
 SOURCE_CUSTOM = "custom"
 SOURCE_CONTAINER = "container"
+SOURCE_CURRENT = "current"
 SOURCE_SPECIES = "species"
 SOURCE_DEFAULT = "default"
 SOURCE_NONE = "none"
@@ -102,6 +119,17 @@ def explicit_height_cm(metadata: dict[str, Any] | None) -> float | None:
     return _positive_number(metadata.get(METADATA_KEY))
 
 
+def _measured_height_cm(
+    name: str, species_dict: Any, metadata: dict[str, Any] | None
+) -> float | None:
+    """The plant's measured (or spread-implied) current height, else None."""
+    if name not in _PLANT_TYPE_NAMES:
+        return None
+    if isinstance(species_dict, dict):
+        return effective_current_height_cm(species_dict, metadata)
+    return current_height_from_metadata(metadata)
+
+
 def _species_height_cm(metadata: dict[str, Any] | None) -> float | None:
     if not metadata:
         return None
@@ -112,9 +140,22 @@ def _species_height_cm(metadata: dict[str, Any] | None) -> float | None:
 
 
 def effective_height_cm(
-    object_type: Any, metadata: dict[str, Any] | None
+    object_type: Any,
+    metadata: dict[str, Any] | None,
+    at_date: date | None = None,
 ) -> float | None:
-    """Resolve the effective above-ground height in cm (see precedence above)."""
+    """Resolve the effective above-ground height in cm (see precedence above).
+
+    ``at_date`` (US-E8): when given, a plant WITH a species, a planting
+    date AND a measured current height resolves to its DATE-PROJECTED
+    height via ``core/growth_model`` (linear current→max over
+    years-to-maturity) — so shadows (US-E3/E4) and the 3D view (US-E6)
+    automatically see the grown size. Independently of any date, a plant's
+    measured ``current_height_cm`` (if set) drives the height ahead of the
+    species mature max — the owner-chosen "current height anchors it" rule.
+    An explicit ``object_height_cm`` override still wins; un-measured
+    plants and non-plants keep the mature/default height as before.
+    """
     explicit = explicit_height_cm(metadata)
     if explicit is not None:
         return explicit
@@ -126,23 +167,43 @@ def effective_height_cm(
         # user sets one. There is no separate above-ground source to draw
         # from in this slice; revisit when shadow accuracy matters (#258).
         return container_height_cm(metadata if metadata else None)
-    species = _species_height_cm(metadata)
-    if species is not None:
-        return species
+    species_dict = (metadata or {}).get("plant_species")
+    if isinstance(species_dict, dict) and at_date is not None:
+        grown = grown_height_cm(species_dict, metadata, at_date, name)
+        if grown is not None:
+            return grown
+    # Outside the SPECIES branch (a plant whose species lookup missed still
+    # has a real measured height) but gated on the plant TYPE, so the rule
+    # can never silently change height resolution for some future non-plant
+    # that happens to acquire ``plant_instance`` metadata.
+    current = _measured_height_cm(name, species_dict, metadata)
+    if current is not None:
+        return current
+    if isinstance(species_dict, dict):
+        mature = _positive_number(species_dict.get("max_height_cm"))
+        if mature is not None:
+            return mature
     return DEFAULT_HEIGHTS_CM.get(name)
 
 
 def height_source(object_type: Any, metadata: dict[str, Any] | None) -> str:
     """Which precedence rule produced ``effective_height_cm``.
 
-    Returns one of SOURCE_CUSTOM / SOURCE_CONTAINER / SOURCE_SPECIES /
-    SOURCE_DEFAULT / SOURCE_NONE — drives the properties-panel tooltip.
+    Returns one of SOURCE_CUSTOM / SOURCE_CONTAINER / SOURCE_CURRENT /
+    SOURCE_SPECIES / SOURCE_DEFAULT / SOURCE_NONE — drives the
+    properties-panel tooltip. Mirrors ``effective_height_cm``'s static
+    (date-independent) precedence.
     """
     if explicit_height_cm(metadata) is not None:
         return SOURCE_CUSTOM
     name = _type_name(object_type)
     if name in _CONTAINER_TYPE_NAMES:
         return SOURCE_CONTAINER
+    if (
+        _measured_height_cm(name, (metadata or {}).get("plant_species"), metadata)
+        is not None
+    ):
+        return SOURCE_CURRENT
     if _species_height_cm(metadata) is not None:
         return SOURCE_SPECIES
     if name in DEFAULT_HEIGHTS_CM:

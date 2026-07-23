@@ -21,6 +21,16 @@ footprint conveys nothing — the footprint already shows that size).
 
 This module is intentionally Qt-free so the precedence can be unit-tested in
 isolation.
+
+US-E8 note — a fourth size input this module deliberately does NOT own: the
+plant's measured ``plant_instance["current_spread_cm"]``, read by
+``core/growth_model`` and the shadow/3D canopy. It is scoped to sun/shade
+(FR-SUN-08) and does **not** affect the spacing ring or the spacing-overlap
+diagnostic, which stay on the MATURE ``max_spread_cm`` — spacing is a
+planning-for-maturity rule, so shrinking it to a sapling's current canopy
+would let the user plant too densely. One plant can therefore legitimately
+show three different sizes at once: the drawn circle (selection/snapping),
+a mature spacing ring, and a smaller measured shadow canopy.
 """
 
 from __future__ import annotations

@@ -5760,6 +5760,10 @@ noch nicht implementiert</translation>
             <source>No height — casts no shadow</source>
             <translation>Keine Höhe — wirft keinen Schatten</translation>
         </message>
+        <message>
+            <source>From measured current height</source>
+            <translation>Aus gemessener aktueller Höhe</translation>
+        </message>
     </context>
     <context>
         <name>RectangleItem</name>

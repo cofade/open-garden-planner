@@ -244,7 +244,12 @@ class SunHeatmapController(QObject):
         else:
             x0, y0, w, h = 0.0, 0.0, float(width), float(height)
         grid = HeatmapGrid.for_rect(x0, y0, w, h, cell_cm)
-        casters = collect_shadow_casters(self._scene)
+        # US-E8: the heatmap projects plant sizes with the SAME growth model
+        # as the shadow overlay. It keys off the user's chosen LOCAL day,
+        # while the overlay uses the sim instant's UTC date — near midnight
+        # the two can name different days, which is immaterial to a
+        # decade-scale linear curve but is why they are not the same call.
+        casters = collect_shadow_casters(self._scene, at_date=day)
         worker = HeatmapWorker(casters, latitude, longitude, day, grid, self)
         worker.progress.connect(self.progress)
         worker.success.connect(self._on_success)

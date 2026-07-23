@@ -1026,6 +1026,14 @@ class PlantDatabasePanel(QWidget):
         else:
             self._current_plant_item.metadata["plant_instance"][key] = value
 
+        # A metadata-only write repaints nothing, so QGraphicsScene.changed
+        # never fires; and because this edit bypasses the command manager,
+        # stack_changed does not fire either. Derived overlays subscribe to
+        # exactly those two, so without this nudge the sun/shade shadow keeps
+        # showing the OLD size after the user edits Current height/spread
+        # (US-E8 reads both straight off this dict). See §11.4.
+        self._current_plant_item.update()
+
         # Mark project as dirty
         scene = self._current_plant_item.scene()
         if scene and hasattr(scene, "views"):
@@ -1354,8 +1362,13 @@ class PlantDatabasePanel(QWidget):
         self.current_height_spin.setValue(float(current_height) if current_height else 0)
         self.current_height_spin.blockSignals(False)
 
-        # Current spread
-        current_spread = instance_data.get("current_spread_cm")
+        # Current spread — honour the legacy current_diameter_cm alias, as
+        # PlantInstance.from_dict, the CSV export and the growth model all
+        # do; otherwise an old plan shows "—" here while its shadow is sized
+        # from the aliased value.
+        current_spread = instance_data.get("current_spread_cm") or instance_data.get(
+            "current_diameter_cm"
+        )
         self.current_spread_spin.blockSignals(True)
         self.current_spread_spin.setValue(float(current_spread) if current_spread else 0)
         self.current_spread_spin.blockSignals(False)

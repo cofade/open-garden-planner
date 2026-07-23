@@ -1,12 +1,15 @@
 """Unit tests for the Qt-free object-height resolver (US-E2, #257).
 
-Pins the full precedence chain (explicit > container fill > species
-max_height_cm > per-type default > None), the value guards, and — because
+Pins the full precedence chain (explicit > container fill > measured
+current height > species max_height_cm > per-type default > None), the
+date-projected growth branch (US-E8), the value guards, and — because
 the module deliberately matches object types by *name* to stay Qt-free —
 the sync between its name sets and the real ``ObjectType`` enum.
 """
 
 from __future__ import annotations
+
+from datetime import date
 
 import pytest
 
@@ -14,6 +17,7 @@ from open_garden_planner.core.object_height import (
     DEFAULT_HEIGHTS_CM,
     METADATA_KEY,
     SOURCE_CONTAINER,
+    SOURCE_CURRENT,
     SOURCE_CUSTOM,
     SOURCE_DEFAULT,
     SOURCE_NONE,
@@ -138,3 +142,70 @@ class TestHasHeightSemantics:
     def test_explicit_height_grants_semantics_to_any_type(self) -> None:
         assert not has_height_semantics("GENERIC_RECTANGLE", {})
         assert has_height_semantics("GENERIC_RECTANGLE", {METADATA_KEY: 50.0})
+
+
+class TestCurrentHeightAnchor:
+    """US-E8 redesign: the plant's MEASURED current height drives shade.
+
+    The owner reported that shadows scaled only on the species max height
+    while the Plant Details "Current height" field did nothing at all.
+    """
+
+    def test_current_height_beats_species_max(self) -> None:
+        meta = {
+            "plant_species": {"max_height_cm": 500.0},
+            "plant_instance": {"current_height_cm": 120.0},
+        }
+        assert effective_height_cm("TREE", meta) == 120.0
+        assert height_source("TREE", meta) == SOURCE_CURRENT
+
+    def test_explicit_override_still_wins(self) -> None:
+        meta = {
+            METADATA_KEY: 90.0,
+            "plant_species": {"max_height_cm": 500.0},
+            "plant_instance": {"current_height_cm": 120.0},
+        }
+        assert effective_height_cm("TREE", meta) == 90.0
+        assert height_source("TREE", meta) == SOURCE_CUSTOM
+
+    def test_dated_plant_grows_from_current_to_max(self) -> None:
+        meta = {
+            "plant_species": {"max_height_cm": 500.0},
+            "plant_instance": {
+                "planting_date": "2026-01-01",
+                "current_height_cm": 100.0,
+            },
+        }
+        # TREE horizon is 10 y, so 2031 is the halfway point.
+        assert effective_height_cm(
+            "TREE", meta, at_date=date(2026, 1, 1)
+        ) == pytest.approx(100.0)
+        assert effective_height_cm(
+            "TREE", meta, at_date=date(2031, 1, 1)
+        ) == pytest.approx(300.0, abs=2.0)
+        assert effective_height_cm(
+            "TREE", meta, at_date=date(2050, 1, 1)
+        ) == pytest.approx(500.0)
+
+    def test_measured_plant_without_species_still_has_height(self) -> None:
+        """A species lookup MISS is a supported state (the plant falls back
+        to the API search button). A height the user measured by hand must
+        still cast a shadow — and must agree with height_source, which
+        reports SOURCE_CURRENT whether or not a species is attached.
+        """
+        meta = {"plant_instance": {"current_height_cm": 200.0}}
+        assert effective_height_cm("TREE", meta) == 200.0
+        assert effective_height_cm("TREE", meta, at_date=date(2031, 1, 1)) == 200.0
+        assert height_source("TREE", meta) == SOURCE_CURRENT
+
+    def test_species_less_unmeasured_plant_still_has_no_height(self) -> None:
+        assert effective_height_cm("TREE", {"plant_instance": {}}) is None
+        assert height_source("TREE", {"plant_instance": {}}) == SOURCE_NONE
+
+    def test_unmeasured_plant_stays_mature_even_with_a_date(self) -> None:
+        meta = {
+            "plant_species": {"max_height_cm": 500.0},
+            "plant_instance": {"planting_date": "2026-01-01"},
+        }
+        assert effective_height_cm("TREE", meta, at_date=date(2031, 1, 1)) == 500.0
+        assert height_source("TREE", meta) == SOURCE_SPECIES

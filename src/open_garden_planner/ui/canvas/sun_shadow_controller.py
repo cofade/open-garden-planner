@@ -31,7 +31,7 @@ from __future__ import annotations
 import contextlib
 import math
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from PyQt6.QtCore import QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
@@ -199,12 +199,57 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         painter.restore()
 
 
-def _item_footprints(item: Any) -> list[Polygon]:
+def _plant_canopy_radius_cm(item: Any, at_date: date | None) -> float | None:
+    """The plant's measured/projected canopy RADIUS in cm, else None.
+
+    Absolute, not a scale of the drawn circle — deliberately mirroring the
+    height rule so both measured fields mean literal centimetres: type a
+    100 cm spread and the shadow canopy is 100 cm wide. A proportional
+    scale was wrong on two counts: the drawn circle is only the mature
+    canopy when a species was applied to an EXISTING plant (#213), whereas
+    the gallery drop uses a fixed 200/100/60 cm default, and clamping the
+    scale to ≤1 capped canopy growth at the drawn size so a plant could
+    never grow past its placeholder circle.
+
+    None means "no measurement" — callers keep the drawn radius. Display
+    only; the stored item geometry is never touched (#218/#219).
+    """
+    from open_garden_planner.core.growth_model import (
+        current_spread_from_metadata,
+        effective_current_spread_cm,
+        grown_spread_cm,
+    )
+
+    metadata = getattr(item, "metadata", None)
+    species = (metadata or {}).get("plant_species")
+    if at_date is not None and isinstance(species, dict):
+        object_type = getattr(item, "object_type", None)
+        grown = grown_spread_cm(
+            species, metadata, at_date, getattr(object_type, "name", "")
+        )
+        if grown is not None:
+            return grown / 2.0
+    # Works with no species attached too (an unknown/custom name is a
+    # supported state) — same rule as the height resolver. With a species,
+    # a measured HEIGHT alone also implies a spread, so a plant measured in
+    # one dimension does not render as a pancake.
+    current = (
+        effective_current_spread_cm(species, metadata)
+        if isinstance(species, dict)
+        else current_spread_from_metadata(metadata)
+    )
+    if current is not None:
+        return current / 2.0
+    return None
+
+
+def _item_footprints(item: Any, at_date: date | None = None) -> list[Polygon]:
     """Scene-space footprint polygon(s) of one canvas item.
 
     Vertices are mapped through the item's own transform (``mapToScene``),
     so rotation/position are Qt's answer, not a re-derivation — the
-    #218/#219 geometry lessons.
+    #218/#219 geometry lessons. ``at_date`` (US-E8) resizes a measured
+    plant's canopy circle to its projected spread — display/shadow only.
     """
     from open_garden_planner.ui.canvas.items.circle_item import CircleItem
     from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
@@ -214,7 +259,10 @@ def _item_footprints(item: Any) -> list[Polygon]:
 
     if isinstance(item, CircleItem):
         center = item.mapToScene(item.center)
-        return [circle_footprint(center.x(), center.y(), item.radius)]
+        radius = _plant_canopy_radius_cm(item, at_date)
+        if radius is None:
+            radius = item.radius
+        return [circle_footprint(center.x(), center.y(), radius)]
     if isinstance(item, EllipseItem):
         rect = item.rect()
         cx, cy = rect.center().x(), rect.center().y()
@@ -249,11 +297,13 @@ def _item_footprints(item: Any) -> list[Polygon]:
 
 def collect_shadow_casters(
     scene: QGraphicsScene,
+    at_date: date | None = None,
 ) -> list[tuple[Polygon, float]]:
     """Snapshot every visible item with an effective height as (footprint, h).
 
     Plain-data output — the same snapshot shape the US-E4 worker thread
-    consumes (never live QGraphicsItems).
+    consumes (never live QGraphicsItems). ``at_date`` (US-E8) projects
+    dated plants to their grown height AND canopy spread at that date.
     """
     casters: list[tuple[Polygon, float]] = []
     for item in scene.items():
@@ -262,10 +312,12 @@ def collect_shadow_casters(
         object_type = getattr(item, "object_type", None)
         if object_type is None:
             continue
-        height = effective_height_cm(object_type, getattr(item, "metadata", None))
+        height = effective_height_cm(
+            object_type, getattr(item, "metadata", None), at_date=at_date
+        )
         if height is None:
             continue
-        for footprint in _item_footprints(item):
+        for footprint in _item_footprints(item, at_date):
             if len(footprint) >= 3:
                 casters.append((footprint, height))
     return casters
@@ -361,7 +413,11 @@ class SunShadowController(QObject):
             self._show_night_overlay(canvas_rect)
             self._set_state(STATE_NIGHT)
             return
-        casters = collect_shadow_casters(self._scene)
+        # US-E8: the sim instant doubles as the growth timeline — dated
+        # plants cast their date-projected (grown) shadows.
+        casters = collect_shadow_casters(
+            self._scene, at_date=self._sim_dt_utc.date()
+        )
         canvas_key = (
             (round(canvas_rect.width(), 3), round(canvas_rect.height(), 3))
             if canvas_rect is not None

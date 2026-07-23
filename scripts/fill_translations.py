@@ -1436,6 +1436,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Custom height (0 = back to automatic)":
             "Eigene Höhe (0 = zurück zu automatisch)",
         "From container fill height": "Aus Gefäß-Füllhöhe",
+        "From measured current height": "Aus gemessener aktueller Höhe",
         "From assigned species (max height)":
             "Aus zugewiesener Pflanzenart (max. Höhe)",
         "Default for this object type": "Standard für diesen Objekttyp",

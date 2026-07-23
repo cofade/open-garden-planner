@@ -81,6 +81,66 @@ class TestSnapshot:
         assert collect_scene3d_records(plan_scene) == []
 
 
+class TestGrowthIn3D:
+    """US-E8: the 3D snapshot shares the growth timeline."""
+
+    def test_records_project_height_and_spread(self, qtbot) -> None:  # noqa: ARG002
+        from datetime import date
+
+        scene = CanvasScene(1000.0, 800.0)
+        tree = CircleItem(300, 300, 200, object_type=ObjectType.TREE)
+        tree.metadata["plant_species"] = {
+            "min_height_cm": 100.0,
+            "max_height_cm": 500.0,
+            "min_spread_cm": 50.0,
+            "max_spread_cm": 400.0,
+        }
+        # US-E8 redesign: the plant's OWN measured size anchors the curve.
+        tree.metadata["plant_instance"] = {
+            "planting_date": "2026-01-01",
+            "current_height_cm": 100.0,
+            "current_spread_cm": 50.0,
+        }
+        scene.addItem(tree)
+
+        young = collect_scene3d_records(scene, at_date=date(2026, 1, 1))
+        mature = collect_scene3d_records(scene, at_date=date(2040, 1, 1))
+        undated = collect_scene3d_records(scene)
+        assert young[0].height_cm == pytest.approx(100.0)
+        assert mature[0].height_cm == pytest.approx(500.0)
+        # No date → the measured current height still wins over the mature
+        # max ("current height anchors it" applies with or without a date).
+        assert undated[0].height_cm == pytest.approx(100.0)
+        # Canopy footprint shrinks for the young tree (spread 50 vs 400).
+        young_xs = [x for x, _ in young[0].footprint]
+        mature_xs = [x for x, _ in mature[0].footprint]
+        assert (max(young_xs) - min(young_xs)) < (
+            max(mature_xs) - min(mature_xs)
+        )
+
+    def test_unmeasured_plant_stays_mature_at_every_date(self, qtbot) -> None:  # noqa: ARG002
+        """No current height → growth disengages, mature size everywhere.
+
+        Pins the owner-chosen fallback: a plant the user never measured
+        behaves exactly as it did before US-E8.
+        """
+        from datetime import date
+
+        scene = CanvasScene(1000.0, 800.0)
+        tree = CircleItem(300, 300, 200, object_type=ObjectType.TREE)
+        tree.metadata["plant_species"] = {
+            "min_height_cm": 100.0,
+            "max_height_cm": 500.0,
+            "max_spread_cm": 400.0,
+        }
+        tree.metadata["plant_instance"] = {"planting_date": "2026-01-01"}
+        scene.addItem(tree)
+
+        for at in (date(2026, 1, 1), date(2040, 1, 1), None):
+            records = collect_scene3d_records(scene, at_date=at)
+            assert records[0].height_cm == pytest.approx(500.0)
+
+
 class TestStartupCost:
     def test_app_construction_does_not_import_qt3d(self, qtbot) -> None:
         """ADR-038: Qt3D loads only behind the 3D-view menu action —
@@ -142,18 +202,28 @@ class TestAppWorkflow:
         assert berlin_noon_sun[2] == pytest.approx(0.8598, abs=0.001)
 
         # Sim-time forwarding: the datetime slot must move the light.
+        # US-E8: a changed DATE must ALSO rebuild the geometry, or scrubbing
+        # the years would move the sun over frozen, never-growing plants.
         win._on_sun_sim_datetime(datetime(2026, 12, 21, 12, 0, tzinfo=UTC))
         assert window.adapter.last_sun_scene != berlin_noon_sun
+        assert window.adapter.rebuild_count == 2
+
+        # ...but a time-of-day change on the SAME date moves the light only:
+        # the toolbar scrubs through times and growth is keyed on the day.
+        sun_before = window.adapter.last_sun_scene
+        win._on_sun_sim_datetime(datetime(2026, 12, 21, 14, 0, tzinfo=UTC))
+        assert window.adapter.last_sun_scene != sun_before
+        assert window.adapter.rebuild_count == 2
 
         # Refresh through the window's own action wiring.
         window.refresh_requested.emit()
-        assert window.adapter.rebuild_count == 2
+        assert window.adapter.rebuild_count == 3
 
         # Re-triggering the menu while the viewer is still OPEN refreshes and
         # raises the SAME window (live swapchain — no recreate).
         win._view3d_action.trigger()
         assert win._view3d_window is window
-        assert window.adapter.rebuild_count == 3
+        assert window.adapter.rebuild_count == 4
 
         # Closing nulls the open reference (so 'is open' guards read true and
         # sun/refresh updates stop targeting it); the hidden window is retired
