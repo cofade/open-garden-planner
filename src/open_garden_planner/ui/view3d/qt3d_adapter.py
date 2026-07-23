@@ -348,7 +348,7 @@ class Garden3DView:
 
     def _add_prism(self, parent: QEntity, record: Scene3DRecord) -> None:
         positions, normals = extrude_footprint(
-            list(record.footprint), record.height_cm
+            list(record.footprint), record.height_cm, base_cm=record.base_cm
         )
         if not positions:
             return

@@ -139,6 +139,36 @@ class TestRecords:
         assert records[1].height_cm == FLAT_THICKNESS_CM
 
 
+class TestDecalStacking:
+    def test_decals_lift_and_step_extruded_on_ground(self) -> None:
+        from open_garden_planner.core.scene3d import (
+            DECAL_LIFT_CM,
+            DECAL_STACK_STEP_CM,
+        )
+
+        records = records_from_raw(
+            [
+                {"footprint": SQUARE, "height_cm": None, "name": "lawn",
+                 "color_rgba": (0, 128, 0, 255)},       # bottom decal
+                {"footprint": SQUARE, "height_cm": None, "name": "path",
+                 "color_rgba": (128, 128, 128, 255)},   # next decal up
+                {"footprint": SQUARE, "height_cm": 300.0, "name": "wall",
+                 "color_rgba": (200, 200, 200, 255)},   # extruded object
+            ]
+        )
+        assert records[0].base_cm == pytest.approx(DECAL_LIFT_CM)
+        assert records[1].base_cm == pytest.approx(
+            DECAL_LIFT_CM + DECAL_STACK_STEP_CM
+        )
+        assert records[2].base_cm == 0.0  # extruded sits on the ground
+
+    def test_base_cm_lifts_the_geometry(self) -> None:
+        positions, _ = extrude_footprint(SQUARE, 2.0, base_cm=5.0)
+        zs = positions[2::3]
+        assert min(zs) == pytest.approx(5.0)
+        assert max(zs) == pytest.approx(7.0)
+
+
 class TestSunLight:
     def test_berlin_june_noon_gate_vector(self) -> None:
         position = solar_position(
