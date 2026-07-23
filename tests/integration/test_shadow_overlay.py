@@ -417,11 +417,14 @@ class TestGrowthCoupledShadows:
             collect_shadow_casters,
         )
 
-        tree = CircleItem(200, 200, 200, object_type=ObjectType.TREE)
+        # Drawn circle is deliberately 100 cm across while the species
+        # matures at 400 — the gallery drop uses a fixed default size, so
+        # "drawn == mature spread" (#213) does NOT hold on that path.
+        tree = CircleItem(200, 200, 50, object_type=ObjectType.TREE)
         tree.metadata["plant_species"] = dict(self.SPECIES)
         tree.metadata["plant_instance"] = {
             "current_height_cm": 120.0,
-            "current_spread_cm": 50.0,
+            "current_spread_cm": 150.0,
         }
         scene.addItem(tree)
 
@@ -430,9 +433,34 @@ class TestGrowthCoupledShadows:
         footprint, height = casters[0]
         assert height == pytest.approx(120.0)  # NOT the 500 cm species max
         xs = [x for x, _ in footprint]
-        # Drawn diameter is 400 (mature spread); the shadow follows the
-        # measured 50 cm canopy instead.
-        assert (max(xs) - min(xs)) == pytest.approx(50.0, abs=2.0)
+        # ABSOLUTE, like height: a typed 150 cm spread is a 150 cm canopy,
+        # not a fraction of the 100 cm drawn circle.
+        assert (max(xs) - min(xs)) == pytest.approx(150.0, abs=2.0)
+
+    def test_canopy_grows_past_the_drawn_circle(self, qtbot, scene) -> None:  # noqa: ARG002
+        """A placeholder-sized circle must not cap canopy growth.
+
+        The earlier proportional model clamped the scale to ≤1, so a tree
+        dropped at the default 200 cm could never shadow wider than that
+        however large its species grows.
+        """
+        from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+        from open_garden_planner.ui.canvas.sun_shadow_controller import (
+            collect_shadow_casters,
+        )
+
+        tree = CircleItem(200, 200, 50, object_type=ObjectType.TREE)  # 100 cm drawn
+        tree.metadata["plant_species"] = dict(self.SPECIES)  # matures at 400 cm
+        tree.metadata["plant_instance"] = {
+            "planting_date": "2026-01-01",
+            "current_height_cm": 100.0,
+            "current_spread_cm": 50.0,
+        }
+        scene.addItem(tree)
+
+        footprint, _ = collect_shadow_casters(scene, at_date=date(2060, 1, 1))[0]
+        xs = [x for x, _ in footprint]
+        assert (max(xs) - min(xs)) == pytest.approx(400.0, abs=2.0)
 
     def test_unmeasured_plants_unchanged(self, qtbot, scene) -> None:  # noqa: ARG002
         """A dated but UN-measured plant keeps its mature size at every

@@ -199,39 +199,41 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         painter.restore()
 
 
-def _growth_footprint_scale(item: Any, at_date: date | None) -> float:
-    """Canopy scale for a plant circle at ``at_date`` (1.0 = as drawn).
+def _plant_canopy_radius_cm(item: Any, at_date: date | None) -> float | None:
+    """The plant's measured/projected canopy RADIUS in cm, else None.
 
-    The DRAWN circle is the mature canopy (diameter == max_spread, #213).
-    Mirroring the height rule ("current size anchors it"): with ``at_date``
-    the footprint follows the date-projected spread (current→max); without
-    a date it still shrinks to the plant's measured ``current_spread_cm``
-    if set. Display-only — the stored item geometry is never touched
-    (#218/#219).
+    Absolute, not a scale of the drawn circle — deliberately mirroring the
+    height rule so both measured fields mean literal centimetres: type a
+    100 cm spread and the shadow canopy is 100 cm wide. A proportional
+    scale was wrong on two counts: the drawn circle is only the mature
+    canopy when a species was applied to an EXISTING plant (#213), whereas
+    the gallery drop uses a fixed 200/100/60 cm default, and clamping the
+    scale to ≤1 capped canopy growth at the drawn size so a plant could
+    never grow past its placeholder circle.
+
+    None means "no measurement" — callers keep the drawn radius. Display
+    only; the stored item geometry is never touched (#218/#219).
     """
-    metadata = getattr(item, "metadata", None)
-    species = (metadata or {}).get("plant_species")
-    if not isinstance(species, dict):
-        return 1.0
-    mature = species.get("max_spread_cm")
-    if not isinstance(mature, (int, float)) or mature <= 0:
-        return 1.0
     from open_garden_planner.core.growth_model import (
         current_spread_from_metadata,
         grown_spread_cm,
     )
 
-    if at_date is not None:
+    metadata = getattr(item, "metadata", None)
+    species = (metadata or {}).get("plant_species")
+    if at_date is not None and isinstance(species, dict):
         object_type = getattr(item, "object_type", None)
         grown = grown_spread_cm(
             species, metadata, at_date, getattr(object_type, "name", "")
         )
         if grown is not None:
-            return max(0.02, min(1.0, grown / float(mature)))
+            return grown / 2.0
+    # Works with no species attached too (an unknown/custom name is a
+    # supported state) — same rule as the height resolver.
     current = current_spread_from_metadata(metadata)
     if current is not None:
-        return max(0.02, min(1.0, current / float(mature)))
-    return 1.0
+        return current / 2.0
+    return None
 
 
 def _item_footprints(item: Any, at_date: date | None = None) -> list[Polygon]:
@@ -239,7 +241,7 @@ def _item_footprints(item: Any, at_date: date | None = None) -> list[Polygon]:
 
     Vertices are mapped through the item's own transform (``mapToScene``),
     so rotation/position are Qt's answer, not a re-derivation — the
-    #218/#219 geometry lessons. ``at_date`` (US-E8) shrinks a dated
+    #218/#219 geometry lessons. ``at_date`` (US-E8) resizes a measured
     plant's canopy circle to its projected spread — display/shadow only.
     """
     from open_garden_planner.ui.canvas.items.circle_item import CircleItem
@@ -250,8 +252,10 @@ def _item_footprints(item: Any, at_date: date | None = None) -> list[Polygon]:
 
     if isinstance(item, CircleItem):
         center = item.mapToScene(item.center)
-        scale = _growth_footprint_scale(item, at_date)
-        return [circle_footprint(center.x(), center.y(), item.radius * scale)]
+        radius = _plant_canopy_radius_cm(item, at_date)
+        if radius is None:
+            radius = item.radius
+        return [circle_footprint(center.x(), center.y(), radius)]
     if isinstance(item, EllipseItem):
         rect = item.rect()
         cx, cy = rect.center().x(), rect.center().y()
