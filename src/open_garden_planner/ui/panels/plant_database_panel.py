@@ -1026,6 +1026,14 @@ class PlantDatabasePanel(QWidget):
         else:
             self._current_plant_item.metadata["plant_instance"][key] = value
 
+        # A metadata-only write repaints nothing, so QGraphicsScene.changed
+        # never fires; and because this edit bypasses the command manager,
+        # stack_changed does not fire either. Derived overlays subscribe to
+        # exactly those two, so without this nudge the sun/shade shadow keeps
+        # showing the OLD size after the user edits Current height/spread
+        # (US-E8 reads both straight off this dict). See §11.4.
+        self._current_plant_item.update()
+
         # Mark project as dirty
         scene = self._current_plant_item.scene()
         if scene and hasattr(scene, "views"):

@@ -272,6 +272,30 @@ class TestPlantingDateDefault:
             == date.today().isoformat()
         )
 
+    def test_tool_drawn_plant_without_species_still_gets_a_date(
+        self, canvas: CanvasView
+    ) -> None:
+        """A species-less placeholder must not be a permanent dead end.
+
+        It needs a date NOW so that assigning a species later makes growth
+        work immediately — the stamp therefore sits outside the species
+        guard at both creation sites.
+        """
+        canvas.set_active_tool(ToolType.TREE)
+        tool = canvas.tool_manager.active_tool
+        assert isinstance(tool, CircleTool)
+
+        self._click(tool, 300, 300)
+        self._click(tool, 350, 300)
+
+        item = _find_circle(canvas)
+        assert item is not None
+        assert "plant_species" not in item.metadata  # no species was chosen
+        assert (
+            item.metadata["plant_instance"]["planting_date"]
+            == date.today().isoformat()
+        )
+
     def test_current_height_is_not_invented(self, canvas: CanvasView) -> None:
         """Only the DATE is defaulted — an un-measured plant must keep
         showing its mature size (growth stays disengaged until the user

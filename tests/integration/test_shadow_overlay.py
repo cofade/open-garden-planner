@@ -480,24 +480,30 @@ class TestGrowthCoupledShadows:
             assert height == pytest.approx(500.0)
 
     def test_undated_plants_unchanged(self, qtbot, scene) -> None:  # noqa: ARG002
-        """No planting date → mature size at every sim date — behavior
-        identical to pre-E8 (the compatibility contract)."""
+        """No ``plant_instance`` at all → mature size at every sim date, the
+        pre-E8 compatibility contract.
+
+        Asserted on the CASTER snapshot rather than the painted path: the
+        rendered shadow drifts with the sun's own year-to-year declination /
+        equation-of-time wobble (~11 cm per 0.1° for a 500 cm caster here),
+        so a bounding-box tolerance measures solar noise instead of growth
+        and is one solar-model tweak away from flaking.
+        """
         from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+        from open_garden_planner.ui.canvas.sun_shadow_controller import (
+            collect_shadow_casters,
+        )
 
         tree = CircleItem(200, 200, 200, object_type=ObjectType.TREE)
         tree.metadata["plant_species"] = dict(self.SPECIES)
         scene.addItem(tree)
-        controller = SunShadowController(scene, lambda: BERLIN)
-        controller.set_sim_datetime(datetime(2026, 6, 21, 12, 0, tzinfo=UTC))
-        controller.set_enabled(True)
-        first = controller._overlay.path().boundingRect()
-        controller.set_sim_datetime(datetime(2031, 6, 21, 12, 0, tzinfo=UTC))
-        # The sun differs microscopically year-to-year (declination/EoT
-        # drift), so a recompute may fire — but with no growth data the
-        # shadow itself must be unchanged to sub-centimeter precision.
-        second = controller._overlay.path().boundingRect()
-        assert second.width() == pytest.approx(first.width(), abs=1.0)
-        assert second.height() == pytest.approx(first.height(), abs=1.0)
+
+        for at in (date(2026, 6, 21), date(2031, 6, 21), None):
+            footprint, height = collect_shadow_casters(scene, at_date=at)[0]
+            assert height == pytest.approx(500.0)
+            xs = [x for x, _ in footprint]
+            # Unmeasured → the drawn circle (diameter 400) is the canopy.
+            assert (max(xs) - min(xs)) == pytest.approx(400.0, abs=2.0)
 
 
 class TestPerf:

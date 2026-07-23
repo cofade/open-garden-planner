@@ -1819,14 +1819,17 @@ class CanvasView(QGraphicsView):
                     populate_item_species_metadata,
                 )
                 populate_item_species_metadata(item, species)
-                # US-E8: stamp today's planting date so growth-over-time
-                # engages for the new plant without a Plant Details visit.
-                from datetime import date  # noqa: PLC0415
 
-                from open_garden_planner.core.growth_model import (  # noqa: PLC0415
-                    stamp_default_planting_date,
-                )
-                stamp_default_planting_date(item.metadata, date.today())
+            # US-E8: EVERY new plant gets today's planting date — deliberately
+            # OUTSIDE the species guard, so a placeholder that gains a species
+            # later is not left permanently undated. This branch is only
+            # reached for TREE/SHRUB/PERENNIAL.
+            from datetime import date  # noqa: PLC0415
+
+            from open_garden_planner.core.growth_model import (  # noqa: PLC0415
+                stamp_default_planting_date,
+            )
+            stamp_default_planting_date(item.metadata, date.today())
 
             # Assign to active layer
             active_layer = self._canvas_scene.active_layer

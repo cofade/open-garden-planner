@@ -179,8 +179,14 @@ class CircleTool(BaseTool):
                     populate_item_species_metadata,
                 )
                 populate_item_species_metadata(item, self._plant_species)
-                # US-E8: stamp today's planting date so growth-over-time
-                # engages for the new plant without a Plant Details visit.
+            # US-E8: every new PLANT gets today's planting date so growth
+            # engages without a Plant Details visit — species or not (a
+            # placeholder that gains a species later must not stay undated).
+            from open_garden_planner.core.plant_renderer import (  # noqa: PLC0415
+                is_plant_type,
+            )
+
+            if is_plant_type(self._object_type):
                 from datetime import date  # noqa: PLC0415
 
                 from open_garden_planner.core.growth_model import (  # noqa: PLC0415

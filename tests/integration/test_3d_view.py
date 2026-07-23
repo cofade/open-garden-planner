@@ -202,18 +202,28 @@ class TestAppWorkflow:
         assert berlin_noon_sun[2] == pytest.approx(0.8598, abs=0.001)
 
         # Sim-time forwarding: the datetime slot must move the light.
+        # US-E8: a changed DATE must ALSO rebuild the geometry, or scrubbing
+        # the years would move the sun over frozen, never-growing plants.
         win._on_sun_sim_datetime(datetime(2026, 12, 21, 12, 0, tzinfo=UTC))
         assert window.adapter.last_sun_scene != berlin_noon_sun
+        assert window.adapter.rebuild_count == 2
+
+        # ...but a time-of-day change on the SAME date moves the light only:
+        # the toolbar scrubs through times and growth is keyed on the day.
+        sun_before = window.adapter.last_sun_scene
+        win._on_sun_sim_datetime(datetime(2026, 12, 21, 14, 0, tzinfo=UTC))
+        assert window.adapter.last_sun_scene != sun_before
+        assert window.adapter.rebuild_count == 2
 
         # Refresh through the window's own action wiring.
         window.refresh_requested.emit()
-        assert window.adapter.rebuild_count == 2
+        assert window.adapter.rebuild_count == 3
 
         # Re-triggering the menu while the viewer is still OPEN refreshes and
         # raises the SAME window (live swapchain — no recreate).
         win._view3d_action.trigger()
         assert win._view3d_window is window
-        assert window.adapter.rebuild_count == 3
+        assert window.adapter.rebuild_count == 4
 
         # Closing nulls the open reference (so 'is open' guards read true and
         # sun/refresh updates stop targeting it); the hidden window is retired

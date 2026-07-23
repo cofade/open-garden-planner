@@ -36,7 +36,7 @@ steps. No new metadata key was added.
 from __future__ import annotations
 
 import contextlib
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 #: Default years to full size when the species carries no maturity data.
@@ -73,8 +73,16 @@ def current_height_from_metadata(metadata: dict[str, Any] | None) -> float | Non
 
 
 def current_spread_from_metadata(metadata: dict[str, Any] | None) -> float | None:
-    """The plant's user-measured current canopy spread (``plant_instance``)."""
-    return _instance_value(metadata, "current_spread_cm")
+    """The plant's user-measured current canopy spread (``plant_instance``).
+
+    Honours the legacy ``current_diameter_cm`` alias, like
+    ``PlantInstance.from_dict`` / the CSV export / the shopping list — else
+    an old plan would show a spread everywhere except the shadow.
+    """
+    value = _instance_value(metadata, "current_spread_cm")
+    if value is None:
+        value = _instance_value(metadata, "current_diameter_cm")
+    return value
 
 
 def stamp_default_planting_date(
@@ -98,6 +106,10 @@ def stamp_default_planting_date(
 
 
 def _parse_iso_date(value: Any) -> date | None:
+    # datetime subclasses date, so narrow it FIRST — otherwise a datetime
+    # would flow through and `at_date - planted` raises TypeError.
+    if isinstance(value, datetime):
+        return value.date()
     if isinstance(value, date):
         return value
     if isinstance(value, str) and value:

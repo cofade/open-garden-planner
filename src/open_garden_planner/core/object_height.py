@@ -18,10 +18,13 @@ Height precedence (ADR-037):
    a. with a species, a planting date AND a measured current height, and
       when ``at_date`` is given — the DATE-PROJECTED height from
       ``core/growth_model`` (current → species max over years-to-maturity);
-   b. else the plant's measured ``current_height_cm`` (``plant_instance``)
-      if set — the owner-chosen "current height anchors it" rule, so the
-      field the user types drives the shadow directly. Applies even with NO
-      species attached (an unknown/custom name is a supported state);
+   b. else the measured ``current_height_cm`` (``plant_instance``) if set —
+      the owner-chosen "current height anchors it" rule, so the field the
+      user types drives the shadow directly. Applies even with NO species
+      attached (an unknown/custom name is a supported state). NOTE this
+      rule is metadata-driven, not type-driven: any object carrying a
+      ``plant_instance`` height gets it. Only plant items are given that
+      metadata today, so the distinction is currently inert;
    c. else, with a species, its mature ``max_height_cm`` (the established
       linkage, cf. ``plant_sizing.sizing_for_item``).
 4. A per-object-type default (``DEFAULT_HEIGHTS_CM`` below).
