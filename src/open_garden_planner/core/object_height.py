@@ -46,7 +46,11 @@ from datetime import date
 from typing import Any
 
 from .container_model import container_height_cm
-from .growth_model import current_height_from_metadata, grown_height_cm
+from .growth_model import (
+    current_height_from_metadata,
+    effective_current_height_cm,
+    grown_height_cm,
+)
 
 METADATA_KEY = "object_height_cm"
 
@@ -115,6 +119,17 @@ def explicit_height_cm(metadata: dict[str, Any] | None) -> float | None:
     return _positive_number(metadata.get(METADATA_KEY))
 
 
+def _measured_height_cm(
+    name: str, species_dict: Any, metadata: dict[str, Any] | None
+) -> float | None:
+    """The plant's measured (or spread-implied) current height, else None."""
+    if name not in _PLANT_TYPE_NAMES:
+        return None
+    if isinstance(species_dict, dict):
+        return effective_current_height_cm(species_dict, metadata)
+    return current_height_from_metadata(metadata)
+
+
 def _species_height_cm(metadata: dict[str, Any] | None) -> float | None:
     if not metadata:
         return None
@@ -157,11 +172,11 @@ def effective_height_cm(
         grown = grown_height_cm(species_dict, metadata, at_date, name)
         if grown is not None:
             return grown
-    # Deliberately OUTSIDE the species branch: a plant whose species lookup
-    # missed (custom/unknown name — a supported state, it falls through to
-    # the API search button) still has a real measured height, and
-    # ``height_source`` reports SOURCE_CURRENT for it either way.
-    current = current_height_from_metadata(metadata)
+    # Outside the SPECIES branch (a plant whose species lookup missed still
+    # has a real measured height) but gated on the plant TYPE, so the rule
+    # can never silently change height resolution for some future non-plant
+    # that happens to acquire ``plant_instance`` metadata.
+    current = _measured_height_cm(name, species_dict, metadata)
     if current is not None:
         return current
     if isinstance(species_dict, dict):
@@ -184,7 +199,10 @@ def height_source(object_type: Any, metadata: dict[str, Any] | None) -> str:
     name = _type_name(object_type)
     if name in _CONTAINER_TYPE_NAMES:
         return SOURCE_CONTAINER
-    if current_height_from_metadata(metadata) is not None:
+    if (
+        _measured_height_cm(name, (metadata or {}).get("plant_species"), metadata)
+        is not None
+    ):
         return SOURCE_CURRENT
     if _species_height_cm(metadata) is not None:
         return SOURCE_SPECIES

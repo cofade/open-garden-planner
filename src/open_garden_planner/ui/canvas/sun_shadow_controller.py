@@ -216,6 +216,7 @@ def _plant_canopy_radius_cm(item: Any, at_date: date | None) -> float | None:
     """
     from open_garden_planner.core.growth_model import (
         current_spread_from_metadata,
+        effective_current_spread_cm,
         grown_spread_cm,
     )
 
@@ -229,8 +230,14 @@ def _plant_canopy_radius_cm(item: Any, at_date: date | None) -> float | None:
         if grown is not None:
             return grown / 2.0
     # Works with no species attached too (an unknown/custom name is a
-    # supported state) — same rule as the height resolver.
-    current = current_spread_from_metadata(metadata)
+    # supported state) — same rule as the height resolver. With a species,
+    # a measured HEIGHT alone also implies a spread, so a plant measured in
+    # one dimension does not render as a pancake.
+    current = (
+        effective_current_spread_cm(species, metadata)
+        if isinstance(species, dict)
+        else current_spread_from_metadata(metadata)
+    )
     if current is not None:
         return current / 2.0
     return None

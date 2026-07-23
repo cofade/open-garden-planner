@@ -57,10 +57,13 @@ def _settle(qtbot, controller) -> int:
     the first cut of these tests passed against the UNFIXED code.
     """
     previous = -1
-    while previous != controller.recompute_count:
+    for _ in range(20):  # bounded: an unbounded wait would HANG CI
+        if previous == controller.recompute_count:
+            return controller.recompute_count
         previous = controller.recompute_count
         qtbot.wait(250)  # > _DEBOUNCE_MS (150)
-    return controller.recompute_count
+    pytest.fail("the overlay never stopped re-triggering its own recompute")
+    return 0  # unreachable; keeps the return type honest
 
 
 class TestPanelEditReachesTheShadow:

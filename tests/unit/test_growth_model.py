@@ -17,6 +17,8 @@ from open_garden_planner.core.growth_model import (
     YEARS_TO_MATURITY_TREE,
     current_height_from_metadata,
     current_spread_from_metadata,
+    effective_current_height_cm,
+    effective_current_spread_cm,
     grown_height_cm,
     grown_spread_cm,
     planting_date_from_metadata,
@@ -64,15 +66,61 @@ class TestCurrentAnchoredCurve:
         # Species min is 30, but the plant was measured at 150.
         assert grown_height_cm(SPECIES, planted, date(2026, 4, 1)) == 150.0
 
-    def test_already_taller_than_mature_stays_flat_at_max(self) -> None:
+    def test_over_measured_plant_keeps_its_measurement(self) -> None:
+        """A plant measured beyond its species max is already mature — but
+        the MEASUREMENT wins, and the dated path must agree with the
+        undated one (which returns it as-is). Clamping down to the max here
+        made the properties panel read 250 while the shadow cast 200.
+        """
         planted = {
             "plant_instance": {
                 "planting_date": "2026-04-01",
                 "current_height_cm": 250.0,
             }
         }
-        assert grown_height_cm(SPECIES, planted, date(2026, 4, 1)) == 200.0
-        assert grown_height_cm(SPECIES, planted, date(2040, 1, 1)) == 200.0
+        assert grown_height_cm(SPECIES, planted, date(2026, 4, 1)) == 250.0
+        assert grown_height_cm(SPECIES, planted, date(2040, 1, 1)) == 250.0
+
+
+class TestHalfMeasuredPlants:
+    """Measuring ONE dimension must not leave the other at mature size.
+
+    Users measure one field far more readily than both; without coupling a
+    plant renders as an 8 m pole 1 m wide, or a 1.5 m pancake 6 m across.
+    """
+
+    SPECIES = {"max_height_cm": 800.0, "max_spread_cm": 600.0}
+
+    def test_spread_only_implies_a_height(self) -> None:
+        meta = {"plant_instance": {"current_spread_cm": 150.0}}
+        # 150/600 = a quarter grown → a quarter of the 800 cm max.
+        assert effective_current_height_cm(self.SPECIES, meta) == pytest.approx(
+            200.0
+        )
+
+    def test_height_only_implies_a_spread(self) -> None:
+        meta = {"plant_instance": {"current_height_cm": 200.0}}
+        assert effective_current_spread_cm(self.SPECIES, meta) == pytest.approx(
+            150.0
+        )
+
+    def test_measured_value_always_wins_over_the_implied_one(self) -> None:
+        meta = {
+            "plant_instance": {
+                "current_height_cm": 400.0,
+                "current_spread_cm": 100.0,
+            }
+        }
+        assert effective_current_height_cm(self.SPECIES, meta) == 400.0
+        assert effective_current_spread_cm(self.SPECIES, meta) == 100.0
+
+    def test_unmeasured_plant_implies_nothing(self) -> None:
+        assert effective_current_height_cm(self.SPECIES, {}) is None
+        assert effective_current_spread_cm(self.SPECIES, {}) is None
+
+    def test_implied_value_never_exceeds_the_species_max(self) -> None:
+        meta = {"plant_instance": {"current_spread_cm": 5000.0}}
+        assert effective_current_height_cm(self.SPECIES, meta) == 800.0
 
 
 class TestGrowthDisengages:
@@ -103,8 +151,17 @@ class TestMaturityHorizon:
 
     def test_days_to_maturity_wins_over_defaults(self) -> None:
         assert years_to_maturity(
-            {"days_to_maturity_min": 365, "days_to_maturity_max": 365}, "TREE"
+            {"days_to_maturity_min": 365, "days_to_maturity_max": 365}, "SHRUB"
         ) == pytest.approx(1.0)
+
+    def test_days_to_maturity_never_shortcuts_a_tree(self) -> None:
+        """days_to_maturity is days to HARVEST, not to full size — honouring
+        it for a tree would grow an 8 m specimen in a single season. No
+        bundled tree carries the field, but an API/custom record could.
+        """
+        assert years_to_maturity(
+            {"days_to_maturity_min": 150, "days_to_maturity_max": 150}, "TREE"
+        ) == YEARS_TO_MATURITY_TREE
 
     def test_annual_cycle_without_days_via_real_serializer(self) -> None:
         """Fixture built through the REAL PlantSpeciesData.to_dict() so the

@@ -85,6 +85,54 @@ def current_spread_from_metadata(metadata: dict[str, Any] | None) -> float | Non
     return value
 
 
+def _derive_from_other(
+    other_current: float | None,
+    other_max: Any,
+    this_max: Any,
+) -> float | None:
+    """Scale ``this_max`` by how far along its range the OTHER dimension is.
+
+    Users measure one field far more often than both (a shrub's spread is
+    easier to eyeball than its height). Without this, the unmeasured
+    dimension stays at the species maximum and the plant renders as a
+    nonsense shape — an 8 m pole 1 m wide, or a 1.5 m pancake 6 m across.
+    Proportional is the neutral assumption in the absence of data.
+    """
+    high_other = _positive(other_max)
+    high_this = _positive(this_max)
+    if other_current is None or high_other is None or high_this is None:
+        return None
+    return high_this * min(1.0, other_current / high_other)
+
+
+def effective_current_height_cm(
+    species: dict[str, Any], metadata: dict[str, Any] | None
+) -> float | None:
+    """The plant's current height — measured, else implied by its spread."""
+    measured = current_height_from_metadata(metadata)
+    if measured is not None:
+        return measured
+    return _derive_from_other(
+        current_spread_from_metadata(metadata),
+        species.get("max_spread_cm"),
+        species.get("max_height_cm"),
+    )
+
+
+def effective_current_spread_cm(
+    species: dict[str, Any], metadata: dict[str, Any] | None
+) -> float | None:
+    """The plant's current spread — measured, else implied by its height."""
+    measured = current_spread_from_metadata(metadata)
+    if measured is not None:
+        return measured
+    return _derive_from_other(
+        current_height_from_metadata(metadata),
+        species.get("max_height_cm"),
+        species.get("max_spread_cm"),
+    )
+
+
 def stamp_default_planting_date(
     metadata: dict[str, Any] | None, today: date
 ) -> None:
@@ -137,7 +185,11 @@ def years_to_maturity(
     days: list[float] = [
         float(d) for d in (days_min, days_max) if _is_number(d) and d > 0
     ]
-    if days:
+    # days_to_maturity is days to HARVEST, not days to full size. For a tree
+    # that would grow an 8 m specimen in a single season, so trees always use
+    # the decade default. No bundled tree carries the field today, but an
+    # API-sourced or custom fruit-tree record easily could.
+    if days and object_type_name != "TREE":
         return max(sum(days) / len(days) / 365.0, 1.0 / 365.0)
     if object_type_name == "TREE":
         return YEARS_TO_MATURITY_TREE
@@ -180,9 +232,14 @@ def _grown_dimension(
     )
     if fraction is None:
         return None
-    # An already-mature (or over-measured) plant stays flat at its max.
-    low = min(current, high)
-    return low + (high - low) * fraction
+    # A plant measured at or beyond its species maximum is simply already
+    # mature. Return the MEASUREMENT rather than clamping down to the max:
+    # silently shrinking it would make this dated path disagree with the
+    # undated one (which returns the measured value as-is), so the
+    # properties panel would read 900 cm while the shadow cast 800.
+    if current >= high:
+        return current
+    return current + (high - current) * fraction
 
 
 def grown_height_cm(
@@ -198,7 +255,7 @@ def grown_height_cm(
         metadata,
         at_date,
         object_type_name,
-        current_height_from_metadata(metadata),
+        effective_current_height_cm(species, metadata),
         species.get("max_height_cm"),
     )
 
@@ -216,6 +273,6 @@ def grown_spread_cm(
         metadata,
         at_date,
         object_type_name,
-        current_spread_from_metadata(metadata),
+        effective_current_spread_cm(species, metadata),
         species.get("max_spread_cm"),
     )
