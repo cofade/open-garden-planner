@@ -23,6 +23,18 @@ from .shadow_geometry import Polygon
 #: Items without a height render as thin ground decals of this thickness.
 FLAT_THICKNESS_CM = 2.0
 
+#: Flat decals (paths, lawns, in-ground beds) are all coplanar at ground level,
+#: so the depth buffer z-fights between them and the ground. Lift them clear of
+#: the ground and step each one up the 2D stacking order so a higher layer
+#: renders ON TOP (matching the 2D "higher layer covers lower"), rather than
+#: intersecting. Small enough to still read as flat ground markings.
+DECAL_LIFT_CM = 1.0
+DECAL_STACK_STEP_CM = 1.0
+#: Cap the cumulative lift so a plan with many flat decals doesn't float its
+#: top paths so high they stop reading as ground markings (beyond this depth,
+#: overlapping decals are rare enough that residual z-fighting is acceptable).
+DECAL_MAX_LIFT_CM = 10.0
+
 
 class Scene3DRecord(NamedTuple):
     """One item of the plan, ready for the engine adapter."""
@@ -32,6 +44,7 @@ class Scene3DRecord(NamedTuple):
     color_rgba: tuple[int, int, int, int]
     kind: str  # "extruded" | "flat"
     name: str
+    base_cm: float = 0.0  # vertical lift (flat decals stack up the 2D order)
 
 
 def records_from_raw(
@@ -45,6 +58,7 @@ def records_from_raw(
     footprints (< 3 vertices) are dropped.
     """
     records: list[Scene3DRecord] = []
+    decal_rank = 0  # raw_items arrive bottom-to-top; step decals up that order
     for raw in raw_items:
         footprint = tuple(
             (float(x), float(y)) for x, y in raw.get("footprint", ())
@@ -53,9 +67,14 @@ def records_from_raw(
             continue
         height = raw.get("height_cm")
         if height is not None and height > 0:
-            kind, height_cm = "extruded", float(height)
+            kind, height_cm, base_cm = "extruded", float(height), 0.0
         else:
             kind, height_cm = "flat", FLAT_THICKNESS_CM
+            base_cm = min(
+                DECAL_LIFT_CM + decal_rank * DECAL_STACK_STEP_CM,
+                DECAL_MAX_LIFT_CM,
+            )
+            decal_rank += 1
         color = raw.get("color_rgba") or (150, 150, 150, 255)
         records.append(
             Scene3DRecord(
@@ -64,6 +83,7 @@ def records_from_raw(
                 color_rgba=tuple(int(c) for c in color),
                 kind=kind,
                 name=str(raw.get("name", "")),
+                base_cm=base_cm,
             )
         )
     return records

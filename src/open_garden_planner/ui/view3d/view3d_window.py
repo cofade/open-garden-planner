@@ -8,9 +8,9 @@ follows the US-E3 sim time control while the window is open.
 
 from __future__ import annotations
 
-from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtGui import QAction, QCloseEvent
-from PyQt6.QtWidgets import QMainWindow, QToolBar, QWidget
+from PyQt6.QtCore import QEvent, QObject, Qt, pyqtSignal
+from PyQt6.QtGui import QAction, QCloseEvent, QKeyEvent
+from PyQt6.QtWidgets import QLabel, QMainWindow, QToolBar, QWidget
 
 from open_garden_planner.core.scene3d import Scene3DRecord
 
@@ -39,7 +39,30 @@ class View3DWindow(QMainWindow):
         )
         refresh_action.triggered.connect(self.refresh_requested)
         toolbar.addAction(refresh_action)
+
+        # Walkthrough (US-E7): orbit ⇄ walk camera-mode toggle.
+        self._walk_action = QAction(self.tr("&Walk"), self)
+        self._walk_action.setCheckable(True)
+        self._walk_action.setStatusTip(
+            self.tr(
+                "Walk the garden at eye level — WASD/arrow keys move, hold "
+                "the left mouse button to look around, Esc exits"
+            )
+        )
+        self._walk_action.toggled.connect(self._on_walk_toggled)
+        toolbar.addAction(self._walk_action)
+
+        self._walk_hint = QLabel("", self)
+        self._walk_hint.setStyleSheet("color: #666; font-style: italic;")
+        self._walk_hint.setContentsMargins(12, 0, 0, 0)
+        toolbar.addWidget(self._walk_hint)
         self.addToolBar(toolbar)
+
+        # While walking, keyboard focus sits on the embedded Qt3DWindow (a
+        # foreign QWindow) — key events do NOT bubble to this QMainWindow's
+        # keyPressEvent, so Esc is caught by an event filter on the real
+        # focus target (senior review P1).
+        self._adapter.window_handle().installEventFilter(self)
 
     @property
     def adapter(self) -> Garden3DView:
@@ -56,6 +79,57 @@ class View3DWindow(QMainWindow):
     def set_sun(self, elevation_deg: float, azimuth_deg: float) -> None:
         self._adapter.set_sun(elevation_deg, azimuth_deg)
 
+    def _on_walk_toggled(self, checked: bool) -> None:
+        self._adapter.set_camera_mode("walk" if checked else "orbit")
+        self._walk_hint.setText(
+            self.tr("WASD/arrows move · hold left mouse to look · Esc exits")
+            if checked
+            else ""
+        )
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        # While walking, key events land on the embedded Qt3DWindow (a foreign
+        # QWindow), not this QMainWindow. Esc exits; WASD/arrow press+release
+        # feed the adapter's horizontal walk loop.
+        if (
+            watched is self._adapter.window_handle()
+            and self._adapter.camera_mode == "walk"
+        ):
+            if isinstance(event, QKeyEvent):
+                if event.type() == QEvent.Type.KeyPress:
+                    if event.key() == Qt.Key.Key_Escape:
+                        self._walk_action.setChecked(False)
+                        return True
+                    if not event.isAutoRepeat():
+                        self._adapter.walk_key_press(event.key())
+                elif (
+                    event.type() == QEvent.Type.KeyRelease
+                    and not event.isAutoRepeat()
+                ):
+                    self._adapter.walk_key_release(event.key())
+            elif event.type() == QEvent.Type.FocusOut:
+                # Focus left the 3D window (alt-tab, toolbar click): the
+                # KeyRelease for a held key never arrives, so drop held keys.
+                self._adapter.walk_clear_keys()
+        return super().eventFilter(watched, event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 — Qt override
+        # Esc when THIS QMainWindow holds focus (before the user has clicked
+        # into the 3D scene). The event filter above covers Esc once focus is
+        # on the embedded Qt3D window — two focus targets, both must exit.
+        if (
+            event.key() == Qt.Key.Key_Escape
+            and self._adapter.camera_mode == "walk"
+        ):
+            self._walk_action.setChecked(False)
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
     def closeEvent(self, event: QCloseEvent) -> None:
+        # Leave walk mode first — symmetric teardown (disconnects the
+        # clamp slots) instead of relying on C++-side disconnection.
+        if self._walk_action.isChecked():
+            self._walk_action.setChecked(False)
         self.closed.emit()
         super().closeEvent(event)

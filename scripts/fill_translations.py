@@ -2569,6 +2569,23 @@ for _ctx, _strings in _E6_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── US-E7: first-person walkthrough (#262) ──
+_E7_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "View3DWindow": {
+        "&Walk": "&Rundgang",
+        "Walk the garden at eye level — WASD/arrow keys move, hold "
+        "the left mouse button to look around, Esc exits":
+            "Durch den Garten auf Augenhöhe gehen — WASD/Pfeiltasten bewegen, "
+            "linke Maustaste gedrückt halten zum Umschauen, Esc beendet",
+        "WASD/arrows move · hold left mouse to look · Esc exits":
+            "WASD/Pfeile bewegen · linke Maustaste zum Umschauen · Esc beendet",
+    },
+}
+
+for _ctx, _strings in _E7_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)

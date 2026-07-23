@@ -37,7 +37,9 @@ def collect_scene3d_records(scene: QGraphicsScene) -> list[Scene3DRecord]:
     2D layout stays recognizable from above.
     """
     raw: list[dict] = []
-    for item in scene.items():
+    # Bottom-to-top stacking order (scene.items() is top-first) so flat decals
+    # can be lifted up the 2D layer order — a higher layer renders on top.
+    for item in reversed(scene.items()):
         if not item.isVisible():
             continue
         object_type = getattr(item, "object_type", None)
