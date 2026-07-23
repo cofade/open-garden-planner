@@ -1248,6 +1248,7 @@ class PropertiesPanel(QWidget):
         source_texts = {
             oh.SOURCE_CUSTOM: self.tr("Custom height (0 = back to automatic)"),
             oh.SOURCE_CONTAINER: self.tr("From container fill height"),
+            oh.SOURCE_CURRENT: self.tr("From measured current height"),
             oh.SOURCE_SPECIES: self.tr("From assigned species (max height)"),
             oh.SOURCE_DEFAULT: self.tr("Default for this object type"),
             oh.SOURCE_NONE: self.tr("No height — casts no shadow"),

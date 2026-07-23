@@ -202,12 +202,13 @@ class SunShadowOverlayItem(QGraphicsPathItem):
 def _growth_footprint_scale(item: Any, at_date: date | None) -> float:
     """Canopy scale for a plant circle at ``at_date`` (1.0 = as drawn).
 
-    The DRAWN circle is the mature canopy (diameter == max_spread, #213);
-    a dated plant's shadow footprint shrinks to its date-projected spread.
-    Display-only — the stored item geometry is never touched (#218/#219).
+    The DRAWN circle is the mature canopy (diameter == max_spread, #213).
+    Mirroring the height rule ("current size anchors it"): with ``at_date``
+    the footprint follows the date-projected spread (current→max); without
+    a date it still shrinks to the plant's measured ``current_spread_cm``
+    if set. Display-only — the stored item geometry is never touched
+    (#218/#219).
     """
-    if at_date is None:
-        return 1.0
     metadata = getattr(item, "metadata", None)
     species = (metadata or {}).get("plant_species")
     if not isinstance(species, dict):
@@ -215,15 +216,22 @@ def _growth_footprint_scale(item: Any, at_date: date | None) -> float:
     mature = species.get("max_spread_cm")
     if not isinstance(mature, (int, float)) or mature <= 0:
         return 1.0
-    from open_garden_planner.core.growth_model import grown_spread_cm
-
-    object_type = getattr(item, "object_type", None)
-    grown = grown_spread_cm(
-        species, metadata, at_date, getattr(object_type, "name", "")
+    from open_garden_planner.core.growth_model import (
+        current_spread_from_metadata,
+        grown_spread_cm,
     )
-    if grown is None:
-        return 1.0
-    return max(0.02, min(1.0, grown / float(mature)))
+
+    if at_date is not None:
+        object_type = getattr(item, "object_type", None)
+        grown = grown_spread_cm(
+            species, metadata, at_date, getattr(object_type, "name", "")
+        )
+        if grown is not None:
+            return max(0.02, min(1.0, grown / float(mature)))
+    current = current_spread_from_metadata(metadata)
+    if current is not None:
+        return max(0.02, min(1.0, current / float(mature)))
+    return 1.0
 
 
 def _item_footprints(item: Any, at_date: date | None = None) -> list[Polygon]:

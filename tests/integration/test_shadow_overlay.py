@@ -14,7 +14,7 @@ Pinned solar numbers (oracle, campaign appendix): Berlin 2026-06-21 12:00 UTC
 from __future__ import annotations
 
 import time
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 from PyQt6.QtCore import QRectF, Qt
@@ -345,7 +345,14 @@ class TestGrowthCoupledShadows:
 
         tree = CircleItem(200, 200, 200, object_type=ObjectType.TREE)
         tree.metadata["plant_species"] = dict(self.SPECIES)
-        tree.metadata["plant_instance"] = {"planting_date": "2026-01-01"}
+        # A MEASURED plant: the redesigned model interpolates from the
+        # plant's own current size up to the species max, so growth only
+        # engages when both a date and a current size are present.
+        tree.metadata["plant_instance"] = {
+            "planting_date": "2026-01-01",
+            "current_height_cm": 100.0,
+            "current_spread_cm": 50.0,
+        }
         scene.addItem(tree)
         return tree
 
@@ -401,6 +408,48 @@ class TestGrowthCoupledShadows:
         assert (
             loaded.metadata["plant_instance"]["planting_date"] == "2026-01-01"
         )
+
+    def test_measured_current_height_drives_the_caster(self, qtbot, scene) -> None:  # noqa: ARG002
+        """The owner's report: 'shadow scales only on max height, ignores
+        current height'. The measured size must win — even with no date."""
+        from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+        from open_garden_planner.ui.canvas.sun_shadow_controller import (
+            collect_shadow_casters,
+        )
+
+        tree = CircleItem(200, 200, 200, object_type=ObjectType.TREE)
+        tree.metadata["plant_species"] = dict(self.SPECIES)
+        tree.metadata["plant_instance"] = {
+            "current_height_cm": 120.0,
+            "current_spread_cm": 50.0,
+        }
+        scene.addItem(tree)
+
+        casters = collect_shadow_casters(scene)  # no date at all
+        assert casters, "the tree must still cast a shadow"
+        footprint, height = casters[0]
+        assert height == pytest.approx(120.0)  # NOT the 500 cm species max
+        xs = [x for x, _ in footprint]
+        # Drawn diameter is 400 (mature spread); the shadow follows the
+        # measured 50 cm canopy instead.
+        assert (max(xs) - min(xs)) == pytest.approx(50.0, abs=2.0)
+
+    def test_unmeasured_plants_unchanged(self, qtbot, scene) -> None:  # noqa: ARG002
+        """A dated but UN-measured plant keeps its mature size at every
+        date — growth stays disengaged until a current height is typed."""
+        from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+        from open_garden_planner.ui.canvas.sun_shadow_controller import (
+            collect_shadow_casters,
+        )
+
+        tree = CircleItem(200, 200, 200, object_type=ObjectType.TREE)
+        tree.metadata["plant_species"] = dict(self.SPECIES)
+        tree.metadata["plant_instance"] = {"planting_date": "2026-01-01"}
+        scene.addItem(tree)
+
+        for at in (date(2026, 1, 1), date(2040, 1, 1), None):
+            _, height = collect_shadow_casters(scene, at_date=at)[0]
+            assert height == pytest.approx(500.0)
 
     def test_undated_plants_unchanged(self, qtbot, scene) -> None:  # noqa: ARG002
         """No planting date → mature size at every sim date — behavior

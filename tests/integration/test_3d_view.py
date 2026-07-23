@@ -95,7 +95,12 @@ class TestGrowthIn3D:
             "min_spread_cm": 50.0,
             "max_spread_cm": 400.0,
         }
-        tree.metadata["plant_instance"] = {"planting_date": "2026-01-01"}
+        # US-E8 redesign: the plant's OWN measured size anchors the curve.
+        tree.metadata["plant_instance"] = {
+            "planting_date": "2026-01-01",
+            "current_height_cm": 100.0,
+            "current_spread_cm": 50.0,
+        }
         scene.addItem(tree)
 
         young = collect_scene3d_records(scene, at_date=date(2026, 1, 1))
@@ -103,13 +108,37 @@ class TestGrowthIn3D:
         undated = collect_scene3d_records(scene)
         assert young[0].height_cm == pytest.approx(100.0)
         assert mature[0].height_cm == pytest.approx(500.0)
-        assert undated[0].height_cm == pytest.approx(500.0)  # no date → mature
+        # No date → the measured current height still wins over the mature
+        # max ("current height anchors it" applies with or without a date).
+        assert undated[0].height_cm == pytest.approx(100.0)
         # Canopy footprint shrinks for the young tree (spread 50 vs 400).
         young_xs = [x for x, _ in young[0].footprint]
         mature_xs = [x for x, _ in mature[0].footprint]
         assert (max(young_xs) - min(young_xs)) < (
             max(mature_xs) - min(mature_xs)
         )
+
+    def test_unmeasured_plant_stays_mature_at_every_date(self, qtbot) -> None:  # noqa: ARG002
+        """No current height → growth disengages, mature size everywhere.
+
+        Pins the owner-chosen fallback: a plant the user never measured
+        behaves exactly as it did before US-E8.
+        """
+        from datetime import date
+
+        scene = CanvasScene(1000.0, 800.0)
+        tree = CircleItem(300, 300, 200, object_type=ObjectType.TREE)
+        tree.metadata["plant_species"] = {
+            "min_height_cm": 100.0,
+            "max_height_cm": 500.0,
+            "max_spread_cm": 400.0,
+        }
+        tree.metadata["plant_instance"] = {"planting_date": "2026-01-01"}
+        scene.addItem(tree)
+
+        for at in (date(2026, 1, 1), date(2040, 1, 1), None):
+            records = collect_scene3d_records(scene, at_date=at)
+            assert records[0].height_cm == pytest.approx(500.0)
 
 
 class TestStartupCost:

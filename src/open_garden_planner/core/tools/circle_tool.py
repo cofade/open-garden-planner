@@ -179,6 +179,14 @@ class CircleTool(BaseTool):
                     populate_item_species_metadata,
                 )
                 populate_item_species_metadata(item, self._plant_species)
+                # US-E8: stamp today's planting date so growth-over-time
+                # engages for the new plant without a Plant Details visit.
+                from datetime import date  # noqa: PLC0415
+
+                from open_garden_planner.core.growth_model import (  # noqa: PLC0415
+                    stamp_default_planting_date,
+                )
+                stamp_default_planting_date(item.metadata, date.today())
             self._view.add_item(item, "circle")
 
         self._reset_state()
