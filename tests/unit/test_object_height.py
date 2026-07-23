@@ -187,6 +187,21 @@ class TestCurrentHeightAnchor:
             "TREE", meta, at_date=date(2050, 1, 1)
         ) == pytest.approx(500.0)
 
+    def test_measured_plant_without_species_still_has_height(self) -> None:
+        """A species lookup MISS is a supported state (the plant falls back
+        to the API search button). A height the user measured by hand must
+        still cast a shadow — and must agree with height_source, which
+        reports SOURCE_CURRENT whether or not a species is attached.
+        """
+        meta = {"plant_instance": {"current_height_cm": 200.0}}
+        assert effective_height_cm("TREE", meta) == 200.0
+        assert effective_height_cm("TREE", meta, at_date=date(2031, 1, 1)) == 200.0
+        assert height_source("TREE", meta) == SOURCE_CURRENT
+
+    def test_species_less_unmeasured_plant_still_has_no_height(self) -> None:
+        assert effective_height_cm("TREE", {"plant_instance": {}}) is None
+        assert height_source("TREE", {"plant_instance": {}}) == SOURCE_NONE
+
     def test_unmeasured_plant_stays_mature_even_with_a_date(self) -> None:
         meta = {
             "plant_species": {"max_height_cm": 500.0},

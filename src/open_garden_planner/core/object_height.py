@@ -14,14 +14,15 @@ Height precedence (ADR-037):
    ``core/container_model``). NOTE: the two keys are deliberately distinct
    and never aliased: a tall pot on legs can have ``object_height_cm`` 90
    with a fill height of 30; the fill height keeps driving soil volume.
-3. Plants with an assigned species:
-   a. when ``at_date`` is given AND the plant has a planting date + a
-      measured current height — the DATE-PROJECTED height from
+3. Plants — in order:
+   a. with a species, a planting date AND a measured current height, and
+      when ``at_date`` is given — the DATE-PROJECTED height from
       ``core/growth_model`` (current → species max over years-to-maturity);
    b. else the plant's measured ``current_height_cm`` (``plant_instance``)
       if set — the owner-chosen "current height anchors it" rule, so the
-      field the user types drives the shadow directly;
-   c. else the species dict's mature ``max_height_cm`` (the established
+      field the user types drives the shadow directly. Applies even with NO
+      species attached (an unknown/custom name is a supported state);
+   c. else, with a species, its mature ``max_height_cm`` (the established
       linkage, cf. ``plant_sizing.sizing_for_item``).
 4. A per-object-type default (``DEFAULT_HEIGHTS_CM`` below).
 5. ``None`` — the object has no meaningful height and casts no shadow.
@@ -149,14 +150,18 @@ def effective_height_cm(
         # from in this slice; revisit when shadow accuracy matters (#258).
         return container_height_cm(metadata if metadata else None)
     species_dict = (metadata or {}).get("plant_species")
+    if isinstance(species_dict, dict) and at_date is not None:
+        grown = grown_height_cm(species_dict, metadata, at_date, name)
+        if grown is not None:
+            return grown
+    # Deliberately OUTSIDE the species branch: a plant whose species lookup
+    # missed (custom/unknown name — a supported state, it falls through to
+    # the API search button) still has a real measured height, and
+    # ``height_source`` reports SOURCE_CURRENT for it either way.
+    current = current_height_from_metadata(metadata)
+    if current is not None:
+        return current
     if isinstance(species_dict, dict):
-        if at_date is not None:
-            grown = grown_height_cm(species_dict, metadata, at_date, name)
-            if grown is not None:
-                return grown
-        current = current_height_from_metadata(metadata)
-        if current is not None:
-            return current
         mature = _positive_number(species_dict.get("max_height_cm"))
         if mature is not None:
             return mature
