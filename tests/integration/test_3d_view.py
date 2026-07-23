@@ -380,24 +380,41 @@ class TestWalkthrough:
         assert look_after.y() == pytest.approx(look_before.y())
         assert look_after.z() == pytest.approx(look_before.z())
 
-    def test_focus_out_drops_held_keys(
-        self, qtbot, plan_scene
-    ) -> None:  # noqa: ARG002
+    def test_focus_out_drops_held_keys(self, qtbot, plan_scene) -> None:
         """A held key whose KeyRelease is lost to a focus change must not keep
-        the walker drifting (senior-review P2)."""
-        from PyQt6.QtCore import Qt
+        the walker drifting — driven end-to-end through the event filter
+        (KeyPress + FocusOut on the embedded Qt3D window; senior-review P2)."""
+        from PyQt6.QtCore import QCoreApplication, QEvent, Qt
+        from PyQt6.QtGui import QFocusEvent, QKeyEvent
 
-        from open_garden_planner.ui.view3d.qt3d_adapter import Garden3DView
+        from open_garden_planner.ui.view3d.view3d_window import View3DWindow
 
-        adapter = Garden3DView()
-        adapter.rebuild(collect_scene3d_records(plan_scene), 1000.0, 800.0)
-        adapter.set_camera_mode("walk")
+        window = View3DWindow()
+        qtbot.addWidget(window)
+        window.rebuild(collect_scene3d_records(plan_scene), 1000.0, 800.0)
+        window._walk_action.setChecked(True)
+        adapter = window.adapter
+        target = adapter.window_handle()
+
+        # Hold W via the real event filter → the walker advances.
+        QCoreApplication.sendEvent(
+            target,
+            QKeyEvent(
+                QEvent.Type.KeyPress,
+                Qt.Key.Key_W,
+                Qt.KeyboardModifier.NoModifier,
+            ),
+        )
         camera = adapter._view.camera()
-        adapter.walk_key_press(Qt.Key.Key_W)
-        adapter.walk_clear_keys()  # the FocusOut path
-        z_before = camera.position().z()
+        z_start = camera.position().z()
         adapter._walk_move_tick()
-        assert camera.position().z() == pytest.approx(z_before)  # no drift
+        assert camera.position().z() != pytest.approx(z_start)  # it moved
+
+        # Focus leaves the 3D window → held key dropped, walker stops.
+        QCoreApplication.sendEvent(target, QFocusEvent(QEvent.Type.FocusOut))
+        z_stopped = camera.position().z()
+        adapter._walk_move_tick()
+        assert camera.position().z() == pytest.approx(z_stopped)  # no drift
 
     def test_close_mid_walk_is_clean(self, qtbot, plan_scene) -> None:
         from open_garden_planner.ui.view3d.view3d_window import View3DWindow
