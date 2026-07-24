@@ -10375,4 +10375,11 @@ Details: {error}</source>
 Details: {error}</translation>
         </message>
     </context>
+    <context>
+        <name>SunHeatmapController</name>
+        <message>
+            <source>{n} h</source>
+            <translation>{n} h</translation>
+        </message>
+    </context>
 </TS>
