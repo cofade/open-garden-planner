@@ -12,6 +12,7 @@ automatically. Misses fall through to the existing API search button.
 
 from __future__ import annotations
 
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
@@ -213,3 +214,94 @@ class TestAutopopulateUnlocksSoilWarnings:
 
         # AC: warnings fire automatically — bed is now flagged.
         assert bed._soil_mismatch_level in ("warning", "critical")
+
+
+# ---------------------------------------------------------------------------
+# US-E8: a freshly placed plant gets today's planting date
+
+
+class TestPlantingDateDefault:
+    """Both creation paths stamp ``plant_instance.planting_date`` = today.
+
+    Without this the growth-over-time timeline never engages: the owner
+    reported that placing a tree set no planting date and no current size,
+    so every plant shadowed at its mature height forever.
+    """
+
+    def _click(self, tool: CircleTool, x: float, y: float) -> None:
+        event = MagicMock()
+        event.button.return_value = Qt.MouseButton.LeftButton
+        event.buttons.return_value = Qt.MouseButton.LeftButton
+        event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+        tool.mouse_press(event, QPointF(x, y))
+
+    def test_gallery_drop_stamps_today(self, canvas: CanvasView) -> None:
+        _drop(canvas, "gallery:TREE:species=Solanum lycopersicum:category=fruit")
+
+        item = _find_circle(canvas)
+        assert item is not None
+        instance = item.metadata.get("plant_instance")
+        assert instance is not None, "a new plant must carry a planting date"
+        assert instance["planting_date"] == date.today().isoformat()
+
+    def test_tool_draw_stamps_today(self, canvas: CanvasView) -> None:
+        canvas.set_active_tool(ToolType.TREE)
+        tool = canvas.tool_manager.active_tool
+        assert isinstance(tool, CircleTool)
+
+        tool.set_plant_info(category=None, species="Capsicum annuum")
+        self._click(tool, 100, 100)
+        self._click(tool, 150, 100)
+
+        item = _find_circle(canvas)
+        assert item is not None
+        assert (
+            item.metadata["plant_instance"]["planting_date"]
+            == date.today().isoformat()
+        )
+
+    def test_unknown_species_still_gets_a_date(self, canvas: CanvasView) -> None:
+        """Species lookup misses, but a later assignment should just work."""
+        _drop(canvas, "gallery:TREE:species=Imaginus plantus:category=fruit")
+
+        item = _find_circle(canvas)
+        assert item is not None
+        assert "plant_species" not in item.metadata  # lookup missed
+        assert (
+            item.metadata["plant_instance"]["planting_date"]
+            == date.today().isoformat()
+        )
+
+    def test_tool_drawn_plant_without_species_still_gets_a_date(
+        self, canvas: CanvasView
+    ) -> None:
+        """A species-less placeholder must not be a permanent dead end.
+
+        It needs a date NOW so that assigning a species later makes growth
+        work immediately — the stamp therefore sits outside the species
+        guard at both creation sites.
+        """
+        canvas.set_active_tool(ToolType.TREE)
+        tool = canvas.tool_manager.active_tool
+        assert isinstance(tool, CircleTool)
+
+        self._click(tool, 300, 300)
+        self._click(tool, 350, 300)
+
+        item = _find_circle(canvas)
+        assert item is not None
+        assert "plant_species" not in item.metadata  # no species was chosen
+        assert (
+            item.metadata["plant_instance"]["planting_date"]
+            == date.today().isoformat()
+        )
+
+    def test_current_height_is_not_invented(self, canvas: CanvasView) -> None:
+        """Only the DATE is defaulted — an un-measured plant must keep
+        showing its mature size (growth stays disengaged until the user
+        types a current height)."""
+        _drop(canvas, "gallery:TREE:species=Solanum lycopersicum:category=fruit")
+
+        item = _find_circle(canvas)
+        assert item is not None
+        assert "current_height_cm" not in item.metadata["plant_instance"]

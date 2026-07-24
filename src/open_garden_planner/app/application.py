@@ -3063,6 +3063,7 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_sun_sim_datetime(self, dt) -> None:
         """A new sim instant from the toolbar — recompute the overlay."""
+        previous_date = self._sun_controller.sim_datetime_utc.date()
         self._sun_controller.set_sim_datetime(dt)
         # A daily heatmap goes stale when the DATE changes; a time-of-day
         # change leaves it valid (it aggregates the whole day).
@@ -3073,6 +3074,11 @@ class GardenPlannerApp(QMainWindow):
             self._sun_heatmap.clear()
             self._sun_toolbar.set_heatmap_active(False)
         if self._view3d_window is not None:
+            # US-E8: growth is keyed on the DATE, so rebuild the 3D geometry
+            # only when the day actually changes — the toolbar scrubs through
+            # times of day and a full scene rebuild per tick would be wasteful.
+            if self._sun_controller.sim_datetime_utc.date() != previous_date:
+                self._refresh_3d_view()
             self._apply_sun_to_3d()  # 3D light follows the sim time (US-E6)
 
     def _on_heatmap_requested(self) -> None:
@@ -3156,7 +3162,24 @@ class GardenPlannerApp(QMainWindow):
             self._view3d_window.activateWindow()
             return
 
-        from open_garden_planner.ui.view3d.view3d_window import View3DWindow
+        try:
+            from open_garden_planner.ui.view3d.view3d_window import View3DWindow
+        except ImportError as exc:
+            # The Qt3D bindings load lazily (ADR-038 import boundary). A frozen
+            # build whose core Qt micro drifted from the Qt3D wheels (issue
+            # #277) fails HERE with a DLL-load ImportError. Show a recoverable
+            # dialog instead of letting the unhandled error abort the process
+            # and lose unsaved work.
+            QMessageBox.critical(
+                self,
+                self.tr("3D View Unavailable"),
+                self.tr(
+                    "The 3D view could not be loaded: the 3D graphics "
+                    "components are missing or incompatible. The rest of the "
+                    "application is unaffected.\n\nDetails: {error}"
+                ).format(error=exc),
+            )
+            return
 
         # Retire the previously-closed window HERE: it has been hidden since
         # its close so its render thread is idle — deleteLater in closeEvent
@@ -3196,7 +3219,11 @@ class GardenPlannerApp(QMainWindow):
             return
         from open_garden_planner.ui.view3d.snapshot import collect_scene3d_records
 
-        records = collect_scene3d_records(self.canvas_scene)
+        # US-E8: the 3D view shares the sim growth timeline.
+        records = collect_scene3d_records(
+            self.canvas_scene,
+            at_date=self._sun_controller.sim_datetime_utc.date(),
+        )
         self._view3d_window.rebuild(
             records, self.canvas_scene.width_cm, self.canvas_scene.height_cm
         )

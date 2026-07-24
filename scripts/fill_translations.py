@@ -1436,6 +1436,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Custom height (0 = back to automatic)":
             "Eigene Höhe (0 = zurück zu automatisch)",
         "From container fill height": "Aus Gefäß-Füllhöhe",
+        "From measured current height": "Aus gemessener aktueller Höhe",
         "From assigned species (max height)":
             "Aus zugewiesener Pflanzenart (max. Höhe)",
         "Default for this object type": "Standard für diesen Objekttyp",
@@ -2583,6 +2584,30 @@ _E7_TRANSLATIONS: dict[str, dict[str, str]] = {
 }
 
 for _ctx, _strings in _E7_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── Issue #277: graceful 3D-view failure + uncaught-exception backstop ──
+_I277_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "GardenPlannerApp": {
+        "3D View Unavailable": "3D-Ansicht nicht verfügbar",
+        "The 3D view could not be loaded: the 3D graphics "
+        "components are missing or incompatible. The rest of the "
+        "application is unaffected.\n\nDetails: {error}":
+            "Die 3D-Ansicht konnte nicht geladen werden: Die 3D-Grafik"
+            "komponenten fehlen oder sind inkompatibel. Der Rest der "
+            "Anwendung ist nicht betroffen.\n\nDetails: {error}",
+    },
+    "main": {
+        "Unexpected Error": "Unerwarteter Fehler",
+        "An unexpected error occurred. The application will keep "
+        "running so you can save your work.\n\nDetails: {error}":
+            "Ein unerwarteter Fehler ist aufgetreten. Die Anwendung läuft "
+            "weiter, damit Sie Ihre Arbeit speichern können.\n\nDetails: {error}",
+    },
+}
+
+for _ctx, _strings in _I277_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 

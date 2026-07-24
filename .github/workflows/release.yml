@@ -94,6 +94,25 @@ jobs:
         if: steps.check_tag.outputs.exists == 'false'
         run: python installer/build_installer.py --version ${{ steps.version.outputs.version }}
 
+      # Exercise the lazily-imported 3D subsystem in the ACTUAL frozen build
+      # before release. The startup-only smoke test can't see it, so a Qt
+      # micro-version mismatch (issue #277) would otherwise ship and crash the
+      # 3D view for every user. `--selftest` imports the Qt3D bindings headless
+      # and exits non-zero on failure; a windowed exe has no stdout so we read
+      # the exit code via Start-Process -Wait -PassThru.
+      - name: Verify 3D subsystem in frozen build (issue #277)
+        if: steps.check_tag.outputs.exists == 'false'
+        shell: pwsh
+        run: |
+          $exe = "dist/OpenGardenPlanner/OpenGardenPlanner.exe"
+          if (-not (Test-Path $exe)) { Write-Error "Frozen exe not found: $exe"; exit 1 }
+          $p = Start-Process -FilePath $exe -ArgumentList "--selftest" -Wait -PassThru
+          if ($p.ExitCode -ne 0) {
+            Write-Error "Frozen Qt3D self-test failed (exit $($p.ExitCode)) - the 3D view would crash for users. See issue #277."
+            exit 1
+          }
+          Write-Host "Frozen Qt3D self-test passed (exit 0)."
+
       - name: Generate checksum
         if: steps.check_tag.outputs.exists == 'false'
         shell: bash
