@@ -82,8 +82,12 @@ _LABEL_HALO_COLOR = QColor(255, 255, 255, 220)
 
 # Hour labels are distributed along each contour COMPONENT: ~one per
 # _LABEL_SPACING_CM of arc, skipping any within _LABEL_MIN_DIST_CM of an
-# already-placed label (dedups nested/parallel rings); every component keeps at
-# least one so closed loops stay interpretable.
+# already-placed label (dedups nested/parallel rings). ``placed`` accumulates
+# across ALL hour levels, so a level whose every candidate falls near a lower
+# level's label can end up unlabelled — acceptable, since an adjacent label
+# always names a nearby line. A per-component "force at least one label" rule
+# was removed after manual testing (it produced "14 h 14 h 14 h" clutter); do
+# not reinstate it.
 _LABEL_SPACING_CM = 500.0
 _LABEL_MIN_DIST_CM = 160.0
 
