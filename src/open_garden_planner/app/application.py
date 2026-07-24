@@ -3162,7 +3162,24 @@ class GardenPlannerApp(QMainWindow):
             self._view3d_window.activateWindow()
             return
 
-        from open_garden_planner.ui.view3d.view3d_window import View3DWindow
+        try:
+            from open_garden_planner.ui.view3d.view3d_window import View3DWindow
+        except ImportError as exc:
+            # The Qt3D bindings load lazily (ADR-038 import boundary). A frozen
+            # build whose core Qt micro drifted from the Qt3D wheels (issue
+            # #277) fails HERE with a DLL-load ImportError. Show a recoverable
+            # dialog instead of letting the unhandled error abort the process
+            # and lose unsaved work.
+            QMessageBox.critical(
+                self,
+                self.tr("3D View Unavailable"),
+                self.tr(
+                    "The 3D view could not be loaded: the 3D graphics "
+                    "components are missing or incompatible. The rest of the "
+                    "application is unaffected.\n\nDetails: {error}"
+                ).format(error=exc),
+            )
+            return
 
         # Retire the previously-closed window HERE: it has been hidden since
         # its close so its render thread is idle — deleteLater in closeEvent

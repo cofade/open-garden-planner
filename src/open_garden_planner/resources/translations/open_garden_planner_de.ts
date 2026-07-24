@@ -3299,6 +3299,18 @@ Neue Saison jetzt öffnen?</translation>
             <source>Open a 3D view of the plan with solar lighting</source>
             <translation>3D-Ansicht des Plans mit Sonnenlicht öffnen</translation>
         </message>
+        <message>
+            <source>3D View Unavailable</source>
+            <translation>3D-Ansicht nicht verfügbar</translation>
+        </message>
+        <message>
+            <source>The 3D view could not be loaded: the 3D graphics components are missing or incompatible. The rest of the application is unaffected.
+
+Details: {error}</source>
+            <translation>Die 3D-Ansicht konnte nicht geladen werden: Die 3D-Grafikkomponenten fehlen oder sind inkompatibel. Der Rest der Anwendung ist nicht betroffen.
+
+Details: {error}</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -10346,6 +10358,21 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>WASD/arrows move · hold left mouse to look · Esc exits</source>
             <translation>WASD/Pfeile bewegen · linke Maustaste zum Umschauen · Esc beendet</translation>
+        </message>
+    </context>
+    <context>
+        <name>main</name>
+        <message>
+            <source>Unexpected Error</source>
+            <translation>Unerwarteter Fehler</translation>
+        </message>
+        <message>
+            <source>An unexpected error occurred. The application will keep running so you can save your work.
+
+Details: {error}</source>
+            <translation>Ein unerwarteter Fehler ist aufgetreten. Die Anwendung läuft weiter, damit Sie Ihre Arbeit speichern können.
+
+Details: {error}</translation>
         </message>
     </context>
 </TS>
