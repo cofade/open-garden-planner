@@ -17,15 +17,12 @@ from __future__ import annotations
 
 from datetime import date
 
-import numpy as np
 import pytest
 
 from open_garden_planner.core.shade_aggregation import (
     BAND_THRESHOLDS_MINUTES,
     SAMPLE_STEP_MINUTES,
     HeatmapGrid,
-    band_grid,
-    band_index,
     compute_heatmap,
     daylight_samples,
     point_rasterizer_reference,
@@ -134,23 +131,6 @@ class TestDaylightWindow:
 
 
 class TestBands:
-    def test_band_index_thresholds(self) -> None:
-        assert band_index(0) == 0
-        assert band_index(119) == 0
-        assert band_index(120) == 1
-        assert band_index(239) == 1
-        assert band_index(240) == 2
-        assert band_index(359) == 2
-        assert band_index(360) == 3
-        assert band_index(1440) == 3
-
-    def test_band_grid_matches_scalar(self) -> None:
-        values = np.array([[0, 119, 120], [240, 360, 1000]], dtype=np.float32)
-        expected = np.array(
-            [[band_index(v) for v in row] for row in values], dtype=np.uint8
-        )
-        assert np.array_equal(band_grid(values), expected)
-
     def test_thresholds_are_the_documented_bands(self) -> None:
         assert BAND_THRESHOLDS_MINUTES == (120, 240, 360)
 

@@ -45,9 +45,6 @@ GRID_CELL_CM = 10.0
 #: shade < 4 h ≤ partial sun < 6 h ≤ full sun.
 BAND_THRESHOLDS_MINUTES: tuple[int, int, int] = (120, 240, 360)
 
-#: Number of bands (``band_index`` returns 0..BAND_COUNT-1).
-BAND_COUNT = 4
-
 
 class SunSample(NamedTuple):
     """One daylight sample instant with the precomputed sun position."""
@@ -132,23 +129,6 @@ def daylight_samples(
             )
         instant += step
     return samples
-
-
-def band_index(sun_minutes: float) -> int:
-    """0 = deep shade (<2 h) … 3 = full sun (≥6 h)."""
-    index = 0
-    for threshold in BAND_THRESHOLDS_MINUTES:
-        if sun_minutes >= threshold:
-            index += 1
-    return index
-
-
-def band_grid(sun_minutes: np.ndarray) -> np.ndarray:
-    """Vectorized ``band_index`` — uint8 band per cell."""
-    bands = np.zeros(sun_minutes.shape, dtype=np.uint8)
-    for threshold in BAND_THRESHOLDS_MINUTES:
-        bands += (sun_minutes >= threshold).astype(np.uint8)
-    return bands
 
 
 def point_rasterizer_reference(
