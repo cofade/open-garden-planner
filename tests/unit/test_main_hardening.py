@@ -19,7 +19,7 @@ class TestExceptHook:
         from PyQt6.QtWidgets import QMessageBox
 
         calls: list[tuple] = []
-        monkeypatch.setattr(QMessageBox, "critical", lambda *a, **k: calls.append(a))
+        monkeypatch.setattr(QMessageBox, "critical", lambda *a, **_k: calls.append(a))
 
         original = sys.excepthook
         try:
@@ -44,3 +44,16 @@ class TestExceptHook:
 class TestSelfTest:
     def test_passes_on_a_consistent_qt_stack(self) -> None:
         assert _run_selftest() == 0
+
+    def test_returns_nonzero_on_version_mismatch(self, monkeypatch) -> None:
+        """The load-bearing #277 detector: a Qt runtime that differs from the
+        Qt3D wheel micro must fail (exit 1), even when the imports succeed."""
+        import importlib.metadata as md
+
+        real = md.version
+        monkeypatch.setattr(
+            md,
+            "version",
+            lambda name: "0.0.0-mismatch" if name == "PyQt6-3D-Qt6" else real(name),
+        )
+        assert _run_selftest() == 1

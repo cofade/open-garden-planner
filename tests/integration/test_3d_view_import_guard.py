@@ -28,7 +28,7 @@ def test_open_3d_view_shows_dialog_instead_of_crashing(qtbot, monkeypatch) -> No
     )
     calls: list[tuple] = []
     monkeypatch.setattr(
-        application.QMessageBox, "critical", lambda *a, **k: calls.append(a)
+        application.QMessageBox, "critical", lambda *a, **_k: calls.append(a)
     )
 
     # Must neither raise nor create a half-built window.

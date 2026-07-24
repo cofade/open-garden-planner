@@ -4,10 +4,13 @@ build and the 3D view silently kills the process when the user opens it.
 
 Root cause: pyproject hard-pinned PyQt6-3D-Qt6 but left PyQt6-Qt6 free to
 float, so a fresh CI resolve mixed Qt6Core.dll 6.11.1 with Qt3D DLLs built for
-6.11.0. These assertions fail fast in the fast CI test job if the pins ever
-drift again. They import NO Qt3D module (only metadata + qVersion), so they
-need no display or GL context and are safe on the offscreen CI runner — the
-real DLL-load exercise is the frozen-exe ``--selftest`` in release.yml.
+6.11.0. Under the hard ``==`` pins nothing floats, so on a normal CI run this
+is belt-and-suspenders — its value is narrow but real: it fires the moment a
+maintainer edits ONE pin out of step and CI reinstalls. It imports NO Qt3D
+module (only metadata + qVersion), so it needs no display or GL context and is
+safe on the offscreen CI runner. The layer that actually guards the SHIPPED
+artifact against any resolution surprise is the frozen-exe ``--selftest`` in
+release.yml — this one guards the source pins.
 """
 
 from importlib.metadata import version

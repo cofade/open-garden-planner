@@ -92,6 +92,30 @@ def _run_selftest() -> int:
     return 0 if ok else 1
 
 
+def _write_crash_log(message: str) -> None:
+    """Best-effort append of a traceback to a user-findable crash log.
+
+    A windowed (``console=False``) frozen exe has ``sys.stderr is None``, so an
+    unhandled exception would otherwise leave no trace on disk. Writes into the
+    app-data dir; never raises.
+    """
+    import contextlib
+
+    with contextlib.suppress(Exception):
+        from PyQt6.QtCore import QStandardPaths
+
+        base = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.AppDataLocation
+        )
+        if not base:
+            return
+        log_dir = Path(base)
+        log_dir.mkdir(parents=True, exist_ok=True)
+        with open(log_dir / "crash.log", "a", encoding="utf-8") as fh:
+            fh.write(message)
+            fh.write("\n")
+
+
 def _install_excepthook() -> None:
     """Route unhandled exceptions to a dialog instead of aborting the process.
 
@@ -99,10 +123,12 @@ def _install_excepthook() -> None:
     and then, with the DEFAULT hook, aborts the process — silently killing the
     app and any unsaved plan. Issue #277 hit exactly this: an ``ImportError``
     from the lazily imported 3D view took the whole process down. Installing a
-    custom hook suppresses the abort; we print the traceback (frozen builds
-    still surface it in logs) and show a recoverable dialog so the user can
-    save. The 3D-open path also catches its own ``ImportError`` for a clearer
-    message; this is the broad backstop for everything else.
+    custom hook suppresses the abort; we record the traceback (stderr in a dev
+    run, plus a best-effort ``crash.log`` in the app-data dir so a windowed
+    frozen build — where ``sys.stderr is None`` — isn't silent) and show a
+    recoverable dialog so the user can save. The 3D-open path also catches its
+    own ``ImportError`` for a clearer message; this is the broad backstop for
+    everything else.
     """
     import contextlib
     import traceback
@@ -115,7 +141,11 @@ def _install_excepthook() -> None:
         exc_value: BaseException,
         exc_tb: TracebackType | None,
     ) -> None:
-        traceback.print_exception(exc_type, exc_value, exc_tb)
+        message = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        if sys.stderr is not None:
+            with contextlib.suppress(Exception):
+                sys.stderr.write(message)
+        _write_crash_log(message)
         if QApplication.instance() is None:
             return
         # The hook itself must never raise (that would re-enter excepthook).
