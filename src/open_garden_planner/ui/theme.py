@@ -3,11 +3,14 @@
 Provides light and dark color schemes with comprehensive styling.
 """
 
+import contextlib
 import os
 import tempfile
+from collections.abc import Callable
 from enum import Enum
 
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtGui import QColor
+from PyQt6.QtWidgets import QApplication, QWidget
 
 
 class ThemeMode(Enum):
@@ -65,6 +68,19 @@ class ThemeColors:
         # Section-header background (e.g. category-row stripes in tables).
         # Light-pastel green that reads as a banded heading on a cream surface.
         "section_header": "#e8f5e9",
+        # Semantic status surfaces — tinted backgrounds for banners/cards
+        "success_bg": "#e3f2e3",
+        "warning_bg": "#fdf0dd",
+        "error_bg": "#fbe3e3",
+        "info_bg": "#e6f0fa",
+        # "This week" urgency — a yellow that stays readable on light chrome
+        "caution": "#b58b00",
+        # Canvas overlay chrome (dynamic input): sits on the always-light
+        # canvas, so these stay constant across themes (same rationale as the
+        # canvas colors).  rgba strings — not parseable by theme_qcolor().
+        "overlay_bg": "rgba(30, 30, 30, 200)",
+        "overlay_border": "rgba(120, 200, 120, 180)",
+        "overlay_text": "#ffffff",
     }
 
     # Dark theme colors - slate with soft sage-green accents
@@ -112,6 +128,17 @@ class ThemeColors:
         # Section-header background — sage-toned dark green that stays
         # readable against the dark surface and matches the accent palette.
         "section_header": "#264a2c",
+        # Semantic status surfaces — tinted backgrounds for banners/cards
+        "success_bg": "#25382a",
+        "warning_bg": "#3d3222",
+        "error_bg": "#3d2626",
+        "info_bg": "#22303d",
+        # "This week" urgency — brighter yellow for dark chrome
+        "caution": "#f1c40f",
+        # Canvas overlay chrome — constant across themes (see LIGHT).
+        "overlay_bg": "rgba(30, 30, 30, 200)",
+        "overlay_border": "rgba(120, 200, 120, 180)",
+        "overlay_text": "#ffffff",
     }
 
     @classmethod
@@ -148,6 +175,88 @@ class ThemeColors:
                      0.114 * window_color.blue()) / 255.0
 
         return ThemeMode.DARK if luminance < 0.5 else ThemeMode.LIGHT
+
+
+# ---------------------------------------------------------------------------
+# Live palette access
+#
+# _current_colors always holds the palette of the most recently applied theme
+# (LIGHT until apply_theme() first runs).  Widget code uses theme_color() /
+# theme_qcolor() / rgba() instead of hardcoding hex values so runtime-built
+# QSS strings and QColor usages follow theme switches.
+# ---------------------------------------------------------------------------
+
+_current_colors: dict[str, str] = ThemeColors.LIGHT
+_theme_listeners: list[Callable[[dict[str, str]], None]] = []
+
+
+# Muted per-category identity tints for the gallery category chip icons
+# (icon_name slug -> (light_hex, dark_hex)).  Applied by the icon provider as
+# the primary-line tint; unknown slugs fall back to text_primary (neutral).
+CATEGORY_ICON_TINTS: dict[str, tuple[str, str]] = {
+    "garden_bed": ("#7a5c3e", "#b99b78"),
+    "rectangle": ("#5a6b5a", "#a3ab9d"),
+    "tree": ("#3d7a44", "#7cb87f"),
+    "shrub": ("#4e7d5b", "#8fbf9a"),
+    "flower": ("#8a5a7a", "#c495b3"),
+    "vegetable": ("#a1682f", "#d0a05e"),
+    "house": ("#6b5b4a", "#b0a08c"),
+    "furniture": ("#5c6b7a", "#9fb0c0"),
+    "fence": ("#726a52", "#b3a987"),
+    "infrastructure": ("#556677", "#8fa3b5"),
+}
+
+
+def current_colors() -> dict[str, str]:
+    """Return the palette of the most recently applied theme."""
+    return _current_colors
+
+
+def is_dark_theme() -> bool:
+    """True when the most recently applied palette is the dark one."""
+    return _current_colors == ThemeColors.DARK
+
+
+def theme_color(name: str) -> str:
+    """Return a color token from the active palette (hex or rgba string)."""
+    return _current_colors[name]
+
+
+def theme_qcolor(name: str) -> QColor:
+    """Return a hex color token as QColor (not for the rgba overlay_* tokens)."""
+    return QColor(_current_colors[name])
+
+
+def rgba(name: str, alpha: int) -> str:
+    """Return an ``rgba(r, g, b, a)`` QSS string for a hex token with custom alpha."""
+    color = QColor(_current_colors[name])
+    return f"rgba({color.red()}, {color.green()}, {color.blue()}, {alpha})"
+
+
+def register_theme_listener(callback: Callable[[dict[str, str]], None]) -> None:
+    """Subscribe to palette changes; called with the new colors on every apply_theme()."""
+    _theme_listeners.append(callback)
+
+
+def set_text_role(
+    widget: QWidget,
+    role: str | None = None,
+    color_role: str | None = None,
+) -> None:
+    """Assign typography/color roles styled centrally by the app stylesheet.
+
+    Sets the ``textRole`` (h1/h2/hint/small/placeholder) and ``colorRole``
+    (success/warning/error/info/caution/disabled/secondary) dynamic properties
+    and re-polishes so a change after first polish takes effect (§8.17.6).
+    """
+    if role is not None:
+        widget.setProperty("textRole", role)
+    if color_role is not None:
+        widget.setProperty("colorRole", color_role)
+    style = widget.style()
+    if style is not None:
+        style.unpolish(widget)
+        style.polish(widget)
 
 
 def generate_stylesheet(mode: ThemeMode) -> str:
@@ -217,6 +326,8 @@ def generate_stylesheet(mode: ThemeMode) -> str:
 
     QMenu::item {{
         padding: 6px 24px;
+        border-radius: 4px;
+        margin: 1px 4px;
     }}
 
     QMenu::item:selected {{
@@ -251,8 +362,8 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['button']};
         color: {colors['text_primary']};
         border: 1px solid {colors['border']};
-        border-radius: 4px;
-        padding: 6px 12px;
+        border-radius: 6px;
+        padding: 6px 14px;
         min-width: 80px;
     }}
 
@@ -265,16 +376,62 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['button_pressed']};
     }}
 
+    QPushButton:focus {{
+        border: 2px solid {colors['border_focus']};
+        padding: 5px 13px;
+    }}
+
+    QPushButton:default {{
+        background-color: {colors['accent']};
+        color: {colors['accent_text']};
+        border: 1px solid {colors['accent_pressed']};
+    }}
+
+    QPushButton:default:hover {{
+        background-color: {colors['accent_hover']};
+    }}
+
+    QPushButton:default:pressed {{
+        background-color: {colors['accent_pressed']};
+    }}
+
     QPushButton:disabled {{
         background-color: {colors['input_disabled']};
         color: {colors['text_disabled']};
+        border-color: {colors['border']};
+    }}
+
+    /* Dialog CTA roles — setProperty("buttonRole", "primary"/"secondary") */
+    QPushButton[buttonRole="primary"] {{
+        background-color: {colors['accent']};
+        color: {colors['accent_text']};
+        border: 1px solid {colors['accent_pressed']};
+        font-weight: 600;
+    }}
+
+    QPushButton[buttonRole="primary"]:hover {{
+        background-color: {colors['accent_hover']};
+    }}
+
+    QPushButton[buttonRole="primary"]:pressed {{
+        background-color: {colors['accent_pressed']};
+    }}
+
+    QPushButton[buttonRole="secondary"] {{
+        background-color: transparent;
+        color: {colors['accent']};
+        border: 1px solid {colors['accent']};
+    }}
+
+    QPushButton[buttonRole="secondary"]:hover {{
+        background-color: {colors['selection']};
     }}
 
     /* Tool buttons */
     QToolButton {{
         background-color: transparent;
         border: 1px solid transparent;
-        border-radius: 3px;
+        border-radius: 5px;
         padding: 4px;
     }}
 
@@ -283,8 +440,13 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         border-color: {colors['border']};
     }}
 
-    QToolButton:pressed, QToolButton:checked {{
+    QToolButton:pressed {{
         background-color: {colors['button_pressed']};
+        border-color: {colors['accent']};
+    }}
+
+    QToolButton:checked {{
+        background-color: {colors['selection']};
         border-color: {colors['accent']};
     }}
 
@@ -293,13 +455,21 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['input']};
         color: {colors['text_primary']};
         border: 1px solid {colors['border']};
-        border-radius: 3px;
-        padding: 4px;
+        border-radius: 6px;
+        padding: 5px 8px;
         selection-background-color: {colors['selection']};
     }}
 
     QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {{
-        border-color: {colors['border_focus']};
+        border: 2px solid {colors['border_focus']};
+        padding: 4px 7px;
+    }}
+
+    /* Validation error state — setProperty("inputError", True) + re-polish */
+    QLineEdit[inputError="true"] {{
+        border: 2px solid {colors['error']};
+        padding: 4px 7px;
+        background-color: {colors['error_bg']};
     }}
 
     QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled {{
@@ -312,12 +482,13 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['input']};
         color: {colors['text_primary']};
         border: 1px solid {colors['border']};
-        border-radius: 3px;
-        padding: 4px 20px 4px 4px;
+        border-radius: 6px;
+        padding: 5px 20px 5px 8px;
     }}
 
     QSpinBox:focus, QDoubleSpinBox:focus {{
-        border-color: {colors['border_focus']};
+        border: 2px solid {colors['border_focus']};
+        padding: 4px 19px 4px 7px;
     }}
 
     QSpinBox::up-button, QDoubleSpinBox::up-button {{
@@ -326,7 +497,7 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         width: 16px;
         border-left: 1px solid {colors['border']};
         border-bottom: 1px solid {colors['border']};
-        border-top-right-radius: 3px;
+        border-top-right-radius: 5px;
         background-color: {colors['button']};
     }}
 
@@ -343,7 +514,7 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         subcontrol-position: bottom right;
         width: 16px;
         border-left: 1px solid {colors['border']};
-        border-bottom-right-radius: 3px;
+        border-bottom-right-radius: 5px;
         background-color: {colors['button']};
     }}
 
@@ -372,12 +543,13 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['input']};
         color: {colors['text_primary']};
         border: 1px solid {colors['border']};
-        border-radius: 3px;
-        padding: 4px;
+        border-radius: 6px;
+        padding: 5px 8px;
     }}
 
     QDateEdit:focus {{
-        border-color: {colors['border_focus']};
+        border: 2px solid {colors['border_focus']};
+        padding: 4px 7px;
     }}
 
     QDateEdit::drop-down {{
@@ -421,12 +593,13 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['input']};
         color: {colors['text_primary']};
         border: 1px solid {colors['border']};
-        border-radius: 3px;
-        padding: 4px;
+        border-radius: 6px;
+        padding: 5px 8px;
     }}
 
     QComboBox:focus {{
-        border-color: {colors['border_focus']};
+        border: 2px solid {colors['border_focus']};
+        padding: 4px 7px;
     }}
 
     QComboBox::drop-down {{
@@ -479,11 +652,12 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['input']};
         color: {colors['text_primary']};
         border: 1px solid {colors['border']};
-        border-radius: 3px;
+        border-radius: 6px;
     }}
 
     QListWidget::item {{
-        padding: 4px;
+        padding: 5px 6px;
+        border-radius: 4px;
     }}
 
     QListWidget::item:selected {{
@@ -509,21 +683,24 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     QHeaderView::section {{
         background-color: {colors['surface']};
         color: {colors['text_primary']};
-        border: 1px solid {colors['border']};
-        padding: 4px;
+        border: none;
+        border-bottom: 1px solid {colors['border']};
+        border-right: 1px solid {colors['background_alt']};
+        padding: 5px 6px;
+        font-weight: 600;
     }}
 
-    /* Scroll bars */
+    /* Scroll bars — slim, transparent track */
     QScrollBar:vertical {{
-        background-color: {colors['background_alt']};
-        width: 14px;
+        background-color: transparent;
+        width: 10px;
         border: none;
     }}
 
     QScrollBar::handle:vertical {{
         background-color: {colors['surface_alt']};
         min-height: 30px;
-        border-radius: 7px;
+        border-radius: 4px;
         margin: 2px;
     }}
 
@@ -536,15 +713,15 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     }}
 
     QScrollBar:horizontal {{
-        background-color: {colors['background_alt']};
-        height: 14px;
+        background-color: transparent;
+        height: 10px;
         border: none;
     }}
 
     QScrollBar::handle:horizontal {{
         background-color: {colors['surface_alt']};
         min-width: 30px;
-        border-radius: 7px;
+        border-radius: 4px;
         margin: 2px;
     }}
 
@@ -554,6 +731,10 @@ def generate_stylesheet(mode: ThemeMode) -> str:
 
     QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
         width: 0px;
+    }}
+
+    QScrollBar::add-page, QScrollBar::sub-page {{
+        background: none;
     }}
 
     /* Sliders */
@@ -575,34 +756,36 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['accent_hover']};
     }}
 
-    /* Tab widgets */
+    /* Tab widgets — underline style (documentMode: style QTabBar::tab directly) */
     QTabWidget::pane {{
-        border: 1px solid {colors['border']};
+        border: none;
+        border-top: 1px solid {colors['border']};
         background-color: {colors['surface']};
     }}
 
     QTabBar::tab {{
-        background-color: {colors['button']};
-        color: {colors['text_primary']};
-        border: 1px solid {colors['border']};
-        padding: 6px 12px;
+        background-color: transparent;
+        color: {colors['text_secondary']};
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 7px 16px;
         margin-right: 2px;
     }}
 
     QTabBar::tab:selected {{
-        background-color: {colors['surface']};
-        border-bottom-color: {colors['surface']};
+        color: {colors['text_primary']};
+        border-bottom: 2px solid {colors['accent']};
     }}
 
-    QTabBar::tab:hover {{
-        background-color: {colors['button_hover']};
+    QTabBar::tab:hover:!selected {{
+        background-color: {colors['background_alt']};
     }}
 
     /* Group boxes */
     QGroupBox {{
         color: {colors['text_primary']};
         border: 1px solid {colors['border']};
-        border-radius: 4px;
+        border-radius: 6px;
         margin-top: 8px;
         padding-top: 8px;
     }}
@@ -612,7 +795,8 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         subcontrol-position: top left;
         padding: 0 4px;
         background-color: {colors['background']};
-        color: {colors['text_primary']};
+        color: {colors['accent']};
+        font-weight: 600;
     }}
 
     /* Form layouts - ensure labels are visible */
@@ -677,6 +861,41 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         color: {colors['text_secondary']};
         font-size: 11px;
     }}
+
+    /* Typography roles — set via theme.set_text_role(widget, role, color_role).
+       textRole controls size/weight, colorRole the semantic text color; the
+       two properties are orthogonal and combinable. */
+    QLabel[textRole="h1"] {{
+        font-size: 13pt;
+        font-weight: 600;
+    }}
+
+    QLabel[textRole="h2"] {{
+        font-size: 10pt;
+        font-weight: 600;
+    }}
+
+    QLabel[textRole="hint"] {{
+        font-size: 8pt;
+        color: {colors['text_secondary']};
+    }}
+
+    QLabel[textRole="small"] {{
+        font-size: 8pt;
+    }}
+
+    QLabel[textRole="placeholder"] {{
+        font-style: italic;
+        color: {colors['text_secondary']};
+    }}
+
+    QLabel[colorRole="success"] {{ color: {colors['success']}; }}
+    QLabel[colorRole="warning"] {{ color: {colors['warning']}; }}
+    QLabel[colorRole="error"] {{ color: {colors['error']}; }}
+    QLabel[colorRole="info"] {{ color: {colors['info']}; }}
+    QLabel[colorRole="caution"] {{ color: {colors['caution']}; }}
+    QLabel[colorRole="disabled"] {{ color: {colors['text_disabled']}; }}
+    QLabel[colorRole="secondary"] {{ color: {colors['text_secondary']}; }}
 
     /* Scroll area */
     QScrollArea {{
@@ -748,6 +967,73 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         border-color: {colors['accent_pressed']};
         color: {colors['accent_text']};
     }}
+
+    /* Notification banners — widgets carry only an objectName; all styling
+       lives here so a theme switch restyles them automatically. */
+    #TaskReminderBar {{
+        background-color: {colors['warning_bg']};
+        border-bottom: 1px solid {colors['warning']};
+    }}
+
+    #TaskReminderBar QLabel {{
+        color: {colors['text_primary']};
+        font-weight: 600;
+        background-color: transparent;
+    }}
+
+    #TaskReminderBar QPushButton {{
+        background-color: transparent;
+        color: {colors['text_primary']};
+        border: 1px solid {colors['warning']};
+        border-radius: 4px;
+        padding: 2px 10px;
+        min-width: 0px;
+    }}
+
+    #TaskReminderBar QPushButton:hover {{
+        background-color: {colors['button_hover']};
+    }}
+
+    #UpdateBar {{
+        background-color: {colors['info_bg']};
+        border-bottom: 1px solid {colors['border']};
+    }}
+
+    #UpdateBar QLabel {{
+        color: {colors['text_primary']};
+        background-color: transparent;
+    }}
+
+    #UpdateBar QPushButton {{
+        background-color: transparent;
+        color: {colors['text_primary']};
+        border: 1px solid {colors['border']};
+        border-radius: 4px;
+        padding: 2px 10px;
+        min-width: 0px;
+    }}
+
+    #UpdateBar QPushButton:hover {{
+        background-color: {colors['button_hover']};
+    }}
+
+    /* Weather forecast day cards — dynamic properties weatherCard +
+       frostSeverity ("orange"/"red"), re-polished on change. */
+    QFrame[weatherCard="true"] {{
+        background-color: {colors['surface']};
+        border: 1px solid {colors['border']};
+        border-radius: 6px;
+    }}
+
+    QFrame[weatherCard="true"][frostSeverity="orange"] {{
+        background-color: {colors['warning_bg']};
+        border-color: {colors['warning']};
+    }}
+
+    QFrame[weatherCard="true"][frostSeverity="red"] {{
+        background-color: {colors['error_bg']};
+        border-color: {colors['error']};
+    }}
     """
 
 
@@ -803,11 +1089,23 @@ def apply_theme(app: QApplication, mode: ThemeMode) -> None:
         app: QApplication instance
         mode: Theme mode to apply
     """
+    global _current_colors
+
+    # Publish the resolved palette BEFORE restyling so listeners and
+    # re-polished widgets that call theme_color() during the restyle
+    # already see the new values.
+    colors = ThemeColors.get_colors(mode)
+    _current_colors = colors
+
     stylesheet = generate_stylesheet(mode)
     app.setStyleSheet(stylesheet)
 
+    # Notify subscribers (e.g. the icon provider) of the new palette.
+    for listener in list(_theme_listeners):
+        with contextlib.suppress(Exception):
+            listener(colors)
+
     # Apply dark title bar on Windows if using dark mode
-    colors = ThemeColors.get_colors(mode)
     is_dark = colors == ThemeColors.DARK
 
     # Update all top-level windows
@@ -815,19 +1113,28 @@ def apply_theme(app: QApplication, mode: ThemeMode) -> None:
         if widget.isWindow():
             _set_windows_dark_titlebar(widget, is_dark)
 
-    # Propagate theme colors to any open canvas views
-    _apply_theme_to_canvas_views(app, colors)
+    # Propagate theme colors to widgets that opt in (canvas views,
+    # dashboard views, … — anything exposing apply_theme_colors(colors)).
+    _propagate_theme_colors(app, colors)
 
 
-def _apply_theme_to_canvas_views(app: QApplication, colors: dict[str, str]) -> None:
-    """Propagate theme colors to all CanvasView instances.
+def _propagate_theme_colors(app: QApplication, colors: dict[str, str]) -> None:
+    """Push the new palette to every widget that opts in (duck-typed).
+
+    Two hooks, both optional per widget:
+    - ``apply_theme_colors(colors)`` — palette-driven redraws (CanvasView,
+      dashboard views, …)
+    - ``refresh_theme_icons()`` — re-request icons from ui/icons.py after
+      its cache was cleared (toolbars, the main window's menu actions)
 
     Args:
         app: QApplication instance
         colors: Theme color dictionary
     """
-    from open_garden_planner.ui.canvas.canvas_view import CanvasView
-
     for widget in app.allWidgets():
-        if isinstance(widget, CanvasView):
-            widget.apply_theme_colors(colors)
+        handler = getattr(widget, "apply_theme_colors", None)
+        if callable(handler):
+            handler(colors)
+        refresh = getattr(widget, "refresh_theme_icons", None)
+        if callable(refresh):
+            refresh()

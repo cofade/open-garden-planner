@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <!-- Clean rectangle shape -->
-  <rect x="8" y="12" width="48" height="40" rx="3" fill="#06B6D4" fill-opacity="0.25" stroke="#0E7490" stroke-width="2.5"/>
-  <!-- Corner handles -->
-  <circle cx="8" cy="12" r="3" fill="#0E7490"/>
-  <circle cx="56" cy="12" r="3" fill="#0E7490"/>
-  <circle cx="8" cy="52" r="3" fill="#0E7490"/>
-  <circle cx="56" cy="52" r="3" fill="#0E7490"/>
-</svg>

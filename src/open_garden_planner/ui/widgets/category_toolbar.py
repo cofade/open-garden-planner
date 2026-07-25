@@ -5,22 +5,20 @@ access to every placeable object, organised by category. Mirrors the click
 flow that used to live in the sidebar's `GalleryPanel`.
 """
 
-from pathlib import Path
-
 from PyQt6.QtCore import QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QIcon, QKeySequence, QPainter, QPixmap, QShortcut
-from PyQt6.QtSvg import QSvgRenderer
+from PyQt6.QtGui import QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import QSizePolicy, QToolBar, QToolButton, QWidget
 
 from open_garden_planner.core.tools import ToolType
+from open_garden_planner.ui.icons import get_icon
+from open_garden_planner.ui.theme import CATEGORY_ICON_TINTS, is_dark_theme
 from open_garden_planner.ui.widgets.category_dropdown import CategoryDropdown
 from open_garden_planner.ui.widgets.gallery_data import (
     GalleryCategory,
     build_toolbar_categories,
+    refresh_icon_thumbnails,
 )
 from open_garden_planner.ui.widgets.global_search import GlobalSearchField
-
-_ICONS_DIR = Path(__file__).parent.parent.parent / "resources" / "icons" / "tools"
 
 
 class CategoryToolbar(QToolBar):
@@ -40,20 +38,17 @@ class CategoryToolbar(QToolBar):
         self._setup_toolbar()
 
     def _load_icon(self, icon_name: str) -> QIcon | None:
+        """Themed icon with this category's muted identity tint (ADR-039)."""
         if not icon_name:
             return None
-        svg_path = _ICONS_DIR / f"{icon_name}.svg"
-        if not svg_path.exists():
+        return get_icon(icon_name, color=self._category_tint(icon_name))
+
+    @staticmethod
+    def _category_tint(icon_name: str) -> str | None:
+        tints = CATEGORY_ICON_TINTS.get(icon_name)
+        if tints is None:
             return None
-        renderer = QSvgRenderer(str(svg_path))
-        if not renderer.isValid():
-            return None
-        pixmap = QPixmap(28, 28)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pixmap)
-        renderer.render(painter)
-        painter.end()
-        return QIcon(pixmap)
+        return tints[1] if is_dark_theme() else tints[0]
 
     def _setup_toolbar(self) -> None:
         self.setMovable(False)
@@ -103,3 +98,15 @@ class CategoryToolbar(QToolBar):
         if self._search_field is not None:
             self._search_field.setFocus()
             self._search_field.selectAll()
+
+    def refresh_theme_icons(self) -> None:
+        """Re-tint category buttons + dropdown thumbnails after a theme switch."""
+        for button, category in zip(
+            self._category_buttons, self._categories, strict=True
+        ):
+            icon = self._load_icon(category.icon_name)
+            if icon is not None:
+                button.setIcon(icon)
+        refresh_icon_thumbnails(self._categories)
+        for dropdown in self._category_dropdowns:
+            dropdown.refresh_thumbnails()

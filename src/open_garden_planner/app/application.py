@@ -49,6 +49,7 @@ from open_garden_planner.services.soil_service import (
 )
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.icons import get_icon
 from open_garden_planner.ui.panels import (
     CompanionPanel,
     ConstraintsPanel,
@@ -606,9 +607,24 @@ class GardenPlannerApp(QMainWindow):
             self._agent_server.stop()
             self._agent_server = None
 
+    def _set_action_icon(self, action: QAction, icon_name: str) -> None:
+        """Assign a themed menu icon and track it for theme-switch refresh."""
+        icon = get_icon(icon_name)
+        if icon is not None:
+            action.setIcon(icon)
+        self._icon_actions.append((action, icon_name))
+
+    def refresh_theme_icons(self) -> None:
+        """Replay tracked menu-action icons after a theme switch (§8.21)."""
+        for action, icon_name in self._icon_actions:
+            icon = get_icon(icon_name)
+            if icon is not None:
+                action.setIcon(icon)
+
     def _setup_menu_bar(self) -> None:
         """Set up the menu bar with File, Edit, View, Help menus."""
         menubar = self.menuBar()
+        self._icon_actions: list[tuple[QAction, str]] = []
 
         # File menu
         file_menu = menubar.addMenu(self.tr("&File"))
@@ -641,6 +657,7 @@ class GardenPlannerApp(QMainWindow):
         new_action.setShortcut(QKeySequence("Ctrl+N"))
         new_action.setStatusTip(self.tr("Create a new garden project"))
         new_action.triggered.connect(self._on_new_project)
+        self._set_action_icon(new_action, "file_new")
         menu.addAction(new_action)
 
         # Open Project
@@ -648,6 +665,7 @@ class GardenPlannerApp(QMainWindow):
         open_action.setShortcut(QKeySequence("Ctrl+O"))
         open_action.setStatusTip(self.tr("Open an existing project"))
         open_action.triggered.connect(self._on_open_project)
+        self._set_action_icon(open_action, "file_open")
         menu.addAction(open_action)
 
         # Open Recent submenu
@@ -661,6 +679,7 @@ class GardenPlannerApp(QMainWindow):
         save_action.setShortcut(QKeySequence("Ctrl+S"))
         save_action.setStatusTip(self.tr("Save the current project"))
         save_action.triggered.connect(self._on_save)
+        self._set_action_icon(save_action, "file_save")
         menu.addAction(save_action)
 
         # Save As
@@ -668,6 +687,7 @@ class GardenPlannerApp(QMainWindow):
         save_as_action.setShortcut(QKeySequence("Ctrl+Shift+S"))
         save_as_action.setStatusTip(self.tr("Save the project with a new name"))
         save_as_action.triggered.connect(self._on_save_as)
+        self._set_action_icon(save_as_action, "file_save_as")
         menu.addAction(save_as_action)
 
         menu.addSeparator()
@@ -716,6 +736,7 @@ class GardenPlannerApp(QMainWindow):
         import_dxf_action = QAction(self.tr("Import &DXF..."), self)
         import_dxf_action.setStatusTip(self.tr("Import a DXF CAD file onto the canvas"))
         import_dxf_action.triggered.connect(self._on_import_dxf)
+        self._set_action_icon(import_dxf_action, "file_import")
         menu.addAction(import_dxf_action)
 
         # Set Garden Location
@@ -732,26 +753,31 @@ class GardenPlannerApp(QMainWindow):
         export_png = QAction(self.tr("Export as &PNG..."), self)
         export_png.setStatusTip(self.tr("Export the plan as a PNG image"))
         export_png.triggered.connect(self._on_export_png)
+        self._set_action_icon(export_png, "file_export")
         export_menu.addAction(export_png)
 
         export_svg = QAction(self.tr("Export as &SVG..."), self)
         export_svg.setStatusTip(self.tr("Export the plan as an SVG vector file"))
         export_svg.triggered.connect(self._on_export_svg)
+        self._set_action_icon(export_svg, "file_export")
         export_menu.addAction(export_svg)
 
         export_csv = QAction(self.tr("Export Plant List as &CSV..."), self)
         export_csv.setStatusTip(self.tr("Export all plants to a CSV spreadsheet"))
         export_csv.triggered.connect(self._on_export_plant_csv)
+        self._set_action_icon(export_csv, "file_export")
         export_menu.addAction(export_csv)
 
         export_dxf = QAction(self.tr("Export as D&XF..."), self)
         export_dxf.setStatusTip(self.tr("Export the plan as a DXF file for CAD software"))
         export_dxf.triggered.connect(self._on_export_dxf)
+        self._set_action_icon(export_dxf, "file_export")
         export_menu.addAction(export_dxf)
 
         export_pdf_report = QAction(self.tr("Export PDF &Report..."), self)
         export_pdf_report.setStatusTip(self.tr("Generate a multi-page PDF report of the garden plan"))
         export_pdf_report.triggered.connect(self._on_export_pdf_report)
+        self._set_action_icon(export_pdf_report, "file_export")
         export_menu.addAction(export_pdf_report)
 
         menu.addSeparator()
@@ -761,6 +787,7 @@ class GardenPlannerApp(QMainWindow):
         print_action.setShortcut(QKeySequence("Ctrl+P"))
         print_action.setStatusTip(self.tr("Print the garden plan"))
         print_action.triggered.connect(self._on_print)
+        self._set_action_icon(print_action, "print")
         menu.addAction(print_action)
 
         menu.addSeparator()
@@ -780,6 +807,7 @@ class GardenPlannerApp(QMainWindow):
         self._undo_action.setStatusTip(self.tr("Undo the last action"))
         self._undo_action.setEnabled(False)  # Disabled until there's something to undo
         self._undo_action.triggered.connect(self._on_undo)
+        self._set_action_icon(self._undo_action, "undo")
         menu.addAction(self._undo_action)
 
         # Redo
@@ -788,6 +816,7 @@ class GardenPlannerApp(QMainWindow):
         self._redo_action.setStatusTip(self.tr("Redo the last undone action"))
         self._redo_action.setEnabled(False)  # Disabled until there's something to redo
         self._redo_action.triggered.connect(self._on_redo)
+        self._set_action_icon(self._redo_action, "redo")
         menu.addAction(self._redo_action)
 
         menu.addSeparator()
@@ -797,6 +826,7 @@ class GardenPlannerApp(QMainWindow):
         cut_action.setShortcut(QKeySequence("Ctrl+X"))
         cut_action.setStatusTip(self.tr("Cut selected objects"))
         cut_action.triggered.connect(self._on_cut)
+        self._set_action_icon(cut_action, "cut")
         menu.addAction(cut_action)
 
         # Copy
@@ -804,6 +834,7 @@ class GardenPlannerApp(QMainWindow):
         copy_action.setShortcut(QKeySequence("Ctrl+C"))
         copy_action.setStatusTip(self.tr("Copy selected objects"))
         copy_action.triggered.connect(self._on_copy)
+        self._set_action_icon(copy_action, "copy")
         menu.addAction(copy_action)
 
         # Paste
@@ -811,6 +842,7 @@ class GardenPlannerApp(QMainWindow):
         paste_action.setShortcut(QKeySequence("Ctrl+V"))
         paste_action.setStatusTip(self.tr("Paste objects from clipboard"))
         paste_action.triggered.connect(self._on_paste)
+        self._set_action_icon(paste_action, "paste")
         menu.addAction(paste_action)
 
         # Duplicate
@@ -818,12 +850,14 @@ class GardenPlannerApp(QMainWindow):
         duplicate_action.setShortcut(QKeySequence("Ctrl+D"))
         duplicate_action.setStatusTip(self.tr("Duplicate selected objects"))
         duplicate_action.triggered.connect(self._on_duplicate)
+        self._set_action_icon(duplicate_action, "duplicate")
         menu.addAction(duplicate_action)
 
         # Delete
         self._delete_action = QAction(self.tr("&Delete"), self)
         self._delete_action.setShortcut(QKeySequence("Delete"))
         self._delete_action.setStatusTip(self.tr("Delete selected objects"))
+        self._set_action_icon(self._delete_action, "delete")
         menu.addAction(self._delete_action)
 
         menu.addSeparator()
@@ -833,6 +867,7 @@ class GardenPlannerApp(QMainWindow):
         select_all_action.setShortcut(QKeySequence("Ctrl+A"))
         select_all_action.setStatusTip(self.tr("Select all objects"))
         select_all_action.triggered.connect(self._on_select_all)
+        self._set_action_icon(select_all_action, "select_all")
         menu.addAction(select_all_action)
 
         # Find & Replace
@@ -840,6 +875,7 @@ class GardenPlannerApp(QMainWindow):
         find_replace_action.setShortcut(QKeySequence.StandardKey.Find)
         find_replace_action.setStatusTip(self.tr("Find and replace objects by name, type, layer or species"))
         find_replace_action.triggered.connect(self._on_toggle_find_replace)
+        self._set_action_icon(find_replace_action, "find_replace")
         menu.addAction(find_replace_action)
 
         menu.addSeparator()
@@ -932,6 +968,7 @@ class GardenPlannerApp(QMainWindow):
         preferences_action = QAction(self.tr("&Preferences..."), self)
         preferences_action.setStatusTip(self.tr("Configure application settings and API keys"))
         preferences_action.triggered.connect(self._on_preferences)
+        self._set_action_icon(preferences_action, "preferences")
         menu.addAction(preferences_action)
 
     def _setup_view_menu(self, menu: QMenu) -> None:
@@ -941,6 +978,7 @@ class GardenPlannerApp(QMainWindow):
         zoom_in_action.setShortcut(QKeySequence("Ctrl++"))
         zoom_in_action.setStatusTip(self.tr("Zoom in on the canvas"))
         zoom_in_action.triggered.connect(self._on_zoom_in)
+        self._set_action_icon(zoom_in_action, "zoom_in")
         menu.addAction(zoom_in_action)
 
         # Zoom Out
@@ -948,6 +986,7 @@ class GardenPlannerApp(QMainWindow):
         zoom_out_action.setShortcut(QKeySequence("Ctrl+-"))
         zoom_out_action.setStatusTip(self.tr("Zoom out on the canvas"))
         zoom_out_action.triggered.connect(self._on_zoom_out)
+        self._set_action_icon(zoom_out_action, "zoom_out")
         menu.addAction(zoom_out_action)
 
         # Fit to Window
@@ -955,6 +994,7 @@ class GardenPlannerApp(QMainWindow):
         fit_action.setShortcut(QKeySequence("Ctrl+0"))
         fit_action.setStatusTip(self.tr("Fit the entire canvas in the window"))
         fit_action.triggered.connect(self._on_fit_to_window)
+        self._set_action_icon(fit_action, "zoom_fit")
         menu.addAction(fit_action)
 
         menu.addSeparator()
@@ -1303,6 +1343,7 @@ class GardenPlannerApp(QMainWindow):
         shortcuts_action.setShortcut(QKeySequence("F1"))
         shortcuts_action.setStatusTip(self.tr("Show keyboard shortcuts reference"))
         shortcuts_action.triggered.connect(self._on_keyboard_shortcuts)
+        self._set_action_icon(shortcuts_action, "shortcuts")
         menu.addAction(shortcuts_action)
 
         # Connect AI Assistant (US-D1.6)
@@ -1311,6 +1352,7 @@ class GardenPlannerApp(QMainWindow):
             self.tr("Register this plan's MCP server with your AI assistant")
         )
         connect_ai_action.triggered.connect(self._on_connect_ai_assistant)
+        self._set_action_icon(connect_ai_action, "connect_ai")
         menu.addAction(connect_ai_action)
 
         menu.addSeparator()
@@ -1319,6 +1361,7 @@ class GardenPlannerApp(QMainWindow):
         about_action = QAction(self.tr("&About Open Garden Planner"), self)
         about_action.setStatusTip(self.tr("About this application"))
         about_action.triggered.connect(self._on_about)
+        self._set_action_icon(about_action, "about")
         menu.addAction(about_action)
 
         # About Qt

@@ -622,16 +622,14 @@ class PropertiesPanel(QWidget):
     @staticmethod
     def _get_object_type_icon(obj_type: ObjectType) -> QIcon | None:
         """Return a small QIcon from the SVG file for the given object type, or None."""
-        from pathlib import Path
+        from open_garden_planner.ui.icons import get_icon
 
-        # 1. Furniture / infrastructure SVGs (objects/ directory)
+        # 1. Furniture / infrastructure SVGs (objects/ directory — full-color art)
         svg_path = get_furniture_svg_path(obj_type)
         if svg_path is not None and svg_path.exists():
             return QIcon(str(svg_path))
 
-        res = Path(__file__).parent.parent.parent / "resources"
-
-        # 2. Tool icons (icons/tools/ directory)
+        # 2. Themed UI icons (resources/icons/ui/ via the central provider)
         _TOOL_ICON_FILES: dict[ObjectType, str] = {
             ObjectType.GENERIC_RECTANGLE: "rectangle",
             ObjectType.GENERIC_POLYGON: "polygon",
@@ -653,9 +651,7 @@ class PropertiesPanel(QWidget):
         }
         tool_name = _TOOL_ICON_FILES.get(obj_type)
         if tool_name is not None:
-            tool_path = res / "icons" / "tools" / f"{tool_name}.svg"
-            if tool_path.exists():
-                return QIcon(str(tool_path))
+            return get_icon(tool_name)
 
         return None
 

@@ -48,14 +48,9 @@ class _ThumbnailButton(QToolButton):
         thumb_label = QLabel()
         thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         thumb_label.setFixedSize(THUMB_SIZE, THUMB_SIZE)
+        self._thumb_label = thumb_label
         if item.thumbnail and not item.thumbnail.isNull():
-            scaled = item.thumbnail.scaled(
-                THUMB_SIZE - 4,
-                THUMB_SIZE - 4,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            thumb_label.setPixmap(scaled)
+            self.update_thumbnail()
         else:
             thumb_label.setText("?")
             thumb_label.setStyleSheet("font-size: 20px;")
@@ -87,6 +82,18 @@ class _ThumbnailButton(QToolButton):
     @property
     def item(self) -> GalleryItem:
         return self._item
+
+    def update_thumbnail(self) -> None:
+        """Refresh the pixmap from the (possibly re-rendered) gallery item."""
+        if self._item.thumbnail is None or self._item.thumbnail.isNull():
+            return
+        scaled = self._item.thumbnail.scaled(
+            THUMB_SIZE - 4,
+            THUMB_SIZE - 4,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        self._thumb_label.setPixmap(scaled)
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -190,6 +197,11 @@ class CategoryDropdown(QWidget):
         for btn in self._buttons:
             visible = not needle or needle in btn.item.name.lower()
             btn.setVisible(visible)
+
+    def refresh_thumbnails(self) -> None:
+        """Re-pull each button's pixmap after a theme switch (see §8.21)."""
+        for btn in self._buttons:
+            btn.update_thumbnail()
 
     def show_below(self, anchor: QWidget) -> None:
         """Show the popup directly beneath the given anchor widget."""

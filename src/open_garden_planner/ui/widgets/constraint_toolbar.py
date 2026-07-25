@@ -6,17 +6,14 @@ not-yet-implemented tools appear grayed out with a "coming soon" tooltip.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import NamedTuple
 
 from PyQt6.QtCore import QCoreApplication, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QIcon, QPainter, QPixmap
-from PyQt6.QtSvg import QSvgRenderer
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QButtonGroup, QToolBar, QToolButton, QWidget
 
 from open_garden_planner.core.tools import ToolType
-
-_ICONS_DIR = Path(__file__).parent.parent.parent / "resources" / "icons" / "tools"
+from open_garden_planner.ui.icons import get_icon
 
 
 class _ToolEntry(NamedTuple):
@@ -133,23 +130,13 @@ class ConstraintToolbar(QToolBar):
         self._button_group = QButtonGroup(self)
         self._button_group.setExclusive(True)
         self._buttons: dict[ToolType, QToolButton] = {}
+        self._icon_buttons: list[tuple[QToolButton, str]] = []
 
         self._setup_toolbar()
 
     def _load_icon(self, icon_name: str) -> QIcon | None:
-        """Load an SVG icon from the tools icon directory, rendered at 28×28 px."""
-        svg_path = _ICONS_DIR / f"{icon_name}.svg"
-        if not svg_path.exists():
-            return None
-        renderer = QSvgRenderer(str(svg_path))
-        if not renderer.isValid():
-            return None
-        pixmap = QPixmap(28, 28)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pixmap)
-        renderer.render(painter)
-        painter.end()
-        return QIcon(pixmap)
+        """Load a themed icon from the central provider (ui/icons.py)."""
+        return get_icon(icon_name)
 
     def _setup_toolbar(self) -> None:
         self.setMovable(False)
@@ -193,6 +180,7 @@ class ConstraintToolbar(QToolBar):
                 )
 
             self.addWidget(button)
+            self._icon_buttons.append((button, entry.icon_name))
 
     def set_active_tool(self, tool_type: ToolType) -> None:
         """Highlight the button for the given tool type (called on external tool change).
@@ -209,3 +197,10 @@ class ConstraintToolbar(QToolBar):
                 self._button_group.setExclusive(False)
                 checked.setChecked(False)
                 self._button_group.setExclusive(True)
+
+    def refresh_theme_icons(self) -> None:
+        """Re-request all button icons after a theme switch (see §8.21)."""
+        for button, icon_name in self._icon_buttons:
+            icon = self._load_icon(icon_name)
+            if icon is not None:
+                button.setIcon(icon)
