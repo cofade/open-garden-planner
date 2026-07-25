@@ -24,6 +24,7 @@ from open_garden_planner.ui.canvas.items import (
     PolygonItem,
     RectangleItem,
 )
+from open_garden_planner.ui.theme import theme_color
 
 
 class ColorButton(QPushButton):
@@ -67,7 +68,7 @@ class ColorButton(QPushButton):
         self.setStyleSheet(
             f"background-color: rgba({self._color.red()}, {self._color.green()}, "
             f"{self._color.blue()}, {self._color.alpha()}); "
-            f"border: 1px solid #888;"
+            f"border: 1px solid {theme_color('border')};"
         )
 
     def _pick_color(self) -> None:

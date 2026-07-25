@@ -62,7 +62,12 @@ from open_garden_planner.ui.panels import (
     PropertiesPanel,
     SmartSymbolsPanel,
 )
-from open_garden_planner.ui.theme import ThemeMode, apply_theme, set_text_role
+from open_garden_planner.ui.theme import (
+    ThemeMode,
+    apply_theme,
+    set_text_role,
+    theme_color,
+)
 from open_garden_planner.ui.views.harvest_view import HarvestView
 from open_garden_planner.ui.views.planting_calendar_view import PlantingCalendarView
 from open_garden_planner.ui.views.seed_inventory_view import SeedInventoryView
@@ -5624,13 +5629,14 @@ class GardenPlannerApp(QMainWindow):
             self._frost_badge.hide()
             return
         icon = "❄" if max_severity == "red" else "⚠"
-        bg = "#dc3545" if max_severity == "red" else "#fd7e14"
+        bg = theme_color("error") if max_severity == "red" else theme_color("warning")
+        text = theme_color("overlay_text")
         label = self.tr("frost alert") if count == 1 else self.tr("frost alerts")
         self._frost_badge.setText(f"  {icon} {count} {label}  ")
         self._frost_badge.setStyleSheet(
-            f"QPushButton {{ background: {bg}; color: white; font-weight: bold;"
+            f"QPushButton {{ background: {bg}; color: {text}; font-weight: bold;"
             "  border-radius: 4px; padding: 2px 6px; }}"
-            f"QPushButton:hover {{ border: 1px solid white; }}"
+            f"QPushButton:hover {{ border: 1px solid {text}; }}"
         )
         self._frost_badge.show()
 
