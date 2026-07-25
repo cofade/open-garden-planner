@@ -5,6 +5,10 @@
 | Term | Definition |
 |------|-----------|
 | **arc42** | Template for software architecture documentation (12 sections) |
+| **Accent sentinel** | The reserved hex `#3D8B37` inside UI icon SVGs — replaced with the active theme's `accent` at render time by the icon provider (equals the light-theme accent so raw files preview correctly). ADR-039 |
+| **Icon provider** | `ui/icons.py` — the single render path for chrome icons. Substitutes theme colors into the SVG text before rasterizing (QSvgRenderer paints raw `currentColor` black), renders at devicePixelRatio, caches per (name, size, tint, accent) |
+| **Semantic color token** | A named entry in `ThemeColors.LIGHT/DARK` expressing intent (`error`, `warning_bg`, `caution`, …). Widget code reads it live via `theme_color()`/`rgba()` instead of hardcoding hex — enforced by the QSS-color lint gate |
+| **Text role** | The `textRole`/`colorRole` dynamic label properties (h1/h2/hint/small/placeholder; success/…/secondary) styled centrally by the generated stylesheet; assigned via `theme.set_text_role()` |
 | **Canvas** | The main drawing area where garden objects are placed and manipulated |
 | **Canopy Diameter** | The spread/width of a tree or shrub's foliage when viewed from above |
 | **Amendment** | Soil-improving substance (lime, blood meal, compost, etc.) loaded from `resources/data/amendments.json`. Carries application rate (g/m²) and per-fix effect coefficients used by the calculator |

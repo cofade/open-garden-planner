@@ -115,18 +115,40 @@ This pattern was systematically applied across all item classes in issues #148/#
 
 ## 8.4 Theme System
 
-Branded green color palette with light and dark variants:
+**Single source of truth: [`ui/theme.py`](../../src/open_garden_planner/ui/theme.py)** (ADR-039). Two complete palettes (`ThemeColors.LIGHT`/`DARK`, key parity pinned by `tests/unit/test_theme.py`) feed one generated application stylesheet (`generate_stylesheet`); the preference (light/dark/system) persists in QSettings and applies live via `apply_theme()` — no restart.
 
-| Color Role | Light Theme | Dark Theme |
-|------------|-------------|------------|
-| Primary | Garden green | Softer green |
-| Surface | White/cream | Dark gray/slate |
-| Text | Dark gray | Light gray |
-| Accent | Complementary | Complementary |
+### 8.4.1 Color tokens & the no-hex rule
 
-Applied via QSS stylesheets. Theme preference stored in QSettings.
+Base/surface/text/border/accent/status tokens plus the #279 semantic additions: `success_bg`/`warning_bg`/`error_bg`/`info_bg` (tinted banner/card surfaces), `caution` ("this week" urgency yellow), and the `overlay_*` family (dynamic-input overlay — deliberately **constant across modes** because it floats over the always-light canvas). Canvas colors are identical in both modes by design (the garden always renders bright; pinned by `test_default_canvas_color`).
+
+**The no-hex rule**: widget code never hardcodes a chrome color. Styling comes either from the generated stylesheet (via the dynamic properties below) or from the live-palette helpers `theme_color()` / `theme_qcolor()` / `rgba(token, alpha)`. Enforced mechanically by `tests/unit/test_no_hardcoded_qss_colors.py` — the allowlist is EMPTY and stays that way without an ADR-039-documented reason.
+
+### 8.4.2 Typography & widget roles (dynamic properties)
+
+Styled centrally in the generated stylesheet, assigned via `theme.set_text_role(widget, role, color_role)` (which re-polishes, so post-polish changes apply — the §8.17.6 gotcha):
+
+- `QLabel[textRole="h1"/"h2"/"hint"/"small"/"placeholder"]` — size/weight/style
+- `QLabel[colorRole="success"/"warning"/"error"/"info"/"caution"/"disabled"/"secondary"]` — semantic text color (orthogonal to textRole; combinable)
+- `QPushButton[buttonRole="primary"/"secondary"]` — accent-branded dialog CTAs (welcome dialog)
+- `QLineEdit[inputError="true"]`, `QFrame[weatherCard="true"][frostSeverity="orange"/"red"]`
+- objectName rules: `#TaskReminderBar` (warning_bg banner), `#UpdateBar` (info_bg), `#constraintsDeleteAllBtn`
+
+Weight uses `font-weight: 600` (support pinned by `test_theme_tokens.py`; documented fallback is `bold`).
+
+### 8.4.3 Theme propagation contract
+
+`apply_theme()` publishes the resolved palette FIRST (`current_colors()` / `is_dark_theme()` read it live), notifies `register_theme_listener` subscribers (the icon provider clears its cache), restyles via `app.setStyleSheet`, then walks `allWidgets()` duck-typed: widgets exposing `apply_theme_colors(colors)` get palette-driven redraws (CanvasView, dashboards — typically a debounced `schedule_refresh()`); widgets exposing `refresh_theme_icons()` re-request their icons (the three toolbars, the main window's tracked menu actions). New widgets opt in by defining one of the two hooks — no registration list.
+
+### 8.4.4 QSS capability limits
+
+No box-shadow, no transitions, no outline focus rings — focus is a 2 px border swap with 1 px padding compensation (no layout jump). Tabs are underline-style (documentMode: style `QTabBar::tab` directly, `::pane` is partially ignored). Outer popup frames (QMenu/QToolTip) stay square on Windows (rounded corners artifact); only inner menu-item pills get radii.
 
 ## 8.5 Graphics Asset Pipeline
+
+### UI icons (chrome — `resources/icons/ui/`, ADR-039)
+- Line-icon set on a mechanical contract (24×24, `currentColor` + accent sentinel `#3D8B37`): 61 Tabler-vendored (MIT, pinned release) + 10 bespoke glyphs
+- Tinted at runtime by the central provider `ui/icons.py` — never fed to QSvgRenderer directly (see §8.21)
+- Gates: `scripts/normalize_icons.py` (idempotent canonicalizer) + `scripts/check_icon_conformance.py` + per-icon PROVENANCE — no entry, no merge
 
 ### Plant SVGs
 - AI-generated illustrations in consistent top-down garden style
@@ -1173,3 +1195,56 @@ preserved). All mesh math stays in the scene frame in Qt-free
 `PyQt6.Qt3D*` (ADR-038's engine-swap insurance). The sun vector's ground
 projection is pinned exactly opposite the 2D shadow direction — if the
 3D light and the 2D overlay ever disagree, a unit test fails first.
+
+## 8.21 Icon System (#279, ADR-039)
+
+### 8.21.1 The contract
+
+All chrome icons (main/constraint toolbars, gallery category chips, menu
+actions) live in `resources/icons/ui/` on one binding contract:
+`viewBox="0 0 24 24"`, root `fill="none" stroke="currentColor"
+stroke-width="2"` with round caps/joins; colors restricted everywhere to
+`none`, `currentColor` (the primary line) and the **accent sentinel
+`#3D8B37`** (replaced with the theme's `accent` at render time; it equals
+the light-theme accent so raw files preview correctly in editors). No
+`<text>` (i18n rule — icons are language-neutral), no rasters, no
+`<style>`/`<defs>`/`<g>`. Vendored glyphs come from Tabler Icons (MIT,
+pinned release — `PROVENANCE.md` + `LICENSE-tabler-icons.txt`); the rest
+are bespoke. The binding house-style contract and the add-an-icon
+checklist live in `resources/icons/ui/README.md`.
+
+### 8.21.2 The provider (`ui/icons.py`) — the ONLY render path
+
+QSvgRenderer resolves `currentColor` to **black**, never the palette —
+the reason the legacy set carried baked hex overrides (§11.4). The
+provider substitutes the active theme's colors into the SVG text BEFORE
+rasterizing (`get_icon(name, size=24, color=None)` / `get_pixmap`),
+renders at devicePixelRatio (crisp at 125/150 % Windows scaling), adds a
+fully-grayed Disabled variant (both tokens → `text_disabled`), caches per
+`(name, size, tint, accent)`, and returns `None` for unknown names so
+every caller's text fallback keeps working. Category chips pass their
+muted identity tint (`theme.CATEGORY_ICON_TINTS`) as `color`.
+
+### 8.21.3 Refresh protocol (theme switch without restart)
+
+A theme listener registered at import clears the provider cache on every
+`apply_theme()`; the propagation walk (§8.4.3) then calls
+`refresh_theme_icons()` on the three toolbars — buttons re-request icons,
+`gallery_data.refresh_icon_thumbnails` re-renders icon-derived gallery
+thumbnails (species/texture art is theme-neutral and untouched), each
+`CategoryDropdown.refresh_thumbnails()` re-pulls its labels — and on the
+main window (tracked `_icon_actions` menu replay). Widgets constructed
+after the switch simply call `get_icon()` fresh. Known minor: the
+properties panel's object-type combo icons refresh on its next rebuild.
+
+### 8.21.4 Gates & how to add an icon
+
+`scripts/normalize_icons.py` (deterministic canonicalizer — idempotence
+is itself a check; `--check` for CI drift) and
+`scripts/check_icon_conformance.py` (contract + PROVENANCE cross-check in
+both directions), pinned into pytest by `tests/unit/test_icon_conformance.py`;
+end-to-end rendering on both themes + app wiring + live-switch re-tint by
+`tests/integration/test_icon_system.py` (§8.10). Adding an icon: vendor
+from Tabler (note glyph + release) or author bespoke at 24×24 → run the
+normalizer → add the PROVENANCE entry → reference it by name in code →
+gates green. **No provenance entry, no merge** (asset-forge discipline).
