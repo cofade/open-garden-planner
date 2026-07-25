@@ -93,6 +93,7 @@ in this file; the 16 `ogp-*` continuity skills below cover the rest.
 | `ogp-proof-and-analysis-toolkit` | about to assert a library/geometry/tolerance/coordinate-frame fact — "prove it, don't just install it" |
 | `ogp-research-frontier` | picking the next big direction, or scoping D2/D3 / Phase-14+ ambitions |
 | `ogp-research-methodology` | starting an investigation, forming a hypothesis, or deciding whether evidence suffices to adopt a change |
+| `ogp-asset-forge` | adding/regenerating a texture or 2D art asset — house style, tileability gate, provenance rules (US-E9) |
 
 **Maintaining this table:** add a one-line row when a new skill lands; keep the real
 trigger in the skill's `description`. If a row and a `description` disagree, the

@@ -49,6 +49,8 @@ class FillPattern(Enum):
     COMPOST = auto()  # Composted soil
     FLAGSTONE = auto()  # Irregular flagstone paving
     CLAY = auto()  # Clay surface
+    DECKING = auto()  # Weathered timber decking boards (US-E9 asset forge)
+    CORTEN = auto()  # Corten (weathering) steel (US-E9 asset forge)
 
 
 # Mapping from FillPattern to texture filename (without .png)
@@ -75,6 +77,8 @@ _TEXTURE_FILES: dict[FillPattern, str] = {
     FillPattern.COMPOST: "compost",
     FillPattern.FLAGSTONE: "flagstone",
     FillPattern.CLAY: "clay",
+    FillPattern.DECKING: "decking",
+    FillPattern.CORTEN: "corten",
 }
 
 

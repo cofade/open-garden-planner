@@ -5776,6 +5776,14 @@ noch nicht implementiert</translation>
             <source>From measured current height</source>
             <translation>Aus gemessener aktueller Höhe</translation>
         </message>
+        <message>
+            <source>Decking</source>
+            <translation>Terrassendielen</translation>
+        </message>
+        <message>
+            <source>Corten steel</source>
+            <translation>Cortenstahl</translation>
+        </message>
     </context>
     <context>
         <name>RectangleItem</name>

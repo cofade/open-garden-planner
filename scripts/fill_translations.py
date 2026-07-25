@@ -1378,6 +1378,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── PropertiesPanel ──
     "PropertiesPanel": {
+        # US-E9 asset-forge pilot fill patterns (#264)
+        "Decking": "Terrassendielen",
+        "Corten steel": "Cortenstahl",
         "No objects selected": "Keine Objekte ausgewählt",
         "{count} objects selected": "{count} Objekte ausgewählt",
         "Symbol definition not found — showing cached geometry.":
