@@ -42,6 +42,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.paths import default_dialog_dir
 from open_garden_planner.models.pest_log import PestLogHistory, PestLogRecord
+from open_garden_planner.ui.theme import theme_color
 
 
 class PestLogDialog(QDialog):
@@ -159,7 +160,7 @@ class PestLogDialog(QDialog):
         photo_row = QHBoxLayout()
         self._photo_label = QLabel()
         self._photo_label.setFixedSize(64, 64)
-        self._photo_label.setStyleSheet("border: 1px solid #888;")
+        self._photo_label.setStyleSheet(f"border: 1px solid {theme_color('border')};")
         self._photo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._photo_label.setText(self.tr("(no photo)"))
         photo_row.addWidget(self._photo_label)

@@ -186,7 +186,7 @@ class _DashboardPanel(QFrame):
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(10, 4, 6, 4)
         self._title_lbl = QLabel(self.tr("Today's Tasks"))
-        self._title_lbl.setStyleSheet("font-weight: bold; font-size: 9pt;")
+        set_text_role(self._title_lbl, "h2")
         header_layout.addWidget(self._title_lbl)
         header_layout.addStretch()
         self._toggle_btn = QPushButton("▾")

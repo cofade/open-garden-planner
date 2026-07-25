@@ -70,7 +70,7 @@ class HarvestView(QWidget):
 
         header = QHBoxLayout()
         title = QLabel(self.tr("Harvest"))
-        title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        set_text_role(title, "h1")
         header.addWidget(title)
         header.addStretch()
         self._export_btn = QPushButton(self.tr("Export CSV…"))

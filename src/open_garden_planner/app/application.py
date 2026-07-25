@@ -62,7 +62,7 @@ from open_garden_planner.ui.panels import (
     PropertiesPanel,
     SmartSymbolsPanel,
 )
-from open_garden_planner.ui.theme import ThemeMode, apply_theme
+from open_garden_planner.ui.theme import ThemeMode, apply_theme, set_text_role
 from open_garden_planner.ui.views.harvest_view import HarvestView
 from open_garden_planner.ui.views.planting_calendar_view import PlantingCalendarView
 from open_garden_planner.ui.views.seed_inventory_view import SeedInventoryView
@@ -1419,7 +1419,8 @@ class GardenPlannerApp(QMainWindow):
         # toolbar's flow reflowed Qt's overflow popup and bumped the Animate
         # button to another row when the night text toggled (2026-07 fix).
         self._sun_hint_label = QLabel("")
-        self._sun_hint_label.setStyleSheet("color: #806a00; font-style: italic;")
+        set_text_role(self._sun_hint_label, color_role="caution")
+        self._sun_hint_label.setStyleSheet("font-style: italic;")
         self._sun_hint_label.setVisible(False)
         status_bar.addPermanentWidget(self._sun_hint_label)
 
@@ -1900,7 +1901,7 @@ class GardenPlannerApp(QMainWindow):
         delete_all_btn.setText("\u00d7")
         delete_all_btn.setFixedSize(20, 20)
         delete_all_btn.setToolTip(self.tr("Delete all constraints"))
-        delete_all_btn.setStyleSheet("QToolButton { color: #cc3333; font-weight: bold; }")
+        delete_all_btn.setObjectName("constraintsDeleteAllBtn")
         delete_all_btn.clicked.connect(self.constraints_panel.delete_all)
         constraints_collapsible.add_header_widget(delete_all_btn)
         sidebar_layout.addWidget(constraints_collapsible)

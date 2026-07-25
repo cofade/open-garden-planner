@@ -246,7 +246,7 @@ class PropertiesPanel(QWidget):
         """
         self._clear_form()
         label = QLabel(self.tr("{count} objects selected").format(count=count))
-        label.setStyleSheet("font-weight: bold;")
+        set_text_role(label, "h2")
         self._form_layout.addRow(label)
 
         # TODO: Show common properties for batch editing
@@ -705,7 +705,8 @@ class PropertiesPanel(QWidget):
 
         # Header
         header = QLabel(self.tr("Contained Plants"))
-        header.setStyleSheet("font-weight: bold; margin-top: 6px;")
+        set_text_role(header, "h2")
+        header.setStyleSheet("margin-top: 6px;")
         self._form_layout.addRow(header)
 
         if not children or scene is None:
@@ -780,7 +781,8 @@ class PropertiesPanel(QWidget):
         row.addWidget(unlink_btn)
 
         header = QLabel(self.tr("Parent Bed"))
-        header.setStyleSheet("font-weight: bold; margin-top: 6px;")
+        set_text_role(header, "h2")
+        header.setStyleSheet("margin-top: 6px;")
         self._form_layout.addRow(header)
         self._form_layout.addRow(row)
 
@@ -974,7 +976,8 @@ class PropertiesPanel(QWidget):
             return
 
         separator = QLabel(self.tr("Grid Overlay"))
-        separator.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        set_text_role(separator, "h2")
+        separator.setStyleSheet("margin-top: 8px;")
         self._form_layout.addRow(separator)
 
         # Enable checkbox
@@ -1043,7 +1046,8 @@ class PropertiesPanel(QWidget):
             return
 
         separator = QLabel(self.tr("Soil Fill"))
-        separator.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        set_text_role(separator, "h2")
+        separator.setStyleSheet("margin-top: 8px;")
         self._form_layout.addRow(separator)
 
         depth_spin = QSpinBox()
@@ -1083,7 +1087,8 @@ class PropertiesPanel(QWidget):
         meta = item.metadata
 
         header = QLabel(self.tr("Container"))
-        header.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        set_text_role(header, "h2")
+        header.setStyleSheet("margin-top: 8px;")
         self._form_layout.addRow(header)
 
         # Material combo — value stored is the cm.* identifier, label translated.
@@ -1303,7 +1308,8 @@ class PropertiesPanel(QWidget):
 
         title = definition.display_name(lang) if definition is not None else item.symbol_id
         header = QLabel(title)
-        header.setStyleSheet("font-weight: bold; margin-top: 4px;")
+        set_text_role(header, "h2")
+        header.setStyleSheet("margin-top: 4px;")
         self._form_layout.addRow(header)
 
         if definition is None:
@@ -1491,7 +1497,8 @@ class PropertiesPanel(QWidget):
             item: TextItem to show properties for
         """
         header = QLabel(self.tr("Text"))
-        header.setStyleSheet("font-weight: bold; margin-top: 4px;")
+        set_text_role(header, "h2")
+        header.setStyleSheet("margin-top: 4px;")
         self._form_layout.addRow(header)
 
         # Content (multi-line). Live-update the item on every keystroke but

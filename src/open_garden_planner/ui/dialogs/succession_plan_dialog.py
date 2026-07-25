@@ -50,6 +50,7 @@ from open_garden_planner.models.succession import (
     SuccessionPlan,
     compute_season_segments,
 )
+from open_garden_planner.ui.theme import set_text_role
 
 _SEGMENT_COLORS: dict[str, QColor] = {
     "early_spring": QColor(144, 202, 249, 200),  # Light blue
@@ -285,7 +286,7 @@ class _EntryDialog(QDialog):
 
         # Season hint label
         self._season_label = QLabel()
-        self._season_label.setStyleSheet("color: gray; font-style: italic;")
+        set_text_role(self._season_label, "placeholder")
         layout.addWidget(self._season_label)
 
         button_box = QDialogButtonBox(
@@ -474,7 +475,7 @@ class SuccessionPlanDialog(QDialog):
             warn = QLabel(
                 self.tr("Set project location for accurate season dates.")
             )
-            warn.setStyleSheet("color: #888; font-style: italic;")
+            set_text_role(warn, "placeholder")
             layout.addWidget(warn)
 
         # Season band

@@ -159,7 +159,7 @@ class CropRotationPanel(QWidget):
         # Suggested demand
         self._suggest_label = QLabel()
         self._suggest_label.setWordWrap(True)
-        self._suggest_label.setStyleSheet("font-weight: bold; font-size: 11px;")
+        self._suggest_label.setStyleSheet("font-weight: 600; font-size: 11px;")
         layout.addWidget(self._suggest_label)
 
         # Families to avoid
@@ -171,7 +171,8 @@ class CropRotationPanel(QWidget):
 
         # History header
         history_header = QLabel(self.tr("Planting History"))
-        history_header.setStyleSheet("font-weight: bold; margin-top: 6px;")
+        set_text_role(history_header, "h2")
+        history_header.setStyleSheet("margin-top: 6px;")
         layout.addWidget(history_header)
 
         # History list

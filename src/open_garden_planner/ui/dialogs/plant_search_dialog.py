@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.services.plant_api import PlantAPIError, PlantAPIManager
-from open_garden_planner.ui.theme import theme_color
+from open_garden_planner.ui.theme import set_text_role, theme_color
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class PlantSearchDialog(QDialog):
 
         # Status/info label
         self.status_label = QLabel(self.tr("Enter a plant name to search"))
-        self.status_label.setStyleSheet("color: palette(text); opacity: 0.7;")
+        self.status_label.setStyleSheet(f"color: {theme_color('text_secondary')};")
         layout.addWidget(self.status_label)
 
         # Main content area
@@ -87,7 +87,7 @@ class PlantSearchDialog(QDialog):
         # Left side: Search results list
         results_layout = QVBoxLayout()
         results_label = QLabel(self.tr("Results:"))
-        results_label.setStyleSheet("font-weight: bold;")
+        set_text_role(results_label, "h2")
         self.results_list = QListWidget()
         self.results_list.itemSelectionChanged.connect(self._on_selection_changed)
         self.results_list.itemDoubleClicked.connect(self._on_result_double_clicked)
@@ -97,7 +97,7 @@ class PlantSearchDialog(QDialog):
         # Right side: Plant details
         details_layout = QVBoxLayout()
         details_label = QLabel(self.tr("Plant Details:"))
-        details_label.setStyleSheet("font-weight: bold;")
+        set_text_role(details_label, "h2")
         self.details_text = QTextEdit()
         self.details_text.setReadOnly(True)
         self.details_text.setPlaceholderText(self.tr("Select a plant to view details"))
@@ -135,7 +135,7 @@ class PlantSearchDialog(QDialog):
         else:
             self.results_list.clear()
             self.status_label.setText(self.tr("Enter a plant name to search"))
-            self.status_label.setStyleSheet("color: palette(text); opacity: 0.7;")
+            self.status_label.setStyleSheet(f"color: {theme_color('text_secondary')};")
 
     def _perform_search(self) -> None:
         """Perform plant search using the API manager."""

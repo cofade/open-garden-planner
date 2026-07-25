@@ -116,7 +116,7 @@ class TasksView(QWidget):
 
         header = QHBoxLayout()
         title = QLabel(self.tr("Tasks"))
-        title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        set_text_role(title, "h1")
         header.addWidget(title)
         header.addStretch()
         add_btn = QPushButton(self.tr("Add Task"))

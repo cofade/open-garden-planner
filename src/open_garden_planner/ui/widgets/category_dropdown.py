@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.tools import ToolType
+from open_garden_planner.ui.theme import set_text_role
 from open_garden_planner.ui.widgets.gallery_data import (
     THUMB_SIZE,
     GalleryCategory,
@@ -159,7 +160,8 @@ class CategoryDropdown(QWidget):
         layout.setSpacing(4)
 
         header = QLabel(self._category.name)
-        header.setStyleSheet("font-weight: bold; font-size: 11px; padding: 2px 4px;")
+        set_text_role(header, "h2")
+        header.setStyleSheet("padding: 2px 4px;")
         layout.addWidget(header)
 
         self._search_box = QLineEdit()

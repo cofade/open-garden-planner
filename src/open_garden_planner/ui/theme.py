@@ -431,6 +431,12 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['selection']};
     }}
 
+    QPushButton[buttonRole="secondary"]:disabled {{
+        color: {colors['text_disabled']};
+        border-color: {colors['border']};
+        background-color: transparent;
+    }}
+
     /* Tool buttons */
     QToolButton {{
         background-color: transparent;
@@ -970,6 +976,12 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['accent']};
         border-color: {colors['accent_pressed']};
         color: {colors['accent_text']};
+    }}
+
+    /* Constraints-panel delete-all header button */
+    QToolButton#constraintsDeleteAllBtn {{
+        color: {colors['error']};
+        font-weight: 600;
     }}
 
     /* Notification banners — widgets carry only an objectName; all styling

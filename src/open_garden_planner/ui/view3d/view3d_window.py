@@ -13,6 +13,7 @@ from PyQt6.QtGui import QAction, QCloseEvent, QKeyEvent
 from PyQt6.QtWidgets import QLabel, QMainWindow, QToolBar, QWidget
 
 from open_garden_planner.core.scene3d import Scene3DRecord
+from open_garden_planner.ui.theme import set_text_role
 
 from .qt3d_adapter import Garden3DView
 
@@ -53,7 +54,7 @@ class View3DWindow(QMainWindow):
         toolbar.addAction(self._walk_action)
 
         self._walk_hint = QLabel("", self)
-        self._walk_hint.setStyleSheet("color: #666; font-style: italic;")
+        set_text_role(self._walk_hint, "placeholder")
         self._walk_hint.setContentsMargins(12, 0, 0, 0)
         toolbar.addWidget(self._walk_hint)
         self.addToolBar(toolbar)

@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.plant_data import PlantSpeciesData
+from open_garden_planner.ui.theme import set_text_role
 
 
 class PlantListItem(QWidget):
@@ -70,7 +71,7 @@ class PlantListItem(QWidget):
 
         # Plant name
         name_label = QLabel(name or "Unnamed")
-        name_label.setStyleSheet("font-weight: bold;")
+        set_text_role(name_label, "h2")
         top_row.addWidget(name_label, 1)
 
         layout.addLayout(top_row)
