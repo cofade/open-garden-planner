@@ -132,6 +132,24 @@ a = Analysis(
         "PyQt6.QtWebEngineCore",
         "PyQt6.QtWebEngineWidgets",
         "PyQt6.QtWebChannel",
+        # Qt3D — US-E6 3D view (ADR-038; engine imports live only in
+        # ui/view3d/qt3d_adapter.py, loaded lazily). PyInstaller's PyQt6 hook
+        # collects the Qt3D DLLs once these bindings are named. NOTE: all four
+        # Qt wheels (PyQt6, PyQt6-Qt6, PyQt6-3D, PyQt6-3D-Qt6) are pinned to the
+        # SAME micro in pyproject.toml — a drifting PyQt6-Qt6 micro makes these
+        # bindings fail at import with 'Die angegebene Prozedur wurde nicht
+        # gefunden' and crash the 3D view (issue #277, ADR-038). The frozen
+        # exe's `--selftest` (release.yml) imports them to catch that drift.
+        "PyQt6.Qt3DCore",
+        "PyQt6.Qt3DExtras",
+        "PyQt6.Qt3DRender",
+        "PyQt6.Qt3DInput",
+        "PyQt6.Qt3DLogic",
+        "PyQt6.Qt3DAnimation",
+        "open_garden_planner.ui.view3d",
+        "open_garden_planner.ui.view3d.snapshot",
+        "open_garden_planner.ui.view3d.qt3d_adapter",
+        "open_garden_planner.ui.view3d.view3d_window",
         "ezdxf",
         "ezdxf.xclip",
         "ezdxf.fonts",

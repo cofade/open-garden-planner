@@ -3291,6 +3291,26 @@ Neue Saison jetzt öffnen?</translation>
             <source>Night — the sun is below the horizon</source>
             <translation>Nacht — die Sonne ist unter dem Horizont</translation>
         </message>
+        <message>
+            <source>&amp;3D View…</source>
+            <translation>&amp;3D-Ansicht…</translation>
+        </message>
+        <message>
+            <source>Open a 3D view of the plan with solar lighting</source>
+            <translation>3D-Ansicht des Plans mit Sonnenlicht öffnen</translation>
+        </message>
+        <message>
+            <source>3D View Unavailable</source>
+            <translation>3D-Ansicht nicht verfügbar</translation>
+        </message>
+        <message>
+            <source>The 3D view could not be loaded: the 3D graphics components are missing or incompatible. The rest of the application is unaffected.
+
+Details: {error}</source>
+            <translation>Die 3D-Ansicht konnte nicht geladen werden: Die 3D-Grafikkomponenten fehlen oder sind inkompatibel. Der Rest der Anwendung ist nicht betroffen.
+
+Details: {error}</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -5751,6 +5771,10 @@ noch nicht implementiert</translation>
         <message>
             <source>No height — casts no shadow</source>
             <translation>Keine Höhe — wirft keinen Schatten</translation>
+        </message>
+        <message>
+            <source>From measured current height</source>
+            <translation>Aus gemessener aktueller Höhe</translation>
         </message>
         <message>
             <source>Decking</source>
@@ -10283,6 +10307,87 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Animate the sun across the day</source>
             <translation>Sonnenverlauf über den Tag animieren</translation>
+        </message>
+        <message>
+            <source>Hours of Sun</source>
+            <translation>Sonnenstunden</translation>
+        </message>
+        <message>
+            <source>Compute a full-day hours-of-sun heatmap for the shown date</source>
+            <translation>Sonnenstunden-Heatmap für den ganzen angezeigten Tag berechnen</translation>
+        </message>
+        <message>
+            <source>Computing…</source>
+            <translation>Berechne…</translation>
+        </message>
+        <message>
+            <source>&lt;2 h</source>
+            <translation>&lt;2 h</translation>
+        </message>
+        <message>
+            <source>2–4 h</source>
+            <translation>2–4 h</translation>
+        </message>
+        <message>
+            <source>4–6 h</source>
+            <translation>4–6 h</translation>
+        </message>
+        <message>
+            <source>≥6 h full sun</source>
+            <translation>≥6 h volle Sonne</translation>
+        </message>
+        <message>
+            <source>Hours of direct sun per spot on the chosen day</source>
+            <translation>Stunden direkter Sonne je Stelle am gewählten Tag</translation>
+        </message>
+    </context>
+    <context>
+        <name>View3DWindow</name>
+        <message>
+            <source>3D View</source>
+            <translation>3D-Ansicht</translation>
+        </message>
+        <message>
+            <source>&amp;Refresh</source>
+            <translation>&amp;Aktualisieren</translation>
+        </message>
+        <message>
+            <source>Rebuild the 3D scene from the current plan</source>
+            <translation>3D-Szene aus dem aktuellen Plan neu aufbauen</translation>
+        </message>
+        <message>
+            <source>&amp;Walk</source>
+            <translation>&amp;Rundgang</translation>
+        </message>
+        <message>
+            <source>Walk the garden at eye level — WASD/arrow keys move, hold the left mouse button to look around, Esc exits</source>
+            <translation>Durch den Garten auf Augenhöhe gehen — WASD/Pfeiltasten bewegen, linke Maustaste gedrückt halten zum Umschauen, Esc beendet</translation>
+        </message>
+        <message>
+            <source>WASD/arrows move · hold left mouse to look · Esc exits</source>
+            <translation>WASD/Pfeile bewegen · linke Maustaste zum Umschauen · Esc beendet</translation>
+        </message>
+    </context>
+    <context>
+        <name>main</name>
+        <message>
+            <source>Unexpected Error</source>
+            <translation>Unerwarteter Fehler</translation>
+        </message>
+        <message>
+            <source>An unexpected error occurred. The application will keep running so you can save your work.
+
+Details: {error}</source>
+            <translation>Ein unerwarteter Fehler ist aufgetreten. Die Anwendung läuft weiter, damit Sie Ihre Arbeit speichern können.
+
+Details: {error}</translation>
+        </message>
+    </context>
+    <context>
+        <name>SunHeatmapController</name>
+        <message>
+            <source>{n} h</source>
+            <translation>{n} h</translation>
         </message>
     </context>
 </TS>

@@ -1149,8 +1149,27 @@ shadow south. The binding pixel test in
 asserts the tip lands at the formula-predicted pixel; if a change mirrors
 shadows, that test fails before any human has to eyeball a canvas.
 
-**Recompute discipline** for canvas-scale overlays (shadow overlay now;
-heatmap US-E4 next): precompute on change — `scene.changed` debounced
-(150 ms) + `stack_changed` for repaint-less metadata edits — cache the
-result, and let `paint()` only draw the cached path. Guard every timer
-start with `contextlib.suppress(RuntimeError)` (#230).
+**Recompute discipline** for canvas-scale overlays (shadow overlay,
+heatmap): precompute on change — `scene.changed` debounced (150 ms) +
+`stack_changed` for repaint-less metadata edits — cache the result, and
+let `paint()` only draw the cached path. Guard every timer start with
+`contextlib.suppress(RuntimeError)` (#230).
+
+**Threaded canvas-scale computation** (US-E4 heatmap; the pattern for any
+seconds-scale analysis): snapshot plain data on the GUI thread
+(`collect_shadow_casters` — never live QGraphicsItems across threads),
+run a `_WeatherFetchWorker`-shaped `QThread` whose results come back via
+signals, paint only `QImage` in the worker (`QPixmap` is GUI-thread-only;
+the QImage license is pinned by a 2-thread smoke test), recompute **on
+demand only** (a button — never `scene.changed`), and **join the worker
+before teardown** (`shutdown()` from `closeEvent`): a `QThread` destroyed
+while running aborts the interpreter (#230 class).
+
+**The 3D frame (US-E6)** adds ONE more mapping, applied exactly once at
+the engine-adapter boundary: scene `(E, N, up)` → Qt3D Y-up
+`(E, up, −N)` (`core/scene3d.to_engine_frame`; determinant +1, winding
+preserved). All mesh math stays in the scene frame in Qt-free
+`core/scene3d.py`; only `ui/view3d/qt3d_adapter.py` may import
+`PyQt6.Qt3D*` (ADR-038's engine-swap insurance). The sun vector's ground
+projection is pinned exactly opposite the 2D shadow direction — if the
+3D light and the 2D overlay ever disagree, a unit test fails first.

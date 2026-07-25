@@ -1439,6 +1439,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Custom height (0 = back to automatic)":
             "Eigene Höhe (0 = zurück zu automatisch)",
         "From container fill height": "Aus Gefäß-Füllhöhe",
+        "From measured current height": "Aus gemessener aktueller Höhe",
         "From assigned species (max height)":
             "Aus zugewiesener Pflanzenart (max. Höhe)",
         "Default for this object type": "Standard für diesen Objekttyp",
@@ -2530,6 +2531,84 @@ _E3_TRANSLATIONS: dict[str, dict[str, str]] = {
 }
 
 for _ctx, _strings in _E3_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── US-E4: hours-of-sun heatmap (#259) ──
+_E4_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "SunSimToolbar": {
+        "Hours of Sun": "Sonnenstunden",
+        "Compute a full-day hours-of-sun heatmap for the shown date":
+            "Sonnenstunden-Heatmap für den ganzen angezeigten Tag berechnen",
+        "Computing…": "Berechne…",
+    },
+    "SunHeatmapController": {
+        # Hour label on the heatmap's topographic contour lines ("4 h").
+        "{n} h": "{n} h",
+    },
+}
+
+for _ctx, _strings in _E4_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── US-E6: 3D view MVP (#261) ──
+_E6_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "GardenPlannerApp": {
+        "&3D View…": "&3D-Ansicht…",
+        "Open a 3D view of the plan with solar lighting":
+            "3D-Ansicht des Plans mit Sonnenlicht öffnen",
+    },
+    "View3DWindow": {
+        "3D View": "3D-Ansicht",
+        "&Refresh": "&Aktualisieren",
+        "Rebuild the 3D scene from the current plan":
+            "3D-Szene aus dem aktuellen Plan neu aufbauen",
+    },
+}
+
+for _ctx, _strings in _E6_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── US-E7: first-person walkthrough (#262) ──
+_E7_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "View3DWindow": {
+        "&Walk": "&Rundgang",
+        "Walk the garden at eye level — WASD/arrow keys move, hold "
+        "the left mouse button to look around, Esc exits":
+            "Durch den Garten auf Augenhöhe gehen — WASD/Pfeiltasten bewegen, "
+            "linke Maustaste gedrückt halten zum Umschauen, Esc beendet",
+        "WASD/arrows move · hold left mouse to look · Esc exits":
+            "WASD/Pfeile bewegen · linke Maustaste zum Umschauen · Esc beendet",
+    },
+}
+
+for _ctx, _strings in _E7_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── Issue #277: graceful 3D-view failure + uncaught-exception backstop ──
+_I277_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "GardenPlannerApp": {
+        "3D View Unavailable": "3D-Ansicht nicht verfügbar",
+        "The 3D view could not be loaded: the 3D graphics "
+        "components are missing or incompatible. The rest of the "
+        "application is unaffected.\n\nDetails: {error}":
+            "Die 3D-Ansicht konnte nicht geladen werden: Die 3D-Grafik"
+            "komponenten fehlen oder sind inkompatibel. Der Rest der "
+            "Anwendung ist nicht betroffen.\n\nDetails: {error}",
+    },
+    "main": {
+        "Unexpected Error": "Unerwarteter Fehler",
+        "An unexpected error occurred. The application will keep "
+        "running so you can save your work.\n\nDetails: {error}":
+            "Ein unerwarteter Fehler ist aufgetreten. Die Anwendung läuft "
+            "weiter, damit Sie Ihre Arbeit speichern können.\n\nDetails: {error}",
+    },
+}
+
+for _ctx, _strings in _I277_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 

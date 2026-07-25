@@ -53,6 +53,11 @@ src/open_garden_planner/
 │   ├── solar.py                  # Qt-free NOAA solar position engine — elevation/azimuth/declination/EoT (US-E1, ADR-037)
 │   ├── object_height.py          # Qt-free effective-height resolver — explicit/container/species/type-default (US-E2, ADR-037)
 │   ├── shadow_geometry.py        # Qt-free shadow sweep/union — L=h/tanα, Minkowski sweep, pyclipper union (US-E3, ADR-037)
+│   ├── shade_aggregation.py      # Qt-free hours-of-sun sampling/bands/grid — rasterizer injected (US-E4, ADR-037)
+│   ├── heatmap_render.py         # Qt-free heatmap rendering — cool→warm ramp LUT + marching-squares hour contours (US-E4)
+│   ├── scene3d.py                # Qt-free 3D mesh math — ear-clip triangulation, prism extrusion, sun vector, frame map (US-E6, ADR-038)
+│   ├── walk_camera.py            # Qt-free walkthrough rules — eye height, bounds clamp, pitch-limited look vector (US-E7)
+│   ├── growth_model.py           # Qt-free current-size→mature interpolation by planting date — one model for shadows/heatmap/3D (US-E8, ADR-037)
 │   ├── furniture_renderer.py     # Furniture/hedge SVG rendering & caching
 │   ├── constraints.py            # All 16 constraint types + hybrid solver (see §8.12)
 │   ├── constraint_solver_newton.py # Newton-Raphson refinement + circle-circle fast path
@@ -109,6 +114,7 @@ src/open_garden_planner/
 │   │   ├── canvas_scene.py       # Scene (holds objects)
 │   │   ├── dimension_lines.py    # Dimension line rendering & management
 │   │   ├── sun_shadow_controller.py # Runtime-only solar shadow overlay + debounced recompute (US-E3, ADR-037)
+│   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + cool→warm ramp overlay + hourly contour lines/labels (US-E4)
 │   │   └── items/                # Canvas item types
 │   │       ├── garden_item.py    # GardenItem base class
 │   │       ├── rectangle_item.py
@@ -119,6 +125,7 @@ src/open_garden_planner/
 │   │       ├── bezier_item.py    # BezierItem (Package B US-B1)
 │   │       ├── background_image_item.py
 │   │       └── resize_handle.py
+│   ├── view3d/                   # 3D view MVP (US-E6): snapshot.py (plan→records) + qt3d_adapter.py (ONLY Qt3D importer) + view3d_window.py
 │   ├── panels/
 │   │   ├── drawing_tools_panel.py
 │   │   ├── properties_panel.py

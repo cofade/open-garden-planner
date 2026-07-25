@@ -36,6 +36,10 @@ class SunSimToolbar(QToolBar):
     """
 
     datetime_changed = pyqtSignal(object)
+    #: Heatmap button checked — the app should compute & show the heatmap.
+    heatmap_requested = pyqtSignal()
+    #: Heatmap button unchecked — the app should hide the heatmap.
+    heatmap_cleared = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__("", parent)
@@ -71,11 +75,24 @@ class SunSimToolbar(QToolBar):
         )
         self.addWidget(self._animate_button)
 
-        self._hint_label = QLabel("", self)
-        self._hint_label.setStyleSheet("color: #806a00; font-style: italic;")
-        self._hint_label.setContentsMargins(12, 0, 0, 0)
-        self.addWidget(self._hint_label)
+        self.addSeparator()
 
+        # ── Hours-of-sun heatmap (US-E4) — recompute on demand only ───────
+        self._heatmap_button = QToolButton(self)
+        self._heatmap_button.setText(self.tr("Hours of Sun"))
+        self._heatmap_button.setCheckable(True)
+        self._heatmap_button.setToolTip(
+            self.tr(
+                "Compute a full-day hours-of-sun heatmap for the shown date"
+            )
+        )
+        self.addWidget(self._heatmap_button)
+
+        # NOTE: the night / no-location HINT is deliberately NOT a widget here.
+        # A variable-width label in this toolbar's flow reflowed Qt's overflow
+        # popup and bumped the Animate button to another row when the night
+        # text toggled on/off; the hint now lives on the status bar instead
+        # (GardenPlannerApp._set_sun_hint). 2026-07 fix.
         self._animate_timer = QTimer(self)
         self._animate_timer.setInterval(_ANIMATE_INTERVAL_MS)
         self._animate_timer.timeout.connect(self._on_animate_tick)
@@ -83,6 +100,7 @@ class SunSimToolbar(QToolBar):
         self._date_edit.dateChanged.connect(self._on_inputs_changed)
         self._slider.valueChanged.connect(self._on_inputs_changed)
         self._animate_button.toggled.connect(self._on_animate_toggled)
+        self._heatmap_button.toggled.connect(self._on_heatmap_toggled)
 
         now = datetime.now().astimezone()
         self.set_datetime_local(now)
@@ -111,12 +129,23 @@ class SunSimToolbar(QToolBar):
             self._slider.blockSignals(False)
         self._update_time_label()
 
-    def set_hint(self, text: str) -> None:
-        """Show an empty-state hint (no location / night), or clear with ''."""
-        self._hint_label.setText(text)
-
     def stop_animation(self) -> None:
         self._animate_button.setChecked(False)
+
+    def set_heatmap_busy(self, busy: bool) -> None:
+        """Busy indication while the worker computes."""
+        self._heatmap_button.setEnabled(not busy)
+        self._heatmap_button.setText(
+            self.tr("Computing…") if busy else self.tr("Hours of Sun")
+        )
+
+    def set_heatmap_active(self, active: bool) -> None:
+        """Reflect heatmap visibility (button check state), no signals."""
+        self._heatmap_button.blockSignals(True)
+        try:
+            self._heatmap_button.setChecked(active)
+        finally:
+            self._heatmap_button.blockSignals(False)
 
     # ── internals ──────────────────────────────────────────────
 
@@ -133,6 +162,12 @@ class SunSimToolbar(QToolBar):
             self._animate_timer.start()
         else:
             self._animate_timer.stop()
+
+    def _on_heatmap_toggled(self, checked: bool) -> None:
+        if checked:
+            self.heatmap_requested.emit()
+        else:
+            self.heatmap_cleared.emit()
 
     def _on_animate_tick(self) -> None:
         # Advancing the slider fires valueChanged → one recompute per tick.
