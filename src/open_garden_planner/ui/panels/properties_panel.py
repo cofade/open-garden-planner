@@ -46,6 +46,7 @@ from open_garden_planner.ui.canvas.items import (
     RectangleItem,
     TextItem,
 )
+from open_garden_planner.ui.theme import set_text_role, theme_color
 
 # Clean, translatable description fragments for TextItem font properties.
 # The raw attribute names (font_family, font_size) make ugly undo labels
@@ -125,7 +126,7 @@ class ColorButton(QPushButton):
         self.setStyleSheet(
             f"background-color: rgba({self._color.red()}, {self._color.green()}, "
             f"{self._color.blue()}, {self._color.alpha()}); "
-            f"border: 1px solid #888;"
+            f"border: 1px solid {theme_color('border')};"
         )
 
     def _pick_color(self) -> None:
@@ -485,7 +486,7 @@ class PropertiesPanel(QWidget):
             self._form_layout.addRow(info)
             hint = QLabel(self.tr("Ctrl+Shift+G to ungroup"))
             hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            hint.setStyleSheet("color: gray; font-size: 11px;")
+            set_text_role(hint, "hint")
             self._form_layout.addRow(hint)
             self._updating = False
             return
@@ -1125,12 +1126,13 @@ class PropertiesPanel(QWidget):
 
         # Effective volume + watering hint (read-only feedback labels)
         effective_label = QLabel()
-        effective_label.setStyleSheet("color: #666;")
+        set_text_role(effective_label, color_role="secondary")
         self._form_layout.addRow(self.tr("Effective:"), effective_label)
 
         hint_label = QLabel()
         hint_label.setWordWrap(True)
-        hint_label.setStyleSheet("color: #2e7d32; font-style: italic;")
+        set_text_role(hint_label, color_role="success")
+        hint_label.setStyleSheet("font-style: italic;")
         self._form_layout.addRow(hint_label)
 
         def footprint_cm2() -> float:
@@ -1307,7 +1309,8 @@ class PropertiesPanel(QWidget):
         if definition is None:
             note = QLabel(self.tr("Symbol definition not found — showing cached geometry."))
             note.setWordWrap(True)
-            note.setStyleSheet("color: #b26a00; font-size: 11px;")
+            set_text_role(note, color_role="caution")
+            note.setStyleSheet("font-size: 11px;")
             self._form_layout.addRow(note)
             return
 

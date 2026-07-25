@@ -25,6 +25,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.ui.theme import rgba, theme_color, theme_qcolor
+
 if TYPE_CHECKING:
     from open_garden_planner.services.companion_planting_service import (
         CompanionPlantingService,
@@ -155,11 +157,11 @@ class CompanionCheckDialog(QDialog):
         score_label.setFont(score_font)
         score_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         if score >= 70:
-            score_label.setStyleSheet("color: #66bb6a;")
+            score_label.setStyleSheet(f"color: {theme_color('success')};")
         elif score >= 40:
-            score_label.setStyleSheet("color: #ffa726;")
+            score_label.setStyleSheet(f"color: {theme_color('warning')};")
         else:
-            score_label.setStyleSheet("color: #ef5350;")
+            score_label.setStyleSheet(f"color: {theme_color('error')};")
         layout.addWidget(score_label)
 
         # --- Summary ---
@@ -180,7 +182,7 @@ class CompanionCheckDialog(QDialog):
             bad_font = QFont()
             bad_font.setBold(True)
             bad_header.setFont(bad_font)
-            bad_header.setStyleSheet("color: #ef5350;")
+            bad_header.setStyleSheet(f"color: {theme_color('error')};")
             layout.addWidget(bad_header)
             layout.addWidget(self._build_table(self._antagonistic, is_bad=True))
 
@@ -190,7 +192,7 @@ class CompanionCheckDialog(QDialog):
             good_font = QFont()
             good_font.setBold(True)
             good_header.setFont(good_font)
-            good_header.setStyleSheet("color: #66bb6a;")
+            good_header.setStyleSheet(f"color: {theme_color('success')};")
             layout.addWidget(good_header)
             layout.addWidget(self._build_table(self._beneficial, is_bad=False))
 
@@ -224,18 +226,17 @@ class CompanionCheckDialog(QDialog):
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setAlternatingRowColors(True)
 
-        # Selection color matching the table type (red for conflicts, green for beneficial)
-        if is_bad:
-            table.setStyleSheet(
-                "QTableWidget::item:selected { background-color: rgba(220, 60, 60, 100); }"
-            )
-        else:
-            table.setStyleSheet(
-                "QTableWidget::item:selected { background-color: rgba(60, 180, 60, 100); }"
-            )
+        # Selection color matching the table type (red for conflicts, green for
+        # beneficial), derived from the active theme's semantic tokens.
+        token = "error" if is_bad else "success"
+        table.setStyleSheet(
+            "QTableWidget::item:selected"
+            f" {{ background-color: {rgba(token, 100)}; }}"
+        )
 
-        # Use a subtle semi-transparent tint that works in both light and dark mode
-        highlight_color = QColor(220, 60, 60, 40) if is_bad else QColor(60, 180, 60, 40)
+        # Subtle semi-transparent row tint from the same semantic token
+        base = theme_qcolor(token)
+        highlight_color = QColor(base.red(), base.green(), base.blue(), 40)
 
         table_id = id(table)
         for row, pair in enumerate(pairs):

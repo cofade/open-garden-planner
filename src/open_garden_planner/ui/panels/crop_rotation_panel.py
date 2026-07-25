@@ -25,14 +25,20 @@ from open_garden_planner.services.crop_rotation_service import (
     RotationRecommendation,
     RotationStatus,
 )
+from open_garden_planner.ui.theme import set_text_role, theme_color
 
-# Status colors
-_STATUS_COLORS = {
-    RotationStatus.GOOD: "#2e7d32",       # Green
-    RotationStatus.SUBOPTIMAL: "#f57f17",  # Amber
-    RotationStatus.VIOLATION: "#c62828",   # Red
-    RotationStatus.UNKNOWN: "#757575",     # Grey
+# Status -> semantic theme token (resolved live so a theme switch re-tints)
+_STATUS_TOKENS = {
+    RotationStatus.GOOD: "success",
+    RotationStatus.SUBOPTIMAL: "warning",
+    RotationStatus.VIOLATION: "error",
+    RotationStatus.UNKNOWN: "text_disabled",
 }
+
+
+def _status_color(status: RotationStatus) -> str:
+    """Hex for a rotation status from the active theme palette."""
+    return theme_color(_STATUS_TOKENS.get(status, "text_disabled"))
 
 _STATUS_ICONS = {
     RotationStatus.GOOD: "\u2705",       # Green check
@@ -102,6 +108,10 @@ class CropRotationPanel(QWidget):
         """Attach the project manager for saving rotation records."""
         self._project_manager = pm
 
+    def apply_theme_colors(self, _colors: dict[str, str]) -> None:
+        """Re-render on theme switch — the status colors are palette-driven."""
+        self.update_for_bed(self._cached_item, self._current_area_id)
+
     def update_for_bed(self, item: object | None, area_id: str | None) -> None:
         """Rebuild the panel for a bed/area item (or None to clear)."""
         self._current_area_id = area_id
@@ -110,7 +120,9 @@ class CropRotationPanel(QWidget):
 
         if item is None or area_id is None:
             self._status_label.setText(self.tr("No bed selected"))
-            self._status_label.setStyleSheet("font-style: italic; color: #757575;")
+            self._status_label.setStyleSheet(
+                f"font-style: italic; color: {theme_color('text_disabled')};"
+            )
             self._recommendation_label.setText("")
             self._avoid_label.setText("")
             self._suggest_label.setText("")
@@ -153,7 +165,8 @@ class CropRotationPanel(QWidget):
         # Families to avoid
         self._avoid_label = QLabel()
         self._avoid_label.setWordWrap(True)
-        self._avoid_label.setStyleSheet("color: #c62828; font-size: 11px;")
+        set_text_role(self._avoid_label, color_role="error")
+        self._avoid_label.setStyleSheet("font-size: 11px;")
         layout.addWidget(self._avoid_label)
 
         # History header
@@ -196,7 +209,7 @@ class CropRotationPanel(QWidget):
         self, rec: RotationRecommendation, item: object
     ) -> None:
         """Populate the panel with recommendation data."""
-        color = _STATUS_COLORS.get(rec.status, "#757575")
+        color = _status_color(rec.status)
         icon = _STATUS_ICONS.get(rec.status, "")
 
         # Bed name

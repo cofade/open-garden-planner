@@ -17,6 +17,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from open_garden_planner.ui.theme import theme_color
+
 
 class _FrostLookupWorker(QThread):
     """Background worker that calls ClimateService.lookup_frost_dates."""
@@ -314,7 +316,9 @@ class LocationDialog(QDialog):
         self._status_label.setText(
             self.tr("Lookup failed: {error}").format(error=error_msg)
         )
-        self._status_label.setStyleSheet("color: red; font-size: 11px;")
+        self._status_label.setStyleSheet(
+            f"color: {theme_color('error')}; font-size: 11px;"
+        )
 
     def _on_lookup_finished(self) -> None:
         """Re-enable the lookup button after the worker finishes."""

@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.services.plant_api import PlantAPIError, PlantAPIManager
+from open_garden_planner.ui.theme import theme_color
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,7 @@ class PlantSearchDialog(QDialog):
 
         # Show searching status
         self.status_label.setText(self.tr("Searching for '{query}'...").format(query=query))
-        self.status_label.setStyleSheet("color: blue;")
+        self.status_label.setStyleSheet(f"color: {theme_color('info')};")
         self.search_button.setEnabled(False)
 
         try:
@@ -167,14 +168,14 @@ class PlantSearchDialog(QDialog):
                     self.results_list.addItem(item)
 
                 self.status_label.setText(self.tr("Found {count} results").format(count=len(results)))
-                self.status_label.setStyleSheet("color: green;")
+                self.status_label.setStyleSheet(f"color: {theme_color('success')};")
             else:
                 self.status_label.setText(self.tr("No results found"))
-                self.status_label.setStyleSheet("color: orange;")
+                self.status_label.setStyleSheet(f"color: {theme_color('warning')};")
 
         except PlantAPIError as e:
             self.status_label.setText(self.tr("Search failed: {error}").format(error=str(e)))
-            self.status_label.setStyleSheet("color: red;")
+            self.status_label.setStyleSheet(f"color: {theme_color('error')};")
             logger.error(f"Plant search failed: {e}")
 
             # Show error dialog
