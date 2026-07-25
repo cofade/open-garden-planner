@@ -22,6 +22,13 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter
 
 SIZE = 256
+TEXTURES_DIR = (
+    Path(__file__).parent.parent
+    / "src"
+    / "open_garden_planner"
+    / "resources"
+    / "textures"
+)
 
 
 def _wrap_blur(img: Image.Image, radius: float) -> Image.Image:
@@ -34,13 +41,6 @@ def _wrap_blur(img: Image.Image, radius: float) -> Image.Image:
             tiled.paste(img, (ix * SIZE, iy * SIZE))
     blurred = tiled.filter(ImageFilter.GaussianBlur(radius))
     return blurred.crop((SIZE, SIZE, SIZE * 2, SIZE * 2))
-TEXTURES_DIR = (
-    Path(__file__).parent.parent
-    / "src"
-    / "open_garden_planner"
-    / "resources"
-    / "textures"
-)
 
 
 def _wrap_ellipse(draw: ImageDraw.ImageDraw, x: float, y: float, w: float, h: float, color) -> None:
