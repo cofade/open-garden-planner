@@ -18,6 +18,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.ui.theme import set_text_role
+
 # Qt's QWIDGETSIZE_MAX sentinel — assign to maximumHeight to release a clamp.
 _QWIDGETSIZE_MAX = 16777215
 
@@ -113,26 +115,16 @@ class CollapsiblePanel(QWidget):
 
         # Title label
         title_label = QLabel(self._title)
-        title_label.setStyleSheet("font-weight: bold;")
+        set_text_role(title_label, "h2")
         header_layout.addWidget(title_label)
 
         header_layout.addStretch()
 
-        # Info icon (hidden by default, shown when set_info_tooltip is called)
+        # Info icon (hidden by default, shown when set_info_tooltip is called).
+        # Tooltip colors come from theme.py's global QToolTip rule (the old
+        # hardcoded white background broke dark mode).
         self._info_label = QLabel("ℹ️")
-        self._info_label.setStyleSheet("""
-            QLabel {
-                border: none;
-                font-size: 14pt;
-            }
-            QToolTip {
-                background-color: white;
-                color: black;
-                border: 1px solid palette(mid);
-                padding: 4px;
-                font-size: 10pt;
-            }
-        """)
+        self._info_label.setStyleSheet("QLabel { border: none; font-size: 14pt; }")
         self._info_label.setVisible(False)
         header_layout.addWidget(self._info_label)
 

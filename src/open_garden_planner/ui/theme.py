@@ -81,6 +81,8 @@ class ThemeColors:
         "overlay_bg": "rgba(30, 30, 30, 200)",
         "overlay_border": "rgba(120, 200, 120, 180)",
         "overlay_text": "#ffffff",
+        "overlay_field_bg": "rgba(60, 60, 60, 220)",
+        "overlay_field_border": "rgba(120, 200, 120, 100)",
     }
 
     # Dark theme colors - slate with soft sage-green accents
@@ -139,6 +141,8 @@ class ThemeColors:
         "overlay_bg": "rgba(30, 30, 30, 200)",
         "overlay_border": "rgba(120, 200, 120, 180)",
         "overlay_text": "#ffffff",
+        "overlay_field_bg": "rgba(60, 60, 60, 220)",
+        "overlay_field_border": "rgba(120, 200, 120, 100)",
     }
 
     @classmethod
@@ -972,6 +976,7 @@ def generate_stylesheet(mode: ThemeMode) -> str:
        lives here so a theme switch restyles them automatically. */
     #TaskReminderBar {{
         background-color: {colors['warning_bg']};
+        border: none;
         border-bottom: 1px solid {colors['warning']};
     }}
 
@@ -996,6 +1001,7 @@ def generate_stylesheet(mode: ThemeMode) -> str:
 
     #UpdateBar {{
         background-color: {colors['info_bg']};
+        border: none;
         border-bottom: 1px solid {colors['border']};
     }}
 

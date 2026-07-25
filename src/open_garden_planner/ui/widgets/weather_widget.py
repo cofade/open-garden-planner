@@ -27,6 +27,7 @@ from open_garden_planner.services.weather_service import (
     get_weather_service,
     wmo_to_icon,
 )
+from open_garden_planner.ui.theme import set_text_role
 
 # ─── Background worker ────────────────────────────────────────────────────────
 
@@ -84,13 +85,13 @@ class WeatherWidget(QFrame):
         header_layout.setContentsMargins(10, 4, 6, 4)
 
         self._title_lbl = QLabel(self.tr("Weather Forecast"))
-        self._title_lbl.setStyleSheet("font-weight: bold; font-size: 9pt;")
+        set_text_role(self._title_lbl, "h2")
         header_layout.addWidget(self._title_lbl)
 
         header_layout.addStretch()
 
         self._location_lbl = QLabel()
-        self._location_lbl.setStyleSheet("font-size: 8pt; color: #666;")
+        set_text_role(self._location_lbl, "hint")
         header_layout.addWidget(self._location_lbl)
 
         self._refresh_btn = QPushButton("\U0001f504")  # 🔄
@@ -111,7 +112,8 @@ class WeatherWidget(QFrame):
 
         # ── Loading label ───────────────────────────────────────────────
         self._loading_lbl = QLabel(self.tr("Loading forecast …"))
-        self._loading_lbl.setStyleSheet("color: #666; font-size: 9pt; padding: 8px 12px;")
+        set_text_role(self._loading_lbl, "hint")
+        self._loading_lbl.setStyleSheet("padding: 8px 12px;")
         self._loading_lbl.hide()
         outer.addWidget(self._loading_lbl)
 
@@ -122,7 +124,8 @@ class WeatherWidget(QFrame):
                 "Use File › Set Garden Location to configure GPS coordinates."
             )
         )
-        self._empty_lbl.setStyleSheet("color: #666; font-size: 9pt; padding: 8px 12px;")
+        set_text_role(self._empty_lbl, "hint")
+        self._empty_lbl.setStyleSheet("padding: 8px 12px;")
         self._empty_lbl.setWordWrap(True)
         outer.addWidget(self._empty_lbl)
 
@@ -157,7 +160,8 @@ class WeatherWidget(QFrame):
 
         # ── Offline / age label ─────────────────────────────────────────
         self._age_lbl = QLabel()
-        self._age_lbl.setStyleSheet("color: #888; font-size: 8pt; padding: 2px 12px;")
+        set_text_role(self._age_lbl, "hint")
+        self._age_lbl.setStyleSheet("padding: 2px 12px;")
         self._age_lbl.hide()
         outer.addWidget(self._age_lbl)
 
@@ -323,7 +327,10 @@ class _DayCell(QFrame):
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setFixedSize(90, 110)
-        self.setStyleSheet("background: #fafafa; border-radius: 4px;")
+        # Styled by theme.py's QFrame[weatherCard="true"] rules — base card
+        # plus frostSeverity="orange"/"red" tints — so the cards follow the
+        # active theme (the old hardcoded #fafafa broke dark mode).
+        self.setProperty("weatherCard", True)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -331,7 +338,7 @@ class _DayCell(QFrame):
 
         self._day_lbl = QLabel()
         self._day_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._day_lbl.setStyleSheet("font-size: 8pt; color: #555;")
+        set_text_role(self._day_lbl, "small", "secondary")
         layout.addWidget(self._day_lbl)
 
         self._icon_lbl = QLabel()
@@ -341,12 +348,11 @@ class _DayCell(QFrame):
 
         self._temp_lbl = QLabel()
         self._temp_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._temp_lbl.setStyleSheet("font-size: 9pt; color: #333;")
         layout.addWidget(self._temp_lbl)
 
         self._rain_lbl = QLabel()
         self._rain_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._rain_lbl.setStyleSheet("font-size: 8pt; color: #36c;")
+        set_text_role(self._rain_lbl, "small", "info")
         layout.addWidget(self._rain_lbl)
 
     def set_day(self, day: Any) -> None:
@@ -363,10 +369,16 @@ class _DayCell(QFrame):
             self._rain_lbl.hide()
 
     def set_frost_severity(self, severity: str | None) -> None:
-        """Tint the cell background to indicate frost risk."""
-        if severity == "red":
-            self.setStyleSheet("background: #f8d7da; border-radius: 4px;")
-        elif severity == "orange":
-            self.setStyleSheet("background: #fff3cd; border-radius: 4px;")
-        else:
-            self.setStyleSheet("background: #fafafa; border-radius: 4px;")
+        """Tint the cell via the theme's frostSeverity QSS property.
+
+        Dynamic-property change → unpolish/polish so the new rule applies
+        immediately (§8.17.6).
+        """
+        value = severity or ""
+        if self.property("frostSeverity") == value:
+            return
+        self.setProperty("frostSeverity", value)
+        style = self.style()
+        if style is not None:
+            style.unpolish(self)
+            style.polish(self)

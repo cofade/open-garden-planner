@@ -102,13 +102,21 @@ class CoordinateInputField(QLineEdit):
     # --- Visual ---------------------------------------------------------
 
     def _flash_error(self) -> None:
-        # Red background tint until next edit or successful commit.
-        self.setStyleSheet(
-            "QLineEdit { background-color: rgba(255, 80, 80, 60); }"
-        )
+        # Error tint via the theme's QLineEdit[inputError="true"] rule
+        # until the next edit or successful commit.
+        self._set_error_property(on=True)
 
     def _clear_error_styling(self) -> None:
-        self.setStyleSheet("")
+        self._set_error_property(on=False)
+
+    def _set_error_property(self, *, on: bool) -> None:
+        if bool(self.property("inputError")) == on:
+            return
+        self.setProperty("inputError", on)
+        style = self.style()
+        if style is not None:
+            style.unpolish(self)
+            style.polish(self)
 
     # --- Focus management ----------------------------------------------
 
