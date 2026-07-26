@@ -39,7 +39,7 @@ from open_garden_planner.services.task_generator import (
     generate_all,
 )
 from open_garden_planner.services.task_status import effective_status
-from open_garden_planner.ui.theme import set_text_role, theme_color
+from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_color
 
 # ``build_plan_state`` lives in the (Qt-free) task_generator module now and is
 # shared with the planting-calendar dashboard (#228); re-exported here for the
@@ -52,19 +52,11 @@ _REFRESH_DEBOUNCE_MS = 1000
 # lazily (so QCoreApplication picks up the installed translator).
 _BUCKET_ORDER = ("overdue", "today", "this_week", "upcoming", "no_date")
 
-# Bucket -> semantic theme token (resolved live so a theme switch re-tints)
-_URGENCY_TOKENS = {
-    "overdue": "error",
-    "today": "warning",
-    "this_week": "caution",
-    "upcoming": "success",
-    "no_date": "text_disabled",
-}
-
-
 def _urgency_color(bucket: str) -> str:
-    """Hex for an urgency bucket from the active theme palette."""
-    return theme_color(_URGENCY_TOKENS.get(bucket, "text_disabled"))
+    """Hex for an urgency bucket — the ONE shared map in theme.py, so this
+    tab and the calendar dashboard can never color the same urgency
+    differently (#228 convergence, ADR-039 review round)."""
+    return theme_color(URGENCY_TOKENS.get(bucket, "text_disabled"))
 
 
 class TasksView(QWidget):

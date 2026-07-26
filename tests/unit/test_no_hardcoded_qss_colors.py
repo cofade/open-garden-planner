@@ -14,8 +14,14 @@ home of chrome hex values. Flagged: QSS-looking lines (``color:`` /
 ``background`` / ``border`` properties) whose VALUE contains a literal hex
 color, a CSS named color, or a literal numeric ``rgba(...)``. Painter/QColor
 drawing code (canvas items, Gantt palette) never matches — it has no
-``property: value`` shape. ``palette(...)`` and f-string interpolations of
-theme helpers are theme-aware and pass.
+``property: value`` shape. f-string interpolations of theme helpers carry no
+literal color and pass. ``palette(...)`` values also pass — note honestly:
+they track the PLATFORM palette (this app themes via its stylesheet, not
+QPalette), so they are acceptable only for incidental accents, never for
+surfaces; the visible offenders (dropdown/search popup frames) moved to
+theme tokens in the ADR-039 review round. Known structural blind spot:
+lines without a quote character are skipped (docstrings), so a triple-quoted
+QSS block whose property lines carry no quotes would evade the scan.
 
 The allowlist below must stay EMPTY — a new entry needs a documented
 architectural reason in ADR-039, not convenience.

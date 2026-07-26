@@ -35,15 +35,18 @@ ACCENT_SENTINEL = "#3D8B37"
 _ACCENT_RE = re.compile(re.escape(ACCENT_SENTINEL), re.IGNORECASE)
 
 _svg_cache: dict[str, str | None] = {}
-_icon_cache: dict[tuple[str, int, str, str], QIcon] = {}
-_pixmap_cache: dict[tuple[str, int, str, str], QPixmap] = {}
+_icon_cache: dict[tuple[str, int, int, str, str], QIcon] = {}
+_pixmap_cache: dict[tuple[str, int, int, str, str], QPixmap] = {}
 
 
 def clear_cache() -> None:
-    """Drop every cached icon/pixmap (called automatically on theme switch)."""
+    """Drop cached icons/pixmaps (called automatically on theme switch).
+
+    The raw SVG text cache survives — file contents do not depend on the
+    theme, so a switch must not force 70+ file re-reads.
+    """
     _icon_cache.clear()
     _pixmap_cache.clear()
-    _svg_cache.clear()
 
 
 register_theme_listener(lambda _colors: clear_cache())
@@ -69,14 +72,15 @@ def _device_pixel_ratio() -> float:
     return screen.devicePixelRatio() if screen is not None else 1.0
 
 
-def _render(svg_text: str, size: int, tint: str, accent: str) -> QPixmap | None:
+def _render(
+    svg_text: str, size: int, tint: str, accent: str, dpr: float
+) -> QPixmap | None:
     # Accent first: a caller-supplied tint could itself be the sentinel hex,
     # and must not be re-substituted afterwards.
     data = _ACCENT_RE.sub(accent, svg_text).replace("currentColor", tint)
     renderer = QSvgRenderer(QByteArray(data.encode("utf-8")))
     if not renderer.isValid():
         return None
-    dpr = _device_pixel_ratio()
     pixel_size = max(1, round(size * dpr))
     pixmap = QPixmap(pixel_size, pixel_size)
     pixmap.fill(Qt.GlobalColor.transparent)
@@ -108,10 +112,11 @@ def get_pixmap(name: str, size: int = 64, color: str | None = None) -> QPixmap |
     colors = current_colors()
     tint = color or colors["text_primary"]
     accent = colors["accent"]
-    key = (name, size, tint.lower(), accent.lower())
+    dpr = _device_pixel_ratio()
+    key = (name, size, round(dpr * 100), tint.lower(), accent.lower())
     pixmap = _pixmap_cache.get(key)
     if pixmap is None:
-        pixmap = _render(svg_text, size, tint, accent)
+        pixmap = _render(svg_text, size, tint, accent, dpr)
         if pixmap is None:
             return None
         _pixmap_cache[key] = pixmap
@@ -131,16 +136,17 @@ def get_icon(name: str, size: int = 24, color: str | None = None) -> QIcon | Non
     colors = current_colors()
     tint = color or colors["text_primary"]
     accent = colors["accent"]
-    key = (name, size, tint.lower(), accent.lower())
+    dpr = _device_pixel_ratio()
+    key = (name, size, round(dpr * 100), tint.lower(), accent.lower())
     icon = _icon_cache.get(key)
     if icon is None:
-        normal = _render(svg_text, size, tint, accent)
+        normal = _render(svg_text, size, tint, accent, dpr)
         if normal is None:
             return None
         icon = QIcon()
         icon.addPixmap(normal, QIcon.Mode.Normal)
         disabled_tint = colors["text_disabled"]
-        grayed = _render(svg_text, size, disabled_tint, disabled_tint)
+        grayed = _render(svg_text, size, disabled_tint, disabled_tint, dpr)
         if grayed is not None:
             icon.addPixmap(grayed, QIcon.Mode.Disabled)
         _icon_cache[key] = icon

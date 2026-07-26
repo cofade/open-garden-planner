@@ -348,6 +348,8 @@ class _DayCell(QFrame):
 
         self._temp_lbl = QLabel()
         self._temp_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Deliberately unstyled: default body size + text_primary from the
+        # global QLabel rule is exactly what the card's main line wants.
         layout.addWidget(self._temp_lbl)
 
         self._rain_lbl = QLabel()

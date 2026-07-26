@@ -219,6 +219,18 @@ class PropertiesPanel(QWidget):
         # Initially show "no selection" message
         self._show_no_selection()
 
+    def refresh_theme_icons(self) -> None:
+        """Force a full form rebuild on theme switch (§8.21.3).
+
+        The object-type combo icons and the color-swatch border are baked at
+        build time; without this hook they kept the previous theme's ink —
+        near-invisible after a light→dark switch.
+        """
+        if not self._current_items:
+            return
+        self._current_identity = None
+        self.set_selected_items(list(self._current_items))
+
     def _clear_form(self) -> None:
         """Clear all widgets from the form.
 

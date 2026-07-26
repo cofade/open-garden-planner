@@ -19,6 +19,7 @@ _SEMANTIC_TOKENS = (
     "error_bg",
     "info_bg",
     "caution",
+    "on_status",
     "overlay_bg",
     "overlay_border",
     "overlay_text",
@@ -49,6 +50,24 @@ class TestSemanticTokens:
         for token in ("overlay_bg", "overlay_border", "overlay_text"):
             assert ThemeColors.LIGHT[token] == ThemeColors.DARK[token], token
 
+    def test_urgency_scale_pairwise_distinct_in_both_palettes(self) -> None:
+        """The four active urgency levels must never collapse to the same hex
+        (dark mode DID collapse this_week/coming_up before the ADR-039
+        review round — this is the test that would have caught it)."""
+        for palette in (ThemeColors.LIGHT, ThemeColors.DARK):
+            hexes = [
+                palette[theme.URGENCY_TOKENS[key]]
+                for key in ("overdue", "today", "this_week", "coming_up")
+            ]
+            assert len(set(hexes)) == 4, hexes
+
+    def test_info_foreground_and_surface_are_coherent(self) -> None:
+        """info (text) and info_bg (surface) must live in the same hue family
+        — both blue — so info text on an info card cannot read green-on-blue."""
+        for palette in (ThemeColors.LIGHT, ThemeColors.DARK):
+            info = QColor(palette["info"])
+            assert info.blue() > info.green() > info.red(), palette["info"]
+
 
 class TestLivePaletteHelpers:
     def test_theme_color_and_rgba_follow_apply_theme(self, qtbot) -> None:  # noqa: ARG002
@@ -73,7 +92,7 @@ class TestLivePaletteHelpers:
             theme.apply_theme(app, ThemeMode.DARK)
             assert seen and seen[-1]["accent"] == ThemeColors.DARK["accent"]
         finally:
-            theme._theme_listeners.remove(seen.append)
+            theme.unregister_theme_listener(seen.append)
             theme.apply_theme(app, ThemeMode.LIGHT)
 
 

@@ -491,7 +491,7 @@ def build_toolbar_categories() -> list[GalleryCategory]:
         GalleryCategory(_tr("Fences & Walls"), _fence_items(), "fence"),
         GalleryCategory(_tr("Infrastructure"), _infrastructure_items(), "infrastructure"),
         GalleryCategory(
-            _tr("Vertical & Container"), _vertical_container_items(), "garden_bed"
+            _tr("Vertical & Container"), _vertical_container_items(), "vertical_container"
         ),
     ]
 

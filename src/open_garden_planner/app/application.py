@@ -620,8 +620,12 @@ class GardenPlannerApp(QMainWindow):
         self._icon_actions.append((action, icon_name))
 
     def refresh_theme_icons(self) -> None:
-        """Replay tracked menu-action icons after a theme switch (§8.21)."""
-        for action, icon_name in self._icon_actions:
+        """Replay tracked menu-action icons after a theme switch (§8.21).
+
+        getattr fallback: safe even if a future call ordering themes the
+        window before _setup_menu_bar has created the tracking list.
+        """
+        for action, icon_name in getattr(self, "_icon_actions", []):
             icon = get_icon(icon_name)
             if icon is not None:
                 action.setIcon(icon)
@@ -1246,6 +1250,10 @@ class GardenPlannerApp(QMainWindow):
 
         # Theme submenu
         theme_menu = menu.addMenu(self.tr("&Theme"))
+        theme_icon = get_icon("theme")
+        if theme_icon is not None:
+            theme_menu.setIcon(theme_icon)
+        self._icon_actions.append((theme_menu.menuAction(), "theme"))
 
         # Light theme
         self._light_theme_action = QAction(self.tr("&Light"), self)
@@ -5630,12 +5638,12 @@ class GardenPlannerApp(QMainWindow):
             return
         icon = "❄" if max_severity == "red" else "⚠"
         bg = theme_color("error") if max_severity == "red" else theme_color("warning")
-        text = theme_color("overlay_text")
+        text = theme_color("on_status")
         label = self.tr("frost alert") if count == 1 else self.tr("frost alerts")
         self._frost_badge.setText(f"  {icon} {count} {label}  ")
         self._frost_badge.setStyleSheet(
             f"QPushButton {{ background: {bg}; color: {text}; font-weight: bold;"
-            "  border-radius: 4px; padding: 2px 6px; }}"
+            "  border-radius: 4px; padding: 2px 6px; }"
             f"QPushButton:hover {{ border: 1px solid {text}; }}"
         )
         self._frost_badge.show()

@@ -4,6 +4,7 @@ Provides light and dark color schemes with comprehensive styling.
 """
 
 import contextlib
+import logging
 import os
 import tempfile
 from collections.abc import Callable
@@ -11,6 +12,8 @@ from enum import Enum
 
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QApplication, QWidget
+
+logger = logging.getLogger(__name__)
 
 
 class ThemeMode(Enum):
@@ -51,11 +54,14 @@ class ThemeColors:
         "accent_hover": "#2e7d32",
         "accent_pressed": "#1b5e20",
         "accent_text": "#ffffff",
-        # Status colors
+        # Status colors — info is BLUE (coherent with info_bg; rain/search
+        # feedback must not read as "success green")
         "success": "#43a047",
         "warning": "#ef6c00",
         "error": "#d32f2f",
-        "info": "#2e7d32",
+        "info": "#1565c0",
+        # Text on a saturated status surface (notification banners, badges)
+        "on_status": "#ffffff",
         # UI element colors
         "button": "#eeeddf",
         "button_hover": "#dddcce",
@@ -113,11 +119,13 @@ class ThemeColors:
         "accent_hover": "#81c784",
         "accent_pressed": "#4caf50",
         "accent_text": "#1a1e1a",
-        # Status colors
+        # Status colors — info is BLUE (see LIGHT)
         "success": "#66bb6a",
         "warning": "#ffa726",
         "error": "#ef5350",
-        "info": "#66bb6a",
+        "info": "#64b5f6",
+        # Dark mode's saturated status surfaces are lighter — dark text reads
+        "on_status": "#1a1e1a",
         # UI element colors
         "button": "#353d32",
         "button_hover": "#3e4a3a",
@@ -208,17 +216,34 @@ CATEGORY_ICON_TINTS: dict[str, tuple[str, str]] = {
     "furniture": ("#5c6b7a", "#9fb0c0"),
     "fence": ("#726a52", "#b3a987"),
     "infrastructure": ("#556677", "#8fa3b5"),
+    "vertical_container": ("#2e7d6b", "#7cc0b0"),
+}
+
+
+# Urgency scale -> semantic token — ONE map for every surface that colors
+# task urgency (the Tasks tab and the calendar dashboard are the same
+# concept on two surfaces, #228), so they can never disagree. The four
+# active levels are pairwise distinct in BOTH palettes — pinned by
+# tests/unit/test_theme_tokens.py.
+URGENCY_TOKENS: dict[str, str] = {
+    "overdue": "error",
+    "today": "warning",
+    "this_week": "caution",
+    "upcoming": "success",
+    "coming_up": "success",
+    "soil_mismatch": "warning",
+    "no_date": "text_disabled",
 }
 
 
 def current_colors() -> dict[str, str]:
-    """Return the palette of the most recently applied theme."""
-    return _current_colors
+    """A COPY of the most recently applied palette (mutation-safe)."""
+    return dict(_current_colors)
 
 
 def is_dark_theme() -> bool:
     """True when the most recently applied palette is the dark one."""
-    return _current_colors == ThemeColors.DARK
+    return _current_colors is ThemeColors.DARK
 
 
 def theme_color(name: str) -> str:
@@ -240,6 +265,12 @@ def rgba(name: str, alpha: int) -> str:
 def register_theme_listener(callback: Callable[[dict[str, str]], None]) -> None:
     """Subscribe to palette changes; called with the new colors on every apply_theme()."""
     _theme_listeners.append(callback)
+
+
+def unregister_theme_listener(callback: Callable[[dict[str, str]], None]) -> None:
+    """Remove a previously registered palette listener (no-op if absent)."""
+    with contextlib.suppress(ValueError):
+        _theme_listeners.remove(callback)
 
 
 def set_text_role(
@@ -985,54 +1016,89 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     }}
 
     /* Notification banners — widgets carry only an objectName; all styling
-       lives here so a theme switch restyles them automatically. */
+       lives here so a theme switch restyles them automatically.
+       DELIBERATELY SATURATED (ADR-039 review round): these bars exist
+       because the old status-bar reminder was never seen (§11.4) — a bar
+       that interrupts is the point. The *_bg tints are for passive cards
+       (weather day cells), never for interrupting banners. */
     #TaskReminderBar {{
-        background-color: {colors['warning_bg']};
+        background-color: {colors['warning']};
         border: none;
-        border-bottom: 1px solid {colors['warning']};
     }}
 
     #TaskReminderBar QLabel {{
-        color: {colors['text_primary']};
+        color: {colors['on_status']};
         font-weight: 600;
         background-color: transparent;
     }}
 
     #TaskReminderBar QPushButton {{
         background-color: transparent;
-        color: {colors['text_primary']};
-        border: 1px solid {colors['warning']};
+        color: {colors['on_status']};
+        border: 1px solid {colors['on_status']};
         border-radius: 4px;
         padding: 2px 10px;
         min-width: 0px;
     }}
 
     #TaskReminderBar QPushButton:hover {{
-        background-color: {colors['button_hover']};
+        background-color: rgba(255, 255, 255, 60);
     }}
 
     #UpdateBar {{
-        background-color: {colors['info_bg']};
+        background-color: {colors['info']};
         border: none;
-        border-bottom: 1px solid {colors['border']};
     }}
 
     #UpdateBar QLabel {{
-        color: {colors['text_primary']};
+        color: {colors['on_status']};
+        font-weight: 600;
         background-color: transparent;
     }}
 
     #UpdateBar QPushButton {{
         background-color: transparent;
-        color: {colors['text_primary']};
-        border: 1px solid {colors['border']};
+        color: {colors['on_status']};
+        border: 1px solid {colors['on_status']};
         border-radius: 4px;
         padding: 2px 10px;
         min-width: 0px;
     }}
 
     #UpdateBar QPushButton:hover {{
+        background-color: rgba(255, 255, 255, 60);
+    }}
+
+    /* Gallery dropdown + global-search popups — theme tokens, not the OS
+       palette: palette() tracks the PLATFORM palette (this app themes via
+       its stylesheet, not QPalette), which left dark-mode popups with a
+       light OS-gray frame. Both widgets set WA_StyledBackground. */
+    #CategoryDropdown {{
+        background-color: {colors['surface']};
+        border: 1px solid {colors['border']};
+        border-radius: 6px;
+    }}
+
+    #CategoryDropdown QToolButton {{
+        border: 1px solid transparent;
+        border-radius: 4px;
+        background-color: transparent;
+        padding: 2px;
+    }}
+
+    #CategoryDropdown QToolButton:hover {{
+        border: 1px solid {colors['accent']};
         background-color: {colors['button_hover']};
+    }}
+
+    #CategoryDropdown QToolButton:pressed {{
+        background-color: {colors['button_pressed']};
+    }}
+
+    #GlobalSearchResults {{
+        background-color: {colors['surface']};
+        border: 1px solid {colors['border']};
+        border-radius: 6px;
     }}
 
     /* Weather forecast day cards — dynamic properties weatherCard +
@@ -1119,9 +1185,13 @@ def apply_theme(app: QApplication, mode: ThemeMode) -> None:
     app.setStyleSheet(stylesheet)
 
     # Notify subscribers (e.g. the icon provider) of the new palette.
+    # Failures are logged, never swallowed silently, and never abort the
+    # remaining subscribers — same policy as the widget walk below.
     for listener in list(_theme_listeners):
-        with contextlib.suppress(Exception):
+        try:
             listener(colors)
+        except Exception:
+            logger.exception("Theme listener failed")
 
     # Apply dark title bar on Windows if using dark mode
     is_dark = colors == ThemeColors.DARK
@@ -1149,10 +1219,22 @@ def _propagate_theme_colors(app: QApplication, colors: dict[str, str]) -> None:
         app: QApplication instance
         colors: Theme color dictionary
     """
+    # Each hook is guarded individually: one widget raising must not leave
+    # every later widget in allWidgets() order un-themed (half-themed app).
     for widget in app.allWidgets():
         handler = getattr(widget, "apply_theme_colors", None)
         if callable(handler):
-            handler(colors)
+            try:
+                handler(colors)
+            except Exception:
+                logger.exception(
+                    "apply_theme_colors failed on %s", type(widget).__name__
+                )
         refresh = getattr(widget, "refresh_theme_icons", None)
         if callable(refresh):
-            refresh()
+            try:
+                refresh()
+            except Exception:
+                logger.exception(
+                    "refresh_theme_icons failed on %s", type(widget).__name__
+                )

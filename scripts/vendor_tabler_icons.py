@@ -53,6 +53,7 @@ MAPPING: dict[str, str] = {
     # Plant / object categories
     "tree": "tree",
     "shrub": "plant",
+    "vertical_container": "plant-2",
     "flower": "flower",
     "vegetable": "carrot",
     "house": "home",

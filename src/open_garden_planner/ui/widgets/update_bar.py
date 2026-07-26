@@ -122,7 +122,7 @@ class UpdateBar(QFrame):
             whats_new = self.tr("What's new")
             link = (
                 f'<a href="{html.escape(html_url)}" '
-                f'style="color:{theme_color("accent")};">'
+                f'style="color:{theme_color("on_status")};">'
                 f"{html.escape(whats_new)} ↗</a>"
             )
             self._label.setText(f"{html.escape(msg_plain)}  {link}")

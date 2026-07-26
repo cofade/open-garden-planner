@@ -64,20 +64,8 @@ class _ThumbnailButton(QToolButton):
         name_label.setMaximumHeight(20)
         layout.addWidget(name_label)
 
-        self.setStyleSheet("""
-            QToolButton {
-                border: 1px solid transparent;
-                border-radius: 4px;
-                background: transparent;
-                padding: 2px;
-            }
-            QToolButton:hover {
-                border: 1px solid palette(highlight);
-                background: palette(midlight);
-            }
-            QToolButton:pressed { background: palette(mid); }
-        """)
-
+        # Styled by theme.py's #CategoryDropdown QToolButton rules — the old
+        # palette()-based QSS tracked the OS palette, not our theme.
         self.clicked.connect(lambda: self.clicked_item.emit(self._item))
 
     @property
@@ -147,13 +135,9 @@ class CategoryDropdown(QWidget):
 
     def _setup_ui(self) -> None:
         self.setObjectName("CategoryDropdown")
-        self.setStyleSheet("""
-            #CategoryDropdown {
-                background: palette(window);
-                border: 1px solid palette(mid);
-                border-radius: 6px;
-            }
-        """)
+        # Styled by theme.py's #CategoryDropdown rule; a custom QWidget only
+        # paints a stylesheet background with WA_StyledBackground set.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)

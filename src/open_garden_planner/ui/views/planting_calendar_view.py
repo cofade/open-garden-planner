@@ -43,7 +43,7 @@ from open_garden_planner.services.task_generator import (
 )
 from open_garden_planner.services.task_status import effective_status
 from open_garden_planner.services.weather_service import get_frost_alerts
-from open_garden_planner.ui.theme import set_text_role, theme_qcolor
+from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_qcolor
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
 # ─── Layout constants ──────────────────────────────────────────────────────────
@@ -83,19 +83,13 @@ _COL_TRANSPLANT_PROP = QColor(230, 126, 34) # orange — transplant marker
 
 # ─── Dashboard urgency colours ─────────────────────────────────────────────────
 _URGENCY_ORDER = ("overdue", "today", "this_week", "coming_up")
-# Urgency -> semantic theme token (resolved live so a theme switch re-tints)
-_URGENCY_TOKENS: dict[str, str] = {
-    "overdue": "error",
-    "today": "warning",
-    "this_week": "success",
-    "coming_up": "info",
-    "soil_mismatch": "warning",  # amber — same as "today" (US-12.10d)
-}
 
 
 def _urgency_qcolor(urgency: str) -> QColor:
-    """Semantic color for a dashboard urgency from the active theme palette."""
-    return theme_qcolor(_URGENCY_TOKENS.get(urgency, "text_disabled"))
+    """Semantic color for a dashboard urgency — the ONE shared map in
+    theme.py (same map as the Tasks tab, #228 convergence), pairwise
+    distinct in both palettes (pinned by test_theme_tokens)."""
+    return theme_qcolor(URGENCY_TOKENS.get(urgency, "text_disabled"))
 
 # All task types including propagation steps
 _PROP_TASK_TYPES = ("prick_out", "harden_off")

@@ -73,6 +73,7 @@ both directions (icon without entry, entry without icon).
 | trim_extend.svg | scissors |
 | undo.svg | arrow-back-up |
 | vegetable.svg | carrot |
+| vertical_container.svg | plant-2 |
 | wall.svg | wall |
 | zoom_fit.svg | zoom-scan |
 | zoom_in.svg | zoom-in |
