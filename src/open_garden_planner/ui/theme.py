@@ -1221,20 +1221,28 @@ def _propagate_theme_colors(app: QApplication, colors: dict[str, str]) -> None:
     """
     # Each hook is guarded individually: one widget raising must not leave
     # every later widget in allWidgets() order un-themed (half-themed app).
+    # RuntimeError is the §11.4 teardown class — allWidgets() can hand back a
+    # Python wrapper whose C++ widget is already deleted (common under
+    # pytest-qt); even getattr() on such a wrapper raises, so it sits INSIDE
+    # the guard. Skip those quietly; log everything else loudly.
     for widget in app.allWidgets():
-        handler = getattr(widget, "apply_theme_colors", None)
-        if callable(handler):
-            try:
+        try:
+            handler = getattr(widget, "apply_theme_colors", None)
+            if callable(handler):
                 handler(colors)
-            except Exception:
-                logger.exception(
-                    "apply_theme_colors failed on %s", type(widget).__name__
-                )
-        refresh = getattr(widget, "refresh_theme_icons", None)
-        if callable(refresh):
-            try:
+        except RuntimeError:
+            continue
+        except Exception:
+            logger.exception(
+                "apply_theme_colors failed on %s", type(widget).__name__
+            )
+        try:
+            refresh = getattr(widget, "refresh_theme_icons", None)
+            if callable(refresh):
                 refresh()
-            except Exception:
-                logger.exception(
-                    "refresh_theme_icons failed on %s", type(widget).__name__
-                )
+        except RuntimeError:
+            continue
+        except Exception:
+            logger.exception(
+                "refresh_theme_icons failed on %s", type(widget).__name__
+            )
