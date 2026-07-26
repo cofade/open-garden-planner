@@ -10,6 +10,7 @@ import tempfile
 from collections.abc import Callable
 from enum import Enum
 
+from PyQt6 import sip
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QApplication, QWidget
 
@@ -229,6 +230,8 @@ URGENCY_TOKENS: dict[str, str] = {
     "overdue": "error",
     "today": "warning",
     "this_week": "caution",
+    # "upcoming" (Tasks tab) and "coming_up" (calendar dashboard) are ALIASES
+    # for the same level — they must always map to the same token.
     "upcoming": "success",
     "coming_up": "success",
     "soil_mismatch": "warning",
@@ -324,6 +327,11 @@ def generate_stylesheet(mode: ThemeMode) -> str:
             f'<text x="5" y="9" text-anchor="middle" font-size="11" fill="{_c}">▼</text>'
             f"</svg>"
         )
+
+    # Banner-button hover wash derived from on_status so it flips with the
+    # mode (a white wash is imperceptible over dark-on-amber in dark mode).
+    _on = QColor(colors["on_status"])
+    _on_status_hover = f"rgba({_on.red()}, {_on.green()}, {_on.blue()}, 40)"
 
     return f"""
     /* Global application styles */
@@ -1042,7 +1050,7 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     }}
 
     #TaskReminderBar QPushButton:hover {{
-        background-color: rgba(255, 255, 255, 60);
+        background-color: {_on_status_hover};
     }}
 
     #UpdateBar {{
@@ -1066,7 +1074,7 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     }}
 
     #UpdateBar QPushButton:hover {{
-        background-color: rgba(255, 255, 255, 60);
+        background-color: {_on_status_hover};
     }}
 
     /* Gallery dropdown + global-search popups — theme tokens, not the OS
@@ -1194,7 +1202,7 @@ def apply_theme(app: QApplication, mode: ThemeMode) -> None:
             logger.exception("Theme listener failed")
 
     # Apply dark title bar on Windows if using dark mode
-    is_dark = colors == ThemeColors.DARK
+    is_dark = colors is ThemeColors.DARK
 
     # Update all top-level windows
     for widget in app.topLevelWidgets():
@@ -1221,17 +1229,18 @@ def _propagate_theme_colors(app: QApplication, colors: dict[str, str]) -> None:
     """
     # Each hook is guarded individually: one widget raising must not leave
     # every later widget in allWidgets() order un-themed (half-themed app).
-    # RuntimeError is the §11.4 teardown class — allWidgets() can hand back a
-    # Python wrapper whose C++ widget is already deleted (common under
-    # pytest-qt); even getattr() on such a wrapper raises, so it sits INSIDE
-    # the guard. Skip those quietly; log everything else loudly.
+    # Dead C++ wrappers (allWidgets() hands them back under pytest-qt
+    # teardown, and a hook that rebuilds part of the UI can retire widgets
+    # the snapshot still lists) are detected explicitly via sip.isdeleted —
+    # so a RuntimeError from INSIDE a hook stays a loudly-logged real
+    # failure instead of being conflated with the teardown class (§11.4).
     for widget in app.allWidgets():
+        if sip.isdeleted(widget):
+            continue
         try:
             handler = getattr(widget, "apply_theme_colors", None)
             if callable(handler):
                 handler(colors)
-        except RuntimeError:
-            continue
         except Exception:
             logger.exception(
                 "apply_theme_colors failed on %s", type(widget).__name__
@@ -1240,8 +1249,6 @@ def _propagate_theme_colors(app: QApplication, colors: dict[str, str]) -> None:
             refresh = getattr(widget, "refresh_theme_icons", None)
             if callable(refresh):
                 refresh()
-        except RuntimeError:
-            continue
         except Exception:
             logger.exception(
                 "refresh_theme_icons failed on %s", type(widget).__name__

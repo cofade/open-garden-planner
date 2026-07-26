@@ -1250,10 +1250,8 @@ class GardenPlannerApp(QMainWindow):
 
         # Theme submenu
         theme_menu = menu.addMenu(self.tr("&Theme"))
-        theme_icon = get_icon("theme")
-        if theme_icon is not None:
-            theme_menu.setIcon(theme_icon)
-        self._icon_actions.append((theme_menu.menuAction(), "theme"))
+        # menuAction() carries the submenu's icon — one registration path.
+        self._set_action_icon(theme_menu.menuAction(), "theme")
 
         # Light theme
         self._light_theme_action = QAction(self.tr("&Light"), self)

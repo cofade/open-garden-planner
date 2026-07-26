@@ -6,7 +6,7 @@ menus).  SVGs in ``resources/icons/ui/`` are authored on the house contract
 NOT be fed to QSvgRenderer directly — QSvgRenderer paints raw
 ``currentColor`` black.  This module substitutes the active theme's colors
 into the SVG text before rasterizing, renders at the device pixel ratio for
-HiDPI crispness, and caches per ``(name, size, tint, accent)``.
+HiDPI crispness, and caches per ``(name, size, dpr, tint, accent)``.
 
 Theme integration: a theme listener registered at import clears the cache
 on every ``apply_theme()``; widgets re-request their icons via

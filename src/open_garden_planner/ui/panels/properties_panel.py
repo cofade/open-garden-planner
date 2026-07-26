@@ -220,16 +220,29 @@ class PropertiesPanel(QWidget):
         self._show_no_selection()
 
     def refresh_theme_icons(self) -> None:
-        """Force a full form rebuild on theme switch (§8.21.3).
+        """Re-tint the form on theme switch (§8.21.3) — DEFERRED.
 
         The object-type combo icons and the color-swatch border are baked at
         build time; without this hook they kept the previous theme's ink —
-        near-invisible after a light→dark switch.
+        near-invisible after a light→dark switch. The rebuild runs via
+        singleShot(0), never inside the apply_theme allWidgets() walk that
+        invoked this hook (a rebuild destroys form widgets the walk's
+        snapshot still lists). The #200 focus guard in set_selected_items
+        still skips the rebuild while a panel field holds focus — the icons
+        then re-tint on the next rebuild instead of stealing the caret.
         """
+        QTimer.singleShot(0, self._rebuild_for_theme)
+
+    def _rebuild_for_theme(self) -> None:
         if not self._current_items:
             return
-        self._current_identity = None
-        self.set_selected_items(list(self._current_items))
+        try:
+            self._current_identity = None
+            self.set_selected_items(list(self._current_items))
+        except RuntimeError:
+            # §11.4 teardown class: a cached item's C++ object died between
+            # the deferred call and now (project close mid-switch).
+            return
 
     def _clear_form(self) -> None:
         """Clear all widgets from the form.

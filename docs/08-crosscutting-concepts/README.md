@@ -146,7 +146,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 ## 8.5 Graphics Asset Pipeline
 
 ### UI icons (chrome — `resources/icons/ui/`, ADR-039)
-- Line-icon set on a mechanical contract (24×24, `currentColor` + accent sentinel `#3D8B37`): 61 Tabler-vendored (MIT, pinned release) + 10 bespoke glyphs
+- Line-icon set on a mechanical contract (24×24, `currentColor` + accent sentinel `#3D8B37`): 62 Tabler-vendored (MIT, pinned release) + 10 bespoke glyphs
 - Tinted at runtime by the central provider `ui/icons.py` — never fed to QSvgRenderer directly (see §8.21)
 - Gates: `scripts/normalize_icons.py` (idempotent canonicalizer) + `scripts/check_icon_conformance.py` + per-icon PROVENANCE — no entry, no merge
 
@@ -1219,9 +1219,10 @@ QSvgRenderer resolves `currentColor` to **black**, never the palette —
 the reason the legacy set carried baked hex overrides (§11.4). The
 provider substitutes the active theme's colors into the SVG text BEFORE
 rasterizing (`get_icon(name, size=24, color=None)` / `get_pixmap`),
-renders at devicePixelRatio (crisp at 125/150 % Windows scaling), adds a
+renders at devicePixelRatio (crisp at 125/150 % Windows scaling; the dpr
+is part of the cache key, so mixed-DPI monitors stay sharp), adds a
 fully-grayed Disabled variant (both tokens → `text_disabled`), caches per
-`(name, size, tint, accent)`, and returns `None` for unknown names so
+`(name, size, dpr, tint, accent)`, and returns `None` for unknown names so
 every caller's text fallback keeps working. Category chips pass their
 muted identity tint (`theme.CATEGORY_ICON_TINTS`) as `color`.
 
@@ -1234,8 +1235,10 @@ A theme listener registered at import clears the provider cache on every
 thumbnails (species/texture art is theme-neutral and untouched), each
 `CategoryDropdown.refresh_thumbnails()` re-pulls its labels — and on the
 main window (tracked `_icon_actions` menu replay). Widgets constructed
-after the switch simply call `get_icon()` fresh. Known minor: the
-properties panel's object-type combo icons refresh on its next rebuild.
+after the switch simply call `get_icon()` fresh. The properties panel
+opts in with a DEFERRED full-rebuild hook (singleShot(0) — never rebuild
+form widgets inside the walk that invoked the hook; the #200 focus guard
+still protects a focused field).
 
 ### 8.21.4 Gates & how to add an icon
 
