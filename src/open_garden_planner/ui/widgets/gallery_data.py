@@ -27,10 +27,9 @@ from open_garden_planner.core.plant_renderer import (
     PlantCategory,
 )
 from open_garden_planner.core.tools import ToolType
+from open_garden_planner.ui.icons import get_pixmap
 
 THUMB_SIZE = 64
-
-_ICONS_DIR = Path(__file__).parent.parent.parent / "resources" / "icons" / "tools"
 
 
 class GalleryItem:
@@ -44,6 +43,7 @@ class GalleryItem:
         thumbnail: QPixmap | None = None,
         species: str = "",
         plant_category: PlantCategory | None = None,
+        icon_name: str = "",
     ) -> None:
         self.name = name
         self.tool_type = tool_type
@@ -51,12 +51,15 @@ class GalleryItem:
         self.thumbnail = thumbnail
         self.species = species
         self.plant_category = plant_category
+        # Non-empty when the thumbnail came from a themed UI icon — marks the
+        # item for re-rendering on theme switch (refresh_icon_thumbnails).
+        self.icon_name = icon_name
 
 
 class GalleryCategory:
     """A named group of gallery items.
 
-    `icon_name` is the basename of the SVG file in resources/icons/tools/
+    `icon_name` is the basename of the SVG file in resources/icons/ui/
     used by the toolbar button. Stored alongside the (translated) name so
     that icon lookup is locale-independent.
     """
@@ -127,8 +130,13 @@ def render_texture_thumbnail(
 
 
 def render_tool_icon_thumbnail(icon_name: str, size: int = THUMB_SIZE) -> QPixmap | None:
-    """Render a tool SVG icon (from resources/icons/tools/) as a thumbnail."""
-    return render_svg_thumbnail(_ICONS_DIR / f"{icon_name}.svg", size)
+    """Render a themed UI icon (resources/icons/ui/) as a thumbnail.
+
+    Goes through the central provider (ui/icons.py) so the line icon is
+    tinted from the active theme; returns None for unknown names so callers
+    keep their existing fallbacks.
+    """
+    return get_pixmap(icon_name, size)
 
 
 def render_color_circle_thumbnail(color: QColor, size: int = THUMB_SIZE) -> QPixmap:
@@ -178,10 +186,14 @@ def _shape_items() -> list[GalleryItem]:
         # Phase 13 Package B (US-B1): cubic Bezier pen tool.
         (_tr("Bezier"), ToolType.BEZIER, ObjectType.GENERIC_POLYGON, "bezier"),
     ]:
-        thumb = render_tool_icon_thumbnail(icon) or render_color_circle_thumbnail(
-            OBJECT_STYLES[obj].fill_color
-        )
-        items.append(GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb))
+        thumb = render_tool_icon_thumbnail(icon)
+        icon_used = thumb is not None
+        if thumb is None:
+            thumb = render_color_circle_thumbnail(OBJECT_STYLES[obj].fill_color)
+        items.append(GalleryItem(
+            name=name, tool_type=tool, object_type=obj, thumbnail=thumb,
+            icon_name=icon if icon_used else "",
+        ))
     return items
 
 
@@ -329,8 +341,14 @@ def _structure_items() -> list[GalleryItem]:
     ]
     for name, tool, obj, icon, pattern in structures:
         style = OBJECT_STYLES[obj]
-        thumb = render_tool_icon_thumbnail(icon) or render_texture_thumbnail(pattern, style.fill_color)
-        items.append(GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb))
+        thumb = render_tool_icon_thumbnail(icon)
+        icon_used = thumb is not None
+        if thumb is None:
+            thumb = render_texture_thumbnail(pattern, style.fill_color)
+        items.append(GalleryItem(
+            name=name, tool_type=tool, object_type=obj, thumbnail=thumb,
+            icon_name=icon if icon_used else "",
+        ))
     return items
 
 
@@ -367,8 +385,14 @@ def _bed_and_surface_items() -> list[GalleryItem]:
     ]
     for name, tool, obj, icon, pattern in surfaces:
         style = OBJECT_STYLES[obj]
-        thumb = render_texture_thumbnail(pattern, style.fill_color) or render_tool_icon_thumbnail(icon)
-        items.append(GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb))
+        thumb = render_texture_thumbnail(pattern, style.fill_color)
+        icon_used = thumb is None
+        if thumb is None:
+            thumb = render_tool_icon_thumbnail(icon)
+        items.append(GalleryItem(
+            name=name, tool_type=tool, object_type=obj, thumbnail=thumb,
+            icon_name=icon if icon_used and thumb is not None else "",
+        ))
     bed_infra = [
         (_tr("Raised Bed"), ToolType.RAISED_BED, ObjectType.RAISED_BED),
         (_tr("Cold Frame"), ToolType.COLD_FRAME, ObjectType.COLD_FRAME),
@@ -391,9 +415,13 @@ def _fence_items() -> list[GalleryItem]:
     ]
     for name, tool, obj, icon in fences:
         thumb = render_tool_icon_thumbnail(icon)
+        icon_used = thumb is not None
         if thumb is None:
             thumb = render_color_circle_thumbnail(OBJECT_STYLES[obj].stroke_color)
-        items.append(GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb))
+        items.append(GalleryItem(
+            name=name, tool_type=tool, object_type=obj, thumbnail=thumb,
+            icon_name=icon if icon_used else "",
+        ))
     return items
 
 
@@ -449,7 +477,7 @@ def build_toolbar_categories() -> list[GalleryCategory]:
 
     Order is by expected frequency of use. Each category maps 1:1 to a
     toolbar button and a Sims-style dropdown palette. The icon_name is the
-    basename of an SVG in resources/icons/tools/.
+    basename of an SVG in resources/icons/ui/.
     """
     return [
         GalleryCategory(_tr("Beds & Surfaces"), _bed_and_surface_items(), "garden_bed"),
@@ -463,9 +491,23 @@ def build_toolbar_categories() -> list[GalleryCategory]:
         GalleryCategory(_tr("Fences & Walls"), _fence_items(), "fence"),
         GalleryCategory(_tr("Infrastructure"), _infrastructure_items(), "infrastructure"),
         GalleryCategory(
-            _tr("Vertical & Container"), _vertical_container_items(), "garden_bed"
+            _tr("Vertical & Container"), _vertical_container_items(), "vertical_container"
         ),
     ]
+
+
+def refresh_icon_thumbnails(categories: list[GalleryCategory]) -> None:
+    """Re-render icon-derived thumbnails after a theme switch (§8.21).
+
+    Only items whose thumbnail came from a themed UI icon are touched;
+    species/texture/furniture art is theme-neutral and keeps its pixmap.
+    """
+    for category in categories:
+        for item in category.items:
+            if item.icon_name:
+                pixmap = get_pixmap(item.icon_name, THUMB_SIZE)
+                if pixmap is not None:
+                    item.thumbnail = pixmap
 
 
 def all_items(categories: list[GalleryCategory]) -> list[GalleryItem]:

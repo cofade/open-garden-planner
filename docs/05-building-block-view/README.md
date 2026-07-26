@@ -163,7 +163,8 @@ src/open_garden_planner/
 │   │   ├── dynamic_input_overlay.py  # Cursor-anchored Dynamic Input overlay (ADR-021)
 │   │   ├── sun_sim_toolbar.py    # Sun & shade sim date/time-slider toolbar (US-E3)
 │   │   └── collapsible_panel.py
-│   └── theme.py                  # Light/Dark theme system
+│   ├── icons.py                  # Central themed icon provider (#279, ADR-039)
+│   └── theme.py                  # Theme system — single source of chrome colors (ADR-039)
 ├── services/
 │   ├── plant_api/                # Trefle.io/Perenual/Permapeople integration
 │   │   ├── base.py
@@ -317,3 +318,14 @@ Black-box view of the embedded MCP server for AI agents. See ADR-033/034/035, FR
 | `services/ai_client_onboarding.py` (D1.6) | Qt-free. `detect_clients()` finds Cursor/Claude Code/Claude Desktop by their known config locations; `install_to_client()` registers the connect URL via a JSON-merge (Cursor, atomic write + backup via `_atomic_merge_mcp_server`), a CLI invocation (`claude mcp add`, Claude Code), or reports "manual only" (Claude Desktop — no supported static-config path, see ADR-035); `snippet_for_client()` returns the raw copy-paste payload per client. | url + client id → `ClientInfo`/`InstallResult` |
 | `ui/dialogs/connect_ai_assistant_dialog.py` (`ConnectAiAssistantDialog`, D1.6) | Thin Qt shell: shows the connect URL + Copy button, one row per detected client with an "Add to …" button (where automatic install exists) and an always-available manual-snippet disclosure. Reached from Help → "Connect AI Assistant…" and a Preferences → Agent API "Connect…" button — both call the same `GardenPlannerApp.agent_api_running_url()` (live running-server URL, or `None` if not actually running; never reconstructed from settings/widget state). | server URL → registered client config / clipboard |
 | `app/application.py` (wiring) | `_setup_agent_api` (bridge + deferred auto-start), `_agent_snapshot`/`_agent_diagnostics`/`_agent_render`/`_agent_save_plan`/`_agent_export_pdf`/`_agent_export_dxf`/`_agent_export_csv` (one `run_on_main` hop each), `_start/_stop_agent_api`, `_on_preferences` (live restart), `closeEvent` (abort + stop), `agent_api_running_url` (D1.6, the single accessor both the Help menu and Preferences dialog query — never a settings/widget-state reconstruction), `_on_connect_ai_assistant` (D1.6, opens `ConnectAiAssistantDialog` with that URL). | settings + signals → server lifecycle |
+
+## 5.7 Theme & Icon System (#279, ADR-039)
+
+Black-box view of the visual-refresh subsystem. See §8.4 (theme/tokens), §8.21 (icon system), FR-28.
+
+| Building block | Responsibility | Interface (in → out) |
+|----------------|----------------|----------------------|
+| `ui/theme.py` | Single source of truth for every chrome color: `ThemeColors.LIGHT/DARK` (incl. the #279 semantic tokens), the generated application stylesheet (typography/color/button roles as dynamic-property rules, banner/card rules), live-palette helpers (`theme_color`/`theme_qcolor`/`rgba`/`is_dark_theme`/`set_text_role`), `register_theme_listener`, `CATEGORY_ICON_TINTS`, and `apply_theme()`'s duck-typed propagation walk (`apply_theme_colors` / `refresh_theme_icons`). | `ThemeMode` → styled app + notified subscribers |
+| `ui/icons.py` | Central themed icon provider — the ONLY render path for `resources/icons/ui/`: substitutes theme colors into the contract SVG text before rasterizing (QSvgRenderer paints raw `currentColor` black), renders at devicePixelRatio, Normal + fully-grayed Disabled modes, cache per (name, size, dpr, tint, accent) cleared via theme listener; `None` for unknown names so every caller's text fallback survives. | name (+ size/tint) → `QIcon`/`QPixmap` \| `None` |
+| `resources/icons/ui/` | The icon set: 62 Tabler-vendored (MIT, pinned v3.45.0) + 10 bespoke glyphs on the 24×24 currentColor+sentinel contract, with the binding house-style README, `PROVENANCE.md` (cross-checked by the gate in both directions) and the vendored MIT license text. | files |
+| `scripts/normalize_icons.py` / `check_icon_conformance.py` / `vendor_tabler_icons.py` | Icon asset-forge toolchain: deterministic SVG canonicalizer (idempotence is itself a gate; `--check` for CI drift), mechanical contract+provenance gate (pinned into pytest by `tests/unit/test_icon_conformance.py`), pinned-release Tabler vendoring (the PROVENANCE reproduction recipe). | SVG files → normalized/verified set |

@@ -146,61 +146,29 @@ class WelcomeDialog(QDialog):
         header.setFont(header_font)
         actions_layout.addWidget(header)
 
-        # Primary button style (green background - works in both themes)
-        primary_button_style = """
-            QPushButton {
-                padding: 15px 20px;
-                font-size: 14px;
-                font-weight: bold;
-                border: none;
-                border-radius: 6px;
-                background-color: #4CAF50;
-                color: white;
-            }
-            QPushButton:hover {
-                background-color: #43A047;
-            }
-            QPushButton:pressed {
-                background-color: #388E3C;
-            }
-        """
-
-        # Secondary button style (green border - works in both themes)
-        secondary_button_style = """
-            QPushButton {
-                padding: 15px 20px;
-                font-size: 14px;
-                border: 2px solid #4CAF50;
-                border-radius: 6px;
-                color: #4CAF50;
-            }
-            QPushButton:hover {
-                background-color: rgba(76, 175, 80, 26);
-            }
-            QPushButton:pressed {
-                background-color: rgba(76, 175, 80, 51);
-            }
-            QPushButton:disabled {
-                border-color: palette(disabled, mid);
-                color: palette(disabled, text);
-            }
-        """
+        # CTA sizing only — all colors come from theme.py's
+        # QPushButton[buttonRole="primary"/"secondary"] rules, so the buttons
+        # follow the active light/dark theme automatically.
+        cta_size_qss = "padding: 15px 20px; font-size: 14px;"
 
         # New Project button (primary)
         new_project_btn = QPushButton(self.tr("New Project"))
-        new_project_btn.setStyleSheet(primary_button_style)
+        new_project_btn.setProperty("buttonRole", "primary")
+        new_project_btn.setStyleSheet(cta_size_qss)
         new_project_btn.clicked.connect(self._on_new_project)
         actions_layout.addWidget(new_project_btn)
 
         # Open Project button
         open_project_btn = QPushButton(self.tr("Open Project..."))
-        open_project_btn.setStyleSheet(secondary_button_style)
+        open_project_btn.setProperty("buttonRole", "secondary")
+        open_project_btn.setStyleSheet(cta_size_qss)
         open_project_btn.clicked.connect(self._on_open_project)
         actions_layout.addWidget(open_project_btn)
 
         # Open Selected button (for recent projects)
         self._open_selected_btn = QPushButton(self.tr("Open Selected"))
-        self._open_selected_btn.setStyleSheet(secondary_button_style)
+        self._open_selected_btn.setProperty("buttonRole", "secondary")
+        self._open_selected_btn.setStyleSheet(cta_size_qss)
         self._open_selected_btn.setEnabled(False)
         self._open_selected_btn.clicked.connect(self._on_open_selected)
         actions_layout.addWidget(self._open_selected_btn)

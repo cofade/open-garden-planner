@@ -41,6 +41,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.paths import default_dialog_dir
 from open_garden_planner.models.harvest_log import HarvestHistory, HarvestRecord
+from open_garden_planner.ui.theme import set_text_role, theme_color
 
 #: Default unit choices offered in the (editable) unit combo.
 _UNIT_CHOICES = ("kg", "g", "pcs", "bunch", "L")
@@ -156,7 +157,7 @@ class HarvestLogDialog(QDialog):
         photo_row = QHBoxLayout()
         self._photo_label = QLabel()
         self._photo_label.setFixedSize(64, 64)
-        self._photo_label.setStyleSheet("border: 1px solid #888;")
+        self._photo_label.setStyleSheet(f"border: 1px solid {theme_color('border')};")
         self._photo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._photo_label.setText(self.tr("(no photo)"))
         photo_row.addWidget(self._photo_label)
@@ -237,7 +238,8 @@ class HarvestLogDialog(QDialog):
                 totals[r.unit] = totals.get(r.unit, 0.0) + r.quantity
         parts = ", ".join(f"{qty:g} {unit}" for unit, qty in sorted(totals.items()))
         label = QLabel(self.tr("{year} — {totals}").format(year=year, totals=parts))
-        label.setStyleSheet("font-weight: bold; margin-top: 4px;")
+        set_text_role(label, "h2")
+        label.setStyleSheet("margin-top: 4px;")
         return label
 
     def _build_history_row(self, rec: HarvestRecord) -> QWidget:

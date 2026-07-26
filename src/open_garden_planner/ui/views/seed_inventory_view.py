@@ -41,6 +41,7 @@ from open_garden_planner.ui.dialogs.seed_inventory_dialog import (
     SeedPacketEditDialog,
     SeedTableModel,
 )
+from open_garden_planner.ui.theme import set_text_role
 
 
 def _needs_reorder(packet: SeedPacket) -> bool:
@@ -82,7 +83,7 @@ class SeedInventoryView(QWidget):
         top_row = QHBoxLayout()
         top_row.setSpacing(16)
         title_lbl = QLabel(self.tr("Seed Inventory"))
-        title_lbl.setStyleSheet("font-size: 15px; font-weight: bold;")
+        set_text_role(title_lbl, "h1")
         top_row.addWidget(title_lbl)
         top_row.addStretch()
         self._stats_lbl = QLabel()

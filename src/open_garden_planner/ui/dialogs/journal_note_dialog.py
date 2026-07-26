@@ -33,6 +33,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.paths import default_dialog_dir
 from open_garden_planner.models.journal_note import JournalNote
+from open_garden_planner.ui.theme import theme_color
 
 
 class JournalNoteDialog(QDialog):
@@ -96,7 +97,7 @@ class JournalNoteDialog(QDialog):
         photo_row = QHBoxLayout()
         self._photo_label = QLabel()
         self._photo_label.setFixedSize(80, 80)
-        self._photo_label.setStyleSheet("border: 1px solid #888;")
+        self._photo_label.setStyleSheet(f"border: 1px solid {theme_color('border')};")
         self._photo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._photo_label.setText(self.tr("(no photo)"))
         photo_row.addWidget(self._photo_label)

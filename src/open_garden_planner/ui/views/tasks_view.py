@@ -39,6 +39,7 @@ from open_garden_planner.services.task_generator import (
     generate_all,
 )
 from open_garden_planner.services.task_status import effective_status
+from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_color
 
 # ``build_plan_state`` lives in the (Qt-free) task_generator module now and is
 # shared with the planting-calendar dashboard (#228); re-exported here for the
@@ -51,13 +52,11 @@ _REFRESH_DEBOUNCE_MS = 1000
 # lazily (so QCoreApplication picks up the installed translator).
 _BUCKET_ORDER = ("overdue", "today", "this_week", "upcoming", "no_date")
 
-_URGENCY_COLOR = {
-    "overdue": "#c0392b",
-    "today": "#e67e22",
-    "this_week": "#f1c40f",
-    "upcoming": "#27ae60",
-    "no_date": "#7f8c8d",
-}
+def _urgency_color(bucket: str) -> str:
+    """Hex for an urgency bucket — the ONE shared map in theme.py, so this
+    tab and the calendar dashboard can never color the same urgency
+    differently (#228 convergence, ADR-039 review round)."""
+    return theme_color(URGENCY_TOKENS.get(bucket, "text_disabled"))
 
 
 class TasksView(QWidget):
@@ -109,7 +108,7 @@ class TasksView(QWidget):
 
         header = QHBoxLayout()
         title = QLabel(self.tr("Tasks"))
-        title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        set_text_role(title, "h1")
         header.addWidget(title)
         header.addStretch()
         add_btn = QPushButton(self.tr("Add Task"))
@@ -132,6 +131,10 @@ class TasksView(QWidget):
     def schedule_refresh(self) -> None:
         """Coalesce refresh requests to at most one per second (#188)."""
         self._refresh_timer.start()
+
+    def apply_theme_colors(self, _colors: dict[str, str]) -> None:
+        """Re-render on theme switch — urgency colors are palette-driven."""
+        self.schedule_refresh()
 
     def _on_refresh_timer(self) -> None:
         """Debounced refresh — skip the heavy rebuild while the tab is hidden
@@ -179,15 +182,20 @@ class TasksView(QWidget):
             rows = buckets[bucket]
             if rows:
                 any_rows = True
-                self._add_section(headers[bucket], _URGENCY_COLOR[bucket], rows)
+                self._add_section(headers[bucket], _urgency_color(bucket), rows)
         if snoozed:
-            self._add_section(self.tr("Snoozed"), "#95a5a6", snoozed, snoozed=True)
+            self._add_section(
+                self.tr("Snoozed"), theme_color("text_disabled"), snoozed, snoozed=True
+            )
         if done:
-            self._add_section(self.tr("Done"), "#95a5a6", done, is_done=True)
+            self._add_section(
+                self.tr("Done"), theme_color("text_disabled"), done, is_done=True
+            )
 
         if not any_rows and not snoozed and not done:
             empty = QLabel(self.tr("No tasks — you're all caught up."))
-            empty.setStyleSheet("color: gray; padding: 24px;")
+            set_text_role(empty, color_role="secondary")
+            empty.setStyleSheet("padding: 24px;")
             self._content_layout.insertWidget(self._content_layout.count() - 1, empty)
 
     @staticmethod
@@ -249,12 +257,13 @@ class TasksView(QWidget):
         label = QLabel(self._row_text(task))
         label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         if is_done:
-            label.setStyleSheet("color: gray; text-decoration: line-through;")
+            set_text_role(label, color_role="disabled")
+            label.setStyleSheet("text-decoration: line-through;")
         layout.addWidget(label, 1)
 
         if task.start_date is not None:
             date_lbl = QLabel(task.start_date.isoformat())
-            date_lbl.setStyleSheet("color: gray;")
+            set_text_role(date_lbl, color_role="secondary")
             layout.addWidget(date_lbl)
 
         # Navigate

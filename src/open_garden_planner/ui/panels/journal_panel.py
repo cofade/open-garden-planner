@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.models.journal_note import JournalNote
+from open_garden_planner.ui.theme import set_text_role
 
 _SNIPPET_CHARS = 64
 
@@ -43,7 +44,7 @@ class JournalPanel(QWidget):
         layout.setSpacing(4)
 
         self._header = QLabel(self.tr("Garden journal:"))
-        self._header.setStyleSheet("font-weight: bold;")
+        set_text_role(self._header, "h2")
         layout.addWidget(self._header)
 
         # Search box.

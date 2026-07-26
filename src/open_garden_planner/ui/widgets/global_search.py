@@ -46,13 +46,9 @@ class _ResultsPopup(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setObjectName("GlobalSearchResults")
-        self.setStyleSheet("""
-            #GlobalSearchResults {
-                background: palette(window);
-                border: 1px solid palette(mid);
-                border-radius: 6px;
-            }
-        """)
+        # Styled by theme.py's #GlobalSearchResults rule; a custom QWidget
+        # only paints a stylesheet background with WA_StyledBackground set.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(0)

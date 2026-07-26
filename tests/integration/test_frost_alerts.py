@@ -211,7 +211,9 @@ class TestWeatherWidgetFrostTinting:
 
         widget.apply_frost_thresholds(orange_c=5.0, red_c=2.0)
 
-        assert "#f8d7da" in widget._day_cells[0].styleSheet()
+        # Tinting is theme-driven since #279: the cell carries a dynamic
+        # frostSeverity property matched by theme.py's weatherCard rules.
+        assert widget._day_cells[0].property("frostSeverity") == "red"
 
     def test_orange_tint_applied(self, qtbot: object) -> None:
         widget = WeatherWidget()
@@ -223,7 +225,7 @@ class TestWeatherWidgetFrostTinting:
 
         widget.apply_frost_thresholds(orange_c=5.0, red_c=2.0)
 
-        assert "#fff3cd" in widget._day_cells[0].styleSheet()
+        assert widget._day_cells[0].property("frostSeverity") == "orange"
 
     def test_no_tint_above_threshold(self, qtbot: object) -> None:
         widget = WeatherWidget()
@@ -238,8 +240,7 @@ class TestWeatherWidgetFrostTinting:
         # Should have default (neutral) background for all cells
         for cell in widget._day_cells:
             if cell.isVisible():
-                assert "#f8d7da" not in cell.styleSheet()
-                assert "#fff3cd" not in cell.styleSheet()
+                assert not cell.property("frostSeverity")
 
     def test_apply_frost_thresholds_no_crash_without_forecast(self, qtbot: object) -> None:
         widget = WeatherWidget()

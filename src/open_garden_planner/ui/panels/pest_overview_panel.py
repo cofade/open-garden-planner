@@ -13,6 +13,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QLabel, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
 
 from open_garden_planner.models.pest_log import PestLogHistory
+from open_garden_planner.ui.theme import set_text_role
 
 
 class PestOverviewPanel(QWidget):
@@ -27,7 +28,7 @@ class PestOverviewPanel(QWidget):
         layout.setSpacing(4)
 
         self._header = QLabel(self.tr("Active issues:"))
-        self._header.setStyleSheet("font-weight: bold;")
+        set_text_role(self._header, "h2")
         layout.addWidget(self._header)
 
         self._list = QListWidget()

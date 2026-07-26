@@ -14,6 +14,7 @@ from open_garden_planner.services.companion_planting_service import (
     CompanionPlantingService,
     CompanionRelationship,
 )
+from open_garden_planner.ui.theme import set_text_role
 
 
 class CompanionPanel(QWidget):
@@ -107,7 +108,7 @@ class CompanionPanel(QWidget):
         layout.addWidget(self._plant_label)
 
         good_header = QLabel(self.tr("Good Companions"))
-        good_header.setStyleSheet("font-weight: bold; color: #2e7d32;")
+        set_text_role(good_header, "h2", "success")
         layout.addWidget(good_header)
 
         self._good_list = QListWidget()
@@ -117,7 +118,7 @@ class CompanionPanel(QWidget):
         layout.addWidget(self._good_list)
 
         bad_header = QLabel(self.tr("Bad Companions"))
-        bad_header.setStyleSheet("font-weight: bold; color: #c62828;")
+        set_text_role(bad_header, "h2", "error")
         layout.addWidget(bad_header)
 
         self._bad_list = QListWidget()
@@ -127,7 +128,7 @@ class CompanionPanel(QWidget):
         layout.addWidget(self._bad_list)
 
         legend = QLabel(self.tr("★ = already nearby in plan  (click to select)"))
-        legend.setStyleSheet("font-size: 10px; color: gray;")
+        set_text_role(legend, "hint")
         legend.setWordWrap(True)
         layout.addWidget(legend)
 

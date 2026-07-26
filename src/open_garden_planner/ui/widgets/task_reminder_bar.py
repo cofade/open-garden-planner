@@ -75,30 +75,9 @@ class TaskReminderBar(QFrame):
         dismiss_btn.clicked.connect(self.hide)
         layout.addWidget(dismiss_btn)
 
-        self._apply_style()
-
-    def _apply_style(self) -> None:
-        self.setStyleSheet(
-            "#TaskReminderBar {"
-            "  background-color: #e67e22;"  # amber — matches the 'today' urgency
-            "  color: white;"
-            "  border: none;"
-            "}"
-            "#TaskReminderBar QLabel {"
-            "  color: white;"
-            "  font-weight: bold;"
-            "}"
-            "#TaskReminderBar QPushButton {"
-            "  background-color: rgba(255,255,255,51);"
-            "  color: white;"
-            "  border: 1px solid rgba(255,255,255,128);"
-            "  border-radius: 4px;"
-            "  padding: 2px 10px;"
-            "}"
-            "#TaskReminderBar QPushButton:hover {"
-            "  background-color: rgba(255,255,255,89);"
-            "}"
-        )
+        # Styling lives in theme.py's global stylesheet (#TaskReminderBar
+        # rules, warning_bg banner) so a theme switch restyles the bar
+        # automatically — no per-widget QSS here.
 
     def _on_show_tasks(self) -> None:
         self.show_tasks_requested.emit()

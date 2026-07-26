@@ -30,6 +30,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.paths import default_save_path
 from open_garden_planner.services.harvest_aggregation import aggregate_by_species_year
+from open_garden_planner.ui.theme import set_text_role
 
 # Refresh debounce — coalesce edit bursts to at most one regeneration/second.
 _REFRESH_DEBOUNCE_MS = 1000
@@ -69,7 +70,7 @@ class HarvestView(QWidget):
 
         header = QHBoxLayout()
         title = QLabel(self.tr("Harvest"))
-        title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        set_text_role(title, "h1")
         header.addWidget(title)
         header.addStretch()
         self._export_btn = QPushButton(self.tr("Export CSV…"))
@@ -102,12 +103,12 @@ class HarvestView(QWidget):
         self._empty_label = QLabel(
             self.tr("No harvests logged yet. Right-click a plant → “Log Harvest…”.")
         )
-        self._empty_label.setStyleSheet("color: #7f8c8d;")
+        set_text_role(self._empty_label, color_role="secondary")
         self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._empty_label)
 
         self._status_label = QLabel("")
-        self._status_label.setStyleSheet("color: #7f8c8d;")
+        set_text_role(self._status_label, color_role="secondary")
         layout.addWidget(self._status_label)
 
     # ── refresh ────────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.tools import ToolType
+from open_garden_planner.ui.theme import set_text_role
 from open_garden_planner.ui.widgets.gallery_data import (
     THUMB_SIZE,
     GalleryCategory,
@@ -48,14 +49,9 @@ class _ThumbnailButton(QToolButton):
         thumb_label = QLabel()
         thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         thumb_label.setFixedSize(THUMB_SIZE, THUMB_SIZE)
+        self._thumb_label = thumb_label
         if item.thumbnail and not item.thumbnail.isNull():
-            scaled = item.thumbnail.scaled(
-                THUMB_SIZE - 4,
-                THUMB_SIZE - 4,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            thumb_label.setPixmap(scaled)
+            self.update_thumbnail()
         else:
             thumb_label.setText("?")
             thumb_label.setStyleSheet("font-size: 20px;")
@@ -68,25 +64,25 @@ class _ThumbnailButton(QToolButton):
         name_label.setMaximumHeight(20)
         layout.addWidget(name_label)
 
-        self.setStyleSheet("""
-            QToolButton {
-                border: 1px solid transparent;
-                border-radius: 4px;
-                background: transparent;
-                padding: 2px;
-            }
-            QToolButton:hover {
-                border: 1px solid palette(highlight);
-                background: palette(midlight);
-            }
-            QToolButton:pressed { background: palette(mid); }
-        """)
-
+        # Styled by theme.py's #CategoryDropdown QToolButton rules — the old
+        # palette()-based QSS tracked the OS palette, not our theme.
         self.clicked.connect(lambda: self.clicked_item.emit(self._item))
 
     @property
     def item(self) -> GalleryItem:
         return self._item
+
+    def update_thumbnail(self) -> None:
+        """Refresh the pixmap from the (possibly re-rendered) gallery item."""
+        if self._item.thumbnail is None or self._item.thumbnail.isNull():
+            return
+        scaled = self._item.thumbnail.scaled(
+            THUMB_SIZE - 4,
+            THUMB_SIZE - 4,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        self._thumb_label.setPixmap(scaled)
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -139,20 +135,17 @@ class CategoryDropdown(QWidget):
 
     def _setup_ui(self) -> None:
         self.setObjectName("CategoryDropdown")
-        self.setStyleSheet("""
-            #CategoryDropdown {
-                background: palette(window);
-                border: 1px solid palette(mid);
-                border-radius: 6px;
-            }
-        """)
+        # Styled by theme.py's #CategoryDropdown rule; a custom QWidget only
+        # paints a stylesheet background with WA_StyledBackground set.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(4)
 
         header = QLabel(self._category.name)
-        header.setStyleSheet("font-weight: bold; font-size: 11px; padding: 2px 4px;")
+        set_text_role(header, "h2")
+        header.setStyleSheet("padding: 2px 4px;")
         layout.addWidget(header)
 
         self._search_box = QLineEdit()
@@ -190,6 +183,11 @@ class CategoryDropdown(QWidget):
         for btn in self._buttons:
             visible = not needle or needle in btn.item.name.lower()
             btn.setVisible(visible)
+
+    def refresh_thumbnails(self) -> None:
+        """Re-pull each button's pixmap after a theme switch (see §8.21)."""
+        for btn in self._buttons:
+            btn.update_thumbnail()
 
     def show_below(self, anchor: QWidget) -> None:
         """Show the popup directly beneath the given anchor widget."""

@@ -46,6 +46,7 @@ from open_garden_planner.ui.canvas.items import (
     RectangleItem,
     TextItem,
 )
+from open_garden_planner.ui.theme import set_text_role, theme_color
 
 # Clean, translatable description fragments for TextItem font properties.
 # The raw attribute names (font_family, font_size) make ugly undo labels
@@ -125,7 +126,7 @@ class ColorButton(QPushButton):
         self.setStyleSheet(
             f"background-color: rgba({self._color.red()}, {self._color.green()}, "
             f"{self._color.blue()}, {self._color.alpha()}); "
-            f"border: 1px solid #888;"
+            f"border: 1px solid {theme_color('border')};"
         )
 
     def _pick_color(self) -> None:
@@ -218,6 +219,31 @@ class PropertiesPanel(QWidget):
         # Initially show "no selection" message
         self._show_no_selection()
 
+    def refresh_theme_icons(self) -> None:
+        """Re-tint the form on theme switch (§8.21.3) — DEFERRED.
+
+        The object-type combo icons and the color-swatch border are baked at
+        build time; without this hook they kept the previous theme's ink —
+        near-invisible after a light→dark switch. The rebuild runs via
+        singleShot(0), never inside the apply_theme allWidgets() walk that
+        invoked this hook (a rebuild destroys form widgets the walk's
+        snapshot still lists). The #200 focus guard in set_selected_items
+        still skips the rebuild while a panel field holds focus — the icons
+        then re-tint on the next rebuild instead of stealing the caret.
+        """
+        QTimer.singleShot(0, self._rebuild_for_theme)
+
+    def _rebuild_for_theme(self) -> None:
+        if not self._current_items:
+            return
+        try:
+            self._current_identity = None
+            self.set_selected_items(list(self._current_items))
+        except RuntimeError:
+            # §11.4 teardown class: a cached item's C++ object died between
+            # the deferred call and now (project close mid-switch).
+            return
+
     def _clear_form(self) -> None:
         """Clear all widgets from the form.
 
@@ -245,7 +271,7 @@ class PropertiesPanel(QWidget):
         """
         self._clear_form()
         label = QLabel(self.tr("{count} objects selected").format(count=count))
-        label.setStyleSheet("font-weight: bold;")
+        set_text_role(label, "h2")
         self._form_layout.addRow(label)
 
         # TODO: Show common properties for batch editing
@@ -485,7 +511,7 @@ class PropertiesPanel(QWidget):
             self._form_layout.addRow(info)
             hint = QLabel(self.tr("Ctrl+Shift+G to ungroup"))
             hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            hint.setStyleSheet("color: gray; font-size: 11px;")
+            set_text_role(hint, "hint")
             self._form_layout.addRow(hint)
             self._updating = False
             return
@@ -622,16 +648,14 @@ class PropertiesPanel(QWidget):
     @staticmethod
     def _get_object_type_icon(obj_type: ObjectType) -> QIcon | None:
         """Return a small QIcon from the SVG file for the given object type, or None."""
-        from pathlib import Path
+        from open_garden_planner.ui.icons import get_icon
 
-        # 1. Furniture / infrastructure SVGs (objects/ directory)
+        # 1. Furniture / infrastructure SVGs (objects/ directory — full-color art)
         svg_path = get_furniture_svg_path(obj_type)
         if svg_path is not None and svg_path.exists():
             return QIcon(str(svg_path))
 
-        res = Path(__file__).parent.parent.parent / "resources"
-
-        # 2. Tool icons (icons/tools/ directory)
+        # 2. Themed UI icons (resources/icons/ui/ via the central provider)
         _TOOL_ICON_FILES: dict[ObjectType, str] = {
             ObjectType.GENERIC_RECTANGLE: "rectangle",
             ObjectType.GENERIC_POLYGON: "polygon",
@@ -653,9 +677,7 @@ class PropertiesPanel(QWidget):
         }
         tool_name = _TOOL_ICON_FILES.get(obj_type)
         if tool_name is not None:
-            tool_path = res / "icons" / "tools" / f"{tool_name}.svg"
-            if tool_path.exists():
-                return QIcon(str(tool_path))
+            return get_icon(tool_name)
 
         return None
 
@@ -708,7 +730,8 @@ class PropertiesPanel(QWidget):
 
         # Header
         header = QLabel(self.tr("Contained Plants"))
-        header.setStyleSheet("font-weight: bold; margin-top: 6px;")
+        set_text_role(header, "h2")
+        header.setStyleSheet("margin-top: 6px;")
         self._form_layout.addRow(header)
 
         if not children or scene is None:
@@ -783,7 +806,8 @@ class PropertiesPanel(QWidget):
         row.addWidget(unlink_btn)
 
         header = QLabel(self.tr("Parent Bed"))
-        header.setStyleSheet("font-weight: bold; margin-top: 6px;")
+        set_text_role(header, "h2")
+        header.setStyleSheet("margin-top: 6px;")
         self._form_layout.addRow(header)
         self._form_layout.addRow(row)
 
@@ -977,7 +1001,8 @@ class PropertiesPanel(QWidget):
             return
 
         separator = QLabel(self.tr("Grid Overlay"))
-        separator.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        set_text_role(separator, "h2")
+        separator.setStyleSheet("margin-top: 8px;")
         self._form_layout.addRow(separator)
 
         # Enable checkbox
@@ -1046,7 +1071,8 @@ class PropertiesPanel(QWidget):
             return
 
         separator = QLabel(self.tr("Soil Fill"))
-        separator.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        set_text_role(separator, "h2")
+        separator.setStyleSheet("margin-top: 8px;")
         self._form_layout.addRow(separator)
 
         depth_spin = QSpinBox()
@@ -1086,7 +1112,8 @@ class PropertiesPanel(QWidget):
         meta = item.metadata
 
         header = QLabel(self.tr("Container"))
-        header.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        set_text_role(header, "h2")
+        header.setStyleSheet("margin-top: 8px;")
         self._form_layout.addRow(header)
 
         # Material combo — value stored is the cm.* identifier, label translated.
@@ -1129,12 +1156,13 @@ class PropertiesPanel(QWidget):
 
         # Effective volume + watering hint (read-only feedback labels)
         effective_label = QLabel()
-        effective_label.setStyleSheet("color: #666;")
+        set_text_role(effective_label, color_role="secondary")
         self._form_layout.addRow(self.tr("Effective:"), effective_label)
 
         hint_label = QLabel()
         hint_label.setWordWrap(True)
-        hint_label.setStyleSheet("color: #2e7d32; font-style: italic;")
+        set_text_role(hint_label, color_role="success")
+        hint_label.setStyleSheet("font-style: italic;")
         self._form_layout.addRow(hint_label)
 
         def footprint_cm2() -> float:
@@ -1305,13 +1333,15 @@ class PropertiesPanel(QWidget):
 
         title = definition.display_name(lang) if definition is not None else item.symbol_id
         header = QLabel(title)
-        header.setStyleSheet("font-weight: bold; margin-top: 4px;")
+        set_text_role(header, "h2")
+        header.setStyleSheet("margin-top: 4px;")
         self._form_layout.addRow(header)
 
         if definition is None:
             note = QLabel(self.tr("Symbol definition not found — showing cached geometry."))
             note.setWordWrap(True)
-            note.setStyleSheet("color: #b26a00; font-size: 11px;")
+            set_text_role(note, color_role="caution")
+            note.setStyleSheet("font-size: 11px;")
             self._form_layout.addRow(note)
             return
 
@@ -1492,7 +1522,8 @@ class PropertiesPanel(QWidget):
             item: TextItem to show properties for
         """
         header = QLabel(self.tr("Text"))
-        header.setStyleSheet("font-weight: bold; margin-top: 4px;")
+        set_text_role(header, "h2")
+        header.setStyleSheet("margin-top: 4px;")
         self._form_layout.addRow(header)
 
         # Content (multi-line). Live-update the item on every keystroke but

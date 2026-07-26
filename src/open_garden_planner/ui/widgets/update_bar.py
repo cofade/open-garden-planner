@@ -22,6 +22,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.ui.theme import theme_color
+
 logger = logging.getLogger(__name__)
 
 _DOWNLOAD_TIMEOUT = 15  # seconds — socket read timeout per chunk
@@ -119,7 +121,8 @@ class UpdateBar(QFrame):
         if html_url:
             whats_new = self.tr("What's new")
             link = (
-                f'<a href="{html.escape(html_url)}" style="color:white;">'
+                f'<a href="{html.escape(html_url)}" '
+                f'style="color:{theme_color("on_status")};">'
                 f"{html.escape(whats_new)} ↗</a>"
             )
             self._label.setText(f"{html.escape(msg_plain)}  {link}")
@@ -162,30 +165,16 @@ class UpdateBar(QFrame):
         remind_btn.clicked.connect(self.hide)
         layout.addWidget(remind_btn)
 
-        self._apply_style()
+        # Styling lives in theme.py's global stylesheet (#UpdateBar rules,
+        # info_bg banner) so a theme switch restyles the bar automatically.
 
-    def _apply_style(self) -> None:
-        self.setStyleSheet(
-            "#UpdateBar {"
-            "  background-color: #1a73e8;"
-            "  color: white;"
-            "  border: none;"
-            "}"
-            "#UpdateBar QLabel {"
-            "  color: white;"
-            "  font-weight: bold;"
-            "}"
-            "#UpdateBar QPushButton {"
-            "  background-color: rgba(255,255,255,51);"   # 0.20 * 255
-            "  color: white;"
-            "  border: 1px solid rgba(255,255,255,128);"  # 0.50 * 255
-            "  border-radius: 4px;"
-            "  padding: 2px 10px;"
-            "}"
-            "#UpdateBar QPushButton:hover {"
-            "  background-color: rgba(255,255,255,89);"   # 0.35 * 255
-            "}"
-        )
+    def apply_theme_colors(self, _colors: dict[str, str]) -> None:
+        """Rebuild the label on theme switch (the What's-new link color is
+        baked into its HTML at show time)."""
+        if self.isVisible() and self._tag_name:
+            self.show_update(
+                self._tag_name, "", self._download_url, self._html_url
+            )
 
     def _on_skip(self) -> None:
         self.skip_version_requested.emit(self._tag_name)

@@ -36,6 +36,7 @@ from open_garden_planner.core.coordinate_input import (
     CoordinateInputBuffer,
     looks_like_explicit_coord,
 )
+from open_garden_planner.ui.theme import rgba, theme_color
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -60,17 +61,20 @@ class DynamicInputOverlay(QFrame):
 
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        # The overlay sits on the always-light canvas, so its tokens are
+        # deliberately constant across themes (theme.py overlay_* — same
+        # rationale as the canvas colors); built once at construction.
         self.setStyleSheet(
             "DynamicInputOverlay {"
-            "  background-color: rgba(30, 30, 30, 200);"
-            "  border: 1px solid rgba(120, 200, 120, 180);"
+            f"  background-color: {theme_color('overlay_bg')};"
+            f"  border: 1px solid {theme_color('overlay_border')};"
             "  border-radius: 4px;"
             "}"
-            "QLabel { color: white; padding-right: 2px; }"
+            f"QLabel {{ color: {theme_color('overlay_text')}; padding-right: 2px; }}"
             "QLineEdit {"
-            "  background-color: rgba(60, 60, 60, 220);"
-            "  color: white;"
-            "  border: 1px solid rgba(120, 200, 120, 100);"
+            f"  background-color: {theme_color('overlay_field_bg')};"
+            f"  color: {theme_color('overlay_text')};"
+            f"  border: 1px solid {theme_color('overlay_field_border')};"
             "  padding: 1px 4px;"
             "}"
         )
@@ -236,12 +240,9 @@ class DynamicInputOverlay(QFrame):
     # --- Visual --------------------------------------------------------
 
     def _flash_error(self) -> None:
-        self._distance_edit.setStyleSheet(
-            "QLineEdit { background-color: rgba(180, 60, 60, 220); }"
-        )
-        self._angle_edit.setStyleSheet(
-            "QLineEdit { background-color: rgba(180, 60, 60, 220); }"
-        )
+        error_qss = f"QLineEdit {{ background-color: {rgba('error', 220)}; }}"
+        self._distance_edit.setStyleSheet(error_qss)
+        self._angle_edit.setStyleSheet(error_qss)
 
     # --- Focus ---------------------------------------------------------
 

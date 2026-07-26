@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.services import get_plant_library
+from open_garden_planner.ui.theme import set_text_role
 
 
 class CustomPlantsDialog(QDialog):
@@ -50,7 +51,7 @@ class CustomPlantsDialog(QDialog):
 
         # Title
         title = QLabel(self.tr("Custom Plant Library"))
-        title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        set_text_role(title, "h1")
         layout.addWidget(title)
 
         # Description
@@ -59,7 +60,7 @@ class CustomPlantsDialog(QDialog):
             "These are available across all your projects.")
         )
         desc.setWordWrap(True)
-        desc.setStyleSheet("color: palette(text); opacity: 0.7;")
+        set_text_role(desc, color_role="secondary")
         layout.addWidget(desc)
 
         # Table for plant list
@@ -112,7 +113,7 @@ class CustomPlantsDialog(QDialog):
 
         # Info label
         self.info_label = QLabel()
-        self.info_label.setStyleSheet("color: palette(text); font-style: italic; opacity: 0.7;")
+        set_text_role(self.info_label, "placeholder")
         layout.addWidget(self.info_label)
 
         # Dialog buttons: OK confirms the current selection (when used as a

@@ -43,6 +43,7 @@ from open_garden_planner.services.task_generator import (
 )
 from open_garden_planner.services.task_status import effective_status
 from open_garden_planner.services.weather_service import get_frost_alerts
+from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_qcolor
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
 # ─── Layout constants ──────────────────────────────────────────────────────────
@@ -82,13 +83,13 @@ _COL_TRANSPLANT_PROP = QColor(230, 126, 34) # orange — transplant marker
 
 # ─── Dashboard urgency colours ─────────────────────────────────────────────────
 _URGENCY_ORDER = ("overdue", "today", "this_week", "coming_up")
-_URGENCY_COLORS: dict[str, QColor] = {
-    "overdue":       QColor(200,  50,  50),
-    "today":         QColor(200, 120,   0),
-    "this_week":     QColor( 40, 140,  60),
-    "coming_up":     QColor( 60, 140, 100),
-    "soil_mismatch": QColor(200, 120,   0),  # amber — same as "today" (US-12.10d)
-}
+
+
+def _urgency_qcolor(urgency: str) -> QColor:
+    """Semantic color for a dashboard urgency — the ONE shared map in
+    theme.py (same map as the Tasks tab, #228 convergence), pairwise
+    distinct in both palettes (pinned by test_theme_tokens)."""
+    return theme_qcolor(URGENCY_TOKENS.get(urgency, "text_disabled"))
 
 # All task types including propagation steps
 _PROP_TASK_TYPES = ("prick_out", "harden_off")
@@ -179,7 +180,7 @@ class _DashboardPanel(QFrame):
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(10, 4, 6, 4)
         self._title_lbl = QLabel(self.tr("Today's Tasks"))
-        self._title_lbl.setStyleSheet("font-weight: bold; font-size: 9pt;")
+        set_text_role(self._title_lbl, "h2")
         header_layout.addWidget(self._title_lbl)
         header_layout.addStretch()
         self._toggle_btn = QPushButton("▾")
@@ -205,7 +206,8 @@ class _DashboardPanel(QFrame):
 
         # ── No-tasks label ────────────────────────────────────────────────────
         self._empty_lbl = QLabel(self.tr("No upcoming tasks in the next 30 days."))
-        self._empty_lbl.setStyleSheet("color: #666; font-size: 9pt; padding: 6px 12px;")
+        set_text_role(self._empty_lbl, "hint")
+        self._empty_lbl.setStyleSheet("padding: 6px 12px;")
         self._empty_lbl.hide()
         outer.addWidget(self._empty_lbl)
 
@@ -268,7 +270,7 @@ class _DashboardPanel(QFrame):
             group = grouped[urgency]
             if not group:
                 continue
-            color = _URGENCY_COLORS[urgency]
+            color = _urgency_qcolor(urgency)
 
             grp_lbl = QLabel(urgency_labels[urgency])
             grp_lbl.setStyleSheet(
@@ -680,10 +682,10 @@ class _DetailPanel(QFrame):
         layout.setSpacing(4)
 
         self._name_lbl = QLabel()
-        self._name_lbl.setStyleSheet("font-weight: bold; font-size: 10pt;")
+        set_text_role(self._name_lbl, "h2")
         self._info_lbl = QLabel()
         self._info_lbl.setWordWrap(True)
-        self._info_lbl.setStyleSheet("font-size: 9pt; color: #444;")
+        self._info_lbl.setStyleSheet("font-size: 9pt;")
         layout.addWidget(self._name_lbl)
         layout.addWidget(self._info_lbl)
 
@@ -694,7 +696,8 @@ class _DetailPanel(QFrame):
         prop_layout.setSpacing(2)
 
         hdr = QLabel(self.tr("Propagation Steps"))
-        hdr.setStyleSheet("font-weight: bold; font-size: 8pt; color: #555;")
+        set_text_role(hdr, "small", "secondary")
+        hdr.setStyleSheet("font-weight: 600;")
         prop_layout.addWidget(hdr)
 
         # Step rows: (step_id, label, is_period)
@@ -948,7 +951,8 @@ class PlantingCalendarView(QWidget):
         # Empty-state label
         self._empty_lbl = QLabel()
         self._empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._empty_lbl.setStyleSheet("color: #888; font-size: 13px;")
+        set_text_role(self._empty_lbl, color_role="secondary")
+        self._empty_lbl.setStyleSheet("font-size: 13px;")
         self._empty_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         root.addWidget(self._empty_lbl)
 
@@ -1334,6 +1338,10 @@ class PlantingCalendarView(QWidget):
         return names
 
     # ── dashboard generation (unified engine, #228) ─────────────────────────────
+
+    def apply_theme_colors(self, _colors: dict[str, str]) -> None:
+        """Re-render on theme switch — dashboard urgency colors are palette-driven."""
+        self.schedule_refresh()
 
     def _rebuild_dashboard(self) -> None:
         """Regenerate the Today's-Tasks dashboard from the unified engine.
