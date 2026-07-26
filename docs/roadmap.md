@@ -2471,6 +2471,18 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 Reserved identifiers: **ADR-037** (solar + shadow architecture), **ADR-038** (3D engine choice), **§8.20**, **FR-SUN-\***. `FILE_VERSION` stays `"1.4"` (heights/planted-date are additive metadata).
 
+---
+
+## Phase 15 — Visual Refresh (epic thread: #279 → #281)
+
+The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes them in packages. Decisions locked in the 2026-07-25 planning session: line+accent icon style, theme-tinted at runtime; icons + chrome in one package; plant art completely redesigned as its own package.
+
+| Status | Package | Description | Issue | Shipped |
+| ------ | ------- | ----------- | ----- | ------- |
+| ✅ | 1 | **Themed iconography + modernized chrome** — 72-icon line set (62 Tabler v3.45.0 vendored MIT + 10 bespoke) on the 24×24 `currentColor`+accent-sentinel contract, rendered only via the runtime-tinting provider `ui/icons.py`; all 5 legacy load paths + ~28 menu actions migrated, `icons/tools/` deleted; normalize/conformance/provenance gates. Chrome: `ui/theme.py` as the single home of chrome colors (semantic tokens, shared `URGENCY_TOKENS`, typography/color/button roles as dynamic properties, live-switch propagation, saturated banners by design), theme-blind surfaces fixed (dark-mode weather cards, popups off the OS palette), QSS-color lint gate (empty allowlist). ADR-039 (+ review addendum), FR-28, §8.4/§8.21, §5.7, two §11.4 pitfalls. Two senior-review rounds. | [#279](https://github.com/cofade/open-garden-planner/issues/279) | ✅ v1.25.0 (PR [#280](https://github.com/cofade/open-garden-planner/pull/280)) |
+| 🔜 | 2 | **Plant illustration redesign** — unified style for the 108 species + 15 category SVGs (complete redesign: style contract → procedural, seed-deterministic regeneration → visual-weight + palette conformance gate + provenance; the current set varies ~10× in visual weight at equal viewBox). | [#281](https://github.com/cofade/open-garden-planner/issues/281) | — |
+| 💭 | 3 | *(Candidates, unscoped)* furniture/infrastructure canvas art, texture harmonization (incl. grandfathered `flagstone`/`glass` seams), status-bar/dashboard-tab + Plants/Garden menu iconography. | — | — |
+
 > **Decision (2026-07-19):** the external `claude-skill-game-assets-enhancer` skill was evaluated for 3D asset generation and rejected — it produces 2D game sprites via a paid fal.ai API, no 3D assets; Phase 14's 3D pipeline is procedural (extruded footprints). The salvageable idea (AI-generated textures through the existing `fill_patterns.py` seam, already sanctioned by §11.1) is captured as optional US-E9. Full rationale in epic #255.
 
 ---
