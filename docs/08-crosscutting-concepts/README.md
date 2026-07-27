@@ -1281,7 +1281,7 @@ via `scripts/generate_asset_forge_textures.py` (tileability-gated) — the
 rectangles. Independent of archetype, SMALL leaves everywhere (length < 12 units)
 drop their frilly occlusion underlay and vein lines — a byte-budget
 optimization that is visually invisible at canvas scale but does slightly
-simplify e.g. rosette outer rings; the contact-sheet sign-off covers it.
+simplify e.g. rosette outer rings (visible on the sign-off contact sheet).
 
 ### 8.22.2 The two invariants
 
