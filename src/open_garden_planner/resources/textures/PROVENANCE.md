@@ -23,6 +23,19 @@ GPL-3 distribution rationale.
 - Same generator/date/license/verification as `decking.png`
   (`generate_corten`, seed shared).
 
+## hedge.png (regenerated 2026-07-27, #281/PR #282)
+- **Generator**: `scripts/generate_asset_forge_textures.py`
+  (`generate_hedge`, own deterministic seed `"ogp-hedge-lush"` so the
+  decking/corten byte streams stay untouched) — pure Pillow, no external
+  model or service. Replaces the 2026-03 legacy hedge texture to match the
+  #281 "Lush Sprite" plant art (dense occluded two-tone leaves; owner
+  manual-test feedback on PR #282: hedge polygons needed the new leaf
+  style + higher density).
+- **License basis**: original in-repo work, GPL-3.0-or-later.
+- **Tileability**: seamless by construction (wrap-stamped primitives);
+  mechanically verified via `scripts/check_texture_tileability.py`, pinned
+  by `tests/unit/test_texture_tileability.py` (pilot list).
+
 ## Legacy set (bark … wood, 22 files, pre-US-E9)
 - Created before this provenance discipline (Phase 1 asset pipeline,
   §8.5: "AI-generated illustrations in consistent style"; §11.1 sanctions

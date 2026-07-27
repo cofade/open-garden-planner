@@ -150,12 +150,10 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 - Tinted at runtime by the central provider `ui/icons.py` — never fed to QSvgRenderer directly (see §8.21)
 - Gates: `scripts/normalize_icons.py` (idempotent canonicalizer) + `scripts/check_icon_conformance.py` + per-icon PROVENANCE — no entry, no merge
 
-### Plant SVGs
-- AI-generated illustrations in consistent top-down garden style
-- ~15-20 category-based shapes (deciduous, conifer, shrub, flower, etc.)
-- ~10 unique popular species (rose, lavender, apple, cherry, etc.)
-- Stored in `resources/plants/{category}/{name}.svg`
-- Color-tinted at render time based on species data
+### Plant SVGs (`resources/plants/`, ADR-040)
+- **Generated, never hand-edited**: all 108 species + 15 category sprites are emitted by `scripts/generate_plant_sprites.py` in the user-approved "Lush Sprite" style; committed files must byte-match regeneration (`--check` + determinism test). See §8.22.
+- Top-down, rotation-safe radial shading; QtSvg-subset only; contract in `resources/plants/README.md`, provenance in `resources/plants/PROVENANCE.md`
+- Consumed unchanged by `core/plant_renderer.py` (cached pixmaps, stable per-item rotation, optional tint)
 
 ### Textures
 - Tileable PNG textures (256x256 or 512x512)
@@ -1251,3 +1249,60 @@ end-to-end rendering on both themes + app wiring + live-switch re-tint by
 from Tabler (note glyph + release) or author bespoke at 24×24 → run the
 normalizer → add the PROVENANCE entry → reference it by name in code →
 gates green. **No provenance entry, no merge** (asset-forge discipline).
+
+## 8.22 Plant Sprite Pipeline (#281, ADR-040)
+
+### 8.22.1 One generator, 123 artifacts
+
+Every SVG under `resources/plants/{species,categories}/` is produced by
+`scripts/generate_plant_sprites.py` — a seeded, deterministic generator whose
+recipe tables (archetype + palette + signature features per species) are the
+actual source of the plant art. The committed SVGs are build artifacts:
+`--check` and `tests/unit/test_plant_sprite_conformance.py` fail on any byte
+drift, which also makes hand edits impossible to land. The binding style
+contract lives in `resources/plants/README.md` ("Lush Sprite", user-approved
+2026-07-26): shingled leaf rings, per-leaf tip→base gradients, occlusion
+under every leaf, glossy fruit / chunky bloom clusters, signature
+recognition cue per species. Ball-shaped canopies/mounds use **dome
+foreshortening** (manual-test refinement on PR #282): leaves are largest at
+the crown and radially compressed + denser toward the rim —
+`sqrt(1-(rho/R)^2)` per fixed dome latitude, leaf count from the ring
+circumference — so the canopy reads as a sphere seen from above. Flat
+growth forms (rosettes, grass tufts, narrow-leaf cushions like lavender)
+are exempt from the foreshortening: their outer leaves really are the big
+ones. Star-form archetypes were reworked in the same manual-test round:
+conifers are interleaved serrated branch-whorl layers (not a flat
+thin-leaf star), grass/fern species are fields of clumped tufts over a
+dark grounding mass (not a single center starburst), and alliums/corn are
+dense double-layer fountains. The on-canvas hedge (HEDGE_POLYGON) fills
+with `resources/textures/hedge.png`, regenerated in the same leaf language
+via `scripts/generate_asset_forge_textures.py` (tileability-gated) — the
+`hedge_section.svg` sprite only serves the plant category + legacy
+rectangles. Independent of archetype, SMALL leaves everywhere (length < 12 units)
+drop their frilly occlusion underlay and vein lines — a byte-budget
+optimization that is visually invisible at canvas scale but does slightly
+simplify e.g. rosette outer rings (visible on the sign-off contact sheet).
+
+### 8.22.2 The two invariants
+
+**Rotation safety**: `core/plant_renderer.py` rotates each plant by a stable
+per-item random angle, so sprites are top-down with radial shading only
+(light from straight above) — never a baked light direction.
+**QtSvg subset**: QSvgRenderer ≈ SVG 1.2 Tiny — linear/radial gradients,
+opacity, transforms, stroke-linecap; no filters, masks, clipPath, CSS or
+text (enforced by an element/attribute/color **allowlist walk** over the
+parsed tree in the conformance gate). The one geometry
+exception: `hedge_section.svg` keeps its legacy rectangular viewBox
+`10 25 80 50`.
+
+### 8.22.3 Changing a sprite — the loop
+
+Edit the recipe → regenerate → **visually review with the real engine**
+(QSvgRenderer offscreen grids at 256/64 px — see the `ogp-asset-forge`
+skill's "SVG sprite forge" section; never judge by XML or a browser render)
+→ run the two gates (`test_plant_sprite_conformance.py`,
+`tests/integration/test_plant_sprite_rendering.py` — the §8.10 test renders
+every sprite to visible pixels through `render_plant_pixmap`, including
+tint, rotation and the 16 px growth-model size) → owner sign-off on a
+contact sheet for style-level changes. New species additionally need a
+`_SPECIES_FILES` alias in `core/plant_renderer.py`.

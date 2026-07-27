@@ -1,15 +1,15 @@
 """Unit tests for plant SVG rendering system (US-6.2)."""
 
-from pathlib import Path
 
 import pytest
 from PyQt6.QtGui import QColor, QPixmap
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.plant_renderer import (
-    PlantCategory,
     _CATEGORIES_DIR,
     _SPECIES_DIR,
+    _SPECIES_FILES,
+    PlantCategory,
     _resolve_svg_path,
     _stable_random_for_item,
     clear_plant_cache,
@@ -56,37 +56,9 @@ class TestPlantSVGFiles:
         assert path.is_file()
         assert path.stat().st_size > 0
 
-    @pytest.mark.parametrize(
-        "filename",
-        [
-            "rose", "lavender", "apple_tree", "cherry_tree",
-            "sunflower", "tomato", "boxwood", "rhododendron",
-            # Vegetables
-            "pepper", "eggplant", "zucchini", "cucumber", "pumpkin", "squash",
-            "bean", "pea", "corn", "carrot", "radish", "beet", "turnip",
-            "potato", "onion", "garlic", "leek", "celery", "broccoli",
-            "cauliflower", "cabbage", "kale", "spinach", "lettuce", "arugula",
-            "chard", "artichoke", "asparagus", "rhubarb", "okra",
-            # Herbs
-            "basil", "rosemary", "thyme", "sage", "mint", "parsley",
-            "cilantro", "dill", "chives", "oregano", "tarragon", "lemongrass",
-            "chamomile", "fennel", "marjoram", "bay_laurel", "stevia",
-            "sorrel", "borage", "lovage",
-            # Flowers
-            "tulip", "daffodil", "dahlia", "peony", "iris", "lily",
-            "marigold", "zinnia", "cosmos", "aster", "chrysanthemum",
-            "geranium", "petunia", "pansy", "hydrangea", "clematis",
-            "wisteria", "jasmine", "hibiscus", "crocus",
-            # Trees
-            "pear_tree", "plum_tree", "peach_tree", "fig_tree", "olive_tree",
-            "lemon_tree", "orange_tree", "walnut_tree", "oak", "maple",
-            "birch", "willow", "magnolia", "pine", "spruce",
-            # Shrubs
-            "blueberry", "raspberry", "blackberry", "gooseberry", "currant",
-            "holly", "privet", "juniper", "forsythia", "lilac", "viburnum",
-            "barberry", "camellia", "spirea", "elderberry",
-        ],
-    )
+    # derived from the renderer's own map so this list can never rot out of
+    # sync with _SPECIES_FILES (previously a hand-maintained 108-entry copy)
+    @pytest.mark.parametrize("filename", sorted(set(_SPECIES_FILES.values())))
     def test_species_svg_exists(self, filename: str) -> None:
         path = _SPECIES_DIR / f"{filename}.svg"
         assert path.exists(), f"Species SVG missing: {filename}.svg"

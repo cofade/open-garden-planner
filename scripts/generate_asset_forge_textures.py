@@ -16,6 +16,7 @@ Regenerating with the same seed reproduces the committed PNGs.
 
 from __future__ import annotations
 
+import math
 import random
 from pathlib import Path
 
@@ -57,6 +58,59 @@ def _wrap_line(draw: ImageDraw.ImageDraw, x1: float, y: float, x2: float, color,
     for dx in (-SIZE, 0, SIZE):
         for dy in (-SIZE, 0, SIZE):
             draw.line([x1 + dx, y + dy, x2 + dx, y + dy], fill=color, width=width)
+
+
+def _leaf_points(
+    cx: float, cy: float, length: float, width: float, angle_deg: float,
+    scale: float = 1.0, shift: float = 0.0,
+) -> list[tuple[float, float]]:
+    """Almond leaf outline as a rotated polygon; shift moves it toward the tip."""
+    half = length / 2
+    pts_local = [
+        (0.0, -half - shift), (width * 0.35, -length * 0.22 - shift),
+        (width * 0.5, -shift), (width * 0.38, length * 0.26 - shift),
+        (0.0, half - shift), (-width * 0.38, length * 0.26 - shift),
+        (-width * 0.5, -shift), (-width * 0.35, -length * 0.22 - shift),
+    ]
+    a = math.radians(angle_deg)
+    ca, sa = math.cos(a), math.sin(a)
+    return [
+        (cx + (x * scale) * ca - (y * scale) * sa, cy + (x * scale) * sa + (y * scale) * ca)
+        for x, y in pts_local
+    ]
+
+
+def _wrap_polygon(draw: ImageDraw.ImageDraw, pts: list[tuple[float, float]], color) -> None:
+    for dx in (-SIZE, 0, SIZE):
+        for dy in (-SIZE, 0, SIZE):
+            draw.polygon([(x + dx, y + dy) for x, y in pts], fill=color)
+
+
+def generate_hedge(rng: random.Random) -> Image.Image:
+    """Dense trimmed-hedge foliage in the #281 \"Lush Sprite\" language:
+    occluded overlapping almond leaves, dark-to-light two-tone per leaf.
+    Replaces the 2026-03 legacy hedge.png so HEDGE_POLYGON fills match the
+    new plant art (manual-test feedback on PR #282)."""
+    bg = (16, 52, 30)
+    occ = (9, 42, 22)
+    bodies = [(35, 96, 55), (44, 112, 64), (29, 84, 48), (51, 122, 71)]
+    img = Image.new("RGB", (SIZE, SIZE), bg)
+    draw = ImageDraw.Draw(img)
+    for _ in range(260):
+        x, y = rng.uniform(0, SIZE), rng.uniform(0, SIZE)
+        length = rng.uniform(26, 38)
+        width = length * rng.uniform(0.52, 0.62)
+        angle = rng.uniform(0, 360)
+        body = rng.choice(bodies)
+        light = tuple(min(c + 26, 255) for c in body)
+        _wrap_polygon(draw, _leaf_points(x + 1.5, y + 1.5, length, width, angle, scale=1.2), occ)
+        _wrap_polygon(draw, _leaf_points(x, y, length, width, angle), body)
+        _wrap_polygon(
+            draw,
+            _leaf_points(x, y, length * 0.55, width * 0.5, angle, shift=length * 0.16),
+            light,
+        )
+    return _wrap_blur(img, 0.6)
 
 
 def generate_decking(rng: random.Random) -> Image.Image:
@@ -140,10 +194,13 @@ def main() -> None:
     rng = random.Random(42)  # noqa: S311 — art, not crypto; fixed for reproducibility
     decking = generate_decking(rng)
     corten = generate_corten(rng)
+    # separate seed so adding hedge does NOT shift decking/corten bytes
+    hedge = generate_hedge(random.Random("ogp-hedge-lush"))  # noqa: S311
     decking.save(TEXTURES_DIR / "decking.png")
     corten.save(TEXTURES_DIR / "corten.png")
-    print(f"wrote {TEXTURES_DIR / 'decking.png'}")
-    print(f"wrote {TEXTURES_DIR / 'corten.png'}")
+    hedge.save(TEXTURES_DIR / "hedge.png")
+    for name in ("decking.png", "corten.png", "hedge.png"):
+        print(f"wrote {TEXTURES_DIR / name}")
 
 
 if __name__ == "__main__":

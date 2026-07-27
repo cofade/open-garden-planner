@@ -49,6 +49,34 @@ MUST match:
 3. **CC0/public-domain sources** — allowed (§11.1), but record the exact
    source URL + license snapshot in PROVENANCE.md.
 
+## 2b. SVG sprite forge (object & plant canvas art — the #281 technique)
+
+Plant/object canvas art is SVG **code**, not raster — layered vector shapes
+rendered by `core/plant_renderer.py` / `core/furniture_renderer.py`. The
+workflow (validated in the #281 style lab, 2026-07-26):
+
+1. **Generate, don't hand-write**: beyond a handful of elements, emit the SVG
+   from a seeded procedural generator (rings of leaf paths, per-ring gradients,
+   deterministic jitter). The generator is simultaneously the provenance
+   record and what makes the whole set regenerable from style parameters.
+2. **QtSvg subset only** (QSvgRenderer ≈ SVG 1.2 Tiny): linear/radial
+   gradients, opacity, nested transforms, stroke-linecap are safe; **no
+   filters, no masks, no clipPath, no CSS classes, no `<text>`** — they
+   silently drop or render wrong.
+3. **Rotation-safe radial shading**: every plant gets a stable random rotation
+   at render time (`plant_renderer._stable_random_for_item`), so never bake a
+   directional light. Top-down = light from straight above: dark rim → light
+   crown, occlusion shadows radially outward. Per-leaf/per-fruit highlights
+   live in the leaf's local frame and stay coherent under any rotation.
+4. **The visual self-review loop** — the step that makes results good: render
+   with the app's REAL engine (QSvgRenderer offscreen, 256 px and ~64 px),
+   actually view the PNGs, grade against the style contract, iterate (cap ~3
+   rounds, then owner sign-off). Never judge an SVG by reading its XML, and
+   never judge by a browser render — browser ≠ QtSvg.
+5. **Owner sign-off on a contact sheet** (HTML: before/after, real canvas
+   sizes, simulated rotation, lawn + soil backgrounds) before wiring anything —
+   style is sovereign, same as §3.
+
 ## 3. The mechanical gates (no eyeballing)
 
 | Gate | Command | Pass |

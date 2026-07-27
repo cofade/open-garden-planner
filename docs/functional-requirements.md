@@ -491,3 +491,12 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 - **FR-UI-THEME-03**: Widget code may not hardcode chrome colors — `ui/theme.py` is the single home of chrome hex values, enforced by a repo lint gate.
 
 Acceptance: `tests/integration/test_icon_system.py` + `tests/integration/test_theme_switch_chrome.py` (§8.10) plus the `test_icon_conformance` / `test_no_hardcoded_qss_colors` / `test_theme_tokens` gates.
+
+## FR-29: Visual Refresh — Plant Illustrations (issue #281, ADR-040)
+
+- **FR-PLANT-ART-01**: Every species (108) and category (15) plant sprite renders in one cohesive top-down "Lush Sprite" style — individual shingled leaves with depth (occlusion + per-leaf gradients), glossy fruit and chunky bloom clusters — replacing the washed-out translucent-blob set, on the same files and render path the canvas already uses (no behavior change in `plant_renderer`).
+- **FR-PLANT-ART-02**: Sprites stay visually correct under the canvas' stable per-plant random rotation (radial shading, no baked light direction) and remain legible at small growth-model sizes (≈16 px) as well as large tree footprints.
+- **FR-PLANT-ART-03**: Each species keeps one signature recognition cue at plan scale (fruit color, bloom shape/color, rib color, root-vegetable bulb at the center, silhouette — e.g. tomato ≠ pepper ≠ eggplant, carrot ≠ radish ≠ beet).
+- **FR-PLANT-ART-04**: The whole set is procedurally regenerable from per-species recipes in `scripts/generate_plant_sprites.py`; committed SVGs byte-match regeneration (deterministic, seeded) and carry provenance (`resources/plants/PROVENANCE.md`) — no external or image-model assets.
+
+Acceptance: `tests/unit/test_plant_sprite_conformance.py` (coverage, QtSvg-subset contract, determinism/no-drift) + `tests/integration/test_plant_sprite_rendering.py` (§8.10 — every sprite renders visible pixels through `render_plant_pixmap`, incl. tint/rotation/16 px).

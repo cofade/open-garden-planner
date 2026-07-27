@@ -32,7 +32,7 @@ KNOWN_SEAMED_LEGACY = {"flagstone.png", "glass.png"}
 
 
 def test_pilot_textures_are_tileable() -> None:
-    for name in ("decking.png", "corten.png"):
+    for name in ("decking.png", "corten.png", "hedge.png"):
         image = Image.open(_TEXTURES / name)
         assert _mod.is_tileable(image), f"{name} fails the seam check"
 
