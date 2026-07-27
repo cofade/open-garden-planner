@@ -1263,7 +1263,13 @@ drift, which also makes hand edits impossible to land. The binding style
 contract lives in `resources/plants/README.md` ("Lush Sprite", user-approved
 2026-07-26): shingled leaf rings, per-leaf tip→base gradients, occlusion
 under every leaf, glossy fruit / chunky bloom clusters, signature
-recognition cue per species.
+recognition cue per species. Ball-shaped canopies/mounds use **dome
+foreshortening** (manual-test refinement on PR #282): leaves are largest at
+the crown and radially compressed + denser toward the rim —
+`sqrt(1-(rho/R)^2)` per fixed dome latitude, leaf count from the ring
+circumference — so the canopy reads as a sphere seen from above. Flat
+growth forms (rosettes, grass tufts, narrow-leaf cushions like lavender)
+are exempt: their outer leaves really are the big ones.
 
 ### 8.22.2 The two invariants
 

@@ -160,8 +160,12 @@ def leaf_group(
     rb = rb + rng.uniform(-1.0, 1.0)
     yb = 50 - rb
     yt = yb - ln
+    # small leaves: smooth occlusion underlay + no veins — visually identical
+    # at canvas scale, roughly halves the bytes of dense frilly domes
+    big_leaf = ln >= 12
     parts = [
-        f'<path d="{leaf_d(yt - 1.4, yb + 0.8, w * 1.3, frilly=frilly)}" fill="{p["occ"]}" opacity="0.9"/>',
+        f'<path d="{leaf_d(yt - 1.4, yb + 0.8, w * 1.3, frilly=frilly and big_leaf)}" '
+        f'fill="{p["occ"]}" opacity="0.9"/>',
         f'<path d="{leaf_d(yt, yb, w, frilly=frilly)}" fill="url(#{grad_id})"/>',
     ]
     if w >= 4.5:
@@ -174,7 +178,7 @@ def leaf_group(
             f'stroke="{rib_color or p["rib"]}" stroke-width="{rib_width}" '
             f'opacity="{0.9 if rib_color else 0.5}"/>'
         )
-    if frilly and w >= 8:
+    if frilly and w >= 8 and big_leaf:
         for frac in (0.35, 0.6):
             ym = yb - ln * frac
             for sgn in (1, -1):
@@ -249,6 +253,70 @@ def leaf_rings(
             break
     k = max(len(ring_list) - 1, 1)
     for i, (rb_i, ln_i, w_i, n_i) in enumerate(ring_list):
+        t = i / k
+        tip = mix(p["t0"], p["t1"], t)
+        base = mix(p["b0"], p["b1"], t)
+        defs.append(ring_defs(key, i, tip, base))
+        phase = rng.uniform(0, 360)
+        for j in range(n_i):
+            body.append(
+                leaf_group(
+                    phase + 360.0 * j / n_i, rb_i, ln_i, w_i,
+                    f"{key}_r{i}", p, tip, rng, frilly, rib_color, rib_width,
+                )
+            )
+    return defs, body
+
+
+def dome_leaf_rings(
+    key: str,
+    p: dict[str, str],
+    rng: random.Random,
+    r_out: float,
+    leaf_len: float,
+    leaf_w: float,
+    tang_gap: float = 0.78,
+    frilly: bool = False,
+    rib_color: str | None = None,
+    rib_width: float = 0.55,
+    floor: float = 0.38,
+) -> tuple[list[str], list[str]]:
+    """Foreshortened shingled rings — the canopy reads as a sphere from above.
+
+    A hemisphere viewed orthographically from the top compresses surface
+    detail radially by cos(theta) = sqrt(1 - (rho/R)^2): leaves are LARGEST
+    at the crown, get radially squat toward the rim, and the ring leaf count
+    grows with the circumference (tangential spacing stays constant), so
+    overlap visibly densifies at the silhouette (#282 manual-test feedback —
+    the previous outward-growing leaves read as a flat plate).
+    """
+    defs, body = [], []
+    big_r = r_out + 1.0
+    # fixed dome latitudes (fractions of r_out) keep ring count — and thus the
+    # element budget — bounded regardless of leaf size
+    fracs = [1.0, 0.93, 0.84, 0.72, 0.57, 0.40]
+    rings = []
+    for i, frac in enumerate(fracs):
+        rho = r_out * frac
+        step = (rho - r_out * fracs[i + 1]) if i + 1 < len(fracs) else rho * 0.45
+        mid_guess = rho - leaf_len * 0.4
+        f = max(math.sqrt(max(1.0 - (mid_guess / big_r) ** 2, 0.0)), floor)
+        ln = max(leaf_len * f, step * 1.45)  # guarantee radial shingle overlap
+        rb = max(rho - ln, 0.0)
+        mid = rho - ln / 2
+        w = leaf_w * (0.82 + 0.18 * f)
+        circ = 2 * math.pi * max(mid, 6.0)
+        n = int(circ / (w * tang_gap))
+        if n > 32:  # cap the count; widen leaves (≤1.5x) to close the ring
+            w = min(circ / (32 * tang_gap), leaf_w * 1.5)
+            n = min(int(circ / (w * tang_gap)), 32)
+        rings.append((rb, ln, w, max(n, 6)))
+    total = sum(n for _, _, _, n in rings)
+    if total > 110:  # element/byte budget: scale counts down proportionally
+        rings = [(rb, ln, w, max(int(n * 110 / total), 5)) for rb, ln, w, n in rings]
+    rings.append((0.0, leaf_len * 0.75, leaf_w * 0.8, 5))
+    k = max(len(rings) - 1, 1)
+    for i, (rb_i, ln_i, w_i, n_i) in enumerate(rings):
         t = i / k
         tip = mix(p["t0"], p["t1"], t)
         base = mix(p["b0"], p["b1"], t)
@@ -601,17 +669,25 @@ def build_sprite(name: str, cfg: dict) -> str:
 
     if arch == "canopy":
         body.append(base_cloud(r * 0.61, r * 0.37, p["b0"], mix(p["b0"], p["b1"], 0.5)))
-        d, b = leaf_rings(key, p, rng, r_out=r - 1, leaf_len=r * 0.39 * scale,
-                          leaf_w=r * 0.26 * scale, n_out=cfg.get("n_out", 18),
-                          frilly=frilly, rib_color=rib_color, rib_width=rib_width)
+        gap = min(max(0.78 * 18 / cfg.get("n_out", 18), 0.55), 1.15)
+        d, b = dome_leaf_rings(key, p, rng, r_out=r - 1, leaf_len=r * 0.42 * scale,
+                               leaf_w=r * 0.28 * scale, tang_gap=gap,
+                               frilly=frilly, rib_color=rib_color, rib_width=rib_width)
         defs += d
         body += b
     elif arch == "mound":
         body.append(base_cloud(r * 0.58, r * 0.35, p["b0"], mix(p["b0"], p["b1"], 0.5)))
-        d, b = leaf_rings(key, p, rng, r_out=r - 1, leaf_len=r * 0.34 * scale,
-                          leaf_w=r * (0.13 if cfg.get("narrow") else 0.24) * scale,
-                          n_out=cfg.get("n_out", 26 if cfg.get("narrow") else 16),
-                          frilly=frilly, rib_color=rib_color, rib_width=rib_width)
+        if cfg.get("narrow"):
+            # narrow-leaf cushions (lavender/rosemary/tarragon) are tufts, not
+            # spheres — keep the flat shingle look that was signed off
+            d, b = leaf_rings(key, p, rng, r_out=r - 1, leaf_len=r * 0.34 * scale,
+                              leaf_w=r * 0.13 * scale, n_out=cfg.get("n_out", 26),
+                              frilly=frilly, rib_color=rib_color, rib_width=rib_width)
+        else:
+            gap = min(max(0.78 * 16 / cfg.get("n_out", 16), 0.55), 1.15)
+            d, b = dome_leaf_rings(key, p, rng, r_out=r - 1, leaf_len=r * 0.38 * scale,
+                                   leaf_w=r * 0.26 * scale, tang_gap=gap,
+                                   frilly=frilly, rib_color=rib_color, rib_width=rib_width)
         defs += d
         body += b
     elif arch == "rosette":
@@ -647,8 +723,8 @@ def build_sprite(name: str, cfg: dict) -> str:
         body += _veg_head(p, rng, cfg["head"], r * cfg.get("head_scale", 0.42))
     elif arch == "climber":
         body.append(base_cloud(r * 0.56, r * 0.34, p["b0"], mix(p["b0"], p["b1"], 0.5)))
-        d, b = leaf_rings(key, p, rng, r_out=r - 1, leaf_len=r * 0.36 * scale,
-                          leaf_w=r * 0.25 * scale, n_out=14, frilly=frilly)
+        d, b = dome_leaf_rings(key, p, rng, r_out=r - 1, leaf_len=r * 0.4 * scale,
+                               leaf_w=r * 0.27 * scale, tang_gap=0.85, frilly=frilly)
         defs += d
         body += b
         body += tendrils(rng, 7, mix(p["b1"], p["t0"], 0.5), r_start=r - 5)

@@ -33,8 +33,12 @@ table in the script and regenerate; `--check` (and the unit gate
    deliberately solid tile), species max/min spread ≤ **2.0×** (tighter than
    the band ratio, so the spread rule binds on its own), and every sprite
    keeps ≥ 0.32 coverage at 16 px (growth-model size). Shipped set
-   measures 0.379–0.627 (spread 1.65×). Enforced by
+   measures 0.383–0.634 (spread 1.66×). Enforced by
    `tests/integration/test_plant_sprite_rendering.py`.
+   Ball-shaped canopies/mounds additionally follow the **dome rule**: leaf
+   size shrinks and density grows toward the rim (foreshortened sphere seen
+   from above); flat growth forms (rosettes, tufts, narrow-leaf cushions)
+   are exempt.
 9. **Palette lives in the generator**: colors come exclusively from the
    `PALETTES`/`FRUITS`/`FLOWERS` anchor tables and per-recipe feature colors,
    derived via `mix()`/`lighten()` — never from hand-edited SVG. Enforcement
