@@ -741,7 +741,13 @@ def build_sprite(name: str, cfg: dict) -> str:
 
 
 def build_hedge(name: str) -> str:
-    """hedge_section keeps its legacy rectangular viewBox (10 25 80 50)."""
+    """hedge_section keeps its legacy rectangular viewBox (10 25 80 50).
+
+    NOTE: this branch bypasses build_sprite and therefore the _KNOWN_KEYS
+    guard — fine while the hedge recipe has exactly one key ("a"), but any
+    future rect-viewBox archetype with real parameters must add its own
+    key validation (or route through build_sprite).
+    """
     rng = random.Random(f"ogp-sprite-{name}")
     p = PALETTES["dark"]
     defs = [

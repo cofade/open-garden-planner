@@ -32,11 +32,14 @@ for alias, filename in _SPECIES_FILES.items():
 # Visual-weight bounds (the #281 gate): ink coverage = opaque samples / all
 # samples (alpha > 10, 2-px sampling grid, ground shadow included). Shipped
 # set measured 2026-07-27: species 0.379-0.627 (spread 1.65x), categories up
-# to 0.925 (hedge_section is a deliberately solid tile), 16-px minimum 0.375.
+# to 0.925 (hedge_section is a deliberately solid tile), 16-px minimum 0.422.
+# SPREAD_MAX is deliberately TIGHTER than the band ratio 0.75/0.30 = 2.5 —
+# at 2.5 the spread assertion would be a tautology that per-file bounds
+# already imply and could never fire on its own.
 SPECIES_COVERAGE = (0.30, 0.75)
 CATEGORY_COVERAGE = (0.30, 0.95)
-SPECIES_SPREAD_MAX = 2.5
-SMALL_SIZE_MIN_COVERAGE = 0.25
+SPECIES_SPREAD_MAX = 2.0
+SMALL_SIZE_MIN_COVERAGE = 0.32
 
 
 def _coverage(pixmap: QPixmap) -> float:

@@ -35,7 +35,8 @@ ALLOWED_ATTRIBUTES = frozenset({
     "offset", "viewBox",
 })
 COLOR_VALUE = re.compile(r"^(none|#[0-9a-f]{6}|url\(#[A-Za-z0-9_]+\))$")
-# element budget: densest shipped sprite is ~860 elements / ~51 KB
+# element budget: densest shipped sprite is 680 elements (ElementTree.iter
+# count, zinnia) / ~51 KB — 1200 is a catastrophe stop, not a tight budget
 MAX_ELEMENTS = 1200
 MAX_BYTES = 64 * 1024
 
