@@ -306,10 +306,12 @@ def dome_leaf_rings(
         mid = rho - ln / 2
         w = leaf_w * (0.82 + 0.18 * f)
         circ = 2 * math.pi * max(mid, 6.0)
-        n = int(circ / (w * tang_gap))
+        # +1e-9: keep the discrete leaf count off exact integer boundaries so
+        # a 1-ULP libm difference between platforms can never flip a ring's n
+        n = int(circ / (w * tang_gap) + 1e-9)
         if n > 32:  # cap the count; widen leaves (≤1.5x) to close the ring
             w = min(circ / (32 * tang_gap), leaf_w * 1.5)
-            n = min(int(circ / (w * tang_gap)), 32)
+            n = min(int(circ / (w * tang_gap) + 1e-9), 32)
         rings.append((rb, ln, w, max(n, 6)))
     total = sum(n for _, _, _, n in rings)
     if total > 110:  # element/byte budget: scale counts down proportionally

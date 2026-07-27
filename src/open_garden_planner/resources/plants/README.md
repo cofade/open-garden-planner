@@ -38,7 +38,9 @@ table in the script and regenerate; `--check` (and the unit gate
    Ball-shaped canopies/mounds additionally follow the **dome rule**: leaf
    size shrinks and density grows toward the rim (foreshortened sphere seen
    from above); flat growth forms (rosettes, tufts, narrow-leaf cushions)
-   are exempt.
+   are exempt from the foreshortening. Independent of archetype, small
+   leaves (< 12 units long) render with smooth occlusion and no veins — a
+   byte-budget simplification, visually identical at canvas scale.
 9. **Palette lives in the generator**: colors come exclusively from the
    `PALETTES`/`FRUITS`/`FLOWERS` anchor tables and per-recipe feature colors,
    derived via `mix()`/`lighten()` — never from hand-edited SVG. Enforcement

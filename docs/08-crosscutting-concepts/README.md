@@ -1269,7 +1269,11 @@ the crown and radially compressed + denser toward the rim —
 `sqrt(1-(rho/R)^2)` per fixed dome latitude, leaf count from the ring
 circumference — so the canopy reads as a sphere seen from above. Flat
 growth forms (rosettes, grass tufts, narrow-leaf cushions like lavender)
-are exempt: their outer leaves really are the big ones.
+are exempt from the foreshortening: their outer leaves really are the big
+ones. Independent of archetype, SMALL leaves everywhere (length < 12 units)
+drop their frilly occlusion underlay and vein lines — a byte-budget
+optimization that is visually invisible at canvas scale but does slightly
+simplify e.g. rosette outer rings; the contact-sheet sign-off covers it.
 
 ### 8.22.2 The two invariants
 
