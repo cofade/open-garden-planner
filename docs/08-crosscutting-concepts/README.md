@@ -1270,7 +1270,15 @@ the crown and radially compressed + denser toward the rim —
 circumference — so the canopy reads as a sphere seen from above. Flat
 growth forms (rosettes, grass tufts, narrow-leaf cushions like lavender)
 are exempt from the foreshortening: their outer leaves really are the big
-ones. Independent of archetype, SMALL leaves everywhere (length < 12 units)
+ones. Star-form archetypes were reworked in the same manual-test round:
+conifers are interleaved serrated branch-whorl layers (not a flat
+thin-leaf star), grass/fern species are fields of clumped tufts over a
+dark grounding mass (not a single center starburst), and alliums/corn are
+dense double-layer fountains. The on-canvas hedge (HEDGE_POLYGON) fills
+with `resources/textures/hedge.png`, regenerated in the same leaf language
+via `scripts/generate_asset_forge_textures.py` (tileability-gated) — the
+`hedge_section.svg` sprite only serves the plant category + legacy
+rectangles. Independent of archetype, SMALL leaves everywhere (length < 12 units)
 drop their frilly occlusion underlay and vein lines — a byte-budget
 optimization that is visually invisible at canvas scale but does slightly
 simplify e.g. rosette outer rings; the contact-sheet sign-off covers it.

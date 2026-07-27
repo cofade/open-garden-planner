@@ -141,6 +141,20 @@ def leaf_d(yt: float, yb: float, w: float, cx: float = 50.0, frilly: bool = Fals
     )
 
 
+def sprig_d(yt: float, yb: float, w: float, cx: float = 50.0) -> str:
+    """Serrated conifer branch tip (3 tooth pairs), pointing up (tip at yt)."""
+    ln = yb - yt
+    return (
+        f"M {cx:.1f} {yt:.1f} "
+        f"L {cx + w * 0.40:.1f} {yt + ln * 0.30:.1f} L {cx + w * 0.22:.1f} {yt + ln * 0.36:.1f} "
+        f"L {cx + w * 0.68:.1f} {yt + ln * 0.60:.1f} L {cx + w * 0.45:.1f} {yt + ln * 0.66:.1f} "
+        f"L {cx + w * 0.95:.1f} {yt + ln * 0.94:.1f} L {cx:.1f} {yb:.1f} "
+        f"L {cx - w * 0.95:.1f} {yt + ln * 0.94:.1f} L {cx - w * 0.45:.1f} {yt + ln * 0.66:.1f} "
+        f"L {cx - w * 0.68:.1f} {yt + ln * 0.60:.1f} L {cx - w * 0.22:.1f} {yt + ln * 0.36:.1f} "
+        f"L {cx - w * 0.40:.1f} {yt + ln * 0.30:.1f} Z"
+    )
+
+
 def leaf_group(
     angle: float,
     rb: float,
@@ -579,22 +593,64 @@ def _heart(p: dict[str, str], radius: float = 13.5) -> list[str]:
     return body
 
 
-def _blades(
+def _blade_grads(key: str, p: dict[str, str]) -> list[str]:
+    return [
+        ring_defs(key, i, mix(p["t0"], p["t1"], t), mix(p["b0"], p["b1"], t))
+        for i, t in enumerate((0.15, 0.5, 0.85))
+    ]
+
+
+def _tuft(
+    key: str, p: dict[str, str], rng: random.Random, tx: float, ty: float,
+    blades: int, blade_len: float, w: float, full_circle: bool,
+) -> str:
+    """One grass/fern clump: occlusion disc + blades fanning from its base.
+    Ring tufts fan outward from the plant center; the center tuft fans 360°.
+    Clumped tufts replace the old single-center starburst that read as a
+    flat star (#282 manual-test feedback)."""
+    parts = [
+        f'<circle cx="{tx:.1f}" cy="{ty:.1f}" r="{blade_len * 0.45:.1f}" '
+        f'fill="{p["occ"]}" opacity="0.5"/>'
+    ]
+    out_dir = math.degrees(math.atan2(tx - 50, -(ty - 50)))
+    for b in range(blades):
+        if full_circle:
+            ang = 360.0 * b / blades + rng.uniform(-10, 10)
+        else:
+            ang = out_dir + (b / max(blades - 1, 1) - 0.5) * 130 + rng.uniform(-7, 7)
+        ln = blade_len * rng.uniform(0.75, 1.15)
+        grad = rng.choice((0, 1, 1, 2))
+        parts.append(
+            f'<g transform="rotate({ang:.1f} {tx:.1f} {ty:.1f})">'
+            f'<path d="{leaf_d(ty - ln, ty + 1, w, cx=tx)}" fill="url(#{key}_r{grad})"/>'
+            f"</g>"
+        )
+    parts.append(
+        f'<circle cx="{tx:.1f}" cy="{ty:.1f}" r="1.6" fill="{mix(p["b0"], p["b1"], 0.5)}" opacity="0.8"/>'
+    )
+    return "".join(parts)
+
+
+def tuft_field(
     key: str, p: dict[str, str], rng: random.Random, r_out: float,
-    n0: int = 26, w: float = 2.2, layers: int = 3,
+    n_tufts: int, blades: int, blade_len: float, w: float,
 ) -> tuple[list[str], list[str]]:
-    defs, body = [], []
-    for i in range(layers):
-        t = i / max(layers - 1, 1)
-        tip, base = mix(p["t0"], p["t1"], t), mix(p["b0"], p["b1"], t)
-        defs.append(ring_defs(key, i, tip, base))
-        n = max(int(n0 * (0.78**i)), 6)
-        ln = (r_out - 3 - i * 5.0) * 0.96
-        phase = rng.uniform(0, 360)
-        for j in range(n):
-            body.append(
-                leaf_group(phase + 360.0 * j / n, 2.5 + i * 1.5, ln, w, f"{key}_r{i}", p, tip, rng)
-            )
+    """Several clumped tufts across the footprint, outer first, center on top."""
+    defs = _blade_grads(key, p)
+    # grounding mass under the clumps — without it the tufts float on an
+    # empty disc and the sprite drops below the coverage gate
+    body = [base_cloud(r_out * 0.34, r_out * 0.22, p["occ"], mix(p["b0"], p["b1"], 0.3), n=8)]
+    positions = annulus_points(
+        rng, n_tufts - 1, r_out * 0.26, r_out * 0.58, min_dist=r_out * 0.28
+    )
+    positions.sort(key=lambda q: -math.hypot(q[0] - 50, q[1] - 50))
+    body += [
+        _tuft(key, p, rng, tx, ty, blades, blade_len, w, full_circle=False)
+        for tx, ty in positions
+    ]
+    body.append(
+        _tuft(key, p, rng, 50.0, 50.0, int(blades * 1.5), blade_len, w, full_circle=True)
+    )
     return defs, body
 
 
@@ -700,18 +756,52 @@ def build_sprite(name: str, cfg: dict) -> str:
         body += b
         if cfg.get("heart", True):
             body += _heart(p, radius=r * 0.36)
-    elif arch in ("grass", "feathery", "allium"):
-        n0 = {"grass": 30, "feathery": 34, "allium": 18}[arch]
-        w = {"grass": 2.2, "feathery": 1.7, "allium": 3.2}[arch]
-        d, b = _blades(key, p, rng, r, n0=cfg.get("n_out", n0), w=w * scale)
+    elif arch == "grass":
+        d, b = tuft_field(key, p, rng, r, n_tufts=8, blades=cfg.get("n_out", 11),
+                          blade_len=r * 0.48 * scale, w=2.6 * scale)
         defs += d
         body += b
+    elif arch == "feathery":
+        d, b = tuft_field(key, p, rng, r, n_tufts=9, blades=cfg.get("n_out", 13),
+                          blade_len=r * 0.42 * scale, w=2.0 * scale)
+        defs += d
+        body += b
+    elif arch == "allium":
+        # single dense double-layer fountain (one plant = one clump)
+        defs += _blade_grads(key, p)
+        body.append(f'<circle cx="50" cy="50" r="{r * 0.3:.1f}" fill="{p["occ"]}" opacity="0.5"/>')
+        n1 = cfg.get("n_out", 16) + 4
+        body.append(_tuft(key, p, rng, 50.0, 50.0, n1, r * 0.82, 3.6 * scale, full_circle=True))
+        body.append(_tuft(key, p, rng, 50.0, 50.0, max(int(n1 * 0.8), 10), r * 0.56,
+                          3.2 * scale, full_circle=True))
     elif arch == "conifer":
-        body.append(base_cloud(r * 0.42, r * 0.3, p["b0"], mix(p["b0"], p["b1"], 0.4), n=8))
-        d, b = leaf_rings(key, p, rng, r_out=r - 1, leaf_len=r * 0.62, leaf_w=4.4,
-                          n_out=13, n_rings=3)
-        defs += d
-        body += b
+        # interleaved serrated branch-whorl layers — reads as a layered
+        # conifer from above instead of a flat thin-leaf star
+        body.append(base_cloud(r * 0.5, r * 0.32, p["b0"], mix(p["b0"], p["b1"], 0.35), n=8))
+        layers = [
+            (r - 1.0, r * 0.40, 6.8, 14),
+            (r * 0.74, r * 0.33, 6.0, 12),
+            (r * 0.52, r * 0.26, 5.2, 10),
+            (r * 0.32, r * 0.19, 4.4, 8),
+        ]
+        for i, (rho, ln, w, n) in enumerate(layers):
+            t = i / (len(layers) - 1)
+            defs.append(ring_defs(key, i, mix(p["t0"], p["t1"], t), mix(p["b0"], p["b1"], t)))
+            phase = 180.0 / n * i  # interleave the star points
+            for j in range(n):
+                a = phase + 360.0 * j / n + rng.uniform(-3, 3)
+                yt = 50 - rho
+                yb = 50 - (rho - ln)
+                body.append(
+                    f'<g transform="rotate({a:.1f} 50 50)">'
+                    f'<path d="{sprig_d(yt - 1.2, yb + 0.8, w * 1.22)}" fill="{p["occ"]}" opacity="0.9"/>'
+                    f'<path d="{sprig_d(yt, yb, w)}" fill="url(#{key}_r{i})"/>'
+                    f'<line x1="50" y1="{yb:.1f}" x2="50" y2="{yt + ln * 0.15:.1f}" '
+                    f'stroke="{p["rib"]}" stroke-width="0.7" opacity="0.5"/>'
+                    f"</g>"
+                )
+        body.append(f'<circle cx="50" cy="50" r="{r * 0.13:.1f}" fill="{mix(p["t1"], p["b1"], 0.4)}"/>')
+        body.append(f'<circle cx="50" cy="50" r="{r * 0.055:.1f}" fill="{lighten(p["t1"], 0.12)}"/>')
     elif arch == "palm":
         body.append(f'<circle cx="50" cy="50" r="9" fill="{p["b0"]}"/>')
         body += _palm_fronds(p, rng, r - 2, n_fronds=cfg.get("n_out", 9))
@@ -838,10 +928,10 @@ def build_hedge(name: str) -> str:
         f'<rect x="13.5" y="28.5" width="73" height="43" rx="7" ry="7" '
         f'fill="{mix(p["b0"], p["b1"], 0.4)}"/>',
     ]
-    for gx in range(13):
-        for gy in range(7):
-            x = 15 + gx * 5.7 + rng.uniform(-1.3, 1.3) + (2.9 if gy % 2 else 0)
-            y = 30.5 + gy * 6.6 + rng.uniform(-1.1, 1.1)
+    for gx in range(14):
+        for gy in range(8):
+            x = 14.5 + gx * 5.3 + rng.uniform(-1.2, 1.2) + (2.7 if gy % 2 else 0)
+            y = 30 + gy * 5.8 + rng.uniform(-1.0, 1.0)
             if not (14.5 < x < 85.5 and 28.5 < y < 71.5):
                 continue
             a = rng.uniform(0, 360)
@@ -958,7 +1048,7 @@ SPECIES: dict[str, dict] = {
     "bean": dict(a="climber", pal="fresh", pods=dict(n=9, dark="#3f8226", light="#9fdf6f")),
     "pea": dict(a="climber", pal="crisp", pods=dict(n=8, dark="#3f8226", light="#9fdf6f"),
                 flowers=dict(spec="white", petals=5, radius=3.6, n=3)),
-    "corn": dict(a="allium", pal="yellow", n_out=14,
+    "corn": dict(a="allium", pal="yellow", n_out=14, leaf_scale=1.3,
                  umbels=dict(n=1, zone=(0, 2), radius=6.5, col="#f0cf5a", light="#fae89a")),
     "carrot": dict(a="feathery", pal="crisp",
                    bulb=dict(radius=6.0, triad=("#f2a950", "#e07f28", "#a04f0e"))),
@@ -1008,7 +1098,7 @@ SPECIES: dict[str, dict] = {
                      umbels=dict(col="#f4f0e0", light="#ffffff", n=3, radius=4.0)),
     "dill": dict(a="feathery", pal="yellow",
                  umbels=dict(col="#e8c34a", light="#f8e48a", n=4, radius=5.0)),
-    "chives": dict(a="allium", pal="crisp", n_out=22,
+    "chives": dict(a="allium", pal="crisp", n_out=22, leaf_scale=0.8,
                    clusters=dict(radius=3.4, dark="#8a5fc0", light="#d0c0f0",
                                  occ="#4a2f80", n=7, zone=(20, 32))),
     "oregano": dict(a="mound", pal="yellow", leaf_scale=0.75,
