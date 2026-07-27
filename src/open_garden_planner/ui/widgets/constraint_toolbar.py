@@ -139,6 +139,7 @@ class ConstraintToolbar(QToolBar):
         return get_icon(icon_name)
 
     def _setup_toolbar(self) -> None:
+        self.setObjectName("ConstraintToolbar")  # required for QMainWindow.saveState
         self.setMovable(False)
         self.setOrientation(Qt.Orientation.Horizontal)
         self.setIconSize(QSize(24, 24))

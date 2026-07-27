@@ -51,6 +51,7 @@ class CategoryToolbar(QToolBar):
         return tints[1] if is_dark_theme() else tints[0]
 
     def _setup_toolbar(self) -> None:
+        self.setObjectName("CategoryToolbar")  # required for QMainWindow.saveState
         self.setMovable(False)
         self.setOrientation(Qt.Orientation.Horizontal)
         self.setIconSize(QSize(24, 24))

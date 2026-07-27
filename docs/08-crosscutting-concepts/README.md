@@ -133,6 +133,8 @@ Styled centrally in the generated stylesheet, assigned via `theme.set_text_role(
 - `QLineEdit[inputError="true"]`, `QFrame[weatherCard="true"][frostSeverity="orange"/"red"]`
 - objectName rules: `#TaskReminderBar` (warning_bg banner), `#UpdateBar` (info_bg), `#constraintsDeleteAllBtn`
 
+> **Do not rename an objectName purely for styling.** For any widget the main window persists — every `QToolBar` — the objectName is also `QMainWindow.saveState()`'s persistence key, so renaming it silently resets that widget's saved layout for every existing user. Add a new selector instead. See §11.4 (#283).
+
 Weight uses `font-weight: 600` (support pinned by `test_theme_tokens.py`; documented fallback is `bold`).
 
 ### 8.4.3 Theme propagation contract
