@@ -1272,7 +1272,8 @@ per-item random angle, so sprites are top-down with radial shading only
 (light from straight above) — never a baked light direction.
 **QtSvg subset**: QSvgRenderer ≈ SVG 1.2 Tiny — linear/radial gradients,
 opacity, transforms, stroke-linecap; no filters, masks, clipPath, CSS or
-text (enforced by regex in the conformance gate). The one geometry
+text (enforced by an element/attribute/color **allowlist walk** over the
+parsed tree in the conformance gate). The one geometry
 exception: `hedge_section.svg` keeps its legacy rectangular viewBox
 `10 25 80 50`.
 

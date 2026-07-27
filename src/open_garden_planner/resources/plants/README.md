@@ -27,6 +27,19 @@ table in the script and regenerate; `--check` (and the unit gate
    rectangular viewBox `10 25 80 50`.
 7. **Deterministic**: every sprite is seeded by its name — regeneration
    reproduces identical bytes.
+8. **Visual weight (gated)**: ink coverage at 64 px (alpha > 10, 2-px
+   sampling, ground shadow included) stays within **[0.30, 0.75]** per
+   species and **[0.30, 0.95]** per category (`hedge_section` is a
+   deliberately solid tile), species max/min spread ≤ **2.5×**, and every
+   sprite keeps ≥ 0.25 coverage at 16 px (growth-model size). Shipped set
+   measures 0.379–0.627 (spread 1.65×). Enforced by
+   `tests/integration/test_plant_sprite_rendering.py`.
+9. **Palette lives in the generator**: colors come exclusively from the
+   `PALETTES`/`FRUITS`/`FLOWERS` anchor tables and per-recipe feature colors,
+   derived via `mix()`/`lighten()` — never from hand-edited SVG. Enforcement
+   is transitive: byte-determinism pins every color to the tables, and the
+   conformance gate rejects malformed color values and non-allowlisted
+   elements/attributes.
 
 ## Changing or adding a sprite
 

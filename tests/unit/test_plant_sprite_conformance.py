@@ -7,7 +7,7 @@ deterministic regeneration (no drift, no hand edits).
 
 import importlib.util
 import re
-import xml.etree.ElementTree as ET  # noqa: S405 - parsing our own generated files
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
@@ -21,9 +21,23 @@ CATEGORIES_DIR = PLANTS / "categories"
 
 ALL_SVGS = sorted(SPECIES_DIR.glob("*.svg")) + sorted(CATEGORIES_DIR.glob("*.svg"))
 
-FORBIDDEN = re.compile(
-    r"<filter|<mask|<clipPath|<text|<image|<style|\bclass=|href=", re.IGNORECASE
-)
+# QtSvg-subset ALLOWLIST (§8.22.2): everything the generator emits, nothing more.
+# A new element/attribute must be added here consciously — after verifying
+# QSvgRenderer actually supports it.
+ALLOWED_ELEMENTS = frozenset({
+    "svg", "defs", "g", "path", "line", "ellipse", "circle", "rect",
+    "linearGradient", "radialGradient", "stop",
+})
+ALLOWED_ATTRIBUTES = frozenset({
+    "d", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry",
+    "width", "height", "fill", "opacity", "stroke", "stroke-width",
+    "stroke-linecap", "transform", "stop-color", "stop-opacity", "id",
+    "offset", "viewBox",
+})
+COLOR_VALUE = re.compile(r"^(none|#[0-9a-f]{6}|url\(#[A-Za-z0-9_]+\))$")
+# element budget: densest shipped sprite is ~860 elements / ~51 KB
+MAX_ELEMENTS = 1200
+MAX_BYTES = 64 * 1024
 
 
 def _load_generator():
@@ -65,11 +79,27 @@ class TestFileCoverage:
 
 @pytest.mark.parametrize("svg_path", ALL_SVGS, ids=lambda p: p.stem)
 class TestPerFileContract:
-    def test_well_formed_and_subset(self, svg_path: Path) -> None:
-        text = svg_path.read_text(encoding="utf-8")
-        ET.fromstring(text)  # noqa: S314 - our own generated content
-        match = FORBIDDEN.search(text)
-        assert match is None, f"{svg_path.name} uses forbidden SVG feature: {match.group(0)!r}"
+    def test_element_attribute_and_color_allowlist(self, svg_path: Path) -> None:
+        """Walk the parsed tree: only allowlisted elements/attributes/colors."""
+        root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
+        count = 0
+        for el in root.iter():
+            count += 1
+            tag = el.tag.rsplit("}", 1)[-1]
+            assert tag in ALLOWED_ELEMENTS, f"{svg_path.name}: element <{tag}> not allowlisted"
+            for attr, value in el.attrib.items():
+                name = attr.rsplit("}", 1)[-1]
+                assert name in ALLOWED_ATTRIBUTES, (
+                    f"{svg_path.name}: attribute {name!r} on <{tag}> not allowlisted"
+                )
+                if name in ("fill", "stroke", "stop-color"):
+                    assert COLOR_VALUE.match(value), (
+                        f"{svg_path.name}: bad color value {value!r} on <{tag}>"
+                    )
+        assert count <= MAX_ELEMENTS, f"{svg_path.name}: {count} elements exceeds budget"
+
+    def test_size_budget(self, svg_path: Path) -> None:
+        assert svg_path.stat().st_size <= MAX_BYTES
 
     def test_viewbox(self, svg_path: Path) -> None:
         text = svg_path.read_text(encoding="utf-8")

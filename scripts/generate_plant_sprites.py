@@ -267,6 +267,9 @@ def leaf_rings(
 def annulus_points(
     rng: random.Random, n: int, r0: float, r1: float, min_dist: float = 7.0
 ) -> list[tuple[float, float]]:
+    """Best-effort dart-throwing: returns UP TO n points (deterministically
+    fewer when min_dist packing fails within 400 attempts) — feature counts
+    in recipes are requests, not guarantees."""
     pts: list[tuple[float, float]] = []
     for _ in range(400):
         if len(pts) >= n:
@@ -568,12 +571,23 @@ def _veg_head(p: dict[str, str], rng: random.Random, head: tuple[str, str, str],
     return body
 
 
+# every key a recipe may use — build_sprite refuses unknown keys so a typo
+# (n_our=18) fails loudly instead of silently shipping a wrong sprite
+_KNOWN_KEYS = frozenset({
+    "a", "pal", "r", "n_out", "leaf_scale", "frilly", "narrow", "rib_color",
+    "rib_width", "heart", "head", "head_scale", "shadow_col", "fruit",
+    "fruit2", "flowers", "puffs", "clusters", "umbels", "pods", "bulb",
+})
+
+
 def build_sprite(name: str, cfg: dict) -> str:
+    unknown = set(cfg) - _KNOWN_KEYS
+    if unknown:
+        raise ValueError(f"{name}: unknown recipe keys {sorted(unknown)}")
     rng = random.Random(f"ogp-sprite-{name}")
-    key = cfg.get("key", "".join(w[0] for w in name.split("_"))[:3] + str(len(name)))
+    key = "".join(w[0] for w in name.split("_"))[:3] + str(len(name))
     arch = cfg["a"]
     p = dict(PALETTES[cfg.get("pal", "fresh")])
-    p.update(cfg.get("pal_override", {}))
     r = cfg.get("r", {"canopy": 44, "mound": 38, "rosette": 38, "grass": 40, "feathery": 38,
                       "conifer": 44, "palm": 44, "allium": 38, "head": 38, "ground": 40,
                       "flower": 44, "climber": 36}.get(arch, 40))
@@ -891,7 +905,7 @@ SPECIES: dict[str, dict] = {
     "artichoke": dict(a="head", pal="silver", frilly=True,
                       head=("#55684a", "#7a8f62", "#a8b88a"), head_scale=0.32),
     "asparagus": dict(a="feathery", pal="olive"),
-    "rhubarb": dict(a="rosette", pal="fresh", frilly=True, leaf_scale=1.3, n_out=8,
+    "rhubarb": dict(a="rosette", pal="fresh", leaf_scale=1.3, n_out=8,
                     rib_color="#c93548", rib_width=1.3, heart=False),
     "okra": dict(a="mound", pal="yellow",
                  pods=dict(n=6, dark="#3f7423", light="#a8cf70", length=9.0),
@@ -905,8 +919,7 @@ SPECIES: dict[str, dict] = {
     "sage": dict(a="mound", pal="silver", leaf_scale=0.9,
                  flowers=dict(spec="purple", petals=4, radius=3.0, n=5)),
     "mint": dict(a="mound", pal="crisp", frilly=True, leaf_scale=0.95),
-    "parsley": dict(a="rosette", pal="crisp", frilly=True, leaf_scale=0.8, n_out=12,
-                    heart=False),
+    "parsley": dict(a="rosette", pal="crisp", leaf_scale=0.8, n_out=12, heart=False),
     "cilantro": dict(a="rosette", pal="yellow", leaf_scale=0.75, heart=False,
                      umbels=dict(col="#f4f0e0", light="#ffffff", n=3, radius=4.0)),
     "dill": dict(a="feathery", pal="yellow",
@@ -929,7 +942,7 @@ SPECIES: dict[str, dict] = {
     "sorrel": dict(a="rosette", pal="crisp", heart=False, n_out=9),
     "borage": dict(a="mound", pal="silver",
                    flowers=dict(spec="blue", petals=5, radius=4.5, n=7)),
-    "lovage": dict(a="rosette", pal="yellow", frilly=True, leaf_scale=1.1, heart=False),
+    "lovage": dict(a="rosette", pal="yellow", leaf_scale=1.1, heart=False),
     # flowers
     "lavender": dict(a="mound", pal="silver", narrow=True, n_out=26,
                      puffs=dict(dark="#6b46ab", light="#a98fe0", n=9, start=(20.0, 22.5))),
