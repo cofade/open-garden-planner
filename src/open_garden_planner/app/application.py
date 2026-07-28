@@ -1606,8 +1606,10 @@ class GardenPlannerApp(QMainWindow):
         self.addToolBar(self._sun_toolbar)
         self._sun_toolbar.setVisible(False)
         self._sun_toolbar.datetime_changed.connect(self._on_sun_sim_datetime)
-        # QMainWindow's built-in toolbar context menu can show/hide the toolbar
-        # behind our back — keep the menu action + controller in sync.
+        # Keep the menu action + controller in sync with any visibility change
+        # that does not come from the action itself — today that is
+        # _enforce_toolbar_visibility() at startup. (It used to be Qt's built-in
+        # toolbar context menu, which #283 suppressed via createPopupMenu.)
         self._sun_toolbar.visibilityChanged.connect(self._on_sun_toolbar_visibility)
         # The sim instant is deliberately NOT persisted: it defaults to the
         # current date/time on every app start (the toolbar seeds "now" in its
@@ -3199,8 +3201,10 @@ class GardenPlannerApp(QMainWindow):
         )
 
     def _on_sun_toolbar_visibility(self, visible: bool) -> None:
-        """Sync menu action + controller when the toolbar is shown/hidden via
-        QMainWindow's built-in toolbar context menu (bypassing our action)."""
+        """Sync menu action + controller when the toolbar's visibility changes
+        without going through our action — e.g. the startup enforcement in
+        ``_enforce_toolbar_visibility()``. (Qt's built-in toolbar context menu
+        was the original such path; #283 suppressed it.)"""
         if visible == self._sun_controller.enabled:
             return
         self._sun_sim_action.setChecked(visible)

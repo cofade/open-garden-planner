@@ -243,7 +243,41 @@ class TestToolbarVisibilityIsOwnedByTheApp:
         assert second._geometry_restored, "no state was restored — test proves nothing"
         assert second.soil_overlay_toolbar.isHidden()
         assert second._sun_toolbar.isHidden()
-        assert not second._soil_overlay_action.isChecked()
+        # The pairing is what matters: a visible toolbar whose action is
+        # unchecked (and whose canvas tint is off) is the #286 desync. A bare
+        # `not isChecked()` would pass in exactly that broken state, since the
+        # action is never persisted and always starts unchecked.
+        assert (
+            second._soil_overlay_action.isChecked()
+            == second.soil_overlay_toolbar.isVisible()
+        )
+
+
+class TestPreviewModeDoesNotStrandTheNextLaunch:
+    """The same symptom, reachable without any right-click.
+
+    Preview mode (F11) hides the main toolbar, and `closeEvent` persists
+    whatever is on screen — so quitting straight out of preview used to
+    reopen the app with no drawing tools. Pre-existing, and the reason the
+    visibility invariant has to be enforced rather than just made
+    unreachable through the context menu.
+    """
+
+    def test_quitting_from_preview_mode_heals_on_next_launch(
+        self, qtbot: Any
+    ) -> None:
+        first = GardenPlannerApp()
+        qtbot.addWidget(first)
+        first._enter_preview_mode()
+        assert first.main_toolbar.isHidden(), "preview mode should hide the chrome"
+        first._save_ui_state()  # exactly what closeEvent does
+
+        second = GardenPlannerApp()
+        qtbot.addWidget(second)
+
+        assert second._geometry_restored, "no state was restored — test proves nothing"
+        assert not second.main_toolbar.isHidden()
+        assert not second.category_toolbar.isHidden()
 
 
 class TestEmptyNamesAliasInQt:
