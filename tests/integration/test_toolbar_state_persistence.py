@@ -197,6 +197,55 @@ class TestToolbarStateRoundTrip:
         assert snapshot() == before
 
 
+class TestToolbarVisibilityIsOwnedByTheApp:
+    """Restored state may not decide whether a toolbar exists on screen.
+
+    #283 manual test: a stray right-click hid the Categories toolbar — i.e.
+    every drawing tool — and, because the layout is saved on exit, it stayed
+    gone across restarts with the only way back hidden in the same menu.
+    """
+
+    def test_there_is_no_toolbar_context_menu(self, window: GardenPlannerApp) -> None:
+        assert window.createPopupMenu() is None
+
+    def test_a_saved_hidden_core_toolbar_is_healed_on_next_launch(
+        self, qtbot: Any
+    ) -> None:
+        first = GardenPlannerApp()
+        qtbot.addWidget(first)
+        for toolbar in (first.main_toolbar, first.category_toolbar):
+            toolbar.setVisible(False)
+        first._ui_state.save_geometry(first)
+
+        second = GardenPlannerApp()
+        qtbot.addWidget(second)
+
+        # Guards against a vacuous pass: the state must actually be read back.
+        assert second._geometry_restored, "no state was restored — test proves nothing"
+        assert not second.main_toolbar.isHidden()
+        assert not second.category_toolbar.isHidden()
+        assert not second.constraint_toolbar.isHidden()
+
+    def test_feature_toolbars_start_hidden_even_when_saved_visible(
+        self, qtbot: Any
+    ) -> None:
+        """#286: the soil-overlay toolbar used to come back visible while its
+        menu action stayed unchecked and the canvas tint was off."""
+        first = GardenPlannerApp()
+        qtbot.addWidget(first)
+        first.soil_overlay_toolbar.setVisible(True)
+        first._sun_toolbar.setVisible(True)
+        first._ui_state.save_geometry(first)
+
+        second = GardenPlannerApp()
+        qtbot.addWidget(second)
+
+        assert second._geometry_restored, "no state was restored — test proves nothing"
+        assert second.soil_overlay_toolbar.isHidden()
+        assert second._sun_toolbar.isHidden()
+        assert not second._soil_overlay_action.isChecked()
+
+
 class TestEmptyNamesAliasInQt:
     """Pins the mechanism §11.4 leads with, on a bare QMainWindow.
 

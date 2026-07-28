@@ -166,6 +166,8 @@ Architecture Decision Records (ADRs) for significant technical choices.
 
 **Persistence:** Window geometry and the main splitter are persisted to `QSettings` (`UiState/…` group) by the lightweight `app/ui_state.py` wrapper, saved on `closeEvent`. (Per-panel expanded state was persisted in earlier versions but was removed in #226 — the sidebar accordion always starts collapsed; see **ADR-030**.)
 
+**Toolbar visibility (added #283):** None of the five toolbars is user-hideable. `QMainWindow`'s built-in toolbar context menu is suppressed (`GardenPlannerApp.createPopupMenu()` returns `None`), and `_enforce_toolbar_visibility()` re-asserts the invariant after every `restoreState()` — the three core toolbars on, the two feature toolbars off — which also heals any state already saved with a core toolbar hidden. Rationale: since this ADR the `CategoryToolbar` *is* the object gallery, so a stray right-click removed **every** placement tool, and because the layout is saved on exit it stayed gone across restarts, with the only way back inside the same easily-missed menu (found in #283 manual testing). The same enforcement fixes #286, where the soil-overlay toolbar returned visible while its View-menu action stayed unchecked and its canvas tint was off.
+
 ## ADR-017: Bed-Specific Features Built Centrally on `GardenItemMixin`
 
 **Status**: Accepted (Phase 12 — US-12.8 post-bug)

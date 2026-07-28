@@ -2978,10 +2978,43 @@ class GardenPlannerApp(QMainWindow):
         """
         self._geometry_restored = self._ui_state.restore_geometry(self)
         self._ui_state.restore_splitter("main", self._main_splitter)
-        # QMainWindow.restoreState may re-show the sun-sim toolbar from a past
-        # session; the simulation itself always starts OFF (runtime-only), so
-        # keep menu action, toolbar and overlay in sync by forcing it hidden.
+        self._enforce_toolbar_visibility()
+
+    def _enforce_toolbar_visibility(self) -> None:
+        """Toolbar visibility is owned by the app, never by the restored state.
+
+        ``QMainWindow.restoreState()`` replays whatever visibility a past
+        session happened to save. That is wrong in both directions here:
+
+        * The three core toolbars are not optional chrome — a user left
+          without the drawing tools, across restarts, has no way back now
+          that the built-in toolbar context menu is suppressed
+          (``createPopupMenu``). Force them on, which also heals any state
+          already saved with one of them hidden.
+        * The two feature toolbars belong to runtime-only features that
+          always start OFF, so a stale "visible" would show a toolbar whose
+          menu action is unchecked and whose overlay is not running (#286).
+        """
+        for toolbar in (
+            self.main_toolbar,
+            self.constraint_toolbar,
+            self.category_toolbar,
+        ):
+            toolbar.setVisible(True)
         self._sun_toolbar.setVisible(False)
+        self.soil_overlay_toolbar.setVisible(False)
+
+    def createPopupMenu(self) -> QMenu | None:  # type: ignore[override]
+        """Suppress QMainWindow's built-in toolbar context menu.
+
+        It offers a checkbox per toolbar, so a stray right-click could hide
+        the drawing tools — persistently, since the layout is saved on exit
+        (#283) — and the only way back was that same easily-missed menu.
+        None of this app's toolbars are user-optional: the three core ones are
+        always on, and the sun-sim and soil-overlay ones follow their own View
+        menu actions.
+        """
+        return None
 
     def _save_ui_state(self) -> None:
         """Persist current window geometry and the main splitter sizes.
