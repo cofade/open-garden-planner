@@ -186,6 +186,9 @@ class TestAppWorkflow:
         window = win._view3d_window
         assert window is not None
         assert window.adapter.rebuild_count == 1
+        # #283: its toolbar carries Refresh + Walk, so it must not be hideable
+        # through QMainWindow's free right-click menu either.
+        assert window.createPopupMenu() is None
         # No project location → the documented default sun (50°, 180°).
         assert window.adapter.last_sun_scene is not None
         default_sun = window.adapter.last_sun_scene
