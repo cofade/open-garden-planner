@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QEvent, QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QCloseEvent, QKeyEvent
-from PyQt6.QtWidgets import QLabel, QMainWindow, QToolBar, QWidget
+from PyQt6.QtWidgets import QLabel, QMainWindow, QMenu, QToolBar, QWidget
 
 from open_garden_planner.core.scene3d import Scene3DRecord
 from open_garden_planner.ui.theme import set_text_role
@@ -23,6 +23,16 @@ class View3DWindow(QMainWindow):
 
     refresh_requested = pyqtSignal()
     closed = pyqtSignal()
+
+    def createPopupMenu(self) -> QMenu | None:  # type: ignore[override]
+        """Suppress QMainWindow's built-in toolbar context menu (#283).
+
+        Same reasoning as the main window: this toolbar carries Refresh and
+        the Walk toggle, so hiding it strands the viewer with no controls.
+        The damage is only session-long here (this window is recreated on
+        every open), but the principle is the same and so is the fix.
+        """
+        return None
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)

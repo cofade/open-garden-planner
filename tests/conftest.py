@@ -73,6 +73,31 @@ def _reset_app_settings():
 
 
 @pytest.fixture(autouse=True)
+def _isolate_ui_state(monkeypatch):
+    """Keep UiStateStore off the developer's REAL window geometry/toolbar state.
+
+    `app/ui_state.py` constructs `QSettings("cofade", "Open Garden Planner")`
+    directly rather than going through `AppSettings`, so `isolate_qsettings`
+    above does not cover it. Without this, every full-app test *read* whatever
+    window state the developer's own app last saved (making assertions about
+    toolbar visibility machine-dependent) and *wrote* it back at teardown —
+    pytest-qt closes registered widgets, and `closeEvent` persists UI state.
+
+    Pointing the store at the isolated test key also makes local runs match CI,
+    where the store is always pristine.
+    """
+    from PyQt6.QtCore import QSettings
+
+    from open_garden_planner.app import ui_state
+
+    monkeypatch.setattr(
+        ui_state,
+        "QSettings",
+        lambda *_args, **_kwargs: QSettings("cofade_test", "Open Garden Planner Test"),
+    )
+
+
+@pytest.fixture(autouse=True)
 def _no_weather_network():
     """Stub out the weather fetch thread so tests never make real network requests."""
     with patch("open_garden_planner.ui.widgets.weather_widget._WeatherFetchWorker"):
