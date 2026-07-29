@@ -12,8 +12,9 @@ test side, and a stray store in a test leaks exactly as hard):
 
 1. Only ``app/settings.py`` may name ``QSettings`` at all — import it, annotate
    with it, or construct it. Everything else takes a store from the factory.
-   Three test modules are exempt for stated reasons; the exemption list is
-   itself asserted to be exactly those three, in both directions.
+   Three test modules are exempt for stated reasons, and a test fails if an
+   exemption stops being needed (the other direction — "nobody adds a fourth" —
+   is a review duty, not something a check in this file could honestly enforce).
 2. Nobody may call ``QSettings.setDefaultFormat()`` / ``setPath()``: those are
    process-global statics Qt never reverts (§11.4 — a leaked ``setPath`` to a
    deleted ``tmp_path`` once broke six unrelated tests two-thirds of the way
@@ -53,7 +54,9 @@ import open_garden_planner.app.settings as settings_module
 SRC_ROOT = Path(settings_module.__file__).resolve().parents[1]
 REPO_ROOT = SRC_ROOT.parents[1]
 TESTS_ROOT = REPO_ROOT / "tests"
+SCRIPTS_ROOT = REPO_ROOT / "scripts"
 CHOKEPOINT = SRC_ROOT / "app" / "settings.py"
+CONFTEST = TESTS_ROOT / "conftest.py"
 
 STORE_CLASS = "QSettings"
 GLOBAL_STATICS = frozenset({"setDefaultFormat", "setPath"})
@@ -65,9 +68,10 @@ STORE_BUILDERS = frozenset(
     {"create_qsettings", "AppSettings", "UiStateStore", "get_settings"}
 )
 
-# Test modules that legitimately name QSettings, each with the reason. Kept tiny
-# and asserted exact (`test_the_exemptions_are_exactly_these_and_all_needed`) so
-# growing it is a deliberate, reviewed act rather than the path of least effort.
+# Test modules that legitimately name QSettings, each with the reason. Kept tiny;
+# `test_no_exemption_is_dead` fails if one stops being needed. Adding a fourth is
+# caught by review, not by this file — a length assertion against a literal three
+# lines above would be tautological, so it is not pretended here.
 STORE_CLASS_EXEMPT_TESTS = {
     "tests/conftest.py",  # captures/restores the defaultFormat static (tripwire)
     "tests/unit/test_ui_state.py",  # builds the temp-INI store the fixture injects
@@ -120,20 +124,61 @@ def _calls_global_statics(tree: ast.AST) -> list[int]:
     )
 
 
+def _builder_names(tree: ast.AST) -> frozenset[str]:
+    """Local spellings in this module that resolve to a store builder.
+
+    ``_callee()`` can only see the call-site spelling, so the raw
+    ``STORE_BUILDERS`` names are not enough: ``AppSettings as _Prefs`` …
+    ``_Prefs()`` walked past an earlier cut of this detector (review round 3,
+    one experiment — the same way rounds 1 and 2 broke the two before it). Also
+    resolves subclasses, transitively, so ``class P(AppSettings)`` … ``P()``
+    counts.
+    """
+    names = set(STORE_BUILDERS)
+    while True:
+        grown = set(names)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import | ast.ImportFrom):
+                grown |= {
+                    alias.asname
+                    for alias in node.names
+                    if alias.asname and alias.name.split(".")[-1] in names
+                }
+            elif isinstance(node, ast.ClassDef) and any(
+                _callee(base) in names for base in node.bases
+            ):
+                grown.add(node.name)
+        if grown == names:
+            return frozenset(names)
+        names = grown
+
+
 def _builds_a_store_at_import_time(tree: ast.AST) -> list[int]:
     """Store-building calls evaluated when the module is imported.
 
     Deferred (fine): anything inside a function or lambda *body*. Immediate (not
     fine): module scope, class body, a decorator, a default argument, an
-    annotation — all evaluated while the surrounding statement executes.
+    annotation. Annotations and ``if TYPE_CHECKING`` blocks are flagged even
+    though `from __future__ import annotations` means they are never evaluated —
+    deliberately over-strict, since nothing legitimate builds a store there.
+
+    **Acknowledged limit:** this reads names, so one level of indirection defeats
+    it — ``def _b(): return AppSettings()`` then ``_P = _b()`` at module scope is
+    not seen, nor is a constructor that builds a store transitively (a
+    module-level ``GardenPlannerApp()`` would). That is affordable because this
+    rule is **not** what makes the test isolation hold: `tests/conftest.py`
+    redirects at import time, so even an import-time store lands in the test key.
+    The rule is belt-and-braces against a store nothing can redirect later, and
+    a code smell in its own right.
     """
+    builders = _builder_names(tree)
     lines: list[int] = []
 
     def visit(node: ast.AST, deferred: bool) -> None:
         if (
             not deferred
             and isinstance(node, ast.Call)
-            and _callee(node.func) in STORE_BUILDERS
+            and _callee(node.func) in builders
         ):
             lines.append(node.lineno)
 
@@ -184,7 +229,14 @@ def _python_sources(root: Path) -> list[Path]:
 
 
 def _all_sources() -> list[Path]:
-    return _python_sources(SRC_ROOT) + _python_sources(TESTS_ROOT)
+    # `scripts/` is in scope too: the §11.4 corollary that cost the developer
+    # their real Welcome-dialog setting was a throwaway *probe script* writing to
+    # the production store outside pytest, where no fixture isolates anything.
+    return (
+        _python_sources(SRC_ROOT)
+        + _python_sources(TESTS_ROOT)
+        + _python_sources(SCRIPTS_ROOT)
+    )
 
 
 def _rel(path: Path) -> str:
@@ -212,7 +264,10 @@ class TestSingleConstructionSite:
         sources = _all_sources()
         assert len(sources) > 50, f"only found {len(sources)} modules"
         assert CHOKEPOINT in sources
-        assert TESTS_ROOT / "conftest.py" in sources
+        assert CONFTEST in sources
+        assert SCRIPTS_ROOT.is_dir() and any(
+            p.is_relative_to(SCRIPTS_ROOT) for p in sources
+        )
 
     def test_the_chokepoint_itself_still_names_the_store_class(self) -> None:
         """Anti-vacuity: the detector must see the one legitimate site."""
@@ -232,12 +287,8 @@ class TestSingleConstructionSite:
             "(issue #285):\n" + "\n".join(offenders)
         )
 
-    def test_the_exemptions_are_exactly_these_and_all_needed(self) -> None:
-        """No dead exemptions, and no silent additions.
-
-        An exemption that no longer needs to exist is an open door nobody is
-        watching; an exemption added casually is how the gate rots.
-        """
+    def test_no_exemption_is_dead(self) -> None:
+        """An exemption that no longer needs to exist is an unwatched open door."""
         for rel in sorted(STORE_CLASS_EXEMPT_TESTS):
             path = REPO_ROOT / rel
             assert path.exists(), f"exempt file no longer exists: {rel}"
@@ -247,9 +298,18 @@ class TestSingleConstructionSite:
 
 
 class TestNoProcessGlobalQSettingsStatics:
+    def test_the_conftest_tripwire_still_exists(self) -> None:
+        """Guards the exemption below against pointing at a file that stopped
+        needing it — which would silently retire the §11.4 six-broken-tests
+        backstop while leaving an unwatched hole in this gate."""
+        assert _calls_global_statics(_parse(CONFTEST)), (
+            "conftest no longer touches QSettings.defaultFormat() — either the "
+            "tripwire was removed (restore it) or its exemption is now dead"
+        )
+
     def test_only_the_conftest_tripwire_touches_the_global_statics(self) -> None:
-        """`src/` may never; the one sanctioned call restores what it captured."""
-        offenders = _scan(_calls_global_statics, exempt={"tests/conftest.py"})
+        """Nothing may set them; the one sanctioned call restores what it captured."""
+        offenders = _scan(_calls_global_statics, exempt={_rel(CONFTEST)})
         assert offenders == [], (
             "QSettings.setDefaultFormat()/setPath() are process-global and never "
             "reverted by Qt (§11.4):\n" + "\n".join(offenders)
@@ -316,6 +376,29 @@ class TestDetectorsCatchKnownEscapes:
             ("module scope, AppSettings", "_PREFS = AppSettings()", True),
             ("module scope, UiStateStore", "_UI = UiStateStore()", True),
             ("module scope, get_settings", "_S = get_settings()", True),
+            # Aliases and subclasses change the call-site spelling, which is all
+            # `_callee()` can see — the round-3 escape.
+            (
+                "aliased wrapper import",
+                "from x import AppSettings as _Prefs\n_P = _Prefs()",
+                True,
+            ),
+            (
+                "aliased factory import",
+                "from x import create_qsettings as _mk\n_S = _mk()",
+                True,
+            ),
+            ("subclass", "class P(AppSettings):\n    pass\n_P = P()", True),
+            (
+                "subclass of a subclass",
+                "class A(AppSettings): pass\nclass B(A): pass\n_B = B()",
+                True,
+            ),
+            (
+                "aliased import used only inside a function",
+                "from x import AppSettings as _Prefs\ndef f():\n    return _Prefs()",
+                False,
+            ),
             ("class body", "class C:\n    store = get_settings()", True),
             ("nested class body", "class A:\n    class B:\n        s = AppSettings()", True),
             ("default argument", "def f(s=AppSettings()):\n    pass", True),

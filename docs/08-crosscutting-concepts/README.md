@@ -234,17 +234,19 @@ Three further rules, each gated, each worth understanding before touching this:
 
 - The factory reads `ORGANIZATION_NAME` / `APPLICATION_NAME` from module globals
   **on every call**, never captured at import. That is what lets the test suite
-  redirect every consumer at once (`tests/conftest.py::isolate_qsettings` rebinds
-  those two names for the session). Do not "optimise" them into a default
-  argument, a module-level tuple or a `functools.partial` —
-  `test_rebinding_the_names_redirects_new_stores` will stop you.
-- **Call the factory at runtime, never at import time.** A module-level
+  redirect every consumer at once, which `tests/conftest.py` does at its own
+  **import time** (module scope, not in a fixture — pytest imports the root
+  conftest before any test module, so even a store built during an import lands
+  in the test key; a fixture runs after collection and could not). Do not
+  "optimise" the names into a default argument, a module-level tuple or a
+  `functools.partial` — `test_rebinding_the_names_redirects_new_stores` will stop
+  you, and neither can they retarget an *existing* store (ADR-041).
+- **Prefer building a store at runtime over import time.** A module-level
   `_STORE = create_qsettings()` (or one in a class body, decorator or default
-  argument) is constructed before any test fixture runs, and a `QSettings` binds
-  its organization/application *at construction* — so the redirection above
-  cannot retarget it and it would spend the whole session on the user's real
-  key. `TestNoStoreIsBuiltAtImportTime` gates this; it is the one genuine hole in
-  the isolation mechanism.
+  argument) can be redirected by nothing at all once constructed.
+  `TestNoStoreIsBuiltAtImportTime` flags it; since the conftest redirection this
+  is belt-and-braces rather than load-bearing, and it reads names, so one level
+  of indirection defeats it.
 - **Never call `QSettings.setDefaultFormat()` or `QSettings.setPath()`** to set
   anything up — not in `src/`, not in a test (both gated). They are process-global
   statics Qt never reverts; a leaked `setPath` to a deleted `tmp_path` once

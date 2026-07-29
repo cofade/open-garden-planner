@@ -15,51 +15,65 @@ src_path = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src_path))
 
 # The isolated store every test reads and writes. Named here once: production
-# code builds its backend from `app.settings.ORGANIZATION_NAME` /
-# `APPLICATION_NAME`, and `isolate_qsettings` below rebinds those two names to
-# these for the session, so nothing else in the suite needs to know them.
+# code builds every backend from `app.settings.ORGANIZATION_NAME` /
+# `APPLICATION_NAME` (ADR-041), and the two lines below rebind those names to
+# these, so nothing else in the suite needs to know them.
 TEST_ORGANIZATION = "cofade_test"
 TEST_APPLICATION = "Open Garden Planner Test"
+
+# Redirect at conftest IMPORT time, not inside a fixture. pytest imports this
+# file before it collects any test module in this tree, hence before any
+# `open_garden_planner` module a test imports — so every store the app builds is
+# constructed *after* the redirection and lands in the test key, even one built
+# while a module is being imported. A fixture, however early-scoped, runs after
+# collection and could never cover that: a QSettings binds its organization and
+# application at construction and cannot be retargeted afterwards.
+#
+# This is what makes the isolation hold by construction rather than by everyone
+# remembering not to cache a store at import time (which the gate in
+# tests/unit/test_settings_chokepoint.py additionally discourages, as
+# belt-and-braces). Deliberately below the sys.path setup above, hence E402.
+import open_garden_planner.app.settings as _app_settings  # noqa: E402
+
+PRODUCTION_STORE = (
+    _app_settings.ORGANIZATION_NAME,
+    _app_settings.APPLICATION_NAME,
+)
+_app_settings.ORGANIZATION_NAME = TEST_ORGANIZATION
+_app_settings.APPLICATION_NAME = TEST_APPLICATION
 
 
 @pytest.fixture(autouse=True, scope="session")
 def isolate_qsettings():
-    """Redirect EVERY app settings store to a test-only key for the whole session.
+    """Session bookkeeping for the import-time redirection above.
 
-    This prevents tests from polluting the real user settings (recent files,
-    window geometry, toolbar layout). The test key is cleared at teardown.
+    The redirection itself is not here — see the module-scope comment: it has to
+    happen at conftest import time to cover a store built while a module is
+    imported. This fixture owns what only a fixture can do: resetting the lazy
+    `AppSettings` singleton, clearing the test key at the end of the session, and
+    tripping on a leaked process-global QSettings format.
 
-    How it covers everything (issue #285, ADR-041): `app/settings.py` owns the
-    single construction site `create_qsettings()`, which reads the org/app names
-    from its module globals on *every* call. Rebinding those two names therefore
-    redirects every store built afterwards — `AppSettings` and `UiStateStore`
-    alike — and no import style in a future consumer can escape it. It does NOT
-    retarget a store that already exists (a `QSettings` binds its org/app at
-    construction), which is why the `_settings_instance` singleton is nulled
-    below and why `test_settings_chokepoint.py` forbids building a store at
-    import time. Before #285 this fixture replaced `AppSettings.__init__`, which
-    `UiStateStore` bypassed entirely; full-app tests then read *and overwrote*
-    the developer's real window state (docs §11.4, measured in #283).
+    Yields the *production* ``(organization, application)`` pair the redirection
+    displaced, so a test can assert that pair is never touched without
+    hardcoding it (see ``tests/integration/test_settings_isolation.py``).
 
-    Yields the *production* ``(organization, application)`` pair it displaced, so
-    a test can assert that pair is never touched without hardcoding it (see
-    ``tests/integration/test_settings_isolation.py``).
+    Before #285 this fixture *was* the isolation, by replacing
+    `AppSettings.__init__` — which `UiStateStore` bypassed entirely, so full-app
+    tests read *and overwrote* the developer's real window state (§11.4, #283).
     """
     from PyQt6.QtCore import QSettings
 
     import open_garden_planner.app.settings as settings_module
 
-    original_names = (
-        settings_module.ORGANIZATION_NAME,
-        settings_module.APPLICATION_NAME,
+    assert settings_module.ORGANIZATION_NAME == TEST_ORGANIZATION, (
+        "the import-time redirection at the top of conftest.py did not take — "
+        "the suite would be reading and writing the real user store (#285)"
     )
-    settings_module.ORGANIZATION_NAME = TEST_ORGANIZATION
-    settings_module.APPLICATION_NAME = TEST_APPLICATION
 
     # Capture the process-global default QSettings format so teardown can both
     # repair it and *report* a leak (those statics are never auto-reverted by
     # Qt). This is the suite's only sanctioned call to one of them, and it does
-    # NOT cover a setPath()-only leak. Nothing leaks today — `src/` is gated
+    # NOT cover a setPath()-only leak. Nothing leaks today — both trees are gated
     # (tests/unit/test_settings_chokepoint.py) and test_ui_state.py isolates by
     # redirecting the factory — so this is insurance that now speaks up.
     original_format = QSettings.defaultFormat()
@@ -67,7 +81,7 @@ def isolate_qsettings():
     # Also reset the module-level singleton so a fresh test instance is created
     settings_module._settings_instance = None  # type: ignore[attr-defined]
 
-    yield original_names
+    yield PRODUCTION_STORE
 
     # Repair the format static FIRST: if something leaked `IniFormat`, the clear
     # below would otherwise target an INI store and leave the registry test key
@@ -75,13 +89,11 @@ def isolate_qsettings():
     leaked_format = QSettings.defaultFormat()
     QSettings.setDefaultFormat(original_format)
 
-    # Then clear the test store, while the name redirection is still in place.
     settings_module.create_qsettings().clear()
-    (
-        settings_module.ORGANIZATION_NAME,
-        settings_module.APPLICATION_NAME,
-    ) = original_names
     settings_module._settings_instance = None  # type: ignore[attr-defined]
+    # The names are deliberately NOT restored: the redirection is process-wide by
+    # design and the process ends here, so restoring would only create a window
+    # in which late teardown code could reach the real store.
 
     # Now fail loudly. A tripwire that silently fixes the damage reports nothing
     # and lets the §11.4 "every getter returns its coded default" mode come back
