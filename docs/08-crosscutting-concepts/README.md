@@ -318,16 +318,43 @@ self._reposition()
 
 Rect-bearing items (`CircleItem`/`RectangleItem`/`EllipseItem`) serialize their position as `pos + rect.center()` with rotation stored as a *separate* angle pivoting on the centre (`core/project.py`). Every geometry mutation on such an item — rotate, programmatic resize, interactive drag-resize, and the undo/redo of any of them — **must end with `transformOriginPoint() == rect().center()`**, or a rotated item's saved centre diverges from its on-screen centre and it drifts on reload / jumps on the next rotation. Do not re-derive this per gesture: route resizes through the single primitive `resize_handle.resize_rect_item_keeping_anchor(item, new_rect, scene_anchor, local_anchor)` (it `prepareGeometryChange()`s, applies the rect, re-pins the origin, and repositions so a chosen scene point stays fixed), and rotation through `RotationHandleMixin._apply_rotation` (pivots on `rect().center()`). The interactive `ResizeHandle._apply_resize` takes the fixed corner/edge **authoritatively from the handle position** (never inferred from scene-space or `pos_dx`, which disagree under rotation), lets the item normalise the rect (`CircleItem._constrain_resize_size` squares it so the dragged handle tracks the cursor — never `min(w,h)`, which collapses under rotation), then refreshes via `_after_resize_geometry()`. The pivot must come from the *geometric* `rect()`, never the decoration-expanded `boundingRect()` (a runtime-only badge expands the latter asymmetrically); and any shrink of a custom `boundingRect()` must `prepareGeometryChange()` or Qt leaves a stale "ghost". See ADR-028 and §11.4 (#218/#219). Sizing precedence (footprint vs. spacing override vs. DB `max_spread_cm`) likewise has one home: the Qt-free `core/plant_sizing.py` resolver.
 
-## 8.8 Settings Storage
+## 8.8 Settings Storage — One Chokepoint (ADR-041)
 
-User preferences stored via QSettings (platform-native):
-- Window size, position, panel collapse states
-- Recent files list
-- Theme preference (light/dark)
-- Language preference
-- Auto-save interval
-- Grid and snap settings
-- Last used export options
+User state lives in a platform-native QSettings store (Windows: registry under
+`HKEY_CURRENT_USER\Software\cofade\Open Garden Planner`; Linux:
+`~/.config/cofade/Open Garden Planner.conf`; macOS: a plist), split across two
+wrappers over **one** backend:
+
+| Wrapper | Owns | Keys |
+|---------|------|------|
+| `app/settings.py` — `AppSettings` | user preferences: recent files, theme, language, auto-save interval, snap toggles, frost thresholds, Agent API port/token/write-toggle, API keys, last-used fillet/chamfer values | flat, grouped by domain (`canvas/`, `appearance/`, `agent_api/`, …) |
+| `app/ui_state.py` — `UiStateStore` | UI-only state: window geometry, `QMainWindow` state (toolbar layout), main splitter sizes | `UiState/` |
+
+Per-panel collapse/expand state is deliberately **not** persisted — the sidebar
+accordion starts fully collapsed every session (US-226, ADR-030, §8.17.7).
+
+**The rule: `app/settings.create_qsettings()` is the only place in `src/` that
+may construct — or even import — `QSettings`.** Everything that persists state
+takes its backend from that factory. Enforced by grep in
+`tests/unit/test_settings_chokepoint.py` (import gate + construction gate), not
+by convention: `UiStateStore` built its own store until #285, which meant it
+escaped the test isolation layered on `AppSettings`, and every full-app test read
+*and overwrote* the developer's real window geometry and toolbar layout — 120
+measured writes from a single test file (§11.4, ADR-041).
+
+Two further consequences worth knowing before touching this area:
+
+- The factory reads `ORGANIZATION_NAME` / `APPLICATION_NAME` from module globals
+  **on every call**, never captured at import. That is what makes the test-suite
+  redirection (`tests/conftest.py::isolate_qsettings` rebinds those two names for
+  the session) cover every consumer, including ones holding an existing store.
+  Do not "optimise" the names into a default argument or a module-level tuple —
+  `test_rebinding_the_names_redirects_new_stores` will stop you.
+- **Never call `QSettings.setDefaultFormat()` or `QSettings.setPath()`** — in
+  `src/` (gated) or in a test. They are process-global statics Qt never reverts;
+  a leaked `setPath` to a deleted `tmp_path` once poisoned every store built
+  later in the session and broke six unrelated tests (§11.4). Redirect the
+  factory instead.
 
 ## 8.10 Integration Test Policy
 

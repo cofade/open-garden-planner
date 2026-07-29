@@ -140,9 +140,11 @@ it must never ship in a binary.
 
 ## 2. UiStateStore — what UI state persists (and what deliberately does not)
 
-Source: `src/open_garden_planner/app/ui_state.py`. Same QSettings backend
-(explicit `("cofade", "Open Garden Planner")` tuple), keys under the
-`UiState/` group to avoid colliding with §1. All production.
+Source: `src/open_garden_planner/app/ui_state.py`. Same QSettings backend as §1
+— both take it from `app/settings.create_qsettings()`, the only store factory in
+`src/` (#285, ADR-041; gated by `tests/unit/test_settings_chokepoint.py`, so do
+not hand-roll a second one) — with keys under the `UiState/` group to avoid
+colliding with §1. All production.
 
 | Key | Saved / restored |
 |---|---|

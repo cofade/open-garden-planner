@@ -1,11 +1,36 @@
 """Application settings management.
 
-Provides persistent storage for user preferences using QSettings.
+Provides persistent storage for user preferences using QSettings, and owns
+``create_qsettings()`` — the single place in ``src/`` where a QSettings backend
+is constructed (issue #285, ADR-041).
 """
 
 from PyQt6.QtCore import QSettings
 
 from open_garden_planner.ui.theme import ThemeMode
+
+# The one (organization, application) pair every store in this app is built
+# from. Deliberately module-level names that ``create_qsettings()`` reads on
+# every call rather than values captured at import time: that is what lets a
+# single redirection cover every consumer, including objects that already hold
+# a store. See ADR-041.
+ORGANIZATION_NAME = "cofade"
+APPLICATION_NAME = "Open Garden Planner"
+
+
+def create_qsettings() -> QSettings:
+    """Build the application's settings backend.
+
+    THE settings chokepoint: no other module in ``src/`` may construct a
+    QSettings, which ``tests/unit/test_settings_chokepoint.py`` enforces by
+    grep. Everything that persists user state routes through here —
+    :class:`AppSettings` for preferences, ``app/ui_state.UiStateStore`` for
+    window geometry — so one redirection isolates the whole app from the user's
+    real store. Before #285 ``UiStateStore`` built its own, escaped the test
+    isolation layered on :class:`AppSettings`, and full-app tests read *and
+    overwrote* the developer's real window state (see docs §11.4).
+    """
+    return QSettings(ORGANIZATION_NAME, APPLICATION_NAME)
 
 
 class AppSettings:
@@ -115,7 +140,7 @@ class AppSettings:
 
     def __init__(self) -> None:
         """Initialize the settings manager."""
-        self._settings = QSettings("cofade", "Open Garden Planner")
+        self._settings = create_qsettings()
 
     @property
     def autosave_enabled(self) -> bool:

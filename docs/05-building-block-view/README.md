@@ -42,7 +42,10 @@ src/open_garden_planner/
 ├── __main__.py, main.py          # Entry points
 ├── app/
 │   ├── application.py            # Main window (GardenPlannerApp)
-│   └── settings.py               # App-level settings/preferences
+│   ├── paths.py                  # Safe file-dialog directory chokepoint (ADR-027)
+│   ├── settings.py               # Preferences + create_qsettings(), the ONE
+│   │                             #   settings-store factory (ADR-041)
+│   └── ui_state.py               # Window geometry / splitter persistence
 ├── core/
 │   ├── commands.py               # Undo/redo command pattern
 │   ├── project.py                # Save/load, ProjectManager

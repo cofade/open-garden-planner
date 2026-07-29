@@ -14,40 +14,64 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 src_path = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src_path))
 
+# The isolated store every test reads and writes. Named here once: production
+# code builds its backend from `app.settings.ORGANIZATION_NAME` /
+# `APPLICATION_NAME`, and `isolate_qsettings` below rebinds those two names to
+# these for the session, so nothing else in the suite needs to know them.
+TEST_ORGANIZATION = "cofade_test"
+TEST_APPLICATION = "Open Garden Planner Test"
+
 
 @pytest.fixture(autouse=True, scope="session")
 def isolate_qsettings():
-    """Redirect QSettings to a test-only registry key for the entire test session.
+    """Redirect EVERY app settings store to a test-only key for the whole session.
 
-    This prevents tests from polluting the real user settings (e.g. recent files).
-    The test key is cleared at the end of the session.
+    This prevents tests from polluting the real user settings (recent files,
+    window geometry, toolbar layout). The test key is cleared at teardown.
+
+    How it covers everything (issue #285, ADR-041): `app/settings.py` owns the
+    single construction site `create_qsettings()`, which reads the org/app names
+    from its module globals on *every* call. Rebinding those two names therefore
+    redirects `AppSettings` and `UiStateStore` alike — including instances that
+    already hold a store — and no import style in a future consumer can escape
+    it. Before #285 this fixture replaced `AppSettings.__init__` instead, which
+    `UiStateStore` bypassed entirely; full-app tests then read *and overwrote*
+    the developer's real window state (docs §11.4, measured in #283).
+
+    Yields the *production* ``(organization, application)`` pair it displaced, so
+    a test can assert that pair is never touched without hardcoding it (see
+    ``tests/integration/test_settings_isolation.py``).
     """
     from PyQt6.QtCore import QSettings
 
-    def _test_init(self: object) -> None:
-        self._settings = QSettings("cofade_test", "Open Garden Planner Test")  # type: ignore[attr-defined]
-
     import open_garden_planner.app.settings as settings_module
 
-    original_init = settings_module.AppSettings.__init__
-    settings_module.AppSettings.__init__ = _test_init  # type: ignore[method-assign]
+    original_names = (
+        settings_module.ORGANIZATION_NAME,
+        settings_module.APPLICATION_NAME,
+    )
+    settings_module.ORGANIZATION_NAME = TEST_ORGANIZATION
+    settings_module.APPLICATION_NAME = TEST_APPLICATION
 
     # Capture the process-global default QSettings format and restore it at
     # teardown. This is a tripwire for a future setDefaultFormat() leak only
     # (those statics are never auto-reverted by Qt); it does NOT cover a
-    # setPath()-only leak. Nothing leaks today — test_ui_state.py now isolates
-    # via monkeypatch instead of the global statics — so this is pure insurance.
+    # setPath()-only leak. Nothing leaks today — test_ui_state.py isolates via
+    # monkeypatch instead of the global statics — so this is pure insurance.
     original_format = QSettings.defaultFormat()
 
     # Also reset the module-level singleton so a fresh test instance is created
     settings_module._settings_instance = None  # type: ignore[attr-defined]
 
-    yield
+    yield original_names
 
-    # Clean up: clear the test registry key and restore original init + format
-    QSettings("cofade_test", "Open Garden Planner Test").clear()
+    # Clean up while the redirection is still in place, then restore it.
+    settings_module.create_qsettings().clear()
     QSettings.setDefaultFormat(original_format)
-    settings_module.AppSettings.__init__ = original_init  # type: ignore[method-assign]
+    (
+        settings_module.ORGANIZATION_NAME,
+        settings_module.APPLICATION_NAME,
+    ) = original_names
     settings_module._settings_instance = None  # type: ignore[attr-defined]
 
 
@@ -57,44 +81,18 @@ def _reset_app_settings():
 
     Clears the isolated test key and resets the lazy singleton both before and
     after each test, so values written by one test cannot leak into the next
-    (nor survive from a prior crashed session).
+    (nor survive from a prior crashed session). Because the whole app shares one
+    backend, this also clears the `UiState/` geometry keys.
     """
-    from PyQt6.QtCore import QSettings
-
     import open_garden_planner.app.settings as settings_module
 
     def _reset() -> None:
-        QSettings("cofade_test", "Open Garden Planner Test").clear()
+        settings_module.create_qsettings().clear()
         settings_module._settings_instance = None  # type: ignore[attr-defined]
 
     _reset()
     yield
     _reset()
-
-
-@pytest.fixture(autouse=True)
-def _isolate_ui_state(monkeypatch):
-    """Keep UiStateStore off the developer's REAL window geometry/toolbar state.
-
-    `app/ui_state.py` constructs `QSettings("cofade", "Open Garden Planner")`
-    directly rather than going through `AppSettings`, so `isolate_qsettings`
-    above does not cover it. Without this, every full-app test *read* whatever
-    window state the developer's own app last saved (making assertions about
-    toolbar visibility machine-dependent) and *wrote* it back at teardown —
-    pytest-qt closes registered widgets, and `closeEvent` persists UI state.
-
-    Pointing the store at the isolated test key also makes local runs match CI,
-    where the store is always pristine.
-    """
-    from PyQt6.QtCore import QSettings
-
-    from open_garden_planner.app import ui_state
-
-    monkeypatch.setattr(
-        ui_state,
-        "QSettings",
-        lambda *_args, **_kwargs: QSettings("cofade_test", "Open Garden Planner Test"),
-    )
 
 
 @pytest.fixture(autouse=True)
@@ -114,9 +112,7 @@ def _disable_agent_api_server(_reset_app_settings):
     guaranteed — an earlier version ran first and had its write wiped by the
     clear). Tests that exercise the server build `AgentApiServer` directly.
     """
-    from PyQt6.QtCore import QSettings
+    from open_garden_planner.app.settings import AppSettings, create_qsettings
 
-    QSettings("cofade_test", "Open Garden Planner Test").setValue(
-        "agent_api/enabled", False
-    )
+    create_qsettings().setValue(AppSettings.KEY_AGENT_API_ENABLED, False)
     yield
