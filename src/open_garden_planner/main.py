@@ -174,13 +174,19 @@ def main() -> int:
     from PyQt6.QtWidgets import QApplication
 
     from open_garden_planner.app.application import GardenPlannerApp
-    from open_garden_planner.app.settings import get_settings
+    from open_garden_planner.app.settings import (
+        APPLICATION_NAME,
+        ORGANIZATION_NAME,
+        get_settings,
+    )
     from open_garden_planner.core.i18n import load_translator
     from open_garden_planner.ui.theme import apply_theme
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Open Garden Planner")
-    app.setOrganizationName("cofade")
+    # Same pair the settings chokepoint builds every store from (ADR-041) — read
+    # from there rather than repeated, so there is one source of truth for it.
+    app.setApplicationName(APPLICATION_NAME)
+    app.setOrganizationName(ORGANIZATION_NAME)
     app.setOrganizationDomain("github.com/cofade")
 
     # Set application icon (appears in taskbar, window title bar, etc.)

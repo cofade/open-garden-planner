@@ -32,9 +32,12 @@ def isolate_qsettings():
     How it covers everything (issue #285, ADR-041): `app/settings.py` owns the
     single construction site `create_qsettings()`, which reads the org/app names
     from its module globals on *every* call. Rebinding those two names therefore
-    redirects `AppSettings` and `UiStateStore` alike — including instances that
-    already hold a store — and no import style in a future consumer can escape
-    it. Before #285 this fixture replaced `AppSettings.__init__` instead, which
+    redirects every store built afterwards — `AppSettings` and `UiStateStore`
+    alike — and no import style in a future consumer can escape it. It does NOT
+    retarget a store that already exists (a `QSettings` binds its org/app at
+    construction), which is why the `_settings_instance` singleton is nulled
+    below and why `test_settings_chokepoint.py` forbids building a store at
+    import time. Before #285 this fixture replaced `AppSettings.__init__`, which
     `UiStateStore` bypassed entirely; full-app tests then read *and overwrote*
     the developer's real window state (docs §11.4, measured in #283).
 
@@ -53,11 +56,12 @@ def isolate_qsettings():
     settings_module.ORGANIZATION_NAME = TEST_ORGANIZATION
     settings_module.APPLICATION_NAME = TEST_APPLICATION
 
-    # Capture the process-global default QSettings format and restore it at
-    # teardown. This is a tripwire for a future setDefaultFormat() leak only
-    # (those statics are never auto-reverted by Qt); it does NOT cover a
-    # setPath()-only leak. Nothing leaks today — test_ui_state.py isolates via
-    # monkeypatch instead of the global statics — so this is pure insurance.
+    # Capture the process-global default QSettings format so teardown can both
+    # repair it and *report* a leak (those statics are never auto-reverted by
+    # Qt). This is the suite's only sanctioned call to one of them, and it does
+    # NOT cover a setPath()-only leak. Nothing leaks today — `src/` is gated
+    # (tests/unit/test_settings_chokepoint.py) and test_ui_state.py isolates by
+    # redirecting the factory — so this is insurance that now speaks up.
     original_format = QSettings.defaultFormat()
 
     # Also reset the module-level singleton so a fresh test instance is created
@@ -67,12 +71,22 @@ def isolate_qsettings():
 
     # Clean up while the redirection is still in place, then restore it.
     settings_module.create_qsettings().clear()
+    leaked_format = QSettings.defaultFormat()
     QSettings.setDefaultFormat(original_format)
     (
         settings_module.ORGANIZATION_NAME,
         settings_module.APPLICATION_NAME,
     ) = original_names
     settings_module._settings_instance = None  # type: ignore[attr-defined]
+
+    # Repair first (so the process is left clean either way), then fail loudly.
+    # A tripwire that silently fixes the damage reports nothing and lets the
+    # §11.4 "every getter returns its coded default" mode come back unnoticed.
+    assert leaked_format == original_format, (
+        "a test called QSettings.setDefaultFormat() and left it set — that static "
+        "is process-global and poisons every store built later in the session "
+        "(docs §11.4). Redirect app/settings.create_qsettings() instead."
+    )
 
 
 @pytest.fixture(autouse=True)

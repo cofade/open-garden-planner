@@ -54,10 +54,13 @@ All rows **production** unless noted.
 | `autosave/enabled` | `autosave_enabled` | bool | `True` | `services/autosave_service.py` |
 | `autosave/interval_minutes` | `autosave_interval_minutes` | int | `5` (clamped 1–30 on both read and write) | `services/autosave_service.py` |
 | `recent_files` | `recent_files` (+ `add_recent_file`, max 10) | list[str] | `[]` | File menu in `application.py` |
-| `window/geometry` | `window_geometry` | bytes | none | `application.py` (legacy; UiStateStore is the newer path, §2) |
-| `window/state` | `window_state` | bytes | none | `application.py` (legacy) |
 | `startup/show_welcome` | `show_welcome_on_startup` | bool | `True` | `welcome_dialog.py`, startup sequence |
 | `updates/skipped_version` | `skipped_version` | str | `""` | update checker in `application.py` ("Skip this version") |
+
+> `window/geometry` and `window/state` (`AppSettings.window_geometry` /
+> `window_state`) were **removed in #285**: a never-called duplicate of what
+> `UiStateStore` owns under `UiState/` (§2). Old real stores may still hold the
+> orphaned keys; nothing reads them.
 
 ### Appearance & language
 

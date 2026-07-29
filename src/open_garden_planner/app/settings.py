@@ -46,8 +46,6 @@ class AppSettings:
     KEY_AUTOSAVE_ENABLED = "autosave/enabled"
     KEY_AUTOSAVE_INTERVAL_MINUTES = "autosave/interval_minutes"
     KEY_RECENT_FILES = "recent_files"
-    KEY_WINDOW_GEOMETRY = "window/geometry"
-    KEY_WINDOW_STATE = "window/state"
     KEY_SHOW_WELCOME = "startup/show_welcome"
     KEY_THEME_MODE = "appearance/theme_mode"
     KEY_SHOW_SHADOWS = "appearance/show_shadows"
@@ -224,27 +222,13 @@ class AppSettings:
         """Set whether to show welcome screen on startup."""
         self._settings.setValue(self.KEY_SHOW_WELCOME, show)
 
-    @property
-    def window_geometry(self) -> bytes | None:
-        """Window geometry as bytes (for QMainWindow.restoreGeometry)."""
-        value = self._settings.value(self.KEY_WINDOW_GEOMETRY)
-        return bytes(value) if value else None
-
-    @window_geometry.setter
-    def window_geometry(self, geometry: bytes) -> None:
-        """Save window geometry."""
-        self._settings.setValue(self.KEY_WINDOW_GEOMETRY, geometry)
-
-    @property
-    def window_state(self) -> bytes | None:
-        """Window state as bytes (for QMainWindow.restoreState)."""
-        value = self._settings.value(self.KEY_WINDOW_STATE)
-        return bytes(value) if value else None
-
-    @window_state.setter
-    def window_state(self, state: bytes) -> None:
-        """Save window state."""
-        self._settings.setValue(self.KEY_WINDOW_STATE, state)
+    # NOTE: window geometry / QMainWindow state are owned solely by
+    # `app/ui_state.UiStateStore` under its `UiState/` group (§8.8). This class
+    # used to carry a duplicate, never-called `window_geometry`/`window_state`
+    # pair on `window/geometry` / `window/state`; both were removed in #285
+    # because a second ownership story for the same data is exactly the debt
+    # that issue was filed against. Real stores may still hold those orphaned
+    # keys — nothing reads them.
 
     @property
     def theme_mode(self) -> ThemeMode:
