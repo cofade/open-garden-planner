@@ -10,10 +10,13 @@ from PyQt6.QtCore import QSettings
 from open_garden_planner.ui.theme import ThemeMode
 
 # The one (organization, application) pair every store in this app is built
-# from. Deliberately module-level names that ``create_qsettings()`` reads on
-# every call rather than values captured at import time: that is what lets a
-# single redirection cover every consumer, including objects that already hold
-# a store. See ADR-041.
+# from — and, via ``main.py``, the QApplication names Qt derives the user-data
+# directory from. Deliberately module-level names that ``create_qsettings()``
+# reads on every call rather than values captured at import time: that is what
+# lets a single redirection cover every consumer, for every store built *after*
+# the redirection. It cannot retarget a store that already exists (a QSettings
+# binds these at construction), which is why nothing may build one at import
+# time. See ADR-041.
 ORGANIZATION_NAME = "cofade"
 APPLICATION_NAME = "Open Garden Planner"
 
@@ -21,9 +24,11 @@ APPLICATION_NAME = "Open Garden Planner"
 def create_qsettings() -> QSettings:
     """Build the application's settings backend.
 
-    THE settings chokepoint: no other module in ``src/`` may construct a
-    QSettings, which ``tests/unit/test_settings_chokepoint.py`` enforces by
-    grep. Everything that persists user state routes through here —
+    THE settings chokepoint: no other module may so much as name a QSettings,
+    which ``tests/unit/test_settings_chokepoint.py`` enforces by walking the AST
+    of every module in ``src/`` and ``tests/``. Call it at **runtime** only — a
+    store built at import time predates the test isolation and is gated too.
+    Everything that persists user state routes through here —
     :class:`AppSettings` for preferences, ``app/ui_state.UiStateStore`` for
     window geometry — so one redirection isolates the whole app from the user's
     real store. Before #285 ``UiStateStore`` built its own, escaped the test

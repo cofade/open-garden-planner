@@ -219,10 +219,12 @@ wrappers over **one** backend:
 Per-panel collapse/expand state is deliberately **not** persisted — the sidebar
 accordion starts fully collapsed every session (US-226, ADR-030, §8.17.7).
 
-**The rule: `app/settings.create_qsettings()` is the only place in `src/` that
+**The rule: `app/settings.create_qsettings()` is the only place in the repo that
 may construct — or even name — `QSettings`.** Everything that persists state
-takes its backend from that factory. Enforced by an AST walk in
-`tests/unit/test_settings_chokepoint.py`, not by convention: `UiStateStore` built
+takes its backend from that factory. Enforced by an AST walk over `src/` **and**
+`tests/` in `tests/unit/test_settings_chokepoint.py` (three test modules are
+exempt, by an exact-matched allowlist — `tests/` is in scope because the #283
+damage was observed from the test side), not by convention: `UiStateStore` built
 its own store until #285, which meant it escaped the test isolation layered on
 `AppSettings`, and every full-app test read *and overwrote* the developer's real
 window geometry and toolbar layout — 120 measured writes from a single test file
@@ -244,7 +246,7 @@ Three further rules, each gated, each worth understanding before touching this:
   key. `TestNoStoreIsBuiltAtImportTime` gates this; it is the one genuine hole in
   the isolation mechanism.
 - **Never call `QSettings.setDefaultFormat()` or `QSettings.setPath()`** to set
-  anything up — not in `src/` (gated), not in a test. They are process-global
+  anything up — not in `src/`, not in a test (both gated). They are process-global
   statics Qt never reverts; a leaked `setPath` to a deleted `tmp_path` once
   poisoned every store built later in the session and broke six unrelated tests
   (§11.4). Redirect the factory instead. The single sanctioned call is

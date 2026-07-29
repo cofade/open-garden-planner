@@ -69,19 +69,24 @@ def isolate_qsettings():
 
     yield original_names
 
-    # Clean up while the redirection is still in place, then restore it.
-    settings_module.create_qsettings().clear()
+    # Repair the format static FIRST: if something leaked `IniFormat`, the clear
+    # below would otherwise target an INI store and leave the registry test key
+    # behind — precisely in the scenario the tripwire exists for.
     leaked_format = QSettings.defaultFormat()
     QSettings.setDefaultFormat(original_format)
+
+    # Then clear the test store, while the name redirection is still in place.
+    settings_module.create_qsettings().clear()
     (
         settings_module.ORGANIZATION_NAME,
         settings_module.APPLICATION_NAME,
     ) = original_names
     settings_module._settings_instance = None  # type: ignore[attr-defined]
 
-    # Repair first (so the process is left clean either way), then fail loudly.
-    # A tripwire that silently fixes the damage reports nothing and lets the
-    # §11.4 "every getter returns its coded default" mode come back unnoticed.
+    # Now fail loudly. A tripwire that silently fixes the damage reports nothing
+    # and lets the §11.4 "every getter returns its coded default" mode come back
+    # unnoticed. pytest attributes a session-finalizer error to the last test it
+    # ran, so the message has to name the real cause itself.
     assert leaked_format == original_format, (
         "a test called QSettings.setDefaultFormat() and left it set — that static "
         "is process-global and poisons every store built later in the session "
