@@ -1,11 +1,46 @@
 """Application settings management.
 
-Provides persistent storage for user preferences using QSettings.
+Provides persistent storage for user preferences using QSettings, and owns
+``create_qsettings()`` — the single place in ``src/`` where a QSettings backend
+is constructed (issue #285, ADR-041).
 """
 
 from PyQt6.QtCore import QSettings
 
 from open_garden_planner.ui.theme import ThemeMode
+
+# The one (organization, application) pair every store in this app is built
+# from — and, via ``main.py``, the QApplication names Qt derives the user-data
+# directory from. Deliberately module-level names that ``create_qsettings()``
+# reads on every call rather than values captured at import time: that is what
+# lets a single redirection cover every consumer, for every store built *after*
+# the redirection. It cannot retarget a store that already exists (a QSettings
+# binds these at construction), so *when* the redirection runs is what matters:
+# the test suite rebinds them at `tests/conftest.py` import time, before any test
+# module is imported. The mechanism is specified once, in docs §8.8 — read it
+# there before changing anything here. Decision + alternatives: ADR-041.
+ORGANIZATION_NAME = "cofade"
+APPLICATION_NAME = "Open Garden Planner"
+
+
+def create_qsettings() -> QSettings:
+    """Build the application's settings backend.
+
+    THE settings chokepoint: no other module may so much as name a QSettings,
+    which ``tests/unit/test_settings_chokepoint.py`` enforces by walking the AST
+    of every module in ``src/``, ``tests/`` and ``scripts/`` (three test modules
+    are exempt, with stated reasons). Prefer calling this at **runtime** over
+    import time: an import-time store is still redirected by the test suite, but
+    once constructed it can be retargeted by nothing at all, which makes it a
+    trap for any other isolation scheme — so the gate flags it, as a smell rather
+    than a leak. Everything that persists user state routes through here —
+    :class:`AppSettings` for preferences, ``app/ui_state.UiStateStore`` for
+    window geometry — so one redirection isolates the whole app from the user's
+    real store. Before #285 ``UiStateStore`` built its own, escaped the test
+    isolation layered on :class:`AppSettings`, and full-app tests read *and
+    overwrote* the developer's real window state (see docs §11.4).
+    """
+    return QSettings(ORGANIZATION_NAME, APPLICATION_NAME)
 
 
 class AppSettings:
@@ -21,8 +56,6 @@ class AppSettings:
     KEY_AUTOSAVE_ENABLED = "autosave/enabled"
     KEY_AUTOSAVE_INTERVAL_MINUTES = "autosave/interval_minutes"
     KEY_RECENT_FILES = "recent_files"
-    KEY_WINDOW_GEOMETRY = "window/geometry"
-    KEY_WINDOW_STATE = "window/state"
     KEY_SHOW_WELCOME = "startup/show_welcome"
     KEY_THEME_MODE = "appearance/theme_mode"
     KEY_SHOW_SHADOWS = "appearance/show_shadows"
@@ -115,7 +148,7 @@ class AppSettings:
 
     def __init__(self) -> None:
         """Initialize the settings manager."""
-        self._settings = QSettings("cofade", "Open Garden Planner")
+        self._settings = create_qsettings()
 
     @property
     def autosave_enabled(self) -> bool:
@@ -199,27 +232,13 @@ class AppSettings:
         """Set whether to show welcome screen on startup."""
         self._settings.setValue(self.KEY_SHOW_WELCOME, show)
 
-    @property
-    def window_geometry(self) -> bytes | None:
-        """Window geometry as bytes (for QMainWindow.restoreGeometry)."""
-        value = self._settings.value(self.KEY_WINDOW_GEOMETRY)
-        return bytes(value) if value else None
-
-    @window_geometry.setter
-    def window_geometry(self, geometry: bytes) -> None:
-        """Save window geometry."""
-        self._settings.setValue(self.KEY_WINDOW_GEOMETRY, geometry)
-
-    @property
-    def window_state(self) -> bytes | None:
-        """Window state as bytes (for QMainWindow.restoreState)."""
-        value = self._settings.value(self.KEY_WINDOW_STATE)
-        return bytes(value) if value else None
-
-    @window_state.setter
-    def window_state(self, state: bytes) -> None:
-        """Save window state."""
-        self._settings.setValue(self.KEY_WINDOW_STATE, state)
+    # NOTE: window geometry / QMainWindow state are owned solely by
+    # `app/ui_state.UiStateStore` under its `UiState/` group (§8.8). This class
+    # used to carry a duplicate, never-called `window_geometry`/`window_state`
+    # pair on `window/geometry` / `window/state`; both were removed in #285
+    # because a second ownership story for the same data is exactly the debt
+    # that issue was filed against. Real stores may still hold those orphaned
+    # keys — nothing reads them.
 
     @property
     def theme_mode(self) -> ThemeMode:

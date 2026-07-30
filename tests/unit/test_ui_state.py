@@ -10,6 +10,8 @@ user's real Open Garden Planner registry/preferences.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QMainWindow, QSplitter
@@ -19,20 +21,39 @@ from open_garden_planner.app.ui_state import UiStateStore
 
 @pytest.fixture()
 def isolated_settings(tmp_path, monkeypatch):
-    """Redirect UiStateStore's QSettings to an INI file in tmp_path.
+    """Redirect the store to a plain INI file in tmp_path.
 
-    Uses ``monkeypatch`` to swap the ``QSettings`` symbol that ``UiStateStore``
-    resolves, so no *process-global* QSettings state (``setDefaultFormat`` /
-    ``setPath``) is mutated. Those statics are never reverted by Qt, and leaking
-    them poisons every QSettings created later in the session.
+    A *file*-backed store (not just the session's isolated registry key) is what
+    makes the round-trip assertions below meaningful: they check that a freshly
+    built store re-reads the backing medium rather than serving an in-memory
+    cache. Patches the one factory in ``app/settings.py`` — the same chokepoint
+    the session-wide isolation redirects (issue #285, ADR-041) — so no
+    *process-global* QSettings state (``setDefaultFormat`` / ``setPath``) is
+    mutated. Those statics are never reverted by Qt, and leaking them poisons
+    every store created later in the session (§11.4).
     """
     ini_path = tmp_path / "ogp-test.ini"
 
-    def _file_settings(*_args: object, **_kwargs: object) -> QSettings:
+    def _file_settings() -> QSettings:
         return QSettings(str(ini_path), QSettings.Format.IniFormat)
 
-    monkeypatch.setattr("open_garden_planner.app.ui_state.QSettings", _file_settings)
+    monkeypatch.setattr(
+        "open_garden_planner.app.settings.create_qsettings", _file_settings
+    )
     yield ini_path
+
+
+class TestUiStateStoreUsesTheChokepoint:
+    def test_store_is_built_by_create_qsettings(self, isolated_settings, qtbot) -> None:
+        """The fixture above can only isolate what routes through the factory.
+
+        Without this, every test in this file would silently fall back to the
+        session-wide registry key and the INI would stay empty — passing, while
+        proving nothing about the medium (issue #285).
+        """
+        store = UiStateStore()
+        # Qt normalises separators to '/', so compare as paths, not strings.
+        assert Path(store._settings.fileName()) == isolated_settings
 
 
 class TestUiStateStoreGeometry:

@@ -1,8 +1,8 @@
 """Persist & restore window geometry and splitter sizes.
 
-Thin wrapper around `QSettings` so that the application doesn't sprinkle
-raw key strings throughout `application.py`. Keys live under the `UiState/`
-group so they don't collide with app-domain settings handled by
+Thin wrapper around the settings backend so that the application doesn't
+sprinkle raw key strings throughout `application.py`. Keys live under the
+`UiState/` group so they don't collide with app-domain settings handled by
 `app/settings.py`.
 
 Note: per-panel collapse/expand state is intentionally NOT persisted. The
@@ -11,8 +11,9 @@ ADR-030), so the old ``save_panel_state`` / ``restore_panel_state`` helpers
 were removed.
 """
 
-from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QMainWindow, QSplitter
+
+from open_garden_planner.app import settings as app_settings
 
 
 class UiStateStore:
@@ -21,10 +22,12 @@ class UiStateStore:
     GROUP = "UiState"
 
     def __init__(self) -> None:
-        # Use the same explicit (org, app) tuple as app/settings.py so both
-        # stores read/write the same QSettings backend regardless of whether
-        # main.py has already called setOrganizationName/setApplicationName.
-        self._settings = QSettings("cofade", "Open Garden Planner")
+        # Same backend as everything else in the app, via the one chokepoint
+        # (issue #285, ADR-041) — this store used to build its own and so
+        # escaped the test isolation layered on AppSettings (docs §11.4).
+        # Called module-qualified on purpose: `app_settings.create_qsettings`
+        # is then the single name a test can patch to redirect every consumer.
+        self._settings = app_settings.create_qsettings()
 
     def save_geometry(self, window: QMainWindow) -> None:
         self._settings.setValue(f"{self.GROUP}/geometry", window.saveGeometry())
