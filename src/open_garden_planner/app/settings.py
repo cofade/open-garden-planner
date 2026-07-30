@@ -15,8 +15,10 @@ from open_garden_planner.ui.theme import ThemeMode
 # reads on every call rather than values captured at import time: that is what
 # lets a single redirection cover every consumer, for every store built *after*
 # the redirection. It cannot retarget a store that already exists (a QSettings
-# binds these at construction), which is why nothing may build one at import
-# time. See ADR-041.
+# binds these at construction), so *when* the redirection runs is what matters:
+# the test suite rebinds them at `tests/conftest.py` import time, before any test
+# module is imported. The mechanism is specified once, in docs §8.8 — read it
+# there before changing anything here. Decision + alternatives: ADR-041.
 ORGANIZATION_NAME = "cofade"
 APPLICATION_NAME = "Open Garden Planner"
 
@@ -26,9 +28,12 @@ def create_qsettings() -> QSettings:
 
     THE settings chokepoint: no other module may so much as name a QSettings,
     which ``tests/unit/test_settings_chokepoint.py`` enforces by walking the AST
-    of every module in ``src/`` and ``tests/``. Call it at **runtime** only — a
-    store built at import time predates the test isolation and is gated too.
-    Everything that persists user state routes through here —
+    of every module in ``src/``, ``tests/`` and ``scripts/`` (three test modules
+    are exempt, with stated reasons). Prefer calling this at **runtime** over
+    import time: an import-time store is still redirected by the test suite, but
+    once constructed it can be retargeted by nothing at all, which makes it a
+    trap for any other isolation scheme — so the gate flags it, as a smell rather
+    than a leak. Everything that persists user state routes through here —
     :class:`AppSettings` for preferences, ``app/ui_state.UiStateStore`` for
     window geometry — so one redirection isolates the whole app from the user's
     real store. Before #285 ``UiStateStore`` built its own, escaped the test

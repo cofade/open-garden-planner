@@ -7,8 +7,9 @@ it, and every full-app test read *and overwrote* the developer's own window
 state (120 writes from one test file). Fixing that one store is not the repair;
 the repair is that a *new* store cannot repeat it.
 
-Three rules, over ``src/`` **and** ``tests/`` (the incident was observed from the
-test side, and a stray store in a test leaks exactly as hard):
+Three rules, over ``src/``, ``tests/`` **and** ``scripts/`` (the incident was
+observed from the test side, and a stray store in a test — or in a dev script,
+which no conftest isolates — leaks exactly as hard):
 
 1. Only ``app/settings.py`` may name ``QSettings`` at all — import it, annotate
    with it, or construct it. Everything else takes a store from the factory.
@@ -398,9 +399,16 @@ class TestTheRedirectionMechanismItself:
     def test_the_redirection_actually_took(self) -> None:
         """Behavioural counterpart: the AST check above could pass while the
         values assigned were wrong."""
-        assert settings_module.create_qsettings().organizationName() != (
-            PRODUCTION_ORGANIZATION
-        ), "the running suite is pointed at the real user store"
+        org = settings_module.create_qsettings().organizationName()
+
+        # The equality comes first on purpose. On its own the inequality below
+        # would also pass for "" — i.e. in a broken state — which is the vacuity
+        # trap this file rejects elsewhere; pinning the store to the (never
+        # empty) module name closes it.
+        assert org == settings_module.ORGANIZATION_NAME
+        assert org != PRODUCTION_ORGANIZATION, (
+            "the running suite is pointed at the real user store"
+        )
 
 
 class TestDetectorsCatchKnownEscapes:
