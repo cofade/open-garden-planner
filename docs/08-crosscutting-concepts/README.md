@@ -221,14 +221,21 @@ accordion starts fully collapsed every session (US-226, ADR-030, §8.17.7).
 
 **The rule: `app/settings.create_qsettings()` is the only place in the repo that
 may construct — or even name — `QSettings`.** Everything that persists state
-takes its backend from that factory. Enforced by an AST walk over `src/` **and**
-`tests/` in `tests/unit/test_settings_chokepoint.py` (three test modules are
-exempt, by an exact-matched allowlist — `tests/` is in scope because the #283
-damage was observed from the test side), not by convention: `UiStateStore` built
+takes its backend from that factory. Enforced by an AST walk over `src/`,
+`tests/` and `scripts/` in `tests/unit/test_settings_chokepoint.py` (three test
+modules are exempt with stated reasons; `tests/` is in scope because the #283
+damage was observed from the test side, and `scripts/` because a dev script runs
+outside pytest where nothing isolates it — `installer/` is not scanned only
+because it has never touched settings), not by convention: `UiStateStore` built
 its own store until #285, which meant it escaped the test isolation layered on
 `AppSettings`, and every full-app test read *and overwrote* the developer's real
 window geometry and toolbar layout — 120 measured writes from a single test file
 (§11.4, ADR-041).
+
+**This section is the single specification of the mechanism.** ADR-041 records the
+decision and the alternatives; §11.4 and `CLAUDE.md` record the incident. Neither
+restates how it works, because three earlier attempts to keep a second copy in
+sync each drifted within one commit. Change the mechanism, change it here.
 
 Three further rules, each gated, each worth understanding before touching this:
 

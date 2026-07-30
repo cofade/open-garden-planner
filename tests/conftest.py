@@ -65,8 +65,13 @@ def isolate_qsettings():
 
     import open_garden_planner.app.settings as settings_module
 
+    # Narrow but real: catches a test that rebound the names and failed to undo
+    # it, and a future edit that moves the module-scope lines into a conditional.
+    # (It cannot detect their outright removal — this fixture would be gone too;
+    # `test_settings_chokepoint.py::TestTheRedirectionMechanismItself` parses the
+    # conftest AST for that.)
     assert settings_module.ORGANIZATION_NAME == TEST_ORGANIZATION, (
-        "the import-time redirection at the top of conftest.py did not take — "
+        "the import-time redirection at the top of conftest.py is not in effect — "
         "the suite would be reading and writing the real user store (#285)"
     )
 

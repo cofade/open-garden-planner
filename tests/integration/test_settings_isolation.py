@@ -36,9 +36,11 @@ from open_garden_planner.app.ui_state import UiStateStore
 def _active_store() -> tuple[str, str]:
     """The (organization, application) pair the app is pointed at right now.
 
-    Read at call time, never at import: ``conftest.isolate_qsettings`` rebinds
-    these two names when the session's first test starts, which is *after* this
-    module is imported during collection.
+    Read at call time rather than captured at import, so this reports the live
+    redirection whenever it happened. (Today ``tests/conftest.py`` rebinds the
+    two names at its own import time — before this module is even imported — so
+    a module-level constant would in fact work; reading at call time simply does
+    not depend on that ordering.)
     """
     return (settings_module.ORGANIZATION_NAME, settings_module.APPLICATION_NAME)
 

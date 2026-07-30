@@ -19,16 +19,18 @@ test side, and a stray store in a test leaks exactly as hard):
    process-global statics Qt never reverts (§11.4 — a leaked ``setPath`` to a
    deleted ``tmp_path`` once broke six unrelated tests two-thirds of the way
    through a session).
-3. Nobody may build a store at **import time** — not via ``create_qsettings()``
-   and not via any wrapper that owns one (``AppSettings``, ``UiStateStore``,
-   ``get_settings``), at module scope, in a class body, in a decorator, in a
-   default argument or in an annotation. This is the invariant the whole test
-   isolation rests on and the mechanism's one real hole: the session fixture
-   redirects by rebinding the factory's org/app names, which retargets every
-   store built *afterwards* but cannot retarget one that already exists — and an
-   import-time call runs before any fixture. A module-level
-   ``_PREFS = AppSettings()`` would therefore sit on the user's real key for the
-   whole session, reintroducing #283 with no singleton reset to save it.
+3. Nobody *should* build a store at **import time** — not via
+   ``create_qsettings()`` and not via any wrapper that owns one
+   (``AppSettings``, ``UiStateStore``, ``get_settings``), at module scope, in a
+   class body, in a decorator, in a default argument or in an annotation. Note
+   the weaker verb: this rule is **belt-and-braces**, not what makes the test
+   isolation hold. ``tests/conftest.py`` rebinds the factory's org/app names at
+   its own *import* time (module scope, not in a fixture), and pytest imports the
+   root conftest before any test module — so even an import-time store is built
+   after the redirection and lands in the test key. What the rule still buys: a
+   store constructed at import time can be redirected by *nothing* afterwards (a
+   ``QSettings`` binds its organization/application at construction), so it is a
+   latent trap for any other isolation scheme and a smell in its own right.
 
 The scan is an AST walk, not a regex, and every detector has a positive control
 in ``TestDetectorsCatchKnownEscapes`` — fed the exact escape it exists to catch.
@@ -60,6 +62,11 @@ CONFTEST = TESTS_ROOT / "conftest.py"
 
 STORE_CLASS = "QSettings"
 GLOBAL_STATICS = frozenset({"setDefaultFormat", "setPath"})
+
+# The real user store's organization. Hardcoded on purpose: by the time this
+# module is imported the module global has already been redirected, and the point
+# is that this literal must never be what the suite is pointed at.
+PRODUCTION_ORGANIZATION = "cofade"
 
 # Anything whose construction yields (or fetches) an object holding a store.
 # Naming only the low-level factory here was a real gate hole — see the module
@@ -131,8 +138,10 @@ def _builder_names(tree: ast.AST) -> frozenset[str]:
     ``STORE_BUILDERS`` names are not enough: ``AppSettings as _Prefs`` …
     ``_Prefs()`` walked past an earlier cut of this detector (review round 3,
     one experiment — the same way rounds 1 and 2 broke the two before it). Also
-    resolves subclasses, transitively, so ``class P(AppSettings)`` … ``P()``
-    counts.
+    resolves subclasses and plain assignment aliases, transitively, so
+    ``class P(AppSettings)`` … ``P()`` and ``_Mk = AppSettings`` … ``_Mk()``
+    count. Terminates because ``names`` only ever grows and is bounded by the
+    module's alias/ClassDef/Assign count.
     """
     names = set(STORE_BUILDERS)
     while True:
@@ -148,6 +157,16 @@ def _builder_names(tree: ast.AST) -> frozenset[str]:
                 _callee(base) in names for base in node.bases
             ):
                 grown.add(node.name)
+            elif (
+                isinstance(node, ast.Assign)
+                and isinstance(node.value, ast.Name | ast.Attribute)
+                and _callee(node.value) in names
+            ):
+                # `_Mk = AppSettings` … `_Mk()`. Same escape class as the import
+                # alias, one keystroke away — the pattern that cost three review
+                # rounds, so both spellings are handled rather than just the one
+                # that was demonstrated.
+                grown |= {t.id for t in node.targets if isinstance(t, ast.Name)}
         if grown == names:
             return frozenset(names)
         names = grown
@@ -163,13 +182,15 @@ def _builds_a_store_at_import_time(tree: ast.AST) -> list[int]:
     deliberately over-strict, since nothing legitimate builds a store there.
 
     **Acknowledged limit:** this reads names, so one level of indirection defeats
-    it — ``def _b(): return AppSettings()`` then ``_P = _b()`` at module scope is
-    not seen, nor is a constructor that builds a store transitively (a
-    module-level ``GardenPlannerApp()`` would). That is affordable because this
-    rule is **not** what makes the test isolation hold: `tests/conftest.py`
-    redirects at import time, so even an import-time store lands in the test key.
-    The rule is belt-and-braces against a store nothing can redirect later, and
-    a code smell in its own right.
+    it. Direct *renamings* are resolved (import alias, subclass, assignment
+    alias), but a call through a **helper** is not — ``def _b(): return
+    AppSettings()`` then ``_P = _b()`` at module scope is invisible, as is a
+    constructor that builds a store transitively (a module-level
+    ``GardenPlannerApp()`` would), and so are `functools.partial` / container
+    lookups. That is affordable because this rule is **not** what makes the test
+    isolation hold: `tests/conftest.py` redirects at import time, so even an
+    import-time store lands in the test key. The rule is belt-and-braces against
+    a store nothing can redirect later, and a code smell in its own right.
     """
     builders = _builder_names(tree)
     lines: list[int] = []
@@ -229,9 +250,13 @@ def _python_sources(root: Path) -> list[Path]:
 
 
 def _all_sources() -> list[Path]:
-    # `scripts/` is in scope too: the §11.4 corollary that cost the developer
-    # their real Welcome-dialog setting was a throwaway *probe script* writing to
-    # the production store outside pytest, where no fixture isolates anything.
+    # `scripts/` is in scope too: a dev script runs outside pytest, where no
+    # conftest redirects anything, so a store built there is by definition the
+    # real one. (This does not by itself close the §11.4 probe-script incident —
+    # that probe wrote through `get_settings()` at *runtime*, which no static gate
+    # can forbid; the mitigation for that is the recipe in the debug-verbose
+    # skill's corollary. Scanning is still worth it: it keeps the one place a
+    # script could hand-roll a store closed.)
     return (
         _python_sources(SRC_ROOT)
         + _python_sources(TESTS_ROOT)
@@ -318,11 +343,14 @@ class TestNoProcessGlobalQSettingsStatics:
 
 class TestNoStoreIsBuiltAtImportTime:
     def test_nothing_builds_a_store_at_import_time(self) -> None:
-        """The invariant the session-wide test isolation silently depends on.
+        """Belt-and-braces, not the load-bearing guarantee — see the module
+        docstring's rule 3 and ``test_the_redirection_is_at_conftest_module_scope``
+        below, which pins the mechanism that actually holds.
 
-        Rebinding the factory's names redirects stores built *after* the
-        rebinding. An import-time store is constructed before any fixture, so it
-        is pinned to the user's real key for the whole session — #283, again.
+        A store built at import time is fixed to whatever names were in effect at
+        that moment and can be redirected by nothing afterwards. Under this
+        suite's conftest that is already the test key, so this is a smell rather
+        than a leak — but it is a trap for anyone isolating differently.
         """
         offenders = _scan(_builds_a_store_at_import_time)
         assert offenders == [], (
@@ -331,6 +359,48 @@ class TestNoStoreIsBuiltAtImportTime:
             "annotation) — such a store cannot be redirected by the test "
             "isolation (ADR-041):\n" + "\n".join(offenders)
         )
+
+
+class TestTheRedirectionMechanismItself:
+    """Pin *where* the redirection lives, because everything defers to it.
+
+    Since the rules above are belt-and-braces, the isolation's actual guarantee
+    is that ``tests/conftest.py`` rebinds the two names at **module scope**, i.e.
+    at conftest import time — before pytest imports any test module, so a store
+    built during an import is still redirected. Demote those two lines into a
+    fixture (or into an ``if``/``try`` block) and the guarantee silently weakens
+    to what it was before this test existed, with nothing else noticing.
+    """
+
+    @staticmethod
+    def _module_scope_rebindings() -> set[str]:
+        tree = _parse(CONFTEST)
+        return {
+            target.attr
+            for stmt in tree.body  # top level only — not nested in anything
+            if isinstance(stmt, ast.Assign)
+            for target in stmt.targets
+            if isinstance(target, ast.Attribute)
+            and target.attr in {"ORGANIZATION_NAME", "APPLICATION_NAME"}
+        }
+
+    def test_the_redirection_is_at_conftest_module_scope(self) -> None:
+        assert self._module_scope_rebindings() == {
+            "ORGANIZATION_NAME",
+            "APPLICATION_NAME",
+        }, (
+            "tests/conftest.py must rebind BOTH settings names at module scope. "
+            "Anywhere else (a fixture, a guard) runs after collection, and a "
+            "QSettings built during a module import can never be retargeted "
+            "afterwards — see ADR-041."
+        )
+
+    def test_the_redirection_actually_took(self) -> None:
+        """Behavioural counterpart: the AST check above could pass while the
+        values assigned were wrong."""
+        assert settings_module.create_qsettings().organizationName() != (
+            PRODUCTION_ORGANIZATION
+        ), "the running suite is pointed at the real user store"
 
 
 class TestDetectorsCatchKnownEscapes:
@@ -389,6 +459,19 @@ class TestDetectorsCatchKnownEscapes:
                 True,
             ),
             ("subclass", "class P(AppSettings):\n    pass\n_P = P()", True),
+            ("assignment alias", "_Mk = AppSettings\n_P = _Mk()", True),
+            (
+                "assignment alias of an aliased import",
+                "from x import AppSettings as _A\n_Mk = _A\n_P = _Mk()",
+                True,
+            ),
+            # Documented limit, asserted so the docstring cannot drift from it:
+            # a call through a helper function is NOT seen.
+            (
+                "helper indirection (known limit)",
+                "def _b():\n    return AppSettings()\n_P = _b()",
+                False,
+            ),
             (
                 "subclass of a subclass",
                 "class A(AppSettings): pass\nclass B(A): pass\n_B = B()",
