@@ -18,8 +18,9 @@
 | **11** | **v1.8.13+** | **✅ Complete** | **Bed Interior Design, Visual Polish & Advanced 2D Tools** |
 | **12** | **v1.9.0 – v1.10.x** | **✅ Complete** | **Weather & Smart Features** |
 | **13** | **v1.11 – v1.24.x** | **✅ A–C complete, D: D1+D2.0 shipped** | **CAD Precision, Smart Features & Agent Integration** |
-| 14 | v2.0 | Planned ([epic #255](https://github.com/cofade/open-garden-planner/issues/255)) | 3D Visualization & Sun/Shade |
-| 15 | v2.1+ | Future | Platform & Community |
+| **14** | **v1.24.5 – v1.24.12** | **✅ Complete** ([epic #255](https://github.com/cofade/open-garden-planner/issues/255); no v2.0 bump — see the Phase 14 section) | **3D Visualization & Sun/Shade** |
+| **15** | **v1.25.0 – v1.26.0** | **📋 Packages 1–2 shipped, 3 unscoped** | **Visual Refresh** |
+| 16 | — | Future | Platform & Community |
 
 ---
 
@@ -2445,11 +2446,20 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 ---
 
-## Phase 14: 3D Visualization & Sun/Shade (Planned, v2.0 — epic #255)
+## Phase 14: 3D Visualization & Sun/Shade ✅ Complete (v1.24.5 – v1.24.12 — epic #255)
 
-**Goal**: Full three-dimensional garden view with sun/shade simulation — the milestone that justifies a major version bump.
+**Goal**: Full three-dimensional garden view with sun/shade simulation — the milestone that was planned to justify a major version bump.
 
-- 3D visualization (engine decided by the US-E5 spike — Qt3D vs PyVista vs pyqtgraph.opengl vs 2.5D fallback)
+> **Decision (2026-07-31): there is no v2.0 — the "v2.0 milestone" framing is retired.**
+> US-E1…E9 all shipped and [epic #255](https://github.com/cofade/open-garden-planner/issues/255)
+> is closed, but every PR merged under the CI default (**patch**), so the milestone landed across
+> **v1.24.5 – v1.24.12** and the line moved on to v1.26.2. Reviewed at completion and
+> **deliberately not back-filled with a major bump**: the 3D view is not (yet) prominent enough
+> in day-to-day use to carry a major-version claim. Versioning stays continuous and CI-driven;
+> a future major bump, if there is one, will be earned by something else. Phase-14 scope
+> exclusions previously labelled "v2.0" are labelled **Phase 14** throughout the docs.
+
+- 3D visualization (engine decided by the US-E5 spike — **outcome: GO on PyQt6-3D**; PyVista rejected at +466 MB, pyqtgraph.opengl rejected for no directional-light/FPS-camera control. ADR-038)
 - Object height properties (walls, fences, trees, structures)
 - Sun path simulation (shade calculation by season, time-of-day animation, seasonal analysis)
 - First-person walkthrough mode
@@ -2487,7 +2497,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 ---
 
-## Phase 15: Platform & Community (Future, v2.1+)
+## Phase 16: Platform & Community (Future)
 
 **Goal**: Extend the platform with community features, plugins, and cross-platform support.
 
