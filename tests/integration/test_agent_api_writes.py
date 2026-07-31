@@ -115,7 +115,9 @@ def _providers(view: CanvasView) -> AgentProviders:
         export_pdf=lambda *_a: _boom(),
         export_dxf=lambda _p: _boom(),
         export_csv=lambda *_a: _boom(),
-        create_object=lambda *args: bridge.run_on_main(lambda: _create(*args)),
+        # Keyword-only, matching the CreateObjectProvider protocol: server.py
+        # calls this by keyword so a width/height transposition can't happen.
+        create_object=lambda **kw: bridge.run_on_main(lambda: _create(**kw)),
         move_object=lambda item_id, dx, dy: bridge.run_on_main(
             lambda: _move(item_id, dx, dy)
         ),

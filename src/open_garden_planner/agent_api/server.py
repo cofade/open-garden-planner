@@ -598,9 +598,20 @@ def build_server(
                     match in the bundled database populates the plant's data.
             """
             _require_write_auth(write_token)
+            # Called by keyword: the provider takes eight positional args of
+            # which six are float|None / str|None, so a width/height (or
+            # name/species) transposition anywhere along this chain would be
+            # type-identical and silently produce the wrong object.
             result = await anyio.to_thread.run_sync(
                 lambda: providers.create_object(
-                    object_type, x, y, width, height, radius, name, species
+                    object_type=object_type,
+                    x=x,
+                    y=y,
+                    width=width,
+                    height=height,
+                    radius=radius,
+                    name=name,
+                    species=species,
                 )
             )
             return WriteResult(**result)

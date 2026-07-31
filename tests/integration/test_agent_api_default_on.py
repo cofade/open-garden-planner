@@ -174,7 +174,10 @@ def test_created_plant_gets_todays_planting_date(qtbot: Any, monkeypatch: Any) -
     from typing import Any as _Any
     from uuid import UUID
 
-    from open_garden_planner.core.growth_model import stamp_default_planting_date
+    from open_garden_planner.core.growth_model import (
+        planting_date_from_metadata,
+        stamp_default_planting_date,
+    )
 
     _discard_on_close(monkeypatch)
     win = GardenPlannerApp()
@@ -193,6 +196,12 @@ def test_created_plant_gets_todays_planting_date(qtbot: Any, monkeypatch: Any) -
         stamp_default_planting_date(reference, date.today())
         assert reference, "stamp_default_planting_date wrote nothing -- test is vacuous"
         assert item.metadata == reference
+
+        # Close the loop: the growth model's own READER must see it. Comparing
+        # writer-to-writer alone would still agree after a key rename inside
+        # plant_instance, and the growth/shadow/heatmap/3D views would silently
+        # stop engaging for new plants.
+        assert planting_date_from_metadata(item.metadata) == date.today()
     finally:
         win._stop_agent_api()
 
@@ -321,9 +330,11 @@ def test_create_refuses_a_locked_active_layer(qtbot: Any, monkeypatch: Any) -> N
     _discard_on_close(monkeypatch)
     win = GardenPlannerApp()
     qtbot.addWidget(win)
+    # Bound OUTSIDE the try: a failed assertion inside it would otherwise make
+    # the finally clause raise AttributeError and mask the real failure.
+    active = win.canvas_scene.active_layer
+    assert active is not None, "fixture precondition: a layer is active"
     try:
-        active = win.canvas_scene.active_layer
-        assert active is not None
         active.locked = True
         before = len(win.canvas_scene.items())
 
@@ -351,6 +362,79 @@ def test_create_refuses_an_unsupported_type_without_touching_the_scene(
         with pytest.raises(ValueError, match="cannot create"):
             win._do_agent_create_object(
                 "HOUSE", 10.0, 10.0, 50.0, 50.0, None, None, None
+            )
+        assert len(win.canvas_scene.items()) == before
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_create_through_the_bridge_wrapper_keeps_arguments_in_order(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Exercise `_agent_create_object` -- the main-thread bridge wrapper the
+    server actually calls -- rather than only `_do_agent_create_object`.
+
+    Six of its eight parameters are `float | None` / `str | None`, so a
+    width/height transposition anywhere along server -> provider -> wrapper is
+    type-identical and would silently yield a 120x250 bed for a 250x120 request.
+    Deliberately uses width != height so a swap cannot pass.
+    """
+    from uuid import UUID
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        result = win._agent_create_object(
+            object_type="GARDEN_BED",
+            x=400.0,
+            y=300.0,
+            width=250.0,
+            height=120.0,
+            radius=None,
+            name="Long Bed",
+            species=None,
+        )
+        item = win.canvas_scene.find_item_by_id(UUID(result["item_id"]))
+        assert item is not None
+        assert item.rect().width() == 250.0
+        assert item.rect().height() == 120.0
+        assert item.name == "Long Bed"
+    finally:
+        win._stop_agent_api()
+
+
+def test_create_refuses_species_on_a_non_plant(qtbot: Any, monkeypatch: Any) -> None:
+    """The one silent-ignore an otherwise loud tool would have had: a bed
+    quietly dropping the species it was handed."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        before = len(win.canvas_scene.items())
+        with pytest.raises(ValueError, match="not a plant"):
+            win._do_agent_create_object(
+                "RAISED_BED", 100.0, 100.0, 200.0, 100.0, None, None, "Tomato"
+            )
+        assert len(win.canvas_scene.items()) == before
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_create_refuses_an_absurd_plant_size(qtbot: Any, monkeypatch: Any) -> None:
+    """radius=10000 (a 100 m tree) is the shape of a metres-for-centimetres
+    slip. Unbounded, it reaches render_plant_pixmap's quadratic QImage on the
+    Qt main thread (~2.3 GB / ~3 s measured at diameter 24000)."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        before = len(win.canvas_scene.items())
+        with pytest.raises(ValueError, match="CENTIMETRES"):
+            win._do_agent_create_object(
+                "TREE", 100.0, 100.0, None, None, 10000.0, None, None
             )
         assert len(win.canvas_scene.items()) == before
         assert win.canvas_view.command_manager.can_undo is False

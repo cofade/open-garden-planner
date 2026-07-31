@@ -2408,7 +2408,10 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 | **D2** | Write/edit tools (create/move/resize/delete beds, containers, plants, shapes; assign species; layers) — auto-apply, one-undo-per-op, free co-edit; low-level geometry escape hatches. **Prerequisite: token auth** (FR-AGENT-03 / §8.11) must land before any write tool — a loopback port reachable by any local process must not gain mutate access unauthenticated. **D2.0 ✅ shipped** the token gate + first write slice (`move_object`/`delete_object`, ADR-036); **D2.1 ✅ shipped** `create_object` (plants + soil containers); remaining tools (resize/rotate/species/reparent/layers) follow behind the same gate |
 | **D3** | Domain-intelligence tools + guided write prompts (companion-aware placement, succession, calendar/tasks, soil amendment planning) |
 
-### US table (D1 = MVP)
+### US table (D1 = MVP; D2 = write slices)
+
+> D2.0 (token gate + `move_object`/`delete_object`) is described in the phasing
+> table above and in ADR-036; only D2.1 carries its own row here so far.
 | Status | US | Description |
 | ------ | -- | ----------- |
 | ✅ | D1.1 | **Embedded MCP server core** (spike) — streamable-HTTP server on `127.0.0.1:<port>` on a background asyncio thread; **on by default (read-only)**, Settings toggle to disable; `MainThreadBridge` marshaling boundary; `get_plan_summary` tracer tool; `mcp`/`uvicorn` bundled into the exe (frozen-server verified). See ADR-033/034, FR-26, §8.19. *(PR #239)* |

@@ -341,24 +341,29 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.core.commands import CreateItemCommand
         from open_garden_planner.core.growth_model import stamp_default_planting_date
 
+        if species and not creates.is_plant_type_name(object_type):
+            # The only silent-ignore an otherwise loud tool would have had.
+            raise ValueError(
+                f"{object_type} is not a plant, so it cannot take a species "
+                f"({species!r}). Drop the 'species' argument, or create a "
+                "TREE/SHRUB/PERENNIAL instead."
+            )
+
+        canvas_rect = self.canvas_scene.canvas_rect
         spec = creates.build_create_dict(
             object_type=object_type,
             x=x,
             y=y,
+            canvas_width_cm=canvas_rect.width(),
+            canvas_height_cm=canvas_rect.height(),
             width=width,
             height=height,
             radius=radius,
             name=name,
         )
 
-        active_layer = self.canvas_scene.active_layer
+        active_layer = self._agent_creation_target_layer()
         if active_layer is not None:
-            if active_layer.locked:
-                raise ValueError(
-                    f"The active layer {active_layer.name!r} is locked; unlock it "
-                    "in the app (or make another layer active) before creating "
-                    "objects."
-                )
             spec["layer_id"] = str(active_layer.id)
 
         item = self._project_manager._deserialize_item_core(spec)
@@ -380,6 +385,8 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_view.command_manager.execute(create_cmd)
 
         # Read back whatever _auto_parent_plant established inside the command.
+        # (See _agent_creation_target_layer for what creation validates; the
+        # shape/size/position half lives in the Qt-free agent_api.creates.)
         parent_bed_id = getattr(item, "parent_bed_id", None)
 
         cx, cy = self._agent_item_center(item)
@@ -394,6 +401,35 @@ class GardenPlannerApp(QMainWindow):
             "bed_membership_changed": False,
             "new_parent_bed_id": str(parent_bed_id) if parent_bed_id else None,
         }
+
+    def _agent_creation_target_layer(self) -> Any:
+        """The layer a new agent-created object must land on, or raise.
+
+        The creation-side counterpart of ``_resolve_agent_item``'s checks: a
+        write tool that *resolves* an existing item inherits that chokepoint,
+        but a tool that creates one has nothing to resolve, so the scene-level
+        guard lives here — as a seam, so the next creation-shaped tool
+        (`create_shape`, `duplicate_object`, …) inherits it instead of
+        copy-pasting the check.
+
+        Returns ``None`` when the scene has no active layer at all, matching the
+        GUI drop path (which also leaves ``layer_id`` unset in that case).
+
+        The shape/size/position half of creation's validation is the Qt-free
+        ``agent_api.creates`` module — keep the two in step.
+        """
+        active_layer = self.canvas_scene.active_layer
+        if active_layer is None:
+            return None
+        if active_layer.locked:
+            # The GUI enforces layer-lock by clearing the item interaction
+            # flags, so nothing can be drawn onto a locked layer there either.
+            raise ValueError(
+                f"The active layer {active_layer.name!r} is locked; unlock it "
+                "in the app (or make another layer active) before creating "
+                "objects."
+            )
+        return active_layer
 
     def _agent_move_object(self, item_id: str, dx: float, dy: float) -> dict[str, Any]:
         """Move one object by (dx, dy) scene cm ON the Qt main thread (for the server)."""

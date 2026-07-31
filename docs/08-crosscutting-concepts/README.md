@@ -472,7 +472,7 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 **Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
 
-**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0) are token-gated**: the scene-mutating tools (`move_object`/`delete_object`) ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
+**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0/D2.1) are token-gated**: the scene-mutating tools (`create_object`/`move_object`/`delete_object`) ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
 
 ## 8.12 Constraint Solver Architecture
 
@@ -939,12 +939,13 @@ next launch). See ADR-032 for the architecture.
 `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
 (loads, validates, every expression parses, generates ≥1 primitive).
 
-## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0, ADR-033/034/035/036)
+## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0/D2.1, ADR-033/034/035/036)
 
 The app can host an **MCP server over streamable-HTTP** so AI agents read the
 plan currently open in the GUI (epic #237). Package: `agent_api/`
 (`bridge.py`, `server.py`, `schema.py`, `mapping.py`, `queries.py`,
-`diagnostics.py`, `render.py`, `exports.py`, `providers.py`, `__init__.py`).
+`diagnostics.py`, `prompts.py`, `creates.py`, `render.py`, `exports.py`,
+`providers.py`, `__init__.py`).
 
 **Lifecycle.** `AgentApiServer` builds a `FastMCP`, takes its
 `streamable_http_app()` ASGI app, and runs a `uvicorn.Server` we own on a
@@ -1117,8 +1118,9 @@ CLI-independent Claude Code merge + honest Claude Desktop note + dialog
 sizing) for the full per-client reasoning (including why Claude Desktop can't
 be auto-registered) and §11.4 if a client's schema needs revisiting.
 
-**Agent write path & token gate (US-D2.0, ADR-036).** The first scene-mutating
-tools — `move_object(item_id, dx, dy)` and `delete_object(item_id)` — sit
+**Agent write path & token gate (US-D2.0/D2.1, ADR-036).** The scene-mutating
+tools — `move_object(item_id, dx, dy)`, `delete_object(item_id)` (D2.0) and
+`create_object(object_type, x, y, …)` (D2.1) — sit
 behind **two independent guards**: a **writes-enabled** Settings toggle
 (`agent_api_writes_enabled`, **default OFF**) and a **bearer token**
 (`agent_api_token`, auto-generated with `secrets.token_urlsafe(32)`). The tools
@@ -1172,6 +1174,50 @@ but `moveBy` on a `QGraphicsItemGroup` child displaces it within the group —
 address the group itself). `GroupItem`/`SmartSymbolItem` moves need no special
 handling: they are real Qt groups, so `moveBy`/delete cascade to members
 natively (the bed↔plant link is *logical*, which is why beds don't).
+
+**Creation is the exception to that chokepoint (US-D2.1).** `create_object`
+has no existing item to resolve, so it inherits **none** of
+`_resolve_agent_item`'s four refusals — which makes it the one write tool whose
+guards have to be stated separately. They live in two places, deliberately, and
+must be kept in step:
+
+- **Shape, size and position** — the Qt-free `agent_api/creates.py`. Beyond the
+  obvious (unsupported type, a dimension that doesn't fit the shape, a missing
+  or non-positive or non-finite extent) it applies two **sanity bounds**, because
+  finite-and-positive is not the same as plausible and an agent is exactly where
+  a metres-for-centimetres slip appears: every extent is capped at twice the
+  plan's larger canvas dimension (the error names the real plan size), and a
+  **plant's** diameter is additionally capped at 5000 cm because a plant
+  footprint feeds `plant_renderer.render_plant_pixmap`, which allocates an
+  `int(diameter)`-square ARGB `QImage` **from scene centimetres, not device
+  pixels**, on the Qt main thread — quadratic, and measured at ~2.3 GB / ~3 s
+  for a 24000 cm diameter, with allocation failure yielding a *null* (not
+  `None`) `QPixmap` the paint path forwards unchecked. Positions further than
+  one canvas beyond an edge are refused too: such an object is invisible,
+  unselectable and un-deletable in the GUI, so reporting success would be a lie.
+  This mirrors `render.py`'s existing precedent of clamping agent-supplied
+  sizes harder than the GUI does.
+- **Scene state** — `GardenPlannerApp._agent_creation_target_layer()`, which
+  needs the live scene and so cannot be Qt-free. It refuses a **locked active
+  layer** (the creation-side counterpart of the item-side lock check) and
+  returns `None` when the scene has no active layer at all, matching the GUI
+  drop path, which likewise leaves `layer_id` unset. It exists as a named seam
+  rather than an inline check so the next creation-shaped tool inherits it.
+
+One further asymmetry is worth knowing: creating on a **hidden** active layer
+silently un-hides that layer (`QGraphicsScene.addItem` does this for the GUI's
+draw tools too) and **undo does not re-hide it** — so the operation is one undo
+*stack* entry while leaving a non-undoable visibility change. Pre-existing GUI
+behaviour, not a D2.1 regression, but it sits oddly beside the locked-layer
+refusal and is recorded in FR-AGENT-14.
+
+Unlike `move_object`, `create_object` needs no bed reconciliation:
+`CreateItemCommand.execute` already calls `_auto_parent_plant` and its `undo`
+calls `_detach_from_parent`, so a new plant's bed link is established and
+reversed **inside the single create step**. (The first cut of D2.1 added an
+explicit reconcile on the false premise that the GUI never links a dropped
+plant; a probe of the running code disproved it — see ADR-036's D2.1 addendum.)
+
 The token is surfaced (Copy/Regenerate) in Preferences → Agent API and
 injected into each client's config by the D1.6 onboarding writers as a
 `?token=` query param on the connect URL (`ai_client_onboarding.url_with_token`).

@@ -13,7 +13,31 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
+
+
+class CreateObjectProvider(Protocol):
+    """The `create_object` provider's call signature, named parameters included.
+
+    A plain ``Callable[[str, float, float, float | None, ...], ...]`` would type
+    six of the eight arguments identically (`float | None` / `str | None`), so a
+    width/height or name/species transposition anywhere along the chain would be
+    type-identical and silently build the wrong object. Spelling it as a
+    Protocol makes the parameter NAMES part of the contract, which is what lets
+    `server.py` call it by keyword and have that mean something.
+    """
+
+    def __call__(
+        self,
+        object_type: str,
+        x: float,
+        y: float,
+        width: float | None,
+        height: float | None,
+        radius: float | None,
+        name: str | None,
+        species: str | None,
+    ) -> dict[str, Any]: ...
 
 
 @dataclass(frozen=True)
@@ -78,18 +102,6 @@ class AgentProviders:
     ]
     export_dxf: Callable[[str | None], dict[str, Any]]
     export_csv: Callable[[Literal["shopping_list", "harvest"], str | None], dict[str, Any]]
-    create_object: Callable[
-        [
-            str,
-            float,
-            float,
-            float | None,
-            float | None,
-            float | None,
-            str | None,
-            str | None,
-        ],
-        dict[str, Any],
-    ]
+    create_object: CreateObjectProvider
     move_object: Callable[[str, float, float], dict[str, Any]]
     delete_object: Callable[[str], dict[str, Any]]
