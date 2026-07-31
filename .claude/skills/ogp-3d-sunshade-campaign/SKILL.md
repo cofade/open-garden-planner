@@ -34,7 +34,12 @@ description: >
 > `scripts/solar_reference.py` oracle, the Y-axis discipline for azimuth→scene
 > conversion, and the measure-don't-eyeball gate philosophy. Load it for
 > *maintenance* of those subsystems — never as a plan for unstarted work.
-> Phase/gate ordering and "next free ADR/§8.x" numbers are historical.
+> Phase/gate ordering and "next free ADR/§8.x" numbers are historical. So is every
+> **"v2.0"** in the text below: that release was **never minted** — Phase 14 shipped as
+> patch bumps and the framing was formally retired on 2026-07-31 (the 3D view isn't
+> prominent enough to carry a major-version claim). Read "v2.0" as "Phase 14" — the
+> scope exclusions it labels (flat ground, no terrain slopes, geometric sun elevation)
+> are all still real.
 
 **Status of the inventory below (2026-07-04):** Everything under "EXISTS (verified)"
 was read from the repo at v1.23.0 (post-US-D1.3). Items marked **TO BUILD** were
