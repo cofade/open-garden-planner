@@ -46,6 +46,14 @@ class AgentProviders:
             totals. Takes the kind and an optional destination path; returns a
             plain dict, including a row count
             (``agent_api.exports.export_csv_file``).
+        create_object: **Write (D2).** Creates one plant or soil container.
+            Takes ``(object_type, x, y, width, height, radius, name, species)``
+            — centre coordinates in scene cm, with the dimension pair that fits
+            the type's shape; runs ONE undoable ``CreateItemCommand`` on the main
+            thread (which also links a plant to any bed it lands in, via
+            ``_auto_parent_plant``) and returns a plain ``WriteResult``-shaped
+            dict. Raises on an unsupported type or invalid dimensions
+            (``agent_api.creates.build_create_dict``).
         move_object: **Write (D2).** Moves one object by a relative offset
             (dx, dy in scene cm; +x east, +y north — the canvas is Y-up, so a
             negative dy moves south). Takes ``(item_id, dx, dy)``; runs one
@@ -70,5 +78,18 @@ class AgentProviders:
     ]
     export_dxf: Callable[[str | None], dict[str, Any]]
     export_csv: Callable[[Literal["shopping_list", "harvest"], str | None], dict[str, Any]]
+    create_object: Callable[
+        [
+            str,
+            float,
+            float,
+            float | None,
+            float | None,
+            float | None,
+            str | None,
+            str | None,
+        ],
+        dict[str, Any],
+    ]
     move_object: Callable[[str, float, float], dict[str, Any]]
     delete_object: Callable[[str], dict[str, Any]]

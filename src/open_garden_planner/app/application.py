@@ -276,6 +276,125 @@ class GardenPlannerApp(QMainWindow):
             )
         )
 
+    def _agent_create_object(
+        self,
+        object_type: str,
+        x: float,
+        y: float,
+        width: float | None,
+        height: float | None,
+        radius: float | None,
+        name: str | None,
+        species: str | None,
+    ) -> dict[str, Any]:
+        """Create one object ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_create_object(
+                object_type, x, y, width, height, radius, name, species
+            )
+        )
+
+    def _do_agent_create_object(
+        self,
+        object_type: str,
+        x: float,
+        y: float,
+        width: float | None,
+        height: float | None,
+        radius: float | None,
+        name: str | None,
+        species: str | None,
+    ) -> dict[str, Any]:
+        """Create one plant or soil container — one undoable step (US-D2.1).
+
+        Mirrors the GUI's own creation orchestration, not merely
+        ``CreateItemCommand``. The gallery-drop path in ``CanvasView`` does five
+        things in order, and skipping any of them ships a subtly broken object:
+        build the item, apply the species, auto-populate its species metadata
+        from the bundled DB (so the plant-detail panel and US-12.10d
+        soil-mismatch warnings light up without a manual "Suchen"), stamp
+        today's planting date (US-E8 — deliberately OUTSIDE the species guard,
+        so a placeholder that gains a species later is not left permanently
+        undated, which would break the growth model), and assign the active
+        layer.
+
+        The item itself is built by ``_deserialize_item_core`` — the file
+        loader's own factory — so an agent-created object is constructed by
+        exactly the code path a loaded one is.
+
+        Bed membership needs no work here: ``CreateItemCommand.execute`` already
+        calls ``_auto_parent_plant``, which links a plant to the smallest bed
+        containing it (and ``undo`` calls ``_detach_from_parent``). So the link
+        is established *inside* the single create step — unlike ``move_object``,
+        which must reconcile explicitly because ``MoveItemsCommand`` has no such
+        hook. This is therefore ALWAYS exactly one undo step. The resulting
+        parent, if any, is reported back as ``new_parent_bed_id``.
+
+        Refuses (raises) rather than guessing: an unsupported type, a dimension
+        that doesn't fit the type's shape, a non-finite or non-positive extent
+        (all in the Qt-free ``creates`` module), or a locked active layer — the
+        GUI can't draw onto a locked layer either.
+        """
+        from datetime import date
+
+        from open_garden_planner.agent_api import creates
+        from open_garden_planner.core.commands import CreateItemCommand
+        from open_garden_planner.core.growth_model import stamp_default_planting_date
+
+        spec = creates.build_create_dict(
+            object_type=object_type,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            radius=radius,
+            name=name,
+        )
+
+        active_layer = self.canvas_scene.active_layer
+        if active_layer is not None:
+            if active_layer.locked:
+                raise ValueError(
+                    f"The active layer {active_layer.name!r} is locked; unlock it "
+                    "in the app (or make another layer active) before creating "
+                    "objects."
+                )
+            spec["layer_id"] = str(active_layer.id)
+
+        item = self._project_manager._deserialize_item_core(spec)
+        if item is None:
+            raise ValueError(f"Could not build a {object_type} from those parameters.")
+
+        if creates.is_plant_type_name(object_type):
+            if species:
+                from open_garden_planner.services.bundled_species_db import (
+                    populate_item_species_metadata,
+                )
+
+                item.plant_species = species
+                populate_item_species_metadata(item, species)
+            # US-E8: every new plant is dated, species or not (see docstring).
+            stamp_default_planting_date(item.metadata, date.today())
+
+        create_cmd = CreateItemCommand(self.canvas_scene, item)
+        self.canvas_view.command_manager.execute(create_cmd)
+
+        # Read back whatever _auto_parent_plant established inside the command.
+        parent_bed_id = getattr(item, "parent_bed_id", None)
+
+        cx, cy = self._agent_item_center(item)
+        return {
+            "item_id": str(item.item_id),
+            "action": "create",
+            "undo_description": create_cmd.description,
+            "x": cx,
+            "y": cy,
+            # False by definition for create: the link (if any) happened inside
+            # the one create step, not as a separate second one.
+            "bed_membership_changed": False,
+            "new_parent_bed_id": str(parent_bed_id) if parent_bed_id else None,
+        }
+
     def _agent_move_object(self, item_id: str, dx: float, dy: float) -> dict[str, Any]:
         """Move one object by (dx, dy) scene cm ON the Qt main thread (for the server)."""
         return self._agent_bridge.run_on_main(
@@ -568,6 +687,7 @@ class GardenPlannerApp(QMainWindow):
             export_pdf=self._agent_export_pdf,
             export_dxf=self._agent_export_dxf,
             export_csv=self._agent_export_csv,
+            create_object=self._agent_create_object,
             move_object=self._agent_move_object,
             delete_object=self._agent_delete_object,
         )

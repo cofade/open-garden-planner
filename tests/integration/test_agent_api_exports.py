@@ -80,6 +80,7 @@ def _providers(
             lambda: export_csv_file(scene, project_manager, soil_service, kind, file_path)
         ),
         # Write providers are unused by these export tests.
+        create_object=lambda *_a: _unused("create_object"),
         move_object=lambda *_a: _unused("move_object"),
         delete_object=lambda *_a: _unused("delete_object"),
     )
