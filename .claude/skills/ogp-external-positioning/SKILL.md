@@ -101,11 +101,11 @@ garden planner with…", never "the first" flat.
 
 **MUST NOT be claimed until shipped (do not let these leak into README/releases/replies):**
 
-| Forbidden claim | Reality (2026-07-05) |
+| Forbidden claim | Reality (2026-07-31) |
 |-----------------|----------------------|
-| "Agents can edit/modify your garden plan" | D2 write tools **unshipped**. ADR-033: current server has **no auth** (loopback trust); token auth is a hard prerequisite *before* any write tool exists. |
-| "3D visualization / sun & shade simulation" | Phase 14 **not started** (roadmap lists it as Future, v2.0). Cross-ref `ogp-3d-sunshade-campaign` for the plan, `ogp-research-frontier` for what's open — plans are not features. |
-| "Secure/authenticated agent API" | No auth today by design (read-only + loopback). Say "local-only, read-only" instead. |
+| "Agents can edit/modify your garden plan" | **Partly shipped (D2.0, v1.24.3):** only `move_object` + `delete_object` exist, and only behind BOTH an off-by-default toggle and a bearer token. Create / resize / rotate / assign-species / reparent / layers are **unshipped** ([#237](https://github.com/cofade/open-garden-planner/issues/237), D2.1+). Claim "move and delete" — never a bare "edit". |
+| "3D visualization / sun & shade simulation" | **Shipped** (Phase 14, v1.24.5 – v1.24.12). Claimable — but only with the stated exclusions: **flat ground** (no terrain slopes), lighting-only 3D (**no engine shadow maps**), no walkthrough collision, geometric (unrefracted) sun elevation. Never imply terrain modelling. |
+| "Secure/authenticated agent API" | Token auth gates **writes only** (D2.0); reads stay open on loopback trust. The token travels in the connect **URL**, so it is visible in local request logs (accepted tradeoff, ADR-036). Say "loopback-only, token-gated writes" — never "secure" or "encrypted". |
 | Any "first ever" without qualifier | No prior-art survey exists. |
 
 ## 4. README claims audit discipline

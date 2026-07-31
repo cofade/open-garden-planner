@@ -7,7 +7,7 @@ description: >
   steps, and a falsifiable "you have a result when…" milestone. Load this when:
   picking the next big direction; evaluating whether an idea is genuinely novel
   or already solved elsewhere; scoping Package D2/D3 (agent write tools, domain
-  intelligence) or Phase-14+ ambitions (3D sun/shade, Phase 15 platform work);
+  intelligence) or Phase-15+ ambitions (visual refresh, Phase 16 platform work);
   someone asks "what should this project do next" or "where is the frontier
   here"; or you are about to resurrect a retired idea and need to check whether
   it was deliberately killed. Everything in here is OPEN or CANDIDATE work —
@@ -161,9 +161,9 @@ directly into planting decisions.
 - **Weather/climate services**: `services/weather_service.py` (frost alerts,
   US-12.1/12.2) already fetches location-driven data — the plumbing for
   climate-aware refinement (cloud cover, seasonal statistics) exists.
-- Phase 14 is already the roadmap's declared v2.0 milestone
-  (`docs/roadmap.md` ~line 2447): sun path simulation, shade by season,
-  object heights.
+- Phase 14 **shipped** (v1.24.5 – v1.24.12): sun path simulation, shade by
+  season, object heights, hours-of-sun heatmap, 3D view + walkthrough. These
+  are live assets to build on now, not plans.
 
 The missing piece is **object height** (no item carries a height property
 today — Phase 14 bullet "Object height properties" is unshipped) and a solar
@@ -417,9 +417,9 @@ no-tools baseline on the same task.
 
 ## Grounded optional candidates (thinner, still real)
 
-- **Cross-platform packaging** — explicitly on the roadmap: Phase 15
-  ("Platform & Community (Future, v2.1+)": plugin system, template sharing,
-  "Cross-platform packaging (macOS, Linux)", `docs/roadmap.md` ~line 2459).
+- **Cross-platform packaging** — explicitly on the roadmap: Phase 16
+  ("Platform & Community (Future)": plugin system, template sharing,
+  "Cross-platform packaging (macOS, Linux)", `docs/roadmap.md`).
   Candidate only; the entire build/verify pipeline (`installer/ogp.spec`,
   NSIS, the CLAUDE.md exe smoke test) is Windows-shaped today. First honest
   step: a Linux PyInstaller CI job that merely *builds and launches* headless

@@ -1,12 +1,13 @@
 ---
 name: ogp-3d-sunshade-campaign
 description: >
-  Executable, decision-gated campaign to deliver Phase 14 — 3D Visualization &
-  Sun/Shade (v2.0) for Open Garden Planner. Load this skill when starting or
-  resuming ANY Phase 14 work: 3D view, Qt3D/PyVista evaluation, sun path or
+  Reference pack for Open Garden Planner's SHIPPED 3D + sun/shade subsystems
+  (Phase 14, v1.24.5 – v1.24.12 — complete; epic #255 closed). Load this skill
+  when MAINTAINING or debugging any of it: 3D view, Qt3D usage, sun path or
   solar position math, shadow projection/casting, shade or hours-of-sun
   heatmaps, object height property, seasonal/time-of-day sun animation,
-  first-person walkthrough, or growth visualization. Also load when someone
+  first-person walkthrough, or growth visualization. It is a reference, NOT a
+  plan — its "TO BUILD" markers are historical and that code already exists. Also load when someone
   says "sun study", "shade map", "solar", "azimuth", "elevation angle",
   "shadow length", "height of fence/wall/tree", or asks which 3D engine to
   use. Contains verified repo asset inventory, the NOAA solar formulas with
@@ -14,11 +15,31 @@ description: >
   and GO/NO-GO gates for the 3D engine spike.
 ---
 
-# Phase 14 Campaign: 3D Visualization & Sun/Shade (v2.0)
+# Phase 14 Campaign: 3D Visualization & Sun/Shade
 
-**Status of this document (2026-07-04):** Everything under "EXISTS (verified)"
-was read from the repo at v1.23.0 (post-US-D1.3). Everything marked
-**TO BUILD** is FUTURE work — none of it exists yet. Do not conflate the two.
+> ## ⚠️ CAMPAIGN COMPLETE (2026-07-31) — READ THIS FIRST
+>
+> **Phase 14 shipped in full.** US-E1…E9 all merged across **v1.24.5 – v1.24.12**;
+> [epic #255](https://github.com/cofade/open-garden-planner/issues/255) is **closed**.
+> The 3D engine gate returned **GO: PyQt6-3D** (ADR-038).
+>
+> **Every "TO BUILD" marker below is now STALE — that code EXISTS.** Do not
+> re-implement it. `core/solar.py`, `core/object_height.py`, `core/shadow_geometry.py`,
+> `core/shade_aggregation.py`, `core/heatmap_render.py`, `core/scene3d.py`,
+> `core/walk_camera.py`, `core/growth_model.py`, `ui/view3d/` and
+> `ui/canvas/sun_heatmap.py` are all shipped and gated by tests.
+>
+> **This skill is now a REFERENCE, not a runbook.** What stays valid and load-bearing:
+> the NOAA/Meeus solar formulas with their pinned reference numbers, the
+> `scripts/solar_reference.py` oracle, the Y-axis discipline for azimuth→scene
+> conversion, and the measure-don't-eyeball gate philosophy. Load it for
+> *maintenance* of those subsystems — never as a plan for unstarted work.
+> Phase/gate ordering and "next free ADR/§8.x" numbers are historical.
+
+**Status of the inventory below (2026-07-04):** Everything under "EXISTS (verified)"
+was read from the repo at v1.23.0 (post-US-D1.3). Items marked **TO BUILD** were
+future work *at the time of writing* — see the completion banner above; they have
+all since shipped.
 
 **Re-verified 2026-07-19 at v1.24.3 (epic filed as #255, US issues #256–#264):**
 inventory facts held EXCEPT ADR numbering — US-D1.6/D2.0 consumed ADR-035/036,
