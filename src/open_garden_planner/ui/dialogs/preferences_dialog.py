@@ -418,7 +418,12 @@ class PreferencesDialog(QDialog):
         parent = self.parent()
         running_url = getattr(parent, "agent_api_running_url", lambda: None)()
         token = getattr(parent, "agent_api_write_token", lambda: None)()
-        dialog = ConnectAiAssistantDialog(running_url, self, token=token)
+        dialog = ConnectAiAssistantDialog(
+            running_url,
+            self,
+            token=token,
+            enabled_in_settings=self._agent_api_check.isChecked(),
+        )
         dialog.exec()
 
     def _save_and_accept(self) -> None:

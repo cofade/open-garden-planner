@@ -10281,6 +10281,10 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>Merge this into your ~/.claude.json file:</source>
             <translation>Fügen Sie dies in Ihre ~/.claude.json-Datei ein:</translation>
         </message>
+        <message>
+            <source>The Agent API is enabled, but its server is not running — it failed to start. The port may be in use by another program or a second copy of this app. Try a different port in Preferences → Agent API, then restart the application.</source>
+            <translation>Die Agent-API ist aktiviert, aber ihr Server läuft nicht – er konnte nicht gestartet werden. Möglicherweise wird der Port von einem anderen Programm oder einer zweiten Kopie dieser App verwendet. Versuchen Sie einen anderen Port unter Einstellungen → Agent-API und starten Sie die Anwendung neu.</translation>
+        </message>
     </context>
     <context>
         <name>SunSimToolbar</name>

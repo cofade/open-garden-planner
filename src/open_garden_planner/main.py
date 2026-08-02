@@ -88,6 +88,57 @@ def _run_selftest() -> int:
         ok = False
         print("  FAIL Qt runtime micro != Qt3D wheel micro (issue #277 mismatch)")
 
+    # --- Agent API embedded server (issue #291) ---------------------------
+    #
+    # The 8-second exe smoke test only proves the app survives startup, which a
+    # silently-dead subsystem passes. The Agent API server died in every
+    # released windowed build because uvicorn's default log config calls
+    # sys.stdout.isatty() and a console=False frozen exe has sys.stdout is None.
+    #
+    # This check needs no simulation: running inside that very exe, sys.stdout
+    # ALREADY is None, so simply starting the server here reproduces the exact
+    # shipping condition. Same reasoning as the Qt3D imports above (#277) --
+    # exercise the real failure surface in the real artifact.
+    try:
+        import socket
+
+        from open_garden_planner.agent_api import AgentApiServer, AgentProviders
+
+        def _never(*_a: object, **_k: object) -> dict[str, object]:
+            raise AssertionError("selftest must not invoke a provider")
+
+        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        probe.bind(("127.0.0.1", 0))
+        free_port = probe.getsockname()[1]
+        probe.close()
+
+        server = AgentApiServer(
+            AgentProviders(
+                snapshot=lambda: {},
+                diagnostics=lambda: [],
+                render=_never,
+                save_plan=_never,
+                export_pdf=_never,
+                export_dxf=_never,
+                export_csv=_never,
+                move_object=_never,
+                delete_object=_never,
+            ),
+            port=free_port,
+        )
+        try:
+            server.start()
+            if server.is_running:
+                print(f"  OK   Agent API server started on {free_port}")
+            else:
+                ok = False
+                print("  FAIL Agent API server did not start (issue #291 class)")
+        finally:
+            server.stop()
+    except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+        ok = False
+        print(f"  FAIL Agent API server selftest -> {exc!r}")
+
     print("SELFTEST:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 

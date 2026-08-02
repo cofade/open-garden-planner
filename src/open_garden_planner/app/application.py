@@ -4637,10 +4637,14 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_connect_ai_assistant(self) -> None:
         """Handle Connect AI Assistant action (US-D1.6)."""
+        from open_garden_planner.app.settings import get_settings
         from open_garden_planner.ui.dialogs import ConnectAiAssistantDialog
 
         dialog = ConnectAiAssistantDialog(
-            self.agent_api_running_url(), self, token=self.agent_api_write_token()
+            self.agent_api_running_url(),
+            self,
+            token=self.agent_api_write_token(),
+            enabled_in_settings=get_settings().agent_api_enabled,
         )
         dialog.exec()
 

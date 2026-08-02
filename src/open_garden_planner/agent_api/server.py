@@ -748,6 +748,16 @@ class AgentApiServer:
             # request line would persist the secret. Explicit, not merely implied
             # by the warning log level.
             access_log=False,
+            # Do NOT let uvicorn install its default logging config (issue #291).
+            # uvicorn's default formatter does `sys.stdout.isatty()` at dictConfig
+            # time (uvicorn/logging.py), and a PyInstaller **windowed** build sets
+            # sys.stdout/sys.stderr to None -- so Config.__init__ raises
+            # "ValueError: Unable to configure formatter 'default'" and the server
+            # never starts. That is invisible from source and from a console=True
+            # build, which is why it shipped: the Agent API was dead in every
+            # released exe. We want none of uvicorn's logging anyway (log_level and
+            # access_log above already say so), so pass None and keep our own.
+            log_config=None,
             lifespan="on",
         )
         server = uvicorn.Server(config)
