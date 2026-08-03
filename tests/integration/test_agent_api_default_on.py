@@ -124,6 +124,355 @@ def _discard_on_close(monkeypatch: Any) -> None:
     )
 
 
+# --- US-D2.1: create_object orchestration ---------------------------------
+#
+# These pin what create_object must mirror from the GUI's own gallery-drop path
+# (CanvasView drop handler): species auto-populate, the US-E8 planting-date
+# stamp, and active-layer assignment.
+#
+# Bed membership is NOT reconciled here: CreateItemCommand.execute already calls
+# _auto_parent_plant (and undo calls _detach_from_parent), so the link is part of
+# the single create step. That is the opposite of move_object, whose
+# MoveItemsCommand has no such hook and must reconcile explicitly.
+
+
+def test_do_agent_create_object_is_one_undoable_step(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    from uuid import UUID
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        before = len(win.canvas_scene.items())
+
+        result = win._do_agent_create_object(
+            "TREE", 300.0, 400.0, None, None, None, None, None
+        )
+
+        assert result["action"] == "create"
+        assert result["bed_membership_changed"] is False
+        item = win.canvas_scene.find_item_by_id(UUID(result["item_id"]))
+        assert item is not None
+        assert len(win.canvas_scene.items()) > before
+
+        # Exactly ONE undo step removes it again (invariants #3/#4/#13).
+        assert win.canvas_view.command_manager.can_undo
+        win.canvas_view.command_manager.undo()
+        assert win.canvas_scene.find_item_by_id(UUID(result["item_id"])) is None
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_created_plant_gets_todays_planting_date(qtbot: Any, monkeypatch: Any) -> None:
+    """US-E8: EVERY new plant is dated at creation, species or not -- the date
+    drives the growth model, and therefore the shadow/heatmap/3D views. The GUI
+    stamps it deliberately outside its species guard; so must this."""
+    from datetime import date
+    from typing import Any as _Any
+    from uuid import UUID
+
+    from open_garden_planner.core.growth_model import (
+        planting_date_from_metadata,
+        stamp_default_planting_date,
+    )
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        # No species -- the stamp must still happen.
+        result = win._do_agent_create_object(
+            "PERENNIAL", 100.0, 100.0, None, None, None, None, None
+        )
+        item = win.canvas_scene.find_item_by_id(UUID(result["item_id"]))
+        assert item is not None
+
+        # Compare against what the SAME stamping function writes, rather than
+        # hardcoding the metadata schema here (it would drift silently).
+        reference: dict[str, _Any] = {}
+        stamp_default_planting_date(reference, date.today())
+        assert reference, "stamp_default_planting_date wrote nothing -- test is vacuous"
+        assert item.metadata == reference
+
+        # Close the loop: the growth model's own READER must see it. Comparing
+        # writer-to-writer alone would still agree after a key rename inside
+        # plant_instance, and the growth/shadow/heatmap/3D views would silently
+        # stop engaging for new plants.
+        assert planting_date_from_metadata(item.metadata) == date.today()
+    finally:
+        win._stop_agent_api()
+
+
+def test_create_plant_inside_bed_links_it_to_the_bed(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """A plant created inside a bed is linked to it, and the link rides INSIDE
+    the single create step (CreateItemCommand._auto_parent_plant) -- one undo
+    both removes the plant and detaches it. An unlinked plant would leave
+    exactly the stale parent/child state soil-mismatch diagnostics act on."""
+    from uuid import UUID
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = RectangleItem(500, 500, 400, 300, object_type=ObjectType.RAISED_BED)
+        win.canvas_scene.addItem(bed)
+
+        # Centre well inside the bed's interior (x:500-900, y:500-800).
+        result = win._do_agent_create_object(
+            "PERENNIAL", 700.0, 650.0, None, None, 20.0, None, None
+        )
+
+        assert result["new_parent_bed_id"] == str(bed.item_id)
+        # No SECOND undo step was created -- the link is part of the create.
+        assert result["bed_membership_changed"] is False
+        plant = win.canvas_scene.find_item_by_id(UUID(result["item_id"]))
+        assert plant is not None
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
+
+        # Exactly ONE undo step: it removes the plant AND detaches the link
+        # (invariant #4 -- one agent write, one Ctrl+Z).
+        win.canvas_view.command_manager.undo()
+        assert win.canvas_scene.find_item_by_id(UUID(result["item_id"])) is None
+        assert plant.item_id not in bed.child_item_ids
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_create_plant_outside_any_bed_stays_unlinked(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Control for the test above: no bed under it, so no second undo step."""
+    from uuid import UUID
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = RectangleItem(500, 500, 400, 300, object_type=ObjectType.RAISED_BED)
+        win.canvas_scene.addItem(bed)
+
+        result = win._do_agent_create_object(
+            "PERENNIAL", 50.0, 50.0, None, None, 20.0, None, None
+        )
+
+        assert result["new_parent_bed_id"] is None
+        assert result["bed_membership_changed"] is False
+        plant = win.canvas_scene.find_item_by_id(UUID(result["item_id"]))
+        assert plant is not None and plant.parent_bed_id is None
+        win.canvas_view.command_manager.undo()
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_created_object_centre_matches_what_the_read_layer_reports(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The API speaks CENTRES in both directions: the x/y you pass in must be
+    the x/y a follow-up read reports back, for round AND rectangular types.
+    This is what pins the centre->anchor conversion end to end."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        tree = win._do_agent_create_object(
+            "TREE", 321.0, 654.0, None, None, 40.0, None, None
+        )
+        assert tree["x"] == pytest.approx(321.0)
+        assert tree["y"] == pytest.approx(654.0)
+
+        bed = win._do_agent_create_object(
+            "GARDEN_BED", 1000.0, 2000.0, 250.0, 120.0, None, None, None
+        )
+        assert bed["x"] == pytest.approx(1000.0)
+        assert bed["y"] == pytest.approx(2000.0)
+    finally:
+        win._stop_agent_api()
+
+
+def test_created_object_lands_on_the_active_layer(qtbot: Any, monkeypatch: Any) -> None:
+    from uuid import UUID
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        active = win.canvas_scene.active_layer
+        assert active is not None, "fixture precondition: a layer is active"
+
+        result = win._do_agent_create_object(
+            "CONTAINER", 10.0, 10.0, 50.0, 40.0, None, None, None
+        )
+        item = win.canvas_scene.find_item_by_id(UUID(result["item_id"]))
+        assert item is not None
+        assert item.layer_id == active.id
+    finally:
+        win._stop_agent_api()
+
+
+def test_create_refuses_a_locked_active_layer(qtbot: Any, monkeypatch: Any) -> None:
+    """The GUI can't draw onto a locked layer either (it clears the item flags).
+    The agent bypasses selection entirely, so the lock is honoured explicitly --
+    the same rule _resolve_agent_item enforces for move/delete."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    # Bound OUTSIDE the try: a failed assertion inside it would otherwise make
+    # the finally clause raise AttributeError and mask the real failure.
+    active = win.canvas_scene.active_layer
+    assert active is not None, "fixture precondition: a layer is active"
+    try:
+        active.locked = True
+        before = len(win.canvas_scene.items())
+
+        with pytest.raises(ValueError, match="locked"):
+            win._do_agent_create_object(
+                "TREE", 10.0, 10.0, None, None, None, None, None
+            )
+
+        # Refused means nothing was created and nothing is undoable.
+        assert len(win.canvas_scene.items()) == before
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        active.locked = False
+        win._stop_agent_api()
+
+
+def test_create_refuses_an_unsupported_type_without_touching_the_scene(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        before = len(win.canvas_scene.items())
+        with pytest.raises(ValueError, match="cannot create"):
+            win._do_agent_create_object(
+                "HOUSE", 10.0, 10.0, 50.0, 50.0, None, None, None
+            )
+        assert len(win.canvas_scene.items()) == before
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_create_through_the_bridge_wrapper_keeps_arguments_in_order(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Exercise `_agent_create_object` -- the main-thread bridge wrapper the
+    server actually calls -- rather than only `_do_agent_create_object`.
+
+    Six of its eight parameters are `float | None` / `str | None`, so a
+    width/height transposition anywhere along server -> provider -> wrapper is
+    type-identical and would silently yield a 120x250 bed for a 250x120 request.
+    Deliberately uses width != height so a swap cannot pass.
+    """
+    from uuid import UUID
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        result = win._agent_create_object(
+            object_type="GARDEN_BED",
+            x=400.0,
+            y=300.0,
+            width=250.0,
+            height=120.0,
+            radius=None,
+            name="Long Bed",
+            species=None,
+        )
+        item = win.canvas_scene.find_item_by_id(UUID(result["item_id"]))
+        assert item is not None
+        assert item.rect().width() == 250.0
+        assert item.rect().height() == 120.0
+        assert item.name == "Long Bed"
+    finally:
+        win._stop_agent_api()
+
+
+def test_create_refuses_species_on_a_non_plant(qtbot: Any, monkeypatch: Any) -> None:
+    """The one silent-ignore an otherwise loud tool would have had: a bed
+    quietly dropping the species it was handed."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        before = len(win.canvas_scene.items())
+        with pytest.raises(ValueError, match="not a plant"):
+            win._do_agent_create_object(
+                "RAISED_BED", 100.0, 100.0, 200.0, 100.0, None, None, "Tomato"
+            )
+        assert len(win.canvas_scene.items()) == before
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_create_refuses_an_absurd_plant_size(qtbot: Any, monkeypatch: Any) -> None:
+    """radius=10000 (a 100 m tree) is the shape of a metres-for-centimetres
+    slip. Unbounded, it reaches render_plant_pixmap's quadratic QImage on the
+    Qt main thread (~2.3 GB / ~3 s measured at diameter 24000)."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        before = len(win.canvas_scene.items())
+        with pytest.raises(ValueError, match="CENTIMETRES"):
+            win._do_agent_create_object(
+                "TREE", 100.0, 100.0, None, None, 10000.0, None, None
+            )
+        assert len(win.canvas_scene.items()) == before
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_created_plant_with_known_species_is_auto_populated(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Mirrors the drop path's populate_item_species_metadata call, so the plant
+    detail panel and US-12.10d soil-mismatch warnings light up without the user
+    having to click \"Suchen\"."""
+    from uuid import UUID
+
+    from open_garden_planner.services.bundled_species_db import lookup_species
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        # Pick the species straight from the bundled DB so the test can't drift
+        # from whatever that database actually contains.
+        if lookup_species("Tomato") is None:
+            pytest.skip("bundled species DB has no 'Tomato' record to exercise")
+
+        result = win._do_agent_create_object(
+            "PERENNIAL", 10.0, 10.0, None, None, None, None, "Tomato"
+        )
+        item = win.canvas_scene.find_item_by_id(UUID(result["item_id"]))
+        assert item is not None
+        assert item.plant_species == "Tomato"
+        # populate_item_species_metadata filled the species block, not left it empty.
+        assert item.metadata.get("plant_species")
+    finally:
+        win._stop_agent_api()
+
+
 def test_do_agent_move_object_is_one_undoable_step(qtbot: Any, monkeypatch: Any) -> None:
     _discard_on_close(monkeypatch)
     win = GardenPlannerApp()

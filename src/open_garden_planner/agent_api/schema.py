@@ -229,10 +229,17 @@ class ExportResult(BaseModel):
 
 
 class WriteResult(BaseModel):
-    """Result of a scene-mutating Agent API write tool (move_object/delete_object)."""
+    """Result of a scene-mutating Agent API write tool.
 
-    item_id: str = Field(description="Stable UUID of the object that was modified.")
-    action: Literal["move", "delete"] = Field(
+    Shared by ``create_object``/``move_object``/``delete_object``; fields that
+    don't apply to a given action carry their documented null/zero default.
+    """
+
+    item_id: str = Field(
+        description="Stable UUID of the object that was modified — for 'create', "
+        "the newly assigned id of the object just created."
+    )
+    action: Literal["create", "move", "delete"] = Field(
         description="The mutation performed."
     )
     undo_description: str = Field(
@@ -242,12 +249,13 @@ class WriteResult(BaseModel):
     )
     x: float | None = Field(
         default=None,
-        description="Resulting object centre X in scene cm (move only; null for delete).",
+        description="Resulting object centre X in scene cm (create/move; null for "
+        "delete).",
     )
     y: float | None = Field(
         default=None,
         description="Resulting object centre Y in scene cm (Y-up: a larger y is "
-        "further north; move only; null for delete).",
+        "further north; create/move; null for delete).",
     )
     children_moved: int = Field(
         default=0,
@@ -257,13 +265,16 @@ class WriteResult(BaseModel):
     bed_membership_changed: bool = Field(
         default=False,
         description="True if this move crossed a bed boundary and the plant's "
-        "parent bed was updated as a second undo step (move only, plants only).",
+        "parent bed was updated as a SECOND undo step (move only, plants only). "
+        "Always false for create — a new plant's bed link is established inside "
+        "the single create step, so see new_parent_bed_id instead.",
     )
     new_parent_bed_id: str | None = Field(
         default=None,
-        description="The plant's new parent bed UUID if bed_membership_changed is "
-        "true and it entered a bed; null if it left a bed, is unchanged, or is not "
-        "applicable.",
+        description="The bed the plant now belongs to: for create, the bed it was "
+        "placed inside (null if it landed outside every bed); for move, its new "
+        "parent when bed_membership_changed is true. Null if it left a bed, is "
+        "unchanged, or is not a plant.",
     )
     linked_items_deleted: int = Field(
         default=0,

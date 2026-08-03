@@ -80,9 +80,10 @@ class TestConnectAiAssistantEntryPoint:
         captured = {}
 
         class _FakeDialog:
-            def __init__(self, url, _parent, *, token=None):
+            def __init__(self, url, _parent, *, token=None, enabled_in_settings=False):
                 captured["url"] = url
                 captured["token"] = token
+                captured["enabled_in_settings"] = enabled_in_settings
 
             def exec(self):
                 return None
@@ -124,6 +125,26 @@ class TestConnectAiAssistantEntryPoint:
         captured = self._open_and_capture_url(dialog, monkeypatch)
 
         assert captured["url"] == "http://127.0.0.1:9191/mcp"
+
+    def test_enabled_but_dead_server_is_distinguishable_from_disabled(
+        self, dialog, monkeypatch
+    ) -> None:
+        """Issue #291: a missing URL has two causes and they need different
+        advice. Telling a user to tick an already-ticked box is a dead end, so
+        the dialog is told whether the feature is enabled, not just that there
+        is no URL."""
+        monkeypatch.setattr(dialog, "parent", lambda: _FakeParentWindow(None))
+
+        dialog._agent_api_check.setChecked(True)
+        captured = self._open_and_capture_url(dialog, monkeypatch)
+        assert captured["url"] is None
+        assert captured["enabled_in_settings"] is True, (
+            "enabled-but-not-running must be distinguishable from disabled"
+        )
+
+        dialog._agent_api_check.setChecked(False)
+        captured = self._open_and_capture_url(dialog, monkeypatch)
+        assert captured["enabled_in_settings"] is False
 
 
 class TestAgentApiTokenField:

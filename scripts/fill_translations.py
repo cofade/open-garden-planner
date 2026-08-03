@@ -2417,6 +2417,15 @@ _D16_TRANSLATIONS: dict[str, dict[str, str]] = {
             "Die Agent-API ist derzeit deaktiviert, daher kann sich noch kein "
             "KI-Assistent verbinden. Aktivieren Sie sie zuerst unter "
             "Einstellungen → Agent-API.",
+        "The Agent API is enabled, but its server is not running — it "
+        "failed to start. The port may be in use by another program or "
+        "a second copy of this app. Try a different port in "
+        "Preferences → Agent API, then restart the application.":
+            "Die Agent-API ist aktiviert, aber ihr Server läuft nicht – er "
+            "konnte nicht gestartet werden. Möglicherweise wird der Port von "
+            "einem anderen Programm oder einer zweiten Kopie dieser App "
+            "verwendet. Versuchen Sie einen anderen Port unter "
+            "Einstellungen → Agent-API und starten Sie die Anwendung neu.",
         "Close": "Schließen",
         "Connect URL": "Verbindungs-URL",
         "Copy URL": "URL kopieren",

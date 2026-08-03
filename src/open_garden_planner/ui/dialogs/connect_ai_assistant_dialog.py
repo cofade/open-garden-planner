@@ -43,11 +43,17 @@ class ConnectAiAssistantDialog(QDialog):
         parent: QWidget | None = None,
         *,
         token: str | None = None,
+        enabled_in_settings: bool = False,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Connect Your AI Assistant"))
         self.setMinimumSize(560, 480)
         self._server_url = server_url
+        # A missing URL has TWO causes and they need different advice (#291):
+        # the feature is switched off, or it is switched ON but the server
+        # failed to start. Telling someone to enable an already-ticked box —
+        # which is exactly what the old single message did — is a dead end.
+        self._enabled_in_settings = enabled_in_settings
         # Present only when AI editing is enabled AND the server is live — the
         # caller (application.agent_api_write_token) enforces both. When set, the
         # client is registered to send it so the D2 write tools are reachable.
@@ -114,12 +120,22 @@ class ConnectAiAssistantDialog(QDialog):
         layout.addLayout(self._build_close_row())
 
     def _setup_disabled_ui(self, layout: QVBoxLayout) -> None:
-        warning = QLabel(
-            self.tr(
+        if self._enabled_in_settings:
+            # Enabled but no live server: it failed to start (a port conflict,
+            # or the frozen-build startup failure of #291). Never tell the user
+            # to enable something whose box is already ticked.
+            message = self.tr(
+                "The Agent API is enabled, but its server is not running — it "
+                "failed to start. The port may be in use by another program or "
+                "a second copy of this app. Try a different port in "
+                "Preferences → Agent API, then restart the application."
+            )
+        else:
+            message = self.tr(
                 "The Agent API is currently disabled, so no AI assistant can "
                 "connect yet. Enable it in Preferences → Agent API first."
             )
-        )
+        warning = QLabel(message)
         warning.setWordWrap(True)
         layout.addWidget(warning)
         layout.addStretch()
