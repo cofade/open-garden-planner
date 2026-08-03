@@ -27,7 +27,11 @@ from open_garden_planner.agent_api import (
     AgentProviders,
     MainThreadBridge,
 )
-from open_garden_planner.core.commands import DeleteItemsCommand, MoveItemsCommand
+from open_garden_planner.core.commands import (
+    CreateItemCommand,
+    DeleteItemsCommand,
+    MoveItemsCommand,
+)
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items import CircleItem
@@ -73,6 +77,33 @@ def _providers(view: CanvasView) -> AgentProviders:
         view.command_manager.execute(cmd)
         return {"item_id": item_id, "action": "delete", "undo_description": cmd.description}
 
+    def _create(
+        object_type: str,
+        x: float,
+        y: float,
+        width: float | None,
+        height: float | None,
+        radius: float | None,
+        name: str | None,
+        species: str | None,
+    ) -> dict[str, Any]:
+        """Stand-in mirroring the real provider's shape (one CreateItemCommand).
+
+        Like _move/_delete above, this pins the TRANSPORT + auth contract, not
+        the GUI orchestration -- that lives in test_agent_api_default_on.py,
+        which drives the real GardenPlannerApp.
+        """
+        item = CircleItem(x, y, radius or 30.0, object_type=ObjectType[object_type])
+        cmd = CreateItemCommand(scene, item)
+        view.command_manager.execute(cmd)
+        return {
+            "item_id": str(item.item_id),
+            "action": "create",
+            "undo_description": cmd.description,
+            "x": x,
+            "y": y,
+        }
+
     def _boom(*_a: Any) -> dict[str, Any]:
         raise AssertionError("read provider must not run in this test")
 
@@ -84,6 +115,9 @@ def _providers(view: CanvasView) -> AgentProviders:
         export_pdf=lambda *_a: _boom(),
         export_dxf=lambda _p: _boom(),
         export_csv=lambda *_a: _boom(),
+        # Keyword-only, matching the CreateObjectProvider protocol: server.py
+        # calls this by keyword so a width/height transposition can't happen.
+        create_object=lambda **kw: bridge.run_on_main(lambda: _create(**kw)),
         move_object=lambda item_id, dx, dy: bridge.run_on_main(
             lambda: _move(item_id, dx, dy)
         ),
@@ -118,6 +152,86 @@ def _run(server: AgentApiServer, body: Callable[[Any], Any], qtbot: Any) -> dict
     qtbot.waitUntil(lambda: result.get("done", False), timeout=20000)
     assert result.get("error") is None, result.get("error")
     return result
+
+
+def test_create_object_end_to_end(canvas: Any, qtbot: Any) -> None:
+    """US-D2.1: an authenticated create_object call reaches the scene over the
+    real MCP transport and is one undoable step."""
+    from uuid import UUID
+
+    view = canvas
+    scene = view.scene()
+    before = len(scene.items())
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "create_object",
+                {"object_type": "TREE", "x": 800.0, "y": 600.0, "radius": 45.0},
+            )
+            body.result = call.structuredContent  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    created = body.result  # type: ignore[attr-defined]
+    assert created["action"] == "create"
+    assert len(scene.items()) > before
+    item = scene.find_item_by_id(UUID(created["item_id"]))
+    assert item is not None
+
+    # One undoable step that reverses cleanly.
+    assert view.command_manager.can_undo
+    view.command_manager.undo()
+    assert scene.find_item_by_id(UUID(created["item_id"])) is None
+
+
+def test_unauthenticated_create_is_rejected(canvas: Any, qtbot: Any) -> None:
+    """The write gate covers create_object too, not just move/delete."""
+    view = canvas
+    scene = view.scene()
+    before = len(scene.items())
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        async with (
+            http_client(url) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "create_object",
+                {"object_type": "TREE", "x": 800.0, "y": 600.0, "radius": 45.0},
+            )
+            body.is_error = call.isError  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.is_error is True  # type: ignore[attr-defined]
+    # Nothing was created and nothing is undoable.
+    assert len(scene.items()) == before
+    assert view.command_manager.can_undo is False
 
 
 def test_move_object_end_to_end(canvas: Any, qtbot: Any) -> None:

@@ -13,7 +13,31 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
+
+
+class CreateObjectProvider(Protocol):
+    """The `create_object` provider's call signature, named parameters included.
+
+    A plain ``Callable[[str, float, float, float | None, ...], ...]`` would type
+    six of the eight arguments identically (`float | None` / `str | None`), so a
+    width/height or name/species transposition anywhere along the chain would be
+    type-identical and silently build the wrong object. Spelling it as a
+    Protocol makes the parameter NAMES part of the contract, which is what lets
+    `server.py` call it by keyword and have that mean something.
+    """
+
+    def __call__(
+        self,
+        object_type: str,
+        x: float,
+        y: float,
+        width: float | None,
+        height: float | None,
+        radius: float | None,
+        name: str | None,
+        species: str | None,
+    ) -> dict[str, Any]: ...
 
 
 @dataclass(frozen=True)
@@ -46,6 +70,14 @@ class AgentProviders:
             totals. Takes the kind and an optional destination path; returns a
             plain dict, including a row count
             (``agent_api.exports.export_csv_file``).
+        create_object: **Write (D2).** Creates one plant or soil container.
+            Takes ``(object_type, x, y, width, height, radius, name, species)``
+            — centre coordinates in scene cm, with the dimension pair that fits
+            the type's shape; runs ONE undoable ``CreateItemCommand`` on the main
+            thread (which also links a plant to any bed it lands in, via
+            ``_auto_parent_plant``) and returns a plain ``WriteResult``-shaped
+            dict. Raises on an unsupported type or invalid dimensions
+            (``agent_api.creates.build_create_dict``).
         move_object: **Write (D2).** Moves one object by a relative offset
             (dx, dy in scene cm; +x east, +y north — the canvas is Y-up, so a
             negative dy moves south). Takes ``(item_id, dx, dy)``; runs one
@@ -70,5 +102,6 @@ class AgentProviders:
     ]
     export_dxf: Callable[[str | None], dict[str, Any]]
     export_csv: Callable[[Literal["shopping_list", "harvest"], str | None], dict[str, Any]]
+    create_object: CreateObjectProvider
     move_object: Callable[[str, float, float], dict[str, Any]]
     delete_object: Callable[[str], dict[str, Any]]

@@ -52,6 +52,7 @@ def _providers() -> AgentProviders:
         export_pdf=_unused,
         export_dxf=_unused,
         export_csv=_unused,
+        create_object=_unused,
         move_object=_unused,
         delete_object=_unused,
     )

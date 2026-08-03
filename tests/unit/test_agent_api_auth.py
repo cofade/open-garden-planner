@@ -38,6 +38,7 @@ def _stub_providers() -> AgentProviders:
         export_pdf=lambda *_a: {},
         export_dxf=lambda _p: {},
         export_csv=lambda *_a: {},
+        create_object=_boom,
         move_object=_boom,
         delete_object=_boom,
     )

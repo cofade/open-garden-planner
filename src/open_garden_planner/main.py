@@ -121,6 +121,7 @@ def _run_selftest() -> int:
                 export_pdf=_never,
                 export_dxf=_never,
                 export_csv=_never,
+                create_object=_never,
                 move_object=_never,
                 delete_object=_never,
             ),

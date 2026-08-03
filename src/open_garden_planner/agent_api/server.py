@@ -545,6 +545,78 @@ def build_server(
     if writes_active:
 
         @mcp.tool()
+        async def create_object(
+            object_type: str,
+            x: float,
+            y: float,
+            width: float | None = None,
+            height: float | None = None,
+            radius: float | None = None,
+            name: str | None = None,
+            species: str | None = None,
+        ) -> WriteResult:
+            """Create one plant or soil container on the plan.
+
+            Supported object_type values (the whole list -- anything else is
+            rejected):
+
+            * Plants (round): TREE, SHRUB, PERENNIAL. 'radius' is optional --
+              omit it for the app's own default footprint (radius 100/50/30 cm
+              respectively).
+            * Rectangular soil containers: GARDEN_BED, RAISED_BED, CONTAINER,
+              WALL_PLANTER. Both 'width' and 'height' are required.
+            * Round soil container: CONTAINER_ROUND. 'radius' is required.
+
+            Position is the object's CENTRE, in the same scene frame the read
+            tools report -- so you can place an object relative to one you just
+            read without converting anything. The canvas is CAD Y-up: a larger
+            y is further NORTH.
+
+            A new plant is stamped with today's planting date (which drives the
+            growth, shadow and sun-hours views) and, when 'species' matches the
+            bundled species database, is auto-populated with that species' data.
+            A plant created inside a bed is automatically linked to that bed,
+            within this same single undo step -- the bed's id comes back as
+            new_parent_bed_id.
+
+            The object lands on the currently active layer. Fails if that layer
+            is locked, if the dimensions don't fit the type's shape (e.g. width
+            on a round type), or if a dimension is zero, negative or not finite.
+
+            Args:
+                object_type: One of the names listed above.
+                x: Centre X in scene cm (a larger x is further east).
+                y: Centre Y in scene cm. CAD Y-up, so a larger y is further
+                    NORTH -- the same frame the read tools report.
+                width: Width in cm. Required for rectangular types, rejected
+                    for round ones.
+                height: Height in cm. Same rule as width.
+                radius: Radius in cm. For round types only; optional for plants
+                    (defaults above), required for CONTAINER_ROUND.
+                name: Optional display name for the object.
+                species: Optional species name for a plant, e.g. 'Tomato'. A
+                    match in the bundled database populates the plant's data.
+            """
+            _require_write_auth(write_token)
+            # Called by keyword: the provider takes eight positional args of
+            # which six are float|None / str|None, so a width/height (or
+            # name/species) transposition anywhere along this chain would be
+            # type-identical and silently produce the wrong object.
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.create_object(
+                    object_type=object_type,
+                    x=x,
+                    y=y,
+                    width=width,
+                    height=height,
+                    radius=radius,
+                    name=name,
+                    species=species,
+                )
+            )
+            return WriteResult(**result)
+
+        @mcp.tool()
         async def move_object(item_id: str, dx: float, dy: float) -> WriteResult:
             """Move one object by a relative offset.
 
