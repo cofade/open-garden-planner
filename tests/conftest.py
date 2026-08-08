@@ -132,6 +132,41 @@ def _reset_app_settings():
 
 
 @pytest.fixture(autouse=True)
+def _isolate_plant_api_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Prevent a developer's real plant-API .env credentials from leaking
+    into tests.
+
+    open_garden_planner.main calls load_dotenv() at import time, so any test
+    that imports it (directly or transitively) sets these vars in the shared
+    pytest process's os.environ for the rest of the session -- masking a
+    plant-API client's "credentials missing" path with a real key (issue
+    #294 investigation). Sourced from each client's own *_ENV_VAR constant so
+    a rename can't silently stop being covered here. (OGP_GOOGLE_MAPS_KEY has
+    the same leak risk but is covered locally where it's used --
+    tests/integration/test_map_picker_dialog.py's with_api_key fixture.)
+
+    Imports are local, not module-scope: the ADR-041 rebinding above must run
+    before any open_garden_planner module is imported (ADR-041's own
+    comment), and services.plant_api.* transitively pulls in a long import
+    chain via services/__init__.py -- module-scope imports here would sit
+    above that rebinding and quietly reopen the #283/#285 hazard.
+    """
+    from open_garden_planner.services.plant_api.perenual_client import PerenualClient
+    from open_garden_planner.services.plant_api.permapeople_client import (
+        PermapeopleClient,
+    )
+    from open_garden_planner.services.plant_api.trefle_client import TrefleClient
+
+    for var in (
+        PermapeopleClient.KEY_ID_ENV_VAR,
+        PermapeopleClient.KEY_SECRET_ENV_VAR,
+        PerenualClient.API_KEY_ENV_VAR,
+        TrefleClient.API_TOKEN_ENV_VAR,
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _no_weather_network():
     """Stub out the weather fetch thread so tests never make real network requests."""
     with patch("open_garden_planner.ui.widgets.weather_widget._WeatherFetchWorker"):

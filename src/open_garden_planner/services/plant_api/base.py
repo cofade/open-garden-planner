@@ -65,5 +65,10 @@ class PlantAPIClient(ABC):
 
         Returns:
             True if service can be reached, False otherwise
+
+        Raises:
+            PlantAPIError: Implementations may raise instead of returning
+                False to distinguish a connectivity/server failure from a
+                definitive rejection -- callers should be prepared for it.
         """
         pass

@@ -135,21 +135,47 @@ class PermapeopleClient(PlantAPIClient):
         """Check if the Permapeople API is currently available.
 
         Returns:
-            True if service can be reached, False otherwise
+            True if credentials are valid and the service responds, False if
+            credentials are missing or explicitly rejected (401/403)
+
+        Raises:
+            PlantAPIError: If the request itself fails (timeout, DNS,
+                connection reset, etc.) or the service returns any other
+                non-2xx status (5xx, 429, ...) -- kept distinct from a
+                definitive rejection so callers can tell "unreachable"/
+                "broken" apart from "rejected" instead of reporting all
+                three as a credentials problem
         """
         if not self._key_id or not self._key_secret:
             return False
 
         try:
-            # Try to list plants with a limit of 1
+            # per_page is a documented Permapeople parameter (default/max 100
+            # -- permapeople.org/knowledgebase/api-docs.html). Bounding it to 1
+            # keeps this a cheap connectivity probe: the unbounded default
+            # page returns ~100 full records (~250KB) and reliably took 6s+ to
+            # arrive, so a 5s timeout here silently misreported valid
+            # credentials as failed (issue #294). Measured ~0.5-1.0s at
+            # per_page=1, so the original timeout stays generous unchanged.
             response = self._session.get(
                 f"{self.BASE_URL}/plants",
-                params={"last_id": 0},
+                params={"last_id": 0, "per_page": 1},
                 timeout=5,
             )
-            return response.status_code == 200
-        except requests.RequestException:
+        except requests.RequestException as e:
+            # A genuine connectivity failure must not be reported to the user
+            # as "check your credentials" (issue #294).
+            raise PlantAPIError(f"connectivity check failed: {e}") from e
+
+        if response.status_code == 200:
+            return True
+        if response.status_code in (401, 403):
             return False
+        # Any other non-2xx (5xx, 429, ...) is a server-side problem, not a
+        # credentials rejection -- must not collapse into the same False as
+        # 401/403 or the "check your credentials" message reappears for an
+        # outage (issue #294).
+        raise PlantAPIError(f"unexpected HTTP {response.status_code} on connectivity check")
 
     def _parse_species(self, data: dict[str, Any]) -> PlantSpeciesData:
         """Parse Permapeople API response into PlantSpeciesData.
