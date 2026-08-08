@@ -139,6 +139,18 @@ class TestParseSpeciesNullSafety:
         assert result.common_name == "Unknown"
         assert result.scientific_name == "Unknown"
 
+    def test_null_id_does_not_become_the_string_none(self) -> None:
+        """str(data.get("id", "")) turned a null id into the literal string
+        "None" -- species_key() (ADR-016) prefers source_id, so every such
+        record collapsed onto the same key "none" (#296 review).
+        """
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {"id": None, "name": "Test", "scientific_name": "Testus", "data": []}
+
+        result = client._parse_species(payload)
+
+        assert result.source_id == ""
+
     def test_null_description_does_not_become_none(self) -> None:
         client = PermapeopleClient(key_id="id", key_secret="secret")
         payload = {"id": 1, "name": "Test", "scientific_name": "Testus", "data": [], "description": None}
@@ -298,7 +310,13 @@ class TestParseSpeciesFieldMapping:
         assert result.ph_min == 4.5
         assert result.ph_max == 8.7
 
-    def test_single_soil_ph_value_applies_to_both_min_and_max(self) -> None:
+    def test_single_soil_ph_value_stays_none(self) -> None:
+        """A single value (no range) is an optimum, not a hard band -- setting
+        both ph_min and ph_max to it collapses the acceptable range to zero
+        width and made soil_service's tight (+/-0.05) tolerance fire a false
+        mismatch for any real-world reading that wasn't that exact value
+        (live-observed: Permapeople's "Walking onion" record, #296 review).
+        """
         client = PermapeopleClient(key_id="id", key_secret="secret")
         payload = {
             "id": 1,
@@ -309,8 +327,8 @@ class TestParseSpeciesFieldMapping:
 
         result = client._parse_species(payload)
 
-        assert result.ph_min == 6.5
-        assert result.ph_max == 6.5
+        assert result.ph_min is None
+        assert result.ph_max is None
 
     def test_missing_soil_ph_stays_none(self) -> None:
         client = PermapeopleClient(key_id="id", key_secret="secret")

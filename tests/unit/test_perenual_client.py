@@ -50,6 +50,18 @@ class TestParseSpeciesNullSafety:
 
         assert result.scientific_name == "Unknown"
 
+    def test_null_id_does_not_become_the_string_none(self) -> None:
+        """str(data.get("id", "")) turned a null id into the literal string
+        "None" -- species_key() (ADR-016) prefers source_id, so every such
+        record collapsed onto the same key "none" (#296 review).
+        """
+        client = PerenualClient(api_key="key")
+        payload = {"id": None, "common_name": "Test", "scientific_name": "Testus"}
+
+        result = client._parse_species(payload)
+
+        assert result.source_id == ""
+
     def test_premium_gated_upsell_string_does_not_crash_or_misparse(self) -> None:
         """Live-observed: a premium-gated record returns the literal string
         "Upgrade Plans To Premium/Supreme - ..." for cycle/watering/sunlight

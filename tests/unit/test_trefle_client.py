@@ -96,24 +96,6 @@ class TestSoilAndPhMapping:
 
         assert result.nutrient_demand == "medium"
 
-    def test_nitrogen_fixation_overrides_soil_nutriments_scale(self) -> None:
-        """A legume must report "fixer", not a heavy/medium/light demand --
-        the 0-10 soil_nutriments scale has no way to express "adds nitrogen
-        rather than consuming it" (#296 review).
-        """
-        client = TrefleClient(api_token="token")
-        payload = {
-            "id": 1,
-            "common_name": "Pea",
-            "scientific_name": "Pisum sativum",
-            "specifications": {"nitrogen_fixation": True},
-            "growth": {"soil_nutriments": 3},
-        }
-
-        result = client._parse_species(payload)
-
-        assert result.nutrient_demand == "fixer"
-
     def test_soil_nutriments_low_maps_to_light_demand(self) -> None:
         client = TrefleClient(api_token="token")
         payload = {
@@ -201,3 +183,13 @@ class TestEdibleNullSafety:
         result = client._parse_species(payload)
 
         assert result.edible is False
+
+
+class TestSourceIdNullSafety:
+    def test_null_id_does_not_become_the_string_none(self) -> None:
+        client = TrefleClient(api_token="token")
+        payload = {"id": None, "common_name": "Test", "scientific_name": "Testus"}
+
+        result = client._parse_species(payload)
+
+        assert result.source_id == ""

@@ -293,10 +293,16 @@ class PermapeopleClient(PlantAPIClient):
         max_height_cm = _meters_str_to_cm(data_dict.get("height", ""))
         max_spread_cm = _meters_str_to_cm(data_dict.get("width", ""))
 
-        # Parse soil pH range (e.g. "6.2-6.8", or a single value like "6.5")
+        # Parse soil pH range (e.g. "6.2-6.8"). A *single* value (e.g. "6.5")
+        # is an optimum, not a hard min-and-max band -- treating it as both
+        # collapsed the acceptable range to zero width and made
+        # soil_service.get_mismatched_plants() (deliberately tight, +/-0.05)
+        # fire a false mismatch for any real-world reading that wasn't that
+        # exact value (live-observed: Permapeople's "Walking onion" record is
+        # a single "6.5", #296 review). Only a genuine range gives both ends.
         ph_numbers = _extract_numbers(data_dict.get("soil ph", ""))
-        ph_min = ph_numbers[0] if ph_numbers else None
-        ph_max = ph_numbers[-1] if len(ph_numbers) > 1 else ph_min
+        ph_min = ph_numbers[0] if len(ph_numbers) > 1 else None
+        ph_max = ph_numbers[-1] if len(ph_numbers) > 1 else None
 
         # Check if edible
         edible = data_dict.get("edible", "").lower() == "true"

@@ -232,11 +232,11 @@ class TrefleClient(PlantAPIClient):
                 nutrient_demand = "medium"
             else:
                 nutrient_demand = "light"
-        # A nitrogen fixer (legumes, etc.) is a distinct concept the 0-10
-        # scale can't express (it measures need, not whether the plant adds
-        # nitrogen) -- specifications.nitrogen_fixation overrides when set.
-        if specifications.get("nitrogen_fixation"):
-            nutrient_demand = "fixer"
+        # NOTE: Trefle's `specifications.nitrogen_fixation` looked like a
+        # natural "fixer" override, but it's a documented *string* field with
+        # an unspecified value domain, and it came back null on every one of
+        # 46 live legume records sampled during review (#296) -- not mapped
+        # here for lack of any real response to verify the shape against.
 
         # Foliage
         foliage = data.get("foliage", {}) or {}
@@ -255,8 +255,9 @@ class TrefleClient(PlantAPIClient):
         # Flowering information
         flower = data.get("flower", {}) or {}
         flower_color = None
-        if flower.get("color"):
-            flower_color = ", ".join(flower["color"])
+        flower_color_raw = flower.get("color")
+        if isinstance(flower_color_raw, list) and flower_color_raw:
+            flower_color = ", ".join(flower_color_raw)
 
         # Description from observations or growth description
         observations = data.get("observations", "")
