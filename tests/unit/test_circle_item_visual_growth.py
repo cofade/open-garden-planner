@@ -1,4 +1,4 @@
-"""Unit tests for CircleItem's growth-aware icon rendering (issue #298 follow-up).
+"""Unit tests for CircleItem's growth-aware icon rendering (issue #299).
 
 The plant's SVG icon size is decoupled from the drawn footprint: the
 footprint (``rect()``/``radius``) stays at the mature ``max_spread_cm`` for
@@ -52,6 +52,20 @@ def _alpha_at(image: QImage, scale: float, bounding, local_x: float, local_y: fl
     return image.pixelColor(px, py).alpha()
 
 
+def _shadow_only_alpha_at(item: CircleItem, local_x: float, local_y: float) -> int:
+    """Alpha attributable ONLY to the decorative drop-shadow at a point --
+    an on/off diff, so a caller can't be fooled by the icon's own opacity
+    the way a single-render check was (see TestDropShadowTracksTheIcon).
+    """
+    item._shadows_enabled = True
+    on_image, scale, bounding = _paint_alone(item)
+    on_alpha = _alpha_at(on_image, scale, bounding, local_x, local_y)
+    item._shadows_enabled = False
+    off_image, scale, bounding = _paint_alone(item)
+    off_alpha = _alpha_at(off_image, scale, bounding, local_x, local_y)
+    return max(0, on_alpha - off_alpha)
+
+
 class TestVisualPlantDiameter:
     def test_no_species_falls_back_to_footprint(self, qtbot) -> None:
         item = CircleItem(500.0, 500.0, 300.0, object_type=ObjectType.TREE)
@@ -98,17 +112,17 @@ class TestVisualPlantDiameter:
 
 
 class TestBoundingRectNeverShrinksBelowFootprint:
-    def test_shrunk_visual_diameter_does_not_shrink_bounding_rect(self, qtbot) -> None:
-        """The invariant is "never below the item's own geometry" (so hit-
-        testing/selection of the mature footprint stays intact) -- NOT "stays
-        equal to the mature-icon baseline". A much-smaller icon legitimately
-        needs LESS overflow than a full-size one (it draws well within the
-        footprint rect), so a strictly-smaller boundingRect here is correct,
-        not a regression.
+    def test_shrunk_visual_diameter_leaves_bounding_rect_byte_identical(self, qtbot) -> None:
+        """boundingRect()/sceneBoundingRect() must be EXACTLY unchanged when
+        the icon shrinks (not merely "not smaller than the footprint") --
+        core/snapping.py and core/alignment.py both build snap targets and
+        align/distribute anchors straight off sceneBoundingRect(), so any
+        shrink would silently move a "measured" plant's snap points relative
+        to an otherwise-identical unmeasured one (issue #299 review: measured
+        45 cm of drift per edge on a 6 m tree before this was floored).
         """
         item = _tree(qtbot)
         baseline = item.boundingRect()
-        footprint_width = item.rect().width()
 
         item.metadata["plant_instance"] = {
             "planting_date": date.today().isoformat(),
@@ -116,9 +130,7 @@ class TestBoundingRectNeverShrinksBelowFootprint:
         }
         shrunk = item.boundingRect()
 
-        assert shrunk.width() >= footprint_width
-        assert shrunk.height() >= item.rect().height()
-        assert shrunk.width() <= baseline.width()
+        assert shrunk == baseline
 
     def test_oversized_current_measurement_grows_bounding_rect(self, qtbot) -> None:
         """Qt uses boundingRect() for the repaint/hit-test region -- an
@@ -138,12 +150,19 @@ class TestBoundingRectNeverShrinksBelowFootprint:
 
 
 class TestDropShadowTracksTheIcon:
-    """Render-based regression pin (#298 senior review): a first cut of this
+    """Render-based regression pin (issue #299 review): a first cut of this
     fix left the decorative drop-shadow keyed to the full mature rect() while
     the icon shrank, so a young plant rendered as a large grey disc with a
     tiny sprite inside it. Every other test in this file asserts against
     private helpers, which stayed green through that regression -- this test
     renders actual pixels so it cannot make the same mistake.
+
+    A prior version of this test used a single-pixel "positive control" that
+    was found to be vacuous on a second review round: it passed identically
+    with the drop-shadow feature entirely disabled, because the pixel it
+    checked was covered by the icon, not the shadow. Both checks below use
+    an on/off diff instead, so neither can be satisfied by the icon's own
+    opacity.
     """
 
     def test_shrunk_icon_leaves_no_shadow_at_the_mature_footprints_edge(self, qtbot) -> None:
@@ -152,32 +171,32 @@ class TestDropShadowTracksTheIcon:
             "planting_date": date.today().isoformat(),
             "current_spread_cm": 20.0,  # icon radius ~10, far smaller than 100
         }
-        item._shadows_enabled = True
-
-        image, scale, bounding = _paint_alone(item)
         rect = item.rect()
 
         # A point near the edge of the MATURE footprint -- reachable by the
         # pre-fix shadow (drawn at rect()), unreachable by either the shrunk
         # icon or a shadow correctly sized to match it.
-        edge_alpha = _alpha_at(image, scale, bounding, rect.center().x() + 90, rect.center().y())
+        edge_shadow_alpha = _shadow_only_alpha_at(item, rect.center().x() + 90, rect.center().y())
 
-        assert edge_alpha == 0
+        assert edge_shadow_alpha == 0
 
-    def test_mature_icon_still_casts_its_shadow(self, qtbot) -> None:
-        """Positive control: the drop-shadow isn't just gone everywhere --
-        a plant with no growth data (icon == full footprint) still shows one
-        near its edge, same as before this fix.
+    def test_shrunk_icon_still_casts_its_own_smaller_shadow(self, qtbot) -> None:
+        """Positive control: the shadow feature does still produce ink
+        somewhere near the shrunk icon -- it didn't just vanish, it got
+        correctly smaller (empirically located: alpha 40 on, 0 off, just
+        past the ~11.5 cm rendered icon radius, well inside the mature
+        footprint's edge checked above).
         """
         item = _tree(qtbot, radius=100.0)
-        item._shadows_enabled = True
-
-        image, scale, bounding = _paint_alone(item)
+        item.metadata["plant_instance"] = {
+            "planting_date": date.today().isoformat(),
+            "current_spread_cm": 20.0,
+        }
         rect = item.rect()
 
-        edge_alpha = _alpha_at(image, scale, bounding, rect.center().x() + 90, rect.center().y())
+        near_shadow_alpha = _shadow_only_alpha_at(item, rect.center().x() + 12, rect.center().y())
 
-        assert edge_alpha > 0
+        assert near_shadow_alpha > 0
 
 
 class TestFootprintUnaffected:

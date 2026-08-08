@@ -343,7 +343,7 @@ def test_permapeople_species_resizes_footprint_and_enables_height(
 def test_editing_current_spread_shrinks_icon_without_shrinking_footprint(
     panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
 ) -> None:
-    """Regression pin (#298 follow-up): the Plant Details panel's "Current
+    """Regression pin (#299): the Plant Details panel's "Current
     Spread" field must shrink the rendered icon -- matching the shadow, which
     already did this via the growth model -- WITHOUT touching the spacing
     footprint (core/plant_sizing.py's mature-size-for-spacing invariant).

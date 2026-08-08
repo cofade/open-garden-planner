@@ -23,7 +23,7 @@ from open_garden_planner.core.plant_renderer import (
 
 
 class TestRenderDiameterCap:
-    """Regression pins for issue #298 review: an uncapped diameter reaches
+    """Regression pins for issue #299: an uncapped diameter reaches
     an int(diameter)-square QImage allocation with no upper bound -- the
     same hazard class US-D2.1 already capped for the agent API's
     create_object. current_spread_cm's spin box (max 10000) had no bound

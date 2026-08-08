@@ -254,14 +254,22 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         base = super().boundingRect()
         if is_plant_type(self.object_type):
             rect = self.rect()
-            # Visual diameter may now differ from the footprint (#298
-            # follow-up); never let boundingRect() SHRINK below the footprint
-            # (clamped at 0), but DO grow past it if a recorded current size
-            # exceeds the mature max_spread_cm -- else that oversized pixmap
-            # would paint outside this advertised rect (Qt uses it for the
-            # repaint/hit-test region, not just the on-screen visual).
+            # Visual diameter may now differ from the footprint (issue #299).
+            # overflow is FLOORED at the pre-#299 value (never less), so a
+            # shrunk icon leaves boundingRect()/sceneBoundingRect() BYTE-
+            # IDENTICAL to before -- core/snapping.py and core/alignment.py
+            # both build snap targets and align/distribute anchors straight
+            # off sceneBoundingRect(), so a shrinking rect would silently
+            # move a "measured" plant's snap points relative to an otherwise
+            # identical unmeasured one (a real CAD-precision bug a #299
+            # review round caught: measured 45 cm of drift per edge on a
+            # 6 m tree). It still GROWS past the floor when a recorded
+            # current size exceeds the mature max_spread_cm -- else that
+            # oversized pixmap paints outside this advertised rect.
             diameter = self._visual_plant_diameter_cm(rect.width())
-            overflow = max(0.0, (diameter * self._PLANT_FILL_SCALE - rect.width()) / 2.0)
+            mature_overflow = rect.width() * (self._PLANT_FILL_SCALE - 1.0) / 2.0
+            grown_overflow = (diameter * self._PLANT_FILL_SCALE - rect.width()) / 2.0
+            overflow = max(mature_overflow, grown_overflow)
             base = base.adjusted(-overflow, -overflow, overflow, overflow)
         m = self._shadow_margin()
         if m > 0:
@@ -330,7 +338,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # two disagreeing, which is exactly how a prior cut of this left the
         # drop-shadow drawn at the full mature footprint while the icon
         # shrank (a young plant rendered as a large grey disc with a tiny
-        # sprite inside it, #298 review). Equals rect.width() when there is
+        # sprite inside it, #299 review). Equals rect.width() when there is
         # no growth data, so this is a no-op for every non-growth plant and
         # every non-plant circle.
         diameter = self._visual_plant_diameter_cm(rect.width()) if is_plant else rect.width()

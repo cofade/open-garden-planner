@@ -29,7 +29,7 @@ spacing ring or the spacing-overlap diagnostic, which stay on the MATURE
 ``max_spread_cm`` — spacing is a planning-for-maturity rule, so shrinking it
 to a sapling's current canopy would let the user plant too densely.
 
-Update (issue #298): the drawn circle's own SVG icon is no longer part of
+Update (issue #299): the drawn circle's own SVG icon is no longer part of
 this module's "stays mature" guarantee either — ``CircleItem`` renders it at
 the growth-model size when available (``_visual_plant_diameter_cm``), while
 ``rect()``/``radius`` (what THIS module reads) stay exactly as documented
