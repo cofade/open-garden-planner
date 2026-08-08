@@ -1,6 +1,7 @@
 """Permapeople Plant API client implementation."""
 
 import logging
+import re
 from typing import Any
 
 import requests
@@ -18,12 +19,29 @@ from .base import PlantAPIClient, PlantAPIError
 logger = logging.getLogger(__name__)
 
 
+_NUMBER_RE = re.compile(r"\d+\.?\d*")
+
+
+def _extract_numbers(value: str) -> list[float]:
+    """Extract numeric tokens from a string like "1.5-3.0m" or "6.2-6.8".
+
+    Deliberately excludes a leading sign from the pattern -- Permapeople's
+    range separator is a plain hyphen (and, on at least one live record, an
+    en dash), and treating either as part of the following number would
+    silently negate it.
+    """
+    return [float(match) for match in _NUMBER_RE.findall(value or "")]
+
+
 def _meters_str_to_cm(value: str) -> float | None:
-    """Parse a Permapeople Height/Width string (metres) into centimetres."""
-    try:
-        return float(value) * 100
-    except (TypeError, ValueError):
-        return None
+    """Parse a Permapeople Height/Width string (metres) into centimetres.
+
+    Handles a bare value ("10.0"), a range ("1.5-3.0" or "15-32m", using the
+    upper bound as the mature size), and an optional trailing unit suffix --
+    all live-observed formats (#296).
+    """
+    numbers = _extract_numbers(value)
+    return numbers[-1] * 100 if numbers else None
 
 
 class PermapeopleClient(PlantAPIClient):
@@ -202,12 +220,12 @@ class PermapeopleClient(PlantAPIClient):
         # None -- every lookup below chains a .lower()/.split() off the
         # result, which crashed the whole record before this guard (#296).
         data_dict: dict[str, str] = {}
-        for item in data.get("data", []):
+        for item in data.get("data") or []:
             if isinstance(item, dict):
                 key = item.get("key", "")
                 value = item.get("value")
                 if key:
-                    data_dict[key.lower()] = value if value is not None else ""
+                    data_dict[key.lower()] = str(value) if value is not None else ""
 
         # Extract structured data from key-value pairs
         family = data_dict.get("family", "")
@@ -275,16 +293,10 @@ class PermapeopleClient(PlantAPIClient):
         max_height_cm = _meters_str_to_cm(data_dict.get("height", ""))
         max_spread_cm = _meters_str_to_cm(data_dict.get("width", ""))
 
-        # Parse soil pH range (e.g. "6.2-6.8")
-        ph_str = data_dict.get("soil ph", "")
-        ph_min, ph_max = None, None
-        if ph_str:
-            ph_parts = ph_str.split("-")
-            try:
-                ph_min = float(ph_parts[0].strip())
-                ph_max = float(ph_parts[1].strip()) if len(ph_parts) > 1 else ph_min
-            except ValueError:
-                pass
+        # Parse soil pH range (e.g. "6.2-6.8", or a single value like "6.5")
+        ph_numbers = _extract_numbers(data_dict.get("soil ph", ""))
+        ph_min = ph_numbers[0] if ph_numbers else None
+        ph_max = ph_numbers[-1] if len(ph_numbers) > 1 else ph_min
 
         # Check if edible
         edible = data_dict.get("edible", "").lower() == "true"
@@ -323,7 +335,7 @@ class PermapeopleClient(PlantAPIClient):
             image_url=image_url,
             thumbnail_url=thumbnail_url,
             data_source="permapeople",
-            source_id=str(data.get("id", "")),
+            source_id=str(data.get("id") or ""),
             description=data.get("description") or "",
             raw_data=data,
         )

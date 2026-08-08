@@ -210,12 +210,19 @@ class TrefleClient(PlantAPIClient):
         max_height_data = specifications.get("maximum_height", {}) or {}
         max_height_cm = max_height_data.get("cm")
 
-        # Soil pH range -- Trefle's own field names, direct 1:1 (#296)
-        ph_min = specifications.get("ph_minimum")
-        ph_max = specifications.get("ph_maximum")
+        # Soil pH range. Trefle docs (docs.trefle.io/docs/advanced/plants-fields):
+        # "The minimum/maximum acceptable soil pH ... for the plant" -- a
+        # direct 1:1 with ph_min/ph_max. Lives under `growth`, not
+        # `specifications` (#296) -- verified against a live Carrot response
+        # (growth.ph_minimum=6.5, growth.ph_maximum=7.0).
+        ph_min = growth.get("ph_minimum")
+        ph_max = growth.get("ph_maximum")
 
         # Nutrient demand from the 0-10 soil_nutriments scale, mirroring the
-        # light/atmospheric_humidity 0-10-scale mapping above (#296)
+        # light/atmospheric_humidity 0-10-scale mapping above (#296). Trefle
+        # docs: "Required quantity of nutriments in the soil, on a scale from
+        # 0 (oligotrophic) to 10 (hypereutrophic)" -- this is the plant's
+        # demand, not its tolerance, so higher really does mean "heavier".
         nutrient_demand = None
         soil_nutriments = growth.get("soil_nutriments")
         if soil_nutriments is not None:
@@ -225,12 +232,16 @@ class TrefleClient(PlantAPIClient):
                 nutrient_demand = "medium"
             else:
                 nutrient_demand = "light"
+        # A nitrogen fixer (legumes, etc.) is a distinct concept the 0-10
+        # scale can't express (it measures need, not whether the plant adds
+        # nitrogen) -- specifications.nitrogen_fixation overrides when set.
+        if specifications.get("nitrogen_fixation"):
+            nutrient_demand = "fixer"
 
         # Foliage
         foliage = data.get("foliage", {}) or {}
-        foliage_color = ""
-        if foliage.get("color"):
-            foliage_color = ", ".join(foliage["color"])
+        foliage_color_raw = foliage.get("color")
+        foliage_color = ", ".join(foliage_color_raw) if isinstance(foliage_color_raw, list) else ""
         foliage_texture = foliage.get("texture") or ""
 
         # Edible information
@@ -268,7 +279,7 @@ class TrefleClient(PlantAPIClient):
             image_url=image_url,
             thumbnail_url=image_url,  # Trefle doesn't provide separate thumbnails
             data_source="trefle",
-            source_id=str(data.get("id", "")),
+            source_id=str(data.get("id") or ""),
             description=description,
             edible=edible,
             edible_parts=edible_parts,

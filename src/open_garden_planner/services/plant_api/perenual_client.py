@@ -216,7 +216,7 @@ class PerenualClient(PlantAPIClient):
             image_url=image_url,
             thumbnail_url=thumbnail_url,
             data_source="perenual",
-            source_id=str(data.get("id", "")),
+            source_id=str(data.get("id") or ""),
             description=data.get("description") or "",
             flowering=data.get("flowering_season") is not None,
             raw_data=data,

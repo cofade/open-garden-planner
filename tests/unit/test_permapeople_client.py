@@ -147,6 +147,35 @@ class TestParseSpeciesNullSafety:
 
         assert result.description == ""
 
+    def test_null_data_array_does_not_crash(self) -> None:
+        """A `"data": null` record must not crash iterating `data.get("data", [])`
+        (the default only applies when the key is absent, same class of bug
+        as the crashes above).
+        """
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {"id": 1, "name": "Test", "scientific_name": "Testus", "data": None}
+
+        result = client._parse_species(payload)
+
+        assert result.family == ""
+
+    def test_non_string_data_value_does_not_crash(self) -> None:
+        """A data-array value that's a JSON number/bool (not a string) must
+        not crash the .lower() calls downstream -- data_dict is typed
+        dict[str, str] but nothing enforced that against a real API payload.
+        """
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {
+            "id": 1,
+            "name": "Test",
+            "scientific_name": "Testus",
+            "data": [_data_item("Edible", True)],
+        }
+
+        result = client._parse_species(payload)
+
+        assert result.edible is True
+
 
 class TestParseSpeciesFieldMapping:
     """Field-mapping fixes from the #296 audit.
@@ -208,6 +237,23 @@ class TestParseSpeciesFieldMapping:
         assert result.max_height_cm is None
         assert result.max_spread_cm is None
 
+    def test_height_range_with_unit_suffix_uses_upper_bound(self) -> None:
+        """Live-observed format: some records give a range with a trailing
+        unit suffix (e.g. "15-32m") instead of a bare number. The upper
+        bound is the mature-size figure we want.
+        """
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {
+            "id": 1,
+            "name": "Test",
+            "scientific_name": "Testus",
+            "data": [_data_item("Height", "15-32m")],
+        }
+
+        result = client._parse_species(payload)
+
+        assert result.max_height_cm == 3200.0
+
     def test_genus_is_read_from_data_array(self) -> None:
         client = PermapeopleClient(key_id="id", key_secret="secret")
         payload = {
@@ -234,6 +280,37 @@ class TestParseSpeciesFieldMapping:
 
         assert result.ph_min == 6.2
         assert result.ph_max == 6.8
+
+    def test_soil_ph_range_with_en_dash_still_parses(self) -> None:
+        """At least one live Permapeople record uses an en dash instead of a
+        plain hyphen as the range separator.
+        """
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {
+            "id": 1,
+            "name": "Test",
+            "scientific_name": "Testus",
+            "data": [_data_item("Soil pH", "4.5–8.7")],
+        }
+
+        result = client._parse_species(payload)
+
+        assert result.ph_min == 4.5
+        assert result.ph_max == 8.7
+
+    def test_single_soil_ph_value_applies_to_both_min_and_max(self) -> None:
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {
+            "id": 1,
+            "name": "Test",
+            "scientific_name": "Testus",
+            "data": [_data_item("Soil pH", "6.5")],
+        }
+
+        result = client._parse_species(payload)
+
+        assert result.ph_min == 6.5
+        assert result.ph_max == 6.5
 
     def test_missing_soil_ph_stays_none(self) -> None:
         client = PermapeopleClient(key_id="id", key_secret="secret")
