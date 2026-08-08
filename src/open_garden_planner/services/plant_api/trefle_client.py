@@ -210,8 +210,31 @@ class TrefleClient(PlantAPIClient):
         max_height_data = specifications.get("maximum_height", {}) or {}
         max_height_cm = max_height_data.get("cm")
 
+        # Soil pH range -- Trefle's own field names, direct 1:1 (#296)
+        ph_min = specifications.get("ph_minimum")
+        ph_max = specifications.get("ph_maximum")
+
+        # Nutrient demand from the 0-10 soil_nutriments scale, mirroring the
+        # light/atmospheric_humidity 0-10-scale mapping above (#296)
+        nutrient_demand = None
+        soil_nutriments = growth.get("soil_nutriments")
+        if soil_nutriments is not None:
+            if soil_nutriments >= 7:
+                nutrient_demand = "heavy"
+            elif soil_nutriments >= 4:
+                nutrient_demand = "medium"
+            else:
+                nutrient_demand = "light"
+
+        # Foliage
+        foliage = data.get("foliage", {}) or {}
+        foliage_color = ""
+        if foliage.get("color"):
+            foliage_color = ", ".join(foliage["color"])
+        foliage_texture = foliage.get("texture") or ""
+
         # Edible information
-        edible = data.get("edible", False)
+        edible = data.get("edible") or False
         edible_part_list = data.get("edible_part", []) or []
         edible_parts = [part for part in edible_part_list if part]
 
@@ -239,6 +262,9 @@ class TrefleClient(PlantAPIClient):
             sun_requirement=sun_req,
             water_needs=water_needs,
             max_height_cm=max_height_cm,
+            ph_min=ph_min,
+            ph_max=ph_max,
+            nutrient_demand=nutrient_demand,
             image_url=image_url,
             thumbnail_url=image_url,  # Trefle doesn't provide separate thumbnails
             data_source="trefle",
@@ -248,5 +274,7 @@ class TrefleClient(PlantAPIClient):
             edible_parts=edible_parts,
             flowering=flower.get("conspicuous", False),
             flower_color=flower_color,
+            foliage_color=foliage_color,
+            foliage_texture=foliage_texture,
             raw_data=data,
         )

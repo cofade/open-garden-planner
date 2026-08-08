@@ -146,12 +146,21 @@ class PerenualClient(PlantAPIClient):
         Returns:
             Parsed plant species data
         """
-        # Extract basic info
-        scientific_name = data.get("scientific_name", ["Unknown"])[0] if isinstance(data.get("scientific_name"), list) else data.get("scientific_name", "Unknown")
-        common_name = data.get("common_name", "Unknown")
+        # Extract basic info. Every lookup below is deliberately written as
+        # `data.get(key) or default` -- the plain default-arg form only
+        # applies when the key is ABSENT, not when it's present with a JSON
+        # null (common in Perenual's public dataset for sparse records); the
+        # latter used to reach a bare .lower()/.join() and crash the whole
+        # record, silently dropping it from search results (#296).
+        raw_scientific_name = data.get("scientific_name")
+        if isinstance(raw_scientific_name, list):
+            scientific_name = raw_scientific_name[0] if raw_scientific_name else "Unknown"
+        else:
+            scientific_name = raw_scientific_name or "Unknown"
+        common_name = data.get("common_name") or "Unknown"
 
         # Parse cycle (annual, perennial, etc.)
-        cycle_str = data.get("cycle", "").lower()
+        cycle_str = (data.get("cycle") or "").lower()
         cycle = PlantCycle.UNKNOWN
         if "annual" in cycle_str:
             cycle = PlantCycle.ANNUAL
@@ -160,18 +169,21 @@ class PerenualClient(PlantAPIClient):
         elif "perennial" in cycle_str:
             cycle = PlantCycle.PERENNIAL
 
-        # Parse sun requirements
-        sunlight_list = data.get("sunlight", [])
+        # Parse sun requirements. `sunlight` is normally a list, but a
+        # premium-gated record returns a bare upsell string instead (#296) --
+        # without the isinstance guard, " ".join(str) iterates it character by
+        # character instead of raising, silently producing garbage.
+        sunlight_raw = data.get("sunlight")
         sun_req = SunRequirement.UNKNOWN
-        if sunlight_list:
-            sunlight_str = " ".join(sunlight_list).lower()
+        if isinstance(sunlight_raw, list) and sunlight_raw:
+            sunlight_str = " ".join(sunlight_raw).lower()
             if "full sun" in sunlight_str or "full_sun" in sunlight_str:
                 sun_req = SunRequirement.FULL_SUN
             elif "part shade" in sunlight_str or "partial" in sunlight_str:
                 sun_req = SunRequirement.PARTIAL_SHADE
 
         # Parse watering needs
-        watering = data.get("watering", "").lower()
+        watering = (data.get("watering") or "").lower()
         water_needs = WaterNeeds.UNKNOWN
         if "minimum" in watering or "low" in watering:
             water_needs = WaterNeeds.LOW
@@ -205,7 +217,7 @@ class PerenualClient(PlantAPIClient):
             thumbnail_url=thumbnail_url,
             data_source="perenual",
             source_id=str(data.get("id", "")),
-            description=data.get("description", ""),
+            description=data.get("description") or "",
             flowering=data.get("flowering_season") is not None,
             raw_data=data,
         )

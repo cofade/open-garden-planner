@@ -18,6 +18,14 @@ from .base import PlantAPIClient, PlantAPIError
 logger = logging.getLogger(__name__)
 
 
+def _meters_str_to_cm(value: str) -> float | None:
+    """Parse a Permapeople Height/Width string (metres) into centimetres."""
+    try:
+        return float(value) * 100
+    except (TypeError, ValueError):
+        return None
+
+
 class PermapeopleClient(PlantAPIClient):
     """Client for the Permapeople Plant API.
 
@@ -186,24 +194,38 @@ class PermapeopleClient(PlantAPIClient):
         Returns:
             Parsed plant species data
         """
-        scientific_name = data.get("scientific_name", "Unknown")
-        common_name = data.get("name", "Unknown")
+        scientific_name = data.get("scientific_name") or "Unknown"
+        common_name = data.get("name") or "Unknown"
 
-        # Parse the flexible key-value data array
+        # Parse the flexible key-value data array. A present key with a JSON
+        # null value (real Permapeople records have these) must not survive as
+        # None -- every lookup below chains a .lower()/.split() off the
+        # result, which crashed the whole record before this guard (#296).
         data_dict: dict[str, str] = {}
         for item in data.get("data", []):
             if isinstance(item, dict):
                 key = item.get("key", "")
-                value = item.get("value", "")
+                value = item.get("value")
                 if key:
-                    data_dict[key.lower()] = value
+                    data_dict[key.lower()] = value if value is not None else ""
 
         # Extract structured data from key-value pairs
         family = data_dict.get("family", "")
+        genus = data_dict.get("genus", "")
 
-        # Parse cycle
+        # Parse life cycle -- Permapeople's "Life cycle" key (e.g. "Perennial",
+        # "Annual, Perennial") maps directly; a multi-value string keeps the
+        # same annual > biennial > perennial precedence used elsewhere in this
+        # file (#296). "Layer" (Trees/Shrubs/...) is a permaculture design
+        # category, not a life cycle -- it was never the right field.
+        life_cycle_str = data_dict.get("life cycle", "").lower()
         cycle = PlantCycle.UNKNOWN
-        # Permapeople uses "Layer" field which might indicate plant type
+        if "annual" in life_cycle_str:
+            cycle = PlantCycle.ANNUAL
+        elif "biennial" in life_cycle_str:
+            cycle = PlantCycle.BIENNIAL
+        elif "perennial" in life_cycle_str:
+            cycle = PlantCycle.PERENNIAL
 
         # Parse sun requirements
         light_req = data_dict.get("light requirement", "").lower()
@@ -247,6 +269,23 @@ class PermapeopleClient(PlantAPIClient):
         elif "fast" in growth_str or "rapid" in growth_str:
             growth_rate = GrowthRate.FAST
 
+        # Parse mature size. Permapeople expresses Height/Width in metres
+        # (live-observed: Apple 10.0/9, Tomato 2.0/1.00 -- #296); our model
+        # stores centimetres.
+        max_height_cm = _meters_str_to_cm(data_dict.get("height", ""))
+        max_spread_cm = _meters_str_to_cm(data_dict.get("width", ""))
+
+        # Parse soil pH range (e.g. "6.2-6.8")
+        ph_str = data_dict.get("soil ph", "")
+        ph_min, ph_max = None, None
+        if ph_str:
+            ph_parts = ph_str.split("-")
+            try:
+                ph_min = float(ph_parts[0].strip())
+                ph_max = float(ph_parts[1].strip()) if len(ph_parts) > 1 else ph_min
+            except ValueError:
+                pass
+
         # Check if edible
         edible = data_dict.get("edible", "").lower() == "true"
         edible_parts_str = data_dict.get("edible parts", "")
@@ -254,24 +293,37 @@ class PermapeopleClient(PlantAPIClient):
 
         soil_type = data_dict.get("soil type", "")
 
+        # Permapeople does provide photos -- top-level `images`, not in the
+        # key-value `data` array (live-verified on every plant probed; the
+        # old "doesn't provide images" assumption here was wrong, #296).
+        images = data.get("images")
+        image_url, thumbnail_url = "", ""
+        if isinstance(images, dict):
+            image_url = images.get("title") or images.get("thumb") or ""
+            thumbnail_url = images.get("thumb") or images.get("title") or ""
+
         return PlantSpeciesData(
             scientific_name=scientific_name,
             common_name=common_name,
             family=family,
-            genus="",  # Not always provided
+            genus=genus,
             cycle=cycle,
             growth_rate=growth_rate,
             sun_requirement=sun_req,
             water_needs=water_needs,
+            max_height_cm=max_height_cm,
+            max_spread_cm=max_spread_cm,
             hardiness_zone_min=hardiness_min,
             hardiness_zone_max=hardiness_max,
             soil_type=soil_type,
+            ph_min=ph_min,
+            ph_max=ph_max,
             edible=edible,
             edible_parts=edible_parts,
-            image_url="",  # Permapeople doesn't provide images in API
-            thumbnail_url="",
+            image_url=image_url,
+            thumbnail_url=thumbnail_url,
             data_source="permapeople",
             source_id=str(data.get("id", "")),
-            description=data.get("description", ""),
+            description=data.get("description") or "",
             raw_data=data,
         )

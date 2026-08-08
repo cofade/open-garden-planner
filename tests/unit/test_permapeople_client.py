@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 
+from open_garden_planner.models.plant_data import PlantCycle
 from open_garden_planner.services.plant_api.base import PlantAPIError
 from open_garden_planner.services.plant_api.permapeople_client import PermapeopleClient
 
@@ -93,3 +94,179 @@ class TestIsAvailable:
             "is_available() must bound the page size -- fetching the full "
             "plant list is what caused the original timeout-driven false negative"
         )
+
+
+def _data_item(key: str, value) -> dict:
+    return {"key": key, "value": value}
+
+
+class TestParseSpeciesNullSafety:
+    """Regression pins for issue #296.
+
+    A present key with a JSON ``null`` value is common in real Permapeople
+    records. Every lookup that chains ``.lower()``/``.split()`` off a
+    ``data_dict`` value used to crash the whole record on such a null,
+    silently dropping it from search results (caught by a bare
+    ``except Exception`` in ``search()``).
+    """
+
+    def test_null_values_in_data_array_do_not_crash(self) -> None:
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {
+            "id": 1,
+            "name": "Test Plant",
+            "scientific_name": "Testus nullicus",
+            "data": [
+                _data_item("Light requirement", None),
+                _data_item("Water requirement", None),
+                _data_item("Growth", None),
+                _data_item("Edible", None),
+                _data_item("Family", "Testaceae"),
+            ],
+        }
+
+        result = client._parse_species(payload)
+
+        assert result.family == "Testaceae"
+        assert result.edible is False
+
+    def test_missing_name_and_scientific_name_fall_back_to_unknown(self) -> None:
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {"id": 1, "name": None, "scientific_name": None, "data": []}
+
+        result = client._parse_species(payload)
+
+        assert result.common_name == "Unknown"
+        assert result.scientific_name == "Unknown"
+
+    def test_null_description_does_not_become_none(self) -> None:
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {"id": 1, "name": "Test", "scientific_name": "Testus", "data": [], "description": None}
+
+        result = client._parse_species(payload)
+
+        assert result.description == ""
+
+
+class TestParseSpeciesFieldMapping:
+    """Field-mapping fixes from the #296 audit.
+
+    Fixture values are the actual live values observed for Apple/Tomato
+    during the audit, so these tests double as a live-data regression pin.
+    """
+
+    def test_life_cycle_maps_to_cycle(self) -> None:
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {
+            "id": 99,
+            "name": "Apple",
+            "scientific_name": "Malus domestica",
+            "data": [_data_item("Life cycle", "Perennial")],
+        }
+
+        result = client._parse_species(payload)
+
+        assert result.cycle == PlantCycle.PERENNIAL
+
+    def test_multi_value_life_cycle_prefers_annual(self) -> None:
+        """"Annual, Perennial" (Permapeople's actual Tomato record) -- keeps
+        the same annual > biennial > perennial precedence used elsewhere in
+        this file (Trefle/Perenual duration parsing).
+        """
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {
+            "id": 182,
+            "name": "Tomato",
+            "scientific_name": "Solanum lycopersicum",
+            "data": [_data_item("Life cycle", "Annual, Perennial")],
+        }
+
+        result = client._parse_species(payload)
+
+        assert result.cycle == PlantCycle.ANNUAL
+
+    def test_height_and_width_convert_meters_to_cm(self) -> None:
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {
+            "id": 99,
+            "name": "Apple",
+            "scientific_name": "Malus domestica",
+            "data": [_data_item("Height", "10.0"), _data_item("Width", "9")],
+        }
+
+        result = client._parse_species(payload)
+
+        assert result.max_height_cm == 1000.0
+        assert result.max_spread_cm == 900.0
+
+    def test_missing_height_and_width_stay_none(self) -> None:
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {"id": 1, "name": "Test", "scientific_name": "Testus", "data": []}
+
+        result = client._parse_species(payload)
+
+        assert result.max_height_cm is None
+        assert result.max_spread_cm is None
+
+    def test_genus_is_read_from_data_array(self) -> None:
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {
+            "id": 99,
+            "name": "Apple",
+            "scientific_name": "Malus domestica",
+            "data": [_data_item("Genus", "Malus")],
+        }
+
+        result = client._parse_species(payload)
+
+        assert result.genus == "Malus"
+
+    def test_soil_ph_range_maps_to_ph_min_max(self) -> None:
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {
+            "id": 182,
+            "name": "Tomato",
+            "scientific_name": "Solanum lycopersicum",
+            "data": [_data_item("Soil pH", "6.2-6.8")],
+        }
+
+        result = client._parse_species(payload)
+
+        assert result.ph_min == 6.2
+        assert result.ph_max == 6.8
+
+    def test_missing_soil_ph_stays_none(self) -> None:
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {"id": 1, "name": "Test", "scientific_name": "Testus", "data": []}
+
+        result = client._parse_species(payload)
+
+        assert result.ph_min is None
+        assert result.ph_max is None
+
+    def test_images_map_to_image_and_thumbnail_url(self) -> None:
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {
+            "id": 99,
+            "name": "Apple",
+            "scientific_name": "Malus domestica",
+            "data": [],
+            "images": {
+                "thumb": "https://cdn.permapeople.org/thumb",
+                "title": "https://cdn.permapeople.org/title",
+            },
+        }
+
+        result = client._parse_species(payload)
+
+        assert result.image_url == "https://cdn.permapeople.org/title"
+        assert result.thumbnail_url == "https://cdn.permapeople.org/thumb"
+
+    def test_missing_images_stay_empty_strings(self) -> None:
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        payload = {"id": 1, "name": "Test", "scientific_name": "Testus", "data": []}
+
+        result = client._parse_species(payload)
+
+        assert result.image_url == ""
+        assert result.thumbnail_url == ""
