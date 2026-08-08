@@ -1,6 +1,7 @@
 """Circle item for the garden canvas."""
 
 import uuid
+from datetime import date
 from typing import Any
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
@@ -17,6 +18,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import is_furniture_type, render_furniture_pixmap
+from open_garden_planner.core.growth_model import grown_spread_cm
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 from open_garden_planner.core.plant_renderer import (
     PlantCategory,
@@ -252,7 +254,14 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         base = super().boundingRect()
         if is_plant_type(self.object_type):
             rect = self.rect()
-            overflow = rect.width() * (self._PLANT_FILL_SCALE - 1.0) / 2.0
+            # Visual diameter may now differ from the footprint (#298
+            # follow-up); never let boundingRect() SHRINK below the footprint
+            # (clamped at 0), but DO grow past it if a recorded current size
+            # exceeds the mature max_spread_cm -- else that oversized pixmap
+            # would paint outside this advertised rect (Qt uses it for the
+            # repaint/hit-test region, not just the on-screen visual).
+            diameter = self._visual_plant_diameter_cm(rect.width())
+            overflow = max(0.0, (diameter * self._PLANT_FILL_SCALE - rect.width()) / 2.0)
             base = base.adjusted(-overflow, -overflow, overflow, overflow)
         m = self._shadow_margin()
         if m > 0:
@@ -277,6 +286,27 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 extra = spacing_r - self._radius + self._SPACING_STROKE_WIDTH
                 base = base.adjusted(-extra, -extra, extra, extra)
         return base
+
+    def _visual_plant_diameter_cm(self, footprint_diameter: float) -> float:
+        """The diameter (cm) the plant's SVG icon should render at today.
+
+        Deliberately distinct from ``footprint_diameter`` (this item's drawn
+        rect, which stays at the mature ``max_spread_cm`` for spacing/overlap
+        correctness -- see ``core/plant_sizing.py``'s "three legitimate sizes"
+        note). When the plant has both a planting date and a measured current
+        size, the icon instead reflects today's growth-interpolated spread
+        (``core/growth_model.grown_spread_cm``), so a young sapling LOOKS
+        smaller even though its reserved footprint doesn't shrink -- matching
+        the shadow, which already did this. Falls back to the footprint
+        diameter, unchanged, for a plant with no growth data set.
+        """
+        species = self.metadata.get("plant_species")
+        if not isinstance(species, dict):
+            return footprint_diameter
+        grown = grown_spread_cm(
+            species, self.metadata, date.today(), getattr(self.object_type, "name", "")
+        )
+        return grown if grown is not None else footprint_diameter
 
     def paint(
         self,
@@ -305,7 +335,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         if is_plant_type(self.object_type):
             rect = self.rect()
-            diameter = rect.width()
+            diameter = self._visual_plant_diameter_cm(rect.width())
 
             # Render at a larger size so organic shapes fill the circle
             render_diameter = diameter * self._PLANT_FILL_SCALE
@@ -321,11 +351,15 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
             if pixmap is not None:
                 painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-                # Center the scaled-up pixmap over the circle area
-                overflow = diameter * (self._PLANT_FILL_SCALE - 1.0) / 2.0
+                # Centered on the footprint rect regardless of how far
+                # render_diameter has diverged from it (a young plant's icon
+                # can now be considerably smaller than the footprint, #298
+                # follow-up) -- equivalent to the old overflow-based offset
+                # when diameter == rect.width(), see _visual_plant_diameter_cm.
+                center = rect.center()
                 draw_rect = QRectF(
-                    rect.x() - overflow,
-                    rect.y() - overflow,
+                    center.x() - render_diameter / 2.0,
+                    center.y() - render_diameter / 2.0,
                     render_diameter,
                     render_diameter,
                 )

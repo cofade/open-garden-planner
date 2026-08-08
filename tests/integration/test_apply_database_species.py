@@ -15,6 +15,8 @@ whole assignment is a single undoable step.
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from open_garden_planner.core.object_types import ObjectType
@@ -336,3 +338,25 @@ def test_permapeople_species_resizes_footprint_and_enables_height(
 
     assert tree.radius == pytest.approx(_PLACED_RADIUS)
     assert effective_height_cm(ObjectType.TREE, tree.metadata) is None
+
+
+def test_editing_current_spread_shrinks_icon_without_shrinking_footprint(
+    panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
+) -> None:
+    """Regression pin (#298 follow-up): the Plant Details panel's "Current
+    Spread" field must shrink the rendered icon -- matching the shadow, which
+    already did this via the growth model -- WITHOUT touching the spacing
+    footprint (core/plant_sizing.py's mature-size-for-spacing invariant).
+    """
+    _fail_prompt(panel, monkeypatch)
+    panel._apply_species_to_item(generic_plant, _species_dict())
+    footprint_before = generic_plant.rect().width()
+
+    generic_plant.metadata["plant_instance"] = {
+        "planting_date": date.today().isoformat(),
+    }
+    panel.current_spread_spin.setValue(10.0)
+
+    assert generic_plant.rect().width() == pytest.approx(footprint_before)
+    assert generic_plant.radius == pytest.approx(_DB_RADIUS)
+    assert generic_plant._visual_plant_diameter_cm(footprint_before) == pytest.approx(10.0)

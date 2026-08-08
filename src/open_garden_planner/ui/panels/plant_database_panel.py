@@ -1020,6 +1020,14 @@ class PlantDatabasePanel(QWidget):
         if "plant_instance" not in self._current_plant_item.metadata:
             self._current_plant_item.metadata["plant_instance"] = {}
 
+        # current_spread_cm can grow the icon's boundingRect() beyond the
+        # footprint (a recorded current size larger than the species max --
+        # see CircleItem.boundingRect()/_visual_plant_diameter_cm, #298
+        # follow-up); must be called BEFORE the value changes, or Qt's scene
+        # index keeps the old rect and leaves a paint ghost.
+        if key == "current_spread_cm" and hasattr(self._current_plant_item, "prepareGeometryChange"):
+            self._current_plant_item.prepareGeometryChange()
+
         # Update value
         if value is None or value == "":
             self._current_plant_item.metadata["plant_instance"].pop(key, None)
