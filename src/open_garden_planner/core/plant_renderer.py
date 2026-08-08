@@ -7,6 +7,7 @@ illustrations (8+ popular species).
 """
 
 import hashlib
+import math
 from enum import Enum, auto
 from pathlib import Path
 
@@ -20,6 +21,16 @@ from .object_types import ObjectType
 _PLANTS_DIR = Path(__file__).parent.parent / "resources" / "plants"
 _CATEGORIES_DIR = _PLANTS_DIR / "categories"
 _SPECIES_DIR = _PLANTS_DIR / "species"
+
+# render_plant_pixmap allocates a size x size QImage straight from the
+# requested diameter with no upper bound (#299 review). A large enough value
+# fails allocation and yields a NULL (not None) QPixmap the paint path
+# forwards to drawPixmap unchecked; measured elsewhere in this codebase
+# (agent_api/creates.py) at ~0.26 GB / 0.5s for 8000 and ~2.3 GB / 3.0s for
+# 24000. Mirrors that same _MAX_PLANT_DIAMETER_CM value here at the actual
+# allocation site, so every caller is protected -- not just the one that
+# happened to add its own validation first.
+_MAX_RENDER_DIAMETER_PX = 5000
 
 
 class PlantCategory(Enum):
@@ -440,8 +451,15 @@ def render_plant_pixmap(
     if renderer is None:
         return None
 
-    # Calculate render size (use integer pixels)
-    size = max(int(diameter), 4)
+    # Calculate render size (use integer pixels), capped against runaway
+    # allocation from unbounded input (see _MAX_RENDER_DIAMETER_PX above).
+    # Clamp BEFORE int() -- a non-finite diameter (e.g. Infinity, which
+    # json.load accepts by default and could reach here from a hand-edited
+    # .ogp) raises OverflowError converting straight to int, bypassing the
+    # cap entirely (issue #299 review).
+    if not math.isfinite(diameter):
+        diameter = _MAX_RENDER_DIAMETER_PX
+    size = max(int(min(diameter, _MAX_RENDER_DIAMETER_PX)), 4)
 
     # Generate stable random rotation for this specific item
     rotation = 0.0
@@ -453,7 +471,8 @@ def render_plant_pixmap(
     cache_key = f"{svg_path}:{size}:{int(rotation)}:{tint_key}"
 
     if cache_key in _pixmap_cache:
-        return _pixmap_cache[cache_key]
+        cached = _pixmap_cache[cache_key]
+        return None if cached.isNull() else cached
 
     # Evict cache if too large
     if len(_pixmap_cache) >= _PIXMAP_CACHE_MAX:
@@ -486,6 +505,8 @@ def render_plant_pixmap(
     painter.end()
 
     pixmap = QPixmap.fromImage(image)
+    if pixmap.isNull():
+        return None
     _pixmap_cache[cache_key] = pixmap
     return pixmap
 

@@ -1020,6 +1020,23 @@ class PlantDatabasePanel(QWidget):
         if "plant_instance" not in self._current_plant_item.metadata:
             self._current_plant_item.metadata["plant_instance"] = {}
 
+        # boundingRect() only actually changes for the rare case of a
+        # current measurement exceeding the species max (the common shrink
+        # case is floored to stay byte-identical -- see
+        # CircleItem.boundingRect()), but any of these three keys can trigger
+        # that case: current_spread_cm and current_height_cm directly (a
+        # measured height implies a spread via
+        # growth_model._derive_from_other when spread is unset), and
+        # planting_date because more elapsed time means more growth even
+        # with no other field touched (issue #299 review -- an earlier cut
+        # gated this on `key == "current_spread_cm"` alone and missed the
+        # other two). Scoped rather than unconditional so it doesn't fire on
+        # every Notes/variety/custom-field keystroke, which cannot affect
+        # geometry. Must be called BEFORE the value changes, or Qt's scene
+        # index keeps the old rect and leaves a paint ghost.
+        if key in ("current_spread_cm", "current_height_cm", "planting_date"):
+            self._current_plant_item.prepareGeometryChange()
+
         # Update value
         if value is None or value == "":
             self._current_plant_item.metadata["plant_instance"].pop(key, None)

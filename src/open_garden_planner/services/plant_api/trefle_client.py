@@ -210,8 +210,42 @@ class TrefleClient(PlantAPIClient):
         max_height_data = specifications.get("maximum_height", {}) or {}
         max_height_cm = max_height_data.get("cm")
 
+        # Soil pH range. Trefle docs (docs.trefle.io/docs/advanced/plants-fields):
+        # "The minimum/maximum acceptable soil pH ... for the plant" -- a
+        # direct 1:1 with ph_min/ph_max. Lives under `growth`, not
+        # `specifications` (#296) -- verified against a live Carrot response
+        # (growth.ph_minimum=6.5, growth.ph_maximum=7.0).
+        ph_min = growth.get("ph_minimum")
+        ph_max = growth.get("ph_maximum")
+
+        # Nutrient demand from the 0-10 soil_nutriments scale, mirroring the
+        # light/atmospheric_humidity 0-10-scale mapping above (#296). Trefle
+        # docs: "Required quantity of nutriments in the soil, on a scale from
+        # 0 (oligotrophic) to 10 (hypereutrophic)" -- this is the plant's
+        # demand, not its tolerance, so higher really does mean "heavier".
+        nutrient_demand = None
+        soil_nutriments = growth.get("soil_nutriments")
+        if soil_nutriments is not None:
+            if soil_nutriments >= 7:
+                nutrient_demand = "heavy"
+            elif soil_nutriments >= 4:
+                nutrient_demand = "medium"
+            else:
+                nutrient_demand = "light"
+        # NOTE: Trefle's `specifications.nitrogen_fixation` looked like a
+        # natural "fixer" override, but it's a documented *string* field with
+        # an unspecified value domain, and it came back null on every one of
+        # 46 live legume records sampled during review (#296) -- not mapped
+        # here for lack of any real response to verify the shape against.
+
+        # Foliage
+        foliage = data.get("foliage", {}) or {}
+        foliage_color_raw = foliage.get("color")
+        foliage_color = ", ".join(foliage_color_raw) if isinstance(foliage_color_raw, list) else ""
+        foliage_texture = foliage.get("texture") or ""
+
         # Edible information
-        edible = data.get("edible", False)
+        edible = data.get("edible") or False
         edible_part_list = data.get("edible_part", []) or []
         edible_parts = [part for part in edible_part_list if part]
 
@@ -221,8 +255,9 @@ class TrefleClient(PlantAPIClient):
         # Flowering information
         flower = data.get("flower", {}) or {}
         flower_color = None
-        if flower.get("color"):
-            flower_color = ", ".join(flower["color"])
+        flower_color_raw = flower.get("color")
+        if isinstance(flower_color_raw, list) and flower_color_raw:
+            flower_color = ", ".join(flower_color_raw)
 
         # Description from observations or growth description
         observations = data.get("observations", "")
@@ -239,14 +274,19 @@ class TrefleClient(PlantAPIClient):
             sun_requirement=sun_req,
             water_needs=water_needs,
             max_height_cm=max_height_cm,
+            ph_min=ph_min,
+            ph_max=ph_max,
+            nutrient_demand=nutrient_demand,
             image_url=image_url,
             thumbnail_url=image_url,  # Trefle doesn't provide separate thumbnails
             data_source="trefle",
-            source_id=str(data.get("id", "")),
+            source_id=str(data.get("id") or ""),
             description=description,
             edible=edible,
             edible_parts=edible_parts,
             flowering=flower.get("conspicuous", False),
             flower_color=flower_color,
+            foliage_color=foliage_color,
+            foliage_texture=foliage_texture,
             raw_data=data,
         )

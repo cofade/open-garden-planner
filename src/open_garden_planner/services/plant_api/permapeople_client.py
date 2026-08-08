@@ -1,6 +1,7 @@
 """Permapeople Plant API client implementation."""
 
 import logging
+import re
 from typing import Any
 
 import requests
@@ -16,6 +17,31 @@ from open_garden_planner.models.plant_data import (
 from .base import PlantAPIClient, PlantAPIError
 
 logger = logging.getLogger(__name__)
+
+
+_NUMBER_RE = re.compile(r"\d+\.?\d*")
+
+
+def _extract_numbers(value: str) -> list[float]:
+    """Extract numeric tokens from a string like "1.5-3.0m" or "6.2-6.8".
+
+    Deliberately excludes a leading sign from the pattern -- Permapeople's
+    range separator is a plain hyphen (and, on at least one live record, an
+    en dash), and treating either as part of the following number would
+    silently negate it.
+    """
+    return [float(match) for match in _NUMBER_RE.findall(value or "")]
+
+
+def _meters_str_to_cm(value: str) -> float | None:
+    """Parse a Permapeople Height/Width string (metres) into centimetres.
+
+    Handles a bare value ("10.0"), a range ("1.5-3.0" or "15-32m", using the
+    upper bound as the mature size), and an optional trailing unit suffix --
+    all live-observed formats (#296).
+    """
+    numbers = _extract_numbers(value)
+    return numbers[-1] * 100 if numbers else None
 
 
 class PermapeopleClient(PlantAPIClient):
@@ -186,24 +212,38 @@ class PermapeopleClient(PlantAPIClient):
         Returns:
             Parsed plant species data
         """
-        scientific_name = data.get("scientific_name", "Unknown")
-        common_name = data.get("name", "Unknown")
+        scientific_name = data.get("scientific_name") or "Unknown"
+        common_name = data.get("name") or "Unknown"
 
-        # Parse the flexible key-value data array
+        # Parse the flexible key-value data array. A present key with a JSON
+        # null value (real Permapeople records have these) must not survive as
+        # None -- every lookup below chains a .lower()/.split() off the
+        # result, which crashed the whole record before this guard (#296).
         data_dict: dict[str, str] = {}
-        for item in data.get("data", []):
+        for item in data.get("data") or []:
             if isinstance(item, dict):
                 key = item.get("key", "")
-                value = item.get("value", "")
+                value = item.get("value")
                 if key:
-                    data_dict[key.lower()] = value
+                    data_dict[key.lower()] = str(value) if value is not None else ""
 
         # Extract structured data from key-value pairs
         family = data_dict.get("family", "")
+        genus = data_dict.get("genus", "")
 
-        # Parse cycle
+        # Parse life cycle -- Permapeople's "Life cycle" key (e.g. "Perennial",
+        # "Annual, Perennial") maps directly; a multi-value string keeps the
+        # same annual > biennial > perennial precedence used elsewhere in this
+        # file (#296). "Layer" (Trees/Shrubs/...) is a permaculture design
+        # category, not a life cycle -- it was never the right field.
+        life_cycle_str = data_dict.get("life cycle", "").lower()
         cycle = PlantCycle.UNKNOWN
-        # Permapeople uses "Layer" field which might indicate plant type
+        if "annual" in life_cycle_str:
+            cycle = PlantCycle.ANNUAL
+        elif "biennial" in life_cycle_str:
+            cycle = PlantCycle.BIENNIAL
+        elif "perennial" in life_cycle_str:
+            cycle = PlantCycle.PERENNIAL
 
         # Parse sun requirements
         light_req = data_dict.get("light requirement", "").lower()
@@ -247,6 +287,23 @@ class PermapeopleClient(PlantAPIClient):
         elif "fast" in growth_str or "rapid" in growth_str:
             growth_rate = GrowthRate.FAST
 
+        # Parse mature size. Permapeople expresses Height/Width in metres
+        # (live-observed: Apple 10.0/9, Tomato 2.0/1.00 -- #296); our model
+        # stores centimetres.
+        max_height_cm = _meters_str_to_cm(data_dict.get("height", ""))
+        max_spread_cm = _meters_str_to_cm(data_dict.get("width", ""))
+
+        # Parse soil pH range (e.g. "6.2-6.8"). A *single* value (e.g. "6.5")
+        # is an optimum, not a hard min-and-max band -- treating it as both
+        # collapsed the acceptable range to zero width and made
+        # soil_service.get_mismatched_plants() (deliberately tight, +/-0.05)
+        # fire a false mismatch for any real-world reading that wasn't that
+        # exact value (live-observed: Permapeople's "Walking onion" record is
+        # a single "6.5", #296 review). Only a genuine range gives both ends.
+        ph_numbers = _extract_numbers(data_dict.get("soil ph", ""))
+        ph_min = ph_numbers[0] if len(ph_numbers) > 1 else None
+        ph_max = ph_numbers[-1] if len(ph_numbers) > 1 else None
+
         # Check if edible
         edible = data_dict.get("edible", "").lower() == "true"
         edible_parts_str = data_dict.get("edible parts", "")
@@ -254,24 +311,37 @@ class PermapeopleClient(PlantAPIClient):
 
         soil_type = data_dict.get("soil type", "")
 
+        # Permapeople does provide photos -- top-level `images`, not in the
+        # key-value `data` array (live-verified on every plant probed; the
+        # old "doesn't provide images" assumption here was wrong, #296).
+        images = data.get("images")
+        image_url, thumbnail_url = "", ""
+        if isinstance(images, dict):
+            image_url = images.get("title") or images.get("thumb") or ""
+            thumbnail_url = images.get("thumb") or images.get("title") or ""
+
         return PlantSpeciesData(
             scientific_name=scientific_name,
             common_name=common_name,
             family=family,
-            genus="",  # Not always provided
+            genus=genus,
             cycle=cycle,
             growth_rate=growth_rate,
             sun_requirement=sun_req,
             water_needs=water_needs,
+            max_height_cm=max_height_cm,
+            max_spread_cm=max_spread_cm,
             hardiness_zone_min=hardiness_min,
             hardiness_zone_max=hardiness_max,
             soil_type=soil_type,
+            ph_min=ph_min,
+            ph_max=ph_max,
             edible=edible,
             edible_parts=edible_parts,
-            image_url="",  # Permapeople doesn't provide images in API
-            thumbnail_url="",
+            image_url=image_url,
+            thumbnail_url=thumbnail_url,
             data_source="permapeople",
-            source_id=str(data.get("id", "")),
-            description=data.get("description", ""),
+            source_id=str(data.get("id") or ""),
+            description=data.get("description") or "",
             raw_data=data,
         )

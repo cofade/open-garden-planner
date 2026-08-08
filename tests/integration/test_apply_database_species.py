@@ -15,6 +15,8 @@ whole assignment is a single undoable step.
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from open_garden_planner.core.object_types import ObjectType
@@ -288,3 +290,73 @@ def test_rect_bearing_items_pivot_on_rect_center(canvas: CanvasView) -> None:
         canvas.scene().addItem(item)
         item._apply_rotation(53.0)
         assert item.transformOriginPoint() == item.rect().center()
+
+
+def test_permapeople_species_resizes_footprint_and_enables_height(
+    canvas: CanvasView, panel: PlantDatabasePanel, monkeypatch
+) -> None:
+    """Regression pin for issue #296.
+
+    Permapeople's Height/Width (metres) now reach max_height_cm/max_spread_cm,
+    which has two real, previously-unreachable downstream effects for a
+    Permapeople-sourced plant: the drawn footprint resizes on assignment
+    (#213/#218), and the object now participates in the Phase 14 sun/shade
+    system -- TREE/SHRUB have no ``DEFAULT_HEIGHTS_CM`` entry, so height came
+    only from the species and previously resolved to ``None`` (no shadow, no
+    3D extrusion) for every Permapeople-sourced tree/shrub.
+    """
+    from open_garden_planner.core.object_height import effective_height_cm
+    from open_garden_planner.services.plant_api.permapeople_client import (
+        PermapeopleClient,
+    )
+
+    tree = CircleItem(200.0, 200.0, _PLACED_RADIUS, object_type=ObjectType.TREE)
+    canvas.scene().addItem(tree)
+    panel._current_plant_item = tree
+    _fail_prompt(panel, monkeypatch)
+
+    assert effective_height_cm(ObjectType.TREE, tree.metadata) is None
+
+    client = PermapeopleClient(key_id="id", key_secret="secret")
+    payload = {
+        "id": 999,
+        "name": "Test Tree",
+        "scientific_name": "Testus arborus",
+        "data": [
+            {"key": "Height", "value": "10.0"},
+            {"key": "Width", "value": "9"},
+        ],
+    }
+    species_dict = merge_calendar_data(client._parse_species(payload).to_dict())
+
+    panel._apply_species_to_item(tree, species_dict)
+
+    assert tree.radius == pytest.approx(450.0)  # max_spread_cm (900) / 2
+    assert effective_height_cm(ObjectType.TREE, tree.metadata) == pytest.approx(1000.0)
+
+    canvas.command_manager.undo()
+
+    assert tree.radius == pytest.approx(_PLACED_RADIUS)
+    assert effective_height_cm(ObjectType.TREE, tree.metadata) is None
+
+
+def test_editing_current_spread_shrinks_icon_without_shrinking_footprint(
+    panel: PlantDatabasePanel, generic_plant: CircleItem, monkeypatch
+) -> None:
+    """Regression pin (#299): the Plant Details panel's "Current
+    Spread" field must shrink the rendered icon -- matching the shadow, which
+    already did this via the growth model -- WITHOUT touching the spacing
+    footprint (core/plant_sizing.py's mature-size-for-spacing invariant).
+    """
+    _fail_prompt(panel, monkeypatch)
+    panel._apply_species_to_item(generic_plant, _species_dict())
+    footprint_before = generic_plant.rect().width()
+
+    generic_plant.metadata["plant_instance"] = {
+        "planting_date": date.today().isoformat(),
+    }
+    panel.current_spread_spin.setValue(10.0)
+
+    assert generic_plant.rect().width() == pytest.approx(footprint_before)
+    assert generic_plant.radius == pytest.approx(_DB_RADIUS)
+    assert generic_plant._visual_plant_diameter_cm(footprint_before) == pytest.approx(10.0)
