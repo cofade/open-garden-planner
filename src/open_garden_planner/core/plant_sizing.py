@@ -24,13 +24,22 @@ isolation.
 
 US-E8 note — a fourth size input this module deliberately does NOT own: the
 plant's measured ``plant_instance["current_spread_cm"]``, read by
-``core/growth_model`` and the shadow/3D canopy. It is scoped to sun/shade
-(FR-SUN-08) and does **not** affect the spacing ring or the spacing-overlap
-diagnostic, which stay on the MATURE ``max_spread_cm`` — spacing is a
-planning-for-maturity rule, so shrinking it to a sapling's current canopy
-would let the user plant too densely. One plant can therefore legitimately
-show three different sizes at once: the drawn circle (selection/snapping),
-a mature spacing ring, and a smaller measured shadow canopy.
+``core/growth_model`` and the shadow/3D canopy. It does **not** affect the
+spacing ring or the spacing-overlap diagnostic, which stay on the MATURE
+``max_spread_cm`` — spacing is a planning-for-maturity rule, so shrinking it
+to a sapling's current canopy would let the user plant too densely.
+
+Update (issue #298): the drawn circle's own SVG icon is no longer part of
+this module's "stays mature" guarantee either — ``CircleItem`` renders it at
+the growth-model size when available (``_visual_plant_diameter_cm``), while
+``rect()``/``radius`` (what THIS module reads) stay exactly as documented
+above. One plant can therefore legitimately show FOUR different sizes at
+once: the drawn circle's *geometry* (selection/snapping/spacing, still owned
+by this module), a mature spacing ring (also this module), a
+growth-sized icon (owned by ``CircleItem``, cosmetic only — never read by
+anything in this module), and a growth-sized shadow canopy (owned by
+``core/growth_model`` + the sun/shade views). The four are independent by
+design; this module's job is only ever the first two.
 """
 
 from __future__ import annotations

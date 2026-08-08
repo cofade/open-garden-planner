@@ -7,6 +7,7 @@ from PyQt6.QtGui import QColor, QPixmap
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.plant_renderer import (
     _CATEGORIES_DIR,
+    _MAX_RENDER_DIAMETER_PX,
     _SPECIES_DIR,
     _SPECIES_FILES,
     PlantCategory,
@@ -19,6 +20,31 @@ from open_garden_planner.core.plant_renderer import (
     is_plant_type,
     render_plant_pixmap,
 )
+
+
+class TestRenderDiameterCap:
+    """Regression pins for issue #298 review: an uncapped diameter reaches
+    an int(diameter)-square QImage allocation with no upper bound -- the
+    same hazard class US-D2.1 already capped for the agent API's
+    create_object. current_spread_cm's spin box (max 10000) had no bound
+    into this allocator before this cap was added at the allocation site.
+    """
+
+    def test_oversized_diameter_is_capped(self, qtbot: object) -> None:  # noqa: ARG002
+        clear_plant_cache()
+        pixmap = render_plant_pixmap(object_type=ObjectType.TREE, diameter=11500.0)
+
+        assert pixmap is not None
+        assert pixmap.width() == _MAX_RENDER_DIAMETER_PX
+        assert pixmap.height() == _MAX_RENDER_DIAMETER_PX
+
+    def test_normal_diameter_is_unaffected(self, qtbot: object) -> None:  # noqa: ARG002
+        clear_plant_cache()
+        pixmap = render_plant_pixmap(object_type=ObjectType.TREE, diameter=200.0)
+
+        assert pixmap is not None
+        assert pixmap.width() == 200
+        assert pixmap.height() == 200
 
 
 class TestPlantCategoryEnum:

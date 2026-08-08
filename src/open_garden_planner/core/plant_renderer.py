@@ -21,6 +21,16 @@ _PLANTS_DIR = Path(__file__).parent.parent / "resources" / "plants"
 _CATEGORIES_DIR = _PLANTS_DIR / "categories"
 _SPECIES_DIR = _PLANTS_DIR / "species"
 
+# render_plant_pixmap allocates a size x size QImage straight from the
+# requested diameter with no upper bound (#298 review). A large enough value
+# fails allocation and yields a NULL (not None) QPixmap the paint path
+# forwards to drawPixmap unchecked; measured elsewhere in this codebase
+# (agent_api/creates.py) at ~0.26 GB / 0.5s for 8000 and ~2.3 GB / 3.0s for
+# 24000. Mirrors that same _MAX_PLANT_DIAMETER_CM value here at the actual
+# allocation site, so every caller is protected -- not just the one that
+# happened to add its own validation first.
+_MAX_RENDER_DIAMETER_PX = 5000
+
 
 class PlantCategory(Enum):
     """Categories of plant shapes for SVG mapping."""
@@ -440,8 +450,9 @@ def render_plant_pixmap(
     if renderer is None:
         return None
 
-    # Calculate render size (use integer pixels)
-    size = max(int(diameter), 4)
+    # Calculate render size (use integer pixels), capped against runaway
+    # allocation from unbounded input (see _MAX_RENDER_DIAMETER_PX above)
+    size = max(min(int(diameter), _MAX_RENDER_DIAMETER_PX), 4)
 
     # Generate stable random rotation for this specific item
     rotation = 0.0

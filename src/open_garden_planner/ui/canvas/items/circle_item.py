@@ -323,20 +323,35 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         For non-plant circles, delegates to the default ellipse painting.
         """
+        rect = self.rect()
+        is_plant = is_plant_type(self.object_type)
+        # Resolved once and reused by both the decorative drop-shadow below
+        # and the SVG render further down -- computing it twice risked the
+        # two disagreeing, which is exactly how a prior cut of this left the
+        # drop-shadow drawn at the full mature footprint while the icon
+        # shrank (a young plant rendered as a large grey disc with a tiny
+        # sprite inside it, #298 review). Equals rect.width() when there is
+        # no growth data, so this is a no-op for every non-growth plant and
+        # every non-plant circle.
+        diameter = self._visual_plant_diameter_cm(rect.width()) if is_plant else rect.width()
+
         # Draw painted shadow before the item itself
         if self._shadows_enabled:
-            rect = self.rect()
             painter.save()
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(self.SHADOW_COLOR)
-            shadow_rect = rect.translated(self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y)
+            if is_plant and diameter != rect.width():
+                half = diameter / 2.0
+                center = rect.center()
+                shadow_rect = QRectF(
+                    center.x() - half, center.y() - half, diameter, diameter
+                ).translated(self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y)
+            else:
+                shadow_rect = rect.translated(self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y)
             painter.drawEllipse(shadow_rect)
             painter.restore()
 
-        if is_plant_type(self.object_type):
-            rect = self.rect()
-            diameter = self._visual_plant_diameter_cm(rect.width())
-
+        if is_plant:
             # Render at a larger size so organic shapes fill the circle
             render_diameter = diameter * self._PLANT_FILL_SCALE
 
