@@ -1,4 +1,4 @@
-# Open Garden Planner - Claude Code Instructions
+# Open Garden Planner - Instructions for Coding Agents
 
 PyQt6 desktop app for precision garden planning with CAD-like metric accuracy.
 
@@ -42,7 +42,7 @@ Key rules:
 - Always include `traceback.format_stack()` at "unexpected call" sites — this is what reveals external callers (e.g. the minimap hiding the label editor).
 - Prefix every print with `[TAG]` so output is grep-able.
 - Remove all instrumentation before committing; the fix stays, the prints don't.
-- After each fix, add a **Case study** entry to `.claude/skills/debug-verbose/skill.md` (symptom, wrong theories, key log line, root cause, lesson). The skill grows with the project.
+- After each fix, add a **Case study** entry to `.Codex/skills/debug-verbose/skill.md` and `.claude/skills/debug-verbose/skill.md` (symptom, wrong theories, key log line, root cause, lesson). The skill grows with the project.
 
 ## Documentation & Knowledge Base
 
@@ -66,9 +66,9 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 | Glossary                             | `docs/12-glossary.md`                                 |
 | GitHub wiki (sync with roadmap)      | `../open-garden-planner.wiki/Roadmap.md`              |
 
-### Skill Library (`.claude/skills/`)
+### Skill Library (`.claude/skills/` or `.Codex/skills/`)
 
-Claude Code auto-loads each skill's `name` + `description` and invokes it via the
+Claude Code or Codex auto-loads each skill's `name` + `description` and invokes it via the
 Skill tool when a task matches. **The authoritative trigger for each skill is its
 frontmatter `description`** — this table is a routing map, not a substitute. Reach
 for a skill *before* acting, not after. Three pre-existing skills (`debug-verbose`,
@@ -167,7 +167,7 @@ do). If you must overwrite it wholesale, **`Read` the plan file once first, then
 | 9 | Commit: `feat(US-X.X): Description` | Conventional commit format |
 | 10 | Push & **open DRAFT PR** | After a clean senior-reviewer pass, push and open a **draft** PR automatically (`pr create --draft`). **Every coding job ends here — never stop at just a pushed branch.** Keep it a draft and **do NOT merge** until the user confirms manual testing passed — only then mark ready (`pr ready`) and `pr merge --squash --delete-branch --admin` |
 | 11 | Sync version on master | See Versioning Protocol (after merge) |
-| 12 | `/clear` context | Clear Claude context
+| 12 | `/clear` context | Clear Agent context
 
 ## Translation (i18n)
 
