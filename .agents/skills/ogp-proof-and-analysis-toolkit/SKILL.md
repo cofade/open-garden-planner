@@ -16,7 +16,7 @@ description: >
 # OGP Proof & Analysis Toolkit
 
 Nine proof methods this project actually uses, each as a recipe with a worked example
-mined from the repo's real history (docs §11.4, §8.9/§8.12/§8.19, ADRs, CLAUDE.md
+mined from the repo's real history (docs §11.4, §8.9/§8.12/§8.19, ADRs, AGENTS.md
 progress rows, and the pinned tests). The unifying rule: **a claim earns its way into
 code, review responses, or docs by a reproducible experiment or a primary-source read —
 never by memory, plausibility, or authority.**
@@ -71,7 +71,7 @@ behavior differences are common.
 5. Land the fact as (a) a pinned test where feasible, and (b) a dated note in the ADR/§
    with the words "empirically verified" — so the next person knows it wasn't guessed.
 
-**Worked example (US-D1.3, mcp 1.28.1 — §8.19 + ADR-034 addendum, CLAUDE.md D1.3 row):**
+**Worked example (US-D1.3, mcp 1.28.1 — §8.19 + ADR-034 addendum, AGENTS.md D1.3 row):**
 Two facts were established by experiment, not assumption:
 - `Image` (from `mcp.server.fastmcp.utilities.types`) is not pydantic-representable, so
   the natural `-> list[Image | RenderMeta]` annotation **crashes `build_server()` at
@@ -188,7 +188,7 @@ scene programmatically — no UI, no human timing — and print per-step numbers
 4. Convert the decisive trace into either a fix + pinned test, or a documented
    refutation.
 
-**Worked example (#218 — §11.4 "Closed (#218)" entry, CLAUDE.md #218 row):** the
+**Worked example (#218 — §11.4 "Closed (#218)" entry, AGENTS.md #218 row):** the
 theory was "the rotated resize needs a re-anchor post-correction." A headless trace
 showed the **radius stuck at 50 through an (80,80) drag** — at 45° the diagonal drag
 projects onto one local axis (`local_dy ≈ 0`), so `min(width, height)` selected the
@@ -296,7 +296,7 @@ evidence.
    stack is what names the external caller; a timestamp alone only tells you *when*.
 2. Reproduce once; read the log. The stack frame you didn't expect *is* the finding.
 3. Fix at the caller or add a principled guard; remove instrumentation; add a Case
-   study entry to `.claude/skills/debug-verbose/SKILL.md`.
+   study entry to `.agents/skills/debug-verbose/SKILL.md`.
 
 **Worked example (label editor auto-closing — debug-verbose skill, "Case study: label
 editor auto-closing (fixed 2026-04-22)", verified):** double-clicking any item opened
@@ -327,12 +327,12 @@ false claim creates real churn.
    fires only when the boolean flips, not on every undo").
 2. Read the defining code path end-to-end (the emit sites, not the connect sites).
 3. If refuted: respond with file+line evidence, don't change the code, and record the
-   refutation where the next person will look (CLAUDE.md row / PR thread).
+   refutation where the next person will look (AGENTS.md row / PR thread).
 4. If confirmed: proceed — and thank the reviewer with the same evidence.
 5. Symmetry check: apply this to *your own* recalled claims too, before writing them
    into docs.
 
-**Worked example (#223 — CLAUDE.md #223 row, verified):** a senior-review P1 claimed
+**Worked example (#223 — AGENTS.md #223 row, verified):** a senior-review P1 claimed
 the constraints/properties-panel rewiring changed behavior because
 `can_undo/redo_changed` doesn't fire unconditionally on undo/redo. Reading
 `core/commands.py` showed the signals **already fired unconditionally on every
@@ -430,8 +430,8 @@ Re-verify with:
 - Method 4: `grep -n "radius stuck at 50" docs/11-risks-and-technical-debt/README.md`
 - Method 5: `grep -n "9\*\*9\*\*9\|RecursionError" docs/11-risks-and-technical-debt/README.md` and `grep -n "_MAX_NODES" src/open_garden_planner/core/parametric_eval.py`
 - Method 6: `grep -n "sub-pixel\|1e-4" docs/11-risks-and-technical-debt/README.md` and `grep -n "1e-3\|1.0 cm" docs/08-crosscutting-concepts/README.md`
-- Method 7: `grep -n "110 ms\|THE CULPRIT" .claude/skills/debug-verbose/SKILL.md`
-- Method 8: `grep -n "refuted by reading" CLAUDE.md`
+- Method 7: `grep -n "110 ms\|THE CULPRIT" .agents/skills/debug-verbose/SKILL.md`
+- Method 8: `grep -n "refuted by reading" AGENTS.md`
 - Method 9: `grep -n "parametrize" tests/integration/test_bed_context_menu.py tests/integration/test_rotation_aware_resize.py`
 
 If any command comes back empty, the underlying fact moved or changed — re-verify the

@@ -1,0 +1,8 @@
+# Keep the checked-in root instructions within Codex's default project budget.
+project_doc_max_bytes = 32768
+
+[mcp_servers.garden]
+url = "http://127.0.0.1:8765/mcp"
+
+[mcp_servers.github]
+url = "https://api.githubcopilot.com/mcp"

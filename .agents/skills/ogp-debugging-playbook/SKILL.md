@@ -23,7 +23,7 @@ Ground-truth sources (read the matching entry BEFORE changing code):
 | Source | What it holds |
 |---|---|
 | `docs/11-risks-and-technical-debt/README.md` §11.4 | The pitfall chronicle — one entry per hard-won lesson, with contracts and regression tests |
-| `.claude/skills/debug-verbose/SKILL.md` | Instrumentation method + full case studies (symptom → wrong theories → key log line → root cause) |
+| `.agents/skills/debug-verbose/SKILL.md` | Instrumentation method + full case studies (symptom → wrong theories → key log line → root cause) |
 | `docs/08-crosscutting-concepts/README.md` §8.9 | QGraphicsView overlay/geometry patterns (incl. §8.9.8 rotation invariant) |
 | `docs/08-crosscutting-concepts/README.md` §8.19 + `docs/07-deployment-view/README.md` §7.6 | MCP server threading pitfalls + PyInstaller bundling fixes |
 
@@ -49,9 +49,9 @@ Jargon used once, defined once:
 2. **Classify against the tables below.** Match on the symptom column (phrased the way a tester says it). If a row matches, read the cited §11.4 chronicle entry / case study before touching code — it names the contract you must preserve and the regression test that pins it.
 3. **If no row matches, or two rows compete: stop theorising and invoke `/debug-verbose`.** That skill's method — `print`-based instrumentation with `[TAG]` prefixes, `traceback.format_stack()` at every "who called me?" site, reproduce manually, read stdout — is the project standard. Do not duplicate its templates here; load the skill.
 4. **Fix from evidence.** Prefer the fix pattern the chronicle already established (e.g. route through the existing command/helper) over a new local patch — most §11.4 entries end with a contract ("any new X must also do Y"); violating it is how these bugs recur.
-5. **Document.** After the fix: remove all instrumentation prints; add a **Case study** entry to `.claude/skills/debug-verbose/SKILL.md` (symptom, wrong theories, key log line, root cause, lesson) and a §11.4 entry if a new contract emerged. This duty is mandatory per `CLAUDE.md`; format guidance in `ogp-docs-and-writing`.
+5. **Document.** After the fix: remove all instrumentation prints; add a **Case study** entry to `.agents/skills/debug-verbose/SKILL.md` (symptom, wrong theories, key log line, root cause, lesson) and a §11.4 entry if a new contract emerged. This duty is mandatory per `AGENTS.md`; format guidance in `ogp-docs-and-writing`.
 
-Run commands note (2026-07-03): `CLAUDE.md` commands use `venv/Scripts/python.exe` — the dev machine is Windows. On Linux/CI the interpreter is `venv/bin/python` and headless Qt needs `QT_QPA_PLATFORM=offscreen` (already set in `tests/conftest.py` and `.github/workflows/ci.yml`).
+Run commands note (2026-07-03): `AGENTS.md` commands use `venv/Scripts/python.exe` — the dev machine is Windows. On Linux/CI the interpreter is `venv/bin/python` and headless Qt needs `QT_QPA_PLATFORM=offscreen` (already set in `tests/conftest.py` and `.github/workflows/ci.yml`).
 
 ---
 
@@ -98,7 +98,7 @@ Run commands note (2026-07-03): `CLAUDE.md` commands use `venv/Scripts/python.ex
 | 22 | Warning borders (soil mismatch etc.) go stale after dragging a plant in/out of a bed — but update after any *other* edit | `QGraphicsScene.changed` fires only on **visual** changes; Python attribute writes (`parent_bed_id`, `_child_item_ids`) emit nothing, so the debounced refresh never triggers | The stale-until-unrelated-edit pattern is itself the discriminator | Funnel reparenting through `SetParentBedCommand` (it calls `trigger_soil_mismatch_refresh` itself); any new reparent path must call it explicitly (`src/open_garden_planner/core/commands.py`) | #173; chronicle: `only fires on geometry/visibility`; debug-verbose case study |
 | 23 | Marking a task done on one surface (calendar vs Tasks tab) invisible on the other | Two surfaces deriving a shared store key differently | Print both surfaces' computed `task_id` for the same task | Both key **and** format must come from one shared function: canonical `species_key()` (`src/open_garden_planner/models/plant_data.py`) + `make_calendar_task_id()` (`services/task_generator.py`). A sync test must build ids the way production does (realistic species with `source_id`), not hand-written strings | #227; chronicle: `derive the key identically` |
 | 24 | A startup notification "never appears" | `statusBar().showMessage()` written while a modal dialog (Welcome) covers the window — painted behind it, then expires | Reproduce via the Welcome→recent-project path specifically | Persistent dismissible bar (`TaskReminderBar` pattern) + defer the check with `QTimer.singleShot(0, ...)` past the modal `exec()` | #227 fix #16; chronicle: `modal dialog is invisible` |
-| 25 | New bed feature (menu entry, badge) works on rectangle beds but missing on polygon/ellipse/circle beds | Four independently-implemented bed shape classes; hand-wiring one misses the others | Right-click each of the four shapes | Never hand-code per shape: `GardenItemMixin.build_bed_context_menu` + `dispatch_bed_action` central dispatch; extend the parametrised `tests/integration/test_bed_context_menu.py`. Read §8.14 + ADR-017 **first** (CLAUDE.md marks this READ FIRST) | US-12.7/12.8 recurrences; chronicle: `all bed-shape item types` |
+| 25 | New bed feature (menu entry, badge) works on rectangle beds but missing on polygon/ellipse/circle beds | Four independently-implemented bed shape classes; hand-wiring one misses the others | Right-click each of the four shapes | Never hand-code per shape: `GardenItemMixin.build_bed_context_menu` + `dispatch_bed_action` central dispatch; extend the parametrised `tests/integration/test_bed_context_menu.py`. Read §8.14 + ADR-017 **first** (AGENTS.md marks this READ FIRST) | US-12.7/12.8 recurrences; chronicle: `all bed-shape item types` |
 
 ## Triage table E — i18n, encoding, data display
 
@@ -116,7 +116,7 @@ Run commands note (2026-07-03): `CLAUDE.md` commands use `venv/Scripts/python.ex
 | # | Symptom | Likely cause | Discriminating experiment | Fix pointer | Incident |
 |---|---|---|---|---|---|
 | 32 | Exe builds but the embedded MCP server silently fails (GUI fine); or `ModuleNotFoundError: multiprocessing` at server start | `multiprocessing` in the spec `excludes` (uvicorn imports it eagerly even single-process), or missing `collect_submodules`/`copy_metadata` for the mcp/uvicorn/starlette stack | Run the **frozen** exe and hit `http://127.0.0.1:8765/mcp` with an MCP client — dev pytest cannot surface these | `installer/ogp.spec`; full rules in `docs/07-deployment-view/README.md` §7.6. Never `collect_submodules("mcp")` top-level — `mcp.cli` calls `sys.exit(1)` without the `typer` extra and **aborts the build**; collect `mcp.server`/`mcp.shared`/`mcp.types` | US-D1.1; docs/07 §7.6 |
-| 33 | Exe won't start / crashes on launch after adding any new dependency | PyInstaller missed dynamically-imported submodules or package metadata | The mandatory pre-merge smoke: `venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm` then `timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe` — exit code 124 (killed by timeout) = success | Add `collect_submodules` + `copy_metadata` in `installer/ogp.spec`, mirroring the §7.6 pattern; `pydantic_core*.pyd` stays `upx_exclude`d | CLAUDE.md Quick Reference; docs/07 |
+| 33 | Exe won't start / crashes on launch after adding any new dependency | PyInstaller missed dynamically-imported submodules or package metadata | The mandatory pre-merge smoke: `venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm` then `timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe` — exit code 124 (killed by timeout) = success | Add `collect_submodules` + `copy_metadata` in `installer/ogp.spec`, mirroring the §7.6 pattern; `pydantic_core*.pyd` stays `upx_exclude`d | AGENTS.md Quick Reference; docs/07 |
 | 34 | "All my gardens vanished after updating" (Windows) | User data saved under `$INSTDIR` (dialogs defaulting to CWD) + uninstaller `RMDir /r` on upgrade | Where did the user's `.ogp` live? | Every file dialog must route through `app/paths.py` (`get_projects_dir()`), never `""`/CWD; NSIS uninstaller rescues `$INSTDIR\*.ogp` first. Tests: `tests/unit/test_paths.py`, `tests/integration/test_save_location.py` | #199, ADR-027; chronicle: `install directory` |
 
 ---
@@ -128,7 +128,7 @@ These are load-bearing for interpreting evidence in this repo (all verified agai
 1. **pytest-qt turns any exception raised inside a Qt slot into a failure of the currently running test** — even when the slot belongs to a widget created by an *earlier* test. This is the engine behind every "passes alone, fails together" row (14–16). When a test failure's traceback names code the test never touched, suspect a leaked slot, not the test.
 2. **A hand-built `QMouseEvent` passed to `view.mousePressEvent` is not delivered to `ItemIgnoresTransformations` child items** (even when `itemAt` finds them). Use `QTest.mousePress/Move/Release` on `view.viewport()` — real event dispatch — after `view.centerOn(target)` so the target is inside the viewport. This is the only faithful way to test handle drags. (#193 case study.)
 3. **`QT_QPA_PLATFORM=offscreen`** makes Qt run headless (no display server). Already set in `tests/conftest.py` and CI; export it yourself for ad-hoc scripts on Linux.
-4. **PyQt6 tests require the `qtbot` fixture even when unused** (Qt initialisation); ruff has a per-file ARG002 ignore for test files (CLAUDE.md).
+4. **PyQt6 tests require the `qtbot` fixture even when unused** (Qt initialisation); ruff has a per-file ARG002 ignore for test files (AGENTS.md).
 5. **`QGraphicsScene.changed` is both too chatty and too quiet**: it fires on *every repaint* (a firehose — never wire it to a destructive rebuild without debounce + a diff guard, row 21) yet *never* fires on Python attribute writes (row 22). Both directions have bitten this project.
 6. **`QGraphicsItem.shape()` is hit-testing geometry, not drawing geometry** — for `QGraphicsPolygonItem` it returns the pen-width stroke *envelope*. Outline items with their primitive (`drawPolygon(self.polygon())`), never `drawPath(self.shape())`. (Case study "stroke envelope".)
 7. **Python's `max(iterable, key=...)` is left-biased on ties** — with date-resolution keys, the *first* record with the max date wins, not the newest. Design tie-breaks explicitly. (Case study "max() ties".)
@@ -163,7 +163,7 @@ grep -n "class TestNoHardcodedEnglish" tests/unit/test_i18n.py
 grep -n "multiprocessing" docs/07-deployment-view/README.md
 
 # Sibling docs this skill defers to:
-ls .claude/skills/debug-verbose/SKILL.md
+ls .agents/skills/debug-verbose/SKILL.md
 grep -n "8.9.8\|8.19" docs/08-crosscutting-concepts/README.md | head -4
 ```
 

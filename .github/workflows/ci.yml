@@ -7,6 +7,20 @@ on:
     branches: [master]
 
 jobs:
+  agent-context:
+    name: Agent context parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check Claude/Codex context parity
+        run: python scripts/check_agent_context.py
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

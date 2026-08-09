@@ -18,7 +18,7 @@ description: >
 
 Repo state when written: v1.23.0, 2026-07-03, default branch `master`, history is
 squash-merged PRs. Sources: `docs/11-risks-and-technical-debt/README.md` §11.4 (the
-richest), `CLAUDE.md` progress tables, `.claude/skills/debug-verbose/SKILL.md` case
+richest), `AGENTS.md` progress tables, `.agents/skills/debug-verbose/SKILL.md` case
 studies, `docs/roadmap.md`, `docs/09-architecture-decisions/README.md`, `git log`.
 Every "pinned by" test file was verified to exist on disk on 2026-07-03.
 
@@ -69,7 +69,7 @@ as `pos + rect.center()` with rotation as a separate angle pivoting on the centr
 whole codebase silently relies on `transformOriginPoint == rect().center()`. Every
 chapter below is a different way that invariant got broken. Source: §11.4 (the #213
 follow-up block, "Closed (#219)", "Closed (#218)"), ADR-028, debug-verbose case study
-"rotated circle drag-resize" (2026-06-17), CLAUDE.md Phase-12-issue-work table.
+"rotated circle drag-resize" (2026-06-17), AGENTS.md Phase-12-issue-work table.
 
 **Chapter 1 — #213: assigning a species visibly changes nothing.**
 - Symptom: assigning a DB species to an existing generic plant didn't visibly resize it.
@@ -142,7 +142,7 @@ follow-up block, "Closed (#219)", "Closed (#218)"), ADR-028, debug-verbose case 
 ## 2. The panel-rebuild saga (#200 → #206/#222 → #223 → #225)
 
 Source: §11.4 ("Properties panel updates incrementally" + its wiring follow-up),
-CLAUDE.md issue table.
+AGENTS.md issue table.
 
 - Symptom (#200): the properties-panel Name field lost focus after **every keystroke**.
 - Root cause: each keystroke's command emitted `can_undo/redo_changed`, which
@@ -235,7 +235,7 @@ Source: §11.4 ("Free-text property fields commit on a debounce…").
 ## 5. Task dual-store convergence (#227 → #228)
 
 Source: §11.4 ("Closed (#228)…", "Two surfaces that share a status store…"), ADR-029 +
-addendum, CLAUDE.md C2/#230 rows.
+addendum, AGENTS.md C2/#230 rows.
 
 - Original design (US-C2): "is this task done" lived in **two** stores — legacy
   `task_completions` (calendar dashboard) and new `task_states` (Tasks tab) — with a
@@ -298,7 +298,7 @@ Source: §11.4 (the #212 entry + its manual-test-round-2 follow-up).
 
 ## 7. Smart-symbol exception-family enumeration — the losing game (PR #236)
 
-Source: §11.4 (first entry), CLAUDE.md C4 row. Found over **three** senior-review rounds.
+Source: §11.4 (first entry), AGENTS.md C4 row. Found over **three** senior-review rounds.
 
 - Contract: a bad user-dropped JSON in `<app-data>/smart_symbols/` must never crash the app.
 - The losing game: first enforced with `except (OSError, JSONDecodeError, ValueError)`.
@@ -325,7 +325,7 @@ Source: §11.4 (first entry), CLAUDE.md C4 row. Found over **three** senior-revi
 ## 8. Release-workflow races (chore race; #229 date matching)
 
 Source: §11.4 ("Release workflow race condition with chore commits"),
-`.claude/skills/finalize-us/SKILL.md` steps 8–9, commits `dfddf28` and `745c4bb`.
+`.agents/skills/finalize-us/SKILL.md` steps 8–9, commits `dfddf28` and `745c4bb`.
 
 - Race 1: post-merge chore commits (version sync + roadmap) land ~37 s after the PR
   merge, but the release build takes ~2m50s. The chore commits' Release runs started
@@ -348,7 +348,7 @@ Source: §11.4 ("Release workflow race condition with chore commits"),
 ## 9. Data loss on update — the installer wiped user plans (#199/#204, ADR-027)
 
 Source: §11.4 ("Never default a file dialog into the install directory…"), ADR-027,
-CLAUDE.md issue table.
+AGENTS.md issue table.
 
 - Symptom: "all my gardens vanished after updating."
 - Two independent bugs that combined: (1) file dialogs called with `""` as directory open
@@ -371,7 +371,7 @@ CLAUDE.md issue table.
 
 ## 10. i18n incidents — hardcoded strings and mojibake
 
-Source: §11.4 (two entries) + CLAUDE.md Translation section.
+Source: §11.4 (two entries) + AGENTS.md Translation section.
 
 - **Hardcoded-English class** (the gate's mechanics/blind-spot are owned by
   `ogp-diagnostics-and-tooling` §1.2/1.3 — in one line: the gate only checks
@@ -424,7 +424,7 @@ Source: §11.4 (two adjacent entries).
 
 ## 12. Agent API render tool (D1.3, PR #242) — layers fix + two empirical mcp facts
 
-Source: CLAUDE.md D1.3 row, docs §8.19, ADR-034 addendum.
+Source: AGENTS.md D1.3 row, docs §8.19, ADR-034 addendum.
 
 - **Manual-test fix**: `render_canvas_image`'s `layers` parameter was originally
   *subtractive-only* — it could hide layers but never show one the user had toggled off
@@ -450,7 +450,7 @@ Source: CLAUDE.md D1.3 row, docs §8.19, ADR-034 addendum.
 ## 13. Retired feature: US-B7 Paper Space (dropped in PR #191 review)
 
 Source: `docs/roadmap.md` (~line 2277, "US-B7 dropped during manual-test review"),
-CLAUDE.md Package B note.
+AGENTS.md Package B note.
 
 - US-B7 added a "Layout" tab (Ctrl+4) with one page / viewport / title block / scale
   bar. Manual testing showed the abstraction added **no user-visible value** over what
@@ -671,7 +671,7 @@ pest log missed Polygon/Ellipse, succession missed three of four. Fix: central
 `build_bed_context_menu` + `dispatch_bed_action` (ADR-017, §8.14) gated by the
 parametrised `tests/integration/test_bed_context_menu.py` — adding a bed feature means
 adding one assert line per shape there. Closed; read §8.14 + ADR-017 BEFORE adding any
-bed feature (CLAUDE.md says the same).
+bed feature (AGENTS.md says the same).
 
 **24 — `max()` is left-biased on ties** (US-12.10/F2.10a, debug-verbose case study):
 `SoilTestHistory.latest = max(records, key=r.date)` returned the *first* same-day
@@ -689,7 +689,7 @@ the status-bar startup reminder invisible behind the modal Welcome dialog → pe
 `tests/integration/test_tasks.py::TestOverdueReminderBar`); shopping-list price ids must
 encode the display unit (g vs kg) or a price silently multiplies 1000×; trellis gallery
 thumbnails fell through to the round fallback because a SOLID fill has no texture
-(PR #236 manual-test fix, CLAUDE.md C3 row).
+(PR #236 manual-test fix, AGENTS.md C3 row).
 
 ---
 
@@ -714,7 +714,7 @@ thumbnails fell through to the round fallback because a SOLID fill has no textur
   as a *hard prerequisite* before any D2 write tool ships — a default-on unauthenticated
   mutate surface reachable by any local process is explicitly unacceptable. If you are
   implementing D2, auth comes first.
-- **Smart Symbols UI deferred** (CLAUDE.md C4 row): the sidebar panel ships hidden
+- **Smart Symbols UI deferred** (AGENTS.md C4 row): the sidebar panel ships hidden
   (`set_panel_visible("smart_symbols", False)` in `application.py`); engine,
   persistence, DXF export, and properties editing are live and tested. The hidden panel
   is intentional, not dead code.
@@ -752,8 +752,8 @@ thumbnails fell through to the round fallback because a SOLID fill has no textur
 
 Primary sources, in order of density: `docs/11-risks-and-technical-debt/README.md`
 §11.4 (read PAST line 127 — the file is 167 lines and the truncation point hides
-#199/#209/#206/#210/#227/#235 entries), `.claude/skills/debug-verbose/SKILL.md` case
-studies, `CLAUDE.md` progress tables, `docs/roadmap.md` (US-B7 note ~line 2277),
+#199/#209/#206/#210/#227/#235 entries), `.agents/skills/debug-verbose/SKILL.md` case
+studies, `AGENTS.md` progress tables, `docs/roadmap.md` (US-B7 note ~line 2277),
 `docs/09-architecture-decisions/README.md`, `git log --oneline`.
 
 Re-verification one-liners (run from repo root):
@@ -773,16 +773,16 @@ grep -n "Closed (#\|Lesson\|pinned\|Pinned\|Regression test" docs/11-risks-and-t
 
 # New sagas since this skill was written:
 git log --oneline -30
-grep -n "Case study" .claude/skills/debug-verbose/SKILL.md
+grep -n "Case study" .agents/skills/debug-verbose/SKILL.md
 
 # US-B7 retirement + paper_layouts ignore still documented:
-grep -n "paper_layouts" docs/roadmap.md CLAUDE.md
+grep -n "paper_layouts" docs/roadmap.md AGENTS.md
 
 # Release-race procedure unchanged:
-grep -n "tag transition\|before_tag\|date matching" .claude/skills/finalize-us/SKILL.md
+grep -n "tag transition\|before_tag\|date matching" .agents/skills/finalize-us/SKILL.md
 ```
 
-Maintenance rule (mirrors CLAUDE.md's continuous-documentation policy): after any fix
+Maintenance rule (mirrors AGENTS.md's continuous-documentation policy): after any fix
 that survived a wrong theory, a rejected design, a multi-round review, or a manual-test
 failure, add an entry here in the standard format AND a case study to `debug-verbose`
 if instrumentation cracked it. Date-stamp anything volatile (versions, library

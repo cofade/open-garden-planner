@@ -42,7 +42,7 @@ Run the full post-approval wrap-up for a completed user story. This skill assume
    git add <changed files>
    git commit -m "feat(US-X.X): <description>"
    ```
-   Include `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`.
+   Do not add an agent-generated `Co-Authored-By` trailer; preserve the repository's configured commit identity.
 
 6. **Push** the feature branch:
    ```
@@ -53,7 +53,7 @@ Run the full post-approval wrap-up for a completed user story. This skill assume
    ```
    "C:\Program Files\GitHub CLI\gh.exe" pr create --title "feat(US-X.X): Title" --body "..."
    ```
-   Body must include `## Summary` (bullet points), `## Test plan` (checklist), and the Claude Code footer. Include a short note if an independent PR review was run and whether it produced changes.
+   Body must include `## Summary` (bullet points), `## Test plan` (checklist), and the agent footer. Include a short note if an independent PR review was run and whether it produced changes.
 
 8. **Gate on CI, capture the current tag, then merge.**
 
