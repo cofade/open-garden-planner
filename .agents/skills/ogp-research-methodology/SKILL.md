@@ -16,8 +16,8 @@ description: >
 
 How this project decides that something is *true* — and that a change deserves to exist.
 Every rule below is extracted from a named, verifiable episode in this repo's history
-(CLAUDE.md progress tables, `docs/11-risks-and-technical-debt/` §11.4, `docs/roadmap.md`,
-`.claude/skills/debug-verbose/SKILL.md`, `.claude/agents/senior-reviewer.md`). Nothing here
+(AGENTS.md progress tables, `docs/11-risks-and-technical-debt/` §11.4, `docs/roadmap.md`,
+`.agents/skills/debug-verbose/SKILL.md`, `.codex/agents/senior-reviewer.toml`). Nothing here
 is aspirational; it is all case law. (Repo state: v1.23.0, verified 2026-07-05.)
 
 Scope boundary: this skill is about *epistemics* — what counts as evidence and when a result
@@ -105,29 +105,29 @@ Rules:
 ## 3. Assigned adversarial refutation: the senior-reviewer pass
 
 Results in this project survive only after an institutionalized adversary tries to kill
-them. The `senior-reviewer` agent (`.claude/agents/senior-reviewer.md`) is that adversary by
+them. The `senior-reviewer` agent (`.codex/agents/senior-reviewer.toml`) is that adversary by
 design: fresh context every run ("fresh eyes every time" — no credit for fixing what was
 asked), reads **diffs and source, not commit messages** ("trust code, not commit messages"),
 cites file:line for every claim, and ranks findings P0 (blocks merge) / P1 (fix before
-merge) / P2 (nits) with explicit severity discipline. CLAUDE.md workflow step 7 makes this
+merge) / P2 (nits) with explicit severity discipline. AGENTS.md workflow step 7 makes this
 pass mandatory before any draft PR; `finalize-us` repeats it pre-PR.
 
 Multiple rounds are **normal, not failure**:
 
 - **#213 / PR #217**: three senior-review rounds; the P0 was caught in round 2 — the species
   resize kept the visual centre fixed but not `transformOriginPoint`, so a *rotated* plant
-  saved displaced geometry. Round 1 had passed the unrotated case green. (CLAUDE.md progress
+  saved displaced geometry. Round 1 had passed the unrotated case green. (AGENTS.md progress
   table + §11.4.)
 - **PR #236 (US-C4 smart symbols)**: three senior-review rounds, each catching a new
   exception family escaping a too-narrow catch, until the structural fix landed. (§11.4.)
 - **#211 (undo/redo dirty-flag)**: the review found "the deeper rot" — ~30 direct
-  `_undo_stack.append` sites that the first fix silently un-dirtied. (CLAUDE.md, §11.4.)
+  `_undo_stack.append` sites that the first fix silently un-dirtied. (AGENTS.md, §11.4.)
 
 **Refutation goes both ways — the reviewer is fallible and the primary source wins.**
 Case law — **#223 / PR**: a senior-review P1 claimed the constraints/properties panels would
 lose undo/redo coverage when moved off `can_undo/redo_changed`; it was **refuted by reading
 `commands.py`** — those signals are emitted unconditionally on every `undo()`/`redo()`, not
-only when the boolean flips (CLAUDE.md #223 entry; §11.4 "#206 wiring" follow-up records the
+only when the boolean flips (AGENTS.md #223 entry; §11.4 "#206 wiring" follow-up records the
 refutation). Rule: when a review finding contradicts your understanding, neither party is
 right by rank — the one who reads the actual code at the cited line wins. Answer a finding
 with a file:line citation or a fix, never with an argument from intent.
@@ -157,10 +157,10 @@ Green tests plus a clean review have repeatedly lost to manual testing in this p
   `pdf_report_service` already covered print-to-PDF at chosen paper sizes, so the Layout tab,
   viewport item, title block, scale bar, and `paper_layouts` schema were all removed before
   merge. A whole feature retired on evidence of redundancy (`docs/roadmap.md` "US-B7 dropped
-  during manual-test review"; CLAUDE.md Package B note).
+  during manual-test review"; AGENTS.md Package B note).
 - **D1.3 layers semantics**: `layers` was subtractive-only (could hide, never show) — the
   gap only surfaced in manual test; the semantics were reworked to snapshot-force-restore so
-  an agent can request a layer the user has toggled off (CLAUDE.md D1.3 entry).
+  an agent can request a layer the user has toggled off (AGENTS.md D1.3 entry).
 - Smaller instances: US-C3's gallery thumbnails (trellis fell through to the round fallback
   — manual-test fix), #213's "nothing resizes on screen" (the ring-only refresh was
   technically correct and user-invisible; §11.4 manual-test follow-up), #212's list-scroll
@@ -168,7 +168,7 @@ Green tests plus a clean review have repeatedly lost to manual testing in this p
 
 Rules:
 
-- The draft PR stays a draft until the user confirms manual testing passed (CLAUDE.md
+- The draft PR stays a draft until the user confirms manual testing passed (AGENTS.md
   workflow step 10). Manual test is sovereign over your green suite and the reviewer's pass.
 - Always surface a manual-testing checklist with the work (workflow step 8) — write it so a
   failure is *informative* (which claim died?), not just "looks wrong".
@@ -185,7 +185,7 @@ Every accepted change in this project traversed this pipeline; use it as the map
 2. **GitHub issue / roadmap US with acceptance criteria** — `docs/roadmap.md` for user
    stories; issues for defects and follow-ups (the project files follow-ups aggressively:
    #206, #209, #210, #225 each born inside another change's review).
-3. **Feature branch** — the experiment space; never master (CLAUDE.md workflow step 1).
+3. **Feature branch** — the experiment space; never master (AGENTS.md workflow step 1).
 4. **Instrumented investigation** — `/debug-verbose` at the first sign of any non-obvious
    bug, before theorising. Predictions written first (§2).
 5. **Implementation with pinned tests** — every mechanism gets a test that *fails without
@@ -196,13 +196,13 @@ Every accepted change in this project traversed this pipeline; use it as the map
 7. **Draft PR** — every coding job ends with one; never a bare pushed branch.
 8. **Manual test (sovereign)** — may reject code, design, or the feature itself (§4).
 9. **Docs of record** — §11.4 pitfall entry (with "Rule:" / "Lesson:"), ADR or ADR addendum,
-   FR-* entry, roadmap completion note, debug-verbose case study. CLAUDE.md: "all lessons
+   FR-* entry, roadmap completion note, debug-verbose case study. AGENTS.md: "all lessons
    learned MUST be documented." A result that isn't in the docs of record is not yet
    accepted — it is merely merged.
 10. **Adopted** — OR **documented retirement**.
 
 **Retirement is a first-class outcome, and it still produces knowledge.** US-B7 is the
-exemplar: dropped WITH rationale recorded in both CLAUDE.md and `docs/roadmap.md`, plus a
+exemplar: dropped WITH rationale recorded in both AGENTS.md and `docs/roadmap.md`, plus a
 compat *guarantee* — `FILE_VERSION` stays 1.4, and the loader silently ignores the
 `paper_layouts` key that short-lived draft builds wrote into `.ogp` files. A retired idea
 that leaves behind a recorded reason and a compatibility contract has paid for itself.
@@ -222,7 +222,7 @@ Know the sources so you keep them open (deciding *which* to pursue is
   each escalation generalized into a rule, not just a patch.
 - **Dogfooding the CAD workflows**: Package A (relative/polar input, snap modes) and
   Package B — explicitly titled "closing the CAD precision gap" — exist because real
-  CAD-style use exposed precision gaps (CLAUDE.md Phase 13 tables).
+  CAD-style use exposed precision gaps (AGENTS.md Phase 13 tables).
 - **User-owner priorities**: Package D's shape comes from a recorded planning session —
   `docs/roadmap.md` "Design decisions (from the planning session)" under the Package D
   section.
@@ -254,7 +254,7 @@ Know the sources so you keep them open (deciding *which* to pursue is
 3. **Date-matching CI state instead of watching state transitions** — issue #229: waiting on
    releases by grepping `$(date ...)` breaks on local-vs-UTC `createdAt` mismatches and
    same-day re-runs, and a date match *cannot detect failure*. The rule (codified in
-   `.claude/skills/finalize-us/SKILL.md`): wait on a **state transition** — `gh pr checks
+   `.agents/skills/finalize-us/SKILL.md`): wait on a **state transition** — `gh pr checks
    --watch --fail-fast`, or the top release tag *differing* from the one captured before
    merge. Generalized: poll for "the world changed from X to Y", never for "something
    matching today exists".
@@ -327,9 +327,9 @@ Volatile facts date-stamped 2026-07-05 (repo at v1.23.0, Phases 1–13 Packages 
 complete). Re-verify the cited episodes before relying on them:
 `grep -n "Closed (#218)\|losing game\|#169" docs/11-risks-and-technical-debt/README.md` ·
 `grep -n "US-B7 dropped\|planning session" docs/roadmap.md` ·
-`grep -in "refuted by reading\|senior-review rounds\|P0 caught" CLAUDE.md` ·
-`grep -rn "issue #229" .claude/skills/finalize-us/SKILL.md` ·
+`grep -in "refuted by reading\|senior-review rounds\|P0 caught" AGENTS.md` ·
+`grep -rn "issue #229" .agents/skills/finalize-us/SKILL.md` ·
 `sed -n '441,455p' docs/08-crosscutting-concepts/README.md` (§8.12.8 residuals) ·
 `ls tests/unit/test_agent_api_render_coordinate_frame.py` ·
-`head -20 .claude/agents/senior-reviewer.md` and
-`head -12 .claude/skills/debug-verbose/SKILL.md` (core principle + case-study format).
+`head -20 .codex/agents/senior-reviewer.toml` and
+`head -12 .agents/skills/debug-verbose/SKILL.md` (core principle + case-study format).

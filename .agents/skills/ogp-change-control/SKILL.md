@@ -33,7 +33,7 @@ Facts date-stamped **as of 2026-07-03**: released version **v1.23.0** (matching
 | **Draft PR** | GitHub pull request opened with `--draft`. In this repo it means "code review passed, awaiting the user's manual test". It is the mandatory end state of every coding job. |
 | **Chore commit** | Commit whose message starts with `chore:` or `chore(...)`. The release workflow deliberately skips these — they are how version-sync and doc-only changes land on master without minting a release. |
 | **Squash merge** | The only merge mode used: `pr merge --squash --delete-branch` collapses the branch into one master commit. That single commit message is what `release.yml` inspects for the `chore` skip. |
-| **senior-reviewer** | The repo's adversarial review agent (`.claude/agents/senior-reviewer.md`, P0/P1/P2 severity discipline). A clean pass is a hard gate before any PR. |
+| **senior-reviewer** | The repo's adversarial review agent (`.codex/agents/senior-reviewer.toml`, P0/P1/P2 severity discipline). A clean pass is a hard gate before any PR. |
 | **P0 / P1 / P2** | Review severities: P0 blocks merge (correctness, data loss, untranslated user-facing strings); P1 should be fixed before merge; P2 is a nit. |
 | **i18n gate** | `tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` — fails if any registered UI string lacks a German translation. |
 | **FILE_VERSION** | The `.ogp` save-file format version (`"1.4"` as of 2026-07-03). Distinct from the app version. New `.ogp` keys are added *additively* without bumping it whenever old versions can safely ignore them. |
@@ -52,7 +52,7 @@ will be minted.
 
 Everything user-visible that a change adds must eventually be reflected in
 `docs/functional-requirements.md`, arc42 docs, and possibly an ADR — see
-`ogp-docs-and-writing` for the duty matrix (it mirrors the table in `CLAUDE.md`).
+`ogp-docs-and-writing` for the duty matrix (it mirrors the table in `AGENTS.md`).
 
 ## 2. The non-negotiables
 
@@ -82,7 +82,7 @@ which is also why your version-sync commit **must** carry the `chore:` prefix (a
 `chore(finalize-us):` once slipped past a narrower guard and wrongly triggered a release,
 hence the second `chore(` clause).
 
-**Incident (issue #229, documented in `.claude/skills/finalize-us/SKILL.md`):** a script
+**Incident (issue #229, documented in `.agents/skills/finalize-us/SKILL.md`):** a script
 waited for the new release by grepping `gh release list` output for today's `$(date)`.
 Local-vs-UTC `createdAt` mismatches and same-day re-runs made the match unreliable, and a
 date match cannot detect a *failed* release. Rule: wait on a **state transition** —
@@ -98,7 +98,7 @@ ready or merge without the user explicitly confirming manual testing passed — 
 only then: `pr ready` followed by `pr merge --squash --delete-branch --admin`.
 
 **Why manual testing is sovereign — merged-or-reviewed work has been overturned by it
-repeatedly (all documented in `CLAUDE.md` progress tables):**
+repeatedly (all documented in `AGENTS.md` progress tables):**
 
 - **US-B7 (Paper Space MVP) was dropped entirely** during PR #191 manual-test review — the
   feature duplicated the existing PDF report service. Code was written; the test killed it.
@@ -124,7 +124,7 @@ Launch the `senior-reviewer` agent against the branch diff (fresh worktree, diff
 re-review** — a review of the fix is not implied by a review of the original. The
 `finalize-us` skill repeats this gate pre-PR; running it twice is by design.
 
-**Real catches that justify the gate (all in `CLAUDE.md` progress tables):**
+**Real catches that justify the gate (all in `AGENTS.md` progress tables):**
 
 - **#213 / PR #217, P0 in round 2:** the species-assignment resize kept the *visual*
   centre fixed but not `transformOriginPoint`, so a **rotated** plant saved a displaced
@@ -147,7 +147,7 @@ directions.
 - **i18n:** every user-visible string goes through `self.tr()` /
   `QCoreApplication.translate("Context", ...)` / `QT_TR_NOOP` (rules and the
   hardcoded-f-string trap: `docs/08-crosscutting-concepts/README.md` §8.3 and the i18n
-  block in `CLAUDE.md`). Then register in `scripts/fill_translations.py`, run it and
+  block in `AGENTS.md`). Then register in `scripts/fill_translations.py`, run it and
   `scripts/compile_translations.py` (both with `PYTHONUTF8=1`), and the i18n gate test
   must pass. Known blind spot (§11.4): the gate only sees strings *already extracted* —
   a plain f-string never reaches it; `TestNoHardcodedEnglish` greps for known offenders
@@ -172,7 +172,7 @@ GitHub releases are **the** source of truth for the version. After the merge tri
    there is no sanctioned local `gh` invocation documented for Linux here.
 2. Update **both** `pyproject.toml` (`version = "X.Y.Z"`, line ~7) and
    `src/open_garden_planner/__init__.py` (`__version__ = "X.Y.Z"`, line ~8) to match.
-3. Also update the `CLAUDE.md` progress table / roadmap status in the same commit.
+3. Also update the `AGENTS.md` progress table / roadmap status in the same commit.
 4. Commit as `chore: sync version to vX.Y.Z after US-X.X PR #NNN` and push to master —
    the `chore:` prefix is load-bearing (section 2.2).
 
@@ -237,7 +237,7 @@ project board 1 (owner `cofade`).
 
 ## 4. Change checklist — start to finish
 
-The authoritative 12-step table lives in `CLAUDE.md` (Workflow section); this expands it
+The authoritative 12-step table lives in `AGENTS.md` (Workflow section); this expands it
 with gates and sibling-skill pointers. Windows dev commands are canonical; Linux/CI
 equivalents in parentheses.
 
@@ -290,7 +290,7 @@ grep -n "^version" pyproject.toml && grep -n "__version__" src/open_garden_plann
 # .ogp file format version
 grep -n "^FILE_VERSION" src/open_garden_planner/core/project.py
 # Workflow table, draft-PR mandate, versioning protocol
-grep -n "draft\|Never create git tags\|feature branches" CLAUDE.md
+grep -n "draft\|Never create git tags\|feature branches" AGENTS.md
 # i18n gate test exists
 grep -n "test_german_ts_has_no_unfinished" tests/unit/test_i18n.py
 # Integration-test mandate wording
@@ -298,9 +298,9 @@ grep -n "No merge without it" docs/08-crosscutting-concepts/README.md
 # Chore-race incident text
 grep -n "Release workflow race condition" docs/11-risks-and-technical-debt/README.md
 # Issue #229 date-matching rule + tag-transition wait loop
-grep -n "#229\|before_tag" .claude/skills/finalize-us/SKILL.md
+grep -n "#229\|before_tag" .agents/skills/finalize-us/SKILL.md
 # senior-reviewer agent definition present
-head -5 .claude/agents/senior-reviewer.md
+head -5 .codex/agents/senior-reviewer.toml
 ```
 
 If any command's output no longer matches this file, update the file — a wrong runbook is

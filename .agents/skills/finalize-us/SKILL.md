@@ -29,10 +29,10 @@ Run the full post-approval wrap-up for a completed user story. This skill assume
    Confirm you are on the intended feature branch and understand exactly what will ship.
 
 2. **Run final local quality checks**
-   Use the checks required by `CLAUDE.md` for the touched feature. At minimum, run the relevant tests and lint checks; if UI strings changed, include translation validation.
+   Use the checks required by `AGENTS.md` for the touched feature. At minimum, run the relevant tests and lint checks; if UI strings changed, include translation validation.
 
 3. **Run an independent PR review**
-   Launch the local `.claude/agents/senior-reviewer.md` agent in a fresh, isolated worktree to review the branch as if it were an external reviewer. The review should look for correctness issues, regressions, missing tests, translation misses, and security concerns. Treat the result as an input to the finalization decision, not as a rubber stamp.
+   Launch the local `.codex/agents/senior-reviewer.toml` agent in a fresh, isolated worktree to review the branch as if it were an external reviewer. The review should look for correctness issues, regressions, missing tests, translation misses, and security concerns. Treat the result as an input to the finalization decision, not as a rubber stamp.
 
 4. **Apply any fixes from review**
    Re-run the affected checks after fixes. If the reviewer found nothing actionable, note that in the PR summary.
@@ -42,7 +42,7 @@ Run the full post-approval wrap-up for a completed user story. This skill assume
    git add <changed files>
    git commit -m "feat(US-X.X): <description>"
    ```
-   Include `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`.
+   Do not add an agent-generated `Co-Authored-By` trailer; preserve the repository's configured commit identity.
 
 6. **Push** the feature branch:
    ```
@@ -53,7 +53,7 @@ Run the full post-approval wrap-up for a completed user story. This skill assume
    ```
    "C:\Program Files\GitHub CLI\gh.exe" pr create --title "feat(US-X.X): Title" --body "..."
    ```
-   Body must include `## Summary` (bullet points), `## Test plan` (checklist), and the Claude Code footer. Include a short note if an independent PR review was run and whether it produced changes.
+   Body must include `## Summary` (bullet points), `## Test plan` (checklist), and the Codex footer. Include a short note if an independent PR review was run and whether it produced changes.
 
 8. **Gate on CI, capture the current tag, then merge.**
 
@@ -96,12 +96,12 @@ Run the full post-approval wrap-up for a completed user story. This skill assume
    Update `pyproject.toml` and `src/open_garden_planner/__init__.py` to match.
 
 11. **Update roadmap** — mark the user story complete:
-   - `CLAUDE.md`: change the Phase progress row to `✅`
+   - `AGENTS.md`: change the Phase progress row to `✅`
    - `../open-garden-planner.wiki/Roadmap.md`: mark the same story complete
 
 12. **Commit version sync + roadmap**:
    ```
-   git add pyproject.toml src/open_garden_planner/__init__.py CLAUDE.md
+   git add pyproject.toml src/open_garden_planner/__init__.py AGENTS.md
    git commit -m "chore: sync version to vX.Y.Z after US-X.X PR #NNN"
    ```
 
