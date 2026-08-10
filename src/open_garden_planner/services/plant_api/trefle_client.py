@@ -276,14 +276,18 @@ class TrefleClient(PlantAPIClient):
 
         # Flowering information
         flower = data.get("flower", {}) or {}
-        flower_color = None
+        flower_color = ""
         flower_color_raw = flower.get("color")
         if isinstance(flower_color_raw, list) and flower_color_raw:
             flower_color = ", ".join(flower_color_raw)
 
-        # Description from observations or growth description
-        observations = data.get("observations", "")
-        growth_desc = growth.get("description", "")
+        # Description from observations or growth description. `or ""` on
+        # both, not just the combining `or` below: if BOTH keys are present
+        # but null (round 6 live sweep: growth.description null in 42/42
+        # sampled records), `None or None` is still `None`, not the `str`
+        # this field is declared as.
+        observations = data.get("observations") or ""
+        growth_desc = growth.get("description") or ""
         description = observations or growth_desc
 
         return PlantSpeciesData(
@@ -306,7 +310,11 @@ class TrefleClient(PlantAPIClient):
             description=description,
             edible=edible,
             edible_parts=edible_parts,
-            flowering=flower.get("conspicuous", False),
+            # `.get(key, False)`'s default only applies when the key is
+            # ABSENT -- `flower.conspicuous` is null in 33/42 live-sampled
+            # records (round 6), which slipped through as `flowering=None`
+            # on a field declared `bool`.
+            flowering=flower.get("conspicuous") or False,
             flower_color=flower_color,
             foliage_color=foliage_color,
             foliage_texture=foliage_texture,

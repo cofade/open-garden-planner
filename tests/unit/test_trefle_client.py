@@ -256,9 +256,11 @@ class TestMainSpeciesNullSafety:
         from open_garden_planner.services.plant_api.base import PlantDetailUnavailableError
 
         client = TrefleClient(api_token="token")
-        # Shape captured live from GET /api/v1/plants/443432 during the #297
-        # round-5 investigation, trimmed to the fields this test exercises.
-        response_payload = {"data": {"id": 443987, "main_species": None}}
+        # main_species: null is what's live-confirmed for id 443432 (#297
+        # round 5); the surrounding top-level data.id is an arbitrary
+        # placeholder, not itself captured or asserted on -- this test only
+        # exercises the main_species-is-null branch.
+        response_payload = {"data": {"id": 1, "main_species": None}}
 
         with patch.object(client, "_session") as mock_session:
             mock_response = MagicMock()
@@ -272,3 +274,30 @@ class TestMainSpeciesNullSafety:
                 raised = e
 
         assert isinstance(raised, PlantDetailUnavailableError)
+
+    def test_no_none_leaks_into_non_optional_fields_when_growth_fields_are_null(self) -> None:
+        """Regression pin (#297 senior-review round 6): a live sweep of 42
+        real Trefle detail records found `growth.description` null in
+        42/42, `flower.conspicuous` null in 33/42, and `observations` null
+        in 1/42 -- all three previously used the two-arg `data.get(key,
+        default)` form, whose default only applies when the key is ABSENT,
+        so a present null passed straight through as `None` into fields
+        declared `str`/`bool` (not `Optional`). A round-5 comment claiming
+        "every lookup below" used the None-safe `or` idiom was wrong; this
+        pins the sweep round 6 actually completed.
+        """
+        client = TrefleClient(api_token="token")
+        payload = {
+            "id": 1,
+            "common_name": "Test",
+            "scientific_name": "Testus",
+            "observations": None,
+            "growth": {"description": None},
+            "flower": {"conspicuous": None, "color": None},
+        }
+
+        result = client._parse_species(payload)
+
+        assert result.description == ""
+        assert result.flowering is False
+        assert result.flower_color == ""
