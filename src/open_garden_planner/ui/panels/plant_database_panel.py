@@ -38,6 +38,7 @@ from open_garden_planner.services.bundled_species_db import merge_calendar_data
 from open_garden_planner.ui.plant_species_assignment import (
     apply_species_to_item,
     confirm_apply_database_values,
+    plant_source_label,
 )
 
 
@@ -1414,7 +1415,9 @@ class PlantDatabasePanel(QWidget):
 
         # === SOURCE INFO ===
         # Set source info as tooltip on the panel header (via parent)
-        source_text = self.tr("Data Source: {source}").format(source=plant_data.data_source.title())
+        source_text = self.tr("Data Source: {source}").format(
+            source=plant_source_label(plant_data.data_source)
+        )
         if plant_data.source_id:
             source_text += f" (ID: {plant_data.source_id})"
 

@@ -4,12 +4,14 @@ Open Garden Planner integrates with online plant databases to help you search fo
 
 ## Supported Plant APIs
 
-The application supports multiple plant APIs with automatic fallback:
+Your custom plant library (entries you've created yourself, via "Create Custom Plant") is always searched first and needs no API key. If it doesn't have enough matches, the application falls back through multiple online plant APIs in order:
 
 1. **Trefle.io** (Primary) - Comprehensive botanical database, 400,000+ species
 2. **Perenual** (Secondary) - Most reliable, 10,000+ species
 3. **Permapeople** (Tertiary) - Community-driven, permaculture-focused
 4. Bundled Database (Future) - Offline fallback
+
+Custom-library results are not deduplicated against API results -- if you have a custom entry with the same name as a species an API also knows about, both appear in the results list, and each row shows its source (e.g. "Tomato (Solanum lycopersicum) — Custom Plant" vs "— Trefle") so you can tell them apart.
 
 ## Setup Instructions
 
@@ -106,8 +108,8 @@ Permapeople is a community-driven plant database focused on permaculture and edi
 
 Once you've configured API keys, the plant search feature will automatically:
 
-1. Try each API in order (Trefle → Perenual → Permapeople → ...)
-2. Use the first one that successfully returns results
+1. Search your custom plant library first (no key needed)
+2. Try each API in order (Trefle → Perenual → Permapeople → ...) until one returns results
 3. Display plant information including:
    - Common and scientific names
    - Sun and water requirements
@@ -151,6 +153,5 @@ When using these APIs, please:
 
 Planned features for future releases:
 - Bundled offline plant database
-- Custom plant library (user-defined entries)
 - Plant data caching for offline use
 - Advanced filtering (by zone, edibility, growth characteristics)

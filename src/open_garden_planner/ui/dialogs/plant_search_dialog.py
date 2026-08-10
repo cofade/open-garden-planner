@@ -24,6 +24,7 @@ from open_garden_planner.services.plant_api import (
     PlantAPIManager,
     PlantDetailUnavailableError,
 )
+from open_garden_planner.ui.plant_species_assignment import plant_source_label
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,8 @@ class PlantSearchDialog(QDialog):
     Allows users to search for plants using the PlantAPIManager,
     which automatically tries multiple APIs with fallback.
     """
+
+    _ONLINE_PROVIDERS = frozenset({"trefle", "perenual", "permapeople"})
 
     def __init__(
         self,
@@ -164,10 +167,21 @@ class PlantSearchDialog(QDialog):
             results = self._api_manager.search(query, limit=20)
 
             if results:
-                # Populate results list
+                # Every row shows the store it came from: the custom plant
+                # library is searched first (PlantAPIManager.search()) and is
+                # not deduplicated against API results, so a stale or bogus
+                # custom entry with the same common/scientific name as a live
+                # record would otherwise be indistinguishable in this list
+                # before the user picks one (#297 manual-test finding: a
+                # leftover custom "Tomato" record with wrong sun/water values
+                # was picked instead of Trefle's).
                 for plant_data in results:
                     item = QListWidgetItem(
-                        f"{plant_data.common_name} ({plant_data.scientific_name})"
+                        self.tr("{name} ({scientific}) — {source}").format(
+                            name=plant_data.common_name,
+                            scientific=plant_data.scientific_name,
+                            source=plant_source_label(plant_data.data_source),
+                        )
                     )
                     item.setData(Qt.ItemDataRole.UserRole, plant_data)
                     self.results_list.addItem(item)
@@ -301,7 +315,7 @@ class PlantSearchDialog(QDialog):
 
         # Data source
         html += "<hr><p style='opacity: 0.6; font-size: small;'>"
-        html += self.tr("Source: {source}").format(source=plant.data_source.title())
+        html += self.tr("Source: {source}").format(source=plant_source_label(plant.data_source))
         if plant.source_id:
             html += f" (ID: {plant.source_id})"
         html += "</p>"
@@ -352,11 +366,20 @@ class PlantSearchDialog(QDialog):
         data only exists behind `get_by_id()`. Runs once, on confirm rather
         than per browsed result, to keep this to one extra request instead of
         one per visible row (Trefle/Permapeople rate-limit concern raised in
-        #297) -- and skipped for locally-stored custom plants, which have no
-        online detail endpoint and are already complete.
+        #297) -- and skipped for anything that isn't a known online provider
+        (locally-stored custom/bundled plants have no online detail endpoint
+        and are already complete).
+
+        Guards on an *allowlist* of online providers, not a `!= "custom"`
+        blocklist: a legacy or hand-edited custom-library entry can carry an
+        empty `data_source` (`PlantLibrary._load()` doesn't force it to
+        `"custom"` the way `add_plant`/`update_plant`/`import_from_dict` do),
+        and a blocklist would let that fall through to `get_by_id("", ...)`,
+        which matches no client and surfaces a spurious "Limited Plant Data"
+        warning for a plant that was never supposed to be fetched at all.
         """
         plant = self._selected_plant
-        if plant is None or plant.data_source == "custom" or not plant.source_id:
+        if plant is None or plant.data_source not in self._ONLINE_PROVIDERS or not plant.source_id:
             return
 
         # setCursor (not a button disable) is the only user-visible feedback
@@ -497,7 +520,7 @@ class PlantSearchDialog(QDialog):
                 "Could not load full details for {name} from {source}. "
                 "The plant will be added with basic information only "
                 "(sun, water, pH, and foliage data may be missing)."
-            ).format(name=display_name, source=plant.data_source.title()),
+            ).format(name=display_name, source=plant_source_label(plant.data_source)),
         )
 
     @property

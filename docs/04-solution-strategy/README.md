@@ -38,8 +38,8 @@
 | **Shadows** | Subtle drop shadows (toggleable) | Visual depth, professional look |
 | **Undo History** | Clears on project close | Standard behavior, simpler implementation |
 | **Session State** | Remember window size, position, recent files | Professional, convenient UX |
-| **Plant Data** | API first, then custom entries | Leverage existing plant databases |
-| **API Fallback** | Trefle.io -> Permapeople -> Bundled DB -> Custom | Graceful degradation |
+| **Plant Data** | Custom entries first, then API fallback | User's own library always wins; APIs fill the gaps |
+| **API Fallback** | Custom library -> Trefle.io -> Perenual -> Permapeople -> Bundled DB | Graceful degradation |
 | **Theme** | Branded green with light/dark variants | Strong visual identity, garden-appropriate |
 | **i18n** | Qt Linguist, EN + DE extensible | Native Qt integration, community can add languages |
 | **Graphics Assets** | AI-generated SVGs | Consistent style, fully custom, no licensing issues |

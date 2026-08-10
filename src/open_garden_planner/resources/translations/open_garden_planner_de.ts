@@ -4435,6 +4435,18 @@ Verwenden Sie 'Eigene erstellen', um Pflanzen hinzuzufügen, oder das Pflanzen-M
             <source>—</source>
             <translation>—</translation>
         </message>
+        <message>
+            <source>Unknown source</source>
+            <translation>Unbekannte Quelle</translation>
+        </message>
+        <message>
+            <source>Custom Plant</source>
+            <translation>Eigene Pflanze</translation>
+        </message>
+        <message>
+            <source>Bundled</source>
+            <translation>Mitgeliefert</translation>
+        </message>
     </context>
     <context>
         <name>PlantSearchDialog</name>
@@ -4680,6 +4692,18 @@ Bitte überprüfen Sie Ihre Internetverbindung und API-Zugangsdaten.</translatio
         <message>
             <source>Could not load full details for {name} from {source}. The plant will be added with basic information only (sun, water, pH, and foliage data may be missing).</source>
             <translation>Es konnten keine vollständigen Details für {name} von {source} geladen werden. Die Pflanze wird nur mit grundlegenden Informationen hinzugefügt (Sonne, Wasser, pH-Wert und Laubdaten könnten fehlen).</translation>
+        </message>
+        <message>
+            <source>{name} ({scientific}) — {source}</source>
+            <translation>{name} ({scientific}) — {source}</translation>
+        </message>
+        <message>
+            <source>Unknown source</source>
+            <translation>Unbekannte Quelle</translation>
+        </message>
+        <message>
+            <source>Custom</source>
+            <translation>Eigene</translation>
         </message>
     </context>
     <context>

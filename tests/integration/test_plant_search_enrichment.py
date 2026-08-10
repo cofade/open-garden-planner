@@ -15,6 +15,12 @@ Only the HTTP layer (``requests.Session.get``) is mocked, so this exercises
 the real dialog wiring end to end: search -> select -> confirm -> enriched
 result, following the same real-widget-plus-mocked-HTTP pattern as
 ``test_plant_api_test_button.py``.
+
+Also covers a manual-testing finding on top of the same fix: every search
+result row must show its data source (``TestResultListSourceLabel``), since
+the custom plant library is searched first and is never deduplicated
+against API results -- a stale local entry with the same name as a real
+species is otherwise indistinguishable from a live one.
 """
 
 from __future__ import annotations
@@ -87,19 +93,23 @@ def _fake_get(url, params=None, timeout=None):
     return response
 
 
-class _EmptyLibrary:
+class _StubLibrary:
     """Stand-in for the user's real custom-plant library.
 
     ``PlantLibrary`` reads/writes a real file under the OS app-data
     directory and isn't isolated by ``tests/conftest.py`` -- searching
     "carrot" for real could pick up a developer's own custom entry and make
-    this test's result set non-deterministic. None of these tests are about
-    the custom-library merge path, so it's stubbed to always report no
-    matches.
+    a test's result set non-deterministic. Defaults to reporting no matches
+    (the common case: these tests are about the enrichment path, not the
+    custom-library merge); pass ``results`` to simulate a custom entry the
+    library really does have (e.g. a stale/legacy one).
     """
 
+    def __init__(self, results: list | None = None) -> None:
+        self._results = results or []
+
     def search_plants(self, query: str) -> list:
-        return []
+        return self._results
 
 
 @pytest.fixture()
@@ -107,7 +117,7 @@ def dialog(qtbot, monkeypatch):
     monkeypatch.setattr("requests.Session.get", MagicMock(side_effect=_fake_get))
     monkeypatch.setattr(
         "open_garden_planner.services.plant_library.get_plant_library",
-        lambda: _EmptyLibrary(),
+        lambda: _StubLibrary(),
     )
     manager = PlantAPIManager(trefle_api_token="fake-token")
     dlg = PlantSearchDialog(manager)
@@ -274,7 +284,7 @@ class TestSearchResultEnrichment:
         monkeypatch.setattr("requests.Session.get", mock_get)
         monkeypatch.setattr(
             "open_garden_planner.services.plant_library.get_plant_library",
-            lambda: _EmptyLibrary(),
+            lambda: _StubLibrary(),
         )
         manager = PlantAPIManager(trefle_api_token="fake-token")
         dlg = PlantSearchDialog(manager)
@@ -436,7 +446,7 @@ class TestSearchResultEnrichment:
         monkeypatch.setattr("requests.Session.get", mock_get)
         monkeypatch.setattr(
             "open_garden_planner.services.plant_library.get_plant_library",
-            lambda: _EmptyLibrary(),
+            lambda: _StubLibrary(),
         )
         manager = PlantAPIManager(perenual_api_key="fake-key")
         dlg = PlantSearchDialog(manager)
@@ -480,3 +490,106 @@ class TestSearchResultEnrichment:
 
         mock_get.assert_not_called()
         assert dialog.selected_plant is custom_plant
+
+
+class TestResultListSourceLabel:
+    """Regression pin (manual-test finding on a real dev machine, 2026-08-10):
+    the results list previously showed only "{common_name} ({scientific_name})"
+    with no indication of provenance. The custom plant library is always
+    searched first (``PlantAPIManager.search()``) and is never deduplicated
+    against API results, so a stale or bogus custom entry with the same name
+    as a real species produced two visually identical rows -- nothing told
+    the user, before they picked one, that one of them came off local disk
+    rather than the live API. That is exactly what happened: a leftover
+    custom "Tomato" entry with wrong sun/water values was offered first and
+    indistinguishable from Trefle's real record.
+    """
+
+    def test_live_result_shows_provider_name(self, dialog: PlantSearchDialog) -> None:
+        text = dialog.results_list.item(0).text()
+        assert "Carrot" in text
+        assert "Trefle" in text
+
+    def test_custom_and_live_results_with_identical_names_are_distinguishable(
+        self, qtbot, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from open_garden_planner.models.plant_data import PlantSpeciesData
+
+        stale_custom = PlantSpeciesData(
+            scientific_name="Daucus carota",
+            common_name="Carrot",
+            data_source="custom",
+            source_id="stale-1",
+        )
+
+        monkeypatch.setattr("requests.Session.get", MagicMock(side_effect=_fake_get))
+        monkeypatch.setattr(
+            "open_garden_planner.services.plant_library.get_plant_library",
+            lambda: _StubLibrary([stale_custom]),
+        )
+        manager = PlantAPIManager(trefle_api_token="fake-token")
+        dlg = PlantSearchDialog(manager)
+        qtbot.addWidget(dlg)
+        dlg.search_input.setText("carrot")
+        dlg._perform_search()
+
+        assert dlg.results_list.count() == 2
+        row_texts = [dlg.results_list.item(i).text() for i in range(2)]
+        # Same common/scientific name on both rows -- only the source label
+        # tells them apart.
+        assert row_texts[0] != row_texts[1]
+        assert any("Custom" in t for t in row_texts)
+        assert any("Trefle" in t for t in row_texts)
+
+    def test_missing_data_source_falls_back_to_unknown_source_label(
+        self, qtbot, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``PlantLibrary._load()`` does not force ``data_source = "custom"``
+        the way ``add_plant``/``update_plant``/``import_from_dict`` do, so a
+        legacy or hand-edited library file can yield an empty string here.
+        The label must degrade gracefully instead of rendering a bare,
+        untranslated ` — ` with nothing after it.
+        """
+        from open_garden_planner.models.plant_data import PlantSpeciesData
+
+        legacy_entry = PlantSpeciesData(
+            scientific_name="Daucus carota",
+            common_name="Legacy Carrot",
+            data_source="",
+            source_id="legacy-1",
+        )
+
+        monkeypatch.setattr(
+            "open_garden_planner.services.plant_library.get_plant_library",
+            lambda: _StubLibrary([legacy_entry]),
+        )
+        manager = PlantAPIManager()
+        dlg = PlantSearchDialog(manager)
+        qtbot.addWidget(dlg)
+        dlg.search_input.setText("carrot")
+        dlg._perform_search()
+
+        assert dlg.results_list.count() == 1
+        assert "Legacy Carrot" in dlg.results_list.item(0).text()
+        assert "Unknown source" in dlg.results_list.item(0).text()
+
+        # The actual regression: confirming this row must NOT attempt an
+        # online fetch (an empty data_source matches no client in the
+        # _ONLINE_PROVIDERS allowlist) or show the "Limited Plant Data"
+        # warning that a failed get_by_id("legacy-1", "") would otherwise
+        # trigger -- reverting the `not in self._ONLINE_PROVIDERS` guard back
+        # to a `!= "custom"` check reproduces exactly that spurious warning.
+        dlg.results_list.setCurrentRow(0)
+        mock_get = MagicMock(
+            side_effect=AssertionError("should not fetch for a non-provider data source")
+        )
+        monkeypatch.setattr("requests.Session.get", mock_get)
+
+        with patch(
+            "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning"
+        ) as mock_warn:
+            qtbot.mouseClick(dlg.ok_button, Qt.MouseButton.LeftButton)
+
+        mock_get.assert_not_called()
+        mock_warn.assert_not_called()
+        assert dlg.selected_plant is legacy_entry
