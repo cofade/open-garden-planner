@@ -61,26 +61,68 @@ flowchart TD
 ```mermaid
 flowchart TD
     Start([User searches for plant species])
-    Cache{Local SQLite<br/>cache hit?}
-    Trefle{Trefle.io<br/>success?}
-    Perma{Permapeople<br/>success?}
-    Bundled{Found in<br/>bundled DB?}
-    Manual[Allow manual entry<br/>user creates custom species]
-    Return([Return data])
-    CacheWrite[Cache result]
+    Custom{Custom library<br/>has any matches?}
+    Trefle{Trefle.io<br/>returned results?}
+    Perenual{Perenual<br/>returned results?}
+    Perma{Permapeople<br/>returned results?}
+    Bundled{{Found in bundled DB?<br/><i>not yet implemented</i>}}
+    Return([Return combined<br/>search results])
+    Confirm{User confirms<br/>a result?}
+    Detail[Fetch full detail record<br/>via get_by_id per provider]
+    Assign([Assign to plant])
 
-    Start --> Cache
-    Cache -->|hit| Return
-    Cache -->|miss| Trefle
-    Trefle -->|yes| CacheWrite
-    Trefle -->|no| Perma
-    Perma -->|yes| CacheWrite
+    Start --> Custom
+    Custom -->|limit reached, stop| Return
+    Custom -->|room left| Trefle
+    Trefle -->|yes| Return
+    Trefle -->|no| Perenual
+    Perenual -->|yes| Return
+    Perenual -->|no| Perma
+    Perma -->|yes| Return
     Perma -->|no| Bundled
-    Bundled -->|yes| Return
-    Bundled -->|no| Manual
-    Manual --> Return
-    CacheWrite --> Return
+    Bundled --> Return
+    Return --> Confirm
+    Cancelled([Dialog closed,<br/>no plant assigned])
+    Confirm -->|cancel| Cancelled
+    Confirm -->|yes| Detail
+    Detail --> Assign
 ```
+
+**Custom library first, then Trefle → Perenual → Permapeople (issue #297,
+corrected 2026-08-10):** `PlantAPIManager.search()` always searches the
+user's local custom-plant library first (the `Custom` node) -- if it alone
+meets the result limit, the search stops right there with no API call at
+all; otherwise each provider is tried in order and the first to return any
+results wins, with results concatenated onto whatever the custom library
+already contributed. **Custom-library results are never deduplicated against
+API results** -- a stale or bogus custom entry sharing a name with a real
+species is returned (and, before this fix, displayed identically) alongside
+it; every result row in `PlantSearchDialog` now carries a visible
+data-source label (`plant_source_label()`, shared with the properties
+panel) so the two can be told apart. See the #297 update in
+`docs/11-risks-and-technical-debt/README.md` §11.4 for the incident this
+corrected. The `Bundled` branch predates this fix and remains aspirational --
+see `manager.py`'s `# TODO: Add bundled database client` and the #296 entry
+in the same §11.4.
+
+**Search vs. detail data (issue #297):** `search()` results (the `Return`
+node above) are sparse for most providers -- Trefle's in particular omits
+`growth`/`specifications`/`foliage` entirely, leaving sun/water/pH/nutrient/
+foliage at UNKNOWN/None. `PlantSearchDialog` fetches the richer per-species
+record via `PlantAPIManager.get_by_id()` only once the user **confirms** a
+result (the `Confirm`/`Detail` nodes) -- not per browsed row, to avoid one
+extra request per visible search result against rate-limited free tiers. A
+failed detail fetch falls back to the sparse result rather than blocking the
+assignment -- **quietly** (no warning) when the provider signals "no richer
+detail exists for this record" (Perenual's free-tier paywall, or a Trefle
+record with a null `main_species`), **with a user-facing warning** for a
+genuine failure, so a real error can't silently reproduce #297's own
+symptom. A successful fetch is **merged** onto the search result (a generic
+field-by-field overlay: the detail response's value wins unless it's at the
+field's default or `None`) rather than swapped in wholesale. The `Confirm
+-->|yes| Detail` edge is simplified: a result whose `data_source` isn't one
+of the three online providers (`custom`, or a future `bundled`) skips the
+fetch entirely, since neither has an online detail endpoint.
 
 ## 6.4 Export Flow
 

@@ -1098,6 +1098,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Create a custom plant species entry": "Einen eigenen Pflanzeneintrag erstellen",
         "Load Custom": "Eigene laden",
         "Load a plant from your custom library": "Eine Pflanze aus Ihrer eigenen Bibliothek laden",
+        # Shared with PlantSearchDialog's results list via plant_source_label()
+        "Unknown source": "Unbekannte Quelle",
+        "Custom Plant": "Eigene Pflanze",
+        "Bundled": "Mitgeliefert",
         "Select a plant to view details": "Wählen Sie eine Pflanze, um Details anzuzeigen",
         "Enter common name...": "Allgemeinen Namen eingeben...",
         "Common Name:": "Allgemeiner Name:",
@@ -1178,6 +1182,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Searching for '{query}'...": "Suche nach '{query}'...",
         "Found {count} results": "{count} Ergebnisse gefunden",
         "No results found": "Keine Ergebnisse gefunden",
+        "{name} ({scientific}) — {source}": "{name} ({scientific}) — {source}",
+        "Unknown": "Unbekannt",
         "Search failed: {error}": "Suche fehlgeschlagen: {error}",
         "Search Failed": "Suche fehlgeschlagen",
         "Failed to search plant database:\n{error}\n\nPlease check your internet connection and API credentials.":
@@ -1203,6 +1209,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "No Selection": "Keine Auswahl",
         "Please select a plant from the search results.":
             "Bitte wählen Sie eine Pflanze aus den Suchergebnissen.",
+        "Limited Plant Data": "Eingeschränkte Pflanzendaten",
+        "Could not load full details for {name} from {source}. "
+        "The plant will be added with basic information only "
+        "(sun, water, pH, and foliage data may be missing).":
+            "Es konnten keine vollständigen Details für {name} von {source} geladen werden. "
+            "Die Pflanze wird nur mit grundlegenden Informationen hinzugefügt "
+            "(Sonne, Wasser, pH-Wert und Laubdaten könnten fehlen).",
     },
 
     # ── PolygonItem (context menu — pylupdate6 cannot extract _ alias) ──

@@ -13,7 +13,7 @@ from open_garden_planner.models.plant_data import (
     WaterNeeds,
 )
 
-from .base import PlantAPIClient, PlantAPIError
+from .base import PlantAPIClient, PlantAPIError, PlantDetailUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,11 @@ class PerenualClient(PlantAPIClient):
     """Client for the Perenual Plant API.
 
     API Documentation: https://perenual.com/docs/api
-    Free tier: 10,000 requests/day, access to 10,000+ plant species
+    Free tier: access to 10,000+ plant species. The docs advertise
+    10,000 requests/day, but the `/species/details/{id}` endpoint's own
+    `X-RateLimit-Limit` header measured 100/day live (#297 round 5) --
+    unclear whether that's a lower per-endpoint bucket or the docs are
+    stale; not re-verified for other endpoints.
     """
 
     BASE_URL = "https://perenual.com/api"
@@ -110,6 +114,25 @@ class PerenualClient(PlantAPIClient):
                 params={"key": self._api_key},
                 timeout=10,
             )
+            # Perenual's free tier gates some species' detail endpoint behind
+            # a paid plan and signals it with a 429 -- live-confirmed (#297
+            # round 4): the response body reads "Please Upgrade Plan" and
+            # `X-RateLimit-Remaining` stays well above 0, so this specific
+            # case is NOT quota exhaustion. Deliberately NOT branching on the
+            # remaining-quota header to tell the two apart (round 5
+            # discussion): a genuine quota exhaustion is also a 429 the user
+            # can't act on, and showing an alarming "Limited Plant Data"
+            # warning wouldn't help them either way -- every 429 here means
+            # "no richer data available right now", handled identically. A
+            # plain `raise_for_status()` would turn this into that alarming
+            # warning on every single confirm for a large, entirely ordinary
+            # slice of Perenual's free-tier catalog -- distinguish it instead
+            # so callers can treat it as "no richer data exists", not a
+            # failure.
+            if response.status_code == 429:
+                raise PlantDetailUnavailableError(
+                    f"{self.name} species detail unavailable (HTTP 429, id={plant_id})"
+                )
             response.raise_for_status()
             data = response.json()
 
@@ -197,8 +220,8 @@ class PerenualClient(PlantAPIClient):
         image_url = ""
         thumbnail_url = ""
         if isinstance(default_image, dict):
-            image_url = default_image.get("original_url", "")
-            thumbnail_url = default_image.get("thumbnail", "")
+            image_url = default_image.get("original_url") or ""
+            thumbnail_url = default_image.get("thumbnail") or ""
 
         # Size information would be extracted here
         # Perenual doesn't provide structured dimensions in free tier

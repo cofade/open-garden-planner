@@ -13,7 +13,7 @@ from open_garden_planner.models.plant_data import (
     WaterNeeds,
 )
 
-from .base import PlantAPIClient, PlantAPIError
+from .base import PlantAPIClient, PlantAPIError, PlantDetailUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -113,9 +113,26 @@ class TrefleClient(PlantAPIClient):
             response.raise_for_status()
             data = response.json()
 
-            # The response has data.main_species for detailed species info
-            plant_data = data.get("data", {})
-            main_species = plant_data.get("main_species", plant_data)
+            # The response has data.main_species for detailed species info --
+            # but it's a PRESENT-BUT-NULL key for a real, non-trivial slice of
+            # Trefle's catalog (live-confirmed, #297 round 5: ids 443432,
+            # 453675, 439035 -- all scientific-name-only species, ~4% of a
+            # 72-id sample), which `.get("main_species", plant_data)` does
+            # NOT catch (the default only applies when the key is ABSENT --
+            # the same dict.get-is-not-None-safe trap #296 fixed elsewhere in
+            # this file's own _parse_species). A prior version of this code
+            # fell back to the top-level `plant_data` object in that case,
+            # which crashed _parse_species(None) whenever main_species was
+            # null, and would have produced a DIFFERENT id (plant_data's own
+            # "id", not main_species's) had it not crashed first. Treated the
+            # same as Perenual's paywall 429: no richer detail exists for
+            # this record, not a malformed response or a bug.
+            plant_data = data.get("data") or {}
+            main_species = plant_data.get("main_species")
+            if main_species is None:
+                raise PlantDetailUnavailableError(
+                    f"{self.name} has no species detail for plant {plant_id}"
+                )
 
             return self._parse_species(main_species)
 
@@ -151,10 +168,15 @@ class TrefleClient(PlantAPIClient):
             Parsed plant species data
         """
         # Basic info
-        scientific_name = data.get("scientific_name", "Unknown")
+        # `data.get(key, default)` only applies `default` when `key` is
+        # ABSENT -- not when present with a JSON null, which real Trefle
+        # records do carry for these four fields (live-confirmed, #297 round
+        # 5). Every lookup below is deliberately `.get(key) or default`, the
+        # same idiom #296 already applied to the other two clients.
+        scientific_name = data.get("scientific_name") or "Unknown"
         common_name = data.get("common_name") or "Unknown"
-        family = data.get("family", "")
-        genus = data.get("genus", "")
+        family = data.get("family") or ""
+        genus = data.get("genus") or ""
 
         # Parse duration/cycle (annual, perennial, etc.)
         cycle = PlantCycle.UNKNOWN
@@ -250,18 +272,22 @@ class TrefleClient(PlantAPIClient):
         edible_parts = [part for part in edible_part_list if part]
 
         # Image URL
-        image_url = data.get("image_url", "")
+        image_url = data.get("image_url") or ""
 
         # Flowering information
         flower = data.get("flower", {}) or {}
-        flower_color = None
+        flower_color = ""
         flower_color_raw = flower.get("color")
         if isinstance(flower_color_raw, list) and flower_color_raw:
             flower_color = ", ".join(flower_color_raw)
 
-        # Description from observations or growth description
-        observations = data.get("observations", "")
-        growth_desc = growth.get("description", "")
+        # Description from observations or growth description. `or ""` on
+        # both, not just the combining `or` below: if BOTH keys are present
+        # but null (round 6 live sweep: growth.description null in 42/42
+        # sampled records), `None or None` is still `None`, not the `str`
+        # this field is declared as.
+        observations = data.get("observations") or ""
+        growth_desc = growth.get("description") or ""
         description = observations or growth_desc
 
         return PlantSpeciesData(
@@ -284,7 +310,11 @@ class TrefleClient(PlantAPIClient):
             description=description,
             edible=edible,
             edible_parts=edible_parts,
-            flowering=flower.get("conspicuous", False),
+            # `.get(key, False)`'s default only applies when the key is
+            # ABSENT -- `flower.conspicuous` is null in 33/42 live-sampled
+            # records (round 6), which slipped through as `flowering=None`
+            # on a field declared `bool`.
+            flowering=flower.get("conspicuous") or False,
             flower_color=flower_color,
             foliage_color=foliage_color,
             foliage_texture=foliage_texture,

@@ -1,15 +1,20 @@
-"""Shared helper for assigning a database species to an existing plant item.
+"""Shared helpers for the plant database panel and search dialog.
 
-Used by both the plant database panel (Load Custom / Create Custom) and the
-Plants-menu species search so that every "assign species to an existing plant"
-path behaves identically (issue #213):
+Two responsibilities:
 
-  * writes ``metadata['plant_species']``;
-  * resizes the drawn footprint so its diameter equals the species'
-    ``max_spread_cm`` (the visible change the issue requires) — silently, unless
-    a manual ``spacing_radius_cm`` override conflicts, in which case the user is
-    prompted to apply the database values or keep their custom ones;
-  * records a single undoable step (``ApplySpeciesCommand``).
+  * Assigning a database species to an existing plant item, used by both the
+    plant database panel (Load Custom / Create Custom) and the Plants-menu
+    species search so that every "assign species to an existing plant" path
+    behaves identically (issue #213): writes ``metadata['plant_species']``;
+    resizes the drawn footprint so its diameter equals the species'
+    ``max_spread_cm`` (the visible change the issue requires) — silently,
+    unless a manual ``spacing_radius_cm`` override conflicts, in which case
+    the user is prompted to apply the database values or keep their custom
+    ones; records a single undoable step (``ApplySpeciesCommand``).
+  * ``plant_source_label()``, a translated human-readable label for where a
+    plant record's data came from — shared by the search dialog's results
+    list and the panel's "Data Source" tooltip (issue #297) so the two
+    can't independently drift out of translation sync.
 """
 
 from __future__ import annotations
@@ -32,6 +37,37 @@ def _tr(text: str) -> str:
     # Keep the same context the strings are registered under in
     # scripts/fill_translations.py so translations resolve.
     return QCoreApplication.translate("PlantDatabasePanel", text)
+
+
+def plant_source_label(data_source: str | None) -> str:
+    """Translated, human-readable label for where a plant record's data came
+    from -- shared by the search dialog's results list and the properties
+    panel's "Data Source" tooltip so the two can never drift apart the way
+    they did before (#297 manual-test follow-up: both independently called
+    ``.title()`` on the raw ``data_source`` string, which is correct for a
+    provider's proper noun -- "Trefle", "Perenual", "Permapeople" -- but
+    leaks untranslated English for the two internal source ids this app
+    itself controls the wording of, "custom" and "bundled").
+
+    Args:
+        data_source: The raw ``PlantSpeciesData.data_source`` value. Typed
+            ``str | None``, not just ``str``: `PlantSpeciesData.from_dict()`
+            reads it via ``data.get("data_source", "")``, whose default only
+            applies when the key is absent -- a present-but-null JSON value
+            (the same trap issue #296 already fixed twice elsewhere) yields
+            ``None`` here, not an empty string.
+
+    Returns:
+        A translated label: "Custom Plant", "Bundled", "Unknown source", or
+        the provider name title-cased ("Trefle", "Perenual", "Permapeople").
+    """
+    if not data_source:
+        return _tr("Unknown source")
+    if data_source == "custom":
+        return _tr("Custom Plant")
+    if data_source == "bundled":
+        return _tr("Bundled")
+    return data_source.title()
 
 
 def confirm_apply_database_values(parent: QWidget | None) -> bool:
