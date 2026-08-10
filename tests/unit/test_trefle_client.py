@@ -8,6 +8,8 @@ record: ph 6.5-7.0, soil_nutriments 6).
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 from open_garden_planner.services.plant_api.trefle_client import TrefleClient
 
 # Trimmed from a live `GET /api/v1/species/daucus-carota` response captured
@@ -193,3 +195,43 @@ class TestSourceIdNullSafety:
         result = client._parse_species(payload)
 
         assert result.source_id == ""
+
+
+class TestGetByIdSourceIdContract:
+    """Pins the id-space behavior `PlantAPIClient.get_by_id()`'s docstring
+    depends on (#297 senior-review round 2): a `/plants/{id}` response's
+    top-level `data.id` (a Trefle "plant" record) is live-confirmed to be a
+    DIFFERENT id than `data.main_species.id` (the species record) for the
+    same request -- captured live for carrot (requested 171170, top-level
+    data.id came back 171241, main_species.id came back 171170) and
+    reproduced on tomato/apple/basil during the #297 investigation.
+    `get_by_id()` must take `source_id` from the nested `main_species.id`,
+    which is what a caller actually requested and what `PlantSearchDialog`'s
+    validation guard (`detail.source_id != plant.source_id`) depends on to
+    tell a genuine response apart from an empty/wrong one.
+    """
+
+    def test_get_by_id_source_id_matches_requested_id_not_top_level_data_id(self) -> None:
+        client = TrefleClient(api_token="token")
+        requested_id = "171170"
+        # Shape captured live from GET /api/v1/plants/171170 during the #297
+        # investigation, trimmed to the fields this test exercises.
+        response_payload = {
+            "data": {
+                "id": 171241,  # a different, unrelated "plant" id -- must be ignored
+                "main_species": {
+                    "id": 171170,
+                    "common_name": "Carrot",
+                    "scientific_name": "Daucus carota",
+                },
+            }
+        }
+
+        with patch.object(client, "_session") as mock_session:
+            mock_response = MagicMock()
+            mock_response.json.return_value = response_payload
+            mock_session.get.return_value = mock_response
+
+            result = client.get_by_id(requested_id)
+
+        assert result.source_id == requested_id

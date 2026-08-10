@@ -84,7 +84,8 @@ flowchart TD
     Manual --> Return
     CacheWrite --> Return
     Return --> Confirm
-    Confirm -->|cancel| Start
+    Cancelled([Dialog closed,<br/>no plant assigned])
+    Confirm -->|cancel| Cancelled
     Confirm -->|yes| Detail
     Detail --> Assign
 ```

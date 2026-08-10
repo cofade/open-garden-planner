@@ -344,9 +344,14 @@ class PlantSearchDialog(QDialog):
         if plant is None or plant.data_source == "custom" or not plant.source_id:
             return
 
-        self.ok_button.setEnabled(False)
+        # setCursor (not a button disable) is the only user-visible feedback
+        # this can give: get_by_id() is a synchronous, blocking call on the
+        # GUI thread, so no Qt events -- including a repaint of a disabled
+        # button -- are processed until it returns. The cursor still changes
+        # immediately (an OS-level property, not something that needs a
+        # paint event), matching the working precedent in
+        # connect_ai_assistant_dialog.py / preferences_dialog.py.
         self.setCursor(Qt.CursorShape.WaitCursor)
-        detail: PlantSpeciesData | None = None
         error: Exception | None = None
         try:
             detail = self._api_manager.get_by_id(plant.source_id, plant.data_source)
@@ -356,12 +361,12 @@ class PlantSearchDialog(QDialog):
             # already wraps per-item parsing in `except Exception` -- manager.py).
             # Losing the user's confirmed selection to an unhandled crash would be
             # worse than falling back to the sparse search result.
+            detail = None
             error = e
         finally:
             self.unsetCursor()
-            self.ok_button.setEnabled(True)
 
-        if error is not None:
+        if error is not None or detail is None:
             logger.warning(
                 f"Failed to fetch full details for {plant.common_name} "
                 f"({plant.data_source}#{plant.source_id}), using search result as-is: {error}"
@@ -369,12 +374,17 @@ class PlantSearchDialog(QDialog):
             self._warn_enrichment_failed(plant)
             return
 
-        # A "successful" response can still be empty, truncated, or -- in
-        # principle, for a provider without Trefle's confirmed id stability --
-        # describe a different record than the one requested. Validate before
-        # replacing a known-good sparse result with it.
-        assert detail is not None
-        if detail.source_id != plant.source_id or detail.common_name in ("", "Unknown"):
+        # A "successful" response can still be empty, truncated, or describe a
+        # different record than the one requested. Validate identity via
+        # source_id (the contract PlantAPIClient.get_by_id() documents: the
+        # returned record's source_id equals the id requested) before
+        # replacing a known-good sparse result with it. Deliberately NOT also
+        # rejecting an empty/"Unknown" common_name here: Trefle genuinely omits
+        # common_name for many real (scientific-name-only) species, and
+        # rejecting on that basis would throw away a fully-populated,
+        # correctly-identified detail record for exactly the plants this fix
+        # exists to help.
+        if detail.source_id != plant.source_id:
             logger.warning(
                 f"Detail fetch for {plant.common_name} ({plant.data_source}#{plant.source_id}) "
                 "returned an unexpected or empty record, using search result as-is"

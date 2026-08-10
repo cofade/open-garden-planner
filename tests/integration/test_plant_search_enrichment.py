@@ -289,6 +289,51 @@ class TestSearchResultEnrichment:
         assert mock_get.call_count == 2
         assert dlg.selected_plant.sun_requirement.value == "full_sun"
 
+    def test_null_common_name_detail_is_accepted_not_rejected(
+        self, dialog: PlantSearchDialog, qtbot, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression pin (senior-review round 2): a first cut of the
+        identity-validation guard also rejected `common_name in ("", "Unknown")`,
+        reasoning that meant a bad response. Trefle genuinely omits
+        common_name for many real, scientific-name-only species -- rejecting
+        on that basis discarded a fully-populated, correctly-identified
+        detail record for exactly the plants this fix exists to help, while
+        telling the user their data was "limited" when it wasn't. The only
+        valid identity check is source_id matching the requested id.
+        """
+        unnamed_species_detail = {
+            "data": {
+                "main_species": {
+                    "id": 171170,
+                    "common_name": None,
+                    "scientific_name": "Daucus carota",
+                    "growth": {"light": 8, "atmospheric_humidity": 5},
+                }
+            }
+        }
+
+        def _unnamed_get(url, params=None, timeout=None):
+            response = MagicMock()
+            response.status_code = 200
+            response.raise_for_status = MagicMock()
+            response.json.return_value = (
+                unnamed_species_detail if url.endswith("/plants/171170") else SEARCH_RESPONSE
+            )
+            return response
+
+        monkeypatch.setattr("requests.Session.get", MagicMock(side_effect=_unnamed_get))
+
+        with patch(
+            "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning"
+        ) as mock_warn:
+            qtbot.mouseClick(dialog.ok_button, Qt.MouseButton.LeftButton)
+
+        mock_warn.assert_not_called()
+        enriched = dialog.selected_plant
+        assert enriched is not None
+        assert enriched.source_id == "171170"
+        assert enriched.sun_requirement.value == "full_sun"
+
     def test_custom_library_result_is_not_enriched(
         self, dialog: PlantSearchDialog, qtbot, monkeypatch: pytest.MonkeyPatch
     ) -> None:

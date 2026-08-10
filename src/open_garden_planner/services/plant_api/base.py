@@ -48,11 +48,20 @@ class PlantAPIClient(ABC):
     def get_by_id(self, plant_id: str) -> PlantSpeciesData:
         """Get detailed plant data by API-specific ID.
 
+        Contract depended on by callers that validate the response before
+        trusting it (`PlantSearchDialog._enrich_selected_plant()`, #297): the
+        returned record's `source_id` MUST equal the requested `plant_id`.
+        Implementations that parse a nested sub-object (e.g. Trefle's
+        `data.main_species`, which carries its own `id` distinct from the
+        top-level `data.id`) must take `source_id` from whichever nested
+        field actually identifies the requested record -- see
+        `TrefleClient.get_by_id()` and `tests/unit/test_trefle_client.py`.
+
         Args:
             plant_id: Unique identifier in this API's database
 
         Returns:
-            Complete plant species data
+            Complete plant species data, with `source_id == plant_id`
 
         Raises:
             PlantAPIError: If the API request fails or plant not found
