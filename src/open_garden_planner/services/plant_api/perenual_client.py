@@ -220,8 +220,8 @@ class PerenualClient(PlantAPIClient):
         image_url = ""
         thumbnail_url = ""
         if isinstance(default_image, dict):
-            image_url = default_image.get("original_url", "")
-            thumbnail_url = default_image.get("thumbnail", "")
+            image_url = default_image.get("original_url") or ""
+            thumbnail_url = default_image.get("thumbnail") or ""
 
         # Size information would be extracted here
         # Perenual doesn't provide structured dimensions in free tier
