@@ -179,6 +179,9 @@ class TestSearchResultEnrichment:
         # A silent fallback would reproduce #297's own symptom -- the user
         # must be told their selection has limited data.
         mock_warn.assert_called_once()
+        title, message = mock_warn.call_args.args[1], mock_warn.call_args.args[2]
+        assert title == "Limited Plant Data"
+        assert "Carrot" in message
 
     def test_malformed_detail_response_falls_back_and_warns(
         self, dialog: PlantSearchDialog, qtbot, monkeypatch: pytest.MonkeyPatch
@@ -209,6 +212,9 @@ class TestSearchResultEnrichment:
         assert plant.common_name == "Carrot"
         assert plant.sun_requirement.value == "unknown"
         mock_warn.assert_called_once()
+        title, message = mock_warn.call_args.args[1], mock_warn.call_args.args[2]
+        assert title == "Limited Plant Data"
+        assert "Carrot" in message
 
     def test_empty_detail_response_falls_back_and_warns(
         self, dialog: PlantSearchDialog, qtbot, monkeypatch: pytest.MonkeyPatch
@@ -333,6 +339,59 @@ class TestSearchResultEnrichment:
         assert enriched is not None
         assert enriched.source_id == "171170"
         assert enriched.sun_requirement.value == "full_sun"
+        # Round-3 regression: the fix that stopped rejecting a null
+        # common_name originally shipped as a wholesale swap, which silently
+        # replaced the search result's real identity fields with the empty
+        # ones this sparse-but-valid detail response happens to carry. The
+        # search result's values must survive since the detail response
+        # doesn't actually improve on them.
+        assert enriched.common_name == "Carrot"  # from the search result, not "Unknown"
+        assert enriched.scientific_name == "Daucus carota"
+        assert enriched.family == "Apiaceae"  # from the search result -- absent in detail
+        assert enriched.genus == "Daucus"  # from the search result -- absent in detail
+        assert enriched.image_url == "https://example.com/carrot.jpg"
+
+    def test_confirm_stops_pending_debounce_timer_before_committing(
+        self, dialog: PlantSearchDialog, qtbot, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression pin (senior-review round 3): a pending 500ms search
+        debounce timer (started by typing) is still armed when the user
+        confirms a selection quickly. `_warn_enrichment_failed()` opens a
+        modal QMessageBox, whose nested Qt event loop lets that timer fire --
+        which calls `_perform_search()` and nulls `_selected_plant` -- before
+        `_on_accept()` reaches `self.accept()`. Same failure class as the
+        #210 debounce/flush incident: a pending debounced action left armed
+        across a destructive commit. Simulated here by firing the timer
+        directly (qtbot.mouseClick can't itself pump a real modal's nested
+        loop), which is exactly what a real nested loop would deliver.
+        """
+        monkeypatch.setattr(
+            "requests.Session.get",
+            MagicMock(side_effect=requests.exceptions.ConnectionError("offline")),
+        )
+        # Simulate the user having just typed (debounce timer armed, matching
+        # _on_search_text_changed's real 500ms) at the moment they confirm.
+        dialog._search_timer.start(500)
+        assert dialog._search_timer.isActive()
+
+        def _warning_fires_pending_timer(*_args, **_kwargs):
+            # Stand-in for what a real modal's nested event loop would do:
+            # deliver the still-pending timeout before returning control.
+            if dialog._search_timer.isActive():
+                dialog._search_timer.stop()
+                dialog._perform_search()
+
+        with patch(
+            "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning",
+            side_effect=_warning_fires_pending_timer,
+        ):
+            qtbot.mouseClick(dialog.ok_button, Qt.MouseButton.LeftButton)
+
+        # _on_accept() must have stopped the timer before this could ever run --
+        # proven by the selection surviving the simulated re-entrant search.
+        assert dialog.result() == dialog.DialogCode.Accepted
+        assert dialog.selected_plant is not None
+        assert dialog.selected_plant.common_name == "Carrot"
 
     def test_custom_library_result_is_not_enriched(
         self, dialog: PlantSearchDialog, qtbot, monkeypatch: pytest.MonkeyPatch

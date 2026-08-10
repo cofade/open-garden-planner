@@ -7,7 +7,7 @@ check your credentials." being shown for perfectly valid credentials.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -365,3 +365,33 @@ class TestParseSpeciesFieldMapping:
 
         assert result.image_url == ""
         assert result.thumbnail_url == ""
+
+
+class TestGetByIdSourceIdContract:
+    """Pins the id-space assumption `PlantAPIClient.get_by_id()`'s docstring
+    depends on (#297 senior-review round 3): unlike Trefle's nested
+    `main_species` indirection, Permapeople's `/plants/{id}` returns the
+    requested record directly at the top level, so `source_id` (`str(
+    data.get("id") or "")`) should equal the requested id by construction.
+    Reasoned from the request/response shape in `get_by_id()` and
+    `_parse_species()`, NOT captured from a live call -- unlike the
+    equivalent Trefle test, which pins a live-captured shape.
+    """
+
+    def test_get_by_id_source_id_matches_requested_id(self) -> None:
+        client = PermapeopleClient(key_id="id", key_secret="secret")
+        requested_id = "99"
+
+        with patch.object(client, "_session") as mock_session:
+            mock_response = MagicMock()
+            mock_response.json.return_value = {
+                "id": 99,
+                "name": "Apple",
+                "scientific_name": "Malus domestica",
+                "data": [],
+            }
+            mock_session.get.return_value = mock_response
+
+            result = client.get_by_id(requested_id)
+
+        assert result.source_id == requested_id

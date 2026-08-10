@@ -9,6 +9,8 @@ record from search results.
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 from open_garden_planner.models.plant_data import PlantCycle, SunRequirement, WaterNeeds
 from open_garden_planner.services.plant_api.perenual_client import PerenualClient
 
@@ -111,3 +113,33 @@ class TestParseSpeciesPositiveControl:
         assert result.description == "A tall annual flower."
         assert result.image_url == "https://example/img.jpg"
         assert result.thumbnail_url == "https://example/thumb.jpg"
+
+
+class TestGetByIdSourceIdContract:
+    """Pins the id-space assumption `PlantAPIClient.get_by_id()`'s docstring
+    depends on (#297 senior-review round 3): unlike Trefle's nested
+    `main_species` indirection, Perenual's `/species/details/{id}` returns
+    the requested record directly at the top level, so `source_id` (`str(
+    data.get("id") or "")`) should equal the requested id by construction.
+    Reasoned from the request/response shape in `get_by_id()` and
+    `_parse_species()`, NOT captured from a live call (no Perenual
+    credentials were available during this investigation) -- unlike the
+    equivalent Trefle test, which pins a live-captured shape.
+    """
+
+    def test_get_by_id_source_id_matches_requested_id(self) -> None:
+        client = PerenualClient(api_key="key")
+        requested_id = "12345"
+
+        with patch.object(client, "_session") as mock_session:
+            mock_response = MagicMock()
+            mock_response.json.return_value = {
+                "id": 12345,
+                "common_name": "Sunflower",
+                "scientific_name": ["Helianthus annuus"],
+            }
+            mock_session.get.return_value = mock_response
+
+            result = client.get_by_id(requested_id)
+
+        assert result.source_id == requested_id

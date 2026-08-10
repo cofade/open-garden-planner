@@ -1,6 +1,7 @@
 """Plant search dialog for finding species from online databases."""
 
 import logging
+from dataclasses import replace
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import (
@@ -315,6 +316,16 @@ class PlantSearchDialog(QDialog):
 
     def _on_accept(self) -> None:
         """Handle OK button click."""
+        # Stop the pending 500ms search-debounce timer FIRST. _enrich_selected_plant()
+        # can open a modal QMessageBox on a failed fetch, and a modal spins its own
+        # nested Qt event loop in which a still-pending timer WILL fire -- calling
+        # _perform_search(), which nulls self._selected_plant and re-populates the
+        # results list out from under this method, right before `accept()` commits
+        # whatever selection is left. Same failure class as the #210 debounce/flush
+        # incident (docs/11-risks-and-technical-debt/README.md §11.4): a pending
+        # debounced action must be settled before anything destructive commits.
+        self._search_timer.stop()
+
         if self._selected_plant is None:
             QMessageBox.warning(
                 self,
@@ -392,7 +403,39 @@ class PlantSearchDialog(QDialog):
             self._warn_enrichment_failed(plant)
             return
 
-        self._selected_plant = detail
+        self._selected_plant = self._merge_detail_into_search_result(plant, detail)
+
+    @staticmethod
+    def _merge_detail_into_search_result(
+        plant: PlantSpeciesData, detail: PlantSpeciesData
+    ) -> PlantSpeciesData:
+        """Overlay `detail`'s enrichment fields onto `plant`, not the other way
+        around -- a wholesale swap silently destroyed `common_name`/`family`/
+        `genus`/`image_url` whenever the detail response validly omitted them
+        (caught in senior review round 3, reproduced against this method's own
+        null-common_name test fixture). The detail record and the search
+        record are not guaranteed to be a superset/subset of each other, only
+        to describe the same plant (already validated by the source_id check
+        above) -- so identity fields keep the search result's value unless
+        the detail response actually improves on it.
+        """
+        return replace(
+            detail,
+            common_name=(
+                detail.common_name
+                if detail.common_name not in ("", "Unknown")
+                else plant.common_name
+            ),
+            scientific_name=(
+                detail.scientific_name
+                if detail.scientific_name not in ("", "Unknown")
+                else plant.scientific_name
+            ),
+            family=detail.family or plant.family,
+            genus=detail.genus or plant.genus,
+            image_url=detail.image_url or plant.image_url,
+            thumbnail_url=detail.thumbnail_url or plant.thumbnail_url,
+        )
 
     def _warn_enrichment_failed(self, plant: PlantSpeciesData) -> None:
         """Tell the user their selection will use only the basic search data.

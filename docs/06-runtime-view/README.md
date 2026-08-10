@@ -98,7 +98,13 @@ record via `PlantAPIManager.get_by_id()` only once the user **confirms** a
 result (the `Confirm`/`Detail` nodes) -- not per browsed row, to avoid one
 extra request per visible search result against rate-limited free tiers. A
 failed detail fetch falls back to the sparse result with a user-facing
-warning rather than blocking the assignment. This diagram's `Cache`/`Bundled
+warning rather than blocking the assignment; a successful fetch is **merged**
+onto the search result (enrichment fields from the detail response, identity
+fields kept from the search result unless the detail response improves on
+them) rather than swapped in wholesale. The `Confirm -->|yes| Detail` edge is
+simplified: a result from the `Manual`/custom-library path (`data_source ==
+"custom"`) skips the fetch entirely, since a locally-stored entry has no
+online detail endpoint and is already complete. This diagram's `Cache`/`Bundled
 DB` branches predate this fix and remain aspirational -- see `manager.py`'s
 `# TODO: Add bundled database client` and the #296 entry in
 `docs/11-risks-and-technical-debt/README.md` §11.4.

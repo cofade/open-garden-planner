@@ -113,7 +113,15 @@ class TrefleClient(PlantAPIClient):
             response.raise_for_status()
             data = response.json()
 
-            # The response has data.main_species for detailed species info
+            # The response has data.main_species for detailed species info.
+            # The `plant_data` fallback below is defensive for a shape never
+            # observed live (main_species always present in practice) -- if
+            # it ever triggers, the resulting source_id is plant_data["id"],
+            # a DIFFERENT id space than the requested species id (live-
+            # confirmed: requesting id 171170 returns plant_data["id"] 171241
+            # alongside main_species["id"] 171170, #297), which
+            # PlantSearchDialog's source_id-match guard will then correctly
+            # reject with a graceful fallback rather than corrupt data.
             plant_data = data.get("data", {})
             main_species = plant_data.get("main_species", plant_data)
 
