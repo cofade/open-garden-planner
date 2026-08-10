@@ -13,7 +13,7 @@ from open_garden_planner.models.plant_data import (
     WaterNeeds,
 )
 
-from .base import PlantAPIClient, PlantAPIError
+from .base import PlantAPIClient, PlantAPIError, PlantDetailUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +110,19 @@ class PerenualClient(PlantAPIClient):
                 params={"key": self._api_key},
                 timeout=10,
             )
+            # Perenual's free tier gates some species' detail endpoint behind
+            # a paid plan and signals it with a 429 -- live-confirmed (#297
+            # senior-review round 4): the response body reads "Please Upgrade
+            # Plan" and `X-RateLimit-Remaining` stays high, so this is NOT
+            # rate limiting. A plain `raise_for_status()` would turn this
+            # into an alarming user-facing "Limited Plant Data" warning on
+            # every single confirm for a large, entirely ordinary slice of
+            # Perenual's free-tier catalog -- distinguish it so callers can
+            # treat it as "no richer data exists", not a failure.
+            if response.status_code == 429:
+                raise PlantDetailUnavailableError(
+                    f"{self.name} species detail requires a paid plan (id={plant_id})"
+                )
             response.raise_for_status()
             data = response.json()
 

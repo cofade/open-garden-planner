@@ -1,7 +1,7 @@
 """Plant search dialog for finding species from online databases."""
 
 import logging
-from dataclasses import replace
+from dataclasses import MISSING, fields, replace
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import (
@@ -19,7 +19,11 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.models.plant_data import PlantSpeciesData
-from open_garden_planner.services.plant_api import PlantAPIError, PlantAPIManager
+from open_garden_planner.services.plant_api import (
+    PlantAPIError,
+    PlantAPIManager,
+    PlantDetailUnavailableError,
+)
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
 logger = logging.getLogger(__name__)
@@ -363,19 +367,35 @@ class PlantSearchDialog(QDialog):
         # paint event), matching the working precedent in
         # connect_ai_assistant_dialog.py / preferences_dialog.py.
         self.setCursor(Qt.CursorShape.WaitCursor)
+        detail: PlantSpeciesData | None = None
         error: Exception | None = None
+        unavailable = False
         try:
             detail = self._api_manager.get_by_id(plant.source_id, plant.data_source)
+        except PlantDetailUnavailableError:
+            # Not a failure -- a provider (e.g. Perenual's free tier, which
+            # gates some species behind a paid plan and signals it as a 429
+            # with a healthy rate-limit budget remaining, #297 round 4) has
+            # no richer data for this specific record. Nothing is wrong; the
+            # search result already has everything there is to have. Quiet:
+            # no user-facing warning for something that isn't an error.
+            unavailable = True
         except Exception as e:  # noqa: BLE001 -- external API trust boundary. Only
             # PlantAPIError is documented, but a 200 response with an unexpected
             # shape reaches _parse_species() uncaught here (unlike search(), which
             # already wraps per-item parsing in `except Exception` -- manager.py).
             # Losing the user's confirmed selection to an unhandled crash would be
             # worse than falling back to the sparse search result.
-            detail = None
             error = e
         finally:
             self.unsetCursor()
+
+        if unavailable:
+            logger.info(
+                f"No richer detail available for {plant.common_name} "
+                f"({plant.data_source}#{plant.source_id}); using search result as-is"
+            )
+            return
 
         if error is not None or detail is None:
             logger.warning(
@@ -405,37 +425,44 @@ class PlantSearchDialog(QDialog):
 
         self._selected_plant = self._merge_detail_into_search_result(plant, detail)
 
-    @staticmethod
+    _ALWAYS_FROM_DETAIL = frozenset({"source_id", "data_source", "raw_data"})
+
+    @classmethod
     def _merge_detail_into_search_result(
-        plant: PlantSpeciesData, detail: PlantSpeciesData
+        cls, plant: PlantSpeciesData, detail: PlantSpeciesData
     ) -> PlantSpeciesData:
-        """Overlay `detail`'s enrichment fields onto `plant`, not the other way
+        """Overlay `detail`'s populated fields onto `plant`, not the other way
         around -- a wholesale swap silently destroyed `common_name`/`family`/
         `genus`/`image_url` whenever the detail response validly omitted them
-        (caught in senior review round 3, reproduced against this method's own
-        null-common_name test fixture). The detail record and the search
-        record are not guaranteed to be a superset/subset of each other, only
-        to describe the same plant (already validated by the source_id check
-        above) -- so identity fields keep the search result's value unless
-        the detail response actually improves on it.
+        (senior review round 3). A hand-picked list of "identity fields" to
+        protect just relocates the same risk to every OTHER field a future
+        provider might leave sparse (round 4) -- generic instead: for every
+        field, keep `detail`'s value UNLESS it's empty/default and `plant`'s
+        isn't. The detail record and the search record are not guaranteed to
+        be a superset/subset of each other in either direction, only to
+        describe the same plant (already validated by the source_id check in
+        `_enrich_selected_plant()`).
         """
-        return replace(
-            detail,
-            common_name=(
-                detail.common_name
-                if detail.common_name not in ("", "Unknown")
-                else plant.common_name
-            ),
-            scientific_name=(
-                detail.scientific_name
-                if detail.scientific_name not in ("", "Unknown")
-                else plant.scientific_name
-            ),
-            family=detail.family or plant.family,
-            genus=detail.genus or plant.genus,
-            image_url=detail.image_url or plant.image_url,
-            thumbnail_url=detail.thumbnail_url or plant.thumbnail_url,
-        )
+        overrides: dict[str, object] = {}
+        for f in fields(PlantSpeciesData):
+            if f.name in cls._ALWAYS_FROM_DETAIL:
+                continue
+            detail_value = getattr(detail, f.name)
+            if f.default is not MISSING:
+                is_empty = detail_value == f.default
+            elif f.default_factory is not MISSING:  # type: ignore[misc]
+                is_empty = detail_value == f.default_factory()
+            else:
+                # scientific_name/common_name are required (no dataclass
+                # default) -- their "no data" sentinel is the parser-level
+                # "Unknown" string every client falls back to, not a field
+                # default.
+                is_empty = detail_value in ("", "Unknown")
+            if is_empty:
+                plant_value = getattr(plant, f.name)
+                if plant_value != detail_value:
+                    overrides[f.name] = plant_value
+        return replace(detail, **overrides)
 
     def _warn_enrichment_failed(self, plant: PlantSpeciesData) -> None:
         """Tell the user their selection will use only the basic search data.
@@ -443,6 +470,15 @@ class PlantSearchDialog(QDialog):
         A silent fallback would reproduce #297's exact symptom (sun/water/pH/
         foliage stuck at UNKNOWN) with no indication anything went wrong.
         """
+        # Trefle omits common_name for many scientific-name-only species --
+        # exactly the plants this fix exists to help -- so fall back to
+        # scientific_name rather than showing the user "...for Unknown from
+        # Trefle" (#297 round 4).
+        display_name = (
+            plant.common_name
+            if plant.common_name not in ("", "Unknown")
+            else plant.scientific_name
+        )
         QMessageBox.warning(
             self,
             self.tr("Limited Plant Data"),
@@ -450,7 +486,7 @@ class PlantSearchDialog(QDialog):
                 "Could not load full details for {name} from {source}. "
                 "The plant will be added with basic information only "
                 "(sun, water, pH, and foliage data may be missing)."
-            ).format(name=plant.common_name, source=plant.data_source.title()),
+            ).format(name=display_name, source=plant.data_source.title()),
         )
 
     @property

@@ -393,6 +393,71 @@ class TestSearchResultEnrichment:
         assert dialog.selected_plant is not None
         assert dialog.selected_plant.common_name == "Carrot"
 
+    def test_perenual_detail_paywall_falls_back_quietly_no_warning(
+        self, qtbot, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression pin (senior-review round 4, live-verified against the
+        real Perenual API): the free tier gates some species' detail
+        endpoint behind a paid plan and signals it as HTTP 429 with a
+        healthy rate-limit budget remaining -- NOT rate limiting. Showing the
+        "Limited Plant Data" warning for this would nag the user on every
+        single confirm for an entirely ordinary, expected free-tier
+        limitation. This must fall back quietly: no modal, sparse result
+        kept.
+        """
+        perenual_search_response = {
+            "data": [
+                {
+                    "id": 3384,
+                    "common_name": "Sunflower",
+                    "scientific_name": ["Helianthus annuus"],
+                    "cycle": "annual",
+                    "watering": "average",
+                    "sunlight": ["full sun"],
+                }
+            ]
+        }
+
+        def _perenual_get(url, params=None, timeout=None):
+            response = MagicMock()
+            if url.endswith("/species/details/3384"):
+                response.status_code = 429
+                response.raise_for_status = MagicMock(
+                    side_effect=requests.exceptions.HTTPError("429 Client Error")
+                )
+                response.text = "Please Upgrade Plan - https://perenual.com/subscription-api-pricing"
+                return response
+            response.status_code = 200
+            response.raise_for_status = MagicMock()
+            response.json.return_value = perenual_search_response
+            return response
+
+        mock_get = MagicMock(side_effect=_perenual_get)
+        monkeypatch.setattr("requests.Session.get", mock_get)
+        monkeypatch.setattr(
+            "open_garden_planner.services.plant_library.get_plant_library",
+            lambda: _EmptyLibrary(),
+        )
+        manager = PlantAPIManager(perenual_api_key="fake-key")
+        dlg = PlantSearchDialog(manager)
+        qtbot.addWidget(dlg)
+        dlg.search_input.setText("sunflower")
+        dlg._perform_search()
+        dlg.results_list.setCurrentRow(0)
+        assert dlg.selected_plant.sun_requirement.value == "full_sun"  # from search itself
+
+        with patch(
+            "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning"
+        ) as mock_warn:
+            qtbot.mouseClick(dlg.ok_button, Qt.MouseButton.LeftButton)
+
+        mock_warn.assert_not_called()
+        assert dlg.result() == dlg.DialogCode.Accepted
+        plant = dlg.selected_plant
+        assert plant is not None
+        assert plant.common_name == "Sunflower"
+        assert plant.sun_requirement.value == "full_sun"
+
     def test_custom_library_result_is_not_enriched(
         self, dialog: PlantSearchDialog, qtbot, monkeypatch: pytest.MonkeyPatch
     ) -> None:

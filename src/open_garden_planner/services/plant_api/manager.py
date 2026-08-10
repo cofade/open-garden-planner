@@ -5,7 +5,7 @@ from typing import Any
 
 from open_garden_planner.models.plant_data import PlantSpeciesData
 
-from .base import PlantAPIClient, PlantAPIError
+from .base import PlantAPIClient, PlantAPIError, PlantDetailUnavailableError
 from .perenual_client import PerenualClient
 from .permapeople_client import PermapeopleClient
 from .trefle_client import TrefleClient
@@ -160,6 +160,10 @@ class PlantAPIManager:
             if client.name.lower() == source.lower():
                 try:
                     return client.get_by_id(plant_id)
+                except PlantDetailUnavailableError:
+                    # Not a failure -- pass through unwrapped so callers can
+                    # distinguish it from a genuine error (#297 round 4).
+                    raise
                 except PlantAPIError as e:
                     raise PlantAPIError(f"Failed to get plant from {source}: {e}") from e
 

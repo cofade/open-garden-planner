@@ -11,6 +11,20 @@ class PlantAPIError(Exception):
     pass
 
 
+class PlantDetailUnavailableError(PlantAPIError):
+    """A provider has no richer per-species detail for this record -- not a
+    failure. Distinguishes an expected, permanent limitation (e.g.
+    Perenual's free tier gating some species' `/species/details/{id}`
+    behind a paid plan, observed as HTTP 429 with a healthy rate-limit
+    budget remaining, #297 senior-review round 4) from a genuine
+    connectivity/parse failure. Callers may treat this quietly -- keep
+    whatever data the search result already had, no user-facing warning --
+    since nothing is actually wrong.
+    """
+
+    pass
+
+
 class PlantAPIClient(ABC):
     """Abstract base class for plant API clients.
 
