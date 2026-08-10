@@ -323,7 +323,37 @@ class PlantSearchDialog(QDialog):
             )
             return
 
+        self._enrich_selected_plant()
         self.accept()
+
+    def _enrich_selected_plant(self) -> None:
+        """Fetch the full per-species detail record for the confirmed plant.
+
+        Search results are sparse for most providers -- Trefle's
+        `/plants/search` in particular carries only identity/taxonomy fields
+        and omits `growth`/`specifications`/`foliage` entirely, so
+        sun/water/pH/nutrient/foliage stay UNKNOWN on the search-result object
+        no matter how correct `_parse_species()` is (issue #297). The richer
+        data only exists behind `get_by_id()`. Runs once, on confirm rather
+        than per browsed result, to keep this to one extra request instead of
+        one per visible row (Trefle/Permapeople rate-limit concern raised in
+        #297) -- and skipped for locally-stored custom plants, which have no
+        online detail endpoint and are already complete.
+        """
+        plant = self._selected_plant
+        if plant is None or plant.data_source == "custom" or not plant.source_id:
+            return
+
+        self.setCursor(Qt.CursorShape.WaitCursor)
+        try:
+            self._selected_plant = self._api_manager.get_by_id(plant.source_id, plant.data_source)
+        except PlantAPIError as e:
+            logger.warning(
+                f"Failed to fetch full details for {plant.common_name} "
+                f"({plant.data_source}#{plant.source_id}), using search result as-is: {e}"
+            )
+        finally:
+            self.unsetCursor()
 
     @property
     def selected_plant(self) -> PlantSpeciesData | None:
