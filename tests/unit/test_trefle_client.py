@@ -235,3 +235,40 @@ class TestGetByIdSourceIdContract:
             result = client.get_by_id(requested_id)
 
         assert result.source_id == requested_id
+
+
+class TestMainSpeciesNullSafety:
+    """Regression pin (#297 senior-review round 5): `main_species` is a
+    PRESENT-BUT-NULL key for a real, non-trivial slice of Trefle's catalog
+    -- live-confirmed on ids 443432 (Christella conspersa), 453675
+    (Quadrella incana), and 439035 (Hesperolinon congestum), all
+    scientific-name-only species (~4% of a 72-id sample). A prior version of
+    `get_by_id()` used `plant_data.get("main_species", plant_data)`, whose
+    default only applies when the key is ABSENT -- so a present null passed
+    straight through as `None`, and `_parse_species(None)` crashed with
+    `AttributeError: 'NoneType' object has no attribute 'get'`, the same
+    dict.get-is-not-None-safe trap #296 fixed elsewhere in this same file.
+    Must now raise PlantDetailUnavailableError instead -- Trefle genuinely
+    has no detailed species record for these plants, which is not a failure.
+    """
+
+    def test_null_main_species_raises_detail_unavailable_not_attributeerror(self) -> None:
+        from open_garden_planner.services.plant_api.base import PlantDetailUnavailableError
+
+        client = TrefleClient(api_token="token")
+        # Shape captured live from GET /api/v1/plants/443432 during the #297
+        # round-5 investigation, trimmed to the fields this test exercises.
+        response_payload = {"data": {"id": 443987, "main_species": None}}
+
+        with patch.object(client, "_session") as mock_session:
+            mock_response = MagicMock()
+            mock_response.json.return_value = response_payload
+            mock_session.get.return_value = mock_response
+
+            try:
+                client.get_by_id("443432")
+                raised = None
+            except Exception as e:  # noqa: BLE001 -- capturing to assert the type
+                raised = e
+
+        assert isinstance(raised, PlantDetailUnavailableError)

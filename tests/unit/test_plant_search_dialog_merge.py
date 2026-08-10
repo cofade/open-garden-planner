@@ -99,6 +99,39 @@ class TestGenericFieldMerge:
         assert merged.source_id == "1"
         assert merged.data_source == "trefle"
 
+    def test_none_value_in_detail_defers_to_plants_value(self) -> None:
+        """Regression pin (#297 senior-review round 5): a client can emit a
+        present-but-null value for a `str` field (live-confirmed in
+        Trefle's own parser for family/genus/scientific_name/image_url
+        before its own None-safety fix). `None == ""` is False, so a naive
+        `detail_value == field.default` check does NOT treat a None value
+        as empty -- it would keep the None and silently blank a good
+        search-result value. `None` must always count as empty, regardless
+        of the field's own default.
+        """
+        plant = PlantSpeciesData(
+            scientific_name="Daucus carota",
+            common_name="Carrot",
+            source_id="1",
+            family="Apiaceae",
+            genus="Daucus",
+            image_url="https://example.com/carrot.jpg",
+        )
+        detail = PlantSpeciesData(
+            scientific_name="Daucus carota",
+            common_name="Carrot",
+            source_id="1",
+            family=None,  # type: ignore[arg-type] -- simulating a real parser bug
+            genus=None,  # type: ignore[arg-type]
+            image_url=None,  # type: ignore[arg-type]
+        )
+
+        merged = _merge(plant, detail)
+
+        assert merged.family == "Apiaceae"
+        assert merged.genus == "Daucus"
+        assert merged.image_url == "https://example.com/carrot.jpg"
+
     def test_empty_list_field_defers_to_plants_populated_list(self) -> None:
         """default_factory fields (list/dict) need the factory called for
         comparison, not a static default -- this is the case that breaks a

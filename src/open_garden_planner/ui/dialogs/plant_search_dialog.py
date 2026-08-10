@@ -448,7 +448,18 @@ class PlantSearchDialog(QDialog):
             if f.name in cls._ALWAYS_FROM_DETAIL:
                 continue
             detail_value = getattr(detail, f.name)
-            if f.default is not MISSING:
+            if detail_value is None:
+                # Always empty, regardless of the field's own default --
+                # correct even for fields whose real default IS None
+                # (redundant with the branch below for those), and
+                # necessary for fields whose default is ""/a sentinel:
+                # `None == ""` is False, so without this check a client
+                # that emits a present-but-null value for a str field
+                # (round 5 found exactly this live in Trefle's own parser)
+                # would defeat the emptiness check entirely and silently
+                # blank a good search-result value.
+                is_empty = True
+            elif f.default is not MISSING:
                 is_empty = detail_value == f.default
             elif f.default_factory is not MISSING:  # type: ignore[misc]
                 is_empty = detail_value == f.default_factory()

@@ -97,11 +97,14 @@ foliage at UNKNOWN/None. `PlantSearchDialog` fetches the richer per-species
 record via `PlantAPIManager.get_by_id()` only once the user **confirms** a
 result (the `Confirm`/`Detail` nodes) -- not per browsed row, to avoid one
 extra request per visible search result against rate-limited free tiers. A
-failed detail fetch falls back to the sparse result with a user-facing
-warning rather than blocking the assignment; a successful fetch is **merged**
-onto the search result (enrichment fields from the detail response, identity
-fields kept from the search result unless the detail response improves on
-them) rather than swapped in wholesale. The `Confirm -->|yes| Detail` edge is
+failed detail fetch falls back to the sparse result rather than blocking the
+assignment -- **quietly** (no warning) when the provider signals "no richer
+detail exists for this record" (Perenual's free-tier paywall, or a Trefle
+record with a null `main_species`), **with a user-facing warning** for a
+genuine failure, so a real error can't silently reproduce #297's own
+symptom. A successful fetch is **merged** onto the search result (a generic
+field-by-field overlay: the detail response's value wins unless it's at the
+field's default or `None`) rather than swapped in wholesale. The `Confirm -->|yes| Detail` edge is
 simplified: a result from the `Manual`/custom-library path (`data_source ==
 "custom"`) skips the fetch entirely, since a locally-stored entry has no
 online detail endpoint and is already complete. This diagram's `Cache`/`Bundled
