@@ -1203,6 +1203,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "No Selection": "Keine Auswahl",
         "Please select a plant from the search results.":
             "Bitte wählen Sie eine Pflanze aus den Suchergebnissen.",
+        "Limited Plant Data": "Eingeschränkte Pflanzendaten",
+        "Could not load full details for {name} from {source}. "
+        "The plant will be added with basic information only "
+        "(sun, water, pH, and foliage data may be missing).":
+            "Es konnten keine vollständigen Details für {name} von {source} geladen werden. "
+            "Die Pflanze wird nur mit grundlegenden Informationen hinzugefügt "
+            "(Sonne, Wasser, pH-Wert und Laubdaten könnten fehlen).",
     },
 
     # ── PolygonItem (context menu — pylupdate6 cannot extract _ alias) ──

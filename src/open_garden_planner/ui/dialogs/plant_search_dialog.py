@@ -344,16 +344,61 @@ class PlantSearchDialog(QDialog):
         if plant is None or plant.data_source == "custom" or not plant.source_id:
             return
 
+        self.ok_button.setEnabled(False)
         self.setCursor(Qt.CursorShape.WaitCursor)
+        detail: PlantSpeciesData | None = None
+        error: Exception | None = None
         try:
-            self._selected_plant = self._api_manager.get_by_id(plant.source_id, plant.data_source)
-        except PlantAPIError as e:
-            logger.warning(
-                f"Failed to fetch full details for {plant.common_name} "
-                f"({plant.data_source}#{plant.source_id}), using search result as-is: {e}"
-            )
+            detail = self._api_manager.get_by_id(plant.source_id, plant.data_source)
+        except Exception as e:  # noqa: BLE001 -- external API trust boundary. Only
+            # PlantAPIError is documented, but a 200 response with an unexpected
+            # shape reaches _parse_species() uncaught here (unlike search(), which
+            # already wraps per-item parsing in `except Exception` -- manager.py).
+            # Losing the user's confirmed selection to an unhandled crash would be
+            # worse than falling back to the sparse search result.
+            error = e
         finally:
             self.unsetCursor()
+            self.ok_button.setEnabled(True)
+
+        if error is not None:
+            logger.warning(
+                f"Failed to fetch full details for {plant.common_name} "
+                f"({plant.data_source}#{plant.source_id}), using search result as-is: {error}"
+            )
+            self._warn_enrichment_failed(plant)
+            return
+
+        # A "successful" response can still be empty, truncated, or -- in
+        # principle, for a provider without Trefle's confirmed id stability --
+        # describe a different record than the one requested. Validate before
+        # replacing a known-good sparse result with it.
+        assert detail is not None
+        if detail.source_id != plant.source_id or detail.common_name in ("", "Unknown"):
+            logger.warning(
+                f"Detail fetch for {plant.common_name} ({plant.data_source}#{plant.source_id}) "
+                "returned an unexpected or empty record, using search result as-is"
+            )
+            self._warn_enrichment_failed(plant)
+            return
+
+        self._selected_plant = detail
+
+    def _warn_enrichment_failed(self, plant: PlantSpeciesData) -> None:
+        """Tell the user their selection will use only the basic search data.
+
+        A silent fallback would reproduce #297's exact symptom (sun/water/pH/
+        foliage stuck at UNKNOWN) with no indication anything went wrong.
+        """
+        QMessageBox.warning(
+            self,
+            self.tr("Limited Plant Data"),
+            self.tr(
+                "Could not load full details for {name} from {source}. "
+                "The plant will be added with basic information only "
+                "(sun, water, pH, and foliage data may be missing)."
+            ).format(name=plant.common_name, source=plant.data_source.title()),
+        )
 
     @property
     def selected_plant(self) -> PlantSpeciesData | None:

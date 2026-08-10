@@ -4673,6 +4673,14 @@ Bitte überprüfen Sie Ihre Internetverbindung und API-Zugangsdaten.</translatio
             <source>Please select a plant from the search results.</source>
             <translation>Bitte wählen Sie eine Pflanze aus den Suchergebnissen.</translation>
         </message>
+        <message>
+            <source>Limited Plant Data</source>
+            <translation>Eingeschränkte Pflanzendaten</translation>
+        </message>
+        <message>
+            <source>Could not load full details for {name} from {source}. The plant will be added with basic information only (sun, water, pH, and foliage data may be missing).</source>
+            <translation>Es konnten keine vollständigen Details für {name} von {source} geladen werden. Die Pflanze wird nur mit grundlegenden Informationen hinzugefügt (Sonne, Wasser, pH-Wert und Laubdaten könnten fehlen).</translation>
+        </message>
     </context>
     <context>
         <name>PlantSearchPanel</name>

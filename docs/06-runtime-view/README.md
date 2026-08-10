@@ -66,8 +66,11 @@ flowchart TD
     Perma{Permapeople<br/>success?}
     Bundled{Found in<br/>bundled DB?}
     Manual[Allow manual entry<br/>user creates custom species]
-    Return([Return data])
+    Return([Return sparse<br/>search results])
     CacheWrite[Cache result]
+    Confirm{User confirms<br/>a result?}
+    Detail[Fetch full detail record<br/>via get_by_id per provider]
+    Assign([Assign to plant])
 
     Start --> Cache
     Cache -->|hit| Return
@@ -80,7 +83,24 @@ flowchart TD
     Bundled -->|no| Manual
     Manual --> Return
     CacheWrite --> Return
+    Return --> Confirm
+    Confirm -->|cancel| Start
+    Confirm -->|yes| Detail
+    Detail --> Assign
 ```
+
+**Search vs. detail data (issue #297):** `search()` results (the `Return` node
+above) are sparse for most providers -- Trefle's in particular omits
+`growth`/`specifications`/`foliage` entirely, leaving sun/water/pH/nutrient/
+foliage at UNKNOWN/None. `PlantSearchDialog` fetches the richer per-species
+record via `PlantAPIManager.get_by_id()` only once the user **confirms** a
+result (the `Confirm`/`Detail` nodes) -- not per browsed row, to avoid one
+extra request per visible search result against rate-limited free tiers. A
+failed detail fetch falls back to the sparse result with a user-facing
+warning rather than blocking the assignment. This diagram's `Cache`/`Bundled
+DB` branches predate this fix and remain aspirational -- see `manager.py`'s
+`# TODO: Add bundled database client` and the #296 entry in
+`docs/11-risks-and-technical-debt/README.md` §11.4.
 
 ## 6.4 Export Flow
 

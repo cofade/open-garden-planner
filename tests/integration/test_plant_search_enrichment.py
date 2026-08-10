@@ -19,7 +19,7 @@ result, following the same real-widget-plus-mocked-HTTP pattern as
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -44,8 +44,17 @@ SEARCH_RESPONSE = {
     ]
 }
 
+# The top-level `data.id` (a Trefle "plant" record) is deliberately DIFFERENT
+# from `data.main_species.id` (the species record) -- live-verified against
+# the real API for carrot/tomato/apple/basil during the #297 review: a
+# senior-review pass raised (and this fixture asymmetry disproves) the
+# concern that get_by_id() might read the wrong nested id and silently
+# mutate source_id/species_key. get_by_id() must read main_species.id (which
+# equals the original search result's id in every live sample), not this
+# top-level one.
 DETAIL_RESPONSE = {
     "data": {
+        "id": 171241,
         "main_species": {
             "id": 171170,
             "common_name": "Carrot",
@@ -61,9 +70,13 @@ DETAIL_RESPONSE = {
                 "soil_nutriments": 6,
             },
             "foliage": {"color": ["green"], "texture": "fine"},
-        }
+        },
     }
 }
+
+EMPTY_DETAIL_RESPONSE = {"data": {"main_species": {}}}
+
+MALFORMED_DETAIL_RESPONSE = {"data": ["not", "a", "dict"]}
 
 
 def _fake_get(url, params=None, timeout=None):
@@ -133,9 +146,13 @@ class TestSearchResultEnrichment:
         assert enriched.nutrient_demand == "medium"
         assert enriched.foliage_color == "green"
         assert enriched.foliage_texture == "fine"
-        # Identity fields must survive the enrichment round-trip too.
+        # Identity fields must survive the enrichment round-trip too -- and
+        # source_id must come from main_species.id (171170, matching the
+        # original search result), not the DETAIL_RESPONSE's distinct
+        # top-level data.id (171241). See the DETAIL_RESPONSE comment above.
         assert enriched.common_name == "Carrot"
         assert enriched.scientific_name == "Daucus carota"
+        assert enriched.source_id == "171170"
 
     def test_enrichment_failure_falls_back_to_sparse_result(
         self, dialog: PlantSearchDialog, qtbot, monkeypatch: pytest.MonkeyPatch
@@ -149,13 +166,128 @@ class TestSearchResultEnrichment:
             MagicMock(side_effect=requests.exceptions.ConnectionError("offline")),
         )
 
-        qtbot.mouseClick(dialog.ok_button, Qt.MouseButton.LeftButton)
+        with patch(
+            "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning"
+        ) as mock_warn:
+            qtbot.mouseClick(dialog.ok_button, Qt.MouseButton.LeftButton)
 
         assert dialog.result() == dialog.DialogCode.Accepted
         plant = dialog.selected_plant
         assert plant is not None
         assert plant.common_name == "Carrot"
         assert plant.sun_requirement.value == "unknown"
+        # A silent fallback would reproduce #297's own symptom -- the user
+        # must be told their selection has limited data.
+        mock_warn.assert_called_once()
+
+    def test_malformed_detail_response_falls_back_and_warns(
+        self, dialog: PlantSearchDialog, qtbot, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A 200 response whose body doesn't match the expected shape must
+        not crash the dialog (only `requests.RequestException` was wrapped
+        into `PlantAPIError` before this fix -- everything else reached
+        `_parse_species()` uncaught).
+        """
+
+        def _malformed_get(url, params=None, timeout=None):
+            response = MagicMock()
+            response.status_code = 200
+            response.raise_for_status = MagicMock()
+            response.json.return_value = MALFORMED_DETAIL_RESPONSE
+            return response
+
+        monkeypatch.setattr("requests.Session.get", MagicMock(side_effect=_malformed_get))
+
+        with patch(
+            "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning"
+        ) as mock_warn:
+            qtbot.mouseClick(dialog.ok_button, Qt.MouseButton.LeftButton)
+
+        assert dialog.result() == dialog.DialogCode.Accepted
+        plant = dialog.selected_plant
+        assert plant is not None
+        assert plant.common_name == "Carrot"
+        assert plant.sun_requirement.value == "unknown"
+        mock_warn.assert_called_once()
+
+    def test_empty_detail_response_falls_back_and_warns(
+        self, dialog: PlantSearchDialog, qtbot, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A 200 response that parses cleanly but describes no real plant
+        (empty body, deleted record, ...) must not silently overwrite a good
+        search result with an 'Unknown' one.
+        """
+
+        def _empty_get(url, params=None, timeout=None):
+            response = MagicMock()
+            response.status_code = 200
+            response.raise_for_status = MagicMock()
+            response.json.return_value = (
+                EMPTY_DETAIL_RESPONSE if url.endswith("/plants/171170") else SEARCH_RESPONSE
+            )
+            return response
+
+        monkeypatch.setattr("requests.Session.get", MagicMock(side_effect=_empty_get))
+
+        with patch(
+            "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning"
+        ) as mock_warn:
+            qtbot.mouseClick(dialog.ok_button, Qt.MouseButton.LeftButton)
+
+        assert dialog.result() == dialog.DialogCode.Accepted
+        plant = dialog.selected_plant
+        assert plant is not None
+        assert plant.common_name == "Carrot"
+        mock_warn.assert_called_once()
+
+    def test_confirm_enriches_only_the_selected_row_not_every_browsed_row(
+        self, qtbot, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Deliberate rate-limit tradeoff: browsing several results before
+        confirming one must cost exactly one detail request, not one per
+        visible row.
+        """
+        multi_search_response = {
+            "data": [
+                {"id": 171170, "common_name": "Carrot", "scientific_name": "Daucus carota"},
+                {"id": 269338, "common_name": "Tomato", "scientific_name": "Solanum lycopersicum"},
+                {"id": 265263, "common_name": "Apple", "scientific_name": "Malus domestica"},
+            ]
+        }
+
+        def _multi_fake_get(url, params=None, timeout=None):
+            response = MagicMock()
+            response.status_code = 200
+            response.raise_for_status = MagicMock()
+            response.json.return_value = (
+                DETAIL_RESPONSE if url.endswith("/plants/171170") else multi_search_response
+            )
+            return response
+
+        mock_get = MagicMock(side_effect=_multi_fake_get)
+        monkeypatch.setattr("requests.Session.get", mock_get)
+        monkeypatch.setattr(
+            "open_garden_planner.services.plant_library.get_plant_library",
+            lambda: _EmptyLibrary(),
+        )
+        manager = PlantAPIManager(trefle_api_token="fake-token")
+        dlg = PlantSearchDialog(manager)
+        qtbot.addWidget(dlg)
+        dlg.search_input.setText("veg")
+        dlg._perform_search()
+        assert dlg.results_list.count() == 3
+
+        # Browse all three rows -- selection-change must not itself enrich.
+        for row in range(3):
+            dlg.results_list.setCurrentRow(row)
+        dlg.results_list.setCurrentRow(0)  # confirm the carrot
+
+        qtbot.mouseClick(dlg.ok_button, Qt.MouseButton.LeftButton)
+
+        # Exactly 2 requests total: 1 search + 1 detail fetch for the single
+        # confirmed row -- not 1 (search) + 3 (one per browsed row).
+        assert mock_get.call_count == 2
+        assert dlg.selected_plant.sun_requirement.value == "full_sun"
 
     def test_custom_library_result_is_not_enriched(
         self, dialog: PlantSearchDialog, qtbot, monkeypatch: pytest.MonkeyPatch
