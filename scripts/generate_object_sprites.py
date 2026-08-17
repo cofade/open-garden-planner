@@ -717,18 +717,19 @@ def build_lounger(sp: Sprite) -> None:
 
 
 def build_bbq_grill(sp: Sprite) -> None:
-    # 80 x 60
+    # 80 x 80 — square: the BBQ is a CIRCLE-tool object, so the canvas renders it
+    # into a square footprint (a 80x60 viewBox would be stretched vertically)
     en = MATERIALS["enamel_black"]
     st = MATERIALS["steel"]
     wood = MATERIALS["oak"]
-    cx, cy, rx, ry = 32.0, 30.0, 28.0, 26.0
+    cx, cy, rx, ry = 34.0, 40.0, 30.0, 30.0
     # side shelf under the body edge
-    plank(sp, 58, 12, 19, 36, wood, "v", rx=2.5)
+    plank(sp, 62, 20, 16, 40, wood, "v", rx=2.5)
     # utensils on the shelf
-    sp.add(line_s(66, 16, 66, 42, st["mid"], 1.6, 0.95))
-    sp.add(rect_s(63.5, 14, 5, 5, st["light"], rx=0.8))
-    sp.add(line_s(71, 18, 71, 42, st["mid"], 1.6, 0.95))
-    sp.add(rect_s(69.5, 15, 3, 3, st["light"], rx=1.5))
+    sp.add(line_s(68, 26, 68, 54, st["mid"], 1.6, 0.95))
+    sp.add(rect_s(65.5, 24, 5, 5, st["light"], rx=0.8))
+    sp.add(line_s(73, 28, 73, 54, st["mid"], 1.6, 0.95))
+    sp.add(rect_s(71.5, 25, 3, 3, st["light"], rx=1.5))
     # kettle body (open, grate visible)
     sp.add(ell_s(cx, cy, rx + 1.4, ry + 1.4, en["occ"], extra=' opacity="0.6"'))
     g = sp.rad([(0, en["light"], None), (55, en["mid"], None), (100, en["dark"], None)])
@@ -750,7 +751,7 @@ def build_bbq_grill(sp: Sprite) -> None:
            f'stroke="{st["light"]}" stroke-width="0.8" opacity="0.7"/>')
     # handles left/right + lid hinge
     metal_bar(sp, 1, cy - 6, 5, 12, st, "v", rx=2)
-    screw(sp, cx, 3.5, 1.4, st)
+    screw(sp, cx, cy - ry - 4.5, 1.4, st)
 
 
 def build_fire_pit(sp: Sprite) -> None:
@@ -1360,7 +1361,7 @@ OBJECTS: dict[str, dict] = {
     "bench": dict(view=(180, 60), dir="furniture", build=build_bench, shape="rect"),
     "parasol": dict(view=(300, 300), dir="furniture", build=build_parasol, shape="circle"),
     "lounger": dict(view=(70, 190), dir="furniture", build=build_lounger, shape="rect"),
-    "bbq_grill": dict(view=(80, 60), dir="furniture", build=build_bbq_grill, shape="rect"),
+    "bbq_grill": dict(view=(80, 80), dir="furniture", build=build_bbq_grill, shape="circle"),
     "fire_pit": dict(view=(100, 100), dir="furniture", build=build_fire_pit, shape="circle"),
     "planter_pot": dict(view=(50, 50), dir="furniture", build=build_planter_pot, shape="circle"),
     # infrastructure (existing)

@@ -192,6 +192,18 @@ class ObjectType(Enum):
     WATER_TAP = auto()
     TOOL_SHED = auto()
 
+    # Package 3a roster growth (#308) — appended so existing enum ordering
+    # is untouched (names are serialized, values are not).
+    SANDBOX = auto()
+    TRAMPOLINE = auto()
+    HOT_TUB = auto()
+    SWING = auto()
+    PICNIC_TABLE = auto()
+    HAMMOCK = auto()
+    WHEELBARROW = auto()
+    PERGOLA = auto()
+    BIRD_BATH = auto()
+
     # Vertical & container gardening (US-C3). Plant-parent objects that are
     # NOT garden beds. CONTAINER/WALL_PLANTER are rectangle-based, CONTAINER_ROUND
     # is circle-based; all three are soil containers. TRELLIS (US-C3b) is a
@@ -448,6 +460,70 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         display_name=QT_TR_NOOP("Water Tap"),
         fill_pattern=FillPattern.SOLID,
     ),
+    # Package 3a roster (#308). fill_color doubles as the 3D extrusion colour.
+    ObjectType.SANDBOX: ObjectStyle(
+        fill_color=QColor(228, 208, 160, 255),  # Sand
+        stroke_color=QColor(158, 124, 64),  # Pine frame
+        stroke_width=1.5,
+        display_name=QT_TR_NOOP("Sandbox"),
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.TRAMPOLINE: ObjectStyle(
+        fill_color=QColor(48, 51, 54, 255),  # Mat
+        stroke_color=QColor(66, 123, 194),  # Safety pad
+        stroke_width=1.5,
+        display_name=QT_TR_NOOP("Trampoline"),
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.HOT_TUB: ObjectStyle(
+        fill_color=QColor(67, 163, 210, 255),  # Water
+        stroke_color=QColor(105, 64, 28),  # Teak cladding
+        stroke_width=1.5,
+        display_name=QT_TR_NOOP("Hot Tub"),
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.SWING: ObjectStyle(
+        fill_color=QColor(212, 180, 113, 255),  # Pine frame
+        stroke_color=QColor(158, 124, 64),
+        stroke_width=1.5,
+        display_name=QT_TR_NOOP("Swing"),
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.PICNIC_TABLE: ObjectStyle(
+        fill_color=QColor(185, 131, 80, 255),  # Oak
+        stroke_color=QColor(125, 80, 41),
+        stroke_width=1.5,
+        display_name=QT_TR_NOOP("Picnic Table"),
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.HAMMOCK: ObjectStyle(
+        fill_color=QColor(79, 157, 151, 255),  # Teal canvas
+        stroke_color=QColor(102, 67, 44),  # Walnut stand
+        stroke_width=1.5,
+        display_name=QT_TR_NOOP("Hammock"),
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.WHEELBARROW: ObjectStyle(
+        fill_color=QColor(63, 124, 62, 255),  # Enamel green tub
+        stroke_color=QColor(32, 76, 34),
+        stroke_width=1.5,
+        display_name=QT_TR_NOOP("Wheelbarrow"),
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.PERGOLA: ObjectStyle(
+        fill_color=QColor(185, 131, 80, 255),  # Oak beams
+        stroke_color=QColor(125, 80, 41),
+        stroke_width=1.5,
+        display_name=QT_TR_NOOP("Pergola"),
+        fill_pattern=FillPattern.SOLID,
+    ),
+    ObjectType.BIRD_BATH: ObjectStyle(
+        fill_color=QColor(162, 157, 147, 255),  # Stone
+        stroke_color=QColor(104, 100, 92),
+        stroke_width=1.5,
+        display_name=QT_TR_NOOP("Bird Bath"),
+        fill_pattern=FillPattern.SOLID,
+    ),
     ObjectType.TOOL_SHED: ObjectStyle(
         fill_color=QColor(160, 130, 90, 255),  # Light wood
         stroke_color=QColor(100, 75, 45),  # Dark wood
@@ -647,10 +723,13 @@ def get_valid_types_for_shape(
             ObjectType.TABLE_ROUND,
             ObjectType.PARASOL,
             ObjectType.FIRE_PIT,
+            ObjectType.BBQ_GRILL,  # circle-tool object (canvas_view registers it round)
             ObjectType.PLANTER_POT,
             ObjectType.CONTAINER_ROUND,
             ObjectType.RAIN_BARREL,
             ObjectType.WATER_TAP,
+            ObjectType.TRAMPOLINE,
+            ObjectType.BIRD_BATH,
             ObjectType.POND_POOL,
             # F9: round in-ground beds (keyhole gardens, etc.). RAISED_BED is
             # intentionally excluded — its wooden-frame pixmap is rectangular
@@ -687,6 +766,13 @@ def get_valid_types_for_shape(
             ObjectType.COMPOST_BIN,
             ObjectType.COLD_FRAME,
             ObjectType.TOOL_SHED,
+            ObjectType.SANDBOX,
+            ObjectType.HOT_TUB,
+            ObjectType.SWING,
+            ObjectType.PICNIC_TABLE,
+            ObjectType.HAMMOCK,
+            ObjectType.WHEELBARROW,
+            ObjectType.PERGOLA,
             ObjectType.CONTAINER,
             ObjectType.WALL_PLANTER,
             ObjectType.TRELLIS,

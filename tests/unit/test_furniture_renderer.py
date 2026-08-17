@@ -28,6 +28,13 @@ FURNITURE_TYPES = [
     ObjectType.BBQ_GRILL,
     ObjectType.FIRE_PIT,
     ObjectType.PLANTER_POT,
+    # Package 3a roster (#308)
+    ObjectType.SANDBOX,
+    ObjectType.TRAMPOLINE,
+    ObjectType.HOT_TUB,
+    ObjectType.SWING,
+    ObjectType.PICNIC_TABLE,
+    ObjectType.HAMMOCK,
 ]
 
 # All SVG-rendered object types (furniture + hedge)
@@ -73,8 +80,9 @@ class TestFurnitureSVGFiles:
         assert "<svg" in content, f"{filename}.svg is not valid SVG"
         assert "</svg>" in content
 
-    def test_nine_furniture_files_mapped(self, qtbot: object) -> None:  # noqa: ARG002
-        assert len(_FURNITURE_FILES) == 9
+    def test_furniture_files_mapped(self, qtbot: object) -> None:  # noqa: ARG002
+        """The map and this roster agree (map-driven — no literal count to bump)."""
+        assert set(_FURNITURE_FILES) == set(FURNITURE_TYPES)
 
 
 class TestGetFurnitureSvgPath:

@@ -704,6 +704,42 @@
             <source>Trellis</source>
             <translation>Rankgitter</translation>
         </message>
+        <message>
+            <source>Sandbox</source>
+            <translation>Sandkasten</translation>
+        </message>
+        <message>
+            <source>Trampoline</source>
+            <translation>Trampolin</translation>
+        </message>
+        <message>
+            <source>Hot Tub</source>
+            <translation>Whirlpool</translation>
+        </message>
+        <message>
+            <source>Swing</source>
+            <translation>Schaukel</translation>
+        </message>
+        <message>
+            <source>Picnic Table</source>
+            <translation>Picknicktisch</translation>
+        </message>
+        <message>
+            <source>Hammock</source>
+            <translation>Hängematte</translation>
+        </message>
+        <message>
+            <source>Wheelbarrow</source>
+            <translation>Schubkarre</translation>
+        </message>
+        <message>
+            <source>Pergola</source>
+            <translation>Pergola</translation>
+        </message>
+        <message>
+            <source>Bird Bath</source>
+            <translation>Vogeltränke</translation>
+        </message>
     </context>
     <context>
         <name>CircleItem</name>
@@ -3929,6 +3965,42 @@ Ergebnisse werden lokal für ein Jahr zwischengespeichert.</translation>
         <message>
             <source>Trellis</source>
             <translation>Rankgitter</translation>
+        </message>
+        <message>
+            <source>Sandbox</source>
+            <translation>Sandkasten</translation>
+        </message>
+        <message>
+            <source>Trampoline</source>
+            <translation>Trampolin</translation>
+        </message>
+        <message>
+            <source>Hot Tub</source>
+            <translation>Whirlpool</translation>
+        </message>
+        <message>
+            <source>Swing</source>
+            <translation>Schaukel</translation>
+        </message>
+        <message>
+            <source>Picnic Table</source>
+            <translation>Picknicktisch</translation>
+        </message>
+        <message>
+            <source>Hammock</source>
+            <translation>Hängematte</translation>
+        </message>
+        <message>
+            <source>Wheelbarrow</source>
+            <translation>Schubkarre</translation>
+        </message>
+        <message>
+            <source>Pergola</source>
+            <translation>Pergola</translation>
+        </message>
+        <message>
+            <source>Bird Bath</source>
+            <translation>Vogeltränke</translation>
         </message>
     </context>
     <context>
@@ -9163,6 +9235,42 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Trellis</source>
             <translation>Rankgitter</translation>
+        </message>
+        <message>
+            <source>Sandbox</source>
+            <translation>Sandkasten</translation>
+        </message>
+        <message>
+            <source>Trampoline</source>
+            <translation>Trampolin</translation>
+        </message>
+        <message>
+            <source>Hot Tub</source>
+            <translation>Whirlpool</translation>
+        </message>
+        <message>
+            <source>Swing</source>
+            <translation>Schaukel</translation>
+        </message>
+        <message>
+            <source>Picnic Table</source>
+            <translation>Picknicktisch</translation>
+        </message>
+        <message>
+            <source>Hammock</source>
+            <translation>Hängematte</translation>
+        </message>
+        <message>
+            <source>Wheelbarrow</source>
+            <translation>Schubkarre</translation>
+        </message>
+        <message>
+            <source>Pergola</source>
+            <translation>Pergola</translation>
+        </message>
+        <message>
+            <source>Bird Bath</source>
+            <translation>Vogeltränke</translation>
         </message>
     </context>
     <context>
