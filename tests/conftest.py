@@ -19,7 +19,14 @@ sys.path.insert(0, str(src_path))
 # `APPLICATION_NAME` (ADR-041), and the two lines below rebind those names to
 # these, so nothing else in the suite needs to know them.
 TEST_ORGANIZATION = "cofade_test"
-TEST_APPLICATION = "Open Garden Planner Test"
+# Per-PROCESS application name: on the Windows registry backend two pytest
+# processes on one machine (a senior-reviewer worktree, a parallel run) would
+# otherwise share ONE key, and each process's per-test reset kills the other's
+# live stores ("black hole": writes vanish, reads return defaults — §11.4,
+# measured 2026-08-17: a Welcome dialog opening despite the flag written False,
+# a snap setting reading its default right after the write). The session-end
+# `clear()` in `isolate_qsettings` removes this process's key again.
+TEST_APPLICATION = f"Open Garden Planner Test {os.getpid()}"
 
 # Redirect at conftest IMPORT time, not inside a fixture. pytest imports this
 # file before it collects any test module in this tree, hence before any
@@ -123,12 +130,55 @@ def _reset_app_settings():
     import open_garden_planner.app.settings as settings_module
 
     def _reset() -> None:
-        settings_module.create_qsettings().clear()
+        # Per-key wipe, NOT `clear()`: on the Windows registry backend a
+        # `clear()`ed QSettings deletes the whole key when it is DESTROYED, and
+        # every store built between the clear() and that destruction becomes a
+        # "black hole" (writes vanish, reads return defaults) — measured
+        # 2026-08-17 (§11.4). `remove(key)` acts immediately and leaves the
+        # key alive. (The 2026-08-17 incident itself was a SECOND pytest
+        # process clear()ing the then-shared key — fixed by the per-pid
+        # TEST_APPLICATION above; this is defence in depth against the same
+        # mechanism inside one process.)
+        store = settings_module.create_qsettings()
+        for key in store.allKeys():
+            store.remove(key)
+        store.sync()
         settings_module._settings_instance = None  # type: ignore[attr-defined]
+
+    def _probe_black_hole() -> str | None:
+        """Detect a dead settings singleton (Windows registry backend).
+
+        Measured 2026-08-17: once ANOTHER QSettings instance — in this process or
+        in another one sharing the key — has `clear()`ed the key, a surviving
+        instance's writes vanish and its reads return defaults ("black hole").
+        Two intermittent full-run failures had exactly that fingerprint (a
+        Welcome dialog opening despite the flag written False; a
+        `nearest_snap_enabled` read returning the default right after its
+        write) and were caused by a concurrent pytest process (senior-reviewer
+        worktree) sharing the then-fixed test key — §11.4. The key is per-pid
+        now; if this ever fires again, something else is deleting the key.
+        """
+        inst = settings_module._settings_instance  # type: ignore[attr-defined]
+        if inst is None:
+            return None
+        store = inst._settings
+        store.setValue("_conftest/probe", 1)
+        if store.value("_conftest/probe", None, type=int) != 1:
+            return (
+                "settings singleton is a BLACK HOLE (writes vanish, reads return "
+                "defaults) — its registry key was clear()ed by another QSettings "
+                "instance (another pytest process?) after it was built; see §11.4 "
+                "'silence the startup Welcome dialog' addendum (2026-08-17)"
+            )
+        store.remove("_conftest/probe")
+        return None
 
     _reset()
     yield
+    verdict = _probe_black_hole()
     _reset()
+    if verdict:
+        pytest.fail(verdict)
 
 
 @pytest.fixture(autouse=True)
