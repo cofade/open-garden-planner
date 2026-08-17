@@ -47,7 +47,7 @@ will be minted.
 | Class | Source of truth | Branch | Commit prefix | Release? |
 |-------|-----------------|--------|---------------|----------|
 | User story | `docs/roadmap.md` (read the acceptance criteria before coding) | `feature/US-X.X-short-description` | `feat(US-X.X): ...` | Yes (patch by default) |
-| Bug fix / follow-up issue | GitHub issue `#NNN` (issues auto-land on project board 1 via `add-to-project.yml`) | `fix/NNN-short-description` or `feature/...` per convention in `git log` | `fix(#NNN): ...` or `feat` if it adds capability | Yes |
+| Bug fix / follow-up issue | GitHub issue `#NNN` (the issue tracker is the only work list — the project-board automation was removed in #293) | `fix/NNN-short-description` or `feature/...` per convention in `git log` | `fix(#NNN): ...` or `feat` if it adds capability | Yes |
 | Chore (version sync, roadmap table, doc-only, CI tweak) | — | may go straight to master **only** for the post-release version-sync commit prescribed by the protocol; anything larger gets a branch | `chore: ...` / `chore(scope): ...` | **No** — release.yml skips it |
 
 Everything user-visible that a change adds must eventually be reflected in
@@ -232,8 +232,11 @@ feature PR title must not start with `chore`); the *PR labels at merge time* are
 step 3 inspects; and after any merge you must wait for the tag **transition** (section
 2.2) before running the version sync.
 
-`add-to-project.yml` is unrelated to releases: it auto-adds newly opened issues to
-project board 1 (owner `cofade`).
+Those two are the only workflows in the repo. A third, `add-to-project.yml`, auto-added
+newly opened issues to project board 1 and was **deleted in #293** — it had failed on all
+70 of its runs since 2026-04-18 (`unknown owner type`, a token-scope problem), so the
+board froze at issue #161 and `docs/roadmap.md` had long been the de-facto tracker. Do not
+resurrect it without first deciding whether the board has readers; see §11.4.
 
 ## 4. Change checklist — start to finish
 
