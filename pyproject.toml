@@ -60,6 +60,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-qt>=4.4.0",
     "pytest-cov>=4.1.0",
+    "pytest-timeout>=2.3.0",
     "ruff>=0.1.0",
     "mypy>=1.8.0",
     "bandit>=1.7.0",
@@ -134,6 +135,12 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
 qt_api = "pyqt6"
+# Per-test hang guard (pytest-timeout): a stalled full-app test used to freeze the
+# whole battery silently (2026-08-17, Package 3a run stalled 18 min in
+# test_trellis.py). Generous — the slowest legitimate tests build the full app
+# in ~6 s. On Linux/CI the signal method fails just the test; on Windows the
+# thread method dumps every thread's stack and aborts the run — both beat a hang.
+timeout = 180
 
 [tool.coverage.run]
 source = ["src/open_garden_planner"]

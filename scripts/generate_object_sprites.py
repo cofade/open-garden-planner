@@ -38,6 +38,8 @@ import colorsys
 import math
 import random
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 OBJECTS_DIR = Path(__file__).parent.parent / "src" / "open_garden_planner" / "resources" / "objects"
@@ -181,6 +183,15 @@ class Sprite:
     def add(self, s: str) -> None:
         self.body.append(s)
 
+    @contextmanager
+    def rotated(self, angle: float, cx: float, cy: float) -> Iterator[None]:
+        """Everything added inside the block is wrapped in one rotate() group."""
+        mark = len(self.body)
+        yield
+        inner = "".join(self.body[mark:])
+        del self.body[mark:]
+        self.body.append(rot(angle, cx, cy, inner))
+
     def svg(self) -> str:
         return (
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {self.w:g} {self.h:g}">\n'
@@ -271,6 +282,11 @@ def rot(a: float, cx: float, cy: float, inner: str) -> str:
 # --------------------------------------------------------------------------- #
 # material primitives — every part = optional occlusion halo + shaded body + micro-detail
 # --------------------------------------------------------------------------- #
+def mix_mat(m: dict[str, str], t: float) -> dict[str, str]:
+    """A darker variant of a material (parts in shadow, e.g. under-frame braces)."""
+    return {k: mix(v, m["occ"], t) for k, v in m.items()}
+
+
 def halo_rect(sp: Sprite, x: float, y: float, w: float, h: float, m: dict[str, str],
               pad: float = 1.2, rx: float = 2.0, op: float = 0.55) -> None:
     sp.add(rect_s(x - pad, y - pad, w + 2 * pad, h + 2 * pad, m["occ"], rx=rx + pad, extra=f' opacity="{op:g}"'))
@@ -790,16 +806,11 @@ def build_fire_pit(sp: Sprite) -> None:
     # logs
     log = MATERIALS["walnut"]
     for ang in (-32, 40, 100):
-        tmp = Sprite(sp.name + "_log", sp.w, sp.h, sp.rng)
-        tmp._n = sp._n
-        plank(tmp, cx - 21, cy - 4, 42, 8, log, "h", rx=3.2, knot=False)
-        # charred ends
-        tmp.add(rect_s(cx - 21, cy - 4, 6, 8, log["occ"], rx=3))
-        tmp.add(rect_s(cx + 15, cy - 4, 6, 8, log["occ"], rx=3))
-        sp.defs += tmp.defs
-        sp._n = tmp._n
-        inner = "".join(tmp.body)
-        sp.add(rot(ang, cx, cy, inner))
+        with sp.rotated(ang, cx, cy):
+            plank(sp, cx - 21, cy - 4, 42, 8, log, "h", rx=3.2, knot=False)
+            # charred ends
+            sp.add(rect_s(cx - 21, cy - 4, 6, 8, log["occ"], rx=3))
+            sp.add(rect_s(cx + 15, cy - 4, 6, 8, log["occ"], rx=3))
     # flames
     for fx, fh, fw, tilt in ((cx - 7, 20, 11, -2), (cx + 6, 24, 12, 2), (cx - 1, 15, 8, 0)):
         flame(sp, fx, cy + 8, fh, fw, tilt)
@@ -1042,17 +1053,12 @@ def build_sandbox(sp: Sprite) -> None:
            f'stroke="{MATERIALS["steel"]["mid"]}" stroke-width="1.2" opacity="0.9"/>')
     yel = MATERIALS["plastic_yellow"]
     sx, sy = W * 0.62, H * 0.42
-    tmp = Sprite(sp.name + "_spade", sp.w, sp.h, sp.rng)
-    tmp._n = sp._n
-    tmp.add(rect_s(sx - 2, sy - 16, 4, 24, yel["mid"], rx=2))
-    tmp.add(line_s(sx - 0.8, sy - 14, sx - 0.8, sy + 6, yel["light"], 0.6, 0.6))
-    g = tmp.lin([(0, yel["dark"], None), (50, yel["light"], None), (100, yel["dark"], None)], 0, 0, 1, 0)
-    tmp.add(path_s(f"M {f1(sx - 6)} {f1(sy + 6)} L {f1(sx + 6)} {f1(sy + 6)} L {f1(sx + 5)} {f1(sy + 20)} "
-                   f"Q {f1(sx)} {f1(sy + 24)} {f1(sx - 5)} {f1(sy + 20)} Z", f"url(#{g})"))
-    sp.defs += tmp.defs
-    sp._n = tmp._n
-    inner = "".join(tmp.body)
-    sp.add(rot(-35, sx, sy, inner))
+    with sp.rotated(-35, sx, sy):
+        sp.add(rect_s(sx - 2, sy - 16, 4, 24, yel["mid"], rx=2))
+        sp.add(line_s(sx - 0.8, sy - 14, sx - 0.8, sy + 6, yel["light"], 0.6, 0.6))
+        g = sp.lin([(0, yel["dark"], None), (50, yel["light"], None), (100, yel["dark"], None)], 0, 0, 1, 0)
+        sp.add(path_s(f"M {f1(sx - 6)} {f1(sy + 6)} L {f1(sx + 6)} {f1(sy + 6)} L {f1(sx + 5)} {f1(sy + 20)} "
+                      f"Q {f1(sx)} {f1(sy + 24)} {f1(sx - 5)} {f1(sy + 20)} Z", f"url(#{g})"))
     disc(sp, W * 0.7, H * 0.72, 6, MATERIALS["plastic_blue"], gloss=0.6)
 
 
@@ -1230,12 +1236,8 @@ def build_swing(sp: Sprite) -> None:
     splay = math.degrees(math.atan2(8.0, L))
     for ex, sgn in ((14.0, 1), (W - 14.0, -1)):
         for dy in (-1, 1):
-            tmp = Sprite(sp.name + "_leg", sp.w, sp.h, sp.rng)
-            tmp._n = sp._n
-            plank(tmp, ex - 3.5, cy if dy > 0 else cy - L, 7, L, wood, "v", rx=3, knot=False)
-            sp.defs += tmp.defs
-            sp._n = tmp._n
-            sp.add(rot(sgn * dy * splay, ex, cy, "".join(tmp.body)))
+            with sp.rotated(sgn * dy * splay, ex, cy):
+                plank(sp, ex - 3.5, cy if dy > 0 else cy - L, 7, L, wood, "v", rx=3, knot=False)
     # feet caps at the leg ends
     for fx, fy in ((6, cy - 62), (6, cy + 62), (W - 6, cy - 62), (W - 6, cy + 62)):
         disc(sp, fx, fy, 3.2, MATERIALS["rubber"], gloss=0.2)
@@ -1263,13 +1265,9 @@ def build_picnic_table(sp: Sprite) -> None:
     L = H / 2 - 8
     for ex in (16.0, W - 16.0):
         for dy in (-1, 1):
-            tmp = Sprite(sp.name + "_leg", sp.w, sp.h, sp.rng)
-            tmp._n = sp._n
-            plank(tmp, ex - 3.5, H / 2 if dy > 0 else H / 2 - L, 7, L, mix_mat(wood, 0.35), "v", rx=2.5,
-                  knot=False, grain=False)
-            sp.defs += tmp.defs
-            sp._n = tmp._n
-            sp.add(rot(dy * 9, ex, H / 2, "".join(tmp.body)))
+            with sp.rotated(dy * 9, ex, H / 2):
+                plank(sp, ex - 3.5, H / 2 if dy > 0 else H / 2 - L, 7, L, mix_mat(wood, 0.35), "v", rx=2.5,
+                      knot=False, grain=False)
     # benches
     wood_surface(sp, 14, 6, W - 28, 24, wood, "h", n=2, gap=1.4)
     wood_surface(sp, 14, H - 30, W - 28, 24, wood, "h", n=2, gap=1.4)
@@ -1280,11 +1278,6 @@ def build_picnic_table(sp: Sprite) -> None:
     for x in (18, W - 18):
         for y in (46, H / 2, H - 46):
             screw(sp, x, y, 1.3, st)
-
-
-def mix_mat(m: dict[str, str], t: float) -> dict[str, str]:
-    """A darker variant of a material (parts in shadow, e.g. under-frame braces)."""
-    return {k: mix(v, m["occ"], t) for k, v in m.items()}
 
 
 def build_hammock(sp: Sprite) -> None:
