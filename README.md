@@ -127,15 +127,15 @@ Project documentation follows the [arc42](https://arc42.org/) architecture templ
 ## Community
 
 - **[GitHub Discussions](https://github.com/cofade/open-garden-planner/discussions)** — questions, ideas, feature requests, and general chat
-- **[Issue Tracker](https://github.com/cofade/open-garden-planner/issues)** — bug reports and confirmed tasks
-- **[Project Board](https://github.com/users/cofade/projects/1)** — Kanban view of open work items; pick something from the **Todo** column to get started
+- **[Issue Tracker](https://github.com/cofade/open-garden-planner/issues)** — bug reports and confirmed tasks; this is the authoritative list of open work
+- **[Roadmap](docs/roadmap.md)** — phases, user stories, and what is planned next
 
 ## Contributing
 
 We welcome contributions! This project aims to be technically clean and attractive for both users and contributors.
 
 - Read the [Roadmap](docs/roadmap.md) and [Architecture](docs/05-building-block-view/) to understand the vision
-- Browse the **[Project Board](https://github.com/users/cofade/projects/1)** for ready-to-pick work items
+- Browse the **[Issue Tracker](https://github.com/cofade/open-garden-planner/issues)** for ready-to-pick work items — anything open and unassigned is fair game
 - Join **[GitHub Discussions](https://github.com/cofade/open-garden-planner/discussions)** if you have questions or ideas before opening a PR
 - PRs must pass CI (tests, linting, type checking)
 

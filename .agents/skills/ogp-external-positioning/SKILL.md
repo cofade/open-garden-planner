@@ -175,8 +175,11 @@ Any published number — accuracy, performance, comparison against another tool 
 ## 7. Community surface
 
 - **Contribution channels** (README, verified): GitHub Discussions for questions/ideas,
-  Issues for bugs/confirmed tasks, the public Project Board (Todo column = ready-to-pick),
-  wiki roadmap mirror.
+  Issues for bugs/confirmed tasks *and* as the ready-to-pick work list, `docs/roadmap.md`
+  plus its wiki mirror for what is planned next. **Do not point contributors at the
+  project board** — its auto-add automation was removed in #293 and the board has been
+  frozen at issue #161 since 2026-04-18; sending newcomers to a stale board is an
+  oversell of the project's activity.
 - **Contributor expectations** (README + docs/02 §2.3): PRs must pass CI (tests, lint,
   type check); every contribution needs unit + integration + UI tests where applicable;
   conventional commits; feature branches only. **AI-assisted development is explicitly
