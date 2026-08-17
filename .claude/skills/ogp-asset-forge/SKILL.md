@@ -76,6 +76,21 @@ workflow (validated in the #281 style lab, 2026-07-26):
 5. **Owner sign-off on a contact sheet** (HTML: before/after, real canvas
    sizes, simulated rotation, lawn + soil backgrounds) before wiring anything —
    style is sovereign, same as §3.
+6. **Object sprites are generated too (Package 3a, #308, ADR-042).**
+   `scripts/generate_object_sprites.py` is the single source of every
+   furniture/infrastructure SVG ("Lush Object" — contract in
+   `resources/objects/README.md`): a `MATERIALS` anchor table + reusable
+   material primitives (`plank`/`wood_surface`, `disc`/`ring`, `fabric`,
+   `metal_bar`, `glass_pane`, `water_fill`, `granular_fill`, `glow`/`flame`,
+   `frame_box`) composed by one builder per object. Two rules that differ
+   from plants: furniture rotation is USER-controlled, so **no baked shadow**
+   at all (the item-level painted shadow is the single source); and the
+   **viewBox is the default footprint in cm** (circle-tool objects ship
+   square art). Gates mirror the plant set (`--check` determinism, allowlist,
+   budgets ≤ 460 elements / 44 KB, visual-weight band through the real
+   renderer). Adding an object TYPE touches 8 source files + 3 translation
+   contexts — checklist in §8.23. Watch for a full-rect occlusion halo over
+   an interior (it murks the glass/soil under it — halo only under the parts).
 
 ## 3. The mechanical gates (no eyeballing)
 

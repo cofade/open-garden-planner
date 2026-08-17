@@ -262,9 +262,11 @@ Pre-defined object types for common property elements:
 
 ### Outdoor Furniture
 - Table (rectangular, round), chair, bench, parasol/umbrella, lounger, BBQ/grill, fire pit, planter/pot
+- Package 3a (#308, FR-30): sandbox, trampoline, hot tub, swing, picnic table, hammock
 
 ### Garden Infrastructure
 - Raised bed, compost bin, greenhouse, cold frame, rain barrel, water tap, tool shed
+- Package 3a (#308, FR-30): wheelbarrow, pergola, bird bath
 
 ### Path & Fence Styles
 - Paths: gravel, stepping stones, paved, wooden boardwalk, dirt
@@ -506,3 +508,17 @@ Acceptance: `tests/integration/test_icon_system.py` + `tests/integration/test_th
 - **FR-PLANT-ART-04**: The whole set is procedurally regenerable from per-species recipes in `scripts/generate_plant_sprites.py`; committed SVGs byte-match regeneration (deterministic, seeded) and carry provenance (`resources/plants/PROVENANCE.md`) — no external or image-model assets.
 
 Acceptance: `tests/unit/test_plant_sprite_conformance.py` (coverage, QtSvg-subset contract, determinism/no-drift) + `tests/integration/test_plant_sprite_rendering.py` (§8.10 — every sprite renders visible pixels through `render_plant_pixmap`, incl. tint/rotation/16 px).
+
+## FR-30: Visual Refresh — Object Sprites, Textures, Iconography (Package 3, epic #284, ADR-042)
+
+### 3a — Furniture & infrastructure sprites (issue #308)
+- **FR-OBJ-ART-01**: Every furniture and infrastructure object renders in one cohesive top-down "Lush Object" style at full parity with the plant sprites — per-part rim-dark → crown-light shading, occlusion where parts stack, material micro-detail (wood grain, brushed metal, fabric weave, water ripples, soil/sand grain), gloss on glossy materials — on the same files and render path the canvas already uses (no behavior change in `furniture_renderer`).
+- **FR-OBJ-ART-02**: Sprites bake **no directional shadow**; the item-level painted shadow (View › Shadows) is the single shadow source, so objects stay visually correct under user rotation and the shadow toggle behaves identically for furniture and plants.
+- **FR-OBJ-ART-03**: The roster grows by nine placeable object types — sandbox, trampoline, hot tub, swing, picnic table, hammock (Furniture gallery) and wheelbarrow, pergola, bird bath (Infrastructure gallery) — each with a tool, gallery thumbnail, translated display name, "Change Type" membership for its shape, and a default height so it casts shadows and extrudes in 3D. Plans containing them stay loadable by older app versions (unknown types degrade to generic shapes; no file-format bump).
+- **FR-OBJ-ART-04**: Gallery thumbnails preserve the object's real aspect ratio (a bench is a long thin board, not a square block); the BBQ/grill — a round-tool object — ships square art and is offered when changing a circle's type.
+- **FR-OBJ-ART-05**: The whole set is procedurally regenerable from `scripts/generate_object_sprites.py`; committed SVGs byte-match regeneration (deterministic, seeded), obey the QtSvg-subset allowlist and element/byte budgets, and carry provenance (`resources/objects/PROVENANCE.md`) — no external or image-model assets.
+
+Acceptance: `tests/unit/test_object_sprite_conformance.py` (coverage vs generator + renderer maps, QtSvg subset, budgets, viewBox = default footprint, no baked shadow, determinism) + `tests/integration/test_object_sprite_rendering.py` (§8.10 — every sprite renders through `render_furniture_pixmap` within the visual-weight band, legible at 24 px, letterboxed thumbnails, every new tool draws and paints) + `tests/unit/test_project_unknown_object_type.py` (forward-compat pin).
+
+### 3b — Textures (issue #309) — *pending*
+### 3c — Iconography & View menu (issue #310) — *pending*
