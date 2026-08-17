@@ -189,20 +189,42 @@ def _disable_agent_api_server(_reset_app_settings):
     yield
 
 
-@pytest.fixture(autouse=True)
-def _disable_welcome_dialog(_reset_app_settings):
-    """Never open the modal startup Welcome dialog during tests.
+@pytest.fixture(autouse=True, scope="session")
+def _silence_welcome_dialog():
+    """Never open the modal startup Welcome dialog during tests — session-wide.
 
     `GardenPlannerApp` arms `QTimer.singleShot(500, self._startup_sequence)`,
     which opens the MODAL `WelcomeDialog` via `dialog.exec()` when
     `show_welcome_on_startup` is on (the production default). Headless, nobody
-    closes it, so the first event processing after the timer fires — typically
-    pytest-qt's teardown `processEvents()` of a full-app test that outlived
-    500 ms — parks the whole session inside the modal loop forever, with an
-    EMPTY log (§11.4 "silence the startup Welcome dialog"; re-hit 2026-08-17 in
-    `test_trellis.py`, Package 3a). Per-file monkeypatches
-    (`test_icon_system._make_app`) guarded ~1 of ~32 app-building files; this
-    guards all of them. Same ordering contract as `_disable_agent_api_server`.
+    closes it, so the first event loop after the timer fires — a `qtbot.wait`
+    in the test body, or pytest-qt's teardown `processEvents()` — parks the
+    whole session inside the modal loop forever, with an EMPTY log (§11.4
+    "silence the startup Welcome dialog"; re-hit 2026-08-17 in
+    `test_trellis.py` and `test_idle_scene_quiescence.py`, Package 3a).
+
+    This is the class-level no-op that `test_icon_system`, `test_theme_switch_
+    chrome` and `test_dynamic_input_overlay` used to apply per file (3 of ~32
+    app-building files). It is deliberately NOT settings-based: a per-test
+    `KEY_SHOW_WELCOME=False` write was observed to lose a race with the 500 ms
+    timer once in a full run (the read returned the default inside a
+    `qtbot.wait` even though both a conftest and a module fixture had written
+    False beforehand); patching the method is airtight regardless of what the
+    store says. `_disable_welcome_dialog` below still keeps the store honest.
+    """
+    from open_garden_planner.app.application import GardenPlannerApp
+
+    original = GardenPlannerApp._show_welcome_dialog
+    GardenPlannerApp._show_welcome_dialog = lambda _self: None  # type: ignore[method-assign]
+    yield
+    GardenPlannerApp._show_welcome_dialog = original  # type: ignore[method-assign]
+
+
+@pytest.fixture(autouse=True)
+def _disable_welcome_dialog(_reset_app_settings):
+    """Belt to `_silence_welcome_dialog`'s braces: the store says "no Welcome
+    dialog" too, so anything that consults `show_welcome_on_startup` (not just
+    the startup path) sees the test-appropriate value. Same ordering contract
+    as `_disable_agent_api_server`.
     """
     from open_garden_planner.app.settings import AppSettings, create_qsettings
 
