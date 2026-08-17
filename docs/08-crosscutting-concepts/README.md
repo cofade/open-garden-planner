@@ -1466,7 +1466,9 @@ branch), `core/tools/base_tool.py` (`ToolType`, same name), `ui/canvas/canvas_vi
 (`_FURNITURE_FILES` for furniture-dir types; infrastructure-dir types need
 `_INFRASTRUCTURE_FILES` **and** `_SVG_DIR_OVERRIDES` **and** `_OBJECT_SVG_FILES` —
 the gate checks all three; plus `FURNITURE_DEFAULT_DIMENSIONS`), `core/object_height.py`
-(`DEFAULT_HEIGHTS_CM` — gives shadows/3D/height field), `ui/widgets/gallery_data.py`
+(`DEFAULT_HEIGHTS_CM` — gives shadows/3D/height field; open structures like
+swing/pergola/hammock instead go into `_HEIGHT_FIELD_TYPES`: field offered, no
+default, no shadow until the user sets one), `ui/widgets/gallery_data.py`
 (gallery tuple), and `scripts/fill_translations.py` in the `CanvasView`,
 `GalleryData` and `ObjectType` contexts. Roster tests are map-driven; the
 additive-enum forward-compat contract (unknown names → generic shape, no

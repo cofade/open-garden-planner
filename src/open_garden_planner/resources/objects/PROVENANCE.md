@@ -18,8 +18,9 @@ it merges (`ogp-external-positioning`: assets without provenance don't ship).
 - **License basis**: original in-repo work; distributed under the project
   license (GPL-3.0-or-later).
 - **Style contract**: `README.md` (this folder) — "Lush Object", the man-made
-  sibling of the #281 "Lush Sprite" plant art. Owner review via contact sheet
-  (real QtSvg engine) during the Package-3a manual test.
+  sibling of the #281 "Lush Sprite" plant art. Owner review: contact sheet
+  (real QtSvg engine) sent 2026-08-17; final sign-off is the Package-3a manual
+  test of the draft PR.
 - **Replaces**: the 15 hand-authored SVGs of 2026-02 (Phase 6, US-6.8/6.9),
   which carried no provenance record and baked a directional drop shadow.
 

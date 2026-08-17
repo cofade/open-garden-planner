@@ -252,9 +252,10 @@ def _silence_welcome_dialog():
     "silence the startup Welcome dialog"; re-hit 2026-08-17 in
     `test_trellis.py` and `test_idle_scene_quiescence.py`, Package 3a).
 
-    This is the class-level no-op that `test_icon_system`, `test_theme_switch_
-    chrome` and `test_dynamic_input_overlay` used to apply per file (3 of ~32
-    app-building files). It is deliberately NOT settings-based: a per-test
+    This is the class-level no-op that `test_icon_system` and
+    `test_theme_switch_chrome` applied per file (and `test_dynamic_input_overlay`
+    stubs the whole `_startup_sequence`); six more files wrote the settings key
+    instead; ~35 files construct `GardenPlannerApp` in total. It is deliberately NOT settings-based: a per-test
     `KEY_SHOW_WELCOME=False` write was observed to lose a race with the 500 ms
     timer once in a full run (the read returned the default inside a
     `qtbot.wait` even though both a conftest and a module fixture had written

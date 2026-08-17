@@ -353,7 +353,7 @@ def plank(sp: Sprite, x: float, y: float, w: float, h: float, m: dict[str, str],
 
 
 def wood_surface(sp: Sprite, x: float, y: float, w: float, h: float, m: dict[str, str],
-                 orient: str = "h", n: int = 3, gap: float = 1.2, halo: bool = True,
+                 orient: str = "h", *, n: int, gap: float = 1.2, halo: bool = True,
                  rx: float = 1.2) -> None:
     """A slab of parallel planks running along `orient` (planks stacked across it)."""
     if halo:
@@ -1228,10 +1228,10 @@ def build_swing(sp: Sprite) -> None:
     wood = MATERIALS["pine"]
     rope = MATERIALS["sandstone"]
     seat_m = MATERIALS["plastic_blue"]
-    cy = H / 2 - 8
-    # A-frame legs: from the beam outward to the feet, splayed 8 units toward the ends;
-    # L keeps the upper feet (r 3.2) inside the viewBox: cy - L - 3.2 >= 0.6
-    L = 63.0
+    cy = H / 2
+    # A-frame legs: from the beam outward to the feet (at cy ± (L - 1), r 3.2),
+    # splayed 8 units toward the ends; L keeps the feet inside the viewBox
+    L = H / 2 - 12
     splay = math.degrees(math.atan2(8.0, L))
     for ex, sgn in ((14.0, 1), (W - 14.0, -1)):
         for dy in (-1, 1):

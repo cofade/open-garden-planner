@@ -25,14 +25,17 @@ All SVGs in `furniture/` and `infrastructure/` are **generated** by
    `EMBER`/`FLAME` triads, derived via `mix()`/`lighten()`/`darken()` — never
    hand-edited into an SVG. Enforcement is transitive through byte-determinism.
 4. **Geometry.** Each sprite's `viewBox` is `0 0 W H` where `(W, H)` are the
-   object's default footprint in cm (`FURNITURE_DEFAULT_DIMENSIONS` — gate:
-   `test_default_dimensions_match_viewboxes`). The canvas stretches the art to
+   object's nominal footprint in cm — the same numbers as
+   `FURNITURE_DEFAULT_DIMENSIONS`, which is gate-read metadata (no production
+   caller sizes objects from it; users size objects by dragging) — gate:
+   `test_default_dimensions_match_viewboxes`. The canvas stretches the art to
    the user's rect (unchanged behaviour), so the art must degrade gracefully
    under mild non-uniform stretch — footprints are rounded rects, round parts
    are generously sized. Circle-tool objects (`table_round`, `parasol`,
    `fire_pit`, `planter_pot`, `bbq_grill`, `rain_barrel`, `water_tap`,
    `trampoline`, `bird_bath`) use a **square** viewBox — a circle item renders
-   into a square footprint.
+   into a square footprint (the aspect of the ART is what fixes the old BBQ
+   stretch; the table row merely has to agree).
 5. **QtSvg subset only** (QSvgRenderer ≈ SVG 1.2 Tiny): `svg defs g path line
    ellipse circle rect linearGradient radialGradient stop`; attributes limited
    to geometry, `fill`/`fill-opacity`/`opacity`/`stroke*`, `transform`,
@@ -68,9 +71,11 @@ All SVGs in `furniture/` and `infrastructure/` are **generated** by
 Bold = added in Package 3a (#308). Adding an object type touches eight
 registration surfaces in six source files (enum + styles + valid-shape list in
 `object_types.py`, ToolType, canvas tool registration, renderer maps + default
-dims, height default, gallery entry) plus the three translation contexts — the
-checklist lives in §8.23; the `OBJECTS` recipe's `shape` key is cross-checked
-by the conformance gate against the "Change Type" menu and square art.
+dims, height default — deliberately omitted for the open structures swing /
+pergola / hammock, which expose the Height field without a default —, gallery
+entry) plus the three translation contexts — the checklist lives in §8.23; the
+`OBJECTS` recipe's `shape` key is gate-checked against the "Change Type" menu
+and square art.
 
 ## Changing or adding a sprite
 

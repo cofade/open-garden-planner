@@ -80,8 +80,8 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
     # deliberately have NO default: the shadow/3D model extrudes the FULL item
     # footprint as a solid prism (`sun_shadow_controller._item_footprints`), and
     # a pergola or swing frame is mostly air (sprite ink 0.20-0.53) — a solid
-    # 3x3 m block at 2.3 m would misstate a sun study. Users can still set
-    # `object_height_cm` explicitly (ADR-042).
+    # 3x3 m block at 2.3 m would misstate a sun study. They still expose the
+    # Height field (`_HEIGHT_FIELD_TYPES`) so a user can opt in explicitly.
     "SANDBOX": 30.0,
     "TRAMPOLINE": 90.0,
     "HOT_TUB": 90.0,
@@ -223,11 +223,19 @@ def height_source(object_type: Any, metadata: dict[str, Any] | None) -> str:
     return SOURCE_NONE
 
 
+# Open structures (Package 3a, #308): no DEFAULT height — the shadow model
+# extrudes a solid footprint and these are mostly air — but the Height field
+# is offered so a user can opt a specific swing/pergola/hammock into the sun
+# study by hand. Without a default or an explicit value they cast nothing.
+_HEIGHT_FIELD_TYPES: frozenset[str] = frozenset({"SWING", "PERGOLA", "HAMMOCK"})
+
+
 def has_height_semantics(object_type: Any, metadata: dict[str, Any] | None) -> bool:
     """Should this object expose a Height field / participate in shadows?
 
     True for every type with a default, containers, plant types (even
-    species-less placeholders, so the user can set a height by hand), and
+    species-less placeholders, so the user can set a height by hand), the
+    open structures in `_HEIGHT_FIELD_TYPES` (field offered, no default), and
     any object that already carries an explicit height.
     """
     name = _type_name(object_type)
@@ -235,5 +243,6 @@ def has_height_semantics(object_type: Any, metadata: dict[str, Any] | None) -> b
         name in DEFAULT_HEIGHTS_CM
         or name in _CONTAINER_TYPE_NAMES
         or name in _PLANT_TYPE_NAMES
+        or name in _HEIGHT_FIELD_TYPES
         or explicit_height_cm(metadata) is not None
     )
