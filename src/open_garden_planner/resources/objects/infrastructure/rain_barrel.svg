@@ -1,23 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60">
-  <!-- Rain Barrel - top-down view (circular) -->
-  <!-- Shadow -->
-  <ellipse cx="33" cy="33" rx="26" ry="26" fill="#00000020"/>
-  <!-- Barrel body (outer) -->
-  <circle cx="30" cy="30" r="26" fill="#3A6A3A" stroke="#2A4A2A" stroke-width="2"/>
-  <!-- Barrel rim -->
-  <circle cx="30" cy="30" r="23" fill="none" stroke="#2E5530" stroke-width="1.5"/>
-  <!-- Barrel lid -->
-  <circle cx="30" cy="30" r="21" fill="#3D7040" stroke="#2E5530" stroke-width="0.8"/>
-  <!-- Lid handle (centered bar) -->
-  <rect x="22" y="28" width="16" height="4" rx="2" fill="#555" stroke="#444" stroke-width="0.8"/>
-  <!-- Barrel top texture - concentric circles -->
-  <circle cx="30" cy="30" r="16" fill="none" stroke="#357035" stroke-width="0.5" opacity="0.5"/>
-  <circle cx="30" cy="30" r="10" fill="none" stroke="#357035" stroke-width="0.5" opacity="0.4"/>
-  <!-- Water inlet hole -->
-  <circle cx="42" cy="15" r="3" fill="#2A5A30" stroke="#1E4020" stroke-width="0.8"/>
-  <!-- Small rivet/bolt details -->
-  <circle cx="12" cy="18" r="1" fill="#2E5530"/>
-  <circle cx="48" cy="42" r="1" fill="#2E5530"/>
-  <circle cx="18" cy="46" r="1" fill="#2E5530"/>
-  <circle cx="42" cy="18" r="1" fill="#2E5530"/>
+<defs><linearGradient id="rb11_l1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#626b73"/><stop offset="35%" stop-color="#eaedf0"/><stop offset="55%" stop-color="#adb4bc"/><stop offset="100%" stop-color="#626b73"/></linearGradient><radialGradient id="rb11_r2" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#73ab6e"/><stop offset="55%" stop-color="#3e7c3c"/><stop offset="100%" stop-color="#214c21"/></radialGradient><radialGradient id="rb11_r3" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.35"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></radialGradient><radialGradient id="rb11_r4" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#73ab6e"/><stop offset="55%" stop-color="#3e7c3c"/><stop offset="100%" stop-color="#214c21"/></radialGradient><radialGradient id="rb11_r5" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.4"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></radialGradient><linearGradient id="rb11_l6" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#151719"/><stop offset="22%" stop-color="#303336"/><stop offset="50%" stop-color="#5c5f63"/><stop offset="78%" stop-color="#303336"/><stop offset="100%" stop-color="#151719"/></linearGradient></defs>
+<rect x="49.1" y="25.1" width="11.3" height="9.8" rx="2.9" fill="#2c3237" opacity="0.55"/>
+<rect x="50.0" y="26.0" width="9.5" height="8.0" rx="2" fill="url(#rb11_l1)"/>
+<line x1="52.0" y1="28.9" x2="57.5" y2="28.9" stroke="#ffffff" stroke-width="0.5" stroke-linecap="round" opacity="0.45"/>
+<circle cx="30.0" cy="30.0" r="28.2" fill="#0e2810" opacity="0.55"/>
+<circle cx="30.0" cy="30.0" r="27.0" fill="url(#rb11_r2)"/>
+<circle cx="24.1" cy="24.1" r="14.9" fill="url(#rb11_r3)"/>
+<circle cx="30.0" cy="30.0" r="22.0" fill="none" stroke="#214c21" stroke-width="1.1" opacity="0.4"/>
+<circle cx="30.0" cy="30.0" r="20.9" fill="none" stroke="#73ab6e" stroke-width="0.7" opacity="0.35"/>
+<circle cx="30.0" cy="30.0" r="16.0" fill="none" stroke="#214c21" stroke-width="1.1" opacity="0.35"/>
+<circle cx="30.0" cy="30.0" r="14.9" fill="none" stroke="#73ab6e" stroke-width="0.7" opacity="0.3"/>
+<circle cx="30.0" cy="30.0" r="10.0" fill="none" stroke="#214c21" stroke-width="1.1" opacity="0.3"/>
+<circle cx="30.0" cy="30.0" r="8.9" fill="none" stroke="#73ab6e" stroke-width="0.7" opacity="0.25"/>
+<circle cx="30.0" cy="30.0" r="25.6" fill="none" stroke="#73ab6e" stroke-width="0.9" opacity="0.45"/>
+<circle cx="30.0" cy="30.0" r="7.7" fill="#0e2810" opacity="0.55"/>
+<circle cx="30.0" cy="30.0" r="6.5" fill="url(#rb11_r4)"/>
+<circle cx="28.6" cy="28.6" r="3.6" fill="url(#rb11_r5)"/>
+<rect x="24.0" y="27.4" width="12.0" height="5.2" rx="2.6" fill="#050606" opacity="0.55"/>
+<rect x="25.0" y="28.4" width="10.0" height="3.2" rx="1.6" fill="url(#rb11_l6)"/>
 </svg>
