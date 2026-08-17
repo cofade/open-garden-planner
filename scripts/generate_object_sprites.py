@@ -18,9 +18,10 @@ sibling of the #281 "Lush Sprite" plant art). Key rules:
 - QtSvg subset only (QSvgRenderer ≈ SVG 1.2 Tiny): linear/radial gradients,
   opacity, transforms, stroke caps/joins. No filters, masks, clipPath, CSS,
   text, images.
-- viewBox = the object's default footprint in cm (`FURNITURE_DEFAULT_DIMENSIONS`);
-  the canvas stretches the art to the user's rect (mild non-uniform stretch
-  must degrade gracefully — footprints are rounded rects, not thin circles).
+- viewBox = the object's nominal footprint in cm (= `FURNITURE_DEFAULT_DIMENSIONS`,
+  a gate-read metadata table; users size objects by dragging); the canvas
+  stretches the art to the user's rect (mild non-uniform stretch must degrade
+  gracefully — footprints are rounded rects, not thin circles).
 - Deterministic: seeded per object name — identical bytes on every run.
 
 Usage:

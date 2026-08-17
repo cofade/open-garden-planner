@@ -165,7 +165,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 
 ### Object SVGs (`resources/objects/`, ADR-042 / #308)
 - **Generated, never hand-edited**: all 24 furniture + infrastructure sprites are emitted by `scripts/generate_object_sprites.py` in the "Lush Object" style (the man-made sibling of the plant art); committed files must byte-match regeneration (`--check` + determinism test). See §8.23.
-- Top-down, light from straight above, **no baked shadow** (the item-level painted shadow is the single source — furniture rotation is user-controlled); QtSvg-subset only; viewBox = default footprint in cm; contract in `resources/objects/README.md`, provenance in `resources/objects/PROVENANCE.md`
+- Top-down, light from straight above, **no baked shadow** (the item-level painted shadow is the single source — furniture rotation is user-controlled); QtSvg-subset only; viewBox = nominal footprint in cm (gate-read table); contract in `resources/objects/README.md`, provenance in `resources/objects/PROVENANCE.md`
 - Consumed unchanged by `core/furniture_renderer.py` (cached pixmaps, stretched to the item rect); gallery thumbnails letterbox by viewBox aspect
 
 ## 8.6 Development Workflow
@@ -1440,10 +1440,11 @@ would rotate with the object and double the item-level painted shadow
 (`GardenItem.SHADOW_OFFSET`, View › Shadows). The gate pins the legacy
 `#00000020` shadow's absence. **QtSvg subset**: same allowlist discipline as
 §8.22.2 (elements/attributes/colors walked over the parsed tree; `fill-opacity`,
-`stroke-linejoin` are additionally allowed here). **viewBox = default footprint**:
+`stroke-linejoin` are additionally allowed here). **viewBox = nominal footprint**:
 each sprite's `viewBox` is `0 0 W H` with `(W, H)` = `FURNITURE_DEFAULT_DIMENSIONS`
-in cm — pinned by the gate — because the canvas stretches the art to the user's
-rect; circle-tool objects (`table_round`, `parasol`, `fire_pit`, `planter_pot`,
+in cm — a gate-read metadata table (no production code sizes objects from it;
+users size by dragging), pinned by the gate — the canvas stretches the art to
+the user's rect; circle-tool objects (`table_round`, `parasol`, `fire_pit`, `planter_pot`,
 `bbq_grill`, `rain_barrel`, `water_tap`, `trampoline`, `bird_bath`) therefore
 ship **square** art (a circle item renders into a square footprint — the BBQ's
 old 80×60 art was stretched on every canvas until #308).

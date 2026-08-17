@@ -25,7 +25,9 @@ TEST_ORGANIZATION = "cofade_test"
 # live stores ("black hole": writes vanish, reads return defaults — §11.4,
 # measured 2026-08-17: a Welcome dialog opening despite the flag written False,
 # a snap setting reading its default right after the write). The session-end
-# `clear()` in `isolate_qsettings` removes this process's key again.
+# `clear()` in `isolate_qsettings` removes this process's key again; a crashed
+# run leaves an orphan key, and PID reuse handing a later run that dirty key is
+# harmless because `_reset_app_settings` wipes at SETUP, not only at teardown.
 TEST_APPLICATION = f"Open Garden Planner Test {os.getpid()}"
 
 # Redirect at conftest IMPORT time, not inside a fixture. pytest imports this
@@ -146,7 +148,9 @@ def _reset_app_settings():
         settings_module._settings_instance = None  # type: ignore[attr-defined]
 
     def _probe_black_hole() -> str | None:
-        """Detect a dead settings singleton (Windows registry backend).
+        """Detect a dead settings singleton (Windows registry backend only —
+        on the INI backend a same-instance write→read hits the in-memory cache
+        and this can never fire).
 
         Measured 2026-08-17: once ANOTHER QSettings instance — in this process or
         in another one sharing the key — has `clear()`ed the key, a surviving
@@ -255,7 +259,7 @@ def _silence_welcome_dialog():
     This is the class-level no-op that `test_icon_system` and
     `test_theme_switch_chrome` applied per file (and `test_dynamic_input_overlay`
     stubs the whole `_startup_sequence`); six more files wrote the settings key
-    instead; ~35 files construct `GardenPlannerApp` in total. It is deliberately NOT settings-based: a per-test
+    instead; 34 files construct `GardenPlannerApp` in total. It is deliberately NOT settings-based: a per-test
     `KEY_SHOW_WELCOME=False` write was observed to lose a race with the 500 ms
     timer once in a full run (the read returned the default inside a
     `qtbot.wait` even though both a conftest and a module fixture had written

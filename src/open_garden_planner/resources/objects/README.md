@@ -71,8 +71,8 @@ All SVGs in `furniture/` and `infrastructure/` are **generated** by
 Bold = added in Package 3a (#308). Adding an object type touches eight
 registration surfaces in six source files (enum + styles + valid-shape list in
 `object_types.py`, ToolType, canvas tool registration, renderer maps + default
-dims, height default — deliberately omitted for the open structures swing /
-pergola / hammock, which expose the Height field without a default —, gallery
+dims, height default (deliberately omitted for the open structures swing /
+pergola / hammock, which expose the Height field without a default), gallery
 entry) plus the three translation contexts — the checklist lives in §8.23; the
 `OBJECTS` recipe's `shape` key is gate-checked against the "Change Type" menu
 and square art.
