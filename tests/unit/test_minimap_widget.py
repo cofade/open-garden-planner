@@ -340,3 +340,53 @@ class TestMinimapIdleQuiescence:
         qtbot.wait(300)  # type: ignore[attr-defined]
 
         assert calls["n"] >= 1, "a real scene change must still trigger a render"
+
+    @staticmethod
+    def _count_scene_renders(scene: CanvasScene) -> dict[str, int]:
+        """Count actual ``QGraphicsScene.render`` calls (the expensive part).
+
+        ``_do_update`` early-returns are still calls to ``_do_update``; what
+        matters for #305 is whether the whole scene is rasterised.
+        """
+        calls = {"n": 0}
+        original = scene.render
+
+        def counted(*args: object, **kwargs: object) -> None:
+            calls["n"] += 1
+            original(*args, **kwargs)  # type: ignore[misc]
+
+        scene.render = counted  # type: ignore[method-assign]
+        return calls
+
+    def test_toggled_off_minimap_does_not_render_on_scene_changes(
+        self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+    ) -> None:
+        """A minimap the user turned off (View menu) must not keep rasterising
+        the whole scene into a pixmap nobody sees (issue #305 follow-up: the
+        reporter wasn't sure whether the minimap was on or off while idle).
+        Measured before the guard: 20 item additions -> 5 full renders with
+        the widget hidden.
+        """
+        from PyQt6.QtWidgets import QGraphicsRectItem
+
+        view, scene = canvas_pair
+        minimap = MinimapWidget(view, scene)
+        qtbot.wait(300)  # type: ignore[attr-defined]
+
+        minimap.set_visible(False)
+        qtbot.wait(200)  # type: ignore[attr-defined]
+        renders = self._count_scene_renders(scene)
+
+        for i in range(10):
+            scene.addItem(QGraphicsRectItem(i * 10, i * 10, 50, 50))
+            qtbot.wait(30)  # type: ignore[attr-defined]
+        qtbot.wait(300)  # type: ignore[attr-defined]
+        assert renders["n"] == 0, (
+            f"hidden minimap rendered the scene {renders['n']} times"
+        )
+
+        # Turning it back on renders once so the thumbnail is fresh.
+        minimap.set_visible(True)
+        qtbot.wait(300)  # type: ignore[attr-defined]
+        assert renders["n"] >= 1
+        assert minimap._thumbnail is not None

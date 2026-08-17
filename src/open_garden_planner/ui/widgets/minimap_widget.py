@@ -168,6 +168,16 @@ class MinimapWidget(QWidget):
         The scene uses Y-down coordinates; the view applies a Y-flip so that
         Y increases upward. We flip the thumbnail vertically to match.
         """
+        # A toggled-off minimap (View menu) must not keep rendering the whole
+        # scene into a pixmap nobody can see. It stays subscribed to
+        # `scene.changed`; without this guard it still re-rendered on every
+        # change while hidden (measured: 20 item additions -> 5 full renders
+        # with the widget off). set_visible(True) schedules a fresh render, so
+        # nothing is stale when it comes back. Issue #305 follow-up — the
+        # reporter wasn't sure whether they had left the minimap on or off.
+        if not self._enabled:
+            return
+
         canvas_rect = self._canvas_scene.canvas_rect
         if canvas_rect.isEmpty():
             return
