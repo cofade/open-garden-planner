@@ -160,6 +160,10 @@ class PerenualClient(PlantAPIClient):
         except requests.RequestException:
             return False
 
+    def is_configured(self) -> bool:
+        """True when an API key is present. See `PlantAPIClient.is_configured()`."""
+        return bool(self._api_key)
+
     def _parse_species(self, data: dict[str, Any]) -> PlantSpeciesData:
         """Parse Perenual API response into PlantSpeciesData.
 

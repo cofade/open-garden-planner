@@ -4705,6 +4705,14 @@ Bitte überprüfen Sie Ihre Internetverbindung und API-Zugangsdaten.</translatio
             <source>Custom</source>
             <translation>Eigene</translation>
         </message>
+        <message>
+            <source>No plants matched '{query}'. Try another spelling or the scientific name.</source>
+            <translation>Keine Pflanzen passen zu '{query}'. Versuchen Sie eine andere Schreibweise oder den wissenschaftlichen Namen.</translation>
+        </message>
+        <message>
+            <source>No plant databases are configured. Add API credentials in Preferences to search online.</source>
+            <translation>Es sind keine Pflanzendatenbanken konfiguriert. Fügen Sie in den Einstellungen API-Zugangsdaten hinzu, um online zu suchen.</translation>
+        </message>
     </context>
     <context>
         <name>PlantSearchPanel</name>

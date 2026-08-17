@@ -203,6 +203,10 @@ class PermapeopleClient(PlantAPIClient):
         # outage (issue #294).
         raise PlantAPIError(f"unexpected HTTP {response.status_code} on connectivity check")
 
+    def is_configured(self) -> bool:
+        """True when both credentials are present. See `PlantAPIClient.is_configured()`."""
+        return bool(self._key_id and self._key_secret)
+
     def _parse_species(self, data: dict[str, Any]) -> PlantSpeciesData:
         """Parse Permapeople API response into PlantSpeciesData.
 

@@ -93,7 +93,15 @@ class SoilBadgeItem(QGraphicsObject):
         rect = self._parent_item.boundingRect()
         local_corner = QPointF(rect.right() + offset_x, rect.top() - offset_y)
         scene_pos = self._parent_item.mapToScene(local_corner)
-        self.setPos(scene_pos)
+        # Idempotent by construction: called unconditionally every
+        # soil-debounce tick (~500 ms) by CanvasView._update_soil_badges,
+        # i.e. from a `scene.changed`-driven slot, which must never mutate
+        # the scene unless something really changed (issue #305, §8.9.5).
+        # Measured (Qt 6.11): setPos() with an unchanged value does NOT emit
+        # `changed`, so this guard is defensive rather than load-bearing —
+        # keep it anyway so the invariant doesn't depend on Qt's internals.
+        if scene_pos != self.pos():
+            self.setPos(scene_pos)
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:  # noqa: N802
         if event.button() == Qt.MouseButton.LeftButton:

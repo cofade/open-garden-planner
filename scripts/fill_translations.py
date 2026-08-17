@@ -1182,6 +1182,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Searching for '{query}'...": "Suche nach '{query}'...",
         "Found {count} results": "{count} Ergebnisse gefunden",
         "No results found": "Keine Ergebnisse gefunden",
+        "No plants matched '{query}'. Try another spelling or the scientific name.":
+            "Keine Pflanzen passen zu '{query}'. Versuchen Sie eine andere Schreibweise "
+            "oder den wissenschaftlichen Namen.",
+        "No plant databases are configured. Add API credentials in Preferences to search online.":
+            "Es sind keine Pflanzendatenbanken konfiguriert. Fügen Sie in den Einstellungen "
+            "API-Zugangsdaten hinzu, um online zu suchen.",
         "{name} ({scientific}) — {source}": "{name} ({scientific}) — {source}",
         "Unknown": "Unbekannt",
         "Search failed: {error}": "Suche fehlgeschlagen: {error}",

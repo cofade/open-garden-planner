@@ -189,7 +189,28 @@ class PlantSearchDialog(QDialog):
                 self.status_label.setText(self.tr("Found {count} results").format(count=len(results)))
                 self.status_label.setStyleSheet(f"color: {theme_color('success')};")
             else:
-                self.status_label.setText(self.tr("No results found"))
+                # An empty result list is now a distinct, honest state: every
+                # configured API answered cleanly but matched nothing (#302 --
+                # previously PlantAPIManager.search() raised
+                # "All plant APIs failed" for this exact case, which showed a
+                # scary credentials-hint QMessageBox for a perfectly normal
+                # zero-match search, e.g. a mango variety no database lists).
+                # Distinguish "nothing is configured" from "nothing matched"
+                # since only the former is actionable via Preferences.
+                if self._api_manager.configured_source_count == 0:
+                    self.status_label.setText(
+                        self.tr(
+                            "No plant databases are configured. Add API credentials "
+                            "in Preferences to search online."
+                        )
+                    )
+                else:
+                    self.status_label.setText(
+                        self.tr(
+                            "No plants matched '{query}'. Try another spelling or "
+                            "the scientific name."
+                        ).format(query=query)
+                    )
                 self.status_label.setStyleSheet(f"color: {theme_color('warning')};")
 
         except PlantAPIError as e:

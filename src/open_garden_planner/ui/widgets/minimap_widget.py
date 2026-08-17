@@ -67,6 +67,8 @@ class MinimapWidget(QWidget):
         self._drag_offset_x = 0.0
         self._drag_offset_y = 0.0
         self._enabled = True
+        # See `_do_update` / `_schedule_update` for why this exists (issue #305).
+        self._suppress_self_changed = False
 
         # Size is updated in _do_update() to match canvas aspect ratio
         self.resize(MINIMAP_WIDTH, MINIMAP_HEIGHT)
@@ -143,7 +145,14 @@ class MinimapWidget(QWidget):
     # ------------------------------------------------------------------
 
     def _schedule_update(self, *_args: object) -> None:
-        """Schedule a throttled thumbnail re-render."""
+        """Schedule a throttled thumbnail re-render.
+
+        No-op while `_suppress_self_changed` is set — see `_do_update` for why
+        (issue #305: without this, the minimap's own hide/restore of overlay
+        items re-triggers itself forever while the app is otherwise idle).
+        """
+        if self._suppress_self_changed:
+            return
         if not self._update_timer.isActive():
             self._update_timer.start()
 
@@ -179,12 +188,40 @@ class MinimapWidget(QWidget):
         pixmap = QPixmap(w, h)
         pixmap.fill(Qt.GlobalColor.transparent)
 
+        # `QGraphicsItem.setVisible()` makes the scene emit `changed`
+        # ASYNCHRONOUSLY — queued, not delivered until after this method has
+        # already returned. `changed` is connected to `_schedule_update`, so
+        # without suppression both the hide below and the restore further
+        # down would each restart the throttle timer -> `_do_update` runs
+        # again -> hides/restores again -> forever, even while the app is
+        # otherwise completely idle (issue #305).
+        #
+        # Measured (offscreen, PyQt6/Qt 6.11): hiding and restoring each
+        # produce their OWN queued `changed` emission — not one combined
+        # emission — delivered on two SEPARATE event-loop turns (hide's
+        # carries the hidden items' rects, restore's is empty). A single 0 ms
+        # `singleShot` only spans the first turn: the flag is clear again by
+        # the second (restore's) emission, which un-suppressedly restarts the
+        # timer and reproduces the loop. Nesting two 0 ms singleShots spans
+        # both turns. Skipped entirely when nothing was hidden — there is
+        # nothing to suppress.
+        #
+        # Trade-off: a genuine, unrelated scene change that also lands in
+        # that two-turn window is dropped rather than scheduling a render.
+        # Accepted because the window is a couple of 0 ms turns and any
+        # later user-visible action invalidates the view again anyway.
         hidden = self._hide_overlay_items()
+        if hidden:
+            self._suppress_self_changed = True
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         self._canvas_scene.render(painter, QRectF(0, 0, w, h), canvas_rect)
         painter.end()
         self._restore_overlay_items(hidden)
+        if hidden:
+            QTimer.singleShot(
+                0, lambda: QTimer.singleShot(0, self._end_self_change_suppression)
+            )
 
         # Flip vertically to match the view's Y-flip transform
         self._thumbnail = pixmap.transformed(QTransform().scale(1, -1))
@@ -215,6 +252,16 @@ class MinimapWidget(QWidget):
         """Restore items that were hidden before thumbnail render."""
         for item in hidden:
             item.setVisible(True)
+
+    def _end_self_change_suppression(self) -> None:
+        """Clear the self-inflicted `changed` suppression window.
+
+        Runs one event-loop turn after `_do_update` hid/restored overlay
+        items — after the `changed` emissions that provoked have already
+        been delivered to (and ignored by) `_schedule_update`. See
+        `_do_update` for the full mechanism (issue #305).
+        """
+        self._suppress_self_changed = False
 
     def paintEvent(self, _event: object) -> None:  # noqa: N802
         """Draw the minimap thumbnail, border, and viewport rectangle."""

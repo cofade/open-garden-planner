@@ -21,9 +21,18 @@ from open_garden_planner.ui.widgets.minimap_widget import (
 
 @pytest.fixture()
 def canvas_pair(qtbot: object) -> tuple[CanvasView, CanvasScene]:
-    """Create a CanvasView + CanvasScene pair for testing."""
+    """Create a CanvasView + CanvasScene pair for testing.
+
+    Registered with ``qtbot`` so the view (and its child ``MinimapWidget``,
+    where a test creates one) is deterministically torn down at the end of
+    the test — otherwise the C++ QObject can outlive its Python wrapper and
+    later still receive events via ``eventFilter``/timers, raising
+    ``AttributeError`` from inside the Qt event loop and getting misattributed
+    to an unrelated, later-running test.
+    """
     scene = CanvasScene(width_cm=5000, height_cm=3000)
     view = CanvasView(scene)
+    qtbot.addWidget(view)  # type: ignore[attr-defined]
     view.resize(800, 600)
     view.show()
     return view, scene
@@ -240,3 +249,94 @@ class TestMinimapOverlayFiltering:
         assert overlay in hidden
         minimap._restore_overlay_items(hidden)
         assert overlay.isVisible()
+
+
+class TestMinimapIdleQuiescence:
+    """Regression tests for issue #305 — self-sustaining idle render loop.
+
+    ``_do_update`` hides overlay items, renders, then restores them. Each
+    ``setVisible()`` makes the scene emit ``changed`` ASYNCHRONOUSLY
+    (queued, delivered after ``_do_update`` has already returned), and
+    ``changed`` is connected to ``_schedule_update`` — which used to
+    restart the 100 ms throttle timer, causing ``_do_update`` to run again,
+    hide/restore again, and so on forever, even while the app was
+    otherwise completely idle. Measured before the fix: 13-14 renders per
+    1.5 s with a single overlay item present (vs. ~1/1.5s baseline with
+    none, never quiescent).
+    """
+
+    @staticmethod
+    def _count_do_update_calls(minimap: MinimapWidget) -> dict[str, int]:
+        """Reroute the throttle timer's timeout to a counting wrapper.
+
+        A plain ``minimap._do_update = wrapper`` instance-attribute
+        assignment would NOT be observed by the timer: PyQt resolved the
+        slot to the original bound method at ``connect()`` time in
+        ``__init__``. The timer's connection must be replaced instead.
+        """
+        calls = {"n": 0}
+        original = minimap._do_update
+
+        def counted() -> None:
+            calls["n"] += 1
+            original()
+
+        minimap._update_timer.timeout.disconnect()
+        minimap._update_timer.timeout.connect(counted)
+        return calls
+
+    def test_overlay_item_present_settles_to_zero_renders(
+        self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+    ) -> None:
+        from PyQt6.QtWidgets import QGraphicsRectItem
+
+        view, scene = canvas_pair
+        minimap = MinimapWidget(view, scene)
+
+        overlay = QGraphicsRectItem(0, 0, 10, 10)
+        overlay.setZValue(_OVERLAY_Z_MIN + 1)
+        scene.addItem(overlay)
+
+        calls = self._count_do_update_calls(minimap)
+
+        # Let everything triggered by adding the overlay item settle.
+        qtbot.wait(400)  # type: ignore[attr-defined]
+
+        calls["n"] = 0
+        qtbot.wait(600)  # type: ignore[attr-defined]
+
+        assert calls["n"] == 0, (
+            f"minimap re-rendered {calls['n']} times while idle with an "
+            "overlay item present — self-sustaining loop (issue #305)"
+        )
+
+    def test_real_scene_change_after_settle_still_schedules_render(
+        self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+    ) -> None:
+        """The suppression fix must not silence genuine changes.
+
+        A real, unrelated scene mutation happening well after the overlay
+        item's own hide/restore has settled must still schedule a render —
+        proving the fix didn't just kill the minimap outright.
+        """
+        from PyQt6.QtWidgets import QGraphicsRectItem
+
+        view, scene = canvas_pair
+        minimap = MinimapWidget(view, scene)
+
+        overlay = QGraphicsRectItem(0, 0, 10, 10)
+        overlay.setZValue(_OVERLAY_Z_MIN + 1)
+        scene.addItem(overlay)
+
+        calls = self._count_do_update_calls(minimap)
+
+        qtbot.wait(400)  # type: ignore[attr-defined]
+        calls["n"] = 0
+
+        # A genuine, unrelated scene change — not the minimap's own doing.
+        new_item = QGraphicsRectItem(200, 200, 50, 50)
+        scene.addItem(new_item)
+
+        qtbot.wait(300)  # type: ignore[attr-defined]
+
+        assert calls["n"] >= 1, "a real scene change must still trigger a render"

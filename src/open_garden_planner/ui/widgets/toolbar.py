@@ -109,6 +109,16 @@ class MainToolbar(QToolBar):
     def set_active_tool(self, tool_type: ToolType) -> None:
         if tool_type in self._buttons:
             self._buttons[tool_type].setChecked(True)
+        else:
+            # A tool with no button on this toolbar is active (a constraint
+            # tool, a gallery draw tool, …) — uncheck whichever button is
+            # still checked so it doesn't stay highlighted alongside the
+            # tool that's actually active. See #304.
+            checked = self._button_group.checkedButton()
+            if checked:
+                self._button_group.setExclusive(False)
+                checked.setChecked(False)
+                self._button_group.setExclusive(True)
 
     def refresh_theme_icons(self) -> None:
         """Re-request all button icons after a theme switch (see §8.21)."""
