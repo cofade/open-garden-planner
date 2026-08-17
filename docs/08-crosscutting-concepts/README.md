@@ -392,6 +392,10 @@ Unit tests and widget tests protect individual components but cannot catch regre
 
 All integration tests live in `tests/integration/`. Shared fixtures are in `tests/integration/conftest.py`.
 
+### Per-test timeout (hang guard)
+
+Every test runs under `pytest-timeout` (`timeout = 180` in `pyproject.toml`; dev dependency). A hung full-app test therefore fails loudly instead of silently freezing the battery (§11.4, 2026-08-17). If a legitimate test needs longer, mark it `@pytest.mark.timeout(N)` with a comment saying why — do not raise the global value.
+
 ### Minimum requirement per US
 
 Each US must have at least one test that exercises its **primary workflow** end to end:
