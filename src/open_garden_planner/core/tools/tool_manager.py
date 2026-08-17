@@ -15,9 +15,13 @@ class ToolManager(QObject):
 
     Signals:
         tool_changed: Emitted when the active tool changes (tool_name: str)
+        tool_type_changed: Emitted when the active tool changes (tool_type: ToolType).
+            Carries the actual ToolType rather than the (possibly translated)
+            display name, so listeners can key off it reliably — see #304.
     """
 
     tool_changed = pyqtSignal(str)
+    tool_type_changed = pyqtSignal(ToolType)
 
     def __init__(self, view: "CanvasView") -> None:
         """Initialize the tool manager.
@@ -51,6 +55,7 @@ class ToolManager(QObject):
         if self._active_tool:
             self._active_tool.activate()
             self.tool_changed.emit(self._active_tool.display_name)
+            self.tool_type_changed.emit(self._active_tool.tool_type)
 
     @property
     def active_tool(self) -> BaseTool | None:

@@ -67,6 +67,9 @@ class MinimapWidget(QWidget):
         self._drag_offset_x = 0.0
         self._drag_offset_y = 0.0
         self._enabled = True
+        # Scene rects the minimap itself dirtied by hiding/restoring overlay
+        # items around its last render — see `_on_scene_changed` (issue #305).
+        self._self_dirty_rects: list[QRectF] = []
 
         # Size is updated in _do_update() to match canvas aspect ratio
         self.resize(MINIMAP_WIDTH, MINIMAP_HEIGHT)
@@ -83,7 +86,7 @@ class MinimapWidget(QWidget):
         canvas_view.zoom_changed.connect(self._schedule_update)
         canvas_view.horizontalScrollBar().valueChanged.connect(self._schedule_update)
         canvas_view.verticalScrollBar().valueChanged.connect(self._schedule_update)
-        canvas_scene.changed.connect(self._schedule_update)
+        canvas_scene.changed.connect(self._on_scene_changed)
 
         # Install event filter on the *view* (not viewport) to catch resize
         canvas_view.installEventFilter(self)
@@ -147,6 +150,32 @@ class MinimapWidget(QWidget):
         if not self._update_timer.isActive():
             self._update_timer.start()
 
+    def _on_scene_changed(self, rects: list[QRectF]) -> None:
+        """`scene.changed` slot — ignore the changes the minimap caused itself.
+
+        Hiding/restoring overlay items in `_do_update` makes the scene emit
+        `changed` (asynchronously, after the render returned). Treating those
+        as real changes re-rendered the whole scene ~10x/s forever while
+        idle (issue #305). The emission carries only rects, so the check is
+        content-based: an emission is self-inflicted iff every rect lies
+        inside the union of the overlay items we hid (an empty rect list is
+        Qt's trailing no-op emission — measured: every genuine mutation
+        carries at least one rect). Anything else — a real change that
+        happens to share the same event-loop turn included — schedules a
+        render as before. No timing window, nothing genuine is dropped.
+        """
+        if not rects:
+            return
+        if self._self_dirty_rects and all(
+            any(own.contains(r) for own in self._self_dirty_rects) for r in rects
+        ):
+            return
+        # A genuine change: the next render records fresh rects; stale ones
+        # from a render whose emissions are already consumed must not filter
+        # anything that arrives before then.
+        self._self_dirty_rects = []
+        self._schedule_update()
+
     def _do_update(self) -> None:
         """Render the scene into a thumbnail pixmap.
 
@@ -159,6 +188,16 @@ class MinimapWidget(QWidget):
         The scene uses Y-down coordinates; the view applies a Y-flip so that
         Y increases upward. We flip the thumbnail vertically to match.
         """
+        # A toggled-off minimap (View menu) must not keep rendering the whole
+        # scene into a pixmap nobody can see. It stays subscribed to
+        # `scene.changed`; without this guard it still re-rendered on every
+        # change while hidden (measured: 20 item additions -> 5 full renders
+        # with the widget off). set_visible(True) schedules a fresh render, so
+        # nothing is stale when it comes back. Issue #305 follow-up — the
+        # reporter wasn't sure whether they had left the minimap on or off.
+        if not self._enabled:
+            return
+
         canvas_rect = self._canvas_scene.canvas_rect
         if canvas_rect.isEmpty():
             return
@@ -179,12 +218,29 @@ class MinimapWidget(QWidget):
         pixmap = QPixmap(w, h)
         pixmap.fill(Qt.GlobalColor.transparent)
 
+        # Hiding/restoring overlay items dirties their scene rects; remember
+        # them so `_on_scene_changed` can recognise the resulting (queued)
+        # `changed` emissions as our own and not re-render forever (#305).
+        # Measured (Qt 6.11): only *transformable* items emit `changed` on
+        # setVisible(); `ItemIgnoresTransformations` items (every handle,
+        # label and badge in this app) emit nothing — so only the former are
+        # recorded, which keeps the filter's blind spot to the curve-edit
+        # connector lines. A slightly inflated copy absorbs the
+        # anti-aliasing margin Qt adds to the dirty rect it reports.
         hidden = self._hide_overlay_items()
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self._canvas_scene.render(painter, QRectF(0, 0, w, h), canvas_rect)
-        painter.end()
-        self._restore_overlay_items(hidden)
+        ignore_flag = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
+        try:
+            self._self_dirty_rects = [
+                item.sceneBoundingRect().adjusted(-1, -1, 1, 1)
+                for item in hidden
+                if not (item.flags() & ignore_flag)
+            ]
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            self._canvas_scene.render(painter, QRectF(0, 0, w, h), canvas_rect)
+            painter.end()
+        finally:
+            self._restore_overlay_items(hidden)
 
         # Flip vertically to match the view's Y-flip transform
         self._thumbnail = pixmap.transformed(QTransform().scale(1, -1))

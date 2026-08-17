@@ -137,6 +137,9 @@ class CanvasView(QGraphicsView):
     coordinates_changed = pyqtSignal(float, float)
     zoom_changed = pyqtSignal(float)
     tool_changed = pyqtSignal(str)  # Emitted when active tool changes
+    # Emitted alongside tool_changed, carrying the ToolType rather than the
+    # (possibly translated) display name — see #304.
+    tool_type_changed = pyqtSignal(ToolType)
     import_background_image_requested = pyqtSignal()  # Emitted from empty-canvas right-click
     # US-12.10a: emitted when a bed's "Add soil test…" action is invoked.
     # Args: target_id (bed UUID string or "global"), display_name (informational)
@@ -539,6 +542,7 @@ class CanvasView(QGraphicsView):
 
         # Connect tool change signal
         self._tool_manager.tool_changed.connect(self.tool_changed.emit)
+        self._tool_manager.tool_type_changed.connect(self.tool_type_changed.emit)
 
         # Set default tool
         self._tool_manager.set_active_tool(ToolType.SELECT)
@@ -883,13 +887,26 @@ class CanvasView(QGraphicsView):
                 level = "warning"
             elif total_reasons >= 2:
                 level = "critical"
-            item._soil_mismatch_level = level  # type: ignore[attr-defined]
             if mismatches:
                 tip_lines = [r for _, reasons in mismatches for r in reasons]
-                item.setToolTip("\n".join(tip_lines))  # type: ignore[attr-defined]
+                new_tooltip = "\n".join(tip_lines)
             else:
-                item.setToolTip("")  # type: ignore[attr-defined]
-            item.update()  # type: ignore[attr-defined]
+                new_tooltip = ""
+
+            # Idempotent: this method is called unconditionally every
+            # soil-debounce tick (~500 ms). An unconditional update() makes
+            # the scene emit `changed`, which restarts the same debounce
+            # timer that called us — a self-sustaining idle loop (issue
+            # #305; measured: one never-selected bed = 16 `changed`/4 s
+            # forever). Only touch the item when something the user could
+            # observe actually changed. (setToolTip alone does not emit
+            # `changed` — measured — but is guarded for the same invariant.)
+            prev_level = getattr(item, "_soil_mismatch_level", None)
+            item._soil_mismatch_level = level  # type: ignore[attr-defined]
+            if item.toolTip() != new_tooltip:  # type: ignore[attr-defined]
+                item.setToolTip(new_tooltip)  # type: ignore[attr-defined]
+            if level != prev_level:
+                item.update()  # type: ignore[attr-defined]
 
     def _update_soil_badges(self, today: date | None = None) -> None:
         """Recompute seasonal-reminder badges for every bed (US-12.10e)."""

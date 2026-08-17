@@ -95,3 +95,14 @@ class PlantAPIClient(ABC):
                 definitive rejection -- callers should be prepared for it.
         """
         pass
+
+    def is_configured(self) -> bool:
+        """True when the client has the credentials it needs to attempt a
+        request; does NOT hit the network -- see `is_available()`.
+
+        Concrete (non-abstract) with a default of `True`: a client with no
+        notion of credentials is considered configured by default.
+        Credentialed clients (Trefle/Perenual/Permapeople) override this to
+        check their token/key instead.
+        """
+        return True

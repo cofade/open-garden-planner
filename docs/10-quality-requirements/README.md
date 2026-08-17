@@ -32,7 +32,7 @@ Quality
 | NFR-PERF-01 | Smooth canvas interaction (pan/zoom) | 60fps with up to 500 objects |
 | NFR-PERF-02 | File save/load time | < 2 seconds for typical projects |
 | NFR-PERF-03 | PNG export time | < 5 seconds for high-resolution output |
-| NFR-PERF-04 | Memory usage | < 500MB for typical projects |
+| NFR-PERF-04 | Memory usage | < 500MB for typical projects; an idle plan (no input) must reach a **quiescent state** — 0 `scene.changed` emissions and 0 minimap renders per 2 s after a 1.5 s settle (issue #305, `tests/integration/test_idle_scene_quiescence.py`) |
 | NFR-PERF-05 | Startup time | < 3 seconds on modern hardware |
 
 ## 10.3 Reliability Requirements

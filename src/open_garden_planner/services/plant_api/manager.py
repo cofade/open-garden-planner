@@ -42,6 +42,11 @@ class PlantAPIManager:
             permapeople_key_secret: Optional Permapeople key secret
         """
         self._clients: list[PlantAPIClient] = []
+        #: Names of configured providers that raised during the most recent
+        #: ``search()`` while another provider still answered. Lets the UI
+        #: mention "provider X unavailable" next to an honest zero-result
+        #: without turning it back into a failure dialog (#302 review).
+        self.last_search_failed_sources: list[str] = []
 
         # Initialize clients in fallback order (Trefle first)
         try:
@@ -70,21 +75,57 @@ class PlantAPIManager:
 
         # TODO: Add bundled database client when implemented
 
+    @property
+    def configured_source_count(self) -> int:
+        """Number of API clients that have the credentials needed to
+        attempt a request (`client.is_configured()`), NOT just how many
+        clients exist in the fallback chain.
+
+        Lets a caller (e.g. the search dialog, #302) distinguish "no plant
+        databases are configured at all" from "search ran and matched
+        nothing" -- both surface as an empty result list from `search()`.
+        `PlantAPIManager`'s constructor always appends a Trefle/Perenual/
+        Permapeople client regardless of whether credentials were supplied
+        (their `__init__` never raises on a missing token/key), so counting
+        `len(self._clients)` would always report "configured" even with zero
+        real credentials -- this counts only the ones that actually are.
+
+        Returns:
+            Count of clients in the fallback chain whose `is_configured()`
+            returns True. Says nothing about current reachability -- see
+            `check_status()` / `get_available_sources()` for that.
+        """
+        return sum(1 for c in self._clients if c.is_configured())
+
     def search(self, query: str, limit: int = 10) -> list[PlantSpeciesData]:
         """Search for plants across custom library and all available APIs.
 
         First searches the custom plant library, then tries each API in order
         until one succeeds. Custom plants are shown first in the results.
 
+        A client that *answers* -- returns normally, even with an empty list
+        -- means "no match", not "failure" (#302: a search for a real but
+        unlisted variety, e.g. "mahachanok", was misreported as "All plant
+        APIs failed" even though every configured API responded cleanly with
+        zero results). A client with no credentials (`is_configured()` is
+        False) is skipped entirely -- it is never attempted and never
+        counted as having failed. Only when every *configured* client raises
+        (or there are no configured clients and no custom-library results)
+        is this a genuine failure.
+
         Args:
             query: Search term (plant name or partial name)
             limit: Maximum number of results to return
 
         Returns:
-            List of matching plant species data
+            List of matching plant species data. An empty list means the
+            search ran successfully but matched nothing -- NOT a failure.
 
         Raises:
-            PlantAPIError: If all APIs fail and no custom plants found
+            PlantAPIError: Only if every configured API client raised (i.e.
+                none of them could even answer) and no custom plants were
+                found. A client answering with zero results is never treated
+                as a failure.
         """
         if not query or not query.strip():
             return []
@@ -109,12 +150,20 @@ class PlantAPIManager:
 
         # Try each API in order
         last_error: Exception | None = None
+        any_client_answered = False
+        failed_sources: list[str] = []
+        self.last_search_failed_sources = []
         remaining_limit = limit - len(results)
 
         for client in self._clients:
+            if not client.is_configured():
+                logger.debug(f"{client.name} is not configured (no credentials), skipping")
+                continue
+
             try:
                 logger.info(f"Trying {client.name} API for search: '{query}'")
                 api_results = client.search(query, remaining_limit)
+                any_client_answered = True
 
                 if api_results:
                     logger.info(f"{client.name} returned {len(api_results)} results")
@@ -126,17 +175,40 @@ class PlantAPIManager:
             except PlantAPIError as e:
                 logger.warning(f"{client.name} API failed: {e}")
                 last_error = e
+                failed_sources.append(client.name)
                 continue
             except Exception as e:
                 logger.error(f"Unexpected error with {client.name}: {e}")
                 last_error = e
+                failed_sources.append(client.name)
                 continue
+
+        if any_client_answered:
+            self.last_search_failed_sources = failed_sources
 
         # If we have any results (custom or API), return them
         if results:
             return results[:limit]
 
-        # All APIs failed and no custom plants found
+        # At least one configured client answered (even with zero matches)
+        # -- that is an honest "no match", not a failure. Returning [] here
+        # (rather than raising) is the fix for #302.
+        if any_client_answered:
+            return []
+
+        # No client had credentials to even attempt a request, and no
+        # custom-library results: nothing was tried, so nothing failed
+        # either. Checked via `configured_source_count`, not `self._clients`
+        # -- the constructor always appends a client per provider regardless
+        # of whether real credentials were supplied (#302 follow-up: an
+        # uncredentialed client's `is_configured() == False` skip above means
+        # `self._clients` alone can no longer answer "was anything usable
+        # configured?").
+        if self.configured_source_count == 0:
+            return []
+
+        # Every configured client raised and none could answer -- genuine
+        # failure.
         error_msg = "All plant APIs failed"
         if last_error:
             error_msg += f": {last_error}"

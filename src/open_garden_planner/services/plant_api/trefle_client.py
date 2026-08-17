@@ -158,6 +158,10 @@ class TrefleClient(PlantAPIClient):
         except requests.RequestException:
             return False
 
+    def is_configured(self) -> bool:
+        """True when an API token is present. See `PlantAPIClient.is_configured()`."""
+        return bool(self._api_token)
+
     def _parse_species(self, data: dict[str, Any]) -> PlantSpeciesData:
         """Parse Trefle API response into PlantSpeciesData.
 

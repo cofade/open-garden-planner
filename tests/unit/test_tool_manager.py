@@ -70,6 +70,20 @@ class TestToolManager:
 
         assert blocker.args == ["Select"]
 
+    def test_tool_type_changed_signal(self, tool_manager, mock_view, qtbot) -> None:
+        """Test tool_type_changed signal is emitted with the ToolType (#304).
+
+        Unlike tool_changed (display name, translated), this carries the raw
+        enum so listeners can key off it without a name-mapping table.
+        """
+        select_tool = SelectTool(mock_view)
+        tool_manager.register_tool(select_tool)
+
+        with qtbot.waitSignal(tool_manager.tool_type_changed, timeout=1000) as blocker:
+            tool_manager.set_active_tool(ToolType.SELECT)
+
+        assert blocker.args == [ToolType.SELECT]
+
     def test_switching_tools_deactivates_previous(self, tool_manager, mock_view) -> None:
         """Test switching tools deactivates the previous tool."""
         select_tool = SelectTool(mock_view)

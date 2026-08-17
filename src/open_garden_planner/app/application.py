@@ -1675,7 +1675,7 @@ class GardenPlannerApp(QMainWindow):
         self.category_toolbar.tool_selected.connect(self._on_tool_selected)
         self.category_toolbar.item_selected.connect(self._on_gallery_item_selected)
         self.canvas_view.tool_changed.connect(self.update_tool)
-        self.canvas_view.tool_changed.connect(self._sync_toolbar_state)
+        self.canvas_view.tool_type_changed.connect(self._sync_toolbar_state_by_type)
         self.canvas_view.import_background_image_requested.connect(
             self._on_import_background_image
         )
@@ -3700,7 +3700,11 @@ class GardenPlannerApp(QMainWindow):
                 item.set_antagonist_warning(False)
 
     def _update_companion_highlights(self) -> None:
-        """Refresh companion planting highlight rings and permanent warning badges."""
+        """Refresh companion planting highlight rings and permanent warning badges.
+
+        Must be idempotent -- driven by scene.changed via debounce; compute
+        final state then set once (issue #305).
+        """
         import math
 
         try:
@@ -3708,67 +3712,68 @@ class GardenPlannerApp(QMainWindow):
         except RuntimeError:
             return  # Scene already deleted during shutdown
 
-        # Clear existing highlights and warnings
-        for item in scene_items:
-            if hasattr(item, 'set_companion_highlight'):
-                item.set_companion_highlight(None)
-            if hasattr(item, 'set_antagonist_warning'):
-                item.set_antagonist_warning(False)
+        # Every plant item gets a final value applied (so a plant that just
+        # lost its species — e.g. ApplySpeciesCommand.undo — is cleared, not
+        # left with a stale ring/badge); only named plants take part in the
+        # relationship scan.
+        canvas_plants = [it for it in scene_items if self._is_canvas_plant(it)]
+        all_plants = [it for it in canvas_plants if self._companion_species_name(it)]
 
-        if not self._companion_warnings_enabled:
-            return
+        # Desired final state per plant, computed before any setter call so
+        # each item is mutated at most once this pass.
+        highlights: dict[int, str | None] = {id(it): None for it in canvas_plants}
+        warnings: dict[int, bool] = {id(it): False for it in canvas_plants}
 
-        all_plants = [
-            it for it in self.canvas_scene.items()
-            if self._is_canvas_plant(it) and self._companion_species_name(it)
-        ]
+        if self._companion_warnings_enabled:
+            # 1. Selection-based coloured rings (beneficial / antagonistic)
+            selected_plants = [it for it in self.canvas_scene.selectedItems() if it in all_plants]
+            for selected_plant in selected_plants:
+                sel_center = selected_plant.mapToScene(selected_plant.rect().center())  # type: ignore[attr-defined]
+                sel_species = self._companion_species_name(selected_plant)
 
-        # 1. Selection-based coloured rings (beneficial / antagonistic)
-        selected_plants = [it for it in self.canvas_scene.selectedItems() if it in all_plants]
-        for selected_plant in selected_plants:
-            sel_center = selected_plant.mapToScene(selected_plant.rect().center())  # type: ignore[attr-defined]
-            sel_species = self._companion_species_name(selected_plant)
+                for other in all_plants:
+                    if other is selected_plant:
+                        continue
+                    other_center = other.mapToScene(other.rect().center())  # type: ignore[attr-defined]
+                    dist = math.hypot(
+                        sel_center.x() - other_center.x(),
+                        sel_center.y() - other_center.y(),
+                    )
+                    if dist > self._companion_radius_cm:
+                        continue
 
-            for other in all_plants:
-                if other is selected_plant:
-                    continue
-                other_center = other.mapToScene(other.rect().center())  # type: ignore[attr-defined]
-                dist = math.hypot(
-                    sel_center.x() - other_center.x(),
-                    sel_center.y() - other_center.y(),
-                )
-                if dist > self._companion_radius_cm:
-                    continue
+                    other_species = self._companion_species_name(other)
+                    rel = self._companion_service.get_relationship(sel_species, other_species)
+                    if rel is None:
+                        continue
 
-                other_species = self._companion_species_name(other)
-                rel = self._companion_service.get_relationship(sel_species, other_species)
-                if rel is None:
-                    continue
+                    # Antagonistic takes priority over beneficial when multiple plants selected
+                    if rel.type == ANTAGONISTIC:
+                        highlights[id(other)] = ANTAGONISTIC
+                    elif rel.type == BENEFICIAL and highlights[id(other)] != ANTAGONISTIC:
+                        highlights[id(other)] = BENEFICIAL
 
-                # Antagonistic takes priority over beneficial when multiple plants selected
-                current = getattr(other, '_companion_highlight', None)
-                if rel.type == ANTAGONISTIC:
-                    other.set_companion_highlight(ANTAGONISTIC)  # type: ignore[attr-defined]
-                elif rel.type == BENEFICIAL and current != ANTAGONISTIC:
-                    other.set_companion_highlight(BENEFICIAL)  # type: ignore[attr-defined]
+            # 2. Permanent warning badge: show on any plant that has an antagonist nearby
+            for plant_a in all_plants:
+                center_a = plant_a.mapToScene(plant_a.rect().center())  # type: ignore[attr-defined]
+                species_a = self._companion_species_name(plant_a)
+                for plant_b in all_plants:
+                    if plant_b is plant_a:
+                        continue
+                    center_b = plant_b.mapToScene(plant_b.rect().center())  # type: ignore[attr-defined]
+                    dist = math.hypot(center_a.x() - center_b.x(), center_a.y() - center_b.y())
+                    if dist > self._companion_radius_cm:
+                        continue
+                    rel = self._companion_service.get_relationship(
+                        species_a, self._companion_species_name(plant_b)
+                    )
+                    if rel is not None and rel.type == ANTAGONISTIC:
+                        warnings[id(plant_a)] = True
+                        break  # one antagonist is enough
 
-        # 2. Permanent warning badge: show on any plant that has an antagonist nearby
-        for plant_a in all_plants:
-            center_a = plant_a.mapToScene(plant_a.rect().center())  # type: ignore[attr-defined]
-            species_a = self._companion_species_name(plant_a)
-            for plant_b in all_plants:
-                if plant_b is plant_a:
-                    continue
-                center_b = plant_b.mapToScene(plant_b.rect().center())  # type: ignore[attr-defined]
-                dist = math.hypot(center_a.x() - center_b.x(), center_a.y() - center_b.y())
-                if dist > self._companion_radius_cm:
-                    continue
-                rel = self._companion_service.get_relationship(
-                    species_a, self._companion_species_name(plant_b)
-                )
-                if rel is not None and rel.type == ANTAGONISTIC:
-                    plant_a.set_antagonist_warning(True)  # type: ignore[attr-defined]
-                    break  # one antagonist is enough
+        for plant in canvas_plants:
+            plant.set_companion_highlight(highlights[id(plant)])  # type: ignore[attr-defined]
+            plant.set_antagonist_warning(warnings[id(plant)])  # type: ignore[attr-defined]
 
     # -- Spacing circle overlap detection (US-11.2) --
 
@@ -3791,15 +3796,15 @@ class GardenPlannerApp(QMainWindow):
         """Refresh spacing overlap status for all plants.
 
         Groups plants by parent bed for efficient pairwise checks.
+
+        Must be idempotent -- driven by scene.changed via debounce; compute
+        final state then set once (issue #305).
         """
         import math
 
         # Container capacity is independent of the spacing-circle toggle, so it
         # runs first — on the same triggers (timer, selection, create/move).
         self._update_container_capacity()
-
-        if not self._spacing_circles_enabled:
-            return
 
         try:
             scene_items = self.canvas_scene.items()
@@ -3811,43 +3816,51 @@ class GardenPlannerApp(QMainWindow):
             if self._is_canvas_plant(it)
         ]
 
-        # Clear existing overlap status
+        # Desired final overlap state per plant, computed before any setter
+        # call so each item is mutated at most once this pass.
+        desired: dict[int, str | None] = {id(plant): None for plant in all_plants}
+
+        if self._spacing_circles_enabled:
+            # Group plants by parent bed
+            bed_groups: dict[str, list] = {}
+            orphans: list = []
+            for plant in all_plants:
+                bed_id = getattr(plant, '_parent_bed_id', None)
+                if bed_id is not None:
+                    key = str(bed_id)
+                    bed_groups.setdefault(key, []).append(plant)
+                else:
+                    orphans.append(plant)
+
+            # Index every item by id once so each group can resolve its parent
+            # without an O(n) scan (US-C3b: trellis groups need a 1-D distance).
+            by_id: dict[str, object] = {}
+            for it in scene_items:
+                iid = getattr(it, "item_id", None)
+                if iid is not None:
+                    by_id[str(iid)] = it
+
+            # Check overlaps within each group. A TRELLIS parent uses a 1-D
+            # distance measured along its long axis (climbers are spaced along
+            # the bar; their perpendicular/canvas-Y offset is placement noise
+            # — US-C3b).
+            from open_garden_planner.core.object_types import ObjectType
+
+            for key, group in bed_groups.items():
+                parent = by_id.get(key)
+                if (
+                    parent is not None
+                    and getattr(parent, "object_type", None) is ObjectType.TRELLIS
+                ):
+                    distance = self._trellis_axis_distance_fn(parent)
+                else:
+                    distance = math.hypot
+                self._check_spacing_group(group, distance, desired)
+            if orphans:
+                self._check_spacing_group(orphans, math.hypot, desired)
+
         for plant in all_plants:
-            plant.set_spacing_overlap(None)  # type: ignore[attr-defined]
-
-        # Group plants by parent bed
-        bed_groups: dict[str, list] = {}
-        orphans: list = []
-        for plant in all_plants:
-            bed_id = getattr(plant, '_parent_bed_id', None)
-            if bed_id is not None:
-                key = str(bed_id)
-                bed_groups.setdefault(key, []).append(plant)
-            else:
-                orphans.append(plant)
-
-        # Index every item by id once so each group can resolve its parent
-        # without an O(n) scan (US-C3b: trellis groups need a 1-D distance).
-        by_id: dict[str, object] = {}
-        for it in scene_items:
-            iid = getattr(it, "item_id", None)
-            if iid is not None:
-                by_id[str(iid)] = it
-
-        # Check overlaps within each group. A TRELLIS parent uses a 1-D distance
-        # measured along its long axis (climbers are spaced along the bar; their
-        # perpendicular/canvas-Y offset is placement noise — US-C3b).
-        from open_garden_planner.core.object_types import ObjectType
-
-        for key, group in bed_groups.items():
-            parent = by_id.get(key)
-            if parent is not None and getattr(parent, "object_type", None) is ObjectType.TRELLIS:
-                distance = self._trellis_axis_distance_fn(parent)
-            else:
-                distance = math.hypot
-            self._check_spacing_group(group, distance)
-        if orphans:
-            self._check_spacing_group(orphans, math.hypot)
+            plant.set_spacing_overlap(desired[id(plant)])  # type: ignore[attr-defined]
 
     def _trellis_axis_distance_fn(self, trellis: object):
         """Return a 1-D distance callable projecting onto the trellis long axis.
@@ -3883,15 +3896,22 @@ class GardenPlannerApp(QMainWindow):
         ux, uy = vx / mag, vy / mag
         return lambda dx, dy: abs(dx * ux + dy * uy)
 
-    def _check_spacing_group(self, plants: list, distance: object) -> None:
-        """Check spacing overlaps within a group of sibling plants.
+    def _check_spacing_group(
+        self, plants: list, distance: object, desired: dict[int, str | None]
+    ) -> None:
+        """Compute spacing overlap decisions within a group of sibling plants.
 
         Only plants with real spacing data (from database or user override)
-        participate in overlap detection. Plants without data are skipped.
+        participate in overlap detection. Plants without data are skipped
+        (left at their existing ``desired`` default, i.e. None).
 
         ``distance`` is a ``(dx, dy) -> float`` callable: ``math.hypot`` for the
         normal 2-D case, or a 1-D along-axis projection for a trellis group
         (US-C3b). Both have the same signature, so the loop below is identical.
+
+        Writes results into ``desired`` (keyed by ``id(plant)``) rather than
+        calling setters directly — the caller applies each plant's final
+        value exactly once (issue #305).
         """
         # Filter to plants that have spacing data
         with_data = [
@@ -3901,7 +3921,7 @@ class GardenPlannerApp(QMainWindow):
         if len(with_data) < 2:
             # Single plant with data gets "ideal"
             for p in with_data:
-                p.set_spacing_overlap("ideal")  # type: ignore[attr-defined]
+                desired[id(p)] = "ideal"
             return
 
         overlap_set: set[int] = set()
@@ -3924,10 +3944,7 @@ class GardenPlannerApp(QMainWindow):
                     overlap_set.add(id(plant_b))
 
         for plant in with_data:
-            if id(plant) in overlap_set:
-                plant.set_spacing_overlap("overlap")  # type: ignore[attr-defined]
-            else:
-                plant.set_spacing_overlap("ideal")  # type: ignore[attr-defined]
+            desired[id(plant)] = "overlap" if id(plant) in overlap_set else "ideal"
 
     def _update_container_capacity(self) -> None:
         """Flag containers whose plants overflow their footprint (US-C3).
@@ -4359,8 +4376,10 @@ class GardenPlannerApp(QMainWindow):
         Args:
             item: The GalleryItem that was selected
         """
-        if hasattr(item, "tool_type"):
-            self.main_toolbar.set_active_tool(item.tool_type)
+        # Toolbar highlight sync is driven by `canvas_view.tool_type_changed`
+        # (see `_sync_toolbar_state_by_type`, #304); the gallery's own
+        # `tool_selected` has already activated the tool by the time this
+        # slot runs, so no direct toolbar call is needed here.
 
         # Pass plant category/species to the active circle tool
         from open_garden_planner.core.tools.circle_tool import CircleTool
@@ -4371,29 +4390,20 @@ class GardenPlannerApp(QMainWindow):
             species = getattr(item, "species", "")
             active_tool.set_plant_info(category=category, species=species)
 
-    def _sync_toolbar_state(self, tool_name: str) -> None:
+    def _sync_toolbar_state_by_type(self, tool_type: ToolType) -> None:
         """Sync toolbar button states when the active tool changes.
 
+        Keyed off the ``ToolType`` enum rather than the (possibly translated)
+        display name — see #304. Every tool button lives on exactly one of
+        the two exclusive-group toolbars, so both are told about every tool
+        change: whichever toolbar owns ``tool_type`` highlights its button,
+        the other toolbar unchecks whatever it had checked.
+
         Args:
-            tool_name: Display name of the current tool
+            tool_type: The ToolType that just became active.
         """
-        main_tool_map = {
-            "Select": ToolType.SELECT,
-            "Measure": ToolType.MEASURE,
-            "Text": ToolType.TEXT,
-            "Callout": ToolType.CALLOUT,
-            "Journal Pin": ToolType.JOURNAL_PIN,
-        }
-        constraint_tool_map = {
-            "Distance Constraint": ToolType.CONSTRAINT,
-            "Horizontal Constraint": ToolType.CONSTRAINT_HORIZONTAL,
-            "Vertical Constraint": ToolType.CONSTRAINT_VERTICAL,
-        }
-        if tool_type := main_tool_map.get(tool_name):
-            self.main_toolbar.set_active_tool(tool_type)
-            self.constraint_toolbar.set_active_tool(tool_type)  # uncheck all constraint btns
-        elif tool_type := constraint_tool_map.get(tool_name):
-            self.constraint_toolbar.set_active_tool(tool_type)
+        self.main_toolbar.set_active_tool(tool_type)
+        self.constraint_toolbar.set_active_tool(tool_type)
 
     def _on_active_layer_changed(self, layer_id) -> None:
         """Handle active layer change from layers panel.

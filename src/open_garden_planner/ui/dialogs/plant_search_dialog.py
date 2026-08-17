@@ -189,7 +189,40 @@ class PlantSearchDialog(QDialog):
                 self.status_label.setText(self.tr("Found {count} results").format(count=len(results)))
                 self.status_label.setStyleSheet(f"color: {theme_color('success')};")
             else:
-                self.status_label.setText(self.tr("No results found"))
+                # An empty result list is now a distinct, honest state: every
+                # configured API answered cleanly but matched nothing (#302 --
+                # previously PlantAPIManager.search() raised
+                # "All plant APIs failed" for this exact case, which showed a
+                # scary credentials-hint QMessageBox for a perfectly normal
+                # zero-match search, e.g. a mango variety no database lists).
+                # Distinguish "nothing is configured" from "nothing matched"
+                # since only the former is actionable via Preferences. The
+                # app's own entry point (_on_search_plant_database) refuses to
+                # open this dialog without credentials, so this branch is
+                # belt-and-braces for other/future callers of the dialog --
+                # not a live path today.
+                if self._api_manager.configured_source_count == 0:
+                    self.status_label.setText(
+                        self.tr(
+                            "No plant databases are configured. Add API credentials "
+                            "in Preferences to search online."
+                        )
+                    )
+                else:
+                    text = self.tr(
+                        "No plants matched '{query}'. Try another spelling or "
+                        "the scientific name."
+                    ).format(query=query)
+                    # A zero-result answered by one provider while another
+                    # raised is still an honest "no match" (no failure
+                    # dialog), but the user should learn a configured
+                    # provider is down rather than only in Preferences.
+                    failed = self._api_manager.last_search_failed_sources
+                    if failed:
+                        text += " " + self.tr(
+                            "({sources} unavailable — check Preferences.)"
+                        ).format(sources=", ".join(failed))
+                    self.status_label.setText(text)
                 self.status_label.setStyleSheet(f"color: {theme_color('warning')};")
 
         except PlantAPIError as e:
