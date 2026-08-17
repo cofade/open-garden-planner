@@ -139,7 +139,7 @@ class CanvasView(QGraphicsView):
     tool_changed = pyqtSignal(str)  # Emitted when active tool changes
     # Emitted alongside tool_changed, carrying the ToolType rather than the
     # (possibly translated) display name — see #304.
-    tool_type_changed = pyqtSignal(object)
+    tool_type_changed = pyqtSignal(ToolType)
     import_background_image_requested = pyqtSignal()  # Emitted from empty-canvas right-click
     # US-12.10a: emitted when a bed's "Add soil test…" action is invoked.
     # Args: target_id (bed UUID string or "global"), display_name (informational)

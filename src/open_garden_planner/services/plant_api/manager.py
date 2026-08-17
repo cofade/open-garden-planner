@@ -42,6 +42,11 @@ class PlantAPIManager:
             permapeople_key_secret: Optional Permapeople key secret
         """
         self._clients: list[PlantAPIClient] = []
+        #: Names of configured providers that raised during the most recent
+        #: ``search()`` while another provider still answered. Lets the UI
+        #: mention "provider X unavailable" next to an honest zero-result
+        #: without turning it back into a failure dialog (#302 review).
+        self.last_search_failed_sources: list[str] = []
 
         # Initialize clients in fallback order (Trefle first)
         try:
@@ -146,6 +151,8 @@ class PlantAPIManager:
         # Try each API in order
         last_error: Exception | None = None
         any_client_answered = False
+        failed_sources: list[str] = []
+        self.last_search_failed_sources = []
         remaining_limit = limit - len(results)
 
         for client in self._clients:
@@ -168,11 +175,16 @@ class PlantAPIManager:
             except PlantAPIError as e:
                 logger.warning(f"{client.name} API failed: {e}")
                 last_error = e
+                failed_sources.append(client.name)
                 continue
             except Exception as e:
                 logger.error(f"Unexpected error with {client.name}: {e}")
                 last_error = e
+                failed_sources.append(client.name)
                 continue
+
+        if any_client_answered:
+            self.last_search_failed_sources = failed_sources
 
         # If we have any results (custom or API), return them
         if results:

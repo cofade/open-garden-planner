@@ -257,12 +257,13 @@ class TestMinimapIdleQuiescence:
     ``_do_update`` hides overlay items, renders, then restores them. Each
     ``setVisible()`` makes the scene emit ``changed`` ASYNCHRONOUSLY
     (queued, delivered after ``_do_update`` has already returned), and
-    ``changed`` is connected to ``_schedule_update`` — which used to
-    restart the 100 ms throttle timer, causing ``_do_update`` to run again,
-    hide/restore again, and so on forever, even while the app was
-    otherwise completely idle. Measured before the fix: 13-14 renders per
-    1.5 s with a single overlay item present (vs. ~1/1.5s baseline with
-    none, never quiescent).
+    ``changed`` used to restart the 100 ms throttle timer unconditionally,
+    causing ``_do_update`` to run again, hide/restore again, and so on
+    forever, even while the app was otherwise completely idle. Measured
+    before the fix: 13-14 renders per 1.5 s with a single overlay item
+    present (vs. ~1/1.5s baseline with none, never quiescent). The fix is
+    content-based: ``_on_scene_changed`` ignores an emission iff every rect
+    lies inside an overlay rect the minimap itself just toggled.
     """
 
     @staticmethod
@@ -340,6 +341,54 @@ class TestMinimapIdleQuiescence:
         qtbot.wait(300)  # type: ignore[attr-defined]
 
         assert calls["n"] >= 1, "a real scene change must still trigger a render"
+
+    def test_real_change_in_same_turn_as_self_render_is_not_dropped(
+        self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+    ) -> None:
+        """The suppression is content-based (rects), not a timing window: a
+        genuine change that shares the event-loop turn with the minimap's
+        own hide/restore must still schedule a render (issue #305 review).
+        """
+        from PyQt6.QtWidgets import QGraphicsRectItem
+
+        view, scene = canvas_pair
+        minimap = MinimapWidget(view, scene)
+        overlay = QGraphicsRectItem(-5, -5, 10, 10)
+        overlay.setPos(1000, 800)
+        overlay.setZValue(_OVERLAY_Z_MIN + 1)
+        scene.addItem(overlay)
+        qtbot.wait(400)  # type: ignore[attr-defined]
+
+        renders = self._count_scene_renders(scene)
+        minimap._update_timer.stop()
+        minimap._do_update()  # self-inflicted hide/restore ...
+        real = QGraphicsRectItem(0, 0, 50, 50)  # ... and a real change, same turn
+        real.setPos(2000, 1000)
+        scene.addItem(real)
+        qtbot.wait(400)  # type: ignore[attr-defined]
+        # 1 = the forced render above; a 2nd proves the real change scheduled one.
+        assert renders["n"] >= 2, "genuine change sharing the turn was dropped"
+
+    def test_moving_an_overlay_item_still_schedules_render(
+        self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+    ) -> None:
+        """Stale self-dirty rects from the last render must not swallow an
+        overlay item that genuinely moved (e.g. a handle following a drag)."""
+        from PyQt6.QtWidgets import QGraphicsRectItem
+
+        view, scene = canvas_pair
+        minimap = MinimapWidget(view, scene)
+        overlay = QGraphicsRectItem(-5, -5, 10, 10)
+        overlay.setPos(1000, 800)
+        overlay.setZValue(_OVERLAY_Z_MIN + 1)
+        scene.addItem(overlay)
+        qtbot.wait(600)  # type: ignore[attr-defined]
+        assert minimap._self_dirty_rects, "precondition: last render hid the overlay"
+
+        renders = self._count_scene_renders(scene)
+        overlay.setPos(1200, 900)
+        qtbot.wait(400)  # type: ignore[attr-defined]
+        assert renders["n"] >= 1
 
     @staticmethod
     def _count_scene_renders(scene: CanvasScene) -> dict[str, int]:

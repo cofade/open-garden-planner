@@ -77,8 +77,51 @@ class TestZeroResultsIsNotReportedAsFailure:
             dlg._perform_search()
 
         assert "No plants matched" in dlg.status_label.text()
+        assert "unavailable" not in dlg.status_label.text()
         mock_warn.assert_not_called()
         assert dlg.results_list.count() == 0
+
+    def test_zero_results_with_one_provider_down_hints_but_does_not_warn(
+        self, qtbot, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Trefle answers [] while Perenual raises: still an honest zero
+        result (no modal), but the status names the provider that failed so
+        the user learns it is down without visiting Preferences (#302
+        senior-review P2).
+        """
+
+        def _get(url, params=None, timeout=None):  # noqa: ARG001
+            response = MagicMock()
+            if "perenual" in url:
+                response.status_code = 500
+                response.raise_for_status = MagicMock(
+                    side_effect=requests.HTTPError("500 Server Error")
+                )
+            else:
+                response.status_code = 200
+                response.raise_for_status = MagicMock()
+                response.json.return_value = EMPTY_SEARCH_RESPONSE
+            return response
+
+        monkeypatch.setattr("requests.Session.get", MagicMock(side_effect=_get))
+
+        manager = PlantAPIManager(
+            trefle_api_token="fake-token", perenual_api_key="fake-key"
+        )
+        dlg = PlantSearchDialog(manager)
+        qtbot.addWidget(dlg)
+
+        with patch(
+            "open_garden_planner.ui.dialogs.plant_search_dialog.QMessageBox.warning"
+        ) as mock_warn:
+            dlg.search_input.setText("mahachanok")
+            dlg._perform_search()
+
+        text = dlg.status_label.text()
+        assert "No plants matched" in text
+        assert "Perenual" in text and "unavailable" in text
+        assert manager.last_search_failed_sources == ["Perenual"]
+        mock_warn.assert_not_called()
 
     def test_genuine_api_failure_still_shows_search_failed_and_warns(
         self, qtbot, monkeypatch: pytest.MonkeyPatch

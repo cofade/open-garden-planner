@@ -4713,6 +4713,10 @@ Bitte überprüfen Sie Ihre Internetverbindung und API-Zugangsdaten.</translatio
             <source>No plant databases are configured. Add API credentials in Preferences to search online.</source>
             <translation>Es sind keine Pflanzendatenbanken konfiguriert. Fügen Sie in den Einstellungen API-Zugangsdaten hinzu, um online zu suchen.</translation>
         </message>
+        <message>
+            <source>({sources} unavailable — check Preferences.)</source>
+            <translation>({sources} nicht erreichbar — Einstellungen prüfen.)</translation>
+        </message>
     </context>
     <context>
         <name>PlantSearchPanel</name>

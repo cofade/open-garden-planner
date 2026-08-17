@@ -21,7 +21,7 @@ class ToolManager(QObject):
     """
 
     tool_changed = pyqtSignal(str)
-    tool_type_changed = pyqtSignal(object)
+    tool_type_changed = pyqtSignal(ToolType)
 
     def __init__(self, view: "CanvasView") -> None:
         """Initialize the tool manager.

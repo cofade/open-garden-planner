@@ -67,8 +67,9 @@ class MinimapWidget(QWidget):
         self._drag_offset_x = 0.0
         self._drag_offset_y = 0.0
         self._enabled = True
-        # See `_do_update` / `_schedule_update` for why this exists (issue #305).
-        self._suppress_self_changed = False
+        # Scene rects the minimap itself dirtied by hiding/restoring overlay
+        # items around its last render — see `_on_scene_changed` (issue #305).
+        self._self_dirty_rects: list[QRectF] = []
 
         # Size is updated in _do_update() to match canvas aspect ratio
         self.resize(MINIMAP_WIDTH, MINIMAP_HEIGHT)
@@ -85,7 +86,7 @@ class MinimapWidget(QWidget):
         canvas_view.zoom_changed.connect(self._schedule_update)
         canvas_view.horizontalScrollBar().valueChanged.connect(self._schedule_update)
         canvas_view.verticalScrollBar().valueChanged.connect(self._schedule_update)
-        canvas_scene.changed.connect(self._schedule_update)
+        canvas_scene.changed.connect(self._on_scene_changed)
 
         # Install event filter on the *view* (not viewport) to catch resize
         canvas_view.installEventFilter(self)
@@ -145,16 +146,31 @@ class MinimapWidget(QWidget):
     # ------------------------------------------------------------------
 
     def _schedule_update(self, *_args: object) -> None:
-        """Schedule a throttled thumbnail re-render.
-
-        No-op while `_suppress_self_changed` is set — see `_do_update` for why
-        (issue #305: without this, the minimap's own hide/restore of overlay
-        items re-triggers itself forever while the app is otherwise idle).
-        """
-        if self._suppress_self_changed:
-            return
+        """Schedule a throttled thumbnail re-render."""
         if not self._update_timer.isActive():
             self._update_timer.start()
+
+    def _on_scene_changed(self, rects: list[QRectF]) -> None:
+        """`scene.changed` slot — ignore the changes the minimap caused itself.
+
+        Hiding/restoring overlay items in `_do_update` makes the scene emit
+        `changed` (asynchronously, after the render returned). Treating those
+        as real changes re-rendered the whole scene ~10x/s forever while
+        idle (issue #305). The emission carries only rects, so the check is
+        content-based: an emission is self-inflicted iff every rect lies
+        inside the union of the overlay items we hid (an empty rect list is
+        Qt's trailing no-op emission — measured: every genuine mutation
+        carries at least one rect). Anything else — a real change that
+        happens to share the same event-loop turn included — schedules a
+        render as before. No timing window, nothing genuine is dropped.
+        """
+        if not rects:
+            return
+        if self._self_dirty_rects and all(
+            any(own.contains(r) for own in self._self_dirty_rects) for r in rects
+        ):
+            return
+        self._schedule_update()
 
     def _do_update(self) -> None:
         """Render the scene into a thumbnail pixmap.
@@ -198,40 +214,22 @@ class MinimapWidget(QWidget):
         pixmap = QPixmap(w, h)
         pixmap.fill(Qt.GlobalColor.transparent)
 
-        # `QGraphicsItem.setVisible()` makes the scene emit `changed`
-        # ASYNCHRONOUSLY — queued, not delivered until after this method has
-        # already returned. `changed` is connected to `_schedule_update`, so
-        # without suppression both the hide below and the restore further
-        # down would each restart the throttle timer -> `_do_update` runs
-        # again -> hides/restores again -> forever, even while the app is
-        # otherwise completely idle (issue #305).
-        #
-        # Measured (offscreen, PyQt6/Qt 6.11): hiding and restoring each
-        # produce their OWN queued `changed` emission — not one combined
-        # emission — delivered on two SEPARATE event-loop turns (hide's
-        # carries the hidden items' rects, restore's is empty). A single 0 ms
-        # `singleShot` only spans the first turn: the flag is clear again by
-        # the second (restore's) emission, which un-suppressedly restarts the
-        # timer and reproduces the loop. Nesting two 0 ms singleShots spans
-        # both turns. Skipped entirely when nothing was hidden — there is
-        # nothing to suppress.
-        #
-        # Trade-off: a genuine, unrelated scene change that also lands in
-        # that two-turn window is dropped rather than scheduling a render.
-        # Accepted because the window is a couple of 0 ms turns and any
-        # later user-visible action invalidates the view again anyway.
+        # Hiding/restoring overlay items dirties their scene rects; remember
+        # them so `_on_scene_changed` can recognise the resulting (queued)
+        # `changed` emissions as our own and not re-render forever (#305).
+        # A slightly inflated copy absorbs the anti-aliasing margin Qt adds
+        # to the dirty rect it reports.
         hidden = self._hide_overlay_items()
-        if hidden:
-            self._suppress_self_changed = True
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self._canvas_scene.render(painter, QRectF(0, 0, w, h), canvas_rect)
-        painter.end()
-        self._restore_overlay_items(hidden)
-        if hidden:
-            QTimer.singleShot(
-                0, lambda: QTimer.singleShot(0, self._end_self_change_suppression)
-            )
+        try:
+            self._self_dirty_rects = [
+                item.sceneBoundingRect().adjusted(-1, -1, 1, 1) for item in hidden
+            ]
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            self._canvas_scene.render(painter, QRectF(0, 0, w, h), canvas_rect)
+            painter.end()
+        finally:
+            self._restore_overlay_items(hidden)
 
         # Flip vertically to match the view's Y-flip transform
         self._thumbnail = pixmap.transformed(QTransform().scale(1, -1))
@@ -262,16 +260,6 @@ class MinimapWidget(QWidget):
         """Restore items that were hidden before thumbnail render."""
         for item in hidden:
             item.setVisible(True)
-
-    def _end_self_change_suppression(self) -> None:
-        """Clear the self-inflicted `changed` suppression window.
-
-        Runs one event-loop turn after `_do_update` hid/restored overlay
-        items — after the `changed` emissions that provoked have already
-        been delivered to (and ignored by) `_schedule_update`. See
-        `_do_update` for the full mechanism (issue #305).
-        """
-        self._suppress_self_changed = False
 
     def paintEvent(self, _event: object) -> None:  # noqa: N802
         """Draw the minimap thumbnail, border, and viewport rectangle."""

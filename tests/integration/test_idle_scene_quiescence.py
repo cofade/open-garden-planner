@@ -31,7 +31,7 @@ O(n^2) scans every cycle, while the user is doing nothing at all.
 
 The fix makes both handlers idempotent (soil) and makes the minimap ignore
 the ``changed`` emissions its own hide/restore provokes (see the
-``_suppress_self_changed`` mechanism in ``minimap_widget.py``). These tests
+``_on_scene_changed`` self-dirty-rect filter in ``minimap_widget.py``). These tests
 pin the end-to-end result on the real application window: once the scene
 has settled, an idle window must produce exactly zero further
 ``scene.changed`` emissions and zero further minimap renders.
@@ -42,10 +42,12 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from PyQt6.QtCore import QPointF
 
 from open_garden_planner.app.application import GardenPlannerApp
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
 
@@ -84,6 +86,13 @@ def _wrap_minimap_render_counter(window: GardenPlannerApp) -> dict[str, int]:
 
     minimap._update_timer.timeout.disconnect()
     minimap._update_timer.timeout.connect(counted)
+    return counts
+
+
+def _wrap_scene_changed_counter(scene: Any) -> dict[str, int]:
+    """Count ``scene.changed`` emissions from this point forward."""
+    counts = {"n": 0}
+    scene.changed.connect(lambda _rects: counts.__setitem__("n", counts["n"] + 1))
     return counts
 
 
@@ -150,4 +159,155 @@ class TestIdleSceneQuiescenceWhileSelected:
             f"minimap re-rendered {render_count['n']} times while idle with "
             "the bed still selected (handles visible) — self-sustaining "
             "loop (issue #305)"
+        )
+
+
+class TestIdleSceneQuiescenceWithSpacingIdealPlant:
+    """Pin for ``_update_spacing_overlaps``: a single plant with real spacing
+    data settles into "ideal" state and must not keep re-triggering
+    ``scene.changed`` forever (issue #305 loop C)."""
+
+    def test_no_changed_or_renders_while_idle_with_spacing_data(
+        self, window: GardenPlannerApp, qtbot: Any
+    ) -> None:
+        scene = window.canvas_scene
+        plant = CircleItem(500.0, 500.0, 50.0, object_type=ObjectType.TREE)
+        plant.metadata["plant_species"] = {
+            "common_name": "Apple",
+            "scientific_name": "Malus domestica",
+            "max_spread_cm": 400,
+        }
+        scene.addItem(plant)
+
+        qtbot.wait(1500)
+
+        changed_count = _wrap_scene_changed_counter(scene)
+        render_count = _wrap_minimap_render_counter(window)
+
+        qtbot.wait(2000)
+
+        assert changed_count["n"] == 0, (
+            f"scene.changed fired {changed_count['n']} times while idle with "
+            "one spaced-out plant — self-sustaining loop (issue #305)"
+        )
+        assert render_count["n"] == 0, (
+            f"minimap re-rendered {render_count['n']} times while idle with "
+            "one spaced-out plant — self-sustaining loop (issue #305)"
+        )
+
+
+class TestIdleSceneQuiescenceWithAntagonistWarning:
+    """Pin for ``_update_companion_highlights``: a permanent antagonist
+    warning badge (tomato/fennel, no selection needed) must not keep
+    re-triggering ``scene.changed`` forever (issue #305 loop C)."""
+
+    def test_no_changed_or_renders_while_idle_with_antagonist_pair(
+        self, window: GardenPlannerApp, qtbot: Any
+    ) -> None:
+        scene = window.canvas_scene
+        tomato = CircleItem(800.0, 500.0, 30.0, object_type=ObjectType.PERENNIAL)
+        tomato.plant_species = "tomato"
+        tomato.metadata["plant_species"] = {
+            "common_name": "Tomato",
+            "scientific_name": "Solanum lycopersicum",
+        }
+        fennel = CircleItem(860.0, 500.0, 30.0, object_type=ObjectType.PERENNIAL)
+        fennel.plant_species = "fennel"
+        fennel.metadata["plant_species"] = {
+            "common_name": "Fennel",
+            "scientific_name": "Foeniculum vulgare",
+        }
+        scene.addItem(tomato)
+        scene.addItem(fennel)
+
+        qtbot.wait(1500)
+
+        changed_count = _wrap_scene_changed_counter(scene)
+        render_count = _wrap_minimap_render_counter(window)
+
+        qtbot.wait(2000)
+
+        assert changed_count["n"] == 0, (
+            f"scene.changed fired {changed_count['n']} times while idle with "
+            "an antagonist pair — self-sustaining loop (issue #305)"
+        )
+        assert render_count["n"] == 0, (
+            f"minimap re-rendered {render_count['n']} times while idle with "
+            "an antagonist pair — self-sustaining loop (issue #305)"
+        )
+
+
+class TestIdleSceneQuiescenceWithSelectedBeneficialNeighbor:
+    """Pin for ``_update_companion_highlights``: a selected plant with a
+    beneficial neighbour (coloured ring, not just the permanent badge) must
+    not keep re-triggering ``scene.changed`` forever (issue #305 loop C)."""
+
+    def test_no_changed_or_renders_while_idle_with_selection_ring(
+        self, window: GardenPlannerApp, qtbot: Any
+    ) -> None:
+        scene = window.canvas_scene
+        tomato = CircleItem(500.0, 500.0, 30.0, object_type=ObjectType.PERENNIAL)
+        tomato.plant_species = "tomato"
+        tomato.metadata["plant_species"] = {
+            "common_name": "Tomato",
+            "scientific_name": "Solanum lycopersicum",
+        }
+        basil = CircleItem(550.0, 500.0, 20.0, object_type=ObjectType.PERENNIAL)
+        basil.plant_species = "basil"
+        basil.metadata["plant_species"] = {
+            "common_name": "Basil",
+            "scientific_name": "Ocimum basilicum",
+        }
+        scene.addItem(tomato)
+        scene.addItem(basil)
+
+        tomato.setSelected(True)  # stays selected through the idle window
+        qtbot.wait(300)
+
+        qtbot.wait(1500)
+
+        changed_count = _wrap_scene_changed_counter(scene)
+        render_count = _wrap_minimap_render_counter(window)
+
+        qtbot.wait(2000)
+
+        assert changed_count["n"] == 0, (
+            f"scene.changed fired {changed_count['n']} times while idle with "
+            "a selected plant + beneficial neighbour ring — self-sustaining "
+            "loop (issue #305)"
+        )
+        assert render_count["n"] == 0, (
+            f"minimap re-rendered {render_count['n']} times while idle with "
+            "a selected plant + beneficial neighbour ring — self-sustaining "
+            "loop (issue #305)"
+        )
+
+
+class TestIdleSceneQuiescenceCountersDetectMovement:
+    """Positive control: prove the counters used above actually work by
+    moving a plant after settle and observing at least one ``changed``."""
+
+    def test_moving_a_plant_after_settle_produces_changed(
+        self, window: GardenPlannerApp, qtbot: Any
+    ) -> None:
+        scene = window.canvas_scene
+        plant = CircleItem(500.0, 500.0, 50.0, object_type=ObjectType.TREE)
+        plant.metadata["plant_species"] = {
+            "common_name": "Apple",
+            "scientific_name": "Malus domestica",
+            "max_spread_cm": 400,
+        }
+        scene.addItem(plant)
+
+        qtbot.wait(1500)
+
+        changed_count = _wrap_scene_changed_counter(scene)
+
+        plant.setPos(plant.pos() + QPointF(10, 0))
+        qtbot.wait(200)
+
+        assert changed_count["n"] >= 1, (
+            "moving a plant produced no scene.changed at all — the counter "
+            "used by the idle-quiescence tests above is not measuring "
+            "anything, so a zero result there would be meaningless"
         )

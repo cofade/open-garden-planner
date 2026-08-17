@@ -1181,10 +1181,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Select a plant to view details": "Wählen Sie eine Pflanze, um Details anzuzeigen",
         "Searching for '{query}'...": "Suche nach '{query}'...",
         "Found {count} results": "{count} Ergebnisse gefunden",
+        # "No results found" is no longer emitted by src (replaced by the two
+        # #302 strings below) but stays registered: this script only fills the
+        # pylupdate-generated .ts, it never prunes it.
         "No results found": "Keine Ergebnisse gefunden",
         "No plants matched '{query}'. Try another spelling or the scientific name.":
             "Keine Pflanzen passen zu '{query}'. Versuchen Sie eine andere Schreibweise "
             "oder den wissenschaftlichen Namen.",
+        "({sources} unavailable — check Preferences.)":
+            "({sources} nicht erreichbar — Einstellungen prüfen.)",
         "No plant databases are configured. Add API credentials in Preferences to search online.":
             "Es sind keine Pflanzendatenbanken konfiguriert. Fügen Sie in den Einstellungen "
             "API-Zugangsdaten hinzu, um online zu suchen.",
