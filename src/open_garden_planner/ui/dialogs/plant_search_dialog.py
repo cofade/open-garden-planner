@@ -217,7 +217,7 @@ class PlantSearchDialog(QDialog):
                     # raised is still an honest "no match" (no failure
                     # dialog), but the user should learn a configured
                     # provider is down rather than only in Preferences.
-                    failed = getattr(self._api_manager, "last_search_failed_sources", [])
+                    failed = self._api_manager.last_search_failed_sources
                     if failed:
                         text += " " + self.tr(
                             "({sources} unavailable — check Preferences.)"

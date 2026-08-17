@@ -3712,15 +3712,17 @@ class GardenPlannerApp(QMainWindow):
         except RuntimeError:
             return  # Scene already deleted during shutdown
 
-        all_plants = [
-            it for it in scene_items
-            if self._is_canvas_plant(it) and self._companion_species_name(it)
-        ]
+        # Every plant item gets a final value applied (so a plant that just
+        # lost its species — e.g. ApplySpeciesCommand.undo — is cleared, not
+        # left with a stale ring/badge); only named plants take part in the
+        # relationship scan.
+        canvas_plants = [it for it in scene_items if self._is_canvas_plant(it)]
+        all_plants = [it for it in canvas_plants if self._companion_species_name(it)]
 
         # Desired final state per plant, computed before any setter call so
         # each item is mutated at most once this pass.
-        highlights: dict[int, str | None] = {id(it): None for it in all_plants}
-        warnings: dict[int, bool] = {id(it): False for it in all_plants}
+        highlights: dict[int, str | None] = {id(it): None for it in canvas_plants}
+        warnings: dict[int, bool] = {id(it): False for it in canvas_plants}
 
         if self._companion_warnings_enabled:
             # 1. Selection-based coloured rings (beneficial / antagonistic)
@@ -3769,7 +3771,7 @@ class GardenPlannerApp(QMainWindow):
                         warnings[id(plant_a)] = True
                         break  # one antagonist is enough
 
-        for plant in all_plants:
+        for plant in canvas_plants:
             plant.set_companion_highlight(highlights[id(plant)])  # type: ignore[attr-defined]
             plant.set_antagonist_warning(warnings[id(plant)])  # type: ignore[attr-defined]
 

@@ -170,6 +170,10 @@ class MinimapWidget(QWidget):
             any(own.contains(r) for own in self._self_dirty_rects) for r in rects
         ):
             return
+        # A genuine change: the next render records fresh rects; stale ones
+        # from a render whose emissions are already consumed must not filter
+        # anything that arrives before then.
+        self._self_dirty_rects = []
         self._schedule_update()
 
     def _do_update(self) -> None:
@@ -217,12 +221,19 @@ class MinimapWidget(QWidget):
         # Hiding/restoring overlay items dirties their scene rects; remember
         # them so `_on_scene_changed` can recognise the resulting (queued)
         # `changed` emissions as our own and not re-render forever (#305).
-        # A slightly inflated copy absorbs the anti-aliasing margin Qt adds
-        # to the dirty rect it reports.
+        # Measured (Qt 6.11): only *transformable* items emit `changed` on
+        # setVisible(); `ItemIgnoresTransformations` items (every handle,
+        # label and badge in this app) emit nothing — so only the former are
+        # recorded, which keeps the filter's blind spot to the curve-edit
+        # connector lines. A slightly inflated copy absorbs the
+        # anti-aliasing margin Qt adds to the dirty rect it reports.
         hidden = self._hide_overlay_items()
+        ignore_flag = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
         try:
             self._self_dirty_rects = [
-                item.sceneBoundingRect().adjusted(-1, -1, 1, 1) for item in hidden
+                item.sceneBoundingRect().adjusted(-1, -1, 1, 1)
+                for item in hidden
+                if not (item.flags() & ignore_flag)
             ]
             painter = QPainter(pixmap)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)

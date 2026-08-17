@@ -5,14 +5,19 @@ roughly an hour of the app sitting idle. Two self-sustaining idle loops were
 found, both driven by ``QGraphicsScene.changed``:
 
 Loop A (``MinimapWidget._do_update``, ``src/.../ui/widgets/minimap_widget.py``):
-hides overlay/handle items, renders a thumbnail, then restores them. Each
-``setVisible()`` makes the scene emit ``changed`` ASYNCHRONOUSLY — queued,
-delivered only after ``_do_update`` has already returned — and ``changed``
-is connected to ``_schedule_update``, which restarted the 100 ms throttle
-timer, causing ``_do_update`` to run again, forever, whenever any overlay
-item (selection/resize/rotation handles, dimension labels, ...) was present.
-Measured (offscreen harness): ~1 render/1.5 s with no overlay items, 13-14
-renders/1.5 s with one overlay item present, never quiescent.
+hides overlay items, renders a thumbnail, then restores them. For a
+*transformable* overlay item ``setVisible()`` makes the scene emit
+``changed`` ASYNCHRONOUSLY — queued, delivered only after ``_do_update``
+has already returned — and ``changed`` restarted the 100 ms throttle
+timer, causing ``_do_update`` to run again, forever. Measured (offscreen
+harness): ~1 render/1.5 s with no overlay items, 13-14 renders/1.5 s with
+one transformable z>=_OVERLAY_Z_MIN item present, never quiescent. NOTE
+(senior review, measured): ``setVisible()`` on an
+``ItemIgnoresTransformations`` item emits NO ``changed`` at all — and every
+handle, label and badge in this app carries that flag — so selection
+handles do not trigger Loop A; in production only the curve-edit connector
+lines (transformable, z>=10000) do. The reporter's idle churn came from
+Loops B-D.
 
 Loop B (``CanvasView._update_soil_mismatches`` / ``_update_soil_badges``,
 ``src/.../ui/canvas/canvas_view.py``): the 500 ms soil debounce handler
@@ -136,8 +141,10 @@ class TestIdleSceneQuiescenceAfterDeselect:
 
 
 class TestIdleSceneQuiescenceWhileSelected:
-    """End-to-end pin for Loop A specifically: overlay/handle items are
-    ACTIVELY present (bed stays selected) and the minimap must still settle."""
+    """A selected bed (handles visible) must settle. Handles are
+    ``ItemIgnoresTransformations`` and — measured — do not trigger Loop A;
+    this pins the selected state end-to-end regardless (soil badge, spacing,
+    companion all run on selection)."""
 
     def test_no_minimap_renders_while_selected_and_idle(
         self, window: GardenPlannerApp, qtbot: Any
@@ -160,6 +167,39 @@ class TestIdleSceneQuiescenceWhileSelected:
             "the bed still selected (handles visible) — self-sustaining "
             "loop (issue #305)"
         )
+
+
+class TestIdleSceneQuiescenceWithTransformableOverlay:
+    """End-to-end pin for Loop A specifically: a *transformable* z>=10000
+    overlay item (what curve-edit mode's connector lines are) is present on
+    the real window and the minimap must still settle."""
+
+    def test_no_minimap_renders_with_transformable_overlay_present(
+        self, window: GardenPlannerApp, qtbot: Any
+    ) -> None:
+        from PyQt6.QtWidgets import QGraphicsRectItem
+
+        from open_garden_planner.ui.widgets.minimap_widget import _OVERLAY_Z_MIN
+
+        scene = window.canvas_scene
+        overlay = QGraphicsRectItem(-5, -5, 10, 10)
+        overlay.setPos(1000, 800)
+        overlay.setZValue(_OVERLAY_Z_MIN + 1)  # transformable, no IIT flag
+        scene.addItem(overlay)
+        qtbot.wait(1500)
+
+        changed_count = {"n": 0}
+        scene.changed.connect(
+            lambda _rects: changed_count.__setitem__("n", changed_count["n"] + 1)
+        )
+        render_count = _wrap_minimap_render_counter(window)
+        qtbot.wait(2000)
+
+        assert render_count["n"] == 0, (
+            f"minimap re-rendered {render_count['n']} times while idle with a "
+            "transformable overlay item present — Loop A (issue #305)"
+        )
+        assert changed_count["n"] == 0
 
 
 class TestIdleSceneQuiescenceWithSpacingIdealPlant:
