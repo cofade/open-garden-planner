@@ -36,7 +36,7 @@ ALLOWED_ATTRIBUTES = frozenset({
     "stop-color", "stop-opacity", "id", "offset", "viewBox",
 })
 COLOR_VALUE = re.compile(r"^(none|#[0-9a-f]{6}|url\(#[A-Za-z0-9_]+\))$")
-# Budgets: densest shipped sprite is hot_tub at 380 elements / 35.9 KB
+# Budgets: densest shipped sprite is hot_tub at 380 elements / 35,910 bytes (LF)
 # (measured 2026-08-17); caps sit ~1.2x above it — a new recipe that trips
 # them should be slimmed or the cap raised deliberately (with this note updated).
 MAX_ELEMENTS = 460
@@ -121,6 +121,29 @@ class TestRecipes:
     def test_recipe_keys_are_known(self) -> None:
         for name, cfg in _GEN.OBJECTS.items():
             assert set(cfg) <= _GEN._KNOWN_KEYS, name
+
+    def test_shape_matches_change_type_menu_and_art_aspect(self, qtbot: object) -> None:  # noqa: ARG002
+        """`shape` is load-bearing: a circle-tool object must be offered for circles
+        (the "Change Type" menu) and ship SQUARE art (a circle item renders into a
+        square footprint — the BBQ was stretched on every canvas until #308)."""
+        from open_garden_planner.core.furniture_renderer import (
+            _FURNITURE_FILES,
+            _INFRASTRUCTURE_FILES,
+        )
+        from open_garden_planner.core.object_types import get_valid_types_for_shape
+
+        by_file = {v: k for k, v in {**_FURNITURE_FILES, **_INFRASTRUCTURE_FILES}.items()}
+        circle_types = set(get_valid_types_for_shape("circle"))
+        rect_types = set(get_valid_types_for_shape("rectangle"))
+        for name, cfg in _GEN.OBJECTS.items():
+            obj_type = by_file[name]
+            w, h = cfg["view"]
+            if cfg["shape"] == "circle":
+                assert obj_type in circle_types, f"{name}: circle-tool object not offered for circles"
+                assert w == h, f"{name}: circle-tool object must ship square art"
+            else:
+                assert cfg["shape"] == "rect", name
+                assert obj_type in rect_types, f"{name}: rect-tool object not offered for rectangles"
 
     def test_default_dimensions_match_viewboxes(self, qtbot: object) -> None:  # noqa: ARG002
         """The renderer's default cm footprint IS the art's viewBox (contract rule 4)."""

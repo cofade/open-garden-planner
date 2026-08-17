@@ -76,15 +76,17 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
     "LOUNGER": 80.0,
     "BBQ_GRILL": 90.0,
     "COMPOST_BIN": 100.0,
-    # Package 3a roster (#308)
+    # Package 3a roster (#308) — solid objects only. SWING / PERGOLA / HAMMOCK
+    # deliberately have NO default: the shadow/3D model extrudes the FULL item
+    # footprint as a solid prism (`sun_shadow_controller._item_footprints`), and
+    # a pergola or swing frame is mostly air (sprite ink 0.20-0.53) — a solid
+    # 3x3 m block at 2.3 m would misstate a sun study. Users can still set
+    # `object_height_cm` explicitly (ADR-042).
     "SANDBOX": 30.0,
     "TRAMPOLINE": 90.0,
     "HOT_TUB": 90.0,
-    "SWING": 200.0,
     "PICNIC_TABLE": 75.0,
-    "HAMMOCK": 120.0,
     "WHEELBARROW": 60.0,
-    "PERGOLA": 230.0,
     "BIRD_BATH": 90.0,
 }
 

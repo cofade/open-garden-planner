@@ -187,3 +187,24 @@ def _disable_agent_api_server(_reset_app_settings):
 
     create_qsettings().setValue(AppSettings.KEY_AGENT_API_ENABLED, False)
     yield
+
+
+@pytest.fixture(autouse=True)
+def _disable_welcome_dialog(_reset_app_settings):
+    """Never open the modal startup Welcome dialog during tests.
+
+    `GardenPlannerApp` arms `QTimer.singleShot(500, self._startup_sequence)`,
+    which opens the MODAL `WelcomeDialog` via `dialog.exec()` when
+    `show_welcome_on_startup` is on (the production default). Headless, nobody
+    closes it, so the first event processing after the timer fires — typically
+    pytest-qt's teardown `processEvents()` of a full-app test that outlived
+    500 ms — parks the whole session inside the modal loop forever, with an
+    EMPTY log (§11.4 "silence the startup Welcome dialog"; re-hit 2026-08-17 in
+    `test_trellis.py`, Package 3a). Per-file monkeypatches
+    (`test_icon_system._make_app`) guarded ~1 of ~32 app-building files; this
+    guards all of them. Same ordering contract as `_disable_agent_api_server`.
+    """
+    from open_garden_planner.app.settings import AppSettings, create_qsettings
+
+    create_qsettings().setValue(AppSettings.KEY_SHOW_WELCOME, False)
+    yield

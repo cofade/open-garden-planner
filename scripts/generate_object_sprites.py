@@ -353,15 +353,13 @@ def plank(sp: Sprite, x: float, y: float, w: float, h: float, m: dict[str, str],
 
 
 def wood_surface(sp: Sprite, x: float, y: float, w: float, h: float, m: dict[str, str],
-                 orient: str = "h", n: int | None = None, gap: float = 1.2, halo: bool = True,
+                 orient: str = "h", n: int = 3, gap: float = 1.2, halo: bool = True,
                  rx: float = 1.2) -> None:
     """A slab of parallel planks running along `orient` (planks stacked across it)."""
     if halo:
         halo_rect(sp, x, y, w, h, m, pad=1.2, rx=rx + 1)
     sp.add(rect_s(x, y, w, h, m["occ"], rx=rx))  # gap ground
     across = h if orient == "h" else w
-    if n is None:
-        n = max(int(across / 11 + 1e-9), 1)
     pw = (across - gap * (n - 1)) / n
     for i in range(n):
         off = i * (pw + gap)
@@ -1039,7 +1037,7 @@ def build_sandbox(sp: Sprite) -> None:
     for (ax, ay, bx, by, cx_, cy_) in ((2, 2, 40, 2, 2, 40), (W - 2, 2, W - 40, 2, W - 2, 40),
                                        (2, H - 2, 40, H - 2, 2, H - 40), (W - 2, H - 2, W - 40, H - 2, W - 2, H - 40)):
         d = f"M {f1(ax)} {f1(ay)} L {f1(bx)} {f1(by)} L {f1(cx_)} {f1(cy_)} Z"
-        sp.add(path_s(d, wood["occ"], extra=' opacity="0.6" transform="translate(0.8 0.8)"'))
+        sp.add(path_s(d, wood["occ"], extra=f' stroke="{wood["occ"]}" stroke-width="2.0" stroke-linejoin="round" opacity="0.6"'))
         g = sp.lin([(0, wood["dark"], None), (50, wood["light"], None), (100, wood["dark"], None)], 0, 0, 1, 1)
         sp.add(path_s(d, f"url(#{g})"))
         sp.add(line_s((ax + bx) / 2, (ay + by) / 2 + (1 if ay < H / 2 else -1) * 3, (ax + cx_) / 2 + (1 if ax < W / 2 else -1) * 3,
@@ -1230,16 +1228,17 @@ def build_swing(sp: Sprite) -> None:
     wood = MATERIALS["pine"]
     rope = MATERIALS["sandstone"]
     seat_m = MATERIALS["plastic_blue"]
-    cy = H / 2 - 12
-    # A-frame legs: from the beam outward to the feet, splayed 8 units toward the ends
-    L = 64.0
+    cy = H / 2 - 8
+    # A-frame legs: from the beam outward to the feet, splayed 8 units toward the ends;
+    # L keeps the upper feet (r 3.2) inside the viewBox: cy - L - 3.2 >= 0.6
+    L = 63.0
     splay = math.degrees(math.atan2(8.0, L))
     for ex, sgn in ((14.0, 1), (W - 14.0, -1)):
         for dy in (-1, 1):
             with sp.rotated(sgn * dy * splay, ex, cy):
                 plank(sp, ex - 3.5, cy if dy > 0 else cy - L, 7, L, wood, "v", rx=3, knot=False)
     # feet caps at the leg ends
-    for fx, fy in ((6, cy - 62), (6, cy + 62), (W - 6, cy - 62), (W - 6, cy + 62)):
+    for fx, fy in ((6, cy - L + 1), (6, cy + L - 1), (W - 6, cy - L + 1), (W - 6, cy + L - 1)):
         disc(sp, fx, fy, 3.2, MATERIALS["rubber"], gloss=0.2)
     # top beam
     plank(sp, 3, cy - 6, W - 6, 12, wood, "h", rx=3)
@@ -1343,6 +1342,9 @@ def build_bird_bath(sp: Sprite) -> None:
 
 # --------------------------------------------------------------------------- #
 # recipe table — name → dict(view=(w, h), dir=..., build=callable, shape=rect|circle)
+# `shape` = the canvas tool that draws the object (RectangleTool | CircleTool); the
+# conformance gate cross-checks it against get_valid_types_for_shape(), so the art's
+# aspect (square for circle-tool objects) and the "Change Type" menu can't drift.
 # --------------------------------------------------------------------------- #
 _KNOWN_KEYS = frozenset({"view", "dir", "build", "shape"})
 
@@ -1362,7 +1364,7 @@ OBJECTS: dict[str, dict] = {
     "compost_bin": dict(view=(100, 100), dir="infrastructure", build=build_compost_bin, shape="rect"),
     "cold_frame": dict(view=(120, 60), dir="infrastructure", build=build_cold_frame, shape="rect"),
     "rain_barrel": dict(view=(60, 60), dir="infrastructure", build=build_rain_barrel, shape="circle"),
-    "water_tap": dict(view=(20, 20), dir="infrastructure", build=build_water_tap, shape="rect"),
+    "water_tap": dict(view=(20, 20), dir="infrastructure", build=build_water_tap, shape="circle"),
     "tool_shed": dict(view=(200, 150), dir="infrastructure", build=build_tool_shed, shape="rect"),
     # new roster (#308)
     "sandbox": dict(view=(150, 150), dir="furniture", build=build_sandbox, shape="rect"),

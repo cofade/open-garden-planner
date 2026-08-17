@@ -45,12 +45,14 @@ All SVGs in `furniture/` and `infrastructure/` are **generated** by
    bytes; discrete decisions downstream of float math stay off exact integer
    boundaries.
 7. **Budgets (gated).** ≤ 460 elements and ≤ 44 KB per file (~1.2× the densest
-   shipped sprite, `hot_tub` at 380 elements / 35.9 KB, measured 2026-08-17).
+   shipped sprite, `hot_tub` at 380 elements / 35,910 bytes, measured 2026-08-17).
 8. **Visual weight (gated).** Ink coverage through the real render path
    (`render_furniture_pixmap` at the default footprint, alpha > 10, 2-px
-   sampling) within **[0.18, 1.00]**; ≥ 0.35 at 24 px (gallery-thumbnail
-   scale). Open structures are legitimately airy (swing 0.204, hammock 0.426,
-   pergola 0.530); solid ones fill their footprint (sandbox 0.999). Enforced by
+   sampling) within **[0.18, 1.00]**; ≥ 0.25 at 24 px (gallery-thumbnail
+   scale, 1-px sampling); and a luminance-spread floor (std ≥ 0.05) so a
+   sprite can never degrade to one flat fill. Open structures are legitimately
+   airy (swing 0.205, hammock 0.426, pergola 0.530); solid ones fill their
+   footprint (sandbox 0.999). Enforced by
    `tests/integration/test_object_sprite_rendering.py`.
 9. **Bed/container interiors stay calm.** `raised_bed`, `planter_pot`,
    `cold_frame` are soil containers — plants get placed on them and the grid
@@ -63,10 +65,12 @@ All SVGs in `furniture/` and `infrastructure/` are **generated** by
 | `furniture/` (15) | table_rectangular, table_round, chair, bench, parasol, lounger, bbq_grill, fire_pit, planter_pot, **sandbox, trampoline, hot_tub, swing, picnic_table, hammock** |
 | `infrastructure/` (9) | raised_bed, compost_bin, cold_frame, rain_barrel, water_tap, tool_shed, **wheelbarrow, pergola, bird_bath** |
 
-Bold = added in Package 3a (#308). Adding an object type touches 8 source
-files (enum, styles, valid-shape list, ToolType, canvas tool registration,
-renderer maps + default dims, height default, gallery entry) plus the three
-translation contexts — the checklist lives in ADR-042 / §8.23.
+Bold = added in Package 3a (#308). Adding an object type touches eight
+registration surfaces in six source files (enum + styles + valid-shape list in
+`object_types.py`, ToolType, canvas tool registration, renderer maps + default
+dims, height default, gallery entry) plus the three translation contexts — the
+checklist lives in §8.23; the `OBJECTS` recipe's `shape` key is cross-checked
+by the conformance gate against the "Change Type" menu and square art.
 
 ## Changing or adding a sprite
 

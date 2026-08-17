@@ -88,8 +88,9 @@ workflow (validated in the #281 style lab, 2026-07-26):
    **viewBox is the default footprint in cm** (circle-tool objects ship
    square art). Gates mirror the plant set (`--check` determinism, allowlist,
    budgets ≤ 460 elements / 44 KB, visual-weight band through the real
-   renderer). Adding an object TYPE touches 8 source files + 3 translation
-   contexts — checklist in §8.23. Watch for a full-rect occlusion halo over
+   renderer). Adding an object TYPE touches eight registration surfaces in
+   six source files + 3 translation contexts — checklist in §8.23; the recipe's
+   `shape` key is gate-checked against the "Change Type" menu. Watch for a full-rect occlusion halo over
    an interior (it murks the glass/soil under it — halo only under the parts).
 
 ## 3. The mechanical gates (no eyeballing)

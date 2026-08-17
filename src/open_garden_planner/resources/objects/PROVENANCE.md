@@ -9,9 +9,12 @@ it merges (`ogp-external-positioning`: assets without provenance don't ship).
   asset. **The generator IS the provenance record**: every shape, color and
   jitter is derived from the `MATERIALS`/`EMBER`/`FLAME` tables and a
   per-object seed (`"ogp-object-<name>"`).
-- **Reproduction**: run the script; identical bytes on every run and every
-  platform (pinned by `--check` and
-  `tests/unit/test_object_sprite_conformance.py::TestDeterminism`).
+- **Reproduction**: run the script; identical bytes on every run (pinned by
+  `--check` and `tests/unit/test_object_sprite_conformance.py::TestDeterminism`,
+  verified on Windows; CI's ubuntu run of the same gate is the cross-platform
+  evidence — the generator formats libm-dependent trig at 0.1-unit precision,
+  so a 1-ULP platform difference is expected to be invisible, and the gate is
+  fail-safe if it is not).
 - **License basis**: original in-repo work; distributed under the project
   license (GPL-3.0-or-later).
 - **Style contract**: `README.md` (this folder) — "Lush Object", the man-made
