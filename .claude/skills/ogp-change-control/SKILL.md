@@ -187,7 +187,23 @@ merged PR at run time; a label added after the workflow ran does nothing.
 ```bash
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe   # exit code 124 = success (app survived 8 s)
+powershell -Command "$p = Start-Process 'dist/OpenGardenPlanner/OpenGardenPlanner.exe' -ArgumentList '--selftest' -Wait -PassThru; exit $p.ExitCode"   # exit code 0 = subsystems alive
 ```
+**Both checks, not just the smoke.** The 8-second smoke proves only that the process stays
+up; it cannot see a *silently dead subsystem*, which is how issue #291 (the Agent API never
+started in the frozen windowed exe) survived six releases, and how #277 (a Qt6Core/Qt3D micro
+mismatch behind a lazy import) shipped a crash. `--selftest` (`main.py`) imports the Qt3D
+bindings, checks the Qt runtime against the Qt3D wheel version, and starts a real
+`AgentApiServer` asserting it binds. `release.yml` runs it against the built exe *after*
+merge; running it here is what makes it a merge gate.
+
+**The invocation form is load-bearing.** Use `Start-Process -Wait -PassThru` (what
+`release.yml` uses): PowerShell does **not** wait on a GUI-subsystem process, so a plain call
+returns in milliseconds with an empty exit code — a gate that passes unconditionally. And
+running it through a shell pipe hands the windowed exe a real `sys.stdout`, so it cannot
+reproduce the `stdout is None` condition #291 is about (§11.4's "the observation changes the
+result", one layer up).
+
 Windows-only (the exe cannot run in a Linux cloud session — say so in the PR rather than
 skipping silently). Rationale: PyInstaller hidden-import and data-file breakage is
 invisible to pytest; D1.1 specifically had to verify the frozen embedded MCP server.

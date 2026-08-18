@@ -46,8 +46,7 @@ G = `#311`, `#317`, `#318`, `#320`) with **zero** presence in `docs/roadmap.md` 
 `grep -n "Package F\|US-F1\|US-G1" docs/roadmap.md` returns nothing. If the roadmap has drifted,
 correct it **in this package's PR**; a stale table is why the next person picks the wrong work.
 (Distinguish drift from *disclosed* scope: the D2 US-table blockquote said outright that it was
-incomplete. A note admitting a gap is a smaller
-problem than silence — though still a gap.)
+incomplete — a note admitting a gap is a smaller problem than silence, though still a gap.)
 
 ```bash
 GH="C:/Program Files/GitHub CLI/gh.exe"   # Windows dev machine; in a Linux/cloud session use
@@ -78,7 +77,8 @@ Prefer, in order:
    than shipping them apart.
 
 **An issue that states a recommendation is implementable.** Most decision-carrying issues here
-end with an owner-authored *"Recommendation: …"* plus *"whatever is decided, the ADR must state
+carry an owner-authored *"Recommendation: …"* (or *"Recommended resolution: …"*, sometimes
+mid-body rather than at the end) plus *"whatever is decided, the ADR must state
 it and a test must pin it"* — that is pre-authorisation, not a blocker. Make the call, record it
 in an ADR addendum, and surface it in the PR; never decide it silently in code. **Exclude only an
 issue that poses an open question with no recommendation**, or one whose answer is a product call
@@ -144,7 +144,8 @@ Beyond that, four habits that repeatedly find real defects here:
   operation" is a contract, and `move_object`'s two-step reparent case is the documented
   exception that proves nobody verifies this by accident.
 - **Parametrise over the parameter a defect scales with.** A bug proportional to rotation is
-  exactly 0 at rotation 0, so coverage of the default value proves nothing (see #326).
+  exactly 0 at rotation 0, so coverage of the default value proves nothing (#213 / PR #217 is
+  the recorded case).
   Same for empty collections, single-element lists, and unset optionals.
 - **Add a drift guard for anything inlined from elsewhere.** Inlined `ObjectType` name sets, enum
   value sets and tool-name lists each need a unit test asserting they still match the real
@@ -163,25 +164,28 @@ PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
 venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py -v
 venv/Scripts/python.exe scripts/check_agent_context.py
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
-timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe        # exit 124 = survived = pass
-dist/OpenGardenPlanner/OpenGardenPlanner.exe --selftest       # exit 0 = subsystems alive
+timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe   # exit 124 = survived = pass
+powershell -Command "$p = Start-Process 'dist/OpenGardenPlanner/OpenGardenPlanner.exe' -ArgumentList '--selftest' -Wait -PassThru; exit $p.ExitCode"
 ```
 
 The exe build is the **last three lines of the battery, not an optional extra** — see step 6.
-**Run both exe checks.** The 8-second smoke only proves the process stays up; `--selftest`
-(`main.py`) actually imports the Qt3D bindings and starts the Agent API server, asserting it
-binds. That distinction is the whole lesson of #291 and #277: a windowed exe has no stdout, so
-both failures were invisible to a smoke test and to any `console=True` debug build (§11.4).
+Both exe checks are `ogp-change-control` §2.8's, not this file's; the mechanics and the two
+traps in that `Start-Process` invocation are in `ogp-build-and-run`. Do not simplify it: a
+plain call returns in milliseconds under PowerShell with no exit code, and a shell-piped run
+hands the windowed exe a real stdout so it cannot reproduce the condition #291 is about.
 
 ## 6. Verify on the running artifact, not only in pytest
 
-**Always.** `CLAUDE.md` and `ogp-change-control` §2.8 both require a frozen-exe build and smoke
-before every merge; the only sanctioned excuse is a Linux/cloud session that cannot run it, and
-then you **say so in the PR** rather than skipping silently. pytest runs the source tree; users
-run the frozen exe, and the two have disagreed on real releases — #291 (the embedded server never
-started in the frozen *windowed* exe, because uvicorn's log config touches `sys.stdout`, which is
-`None` there) and the `ogp.spec` `unittest` exclusion that silently broke DXF export in every
-built exe.
+**Always.** `CLAUDE.md` and `ogp-change-control` §2.8 both require a frozen-exe build, the
+8-second smoke **and** `--selftest` before every merge; the only sanctioned excuse is a
+Linux/cloud session that cannot run them, and then you **say so in the PR** rather than skipping
+silently. pytest runs the source tree; users run the frozen exe, and the two have disagreed on
+real releases in three different ways: #291 (the embedded server never started in the frozen
+*windowed* exe, because uvicorn's log config dereferences `sys.stdout`, which is `None` there),
+#277 (a Qt6Core/Qt3D micro mismatch that startup and the smoke both survived because Qt3D is
+imported **lazily** — nothing to do with stdout; a `console=True` build reproduces it fine), and
+the `ogp.spec` `unittest` exclusion that silently broke DXF export in every built exe. Different
+root causes, one shared shape: a subsystem that is dead while the process is alive.
 
 Doubly so when the package touches startup, packaging, resources, or the Agent API. For an
 **Agent API** package, add the dogfood run D1.4 established: launch the app, point a live MCP
@@ -227,13 +231,16 @@ Docs are **English-only** — never let a German UI label leak into doc prose.
 Run the `senior-reviewer` agent against the branch diff in a fresh worktree — **once per PR, and
 again after every round of fixes, until it comes back clean**. A review of the original is not a
 review of the fix; round 2 has caught P0s that round 1 missed (#213 / PR #217's rotated-plant
-`transformOriginPoint` drift), and round 3 has caught what rounds 1 and 2 obscured (#240).
+`transformOriginPoint` drift), and round 3 has caught what rounds 1 and 2 obscured (#240 / PR #251).
 
 Run it without being asked — it is a standing requirement of the workflow, not a favour. If you
-*cannot* run it (no agent tooling, or the user has said not to launch one), then like the exe
-gate in step 6 the gate is simply **unmet**: say so plainly in the PR, and do not proceed toward
-merge on the assumption it would have passed. This file never overrides a live instruction from
-the user; it only refuses to let an unmet gate go unreported.
+*cannot* run it (no agent tooling, or the user has said not to launch one), the gate is simply
+**unmet**. `CLAUDE.md` says a coding job ends in a draft PR *and* that the draft opens only once
+the review is satisfied; the reconciliation is the same carve-out step 6 makes for a Linux
+session that cannot build the exe — **open the draft, state the unmet gate in the body, and stop
+there**. Do not proceed toward ready-or-merge on the assumption it would have passed. This file
+never overrides a live instruction from the user; it only refuses to let an unmet gate go
+unreported.
 
 Two counterweights, both earned:
 
