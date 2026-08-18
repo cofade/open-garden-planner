@@ -72,6 +72,7 @@ __all__ = [
     "build_rect_resize",
     "capture_rect_like_geometry",
     "is_resizable_rect_like",
+    "is_round_like",
 ]
 
 
@@ -92,9 +93,18 @@ def is_resizable_rect_like(item: QGraphicsItem) -> bool:
     )
 
 
-def _is_circle_like(item: QGraphicsItem) -> bool:
-    """Whether ``item`` keeps ``_center``/``_radius`` beside its rect."""
+def is_round_like(item: QGraphicsItem) -> bool:
+    """Whether ``item`` is circle-backed — it keeps ``_center``/``_radius``.
+
+    Public because callers must choose a builder by the **same** rule the
+    builders use internally. A caller testing only ``hasattr(item, "_radius")``
+    while :func:`_resize_geometry` tests both attributes would reintroduce
+    exactly the caller/callee divergence this module exists to remove.
+    """
     return hasattr(item, "_center") and hasattr(item, "_radius")
+
+
+_is_circle_like = is_round_like
 
 
 def capture_rect_like_geometry(item: QGraphicsItem) -> dict[str, Any]:

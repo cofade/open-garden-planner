@@ -716,6 +716,7 @@ class GardenPlannerApp(QMainWindow):
             build_circle_resize,
             build_rect_resize,
             is_resizable_rect_like,
+            is_round_like,
         )
 
         item = self._resolve_agent_item(item_id)
@@ -723,13 +724,19 @@ class GardenPlannerApp(QMainWindow):
         self._agent_require_unconstrained(item, item_id, "resize_object")
 
         if not is_resizable_rect_like(item):
+            # Don't assert WHY it has no width/height box — a polygon or
+            # polyline is vertex-backed, but a text label or a group is neither,
+            # and telling an agent to wait for vertex editing would send it
+            # after a tool that will never help it.
             raise ValueError(
-                f"{item_id} is a {type_name}, which is drawn from vertices "
-                "rather than a width/height box, so resize_object cannot "
-                "resize it. Vertex editing is not available to agents yet."
+                f"{item_id} is a {type_name}, which has no width/height box, so "
+                "resize_object cannot resize it. Polygons and polylines are "
+                "vertex-backed (vertex editing is not available to agents yet); "
+                "a group is resized by addressing its members individually."
             )
 
-        is_round = hasattr(item, "_radius")
+        # Same predicate the builders use internally — see is_round_like.
+        is_round = is_round_like(item)
         current_rect = item.rect()
         canvas_rect = self.canvas_scene.canvas_rect
         new_width, new_height = edits.validate_resize_request(
@@ -881,9 +888,20 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.ui.plant_species_assignment import apply_species_to_item
 
         item = self._agent_resolve_plant(item_id, "set_species")
+        # Assigning a species RESIZES the footprint (to max_spread_cm), so this
+        # is a geometry mutation and must clear the same gate resize_object
+        # does. Without this an agent refused by resize_object could get the
+        # resize through set_species instead — the perimeter with a door in it
+        # that the US-D2.2 senior review found.
+        if species is not None:
+            self._agent_require_unconstrained(item, item_id, "set_species")
 
         if species is None:
             old_species = item.metadata.get("plant_species")
+            if not isinstance(old_species, dict):
+                raise ValueError(
+                    f"{item_id} has no species to clear; nothing to change."
+                )
             cmd = ApplySpeciesCommand(
                 item,
                 old_species if isinstance(old_species, dict) else None,
@@ -908,7 +926,14 @@ class GardenPlannerApp(QMainWindow):
                 item, species_dict, confirm=lambda: apply_database_size
             )
             resulting_key = species_dict.get("scientific_name") or species
-            undo_description = self._agent_last_undo_description()
+            # ApplySpeciesCommand.description is a constant, so name it directly
+            # rather than reading the stack top — apply_species_to_item applies
+            # without pushing when there is no command manager, and the stack
+            # top would then be an unrelated command the agent would be told
+            # Ctrl+Z reverses.
+            undo_description = ApplySpeciesCommand(
+                item, None, None, None, None
+            ).description
 
         cx, cy = self._agent_item_center(item)
         return {
@@ -965,9 +990,14 @@ class GardenPlannerApp(QMainWindow):
             edits.require_plant_parent_type(
                 self._agent_object_type_name(bed), bed_id
             )
-            if bed.item_id == plant.item_id:
-                raise ValueError(f"{item_id} cannot be its own parent bed.")
             new_parent_id = bed.item_id
+            # Containment uses the same construct CanvasView's own reparent test
+            # does (boundingRect centre), so the agent's link and the GUI's
+            # auto-link agree on the boundary case. Note this is deliberately
+            # NOT _agent_item_center's rect-based centre: that one exists so a
+            # reported x/y matches the read tools, whereas this one exists to
+            # match the GUI's containment decision. The two differ by the
+            # antagonist badge's asymmetric overflow (~0.07 * radius).
             plant_center = plant.mapToScene(plant.boundingRect().center())
             link_is_geometric = bool(bed.contains(bed.mapFromScene(plant_center)))
 
@@ -1018,16 +1048,6 @@ class GardenPlannerApp(QMainWindow):
         object_type = getattr(item, "object_type", None)
         name = getattr(object_type, "name", None)
         return str(name) if name else type(item).__name__
-
-    def _agent_last_undo_description(self) -> str:
-        """Description of the command on top of the undo stack, or a fallback.
-
-        ``apply_species_to_item`` owns the command it executes, so the tool
-        reports what actually landed on the stack rather than re-deriving a
-        label that could disagree with it.
-        """
-        description = self.canvas_view.command_manager.undo_description
-        return description if description else "Apply species data"
 
     def _agent_refresh_soil_mismatches(self) -> None:
         """Recompute soil-mismatch borders after a species change.

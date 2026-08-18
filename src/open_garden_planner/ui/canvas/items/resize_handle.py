@@ -2617,6 +2617,16 @@ class RectVertexEditMixin:
         new_pos = QPointF(initial_pos.x() + scene_shift_x, initial_pos.y() + scene_shift_y)
 
         self.setRect(new_rect)  # type: ignore[attr-defined]
+        # Re-pin the rotation origin onto the new rect centre, the serializer
+        # invariant transformOriginPoint == rect().center() (#219). This path
+        # was the last rect resize in the codebase still missing it: dragging a
+        # corner of a ROTATED rectangle left the pivot behind, so the stored
+        # centre (pos + rect.center()) drifted away from the visual one and the
+        # item saved displaced. Measured on a 30-degrees RAISED_BED before the
+        # fix: origin 640 cm from the rect centre, stored vs visual centre 331
+        # cm apart. Found by the US-D2.2 senior review, which noticed the
+        # geometry-apply extraction had converted every other caller but this.
+        self.setTransformOriginPoint(new_rect.center())  # type: ignore[attr-defined]
         self.setPos(new_pos)  # type: ignore[attr-defined]
         self._update_rect_corner_handles()
         if hasattr(self, '_position_label'):
@@ -2653,20 +2663,23 @@ class RectVertexEditMixin:
 
         from open_garden_planner.core.commands import ResizeItemCommand
 
+        # US-D2.2: the canonical apply path (ui.canvas.geometry_apply), shared
+        # with the properties panel, the drag handles and the Agent API. The
+        # dict shape below is already the canonical one; the private closure
+        # this replaces was missing the #219 origin re-pin, so undo/redo of a
+        # rotated corner drag restored rect + pos but left the pivot wrong.
+        # Imported here rather than at module scope: geometry_apply imports
+        # anchored_position from THIS module, so a top-level import would be
+        # circular.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+        )
+
         def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
-            """Apply geometry to the item."""
-            if hasattr(item, 'setRect') and hasattr(item, 'setPos'):
-                item.setRect(QRectF(
-                    geom['rect_x'],
-                    geom['rect_y'],
-                    geom['width'],
-                    geom['height'],
-                ))
-                item.setPos(geom['pos_x'], geom['pos_y'])
-                if hasattr(item, '_update_rect_corner_handles'):
-                    item._update_rect_corner_handles()
-                if hasattr(item, '_position_label'):
-                    item._position_label()
+            """Apply geometry, then refresh this mixin's own corner handles."""
+            apply_rect_like_geometry(item, geom)
+            if hasattr(item, '_update_rect_corner_handles'):
+                item._update_rect_corner_handles()
 
         old_geometry = {
             'rect_x': initial_rect.x(),

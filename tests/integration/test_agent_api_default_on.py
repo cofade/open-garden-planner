@@ -1073,8 +1073,13 @@ def test_resize_object_refuses_a_vertex_backed_object(
             object_type=ObjectType.GARDEN_BED,
         )
         win.canvas_scene.addItem(polygon)
-        with pytest.raises(ValueError, match="vertices"):
+        with pytest.raises(ValueError, match="vertex-backed") as exc:
             win._do_agent_resize_object(str(polygon.item_id), 300.0, 300.0, None)
+        # The message must name the type and say what IS true of it, not assert
+        # a reason that only fits some of the objects reaching this branch (a
+        # text label and a group also lack a width/height box and are not
+        # vertex-backed) -- senior-review finding on this PR.
+        assert "GARDEN_BED" in str(exc.value)
         assert win.canvas_view.command_manager.can_undo is False
     finally:
         win._stop_agent_api()
@@ -1490,5 +1495,87 @@ def test_set_parent_bed_refuses_a_no_op_and_a_non_plant(
             win._do_agent_set_parent_bed(str(plant.item_id), str(bed.item_id))
         with pytest.raises(ValueError, match="not a"):
             win._do_agent_set_parent_bed(str(bed.item_id), str(bed.item_id))
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_species_refuses_a_constrained_plant(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Senior-review finding on this PR: set_species RESIZES the footprint (to
+    the species' max_spread_cm), so it is a geometry mutation and must clear the
+    same constraint gate resize_object does. Before the fix an agent refused by
+    resize_object could get the identical resize through set_species instead —
+    the shared gate with a door in it."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        plant = _add_tree(win)
+        other = _add_bed(win, x=2000, y=2000)
+        _add_distance_constraint(win, plant, other.item_id)
+        radius_before = plant.radius
+
+        with pytest.raises(ValueError, match="geometric constraint"):
+            win._do_agent_set_species(str(plant.item_id), "Tomato", True)
+
+        assert plant.radius == pytest.approx(radius_before)
+        assert plant.metadata.get("plant_species") is None
+        assert win.canvas_view.command_manager.can_undo is False
+
+        # Clearing a species resizes nothing, so it is NOT gated — but this
+        # plant has no species to clear, which is its own refusal.
+        with pytest.raises(ValueError, match="no species to clear"):
+            win._do_agent_set_species(str(plant.item_id), None, True)
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_species_refuses_a_no_op_clear(qtbot: Any, monkeypatch: Any) -> None:
+    """Senior-review finding: FR-AGENT-16 claims both D2.3 tools refuse a
+    state-changing call that would be a no-op, and set_parent_bed did — but
+    set_species happily reported success and pushed a junk undo step for
+    clearing a species that was never set."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        plant = _add_tree(win)
+        with pytest.raises(ValueError, match="no species to clear"):
+            win._do_agent_set_species(str(plant.item_id), None, True)
+        assert win.canvas_view.command_manager.can_undo is False
+
+        # And the real clear still works, exactly once.
+        win._do_agent_set_species(str(plant.item_id), "Tomato", True)
+        win._do_agent_set_species(str(plant.item_id), None, True)
+        assert plant.metadata.get("plant_species") is None
+        with pytest.raises(ValueError, match="no species to clear"):
+            win._do_agent_set_species(str(plant.item_id), None, True)
+    finally:
+        win._stop_agent_api()
+
+
+def test_resize_refuses_an_extent_below_the_gui_minimum(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Senior-review finding: require_positive accepted 0.001 cm, so an agent
+    could create geometry the user cannot select or grab. The GUI floor is
+    MINIMUM_SIZE_CM = 1.0 in the drag path and 1.0 in every panel spin box;
+    D2.1's ethos is to bound agent input harder than the GUI, never softer."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        before = bed.rect()
+
+        with pytest.raises(ValueError, match="minimum"):
+            win._do_agent_resize_object(str(bed.item_id), 0.001, 0.001, None)
+        assert bed.rect() == before
+        assert win.canvas_view.command_manager.can_undo is False
+
+        # Exactly at the floor is accepted.
+        win._do_agent_resize_object(str(bed.item_id), 1.0, 1.0, None)
+        assert bed.rect().width() == pytest.approx(1.0)
     finally:
         win._stop_agent_api()

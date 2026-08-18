@@ -255,32 +255,40 @@ class WriteResult(BaseModel):
     )
     x: float | None = Field(
         default=None,
-        description="Resulting object centre X in scene cm (create/move; null for "
-        "delete).",
+        description="Resulting object centre X in scene cm. Reported by every "
+        "action that leaves the object in place (create, move, resize, rotate, "
+        "set_species, set_parent_bed); null for delete.",
     )
     y: float | None = Field(
         default=None,
         description="Resulting object centre Y in scene cm (Y-up: a larger y is "
-        "further north; create/move; null for delete).",
+        "further north). Same actions as x; null for delete.",
     )
     children_moved: int = Field(
         default=0,
         description="Contained plants moved along with this object, e.g. moving a "
-        "bed carries its plants (move only; always 0 for delete).",
+        "bed carries its plants. Move only — always 0 for every other action. "
+        "Note resize does NOT move a bed's plants: shrinking a bed leaves its "
+        "linked plants where they are, so a plant can end up linked to a bed it "
+        "no longer sits inside (the app's own resize behaves the same way).",
     )
     bed_membership_changed: bool = Field(
         default=False,
-        description="True if this move crossed a bed boundary and the plant's "
-        "parent bed was updated as a SECOND undo step (move only, plants only). "
-        "Always false for create — a new plant's bed link is established inside "
-        "the single create step, so see new_parent_bed_id instead.",
+        description="True if this call changed which bed the plant belongs to. "
+        "For move, that reparenting was a SECOND undo step. For set_parent_bed "
+        "it is always true and is the whole point of the call — still ONE undo "
+        "step, since changing the link is the operation rather than a side "
+        "effect of it. Always false for create (a new plant's link is "
+        "established inside the single create step — see new_parent_bed_id) and "
+        "for resize/rotate/set_species, none of which reparent.",
     )
     new_parent_bed_id: str | None = Field(
         default=None,
         description="The bed the plant now belongs to: for create, the bed it was "
         "placed inside (null if it landed outside every bed); for move, its new "
-        "parent when bed_membership_changed is true. Null if it left a bed, is "
-        "unchanged, or is not a plant.",
+        "parent when bed_membership_changed is true; for set_parent_bed, the bed "
+        "just linked. Null if it left a bed (including a set_parent_bed detach), "
+        "is unchanged, or is not a plant.",
     )
     linked_items_deleted: int = Field(
         default=0,

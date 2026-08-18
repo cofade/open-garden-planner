@@ -698,6 +698,11 @@ def build_server(
             These are ABSOLUTE targets, not deltas -- width=120 means "make it
             120 cm wide", the same vocabulary create_object uses.
 
+            Resizing a bed does NOT move or re-link the plants inside it (the
+            app's own resize behaves the same way), so shrinking a bed can leave
+            a plant linked to a bed it no longer sits inside. Use
+            set_parent_bed if you need to correct that.
+
             Fails if the object is drawn from vertices rather than a
             width/height box (polygons, polylines, fences, paths -- not
             supported yet), if the dimension doesn't fit the shape, if a value

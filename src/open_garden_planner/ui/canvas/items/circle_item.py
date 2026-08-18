@@ -905,10 +905,11 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         from open_garden_planner.core.commands import RotateItemCommand
 
-        def apply_rotation(item: QGraphicsItem, angle: float) -> None:
-            """Apply rotation to the item."""
-            if isinstance(item, CircleItem):
-                item._apply_rotation(angle)
+        # US-D2.2: the canonical rotate apply path (ui.canvas.geometry_apply),
+        # shared with the Agent API's rotate_object. Every item class had an
+        # identical private copy of this one-liner; a shared name means the
+        # agent and the drag handles provably rotate the same way.
+        from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
 
         command = RotateItemCommand(
             self,

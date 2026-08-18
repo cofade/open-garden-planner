@@ -228,3 +228,123 @@ class TestResizableShapePredicate:
             object_type=ObjectType.GARDEN_BED,
         )
         assert not is_resizable_rect_like(polygon)
+
+
+class TestVertexEditCornerDragRegression:
+    """The second stale-origin site, found by the senior review of this PR.
+
+    ``RectVertexEditMixin._move_corner_to`` was the last rect resize path still
+    missing the #219 ``transformOriginPoint`` re-pin. Dragging a corner of a
+    **rotated** rectangle in vertex-edit mode left the pivot behind, so the
+    serialised centre (``pos + rect.center()``) drifted away from the visual one
+    and the item saved displaced. Measured before the fix on a 30-degrees
+    RAISED_BED: origin 640 cm from the rect centre, stored vs visual centre 331
+    cm apart. Pre-existing, not introduced here — but the extraction claimed to
+    have eliminated this class of bug, so leaving it would have made the claim
+    false.
+    """
+
+    @pytest.mark.parametrize("rotation", _ROTATIONS)
+    def test_corner_drag_keeps_the_origin_on_the_rect_centre(
+        self, canvas: CanvasView, rotation: float
+    ) -> None:
+        from open_garden_planner.ui.canvas.items.resize_handle import RectCorner
+
+        scene = canvas.scene()
+        item = RectangleItem(500, 500, 400, 300, object_type=ObjectType.RAISED_BED)
+        scene.addItem(item)
+        apply_rotation(item, rotation)
+
+        item._move_corner_to(
+            RectCorner.BOTTOM_RIGHT, QPointF(1000, 800), item.rect(), item.pos()
+        )
+
+        origin = item.transformOriginPoint()
+        centre = item.rect().center()
+        assert origin.x() == pytest.approx(centre.x())
+        assert origin.y() == pytest.approx(centre.y())
+
+    @pytest.mark.parametrize("rotation", _ROTATIONS)
+    def test_corner_drag_keeps_stored_and_visual_centres_in_agreement(
+        self, canvas: CanvasView, rotation: float
+    ) -> None:
+        """The user-visible consequence: the serializer stores ``pos + rect
+        .center()``, so a stale pivot means the saved position is not where the
+        object appears — it moves on reload."""
+        from open_garden_planner.ui.canvas.items.resize_handle import RectCorner
+
+        scene = canvas.scene()
+        item = RectangleItem(500, 500, 400, 300, object_type=ObjectType.RAISED_BED)
+        scene.addItem(item)
+        apply_rotation(item, rotation)
+
+        item._move_corner_to(
+            RectCorner.BOTTOM_RIGHT, QPointF(1000, 800), item.rect(), item.pos()
+        )
+
+        stored = item.pos() + item.rect().center()
+        visual = item.mapToScene(item.rect().center())
+        assert stored.x() == pytest.approx(visual.x())
+        assert stored.y() == pytest.approx(visual.y())
+
+
+class TestRotatedRectanglePanelResize:
+    """The one place the panel's behaviour genuinely CHANGED, pinned.
+
+    For an unrotated rectangle the new anchor-preserving builder is
+    byte-identical to what the panel did before (``pos`` untouched) — that is
+    covered by ``test_keep_anchor_is_the_panel_default_for_rectangles``. For a
+    **rotated** rectangle the old code kept ``pos`` literally while leaving the
+    pivot stale, which was incoherent rather than correct; the builder now pins
+    the rectangle's top-left corner in scene space instead. That is a deliberate
+    behaviour change and the senior review was right that it shipped untested.
+    """
+
+    @pytest.mark.parametrize("rotation", _ROTATIONS)
+    def test_anchor_corner_stays_put_under_rotation(
+        self, canvas: CanvasView, qtbot: object, rotation: float  # noqa: ARG002
+    ) -> None:
+        scene = canvas.scene()
+        item = RectangleItem(600.0, 600.0, 100.0, 80.0)
+        scene.addItem(item)
+        apply_rotation(item, rotation)
+        anchor_before = item.mapToScene(item.rect().topLeft())
+
+        _old, new = build_rect_resize(item, 250.0, 170.0)  # panel default
+        apply_rect_like_geometry(item, new)
+
+        anchor_after = item.mapToScene(item.rect().topLeft())
+        assert anchor_after.x() == pytest.approx(anchor_before.x())
+        assert anchor_after.y() == pytest.approx(anchor_before.y())
+        # And the invariant that made the old behaviour incoherent now holds.
+        assert item.transformOriginPoint().x() == pytest.approx(
+            item.rect().center().x()
+        )
+
+
+class TestOneRotationImplementation:
+    """Drift guard: `apply_rotation` must have exactly one definition.
+
+    The senior review caught that the first cut left all five per-item
+    `apply_rotation` closures in place, so `geometry_apply.apply_rotation` was a
+    SIXTH copy used only by the agent — the opposite of a consolidation. This
+    fails if anyone reintroduces a private one.
+    """
+
+    def test_only_geometry_apply_defines_apply_rotation(self) -> None:
+        import re
+        from pathlib import Path
+
+        src = Path(__file__).resolve().parents[2] / "src" / "open_garden_planner"
+        # Paths only, never line numbers: a guard that breaks on an unrelated
+        # edit above the definition gets deleted rather than fixed.
+        definitions = sorted(
+            path.relative_to(src).as_posix()
+            for path in src.rglob("*.py")
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if re.match(r"\s*def apply_rotation\b", line)
+        )
+        assert definitions == ["ui/canvas/geometry_apply.py"], (
+            "apply_rotation must be defined exactly once, in geometry_apply. "
+            f"Found: {definitions}"
+        )

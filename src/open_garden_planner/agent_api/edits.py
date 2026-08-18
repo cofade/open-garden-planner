@@ -40,6 +40,15 @@ _SOIL_CONTAINER_TYPE_NAMES = frozenset(
 #: accepts every name here; anything else is refused by name.
 PLANT_PARENT_TYPE_NAMES: frozenset[str] = _SOIL_CONTAINER_TYPE_NAMES | {"TRELLIS"}
 
+#: The smallest extent the GUI itself will produce: ``resize_handle`` clamps a
+#: drag at ``MINIMUM_SIZE_CM`` and the properties panel's spin boxes start at
+#: 1.0 cm. An agent must not be able to create geometry the user cannot then
+#: grab — D2.1's ethos is to bound agent input *harder* than the GUI, never
+#: softer, so this floor is applied to every resulting extent. Inlined (not
+#: imported) to keep this module Qt-free; guarded against drift in
+#: ``tests/unit/test_agent_api_edits.py``.
+MIN_EXTENT_CM = 1.0
+
 #: Beyond this many degrees of absolute rotation a request is almost certainly a
 #: unit mix-up (radians passed as degrees is the classic one). Angles are
 #: normalised into [0, 360) anyway, so a legitimate caller never needs more —
@@ -139,6 +148,7 @@ def validate_resize_request(
             )
         resolved_radius = require_positive(radius, "radius")
         diameter = 2 * resolved_radius
+        _require_min_extent(diameter, "diameter", object_type)
         require_sane_extent(
             diameter, "diameter", object_type, canvas_width_cm, canvas_height_cm
         )
@@ -159,6 +169,8 @@ def validate_resize_request(
     resolved_height = (
         require_positive(height, "height") if height is not None else current_height
     )
+    _require_min_extent(resolved_width, "width", object_type)
+    _require_min_extent(resolved_height, "height", object_type)
     require_sane_extent(
         resolved_width, "width", object_type, canvas_width_cm, canvas_height_cm
     )
@@ -166,6 +178,16 @@ def validate_resize_request(
         resolved_height, "height", object_type, canvas_width_cm, canvas_height_cm
     )
     return resolved_width, resolved_height
+
+
+def _require_min_extent(extent: float, field: str, object_type: str) -> None:
+    """Refuse an extent below the smallest one the GUI can produce."""
+    if extent < MIN_EXTENT_CM:
+        raise ValueError(
+            f"{field} {extent:g} cm is below the minimum of {MIN_EXTENT_CM:g} cm "
+            f"for {object_type}. An object smaller than that cannot be selected "
+            "or resized in the app."
+        )
 
 
 def is_plant_parent_type_name(object_type: str) -> bool:
