@@ -176,7 +176,7 @@ hands the windowed exe a real stdout so it cannot reproduce the condition #291 i
 
 ## 6. Verify on the running artifact, not only in pytest
 
-**Always.** `CLAUDE.md` and `ogp-change-control` §2.8 both require a frozen-exe build, the
+**Always.** `AGENTS.md` and `ogp-change-control` §2.8 both require a frozen-exe build, the
 8-second smoke **and** `--selftest` before every merge; the only sanctioned excuse is a
 Linux/cloud session that cannot run them, and then you **say so in the PR** rather than skipping
 silently. pytest runs the source tree; users run the frozen exe, and the two have disagreed on
@@ -209,18 +209,18 @@ that only confirmed what you already believed was not worth the electricity.
 
 ## 7. Documentation duty — before it counts as done
 
-The matrix is in `CLAUDE.md` and `ogp-docs-and-writing`; follow it. Four items are easy to forget
+The matrix is in `AGENTS.md` and `ogp-docs-and-writing`; follow it. Four items are easy to forget
 at package scale and are checked here because every recent package PR owed all four:
 
 - **`docs/roadmap.md`** — add or complete the package's US rows and mirror them into
   `../open-garden-planner.wiki/Roadmap.md`. This is the table that drifts; fixing it is part of
   the package, not a follow-up.
-- **`CLAUDE.md` + `AGENTS.md` "Where to Pick Up After Restart"** — update both, in the same
+- **`AGENTS.md` + `AGENTS.md` "Where to Pick Up After Restart"** — update both, in the same
   commit, then run `scripts/check_agent_context.py`. That gate is meaningless if the content it
   compares is stale in both copies.
 - **A `debug-verbose` case study in both skill libraries** whenever the package fixed a
   non-obvious bug (symptom → wrong theories → key evidence → root cause → lesson), per
-  `CLAUDE.md`'s debugging section.
+  `AGENTS.md`'s debugging section.
 - **§11.4** for anything the package learned the hard way, and an **ADR addendum** for every
   decision an issue asked you to make.
 
@@ -229,32 +229,21 @@ Docs are **English-only** — never let a German UI label leak into doc prose.
 ## 8. Senior-reviewer loop, then hand off to change-control
 
 Run the `senior-reviewer` agent against the branch diff in a fresh worktree — **once per PR, and
-again after every round of fixes, until it comes back clean**. A review of the original is not a
-review of the fix; round 2 has caught P0s that round 1 missed (#213 / PR #217's rotated-plant
-`transformOriginPoint` drift), and round 3 has caught what rounds 1 and 2 obscured (#240 / PR #251).
+again after every round of fixes, until it comes back clean**. The gate itself, its
+round-on-round catches, the unmet-gate carve-out and the reviews-are-not-oracles rule all live
+in `ogp-change-control` §2.4; read it rather than this paragraph.
 
-Run it without being asked — it is a standing requirement of the workflow, not a favour. If you
-*cannot* run it (no agent tooling, or the user has said not to launch one), the gate is simply
-**unmet**. `CLAUDE.md` says a coding job ends in a draft PR *and* that the draft opens only once
-the review is satisfied; the reconciliation is the same carve-out step 6 makes for a Linux
-session that cannot build the exe — **open the draft, state the unmet gate in the body, and stop
-there**. Do not proceed toward ready-or-merge on the assumption it would have passed. This file
-never overrides a live instruction from the user; it only refuses to let an unmet gate go
-unreported.
+Two things that only bite at package scale:
 
-Two counterweights, both earned:
-
-- **Reviews are inputs, not oracles.** Verify each finding against the code in both directions
-  before acting; a #223 P1 claiming conditional `can_undo`/`can_redo` signals was refuted simply
-  by reading `commands.py`.
+- **Once per PR, not once per package.** A package that ships as two or three PRs needs a review
+  per branch — a clean pass on one says nothing about the others.
 - **The reviewer's worktree has no `.env` and no real credentials.** Any claim it makes about
-  "live-confirmed" behaviour is unverified — confirm it yourself.
+  "live-confirmed" behaviour is unverified; confirm it yourself. This is recorded nowhere else.
 
 Then hand off: `ogp-change-control` owns the landing decision, `finalize-us` the post-approval
 sequence (CI wait, tag-transition wait, version sync, wiki push). **Open the PR as a draft and
-stop there.** Never mark ready, never merge, until the owner confirms manual testing passed —
-manual testing has killed reviewed, merged and green work repeatedly (US-B7 dropped entirely;
-#226's accordion reworked; D1.3's subtractive `layers` bug).
+stop there** — never mark ready or merge until the owner confirms manual testing passed (§2.3
+carries the list of designs that testing has killed).
 
 ## 9. Report
 
@@ -281,7 +270,7 @@ stop there — **stopping at a draft PR with an honest checklist is a successful
 
 ## When NOT to use this skill
 
-- A single user story or a one-issue fix → the `CLAUDE.md` workflow table + `ogp-change-control`.
+- A single user story or a one-issue fix → the `AGENTS.md` workflow table + `ogp-change-control`.
 - The post-approval wrap-up itself (merge, version sync, wiki) → `finalize-us`.
 - Reviewing someone else's PR → `analyze-pr`.
 - Deciding what proof a claim needs → `ogp-validation-and-qa`.

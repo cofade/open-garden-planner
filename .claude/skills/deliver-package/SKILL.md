@@ -229,32 +229,21 @@ Docs are **English-only** — never let a German UI label leak into doc prose.
 ## 8. Senior-reviewer loop, then hand off to change-control
 
 Run the `senior-reviewer` agent against the branch diff in a fresh worktree — **once per PR, and
-again after every round of fixes, until it comes back clean**. A review of the original is not a
-review of the fix; round 2 has caught P0s that round 1 missed (#213 / PR #217's rotated-plant
-`transformOriginPoint` drift), and round 3 has caught what rounds 1 and 2 obscured (#240 / PR #251).
+again after every round of fixes, until it comes back clean**. The gate itself, its
+round-on-round catches, the unmet-gate carve-out and the reviews-are-not-oracles rule all live
+in `ogp-change-control` §2.4; read it rather than this paragraph.
 
-Run it without being asked — it is a standing requirement of the workflow, not a favour. If you
-*cannot* run it (no agent tooling, or the user has said not to launch one), the gate is simply
-**unmet**. `CLAUDE.md` says a coding job ends in a draft PR *and* that the draft opens only once
-the review is satisfied; the reconciliation is the same carve-out step 6 makes for a Linux
-session that cannot build the exe — **open the draft, state the unmet gate in the body, and stop
-there**. Do not proceed toward ready-or-merge on the assumption it would have passed. This file
-never overrides a live instruction from the user; it only refuses to let an unmet gate go
-unreported.
+Two things that only bite at package scale:
 
-Two counterweights, both earned:
-
-- **Reviews are inputs, not oracles.** Verify each finding against the code in both directions
-  before acting; a #223 P1 claiming conditional `can_undo`/`can_redo` signals was refuted simply
-  by reading `commands.py`.
+- **Once per PR, not once per package.** A package that ships as two or three PRs needs a review
+  per branch — a clean pass on one says nothing about the others.
 - **The reviewer's worktree has no `.env` and no real credentials.** Any claim it makes about
-  "live-confirmed" behaviour is unverified — confirm it yourself.
+  "live-confirmed" behaviour is unverified; confirm it yourself. This is recorded nowhere else.
 
 Then hand off: `ogp-change-control` owns the landing decision, `finalize-us` the post-approval
 sequence (CI wait, tag-transition wait, version sync, wiki push). **Open the PR as a draft and
-stop there.** Never mark ready, never merge, until the owner confirms manual testing passed —
-manual testing has killed reviewed, merged and green work repeatedly (US-B7 dropped entirely;
-#226's accordion reworked; D1.3's subtractive `layers` bug).
+stop there** — never mark ready or merge until the owner confirms manual testing passed (§2.3
+carries the list of designs that testing has killed).
 
 ## 9. Report
 

@@ -22,7 +22,8 @@ venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe
 # Exit code 124 (killed by timeout) = success
 powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
-# Exit code 0 = Qt3D bindings import AND the Agent API server binds.
+# Exit code 0 = Qt3D bindings import, the Qt runtime matches the Qt3D wheel
+# version (the check that caught #277), AND the Agent API server binds.
 # The 8-s smoke only proves the process stays up; --selftest is what sees a
 # silently-dead subsystem (#291 hid from the smoke for six releases). Must be
 # Start-Process -Wait -PassThru: PowerShell does not wait on a GUI-subsystem

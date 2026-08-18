@@ -137,6 +137,14 @@ re-review** — a review of the fix is not implied by a review of the original. 
 - **#228 / PR #230, P1 in round 1:** the calendar rewrite dropped the frost row's
   `frost_items:<ids>` highlight key — navigation silently broke.
 
+**If you cannot run it, the gate is UNMET — say so.** No agent tooling available, or the user
+has told you not to launch one: the reconciliation is the same as §2.8's for a Linux session
+that cannot build the exe. **Open the draft PR, state the unmet gate in the body, and stop
+there** — do not mark ready, do not merge, and do not proceed on the assumption it would have
+passed. (This resolves the apparent conflict between "every coding job ends in a draft PR" and
+"open the draft only after the review is satisfied": the draft still opens, carrying an honest
+declaration instead of a silent omission.)
+
 **And one refutation, which is also part of the discipline (#223):** a review P1 claimed
 `can_undo/redo_changed` fired conditionally; reading `commands.py` refuted it. Reviews are
 *inputs*, not oracles — verify every finding against the code before acting, in both

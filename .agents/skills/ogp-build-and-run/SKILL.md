@@ -199,12 +199,11 @@ child exiting 3 propagates 3).
    -PassThru` is why `.github/workflows/release.yml:109` is written that way.
 2. **A shell pipe hands the windowed exe a real `sys.stdout`.** Run from Git
    Bash the plain form *does* wait and *does* return the exit code — but the
-   selftest's prints are visible, which proves `sys.stdout` was a live pipe, not
-   `None`. #291 is uvicorn dereferencing `sys.stdout` **when it is None**, so a
-   regression of that fix passes a bash-run `--selftest` cleanly. Use the
-   `Start-Process` form, which gives the process no console at all — the
-   shipping condition. (§11.4's "the observation changes the result", one layer
-   up from the `console=True` trap it describes.)
+   selftest's prints are visible (313 bytes measured), so `sys.stdout` was a
+   live pipe and a regression of #291's `log_config=None` fix would pass
+   cleanly. Use the `Start-Process` form, which gives the process no console at
+   all. **Why, in full: §11.4's #291 entry** (corrected in PR #334 — it used to
+   claim the windowed exe has `sys.stdout is None` unconditionally).
 
 `release.yml` runs `--selftest` against the built exe, but only *after* merge.
 Running it locally is what makes it a merge gate rather than a post-mortem.
