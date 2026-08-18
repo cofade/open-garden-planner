@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import QDoubleSpinBox, QGraphicsScene, QLabel
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.commands import CommandManager
 from open_garden_planner.core.object_height import (
+    _HEIGHT_FIELD_TYPES,
     METADATA_KEY,
     effective_height_cm,
 )
@@ -186,3 +187,17 @@ class TestPanelUndo:
         generic = RectangleItem(0, 0, 100, 100)  # GENERIC_RECTANGLE
         panel.set_selected_items([generic])
         assert _field_by_label(panel, "Object height") is None
+
+    @pytest.mark.parametrize("type_name", sorted(_HEIGHT_FIELD_TYPES))
+    def test_open_structures_offer_the_field_without_a_default(self, qtbot, type_name: str) -> None:  # noqa: ARG002
+        """Package 3a (#308): swing/pergola/hammock have no default height (the
+        shadow model extrudes a solid footprint) but the panel MUST still offer
+        the row so a user can opt in — the predicate alone was proven
+        insufficient evidence in senior review round 2."""
+        panel = PropertiesPanel(command_manager=CommandManager())
+        item = RectangleItem(0, 0, 200, 150, object_type=ObjectType[type_name])
+        panel.set_selected_items([item])
+        spin = _field_by_label(panel, "Object height")
+        assert spin is not None, f"{type_name}: Height row missing"
+        assert spin.value() == 0.0 and spin.text() == "Auto"
+        assert effective_height_cm(item.object_type, item.metadata) is None

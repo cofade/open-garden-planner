@@ -25,6 +25,10 @@ INFRASTRUCTURE_TYPES = [
     ObjectType.RAIN_BARREL,
     ObjectType.WATER_TAP,
     ObjectType.TOOL_SHED,
+    # Package 3a roster (#308)
+    ObjectType.WHEELBARROW,
+    ObjectType.PERGOLA,
+    ObjectType.BIRD_BATH,
 ]
 
 
@@ -61,8 +65,9 @@ class TestInfrastructureSVGFiles:
         assert "<svg" in content, f"{filename}.svg is not valid SVG"
         assert "</svg>" in content
 
-    def test_six_infrastructure_files_mapped(self, qtbot: object) -> None:  # noqa: ARG002
-        assert len(_INFRASTRUCTURE_FILES) == 6
+    def test_infrastructure_files_mapped(self, qtbot: object) -> None:  # noqa: ARG002
+        """The map and this roster agree (map-driven — no literal count to bump)."""
+        assert set(_INFRASTRUCTURE_FILES) == set(INFRASTRUCTURE_TYPES)
 
 
 class TestGetInfrastructureSvgPath:

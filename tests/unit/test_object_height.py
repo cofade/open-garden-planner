@@ -14,6 +14,7 @@ from datetime import date
 import pytest
 
 from open_garden_planner.core.object_height import (
+    _HEIGHT_FIELD_TYPES,
     DEFAULT_HEIGHTS_CM,
     METADATA_KEY,
     SOURCE_CONTAINER,
@@ -97,7 +98,7 @@ class TestDefaultTable:
         from open_garden_planner.core.object_height import _CONTAINER_TYPE_NAMES
         from open_garden_planner.core.object_types import CONTAINER_TYPES
 
-        assert _CONTAINER_TYPE_NAMES == {t.name for t in CONTAINER_TYPES}
+        assert {t.name for t in CONTAINER_TYPES} == _CONTAINER_TYPE_NAMES
 
     def test_plant_names_match_plant_types(self) -> None:
         from open_garden_planner.core.object_height import _PLANT_TYPE_NAMES
@@ -105,7 +106,7 @@ class TestDefaultTable:
         from open_garden_planner.core.plant_renderer import is_plant_type
 
         plant_names = {t.name for t in ObjectType if is_plant_type(t)}
-        assert _PLANT_TYPE_NAMES == plant_names
+        assert plant_names == _PLANT_TYPE_NAMES
 
 
 class TestValueGuards:
@@ -209,3 +210,24 @@ class TestCurrentHeightAnchor:
         }
         assert effective_height_cm("TREE", meta, at_date=date(2031, 1, 1)) == 500.0
         assert height_source("TREE", meta) == SOURCE_SPECIES
+
+
+class TestOpenStructuresHeightField:
+    """Package 3a (#308): swing/pergola/hammock have NO default height (the
+    shadow model extrudes a solid footprint) but DO expose the Height field so
+    a user can opt in explicitly; until then they cast nothing."""
+
+    @pytest.mark.parametrize("name", sorted(_HEIGHT_FIELD_TYPES))
+    def test_field_offered_but_no_default(self, name: str) -> None:
+        assert name not in DEFAULT_HEIGHTS_CM
+        assert has_height_semantics(name, None) is True
+        assert effective_height_cm(name, None) is None
+
+    @pytest.mark.parametrize("name", sorted(_HEIGHT_FIELD_TYPES))
+    def test_explicit_value_is_honoured(self, name: str) -> None:
+        assert effective_height_cm(name, {METADATA_KEY: 210.0}) == 210.0
+
+    def test_field_types_are_real_object_types(self) -> None:
+        from open_garden_planner.core.object_types import ObjectType
+
+        assert {m.name for m in ObjectType} >= _HEIGHT_FIELD_TYPES

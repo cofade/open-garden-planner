@@ -79,6 +79,17 @@ class ToolType(Enum):
     WATER_TAP = auto()
     TOOL_SHED = auto()
 
+    # Package 3a roster growth (#308) — names mirror ObjectType 1:1
+    SANDBOX = auto()
+    TRAMPOLINE = auto()
+    HOT_TUB = auto()
+    SWING = auto()
+    PICNIC_TABLE = auto()
+    HAMMOCK = auto()
+    WHEELBARROW = auto()
+    PERGOLA = auto()
+    BIRD_BATH = auto()
+
     # Vertical & container gardening (US-C3)
     CONTAINER_RECT = auto()
     CONTAINER_ROUND = auto()

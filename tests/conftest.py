@@ -19,7 +19,16 @@ sys.path.insert(0, str(src_path))
 # `APPLICATION_NAME` (ADR-041), and the two lines below rebind those names to
 # these, so nothing else in the suite needs to know them.
 TEST_ORGANIZATION = "cofade_test"
-TEST_APPLICATION = "Open Garden Planner Test"
+# Per-PROCESS application name: on the Windows registry backend two pytest
+# processes on one machine (a senior-reviewer worktree, a parallel run) would
+# otherwise share ONE key, and each process's per-test reset kills the other's
+# live stores ("black hole": writes vanish, reads return defaults — §11.4,
+# measured 2026-08-17: a Welcome dialog opening despite the flag written False,
+# a snap setting reading its default right after the write). The session-end
+# `clear()` in `isolate_qsettings` removes this process's key again; a crashed
+# run leaves an orphan key, and PID reuse handing a later run that dirty key is
+# harmless because `_reset_app_settings` wipes at SETUP, not only at teardown.
+TEST_APPLICATION = f"Open Garden Planner Test {os.getpid()}"
 
 # Redirect at conftest IMPORT time, not inside a fixture. pytest imports this
 # file before it collects any test module in this tree, hence before any
@@ -123,12 +132,57 @@ def _reset_app_settings():
     import open_garden_planner.app.settings as settings_module
 
     def _reset() -> None:
-        settings_module.create_qsettings().clear()
+        # Per-key wipe, NOT `clear()`: on the Windows registry backend a
+        # `clear()`ed QSettings deletes the whole key when it is DESTROYED, and
+        # every store built between the clear() and that destruction becomes a
+        # "black hole" (writes vanish, reads return defaults) — measured
+        # 2026-08-17 (§11.4). `remove(key)` acts immediately and leaves the
+        # key alive. (The 2026-08-17 incident itself was a SECOND pytest
+        # process clear()ing the then-shared key — fixed by the per-pid
+        # TEST_APPLICATION above; this is defence in depth against the same
+        # mechanism inside one process.)
+        store = settings_module.create_qsettings()
+        for key in store.allKeys():
+            store.remove(key)
+        store.sync()
         settings_module._settings_instance = None  # type: ignore[attr-defined]
+
+    def _probe_black_hole() -> str | None:
+        """Detect a dead settings singleton (Windows registry backend only —
+        on the INI backend a same-instance write→read hits the in-memory cache
+        and this can never fire).
+
+        Measured 2026-08-17: once ANOTHER QSettings instance — in this process or
+        in another one sharing the key — has `clear()`ed the key, a surviving
+        instance's writes vanish and its reads return defaults ("black hole").
+        Two intermittent full-run failures had exactly that fingerprint (a
+        Welcome dialog opening despite the flag written False; a
+        `nearest_snap_enabled` read returning the default right after its
+        write) and were caused by a concurrent pytest process (senior-reviewer
+        worktree) sharing the then-fixed test key — §11.4. The key is per-pid
+        now; if this ever fires again, something else is deleting the key.
+        """
+        inst = settings_module._settings_instance  # type: ignore[attr-defined]
+        if inst is None:
+            return None
+        store = inst._settings
+        store.setValue("_conftest/probe", 1)
+        if store.value("_conftest/probe", None, type=int) != 1:
+            return (
+                "settings singleton is a BLACK HOLE (writes vanish, reads return "
+                "defaults) — its registry key was clear()ed by another QSettings "
+                "instance (another pytest process?) after it was built; see §11.4 "
+                "'silence the startup Welcome dialog' addendum (2026-08-17)"
+            )
+        store.remove("_conftest/probe")
+        return None
 
     _reset()
     yield
+    verdict = _probe_black_hole()
     _reset()
+    if verdict:
+        pytest.fail(verdict)
 
 
 @pytest.fixture(autouse=True)
@@ -186,4 +240,48 @@ def _disable_agent_api_server(_reset_app_settings):
     from open_garden_planner.app.settings import AppSettings, create_qsettings
 
     create_qsettings().setValue(AppSettings.KEY_AGENT_API_ENABLED, False)
+    yield
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _silence_welcome_dialog():
+    """Never open the modal startup Welcome dialog during tests — session-wide.
+
+    `GardenPlannerApp` arms `QTimer.singleShot(500, self._startup_sequence)`,
+    which opens the MODAL `WelcomeDialog` via `dialog.exec()` when
+    `show_welcome_on_startup` is on (the production default). Headless, nobody
+    closes it, so the first event loop after the timer fires — a `qtbot.wait`
+    in the test body, or pytest-qt's teardown `processEvents()` — parks the
+    whole session inside the modal loop forever, with an EMPTY log (§11.4
+    "silence the startup Welcome dialog"; re-hit 2026-08-17 in
+    `test_trellis.py` and `test_idle_scene_quiescence.py`, Package 3a).
+
+    This is the class-level no-op that `test_icon_system` and
+    `test_theme_switch_chrome` applied per file (and `test_dynamic_input_overlay`
+    stubs the whole `_startup_sequence`); six more files wrote the settings key
+    instead; 34 files construct `GardenPlannerApp` in total. It is deliberately NOT settings-based: a per-test
+    `KEY_SHOW_WELCOME=False` write was observed to lose a race with the 500 ms
+    timer once in a full run (the read returned the default inside a
+    `qtbot.wait` even though both a conftest and a module fixture had written
+    False beforehand); patching the method is airtight regardless of what the
+    store says. `_disable_welcome_dialog` below still keeps the store honest.
+    """
+    from open_garden_planner.app.application import GardenPlannerApp
+
+    original = GardenPlannerApp._show_welcome_dialog
+    GardenPlannerApp._show_welcome_dialog = lambda _self: None  # type: ignore[method-assign]
+    yield
+    GardenPlannerApp._show_welcome_dialog = original  # type: ignore[method-assign]
+
+
+@pytest.fixture(autouse=True)
+def _disable_welcome_dialog(_reset_app_settings):
+    """Belt to `_silence_welcome_dialog`'s braces: the store says "no Welcome
+    dialog" too, so anything that consults `show_welcome_on_startup` (not just
+    the startup path) sees the test-appropriate value. Same ordering contract
+    as `_disable_agent_api_server`.
+    """
+    from open_garden_planner.app.settings import AppSettings, create_qsettings
+
+    create_qsettings().setValue(AppSettings.KEY_SHOW_WELCOME, False)
     yield

@@ -476,6 +476,11 @@ class CanvasView(QGraphicsView):
             (ObjectType.CHAIR, ToolType.CHAIR, self.tr("Chair")),
             (ObjectType.BENCH, ToolType.BENCH, self.tr("Bench")),
             (ObjectType.LOUNGER, ToolType.LOUNGER, self.tr("Lounger")),
+            (ObjectType.SANDBOX, ToolType.SANDBOX, self.tr("Sandbox")),
+            (ObjectType.HOT_TUB, ToolType.HOT_TUB, self.tr("Hot Tub")),
+            (ObjectType.SWING, ToolType.SWING, self.tr("Swing")),
+            (ObjectType.PICNIC_TABLE, ToolType.PICNIC_TABLE, self.tr("Picnic Table")),
+            (ObjectType.HAMMOCK, ToolType.HAMMOCK, self.tr("Hammock")),
         ]
         for obj_type, tool_type, display_name in rect_furniture:
             tool = RectangleTool(self, object_type=obj_type)
@@ -490,6 +495,7 @@ class CanvasView(QGraphicsView):
             (ObjectType.BBQ_GRILL, ToolType.BBQ_GRILL, self.tr("BBQ/Grill")),
             (ObjectType.FIRE_PIT, ToolType.FIRE_PIT, self.tr("Fire Pit")),
             (ObjectType.PLANTER_POT, ToolType.PLANTER_POT, self.tr("Planter/Pot")),
+            (ObjectType.TRAMPOLINE, ToolType.TRAMPOLINE, self.tr("Trampoline")),
         ]
         for obj_type, tool_type, display_name in circle_furniture:
             tool = CircleTool(self, object_type=obj_type)
@@ -503,6 +509,8 @@ class CanvasView(QGraphicsView):
             (ObjectType.COMPOST_BIN, ToolType.COMPOST_BIN, self.tr("Compost Bin")),
             (ObjectType.COLD_FRAME, ToolType.COLD_FRAME, self.tr("Cold Frame")),
             (ObjectType.TOOL_SHED, ToolType.TOOL_SHED, self.tr("Tool Shed")),
+            (ObjectType.WHEELBARROW, ToolType.WHEELBARROW, self.tr("Wheelbarrow")),
+            (ObjectType.PERGOLA, ToolType.PERGOLA, self.tr("Pergola")),
         ]
         for obj_type, tool_type, display_name in rect_infrastructure:
             tool = RectangleTool(self, object_type=obj_type)
@@ -513,6 +521,7 @@ class CanvasView(QGraphicsView):
         circle_infrastructure = [
             (ObjectType.RAIN_BARREL, ToolType.RAIN_BARREL, self.tr("Rain Barrel")),
             (ObjectType.WATER_TAP, ToolType.WATER_TAP, self.tr("Water Tap")),
+            (ObjectType.BIRD_BATH, ToolType.BIRD_BATH, self.tr("Bird Bath")),
         ]
         for obj_type, tool_type, display_name in circle_infrastructure:
             tool = CircleTool(self, object_type=obj_type)

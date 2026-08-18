@@ -80,7 +80,12 @@ def _tr(text: str) -> str:
 
 
 def render_svg_thumbnail(svg_path: Path, size: int = THUMB_SIZE) -> QPixmap | None:
-    """Render an SVG file to a square pixmap."""
+    """Render an SVG file to a square pixmap, preserving its aspect ratio.
+
+    Non-square art (bench 180x60, lounger 70x190, ...) is letterboxed inside
+    the square instead of being stretched to fill it (#308) — the viewBox
+    aspect is the object's real footprint, so the thumbnail must keep it.
+    """
     if not svg_path.exists():
         return None
     renderer = QSvgRenderer(str(svg_path))
@@ -91,7 +96,14 @@ def render_svg_thumbnail(svg_path: Path, size: int = THUMB_SIZE) -> QPixmap | No
     painter = QPainter(image)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
     painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-    renderer.render(painter, QRectF(0, 0, size, size))
+    view = renderer.viewBoxF()
+    if view.width() > 0 and view.height() > 0 and abs(view.width() - view.height()) > 1e-6:
+        scale = size / max(view.width(), view.height())
+        w, h = view.width() * scale, view.height() * scale
+        target = QRectF((size - w) / 2, (size - h) / 2, w, h)
+    else:
+        target = QRectF(0, 0, size, size)
+    renderer.render(painter, target)
     painter.end()
     return QPixmap.fromImage(image)
 
@@ -363,6 +375,13 @@ def _furniture_items() -> list[GalleryItem]:
         (_tr("Lounger"), ToolType.LOUNGER, ObjectType.LOUNGER),
         (_tr("BBQ/Grill"), ToolType.BBQ_GRILL, ObjectType.BBQ_GRILL),
         (_tr("Fire Pit"), ToolType.FIRE_PIT, ObjectType.FIRE_PIT),
+        # Package 3a roster (#308)
+        (_tr("Picnic Table"), ToolType.PICNIC_TABLE, ObjectType.PICNIC_TABLE),
+        (_tr("Hammock"), ToolType.HAMMOCK, ObjectType.HAMMOCK),
+        (_tr("Swing"), ToolType.SWING, ObjectType.SWING),
+        (_tr("Sandbox"), ToolType.SANDBOX, ObjectType.SANDBOX),
+        (_tr("Trampoline"), ToolType.TRAMPOLINE, ObjectType.TRAMPOLINE),
+        (_tr("Hot Tub"), ToolType.HOT_TUB, ObjectType.HOT_TUB),
     ]
     for name, tool, obj in furniture:
         svg_filename = _FURNITURE_FILES.get(obj, "")
@@ -434,6 +453,10 @@ def _infrastructure_items() -> list[GalleryItem]:
         (_tr("Rain Barrel"), ToolType.RAIN_BARREL, ObjectType.RAIN_BARREL, _INFRASTRUCTURE_DIR, _INFRASTRUCTURE_FILES),
         (_tr("Water Tap"), ToolType.WATER_TAP, ObjectType.WATER_TAP, _INFRASTRUCTURE_DIR, _INFRASTRUCTURE_FILES),
         (_tr("Tool Shed"), ToolType.TOOL_SHED, ObjectType.TOOL_SHED, _INFRASTRUCTURE_DIR, _INFRASTRUCTURE_FILES),
+        # Package 3a roster (#308)
+        (_tr("Pergola"), ToolType.PERGOLA, ObjectType.PERGOLA, _INFRASTRUCTURE_DIR, _INFRASTRUCTURE_FILES),
+        (_tr("Wheelbarrow"), ToolType.WHEELBARROW, ObjectType.WHEELBARROW, _INFRASTRUCTURE_DIR, _INFRASTRUCTURE_FILES),
+        (_tr("Bird Bath"), ToolType.BIRD_BATH, ObjectType.BIRD_BATH, _INFRASTRUCTURE_DIR, _INFRASTRUCTURE_FILES),
     ]
     for name, tool, obj, svg_dir, files_map in objects:
         svg_filename = files_map.get(obj, "")

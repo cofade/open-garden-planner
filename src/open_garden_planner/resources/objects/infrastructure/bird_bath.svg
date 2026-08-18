@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50">
+<defs><radialGradient id="bb9_r1" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#d2cdc3"/><stop offset="55%" stop-color="#a29d93"/><stop offset="100%" stop-color="#68645c"/></radialGradient><radialGradient id="bb9_r2" cx="50%" cy="50%" r="50%"><stop offset="68.8333%" stop-color="#68645c"/><stop offset="90.8333%" stop-color="#d2cdc3"/><stop offset="100%" stop-color="#68645c"/></radialGradient><radialGradient id="bb9_r3" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#a6dff2"/><stop offset="55%" stop-color="#43a3d2"/><stop offset="100%" stop-color="#1e6291"/></radialGradient></defs>
+<circle cx="25.0" cy="25.0" r="25.2" fill="#383632" opacity="0.55"/>
+<circle cx="25.0" cy="25.0" r="24.0" fill="url(#bb9_r1)"/>
+<path d="M 49.0 25.0 A 24.0 24.0 0 1 1 1.0 25.0 A 24.0 24.0 0 1 1 49.0 25.0 Z M 43.5 25.0 A 18.5 18.5 0 1 0 6.5 25.0 A 18.5 18.5 0 1 0 43.5 25.0 Z" fill="url(#bb9_r2)"/>
+<circle cx="25.0" cy="25.0" r="23.0" fill="none" stroke="#d2cdc3" stroke-width="0.7" opacity="0.5"/>
+<circle cx="25.0" cy="25.0" r="18.5" fill="#383632" opacity="0.8"/>
+<circle cx="25.0" cy="25.0" r="17.5" fill="url(#bb9_r3)"/>
+<circle cx="25.0" cy="25.0" r="4.4" fill="none" stroke="#cbf0fb" stroke-width="0.7" opacity="0.22"/>
+<circle cx="25.0" cy="25.0" r="8.8" fill="none" stroke="#cbf0fb" stroke-width="0.7" opacity="0.16"/>
+<circle cx="25.0" cy="25.0" r="13.1" fill="none" stroke="#cbf0fb" stroke-width="0.7" opacity="0.10"/>
+<line x1="16.6" y1="11.7" x2="22.6" y2="10.7" stroke="#ffffff" stroke-width="0.7" stroke-linecap="round" opacity="0.430762"/>
+<line x1="24.2" y1="12.8" x2="30.9" y2="15.1" stroke="#ffffff" stroke-width="0.7" stroke-linecap="round" opacity="0.496596"/>
+<line x1="23.4" y1="30.8" x2="30.3" y2="33.4" stroke="#ffffff" stroke-width="0.7" stroke-linecap="round" opacity="0.382308"/>
+<line x1="32.6" y1="18.5" x2="37.6" y2="20.5" stroke="#ffffff" stroke-width="0.7" stroke-linecap="round" opacity="0.35008"/>
+<line x1="20.0" y1="36.9" x2="25.6" y2="35.4" stroke="#ffffff" stroke-width="0.7" stroke-linecap="round" opacity="0.464934"/>
+<line x1="27.9" y1="20.9" x2="32.5" y2="19.1" stroke="#ffffff" stroke-width="0.7" stroke-linecap="round" opacity="0.396727"/>
+<g transform="rotate(28.0 31.0 20.0)"><ellipse cx="31.0" cy="20.0" rx="3.4" ry="1.7" fill="#5f9a3c" opacity="0.95"/></g>
+<g transform="rotate(28.0 31.0 20.0)"><line x1="28.0" y1="20.0" x2="34.0" y2="20.0" stroke="#2f5c1c" stroke-width="0.5" stroke-linecap="round" opacity="0.7"/></g>
+</svg>

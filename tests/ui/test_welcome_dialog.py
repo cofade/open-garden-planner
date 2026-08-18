@@ -79,8 +79,13 @@ class TestWelcomeDialog:
 
     def test_checkbox_updates_settings(self, qtbot):  # noqa: ARG002
         """Test checkbox updates settings."""
+        # The suite's autouse conftest guard pre-sets the flag False, so start
+        # from True — otherwise setChecked(False) emits nothing and the assert
+        # below would only re-read the fixture's value.
+        get_settings().show_welcome_on_startup = True
         dialog = WelcomeDialog()
         checkbox = dialog.findChild(QCheckBox)
+        assert checkbox.isChecked()
 
         # Uncheck the checkbox
         checkbox.setChecked(False)

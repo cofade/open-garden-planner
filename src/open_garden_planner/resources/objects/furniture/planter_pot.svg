@@ -1,22 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
-  <!-- Planter/Pot - top-down view (terracotta pot) -->
-  <!-- Shadow -->
-  <circle cx="43" cy="43" r="36" fill="#00000018"/>
-  <!-- Pot rim outer -->
-  <circle cx="40" cy="40" r="36" fill="#C87840" stroke="#A05828" stroke-width="2"/>
-  <!-- Pot rim inner highlight -->
-  <circle cx="40" cy="40" r="32" fill="#D08850" stroke="#B86838" stroke-width="1"/>
-  <!-- Inside of pot (soil visible from top) -->
-  <circle cx="40" cy="40" r="28" fill="#6B4830" stroke="#8B5838" stroke-width="1"/>
-  <!-- Soil texture -->
-  <circle cx="34" cy="35" r="2" fill="#5A3820" opacity="0.5"/>
-  <circle cx="46" cy="38" r="1.5" fill="#5A3820" opacity="0.5"/>
-  <circle cx="38" cy="46" r="1.8" fill="#5A3820" opacity="0.5"/>
-  <circle cx="44" cy="32" r="1.2" fill="#5A3820" opacity="0.4"/>
-  <circle cx="32" cy="44" r="1.5" fill="#5A3820" opacity="0.4"/>
-  <!-- Small plant in center -->
-  <circle cx="40" cy="40" r="10" fill="#4A8B30" opacity="0.7"/>
-  <circle cx="36" cy="36" r="5" fill="#5AA038" opacity="0.6"/>
-  <circle cx="44" cy="38" r="4" fill="#5AA038" opacity="0.6"/>
-  <circle cx="40" cy="44" r="4.5" fill="#4A8B30" opacity="0.5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50">
+<defs><radialGradient id="pp11_r1" cx="50%" cy="50%" r="50%"><stop offset="67.6875%" stop-color="#8c4523"/><stop offset="89.6875%" stop-color="#eaa377"/><stop offset="100%" stop-color="#8c4523"/></radialGradient><radialGradient id="pp11_r2" cx="50%" cy="50%" r="70%"><stop offset="0%" stop-color="#7d5c3e"/><stop offset="45%" stop-color="#573c26"/><stop offset="100%" stop-color="#352111"/></radialGradient></defs>
+<circle cx="25.0" cy="25.0" r="25.2" fill="#4a220e" opacity="0.55"/>
+<path d="M 49.0 25.0 A 24.0 24.0 0 1 1 1.0 25.0 A 24.0 24.0 0 1 1 49.0 25.0 Z M 43.5 25.0 A 18.5 18.5 0 1 0 6.5 25.0 A 18.5 18.5 0 1 0 43.5 25.0 Z" fill="url(#pp11_r1)"/>
+<circle cx="25.0" cy="25.0" r="23.2" fill="none" stroke="#eaa377" stroke-width="0.8" opacity="0.5"/>
+<circle cx="25.0" cy="25.0" r="18.5" fill="#4a220e" opacity="0.9"/>
+<circle cx="25.0" cy="25.0" r="17.5" fill="url(#pp11_r2)"/>
+<ellipse cx="21.4" cy="12.8" rx="1.7" ry="1.3" fill="#7d5c3e" opacity="0.65"/>
+<circle cx="20.9" cy="12.4" r="0.5" fill="#ffffff" opacity="0.25"/>
+<ellipse cx="16.4" cy="16.0" rx="1.4" ry="0.9" fill="#352111" opacity="0.66"/>
+<ellipse cx="19.7" cy="31.9" rx="1.8" ry="1.6" fill="#352111" opacity="0.70"/>
+<ellipse cx="34.5" cy="19.0" rx="1.1" ry="1.0" fill="#7d5c3e" opacity="0.43"/>
+<circle cx="34.2" cy="18.7" r="0.3" fill="#ffffff" opacity="0.25"/>
+<ellipse cx="27.8" cy="25.6" rx="1.6" ry="1.1" fill="#352111" opacity="0.53"/>
+<ellipse cx="16.4" cy="27.2" rx="1.0" ry="0.8" fill="#352111" opacity="0.35"/>
+<ellipse cx="21.2" cy="17.3" rx="1.5" ry="1.2" fill="#7d5c3e" opacity="0.37"/>
+<circle cx="20.8" cy="16.9" r="0.4" fill="#ffffff" opacity="0.25"/>
+<ellipse cx="27.7" cy="33.8" rx="2.0" ry="1.4" fill="#352111" opacity="0.64"/>
+<ellipse cx="21.2" cy="16.8" rx="1.6" ry="1.4" fill="#352111" opacity="0.67"/>
+<ellipse cx="26.1" cy="21.3" rx="1.4" ry="1.2" fill="#7d5c3e" opacity="0.49"/>
+<circle cx="25.7" cy="20.9" r="0.4" fill="#ffffff" opacity="0.25"/>
+<ellipse cx="25.6" cy="24.3" rx="1.3" ry="0.9" fill="#352111" opacity="0.66"/>
+<ellipse cx="36.5" cy="34.3" rx="1.3" ry="1.0" fill="#352111" opacity="0.46"/>
+<ellipse cx="21.1" cy="19.0" rx="1.9" ry="1.2" fill="#7d5c3e" opacity="0.66"/>
+<circle cx="20.7" cy="18.5" r="0.6" fill="#ffffff" opacity="0.25"/>
+<ellipse cx="23.8" cy="36.6" rx="1.8" ry="1.6" fill="#352111" opacity="0.68"/>
+<ellipse cx="31.1" cy="17.8" rx="1.3" ry="1.1" fill="#352111" opacity="0.57"/>
+<ellipse cx="20.5" cy="34.6" rx="1.5" ry="1.3" fill="#7d5c3e" opacity="0.43"/>
+<circle cx="20.1" cy="34.3" r="0.5" fill="#ffffff" opacity="0.25"/>
 </svg>

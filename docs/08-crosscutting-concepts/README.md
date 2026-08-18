@@ -163,10 +163,10 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 - Multiple LOD versions for different zoom ranges
 - Loaded as QPixmap, applied via QBrush TexturePattern mode
 
-### Object SVGs
-- Furniture and infrastructure illustrations (top-down view)
-- Stored in `resources/objects/{category}/{name}.svg`
-- Rendered via QSvgRenderer into QGraphicsItem paint method
+### Object SVGs (`resources/objects/`, ADR-042 / #308)
+- **Generated, never hand-edited**: all 24 furniture + infrastructure sprites are emitted by `scripts/generate_object_sprites.py` in the "Lush Object" style (the man-made sibling of the plant art); committed files must byte-match regeneration (`--check` + determinism test). See §8.23.
+- Top-down, light from straight above, **no baked shadow** (the item-level painted shadow is the single source — furniture rotation is user-controlled); QtSvg-subset only; viewBox = nominal footprint in cm (gate-read table); contract in `resources/objects/README.md`, provenance in `resources/objects/PROVENANCE.md`
+- Consumed unchanged by `core/furniture_renderer.py` (cached pixmaps, stretched to the item rect); gallery thumbnails letterbox by viewBox aspect
 
 ## 8.6 Development Workflow
 
@@ -391,6 +391,10 @@ Unit tests and widget tests protect individual components but cannot catch regre
 ### Test location
 
 All integration tests live in `tests/integration/`. Shared fixtures are in `tests/integration/conftest.py`.
+
+### Per-test timeout (hang guard)
+
+Every test runs under `pytest-timeout` (`timeout = 180` in `pyproject.toml`; dev dependency). A hung full-app test therefore fails loudly instead of silently freezing the battery (§11.4, 2026-08-17). If a legitimate test needs longer, mark it `@pytest.mark.timeout(N)` with a comment saying why — do not raise the global value.
 
 ### Minimum requirement per US
 
@@ -1405,3 +1409,68 @@ every sprite to visible pixels through `render_plant_pixmap`, including
 tint, rotation and the 16 px growth-model size) → owner sign-off on a
 contact sheet for style-level changes. New species additionally need a
 `_SPECIES_FILES` alias in `core/plant_renderer.py`.
+
+## 8.23 Object Sprite Pipeline (#308, ADR-042)
+
+### 8.23.1 One generator, 24 artifacts
+
+Every SVG under `resources/objects/{furniture,infrastructure}/` is produced by
+`scripts/generate_object_sprites.py` — a seeded, deterministic generator whose
+`MATERIALS` anchor table + material primitives + one builder per object are
+the actual source of the furniture/infrastructure art. The committed SVGs are
+build artifacts: `--check` and `tests/unit/test_object_sprite_conformance.py`
+fail on any byte drift, which also makes hand edits impossible to land. The
+binding style contract lives in `resources/objects/README.md` ("Lush Object"):
+rim-dark → crown-light shading per part (symmetric linear gradients across a
+part's short axis, radial for round parts), occlusion halos where parts
+stack, material micro-detail (plank gaps + grain + knots, brushed-metal crown
+line, weave hatch + puff shading, ripples + caustic sparkles, granular clumps),
+gloss on glossy materials. The primitives are reusable building blocks —
+`plank`/`wood_surface`, `disc`/`ring`, `fabric`, `metal_bar`, `glass_pane`,
+`water_fill`, `granular_fill`, `glow`/`flame`, `frame_box` — so a new object
+is typically 20–40 lines composing them; rings are two-subpath paths (nonzero
+winding) and circle-clipped planks are computed analytically because QtSvg
+has no clipPath.
+
+### 8.23.2 The three invariants
+
+**No baked shadow / light from above**: furniture rotation is USER-controlled
+(unlike the plants' stable random rotation), so a baked directional shadow
+would rotate with the object and double the item-level painted shadow
+(`GardenItem.SHADOW_OFFSET`, View › Shadows). The gate pins the legacy
+`#00000020` shadow's absence. **QtSvg subset**: same allowlist discipline as
+§8.22.2 (elements/attributes/colors walked over the parsed tree; `fill-opacity`,
+`stroke-linejoin` are additionally allowed here). **viewBox = nominal footprint**:
+each sprite's `viewBox` is `0 0 W H` with `(W, H)` = `FURNITURE_DEFAULT_DIMENSIONS`
+in cm — a gate-read metadata table (no production code sizes objects from it;
+users size by dragging), pinned by the gate — the canvas stretches the art to
+the user's rect; circle-tool objects (`table_round`, `parasol`, `fire_pit`, `planter_pot`,
+`bbq_grill`, `rain_barrel`, `water_tap`, `trampoline`, `bird_bath`) therefore
+ship **square** art (a circle item renders into a square footprint — the BBQ's
+old 80×60 art was stretched on every canvas until #308).
+
+### 8.23.3 Changing or adding an object — the loop
+
+Edit/add the builder + `OBJECTS` row → regenerate → **visually review with the
+real engine** (QSvgRenderer offscreen: canvas scale on lawn + soil, rotated
+copy, 64/24 px thumbnails — see the `ogp-asset-forge` skill's "SVG sprite
+forge" section; never judge by XML or a browser render) → run the two gates
+(`test_object_sprite_conformance.py`; `tests/integration/test_object_sprite_rendering.py`
+— the §8.10 test renders every sprite through `render_furniture_pixmap` within
+the visual-weight band, at 24 px, checks letterboxed thumbnails, and drives
+every new tool end-to-end) → owner sign-off on a contact sheet for style-level
+changes. **Adding an object type** touches exactly these surfaces (verified
+2026-08-17, ADR-042): `core/object_types.py` (enum member appended, `OBJECT_STYLES`
+entry — its `fill_color` is the 3D extrusion colour —, `get_valid_types_for_shape`
+branch), `core/tools/base_tool.py` (`ToolType`, same name), `ui/canvas/canvas_view.py`
+`_setup_tools` (rect/circle furniture or infrastructure list), `core/furniture_renderer.py`
+(`_FURNITURE_FILES` for furniture-dir types; infrastructure-dir types need
+`_INFRASTRUCTURE_FILES` **and** `_SVG_DIR_OVERRIDES` **and** `_OBJECT_SVG_FILES` —
+the gate checks all three; plus `FURNITURE_DEFAULT_DIMENSIONS`), `core/object_height.py`
+(`DEFAULT_HEIGHTS_CM` — gives shadows/3D/height field; open structures like
+swing/pergola/hammock instead go into `_HEIGHT_FIELD_TYPES`: field offered, no
+default, no shadow until the user sets one), `ui/widgets/gallery_data.py`
+(gallery tuple), and `scripts/fill_translations.py` in the `CanvasView`,
+`GalleryData` and `ObjectType` contexts. Roster tests are map-driven; the
+additive-enum forward-compat contract (unknown names → generic shape, no
+FILE_VERSION bump) is pinned by `tests/unit/test_project_unknown_object_type.py`.

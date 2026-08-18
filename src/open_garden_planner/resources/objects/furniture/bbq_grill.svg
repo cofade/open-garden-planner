@@ -1,19 +1,52 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 60">
-  <!-- BBQ/Grill - top-down view -->
-  <!-- Shadow -->
-  <ellipse cx="43" cy="33" rx="36" ry="26" fill="#00000020"/>
-  <!-- Grill body (kettle/barrel shape from top) -->
-  <ellipse cx="40" cy="30" rx="36" ry="26" fill="#404040" stroke="#2A2A2A" stroke-width="2"/>
-  <!-- Lid rim highlight -->
-  <ellipse cx="40" cy="30" rx="33" ry="23" fill="none" stroke="#555" stroke-width="1"/>
-  <!-- Grill grate lines -->
-  <line x1="12" y1="18" x2="68" y2="18" stroke="#666" stroke-width="1.5" opacity="0.6"/>
-  <line x1="9" y1="24" x2="71" y2="24" stroke="#666" stroke-width="1.5" opacity="0.6"/>
-  <line x1="7" y1="30" x2="73" y2="30" stroke="#666" stroke-width="1.5" opacity="0.6"/>
-  <line x1="9" y1="36" x2="71" y2="36" stroke="#666" stroke-width="1.5" opacity="0.6"/>
-  <line x1="12" y1="42" x2="68" y2="42" stroke="#666" stroke-width="1.5" opacity="0.6"/>
-  <!-- Handle -->
-  <rect x="34" y="1" width="12" height="5" rx="2" fill="#888" stroke="#555" stroke-width="1"/>
-  <!-- Side shelf (visible from top) -->
-  <rect x="72" y="22" width="6" height="16" rx="1" fill="#606060" stroke="#404040" stroke-width="0.8"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+<defs><linearGradient id="bg9_l1" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#7d5029"/><stop offset="22%" stop-color="#b98350"/><stop offset="50%" stop-color="#dcae70"/><stop offset="78%" stop-color="#b98350"/><stop offset="100%" stop-color="#7d5029"/></linearGradient><radialGradient id="bg9_r2" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#70757a"/><stop offset="55%" stop-color="#313538"/><stop offset="100%" stop-color="#131517"/></radialGradient><radialGradient id="bg9_r3" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff4b0" stop-opacity="0.85"/><stop offset="40%" stop-color="#ff9d3e" stop-opacity="0.7225"/><stop offset="100%" stop-color="#c8421a" stop-opacity="0"/></radialGradient><radialGradient id="bg9_r4" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff4b0" stop-opacity="0.85"/><stop offset="40%" stop-color="#ff9d3e" stop-opacity="0.7225"/><stop offset="100%" stop-color="#c8421a" stop-opacity="0"/></radialGradient><radialGradient id="bg9_r5" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff4b0" stop-opacity="0.85"/><stop offset="40%" stop-color="#ff9d3e" stop-opacity="0.7225"/><stop offset="100%" stop-color="#c8421a" stop-opacity="0"/></radialGradient><radialGradient id="bg9_r6" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff4b0" stop-opacity="0.85"/><stop offset="40%" stop-color="#ff9d3e" stop-opacity="0.7225"/><stop offset="100%" stop-color="#c8421a" stop-opacity="0"/></radialGradient><linearGradient id="bg9_l7" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#626b73"/><stop offset="35%" stop-color="#eaedf0"/><stop offset="55%" stop-color="#adb4bc"/><stop offset="100%" stop-color="#626b73"/></linearGradient><radialGradient id="bg9_r8" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#eaedf0"/><stop offset="70%" stop-color="#adb4bc"/><stop offset="100%" stop-color="#626b73"/></radialGradient></defs>
+<rect x="61.0" y="19.0" width="18.0" height="42.0" rx="3.5" fill="#3f2510" opacity="0.55"/>
+<rect x="62.0" y="20.0" width="16.0" height="40.0" rx="2.5" fill="url(#bg9_l1)"/>
+<path d="M 66.7 21.5 L 65.6 40.0 L 64.4 58.5" fill="none" stroke="#8f5c2e" stroke-width="0.55" stroke-linecap="round" opacity="0.35"/>
+<path d="M 69.5 21.5 L 69.0 40.0 L 71.3 58.5" fill="none" stroke="#8f5c2e" stroke-width="0.55" stroke-linecap="round" opacity="0.35"/>
+<path d="M 71.6 21.5 L 72.5 40.0 L 72.9 58.5" fill="none" stroke="#8f5c2e" stroke-width="0.55" stroke-linecap="round" opacity="0.35"/>
+<ellipse cx="69.2" cy="45.0" rx="1.7" ry="1.2" fill="#7d5029" opacity="0.7"/>
+<ellipse cx="69.2" cy="45.0" rx="0.8" ry="0.6" fill="#3f2510" opacity="0.6"/>
+<line x1="70.0" y1="22.5" x2="70.0" y2="57.5" stroke="#dcae70" stroke-width="0.6" stroke-linecap="round" opacity="0.35"/>
+<line x1="68.0" y1="26.0" x2="68.0" y2="54.0" stroke="#adb4bc" stroke-width="1.6" stroke-linecap="round" opacity="0.95"/>
+<rect x="65.5" y="24.0" width="5.0" height="5.0" rx="0.8" fill="#eaedf0"/>
+<line x1="73.0" y1="28.0" x2="73.0" y2="54.0" stroke="#adb4bc" stroke-width="1.6" stroke-linecap="round" opacity="0.95"/>
+<rect x="71.5" y="25.0" width="3.0" height="3.0" rx="1.5" fill="#eaedf0"/>
+<ellipse cx="34.0" cy="40.0" rx="31.4" ry="31.4" fill="#050506" opacity="0.6"/>
+<ellipse cx="34.0" cy="40.0" rx="30.0" ry="30.0" fill="url(#bg9_r2)"/>
+<ellipse cx="34.0" cy="40.0" rx="26.0" ry="26.0" fill="#131517"/>
+<circle cx="25.0" cy="35.0" r="6.0" fill="url(#bg9_r3)"/>
+<circle cx="40.0" cy="33.0" r="5.5" fill="url(#bg9_r4)"/>
+<circle cx="32.0" cy="46.0" r="6.5" fill="url(#bg9_r5)"/>
+<circle cx="45.0" cy="44.0" r="5.0" fill="url(#bg9_r6)"/>
+<line x1="18.2" y1="20.7" x2="49.8" y2="20.7" stroke="#050506" stroke-width="1.4" stroke-linecap="round" opacity="0.55"/>
+<line x1="18.2" y1="20.0" x2="49.8" y2="20.0" stroke="#eaedf0" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
+<line x1="14.1" y1="24.7" x2="53.9" y2="24.7" stroke="#050506" stroke-width="1.4" stroke-linecap="round" opacity="0.55"/>
+<line x1="14.1" y1="24.0" x2="53.9" y2="24.0" stroke="#eaedf0" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
+<line x1="11.5" y1="28.7" x2="56.5" y2="28.7" stroke="#050506" stroke-width="1.4" stroke-linecap="round" opacity="0.55"/>
+<line x1="11.5" y1="28.0" x2="56.5" y2="28.0" stroke="#eaedf0" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
+<line x1="9.8" y1="32.7" x2="58.2" y2="32.7" stroke="#050506" stroke-width="1.4" stroke-linecap="round" opacity="0.55"/>
+<line x1="9.8" y1="32.0" x2="58.2" y2="32.0" stroke="#eaedf0" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
+<line x1="8.8" y1="36.7" x2="59.2" y2="36.7" stroke="#050506" stroke-width="1.4" stroke-linecap="round" opacity="0.55"/>
+<line x1="8.8" y1="36.0" x2="59.2" y2="36.0" stroke="#eaedf0" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
+<line x1="8.5" y1="40.7" x2="59.5" y2="40.7" stroke="#050506" stroke-width="1.4" stroke-linecap="round" opacity="0.55"/>
+<line x1="8.5" y1="40.0" x2="59.5" y2="40.0" stroke="#eaedf0" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
+<line x1="8.8" y1="44.7" x2="59.2" y2="44.7" stroke="#050506" stroke-width="1.4" stroke-linecap="round" opacity="0.55"/>
+<line x1="8.8" y1="44.0" x2="59.2" y2="44.0" stroke="#eaedf0" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
+<line x1="9.8" y1="48.7" x2="58.2" y2="48.7" stroke="#050506" stroke-width="1.4" stroke-linecap="round" opacity="0.55"/>
+<line x1="9.8" y1="48.0" x2="58.2" y2="48.0" stroke="#eaedf0" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
+<line x1="11.5" y1="52.7" x2="56.5" y2="52.7" stroke="#050506" stroke-width="1.4" stroke-linecap="round" opacity="0.55"/>
+<line x1="11.5" y1="52.0" x2="56.5" y2="52.0" stroke="#eaedf0" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
+<line x1="14.1" y1="56.7" x2="53.9" y2="56.7" stroke="#050506" stroke-width="1.4" stroke-linecap="round" opacity="0.55"/>
+<line x1="14.1" y1="56.0" x2="53.9" y2="56.0" stroke="#eaedf0" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
+<line x1="18.2" y1="60.7" x2="49.8" y2="60.7" stroke="#050506" stroke-width="1.4" stroke-linecap="round" opacity="0.55"/>
+<line x1="18.2" y1="60.0" x2="49.8" y2="60.0" stroke="#eaedf0" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
+<ellipse cx="34.0" cy="40.0" rx="28.5" ry="28.5" fill="none" stroke="#adb4bc" stroke-width="2.4"/>
+<ellipse cx="34.0" cy="40.0" rx="28.5" ry="28.5" fill="none" stroke="#eaedf0" stroke-width="0.8" opacity="0.7"/>
+<rect x="0.1" y="33.1" width="6.8" height="13.8" rx="2.9" fill="#2c3237" opacity="0.55"/>
+<rect x="1.0" y="34.0" width="5.0" height="12.0" rx="2" fill="url(#bg9_l7)"/>
+<line x1="2.8" y1="36.0" x2="2.8" y2="44.0" stroke="#ffffff" stroke-width="0.5" stroke-linecap="round" opacity="0.45"/>
+<circle cx="34.0" cy="5.5" r="1.9" fill="#2c3237" opacity="0.6"/>
+<circle cx="34.0" cy="5.5" r="1.4" fill="url(#bg9_r8)"/>
+<line x1="33.2" y1="5.5" x2="34.8" y2="5.5" stroke="#626b73" stroke-width="0.5" stroke-linecap="round" opacity="0.8"/>
 </svg>

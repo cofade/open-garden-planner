@@ -28,6 +28,13 @@ _FURNITURE_FILES: dict[ObjectType, str] = {
     ObjectType.BBQ_GRILL: "bbq_grill",
     ObjectType.FIRE_PIT: "fire_pit",
     ObjectType.PLANTER_POT: "planter_pot",
+    # Package 3a roster (#308)
+    ObjectType.SANDBOX: "sandbox",
+    ObjectType.TRAMPOLINE: "trampoline",
+    ObjectType.HOT_TUB: "hot_tub",
+    ObjectType.SWING: "swing",
+    ObjectType.PICNIC_TABLE: "picnic_table",
+    ObjectType.HAMMOCK: "hammock",
 }
 
 # Map ObjectType to SVG filename for infrastructure objects
@@ -38,6 +45,10 @@ _INFRASTRUCTURE_FILES: dict[ObjectType, str] = {
     ObjectType.RAIN_BARREL: "rain_barrel",
     ObjectType.WATER_TAP: "water_tap",
     ObjectType.TOOL_SHED: "tool_shed",
+    # Package 3a roster (#308)
+    ObjectType.WHEELBARROW: "wheelbarrow",
+    ObjectType.PERGOLA: "pergola",
+    ObjectType.BIRD_BATH: "bird_bath",
 }
 
 # SVG types whose files live outside _FURNITURE_DIR
@@ -49,6 +60,9 @@ _SVG_DIR_OVERRIDES: dict[ObjectType, Path] = {
     ObjectType.RAIN_BARREL: _INFRASTRUCTURE_DIR,
     ObjectType.WATER_TAP: _INFRASTRUCTURE_DIR,
     ObjectType.TOOL_SHED: _INFRASTRUCTURE_DIR,
+    ObjectType.WHEELBARROW: _INFRASTRUCTURE_DIR,
+    ObjectType.PERGOLA: _INFRASTRUCTURE_DIR,
+    ObjectType.BIRD_BATH: _INFRASTRUCTURE_DIR,
 }
 
 # Map ObjectType to SVG filename for non-furniture SVG-rendered objects
@@ -60,6 +74,9 @@ _OBJECT_SVG_FILES: dict[ObjectType, str] = {
     ObjectType.RAIN_BARREL: "rain_barrel",
     ObjectType.WATER_TAP: "water_tap",
     ObjectType.TOOL_SHED: "tool_shed",
+    ObjectType.WHEELBARROW: "wheelbarrow",
+    ObjectType.PERGOLA: "pergola",
+    ObjectType.BIRD_BATH: "bird_bath",
 }
 
 # Default dimensions in cm (width, height) for each furniture type
@@ -70,7 +87,7 @@ FURNITURE_DEFAULT_DIMENSIONS: dict[ObjectType, tuple[float, float]] = {
     ObjectType.BENCH: (180.0, 60.0),
     ObjectType.PARASOL: (300.0, 300.0),
     ObjectType.LOUNGER: (70.0, 190.0),
-    ObjectType.BBQ_GRILL: (80.0, 60.0),
+    ObjectType.BBQ_GRILL: (80.0, 80.0),  # circle-tool object → square footprint (#308)
     ObjectType.FIRE_PIT: (100.0, 100.0),
     ObjectType.PLANTER_POT: (50.0, 50.0),
     # Infrastructure
@@ -80,6 +97,17 @@ FURNITURE_DEFAULT_DIMENSIONS: dict[ObjectType, tuple[float, float]] = {
     ObjectType.RAIN_BARREL: (60.0, 60.0),
     ObjectType.WATER_TAP: (20.0, 20.0),
     ObjectType.TOOL_SHED: (200.0, 150.0),
+    # Package 3a roster (#308) — must equal the sprite's viewBox (gate:
+    # tests/unit/test_object_sprite_conformance.py)
+    ObjectType.SANDBOX: (150.0, 150.0),
+    ObjectType.TRAMPOLINE: (300.0, 300.0),
+    ObjectType.HOT_TUB: (220.0, 220.0),
+    ObjectType.SWING: (200.0, 150.0),
+    ObjectType.PICNIC_TABLE: (180.0, 150.0),
+    ObjectType.HAMMOCK: (300.0, 120.0),
+    ObjectType.WHEELBARROW: (60.0, 140.0),
+    ObjectType.PERGOLA: (300.0, 300.0),
+    ObjectType.BIRD_BATH: (50.0, 50.0),
 }
 
 # Cache for QSvgRenderer instances (path -> renderer)
