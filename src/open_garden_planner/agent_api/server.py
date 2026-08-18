@@ -792,8 +792,15 @@ def build_server(
             Pass species=None to clear the species. The footprint is left as
             drawn in that case.
 
-            Fails if the object is not a plant (TREE/SHRUB/PERENNIAL), if the
-            species is unknown, if it's a journal pin or group member, or if
+            Because assigning a species resizes the plant's footprint, this
+            counts as a geometry change: it fails on an object that
+            participates in a geometric constraint, exactly as resize_object
+            does. Clearing a species resizes nothing and is allowed on a
+            constrained plant.
+
+            Also fails if the object is not a plant (TREE/SHRUB/PERENNIAL), if
+            the species is unknown, if the plant already has that species or has
+            no species to clear, if it's a journal pin or group member, or if
             it's on a locked layer.
 
             Args:

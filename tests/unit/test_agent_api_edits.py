@@ -49,6 +49,21 @@ class TestTypeSetDriftGuards:
         assert "TRELLIS" in PLANT_PARENT_TYPE_NAMES
         assert ObjectType.TRELLIS not in SOIL_CONTAINER_TYPES
 
+    def test_min_extent_matches_the_gui_floor(self) -> None:
+        """The agent's floor must equal the one the GUI enforces.
+
+        ``edits.py`` inlines 1.0 to stay Qt-free and its comment claims this
+        guard exists — a review round found it did not. If ``MINIMUM_SIZE_CM``
+        moves, the agent must move with it or it becomes the softer of the two,
+        which inverts D2.1's stated ethos.
+        """
+        from open_garden_planner.agent_api.edits import MIN_EXTENT_CM
+        from open_garden_planner.ui.canvas.items.resize_handle import (
+            MINIMUM_SIZE_CM,
+        )
+
+        assert MIN_EXTENT_CM == MINIMUM_SIZE_CM
+
     def test_predicate_agrees_with_the_set(self) -> None:
         assert is_plant_parent_type_name("GARDEN_BED")
         assert is_plant_parent_type_name("TRELLIS")

@@ -20,6 +20,8 @@ only guaranteed because they run the same function.
 from __future__ import annotations
 
 import math
+import re
+from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import QPointF, QRectF
@@ -349,29 +351,135 @@ class TestRotatedRectanglePanelResize:
         )
 
 
-class TestOneRotationImplementation:
-    """Drift guard: `apply_rotation` must have exactly one definition.
+class TestEqualConstraintPartnerResize:
+    """``ResizeItemCommand`` has a SECOND callable injection point.
 
-    The senior review caught that the first cut left all five per-item
-    `apply_rotation` closures in place, so `geometry_apply.apply_rotation` was a
-    SIXTH copy used only by the agent — the opposite of a consolidation. This
-    fails if anyone reintroduces a private one.
+    Besides ``apply_func`` it takes ``partner_resizes``, whose apply functions
+    it also runs on execute and undo (``commands.py``). The first pass of the
+    geometry-apply extraction enumerated only the first, so the EQUAL-constraint
+    partner appliers in ``core/tools/constraint_tool.py`` kept hand-rolled
+    geometry — and with it a rotation bug: they solved for a new ``pos`` as if
+    the item were unrotated, so a rotated partner's stored centre ended up
+    **25.9 cm** adrift at 30 degrees and **70.7 cm** at 90.
+
+    Found by the senior review applying section 11.4's own stated lesson: grep
+    the constructor and enumerate, do not reason from the files you happened to
+    open.
     """
 
-    def test_only_geometry_apply_defines_apply_rotation(self) -> None:
-        import re
-        from pathlib import Path
+    @pytest.mark.parametrize("rotation", _ROTATIONS)
+    def test_rectangle_partner_resize_is_rotation_correct(
+        self, canvas: CanvasView, rotation: float
+    ) -> None:
+        from open_garden_planner.core.measure_snapper import AnchorType
+        from open_garden_planner.core.tools.constraint_tool import (
+            _build_equal_resize_fn,
+        )
 
+        scene = canvas.scene()
+        item = RectangleItem(400, 400, 200, 100, object_type=ObjectType.RAISED_BED)
+        scene.addItem(item)
+        apply_rotation(item, rotation)
+        centre_before = item.mapToScene(item.rect().center())
+
+        _old_size, apply_fn = _build_equal_resize_fn(item, AnchorType.EDGE_TOP)
+        apply_fn(item, 300.0)
+
+        assert item.rect().width() == pytest.approx(300.0)
+        # Centre-preserving is what these appliers were always trying to do —
+        # they just did it in a way that only worked unrotated.
+        centre_after = item.mapToScene(item.rect().center())
+        assert centre_after.x() == pytest.approx(centre_before.x(), abs=1e-6)
+        assert centre_after.y() == pytest.approx(centre_before.y(), abs=1e-6)
+        # And the #219 invariant, which the hand-rolled version never restored.
+        stored = item.pos() + item.rect().center()
+        visual = item.mapToScene(item.rect().center())
+        assert stored.x() == pytest.approx(visual.x(), abs=1e-6)
+        assert stored.y() == pytest.approx(visual.y(), abs=1e-6)
+
+    @pytest.mark.parametrize("rotation", _ROTATIONS)
+    def test_circle_partner_resize_was_already_correct(
+        self, canvas: CanvasView, rotation: float
+    ) -> None:
+        """The counterpart, pinned so nobody "fixes" it into a regression.
+
+        ``circle_apply`` rebuilds the rect around the *same* local centre, so
+        ``_center``, ``rect().center()`` and ``transformOriginPoint`` stay
+        coincident and it is already rotation-correct. A review round claimed it
+        left ``_center`` stale; measurement said otherwise, and this records the
+        measurement rather than the claim.
+        """
+        from open_garden_planner.core.measure_snapper import AnchorType
+        from open_garden_planner.core.tools.constraint_tool import (
+            _build_equal_resize_fn,
+        )
+
+        scene = canvas.scene()
+        item = CircleItem(400, 400, 50, object_type=ObjectType.TREE)
+        scene.addItem(item)
+        apply_rotation(item, rotation)
+        centre_before = item.mapToScene(item.rect().center())
+
+        _old_size, apply_fn = _build_equal_resize_fn(item, AnchorType.EDGE_TOP)
+        apply_fn(item, 120.0)
+
+        assert item._radius == pytest.approx(120.0)
+        assert item._center.x() == pytest.approx(item.rect().center().x())
+        assert item._center.y() == pytest.approx(item.rect().center().y())
+        assert item.transformOriginPoint().x() == pytest.approx(
+            item.rect().center().x()
+        )
+        centre_after = item.mapToScene(item.rect().center())
+        assert centre_after.x() == pytest.approx(centre_before.x(), abs=1e-6)
+        assert centre_after.y() == pytest.approx(centre_before.y(), abs=1e-6)
+
+
+class TestNoPrivateRotationAppliers:
+    """Drift guard: rotation must have exactly one implementation.
+
+    Widened after review: matching only ``def apply_rotation`` would miss a
+    private copy under another name, and miss a ``lambda`` handed straight to
+    ``RotateItemCommand`` — which is the shorter, likelier way to reintroduce
+    one.
+    """
+
+    @staticmethod
+    def _source_files() -> list[Path]:
         src = Path(__file__).resolve().parents[2] / "src" / "open_garden_planner"
-        # Paths only, never line numbers: a guard that breaks on an unrelated
-        # edit above the definition gets deleted rather than fixed.
+        return sorted(src.rglob("*.py"))
+
+    def test_apply_rotation_is_defined_once(self) -> None:
+        src = Path(__file__).resolve().parents[2] / "src" / "open_garden_planner"
         definitions = sorted(
             path.relative_to(src).as_posix()
-            for path in src.rglob("*.py")
+            for path in self._source_files()
             for line in path.read_text(encoding="utf-8").splitlines()
             if re.match(r"\s*def apply_rotation\b", line)
         )
         assert definitions == ["ui/canvas/geometry_apply.py"], (
-            "apply_rotation must be defined exactly once, in geometry_apply. "
-            f"Found: {definitions}"
+            f"apply_rotation must be defined exactly once. Found: {definitions}"
+        )
+
+    def test_no_private_rotation_applier_reaches_rotateitemcommand(self) -> None:
+        """No ``lambda`` or locally-defined callable may be passed as the
+        rotate ``apply_func`` — every call site must hand over the shared one."""
+        src = Path(__file__).resolve().parents[2] / "src" / "open_garden_planner"
+        offenders: list[str] = []
+        for path in self._source_files():
+            text = path.read_text(encoding="utf-8")
+            # (?<!class ) so the class DEFINITION in commands.py is not read
+            # as a call site.
+            for match in re.finditer(
+                r"(?<!class )RotateItemCommand\((.*?)\)", text, re.DOTALL
+            ):
+                args = match.group(1)
+                if "lambda" in args:
+                    offenders.append(f"{path.relative_to(src).as_posix()}: lambda")
+                elif "apply_rotation" not in args:
+                    offenders.append(
+                        f"{path.relative_to(src).as_posix()}: {args.strip()[:60]}"
+                    )
+        assert not offenders, (
+            "every RotateItemCommand must be given geometry_apply.apply_rotation; "
+            f"found: {offenders}"
         )

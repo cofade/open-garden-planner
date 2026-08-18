@@ -45,8 +45,8 @@ PLANT_PARENT_TYPE_NAMES: frozenset[str] = _SOIL_CONTAINER_TYPE_NAMES | {"TRELLIS
 #: 1.0 cm. An agent must not be able to create geometry the user cannot then
 #: grab — D2.1's ethos is to bound agent input *harder* than the GUI, never
 #: softer, so this floor is applied to every resulting extent. Inlined (not
-#: imported) to keep this module Qt-free; guarded against drift in
-#: ``tests/unit/test_agent_api_edits.py``.
+#: imported) to keep this module Qt-free; ``tests/unit/test_agent_api_edits.py``
+#: asserts it still equals ``resize_handle.MINIMUM_SIZE_CM``.
 MIN_EXTENT_CM = 1.0
 
 #: Beyond this many degrees of absolute rotation a request is almost certainly a

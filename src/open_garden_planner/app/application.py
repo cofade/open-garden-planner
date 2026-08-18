@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from PyQt6.QtCore import QEvent, Qt, QTimer
+from PyQt6.QtCore import QCoreApplication, QEvent, Qt, QTimer
 from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
@@ -896,8 +896,9 @@ class GardenPlannerApp(QMainWindow):
         if species is not None:
             self._agent_require_unconstrained(item, item_id, "set_species")
 
+        current = item.metadata.get("plant_species")
         if species is None:
-            old_species = item.metadata.get("plant_species")
+            old_species = current
             if not isinstance(old_species, dict):
                 raise ValueError(
                     f"{item_id} has no species to clear; nothing to change."
@@ -922,18 +923,32 @@ class GardenPlannerApp(QMainWindow):
                     "(scientific names, common names and aliases all match)."
                 )
             species_dict = merge_calendar_data(dict(record))
+            # Re-assigning the species a plant already has is a no-op that would
+            # still push an undo step — the same lie set_parent_bed refuses.
+            # Compared on the canonical key, so "Tomato" and its scientific name
+            # are recognised as the same request.
+            resolved = species_dict.get("scientific_name")
+            if (
+                isinstance(current, dict)
+                and resolved
+                and current.get("scientific_name") == resolved
+            ):
+                raise ValueError(
+                    f"{item_id} already has species {resolved!r}; nothing to "
+                    "change."
+                )
             apply_species_to_item(
                 item, species_dict, confirm=lambda: apply_database_size
             )
             resulting_key = species_dict.get("scientific_name") or species
-            # ApplySpeciesCommand.description is a constant, so name it directly
-            # rather than reading the stack top — apply_species_to_item applies
+            # The command's label is a constant; name it directly rather than
+            # reading the undo stack's top (apply_species_to_item applies
             # without pushing when there is no command manager, and the stack
             # top would then be an unrelated command the agent would be told
-            # Ctrl+Z reverses.
-            undo_description = ApplySpeciesCommand(
-                item, None, None, None, None
-            ).description
+            # Ctrl+Z reverses) or constructing a throwaway command to ask it.
+            undo_description = QCoreApplication.translate(
+                "Commands", "Apply species data"
+            )
 
         cx, cy = self._agent_item_center(item)
         return {
@@ -1086,8 +1101,8 @@ class GardenPlannerApp(QMainWindow):
             # whole group — and moveBy on a QGraphicsItemGroup child would
             # displace it *within* the group. Address the group by its own id.
             raise ValueError(
-                f"{item_id} is a member of a group; move or delete the group "
-                "itself (its own id), not an individual member."
+                f"{item_id} is a member of a group; address the group itself "
+                "(its own id) rather than an individual member."
             )
         if isinstance(item, JournalPinItem):
             # Journal pins have their own ProjectData-linked delete path
@@ -1095,8 +1110,8 @@ class GardenPlannerApp(QMainWindow):
             # DeleteItemsCommand would remove the pin but silently orphan the
             # note record). Not supported by move_object/delete_object yet.
             raise ValueError(
-                f"{item_id} is a journal pin, not a garden object — "
-                "move_object/delete_object don't support journal pins yet."
+                f"{item_id} is a journal pin, not a garden object — the write "
+                "tools don't support journal pins yet."
             )
         if self._agent_item_is_locked(item):
             # The GUI enforces layer-lock by clearing ItemIsSelectable/
