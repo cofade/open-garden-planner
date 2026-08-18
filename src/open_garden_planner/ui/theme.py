@@ -11,7 +11,8 @@ from collections.abc import Callable
 from enum import Enum
 
 from PyQt6 import sip
-from PyQt6.QtGui import QColor
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QPainter, QPixmap
 from PyQt6.QtWidgets import QApplication, QWidget
 
 logger = logging.getLogger(__name__)
@@ -252,6 +253,22 @@ def is_dark_theme() -> bool:
 def theme_color(name: str) -> str:
     """Return a color token from the active palette (hex or rgba string)."""
     return _current_colors[name]
+
+
+def urgency_dot(color: QColor, size: int = 10) -> QPixmap:
+    """Small filled circle in an urgency colour — the painted marker the Tasks
+    tab and the calendar dashboard share (ONE renderer for the two #228-
+    converged surfaces, next to the shared URGENCY_TOKENS; replaces the "●"
+    text glyph, #310)."""
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(color)
+    painter.drawEllipse(1, 1, size - 2, size - 2)
+    painter.end()
+    return pixmap
 
 
 def theme_qcolor(name: str) -> QColor:

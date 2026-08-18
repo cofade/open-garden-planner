@@ -300,15 +300,18 @@ class WeatherWidget(QFrame):
     # ── state helpers ───────────────────────────────────────────────────
 
     def _show_empty_state(self) -> None:
+        self._last_forecast = None  # a theme switch must not resurrect a stale strip
         self._hide_all_content()
         self._empty_lbl.show()
         self._location_lbl.setText("")
 
     def _show_loading(self) -> None:
+        self._last_forecast = None
         self._hide_all_content()
         self._loading_lbl.show()
 
     def _show_error(self, message: str) -> None:
+        self._last_forecast = None
         self._hide_all_content()
         self._empty_lbl.setText(self.tr("Weather forecast unavailable:\n{message}").format(message=message))
         self._empty_lbl.show()

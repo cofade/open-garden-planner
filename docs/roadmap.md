@@ -2325,7 +2325,7 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 - **"Log Harvest…"** on any plant/bed context menu opens `HarvestLogDialog` (Entry + History tabs); each entry stores date, quantity, editable unit (kg/g/pcs/bunch/L), quality, notes, optional photo. History groups past entries by year with per-unit subtotals. Mirrors the pest-log architecture (US-12.7).
 - **Undoable** Add/Edit/Delete (`Add/Edit/DeleteHarvestRecordCommand`); records persist under the additive `.ogp` key `harvest_logs` keyed by item UUID (no `FILE_VERSION` bump). Each `HarvestHistory` caches `species_key`/`species_name` so totals resolve even after the plant is deleted.
-- **Garden-wide Harvest dashboard tab** (Ctrl+6, appended via `indexOf` so existing shortcuts/badges are untouched) shows per-species/per-year/per-unit totals from the pure, Qt-free `services/harvest_aggregation.aggregate_by_species_year` (different units never summed); double-click a row selects that species on the canvas. **CSV export** + optional **PDF "Harvest summary"** page.
+- **Garden-wide Harvest dashboard tab** (Ctrl+6 — Ctrl+5 since #310, appended via `indexOf` so existing shortcuts/badges are untouched) shows per-species/per-year/per-unit totals from the pure, Qt-free `services/harvest_aggregation.aggregate_by_species_year` (different units never summed); double-click a row selects that species on the canvas. **CSV export** + optional **PDF "Harvest summary"** page.
 - **Journal link**: each harvest auto-creates a **pin-less** `harvest`-tagged `JournalNote` (new `JournalNote.tags`) so it appears in the Garden Journal without a canvas pin; Add/Edit/Delete keep it in sync and undo restores both. The journal note dialog preserves `tags` so editing never strips the marker.
 - **Season rollover**: harvest history carries forward (year-over-year totals survive rotation); carried records have their `journal_note_id` severed since the new season starts with a blank journal.
 
@@ -2334,11 +2334,11 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 |----------|---------|
 | `docs/functional-requirements.md` | FR-23 (FR-HARVEST-01…10) |
 | `docs/05-building-block-view/` | `models/harvest_log.py`, `services/harvest_aggregation.py`, Harvest dashboard tab |
-| `docs/12-glossary/` | Harvest log, Harvest aggregation; Ctrl+6 shortcut |
+| `docs/12-glossary/` | Harvest log, Harvest aggregation; Ctrl+6 shortcut (Ctrl+5 since #310) |
 
 ### US-C2 acceptance highlights
 
-- **Unified Tasks tab** (Ctrl+5, appended after Seed Inventory via `indexOf` so existing shortcuts/badges are untouched) groups tasks Overdue / Today / This Week / Upcoming / No date, with collapsible **Snoozed** and **Done** sections.
+- **Unified Tasks tab** (Ctrl+5 — Ctrl+4 since #310, appended after Seed Inventory via `indexOf` so existing shortcuts/badges are untouched) groups tasks Overdue / Today / This Week / Upcoming / No date, with collapsible **Snoozed** and **Done** sections.
 - **Auto-generated tasks** come from six pure, Qt-free `(PlanState) -> list[Task]` generators (`services/task_generator.py`): planting-calendar windows, propagation steps, succession sow/clear, one soil-amendment task per recommendation per bed, frost protection (from the weather service's frost alerts), and manual tasks; `generate_all` flat-maps + dedups by `task_id`.
 - **Manual tasks** (`models/task.py` `ManualTask`: date, title, notes, optional bed link) are created/edited via `TaskDialog`; Add/Edit/Delete are undoable.
 - **Status is render-time** (`services/task_status.effective_status`): open / snoozed / done / dismissed / archived computed against "today" — no scheduler; expired snoozes reappear, done > 7 days auto-archives.
@@ -2352,7 +2352,7 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 | `docs/09-architecture-decisions/` | ADR-029 (pure generators, render-time status, dual-store coexistence) |
 | `docs/05-building-block-view/` | §5.5 Task subsystem; `services/task_generator.py`, `services/task_status.py`, `models/task.py`, `ui/views/tasks_view.py`, `ui/dialogs/task_dialog.py` |
 | `docs/functional-requirements.md` | FR-21 (FR-TASK-01…09) |
-| `docs/12-glossary/` | Manual task, Task state, Task generator, Effective status; Ctrl+5 shortcut |
+| `docs/12-glossary/` | Manual task, Task state, Task generator, Effective status; Ctrl+5 shortcut (Ctrl+4 since #310) |
 
 ---
 

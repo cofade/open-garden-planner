@@ -593,8 +593,9 @@ class SuccessionPlanDialog(QDialog):
 
     def _compute_companion_notes(self) -> list[tuple[str, str]]:
         """(kind, text) per note — kind ∈ {"good", "warn", "neutral"} drives
-        the row icon (was a ✓ / ⚠ / · text prefix)."""
-        """Build companion compatibility messages for current entries.
+        the row icon (was a ✓ / ⚠ / · text prefix).
+
+        Build companion compatibility messages for current entries.
 
         Reasons are rendered in the user's UI language via
         ``get_relationship_reason(rel, lang)`` (falls back to English when the

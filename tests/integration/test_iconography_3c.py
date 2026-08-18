@@ -17,6 +17,7 @@ from PyQt6.QtCore import QSize
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import QApplication
 
+from open_garden_planner.core.constraints import ConstraintType
 from open_garden_planner.models.layer import Layer
 from open_garden_planner.ui.panels.constraints_panel import _TYPE_ICONS as _CONSTRAINT_TYPE_ICONS
 from open_garden_planner.ui.panels.constraints_panel import ConstraintListItem
@@ -164,7 +165,15 @@ class TestPanelsAndWidgets:
         # no ✓ / ⚠ / · prefix in the text (the → between names is prose)
         assert all(not _has_glyph(r.text()[:2]) for r in rows)
 
-    @pytest.mark.parametrize("type_name", sorted(_CONSTRAINT_TYPE_ICONS))
+    def test_every_constraint_type_has_a_row_icon(self) -> None:
+        """The panel lists EVERY constraint in the graph; an unmapped type fell
+        back to the horizontal-distance glyph (round-2 review found four:
+        symmetry ×2, point-on-edge, point-on-circle). Parametrizing over the
+        dict under test could not see that — assert coverage against the enum."""
+        missing = set(ConstraintType.__members__) - set(_CONSTRAINT_TYPE_ICONS)
+        assert not missing, missing
+
+    @pytest.mark.parametrize("type_name", sorted(ConstraintType.__members__))
     def test_constraint_row_shows_type_icon_and_no_glyph_prefix(self, qtbot, type_name: str) -> None:
         """Every constraint type: exactly ONE status dot + ONE type icon (a
         duplicated block once shipped three type icons per row — review
@@ -241,7 +250,13 @@ class TestNoEmojiInChromeSources:
     # deliberate §8.21.5 exception, listed so the guard stays honest
     PROSE_EXCEPTIONS = {
         ("app/application.py", "File → Set Garden Location"),
-        ("ui/dialogs/succession_plan_dialog.py", "{a.common_name} → {b.common_name}"),
+        ("ui/dialogs/succession_plan_dialog.py", " → "),          # "A → B: reason" (f-string part)
+        ("ui/dialogs/soil_test_dialog.py", "→"),                   # "Raises pH {cur} → {tgt}" and friends
+        ("ui/canvas/dimension_lines.py", "↔"),                     # canvas dimension label prefix (§8.21.5)
+        ("ui/canvas/dimension_lines.py", "↕"),                     # canvas dimension label prefix (§8.21.5)
+        ("ui/canvas/dimension_lines.py", "⦿"),                     # canvas coincident marker text (§8.21.5)
+        ("ui/canvas/dimension_lines.py", "∥"),                     # canvas parallel marker text (§8.21.5)
+        ("ui/canvas/dimension_lines.py", "⊾"),                     # canvas perpendicular marker text (§8.21.5)
     }
     MODULES = [
         "app/application.py",
@@ -263,28 +278,35 @@ class TestNoEmojiInChromeSources:
         "ui/dialogs/shortcuts_dialog.py",
         "ui/view3d/view3d_window.py",
         "ui/widgets/sun_sim_toolbar.py",
+        "ui/panels/crop_rotation_panel.py",
+        "ui/panels/properties_panel.py",
+        "ui/dialogs/soil_test_dialog.py",
+        "ui/canvas/dimension_lines.py",
     ]
 
     @staticmethod
     def _string_literals(source_path):
-        """(lineno, text) of every string literal that is NOT a docstring —
-        chrome text lives in literals; docstrings/comments are prose."""
+        """(lineno, decoded text) of every string constant that is NOT a
+        docstring — walks `ast.Constant`, so f-string literal parts
+        (`JoinedStr` values) and `\\uXXXX` escapes are seen DECODED (round-2
+        review: a `tokenize`-based scan saw neither, i.e. exactly the two
+        syntaxes the pre-migration code used). Docstrings are excluded by node
+        identity, not by line."""
         import ast
-        import io
-        import tokenize
 
         text = source_path.read_text(encoding="utf-8")
         tree = ast.parse(text)
-        doc_lines: set[int] = set()
+        docstring_nodes: set[int] = set()
         for node in ast.walk(tree):
             if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
                 body = getattr(node, "body", [])
-                if body and isinstance(body[0], ast.Expr) and isinstance(getattr(body[0], "value", None), ast.Constant)                         and isinstance(body[0].value.value, str):
-                    doc_lines.update(range(body[0].lineno, body[0].end_lineno + 1))
+                if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) \
+                        and isinstance(body[0].value.value, str):
+                    docstring_nodes.add(id(body[0].value))
         out = []
-        for tok in tokenize.generate_tokens(io.StringIO(text).readline):
-            if tok.type == tokenize.STRING and tok.start[0] not in doc_lines:
-                out.append((tok.start[0], tok.string))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstring_nodes:
+                out.append((node.lineno, node.value))
         return out
 
     @pytest.mark.parametrize("module", MODULES)
@@ -302,9 +324,12 @@ class TestNoEmojiInChromeSources:
         assert offenders == [], offenders
 
     def test_prose_exceptions_still_exist(self) -> None:
-        """An exception whose text vanished would silently widen the guard."""
+        """An exception whose text vanished would silently widen the guard —
+        each fragment must occur in a NON-docstring string constant of its
+        module (i.e. where the guard would actually see it)."""
         from pathlib import Path
 
         for mod, frag in self.PROSE_EXCEPTIONS:
             src = Path(__file__).parents[2] / "src" / "open_garden_planner" / mod
-            assert frag in src.read_text(encoding="utf-8"), (mod, frag)
+            literals = [text for _ln, text in self._string_literals(src)]
+            assert any(frag in lit for lit in literals), (mod, frag)

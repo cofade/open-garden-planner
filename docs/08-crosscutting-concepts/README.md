@@ -1394,13 +1394,18 @@ companion star, collapsible chevron/info, season manager status, the
 sun-sim and soil-overlay toolbars, and the theme's spin-box arrows (path
 SVGs — a `<text>` glyph depends on the system font). What deliberately stays
 text: arrows inside sentences ("File → Set Location", "A → B: reason",
-"pH 5.8 → 6.5" — listed as named exceptions in the static guard), the
-canvas dimension prefixes ("↔ 1.20 m" — dimension labels, not chrome), the
-succession badge's bullets on the canvas, and the combo separator rows
-("── Paths ──"). Radio groups (Theme, Language, Auto-Save intervals) carry
-the icon on the submenu title only. The 3D window's Refresh/Walk toolbar
-and the constraint rows' delete "×" were the last text-only controls; both
-are iconized.
+"pH 5.8 → 6.5" — named exceptions in the static guard, which scans every
+string constant — f-string parts and escapes included — of the migrated
+modules), canvas TEXT (dimension prefixes "↔ 1.20 m", the constraint tools'
+on-canvas preview labels "≡ H (same Y)" / "⊙ On Circle" / "⦿ Coincident",
+the succession badge's bullets — drawn in the app font on the canvas, not
+chrome; the one emoji among them, "🔒 Fix in place", is gone because emoji
+glyphs are font-dependent), the update banner's external-link arrow ("What's
+new ↗", typography), and the combo separator rows ("── Paths ──"). Radio
+groups (Theme, Language, Auto-Save intervals) carry the icon on the submenu
+title only. The 3D window's Refresh/Walk toolbar, the crop-rotation status
+prefix and the constraint rows' delete "×" were the last text-only
+controls; all are iconized.
 
 ## 8.22 Plant Sprite Pipeline (#281, ADR-040)
 

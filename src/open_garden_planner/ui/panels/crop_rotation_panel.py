@@ -25,6 +25,7 @@ from open_garden_planner.services.crop_rotation_service import (
     RotationRecommendation,
     RotationStatus,
 )
+from open_garden_planner.ui.icons import get_pixmap
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
 # Status -> semantic theme token (resolved live so a theme switch re-tints)
@@ -40,11 +41,12 @@ def _status_color(status: RotationStatus) -> str:
     """Hex for a rotation status from the active theme palette."""
     return theme_color(_STATUS_TOKENS.get(status, "text_disabled"))
 
+# provider icon per status (was an emoji ✅ ⚠ ❌ ❓ text prefix; #310)
 _STATUS_ICONS = {
-    RotationStatus.GOOD: "\u2705",       # Green check
-    RotationStatus.SUBOPTIMAL: "\u26a0",  # Warning triangle
-    RotationStatus.VIOLATION: "\u274c",   # Red X
-    RotationStatus.UNKNOWN: "\u2753",     # Question mark
+    RotationStatus.GOOD: "check",
+    RotationStatus.SUBOPTIMAL: "warning",
+    RotationStatus.VIOLATION: "cross",
+    RotationStatus.UNKNOWN: "help",
 }
 
 # Keys for demand / season — translated at display time via _tr()
@@ -119,6 +121,8 @@ class CropRotationPanel(QWidget):
         self._history_list.clear()
 
         if item is None or area_id is None:
+            self._current_status = None
+            self._status_icon.hide()
             self._status_label.setText(self.tr("No bed selected"))
             self._status_label.setStyleSheet(
                 f"font-style: italic; color: {theme_color('text_disabled')};"
@@ -144,11 +148,20 @@ class CropRotationPanel(QWidget):
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(6)
 
-        # Status header
+        # Status header: themed status icon + text
+        status_row = QHBoxLayout()
+        status_row.setSpacing(4)
+        self._status_icon = QLabel()
+        self._status_icon.setFixedSize(18, 18)
+        self._status_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._status_icon.hide()
+        status_row.addWidget(self._status_icon, 0, Qt.AlignmentFlag.AlignTop)
         self._status_label = QLabel(self.tr("No bed selected"))
         self._status_label.setWordWrap(True)
         self._status_label.setStyleSheet("font-style: italic;")
-        layout.addWidget(self._status_label)
+        status_row.addWidget(self._status_label, 1)
+        layout.addLayout(status_row)
+        self._current_status: RotationStatus | None = None
 
         # Recommendation text
         self._recommendation_label = QLabel()
@@ -206,12 +219,24 @@ class CropRotationPanel(QWidget):
         # Enable edit/delete when a history entry is selected
         self._history_list.currentItemChanged.connect(self._on_history_selection_changed)
 
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: (re-)tint the rotation status icon (#310)."""
+        status = self._current_status
+        if status is None:
+            self._status_icon.hide()
+            return
+        pixmap = get_pixmap(_STATUS_ICONS.get(status, "help"), 16, color=_status_color(status))
+        if pixmap is not None:
+            self._status_icon.setPixmap(pixmap)
+        self._status_icon.show()
+
     def _display_recommendation(
         self, rec: RotationRecommendation, item: object
     ) -> None:
         """Populate the panel with recommendation data."""
         color = _status_color(rec.status)
-        icon = _STATUS_ICONS.get(rec.status, "")
+        self._current_status = rec.status
+        self.refresh_theme_icons()
 
         # Bed name
         bed_name = getattr(item, "name", "") or self.tr("Unnamed Bed")
@@ -222,7 +247,7 @@ class CropRotationPanel(QWidget):
             RotationStatus.UNKNOWN: self.tr("No History"),
         }.get(rec.status, "")
 
-        self._status_label.setText(f"{icon} {bed_name}: {status_text}")
+        self._status_label.setText(f"{bed_name}: {status_text}")
         self._status_label.setStyleSheet(
             f"font-weight: bold; color: {color}; font-size: 12px;"
         )

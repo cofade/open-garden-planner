@@ -1494,7 +1494,7 @@ class GardenPlannerApp(QMainWindow):
         menu.addSeparator()
 
         # Fullscreen Preview
-        self._preview_action = QAction(self.tr("&Fullscreen Preview"), self)
+        self._preview_action = QAction(self.tr("Fullscreen &Preview"), self)
         self._preview_action.setShortcut(QKeySequence("F11"))
         self._preview_action.setCheckable(True)
         self._preview_action.setChecked(False)
