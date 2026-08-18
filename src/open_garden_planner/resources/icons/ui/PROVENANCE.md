@@ -135,7 +135,6 @@ unicode pseudo-icon replacements, layers panel, weather card, sun-sim toolbar).
 | lock_open.svg | lock-open |
 | minimap.svg | map-search |
 | overlays.svg | stack-2 |
-| panels.svg | layout-sidebar |
 | plant_manage.svg | leaf |
 | plant_search.svg | database-search |
 | player_pause.svg | player-pause |
@@ -171,6 +170,7 @@ unicode pseudo-icon replacements, layers panel, weather card, sun-sim toolbar).
 | tab_plan.svg | map |
 | tab_tasks.svg | checklist |
 | view3d.svg | cube |
+| walk.svg | walk |
 | warning.svg | alert-triangle |
 | weather_fog.svg | cloud-fog |
 | weather_rain.svg | cloud-rain |

@@ -17,6 +17,8 @@ from open_garden_planner.services.companion_planting_service import (
 from open_garden_planner.ui.icons import get_icon, get_pixmap
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
+_NEARBY_ROLE = Qt.ItemDataRole.UserRole + 1  # bool: row carries the nearby star
+
 
 class CompanionPanel(QWidget):
     """Sidebar panel showing companion planting recommendations.
@@ -130,17 +132,30 @@ class CompanionPanel(QWidget):
 
         legend_row = QHBoxLayout()
         legend_row.setSpacing(4)
-        legend_icon = QLabel()
-        legend_icon.setFixedSize(16, 16)
-        pixmap = get_pixmap("star", 14, color=theme_color("accent"))
-        if pixmap is not None:
-            legend_icon.setPixmap(pixmap)
-        legend_row.addWidget(legend_icon)
+        self._legend_icon = QLabel()
+        self._legend_icon.setFixedSize(16, 16)
+        legend_row.addWidget(self._legend_icon)
         legend = QLabel(self.tr("= already nearby in plan  (click to select)"))
         set_text_role(legend, "hint")
         legend.setWordWrap(True)
         legend_row.addWidget(legend, 1)
         layout.addLayout(legend_row)
+        self.refresh_theme_icons()
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: re-tint the legend star and every nearby-star
+        row (baked icons do not follow the palette, #310)."""
+        pixmap = get_pixmap("star", 14, color=theme_color("accent"))
+        if pixmap is not None:
+            self._legend_icon.setPixmap(pixmap)
+        icon = get_icon("star", color=theme_color("accent"))
+        if icon is None:
+            return
+        for lst in (self._good_list, self._bad_list):
+            for i in range(lst.count()):
+                row = lst.item(i)
+                if row is not None and row.data(_NEARBY_ROLE):
+                    row.setIcon(icon)
 
     def _add_list_entry(
         self,
@@ -156,6 +171,7 @@ class CompanionPanel(QWidget):
             text += f"\n    {reason}"
 
         entry = QListWidgetItem(text)
+        entry.setData(_NEARBY_ROLE, bool(nearby))
         if nearby:  # star icon (was a "★ " text prefix, #310)
             icon = get_icon("star", color=theme_color("accent"))
             if icon is not None:

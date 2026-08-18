@@ -264,7 +264,6 @@ class WeatherWidget(QFrame):
 
     def _render_forecast(self, forecast: WeatherForecast) -> None:
         self._last_forecast = forecast
-        self._last_forecast = forecast
         self._hide_all_content()
 
         # 7-day strip

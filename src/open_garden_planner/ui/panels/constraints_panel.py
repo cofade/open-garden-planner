@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.ui.icons import get_pixmap
+from open_garden_planner.ui.icons import get_icon, get_pixmap
 
 if TYPE_CHECKING:
     from open_garden_planner.core.constraints import Constraint, ConstraintGraph
@@ -34,44 +34,6 @@ _COLOR_PERPENDICULAR_SATISFIED = QColor(20, 120, 160)
 _COLOR_EQUAL_SATISFIED = QColor(200, 100, 0)
 _COLOR_FIXED = QColor(180, 130, 0)
 _COLOR_EDGE_LENGTH = QColor(0, 120, 200)
-
-
-# constraint type name → provider icon (the same glyphs the constraint
-# toolbar uses; #310)
-_TYPE_ICONS: dict[str, str] = {
-    "HORIZONTAL": "constraint_horizontal",
-    "VERTICAL": "constraint_vertical",
-    "ANGLE": "constraint_angle",
-    "COINCIDENT": "constraint_coincident",
-    "TANGENT": "snap_tangent",
-    "PARALLEL": "constraint_parallel",
-    "PERPENDICULAR": "constraint_perpendicular",
-    "EQUAL": "constraint_equal",
-    "FIXED": "constraint_fixed",
-    "EDGE_LENGTH": "constraint_edge_length",
-    "HORIZONTAL_DISTANCE": "constraint_h_distance",
-    "VERTICAL_DISTANCE": "constraint_v_distance",
-    "DISTANCE": "constraint_distance",
-}
-
-
-# constraint type name → provider icon (the same glyphs the constraint
-# toolbar uses; #310)
-_TYPE_ICONS: dict[str, str] = {
-    "HORIZONTAL": "constraint_horizontal",
-    "VERTICAL": "constraint_vertical",
-    "ANGLE": "constraint_angle",
-    "COINCIDENT": "constraint_coincident",
-    "TANGENT": "snap_tangent",
-    "PARALLEL": "constraint_parallel",
-    "PERPENDICULAR": "constraint_perpendicular",
-    "EQUAL": "constraint_equal",
-    "FIXED": "constraint_fixed",
-    "EDGE_LENGTH": "constraint_edge_length",
-    "HORIZONTAL_DISTANCE": "constraint_h_distance",
-    "VERTICAL_DISTANCE": "constraint_v_distance",
-    "DISTANCE": "constraint_distance",
-}
 
 
 # constraint type name → provider icon (the same glyphs the constraint
@@ -183,44 +145,24 @@ class ConstraintListItem(QWidget):
 
         # Constraint-type icon (the toolbar glyph for this type) — replaces
         # the ◯ 🔒 ↔ ↕ ⦿ ⌒ text prefixes (#310)
-        type_label = QLabel()
-        type_label.setFixedSize(QSize(20, 20))
-        type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        type_pixmap = get_pixmap(_TYPE_ICONS.get(constraint_type_name, "constraint_distance"), 16)
-        if type_pixmap is not None:
-            type_label.setPixmap(type_pixmap)
-        layout.addWidget(type_label)
+        self._type_icon_name = _TYPE_ICONS.get(constraint_type_name, "constraint_distance")
+        self._type_label = QLabel()
+        self._type_label.setFixedSize(QSize(20, 20))
+        self._type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self._type_label)
 
-        # Constraint-type icon (the toolbar glyph for this type) — replaces
-        # the ◯ 🔒 ↔ ↕ ⦿ ⌒ text prefixes (#310)
-        type_label = QLabel()
-        type_label.setFixedSize(QSize(20, 20))
-        type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        type_pixmap = get_pixmap(_TYPE_ICONS.get(constraint_type_name, "constraint_distance"), 16)
-        if type_pixmap is not None:
-            type_label.setPixmap(type_pixmap)
-        layout.addWidget(type_label)
 
-        # Constraint-type icon (the toolbar glyph for this type) — replaces
-        # the ◯ 🔒 ↔ ↕ ⦿ ⌒ text prefixes (#310)
-        type_label = QLabel()
-        type_label.setFixedSize(QSize(20, 20))
-        type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        type_pixmap = get_pixmap(_TYPE_ICONS.get(constraint_type_name, "constraint_distance"), 16)
-        if type_pixmap is not None:
-            type_label.setPixmap(type_pixmap)
-        layout.addWidget(type_label)
 
         # Object names and constraint label
         if constraint_type_name == "HORIZONTAL":
-            detail = self.tr("≡ H")
+            detail = self.tr("Horizontal")
             tooltip = self.tr("{a} horizontal align {b}").format(a=label_a, b=label_b)
         elif constraint_type_name == "VERTICAL":
-            detail = self.tr("≡ V")
+            detail = self.tr("Vertical")
             tooltip = self.tr("{a} vertical align {b}").format(a=label_a, b=label_b)
         elif constraint_type_name == "ANGLE":
             detail = f"{target_distance:.1f}°"
-            tooltip = self.tr("∠ {a}–{b}–{c}: {d:.1f}°").format(
+            tooltip = self.tr("Angle {a}–{b}–{c}: {d:.1f}°").format(
                 a=label_a, b=label_b, c=self.tr("…"), d=target_distance
             )
         elif constraint_type_name == "COINCIDENT":
@@ -233,10 +175,10 @@ class ConstraintListItem(QWidget):
                 a=label_a, b=label_b, d=dist_m
             )
         elif constraint_type_name == "PARALLEL":
-            detail = self.tr("\u2225 Parallel")
+            detail = self.tr("Parallel")
             tooltip = self.tr("{a} parallel to {b}").format(a=label_a, b=label_b)
         elif constraint_type_name == "PERPENDICULAR":
-            detail = self.tr("\u22be Perpendicular")
+            detail = self.tr("Perpendicular")
             tooltip = self.tr("{a} perpendicular to {b}").format(a=label_a, b=label_b)
         elif constraint_type_name == "EQUAL":
             detail = self.tr("= Equal")
@@ -251,19 +193,19 @@ class ConstraintListItem(QWidget):
         elif constraint_type_name == "HORIZONTAL_DISTANCE":
             dist_m = target_distance / 100.0
             detail = f"{dist_m:.2f} m"
-            tooltip = self.tr("{a} ↔ H-dist {b}: {d:.2f} m").format(
+            tooltip = self.tr("{a} to {b}: horizontal distance {d:.2f} m").format(
                 a=label_a, b=label_b, d=dist_m
             )
         elif constraint_type_name == "VERTICAL_DISTANCE":
             dist_m = target_distance / 100.0
             detail = f"{dist_m:.2f} m"
-            tooltip = self.tr("{a} ↕ V-dist {b}: {d:.2f} m").format(
+            tooltip = self.tr("{a} to {b}: vertical distance {d:.2f} m").format(
                 a=label_a, b=label_b, d=dist_m
             )
         else:
             dist_m = target_distance / 100.0
             detail = f"{dist_m:.2f} m"
-            tooltip = self.tr("{a} \u2194 {b}: {d:.2f} m").format(
+            tooltip = self.tr("{a} to {b}: {d:.2f} m").format(
                 a=label_a, b=label_b, d=dist_m
             )
 
@@ -279,15 +221,26 @@ class ConstraintListItem(QWidget):
         label.setToolTip(tooltip)
         layout.addWidget(label, 1)
 
-        # Delete button
-        delete_btn = QToolButton()
-        delete_btn.setText("\u00d7")
-        delete_btn.setFixedSize(20, 20)
-        delete_btn.setToolTip(self.tr("Delete constraint"))
-        delete_btn.clicked.connect(
+        # Delete button (provider cross icon — was a "×" text glyph, #310)
+        self._delete_btn = QToolButton()
+        self._delete_btn.setFixedSize(20, 20)
+        self._delete_btn.setToolTip(self.tr("Delete constraint"))
+        self._delete_btn.clicked.connect(
             lambda: self.delete_requested.emit(self.constraint_id)
         )
-        layout.addWidget(delete_btn)
+        layout.addWidget(self._delete_btn)
+        self.refresh_theme_icons()
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook (ui/theme._propagate_theme_colors): re-fetch the
+        type icon and the delete cross — baked pixmaps do not follow the
+        palette by themselves (senior review 2026-08-18)."""
+        pixmap = get_pixmap(self._type_icon_name, 16)
+        if pixmap is not None:
+            self._type_label.setPixmap(pixmap)
+        icon = get_icon("cross")
+        if icon is not None:
+            self._delete_btn.setIcon(icon)
 
 
 class ConstraintsPanel(QWidget):

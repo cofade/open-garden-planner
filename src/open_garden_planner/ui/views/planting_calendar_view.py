@@ -114,20 +114,6 @@ def _urgency_dot(color: QColor, size: int = 10) -> QPixmap:
     return pixmap
 
 
-def _urgency_dot(color: QColor, size: int = 10) -> QPixmap:
-    """Small filled circle in the urgency colour — a painted marker instead
-    of the "●" text glyph (font/emoji-independent, #310)."""
-    pixmap = QPixmap(size, size)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(color)
-    painter.drawEllipse(1, 1, size - 2, size - 2)
-    painter.end()
-    return pixmap
-
-
 def _month_abbr(month_1: int) -> str:
     """Return the locale-aware short month name (1-indexed)."""
     return QLocale().monthName(month_1, QLocale.FormatType.ShortFormat)
@@ -606,10 +592,14 @@ class _GanttWidget(QWidget):
         small.setPointSize(7)
         painter.setFont(small)
         painter.setPen(QColor(130, 130, 130))
+        # sub-row marker: a small provider chevron (was a "↳" text glyph, #310)
+        chevron = get_pixmap("chevron_right", 10)
+        if chevron is not None:
+            painter.drawPixmap(14, sub_y + (_PROP_ROW_H - 10) // 2, chevron)
         painter.drawText(
-            QRect(14, sub_y, _NAME_W - 20, _PROP_ROW_H),
+            QRect(26, sub_y, _NAME_W - 32, _PROP_ROW_H),
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-            "↳ " + self.tr("Propagation"),
+            self.tr("Propagation"),
         )
 
         plan = self._prop_plans.get(row.species_key)
@@ -787,7 +777,10 @@ class _DetailPanel(QFrame):
                 end_edit.setFixedWidth(80)
                 row_layout.addWidget(end_edit)
 
-            reset_btn = QPushButton(self.tr("↺"))
+            reset_btn = QPushButton()  # provider refresh icon (was "↺", #310)
+            reset_icon = get_icon("refresh")
+            if reset_icon is not None:
+                reset_btn.setIcon(reset_icon)
             reset_btn.setToolTip(self.tr("Reset to calculated date"))
             reset_btn.setFixedSize(22, 20)
             reset_btn.setFlat(True)
@@ -806,6 +799,14 @@ class _DetailPanel(QFrame):
 
         # Connect signals (deferred — need species_key captured per call)
         self._connect_step_signals()
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: re-tint the per-step reset buttons (#310)."""
+        icon = get_icon("refresh")
+        if icon is None:
+            return
+        for _start, _end, reset_btn in self._step_rows.values():
+            reset_btn.setIcon(icon)
 
     def _connect_step_signals(self) -> None:
         for step_id, (start_edit, end_edit, reset_btn) in self._step_rows.items():

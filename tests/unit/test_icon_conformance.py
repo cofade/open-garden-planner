@@ -35,7 +35,7 @@ _PROVENANCE = (_ICONS_DIR / "PROVENANCE.md").read_text(encoding="utf-8")
 
 
 def test_icon_set_is_not_empty() -> None:
-    # 72 after #279 (62 Tabler + 10 bespoke); 161 after #310 (150 Tabler + 12 bespoke)
+    # 72 after #279 (62 Tabler + 10 bespoke); 162 after #310 (150 Tabler + 12 bespoke)
     assert len(_ICON_FILES) >= 160, "the themed icon set must ship with the app"
 
 

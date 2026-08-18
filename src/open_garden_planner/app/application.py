@@ -775,14 +775,6 @@ class GardenPlannerApp(QMainWindow):
             action.setIcon(icon)
         self._icon_actions.append((action, icon_name))
 
-    def _set_widget_icon(self, widget: Any, icon_name: str) -> None:
-        """Assign a themed icon to any ``setIcon``-capable widget (button,
-        tool button) and track it for theme-switch refresh (#310)."""
-        icon = get_icon(icon_name)
-        if icon is not None:
-            widget.setIcon(icon)
-        self._icon_widgets.append((widget, icon_name))
-
     def _make_icon_label(self, icon_name: str, size: int = 14, tooltip: str = "") -> QLabel:
         """A pixmap-only QLabel for chrome that has no ``setIcon`` (status bar
         segments), tracked for theme-switch refresh (#310)."""
@@ -816,8 +808,8 @@ class GardenPlannerApp(QMainWindow):
 
     def refresh_theme_icons(self) -> None:
         """Replay every tracked chrome icon after a theme switch (§8.21):
-        menu actions, ``setIcon`` widgets, status-bar pixmap labels, dashboard
-        tab icons and the frost badge (#310).
+        menu actions, status-bar pixmap labels, dashboard tab icons and the
+        frost badge (#310).
 
         getattr fallback: safe even if a future call ordering themes the
         window before _setup_menu_bar has created the tracking lists.
@@ -826,10 +818,6 @@ class GardenPlannerApp(QMainWindow):
             icon = get_icon(icon_name)
             if icon is not None:
                 action.setIcon(icon)
-        for widget, icon_name in getattr(self, "_icon_widgets", []):
-            icon = get_icon(icon_name)
-            if icon is not None:
-                widget.setIcon(icon)
         for label, icon_name, size in getattr(self, "_icon_labels", []):
             pixmap = get_pixmap(icon_name, size)
             if pixmap is not None:
@@ -848,7 +836,6 @@ class GardenPlannerApp(QMainWindow):
         """Set up the menu bar with File, Edit, View, Help menus."""
         menubar = self.menuBar()
         self._icon_actions: list[tuple[QAction, str]] = []
-        self._icon_widgets: list[tuple[Any, str]] = []
         self._icon_labels: list[tuple[QLabel, str, int]] = []
         self._tab_icons: list[tuple[QWidget, str]] = []
         self._frost_badge_state: tuple[int, str] | None = None
@@ -1251,7 +1238,7 @@ class GardenPlannerApp(QMainWindow):
         # names are unchanged — only the container moved.
         snap_menu = menu.addMenu(self.tr("&Snapping"))
         self._set_action_icon(snap_menu.menuAction(), "snapping")
-        overlays_menu = menu.addMenu(self.tr("&Overlays"))
+        overlays_menu = menu.addMenu(self.tr("O&verlays"))
         self._set_action_icon(overlays_menu.menuAction(), "overlays")
         sun_menu = menu.addMenu(self.tr("S&un && 3D"))
         self._set_action_icon(sun_menu.menuAction(), "sun")

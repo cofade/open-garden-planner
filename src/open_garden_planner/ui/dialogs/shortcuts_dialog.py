@@ -88,6 +88,16 @@ class ShortcutsDialog(QDialog):
         ])
         container_layout.addWidget(view_group)
 
+        # Dashboard tabs (contiguous 1–5 since #310)
+        tabs_group = self._create_shortcut_group(self.tr("Dashboard Tabs"), [
+            (self._localize_shortcut("Ctrl+1"), self.tr("Garden Plan tab")),
+            (self._localize_shortcut("Ctrl+2"), self.tr("Planting Calendar tab")),
+            (self._localize_shortcut("Ctrl+3"), self.tr("Seed Inventory tab")),
+            (self._localize_shortcut("Ctrl+4"), self.tr("Tasks tab")),
+            (self._localize_shortcut("Ctrl+5"), self.tr("Harvest tab")),
+        ])
+        container_layout.addWidget(tabs_group)
+
         # Drawing tools
         tools_group = self._create_shortcut_group(self.tr("Drawing Tools"), [
             ("V", self.tr("Select Tool")),

@@ -28,6 +28,8 @@ from open_garden_planner.models.journal_note import JournalNote
 from open_garden_planner.ui.icons import get_icon
 from open_garden_planner.ui.theme import set_text_role
 
+_HAS_PHOTO_ROLE = Qt.ItemDataRole.UserRole + 1  # bool: row carries the camera icon
+
 _SNIPPET_CHARS = 64
 
 
@@ -131,6 +133,7 @@ class JournalPanel(QWidget):
                 continue
             label = self._format_row(note)
             row = QListWidgetItem(label)
+            row.setData(_HAS_PHOTO_ROLE, bool(note.photo_path))
             if note.photo_path:  # camera icon (was a "📷" text marker, #310)
                 icon = get_icon("camera")
                 if icon is not None:
@@ -151,21 +154,27 @@ class JournalPanel(QWidget):
             placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
             self._list.addItem(placeholder)
 
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: re-tint the camera icons on photo rows (#310)."""
+        icon = get_icon("camera")
+        if icon is None:
+            return
+        for i in range(self._list.count()):
+            row = self._list.item(i)
+            if row is not None and row.data(_HAS_PHOTO_ROLE):
+                row.setIcon(icon)
+
     def _format_row(self, note: JournalNote) -> str:
         snippet = note.text.strip().splitlines()[0] if note.text.strip() else ""
         if len(snippet) > _SNIPPET_CHARS:
             snippet = snippet[: _SNIPPET_CHARS - 1] + "…"
-        photo_marker = ""  # the photo marker is the row's icon since #310
+        # the photo marker is the row's camera icon since #310
         if snippet:
-            return self.tr("{date} — {snippet}{photo}").format(
+            return self.tr("{date} — {snippet}").format(
                 date=note.date or "?",
                 snippet=snippet,
-                photo=photo_marker,
             )
-        return self.tr("{date} — (empty){photo}").format(
-            date=note.date or "?",
-            photo=photo_marker,
-        )
+        return self.tr("{date} — (empty)").format(date=note.date or "?")
 
     def _on_item_double_clicked(self, item: QListWidgetItem) -> None:
         note_id = item.data(Qt.ItemDataRole.UserRole)

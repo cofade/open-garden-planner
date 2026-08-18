@@ -118,10 +118,10 @@ class TestAppWiring:
         # Theme + Language still top-level, the toggle attributes unchanged.
         view_menu = next(a.menu() for a in win.menuBar().actions() if a.text() == "&View")
         submenu_titles = [a.text() for a in view_menu.actions() if a.menu() is not None]
-        assert submenu_titles == ["&Snapping", "&Overlays", "S&un && 3D", "&Theme", "&Language"], submenu_titles
+        assert submenu_titles == ["&Snapping", "O&verlays", "S&un && 3D", "&Theme", "&Language"], submenu_titles
         snap_menu = next(a.menu() for a in view_menu.actions() if a.text() == "&Snapping")
         assert win.grid_action in snap_menu.actions() and win._dynamic_input_action in snap_menu.actions()
-        overlays = next(a.menu() for a in view_menu.actions() if a.text() == "&Overlays")
+        overlays = next(a.menu() for a in view_menu.actions() if a.text() == "O&verlays")
         assert win._minimap_action in overlays.actions() and win._labels_action in overlays.actions()
         sun_menu = next(a.menu() for a in view_menu.actions() if a.text() == "S&un && 3D")
         assert win._shadows_action in sun_menu.actions() and win._view3d_action in sun_menu.actions()
@@ -139,6 +139,44 @@ class TestAppWiring:
         # Tasks / Harvest tab shortcuts are contiguous Ctrl+4 / Ctrl+5 (#310).
         shortcuts = {a.shortcut().toString() for a in win.actions()}
         assert "Ctrl+4" in shortcuts and "Ctrl+5" in shortcuts and "Ctrl+6" not in shortcuts
+
+    def test_frost_badge_icon_and_theme_replay(self, qtbot, monkeypatch) -> None:
+        """#310: the frost corner badge shows a provider icon (frost / warning)
+        tinted with `on_status`; `refresh_theme_icons` re-applies it from the
+        stored state; count == 0 hides it (and stays hidden through a switch)."""
+        win = _make_app(qtbot, monkeypatch)
+        app = QApplication.instance()
+        apply_theme(app, ThemeMode.LIGHT)
+        try:
+            win._on_frost_alert_ready(2, "red")
+            assert not win._frost_badge.isHidden()
+            assert not win._frost_badge.icon().isNull()
+            assert "❄" not in win._frost_badge.text() and "⚠" not in win._frost_badge.text()
+            light = _image(win._frost_badge.icon().pixmap(QSize(16, 16)))
+            apply_theme(app, ThemeMode.DARK)  # walk → refresh_theme_icons → badge replay
+            assert _image(win._frost_badge.icon().pixmap(QSize(16, 16))) != light
+            win._on_frost_alert_ready(1, "orange")
+            assert not win._frost_badge.icon().isNull()
+            win._on_frost_alert_ready(0, "red")
+            assert win._frost_badge.isHidden()
+            apply_theme(app, ThemeMode.LIGHT)
+            assert win._frost_badge.isHidden()
+        finally:
+            apply_theme(app, ThemeMode.LIGHT)
+
+    def test_status_bar_sun_icon_follows_the_hint(self, qtbot, monkeypatch) -> None:
+        """#310: the sun-hint icon label mirrors the transient hint's visibility
+        through the main window's event filter."""
+        win = _make_app(qtbot, monkeypatch)
+        win.show()
+        assert win._sun_hint_label.isHidden() and win._sun_hint_icon.isHidden()
+        win._sun_hint_label.setText("night")
+        win._sun_hint_label.setVisible(True)
+        QApplication.processEvents()
+        assert not win._sun_hint_icon.isHidden()
+        win._sun_hint_label.setVisible(False)
+        QApplication.processEvents()
+        assert win._sun_hint_icon.isHidden()
 
     def test_live_theme_switch_retints_toolbar(self, qtbot, monkeypatch) -> None:
         win = _make_app(qtbot, monkeypatch)

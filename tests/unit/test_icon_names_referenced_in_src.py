@@ -30,10 +30,12 @@ from open_garden_planner.ui.icons import available_icons
 
 _SRC = Path(__file__).parents[2] / "src" / "open_garden_planner"
 
-# entry points whose FIRST or SECOND string argument is an icon name
+# entry points whose FIRST or SECOND string argument is an icon name, plus the
+# `.get(key, "fallback")` literals of icon lookup tables
 _CALL_RE = re.compile(
     r"""(?:get_icon|get_pixmap|_themed_icon|_make_icon_label)\(\s*["']([a-z0-9_]+)["']"""
-    r"""|(?:_set_action_icon|_set_widget_icon|_set_tab_icon|_set_checkbox_icon)\([^,\n]+,\s*["']([a-z0-9_]+)["']"""
+    r"""|(?:_set_action_icon|_set_tab_icon|_set_checkbox_icon)\([^,\n]+,\s*["']([a-z0-9_]+)["']"""
+    r"""|_ICONS\.get\([^,\n]+,\s*["']([a-z0-9_]+)["']\)"""
 )
 
 
@@ -42,7 +44,7 @@ def _referenced_literals() -> dict[str, set[str]]:
     for path in sorted(_SRC.rglob("*.py")):
         text = path.read_text(encoding="utf-8")
         for m in _CALL_RE.finditer(text):
-            name = m.group(1) or m.group(2)
+            name = m.group(1) or m.group(2) or m.group(3)
             found.setdefault(name, set()).add(str(path.relative_to(_SRC)))
     return found
 
@@ -65,7 +67,8 @@ def test_every_referenced_icon_name_exists(name: str) -> None:
     )
 
 
-def test_lookup_tables_name_existing_icons() -> None:
+def test_lookup_tables_name_existing_icons(qtbot) -> None:  # noqa: ARG001 — gallery thumbnails need Qt
+    """Every code-side icon table, including the big toolbar/gallery ones."""
     from open_garden_planner.services.weather_service import _WMO_CODE_MAP, wmo_to_icon
     from open_garden_planner.ui.dialogs.seed_inventory_dialog import SeedTableModel
     from open_garden_planner.ui.panels.constraints_panel import _TYPE_ICONS as CONSTRAINT_ICONS
@@ -74,6 +77,26 @@ def test_lookup_tables_name_existing_icons() -> None:
     names = set(CONSTRAINT_ICONS.values()) | set(PLANT_ICONS.values())
     names |= set(SeedTableModel._VIA_ICONS.values())
     names |= {icon for _, icon in _WMO_CODE_MAP.values()} | {wmo_to_icon(-1)}
+    # main toolbar / constraint toolbar / category chips / gallery entries: any
+    # module-level mapping or dataclass field named *icon* that holds a name
+    for module_name in (
+        "open_garden_planner.ui.widgets.toolbar",
+        "open_garden_planner.ui.widgets.constraint_toolbar",
+        "open_garden_planner.ui.widgets.category_toolbar",
+    ):
+        module = __import__(module_name, fromlist=["_"])
+        source = Path(module.__file__).read_text(encoding="utf-8")
+        # toolbar rows: `ToolType.X, "icon_name", self.tr(...)`
+        names |= set(re.findall(r"""ToolType\.[A-Z_]+,\s*["']([a-z0-9_]+)["']""", source))
+        names |= set(re.findall(r"""(?:icon|icon_name)\s*[=:]\s*["']([a-z0-9_]+)["']""", source))
+    # gallery: read the built objects, not the source (the tuple's last field is
+    # polymorphic per builder — a shape key for containers, an icon name elsewhere)
+    from open_garden_planner.ui.widgets.gallery_data import all_items, build_toolbar_categories
+
+    categories = build_toolbar_categories()
+    names |= {c.icon_name for c in categories if c.icon_name}
+    names |= {i.icon_name for i in all_items(categories) if i.icon_name}
+    assert len(names) >= 40, "the table sweep found suspiciously few names"
     missing = names - set(available_icons())
     assert not missing, missing
 

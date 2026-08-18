@@ -1338,12 +1338,16 @@ A theme listener registered at import clears the provider cache on every
 thumbnails (species/texture art is theme-neutral and untouched), each
 `CategoryDropdown.refresh_thumbnails()` re-pulls its labels — and on the
 main window (tracked `_icon_actions` menu replay; since #310 also
-`_icon_widgets` for `setIcon` widgets, `_icon_labels` for status-bar pixmap
-labels, `_tab_icons` for the dashboard tabs and the frost badge's last
-state) and on every panel/widget that exposes its own `refresh_theme_icons`
-(layers panel rows, weather card, calendar dashboard, plant-search filters,
-collapsible panels, sun-sim toolbar). Widgets constructed after the switch
-simply call `get_icon()` fresh. The properties panel
+`_icon_labels` for status-bar pixmap labels, `_tab_icons` for the dashboard
+tabs and the frost badge's last state) and on every panel/widget that
+exposes its own `refresh_theme_icons` (layers panel rows, weather card,
+calendar dashboard + propagation detail, plant-search filters and rows,
+collapsible panels, sun-sim toolbar, constraint rows, journal/companion
+rows, season manager, succession notes, the 3D window). **Rule (#310 review):
+a widget that bakes a provider pixmap or icon at construction MUST expose
+`refresh_theme_icons` — the text glyph it replaced followed the palette for
+free, a baked pixmap does not.** Widgets constructed after the switch simply
+call `get_icon()` fresh. The properties panel
 opts in with a DEFERRED full-rebuild hook (singleShot(0) — never rebuild
 form widgets inside the walk that invoked the hook; the #200 focus guard
 still protects a focused field).
@@ -1361,9 +1365,10 @@ normalizer → add the PROVENANCE entry → reference it by name in code →
 gates green. **No provenance entry, no merge** (asset-forge discipline).
 Since #310 a code→file gate (`tests/unit/test_icon_names_referenced_in_src.py`)
 also fails when a literal icon name in `src/` (provider calls, the app's
-`_set_action_icon` / `_set_widget_icon` / `_make_icon_label` / `_set_tab_icon`
-helpers, the panels' lookup tables) has no file — the drift that had
-`properties_panel.py` requesting a non-existent `lawn.svg` for months.
+`_set_action_icon` / `_make_icon_label` / `_set_tab_icon` helpers, `.get(…,
+"fallback")` literals, the panels' lookup tables, the toolbar rows and the
+built gallery) has no file — the drift that had `properties_panel.py`
+requesting a non-existent `lawn.svg` for months.
 
 ### 8.21.5 Comprehensive coverage (#310, Package 3c)
 
@@ -1388,11 +1393,14 @@ and re-renders its last forecast on theme switch), journal photo marker,
 companion star, collapsible chevron/info, season manager status, the
 sun-sim and soil-overlay toolbars, and the theme's spin-box arrows (path
 SVGs — a `<text>` glyph depends on the system font). What deliberately stays
-text: arrows inside sentences ("File → Set Location", "pH 5.8 → 6.5"), the
+text: arrows inside sentences ("File → Set Location", "A → B: reason",
+"pH 5.8 → 6.5" — listed as named exceptions in the static guard), the
 canvas dimension prefixes ("↔ 1.20 m" — dimension labels, not chrome), the
-succession badge's bullets on the canvas, and the mathematical relation
-symbols in constraint tooltips. Radio groups (Theme, Language, Auto-Save
-intervals) carry the icon on the submenu title only.
+succession badge's bullets on the canvas, and the combo separator rows
+("── Paths ──"). Radio groups (Theme, Language, Auto-Save intervals) carry
+the icon on the submenu title only. The 3D window's Refresh/Walk toolbar
+and the constraint rows' delete "×" were the last text-only controls; both
+are iconized.
 
 ## 8.22 Plant Sprite Pipeline (#281, ADR-040)
 

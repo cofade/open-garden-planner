@@ -174,7 +174,6 @@ MAPPING: dict[str, str] = {
     "soil_overlay": "color-filter",
     "minimap": "map-search",
     "compare_overlay": "history-toggle",
-    "panels": "layout-sidebar",
     "fullscreen": "maximize",
     "language": "language",
     "about_qt": "info-square",
@@ -200,6 +199,7 @@ MAPPING: dict[str, str] = {
     "player_pause": "player-pause",
     "clock": "clock",
     "help": "help-circle",
+    "walk": "walk",
 }
 
 
