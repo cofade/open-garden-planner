@@ -82,6 +82,36 @@ def anchored_position(
     )
 
 
+def scene_point_of(
+    local_point: QPointF,
+    rect: QRectF,
+    pos: QPointF,
+    rotation_deg: float,
+) -> QPointF:
+    """Where ``local_point`` lands in scene space for an item with this geometry.
+
+    The **forward** direction of :func:`anchored_position`'s transform, and its
+    exact inverse: ``anchored_position`` answers "what ``pos`` puts this local
+    point on that scene point"; this answers "where does this local point go".
+    Named as a pair so a caller needing both — pin a corner's pre-drag position,
+    then solve for the post-drag ``pos`` — cannot hand-derive one of them under a
+    different origin assumption than the other. Doing exactly that is what broke
+    the rotated corner drag once already (see ``_move_corner_to``).
+
+    Pure: touches no Qt item, so it is safe to call mid-drag.
+    """
+    origin = rect.center()
+    angle_rad = math.radians(rotation_deg)
+    cos_a = math.cos(angle_rad)
+    sin_a = math.sin(angle_rad)
+    dx = local_point.x() - origin.x()
+    dy = local_point.y() - origin.y()
+    return QPointF(
+        pos.x() + origin.x() + dx * cos_a - dy * sin_a,
+        pos.y() + origin.y() + dx * sin_a + dy * cos_a,
+    )
+
+
 def resize_rect_item_keeping_anchor(
     item: QGraphicsItem,
     new_rect: QRectF,
@@ -2357,6 +2387,16 @@ class RectCornerHandle(QGraphicsRectItem):
             super().mouseReleaseEvent(event)
 
 
+def _opposite_corner(corner: "RectCorner", rect: QRectF) -> QPointF:
+    """The corner of ``rect`` diagonally opposite ``corner`` — the drag anchor."""
+    return {
+        RectCorner.TOP_LEFT: rect.bottomRight,
+        RectCorner.TOP_RIGHT: rect.bottomLeft,
+        RectCorner.BOTTOM_LEFT: rect.topRight,
+        RectCorner.BOTTOM_RIGHT: rect.topLeft,
+    }[corner]()
+
+
 class RectVertexEditMixin:
     """Mixin that adds vertex editing functionality to rectangle items.
 
@@ -2567,20 +2607,14 @@ class RectVertexEditMixin:
         local_dy = delta.x() * sin_t + delta.y() * cos_t
 
         new_rect = QRectF(initial_rect)
-        # Track how the rect's top-left moves in the LOCAL frame, so the
-        # diagonally opposite corner stays at the same local (and scene) point.
-        local_tl_shift_x = 0.0
-        local_tl_shift_y = 0.0
 
         if corner == RectCorner.TOP_LEFT:
             new_width = initial_rect.width() - local_dx
             new_height = initial_rect.height() - local_dy
             if new_width >= MINIMUM_SIZE_CM:
                 new_rect.setWidth(new_width)
-                local_tl_shift_x = local_dx
             if new_height >= MINIMUM_SIZE_CM:
                 new_rect.setHeight(new_height)
-                local_tl_shift_y = local_dy
 
         elif corner == RectCorner.TOP_RIGHT:
             new_width = initial_rect.width() + local_dx
@@ -2589,14 +2623,12 @@ class RectVertexEditMixin:
                 new_rect.setWidth(new_width)
             if new_height >= MINIMUM_SIZE_CM:
                 new_rect.setHeight(new_height)
-                local_tl_shift_y = local_dy
 
         elif corner == RectCorner.BOTTOM_LEFT:
             new_width = initial_rect.width() - local_dx
             new_height = initial_rect.height() + local_dy
             if new_width >= MINIMUM_SIZE_CM:
                 new_rect.setWidth(new_width)
-                local_tl_shift_x = local_dx
             if new_height >= MINIMUM_SIZE_CM:
                 new_rect.setHeight(new_height)
 
@@ -2608,24 +2640,32 @@ class RectVertexEditMixin:
             if new_height >= MINIMUM_SIZE_CM:
                 new_rect.setHeight(new_height)
 
-        # Convert the LOCAL top-left shift back to SCENE space so the rotated
-        # rectangle's anchor corner stays pinned.
-        cos_r = math.cos(math.radians(rotation_deg))
-        sin_r = math.sin(math.radians(rotation_deg))
-        scene_shift_x = local_tl_shift_x * cos_r - local_tl_shift_y * sin_r
-        scene_shift_y = local_tl_shift_x * sin_r + local_tl_shift_y * cos_r
-        new_pos = QPointF(initial_pos.x() + scene_shift_x, initial_pos.y() + scene_shift_y)
+        # Pin the corner diagonally opposite the dragged one: take its scene
+        # position from the PRE-drag geometry, then solve for the pos that puts
+        # the new rect's matching corner back on it.
+        #
+        # Both steps go through the shared transform pair, and that is the point.
+        # This was a hand-rolled local-to-scene shift derived under the
+        # assumption that the rotation origin stays at the OLD rect centre —
+        # which stopped being true the moment the #219 re-pin below was added,
+        # sliding a rotated rectangle out from under the cursor by up to 671 cm
+        # (a swap of one bug for another, caught in review). `anchored_position`
+        # bakes in `O = new_rect.center()`, so the re-pin and the placement are
+        # now one coupled solution instead of two half-solutions in one function.
+        scene_anchor = scene_point_of(
+            _opposite_corner(corner, initial_rect),
+            initial_rect,
+            initial_pos,
+            rotation_deg,
+        )
+        new_pos = anchored_position(
+            new_rect, rotation_deg, scene_anchor, _opposite_corner(corner, new_rect)
+        )
 
         self.setRect(new_rect)  # type: ignore[attr-defined]
-        # Re-pin the rotation origin onto the new rect centre, the serializer
-        # invariant transformOriginPoint == rect().center() (#219). This path
-        # was the last rect resize in the codebase still missing it: dragging a
-        # corner of a ROTATED rectangle left the pivot behind, so the stored
-        # centre (pos + rect.center()) drifted away from the visual one and the
-        # item saved displaced. Measured on a 30-degrees RAISED_BED before the
-        # fix: origin 640 cm from the rect centre, stored vs visual centre 331
-        # cm apart. Found by the US-D2.2 senior review, which noticed the
-        # geometry-apply extraction had converted every other caller but this.
+        # The serializer invariant transformOriginPoint == rect().center()
+        # (#219). Without it a rotated corner drag stored a centre up to 331 cm
+        # from the visible one, i.e. it saved displaced.
         self.setTransformOriginPoint(new_rect.center())  # type: ignore[attr-defined]
         self.setPos(new_pos)  # type: ignore[attr-defined]
         self._update_rect_corner_handles()

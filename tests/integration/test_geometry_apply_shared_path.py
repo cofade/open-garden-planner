@@ -22,7 +22,7 @@ from __future__ import annotations
 import math
 
 import pytest
-from PyQt6.QtCore import QPointF
+from PyQt6.QtCore import QPointF, QRectF
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -42,6 +42,7 @@ from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.panels.properties_panel import PropertiesPanel
 
 _ROTATIONS = [0.0, 30.0, 90.0, 215.0]
+_CORNER_NAMES = ["TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT"]
 
 
 @pytest.fixture()
@@ -230,62 +231,88 @@ class TestResizableShapePredicate:
         assert not is_resizable_rect_like(polygon)
 
 
-class TestVertexEditCornerDragRegression:
-    """The second stale-origin site, found by the senior review of this PR.
+class TestVertexEditCornerDrag:
+    """The vertex-edit corner drag must satisfy THREE invariants at once.
 
-    ``RectVertexEditMixin._move_corner_to`` was the last rect resize path still
-    missing the #219 ``transformOriginPoint`` re-pin. Dragging a corner of a
-    **rotated** rectangle in vertex-edit mode left the pivot behind, so the
-    serialised centre (``pos + rect.center()``) drifted away from the visual one
-    and the item saved displaced. Measured before the fix on a 30-degrees
-    RAISED_BED: origin 640 cm from the rect centre, stored vs visual centre 331
-    cm apart. Pre-existing, not introduced here — but the extraction claimed to
-    have eliminated this class of bug, so leaving it would have made the claim
-    false.
+    History, because it is the whole point of this class. On master the drag
+    pinned the anchor corner correctly but never re-pinned
+    ``transformOriginPoint``, so a rotated rectangle stored a centre up to 331 cm
+    from the visible one — the #219 failure mode, i.e. it saved displaced. The
+    first fix in this PR added the re-pin and **broke the anchor instead**:
+    ``new_pos`` was hand-derived assuming the origin stayed at the *old* rect
+    centre, so moving the origin slid the shape out from under the cursor by up
+    to 671 cm. A swap, not a fix, and it shipped with two tests that both
+    asserted only the half that now worked — one of them algebraically implied by
+    the other, so 373 tests stayed green.
+
+    The real fix routes ``pos`` through ``anchored_position`` (which bakes in
+    ``O = new_rect.center()``), making the re-pin and the placement one coupled
+    solution rather than two half-solutions in the same function. These tests
+    assert all three invariants over **every corner × rotation**, so fixing one
+    at the expense of another fails here.
     """
 
-    @pytest.mark.parametrize("rotation", _ROTATIONS)
-    def test_corner_drag_keeps_the_origin_on_the_rect_centre(
-        self, canvas: CanvasView, rotation: float
-    ) -> None:
+    @staticmethod
+    def _corner_point(corner: object, rect: QRectF) -> QPointF:
         from open_garden_planner.ui.canvas.items.resize_handle import RectCorner
 
+        return {
+            RectCorner.TOP_LEFT: rect.topLeft,
+            RectCorner.TOP_RIGHT: rect.topRight,
+            RectCorner.BOTTOM_LEFT: rect.bottomLeft,
+            RectCorner.BOTTOM_RIGHT: rect.bottomRight,
+        }[corner]()
+
+    @pytest.mark.parametrize("rotation", _ROTATIONS)
+    @pytest.mark.parametrize("corner_name", _CORNER_NAMES)
+    def test_corner_drag_holds_all_three_invariants(
+        self, canvas: CanvasView, corner_name: str, rotation: float
+    ) -> None:
+        from open_garden_planner.ui.canvas.items.resize_handle import (
+            RectCorner,
+            _opposite_corner,
+        )
+
+        corner = RectCorner[corner_name]
         scene = canvas.scene()
         item = RectangleItem(500, 500, 400, 300, object_type=ObjectType.RAISED_BED)
         scene.addItem(item)
         apply_rotation(item, rotation)
 
-        item._move_corner_to(
-            RectCorner.BOTTOM_RIGHT, QPointF(1000, 800), item.rect(), item.pos()
+        initial_rect, initial_pos = item.rect(), item.pos()
+        anchor_before = item.mapToScene(_opposite_corner(corner, initial_rect))
+        dragged_before = item.mapToScene(self._corner_point(corner, initial_rect))
+        delta = QPointF(120.0, 90.0)
+
+        item._move_corner_to(corner, delta, initial_rect, initial_pos)
+        new_rect = item.rect()
+
+        # 1. The diagonally opposite corner is held fixed in scene space —
+        #    what the method's own docstring promises.
+        anchor_after = item.mapToScene(_opposite_corner(corner, new_rect))
+        assert anchor_after.x() == pytest.approx(anchor_before.x(), abs=1e-6)
+        assert anchor_after.y() == pytest.approx(anchor_before.y(), abs=1e-6)
+
+        # 2. The dragged corner tracks the cursor, or the shape slides away
+        #    from the pointer mid-drag.
+        dragged_after = item.mapToScene(self._corner_point(corner, new_rect))
+        assert dragged_after.x() == pytest.approx(
+            dragged_before.x() + delta.x(), abs=1e-6
+        )
+        assert dragged_after.y() == pytest.approx(
+            dragged_before.y() + delta.y(), abs=1e-6
         )
 
-        origin = item.transformOriginPoint()
-        centre = item.rect().center()
-        assert origin.x() == pytest.approx(centre.x())
-        assert origin.y() == pytest.approx(centre.y())
-
-    @pytest.mark.parametrize("rotation", _ROTATIONS)
-    def test_corner_drag_keeps_stored_and_visual_centres_in_agreement(
-        self, canvas: CanvasView, rotation: float
-    ) -> None:
-        """The user-visible consequence: the serializer stores ``pos + rect
-        .center()``, so a stale pivot means the saved position is not where the
-        object appears — it moves on reload."""
-        from open_garden_planner.ui.canvas.items.resize_handle import RectCorner
-
-        scene = canvas.scene()
-        item = RectangleItem(500, 500, 400, 300, object_type=ObjectType.RAISED_BED)
-        scene.addItem(item)
-        apply_rotation(item, rotation)
-
-        item._move_corner_to(
-            RectCorner.BOTTOM_RIGHT, QPointF(1000, 800), item.rect(), item.pos()
+        # 3. The serializer invariant: the stored centre (pos + rect.center())
+        #    is where the object actually appears, so it does not move on
+        #    reload. NOT implied by (1) and (2) — this is the #219 half.
+        stored = item.pos() + new_rect.center()
+        visual = item.mapToScene(new_rect.center())
+        assert stored.x() == pytest.approx(visual.x(), abs=1e-6)
+        assert stored.y() == pytest.approx(visual.y(), abs=1e-6)
+        assert item.transformOriginPoint().x() == pytest.approx(
+            new_rect.center().x()
         )
-
-        stored = item.pos() + item.rect().center()
-        visual = item.mapToScene(item.rect().center())
-        assert stored.x() == pytest.approx(visual.x())
-        assert stored.y() == pytest.approx(visual.y())
 
 
 class TestRotatedRectanglePanelResize:
