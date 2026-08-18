@@ -15,7 +15,13 @@ Design contract (docs §8.5 / ADR-042 3b section):
   fills rotate with nothing, so every shading cue is radial/concentric.
 - Seamless BY CONSTRUCTION: every primitive is painted on a torus (window
   indices are taken modulo the canvas), noise fields are periodic lattices;
-  structured layouts (courses, planks, laths, panes) divide 256 exactly, so a joint or bar either straddles the wrap SYMMETRICALLY (brick / stone / slate courses, the glazing bars — the wrap then sits inside the joint's own symmetric profile and the seam metric measures that profile, not a discontinuity) or lies clear of it (wood / decking plank joints at half-pitch offsets); what must never happen is a joint landing NEAR the wrap asymmetrically.
+  structured layouts (courses, planks, laths, panes) divide 256 exactly, so a
+  joint or bar either straddles the wrap SYMMETRICALLY (brick / stone / slate
+  courses, the glazing bars — the wrap then sits inside the joint's own
+  symmetric profile and the seam metric measures that profile, not a
+  discontinuity) or lies clear of it (wood / decking plank joints at
+  half-pitch offsets); what must never happen is a joint landing NEAR the
+  wrap asymmetrically.
 - Pixel-deterministic: all randomness comes from ``random.Random(seed_str)``
   (stream-stable across CPython versions), all painting is float64 numpy
   with sequential accumulation (no rasterizer, no reduction whose order can
@@ -503,7 +509,10 @@ class Tile:
 
     # -- output ----------------------------------------------------------- #
 
-    def finish(self, blur: float = 0.0) -> Image.Image:
+    def final_array(self, blur: float = 0.0) -> np.ndarray:
+        """The finished tile as float64 (SIZE, SIZE, 3) BEFORE rounding —
+        exposed so the conformance gate can measure how far every value sits
+        from a rounding tie (the cross-platform determinism margin)."""
         arr = self.a
         if blur > 0:
             arr = wrap_blur(arr, blur * SS)
@@ -512,8 +521,10 @@ class Tile:
         for i in range(SS):
             for j in range(SS):
                 acc = acc + arr[i::SS, j::SS, :]
-        acc = acc / (SS * SS)
-        out = np.clip(np.rint(acc), 0, 255).astype(np.uint8)
+        return acc / (SS * SS)
+
+    def finish(self, blur: float = 0.0) -> Image.Image:
+        out = np.clip(np.rint(self.final_array(blur)), 0, 255).astype(np.uint8)
         return Image.fromarray(out, mode="RGB")
 
 
@@ -805,12 +816,16 @@ def generate_mulch(rng: random.Random) -> Image.Image:
     return t.finish(blur=0.3)
 
 
+ROOF_ROWS = 12  # beaver-tail courses per tile (also read by the replay gate)
+ROOF_PER_ROW = 16
+
+
 def generate_roof_tiles(rng: random.Random) -> Image.Image:
     """Beaver-tail clay tiles: 12 staggered courses of rounded tiles, each
     row overlapping the one below, occlusion under every exposed edge."""
     bg = (128, 62, 44)
     t = Tile(bg)
-    rows, per_row = 12, 16
+    rows, per_row = ROOF_ROWS, ROOF_PER_ROW
     pitch_y = SIZE / rows
     pitch_x = SIZE / per_row
     tile_len = pitch_y * 1.55
@@ -834,8 +849,8 @@ def generate_roof_tiles(rng: random.Random) -> Image.Image:
     # The repaint MUST replay the rng state the bottom row was drawn with —
     # otherwise the overhang tiles get different tone jitter than the tiles
     # they continue (senior review round 1, 2026-08-18: raw |row0 − row255|
-    # 3.95 → 1.45 with integer sampling; shipped 1.93 / x 0.80 after
-    # pixel-centre sampling of windows, fields, noise and Voronoi). Pinned by
+    # 3.95 → 1.45 with integer sampling; shipped raw seam_y 1.93, seam_x 0.80
+    # after pixel-centre sampling of windows, fields, noise and Voronoi). Pinned by
     # tests/unit/test_texture_forge_conformance.py::TestRoofTileOverhangReplay
     # (the last 16 jitter draws equal the first 16) — no seam metric sees it.
     bottom_row = rows - 1
@@ -845,7 +860,8 @@ def generate_roof_tiles(rng: random.Random) -> Image.Image:
             bottom_state = rng.getstate()  # captured for THIS row, not by loop order
         draw_row(row, 0.0, False)
     end_state = rng.getstate()
-    assert bottom_state is not None
+    if bottom_state is None:  # unreachable: rows ≥ 1 — kept as a raise, not an assert
+        raise RuntimeError("roof tiles: bottom row was never drawn")
     rng.setstate(bottom_state)
     draw_row(bottom_row, -SIZE, True)
     rng.setstate(end_state)

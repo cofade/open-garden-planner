@@ -130,10 +130,42 @@ class TestRoofTileOverhangReplay:
 
         monkeypatch.setattr(forge, "jitter", spy)
         forge.build_texture("roof_tiles")
-        per_row = 16
-        assert len(recorded) == 12 * per_row + per_row, len(recorded)
+        rows, per_row = forge.ROOF_ROWS, forge.ROOF_PER_ROW
+        assert len(recorded) == rows * per_row + per_row, len(recorded)
+        # the bottom row is drawn FIRST (bottom → top) and repainted LAST
         assert recorded[-per_row:] == recorded[:per_row], (
             "overhang repaint does not replay the bottom row's tone jitter"
+        )
+
+
+class TestRoundingTieMargin:
+    """Cross-platform determinism rests on float64 arithmetic whose last-ulp
+    differences (transcendentals, SIMD dispatch) must never flip a `rint`.
+    Gate the margin instead of quoting it in prose (senior review round 3:
+    two quoted values had gone stale across regenerations): the closest any
+    pre-rounding value comes to a .5 tie must stay orders of magnitude above
+    plausible ulp noise (~1e-13 relative at these magnitudes)."""
+
+    MIN_TIE_MARGIN = 1e-10
+
+    def test_no_pre_rint_value_sits_near_a_rounding_tie(self, monkeypatch) -> None:
+        margins: dict[str, float] = {}
+        real_finish = forge.Tile.finish
+
+        def spy(self, blur=0.0):
+            arr = self.final_array(blur)
+            frac = np.abs((arr - np.floor(arr)) - 0.5)
+            spy.last = float(frac.min())
+            return real_finish(self, blur)
+
+        monkeypatch.setattr(forge.Tile, "finish", spy)
+        for name in ALL_NAMES:
+            forge.build_texture(name)
+            margins[name] = spy.last
+        worst = min(margins, key=margins.get)
+        assert margins[worst] > self.MIN_TIE_MARGIN, (
+            f"{worst}: a value sits {margins[worst]:.2e} from a rounding tie — "
+            "a 1-ulp cross-platform difference could flip a pixel"
         )
 
 

@@ -19,7 +19,7 @@ shipped textures (`src/open_garden_planner/resources/textures/`) at 1:1 AND
 - **256×256 px PNG, RGB** (no alpha — tinting handles colour). **1 texture
   px = 1 cm on the canvas** (a tile is 2.56 m): design features at their
   real garden scale (bricks 32×8, beaver-tail tiles 16 wide, flagstones
-  ~50 cm, pebbles 5–20 cm, gravel 2–8 mm reads as 2–4 px).
+  ~50 cm, pebbles 5–20 cm, gravel stones 2–9 cm ≈ 2–9 px).
 - **Lush, not flat**: visible material detail (grain, crumbs, leaves,
   glazing bars, caustics), **radial rim-dark → crown-light shading per
   element**, **concentric occlusion halos** where elements stack, mottled
@@ -34,7 +34,7 @@ shipped textures (`src/open_garden_planner/resources/textures/`) at 1:1 AND
   user colour at 80/255 alpha) must recolour the material without
   flattening it. Gated band (`tests/unit/test_texture_forge_conformance.py`):
   mean luminance 40–225, luminance std ≥ 4, local detail ≥ 2 (shipped set:
-  compost 47 → glass 215; corten is the smoothest at 2.6). Verify tinted
+  compost 47 → glass 215; corten is the smoothest at 2.5 — re-measure after any regeneration, the band comment in the test is the record). Verify tinted
   renders on the contact sheet with the object's real default fill colour.
 - **Seamless by construction** (§3) — never "healed" after the fact.
 - Reference exemplars: `wood.png` / `brick.png` (structured), `soil.png` /
