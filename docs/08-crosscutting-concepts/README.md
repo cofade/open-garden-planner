@@ -157,11 +157,11 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 - Top-down, rotation-safe radial shading; QtSvg-subset only; contract in `resources/plants/README.md`, provenance in `resources/plants/PROVENANCE.md`
 - Consumed unchanged by `core/plant_renderer.py` (cached pixmaps, stable per-item rotation, optional tint)
 
-### Textures
-- Tileable PNG textures (256x256 or 512x512)
-- Materials: grass, gravel, concrete, wood, stone, water, soil, mulch, sand
-- Multiple LOD versions for different zoom ranges
-- Loaded as QPixmap, applied via QBrush TexturePattern mode
+### Textures (`resources/textures/`, ADR-042 / #309)
+- **Generated, never hand-edited**: all 24 fill-pattern textures (grass, gravel, concrete, wood, water, soil, mulch, roof tiles, sand, stone, glass, hedge, brick, bark, wildflower, terracotta, pebbles, slate, lattice, compost, flagstone, clay, decking, corten) are emitted by `scripts/generate_asset_forge_textures.py` in the "Lush" texture language; committed PNGs must be pixel-identical to regeneration (`--check` + `tests/unit/test_texture_forge_conformance.py`). See §8.24.
+- 256×256 px RGB, **1 px = 1 cm** on the canvas (no LOD variants — Qt scales the brush); strictly top-down, no directional light; seamless by construction on a torus, gated by `scripts/check_texture_tileability.py` for every file
+- Loaded as `QPixmap` by `core/fill_patterns.py`, tinted with the user's fill colour at 80/255 alpha (`_tint_texture`) and applied via `QBrush` texture pattern; the tint-readability band is gated
+- Provenance: `resources/textures/PROVENANCE.md` (generator = provenance, one register row per file)
 
 ### Object SVGs (`resources/objects/`, ADR-042 / #308)
 - **Generated, never hand-edited**: all 24 furniture + infrastructure sprites are emitted by `scripts/generate_object_sprites.py` in the "Lush Object" style (the man-made sibling of the plant art); committed files must byte-match regeneration (`--check` + determinism test). See §8.23.
@@ -1474,3 +1474,82 @@ default, no shadow until the user sets one), `ui/widgets/gallery_data.py`
 `GalleryData` and `ObjectType` contexts. Roster tests are map-driven; the
 additive-enum forward-compat contract (unknown names → generic shape, no
 FILE_VERSION bump) is pinned by `tests/unit/test_project_unknown_object_type.py`.
+
+## 8.24 Texture Forge Pipeline (#309, ADR-042)
+
+### 8.24.1 One generator, 24 artifacts
+
+Every PNG under `resources/textures/` is produced by
+`scripts/generate_asset_forge_textures.py`: one `generate_<name>(rng)` recipe
+per texture over a shared **numpy torus painter** (`Tile`). The painter works
+in float64 on a 2×-supersampled canvas whose windows are indexed modulo the
+tile size — every primitive (`ellipse`/`blob`/`halo`, `capsule`, `rect`
+including full-height planks, `leaf`, `vgrain`) computes analytic
+anti-aliased coverage and paints with radial rim → crown shading, so anything
+crossing an edge simply continues on the opposite side; noise fields
+(`lattice_noise`, `fbm`, `fine_grain`) are periodic lattices, `voronoi` uses
+the torus metric (with an optional periodic domain warp for organic slab
+edges), and `wrap_blur` is an in-repo separable Gaussian built on `np.roll`.
+Structured layouts (brick courses, planks, laths, panes, roof courses) divide
+256 exactly, so a joint or bar either **straddles the wrap symmetrically**
+(brick/stone/slate courses, the glazing bars — the painter samples at
+pixel centres everywhere (windows, analytic fields, noise, Voronoi), so the
+wrap sits exactly on the joint's mirror line and the two sides are
+identical: glass 0.00/0.00, brick 0.04/0.08)
+or lies **clear of it** (wood/decking plank joints at half-pitch offsets);
+what must never happen is a joint landing *near* the wrap asymmetrically.
+The roof's bottom course repaints its wrapped overhang — with the same RNG
+state the row was drawn with, pinned by reading the rng stream
+(`TestRoofTileOverhangReplay`) because no seam metric can see a tone
+mismatch on a texture full of hard edges — so the overlap layering AND the
+per-tile tone are seam-correct. Know what the gates catch: the seam metric
+catches broken tiling, the band catches flatness, the pixel gate catches
+drift; layering, replay and light-direction defects are found by reading
+code and by the owner's eye (both #309 review rounds found one each). All randomness
+flows through `random.Random(seed_for(name))` (`"ogp-<name>-lush"`), which is
+stream-stable across CPython versions; no numpy RNG, no rasterizer, no
+Pillow filter is involved — Pillow only encodes/decodes PNG. The binding
+style contract ("Lush": visible detail, radial shading, concentric occlusion,
+tint-readable contrast, no directional light) is the `ogp-asset-forge`
+skill's §1; provenance is `resources/textures/PROVENANCE.md`.
+
+### 8.24.2 The three invariants
+
+**Pixel determinism, not byte determinism**: `--check` regenerates in memory
+and compares the DECODED pixels of each committed PNG (pinned per file by
+`tests/unit/test_texture_forge_conformance.py`). PNG is lossless, but the
+deflate stream depends on the zlib build Pillow bundles — a Windows wheel and
+a Linux CI wheel can encode identical pixels to different bytes — so file
+bytes are deliberately not the contract, and regeneration rewrites a file
+only when its pixels change (no cross-platform git churn). **Seamless on the
+canvas**: `scripts/check_texture_tileability.py` (seam vs the 98th percentile
+of the texture's own internal steps, threshold 1.6 unchanged since #264) must
+pass for every file (`tests/unit/test_texture_tileability.py` parametrises
+all of them — the #264 grandfather list `KNOWN_SEAMED_LEGACY` was emptied
+and then deleted, a constant that must stay empty being ceremony), and the
+§8.10 test paints the item's real tinted brush two tiles wide and checks the
+wrap column AND wrap row against the same metric. **Tint-readable**: the runtime tint overlays the user colour
+at 80/255 alpha; the conformance gate pins mean luminance 40–225, luminance
+std ≥ 4 and local detail ≥ 2 per texture, and the integration test proves a
+red vs a blue fill colour move the rendered hue without flattening the
+detail (materials that would collapse under tint fail before an owner sees
+them). A fourth rule is not gated but binding: **no directional light** — the
+view flips Y and fills never rotate, so every shading cue is radial or
+concentric.
+
+### 8.24.3 Changing or adding a texture — the loop
+
+Edit/add the recipe + `TEXTURES` row → run the generator (only changed files
+are rewritten) → **look**: a 2×2-tiled half-scale sheet (seams, repetition)
+plus 1:1 crops (detail), and the tint check with the object's real default
+fill colour → run the three gates (`--check`, tileability, the §8.10 test) →
+owner sign-off on a contact sheet for style-level changes → PROVENANCE
+register row. Adding a texture additionally touches `core/fill_patterns.py`
+(`FillPattern` member + `_TEXTURE_FILES`), the properties panel's
+`_pattern_names` (translated), and `scripts/fill_translations.py`; the
+conformance gate cross-checks registry ↔ loader table ↔ files on disk. A
+seam that the gate reports is located by measurement, not theory: the
+per-column `|row0 − row255|` (or the transpose) names the columns, and
+painting the suspect primitive alone on a fresh `Tile` confirms it
+(2026-08-18: a capsule whose default `taper` pointed every joint line —
+§11.4, debugging-playbook row 36).

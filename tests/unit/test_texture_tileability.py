@@ -1,11 +1,13 @@
-"""Mechanical tileability gate for fill-pattern textures (US-E9, #264).
+"""Mechanical tileability gate for fill-pattern textures (US-E9, #264; all 24
+regenerated seamless-by-construction in Package 3b, #309).
 
 The metric lives in ``scripts/check_texture_tileability.py`` (loaded here
 by path — scripts/ is not a package); this test pins:
-- the asset-forge pilot textures pass,
-- known-good existing textures pass (threshold calibration),
-- a synthetic non-tileable image FAILS (the metric has teeth),
-- the legacy-seam list doesn't silently grow.
+- EVERY shipped texture passes at the unchanged 1.6 threshold (the #264
+  grandfather list ``KNOWN_SEAMED_LEGACY`` — flagstone, glass — was emptied
+  and then deleted by #309: a parametrized gate over every file IS the
+  contract, a constant that must stay empty is ceremony),
+- a synthetic non-tileable image FAILS (the metric has teeth).
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ import importlib.util
 from pathlib import Path
 
 import numpy as np
+import pytest
 from PIL import Image
 
 _ROOT = Path(__file__).parent.parent.parent
@@ -25,23 +28,14 @@ _spec = importlib.util.spec_from_file_location(
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
 
-#: Legacy textures with real wrap seams (mechanical audit 2026-07-20) —
-#: regeneration candidates for the ogp-asset-forge skill, grandfathered
-#: with owner sign-off pending (PROVENANCE.md). This list may only shrink.
-KNOWN_SEAMED_LEGACY = {"flagstone.png", "glass.png"}
+ALL_TEXTURES = sorted(p.name for p in _TEXTURES.glob("*.png"))
 
 
-def test_pilot_textures_are_tileable() -> None:
-    for name in ("decking.png", "corten.png", "hedge.png"):
-        image = Image.open(_TEXTURES / name)
-        assert _mod.is_tileable(image), f"{name} fails the seam check"
-
-
-def test_known_good_calibrators_pass() -> None:
-    """≥1 existing texture must pass (issue #264's calibration rule) —
-    three do, spanning organic and structured styles."""
-    for name in ("wood.png", "gravel.png", "grass.png"):
-        assert _mod.is_tileable(Image.open(_TEXTURES / name)), name
+@pytest.mark.parametrize("name", ALL_TEXTURES)
+def test_every_texture_is_tileable(name: str) -> None:
+    image = Image.open(_TEXTURES / name)
+    ratio_x, ratio_y = _mod.seam_ratios(image)
+    assert _mod.is_tileable(image), f"{name} fails the seam check (x={ratio_x:.2f}, y={ratio_y:.2f})"
 
 
 def test_metric_rejects_non_tileable() -> None:
@@ -69,13 +63,3 @@ def test_metric_rejects_detailed_non_tiling_texture() -> None:
     image = Image.fromarray(lit, mode="L").convert("RGB")
     assert not _mod.is_tileable(image)
 
-
-def test_legacy_seam_list_does_not_grow() -> None:
-    failing = {
-        path.name
-        for path in sorted(_TEXTURES.glob("*.png"))
-        if not _mod.is_tileable(Image.open(path))
-    }
-    assert failing <= KNOWN_SEAMED_LEGACY, (
-        f"new seamed textures appeared: {failing - KNOWN_SEAMED_LEGACY}"
-    )

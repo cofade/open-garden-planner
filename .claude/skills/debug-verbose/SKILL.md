@@ -644,3 +644,24 @@ Every one of those is a plain, **unconditional** module-level `import` — so th
 **Fix**: `TEST_APPLICATION = f"Open Garden Planner Test {os.getpid()}"` (per-process key; the session-end `clear()` removes it); `_reset_app_settings` wipes per key (`remove()` — immediate, key survives) instead of `clear()`, as in-process defence in depth; the tripwire stays; `_silence_welcome_dialog` (session-scoped class-level no-op) guards the dialog regardless of what any store says. `pytest-timeout` (180 s/test) stays as the detector that turned an 18-minute silence into a stack dump. Everything is in `tests/conftest.py`; §11.4 "silence the startup Welcome dialog" addendum + debugging-playbook row 35 record it.
 
 **Lesson**: (1) **grep §11.4 for the symptom's nouns before writing a new §11.4 entry** — the first write-up misfiled a documented pitfall as unsolved, inside a documentation commit. (2) When a symptom is "reads return the default", ask *which store* the read hit and *who else can touch it* — including other processes: `QSettings` on Windows is a shared registry key, not a private object. (3) A probe that reproduces the *mechanism* is not a proof of the *trigger* — theory (3) had the right mechanism and the wrong caller; the fix for the wrong caller was applied and the failure survived it, which is what finally forced the "who else is running?" question. (4) "Passes alone, fails together" needs the qualifier *alone in the process, or alone on the machine?* — list the machine's pytest processes before trusting either result. (5) A detector (`pytest-timeout`, the tripwire) is worth shipping only next to the defusal — but once shipped it is what makes the next occurrence a diagnosis: the tripwire named the black hole on its first firing.
+
+## Case study: regenerated wood texture fails the seam gate in y — the "obvious" layout theories were wrong, one primitive default was the bug (Package 3b #309, fixed 2026-08-18)
+
+**Symptom.** `check_texture_tileability.py` reported `wood.png x=0.65 y=1.85 SEAM` right after the new numpy torus painter produced it; the planks run vertically, every grain line is a `sin(2πk·y/256)` (periodic by construction), knots are windowed modulo the tile — nothing in the layout should have a y-seam.
+
+**Wrong theories (each plausible, each 10 minutes).** (1) The full-height plank `rect`s were painted with `h = SIZE + 4`, so their bevelled top/bottom edges wrap into a dark horizontal band at y = 0/256 → added an infinite-height mode (`h=None`) → *still 1.88*. (2) The wrap blur → ruled out by reading `wrap_blur` (it is `np.roll`-based).
+
+**Key evidence.** Measured instead of theorised: per-column `|row0 − row255|` on the PNG → the top offenders were columns 16, 48, 80, … 240 (step ≈ 27) — exactly the plank-*joint* columns. Then painted the joint primitive alone on a fresh `Tile((178,138,88))` and printed the canvas at rows 0–2 vs 509–511:
+
+```
+row 0    [178. 118.2 110.  118.2 178.]
+row 511  [178. 178.  142.4 178.  178.]
+```
+
+Coverage of a supposedly constant-width line fell from full (110) at the top to a third (142) at the bottom.
+
+**Root cause.** `Tile.capsule(..., taper: float = 0.0)`: the parameter means "width fraction remaining at the far end", so the default made every capsule a pointed blade. Only `grass_blades` passed `taper` explicitly (0.05, intended); the wood joints, mulch splinters, compost straw, slate cleft streaks and bark cracks were all silently tapered — the wood joint's taper crossed the wrap and became the seam.
+
+**Fix.** Default `taper = 1.0` (constant width); docstring states the semantics. All 24 textures re-rendered; max seam ratio 1.43 (0.95 — pebbles, x — after the senior review's second finding — integer sampling put a half-pixel bias into wrap-centred joints — was fixed by sampling at pixel centres).
+
+**Lesson.** The seam metric already knows *where* the seam is — ask it (per-column diff) before forming a layout theory. Then isolate the suspect primitive on a blank canvas and print numbers at the two rows that must agree; a two-line probe beats two plausible refactors. Recorded as debugging-playbook row 36 and §11.4.

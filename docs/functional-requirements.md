@@ -520,5 +520,13 @@ Acceptance: `tests/unit/test_plant_sprite_conformance.py` (coverage, QtSvg-subse
 
 Acceptance: `tests/unit/test_object_sprite_conformance.py` (coverage vs generator + renderer maps, QtSvg subset, budgets, viewBox = default footprint, no baked shadow, determinism) + `tests/integration/test_object_sprite_rendering.py` (§8.10 — every sprite renders through `render_furniture_pixmap` within the visual-weight band, legible at 24 px, letterboxed thumbnails, every new tool draws and paints) + `tests/unit/test_project_unknown_object_type.py` (forward-compat pin).
 
-### 3b — Textures (issue #309) — *pending*
+### 3b — Textures (issue #309)
+- **FR-TEX-01**: Every fill pattern (all 24 textures — lawn, soil, water, glass, roof tiles, wood, gravel, concrete, hedge and the 15 optional materials) renders in one cohesive top-down "Lush" language — visible material detail, radial rim-dark → crown-light shading per element, occlusion where elements stack — on the same loader, tint and brush path the canvas already uses.
+- **FR-TEX-02**: Textures tile **seamlessly on the canvas** at any item size — including the greenhouse's default glass fill and flagstone, whose legacy wrap seams were visible on every plan (gated at 1:1 in both axes on the item's real tinted brush; the view scales that brush, so other zooms inherit it — not separately gated).
+- **FR-TEX-03**: The user's fill colour still recolours a textured surface (red bed vs blue bed read as red and blue) without flattening the material detail; a texture that would collapse under tint is rejected by the gate.
+- **FR-TEX-04**: Textures bake no directional light, so fills look identical under the view's Y-flip and next to rotated objects.
+- **FR-TEX-05**: The whole set is regenerable from `scripts/generate_asset_forge_textures.py`; committed PNGs are pixel-identical to regeneration (deterministic, seeded, `--check`), pass the tileability metric, and carry provenance (`resources/textures/PROVENANCE.md`) — no external, photographic or image-model assets.
+
+Acceptance (FR-TEX-04 — no directional light — is binding but reviewed, not mechanically gated, §8.24): `tests/unit/test_texture_forge_conformance.py` (registry ↔ loader ↔ files, 256² RGB, pixel determinism + rounding-tie margin, roof overhang RNG replay, tint band, gate teeth, legacy generator absent) + `tests/unit/test_texture_tileability.py` (all 24 ≤ 1.6, parametrized — no grandfather list) + `tests/integration/test_texture_forge_rendering.py` (§8.10 — paints with detail through the real panel/brush/item/flipped-render path, no wrap seam on the item's real brush, tint reads, thumbnails, greenhouse tool) + `tests/integration/test_asset_forge_textures.py` (`.ogp` round trip for every pattern).
+
 ### 3c — Iconography & View menu (issue #310) — *pending*
