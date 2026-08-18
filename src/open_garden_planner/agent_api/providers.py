@@ -40,6 +40,25 @@ class CreateObjectProvider(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class ResizeObjectProvider(Protocol):
+    """The `resize_object` provider's call signature, named parameters included.
+
+    Same reasoning as :class:`CreateObjectProvider`: ``width``/``height``/
+    ``radius`` are all ``float | None``, so a transposition would be
+    type-identical and silently resize the wrong axis. Spelling it as a Protocol
+    makes the parameter NAMES part of the contract, and ``server.py`` calls it
+    by keyword.
+    """
+
+    def __call__(
+        self,
+        item_id: str,
+        width: float | None,
+        height: float | None,
+        radius: float | None,
+    ) -> dict[str, Any]: ...
+
+
 @dataclass(frozen=True)
 class AgentProviders:
     """Main-thread-marshaled data sources the MCP tools read from.
@@ -87,6 +106,25 @@ class AgentProviders:
             ``(item_id,)``; runs one undoable ``DeleteItemsCommand`` on the main
             thread and returns a plain ``WriteResult``-shaped dict. Raises if the
             id is unknown.
+        resize_object: **Write (D2.2).** Resizes one object to absolute target
+            dimensions in cm, preserving its scene CENTRE. Takes
+            ``(item_id, width, height, radius)`` — the pair that fits the
+            object's shape; runs one undoable ``ResizeItemCommand`` through the
+            canonical ``ui.canvas.geometry_apply`` path and returns a plain
+            ``WriteResult``-shaped dict.
+        rotate_object: **Write (D2.2).** Rotates one object. Takes
+            ``(item_id, angle, relative)`` in degrees, positive =
+            counter-clockwise; runs one undoable ``RotateItemCommand`` and
+            returns a plain ``WriteResult``-shaped dict.
+        set_species: **Write (D2.3).** Assigns (or clears) an existing plant's
+            species. Takes ``(item_id, species, apply_database_size)``; runs one
+            undoable ``ApplySpeciesCommand`` and returns a plain
+            ``WriteResult``-shaped dict.
+        set_parent_bed: **Write (D2.3).** Links a plant to a bed, or detaches it
+            when ``bed_id`` is ``None`` — a link change only, the plant does not
+            move. Takes ``(item_id, bed_id)``; runs one undoable
+            ``SetParentBedCommand`` and returns a plain ``WriteResult``-shaped
+            dict.
     """
 
     snapshot: Callable[[], dict[str, Any]]
@@ -105,3 +143,7 @@ class AgentProviders:
     create_object: CreateObjectProvider
     move_object: Callable[[str, float, float], dict[str, Any]]
     delete_object: Callable[[str], dict[str, Any]]
+    resize_object: ResizeObjectProvider
+    rotate_object: Callable[[str, float, bool], dict[str, Any]]
+    set_species: Callable[[str, str | None, bool], dict[str, Any]]
+    set_parent_bed: Callable[[str, str | None], dict[str, Any]]

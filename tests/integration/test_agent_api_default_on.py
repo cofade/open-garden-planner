@@ -944,3 +944,551 @@ def test_agent_api_write_token_ignores_settings_regenerated_without_restart(
     finally:
         win._agent_server = None
         win._stop_agent_api()
+
+
+# ---------------------------------------------------------------------------
+# US-D2.2: resize_object / rotate_object orchestration
+#
+# These pin what the tools must do against the REAL app: centre preservation
+# for every shape, the measured rotation sign, exactly one undo step each, and
+# every refusal leaving BOTH the scene and the undo stack untouched.
+# ---------------------------------------------------------------------------
+
+
+def _add_bed(
+    win: GardenPlannerApp,
+    x: float = 500,
+    y: float = 500,
+    w: float = 400,
+    h: float = 300,
+) -> Any:
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import RectangleItem
+
+    bed = RectangleItem(x, y, w, h, object_type=ObjectType.RAISED_BED)
+    win.canvas_scene.addItem(bed)
+    return bed
+
+
+def _scene_centre(item: Any) -> Any:
+    return item.mapToScene(item.rect().center())
+
+
+def test_resize_object_preserves_the_centre_and_is_one_undo_step(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The contract the tool's docstring makes: absolute target dimensions, and
+    the object's centre does not move. An agent reads x/y, resizes, and the
+    coordinates it already holds are still correct."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        before = _scene_centre(bed)
+
+        result = win._do_agent_resize_object(str(bed.item_id), 600.0, 450.0, None)
+
+        assert result["action"] == "resize"
+        assert result["width"] == pytest.approx(600.0)
+        assert result["height"] == pytest.approx(450.0)
+        assert result["radius"] is None
+        assert bed.rect().width() == pytest.approx(600.0)
+        assert bed.rect().height() == pytest.approx(450.0)
+        after = _scene_centre(bed)
+        assert after.x() == pytest.approx(before.x())
+        assert after.y() == pytest.approx(before.y())
+        # The reported centre is the one the READ tools report (same source).
+        assert result["x"] == pytest.approx(after.x())
+        assert result["y"] == pytest.approx(after.y())
+
+        assert win.canvas_view.command_manager.can_undo
+        win.canvas_view.command_manager.undo()
+        assert bed.rect().width() == pytest.approx(400.0)
+        assert bed.rect().height() == pytest.approx(300.0)
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_resize_object_one_axis_leaves_the_other_alone(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        result = win._do_agent_resize_object(str(bed.item_id), 600.0, None, None)
+        assert bed.rect().width() == pytest.approx(600.0)
+        assert bed.rect().height() == pytest.approx(300.0)
+        assert result["height"] == pytest.approx(300.0)
+    finally:
+        win._stop_agent_api()
+
+
+def test_resize_plant_keeps_its_bed_membership(qtbot: Any, monkeypatch: Any) -> None:
+    """Resizing is not moving: a plant's parent link must survive it. A resize
+    that silently reparented would corrupt the bed's capacity diagnostics."""
+    from uuid import UUID
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        created = win._do_agent_create_object(
+            "PERENNIAL", 700.0, 650.0, None, None, 20.0, None, None
+        )
+        plant = win.canvas_scene.find_item_by_id(UUID(created["item_id"]))
+        assert plant.parent_bed_id == bed.item_id
+
+        result = win._do_agent_resize_object(created["item_id"], None, None, 45.0)
+
+        assert result["radius"] == pytest.approx(45.0)
+        assert result["width"] is None and result["height"] is None
+        assert plant.radius == pytest.approx(45.0)
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
+    finally:
+        win._stop_agent_api()
+
+
+def test_resize_object_refuses_a_vertex_backed_object(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """A polygon has no width/height box. Refuse by name -- a silent no-op would
+    leave the agent believing it resized something."""
+    from PyQt6.QtCore import QPointF as _QPointF
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import PolygonItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        polygon = PolygonItem(
+            [_QPointF(0, 0), _QPointF(200, 0), _QPointF(100, 150)],
+            object_type=ObjectType.GARDEN_BED,
+        )
+        win.canvas_scene.addItem(polygon)
+        with pytest.raises(ValueError, match="vertices"):
+            win._do_agent_resize_object(str(polygon.item_id), 300.0, 300.0, None)
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_resize_and_rotate_refuse_a_constrained_object(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Same rule move_object already enforces: the live constraint solver has no
+    one-shot equivalent, so editing a constrained object would silently violate
+    the constraint. Refusing is the honest answer until US-D2.6."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        other = _add_bed(win, x=1500, y=1500)
+        _add_distance_constraint(win, bed, other.item_id)
+        before_rect = bed.rect()
+
+        with pytest.raises(ValueError, match="geometric constraint"):
+            win._do_agent_resize_object(str(bed.item_id), 600.0, 450.0, None)
+        with pytest.raises(ValueError, match="geometric constraint"):
+            win._do_agent_rotate_object(str(bed.item_id), 90.0, False)
+
+        assert bed.rect() == before_rect
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_resize_refusals_leave_scene_and_undo_stack_untouched(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Every refusal path, asserted rather than assumed: a tool that
+    half-applies and then raises passes a happy-path test perfectly."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        item_id = str(bed.item_id)
+        before_rect = bed.rect()
+        before_pos = bed.pos()
+
+        for kwargs in (
+            {"width": 0.0, "height": None, "radius": None},
+            {"width": -5.0, "height": None, "radius": None},
+            {"width": float("nan"), "height": None, "radius": None},
+            {"width": None, "height": None, "radius": 50.0},  # radius on a rect
+            {"width": None, "height": None, "radius": None},  # nothing at all
+            {"width": 1_000_000.0, "height": None, "radius": None},  # absurd
+        ):
+            with pytest.raises(ValueError):
+                win._do_agent_resize_object(item_id, **kwargs)
+
+        assert bed.rect() == before_rect
+        assert bed.pos() == before_pos
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_rotate_object_absolute_vs_relative(qtbot: Any, monkeypatch: Any) -> None:
+    """Absolute is idempotent, relative accumulates -- the distinction an agent
+    has to be able to rely on to correct an angle without compounding it."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        item_id = str(bed.item_id)
+
+        win._do_agent_rotate_object(item_id, 90.0, False)
+        result = win._do_agent_rotate_object(item_id, 90.0, False)
+        assert result["rotation_deg"] == pytest.approx(90.0)
+        assert bed.rotation_angle == pytest.approx(90.0)
+
+        result = win._do_agent_rotate_object(item_id, 90.0, True)
+        assert result["rotation_deg"] == pytest.approx(180.0)
+        assert bed.rotation_angle == pytest.approx(180.0)
+    finally:
+        win._stop_agent_api()
+
+
+def test_rotate_object_direction_is_counter_clockwise(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Asserted against a measured CORNER POSITION, not the stored angle: the
+    angle tells you nothing about which way it turned, and "which way" is the
+    promise the tool's docstring makes. Issue #267 is what happens when a
+    docstring states a frame the code does not honour."""
+    from PyQt6.QtCore import QPointF as _QPointF
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win, x=1000, y=1000, w=400, h=80)  # long axis points EAST
+        rect = bed.rect()
+        east_tip = _QPointF(rect.x() + rect.width(), rect.y() + rect.height() / 2)
+        centre_before = _scene_centre(bed)
+        assert bed.mapToScene(east_tip).x() > centre_before.x()
+
+        win._do_agent_rotate_object(str(bed.item_id), 90.0, False)
+
+        after = bed.mapToScene(east_tip)
+        centre_after = _scene_centre(bed)
+        # CAD Y-up (ADR-002): a larger y is further NORTH.
+        assert after.y() > centre_after.y() + 1.0, (
+            "+90 must turn an east-pointing object NORTH (counter-clockwise) -- "
+            "the rotate_object docstring says so in exactly those words"
+        )
+    finally:
+        win._stop_agent_api()
+
+
+def test_rotate_object_is_one_undo_step_and_restores_the_angle(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        win._do_agent_rotate_object(str(bed.item_id), 37.0, False)
+        assert bed.rotation_angle == pytest.approx(37.0)
+        assert win.canvas_view.command_manager.can_undo
+        win.canvas_view.command_manager.undo()
+        assert bed.rotation_angle == pytest.approx(0.0)
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_rotate_object_refuses_a_non_finite_angle(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        with pytest.raises(ValueError, match="finite"):
+            win._do_agent_rotate_object(str(bed.item_id), float("inf"), False)
+        assert bed.rotation_angle == pytest.approx(0.0)
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_resize_and_rotate_refuse_locked_layer_item(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The shared _resolve_agent_item chokepoint must apply to the new tools
+    too -- this is the test that fails if a future tool resolves items itself."""
+    from open_garden_planner.models.layer import Layer
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        locked = Layer(name="Locked", locked=True)
+        win.canvas_scene.add_layer(locked)
+        bed = _add_bed(win)
+        bed.layer_id = locked.id
+
+        with pytest.raises(ValueError, match="locked layer"):
+            win._do_agent_resize_object(str(bed.item_id), 600.0, 450.0, None)
+        with pytest.raises(ValueError, match="locked layer"):
+            win._do_agent_rotate_object(str(bed.item_id), 90.0, False)
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+# ---------------------------------------------------------------------------
+# US-D2.3: set_species / set_parent_bed orchestration
+# ---------------------------------------------------------------------------
+
+
+def test_set_species_populates_a_hand_drawn_plant(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The gap this closes: a plant the user drew by hand has no species, so
+    none of the species-driven features apply to it. Assigning one must go
+    through the SAME helper the plant panel and species search use (#213)."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        plant = _add_tree(win)
+        result = win._do_agent_set_species(str(plant.item_id), "Tomato", True)
+
+        assert result["action"] == "set_species"
+        assert result["species_key"]
+        assert plant.metadata.get("plant_species")
+        assert win.canvas_view.command_manager.can_undo
+        win.canvas_view.command_manager.undo()
+        assert plant.metadata.get("plant_species") is None
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_species_adopts_the_database_footprint(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """As in the app: the drawn footprint takes the species' real mature size.
+    This is the visible half of issue #213's design, and it must not differ
+    between the GUI and the agent."""
+    from open_garden_planner.core.plant_sizing import db_spacing_radius_cm
+    from open_garden_planner.services.bundled_species_db import (
+        lookup_species,
+        merge_calendar_data,
+    )
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        plant = _add_tree(win)
+        before_radius = plant.radius
+        expected = db_spacing_radius_cm(
+            merge_calendar_data(dict(lookup_species("Tomato")))
+        )
+        assert expected is not None and expected != before_radius
+
+        win._do_agent_set_species(str(plant.item_id), "Tomato", True)
+        assert plant.radius == pytest.approx(expected)
+
+        win.canvas_view.command_manager.undo()
+        assert plant.radius == pytest.approx(before_radius)
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_species_none_clears_it(qtbot: Any, monkeypatch: Any) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        plant = _add_tree(win)
+        win._do_agent_set_species(str(plant.item_id), "Tomato", True)
+        result = win._do_agent_set_species(str(plant.item_id), None, True)
+
+        assert result["species_key"] is None
+        assert plant.metadata.get("plant_species") is None
+        # Still exactly one undo step for the clear.
+        win.canvas_view.command_manager.undo()
+        assert plant.metadata.get("plant_species") is not None
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_species_refuses_an_unknown_name_and_a_non_plant(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        plant = _add_tree(win)
+        bed = _add_bed(win)
+
+        with pytest.raises(ValueError, match="bundled database"):
+            win._do_agent_set_species(str(plant.item_id), "Nonexistent Plant", True)
+        with pytest.raises(ValueError, match="not a"):
+            win._do_agent_set_species(str(bed.item_id), "Tomato", True)
+
+        assert plant.metadata.get("plant_species") is None
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_parent_bed_links_a_plant_already_sitting_inside_a_bed(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The exact state move_object cannot reach: the plant is already inside the
+    bed geometrically, so no move crosses a boundary, yet it is unlinked."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        plant = _add_tree(win)
+        plant.setPos(700 - plant.rect().center().x(), 650 - plant.rect().center().y())
+        assert plant.parent_bed_id is None
+
+        result = win._do_agent_set_parent_bed(str(plant.item_id), str(bed.item_id))
+
+        assert result["action"] == "set_parent_bed"
+        assert result["bed_membership_changed"] is True
+        assert result["new_parent_bed_id"] == str(bed.item_id)
+        assert result["link_is_geometric"] is True
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
+        assert plant.zValue() > bed.zValue()
+
+        win.canvas_view.command_manager.undo()
+        assert plant.parent_bed_id is None
+        assert plant.item_id not in bed.child_item_ids
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_parent_bed_does_not_move_the_plant(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """A link change only -- the whole point of having this tool separate from
+    move_object."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        plant = _add_tree(win)
+        before = plant.pos()
+        win._do_agent_set_parent_bed(str(plant.item_id), str(bed.item_id))
+        assert plant.pos() == before
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_parent_bed_reports_a_non_geometric_link(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Linking a plant that sits OUTSIDE the bed is deliberately allowed (the
+    app's own Link action allows it), but the result says so."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        plant = _add_tree(win)  # at (300, 300), well outside the bed
+        result = win._do_agent_set_parent_bed(str(plant.item_id), str(bed.item_id))
+        assert result["link_is_geometric"] is False
+        assert plant.parent_bed_id == bed.item_id
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_parent_bed_detaches_and_restores_the_original_z(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """SetParentBedCommand snapshots zValue so undo restores the USER's z, not
+    a recomputed one -- pinned here because the agent is now a caller of it."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        plant = _add_tree(win)
+        plant.setZValue(42.0)
+
+        win._do_agent_set_parent_bed(str(plant.item_id), str(bed.item_id))
+        result = win._do_agent_set_parent_bed(str(plant.item_id), None)
+
+        assert result["new_parent_bed_id"] is None
+        assert result["link_is_geometric"] is None
+        assert plant.parent_bed_id is None
+        assert plant.zValue() == pytest.approx(42.0)
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_parent_bed_accepts_a_trellis_but_refuses_a_house(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Section 8.14 / ADR-017: TRELLIS is a plant parent but not a soil
+    container. A HOUSE is neither, and must be refused by name."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        trellis = RectangleItem(2000, 2000, 200, 40, object_type=ObjectType.TRELLIS)
+        house = RectangleItem(3000, 3000, 500, 400, object_type=ObjectType.HOUSE)
+        win.canvas_scene.addItem(trellis)
+        win.canvas_scene.addItem(house)
+        plant = _add_tree(win)
+
+        result = win._do_agent_set_parent_bed(
+            str(plant.item_id), str(trellis.item_id)
+        )
+        assert result["new_parent_bed_id"] == str(trellis.item_id)
+
+        with pytest.raises(ValueError, match="HOUSE"):
+            win._do_agent_set_parent_bed(str(plant.item_id), str(house.item_id))
+        assert plant.parent_bed_id == trellis.item_id
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_parent_bed_refuses_a_no_op_and_a_non_plant(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        bed = _add_bed(win)
+        plant = _add_tree(win)
+
+        with pytest.raises(ValueError, match="already unlinked"):
+            win._do_agent_set_parent_bed(str(plant.item_id), None)
+        win._do_agent_set_parent_bed(str(plant.item_id), str(bed.item_id))
+        with pytest.raises(ValueError, match="already linked"):
+            win._do_agent_set_parent_bed(str(plant.item_id), str(bed.item_id))
+        with pytest.raises(ValueError, match="not a"):
+            win._do_agent_set_parent_bed(str(bed.item_id), str(bed.item_id))
+    finally:
+        win._stop_agent_api()

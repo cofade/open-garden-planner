@@ -2065,66 +2065,27 @@ class PropertiesPanel(QWidget):
         if self._updating:
             return
 
-        from PyQt6.QtCore import QPointF
-
         from open_garden_planner.core.commands import ResizeItemCommand
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+            build_circle_resize,
+            build_ellipse_resize,
+            build_rect_resize,
+        )
 
+        # US-D2.2: the three branches below used to carry a local apply_func
+        # closure each. They now share ui.canvas.geometry_apply — the same
+        # function the drag handles and the Agent API's resize_object use — so
+        # the numeric-entry path can no longer drift from the drag path. The
+        # copies HAD drifted: these closures never re-pinned
+        # transformOriginPoint, so resizing a ROTATED item from this panel
+        # displaced it (73.2 cm for a 30 degrees / 50 to 100 cm case; exactly
+        # 0 at rotation 0, which is why it went unnoticed). See section 11.4.
         if dimension_type == 'circle_diameter' and isinstance(item, CircleItem):
             new_diameter = value
             if new_diameter is None or new_diameter <= 0:
                 return
-            new_radius = new_diameter / 2.0
-
-            old_rect = item.rect()
-            old_pos = item.pos()
-            old_radius = old_rect.width() / 2.0
-
-            # Keep scene-space center fixed
-            center_x = old_pos.x() + old_rect.x() + old_radius
-            center_y = old_pos.y() + old_rect.y() + old_radius
-
-            new_pos_x = center_x - new_radius
-            new_pos_y = center_y - new_radius
-
-            old_geometry = {
-                'rect_x': old_rect.x(),
-                'rect_y': old_rect.y(),
-                'diameter': old_rect.width(),
-                'center_x': old_rect.x() + old_radius,
-                'center_y': old_rect.y() + old_radius,
-                'radius': old_radius,
-                'pos_x': old_pos.x(),
-                'pos_y': old_pos.y(),
-            }
-            new_geometry = {
-                'rect_x': 0.0,
-                'rect_y': 0.0,
-                'diameter': new_diameter,
-                'center_x': new_radius,
-                'center_y': new_radius,
-                'radius': new_radius,
-                'pos_x': new_pos_x,
-                'pos_y': new_pos_y,
-            }
-
-            def apply_circle(itm: QGraphicsItem, geom: dict) -> None:
-                if isinstance(itm, CircleItem):
-                    itm.setRect(
-                        geom['rect_x'], geom['rect_y'],
-                        geom['diameter'], geom['diameter'],
-                    )
-                    itm._center = QPointF(geom['center_x'], geom['center_y'])
-                    itm._radius = geom['radius']
-                    itm.setPos(geom['pos_x'], geom['pos_y'])
-                    itm.update_resize_handles()
-                    itm._position_label()
-                    itm._update_circle_annotations()
-
-            apply_circle(item, new_geometry)
-
-            if self._command_manager:
-                cmd = ResizeItemCommand(item, old_geometry, new_geometry, apply_circle)
-                self._command_manager.register_applied(cmd)
+            old_geometry, new_geometry = build_circle_resize(item, new_diameter)
 
         elif (
             dimension_type == 'rect_size'
@@ -2136,42 +2097,7 @@ class PropertiesPanel(QWidget):
             new_height = height_spin.value()
             if new_width <= 0 or new_height <= 0:
                 return
-
-            old_rect = item.rect()
-            old_pos = item.pos()
-
-            old_geometry = {
-                'rect_x': old_rect.x(),
-                'rect_y': old_rect.y(),
-                'width': old_rect.width(),
-                'height': old_rect.height(),
-                'pos_x': old_pos.x(),
-                'pos_y': old_pos.y(),
-            }
-            new_geometry = {
-                'rect_x': old_rect.x(),
-                'rect_y': old_rect.y(),
-                'width': new_width,
-                'height': new_height,
-                'pos_x': old_pos.x(),
-                'pos_y': old_pos.y(),
-            }
-
-            def apply_rect(itm: QGraphicsItem, geom: dict) -> None:
-                if isinstance(itm, RectangleItem):
-                    itm.setRect(
-                        geom['rect_x'], geom['rect_y'],
-                        geom['width'], geom['height'],
-                    )
-                    itm.setPos(geom['pos_x'], geom['pos_y'])
-                    itm.update_resize_handles()
-                    itm._position_label()
-
-            apply_rect(item, new_geometry)
-
-            if self._command_manager:
-                cmd = ResizeItemCommand(item, old_geometry, new_geometry, apply_rect)
-                self._command_manager.register_applied(cmd)
+            old_geometry, new_geometry = build_rect_resize(item, new_width, new_height)
 
         elif (
             dimension_type == 'ellipse_axes'
@@ -2179,40 +2105,25 @@ class PropertiesPanel(QWidget):
             and width_spin is not None
             and height_spin is not None
         ):
+            # The spin boxes hold SEMI-axes; everything stored is a full extent.
             new_rx = width_spin.value()
             new_ry = height_spin.value()
             if new_rx <= 0 or new_ry <= 0:
                 return
-
-            old_rect = item.rect()
-            old_pos = item.pos()
-
-            old_geometry = {
-                'rect_x': old_rect.x(), 'rect_y': old_rect.y(),
-                'width': old_rect.width(), 'height': old_rect.height(),
-                'pos_x': old_pos.x(), 'pos_y': old_pos.y(),
-            }
-            new_geometry = {
-                'rect_x': old_rect.x(), 'rect_y': old_rect.y(),
-                'width': new_rx * 2, 'height': new_ry * 2,
-                'pos_x': old_pos.x(), 'pos_y': old_pos.y(),
-            }
-
-            def apply_ellipse(itm: QGraphicsItem, geom: dict) -> None:
-                if isinstance(itm, EllipseItem):
-                    itm.setRect(geom['rect_x'], geom['rect_y'], geom['width'], geom['height'])
-                    itm.setPos(geom['pos_x'], geom['pos_y'])
-                    itm.update_resize_handles()
-                    itm._position_label()
-
-            apply_ellipse(item, new_geometry)
-
-            if self._command_manager:
-                cmd = ResizeItemCommand(item, old_geometry, new_geometry, apply_ellipse)
-                self._command_manager.register_applied(cmd)
+            old_geometry, new_geometry = build_ellipse_resize(
+                item, new_rx * 2, new_ry * 2
+            )
 
         else:
             return
+
+        apply_rect_like_geometry(item, new_geometry)
+
+        if self._command_manager:
+            cmd = ResizeItemCommand(
+                item, old_geometry, new_geometry, apply_rect_like_geometry
+            )
+            self._command_manager.register_applied(cmd)
 
         # Update scene and run constraint solver
         scene = item.scene()

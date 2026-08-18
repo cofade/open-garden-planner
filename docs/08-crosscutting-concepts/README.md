@@ -523,7 +523,7 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 **Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
 
-**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0/D2.1) are token-gated**: the scene-mutating tools (`create_object`/`move_object`/`delete_object`) ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
+**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0/D2.1) are token-gated**: the scene-mutating tools (`create_object`/`move_object`/`delete_object`/`resize_object`/`rotate_object`/`set_species`/`set_parent_bed`) ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
 
 ## 8.12 Constraint Solver Architecture
 
@@ -990,7 +990,7 @@ next launch). See ADR-032 for the architecture.
 `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
 (loads, validates, every expression parses, generates ≥1 primitive).
 
-## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0/D2.1, ADR-033/034/035/036)
+## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0/D2.1/D2.2/D2.3, ADR-033/034/035/036)
 
 The app can host an **MCP server over streamable-HTTP** so AI agents read the
 plan currently open in the GUI (epic #237). Package: `agent_api/`
@@ -1273,6 +1273,45 @@ The token is surfaced (Copy/Regenerate) in Preferences → Agent API and
 injected into each client's config by the D1.6 onboarding writers as a
 `?token=` query param on the connect URL (`ai_client_onboarding.url_with_token`).
 See ADR-036 (and its URL-delivery addendum); §8.11 for the security note.
+
+**Editing existing objects (US-D2.2/D2.3).** Four more tools sit inside the same
+`if writes_active:` block and share `_resolve_agent_item`: `resize_object`,
+`rotate_object`, `set_species`, `set_parent_bed`. Each applies exactly one
+undoable command; none reparents, so none produces the second undo step
+`move_object` can. Three points are load-bearing for anyone extending them:
+
+* **One geometry-apply path, not one per caller.** `ResizeItemCommand` /
+  `RotateItemCommand` take a caller-supplied `apply_func`, and before D2.2 every
+  call site had its own closure — the properties panel's three numeric-entry
+  branches plus a drag-release handler on each item class. `ui/canvas/geometry_apply.py`
+  is now the single implementation, called by all of them and by the agent. Do
+  **not** add a fourth closure; add a builder there. The copies had already
+  drifted (the panel's never re-pinned `transformOriginPoint`, so resizing a
+  rotated object from the panel displaced it — §11.4), which is precisely what
+  a fourth copy would have risked again.
+* **Centre-preserving is the agent's anchor rule, for every type.** The read
+  tools and `create_object` speak in centres, so `resize_object` holds the
+  scene centre invariant; the panel keeps its own per-type anchor behaviour.
+  Both are the same builder with `keep_center=True|False`, and both solve `pos`
+  through `anchored_position()` so a rotated item lands correctly either way.
+* **Rotation sign is measured, not assumed.** A positive angle is
+  **counter-clockwise** (east-pointing → north after `+90`). Pinned against a
+  measured corner position in both `tests/unit/test_agent_api_edits.py` and
+  `tests/integration/test_agent_api_default_on.py` — never against the stored
+  angle, which cannot detect an inverted convention. This is the #267 lesson
+  applied prospectively.
+
+`set_species` delegates to `ui/plant_species_assignment.apply_species_to_item`
+(the #213 helper the plant panel and species search already share) rather than
+building `ApplySpeciesCommand` itself; its `apply_database_size` flag answers
+the GUI's conflicting-override dialog and is **not** a general "skip the resize"
+switch. `set_parent_bed` changes the link only — the plant does not move — and
+deliberately does not require geometric containment, reporting
+`link_is_geometric` instead so the agent can flag a mismatch. Validation for all
+four lives in the Qt-free `agent_api/edits.py`, whose plant-parent name set
+carries a drift guard against `PLANT_PARENT_TYPES` (§8.14 / ADR-017 — note
+`TRELLIS` is a plant parent but not a soil container). See ADR-036's D2.2/D2.3
+addenda, FR-AGENT-15/16.
 
 **i18n.** MCP tool/resource/prompt descriptions are an English API contract
 (exempt). Only the Settings UI strings go through `tr()`.

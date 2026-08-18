@@ -43,6 +43,45 @@ def _clamp_pos_to_canvas(pos: QPointF, parent_item: QGraphicsItem) -> QPointF:
     return pos
 
 
+def anchored_position(
+    new_rect: QRectF,
+    rotation_deg: float,
+    scene_anchor: QPointF,
+    local_anchor: QPointF,
+) -> QPointF:
+    """The ``pos`` that pins ``local_anchor`` of ``new_rect`` onto ``scene_anchor``.
+
+    The solved form of Qt's transform, extracted from
+    :func:`resize_rect_item_keeping_anchor` so that callers which must *compute*
+    a target position without mutating anything — the geometry builders in
+    ``ui.canvas.geometry_apply``, which record ``pos`` into an undoable
+    ``ResizeItemCommand`` dict — use the same formula the mutating primitive
+    does, rather than a second transcription of it.
+
+    Qt maps a local point ``p`` to scene as ``pos + O + R(θ)·(p − O)`` where
+    ``O = transformOriginPoint`` and ``θ = item.rotation()``. With the origin
+    pinned to ``new_rect.center()`` (the #219 serializer invariant), solving the
+    anchor invariant gives the unique position::
+
+        pos = scene_anchor − O − R(θ)·(local_anchor − O)
+
+    Pure: no Qt item is touched, so it is safe to call while building an undo
+    record.
+    """
+    origin = new_rect.center()
+    angle_rad = math.radians(rotation_deg)
+    cos_a = math.cos(angle_rad)
+    sin_a = math.sin(angle_rad)
+    dx = local_anchor.x() - origin.x()
+    dy = local_anchor.y() - origin.y()
+    rot_dx = dx * cos_a - dy * sin_a
+    rot_dy = dx * sin_a + dy * cos_a
+    return QPointF(
+        scene_anchor.x() - origin.x() - rot_dx,
+        scene_anchor.y() - origin.y() - rot_dy,
+    )
+
+
 def resize_rect_item_keeping_anchor(
     item: QGraphicsItem,
     new_rect: QRectF,
@@ -77,18 +116,9 @@ def resize_rect_item_keeping_anchor(
     # seen when a plant's footprint is dragged smaller (#218 follow-up).
     item.prepareGeometryChange()
     item.setRect(new_rect)  # type: ignore[attr-defined]
-    origin = new_rect.center()
-    item.setTransformOriginPoint(origin)
-    angle_rad = math.radians(item.rotation())
-    cos_a = math.cos(angle_rad)
-    sin_a = math.sin(angle_rad)
-    dx = local_anchor.x() - origin.x()
-    dy = local_anchor.y() - origin.y()
-    rot_dx = dx * cos_a - dy * sin_a
-    rot_dy = dx * sin_a + dy * cos_a
+    item.setTransformOriginPoint(new_rect.center())
     item.setPos(
-        scene_anchor.x() - origin.x() - rot_dx,
-        scene_anchor.y() - origin.y() - rot_dy,
+        anchored_position(new_rect, item.rotation(), scene_anchor, local_anchor)
     )
 
 

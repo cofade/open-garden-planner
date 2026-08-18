@@ -104,6 +104,57 @@ def _providers(view: CanvasView) -> AgentProviders:
             "y": y,
         }
 
+    def _resize(
+        item_id: str,
+        width: float | None,
+        height: float | None,
+        radius: float | None,
+    ) -> dict[str, Any]:
+        """Stand-in mirroring the real provider's shape (one ResizeItemCommand).
+
+        Like _move/_delete, this pins the TRANSPORT + auth contract; the GUI
+        orchestration (centre preservation, the shared apply path, refusals)
+        lives in test_agent_api_default_on.py against the real app.
+        """
+        from open_garden_planner.core.commands import ResizeItemCommand
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+            build_circle_resize,
+        )
+
+        item = _resolve(item_id)
+        diameter = 2 * (radius if radius is not None else 30.0)
+        old_geometry, new_geometry = build_circle_resize(
+            item, diameter, keep_center=True
+        )
+        cmd = ResizeItemCommand(
+            item, old_geometry, new_geometry, apply_rect_like_geometry
+        )
+        view.command_manager.execute(cmd)
+        return {
+            "item_id": item_id,
+            "action": "resize",
+            "undo_description": cmd.description,
+            "radius": diameter / 2.0,
+        }
+
+    def _rotate(item_id: str, angle: float, relative: bool) -> dict[str, Any]:
+        """Stand-in mirroring the real provider's shape (one RotateItemCommand)."""
+        from open_garden_planner.core.commands import RotateItemCommand
+        from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
+
+        item = _resolve(item_id)
+        current = float(item.rotation_angle)
+        new_angle = (angle + current if relative else angle) % 360.0
+        cmd = RotateItemCommand(item, current, new_angle, apply_rotation)
+        view.command_manager.execute(cmd)
+        return {
+            "item_id": item_id,
+            "action": "rotate",
+            "undo_description": cmd.description,
+            "rotation_deg": new_angle,
+        }
+
     def _boom(*_a: Any) -> dict[str, Any]:
         raise AssertionError("read provider must not run in this test")
 
@@ -122,6 +173,14 @@ def _providers(view: CanvasView) -> AgentProviders:
             lambda: _move(item_id, dx, dy)
         ),
         delete_object=lambda item_id: bridge.run_on_main(lambda: _delete(item_id)),
+        # Keyword-only, matching the ResizeObjectProvider protocol, for the
+        # same reason create_object is: width/height/radius are all float|None.
+        resize_object=lambda **kw: bridge.run_on_main(lambda: _resize(**kw)),
+        rotate_object=lambda item_id, angle, relative: bridge.run_on_main(
+            lambda: _rotate(item_id, angle, relative)
+        ),
+        set_species=lambda *_a: _boom(),
+        set_parent_bed=lambda *_a: _boom(),
     )
 
 
@@ -389,4 +448,139 @@ def test_unauthenticated_move_is_rejected(canvas: Any, qtbot: Any) -> None:
     now = circle.sceneBoundingRect().center()
     assert now.x() == start.x()
     assert now.y() == start.y()
+    assert view.command_manager.can_undo is False
+
+
+def test_resize_object_end_to_end(canvas: Any, qtbot: Any) -> None:
+    """US-D2.2: an authenticated resize_object call reaches the scene over the
+    real MCP transport, preserves the object's centre, and is one undoable
+    step. The in-process orchestration tests live in
+    test_agent_api_default_on.py; this pins the transport + auth half."""
+    view = canvas
+    scene = view.scene()
+    item = CircleItem(800.0, 600.0, 40.0, object_type=ObjectType.TREE)
+    scene.addItem(item)
+    before_centre = item.mapToScene(item.rect().center())
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "resize_object", {"item_id": str(item.item_id), "radius": 90.0}
+            )
+            body.result = call.structuredContent  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    resized = body.result  # type: ignore[attr-defined]
+    assert resized["action"] == "resize"
+    assert resized["radius"] == 90.0
+    assert item.radius == 90.0
+    after_centre = item.mapToScene(item.rect().center())
+    assert abs(after_centre.x() - before_centre.x()) < 1e-6
+    assert abs(after_centre.y() - before_centre.y()) < 1e-6
+
+    assert view.command_manager.can_undo
+    view.command_manager.undo()
+    assert item.radius == 40.0
+
+
+def test_rotate_object_end_to_end(canvas: Any, qtbot: Any) -> None:
+    """US-D2.2: rotate_object over the real transport, absolute by default."""
+    view = canvas
+    scene = view.scene()
+    item = CircleItem(1200.0, 900.0, 50.0, object_type=ObjectType.SHRUB)
+    scene.addItem(item)
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            first = await session.call_tool(
+                "rotate_object", {"item_id": str(item.item_id), "angle": 45.0}
+            )
+            second = await session.call_tool(
+                "rotate_object",
+                {"item_id": str(item.item_id), "angle": 45.0, "relative": True},
+            )
+            body.first = first.structuredContent  # type: ignore[attr-defined]
+            body.second = second.structuredContent  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.first["rotation_deg"] == 45.0  # type: ignore[attr-defined]
+    assert body.second["rotation_deg"] == 90.0  # type: ignore[attr-defined]
+    assert item.rotation_angle == 90.0
+
+    view.command_manager.undo()
+    assert item.rotation_angle == 45.0
+
+
+def test_unauthenticated_resize_and_rotate_are_rejected(
+    canvas: Any, qtbot: Any
+) -> None:
+    """The ADR-036 double gate covers the D2.2 tools too. A write tool that
+    forgot its _require_write_auth call would pass every other test in this
+    file — this is the one that catches it."""
+    view = canvas
+    scene = view.scene()
+    item = CircleItem(400.0, 400.0, 30.0, object_type=ObjectType.TREE)
+    scene.addItem(item)
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        async with (
+            http_client(url) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            resize = await session.call_tool(
+                "resize_object", {"item_id": str(item.item_id), "radius": 99.0}
+            )
+            rotate = await session.call_tool(
+                "rotate_object", {"item_id": str(item.item_id), "angle": 90.0}
+            )
+            body.resize_error = resize.isError  # type: ignore[attr-defined]
+            body.rotate_error = rotate.isError  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.resize_error is True  # type: ignore[attr-defined]
+    assert body.rotate_error is True  # type: ignore[attr-defined]
+    # And the scene is untouched — a rejected write must not half-apply.
+    assert item.radius == 30.0
+    assert item.rotation_angle == 0.0
     assert view.command_manager.can_undo is False

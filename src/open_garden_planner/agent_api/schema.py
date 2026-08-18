@@ -231,17 +231,23 @@ class ExportResult(BaseModel):
 class WriteResult(BaseModel):
     """Result of a scene-mutating Agent API write tool.
 
-    Shared by ``create_object``/``move_object``/``delete_object``; fields that
-    don't apply to a given action carry their documented null/zero default.
+    Shared by every write tool; fields that don't apply to a given action carry
+    their documented null/zero default.
     """
 
     item_id: str = Field(
         description="Stable UUID of the object that was modified — for 'create', "
         "the newly assigned id of the object just created."
     )
-    action: Literal["create", "move", "delete"] = Field(
-        description="The mutation performed."
-    )
+    action: Literal[
+        "create",
+        "move",
+        "delete",
+        "resize",
+        "rotate",
+        "set_species",
+        "set_parent_bed",
+    ] = Field(description="The mutation performed.")
     undo_description: str = Field(
         description="Human-readable label of the primary undo step this created "
         "(the user can reverse it with Ctrl+Z; see bed_membership_changed for "
@@ -287,4 +293,42 @@ class WriteResult(BaseModel):
         description="Geometric constraints removed because they referenced this "
         "object (delete only, always 0 for move; move_object refuses outright on a "
         "constrained object instead — see its own error).",
+    )
+    # --- US-D2.2: resize / rotate -----------------------------------------
+    width: float | None = Field(
+        default=None,
+        description="Resulting width in cm (resize only; null for a round object, "
+        "which reports 'radius' instead, and for every other action).",
+    )
+    height: float | None = Field(
+        default=None,
+        description="Resulting height in cm (resize only; null for a round object "
+        "and for every other action).",
+    )
+    radius: float | None = Field(
+        default=None,
+        description="Resulting radius in cm (resize of a round object only; null "
+        "for rectangular objects and every other action).",
+    )
+    rotation_deg: float | None = Field(
+        default=None,
+        description="Resulting rotation in degrees, normalised to [0, 360) "
+        "(rotate only; null for every other action). Positive angles turn the "
+        "object COUNTER-CLOCKWISE on screen — e.g. an object pointing east "
+        "points north after +90.",
+    )
+    # --- US-D2.3: species / parent bed ------------------------------------
+    species_key: str | None = Field(
+        default=None,
+        description="The plant's resulting species (its scientific name, the "
+        "canonical key used throughout the plan) after set_species; null when the "
+        "species was cleared and for every other action.",
+    )
+    link_is_geometric: bool | None = Field(
+        default=None,
+        description="For set_parent_bed: whether the plant is also physically "
+        "inside the bed it was linked to. False means the link is valid but the "
+        "plant sits outside the bed's outline — deliberately allowed (the app's "
+        "own Link action does the same), but worth telling the user about. Null "
+        "for a detach and for every other action.",
     )

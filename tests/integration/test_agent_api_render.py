@@ -86,6 +86,10 @@ def _providers(scene: Any) -> AgentProviders:
         create_object=lambda *_a: _unused("create_object"),
         move_object=lambda *_a: _unused("move_object"),
         delete_object=lambda *_a: _unused("delete_object"),
+        resize_object=lambda **_kw: _unused("resize_object"),
+        rotate_object=lambda *_a: _unused("rotate_object"),
+        set_species=lambda *_a: _unused("set_species"),
+        set_parent_bed=lambda *_a: _unused("set_parent_bed"),
     )
 
 

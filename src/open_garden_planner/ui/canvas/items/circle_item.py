@@ -830,29 +830,22 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         from open_garden_planner.core.commands import ResizeItemCommand
 
-        def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
-            """Apply geometry to the item."""
-            if isinstance(item, CircleItem):
-                item.prepareGeometryChange()
-                item.setRect(
-                    geom['rect_x'],
-                    geom['rect_y'],
-                    geom['diameter'],
-                    geom['diameter'],
-                )
-                item._center = QPointF(geom['center_x'], geom['center_y'])
-                item._radius = geom['radius']
-                item.setPos(geom['pos_x'], geom['pos_y'])
-                # Re-pin the rotation origin so undo/redo of a rotated resize
-                # restores the pivot too, not just rect + pos (#218).
-                item.setTransformOriginPoint(item.rect().center())
-                item.update_resize_handles()
-                item._position_label()
+        # US-D2.2: the canonical apply path, shared with the properties panel
+        # and the Agent API's resize_object (ui.canvas.geometry_apply). It does
+        # exactly what this local closure used to — prepareGeometryChange,
+        # setRect, the #218 origin re-pin, setPos, handles + label — but there
+        # is now only one copy of it to keep correct.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+        )
+
+        apply_geometry = apply_rect_like_geometry
 
         old_geometry = {
             'rect_x': initial_rect.x(),
             'rect_y': initial_rect.y(),
-            'diameter': initial_rect.width(),  # Circles have equal width/height
+            'width': initial_rect.width(),  # Circles have equal width/height
+            'height': initial_rect.height(),
             'center_x': initial_rect.x() + initial_rect.width() / 2.0,
             'center_y': initial_rect.y() + initial_rect.height() / 2.0,
             'radius': initial_rect.width() / 2.0,
@@ -863,7 +856,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         new_geometry = {
             'rect_x': current_rect.x(),
             'rect_y': current_rect.y(),
-            'diameter': current_rect.width(),
+            'width': current_rect.width(),
+            'height': current_rect.height(),
             'center_x': self._center.x(),
             'center_y': self._center.y(),
             'radius': self._radius,
