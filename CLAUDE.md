@@ -78,7 +78,7 @@ below cover the rest.
 
 | Skill | Reach for it when… |
 | ----- | ------------------ |
-| `deliver-package` | taking on a whole cluster of issues at once ("take the next package", "implement the next issues") — ground truth → choose → implement → gates → senior-review → draft PR |
+| `deliver-package` | taking on a whole cluster of issues at once ("take the next package", "pick the next issues and implement them", "deliver package N") — ground truth → choose → implement → gates → senior-review → draft PR |
 | `ogp-change-control` | starting any change, branching, opening/merging a PR, versioning, or unsure whether an action is allowed |
 | `ogp-architecture-contract` | designing a feature, adding a module, or touching serialization / undo / layers / beds / agent_api — "is this allowed architecturally?" |
 | `ogp-failure-archaeology` | about to change a subsystem with history, or tempted to "fix" code that looks wrong (it may be a scar) |

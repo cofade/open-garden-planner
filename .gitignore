@@ -60,6 +60,7 @@
 !.claude/skills/analyze-pr/
 .claude/skills/analyze-pr/*
 !.claude/skills/analyze-pr/SKILL.md
+# Workflow skills using the same recursive pattern as the ogp-* block below.
 !.claude/skills/deliver-package/
 !.claude/skills/deliver-package/**
 # Continuity skill library (ogp-*): whitelist each skill dir and everything under it

@@ -13,14 +13,14 @@ description: >
 # Deliver a package
 
 One pass from "what's next?" to a draft PR that has already survived everything an agent can
-throw at it. A **package** here is a cluster of open issues that ship together — the rows of a
-`docs/roadmap.md` phase/US table, or the sub-issues of a GitHub epic (`#237` Package D, `#284`
-Visual Refresh 3, `#311`–`#321` Packages F/G) — not a single issue.
+throw at it. A **package** here is a cluster of open issues that ship together — not a single
+issue.
 
-This skill **sequences** work. Every rule it applies belongs to `ogp-change-control` and
-`CLAUDE.md`; where they disagree with this file, **they win and this file is the bug**. Landing
-decisions (merge, version sync, wiki) belong to `ogp-change-control` and the `finalize-us`
-skill, which this skill hands off to rather than restating.
+This skill **sequences** work and adds only what is specific to package scale. Every process
+rule it needs already lives in `ogp-change-control` (gates, branching, versioning) and
+`ogp-docs-and-writing` (the doc duty matrix); this file points at them rather than restating
+them, because a second copy of a gate list is how a gate goes missing. Where this file and
+those disagree, **they win and this file is the bug**.
 
 ## 1. Establish ground truth before choosing anything
 
@@ -32,26 +32,36 @@ Read the canonical source first, then the compact delivery aid:
 - `docs/roadmap.md` — package order, phasing tables and acceptance criteria only.
 - merged PRs and `git log` — delivery history, used to verify work is actually on `master`.
 
-**GitHub outranks the roadmap.** The roadmap's US tables lag the tracker routinely — Package D's
-table had no rows for D2.2–D2.6 or D3.1–D3.4 for as long as those nine issues existed. If the
-roadmap has drifted, correct it **in this package's PR**; a stale table is why the next person
-picks the wrong work.
+**Packages are identified by convention, not by GitHub structure.** This repo does **not** use
+GitHub sub-issues — `#237` and `#284` have none. Membership is carried in the issue *title
+suffix* (`US-D2.4: … (Package D2, epic #237)`) and in a `> **Package D map & order**` blockquote
+at the head of each body listing every sibling and their order. Read that blockquote: it is the
+most current statement of the package's shape that exists. Do not assume a number range is a
+package — `#311`–`#321` looks like one but contains `#319` (Package D3) and `#321` (a standalone
+touch-input issue).
+
+**GitHub outranks the roadmap.** Packages F and G are eleven filed issues (`#311`–`#318`, `#320`)
+with **zero** presence in `docs/roadmap.md` — `grep -n "Package F\|US-F1\|US-G1" docs/roadmap.md`
+returns nothing. If the roadmap has drifted, correct it **in this package's PR**; a stale table
+is why the next person picks the wrong work. (Distinguish drift from *disclosed* scope: the D2
+US-table blockquote said outright which rows it was missing. A note saying "this is incomplete"
+is a smaller problem than silence.)
 
 ```bash
-GH="C:/Program Files/GitHub CLI/gh.exe"
+GH="C:/Program Files/GitHub CLI/gh.exe"   # Windows dev machine; in a Linux/cloud session use
+                                          # the GitHub MCP tools instead (ogp-change-control §2.6)
 "$GH" issue list --state open --limit 60
 git log --oneline -15 origin/master
 "$GH" pr list --state all --limit 10 --json number,title,headRefName,state,baseRefName
-# For any recently merged PR, confirm its work is actually ON master:
-git branch -a --contains <merge-sha>
+git branch -a --contains <merge-sha>      # is that merged PR's work really ON master?
 ```
 
 **Stacked PRs are the local trap.** A PR whose base is another feature branch is invisible in
 every "what is on master" view, and GitHub **permanently closes it** when that base branch is
-deleted by the parent's merge — closed PRs cannot be retargeted. This cost a rebuilt PR in
-Package 3 (#310's PR #324, refiled as #325). If you stack, **retarget the child to `master`
-before merging the parent**, or merge the parent without `--delete-branch`. If you find stranded
-work, land it first as its own PR and say so; never build on a base `master` does not have.
+deleted by the parent's merge — closed PRs cannot be retargeted. That cost a rebuilt PR in
+Package 3 (#310's PR #324, refiled as #325). The recipe that actually worked: **rebase the child
+branch onto `master` and open a fresh PR**. Better still, retarget the child to `master` *before*
+merging the parent. If you find stranded work, land it first as its own PR and say so.
 
 ## 2. Choose the package
 
@@ -60,15 +70,18 @@ Prefer, in order:
 1. The package on the **stated critical path** in `docs/roadmap.md` or the epic body, unless
    step 1 just invalidated it.
 2. A package whose blockers are now resolved — recheck, the note may be stale (Package D's own
-   "token auth deferred" note outlived the token auth actually shipping in D2.0).
+   "token auth deferred" note at `docs/roadmap.md:2439` outlived the token auth shipping in D2.0
+   by four releases).
 3. A package whose issues form a real dependency chain, so shipping them together is cheaper
    than shipping them apart.
 
-**Exclude issues whose body carries an unresolved owner decision** — those need a decision, not
-code. Several Package D issues name theirs explicitly (may an agent unlock a locked layer, #328;
-the constrained-object policy, #330). If such an issue also states a recommendation and the
-decision is *architectural* rather than *product*, you may make it — but you must record it in an
-ADR addendum and surface it in the PR, never decide it silently in code.
+**An issue that states a recommendation is implementable.** Most decision-carrying issues here
+end with an owner-authored *"Recommendation: …"* plus *"whatever is decided, the ADR must state
+it and a test must pin it"* — that is pre-authorisation, not a blocker. Make the call, record it
+in an ADR addendum, and surface it in the PR; never decide it silently in code. **Exclude only an
+issue that poses an open question with no recommendation**, or one whose answer is a product call
+rather than an architectural one. Treating every decision-carrying issue as excluded would drop
+most of a package: #328 and #330 both name a decision *and* recommend an answer.
 
 If a blocker is *inside* the package (issue A blocks issue B), that is an argument **for** taking
 both, not for skipping B.
@@ -79,34 +92,33 @@ do not invent work to look busy.
 
 ## 3. Plan against the issue specs, not against a summary
 
-Read each issue body in full (`gh issue view <n>`). Issues in this repo carry Verified repo facts
-(with `file:line` citations), Contract, Acceptance criteria, Order/dependencies, Docs to update
-and Gates sections that are usually more current than the docs — and the citations may still have
-rotted. **Verify every `file:line` claim against the code before building on it.** Where the spec
-is wrong about the code, trust the code and note the divergence in the PR.
+Read each issue body in full. Issues here carry Verified repo facts (with `file:line` citations),
+Contract, Acceptance criteria, Order/dependencies, Docs to update and Gates — usually more
+current than the docs, and the citations may still have rotted. **Verify every `file:line` claim
+against the code before building on it.** Where the spec is wrong about the code, trust the code,
+follow it, and say so in the PR.
 
 Load the skills each issue names in its "before starting" line, plus `ogp-change-control` and
 `ogp-architecture-contract` always.
 
-Branch off `master`: `feature/US-X.X-short-description` for a US-shaped package,
-`fix/NNN-short-description` for a bug cluster. **One branch, one draft PR per package** unless
-the package is genuinely too large to review in one sitting — then slice it (3a/3b/3c) and heed
-the stacked-PR rule in step 1.
+Branch off `master`, one branch and one draft PR per package (`ogp-change-control` §1 for the
+naming). If the package is genuinely too large to review in one sitting, slice it (3a/3b/3c) and
+heed the stacked-PR rule above.
 
 ## 4. Implement in dependency order, gating incrementally
 
 Build the blocker first, then what it unblocks. Run `ruff check src/` after each substantial
-piece rather than at the end, and run the tests for the subsystem you just touched before moving
-on — a failure found three files later is three files of rework.
+piece and the tests for the subsystem you just touched before moving on — a failure found three
+files later is three files of rework.
 
-Two OGP-specific disciplines that apply at package scale:
+Two disciplines that apply specifically at package scale:
 
 - **One canonical path, never a second one.** The repo's recurring failure mode is a parallel
-  implementation that drifts from the original. D2.1 nearly built a second bed-linking path
-  before a probe disproved the need, and `create_object` builds items through the loader's own
-  `_deserialize_item_core` precisely to avoid a second construction path. If a package needs
+  implementation that drifts from the original. `create_object` builds items through the loader's
+  own `_deserialize_item_core` precisely to avoid a second construction path. If a package needs
   behaviour the GUI already has, **extract the shared path** and have both call it — never copy
-  it.
+  it. A `Callable` injection point with N call sites is N implementations of one behaviour, and
+  nothing will tell you when one stops matching the others (§11.4, US-D2.2).
 - **Wrap every user-visible string as you write it** (`self.tr()` / `QCoreApplication.translate`
   / `QT_TR_NOOP`), not in a cleanup pass. The i18n gate only sees strings already registered; a
   hardcoded f-string sails straight past it (§11.4).
@@ -129,11 +141,15 @@ Beyond that, three habits that repeatedly find real defects here:
 - **Assert the undo-step count, not just that undo works.** "Exactly one undo step per agent
   operation" is a contract, and `move_object`'s two-step reparent case is the documented
   exception that proves nobody verifies this by accident.
+- **Parametrise over the parameter a defect scales with.** A bug proportional to rotation is
+  exactly 0 at rotation 0, so coverage of the default value proves nothing (§11.4, US-D2.2).
+  Same for empty collections, single-element lists, and unset optionals.
 - **Add a drift guard for anything inlined from elsewhere.** Inlined `ObjectType` name sets, enum
   value sets and tool-name lists each need a unit test asserting they still match the real
   source, or the next enum member silently escapes the package's coverage.
 
-Run the full battery — not the subset near your change — after every review-driven fix:
+The gate battery is `ogp-change-control` §2.5/§2.8 and `ogp-build-and-run`; run **all** of it
+after every review-driven fix, not the subset near the fix. On the Windows dev machine that is:
 
 ```bash
 venv/Scripts/python.exe -m pytest tests/ -v
@@ -143,26 +159,29 @@ PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
 venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py -v
 venv/Scripts/python.exe scripts/check_agent_context.py
-```
-
-## 6. Verify on the running artifact, not only in pytest
-
-Not optional when the package touches startup, packaging, resources, or the Agent API. pytest
-runs the source tree; users run the frozen exe, and the two have disagreed on real releases —
-#291 (the embedded server never started in the frozen *windowed* exe, because uvicorn's log
-config touches `sys.stdout`, which is `None` there) and the `ogp.spec` `unittest` exclusion that
-silently broke DXF export in every built exe.
-
-```bash
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe   # exit code 124 = success
 ```
 
-For an **Agent API** package, add the dogfood run that D1.4 established: launch the app, point a
-live MCP client at the running server, and drive the new tools end to end. It is the only check
-that exercises the real transport, the real marshaling hop and the real client's quirks — the
-`?token=` connect-URL parameter exists because Claude Code drops configured headers on tool-call
-POSTs, which no in-process test could ever have shown.
+The exe build is the **last two lines of the battery, not an optional extra** — see §6.
+
+## 6. Verify on the running artifact, not only in pytest
+
+**Always.** `CLAUDE.md` and `ogp-change-control` §2.8 both require a frozen-exe build and smoke
+before every merge; the only sanctioned excuse is a Linux/cloud session that cannot run it, and
+then you **say so in the PR** rather than skipping silently. pytest runs the source tree; users
+run the frozen exe, and the two have disagreed on real releases — #291 (the embedded server never
+started in the frozen *windowed* exe, because uvicorn's log config touches `sys.stdout`, which is
+`None` there) and the `ogp.spec` `unittest` exclusion that silently broke DXF export in every
+built exe.
+
+Doubly so when the package touches startup, packaging, resources, or the Agent API. For an
+**Agent API** package, add the dogfood run D1.4 established: launch the app, point a live MCP
+client at the running server, and drive the new tools end to end. It is the only check that
+exercises the real transport, the real marshaling hop and the real client's quirks. (Note what it
+is *not*: the `?token=` connect-URL design came from the **owner's manual test** on Windows, not
+from a dogfood run — ADR-036's "Addendum (manual-test finding)". §8's manual-test sovereignty is
+not something automation retires.)
 
 **Read what the run says, do not just read the exit code.** A failure is three different things
 and they want opposite responses:
@@ -178,42 +197,44 @@ that only confirmed what you already believed was not worth the electricity.
 
 ## 7. Documentation duty — before it counts as done
 
-Per the duty matrix in `CLAUDE.md` and `ogp-docs-and-writing`. At package scale this always
-includes:
+The matrix is in `CLAUDE.md` and `ogp-docs-and-writing`; follow it. Four items are easy to forget
+at package scale and are checked here because every recent package PR owed all four:
 
-- an **ADR** (or an addendum to the governing one) per non-trivial decision — and *always* for a
-  decision an issue explicitly asked you to make;
-- the **arc42** chapters touched: `05-building-block-view/` (new modules), `06-runtime-view/`
-  (changed flows), `08-crosscutting-concepts/` (§8.19 Agent API, §8.10 test policy, §8.11
-  security, §8.3 i18n);
-- **`docs/functional-requirements.md`** — an `FR-*` entry per new user-facing capability;
-- **`docs/12-glossary.md`** for every new domain term;
-- **`docs/roadmap.md`** — add or complete the package's US rows (this is the table that drifts;
-  fixing it is part of the package, not a follow-up), and mirror it into
-  `../open-garden-planner.wiki/Roadmap.md`;
-- **§11.4** for anything the package learned the hard way.
+- **`docs/roadmap.md`** — add or complete the package's US rows and mirror them into
+  `../open-garden-planner.wiki/Roadmap.md`. This is the table that drifts; fixing it is part of
+  the package, not a follow-up.
+- **`CLAUDE.md` + `AGENTS.md` "Where to Pick Up After Restart"** — update both, in the same
+  commit, then run `scripts/check_agent_context.py`. That gate is meaningless if the content it
+  compares is stale in both copies.
+- **A `debug-verbose` case study in both skill libraries** whenever the package fixed a
+  non-obvious bug (symptom → wrong theories → key evidence → root cause → lesson), per
+  `CLAUDE.md`'s debugging section.
+- **§11.4** for anything the package learned the hard way, and an **ADR addendum** for every
+  decision an issue asked you to make.
 
 Docs are **English-only** — never let a German UI label leak into doc prose.
 
 ## 8. Senior-reviewer loop, then hand off to change-control
 
-Run the `senior-reviewer` agent against the branch diff in a fresh worktree. Fix every P0 and P1,
-re-run, repeat until clean — **a review of the original is not a review of the fix**. Round 2 has
-caught P0s that round 1 missed (#213 / PR #217's rotated-plant `transformOriginPoint` drift).
+Run the `senior-reviewer` agent against the branch diff in a fresh worktree — **once per PR, and
+again after every round of fixes, until it comes back clean**. A review of the original is not a
+review of the fix; round 2 has caught P0s that round 1 missed (#213 / PR #217's rotated-plant
+`transformOriginPoint` drift). This gate is mandatory: run it without asking, even under a
+session instruction against launching agents.
 
 Two counterweights, both earned:
 
 - **Reviews are inputs, not oracles.** Verify each finding against the code in both directions
   before acting; a #223 P1 claiming conditional `can_undo`/`can_redo` signals was refuted simply
   by reading `commands.py`.
-- **The reviewer's worktree has no real credentials or `.env`.** Any claim it makes about
+- **The reviewer's worktree has no `.env` and no real credentials.** Any claim it makes about
   "live-confirmed" behaviour is unverified — confirm it yourself.
 
-Then hand off: `ogp-change-control` owns the landing decision and the evidence hierarchy;
-`finalize-us` owns the post-approval sequence (CI wait, tag-transition wait, version sync, wiki).
-**Open the PR as a draft and stop there.** Never mark ready, never merge, until the owner
-confirms manual testing passed — manual testing has killed reviewed, merged and green work
-repeatedly (US-B7 dropped entirely; #226's accordion reworked; D1.3's subtractive `layers` bug).
+Then hand off: `ogp-change-control` owns the landing decision, `finalize-us` the post-approval
+sequence (CI wait, tag-transition wait, version sync, wiki push). **Open the PR as a draft and
+stop there.** Never mark ready, never merge, until the owner confirms manual testing passed —
+manual testing has killed reviewed, merged and green work repeatedly (US-B7 dropped entirely;
+#226's accordion reworked; D1.3's subtractive `layers` bug).
 
 ## 9. Report
 
@@ -225,7 +246,7 @@ Close with, in this order:
 4. **only** the manual tests the owner must do — each with what to do, what a pass looks like,
    and what a failure would mean;
 5. anything deliberately left out, and why;
-6. confirm every issue the package closes has `Closes #N` in the PR body and that the PR's base
+6. confirm every issue the package closes has `Closes #N` in the PR body, and that the PR's base
    is `master` and it is still a draft:
    ```bash
    "$GH" pr view <n> --json closingIssuesReferences,baseRefName,isDraft
