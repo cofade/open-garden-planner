@@ -79,6 +79,103 @@ both directions (icon without entry, entry without icon).
 | zoom_in.svg | zoom-in |
 | zoom_out.svg | zoom-out |
 
+
+### Package 3c additions (#310) — fetched 2026-08-18 by the same script, same tag v3.45.0
+
+87 glyphs for the comprehensive iconography overhaul (status bar, dashboard
+tabs, Plants/Garden/File/Edit/View/Help residue, View-menu submenus, emoji /
+unicode pseudo-icon replacements, layers panel, weather card, sun-sim toolbar).
+
+| file | Tabler outline glyph |
+| ---- | -------------------- |
+| about_qt.svg | info-square |
+| align.svg | layout-grid |
+| align_bottom.svg | layout-align-bottom |
+| align_center_h.svg | layout-align-center |
+| align_center_v.svg | layout-align-middle |
+| align_left.svg | layout-align-left |
+| align_right.svg | layout-align-right |
+| align_top.svg | layout-align-top |
+| amendment.svg | flask |
+| autosave.svg | clock-play |
+| background_image.svg | photo |
+| camera.svg | camera |
+| canvas_size.svg | dimensions |
+| check.svg | check |
+| chevron_down.svg | chevron-down |
+| chevron_right.svg | chevron-right |
+| chevron_up.svg | chevron-up |
+| clock.svg | clock |
+| companion.svg | heart-handshake |
+| companion_warnings.svg | alert-circle |
+| compare_overlay.svg | history-toggle |
+| constraints_overlay.svg | link |
+| cross.svg | x |
+| distribute_h.svg | layout-distribute-horizontal |
+| distribute_v.svg | layout-distribute-vertical |
+| dynamic_input.svg | keyboard-show |
+| exit.svg | door-exit |
+| export_csv.svg | file-type-csv |
+| export_dxf.svg | file-vector |
+| export_pdf.svg | file-type-pdf |
+| export_png.svg | file-type-png |
+| export_svg.svg | file-type-svg |
+| eye.svg | eye |
+| eye_off.svg | eye-off |
+| frost.svg | snowflake |
+| fullscreen.svg | maximize |
+| go_to.svg | arrow-right |
+| grid.svg | grid-dots |
+| guides.svg | line |
+| labels.svg | tag |
+| language.svg | language |
+| location.svg | map-2 |
+| lock.svg | lock |
+| lock_open.svg | lock-open |
+| minimap.svg | map-search |
+| overlays.svg | stack-2 |
+| panels.svg | layout-sidebar |
+| plant_manage.svg | leaf |
+| plant_search.svg | database-search |
+| player_pause.svg | player-pause |
+| player_play.svg | player-play |
+| recent.svg | history |
+| refresh.svg | refresh |
+| satellite.svg | satellite |
+| scale_bar.svg | ruler |
+| season.svg | calendar |
+| seasons.svg | calendar-cog |
+| seedling.svg | seedling |
+| shadows.svg | shadow |
+| shopping_list.svg | shopping-cart |
+| snap_grid.svg | grid-4x4 |
+| snap_intersections.svg | arrows-cross |
+| snap_midpoints.svg | point |
+| snap_nearest.svg | focus-centered |
+| snap_objects.svg | target |
+| snap_tangent.svg | circle-dot |
+| snapping.svg | magnet |
+| soil_overlay.svg | color-filter |
+| soil_test.svg | test-pipe |
+| spacing_circles.svg | circles-relation |
+| star.svg | star |
+| status_coords.svg | crosshair |
+| status_input.svg | terminal-2 |
+| status_tool.svg | tool |
+| status_zoom.svg | zoom |
+| sun.svg | sun |
+| sun_sim.svg | sun-high |
+| tab_calendar.svg | calendar-event |
+| tab_harvest.svg | basket |
+| tab_plan.svg | map |
+| tab_tasks.svg | checklist |
+| view3d.svg | cube |
+| warning.svg | alert-triangle |
+| weather_fog.svg | cloud-fog |
+| weather_rain.svg | cloud-rain |
+| weather_snow.svg | cloud-snow |
+| weather_storm.svg | cloud-storm |
+
 ## Bespoke icons (original work, GPL-3.0-or-later)
 
 Hand-authored in-repo 2026-07-26 on the house contract (24×24, stroke-2
@@ -97,3 +194,11 @@ equivalent glyph for these garden/CAD-specific concepts:
 - `constraint_symmetric.svg` — dashed mirror axis, two mirrored dots
   (Tabler `symmetry-vertical` does not exist at v3.45.0 — 404)
 - `chamfer.svg` — beveled corner, accent on the cut segment
+
+Added 2026-08-18 (Package 3c, #310), same contract and normalizer:
+
+- `lawn.svg` — ground line with four grass blades (the `properties_panel`
+  had requested a non-existent `lawn.svg` since Phase 5; the provider
+  silently returned `None`)
+- `partly_cloudy.svg` — sun with three rays behind a cloud (weather card;
+  Tabler v3.45.0 has no `cloud-sun`)
