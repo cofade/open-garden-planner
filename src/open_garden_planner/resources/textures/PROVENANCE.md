@@ -29,11 +29,13 @@ all come out of one generator:
   project license (GPL-3.0-or-later).
 - **Tileability**: seamless BY CONSTRUCTION (every primitive is painted with
   torus-wrapped window indices; noise fields are periodic; structured
-  layouts divide the tile exactly and put no joint on the wrap); mechanically
-  verified by `scripts/check_texture_tileability.py` (seam-vs-98th-percentile
-  metric, threshold 1.6 unchanged since #264), pinned for ALL 24 files by
-  `tests/unit/test_texture_tileability.py` (`KNOWN_SEAMED_LEGACY` is empty and
-  gated empty) and on the real canvas brush by
+  layouts divide the tile exactly, so a joint either straddles the wrap
+  symmetrically or lies clear of it — never near it asymmetrically);
+  mechanically verified by `scripts/check_texture_tileability.py`
+  (seam-vs-98th-percentile metric, threshold 1.6 unchanged since #264),
+  pinned for ALL 24 files by `tests/unit/test_texture_tileability.py`
+  (parametrized over every file — the #264 grandfather list was emptied and
+  deleted) and on the real canvas brush (both axes) by
   `tests/integration/test_texture_forge_rendering.py`.
 - **Style**: the "Lush" texture contract — `ogp-asset-forge` skill §1 and
   docs §8.24. Owner sign-off: contact sheets (legacy · new · 2×2 tiled ·
@@ -45,21 +47,21 @@ all come out of one generator:
 | File | Material recipe (builder) | Notes |
 |---|---|---|
 | `bark.png` | `generate_bark` — 12 wavy ridges, wandering sub-ridges that split/merge, fissures, short cross-cracks, lenticels | replaces 2026-03 legacy |
-| `brick.png` | `generate_brick` — 24 running-bond courses × 8, six reds, bevelled, mortar grain | replaces legacy |
+| `brick.png` | `generate_brick` — 24 running-bond courses × 8, six reds, bevelled, mortar grain (a joint straddles the wrap symmetrically) | replaces legacy |
 | `clay.png` | `generate_clay` — ochre mottle, two-scale Voronoi shrinkage cracks (low contrast), pits | replaces legacy |
 | `compost.png` | `generate_compost` — dark crumb, clumps with occlusion, straw, leaf bits, eggshell, twigs | replaces legacy |
 | `concrete.png` | `generate_concrete` — cloudy mottle, aggregate speckle, pits | replaces legacy |
 | `corten.png` | `generate_corten` — three-scale rust mottle, faint vertical weather streaks, speckle | US-E9 pilot re-rendered (2026-07-20 → 2026-08-18) |
 | `decking.png` | `generate_decking` — 4 boards (64 cm), grain, knots, gap shadow, screw heads on 64-cm joists; joints at x = 32 + 64k | US-E9 pilot re-rendered |
 | `flagstone.png` | `generate_flagstone` — domain-warped torus Voronoi slabs, sandy joints, rim → crown slabs | replaces legacy; its wrap seam (3.35/3.82) is gone |
-| `glass.png` | `generate_glass` — 4×2 panes (64×128 cm), glazing bars, symmetric sheen bands, screws | replaces legacy; its wrap seam (2.14/2.20) is gone — default greenhouse fill |
+| `glass.png` | `generate_glass` — 4×2 panes (64×128 cm), glazing bars, sheen bands mirror-symmetric about the pane centre, screws | replaces legacy; its wrap seam (2.14/2.20) is gone — default greenhouse fill |
 | `grass.png` | `generate_grass` — mottled ground, dark blade shadow layer, 2400 two-tone blades | replaces legacy |
 | `gravel.png` | `generate_gravel` — 2000 shaded stones with halos, greys/tans/whites | replaces legacy |
 | `hedge.png` | `generate_hedge` — 300 occluded pointed almond leaves, two-tone (#281 language) | #281 pilot re-rendered (2026-07-27 → 2026-08-18) |
 | `lattice.png` | `generate_lattice` — two analytic diagonal lath families (8 each), woven over/under with contact occlusion, foliage ground | replaces legacy |
 | `mulch.png` | `generate_mulch` — 640 layered flakes/chunks in eight browns, occlusion, splinters | replaces legacy |
 | `pebbles.png` | `generate_pebbles` — 370 shaded river pebbles (14 tones), soft gloss, halos, sand ground | replaces legacy |
-| `roof_tiles.png` | `generate_roof_tiles` — 12 staggered courses of beaver-tail tiles, overlap occlusion; wrapped overhang repainted for seam-correct layering | replaces legacy |
+| `roof_tiles.png` | `generate_roof_tiles` — 12 staggered courses of beaver-tail tiles, overlap occlusion; wrapped overhang repainted (same RNG state) for seam-correct layering and tone | replaces legacy; overhang RNG replay fixed after senior review 2026-08-18 |
 | `sand.png` | `generate_sand` — pale ground, dune mottle, fine grain, quartz glints | replaces legacy |
 | `slate.png` | `generate_slate` — 5 courses of random-width slabs (one wraps), cleft streaks, bevels | replaces legacy |
 | `soil.png` | `generate_soil` — warm mottle, damp patches, 700 crumbs + 120 clods (soft halos), stones, specks | replaces legacy |

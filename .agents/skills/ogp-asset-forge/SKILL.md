@@ -54,7 +54,13 @@ shipped textures (`src/open_garden_planner/resources/textures/`) at 1:1 AND
    periodic lattice; `voronoi` uses the torus metric (domain-warp for
    organic slabs); `wrap_blur` is an in-repo separable Gaussian with
    `np.roll`. Structured layouts (courses, planks, laths, panes) must divide
-   256 exactly and put **no joint on the wrap** (offset by half a pitch).
+   256 exactly; a joint or bar then either **straddles the wrap
+   symmetrically** (brick/stone/slate courses, glazing bars — the painter
+   samples at pixel centres, so the wrap sits exactly on the joint's mirror
+   line: glass scores 0.00) or lies **clear of it** (plank joints at
+   half-pitch offsets);
+   never *near* it asymmetrically. A wrapped repaint (roof overhang) must
+   replay the SAME rng state the original row used.
    All randomness through the `rng` argument (`random.Random(seed_for(name))`,
    stream-stable across CPython versions); no numpy RNG, no ImageDraw, no
    Pillow filters — Pillow only encodes the PNG. Determinism is **pixel-exact**
@@ -128,8 +134,8 @@ workflow (validated in the #281 style lab, 2026-07-26):
 | Gate | Command | Pass |
 |---|---|---|
 | Pixel determinism | `venv/Scripts/python.exe scripts/generate_asset_forge_textures.py --check` | every committed PNG decodes to the generator's pixels (pinned by `tests/unit/test_texture_forge_conformance.py`, which also pins registry ↔ `_TEXTURE_FILES` ↔ files, 256² RGB, the tint band, gate teeth, and that the legacy Qt generator stays deleted) |
-| Tileability | `venv/Scripts/python.exe scripts/check_texture_tileability.py [file]` | seam/98th-percentile ratio ≤ 1.6 both axes for ALL 24 (`tests/unit/test_texture_tileability.py`; `KNOWN_SEAMED_LEGACY` is empty and gated empty — recalibrate the 1.6 only with a written rationale in the checker header + test) |
-| On-canvas (§8.10) | `venv/Scripts/python.exe -m pytest tests/integration/test_texture_forge_rendering.py` | every pattern paints with detail through panel → brush → item → flipped `scene.render`; the wrap boundary of the item's real tinted brush is inside the fill's own edge family; red vs blue fill colours move the hue without flattening; thumbnails render; greenhouse tool draws GLASS |
+| Tileability | `venv/Scripts/python.exe scripts/check_texture_tileability.py [file]` | seam/98th-percentile ratio ≤ 1.6 both axes for ALL 24 (`tests/unit/test_texture_tileability.py` parametrises every file — no grandfather list; recalibrate the 1.6 only with a written rationale in the checker header + test). Know its blind spot: the metric grades a texture against its OWN p98 internal step, so structured tiles with hard edges everywhere get more slack than organic ones — for those also eyeball `\|row0 − row255\|` / `\|col0 − col255\|` against the interior joint profile |
+| On-canvas (§8.10) | `venv/Scripts/python.exe -m pytest tests/integration/test_texture_forge_rendering.py` | every pattern paints with detail through the panel's apply slots → brush → item → flipped `scene.render`; the wrap column AND row of the item's real tinted brush are inside the fill's own edge family; red vs blue fill colours move the hue without flattening; thumbnails render; greenhouse tool draws GLASS |
 | Style | contact sheet: legacy · new 1:1 · 2×2 tiled · tinted with the default fill colour | owner's manual sign-off (sovereign) |
 
 ## 4. Wiring a new texture (all steps, no parallel loader)

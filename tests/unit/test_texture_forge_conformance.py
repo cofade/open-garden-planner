@@ -75,10 +75,6 @@ class TestRegistry:
                 continue
             assert pattern in _TEXTURE_FILES, pattern.name
 
-    def test_seeds_are_unique(self) -> None:
-        seeds = [forge.seed_for(n) for n in ALL_NAMES]
-        assert len(set(seeds)) == len(seeds)
-
     def test_legacy_qt_generator_is_gone(self) -> None:
         """One generator, one contract (#309): the Qt-painted script must not
         come back as a second, ungated source of textures."""

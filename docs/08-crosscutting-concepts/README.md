@@ -1491,8 +1491,15 @@ crossing an edge simply continues on the opposite side; noise fields
 the torus metric (with an optional periodic domain warp for organic slab
 edges), and `wrap_blur` is an in-repo separable Gaussian built on `np.roll`.
 Structured layouts (brick courses, planks, laths, panes, roof courses) divide
-256 exactly and put no joint on the wrap; the roof's bottom course repaints
-its wrapped overhang so the overlap layering is seam-correct. All randomness
+256 exactly, so a joint or bar either **straddles the wrap symmetrically**
+(brick/stone/slate courses, the glazing bars — the painter samples at
+pixel centres, so the wrap sits exactly on the joint's mirror line and the
+two sides are identical: glass scores 0.00, brick 0.05)
+or lies **clear of it** (wood/decking plank joints at half-pitch offsets);
+what must never happen is a joint landing *near* the wrap asymmetrically.
+The roof's bottom course repaints its wrapped overhang — with the same RNG
+state the row was drawn with — so the overlap layering AND the per-tile tone
+are seam-correct. All randomness
 flows through `random.Random(seed_for(name))` (`"ogp-<name>-lush"`), which is
 stream-stable across CPython versions; no numpy RNG, no rasterizer, no
 Pillow filter is involved — Pillow only encodes/decodes PNG. The binding
@@ -1511,10 +1518,11 @@ bytes are deliberately not the contract, and regeneration rewrites a file
 only when its pixels change (no cross-platform git churn). **Seamless on the
 canvas**: `scripts/check_texture_tileability.py` (seam vs the 98th percentile
 of the texture's own internal steps, threshold 1.6 unchanged since #264) must
-pass for every file (`tests/unit/test_texture_tileability.py`;
-`KNOWN_SEAMED_LEGACY` is empty and gated empty), and the §8.10 test paints the
-item's real tinted brush two tiles wide and checks the wrap column against
-the same metric. **Tint-readable**: the runtime tint overlays the user colour
+pass for every file (`tests/unit/test_texture_tileability.py` parametrises
+all of them — the #264 grandfather list `KNOWN_SEAMED_LEGACY` was emptied
+and then deleted, a constant that must stay empty being ceremony), and the
+§8.10 test paints the item's real tinted brush two tiles wide and checks the
+wrap column AND wrap row against the same metric. **Tint-readable**: the runtime tint overlays the user colour
 at 80/255 alpha; the conformance gate pins mean luminance 40–225, luminance
 std ≥ 4 and local detail ≥ 2 per texture, and the integration test proves a
 red vs a blue fill colour move the rendered hue without flattening the

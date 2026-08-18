@@ -662,6 +662,6 @@ Coverage of a supposedly constant-width line fell from full (110) at the top to 
 
 **Root cause.** `Tile.capsule(..., taper: float = 0.0)`: the parameter means "width fraction remaining at the far end", so the default made every capsule a pointed blade. Only `grass_blades` passed `taper` explicitly (0.05, intended); the wood joints, mulch splinters, compost straw, slate cleft streaks and bark cracks were all silently tapered — the wood joint's taper crossed the wrap and became the seam.
 
-**Fix.** Default `taper = 1.0` (constant width); docstring states the semantics. All 24 textures re-rendered; max seam ratio 1.43.
+**Fix.** Default `taper = 1.0` (constant width); docstring states the semantics. All 24 textures re-rendered; max seam ratio 1.43 (0.94 after the senior review's second finding — integer sampling put a half-pixel bias into wrap-centred joints — was fixed by sampling at pixel centres).
 
 **Lesson.** The seam metric already knows *where* the seam is — ask it (per-column diff) before forming a layout theory. Then isolate the suspect primitive on a blank canvas and print numbers at the two rows that must agree; a two-line probe beats two plausible refactors. Recorded as debugging-playbook row 36 and §11.4.

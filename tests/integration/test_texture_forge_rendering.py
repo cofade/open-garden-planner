@@ -1,13 +1,15 @@
 """Integration gate (§8.10) for the forge textures (#309, Package 3b).
 
 Every fill-pattern texture must reach the user through the app's REAL path —
-Properties panel combo → `create_pattern_brush` → item brush → `paint()` →
-the Y-flipped `scene.render` the view/export use — with visible material
-detail; the user's fill colour must recolour it (the 80/255 tint overlay)
-without flattening it; a textured item must show no wrap seam on the canvas
-(the legacy glass/flagstone seams were on-canvas-by-default defects); the
-gallery thumbnails render; and the greenhouse tool's default GLASS fill
-draws through the real tool workflow.
+the Properties panel's apply slots (`_on_property_changed` / `_on_color_changed`,
+the same code the Fill Pattern combo and the colour button drive) →
+`create_pattern_brush` → item brush → `paint()` → the Y-flipped `scene.render`
+the view/export use — with visible material detail; the user's fill colour
+must recolour it (the 80/255 tint overlay) without flattening it; a textured
+item must show no wrap seam on the canvas in EITHER axis (the legacy
+glass/flagstone seams were on-canvas-by-default defects); the gallery
+thumbnails render; and the greenhouse tool's default GLASS fill draws
+through the real tool workflow.
 """
 
 # ruff: noqa: ARG002
@@ -40,8 +42,8 @@ IDS = [p.name for p in TEXTURED]
 
 # The seam metric of scripts/check_texture_tileability.py, applied to the
 # item's REAL (tinted) brush painted two tiles wide: the step across the wrap
-# boundary (texture column 255 → 0, i.e. image column 256) must sit inside
-# the fill's own 98th-percentile edge family (threshold 1.6, unchanged).
+# boundary (texture column/row 255 → 0, i.e. image column/row 256) must sit
+# inside the fill's own 98th-percentile edge family in BOTH axes (1.6).
 SEAM_RATIO_THRESHOLD = 1.6
 TILE = 256
 
@@ -100,12 +102,15 @@ def _paint_brush(brush: QBrush, size: int = 2 * TILE + 8) -> QImage:
 
 
 def _wrap_seam_ratio(brush: QBrush) -> float:
-    """Step across the wrap boundary (image column 255|256) divided by the
-    98th percentile of every column-boundary step of the fill."""
+    """Worse of the two wrap boundaries (image column 255|256 and image row
+    255|256), each divided by the 98th percentile of the fill's own
+    column-/row-boundary steps."""
     lum = _luminance(_paint_brush(brush), margin=0)
-    steps = np.mean(np.abs(np.diff(lum, axis=1)), axis=0)  # steps[i] = |col i+1 - col i|
-    ref = float(np.percentile(steps, 98.0)) + 1e-9
-    return float(steps[TILE - 1]) / ref
+    steps_x = np.mean(np.abs(np.diff(lum, axis=1)), axis=0)  # steps_x[i] = |col i+1 - col i|
+    steps_y = np.mean(np.abs(np.diff(lum, axis=0)), axis=1)  # steps_y[i] = |row i+1 - row i|
+    ratio_x = float(steps_x[TILE - 1]) / (float(np.percentile(steps_x, 98.0)) + 1e-9)
+    ratio_y = float(steps_y[TILE - 1]) / (float(np.percentile(steps_y, 98.0)) + 1e-9)
+    return max(ratio_x, ratio_y)
 
 
 def _left_click_event() -> MagicMock:

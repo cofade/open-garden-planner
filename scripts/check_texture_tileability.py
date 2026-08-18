@@ -10,11 +10,12 @@ internal adjacent-row/column mean steps: a seamless tile's seam sits
 inside its own edge family (ratio ≤ 1-ish), a genuinely non-tiling image
 (e.g. a gradient, or a photo crop) towers above it.
 
-Threshold: 1.6 — calibrated in tests/unit/test_texture_tileability.py:
-the asset-forge pilots and the wood/gravel/grass calibrators pass, a
-synthetic gradient fails by an order of magnitude. Several LEGACY textures
-(e.g. glass, flagstone, stone) fail — real seams, recorded in the test's
-known-seamed list as future regeneration candidates for this very skill.
+Threshold: 1.6 — calibrated 2026-07-20 (US-E9) on the first pilots and the
+wood/gravel/grass calibrators; a synthetic gradient fails by an order of
+magnitude. Since Package 3b (#309, 2026-08-18) EVERY shipped texture comes
+out of the numpy torus painter and passes (max shipped ratio 0.94, pebbles);
+`tests/unit/test_texture_tileability.py` parametrises all files, so a seamed
+texture can no longer be grandfathered.
 
 Known limitation (documented, accepted): the metric works on LUMINANCE —
 a seam purely in hue at matched brightness is invisible to it. The shipped
@@ -33,11 +34,14 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-# Calibration note: decking.png (the flagship STRUCTURED pilot — a board
-# gap sits legitimately at the wrap seam) scores x=1.55; the threshold
-# deliberately leaves it only ~3 % of headroom, so a regenerated structured
-# texture may need re-calibration here — that is a feature (the gate stays
-# tight), not an accident.
+# Calibration note: unchanged since US-E9 (2026-07-20). The 2026-07 decking
+# pilot put a board gap ON the wrap and scored x=1.55 (3 % headroom); the
+# #309 set keeps every joint either symmetric on the wrap (pixel-centre
+# sampling makes that exact) or clear of it — shipped maximum 0.94 (pebbles),
+# decking now 0.33, glass 0.00. Recalibrate ONLY with a
+# written rationale here AND in the test (owner rule, #309): the metric grades
+# a texture against its own 98th-percentile internal step, so structured tiles
+# with hard edges everywhere get proportionally more slack than organic ones.
 SEAM_RATIO_THRESHOLD = 1.6
 
 #: Percentile of the internal step distribution the seam is measured

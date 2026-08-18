@@ -14,8 +14,8 @@ Design contract (docs §8.5 / ADR-042 3b section):
 - Strictly top-down; **no directional light** — the canvas view flips Y and
   fills rotate with nothing, so every shading cue is radial/concentric.
 - Seamless BY CONSTRUCTION: every primitive is painted on a torus (window
-  indices are taken modulo the canvas), noise fields are periodic lattices,
-  structured layouts (courses, planks, laths) divide the tile exactly.
+  indices are taken modulo the canvas), noise fields are periodic lattices;
+  structured layouts (courses, planks, laths, panes) divide 256 exactly, so a joint or bar either straddles the wrap SYMMETRICALLY (brick / stone / slate courses, the glazing bars — the wrap then sits inside the joint's own symmetric profile and the seam metric measures that profile, not a discontinuity) or lies clear of it (wood / decking plank joints at half-pitch offsets); what must never happen is a joint landing NEAR the wrap asymmetrically.
 - Pixel-deterministic: all randomness comes from ``random.Random(seed_str)``
   (stream-stable across CPython versions), all painting is float64 numpy
   with sequential accumulation (no rasterizer, no reduction whose order can
@@ -23,7 +23,7 @@ Design contract (docs §8.5 / ADR-042 3b section):
   in memory and compares the DECODED PIXELS of the committed PNGs (PNG is
   lossless; the deflate stream itself depends on the zlib build Pillow
   bundles, so file bytes are deliberately not the contract);
-  ``tests/unit/test_asset_forge_textures.py`` pins it. The former
+  ``tests/unit/test_texture_forge_conformance.py`` pins it. The former
   ``ImageFilter.GaussianBlur`` (Pillow-version-dependent) is gone —
   ``wrap_blur`` is an in-repo separable Gaussian with ``np.roll``.
 - Provenance = this script (``resources/textures/PROVENANCE.md``).
@@ -205,6 +205,12 @@ class Tile:
     def _window(
         self, cx: float, cy: float, rx: float, ry: float
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Window indices (mod C) and local coordinates sampled at PIXEL
+        CENTRES (index + 0.5): a feature centred on an integer tile
+        coordinate is then mirror-symmetric about that line, so a joint or
+        bar on the wrap has an identical profile on both sides of it
+        (senior review 2026-08-18: integer sampling put a half-pixel bias
+        into every wrap-centred joint — glass y 1.41 → 0.00 after this)."""
         cx, cy, rx, ry = cx * SS, cy * SS, rx * SS, ry * SS
         x0 = int(math.floor(cx - rx - 2))
         x1 = int(math.ceil(cx + rx + 2))
@@ -212,16 +218,16 @@ class Tile:
         y1 = int(math.ceil(cy + ry + 2))
         if x1 - x0 >= C:  # too wide to window — use the whole width, torus metric
             xs = np.arange(C, dtype=np.float64)
-            X = ((xs - cx + C / 2) % C) - C / 2
+            X = ((xs + 0.5 - cx + C / 2) % C) - C / 2
         else:
             xs = np.arange(x0, x1 + 1, dtype=np.float64)
-            X = xs - cx
+            X = xs + 0.5 - cx
         if y1 - y0 >= C:
             ys = np.arange(C, dtype=np.float64)
-            Y = ((ys - cy + C / 2) % C) - C / 2
+            Y = ((ys + 0.5 - cy + C / 2) % C) - C / 2
         else:
             ys = np.arange(y0, y1 + 1, dtype=np.float64)
-            Y = ys - cy
+            Y = ys + 0.5 - cy
         return ys.astype(np.int64) % C, xs.astype(np.int64) % C, X[None, :], Y[:, None]
 
     def _paint(
@@ -288,6 +294,7 @@ class Tile:
         col = np.asarray(color, dtype=np.float64)[None, None, :] * f[..., None]
         y_raw = None
         if clip_wrap:  # raw (unwrapped) window rows, for painting only inside the tile
+            assert len(iy) < C, "clip_wrap needs a windowed (not full-height) primitive"
             y0 = int(math.floor(cy * SS - ext * SS - 2))
             y_raw = np.arange(y0, y0 + len(iy))[:, None] * np.ones((1, len(ix)))
         self._paint(iy, ix, cov, col, clip_wrap, y_raw)
@@ -390,6 +397,8 @@ class Tile:
         ``h=None`` = a full-height plank (the distance field ignores v, so no
         top/bottom edge exists to wrap into a seam band)."""
         if h is None:
+            if rot != 0.0:
+                raise ValueError("a full-height plank (h=None) cannot be rotated (it would shear across the wrap)")
             iy, ix, X, Y = self._window(cx, 128.0, w / 2 + 2, 130.0)
             u, _v = self._rot(X, Y, rot)
             hw = w * SS / 2
@@ -417,6 +426,7 @@ class Tile:
         col = np.asarray(color, dtype=np.float64)[None, None, :] * f[..., None]
         y_raw = None
         if clip_wrap and h is not None:
+            assert len(iy) < C, "clip_wrap needs a windowed (not full-height) primitive"
             y0 = int(math.floor(cy * SS - ext * SS - 2))
             y_raw = np.arange(y0, y0 + len(iy))[:, None] * np.ones((1, len(ix)))
         self._paint(iy, ix, cov, col, clip_wrap, y_raw)
@@ -573,7 +583,10 @@ def paver_courses(
     min_w: float = 0.0,
 ) -> list[tuple[float, float, float, float]]:
     """Running-bond courses that divide the tile exactly. Course boundaries
-    are offset by half a pitch so no joint sits ON the wrap seam. Returns
+    lie at multiples of the pitch, i.e. a mortar joint STRADDLES the wrap
+    symmetrically (y = 0 is the joint's centre line) — the seam metric then
+    reads the joint's own profile, not a discontinuity; measured on brick /
+    stone / slate 2026-08-18: seam vs interior joint profiles match. Returns
     the placed (cx, cy, w, h) so callers can add per-paver detail."""
     pitch_y = SIZE / rows
     placed = []
@@ -583,7 +596,11 @@ def paver_courses(
         if row_widths:
             # random cuts along the row (min width min_w) — one paver wraps
             cuts = []
+            attempts = 0
             while len(cuts) < per_row:
+                attempts += 1
+                if attempts > 10_000:
+                    raise RuntimeError(f"paver_courses: cannot place {per_row} cuts with min_w={min_w} in {SIZE}")
                 c = rng.uniform(0, SIZE)
                 if all(min(abs(c - o), SIZE - abs(c - o)) >= min_w for o in cuts):
                     cuts.append(c)
@@ -715,8 +732,8 @@ def generate_water(rng: random.Random) -> Image.Image:
     ridged2 = 1.0 - np.abs(2.0 * n2 - 1.0)
     caustic2 = np.clip((ridged2 - 0.76) / 0.24, 0.0, 1.0) ** 2.0
     t.blend((210, 238, 252), caustic2 * 0.26)
-    ys = np.arange(C, dtype=np.float64)[:, None]
-    xs = np.arange(C, dtype=np.float64)[None, :]
+    ys = (np.arange(C, dtype=np.float64) + 0.5)[:, None]
+    xs = (np.arange(C, dtype=np.float64) + 0.5)[None, :]
     ripple = np.sin(2 * math.pi * (3 * ys + 1 * xs) / C + 4.0 * (n - 0.5)) * 0.5 + 0.5
     t.multiply(1.0 - 0.05 * ripple)
     for _ in range(18):
@@ -808,12 +825,17 @@ def generate_roof_tiles(rng: random.Random) -> Image.Image:
                    bevel_dark=0.8, crown=1.06, clip_wrap=clip)
 
     # bottom → top so each row overlaps the one below; then repaint the
-    # bottom row's wrapped overhang so the seam layering matches the interior
+    # bottom row's wrapped overhang so the seam layering matches the interior.
+    # The repaint MUST replay the rng state the bottom row was drawn with —
+    # otherwise the overhang tiles get different tone jitter than the tiles
+    # they continue (senior review 2026-08-18: seam_y 3.95 → 1.45).
+    start_state = rng.getstate()
     for row in range(rows - 1, -1, -1):
         draw_row(row, 0.0, False)
-    rng_state = rng.getstate()
+    end_state = rng.getstate()
+    rng.setstate(start_state)
     draw_row(rows - 1, -SIZE, True)
-    rng.setstate(rng_state)
+    rng.setstate(end_state)
     t.grain(rng, 0.03)
     speckle(t, rng, 160, (0.4, 0.9), [(150, 70, 48), (214, 130, 92)], alpha=0.6)
     return t.finish(blur=0.35)
@@ -852,8 +874,8 @@ def generate_glass(rng: random.Random) -> Image.Image:
     glazing bars, pale sky-blue glass with soft symmetric sheen bands, per-pane
     tone, screw heads at the crossings."""
     t = Tile((198, 224, 240))
-    ys = np.arange(C, dtype=np.float64)[:, None]
-    xs = np.arange(C, dtype=np.float64)[None, :]
+    ys = (np.arange(C, dtype=np.float64) + 0.5)[:, None]
+    xs = (np.arange(C, dtype=np.float64) + 0.5)[None, :]
     panes_x, panes_y = 4, 2  # 64 × 128 cm glazing, taller than wide
     pitch_x, pitch_y = C / panes_x, C / panes_y
     # per-pane tone
@@ -861,10 +883,11 @@ def generate_glass(rng: random.Random) -> Image.Image:
     pj = np.floor(ys / pitch_y).astype(np.int64)
     tones = np.array([[rng.uniform(0.965, 1.035) for _ in range(panes_x)] for _ in range(panes_y)])
     t.multiply(tones[pj, pi])
-    # sheen: two soft diagonal bands per pane, symmetric (no light direction)
+    # sheen: two soft diagonal bands per pane, mirror-symmetric about the
+    # pane centre (u+v = 1) so no light direction is implied
     u = (xs % pitch_x) / pitch_x
     v = (ys % pitch_y) / pitch_y
-    band = np.exp(-((u + v - 0.55) ** 2) / 0.012) * 0.55 + np.exp(-((u + v - 1.30) ** 2) / 0.006) * 0.35
+    band = np.exp(-((u + v - 0.70) ** 2) / 0.010) * 0.45 + np.exp(-((u + v - 1.30) ** 2) / 0.010) * 0.45
     t.blend((236, 246, 252), band * 0.9)
     # a faint inner vignette per pane (glass looks deeper toward the edges)
     edge = np.minimum(np.minimum(u, 1 - u) * pitch_x, np.minimum(v, 1 - v) * pitch_y) / pitch_x
@@ -913,7 +936,7 @@ def generate_hedge(rng: random.Random) -> Image.Image:
 
 
 def generate_brick(rng: random.Random) -> Image.Image:
-    """Clay bricks in running bond (24 courses × 8), five reds, bevelled
+    """Clay bricks in running bond (24 courses × 8), six reds, bevelled
     edges, per-brick tone, mortar with fine grain."""
     t = Tile((196, 186, 172))
     t.grain(rng, 0.05)
@@ -1083,8 +1106,8 @@ def generate_lattice(rng: random.Random) -> Image.Image:
     every crossing."""
     t = Tile((104, 128, 82))
     t.mottle(rng, 4, 3, 0.10)
-    ys = np.arange(C, dtype=np.float64)[:, None]
-    xs = np.arange(C, dtype=np.float64)[None, :]
+    ys = (np.arange(C, dtype=np.float64) + 0.5)[:, None]
+    xs = (np.arange(C, dtype=np.float64) + 0.5)[None, :]
     n = 8
     p = C / n  # spacing along x+y (and x−y)
     lath_w = 5.2 * SS
@@ -1166,7 +1189,7 @@ def generate_flagstone(rng: random.Random) -> Image.Image:
         (172, 164, 150), (156, 150, 140), (180, 172, 156), (162, 154, 138),
         (146, 146, 142), (176, 168, 160), (168, 158, 140), (150, 148, 150),
     ]
-    ncell = int(cid.max()) + 1
+    ncell = 5 * 5  # = the voronoi grid — NOT derived from cid.max(): the rng stream must not depend on pixel comparisons
     cols = np.array([jitter(rng, palette[k % len(palette)], 0.04) for k in range(ncell)])
     slab_col = cols[cid]
     # rim → crown by distance from the joint
