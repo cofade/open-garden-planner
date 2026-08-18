@@ -34,18 +34,20 @@ Read the canonical source first, then the compact delivery aid:
 
 **Packages are identified by convention, not by GitHub structure.** This repo does **not** use
 GitHub sub-issues — `#237` and `#284` have none. Membership is carried in the issue *title
-suffix* (`US-D2.4: … (Package D2, epic #237)`) and in a `> **Package D map & order**` blockquote
-at the head of each body listing every sibling and their order. Read that blockquote: it is the
-most current statement of the package's shape that exists. Do not assume a number range is a
-package — `#311`–`#321` looks like one but contains `#319` (Package D3) and `#321` (a standalone
-touch-input issue).
+suffix* (`US-D2.4: … (Package D2, epic #237)`) and in a `> **Package … map & order**` blockquote
+at the head of each body listing every sibling and their order — the exact wording varies
+(`Package D map & order` on the D issues, `Package map & order` on F/G), so grep loosely. Read
+that blockquote: it is the most current statement of the package's shape that exists. Do not
+assume a number range is a package — `#311`–`#321` looks like one but contains `#319`
+(Package D3) and `#321` (a standalone touch-input issue).
 
-**GitHub outranks the roadmap.** Packages F and G are eleven filed issues (`#311`–`#318`, `#320`)
-with **zero** presence in `docs/roadmap.md` — `grep -n "Package F\|US-F1\|US-G1" docs/roadmap.md`
-returns nothing. If the roadmap has drifted, correct it **in this package's PR**; a stale table
-is why the next person picks the wrong work. (Distinguish drift from *disclosed* scope: the D2
-US-table blockquote said outright which rows it was missing. A note saying "this is incomplete"
-is a smaller problem than silence.)
+**GitHub outranks the roadmap.** Packages F and G are nine filed issues (F = `#312`–`#316`,
+G = `#311`, `#317`, `#318`, `#320`) with **zero** presence in `docs/roadmap.md` —
+`grep -n "Package F\|US-F1\|US-G1" docs/roadmap.md` returns nothing. If the roadmap has drifted,
+correct it **in this package's PR**; a stale table is why the next person picks the wrong work.
+(Distinguish drift from *disclosed* scope: the D2 US-table blockquote said outright that it was
+incomplete. A note admitting a gap is a smaller
+problem than silence — though still a gap.)
 
 ```bash
 GH="C:/Program Files/GitHub CLI/gh.exe"   # Windows dev machine; in a Linux/cloud session use
@@ -70,8 +72,8 @@ Prefer, in order:
 1. The package on the **stated critical path** in `docs/roadmap.md` or the epic body, unless
    step 1 just invalidated it.
 2. A package whose blockers are now resolved — recheck, the note may be stale (Package D's own
-   "token auth deferred" note at `docs/roadmap.md:2439` outlived the token auth shipping in D2.0
-   by four releases).
+   "token auth deferred" note at `docs/roadmap.md:2439` is still there, many releases after the
+   token auth actually shipped in D2.0).
 3. A package whose issues form a real dependency chain, so shipping them together is cheaper
    than shipping them apart.
 
@@ -118,7 +120,7 @@ Two disciplines that apply specifically at package scale:
   own `_deserialize_item_core` precisely to avoid a second construction path. If a package needs
   behaviour the GUI already has, **extract the shared path** and have both call it — never copy
   it. A `Callable` injection point with N call sites is N implementations of one behaviour, and
-  nothing will tell you when one stops matching the others (§11.4, US-D2.2).
+  nothing will tell you when one stops matching the others (see #326 for the worked example).
 - **Wrap every user-visible string as you write it** (`self.tr()` / `QCoreApplication.translate`
   / `QT_TR_NOOP`), not in a cleanup pass. The i18n gate only sees strings already registered; a
   hardcoded f-string sails straight past it (§11.4).
@@ -133,7 +135,7 @@ Per §8.10, **every user story ships at least one end-to-end integration test in
 `tests/integration/test_<feature>.py` — no merge without it, no exceptions**, and every bug fix
 pins its regression with a test **observed failing first**.
 
-Beyond that, three habits that repeatedly find real defects here:
+Beyond that, four habits that repeatedly find real defects here:
 
 - **Assert the refusal path, not just the happy path.** Every agent write tool must leave the
   scene *and the undo stack* untouched when it refuses. A tool that half-applies and then errors
@@ -142,13 +144,14 @@ Beyond that, three habits that repeatedly find real defects here:
   operation" is a contract, and `move_object`'s two-step reparent case is the documented
   exception that proves nobody verifies this by accident.
 - **Parametrise over the parameter a defect scales with.** A bug proportional to rotation is
-  exactly 0 at rotation 0, so coverage of the default value proves nothing (§11.4, US-D2.2).
+  exactly 0 at rotation 0, so coverage of the default value proves nothing (see #326).
   Same for empty collections, single-element lists, and unset optionals.
 - **Add a drift guard for anything inlined from elsewhere.** Inlined `ObjectType` name sets, enum
   value sets and tool-name lists each need a unit test asserting they still match the real
   source, or the next enum member silently escapes the package's coverage.
 
-The gate battery is `ogp-change-control` §2.5/§2.8 and `ogp-build-and-run`; run **all** of it
+The gate battery is `ogp-change-control` §2.5/§2.8 plus its §4 step-4 checks (pytest / ruff /
+bandit), and `ogp-build-and-run` for the mechanics; run **all** of it
 after every review-driven fix, not the subset near the fix. On the Windows dev machine that is:
 
 ```bash
@@ -160,10 +163,15 @@ PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
 venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py -v
 venv/Scripts/python.exe scripts/check_agent_context.py
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
-timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe   # exit code 124 = success
+timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe        # exit 124 = survived = pass
+dist/OpenGardenPlanner/OpenGardenPlanner.exe --selftest       # exit 0 = subsystems alive
 ```
 
-The exe build is the **last two lines of the battery, not an optional extra** — see §6.
+The exe build is the **last three lines of the battery, not an optional extra** — see step 6.
+**Run both exe checks.** The 8-second smoke only proves the process stays up; `--selftest`
+(`main.py`) actually imports the Qt3D bindings and starts the Agent API server, asserting it
+binds. That distinction is the whole lesson of #291 and #277: a windowed exe has no stdout, so
+both failures were invisible to a smoke test and to any `console=True` debug build (§11.4).
 
 ## 6. Verify on the running artifact, not only in pytest
 
@@ -180,8 +188,8 @@ Doubly so when the package touches startup, packaging, resources, or the Agent A
 client at the running server, and drive the new tools end to end. It is the only check that
 exercises the real transport, the real marshaling hop and the real client's quirks. (Note what it
 is *not*: the `?token=` connect-URL design came from the **owner's manual test** on Windows, not
-from a dogfood run — ADR-036's "Addendum (manual-test finding)". §8's manual-test sovereignty is
-not something automation retires.)
+from a dogfood run — ADR-036's "Addendum (manual-test finding)". Step 8's manual-test
+sovereignty is not something automation retires.)
 
 **Read what the run says, do not just read the exit code.** A failure is three different things
 and they want opposite responses:
@@ -219,8 +227,13 @@ Docs are **English-only** — never let a German UI label leak into doc prose.
 Run the `senior-reviewer` agent against the branch diff in a fresh worktree — **once per PR, and
 again after every round of fixes, until it comes back clean**. A review of the original is not a
 review of the fix; round 2 has caught P0s that round 1 missed (#213 / PR #217's rotated-plant
-`transformOriginPoint` drift). This gate is mandatory: run it without asking, even under a
-session instruction against launching agents.
+`transformOriginPoint` drift), and round 3 has caught what rounds 1 and 2 obscured (#240).
+
+Run it without being asked — it is a standing requirement of the workflow, not a favour. If you
+*cannot* run it (no agent tooling, or the user has said not to launch one), then like the exe
+gate in step 6 the gate is simply **unmet**: say so plainly in the PR, and do not proceed toward
+merge on the assumption it would have passed. This file never overrides a live instruction from
+the user; it only refuses to let an unmet gate go unreported.
 
 Two counterweights, both earned:
 
@@ -246,8 +259,10 @@ Close with, in this order:
 4. **only** the manual tests the owner must do — each with what to do, what a pass looks like,
    and what a failure would mean;
 5. anything deliberately left out, and why;
-6. confirm every issue the package closes has `Closes #N` in the PR body, and that the PR's base
-   is `master` and it is still a draft:
+6. confirm CI is green (`"$GH" pr checks <n> --watch --fail-fast` — the one gate that runs on a
+   different machine than yours, and the only one that can disagree with your local run), and
+   that every issue the package closes has `Closes #N` in the PR body, the base is `master`, and
+   it is still a draft:
    ```bash
    "$GH" pr view <n> --json closingIssuesReferences,baseRefName,isDraft
    ```
