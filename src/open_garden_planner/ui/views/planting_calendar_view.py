@@ -43,7 +43,8 @@ from open_garden_planner.services.task_generator import (
 )
 from open_garden_planner.services.task_status import effective_status
 from open_garden_planner.services.weather_service import get_frost_alerts
-from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_qcolor
+from open_garden_planner.ui.icons import get_icon, get_pixmap
+from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_qcolor, urgency_dot
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
 # ─── Layout constants ──────────────────────────────────────────────────────────
@@ -183,10 +184,11 @@ class _DashboardPanel(QFrame):
         set_text_role(self._title_lbl, "h2")
         header_layout.addWidget(self._title_lbl)
         header_layout.addStretch()
-        self._toggle_btn = QPushButton("▾")
+        self._toggle_btn = QPushButton()
         self._toggle_btn.setFlat(True)
         self._toggle_btn.setFixedSize(24, 22)
         self._toggle_btn.setToolTip(self.tr("Collapse/expand"))
+        self._set_toggle_icon()
         self._toggle_btn.clicked.connect(self._toggle)
         header_layout.addWidget(self._toggle_btn)
         outer.addWidget(header)
@@ -211,6 +213,15 @@ class _DashboardPanel(QFrame):
         self._empty_lbl.hide()
         outer.addWidget(self._empty_lbl)
 
+    def _set_toggle_icon(self) -> None:
+        icon = get_icon("chevron_right" if self._collapsed else "chevron_down")
+        if icon is not None:
+            self._toggle_btn.setIcon(icon)
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: re-tint the collapse chevron (#310)."""
+        self._set_toggle_icon()
+
     def _toggle(self) -> None:
         self._collapsed = not self._collapsed
         self._content_scroll.setVisible(not self._collapsed)
@@ -218,7 +229,7 @@ class _DashboardPanel(QFrame):
             not self._collapsed and not self._content_scroll.isVisibleTo(self)
             and self._empty_lbl.text() != ""
         )
-        self._toggle_btn.setText("▸" if self._collapsed else "▾")
+        self._set_toggle_icon()
 
     def set_data(self, tasks: list[_DashboardTask]) -> None:
         """Rebuild the dashboard content with new tasks."""
@@ -262,8 +273,8 @@ class _DashboardPanel(QFrame):
             "harvest":            self.tr("Harvest %1"),
             "prick_out":          self.tr("Prick out %1 seedlings"),
             "harden_off":         self.tr("Start hardening off %1"),
-            "frost_alert_orange": self.tr("⚠ %1"),
-            "frost_alert_red":    self.tr("❄ %1"),
+            "frost_alert_orange": "%1",  # marker = row icon (#310)
+            "frost_alert_red":    "%1",
         }
 
         for urgency in _URGENCY_ORDER:
@@ -297,9 +308,17 @@ class _DashboardPanel(QFrame):
         layout.setContentsMargins(4, 1, 4, 1)
         layout.setSpacing(6)
 
-        dot = QLabel("●")
-        dot.setStyleSheet(f"color: {color.name()}; font-size: 8pt;")
-        dot.setFixedWidth(12)
+        dot = QLabel()
+        dot.setFixedSize(14, 14)
+        dot.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        if task.task_type == "frost_alert_red":
+            marker = get_pixmap("frost", 12, color=color.name())
+        elif task.task_type == "frost_alert_orange":
+            marker = get_pixmap("warning", 12, color=color.name())
+        else:
+            marker = urgency_dot(color)  # painted themed marker (was "●")
+        if marker is not None:
+            dot.setPixmap(marker)
         layout.addWidget(dot)
 
         template = templates.get(task.task_type, "%1")
@@ -314,7 +333,10 @@ class _DashboardPanel(QFrame):
         date_lbl.setFixedWidth(44)
         layout.addWidget(date_lbl)
 
-        goto_btn = QPushButton("→")
+        goto_btn = QPushButton()
+        goto_icon = get_icon("go_to")
+        if goto_icon is not None:
+            goto_btn.setIcon(goto_icon)
         goto_btn.setToolTip(self.tr("Highlight on canvas"))
         goto_btn.setFlat(True)
         goto_btn.setFixedSize(26, 20)
@@ -556,10 +578,14 @@ class _GanttWidget(QWidget):
         small.setPointSize(7)
         painter.setFont(small)
         painter.setPen(QColor(130, 130, 130))
+        # sub-row marker: a small provider chevron (was a "↳" text glyph, #310)
+        chevron = get_pixmap("chevron_right", 10)
+        if chevron is not None:
+            painter.drawPixmap(14, sub_y + (_PROP_ROW_H - 10) // 2, chevron)
         painter.drawText(
-            QRect(14, sub_y, _NAME_W - 20, _PROP_ROW_H),
+            QRect(26, sub_y, _NAME_W - 32, _PROP_ROW_H),
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-            "↳ " + self.tr("Propagation"),
+            self.tr("Propagation"),
         )
 
         plan = self._prop_plans.get(row.species_key)
@@ -737,7 +763,10 @@ class _DetailPanel(QFrame):
                 end_edit.setFixedWidth(80)
                 row_layout.addWidget(end_edit)
 
-            reset_btn = QPushButton(self.tr("↺"))
+            reset_btn = QPushButton()  # provider refresh icon (was "↺", #310)
+            reset_icon = get_icon("refresh")
+            if reset_icon is not None:
+                reset_btn.setIcon(reset_icon)
             reset_btn.setToolTip(self.tr("Reset to calculated date"))
             reset_btn.setFixedSize(22, 20)
             reset_btn.setFlat(True)
@@ -756,6 +785,14 @@ class _DetailPanel(QFrame):
 
         # Connect signals (deferred — need species_key captured per call)
         self._connect_step_signals()
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: re-tint the per-step reset buttons (#310)."""
+        icon = get_icon("refresh")
+        if icon is None:
+            return
+        for _start, _end, reset_btn in self._step_rows.values():
+            reset_btn.setIcon(icon)
 
     def _connect_step_signals(self) -> None:
         for step_id, (start_edit, end_edit, reset_btn) in self._step_rows.items():

@@ -34,6 +34,7 @@ from open_garden_planner.models.seed_inventory import (
     SeedViabilityDB,
     ViabilityStatus,
 )
+from open_garden_planner.ui.icons import get_icon
 
 # ── Viability colours — separate palettes for light and dark mode ───────────────
 
@@ -99,10 +100,18 @@ class SeedTableModel(QAbstractTableModel):
 
     # Default (English) viability labels — overridden via set_viability_labels()
     _DEFAULT_VIA_LABELS: dict[ViabilityStatus, str] = {
-        ViabilityStatus.GOOD:    "✓ Good",
-        ViabilityStatus.REDUCED: "~ Reduced",
-        ViabilityStatus.EXPIRED: "✗ Expired",
-        ViabilityStatus.UNKNOWN: "? Unknown",
+        ViabilityStatus.GOOD:    "Good",
+        ViabilityStatus.REDUCED: "Reduced",
+        ViabilityStatus.EXPIRED: "Expired",
+        ViabilityStatus.UNKNOWN: "Unknown",
+    }
+    # Themed status icons in the Viability column (DecorationRole) replace
+    # the ✓ / ~ / ✗ / ? text prefixes (#310).
+    _VIA_ICONS: dict[ViabilityStatus, str] = {
+        ViabilityStatus.GOOD: "check",
+        ViabilityStatus.REDUCED: "warning",
+        ViabilityStatus.EXPIRED: "cross",
+        ViabilityStatus.UNKNOWN: "help",
     }
 
     def __init__(self, store: SeedInventoryStore, viability_db: SeedViabilityDB) -> None:
@@ -147,6 +156,9 @@ class SeedTableModel(QAbstractTableModel):
 
         if role == Qt.ItemDataRole.ForegroundRole and col == _COL_VIABILITY:
             return QBrush(_status_fg(status))
+
+        if role == Qt.ItemDataRole.DecorationRole and col == _COL_VIABILITY:
+            return get_icon(self._VIA_ICONS[status], color=_status_fg(status).name())
 
         if role == Qt.ItemDataRole.FontRole and col == _COL_VIABILITY:
             f = QFont()

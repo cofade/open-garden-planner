@@ -54,7 +54,13 @@ class PlantSearchDialog(QDialog):
 
         self._api_manager = api_manager
         self._selected_plant: PlantSpeciesData | None = None
-        self._search_timer = QTimer()
+        # PARENTED to the dialog: an unparented QTimer outlives the C++ widget
+        # (qtbot/close deletes the dialog, the Python-owned timer keeps ticking)
+        # and 500 ms later fires _perform_search() on a dead dialog — which
+        # opens a modal QMessageBox.warning(self) → heap corruption
+        # (0xc0000374) inside whatever test/event loop is running by then
+        # (#310 battery, 2026-08-18; §11.4). done() also stops it explicitly.
+        self._search_timer = QTimer(self)
         self._search_timer.setSingleShot(True)
         self._search_timer.timeout.connect(self._perform_search)
 
@@ -146,7 +152,13 @@ class PlantSearchDialog(QDialog):
             self.status_label.setStyleSheet(f"color: {theme_color('text_secondary')};")
 
     def _perform_search(self) -> None:
-        """Perform plant search using the API manager."""
+        """Perform plant search using the API manager.
+
+        Settles the debounce first: a search that runs NOW (typed-and-waited,
+        Enter, or a direct call) must not run again 500 ms later — an armed
+        timer that outlives its moment fired into unrelated tests (#310, §11.4).
+        """
+        self._search_timer.stop()
         query = self.search_input.text().strip()
         if not query:
             return
@@ -240,6 +252,12 @@ class PlantSearchDialog(QDialog):
 
         finally:
             self.search_button.setEnabled(True)
+
+    def done(self, result: int) -> None:  # noqa: N802 — Qt override
+        """Settle the debounced search before the dialog goes away — a pending
+        timer must never fire into a closed dialog (see __init__)."""
+        self._search_timer.stop()
+        super().done(result)
 
     def _on_selection_changed(self) -> None:
         """Handle result selection change."""

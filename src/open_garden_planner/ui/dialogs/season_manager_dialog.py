@@ -25,6 +25,10 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.app.paths import get_projects_dir
+from open_garden_planner.ui.icons import get_icon
+from open_garden_planner.ui.theme import theme_color
+
+_EXISTS_ROLE = Qt.ItemDataRole.UserRole + 1  # bool: linked file exists (check vs cross)
 
 if TYPE_CHECKING:
     from open_garden_planner.core.project import ProjectManager
@@ -165,17 +169,38 @@ class SeasonManagerDialog(QDialog):
                 resolved = Path(file_str) if file_str else None
 
             exists = resolved is not None and resolved.exists()
-            marker = "✓" if exists else "✗"
             is_current = (year == current_year)
-            label = f"{year}  {marker}  {file_str}"
+            label = f"{year}  {file_str}"
             if is_current:
-                label = f"▶ {label}  [current]"
+                label = f"{label}  {self.tr('[current]')}"
 
             item = QListWidgetItem(label)
+            item.setData(_EXISTS_ROLE, bool(exists))
+            # themed check / cross icon instead of the ✓ / ✗ text glyphs (#310)
+            icon = get_icon("check" if exists else "cross",
+                            color=theme_color("success" if exists else "error"))
+            if icon is not None:
+                item.setIcon(icon)
+            if is_current:
+                font = item.font()
+                font.setBold(True)
+                item.setFont(font)
             item.setData(Qt.ItemDataRole.UserRole, {"year": year, "file": file_str, "resolved": resolved})
             if not exists:
                 item.setForeground(Qt.GlobalColor.gray)
             self._seasons_list.addItem(item)
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: re-tint the check / cross status icons (#310)."""
+        for i in range(self._seasons_list.count()):
+            item = self._seasons_list.item(i)
+            if item is None:
+                continue
+            exists = bool(item.data(_EXISTS_ROLE))
+            icon = get_icon("check" if exists else "cross",
+                            color=theme_color("success" if exists else "error"))
+            if icon is not None:
+                item.setIcon(icon)
 
     # ── Slots ─────────────────────────────────────────────────────────────
 

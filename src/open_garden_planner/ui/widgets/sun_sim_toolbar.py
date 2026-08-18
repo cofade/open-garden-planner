@@ -23,6 +23,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.ui.icons import get_icon, get_pixmap
+
 _ANIMATE_INTERVAL_MS = 200
 _ANIMATE_STEP_MINUTES = 10
 
@@ -54,6 +56,10 @@ class SunSimToolbar(QToolBar):
         self._date_edit.setToolTip(self.tr("Simulation date"))
         self.addWidget(self._date_edit)
 
+        self._time_icon = QLabel(self)
+        self._time_icon.setFixedSize(16, 16)
+        self._time_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.addWidget(self._time_icon)
         self._time_label = QLabel("12:00", self)
         self._time_label.setMinimumWidth(48)
         self._time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -69,7 +75,9 @@ class SunSimToolbar(QToolBar):
 
         self._animate_button = QToolButton(self)
         self._animate_button.setText(self.tr("Animate"))
+        self._animate_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self._animate_button.setCheckable(True)
+        self._animate_button.toggled.connect(lambda _c: self._update_animate_icon())
         self._animate_button.setToolTip(
             self.tr("Animate the sun across the day")
         )
@@ -80,6 +88,7 @@ class SunSimToolbar(QToolBar):
         # ── Hours-of-sun heatmap (US-E4) — recompute on demand only ───────
         self._heatmap_button = QToolButton(self)
         self._heatmap_button.setText(self.tr("Hours of Sun"))
+        self._heatmap_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self._heatmap_button.setCheckable(True)
         self._heatmap_button.setToolTip(
             self.tr(
@@ -104,8 +113,25 @@ class SunSimToolbar(QToolBar):
 
         now = datetime.now().astimezone()
         self.set_datetime_local(now)
+        self.refresh_theme_icons()
 
     # ── public API ─────────────────────────────────────────────
+
+    def _update_animate_icon(self) -> None:
+        play = get_icon("player_pause" if self._animate_button.isChecked() else "player_play")
+        if play is not None:
+            self._animate_button.setIcon(play)
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook (#310): play/pause on Animate, sun-hours glyph
+        on the heatmap button, a clock next to the time label."""
+        self._update_animate_icon()
+        heat = get_icon("sun_sim")
+        if heat is not None:
+            self._heatmap_button.setIcon(heat)
+        clock = get_pixmap("clock", 14)
+        if clock is not None:
+            self._time_icon.setPixmap(clock)
 
     def current_datetime_local(self) -> datetime:
         """The selected instant as a timezone-aware local datetime."""

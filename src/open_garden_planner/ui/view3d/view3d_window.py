@@ -13,6 +13,7 @@ from PyQt6.QtGui import QAction, QCloseEvent, QKeyEvent
 from PyQt6.QtWidgets import QLabel, QMainWindow, QMenu, QToolBar, QWidget
 
 from open_garden_planner.core.scene3d import Scene3DRecord
+from open_garden_planner.ui.icons import get_icon
 from open_garden_planner.ui.theme import set_text_role
 
 from .qt3d_adapter import Garden3DView
@@ -50,6 +51,7 @@ class View3DWindow(QMainWindow):
         )
         refresh_action.triggered.connect(self.refresh_requested)
         toolbar.addAction(refresh_action)
+        self._refresh_action = refresh_action
 
         # Walkthrough (US-E7): orbit ⇄ walk camera-mode toggle.
         self._walk_action = QAction(self.tr("&Walk"), self)
@@ -62,6 +64,7 @@ class View3DWindow(QMainWindow):
         )
         self._walk_action.toggled.connect(self._on_walk_toggled)
         toolbar.addAction(self._walk_action)
+        self.refresh_theme_icons()
 
         self._walk_hint = QLabel("", self)
         set_text_role(self._walk_hint, "placeholder")
@@ -144,3 +147,13 @@ class View3DWindow(QMainWindow):
             self._walk_action.setChecked(False)
         self.closed.emit()
         super().closeEvent(event)
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook (#310): the 3D toolbar was the app's last
+        text-only toolbar — Refresh and Walk now carry provider icons."""
+        refresh_icon = get_icon("refresh")
+        if refresh_icon is not None:
+            self._refresh_action.setIcon(refresh_icon)
+        walk_icon = get_icon("walk")
+        if walk_icon is not None:
+            self._walk_action.setIcon(walk_icon)

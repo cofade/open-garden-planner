@@ -102,11 +102,12 @@ class TestCompanionPanelNearbyMarking:
         panel.set_canvas_scene(scene)
         panel.update_for_plant(tomato_item)
 
-        good_texts = [
-            panel._good_list.item(i).text()
-            for i in range(panel._good_list.count())
-        ]
-        assert any("★" in t and "basil" in t.lower() for t in good_texts)
+        good_items = [panel._good_list.item(i) for i in range(panel._good_list.count())]
+        basil = [it for it in good_items if "basil" in it.text().lower()]
+        assert basil
+        # nearby → star ICON on the row (was a "★ " text prefix before #310)
+        assert any(not it.icon().isNull() for it in basil)
+        assert not any("★" in it.text() for it in good_items)
 
         scene.removeItem(tomato_item)
         scene.removeItem(basil_item)
@@ -128,14 +129,11 @@ class TestCompanionPanelNearbyMarking:
         panel.set_canvas_scene(scene)
         panel.update_for_plant(tomato_item)
 
-        good_texts = [
-            panel._good_list.item(i).text()
-            for i in range(panel._good_list.count())
-        ]
-        # basil should appear but without ★
-        basil_entries = [t for t in good_texts if "basil" in t.lower()]
+        good_items = [panel._good_list.item(i) for i in range(panel._good_list.count())]
+        # basil should appear but without the nearby star icon
+        basil_entries = [it for it in good_items if "basil" in it.text().lower()]
         assert basil_entries  # exists in list
-        assert not any("★" in t for t in basil_entries)
+        assert all(it.icon().isNull() for it in basil_entries)
 
         scene.removeItem(tomato_item)
         scene.removeItem(far_basil)

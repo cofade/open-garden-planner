@@ -112,7 +112,7 @@ class Garden3DView:
         # Horizontal keyboard movement (WASD + arrows): a frame timer steps
         # the walker along the look's ground projection while keys are held.
         self._walk_keys: set[int] = set()
-        self._walk_timer = QTimer()
+        self._walk_timer = QTimer(self._view)  # parented: dies with the window (§11.4, #310)
         self._walk_timer.setInterval(16)  # ~60 fps
         self._walk_timer.timeout.connect(self._walk_move_tick)
 

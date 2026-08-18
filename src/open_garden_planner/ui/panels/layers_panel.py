@@ -1,11 +1,19 @@
-"""Layers panel for managing layer visibility, locking, and order."""
+"""Layers panel for managing layer visibility, locking, and order.
 
-from pathlib import Path
+Icons come from the central themed provider (``ui/icons.py``, ADR-039 /
+#310): eye / eye_off / lock / lock_open on the 24×24 ``currentColor``
+contract, tinted with theme tokens (accent for "on", text_secondary for
+hidden, warning for locked) and re-fetched on theme switch through the
+``refresh_theme_icons`` hook that ``ui/theme._propagate_theme_colors``
+calls on every widget. Until #310 this file was the last direct
+``QSvgRenderer`` path in the app (four inline SVGs with baked colours,
+no theme refresh, no PROVENANCE, and a dead ``_ICONS_DIR``).
+"""
+
 from uuid import UUID
 
 from PyQt6.QtCore import QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QIcon, QPainter, QPixmap
-from PyQt6.QtSvg import QSvgRenderer
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -20,50 +28,16 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.models.layer import Layer
-
-_ICONS_DIR = Path(__file__).parent.parent.parent / "resources" / "icons" / "layers"
-
-# Inline SVG sources for layer icons.
-# Stroke colors chosen for good contrast on both light and dark backgrounds.
-_EYE_OPEN_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3d8b37" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-  <circle cx="12" cy="12" r="3"/>
-</svg>"""
-
-_EYE_CLOSED_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
-  <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
-  <line x1="1" y1="1" x2="23" y2="23"/>
-</svg>"""
-
-_LOCK_OPEN_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3d8b37" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-  <path d="M7 11V7a5 5 0 019.9-1"/>
-</svg>"""
-
-_LOCK_CLOSED_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-  <path d="M7 11V7a5 5 0 0110 0v4"/>
-</svg>"""
+from open_garden_planner.ui.icons import get_icon
+from open_garden_planner.ui.theme import theme_color
 
 
-def _svg_to_icon(svg_data: str, size: int = 20) -> QIcon:
-    """Render an inline SVG string to a QIcon.
-
-    Args:
-        svg_data: SVG markup string
-        size: Icon pixel size
-
-    Returns:
-        QIcon rendered from the SVG
-    """
-    renderer = QSvgRenderer(svg_data.encode())
-    pixmap = QPixmap(size, size)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    renderer.render(painter)
-    painter.end()
-    return QIcon(pixmap)
+def _themed_icon(name: str, role: str) -> QIcon:
+    """Provider icon tinted with a theme token (falls back to an empty icon
+    only if the icon file is missing — the code→file gate keeps that from
+    happening silently)."""
+    icon = get_icon(name, size=20, color=theme_color(role))
+    return icon if icon is not None else QIcon()
 
 
 class LayerListItem(QWidget):
@@ -92,11 +66,8 @@ class LayerListItem(QWidget):
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(4)
 
-        # Pre-render icons
-        self._eye_open_icon = _svg_to_icon(_EYE_OPEN_SVG)
-        self._eye_closed_icon = _svg_to_icon(_EYE_CLOSED_SVG)
-        self._lock_open_icon = _svg_to_icon(_LOCK_OPEN_SVG)
-        self._lock_closed_icon = _svg_to_icon(_LOCK_CLOSED_SVG)
+        # Themed provider icons (re-fetched by refresh_theme_icons on a theme switch)
+        self._load_icons()
 
         # Visibility toggle button
         self.visibility_btn = QToolButton()
@@ -178,6 +149,23 @@ class LayerListItem(QWidget):
             self._start_editing()
         elif action == delete_action:
             self.delete_requested.emit(self.layer.id)
+
+    def _load_icons(self) -> None:
+        self._eye_open_icon = _themed_icon("eye", "accent")
+        self._eye_closed_icon = _themed_icon("eye_off", "text_secondary")
+        self._lock_open_icon = _themed_icon("lock_open", "accent")
+        self._lock_closed_icon = _themed_icon("lock", "warning")
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook (ui/theme._propagate_theme_colors): re-tint the
+        four state icons and re-apply the current state."""
+        self._load_icons()
+        self.visibility_btn.setIcon(
+            self._eye_open_icon if self.visibility_btn.isChecked() else self._eye_closed_icon
+        )
+        self.lock_btn.setIcon(
+            self._lock_closed_icon if self.lock_btn.isChecked() else self._lock_open_icon
+        )
 
     def _on_visibility_toggled(self, checked: bool) -> None:
         """Handle visibility toggle.

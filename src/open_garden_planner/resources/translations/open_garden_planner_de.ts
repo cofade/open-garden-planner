@@ -997,6 +997,10 @@
             <source>(none in database)</source>
             <translation>(keine in der Datenbank)</translation>
         </message>
+        <message>
+            <source>= already nearby in plan  (click to select)</source>
+            <translation>= bereits in der Nähe im Plan  (klicken zum Auswählen)</translation>
+        </message>
     </context>
     <context>
         <name>ConstraintConflictDialog</name>
@@ -1150,6 +1154,82 @@
         <message>
             <source>{a} tangent to {b} (r={d:.2f} m)</source>
             <translation>{a} tangential zu {b} (r={d:.2f} m)</translation>
+        </message>
+        <message>
+            <source>Coincident</source>
+            <translation>Deckungsgleich</translation>
+        </message>
+        <message>
+            <source>Tangent</source>
+            <translation>Tangente</translation>
+        </message>
+        <message>
+            <source>Fixed</source>
+            <translation>Fixiert</translation>
+        </message>
+        <message>
+            <source>Horizontal</source>
+            <translation>Horizontal</translation>
+        </message>
+        <message>
+            <source>Vertical</source>
+            <translation>Vertikal</translation>
+        </message>
+        <message>
+            <source>Parallel</source>
+            <translation>Parallel</translation>
+        </message>
+        <message>
+            <source>Perpendicular</source>
+            <translation>Senkrecht</translation>
+        </message>
+        <message>
+            <source>Angle {a}–{b}–{c}: {d:.1f}°</source>
+            <translation>Winkel {a}–{b}–{c}: {d:.1f}°</translation>
+        </message>
+        <message>
+            <source>{a} to {b}: horizontal distance {d:.2f} m</source>
+            <translation>{a} zu {b}: horizontaler Abstand {d:.2f} m</translation>
+        </message>
+        <message>
+            <source>{a} to {b}: vertical distance {d:.2f} m</source>
+            <translation>{a} zu {b}: vertikaler Abstand {d:.2f} m</translation>
+        </message>
+        <message>
+            <source>{a} to {b}: {d:.2f} m</source>
+            <translation>{a} zu {b}: {d:.2f} m</translation>
+        </message>
+        <message>
+            <source>Equal</source>
+            <translation>Gleich</translation>
+        </message>
+        <message>
+            <source>Symmetric</source>
+            <translation>Symmetrisch</translation>
+        </message>
+        <message>
+            <source>{a} symmetric to {b} about the horizontal axis</source>
+            <translation>{a} symmetrisch zu {b} um die horizontale Achse</translation>
+        </message>
+        <message>
+            <source>{a} symmetric to {b} about the vertical axis</source>
+            <translation>{a} symmetrisch zu {b} um die vertikale Achse</translation>
+        </message>
+        <message>
+            <source>On edge</source>
+            <translation>Auf Kante</translation>
+        </message>
+        <message>
+            <source>{a} lies on the edge of {b}</source>
+            <translation>{a} liegt auf der Kante von {b}</translation>
+        </message>
+        <message>
+            <source>On circle</source>
+            <translation>Auf Kreis</translation>
+        </message>
+        <message>
+            <source>{a} lies on the circle of {b}</source>
+            <translation>{a} liegt auf dem Kreis von {b}</translation>
         </message>
     </context>
     <context>
@@ -1801,6 +1881,10 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
             <source>🔒 Fix in place</source>
             <translation>🔒 Fixieren</translation>
         </message>
+        <message>
+            <source>Fix in place</source>
+            <translation>Fixieren</translation>
+        </message>
     </context>
     <context>
         <name>GardenItemMixin</name>
@@ -1955,7 +2039,7 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <message>
             <location filename="..\..\app\application.py" line="212" />
             <source>&amp;Print...</source>
-            <translation>&amp;Drucken...</translation>
+            <translation>D&amp;rucken...</translation>
         </message>
         <message>
             <location filename="..\..\app\application.py" line="214" />
@@ -2055,7 +2139,7 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <message>
             <location filename="..\..\app\application.py" line="293" />
             <source>Ali&amp;gn &amp;&amp; Distribute</source>
-            <translation>Aus&amp;richten &amp;&amp; Verteilen</translation>
+            <translation>Ausrichten &amp;&amp; &amp;Verteilen</translation>
         </message>
         <message>
             <location filename="..\..\app\application.py" line="295" />
@@ -2150,7 +2234,7 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <message>
             <location filename="..\..\app\application.py" line="348" />
             <source>Auto-&amp;Save</source>
-            <translation>Automatisches &amp;Speichern</translation>
+            <translation>Automatisc&amp;hes Speichern</translation>
         </message>
         <message>
             <location filename="..\..\app\application.py" line="351" />
@@ -2220,7 +2304,7 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <message>
             <location filename="..\..\app\application.py" line="416" />
             <source>&amp;Snap to Grid</source>
-            <translation>Am &amp;Raster einrasten</translation>
+            <translation>Am Raster ei&amp;nrasten</translation>
         </message>
         <message>
             <location filename="..\..\app\application.py" line="420" />
@@ -3346,6 +3430,110 @@ Details: {error}</source>
             <translation>Die 3D-Ansicht konnte nicht geladen werden: Die 3D-Grafikkomponenten fehlen oder sind inkompatibel. Der Rest der Anwendung ist nicht betroffen.
 
 Details: {error}</translation>
+        </message>
+        <message>
+            <source>&amp;Snapping</source>
+            <translation>Ein&amp;rasten</translation>
+        </message>
+        <message>
+            <source>&amp;Overlays</source>
+            <translation>&amp;Overlays</translation>
+        </message>
+        <message>
+            <source>S&amp;un &amp;&amp; 3D</source>
+            <translation>S&amp;onne &amp;&amp; 3D</translation>
+        </message>
+        <message>
+            <source>Cursor position</source>
+            <translation>Cursorposition</translation>
+        </message>
+        <message>
+            <source>Zoom level</source>
+            <translation>Zoomstufe</translation>
+        </message>
+        <message>
+            <source>Selection</source>
+            <translation>Auswahl</translation>
+        </message>
+        <message>
+            <source>Active tool</source>
+            <translation>Aktives Werkzeug</translation>
+        </message>
+        <message>
+            <source>Garden location</source>
+            <translation>Gartenstandort</translation>
+        </message>
+        <message>
+            <source>Season</source>
+            <translation>Saison</translation>
+        </message>
+        <message>
+            <source>Sun &amp; shade simulation</source>
+            <translation>Sonne-&amp;-Schatten-Simulation</translation>
+        </message>
+        <message>
+            <source>Typed coordinate input</source>
+            <translation>Koordinateneingabe</translation>
+        </message>
+        <message>
+            <source>Soil Health Overlay</source>
+            <translation>Bodengesundheits-Overlay</translation>
+        </message>
+        <message>
+            <source>O&amp;verlays</source>
+            <translation>Overla&amp;ys</translation>
+        </message>
+        <message>
+            <source>Fullscreen &amp;Preview</source>
+            <translation>Voll&amp;bildvorschau</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>Abbrechen</translation>
+        </message>
+        <message>
+            <source>Set project location for accurate season dates.</source>
+            <translation>Projektstandort festlegen für genaue Saisondaten.</translation>
+        </message>
+        <message>
+            <source>S&amp;hopping List…</source>
+            <translation>&amp;Einkaufsliste…</translation>
+        </message>
+        <message>
+            <source>Dupl&amp;icate</source>
+            <translation>D&amp;uplizieren</translation>
+        </message>
+        <message>
+            <source>&amp;Distribute Horizontal</source>
+            <translation>Horizontal ver&amp;teilen</translation>
+        </message>
+        <message>
+            <source>D&amp;istribute Vertical</source>
+            <translation>Vertikal vert&amp;eilen</translation>
+        </message>
+        <message>
+            <source>Enable &amp;Dynamic Input</source>
+            <translation>Dynamische &amp;Eingabe aktivieren</translation>
+        </message>
+        <message>
+            <source>Load Sa&amp;tellite Background...</source>
+            <translation>Sa&amp;tellitenbild laden...</translation>
+        </message>
+        <message>
+            <source>Canvas Si&amp;ze...</source>
+            <translation>Leinwand&amp;größe...</translation>
+        </message>
+        <message>
+            <source>Pr&amp;eferences...</source>
+            <translation>Ei&amp;nstellungen...</translation>
+        </message>
+        <message>
+            <source>&amp;Manage Seasons...</source>
+            <translation>Saisons &amp;verwalten ...</translation>
+        </message>
+        <message>
+            <source>Show P&amp;revious Season Overlay</source>
+            <translation>&amp;Vorherige Saison überlagern</translation>
         </message>
     </context>
     <context>
@@ -4828,6 +5016,18 @@ Bitte überprüfen Sie Ihre Internetverbindung und API-Zugangsdaten.</translatio
             <source>Showing {shown} of {total} plants</source>
             <translation>{shown} von {total} Pflanzen angezeigt</translation>
         </message>
+        <message>
+            <source>Trees</source>
+            <translation>Bäume</translation>
+        </message>
+        <message>
+            <source>Shrubs</source>
+            <translation>Sträucher</translation>
+        </message>
+        <message>
+            <source>Perennials</source>
+            <translation>Stauden</translation>
+        </message>
     </context>
     <context>
         <name>PlantingCalendarView</name>
@@ -5900,6 +6100,12 @@ noch nicht implementiert</translation>
             <source>Corten steel</source>
             <translation>Cortenstahl</translation>
         </message>
+        <message>
+            <source>Override frost sensitivity:
+checked = always protect, unchecked = never protect, indeterminate = use the plant database default</source>
+            <translation>Frostempfindlichkeit überschreiben:
+angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standard aus der Pflanzendatenbank</translation>
+        </message>
     </context>
     <context>
         <name>RectangleItem</name>
@@ -6081,6 +6287,10 @@ noch nicht implementiert</translation>
             <location filename="..\..\ui\dialogs\season_manager_dialog.py" line="228" />
             <source>Garden Plan (*.ogp)</source>
             <translation>Gartenplan (*.ogp)</translation>
+        </message>
+        <message>
+            <source>[current]</source>
+            <translation>[aktuell]</translation>
         </message>
     </context>
     <context>
@@ -6751,6 +6961,30 @@ noch nicht implementiert</translation>
             <location filename="..\..\ui\dialogs\shortcuts_dialog.py" line="136" />
             <source>Close</source>
             <translation>Schließen</translation>
+        </message>
+        <message>
+            <source>Dashboard Tabs</source>
+            <translation>Dashboard-Tabs</translation>
+        </message>
+        <message>
+            <source>Garden Plan tab</source>
+            <translation>Tab Gartenplan</translation>
+        </message>
+        <message>
+            <source>Planting Calendar tab</source>
+            <translation>Tab Pflanzkalender</translation>
+        </message>
+        <message>
+            <source>Seed Inventory tab</source>
+            <translation>Tab Saatgutbestand</translation>
+        </message>
+        <message>
+            <source>Tasks tab</source>
+            <translation>Tab Aufgaben</translation>
+        </message>
+        <message>
+            <source>Harvest tab</source>
+            <translation>Tab Ernte</translation>
         </message>
     </context>
     <context>
@@ -8536,6 +8770,38 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>OK</source>
             <translation>OK</translation>
         </message>
+        <message>
+            <source>Add Entry</source>
+            <translation>Eintrag hinzufügen</translation>
+        </message>
+        <message>
+            <source>Edit Entry</source>
+            <translation>Eintrag bearbeiten</translation>
+        </message>
+        <message>
+            <source>Plant</source>
+            <translation>Pflanze</translation>
+        </message>
+        <message>
+            <source>e.g. Lettuce, Tomato, Spinach…</source>
+            <translation>z. B. Salat, Tomate, Spinat…</translation>
+        </message>
+        <message>
+            <source>Start Date</source>
+            <translation>Startdatum</translation>
+        </message>
+        <message>
+            <source>End Date</source>
+            <translation>Enddatum</translation>
+        </message>
+        <message>
+            <source>Optional notes…</source>
+            <translation>Optionale Notizen…</translation>
+        </message>
+        <message>
+            <source>Season: {seg}</source>
+            <translation>Saison: {seg}</translation>
+        </message>
     </context>
     <context>
         <name>JournalNoteDialog</name>
@@ -8633,6 +8899,14 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>{date} — (empty){photo}</source>
             <translation>{date} — (leer){photo}</translation>
+        </message>
+        <message>
+            <source>{date} — {snippet}</source>
+            <translation>{date} — {snippet}</translation>
+        </message>
+        <message>
+            <source>{date} — (empty)</source>
+            <translation>{date} — (leer)</translation>
         </message>
     </context>
     <context>

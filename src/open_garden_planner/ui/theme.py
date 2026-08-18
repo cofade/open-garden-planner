@@ -11,7 +11,8 @@ from collections.abc import Callable
 from enum import Enum
 
 from PyQt6 import sip
-from PyQt6.QtGui import QColor
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QPainter, QPixmap
 from PyQt6.QtWidgets import QApplication, QWidget
 
 logger = logging.getLogger(__name__)
@@ -254,6 +255,22 @@ def theme_color(name: str) -> str:
     return _current_colors[name]
 
 
+def urgency_dot(color: QColor, size: int = 10) -> QPixmap:
+    """Small filled circle in an urgency colour — the painted marker the Tasks
+    tab and the calendar dashboard share (ONE renderer for the two #228-
+    converged surfaces, next to the shared URGENCY_TOKENS; replaces the "●"
+    text glyph, #310)."""
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(color)
+    painter.drawEllipse(1, 1, size - 2, size - 2)
+    painter.end()
+    return pixmap
+
+
 def theme_qcolor(name: str) -> QColor:
     """Return a hex color token as QColor (not for the rgba overlay_* tokens)."""
     return QColor(_current_colors[name])
@@ -315,17 +332,19 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     _key = _c.lstrip("#")
     _up_path = os.path.join(_tmp, f"ogp_arrow_up_{_key}.svg").replace("\\", "/")
     _dn_path = os.path.join(_tmp, f"ogp_arrow_dn_{_key}.svg").replace("\\", "/")
+    # Path-based chevrons (a <text> glyph depended on the system font and
+    # could render as an emoji box; #310).
     with open(_up_path, "w", encoding="utf-8") as _f:
         _f.write(
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
-            f'<text x="5" y="9" text-anchor="middle" font-size="11" fill="{_c}">▲</text>'
-            f"</svg>"
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10">'
+            f'<path d="M2 6.5 L5 3.5 L8 6.5" fill="none" stroke="{_c}" stroke-width="1.6" '
+            f'stroke-linecap="round" stroke-linejoin="round"/></svg>'
         )
     with open(_dn_path, "w", encoding="utf-8") as _f:
         _f.write(
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
-            f'<text x="5" y="9" text-anchor="middle" font-size="11" fill="{_c}">▼</text>'
-            f"</svg>"
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10">'
+            f'<path d="M2 3.5 L5 6.5 L8 3.5" fill="none" stroke="{_c}" stroke-width="1.6" '
+            f'stroke-linecap="round" stroke-linejoin="round"/></svg>'
         )
 
     # Banner-button hover wash derived from on_status so it flips with the

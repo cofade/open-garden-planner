@@ -33,6 +33,8 @@ from PyQt6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
@@ -50,7 +52,10 @@ from open_garden_planner.models.succession import (
     SuccessionPlan,
     compute_season_segments,
 )
-from open_garden_planner.ui.theme import set_text_role
+from open_garden_planner.ui.icons import get_icon
+from open_garden_planner.ui.theme import set_text_role, theme_color
+
+_NOTE_KIND_ROLE = Qt.ItemDataRole.UserRole + 1  # "good" | "warn" | "neutral"
 
 _SEGMENT_COLORS: dict[str, QColor] = {
     "early_spring": QColor(144, 202, 249, 200),  # Light blue
@@ -518,10 +523,14 @@ class SuccessionPlanDialog(QDialog):
         # Companion notes
         notes_box = QGroupBox(self.tr("Crop Compatibility"))
         notes_layout = QVBoxLayout(notes_box)
-        self._companion_text = QLabel()
-        self._companion_text.setWordWrap(True)
-        self._companion_text.setAlignment(Qt.AlignmentFlag.AlignTop)
-        notes_layout.addWidget(self._companion_text)
+        # Notes list with provider status icons (was a QLabel with ✓ / ⚠ / ·
+        # text prefixes, #310); items are read-only.
+        self._companion_list = QListWidget()
+        self._companion_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self._companion_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._companion_list.setWordWrap(True)
+        self._companion_list.setMaximumHeight(120)
+        notes_layout.addWidget(self._companion_list)
         layout.addWidget(notes_box)
 
         # OK / Cancel
@@ -550,21 +559,43 @@ class SuccessionPlanDialog(QDialog):
         self._band.set_data(self._segments, self._entries_sorted())
 
     def _refresh_companion_notes(self) -> None:
+        self._companion_list.clear()
         notes = self._compute_companion_notes()
-        if notes:
-            self._companion_text.setText("\n".join(notes))
-        else:
-            self._companion_text.setText(
+        if not notes:
+            self._companion_list.addItem(QListWidgetItem(
                 self.tr("No compatibility data for current entries.")
-            )
+            ))
+            return
+        for kind, text in notes:
+            item = QListWidgetItem(text)
+            item.setData(_NOTE_KIND_ROLE, kind)
+            self._companion_list.addItem(item)
+        self.refresh_theme_icons()
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: (re-)tint the note status icons (#310)."""
+        for i in range(self._companion_list.count()):
+            item = self._companion_list.item(i)
+            kind = item.data(_NOTE_KIND_ROLE) if item is not None else None
+            if kind == "good":
+                icon = get_icon("check", color=theme_color("success"))
+            elif kind == "warn":
+                icon = get_icon("warning", color=theme_color("warning"))
+            else:
+                icon = None
+            if icon is not None:
+                item.setIcon(icon)
 
     def _entries_sorted(self) -> list[SuccessionEntry]:
         def _key(e: SuccessionEntry) -> str:
             return e.start_date or "9999-99-99"
         return sorted(self._entries, key=_key)
 
-    def _compute_companion_notes(self) -> list[str]:
-        """Build companion compatibility messages for current entries.
+    def _compute_companion_notes(self) -> list[tuple[str, str]]:
+        """(kind, text) per note — kind ∈ {"good", "warn", "neutral"} drives
+        the row icon (was a ✓ / ⚠ / · text prefix).
+
+        Build companion compatibility messages for current entries.
 
         Reasons are rendered in the user's UI language via
         ``get_relationship_reason(rel, lang)`` (falls back to English when the
@@ -587,17 +618,17 @@ class SuccessionPlanDialog(QDialog):
         svc = CompanionPlantingService()
         lang = GardenPlannerApp._current_lang()
 
-        notes: list[str] = []
+        notes: list[tuple[str, str]] = []
         sorted_entries = self._entries_sorted()
 
         # Predecessor / successor pairs
         for a, b in zip(sorted_entries, sorted_entries[1:], strict=False):
             rel = svc.get_relationship(a.common_name, b.common_name)
             if rel:
-                arrow = "✓" if rel.type == "beneficial" else ("⚠" if rel.type == "antagonistic" else "·")
+                kind = "good" if rel.type == "beneficial" else ("warn" if rel.type == "antagonistic" else "neutral")
                 reason = svc.get_relationship_reason(rel, lang)
                 notes.append(
-                    f"{arrow} {a.common_name} → {b.common_name}: {reason}"
+                    (kind, f"{a.common_name} → {b.common_name}: {reason}")
                 )
 
         # Overlapping pairs (antagonist warning)
@@ -612,9 +643,9 @@ class SuccessionPlanDialog(QDialog):
                     rel = svc.get_relationship(a.common_name, b.common_name)
                     if rel and rel.type == "antagonistic":
                         notes.append(
-                            "⚠ " + overlap_template.format(
+                            ("warn", overlap_template.format(
                                 a=a.common_name, b=b.common_name
-                            )
+                            ))
                         )
                 else:
                     break

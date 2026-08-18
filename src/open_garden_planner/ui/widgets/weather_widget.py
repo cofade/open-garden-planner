@@ -27,6 +27,7 @@ from open_garden_planner.services.weather_service import (
     get_weather_service,
     wmo_to_icon,
 )
+from open_garden_planner.ui.icons import get_icon, get_pixmap
 from open_garden_planner.ui.theme import set_text_role
 
 # ─── Background worker ────────────────────────────────────────────────────────
@@ -94,19 +95,21 @@ class WeatherWidget(QFrame):
         set_text_role(self._location_lbl, "hint")
         header_layout.addWidget(self._location_lbl)
 
-        self._refresh_btn = QPushButton("\U0001f504")  # 🔄
+        self._refresh_btn = QPushButton()  # themed refresh icon (was 🔄, #310)
         self._refresh_btn.setFlat(True)
         self._refresh_btn.setFixedSize(24, 22)
         self._refresh_btn.setToolTip(self.tr("Refresh forecast"))
         self._refresh_btn.clicked.connect(self._on_refresh_clicked)
         header_layout.addWidget(self._refresh_btn)
 
-        self._expand_btn = QPushButton("▾")
+        self._expand_btn = QPushButton()  # themed chevron (was ▾/▴, #310)
         self._expand_btn.setFlat(True)
         self._expand_btn.setFixedSize(24, 22)
         self._expand_btn.setToolTip(self.tr("Show / hide full forecast"))
         self._expand_btn.clicked.connect(self._on_expand_clicked)
         header_layout.addWidget(self._expand_btn)
+        self._last_forecast: WeatherForecast | None = None
+        self.refresh_theme_icons()
 
         outer.addWidget(header)
 
@@ -239,12 +242,28 @@ class WeatherWidget(QFrame):
 
     def _on_expand_clicked(self) -> None:
         self._expanded = not self._expanded
-        self._expand_btn.setText("▴" if self._expanded else "▾")
+        self._set_expand_icon()
         self._table.setVisible(self._expanded)
+
+    def _set_expand_icon(self) -> None:
+        icon = get_icon("chevron_up" if self._expanded else "chevron_down")
+        if icon is not None:
+            self._expand_btn.setIcon(icon)
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: re-tint the header buttons and re-render the
+        forecast's condition icons (#310)."""
+        refresh_icon = get_icon("refresh")
+        if refresh_icon is not None:
+            self._refresh_btn.setIcon(refresh_icon)
+        self._set_expand_icon()
+        if self._last_forecast is not None:
+            self._render_forecast(self._last_forecast)
 
     # ── rendering ───────────────────────────────────────────────────────
 
     def _render_forecast(self, forecast: WeatherForecast) -> None:
+        self._last_forecast = forecast
         self._hide_all_content()
 
         # 7-day strip
@@ -260,7 +279,11 @@ class WeatherWidget(QFrame):
         self._table.setRowCount(len(forecast.days))
         for row, day in enumerate(forecast.days):
             self._table.setItem(row, 0, QTableWidgetItem(day.date))
-            self._table.setItem(row, 1, QTableWidgetItem(f"{wmo_to_icon(day.weathercode)} {_wmo_to_description(day.weathercode)}"))
+            condition_item = QTableWidgetItem(_wmo_to_description(day.weathercode))
+            condition_icon = get_icon(wmo_to_icon(day.weathercode))
+            if condition_icon is not None:
+                condition_item.setIcon(condition_icon)
+            self._table.setItem(row, 1, condition_item)
             self._table.setItem(row, 2, QTableWidgetItem(f"{day.max_c:.1f}"))
             self._table.setItem(row, 3, QTableWidgetItem(f"{day.min_c:.1f}"))
             self._table.setItem(row, 4, QTableWidgetItem(f"{day.precipitation_mm:.1f}"))
@@ -277,15 +300,18 @@ class WeatherWidget(QFrame):
     # ── state helpers ───────────────────────────────────────────────────
 
     def _show_empty_state(self) -> None:
+        self._last_forecast = None  # a theme switch must not resurrect a stale strip
         self._hide_all_content()
         self._empty_lbl.show()
         self._location_lbl.setText("")
 
     def _show_loading(self) -> None:
+        self._last_forecast = None
         self._hide_all_content()
         self._loading_lbl.show()
 
     def _show_error(self, message: str) -> None:
+        self._last_forecast = None
         self._hide_all_content()
         self._empty_lbl.setText(self.tr("Weather forecast unavailable:\n{message}").format(message=message))
         self._empty_lbl.show()
@@ -343,7 +369,7 @@ class _DayCell(QFrame):
 
         self._icon_lbl = QLabel()
         self._icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._icon_lbl.setStyleSheet("font-size: 28pt;")
+        self._icon_lbl.setFixedSize(40, 40)
         layout.addWidget(self._icon_lbl)
 
         self._temp_lbl = QLabel()
@@ -362,7 +388,9 @@ class _DayCell(QFrame):
         date = datetime.date.fromisoformat(day.date)
         day_name = date.strftime("%a")
         self._day_lbl.setText(day_name)
-        self._icon_lbl.setText(wmo_to_icon(day.weathercode))
+        pixmap = get_pixmap(wmo_to_icon(day.weathercode), 36)
+        if pixmap is not None:
+            self._icon_lbl.setPixmap(pixmap)
         self._temp_lbl.setText(f"{day.max_c:.0f}° / {day.min_c:.0f}°")
         if day.precipitation_mm > 0:
             self._rain_lbl.setText(f"{day.precipitation_mm:.1f} mm")

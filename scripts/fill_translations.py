@@ -672,7 +672,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "View amendment recommendations for deficient beds":
             "Empfehlungen für mangelhafte Beete anzeigen",
         # US-12.6 — Shopping List menu
-        "&Shopping List…": "&Einkaufsliste…",
+        "S&hopping List…": "&Einkaufsliste…",
         "Generate a shopping list of plants, seeds, and materials":
             "Eine Einkaufsliste mit Pflanzen, Samen und Materialien erstellen",
         # Soil-health overlay (US-12.10b)
@@ -737,7 +737,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Copy selected objects": "Ausgewählte Objekte kopieren",
         "&Paste": "&Einfügen",
         "Paste objects from clipboard": "Objekte aus der Zwischenablage einfügen",
-        "D&uplicate": "D&uplizieren",
+        "Dupl&icate": "D&uplizieren",
         "Duplicate selected objects": "Ausgewählte Objekte duplizieren",
         "&Delete": "&Löschen",
         "Delete selected objects": "Ausgewählte Objekte löschen",
@@ -746,7 +746,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "&Find && Replace…": "Su&chen && Ersetzen…",
         "Find and replace objects by name, type, layer or species":
             "Objekte nach Name, Typ, Ebene oder Art suchen und ersetzen",
-        "Ali&gn && Distribute": "Aus&richten && Verteilen",
+        "Ali&gn && Distribute": "Ausrichten && &Verteilen",
         "Align &Left": "Links &ausrichten",
         "Align selected objects to the left edge":
             "Ausgewählte Objekte am linken Rand ausrichten",
@@ -765,13 +765,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Align Center &Vertically": "&Vertikal zentrieren",
         "Align selected objects to vertical center":
             "Ausgewählte Objekte vertikal zentrieren",
-        "Distribute &Horizontal": "&Horizontal verteilen",
+        "&Distribute Horizontal": "Horizontal ver&teilen",
         "Distribute selected objects with equal horizontal spacing":
             "Ausgewählte Objekte mit gleichem horizontalen Abstand verteilen",
-        "Distribute &Vertical": "&Vertikal verteilen",
+        "D&istribute Vertical": "Vertikal vert&eilen",
         "Distribute selected objects with equal vertical spacing":
             "Ausgewählte Objekte mit gleichem vertikalen Abstand verteilen",
-        "Auto-&Save": "Automatisches &Speichern",
+        "Auto-&Save": "Automatisc&hes Speichern",
         "&Enable Auto-Save": "Automatisches Speichern &aktivieren",
         "Enable or disable automatic saving": "Automatisches Speichern ein- oder ausschalten",
         "{n} minute(s)": "{n} Minute(n)",
@@ -783,7 +783,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Fit the entire canvas in the window": "Die gesamte Leinwand ins Fenster einpassen",
         "Show &Grid": "&Raster anzeigen",
         "Toggle grid visibility": "Rastersichtbarkeit umschalten",
-        "&Snap to Grid": "Am &Raster einrasten",
+        "&Snap to Grid": "Am Raster ei&nrasten",
         "Toggle snap to grid": "Einrasten am Raster umschalten",
         "Snap to &Objects": "An &Objekten einrasten",
         "Toggle snap to object edges and centers":
@@ -807,7 +807,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Snap &Tangent": "Tangential fangen",
         "Toggle snap to the tangent point on a circle or arc from the last drawn point":
             "Fangen auf den Tangentialpunkt eines Kreises oder Bogens vom letzten gezeichneten Punkt umschalten",
-        "Enable Dynamic &Input": "Dynamische &Eingabe aktivieren",
+        "Enable &Dynamic Input": "Dynamische &Eingabe aktivieren",
         "Toggle typed distance/angle input next to the cursor and in the status bar":
             "Eingabe von Distanz/Winkel am Cursor und in der Statusleiste umschalten",
         "Show &Shadows": "&Schatten anzeigen",
@@ -928,7 +928,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Imported: {path}": "Importiert: {path}",
         "Failed to import image:\n{error}":
             "Bild konnte nicht importiert werden:\n{error}",
-        "Load &Satellite Background...": "&Satellitenbild laden...",
+        "Load Sa&tellite Background...": "Sa&tellitenbild laden...",
         "Pick an area on Google Maps and load it as a true-to-scale satellite background":
             "Bereich auf Google Maps auswählen und maßstabsgetreu als Satellitenbild laden",
         "Set OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading":
@@ -947,11 +947,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Set Garden &Location...": "Gartenstandort &festlegen...",
         "Set GPS coordinates and frost dates for planting calendar":
             "GPS-Koordinaten und Frostdaten für den Pflanzkalender festlegen",
-        "&Print...": "&Drucken...",
+        "&Print...": "D&rucken...",
         "Print the garden plan": "Den Gartenplan drucken",
-        "Canvas &Size...": "Leinwand&größe...",
+        "Canvas Si&ze...": "Leinwand&größe...",
         "Resize the canvas dimensions": "Die Leinwandabmessungen ändern",
-        "&Preferences...": "&Einstellungen...",
+        "Pr&eferences...": "Ei&nstellungen...",
         "Configure application settings and API keys":
             "Anwendungseinstellungen und API-Schlüssel konfigurieren",
         "Show &Constraints": "Randbedingungen &anzeigen",
@@ -1348,6 +1348,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Season:": "Saison:",
         "Cancel": "Abbrechen",
         "OK": "OK",
+        # current _EntryDialog strings (the rows above are older wording kept for the .ts history)
+        "Add Entry": "Eintrag hinzufügen",
+        "Edit Entry": "Eintrag bearbeiten",
+        "Plant": "Pflanze",
+        "e.g. Lettuce, Tomato, Spinach…": "z. B. Salat, Tomate, Spinat…",
+        "Start Date": "Startdatum",
+        "End Date": "Enddatum",
+        "Optional notes…": "Optionale Notizen…",
+        "Season: {seg}": "Saison: {seg}",
     },
 
     # ── PrintOptionsDialog ──
@@ -2672,6 +2681,92 @@ _I277_TRANSLATIONS: dict[str, dict[str, str]] = {
 }
 
 for _ctx, _strings in _I277_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── Package 3c iconography + View-menu restructure (#310) ────────────────────
+_P3C_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "GardenPlannerApp": {
+        # German View-menu mnemonics must stay unique per menu (gated by
+        # tests/integration/test_icon_system.py::test_menu_mnemonics_are_unique_per_language):
+        # top level = Ver&größern, Ver&kleinern, An &Fenster anpassen, Ein&rasten,
+        # Overla&ys, S&onne && 3D, Voll&bildvorschau, &Design, &Sprache
+        "&Manage Seasons...": "Saisons &verwalten ...",
+        "Show P&revious Season Overlay": "&Vorherige Saison überlagern",
+        "&Snapping": "Ein&rasten",
+        "O&verlays": "Overla&ys",
+        "Fullscreen &Preview": "Voll&bildvorschau",
+        "S&un && 3D": "S&onne && 3D",
+        "Cursor position": "Cursorposition",
+        "Zoom level": "Zoomstufe",
+        "Selection": "Auswahl",
+        "Active tool": "Aktives Werkzeug",
+        "Garden location": "Gartenstandort",
+        "Season": "Saison",
+        "Sun & shade simulation": "Sonne-&-Schatten-Simulation",
+        "Typed coordinate input": "Koordinateneingabe",
+        "Soil Health Overlay": "Bodengesundheits-Overlay",
+        "Cancel": "Abbrechen",
+        "Set project location for accurate season dates.": "Projektstandort festlegen für genaue Saisondaten.",
+    },
+    "PlantSearchPanel": {
+        "Trees": "Bäume",
+        "Shrubs": "Sträucher",
+        "Perennials": "Stauden",
+    },
+    "CompanionPanel": {
+        "= already nearby in plan  (click to select)": "= bereits in der Nähe im Plan  (klicken zum Auswählen)",
+    },
+    "ConstraintListItem": {
+        "Coincident": "Deckungsgleich",
+        "Tangent": "Tangente",
+        "Fixed": "Fixiert",
+        "Equal": "Gleich",
+        "Symmetric": "Symmetrisch",
+        "{a} symmetric to {b} about the horizontal axis": "{a} symmetrisch zu {b} um die horizontale Achse",
+        "{a} symmetric to {b} about the vertical axis": "{a} symmetrisch zu {b} um die vertikale Achse",
+        "On edge": "Auf Kante",
+        "{a} lies on the edge of {b}": "{a} liegt auf der Kante von {b}",
+        "On circle": "Auf Kreis",
+        "{a} lies on the circle of {b}": "{a} liegt auf dem Kreis von {b}",
+        "Horizontal": "Horizontal",
+        "Vertical": "Vertikal",
+        "Parallel": "Parallel",
+        "Perpendicular": "Senkrecht",
+        "Angle {a}–{b}–{c}: {d:.1f}°": "Winkel {a}–{b}–{c}: {d:.1f}°",
+        "{a} to {b}: horizontal distance {d:.2f} m": "{a} zu {b}: horizontaler Abstand {d:.2f} m",
+        "{a} to {b}: vertical distance {d:.2f} m": "{a} zu {b}: vertikaler Abstand {d:.2f} m",
+        "{a} to {b}: {d:.2f} m": "{a} zu {b}: {d:.2f} m",
+    },
+    "JournalPanel": {
+        "{date} — {snippet}": "{date} — {snippet}",
+        "{date} — (empty)": "{date} — (leer)",
+    },
+    "SeasonManagerDialog": {
+        "[current]": "[aktuell]",
+    },
+    "PropertiesPanel": {
+        "Override frost sensitivity:\n"
+        "checked = always protect, unchecked = never protect, "
+        "indeterminate = use the plant database default":
+            "Frostempfindlichkeit überschreiben:\n"
+            "angehakt = immer schützen, nicht angehakt = nie schützen, "
+            "unbestimmt = Standard aus der Pflanzendatenbank",
+    },
+    "FixedConstraintTool": {
+        "Fix in place": "Fixieren",
+    },
+    "ShortcutsDialog": {
+        "Dashboard Tabs": "Dashboard-Tabs",
+        "Garden Plan tab": "Tab Gartenplan",
+        "Planting Calendar tab": "Tab Pflanzkalender",
+        "Seed Inventory tab": "Tab Saatgutbestand",
+        "Tasks tab": "Tab Aufgaben",
+        "Harvest tab": "Tab Ernte",
+    },
+}
+
+for _ctx, _strings in _P3C_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 

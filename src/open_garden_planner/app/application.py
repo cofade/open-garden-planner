@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QEvent, Qt, QTimer
 from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
@@ -49,7 +49,7 @@ from open_garden_planner.services.soil_service import (
 )
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
-from open_garden_planner.ui.icons import get_icon
+from open_garden_planner.ui.icons import get_icon, get_pixmap
 from open_garden_planner.ui.panels import (
     CompanionPanel,
     ConstraintsPanel,
@@ -775,21 +775,70 @@ class GardenPlannerApp(QMainWindow):
             action.setIcon(icon)
         self._icon_actions.append((action, icon_name))
 
+    def _make_icon_label(self, icon_name: str, size: int = 14, tooltip: str = "") -> QLabel:
+        """A pixmap-only QLabel for chrome that has no ``setIcon`` (status bar
+        segments), tracked for theme-switch refresh (#310)."""
+        label = QLabel()
+        label.setFixedSize(size + 2, size + 2)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        if tooltip:
+            label.setToolTip(tooltip)
+        pixmap = get_pixmap(icon_name, size)
+        if pixmap is not None:
+            label.setPixmap(pixmap)
+        self._icon_labels.append((label, icon_name, size))
+        return label
+
+    def _set_tab_icon(self, widget: QWidget, icon_name: str) -> None:
+        """Themed dashboard-tab icon, tracked for theme-switch refresh (#310)."""
+        index = self._tab_widget.indexOf(widget)
+        icon = get_icon(icon_name)
+        if index >= 0 and icon is not None:
+            self._tab_widget.setTabIcon(index, icon)
+        self._tab_icons.append((widget, icon_name))
+
+    def eventFilter(self, obj: Any, event: QEvent) -> bool:  # noqa: N802 — Qt override
+        """The status-bar sun icon follows the transient sun hint's visibility
+        (the hint is shown/hidden from the sun-sim controller; #310)."""
+        if obj is getattr(self, "_sun_hint_label", None) and event.type() in (
+            QEvent.Type.Show, QEvent.Type.Hide, QEvent.Type.ShowToParent, QEvent.Type.HideToParent
+        ):
+            self._sun_hint_icon.setVisible(not self._sun_hint_label.isHidden())
+        return super().eventFilter(obj, event)
+
     def refresh_theme_icons(self) -> None:
-        """Replay tracked menu-action icons after a theme switch (§8.21).
+        """Replay every tracked chrome icon after a theme switch (§8.21):
+        menu actions, status-bar pixmap labels, dashboard tab icons and the
+        frost badge (#310).
 
         getattr fallback: safe even if a future call ordering themes the
-        window before _setup_menu_bar has created the tracking list.
+        window before _setup_menu_bar has created the tracking lists.
         """
         for action, icon_name in getattr(self, "_icon_actions", []):
             icon = get_icon(icon_name)
             if icon is not None:
                 action.setIcon(icon)
+        for label, icon_name, size in getattr(self, "_icon_labels", []):
+            pixmap = get_pixmap(icon_name, size)
+            if pixmap is not None:
+                label.setPixmap(pixmap)
+        tab_widget = getattr(self, "_tab_widget", None)
+        if tab_widget is not None:
+            for widget, icon_name in getattr(self, "_tab_icons", []):
+                index = tab_widget.indexOf(widget)
+                icon = get_icon(icon_name)
+                if index >= 0 and icon is not None:
+                    tab_widget.setTabIcon(index, icon)
+        if getattr(self, "_frost_badge_state", None) is not None:
+            self._on_frost_alert_ready(*self._frost_badge_state)
 
     def _setup_menu_bar(self) -> None:
         """Set up the menu bar with File, Edit, View, Help menus."""
         menubar = self.menuBar()
         self._icon_actions: list[tuple[QAction, str]] = []
+        self._icon_labels: list[tuple[QLabel, str, int]] = []
+        self._tab_icons: list[tuple[QWidget, str]] = []
+        self._frost_badge_state: tuple[int, str] | None = None
 
         # File menu
         file_menu = menubar.addMenu(self.tr("&File"))
@@ -835,6 +884,7 @@ class GardenPlannerApp(QMainWindow):
 
         # Open Recent submenu
         self._recent_menu = menu.addMenu(self.tr("Open &Recent"))
+        self._set_action_icon(self._recent_menu.menuAction(), "recent")
         self._recent_menu.aboutToShow.connect(self._populate_recent_menu)
 
         menu.addSeparator()
@@ -858,9 +908,10 @@ class GardenPlannerApp(QMainWindow):
         menu.addSeparator()
 
         # Manage Seasons (US-10.7)
-        seasons_action = QAction(self.tr("Manage &Seasons..."), self)
+        seasons_action = QAction(self.tr("&Manage Seasons..."), self)
         seasons_action.setStatusTip(self.tr("Create a new season or switch between seasons"))
         seasons_action.triggered.connect(self._on_manage_seasons)
+        self._set_action_icon(seasons_action, "seasons")
         menu.addAction(seasons_action)
 
         menu.addSeparator()
@@ -869,10 +920,11 @@ class GardenPlannerApp(QMainWindow):
         import_image_action = QAction(self.tr("&Import Background Image..."), self)
         import_image_action.setStatusTip(self.tr("Import a background image (satellite photo, etc.)"))
         import_image_action.triggered.connect(self._on_import_background_image)
+        self._set_action_icon(import_image_action, "background_image")
         menu.addAction(import_image_action)
 
         # Load Satellite Background (via embedded Google Maps picker)
-        load_satellite_action = QAction(self.tr("Load &Satellite Background..."), self)
+        load_satellite_action = QAction(self.tr("Load Sa&tellite Background..."), self)
         _enabled_hint = self.tr(
             "Pick an area on Google Maps and load it as a true-to-scale "
             "satellite background"
@@ -895,6 +947,7 @@ class GardenPlannerApp(QMainWindow):
             load_satellite_action.setStatusTip(_disabled_hint)
             load_satellite_action.setToolTip(_disabled_hint)
         menu.setToolTipsVisible(True)
+        self._set_action_icon(load_satellite_action, "satellite")
         menu.addAction(load_satellite_action)
 
         # Import DXF
@@ -908,41 +961,43 @@ class GardenPlannerApp(QMainWindow):
         location_action = QAction(self.tr("Set Garden &Location..."), self)
         location_action.setStatusTip(self.tr("Set GPS coordinates and frost dates for planting calendar"))
         location_action.triggered.connect(self._on_set_location)
+        self._set_action_icon(location_action, "location")
         menu.addAction(location_action)
 
         menu.addSeparator()
 
         # Export submenu
         export_menu = menu.addMenu(self.tr("&Export"))
+        self._set_action_icon(export_menu.menuAction(), "file_export")
 
         export_png = QAction(self.tr("Export as &PNG..."), self)
         export_png.setStatusTip(self.tr("Export the plan as a PNG image"))
         export_png.triggered.connect(self._on_export_png)
-        self._set_action_icon(export_png, "file_export")
+        self._set_action_icon(export_png, "export_png")
         export_menu.addAction(export_png)
 
         export_svg = QAction(self.tr("Export as &SVG..."), self)
         export_svg.setStatusTip(self.tr("Export the plan as an SVG vector file"))
         export_svg.triggered.connect(self._on_export_svg)
-        self._set_action_icon(export_svg, "file_export")
+        self._set_action_icon(export_svg, "export_svg")
         export_menu.addAction(export_svg)
 
         export_csv = QAction(self.tr("Export Plant List as &CSV..."), self)
         export_csv.setStatusTip(self.tr("Export all plants to a CSV spreadsheet"))
         export_csv.triggered.connect(self._on_export_plant_csv)
-        self._set_action_icon(export_csv, "file_export")
+        self._set_action_icon(export_csv, "export_csv")
         export_menu.addAction(export_csv)
 
         export_dxf = QAction(self.tr("Export as D&XF..."), self)
         export_dxf.setStatusTip(self.tr("Export the plan as a DXF file for CAD software"))
         export_dxf.triggered.connect(self._on_export_dxf)
-        self._set_action_icon(export_dxf, "file_export")
+        self._set_action_icon(export_dxf, "export_dxf")
         export_menu.addAction(export_dxf)
 
         export_pdf_report = QAction(self.tr("Export PDF &Report..."), self)
         export_pdf_report.setStatusTip(self.tr("Generate a multi-page PDF report of the garden plan"))
         export_pdf_report.triggered.connect(self._on_export_pdf_report)
-        self._set_action_icon(export_pdf_report, "file_export")
+        self._set_action_icon(export_pdf_report, "export_pdf")
         export_menu.addAction(export_pdf_report)
 
         menu.addSeparator()
@@ -962,6 +1017,7 @@ class GardenPlannerApp(QMainWindow):
         exit_action.setShortcut(QKeySequence("Alt+F4"))
         exit_action.setStatusTip(self.tr("Exit the application"))
         exit_action.triggered.connect(self.close)
+        self._set_action_icon(exit_action, "exit")
         menu.addAction(exit_action)
 
     def _setup_edit_menu(self, menu: QMenu) -> None:
@@ -1011,7 +1067,7 @@ class GardenPlannerApp(QMainWindow):
         menu.addAction(paste_action)
 
         # Duplicate
-        duplicate_action = QAction(self.tr("D&uplicate"), self)
+        duplicate_action = QAction(self.tr("Dupl&icate"), self)
         duplicate_action.setShortcut(QKeySequence("Ctrl+D"))
         duplicate_action.setStatusTip(self.tr("Duplicate selected objects"))
         duplicate_action.triggered.connect(self._on_duplicate)
@@ -1047,67 +1103,79 @@ class GardenPlannerApp(QMainWindow):
 
         # Align submenu
         align_menu = menu.addMenu(self.tr("Ali&gn && Distribute"))
+        self._set_action_icon(align_menu.menuAction(), "align")
 
         align_left = QAction(self.tr("Align &Left"), self)
         align_left.setStatusTip(self.tr("Align selected objects to the left edge"))
         align_left.triggered.connect(self._on_align_left)
+        self._set_action_icon(align_left, "align_left")
         align_menu.addAction(align_left)
 
         align_right = QAction(self.tr("Align &Right"), self)
         align_right.setStatusTip(self.tr("Align selected objects to the right edge"))
         align_right.triggered.connect(self._on_align_right)
+        self._set_action_icon(align_right, "align_right")
         align_menu.addAction(align_right)
 
         align_top = QAction(self.tr("Align &Top"), self)
         align_top.setStatusTip(self.tr("Align selected objects to the top edge"))
         align_top.triggered.connect(self._on_align_top)
+        self._set_action_icon(align_top, "align_top")
         align_menu.addAction(align_top)
 
         align_bottom = QAction(self.tr("Align &Bottom"), self)
         align_bottom.setStatusTip(self.tr("Align selected objects to the bottom edge"))
         align_bottom.triggered.connect(self._on_align_bottom)
+        self._set_action_icon(align_bottom, "align_bottom")
         align_menu.addAction(align_bottom)
 
         align_center_h = QAction(self.tr("Align Center &Horizontally"), self)
         align_center_h.setStatusTip(self.tr("Align selected objects to horizontal center"))
         align_center_h.triggered.connect(self._on_align_center_h)
+        self._set_action_icon(align_center_h, "align_center_h")
         align_menu.addAction(align_center_h)
 
         align_center_v = QAction(self.tr("Align Center &Vertically"), self)
         align_center_v.setStatusTip(self.tr("Align selected objects to vertical center"))
         align_center_v.triggered.connect(self._on_align_center_v)
+        self._set_action_icon(align_center_v, "align_center_v")
         align_menu.addAction(align_center_v)
 
         align_menu.addSeparator()
 
-        dist_h = QAction(self.tr("Distribute &Horizontal"), self)
+        dist_h = QAction(self.tr("&Distribute Horizontal"), self)
         dist_h.setStatusTip(self.tr("Distribute selected objects with equal horizontal spacing"))
         dist_h.triggered.connect(self._on_distribute_horizontal)
+        self._set_action_icon(dist_h, "distribute_h")
         align_menu.addAction(dist_h)
 
-        dist_v = QAction(self.tr("Distribute &Vertical"), self)
+        dist_v = QAction(self.tr("D&istribute Vertical"), self)
         dist_v.setStatusTip(self.tr("Distribute selected objects with equal vertical spacing"))
         dist_v.triggered.connect(self._on_distribute_vertical)
+        self._set_action_icon(dist_v, "distribute_v")
         align_menu.addAction(dist_v)
 
         menu.addSeparator()
 
         # Canvas Size
-        canvas_size_action = QAction(self.tr("Canvas &Size..."), self)
+        canvas_size_action = QAction(self.tr("Canvas Si&ze..."), self)
         canvas_size_action.setStatusTip(self.tr("Resize the canvas dimensions"))
         canvas_size_action.triggered.connect(self._on_canvas_size)
+        self._set_action_icon(canvas_size_action, "canvas_size")
         menu.addAction(canvas_size_action)
 
         menu.addSeparator()
 
         # Auto-Save submenu
         autosave_menu = menu.addMenu(self.tr("Auto-&Save"))
+        self._set_action_icon(autosave_menu.menuAction(), "autosave")
 
         # Toggle auto-save
         self._autosave_action = QAction(self.tr("&Enable Auto-Save"), self)
         self._autosave_action.setCheckable(True)
         self._autosave_action.setStatusTip(self.tr("Enable or disable automatic saving"))
         self._autosave_action.triggered.connect(self._on_toggle_autosave)
+        self._set_action_icon(self._autosave_action, "autosave")
         autosave_menu.addAction(self._autosave_action)
 
         autosave_menu.addSeparator()
@@ -1130,7 +1198,7 @@ class GardenPlannerApp(QMainWindow):
         menu.addSeparator()
 
         # Preferences
-        preferences_action = QAction(self.tr("&Preferences..."), self)
+        preferences_action = QAction(self.tr("Pr&eferences..."), self)
         preferences_action.setStatusTip(self.tr("Configure application settings and API keys"))
         preferences_action.triggered.connect(self._on_preferences)
         self._set_action_icon(preferences_action, "preferences")
@@ -1164,13 +1232,25 @@ class GardenPlannerApp(QMainWindow):
 
         menu.addSeparator()
 
+        # Grouped submenus (#310, owner decision 2026-08-17): the flat list of
+        # 22 toggles was hard to scan. Zoom | Snapping ▸ | Overlays ▸ | Sun & 3D ▸
+        # | Panels (Fullscreen Preview) | Theme ▸ | Language ▸. Action attribute
+        # names are unchanged — only the container moved.
+        snap_menu = menu.addMenu(self.tr("&Snapping"))
+        self._set_action_icon(snap_menu.menuAction(), "snapping")
+        overlays_menu = menu.addMenu(self.tr("O&verlays"))
+        self._set_action_icon(overlays_menu.menuAction(), "overlays")
+        sun_menu = menu.addMenu(self.tr("S&un && 3D"))
+        self._set_action_icon(sun_menu.menuAction(), "sun")
+
         # Toggle Grid
         self.grid_action = QAction(self.tr("Show &Grid"), self)
         self.grid_action.setShortcut(QKeySequence("G"))
         self.grid_action.setCheckable(True)
         self.grid_action.setChecked(False)
         self.grid_action.setStatusTip(self.tr("Toggle grid visibility"))
-        menu.addAction(self.grid_action)
+        self._set_action_icon(self.grid_action, "grid")
+        snap_menu.addAction(self.grid_action)
 
         # Toggle Snap
         self.snap_action = QAction(self.tr("&Snap to Grid"), self)
@@ -1178,7 +1258,8 @@ class GardenPlannerApp(QMainWindow):
         self.snap_action.setCheckable(True)
         self.snap_action.setChecked(True)
         self.snap_action.setStatusTip(self.tr("Toggle snap to grid"))
-        menu.addAction(self.snap_action)
+        self._set_action_icon(self.snap_action, "snap_grid")
+        snap_menu.addAction(self.snap_action)
 
         # Toggle Object Snap
         self._object_snap_action = QAction(self.tr("Snap to &Objects"), self)
@@ -1186,7 +1267,8 @@ class GardenPlannerApp(QMainWindow):
         self._object_snap_action.setChecked(True)
         self._object_snap_action.setStatusTip(self.tr("Toggle snap to object edges and centers"))
         self._object_snap_action.triggered.connect(self._on_toggle_object_snap)
-        menu.addAction(self._object_snap_action)
+        self._set_action_icon(self._object_snap_action, "snap_objects")
+        snap_menu.addAction(self._object_snap_action)
 
         # Toggle Midpoint Snap (Package A - US-A3)
         self._midpoint_snap_action = QAction(self.tr("Snap to &Midpoints"), self)
@@ -1196,7 +1278,8 @@ class GardenPlannerApp(QMainWindow):
             self.tr("Toggle snap to the midpoint of any straight edge")
         )
         self._midpoint_snap_action.triggered.connect(self._on_toggle_midpoint_snap)
-        menu.addAction(self._midpoint_snap_action)
+        self._set_action_icon(self._midpoint_snap_action, "snap_midpoints")
+        snap_menu.addAction(self._midpoint_snap_action)
 
         # Toggle Intersection Snap (Package A - US-A3)
         self._intersection_snap_action = QAction(
@@ -1210,7 +1293,8 @@ class GardenPlannerApp(QMainWindow):
         self._intersection_snap_action.triggered.connect(
             self._on_toggle_intersection_snap
         )
-        menu.addAction(self._intersection_snap_action)
+        self._set_action_icon(self._intersection_snap_action, "snap_intersections")
+        snap_menu.addAction(self._intersection_snap_action)
 
         # Toggle Nearest Snap (Package B — US-B4). Fallback below the
         # other snap kinds; off by default so it doesn't surprise users.
@@ -1221,7 +1305,8 @@ class GardenPlannerApp(QMainWindow):
             self.tr("Toggle snap to the closest point on any visible edge or curve")
         )
         self._nearest_snap_action.triggered.connect(self._on_toggle_nearest_snap)
-        menu.addAction(self._nearest_snap_action)
+        self._set_action_icon(self._nearest_snap_action, "snap_nearest")
+        snap_menu.addAction(self._nearest_snap_action)
 
         # Toggle Perpendicular Snap (Package B — US-B5). Drops the
         # perpendicular foot from the active tool's anchor onto a
@@ -1240,7 +1325,8 @@ class GardenPlannerApp(QMainWindow):
         self._perpendicular_snap_action.triggered.connect(
             self._on_toggle_perpendicular_snap
         )
-        menu.addAction(self._perpendicular_snap_action)
+        self._set_action_icon(self._perpendicular_snap_action, "constraint_perpendicular")
+        snap_menu.addAction(self._perpendicular_snap_action)
 
         # Toggle Tangent Snap (Package B — US-B6). Snaps to the tangent
         # point on a circle / arc from the active tool's anchor.
@@ -1254,10 +1340,11 @@ class GardenPlannerApp(QMainWindow):
             )
         )
         self._tangent_snap_action.triggered.connect(self._on_toggle_tangent_snap)
-        menu.addAction(self._tangent_snap_action)
+        self._set_action_icon(self._tangent_snap_action, "snap_tangent")
+        snap_menu.addAction(self._tangent_snap_action)
 
         # Toggle Dynamic Input (Package A - US-A4)
-        self._dynamic_input_action = QAction(self.tr("Enable Dynamic &Input"), self)
+        self._dynamic_input_action = QAction(self.tr("Enable &Dynamic Input"), self)
         self._dynamic_input_action.setCheckable(True)
         self._dynamic_input_action.setChecked(True)
         self._dynamic_input_action.setStatusTip(
@@ -1267,9 +1354,9 @@ class GardenPlannerApp(QMainWindow):
             )
         )
         self._dynamic_input_action.triggered.connect(self._on_toggle_dynamic_input)
-        menu.addAction(self._dynamic_input_action)
+        self._set_action_icon(self._dynamic_input_action, "dynamic_input")
+        snap_menu.addAction(self._dynamic_input_action)
 
-        menu.addSeparator()
 
         # Toggle Shadows
         self._shadows_action = QAction(self.tr("Show &Shadows"), self)
@@ -1277,7 +1364,8 @@ class GardenPlannerApp(QMainWindow):
         self._shadows_action.setChecked(True)  # Updated from settings in _setup_central_widget
         self._shadows_action.setStatusTip(self.tr("Toggle drop shadows on objects"))
         self._shadows_action.triggered.connect(self._on_toggle_shadows)
-        menu.addAction(self._shadows_action)
+        self._set_action_icon(self._shadows_action, "shadows")
+        sun_menu.addAction(self._shadows_action)
 
         # Sun & shade simulation (US-E3) — deliberately named distinctly from
         # the cosmetic per-item drop shadows above; different machinery.
@@ -1288,7 +1376,8 @@ class GardenPlannerApp(QMainWindow):
             self.tr("Simulate solar shadows for a chosen date and time of day")
         )
         self._sun_sim_action.triggered.connect(self._on_toggle_sun_sim)
-        menu.addAction(self._sun_sim_action)
+        self._set_action_icon(self._sun_sim_action, "sun_sim")
+        sun_menu.addAction(self._sun_sim_action)
 
         # 3D view (US-E6) — viewer window, engine per ADR-038 (PyQt6-3D).
         self._view3d_action = QAction(self.tr("&3D View…"), self)
@@ -1296,7 +1385,8 @@ class GardenPlannerApp(QMainWindow):
             self.tr("Open a 3D view of the plan with solar lighting")
         )
         self._view3d_action.triggered.connect(self._on_open_3d_view)
-        menu.addAction(self._view3d_action)
+        self._set_action_icon(self._view3d_action, "view3d")
+        sun_menu.addAction(self._view3d_action)
 
         # Toggle Scale Bar
         self._scale_bar_action = QAction(self.tr("Show Scale &Bar"), self)
@@ -1304,7 +1394,8 @@ class GardenPlannerApp(QMainWindow):
         self._scale_bar_action.setChecked(True)  # Updated from settings in _setup_central_widget
         self._scale_bar_action.setStatusTip(self.tr("Toggle the scale bar overlay on the canvas"))
         self._scale_bar_action.triggered.connect(self._on_toggle_scale_bar)
-        menu.addAction(self._scale_bar_action)
+        self._set_action_icon(self._scale_bar_action, "scale_bar")
+        overlays_menu.addAction(self._scale_bar_action)
 
         # Toggle Labels
         self._labels_action = QAction(self.tr("Show &Labels"), self)
@@ -1312,7 +1403,8 @@ class GardenPlannerApp(QMainWindow):
         self._labels_action.setChecked(True)  # Updated from settings in _setup_central_widget
         self._labels_action.setStatusTip(self.tr("Toggle object labels on the canvas"))
         self._labels_action.triggered.connect(self._on_toggle_labels)
-        menu.addAction(self._labels_action)
+        self._set_action_icon(self._labels_action, "labels")
+        overlays_menu.addAction(self._labels_action)
 
         # Toggle Constraints
         self._constraints_action = QAction(self.tr("Show &Constraints"), self)
@@ -1320,7 +1412,8 @@ class GardenPlannerApp(QMainWindow):
         self._constraints_action.setChecked(True)  # Updated from settings in _setup_central_widget
         self._constraints_action.setStatusTip(self.tr("Toggle constraint dimension lines on the canvas"))
         self._constraints_action.triggered.connect(self._on_toggle_constraints)
-        menu.addAction(self._constraints_action)
+        self._set_action_icon(self._constraints_action, "constraints_overlay")
+        overlays_menu.addAction(self._constraints_action)
 
         # Toggle Construction Geometry
         self._construction_action = QAction(self.tr("Show C&onstruction Geometry"), self)
@@ -1328,7 +1421,8 @@ class GardenPlannerApp(QMainWindow):
         self._construction_action.setChecked(True)
         self._construction_action.setStatusTip(self.tr("Toggle construction geometry visibility (excluded from exports)"))
         self._construction_action.triggered.connect(self._on_toggle_construction)
-        menu.addAction(self._construction_action)
+        self._set_action_icon(self._construction_action, "construction_line")
+        overlays_menu.addAction(self._construction_action)
 
         # Toggle Guide Lines
         self._guides_action = QAction(self.tr("Show &Guide Lines"), self)
@@ -1337,7 +1431,8 @@ class GardenPlannerApp(QMainWindow):
         self._guides_action.setChecked(True)
         self._guides_action.setStatusTip(self.tr("Toggle ruler and guide lines (drag from ruler to create)"))
         self._guides_action.triggered.connect(self._on_toggle_guides)
-        menu.addAction(self._guides_action)
+        self._set_action_icon(self._guides_action, "guides")
+        overlays_menu.addAction(self._guides_action)
 
         # Toggle Companion Planting Warnings
         self._companion_warnings_action = QAction(self.tr("Show Companion &Warnings"), self)
@@ -1347,7 +1442,8 @@ class GardenPlannerApp(QMainWindow):
             self.tr("Highlight compatible and incompatible plants near the selected plant")
         )
         self._companion_warnings_action.triggered.connect(self._on_toggle_companion_warnings)
-        menu.addAction(self._companion_warnings_action)
+        self._set_action_icon(self._companion_warnings_action, "companion_warnings")
+        overlays_menu.addAction(self._companion_warnings_action)
 
         # Toggle Spacing Circles (US-11.2)
         self._spacing_circles_action = QAction(self.tr("Show S&pacing Circles"), self)
@@ -1357,7 +1453,8 @@ class GardenPlannerApp(QMainWindow):
             self.tr("Show recommended spacing zones around plants")
         )
         self._spacing_circles_action.triggered.connect(self._on_toggle_spacing_circles)
-        menu.addAction(self._spacing_circles_action)
+        self._set_action_icon(self._spacing_circles_action, "spacing_circles")
+        overlays_menu.addAction(self._spacing_circles_action)
 
         # Toggle Soil Health Overlay (US-12.10b)
         self._soil_overlay_action = QAction(self.tr("Soil &Health Overlay"), self)
@@ -1368,7 +1465,8 @@ class GardenPlannerApp(QMainWindow):
             self.tr("Tint beds by soil-health rating (excluded from exports)")
         )
         self._soil_overlay_action.triggered.connect(self._on_toggle_soil_overlay)
-        menu.addAction(self._soil_overlay_action)
+        self._set_action_icon(self._soil_overlay_action, "soil_overlay")
+        overlays_menu.addAction(self._soil_overlay_action)
 
         # Toggle Minimap (US-11.7)
         self._minimap_action = QAction(self.tr("Show &Minimap"), self)
@@ -1378,10 +1476,11 @@ class GardenPlannerApp(QMainWindow):
             self.tr("Show a minimap overview for quick navigation")
         )
         self._minimap_action.triggered.connect(self._on_toggle_minimap)
-        menu.addAction(self._minimap_action)
+        self._set_action_icon(self._minimap_action, "minimap")
+        overlays_menu.addAction(self._minimap_action)
 
         # Toggle previous-season compare overlay (US-10.7)
-        self._compare_overlay_action = QAction(self.tr("Show &Previous Season Overlay"), self)
+        self._compare_overlay_action = QAction(self.tr("Show P&revious Season Overlay"), self)
         self._compare_overlay_action.setCheckable(True)
         self._compare_overlay_action.setChecked(False)
         self._compare_overlay_action.setEnabled(False)  # Enabled when overlay data is loaded
@@ -1389,17 +1488,19 @@ class GardenPlannerApp(QMainWindow):
             self.tr("Overlay ghosted plant positions from the previous season")
         )
         self._compare_overlay_action.triggered.connect(self._on_toggle_compare_overlay)
-        menu.addAction(self._compare_overlay_action)
+        self._set_action_icon(self._compare_overlay_action, "compare_overlay")
+        overlays_menu.addAction(self._compare_overlay_action)
 
         menu.addSeparator()
 
         # Fullscreen Preview
-        self._preview_action = QAction(self.tr("&Fullscreen Preview"), self)
+        self._preview_action = QAction(self.tr("Fullscreen &Preview"), self)
         self._preview_action.setShortcut(QKeySequence("F11"))
         self._preview_action.setCheckable(True)
         self._preview_action.setChecked(False)
         self._preview_action.setStatusTip(self.tr("Toggle fullscreen preview mode (hides all UI)"))
         self._preview_action.triggered.connect(self._on_toggle_preview_mode)
+        self._set_action_icon(self._preview_action, "fullscreen")
         menu.addAction(self._preview_action)
 
         menu.addSeparator()
@@ -1435,6 +1536,7 @@ class GardenPlannerApp(QMainWindow):
 
         # Language submenu
         language_menu = menu.addMenu(self.tr("&Language"))
+        self._set_action_icon(language_menu.menuAction(), "language")
         self._language_actions: dict[str, QAction] = {}
 
         from open_garden_planner.core.i18n import SUPPORTED_LANGUAGES
@@ -1458,6 +1560,7 @@ class GardenPlannerApp(QMainWindow):
         search_action.setShortcut(QKeySequence("Ctrl+K"))
         search_action.setStatusTip(self.tr("Search for plant species in online databases"))
         search_action.triggered.connect(self._on_search_plant_database)
+        self._set_action_icon(search_action, "plant_search")
         menu.addAction(search_action)
 
         menu.addSeparator()
@@ -1466,6 +1569,7 @@ class GardenPlannerApp(QMainWindow):
         manage_custom_action = QAction(self.tr("&Manage Custom Plants..."), self)
         manage_custom_action.setStatusTip(self.tr("View, edit, and delete your custom plant species"))
         manage_custom_action.triggered.connect(self._on_manage_custom_plants)
+        self._set_action_icon(manage_custom_action, "plant_manage")
         menu.addAction(manage_custom_action)
 
         menu.addSeparator()
@@ -1474,6 +1578,7 @@ class GardenPlannerApp(QMainWindow):
         check_companion_action = QAction(self.tr("Check &Companion Planting..."), self)
         check_companion_action.setStatusTip(self.tr("Analyse the whole plan for companion planting compatibility"))
         check_companion_action.triggered.connect(self._on_check_companion_planting)
+        self._set_action_icon(check_companion_action, "companion")
         menu.addAction(check_companion_action)
 
     def _setup_garden_menu(self, menu: QMenu) -> None:
@@ -1484,6 +1589,7 @@ class GardenPlannerApp(QMainWindow):
             self.tr("Set a project-wide soil test used when individual beds have none")
         )
         default_soil_action.triggered.connect(self._on_set_default_soil_test)
+        self._set_action_icon(default_soil_action, "soil_test")
         menu.addAction(default_soil_action)
 
         # Amendment plan (US-12.10c) — aggregated cross-bed shopping list.
@@ -1493,14 +1599,16 @@ class GardenPlannerApp(QMainWindow):
             self.tr("View amendment recommendations for deficient beds")
         )
         amendment_plan_action.triggered.connect(self._on_amendment_plan)
+        self._set_action_icon(amendment_plan_action, "amendment")
         menu.addAction(amendment_plan_action)
 
         # Shopping list (US-12.6)
-        shopping_list_action = QAction(self.tr("&Shopping List…"), self)
+        shopping_list_action = QAction(self.tr("S&hopping List…"), self)
         shopping_list_action.setStatusTip(
             self.tr("Generate a shopping list of plants, seeds, and materials")
         )
         shopping_list_action.triggered.connect(self._on_shopping_list)
+        self._set_action_icon(shopping_list_action, "shopping_list")
         menu.addAction(shopping_list_action)
 
     def _setup_help_menu(self, menu: QMenu) -> None:
@@ -1534,6 +1642,7 @@ class GardenPlannerApp(QMainWindow):
         # About Qt
         about_qt_action = QAction(self.tr("About &Qt"), self)
         about_qt_action.triggered.connect(QApplication.aboutQt)
+        self._set_action_icon(about_qt_action, "about_qt")
         menu.addAction(about_qt_action)
 
 
@@ -1545,7 +1654,9 @@ class GardenPlannerApp(QMainWindow):
 
         status_bar = self.statusBar()
 
-        # Coordinate label (left side, permanent)
+        # Coordinate label (left side, permanent). Every segment carries a
+        # small themed icon (#310) so the bar scans as a row of instruments.
+        status_bar.addPermanentWidget(self._make_icon_label("status_coords", tooltip=self.tr("Cursor position")))
         self.coord_label = QLabel(self.tr("X: 0.00 cm  Y: 0.00 cm"))
         self.coord_label.setMinimumWidth(200)
         status_bar.addPermanentWidget(self.coord_label)
@@ -1555,27 +1666,32 @@ class GardenPlannerApp(QMainWindow):
         self.coordinate_input_field: CoordinateInputField | None = None
 
         # Zoom label
+        status_bar.addPermanentWidget(self._make_icon_label("status_zoom", tooltip=self.tr("Zoom level")))
         self.zoom_label = QLabel("100%")
         self.zoom_label.setMinimumWidth(60)
         status_bar.addPermanentWidget(self.zoom_label)
 
         # Selection info label
+        status_bar.addPermanentWidget(self._make_icon_label("select", tooltip=self.tr("Selection")))
         self.selection_label = QLabel(self.tr("No selection"))
         self.selection_label.setMinimumWidth(150)
         status_bar.addPermanentWidget(self.selection_label)
 
         # Tool label
+        status_bar.addPermanentWidget(self._make_icon_label("status_tool", tooltip=self.tr("Active tool")))
         self.tool_label = QLabel(self.tr("Select"))
         self.tool_label.setMinimumWidth(80)
         status_bar.addPermanentWidget(self.tool_label)
 
         # Location label
+        status_bar.addPermanentWidget(self._make_icon_label("location", tooltip=self.tr("Garden location")))
         self.location_label = QLabel(self.tr("No location set"))
         self.location_label.setMinimumWidth(160)
         self.location_label.setToolTip(self.tr("Garden GPS location — use File > Set Garden Location to configure"))
         status_bar.addPermanentWidget(self.location_label)
 
         # Season label (US-10.7)
+        status_bar.addPermanentWidget(self._make_icon_label("season", tooltip=self.tr("Season")))
         self.season_label = QLabel(self.tr("Season: —"))
         self.season_label.setMinimumWidth(100)
         self.season_label.setToolTip(self.tr("Current season year — use File > Manage Seasons to configure"))
@@ -1585,10 +1701,15 @@ class GardenPlannerApp(QMainWindow):
         # Lives here, NOT on the sun toolbar: a variable-width label in the
         # toolbar's flow reflowed Qt's overflow popup and bumped the Animate
         # button to another row when the night text toggled (2026-07 fix).
+        self._sun_hint_icon = self._make_icon_label("sun", tooltip=self.tr("Sun & shade simulation"))
+        self._sun_hint_icon.setVisible(False)
+        status_bar.addPermanentWidget(self._sun_hint_icon)
         self._sun_hint_label = QLabel("")
         set_text_role(self._sun_hint_label, color_role="caution")
         self._sun_hint_label.setStyleSheet("font-style: italic;")
         self._sun_hint_label.setVisible(False)
+        # the icon follows the transient hint's visibility (Show/Hide events)
+        self._sun_hint_label.installEventFilter(self)
         status_bar.addPermanentWidget(self._sun_hint_label)
 
         # Show ready message
@@ -1614,7 +1735,10 @@ class GardenPlannerApp(QMainWindow):
         )
         # Insert between the coordinate label and the zoom label.
         status_bar = self.statusBar()
-        status_bar.insertPermanentWidget(1, self.coordinate_input_field)
+        # index 2/3: after the coordinate icon (0) and label (1) — #310 added
+        # a pixmap label in front of every status segment
+        status_bar.insertPermanentWidget(2, self._make_icon_label("status_input", tooltip=self.tr("Typed coordinate input")))
+        status_bar.insertPermanentWidget(3, self.coordinate_input_field)
 
         # Three top toolbars on the same row, left → right:
         #   MainToolbar (core tools)
@@ -1848,16 +1972,19 @@ class GardenPlannerApp(QMainWindow):
 
         # Tab 0: Garden Plan (existing canvas + sidebar)
         self._tab_widget.addTab(splitter, self.tr("Garden Plan"))
+        self._set_tab_icon(splitter, "tab_plan")
 
         # Tab 1: Planting Calendar (US-8.5)
         self.calendar_view = PlantingCalendarView(self.canvas_scene, self._project_manager)
         self.calendar_view.set_soil_service(self._soil_service)
         self._tab_widget.addTab(self.calendar_view, self.tr("Planting Calendar"))
+        self._set_tab_icon(self.calendar_view, "tab_calendar")
 
         # Tab 2: Seed Inventory (US-9.4)
         self.seed_inventory_view = SeedInventoryView()
         self.seed_inventory_view.set_canvas_scene(self.canvas_scene)  # US-9.6: bidirectional links
         self._tab_widget.addTab(self.seed_inventory_view, self.tr("Seed Inventory"))
+        self._set_tab_icon(self.seed_inventory_view, "seedling")
 
         # Tab: Tasks (US-C2, #188) — appended last (keeps existing tab indices,
         # the frost-badge setCurrentIndex(1), and Ctrl+1..4 valid).
@@ -1866,11 +1993,13 @@ class GardenPlannerApp(QMainWindow):
         )
         self.tasks_view.set_soil_service(self._soil_service)
         self._tab_widget.addTab(self.tasks_view, self.tr("Tasks"))
+        self._set_tab_icon(self.tasks_view, "tab_tasks")
 
         # Tab: Harvest (US-C1, #188) — appended last (keeps existing tab indices
         # and the frost-badge setCurrentIndex(1) valid).
         self.harvest_view = HarvestView(self.canvas_scene, self._project_manager)
         self._tab_widget.addTab(self.harvest_view, self.tr("Harvest"))
+        self._set_tab_icon(self.harvest_view, "tab_harvest")
 
         # Keyboard shortcuts: Ctrl+1 / Ctrl+2 / Ctrl+3 to switch tabs.
         # (The "Layout / Paper Space" tab was dropped — `pdf_report_service`
@@ -1918,7 +2047,7 @@ class GardenPlannerApp(QMainWindow):
         # ── Tasks tab wiring (US-C2, #188) ───────────────────────────────────
         # Ctrl shortcut for the Tasks tab — resolve its index (don't hardcode).
         tasks_shortcut = QAction(self)
-        tasks_shortcut.setShortcut(QKeySequence("Ctrl+5"))
+        tasks_shortcut.setShortcut(QKeySequence("Ctrl+4"))  # contiguous 1–5 (#310)
         tasks_shortcut.triggered.connect(
             lambda: self._tab_widget.setCurrentIndex(
                 self._tab_widget.indexOf(self.tasks_view)
@@ -1948,7 +2077,7 @@ class GardenPlannerApp(QMainWindow):
 
         # ── Harvest tab wiring (US-C1, #188) ─────────────────────────────────
         harvest_shortcut = QAction(self)
-        harvest_shortcut.setShortcut(QKeySequence("Ctrl+6"))
+        harvest_shortcut.setShortcut(QKeySequence("Ctrl+5"))  # contiguous 1–5 (#310)
         harvest_shortcut.triggered.connect(
             lambda: self._tab_widget.setCurrentIndex(
                 self._tab_widget.indexOf(self.harvest_view)
@@ -3620,6 +3749,7 @@ class GardenPlannerApp(QMainWindow):
         self.soil_overlay_toolbar = QToolBar(self.tr("Soil Overlay"), self)
         self.soil_overlay_toolbar.setObjectName("soil_overlay_toolbar")
         self.soil_overlay_toolbar.setMovable(False)
+        self.soil_overlay_toolbar.addWidget(self._make_icon_label("soil_overlay", size=16, tooltip=self.tr("Soil Health Overlay")))
         self.soil_overlay_toolbar.addWidget(QLabel(self.tr("Soil parameter:") + " "))
         self._soil_param_combo = QComboBox(self.soil_overlay_toolbar)
         # (display label, parameter key) — labels translated via self.tr.
@@ -5837,15 +5967,19 @@ class GardenPlannerApp(QMainWindow):
             self.harvest_view.refresh()
 
     def _on_frost_alert_ready(self, count: int, max_severity: str) -> None:
-        """Update the frost alert corner badge."""
+        """Update the frost alert corner badge (themed icon, re-applied on
+        theme switch via ``refresh_theme_icons`` — #310)."""
+        self._frost_badge_state = (count, max_severity)
         if count == 0:
             self._frost_badge.hide()
             return
-        icon = "❄" if max_severity == "red" else "⚠"
         bg = theme_color("error") if max_severity == "red" else theme_color("warning")
         text = theme_color("on_status")
+        icon = get_icon("frost" if max_severity == "red" else "warning", color=text)
+        if icon is not None:
+            self._frost_badge.setIcon(icon)
         label = self.tr("frost alert") if count == 1 else self.tr("frost alerts")
-        self._frost_badge.setText(f"  {icon} {count} {label}  ")
+        self._frost_badge.setText(f" {count} {label}  ")
         self._frost_badge.setStyleSheet(
             f"QPushButton {{ background: {bg}; color: {text}; font-weight: bold;"
             "  border-radius: 4px; padding: 2px 6px; }"
