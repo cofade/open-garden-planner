@@ -187,7 +187,7 @@ merged PR at run time; a label added after the workflow ran does nothing.
 ```bash
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe   # exit code 124 = success (app survived 8 s)
-powershell -Command "$p = Start-Process 'dist/OpenGardenPlanner/OpenGardenPlanner.exe' -ArgumentList '--selftest' -Wait -PassThru; exit $p.ExitCode"   # exit code 0 = subsystems alive
+powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'   # exit code 0 = subsystems alive
 ```
 **Both checks, not just the smoke.** The 8-second smoke proves only that the process stays
 up; it cannot see a *silently dead subsystem*, which is how issue #291 (the Agent API never

@@ -177,11 +177,21 @@ wheel version, then binds an ephemeral port and starts a real `AgentApiServer`
 with poisoned providers, asserting `is_running`.
 
 ```bash
-powershell -Command "$p = Start-Process 'dist/OpenGardenPlanner/OpenGardenPlanner.exe' -ArgumentList '--selftest' -Wait -PassThru; exit $p.ExitCode"
+powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
 echo $?   # 0 = PASS, 1 = a subsystem is dead
 ```
 
-**Two traps in the invocation, both measured:**
+**Quoting matters — the single quotes are load-bearing.** The outer string is
+**single**-quoted for bash and the inner PowerShell arguments are
+**double**-quoted, not the other way round. Inverted, bash expands `$p` itself
+before PowerShell ever sees it, and PowerShell receives
+`= Start-Process … ; exit .ExitCode` — two `CommandNotFoundException`s and exit
+1, i.e. a gate that now fails unconditionally instead of passing
+unconditionally. Both failure directions have been observed here; the form above
+is the one that was executed and returns the real code (verified end-to-end: a
+child exiting 3 propagates 3).
+
+**Two further traps in the invocation, both measured:**
 
 1. **PowerShell does not wait on a GUI-subsystem process.** A plain
    `& "…\OpenGardenPlanner.exe" --selftest` returns in ~6 ms with an *empty*

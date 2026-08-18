@@ -21,7 +21,7 @@ venv/Scripts/python.exe -m bandit -r src/ --severity-level high
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe
 # Exit code 124 (killed by timeout) = success
-powershell -Command "$p = Start-Process 'dist/OpenGardenPlanner/OpenGardenPlanner.exe' -ArgumentList '--selftest' -Wait -PassThru; exit $p.ExitCode"
+powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
 # Exit code 0 = Qt3D bindings import AND the Agent API server binds.
 # The 8-s smoke only proves the process stays up; --selftest is what sees a
 # silently-dead subsystem (#291 hid from the smoke for six releases). Must be

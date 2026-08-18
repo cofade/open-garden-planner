@@ -165,7 +165,7 @@ venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py -v
 venv/Scripts/python.exe scripts/check_agent_context.py
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe   # exit 124 = survived = pass
-powershell -Command "$p = Start-Process 'dist/OpenGardenPlanner/OpenGardenPlanner.exe' -ArgumentList '--selftest' -Wait -PassThru; exit $p.ExitCode"
+powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
 ```
 
 The exe build is the **last three lines of the battery, not an optional extra** — see step 6.
