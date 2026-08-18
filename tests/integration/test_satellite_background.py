@@ -25,7 +25,7 @@ def _menu_action(win, label_fragment: str) -> QAction | None:
         if menu is None:
             continue
         for act in menu.actions():
-            if label_fragment in act.text():
+            if label_fragment in act.text().replace("&", ""):
                 return act
     return None
 

@@ -1326,7 +1326,10 @@ renders at devicePixelRatio (crisp at 125/150 % Windows scaling; the dpr
 is part of the cache key, so mixed-DPI monitors stay sharp), adds a
 fully-grayed Disabled variant (both tokens → `text_disabled`), caches per
 `(name, size, dpr, tint, accent)`, and returns `None` for unknown names so
-every caller's text fallback keeps working. Category chips pass their
+every caller's text fallback keeps working — for `QAction`s and buttons that
+still carry text; the pixmap-only labels of #310 (status bar, collapsible
+chevron, crop-rotation status, constraint type) show an empty label instead,
+which is why the code→file gate exists. Category chips pass their
 muted identity tint (`theme.CATEGORY_ICON_TINTS`) as `color`.
 
 ### 8.21.3 Refresh protocol (theme switch without restart)
@@ -1395,8 +1398,8 @@ sun-sim and soil-overlay toolbars, and the theme's spin-box arrows (path
 SVGs — a `<text>` glyph depends on the system font). What deliberately stays
 text: arrows inside sentences ("File → Set Location", "A → B: reason",
 "pH 5.8 → 6.5" — named exceptions in the static guard, which scans every
-string constant — f-string parts and escapes included — of the migrated
-modules), canvas TEXT (dimension prefixes "↔ 1.20 m", the constraint tools'
+string constant — f-string parts and escapes included — of every module
+under `src/`, with a named list of exception files), canvas TEXT (dimension prefixes "↔ 1.20 m", the constraint tools'
 on-canvas preview labels "≡ H (same Y)" / "⊙ On Circle" / "⦿ Coincident",
 the succession badge's bullets — drawn in the app font on the canvas, not
 chrome; the one emoji among them, "🔒 Fix in place", is gone because emoji

@@ -10,6 +10,7 @@ switch through `refresh_theme_icons`.
 
 # ruff: noqa: ARG001, ARG002
 
+import pathlib
 import uuid
 
 import pytest
@@ -214,6 +215,42 @@ class TestPanelsAndWidgets:
         panel.set_info_tooltip("hint")
         assert panel._info_label.pixmap() is not None and not panel._info_label.pixmap().isNull()
 
+    @pytest.mark.parametrize("status", ["GOOD", "SUBOPTIMAL", "VIOLATION", "UNKNOWN"])
+    def test_crop_rotation_status_icon_renders_and_retints(self, qtbot, monkeypatch, status: str) -> None:
+        from open_garden_planner.services.crop_rotation_service import (
+            CropRotationService,
+            RotationRecommendation,
+            RotationStatus,
+        )
+        from open_garden_planner.ui.panels.crop_rotation_panel import CropRotationPanel
+
+        service = CropRotationService()
+        rec = RotationRecommendation(area_id="bed-1", status=RotationStatus[status],
+                                     avoid_families=[], suggested_demand=None, reason="",
+                                     last_records=[])
+        monkeypatch.setattr(service, "get_recommendation", lambda _area_id: rec)
+        panel = CropRotationPanel(service)
+        qtbot.addWidget(panel)
+
+        class _Bed:
+            name = "Bed 1"
+
+        app = QApplication.instance()
+        apply_theme(app, ThemeMode.LIGHT)
+        try:
+            panel.update_for_bed(_Bed(), "bed-1")
+            assert not panel._status_icon.isHidden()
+            pixmap = panel._status_icon.pixmap()
+            assert pixmap is not None and not pixmap.isNull()
+            assert not _has_glyph(panel._status_label.text())
+            light = _img(pixmap)
+            apply_theme(app, ThemeMode.DARK)
+            assert _img(panel._status_icon.pixmap()) != light, "crop-rotation status icon did not re-tint"
+            panel.update_for_bed(None, None)
+            assert panel._status_icon.isHidden()
+        finally:
+            apply_theme(app, ThemeMode.LIGHT)
+
     def test_view3d_toolbar_actions_carry_icons(self, qtbot) -> None:
         pytest.importorskip("PyQt6.Qt3DCore")
         from open_garden_planner.ui.view3d.view3d_window import View3DWindow
@@ -239,59 +276,43 @@ class TestPanelsAndWidgets:
 
 
 class TestNoEmojiInChromeSources:
-    """Static guard over the migrated modules: no pseudo-icon character
+    """Static guard over the WHOLE package: no pseudo-icon character
     (PSEUDO_ICON_RANGES — arrows, math operators, technical, geometric,
     misc symbols, dingbats, supplemental symbols, pictographs) may appear in
-    CODE outside the documented prose exceptions below. Comments are ignored;
-    the exceptions are the textual arrows inside sentences that §8.21.5 keeps
-    ("File → Set Garden Location", "A → B: reason", "5.8 → 6.5")."""
+    any string constant of any module under `src/open_garden_planner`,
+    except in the named EXCEPTION_FILES (canvas text, domain/prose strings —
+    each listed with its reason, §8.21.5) and after the named PROSE_FRAGMENTS
+    are stripped out of a literal (textual arrows inside sentences).
+    Docstrings are excluded by node identity; f-string parts and escapes are
+    seen decoded (round-2/3 review: an allowlist of modules and whole-literal
+    exemptions were both fitted to the implementation — this is inverted)."""
 
-    # (module, substring) pairs that are prose, not chrome — each one is a
-    # deliberate §8.21.5 exception, listed so the guard stays honest
-    PROSE_EXCEPTIONS = {
-        ("app/application.py", "File → Set Garden Location"),
-        ("ui/dialogs/succession_plan_dialog.py", " → "),          # "A → B: reason" (f-string part)
-        ("ui/dialogs/soil_test_dialog.py", "→"),                   # "Raises pH {cur} → {tgt}" and friends
-        ("ui/canvas/dimension_lines.py", "↔"),                     # canvas dimension label prefix (§8.21.5)
-        ("ui/canvas/dimension_lines.py", "↕"),                     # canvas dimension label prefix (§8.21.5)
-        ("ui/canvas/dimension_lines.py", "⦿"),                     # canvas coincident marker text (§8.21.5)
-        ("ui/canvas/dimension_lines.py", "∥"),                     # canvas parallel marker text (§8.21.5)
-        ("ui/canvas/dimension_lines.py", "⊾"),                     # canvas perpendicular marker text (§8.21.5)
+    # files whose pseudo-icon literals are NOT chrome; reason per file
+    EXCEPTION_FILES = {
+        "agent_api/schema.py": "API doc strings (arrows in field descriptions)",
+        "core/tools/constraint_tool.py": "on-canvas constraint preview labels — canvas text (§8.21.5)",
+        "models/amendment.py": "domain rationale text ('pH 5.8 → 6.5')",
+        "models/smart_symbol.py": "domain symbol table",
+        "services/soil_service.py": "domain rationale text",
+        "ui/canvas/dimension_lines.py": "canvas dimension/marker labels — canvas text (§8.21.5)",
+        "ui/canvas/items/circle_item.py": "canvas item text",
+        "ui/canvas/items/garden_item.py": "succession badge bullets on the canvas (§8.21.5)",
+        "ui/dialogs/location_dialog.py": "prose (zone scale '1a → 13b')",
+        "ui/panels/plant_database_panel.py": "prose",
+        "ui/widgets/update_bar.py": "external-link arrow in the banner (typography, §8.21.5)",
     }
-    MODULES = [
-        "app/application.py",
-        "ui/panels/layers_panel.py",
-        "ui/panels/plant_search_panel.py",
-        "ui/panels/companion_panel.py",
-        "ui/panels/journal_panel.py",
-        "ui/panels/constraints_panel.py",
-        "ui/views/planting_calendar_view.py",
-        "ui/views/tasks_view.py",
-        "ui/views/seed_inventory_view.py",
-        "ui/dialogs/seed_inventory_dialog.py",
-        "ui/dialogs/season_manager_dialog.py",
-        "ui/widgets/collapsible_panel.py",
-        "ui/widgets/weather_widget.py",
-        "services/weather_service.py",
-        "ui/theme.py",
-        "ui/dialogs/succession_plan_dialog.py",
-        "ui/dialogs/shortcuts_dialog.py",
-        "ui/view3d/view3d_window.py",
-        "ui/widgets/sun_sim_toolbar.py",
-        "ui/panels/crop_rotation_panel.py",
-        "ui/panels/properties_panel.py",
-        "ui/dialogs/soil_test_dialog.py",
-        "ui/canvas/dimension_lines.py",
+    # textual arrows inside sentences — stripped from a literal before scanning
+    PROSE_FRAGMENTS = [
+        "File → Set Garden Location",   # application.py location prompts
+        " → ",                           # "A → B: reason", "5.8 → 6.5"
     ]
 
     @staticmethod
     def _string_literals(source_path):
         """(lineno, decoded text) of every string constant that is NOT a
         docstring — walks `ast.Constant`, so f-string literal parts
-        (`JoinedStr` values) and `\\uXXXX` escapes are seen DECODED (round-2
-        review: a `tokenize`-based scan saw neither, i.e. exactly the two
-        syntaxes the pre-migration code used). Docstrings are excluded by node
-        identity, not by line."""
+        (`JoinedStr` values) and `\\uXXXX` escapes are seen DECODED.
+        Docstrings are excluded by node identity, not by line."""
         import ast
 
         text = source_path.read_text(encoding="utf-8")
@@ -309,27 +330,54 @@ class TestNoEmojiInChromeSources:
                 out.append((node.lineno, node.value))
         return out
 
-    @pytest.mark.parametrize("module", MODULES)
-    def test_no_banned_glyph_in_code(self, module: str) -> None:
+    @classmethod
+    def _src_modules(cls):
+        from pathlib import Path
+
+        root = Path(__file__).parents[2] / "src" / "open_garden_planner"
+        return sorted(str(p.relative_to(root)).replace("\\", "/") for p in root.rglob("*.py"))
+
+    def _offenders(self, module: str) -> list[tuple[int, str]]:
         from pathlib import Path
 
         src = Path(__file__).parents[2] / "src" / "open_garden_planner" / module
-        exceptions = [frag for mod, frag in self.PROSE_EXCEPTIONS if mod == module]
         offenders = []
         for lineno, literal in self._string_literals(src):
-            if any(frag in literal for frag in exceptions):
-                continue
-            if any(_is_pseudo_icon_char(ch) for ch in literal):
+            stripped = literal
+            for frag in self.PROSE_FRAGMENTS:
+                stripped = stripped.replace(frag, "")
+            if any(_is_pseudo_icon_char(ch) for ch in stripped):
                 offenders.append((lineno, literal[:80]))
-        assert offenders == [], offenders
+        return offenders
 
-    def test_prose_exceptions_still_exist(self) -> None:
-        """An exception whose text vanished would silently widen the guard —
-        each fragment must occur in a NON-docstring string constant of its
-        module (i.e. where the guard would actually see it)."""
-        from pathlib import Path
+    def test_no_pseudo_icon_literal_anywhere_in_src(self) -> None:
+        bad: dict[str, list[tuple[int, str]]] = {}
+        for module in self._src_modules():
+            if module in self.EXCEPTION_FILES:
+                continue
+            offenders = self._offenders(module)
+            if offenders:
+                bad[module] = offenders
+        assert bad == {}, bad
 
-        for mod, frag in self.PROSE_EXCEPTIONS:
-            src = Path(__file__).parents[2] / "src" / "open_garden_planner" / mod
-            literals = [text for _ln, text in self._string_literals(src)]
-            assert any(frag in lit for lit in literals), (mod, frag)
+    def test_exception_files_are_still_needed(self) -> None:
+        """An exception file that no longer contains any pseudo-icon literal
+        would silently widen the guard — drop it from the list instead."""
+        stale = [m for m in self.EXCEPTION_FILES if not self._offenders(m)]
+        assert stale == [], stale
+
+    def test_prose_fragments_still_occur(self) -> None:
+        """A fragment that vanished from every guarded literal is dead config."""
+        modules = [m for m in self._src_modules() if m not in self.EXCEPTION_FILES]
+        for frag in self.PROSE_FRAGMENTS:
+            found = any(frag in lit for m in modules for _ln, lit in self._string_literals(
+                pathlib.Path(__file__).parents[2] / "src" / "open_garden_planner" / m))
+            assert found, frag
+
+    def test_guard_has_teeth(self, tmp_path) -> None:
+        """Positive control: an f-string part and a \\u escape are both seen."""
+        probe = tmp_path / "probe.py"
+        probe.write_text('"""\u2192 docstring is ignored"""\nX = f"{1} \u2705 ok"\nY = "\\u26a0"\n', encoding="utf-8")
+        found = [t for _ln, t in self._string_literals(probe)]
+        assert any("✅" in t for t in found) and any("⚠" in t for t in found)
+        assert not any("→" in t for t in found)

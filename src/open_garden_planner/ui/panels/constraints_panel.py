@@ -157,7 +157,6 @@ class ConstraintListItem(QWidget):
         layout.addWidget(self._type_label)
 
 
-
         # Object names and constraint label
         if constraint_type_name == "HORIZONTAL":
             detail = self.tr("Horizontal")
@@ -188,6 +187,18 @@ class ConstraintListItem(QWidget):
         elif constraint_type_name == "EQUAL":
             detail = self.tr("Equal")
             tooltip = self.tr("{a} equal size to {b}").format(a=label_a, b=label_b)
+        elif constraint_type_name == "SYMMETRY_HORIZONTAL":
+            detail = self.tr("Symmetric")  # target = mirror-axis coordinate, not a distance
+            tooltip = self.tr("{a} symmetric to {b} about the horizontal axis").format(a=label_a, b=label_b)
+        elif constraint_type_name == "SYMMETRY_VERTICAL":
+            detail = self.tr("Symmetric")
+            tooltip = self.tr("{a} symmetric to {b} about the vertical axis").format(a=label_a, b=label_b)
+        elif constraint_type_name == "POINT_ON_EDGE":
+            detail = self.tr("On edge")
+            tooltip = self.tr("{a} lies on the edge of {b}").format(a=label_a, b=label_b)
+        elif constraint_type_name == "POINT_ON_CIRCLE":
+            detail = self.tr("On circle")  # target = radius, shown by the circle itself
+            tooltip = self.tr("{a} lies on the circle of {b}").format(a=label_a, b=label_b)
         elif constraint_type_name == "FIXED":
             detail = self.tr("Fixed")
             tooltip = self.tr("{a} is fixed in place").format(a=label_a)

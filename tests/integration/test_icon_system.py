@@ -140,6 +140,52 @@ class TestAppWiring:
         shortcuts = {a.shortcut().toString() for a in win.actions()}
         assert "Ctrl+4" in shortcuts and "Ctrl+5" in shortcuts and "Ctrl+6" not in shortcuts
 
+    @pytest.mark.parametrize("lang", ["en", "de"])
+    def test_menu_mnemonics_are_unique_per_language(self, qtbot, monkeypatch, lang: str) -> None:
+        """#310 restructured the View menu and renamed mnemonics twice; the
+        English `&F` fix created `&f`/`&v` clashes in the GERMAN View menu
+        (round-3 review) — nothing exercised the German build. Every menu, in
+        every shipped language: one mnemonic letter per action."""
+        import re
+
+        from open_garden_planner.core.i18n import load_translator
+
+        app = QApplication.instance()
+        load_translator(app, lang)
+        try:
+            win = _make_app(qtbot, monkeypatch)
+            clashes: list[str] = []
+
+            def walk(menu, path: str) -> None:
+                seen: dict[str, str] = {}
+                for action in menu.actions():
+                    if action.isSeparator():
+                        continue
+                    text = action.text()
+                    m = re.search(r"&(?!&)(.)", text)
+                    if m:
+                        key = m.group(1).lower()
+                        if key in seen:
+                            clashes.append(f"{lang}: {path}: '&{key}' in {seen[key]!r} and {text!r}")
+                        seen[key] = text
+                    if action.menu() is not None:
+                        walk(action.menu(), f"{path} > {text}")
+
+            for top in win.menuBar().actions():
+                walk(top.menu(), top.text())
+            # the menubar itself
+            bar_keys: dict[str, str] = {}
+            for top in win.menuBar().actions():
+                m = re.search(r"&(?!&)(.)", top.text())
+                if m:
+                    key = m.group(1).lower()
+                    if key in bar_keys:
+                        clashes.append(f"{lang}: menubar: '&{key}' in {bar_keys[key]!r} and {top.text()!r}")
+                    bar_keys[key] = top.text()
+            assert clashes == [], clashes
+        finally:
+            load_translator(app, "en")
+
     def test_frost_badge_icon_and_theme_replay(self, qtbot, monkeypatch) -> None:
         """#310: the frost corner badge shows a provider icon (frost / warning)
         tinted with `on_status`; `refresh_theme_icons` re-applies it from the
