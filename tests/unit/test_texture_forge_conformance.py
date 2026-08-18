@@ -44,11 +44,12 @@ _spec.loader.exec_module(forge)
 
 ALL_NAMES = sorted(forge.TEXTURES)
 
-# Visual-weight band, measured on the shipped set 2026-08-18 (8-bit luminance):
-# mean 46.7 (compost) … 215.3 (glass); std 4.6 (concrete, sand) … 29.3 (brick);
-# local detail (mean |neighbour step|, both axes summed) 2.61 (corten) … 20.7
-# (gravel). Floors sit under the smoothest shipped materials with headroom;
-# the mean band keeps room for the tint to move the hue in both directions.
+# Visual-weight band, measured on the shipped set 2026-08-18 (final
+# regeneration; 8-bit luminance): mean 46.7 (compost) … 215.5 (glass);
+# std 4.39 (sand) … 29.57 (brick); local detail (mean |neighbour step|, both
+# axes summed) 2.50 (corten) … 20.59 (gravel). Floors sit under the smoothest
+# shipped materials with headroom; the mean band keeps room for the tint to
+# move the hue in both directions.
 MEAN_BAND = (40.0, 225.0)
 MIN_STD = 4.0
 MIN_LOCAL_DETAIL = 2.0
@@ -106,6 +107,34 @@ class TestCommittedFiles:
         assert MEAN_BAND[0] <= mean <= MEAN_BAND[1], f"{name}: mean {mean:.1f}"
         assert std >= MIN_STD, f"{name}: std {std:.2f} (flat — the tint would erase it)"
         assert detail >= MIN_LOCAL_DETAIL, f"{name}: local detail {detail:.2f}"
+
+
+class TestRoofTileOverhangReplay:
+    """The roof's bottom course is repainted at y − 256 so its overhang wraps
+    onto the top edge with the interior's layering. That repaint must replay
+    the SAME rng state the row was drawn with — otherwise the wrapped tiles get
+    different tone jitter than the tiles they continue. Senior review round 1
+    (2026-08-18) found the replay used the post-loop state; NO seam metric
+    saw it (ratio_y 0.17 against 1.6 — the metric grades against the
+    texture's own hard edges). This pin reads the rng stream itself: the last
+    per_row `jitter` draws of the build equal the first per_row draws."""
+
+    def test_wrapped_overhang_replays_the_bottom_row_jitter(self, monkeypatch) -> None:
+        recorded: list[tuple[float, float, float]] = []
+        real_jitter = forge.jitter
+
+        def spy(rng, c, amount):
+            col = real_jitter(rng, c, amount)
+            recorded.append(col)
+            return col
+
+        monkeypatch.setattr(forge, "jitter", spy)
+        forge.build_texture("roof_tiles")
+        per_row = 16
+        assert len(recorded) == 12 * per_row + per_row, len(recorded)
+        assert recorded[-per_row:] == recorded[:per_row], (
+            "overhang repaint does not replay the bottom row's tone jitter"
+        )
 
 
 class TestGateMechanics:

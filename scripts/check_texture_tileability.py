@@ -13,7 +13,8 @@ inside its own edge family (ratio ≤ 1-ish), a genuinely non-tiling image
 Threshold: 1.6 — calibrated 2026-07-20 (US-E9) on the first pilots and the
 wood/gravel/grass calibrators; a synthetic gradient fails by an order of
 magnitude. Since Package 3b (#309, 2026-08-18) EVERY shipped texture comes
-out of the numpy torus painter and passes (max shipped ratio 0.94, pebbles);
+out of the numpy torus painter and passes (see the calibration note below
+for the shipped maximum, quoted from the tool's own output);
 `tests/unit/test_texture_tileability.py` parametrises all files, so a seamed
 texture can no longer be grandfathered.
 
@@ -37,8 +38,11 @@ from PIL import Image
 # Calibration note: unchanged since US-E9 (2026-07-20). The 2026-07 decking
 # pilot put a board gap ON the wrap and scored x=1.55 (3 % headroom); the
 # #309 set keeps every joint either symmetric on the wrap (pixel-centre
-# sampling makes that exact) or clear of it — shipped maximum 0.94 (pebbles),
-# decking now 0.33, glass 0.00. Recalibrate ONLY with a
+# sampling makes that exact) or clear of it. Tool output, 2026-08-18 (final
+# regeneration): "pebbles.png x= 0.95 y= 0.82", "sand.png x= 0.92 y= 0.94",
+# "mulch.png x= 0.81 y= 0.93", "decking.png x= 0.33 y= 0.48",
+# "brick.png x= 0.04 y= 0.08", "glass.png x= 0.00 y= 0.00" — shipped maximum
+# 0.95 (pebbles, x). Recalibrate ONLY with a
 # written rationale here AND in the test (owner rule, #309): the metric grades
 # a texture against its own 98th-percentile internal step, so structured tiles
 # with hard edges everywhere get proportionally more slack than organic ones.

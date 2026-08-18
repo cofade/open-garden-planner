@@ -1493,13 +1493,19 @@ edges), and `wrap_blur` is an in-repo separable Gaussian built on `np.roll`.
 Structured layouts (brick courses, planks, laths, panes, roof courses) divide
 256 exactly, so a joint or bar either **straddles the wrap symmetrically**
 (brick/stone/slate courses, the glazing bars — the painter samples at
-pixel centres, so the wrap sits exactly on the joint's mirror line and the
-two sides are identical: glass scores 0.00, brick 0.05)
+pixel centres everywhere (windows, analytic fields, noise, Voronoi), so the
+wrap sits exactly on the joint's mirror line and the two sides are
+identical: glass 0.00/0.00, brick 0.04/0.08)
 or lies **clear of it** (wood/decking plank joints at half-pitch offsets);
 what must never happen is a joint landing *near* the wrap asymmetrically.
 The roof's bottom course repaints its wrapped overhang — with the same RNG
-state the row was drawn with — so the overlap layering AND the per-tile tone
-are seam-correct. All randomness
+state the row was drawn with, pinned by reading the rng stream
+(`TestRoofTileOverhangReplay`) because no seam metric can see a tone
+mismatch on a texture full of hard edges — so the overlap layering AND the
+per-tile tone are seam-correct. Know what the gates catch: the seam metric
+catches broken tiling, the band catches flatness, the pixel gate catches
+drift; layering, replay and light-direction defects are found by reading
+code and by the owner's eye (both #309 review rounds found one each). All randomness
 flows through `random.Random(seed_for(name))` (`"ogp-<name>-lush"`), which is
 stream-stable across CPython versions; no numpy RNG, no rasterizer, no
 Pillow filter is involved — Pillow only encodes/decodes PNG. The binding

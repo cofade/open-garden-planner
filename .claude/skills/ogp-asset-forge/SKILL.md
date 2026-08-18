@@ -56,9 +56,9 @@ shipped textures (`src/open_garden_planner/resources/textures/`) at 1:1 AND
    `np.roll`. Structured layouts (courses, planks, laths, panes) must divide
    256 exactly; a joint or bar then either **straddles the wrap
    symmetrically** (brick/stone/slate courses, glazing bars — the painter
-   samples at pixel centres, so the wrap sits exactly on the joint's mirror
-   line: glass scores 0.00) or lies **clear of it** (plank joints at
-   half-pitch offsets);
+   samples at pixel centres everywhere, so the wrap sits exactly on the
+   joint's mirror line: glass scores 0.00) or lies **clear of it** (plank
+   joints at half-pitch offsets);
    never *near* it asymmetrically. A wrapped repaint (roof overhang) must
    replay the SAME rng state the original row used.
    All randomness through the `rng` argument (`random.Random(seed_for(name))`,

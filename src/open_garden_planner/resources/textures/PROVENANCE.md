@@ -14,7 +14,9 @@ all come out of one generator:
 - **Seed**: one deterministic string per texture, `ogp-<name>-lush`
   (`seed_for()`), fed to `random.Random` — stream-stable across CPython
   versions and platforms.
-- **Date**: 2026-08-18 (all 24 regenerated in the "Lush" language; the
+- **Date**: 2026-08-18 (all 24 regenerated in the "Lush" language — final
+  regeneration after two senior-review rounds: pixel-centre sampling for
+  windows, analytic fields, noise and Voronoi; roof overhang RNG replay; the
   US-E9 pilots decking/corten of 2026-07-20 and the #281 hedge of
   2026-07-27 were re-rendered through the same painter — their pixels
   changed, their look and seeds were kept).

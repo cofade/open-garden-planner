@@ -94,7 +94,7 @@ def lattice_noise(rng: random.Random, cells: int) -> np.ndarray:
     vals = np.array(
         [[rng.random() for _ in range(cells)] for _ in range(cells)], dtype=np.float64
     )
-    u = np.arange(C, dtype=np.float64) * (cells / C)
+    u = (np.arange(C, dtype=np.float64) + 0.5) * (cells / C)  # pixel centres
     i0 = np.floor(u).astype(np.int64) % cells
     i1 = (i0 + 1) % cells
     f = _smooth(u - np.floor(u))
@@ -144,7 +144,7 @@ def voronoi(
             sx = (i + 0.5) * pitch + rng.uniform(-0.5, 0.5) * jitter_amt * pitch
             sy = (j + 0.5) * pitch + rng.uniform(-0.5, 0.5) * jitter_amt * pitch
             seeds.append((sx, sy))
-    ys, xs = np.mgrid[0:C, 0:C].astype(np.float64)
+    ys, xs = np.mgrid[0:C, 0:C].astype(np.float64) + 0.5  # pixel centres
     if warp is not None:
         xs = xs + warp[0]
         ys = ys + warp[1]
@@ -210,7 +210,8 @@ class Tile:
         coordinate is then mirror-symmetric about that line, so a joint or
         bar on the wrap has an identical profile on both sides of it
         (senior review 2026-08-18: integer sampling put a half-pixel bias
-        into every wrap-centred joint — glass y 1.41 → 0.00 after this)."""
+        into every wrap-centred joint — glass `seam_ratios` y 1.43 → 0.00
+        after this; noise/Voronoi fields sample at centres too)."""
         cx, cy, rx, ry = cx * SS, cy * SS, rx * SS, ry * SS
         x0 = int(math.floor(cx - rx - 2))
         x1 = int(math.ceil(cx + rx + 2))
@@ -294,7 +295,8 @@ class Tile:
         col = np.asarray(color, dtype=np.float64)[None, None, :] * f[..., None]
         y_raw = None
         if clip_wrap:  # raw (unwrapped) window rows, for painting only inside the tile
-            assert len(iy) < C, "clip_wrap needs a windowed (not full-height) primitive"
+            if len(iy) >= C:
+                raise ValueError("clip_wrap needs a windowed (not full-height) primitive")
             y0 = int(math.floor(cy * SS - ext * SS - 2))
             y_raw = np.arange(y0, y0 + len(iy))[:, None] * np.ones((1, len(ix)))
         self._paint(iy, ix, cov, col, clip_wrap, y_raw)
@@ -425,8 +427,11 @@ class Tile:
             f = f * (1.0 + (crown - 1.0) * _smooth(inset))
         col = np.asarray(color, dtype=np.float64)[None, None, :] * f[..., None]
         y_raw = None
-        if clip_wrap and h is not None:
-            assert len(iy) < C, "clip_wrap needs a windowed (not full-height) primitive"
+        if clip_wrap and h is None:
+            raise ValueError("clip_wrap is meaningless for a full-height plank (h=None)")
+        if clip_wrap:
+            if len(iy) >= C:
+                raise ValueError("clip_wrap needs a windowed (not full-height) primitive")
             y0 = int(math.floor(cy * SS - ext * SS - 2))
             y_raw = np.arange(y0, y0 + len(iy))[:, None] * np.ones((1, len(ix)))
         self._paint(iy, ix, cov, col, clip_wrap, y_raw)
@@ -769,7 +774,7 @@ def generate_soil(rng: random.Random) -> Image.Image:
 
 
 def generate_mulch(rng: random.Random) -> Image.Image:
-    """Bark mulch: dark humus ground, layered elongated chips in five browns
+    """Bark mulch: dark humus ground, layered elongated chips in eight browns
     with occlusion under each chip, a few pale fresh splinters."""
     t = Tile((70, 46, 28))
     t.mottle(rng, 4, 3, 0.10)
@@ -828,13 +833,21 @@ def generate_roof_tiles(rng: random.Random) -> Image.Image:
     # bottom row's wrapped overhang so the seam layering matches the interior.
     # The repaint MUST replay the rng state the bottom row was drawn with —
     # otherwise the overhang tiles get different tone jitter than the tiles
-    # they continue (senior review 2026-08-18: seam_y 3.95 → 1.45).
-    start_state = rng.getstate()
+    # they continue (senior review round 1, 2026-08-18: raw |row0 − row255|
+    # 3.95 → 1.45 with integer sampling; shipped 1.93 / x 0.80 after
+    # pixel-centre sampling of windows, fields, noise and Voronoi). Pinned by
+    # tests/unit/test_texture_forge_conformance.py::TestRoofTileOverhangReplay
+    # (the last 16 jitter draws equal the first 16) — no seam metric sees it.
+    bottom_row = rows - 1
+    bottom_state = None
     for row in range(rows - 1, -1, -1):
+        if row == bottom_row:
+            bottom_state = rng.getstate()  # captured for THIS row, not by loop order
         draw_row(row, 0.0, False)
     end_state = rng.getstate()
-    rng.setstate(start_state)
-    draw_row(rows - 1, -SIZE, True)
+    assert bottom_state is not None
+    rng.setstate(bottom_state)
+    draw_row(bottom_row, -SIZE, True)
     rng.setstate(end_state)
     t.grain(rng, 0.03)
     speckle(t, rng, 160, (0.4, 0.9), [(150, 70, 48), (214, 130, 92)], alpha=0.6)
@@ -1374,7 +1387,14 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"ok     {name}.png")
             else:
                 stale.append(name)
-                print(f"STALE  {name}.png")
+                if have is None:
+                    print(f"STALE  {name}.png (missing)")
+                elif have.shape != (SIZE, SIZE, 3):
+                    print(f"STALE  {name}.png (shape {have.shape})")
+                else:
+                    diff = np.abs(have.astype(np.int16) - np.asarray(img).astype(np.int16))
+                    n_px = int(np.count_nonzero(diff.max(axis=2)))
+                    print(f"STALE  {name}.png ({n_px} px differ, max channel delta {int(diff.max())})")
         elif same:
             print(f"same   {name}.png (pixels unchanged - file left alone)")
         else:
