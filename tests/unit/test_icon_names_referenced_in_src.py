@@ -11,8 +11,9 @@ directions that matter:
   `_make_icon_label`, `_set_tab_icon` helpers, the panels'
   `_themed_icon` / `_set_checkbox_icon`) names an existing icon;
 - every icon name in the code-side lookup TABLES (plant-search type map,
-  constraints-panel type map, seed-viability map, weather WMO map,
-  properties-panel object-type map) exists.
+  constraints-panel type map, crop-rotation status map, seed-viability map,
+  weather WMO map, properties-panel object-type map, the toolbar rows and
+  the built gallery) exists.
 
 The regex deliberately catches literals only — a name computed at runtime
 still goes through the provider's own ``None`` fallback, which
@@ -72,9 +73,10 @@ def test_lookup_tables_name_existing_icons(qtbot) -> None:  # noqa: ARG001 — g
     from open_garden_planner.services.weather_service import _WMO_CODE_MAP, wmo_to_icon
     from open_garden_planner.ui.dialogs.seed_inventory_dialog import SeedTableModel
     from open_garden_planner.ui.panels.constraints_panel import _TYPE_ICONS as CONSTRAINT_ICONS
+    from open_garden_planner.ui.panels.crop_rotation_panel import _STATUS_ICONS as ROTATION_ICONS
     from open_garden_planner.ui.panels.plant_search_panel import _TYPE_ICONS as PLANT_ICONS
 
-    names = set(CONSTRAINT_ICONS.values()) | set(PLANT_ICONS.values())
+    names = set(CONSTRAINT_ICONS.values()) | set(PLANT_ICONS.values()) | set(ROTATION_ICONS.values())
     names |= set(SeedTableModel._VIA_ICONS.values())
     names |= {icon for _, icon in _WMO_CODE_MAP.values()} | {wmo_to_icon(-1)}
     # main toolbar / constraint toolbar / category chips / gallery entries: any

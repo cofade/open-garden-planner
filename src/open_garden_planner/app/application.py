@@ -908,7 +908,7 @@ class GardenPlannerApp(QMainWindow):
         menu.addSeparator()
 
         # Manage Seasons (US-10.7)
-        seasons_action = QAction(self.tr("Manage &Seasons..."), self)
+        seasons_action = QAction(self.tr("&Manage Seasons..."), self)
         seasons_action.setStatusTip(self.tr("Create a new season or switch between seasons"))
         seasons_action.triggered.connect(self._on_manage_seasons)
         self._set_action_icon(seasons_action, "seasons")
@@ -924,7 +924,7 @@ class GardenPlannerApp(QMainWindow):
         menu.addAction(import_image_action)
 
         # Load Satellite Background (via embedded Google Maps picker)
-        load_satellite_action = QAction(self.tr("Load &Satellite Background..."), self)
+        load_satellite_action = QAction(self.tr("Load Sa&tellite Background..."), self)
         _enabled_hint = self.tr(
             "Pick an area on Google Maps and load it as a true-to-scale "
             "satellite background"
@@ -1067,7 +1067,7 @@ class GardenPlannerApp(QMainWindow):
         menu.addAction(paste_action)
 
         # Duplicate
-        duplicate_action = QAction(self.tr("D&uplicate"), self)
+        duplicate_action = QAction(self.tr("Dupl&icate"), self)
         duplicate_action.setShortcut(QKeySequence("Ctrl+D"))
         duplicate_action.setStatusTip(self.tr("Duplicate selected objects"))
         duplicate_action.triggered.connect(self._on_duplicate)
@@ -1143,13 +1143,13 @@ class GardenPlannerApp(QMainWindow):
 
         align_menu.addSeparator()
 
-        dist_h = QAction(self.tr("Distribute &Horizontal"), self)
+        dist_h = QAction(self.tr("&Distribute Horizontal"), self)
         dist_h.setStatusTip(self.tr("Distribute selected objects with equal horizontal spacing"))
         dist_h.triggered.connect(self._on_distribute_horizontal)
         self._set_action_icon(dist_h, "distribute_h")
         align_menu.addAction(dist_h)
 
-        dist_v = QAction(self.tr("Distribute &Vertical"), self)
+        dist_v = QAction(self.tr("D&istribute Vertical"), self)
         dist_v.setStatusTip(self.tr("Distribute selected objects with equal vertical spacing"))
         dist_v.triggered.connect(self._on_distribute_vertical)
         self._set_action_icon(dist_v, "distribute_v")
@@ -1158,7 +1158,7 @@ class GardenPlannerApp(QMainWindow):
         menu.addSeparator()
 
         # Canvas Size
-        canvas_size_action = QAction(self.tr("Canvas &Size..."), self)
+        canvas_size_action = QAction(self.tr("Canvas Si&ze..."), self)
         canvas_size_action.setStatusTip(self.tr("Resize the canvas dimensions"))
         canvas_size_action.triggered.connect(self._on_canvas_size)
         self._set_action_icon(canvas_size_action, "canvas_size")
@@ -1198,7 +1198,7 @@ class GardenPlannerApp(QMainWindow):
         menu.addSeparator()
 
         # Preferences
-        preferences_action = QAction(self.tr("&Preferences..."), self)
+        preferences_action = QAction(self.tr("Pr&eferences..."), self)
         preferences_action.setStatusTip(self.tr("Configure application settings and API keys"))
         preferences_action.triggered.connect(self._on_preferences)
         self._set_action_icon(preferences_action, "preferences")
@@ -1344,7 +1344,7 @@ class GardenPlannerApp(QMainWindow):
         snap_menu.addAction(self._tangent_snap_action)
 
         # Toggle Dynamic Input (Package A - US-A4)
-        self._dynamic_input_action = QAction(self.tr("Enable Dynamic &Input"), self)
+        self._dynamic_input_action = QAction(self.tr("Enable &Dynamic Input"), self)
         self._dynamic_input_action.setCheckable(True)
         self._dynamic_input_action.setChecked(True)
         self._dynamic_input_action.setStatusTip(
@@ -1480,7 +1480,7 @@ class GardenPlannerApp(QMainWindow):
         overlays_menu.addAction(self._minimap_action)
 
         # Toggle previous-season compare overlay (US-10.7)
-        self._compare_overlay_action = QAction(self.tr("Show &Previous Season Overlay"), self)
+        self._compare_overlay_action = QAction(self.tr("Show P&revious Season Overlay"), self)
         self._compare_overlay_action.setCheckable(True)
         self._compare_overlay_action.setChecked(False)
         self._compare_overlay_action.setEnabled(False)  # Enabled when overlay data is loaded
@@ -1603,7 +1603,7 @@ class GardenPlannerApp(QMainWindow):
         menu.addAction(amendment_plan_action)
 
         # Shopping list (US-12.6)
-        shopping_list_action = QAction(self.tr("&Shopping List…"), self)
+        shopping_list_action = QAction(self.tr("S&hopping List…"), self)
         shopping_list_action.setStatusTip(
             self.tr("Generate a shopping list of plants, seeds, and materials")
         )

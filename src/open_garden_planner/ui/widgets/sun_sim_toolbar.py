@@ -77,7 +77,7 @@ class SunSimToolbar(QToolBar):
         self._animate_button.setText(self.tr("Animate"))
         self._animate_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self._animate_button.setCheckable(True)
-        self._animate_button.toggled.connect(lambda _c: self.refresh_theme_icons())
+        self._animate_button.toggled.connect(lambda _c: self._update_animate_icon())
         self._animate_button.setToolTip(
             self.tr("Animate the sun across the day")
         )
@@ -117,12 +117,15 @@ class SunSimToolbar(QToolBar):
 
     # ── public API ─────────────────────────────────────────────
 
-    def refresh_theme_icons(self) -> None:
-        """Theme-switch hook (#310): play/pause on Animate, sun-hours glyph
-        on the heatmap button, a clock next to the time label."""
+    def _update_animate_icon(self) -> None:
         play = get_icon("player_pause" if self._animate_button.isChecked() else "player_play")
         if play is not None:
             self._animate_button.setIcon(play)
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook (#310): play/pause on Animate, sun-hours glyph
+        on the heatmap button, a clock next to the time label."""
+        self._update_animate_icon()
         heat = get_icon("sun_sim")
         if heat is not None:
             self._heatmap_button.setIcon(heat)

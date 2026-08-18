@@ -1203,6 +1203,34 @@
             <source>Equal</source>
             <translation>Gleich</translation>
         </message>
+        <message>
+            <source>Symmetric</source>
+            <translation>Symmetrisch</translation>
+        </message>
+        <message>
+            <source>{a} symmetric to {b} about the horizontal axis</source>
+            <translation>{a} symmetrisch zu {b} um die horizontale Achse</translation>
+        </message>
+        <message>
+            <source>{a} symmetric to {b} about the vertical axis</source>
+            <translation>{a} symmetrisch zu {b} um die vertikale Achse</translation>
+        </message>
+        <message>
+            <source>On edge</source>
+            <translation>Auf Kante</translation>
+        </message>
+        <message>
+            <source>{a} lies on the edge of {b}</source>
+            <translation>{a} liegt auf der Kante von {b}</translation>
+        </message>
+        <message>
+            <source>On circle</source>
+            <translation>Auf Kreis</translation>
+        </message>
+        <message>
+            <source>{a} lies on the circle of {b}</source>
+            <translation>{a} liegt auf dem Kreis von {b}</translation>
+        </message>
     </context>
     <context>
         <name>ConstraintTool</name>
@@ -2011,7 +2039,7 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <message>
             <location filename="..\..\app\application.py" line="212" />
             <source>&amp;Print...</source>
-            <translation>&amp;Drucken...</translation>
+            <translation>D&amp;rucken...</translation>
         </message>
         <message>
             <location filename="..\..\app\application.py" line="214" />
@@ -2111,7 +2139,7 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <message>
             <location filename="..\..\app\application.py" line="293" />
             <source>Ali&amp;gn &amp;&amp; Distribute</source>
-            <translation>Aus&amp;richten &amp;&amp; Verteilen</translation>
+            <translation>Ausrichten &amp;&amp; &amp;Verteilen</translation>
         </message>
         <message>
             <location filename="..\..\app\application.py" line="295" />
@@ -2206,7 +2234,7 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <message>
             <location filename="..\..\app\application.py" line="348" />
             <source>Auto-&amp;Save</source>
-            <translation>Automatisches &amp;Speichern</translation>
+            <translation>Automatisc&amp;hes Speichern</translation>
         </message>
         <message>
             <location filename="..\..\app\application.py" line="351" />
@@ -2276,7 +2304,7 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
         <message>
             <location filename="..\..\app\application.py" line="416" />
             <source>&amp;Snap to Grid</source>
-            <translation>Am &amp;Raster einrasten</translation>
+            <translation>Am Raster ei&amp;nrasten</translation>
         </message>
         <message>
             <location filename="..\..\app\application.py" line="420" />
@@ -3405,7 +3433,7 @@ Details: {error}</translation>
         </message>
         <message>
             <source>&amp;Snapping</source>
-            <translation>&amp;Fangen</translation>
+            <translation>Ein&amp;rasten</translation>
         </message>
         <message>
             <source>&amp;Overlays</source>
@@ -3453,11 +3481,59 @@ Details: {error}</translation>
         </message>
         <message>
             <source>O&amp;verlays</source>
-            <translation>O&amp;verlays</translation>
+            <translation>Overla&amp;ys</translation>
         </message>
         <message>
             <source>Fullscreen &amp;Preview</source>
-            <translation>Vollbild&amp;vorschau</translation>
+            <translation>Voll&amp;bildvorschau</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>Abbrechen</translation>
+        </message>
+        <message>
+            <source>Set project location for accurate season dates.</source>
+            <translation>Projektstandort festlegen für genaue Saisondaten.</translation>
+        </message>
+        <message>
+            <source>S&amp;hopping List…</source>
+            <translation>&amp;Einkaufsliste…</translation>
+        </message>
+        <message>
+            <source>Dupl&amp;icate</source>
+            <translation>D&amp;uplizieren</translation>
+        </message>
+        <message>
+            <source>&amp;Distribute Horizontal</source>
+            <translation>Horizontal ver&amp;teilen</translation>
+        </message>
+        <message>
+            <source>D&amp;istribute Vertical</source>
+            <translation>Vertikal vert&amp;eilen</translation>
+        </message>
+        <message>
+            <source>Enable &amp;Dynamic Input</source>
+            <translation>Dynamische &amp;Eingabe aktivieren</translation>
+        </message>
+        <message>
+            <source>Load Sa&amp;tellite Background...</source>
+            <translation>Sa&amp;tellitenbild laden...</translation>
+        </message>
+        <message>
+            <source>Canvas Si&amp;ze...</source>
+            <translation>Leinwand&amp;größe...</translation>
+        </message>
+        <message>
+            <source>Pr&amp;eferences...</source>
+            <translation>Ei&amp;nstellungen...</translation>
+        </message>
+        <message>
+            <source>&amp;Manage Seasons...</source>
+            <translation>Saisons &amp;verwalten ...</translation>
+        </message>
+        <message>
+            <source>Show P&amp;revious Season Overlay</source>
+            <translation>&amp;Vorherige Saison überlagern</translation>
         </message>
     </context>
     <context>
@@ -8693,6 +8769,38 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>OK</source>
             <translation>OK</translation>
+        </message>
+        <message>
+            <source>Add Entry</source>
+            <translation>Eintrag hinzufügen</translation>
+        </message>
+        <message>
+            <source>Edit Entry</source>
+            <translation>Eintrag bearbeiten</translation>
+        </message>
+        <message>
+            <source>Plant</source>
+            <translation>Pflanze</translation>
+        </message>
+        <message>
+            <source>e.g. Lettuce, Tomato, Spinach…</source>
+            <translation>z. B. Salat, Tomate, Spinat…</translation>
+        </message>
+        <message>
+            <source>Start Date</source>
+            <translation>Startdatum</translation>
+        </message>
+        <message>
+            <source>End Date</source>
+            <translation>Enddatum</translation>
+        </message>
+        <message>
+            <source>Optional notes…</source>
+            <translation>Optionale Notizen…</translation>
+        </message>
+        <message>
+            <source>Season: {seg}</source>
+            <translation>Saison: {seg}</translation>
         </message>
     </context>
     <context>
