@@ -25,6 +25,8 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.app.paths import get_projects_dir
+from open_garden_planner.ui.icons import get_icon
+from open_garden_planner.ui.theme import theme_color
 
 if TYPE_CHECKING:
     from open_garden_planner.core.project import ProjectManager
@@ -165,13 +167,21 @@ class SeasonManagerDialog(QDialog):
                 resolved = Path(file_str) if file_str else None
 
             exists = resolved is not None and resolved.exists()
-            marker = "✓" if exists else "✗"
             is_current = (year == current_year)
-            label = f"{year}  {marker}  {file_str}"
+            label = f"{year}  {file_str}"
             if is_current:
-                label = f"▶ {label}  [current]"
+                label = f"{label}  [current]"
 
             item = QListWidgetItem(label)
+            # themed check / cross icon instead of the ✓ / ✗ text glyphs (#310)
+            icon = get_icon("check" if exists else "cross",
+                            color=theme_color("success" if exists else "error"))
+            if icon is not None:
+                item.setIcon(icon)
+            if is_current:
+                font = item.font()
+                font.setBold(True)
+                item.setFont(font)
             item.setData(Qt.ItemDataRole.UserRole, {"year": year, "file": file_str, "resolved": resolved})
             if not exists:
                 item.setForeground(Qt.GlobalColor.gray)

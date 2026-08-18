@@ -130,8 +130,8 @@
 | Garden Plan tab | Ctrl+1 |
 | Planting Calendar tab | Ctrl+2 |
 | Seed Inventory tab | Ctrl+3 |
-| Tasks tab | Ctrl+5 |
-| Harvest tab | Ctrl+6 |
+| Tasks tab | Ctrl+4 (was Ctrl+5 before #310) |
+| Harvest tab | Ctrl+5 (was Ctrl+6 before #310) |
 | Bezier Tool | B |
 | Arc Tool (3-point) | A |
 | Fillet Tool | Shift+F |

@@ -49,29 +49,40 @@ def tmp_cache_dir(tmp_path: Path) -> Path:
 # ─── WMO code mapping tests ───────────────────────────────────────────────────
 
 class TestWmoMapping:
+    """`wmo_to_icon` returns a `ui/icons.py` provider icon NAME since #310
+    (the emoji map rendered font-dependently and un-themed)."""
+
     def test_clear_sky(self) -> None:
-        assert wmo_to_icon(0) == "☀️"
+        assert wmo_to_icon(0) == "sun"
         assert _wmo_to_description(0) == "Clear sky"
 
     def test_partly_cloudy(self) -> None:
-        assert wmo_to_icon(2) == "⛅️"
+        assert wmo_to_icon(2) == "partly_cloudy"
         assert _wmo_to_description(2) == "Partly cloudy"
 
     def test_rainy(self) -> None:
-        assert wmo_to_icon(61) == "\U0001f327"
+        assert wmo_to_icon(61) == "weather_rain"
         assert _wmo_to_description(61) == "Rainy"
 
     def test_snowy(self) -> None:
-        assert wmo_to_icon(71) == "\U0001f328"
+        assert wmo_to_icon(71) == "weather_snow"
         assert _wmo_to_description(71) == "Snowy"
 
     def test_thunderstorm(self) -> None:
-        assert wmo_to_icon(95) == "⛈️"
+        assert wmo_to_icon(95) == "weather_storm"
         assert _wmo_to_description(95) == "Thunderstorm"
 
     def test_unknown_code(self) -> None:
-        assert wmo_to_icon(999) == "❓"
+        assert wmo_to_icon(999) == "help"
         assert _wmo_to_description(999) == "Unknown"
+
+    def test_every_icon_name_is_a_real_provider_icon(self) -> None:
+        """The map must only name icons that exist (code→file drift guard)."""
+        from open_garden_planner.services.weather_service import _WMO_CODE_MAP
+        from open_garden_planner.ui.icons import available_icons
+
+        names = {icon for _, icon in _WMO_CODE_MAP.values()} | {wmo_to_icon(999)}
+        assert names <= set(available_icons()), names - set(available_icons())
 
 
 # ─── Response parsing tests ───────────────────────────────────────────────────

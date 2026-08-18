@@ -17,7 +17,15 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.plant_data import PlantSpeciesData
+from open_garden_planner.ui.icons import get_icon, get_pixmap
 from open_garden_planner.ui.theme import set_text_role
+
+# plant type → provider icon (the gallery category glyphs; #310)
+_TYPE_ICONS: dict[ObjectType, str] = {
+    ObjectType.TREE: "tree",
+    ObjectType.SHRUB: "shrub",
+    ObjectType.PERENNIAL: "flower",
+}
 
 
 class PlantListItem(QWidget):
@@ -59,14 +67,13 @@ class PlantListItem(QWidget):
         top_row = QHBoxLayout()
         top_row.setSpacing(4)
 
-        # Type icon/label
-        type_icons = {
-            ObjectType.TREE: "🌳",
-            ObjectType.SHRUB: "🌿",
-            ObjectType.PERENNIAL: "🌸",
-        }
-        type_label = QLabel(type_icons.get(plant_type, "🌱"))
-        type_label.setFixedWidth(20)
+        # Type icon (themed provider glyph; was an emoji, #310)
+        type_label = QLabel()
+        type_label.setFixedSize(20, 20)
+        type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        pixmap = get_pixmap(_TYPE_ICONS.get(plant_type, "seedling"), 16)
+        if pixmap is not None:
+            type_label.setPixmap(pixmap)
         top_row.addWidget(type_label)
 
         # Plant name
@@ -138,17 +145,20 @@ class PlantSearchPanel(QWidget):
         filter_layout = QHBoxLayout()
         filter_layout.setSpacing(8)
 
-        self.tree_checkbox = QCheckBox(self.tr("🌳 Trees"))
+        self.tree_checkbox = QCheckBox(self.tr("Trees"))
+        self._set_checkbox_icon(self.tree_checkbox, "tree")
         self.tree_checkbox.setChecked(True)
         self.tree_checkbox.stateChanged.connect(self._on_filter_changed)
         filter_layout.addWidget(self.tree_checkbox)
 
-        self.shrub_checkbox = QCheckBox(self.tr("🌿 Shrubs"))
+        self.shrub_checkbox = QCheckBox(self.tr("Shrubs"))
+        self._set_checkbox_icon(self.shrub_checkbox, "shrub")
         self.shrub_checkbox.setChecked(True)
         self.shrub_checkbox.stateChanged.connect(self._on_filter_changed)
         filter_layout.addWidget(self.shrub_checkbox)
 
-        self.perennial_checkbox = QCheckBox(self.tr("🌸 Perennials"))
+        self.perennial_checkbox = QCheckBox(self.tr("Perennials"))
+        self._set_checkbox_icon(self.perennial_checkbox, "flower")
         self.perennial_checkbox.setChecked(True)
         self.perennial_checkbox.stateChanged.connect(self._on_filter_changed)
         filter_layout.addWidget(self.perennial_checkbox)
@@ -227,6 +237,17 @@ class PlantSearchPanel(QWidget):
     def _on_search_changed(self, _text: str) -> None:
         """Handle search text changes."""
         self._update_results_display(from_user_input=True)
+
+    def _set_checkbox_icon(self, checkbox: QCheckBox, icon_name: str) -> None:
+        icon = get_icon(icon_name)
+        if icon is not None:
+            checkbox.setIcon(icon)
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: re-tint the type-filter checkbox icons (#310)."""
+        for checkbox, name in ((self.tree_checkbox, "tree"), (self.shrub_checkbox, "shrub"),
+                               (self.perennial_checkbox, "flower")):
+            self._set_checkbox_icon(checkbox, name)
 
     def _on_filter_changed(self) -> None:
         """Handle filter checkbox changes."""

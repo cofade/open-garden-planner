@@ -19,7 +19,8 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from PyQt6.QtCore import QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QColor, QPainter, QPixmap
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -39,7 +40,23 @@ from open_garden_planner.services.task_generator import (
     generate_all,
 )
 from open_garden_planner.services.task_status import effective_status
+from open_garden_planner.ui.icons import get_icon
 from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_color
+
+
+def _urgency_dot(color: QColor, size: int = 10) -> QPixmap:
+    """Small filled circle in the urgency colour — a painted marker instead
+    of the "●" text glyph (font/emoji-independent, #310)."""
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(color)
+    painter.drawEllipse(1, 1, size - 2, size - 2)
+    painter.end()
+    return pixmap
+
 
 # ``build_plan_state`` lives in the (Qt-free) task_generator module now and is
 # shared with the planting-calendar dashboard (#228); re-exported here for the
@@ -250,8 +267,10 @@ class TasksView(QWidget):
         layout.setContentsMargins(6, 3, 6, 3)
         layout.setSpacing(6)
 
-        dot = QLabel("●")
-        dot.setStyleSheet(f"color: {color};")
+        dot = QLabel()  # painted urgency marker (was the "●" text glyph, #310)
+        dot.setFixedSize(14, 14)
+        dot.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        dot.setPixmap(_urgency_dot(QColor(color)))
         layout.addWidget(dot)
 
         label = QLabel(self._row_text(task))
@@ -268,7 +287,10 @@ class TasksView(QWidget):
 
         # Navigate
         if task.bed_id or task.species_key or task.item_ids:
-            go = QPushButton("→")
+            go = QPushButton()
+            go_icon = get_icon("go_to")
+            if go_icon is not None:
+                go.setIcon(go_icon)
             go.setFixedWidth(28)
             go.setToolTip(self.tr("Show on canvas"))
             go.clicked.connect(lambda _=False, t=task: self._navigate(t))

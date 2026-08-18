@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from PyQt6.QtCore import QDate, QLocale, QPoint, QRect, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPolygon
+from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPixmap, QPolygon
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDateEdit,
@@ -43,6 +43,7 @@ from open_garden_planner.services.task_generator import (
 )
 from open_garden_planner.services.task_status import effective_status
 from open_garden_planner.services.weather_service import get_frost_alerts
+from open_garden_planner.ui.icons import get_icon, get_pixmap
 from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_qcolor
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
@@ -97,6 +98,34 @@ _PROP_TASK_TYPES = ("prick_out", "harden_off")
 # Refresh debounce — coalesce edit/undo bursts and skip work while the tab is
 # hidden (refresh() is heavyweight, #210/#225). Mirrors the Tasks tab pattern.
 _REFRESH_DEBOUNCE_MS = 250
+
+
+def _urgency_dot(color: QColor, size: int = 10) -> QPixmap:
+    """Small filled circle in the urgency colour — a painted marker instead
+    of the "●" text glyph (font/emoji-independent, #310)."""
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(color)
+    painter.drawEllipse(1, 1, size - 2, size - 2)
+    painter.end()
+    return pixmap
+
+
+def _urgency_dot(color: QColor, size: int = 10) -> QPixmap:
+    """Small filled circle in the urgency colour — a painted marker instead
+    of the "●" text glyph (font/emoji-independent, #310)."""
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(color)
+    painter.drawEllipse(1, 1, size - 2, size - 2)
+    painter.end()
+    return pixmap
 
 
 def _month_abbr(month_1: int) -> str:
@@ -183,10 +212,11 @@ class _DashboardPanel(QFrame):
         set_text_role(self._title_lbl, "h2")
         header_layout.addWidget(self._title_lbl)
         header_layout.addStretch()
-        self._toggle_btn = QPushButton("▾")
+        self._toggle_btn = QPushButton()
         self._toggle_btn.setFlat(True)
         self._toggle_btn.setFixedSize(24, 22)
         self._toggle_btn.setToolTip(self.tr("Collapse/expand"))
+        self._set_toggle_icon()
         self._toggle_btn.clicked.connect(self._toggle)
         header_layout.addWidget(self._toggle_btn)
         outer.addWidget(header)
@@ -211,6 +241,15 @@ class _DashboardPanel(QFrame):
         self._empty_lbl.hide()
         outer.addWidget(self._empty_lbl)
 
+    def _set_toggle_icon(self) -> None:
+        icon = get_icon("chevron_right" if self._collapsed else "chevron_down")
+        if icon is not None:
+            self._toggle_btn.setIcon(icon)
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: re-tint the collapse chevron (#310)."""
+        self._set_toggle_icon()
+
     def _toggle(self) -> None:
         self._collapsed = not self._collapsed
         self._content_scroll.setVisible(not self._collapsed)
@@ -218,7 +257,7 @@ class _DashboardPanel(QFrame):
             not self._collapsed and not self._content_scroll.isVisibleTo(self)
             and self._empty_lbl.text() != ""
         )
-        self._toggle_btn.setText("▸" if self._collapsed else "▾")
+        self._set_toggle_icon()
 
     def set_data(self, tasks: list[_DashboardTask]) -> None:
         """Rebuild the dashboard content with new tasks."""
@@ -262,8 +301,8 @@ class _DashboardPanel(QFrame):
             "harvest":            self.tr("Harvest %1"),
             "prick_out":          self.tr("Prick out %1 seedlings"),
             "harden_off":         self.tr("Start hardening off %1"),
-            "frost_alert_orange": self.tr("⚠ %1"),
-            "frost_alert_red":    self.tr("❄ %1"),
+            "frost_alert_orange": "%1",  # marker = row icon (#310)
+            "frost_alert_red":    "%1",
         }
 
         for urgency in _URGENCY_ORDER:
@@ -297,9 +336,17 @@ class _DashboardPanel(QFrame):
         layout.setContentsMargins(4, 1, 4, 1)
         layout.setSpacing(6)
 
-        dot = QLabel("●")
-        dot.setStyleSheet(f"color: {color.name()}; font-size: 8pt;")
-        dot.setFixedWidth(12)
+        dot = QLabel()
+        dot.setFixedSize(14, 14)
+        dot.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        if task.task_type == "frost_alert_red":
+            marker = get_pixmap("frost", 12, color=color.name())
+        elif task.task_type == "frost_alert_orange":
+            marker = get_pixmap("warning", 12, color=color.name())
+        else:
+            marker = _urgency_dot(color)  # painted themed marker (was "●")
+        if marker is not None:
+            dot.setPixmap(marker)
         layout.addWidget(dot)
 
         template = templates.get(task.task_type, "%1")
@@ -314,7 +361,10 @@ class _DashboardPanel(QFrame):
         date_lbl.setFixedWidth(44)
         layout.addWidget(date_lbl)
 
-        goto_btn = QPushButton("→")
+        goto_btn = QPushButton()
+        goto_icon = get_icon("go_to")
+        if goto_icon is not None:
+            goto_btn.setIcon(goto_icon)
         goto_btn.setToolTip(self.tr("Highlight on canvas"))
         goto_btn.setFlat(True)
         goto_btn.setFixedSize(26, 20)

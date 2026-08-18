@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.models.journal_note import JournalNote
+from open_garden_planner.ui.icons import get_icon
 from open_garden_planner.ui.theme import set_text_role
 
 _SNIPPET_CHARS = 64
@@ -130,6 +131,10 @@ class JournalPanel(QWidget):
                 continue
             label = self._format_row(note)
             row = QListWidgetItem(label)
+            if note.photo_path:  # camera icon (was a "📷" text marker, #310)
+                icon = get_icon("camera")
+                if icon is not None:
+                    row.setIcon(icon)
             row.setData(Qt.ItemDataRole.UserRole, note_id)
             rows.append((note.date or "", row))
 
@@ -150,7 +155,7 @@ class JournalPanel(QWidget):
         snippet = note.text.strip().splitlines()[0] if note.text.strip() else ""
         if len(snippet) > _SNIPPET_CHARS:
             snippet = snippet[: _SNIPPET_CHARS - 1] + "…"
-        photo_marker = "  📷" if note.photo_path else ""
+        photo_marker = ""  # the photo marker is the row's icon since #310
         if snippet:
             return self.tr("{date} — {snippet}{photo}").format(
                 date=note.date or "?",

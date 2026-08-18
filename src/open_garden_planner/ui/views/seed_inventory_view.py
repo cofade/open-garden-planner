@@ -193,10 +193,10 @@ class SeedInventoryView(QWidget):
             self.tr("Notes"),
         ])
         self._model.set_viability_labels({
-            ViabilityStatus.GOOD:    "✓ " + self.tr("Good"),
-            ViabilityStatus.REDUCED: "~ " + self.tr("Reduced"),
-            ViabilityStatus.EXPIRED: "✗ " + self.tr("Expired"),
-            ViabilityStatus.UNKNOWN: "? " + self.tr("Unknown"),
+            ViabilityStatus.GOOD:    self.tr("Good"),
+            ViabilityStatus.REDUCED: self.tr("Reduced"),
+            ViabilityStatus.EXPIRED: self.tr("Expired"),
+            ViabilityStatus.UNKNOWN: self.tr("Unknown"),
         })
 
     def _update_stats(self) -> None:

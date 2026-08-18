@@ -997,6 +997,10 @@
             <source>(none in database)</source>
             <translation>(keine in der Datenbank)</translation>
         </message>
+        <message>
+            <source>= already nearby in plan  (click to select)</source>
+            <translation>= bereits in der Nähe im Plan  (klicken zum Auswählen)</translation>
+        </message>
     </context>
     <context>
         <name>ConstraintConflictDialog</name>
@@ -1150,6 +1154,18 @@
         <message>
             <source>{a} tangent to {b} (r={d:.2f} m)</source>
             <translation>{a} tangential zu {b} (r={d:.2f} m)</translation>
+        </message>
+        <message>
+            <source>Coincident</source>
+            <translation>Deckungsgleich</translation>
+        </message>
+        <message>
+            <source>Tangent</source>
+            <translation>Tangente</translation>
+        </message>
+        <message>
+            <source>Fixed</source>
+            <translation>Fixiert</translation>
         </message>
     </context>
     <context>
@@ -3347,6 +3363,54 @@ Details: {error}</source>
 
 Details: {error}</translation>
         </message>
+        <message>
+            <source>&amp;Snapping</source>
+            <translation>&amp;Fangen</translation>
+        </message>
+        <message>
+            <source>&amp;Overlays</source>
+            <translation>&amp;Overlays</translation>
+        </message>
+        <message>
+            <source>S&amp;un &amp;&amp; 3D</source>
+            <translation>S&amp;onne &amp;&amp; 3D</translation>
+        </message>
+        <message>
+            <source>Cursor position</source>
+            <translation>Cursorposition</translation>
+        </message>
+        <message>
+            <source>Zoom level</source>
+            <translation>Zoomstufe</translation>
+        </message>
+        <message>
+            <source>Selection</source>
+            <translation>Auswahl</translation>
+        </message>
+        <message>
+            <source>Active tool</source>
+            <translation>Aktives Werkzeug</translation>
+        </message>
+        <message>
+            <source>Garden location</source>
+            <translation>Gartenstandort</translation>
+        </message>
+        <message>
+            <source>Season</source>
+            <translation>Saison</translation>
+        </message>
+        <message>
+            <source>Sun &amp; shade simulation</source>
+            <translation>Sonne-&amp;-Schatten-Simulation</translation>
+        </message>
+        <message>
+            <source>Typed coordinate input</source>
+            <translation>Koordinateneingabe</translation>
+        </message>
+        <message>
+            <source>Soil Health Overlay</source>
+            <translation>Bodengesundheits-Overlay</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -4827,6 +4891,18 @@ Bitte überprüfen Sie Ihre Internetverbindung und API-Zugangsdaten.</translatio
             <location filename="..\..\ui\panels\plant_search_panel.py" line="264" />
             <source>Showing {shown} of {total} plants</source>
             <translation>{shown} von {total} Pflanzen angezeigt</translation>
+        </message>
+        <message>
+            <source>Trees</source>
+            <translation>Bäume</translation>
+        </message>
+        <message>
+            <source>Shrubs</source>
+            <translation>Sträucher</translation>
+        </message>
+        <message>
+            <source>Perennials</source>
+            <translation>Stauden</translation>
         </message>
     </context>
     <context>

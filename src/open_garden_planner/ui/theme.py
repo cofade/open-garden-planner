@@ -315,17 +315,19 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     _key = _c.lstrip("#")
     _up_path = os.path.join(_tmp, f"ogp_arrow_up_{_key}.svg").replace("\\", "/")
     _dn_path = os.path.join(_tmp, f"ogp_arrow_dn_{_key}.svg").replace("\\", "/")
+    # Path-based chevrons (a <text> glyph depended on the system font and
+    # could render as an emoji box; #310).
     with open(_up_path, "w", encoding="utf-8") as _f:
         _f.write(
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
-            f'<text x="5" y="9" text-anchor="middle" font-size="11" fill="{_c}">▲</text>'
-            f"</svg>"
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10">'
+            f'<path d="M2 6.5 L5 3.5 L8 6.5" fill="none" stroke="{_c}" stroke-width="1.6" '
+            f'stroke-linecap="round" stroke-linejoin="round"/></svg>'
         )
     with open(_dn_path, "w", encoding="utf-8") as _f:
         _f.write(
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
-            f'<text x="5" y="9" text-anchor="middle" font-size="11" fill="{_c}">▼</text>'
-            f"</svg>"
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10">'
+            f'<path d="M2 3.5 L5 6.5 L8 3.5" fill="none" stroke="{_c}" stroke-width="1.6" '
+            f'stroke-linecap="round" stroke-linejoin="round"/></svg>'
         )
 
     # Banner-button hover wash derived from on_status so it flips with the
