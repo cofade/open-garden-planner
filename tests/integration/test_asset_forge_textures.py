@@ -1,12 +1,12 @@
-"""End-to-end `.ogp` round-trip test for the US-E9 asset-forge pilot patterns.
+"""End-to-end `.ogp` round-trip test for every asset-forge fill pattern.
 
-The DECKING/CORTEN fill patterns are user-selectable in the Properties panel and
-persisted like any other fill pattern (stored by ``FillPattern.name``, reloaded
-via ``FillPattern[...]`` with a ``KeyError -> None`` guard). The unit tests in
+Started as the US-E9 pilot gate (DECKING/CORTEN); since Package 3b (#309)
+every texture comes out of the forge, so every non-solid pattern round-trips
+here. Patterns are persisted by ``FillPattern.name`` and reloaded via
+``FillPattern[...]`` with a ``KeyError -> None`` guard. The unit tests in
 ``tests/unit/test_fill_patterns.py`` cover texture load + brush creation; this
-pins the full save -> reload path so a future rename/removal of either enum
-member can't silently break a saved plan — the §8.10 integration gate for these
-two user-facing patterns.
+pins the full save -> reload path so a rename/removal of an enum member can't
+silently break a saved plan — the §8.10 integration gate for the patterns.
 """
 from __future__ import annotations
 
@@ -32,9 +32,13 @@ def scene(qtbot) -> QGraphicsScene:  # noqa: ARG001
     return QGraphicsScene()
 
 
-@pytest.mark.parametrize("pattern", [FillPattern.DECKING, FillPattern.CORTEN])
-def test_pilot_pattern_round_trips(manager, scene, tmp_path, pattern) -> None:
-    """A rectangle filled with a pilot pattern survives save -> reload."""
+@pytest.mark.parametrize(
+    "pattern",
+    sorted((p for p in FillPattern if p is not FillPattern.SOLID), key=lambda p: p.name),
+    ids=lambda p: p.name,
+)
+def test_pattern_round_trips(manager, scene, tmp_path, pattern) -> None:
+    """A rectangle filled with a forge pattern survives save -> reload."""
     rect = RectangleItem(
         0, 0, 120, 80,
         object_type=ObjectType.TERRACE_PATIO,
