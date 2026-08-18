@@ -199,6 +199,7 @@ MAPPING: dict[str, str] = {
     "player_play": "player-play",
     "player_pause": "player-pause",
     "clock": "clock",
+    "help": "help-circle",
 }
 
 

@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.ui.icons import get_pixmap
 from open_garden_planner.ui.theme import set_text_role
 
 # Qt's QWIDGETSIZE_MAX sentinel — assign to maximumHeight to release a clamp.
@@ -123,9 +124,12 @@ class CollapsiblePanel(QWidget):
         # Info icon (hidden by default, shown when set_info_tooltip is called).
         # Tooltip colors come from theme.py's global QToolTip rule (the old
         # hardcoded white background broke dark mode).
-        self._info_label = QLabel("ℹ️")
-        self._info_label.setStyleSheet("QLabel { border: none; font-size: 14pt; }")
+        self._info_label = QLabel()
+        self._info_label.setStyleSheet("QLabel { border: none; }")
+        self._info_label.setFixedSize(18, 18)
+        self._info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._info_label.setVisible(False)
+        self.refresh_theme_icons()
         header_layout.addWidget(self._info_label)
 
         layout.addWidget(self._header)
@@ -166,7 +170,7 @@ class CollapsiblePanel(QWidget):
         self._expanded = expanded
 
         # Update indicator
-        self._indicator.setText("▼" if expanded else "▶")
+        self._paint_indicator()
 
         # Show/hide content
         if self._content_widget:
@@ -280,7 +284,20 @@ class CollapsiblePanel(QWidget):
     def _set_indicator(self, expanded: bool) -> None:
         """Flip the ▼/▶ chevron + logical state without touching content."""
         self._expanded = expanded
-        self._indicator.setText("▼" if expanded else "▶")
+        self._paint_indicator()
+
+    def _paint_indicator(self) -> None:
+        pixmap = get_pixmap("chevron_down" if self._expanded else "chevron_right", 14)
+        if pixmap is not None:
+            self._indicator.setPixmap(pixmap)
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: re-tint the chevron and the info glyph (#310)."""
+        self._paint_indicator()
+        if self._info_label is not None:
+            info = get_pixmap("about", 16)
+            if info is not None:
+                self._info_label.setPixmap(info)
 
     def _ensure_anim(self) -> QPropertyAnimation:
         if self._anim is None:

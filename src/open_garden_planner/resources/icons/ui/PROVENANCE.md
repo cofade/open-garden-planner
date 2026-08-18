@@ -82,7 +82,7 @@ both directions (icon without entry, entry without icon).
 
 ### Package 3c additions (#310) — fetched 2026-08-18 by the same script, same tag v3.45.0
 
-87 glyphs for the comprehensive iconography overhaul (status bar, dashboard
+88 glyphs for the comprehensive iconography overhaul (status bar, dashboard
 tabs, Plants/Garden/File/Edit/View/Help residue, View-menu submenus, emoji /
 unicode pseudo-icon replacements, layers panel, weather card, sun-sim toolbar).
 
@@ -127,6 +127,7 @@ unicode pseudo-icon replacements, layers panel, weather card, sun-sim toolbar).
 | go_to.svg | arrow-right |
 | grid.svg | grid-dots |
 | guides.svg | line |
+| help.svg | help-circle |
 | labels.svg | tag |
 | language.svg | language |
 | location.svg | map-2 |

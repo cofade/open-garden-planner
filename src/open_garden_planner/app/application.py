@@ -1188,6 +1188,7 @@ class GardenPlannerApp(QMainWindow):
         self._autosave_action.setCheckable(True)
         self._autosave_action.setStatusTip(self.tr("Enable or disable automatic saving"))
         self._autosave_action.triggered.connect(self._on_toggle_autosave)
+        self._set_action_icon(self._autosave_action, "autosave")
         autosave_menu.addAction(self._autosave_action)
 
         autosave_menu.addSeparator()
@@ -3761,6 +3762,7 @@ class GardenPlannerApp(QMainWindow):
         self.soil_overlay_toolbar = QToolBar(self.tr("Soil Overlay"), self)
         self.soil_overlay_toolbar.setObjectName("soil_overlay_toolbar")
         self.soil_overlay_toolbar.setMovable(False)
+        self.soil_overlay_toolbar.addWidget(self._make_icon_label("soil_overlay", size=16, tooltip=self.tr("Soil Health Overlay")))
         self.soil_overlay_toolbar.addWidget(QLabel(self.tr("Soil parameter:") + " "))
         self._soil_param_combo = QComboBox(self.soil_overlay_toolbar)
         # (display label, parameter key) — labels translated via self.tr.

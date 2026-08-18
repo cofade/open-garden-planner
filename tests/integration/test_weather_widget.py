@@ -100,7 +100,8 @@ class TestWeatherWidgetForecast:
         widget._on_fetch_success(forecast)
 
         assert not widget._table.isVisible()
-        assert widget._expand_btn.text() == "▾"
+        assert not widget._expanded
+        assert not widget._expand_btn.icon().isNull()  # themed chevron, not a "▾" glyph (#310)
 
     def test_expand_button_shows_table(self, qtbot: object) -> None:
         widget = WeatherWidget()
@@ -115,8 +116,13 @@ class TestWeatherWidgetForecast:
         widget._on_expand_clicked()
 
         assert widget._table.isVisible()
-        assert widget._expand_btn.text() == "▴"
+        assert widget._expanded
+        assert not widget._expand_btn.icon().isNull()
         assert widget._table.rowCount() == 16
+        # condition column carries a themed icon + description (no emoji)
+        item = widget._table.item(0, 1)
+        assert item is not None and not item.icon().isNull()
+        assert not any(ord(ch) > 0x2000 for ch in item.text()), item.text()
 
     def test_table_contains_correct_headers(self, qtbot: object) -> None:
         widget = WeatherWidget()

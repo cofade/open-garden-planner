@@ -1096,9 +1096,11 @@ class DimensionLineManager:
         group: DimensionLineGroup,
         pos: QPointF,
     ) -> None:
-        """Draw a padlock badge (🔒) at the item's center anchor position.
+        """Draw a painted padlock badge at the item's center anchor position.
 
-        The lock symbol indicates the item is fixed in place and cannot be moved.
+        The lock symbol indicates the item is fixed in place and cannot be
+        moved. Painted body + shackle only — the former trailing "🔒" text
+        item was font/emoji-dependent and redundant (#310).
         """
         color = COLOR_FIXED
 
@@ -1124,18 +1126,6 @@ class DimensionLineManager:
         shackle = self._scene.addPath(arc_path, QPen(color.darker(120), 2.5))
         shackle.setZValue(DIMENSION_LINE_Z + 1)
         group.items.append(shackle)
-
-        # "🔒" text label offset to the right
-        text_item = QGraphicsSimpleTextItem("🔒")
-        font = QFont()
-        font.setPointSize(10)
-        text_item.setFont(font)
-        text_item.setBrush(QBrush(color))
-        text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
-        text_item.setZValue(DIMENSION_LINE_Z + 1)
-        text_item.setPos(QPointF(pos.x() + half + 2, pos.y() - half))
-        self._scene.addItem(text_item)
-        group.items.append(text_item)
 
     def _build_parallel_marker(
         self,

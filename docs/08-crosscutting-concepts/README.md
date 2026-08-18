@@ -148,7 +148,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 ## 8.5 Graphics Asset Pipeline
 
 ### UI icons (chrome — `resources/icons/ui/`, ADR-039)
-- Line-icon set on a mechanical contract (24×24, `currentColor` + accent sentinel `#3D8B37`): 62 Tabler-vendored (MIT, pinned release) + 10 bespoke glyphs
+- Line-icon set on a mechanical contract (24×24, `currentColor` + accent sentinel `#3D8B37`): 150 Tabler-vendored (MIT, pinned release) + 12 bespoke glyphs (#279 + #310)
 - Tinted at runtime by the central provider `ui/icons.py` — never fed to QSvgRenderer directly (see §8.21)
 - Gates: `scripts/normalize_icons.py` (idempotent canonicalizer) + `scripts/check_icon_conformance.py` + per-icon PROVENANCE — no entry, no merge
 
@@ -1301,8 +1301,10 @@ projection is pinned exactly opposite the 2D shadow direction — if the
 
 ### 8.21.1 The contract
 
-All chrome icons (main/constraint toolbars, gallery category chips, menu
-actions) live in `resources/icons/ui/` on one binding contract:
+All chrome icons (main/constraint toolbars, gallery category chips, every
+menu action and submenu title, status-bar segments, dashboard tabs, panel
+and dialog markers — since #310 the whole chrome, see 8.21.5) live in
+`resources/icons/ui/` on one binding contract:
 `viewBox="0 0 24 24"`, root `fill="none" stroke="currentColor"
 stroke-width="2"` with round caps/joins; colors restricted everywhere to
 `none`, `currentColor` (the primary line) and the **accent sentinel
@@ -1335,8 +1337,13 @@ A theme listener registered at import clears the provider cache on every
 `gallery_data.refresh_icon_thumbnails` re-renders icon-derived gallery
 thumbnails (species/texture art is theme-neutral and untouched), each
 `CategoryDropdown.refresh_thumbnails()` re-pulls its labels — and on the
-main window (tracked `_icon_actions` menu replay). Widgets constructed
-after the switch simply call `get_icon()` fresh. The properties panel
+main window (tracked `_icon_actions` menu replay; since #310 also
+`_icon_widgets` for `setIcon` widgets, `_icon_labels` for status-bar pixmap
+labels, `_tab_icons` for the dashboard tabs and the frost badge's last
+state) and on every panel/widget that exposes its own `refresh_theme_icons`
+(layers panel rows, weather card, calendar dashboard, plant-search filters,
+collapsible panels, sun-sim toolbar). Widgets constructed after the switch
+simply call `get_icon()` fresh. The properties panel
 opts in with a DEFERRED full-rebuild hook (singleShot(0) — never rebuild
 form widgets inside the walk that invoked the hook; the #200 focus guard
 still protects a focused field).
@@ -1352,6 +1359,40 @@ end-to-end rendering on both themes + app wiring + live-switch re-tint by
 from Tabler (note glyph + release) or author bespoke at 24×24 → run the
 normalizer → add the PROVENANCE entry → reference it by name in code →
 gates green. **No provenance entry, no merge** (asset-forge discipline).
+Since #310 a code→file gate (`tests/unit/test_icon_names_referenced_in_src.py`)
+also fails when a literal icon name in `src/` (provider calls, the app's
+`_set_action_icon` / `_set_widget_icon` / `_make_icon_label` / `_set_tab_icon`
+helpers, the panels' lookup tables) has no file — the drift that had
+`properties_panel.py` requesting a non-existent `lawn.svg` for months.
+
+### 8.21.5 Comprehensive coverage (#310, Package 3c)
+
+Everything the user sees as an icon goes through the provider — there is no
+second class of "text glyphs that look like icons". Concretely: every menu
+action and submenu title in all six menus (per-format Export glyphs, the
+Align/Distribute and Auto-Save submenus, Plants/Garden/Help residue), the
+status bar (a 14 px pixmap `QLabel` in front of every segment, tooltip'd,
+tracked in `_icon_labels`; the sun-hint icon follows the hint's visibility
+via an event filter), the dashboard tabs (`setTabIcon`, tracked in
+`_tab_icons`), the frost badge (icon tinted with `on_status`, state kept so
+the theme walk re-applies it), the View menu's grouped submenus (Snapping /
+Overlays / Sun & 3D — the flat list of 22 toggles was hard to scan; the
+toggle attribute names are unchanged so callers/tests keep working), the
+layers panel (eye/eye_off/lock/lock_open tinted accent / text_secondary /
+warning), the constraints panel (a type-icon column reusing the constraint
+toolbar's glyphs; row text is now "A – B   detail"), seed viability, task /
+calendar urgency (painted themed dot — a `QPixmap` drawn with `QPainter`, not
+a font glyph), go-to arrows, plant-search type filters (`QCheckBox.setIcon`),
+weather (condition map returns provider icon NAMES; the widget renders them
+and re-renders its last forecast on theme switch), journal photo marker,
+companion star, collapsible chevron/info, season manager status, the
+sun-sim and soil-overlay toolbars, and the theme's spin-box arrows (path
+SVGs — a `<text>` glyph depends on the system font). What deliberately stays
+text: arrows inside sentences ("File → Set Location", "pH 5.8 → 6.5"), the
+canvas dimension prefixes ("↔ 1.20 m" — dimension labels, not chrome), the
+succession badge's bullets on the canvas, and the mathematical relation
+symbols in constraint tooltips. Radio groups (Theme, Language, Auto-Save
+intervals) carry the icon on the submenu title only.
 
 ## 8.22 Plant Sprite Pipeline (#281, ADR-040)
 

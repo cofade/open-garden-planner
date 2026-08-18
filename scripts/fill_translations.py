@@ -2675,6 +2675,41 @@ for _ctx, _strings in _I277_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── Package 3c iconography + View-menu restructure (#310) ────────────────────
+_P3C_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "GardenPlannerApp": {
+        "&Snapping": "&Fangen",
+        "&Overlays": "&Overlays",
+        "S&un && 3D": "S&onne && 3D",
+        "Cursor position": "Cursorposition",
+        "Zoom level": "Zoomstufe",
+        "Selection": "Auswahl",
+        "Active tool": "Aktives Werkzeug",
+        "Garden location": "Gartenstandort",
+        "Season": "Saison",
+        "Sun & shade simulation": "Sonne-&-Schatten-Simulation",
+        "Typed coordinate input": "Koordinateneingabe",
+        "Soil Health Overlay": "Bodengesundheits-Overlay",
+    },
+    "PlantSearchPanel": {
+        "Trees": "Bäume",
+        "Shrubs": "Sträucher",
+        "Perennials": "Stauden",
+    },
+    "CompanionPanel": {
+        "= already nearby in plan  (click to select)": "= bereits in der Nähe im Plan  (klicken zum Auswählen)",
+    },
+    "ConstraintListItem": {
+        "Coincident": "Deckungsgleich",
+        "Tangent": "Tangente",
+        "Fixed": "Fixiert",
+    },
+}
+
+for _ctx, _strings in _P3C_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)

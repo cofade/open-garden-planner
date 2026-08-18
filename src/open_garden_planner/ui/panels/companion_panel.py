@@ -8,13 +8,14 @@ selects that plant on the canvas (if placed).
 import math
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QLabel, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
 
 from open_garden_planner.services.companion_planting_service import (
     CompanionPlantingService,
     CompanionRelationship,
 )
-from open_garden_planner.ui.theme import set_text_role
+from open_garden_planner.ui.icons import get_icon, get_pixmap
+from open_garden_planner.ui.theme import set_text_role, theme_color
 
 
 class CompanionPanel(QWidget):
@@ -127,10 +128,19 @@ class CompanionPanel(QWidget):
         self._bad_list.itemClicked.connect(self._on_item_clicked)
         layout.addWidget(self._bad_list)
 
-        legend = QLabel(self.tr("★ = already nearby in plan  (click to select)"))
+        legend_row = QHBoxLayout()
+        legend_row.setSpacing(4)
+        legend_icon = QLabel()
+        legend_icon.setFixedSize(16, 16)
+        pixmap = get_pixmap("star", 14, color=theme_color("accent"))
+        if pixmap is not None:
+            legend_icon.setPixmap(pixmap)
+        legend_row.addWidget(legend_icon)
+        legend = QLabel(self.tr("= already nearby in plan  (click to select)"))
         set_text_role(legend, "hint")
         legend.setWordWrap(True)
-        layout.addWidget(legend)
+        legend_row.addWidget(legend, 1)
+        layout.addLayout(legend_row)
 
     def _add_list_entry(
         self,
@@ -139,14 +149,17 @@ class CompanionPanel(QWidget):
         nearby: bool,
         lang: str = "en",
     ) -> None:
-        prefix = "★ " if nearby else "  "
         name = self._service.get_display_name(rel.plant_b, lang)
         reason = self._service.get_relationship_reason(rel, lang)
-        text = f"{prefix}{name}"
+        text = name
         if reason:
             text += f"\n    {reason}"
 
         entry = QListWidgetItem(text)
+        if nearby:  # star icon (was a "★ " text prefix, #310)
+            icon = get_icon("star", color=theme_color("accent"))
+            if icon is not None:
+                entry.setIcon(icon)
         entry.setData(Qt.ItemDataRole.UserRole, rel.plant_b)
         entry.setToolTip(reason or "")
         if nearby:

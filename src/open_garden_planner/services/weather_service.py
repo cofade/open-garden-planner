@@ -28,17 +28,19 @@ _REQUEST_TIMEOUT = 15
 _CACHE_STALE_SECONDS = 10800  # 3 hours
 
 # WMO Weather interpretation codes (Open-Meteo docs)
-# Each tuple is (inclusive_start, inclusive_end) -> (description, emoji)
+# Each tuple is (inclusive_start, inclusive_end) -> (description, icon name).
+# The icon name is a `ui/icons.py` provider icon (themed line glyph) — the
+# emoji map it replaced (#310) rendered font-dependently and un-themed.
 _WMO_CODE_MAP: dict[tuple[int, int], tuple[str, str]] = {
-    (0, 0): ("Clear sky", "☀️"),       # ☀️ (VS-16 forces colour/emoji rendering)
-    (1, 3): ("Partly cloudy", "⛅️"),   # ⛅️
-    (45, 48): ("Foggy", "\U0001f32b"),            # 🌫
-    (51, 67): ("Rainy", "\U0001f327"),            # 🌧
-    (71, 77): ("Snowy", "\U0001f328"),            # 🌨
-    (80, 82): ("Showers", "\U0001f326"),          # 🌦
-    (85, 86): ("Snow showers", "\U0001f328"),     # 🌨
-    (95, 95): ("Thunderstorm", "⛈️"),  # ⛈️
-    (96, 99): ("Thunderstorm", "⛈️"),  # ⛈️
+    (0, 0): ("Clear sky", "sun"),
+    (1, 3): ("Partly cloudy", "partly_cloudy"),
+    (45, 48): ("Foggy", "weather_fog"),
+    (51, 67): ("Rainy", "weather_rain"),
+    (71, 77): ("Snowy", "weather_snow"),
+    (80, 82): ("Showers", "weather_rain"),
+    (85, 86): ("Snow showers", "weather_snow"),
+    (95, 95): ("Thunderstorm", "weather_storm"),
+    (96, 99): ("Thunderstorm", "weather_storm"),
 }
 
 
@@ -51,11 +53,12 @@ def _wmo_to_description(code: int) -> str:
 
 
 def wmo_to_icon(code: int) -> str:
-    """Return an emoji icon for a WMO weather code."""
+    """Return the provider icon NAME for a WMO weather code (render it with
+    ``ui.icons.get_icon`` / ``get_pixmap``; ``help`` for unknown codes)."""
     for (lo, hi), (_, icon) in _WMO_CODE_MAP.items():
         if lo <= code <= hi:
             return icon
-    return "❓"  # ❓
+    return "help"
 
 
 @dataclass
