@@ -2703,6 +2703,37 @@ _P3C_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Coincident": "Deckungsgleich",
         "Tangent": "Tangente",
         "Fixed": "Fixiert",
+        "Horizontal": "Horizontal",
+        "Vertical": "Vertikal",
+        "Parallel": "Parallel",
+        "Perpendicular": "Senkrecht",
+        "Angle {a}–{b}–{c}: {d:.1f}°": "Winkel {a}–{b}–{c}: {d:.1f}°",
+        "{a} to {b}: horizontal distance {d:.2f} m": "{a} zu {b}: horizontaler Abstand {d:.2f} m",
+        "{a} to {b}: vertical distance {d:.2f} m": "{a} zu {b}: vertikaler Abstand {d:.2f} m",
+        "{a} to {b}: {d:.2f} m": "{a} zu {b}: {d:.2f} m",
+    },
+    "JournalPanel": {
+        "{date} — {snippet}": "{date} — {snippet}",
+        "{date} — (empty)": "{date} — (leer)",
+    },
+    "SeasonManagerDialog": {
+        "[current]": "[aktuell]",
+    },
+    "PropertiesPanel": {
+        "Override frost sensitivity:\n"
+        "checked = always protect, unchecked = never protect, "
+        "indeterminate = use the plant database default":
+            "Frostempfindlichkeit überschreiben:\n"
+            "angehakt = immer schützen, nicht angehakt = nie schützen, "
+            "unbestimmt = Standard aus der Pflanzendatenbank",
+    },
+    "ShortcutsDialog": {
+        "Dashboard Tabs": "Dashboard-Tabs",
+        "Garden Plan tab": "Tab Gartenplan",
+        "Planting Calendar tab": "Tab Pflanzkalender",
+        "Seed Inventory tab": "Tab Saatgutbestand",
+        "Tasks tab": "Tab Aufgaben",
+        "Harvest tab": "Tab Ernte",
     },
 }
 

@@ -68,13 +68,12 @@ class PlantListItem(QWidget):
         top_row.setSpacing(4)
 
         # Type icon (themed provider glyph; was an emoji, #310)
-        type_label = QLabel()
-        type_label.setFixedSize(20, 20)
-        type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        pixmap = get_pixmap(_TYPE_ICONS.get(plant_type, "seedling"), 16)
-        if pixmap is not None:
-            type_label.setPixmap(pixmap)
-        top_row.addWidget(type_label)
+        self._type_icon_name = _TYPE_ICONS.get(plant_type, "seedling")
+        self._type_label = QLabel()
+        self._type_label.setFixedSize(20, 20)
+        self._type_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        top_row.addWidget(self._type_label)
+        self.refresh_theme_icons()
 
         # Plant name
         name_label = QLabel(name or "Unnamed")
@@ -89,6 +88,13 @@ class PlantListItem(QWidget):
             species_label.setProperty("secondary", True)
             species_label.setStyleSheet("font-style: italic; padding-left: 24px;")
             layout.addWidget(species_label)
+
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: re-tint the type glyph (baked pixmap, #310)."""
+        pixmap = get_pixmap(self._type_icon_name, 16)
+        if pixmap is not None:
+            self._type_label.setPixmap(pixmap)
 
 
 class PlantSearchPanel(QWidget):

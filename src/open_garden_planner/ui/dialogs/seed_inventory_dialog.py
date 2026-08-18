@@ -160,12 +160,6 @@ class SeedTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.DecorationRole and col == _COL_VIABILITY:
             return get_icon(self._VIA_ICONS[status], color=_status_fg(status).name())
 
-        if role == Qt.ItemDataRole.DecorationRole and col == _COL_VIABILITY:
-            return get_icon(self._VIA_ICONS[status], color=_status_fg(status).name())
-
-        if role == Qt.ItemDataRole.DecorationRole and col == _COL_VIABILITY:
-            return get_icon(self._VIA_ICONS[status], color=_status_fg(status).name())
-
         if role == Qt.ItemDataRole.FontRole and col == _COL_VIABILITY:
             f = QFont()
             f.setBold(True)

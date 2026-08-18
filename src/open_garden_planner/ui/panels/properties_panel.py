@@ -1461,7 +1461,8 @@ class PropertiesPanel(QWidget):
         frost_check.setToolTip(
             self.tr(
                 "Override frost sensitivity:\n"
-                "☑ Always protect  ☐ Never protect  ‒ Use plant database default"
+                "checked = always protect, unchecked = never protect, "
+                "indeterminate = use the plant database default"
             )
         )
         frost_check.checkStateChanged.connect(

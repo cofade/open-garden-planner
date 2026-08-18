@@ -1167,6 +1167,38 @@
             <source>Fixed</source>
             <translation>Fixiert</translation>
         </message>
+        <message>
+            <source>Horizontal</source>
+            <translation>Horizontal</translation>
+        </message>
+        <message>
+            <source>Vertical</source>
+            <translation>Vertikal</translation>
+        </message>
+        <message>
+            <source>Parallel</source>
+            <translation>Parallel</translation>
+        </message>
+        <message>
+            <source>Perpendicular</source>
+            <translation>Senkrecht</translation>
+        </message>
+        <message>
+            <source>Angle {a}–{b}–{c}: {d:.1f}°</source>
+            <translation>Winkel {a}–{b}–{c}: {d:.1f}°</translation>
+        </message>
+        <message>
+            <source>{a} to {b}: horizontal distance {d:.2f} m</source>
+            <translation>{a} zu {b}: horizontaler Abstand {d:.2f} m</translation>
+        </message>
+        <message>
+            <source>{a} to {b}: vertical distance {d:.2f} m</source>
+            <translation>{a} zu {b}: vertikaler Abstand {d:.2f} m</translation>
+        </message>
+        <message>
+            <source>{a} to {b}: {d:.2f} m</source>
+            <translation>{a} zu {b}: {d:.2f} m</translation>
+        </message>
     </context>
     <context>
         <name>ConstraintTool</name>
@@ -5976,6 +6008,12 @@ noch nicht implementiert</translation>
             <source>Corten steel</source>
             <translation>Cortenstahl</translation>
         </message>
+        <message>
+            <source>Override frost sensitivity:
+checked = always protect, unchecked = never protect, indeterminate = use the plant database default</source>
+            <translation>Frostempfindlichkeit überschreiben:
+angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standard aus der Pflanzendatenbank</translation>
+        </message>
     </context>
     <context>
         <name>RectangleItem</name>
@@ -6157,6 +6195,10 @@ noch nicht implementiert</translation>
             <location filename="..\..\ui\dialogs\season_manager_dialog.py" line="228" />
             <source>Garden Plan (*.ogp)</source>
             <translation>Gartenplan (*.ogp)</translation>
+        </message>
+        <message>
+            <source>[current]</source>
+            <translation>[aktuell]</translation>
         </message>
     </context>
     <context>
@@ -6827,6 +6869,30 @@ noch nicht implementiert</translation>
             <location filename="..\..\ui\dialogs\shortcuts_dialog.py" line="136" />
             <source>Close</source>
             <translation>Schließen</translation>
+        </message>
+        <message>
+            <source>Dashboard Tabs</source>
+            <translation>Dashboard-Tabs</translation>
+        </message>
+        <message>
+            <source>Garden Plan tab</source>
+            <translation>Tab Gartenplan</translation>
+        </message>
+        <message>
+            <source>Planting Calendar tab</source>
+            <translation>Tab Pflanzkalender</translation>
+        </message>
+        <message>
+            <source>Seed Inventory tab</source>
+            <translation>Tab Saatgutbestand</translation>
+        </message>
+        <message>
+            <source>Tasks tab</source>
+            <translation>Tab Aufgaben</translation>
+        </message>
+        <message>
+            <source>Harvest tab</source>
+            <translation>Tab Ernte</translation>
         </message>
     </context>
     <context>
@@ -8709,6 +8775,14 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>{date} — (empty){photo}</source>
             <translation>{date} — (leer){photo}</translation>
+        </message>
+        <message>
+            <source>{date} — {snippet}</source>
+            <translation>{date} — {snippet}</translation>
+        </message>
+        <message>
+            <source>{date} — (empty)</source>
+            <translation>{date} — (leer)</translation>
         </message>
     </context>
     <context>
