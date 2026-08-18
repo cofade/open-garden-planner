@@ -14,6 +14,7 @@ from unittest.mock import MagicMock
 import pytest
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QImage, QMouseEvent, QPainter, QPixmap
+from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.core.furniture_renderer import (
     _FURNITURE_DIR,
@@ -87,6 +88,26 @@ def _luminance_std(pixmap: QPixmap) -> float:
         return 0.0
     mean = sum(vals) / len(vals)
     return (sum((v - mean) ** 2 for v in vals) / len(vals)) ** 0.5
+
+
+def _render_item_alone(item, flip: bool = False) -> QImage:
+    """Render ONE item through its real paint() into a transparent image via a
+    bare QGraphicsScene (CanvasScene paints an opaque canvas background, which
+    would swamp any ink metric). `flip=True` applies the view/export Y-flip
+    (translate(0, H) then scale(1, -1), as export_service does)."""
+    scene = QGraphicsScene()
+    scene.addItem(item)
+    source = item.sceneBoundingRect()
+    image = QImage(int(source.width()), int(source.height()), QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    if flip:
+        painter.translate(0, image.height())
+        painter.scale(1.0, -1.0)
+    scene.render(painter, QRectF(0, 0, image.width(), image.height()), source)
+    painter.end()
+    scene.removeItem(item)
+    return image
 
 
 def _left_click_event() -> MagicMock:
@@ -174,15 +195,13 @@ class TestNewRosterWorkflow:
             tool.mouse_release(event, QPointF(260, 200))
         item = next(i for i in canvas.scene().items() if isinstance(i, item_cls))  # topmost = newest
         assert item.object_type == obj_type
-        # the REAL paint path: render the scene (→ item.paint → furniture branch)
-        # into an image and require ink inside the item's footprint
-        source = item.sceneBoundingRect()
-        image = QImage(int(source.width()), int(source.height()), QImage.Format.Format_ARGB32_Premultiplied)
-        image.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(image)
-        canvas.scene().render(painter, QRectF(0, 0, image.width(), image.height()), source)
-        painter.end()
-        assert _coverage(QPixmap.fromImage(image)) > 0.15, obj_type.name
+        # the REAL paint path (item.paint → furniture branch), item alone so the
+        # CanvasScene background cannot make the ink assertion vacuous
+        canvas.scene().removeItem(item)
+        item.shadows_enabled = False
+        image = _render_item_alone(item)
+        cov = _coverage(QPixmap.fromImage(image))
+        assert 0.15 < cov < 1.0, f"{obj_type.name}: coverage {cov:.2f}"
 
     @pytest.mark.parametrize("obj_type", sorted(NEW_ROSTER, key=lambda t: t.name), ids=lambda t: t.name)
     def test_offered_in_change_type_menu_for_its_shape(self, obj_type: ObjectType) -> None:
@@ -192,3 +211,43 @@ class TestNewRosterWorkflow:
     def test_bbq_grill_is_offered_for_circles(self) -> None:
         """BBQ is a circle-tool object; it must be reachable from the circle menu (#308)."""
         assert ObjectType.BBQ_GRILL in get_valid_types_for_shape("circle")
+
+
+class TestUprightOnCanvas:
+    """The canvas and every export draw the scene through a scale(1, -1)
+    Y-flip. A pixmap blitted in item-local coordinates therefore comes out
+    upside-down unless the item flips it back — the fire pit's flames pointed
+    DOWN on the canvas while the gallery thumbnail was upright (#308 manual
+    test). Pin orientation through the real flipped render path with the
+    wheelbarrow: wheel + tub (heavy) at the top of the art, two thin handles at
+    the bottom — an unambiguous "up"."""
+
+    @staticmethod
+    def _row_ink(image: QImage, y0: int, y1: int) -> float:
+        total = opaque = 0
+        for y in range(y0, y1):
+            for x in range(image.width()):
+                total += 1
+                if image.pixelColor(x, y).alpha() > 10:
+                    opaque += 1
+        return opaque / max(total, 1)
+
+    def test_furniture_sprite_is_upright_through_the_flipped_scene_render(self, qtbot: object) -> None:
+        w, h = FURNITURE_DEFAULT_DIMENSIONS[ObjectType.WHEELBARROW]  # 60 x 140
+        # Reference orientation: the art itself, unflipped (what the gallery shows).
+        ref = render_furniture_pixmap(ObjectType.WHEELBARROW, width=w, height=h).toImage()
+        band = int(h * 0.2)
+        ref_top, ref_bottom = self._row_ink(ref, 0, band), self._row_ink(ref, int(h) - band, int(h))
+        assert ref_top > ref_bottom * 1.5, "fixture: wheelbarrow art must be top-heavy"
+
+        # The real path: item.paint via scene.render under the export/view Y-flip
+        # (mirrors export_service: translate(0, H) then scale(1, -1)).
+        item = RectangleItem(0, 0, w, h, object_type=ObjectType.WHEELBARROW)
+        item.shadows_enabled = False  # the painted drop shadow would swamp the ink metric
+        image = _render_item_alone(item, flip=True)
+
+        top, bottom = self._row_ink(image, 0, band), self._row_ink(image, image.height() - band, image.height())
+        assert top > bottom * 1.5, (
+            f"sprite is upside-down on the canvas: top ink {top:.2f} vs bottom {bottom:.2f} "
+            f"(art: {ref_top:.2f} vs {ref_bottom:.2f})"
+        )

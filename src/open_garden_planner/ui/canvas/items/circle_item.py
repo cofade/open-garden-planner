@@ -487,7 +487,14 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             )
             if pixmap is not None:
                 painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+                # Undo the canvas/export Y-flip so the sprite reads upright
+                # (see RectangleItem.paint, #308 manual test: fire-pit flames).
+                painter.save()
+                painter.translate(rect.center())
+                painter.scale(1.0, -1.0)
+                painter.translate(-rect.center())
                 painter.drawPixmap(rect.toAlignedRect(), pixmap)
+                painter.restore()
 
                 # Draw selection highlight
                 if self.isSelected():

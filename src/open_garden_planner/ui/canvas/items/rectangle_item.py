@@ -273,7 +273,17 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             )
             if pixmap is not None:
                 painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+                # The canvas (and every export) draws the scene through a
+                # scale(1, -1) Y-flip, so a pixmap blitted in item-local
+                # coordinates comes out upside-down (fire-pit flames pointing
+                # down, #308 manual test). Flip it back about the rect centre —
+                # same idea as background_image_item's flip transform.
+                painter.save()
+                painter.translate(rect.center())
+                painter.scale(1.0, -1.0)
+                painter.translate(-rect.center())
                 painter.drawPixmap(rect.toAlignedRect(), pixmap)
+                painter.restore()
 
                 # Draw grid overlay on raised beds rendered as furniture
                 if self._grid_enabled and is_bed_type(self.object_type):
