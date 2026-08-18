@@ -203,8 +203,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
-- Phases 1–12 are complete; Phase 13 agent integration is shipped through D2.1 (`create_object`), Phase 14 is complete, and Phase 15 visual refresh packages 1–2 are shipped.
-- Remaining work is tracked in `docs/roadmap.md`: Phase 15 Visual Refresh Package 3 — scoped 2026-08-17 into three sequential PRs; #308 (3a object sprites, `scripts/generate_object_sprites.py`, ADR-042/§8.23) shipped in v1.26.8 (PR #322) → #309 (3b textures, `scripts/generate_asset_forge_textures.py`, §8.24 — draft PR pending manual test) → #310 (3c icons + View menu — draft PR stacked on 3b, pending manual test); decision log on epic #284, `minor` label on whichever merges last — and the remaining D2/D3 agent write/domain tools.
+- Phases 1–12 are complete; Phase 13 agent integration is shipped through D2.1 (`create_object`), and Phases 14 and 15 (Visual Refresh, Packages 1–3) are complete.
+- Remaining work is tracked in `docs/roadmap.md`: the D2/D3 agent write/domain tools, and the permapeople-research Packages F/G (#311–#321). Phase 15 Package 3 shipped 2026-08-18 as v1.26.8 (3a, PR #322) / v1.26.9 (3b, PR #323) / v1.27.0 (3c, PR #325; ADR-042, FR-30, §8.23–§8.24, §8.21.5).
 - Read the relevant roadmap section before starting work, then check `git status` and `git log --oneline -20`.
 - The full shipped-story history belongs in `docs/roadmap.md`, ADRs, functional requirements, and the risk log; do not duplicate it here.
 - Phase 14 remains complete; load `ogp-3d-sunshade-campaign` before touching 3D, sun/shade, growth, or solar code.
