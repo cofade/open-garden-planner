@@ -2679,7 +2679,8 @@ for _ctx, _strings in _I277_TRANSLATIONS.items():
 _P3C_TRANSLATIONS: dict[str, dict[str, str]] = {
     "GardenPlannerApp": {
         "&Snapping": "&Fangen",
-        "&Overlays": "&Overlays",
+        "O&verlays": "O&verlays",
+        "Fullscreen &Preview": "Vollbild&vorschau",
         "S&un && 3D": "S&onne && 3D",
         "Cursor position": "Cursorposition",
         "Zoom level": "Zoomstufe",
@@ -2703,6 +2704,7 @@ _P3C_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Coincident": "Deckungsgleich",
         "Tangent": "Tangente",
         "Fixed": "Fixiert",
+        "Equal": "Gleich",
         "Horizontal": "Horizontal",
         "Vertical": "Vertikal",
         "Parallel": "Parallel",
@@ -2726,6 +2728,9 @@ _P3C_TRANSLATIONS: dict[str, dict[str, str]] = {
             "Frostempfindlichkeit überschreiben:\n"
             "angehakt = immer schützen, nicht angehakt = nie schützen, "
             "unbestimmt = Standard aus der Pflanzendatenbank",
+    },
+    "FixedConstraintTool": {
+        "Fix in place": "Fixieren",
     },
     "ShortcutsDialog": {
         "Dashboard Tabs": "Dashboard-Tabs",

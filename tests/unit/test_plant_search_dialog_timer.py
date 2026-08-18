@@ -1,5 +1,5 @@
 """The plant-search debounce timer must die with its dialog (#310 battery
-finding, 2026-08-18; §11.4 "unparented QTimer outlives its dialog").
+finding, 2026-08-18; §11.4 "a debounce QTimer armed by a test outlives the test").
 
 An unparented ``QTimer()`` armed by typing into the search box kept ticking
 after the dialog was closed and deleted; 500 ms later it called

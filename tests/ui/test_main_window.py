@@ -223,7 +223,7 @@ class TestPreviewMode:
                 view_menu = action.menu()
                 break
 
-        action_texts = [a.text() for a in view_menu.actions()]
+        action_texts = [a.text().replace("&", "") for a in view_menu.actions()]
         assert any("Fullscreen Preview" in text for text in action_texts)
 
     def test_preview_action_is_checkable(self, qtbot) -> None:

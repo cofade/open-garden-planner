@@ -8,7 +8,7 @@ directions that matter:
 
 - every string literal passed to a provider entry point anywhere under
   ``src/`` (`get_icon("…")`, `get_pixmap("…")`, the app's `_set_action_icon`,
-  `_set_widget_icon`, `_make_icon_label`, `_set_tab_icon` helpers, the panels'
+  `_make_icon_label`, `_set_tab_icon` helpers, the panels'
   `_themed_icon` / `_set_checkbox_icon`) names an existing icon;
 - every icon name in the code-side lookup TABLES (plant-search type map,
   constraints-panel type map, seed-viability map, weather WMO map,

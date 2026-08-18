@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from PyQt6.QtCore import QDate, QLocale, QPoint, QRect, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPixmap, QPolygon
+from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPolygon
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDateEdit,
@@ -44,7 +44,7 @@ from open_garden_planner.services.task_generator import (
 from open_garden_planner.services.task_status import effective_status
 from open_garden_planner.services.weather_service import get_frost_alerts
 from open_garden_planner.ui.icons import get_icon, get_pixmap
-from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_qcolor
+from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_qcolor, urgency_dot
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
 # ─── Layout constants ──────────────────────────────────────────────────────────
@@ -98,20 +98,6 @@ _PROP_TASK_TYPES = ("prick_out", "harden_off")
 # Refresh debounce — coalesce edit/undo bursts and skip work while the tab is
 # hidden (refresh() is heavyweight, #210/#225). Mirrors the Tasks tab pattern.
 _REFRESH_DEBOUNCE_MS = 250
-
-
-def _urgency_dot(color: QColor, size: int = 10) -> QPixmap:
-    """Small filled circle in the urgency colour — a painted marker instead
-    of the "●" text glyph (font/emoji-independent, #310)."""
-    pixmap = QPixmap(size, size)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(color)
-    painter.drawEllipse(1, 1, size - 2, size - 2)
-    painter.end()
-    return pixmap
 
 
 def _month_abbr(month_1: int) -> str:
@@ -330,7 +316,7 @@ class _DashboardPanel(QFrame):
         elif task.task_type == "frost_alert_orange":
             marker = get_pixmap("warning", 12, color=color.name())
         else:
-            marker = _urgency_dot(color)  # painted themed marker (was "●")
+            marker = urgency_dot(color)  # painted themed marker (was "●")
         if marker is not None:
             dot.setPixmap(marker)
         layout.addWidget(dot)

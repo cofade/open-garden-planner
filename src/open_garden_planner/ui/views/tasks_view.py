@@ -20,7 +20,7 @@ import datetime
 from typing import Any
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QPixmap
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -41,22 +41,7 @@ from open_garden_planner.services.task_generator import (
 )
 from open_garden_planner.services.task_status import effective_status
 from open_garden_planner.ui.icons import get_icon
-from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_color
-
-
-def _urgency_dot(color: QColor, size: int = 10) -> QPixmap:
-    """Small filled circle in the urgency colour — a painted marker instead
-    of the "●" text glyph (font/emoji-independent, #310)."""
-    pixmap = QPixmap(size, size)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(color)
-    painter.drawEllipse(1, 1, size - 2, size - 2)
-    painter.end()
-    return pixmap
-
+from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_color, urgency_dot
 
 # ``build_plan_state`` lives in the (Qt-free) task_generator module now and is
 # shared with the planting-calendar dashboard (#228); re-exported here for the
@@ -270,7 +255,7 @@ class TasksView(QWidget):
         dot = QLabel()  # painted urgency marker (was the "●" text glyph, #310)
         dot.setFixedSize(14, 14)
         dot.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        dot.setPixmap(_urgency_dot(QColor(color)))
+        dot.setPixmap(urgency_dot(QColor(color)))
         layout.addWidget(dot)
 
         label = QLabel(self._row_text(task))

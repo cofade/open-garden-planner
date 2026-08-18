@@ -1199,6 +1199,10 @@
             <source>{a} to {b}: {d:.2f} m</source>
             <translation>{a} zu {b}: {d:.2f} m</translation>
         </message>
+        <message>
+            <source>Equal</source>
+            <translation>Gleich</translation>
+        </message>
     </context>
     <context>
         <name>ConstraintTool</name>
@@ -1848,6 +1852,10 @@ Dies entfernt sie aus Ihrer eigenen Bibliothek. Bereits in Projekten platzierte 
             <location filename="..\..\core\tools\constraint_tool.py" line="3698" />
             <source>🔒 Fix in place</source>
             <translation>🔒 Fixieren</translation>
+        </message>
+        <message>
+            <source>Fix in place</source>
+            <translation>Fixieren</translation>
         </message>
     </context>
     <context>
@@ -3442,6 +3450,14 @@ Details: {error}</translation>
         <message>
             <source>Soil Health Overlay</source>
             <translation>Bodengesundheits-Overlay</translation>
+        </message>
+        <message>
+            <source>O&amp;verlays</source>
+            <translation>O&amp;verlays</translation>
+        </message>
+        <message>
+            <source>Fullscreen &amp;Preview</source>
+            <translation>Vollbild&amp;vorschau</translation>
         </message>
     </context>
     <context>

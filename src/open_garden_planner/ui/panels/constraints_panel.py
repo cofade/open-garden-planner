@@ -52,7 +52,12 @@ _TYPE_ICONS: dict[str, str] = {
     "HORIZONTAL_DISTANCE": "constraint_h_distance",
     "VERTICAL_DISTANCE": "constraint_v_distance",
     "DISTANCE": "constraint_distance",
+    "SYMMETRY_HORIZONTAL": "constraint_symmetric",
+    "SYMMETRY_VERTICAL": "constraint_symmetric",
+    "POINT_ON_EDGE": "snap_nearest",     # a point locked to a line — the "nearest point" target glyph
+    "POINT_ON_CIRCLE": "snap_tangent",   # a point locked to a circle — the circle-dot glyph
 }
+# every ConstraintType must be mapped (gated by tests/integration/test_iconography_3c.py)
 
 
 def _make_status_icon(color: QColor, size: int = 14) -> QPixmap:
@@ -181,7 +186,7 @@ class ConstraintListItem(QWidget):
             detail = self.tr("Perpendicular")
             tooltip = self.tr("{a} perpendicular to {b}").format(a=label_a, b=label_b)
         elif constraint_type_name == "EQUAL":
-            detail = self.tr("= Equal")
+            detail = self.tr("Equal")
             tooltip = self.tr("{a} equal size to {b}").format(a=label_a, b=label_b)
         elif constraint_type_name == "FIXED":
             detail = self.tr("Fixed")

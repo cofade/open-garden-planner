@@ -3714,7 +3714,7 @@ class FixedConstraintTool(BaseTool):
         self._graphics_items.append(outline)
 
         label = QGraphicsSimpleTextItem(
-            QCoreApplication.translate("FixedConstraintTool", "🔒 Fix in place")
+            QCoreApplication.translate("FixedConstraintTool", "Fix in place")
         )
         font = QFont()
         font.setPointSize(10)
