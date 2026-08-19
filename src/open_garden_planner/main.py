@@ -106,10 +106,10 @@ def _run_selftest() -> int:
     # no console is ALLOCATED, not that stdout is unconditionally None. Run this
     # exe through a shell pipe and it inherits a real handle -- measured, ~300
     # bytes of the prints below reached stdout -- so `isatty()` answers and a
-    # regression of the `log_config=None` fix would pass. Only a launch with no inherited handle
-    # with no inherited stdout handle (Start-Process, or a double-click)
-    # has `sys.stdout is None`. The gate must
-    # use that form or it is testing the wrong condition.
+    # regression of the `log_config=None` fix would pass. Only a launch with no
+    # inherited stdout handle (Start-Process, or a double-click) has
+    # `sys.stdout is None`. The gate must use that form or it is testing the
+    # wrong condition.
     try:
         import socket
 
@@ -158,9 +158,10 @@ def _run_selftest() -> int:
 def _write_crash_log(message: str) -> None:
     """Best-effort append of a traceback to a user-findable crash log.
 
-    A windowed (``console=False``) frozen exe has ``sys.stderr is None``, so an
-    unhandled exception would otherwise leave no trace on disk. Writes into the
-    app-data dir; never raises.
+    A windowed (``console=False``) frozen exe launched with no inherited handle
+    has ``sys.stderr is None``. An unhandled exception would then leave no
+    trace on disk. This function writes into the app-data dir. It never
+    raises.
     """
     import contextlib
 
@@ -182,16 +183,17 @@ def _write_crash_log(message: str) -> None:
 def _install_excepthook() -> None:
     """Route unhandled exceptions to a dialog instead of aborting the process.
 
-    Under PyQt6 an exception that escapes a Qt slot calls ``sys.excepthook``
-    and then, with the DEFAULT hook, aborts the process — silently killing the
-    app and any unsaved plan. Issue #277 hit exactly this: an ``ImportError``
-    from the lazily imported 3D view took the whole process down. Installing a
-    custom hook suppresses the abort; we record the traceback (stderr in a dev
-    run, plus a best-effort ``crash.log`` in the app-data dir so a windowed
-    frozen build — where ``sys.stderr is None`` — isn't silent) and show a
-    recoverable dialog so the user can save. The 3D-open path also catches its
-    own ``ImportError`` for a clearer message; this is the broad backstop for
-    everything else.
+    Under PyQt6 an exception that escapes a Qt slot calls ``sys.excepthook``.
+    With the DEFAULT hook that call aborts the process. It silently kills the
+    app and any unsaved plan. Issue #277 hit this path: an ``ImportError``
+    from the lazily imported 3D view took the whole process down. The custom
+    hook stops the abort. It writes the traceback to stderr in a dev run and
+    to a best-effort ``crash.log`` in the app-data dir. The log records the
+    traceback for a windowed frozen build. Such a build launched with no
+    inherited handle has ``sys.stderr is None``. The hook then shows a
+    recoverable dialog so the user can save. The 3D-open path also catches
+    its own ``ImportError`` for a clearer message. This hook is the broad
+    backstop for everything else.
     """
     import contextlib
     import traceback

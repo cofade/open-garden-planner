@@ -196,7 +196,7 @@ child exiting 3 propagates 3).
 1. **PowerShell does not wait on a GUI-subsystem process.** A plain
    `& "…\OpenGardenPlanner.exe" --selftest` returns in ~6 ms with an *empty*
    `$LASTEXITCODE` — a gate that passes unconditionally. `Start-Process -Wait
-   -PassThru` is why `.github/workflows/release.yml:109` is written that way.
+   -PassThru` is why `.github/workflows/release.yml:114` is written that way.
 2. **A shell pipe hands the windowed exe a real `sys.stdout`.** Run from Git
    Bash the plain form *does* wait and *does* return the exit code — but the
    selftest's prints are visible (~300 bytes measured; the exact count varies with the Qt version string), so `sys.stdout` was a

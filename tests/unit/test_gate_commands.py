@@ -34,7 +34,11 @@ case: ``shlex.split`` modelled tokenisation but not expansion and passed on the
 first defect; a ``$NAME``-only scanner was bypassed with PowerShell's ``$?``; and
 substring checks for ``Start-Process``/``-Wait``/``-PassThru``/``exit`` were
 bypassed by dropping the ``$p =`` assignment while keeping ``exit $p.ExitCode``,
-which exits 0 whatever the child returned.
+which exits 0 whatever the child returned. Round 8 added three walkable
+spellings of the discovery predicate — a quoted path at line start
+(``"dist/…exe" --selftest``), ``powershell.exe``, and a prose word in a
+trailing comment (``# the gate exists``) — plus the launcher-variant seam in
+the shape checks. Each is now a teeth case.
 
 Static by design: it does not run the gates (that needs a built exe and minutes
 of wall clock). Issue #336 proposes a citation resolver for the skill library;
@@ -82,39 +86,65 @@ _PROSE_ALLOWLIST = (
     "docs/09-architecture-decisions/README.md",
 )
 
-_SELFTEST_LINE = re.compile(r"^.*powershell -Command .*--selftest.*$", re.MULTILINE)
+#: Lines that name the exe and a ``--selftest`` flag behind a launcher verb.
+#: The verb requirement keeps historical examples out of the shape checks
+#: (``"`& \"…\\OpenGardenPlanner.exe\" --selftest` returns in ~6 ms"`` in
+#: ogp-build-and-run describes the old defect, it does not prescribe the gate)
+#: while still covering launcher variants like ``pwsh -Command`` and
+#: ``powershell -c``. Round 8 showed the old key (``powershell -Command``) let
+#: the shape checks go quiet for such variants while the discovery check
+#: stayed green.
+_SELFTEST_LINE = re.compile(
+    rf"^.*(?:timeout|powershell|pwsh|start-process).*{re.escape(_EXE)}.*--selftest.*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+#: Shell verbs that make a line a command. Word-boundary matched, so the
+#: ``powershell.exe`` and ``pwsh -c`` spellings count too. Round 8 used
+#: ``powershell.exe`` to walk past the old ``"powershell "`` substring token.
+_SHELL_VERB = re.compile(r"\b(?:timeout|powershell|pwsh|start-process)\b")
+
+#: A gate flag makes a line a command even when no launcher is present.
+_FLAG = re.compile(r"--selftest|--spike")
+
+#: Prose words. They exempt a bare-path sentence, but never a real command.
+_PROSE_WORDS = re.compile(r"\b(dies|lives|found|produced|appears|exists)\b")
 
 
 def is_runnable_invocation(line: str) -> bool:
-    """Whether ``line`` *invokes* the exe rather than merely naming it.
+    """Return True when ``line`` runs the exe, not merely names it.
 
-    Deliberately broad. Every previous version of this predicate enumerated
-    launcher spellings — ``^timeout \\d+ …`` and ``^powershell -Command …`` — and
-    a reviewer walked past it four times in one round with ``pwsh -Command``,
-    ``powershell -c``, a bare ``…exe --selftest`` and a bullet-prefixed
-    ``- timeout 8 …``, while three real violations already in the tree stayed
-    invisible. Reality has more spellings than a regex, so this recognises the
-    **path in a command position** and treats only clear prose as exempt.
+    This predicate is deliberately broad. Every earlier version listed launcher
+    spellings: ``^timeout \\d+ …`` and ``^powershell -Command …``. A reviewer
+    then walked past it with four other spellings: ``pwsh -Command``,
+    ``powershell -c``, a bare ``…exe --selftest``, and a bullet-prefixed
+    ``- timeout 8 …``. Three real violations already in the tree stayed
+    invisible. Reality has more spellings than a regex, so this predicate finds
+    the exe path in a command position and exempts only clear prose.
 
-    Prose, for this purpose, is a line where the exe appears inside inline
-    backticks *as a bare path* with no shell verb anywhere on the line.
+    A line is a command when it carries a shell verb, or a gate flag, or starts
+    with the exe path, quoted or not. Round 8 used ``"dist/…exe" --selftest``
+    to walk past the old ``startswith`` check, which saw the quote, not the
+    path. The prose-word exemption applies only to the bare-path start. A
+    sentence like "a 3D engine that … dies in `dist/…exe`" has no verb and no
+    flag, so it is prose. A command whose trailing comment holds one of those
+    words is still a command: ``timeout 8 …exe # the gate exists``.
     """
     if _EXE not in line:
         return False
+    if re.search(rf"…\\?{re.escape(_EXE)}", line):
+        return False  # an ellipsized path is an example, not a runnable command
     stripped = line.strip().lstrip("-*>| `").strip()
+    for quote in ("'", '"'):
+        if stripped.startswith(quote):
+            stripped = stripped[len(quote) :].lstrip()
     lowered = stripped.lower()
-    # A launcher anywhere on the line, or the exe path invoked directly at the
-    # start of it (`dist/…exe --selftest`). Both spellings have been used to
-    # walk past narrower versions of this predicate.
-    launched = any(
-        token in lowered
-        for token in ("timeout ", "powershell ", "pwsh ", "start-process")
-    ) or lowered.startswith(("dist/", "./dist/", "$exe", "&"))
-    if not launched:
-        return False
-    # ...but a sentence that merely NAMES the path is prose, even though it
-    # contains "dist/": "a 3D engine that … dies in `dist/…exe`".
-    return not re.search(r"\b(dies|lives|found|produced|appears|exists)\b", lowered)
+    if _SHELL_VERB.search(lowered) or _FLAG.search(lowered):
+        return True
+    if lowered.startswith(("dist/", "./dist/", "$exe", "&")):
+        return not _PROSE_WORDS.search(lowered)
+    return False
 
 #: ``$NAME`` / ``${NAME}`` / ``${?}``, and bash's special parameters — ``$?`` is
 #: the one a reviewer used to walk past an earlier version of this guard.
@@ -224,6 +254,8 @@ def _selftest_lines() -> list[tuple[str, str]]:
     found: list[tuple[str, str]] = []
     for path in _tracked("*.md", "*.yml", "*.yaml"):
         name = path.relative_to(_REPO_ROOT).as_posix()
+        if name == _RELEASE_WORKFLOW:
+            continue  # checked by its own test, on pwsh terms (no bash involved)
         text = path.read_text(encoding="utf-8")
         found.extend((name, line.strip()) for line in _SELFTEST_LINE.findall(text))
     return found
@@ -403,3 +435,34 @@ class TestTheGuardItself:
     def test_comment_stripper_respects_quotes(self) -> None:
         assert _strip_comment("cmd 'a # b' # real") == "cmd 'a # b' "
         assert _strip_comment('cmd "a # b"') == 'cmd "a # b"'
+
+    def test_rejects_the_quoted_path_bypasses(self) -> None:
+        """Round 8: the old ``startswith`` check saw the quote, not the path."""
+        assert is_runnable_invocation(
+            '"dist/OpenGardenPlanner/OpenGardenPlanner.exe" --selftest'
+        ), "a double-quoted path at line start must be a command"
+        assert is_runnable_invocation(
+            "'dist/OpenGardenPlanner/OpenGardenPlanner.exe' --selftest"
+        ), "a single-quoted path at line start must be a command"
+
+    def test_rejects_the_powershell_exe_bypass(self) -> None:
+        """Round 8: ``powershell.exe`` did not contain the ``"powershell "`` token."""
+        assert is_runnable_invocation(
+            'powershell.exe -Command "dist/OpenGardenPlanner/OpenGardenPlanner.exe --selftest"'
+        ), "the .exe spelling of powershell must be a command"
+
+    def test_prose_words_do_not_exempt_a_real_command(self) -> None:
+        """Round 8: ``# the gate exists`` exempted a genuine command."""
+        assert is_runnable_invocation(
+            "timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe # the gate exists"
+        ), "a prose word in a trailing comment must not exempt a command"
+
+    def test_still_exempts_clear_prose(self) -> None:
+        assert not is_runnable_invocation(
+            "a 3D engine that … dies in `dist/OpenGardenPlanner/OpenGardenPlanner.exe`"
+        ), "a sentence that merely names the path must stay exempt"
+
+    def test_an_ellipsized_path_is_not_runnable(self) -> None:
+        assert not is_runnable_invocation(
+            "`& \"…\\OpenGardenPlanner.exe\" --selftest` returns in ~6 ms"
+        ), "an ellipsized path describes a defect, it does not prescribe a gate"
