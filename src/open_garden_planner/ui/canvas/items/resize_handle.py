@@ -2714,6 +2714,7 @@ class RectVertexEditMixin:
         # circular.
         from open_garden_planner.ui.canvas.geometry_apply import (
             apply_rect_like_geometry,
+            capture_rect_like_geometry,
         )
 
         def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
@@ -2722,6 +2723,10 @@ class RectVertexEditMixin:
             if hasattr(item, '_update_rect_corner_handles'):
                 item._update_rect_corner_handles()
 
+        # Built by capture_rect_like_geometry, not by hand: that function exists
+        # so a caller cannot omit a key the apply function reads (a circle's
+        # _center/_radius bookkeeping in particular). The NEW dict is captured
+        # from the item's present state, which _move_corner_to has already set.
         old_geometry = {
             'rect_x': initial_rect.x(),
             'rect_y': initial_rect.y(),
@@ -2730,15 +2735,7 @@ class RectVertexEditMixin:
             'pos_x': initial_pos.x(),
             'pos_y': initial_pos.y(),
         }
-
-        new_geometry = {
-            'rect_x': current_rect.x(),
-            'rect_y': current_rect.y(),
-            'width': current_rect.width(),
-            'height': current_rect.height(),
-            'pos_x': current_pos.x(),
-            'pos_y': current_pos.y(),
-        }
+        new_geometry = capture_rect_like_geometry(self)  # type: ignore[arg-type]
 
         command = ResizeItemCommand(
             self,  # type: ignore[arg-type]

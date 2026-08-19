@@ -250,7 +250,7 @@ def build_server(
 
     Args:
         writes_enabled: When true AND ``write_token`` is set, the scene-mutating
-            write tools (``move_object``/``delete_object``) are registered. When
+            write tools (``create_object``/``move_object``/``delete_object``/``resize_object``/``rotate_object``/``set_species``/``set_parent_bed``) are registered. When
             either is missing the write tools are omitted entirely — they don't
             appear in the agent's tool list. This gating (plus the per-call
             token check) is the D2 write gate ADR-033 requires.

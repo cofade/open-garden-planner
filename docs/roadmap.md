@@ -17,7 +17,7 @@
 | **10** | **v1.8.6 – v1.8.12** | **✅ Complete** | **Companion Planting & Crop Rotation** |
 | **11** | **v1.8.13+** | **✅ Complete** | **Bed Interior Design, Visual Polish & Advanced 2D Tools** |
 | **12** | **v1.9.0 – v1.10.x** | **✅ Complete** | **Weather & Smart Features** |
-| **13** | **v1.11 – v1.24.x** | **✅ A–C complete, D: D1+D2.0 shipped** | **CAD Precision, Smart Features & Agent Integration** |
+| **13** | **v1.11 – v1.24.x** | **✅ A–C complete, D: D1 + D2.0–D2.3 shipped** | **CAD Precision, Smart Features & Agent Integration** |
 | **14** | **v1.24.5 – v1.24.12** | **✅ Complete** ([epic #255](https://github.com/cofade/open-garden-planner/issues/255); no v2.0 bump — see the Phase 14 section) | **3D Visualization & Sun/Shade** |
 | **15** | **v1.25.0 – v1.27.0** | **✅ Complete** (Packages 1–3; epic [#284](https://github.com/cofade/open-garden-planner/issues/284)) | **Visual Refresh** |
 | 16 | — | Future | Platform & Community |

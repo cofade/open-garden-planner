@@ -234,6 +234,35 @@ class TestResizableShapePredicate:
         assert not is_resizable_rect_like(polygon)
 
 
+def _is_rotate_command(node: ast.Call) -> bool:
+    """Whether ``node`` constructs a ``RotateItemCommand``.
+
+    Accepts a dotted callee (``commands.RotateItemCommand(...)``) as well as a
+    bare name — a reviewer demonstrated that matching only ``ast.Name`` let the
+    dotted form through. The class definition itself is an ``ast.ClassDef``,
+    never an ``ast.Call``, so it needs no special case.
+    """
+    func = node.func
+    if isinstance(func, ast.Name):
+        return func.id == "RotateItemCommand"
+    return isinstance(func, ast.Attribute) and func.attr == "RotateItemCommand"
+
+
+def _rotate_applier(node: ast.Call) -> ast.expr | None:
+    """The ``apply_func`` argument, positional **or** keyword.
+
+    ``apply_func`` is a plain positional-or-keyword parameter
+    (``core/commands.py``), so ``apply_func=...`` is one word from the
+    positional form and was the likeliest way a future caller would write it —
+    the previous version of this guard read ``node.args[3]`` only and missed it.
+    """
+    for keyword in node.keywords:
+        if keyword.arg == "apply_func":
+            return keyword.value
+    return node.args[3] if len(node.args) >= 4 else None
+
+
+
 class TestVertexEditCornerDrag:
     """The vertex-edit corner drag must satisfy THREE invariants at once.
 
@@ -501,14 +530,9 @@ class TestNoPrivateRotationAppliers:
         for path in self._source_files():
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
-                if (
-                    not isinstance(node, ast.Call)
-                    or not isinstance(node.func, ast.Name)
-                    or node.func.id != "RotateItemCommand"
-                    or len(node.args) < 4
-                ):
+                if not isinstance(node, ast.Call) or not _is_rotate_command(node):
                     continue
-                applier = node.args[3]
+                applier = _rotate_applier(node)
                 if not (
                     isinstance(applier, ast.Name) and applier.id == "apply_rotation"
                 ):
@@ -525,15 +549,13 @@ class TestNoPrivateRotationAppliers:
     def _offenders_in(source: str) -> list[str]:
         found = []
         for node in ast.walk(ast.parse(source)):
-            if (
-                isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Name)
-                and node.func.id == "RotateItemCommand"
-                and len(node.args) >= 4
-            ):
-                arg = node.args[3]
-                if not (isinstance(arg, ast.Name) and arg.id == "apply_rotation"):
-                    found.append(ast.dump(arg)[:40])
+            if not isinstance(node, ast.Call) or not _is_rotate_command(node):
+                continue
+            arg = _rotate_applier(node)
+            if arg is None:
+                found.append("<no applier argument>")
+            elif not (isinstance(arg, ast.Name) and arg.id == "apply_rotation"):
+                found.append(ast.dump(arg)[:40])
         return found
 
     def test_the_ast_guard_rejects_the_regex_blind_spots(self) -> None:
@@ -557,3 +579,23 @@ class TestNoPrivateRotationAppliers:
             "    apply_rotation,\n"
             ")"
         ), "a wrapped argument must NOT be a false positive"
+
+    def test_the_ast_guard_has_no_holes_of_its_own(self) -> None:
+        """The four shapes a reviewer demonstrated the FIRST ast version missed.
+
+        `apply_func` is a plain positional-or-keyword parameter, so the keyword
+        form is one word away from the positional one and is the likeliest way a
+        future caller writes it — yet `node.args[3]` never saw it.
+        """
+        assert self._offenders_in(
+            "RotateItemCommand(i, o, n, apply_func=item._apply_rotation)"
+        ), "the KEYWORD form must be caught"
+        assert self._offenders_in(
+            "commands.RotateItemCommand(i, o, n, item._apply_rotation)"
+        ), "a dotted callee must be caught"
+        assert self._offenders_in(
+            "RotateItemCommand(i, o, n)"
+        ), "an applier supplied some other way must not pass as 'too few args'"
+        assert not self._offenders_in(
+            "RotateItemCommand(i, o, n, apply_func=apply_rotation)"
+        ), "the keyword form with the SHARED applier must pass"

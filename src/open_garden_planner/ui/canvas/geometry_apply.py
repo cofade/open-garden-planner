@@ -141,8 +141,6 @@ def is_round_like(item: QGraphicsItem) -> bool:
     return hasattr(item, "_center") and hasattr(item, "_radius")
 
 
-_is_circle_like = is_round_like
-
 
 def capture_rect_like_geometry(item: QGraphicsItem) -> dict[str, Any]:
     """Snapshot ``item``'s current geometry in the canonical dict shape.
@@ -161,7 +159,7 @@ def capture_rect_like_geometry(item: QGraphicsItem) -> dict[str, Any]:
         "pos_x": pos.x(),
         "pos_y": pos.y(),
     }
-    if _is_circle_like(item):
+    if is_round_like(item):
         center: QPointF = item._center  # type: ignore[attr-defined]
         geometry["center_x"] = center.x()
         geometry["center_y"] = center.y()
@@ -196,7 +194,7 @@ def apply_rect_like_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
     item.setRect(  # type: ignore[attr-defined]
         geom["rect_x"], geom["rect_y"], geom["width"], geom["height"]
     )
-    if _is_circle_like(item) and "radius" in geom:
+    if is_round_like(item) and "radius" in geom:
         item._center = QPointF(geom["center_x"], geom["center_y"])  # type: ignore[attr-defined]
         item._radius = geom["radius"]  # type: ignore[attr-defined]
     item.setTransformOriginPoint(item.rect().center())  # type: ignore[attr-defined]
@@ -243,7 +241,7 @@ def _resize_geometry(
     restoring it on undo. Deriving it here makes that shape unrepresentable.
     """
     old_geometry = capture_rect_like_geometry(item)
-    circle_bookkeeping = _is_circle_like(item)
+    circle_bookkeeping = is_round_like(item)
     rotation = float(item.rotation())
 
     if keep_center:
