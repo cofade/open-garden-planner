@@ -245,13 +245,17 @@ def _rotate_command_bindings(tree: ast.Module) -> dict[str, str]:
     import written INSIDE a function: scanning only module-level statements
     missed it (a false negative) and also flagged the canonical applier behind
     a function-local alias (a false positive). Every ``ImportFrom`` node is
-    therefore collected, wherever it sits.
+    therefore collected, wherever it sits, with ``setdefault`` so an outer
+    binding wins over a nested shadow of the same name (walk order visits
+    outer scopes first). The map stays scope-blind per file: a call inside a
+    function that shadows the alias resolves to the outer binding. Real
+    source files do not shadow; the shape is pinned as a tooth.
     """
     bindings: dict[str, str] = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             for alias in node.names:
-                bindings[alias.asname or alias.name] = alias.name
+                bindings.setdefault(alias.asname or alias.name, alias.name)
     return bindings
 
 
@@ -678,3 +682,9 @@ class TestNoPrivateRotationAppliers:
             "    from geometry_apply import apply_rotation as AR\n"
             "    RotateItemCommand(i, o, n, AR)\n"
         ), "a function-local aliased SHARED applier must pass"
+        assert self._offenders_in(
+            "from core.commands import RotateItemCommand as RIC\n"
+            "def f():\n"
+            "    from third_party import RIC\n"
+            "RIC(i, o, n, item._apply_rotation)\n"
+        ), "a module-level call must still be caught when a nested scope shadows the alias"
