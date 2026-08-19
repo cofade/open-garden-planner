@@ -59,18 +59,14 @@ Run all of these locally before any PR (commands verified against CLAUDE.md Quic
 | Lint | `venv/Scripts/python.exe -m ruff check src/` | Clean | Yes (`lint` job) |
 | Security (SAST) | `venv/Scripts/python.exe -m bandit -r src/ --severity-level high` | No HIGH findings (MEDIUM/LOW are logged, non-blocking — §8.11) | Yes (`security` job) |
 | i18n gate | `pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` | Zero unfinished strings. **Limit:** only sees strings *registered* via `tr()`/`QT_TR_NOOP`/`translate()` — a hardcoded English f-string is invisible to it | Yes (part of full suite) |
-| Exe build + smoke + `--selftest` (the smoke alone cannot see a silently-dead subsystem (#291, #277) — see `ogp-change-control` §2.8) | `venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm` then `timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe` | **Exit code 124 = pass** (app survived 8 s and was killed by timeout; any other exit = crash on launch) | **No — local-only duty.** `ci.yml` never builds the exe; `release.yml` builds the installer only *after* merge to master (as of 2026-07-04). A frozen-build breakage found post-merge is a broken release. |
+| Exe build + smoke + `--selftest` | both commands per `ogp-change-control` §2.8 (traps in `ogp-build-and-run`) | Smoke: exit 124. `--selftest`: exit 0 — the smoke alone cannot see a silently-dead subsystem (#291, #277) |
 
 
-**Both exe checks, not just the smoke** (`ogp-change-control` §2.8): the 8-second
-smoke proves only that the process stays up, and cannot see a subsystem that died
-silently — how #291 (Agent API) survived six releases and #277 (Qt3D) shipped a crash.
-
-```bash
-venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
-timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe   # exit 124 = survived
-powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
-```
+**The exe gate is two commands, and both are mandatory** — the 8-second smoke *and*
+`--selftest`, which is what sees a subsystem that died silently (#291 hid from the smoke
+for six releases; #277 shipped a crash behind a lazy import). The command literals live in
+**`ogp-change-control` §2.8** — the single place they are written down — with the
+invocation traps in `ogp-build-and-run`. Do not copy them here.
 
 Also run per CLAUDE.md when UI strings changed: `PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py` then `scripts/compile_translations.py` *before* the i18n gate test.
 

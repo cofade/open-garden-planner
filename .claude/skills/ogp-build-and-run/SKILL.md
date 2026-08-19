@@ -199,7 +199,7 @@ child exiting 3 propagates 3).
    -PassThru` is why `.github/workflows/release.yml:109` is written that way.
 2. **A shell pipe hands the windowed exe a real `sys.stdout`.** Run from Git
    Bash the plain form *does* wait and *does* return the exit code — but the
-   selftest's prints are visible (313 bytes measured), so `sys.stdout` was a
+   selftest's prints are visible (~300 bytes measured; the exact count varies with the Qt version string), so `sys.stdout` was a
    live pipe and a regression of #291's `log_config=None` fix would pass
    cleanly. Use the `Start-Process` form, which gives the process no console at
    all. **Why, in full: §11.4's #291 entry** (corrected in PR #334 — it used to

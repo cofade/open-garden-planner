@@ -74,9 +74,11 @@ venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py -v
 
 ```powershell
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
-timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe   # exit 124 = success
-powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'   # exit 0 = subsystems alive
 ```
+
+Then run **both** exe checks — the 8-second smoke *and* `--selftest`. The command
+literals live in `ogp-change-control` §2.8 (traps in `ogp-build-and-run`); they are
+deliberately not copied here.
 
 | Layer | Command | Coverage | Skip if… |
 |---|---|---|---|
@@ -84,7 +86,7 @@ powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanne
 | Ruff | `ruff check src/` | Lint, style, common bugs | Never. ~1 s. |
 | Bandit | `bandit -r src/ --severity-level high` | High-severity SAST | Never. ~10 s. AGENTS.md § 8.11. |
 | Translation gate | `pytest tests/unit/test_i18n.py -v` | `test_german_ts_has_no_unfinished` catches missed `.qm` compiles; `test_no_hardcoded_english_in_src` catches `tr()`-less English strings | Never. Redundant with the full pytest run but explicit — call it out separately in the report if UI strings were added. |
-| PyInstaller exe smoke + `--selftest` | `pyinstaller installer/ogp.spec --noconfirm` then `timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe` (exit 124 = clean launch) | Verifies the bundled `.exe` launches without import errors. **Mandatory before every merge** per AGENTS.md Quick Reference. | If the diff is docs-only AND touches nothing under `src/`, `installer/`, `pyproject.toml`, `requirements*.txt`. |
+| PyInstaller exe smoke + `--selftest` | build, then **both** checks per `ogp-change-control` §2.8 (exit 124, then exit 0) — clean launch) | Verifies the bundled `.exe` launches without import errors. **Mandatory before every merge** per AGENTS.md Quick Reference. | If the diff is docs-only AND touches nothing under `src/`, `installer/`, `pyproject.toml`, `requirements*.txt`. |
 | Senior-reviewer agent | `subagent_type: senior-reviewer` against the branch diff | P0/P1/P2 findings on architecture, regressions, missed tests | This skill does **not** launch it (it's heavier; the user runs it explicitly via `finalize-us`). Flag in the report if the PR body shows no evidence of a senior-review pass for a feature-sized change. |
 
 Also pull the GitHub CI rollup from the PR view — `statusCheckRollup[].conclusion` (Lint / Test / Security). If CI is green and the local layers above are green, the PR's automated story is complete.

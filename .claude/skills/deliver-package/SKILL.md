@@ -164,15 +164,14 @@ PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py
 venv/Scripts/python.exe -m pytest tests/unit/test_i18n.py -v
 venv/Scripts/python.exe scripts/check_agent_context.py
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
-timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe   # exit 124 = survived = pass
-powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
 ```
 
-The exe build is the **last three lines of the battery, not an optional extra** — see step 6.
-Both exe checks are `ogp-change-control` §2.8's, not this file's; the mechanics and the two
-traps in that `Start-Process` invocation are in `ogp-build-and-run`. Do not simplify it: a
-plain call returns in milliseconds under PowerShell with no exit code, and a shell-piped run
-hands the windowed exe a real stdout so it cannot reproduce the condition #291 is about.
+…then **both** exe checks — the 8-second smoke *and* `--selftest`. They are
+`ogp-change-control` §2.8's commands, not this file's, and this file deliberately does not
+carry the literals: it opens by saying a second copy of a gate list is how a gate goes
+missing, and an early draft proved the point by copying them into ten more documents. The
+invocation traps (PowerShell does not wait on a GUI-subsystem process; a shell pipe hands
+the windowed exe a real stdout) are in `ogp-build-and-run`.
 
 ## 6. Verify on the running artifact, not only in pytest
 
@@ -233,7 +232,7 @@ again after every round of fixes, until it comes back clean**. The gate itself, 
 round-on-round catches, the unmet-gate carve-out and the reviews-are-not-oracles rule all live
 in `ogp-change-control` §2.4; read it rather than this paragraph.
 
-Two things that only bite at package scale:
+Four things that only bite at package scale:
 
 - **Once per PR, not once per package.** A package that ships as two or three PRs needs a review
   per branch — a clean pass on one says nothing about the others.
