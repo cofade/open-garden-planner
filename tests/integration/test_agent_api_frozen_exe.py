@@ -1,7 +1,11 @@
 """Regression pin for issue #291 — the Agent API must start with no stdout.
 
-A PyInstaller **windowed** build (``console=False``, which is what we ship) sets
-``sys.stdout`` and ``sys.stderr`` to ``None``. uvicorn's DEFAULT logging config
+A PyInstaller **windowed** build (``console=False``, which is what we ship)
+allocates no console, so when it is launched with no inherited stdout handle — a
+double-click, or CI's ``Start-Process`` — ``sys.stdout`` and ``sys.stderr`` are
+``None``. (Run through a shell pipe it *does* inherit a handle and the condition
+does not arise; see §11.4's dated correction, which this test's simulation is
+unaffected by since it sets the streams to ``None`` explicitly.) uvicorn's DEFAULT logging config
 calls ``sys.stdout.isatty()`` while ``dictConfig`` builds its formatter, so
 ``uvicorn.Config.__init__`` raised ``ValueError: Unable to configure formatter
 'default'`` and the embedded MCP server never started -- in every released exe,

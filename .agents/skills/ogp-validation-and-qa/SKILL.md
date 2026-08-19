@@ -59,7 +59,7 @@ Run all of these locally before any PR (commands verified against AGENTS.md Quic
 | Lint | `venv/Scripts/python.exe -m ruff check src/` | Clean | Yes (`lint` job) |
 | Security (SAST) | `venv/Scripts/python.exe -m bandit -r src/ --severity-level high` | No HIGH findings (MEDIUM/LOW are logged, non-blocking — §8.11) | Yes (`security` job) |
 | i18n gate | `pytest tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` | Zero unfinished strings. **Limit:** only sees strings *registered* via `tr()`/`QT_TR_NOOP`/`translate()` — a hardcoded English f-string is invisible to it | Yes (part of full suite) |
-| Exe build + smoke + `--selftest` | both commands per `ogp-change-control` §2.8 (traps in `ogp-build-and-run`) | Smoke: exit 124. `--selftest`: exit 0 — the smoke alone cannot see a silently-dead subsystem (#291, #277) |
+| Exe build + smoke + `--selftest` | both commands per `ogp-change-control` §2.8 (invocation traps in `ogp-build-and-run`) | Smoke: exit 124. `--selftest`: exit 0 — the smoke alone cannot see a silently-dead subsystem (#291, #277) | **No — local-only duty.** `ci.yml` never builds the exe; `release.yml` builds the installer only after merge to master. A frozen-build breakage found post-merge is a broken release. |
 
 
 **The exe gate is two commands, and both are mandatory** — the 8-second smoke *and*

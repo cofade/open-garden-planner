@@ -75,12 +75,46 @@ SANCTIONED_HOMES = frozenset(
 _RELEASE_WORKFLOW = ".github/workflows/release.yml"
 
 _EXE = "OpenGardenPlanner.exe"
-#: A *runnable* invocation, as opposed to prose mentioning the path.
-_RUNNABLE = re.compile(
-    rf"^\s*(?:timeout \d+ \S*{re.escape(_EXE)}|powershell -Command .*{re.escape(_EXE)})",
-    re.MULTILINE,
+
+#: Lines allowed to name the exe without being a command: prose that refers to
+#: the build output, and the ADR's historical spike record.
+_PROSE_ALLOWLIST = (
+    "docs/09-architecture-decisions/README.md",
 )
-_SELFTEST_LINE = re.compile(r"^\s*powershell -Command .*--selftest.*$", re.MULTILINE)
+
+_SELFTEST_LINE = re.compile(r"^.*powershell -Command .*--selftest.*$", re.MULTILINE)
+
+
+def is_runnable_invocation(line: str) -> bool:
+    """Whether ``line`` *invokes* the exe rather than merely naming it.
+
+    Deliberately broad. Every previous version of this predicate enumerated
+    launcher spellings — ``^timeout \\d+ …`` and ``^powershell -Command …`` — and
+    a reviewer walked past it four times in one round with ``pwsh -Command``,
+    ``powershell -c``, a bare ``…exe --selftest`` and a bullet-prefixed
+    ``- timeout 8 …``, while three real violations already in the tree stayed
+    invisible. Reality has more spellings than a regex, so this recognises the
+    **path in a command position** and treats only clear prose as exempt.
+
+    Prose, for this purpose, is a line where the exe appears inside inline
+    backticks *as a bare path* with no shell verb anywhere on the line.
+    """
+    if _EXE not in line:
+        return False
+    stripped = line.strip().lstrip("-*>| `").strip()
+    lowered = stripped.lower()
+    # A launcher anywhere on the line, or the exe path invoked directly at the
+    # start of it (`dist/…exe --selftest`). Both spellings have been used to
+    # walk past narrower versions of this predicate.
+    launched = any(
+        token in lowered
+        for token in ("timeout ", "powershell ", "pwsh ", "start-process")
+    ) or lowered.startswith(("dist/", "./dist/", "$exe", "&"))
+    if not launched:
+        return False
+    # ...but a sentence that merely NAMES the path is prose, even though it
+    # contains "dist/": "a 3D engine that … dies in `dist/…exe`".
+    return not re.search(r"\b(dies|lives|found|produced|appears|exists)\b", lowered)
 
 #: ``$NAME`` / ``${NAME}`` / ``${?}``, and bash's special parameters — ``$?`` is
 #: the one a reviewer used to walk past an earlier version of this guard.
@@ -103,7 +137,10 @@ def _tracked(*patterns: str) -> list[Path]:
             check=True,
         )
     except (OSError, subprocess.CalledProcessError):  # pragma: no cover
-        pytest.skip("git unavailable; cannot enumerate tracked files")
+        pytest.skip(
+            "git unavailable; cannot enumerate tracked files",
+            allow_module_level=True,
+        )
     return [_REPO_ROOT / line for line in out.stdout.split("\n") if line.strip()]
 
 
@@ -166,12 +203,21 @@ def shell_exposed_variables(line: str) -> list[str]:
     return exposed
 
 
-def _files_with_runnable_invocations() -> set[str]:
-    return {
-        path.relative_to(_REPO_ROOT).as_posix()
-        for path in _tracked("*.md", "*.yml", "*.yaml")
-        if _RUNNABLE.search(path.read_text(encoding="utf-8"))
-    } - {_RELEASE_WORKFLOW}
+def _files_with_runnable_invocations() -> dict[str, list[str]]:
+    """Map of file → the lines in it that invoke the exe."""
+    found: dict[str, list[str]] = {}
+    for path in _tracked("*.md", "*.yml", "*.yaml"):
+        name = path.relative_to(_REPO_ROOT).as_posix()
+        if name in _PROSE_ALLOWLIST or name == _RELEASE_WORKFLOW:
+            continue
+        lines = [
+            line
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if is_runnable_invocation(line)
+        ]
+        if lines:
+            found[name] = lines
+    return found
 
 
 def _selftest_lines() -> list[tuple[str, str]]:
@@ -189,18 +235,24 @@ _IDS = [f"{name}#{index}" for index, (name, _) in enumerate(_LINES)]
 
 def test_only_sanctioned_homes_carry_the_command() -> None:
     """Rule 1. Everything else cites ``ogp-change-control`` §2.8 by name."""
-    strays = sorted(_files_with_runnable_invocations() - SANCTIONED_HOMES)
+    found = _files_with_runnable_invocations()
+    strays = {
+        name: lines for name, lines in found.items() if name not in SANCTIONED_HOMES
+    }
+    detail = "; ".join(
+        f"{name} -> {lines[0].strip()[:70]}" for name, lines in sorted(strays.items())
+    )
     assert not strays, (
         "these files carry a runnable frozen-exe invocation instead of citing "
         "`ogp-change-control` §2.8 — a second copy of a gate list is how a gate "
-        f"goes missing: {strays}"
+        f"goes missing: {detail}"
     )
 
 
 def test_every_sanctioned_home_still_carries_it() -> None:
     """The other direction: a home that quietly loses the gate is the original
     failure mode (#291 hid for six releases behind a weaker check)."""
-    missing = sorted(SANCTIONED_HOMES - _files_with_runnable_invocations())
+    missing = sorted(SANCTIONED_HOMES - set(_files_with_runnable_invocations()))
     assert not missing, f"sanctioned homes with no exe invocation at all: {missing}"
 
 
@@ -223,19 +275,29 @@ def test_the_release_workflow_still_runs_selftest() -> None:
     which is precisely #291.
     """
     text = (_REPO_ROOT / _RELEASE_WORKFLOW).read_text(encoding="utf-8")
-    assert "--selftest" in text, "release.yml no longer runs the frozen selftest"
-    assert re.search(r"\$p\s*=\s*Start-Process", text), (
+    # Scoped to the COMMAND line, not the file: the explanatory comment block
+    # above the step already contains every token, so a whole-file check passed
+    # with the argument deleted from the real command.
+    command = next(
+        (ln for ln in text.splitlines() if "Start-Process" in ln and "#" not in ln),
+        "",
+    )
+    assert command, "release.yml no longer starts the frozen exe at all"
+    for required in ("--selftest", "-Wait", "-PassThru"):
+        assert required in command, (
+            f"release.yml's selftest command is missing {required!r}: {command.strip()}"
+        )
+    assert re.search(r"\$p\s*=\s*Start-Process", command), (
         "release.yml must ASSIGN the process object, or $p.ExitCode is null and "
         "the check passes whatever the selftest found"
     )
-    for required in ("-Wait", "-PassThru", "$p.ExitCode"):
-        assert required in text, f"release.yml selftest step is missing {required!r}"
+    assert "$p.ExitCode" in text, "release.yml never inspects the exit code"
 
 
 def test_discovery_is_not_vacuous() -> None:
     """Guard the guard: a changed marker would make the rules pass over nothing."""
     assert _LINES, "no --selftest invocations discovered at all"
-    assert len(_files_with_runnable_invocations()) == len(SANCTIONED_HOMES)
+    assert set(_files_with_runnable_invocations()) == SANCTIONED_HOMES
 
 
 @pytest.mark.parametrize("doc,line", _LINES, ids=_IDS)
@@ -266,7 +328,7 @@ def test_selftest_actually_reports_the_childs_exit_code(doc: str, line: str) -> 
         "…`). Without the assignment `$p.ExitCode` is null, `exit` yields 0, and "
         f"the gate passes whatever the selftest found. Line: {line}"
     )
-    for required in ("-Wait", "-PassThru", "exit $p.ExitCode"):
+    for required in ("--selftest", "-Wait", "-PassThru", "exit $p.ExitCode"):
         assert required in command, f"{doc}: gate command is missing {required!r}"
     assert _EXE in command, doc
 

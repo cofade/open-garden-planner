@@ -822,8 +822,10 @@ class AgentApiServer:
             access_log=False,
             # Do NOT let uvicorn install its default logging config (issue #291).
             # uvicorn's default formatter does `sys.stdout.isatty()` at dictConfig
-            # time (uvicorn/logging.py), and a PyInstaller **windowed** build sets
-            # sys.stdout/sys.stderr to None -- so Config.__init__ raises
+            # time (uvicorn/logging.py), and a PyInstaller **windowed** build
+            # launched with no inherited stdout handle (a double-click, or CI's
+            # Start-Process) has sys.stdout/sys.stderr None -- so Config.__init__
+            # raises
             # "ValueError: Unable to configure formatter 'default'" and the server
             # never starts. That is invisible from source and from a console=True
             # build, which is why it shipped: the Agent API was dead in every

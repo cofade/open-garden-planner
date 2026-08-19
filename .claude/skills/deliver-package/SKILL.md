@@ -180,7 +180,8 @@ the windowed exe a real stdout) are in `ogp-build-and-run`.
 Linux/cloud session that cannot run them, and then you **say so in the PR** rather than skipping
 silently. pytest runs the source tree; users run the frozen exe, and the two have disagreed on
 real releases in three different ways: #291 (the embedded server never started in the frozen
-*windowed* exe, because uvicorn's log config dereferences `sys.stdout`, which is `None` there),
+*windowed* exe, because uvicorn's log config dereferences `sys.stdout`, which is `None`
+when it is launched with no inherited stdout handle — see §11.4's dated correction),
 #277 (a Qt6Core/Qt3D micro mismatch that startup and the smoke both survived because Qt3D is
 imported **lazily** — nothing to do with stdout; a `console=True` build reproduces it fine), and
 the `ogp.spec` `unittest` exclusion that silently broke DXF export in every built exe. Different

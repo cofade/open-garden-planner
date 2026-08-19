@@ -473,11 +473,18 @@ PowerShell saw it (`= Start-Process …; exit .ExitCode` — the gate fails
 unconditionally, and never launches the exe). Four review rounds used the word
 "verified" before anyone executed it.
 
-**What the guard does.** Every tracked document prescribing the 8-second smoke
-must also prescribe `--selftest`; every such command is checked for `$`/backtick
-constructs bash would expand or execute first, for `-Wait`/`-PassThru`/`exit`,
-and for the real built-exe path. Discovery, not a curated list — the first
-version pinned eight documents while sixteen carried the gate.
+**What the guard does.** Two rules. **(1)** The command literal may live only in
+`SANCTIONED_HOMES` — the canonical definition (`ogp-change-control` §2.8), its
+mechanics (`ogp-build-and-run`) and the `CLAUDE.md`/`AGENTS.md` Quick Reference;
+every other document must **cite §2.8 by name**. **(2)** Wherever it does appear,
+the command must actually work: no `$`/backtick construct bash would expand
+first, and a shape (`$p = Start-Process … -Wait -PassThru … exit $p.ExitCode`)
+that makes the gate capable of failing.
+
+Rule 1 exists because the first version of this guard did the opposite. Told that
+eight documents prescribed a weaker gate, it copied the corrected command into
+ten more and policed eighteen copies — in a change whose stated thesis is that a
+second copy of a gate list is how a gate goes missing.
 
 **How to test this pattern.** Three rules, each bought with a failure:
 

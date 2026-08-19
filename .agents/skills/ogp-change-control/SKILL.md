@@ -277,7 +277,7 @@ equivalents in parentheses.
 | 4 | Quality checks: `venv/Scripts/python.exe -m pytest tests/ -v` · `-m ruff check src/` · `-m bandit -r src/ --severity-level high` (Linux: `QT_QPA_PLATFORM=offscreen python -m pytest tests/ -v`, etc.) | Same three checks CI runs; how-to details: `ogp-build-and-run` |
 | 5 | Translations: register strings in `scripts/fill_translations.py`; `PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py` then `scripts/compile_translations.py`; run the i18n gate test | 2.5 |
 | 6 | Write the integration test in `tests/integration/test_<feature>.py` | Mandatory (2.5); patterns in §8.10 |
-| 7 | Build & smoke the exe (2.8) | Windows-only; declare if skipped in a cloud session |
+| 7 | Build the exe, then **both** checks — smoke *and* `--selftest` (§2.8) | Windows-only; declare if skipped in a cloud session |
 | 8 | Update docs: FR entry, arc42 sections, ADR if triggered, glossary, §11.4 lessons | Duty matrix: `ogp-docs-and-writing` |
 | 9 | senior-reviewer pass; fix all P0/P1; re-run until clean | 2.4 — verify findings against code before acting |
 | 10 | Commit `feat(US-X.X): Description`, push, open **draft** PR with summary + test plan + **manual-testing checklist** | 2.3; evidence standards: `ogp-validation-and-qa` |

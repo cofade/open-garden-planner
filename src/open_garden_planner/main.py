@@ -95,7 +95,8 @@ def _run_selftest() -> int:
     # The 8-second exe smoke test only proves the app survives startup, which a
     # silently-dead subsystem passes. The Agent API server died in every
     # released windowed build because uvicorn's default log config calls
-    # sys.stdout.isatty() and a console=False frozen exe has sys.stdout is None.
+    # sys.stdout.isatty(), and a console=False frozen exe launched with no
+    # inherited stdout handle has sys.stdout is None.
     #
     # Starting a real server here exercises the real failure surface in the
     # real artifact -- same reasoning as the Qt3D imports above (#277).
@@ -103,10 +104,11 @@ def _run_selftest() -> int:
     # But note WHICH launch reproduces #291, because this was stated wrongly for
     # a while (see the dated correction in section 11.4): `console=False` means
     # no console is ALLOCATED, not that stdout is unconditionally None. Run this
-    # exe through a shell pipe and it inherits a real handle -- measured, 313
+    # exe through a shell pipe and it inherits a real handle -- measured, ~300
     # bytes of the prints below reached stdout -- so `isatty()` answers and a
-    # regression of the `log_config=None` fix would pass. Only a DETACHED launch
-    # (Start-Process, or a double-click) has `sys.stdout is None`. The gate must
+    # regression of the `log_config=None` fix would pass. Only a launch with no inherited handle
+    # with no inherited stdout handle (Start-Process, or a double-click)
+    # has `sys.stdout is None`. The gate must
     # use that form or it is testing the wrong condition.
     try:
         import socket
