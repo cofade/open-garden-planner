@@ -83,10 +83,12 @@ Two policies, both expressed through the same builder:
   ``create_object`` and every read tool speak in centres, so it is the only
   rule an agent can reason about without knowing an item's internal anchor.
   It is also what the panel already does for circles.
-* **anchor-preserving** (``keep_center=False``) — ``pos`` and the local rect
-  origin are left alone, so the item grows right/down in item coordinates.
-  This is the panel's long-standing behaviour for rectangles and ellipses and
-  is preserved exactly.
+* **anchor-preserving** (``keep_center=False``) — the local rect origin is
+  left alone, so the item grows right/down in item coordinates; ``pos`` is
+  untouched at rotation 0 and recomputed under rotation so the scene top-left
+  stays pinned (``anchored_position``, not a no-op). This is the panel's
+  long-standing behaviour for rectangles and ellipses and is preserved
+  exactly.
 
 Both go through :func:`~open_garden_planner.ui.canvas.items.resize_handle.anchored_position`,
 the single solved form of Qt's rotation transform, so neither policy can drift

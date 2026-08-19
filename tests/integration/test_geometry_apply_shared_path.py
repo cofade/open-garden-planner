@@ -248,8 +248,12 @@ def _rotate_command_bindings(tree: ast.Module) -> dict[str, str]:
     therefore collected, wherever it sits, with ``setdefault`` so an outer
     binding wins over a nested shadow of the same name (walk order visits
     outer scopes first). The map stays scope-blind per file: a call inside a
-    function that shadows the alias resolves to the outer binding. Real
-    source files do not shadow; the shape is pinned as a tooth.
+    function that shadows the alias resolves to the outer binding. The same
+    scope-blindness holds for a SAME-scope double import (two module-level
+    imports of the same alias): ``setdefault`` keeps the first while Python
+    resolves the last, so a module-level call after the second import
+    mis-resolves. No real source file has either shape; the nested one is
+    pinned as a tooth.
     """
     bindings: dict[str, str] = {}
     for node in ast.walk(tree):
