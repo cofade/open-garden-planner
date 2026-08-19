@@ -92,17 +92,21 @@ _SPIKE_RECORD_FLAG = "--spike-3d"
 def _is_spike_record(line: str) -> bool:
     """Whether ``line`` is the ADR-038 spike record, not a gate copy.
 
-    The record invokes the exe directly: ``dist/…exe --spike-3d
-    --spike-screenshot …``. A real gate copy always names a launcher
-    (``timeout``, ``powershell``, ``pwsh``, ``Start-Process``), so requiring
-    the flag AND the exe path AND the absence of any launcher verb keeps the
-    exemption to the historical shape. Delete this exemption when the spike
-    record is retired from the ADR.
+    The record invokes the exe directly with the full flag trio:
+    ``dist/…exe --spike-3d --spike-screenshot … --spike-autoclose 6``. The
+    comment is stripped first, so a flag in a trailing comment cannot exempt
+    a real command (round 13). The trio requirement anchors the exemption to
+    the record itself: a line that only mentions ``--spike-3d`` next to a
+    bare ``--selftest`` invocation is still a command. Delete this exemption
+    when the spike record is retired from the ADR.
     """
+    stripped = _strip_comment(line)
     return (
-        _SPIKE_RECORD_FLAG in line
-        and _EXE in line
-        and not _SHELL_VERB.search(line.lower())
+        _SPIKE_RECORD_FLAG in stripped
+        and "--spike-screenshot" in stripped
+        and "--spike-autoclose" in stripped
+        and _EXE in stripped
+        and not _SHELL_VERB.search(stripped.lower())
     )
 
 #: Lines that name the exe and a ``--selftest`` flag behind a launcher verb.
@@ -572,3 +576,7 @@ class TestTheGuardItself:
             '"dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList '
             '"--selftest" -Wait -PassThru; exit $p.ExitCode\' # --spike-3d'
         ), "the real gate command plus a flag in a comment must NOT be exempt"
+        assert not _is_spike_record(
+            "dist/OpenGardenPlanner/OpenGardenPlanner.exe --selftest "
+            "# --spike-3d"
+        ), "a bare selftest copy must NOT hide behind the spike flag in a comment"

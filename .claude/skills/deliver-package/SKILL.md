@@ -242,7 +242,8 @@ Four things that only bite at package scale:
 - **This skill never overrides a live instruction from the user.** It only refuses to let an
   unmet gate go unreported.
 - **The reviewer's worktree has no `.env` and no real credentials.** Any claim it makes about
-  "live-confirmed" behaviour is unverified; confirm it yourself. This is recorded nowhere else in this repo.
+  "live-confirmed" behaviour is unverified; confirm it yourself. This is
+  recorded nowhere else in this repo.
 
 Then hand off: `ogp-change-control` owns the landing decision, `finalize-us` the post-approval
 sequence (CI wait, tag-transition wait, version sync, wiki push). **Open the PR as a draft and
