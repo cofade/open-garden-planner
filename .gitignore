@@ -7,6 +7,8 @@
 !.agents/skills/analyze-pr/**
 !.agents/skills/debug-verbose/
 !.agents/skills/debug-verbose/**
+!.agents/skills/deliver-package/
+!.agents/skills/deliver-package/**
 !.agents/skills/finalize-us/
 !.agents/skills/finalize-us/**
 !.agents/skills/ogp-3d-sunshade-campaign/
@@ -58,6 +60,9 @@
 !.claude/skills/analyze-pr/
 .claude/skills/analyze-pr/*
 !.claude/skills/analyze-pr/SKILL.md
+# Workflow skills using the same recursive pattern as the ogp-* block below.
+!.claude/skills/deliver-package/
+!.claude/skills/deliver-package/**
 # Continuity skill library (ogp-*): whitelist each skill dir and everything under it
 # (SKILL.md plus any scripts/ helpers). Recursive re-include after .claude/skills/* above.
 !.claude/skills/ogp-architecture-contract/

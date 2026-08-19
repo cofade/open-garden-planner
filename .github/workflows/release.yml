@@ -98,9 +98,14 @@ jobs:
       # before release. The startup-only smoke test can't see it, so a Qt
       # micro-version mismatch (issue #277) would otherwise ship and crash the
       # 3D view for every user. `--selftest` imports the Qt3D bindings headless
-      # and exits non-zero on failure; a windowed exe has no stdout so we read
-      # the exit code via Start-Process -Wait -PassThru.
-      - name: Verify 3D subsystem in frozen build (issue #277)
+      # and starts the embedded Agent API server, exiting non-zero if either is
+      # dead. Start-Process gives the child NO INHERITED STDOUT HANDLE, which is
+      # the shipping condition (#291): a `console=False` exe has no console
+      # allocated, but a shell-piped run still inherits a handle and would test
+      # the wrong thing. The exit code is the channel either way -- hence
+      # -Wait -PassThru rather than a plain call, which PowerShell would not
+      # wait on at all for a GUI-subsystem process.
+      - name: Verify frozen subsystems (Qt3D #277, Agent API #291)
         if: steps.check_tag.outputs.exists == 'false'
         shell: pwsh
         run: |
@@ -108,10 +113,10 @@ jobs:
           if (-not (Test-Path $exe)) { Write-Error "Frozen exe not found: $exe"; exit 1 }
           $p = Start-Process -FilePath $exe -ArgumentList "--selftest" -Wait -PassThru
           if ($p.ExitCode -ne 0) {
-            Write-Error "Frozen Qt3D self-test failed (exit $($p.ExitCode)) - the 3D view would crash for users. See issue #277."
+            Write-Error "Frozen self-test failed (exit $($p.ExitCode)). It covers the Qt3D bindings + Qt version match (#277) AND the embedded Agent API server binding (#291) - one of those is dead in this build."
             exit 1
           }
-          Write-Host "Frozen Qt3D self-test passed (exit 0)."
+          Write-Host "Frozen self-test passed (exit 0): Qt3D bindings + Agent API both alive."
 
       - name: Generate checksum
         if: steps.check_tag.outputs.exists == 'false'

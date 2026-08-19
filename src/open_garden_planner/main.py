@@ -54,9 +54,11 @@ def _run_selftest() -> int:
     so it runs on a headless CI runner. Returns non-zero on any failure so a
     broken frozen build fails the release instead of shipping.
 
-    A windowed (console=False) frozen exe has no stdout, so CI reads the
-    process EXIT CODE (Start-Process -Wait -PassThru); the prints are for a
-    local/dev run.
+    A windowed (console=False) frozen exe is given no CONSOLE, so when it is
+    launched detached -- `Start-Process -Wait -PassThru`, what CI does -- it has
+    no stdout at all and the EXIT CODE is the only channel. Launched from a
+    shell that redirects (a pipe), it *does* inherit a handle and the prints
+    below are visible; that is the local/dev case.
     """
     from importlib.metadata import PackageNotFoundError, version
 
@@ -93,12 +95,21 @@ def _run_selftest() -> int:
     # The 8-second exe smoke test only proves the app survives startup, which a
     # silently-dead subsystem passes. The Agent API server died in every
     # released windowed build because uvicorn's default log config calls
-    # sys.stdout.isatty() and a console=False frozen exe has sys.stdout is None.
+    # sys.stdout.isatty(), and a console=False frozen exe launched with no
+    # inherited stdout handle has sys.stdout is None.
     #
-    # This check needs no simulation: running inside that very exe, sys.stdout
-    # ALREADY is None, so simply starting the server here reproduces the exact
-    # shipping condition. Same reasoning as the Qt3D imports above (#277) --
-    # exercise the real failure surface in the real artifact.
+    # Starting a real server here exercises the real failure surface in the
+    # real artifact -- same reasoning as the Qt3D imports above (#277).
+    #
+    # But note WHICH launch reproduces #291, because this was stated wrongly for
+    # a while (see the dated correction in section 11.4): `console=False` means
+    # no console is ALLOCATED, not that stdout is unconditionally None. Run this
+    # exe through a shell pipe and it inherits a real handle -- measured, ~300
+    # bytes of the prints below reached stdout -- so `isatty()` answers and a
+    # regression of the `log_config=None` fix would pass. Only a launch with no
+    # inherited stdout handle (Start-Process, or a double-click) has
+    # `sys.stdout is None`. The gate must use that form or it is testing the
+    # wrong condition.
     try:
         import socket
 
@@ -147,9 +158,10 @@ def _run_selftest() -> int:
 def _write_crash_log(message: str) -> None:
     """Best-effort append of a traceback to a user-findable crash log.
 
-    A windowed (``console=False``) frozen exe has ``sys.stderr is None``, so an
-    unhandled exception would otherwise leave no trace on disk. Writes into the
-    app-data dir; never raises.
+    A windowed (``console=False``) frozen exe launched with no inherited handle
+    has ``sys.stderr is None``. An unhandled exception would then leave no
+    trace on disk. This function writes into the app-data dir. It never
+    raises.
     """
     import contextlib
 
@@ -171,16 +183,17 @@ def _write_crash_log(message: str) -> None:
 def _install_excepthook() -> None:
     """Route unhandled exceptions to a dialog instead of aborting the process.
 
-    Under PyQt6 an exception that escapes a Qt slot calls ``sys.excepthook``
-    and then, with the DEFAULT hook, aborts the process — silently killing the
-    app and any unsaved plan. Issue #277 hit exactly this: an ``ImportError``
-    from the lazily imported 3D view took the whole process down. Installing a
-    custom hook suppresses the abort; we record the traceback (stderr in a dev
-    run, plus a best-effort ``crash.log`` in the app-data dir so a windowed
-    frozen build — where ``sys.stderr is None`` — isn't silent) and show a
-    recoverable dialog so the user can save. The 3D-open path also catches its
-    own ``ImportError`` for a clearer message; this is the broad backstop for
-    everything else.
+    Under PyQt6 an exception that escapes a Qt slot calls ``sys.excepthook``.
+    With the DEFAULT hook that call aborts the process. It silently kills the
+    app and any unsaved plan. Issue #277 hit this path: an ``ImportError``
+    from the lazily imported 3D view took the whole process down. The custom
+    hook stops the abort. It writes the traceback to stderr in a dev run and
+    to a best-effort ``crash.log`` in the app-data dir. The log records the
+    traceback for a windowed frozen build. Such a build launched with no
+    inherited handle has ``sys.stderr is None``. The hook then shows a
+    recoverable dialog so the user can save. The 3D-open path also catches
+    its own ``ImportError`` for a clearer message. This hook is the broad
+    backstop for everything else.
     """
     import contextlib
     import traceback

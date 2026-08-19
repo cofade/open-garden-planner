@@ -459,6 +459,49 @@ def canvas(qtbot):
 
 Integration tests run automatically in CI (`ci.yml`) alongside unit and widget tests. Qt rendering uses `QT_QPA_PLATFORM=offscreen` — no display server required.
 
+### 8.10.1 Gating our own documentation's shell commands
+
+`tests/unit/test_gate_commands.py` is a static guard over the **commands our
+documentation tells people to run** — a category distinct from both unit and
+integration tests, and added after a self-inflicted defect worth recording.
+
+The frozen-exe `--selftest` gate was written into several documents at once and
+was wrong twice in two commits: first as a naked call PowerShell does not wait
+on (returns in ~6 ms with an empty exit code — the gate passes unconditionally),
+then with the outer string double-quoted so **bash** expanded `$p` before
+PowerShell saw it (`= Start-Process …; exit .ExitCode` — the gate fails
+unconditionally, and never launches the exe). Four review rounds used the word
+"verified" before anyone executed it.
+
+**What the guard does.** Two rules. **(1)** The command literal may live only in
+`SANCTIONED_HOMES` — the canonical definition (`ogp-change-control` §2.8), its
+mechanics (`ogp-build-and-run`) and the `CLAUDE.md`/`AGENTS.md` Quick Reference;
+every other document must **cite §2.8 by name**. **(2)** Wherever it does appear,
+the command must actually work: no `$`/backtick construct bash would expand
+first, and a shape (`$p = Start-Process … -Wait -PassThru … exit $p.ExitCode`)
+that makes the gate capable of failing.
+
+Rule 1 exists because the first version of this guard did the opposite. Told that
+eight documents prescribed a weaker gate, it copied the corrected command into
+ten more and policed eighteen copies — in a change whose stated thesis is that a
+second copy of a gate list is how a gate goes missing.
+
+**How to test this pattern.** Three rules, each bought with a failure:
+
+1. **Model the shell, not the tokens.** The first implementation used
+   `shlex.split(posix=True)` and passed on the known-broken line — `shlex` models
+   quoting but not `$`-expansion.
+2. **Cover substitution, not just `$NAME`.** The second version was bypassed with
+   PowerShell's `$?` idiom, where bash substitutes its own exit status and
+   PowerShell then evaluates a constant. `$(…)`, backticks and the special
+   parameters all belong in the model.
+3. **Pin the teeth against the real defects.** The guard carries the literal
+   shipped-broken lines as test cases, so a later simplification cannot quietly
+   regress it to a version that passed on them.
+
+Verify a guard of this kind by reintroducing the defect and watching it go red;
+a guard that has never been observed failing is an assertion, not a test.
+
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).

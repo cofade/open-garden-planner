@@ -165,6 +165,50 @@ app crashed on startup (typically a missing hidden import or data file that
 dev runs never surface). **Required before every merge**, and re-required
 after ANY dependency change (see traps below).
 
+### `--selftest` — what the smoke test cannot see
+
+The smoke test proves the process **stays up**. It cannot see a subsystem that
+died silently behind an `except`, which is exactly how issue **#291** (the Agent
+API never started in any released exe) survived six releases, and how **#277** (a
+`Qt6Core`/Qt3D micro mismatch) shipped a crash — Qt3D is imported lazily, so
+startup and the 8 s smoke both passed. `main.py --selftest` closes both: it
+imports all six Qt3D bindings, asserts `qVersion()` matches the `PyQt6-3D-Qt6`
+wheel version, then binds an ephemeral port and starts a real `AgentApiServer`
+with poisoned providers, asserting `is_running`.
+
+```bash
+powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
+echo $?   # 0 = PASS, 1 = a subsystem is dead
+```
+
+**Quoting matters — the single quotes are load-bearing.** The outer string is
+**single**-quoted for bash and the inner PowerShell arguments are
+**double**-quoted, not the other way round. Inverted, bash expands `$p` itself
+before PowerShell ever sees it, and PowerShell receives
+`= Start-Process … ; exit .ExitCode` — two `CommandNotFoundException`s and exit
+1, i.e. a gate that now fails unconditionally instead of passing
+unconditionally. Both failure directions have been observed here; the form above
+is the one that was executed and returns the real code (verified end-to-end: a
+child exiting 3 propagates 3).
+
+**Two further traps in the invocation, both measured:**
+
+1. **PowerShell does not wait on a GUI-subsystem process.** A plain
+   `& "…\OpenGardenPlanner.exe" --selftest` returns in ~6 ms with an *empty*
+   `$LASTEXITCODE` — a gate that passes unconditionally. `Start-Process -Wait
+   -PassThru` is why `.github/workflows/release.yml:114` is written that way.
+2. **A shell pipe hands the windowed exe a real `sys.stdout`.** Run from Git
+   Bash the plain form *does* wait and *does* return the exit code — but the
+   selftest's prints are visible (~300 bytes measured; the exact count varies
+   with the Qt version string). So the run had a live stdout handle, and a
+   regression of #291's `log_config=None` fix would pass cleanly. Use the
+   `Start-Process` form, which gives the process no inherited stdout handle.
+   **Why, in full: §11.4's #291 entry** (corrected in PR #334 — it used to
+   state the claim without the no-inherited-handle condition).
+
+`release.yml` runs `--selftest` against the built exe, but only *after* merge.
+Running it locally is what makes it a merge gate rather than a post-mortem.
+
 ### Known build traps (all encoded in `installer/ogp.spec`; verified 2026-07-04)
 
 | Trap | Rule | Why (source) |
@@ -175,7 +219,7 @@ after ANY dependency change (see traps below).
 | UPX vs pydantic_core | `upx_exclude=["pydantic_core*.pyd"]` | UPX can corrupt that compiled extension, killing the Agent API at runtime |
 | PyQt6-WebEngine pin | `PyQt6-WebEngine>=6.10.0,<6.11` in `pyproject.toml` | Pinned below 6.11 (satellite map picker uses QWebEngineView); do not bump casually |
 | mcp major pin | `mcp>=1.12,<2.0` | mcp v2 renames `FastMCP` → `MCPServer` (pyproject comment); `structured_output=False` behavior verified against mcp 1.28.1 |
-| Any new dependency | Re-run the exe build + `timeout 8` smoke BEFORE merge | Frozen imports diverge from dev imports; the smoke test is the only thing that catches it (CLAUDE.md Quick Reference) |
+| Any new dependency | Re-run the exe build + `timeout 8` smoke **and `--selftest`** BEFORE merge | Frozen imports diverge from dev imports, and the smoke alone cannot see a subsystem that died silently (#291, #277) — see the `--selftest` section above (CLAUDE.md Quick Reference) |
 | WebEngine import order | `PyQt6.QtWebEngineCore/Widgets/WebChannel` are explicit hiddenimports; the import must run before `QApplication` is created (handled in `main.py`) | Spec comment |
 
 ## Building the NSIS installer

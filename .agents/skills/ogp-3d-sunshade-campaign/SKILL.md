@@ -579,7 +579,7 @@ at spike time** — the commands are the deliverable, not remembered claims:
 | Alternative: PyVista (VTK) | `pip install pyvista pyvistaqt` in throwaway venv; probe `python -c "import pyvista; print(pyvista.__version__)"`; embed test: `QtInteractor` inside a QDialog | Same import + embed bar. **License: PyVista MIT, VTK BSD-3, pyvistaqt MIT — all GPL-3 compatible** (project is GPL-3.0-or-later, pyproject line 10). Note VTK wheel size (~100 MB) → installer-size criterion below |
 | Alternative: pyqtgraph.opengl | `pip install pyqtgraph PyOpenGL`; probe `GLViewWidget` | MIT, tiny; weakest feature set (no shadow mapping out of box — you'd project shadows yourself, which Phase 3 already does analytically → genuinely viable for a 2.5D look) |
 | Zero-dep fallback: 2.5D isometric | No install — prototype a `QGraphicsScene` isometric projection (items extruded by `object_height_cm`, painter-sorted) | Always available; this is the DEFER outcome, not a failure |
-| **Packaging under PyInstaller (MANDATORY, the decisive gate)** | Add the candidate to a spike branch, `venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm` then `timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe` (exit 124 = alive). Then open the 3D spike window in the frozen exe on a real Windows box | Frozen exe shows a lit, rotating extruded box textured from a real `.ogp`'s items. Precedent for hidden-import pain: the mcp/uvicorn saga (§8.19 packaging note; expect `collect_submodules`/`copy_metadata`/binaries work for VTK especially) |
+| **Packaging under PyInstaller (MANDATORY, the decisive gate)** | Add the candidate to a spike branch, build the exe and run **both** gate commands per `ogp-change-control` §2.8 (exit 124, then exit 0). Then open the 3D spike window in the frozen exe on a real Windows box | Frozen exe shows a lit, rotating extruded box textured from a real `.ogp`'s items. Precedent for hidden-import pain: the mcp/uvicorn saga (§8.19 packaging note; expect `collect_submodules`/`copy_metadata`/binaries work for VTK especially) |
 | Installer size delta | compare `dist/` size before/after | < +150 MB or owner explicitly accepts |
 | GPL compatibility of the chosen dep | read its license file, cross-check SPDX | Must be GPL-3-compatible; if a sibling `ogp-external-positioning` skill exists, follow its process |
 
@@ -614,10 +614,16 @@ campaign-specific overlay).
 | Lint | `venv/Scripts/python.exe -m ruff check src/` | clean |
 | Security | `venv/Scripts/python.exe -m bandit -r src/ --severity-level high` | clean |
 | i18n | `PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py && PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py && venv/Scripts/python.exe -m pytest "tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished" -v` | pass — remember: f-strings bypass `tr()` (the AGENTS.md trap); sun/shade has LOTS of user-visible strings (menu, hints, band labels, command descriptions) |
-| Exe | `venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm && timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe` | exit code 124 |
+| Exe | build, then **both** checks per `ogp-change-control` §2.8 — `--selftest` is **the check that caught #277**, this campaign's own Qt3D micro-mismatch, which startup and the 8-second smoke both survived because Qt3D imports lazily | exit code 124, then 0 |
 | Integration test | mandatory per §8.10 — each phase's gate table above names the file | in `tests/integration/` |
 | Review | `senior-reviewer` agent on the branch diff, fresh worktree; fix P0/P1; re-run for a clean pass | clean pass BEFORE the PR |
 | PR | draft PR (`gh pr create --draft`), stays draft until the owner's manual test | per `ogp-change-control` — never merge on your own say-so |
+
+**The exe gate is two commands, and both are mandatory** — the 8-second smoke *and*
+`--selftest`, which is what sees a subsystem that died silently (#291 hid from the smoke
+for six releases; #277 shipped a crash behind a lazy import). The command literals live in
+**`ogp-change-control` §2.8** — the single place they are written down — with the
+invocation traps in `ogp-build-and-run`. Do not copy them here.
 
 **Manual-test checklist (owner-facing, per slice — the owner's judgment is
 sovereign, but hand them numbers, not vibes):** e.g. for Phase 3: "Set

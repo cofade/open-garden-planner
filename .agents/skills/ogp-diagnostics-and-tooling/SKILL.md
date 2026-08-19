@@ -267,9 +267,12 @@ hunting introductions/removals. Deeper context per incident lives in
 
 ```bash
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
-timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe
-echo $?
 ```
+
+Then the two gate commands from `ogp-change-control` §2.8 — the 8-second smoke (exit
+124 = survived) and `--selftest` (exit 0 = Qt3D bindings, Qt-version match and the
+Agent API server all alive). The smoke alone cannot see any of the three dying;
+`ogp-build-and-run` documents the invocation traps.
 
 Exit **124** (killed by `timeout` after 8 s) = the frozen app was still alive
 and running = **healthy**. Any prompt exit is unhealthy: nonzero-fast = crash

@@ -137,6 +137,15 @@ re-review** — a review of the fix is not implied by a review of the original. 
 - **#228 / PR #230, P1 in round 1:** the calendar rewrite dropped the frost row's
   `frost_items:<ids>` highlight key — navigation silently broke.
 
+**If you cannot run it, the gate is UNMET — say so.** No agent tooling available, or the user
+has told you not to launch one: the same shape as §2.8's disclosure duty for a Linux session
+that cannot build the exe, extended here to the landing decision because this gate is the one
+that stands between a diff and a merge. **Open the draft PR, state the unmet gate in the body, and stop
+there** — do not mark ready, do not merge, and do not proceed on the assumption it would have
+passed. (This resolves the apparent conflict between "every coding job ends in a draft PR" and
+"open the draft only after the review is satisfied": the draft still opens, carrying an honest
+declaration instead of a silent omission.)
+
 **And one refutation, which is also part of the discipline (#223):** a review P1 claimed
 `can_undo/redo_changed` fired conditionally; reading `commands.py` refuted it. Reviews are
 *inputs*, not oracles — verify every finding against the code before acting, in both
@@ -187,7 +196,23 @@ merged PR at run time; a label added after the workflow ran does nothing.
 ```bash
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe   # exit code 124 = success (app survived 8 s)
+powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'   # exit code 0 = subsystems alive
 ```
+**Both checks, not just the smoke.** The 8-second smoke proves only that the process stays
+up; it cannot see a *silently dead subsystem*, which is how issue #291 (the Agent API never
+started in the frozen windowed exe) survived six releases, and how #277 (a Qt6Core/Qt3D micro
+mismatch behind a lazy import) shipped a crash. `--selftest` (`main.py`) imports the Qt3D
+bindings, checks the Qt runtime against the Qt3D wheel version, and starts a real
+`AgentApiServer` asserting it binds. `release.yml` runs it against the built exe *after*
+merge; running it here is what makes it a merge gate.
+
+**The invocation form is load-bearing.** Use `Start-Process -Wait -PassThru` (what
+`release.yml` uses): PowerShell does **not** wait on a GUI-subsystem process, so a plain call
+returns in milliseconds with an empty exit code — a gate that passes unconditionally. And
+running it through a shell pipe hands the windowed exe a real `sys.stdout`, so it cannot
+reproduce the `stdout is None` condition #291 is about (§11.4's "the observation changes the
+result", one layer up).
+
 Windows-only (the exe cannot run in a Linux cloud session — say so in the PR rather than
 skipping silently). Rationale: PyInstaller hidden-import and data-file breakage is
 invisible to pytest; D1.1 specifically had to verify the frozen embedded MCP server.
@@ -252,7 +277,7 @@ equivalents in parentheses.
 | 4 | Quality checks: `venv/Scripts/python.exe -m pytest tests/ -v` · `-m ruff check src/` · `-m bandit -r src/ --severity-level high` (Linux: `QT_QPA_PLATFORM=offscreen python -m pytest tests/ -v`, etc.) | Same three checks CI runs; how-to details: `ogp-build-and-run` |
 | 5 | Translations: register strings in `scripts/fill_translations.py`; `PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py` then `scripts/compile_translations.py`; run the i18n gate test | 2.5 |
 | 6 | Write the integration test in `tests/integration/test_<feature>.py` | Mandatory (2.5); patterns in §8.10 |
-| 7 | Build & smoke the exe (2.8) | Windows-only; declare if skipped in a cloud session |
+| 7 | Build the exe, then **both** checks — smoke *and* `--selftest` (§2.8) | Windows-only; declare if skipped in a cloud session |
 | 8 | Update docs: FR entry, arc42 sections, ADR if triggered, glossary, §11.4 lessons | Duty matrix: `ogp-docs-and-writing` |
 | 9 | senior-reviewer pass; fix all P0/P1; re-run until clean | 2.4 — verify findings against code before acting |
 | 10 | Commit `feat(US-X.X): Description`, push, open **draft** PR with summary + test plan + **manual-testing checklist** | 2.3; evidence standards: `ogp-validation-and-qa` |
