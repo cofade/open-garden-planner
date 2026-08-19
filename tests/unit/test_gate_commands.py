@@ -133,16 +133,25 @@ def is_runnable_invocation(line: str) -> bool:
     """
     if _EXE not in line:
         return False
-    if re.search(rf"…\\?{re.escape(_EXE)}", line):
+    if re.search(rf"…[\\/]?{re.escape(_EXE)}", line):
         return False  # an ellipsized path is an example, not a runnable command
     stripped = line.strip().lstrip("-*>| `").strip()
     for quote in ("'", '"'):
         if stripped.startswith(quote):
-            stripped = stripped[len(quote) :].lstrip()
+            body = stripped[1:].lstrip()
+            # Remove the closing quote that wraps the path, so the comment
+            # stripper below sees balanced quotes. Round 10: without this, a
+            # trailing `# comment` after the closing quote was treated as
+            # quoted text and exempted the line.
+            close = body.find(quote)
+            if close != -1 and " " not in body[:close]:
+                body = body[:close] + body[close + 1 :]
+            stripped = body.strip()
+            break
     lowered = stripped.lower()
     if _SHELL_VERB.search(lowered) or _FLAG.search(lowered):
         return True
-    if lowered.startswith(("dist/", "./dist/", "$exe", "&", ".\\", "..\\")):
+    if lowered.startswith(("dist/", "dist\\", "./dist/", "$exe", "&", ".\\", "..\\")):
         # Strip comments first: a trailing ``# the gate exists`` must not
         # exempt a bare-path command (round 9 walked past this with exactly
         # that spelling).
@@ -498,3 +507,25 @@ class TestTheGuardItself:
         assert re.search(r"\$p\s*=\s*Start-Process", _strip_comment(variant))
         for required in ("--selftest", "-Wait", "-PassThru", "exit $p.ExitCode"):
             assert required in variant
+
+    def test_a_quoted_path_with_trailing_comment_is_a_command(self) -> None:
+        """Round 10: the opening-quote strip unbalanced _strip_comment, so the
+        prose word in a trailing comment exempted a quoted-path command."""
+        assert is_runnable_invocation(
+            '"dist/OpenGardenPlanner/OpenGardenPlanner.exe" # the gate exists'
+        ), "a quoted path with a trailing comment must be a command"
+        assert is_runnable_invocation(
+            "'dist/OpenGardenPlanner/OpenGardenPlanner.exe' # the gate exists"
+        ), "the single-quoted twin must be a command too"
+
+    def test_a_bare_backslash_path_is_runnable(self) -> None:
+        """Round 10: the direct sibling of the .\\ tooth — no leading dot."""
+        assert is_runnable_invocation(
+            r"dist\OpenGardenPlanner\OpenGardenPlanner.exe"
+        ), "a bare backslash path must be a command"
+
+    def test_a_forward_slash_ellipsized_path_is_not_runnable(self) -> None:
+        """Round 10: the ellipsis regex only exempted the backslash form."""
+        assert not is_runnable_invocation(
+            "…/OpenGardenPlanner.exe --selftest"
+        ), "a forward-slash ellipsis describes a defect, it does not prescribe a gate"
