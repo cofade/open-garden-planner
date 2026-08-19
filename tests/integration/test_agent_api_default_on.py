@@ -1347,7 +1347,7 @@ def test_set_species_refuses_an_unknown_name_and_a_non_plant(
 
         with pytest.raises(ValueError, match="bundled database"):
             win._do_agent_set_species(str(plant.item_id), "Nonexistent Plant", True)
-        with pytest.raises(ValueError, match="not a"):
+        with pytest.raises(ValueError, match="not a plant"):
             win._do_agent_set_species(str(bed.item_id), "Tomato", True)
 
         assert plant.metadata.get("plant_species") is None
@@ -1493,7 +1493,7 @@ def test_set_parent_bed_refuses_a_no_op_and_a_non_plant(
         win._do_agent_set_parent_bed(str(plant.item_id), str(bed.item_id))
         with pytest.raises(ValueError, match="already linked"):
             win._do_agent_set_parent_bed(str(plant.item_id), str(bed.item_id))
-        with pytest.raises(ValueError, match="not a"):
+        with pytest.raises(ValueError, match="not a plant"):
             win._do_agent_set_parent_bed(str(bed.item_id), str(bed.item_id))
     finally:
         win._stop_agent_api()

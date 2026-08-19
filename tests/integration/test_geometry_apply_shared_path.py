@@ -19,6 +19,7 @@ only guaranteed because they run the same function.
 
 from __future__ import annotations
 
+import ast
 import math
 import re
 from pathlib import Path
@@ -267,8 +268,21 @@ class TestVertexEditCornerDrag:
 
     @pytest.mark.parametrize("rotation", _ROTATIONS)
     @pytest.mark.parametrize("corner_name", _CORNER_NAMES)
+    @pytest.mark.parametrize(
+        "delta",
+        [
+            QPointF(120.0, 90.0),   # grow
+            QPointF(-120.0, -90.0),  # shrink
+            QPointF(-9999.0, -9999.0),  # past the MINIMUM_SIZE_CM floor
+        ],
+        ids=["grow", "shrink", "clamped"],
+    )
     def test_corner_drag_holds_all_three_invariants(
-        self, canvas: CanvasView, corner_name: str, rotation: float
+        self,
+        canvas: CanvasView,
+        corner_name: str,
+        rotation: float,
+        delta: QPointF,
     ) -> None:
         from open_garden_planner.ui.canvas.items.resize_handle import (
             RectCorner,
@@ -284,10 +298,20 @@ class TestVertexEditCornerDrag:
         initial_rect, initial_pos = item.rect(), item.pos()
         anchor_before = item.mapToScene(_opposite_corner(corner, initial_rect))
         dragged_before = item.mapToScene(self._corner_point(corner, initial_rect))
-        delta = QPointF(120.0, 90.0)
 
         item._move_corner_to(corner, delta, initial_rect, initial_pos)
         new_rect = item.rect()
+        # A drag past MINIMUM_SIZE_CM reverts that axis to its initial extent,
+        # so cursor tracking necessarily breaks — that is what a clamp is. The
+        # anchor and the #219 invariant must still hold exactly, and nothing
+        # pinned that branch before.
+        # Clamped == an axis kept its initial extent because the drag would have
+        # gone below MINIMUM_SIZE_CM. Derived from the result, not from the
+        # delta, so the test does not encode the clamp policy it is observing.
+        clamped = (
+            new_rect.width() == initial_rect.width()
+            or new_rect.height() == initial_rect.height()
+        )
 
         # 1. The diagonally opposite corner is held fixed in scene space —
         #    what the method's own docstring promises.
@@ -296,14 +320,15 @@ class TestVertexEditCornerDrag:
         assert anchor_after.y() == pytest.approx(anchor_before.y(), abs=1e-6)
 
         # 2. The dragged corner tracks the cursor, or the shape slides away
-        #    from the pointer mid-drag.
-        dragged_after = item.mapToScene(self._corner_point(corner, new_rect))
-        assert dragged_after.x() == pytest.approx(
-            dragged_before.x() + delta.x(), abs=1e-6
-        )
-        assert dragged_after.y() == pytest.approx(
-            dragged_before.y() + delta.y(), abs=1e-6
-        )
+        #    from the pointer mid-drag. Not asserted for a clamped drag.
+        if not clamped:
+            dragged_after = item.mapToScene(self._corner_point(corner, new_rect))
+            assert dragged_after.x() == pytest.approx(
+                dragged_before.x() + delta.x(), abs=1e-6
+            )
+            assert dragged_after.y() == pytest.approx(
+                dragged_before.y() + delta.y(), abs=1e-6
+            )
 
         # 3. The serializer invariant: the stored centre (pos + rect.center())
         #    is where the object actually appears, so it does not move on
@@ -461,25 +486,74 @@ class TestNoPrivateRotationAppliers:
         )
 
     def test_no_private_rotation_applier_reaches_rotateitemcommand(self) -> None:
-        """No ``lambda`` or locally-defined callable may be passed as the
-        rotate ``apply_func`` — every call site must hand over the shared one."""
+        """Every ``RotateItemCommand`` must be handed the SHARED applier.
+
+        Walks the AST rather than matching text. The regex version had two holes
+        a reviewer demonstrated — ``_legacy_apply_rotation`` and
+        ``item._apply_rotation`` both *contain* the substring ``apply_rotation``,
+        so both slipped through — plus a false positive: ``.*?`` under DOTALL
+        stops at the first ``)``, so a call wrapping an argument in ``float(...)``
+        was reported as an offender. Comparing the fourth argument to the NAME
+        ``apply_rotation`` has neither problem.
+        """
         src = Path(__file__).resolve().parents[2] / "src" / "open_garden_planner"
         offenders: list[str] = []
         for path in self._source_files():
-            text = path.read_text(encoding="utf-8")
-            # (?<!class ) so the class DEFINITION in commands.py is not read
-            # as a call site.
-            for match in re.finditer(
-                r"(?<!class )RotateItemCommand\((.*?)\)", text, re.DOTALL
-            ):
-                args = match.group(1)
-                if "lambda" in args:
-                    offenders.append(f"{path.relative_to(src).as_posix()}: lambda")
-                elif "apply_rotation" not in args:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in ast.walk(tree):
+                if (
+                    not isinstance(node, ast.Call)
+                    or not isinstance(node.func, ast.Name)
+                    or node.func.id != "RotateItemCommand"
+                    or len(node.args) < 4
+                ):
+                    continue
+                applier = node.args[3]
+                if not (
+                    isinstance(applier, ast.Name) and applier.id == "apply_rotation"
+                ):
                     offenders.append(
-                        f"{path.relative_to(src).as_posix()}: {args.strip()[:60]}"
+                        f"{path.relative_to(src).as_posix()}:{node.lineno} -> "
+                        f"{ast.dump(applier)[:60]}"
                     )
         assert not offenders, (
-            "every RotateItemCommand must be given geometry_apply.apply_rotation; "
-            f"found: {offenders}"
+            "every RotateItemCommand must be given geometry_apply.apply_rotation "
+            f"by name; found: {offenders}"
         )
+
+    @staticmethod
+    def _offenders_in(source: str) -> list[str]:
+        found = []
+        for node in ast.walk(ast.parse(source)):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "RotateItemCommand"
+                and len(node.args) >= 4
+            ):
+                arg = node.args[3]
+                if not (isinstance(arg, ast.Name) and arg.id == "apply_rotation"):
+                    found.append(ast.dump(arg)[:40])
+        return found
+
+    def test_the_ast_guard_rejects_the_regex_blind_spots(self) -> None:
+        """Teeth, using the exact shapes that defeated the regex version."""
+        assert self._offenders_in(
+            "RotateItemCommand(i, o, n, _legacy_apply_rotation)"
+        ), "a renamed private copy must be caught"
+        assert self._offenders_in(
+            "RotateItemCommand(i, o, n, item._apply_rotation)"
+        ), "a bound method must be caught"
+        assert self._offenders_in(
+            "RotateItemCommand(i, o, n, lambda it, a: it._apply_rotation(a))"
+        ), "a lambda must be caught"
+        # ...and the shape the regex falsely flagged must pass: its `.*?` under
+        # DOTALL stopped at the first `)`, so `float(old)` truncated the match.
+        assert not self._offenders_in(
+            "RotateItemCommand(\n"
+            "    item,\n"
+            "    float(old),\n"
+            "    new,\n"
+            "    apply_rotation,\n"
+            ")"
+        ), "a wrapped argument must NOT be a false positive"

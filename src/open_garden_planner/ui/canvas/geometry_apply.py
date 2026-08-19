@@ -12,11 +12,48 @@ did. A rotated circle resized from the panel therefore jumped — measurably
 degrees the drift is exactly zero, which is why it survived so long. See
 ``docs/11-risks-and-technical-debt/`` section 11.4.
 
-Adding the Agent API's ``resize_object`` (US-D2.2) would have made that a
-*third* copy, so the copies were collapsed instead: this module holds the one
-apply function and the one anchor policy, and the panel, the drag handles and
-the agent all call it. A regression here is a regression for all three, which
-is the point.
+Adding the Agent API's ``resize_object`` (US-D2.2) would have made that another
+copy, so the copies were collapsed instead.
+
+.. _canonical-callers:
+
+Who shares this path — the authoritative list
+---------------------------------------------
+**This docstring is the single statement of it.** ADR-036, §8.19, §11.4,
+FR-AGENT-15 and ``docs/roadmap.md`` all point here rather than paraphrasing,
+because during review those five paraphrases drifted into three mutually
+inconsistent answers — in a change whose entire thesis is that copies drift. If
+you change this list, change it *here*; the others carry no enumeration to keep
+in step.
+
+:func:`apply_rect_like_geometry` is the ``apply_func`` for every rect-backed
+resize:
+
+* the three numeric-entry branches in ``ui/panels/properties_panel.py``;
+* the drag-release handlers on ``CircleItem`` / ``RectangleItem`` /
+  ``EllipseItem``;
+* ``RectVertexEditMixin._on_corner_move_end`` — the corner-drag **undo**
+  closure (the live drag in ``_move_corner_to`` applies geometry directly, but
+  solves its position through the same :func:`anchored_position`);
+* the EQUAL-constraint **rectangle** partner appliers
+  (``core/tools/constraint_tool._apply_partner_extents``);
+* the Agent API's ``resize_object``.
+
+:func:`apply_rotation` has **exactly one** definition in the codebase, used by
+every ``RotateItemCommand`` call site, for every item type. Drift-guarded.
+
+Two deliberate exceptions, both verified rather than assumed:
+
+* **``PolygonItem``'s resize** keeps its own closure — its geometry dict is a
+  *vertex list*, a different geometry model rather than a copy of this one.
+  Vertex geometry belongs to the vertex tools.
+* **``constraint_tool.circle_apply``** keeps its own — it rebuilds the rect
+  around the *same local centre*, so ``_center``, ``rect().center()`` and
+  ``transformOriginPoint`` stay coincident and it is already rotation-correct.
+  Measured across rotations, not argued.
+
+An extraction that claims "every caller" is worse than one that names its
+exceptions, because the next reader stops looking (§11.4).
 
 Qt-touching and **main-thread only** — the Agent API reaches it through
 ``MainThreadBridge``, never from the server thread.

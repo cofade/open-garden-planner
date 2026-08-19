@@ -905,7 +905,7 @@ class GardenPlannerApp(QMainWindow):
                 )
             cmd = ApplySpeciesCommand(
                 item,
-                old_species if isinstance(old_species, dict) else None,
+                old_species,  # a dict — the guard above raised otherwise
                 None,
                 getattr(item, "spacing_radius_cm", None),
                 getattr(item, "spacing_radius_cm", None),

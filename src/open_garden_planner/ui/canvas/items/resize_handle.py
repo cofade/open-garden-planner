@@ -654,11 +654,12 @@ class ResizeHandle(QGraphicsRectItem):
             oc = init_rect.center()
             old_fx = init_rect.right() if is_left else init_rect.left() if is_right else oc.x()
             old_fy = init_rect.bottom() if is_top else init_rect.top() if is_bottom else oc.y()
-            adx = old_fx - oc.x()
-            ady = old_fy - oc.y()
-            scene_anchor = QPointF(
-                init_pos.x() + oc.x() + adx * cos_a - ady * sin_a,
-                init_pos.y() + oc.y() + adx * sin_a + ady * cos_a,
+            # Through scene_point_of, not inline: this was the third hand-written
+            # transcription of the same forward transform in this file, and a
+            # helper that leaves a live counterexample beside it teaches the next
+            # reader that using it is optional.
+            scene_anchor = scene_point_of(
+                QPointF(old_fx, old_fy), init_rect, init_pos, rotation
             )
             nc = new_rect.center()
             new_fx = new_rect.right() if is_left else new_rect.left() if is_right else nc.x()

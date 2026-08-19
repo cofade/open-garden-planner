@@ -744,6 +744,10 @@ def build_server(
             two calls leave it at 180. The resulting angle is normalised into
             [0, 360) and returned as rotation_deg.
 
+            Like resize_object, rotating a bed does NOT move or re-link the
+            plants inside it, so a rotation can leave a plant linked to a bed it
+            no longer sits inside. Use set_parent_bed to correct that.
+
             Fails if the object participates in a geometric constraint, if it's
             a journal pin or a group member, if it's on a locked layer, or if
             the angle is not finite.

@@ -1282,17 +1282,11 @@ undoable command; none reparents, so none produces the second undo step
 
 * **One geometry-apply path per geometry model.** `ResizeItemCommand` /
   `RotateItemCommand` take a caller-supplied `apply_func`, and before D2.2 every
-  call site had its own closure. `ui/canvas/geometry_apply.py` is now the single
-  implementation for **rect-backed** items — the properties panel's three
-  numeric-entry branches, the drag-release handlers on `CircleItem`/
-  `RectangleItem`/`EllipseItem`, `RectVertexEditMixin`'s corner drag, and the
-  agent — and `apply_rotation` has exactly one definition for *all* item types
-  (drift-guarded). **`PolygonItem`'s resize keeps its own closure by design**:
-  its geometry dict is a vertex list, a different model rather than a copy of
-  the same one. Do **not** add another rect closure; add a builder in
-  `geometry_apply`. The copies had already drifted twice (neither the panel's
-  nor `_move_corner_to` re-pinned `transformOriginPoint`, so resizing a rotated
-  object from either path displaced it — §11.4).
+  call site had its own closure — which had drifted, leaving three rotated-geometry
+  bugs in shipped GUI paths (§11.4). `ui/canvas/geometry_apply.py` is now the single
+  implementation; **its module docstring is the authoritative list of callers and of
+  the two deliberate exceptions**, and is deliberately not restated here. Do not add
+  another rect closure; add a builder there.
 * **Centre-preserving is the agent's anchor rule, for every type.** The read
   tools and `create_object` speak in centres, so `resize_object` holds the
   scene centre invariant; the panel keeps its own per-type anchor behaviour.
