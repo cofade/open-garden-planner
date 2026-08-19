@@ -95,16 +95,18 @@ def _is_spike_record(line: str) -> bool:
     The record invokes the exe directly with the full flag trio:
     ``dist/…exe --spike-3d --spike-screenshot … --spike-autoclose 6``. The
     comment is stripped first, so a flag in a trailing comment cannot exempt
-    a real command (round 13). The trio requirement anchors the exemption to
-    the record itself: a line that only mentions ``--spike-3d`` next to a
-    bare ``--selftest`` invocation is still a command. Delete this exemption
-    when the spike record is retired from the ADR.
+    a real command (round 13). The trio AND the ellipsis marker anchor the
+    exemption to the record itself: a real command never carries an ellipsis,
+    so a gate copy that happens to append the trio is still a command
+    (round 14). Delete this exemption when the spike record is retired from
+    the ADR.
     """
     stripped = _strip_comment(line)
     return (
         _SPIKE_RECORD_FLAG in stripped
         and "--spike-screenshot" in stripped
         and "--spike-autoclose" in stripped
+        and "…" in stripped
         and _EXE in stripped
         and not _SHELL_VERB.search(stripped.lower())
     )
@@ -580,3 +582,7 @@ class TestTheGuardItself:
             "dist/OpenGardenPlanner/OpenGardenPlanner.exe --selftest "
             "# --spike-3d"
         ), "a bare selftest copy must NOT hide behind the spike flag in a comment"
+        assert not _is_spike_record(
+            "dist/OpenGardenPlanner/OpenGardenPlanner.exe --selftest "
+            "--spike-3d --spike-screenshot --spike-autoclose"
+        ), "a gate copy that appends the trio must NOT be exempt"
