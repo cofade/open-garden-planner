@@ -80,11 +80,29 @@ _RELEASE_WORKFLOW = ".github/workflows/release.yml"
 
 _EXE = "OpenGardenPlanner.exe"
 
-#: The historical ADR spike record names the exe with a --spike-3d flag. It is
-#: skipped LINE-scoped (see _files_with_runnable_invocations), not file-scoped:
-#: a whole-file exception would let a future ADR paste the gate literal
-#: unseen — the exact failure Rule 1 exists to catch (round 11).
+#: The historical ADR spike record: a plain exe invocation with the --spike-3d
+#: flag and no launcher. The exemption is anchored to that shape, not to the
+#: substring (the unanchored skip the commit security scan flagged): a gate
+#: copy that hides the flag in a trailing comment still carries its launcher
+#: verb and is still caught. A whole-file exception would be worse — a future
+#: ADR pasting the gate literal would go unseen (round 11).
 _SPIKE_RECORD_FLAG = "--spike-3d"
+
+
+def _is_spike_record(line: str) -> bool:
+    """Whether ``line`` is the ADR-038 spike record, not a gate copy.
+
+    The record invokes the exe directly: ``dist/…exe --spike-3d
+    --spike-screenshot …``. A real gate copy always names a launcher
+    (``timeout``, ``powershell``, ``pwsh``, ``Start-Process``), so requiring
+    the flag AND the exe path AND the absence of any launcher verb keeps the
+    exemption to the historical shape.
+    """
+    return (
+        _SPIKE_RECORD_FLAG in line
+        and _EXE in line
+        and not _SHELL_VERB.search(line.lower())
+    )
 
 #: Lines that name the exe and a ``--selftest`` flag behind a launcher verb.
 #: The verb requirement keeps historical examples out of the shape checks
@@ -256,7 +274,7 @@ def _files_with_runnable_invocations() -> dict[str, list[str]]:
             line
             for line in path.read_text(encoding="utf-8").splitlines()
             if is_runnable_invocation(line)
-            and _SPIKE_RECORD_FLAG not in line  # ADR-038's historical record
+            and not _is_spike_record(line)  # ADR-038's historical record
         ]
         if lines:
             found[name] = lines
@@ -537,3 +555,19 @@ class TestTheGuardItself:
         assert is_runnable_invocation(
             '\'"dist/OpenGardenPlanner/OpenGardenPlanner.exe"\''
         ), "a nested-quoted path must be a command"
+
+    def test_the_spike_record_skip_is_anchored_to_the_record_shape(self) -> None:
+        """A gate copy must not hide behind the --spike-3d flag in a comment."""
+        assert _is_spike_record(
+            "`dist/OpenGardenPlanner/OpenGardenPlanner.exe --spike-3d "
+            "--spike-screenshot … --spike-autoclose 6`"
+        ), "the historical record shape must stay exempt"
+        assert not _is_spike_record(
+            "timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe "
+            "# --spike-3d"
+        ), "a launcher plus a flag in a comment must NOT be exempt"
+        assert not _is_spike_record(
+            "powershell -Command '$p = Start-Process "
+            '"dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList '
+            '"--selftest" -Wait -PassThru; exit $p.ExitCode\' # --spike-3d'
+        ), "the real gate command plus a flag in a comment must NOT be exempt"
