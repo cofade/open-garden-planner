@@ -138,8 +138,9 @@ re-review** — a review of the fix is not implied by a review of the original. 
   `frost_items:<ids>` highlight key — navigation silently broke.
 
 **If you cannot run it, the gate is UNMET — say so.** No agent tooling available, or the user
-has told you not to launch one: the reconciliation is the same as §2.8's for a Linux session
-that cannot build the exe. **Open the draft PR, state the unmet gate in the body, and stop
+has told you not to launch one: the same shape as §2.8's disclosure duty for a Linux session
+that cannot build the exe, extended here to the landing decision because this gate is the one
+that stands between a diff and a merge. **Open the draft PR, state the unmet gate in the body, and stop
 there** — do not mark ready, do not merge, and do not proceed on the assumption it would have
 passed. (This resolves the apparent conflict between "every coding job ends in a draft PR" and
 "open the draft only after the review is satisfied": the draft still opens, carrying an honest

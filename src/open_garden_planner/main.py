@@ -54,9 +54,11 @@ def _run_selftest() -> int:
     so it runs on a headless CI runner. Returns non-zero on any failure so a
     broken frozen build fails the release instead of shipping.
 
-    A windowed (console=False) frozen exe has no stdout, so CI reads the
-    process EXIT CODE (Start-Process -Wait -PassThru); the prints are for a
-    local/dev run.
+    A windowed (console=False) frozen exe is given no CONSOLE, so when it is
+    launched detached -- `Start-Process -Wait -PassThru`, what CI does -- it has
+    no stdout at all and the EXIT CODE is the only channel. Launched from a
+    shell that redirects (a pipe), it *does* inherit a handle and the prints
+    below are visible; that is the local/dev case.
     """
     from importlib.metadata import PackageNotFoundError, version
 
@@ -95,10 +97,17 @@ def _run_selftest() -> int:
     # released windowed build because uvicorn's default log config calls
     # sys.stdout.isatty() and a console=False frozen exe has sys.stdout is None.
     #
-    # This check needs no simulation: running inside that very exe, sys.stdout
-    # ALREADY is None, so simply starting the server here reproduces the exact
-    # shipping condition. Same reasoning as the Qt3D imports above (#277) --
-    # exercise the real failure surface in the real artifact.
+    # Starting a real server here exercises the real failure surface in the
+    # real artifact -- same reasoning as the Qt3D imports above (#277).
+    #
+    # But note WHICH launch reproduces #291, because this was stated wrongly for
+    # a while (see the dated correction in section 11.4): `console=False` means
+    # no console is ALLOCATED, not that stdout is unconditionally None. Run this
+    # exe through a shell pipe and it inherits a real handle -- measured, 313
+    # bytes of the prints below reached stdout -- so `isatty()` answers and a
+    # regression of the `log_config=None` fix would pass. Only a DETACHED launch
+    # (Start-Process, or a double-click) has `sys.stdout is None`. The gate must
+    # use that form or it is testing the wrong condition.
     try:
         import socket
 

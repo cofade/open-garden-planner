@@ -122,6 +122,17 @@ Run commands note (2026-07-03): `CLAUDE.md` commands use `venv/Scripts/python.ex
 | 36 | A generated texture fails `check_texture_tileability.py` on one axis although its layout "obviously" wraps (periodic grain, exact pitches); or `--check` on the texture forge is green locally and red in CI (or vice versa) with no code change | (a) One primitive is not what its call site assumes (2026-08-18: `capsule`'s `taper` default pointed every constant-width line — plank joints tapered from row 0 to row 255); (b) the gate compares PNG *bytes*, which depend on the zlib build Pillow bundles, not on the pixels | (a) Per-column `|row0 − row255|` (or the transpose) on the PNG names the offending columns → paint the suspect primitive alone on a fresh `Tile` and print its coverage at rows 0/1 vs 510/511; (b) decode both PNGs and `np.array_equal` the arrays | (a) fix the primitive/default, regenerate; (b) the gate must compare decoded pixels (`is_current`), never bytes — §11.4 "byte-deterministic PNG gate is a zlib gate" |
 | 37 | The full battery aborts with `Windows fatal exception: code 0xc0000374` (or a `RuntimeError: wrapped C/C++ object … has been deleted`) whose stack ends in some DIALOG's method called from `pytestqt/plugin.py … _process_events` during the setup of an UNRELATED test; the dialog's own tests pass; it appears/disappears when other test files are added | An earlier test armed a widget's `QTimer` (typing into a debounced field, starting an animation) and finished before it fired; the timer stayed armed — either outliving a collected dialog (unparented) or firing on a dialog kept alive by its own signal cycle — and its slot opened a modal `QMessageBox(self)` in the middle of another test's event processing (#310, `PlantSearchDialog._search_timer`; §11.4 records both mechanisms) | Read the crash stack's LAST src frame — that names the widget/slot; grep `QTimer()` in that module; check the timer's `parent()` | Create the timer with the widget as parent (`QTimer(self)`), stop it in `done()`/`closeEvent`, AND make the slot itself settle the debounce (`stop()` at the top of `_perform_search`) — parenting alone is not enough when a signal cycle keeps the dialog alive; probe by logging every slot call to a FILE (pytest capture dies with the process) with `PYTEST_CURRENT_TEST` and `timer.isActive()`; pin with a test that arms the timer, closes the dialog and `qtbot.wait()`s past the interval — §11.4 "a debounce QTimer armed by a test outlives the test" |
 
+**Both exe checks, not just the smoke** (`ogp-change-control` §2.8): the 8-second
+smoke proves only that the process stays up, and cannot see a subsystem that died
+silently — how #291 (Agent API) survived six releases and #277 (Qt3D) shipped a crash.
+
+```bash
+venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
+timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe   # exit 124 = survived
+powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
+```
+
+
 ---
 
 ## Qt debugging facts you probably don't know

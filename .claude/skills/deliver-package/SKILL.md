@@ -237,6 +237,10 @@ Two things that only bite at package scale:
 
 - **Once per PR, not once per package.** A package that ships as two or three PRs needs a review
   per branch — a clean pass on one says nothing about the others.
+- **Rounds compound.** Round 2 catches what round 1's *fix* broke, round 3 what rounds 1 and 2
+  obscured (#240 / PR #251). Budget for three, and re-run after every round of fixes.
+- **This skill never overrides a live instruction from the user.** It only refuses to let an
+  unmet gate go unreported.
 - **The reviewer's worktree has no `.env` and no real credentials.** Any claim it makes about
   "live-confirmed" behaviour is unverified; confirm it yourself. This is recorded nowhere else.
 

@@ -1,75 +1,103 @@
 """The gate commands in our own documentation must survive the shell that runs them.
 
 Born from a real, self-inflicted defect (PR #334, 2026-08-19). The frozen-exe
-``--selftest`` gate was added to four documents at once — ``CLAUDE.md``,
-``AGENTS.md``, ``ogp-change-control`` §2.8 and ``ogp-build-and-run`` — written
-with the **outer** string double-quoted::
+``--selftest`` gate was added to several documents at once, written with the
+**outer** string double-quoted::
 
     powershell -Command "$p = Start-Process '...' -Wait -PassThru; exit $p.ExitCode"
 
 Bash expands ``$`` inside double quotes, so PowerShell received
 ``= Start-Process '...' ; exit .ExitCode``, threw two
 ``CommandNotFoundException``s, exited 1 and **never launched the exe**. Measured
-directly by printing the child's ``argv``::
+by printing the child's ``argv``::
 
     outer double quotes -> [ = Start-Process 'x' -Wait -PassThru; exit .ExitCode]
     outer single quotes -> [$p = Start-Process "x" -Wait -PassThru; exit $p.ExitCode]
 
 The commit before it had the opposite defect: a naked
-``…OpenGardenPlanner.exe --selftest`` call, which PowerShell does not wait on
-for a GUI-subsystem process — it returned in ~6 ms with an empty
-``$LASTEXITCODE``, so the gate passed unconditionally. Both failure directions of
-one line, one commit apart, in a change whose whole subject was not letting gate
-lists drift.
+``…OpenGardenPlanner.exe --selftest``, which PowerShell does not wait on for a
+GUI-subsystem process — it returned in ~6 ms with an empty ``$LASTEXITCODE``, so
+the gate passed unconditionally. Both failure directions of one line, one commit
+apart, in a change whose whole subject was not letting gate lists drift.
+
+**Discovery, not a curated list.** An earlier version of this file pinned the
+documents by name — a curated list defending against curated lists, and it was
+wrong on its first run: eight documents were listed while sixteen prescribe the
+exe gate, so six skills kept prescribing the 8-second smoke alone while citing
+``CLAUDE.md``'s Quick Reference as their authority. Now every tracked document
+that prescribes the smoke is *required* to prescribe ``--selftest`` too, so a
+new copy is covered the moment it appears.
+
+Two guards, aimed at different failure classes:
+
+* :func:`shell_exposed_variables` — what bash would expand or execute before the
+  child process sees it. Its first implementation used ``shlex.split`` and
+  **passed on the known-broken line** (shlex models tokenisation, not
+  expansion); its second caught ``$NAME`` only, and a reviewer bypassed it with
+  PowerShell's ``$?`` idiom. It now also models ``$(…)``, backticks and bash's
+  special parameters.
+* the presence/shape checks — ``-Wait``/``-PassThru``/``exit`` and the built-exe
+  path, so a *syntactically valid* command that silently does nothing is still
+  rejected.
 
 Issue #336 proposes a citation resolver for the skill library; it would not have
-caught this, because the *reference* resolved fine — the *command* was broken.
-This file is the complement: not "do the documents point at real things?" but
-"do the shell commands they prescribe still mean what they look like they mean?"
+caught any of this, because the references resolved fine — the *commands* were
+broken. This file is the complement.
 
-Deliberately static. It does **not** run the gates (that needs a built exe and
-minutes of wall clock); it applies bash's own quoting rules to the documented
-line and asserts the variables that must reach the child process actually do.
-
-A first cut of this file used ``shlex.split(posix=True)`` and **passed on the
-known-broken input** — ``shlex`` models tokenisation but not ``$`` expansion, so
-``$p`` survived it either way. That near-miss is why every assertion here is
-checked against the real defect before being trusted (see
-``test_the_guard_rejects_the_defect_that_shipped``).
+Static by design: it does not run the gates (that needs a built exe and minutes
+of wall clock).
 """
 
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
-#: Every document that carries the frozen-exe gate. If a ninth copy appears, add
-#: it here — or better, delete it and point at ``ogp-change-control`` §2.8.
-_GATE_DOCS = (
-    "CLAUDE.md",
-    "AGENTS.md",
-    ".claude/skills/ogp-change-control/SKILL.md",
-    ".agents/skills/ogp-change-control/SKILL.md",
-    ".claude/skills/ogp-build-and-run/SKILL.md",
-    ".agents/skills/ogp-build-and-run/SKILL.md",
-    ".claude/skills/deliver-package/SKILL.md",
-    ".agents/skills/deliver-package/SKILL.md",
-)
+#: A document that prescribes this must also prescribe ``--selftest``.
+_SMOKE_MARKER = "timeout 8 dist/OpenGardenPlanner"
+_EXE_PATH = "dist/OpenGardenPlanner/OpenGardenPlanner.exe"
 
-_SELFTEST_LINE = re.compile(r"^powershell -Command .*--selftest.*$", re.MULTILINE)
-_VARIABLE = re.compile(r"\$\{?\w+")
+_SELFTEST_LINE = re.compile(r"^\s*powershell -Command .*--selftest.*$", re.MULTILINE)
+
+#: ``$NAME`` / ``${NAME}``, and bash's special parameters — ``$?`` is the one a
+#: reviewer used to walk straight past the previous version of this guard.
+_VARIABLE = re.compile(r"\$\{\w+\}|\$\w+|\$[?$#!*@\-0-9]")
+
+
+def _tracked_markdown() -> list[Path]:
+    """Every tracked ``.md`` file, from git — so worktrees and build output are
+    excluded without maintaining an ignore list."""
+    out = subprocess.run(  # noqa: S603 - fixed argv, no shell
+        ["git", "ls-files", "*.md"],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [_REPO_ROOT / line for line in out.stdout.split("\n") if line.strip()]
 
 
 def shell_exposed_variables(line: str) -> list[str]:
-    """The ``$variables`` bash would expand before the child process sees them.
+    """What bash would expand or execute before the child process sees ``line``.
 
-    Applies bash's quoting rules: inside **single** quotes ``$`` is literal;
-    inside double quotes (or unquoted) it is expanded. A non-empty result means
-    the documented command does not deliver what it appears to.
+    Models the subset of bash that can silently rewrite a documented command:
+    ``$VAR`` / ``${VAR}``, the special parameters (``$?`` ``$$`` ``$#`` …),
+    ``$(…)`` command substitution and backtick command substitution — each
+    neutralised inside **single** quotes, live inside double quotes or unquoted.
+    Backslash escapes are honoured outside single quotes.
+
+    A non-empty result means the documented command does not deliver what it
+    appears to. An unterminated quote is reported as ``"<unterminated quote>"``,
+    since bash rejects the line outright.
+
+    Not a complete shell parser, and deliberately so — but the docstring is kept
+    honest about what it covers, because a guard that *looks* like a shell model
+    invites trust it has not earned.
     """
     exposed: list[str] = []
     in_single = in_double = False
@@ -83,48 +111,83 @@ def shell_exposed_variables(line: str) -> list[str]:
             in_single = not in_single
         elif char == '"' and not in_single:
             in_double = not in_double
-        elif char == "$" and not in_single:
-            match = _VARIABLE.match(line, index)
-            if match:
-                exposed.append(match.group(0))
+        elif not in_single:
+            if char == "`":
+                exposed.append("`…` command substitution")
+            elif char == "$":
+                if line.startswith("$(", index):
+                    exposed.append("$(…) command substitution")
+                else:
+                    match = _VARIABLE.match(line, index)
+                    if match:
+                        exposed.append(match.group(0))
         index += 1
+    if in_single or in_double:
+        exposed.append("<unterminated quote>")
     return exposed
+
+
+def _docs_prescribing_the_smoke() -> list[Path]:
+    return [
+        path
+        for path in _tracked_markdown()
+        if _SMOKE_MARKER in path.read_text(encoding="utf-8")
+    ]
 
 
 def _selftest_lines() -> list[tuple[str, str]]:
     found: list[tuple[str, str]] = []
-    for name in _GATE_DOCS:
-        path = _REPO_ROOT / name
-        if not path.is_file():
-            continue
+    for path in _docs_prescribing_the_smoke():
+        name = path.relative_to(_REPO_ROOT).as_posix()
         text = path.read_text(encoding="utf-8")
-        found.extend((name, line) for line in _SELFTEST_LINE.findall(text))
+        found.extend((name, line.strip()) for line in _SELFTEST_LINE.findall(text))
     return found
 
 
 _LINES = _selftest_lines()
+_IDS = [name for name, _ in _LINES]
 
 
-def test_every_gate_doc_carries_the_selftest_line() -> None:
-    """All eight copies must exist — a doc that quietly lost the gate is the
-    original failure mode (#291 hid for six releases behind a weaker check)."""
-    documented = {name for name, _ in _LINES}
-    missing = set(_GATE_DOCS) - documented
-    assert not missing, f"frozen-exe --selftest gate missing from: {sorted(missing)}"
+def test_every_smoke_doc_also_prescribes_selftest() -> None:
+    """Discovery, not a curated list.
 
-
-@pytest.mark.parametrize("doc,line", _LINES, ids=[d for d, _ in _LINES])
-def test_selftest_variables_reach_powershell(doc: str, line: str) -> None:
-    """``$p`` must reach PowerShell rather than being eaten by bash."""
-    exposed = shell_exposed_variables(line)
-    assert not exposed, (
-        f"{doc}: bash would expand {exposed} before PowerShell sees them — the "
-        "outer string must be SINGLE-quoted, with the inner PowerShell "
-        f"arguments double-quoted. Line: {line}"
+    The 8-second smoke proves only that the process stays up; it cannot see a
+    subsystem that died silently, which is how #291 survived six releases and
+    how #277 shipped a crash. Any document telling a reader to run the smoke
+    must tell them to run ``--selftest`` too, or it is the weaker of two
+    competing gate definitions.
+    """
+    missing = [
+        path.relative_to(_REPO_ROOT).as_posix()
+        for path in _docs_prescribing_the_smoke()
+        if not _SELFTEST_LINE.search(path.read_text(encoding="utf-8"))
+    ]
+    assert not missing, (
+        "these documents prescribe the 8-second exe smoke but not --selftest, so "
+        "they are a weaker copy of the gate in ogp-change-control section 2.8: "
+        f"{missing}"
     )
 
 
-@pytest.mark.parametrize("doc,line", _LINES, ids=[d for d, _ in _LINES])
+def test_discovery_found_the_gate_documents() -> None:
+    """Guard the guard: if the marker string ever changes, the two tests above
+    would vacuously pass over an empty set."""
+    assert len(_docs_prescribing_the_smoke()) >= 8
+    assert _LINES, "no --selftest lines discovered at all"
+
+
+@pytest.mark.parametrize("doc,line", _LINES, ids=_IDS)
+def test_selftest_survives_the_shell(doc: str, line: str) -> None:
+    """No ``$``/backtick construct may be eaten or executed by bash first."""
+    exposed = shell_exposed_variables(line)
+    assert not exposed, (
+        f"{doc}: bash would expand or execute {exposed} before PowerShell sees "
+        "the command — the outer string must be SINGLE-quoted, with the inner "
+        f"PowerShell arguments double-quoted. Line: {line}"
+    )
+
+
+@pytest.mark.parametrize("doc,line", _LINES, ids=_IDS)
 def test_selftest_waits_and_propagates_the_exit_code(doc: str, line: str) -> None:
     """``Start-Process -Wait -PassThru`` plus an explicit ``exit`` are required.
 
@@ -134,40 +197,74 @@ def test_selftest_waits_and_propagates_the_exit_code(doc: str, line: str) -> Non
     """
     for required in ("Start-Process", "-Wait", "-PassThru", "exit"):
         assert required in line, f"{doc}: gate command is missing {required!r}"
+    assert "$p.ExitCode" in line, (
+        f"{doc}: the exit code must come from the child process object, not from "
+        "PowerShell state such as $? — that reports whether the LAST statement "
+        "succeeded, not what the selftest found"
+    )
 
 
-@pytest.mark.parametrize("doc,line", _LINES, ids=[d for d, _ in _LINES])
+@pytest.mark.parametrize("doc,line", _LINES, ids=_IDS)
 def test_selftest_targets_the_built_exe_path(doc: str, line: str) -> None:
     """The path must match what ``installer/ogp.spec`` actually produces."""
-    assert "dist/OpenGardenPlanner/OpenGardenPlanner.exe" in line, doc
+    assert _EXE_PATH in line, doc
 
 
-def test_the_guard_rejects_the_defect_that_shipped() -> None:
-    """Teeth, pinned against the literal broken line from commit 32c337f.
+class TestTheGuardItself:
+    """Teeth, pinned against real defects rather than invented ones."""
 
-    Without this, a future simplification of ``shell_exposed_variables`` could
-    silently reduce it to the ``shlex`` version that passed on this very input.
-    """
-    shipped_defect = (
-        'powershell -Command "$p = Start-Process '
-        "'dist/OpenGardenPlanner/OpenGardenPlanner.exe' -ArgumentList "
-        "'--selftest' -Wait -PassThru; exit $p.ExitCode\""
-    )
-    assert shell_exposed_variables(shipped_defect) == ["$p", "$p"]
+    def test_rejects_the_defect_that_shipped(self) -> None:
+        shipped = (
+            'powershell -Command "$p = Start-Process '
+            f"'{_EXE_PATH}' -ArgumentList '--selftest' -Wait -PassThru; "
+            'exit $p.ExitCode"'
+        )
+        assert shell_exposed_variables(shipped) == ["$p", "$p"]
 
-    corrected = (
-        "powershell -Command '$p = Start-Process "
-        '"dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList '
-        "\"--selftest\" -Wait -PassThru; exit $p.ExitCode'"
-    )
-    assert shell_exposed_variables(corrected) == []
+    def test_rejects_the_reviewers_bypass(self) -> None:
+        """A reviewer walked past the previous version with PowerShell's ``$?``
+        idiom: bash substitutes its own last exit status, PowerShell evaluates a
+        constant, and the gate becomes unconditional."""
+        bypass = (
+            'powershell -Command "Start-Process '
+            f"'{_EXE_PATH}' -ArgumentList '--selftest' -Wait -PassThru; "
+            'if ($?) { exit 0 } else { exit 1 }"'
+        )
+        assert "$?" in shell_exposed_variables(bypass)
 
+    def test_rejects_command_substitution(self) -> None:
+        assert shell_exposed_variables('powershell -Command "$(echo PWNED)"') == [
+            "$(…) command substitution"
+        ]
+        assert shell_exposed_variables('powershell -Command "`echo PWNED`"') == [
+            "`…` command substitution",
+            "`…` command substitution",
+        ]
 
-def test_guard_handles_escaping_and_mixed_quotes() -> None:
-    """Sanity checks on the quoting model itself."""
-    assert shell_exposed_variables("echo $HOME") == ["$HOME"]
-    assert shell_exposed_variables("echo '$HOME'") == []
-    assert shell_exposed_variables('echo "$HOME"') == ["$HOME"]
-    assert shell_exposed_variables('echo "\\$HOME"') == []
-    assert shell_exposed_variables("echo '\"$HOME\"'") == []
-    assert shell_exposed_variables('echo "\'$HOME\'"') == ["$HOME"]
+    def test_rejects_an_unterminated_quote(self) -> None:
+        assert "<unterminated quote>" in shell_exposed_variables("powershell -c 'x")
+
+    def test_accepts_the_corrected_form(self) -> None:
+        corrected = (
+            "powershell -Command '$p = Start-Process "
+            f'"{_EXE_PATH}" -ArgumentList "--selftest" -Wait -PassThru; '
+            "exit $p.ExitCode'"
+        )
+        assert shell_exposed_variables(corrected) == []
+
+    def test_quoting_model_matches_bash(self) -> None:
+        assert shell_exposed_variables("echo $HOME") == ["$HOME"]
+        assert shell_exposed_variables("echo '$HOME'") == []
+        assert shell_exposed_variables('echo "$HOME"') == ["$HOME"]
+        assert shell_exposed_variables('echo "\\$HOME"') == []
+        assert shell_exposed_variables("echo '\"$HOME\"'") == []
+        assert shell_exposed_variables('echo "\'$HOME\'"') == ["$HOME"]
+        assert shell_exposed_variables("echo ${HOME}") == ["${HOME}"]
+        assert shell_exposed_variables('echo "$$"') == ["$$"]
+
+    def test_indented_gate_lines_are_still_discovered(self) -> None:
+        """A doc that indents the command inside a list item still counts — an
+        earlier version anchored at column 0 and reported the gate as *missing*,
+        which is a false and actively misleading diagnostic."""
+        indented = "  powershell -Command 'x --selftest y'"
+        assert _SELFTEST_LINE.search(indented) is not None

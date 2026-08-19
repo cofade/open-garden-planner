@@ -269,6 +269,8 @@ hunting introductions/removals. Deeper context per incident lives in
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe
 echo $?
+powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
+echo $?   # 0 = Qt3D + Agent API alive; the smoke alone cannot see either dying
 ```
 
 Exit **124** (killed by `timeout` after 8 s) = the frozen app was still alive

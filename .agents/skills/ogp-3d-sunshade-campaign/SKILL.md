@@ -614,9 +614,19 @@ campaign-specific overlay).
 | Lint | `venv/Scripts/python.exe -m ruff check src/` | clean |
 | Security | `venv/Scripts/python.exe -m bandit -r src/ --severity-level high` | clean |
 | i18n | `PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py && PYTHONUTF8=1 venv/Scripts/python.exe scripts/compile_translations.py && venv/Scripts/python.exe -m pytest "tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished" -v` | pass — remember: f-strings bypass `tr()` (the AGENTS.md trap); sun/shade has LOTS of user-visible strings (menu, hints, band labels, command descriptions) |
-| Exe | `venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm && timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe` | exit code 124 |
+| Exe | `venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm && timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe`, then `--selftest` below — **the check that caught #277**, this campaign's own Qt3D micro-mismatch, which startup and the smoke both survived because Qt3D imports lazily | exit code 124, then 0 |
 | Integration test | mandatory per §8.10 — each phase's gate table above names the file | in `tests/integration/` |
 | Review | `senior-reviewer` agent on the branch diff, fresh worktree; fix P0/P1; re-run for a clean pass | clean pass BEFORE the PR |
+
+**Both exe checks, not just the smoke** (`ogp-change-control` §2.8): the 8-second
+smoke proves only that the process stays up, and cannot see a subsystem that died
+silently — how #291 (Agent API) survived six releases and #277 (Qt3D) shipped a crash.
+
+```bash
+venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
+timeout 8 dist/OpenGardenPlanner/OpenGardenPlanner.exe   # exit 124 = survived
+powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
+```
 | PR | draft PR (`gh pr create --draft`), stays draft until the owner's manual test | per `ogp-change-control` — never merge on your own say-so |
 
 **Manual-test checklist (owner-facing, per slice — the owner's judgment is

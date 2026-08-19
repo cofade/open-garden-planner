@@ -380,6 +380,42 @@ self._reposition()
 
 Rect-bearing items (`CircleItem`/`RectangleItem`/`EllipseItem`) serialize their position as `pos + rect.center()` with rotation stored as a *separate* angle pivoting on the centre (`core/project.py`). Every geometry mutation on such an item — rotate, programmatic resize, interactive drag-resize, and the undo/redo of any of them — **must end with `transformOriginPoint() == rect().center()`**, or a rotated item's saved centre diverges from its on-screen centre and it drifts on reload / jumps on the next rotation. Do not re-derive this per gesture: route resizes through the single primitive `resize_handle.resize_rect_item_keeping_anchor(item, new_rect, scene_anchor, local_anchor)` (it `prepareGeometryChange()`s, applies the rect, re-pins the origin, and repositions so a chosen scene point stays fixed), and rotation through `RotationHandleMixin._apply_rotation` (pivots on `rect().center()`). The interactive `ResizeHandle._apply_resize` takes the fixed corner/edge **authoritatively from the handle position** (never inferred from scene-space or `pos_dx`, which disagree under rotation), lets the item normalise the rect (`CircleItem._constrain_resize_size` squares it so the dragged handle tracks the cursor — never `min(w,h)`, which collapses under rotation), then refreshes via `_after_resize_geometry()`. The pivot must come from the *geometric* `rect()`, never the decoration-expanded `boundingRect()` (a runtime-only badge expands the latter asymmetrically); and any shrink of a custom `boundingRect()` must `prepareGeometryChange()` or Qt leaves a stale "ghost". See ADR-028 and §11.4 (#218/#219). Sizing precedence (footprint vs. spacing override vs. DB `max_spread_cm`) likewise has one home: the Qt-free `core/plant_sizing.py` resolver.
 
+## 8.10a Gating our own documentation's shell commands
+
+`tests/unit/test_gate_commands.py` is a static guard over the **commands our
+documentation tells people to run** — a category distinct from both unit and
+integration tests, and added after a self-inflicted defect worth recording.
+
+The frozen-exe `--selftest` gate was written into several documents at once and
+was wrong twice in two commits: first as a naked call PowerShell does not wait
+on (returns in ~6 ms with an empty exit code — the gate passes unconditionally),
+then with the outer string double-quoted so **bash** expanded `$p` before
+PowerShell saw it (`= Start-Process …; exit .ExitCode` — the gate fails
+unconditionally, and never launches the exe). Four review rounds used the word
+"verified" before anyone executed it.
+
+**What the guard does.** Every tracked document prescribing the 8-second smoke
+must also prescribe `--selftest`; every such command is checked for `$`/backtick
+constructs bash would expand or execute first, for `-Wait`/`-PassThru`/`exit`,
+and for the real built-exe path. Discovery, not a curated list — the first
+version pinned eight documents while sixteen carried the gate.
+
+**How to test this pattern.** Three rules, each bought with a failure:
+
+1. **Model the shell, not the tokens.** The first implementation used
+   `shlex.split(posix=True)` and passed on the known-broken line — `shlex` models
+   quoting but not `$`-expansion.
+2. **Cover substitution, not just `$NAME`.** The second version was bypassed with
+   PowerShell's `$?` idiom, where bash substitutes its own exit status and
+   PowerShell then evaluates a constant. `$(…)`, backticks and the special
+   parameters all belong in the model.
+3. **Pin the teeth against the real defects.** The guard carries the literal
+   shipped-broken lines as test cases, so a later simplification cannot quietly
+   regress it to a version that passed on them.
+
+Verify a guard of this kind by reintroducing the defect and watching it go red;
+a guard that has never been observed failing is an assertion, not a test.
+
 ## 8.10 Integration Test Policy
 
 **Every user story (US) must ship with at least one end-to-end integration test. No merge without it. No exceptions.**
