@@ -26,6 +26,7 @@ from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import QPointF, QRectF
+from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -234,17 +235,36 @@ class TestResizableShapePredicate:
         assert not is_resizable_rect_like(polygon)
 
 
-def _is_rotate_command(node: ast.Call) -> bool:
+def _rotate_command_bindings(tree: ast.Module) -> dict[str, str]:
+    """Map local name → imported name for the file's ``from … import`` lines.
+
+    A bare ``RIC(...)`` callee is invisible to a name check unless the alias is
+    resolved back to what it imported. ``from …commands import
+    RotateItemCommand as RIC`` was the hole a reviewer walked through the
+    name-only version with.
+    """
+    bindings: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                bindings[alias.asname or alias.name] = alias.name
+    return bindings
+
+
+def _is_rotate_command(
+    node: ast.Call, bindings: dict[str, str] | None = None
+) -> bool:
     """Whether ``node`` constructs a ``RotateItemCommand``.
 
-    Accepts a dotted callee (``commands.RotateItemCommand(...)``) as well as a
-    bare name — a reviewer demonstrated that matching only ``ast.Name`` let the
-    dotted form through. The class definition itself is an ``ast.ClassDef``,
-    never an ``ast.Call``, so it needs no special case.
+    Accepts a dotted callee (``commands.RotateItemCommand(...)``), a bare name,
+    and — through ``bindings`` — a bare name an ``import … as`` alias binds to
+    the class (``from …commands import RotateItemCommand as RIC``). The class
+    definition itself is an ``ast.ClassDef``, never an ``ast.Call``, so it
+    needs no special case.
     """
     func = node.func
     if isinstance(func, ast.Name):
-        return func.id == "RotateItemCommand"
+        return (bindings or {}).get(func.id, func.id) == "RotateItemCommand"
     return isinstance(func, ast.Attribute) and func.attr == "RotateItemCommand"
 
 
@@ -260,7 +280,6 @@ def _rotate_applier(node: ast.Call) -> ast.expr | None:
         if keyword.arg == "apply_func":
             return keyword.value
     return node.args[3] if len(node.args) >= 4 else None
-
 
 
 class TestVertexEditCornerDrag:
@@ -488,6 +507,27 @@ class TestEqualConstraintPartnerResize:
         assert centre_after.y() == pytest.approx(centre_before.y(), abs=1e-6)
 
 
+class TestApplyRefreshHooks:
+    """The apply function must refresh the derived UI a resize leaves stale."""
+
+    def test_apply_refreshes_the_area_label(self, qtbot) -> None:
+        """A resize that leaves ``pos`` unchanged fires no itemChange, so the
+        area label showed a stale value after resizing through the canonical
+        path (measured: still "2.00 m²" after a 400×300 resize). The apply
+        function must refresh it explicitly."""
+        scene = QGraphicsScene()
+        rect = RectangleItem(0, 0, 200, 100)
+        scene.addItem(rect)
+        rect._area_label_visible = True
+        rect._update_area_label()
+        assert rect._area_label_item.text() == "2.00 m²"
+
+        _old, new = build_rect_resize(rect, 400, 300)
+        apply_rect_like_geometry(rect, new)
+
+        assert rect._area_label_item.text() == "12.00 m²"
+
+
 class TestNoPrivateRotationAppliers:
     """Drift guard: rotation must have exactly one implementation.
 
@@ -529,12 +569,16 @@ class TestNoPrivateRotationAppliers:
         offenders: list[str] = []
         for path in self._source_files():
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            bindings = _rotate_command_bindings(tree)
             for node in ast.walk(tree):
-                if not isinstance(node, ast.Call) or not _is_rotate_command(node):
+                if not isinstance(node, ast.Call) or not _is_rotate_command(
+                    node, bindings
+                ):
                     continue
                 applier = _rotate_applier(node)
                 if not (
-                    isinstance(applier, ast.Name) and applier.id == "apply_rotation"
+                    isinstance(applier, ast.Name)
+                    and bindings.get(applier.id, applier.id) == "apply_rotation"
                 ):
                     offenders.append(
                         f"{path.relative_to(src).as_posix()}:{node.lineno} -> "
@@ -548,13 +592,20 @@ class TestNoPrivateRotationAppliers:
     @staticmethod
     def _offenders_in(source: str) -> list[str]:
         found = []
-        for node in ast.walk(ast.parse(source)):
-            if not isinstance(node, ast.Call) or not _is_rotate_command(node):
+        tree = ast.parse(source)
+        bindings = _rotate_command_bindings(tree)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not _is_rotate_command(
+                node, bindings
+            ):
                 continue
             arg = _rotate_applier(node)
             if arg is None:
                 found.append("<no applier argument>")
-            elif not (isinstance(arg, ast.Name) and arg.id == "apply_rotation"):
+            elif not (
+                isinstance(arg, ast.Name)
+                and bindings.get(arg.id, arg.id) == "apply_rotation"
+            ):
                 found.append(ast.dump(arg)[:40])
         return found
 
@@ -581,7 +632,8 @@ class TestNoPrivateRotationAppliers:
         ), "a wrapped argument must NOT be a false positive"
 
     def test_the_ast_guard_has_no_holes_of_its_own(self) -> None:
-        """The four shapes a reviewer demonstrated the FIRST ast version missed.
+        """The shapes a reviewer demonstrated the FIRST ast version missed,
+        plus the import-alias hole in the second.
 
         `apply_func` is a plain positional-or-keyword parameter, so the keyword
         form is one word away from the positional one and is the likeliest way a
@@ -599,3 +651,15 @@ class TestNoPrivateRotationAppliers:
         assert not self._offenders_in(
             "RotateItemCommand(i, o, n, apply_func=apply_rotation)"
         ), "the keyword form with the SHARED applier must pass"
+        assert self._offenders_in(
+            "from core.commands import RotateItemCommand as RIC\n"
+            "RIC(i, o, n, item._apply_rotation)"
+        ), "an aliased import must be caught"
+        assert not self._offenders_in(
+            "from core.commands import RotateItemCommand as RIC\n"
+            "RIC(i, o, n, apply_rotation)"
+        ), "an aliased import with the SHARED applier must pass"
+        assert not self._offenders_in(
+            "from geometry_apply import apply_rotation as AR\n"
+            "RotateItemCommand(i, o, n, AR)"
+        ), "an aliased SHARED applier must pass"

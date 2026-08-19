@@ -23,8 +23,9 @@ Who shares this path — the authoritative list
 FR-AGENT-15 and ``docs/roadmap.md`` all point here rather than paraphrasing,
 because during review those five paraphrases drifted into three mutually
 inconsistent answers — in a change whose entire thesis is that copies drift. If
-you change this list, change it *here*; the others carry no enumeration to keep
-in step.
+you change this list, change it *here*; the enumerations that survive elsewhere
+(§11.4's historical pre-extraction one in particular) are snapshots — where
+they disagree with this list, this list wins.
 
 :func:`apply_rect_like_geometry` is the ``apply_func`` for every rect-backed
 resize:
@@ -203,6 +204,11 @@ def apply_rect_like_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
         item.update_resize_handles()  # type: ignore[attr-defined]
     if hasattr(item, "_position_label"):
         item._position_label()  # type: ignore[attr-defined]
+    if hasattr(item, "_update_area_label"):
+        # A resize that leaves pos unchanged fires no itemChange, so the area
+        # label would otherwise keep the old value (measured: stale "2.00 m²"
+        # after a 400×300 resize).
+        item._update_area_label()  # type: ignore[attr-defined]
     if hasattr(item, "_update_circle_annotations"):
         item._update_circle_annotations()  # type: ignore[attr-defined]
 

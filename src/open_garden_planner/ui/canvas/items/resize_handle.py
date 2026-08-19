@@ -671,7 +671,9 @@ class ResizeHandle(QGraphicsRectItem):
             parent._after_resize_geometry()
             return
 
-        # Non-rect items (polygon/text): existing axis-aligned path.
+        # Non-rect items — PolygonItem is the only class that still carries an
+        # _apply_resize (US-D2.2 deleted the rect-item copies as dead code):
+        # the existing axis-aligned path.
         scene_pos_dx = pos_dx * cos_a - pos_dy * sin_a
         scene_pos_dy = pos_dx * sin_a + pos_dy * cos_a
         if hasattr(parent, '_dimension_display') and parent._dimension_display is not None:
@@ -2723,10 +2725,11 @@ class RectVertexEditMixin:
             if hasattr(item, '_update_rect_corner_handles'):
                 item._update_rect_corner_handles()
 
-        # Built by capture_rect_like_geometry, not by hand: that function exists
-        # so a caller cannot omit a key the apply function reads (a circle's
-        # _center/_radius bookkeeping in particular). The NEW dict is captured
-        # from the item's present state, which _move_corner_to has already set.
+        # The NEW dict is captured from the item's present state, which
+        # _move_corner_to has already set. The OLD dict cannot be captured —
+        # the item is already mutated — so it is rebuilt by hand from the
+        # pre-drag initial values; this mixin only ever holds rectangles, so
+        # the circle bookkeeping capture would add is not needed here.
         old_geometry = {
             'rect_x': initial_rect.x(),
             'rect_y': initial_rect.y(),

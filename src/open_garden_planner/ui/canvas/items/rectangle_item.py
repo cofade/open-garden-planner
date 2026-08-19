@@ -378,38 +378,6 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         r = self.rect()
         return abs(r.width() * r.height())
 
-    def _apply_resize(
-        self,
-        x: float,
-        y: float,
-        width: float,
-        height: float,
-        pos_x: float,
-        pos_y: float,
-    ) -> None:
-        """Apply a resize transformation to this rectangle.
-
-        Args:
-            x: New x position of rect (in item coords)
-            y: New y position of rect (in item coords)
-            width: New width
-            height: New height
-            pos_x: New scene x position
-            pos_y: New scene y position
-        """
-        # Update the rectangle geometry
-        self.setRect(x, y, width, height)
-
-        # Update position
-        self.setPos(pos_x, pos_y)
-
-        # Update resize handles
-        self.update_resize_handles()
-
-        # Update label position
-        self._position_label()
-        self._update_area_label()
-
     def _after_resize_geometry(self) -> None:
         """Sync bookkeeping after the shared rotation-aware resize primitive.
 

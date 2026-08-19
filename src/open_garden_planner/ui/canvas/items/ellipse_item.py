@@ -137,21 +137,6 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         r = self.rect()
         return math.pi * (r.width() / 2.0) * (r.height() / 2.0)
 
-    def _apply_resize(
-        self,
-        x: float,
-        y: float,
-        width: float,
-        height: float,
-        pos_x: float,
-        pos_y: float,
-    ) -> None:
-        self.setRect(x, y, width, height)
-        self.setPos(pos_x, pos_y)
-        self.update_resize_handles()
-        self._position_label()
-        self._update_area_label()
-
     def _after_resize_geometry(self) -> None:
         """Sync bookkeeping after the shared rotation-aware resize primitive.
 
