@@ -80,11 +80,11 @@ _RELEASE_WORKFLOW = ".github/workflows/release.yml"
 
 _EXE = "OpenGardenPlanner.exe"
 
-#: Lines allowed to name the exe without being a command: prose that refers to
-#: the build output, and the ADR's historical spike record.
-_PROSE_ALLOWLIST = (
-    "docs/09-architecture-decisions/README.md",
-)
+#: The historical ADR spike record names the exe with a --spike-3d flag. It is
+#: skipped LINE-scoped (see _files_with_runnable_invocations), not file-scoped:
+#: a whole-file exception would let a future ADR paste the gate literal
+#: unseen — the exact failure Rule 1 exists to catch (round 11).
+_SPIKE_RECORD_FLAG = "--spike-3d"
 
 #: Lines that name the exe and a ``--selftest`` flag behind a launcher verb.
 #: The verb requirement keeps historical examples out of the shape checks
@@ -137,17 +137,17 @@ def is_runnable_invocation(line: str) -> bool:
         return False  # an ellipsized path is an example, not a runnable command
     stripped = line.strip().lstrip("-*>| `").strip()
     for quote in ("'", '"'):
-        if stripped.startswith(quote):
+        # Iterate, not once: the bash-safe nested spelling
+        # ('"dist/…exe"') walked past a single strip (round 11). Each pass
+        # removes a leading quote and, when the matching closing quote wraps
+        # the path alone, that closing quote too — so the comment stripper
+        # below sees balanced quotes (round 10).
+        while stripped.startswith(quote):
             body = stripped[1:].lstrip()
-            # Remove the closing quote that wraps the path, so the comment
-            # stripper below sees balanced quotes. Round 10: without this, a
-            # trailing `# comment` after the closing quote was treated as
-            # quoted text and exempted the line.
             close = body.find(quote)
             if close != -1 and " " not in body[:close]:
                 body = body[:close] + body[close + 1 :]
             stripped = body.strip()
-            break
     lowered = stripped.lower()
     if _SHELL_VERB.search(lowered) or _FLAG.search(lowered):
         return True
@@ -250,12 +250,13 @@ def _files_with_runnable_invocations() -> dict[str, list[str]]:
     found: dict[str, list[str]] = {}
     for path in _tracked("*.md", "*.yml", "*.yaml"):
         name = path.relative_to(_REPO_ROOT).as_posix()
-        if name in _PROSE_ALLOWLIST or name == _RELEASE_WORKFLOW:
+        if name == _RELEASE_WORKFLOW:
             continue
         lines = [
             line
             for line in path.read_text(encoding="utf-8").splitlines()
             if is_runnable_invocation(line)
+            and _SPIKE_RECORD_FLAG not in line  # ADR-038's historical record
         ]
         if lines:
             found[name] = lines
@@ -529,3 +530,10 @@ class TestTheGuardItself:
         assert not is_runnable_invocation(
             "…/OpenGardenPlanner.exe --selftest"
         ), "a forward-slash ellipsis describes a defect, it does not prescribe a gate"
+
+    def test_a_nested_quoted_path_is_a_command(self) -> None:
+        """Round 11: the quote strip handled one nesting level. The docstring
+        promises "quoted or not"; this pins the bash-safe nested spelling."""
+        assert is_runnable_invocation(
+            '\'"dist/OpenGardenPlanner/OpenGardenPlanner.exe"\''
+        ), "a nested-quoted path must be a command"
