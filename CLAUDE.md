@@ -28,7 +28,7 @@ powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanne
 # silently-dead subsystem (#291 hid from the smoke for six releases). Must be
 # Start-Process -Wait -PassThru: PowerShell does not wait on a GUI-subsystem
 # exe, and a shell-piped run hands it a real stdout so it cannot reproduce the
-# console-less condition #291 needs.
+# no-inherited-handle condition #291 needs.
 
 # Update & compile translations (after adding/changing any UI strings)
 PYTHONUTF8=1 venv/Scripts/python.exe scripts/fill_translations.py

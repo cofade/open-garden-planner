@@ -199,11 +199,12 @@ child exiting 3 propagates 3).
    -PassThru` is why `.github/workflows/release.yml:114` is written that way.
 2. **A shell pipe hands the windowed exe a real `sys.stdout`.** Run from Git
    Bash the plain form *does* wait and *does* return the exit code — but the
-   selftest's prints are visible (~300 bytes measured; the exact count varies with the Qt version string), so `sys.stdout` was a
-   live pipe and a regression of #291's `log_config=None` fix would pass
-   cleanly. Use the `Start-Process` form, which gives the process no console at
-   all. **Why, in full: §11.4's #291 entry** (corrected in PR #334 — it used to
-   claim the windowed exe has `sys.stdout is None` unconditionally).
+   selftest's prints are visible (~300 bytes measured; the exact count varies
+   with the Qt version string). So the run had a live stdout handle, and a
+   regression of #291's `log_config=None` fix would pass cleanly. Use the
+   `Start-Process` form, which gives the process no inherited stdout handle.
+   **Why, in full: §11.4's #291 entry** (corrected in PR #334 — it used to
+   state the claim without the no-inherited-handle condition).
 
 `release.yml` runs `--selftest` against the built exe, but only *after* merge.
 Running it locally is what makes it a merge gate rather than a post-mortem.

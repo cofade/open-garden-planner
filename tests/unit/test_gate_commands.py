@@ -142,8 +142,11 @@ def is_runnable_invocation(line: str) -> bool:
     lowered = stripped.lower()
     if _SHELL_VERB.search(lowered) or _FLAG.search(lowered):
         return True
-    if lowered.startswith(("dist/", "./dist/", "$exe", "&")):
-        return not _PROSE_WORDS.search(lowered)
+    if lowered.startswith(("dist/", "./dist/", "$exe", "&", ".\\", "..\\")):
+        # Strip comments first: a trailing ``# the gate exists`` must not
+        # exempt a bare-path command (round 9 walked past this with exactly
+        # that spelling).
+        return not _PROSE_WORDS.search(_strip_comment(lowered))
     return False
 
 #: ``$NAME`` / ``${NAME}`` / ``${?}``, and bash's special parameters — ``$?`` is
@@ -466,3 +469,32 @@ class TestTheGuardItself:
         assert not is_runnable_invocation(
             "`& \"…\\OpenGardenPlanner.exe\" --selftest` returns in ~6 ms"
         ), "an ellipsized path describes a defect, it does not prescribe a gate"
+
+    def test_prose_word_in_comment_does_not_exempt_a_bare_path(self) -> None:
+        """Round 9: the prose exemption fired on a trailing comment."""
+        assert is_runnable_invocation(
+            "dist/OpenGardenPlanner/OpenGardenPlanner.exe # the gate exists"
+        ), "a trailing comment must not exempt a bare-path command"
+
+    def test_a_backslash_path_is_runnable(self) -> None:
+        """Round 9: a PowerShell-style backslash path walked past the path check."""
+        assert is_runnable_invocation(
+            r".\dist\OpenGardenPlanner\OpenGardenPlanner.exe"
+        ), "a backslash path must be a command"
+
+    def test_the_shape_checks_cover_a_pwsh_rewrite(self) -> None:
+        """Round 9: the launcher-variant seam was claimed as a teeth case but no
+        tooth pinned it. This one does."""
+        variant = (
+            "pwsh -Command '$p = Start-Process "
+            '"dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList '
+            '"--selftest" -Wait -PassThru; exit $p.ExitCode\''
+        )
+        assert _SELFTEST_LINE.search(variant), (
+            "a pwsh -Command rewrite of the sanctioned literal must still be "
+            "discovered for shape checking"
+        )
+        assert shell_exposed_variables(variant) == []
+        assert re.search(r"\$p\s*=\s*Start-Process", _strip_comment(variant))
+        for required in ("--selftest", "-Wait", "-PassThru", "exit $p.ExitCode"):
+            assert required in variant
