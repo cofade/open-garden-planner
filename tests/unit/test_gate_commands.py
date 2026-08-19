@@ -96,7 +96,8 @@ def _is_spike_record(line: str) -> bool:
     --spike-screenshot …``. A real gate copy always names a launcher
     (``timeout``, ``powershell``, ``pwsh``, ``Start-Process``), so requiring
     the flag AND the exe path AND the absence of any launcher verb keeps the
-    exemption to the historical shape.
+    exemption to the historical shape. Delete this exemption when the spike
+    record is retired from the ADR.
     """
     return (
         _SPIKE_RECORD_FLAG in line
