@@ -6,7 +6,6 @@ from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 from open_garden_planner.ui.canvas.items.resize_handle import (
-    MINIMUM_SIZE_CM,
     HandlePosition,
     ResizeHandle,
 )
@@ -86,33 +85,6 @@ class TestRectangleItemResize:
         for handle in rect._resize_handles:
             assert not handle.isVisible()
 
-    def test_rectangle_resize_changes_dimensions(self, qtbot) -> None:
-        """Test resizing rectangle changes its dimensions."""
-        rect = RectangleItem(0, 0, 100, 50)
-
-        # Simulate resize from bottom-right
-        rect._apply_resize(0, 0, 150, 75, 0, 0)
-
-        # Dimensions should have changed
-        assert rect.rect().width() == 150
-        assert rect.rect().height() == 75
-
-    def test_rectangle_minimum_size_enforced(self, qtbot) -> None:
-        """Test minimum size constraint is enforced during handle drag."""
-        rect = RectangleItem(0, 0, 100, 50)
-
-        # Minimum size is enforced by ResizeHandle during drag, not by _apply_resize
-        # _apply_resize just applies the values it receives
-        # Test that we can enforce it manually
-        new_width = max(0.5, MINIMUM_SIZE_CM)
-        new_height = max(0.5, MINIMUM_SIZE_CM)
-        rect._apply_resize(0, 0, new_width, new_height, 0, 0)
-
-        # Should be at minimum
-        assert rect.rect().width() == MINIMUM_SIZE_CM
-        assert rect.rect().height() == MINIMUM_SIZE_CM
-
-
 class TestCircleItemResize:
     """Tests for CircleItem resize functionality."""
 
@@ -127,44 +99,6 @@ class TestCircleItemResize:
 
         # Handles should be created
         assert len(circle._resize_handles) == 8
-
-    def test_circle_resize_maintains_circular_shape(self, qtbot) -> None:
-        """Test resizing circle maintains circular shape."""
-        circle = CircleItem(50, 50, 25)
-
-        # Try to resize to non-square dimensions (150x100)
-        # Circle should use minimum dimension to maintain circular shape
-        circle._apply_resize(-25, -25, 150, 100, 0, 0)
-
-        # Should be circular (width == height), using minimum dimension
-        rect = circle.rect()
-        assert rect.width() == rect.height()
-        assert rect.width() == 100  # Minimum of 150 and 100
-
-    def test_circle_radius_updates_on_resize(self, qtbot) -> None:
-        """Test circle radius property updates when resized."""
-        circle = CircleItem(50, 50, 25)
-        original_radius = circle.radius
-
-        # Resize to larger circle
-        new_diameter = 100
-        circle._apply_resize(-25, -25, new_diameter, new_diameter, 0, 0)
-
-        # Radius should have changed
-        assert circle.radius == new_diameter / 2
-        assert circle.radius != original_radius
-
-    def test_circle_minimum_size_enforced(self, qtbot) -> None:
-        """Test minimum size constraint is enforced for circles."""
-        circle = CircleItem(50, 50, 25)
-
-        # Minimum size is enforced by ResizeHandle during drag, not by _apply_resize
-        new_diameter = max(0.5, MINIMUM_SIZE_CM)
-        circle._apply_resize(0, 0, new_diameter, new_diameter, 0, 0)
-
-        # Should be at minimum
-        assert circle.radius == MINIMUM_SIZE_CM / 2
-
 
 class TestPolygonItemResize:
     """Tests for PolygonItem resize functionality."""
@@ -307,10 +241,18 @@ class TestResizeUndo:
         rect = RectangleItem(0, 0, 100, 50)
         scene.addItem(rect)
 
-        # Simulate resize
+        # Simulate the resize through the canonical apply path (US-D2.2). The
+        # rect-item _apply_resize these tests used to drive was deleted as dead
+        # code: the interactive handle takes the rotation-aware branch.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+            build_rect_resize,
+        )
+
         initial_rect = rect.rect()
         initial_pos = rect.pos()
-        rect._apply_resize(0, 0, 150, 75, 0, 0)
+        _old, new = build_rect_resize(rect, 150, 75)
+        apply_rect_like_geometry(rect, new)
         rect._on_resize_end(initial_rect, initial_pos)
 
         # Should have command in undo stack
@@ -331,10 +273,16 @@ class TestResizeUndo:
         original_width = rect.rect().width()
         original_height = rect.rect().height()
 
-        # Resize
+        # Resize through the canonical apply path (US-D2.2)
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+            build_rect_resize,
+        )
+
         initial_rect = rect.rect()
         initial_pos = rect.pos()
-        rect._apply_resize(0, 0, 150, 75, 0, 0)
+        _old, new = build_rect_resize(rect, 150, 75)
+        apply_rect_like_geometry(rect, new)
         rect._on_resize_end(initial_rect, initial_pos)
 
         # Undo

@@ -250,7 +250,7 @@ def build_server(
 
     Args:
         writes_enabled: When true AND ``write_token`` is set, the scene-mutating
-            write tools (``move_object``/``delete_object``) are registered. When
+            write tools (``create_object``/``move_object``/``delete_object``/``resize_object``/``rotate_object``/``set_species``/``set_parent_bed``) are registered. When
             either is missing the write tools are omitted entirely — they don't
             appear in the agent's tool list. This gating (plus the per-call
             token check) is the D2 write gate ADR-033 requires.
@@ -670,6 +670,192 @@ def build_server(
             _require_write_auth(write_token)
             result = await anyio.to_thread.run_sync(
                 lambda: providers.delete_object(item_id)
+            )
+            return WriteResult(**result)
+
+        # --- US-D2.2: resize / rotate --------------------------------------
+
+        @mcp.tool()
+        async def resize_object(
+            item_id: str,
+            width: float | None = None,
+            height: float | None = None,
+            radius: float | None = None,
+        ) -> WriteResult:
+            """Resize one object to absolute target dimensions, in centimetres.
+
+            The object's CENTRE stays exactly where it is, for every type -- so
+            the x/y you read before the resize is still valid afterwards, and
+            the object grows outward in all directions rather than drifting.
+            The result echoes the resulting centre back.
+
+            Pass the dimensions that fit the object's shape:
+
+            * Round objects (plants, CONTAINER_ROUND, circular beds): 'radius'.
+            * Rectangular objects (beds, containers, structures): 'width'
+              and/or 'height'. Omit one to leave that axis unchanged.
+
+            These are ABSOLUTE targets, not deltas -- width=120 means "make it
+            120 cm wide", the same vocabulary create_object uses.
+
+            Resizing a bed does NOT move or re-link the plants inside it (the
+            app's own resize behaves the same way), so shrinking a bed can leave
+            a plant linked to a bed it no longer sits inside. Use
+            set_parent_bed if you need to correct that.
+
+            Fails if the object is drawn from vertices rather than a
+            width/height box (polygons, polylines, fences, paths -- not
+            supported yet), if the dimension doesn't fit the shape, if a value
+            is zero/negative/not finite or implausibly large for the plan, if
+            the object participates in a geometric constraint, if it's a
+            journal pin or a group member, or if it's on a locked layer.
+
+            Args:
+                item_id: The object's stable UUID (from list_objects/get_object).
+                width: Target width in cm. Rectangular objects only.
+                height: Target height in cm. Rectangular objects only.
+                radius: Target radius in cm. Round objects only.
+            """
+            _require_write_auth(write_token)
+            # Called by keyword: width/height/radius are all float|None, so a
+            # transposition anywhere along this chain would be type-identical
+            # and silently resize the wrong axis (the create_object precedent).
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.resize_object(
+                    item_id=item_id, width=width, height=height, radius=radius
+                )
+            )
+            return WriteResult(**result)
+
+        @mcp.tool()
+        async def rotate_object(
+            item_id: str, angle: float, relative: bool = False
+        ) -> WriteResult:
+            """Rotate one object, in degrees.
+
+            A POSITIVE angle rotates the object COUNTER-CLOCKWISE: an object
+            whose long axis points east points north after +90. Pass a negative
+            angle to turn it clockwise. The object rotates about its own
+            centre, which does not move.
+
+            By default 'angle' is the object's new ABSOLUTE rotation, so
+            calling rotate_object(id, 90) twice leaves it at 90 degrees. Pass
+            relative=True to add to the current rotation instead, so the same
+            two calls leave it at 180. The resulting angle is normalised into
+            [0, 360) and returned as rotation_deg.
+
+            Like resize_object, rotating a bed does NOT move or re-link the
+            plants inside it, so a rotation can leave a plant linked to a bed it
+            no longer sits inside. Use set_parent_bed to correct that.
+
+            Fails if the object participates in a geometric constraint, if it's
+            a journal pin or a group member, if it's on a locked layer, or if
+            the angle is not finite.
+
+            Args:
+                item_id: The object's stable UUID (from list_objects/get_object).
+                angle: Degrees. Positive is COUNTER-CLOCKWISE.
+                relative: False (default) sets the absolute angle; True adds to
+                    the object's current rotation.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.rotate_object(item_id, angle, relative)
+            )
+            return WriteResult(**result)
+
+        # --- US-D2.3: species / parent bed ---------------------------------
+
+        @mcp.tool()
+        async def set_species(
+            item_id: str,
+            species: str | None = None,
+            apply_database_size: bool = True,
+        ) -> WriteResult:
+            """Assign (or clear) the species of an existing plant.
+
+            The counterpart to create_object's 'species' argument, for plants
+            that already exist -- including ones the user drew by hand and
+            never named. Assigning a species populates the plant's data, which
+            is what makes the plant-detail panel, the planting calendar and the
+            soil/pH mismatch warnings light up for it.
+
+            The species name is matched against the app's bundled database by
+            scientific name, common name, or alias -- read the garden://species
+            resource for the full list. An unknown name is rejected rather than
+            guessed at.
+
+            As in the app, the plant's drawn footprint adopts the species' real
+            mature size (diameter = max_spread_cm). If the user has set a
+            manual spacing override that disagrees with the database, the app
+            would ask which to keep; apply_database_size is your answer to that
+            question -- True (default) takes the database values, False keeps
+            the user's. Note this only decides the conflict: without an
+            override the footprint always adopts the database size.
+
+            Pass species=None to clear the species. The footprint is left as
+            drawn in that case.
+
+            Because assigning a species resizes the plant's footprint, this
+            counts as a geometry change: it fails on an object that
+            participates in a geometric constraint, exactly as resize_object
+            does. Clearing a species resizes nothing and is allowed on a
+            constrained plant.
+
+            Also fails if the object is not a plant (TREE/SHRUB/PERENNIAL), if
+            the species is unknown, if the plant already has that species or has
+            no species to clear, if it's a journal pin or group member, or if
+            it's on a locked layer.
+
+            Args:
+                item_id: The plant's stable UUID (from list_objects/get_object).
+                species: Species name -- scientific, common, or a known alias.
+                    Omit or pass null to clear the plant's species.
+                apply_database_size: How to resolve a conflicting manual
+                    spacing override, as described above.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.set_species(item_id, species, apply_database_size)
+            )
+            return WriteResult(**result)
+
+        @mcp.tool()
+        async def set_parent_bed(
+            item_id: str, bed_id: str | None = None
+        ) -> WriteResult:
+            """Link a plant to a bed, or detach it -- WITHOUT moving the plant.
+
+            This changes the relationship only; the plant stays exactly where
+            it is on the canvas. Use it for the case move_object cannot reach:
+            a plant that is already sitting inside a bed but isn't linked to it
+            (which happens whenever a bed is drawn around existing plants).
+            Linking is what makes the plant count towards the bed's capacity,
+            inherit its soil readings, and appear in plants_in_bed.
+
+            The plant does NOT have to be geometrically inside the bed -- the
+            app's own Link action doesn't require it either. The result's
+            link_is_geometric tells you whether the link and the geometry
+            agree, so you can point out a mismatch.
+
+            Pass bed_id=None to detach the plant from whatever bed it is in.
+
+            A plant's parent can be a garden bed, raised bed, container, round
+            container, wall planter, or a TRELLIS. Note a trellis holds plants
+            but has no soil, so a plant on one has no soil readings.
+
+            Fails if the object is not a plant, if bed_id names something that
+            cannot hold plants, if the plant is already in that state, if
+            either object is a journal pin or group member, or if either is on
+            a locked layer.
+
+            Args:
+                item_id: The plant's stable UUID (from list_objects/get_object).
+                bed_id: The target bed's stable UUID, or null to detach.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.set_parent_bed(item_id, bed_id)
             )
             return WriteResult(**result)
 

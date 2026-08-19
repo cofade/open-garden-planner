@@ -59,6 +59,10 @@ def _providers() -> AgentProviders:
         create_object=_unused,
         move_object=_unused,
         delete_object=_unused,
+        resize_object=_unused,
+        rotate_object=_unused,
+        set_species=_unused,
+        set_parent_bed=_unused,
     )
 
 

@@ -378,38 +378,6 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         r = self.rect()
         return abs(r.width() * r.height())
 
-    def _apply_resize(
-        self,
-        x: float,
-        y: float,
-        width: float,
-        height: float,
-        pos_x: float,
-        pos_y: float,
-    ) -> None:
-        """Apply a resize transformation to this rectangle.
-
-        Args:
-            x: New x position of rect (in item coords)
-            y: New y position of rect (in item coords)
-            width: New width
-            height: New height
-            pos_x: New scene x position
-            pos_y: New scene y position
-        """
-        # Update the rectangle geometry
-        self.setRect(x, y, width, height)
-
-        # Update position
-        self.setPos(pos_x, pos_y)
-
-        # Update resize handles
-        self.update_resize_handles()
-
-        # Update label position
-        self._position_label()
-        self._update_area_label()
-
     def _after_resize_geometry(self) -> None:
         """Sync bookkeeping after the shared rotation-aware resize primitive.
 
@@ -453,22 +421,14 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
 
         from open_garden_planner.core.commands import ResizeItemCommand
 
-        def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
-            """Apply geometry to the item."""
-            if isinstance(item, RectangleItem):
-                item.prepareGeometryChange()
-                item.setRect(
-                    geom['rect_x'],
-                    geom['rect_y'],
-                    geom['width'],
-                    geom['height'],
-                )
-                item.setPos(geom['pos_x'], geom['pos_y'])
-                # Re-pin the rotation origin so undo/redo of a rotated resize
-                # restores the pivot too, not just rect + pos (#218).
-                item.setTransformOriginPoint(item.rect().center())
-                item.update_resize_handles()
-                item._position_label()
+        # US-D2.2: the canonical apply path, shared with the properties panel
+        # and the Agent API's resize_object (ui.canvas.geometry_apply) — same
+        # behaviour as the local closure it replaces, one copy to keep correct.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+        )
+
+        apply_geometry = apply_rect_like_geometry
 
         old_geometry = {
             'rect_x': initial_rect.x(),
@@ -528,10 +488,11 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
 
         from open_garden_planner.core.commands import RotateItemCommand
 
-        def apply_rotation(item: QGraphicsItem, angle: float) -> None:
-            """Apply rotation to the item."""
-            if isinstance(item, RectangleItem):
-                item._apply_rotation(angle)
+        # US-D2.2: the canonical rotate apply path (ui.canvas.geometry_apply),
+        # shared with the Agent API's rotate_object. Every item class had an
+        # identical private copy of this one-liner; a shared name means the
+        # agent and the drag handles provably rotate the same way.
+        from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
 
         command = RotateItemCommand(
             self,

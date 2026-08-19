@@ -137,21 +137,6 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         r = self.rect()
         return math.pi * (r.width() / 2.0) * (r.height() / 2.0)
 
-    def _apply_resize(
-        self,
-        x: float,
-        y: float,
-        width: float,
-        height: float,
-        pos_x: float,
-        pos_y: float,
-    ) -> None:
-        self.setRect(x, y, width, height)
-        self.setPos(pos_x, pos_y)
-        self.update_resize_handles()
-        self._position_label()
-        self._update_area_label()
-
     def _after_resize_geometry(self) -> None:
         """Sync bookkeeping after the shared rotation-aware resize primitive.
 
@@ -192,16 +177,14 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
 
         from open_garden_planner.core.commands import ResizeItemCommand
 
-        def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
-            if isinstance(item, EllipseItem):
-                item.prepareGeometryChange()
-                item.setRect(geom['rect_x'], geom['rect_y'], geom['width'], geom['height'])
-                item.setPos(geom['pos_x'], geom['pos_y'])
-                # Re-pin the rotation origin so undo/redo of a rotated resize
-                # restores the pivot too, not just rect + pos (#218).
-                item.setTransformOriginPoint(item.rect().center())
-                item.update_resize_handles()
-                item._position_label()
+        # US-D2.2: the canonical apply path, shared with the properties panel
+        # and the Agent API's resize_object (ui.canvas.geometry_apply) — same
+        # behaviour as the local closure it replaces, one copy to keep correct.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+        )
+
+        apply_geometry = apply_rect_like_geometry
 
         old_geometry = {
             'rect_x': initial_rect.x(), 'rect_y': initial_rect.y(),
@@ -232,9 +215,11 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
 
         from open_garden_planner.core.commands import RotateItemCommand
 
-        def apply_rotation(item: QGraphicsItem, angle: float) -> None:
-            if isinstance(item, EllipseItem):
-                item._apply_rotation(angle)
+        # US-D2.2: the canonical rotate apply path (ui.canvas.geometry_apply),
+        # shared with the Agent API's rotate_object. Every item class had an
+        # identical private copy of this one-liner; a shared name means the
+        # agent and the drag handles provably rotate the same way.
+        from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
 
         command = RotateItemCommand(self, initial_angle, current_angle, apply_rotation)
         command_manager.register_applied(command)

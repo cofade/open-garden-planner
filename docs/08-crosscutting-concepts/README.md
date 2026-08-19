@@ -378,7 +378,7 @@ self._reposition()
 
 ### 8.9.8 Rotatable-item geometry invariant — keep `transformOriginPoint == rect().center()`
 
-Rect-bearing items (`CircleItem`/`RectangleItem`/`EllipseItem`) serialize their position as `pos + rect.center()` with rotation stored as a *separate* angle pivoting on the centre (`core/project.py`). Every geometry mutation on such an item — rotate, programmatic resize, interactive drag-resize, and the undo/redo of any of them — **must end with `transformOriginPoint() == rect().center()`**, or a rotated item's saved centre diverges from its on-screen centre and it drifts on reload / jumps on the next rotation. Do not re-derive this per gesture: route resizes through the single primitive `resize_handle.resize_rect_item_keeping_anchor(item, new_rect, scene_anchor, local_anchor)` (it `prepareGeometryChange()`s, applies the rect, re-pins the origin, and repositions so a chosen scene point stays fixed), and rotation through `RotationHandleMixin._apply_rotation` (pivots on `rect().center()`). The interactive `ResizeHandle._apply_resize` takes the fixed corner/edge **authoritatively from the handle position** (never inferred from scene-space or `pos_dx`, which disagree under rotation), lets the item normalise the rect (`CircleItem._constrain_resize_size` squares it so the dragged handle tracks the cursor — never `min(w,h)`, which collapses under rotation), then refreshes via `_after_resize_geometry()`. The pivot must come from the *geometric* `rect()`, never the decoration-expanded `boundingRect()` (a runtime-only badge expands the latter asymmetrically); and any shrink of a custom `boundingRect()` must `prepareGeometryChange()` or Qt leaves a stale "ghost". See ADR-028 and §11.4 (#218/#219). Sizing precedence (footprint vs. spacing override vs. DB `max_spread_cm`) likewise has one home: the Qt-free `core/plant_sizing.py` resolver.
+Rect-bearing items (`CircleItem`/`RectangleItem`/`EllipseItem`) serialize their position as `pos + rect.center()` with rotation stored as a *separate* angle pivoting on the centre (`core/project.py`). Every geometry mutation on such an item — rotate, programmatic resize, interactive drag-resize, and the undo/redo of any of them — **must end with `transformOriginPoint() == rect().center()`**, or a rotated item's saved centre diverges from its on-screen centre and it drifts on reload / jumps on the next rotation. Do not re-derive this per gesture. **Route every rect-backed resize through `ui/canvas/geometry_apply.py`** (US-D2.2): `apply_rect_like_geometry` is the `apply_func` every `ResizeItemCommand` must be given, and the `build_*_resize` helpers compute the target geometry for either anchor policy. Its module docstring is the authoritative list of callers and exceptions. Below it sit the two lower-level primitives, a coupled pair rather than pick-and-choose: `resize_handle.resize_rect_item_keeping_anchor(item, new_rect, scene_anchor, local_anchor)` (mutating: `prepareGeometryChange()`, apply rect, re-pin origin, reposition so a chosen scene point stays fixed), whose `scene_anchor` must come from the pure forward transform `scene_point_of` — never hand-derived — and `anchored_position`, the inverse form the `geometry_apply` builders solve `pos` through. **Never hand-derive a position beside a re-pin** — `anchored_position` bakes in `O = new_rect.center()`, so a `pos` computed by hand under the *old* origin and then combined with a re-pin is two half-solutions to one transform: that combination slid a rotated rectangle 671 cm out from under the cursor (§11.4). Rotation goes through `geometry_apply.apply_rotation`, the only definition in the codebase (it delegates to `RotationHandleMixin._apply_rotation`, which pivots on `rect().center()`). Note `ResizeItemCommand` accepts **two** callables — `apply_func` and each `partner_resizes` entry's — and both must obey this. For rect-backed items, the interactive `ResizeHandle._apply_resize` takes the fixed corner/edge **authoritatively from the handle position**, never inferred from scene-space, which disagrees with the item frame under rotation. It lets the item normalise the rect (`CircleItem._constrain_resize_size` squares it so the dragged handle tracks the cursor — never `min(w,h)`, which collapses under rotation), then refreshes via `_after_resize_geometry()`. The non-rect fallback (PolygonItem) is exact compensation, not an alignment accident: it rotates the local delta into scene space (`pos_dx * cos_a - pos_dy * sin_a`) before applying it, so the dragged edge tracks the cursor and the opposite edge stays fixed under rotation too. The pivot must come from the *geometric* `rect()`, never the decoration-expanded `boundingRect()` (a runtime-only badge expands the latter asymmetrically); and any shrink of a custom `boundingRect()` must `prepareGeometryChange()` or Qt leaves a stale "ghost". See ADR-028 and §11.4 (#218/#219). Sizing precedence (footprint vs. spacing override vs. DB `max_spread_cm`) likewise has one home: the Qt-free `core/plant_sizing.py` resolver.
 
 ## 8.10 Integration Test Policy
 
@@ -523,7 +523,7 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 **Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
 
-**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0/D2.1) are token-gated**: the scene-mutating tools (`create_object`/`move_object`/`delete_object`) ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
+**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0 through D2.3) are token-gated**: the seven scene-mutating tools ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
 
 ## 8.12 Constraint Solver Architecture
 
@@ -990,7 +990,7 @@ next launch). See ADR-032 for the architecture.
 `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
 (loads, validates, every expression parses, generates ≥1 primitive).
 
-## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0/D2.1, ADR-033/034/035/036)
+## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0/D2.1/D2.2/D2.3, ADR-033/034/035/036)
 
 The app can host an **MCP server over streamable-HTTP** so AI agents read the
 plan currently open in the GUI (epic #237). Package: `agent_api/`
@@ -1273,6 +1273,43 @@ The token is surfaced (Copy/Regenerate) in Preferences → Agent API and
 injected into each client's config by the D1.6 onboarding writers as a
 `?token=` query param on the connect URL (`ai_client_onboarding.url_with_token`).
 See ADR-036 (and its URL-delivery addendum); §8.11 for the security note.
+
+**Editing existing objects (US-D2.2/D2.3).** Four more tools sit inside the same
+`if writes_active:` block and share `_resolve_agent_item`: `resize_object`,
+`rotate_object`, `set_species`, `set_parent_bed`. Each applies exactly one
+undoable command; none reparents, so none produces the second undo step
+`move_object` can. Three points are load-bearing for anyone extending them:
+
+* **One geometry-apply path per geometry model.** `ResizeItemCommand` /
+  `RotateItemCommand` take a caller-supplied `apply_func`, and before D2.2 every
+  call site had its own closure — which had drifted, leaving three rotated-geometry
+  bugs in shipped GUI paths (§11.4). `ui/canvas/geometry_apply.py` is now the single
+  implementation; **its module docstring is the authoritative list of callers and of
+  the two deliberate exceptions**, and is deliberately not restated here. Do not add
+  another rect closure; add a builder there.
+* **Centre-preserving is the agent's anchor rule, for every type.** The read
+  tools and `create_object` speak in centres, so `resize_object` holds the
+  scene centre invariant; the panel keeps its own per-type anchor behaviour.
+  Both are the same builder with `keep_center=True|False`, and both solve `pos`
+  through `anchored_position()` so a rotated item lands correctly either way.
+* **Rotation sign is measured, not assumed.** A positive angle is
+  **counter-clockwise** (east-pointing → north after `+90`). Pinned against a
+  measured corner position in both `tests/unit/test_agent_api_edits.py` and
+  `tests/integration/test_agent_api_default_on.py` — never against the stored
+  angle, which cannot detect an inverted convention. This is the #267 lesson
+  applied prospectively.
+
+`set_species` delegates to `ui/plant_species_assignment.apply_species_to_item`
+(the #213 helper the plant panel and species search already share) rather than
+building `ApplySpeciesCommand` itself; its `apply_database_size` flag answers
+the GUI's conflicting-override dialog and is **not** a general "skip the resize"
+switch. `set_parent_bed` changes the link only — the plant does not move — and
+deliberately does not require geometric containment, reporting
+`link_is_geometric` instead so the agent can flag a mismatch. Validation for all
+four lives in the Qt-free `agent_api/edits.py`, whose plant-parent name set
+carries a drift guard against `PLANT_PARENT_TYPES` (§8.14 / ADR-017 — note
+`TRELLIS` is a plant parent but not a soil container). See ADR-036's D2.2/D2.3
+addenda, FR-AGENT-15/16.
 
 **i18n.** MCP tool/resource/prompt descriptions are an English API contract
 (exempt). Only the Settings UI strings go through `tr()`.

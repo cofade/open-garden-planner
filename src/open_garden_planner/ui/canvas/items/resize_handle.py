@@ -43,6 +43,75 @@ def _clamp_pos_to_canvas(pos: QPointF, parent_item: QGraphicsItem) -> QPointF:
     return pos
 
 
+def anchored_position(
+    new_rect: QRectF,
+    rotation_deg: float,
+    scene_anchor: QPointF,
+    local_anchor: QPointF,
+) -> QPointF:
+    """The ``pos`` that pins ``local_anchor`` of ``new_rect`` onto ``scene_anchor``.
+
+    The solved form of Qt's transform, extracted from
+    :func:`resize_rect_item_keeping_anchor` so that callers which must *compute*
+    a target position without mutating anything — the geometry builders in
+    ``ui.canvas.geometry_apply``, which record ``pos`` into an undoable
+    ``ResizeItemCommand`` dict — use the same formula the mutating primitive
+    does, rather than a second transcription of it.
+
+    Qt maps a local point ``p`` to scene as ``pos + O + R(θ)·(p − O)`` where
+    ``O = transformOriginPoint`` and ``θ = item.rotation()``. With the origin
+    pinned to ``new_rect.center()`` (the #219 serializer invariant), solving the
+    anchor invariant gives the unique position::
+
+        pos = scene_anchor − O − R(θ)·(local_anchor − O)
+
+    Pure: no Qt item is touched, so it is safe to call while building an undo
+    record.
+    """
+    origin = new_rect.center()
+    angle_rad = math.radians(rotation_deg)
+    cos_a = math.cos(angle_rad)
+    sin_a = math.sin(angle_rad)
+    dx = local_anchor.x() - origin.x()
+    dy = local_anchor.y() - origin.y()
+    rot_dx = dx * cos_a - dy * sin_a
+    rot_dy = dx * sin_a + dy * cos_a
+    return QPointF(
+        scene_anchor.x() - origin.x() - rot_dx,
+        scene_anchor.y() - origin.y() - rot_dy,
+    )
+
+
+def scene_point_of(
+    local_point: QPointF,
+    rect: QRectF,
+    pos: QPointF,
+    rotation_deg: float,
+) -> QPointF:
+    """Where ``local_point`` lands in scene space for an item with this geometry.
+
+    The **forward** direction of :func:`anchored_position`'s transform, and its
+    exact inverse: ``anchored_position`` answers "what ``pos`` puts this local
+    point on that scene point"; this answers "where does this local point go".
+    Named as a pair so a caller needing both — pin a corner's pre-drag position,
+    then solve for the post-drag ``pos`` — cannot hand-derive one of them under a
+    different origin assumption than the other. Doing exactly that is what broke
+    the rotated corner drag once already (see ``_move_corner_to``).
+
+    Pure: touches no Qt item, so it is safe to call mid-drag.
+    """
+    origin = rect.center()
+    angle_rad = math.radians(rotation_deg)
+    cos_a = math.cos(angle_rad)
+    sin_a = math.sin(angle_rad)
+    dx = local_point.x() - origin.x()
+    dy = local_point.y() - origin.y()
+    return QPointF(
+        pos.x() + origin.x() + dx * cos_a - dy * sin_a,
+        pos.y() + origin.y() + dx * sin_a + dy * cos_a,
+    )
+
+
 def resize_rect_item_keeping_anchor(
     item: QGraphicsItem,
     new_rect: QRectF,
@@ -77,18 +146,9 @@ def resize_rect_item_keeping_anchor(
     # seen when a plant's footprint is dragged smaller (#218 follow-up).
     item.prepareGeometryChange()
     item.setRect(new_rect)  # type: ignore[attr-defined]
-    origin = new_rect.center()
-    item.setTransformOriginPoint(origin)
-    angle_rad = math.radians(item.rotation())
-    cos_a = math.cos(angle_rad)
-    sin_a = math.sin(angle_rad)
-    dx = local_anchor.x() - origin.x()
-    dy = local_anchor.y() - origin.y()
-    rot_dx = dx * cos_a - dy * sin_a
-    rot_dy = dx * sin_a + dy * cos_a
+    item.setTransformOriginPoint(new_rect.center())
     item.setPos(
-        scene_anchor.x() - origin.x() - rot_dx,
-        scene_anchor.y() - origin.y() - rot_dy,
+        anchored_position(new_rect, item.rotation(), scene_anchor, local_anchor)
     )
 
 
@@ -594,11 +654,12 @@ class ResizeHandle(QGraphicsRectItem):
             oc = init_rect.center()
             old_fx = init_rect.right() if is_left else init_rect.left() if is_right else oc.x()
             old_fy = init_rect.bottom() if is_top else init_rect.top() if is_bottom else oc.y()
-            adx = old_fx - oc.x()
-            ady = old_fy - oc.y()
-            scene_anchor = QPointF(
-                init_pos.x() + oc.x() + adx * cos_a - ady * sin_a,
-                init_pos.y() + oc.y() + adx * sin_a + ady * cos_a,
+            # Through scene_point_of, not inline: this was the third hand-written
+            # transcription of the same forward transform in this file, and a
+            # helper that leaves a live counterexample beside it teaches the next
+            # reader that using it is optional.
+            scene_anchor = scene_point_of(
+                QPointF(old_fx, old_fy), init_rect, init_pos, rotation
             )
             nc = new_rect.center()
             new_fx = new_rect.right() if is_left else new_rect.left() if is_right else nc.x()
@@ -610,7 +671,9 @@ class ResizeHandle(QGraphicsRectItem):
             parent._after_resize_geometry()
             return
 
-        # Non-rect items (polygon/text): existing axis-aligned path.
+        # Non-rect items — PolygonItem is the only class that still carries an
+        # _apply_resize (US-D2.2 deleted the rect-item copies as dead code):
+        # the existing axis-aligned path.
         scene_pos_dx = pos_dx * cos_a - pos_dy * sin_a
         scene_pos_dy = pos_dx * sin_a + pos_dy * cos_a
         if hasattr(parent, '_dimension_display') and parent._dimension_display is not None:
@@ -2327,6 +2390,16 @@ class RectCornerHandle(QGraphicsRectItem):
             super().mouseReleaseEvent(event)
 
 
+def _opposite_corner(corner: "RectCorner", rect: QRectF) -> QPointF:
+    """The corner of ``rect`` diagonally opposite ``corner`` — the drag anchor."""
+    return {
+        RectCorner.TOP_LEFT: rect.bottomRight,
+        RectCorner.TOP_RIGHT: rect.bottomLeft,
+        RectCorner.BOTTOM_LEFT: rect.topRight,
+        RectCorner.BOTTOM_RIGHT: rect.topLeft,
+    }[corner]()
+
+
 class RectVertexEditMixin:
     """Mixin that adds vertex editing functionality to rectangle items.
 
@@ -2537,20 +2610,14 @@ class RectVertexEditMixin:
         local_dy = delta.x() * sin_t + delta.y() * cos_t
 
         new_rect = QRectF(initial_rect)
-        # Track how the rect's top-left moves in the LOCAL frame, so the
-        # diagonally opposite corner stays at the same local (and scene) point.
-        local_tl_shift_x = 0.0
-        local_tl_shift_y = 0.0
 
         if corner == RectCorner.TOP_LEFT:
             new_width = initial_rect.width() - local_dx
             new_height = initial_rect.height() - local_dy
             if new_width >= MINIMUM_SIZE_CM:
                 new_rect.setWidth(new_width)
-                local_tl_shift_x = local_dx
             if new_height >= MINIMUM_SIZE_CM:
                 new_rect.setHeight(new_height)
-                local_tl_shift_y = local_dy
 
         elif corner == RectCorner.TOP_RIGHT:
             new_width = initial_rect.width() + local_dx
@@ -2559,14 +2626,12 @@ class RectVertexEditMixin:
                 new_rect.setWidth(new_width)
             if new_height >= MINIMUM_SIZE_CM:
                 new_rect.setHeight(new_height)
-                local_tl_shift_y = local_dy
 
         elif corner == RectCorner.BOTTOM_LEFT:
             new_width = initial_rect.width() - local_dx
             new_height = initial_rect.height() + local_dy
             if new_width >= MINIMUM_SIZE_CM:
                 new_rect.setWidth(new_width)
-                local_tl_shift_x = local_dx
             if new_height >= MINIMUM_SIZE_CM:
                 new_rect.setHeight(new_height)
 
@@ -2578,15 +2643,33 @@ class RectVertexEditMixin:
             if new_height >= MINIMUM_SIZE_CM:
                 new_rect.setHeight(new_height)
 
-        # Convert the LOCAL top-left shift back to SCENE space so the rotated
-        # rectangle's anchor corner stays pinned.
-        cos_r = math.cos(math.radians(rotation_deg))
-        sin_r = math.sin(math.radians(rotation_deg))
-        scene_shift_x = local_tl_shift_x * cos_r - local_tl_shift_y * sin_r
-        scene_shift_y = local_tl_shift_x * sin_r + local_tl_shift_y * cos_r
-        new_pos = QPointF(initial_pos.x() + scene_shift_x, initial_pos.y() + scene_shift_y)
+        # Pin the corner diagonally opposite the dragged one: take its scene
+        # position from the PRE-drag geometry, then solve for the pos that puts
+        # the new rect's matching corner back on it.
+        #
+        # Both steps go through the shared transform pair, and that is the point.
+        # This was a hand-rolled local-to-scene shift derived under the
+        # assumption that the rotation origin stays at the OLD rect centre —
+        # which stopped being true the moment the #219 re-pin below was added,
+        # sliding a rotated rectangle out from under the cursor by up to 671 cm
+        # (a swap of one bug for another, caught in review). `anchored_position`
+        # bakes in `O = new_rect.center()`, so the re-pin and the placement are
+        # now one coupled solution instead of two half-solutions in one function.
+        scene_anchor = scene_point_of(
+            _opposite_corner(corner, initial_rect),
+            initial_rect,
+            initial_pos,
+            rotation_deg,
+        )
+        new_pos = anchored_position(
+            new_rect, rotation_deg, scene_anchor, _opposite_corner(corner, new_rect)
+        )
 
         self.setRect(new_rect)  # type: ignore[attr-defined]
+        # The serializer invariant transformOriginPoint == rect().center()
+        # (#219). Without it a rotated corner drag stored a centre up to 331 cm
+        # from the visible one, i.e. it saved displaced.
+        self.setTransformOriginPoint(new_rect.center())  # type: ignore[attr-defined]
         self.setPos(new_pos)  # type: ignore[attr-defined]
         self._update_rect_corner_handles()
         if hasattr(self, '_position_label'):
@@ -2623,21 +2706,30 @@ class RectVertexEditMixin:
 
         from open_garden_planner.core.commands import ResizeItemCommand
 
-        def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
-            """Apply geometry to the item."""
-            if hasattr(item, 'setRect') and hasattr(item, 'setPos'):
-                item.setRect(QRectF(
-                    geom['rect_x'],
-                    geom['rect_y'],
-                    geom['width'],
-                    geom['height'],
-                ))
-                item.setPos(geom['pos_x'], geom['pos_y'])
-                if hasattr(item, '_update_rect_corner_handles'):
-                    item._update_rect_corner_handles()
-                if hasattr(item, '_position_label'):
-                    item._position_label()
+        # US-D2.2: the canonical apply path (ui.canvas.geometry_apply), shared
+        # with the properties panel, the drag handles and the Agent API. The
+        # dict shape below is already the canonical one; the private closure
+        # this replaces was missing the #219 origin re-pin, so undo/redo of a
+        # rotated corner drag restored rect + pos but left the pivot wrong.
+        # Imported here rather than at module scope: geometry_apply imports
+        # anchored_position from THIS module, so a top-level import would be
+        # circular.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+            capture_rect_like_geometry,
+        )
 
+        def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
+            """Apply geometry, then refresh this mixin's own corner handles."""
+            apply_rect_like_geometry(item, geom)
+            if hasattr(item, '_update_rect_corner_handles'):
+                item._update_rect_corner_handles()
+
+        # The NEW dict is captured from the item's present state, which
+        # _move_corner_to has already set. The OLD dict cannot be captured —
+        # the item is already mutated — so it is rebuilt by hand from the
+        # pre-drag initial values; this mixin only ever holds rectangles, so
+        # the circle bookkeeping capture would add is not needed here.
         old_geometry = {
             'rect_x': initial_rect.x(),
             'rect_y': initial_rect.y(),
@@ -2646,15 +2738,7 @@ class RectVertexEditMixin:
             'pos_x': initial_pos.x(),
             'pos_y': initial_pos.y(),
         }
-
-        new_geometry = {
-            'rect_x': current_rect.x(),
-            'rect_y': current_rect.y(),
-            'width': current_rect.width(),
-            'height': current_rect.height(),
-            'pos_x': current_pos.x(),
-            'pos_y': current_pos.y(),
-        }
+        new_geometry = capture_rect_like_geometry(self)  # type: ignore[arg-type]
 
         command = ResizeItemCommand(
             self,  # type: ignore[arg-type]

@@ -708,101 +708,6 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         self._update_area_label()
         self._update_circle_annotations()
 
-    def _apply_resize(
-        self,
-        _x: float,
-        _y: float,
-        width: float,
-        height: float,
-        pos_x: float,
-        pos_y: float,
-    ) -> None:
-        """Apply a resize transformation to this circle.
-
-        For circles, we maintain the circular shape by using the
-        minimum of width/height to determine the new radius.
-
-        Args:
-            _x: New x position of rect (in item coords) - unused for circles
-            _y: New y position of rect (in item coords) - unused for circles
-            width: New width
-            height: New height
-            pos_x: New scene x position
-            pos_y: New scene y position
-        """
-        # Get initial state (stored when resize started)
-        if not hasattr(self, '_resize_initial_rect') or self._resize_initial_rect is None:
-            self._resize_initial_rect = self.rect()
-        if not hasattr(self, '_resize_initial_pos') or self._resize_initial_pos is None:
-            self._resize_initial_pos = self.pos()
-
-        init_rect = self._resize_initial_rect
-        init_pos = self._resize_initial_pos
-
-        # For circles, use the minimum dimension to maintain circular shape
-        new_diameter = min(width, height)
-        new_radius = new_diameter / 2.0
-
-        # Determine which edges are fixed based on position change
-        # If pos_x stayed the same, left edge is fixed (we're dragging right)
-        # If pos_x changed, right edge is fixed (we're dragging left)
-        left_edge_fixed = abs(pos_x - init_pos.x()) < 0.01
-        top_edge_fixed = abs(pos_y - init_pos.y()) < 0.01
-
-        # Calculate new position to keep the appropriate edges fixed
-        if left_edge_fixed:  # Dragging right edge, keep left fixed
-            # Calculate left edge position in scene coords
-            left_edge_scene = init_pos.x() + init_rect.x()
-            # Position circle so its left edge stays at this position
-            new_pos_x = left_edge_scene
-        else:  # Dragging left edge, keep right fixed
-            # Calculate right edge position in scene coords
-            right_edge_scene = init_pos.x() + init_rect.x() + init_rect.width()
-            # Position circle so its right edge stays at this position
-            new_pos_x = right_edge_scene - new_diameter
-
-        if top_edge_fixed:  # Dragging bottom edge, keep top fixed
-            # Calculate top edge position in scene coords
-            top_edge_scene = init_pos.y() + init_rect.y()
-            # Position circle so its top edge stays at this position
-            new_pos_y = top_edge_scene
-        else:  # Dragging top edge, keep bottom fixed
-            # Calculate bottom edge position in scene coords
-            bottom_edge_scene = init_pos.y() + init_rect.y() + init_rect.height()
-            # Position circle so its bottom edge stays at this position
-            new_pos_y = bottom_edge_scene - new_diameter
-
-        # Set the rect at origin in item coordinates
-        self.setRect(0, 0, new_diameter, new_diameter)
-
-        # Update internal center and radius (in item coordinates)
-        self._center = QPointF(new_radius, new_radius)
-        self._radius = new_radius
-
-        # Update position
-        self.setPos(new_pos_x, new_pos_y)
-
-        # Update dimension display with actual circular dimensions
-        if hasattr(self, '_dimension_display') and self._dimension_display is not None:
-            # Use the actual constrained diameter (not the requested width/height)
-            # Get handle position for display positioning (approximate from center)
-            display_pos = self.scenePos() + QPointF(new_diameter, new_diameter)
-            self._dimension_display.update_dimensions(
-                new_diameter,
-                new_diameter,
-                display_pos,
-            )
-
-        # Update resize handles
-        self.update_resize_handles()
-
-        # Update label position
-        self._position_label()
-        self._update_area_label()
-
-        # Update annotations
-        self._update_circle_annotations()
-
     def _on_resize_end(
         self,
         initial_rect: QRectF | None,
@@ -830,29 +735,22 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         from open_garden_planner.core.commands import ResizeItemCommand
 
-        def apply_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
-            """Apply geometry to the item."""
-            if isinstance(item, CircleItem):
-                item.prepareGeometryChange()
-                item.setRect(
-                    geom['rect_x'],
-                    geom['rect_y'],
-                    geom['diameter'],
-                    geom['diameter'],
-                )
-                item._center = QPointF(geom['center_x'], geom['center_y'])
-                item._radius = geom['radius']
-                item.setPos(geom['pos_x'], geom['pos_y'])
-                # Re-pin the rotation origin so undo/redo of a rotated resize
-                # restores the pivot too, not just rect + pos (#218).
-                item.setTransformOriginPoint(item.rect().center())
-                item.update_resize_handles()
-                item._position_label()
+        # US-D2.2: the canonical apply path, shared with the properties panel
+        # and the Agent API's resize_object (ui.canvas.geometry_apply). It does
+        # exactly what this local closure used to — prepareGeometryChange,
+        # setRect, the #218 origin re-pin, setPos, handles + label — but there
+        # is now only one copy of it to keep correct.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+        )
+
+        apply_geometry = apply_rect_like_geometry
 
         old_geometry = {
             'rect_x': initial_rect.x(),
             'rect_y': initial_rect.y(),
-            'diameter': initial_rect.width(),  # Circles have equal width/height
+            'width': initial_rect.width(),  # Circles have equal width/height
+            'height': initial_rect.height(),
             'center_x': initial_rect.x() + initial_rect.width() / 2.0,
             'center_y': initial_rect.y() + initial_rect.height() / 2.0,
             'radius': initial_rect.width() / 2.0,
@@ -863,7 +761,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         new_geometry = {
             'rect_x': current_rect.x(),
             'rect_y': current_rect.y(),
-            'diameter': current_rect.width(),
+            'width': current_rect.width(),
+            'height': current_rect.height(),
             'center_x': self._center.x(),
             'center_y': self._center.y(),
             'radius': self._radius,
@@ -911,10 +810,11 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         from open_garden_planner.core.commands import RotateItemCommand
 
-        def apply_rotation(item: QGraphicsItem, angle: float) -> None:
-            """Apply rotation to the item."""
-            if isinstance(item, CircleItem):
-                item._apply_rotation(angle)
+        # US-D2.2: the canonical rotate apply path (ui.canvas.geometry_apply),
+        # shared with the Agent API's rotate_object. Every item class had an
+        # identical private copy of this one-liner; a shared name means the
+        # agent and the drag handles provably rotate the same way.
+        from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
 
         command = RotateItemCommand(
             self,

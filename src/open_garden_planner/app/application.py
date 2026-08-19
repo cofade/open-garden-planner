@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from PyQt6.QtCore import QEvent, Qt, QTimer
+from PyQt6.QtCore import QCoreApplication, QEvent, Qt, QTimer
 from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
@@ -474,13 +474,12 @@ class GardenPlannerApp(QMainWindow):
 
         item_deltas = self._agent_move_item_deltas(item, delta)
         for constrained_item, _ in item_deltas:
-            if self._agent_item_constraints(constrained_item):
-                raise ValueError(
-                    f"{item_id} (or a plant it contains) participates in a "
-                    "geometric constraint; move_object doesn't support "
-                    "constrained objects yet — remove the constraint first, "
-                    "or move it from the app."
-                )
+            self._agent_require_unconstrained(
+                constrained_item,
+                item_id,
+                "move_object",
+                also_children=True,
+            )
         if len(item_deltas) == 1:
             move_cmd = MoveItemsCommand([item], delta)
         else:
@@ -633,6 +632,452 @@ class GardenPlannerApp(QMainWindow):
             return []
         return [ridge] if ridge is not None else []
 
+    # --- US-D2.2: resize / rotate ------------------------------------------
+
+    def _agent_require_unconstrained(
+        self,
+        item: Any,
+        item_id: str,
+        tool_name: str,
+        *,
+        also_children: bool = False,
+    ) -> None:
+        """Refuse a geometry edit on a constrained object — the shared D2 rule.
+
+        ``CanvasView`` runs an iterative solver
+        (``_propagate_constraints_during_drag``) that moves/resizes every item
+        linked to the edited one by a distance/fixed/tangent/equal constraint,
+        computing a per-item delta that generally is NOT the edited item's own.
+        Replicating that solver for a one-shot agent call is deferred to
+        US-D2.6 — editing a constrained item without it would silently leave
+        the constraint violated, which is worse than refusing outright.
+
+        Extracted in US-D2.2 so ``move_object``, ``resize_object`` and
+        ``rotate_object`` cannot drift on the wording or, worse, on whether
+        they check at all.
+        """
+        if not self._agent_item_constraints(item):
+            return
+        subject = (
+            f"{item_id} (or a plant it contains)" if also_children else str(item_id)
+        )
+        raise ValueError(
+            f"{subject} participates in a geometric constraint; {tool_name} "
+            "doesn't support constrained objects yet — remove the constraint "
+            "first, or edit it from the app."
+        )
+
+    def _agent_resize_object(
+        self,
+        item_id: str,
+        width: float | None,
+        height: float | None,
+        radius: float | None,
+    ) -> dict[str, Any]:
+        """Resize one object ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_resize_object(item_id, width, height, radius)
+        )
+
+    def _do_agent_resize_object(
+        self,
+        item_id: str,
+        width: float | None,
+        height: float | None,
+        radius: float | None,
+    ) -> dict[str, Any]:
+        """Main-thread body of ``resize_object`` — one undoable step (US-D2.2).
+
+        Goes through ``ui.canvas.geometry_apply``, the canonical apply path the
+        properties panel's numeric-entry branches and each item's drag-release
+        handler now share. That extraction is the load-bearing half of this
+        story: before it, every caller carried its own ``apply_func`` closure
+        and the copies had already drifted (the panel's never re-pinned
+        ``transformOriginPoint``, so a rotated item jumped — see section 11.4).
+        A third copy for the agent would have been a third chance to drift.
+
+        Anchor policy: **the object's scene centre is preserved**, for every
+        type. ``create_object`` and every read tool speak in centres, so it is
+        the only rule an agent can reason about without knowing an item's
+        internal anchor — and it is achieved by passing ``keep_center=True`` to
+        the shared builder, not by a second code path.
+
+        Refuses (raises) rather than guessing: a vertex-backed object
+        (polygon/polyline — US-D2.6's vertex tools own those), a dimension that
+        doesn't fit the shape, a missing dimension, a non-finite/non-positive
+        or implausible extent, and — like every D2 geometry tool — a
+        constrained object. ``_resolve_agent_item`` supplies the shared
+        group-member / journal-pin / locked-layer refusals.
+        """
+        from open_garden_planner.agent_api import edits
+        from open_garden_planner.core.commands import ResizeItemCommand
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+            build_circle_resize,
+            build_rect_resize,
+            is_resizable_rect_like,
+            is_round_like,
+        )
+
+        item = self._resolve_agent_item(item_id)
+        type_name = self._agent_object_type_name(item)
+        self._agent_require_unconstrained(item, item_id, "resize_object")
+
+        if not is_resizable_rect_like(item):
+            # Don't assert WHY it has no width/height box — a polygon or
+            # polyline is vertex-backed, but a text label or a group is neither,
+            # and telling an agent to wait for vertex editing would send it
+            # after a tool that will never help it.
+            raise ValueError(
+                f"{item_id} is a {type_name}, which has no width/height box, so "
+                "resize_object cannot resize it. Polygons and polylines are "
+                "vertex-backed (vertex editing is not available to agents yet); "
+                "a group is resized by addressing its members individually."
+            )
+
+        # Same predicate the builders use internally — see is_round_like.
+        is_round = is_round_like(item)
+        current_rect = item.rect()
+        canvas_rect = self.canvas_scene.canvas_rect
+        new_width, new_height = edits.validate_resize_request(
+            object_type=type_name,
+            is_round=is_round,
+            current_width=current_rect.width(),
+            current_height=current_rect.height(),
+            canvas_width_cm=canvas_rect.width(),
+            canvas_height_cm=canvas_rect.height(),
+            width=width,
+            height=height,
+            radius=radius,
+        )
+
+        if is_round:
+            old_geometry, new_geometry = build_circle_resize(
+                item, new_width, keep_center=True
+            )
+        else:
+            old_geometry, new_geometry = build_rect_resize(
+                item, new_width, new_height, keep_center=True
+            )
+
+        cmd = ResizeItemCommand(
+            item, old_geometry, new_geometry, apply_rect_like_geometry
+        )
+        self.canvas_view.command_manager.execute(cmd)
+
+        cx, cy = self._agent_item_center(item)
+        return {
+            "item_id": item_id,
+            "action": "resize",
+            "undo_description": cmd.description,
+            "x": cx,
+            "y": cy,
+            "width": None if is_round else new_width,
+            "height": None if is_round else new_height,
+            "radius": (new_width / 2.0) if is_round else None,
+        }
+
+    def _agent_rotate_object(
+        self, item_id: str, angle: float, relative: bool
+    ) -> dict[str, Any]:
+        """Rotate one object ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_rotate_object(item_id, angle, relative)
+        )
+
+    def _do_agent_rotate_object(
+        self, item_id: str, angle: float, relative: bool
+    ) -> dict[str, Any]:
+        """Main-thread body of ``rotate_object`` — one undoable step (US-D2.2).
+
+        Uses ``geometry_apply.apply_rotation``, which is exactly what every
+        per-item drag-release closure already did: call the item's own
+        ``_apply_rotation``. That matters for ``PolygonItem``, which overrides
+        it to keep an attached roof ridge on the boundary — reimplementing the
+        rotation here would have silently dropped that.
+
+        **Sign convention, measured rather than assumed** (issue #267 is the
+        cautionary tale — a plausible-sounding docstring that sent agents the
+        wrong way): a positive angle rotates the object COUNTER-CLOCKWISE. An
+        object whose long axis points east points north after ``+90``.
+        ``tests/unit/test_agent_api_edits.py`` pins this against a real item's
+        corner positions, so the test fails if the convention ever inverts.
+
+        Refuses a non-finite or implausibly large angle, and — like every D2
+        geometry tool — a constrained object.
+        """
+        from open_garden_planner.agent_api import edits
+        from open_garden_planner.core.commands import RotateItemCommand
+        from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
+
+        item = self._resolve_agent_item(item_id)
+        self._agent_require_unconstrained(item, item_id, "rotate_object")
+
+        current_angle = float(getattr(item, "rotation_angle", 0.0))
+        if not hasattr(item, "_apply_rotation"):
+            raise ValueError(
+                f"{item_id} is a "
+                f"{self._agent_object_type_name(item)}, which cannot be "
+                "rotated."
+            )
+        new_angle = edits.validate_rotation(
+            angle, relative=relative, current_angle=current_angle
+        )
+
+        cmd = RotateItemCommand(item, current_angle, new_angle, apply_rotation)
+        self.canvas_view.command_manager.execute(cmd)
+
+        cx, cy = self._agent_item_center(item)
+        return {
+            "item_id": item_id,
+            "action": "rotate",
+            "undo_description": cmd.description,
+            "x": cx,
+            "y": cy,
+            "rotation_deg": new_angle,
+        }
+
+    # --- US-D2.3: species / parent bed --------------------------------------
+
+    def _agent_set_species(
+        self, item_id: str, species: str | None, apply_database_size: bool
+    ) -> dict[str, Any]:
+        """Assign a plant's species ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_set_species(item_id, species, apply_database_size)
+        )
+
+    def _do_agent_set_species(
+        self, item_id: str, species: str | None, apply_database_size: bool
+    ) -> dict[str, Any]:
+        """Main-thread body of ``set_species`` — one undoable step (US-D2.3).
+
+        Delegates to ``ui.plant_species_assignment.apply_species_to_item``, the
+        helper issue #213 already extracted so the plant-database panel and the
+        Plants-menu species search behave identically. The agent is simply a
+        third caller of it — building an ``ApplySpeciesCommand`` here would
+        have been a fourth definition of "assign a species".
+
+        That helper resizes the drawn footprint so its diameter equals the
+        species' ``max_spread_cm``, silently, unless a manual
+        ``spacing_radius_cm`` override disagrees — in which case the GUI shows
+        a two-button dialog. ``apply_database_size`` is the agent's answer to
+        that dialog: ``True`` applies the database values (clearing the
+        override), ``False`` keeps the user's custom ones. **It is not a
+        general "don't resize" switch** — without a conflicting override the
+        footprint always adopts the database size, exactly as it does in the
+        app.
+
+        Deliberate asymmetry with ``create_object`` (recorded in ADR-036's
+        D2.3 addendum): creation sizes a new plant from the gallery defaults,
+        because ``radius`` is an explicit creation parameter and having a
+        species silently overrule it would make the two arguments fight. An
+        agent that wants a database-sized new plant calls ``create_object``
+        and then ``set_species`` — two documented steps, not a gap.
+
+        Clearing (``species=None``) goes through the same command with
+        ``new_species=None`` and leaves the footprint alone: there is no
+        database size to adopt, and shrinking a plant the user drew because
+        its label was removed would be surprising.
+        """
+        from open_garden_planner.core.commands import ApplySpeciesCommand
+        from open_garden_planner.services.bundled_species_db import (
+            lookup_species,
+            merge_calendar_data,
+        )
+        from open_garden_planner.ui.plant_species_assignment import apply_species_to_item
+
+        item = self._agent_resolve_plant(item_id, "set_species")
+        # Assigning a species RESIZES the footprint (to max_spread_cm), so this
+        # is a geometry mutation and must clear the same gate resize_object
+        # does. Without this an agent refused by resize_object could get the
+        # resize through set_species instead — the perimeter with a door in it
+        # that the US-D2.2 senior review found.
+        if species is not None:
+            self._agent_require_unconstrained(item, item_id, "set_species")
+
+        current = item.metadata.get("plant_species")
+        if species is None:
+            old_species = current
+            if not isinstance(old_species, dict):
+                raise ValueError(
+                    f"{item_id} has no species to clear; nothing to change."
+                )
+            cmd = ApplySpeciesCommand(
+                item,
+                old_species,  # a dict — the guard above raised otherwise
+                None,
+                getattr(item, "spacing_radius_cm", None),
+                getattr(item, "spacing_radius_cm", None),
+            )
+            self.canvas_view.command_manager.execute(cmd)
+            self._agent_refresh_soil_mismatches()
+            resulting_key = None
+            undo_description = cmd.description
+        else:
+            record = lookup_species(species)
+            if record is None:
+                raise ValueError(
+                    f"No species named {species!r} in the bundled database. "
+                    "Read the garden://species resource for the full list "
+                    "(scientific names, common names and aliases all match)."
+                )
+            species_dict = merge_calendar_data(dict(record))
+            # Re-assigning the species a plant already has is a no-op that would
+            # still push an undo step — the same lie set_parent_bed refuses.
+            # Compared on the canonical key, so "Tomato" and its scientific name
+            # are recognised as the same request.
+            resolved = species_dict.get("scientific_name")
+            if (
+                isinstance(current, dict)
+                and resolved
+                and current.get("scientific_name") == resolved
+            ):
+                raise ValueError(
+                    f"{item_id} already has species {resolved!r}; nothing to "
+                    "change."
+                )
+            apply_species_to_item(
+                item, species_dict, confirm=lambda: apply_database_size
+            )
+            resulting_key = species_dict.get("scientific_name") or species
+            # The command's label is a constant; name it directly rather than
+            # reading the undo stack's top (apply_species_to_item applies
+            # without pushing when there is no command manager, and the stack
+            # top would then be an unrelated command the agent would be told
+            # Ctrl+Z reverses) or constructing a throwaway command to ask it.
+            # INVARIANT: this string must equal ApplySpeciesCommand.description;
+            # it is the same label the real command would have produced.
+            undo_description = QCoreApplication.translate(
+                "Commands", "Apply species data"
+            )
+
+        cx, cy = self._agent_item_center(item)
+        return {
+            "item_id": item_id,
+            "action": "set_species",
+            "undo_description": undo_description,
+            "x": cx,
+            "y": cy,
+            "species_key": resulting_key,
+        }
+
+    def _agent_set_parent_bed(self, item_id: str, bed_id: str | None) -> dict[str, Any]:
+        """Link/unlink a plant to a bed ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_set_parent_bed(item_id, bed_id)
+        )
+
+    def _do_agent_set_parent_bed(
+        self, item_id: str, bed_id: str | None
+    ) -> dict[str, Any]:
+        """Main-thread body of ``set_parent_bed`` — one undoable step (US-D2.3).
+
+        A **link change only** — the plant does not move. ``move_object`` is
+        the implicit path (crossing a boundary reparents); this is the explicit
+        one, and it is the only way to reach a state the GUI can reach but no
+        agent could: a plant already sitting inside a bed that was drawn around
+        it, and therefore never linked.
+
+        **It deliberately does not require the plant to be geometrically inside
+        the bed.** The app's own properties-panel Link action does not either,
+        and refusing would make the tool useless for exactly the case it exists
+        for. ``link_is_geometric`` in the result says whether the link and the
+        geometry agree, so an agent can notice and tell the user.
+
+        ``SetParentBedCommand`` handles the rest of the contract itself: it
+        removes the child id from the old bed, adds it to the new one, raises
+        the plant above its parent, snapshots ``zValue`` so undo restores the
+        user's original elevation rather than a recomputed one, and calls
+        ``trigger_soil_mismatch_refresh`` because parent-link mutations do not
+        fire ``QGraphicsScene.changed`` (#173).
+        """
+        from uuid import UUID
+
+        from open_garden_planner.agent_api import edits
+        from open_garden_planner.core.commands import SetParentBedCommand
+
+        plant = self._agent_resolve_plant(item_id, "set_parent_bed")
+        old_parent_id = plant.parent_bed_id
+
+        new_parent_id: UUID | None = None
+        link_is_geometric: bool | None = None
+        if bed_id is not None:
+            bed = self._resolve_agent_item(bed_id)
+            edits.require_plant_parent_type(
+                self._agent_object_type_name(bed), bed_id
+            )
+            new_parent_id = bed.item_id
+            # Containment uses the same construct CanvasView's own reparent test
+            # does (boundingRect centre), so the agent's link and the GUI's
+            # auto-link agree on the boundary case. Note this is deliberately
+            # NOT _agent_item_center's rect-based centre: that one exists so a
+            # reported x/y matches the read tools, whereas this one exists to
+            # match the GUI's containment decision. The two differ by the
+            # antagonist badge's asymmetric overflow (~0.07 * radius).
+            plant_center = plant.mapToScene(plant.boundingRect().center())
+            link_is_geometric = bool(bed.contains(bed.mapFromScene(plant_center)))
+
+        if new_parent_id == old_parent_id:
+            where = "already unlinked" if bed_id is None else f"already linked to {bed_id}"
+            raise ValueError(f"{item_id} is {where}; nothing to change.")
+
+        cmd = SetParentBedCommand(
+            self.canvas_scene, plant, old_parent_id, new_parent_id
+        )
+        self.canvas_view.command_manager.execute(cmd)
+
+        cx, cy = self._agent_item_center(plant)
+        return {
+            "item_id": item_id,
+            "action": "set_parent_bed",
+            "undo_description": cmd.description,
+            "x": cx,
+            "y": cy,
+            "bed_membership_changed": True,
+            "new_parent_bed_id": str(new_parent_id) if new_parent_id else None,
+            "link_is_geometric": link_is_geometric,
+        }
+
+    def _agent_resolve_plant(self, item_id: str, tool_name: str) -> Any:
+        """``_resolve_agent_item`` plus "and it must be a plant".
+
+        Shared by ``set_species`` and ``set_parent_bed``: both are meaningless
+        on a bed or a shed, and the D2.1 precedent is to say so by name rather
+        than no-op.
+        """
+        from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        item = self._resolve_agent_item(item_id)
+        if not isinstance(item, GardenItemMixin) or not is_plant_type(
+            item.object_type
+        ):
+            raise ValueError(
+                f"{item_id} is a {self._agent_object_type_name(item)}, not a "
+                f"plant, so {tool_name} does not apply to it. Plants are "
+                "TREE, SHRUB and PERENNIAL objects."
+            )
+        return item
+
+    def _agent_object_type_name(self, item: Any) -> str:
+        """``item``'s ``ObjectType`` name, or a readable stand-in."""
+        object_type = getattr(item, "object_type", None)
+        name = getattr(object_type, "name", None)
+        return str(name) if name else type(item).__name__
+
+    def _agent_refresh_soil_mismatches(self) -> None:
+        """Recompute soil-mismatch borders after a species change.
+
+        ``apply_species_to_item`` does this itself; the clear-species branch
+        builds its command directly and so must do it explicitly, or the
+        FR-SOIL warning border outlives the species that caused it.
+        """
+        for view in self.canvas_scene.views():
+            refresh = getattr(view, "refresh_soil_mismatches", None)
+            if callable(refresh):
+                refresh()
+
     def _resolve_agent_item(self, item_id: str) -> Any:
         """Look up a scene item by UUID string for a write tool, or raise.
 
@@ -658,8 +1103,8 @@ class GardenPlannerApp(QMainWindow):
             # whole group — and moveBy on a QGraphicsItemGroup child would
             # displace it *within* the group. Address the group by its own id.
             raise ValueError(
-                f"{item_id} is a member of a group; move or delete the group "
-                "itself (its own id), not an individual member."
+                f"{item_id} is a member of a group; address the group itself "
+                "(its own id) rather than an individual member."
             )
         if isinstance(item, JournalPinItem):
             # Journal pins have their own ProjectData-linked delete path
@@ -667,8 +1112,8 @@ class GardenPlannerApp(QMainWindow):
             # DeleteItemsCommand would remove the pin but silently orphan the
             # note record). Not supported by move_object/delete_object yet.
             raise ValueError(
-                f"{item_id} is a journal pin, not a garden object — "
-                "move_object/delete_object don't support journal pins yet."
+                f"{item_id} is a journal pin, not a garden object — the write "
+                "tools don't support journal pins yet."
             )
         if self._agent_item_is_locked(item):
             # The GUI enforces layer-lock by clearing ItemIsSelectable/
@@ -726,6 +1171,10 @@ class GardenPlannerApp(QMainWindow):
             create_object=self._agent_create_object,
             move_object=self._agent_move_object,
             delete_object=self._agent_delete_object,
+            resize_object=self._agent_resize_object,
+            rotate_object=self._agent_rotate_object,
+            set_species=self._agent_set_species,
+            set_parent_bed=self._agent_set_parent_bed,
         )
         writes_enabled = settings.agent_api_writes_enabled
         # Only read (and thus auto-generate) the token when writes are on, so a

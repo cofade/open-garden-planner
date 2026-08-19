@@ -83,7 +83,7 @@ def is_plant_type_name(object_type: str) -> bool:
     return object_type in _PLANT_TYPE_NAMES
 
 
-def _require_finite(value: float, field: str) -> float:
+def require_finite(value: float, field: str) -> float:
     """Reject NaN/inf before they reach Qt geometry as a silent corruption."""
     number = float(value)
     if not math.isfinite(number):
@@ -91,9 +91,9 @@ def _require_finite(value: float, field: str) -> float:
     return number
 
 
-def _require_positive(value: float, field: str) -> float:
+def require_positive(value: float, field: str) -> float:
     """Reject zero/negative extents — a degenerate item the GUI can never draw."""
-    number = _require_finite(value, field)
+    number = require_finite(value, field)
     if number <= 0:
         raise ValueError(f"{field} must be greater than 0, got {number}")
     return number
@@ -125,7 +125,7 @@ def _require_within_canvas(
         )
 
 
-def _require_sane_extent(
+def require_sane_extent(
     extent: float,
     field: str,
     object_type: str,
@@ -198,10 +198,10 @@ def build_create_dict(
             f"Supported object types: {supported}."
         )
 
-    centre_x = _require_finite(x, "x")
-    centre_y = _require_finite(y, "y")
-    canvas_w = _require_positive(canvas_width_cm, "canvas_width_cm")
-    canvas_h = _require_positive(canvas_height_cm, "canvas_height_cm")
+    centre_x = require_finite(x, "x")
+    centre_y = require_finite(y, "y")
+    canvas_w = require_positive(canvas_width_cm, "canvas_width_cm")
+    canvas_h = require_positive(canvas_height_cm, "canvas_height_cm")
     _require_within_canvas(centre_x, centre_y, canvas_w, canvas_h)
 
     common: dict[str, Any] = {"object_type": object_type}
@@ -214,12 +214,12 @@ def build_create_dict(
                 f"{object_type} is round — pass 'radius', not 'width'/'height'."
             )
         if radius is not None:
-            resolved_radius = _require_positive(radius, "radius")
+            resolved_radius = require_positive(radius, "radius")
         elif object_type in _DEFAULT_PLANT_DIAMETER_CM:
             resolved_radius = _DEFAULT_PLANT_DIAMETER_CM[object_type] / 2
         else:
             raise ValueError(f"{object_type} requires an explicit 'radius' in cm.")
-        _require_sane_extent(
+        require_sane_extent(
             2 * resolved_radius, "diameter", object_type, canvas_w, canvas_h
         )
         return {
@@ -236,10 +236,10 @@ def build_create_dict(
         )
     if width is None or height is None:
         raise ValueError(f"{object_type} requires both 'width' and 'height' in cm.")
-    resolved_width = _require_positive(width, "width")
-    resolved_height = _require_positive(height, "height")
-    _require_sane_extent(resolved_width, "width", object_type, canvas_w, canvas_h)
-    _require_sane_extent(resolved_height, "height", object_type, canvas_w, canvas_h)
+    resolved_width = require_positive(width, "width")
+    resolved_height = require_positive(height, "height")
+    require_sane_extent(resolved_width, "width", object_type, canvas_w, canvas_h)
+    require_sane_extent(resolved_height, "height", object_type, canvas_w, canvas_h)
     return {
         **common,
         "type": "rectangle",

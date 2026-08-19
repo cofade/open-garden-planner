@@ -41,6 +41,10 @@ def _stub_providers() -> AgentProviders:
         create_object=_boom,
         move_object=_boom,
         delete_object=_boom,
+        resize_object=_boom,
+        rotate_object=_boom,
+        set_species=_boom,
+        set_parent_bed=_boom,
     )
 
 
@@ -76,28 +80,60 @@ def test_require_write_auth_rejects_when_no_token_configured() -> None:
         _require_write_auth(None)
 
 
+#: Every scene-mutating tool, which must ALL sit behind the ADR-036 double gate.
+#: Named explicitly rather than derived, so adding a write tool without adding
+#: it here fails ``test_gate_covers_every_write_tool`` below — the guard exists
+#: because the original tests only named move_object/delete_object, so a new
+#: write tool registered outside the gate would have gone unnoticed.
+WRITE_TOOL_NAMES = frozenset(
+    {
+        "create_object",
+        "move_object",
+        "delete_object",
+        "resize_object",
+        "rotate_object",
+        "set_species",
+        "set_parent_bed",
+    }
+)
+
+
+def test_gate_covers_every_write_tool() -> None:
+    """The tools that appear when writes are enabled are EXACTLY the ones this
+    file knows about — so a new write tool must be added to WRITE_TOOL_NAMES,
+    and one registered outside the ``if writes_active:`` block is caught here."""
+    ungated = set(_tool_names(build_server(_stub_providers(), writes_enabled=False)))
+    gated = set(
+        _tool_names(
+            build_server(_stub_providers(), writes_enabled=True, write_token="tok")
+        )
+    )
+    assert gated - ungated == set(WRITE_TOOL_NAMES)
+
+
 def test_write_tools_absent_when_writes_disabled() -> None:
-    names = _tool_names(build_server(_stub_providers(), writes_enabled=False))
-    assert "move_object" not in names
-    assert "delete_object" not in names
+    names = set(_tool_names(build_server(_stub_providers(), writes_enabled=False)))
+    assert not (names & WRITE_TOOL_NAMES)
     # Read tools still present.
     assert "get_plan_summary" in names
 
 
 def test_write_tools_absent_when_token_missing() -> None:
-    names = _tool_names(
-        build_server(_stub_providers(), writes_enabled=True, write_token=None)
+    names = set(
+        _tool_names(
+            build_server(_stub_providers(), writes_enabled=True, write_token=None)
+        )
     )
-    assert "move_object" not in names
-    assert "delete_object" not in names
+    assert not (names & WRITE_TOOL_NAMES)
 
 
 def test_write_tools_present_when_enabled_and_tokened() -> None:
-    names = _tool_names(
-        build_server(_stub_providers(), writes_enabled=True, write_token="tok")
+    names = set(
+        _tool_names(
+            build_server(_stub_providers(), writes_enabled=True, write_token="tok")
+        )
     )
-    assert "move_object" in names
-    assert "delete_object" in names
+    assert names >= WRITE_TOOL_NAMES
 
 
 def test_move_object_description_uses_y_up_compass_frame() -> None:

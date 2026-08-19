@@ -2012,6 +2012,30 @@ def _compute_equal_dimension(anchor) -> float | None:
     return None
 
 
+def _apply_partner_extents(item, width: float, height: float) -> None:
+    """Resize an EQUAL-constraint partner to ``width`` x ``height``, centre held.
+
+    ``ResizeItemCommand`` has **two** callable injection points — ``apply_func``
+    and each ``partner_resizes`` entry's apply function — and it executes both on
+    execute and undo. The US-D2.2 geometry-apply extraction enumerated only the
+    first, so these partner appliers kept their own hand-rolled geometry and the
+    rotation bug that came with it. This routes them through the same
+    ``geometry_apply`` path as everything else rect-backed.
+
+    Note ``circle_apply`` above is deliberately NOT routed here: it rebuilds the
+    rect around the *same* local centre, so ``_center``, ``rect().center()`` and
+    ``transformOriginPoint`` all stay coincident and it is already
+    rotation-correct (verified by measurement, not assumed).
+    """
+    from open_garden_planner.ui.canvas.geometry_apply import (
+        apply_rect_like_geometry,
+        build_rect_resize,
+    )
+
+    _old, new_geometry = build_rect_resize(item, width, height, keep_center=True)
+    apply_rect_like_geometry(item, new_geometry)
+
+
 def _build_equal_resize_fn(item, anchor_type):
     """Return (old_size, apply_fn) for resizing item to equalize its dimension.
 
@@ -2042,10 +2066,14 @@ def _build_equal_resize_fn(item, anchor_type):
             old_size = abs(rect.width())
 
             def rect_width_apply(it, new_w: float) -> None:
-                r = it.rect()
-                scene_cx = it.pos().x() + r.x() + r.width() / 2
-                new_px = scene_cx - r.x() - new_w / 2
-                it._apply_resize(r.x(), r.y(), new_w, r.height(), new_px, it.pos().y())
+                # Centre-preserving, via the canonical apply path. The previous
+                # hand-rolled version solved for a new pos assuming NO rotation
+                # (it treated the scene centre as pos + rect-centre), so an
+                # EQUAL-constrained ROTATED partner drifted: measured 25.9 cm at
+                # 30 degrees and 70.7 cm at 90, with the stored centre ending up
+                # that far from the visible one (#219). build_rect_resize does
+                # the same job rotation-correctly and re-pins the origin.
+                _apply_partner_extents(it, new_w, it.rect().height())
 
             return old_size, rect_width_apply
 
@@ -2053,10 +2081,8 @@ def _build_equal_resize_fn(item, anchor_type):
             old_size = abs(rect.height())
 
             def rect_height_apply(it, new_h: float) -> None:
-                r = it.rect()
-                scene_cy = it.pos().y() + r.y() + r.height() / 2
-                new_py = scene_cy - r.y() - new_h / 2
-                it._apply_resize(r.x(), r.y(), r.width(), new_h, it.pos().x(), new_py)
+                # See rect_width_apply — same rotation bug, same fix.
+                _apply_partner_extents(it, it.rect().width(), new_h)
 
             return old_size, rect_height_apply
 
