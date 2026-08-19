@@ -236,15 +236,19 @@ class TestResizableShapePredicate:
 
 
 def _rotate_command_bindings(tree: ast.Module) -> dict[str, str]:
-    """Map local name → imported name for the file's ``from … import`` lines.
+    """Map local name → imported name for every ``from … import`` in the file.
 
     A bare ``RIC(...)`` callee is invisible to a name check unless the alias is
     resolved back to what it imported. ``from …commands import
     RotateItemCommand as RIC`` was the hole a reviewer walked through the
-    name-only version with.
+    name-only version with. Round 6 walked through the fix with the same
+    import written INSIDE a function: scanning only module-level statements
+    missed it (a false negative) and also flagged the canonical applier behind
+    a function-local alias (a false positive). Every ``ImportFrom`` node is
+    therefore collected, wherever it sits.
     """
     bindings: dict[str, str] = {}
-    for node in tree.body:
+    for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             for alias in node.names:
                 bindings[alias.asname or alias.name] = alias.name
@@ -633,7 +637,8 @@ class TestNoPrivateRotationAppliers:
 
     def test_the_ast_guard_has_no_holes_of_its_own(self) -> None:
         """The shapes a reviewer demonstrated the FIRST ast version missed,
-        plus the import-alias hole in the second.
+        plus the import-alias hole in the second and its function-local form
+        in the sixth.
 
         `apply_func` is a plain positional-or-keyword parameter, so the keyword
         form is one word away from the positional one and is the likeliest way a
@@ -663,3 +668,13 @@ class TestNoPrivateRotationAppliers:
             "from geometry_apply import apply_rotation as AR\n"
             "RotateItemCommand(i, o, n, AR)"
         ), "an aliased SHARED applier must pass"
+        assert self._offenders_in(
+            "def f():\n"
+            "    from core.commands import RotateItemCommand as RIC\n"
+            "    RIC(i, o, n, item._apply_rotation)\n"
+        ), "a FUNCTION-LOCAL aliased import must be caught"
+        assert not self._offenders_in(
+            "def f():\n"
+            "    from geometry_apply import apply_rotation as AR\n"
+            "    RotateItemCommand(i, o, n, AR)\n"
+        ), "a function-local aliased SHARED applier must pass"

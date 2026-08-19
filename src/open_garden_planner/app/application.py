@@ -946,6 +946,8 @@ class GardenPlannerApp(QMainWindow):
             # without pushing when there is no command manager, and the stack
             # top would then be an unrelated command the agent would be told
             # Ctrl+Z reverses) or constructing a throwaway command to ask it.
+            # INVARIANT: this string must equal ApplySpeciesCommand.description;
+            # it is the same label the real command would have produced.
             undo_description = QCoreApplication.translate(
                 "Commands", "Apply species data"
             )
