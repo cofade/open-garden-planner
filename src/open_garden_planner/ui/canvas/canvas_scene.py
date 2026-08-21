@@ -877,6 +877,29 @@ class CanvasScene(QGraphicsScene):
             super().removeItem(item)
         self._compare_items.clear()
 
+    def clear(self) -> None:
+        """Remove all items from the scene.
+
+        Overridden so no private tracking list can outlive the C++ objects
+        it references: ``QGraphicsScene.clear()`` destroys every item's
+        C++ side, and a Python wrapper left in a tracking list afterwards
+        would be dangling — the root cause of #337. Dropping every such
+        list here, in one chokepoint, makes every subsequent reader safe
+        by construction instead of relying on each call site to guard
+        itself. Covers both trackers that hold ``QGraphicsItem``
+        references: the compare overlay (``_compare_items``,
+        ``_compare_overlay_visible``) and image calibration
+        (``_calibration_markers``, ``_calibration_points``,
+        ``_calibration_image``, ``_calibration_mode``).
+        """
+        self._compare_items.clear()
+        self._compare_overlay_visible = False
+        self._calibration_markers.clear()
+        self._calibration_points.clear()
+        self._calibration_image = None
+        self._calibration_mode = False
+        super().clear()
+
     def set_compare_overlay_visible(self, visible: bool) -> None:
         """Show or hide the compare overlay without removing items.
 

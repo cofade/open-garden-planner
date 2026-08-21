@@ -3133,7 +3133,9 @@ class GardenPlannerApp(QMainWindow):
             # avoid RuntimeError from accessing deleted C++ graphics objects
             self.canvas_scene.reset_constraints()
 
-            # Clear existing objects from scene
+            # Clear existing objects from scene. CanvasScene.clear() also
+            # drops _compare_items so no dangling wrapper can outlive this
+            # call (#337).
             self.canvas_scene.clear()
 
             # Resize the canvas
@@ -3160,8 +3162,8 @@ class GardenPlannerApp(QMainWindow):
             self._autosave_manager.clear_autosave()
             self._autosave_manager.set_project_path(None)
 
-            # Reset compare overlay (US-10.7)
-            self.canvas_scene.clear_compare_overlay()
+            # Reset compare overlay UI state (US-10.7) — items already
+            # dropped by scene.clear() above.
             self._compare_overlay_action.setEnabled(False)
             self._compare_overlay_action.setChecked(False)
 
@@ -3257,6 +3259,14 @@ class GardenPlannerApp(QMainWindow):
             # now would sit behind it. singleShot(0) runs after it closes.
             QTimer.singleShot(0, self._check_overdue_tasks)
         except Exception as e:
+            # A load failure can leave the compare-overlay action state
+            # stale relative to the scene (e.g. if it throws after
+            # _deserialize_to_scene already cleared the overlay, or before
+            # _load_compare_overlay_from_previous_season ever ran) — reset
+            # it rather than risk it disagreeing with reality (#337).
+            self._compare_overlay_action.setEnabled(False)
+            self._compare_overlay_action.setChecked(False)
+            self.canvas_scene.clear_compare_overlay()
             QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=e))
 
     def _populate_recent_menu(self) -> None:
@@ -6389,6 +6399,7 @@ class GardenPlannerApp(QMainWindow):
             )
         except Exception:
             self._compare_overlay_action.setEnabled(False)
+            self.canvas_scene.clear_compare_overlay()
 
     def _update_bed_rotation_indicators(self) -> None:
         """Update visual rotation status indicators on all bed items (US-10.6)."""

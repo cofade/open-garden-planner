@@ -1652,6 +1652,13 @@ class ProjectManager(QObject):
         if hasattr(scene, "_dimension_line_manager"):
             scene._dimension_line_manager.clear()
 
+        # Clear the previous plan's compare overlay (US-10.7) so its ghosted
+        # plants cannot survive into the newly loaded plan (#337) — the
+        # selective isinstance-filtered removal below never touches overlay
+        # items, so without this they would stay painted on the canvas.
+        if hasattr(scene, "clear_compare_overlay"):
+            scene.clear_compare_overlay()
+
         # Clear existing items (including construction geometry)
         from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
         for item in list(scene.items()):
