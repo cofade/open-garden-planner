@@ -23,6 +23,7 @@ See ``docs/09-architecture-decisions/`` ADR-043 and
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 from uuid import UUID
 
 # Spacing between successive ranks. Large enough that inserting a new item
@@ -75,6 +76,28 @@ class StackEntry:
     item_id: UUID | int
     parent_id: UUID | int | None
     rect: tuple[float, float, float, float]
+
+
+def supports_stacking(item: Any) -> bool:
+    """True when *item* is eligible for a per-layer stacking rank (issue #338).
+
+    Duck-typed and Qt-free on purpose: eligibility is "carries both a
+    ``stack_order`` and a ``layer_id`` attribute", not "is a
+    ``GardenItemMixin``". ``ArcItem``/``BezierItem`` are ``CurveEditMixin,
+    QGraphicsPathItem`` — never a ``GardenItemMixin`` — yet they carry both
+    attributes and their own ``to_dict``/``from_dict`` round-trip
+    ``stack_order`` too, so they must be treated the same as any other
+    ranked item.
+
+    This is the ONE eligibility check for the whole feature; every place
+    that used to spell it out differently (an ``isinstance(item,
+    GardenItemMixin)`` branch on the Qt side, a "does the serialized dict
+    have a ``layer_id``" branch in ``agent_api.queries._stack_indices``)
+    must call this predicate (or its dict-shaped equivalent — "does the
+    serialized object carry a ``stack_order`` key and a ``layer_id`` key")
+    instead. See ADR-043 and issue #338 review round 2, P0.
+    """
+    return hasattr(item, "stack_order") and hasattr(item, "layer_id")
 
 
 def _rects_intersect(

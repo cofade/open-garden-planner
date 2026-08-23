@@ -123,9 +123,12 @@ class CanvasScene(QGraphicsScene):
         self._compare_items: list[QGraphicsItem] = []
         self._compare_overlay_visible = False
 
-        # Suspends the per-add z-refresh during ProjectManager.load() bulk
-        # inserts (issue #338) -- see begin_bulk_load()/end_bulk_load().
+        # Suspends the per-add z-refresh during bulk inserts (issue #338)
+        # -- see suspend_z_refresh().
         self._suspend_z_refresh = False
+        # Per-layer "next unused rank" cache, valid only while
+        # _suspend_z_refresh is True -- see _next_stack_order().
+        self._next_rank_cache: dict[UUID | None, int] = {}
 
     def _update_scene_rect(self) -> None:
         """Update the scene rect with padding for panning."""
@@ -261,19 +264,38 @@ class CanvasScene(QGraphicsScene):
                     self._update_items_visibility()
                     self.layer_auto_unhidden.emit(item.layer_id)
 
-            # Assign a stacking rank so new items render on top of existing
-            # same-layer items, then derive z-values for the whole layer
-            # (issue #338). Without this, new items default to z=0, below
-            # all layer items.
-            # A ``layer_id`` of ``None`` (no active layer at drop time, or a
-            # bare test item) is ranked in a pseudo-layer at base z 0 — the
-            # band those items always occupied — so the plant-above-bed
-            # clamp still holds for them.
-            if hasattr(item, "stack_order"):
-                if item.stack_order is None:
-                    item.stack_order = self._next_stack_order(item.layer_id)
-                if not self._suspend_z_refresh:
-                    self._refresh_layer_z(item.layer_id)
+        # Assign a stacking rank so new items render on top of existing
+        # same-layer items, then derive z-values for the whole layer
+        # (issue #338). Without this, new items default to z=0, below
+        # all layer items.
+        # A ``layer_id`` of ``None`` (no active layer at drop time, or a
+        # bare test item) is ranked in a pseudo-layer at base z 0 — the
+        # band those items always occupied — so the plant-above-bed clamp
+        # still holds for them.
+        #
+        # NOT gated on ``isinstance(item, GardenItemMixin)`` — that would
+        # silently skip ``ArcItem``/``BezierItem`` (``CurveEditMixin,
+        # QGraphicsPathItem``, never a ``GardenItemMixin``) even though they
+        # carry ``stack_order``/``layer_id`` and round-trip them in their own
+        # ``to_dict``/``from_dict``. Use the one duck-typed eligibility
+        # predicate instead (issue #338 review round 2, P0) so every ranked
+        # item type is assigned a rank and refreshed the same way.
+        if stacking.supports_stacking(item):
+            if item.stack_order is None:
+                item.stack_order = self._next_stack_order(item.layer_id)
+            elif self._suspend_z_refresh:
+                # Keep _next_stack_order's per-layer rank cache honest even
+                # for an item that already had a rank when it's (re-)added
+                # mid-scope (e.g. DeleteItemsCommand.undo restoring several
+                # items, one of which already outranks the cache's current
+                # "next" value) -- otherwise a later UNranked add in the same
+                # suspended scope could be assigned a lower rank than this
+                # one and sort out of order (review round 2, P2).
+                cached = self._next_rank_cache.get(item.layer_id)
+                if cached is None or item.stack_order > cached:
+                    self._next_rank_cache[item.layer_id] = item.stack_order
+            if not self._suspend_z_refresh:
+                self._refresh_layer_z(item.layer_id)
 
     # Constraint dimension line management
 
@@ -665,9 +687,11 @@ class CanvasScene(QGraphicsScene):
         self.layers_changed.emit()
         self._update_items_z_order()
 
-    def _next_stack_order(self, layer_id: UUID | None) -> int:
-        """Smallest never-used rank above every existing top-level item in
-        *layer_id* (issue #338). Returns ``STACK_STEP`` for an empty layer.
+    def _max_existing_rank(self, layer_id: UUID | None) -> int:
+        """The highest ``stack_order`` currently used in *layer_id*, or 0.
+
+        One O(n) walk of the scene. See :meth:`_next_stack_order` for the
+        cached fast path used while a bulk add is suspended.
         """
         existing = [
             item.stack_order
@@ -676,34 +700,36 @@ class CanvasScene(QGraphicsScene):
             and getattr(item, "layer_id", None) == layer_id
             and getattr(item, "stack_order", None) is not None
         ]
-        return (max(existing) if existing else 0) + stacking.STACK_STEP
+        return max(existing) if existing else 0
 
-    def begin_bulk_load(self) -> None:
-        """Suspend the per-``addItem`` z-refresh for a batch load (issue #338).
+    def _next_stack_order(self, layer_id: UUID | None) -> int:
+        """Smallest never-used rank above every existing top-level item in
+        *layer_id* (issue #338). Returns ``STACK_STEP`` for an empty layer.
 
-        ``ProjectManager.load`` wraps its item-creation loop in
-        ``begin_bulk_load()``/``end_bulk_load()`` so loading N items does one
-        z-refresh pass instead of N. Ranks are still assigned per item as
-        usual (an item without a saved ``stack_order`` gets one on add, in
-        file order) — only the expensive per-add z recompute is deferred.
-
-        Thin wrapper kept for callers (``ProjectManager.load``) that use the
-        begin/end pair instead of the :meth:`suspend_z_refresh` context
-        manager — both defer to the same :meth:`_end_suspend_z_refresh`.
+        While a bulk add is suspended (:meth:`suspend_z_refresh`), the
+        per-layer "next rank" is cached in ``self._next_rank_cache`` instead
+        of re-walking ``self.items()`` (:meth:`_max_existing_rank`) on every
+        single unranked add: that O(n) walk per item made loading N
+        legacy (no ``stack_order`` key) objects from an old file O(n^2)
+        (review round 2, P2 performance finding). The cache is seeded once
+        per layer from one O(n) walk on first use, then just bumped by
+        ``STACK_STEP`` on every further call for that layer; it is reset at
+        the start of every new (non-nested) suspended scope in
+        :meth:`suspend_z_refresh`. :meth:`addItem` also keeps the cache
+        honest against an item that already had a rank when it's re-added
+        mid-scope (e.g. ``DeleteItemsCommand.undo``) — see the comment
+        there — so ranked and unranked adds can interleave within one
+        suspended scope without a later unranked item getting assigned a
+        lower rank than an already-ranked one added earlier in the same
+        scope.
         """
-        self._suspend_z_refresh = True
-
-    def end_bulk_load(self) -> None:
-        """Resume the per-``addItem`` z-refresh and renumber every layer.
-
-        Renumbers each layer's items — in their current normalized order —
-        to clean ``STACK_STEP`` multiples, then does one full z-value
-        refresh. This is what gives a file saved without ``stack_order``
-        keys (an older app version) honest, evenly-spaced ranks the first
-        time the current app loads it. Only the file-load path renumbers;
-        see :meth:`suspend_z_refresh`.
-        """
-        self._end_suspend_z_refresh(renumber=True)
+        if self._suspend_z_refresh:
+            cached = self._next_rank_cache.get(layer_id)
+            base = cached if cached is not None else self._max_existing_rank(layer_id)
+            next_rank = base + stacking.STACK_STEP
+            self._next_rank_cache[layer_id] = next_rank
+            return next_rank
+        return self._max_existing_rank(layer_id) + stacking.STACK_STEP
 
     @contextmanager
     def suspend_z_refresh(self, *, renumber: bool = False) -> Iterator[None]:
@@ -713,24 +739,33 @@ class CanvasScene(QGraphicsScene):
         ``with scene.suspend_z_refresh(): ...`` so each add only assigns a
         ``stack_order`` rank (as usual, for an item that doesn't have one
         yet) without doing a full per-layer z recompute; one full refresh
-        runs once at the end instead of once per item. This is the general
-        form of :meth:`begin_bulk_load`/:meth:`end_bulk_load` for the bulk
-        re-add paths that re-insert several items in one command
-        (``CreateItemsCommand.execute``, ``DeleteItemsCommand.undo``,
-        ``MirrorItemsCommand.execute``/``undo``, ...).
+        runs once at the end instead of once per item — even if the loop
+        raises partway through, since the refresh runs in a ``finally``.
+        Used both by the bulk re-add paths that re-insert several items in
+        one command (``CreateItemsCommand.execute``, ``DeleteItemsCommand.undo``,
+        ``MirrorItemsCommand.execute``/``undo``, ...) and by
+        ``ProjectManager.load``'s item-creation loop (``renumber=True``,
+        below) — so loading N items does one z-refresh pass instead of N,
+        exception-safely (review round 2, P1-1).
 
         ``renumber=True`` additionally renumbers every layer's items (in
         their current normalized order) to clean ``STACK_STEP`` multiples
-        before the refresh. This is for the file-load path only (see
-        :meth:`end_bulk_load`) — every other bulk re-add path must NOT
-        renumber, since that would silently overwrite the exact ranks a
-        command's undo/redo snapshot depends on being restored unchanged.
+        before the refresh. This is for the file-load path only — it is
+        what gives a file saved without ``stack_order`` keys (an older app
+        version) honest, evenly-spaced ranks the first time the current app
+        loads it. Every other bulk re-add path must NOT renumber, since that
+        would silently overwrite the exact ranks a command's undo/redo
+        snapshot depends on being restored unchanged.
 
         Nests safely: an inner suspend inside an already-suspended scope is
         a no-op (the outer scope still does the one refresh on exit).
         """
         already_suspended = self._suspend_z_refresh
         self._suspend_z_refresh = True
+        if not already_suspended:
+            # Fresh (non-nested) scope: start the per-layer rank cache over
+            # -- see _next_stack_order().
+            self._next_rank_cache = {}
         try:
             yield
         finally:
@@ -740,7 +775,8 @@ class CanvasScene(QGraphicsScene):
     def _end_suspend_z_refresh(self, *, renumber: bool) -> None:
         """Resume z-refresh and run the one deferred refresh (issue #338).
 
-        Shared tail for :meth:`end_bulk_load` and :meth:`suspend_z_refresh`.
+        Shared tail for :meth:`suspend_z_refresh`, always run from its
+        ``finally`` block.
         """
         self._suspend_z_refresh = False
         if renumber:
@@ -780,14 +816,15 @@ class CanvasScene(QGraphicsScene):
         through :func:`core.stacking.normalize_order` — see
         :meth:`_normalized_layer_order` and :meth:`_stack_entries`.
 
-        Requires ``hasattr(item, "stack_order")`` — the same predicate
-        :meth:`addItem` uses to decide whether an item participates in
-        ranking at all. Without it, ``layer_id=None`` would match every
-        top-level item that simply lacks a ``layer_id`` attribute — the
-        overlay items (dimension lines, measure/constraint previews,
-        highlights, offset preview) — and a z-refresh of the ``None``
-        pseudo-layer would sweep them into band ``[0, 100)``, destroying
-        their much higher fixed z-values (900-9999) (issue #338 P0-1).
+        Requires :func:`core.stacking.supports_stacking` — the same
+        eligibility predicate :meth:`addItem` uses to decide whether an item
+        participates in ranking at all. Without it, ``layer_id=None`` would
+        match every top-level item that simply lacks a ``layer_id``
+        attribute — the overlay items (dimension lines, measure/constraint
+        previews, highlights, offset preview) — and a z-refresh of the
+        ``None`` pseudo-layer would sweep them into band ``[0, 100)``,
+        destroying their much higher fixed z-values (900-9999) (issue #338
+        P0-1).
         """
         bottom_to_top = list(reversed(self.items()))
         scene_index = {id(item): i for i, item in enumerate(bottom_to_top)}
@@ -796,7 +833,7 @@ class CanvasScene(QGraphicsScene):
             item
             for item in bottom_to_top
             if item.parentItem() is None
-            and hasattr(item, "stack_order")
+            and stacking.supports_stacking(item)
             and getattr(item, "layer_id", None) == layer_id
         ]
 

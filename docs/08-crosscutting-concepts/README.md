@@ -35,6 +35,7 @@ class MoveObjectCommand(Command):
 - Each vertex operation, property change, etc. is a separate undoable command
 - The `CommandManager` is owned by `CanvasView` and shared with `CanvasScene` via `scene.get_command_manager()` so that `QGraphicsItem` subclasses can push commands directly when handling resize, rotation, or vertex-editing interactions
 - Operations that change both geometry and position (e.g. scaling from a left handle) must be captured in a single command to avoid requiring multiple undos
+- An **Arrange** gesture (Bring to Front/Forward, Send Backward/to Back — issue #338, ADR-043, §8.25) is one `ArrangeItemsCommand`, however many layers or block members it touches; a gesture that changes nothing (already at front/back, no overlapping object to step past) pushes **nothing** onto the undo stack — the seam reports the reason instead (`ui/canvas/arrange.py::build_arrange_command`).
 
 ## 8.3 Internationalization (i18n)
 
@@ -344,7 +345,7 @@ for item in hidden:
     item.setVisible(True)
 ```
 
-`ItemIgnoresTransformations` is set on: measurement/constraint text labels, dimension display handles, angle display handles. Z-value ≥ 100 is set on: active measure tool lines, constraint preview geometry.
+`ItemIgnoresTransformations` is set on: measurement/constraint text labels, dimension display handles, angle display handles. **Stale claim corrected (issue #338):** this section used to say "Z-value ≥ 100 is set on: active measure tool lines, constraint preview geometry", implying z ≥ 100 is itself a reserved overlay band. That was already an oversimplification once multi-layer plans existed — every layer occupies its own `[z_order*100, z_order*100+100)` band, so a perfectly ordinary document item on layer 2+ also carries z ≥ 100 — and it is now additionally imprecise because per-object stacking (§8.25) spreads items across that whole per-layer band rather than pinning them to its floor. z is not the right test for "is this a tool overlay"; see §8.25's reserved-z-bands table for the actual fixed overlay ranges (900 and up), and note the illustrative snippet above predates that table — the live overlay-hiding code (`ui/widgets/minimap_widget.py`) uses its own named threshold, not a bare `100`.
 
 **The hide/restore itself emits `scene.changed` — asynchronously — for transformable items.** A `setVisible()` on a transformable item queues `changed([rect])` and then a trailing `changed([])`, delivered on *two separate later event-loop turns* — both *after* the render method has returned; a `setVisible()` on an `ItemIgnoresTransformations` item emits nothing (measured, Qt 6.11 — every handle/label/badge in this app carries the flag, so in production only the curve-edit connector lines are affected). If the thumbnail refresh is (as it should be) driven by `scene.changed`, this is a self-sustaining loop: with a single transformable overlay item on the scene the minimap re-rendered the whole plan ~9×/s forever while idle (issue #305, §11.4). A plain in-call re-entrancy flag does **not** cover it, and a timing window (`singleShot(0)`) is both fragile across Qt versions and drops genuine changes that share the turn. The shipped pattern in `MinimapWidget` is **content-based**: `_do_update()` records `sceneBoundingRect()` of every *transformable* item it hid (the only ones that emit); the `changed` slot (`_on_scene_changed`) ignores an emission iff every rect lies inside one of those (an empty rect list is Qt's trailing no-op — measured, every genuine mutation carries ≥ 1 rect) and schedules a render otherwise. A toggled-off minimap early-returns before rendering at all.
 
@@ -1311,6 +1312,29 @@ carries a drift guard against `PLANT_PARENT_TYPES` (§8.14 / ADR-017 — note
 `TRELLIS` is a plant parent but not a soil container). See ADR-036's D2.2/D2.3
 addenda, FR-AGENT-15/16.
 
+**Stacking order (issue #338, ADR-043 — outside the D2.x sequence, see
+`docs/roadmap.md`'s standalone "Canvas: Per-object stacking order" section).**
+A fifth tool in the same `if writes_active:` block, `arrange_object(item_id, action)`, reorders one
+object within its own layer (`bring_to_front`/`bring_forward`/`send_backward`/
+`send_to_back`). It does not build its own command: it calls
+`ui/canvas/arrange.py::build_arrange_command` — the same seam the Edit menu,
+every item's context menu, and the Properties panel's Arrange buttons call —
+so the bed-carries-its-plants block and the plant-cannot-go-behind-its-bed
+clamp (§8.25) apply identically whether a human or an agent triggers the move.
+It raises rather than reporting a false success when the gesture is a no-op
+(already at the front/back of the layer, or no overlapping object to step
+past for the forward/backward step) — the same refusal-over-silent-success
+precedent as `set_parent_bed`. `ObjectRef`/`ObjectDetail.stack_index` is the
+read-only counterpart: a 0-based position within the object's own layer,
+bottom→top, as displayed — comparable only between objects on the same layer.
+**Order note:** `list_objects`, `objects_in_region`, and `get_object` are
+documented as returning/reading objects **bottom→top in stacking order**
+(layer order, then position within the layer) — the same order
+`ProjectManager.snapshot_dict`/`_serialize_scene` now writes them in
+(`reversed(scene.items())`, ADR-043) and the same order `stack_index` is
+computed from. `get_diagnostics` is explicitly **not** in that order — it
+walks the live scene's badge state directly and was not changed by #338.
+
 **i18n.** MCP tool/resource/prompt descriptions are an English API contract
 (exempt). Only the Settings UI strings go through `tr()`.
 
@@ -1690,3 +1714,186 @@ per-column `|row0 − row255|` (or the transpose) names the columns, and
 painting the suspect primitive alone on a fresh `Tile` confirms it
 (2026-08-18: a capsule whose default `taper` pointed every joint line —
 §11.4, debugging-playbook row 36).
+
+## 8.25 Stacking order within a layer (#338, ADR-043)
+
+### 8.25.1 Model
+
+Every document item that carries a `layer_id` also carries a sparse integer
+**rank**, `stack_order: int | None` (`GardenItemMixin.stack_order`; mirrored
+independently on `ArcItem`/`BezierItem`, which are not the mixin). A rank is
+a **sort key**, not a display value — nothing renders it, and its absolute
+magnitude is meaningless, only its ordering among the other items in the same
+layer. Ranks are spaced `STACK_STEP = 1024` apart (`core/stacking.py`) so
+inserting between two existing ranks never forces an immediate renumber in
+practice.
+
+**Ranks are written in exactly four places** — everywhere else only reads
+`stack_order`:
+
+1. `CanvasScene.addItem` — an item whose `stack_order is None` gets
+   `max_rank_in_layer + STACK_STEP` (`_next_stack_order`).
+2. `MoveToLayerCommand.execute` — only items whose layer actually changes get
+   a fresh top rank in the target layer; an item already in the target layer
+   is left completely alone (re-selecting an item's current layer, e.g. via
+   the Properties panel combo, is a true no-op, not a silent bump to the
+   top).
+3. `ArrangeItemsCommand.execute` — renumbers every top-level item in each
+   affected layer to `STACK_STEP` multiples in the new order; `undo` restores
+   every snapshotted rank exactly (see 8.25.4).
+4. `CanvasScene.suspend_z_refresh(renumber=True)` — the one-time post-load renumber
+   (`ProjectManager.load` wraps its item-creation loop in that context manager around
+   its item-creation loop). This is what gives a file saved without
+   `stack_order` keys — an older app version — honest, evenly-spaced ranks
+   the first time the current app opens it.
+
+A `layer_id` of `None` (no active layer at drop time, or a bare item without
+one) is ranked in its own pseudo-layer at base z 0 — the band such items
+always occupied — so the derive-only clamp (8.25.3) still applies to them.
+
+### 8.25.2 Derived z — the formula
+
+z-values are **never** stored as intent; they are recomputed from the current
+ranks on demand. `CanvasScene._layer_top_level_items(layer_id)` collects one
+layer's top-level items (`parentItem() is None`, matching `layer_id`), sorted
+by `(stack_order is None, stack_order, current scene index)` so an unranked
+item sorts to the top of its band. `_stack_entries` turns that list into
+`core.stacking.StackEntry` objects (id, plant-parent/owner-polygon id, scene
+bounding rect). `_normalized_layer_order(layer_id)` runs those entries through
+`core.stacking.normalize_order` (8.25.3) and maps back to live items.
+`_refresh_layer_z(layer_id)` then assigns:
+
+```python
+item.setZValue(layer.z_order * 100 + 100 * (i + 1) / (n + 1))
+```
+
+over that normalized bottom→top order (`i` = 0-based position, `n` = layer
+item count), for `layer_id = None` the base is `0` instead of
+`layer.z_order * 100`. The fraction `100 * (i + 1) / (n + 1)` is strictly
+inside the open interval `(base, base + 100)` for any `n ≥ 1` — it can never
+touch `base` or `base + 100`, so a layer's items can never collide with a
+neighbouring layer's band or with any fixed overlay band (8.25.5), however
+many items it holds. `_update_items_z_order()` is unchanged in name and
+callers — it just now loops every layer (plus the `None` pseudo-layer) and
+calls `_refresh_layer_z` on each, instead of a single flat pass.
+
+### 8.25.3 The derive-only clamp
+
+`core.stacking.normalize_order` enforces two structural relationships,
+**purely for z derivation** — it reorders a layer's list, it never writes a
+rank:
+
+- A plant (`_parent_bed_id`) always renders immediately above its parent bed,
+  **only when that bed is itself present in the same layer's list** — a bed
+  in a different layer is ignored, and the plant sorts as an ordinary
+  top-level entry by its own rank.
+- A `ROOF_RIDGE` always renders immediately above its owner polygon, under
+  the identical same-layer-only condition.
+
+Because this is a reorder-for-display step and not a rank mutation, "Send to
+Back" on a lone plant does not reach the true bottom of its layer — it stops
+just above its bed, and if it is already there the arrange algorithm reports
+"already at back" rather than a phantom change (`core/stacking.py::_finish`
+compares the candidate *after* normalization against the *already-normalized*
+input, so the clamp collapsing a move to a no-op is visible as exactly that).
+Group/Ungroup keep a member's `stack_order` unchanged across the transition —
+grouping and ungrouping is a reparent, not an arrange.
+
+### 8.25.4 Refresh rules
+
+**A single `CanvasScene.addItem` triggers exactly one `_refresh_layer_z` call**
+for the item's layer, right after assigning a rank if it didn't have one —
+unless `scene._suspend_z_refresh` is set. Two ways to set it:
+
+- `scene.suspend_z_refresh(renumber=True)` — used by
+  `ProjectManager.load` around its whole item-creation loop.
+  `renumber=True` additionally does the one-time post-load renumber
+  (8.25.1 point 4) before its one full refresh.
+- `with scene.suspend_z_refresh(): ...` (a context manager; nests safely) —
+  used by every command that re-adds several items on `execute`/`undo`
+  (`CreateItemsCommand`, `DeleteItemsCommand.undo`, `MirrorItemsCommand`,
+  `LinearArrayCommand`, `GridArrayCommand`, `CircularArrayCommand`,
+  `ArrayAlongPathCommand`) via the shared `core.commands._bulk_add_scope`
+  helper. `suspend_z_refresh(renumber=True)` is reserved for the file-load
+  path only — every bulk re-add path must pass `renumber=False` (the
+  default), because renumbering would silently overwrite the exact ranks a
+  command's undo/redo snapshot depends on being restored unchanged.
+
+Without this, a bulk add would trigger one O(layer-size) refresh **per item**
+— O(n²) for a paste of n items into a large layer. Measured: a 50-item paste
+into a 2000-object plan went from 316 ms to 91 ms.
+
+**The refresh itself never writes a rank — ever.** This was a real draft
+design, caught in review before it shipped (see the rejected alternative in
+ADR-043): a refresh that also renumbered ranks as a side effect would silently
+invalidate any command's undo snapshot taken before a refresh happened to run
+in between — since the refresh runs on many paths unrelated to an explicit
+arrange (layer visibility toggle, opacity preview, any command's unrelated
+cleanup). Only the four writers in 8.25.1 ever touch `stack_order`.
+
+Beyond `addItem`'s automatic refresh, an **explicit** refresh is needed
+wherever an item becomes top-level or gets re-linked to a parent without
+going through `addItem`: `GroupCommand.undo`/`UngroupCommand.execute` (members
+leave the group), `_auto_parent_plant` and `SetParentBedCommand` (attach/
+detach a plant), and `DeleteItemsCommand.undo` (after re-linking children).
+These call `core.commands._refresh_z_after_relink` (single item) or
+`scene._update_items_z_order()` (whole scene) — never an explicit z bump. The
+old `ensure_z_above_parent(child, parent)` helper — which raised a child's
+`zValue()` by one above its parent's whenever they tied — is **deleted**: its
+job is now done for free by the derive-only clamp every time the scene
+refreshes.
+
+### 8.25.5 The one apply seam
+
+`ui/canvas/arrange.py::build_arrange_command(scene, items, mode) -> tuple[ArrangeItemsCommand | None, ArrangeOutcome]`
+is the **only** place that groups a selection by layer, reads each layer's
+current order via `scene._stack_entries`/`_normalized_layer_order`, asks the
+Qt-free `core.stacking.arrange` what changes, and builds the undoable
+`ArrangeItemsCommand`. Every surface that can arrange an object calls this one
+function — the same discipline `ui/canvas/geometry_apply.py` established for
+resize/rotate (§8.19) and for the identical reason: a `Callable`/copy-per-call-site
+pattern is how the three rotated-geometry bugs in §11.4/ADR-036's D2.2 story
+happened. The four callers:
+
+1. `CanvasView.arrange_selected(mode)` — the Edit ▸ Arrange menu actions and
+   the two keyboard-shortcut sets both call this.
+2. `GardenItemMixin._build_arrange_menu`/`_dispatch_arrange` — the `Arrange ▸`
+   context-menu submenu, shared by every item class that already has the
+   `_build_move_to_layer_menu` seam (rectangle, polygon, polyline, circle,
+   ellipse, text, callout, group, smart symbol). Delegates to
+   `CanvasView.arrange_selected` when a view is available (so status messages
+   have exactly one source), falls back to a direct build+execute for
+   view-less unit-test construction.
+3. `PropertiesPanel._add_arrange_section` — the "Arrange" row (four icon
+   buttons), shown for a single selected item and for a multi-selection.
+4. `GardenPlannerApp._do_agent_arrange_object` — the Agent API's
+   `arrange_object` tool (§8.19).
+
+No caller ever builds `ArrangeItemsCommand` directly, or duplicates
+`build_arrange_command`'s layer-grouping logic. If you find yourself reaching
+for a second implementation, use this seam instead.
+
+### 8.25.6 Reserved z bands
+
+Every fixed-z overlay in the app, low to high, alongside the per-layer band
+§8.25.2 derives into:
+
+| Band | z value(s) | What lives there |
+|------|-----------|-------------------|
+| Background image | `-1000` | `BackgroundImageItem` (satellite/reference photo) |
+| Sun & shade shadow overlay | `-500` | `sun_shadow_controller.py`'s shadow-union overlay (US-E3) |
+| Hours-of-sun heatmap | `-450` (fill), `-449` (contour lines), `-448` (contour labels) | `sun_heatmap.py` overlay (US-E4) |
+| Construction geometry | `-10` | `ConstructionItem` — always below every regular item |
+| **Per-layer document items** | `layer.z_order * 100 + (0, 100)` (open interval) | Every ordinary document item, per-object stacking order within its layer (8.25.2) — this is the band #338 subdivides |
+| Dimension/constraint lines | `900` (line/witness), `901` (label/handle, `DIMENSION_LINE_Z + 1`) | `dimension_lines.py` |
+| Tool overlay highlights | `999` (corner-edit/trim highlight), `1000` (measure-tool line, on-top ellipse), `1003` (constraint-tool selected marker) | `core/tools/*` in-progress-gesture previews |
+| Journal pins | `9500` | `JournalPinItem` |
+| Transient previews | `9999` | Offset-tool preview path, paste/duplicate drag preview |
+| Soil health badge | `10002` | `SoilBadgeItem` (always on top of its bed) |
+| Minimap overlay-hide cutoff | `10000` (`minimap_widget._OVERLAY_Z_MIN`) | Threshold above which the minimap thumbnail hides an item as a screen-space overlay (§8.9.5) — a named constant, not a bare `100` (see the corrected note in §8.9.5) |
+
+A per-layer band can, in principle, grow past `z_order * 100 + 100` only if
+`z_order` itself is large enough to reach the next fixed band above — not a
+concern at the layer counts this app supports, and unchanged by #338 (the
+formula was already `layer.z_order * 100` before per-object stacking; #338
+only subdivides the same band, it does not widen it).

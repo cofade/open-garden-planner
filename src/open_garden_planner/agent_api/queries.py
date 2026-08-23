@@ -159,9 +159,20 @@ def _stack_indices(objects: list[dict[str, Any]]) -> dict[str, int]:
 
     ``objects`` must already be listed bottom→top — the order
     ``ProjectManager.snapshot_dict``/``_serialize_scene`` writes them in since
-    issue #338 (``reversed(scene.items())``, which is top→bottom). Objects
-    without a ``layer_id`` are simply omitted, so a lookup for one of those
-    correctly returns ``None`` via ``.get()``.
+    issue #338 (``reversed(scene.items())``, which is top→bottom).
+
+    An object is eligible only when it carries BOTH a ``layer_id`` and a
+    ``stack_order`` key — the serialized-dict equivalent of
+    :func:`core.stacking.supports_stacking` (which the Qt side keys on
+    ``hasattr(item, "stack_order") and hasattr(item, "layer_id")``). A plain
+    ``layer_id`` check alone would be too loose: it would also count any
+    future ``layer_id`` carrier that the scene never actually ranks. A
+    journal pin IS eligible here — the scene assigns it a rank like any
+    other ``GardenItemMixin`` even though it's excluded from *arranging*
+    (``ui/canvas/arrange.py`` drops it before ``core.stacking.arrange`` ever
+    runs) — so it occupies a real slot in this ordering, just never as an
+    ``arrange_object`` target. An ineligible object is simply omitted, so a
+    lookup for one of those correctly returns ``None`` via ``.get()``.
 
     Computed once per snapshot with a single pass (one counter per layer) so
     building a whole page of :class:`~open_garden_planner.agent_api.schema.ObjectRef`
@@ -171,7 +182,7 @@ def _stack_indices(objects: list[dict[str, Any]]) -> dict[str, int]:
     counters: dict[str, int] = {}
     for obj in objects:
         lid = obj.get("layer_id")
-        if not lid:
+        if not lid or "stack_order" not in obj:
             continue
         lid = str(lid)
         idx = counters.get(lid, 0)

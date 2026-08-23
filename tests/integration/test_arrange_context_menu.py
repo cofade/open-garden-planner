@@ -289,3 +289,44 @@ class TestDispatchArrangeOnRectangleItem:
         assert undo_count_after_second == undo_count_after_first, (
             "a no-op arrange must not push a new undo step"
         )
+
+    def test_dispatch_with_nothing_selected_arranges_self_without_mutating_selection(
+        self, canvas: CanvasView, qtbot
+    ) -> None:
+        """review round 2, P2: right-clicking an UNselected item and picking
+        an Arrange action must arrange that item (the "-or-self" rule) but
+        must NOT leave it selected afterwards as a side effect -- unlike
+        ``_dispatch_move_to_layer``, the old implementation cleared the
+        scene selection and selected *self* just so it had something to
+        hand off to ``CanvasView.arrange_selected``.
+        """
+        scene = canvas.scene()
+        layer_id = scene.active_layer.id
+        bottom = RectangleItem(
+            0, 0, 100, 100, object_type=ObjectType.GENERIC_RECTANGLE,
+            name="bottom", layer_id=layer_id,
+        )
+        top = RectangleItem(
+            20, 20, 100, 100, object_type=ObjectType.GENERIC_RECTANGLE,
+            name="top", layer_id=layer_id,
+        )
+        scene.addItem(bottom)
+        scene.addItem(top)
+        assert not top.isSelected()
+        assert not bottom.isSelected()
+
+        top._dispatch_arrange(ArrangeMode.SEND_TO_BACK)
+
+        assert top.zValue() < bottom.zValue(), (
+            "Nothing was selected, so the item that was right-clicked must "
+            "still be the one arranged."
+        )
+        assert not top.isSelected(), (
+            "Arranging an unselected item must not select it as a side "
+            "effect."
+        )
+        assert scene.selectedItems() == [], (
+            "Arranging with nothing selected must leave the scene selection "
+            "empty, exactly as it found it."
+        )
+        assert canvas.command_manager.can_undo is True

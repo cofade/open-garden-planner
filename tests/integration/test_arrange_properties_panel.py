@@ -77,6 +77,45 @@ class TestArrangeSectionSingleSelection:
         undo_count = len(canvas.command_manager._undo_stack)
         assert undo_count == 1
 
+    def test_matching_scene_selection_delegates_to_view_and_posts_status(
+        self, canvas: CanvasView, qtbot
+    ) -> None:
+        """review round 2, P2: when the panel's displayed items are ALSO
+        the live scene selection, ``_add_arrange_section`` must delegate to
+        ``CanvasView.arrange_selected`` (which posts the canvas status
+        message) rather than falling through to the direct build+execute
+        path -- every other test in this file leaves ``scene.selectedItems()``
+        empty (``panel.set_selected_items`` alone does not select anything
+        on the scene), so the delegation branch was previously never
+        exercised.
+        """
+        scene = canvas.scene()
+        layer_id = scene.layers[0].id
+        lower = _rect("lower", 0, 0, layer_id)
+        upper = _rect("upper", 20, 20, layer_id)
+        scene.addItem(lower)
+        scene.addItem(upper)
+
+        lower.setSelected(True)  # the live scene selection, not just the panel's
+
+        panel = _panel(canvas, qtbot)
+        panel.set_selected_items([lower])
+
+        messages: list[str] = []
+        canvas.set_status_message = messages.append  # type: ignore[method-assign]
+
+        button = panel.findChild(QPushButton, "arrange_front_button")
+        assert button is not None
+        button.click()
+
+        assert _bottom_to_top_names(scene) == ["upper", "lower"]
+        assert canvas.command_manager.can_undo is True
+        assert messages, (
+            "CanvasView.arrange_selected must have posted a status message "
+            "-- its absence would mean the direct build+execute fallback "
+            "ran instead of the delegation branch."
+        )
+
     def test_clicking_again_when_already_at_front_pushes_no_new_undo_step(
         self, canvas: CanvasView, qtbot
     ) -> None:

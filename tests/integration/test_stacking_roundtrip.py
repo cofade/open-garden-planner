@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from PyQt6.QtCore import QPointF
 
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.commands import DeleteItemsCommand
@@ -21,7 +22,7 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.project import FILE_VERSION
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
-from open_garden_planner.ui.canvas.items import RectangleItem
+from open_garden_planner.ui.canvas.items import ArcItem, BezierItem, RectangleItem
 
 
 @pytest.fixture
@@ -44,6 +45,22 @@ def _rect(
     return RectangleItem(
         x, 0, 100, 100, object_type=object_type, name=name, layer_id=layer_id
     )
+
+
+def _bottom_to_top_named_curves(scene: CanvasScene) -> list[str]:
+    """Every named Rectangle/Arc/Bezier item in the scene, bottom-to-top by z.
+
+    Unlike :func:`_bottom_to_top_names`, this also picks up ``ArcItem``/
+    ``BezierItem`` — neither is a ``GardenItemMixin`` (they are
+    ``CurveEditMixin, QGraphicsPathItem``) but both carry ``stack_order``/
+    ``layer_id`` and a ``name`` (issue #338 review round 2, P0).
+    """
+    items = [
+        i
+        for i in scene.items()
+        if isinstance(i, (RectangleItem, ArcItem, BezierItem)) and i.name
+    ]
+    return [i.name for i in sorted(items, key=lambda i: i.zValue())]
 
 
 # ---------------------------------------------------------------------------
@@ -331,3 +348,96 @@ class TestDeleteUndoRestoresSlot:
             "just re-add the item on top."
         )
         assert b.stack_order == b_rank_before
+
+
+# ---------------------------------------------------------------------------
+# (g) Arc/Bezier items are ranked on add and survive save/load (issue #338
+#     review round 2, P0 -- neither is a GardenItemMixin, so the ranking
+#     block in CanvasScene.addItem must not be gated on that isinstance
+#     check).
+# ---------------------------------------------------------------------------
+
+
+def _arc(name: str, cx: float, layer_id) -> ArcItem:
+    return ArcItem(
+        center=QPointF(cx, 0),
+        radius=20.0,
+        start_deg=0.0,
+        span_deg=90.0,
+        name=name,
+        layer_id=layer_id,
+    )
+
+
+def _bezier(name: str, cx: float, layer_id) -> BezierItem:
+    return BezierItem(
+        anchors=[QPointF(cx, 0), QPointF(cx + 50, 50)],
+        handles_in=[QPointF(cx, 0), QPointF(cx + 30, 50)],
+        handles_out=[QPointF(cx + 20, 0), QPointF(cx + 50, 50)],
+        name=name,
+        layer_id=layer_id,
+    )
+
+
+def test_arc_is_ranked_on_add_and_renders_above_earlier_rect() -> None:
+    scene = CanvasScene(5000, 3000)
+    layer_id = scene.active_layer.id
+    rect = _rect("rect", 0, layer_id)
+    scene.addItem(rect)
+    arc = _arc("arc", 200, layer_id)
+    scene.addItem(arc)
+
+    assert arc.stack_order is not None, (
+        "ArcItem must get a stacking rank on add, same as any other ranked "
+        "item -- the rank-assignment block must not be gated on "
+        "isinstance(item, GardenItemMixin)."
+    )
+    assert arc.zValue() > rect.zValue(), (
+        "An arc added after a rect must render above it, not stay at the "
+        "default z=0 until some unrelated refresh sweeps it into place."
+    )
+
+
+def test_bezier_is_ranked_on_add_and_renders_above_earlier_rect() -> None:
+    scene = CanvasScene(5000, 3000)
+    layer_id = scene.active_layer.id
+    rect = _rect("rect", 0, layer_id)
+    scene.addItem(rect)
+    bezier = _bezier("bezier", 200, layer_id)
+    scene.addItem(bezier)
+
+    assert bezier.stack_order is not None
+    assert bezier.zValue() > rect.zValue()
+
+
+def test_arc_and_bezier_survive_save_load_roundtrip_in_order(
+    manager, tmp_path
+) -> None:
+    """rect -> arc -> bezier (bottom to top) must reload in the same order."""
+    scene = CanvasScene(5000, 3000)
+    layer_id = scene.active_layer.id
+    rect = _rect("rect", 0, layer_id)
+    arc = _arc("arc", 200, layer_id)
+    bezier = _bezier("bezier", 400, layer_id)
+    scene.addItem(rect)
+    scene.addItem(arc)
+    scene.addItem(bezier)
+    assert _bottom_to_top_named_curves(scene) == ["rect", "arc", "bezier"]
+
+    file_path = tmp_path / "arc_bezier_stack.ogp"
+    manager.save(scene, file_path)
+
+    raw = json.loads(file_path.read_text(encoding="utf-8"))
+    by_name = {obj.get("name"): obj for obj in raw["objects"]}
+    assert "stack_order" in by_name["arc"], (
+        "ArcItem.to_dict() must write stack_order once addItem ranks it."
+    )
+    assert "stack_order" in by_name["bezier"]
+
+    loaded_scene = CanvasScene(5000, 3000)
+    manager.load(loaded_scene, file_path)
+
+    assert _bottom_to_top_named_curves(loaded_scene) == ["rect", "arc", "bezier"], (
+        "Arc/bezier stacking order must survive a save/load round-trip, "
+        "same as any other ranked item type."
+    )

@@ -50,7 +50,7 @@ reading source, not by running Qt.
 | `QTransform` | 3×3 affine matrix. Note: `t.scale(...)` then `t.translate(...)` applies the *translate first* when mapping a point (later calls compose innermost). |
 | `qtbot` | pytest-qt fixture; ensures a `QApplication` exists and manages widget lifetime. Required in every Qt test *even if unused* (repo rule, `CLAUDE.md`). |
 | `QTest` | Qt's synthetic-input module (`PyQt6.QtTest`): `QTest.mousePress(widget, ...)` goes through the real event pipeline. |
-| z-value | Stacking order within the scene. Layers assign `z_order * 100`; ≥100 is reserved for temporary tool overlays. |
+| z-value | Stacking order within the scene — always **derived**, never stored as intent (issue #338, ADR-043). Each layer owns the open band `[z_order*100, z_order*100+100)`; per-object stacking order (a sparse `stack_order` rank, §8.25) spreads a layer's items across its own band. **Not** "≥100 is reserved for overlays" — that was only ever true on a single-layer plan. Fixed overlay z's are all ≥ 900 (dimension lines 900/901, tool previews 999–1003, journal pins 9500, transient previews 9999, soil badge 10002, minimap cutoff 10000) — see §8.25's reserved-band table for the authoritative list. |
 
 ---
 

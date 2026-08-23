@@ -1108,14 +1108,23 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_view.command_manager.execute(cmd)
 
         cx, cy = self._agent_item_center(item)
-        stack_order = self.canvas_scene._normalized_layer_order(item.layer_id)
+        # Reuse the EXACT same derivation the read tools (get_object/
+        # list_objects) use for ObjectRef.stack_index, instead of a second,
+        # independent one over the live scene -- the two could otherwise
+        # silently drift apart (issue #338 review round 2, P1-3). See
+        # agent_api.queries.get_object / _stack_indices.
+        from open_garden_planner.agent_api import queries
+
+        snapshot = self._project_manager.snapshot_dict(self.canvas_scene)
+        detail = queries.get_object(snapshot, item_id)
+        stack_index = detail.stack_index if detail is not None else None
         return {
             "item_id": item_id,
             "action": "arrange",
             "undo_description": cmd.description,
             "x": cx,
             "y": cy,
-            "stack_index": stack_order.index(item),
+            "stack_index": stack_index,
         }
 
     def _agent_resolve_plant(self, item_id: str, tool_name: str) -> Any:

@@ -1701,34 +1701,43 @@ class ProjectManager(QObject):
                 # Create default layers if none exist (for backward compatibility)
                 scene.set_layers(create_default_layers())
 
-        # Create items. begin_bulk_load()/end_bulk_load() (issue #338) defer
-        # the per-add z-refresh across the whole loop -- end_bulk_load()
-        # also renumbers every layer's ranks from its normalized order, so a
-        # file saved without "stack_order" keys (an older app version) gets
-        # honest ranks in file order on this first load.
-        has_bulk_load = hasattr(scene, "begin_bulk_load") and hasattr(
-            scene, "end_bulk_load"
+        # Create items inside suspend_z_refresh() (issue #338) so the whole
+        # loop does one deferred z-refresh instead of one per add, and
+        # renumbers every layer's ranks from its normalized order -- a file
+        # saved without "stack_order" keys (an older app version) gets
+        # honest ranks in file order on this first load. Using the context
+        # manager (rather than the old bare begin_bulk_load()/end_bulk_load()
+        # pair) means an exception partway through the deserialize loop
+        # cannot leave `_suspend_z_refresh` stuck True for the rest of the
+        # session -- its `finally` always resumes it and runs the one
+        # deferred refresh, even on failure (review round 2, P1-1). Scenes
+        # without the context manager (e.g. a plain QGraphicsScene test
+        # double) fall back to the un-suspended loop, exactly as before
+        # issue #338.
+        import contextlib
+
+        has_suspend_ctx = hasattr(scene, "suspend_z_refresh")
+        suspend_ctx = (
+            scene.suspend_z_refresh(renumber=True)
+            if has_suspend_ctx
+            else contextlib.nullcontext()
         )
-        if has_bulk_load:
-            scene.begin_bulk_load()
-
-        for obj in data.objects:
-            item = self._deserialize_item(obj)
-            if item:
-                # _deserialize_item() already restored stack_order (for a
-                # GardenItemMixin item) or Arc/Bezier's own from_dict did
-                # (they aren't a GardenItemMixin) -- either way it's set
-                # before addItem() so the per-add rank-assignment step is a
-                # no-op for a ranked item and only fires for an unranked one.
-                scene.addItem(item)
-
-        if has_bulk_load:
-            scene.end_bulk_load()
+        with suspend_ctx:
+            for obj in data.objects:
+                item = self._deserialize_item(obj)
+                if item:
+                    # _deserialize_item() already restored stack_order (for a
+                    # GardenItemMixin item) or Arc/Bezier's own from_dict did
+                    # (they aren't a GardenItemMixin) -- either way it's set
+                    # before addItem() so the per-add rank-assignment step is
+                    # a no-op for a ranked item and only fires for an
+                    # unranked one.
+                    scene.addItem(item)
 
         # Apply layer visibility/opacity/lock/z-order to all items now that they exist
         if hasattr(scene, "_update_items_visibility"):
             scene._update_items_visibility()
-        if not has_bulk_load and hasattr(scene, "_update_items_z_order"):
+        if not has_suspend_ctx and hasattr(scene, "_update_items_z_order"):
             scene._update_items_z_order()
 
         # Load constraints if present

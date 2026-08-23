@@ -3557,6 +3557,16 @@ class CanvasView(QGraphicsView):
 
         Normal: move by grid size (default 50cm)
         Shift: move by 1cm (precision mode)
+
+        This method has no explicit handling for Ctrl / Ctrl+Shift
+        modifiers on purpose: ``keyPressEvent`` routes every arrow key here
+        regardless of modifiers, but Ctrl+Up/Down and Ctrl+Shift+Up/Down
+        never actually arrive here in practice, because the Edit ▸ Arrange
+        QAction shortcuts (``Bring Forward`` / ``Send Backward`` / etc.,
+        issue #338) register those exact key combinations at the window
+        level; Qt's shortcut system consumes them before this widget's
+        ``keyPressEvent`` is even called. Only bare and Shift+arrow ever
+        reach this function's ``event.modifiers()`` check below.
         """
         selected = self.scene().selectedItems()
         if not selected:

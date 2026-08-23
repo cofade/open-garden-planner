@@ -33,6 +33,7 @@ def _snapshot() -> dict[str, Any]:
                 "object_type": "RAISED_BED",
                 "name": "Bed A",
                 "layer_id": "L1",
+                "stack_order": 1024,
                 "child_item_ids": ["p1", "p2"],
                 "fill_color": "#ff00ff00",
                 "stroke_color": "#ff000000",
@@ -47,6 +48,7 @@ def _snapshot() -> dict[str, Any]:
                 "object_type": "TREE",
                 "name": "Apple",
                 "layer_id": "L2",
+                "stack_order": 1024,
                 "parent_bed_id": "bed1",
                 "plant_species": "apple",
                 "metadata": {"plant_species": {"common_name": "Apple"}},
@@ -60,6 +62,7 @@ def _snapshot() -> dict[str, Any]:
                 "object_type": "PERENNIAL",
                 "name": "Mint",
                 "layer_id": "L2",
+                "stack_order": 2048,
                 "parent_bed_id": "bed1",
                 "plant_species": "mint",
             },
@@ -152,6 +155,38 @@ class TestStackIndex:
         by_id = {o.item_id: o.stack_index for o in out}
         assert by_id["path1"] is None
         assert by_id["pond1"] is None
+
+    def test_stack_index_is_none_when_layer_id_present_but_stack_order_missing(
+        self,
+    ) -> None:
+        """review round 2, P0: eligibility is "has ``layer_id`` AND
+        ``stack_order``" — the dict-shaped mirror of
+        :func:`core.stacking.supports_stacking` — not "has ``layer_id``"
+        alone. An object that carries a layer but never got ranked (should
+        not happen post-#338 for anything the scene actually adds, but the
+        read side must not silently mis-rank it as if it had) is treated as
+        unranked, exactly like an object with no layer at all.
+        """
+        snapshot = _snapshot()
+        snapshot["objects"].append(
+            {
+                "type": "rectangle",
+                "item_id": "unranked1",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 10.0,
+                "height": 10.0,
+                "layer_id": "L1",
+                # deliberately no "stack_order" key
+            }
+        )
+        detail = queries.get_object(snapshot, "unranked1")
+        assert isinstance(detail, ObjectDetail)
+        assert detail.stack_index is None
+        # And it must not shift bed1's index on the same layer.
+        bed = queries.get_object(snapshot, "bed1")
+        assert isinstance(bed, ObjectDetail)
+        assert bed.stack_index == 0
 
     def test_get_object_reports_stack_index_too(self) -> None:
         detail = queries.get_object(_snapshot(), "p2")

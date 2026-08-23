@@ -1747,3 +1747,112 @@ def test_arrange_object_invalid_action_lists_allowed_values(
         assert win.canvas_view.command_manager.can_undo is False
     finally:
         win._stop_agent_api()
+
+
+def test_arrange_object_stack_index_matches_read_side_with_arc_and_pin_present(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """review round 2, P0/P1-3 drift guard: the ``stack_index`` an
+    ``arrange_object`` call returns must be IDENTICAL to what a follow-up
+    ``get_object``/``list_objects`` read reports for that same item —
+    ``_do_agent_arrange_object`` must derive it via the exact same
+    ``agent_api.queries`` snapshot-based path the read tools use, not a
+    second, independent derivation over the live scene that could silently
+    drift from it.
+
+    The scene mixes item kinds that exercise both round-2 findings at once:
+    a bed with two plants, a lone shape (the item actually arranged — see
+    note below), a journal pin (occupies a stack slot but is never itself
+    arrangeable), and an ``ArcItem``. The arc is NOT the item ``arrange_object``
+    is called on: ``CanvasScene.find_item_by_id`` (used by
+    ``_resolve_agent_item``) only matches ``GardenItemMixin`` instances, and
+    ``ArcItem``/``BezierItem`` are deliberately not one (own
+    ``to_dict``/``from_dict``) — so no agent write tool can address an arc by
+    id today. That is a pre-existing, separate gap from #338 (arcs were never
+    agent-addressable at all, for any tool, before or after this feature) and
+    out of this fix's scope. What #338 P0 *does* fix is that the arc must
+    still be correctly ranked and show up with the right ``stack_index`` on
+    the READ side (``get_object``/``list_objects``), which this test also
+    checks.
+    """
+    from open_garden_planner.agent_api import queries
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import ArcItem, CircleItem, RectangleItem
+    from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        layer_id = scene.active_layer.id
+
+        # Bottom to top by add order: shape, bed(+2 plants as a block), pin, arc.
+        shape = RectangleItem(
+            400, 400, 100, 100, object_type=ObjectType.PATH, layer_id=layer_id
+        )
+        scene.addItem(shape)
+
+        bed = RectangleItem(
+            0, 0, 200, 200, object_type=ObjectType.RAISED_BED, layer_id=layer_id
+        )
+        plant_a = CircleItem(50, 50, 20, object_type=ObjectType.TREE, layer_id=layer_id)
+        plant_b = CircleItem(
+            150, 50, 20, object_type=ObjectType.PERENNIAL, layer_id=layer_id
+        )
+        scene.addItem(bed)
+        scene.addItem(plant_a)
+        scene.addItem(plant_b)
+        bed.add_child_id(plant_a.item_id)
+        bed.add_child_id(plant_b.item_id)
+        plant_a.parent_bed_id = bed.item_id
+        plant_b.parent_bed_id = bed.item_id
+
+        pin = JournalPinItem(300, 300, "note-1", layer_id=layer_id)
+        scene.addItem(pin)
+
+        arc = ArcItem(
+            center=QPointF(500, 0),
+            radius=30.0,
+            start_deg=0.0,
+            span_deg=90.0,
+            layer_id=layer_id,
+        )
+        scene.addItem(arc)
+        assert arc.stack_order is not None, "arc must be ranked on add (P0)"
+
+        # Shape starts at the very back; bring it to the front.
+        result = win._do_agent_arrange_object(str(shape.item_id), "bring_to_front")
+        assert result["action"] == "arrange"
+
+        snapshot = win._agent_snapshot()
+        detail = queries.get_object(snapshot, str(shape.item_id))
+        assert detail is not None
+        assert result["stack_index"] == detail.stack_index, (
+            "arrange_object's returned stack_index must equal a follow-up "
+            "get_object read for the same item -- the two must share one "
+            "derivation (review round 2, P1-3)."
+        )
+        # It must actually be the topmost slot on its layer now.
+        assert result["stack_index"] == len(scene._normalized_layer_order(layer_id)) - 1
+
+        # The arc (untouched by this arrange call) must still report a
+        # correct, non-null stack_index that matches its live scene
+        # position -- proving P0's ranking fix reaches the read side too.
+        arc_detail = queries.get_object(snapshot, str(arc.item_id))
+        assert arc_detail is not None
+        live_order = scene._normalized_layer_order(layer_id)
+        assert arc_detail.stack_index == live_order.index(arc)
+
+        # list_objects must agree with get_object, and the journal pin must
+        # still hold its own slot in the same layer's ordering (occupies a
+        # slot, is simply never itself the subject of arrange_object).
+        refs = queries.list_objects(snapshot, layer=str(layer_id))
+        by_id = {ref.item_id: ref.stack_index for ref in refs}
+        assert by_id[str(shape.item_id)] == result["stack_index"]
+        assert by_id[str(arc.item_id)] == arc_detail.stack_index
+        assert by_id[str(pin.item_id)] is not None
+
+        assert win.canvas_view.command_manager.can_undo is True
+    finally:
+        win._stop_agent_api()

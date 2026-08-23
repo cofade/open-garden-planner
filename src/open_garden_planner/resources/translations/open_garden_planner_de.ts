@@ -740,6 +740,26 @@
             <source>Bird Bath</source>
             <translation>Vogeltränke</translation>
         </message>
+        <message>
+            <source>Select an object to arrange</source>
+            <translation>Ein Objekt zum Anordnen auswählen</translation>
+        </message>
+        <message>
+            <source>Already at front</source>
+            <translation>Bereits ganz vorn</translation>
+        </message>
+        <message>
+            <source>Already at back</source>
+            <translation>Bereits ganz hinten</translation>
+        </message>
+        <message>
+            <source>No overlapping object in front</source>
+            <translation>Kein überlappendes Objekt davor</translation>
+        </message>
+        <message>
+            <source>No overlapping object behind</source>
+            <translation>Kein überlappendes Objekt dahinter</translation>
+        </message>
     </context>
     <context>
         <name>CircleItem</name>
@@ -3535,6 +3555,42 @@ Details: {error}</translation>
             <source>Show P&amp;revious Season Overlay</source>
             <translation>&amp;Vorherige Saison überlagern</translation>
         </message>
+        <message>
+            <source>Arra&amp;nge</source>
+            <translation>An&amp;ordnen</translation>
+        </message>
+        <message>
+            <source>Bring to &amp;Front</source>
+            <translation>Ganz nach &amp;vorn</translation>
+        </message>
+        <message>
+            <source>Bring the selected objects to the front of their layer</source>
+            <translation>Ausgewählte Objekte ganz nach vorn bringen</translation>
+        </message>
+        <message>
+            <source>Bring F&amp;orward</source>
+            <translation>&amp;Weiter nach vorn</translation>
+        </message>
+        <message>
+            <source>Bring the selected objects one step forward</source>
+            <translation>Ausgewählte Objekte einen Schritt nach vorn bringen</translation>
+        </message>
+        <message>
+            <source>Send Back&amp;ward</source>
+            <translation>Weiter nach &amp;hinten</translation>
+        </message>
+        <message>
+            <source>Send the selected objects one step backward</source>
+            <translation>Ausgewählte Objekte einen Schritt nach hinten bringen</translation>
+        </message>
+        <message>
+            <source>Send to &amp;Back</source>
+            <translation>Ganz nach h&amp;inten</translation>
+        </message>
+        <message>
+            <source>Send the selected objects to the back of their layer</source>
+            <translation>Ausgewählte Objekte ganz nach hinten bringen</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -6106,6 +6162,26 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Frostempfindlichkeit überschreiben:
 angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standard aus der Pflanzendatenbank</translation>
         </message>
+        <message>
+            <source>Arrange</source>
+            <translation>Anordnen</translation>
+        </message>
+        <message>
+            <source>Bring to Front</source>
+            <translation>Ganz nach vorn</translation>
+        </message>
+        <message>
+            <source>Bring Forward</source>
+            <translation>Weiter nach vorn</translation>
+        </message>
+        <message>
+            <source>Send Backward</source>
+            <translation>Weiter nach hinten</translation>
+        </message>
+        <message>
+            <source>Send to Back</source>
+            <translation>Ganz nach hinten</translation>
+        </message>
     </context>
     <context>
         <name>RectangleItem</name>
@@ -6985,6 +7061,30 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
         <message>
             <source>Harvest tab</source>
             <translation>Tab Ernte</translation>
+        </message>
+        <message>
+            <source>Bring to Front</source>
+            <translation>Ganz nach vorn</translation>
+        </message>
+        <message>
+            <source>Bring Forward</source>
+            <translation>Weiter nach vorn</translation>
+        </message>
+        <message>
+            <source>Send Backward</source>
+            <translation>Weiter nach hinten</translation>
+        </message>
+        <message>
+            <source>Send to Back</source>
+            <translation>Ganz nach hinten</translation>
+        </message>
+        <message>
+            <source>Up</source>
+            <translation>Auf</translation>
+        </message>
+        <message>
+            <source>Down</source>
+            <translation>Ab</translation>
         </message>
     </context>
     <context>
@@ -10230,6 +10330,22 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <source>object height</source>
             <translation>Objekthöhe</translation>
         </message>
+        <message>
+            <source>Bring {count} item(s) to front</source>
+            <translation>{count} Objekt(e) ganz nach vorn</translation>
+        </message>
+        <message>
+            <source>Bring {count} item(s) forward</source>
+            <translation>{count} Objekt(e) weiter nach vorn</translation>
+        </message>
+        <message>
+            <source>Send {count} item(s) backward</source>
+            <translation>{count} Objekt(e) weiter nach hinten</translation>
+        </message>
+        <message>
+            <source>Send {count} item(s) to back</source>
+            <translation>{count} Objekt(e) ganz nach hinten</translation>
+        </message>
     </context>
     <context>
         <name>Tasks</name>
@@ -10818,6 +10934,29 @@ Details: {error}</translation>
         <message>
             <source>{n} h</source>
             <translation>{n} h</translation>
+        </message>
+    </context>
+    <context>
+        <name>ArrangeActions</name>
+        <message>
+            <source>Arrange</source>
+            <translation>Anordnen</translation>
+        </message>
+        <message>
+            <source>Bring to Front</source>
+            <translation>Ganz nach vorn</translation>
+        </message>
+        <message>
+            <source>Bring Forward</source>
+            <translation>Weiter nach vorn</translation>
+        </message>
+        <message>
+            <source>Send Backward</source>
+            <translation>Weiter nach hinten</translation>
+        </message>
+        <message>
+            <source>Send to Back</source>
+            <translation>Ganz nach hinten</translation>
         </message>
     </context>
 </TS>

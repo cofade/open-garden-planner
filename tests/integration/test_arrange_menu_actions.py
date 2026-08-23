@@ -122,3 +122,32 @@ class TestShortcutsDialogArrangeRows:
             "Send to Back",
         ):
             assert expected in labels, (expected, labels)
+
+    def test_localize_shortcut_translates_up_and_down_tokens(self, qtbot: Any) -> None:
+        """review round 2, P2: the arrange rows display "Ctrl+Up" /
+        "Ctrl+Shift+Down" etc. -- ``_localize_shortcut`` must route "Up"/
+        "Down" through ``self.tr()`` (like it already does for "Ctrl" /
+        "Shift" / "Delete" / "Escape" / "Alt") so a German UI can render
+        Qt's own native "Strg+Umschalt+Auf" instead of leaking the English
+        arrow-key words. Source-level check (mirroring
+        ``test_arrange_context_menu.py``'s shared-builder enforcement)
+        since no German text is compiled into the .ts/.qm files by this
+        change -- registering and compiling the actual translation is a
+        separate step.
+        """
+        import inspect
+
+        src = inspect.getsource(ShortcutsDialog._localize_shortcut)
+        assert 'self.tr("Up")' in src, (
+            '_localize_shortcut must translate the "Up" token.'
+        )
+        assert 'self.tr("Down")' in src, (
+            '_localize_shortcut must translate the "Down" token.'
+        )
+
+        dialog = ShortcutsDialog()
+        qtbot.addWidget(dialog)
+        # Untranslated (English) fallback in this test environment -- proves
+        # the substitution is wired without needing a loaded German catalog.
+        assert dialog._localize_shortcut("Ctrl+Shift+Up") == "Ctrl+Shift+Up"
+        assert dialog._localize_shortcut("Ctrl+Down") == "Ctrl+Down"

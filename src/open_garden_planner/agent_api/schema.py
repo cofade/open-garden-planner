@@ -89,7 +89,11 @@ class ObjectRef(BaseModel):
         default=None,
         description="0-based position within its layer's stacking order, "
         "bottom→top, as displayed (0 = backmost). Compare only between "
-        "objects on the same layer; null for objects without a layer.",
+        "objects on the same layer; null for objects without a layer. A "
+        "journal pin occupies a slot in this ordering like anything else "
+        "on its layer, but is never a valid target for arrange_object — it "
+        "is excluded from arranging entirely and always refuses the tool "
+        "call.",
     )
 
 

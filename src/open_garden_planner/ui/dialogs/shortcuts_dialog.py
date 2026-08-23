@@ -24,10 +24,16 @@ class ShortcutsDialog(QDialog):
         self._setup_ui()
 
     def _localize_shortcut(self, shortcut: str) -> str:
-        """Localize keyboard modifier names for display.
+        """Localize keyboard modifier and arrow-key names for display.
 
         Translates standard English key names to localized equivalents
-        (e.g., Ctrl→Strg, Shift→Umschalt, Delete→Entf for German).
+        (e.g., Ctrl→Strg, Shift→Umschalt, Delete→Entf, Up→Auf, Down→Ab for
+        German — matching Qt's own native rendering of e.g.
+        "Ctrl+Shift+Up" as "Strg+Umschalt+Auf"). "Up"/"Down" cover the
+        issue #338 arrange shortcuts (``Ctrl+Up`` / ``Ctrl+Shift+Down``
+        etc.); no other shortcut string in this dialog contains those
+        tokens as a substring of something else, so a plain replace is safe
+        (review round 2, P2).
         """
         result = shortcut
         result = result.replace("Ctrl", self.tr("Ctrl"))
@@ -35,6 +41,8 @@ class ShortcutsDialog(QDialog):
         result = result.replace("Delete", self.tr("Delete"))
         result = result.replace("Escape", self.tr("Escape"))
         result = result.replace("Alt", self.tr("Alt"))
+        result = result.replace("Up", self.tr("Up"))
+        result = result.replace("Down", self.tr("Down"))
         return result
 
     def _setup_ui(self) -> None:

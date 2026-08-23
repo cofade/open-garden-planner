@@ -1306,37 +1306,50 @@ class GardenItemMixin:
     def _dispatch_arrange(self, mode: ArrangeMode) -> None:
         """Arrange the selected items (or just *self*) within their layer(s).
 
-        Same selection-or-self rule as ``_dispatch_move_to_layer``. Delegates
-        to ``CanvasView.arrange_selected`` when a view is available so that
-        method stays the ONE place that writes the arrange status messages
-        (see ``ui/canvas/arrange.py`` — never duplicate those strings here).
-        Only falls back to a direct build+execute when there is no
-        ``CanvasView`` (e.g. unit tests that construct items without one); in
-        that fallback a no-op is reported to nobody and stays silent.
+        Same selection-or-self rule as ``_dispatch_move_to_layer`` — and,
+        like it, must NEVER mutate the live scene selection as a side effect
+        (review round 2, P2: the old version cleared the selection and
+        selected *self* just so ``CanvasView.arrange_selected`` — which
+        re-reads ``scene.selectedItems()`` itself rather than taking items as
+        an argument — would have something to act on).
+
+        When the selection is non-empty, delegate to
+        ``CanvasView.arrange_selected`` so that method stays the ONE place
+        that writes the arrange status messages (see ``ui/canvas/arrange.py``
+        — never duplicate those strings here). When nothing is selected,
+        *self* is the target: build and execute directly instead of forcing
+        a selection change through the view just to make it act on *self*.
+        The direct path is also what a unit test without a ``CanvasView``
+        falls into.
         """
         scene = self.scene()  # type: ignore[attr-defined]
         if not scene:
             return
         selected = [i for i in scene.selectedItems() if hasattr(i, "layer_id")]
 
-        view = next((v for v in scene.views() if hasattr(v, "arrange_selected")), None)
-        if view is not None:
-            if not selected:
-                scene.clearSelection()
-                self.setSelected(True)  # type: ignore[attr-defined]
-            view.arrange_selected(mode)
-            return
+        if selected:
+            view = next(
+                (v for v in scene.views() if hasattr(v, "arrange_selected")), None
+            )
+            if view is not None:
+                view.arrange_selected(mode)
+                return
 
         from open_garden_planner.ui.canvas.arrange import build_arrange_command
 
         items = selected or [self]
         cmd, _outcome = build_arrange_command(scene, items, mode)
         if cmd is None:
-            return  # no CanvasView to report the no-op through — stay silent
+            return  # no-op refusal: outcome messages live only in CanvasView.arrange_selected
         if scene._command_manager:  # type: ignore[attr-defined]
             scene._command_manager.execute(cmd)  # type: ignore[attr-defined]
         else:
             cmd.execute()  # graceful fallback (e.g. in unit tests without CanvasView)
+        status_view = next(
+            (v for v in scene.views() if hasattr(v, "set_status_message")), None
+        )
+        if status_view is not None:
+            status_view.set_status_message(cmd.description)
 
     # ------------------------------------------------------------------
     # Type-change helpers (shared by all item context menus)
