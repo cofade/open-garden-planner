@@ -12,6 +12,8 @@ from uuid import UUID
 from PyQt6.QtCore import QCoreApplication, QObject, QPointF, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
+from open_garden_planner.core.stacking import STACK_STEP
+
 if TYPE_CHECKING:
     from open_garden_planner.core.constraints import (
         AnchorRef,
@@ -163,16 +165,24 @@ class CommandManager(QObject):
         return None
 
 
-def ensure_z_above_parent(child: QGraphicsItem, parent: QGraphicsItem) -> None:
-    """Elevate *child*'s z-value above *parent*'s when they tie.
+def _refresh_z_after_relink(scene: QGraphicsScene, item: QGraphicsItem) -> None:
+    """Recompute derived z-values after a parent-child relink (issue #338).
 
-    Plants and beds typically share a layer's default z (=0). Without this,
-    Qt stacks by add-order, so a plant drawn before its bed renders behind
-    the bed once attached. Only raises — never lowers — so an explicitly
-    elevated child stays put.
+    The scene's per-layer z is *derived* from the normalized stacking order
+    (see ``CanvasScene._normalized_layer_order``), which already places a
+    plant immediately above its parent bed and a ROOF_RIDGE immediately
+    above its owner polygon. So establishing/restoring that link only needs
+    a refresh, never an explicit z bump — replaces the old
+    ``ensure_z_above_parent`` helper.
     """
-    if child.zValue() <= parent.zValue():
-        child.setZValue(parent.zValue() + 1)
+    layer_id = getattr(item, "layer_id", None)
+    refresh_layer = getattr(scene, "_refresh_layer_z", None)
+    if layer_id is not None and callable(refresh_layer):
+        refresh_layer(layer_id)
+        return
+    refresh_all = getattr(scene, "_update_items_z_order", None)
+    if callable(refresh_all):
+        refresh_all()
 
 
 def trigger_soil_mismatch_refresh(scene: QGraphicsScene) -> None:
@@ -212,7 +222,7 @@ def _auto_parent_plant(scene: QGraphicsScene, item: QGraphicsItem) -> None:
     if best_bed is not None and isinstance(best_bed, GardenItemMixin):
         item.parent_bed_id = best_bed.item_id
         best_bed.add_child_id(item.item_id)
-        ensure_z_above_parent(item, best_bed)
+        _refresh_z_after_relink(scene, item)
 
 
 def _detach_from_parent(scene: QGraphicsScene, item: QGraphicsItem) -> None:
@@ -400,6 +410,7 @@ class DeleteItemsCommand(Command):
             if item.scene() is None:
                 self._scene.addItem(item)
         # Restore parent-child relationships from snapshot
+        relinked = False
         for item in self._items:
             if not isinstance(item, GardenItemMixin):
                 continue
@@ -412,7 +423,7 @@ class DeleteItemsCommand(Command):
                         child = self._scene.find_item_by_id(child_id)
                         if child is not None and isinstance(child, GardenItemMixin):
                             child.parent_bed_id = iid
-                            ensure_z_above_parent(child, item)
+                            relinked = True
             if iid in self._plant_parents:
                 item.parent_bed_id = self._plant_parents[iid]
                 # Also re-add to parent's child list (if parent is in scene)
@@ -420,6 +431,12 @@ class DeleteItemsCommand(Command):
                     parent = self._scene.find_item_by_id(self._plant_parents[iid])
                     if parent is not None and isinstance(parent, GardenItemMixin):
                         parent.add_child_id(iid)
+        # Ranks were preserved across remove/re-add, but a relinked child's
+        # derived z (relative to its parent) needs recomputing (issue #338).
+        if relinked:
+            refresh_all = getattr(self._scene, "_update_items_z_order", None)
+            if callable(refresh_all):
+                refresh_all()
 
 
 class MoveItemsCommand(Command):
@@ -1290,8 +1307,6 @@ class SetParentBedCommand(Command):
         self._plant = plant_item
         self._old_parent_id = old_parent_id
         self._new_parent_id = new_parent_id
-        # Snapshot z so undo can restore exactly what the user had.
-        self._pre_execute_z = plant_item.zValue()
 
     @property
     def description(self) -> str:
@@ -1300,14 +1315,12 @@ class SetParentBedCommand(Command):
         return QCoreApplication.translate("Commands", "Attach plant to bed")
 
     def execute(self) -> None:
-        self._set_parent(self._new_parent_id, self._old_parent_id, restore_z=False)
+        self._set_parent(self._new_parent_id, self._old_parent_id)
 
     def undo(self) -> None:
-        self._set_parent(self._old_parent_id, self._new_parent_id, restore_z=True)
+        self._set_parent(self._old_parent_id, self._new_parent_id)
 
-    def _set_parent(
-        self, attach_id: UUID | None, detach_id: UUID | None, *, restore_z: bool
-    ) -> None:
+    def _set_parent(self, attach_id: UUID | None, detach_id: UUID | None) -> None:
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         if not isinstance(self._plant, GardenItemMixin):
@@ -1322,12 +1335,11 @@ class SetParentBedCommand(Command):
             new_bed = self._scene.find_item_by_id(attach_id)
             if new_bed is not None and isinstance(new_bed, GardenItemMixin):
                 new_bed.add_child_id(self._plant.item_id)
-                ensure_z_above_parent(self._plant, new_bed)
-        elif restore_z:
-            # Undoing an attach (now fully detached) — return to the user's
-            # original z so the elevation is symmetric across execute/undo.
-            self._plant.setZValue(self._pre_execute_z)
         self._plant.parent_bed_id = attach_id
+        # z is derived from the normalized stacking order (issue #338), so
+        # attaching/detaching only needs a refresh — no explicit elevation
+        # or z snapshot/restore is needed either way.
+        _refresh_z_after_relink(self._scene, self._plant)
         # Parent-link mutations don't fire QGraphicsScene.changed; refresh now
         # so callers (drag-and-drop, properties-panel Unlink, …) all stay in sync.
         trigger_soil_mismatch_refresh(self._scene)
@@ -1375,7 +1387,15 @@ class GroupCommand(Command):
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
             item.setSelected(True)
+            # The item is top-level again with an unranked stack_order
+            # (issue #338) -- it sorts to the top of its layer's band until
+            # the refresh below assigns it a real position.
+            if hasattr(item, "stack_order"):
+                item.stack_order = None
         self._scene.removeItem(self._group)
+        refresh_all = getattr(self._scene, "_update_items_z_order", None)
+        if callable(refresh_all):
+            refresh_all()
 
 
 class UngroupCommand(Command):
@@ -1396,7 +1416,14 @@ class UngroupCommand(Command):
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
             item.setSelected(True)
+            # Top-level again with an unranked stack_order (issue #338) --
+            # sorts to the top of its layer's band until the refresh below.
+            if hasattr(item, "stack_order"):
+                item.stack_order = None
         self._scene.removeItem(self._group)
+        refresh_all = getattr(self._scene, "_update_items_z_order", None)
+        if callable(refresh_all):
+            refresh_all()
 
     def undo(self) -> None:
         if self._group.scene() is None:
@@ -1476,9 +1503,15 @@ class ArrayAlongPathCommand(Command):
 class MoveToLayerCommand(Command):
     """Move one or more scene items to a different layer (undoable).
 
-    Snapshots each item's current ``layer_id`` at construction time so that
-    undo restores every item to its individual original layer, even when items
-    come from different layers before the move.
+    Snapshots each item's current ``layer_id`` AND ``stack_order`` at
+    construction time so that undo restores every item to its individual
+    original layer and rank, even when items come from different layers
+    before the move.
+
+    Items that are already in the target layer are left completely alone on
+    execute -- no ``layer_id`` write, no rank reassignment -- so re-selecting
+    an item's current layer (e.g. via the Properties panel combo) is a true
+    no-op rather than silently bumping it to the top (issue #338).
     """
 
     def __init__(
@@ -1497,9 +1530,11 @@ class MoveToLayerCommand(Command):
             target_layer_name: Human-readable name of the target layer
                 (used in the undo description only; not looked up at undo time).
         """
-        # Snapshot (item, original_layer_id) at construction — before any move
-        self._moves: list[tuple[QGraphicsItem, UUID | None]] = [
-            (item, item.layer_id) for item in items  # type: ignore[union-attr]
+        # Snapshot (item, original_layer_id, original_stack_order) at
+        # construction — before any move.
+        self._moves: list[tuple[QGraphicsItem, UUID | None, int | None]] = [
+            (item, item.layer_id, getattr(item, "stack_order", None))  # type: ignore[union-attr]
+            for item in items
         ]
         self._target_layer_id = target_layer_id
         self._scene = scene
@@ -1513,16 +1548,45 @@ class MoveToLayerCommand(Command):
         ).format(count=n, name=self._target_layer_name)
 
     def execute(self) -> None:
-        """Assign all items to the target layer and refresh scene visuals."""
-        for item, _ in self._moves:
-            item.layer_id = self._target_layer_id  # type: ignore[union-attr]
+        """Move items whose layer actually changes to the target layer, on top.
+
+        Items already in the target layer are skipped entirely — they keep
+        their existing rank (issue #338). The items that DO change layer are
+        ranked above everything already in the target layer, in their
+        current bottom-to-top order (so a multi-selection spanning several
+        source layers still lands in a sensible relative order).
+        """
+        changing = [
+            item
+            for item, old_layer_id, _ in self._moves
+            if old_layer_id != self._target_layer_id
+        ]
+        if changing:
+            next_stack_order = getattr(self._scene, "_next_stack_order", None)
+            max_rank = (
+                next_stack_order(self._target_layer_id) - STACK_STEP
+                if callable(next_stack_order)
+                else 0
+            )
+            changing_ids = {id(item) for item in changing}
+            bottom_to_top = [
+                item
+                for item in reversed(self._scene.items())  # type: ignore[attr-defined]
+                if id(item) in changing_ids
+            ]
+            for k, item in enumerate(bottom_to_top, start=1):
+                item.layer_id = self._target_layer_id  # type: ignore[union-attr]
+                if hasattr(item, "stack_order"):
+                    item.stack_order = max_rank + STACK_STEP * k
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         self._scene._update_items_z_order()  # type: ignore[attr-defined]
 
     def undo(self) -> None:
-        """Restore each item to its original layer and refresh scene visuals."""
-        for item, old_layer_id in self._moves:
+        """Restore each item to its original layer and rank; refresh scene visuals."""
+        for item, old_layer_id, old_stack_order in self._moves:
             item.layer_id = old_layer_id  # type: ignore[union-attr]
+            if hasattr(item, "stack_order"):
+                item.stack_order = old_stack_order
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         self._scene._update_items_z_order()  # type: ignore[attr-defined]
 
@@ -1718,6 +1782,78 @@ class ReorderLayersCommand(Command):
         for lyr, z in self._old_state:
             lyr.z_order = z
         self._scene.layers_changed.emit()  # type: ignore[attr-defined]
+        self._scene._update_items_z_order()  # type: ignore[attr-defined]
+
+
+class ArrangeItemsCommand(Command):
+    """Reorder one or more layers' per-item stacking order (undoable, issue #338).
+
+    Modelled on :class:`ReorderLayersCommand`: takes the already-computed new
+    bottom-to-top order for each affected layer, plus a pre-translated
+    description (the :class:`AlignItemsCommand` idiom -- the caller picks the
+    wording for "bring to front" vs "send backward" etc., this command only
+    applies it).
+
+    Snapshots **every** top-level item's current ``stack_order`` in every
+    affected layer, not just the ones that visibly move: ``normalize_order``'s
+    child-above-parent clamp means an item that wasn't part of the selected
+    block can still end up with a different rank once the layer is
+    renumbered, so undo must restore the whole layer's ranks, not just the
+    block's.
+
+    ``ui/canvas/arrange.py::build_arrange_command`` is the one seam that
+    computes *new_orders* and constructs this command -- every UI surface
+    (menu, context menu, properties panel, agent tool) shares that seam
+    rather than building a competing command here.
+    """
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        new_orders: dict[UUID, list[QGraphicsItem]],
+        description_text: str,
+    ) -> None:
+        """Initialise the command.
+
+        Args:
+            scene: The canvas scene (used to snapshot ranks and refresh
+                z-values).
+            new_orders: For each affected layer id, that layer's new
+                bottom-to-top item order.
+            description_text: Already-translated description for the undo
+                menu; callers should pass a tr()/translate() result.
+        """
+        self._scene = scene
+        self._new_orders: dict[UUID, list[QGraphicsItem]] = {
+            layer_id: list(items) for layer_id, items in new_orders.items()
+        }
+        self._description_text = description_text
+        # Snapshot the CURRENT rank of every top-level item in every
+        # affected layer -- before execute() renumbers anything.
+        self._old_ranks: dict[QGraphicsItem, int | None] = {}
+        normalized_layer_order = scene._normalized_layer_order  # type: ignore[attr-defined]
+        for layer_id in self._new_orders:
+            for item in normalized_layer_order(layer_id):
+                self._old_ranks[item] = getattr(item, "stack_order", None)
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return self._description_text
+
+    def execute(self) -> None:
+        """Renumber each affected layer's items to STACK_STEP multiples."""
+        for items in self._new_orders.values():
+            for i, item in enumerate(items):
+                if hasattr(item, "stack_order"):
+                    item.stack_order = (i + 1) * STACK_STEP
+        self._scene._update_items_z_order()  # type: ignore[attr-defined]
+
+    def undo(self) -> None:
+        """Restore every snapshotted item's previous ``stack_order``."""
+        for item, old_rank in self._old_ranks.items():
+            if hasattr(item, "stack_order"):
+                item.stack_order = old_rank
         self._scene._update_items_z_order()  # type: ignore[attr-defined]
 
 

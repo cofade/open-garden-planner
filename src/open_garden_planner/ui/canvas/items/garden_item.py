@@ -206,6 +206,7 @@ class GardenItemMixin:
         self._stroke_width = stroke_width
         self._stroke_style = stroke_style
         self._layer_id = layer_id
+        self._stack_order: int | None = None  # Sparse rank within layer_id (issue #338)
         self._label_visible = True  # Per-object label visibility
         self._global_labels_visible = True  # Global label visibility (set by scene)
         self._shadows_enabled = True  # Painted shadow on/off
@@ -330,6 +331,23 @@ class GardenItemMixin:
     def layer_id(self, value: uuid.UUID | None) -> None:
         """Set the layer ID."""
         self._layer_id = value
+
+    @property
+    def stack_order(self) -> int | None:
+        """Sparse sort-key rank within this item's layer (issue #338).
+
+        ``None`` means "not yet ranked" — the scene derives its z-value from
+        the normalized position and treats an unranked item as sorting to
+        the top of its layer's band. Only ``CanvasScene.addItem`` (for a
+        never-ranked item), ``MoveToLayerCommand``, and ``ArrangeItemsCommand``
+        write this value; every other code path only reads it.
+        """
+        return self._stack_order
+
+    @stack_order.setter
+    def stack_order(self, value: int | None) -> None:
+        """Set the sparse rank. See :attr:`stack_order` for who may call this."""
+        self._stack_order = value
 
     @property
     def shadows_enabled(self) -> bool:

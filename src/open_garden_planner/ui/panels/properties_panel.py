@@ -26,7 +26,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.commands import ChangePropertyCommand, CommandManager
+from open_garden_planner.core.commands import (
+    ChangePropertyCommand,
+    CommandManager,
+    MoveToLayerCommand,
+)
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import get_furniture_svg_path
 from open_garden_planner.core.object_types import (
@@ -1908,12 +1912,9 @@ class PropertiesPanel(QWidget):
                 item._update_label()
 
         if 'layer_id' in state and hasattr(item, 'layer_id'):
+            # z is derived from the scene's normalized stacking order
+            # (issue #338), not set directly here.
             item.layer_id = state['layer_id']
-            scene = item.scene()
-            if scene and hasattr(scene, 'get_layer_by_id'):
-                layer = scene.get_layer_by_id(state['layer_id'])
-                if layer:
-                    item.setZValue(layer.z_order * 100)
 
         if 'fill_color' in state and hasattr(item, 'fill_color'):
             item.fill_color = state['fill_color']
@@ -2249,24 +2250,23 @@ class PropertiesPanel(QWidget):
                 self._command_manager.register_applied(cmd)
 
         elif property_name == 'layer_id' and hasattr(item, 'layer_id'):
+            # Consolidated onto MoveToLayerCommand (issue #338) — z is
+            # derived from the scene's normalized stacking order, not set
+            # directly here, and rank handling (skip same-layer, rank fresh
+            # items on top of the target) lives in the command itself.
             old_layer = item.layer_id
-            item.layer_id = value
+            if old_layer == value:
+                return
             scene = item.scene()
-            if scene and hasattr(scene, 'get_layer_by_id'):
-                layer = scene.get_layer_by_id(value)
-                if layer:
-                    item.setZValue(layer.z_order * 100)
-
-            if self._command_manager:
-                def apply_layer(itm, val):
-                    itm.layer_id = val
-                    sc = itm.scene()
-                    if sc and hasattr(sc, 'get_layer_by_id'):
-                        lyr = sc.get_layer_by_id(val)
-                        if lyr:
-                            itm.setZValue(lyr.z_order * 100)
-                cmd = ChangePropertyCommand(item, "layer", old_layer, value, apply_layer)
-                self._command_manager.register_applied(cmd)
+            if scene is not None and self._command_manager:
+                target_layer = (
+                    scene.get_layer_by_id(value) if hasattr(scene, 'get_layer_by_id') else None
+                )
+                layer_name = target_layer.name if target_layer else str(value)
+                cmd = MoveToLayerCommand([item], value, scene, layer_name)
+                self._command_manager.execute(cmd)
+            else:
+                item.layer_id = value
 
         elif property_name == 'fill_pattern':
             old_pattern = item.fill_pattern if hasattr(item, 'fill_pattern') else FillPattern.SOLID

@@ -273,7 +273,6 @@ class MirrorTool(BaseTool):
         self, sources: list[QGraphicsItem], mirrored: list[QGraphicsItem]
     ) -> None:
         """Re-point bed→plant links onto the mirrored copies (paste-style)."""
-        from open_garden_planner.core.commands import ensure_z_above_parent
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         old_to_new: dict[object, QGraphicsItem] = {}
@@ -293,7 +292,9 @@ class MirrorTool(BaseTool):
                 if isinstance(parent, GardenItemMixin):
                     new_item.parent_bed_id = parent.item_id
                     parent.add_child_id(new_item.item_id)
-                    ensure_z_above_parent(new_item, parent)
+                    # z is derived from the normalized stacking order
+                    # (issue #338); the scene refresh happens once the
+                    # mirrored copies are added to the scene.
 
     # ------------------------------------------------------------------
     # Selection snapshot

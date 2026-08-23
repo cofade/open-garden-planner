@@ -1427,23 +1427,32 @@ def test_set_parent_bed_reports_a_non_geometric_link(
 def test_set_parent_bed_detaches_and_restores_the_original_z(
     qtbot: Any, monkeypatch: Any
 ) -> None:
-    """SetParentBedCommand snapshots zValue so undo restores the USER's z, not
-    a recomputed one -- pinned here because the agent is now a caller of it."""
+    """Linking never rewrites the plant's stacking rank (issue #338): while
+    linked, the derive-only clamp lifts the plant above its bed; detaching
+    drops it back to EXACTLY the z it had before -- pinned here because the
+    agent is a caller of SetParentBedCommand."""
     _discard_on_close(monkeypatch)
     win = GardenPlannerApp()
     qtbot.addWidget(win)
     try:
-        bed = _add_bed(win)
+        # Plant first so its rank is BELOW the bed's -- the clamp has work to do.
         plant = _add_tree(win)
-        plant.setZValue(42.0)
+        bed = _add_bed(win)
+        rank_before = plant.stack_order
+        z_before = plant.zValue()
+        assert z_before < bed.zValue()
 
         win._do_agent_set_parent_bed(str(plant.item_id), str(bed.item_id))
+        assert plant.zValue() > bed.zValue()          # clamp lifts it while linked
+        assert plant.stack_order == rank_before       # ...without touching its rank
+
         result = win._do_agent_set_parent_bed(str(plant.item_id), None)
 
         assert result["new_parent_bed_id"] is None
         assert result["link_is_geometric"] is None
         assert plant.parent_bed_id is None
-        assert plant.zValue() == pytest.approx(42.0)
+        assert plant.stack_order == rank_before
+        assert plant.zValue() == pytest.approx(z_before)
     finally:
         win._stop_agent_api()
 

@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QGraphicsSimpleTextItem,
 )
 
+from open_garden_planner.core import stacking
 from open_garden_planner.models.layer import Layer, create_default_layers
 
 
@@ -119,6 +120,10 @@ class CanvasScene(QGraphicsScene):
         # Compare overlay: ghosted plant items from a previous season
         self._compare_items: list[QGraphicsItem] = []
         self._compare_overlay_visible = False
+
+        # Suspends the per-add z-refresh during ProjectManager.load() bulk
+        # inserts (issue #338) -- see begin_bulk_load()/end_bulk_load().
+        self._suspend_z_refresh = False
 
     def _update_scene_rect(self) -> None:
         """Update the scene rect with padding for panning."""
@@ -254,12 +259,19 @@ class CanvasScene(QGraphicsScene):
                     self._update_items_visibility()
                     self.layer_auto_unhidden.emit(item.layer_id)
 
-            # Assign layer z-value so new items render on top of existing same-layer
-            # items. Without this, new items default to z=0, below all layer items.
-            if item.layer_id:
-                _layer = self.get_layer_by_id(item.layer_id)
-                if _layer:
-                    item.setZValue(_layer.z_order * 100)
+            # Assign a stacking rank so new items render on top of existing
+            # same-layer items, then derive z-values for the whole layer
+            # (issue #338). Without this, new items default to z=0, below
+            # all layer items.
+            # A ``layer_id`` of ``None`` (no active layer at drop time, or a
+            # bare test item) is ranked in a pseudo-layer at base z 0 — the
+            # band those items always occupied — so the plant-above-bed
+            # clamp still holds for them.
+            if hasattr(item, "stack_order"):
+                if item.stack_order is None:
+                    item.stack_order = self._next_stack_order(item.layer_id)
+                if not self._suspend_z_refresh:
+                    self._refresh_layer_z(item.layer_id)
 
     # Constraint dimension line management
 
@@ -651,52 +663,181 @@ class CanvasScene(QGraphicsScene):
         self.layers_changed.emit()
         self._update_items_z_order()
 
-    def _update_items_z_order(self) -> None:
-        """Update Z-order of all items based on layer order."""
-        for item in self.items():
-            if hasattr(item, 'layer_id') and item.layer_id:
-                layer = self.get_layer_by_id(item.layer_id)
-                if layer:
-                    # Use z_order * 100 to leave room for ordering within layer
-                    item.setZValue(layer.z_order * 100)
+    def _next_stack_order(self, layer_id: UUID | None) -> int:
+        """Smallest never-used rank above every existing top-level item in
+        *layer_id* (issue #338). Returns ``STACK_STEP`` for an empty layer.
+        """
+        existing = [
+            item.stack_order
+            for item in self.items()
+            if item.parentItem() is None
+            and getattr(item, "layer_id", None) == layer_id
+            and getattr(item, "stack_order", None) is not None
+        ]
+        return (max(existing) if existing else 0) + stacking.STACK_STEP
 
-        # Second pass: ensure ROOF_RIDGE items always render above their owner polygon.
-        # Needed because scene.items() serialization order reverses same-z stacking,
-        # so on reload the polygon would otherwise end up on top of the ridge.
+    def begin_bulk_load(self) -> None:
+        """Suspend the per-``addItem`` z-refresh for a batch load (issue #338).
+
+        ``ProjectManager.load`` wraps its item-creation loop in
+        ``begin_bulk_load()``/``end_bulk_load()`` so loading N items does one
+        z-refresh pass instead of N. Ranks are still assigned per item as
+        usual (an item without a saved ``stack_order`` gets one on add, in
+        file order) — only the expensive per-add z recompute is deferred.
+        """
+        self._suspend_z_refresh = True
+
+    def end_bulk_load(self) -> None:
+        """Resume the per-``addItem`` z-refresh and renumber every layer.
+
+        Renumbers each layer's items — in their current normalized order —
+        to clean ``STACK_STEP`` multiples, then does one full z-value
+        refresh. This is what gives a file saved without ``stack_order``
+        keys (an older app version) honest, evenly-spaced ranks the first
+        time the current app loads it.
+        """
+        self._suspend_z_refresh = False
+        for layer_id in self._stacking_layer_ids():
+            order = self._normalized_layer_order(layer_id)
+            for i, item in enumerate(order):
+                if hasattr(item, "stack_order"):
+                    item.stack_order = (i + 1) * stacking.STACK_STEP
+        self._update_items_z_order()
+
+    def _stacking_layer_ids(self) -> list[UUID | None]:
+        """Every layer id that can carry ranked items: the real layers plus
+        the ``None`` pseudo-layer for items that have no layer (issue #338).
+        """
+        return [layer.id for layer in self._layers] + [None]
+
+    @staticmethod
+    def _stack_identity(item: QGraphicsItem) -> object:
+        """Stable identity used as ``StackEntry.item_id`` (issue #338).
+
+        The item's UUID when it has one (``item_id``), else Python object
+        identity. Any other ``layer_id`` carrier (e.g. a bare
+        ``QGraphicsItem`` in a test double) degrades gracefully this way: it
+        has no ``item_id``, so it falls back to its object identity, and no
+        ``_parent_bed_id``/ROOF_RIDGE metadata, so it never participates in
+        the parent/child clamp.
+        """
+        return getattr(item, "item_id", None) or id(item)
+
+    def _layer_top_level_items(self, layer_id: UUID | None) -> list[QGraphicsItem]:
+        """Top-level items of one layer, in raw rank order (issue #338).
+
+        Sort key: ``(stack_order is None, stack_order, current bottom-to-top
+        scene index)`` — an unranked item sorts to the top of the layer's
+        band; ranked items sort by rank; ties fall back to the scene's
+        current stacking so the result is stable. This is NOT yet passed
+        through :func:`core.stacking.normalize_order` — see
+        :meth:`_normalized_layer_order` and :meth:`_stack_entries`.
+        """
+        bottom_to_top = list(reversed(self.items()))
+        scene_index = {id(item): i for i, item in enumerate(bottom_to_top)}
+
+        candidates = [
+            item
+            for item in bottom_to_top
+            if item.parentItem() is None and getattr(item, "layer_id", None) == layer_id
+        ]
+
+        def _sort_key(item: QGraphicsItem) -> tuple[bool, int, int]:
+            rank = getattr(item, "stack_order", None)
+            return (rank is None, rank or 0, scene_index[id(item)])
+
+        candidates.sort(key=_sort_key)
+        return candidates
+
+    def _stack_entries(self, layer_id: UUID | None) -> list[stacking.StackEntry]:
+        """Build one layer's raw (not-yet-normalized) ``StackEntry`` list (issue #338).
+
+        This is the ONE place that derives ``StackEntry.parent_id``/``rect``
+        from live Qt items — used by both :meth:`_normalized_layer_order`
+        (for the z-value refresh) and
+        ``ui.canvas.arrange.build_arrange_command`` (which feeds it straight
+        to :func:`core.stacking.arrange`). There must be exactly one way to
+        build entries.
+        """
         from open_garden_planner.core.object_types import ObjectType
-        all_items = list(self.items())
-        for item in all_items:
-            if (
-                hasattr(item, 'object_type')
-                and item.object_type == ObjectType.ROOF_RIDGE
-                and hasattr(item, 'get_metadata')
+
+        candidates = self._layer_top_level_items(layer_id)
+        ids_in_layer = {self._stack_identity(item) for item in candidates}
+
+        entries: list[stacking.StackEntry] = []
+        for item in candidates:
+            parent_id = None
+            parent_bed_id = getattr(item, "_parent_bed_id", None)
+            if parent_bed_id is not None and parent_bed_id in ids_in_layer:
+                parent_id = parent_bed_id
+            elif (
+                getattr(item, "object_type", None) == ObjectType.ROOF_RIDGE
+                and hasattr(item, "get_metadata")
             ):
                 owner_id_str = item.get_metadata("owner_polygon_id")
-                if not owner_id_str:
-                    continue
-                for other in all_items:
-                    if hasattr(other, 'item_id') and str(other.item_id) == owner_id_str:
-                        if item.zValue() <= other.zValue():
-                            item.setZValue(other.zValue() + 1)
-                        break
+                if owner_id_str:
+                    owner_uuid: UUID | None
+                    try:
+                        owner_uuid = UUID(owner_id_str)
+                    except (ValueError, TypeError):
+                        owner_uuid = None
+                    if owner_uuid is not None and owner_uuid in ids_in_layer:
+                        parent_id = owner_uuid
+            rect = item.sceneBoundingRect()
+            entries.append(
+                stacking.StackEntry(
+                    item_id=self._stack_identity(item),
+                    parent_id=parent_id,
+                    rect=(rect.x(), rect.y(), rect.width(), rect.height()),
+                )
+            )
+        return entries
 
-        # Third pass: every item with a _parent_bed_id (plant inside a bed) must
-        # render above its parent bed. Without this, .ogp save/load reverses the
-        # same-z stacking and the plant disappears behind the bed (US-12.10/F2.7).
-        items_by_id: dict[str, Any] = {
-            str(getattr(item, "item_id", "")): item
-            for item in all_items
-            if getattr(item, "item_id", None) is not None
+    def _normalized_layer_order(self, layer_id: UUID | None) -> list[QGraphicsItem]:
+        """Bottom-to-top order for one layer's top-level items (issue #338).
+
+        Builds this layer's raw rank-ordered :class:`~core.stacking.StackEntry`
+        list via :meth:`_stack_entries`, passes it through
+        :func:`core.stacking.normalize_order` (which moves every plant to
+        immediately above its parent bed and every ROOF_RIDGE to immediately
+        above its owner polygon, only when that parent is itself in this same
+        layer — the derive-only clamp), then maps the normalized entries back
+        to live items.
+        """
+        items_by_id = {
+            self._stack_identity(item): item
+            for item in self._layer_top_level_items(layer_id)
         }
-        for item in all_items:
-            parent_id = getattr(item, "_parent_bed_id", None)
-            if parent_id is None:
-                continue
-            parent = items_by_id.get(str(parent_id))
-            if parent is None:
-                continue
-            if item.zValue() <= parent.zValue():
-                item.setZValue(parent.zValue() + 1)
+        normalized = stacking.normalize_order(self._stack_entries(layer_id))
+        return [items_by_id[entry.item_id] for entry in normalized]
+
+    def _refresh_layer_z(self, layer_id: UUID | None) -> None:
+        """Set every top-level item in *layer_id* to a derived z-value,
+        strictly inside that layer's ``[z_order*100, z_order*100+100)``
+        band, per its normalized bottom-to-top position (issue #338).
+
+        ``layer_id=None`` is the pseudo-layer of items without a layer; its
+        band is base 0 (where such items always rendered). An id that no
+        longer resolves to a layer is left untouched.
+        """
+        if layer_id is None:
+            base = 0
+        else:
+            layer = self.get_layer_by_id(layer_id)
+            if layer is None:
+                return
+            base = layer.z_order * 100
+        order = self._normalized_layer_order(layer_id)
+        n = len(order)
+        if n == 0:
+            return
+        for i, item in enumerate(order):
+            item.setZValue(base + 100 * (i + 1) / (n + 1))
+
+    def _update_items_z_order(self) -> None:
+        """Refresh the derived z-value of every item in every layer."""
+        for layer_id in self._stacking_layer_ids():
+            self._refresh_layer_z(layer_id)
 
     def get_layer_by_id(self, layer_id: UUID) -> Layer | None:
         """Get a layer by its ID.

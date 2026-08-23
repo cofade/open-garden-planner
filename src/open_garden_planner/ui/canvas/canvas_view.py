@@ -67,6 +67,7 @@ from open_garden_planner.core.snap.providers import (
     TangentSnapProvider,
 )
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
+from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
 from open_garden_planner.core.tools import (
     AngleConstraintTool,
     ArcTool,
@@ -4490,6 +4491,12 @@ class CanvasView(QGraphicsView):
                             selected.append(child)
                             selected_ids.add(child_id)
 
+        # Sort bottom-to-top by current z before serializing so paste
+        # recreates the same relative stacking order (issue #338) --
+        # CreateItemsCommand adds items in list order, and each addItem
+        # ranks a new item above whatever's already been added.
+        selected.sort(key=lambda item: item.zValue())
+
         # Serialize selected items
         self._clipboard = []
         for item in selected:
@@ -4556,13 +4563,12 @@ class CanvasView(QGraphicsView):
             # Deserialize the item (gets a new UUID)
             item = self._deserialize_item(obj_copy)
             if item:
+                self._restore_layer_id(item, obj_copy)
                 pasted_items.append(item)
                 clipboard_data.append(obj_data)
 
         # Rebuild parent-child relationships with new UUIDs
         if pasted_items:
-            from open_garden_planner.core.commands import ensure_z_above_parent
-
             old_id_to_new: dict[str, QGraphicsItem] = {}
             for obj_data, item in zip(clipboard_data, pasted_items, strict=True):
                 old_id = obj_data.get("item_id")
@@ -4576,15 +4582,15 @@ class CanvasView(QGraphicsView):
                 item._parent_bed_id = None
                 item._child_item_ids = []
 
-                # Remap parent — plants must render above their bed even
-                # when source/target share a layer's default z.
+                # Remap parent — the scene derives z from the normalized
+                # stacking order (issue #338), so a plant renders above its
+                # bed automatically once CreateItemsCommand adds both items.
                 old_parent = obj_data.get("parent_bed_id")
                 if old_parent and old_parent in old_id_to_new:
                     parent = old_id_to_new[old_parent]
                     if isinstance(parent, GardenItemMixin):
                         item.parent_bed_id = parent.item_id
                         parent.add_child_id(item.item_id)
-                        ensure_z_above_parent(item, parent)
 
             # Use command for undo support
             from open_garden_planner.core import CreateItemsCommand
@@ -4624,6 +4630,12 @@ class CanvasView(QGraphicsView):
                             selected.append(child)
                             selected_ids.add(child_id)
 
+        # Sort bottom-to-top by current z before serializing so the
+        # duplicates keep the same relative stacking order (issue #338) --
+        # CreateItemsCommand adds items in list order, and each addItem
+        # ranks a new item above whatever's already been added.
+        selected.sort(key=lambda item: item.zValue())
+
         # Serialize selected items directly (don't modify clipboard)
         source_data: list[dict] = []
         for item in selected:
@@ -4662,13 +4674,12 @@ class CanvasView(QGraphicsView):
             # Deserialize the item
             item = self._deserialize_item(obj_copy)
             if item:
+                self._restore_layer_id(item, obj_copy)
                 duplicated_items.append(item)
                 dup_source.append(obj_data)
 
         # Rebuild parent-child relationships with new UUIDs
         if duplicated_items:
-            from open_garden_planner.core.commands import ensure_z_above_parent
-
             old_id_to_new: dict[str, QGraphicsItem] = {}
             for obj_data, item in zip(dup_source, duplicated_items, strict=True):
                 old_id = obj_data.get("item_id")
@@ -4687,7 +4698,6 @@ class CanvasView(QGraphicsView):
                     if isinstance(parent, GardenItemMixin):
                         item.parent_bed_id = parent.item_id
                         parent.add_child_id(item.item_id)
-                        ensure_z_above_parent(item, parent)
 
             from open_garden_planner.core import CreateItemsCommand
 
@@ -5350,8 +5360,33 @@ class CanvasView(QGraphicsView):
                 data["parent_bed_id"] = str(item.parent_bed_id)
             if item.child_item_ids:
                 data["child_item_ids"] = [str(cid) for cid in item.child_item_ids]
+            # Preserve layer membership across copy/paste and duplicate so a
+            # pasted item stays in its source layer and participates in that
+            # layer's stacking order (issue #338) instead of landing
+            # layer-less (and therefore un-ranked) at z=0.
+            if item.layer_id is not None:
+                data["layer_id"] = str(item.layer_id)
 
         return data
+
+    def _restore_layer_id(self, item: QGraphicsItem, obj: dict) -> None:
+        """Apply a clipboard dict's ``layer_id`` (if any) onto *item*.
+
+        ``_deserialize_item`` builds items via per-type constructor calls
+        that don't accept ``layer_id``, so paste/duplicate restore it here
+        instead — matching what ``_serialize_item`` saved (issue #338).
+        """
+        from uuid import UUID
+
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        if not isinstance(item, GardenItemMixin):
+            return
+        layer_id_str = obj.get("layer_id")
+        if not layer_id_str:
+            return
+        with contextlib.suppress(ValueError, TypeError):
+            item.layer_id = UUID(layer_id_str)
 
     def _serialize_item_core(self, item: QGraphicsItem) -> dict | None:
         """Core serialization without relationship fields."""
@@ -5921,6 +5956,33 @@ class CanvasView(QGraphicsView):
         command = AlignItemsCommand(non_zero, desc)
         self._command_manager.execute(command)
         self.set_status_message(desc)
+
+    def arrange_selected(self, mode: ArrangeMode) -> None:
+        """Arrange the selected items' stacking order within their layer(s).
+
+        Args:
+            mode: Which of the four arrange gestures to perform (bring to
+                front/forward, send backward/to back).
+        """
+        from open_garden_planner.ui.canvas.arrange import build_arrange_command
+
+        selected = self.scene().selectedItems()
+        command, outcome = build_arrange_command(self.scene(), selected, mode)
+        if command is None:
+            messages = {
+                ArrangeOutcome.NOTHING_SELECTED: self.tr("Select an object to arrange"),
+                ArrangeOutcome.ALREADY_AT_FRONT: self.tr("Already at front"),
+                ArrangeOutcome.ALREADY_AT_BACK: self.tr("Already at back"),
+                ArrangeOutcome.NO_OVERLAP_ABOVE: self.tr("No overlapping object in front"),
+                ArrangeOutcome.NO_OVERLAP_BELOW: self.tr("No overlapping object behind"),
+            }
+            self.set_status_message(
+                messages.get(outcome, self.tr("Select an object to arrange"))
+            )
+            return
+
+        self._command_manager.execute(command)
+        self.set_status_message(command.description)
 
     def distribute_selected(self, mode: DistributeMode) -> None:
         """Distribute selected items using the given mode.
