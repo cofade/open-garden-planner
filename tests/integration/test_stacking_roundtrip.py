@@ -125,18 +125,49 @@ def test_explicit_ranks_round_trip(manager, tmp_path) -> None:
 def test_old_format_file_without_stack_order_loads_in_file_order(
     manager, tmp_path
 ) -> None:
+    """A genuinely old-shaped file (no "stack_order" keys, objects listed
+    TOP-first the way v1.27.2's buggy `_serialize_scene` wrote them) must
+    load without raising, and must reproduce exactly what re-opening that
+    file in the OLD app itself would have shown.
+
+    v1.27.2 serialized via `scene.items()` directly -- Qt's native
+    top-first order -- with no `stack_order` key (the key didn't exist yet).
+    Both the old app's loader and the current one build the scene by
+    `addItem`-ing objects in file-array order, and an unranked item always
+    ranks on top of whatever's already there -- so array order becomes
+    bottom-to-top INSERTION order on load, regardless of which app reads
+    it. A file listing the topmost item first therefore loads back
+    *inverted* from how it originally looked when saved -- that is the
+    historical bug (docs/11.4) baked permanently into any file an old app
+    already wrote, and it is self-consistent: reloading it in the OLD app
+    would show the exact same inverted order, not a fresh corruption. This
+    test pins that the current loader reproduces that same result (doesn't
+    crash, doesn't invert AGAIN, doesn't silently "fix" it into some other
+    order) rather than actually testing today's save format.
+
+    NOTE: this fixture must NOT be built by round-tripping through
+    `manager.save()` and merely stripping "stack_order" -- today's save
+    already writes bottom-first (the #338 fix), so that would produce a
+    file already in the shape the new loader expects and the test would
+    pass even if the legacy (top-first, no-key) case were broken.
+    """
+    # The scene as it looked when originally drawn and saved by the OLD
+    # app: lawn on the bottom, path on top of it.
     scene = CanvasScene(5000, 3000)
     layer_id = scene.active_layer.id
     lawn = _rect("lawn", 0, layer_id, ObjectType.LAWN)
     path = _rect("path", 150, layer_id, ObjectType.PATH)
     scene.addItem(lawn)
     scene.addItem(path)
+    assert _bottom_to_top_names(scene) == ["lawn", "path"]
 
     file_path = tmp_path / "legacy.ogp"
-    manager.save(scene, file_path)
+    manager.save(scene, file_path)  # current save: bottom-first, with ranks
 
-    # Simulate an older app version's file: strip every "stack_order" key.
+    # Reshape into the OLD app's file: TOP-first object order, no
+    # "stack_order" key at all.
     raw = json.loads(file_path.read_text(encoding="utf-8"))
+    raw["objects"].reverse()  # bottom-first -> top-first (path, then lawn)
     for obj in raw["objects"]:
         obj.pop("stack_order", None)
     file_path.write_text(json.dumps(raw), encoding="utf-8")
@@ -144,8 +175,10 @@ def test_old_format_file_without_stack_order_loads_in_file_order(
     loaded_scene = CanvasScene(5000, 3000)
     manager.load(loaded_scene, file_path)  # must not raise
 
-    # File order (lawn, then path) is what an old app would have shown.
-    assert _bottom_to_top_names(loaded_scene) == ["lawn", "path"]
+    # File order (path first, then lawn) becomes bottom-to-top insertion
+    # order -- the visual stacking is inverted from the original ["lawn",
+    # "path"], matching what the OLD app itself would show on reload.
+    assert _bottom_to_top_names(loaded_scene) == ["path", "lawn"]
 
 
 # ---------------------------------------------------------------------------

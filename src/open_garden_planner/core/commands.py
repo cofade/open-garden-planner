@@ -6,6 +6,7 @@ executed, undone, and redone.
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -185,6 +186,24 @@ def _refresh_z_after_relink(scene: QGraphicsScene, item: QGraphicsItem) -> None:
         refresh_all()
 
 
+def _bulk_add_scope(scene: QGraphicsScene) -> AbstractContextManager[None]:
+    """Context manager suspending the scene's per-add z-refresh across a
+    batch of ``scene.addItem(...)`` calls (issue #338 performance finding).
+
+    Every command that re-adds several items on ``execute``/``undo``
+    (``CreateItemsCommand``, ``DeleteItemsCommand.undo``,
+    ``MirrorItemsCommand``, ...) must wrap its add loop in this instead of
+    letting each ``addItem`` trigger its own full per-layer z recompute —
+    that turns an O(n) bulk add into O(n^2) on a large scene. Falls back to
+    a no-op for scene doubles (tests) that don't implement
+    ``CanvasScene.suspend_z_refresh``.
+    """
+    suspend = getattr(scene, "suspend_z_refresh", None)
+    if callable(suspend):
+        return suspend()
+    return nullcontext()
+
+
 def trigger_soil_mismatch_refresh(scene: QGraphicsScene) -> None:
     """Force the canvas view to recompute soil-mismatch borders now.
 
@@ -315,9 +334,10 @@ class CreateItemsCommand(Command):
 
     def execute(self) -> None:
         """Add the items to the scene."""
-        for item in self._items:
-            if item.scene() is None:
-                self._scene.addItem(item)
+        with _bulk_add_scope(self._scene):
+            for item in self._items:
+                if item.scene() is None:
+                    self._scene.addItem(item)
         for item in self._items:
             _auto_parent_plant(self._scene, item)
 
@@ -406,9 +426,10 @@ class DeleteItemsCommand(Command):
         """Restore items to the scene."""
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
-        for item in self._items:
-            if item.scene() is None:
-                self._scene.addItem(item)
+        with _bulk_add_scope(self._scene):
+            for item in self._items:
+                if item.scene() is None:
+                    self._scene.addItem(item)
         # Restore parent-child relationships from snapshot
         relinked = False
         for item in self._items:
@@ -1067,9 +1088,10 @@ class LinearArrayCommand(Command):
 
     def execute(self) -> None:
         """Add items and constraints to the scene."""
-        for item in self._items:
-            if item.scene() is None:
-                self._scene.addItem(item)
+        with _bulk_add_scope(self._scene):
+            for item in self._items:
+                if item.scene() is None:
+                    self._scene.addItem(item)
         if self._graph and self._constraint_pairs:
             self._constraint_ids = []
             for anchor_a, anchor_b, dist in self._constraint_pairs:
@@ -1124,9 +1146,10 @@ class GridArrayCommand(Command):
 
     def execute(self) -> None:
         """Add items and constraints to the scene."""
-        for item in self._items:
-            if item.scene() is None:
-                self._scene.addItem(item)
+        with _bulk_add_scope(self._scene):
+            for item in self._items:
+                if item.scene() is None:
+                    self._scene.addItem(item)
         if self._graph and self._constraint_pairs:
             self._constraint_ids = []
             for anchor_a, anchor_b, dist in self._constraint_pairs:
@@ -1172,9 +1195,10 @@ class CircularArrayCommand(Command):
 
     def execute(self) -> None:
         """Add items to the scene."""
-        for item in self._items:
-            if item.scene() is None:
-                self._scene.addItem(item)
+        with _bulk_add_scope(self._scene):
+            for item in self._items:
+                if item.scene() is None:
+                    self._scene.addItem(item)
 
     def undo(self) -> None:
         """Remove items from the scene."""
@@ -1221,18 +1245,20 @@ class MirrorItemsCommand(Command):
             for item in self._originals:
                 if item.scene() is self._scene:
                     self._scene.removeItem(item)
-        for item in self._mirrored:
-            if item.scene() is None:
-                self._scene.addItem(item)
+        with _bulk_add_scope(self._scene):
+            for item in self._mirrored:
+                if item.scene() is None:
+                    self._scene.addItem(item)
 
     def undo(self) -> None:
         for item in self._mirrored:
             if item.scene() is self._scene:
                 self._scene.removeItem(item)
         if not self._copy:
-            for item in self._originals:
-                if item.scene() is None:
-                    self._scene.addItem(item)
+            with _bulk_add_scope(self._scene):
+                for item in self._originals:
+                    if item.scene() is None:
+                        self._scene.addItem(item)
 
 
 class EditConstraintDistanceCommand(Command):
@@ -1387,11 +1413,12 @@ class GroupCommand(Command):
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
             item.setSelected(True)
-            # The item is top-level again with an unranked stack_order
-            # (issue #338) -- it sorts to the top of its layer's band until
-            # the refresh below assigns it a real position.
-            if hasattr(item, "stack_order"):
-                item.stack_order = None
+            # The item is top-level again (issue #338). It keeps the
+            # stack_order rank it had before grouping -- clearing it here
+            # would make undo(Group) not the inverse of execute() (a member
+            # that never had a rank still sorts to the top, which is
+            # acceptable). The refresh below only recomputes z-values from
+            # existing ranks; it never assigns new ones.
         self._scene.removeItem(self._group)
         refresh_all = getattr(self._scene, "_update_items_z_order", None)
         if callable(refresh_all):
@@ -1416,10 +1443,9 @@ class UngroupCommand(Command):
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
             item.setSelected(True)
-            # Top-level again with an unranked stack_order (issue #338) --
-            # sorts to the top of its layer's band until the refresh below.
-            if hasattr(item, "stack_order"):
-                item.stack_order = None
+            # Top-level again (issue #338); keeps its pre-group stack_order
+            # rank so execute() is the exact inverse of undo() -- see the
+            # matching note in GroupCommand.undo above.
         self._scene.removeItem(self._group)
         refresh_all = getattr(self._scene, "_update_items_z_order", None)
         if callable(refresh_all):
@@ -1490,9 +1516,10 @@ class ArrayAlongPathCommand(Command):
         )
 
     def execute(self) -> None:
-        for item in self._items:
-            if item.scene() is None:
-                self._scene.addItem(item)
+        with _bulk_add_scope(self._scene):
+            for item in self._items:
+                if item.scene() is None:
+                    self._scene.addItem(item)
 
     def undo(self) -> None:
         for item in self._items:
@@ -1555,6 +1582,16 @@ class MoveToLayerCommand(Command):
         ranked above everything already in the target layer, in their
         current bottom-to-top order (so a multi-selection spanning several
         source layers still lands in a sensible relative order).
+
+        Every item in ``changing`` gets its ``layer_id`` written — even one
+        that, for whatever reason, isn't currently in ``self._scene``. Scene
+        order is used ONLY to decide the rank sequence for the (normal)
+        case of items that are in the scene; an item not found there still
+        gets moved and ranked, just appended after the ones that are, in
+        their original ``self._moves`` order. Without this, such an item
+        would be silently skipped here while :meth:`undo` restores it
+        unconditionally — execute() must stay the exact inverse of undo()
+        (issue #338 review P2).
         """
         changing = [
             item
@@ -1569,11 +1606,14 @@ class MoveToLayerCommand(Command):
                 else 0
             )
             changing_ids = {id(item) for item in changing}
-            bottom_to_top = [
+            in_scene_order = [
                 item
                 for item in reversed(self._scene.items())  # type: ignore[attr-defined]
                 if id(item) in changing_ids
             ]
+            in_scene_ids = {id(item) for item in in_scene_order}
+            not_in_scene = [item for item in changing if id(item) not in in_scene_ids]
+            bottom_to_top = in_scene_order + not_in_scene
             for k, item in enumerate(bottom_to_top, start=1):
                 item.layer_id = self._target_layer_id  # type: ignore[union-attr]
                 if hasattr(item, "stack_order"):

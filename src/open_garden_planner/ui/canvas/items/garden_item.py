@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
+from open_garden_planner.core.stacking import ArrangeMode
 
 
 @dataclass(slots=True)
@@ -1246,6 +1247,92 @@ class GardenItemMixin:
         target_layer = scene.get_layer_by_id(target_layer_id)
         layer_name = target_layer.name if target_layer else str(target_layer_id)
         cmd = MoveToLayerCommand(items, target_layer_id, scene, layer_name)
+        if scene._command_manager:  # type: ignore[attr-defined]
+            scene._command_manager.execute(cmd)  # type: ignore[attr-defined]
+        else:
+            cmd.execute()  # graceful fallback (e.g. in unit tests without CanvasView)
+
+    # ------------------------------------------------------------------
+    # Stacking-order helpers (shared by all item context menus, issue #338)
+    # ------------------------------------------------------------------
+
+    def _build_arrange_menu(self, parent_menu: "QMenu") -> "QMenu":
+        """Append an 'Arrange' submenu to *parent_menu* and return it.
+
+        Unlike ``_build_move_to_layer_menu`` this is always built — stacking
+        order is meaningful for every layered item, even with a single layer.
+        """
+        from PyQt6.QtCore import QCoreApplication
+        from PyQt6.QtWidgets import QMenu
+
+        from open_garden_planner.ui.icons import get_icon
+
+        label = QCoreApplication.translate("ArrangeActions", "Arrange")
+        arrange_menu: QMenu = parent_menu.addMenu(label)
+        submenu_icon = get_icon("arrange")
+        if submenu_icon is not None:
+            arrange_menu.setIcon(submenu_icon)
+
+        entries = (
+            (
+                ArrangeMode.BRING_TO_FRONT,
+                QCoreApplication.translate("ArrangeActions", "Bring to Front"),
+                "arrange_front",
+            ),
+            (
+                ArrangeMode.BRING_FORWARD,
+                QCoreApplication.translate("ArrangeActions", "Bring Forward"),
+                "arrange_forward",
+            ),
+            (
+                ArrangeMode.SEND_BACKWARD,
+                QCoreApplication.translate("ArrangeActions", "Send Backward"),
+                "arrange_backward",
+            ),
+            (
+                ArrangeMode.SEND_TO_BACK,
+                QCoreApplication.translate("ArrangeActions", "Send to Back"),
+                "arrange_back",
+            ),
+        )
+        for mode, text, icon_name in entries:
+            action = arrange_menu.addAction(text)
+            action.setData(mode)
+            icon = get_icon(icon_name)
+            if icon is not None:
+                action.setIcon(icon)
+        return arrange_menu
+
+    def _dispatch_arrange(self, mode: ArrangeMode) -> None:
+        """Arrange the selected items (or just *self*) within their layer(s).
+
+        Same selection-or-self rule as ``_dispatch_move_to_layer``. Delegates
+        to ``CanvasView.arrange_selected`` when a view is available so that
+        method stays the ONE place that writes the arrange status messages
+        (see ``ui/canvas/arrange.py`` — never duplicate those strings here).
+        Only falls back to a direct build+execute when there is no
+        ``CanvasView`` (e.g. unit tests that construct items without one); in
+        that fallback a no-op is reported to nobody and stays silent.
+        """
+        scene = self.scene()  # type: ignore[attr-defined]
+        if not scene:
+            return
+        selected = [i for i in scene.selectedItems() if hasattr(i, "layer_id")]
+
+        view = next((v for v in scene.views() if hasattr(v, "arrange_selected")), None)
+        if view is not None:
+            if not selected:
+                scene.clearSelection()
+                self.setSelected(True)  # type: ignore[attr-defined]
+            view.arrange_selected(mode)
+            return
+
+        from open_garden_planner.ui.canvas.arrange import build_arrange_command
+
+        items = selected or [self]
+        cmd, _outcome = build_arrange_command(scene, items, mode)
+        if cmd is None:
+            return  # no CanvasView to report the no-op through — stay silent
         if scene._command_manager:  # type: ignore[attr-defined]
             scene._command_manager.execute(cmd)  # type: ignore[attr-defined]
         else:

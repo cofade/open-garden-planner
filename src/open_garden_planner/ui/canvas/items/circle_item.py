@@ -860,6 +860,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # Move to Layer submenu (hidden when project has only one layer)
         move_layer_menu = self._build_move_to_layer_menu(menu)
 
+        # Arrange submenu (Bring to Front / Forward / Send Backward / Back)
+        arrange_menu = self._build_arrange_menu(menu)
+
         # Change Type submenu
         from open_garden_planner.core.object_types import get_valid_types_for_shape
         change_type_menu = self._build_change_type_menu(menu, get_valid_types_for_shape("circle"))
@@ -1015,6 +1018,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                         break
         elif move_layer_menu and action and action.parent() is move_layer_menu:
             self._dispatch_move_to_layer(action.data())
+        elif arrange_menu and action and action.parent() is arrange_menu:
+            self._dispatch_arrange(action.data())
         elif change_type_menu and action and action.parent() is change_type_menu:
             self._dispatch_change_type(action.data())
 

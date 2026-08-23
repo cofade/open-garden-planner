@@ -134,6 +134,31 @@ class TestListObjects:
         assert bed.layer_name == "Base"
 
 
+class TestStackIndex:
+    """issue #338: ObjectRef.stack_index, computed per-layer over the snapshot's
+    (bottom->top) object order."""
+
+    def test_stack_index_is_bottom_to_top_per_layer(self) -> None:
+        out = queries.list_objects(_snapshot())
+        by_id = {o.item_id: o.stack_index for o in out}
+        # bed1 is the ONLY object on layer L1 -> index 0.
+        assert by_id["bed1"] == 0
+        # p1 then p2 are listed in that order on layer L2 (bottom->top).
+        assert by_id["p1"] == 0
+        assert by_id["p2"] == 1
+
+    def test_stack_index_is_none_without_a_layer(self) -> None:
+        out = queries.list_objects(_snapshot())
+        by_id = {o.item_id: o.stack_index for o in out}
+        assert by_id["path1"] is None
+        assert by_id["pond1"] is None
+
+    def test_get_object_reports_stack_index_too(self) -> None:
+        detail = queries.get_object(_snapshot(), "p2")
+        assert isinstance(detail, ObjectDetail)
+        assert detail.stack_index == 1
+
+
 class TestGetObject:
     def test_curated_detail(self) -> None:
         detail = queries.get_object(_snapshot(), "p1")

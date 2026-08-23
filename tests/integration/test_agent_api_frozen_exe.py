@@ -63,6 +63,7 @@ def _providers() -> AgentProviders:
         rotate_object=_unused,
         set_species=_unused,
         set_parent_bed=_unused,
+        arrange_object=_unused,
     )
 
 

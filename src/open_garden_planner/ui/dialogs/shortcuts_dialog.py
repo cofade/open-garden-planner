@@ -71,6 +71,16 @@ class ShortcutsDialog(QDialog):
             (self._localize_shortcut("Ctrl+D"), self.tr("Duplicate")),
             (self._localize_shortcut("Delete"), self.tr("Delete selected")),
             (self._localize_shortcut("Ctrl+A"), self.tr("Select All")),
+            (
+                self._localize_shortcut("Ctrl+Shift+] / Ctrl+Shift+Up"),
+                self.tr("Bring to Front"),
+            ),
+            (self._localize_shortcut("Ctrl+] / Ctrl+Up"), self.tr("Bring Forward")),
+            (self._localize_shortcut("Ctrl+[ / Ctrl+Down"), self.tr("Send Backward")),
+            (
+                self._localize_shortcut("Ctrl+Shift+[ / Ctrl+Shift+Down"),
+                self.tr("Send to Back"),
+            ),
         ])
         container_layout.addWidget(edit_group)
 

@@ -5,6 +5,8 @@ Coordinates are in centimeters with Y-axis pointing down (Qt convention).
 The view handles the Y-flip for display.
 """
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -684,6 +686,10 @@ class CanvasScene(QGraphicsScene):
         z-refresh pass instead of N. Ranks are still assigned per item as
         usual (an item without a saved ``stack_order`` gets one on add, in
         file order) — only the expensive per-add z recompute is deferred.
+
+        Thin wrapper kept for callers (``ProjectManager.load``) that use the
+        begin/end pair instead of the :meth:`suspend_z_refresh` context
+        manager — both defer to the same :meth:`_end_suspend_z_refresh`.
         """
         self._suspend_z_refresh = True
 
@@ -694,14 +700,55 @@ class CanvasScene(QGraphicsScene):
         to clean ``STACK_STEP`` multiples, then does one full z-value
         refresh. This is what gives a file saved without ``stack_order``
         keys (an older app version) honest, evenly-spaced ranks the first
-        time the current app loads it.
+        time the current app loads it. Only the file-load path renumbers;
+        see :meth:`suspend_z_refresh`.
+        """
+        self._end_suspend_z_refresh(renumber=True)
+
+    @contextmanager
+    def suspend_z_refresh(self, *, renumber: bool = False) -> Iterator[None]:
+        """Suspend the per-``addItem`` z-refresh for a batch of adds (issue #338).
+
+        Wrap a loop of ``scene.addItem(...)`` calls in
+        ``with scene.suspend_z_refresh(): ...`` so each add only assigns a
+        ``stack_order`` rank (as usual, for an item that doesn't have one
+        yet) without doing a full per-layer z recompute; one full refresh
+        runs once at the end instead of once per item. This is the general
+        form of :meth:`begin_bulk_load`/:meth:`end_bulk_load` for the bulk
+        re-add paths that re-insert several items in one command
+        (``CreateItemsCommand.execute``, ``DeleteItemsCommand.undo``,
+        ``MirrorItemsCommand.execute``/``undo``, ...).
+
+        ``renumber=True`` additionally renumbers every layer's items (in
+        their current normalized order) to clean ``STACK_STEP`` multiples
+        before the refresh. This is for the file-load path only (see
+        :meth:`end_bulk_load`) — every other bulk re-add path must NOT
+        renumber, since that would silently overwrite the exact ranks a
+        command's undo/redo snapshot depends on being restored unchanged.
+
+        Nests safely: an inner suspend inside an already-suspended scope is
+        a no-op (the outer scope still does the one refresh on exit).
+        """
+        already_suspended = self._suspend_z_refresh
+        self._suspend_z_refresh = True
+        try:
+            yield
+        finally:
+            if not already_suspended:
+                self._end_suspend_z_refresh(renumber=renumber)
+
+    def _end_suspend_z_refresh(self, *, renumber: bool) -> None:
+        """Resume z-refresh and run the one deferred refresh (issue #338).
+
+        Shared tail for :meth:`end_bulk_load` and :meth:`suspend_z_refresh`.
         """
         self._suspend_z_refresh = False
-        for layer_id in self._stacking_layer_ids():
-            order = self._normalized_layer_order(layer_id)
-            for i, item in enumerate(order):
-                if hasattr(item, "stack_order"):
-                    item.stack_order = (i + 1) * stacking.STACK_STEP
+        if renumber:
+            for layer_id in self._stacking_layer_ids():
+                order = self._normalized_layer_order(layer_id)
+                for i, item in enumerate(order):
+                    if hasattr(item, "stack_order"):
+                        item.stack_order = (i + 1) * stacking.STACK_STEP
         self._update_items_z_order()
 
     def _stacking_layer_ids(self) -> list[UUID | None]:
@@ -732,6 +779,15 @@ class CanvasScene(QGraphicsScene):
         current stacking so the result is stable. This is NOT yet passed
         through :func:`core.stacking.normalize_order` — see
         :meth:`_normalized_layer_order` and :meth:`_stack_entries`.
+
+        Requires ``hasattr(item, "stack_order")`` — the same predicate
+        :meth:`addItem` uses to decide whether an item participates in
+        ranking at all. Without it, ``layer_id=None`` would match every
+        top-level item that simply lacks a ``layer_id`` attribute — the
+        overlay items (dimension lines, measure/constraint previews,
+        highlights, offset preview) — and a z-refresh of the ``None``
+        pseudo-layer would sweep them into band ``[0, 100)``, destroying
+        their much higher fixed z-values (900-9999) (issue #338 P0-1).
         """
         bottom_to_top = list(reversed(self.items()))
         scene_index = {id(item): i for i, item in enumerate(bottom_to_top)}
@@ -739,7 +795,9 @@ class CanvasScene(QGraphicsScene):
         candidates = [
             item
             for item in bottom_to_top
-            if item.parentItem() is None and getattr(item, "layer_id", None) == layer_id
+            if item.parentItem() is None
+            and hasattr(item, "stack_order")
+            and getattr(item, "layer_id", None) == layer_id
         ]
 
         def _sort_key(item: QGraphicsItem) -> tuple[bool, int, int]:
@@ -749,7 +807,11 @@ class CanvasScene(QGraphicsScene):
         candidates.sort(key=_sort_key)
         return candidates
 
-    def _stack_entries(self, layer_id: UUID | None) -> list[stacking.StackEntry]:
+    def _stack_entries(
+        self,
+        layer_id: UUID | None,
+        candidates: list[QGraphicsItem] | None = None,
+    ) -> list[stacking.StackEntry]:
         """Build one layer's raw (not-yet-normalized) ``StackEntry`` list (issue #338).
 
         This is the ONE place that derives ``StackEntry.parent_id``/``rect``
@@ -758,10 +820,20 @@ class CanvasScene(QGraphicsScene):
         ``ui.canvas.arrange.build_arrange_command`` (which feeds it straight
         to :func:`core.stacking.arrange`). There must be exactly one way to
         build entries.
+
+        *candidates*: the layer's top-level items, already computed via
+        :meth:`_layer_top_level_items`. Pass it in when the caller already
+        has it (as :meth:`_normalized_layer_order` does) so this doesn't
+        walk the whole scene a second time — ``scene.items()`` is O(n), and
+        every extra walk here is another O(n) hit on every single
+        ``addItem`` call (performance finding, issue #338 review). Omit it
+        to have this method compute it itself (``build_arrange_command``'s
+        case, which doesn't already have the list).
         """
         from open_garden_planner.core.object_types import ObjectType
 
-        candidates = self._layer_top_level_items(layer_id)
+        if candidates is None:
+            candidates = self._layer_top_level_items(layer_id)
         ids_in_layer = {self._stack_identity(item) for item in candidates}
 
         entries: list[stacking.StackEntry] = []
@@ -804,11 +876,11 @@ class CanvasScene(QGraphicsScene):
         layer — the derive-only clamp), then maps the normalized entries back
         to live items.
         """
-        items_by_id = {
-            self._stack_identity(item): item
-            for item in self._layer_top_level_items(layer_id)
-        }
-        normalized = stacking.normalize_order(self._stack_entries(layer_id))
+        candidates = self._layer_top_level_items(layer_id)
+        items_by_id = {self._stack_identity(item): item for item in candidates}
+        normalized = stacking.normalize_order(
+            self._stack_entries(layer_id, candidates)
+        )
         return [items_by_id[entry.item_id] for entry in normalized]
 
     def _refresh_layer_z(self, layer_id: UUID | None) -> None:

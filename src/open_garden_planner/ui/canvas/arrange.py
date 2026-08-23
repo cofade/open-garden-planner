@@ -20,26 +20,25 @@ stays unit-testable without ``qtbot``.
 from collections.abc import Iterable
 from uuid import UUID
 
-from PyQt6.QtCore import QCoreApplication
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.core import stacking
 from open_garden_planner.core.commands import ArrangeItemsCommand
 from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
 
+# Source strings only -- NOT translated here. A module-level dict is built
+# once at import time, so calling QCoreApplication.translate() here would
+# freeze every description at whatever translator state exists at import
+# (typically none), permanently in English regardless of the active UI
+# language (CLAUDE.md i18n rule: module-level dicts use QT_TR_NOOP, translate
+# at the point of use). See build_arrange_command() below for the translate
+# call.
 _DESCRIPTIONS: dict[ArrangeMode, str] = {
-    ArrangeMode.BRING_TO_FRONT: QCoreApplication.translate(
-        "Commands", "Bring {count} item(s) to front"
-    ),
-    ArrangeMode.BRING_FORWARD: QCoreApplication.translate(
-        "Commands", "Bring {count} item(s) forward"
-    ),
-    ArrangeMode.SEND_BACKWARD: QCoreApplication.translate(
-        "Commands", "Send {count} item(s) backward"
-    ),
-    ArrangeMode.SEND_TO_BACK: QCoreApplication.translate(
-        "Commands", "Send {count} item(s) to back"
-    ),
+    ArrangeMode.BRING_TO_FRONT: QT_TR_NOOP("Bring {count} item(s) to front"),
+    ArrangeMode.BRING_FORWARD: QT_TR_NOOP("Bring {count} item(s) forward"),
+    ArrangeMode.SEND_BACKWARD: QT_TR_NOOP("Send {count} item(s) backward"),
+    ArrangeMode.SEND_TO_BACK: QT_TR_NOOP("Send {count} item(s) to back"),
 }
 
 
@@ -112,6 +111,8 @@ def build_arrange_command(
     if not new_orders:
         return None, outcome
 
-    description = _DESCRIPTIONS[mode].format(count=len(eligible))
+    description = QCoreApplication.translate("Commands", _DESCRIPTIONS[mode]).format(
+        count=len(eligible)
+    )
     command = ArrangeItemsCommand(scene, new_orders, description)
     return command, ArrangeOutcome.CHANGED

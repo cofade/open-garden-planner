@@ -8,7 +8,7 @@ in isolation (covered by `tests/unit/test_plant_bed_zorder.py`).
 """
 # ruff: noqa: ARG002
 
-from open_garden_planner.core.commands import MoveToLayerCommand
+from open_garden_planner.core.commands import GroupCommand, MoveToLayerCommand, UngroupCommand
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
@@ -514,3 +514,66 @@ class TestMoveToLayerRankHandling:
 
         assert item.layer_id == original_layer_id
         assert item.stack_order == original_rank
+
+
+# ---------------------------------------------------------------------------
+# Group/Ungroup must not destroy ranks (issue #338 review P0-2)
+# ---------------------------------------------------------------------------
+
+
+class TestGroupUngroupPreservesRank:
+    """GroupCommand.undo and UngroupCommand.execute make grouped items
+    top-level again. They used to reset ``stack_order`` to ``None`` on the
+    theory that the z-refresh which follows would assign a real position --
+    but the refresh only recomputes derived z from existing ranks, it never
+    writes one. An unranked item always sorts to the top of its layer's
+    band (see ``CanvasScene._layer_top_level_items``), so that reset
+    permanently pushed every de-grouped/undone member to the front --
+    undo(Group) was not the inverse of execute(), and execute(Ungroup) lost
+    the members' original order every time.
+    """
+
+    def test_undo_group_restores_original_bottom_to_top_order(
+        self, canvas: CanvasView, qtbot
+    ) -> None:
+        scene = canvas.scene()
+        layer_id = scene.active_layer.id
+        a = _rect("a", 0, 0, layer_id)
+        b = _rect("b", 150, 0, layer_id)
+        c = _rect("c", 300, 0, layer_id)
+        scene.addItem(a)
+        scene.addItem(b)
+        scene.addItem(c)
+        assert _bottom_to_top_names(scene) == ["a", "b", "c"]
+
+        canvas.command_manager.execute(GroupCommand(scene, [a, b]))
+        canvas.command_manager.undo()
+
+        assert _bottom_to_top_names(scene) == ["a", "b", "c"], (
+            "undo(Group) must be the exact inverse of execute(): a, b keep "
+            "their original ranks and c's relative position to them."
+        )
+
+    def test_ungroup_restores_original_bottom_to_top_order(
+        self, canvas: CanvasView, qtbot
+    ) -> None:
+        scene = canvas.scene()
+        layer_id = scene.active_layer.id
+        a = _rect("a", 0, 0, layer_id)
+        b = _rect("b", 150, 0, layer_id)
+        c = _rect("c", 300, 0, layer_id)
+        scene.addItem(a)
+        scene.addItem(b)
+        scene.addItem(c)
+        assert _bottom_to_top_names(scene) == ["a", "b", "c"]
+
+        group_cmd = GroupCommand(scene, [a, b])
+        canvas.command_manager.execute(group_cmd)
+        group = group_cmd._group  # noqa: SLF001 -- test needs the live group item
+
+        canvas.command_manager.execute(UngroupCommand(scene, group))
+
+        assert _bottom_to_top_names(scene) == ["a", "b", "c"], (
+            "Ungroup must restore a and b to their pre-group ranks, still "
+            "below c -- not push them to the front of the layer."
+        )

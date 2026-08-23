@@ -5375,6 +5375,15 @@ class CanvasView(QGraphicsView):
         ``_deserialize_item`` builds items via per-type constructor calls
         that don't accept ``layer_id``, so paste/duplicate restore it here
         instead — matching what ``_serialize_item`` saved (issue #338).
+
+        The clipboard's ``layer_id`` can outlive its source: paste after a
+        File -> New Plan (fresh layer UUIDs), or paste into a different
+        scene, means the copied id no longer resolves. Applying it blindly
+        would give the pasted item a dangling ``layer_id`` -- invisible to
+        the layer's visibility/lock, filtered out of stacking/arrange, and
+        written to disk as an orphan reference. Only apply it when it still
+        resolves in the *target* scene; otherwise fall back to the active
+        layer (if any), else leave the item layer-less.
         """
         from uuid import UUID
 
@@ -5382,11 +5391,18 @@ class CanvasView(QGraphicsView):
 
         if not isinstance(item, GardenItemMixin):
             return
+        scene = self.scene()
         layer_id_str = obj.get("layer_id")
-        if not layer_id_str:
-            return
-        with contextlib.suppress(ValueError, TypeError):
-            item.layer_id = UUID(layer_id_str)
+        resolved: UUID | None = None
+        if layer_id_str:
+            with contextlib.suppress(ValueError, TypeError):
+                candidate = UUID(layer_id_str)
+                if scene is not None and scene.get_layer_by_id(candidate) is not None:
+                    resolved = candidate
+        if resolved is None and scene is not None and scene.active_layer is not None:
+            resolved = scene.active_layer.id
+        if resolved is not None:
+            item.layer_id = resolved
 
     def _serialize_item_core(self, item: QGraphicsItem) -> dict | None:
         """Core serialization without relationship fields."""

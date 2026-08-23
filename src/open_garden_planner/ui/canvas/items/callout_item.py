@@ -275,6 +275,8 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         menu = QMenu()
         edit_action = menu.addAction(_("CalloutItem", "Edit Text"))
         move_layer_menu = self._build_move_to_layer_menu(menu)
+        # Arrange submenu (Bring to Front / Forward / Send Backward / Back)
+        arrange_menu = self._build_arrange_menu(menu)
         menu.addSeparator()
         delete_action = menu.addAction(_("CalloutItem", "Delete"))
         chosen = menu.exec(event.screenPos())
@@ -286,6 +288,8 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
                 scene.removeItem(self)
         elif move_layer_menu and chosen and chosen.parent() is move_layer_menu:
             self._dispatch_move_to_layer(chosen.data())
+        elif arrange_menu and chosen and chosen.parent() is arrange_menu:
+            self._dispatch_arrange(chosen.data())
 
     def itemChange(
         self, change: QGraphicsItem.GraphicsItemChange, value: Any

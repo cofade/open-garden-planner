@@ -139,6 +139,7 @@ def _run_selftest() -> int:
                 rotate_object=_never,
                 set_species=_never,
                 set_parent_bed=_never,
+                arrange_object=_never,
             ),
             port=free_port,
         )

@@ -1588,3 +1588,162 @@ def test_resize_refuses_an_extent_below_the_gui_minimum(
         assert bed.rect().width() == pytest.approx(1.0)
     finally:
         win._stop_agent_api()
+
+
+# ---------------------------------------------------------------------------
+# issue #338: arrange_object orchestration
+#
+# arrange_object routes through ui.canvas.arrange.build_arrange_command --
+# the ONE apply seam every arrange surface shares (Edit menu, context menu,
+# Properties panel, and this tool) -- so these pin the parts that are specific
+# to the tool's own wrapper: the mode-string validation, the refusal-message
+# mapping, and that _resolve_agent_item's shared refusals (locked layer) apply
+# BEFORE build_arrange_command ever runs. The seam's own algorithm (block
+# expansion, overlap stepping, every ArrangeOutcome) is unit-tested in
+# tests/unit/test_stacking.py and does not need re-proving here.
+#
+# build_arrange_command requires items to sit on a REAL layer (its
+# eligibility filter drops layer_id=None -- see ui/canvas/arrange.py), unlike
+# _add_bed/_add_tree above which construct items with no layer at all. These
+# tests therefore assign the scene's active layer explicitly.
+# ---------------------------------------------------------------------------
+
+
+def test_arrange_bed_send_to_back_keeps_plant_block_and_is_one_undo_step(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """A bed carries its contained plants along as one block -- mirroring
+    build_arrange_command's contract that arranging a bed must not orphan the
+    plants sitting on top of it -- and the whole block move is ONE undo step."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        layer_id = scene.active_layer.id
+        other = RectangleItem(
+            50, 50, 100, 100, object_type=ObjectType.PATH, layer_id=layer_id
+        )
+        bed = RectangleItem(
+            500, 500, 400, 300, object_type=ObjectType.RAISED_BED, layer_id=layer_id
+        )
+        plant_a = CircleItem(600, 600, 20, object_type=ObjectType.TREE, layer_id=layer_id)
+        plant_b = CircleItem(
+            700, 650, 20, object_type=ObjectType.PERENNIAL, layer_id=layer_id
+        )
+        scene.addItem(other)
+        scene.addItem(bed)
+        scene.addItem(plant_a)
+        scene.addItem(plant_b)
+        bed.add_child_id(plant_a.item_id)
+        bed.add_child_id(plant_b.item_id)
+        plant_a.parent_bed_id = bed.item_id
+        plant_b.parent_bed_id = bed.item_id
+        # Precondition: "other" sits BEHIND the bed's block.
+        order_before = scene._normalized_layer_order(layer_id)
+        assert order_before == [other, bed, plant_a, plant_b]
+
+        result = win._do_agent_arrange_object(str(bed.item_id), "send_to_back")
+
+        assert result["action"] == "arrange"
+        assert result["stack_index"] == 0
+        order_after = scene._normalized_layer_order(layer_id)
+        # The bed's block (itself + both plants, relative order kept) is now
+        # at the very back; "other" is pushed above it.
+        assert order_after == [bed, plant_a, plant_b, other]
+
+        assert win.canvas_view.command_manager.can_undo
+        win.canvas_view.command_manager.undo()
+        assert scene._normalized_layer_order(layer_id) == order_before
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_arrange_plant_already_directly_above_its_bed_refuses(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """A plant can never be arranged below its own bed (the derive-only
+    clamp) -- send_to_back on a plant that already sits directly above its
+    bed is correctly a no-op refusal, not a phantom change."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        layer_id = scene.active_layer.id
+        bed = RectangleItem(
+            500, 500, 400, 300, object_type=ObjectType.RAISED_BED, layer_id=layer_id
+        )
+        plant = CircleItem(600, 600, 20, object_type=ObjectType.TREE, layer_id=layer_id)
+        scene.addItem(bed)
+        scene.addItem(plant)
+        bed.add_child_id(plant.item_id)
+        plant.parent_bed_id = bed.item_id
+
+        with pytest.raises(ValueError, match="already at the back"):
+            win._do_agent_arrange_object(str(plant.item_id), "send_to_back")
+
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_arrange_object_refuses_locked_layer_before_any_change(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The GUI enforces layer-lock by clearing item interaction flags; the
+    agent resolves by UUID (bypassing selection), so _resolve_agent_item's
+    lock check must run -- and must run BEFORE build_arrange_command, so a
+    locked object is never even considered for reordering."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        layer_id = scene.active_layer.id
+        item = CircleItem(300, 300, 20, object_type=ObjectType.TREE, layer_id=layer_id)
+        scene.addItem(item)
+        scene.get_layer_by_id(layer_id).locked = True
+        scene._update_items_visibility()
+
+        with pytest.raises(ValueError, match="locked layer"):
+            win._do_agent_arrange_object(str(item.item_id), "bring_to_front")
+
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_arrange_object_invalid_action_lists_allowed_values(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        item = _add_tree(win)
+
+        with pytest.raises(ValueError) as exc_info:
+            win._do_agent_arrange_object(str(item.item_id), "not_a_real_action")
+        message = str(exc_info.value)
+        for allowed in (
+            "bring_to_front",
+            "bring_forward",
+            "send_backward",
+            "send_to_back",
+        ):
+            assert allowed in message
+
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()

@@ -56,17 +56,24 @@ class StackEntry:
     """One item's position in a single layer's bottom-to-top stack.
 
     Attributes:
-        item_id: The item's unique identifier.
+        item_id: The item's unique identifier. Normally a ``UUID``, but the
+            Qt side (``CanvasScene._stack_identity``) falls back to the
+            item's Python object identity (``id(item)``, an ``int``) for
+            any ``layer_id`` carrier that has no ``item_id`` of its own —
+            e.g. a bare ``QGraphicsItem`` test double. This module treats
+            both uniformly as an opaque, hashable identity; it never
+            interprets the value.
         parent_id: The id of this item's plant-parent bed (for a plant) or
             owner polygon (for a ROOF_RIDGE), or ``None``. Only meaningful
             when that parent is itself present in the same order list — a
             parent that lives in a different layer (or isn't in the list at
-            all) is simply ignored by :func:`normalize_order`.
+            all) is simply ignored by :func:`normalize_order`. Same
+            ``UUID | int`` identity as ``item_id`` above.
         rect: Scene bounding box as ``(x, y, width, height)``.
     """
 
-    item_id: UUID
-    parent_id: UUID | None
+    item_id: UUID | int
+    parent_id: UUID | int | None
     rect: tuple[float, float, float, float]
 
 
@@ -98,7 +105,7 @@ def normalize_order(order: list[StackEntry]) -> list[StackEntry]:
     """
     ids_present = {entry.item_id for entry in order}
 
-    children_by_parent: dict[UUID, list[StackEntry]] = {}
+    children_by_parent: dict[UUID | int, list[StackEntry]] = {}
     non_children: list[StackEntry] = []
     for entry in order:
         parent_id = entry.parent_id
@@ -114,7 +121,9 @@ def normalize_order(order: list[StackEntry]) -> list[StackEntry]:
     return result
 
 
-def expand_block(order: list[StackEntry], selected_ids: set[UUID]) -> set[UUID]:
+def expand_block(
+    order: list[StackEntry], selected_ids: set[UUID | int]
+) -> set[UUID | int]:
     """Return *selected_ids* plus the children (present in *order*) of any
     selected parent — the set of ids that must move together as one block.
 
@@ -142,8 +151,8 @@ def _find_overlap(
 
 def _move_block(
     order: list[StackEntry],
-    block_ids: set[UUID],
-    target_id: UUID,
+    block_ids: set[UUID | int],
+    target_id: UUID | int,
     *,
     above_target: bool,
 ) -> list[StackEntry]:
@@ -179,7 +188,7 @@ def _finish(
 
 def arrange(
     order: list[StackEntry],
-    selected_ids: set[UUID],
+    selected_ids: set[UUID | int],
     mode: ArrangeMode,
 ) -> tuple[list[StackEntry] | None, ArrangeOutcome]:
     """Arrange the block of *selected_ids* within one layer's *order*.

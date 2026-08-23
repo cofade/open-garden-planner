@@ -85,6 +85,12 @@ class ObjectRef(BaseModel):
     center_y_cm: float = Field(description="Bounding-box centre Y, in scene cm.")
     width_cm: float = Field(description="Bounding-box width in cm (0 for a point).")
     height_cm: float = Field(description="Bounding-box height in cm (0 for a point).")
+    stack_index: int | None = Field(
+        default=None,
+        description="0-based position within its layer's stacking order, "
+        "bottom→top, as displayed (0 = backmost). Compare only between "
+        "objects on the same layer; null for objects without a layer.",
+    )
 
 
 class ObjectDetail(ObjectRef):
@@ -247,6 +253,7 @@ class WriteResult(BaseModel):
         "rotate",
         "set_species",
         "set_parent_bed",
+        "arrange",
     ] = Field(description="The mutation performed.")
     undo_description: str = Field(
         description="Human-readable label of the primary undo step this created "
@@ -339,4 +346,11 @@ class WriteResult(BaseModel):
         "plant sits outside the bed's outline — deliberately allowed (the app's "
         "own Link action does the same), but worth telling the user about. Null "
         "for a detach and for every other action.",
+    )
+    # --- issue #338: arrange (stacking order) -------------------------------
+    stack_index: int | None = Field(
+        default=None,
+        description="Resulting position after arrange (0-based, bottom→top, "
+        "within the object's layer — same meaning as ObjectRef.stack_index); "
+        "null for every other action.",
     )

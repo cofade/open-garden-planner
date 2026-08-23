@@ -285,6 +285,11 @@ class PropertiesPanel(QWidget):
         info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._form_layout.addRow(info)
 
+        # Arrange (stacking order) acts on the full current selection — issue #338.
+        # self._current_items is already the full selection by the time this
+        # runs (set_selected_items assigns it before dispatching here).
+        self._add_arrange_section(self._current_items)
+
     def set_selected_items(self, items: list[QGraphicsItem]) -> None:
         """Set the selected items to display properties for.
 
@@ -495,6 +500,7 @@ class PropertiesPanel(QWidget):
                     layer_combo,
                     lambda c=layer_combo, it=item: self._refresh_layer_combo(c, it),
                 )
+            self._add_arrange_section([item])
             self._updating = False
             return
 
@@ -503,6 +509,7 @@ class PropertiesPanel(QWidget):
         from open_garden_planner.ui.canvas.items.smart_symbol_item import SmartSymbolItem
         if isinstance(item, SmartSymbolItem):
             self._add_smart_symbol_properties(item)
+            self._add_arrange_section([item])
             self._updating = False
             return
 
@@ -517,6 +524,7 @@ class PropertiesPanel(QWidget):
             hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
             set_text_role(hint, "hint")
             self._form_layout.addRow(hint)
+            self._add_arrange_section([item])
             self._updating = False
             return
 
@@ -606,6 +614,9 @@ class PropertiesPanel(QWidget):
 
         # Styling section
         self._add_styling_properties(item)
+
+        # Arrange (stacking order within the item's layer) — issue #338
+        self._add_arrange_section([item])
 
         # Plant-bed relationship sections
         self._add_bed_children_section(item)
@@ -813,6 +824,101 @@ class PropertiesPanel(QWidget):
         set_text_role(header, "h2")
         header.setStyleSheet("margin-top: 6px;")
         self._form_layout.addRow(header)
+        self._form_layout.addRow(row)
+
+    def _add_arrange_section(self, items: list[QGraphicsItem]) -> None:
+        """Add the Arrange row: Bring to Front/Forward, Send Backward/to Back.
+
+        Shown for a single layered item and for the full multi-selection
+        (issue #338) — follows the ``_add_parent_bed_section`` recipe (bold
+        header + one button row). Journal pins are never arrangeable
+        (ADR-043) and get no section at all.
+
+        Every click funnels through the one apply seam,
+        :func:`ui.canvas.arrange.build_arrange_command` — never a second
+        implementation. When the scene's view already has this exact
+        selection live (the common case: these are the currently selected
+        canvas items), delegate to ``view.arrange_selected`` so it also
+        posts the canvas status message; otherwise build + execute the
+        command directly and refresh the panel the way ``_do_unlink`` does.
+        """
+        from open_garden_planner.core.stacking import ArrangeMode
+        from open_garden_planner.ui.canvas.arrange import build_arrange_command
+        from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
+        from open_garden_planner.ui.icons import get_icon
+
+        if not items or all(isinstance(it, JournalPinItem) for it in items):
+            return
+
+        def _make_handler(mode: "ArrangeMode") -> Callable[[], None]:
+            def _do_arrange() -> None:
+                scene = items[0].scene()
+                if scene is None:
+                    return
+
+                for view in scene.views():
+                    if hasattr(view, "arrange_selected") and set(
+                        scene.selectedItems()
+                    ) == set(items):
+                        view.arrange_selected(mode)
+                        return
+
+                cmd, _outcome = build_arrange_command(scene, items, mode)
+                if cmd is None:
+                    return
+                if self._command_manager is not None:
+                    self._command_manager.execute(cmd)
+                else:
+                    cmd.execute()
+                # Refresh panel
+                self.set_selected_items(list(items))
+
+            return _do_arrange
+
+        header = QLabel(self.tr("Arrange"))
+        set_text_role(header, "h2")
+        header.setStyleSheet("margin-top: 6px;")
+        self._form_layout.addRow(header)
+
+        row = QHBoxLayout()
+        for object_name, icon_name, mode, label in (
+            (
+                "arrange_front_button",
+                "arrange_front",
+                ArrangeMode.BRING_TO_FRONT,
+                self.tr("Bring to Front"),
+            ),
+            (
+                "arrange_forward_button",
+                "arrange_forward",
+                ArrangeMode.BRING_FORWARD,
+                self.tr("Bring Forward"),
+            ),
+            (
+                "arrange_backward_button",
+                "arrange_backward",
+                ArrangeMode.SEND_BACKWARD,
+                self.tr("Send Backward"),
+            ),
+            (
+                "arrange_back_button",
+                "arrange_back",
+                ArrangeMode.SEND_TO_BACK,
+                self.tr("Send to Back"),
+            ),
+        ):
+            btn = QPushButton()
+            icon = get_icon(icon_name)
+            if icon is not None:
+                btn.setIcon(icon)
+            else:
+                btn.setText(label)
+            btn.setToolTip(label)
+            btn.setAccessibleName(label)
+            btn.setObjectName(object_name)
+            btn.clicked.connect(_make_handler(mode))
+            row.addWidget(btn)
+
         self._form_layout.addRow(row)
 
     @staticmethod
@@ -1913,8 +2019,25 @@ class PropertiesPanel(QWidget):
 
         if 'layer_id' in state and hasattr(item, 'layer_id'):
             # z is derived from the scene's normalized stacking order
-            # (issue #338), not set directly here.
-            item.layer_id = state['layer_id']
+            # (issue #338), not set directly here -- but switching
+            # layer_id moves the item into a different layer's z-band, so
+            # both the old and new layer need an explicit refresh; nothing
+            # else triggers one for a bare attribute write (issue #338
+            # review P2: this write previously left the item's z stale
+            # until some unrelated refresh happened to run).
+            old_layer_id = item.layer_id
+            new_layer_id = state['layer_id']
+            item.layer_id = new_layer_id
+            if old_layer_id != new_layer_id:
+                scene = item.scene()
+                refresh_layer = getattr(scene, "_refresh_layer_z", None)
+                if callable(refresh_layer):
+                    refresh_layer(old_layer_id)
+                    refresh_layer(new_layer_id)
+                else:
+                    refresh_all = getattr(scene, "_update_items_z_order", None)
+                    if callable(refresh_all):
+                        refresh_all()
 
         if 'fill_color' in state and hasattr(item, 'fill_color'):
             item.fill_color = state['fill_color']
