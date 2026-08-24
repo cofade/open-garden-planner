@@ -2388,7 +2388,7 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 | Status | Issue | Description |
 | ------ | ----- | ---------------------------------------------------------------- |
-| ✅ (pending merge) | #338 | Per-object stacking order within a layer — see ADR-043 / FR-31 / §8.25 |
+| ✅ | #338 | Per-object stacking order within a layer — see ADR-043 / FR-31 / §8.25 (shipped v1.27.3, PR #340) |
 
 ### Acceptance highlights
 - **Sparse rank + derived z** — a new `stack_order: int | None` sort key (`STACK_STEP = 1024`) replaces the old all-items-tie-at-`layer.z_order*100` scheme. z is never stored as intent: `CanvasScene._normalized_layer_order`/`_refresh_layer_z` derive it fresh from the current ranks as `layer.z_order*100 + 100*(i+1)/(n+1)`, strictly inside the layer's own band so it can never collide with a fixed overlay z (dimension lines, tool previews, the soil badge, the minimap cutoff — §8.25's reserved-band table; journal pins are their own rank-carrying document item, not a fixed band — see §8.25.6). Ranks are written in exactly four places (`CanvasScene.addItem`, `MoveToLayerCommand`, `ArrangeItemsCommand`, and the post-load renumber when `suspend_z_refresh(renumber=True)` exits) — the refresh itself never writes one, which is what keeps every command's undo snapshot exact.
