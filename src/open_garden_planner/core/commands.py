@@ -431,7 +431,6 @@ class DeleteItemsCommand(Command):
                 if item.scene() is None:
                     self._scene.addItem(item)
         # Restore parent-child relationships from snapshot
-        relinked = False
         for item in self._items:
             if not isinstance(item, GardenItemMixin):
                 continue
@@ -444,7 +443,6 @@ class DeleteItemsCommand(Command):
                         child = self._scene.find_item_by_id(child_id)
                         if child is not None and isinstance(child, GardenItemMixin):
                             child.parent_bed_id = iid
-                            relinked = True
             if iid in self._plant_parents:
                 item.parent_bed_id = self._plant_parents[iid]
                 # Also re-add to parent's child list (if parent is in scene)
@@ -452,9 +450,16 @@ class DeleteItemsCommand(Command):
                     parent = self._scene.find_item_by_id(self._plant_parents[iid])
                     if parent is not None and isinstance(parent, GardenItemMixin):
                         parent.add_child_id(iid)
-        # Ranks were preserved across remove/re-add, but a relinked child's
-        # derived z (relative to its parent) needs recomputing (issue #338).
-        if relinked:
+        # Ranks were preserved across remove/re-add, but a restored item's
+        # derived z (relative to its parent) needs recomputing regardless of
+        # which branch above restored the link. Gating this on a "did a bed
+        # child get relinked" flag (as an earlier revision did) missed the
+        # `_plant_parents` branch entirely: undoing the deletion of a PLANT
+        # restores `parent_bed_id` there with no bed-side child link touched,
+        # so the flag never fired and the plant's z stayed stale below its
+        # bed (issue #338 review round 3, P0). One O(n) refresh on an undo
+        # is cheap, so just always run it whenever anything was restored.
+        if self._items:
             refresh_all = getattr(self._scene, "_update_items_z_order", None)
             if callable(refresh_all):
                 refresh_all()

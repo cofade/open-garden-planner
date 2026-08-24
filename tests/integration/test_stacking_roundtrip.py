@@ -17,12 +17,18 @@ import pytest
 from PyQt6.QtCore import QPointF
 
 from open_garden_planner.core import ProjectManager
-from open_garden_planner.core.commands import DeleteItemsCommand
+from open_garden_planner.core.commands import DeleteItemsCommand, SetParentBedCommand
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.project import FILE_VERSION
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
-from open_garden_planner.ui.canvas.items import ArcItem, BezierItem, RectangleItem
+from open_garden_planner.ui.canvas.items import (
+    ArcItem,
+    BezierItem,
+    CircleItem,
+    PolygonItem,
+    RectangleItem,
+)
 
 
 @pytest.fixture
@@ -348,6 +354,79 @@ class TestDeleteUndoRestoresSlot:
             "just re-add the item on top."
         )
         assert b.stack_order == b_rank_before
+
+
+# ---------------------------------------------------------------------------
+# (f2) Delete -> undo restores a plant's derived z above its bed, whichever
+#      of the two was deleted (issue #338 review round 3, P0)
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteUndoRestoresPlantAboveBed:
+    """`DeleteItemsCommand.undo` used to refresh the derived z only when a
+    bed's child list was relinked (an internal ``relinked`` flag). Undoing
+    the deletion of a linked PLANT restores ``parent_bed_id`` through the
+    command's other snapshot branch (``_plant_parents``) without touching
+    any bed's child list, so that flag never fired and the plant came back
+    rendering below its bed. The fix drops the flag and always refreshes
+    once anything was restored -- see ``DeleteItemsCommand.undo``.
+    """
+
+    @pytest.fixture
+    def canvas(self, qtbot) -> CanvasView:
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+        view.set_snap_enabled(False)
+        return view
+
+    def _linked_plant_and_bed(
+        self, canvas: CanvasView
+    ) -> tuple[CanvasScene, CircleItem, PolygonItem]:
+        scene = canvas.scene()
+        layer_id = scene.active_layer.id
+        # Plant added BEFORE its bed, so its raw insertion-order rank is
+        # lower than the bed's -- only the parent-bed clamp puts the plant
+        # back above once linked.
+        plant = CircleItem(
+            center_x=200,
+            center_y=200,
+            radius=20,
+            object_type=ObjectType.TREE,
+            layer_id=layer_id,
+        )
+        bed = PolygonItem(
+            [QPointF(0, 0), QPointF(400, 0), QPointF(400, 400), QPointF(0, 400)],
+            object_type=ObjectType.GARDEN_BED,
+            layer_id=layer_id,
+        )
+        scene.addItem(plant)
+        scene.addItem(bed)
+        assert plant.stack_order is not None and bed.stack_order is not None
+        assert plant.stack_order < bed.stack_order
+
+        link = SetParentBedCommand(scene, plant, None, bed.item_id)
+        canvas.command_manager.execute(link)
+        assert plant.zValue() > bed.zValue()
+        return scene, plant, bed
+
+    @pytest.mark.parametrize("delete_target", ["plant", "bed"])
+    def test_undo_delete_restores_plant_above_bed(
+        self, canvas: CanvasView, delete_target: str
+    ) -> None:
+        scene, plant, bed = self._linked_plant_and_bed(canvas)
+        target = plant if delete_target == "plant" else bed
+
+        delete = DeleteItemsCommand(scene, [target])
+        canvas.command_manager.execute(delete)
+        canvas.command_manager.undo()
+
+        assert plant.zValue() > bed.zValue(), (
+            f"Undoing the deletion of the {delete_target} must leave the "
+            "plant rendering above its bed again -- DeleteItemsCommand.undo "
+            "must refresh z whenever anything was restored, not only when "
+            "a bed's child list was relinked."
+        )
 
 
 # ---------------------------------------------------------------------------

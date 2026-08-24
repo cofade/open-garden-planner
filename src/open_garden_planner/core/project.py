@@ -3,6 +3,7 @@
 Handles project state, serialization, and file I/O.
 """
 
+import contextlib
 import json
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -1714,8 +1715,6 @@ class ProjectManager(QObject):
         # without the context manager (e.g. a plain QGraphicsScene test
         # double) fall back to the un-suspended loop, exactly as before
         # issue #338.
-        import contextlib
-
         has_suspend_ctx = hasattr(scene, "suspend_z_refresh")
         suspend_ctx = (
             scene.suspend_z_refresh(renumber=True)
@@ -1764,8 +1763,6 @@ class ProjectManager(QObject):
             return None
 
         # Restore parent-child relationship fields
-        import contextlib
-
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         if isinstance(item, GardenItemMixin):
             if "parent_bed_id" in obj:
@@ -1815,7 +1812,6 @@ class ProjectManager(QObject):
         elif obj_type == "bezier":
             return BezierItem.from_dict(obj)
         elif obj_type == "group":
-            import contextlib
             from uuid import UUID as _UUID
 
             from open_garden_planner.ui.canvas.items.group_item import GroupItem
@@ -2016,8 +2012,6 @@ class ProjectManager(QObject):
                 item._apply_rotation(obj["rotation_angle"])
             # Restore plant category and species
             if "plant_category" in obj:
-                import contextlib
-
                 from open_garden_planner.core.plant_renderer import PlantCategory
                 with contextlib.suppress(KeyError):
                     item.plant_category = PlantCategory[obj["plant_category"]]

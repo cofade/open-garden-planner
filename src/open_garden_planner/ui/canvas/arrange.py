@@ -73,13 +73,22 @@ def build_arrange_command(
     """
     from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
 
-    eligible = [
-        item
-        for item in items
-        if not isinstance(item, JournalPinItem)
-        and getattr(item, "layer_id", None) is not None
-        and scene.get_layer_by_id(item.layer_id) is not None  # type: ignore[attr-defined]
-    ]
+    eligible = []
+    for item in items:
+        if isinstance(item, JournalPinItem):
+            continue
+        layer_id = getattr(item, "layer_id", None)
+        if layer_id is None:
+            continue
+        layer = scene.get_layer_by_id(layer_id)  # type: ignore[attr-defined]
+        # A locked layer is dropped here too (not just refused by name in the
+        # agent's arrange_object tool) so every GUI arrange surface -- Edit
+        # menu, context menu, Properties panel -- agrees with the agent: none
+        # of them can reorder an item the user locked against editing (issue
+        # #338 review round 3, P2).
+        if layer is None or layer.locked:
+            continue
+        eligible.append(item)
     if not eligible:
         return None, ArrangeOutcome.NOTHING_SELECTED
 

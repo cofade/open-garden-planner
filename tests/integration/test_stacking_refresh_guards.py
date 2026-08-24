@@ -193,10 +193,73 @@ class TestBulkReAddRefreshCount:
 
         canvas.command_manager.undo()
 
-        max_expected = len(scene.layers) + 1
+        # Two full passes, not one: the bulk-add scope's own deferred
+        # refresh runs first (before parent/child links are restored), and
+        # `undo()` unconditionally runs a second full `_update_items_z_order`
+        # afterward so a restored link's derived z is never stale -- see the
+        # P0 fix in `DeleteItemsCommand.undo` (issue #338 review round 3).
+        # Still O(1) passes regardless of item count, just not exactly one.
+        max_expected = 2 * (len(scene.layers) + 1)
         assert calls["n"] <= max_expected, (
             f"DeleteItemsCommand.undo re-adding {len(items)} items "
             f"triggered {calls['n']} per-layer z-refreshes; expected at "
-            f"most {max_expected}, not one per item re-added."
+            f"most {max_expected} (two full passes' worth), not one per "
+            "item re-added."
         )
         assert calls["n"] < len(items)
+
+
+# ---------------------------------------------------------------------------
+# (d) P1-1 (round 3): the suspended-scope rank cache seeds from the layer's
+#     real max rank, not from a re-added item's own rank
+# ---------------------------------------------------------------------------
+
+
+class TestSuspendedCacheSeedsFromLayerMax:
+    """Re-adding an already-ranked item mid-``suspend_z_refresh()`` scope,
+    when the per-layer rank cache has no entry yet for that layer, used to
+    seed the cache from just the re-added item's own rank. That collides
+    with OTHER items already in the layer -- untouched so far this scope --
+    that carry a *higher* rank than the re-added one: a layer holding ranks
+    1024/2048/3072, only the 1024 item removed and re-added, then an
+    unranked add would seed the cache to 1024 and hand out 2048, colliding
+    with the untouched 2048 item. The cache must seed from
+    ``CanvasScene._max_existing_rank`` instead.
+    """
+
+    def test_readd_low_rank_then_unranked_add_all_stay_distinct(
+        self, canvas: CanvasView
+    ) -> None:
+        scene = canvas.scene()
+        layer_id = scene.active_layer.id
+        low = _rect("low", 0, layer_id)
+        mid = _rect("mid", 150, layer_id)
+        high = _rect("high", 300, layer_id)
+        scene.addItem(low)
+        scene.addItem(mid)
+        scene.addItem(high)
+        assert (low.stack_order, mid.stack_order, high.stack_order) == (1024, 2048, 3072)
+
+        scene.removeItem(low)
+
+        with scene.suspend_z_refresh():
+            # Re-add the 1024-ranked item first -- the cache has no entry
+            # for this layer yet, so this is exactly the seeding call under
+            # test.
+            scene.addItem(low)
+            fresh = _rect("fresh", 450, layer_id)
+            scene.addItem(fresh)  # unranked -- must land above 3072, not 1024
+
+        ranks = {
+            "low": low.stack_order,
+            "mid": mid.stack_order,
+            "high": high.stack_order,
+            "fresh": fresh.stack_order,
+        }
+        assert fresh.stack_order is not None and fresh.stack_order > 3072, (
+            f"An unranked add sharing a suspended scope with a re-added "
+            f"low-rank item must still land above every existing rank in "
+            f"the layer (3072), not just above the re-added item's own "
+            f"rank (1024); got ranks={ranks}"
+        )
+        assert len(set(ranks.values())) == 4, f"All four ranks must be distinct; got {ranks}"

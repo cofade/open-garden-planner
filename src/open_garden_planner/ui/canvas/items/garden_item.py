@@ -340,8 +340,10 @@ class GardenItemMixin:
         ``None`` means "not yet ranked" — the scene derives its z-value from
         the normalized position and treats an unranked item as sorting to
         the top of its layer's band. Only ``CanvasScene.addItem`` (for a
-        never-ranked item), ``MoveToLayerCommand``, and ``ArrangeItemsCommand``
-        write this value; every other code path only reads it.
+        never-ranked item), ``MoveToLayerCommand``, ``ArrangeItemsCommand``,
+        and the post-load renumber (``CanvasScene._end_suspend_z_refresh``
+        with ``renumber=True``, used by ``ProjectManager.load``) write this
+        value; every other code path only reads it.
         """
         return self._stack_order
 

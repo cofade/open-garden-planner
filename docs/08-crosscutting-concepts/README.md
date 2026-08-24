@@ -1742,10 +1742,9 @@ practice.
    affected layer to `STACK_STEP` multiples in the new order; `undo` restores
    every snapshotted rank exactly (see 8.25.4).
 4. `CanvasScene.suspend_z_refresh(renumber=True)` — the one-time post-load renumber
-   (`ProjectManager.load` wraps its item-creation loop in that context manager around
-   its item-creation loop). This is what gives a file saved without
-   `stack_order` keys — an older app version — honest, evenly-spaced ranks
-   the first time the current app opens it.
+   (`ProjectManager.load` wraps its item-creation loop in that context manager).
+   This is what gives a file saved without `stack_order` keys — an older app
+   version — honest, evenly-spaced ranks the first time the current app opens it.
 
 A `layer_id` of `None` (no active layer at drop time, or a bare item without
 one) is ranked in its own pseudo-layer at base z 0 — the band such items
@@ -1797,7 +1796,12 @@ just above its bed, and if it is already there the arrange algorithm reports
 compares the candidate *after* normalization against the *already-normalized*
 input, so the clamp collapsing a move to a no-op is visible as exactly that).
 Group/Ungroup keep a member's `stack_order` unchanged across the transition —
-grouping and ungrouping is a reparent, not an arrange.
+grouping and ungrouping is a reparent, not an arrange. This is the one
+documented exception to the exact round-trip claimed in 8.25.1/FR-STACK-06:
+because an ungrouped member keeps its stale pre-group rank instead of being
+re-ranked into the current sequence, it can end up tied with an unrelated
+item created while the group existed, and that tie is broken by current
+scene order rather than by the original session's order.
 
 ### 8.25.4 Refresh rules
 
@@ -1835,7 +1839,11 @@ Beyond `addItem`'s automatic refresh, an **explicit** refresh is needed
 wherever an item becomes top-level or gets re-linked to a parent without
 going through `addItem`: `GroupCommand.undo`/`UngroupCommand.execute` (members
 leave the group), `_auto_parent_plant` and `SetParentBedCommand` (attach/
-detach a plant), and `DeleteItemsCommand.undo` (after re-linking children).
+detach a plant), and `DeleteItemsCommand.undo` — unconditionally, whenever it
+restored anything, not only when a bed's child list was touched: an undone
+PLANT delete restores `parent_bed_id` alone with no bed-side relink, and a
+flag gated on the child-relink branch missed that case and left the plant's
+z stale below its bed (issue #338 review round 3, P0).
 These call `core.commands._refresh_z_after_relink` (single item) or
 `scene._update_items_z_order()` (whole scene) — never an explicit z bump. The
 old `ensure_z_above_parent(child, parent)` helper — which raised a child's

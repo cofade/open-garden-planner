@@ -291,9 +291,25 @@ class CanvasScene(QGraphicsScene):
                 # "next" value) -- otherwise a later UNranked add in the same
                 # suspended scope could be assigned a lower rank than this
                 # one and sort out of order (review round 2, P2).
+                #
+                # Seeding an empty cache entry from just this item's own rank
+                # (as an earlier revision did) is wrong when OTHER items still
+                # in the layer -- untouched so far this scope -- already carry
+                # a higher rank than this one: e.g. a layer holding ranks
+                # 1024/2048/3072, only the 1024 item removed and re-added in
+                # this scope, then an unranked add would seed the cache to
+                # 1024 and hand out 2048, colliding with the untouched item
+                # that already has that rank (issue #338 review round 3,
+                # P1-1). Seed from the real per-layer max instead so a later
+                # unranked add in this scope always lands above every rank
+                # visible in the layer, not just the ones re-added so far.
                 cached = self._next_rank_cache.get(item.layer_id)
-                if cached is None or item.stack_order > cached:
-                    self._next_rank_cache[item.layer_id] = item.stack_order
+                base = (
+                    self._max_existing_rank(item.layer_id)
+                    if cached is None
+                    else cached
+                )
+                self._next_rank_cache[item.layer_id] = max(base, item.stack_order)
             if not self._suspend_z_refresh:
                 self._refresh_layer_z(item.layer_id)
 

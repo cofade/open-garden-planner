@@ -292,6 +292,52 @@ class TestNoOpOutcomes:
 
 
 # ---------------------------------------------------------------------------
+# A locked layer's items are dropped from the eligible set (issue #338
+# review round 3, P2) -- GUI parity with the agent's arrange_object refusal
+# on a locked layer.
+# ---------------------------------------------------------------------------
+
+
+class TestLockedLayerDropped:
+    def test_locked_layer_selection_is_dropped_and_nothing_pushed(
+        self, canvas: CanvasView, qtbot
+    ) -> None:
+        scene = canvas.scene()
+        layer_id = scene.active_layer.id
+        a = _rect("a", 0, 0, layer_id)
+        b = _rect("b", 20, 20, layer_id)
+        scene.addItem(a)
+        scene.addItem(b)
+
+        layer = scene.get_layer_by_id(layer_id)
+        assert layer is not None
+        layer.locked = True
+
+        command, outcome = build_arrange_command(
+            scene, [a, b], ArrangeMode.BRING_TO_FRONT
+        )
+        assert command is None, (
+            "build_arrange_command must drop every item on a locked layer, "
+            "the same way it drops journal pins and layer-less items."
+        )
+        assert outcome is ArrangeOutcome.NOTHING_SELECTED
+
+        can_undo_before = canvas.command_manager.can_undo
+        a.setSelected(True)
+        b.setSelected(True)
+        messages: list[str] = []
+        canvas.set_status_message = messages.append  # type: ignore[method-assign]
+
+        canvas.arrange_selected(ArrangeMode.BRING_TO_FRONT)
+
+        assert canvas.command_manager.can_undo == can_undo_before, (
+            "Arranging a selection that lives entirely on a locked layer "
+            "must not push an undo step."
+        )
+        assert messages == ["Select an object to arrange"]
+
+
+# ---------------------------------------------------------------------------
 # Multi-selection keeps relative order and becomes contiguous
 # ---------------------------------------------------------------------------
 
