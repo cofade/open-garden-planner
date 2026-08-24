@@ -3,6 +3,7 @@
 Handles project state, serialization, and file I/O.
 """
 
+import contextlib
 import json
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -1308,7 +1309,12 @@ class ProjectManager(QObject):
         if hasattr(scene, "layers"):
             layers = [layer.to_dict() for layer in scene.layers]
 
-        for item in scene.items():
+        # scene.items() is top-first (Qt's default stacking order). Writing
+        # bottom-to-top here (issue #338) is what makes the file's object
+        # order match what the user actually sees, so re-reading it back in
+        # file order (see _deserialize_to_scene) reproduces the same stack
+        # instead of inverting it -- see ADR-043 and §11.4.
+        for item in reversed(list(scene.items())):
             obj_data = self._serialize_item(item)
             if obj_data:
                 objects.append(obj_data)
@@ -1353,6 +1359,10 @@ class ProjectManager(QObject):
                 data["parent_bed_id"] = str(item.parent_bed_id)
             if item.child_item_ids:
                 data["child_item_ids"] = [str(cid) for cid in item.child_item_ids]
+            # Sparse stacking rank (issue #338); Arc/Bezier items add their
+            # own "stack_order" key in their own to_dict().
+            if item.stack_order is not None:
+                data["stack_order"] = item.stack_order
 
         return data
 
@@ -1692,16 +1702,41 @@ class ProjectManager(QObject):
                 # Create default layers if none exist (for backward compatibility)
                 scene.set_layers(create_default_layers())
 
-        # Create items
-        for obj in data.objects:
-            item = self._deserialize_item(obj)
-            if item:
-                scene.addItem(item)
+        # Create items inside suspend_z_refresh() (issue #338) so the whole
+        # loop does one deferred z-refresh instead of one per add, and
+        # renumbers every layer's ranks from its normalized order -- a file
+        # saved without "stack_order" keys (an older app version) gets
+        # honest ranks in file order on this first load. Using the context
+        # manager (rather than the old bare begin_bulk_load()/end_bulk_load()
+        # pair) means an exception partway through the deserialize loop
+        # cannot leave `_suspend_z_refresh` stuck True for the rest of the
+        # session -- its `finally` always resumes it and runs the one
+        # deferred refresh, even on failure (review round 2, P1-1). Scenes
+        # without the context manager (e.g. a plain QGraphicsScene test
+        # double) fall back to the un-suspended loop, exactly as before
+        # issue #338.
+        has_suspend_ctx = hasattr(scene, "suspend_z_refresh")
+        suspend_ctx = (
+            scene.suspend_z_refresh(renumber=True)
+            if has_suspend_ctx
+            else contextlib.nullcontext()
+        )
+        with suspend_ctx:
+            for obj in data.objects:
+                item = self._deserialize_item(obj)
+                if item:
+                    # _deserialize_item() already restored stack_order (for a
+                    # GardenItemMixin item) or Arc/Bezier's own from_dict did
+                    # (they aren't a GardenItemMixin) -- either way it's set
+                    # before addItem() so the per-add rank-assignment step is
+                    # a no-op for a ranked item and only fires for an
+                    # unranked one.
+                    scene.addItem(item)
 
         # Apply layer visibility/opacity/lock/z-order to all items now that they exist
         if hasattr(scene, "_update_items_visibility"):
             scene._update_items_visibility()
-        if hasattr(scene, "_update_items_z_order"):
+        if not has_suspend_ctx and hasattr(scene, "_update_items_z_order"):
             scene._update_items_z_order()
 
         # Load constraints if present
@@ -1728,8 +1763,6 @@ class ProjectManager(QObject):
             return None
 
         # Restore parent-child relationship fields
-        import contextlib
-
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         if isinstance(item, GardenItemMixin):
             if "parent_bed_id" in obj:
@@ -1740,6 +1773,12 @@ class ProjectManager(QObject):
                 for cid_str in obj["child_item_ids"]:
                     with contextlib.suppress(ValueError, TypeError):
                         item._child_item_ids.append(UUID(cid_str))
+            # Sparse stacking rank (issue #338). Missing key (older file) or
+            # a malformed value both leave it unset -- an unranked item
+            # simply sorts to the top of its layer's band.
+            if "stack_order" in obj:
+                with contextlib.suppress(ValueError, TypeError):
+                    item.stack_order = int(obj["stack_order"])
 
         return item
 
@@ -1773,7 +1812,6 @@ class ProjectManager(QObject):
         elif obj_type == "bezier":
             return BezierItem.from_dict(obj)
         elif obj_type == "group":
-            import contextlib
             from uuid import UUID as _UUID
 
             from open_garden_planner.ui.canvas.items.group_item import GroupItem
@@ -1974,8 +2012,6 @@ class ProjectManager(QObject):
                 item._apply_rotation(obj["rotation_angle"])
             # Restore plant category and species
             if "plant_category" in obj:
-                import contextlib
-
                 from open_garden_planner.core.plant_renderer import PlantCategory
                 with contextlib.suppress(KeyError):
                     item.plant_category = PlantCategory[obj["plant_category"]]

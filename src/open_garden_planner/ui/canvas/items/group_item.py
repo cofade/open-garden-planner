@@ -88,6 +88,9 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
         # Move to Layer submenu (hidden when project has only one layer)
         move_layer_menu = self._build_move_to_layer_menu(menu)
 
+        # Arrange submenu (Bring to Front / Forward / Send Backward / Back)
+        arrange_menu = self._build_arrange_menu(menu)
+
         action = menu.exec(event.screenPos())
         if action == ungroup_action:
             scene = self.scene()
@@ -97,3 +100,5 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
                     views[0].ungroup_item(self)
         elif move_layer_menu and action and action.parent() is move_layer_menu:
             self._dispatch_move_to_layer(action.data())
+        elif arrange_menu and action and action.parent() is arrange_menu:
+            self._dispatch_arrange(action.data())

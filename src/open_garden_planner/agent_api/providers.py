@@ -125,6 +125,16 @@ class AgentProviders:
             move. Takes ``(item_id, bed_id)``; runs one undoable
             ``SetParentBedCommand`` and returns a plain ``WriteResult``-shaped
             dict.
+        arrange_object: **Write (#338).** Reorders one object within its own
+            layer — bring to front, bring forward, send backward, or send to
+            back. Takes ``(item_id, action)`` where ``action`` is one of
+            ``"bring_to_front"``/``"bring_forward"``/``"send_backward"``/
+            ``"send_to_back"``; runs the one arrange command through the
+            shared ``ui.canvas.arrange.build_arrange_command`` seam and
+            returns a plain ``WriteResult``-shaped dict (its ``stack_index``
+            reports the resulting position). Raises when there is nothing to
+            change (already at the front/back, or no overlapping object to
+            step past) — mirroring ``set_parent_bed``'s no-op precedent.
     """
 
     snapshot: Callable[[], dict[str, Any]]
@@ -147,3 +157,4 @@ class AgentProviders:
     rotate_object: Callable[[str, float, bool], dict[str, Any]]
     set_species: Callable[[str, str | None, bool], dict[str, Any]]
     set_parent_bed: Callable[[str, str | None], dict[str, Any]]
+    arrange_object: Callable[[str, str], dict[str, Any]]

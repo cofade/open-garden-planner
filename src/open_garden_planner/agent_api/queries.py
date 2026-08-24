@@ -154,6 +154,43 @@ def _layer_names_by_id(snapshot: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def _stack_indices(objects: list[dict[str, Any]]) -> dict[str, int]:
+    """Map each object's ``item_id`` to its 0-based position within its layer.
+
+    ``objects`` must already be listed bottom→top — the order
+    ``ProjectManager.snapshot_dict``/``_serialize_scene`` writes them in since
+    issue #338 (``reversed(scene.items())``, which is top→bottom).
+
+    An object is eligible only when it carries BOTH a ``layer_id`` and a
+    ``stack_order`` key — the serialized-dict equivalent of
+    :func:`core.stacking.supports_stacking` (which the Qt side keys on
+    ``hasattr(item, "stack_order") and hasattr(item, "layer_id")``). A plain
+    ``layer_id`` check alone would be too loose: it would also count any
+    future ``layer_id`` carrier that the scene never actually ranks. A
+    journal pin IS eligible here — the scene assigns it a rank like any
+    other ``GardenItemMixin`` even though it's excluded from *arranging*
+    (``ui/canvas/arrange.py`` drops it before ``core.stacking.arrange`` ever
+    runs) — so it occupies a real slot in this ordering, just never as an
+    ``arrange_object`` target. An ineligible object is simply omitted, so a
+    lookup for one of those correctly returns ``None`` via ``.get()``.
+
+    Computed once per snapshot with a single pass (one counter per layer) so
+    building a whole page of :class:`~open_garden_planner.agent_api.schema.ObjectRef`
+    stays linear rather than counting each object's neighbours individually.
+    """
+    indices: dict[str, int] = {}
+    counters: dict[str, int] = {}
+    for obj in objects:
+        lid = obj.get("layer_id")
+        if not lid or "stack_order" not in obj:
+            continue
+        lid = str(lid)
+        idx = counters.get(lid, 0)
+        indices[str(obj.get("item_id", ""))] = idx
+        counters[lid] = idx + 1
+    return indices
+
+
 def _layer_matches(obj: dict[str, Any], layer_filter: str, names: dict[str, str]) -> bool:
     lid = str(obj.get("layer_id") or "")
     if not lid:
@@ -196,12 +233,17 @@ def _species_name(obj: dict[str, Any]) -> str | None:
 # --- object -> schema -------------------------------------------------------
 
 
-def _object_ref(obj: dict[str, Any], layer_names: dict[str, str]) -> ObjectRef:
+def _object_ref(
+    obj: dict[str, Any],
+    layer_names: dict[str, str],
+    stack_indices: dict[str, int],
+) -> ObjectRef:
     cx, cy = object_center(obj)
     _, _, w, h = object_bbox(obj)
     lid = str(obj.get("layer_id") or "")
+    item_id = str(obj.get("item_id", ""))
     return ObjectRef(
-        item_id=str(obj.get("item_id", "")),
+        item_id=item_id,
         type=str(obj.get("type", "")),
         object_type=obj.get("object_type"),
         name=obj.get("name"),
@@ -210,11 +252,16 @@ def _object_ref(obj: dict[str, Any], layer_names: dict[str, str]) -> ObjectRef:
         center_y_cm=cy,
         width_cm=w,
         height_cm=h,
+        stack_index=stack_indices.get(item_id) if lid else None,
     )
 
 
-def _object_detail(obj: dict[str, Any], layer_names: dict[str, str]) -> ObjectDetail:
-    ref = _object_ref(obj, layer_names)
+def _object_detail(
+    obj: dict[str, Any],
+    layer_names: dict[str, str],
+    stack_indices: dict[str, int],
+) -> ObjectDetail:
+    ref = _object_ref(obj, layer_names, stack_indices)
     return ObjectDetail(
         **ref.model_dump(),
         rotation_deg=float(obj.get("rotation_angle", obj.get("rotation", 0.0)) or 0.0),
@@ -253,8 +300,14 @@ def list_objects(
     parent: str | None = None,
     raw: bool = False,
 ) -> list[dict[str, Any]] | list[ObjectRef]:
-    """Enumerate top-level objects, optionally filtered by type/layer/parent."""
+    """Enumerate top-level objects, optionally filtered by type/layer/parent.
+
+    Objects are listed bottom→top in stacking order (layer order, then
+    position within the layer) — the same order :attr:`ObjectRef.stack_index`
+    is computed from.
+    """
     layer_names = _layer_names_by_id(snapshot)
+    stack_indices = _stack_indices(snapshot.get("objects") or [])
     out: list[Any] = []
     for obj in snapshot.get("objects") or []:
         if type is not None and not _type_matches(obj, type):
@@ -263,7 +316,7 @@ def list_objects(
             continue
         if parent is not None and not _has_parent(obj, parent):
             continue
-        out.append(obj if raw else _object_ref(obj, layer_names))
+        out.append(obj if raw else _object_ref(obj, layer_names, stack_indices))
     return out
 
 
@@ -274,7 +327,10 @@ def get_object(
     obj = _find(snapshot, item_id)
     if obj is None:
         return None
-    return obj if raw else _object_detail(obj, _layer_names_by_id(snapshot))
+    if raw:
+        return obj
+    stack_indices = _stack_indices(snapshot.get("objects") or [])
+    return _object_detail(obj, _layer_names_by_id(snapshot), stack_indices)
 
 
 def objects_in_region(
@@ -286,14 +342,19 @@ def objects_in_region(
     *,
     raw: bool = False,
 ) -> list[dict[str, Any]] | list[ObjectRef]:
-    """Objects whose bounding box intersects the rectangle ``(x, y, width, height)``."""
+    """Objects whose bounding box intersects the rectangle ``(x, y, width, height)``.
+
+    Listed bottom→top in stacking order (layer order, then position within
+    the layer) — same as :func:`list_objects`.
+    """
     rx0, ry0, rx1, ry1 = x, y, x + width, y + height
     layer_names = _layer_names_by_id(snapshot)
+    stack_indices = _stack_indices(snapshot.get("objects") or [])
     out: list[Any] = []
     for obj in snapshot.get("objects") or []:
         bx, by, bw, bh = object_bbox(obj)
         if bx <= rx1 and bx + bw >= rx0 and by <= ry1 and by + bh >= ry0:
-            out.append(obj if raw else _object_ref(obj, layer_names))
+            out.append(obj if raw else _object_ref(obj, layer_names, stack_indices))
     return out
 
 
@@ -303,8 +364,9 @@ def objects_in(
     """Objects whose ``parent_bed_id`` is ``parent_id`` (contents of a bed/container)."""
     target = str(parent_id)
     layer_names = _layer_names_by_id(snapshot)
+    stack_indices = _stack_indices(snapshot.get("objects") or [])
     out: list[Any] = [
-        obj if raw else _object_ref(obj, layer_names)
+        obj if raw else _object_ref(obj, layer_names, stack_indices)
         for obj in snapshot.get("objects") or []
         if _has_parent(obj, target)
     ]
@@ -317,8 +379,9 @@ def plants_in_bed(
     """Plant objects contained in the given bed/container."""
     target = str(bed_id)
     layer_names = _layer_names_by_id(snapshot)
+    stack_indices = _stack_indices(snapshot.get("objects") or [])
     out: list[Any] = [
-        obj if raw else _object_ref(obj, layer_names)
+        obj if raw else _object_ref(obj, layer_names, stack_indices)
         for obj in snapshot.get("objects") or []
         if _has_parent(obj, target)
         and obj.get("object_type") in _PLANT_TYPE_NAMES
@@ -337,6 +400,7 @@ def nearest_objects(
 ) -> list[dict[str, Any]] | list[ObjectRef]:
     """The ``k`` objects whose centres are closest to point ``(x, y)``."""
     layer_names = _layer_names_by_id(snapshot)
+    stack_indices = _stack_indices(snapshot.get("objects") or [])
     scored: list[tuple[float, dict[str, Any]]] = []
     for obj in snapshot.get("objects") or []:
         if type is not None and not _type_matches(obj, type):
@@ -345,7 +409,9 @@ def nearest_objects(
         scored.append((math.hypot(cx - x, cy - y), obj))
     scored.sort(key=lambda pair: pair[0])
     chosen = scored[:k] if k > 0 else []  # k<=0 returns none (k is a hard cap)
-    out: list[Any] = [obj if raw else _object_ref(obj, layer_names) for _, obj in chosen]
+    out: list[Any] = [
+        obj if raw else _object_ref(obj, layer_names, stack_indices) for _, obj in chosen
+    ]
     return out
 
 

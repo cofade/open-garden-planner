@@ -208,6 +208,31 @@ def _providers(view: CanvasView) -> AgentProviders:
             "link_is_geometric": link_is_geometric,
         }
 
+    def _arrange(item_id: str, action: str) -> dict[str, Any]:
+        """Stand-in mirroring the real provider's shape (one ArrangeItemsCommand).
+
+        Unlike _move/_delete above (which build their own Command directly),
+        this runs the REAL ``build_arrange_command`` seam — the one apply path
+        issue #338 introduced for every arrange surface — so a regression in
+        the seam itself, not just the transport, would show up here too.
+        """
+        from open_garden_planner.core.stacking import ArrangeMode
+        from open_garden_planner.ui.canvas.arrange import build_arrange_command
+
+        item = _resolve(item_id)
+        mode = ArrangeMode(action)
+        cmd, outcome = build_arrange_command(scene, [item], mode)
+        if cmd is None:
+            raise ValueError(f"{item_id}: {outcome.value}; nothing to change.")
+        view.command_manager.execute(cmd)
+        stack_order = scene._normalized_layer_order(item.layer_id)
+        return {
+            "item_id": item_id,
+            "action": "arrange",
+            "undo_description": cmd.description,
+            "stack_index": stack_order.index(item),
+        }
+
     def _boom(*_a: Any) -> dict[str, Any]:
         raise AssertionError("read provider must not run in this test")
 
@@ -237,6 +262,9 @@ def _providers(view: CanvasView) -> AgentProviders:
         ),
         set_parent_bed=lambda item_id, bed_id: bridge.run_on_main(
             lambda: _set_parent_bed(item_id, bed_id)
+        ),
+        arrange_object=lambda item_id, action: bridge.run_on_main(
+            lambda: _arrange(item_id, action)
         ),
     )
 
@@ -758,4 +786,157 @@ def test_unauthenticated_species_and_parent_bed_are_rejected(
     assert body.link_error is True  # type: ignore[attr-defined]
     assert plant.metadata.get("plant_species") is None
     assert plant.parent_bed_id is None
+    assert view.command_manager.can_undo is False
+
+
+# --- issue #338: arrange_object over the real transport ---------------------
+#
+# build_arrange_command (and every non-#338 caller of it) requires items to sit
+# on a REAL layer -- a bare item constructed without layer_id (as every other
+# test in this file does) is deliberately excluded from stacking (see
+# ui/canvas/arrange.py's eligibility filter), so these tests give both
+# rectangles the scene's active layer explicitly.
+
+
+def _add_overlapping_rects(scene: Any) -> tuple[Any, Any]:
+    """Two overlapping GARDEN_BED rectangles on the scene's active layer.
+
+    Added in order rect_a then rect_b, so rect_a starts at the BACK (lower
+    stacking rank) and rect_b at the FRONT -- the shape every arrange test
+    below needs to flip.
+    """
+    layer_id = scene.active_layer.id
+    rect_a = RectangleItem(
+        100, 100, 100, 100, object_type=ObjectType.GARDEN_BED, layer_id=layer_id
+    )
+    rect_b = RectangleItem(
+        150, 150, 100, 100, object_type=ObjectType.GARDEN_BED, layer_id=layer_id
+    )
+    scene.addItem(rect_a)
+    scene.addItem(rect_b)
+    assert list(scene._normalized_layer_order(layer_id)) == [rect_a, rect_b]
+    return rect_a, rect_b
+
+
+def test_unauthenticated_arrange_is_rejected(canvas: Any, qtbot: Any) -> None:
+    view = canvas
+    scene = view.scene()
+    rect_a, _rect_b = _add_overlapping_rects(scene)
+    layer_id = rect_a.layer_id
+    before_order = list(scene._normalized_layer_order(layer_id))
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        async with (
+            http_client(url) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "arrange_object",
+                {"item_id": str(rect_a.item_id), "action": "bring_to_front"},
+            )
+            body.is_error = call.isError  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.is_error is True  # type: ignore[attr-defined]
+    assert list(scene._normalized_layer_order(layer_id)) == before_order
+    assert view.command_manager.can_undo is False
+
+
+def test_arrange_object_bring_to_front_end_to_end(canvas: Any, qtbot: Any) -> None:
+    """US-338: an authenticated arrange_object call on the BACK item of two
+    overlapping rects flips their z order, in exactly one undo step."""
+    view = canvas
+    scene = view.scene()
+    rect_a, rect_b = _add_overlapping_rects(scene)
+    layer_id = rect_a.layer_id
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "arrange_object",
+                {"item_id": str(rect_a.item_id), "action": "bring_to_front"},
+            )
+            body.result = call.structuredContent  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    result = body.result  # type: ignore[attr-defined]
+    assert result["action"] == "arrange"
+    assert result["stack_index"] == 1
+    # rect_a is now the FRONT item of the two -- the z order flipped.
+    assert list(scene._normalized_layer_order(layer_id)) == [rect_b, rect_a]
+    assert rect_a.zValue() > rect_b.zValue()
+
+    assert view.command_manager.can_undo
+    view.command_manager.undo()
+    assert list(scene._normalized_layer_order(layer_id)) == [rect_a, rect_b]
+    assert view.command_manager.can_undo is False
+
+
+def test_arrange_object_second_identical_call_refuses(canvas: Any, qtbot: Any) -> None:
+    """Once at the front, a second bring_to_front is a no-op refusal that
+    pushes nothing to the undo stack -- the first call's step is the only one."""
+    view = canvas
+    scene = view.scene()
+    rect_a, _rect_b = _add_overlapping_rects(scene)
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            first = await session.call_tool(
+                "arrange_object",
+                {"item_id": str(rect_a.item_id), "action": "bring_to_front"},
+            )
+            second = await session.call_tool(
+                "arrange_object",
+                {"item_id": str(rect_a.item_id), "action": "bring_to_front"},
+            )
+            body.first_error = first.isError  # type: ignore[attr-defined]
+            body.second_error = second.isError  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.first_error is not True  # type: ignore[attr-defined]
+    assert body.second_error is True  # type: ignore[attr-defined]
+    # The first call pushed exactly one undo step; the refused second pushed none.
+    assert view.command_manager.can_undo
+    view.command_manager.undo()
     assert view.command_manager.can_undo is False

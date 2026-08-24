@@ -203,3 +203,18 @@ Added 2026-08-18 (Package 3c, #310), same contract and normalizer:
   silently returned `None`)
 - `partly_cloudy.svg` — sun with three rays behind a cloud (weather card;
   Tabler v3.45.0 has no `cloud-sun`)
+
+Added 2026-08-23 (issue #338, per-object stacking order), same contract and
+normalizer — two offset squares (align_*-style), accent on the square that
+moves, chevrons indicating the step:
+
+- `arrange.svg` — two offset squares, the front one accented (Edit ▸
+  Arrange submenu icon; no chevron)
+- `arrange_front.svg` — front square accented, double chevron pointing up
+  (Bring to Front)
+- `arrange_forward.svg` — back square accented, single chevron pointing up
+  (Bring Forward)
+- `arrange_backward.svg` — front square accented, single chevron pointing
+  down (Send Backward)
+- `arrange_back.svg` — back square accented, double chevron pointing down
+  (Send to Back)

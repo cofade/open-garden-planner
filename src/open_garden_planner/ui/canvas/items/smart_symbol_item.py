@@ -63,18 +63,19 @@ class SmartSymbolItem(GroupItem):
         silently drop the parametric identity (not undoable as a symbol), so it
         is suppressed; only Move to Layer is offered.
         """
-        from PyQt6.QtCore import QCoreApplication
         from PyQt6.QtWidgets import QMenu
 
         menu = QMenu()
         move_layer_menu = self._build_move_to_layer_menu(menu)
-        if menu.isEmpty():
-            menu.addAction(
-                QCoreApplication.translate("SmartSymbolItem", "Smart symbol")
-            ).setEnabled(False)
+        # Arrange submenu (Bring to Front / Forward / Send Backward / Back) —
+        # always built, so the menu is never empty (the old isEmpty() guard
+        # that papered over a single-layer project is dead now).
+        arrange_menu = self._build_arrange_menu(menu)
         action = menu.exec(event.screenPos())
         if move_layer_menu and action and action.parent() is move_layer_menu:
             self._dispatch_move_to_layer(action.data())
+        elif arrange_menu and action and action.parent() is arrange_menu:
+            self._dispatch_arrange(action.data())
 
     # ── Geometry ────────────────────────────────────────────────────────────
     def _definition(self):

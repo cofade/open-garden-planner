@@ -303,6 +303,10 @@ def build_server(
     ) -> list[dict[str, Any]] | list[ObjectRef]:
         """List the plan's top-level objects, newest filters applied.
 
+        Objects are listed bottom→top in stacking order (layer order first,
+        then position within the layer) — the same order ObjectRef.stack_index
+        is computed from. (get_diagnostics is NOT in this order.)
+
         Args:
             type: Optional filter — an ObjectType name ('TREE', 'RAISED_BED'), a
                 category ('bed', 'plant', 'shape'), or a geometry kind ('circle').
@@ -322,6 +326,10 @@ def build_server(
     ) -> dict[str, Any] | ObjectDetail | None:
         """Return full detail for one object by its UUID, or null if not found.
 
+        The result's stack_index is its 0-based position within its layer,
+        bottom→top, as displayed — compare it only against other objects on
+        the same layer.
+
         Args:
             item_id: The object's stable UUID.
             raw: If true, return the underlying serialiser dict instead of the
@@ -335,6 +343,9 @@ def build_server(
         x: float, y: float, width: float, height: float, raw: bool = False
     ) -> list[dict[str, Any]] | list[ObjectRef]:
         """Objects whose bounding box intersects a rectangle (scene cm).
+
+        Listed bottom→top in stacking order (layer order first, then position
+        within the layer), same as list_objects.
 
         Args:
             x: West (minimum-x) edge of the query rectangle, in scene cm.
@@ -409,7 +420,9 @@ def build_server(
         """Report the plan's current warnings (the same ones shown as canvas badges).
 
         Covers companion conflicts, spacing overlaps, soil/pH mismatches,
-        container capacity overruns, and crop-rotation conflicts.
+        container capacity overruns, and crop-rotation conflicts. Unlike
+        list_objects/objects_in_region/get_object, these are NOT listed in
+        stacking order.
 
         Args:
             kind: Optional filter — one of 'companion_conflict', 'spacing_overlap',
@@ -856,6 +869,47 @@ def build_server(
             _require_write_auth(write_token)
             result = await anyio.to_thread.run_sync(
                 lambda: providers.set_parent_bed(item_id, bed_id)
+            )
+            return WriteResult(**result)
+
+        # --- issue #338: stacking order -------------------------------------
+
+        @mcp.tool()
+        async def arrange_object(
+            item_id: str,
+            action: Literal[
+                "bring_to_front", "bring_forward", "send_backward", "send_to_back"
+            ],
+        ) -> WriteResult:
+            """Bring to front / bring forward / send backward / send to back.
+
+            Reorders one object within its OWN layer only — never across
+            layers. 'bring_to_front'/'send_to_back' move it to the top/bottom
+            of its layer; 'bring_forward'/'send_backward' step it past the
+            single nearest object in its layer whose bounding box OVERLAPS it
+            (a non-overlapping neighbour is skipped entirely).
+
+            A bed/container carries its contained plants along as one block
+            (their relative order among themselves is kept), and a plant can
+            never be arranged below its own bed — 'send_to_back'/
+            'send_backward' on a lone plant stops just above its bed rather
+            than reaching further down, which correctly reports as a refusal
+            ("already at back") when the plant is already there.
+
+            Fails (raises, nothing changed) when the object is already at the
+            front/back of its layer, or when bring_forward/send_backward finds
+            no overlapping object to step past. Also fails, like every D2
+            write tool, if the object is on a locked layer, is a journal pin,
+            or is a member of a group. Exactly one undo step.
+
+            Args:
+                item_id: The object's stable UUID (from list_objects/get_object).
+                action: One of 'bring_to_front', 'bring_forward',
+                    'send_backward', 'send_to_back'.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.arrange_object(item_id, action)
             )
             return WriteResult(**result)
 

@@ -53,17 +53,30 @@ def _show_properties_dialog(item: QGraphicsEllipseItem) -> None:
             if hasattr(item, '_update_label'):
                 item._update_label()  # type: ignore[attr-defined]
 
-        # Apply layer change
+        # Apply layer change — consolidated onto MoveToLayerCommand (issue
+        # #338); z is derived from the scene's normalized stacking order,
+        # not set directly here.
         if hasattr(item, 'layer_id'):
             new_layer_id = dialog.get_layer_id()
-            if new_layer_id is not None:
-                item.layer_id = new_layer_id
-                # Update z-order based on new layer
+            if new_layer_id is not None and new_layer_id != item.layer_id:
+                from open_garden_planner.core.commands import MoveToLayerCommand
+
                 scene = item.scene()
-                if scene and hasattr(scene, 'get_layer_by_id'):
-                    layer = scene.get_layer_by_id(new_layer_id)
-                    if layer:
-                        item.setZValue(layer.z_order * 100)
+                if scene is not None:
+                    target_layer = (
+                        scene.get_layer_by_id(new_layer_id)
+                        if hasattr(scene, 'get_layer_by_id')
+                        else None
+                    )
+                    layer_name = target_layer.name if target_layer else str(new_layer_id)
+                    cmd = MoveToLayerCommand([item], new_layer_id, scene, layer_name)
+                    command_manager = getattr(scene, '_command_manager', None)
+                    if command_manager:
+                        command_manager.execute(cmd)
+                    else:
+                        cmd.execute()
+                else:
+                    item.layer_id = new_layer_id
 
         # Apply object type change (updates styling)
         new_object_type = dialog.get_object_type()
@@ -847,6 +860,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # Move to Layer submenu (hidden when project has only one layer)
         move_layer_menu = self._build_move_to_layer_menu(menu)
 
+        # Arrange submenu (Bring to Front / Forward / Send Backward / Back)
+        arrange_menu = self._build_arrange_menu(menu)
+
         # Change Type submenu
         from open_garden_planner.core.object_types import get_valid_types_for_shape
         change_type_menu = self._build_change_type_menu(menu, get_valid_types_for_shape("circle"))
@@ -1002,6 +1018,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                         break
         elif move_layer_menu and action and action.parent() is move_layer_menu:
             self._dispatch_move_to_layer(action.data())
+        elif arrange_menu and action and action.parent() is arrange_menu:
+            self._dispatch_arrange(action.data())
         elif change_type_menu and action and action.parent() is change_type_menu:
             self._dispatch_change_type(action.data())
 

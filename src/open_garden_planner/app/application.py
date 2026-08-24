@@ -1039,6 +1039,94 @@ class GardenPlannerApp(QMainWindow):
             "link_is_geometric": link_is_geometric,
         }
 
+    # --- issue #338: arrange (stacking order) -------------------------------
+
+    def _agent_arrange_object(self, item_id: str, action: str) -> dict[str, Any]:
+        """Arrange one object within its layer ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_arrange_object(item_id, action)
+        )
+
+    def _do_agent_arrange_object(self, item_id: str, action: str) -> dict[str, Any]:
+        """Main-thread body of ``arrange_object`` — one undoable step (#338).
+
+        Routes through ``ui.canvas.arrange.build_arrange_command`` — the ONE
+        apply seam every arrange surface shares (Edit menu, context menu,
+        Properties panel buttons, and this tool). That seam already carries a
+        bed's contained plants along as one block and clamps a plant so it can
+        never sit below its own bed; duplicating that logic here instead of
+        calling the seam would be exactly the kind of second implementation
+        the seam exists to prevent (see ``ui/canvas/arrange.py``'s docstring).
+
+        ``_resolve_agent_item`` supplies the shared group-member / journal-pin
+        / locked-layer refusals. On top of those, this refuses (raises)
+        whenever the arrange gesture would be a no-op: already at the
+        front/back of the layer, or no overlapping object to step past for
+        bring_forward/send_backward — mirroring the ``set_parent_bed``
+        no-op precedent rather than silently reporting success for nothing.
+        """
+        from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
+        from open_garden_planner.ui.canvas.arrange import build_arrange_command
+
+        try:
+            mode = ArrangeMode(action)
+        except ValueError as exc:
+            allowed = ", ".join(m.value for m in ArrangeMode)
+            raise ValueError(
+                f"{action!r} is not a valid arrange action; must be one of "
+                f"{allowed}."
+            ) from exc
+
+        item = self._resolve_agent_item(item_id)
+
+        cmd, outcome = build_arrange_command(self.canvas_scene, [item], mode)
+        if cmd is None:
+            messages = {
+                ArrangeOutcome.ALREADY_AT_FRONT: (
+                    f"{item_id} is already at the front of its layer; "
+                    "nothing to change."
+                ),
+                ArrangeOutcome.ALREADY_AT_BACK: (
+                    f"{item_id} is already at the back of its layer; "
+                    "nothing to change."
+                ),
+                ArrangeOutcome.NO_OVERLAP_ABOVE: (
+                    f"{item_id} has no overlapping object in front of it in "
+                    "its layer; nothing to change."
+                ),
+                ArrangeOutcome.NO_OVERLAP_BELOW: (
+                    f"{item_id} has no overlapping object behind it in its "
+                    "layer; nothing to change."
+                ),
+                ArrangeOutcome.NOTHING_SELECTED: (
+                    f"{item_id} is not on an arrangeable layer; nothing to "
+                    "change."
+                ),
+            }
+            raise ValueError(messages[outcome])
+
+        self.canvas_view.command_manager.execute(cmd)
+
+        cx, cy = self._agent_item_center(item)
+        # Reuse the EXACT same derivation the read tools (get_object/
+        # list_objects) use for ObjectRef.stack_index, instead of a second,
+        # independent one over the live scene -- the two could otherwise
+        # silently drift apart (issue #338 review round 2, P1-3). See
+        # agent_api.queries.get_object / _stack_indices.
+        from open_garden_planner.agent_api import queries
+
+        snapshot = self._project_manager.snapshot_dict(self.canvas_scene)
+        detail = queries.get_object(snapshot, item_id)
+        stack_index = detail.stack_index if detail is not None else None
+        return {
+            "item_id": item_id,
+            "action": "arrange",
+            "undo_description": cmd.description,
+            "x": cx,
+            "y": cy,
+            "stack_index": stack_index,
+        }
+
     def _agent_resolve_plant(self, item_id: str, tool_name: str) -> Any:
         """``_resolve_agent_item`` plus "and it must be a plant".
 
@@ -1175,6 +1263,7 @@ class GardenPlannerApp(QMainWindow):
             rotate_object=self._agent_rotate_object,
             set_species=self._agent_set_species,
             set_parent_bed=self._agent_set_parent_bed,
+            arrange_object=self._agent_arrange_object,
         )
         writes_enabled = settings.agent_api_writes_enabled
         # Only read (and thus auto-generate) the token when writes are on, so a
@@ -1603,6 +1692,54 @@ class GardenPlannerApp(QMainWindow):
         dist_v.triggered.connect(self._on_distribute_vertical)
         self._set_action_icon(dist_v, "distribute_v")
         align_menu.addAction(dist_v)
+
+        # Arrange submenu (#338) — stacking order within a layer
+        arrange_menu = menu.addMenu(self.tr("Arra&nge"))
+        self._set_action_icon(arrange_menu.menuAction(), "arrange")
+
+        self._arrange_front_action = QAction(self.tr("Bring to &Front"), self)
+        self._arrange_front_action.setShortcuts(
+            [QKeySequence("Ctrl+Shift+]"), QKeySequence("Ctrl+Shift+Up")]
+        )
+        self._arrange_front_action.setStatusTip(
+            self.tr("Bring the selected objects to the front of their layer")
+        )
+        self._arrange_front_action.triggered.connect(self._on_arrange_front)
+        self._set_action_icon(self._arrange_front_action, "arrange_front")
+        arrange_menu.addAction(self._arrange_front_action)
+
+        self._arrange_forward_action = QAction(self.tr("Bring F&orward"), self)
+        self._arrange_forward_action.setShortcuts(
+            [QKeySequence("Ctrl+]"), QKeySequence("Ctrl+Up")]
+        )
+        self._arrange_forward_action.setStatusTip(
+            self.tr("Bring the selected objects one step forward")
+        )
+        self._arrange_forward_action.triggered.connect(self._on_arrange_forward)
+        self._set_action_icon(self._arrange_forward_action, "arrange_forward")
+        arrange_menu.addAction(self._arrange_forward_action)
+
+        self._arrange_backward_action = QAction(self.tr("Send Back&ward"), self)
+        self._arrange_backward_action.setShortcuts(
+            [QKeySequence("Ctrl+["), QKeySequence("Ctrl+Down")]
+        )
+        self._arrange_backward_action.setStatusTip(
+            self.tr("Send the selected objects one step backward")
+        )
+        self._arrange_backward_action.triggered.connect(self._on_arrange_backward)
+        self._set_action_icon(self._arrange_backward_action, "arrange_backward")
+        arrange_menu.addAction(self._arrange_backward_action)
+
+        self._arrange_back_action = QAction(self.tr("Send to &Back"), self)
+        self._arrange_back_action.setShortcuts(
+            [QKeySequence("Ctrl+Shift+["), QKeySequence("Ctrl+Shift+Down")]
+        )
+        self._arrange_back_action.setStatusTip(
+            self.tr("Send the selected objects to the back of their layer")
+        )
+        self._arrange_back_action.triggered.connect(self._on_arrange_back)
+        self._set_action_icon(self._arrange_back_action, "arrange_back")
+        arrange_menu.addAction(self._arrange_back_action)
 
         menu.addSeparator()
 
@@ -4862,6 +4999,26 @@ class GardenPlannerApp(QMainWindow):
         """Distribute selected objects with equal vertical spacing."""
         from open_garden_planner.core.alignment import DistributeMode
         self.canvas_view.distribute_selected(DistributeMode.VERTICAL)
+
+    def _on_arrange_front(self) -> None:
+        """Bring the selected objects to the front of their layer."""
+        from open_garden_planner.core.stacking import ArrangeMode
+        self.canvas_view.arrange_selected(ArrangeMode.BRING_TO_FRONT)
+
+    def _on_arrange_forward(self) -> None:
+        """Bring the selected objects one step forward."""
+        from open_garden_planner.core.stacking import ArrangeMode
+        self.canvas_view.arrange_selected(ArrangeMode.BRING_FORWARD)
+
+    def _on_arrange_backward(self) -> None:
+        """Send the selected objects one step backward."""
+        from open_garden_planner.core.stacking import ArrangeMode
+        self.canvas_view.arrange_selected(ArrangeMode.SEND_BACKWARD)
+
+    def _on_arrange_back(self) -> None:
+        """Send the selected objects to the back of their layer."""
+        from open_garden_planner.core.stacking import ArrangeMode
+        self.canvas_view.arrange_selected(ArrangeMode.SEND_TO_BACK)
 
     def _on_zoom_in(self) -> None:
         """Handle zoom in action."""

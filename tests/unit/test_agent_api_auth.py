@@ -45,6 +45,7 @@ def _stub_providers() -> AgentProviders:
         rotate_object=_boom,
         set_species=_boom,
         set_parent_bed=_boom,
+        arrange_object=_boom,
     )
 
 
@@ -94,6 +95,7 @@ WRITE_TOOL_NAMES = frozenset(
         "rotate_object",
         "set_species",
         "set_parent_bed",
+        "arrange_object",
     }
 )
 

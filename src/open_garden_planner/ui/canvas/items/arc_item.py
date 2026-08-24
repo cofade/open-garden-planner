@@ -83,6 +83,7 @@ class ArcItem(CurveEditMixin, QGraphicsPathItem):
         )
         self._name = name
         self._layer_id = layer_id
+        self._stack_order: int | None = None  # Sparse rank within layer_id (issue #338)
         self._stroke_color: QColor = QColor(_ARC_DEFAULT_COLOR)
         self._stroke_width: float = _ARC_DEFAULT_PEN_WIDTH
 
@@ -134,6 +135,15 @@ class ArcItem(CurveEditMixin, QGraphicsPathItem):
     @layer_id.setter
     def layer_id(self, value: uuid.UUID | None) -> None:
         self._layer_id = value
+
+    @property
+    def stack_order(self) -> int | None:
+        """Sparse sort-key rank within this item's layer (issue #338)."""
+        return self._stack_order
+
+    @stack_order.setter
+    def stack_order(self, value: int | None) -> None:
+        self._stack_order = value
 
     @property
     def stroke_color(self) -> QColor:
@@ -352,6 +362,8 @@ class ArcItem(CurveEditMixin, QGraphicsPathItem):
             data["name"] = self._name
         if self._layer_id is not None:
             data["layer_id"] = str(self._layer_id)
+        if self._stack_order is not None:
+            data["stack_order"] = self._stack_order
         data["stroke_color"] = self._stroke_color.name(QColor.NameFormat.HexArgb)
         data["stroke_width"] = self._stroke_width
         return data
@@ -384,4 +396,7 @@ class ArcItem(CurveEditMixin, QGraphicsPathItem):
             item.stroke_color = QColor(data["stroke_color"])
         if "stroke_width" in data:
             item.stroke_width = float(data["stroke_width"])
+        if "stack_order" in data:
+            with contextlib.suppress(ValueError, TypeError):
+                item.stack_order = int(data["stack_order"])
         return item

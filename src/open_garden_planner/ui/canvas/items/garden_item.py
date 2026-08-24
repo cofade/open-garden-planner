@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
+from open_garden_planner.core.stacking import ArrangeMode
 
 
 @dataclass(slots=True)
@@ -206,6 +207,7 @@ class GardenItemMixin:
         self._stroke_width = stroke_width
         self._stroke_style = stroke_style
         self._layer_id = layer_id
+        self._stack_order: int | None = None  # Sparse rank within layer_id (issue #338)
         self._label_visible = True  # Per-object label visibility
         self._global_labels_visible = True  # Global label visibility (set by scene)
         self._shadows_enabled = True  # Painted shadow on/off
@@ -330,6 +332,25 @@ class GardenItemMixin:
     def layer_id(self, value: uuid.UUID | None) -> None:
         """Set the layer ID."""
         self._layer_id = value
+
+    @property
+    def stack_order(self) -> int | None:
+        """Sparse sort-key rank within this item's layer (issue #338).
+
+        ``None`` means "not yet ranked" — the scene derives its z-value from
+        the normalized position and treats an unranked item as sorting to
+        the top of its layer's band. Only ``CanvasScene.addItem`` (for a
+        never-ranked item), ``MoveToLayerCommand``, ``ArrangeItemsCommand``,
+        and the post-load renumber (``CanvasScene._end_suspend_z_refresh``
+        with ``renumber=True``, used by ``ProjectManager.load``) write this
+        value; every other code path only reads it.
+        """
+        return self._stack_order
+
+    @stack_order.setter
+    def stack_order(self, value: int | None) -> None:
+        """Set the sparse rank. See :attr:`stack_order` for who may call this."""
+        self._stack_order = value
 
     @property
     def shadows_enabled(self) -> bool:
@@ -1232,6 +1253,105 @@ class GardenItemMixin:
             scene._command_manager.execute(cmd)  # type: ignore[attr-defined]
         else:
             cmd.execute()  # graceful fallback (e.g. in unit tests without CanvasView)
+
+    # ------------------------------------------------------------------
+    # Stacking-order helpers (shared by all item context menus, issue #338)
+    # ------------------------------------------------------------------
+
+    def _build_arrange_menu(self, parent_menu: "QMenu") -> "QMenu":
+        """Append an 'Arrange' submenu to *parent_menu* and return it.
+
+        Unlike ``_build_move_to_layer_menu`` this is always built — stacking
+        order is meaningful for every layered item, even with a single layer.
+        """
+        from PyQt6.QtCore import QCoreApplication
+        from PyQt6.QtWidgets import QMenu
+
+        from open_garden_planner.ui.icons import get_icon
+
+        label = QCoreApplication.translate("ArrangeActions", "Arrange")
+        arrange_menu: QMenu = parent_menu.addMenu(label)
+        submenu_icon = get_icon("arrange")
+        if submenu_icon is not None:
+            arrange_menu.setIcon(submenu_icon)
+
+        entries = (
+            (
+                ArrangeMode.BRING_TO_FRONT,
+                QCoreApplication.translate("ArrangeActions", "Bring to Front"),
+                "arrange_front",
+            ),
+            (
+                ArrangeMode.BRING_FORWARD,
+                QCoreApplication.translate("ArrangeActions", "Bring Forward"),
+                "arrange_forward",
+            ),
+            (
+                ArrangeMode.SEND_BACKWARD,
+                QCoreApplication.translate("ArrangeActions", "Send Backward"),
+                "arrange_backward",
+            ),
+            (
+                ArrangeMode.SEND_TO_BACK,
+                QCoreApplication.translate("ArrangeActions", "Send to Back"),
+                "arrange_back",
+            ),
+        )
+        for mode, text, icon_name in entries:
+            action = arrange_menu.addAction(text)
+            action.setData(mode)
+            icon = get_icon(icon_name)
+            if icon is not None:
+                action.setIcon(icon)
+        return arrange_menu
+
+    def _dispatch_arrange(self, mode: ArrangeMode) -> None:
+        """Arrange the selected items (or just *self*) within their layer(s).
+
+        Same selection-or-self rule as ``_dispatch_move_to_layer`` — and,
+        like it, must NEVER mutate the live scene selection as a side effect
+        (review round 2, P2: the old version cleared the selection and
+        selected *self* just so ``CanvasView.arrange_selected`` — which
+        re-reads ``scene.selectedItems()`` itself rather than taking items as
+        an argument — would have something to act on).
+
+        When the selection is non-empty, delegate to
+        ``CanvasView.arrange_selected`` so that method stays the ONE place
+        that writes the arrange status messages (see ``ui/canvas/arrange.py``
+        — never duplicate those strings here). When nothing is selected,
+        *self* is the target: build and execute directly instead of forcing
+        a selection change through the view just to make it act on *self*.
+        The direct path is also what a unit test without a ``CanvasView``
+        falls into.
+        """
+        scene = self.scene()  # type: ignore[attr-defined]
+        if not scene:
+            return
+        selected = [i for i in scene.selectedItems() if hasattr(i, "layer_id")]
+
+        if selected:
+            view = next(
+                (v for v in scene.views() if hasattr(v, "arrange_selected")), None
+            )
+            if view is not None:
+                view.arrange_selected(mode)
+                return
+
+        from open_garden_planner.ui.canvas.arrange import build_arrange_command
+
+        items = selected or [self]
+        cmd, _outcome = build_arrange_command(scene, items, mode)
+        if cmd is None:
+            return  # no-op refusal: outcome messages live only in CanvasView.arrange_selected
+        if scene._command_manager:  # type: ignore[attr-defined]
+            scene._command_manager.execute(cmd)  # type: ignore[attr-defined]
+        else:
+            cmd.execute()  # graceful fallback (e.g. in unit tests without CanvasView)
+        status_view = next(
+            (v for v in scene.views() if hasattr(v, "set_status_message")), None
+        )
+        if status_view is not None:
+            status_view.set_status_message(cmd.description)
 
     # ------------------------------------------------------------------
     # Type-change helpers (shared by all item context menus)

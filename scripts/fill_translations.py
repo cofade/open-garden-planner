@@ -2770,6 +2770,67 @@ for _ctx, _strings in _P3C_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── Per-object stacking order: Arrange menu / context menu / Properties
+#    panel / undo descriptions (#338) ──────────────────────────────────────
+_ARRANGE_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "Commands": {
+        "Bring {count} item(s) to front": "{count} Objekt(e) ganz nach vorn",
+        "Bring {count} item(s) forward": "{count} Objekt(e) weiter nach vorn",
+        "Send {count} item(s) backward": "{count} Objekt(e) weiter nach hinten",
+        "Send {count} item(s) to back": "{count} Objekt(e) ganz nach hinten",
+    },
+    "CanvasView": {
+        "Select an object to arrange": "Ein Objekt zum Anordnen auswählen",
+        "Already at front": "Bereits ganz vorn",
+        "Already at back": "Bereits ganz hinten",
+        "No overlapping object in front": "Kein überlappendes Objekt davor",
+        "No overlapping object behind": "Kein überlappendes Objekt dahinter",
+    },
+    "ArrangeActions": {
+        "Arrange": "Anordnen",
+        "Bring to Front": "Ganz nach vorn",
+        "Bring Forward": "Weiter nach vorn",
+        "Send Backward": "Weiter nach hinten",
+        "Send to Back": "Ganz nach hinten",
+    },
+    "GardenPlannerApp": {
+        # German Edit-menu mnemonics must stay unique per menu (gated by
+        # tests/integration/test_icon_system.py::test_menu_mnemonics_are_unique_per_language):
+        # Edit menu top level already uses R/W/s/K/E/u/L/A/c/g/h/n (plus a
+        # space from the "Ausrichten && &Verteilen" && quirk) — &Anordnen
+        # picks the free letter 'o'. Inside the Arrange submenu, the four
+        # action mnemonics only need to be unique among themselves (v/w/h/i).
+        "Arra&nge": "An&ordnen",
+        "Bring to &Front": "Ganz nach &vorn",
+        "Bring the selected objects to the front of their layer": "Ausgewählte Objekte ganz nach vorn bringen",
+        "Bring F&orward": "&Weiter nach vorn",
+        "Bring the selected objects one step forward": "Ausgewählte Objekte einen Schritt nach vorn bringen",
+        "Send Back&ward": "Weiter nach &hinten",
+        "Send the selected objects one step backward": "Ausgewählte Objekte einen Schritt nach hinten bringen",
+        "Send to &Back": "Ganz nach h&inten",
+        "Send the selected objects to the back of their layer": "Ausgewählte Objekte ganz nach hinten bringen",
+    },
+    "ShortcutsDialog": {
+        "Up": "Auf",
+        "Down": "Ab",
+        "Bring to Front": "Ganz nach vorn",
+        "Bring Forward": "Weiter nach vorn",
+        "Send Backward": "Weiter nach hinten",
+        "Send to Back": "Ganz nach hinten",
+    },
+    "PropertiesPanel": {
+        "Arrange": "Anordnen",
+        "Bring to Front": "Ganz nach vorn",
+        "Bring Forward": "Weiter nach vorn",
+        "Send Backward": "Weiter nach hinten",
+        "Send to Back": "Ganz nach hinten",
+    },
+}
+
+for _ctx, _strings in _ARRANGE_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)

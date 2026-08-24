@@ -90,6 +90,7 @@ def _providers(scene: Any) -> AgentProviders:
         rotate_object=lambda *_a: _unused("rotate_object"),
         set_species=lambda *_a: _unused("set_species"),
         set_parent_bed=lambda *_a: _unused("set_parent_bed"),
+        arrange_object=lambda *_a: _unused("arrange_object"),
     )
 
 

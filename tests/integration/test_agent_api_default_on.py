@@ -1427,23 +1427,32 @@ def test_set_parent_bed_reports_a_non_geometric_link(
 def test_set_parent_bed_detaches_and_restores_the_original_z(
     qtbot: Any, monkeypatch: Any
 ) -> None:
-    """SetParentBedCommand snapshots zValue so undo restores the USER's z, not
-    a recomputed one -- pinned here because the agent is now a caller of it."""
+    """Linking never rewrites the plant's stacking rank (issue #338): while
+    linked, the derive-only clamp lifts the plant above its bed; detaching
+    drops it back to EXACTLY the z it had before -- pinned here because the
+    agent is a caller of SetParentBedCommand."""
     _discard_on_close(monkeypatch)
     win = GardenPlannerApp()
     qtbot.addWidget(win)
     try:
-        bed = _add_bed(win)
+        # Plant first so its rank is BELOW the bed's -- the clamp has work to do.
         plant = _add_tree(win)
-        plant.setZValue(42.0)
+        bed = _add_bed(win)
+        rank_before = plant.stack_order
+        z_before = plant.zValue()
+        assert z_before < bed.zValue()
 
         win._do_agent_set_parent_bed(str(plant.item_id), str(bed.item_id))
+        assert plant.zValue() > bed.zValue()          # clamp lifts it while linked
+        assert plant.stack_order == rank_before       # ...without touching its rank
+
         result = win._do_agent_set_parent_bed(str(plant.item_id), None)
 
         assert result["new_parent_bed_id"] is None
         assert result["link_is_geometric"] is None
         assert plant.parent_bed_id is None
-        assert plant.zValue() == pytest.approx(42.0)
+        assert plant.stack_order == rank_before
+        assert plant.zValue() == pytest.approx(z_before)
     finally:
         win._stop_agent_api()
 
@@ -1577,5 +1586,295 @@ def test_resize_refuses_an_extent_below_the_gui_minimum(
         # Exactly at the floor is accepted.
         win._do_agent_resize_object(str(bed.item_id), 1.0, 1.0, None)
         assert bed.rect().width() == pytest.approx(1.0)
+    finally:
+        win._stop_agent_api()
+
+
+# ---------------------------------------------------------------------------
+# issue #338: arrange_object orchestration
+#
+# arrange_object routes through ui.canvas.arrange.build_arrange_command --
+# the ONE apply seam every arrange surface shares (Edit menu, context menu,
+# Properties panel, and this tool) -- so these pin the parts that are specific
+# to the tool's own wrapper: the mode-string validation, the refusal-message
+# mapping, and that _resolve_agent_item's shared refusals (locked layer) apply
+# BEFORE build_arrange_command ever runs. The seam's own algorithm (block
+# expansion, overlap stepping, every ArrangeOutcome) is unit-tested in
+# tests/unit/test_stacking.py and does not need re-proving here.
+#
+# build_arrange_command requires items to sit on a REAL layer (its
+# eligibility filter drops layer_id=None -- see ui/canvas/arrange.py), unlike
+# _add_bed/_add_tree above which construct items with no layer at all. These
+# tests therefore assign the scene's active layer explicitly.
+# ---------------------------------------------------------------------------
+
+
+def test_arrange_bed_send_to_back_keeps_plant_block_and_is_one_undo_step(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """A bed carries its contained plants along as one block -- mirroring
+    build_arrange_command's contract that arranging a bed must not orphan the
+    plants sitting on top of it -- and the whole block move is ONE undo step."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        layer_id = scene.active_layer.id
+        other = RectangleItem(
+            50, 50, 100, 100, object_type=ObjectType.PATH, layer_id=layer_id
+        )
+        bed = RectangleItem(
+            500, 500, 400, 300, object_type=ObjectType.RAISED_BED, layer_id=layer_id
+        )
+        plant_a = CircleItem(600, 600, 20, object_type=ObjectType.TREE, layer_id=layer_id)
+        plant_b = CircleItem(
+            700, 650, 20, object_type=ObjectType.PERENNIAL, layer_id=layer_id
+        )
+        scene.addItem(other)
+        scene.addItem(bed)
+        scene.addItem(plant_a)
+        scene.addItem(plant_b)
+        bed.add_child_id(plant_a.item_id)
+        bed.add_child_id(plant_b.item_id)
+        plant_a.parent_bed_id = bed.item_id
+        plant_b.parent_bed_id = bed.item_id
+        # Precondition: "other" sits BEHIND the bed's block.
+        order_before = scene._normalized_layer_order(layer_id)
+        assert order_before == [other, bed, plant_a, plant_b]
+
+        result = win._do_agent_arrange_object(str(bed.item_id), "send_to_back")
+
+        assert result["action"] == "arrange"
+        assert result["stack_index"] == 0
+        order_after = scene._normalized_layer_order(layer_id)
+        # The bed's block (itself + both plants, relative order kept) is now
+        # at the very back; "other" is pushed above it.
+        assert order_after == [bed, plant_a, plant_b, other]
+
+        assert win.canvas_view.command_manager.can_undo
+        win.canvas_view.command_manager.undo()
+        assert scene._normalized_layer_order(layer_id) == order_before
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_arrange_plant_already_directly_above_its_bed_refuses(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """A plant can never be arranged below its own bed (the derive-only
+    clamp) -- send_to_back on a plant that already sits directly above its
+    bed is correctly a no-op refusal, not a phantom change."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        layer_id = scene.active_layer.id
+        bed = RectangleItem(
+            500, 500, 400, 300, object_type=ObjectType.RAISED_BED, layer_id=layer_id
+        )
+        plant = CircleItem(600, 600, 20, object_type=ObjectType.TREE, layer_id=layer_id)
+        scene.addItem(bed)
+        scene.addItem(plant)
+        bed.add_child_id(plant.item_id)
+        plant.parent_bed_id = bed.item_id
+
+        with pytest.raises(ValueError, match="already at the back"):
+            win._do_agent_arrange_object(str(plant.item_id), "send_to_back")
+
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_arrange_object_refuses_locked_layer_before_any_change(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The GUI enforces layer-lock by clearing item interaction flags; the
+    agent resolves by UUID (bypassing selection), so _resolve_agent_item's
+    lock check must run -- and must run BEFORE build_arrange_command, so a
+    locked object is never even considered for reordering."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        layer_id = scene.active_layer.id
+        item = CircleItem(300, 300, 20, object_type=ObjectType.TREE, layer_id=layer_id)
+        scene.addItem(item)
+        scene.get_layer_by_id(layer_id).locked = True
+        scene._update_items_visibility()
+
+        with pytest.raises(ValueError, match="locked layer"):
+            win._do_agent_arrange_object(str(item.item_id), "bring_to_front")
+
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_arrange_object_refuses_journal_pin(qtbot: Any, monkeypatch: Any) -> None:
+    """FR-STACK-07: arrange_object refuses a journal pin by name, the same
+    way move_object/delete_object do (test_move_and_delete_reject_journal_pin)
+    -- _resolve_agent_item is the shared chokepoint, but the refusal wasn't
+    separately pinned for arrange_object until this test (#338 final review)."""
+    from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        pin = JournalPinItem(100, 100, note_id="note-1")
+        win.canvas_scene.addItem(pin)
+
+        with pytest.raises(ValueError, match="journal pin"):
+            win._do_agent_arrange_object(str(pin.item_id), "bring_to_front")
+
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_arrange_object_invalid_action_lists_allowed_values(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        item = _add_tree(win)
+
+        with pytest.raises(ValueError) as exc_info:
+            win._do_agent_arrange_object(str(item.item_id), "not_a_real_action")
+        message = str(exc_info.value)
+        for allowed in (
+            "bring_to_front",
+            "bring_forward",
+            "send_backward",
+            "send_to_back",
+        ):
+            assert allowed in message
+
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_arrange_object_stack_index_matches_read_side_with_arc_and_pin_present(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """review round 2, P0/P1-3 drift guard: the ``stack_index`` an
+    ``arrange_object`` call returns must be IDENTICAL to what a follow-up
+    ``get_object``/``list_objects`` read reports for that same item —
+    ``_do_agent_arrange_object`` must derive it via the exact same
+    ``agent_api.queries`` snapshot-based path the read tools use, not a
+    second, independent derivation over the live scene that could silently
+    drift from it.
+
+    The scene mixes item kinds that exercise both round-2 findings at once:
+    a bed with two plants, a lone shape (the item actually arranged — see
+    note below), a journal pin (occupies a stack slot but is never itself
+    arrangeable), and an ``ArcItem``. The arc is NOT the item ``arrange_object``
+    is called on: ``CanvasScene.find_item_by_id`` (used by
+    ``_resolve_agent_item``) only matches ``GardenItemMixin`` instances, and
+    ``ArcItem``/``BezierItem`` are deliberately not one (own
+    ``to_dict``/``from_dict``) — so no agent write tool can address an arc by
+    id today. That is a pre-existing, separate gap from #338 (arcs were never
+    agent-addressable at all, for any tool, before or after this feature) and
+    out of this fix's scope. What #338 P0 *does* fix is that the arc must
+    still be correctly ranked and show up with the right ``stack_index`` on
+    the READ side (``get_object``/``list_objects``), which this test also
+    checks.
+    """
+    from open_garden_planner.agent_api import queries
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import ArcItem, CircleItem, RectangleItem
+    from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        layer_id = scene.active_layer.id
+
+        # Bottom to top by add order: shape, bed(+2 plants as a block), pin, arc.
+        shape = RectangleItem(
+            400, 400, 100, 100, object_type=ObjectType.PATH, layer_id=layer_id
+        )
+        scene.addItem(shape)
+
+        bed = RectangleItem(
+            0, 0, 200, 200, object_type=ObjectType.RAISED_BED, layer_id=layer_id
+        )
+        plant_a = CircleItem(50, 50, 20, object_type=ObjectType.TREE, layer_id=layer_id)
+        plant_b = CircleItem(
+            150, 50, 20, object_type=ObjectType.PERENNIAL, layer_id=layer_id
+        )
+        scene.addItem(bed)
+        scene.addItem(plant_a)
+        scene.addItem(plant_b)
+        bed.add_child_id(plant_a.item_id)
+        bed.add_child_id(plant_b.item_id)
+        plant_a.parent_bed_id = bed.item_id
+        plant_b.parent_bed_id = bed.item_id
+
+        pin = JournalPinItem(300, 300, "note-1", layer_id=layer_id)
+        scene.addItem(pin)
+
+        arc = ArcItem(
+            center=QPointF(500, 0),
+            radius=30.0,
+            start_deg=0.0,
+            span_deg=90.0,
+            layer_id=layer_id,
+        )
+        scene.addItem(arc)
+        assert arc.stack_order is not None, "arc must be ranked on add (P0)"
+
+        # Shape starts at the very back; bring it to the front.
+        result = win._do_agent_arrange_object(str(shape.item_id), "bring_to_front")
+        assert result["action"] == "arrange"
+
+        snapshot = win._agent_snapshot()
+        detail = queries.get_object(snapshot, str(shape.item_id))
+        assert detail is not None
+        assert result["stack_index"] == detail.stack_index, (
+            "arrange_object's returned stack_index must equal a follow-up "
+            "get_object read for the same item -- the two must share one "
+            "derivation (review round 2, P1-3)."
+        )
+        # It must actually be the topmost slot on its layer now.
+        assert result["stack_index"] == len(scene._normalized_layer_order(layer_id)) - 1
+
+        # The arc (untouched by this arrange call) must still report a
+        # correct, non-null stack_index that matches its live scene
+        # position -- proving P0's ranking fix reaches the read side too.
+        arc_detail = queries.get_object(snapshot, str(arc.item_id))
+        assert arc_detail is not None
+        live_order = scene._normalized_layer_order(layer_id)
+        assert arc_detail.stack_index == live_order.index(arc)
+
+        # list_objects must agree with get_object, and the journal pin must
+        # still hold its own slot in the same layer's ordering (occupies a
+        # slot, is simply never itself the subject of arrange_object).
+        refs = queries.list_objects(snapshot, layer=str(layer_id))
+        by_id = {ref.item_id: ref.stack_index for ref in refs}
+        assert by_id[str(shape.item_id)] == result["stack_index"]
+        assert by_id[str(arc.item_id)] == arc_detail.stack_index
+        assert by_id[str(pin.item_id)] is not None
+
+        assert win.canvas_view.command_manager.can_undo is True
     finally:
         win._stop_agent_api()

@@ -3,13 +3,11 @@
 import uuid
 
 import pytest
-from PyQt6.QtCore import QPointF, QRectF
-from PyQt6.QtWidgets import QGraphicsScene
+from PyQt6.QtCore import QPointF
 
 from open_garden_planner.core.commands import (
     CommandManager,
     CreateItemCommand,
-    CreateItemsCommand,
     DeleteItemsCommand,
     MoveItemsCommand,
     SetParentBedCommand,
@@ -20,9 +18,7 @@ from open_garden_planner.ui.canvas.items import (
     CircleItem,
     GardenItemMixin,
     PolygonItem,
-    RectangleItem,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -246,14 +242,21 @@ class TestSetParentBedCommand:
         assert plant.item_id in bed.child_item_ids
 
     def test_attach_elevates_plant_z_above_bed(self, scene, manager) -> None:
-        """Issue #173: plant drawn before bed must render on top after move-into."""
+        """Issue #173: plant drawn before bed must render on top after move-into.
+
+        z is derived from the normalized per-layer stacking order (issue
+        #338) rather than an explicit z bump, so both items must belong to
+        a real layer for the clamp to apply.
+        """
+        layer_id = scene.active_layer.id
         bed = _make_bed()
+        bed.layer_id = layer_id
         plant = _make_plant()
-        scene.addItem(bed)
+        plant.layer_id = layer_id
+        # Plant added first, then bed -> raw insertion order alone would
+        # rank the bed above the plant.
         scene.addItem(plant)
-        # Plant created first, then bed → both share the layer's default z=0.
-        bed.setZValue(0)
-        plant.setZValue(0)
+        scene.addItem(bed)
 
         cmd = SetParentBedCommand(scene, plant, None, bed.item_id)
         manager.execute(cmd)
@@ -263,69 +266,105 @@ class TestSetParentBedCommand:
     def test_attach_does_not_lower_plant_already_above_bed(
         self, scene, manager
     ) -> None:
+        """A plant already normalized (immediately above its bed) is
+        undisturbed by attach: the derived z doesn't move at all, not just
+        "stays above" (issue #338 P1-4).
+
+        The previous version of this test added the plant AFTER the bed and
+        asserted only ``plant.zValue() > bed.zValue()`` post-attach. That
+        held trivially from raw insertion order alone -- a plant added
+        after a bed already ranks above it before ``SetParentBedCommand``
+        does anything, so the assertion could not distinguish "attach
+        worked" from "attach was a no-op". Pre-linking the relationship
+        directly (bypassing the command) makes the plant's position already
+        normalized before ``execute()`` runs, so an exact-z-unchanged
+        assertion is falsifiable: it would fail if attach spuriously
+        renumbered or re-clamped an already-correct position.
+        """
+        layer_id = scene.active_layer.id
         bed = _make_bed()
+        bed.layer_id = layer_id
         plant = _make_plant()
+        plant.layer_id = layer_id
         scene.addItem(bed)
         scene.addItem(plant)
-        bed.setZValue(0)
-        plant.setZValue(50)  # already well above
+        # Pre-link directly (not via the command) and refresh, so the plant
+        # is already sitting in its normalized (clamped) position -- attach
+        # below should be a pure no-op on the derived z.
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        scene._update_items_z_order()
+        pre_attach_plant_z = plant.zValue()
+        pre_attach_bed_z = bed.zValue()
+        assert pre_attach_plant_z > pre_attach_bed_z
 
         cmd = SetParentBedCommand(scene, plant, None, bed.item_id)
         manager.execute(cmd)
 
-        assert plant.zValue() == 50
+        assert plant.zValue() == pytest.approx(pre_attach_plant_z)
+        assert bed.zValue() == pytest.approx(pre_attach_bed_z)
 
-    def test_detach_does_not_change_z(self, scene, manager) -> None:
+    def test_detach_does_not_change_rank(self, scene, manager) -> None:
+        """Detaching a plant from its bed keeps its rank (and derived z) in place."""
+        layer_id = scene.active_layer.id
         bed = _make_bed()
+        bed.layer_id = layer_id
         plant = _make_plant()
+        plant.layer_id = layer_id
         scene.addItem(bed)
         scene.addItem(plant)
         plant.parent_bed_id = bed.item_id
         bed.add_child_id(plant.item_id)
-        bed.setZValue(0)
-        plant.setZValue(1)
+        pre_detach_rank = plant.stack_order
 
         cmd = SetParentBedCommand(scene, plant, bed.item_id, None)
         manager.execute(cmd)
 
-        # Detach should not touch z — plant stays where it is.
-        assert plant.zValue() == 1
+        # Detach doesn't touch the rank -- only the derived z (which is
+        # recomputed from the, now un-clamped, rank) can move.
+        assert plant.stack_order == pre_detach_rank
 
-    def test_undo_attach_restores_pre_attach_z(self, scene, manager) -> None:
-        """Undo of attach must put z back where the user had it (symmetric)."""
-        bed = _make_bed()
-        plant = _make_plant()
-        scene.addItem(bed)
-        scene.addItem(plant)
-        bed.setZValue(0)
-        plant.setZValue(0)  # original z before attach
+    def test_undo_attach_restores_pre_attach_rank(self, scene, manager) -> None:
+        """Undo of attach must put the plant's rank -- and its visible
+        z-order relative to the bed -- back where it was.
 
-        cmd = SetParentBedCommand(scene, plant, None, bed.item_id)
-        manager.execute(cmd)
-        assert plant.zValue() == 1  # elevated by attach
-        manager.undo()
+        There is no z snapshot/restore any more (issue #338 removed
+        ``_pre_execute_z``): z is always derived from the rank, so
+        restoring the rank on undo is what makes the visible z symmetric.
 
-        assert plant.zValue() == 0  # restored on undo
-
-    def test_undo_attach_restores_non_zero_pre_attach_z(self, scene, manager) -> None:
-        """Snapshot must be the actual pre-execute z, not a hardcoded 0.
-
-        If the user explicitly elevated the plant before attaching it (e.g.
-        z=5 to put it above another bed), undo must restore z=5, not 0.
+        The plant is added BEFORE the bed so it starts ranked (and
+        rendered) below it -- with no clamp in effect yet. This makes every
+        assertion falsifiable: the pre-attach check would fail if the plant
+        somehow started above the bed, the post-attach check would fail if
+        the elevate-via-derive clamp didn't fire, and the post-undo check
+        would fail if undo left the plant's rank -- or the derived z built
+        from it -- clamped in place (issue #338 P1-4: the previous version
+        added the plant AFTER the bed, so it started, stayed, and ended
+        above the bed regardless of whether attach/undo did anything at
+        all -- and never checked z before attach or after undo).
         """
+        layer_id = scene.active_layer.id
         bed = _make_bed()
+        bed.layer_id = layer_id
         plant = _make_plant()
-        scene.addItem(bed)
+        plant.layer_id = layer_id
+        # Plant added first -> ranked (and rendered) below the bed before
+        # any attach clamp is in effect.
         scene.addItem(plant)
-        bed.setZValue(0)
-        plant.setZValue(5)  # user explicitly elevated the plant
+        scene.addItem(bed)
+        pre_attach_rank = plant.stack_order
+        assert plant.zValue() < bed.zValue()
 
         cmd = SetParentBedCommand(scene, plant, None, bed.item_id)
         manager.execute(cmd)
-        assert plant.zValue() == 5  # already above bed, so unchanged
+
+        assert plant.zValue() > bed.zValue()  # elevated by the attach clamp
+        assert plant.stack_order == pre_attach_rank  # elevation is derive-only
+
         manager.undo()
 
-        assert plant.zValue() == 5  # restored to user's pre-attach value
+        assert plant.stack_order == pre_attach_rank
+        assert plant.zValue() < bed.zValue()  # clamp lifted, back below the bed
 
 
 # ---------------------------------------------------------------------------
