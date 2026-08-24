@@ -1771,8 +1771,14 @@ item count), for `layer_id = None` the base is `0` instead of
 `layer.z_order * 100`. The fraction `100 * (i + 1) / (n + 1)` is strictly
 inside the open interval `(base, base + 100)` for any `n ≥ 1` — it can never
 touch `base` or `base + 100`, so a layer's items can never collide with a
-neighbouring layer's band or with any fixed overlay band (8.25.5), however
-many items it holds. `_update_items_z_order()` is unchanged in name and
+neighbouring layer's band or with any fixed overlay band (8.25.6), however
+many items it holds. **One accepted exception:** the `layer_id = None`
+pseudo-layer shares base `0` with a real layer whose `z_order == 0` (the
+default single layer every new plan starts with) — an item with no layer and
+an item on that first layer can land at the same derived z. This only
+matters for items reachable via a pre-#338 `.ogp` that never set `layer_id`;
+current code always assigns one on `addItem`. Not fixed, since separating
+the bands would need a second special-cased offset for one legacy edge case. `_update_items_z_order()` is unchanged in name and
 callers — it just now loops every layer (plus the `None` pseudo-layer) and
 calls `_refresh_layer_z` on each, instead of a single flat pass.
 
@@ -1895,10 +1901,25 @@ Every fixed-z overlay in the app, low to high, alongside the per-layer band
 | **Per-layer document items** | `layer.z_order * 100 + (0, 100)` (open interval) | Every ordinary document item, per-object stacking order within its layer (8.25.2) — this is the band #338 subdivides |
 | Dimension/constraint lines | `900` (line/witness), `901` (label/handle, `DIMENSION_LINE_Z + 1`) | `dimension_lines.py` |
 | Tool overlay highlights | `999` (corner-edit/trim highlight), `1000` (measure-tool line, on-top ellipse), `1003` (constraint-tool selected marker) | `core/tools/*` in-progress-gesture previews |
-| Journal pins | `9500` | `JournalPinItem` |
 | Transient previews | `9999` | Offset-tool preview path, paste/duplicate drag preview |
 | Soil health badge | `10002` | `SoilBadgeItem` (always on top of its bed) |
 | Minimap overlay-hide cutoff | `10000` (`minimap_widget._OVERLAY_Z_MIN`) | Threshold above which the minimap thumbnail hides an item as a screen-space overlay (§8.9.5) — a named constant, not a bare `100` (see the corrected note in §8.9.5) |
+
+**`JournalPinItem` is NOT a fixed-z overlay, despite its constructor calling
+`self.setZValue(9_500)`.** It is a `GardenItemMixin` with a `layer_id` and a
+`stack_order`, so `supports_stacking(pin)` is True and `_refresh_layer_z`
+overwrites that 9500 the moment the pin (or any sibling in its layer) is
+added — a pin can end up rendering *behind* an ordinary item in the same
+layer. Verified: a lone pin lands at `z=50.0`; adding one more layered item
+drops it to `33.3` while the new item sits at `66.7`. This is **pre-existing**
+(unbumped by #338 — `CanvasScene.addItem` already clobbered the 9500 to
+`layer.z_order * 100` before this PR), not a new regression, but it means the
+9500 constant is dead for any pin that has a layer. Journal pins are
+deliberately excluded from Arrange (`ui/canvas/arrange.py`) and from the
+agent's `arrange_object` tool, but nothing today re-asserts their z above the
+document band once one is set. Fixing this — either exempting pins from
+`supports_stacking` or giving them a real fixed post-refresh bump — is
+tracked as follow-up work, not part of #338.
 
 A per-layer band can, in principle, grow past `z_order * 100 + 100` only if
 `z_order` itself is large enough to reach the next fixed band above — not a

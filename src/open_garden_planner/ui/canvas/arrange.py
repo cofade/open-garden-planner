@@ -99,10 +99,14 @@ def build_arrange_command(
     new_orders: dict[UUID, list[QGraphicsItem]] = {}
     outcome = ArrangeOutcome.NOTHING_SELECTED  # sentinel: "not set yet"
     for layer_id, layer_items in by_layer.items():
-        entries = scene._stack_entries(layer_id)  # type: ignore[attr-defined]
+        # One walk of the layer's top-level items, shared by both the raw
+        # entries below and normalize_order's parent/child pass (#338 review
+        # round 4: this used to walk the layer three times over).
+        candidates = scene._layer_top_level_items(layer_id)  # type: ignore[attr-defined]
+        entries = scene._stack_entries(layer_id, candidates)  # type: ignore[attr-defined]
         items_by_id = {
             scene._stack_identity(item): item  # type: ignore[attr-defined]
-            for item in scene._normalized_layer_order(layer_id)  # type: ignore[attr-defined]
+            for item in candidates
         }
         selected_ids = {scene._stack_identity(item) for item in layer_items}  # type: ignore[attr-defined]
 

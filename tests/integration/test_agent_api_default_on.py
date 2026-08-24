@@ -1724,6 +1724,28 @@ def test_arrange_object_refuses_locked_layer_before_any_change(
         win._stop_agent_api()
 
 
+def test_arrange_object_refuses_journal_pin(qtbot: Any, monkeypatch: Any) -> None:
+    """FR-STACK-07: arrange_object refuses a journal pin by name, the same
+    way move_object/delete_object do (test_move_and_delete_reject_journal_pin)
+    -- _resolve_agent_item is the shared chokepoint, but the refusal wasn't
+    separately pinned for arrange_object until this test (#338 final review)."""
+    from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        pin = JournalPinItem(100, 100, note_id="note-1")
+        win.canvas_scene.addItem(pin)
+
+        with pytest.raises(ValueError, match="journal pin"):
+            win._do_agent_arrange_object(str(pin.item_id), "bring_to_front")
+
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
 def test_arrange_object_invalid_action_lists_allowed_values(
     qtbot: Any, monkeypatch: Any
 ) -> None:
