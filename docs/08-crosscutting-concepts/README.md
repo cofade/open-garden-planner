@@ -817,6 +817,27 @@ When the key is absent, the menu item is disabled and its tooltip explains where
 
 **Pixel→meter scale is analytical.** Because Static Maps uses Web-Mercator with a known tile pixel size, the scale of the returned image is `mpp = cos(lat) × 2π × 6378137 / (256 × 2^zoom)`. The new `BackgroundImageItem(geo_metadata=…)` constructor reads `meters_per_pixel` from this dict and sets `_scale_factor = 0.01 / mpp` (px-per-cm) automatically — no calibration click. The existing manual calibration (`Calibrate Scale…` context menu) is still available as an override; on reload, a saved `scale_factor` wins over the geo-derived one.
 
+### 8.15.1 Manual background-image calibration and exact dimensions
+
+Manual calibration is available on the imported image itself, not on the
+empty canvas. After importing an image, right-click the image and choose
+**Calibrate Scale…**. Click the two endpoints of a feature whose real distance
+is known, enter that distance in centimetres, and press **Enter** to apply the
+scale. Press **Esc** to cancel the inline calibration instead.
+
+For exact geometry, use the numeric fields in the **Properties** panel:
+
+- rectangles: **Size (W/H)**;
+- circles: **Diameter**;
+- ellipses: **Semi-axes X** and **Y** (the corresponding width and height are
+  twice those values).
+
+Polygons and polylines currently do not have an overall numeric width/height
+editor. For those shapes, use typed coordinates or edge-length constraints
+when precision matters. These workflows complement manual image calibration:
+calibrate the background first, then enter exact geometry values or constrain
+the relevant edges.
+
 **QtWebEngine import timing.** `from PyQt6 import QtWebEngineWidgets` must run *before* `QApplication(...)` is created — Qt enforces this so it can configure OpenGL sharing. `main.py` does this at module level. Tests that exercise the dialog must either match the same ordering or use a `QWidget` stand-in for `QWebEngineView` (see `tests/integration/test_map_picker_dialog.py::_DummyWebView`).
 
 
