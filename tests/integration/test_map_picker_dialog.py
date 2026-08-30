@@ -8,6 +8,8 @@ without network IO. The WebEngine view is patched at construction time.
 
 from __future__ import annotations
 
+import time
+from threading import Event
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,7 +17,9 @@ from PyQt6.QtWidgets import QDialogButtonBox, QWidget
 
 from open_garden_planner.services.google_maps_service import (
     BoundingBox,
+    FetchCancelled,
     FetchResult,
+    GoogleMapsFetchError,
 )
 
 
@@ -63,6 +67,12 @@ class TestAvailability:
         from open_garden_planner.ui.dialogs.map_picker_dialog import MapPickerDialog
         assert MapPickerDialog.is_available() is False
 
+    def test_is_available_with_explicit_key_without_environment(self, monkeypatch) -> None:
+        monkeypatch.delenv("OGP_GOOGLE_MAPS_KEY", raising=False)
+        from open_garden_planner.ui.dialogs.map_picker_dialog import MapPickerDialog
+
+        assert MapPickerDialog.is_available("preference-key") is True
+
 
 class TestDialogConstruction:
     def test_constructs_with_key(self, qtbot, with_api_key, mock_web_view) -> None:
@@ -84,6 +94,18 @@ class TestDialogConstruction:
             qtbot.addWidget(dialog)
         # The dialog called reject() in __init__; it's not visible/accepted.
         assert dialog.fetch_result is None
+
+    def test_explicit_key_reaches_map_bridge(
+        self, qtbot, monkeypatch, mock_web_view
+    ) -> None:
+        monkeypatch.delenv("OGP_GOOGLE_MAPS_KEY", raising=False)
+        from open_garden_planner.ui.dialogs.map_picker_dialog import MapPickerDialog
+
+        dialog = MapPickerDialog(api_key="preference-key")
+        qtbot.addWidget(dialog)
+
+        assert dialog._api_key == "preference-key"
+        assert dialog._bridge._api_key == "preference-key"
 
 
 class TestBridgeSignals:
@@ -137,6 +159,178 @@ class TestBridgeSignals:
 
 
 class TestFetchFlow:
+    def test_worker_passes_explicit_key_to_service(self) -> None:
+        from open_garden_planner.ui.dialogs.map_picker_dialog import _FetchWorker
+
+        bbox = BoundingBox(52.521, 13.404, 52.519, 13.406)
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.fetch_bbox"
+        ) as fetch:
+            worker = _FetchWorker(bbox, "preference-key")
+            worker.run()
+
+        assert fetch.call_args.kwargs["api_key"] == "preference-key"
+
+    def test_worker_does_not_forward_unexpected_secret_text(self) -> None:
+        from open_garden_planner.ui.dialogs.map_picker_dialog import _FetchWorker
+
+        bbox = BoundingBox(52.521, 13.404, 52.519, 13.406)
+        messages: list[str] = []
+        worker = _FetchWorker(bbox, "SECRET_GOOGLE_MAPS_KEY")
+        worker.failed.connect(messages.append)
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.fetch_bbox",
+            side_effect=RuntimeError("request URL leaked SECRET_GOOGLE_MAPS_KEY"),
+        ):
+            worker.run()
+
+        assert messages
+        assert "SECRET_GOOGLE_MAPS_KEY" not in messages[0]
+
+    def test_worker_scrubs_typed_fetch_error_secret(self) -> None:
+        from open_garden_planner.ui.dialogs.map_picker_dialog import _FetchWorker
+
+        bbox = BoundingBox(52.521, 13.404, 52.519, 13.406)
+        messages: list[str] = []
+        worker = _FetchWorker(bbox, "SECRET_GOOGLE_MAPS_KEY")
+        worker.failed.connect(messages.append)
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.fetch_bbox",
+            side_effect=GoogleMapsFetchError(
+                "Static Maps returned HTTP 403: key=SECRET_GOOGLE_MAPS_KEY"
+            ),
+        ):
+            worker.run()
+
+        assert messages
+        assert "SECRET_GOOGLE_MAPS_KEY" not in messages[0]
+
+    def test_cancel_during_in_flight_fetch_is_authoritative(
+        self, qtbot, with_api_key, mock_web_view
+    ) -> None:
+        """An in-flight worker reports cancellation instead of accepting data."""
+        from open_garden_planner.ui.dialogs.map_picker_dialog import MapPickerDialog
+
+        dialog = MapPickerDialog()
+        qtbot.addWidget(dialog)
+        dialog._bridge.boundsUpdated.emit(52.521, 13.404, 52.519, 13.406)
+        started = False
+
+        def _blocking_fetch(*_args, cancel_check=None, **_kwargs):
+            nonlocal started
+            started = True
+            deadline = time.monotonic() + 2
+            while cancel_check is not None and not cancel_check():
+                if time.monotonic() >= deadline:
+                    raise AssertionError("worker cancellation was not observed")
+                time.sleep(0.001)
+            raise FetchCancelled("cancelled")
+
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.fetch_bbox",
+            side_effect=_blocking_fetch,
+        ):
+            dialog._on_accept()
+            qtbot.waitUntil(lambda: started, timeout=1000)
+            dialog._on_cancel()
+            qtbot.waitUntil(lambda: dialog._worker is None, timeout=2000)
+
+        assert dialog.result() != dialog.DialogCode.Accepted
+        assert dialog._ok_button.isEnabled() is True
+
+    def test_cancel_ignores_success_already_in_flight(
+        self, qtbot, with_api_key, mock_web_view
+    ) -> None:
+        """A success queued after Cancel cannot accept the dialog."""
+        from PIL import Image
+
+        from open_garden_planner.ui.dialogs.map_picker_dialog import MapPickerDialog
+
+        dialog = MapPickerDialog()
+        qtbot.addWidget(dialog)
+        dialog._bridge.boundsUpdated.emit(52.521, 13.404, 52.519, 13.406)
+        started = Event()
+        release = Event()
+        fake_result = FetchResult(
+            image=Image.new("RGB", (10, 10)),
+            meters_per_pixel=0.3,
+            zoom=19,
+            bbox=dialog._bbox,
+            tile_grid=(1, 1),
+        )
+
+        def _slow_success(*_args, **_kwargs):
+            started.set()
+            assert release.wait(2)
+            return fake_result
+
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.fetch_bbox",
+            side_effect=_slow_success,
+        ):
+            dialog._on_accept()
+            qtbot.waitUntil(started.is_set, timeout=1000)
+            dialog._on_cancel()
+            release.set()
+            qtbot.waitUntil(lambda: dialog._worker is None, timeout=2000)
+
+        assert dialog.result() != dialog.DialogCode.Accepted
+        assert dialog.fetch_result is None
+
+    def test_close_waits_for_in_flight_worker(
+        self, qtbot, with_api_key, mock_web_view
+    ) -> None:
+        """Closing joins an active worker before the dialog is torn down."""
+        from open_garden_planner.ui.dialogs.map_picker_dialog import MapPickerDialog
+
+        dialog = MapPickerDialog()
+        qtbot.addWidget(dialog)
+        dialog._bridge.boundsUpdated.emit(52.521, 13.404, 52.519, 13.406)
+        started = Event()
+
+        def _blocking_fetch(*_args, cancel_check=None, **_kwargs):
+            started.set()
+            while cancel_check is not None and not cancel_check():
+                time.sleep(0.001)
+            raise FetchCancelled("cancelled")
+
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.fetch_bbox",
+            side_effect=_blocking_fetch,
+        ):
+            dialog._on_accept()
+            qtbot.waitUntil(started.is_set, timeout=1000)
+            dialog.close()
+
+        assert dialog._worker is None
+        assert dialog._fetch_in_progress is False
+
+    def test_failed_worker_reference_is_cleared_before_second_cancel(
+        self, qtbot, with_api_key, mock_web_view
+    ) -> None:
+        from open_garden_planner.ui.dialogs.map_picker_dialog import MapPickerDialog
+
+        dialog = MapPickerDialog()
+        qtbot.addWidget(dialog)
+        dialog._bridge.boundsUpdated.emit(52.521, 13.404, 52.519, 13.406)
+
+        with (
+            patch(
+                "open_garden_planner.ui.dialogs.map_picker_dialog.fetch_bbox",
+                side_effect=GoogleMapsFetchError("network failure"),
+            ),
+            patch(
+                "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+            ),
+        ):
+            dialog._on_accept()
+            qtbot.waitUntil(lambda: dialog._worker is None, timeout=1000)
+
+        # A second Cancel after a terminal worker must be a normal dialog
+        # action, not a call through a deleted QThread wrapper.
+        dialog._on_cancel()
+        assert dialog.result() == dialog.DialogCode.Rejected
+
     def test_success_path_accepts_dialog(
         self, qtbot, with_api_key, mock_web_view
     ) -> None:

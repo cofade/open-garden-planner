@@ -45,6 +45,15 @@ from open_garden_planner.services.google_maps_service import (
     has_api_key,
 )
 
+_KEY_MISSING_FAILURE = "google_maps_key_missing"
+_UNEXPECTED_FETCH_FAILURE = "unexpected_satellite_fetch_failure"
+_KEY_MISSING_MESSAGE = (
+    "Set a Google Maps API key in Preferences or "
+    "OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite "
+    "background loading."
+)
+_UNEXPECTED_FETCH_MESSAGE = "Unexpected error while fetching satellite image."
+
 
 class _MapBridge(QObject):
     """JS↔Python bridge exposed on the page as ``window.bridge``.
@@ -112,23 +121,33 @@ class _FetchWorker(QThread):
     failed = pyqtSignal(str)
     cancelled = pyqtSignal()
 
-    def __init__(self, bbox: BoundingBox, parent: QObject | None = None) -> None:
+    def __init__(
+        self, bbox: BoundingBox, api_key: str, parent: QObject | None = None
+    ) -> None:
         super().__init__(parent)
         self._bbox = bbox
+        self._api_key = api_key
 
     def run(self) -> None:  # noqa: D401 - QThread API
         try:
             result = fetch_bbox(
-                self._bbox, cancel_check=self.isInterruptionRequested
+                self._bbox,
+                api_key=self._api_key,
+                cancel_check=self.isInterruptionRequested,
             )
         except FetchCancelled:
             self.cancelled.emit()
             return
-        except (GoogleMapsKeyMissingError, GoogleMapsFetchError) as e:
-            self.failed.emit(str(e))
+        except GoogleMapsKeyMissingError:
+            self.failed.emit(_KEY_MISSING_FAILURE)
             return
-        except Exception as e:  # safety net for unexpected errors
-            self.failed.emit(f"Unexpected error: {e}")
+        except GoogleMapsFetchError as e:
+            self.failed.emit(_scrub_key(str(e), self._api_key))
+            return
+        except Exception:  # safety net for unexpected errors
+            # Do not forward arbitrary exception text: lower layers may carry
+            # request URLs or other sensitive implementation details.
+            self.failed.emit(_UNEXPECTED_FETCH_FAILURE)
             return
         self.finished_ok.emit(result)
 
@@ -143,7 +162,9 @@ class MapPickerDialog(QDialog):
         / "map_picker.html"
     )
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, parent: QWidget | None = None, *, api_key: str | None = None
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Load Satellite Background"))
         self.resize(1000, 700)
@@ -151,6 +172,10 @@ class MapPickerDialog(QDialog):
         self._bbox: BoundingBox | None = None
         self._fetch_result: FetchResult | None = None
         self._worker: _FetchWorker | None = None
+        self._fetch_generation = 0
+        self._fetch_in_progress = False
+        self._fetch_cancel_requested = False
+        self._api_key = ""
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -195,14 +220,15 @@ class MapPickerDialog(QDialog):
         self._buttons.rejected.connect(self._on_cancel)
         layout.addWidget(self._buttons)
 
-        # API key is required at construction — caller must check ``has_api_key()``
-        # before opening the dialog. We still re-fetch here so a missing key
+        # The application normally passes a resolved key; a missing key still
         # surfaces as a friendly error rather than a 403 mid-flow.
         try:
-            api_key = get_api_key()
-        except GoogleMapsKeyMissingError as e:
+            self._api_key = get_api_key(api_key)
+        except GoogleMapsKeyMissingError:
             QMessageBox.warning(
-                self, self.tr("API key missing"), str(e)
+                self,
+                self.tr("API key missing"),
+                self.tr(_KEY_MISSING_MESSAGE),
             )
             self.reject()
             return
@@ -227,7 +253,7 @@ class MapPickerDialog(QDialog):
         language_tag = qlocale.bcp47Name().split("-")[0] or "en"
         territory_code = QLocale.territoryToCode(qlocale.territory()) or language_tag.upper()
         locale_payload = f"{language_tag}|{territory_code}"
-        self._bridge = _MapBridge(api_key, locale_payload, ui_strings, self)
+        self._bridge = _MapBridge(self._api_key, locale_payload, ui_strings, self)
         self._bridge.boundsUpdated.connect(self._on_bounds_updated)
         self._bridge.cleared.connect(self._on_bounds_cleared)
         self._bridge.errorReported.connect(self._on_bridge_error)
@@ -238,9 +264,9 @@ class MapPickerDialog(QDialog):
         self._view.setUrl(QUrl.fromLocalFile(str(self.HTML_FILE)))
 
     @staticmethod
-    def is_available() -> bool:
+    def is_available(api_key: str | None = None) -> bool:
         """Whether the dialog can be opened (API key present)."""
-        return has_api_key()
+        return has_api_key(api_key)
 
     @property
     def fetch_result(self) -> FetchResult | None:
@@ -273,56 +299,124 @@ class MapPickerDialog(QDialog):
         QMessageBox.warning(self, self.tr("Map error"), message)
 
     def _on_accept(self) -> None:
-        if self._bbox is None:
+        if self._bbox is None or self._fetch_in_progress:
             return
         # Only the OK button gets disabled — Cancel must stay clickable
         # so the user can abort a long mosaic fetch.
         self._ok_button.setEnabled(False)
         self._status.setText(self.tr("Fetching satellite image..."))
-        self._worker = _FetchWorker(self._bbox, self)
-        self._worker.finished_ok.connect(self._on_fetch_success)
-        self._worker.failed.connect(self._on_fetch_failure)
-        self._worker.cancelled.connect(self._on_fetch_cancelled)
-        # Detach the worker before it goes out of scope so the dialog can
-        # close before the thread fully wraps up — avoids the dreaded
-        # "QThread: Destroyed while thread is still running" crash.
-        self._worker.finished.connect(self._worker.deleteLater)
-        self._worker.start()
+        self._fetch_generation += 1
+        generation = self._fetch_generation
+        self._fetch_in_progress = True
+        self._fetch_cancel_requested = False
+        self._worker = _FetchWorker(self._bbox, self._api_key, self)
+        worker = self._worker
+        worker.finished_ok.connect(
+            lambda result, generation=generation: self._on_fetch_success(
+                result, generation
+            )
+        )
+        worker.failed.connect(
+            lambda message, generation=generation: self._on_fetch_failure(
+                message, generation
+            )
+        )
+        worker.cancelled.connect(
+            lambda generation=generation: self._on_fetch_cancelled(generation)
+        )
+        # Clear the Python reference when the thread reaches its terminal
+        # signal, then schedule C++ deletion. Keeping a deleted QThread wrapper
+        # in ``_worker`` makes a later Cancel click call into invalid Qt state.
+        worker.finished.connect(lambda worker=worker: self._on_worker_finished(worker))
+        worker.finished.connect(worker.deleteLater)
+        worker.start()
+
+    def _on_worker_finished(self, worker: _FetchWorker) -> None:
+        """Drop a terminal worker reference without disturbing a replacement."""
+        if self._worker is worker:
+            self._worker = None
 
     def _on_cancel(self) -> None:
         """Cancel a running fetch, or close the dialog if nothing is running."""
-        if self._worker is not None and self._worker.isRunning():
+        if self._fetch_in_progress:
+            self._fetch_cancel_requested = True
             self._status.setText(self.tr("Cancelling..."))
             self._cancel_button.setEnabled(False)
-            self._worker.requestInterruption()
+        worker = self._worker
+        if worker is not None:
+            try:
+                running = worker.isRunning()
+            except RuntimeError:
+                self._worker = None
+                running = False
+            if running:
+                worker.requestInterruption()
+                return
+            if self._fetch_in_progress:
+                # The worker has stopped, but its terminal signal may still be
+                # queued. Keep the dialog open until that signal is processed.
+                return
+        if self._fetch_in_progress:
+            # The terminal worker cleanup may already have cleared the wrapper;
+            # a queued success/failure/cancel signal still owns this fetch.
             return
         self.reject()
 
-    def _on_fetch_success(self, result: FetchResult) -> None:
+    def _on_fetch_success(
+        self, result: FetchResult, generation: int | None = None
+    ) -> None:
+        if generation is not None and generation != self._fetch_generation:
+            return
+        if self._fetch_cancel_requested:
+            self._on_fetch_cancelled(generation)
+            return
+        self._fetch_in_progress = False
+        self._fetch_cancel_requested = False
         self._fetch_result = result
         self.accept()
 
-    def _on_fetch_failure(self, message: str) -> None:
+    def _on_fetch_failure(self, message: str, generation: int | None = None) -> None:
+        if generation is not None and generation != self._fetch_generation:
+            return
+        self._fetch_in_progress = False
+        self._fetch_cancel_requested = False
+        if message == _KEY_MISSING_FAILURE:
+            message = self.tr(_KEY_MISSING_MESSAGE)
+        elif message == _UNEXPECTED_FETCH_FAILURE:
+            message = self.tr(_UNEXPECTED_FETCH_MESSAGE)
         QMessageBox.critical(self, self.tr("Failed to fetch image"), message)
         self._ok_button.setEnabled(True)
         self._cancel_button.setEnabled(True)
         self._status.setText(self.tr("Try again, or pick a smaller area."))
 
-    def _on_fetch_cancelled(self) -> None:
+    def _on_fetch_cancelled(self, generation: int | None = None) -> None:
+        if generation is not None and generation != self._fetch_generation:
+            return
+        self._fetch_in_progress = False
+        self._fetch_cancel_requested = False
         self._ok_button.setEnabled(self._bbox is not None)
         self._cancel_button.setEnabled(True)
         self._status.setText(self.tr("Fetch cancelled."))
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         # ``requests.get(timeout=10)`` is uninterruptible from the GUI thread
-        # — ``cancel_check`` is only consulted *between* tiles, never during
-        # a single in-flight HTTP call. So in the single-call path a slow
-        # server can keep the worker running for the full HTTP timeout.
-        # Detach the worker from the dialog so Qt does NOT destroy a child
-        # QThread that's still in ``run()`` — ``finished → deleteLater``
-        # (wired in ``_on_accept``) takes care of the cleanup whenever the
-        # request eventually returns.
-        if self._worker is not None and self._worker.isRunning():
-            self._worker.requestInterruption()
-            self._worker.setParent(None)
+        # — ``cancel_check`` is consulted between tiles and immediately after
+        # each response, never during a single in-flight HTTP call. So in the
+        # single-call path a slow server can keep the worker running for the
+        # full HTTP timeout.
+        worker = self._worker
+        if self._fetch_in_progress:
+            self._fetch_cancel_requested = True
+        if worker is not None:
+            try:
+                if worker.isRunning():
+                    worker.requestInterruption()
+                    # The HTTP layer has a finite timeout, and joining here
+                    # keeps a running child QThread from outliving its dialog.
+                    worker.wait()
+                if self._worker is worker:
+                    self._worker = None
+            except RuntimeError:
+                self._worker = None
+        self._fetch_in_progress = False
         super().closeEvent(event)

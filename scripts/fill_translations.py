@@ -156,6 +156,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Erneut versuchen oder einen kleineren Bereich wählen.",
         "Load image": "Bild laden",
         "API key missing": "API-Schlüssel fehlt",
+        "Set a Google Maps API key in Preferences or "
+        "OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite "
+        "background loading.":
+            "Einen Google-Maps-API-Schlüssel in den Einstellungen oder "
+            "OGP_GOOGLE_MAPS_KEY in der .env-Datei setzen, um Satellitenbilder "
+            "laden zu können.",
+        "Unexpected error while fetching satellite image.":
+            "Beim Abrufen des Satellitenbilds ist ein unerwarteter Fehler "
+            "aufgetreten.",
         "Map error": "Kartenfehler",
         "Failed to fetch image": "Bildabruf fehlgeschlagen",
         # HTML-side picker UI (passed to JS via the bridge):
@@ -933,6 +942,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Bereich auf Google Maps auswählen und maßstabsgetreu als Satellitenbild laden",
         "Set OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading":
             "OGP_GOOGLE_MAPS_KEY in der .env-Datei setzen, um Satellitenbilder laden zu können",
+        "Set a Google Maps API key in Preferences or "
+        "OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite "
+        "background loading":
+            "Einen Google-Maps-API-Schlüssel in den Einstellungen oder "
+            "OGP_GOOGLE_MAPS_KEY in der .env-Datei setzen, um Satellitenbilder "
+            "laden zu können",
+        "Set a Google Maps API key in Preferences or "
+        "OGP_GOOGLE_MAPS_KEY in your .env file to enable "
+        "satellite background loading.":
+            "Einen Google-Maps-API-Schlüssel in den Einstellungen oder "
+            "OGP_GOOGLE_MAPS_KEY in der .env-Datei setzen, um Satellitenbilder "
+            "laden zu können.",
         "Set OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading.":
             "OGP_GOOGLE_MAPS_KEY in der .env-Datei setzen, um Satellitenbilder laden zu können.",
         "API key missing": "API-Schlüssel fehlt",
@@ -1914,6 +1935,24 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Show a reminder on startup when the open project has overdue tasks":
             "Beim Start an überfällige Aufgaben im geöffneten Projekt erinnern",
         "Preferences": "Einstellungen",
+        "Configure API keys for online services below. "
+        "Keys are stored locally in your user settings and are never "
+        "included in garden plans or the installer. "
+        "Environment variables (.env) are used as fallback.":
+            "Konfigurieren Sie unten API-Schlüssel für Online-Dienste. "
+            "Schlüssel werden lokal in Ihren Benutzereinstellungen gespeichert "
+            "und nie in Gartenpläne oder das Installationsprogramm aufgenommen. "
+            "Umgebungsvariablen (.env) werden als Fallback verwendet.",
+        "Google Maps": "Google Maps",
+        "Enter Google Maps API key...": "Google-Maps-API-Schlüssel eingeben...",
+        "Used for Load Satellite Background. The key is stored only in "
+        "your local user settings and is never included in plans or "
+        "the installer.":
+            "Für 'Satellitenbild laden' verwendet. Der Schlüssel wird nur in "
+            "Ihren lokalen Benutzereinstellungen gespeichert und nie in Pläne "
+            "oder das Installationsprogramm aufgenommen.",
+        "Using OGP_GOOGLE_MAPS_KEY from environment":
+            "OGP_GOOGLE_MAPS_KEY aus der Umgebung wird verwendet",
         "Configure your plant database API keys below. "
         "Keys are stored locally and never shared. "
         "Environment variables (.env) are used as fallback.":

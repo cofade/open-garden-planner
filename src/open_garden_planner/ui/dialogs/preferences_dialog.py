@@ -1,6 +1,7 @@
 """Preferences dialog for application settings."""
 
 import logging
+import os
 
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
@@ -63,7 +64,7 @@ class _PasswordLineEdit(QWidget):
 class PreferencesDialog(QDialog):
     """Preferences dialog with API Keys configuration.
 
-    Allows users to enter and persist their plant API credentials
+    Allows users to enter and persist their online-service API credentials
     via QSettings so they don't need environment variables.
     """
 
@@ -81,8 +82,9 @@ class PreferencesDialog(QDialog):
         # Info label
         info_label = QLabel(
             self.tr(
-                "Configure your plant database API keys below. "
-                "Keys are stored locally and never shared. "
+                "Configure API keys for online services below. "
+                "Keys are stored locally in your user settings and are never "
+                "included in garden plans or the installer. "
                 "Environment variables (.env) are used as fallback."
             )
         )
@@ -163,6 +165,28 @@ class PreferencesDialog(QDialog):
         permapeople_layout.addRow("", permapeople_links)
 
         layout.addWidget(permapeople_group)
+
+        # --- Google Maps satellite background ---
+        google_maps_group = QGroupBox(self.tr("Google Maps"))
+        google_maps_layout = QFormLayout(google_maps_group)
+
+        self._google_maps_key = _PasswordLineEdit()
+        self._google_maps_key.setPlaceholderText(
+            self.tr("Enter Google Maps API key...")
+        )
+        google_maps_layout.addRow(self.tr("API Key:"), self._google_maps_key)
+
+        google_maps_note = QLabel(
+            self.tr(
+                "Used for Load Satellite Background. The key is stored only in "
+                "your local user settings and is never included in plans or "
+                "the installer."
+            )
+        )
+        google_maps_note.setWordWrap(True)
+        google_maps_layout.addRow("", google_maps_note)
+
+        layout.addWidget(google_maps_group)
 
         # --- Weather (US-12.2) ---
         weather_group = QGroupBox(self.tr("Weather"))
@@ -318,6 +342,12 @@ class PreferencesDialog(QDialog):
         self._perenual_key.setText(settings.perenual_api_key)
         self._permapeople_key_id.setText(settings.permapeople_key_id)
         self._permapeople_key_secret.setText(settings.permapeople_key_secret)
+        google_maps_key = settings.google_maps_api_key
+        self._google_maps_key.setText(google_maps_key)
+        if not google_maps_key and os.environ.get("OGP_GOOGLE_MAPS_KEY", "").strip():
+            self._google_maps_key.setPlaceholderText(
+                self.tr("Using OGP_GOOGLE_MAPS_KEY from environment")
+            )
         self._frost_orange_spin.setValue(settings.frost_warning_orange_c)
         self._frost_red_spin.setValue(settings.frost_warning_red_c)
         self._notify_overdue_check.setChecked(settings.notify_overdue_tasks_on_startup)
@@ -434,6 +464,7 @@ class PreferencesDialog(QDialog):
         settings.perenual_api_key = self._perenual_key.text().strip()
         settings.permapeople_key_id = self._permapeople_key_id.text().strip()
         settings.permapeople_key_secret = self._permapeople_key_secret.text().strip()
+        settings.google_maps_api_key = self._google_maps_key.text().strip()
         settings.frost_warning_orange_c = self._frost_orange_spin.value()
         settings.frost_warning_red_c = self._frost_red_spin.value()
         settings.notify_overdue_tasks_on_startup = self._notify_overdue_check.isChecked()

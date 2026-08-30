@@ -6,8 +6,9 @@ the Web-Mercator projection. For boxes too large to fit in a single
 640x640 Static-Maps call (scale=2 → 1280x1280 effective pixels), the
 service automatically stitches a 2x2 / 3x3 grid of sub-calls with Pillow.
 
-The API key is read from the ``OGP_GOOGLE_MAPS_KEY`` environment variable
-(loaded from ``.env`` at app startup in ``main.py``). It is intentionally
+The API key may be supplied explicitly by the caller (the Preferences value)
+or falls back to the ``OGP_GOOGLE_MAPS_KEY`` environment variable (loaded
+from ``.env`` at app startup in ``main.py``). It is intentionally
 never bundled into the installer — any binary distributing the key could
 be reverse-engineered and the key abused. See ADR-019.
 """
@@ -42,7 +43,7 @@ _ENV_VAR = "OGP_GOOGLE_MAPS_KEY"
 
 
 class GoogleMapsKeyMissingError(RuntimeError):
-    """Raised when the API key env var is not set."""
+    """Raised when no explicit or environment API key is available."""
 
 
 class GoogleMapsFetchError(RuntimeError):
@@ -81,19 +82,23 @@ class FetchResult:
     tile_grid: tuple[int, int]  # (cols, rows) — (1,1) means single call
 
 
-def has_api_key() -> bool:
-    """True iff the API key env var is set and non-empty."""
-    return bool(os.environ.get(_ENV_VAR, "").strip())
+def _normalise_api_key(api_key: str | None) -> str:
+    """Return an explicit key or the environment fallback, stripped."""
+    if api_key is None:
+        return os.environ.get(_ENV_VAR, "").strip()
+    return api_key.strip()
 
 
-def get_api_key() -> str:
-    """Return the API key or raise if missing. Strip whitespace."""
-    key = os.environ.get(_ENV_VAR, "").strip()
+def has_api_key(api_key: str | None = None) -> bool:
+    """True iff the explicit key or environment fallback is non-empty."""
+    return bool(_normalise_api_key(api_key))
+
+
+def get_api_key(api_key: str | None = None) -> str:
+    """Return an explicit key or environment fallback, or raise if missing."""
+    key = _normalise_api_key(api_key)
     if not key:
-        raise GoogleMapsKeyMissingError(
-            f"Environment variable {_ENV_VAR} is not set. "
-            "Put it in your project .env file."
-        )
+        raise GoogleMapsKeyMissingError
     return key
 
 
@@ -242,6 +247,12 @@ def _crop_to_bbox(
     return image.crop((left, top, left + crop_w, top + crop_h))
 
 
+def _raise_if_cancelled(cancel_check: Callable[[], bool] | None) -> None:
+    """Raise when the caller has requested cancellation."""
+    if cancel_check is not None and cancel_check():
+        raise FetchCancelled("Fetch cancelled by caller")
+
+
 def fetch_bbox(
     bbox: BoundingBox,
     *,
@@ -256,11 +267,11 @@ def fetch_bbox(
     mosaic for larger ones. The returned image is cropped to exactly the
     bbox dimensions so the canvas-placed image matches what the user drew.
 
-    ``cancel_check`` — if given, is polled between tiles. When it returns
-    True, the fetch raises ``FetchCancelled`` rather than continuing.
+    ``cancel_check`` — if given, is polled between tiles and after each
+    response/crop. When it returns True, the fetch raises ``FetchCancelled``
+    rather than returning a result.
     """
-    if api_key is None:
-        api_key = get_api_key()
+    api_key = get_api_key(api_key)
 
     zoom, cols, rows = pick_zoom_and_grid(bbox)
     center_lat, center_lng = bbox.center
@@ -274,8 +285,11 @@ def fetch_bbox(
 
     if cols == 1 and rows == 1:
         raw = _fetch_tile(center_lat, center_lng, zoom, api_key, timeout=timeout)
+        _raise_if_cancelled(cancel_check)
+        image = _crop_to_bbox(raw, output_mpp, bbox)
+        _raise_if_cancelled(cancel_check)
         return FetchResult(
-            image=_crop_to_bbox(raw, output_mpp, bbox),
+            image=image,
             meters_per_pixel=output_mpp,
             zoom=zoom,
             bbox=bbox,
@@ -290,8 +304,7 @@ def fetch_bbox(
 
     for row in range(rows):
         for col in range(cols):
-            if cancel_check is not None and cancel_check():
-                raise FetchCancelled("Fetch cancelled by caller")
+            _raise_if_cancelled(cancel_check)
             offset_x = col - (cols - 1) / 2.0
             offset_y = (rows - 1) / 2.0 - row  # row 0 is at the top → +lat
             tile_lat = center_lat + offset_y * tile_dlat
@@ -299,13 +312,16 @@ def fetch_bbox(
             tile_img = _fetch_tile(
                 tile_lat, tile_lng, zoom, api_key, timeout=timeout
             )
+            _raise_if_cancelled(cancel_check)
             mosaic.paste(
                 tile_img,
                 (col * _TILE_EFFECTIVE_PX, row * _TILE_EFFECTIVE_PX),
             )
 
+    image = _crop_to_bbox(mosaic, output_mpp, bbox)
+    _raise_if_cancelled(cancel_check)
     return FetchResult(
-        image=_crop_to_bbox(mosaic, output_mpp, bbox),
+        image=image,
         meters_per_pixel=output_mpp,
         zoom=zoom,
         bbox=bbox,

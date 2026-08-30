@@ -3591,6 +3591,14 @@ Details: {error}</translation>
             <source>Send the selected objects to the back of their layer</source>
             <translation>Ausgewählte Objekte ganz nach hinten bringen</translation>
         </message>
+        <message>
+            <source>Set a Google Maps API key in Preferences or OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading</source>
+            <translation>Einen Google-Maps-API-Schlüssel in den Einstellungen oder OGP_GOOGLE_MAPS_KEY in der .env-Datei setzen, um Satellitenbilder laden zu können</translation>
+        </message>
+        <message>
+            <source>Set a Google Maps API key in Preferences or OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading.</source>
+            <translation>Einen Google-Maps-API-Schlüssel in den Einstellungen oder OGP_GOOGLE_MAPS_KEY in der .env-Datei setzen, um Satellitenbilder laden zu können.</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -5577,6 +5585,26 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
         <message>
             <source>The running server still uses the previous token until you click Save — copying now won't work for a client yet.</source>
             <translation>Der laufende Server verwendet weiterhin das vorherige Token, bis Sie auf Speichern klicken – ein jetzt kopiertes Token funktioniert für einen Client noch nicht.</translation>
+        </message>
+        <message>
+            <source>Configure API keys for online services below. Keys are stored locally in your user settings and are never included in garden plans or the installer. Environment variables (.env) are used as fallback.</source>
+            <translation>Konfigurieren Sie unten API-Schlüssel für Online-Dienste. Schlüssel werden lokal in Ihren Benutzereinstellungen gespeichert und nie in Gartenpläne oder das Installationsprogramm aufgenommen. Umgebungsvariablen (.env) werden als Fallback verwendet.</translation>
+        </message>
+        <message>
+            <source>Google Maps</source>
+            <translation>Google Maps</translation>
+        </message>
+        <message>
+            <source>Enter Google Maps API key...</source>
+            <translation>Google-Maps-API-Schlüssel eingeben...</translation>
+        </message>
+        <message>
+            <source>Used for Load Satellite Background. The key is stored only in your local user settings and is never included in plans or the installer.</source>
+            <translation>Für 'Satellitenbild laden' verwendet. Der Schlüssel wird nur in Ihren lokalen Benutzereinstellungen gespeichert und nie in Pläne oder das Installationsprogramm aufgenommen.</translation>
+        </message>
+        <message>
+            <source>Using OGP_GOOGLE_MAPS_KEY from environment</source>
+            <translation>OGP_GOOGLE_MAPS_KEY aus der Umgebung wird verwendet</translation>
         </message>
     </context>
     <context>
@@ -9745,6 +9773,14 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Drag on the map to draw the rectangle.</source>
             <translation>Auf der Karte ein Rechteck aufziehen.</translation>
+        </message>
+        <message>
+            <source>Set a Google Maps API key in Preferences or OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading.</source>
+            <translation>Einen Google-Maps-API-Schlüssel in den Einstellungen oder OGP_GOOGLE_MAPS_KEY in der .env-Datei setzen, um Satellitenbilder laden zu können.</translation>
+        </message>
+        <message>
+            <source>Unexpected error while fetching satellite image.</source>
+            <translation>Beim Abrufen des Satellitenbilds ist ein unerwarteter Fehler aufgetreten.</translation>
         </message>
     </context>
     <context>

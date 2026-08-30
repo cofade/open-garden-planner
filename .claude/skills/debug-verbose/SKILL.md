@@ -679,3 +679,45 @@ Coverage of a supposedly constant-width line fell from full (110) at the top to 
 **Fix — and the second abort that taught the third leg.** `QTimer(self)` + `done()` stopping it was applied first; the battery aborted again at the same frame. Because pytest capture dies with the process, the next probe logged every `_perform_search` call to a FILE with `PYTEST_CURRENT_TEST`, `sip.isdeleted(self)` and `timer.isActive()`: 17 calls, all synchronous test calls, all leaving the timer ARMED — the dialog's own signal cycle keeps the Python object (and its now-parented timer) alive until a later GC, so parenting alone cannot prevent a late fire. Third leg: `_perform_search()` stops the timer at entry (a search that runs settles the debounce). Regression pins in `tests/unit/test_plant_search_dialog_timer.py` (arm → `done(0)` → `qtbot.wait(700)` → slot not called; arm → direct `_perform_search()` → timer inactive). §11.4 entry; playbook row 37.
 
 **Lesson.** When a battery crash lands in a test that cannot possibly own the crashing code, read the crashing frame, not the test name — the culprit is an earlier test that left a timer/thread alive. Log timing-flaky probes to a file, not stdout. Every `QTimer` created inside a widget takes that widget as parent, a slot that can open a modal is stopped in `done()`, and a debounced action that runs settles its own timer.
+
+## Case study: a real Preferences-to-picker integration test appeared to hang after the first successful workflow (Issue #342, fixed 2026-08-30)
+
+**Symptom.** The new satellite workflow test printed `imported key='preference-key'`, then reported `FAILED` at the second Preferences save and stopped producing pytest output while Qt teardown was pending.
+
+**Wrong theories.** The first suspects were a leaked WebEngine thread, the existing Agent API server, and the known modal-dialog teardown hazard. None explained why the failure occurred exactly after the import path had completed.
+
+**Key evidence.** Flushed milestone prints narrowed the boundary to `[SAT-DBG] clearing Preferences`; a traceback wrapper then showed `AttributeError: '_PasswordLineEdit' object has no attribute 'clear'` at the test's `self._google_maps_key.clear()` call.
+
+**Root cause.** The test treated the application's password-field wrapper as if it were the wrapped `QLineEdit`; the assertion failure happened before the test could print its post-save state, making the surrounding Qt teardown look like the cause.
+
+**Fix.** Replace the wrapper call with its supported `setText("")` API, remove all temporary instrumentation, and keep the real Preferences dialog in the integration path while stubbing only the network-bound picker boundary.
+
+**Lesson.** In a Qt integration test, print flushed milestones around each boundary before theorising about teardown; when a custom widget wrapper is involved, inspect its public API instead of assuming it forwards the underlying control's methods. A test that reaches the real UI save path is only useful if its own harness failure is distinguishable from application lifecycle noise.
+
+## Case study: the corrected satellite import integration test passed but never completed teardown (Issue #342, fixed 2026-08-30)
+
+**Symptom.** After the wrapper API failure was fixed, the test printed `PASSED` but pytest produced no summary and remained alive until interrupted.
+
+**Wrong theories.** A leaking WebEngine object, an unjoined map worker, and the Agent API timer were all plausible because the test exercised the real main window.
+
+**Key evidence.** The import handler at `GardenPlannerApp._on_load_satellite_background()` marks the project dirty; `GardenPlannerApp.closeEvent()` then calls `_confirm_discard_changes()`, whose modal save prompt cannot be answered in the offscreen pytest-qt teardown.
+
+**Root cause.** The test intentionally exercised a mutating import workflow but left the window dirty, so the normal close path opened a headless modal dialog after the test body had already passed.
+
+**Fix.** Call `win._project_manager.mark_clean()` immediately after asserting the import path has completed, before pytest-qt closes the window; this preserves the production workflow while making teardown deterministic.
+
+**Lesson.** For headless Qt integration tests that mutate a document, inspect the production close path and neutralize its expected user prompt in test cleanup. A passing test body is not a passing test process when teardown can enter a modal loop.
+
+## Case study: retrying a failed satellite fetch could call a deleted QThread wrapper (Issue #342, fixed 2026-08-30)
+
+**Symptom.** After a satellite fetch failed or was cancelled, a later Cancel click could raise `RuntimeError: wrapped C/C++ object of type _FetchWorker has been deleted`.
+
+**Wrong theories.** The HTTP worker was suspected of still running, and the dialog's `closeEvent()` detachment looked like the likely source of the stale reference.
+
+**Key evidence.** `_on_accept()` connected `finished → worker.deleteLater()` but never cleared `self._worker`; `_on_cancel()` then called `self._worker.isRunning()` after Qt had destroyed the C++ object.
+
+**Root cause.** Python retained a wrapper whose underlying QThread had already been deleted, so the next lifecycle action dereferenced invalid Qt state.
+
+**Fix.** Connect each worker's terminal signal to an identity-checked cleanup slot that clears `_worker`, guard stale wrappers in Cancel/close, and add a real-thread regression test that waits for failure before issuing a second Cancel.
+
+**Lesson.** In Qt worker code, `deleteLater()` is not reference cleanup. Track terminal ownership explicitly, test the action that follows completion, and use the worker identity so a late signal from an older request cannot clear a replacement.

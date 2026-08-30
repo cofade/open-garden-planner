@@ -57,6 +57,21 @@ class TestBackgroundImagePortability:
         assert isinstance(bg_items[0]["image_data"], str)
         assert len(bg_items[0]["image_data"]) > 0
 
+    def test_google_maps_key_is_not_written_to_project_file(
+        self, qtbot, tmp_path: Path
+    ) -> None:
+        """Per-user API credentials must stay outside portable .ogp files."""
+        from open_garden_planner.app.settings import get_settings
+
+        get_settings().google_maps_api_key = "SECRET_GOOGLE_MAPS_KEY"
+        project = ProjectManager()
+        save_path = tmp_path / "no_secrets.ogp"
+        project.save(CanvasScene(width_cm=5000, height_cm=3000), save_path)
+
+        saved_text = save_path.read_text(encoding="utf-8")
+        assert "SECRET_GOOGLE_MAPS_KEY" not in saved_text
+        assert "google_maps_key" not in saved_text
+
     def test_project_loads_background_image_without_source_file(
         self, qtbot, png_image: Path, tmp_path: Path
     ) -> None:

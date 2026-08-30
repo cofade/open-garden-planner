@@ -2411,6 +2411,10 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 | `docs/11-risks-and-technical-debt/` | §11.4 — save/load inversion, clipboard layer-less gap, refresh-writes-state-breaks-undo lesson |
 | `docs/12-glossary/` | "Stacking order", "Arrange", "Stack index" |
 
+## Google Maps packaged-build follow-up (Issue #342)
+
+The satellite picker now accepts a Google Maps API key from Preferences, while retaining the environment/adjacent-`.env` fallback for source and packaged builds. Preferences values take precedence, blank values fall back, and credentials are excluded from project files and artifacts. See ADR-019, FR-IMG-08, and §8.15.
+
 ---
 
 ## Phase 13: Agent Integration — Package D (MCP Server) 📋 Planned

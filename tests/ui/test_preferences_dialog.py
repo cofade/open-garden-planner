@@ -30,6 +30,10 @@ class TestPreferencesDialog:
         """Dialog exposes a Perenual API key input."""
         assert hasattr(dialog, "_perenual_key")
 
+    def test_has_google_maps_key_field(self, dialog) -> None:
+        """Dialog exposes a Google Maps API key input."""
+        assert hasattr(dialog, "_google_maps_key")
+
     def test_trefle_field_is_empty_by_default(self, dialog) -> None:
         """Trefle token field is empty when no key is configured."""
         # QSettings is isolated to 'cofade_test' in conftest — no real key
@@ -39,6 +43,33 @@ class TestPreferencesDialog:
         """Typing into the Trefle token field updates the value."""
         dialog._trefle_token._line_edit.setText("test-token-123")
         assert dialog._trefle_token.text() == "test-token-123"
+
+    def test_google_maps_key_save_and_clear_round_trip(self, dialog, qtbot) -> None:
+        """Google Maps key persistence follows the existing Preferences save path."""
+        from open_garden_planner.app.settings import get_settings
+
+        dialog._google_maps_key.setText("preference-key")
+        dialog._save_and_accept()
+        assert get_settings().google_maps_api_key == "preference-key"
+
+        restored = PreferencesDialog()
+        qtbot.addWidget(restored)
+        assert restored._google_maps_key.text() == "preference-key"
+
+        restored._google_maps_key.setText("")
+        restored._save_and_accept()
+        assert get_settings().google_maps_api_key == ""
+
+    def test_google_maps_environment_fallback_is_not_copied_to_field(
+        self, qtbot, monkeypatch
+    ) -> None:
+        """An environment key is shown as a hint but is never written to the field."""
+        monkeypatch.setenv("OGP_GOOGLE_MAPS_KEY", "environment-key")
+        dlg = PreferencesDialog()
+        qtbot.addWidget(dlg)
+
+        assert dlg._google_maps_key.text() == ""
+        assert "OGP_GOOGLE_MAPS_KEY" in dlg._google_maps_key._line_edit.placeholderText()
 
 
 class _FakeParentWindow:

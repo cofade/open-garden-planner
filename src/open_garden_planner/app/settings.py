@@ -92,6 +92,7 @@ class AppSettings:
     KEY_CHAMFER_LAST_DISTANCE_CM = "tools/chamfer_last_distance_cm"
 
     # API key settings
+    KEY_GOOGLE_MAPS_API_KEY = "api_keys/google_maps_key"
     KEY_TREFLE_API_TOKEN = "api_keys/trefle_token"
     KEY_PERENUAL_API_KEY = "api_keys/perenual_key"
     KEY_PERMAPEOPLE_KEY_ID = "api_keys/permapeople_key_id"
@@ -445,7 +446,19 @@ class AppSettings:
         """Set the UI language code."""
         self._settings.setValue(self.KEY_LANGUAGE, lang_code)
 
-    # --- Plant API key properties ---
+    # --- API key properties ---
+
+    @property
+    def google_maps_api_key(self) -> str:
+        """Google Maps API key entered in Preferences, if any."""
+        return str(
+            self._settings.value(self.KEY_GOOGLE_MAPS_API_KEY, "", type=str)
+        )
+
+    @google_maps_api_key.setter
+    def google_maps_api_key(self, key: str) -> None:
+        """Persist the Google Maps API key entered in Preferences."""
+        self._settings.setValue(self.KEY_GOOGLE_MAPS_API_KEY, key)
 
     @property
     def trefle_api_token(self) -> str:

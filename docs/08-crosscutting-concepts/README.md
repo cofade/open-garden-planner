@@ -788,9 +788,10 @@ Cross-references: ADR-017 (decision rationale), `tests/integration/test_bed_cont
 
 **Key location, in priority order:**
 
-1. `OGP_GOOGLE_MAPS_KEY` environment variable (set by your shell or CI).
-2. A line in the project-root `.env` file (loaded by `python-dotenv` in `main.py` before anything else).
-3. *(future)* Per-user UI in `PreferencesDialog` — stored under `QSettings("cofade", "Open Garden Planner")` at `Network/GoogleMapsApiKey`. Not implemented yet — `services/google_maps_service.has_api_key()` reads only the env var as of ADR-019.
+1. A non-empty key in `Preferences`, stored at `api_keys/google_maps_key` in the application's per-user QSettings store.
+2. `OGP_GOOGLE_MAPS_KEY` from the process environment. In a source checkout, `main.py` loads this from the project-root `.env`; a packaged build also supports an adjacent `.env` next to the executable.
+
+Preferences takes precedence. Leaving the Preferences field blank keeps the environment/`.env` fallback active; clearing a previously saved value therefore restores that fallback. The key is never copied from the environment into QSettings.
 
 When the key is absent, the menu item is disabled and its tooltip explains where to set it. There is no fallback to a different provider — the dialog is unavailable until the user provides a key.
 
@@ -801,7 +802,7 @@ When the key is absent, the menu item is disabled and its tooltip explains where
 3. Enable the three APIs the dialog needs: **Maps JavaScript API**, **Places API**, **Maps Static API**.
 4. *Billing → Budgets & alerts*: create a budget alert at €1/month so you get pinged if anything ever escapes the $200 free credit.
 5. *APIs & Services → Credentials*: create an API key. Restrict it: **API restrictions** = the three APIs above only. **Application restrictions** can stay on "None" for desktop use (HTTP-referrer/IP/Android-package restrictions don't apply to a `.exe`).
-6. Paste the key into the project-root `.env`:
+6. Put the key in Preferences, or use the environment fallback. For a source checkout, the latter can be the project-root `.env`; for a packaged build, place `.env` next to the executable:
 
    ```dotenv
    OGP_GOOGLE_MAPS_KEY=AIza...
