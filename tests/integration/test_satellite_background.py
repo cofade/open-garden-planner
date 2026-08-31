@@ -147,6 +147,7 @@ class TestMenuActionGating:
             tile_grid=(1, 1),
         )
         captured_api_key = ""
+        captured_fetch_keys: list[str] = []
         real_init = MapPickerDialog.__init__
 
         def _init_and_schedule(self, parent=None, *, api_key=None) -> None:
@@ -161,7 +162,9 @@ class TestMenuActionGating:
         monkeypatch.setattr(
             map_picker_mod,
             "fetch_bbox",
-            lambda *_args, **_kwargs: fake_result,
+            lambda *_args, **kwargs: (
+                captured_fetch_keys.append(kwargs["api_key"]) or fake_result
+            ),
         )
         action.trigger()
 
@@ -171,6 +174,7 @@ class TestMenuActionGating:
         win._project_manager.mark_clean()
         assert action.isEnabled() is True
         assert captured_api_key == "preference-key"
+        assert captured_fetch_keys[-1] == "preference-key"
         assert any(
             item.__class__.__name__ == "BackgroundImageItem"
             for item in win.canvas_scene.items()
@@ -185,3 +189,8 @@ class TestMenuActionGating:
         assert completed == 2
         assert win._resolved_google_maps_api_key() == "environment-key"
         assert action.isEnabled() is True
+
+        action.trigger()
+        win._project_manager.mark_clean()
+        assert captured_api_key == "environment-key"
+        assert captured_fetch_keys[-1] == "environment-key"

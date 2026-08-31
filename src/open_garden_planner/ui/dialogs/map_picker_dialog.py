@@ -10,12 +10,15 @@ background can be created with an exact pixel→meter scale.
 
 from __future__ import annotations
 
+import logging
+import traceback
 from pathlib import Path
 
 from PyQt6.QtCore import (
     QLocale,
     QObject,
     QThread,
+    QTimer,
     QUrl,
     pyqtSignal,
     pyqtSlot,
@@ -53,6 +56,8 @@ _KEY_MISSING_MESSAGE = (
     "background loading."
 )
 _UNEXPECTED_FETCH_MESSAGE = "Unexpected error while fetching satellite image."
+
+logger = logging.getLogger(__name__)
 
 
 class _MapBridge(QObject):
@@ -147,6 +152,13 @@ class _FetchWorker(QThread):
         except Exception:  # safety net for unexpected errors
             # Do not forward arbitrary exception text: lower layers may carry
             # request URLs or other sensitive implementation details.
+            # Format and scrub the traceback before logging it; logging the
+            # exception object with ``exc_info=True`` could write a raw API
+            # key echoed by a lower-level request error.
+            logger.error(
+                "Unexpected satellite image fetch failure:\n%s",
+                _scrub_key(traceback.format_exc(), self._api_key),
+            )
             self.failed.emit(_UNEXPECTED_FETCH_FAILURE)
             return
         self.finished_ok.emit(result)
@@ -175,6 +187,7 @@ class MapPickerDialog(QDialog):
         self._fetch_generation = 0
         self._fetch_in_progress = False
         self._fetch_cancel_requested = False
+        self._close_after_fetch = False
         self._api_key = ""
 
         layout = QVBoxLayout(self)
@@ -335,6 +348,24 @@ class MapPickerDialog(QDialog):
         """Drop a terminal worker reference without disturbing a replacement."""
         if self._worker is worker:
             self._worker = None
+        if self._close_after_fetch:
+            self._schedule_deferred_close()
+
+    def _schedule_deferred_close(self) -> None:
+        """Close after queued worker terminal signals have settled."""
+        QTimer.singleShot(0, self._complete_deferred_close)
+
+    def _complete_deferred_close(self) -> None:
+        """Finish a close requested while the fetch worker was active."""
+        if not self._close_after_fetch:
+            return
+        if self._worker is not None or self._fetch_in_progress:
+            # A terminal signal can be queued separately from QThread.finished;
+            # give it a chance to clear the in-flight state before retrying.
+            self._schedule_deferred_close()
+            return
+        self._close_after_fetch = False
+        self.reject()
 
     def _on_cancel(self) -> None:
         """Cancel a running fetch, or close the dialog if nothing is running."""
@@ -380,6 +411,9 @@ class MapPickerDialog(QDialog):
             return
         self._fetch_in_progress = False
         self._fetch_cancel_requested = False
+        if self._close_after_fetch:
+            self._schedule_deferred_close()
+            return
         if message == _KEY_MISSING_FAILURE:
             message = self.tr(_KEY_MISSING_MESSAGE)
         elif message == _UNEXPECTED_FETCH_FAILURE:
@@ -397,26 +431,27 @@ class MapPickerDialog(QDialog):
         self._ok_button.setEnabled(self._bbox is not None)
         self._cancel_button.setEnabled(True)
         self._status.setText(self.tr("Fetch cancelled."))
+        if self._close_after_fetch:
+            self._schedule_deferred_close()
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         # ``requests.get(timeout=10)`` is uninterruptible from the GUI thread
         # — ``cancel_check`` is consulted between tiles and immediately after
-        # each response, never during a single in-flight HTTP call. So in the
-        # single-call path a slow server can keep the worker running for the
-        # full HTTP timeout.
+        # each response, never during a single in-flight HTTP call. Keep the
+        # dialog alive until the worker finishes instead of blocking the GUI
+        # thread while joining it.
         worker = self._worker
-        if self._fetch_in_progress:
+        if self._fetch_in_progress or worker is not None:
+            self._close_after_fetch = True
             self._fetch_cancel_requested = True
-        if worker is not None:
-            try:
-                if worker.isRunning():
-                    worker.requestInterruption()
-                    # The HTTP layer has a finite timeout, and joining here
-                    # keeps a running child QThread from outliving its dialog.
-                    worker.wait()
-                if self._worker is worker:
+            if worker is not None:
+                try:
+                    if worker.isRunning():
+                        worker.requestInterruption()
+                except RuntimeError:
                     self._worker = None
-            except RuntimeError:
-                self._worker = None
-        self._fetch_in_progress = False
+            event.ignore()
+            if self._worker is None and not self._fetch_in_progress:
+                self._schedule_deferred_close()
+            return
         super().closeEvent(event)

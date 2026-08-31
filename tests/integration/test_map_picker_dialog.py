@@ -8,6 +8,7 @@ without network IO. The WebEngine view is patched at construction time.
 
 from __future__ import annotations
 
+import logging
 import time
 from threading import Event
 from unittest.mock import MagicMock, patch
@@ -171,7 +172,7 @@ class TestFetchFlow:
 
         assert fetch.call_args.kwargs["api_key"] == "preference-key"
 
-    def test_worker_does_not_forward_unexpected_secret_text(self) -> None:
+    def test_worker_logs_scrubbed_traceback_for_unexpected_failure(self, caplog) -> None:
         from open_garden_planner.ui.dialogs.map_picker_dialog import _FetchWorker
 
         bbox = BoundingBox(52.521, 13.404, 52.519, 13.406)
@@ -181,11 +182,16 @@ class TestFetchFlow:
         with patch(
             "open_garden_planner.ui.dialogs.map_picker_dialog.fetch_bbox",
             side_effect=RuntimeError("request URL leaked SECRET_GOOGLE_MAPS_KEY"),
+        ), caplog.at_level(
+            logging.ERROR,
+            logger="open_garden_planner.ui.dialogs.map_picker_dialog",
         ):
             worker.run()
 
         assert messages
         assert "SECRET_GOOGLE_MAPS_KEY" not in messages[0]
+        assert "Unexpected satellite image fetch failure" in caplog.text
+        assert "SECRET_GOOGLE_MAPS_KEY" not in caplog.text
 
     def test_worker_scrubs_typed_fetch_error_secret(self) -> None:
         from open_garden_planner.ui.dialogs.map_picker_dialog import _FetchWorker
@@ -277,30 +283,42 @@ class TestFetchFlow:
         assert dialog.result() != dialog.DialogCode.Accepted
         assert dialog.fetch_result is None
 
-    def test_close_waits_for_in_flight_worker(
+    def test_close_does_not_block_on_in_flight_worker(
         self, qtbot, with_api_key, mock_web_view
     ) -> None:
-        """Closing joins an active worker before the dialog is torn down."""
+        """Closing requests cancellation without joining on the GUI thread."""
         from open_garden_planner.ui.dialogs.map_picker_dialog import MapPickerDialog
 
         dialog = MapPickerDialog()
         qtbot.addWidget(dialog)
         dialog._bridge.boundsUpdated.emit(52.521, 13.404, 52.519, 13.406)
         started = Event()
+        release = Event()
 
-        def _blocking_fetch(*_args, cancel_check=None, **_kwargs):
+        def _blocking_fetch(*_args, **_kwargs):
             started.set()
-            while cancel_check is not None and not cancel_check():
-                time.sleep(0.001)
-            raise FetchCancelled("cancelled")
+            release.wait(2)
+            return FetchResult(
+                image=MagicMock(),
+                meters_per_pixel=0.3,
+                zoom=19,
+                bbox=dialog._bbox,
+                tile_grid=(1, 1),
+            )
 
         with patch(
             "open_garden_planner.ui.dialogs.map_picker_dialog.fetch_bbox",
             side_effect=_blocking_fetch,
         ):
+            dialog.show()
             dialog._on_accept()
             qtbot.waitUntil(started.is_set, timeout=1000)
+            started_at = time.monotonic()
             dialog.close()
+            assert time.monotonic() - started_at < 0.5
+            assert dialog.isVisible() is True
+            release.set()
+            qtbot.waitUntil(lambda: not dialog.isVisible(), timeout=2000)
 
         assert dialog._worker is None
         assert dialog._fetch_in_progress is False

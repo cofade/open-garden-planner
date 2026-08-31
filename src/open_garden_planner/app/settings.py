@@ -128,6 +128,7 @@ class AppSettings:
     DEFAULT_FROST_WARNING_ORANGE_C = 5.0
     DEFAULT_FROST_WARNING_RED_C = 2.0
     DEFAULT_NOTIFY_OVERDUE_TASKS = True
+    DEFAULT_GOOGLE_MAPS_API_KEY = ""
 
     # Agent API (US-D1.1): embedded MCP server. Default ON (read-only,
     # loopback-only) so AI assistants can connect without hunting through
@@ -452,7 +453,11 @@ class AppSettings:
     def google_maps_api_key(self) -> str:
         """Google Maps API key entered in Preferences, if any."""
         return str(
-            self._settings.value(self.KEY_GOOGLE_MAPS_API_KEY, "", type=str)
+            self._settings.value(
+                self.KEY_GOOGLE_MAPS_API_KEY,
+                self.DEFAULT_GOOGLE_MAPS_API_KEY,
+                type=str,
+            )
         )
 
     @google_maps_api_key.setter
