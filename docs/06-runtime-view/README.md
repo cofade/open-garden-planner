@@ -124,6 +124,12 @@ field's default or `None`) rather than swapped in wholesale. The `Confirm
 of the three online providers (`custom`, or a future `bundled`) skips the
 fetch entirely, since neither has an online detail endpoint.
 
+### 6.3.1 Satellite Background Loading
+
+The File → Load Satellite Background… path resolves its credential at the application boundary: a non-empty Preferences value (`api_keys/google_maps_key`) wins, otherwise `OGP_GOOGLE_MAPS_KEY` from the process environment is used. `main.py` supports the project-root `.env` in source runs and an adjacent `.env` in packaged runs. The menu action is enabled from this same resolver and is refreshed after Preferences is accepted. When the dialog opens, the resolved key is passed explicitly to the JavaScript bridge and the background fetch worker; it is never part of the project snapshot or serialized image metadata.
+
+While the Static Maps request is in flight, closing or rejecting the picker requests worker interruption and leaves the dialog alive until the worker's terminal signal has been processed; the GUI thread never joins a network-bound worker. The main window also tracks the modal picker so application shutdown follows the same asynchronous path. Unexpected worker failures stay generic in the dialog, while a traceback scrubbed of the resolved key is written to the module logger for diagnosis.
+
 ## 6.4 Export Flow
 
 ```mermaid

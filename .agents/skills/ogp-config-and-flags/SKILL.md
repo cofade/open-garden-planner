@@ -136,8 +136,9 @@ dialog, ~line 3758).
 | `api_keys/permapeople_key_secret` | `permapeople_key_secret` | `""` |
 
 Entered in Preferences (with per-API "Test" buttons); consumed by the online
-plant-search services. Contrast: the Google Maps key is env-only (§3) because
-it must never ship in a binary.
+plant-search services. The Google Maps key is also available in Preferences at
+`api_keys/google_maps_key`, with `OGP_GOOGLE_MAPS_KEY` / `.env` as the fallback;
+neither source is ever bundled in a binary.
 
 ---
 
@@ -167,7 +168,7 @@ persistence without revisiting ADR-030.
 
 | Variable | Status | Purpose | What breaks without it |
 |---|---|---|---|
-| `OGP_GOOGLE_MAPS_KEY` | production, **user-supplied, never bundled** | Google Maps satellite background picker (ADR-019, docs/08 §8.15) | The "load satellite background" menu action is disabled with a tooltip telling you to set it (`application.py` ~line 379); `GoogleMapsKeyMissingError` if reached anyway. Deliberately env-only: bundling the key in the installer would let it be reverse-engineered and abused (`services/google_maps_service.py` docstring). |
+| `OGP_GOOGLE_MAPS_KEY` | production, **user-supplied, never bundled** | Google Maps satellite background picker fallback (ADR-019, docs/08 §8.15) | Preferences (`api_keys/google_maps_key`) takes precedence; this environment/`.env` value is the fallback. The "load satellite background" menu action is disabled with a tooltip when neither source is set; `GoogleMapsKeyMissingError` if reached anyway. Bundling either source in the installer would let it be reverse-engineered and abused (`services/google_maps_service.py` docstring). |
 | `QT_QPA_PLATFORM=offscreen` | production (test infra) | Headless Qt rendering | Set by `tests/conftest.py` via `os.environ.setdefault(...)` (line 11) AND by `ci.yml`'s test job env. Without it, tests need a display server. |
 | `PYTHONUTF8=1` | production (script infra) | Forces UTF-8 I/O for `scripts/fill_translations.py` / `compile_translations.py` (German umlauts) | Mojibake / encode errors on Windows. Per AGENTS.md, always run translation scripts with it. |
 
@@ -230,7 +231,7 @@ visibility calls.
 |---|---|---|
 | **Smart Symbols sidebar panel hidden** | `application.py` line ~1574: `self._sidebar_controller.set_panel_visible("smart_symbols", False)` | **experimental / deferred UI** (US-C4). Engine, persistence, DXF export, and properties editing all ship and are tested; symbols in existing `.ogp` files still regenerate. Re-enable by deleting that one line (the comment says exactly this). |
 | Contextual panels hidden until relevant selection | `set_panel_visible(key, relevant)` for `plant_details` / `companion` / `crop_rotation` in the selection updaters (ADR-030) | production behavior — not a bug when they're absent with nothing selected |
-| Satellite menu action disabled | `application.py` ~line 379 when `OGP_GOOGLE_MAPS_KEY` unset (§3) | production guard |
+| Satellite menu action disabled | `application.py` ~line 5393 when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
 | Nearest / perpendicular / tangent snap default-OFF | §1 snap table | production, opt-in |
 
 If "a feature seems disabled", check this table before debugging.

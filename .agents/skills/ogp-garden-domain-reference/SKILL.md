@@ -396,7 +396,8 @@ Aggregation (`services/harvest_aggregation.py`) groups by
   `hardiness_zone` (built in `ui/dialogs/location_dialog.py`, auto-filled
   from `climate_service`). Persisted in the `.ogp`.
 - **Satellite calibration (ADR-019):** `MapPickerDialog` (QtWebEngine +
-  Google Maps; key via `OGP_GOOGLE_MAPS_KEY` in `.env`) fetches a Static-Maps
+  Google Maps; key via Preferences, with `OGP_GOOGLE_MAPS_KEY` / `.env` as the
+  fallback) fetches a Static-Maps
   mosaic; `services/google_maps_service.py` derives an **analytical
   pixel→meter scale from Web-Mercator** (`meters_per_pixel(center_lat,
   zoom)`, haversine width). The background image item persists a

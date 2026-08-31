@@ -67,7 +67,7 @@ from them; use `pip install -e ".[dev]"`. (Verified 2026-07-04.)
 | 7 | `venv/Scripts/python.exe -m pytest tests/ -v` | Full suite passes (unit + integration + ui) |
 | 8 | *(only for exe/installer builds)* `venv/Scripts/python.exe -m pip install pyinstaller` | **Trap:** PyInstaller is NOT in the `[dev]` extra — install separately (per README / docs/07) |
 | 9 | *(only for installer builds)* Install NSIS from https://nsis.sourceforge.io/ | `makensis` on PATH or at `C:\Program Files (x86)\NSIS\makensis.exe` (both auto-detected by `installer/build_installer.py`) |
-| 10 | *(optional)* Create `.env` with `OGP_GOOGLE_MAPS_KEY=...` | Enables the satellite map picker; app runs fine without it (`main.py` loads `.env` via python-dotenv) |
+| 10 | *(optional)* Create `.env` with `OGP_GOOGLE_MAPS_KEY=...` | Enables the satellite map picker when no key is saved in Preferences; app runs fine without it (`main.py` loads `.env` via python-dotenv) |
 
 Activation is optional — AGENTS.md convention is to call the venv interpreter
 explicitly (`venv/Scripts/python.exe -m ...`), which works from any shell
@@ -262,7 +262,7 @@ uninstaller copies any top-level `$INSTDIR\*.ogp` to
 | App-data dir | Windows `%APPDATA%\OpenGardenPlanner`; Linux `$XDG_DATA_HOME`-or-`~/.local/share` `/OpenGardenPlanner`; macOS `~/Library/Application Support/OpenGardenPlanner` | `services/plant_library.py::get_app_data_dir()` |
 | User smart symbols | `<app-data>/smart_symbols/*.json` (drop-a-file extensible; bundled ones in `resources/data/smart_symbols/`) | `services/smart_symbol_library.py` |
 | Translations | `src/open_garden_planner/resources/translations/*.ts|.qm` | dir listing |
-| API keys | `.env` at repo root (`OGP_GOOGLE_MAPS_KEY`), loaded by `main.py` via python-dotenv; optional | `main.py` |
+| API keys | Google Maps key is stored in Preferences at `api_keys/google_maps_key`; blank Preferences falls back to `.env` at repo root (`OGP_GOOGLE_MAPS_KEY`), loaded by `main.py` via python-dotenv; optional | `app/settings.py`, `application.py`, `main.py` |
 
 **Rule for new code:** never construct a default file-dialog path yourself —
 call `app/paths.py`. Anything defaulting into the install dir recreates data

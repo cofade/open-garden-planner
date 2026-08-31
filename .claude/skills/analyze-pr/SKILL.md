@@ -141,7 +141,7 @@ Look at the diff and add manual items for anything the author may have missed:
 | Drag/drop, snap providers, tools | Try the tool with each relevant snap mode toggled on/off, combined with the keyboard shortcuts. Status-bar coordinate input (`@dx,dy`, `@dist<angle`) where applicable. |
 | Paper Space / print / Layout | Open Layout tab (Ctrl+4) → resize viewport → change scale → save → reopen → verify scale bar updates. Also drag rapidly on the Garden Plan tab and confirm the viewport debounces (no flicker storm). |
 | Plant / soil data | Drop the plant onto a bed → confirm auto-populated species data + soil compatibility warning fires. Reparent to a different bed → warning refreshes. |
-| Google Maps satellite picker | API key in `.env` (`OGP_GOOGLE_MAPS_KEY`). Drag a rectangle → confirm scale is analytical, not visual; reopen project → background persists. |
+| Google Maps satellite picker | API key in Preferences, or `.env` (`OGP_GOOGLE_MAPS_KEY`) as fallback. Drag a rectangle → confirm scale is analytical, not visual; reopen project → background persists. |
 
 ### 4d. Final manual checklist — output format
 

@@ -177,6 +177,8 @@ class GardenPlannerApp(QMainWindow):
         # Preview mode state
         self._preview_mode = False
         self._pre_preview_state: dict | None = None
+        self._active_satellite_picker: QWidget | None = None
+        self._app_close_pending = False
 
         # Initial window title
         self._update_window_title()
@@ -1463,30 +1465,14 @@ class GardenPlannerApp(QMainWindow):
 
         # Load Satellite Background (via embedded Google Maps picker)
         load_satellite_action = QAction(self.tr("Load Sa&tellite Background..."), self)
-        _enabled_hint = self.tr(
-            "Pick an area on Google Maps and load it as a true-to-scale "
-            "satellite background"
-        )
-        load_satellite_action.setStatusTip(_enabled_hint)
-        load_satellite_action.setToolTip(_enabled_hint)
         load_satellite_action.triggered.connect(self._on_load_satellite_background)
-        # Disable when API key not configured; explain why in both status bar
-        # and tooltip (QMenu defaults to NOT showing action tooltips, so we
-        # turn them on with ``setToolTipsVisible`` below).
-        from open_garden_planner.services.google_maps_service import (  # noqa: PLC0415
-            has_api_key as _has_maps_key,
-        )
-        if not _has_maps_key():
-            load_satellite_action.setEnabled(False)
-            _disabled_hint = self.tr(
-                "Set OGP_GOOGLE_MAPS_KEY in your .env file to enable "
-                "satellite background loading"
-            )
-            load_satellite_action.setStatusTip(_disabled_hint)
-            load_satellite_action.setToolTip(_disabled_hint)
+        self._load_satellite_action = load_satellite_action
+        # QMenu does not show action tooltips by default; enable them so the
+        # missing-key guidance is visible without opening the Preferences.
         menu.setToolTipsVisible(True)
         self._set_action_icon(load_satellite_action, "satellite")
         menu.addAction(load_satellite_action)
+        self._update_satellite_menu_state()
 
         # Import DXF
         import_dxf_action = QAction(self.tr("Import &DXF..."), self)
@@ -3826,6 +3812,11 @@ class GardenPlannerApp(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Handle window close - prompt to save if dirty."""
+        if self._active_satellite_picker is not None:
+            self._app_close_pending = True
+            self._active_satellite_picker.close()
+            event.ignore()
+            return
         if self._confirm_discard_changes():
             # Stop the Agent API server first, while the scene/bridge still exist.
             self._stop_agent_api()
@@ -3847,8 +3838,10 @@ class GardenPlannerApp(QMainWindow):
             self._autosave_manager.stop()
             # Clear auto-save file (user chose to save or discard)
             self._autosave_manager.clear_autosave()
+            self._app_close_pending = False
             event.accept()
         else:
+            self._app_close_pending = False
             event.ignore()
 
     def _restore_ui_state(self) -> None:
@@ -5395,6 +5388,39 @@ class GardenPlannerApp(QMainWindow):
         except Exception:
             return "en"
 
+    def _resolved_google_maps_api_key(self) -> str:
+        """Resolve the Google Maps key without copying environment secrets."""
+        import os
+
+        from open_garden_planner.app.settings import get_settings
+
+        return (
+            get_settings().google_maps_api_key.strip()
+            or os.environ.get("OGP_GOOGLE_MAPS_KEY", "").strip()
+        )
+
+    def _update_satellite_menu_state(self) -> None:
+        """Refresh satellite action availability after settings changes."""
+        action = getattr(self, "_load_satellite_action", None)
+        if action is None:
+            return
+
+        enabled = bool(self._resolved_google_maps_api_key())
+        action.setEnabled(enabled)
+        if enabled:
+            hint = self.tr(
+                "Pick an area on Google Maps and load it as a true-to-scale "
+                "satellite background"
+            )
+        else:
+            hint = self.tr(
+                "Set a Google Maps API key in Preferences or "
+                "OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite "
+                "background loading"
+            )
+        action.setStatusTip(hint)
+        action.setToolTip(hint)
+
     def _on_preferences(self) -> None:
         """Handle Preferences action; apply Agent API changes live."""
         from open_garden_planner.app.settings import get_settings
@@ -5416,6 +5442,7 @@ class GardenPlannerApp(QMainWindow):
         before = _agent_api_state()
         dialog = PreferencesDialog(self)
         if dialog.exec():
+            self._update_satellite_menu_state()
             after = _agent_api_state()
             if before != after:
                 # Restart so a toggle, port, writes or token change takes effect.
@@ -5739,23 +5766,32 @@ class GardenPlannerApp(QMainWindow):
             MapPickerDialog,
         )
 
-        if not MapPickerDialog.is_available():
+        api_key = self._resolved_google_maps_api_key()
+        if not MapPickerDialog.is_available(api_key):
             QMessageBox.warning(
                 self,
                 self.tr("API key missing"),
                 self.tr(
-                    "Set OGP_GOOGLE_MAPS_KEY in your .env file to enable "
+                    "Set a Google Maps API key in Preferences or "
+                    "OGP_GOOGLE_MAPS_KEY in your .env file to enable "
                     "satellite background loading."
                 ),
             )
             return
 
-        dialog = MapPickerDialog(self)
-        if dialog.exec() != dialog.DialogCode.Accepted:
-            return
-        result = dialog.fetch_result
-        if result is None:
-            return
+        dialog = MapPickerDialog(self, api_key=api_key)
+        self._active_satellite_picker = dialog
+        try:
+            if dialog.exec() != dialog.DialogCode.Accepted:
+                return
+            result = dialog.fetch_result
+            if result is None:
+                return
+        finally:
+            if self._active_satellite_picker is dialog:
+                self._active_satellite_picker = None
+            if self._app_close_pending:
+                QTimer.singleShot(0, self.close)
 
         # PIL image → PNG bytes.
         buf = io.BytesIO()

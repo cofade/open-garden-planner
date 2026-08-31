@@ -109,6 +109,19 @@ class TestApiKeyHandling:
         monkeypatch.setenv("OGP_GOOGLE_MAPS_KEY", "   ")
         assert gms.has_api_key() is False
 
+    def test_explicit_key_is_used_without_environment(self, monkeypatch) -> None:
+        monkeypatch.delenv("OGP_GOOGLE_MAPS_KEY", raising=False)
+        assert gms.has_api_key("  preference-key  ") is True
+        assert gms.get_api_key("  preference-key  ") == "preference-key"
+
+    def test_explicit_blank_key_does_not_fall_back_to_environment(
+        self, monkeypatch
+    ) -> None:
+        monkeypatch.setenv("OGP_GOOGLE_MAPS_KEY", "environment-key")
+        assert gms.has_api_key("   ") is False
+        with pytest.raises(gms.GoogleMapsKeyMissingError):
+            gms.get_api_key("   ")
+
 
 def _make_png_bytes(
     color: tuple[int, int, int], size: tuple[int, int] = (1280, 1280)
@@ -268,3 +281,40 @@ class TestFetchBbox:
                 gms.fetch_bbox(bbox, cancel_check=lambda: True)
         # No tile fetched because cancel is checked before the first call.
         assert mock_requests.get.call_count == 0
+
+    def test_cancel_check_aborts_single_tile_after_fetch(self, monkeypatch) -> None:
+        """A cancellation during a single request cannot publish its result."""
+        monkeypatch.setenv("OGP_GOOGLE_MAPS_KEY", "TEST_KEY")
+        bbox = gms.BoundingBox(
+            nw_lat=52.5200,
+            nw_lng=13.4050,
+            se_lat=52.5197,
+            se_lng=13.4056,
+        )
+        png = _make_png_bytes((128, 200, 128))
+        with patch.object(gms, "requests") as mock_requests:
+            mock_requests.get.return_value.status_code = 200
+            mock_requests.get.return_value.content = png
+            mock_requests.RequestException = Exception
+            with pytest.raises(gms.FetchCancelled):
+                gms.fetch_bbox(bbox, cancel_check=lambda: True)
+        assert mock_requests.get.call_count == 1
+
+    def test_cancel_check_aborts_after_single_tile_crop(self, monkeypatch) -> None:
+        """A cancellation during cropping cannot publish a completed result."""
+        monkeypatch.setenv("OGP_GOOGLE_MAPS_KEY", "TEST_KEY")
+        bbox = gms.BoundingBox(
+            nw_lat=52.5200,
+            nw_lng=13.4050,
+            se_lat=52.5197,
+            se_lng=13.4056,
+        )
+        png = _make_png_bytes((128, 200, 128))
+        checks = iter((False, True))
+        with patch.object(gms, "requests") as mock_requests:
+            mock_requests.get.return_value.status_code = 200
+            mock_requests.get.return_value.content = png
+            mock_requests.RequestException = Exception
+            with pytest.raises(gms.FetchCancelled):
+                gms.fetch_bbox(bbox, cancel_check=lambda: next(checks))
+        assert mock_requests.get.call_count == 1

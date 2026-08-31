@@ -50,3 +50,14 @@ def test_regenerate_agent_api_token_changes_it() -> None:
     second = settings.regenerate_agent_api_token()
     assert second != first
     assert AppSettings().agent_api_token == second
+
+
+def test_google_maps_api_key_round_trips_in_user_settings() -> None:
+    settings = AppSettings()
+    assert settings.KEY_GOOGLE_MAPS_API_KEY == "api_keys/google_maps_key"
+    assert settings.DEFAULT_GOOGLE_MAPS_API_KEY == ""
+    assert settings.google_maps_api_key == ""
+
+    settings.google_maps_api_key = "preference-key"
+
+    assert AppSettings().google_maps_api_key == "preference-key"
