@@ -18,7 +18,6 @@ from PyQt6.QtCore import (
     QLocale,
     QObject,
     QThread,
-    QTimer,
     QUrl,
     pyqtSignal,
     pyqtSlot,
@@ -346,26 +345,44 @@ class MapPickerDialog(QDialog):
 
     def _on_worker_finished(self, worker: _FetchWorker) -> None:
         """Drop a terminal worker reference without disturbing a replacement."""
-        if self._worker is worker:
-            self._worker = None
+        if self._worker is not worker:
+            return
+        self._worker = None
         if self._close_after_fetch:
-            self._schedule_deferred_close()
+            # QThread.finished is delivered only after run() has returned, so
+            # the child is safe to release before rejecting the dialog. The
+            # queued terminal signal, if any, is discarded with the dialog.
+            self._close_after_fetch = False
+            self._fetch_in_progress = False
+            self._fetch_cancel_requested = False
+            super().reject()
 
-    def _schedule_deferred_close(self) -> None:
-        """Close after queued worker terminal signals have settled."""
-        QTimer.singleShot(0, self._complete_deferred_close)
-
-    def _complete_deferred_close(self) -> None:
-        """Finish a close requested while the fetch worker was active."""
-        if not self._close_after_fetch:
-            return
-        if self._worker is not None or self._fetch_in_progress:
-            # A terminal signal can be queued separately from QThread.finished;
-            # give it a chance to clear the in-flight state before retrying.
-            self._schedule_deferred_close()
-            return
-        self._close_after_fetch = False
-        self.reject()
+    def _request_worker_shutdown(self) -> bool:
+        """Request cancellation and return whether a worker still owns close."""
+        worker = self._worker
+        if worker is None:
+            # A terminal signal may already have cleared the wrapper. There is
+            # no running child left for this dialog to own in that state.
+            self._fetch_in_progress = False
+            self._fetch_cancel_requested = False
+            self._close_after_fetch = False
+            return False
+        self._close_after_fetch = True
+        self._fetch_cancel_requested = True
+        self._ok_button.setEnabled(False)
+        self._cancel_button.setEnabled(False)
+        self._status.setText(self.tr("Cancelling..."))
+        try:
+            if worker.isRunning():
+                worker.requestInterruption()
+        except RuntimeError:
+            if self._worker is worker:
+                self._worker = None
+            self._fetch_in_progress = False
+            self._fetch_cancel_requested = False
+            self._close_after_fetch = False
+            return False
+        return True
 
     def _on_cancel(self) -> None:
         """Cancel a running fetch, or close the dialog if nothing is running."""
@@ -412,7 +429,6 @@ class MapPickerDialog(QDialog):
         self._fetch_in_progress = False
         self._fetch_cancel_requested = False
         if self._close_after_fetch:
-            self._schedule_deferred_close()
             return
         if message == _KEY_MISSING_FAILURE:
             message = self.tr(_KEY_MISSING_MESSAGE)
@@ -431,8 +447,13 @@ class MapPickerDialog(QDialog):
         self._ok_button.setEnabled(self._bbox is not None)
         self._cancel_button.setEnabled(True)
         self._status.setText(self.tr("Fetch cancelled."))
-        if self._close_after_fetch:
-            self._schedule_deferred_close()
+
+    def reject(self) -> None:
+        """Cancel an active fetch before allowing any dialog rejection path."""
+        if (self._fetch_in_progress or self._worker is not None) and self._request_worker_shutdown():
+            return
+        self._close_after_fetch = False
+        super().reject()
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         # ``requests.get(timeout=10)`` is uninterruptible from the GUI thread
@@ -440,18 +461,7 @@ class MapPickerDialog(QDialog):
         # each response, never during a single in-flight HTTP call. Keep the
         # dialog alive until the worker finishes instead of blocking the GUI
         # thread while joining it.
-        worker = self._worker
-        if self._fetch_in_progress or worker is not None:
-            self._close_after_fetch = True
-            self._fetch_cancel_requested = True
-            if worker is not None:
-                try:
-                    if worker.isRunning():
-                        worker.requestInterruption()
-                except RuntimeError:
-                    self._worker = None
+        if (self._fetch_in_progress or self._worker is not None) and self._request_worker_shutdown():
             event.ignore()
-            if self._worker is None and not self._fetch_in_progress:
-                self._schedule_deferred_close()
             return
         super().closeEvent(event)

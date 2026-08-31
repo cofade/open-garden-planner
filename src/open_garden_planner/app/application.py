@@ -177,6 +177,8 @@ class GardenPlannerApp(QMainWindow):
         # Preview mode state
         self._preview_mode = False
         self._pre_preview_state: dict | None = None
+        self._active_satellite_picker: QWidget | None = None
+        self._app_close_pending = False
 
         # Initial window title
         self._update_window_title()
@@ -3810,6 +3812,11 @@ class GardenPlannerApp(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Handle window close - prompt to save if dirty."""
+        if self._active_satellite_picker is not None:
+            self._app_close_pending = True
+            self._active_satellite_picker.close()
+            event.ignore()
+            return
         if self._confirm_discard_changes():
             # Stop the Agent API server first, while the scene/bridge still exist.
             self._stop_agent_api()
@@ -3831,8 +3838,10 @@ class GardenPlannerApp(QMainWindow):
             self._autosave_manager.stop()
             # Clear auto-save file (user chose to save or discard)
             self._autosave_manager.clear_autosave()
+            self._app_close_pending = False
             event.accept()
         else:
+            self._app_close_pending = False
             event.ignore()
 
     def _restore_ui_state(self) -> None:
@@ -5771,11 +5780,18 @@ class GardenPlannerApp(QMainWindow):
             return
 
         dialog = MapPickerDialog(self, api_key=api_key)
-        if dialog.exec() != dialog.DialogCode.Accepted:
-            return
-        result = dialog.fetch_result
-        if result is None:
-            return
+        self._active_satellite_picker = dialog
+        try:
+            if dialog.exec() != dialog.DialogCode.Accepted:
+                return
+            result = dialog.fetch_result
+            if result is None:
+                return
+        finally:
+            if self._active_satellite_picker is dialog:
+                self._active_satellite_picker = None
+            if self._app_close_pending:
+                QTimer.singleShot(0, self.close)
 
         # PIL image → PNG bytes.
         buf = io.BytesIO()

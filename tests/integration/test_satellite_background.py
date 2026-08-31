@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import time
+from threading import Event
 from unittest.mock import MagicMock
 
 # QtWebEngineWidgets must be imported before QApplication is created. The
@@ -15,7 +17,11 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QApplication, QPushButton, QWidget
 
 import open_garden_planner.ui.dialogs.map_picker_dialog as map_picker_mod  # noqa: F401
-from open_garden_planner.services.google_maps_service import BoundingBox, FetchResult
+from open_garden_planner.services.google_maps_service import (
+    BoundingBox,
+    FetchCancelled,
+    FetchResult,
+)
 
 
 class _DummyWebView(QWidget):
@@ -194,3 +200,47 @@ class TestMenuActionGating:
         win._project_manager.mark_clean()
         assert captured_api_key == "environment-key"
         assert captured_fetch_keys[-1] == "environment-key"
+
+    def test_application_close_cancels_active_satellite_picker(
+        self, qtbot, monkeypatch
+    ) -> None:
+        """Main-window shutdown waits for an active picker worker to finish."""
+        from open_garden_planner.app.application import GardenPlannerApp
+        from open_garden_planner.ui.dialogs.map_picker_dialog import MapPickerDialog
+
+        monkeypatch.setenv("OGP_GOOGLE_MAPS_KEY", "TEST_KEY")
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)
+        action = _menu_action(win, "Satellite")
+        assert action is not None
+
+        started = Event()
+
+        def _blocking_fetch(*_args, cancel_check=None, **_kwargs):
+            started.set()
+            while cancel_check is not None and not cancel_check():
+                time.sleep(0.001)
+            raise FetchCancelled("cancelled")
+
+        real_init = MapPickerDialog.__init__
+
+        def _init_and_start(self, parent=None, *, api_key=None) -> None:
+            real_init(self, parent, api_key=api_key)
+            self._bbox = BoundingBox(52.521, 13.404, 52.519, 13.406)
+            QTimer.singleShot(0, self._on_accept)
+
+        monkeypatch.setattr(map_picker_mod, "QWebEngineView", _DummyWebView)
+        monkeypatch.setattr(MapPickerDialog, "__init__", _init_and_start)
+        monkeypatch.setattr(map_picker_mod, "fetch_bbox", _blocking_fetch)
+
+        def _close_when_fetch_starts() -> None:
+            if started.is_set():
+                win.close()
+            else:
+                QTimer.singleShot(1, _close_when_fetch_starts)
+
+        QTimer.singleShot(0, _close_when_fetch_starts)
+        action.trigger()
+        qtbot.waitUntil(lambda: not win.isVisible(), timeout=3000)
+
+        assert win._active_satellite_picker is None

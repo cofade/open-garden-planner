@@ -14,6 +14,8 @@ from threading import Event
 from unittest.mock import MagicMock, patch
 
 import pytest
+from PyQt6.QtCore import Qt
+from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QDialogButtonBox, QWidget
 
 from open_garden_planner.services.google_maps_service import (
@@ -321,6 +323,36 @@ class TestFetchFlow:
             qtbot.waitUntil(lambda: not dialog.isVisible(), timeout=2000)
 
         assert dialog._worker is None
+        assert dialog._fetch_in_progress is False
+
+    def test_escape_cancels_in_flight_worker_before_rejecting(
+        self, qtbot, with_api_key, mock_web_view
+    ) -> None:
+        """Escape uses the same cancellation guard as the window close path."""
+        from open_garden_planner.ui.dialogs.map_picker_dialog import MapPickerDialog
+
+        dialog = MapPickerDialog()
+        qtbot.addWidget(dialog)
+        dialog._bridge.boundsUpdated.emit(52.521, 13.404, 52.519, 13.406)
+        started = Event()
+
+        def _blocking_fetch(*_args, cancel_check=None, **_kwargs):
+            started.set()
+            while cancel_check is not None and not cancel_check():
+                time.sleep(0.001)
+            raise FetchCancelled("cancelled")
+
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.fetch_bbox",
+            side_effect=_blocking_fetch,
+        ):
+            dialog.show()
+            dialog._on_accept()
+            qtbot.waitUntil(started.is_set, timeout=1000)
+            QTest.keyClick(dialog, Qt.Key.Key_Escape)
+            qtbot.waitUntil(lambda: dialog._worker is None, timeout=2000)
+
+        assert dialog.result() != dialog.DialogCode.Accepted
         assert dialog._fetch_in_progress is False
 
     def test_failed_worker_reference_is_cleared_before_second_cancel(
