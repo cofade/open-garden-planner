@@ -2413,7 +2413,9 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 ## Google Maps packaged-build follow-up (Issue #342)
 
-The satellite picker now accepts a Google Maps API key from Preferences, while retaining the environment/adjacent-`.env` fallback for source and packaged builds. Preferences values take precedence, blank values fall back, and credentials are excluded from project files and artifacts. See ADR-019, FR-IMG-08, and §8.15.
+Shipped in v1.27.5 via [PR #344](https://github.com/cofade/open-garden-planner/pull/344): the satellite picker now accepts a Google Maps API key from Preferences, while retaining the environment/adjacent-`.env` fallback for source and packaged builds. Preferences values take precedence, blank values fall back, and credentials are excluded from project files and artifacts. Worker shutdown is asynchronous across picker rejection, window close, and application shutdown. See ADR-019, FR-IMG-08, and §8.15.
+
+The follow-up redesign around the Google Maps JavaScript API is tracked in [Issue #346](https://github.com/cofade/open-garden-planner/issues/346).
 
 ---
 
