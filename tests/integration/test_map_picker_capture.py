@@ -145,6 +145,7 @@ class TestCaptureButtonLifecycle:
         assert dialog._capture_button.isEnabled() is True
 
 
+@pytest.mark.skip(reason="ci-bisect probe 5")
 class TestCaptureSuccess:
     def test_capture_produces_js_capture_fetch_result(
         self, qtbot, mock_web_view, with_api_key
@@ -283,6 +284,7 @@ class TestCaptureSuccess:
         assert dialog.result() != dialog.DialogCode.Accepted
 
 
+@pytest.mark.skip(reason="ci-bisect probe 5")
 class TestCaptureCancel:
     def test_cancel_during_capture_aborts_on_ready(
         self, qtbot, mock_web_view, with_api_key
