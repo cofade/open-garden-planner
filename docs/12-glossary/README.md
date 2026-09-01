@@ -151,6 +151,8 @@
 
 ## 12.3 References
 
+<!-- CI baseline probe (throwaway branch ci/probe-346, never merged): verifying whether master's own linux-offscreen pytest suite is stable before merging #346. -->
+
 - [arc42 Documentation Template](https://arc42.org/)
 - [Trefle.io API Documentation](https://trefle.io/)
 - [Permapeople API Documentation](https://permapeople.org/knowledgebase/api-docs.html)
