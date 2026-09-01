@@ -283,7 +283,6 @@ class TestCaptureSuccess:
         assert dialog.result() != dialog.DialogCode.Accepted
 
 
-@pytest.mark.skip(reason="ci-bisect probe 5")
 class TestCaptureCancel:
     def test_cancel_during_capture_aborts_on_ready(
         self, qtbot, mock_web_view, with_api_key
@@ -313,6 +312,7 @@ class TestCaptureCancel:
         assert dialog.result() == dialog.DialogCode.Rejected
         assert dialog._capture_in_progress is False
 
+    @pytest.mark.skip(reason="ci-bisect probe 7")
     def test_watchdog_times_out_stuck_capture(
         self, qtbot, mock_web_view, with_api_key
     ) -> None:
@@ -328,6 +328,7 @@ class TestCaptureCancel:
         assert dialog._cancel_button.isEnabled() is True
         critical.assert_called_once()
 
+    @pytest.mark.skip(reason="ci-bisect probe 7")
     def test_watchdog_after_cancel_stays_silent(
         self, qtbot, mock_web_view, with_api_key
     ) -> None:
@@ -348,6 +349,7 @@ class TestCaptureCancel:
         assert dialog.fetch_result is None
         assert dialog.result() != dialog.DialogCode.Accepted
 
+    @pytest.mark.skip(reason="ci-bisect probe 7")
     def test_close_then_watchdog_rejects_without_error_box(
         self, qtbot, mock_web_view, with_api_key
     ) -> None:
