@@ -312,7 +312,6 @@ class TestCaptureCancel:
         assert dialog.result() == dialog.DialogCode.Rejected
         assert dialog._capture_in_progress is False
 
-    @pytest.mark.skip(reason="ci-bisect probe 7")
     def test_watchdog_times_out_stuck_capture(
         self, qtbot, mock_web_view, with_api_key
     ) -> None:
@@ -321,14 +320,15 @@ class TestCaptureCancel:
             "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
         ) as critical:
             dialog._on_capture_clicked()
-            dialog._capture_watchdog.setInterval(10)
-            dialog._capture_watchdog.start(10)
-            qtbot.waitUntil(lambda: dialog._capture_in_progress is False, timeout=2000)
+            # Drive the handler deterministically: emitting the timeout
+            # signal runs exactly the same slot synchronously, without a
+            # real 10 ms timer racing pytest-qt's wait loop (which
+            # segfaulted the linux-offscreen suite — §11.4).
+            dialog._capture_watchdog.timeout.emit()
         assert dialog.fetch_result is None
         assert dialog._cancel_button.isEnabled() is True
         critical.assert_called_once()
 
-    @pytest.mark.skip(reason="ci-bisect probe 7")
     def test_watchdog_after_cancel_stays_silent(
         self, qtbot, mock_web_view, with_api_key
     ) -> None:
@@ -341,15 +341,16 @@ class TestCaptureCancel:
             dialog._on_capture_clicked()
             dialog._on_cancel()
             assert dialog._cancel_button.isEnabled() is False
-            dialog._capture_watchdog.setInterval(10)
-            dialog._capture_watchdog.start(10)
-            qtbot.waitUntil(lambda: dialog._capture_in_progress is False, timeout=2000)
+            # Drive the handler deterministically: emitting the timeout
+            # signal runs exactly the same slot synchronously, without a
+            # real 10 ms timer racing pytest-qt's wait loop (which
+            # segfaulted the linux-offscreen suite — §11.4).
+            dialog._capture_watchdog.timeout.emit()
         critical.assert_not_called()
         assert dialog._cancel_button.isEnabled() is True
         assert dialog.fetch_result is None
         assert dialog.result() != dialog.DialogCode.Accepted
 
-    @pytest.mark.skip(reason="ci-bisect probe 7")
     def test_close_then_watchdog_rejects_without_error_box(
         self, qtbot, mock_web_view, with_api_key
     ) -> None:
@@ -360,14 +361,15 @@ class TestCaptureCancel:
         ) as critical:
             dialog._on_capture_clicked()
             dialog.close()
-            dialog._capture_watchdog.setInterval(10)
-            dialog._capture_watchdog.start(10)
-            qtbot.waitUntil(lambda: dialog._capture_in_progress is False, timeout=2000)
+            # Drive the handler deterministically: emitting the timeout
+            # signal runs exactly the same slot synchronously, without a
+            # real 10 ms timer racing pytest-qt's wait loop (which
+            # segfaulted the linux-offscreen suite — §11.4).
+            dialog._capture_watchdog.timeout.emit()
         critical.assert_not_called()
         assert dialog.result() == dialog.DialogCode.Rejected
 
 
-@pytest.mark.skip(reason="ci-bisect probe 4")
 class TestCaptureErrorMapping:
     def test_timeout_token_shows_translated_message(
         self, qtbot, mock_web_view, with_api_key
@@ -467,7 +469,6 @@ class TestCaptureErrorMapping:
         assert "google.maps is not defined" not in critical.call_args.args[2]
 
 
-@pytest.mark.skip(reason="ci-bisect probe 4")
 class TestBridgeContract:
     def test_html_contract_names_match_python_bridge(
         self, qtbot, mock_web_view, with_api_key
@@ -506,7 +507,6 @@ class TestBridgeContract:
             assert hasattr(_MapBridge, slot), f"_MapBridge lost slot: {slot}"
 
 
-@pytest.mark.skip(reason="ci-bisect probe 4")
 class TestEeaFallbackOffer:
     def test_eea_failure_offers_capture_and_starts_it(
         self, qtbot, mock_web_view, with_api_key
@@ -541,7 +541,6 @@ class TestEeaFallbackOffer:
         critical.assert_called_once()
 
 
-@pytest.mark.skip(reason="ci-bisect probe 4")
 class TestAttributionMetadataRoundTrip:
     def test_js_capture_geo_metadata_round_trips_through_item(
         self, qtbot, mock_web_view, with_api_key
