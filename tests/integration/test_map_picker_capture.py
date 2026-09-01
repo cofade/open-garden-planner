@@ -145,7 +145,6 @@ class TestCaptureButtonLifecycle:
         assert dialog._capture_button.isEnabled() is True
 
 
-@pytest.mark.skip(reason="ci-bisect probe 5")
 class TestCaptureSuccess:
     def test_capture_produces_js_capture_fetch_result(
         self, qtbot, mock_web_view, with_api_key
