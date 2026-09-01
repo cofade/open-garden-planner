@@ -57,8 +57,10 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.services.google_maps_js_capture import (
     EEA_SATELLITE_BLOCKED,
     bake_attribution,
+    capture_dpr_is_sane,
     capture_mpp,
     classify_static_failure,
+    effective_capture_dpr,
     is_blank_capture,
     pick_capture_zoom,
 )
@@ -147,7 +149,7 @@ class _MapBridge(QObject):
     boundsUpdated = pyqtSignal(float, float, float, float)
     cleared = pyqtSignal()
     captureViewReady = pyqtSignal(str, float, float, float, float)  # token, zoom, dpr, css w/h
-    captureViewFailed = pyqtSignal(str)
+    captureViewFailed = pyqtSignal(str, str)  # token, raw js-failure token
     errorReported = pyqtSignal(str)
 
     def __init__(
@@ -187,9 +189,12 @@ class _MapBridge(QObject):
         # one's.
         self.captureViewReady.emit(token, zoom, dpr, css_w, css_h)
 
-    @pyqtSlot(str)
-    def captureError(self, message: str) -> None:
-        self.captureViewFailed.emit(_scrub_key(message, self._api_key))
+    @pyqtSlot(str, str)
+    def captureError(self, token: str, message: str) -> None:
+        # Symmetric with captureReady: the token echoes the capture
+        # generation so a failure report from a previous capture can never
+        # be mistaken for the current one's.
+        self.captureViewFailed.emit(token, _scrub_key(message, self._api_key))
 
     @pyqtSlot(str)
     def reportError(self, message: str) -> None:
@@ -513,8 +518,11 @@ class MapPickerDialog(QDialog):
         if cancelled or close_wanted:
             self._finish_capture()
             self._cancel_button.setEnabled(True)
-            self._close_after_capture = False
-            if close_wanted and not self._fetch_in_progress and self._worker is None:
+            # Capture and the Static fetch are mutually exclusive — each
+            # start path guards the other — so a close intent can always
+            # complete immediately; nothing here may swallow it.
+            if close_wanted:
+                self._close_after_capture = False
                 super().reject()
             else:
                 self._status.setText(self.tr("Capture cancelled."))
@@ -530,16 +538,9 @@ class MapPickerDialog(QDialog):
             grab = self._view.grab()
             # Derive the effective pixel density from the grab ITSELF —
             # measured ruler, not a report: physical px / css px.
-            dpr_effective = grab.width() / float(css_w)
-            if not (0.5 <= dpr_effective <= 4.0):
-                self._handle_capture_failure(
-                    self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
-                )
-                return
-            if dpr and dpr > 0 and abs(dpr_effective - float(dpr)) > max(0.5, 0.3 * float(dpr)):
-                # The page's own density report disagrees wildly with the
-                # measured raster — something is wrong with the render and
-                # trusting either number would mis-scale the plano.
+            dpr_effective = effective_capture_dpr(grab.width(), css_w)
+            reported_dpr = float(dpr) if dpr and dpr > 0 else None
+            if not capture_dpr_is_sane(dpr_effective, reported_dpr):
                 self._handle_capture_failure(
                     self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
                 )
@@ -576,20 +577,28 @@ class MapPickerDialog(QDialog):
                 self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
             )
             return
+        # Success is a terminal path too: finish stops the watchdog and
+        # restores the page chrome. (Skipping it once re-armed a 20 s
+        # watchdog that fired a phantom timeout box after a good import —
+        # pinned by TestCaptureSuccess.test_success_stops_the_watchdog.)
+        self._finish_capture()
         self._fetch_result = result
         self.accept()
 
-    def _on_capture_error(self, message: str) -> None:
+    def _on_capture_error(self, token: str, message: str) -> None:
         if self._capture_finished():
             return
-        token = self._normalise_js_token(message)
-        if token not in ("capture-timeout", "zoom-mismatch", "map-not-ready", "capture-in-progress"):
+        if token != str(self._capture_generation):
+            # A failure from a previous capture — ignore, as with readiness.
+            return
+        raw_token = self._normalise_js_token(message)
+        if raw_token not in ("capture-timeout", "zoom-mismatch", "map-not-ready", "capture-in-progress"):
             logger.error(
                 "JS view capture error token: %s",
                 _scrub_key(str(message), self._api_key),
             )
         self._handle_capture_failure(
-            self.tr(_map_capture_token(token)), self._capture_generation
+            self.tr(_map_capture_token(raw_token)), self._capture_generation
         )
 
     def _capture_finished(self) -> bool:
@@ -621,10 +630,11 @@ class MapPickerDialog(QDialog):
         self._cancel_button.setEnabled(True)
         if close_wanted:
             # A cancel/close already happened — the user doesn't want an
-            # error box, they want the dialog gone.
+            # error box, they want the dialog gone. Capture and the Static
+            # fetch are mutually exclusive, so the rejection can always
+            # complete immediately.
             self._close_after_capture = False
-            if not self._fetch_in_progress and self._worker is None:
-                super().reject()
+            super().reject()
             return
         if cancelled:
             self._status.setText(self.tr("Capture cancelled."))

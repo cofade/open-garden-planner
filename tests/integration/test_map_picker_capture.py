@@ -192,6 +192,26 @@ class TestCaptureSuccess:
         assert abs(result.image.size[0] - round(bbox_w_m / expected_mpp)) <= 1
         assert abs(result.image.size[1] - round(bbox_h_m / expected_mpp)) <= 1
 
+    def test_success_is_a_terminal_path_that_stops_the_watchdog(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        """Regression pin for the round-2 review P0: a successful capture
+        without _finish_capture left _capture_in_progress True with the 20 s
+        watchdog armed — a phantom timeout box fired after a good import."""
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
+        dialog._on_capture_clicked()
+        assert dialog._capture_watchdog is not None
+        dialog._bridge.captureViewReady.emit("1", 17, 1.0, 1000.0, 700.0)
+        assert dialog.result() == dialog.DialogCode.Accepted
+        assert dialog._capture_in_progress is False
+        assert dialog._capture_watchdog is None
+        restore_calls = [
+            call.args[0]
+            for call in dialog._view.page().runJavaScript.call_args_list
+            if "restoreCaptureChrome" in str(call.args[0])
+        ]
+        assert restore_calls, "page chrome was never restored after success"
+
     def test_capture_uses_js_reported_dpr(
         self, qtbot, mock_web_view, with_api_key
     ) -> None:
@@ -353,13 +373,26 @@ class TestCaptureErrorMapping:
         with patch(
             "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
         ) as critical:
-            dialog._bridge.captureViewFailed.emit("capture-timeout")
+            dialog._bridge.captureViewFailed.emit("1", "capture-timeout")
         critical.assert_called_once()
         args = critical.call_args.args
         # args[2] is the message text — never the raw page token.
         assert args[2] == dialog.tr(map_picker_dialog_mod._CAPTURE_TIMEOUT_MESSAGE)
         assert dialog._capture_in_progress is False
         assert dialog._cancel_button.isEnabled() is True
+
+    def test_stale_token_error_is_ignored(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
+        dialog._on_capture_clicked()
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            dialog._bridge.captureViewFailed.emit("0", "capture-timeout")
+        critical.assert_not_called()
+        assert dialog._capture_in_progress is True
+        dialog._finish_capture()
 
     def test_zoom_mismatch_token_is_mapped(
         self, qtbot, mock_web_view, with_api_key
@@ -369,7 +402,7 @@ class TestCaptureErrorMapping:
         with patch(
             "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
         ) as critical:
-            dialog._bridge.captureViewFailed.emit("zoom-mismatch")
+            dialog._bridge.captureViewFailed.emit("1", "zoom-mismatch")
         critical.assert_called_once()
         assert critical.call_args.args[2] == dialog.tr(
             map_picker_dialog_mod._CAPTURE_UNEXPECTED_MESSAGE
@@ -416,6 +449,16 @@ class TestBridgeContract:
             "bridge.ready()",  # existing handshake must not regress
         ):
             assert token in html, f"map_picker.html lost the contract token: {token}"
+        # Semantics, not just names: the generation token must be the FIRST
+        # parameter of both reports (the dialog echoes and validates it).
+        import re
+
+        assert re.search(r"bridge\.captureReady\(\s*token\s*,", html), (
+            "captureReady must pass the generation token first"
+        )
+        assert re.search(r"bridge\.captureError\(\s*captureState\.token\s*,", html), (
+            "captureError must pass the generation token first"
+        )
         for slot in ("captureReady", "captureError", "ready", "boundsChanged"):
             assert hasattr(_MapBridge, slot), f"_MapBridge lost slot: {slot}"
 

@@ -270,7 +270,7 @@
           if (actualZoom !== zoom) {
             reported = true;
             cleanupCaptureListeners();
-            bridge.captureError('zoom-mismatch');
+            bridge.captureError(captureState.token, 'zoom-mismatch');
             return;
           }
           reported = true;
@@ -291,7 +291,7 @@
           if (reported || !captureState) return;
           reported = true;
           cleanupCaptureListeners();
-          bridge.captureError('capture-timeout');
+          bridge.captureError(captureState.token, 'capture-timeout');
         }, 15000);
         // In case tiles finishes before idle (or vice versa) rarely fires,
         // poll positional readiness once shortly after the zoom settled.

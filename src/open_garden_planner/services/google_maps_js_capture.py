@@ -98,6 +98,36 @@ def capture_mpp(lat: float, zoom: int, dpr: float) -> float:
     return meters_per_pixel(lat, zoom) / dpr
 
 
+_DPR_MIN = 0.5
+_DPR_MAX = 8.0  # generous: covers Windows custom scaling well beyond 400%
+
+
+def effective_capture_dpr(grab_physical_width: int, css_width: float) -> float:
+    """Physical pixels per CSS pixel of a widget grab — measured, not
+    reported. The grab is the ruler; the page's own dpr claim is only a
+    cross-check (issue #346)."""
+    if css_width <= 0 or grab_physical_width <= 0:
+        raise ValueError(
+            f"capture dims must be positive, got {grab_physical_width}x{css_width}"
+        )
+    return grab_physical_width / float(css_width)
+
+
+def capture_dpr_is_sane(effective: float, reported: float | None) -> bool:
+    """Whether a measured capture density should be trusted.
+
+    Refuses implausible densities and wild disagreement between the
+    measured ruler and the page's report (integer rounding at fractional
+    OS scales keeps normal drift far below the 30%/+0.5 tolerance — e.g.
+    the project's 125% scaling measured 1250/1000 = 1.25 exactly).
+    """
+    if not (_DPR_MIN <= effective <= _DPR_MAX):
+        return False
+    if reported is None or reported <= 0:
+        return True
+    return abs(effective - float(reported)) <= max(0.5, 0.3 * float(reported))
+
+
 def pick_capture_zoom(
     bbox: BoundingBox,
     viewport_css_wh: tuple[float, float],

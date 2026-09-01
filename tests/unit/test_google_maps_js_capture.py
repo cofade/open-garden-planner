@@ -84,6 +84,44 @@ class TestCaptureMpp:
             cap.capture_mpp(52.52, 19, dpr)
 
 
+class TestCaptureDprSanity:
+    def test_exact_ratio(self) -> None:
+        assert cap.effective_capture_dpr(1250, 1000.0) == pytest.approx(1.25)
+
+    def test_integer_rounding_stays_sane(self) -> None:
+        # A 1.33-scale screen producing a 1-px-rounded grab must pass the
+        # cross-check against the page's own report.
+        eff = cap.effective_capture_dpr(1331, 1000.0)
+        assert cap.capture_dpr_is_sane(eff, 1.33) is True
+
+    def test_rejects_non_positive_dims(self) -> None:
+        with pytest.raises(ValueError):
+            cap.effective_capture_dpr(0, 1000.0)
+        with pytest.raises(ValueError):
+            cap.effective_capture_dpr(1000, 0.0)
+
+    @pytest.mark.parametrize("eff", [0.2, 0.49, 8.5, 20.0])
+    def test_implausible_densities_refused(self, eff: float) -> None:
+        assert cap.capture_dpr_is_sane(eff, None) is False
+        assert cap.capture_dpr_is_sane(eff, eff) is False
+
+    def test_wild_report_disagreement_refused(self) -> None:
+        # Measured 2.0 vs reported 1.0 — 100% drift must refuse, never
+        # silently trust either number.
+        assert cap.capture_dpr_is_sane(2.0, 1.0) is False
+        assert cap.capture_dpr_is_sane(1.0, 2.0) is False
+
+    def test_modest_disagreement_accepted(self) -> None:
+        assert cap.capture_dpr_is_sane(1.24, 1.25) is True
+        assert cap.capture_dpr_is_sane(1.25, None) is True
+        assert cap.capture_dpr_is_sane(2.0, 1.7) is True
+
+    def test_high_density_displays_accepted(self) -> None:
+        # A 500%-scaled display is unusual but valid — must not be refused
+        # as implausible.
+        assert cap.capture_dpr_is_sane(5.0, 5.0) is True
+
+
 class TestPickCaptureZoom:
     # Berlin-sized box: ~135 m EW × ~222 m NS at lat 52.52.
     BERLIN = gms.BoundingBox(52.521, 13.404, 52.519, 13.406)
