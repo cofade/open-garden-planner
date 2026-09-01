@@ -394,6 +394,42 @@ class TestCaptureErrorMapping:
         assert dialog._capture_in_progress is True
         dialog._finish_capture()
 
+    def test_stale_js_result_callback_is_ignored(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        """A runJavaScript callback from a previous generation must neither
+        succeed nor fail the current capture."""
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
+        dialog._on_capture_clicked()
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            callback = dialog._view.page().runJavaScript.call_args_list[0].args[1]
+            # Stale generation: both results must be ignored.
+            callback("ok", 0)
+            callback("error: stale", 0)
+        assert critical.call_count == 0
+        assert dialog._capture_in_progress is True
+        assert dialog.fetch_result is None
+        dialog._finish_capture()
+
+    def test_close_intent_honored_via_error_report(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        """Close during capture + the page's failure report = silent close,
+        no error box."""
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
+        dialog.show()
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            dialog._on_capture_clicked()
+            dialog.close()
+            dialog._bridge.captureViewFailed.emit("1", "capture-timeout")
+        critical.assert_not_called()
+        assert dialog.result() == dialog.DialogCode.Rejected
+        assert dialog._capture_in_progress is False
+
     def test_zoom_mismatch_token_is_mapped(
         self, qtbot, mock_web_view, with_api_key
     ) -> None:
@@ -450,14 +486,16 @@ class TestBridgeContract:
         ):
             assert token in html, f"map_picker.html lost the contract token: {token}"
         # Semantics, not just names: the generation token must be the FIRST
-        # parameter of both reports (the dialog echoes and validates it).
+        # parameter of both reports (the dialog echoes and validates it);
+        # the page stringifies it so the bridge contract never depends on
+        # QWebChannel's number-to-string coercion.
         import re
 
-        assert re.search(r"bridge\.captureReady\(\s*token\s*,", html), (
-            "captureReady must pass the generation token first"
+        assert re.search(r"bridge\.captureReady\(\s*String\(\s*token\s*\)\s*,", html), (
+            "captureReady must pass the stringified generation token first"
         )
-        assert re.search(r"bridge\.captureError\(\s*captureState\.token\s*,", html), (
-            "captureError must pass the generation token first"
+        assert re.search(r"bridge\.captureError\(\s*String\(\s*token\s*\)\s*,", html), (
+            "captureError must pass the stringified generation token first"
         )
         for slot in ("captureReady", "captureError", "ready", "boundsChanged"):
             assert hasattr(_MapBridge, slot), f"_MapBridge lost slot: {slot}"

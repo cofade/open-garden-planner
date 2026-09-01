@@ -185,6 +185,11 @@ def is_blank_capture(image: Image.Image, *, min_std: float = 3.0) -> bool:
     A dead map (beige/white/grey page without tiles) renders an almost
     flat image; real satellite imagery never does. The standard deviation
     of the luminance channel is the cheap discriminator.
+
+    Known trade-off: a genuinely uniform real scene (open sea, desert,
+    snowfield) can fall under the threshold and be refused with the
+    "did not render" message. The refusal is always safe (never a wrong
+    scale) — the user just retries or picks a more varied area.
     """
     gray = image.convert("L")
     stat = ImageStat.Stat(gray)

@@ -270,13 +270,13 @@
           if (actualZoom !== zoom) {
             reported = true;
             cleanupCaptureListeners();
-            bridge.captureError(captureState.token, 'zoom-mismatch');
+            bridge.captureError(String(token), 'zoom-mismatch');
             return;
           }
           reported = true;
           cleanupCaptureListeners();
           bridge.captureReady(
-            token,
+            String(token),
             actualZoom,
             window.devicePixelRatio || 1,
             mapDiv.clientWidth,
@@ -291,7 +291,7 @@
           if (reported || !captureState) return;
           reported = true;
           cleanupCaptureListeners();
-          bridge.captureError(captureState.token, 'capture-timeout');
+          bridge.captureError(String(token), 'capture-timeout');
         }, 15000);
         // In case tiles finishes before idle (or vice versa) rarely fires,
         // poll positional readiness once shortly after the zoom settled.
@@ -307,25 +307,29 @@
       }
     }
 
-    function cleanupCaptureListeners() {
-      if (!captureState) return;
-      if (captureState.idleListener) {
-        google.maps.event.removeListener(captureState.idleListener);
-        captureState.idleListener = null;
+    function cleanupCaptureListeners(state) {
+      const s = state || captureState;
+      if (!s) return;
+      if (s.idleListener) {
+        google.maps.event.removeListener(s.idleListener);
+        s.idleListener = null;
       }
-      if (captureState.tilesListener) {
-        google.maps.event.removeListener(captureState.tilesListener);
-        captureState.tilesListener = null;
+      if (s.tilesListener) {
+        google.maps.event.removeListener(s.tilesListener);
+        s.tilesListener = null;
       }
-      if (captureState.timeout) clearTimeout(captureState.timeout);
-      if (captureState.settledCheck) clearTimeout(captureState.settledCheck);
+      if (s.timeout) clearTimeout(s.timeout);
+      if (s.settledCheck) clearTimeout(s.settledCheck);
     }
 
     function restoredChromeSafe() {
-      // Restore stored chrome state without throwing on partial states.
+      // Restore stored chrome state without throwing on partial states —
+      // the error path must dispose listeners/timers exactly like the
+      // normal restore path does.
       const state = captureState;
       captureState = null;
       if (!state) return;
+      cleanupCaptureListeners(state);
       try {
         cleanupChromeState(state);
       } catch (e) { /* window restore must be safe in every path */ }

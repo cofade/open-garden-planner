@@ -136,9 +136,11 @@ class _MapBridge(QObject):
     - ``ready()`` — hand over the API key plus locale + translated strings
     - ``boundsChanged(nw_lat, nw_lng, se_lat, se_lng)`` — rectangle updated
     - ``boundsCleared()`` — rectangle removed
-    - ``captureReady(zoom, dpr, css_w, css_h)`` — the page has positioned
-      the map over the rectangle and is waiting for the widget grab
-    - ``captureError(msg)`` — JS-side capture failure (timeout etc.)
+    - ``captureReady(token, zoom, dpr, css_w, css_h)`` — the page has
+      positioned the map over the rectangle and is waiting for the widget
+      grab; ``token`` echoes the capture generation
+    - ``captureError(token, reason)`` — JS-side capture failure (timeout,
+      zoom mismatch, …); ``token`` echoes the capture generation
     - ``reportError(msg)`` — JS-level failure
 
     Python-side signals re-emit those events to the dialog with different
