@@ -187,6 +187,7 @@ src/open_garden_planner/
 │   ├── task_status.py            # Render-time effective_status (open/snoozed/done/dismissed/archived) (US-C2)
 │   ├── shopping_list_service.py  # Plants/seed-gap/material aggregator (US-12.6)
 │   ├── google_maps_service.py    # Static Maps HTTP + tile-mosaic stitching (ADR-019)
+│   ├── google_maps_js_capture.py # JS-API view-capture math + helpers: EEA 403 classifier, zoom pick, attribution bake, blank detection (ADR-019 addendum #346)
 │   └── update_checker.py         # GitHub releases update check (frozen exe only)
 └── resources/
     ├── icons/                    # App icons, banner, tool SVGs

@@ -751,3 +751,43 @@ Coverage of a supposedly constant-width line fell from full (110) at the top to 
 **Fix.** Connect each worker's terminal signal to an identity-checked cleanup slot that clears `_worker`, guard stale wrappers in Cancel/close, and add a real-thread regression test that waits for failure before issuing a second Cancel.
 
 **Lesson.** In Qt worker code, `deleteLater()` is not reference cleanup. Track terminal ownership explicitly, test the action that follows completion, and use the worker identity so a late signal from an older request cannot clear a replacement.
+
+## Case study: live capture harness saw "capture did not complete" while the feature worked (Issue #346, fixed 2026-09-01)
+
+**Symptom.** The end-to-end live verification of the JS view capture printed nothing after "starting capture" and the process exited with code 0 — the harness reported the dialog had not accepted.
+
+**Wrong theories.** The capture pipeline was suspected: JS `beginCapture` failing silently, the `tilesloaded`+`idle` readiness gate never firing, the widget grab returning a blank.
+
+**Key evidence.** Wrapping the dialog's methods with print traces showed the full chain working — `beginCapture → 'ok'`, `captureReady`, grab → crop → `accept()` — followed instantly by process exit.
+
+**Root cause.** Two stacked harness/pitfall findings: (1) `QDialog.accept()` hides the window, so with `quitOnLastWindowClosed` the event loop ended before the harness's 500 ms poll could read `fetch_result`; (2) the earlier "map never ready" polls were blind — the page declares `let map` / `let bridge` (top-level `let` never attaches to `window`), so `runJavaScript("window.map")` returns undefined while the real map sits healthy on screen.
+
+**Fix.** Poll page-scope expressions (`typeof map !== 'undefined' && map && map.getZoom`) and hook the accept itself instead of racing a timer against window-closed quiescence.
+
+**Lesson.** A verification harness that polls an event-driven Qt flow needs to instrument the *end state transition* (the accept), not poll the result — and any JS probe of a page written with `let` must scope to the page, not `window`. Both red herrings wasted a debugging round on a pipeline that had already succeeded; the process had exited because success itself hides the dialog.
+
+## Case study: spike page rendered beige with `tilesloaded=true` and no tiles (Issue #346, fixed 2026-09-01)
+
+**Symptom.** The first map spike inside QtWebEngine painted the Google beige background (`#e8eaed`) everywhere, `tilesloaded` fired, yet the DOM held one `<img>` and `map.getCenter()` returned undefined.
+
+**Wrong theories.** WebGL context failure (proved alive), CSP blocking the tile domain, missing `LocalContentCanAccessRemoteUrls`, an EEA-side tile ban on this project, and a QtWebEngine 6.10.2 rendering bug were each plausible — the last two would have killed the whole feature design.
+
+**Key evidence.** After fixing a self-inflicted nested-`<script>` splice (the first "fix" broke the page worse), the map rendered normally: 58 `<img>`s, 20 tile images, `fetchStatus 200`, WebGL fine, maps `3.65.12f`. The beige run had been a genuinely broken page state, not an engine restriction.
+
+**Root cause.** Harness page bugs (broken script structure) — compounded by an earlier probe that printed tile URLs with the API key embedded (the key lives in every `/maps/vt` URL's query string), which then demanded sanitization discipline across the spike.
+
+**Lesson.** When a WebEngine map shows Google's beige with `tilesloaded`, suspect the page's own script/CSP state before suspecting the engine — and never print or log DOM-derived URLs from a Google page: they carry the credential. The clean probe also became the §11.4 rule: pixels leave the map only via the widget grab; metadata only via the bridge.
+
+## Case study: linux-offscreen suite segfaults in an unrelated minimap test — CI-bisect pinned a 10 ms watchdog timer racing pytest-qt's wait loop (Issue #346 finalization, fixed 2026-09-01)
+
+**Symptom.** CI (`Test` job, linux offscreen) aborted with `Fatal Python error: Segmentation fault` — always in `test_minimap_widget.py::TestMinimapIdleQuiescence`, a different member test each run, always at ~66% of the suite. Local Windows green, every time.
+
+**Wrong theories.** (1) A runner flake / pre-existing master instability. (2) Collection-time import of `map_picker_dialog` (QtWebEngine) from the new test module shifting the corruption schedule. (3) The QPixmap/QPainter grab stand-in churning offscreen memory.
+
+**Key evidence.** CI-bisect as the instrument, seven pushes: a throwaway probe branch at `origin/master` HEAD ran green → the branch introduces it; disabling both new test files → green; unit file only → green; `pytestmark = skip` (collect everything, run nothing) → green (collection imports innocent); skipping the second half of classes → red; only the lifecycle class → green; only the success class → green; the cancel class without its three watchdog tests → green. The three watchdog tests — each of which did `_capture_watchdog.setInterval(10); _capture_watchdog.start(10)` inside a `qtbot.waitUntil(lambda: dialog._capture_in_progress is False)` — were the only red constellation.
+
+**Root cause.** A real 10 ms single-shot QTimer racing pytest-qt's process-events wait loop in the offscreen platform destabilised Qt's native timer/event machinery; the corruption surfaced later, in the quiescence-counting minimap tests (exactly row 37's "the test *after* the guilty one errors" shape, but a segfault instead of an abort).
+
+**Fix.** The tests now drive the handler deterministically by emitting the signal (`dialog._capture_watchdog.timeout.emit()` — same slot, synchronously, no real timer); the real 20 s watchdog timing remains covered by the live E2E harness. Pinned §11.4 ("short-interval QTimer racing pytest-qt's waitUntil").
+
+**Lesson.** When CI is red on linux offscreen and green locally, treat CI itself as the instrument: master-probe first (one push), then bisect by *skipping*, not by editing logic. And never race a widget timer against `waitUntil` in a Qt test — emit the signal if the goal is handler coverage.

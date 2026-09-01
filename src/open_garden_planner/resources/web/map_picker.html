@@ -221,6 +221,145 @@
       const sw = b.getSouthWest();
       bridge.boundsChanged(ne.lat(), sw.lng(), sw.lat(), ne.lng());
     }
+
+    // ---- JS-API view capture (issue #346) -------------------------------
+    // The Python side grabs the widget pixels; this side only positions the
+    // map so the drawn rectangle sits centred under the visible view, freezes
+    // map interaction, hides our own chrome (never Google's attribution
+    // overlay), and reports what ACTUALLY rendered (map.getZoom(), the
+    // page dpr, the map div size) once the render has settled. No image
+    // data crosses the bridge.
+    let captureState = null;
+
+    function beginCapture(centerLat, centerLng, zoom, token) {
+      if (!map) return 'map-not-ready';
+      if (captureState) return 'capture-in-progress';
+      try {
+        const toolbar = document.getElementById('toolbar');
+        const hint = document.getElementById('hint');
+        const mapDiv = document.getElementById('map');
+        captureState = {
+          token: token,
+          toolbarDisplay: toolbar.style.display,
+          hintWasHidden: hint.classList.contains('hidden'),
+          mapTop: mapDiv.style.top,
+          rectWasVisible: drawingRectangle ? drawingRectangle.getVisible() : false,
+          wasDraggable: map.get('draggable'),
+          wasGestureHandling: map.get('gestureHandling'),
+        };
+        toolbar.style.display = 'none';
+        hint.classList.add('hidden');
+        mapDiv.style.top = '0';
+        if (drawingRectangle) drawingRectangle.setVisible(false);
+        // Freeze interaction: a pan during the settle would silently break
+        // the georeference (the Python crop assumes the map is centred on
+        // the bbox centre). Google attribution stays untouched (required by
+        // the ToS); only the interactive controls are removed.
+        map.setOptions({ disableDefaultUI: true, draggable: false, gestureHandling: 'none' });
+        map.setCenter({ lat: centerLat, lng: centerLng });
+        map.setZoom(zoom);
+        let idleFired = false;
+        let tilesFired = false;
+        let reported = false;
+        const reportReady = function() {
+          if (reported || !captureState) return;
+          if (!(idleFired && tilesFired)) return;
+          // Report what actually rendered, not what was requested — a clamp
+          // or a failed zoom would otherwise mis-scale the capture.
+          const actualZoom = map.getZoom();
+          if (actualZoom !== zoom) {
+            reported = true;
+            cleanupCaptureListeners();
+            bridge.captureError(String(token), 'zoom-mismatch');
+            return;
+          }
+          reported = true;
+          cleanupCaptureListeners();
+          bridge.captureReady(
+            String(token),
+            actualZoom,
+            window.devicePixelRatio || 1,
+            mapDiv.clientWidth,
+            mapDiv.clientHeight
+          );
+        };
+        const onIdle = function() { idleFired = true; reportReady(); };
+        const onTiles = function() { tilesFired = true; reportReady(); };
+        captureState.idleListener = map.addListener('idle', onIdle);
+        captureState.tilesListener = map.addListener('tilesloaded', onTiles);
+        captureState.timeout = setTimeout(function() {
+          if (reported || !captureState) return;
+          reported = true;
+          cleanupCaptureListeners();
+          bridge.captureError(String(token), 'capture-timeout');
+        }, 15000);
+        // In case tiles finishes before idle (or vice versa) rarely fires,
+        // poll positional readiness once shortly after the zoom settled.
+        captureState.settledCheck = setTimeout(function() {
+          if (reported || !captureState) return;
+          if (!idleFired) onIdle();
+          else if (!tilesFired) onTiles();
+        }, 3000);
+        return 'ok';
+      } catch (e) {
+        restoredChromeSafe();
+        return 'error: ' + String(e && e.message ? e.message : e);
+      }
+    }
+
+    function cleanupCaptureListeners(state) {
+      const s = state || captureState;
+      if (!s) return;
+      if (s.idleListener) {
+        google.maps.event.removeListener(s.idleListener);
+        s.idleListener = null;
+      }
+      if (s.tilesListener) {
+        google.maps.event.removeListener(s.tilesListener);
+        s.tilesListener = null;
+      }
+      if (s.timeout) clearTimeout(s.timeout);
+      if (s.settledCheck) clearTimeout(s.settledCheck);
+    }
+
+    function restoredChromeSafe() {
+      // Restore stored chrome state without throwing on partial states —
+      // the error path must dispose listeners/timers exactly like the
+      // normal restore path does.
+      const state = captureState;
+      captureState = null;
+      if (!state) return;
+      cleanupCaptureListeners(state);
+      try {
+        cleanupChromeState(state);
+      } catch (e) { /* window restore must be safe in every path */ }
+    }
+
+    function restoreCaptureChrome() {
+      if (!captureState) return;
+      cleanupCaptureListeners();
+      const state = captureState;
+      captureState = null;
+      cleanupChromeState(state);
+    }
+
+    function cleanupChromeState(state) {
+      const toolbar = document.getElementById('toolbar');
+      const hint = document.getElementById('hint');
+      const mapDiv = document.getElementById('map');
+      if (toolbar) toolbar.style.display = state.toolbarDisplay || '';
+      if (hint) {
+        if (state.hintWasHidden) hint.classList.add('hidden');
+        else hint.classList.remove('hidden');
+      }
+      if (mapDiv) mapDiv.style.top = state.mapTop || '56px';
+      if (drawingRectangle && state.rectWasVisible) drawingRectangle.setVisible(true);
+      map.setOptions({
+        disableDefaultUI: false,
+        draggable: state.wasDraggable !== false,
+        gestureHandling: state.wasGestureHandling || 'auto',
+      });
+    }
   </script>
 </body>
 </html>

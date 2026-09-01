@@ -167,6 +167,40 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "aufgetreten.",
         "Map error": "Kartenfehler",
         "Failed to fetch image": "Bildabruf fehlgeschlagen",
+        # JS-API view capture (issue #346)
+        "Capture view": "Ansicht übernehmen",
+        "Positioning the map view...": "Kartenansicht wird positioniert...",
+        "Capture cancelled.": "Aufnahme abgebrochen.",
+        "Capture failed. Try again, or use 'Load image'.":
+            "Aufnahme fehlgeschlagen. Erneut versuchen oder 'Bild laden' verwenden.",
+        "Failed to capture view": "Aufnahme der Ansicht fehlgeschlagen",
+        "Satellite image blocked": "Satellitenbild blockiert",
+        "Google rejected the Static Maps request for your account and "
+        "region: satellite and hybrid map types are not available "
+        "through the Static Maps API (EEA restriction).\n\n"
+        "You can capture the satellite view directly from the map "
+        "below instead.":
+            "Google hat die Static-Maps-Anfrage für Ihr Konto und Ihre Region "
+            "abgelehnt: Satelliten- und Hybridkartentypen sind über die "
+            "Static-Maps-API nicht verfügbar (EWR-Einschränkung).\n\n"
+            "Sie können die Satellitenansicht stattdessen direkt aus der "
+            "unten angezeigten Karte übernehmen.",
+        "Retry Static Maps": "Statische Karten erneut versuchen",
+        "The map view did not render. Try again after the map has finished loading.":
+            "Die Kartenansicht wurde nicht gerendert. Erneut versuchen, "
+            "nachdem die Karte vollständig geladen ist.",
+        "The capture dimensions are inconsistent with the display scaling. Please retry; if it keeps failing, restart the map window.":
+            "Die Aufnahmeabmessungen passen nicht zur Anzeige-Skalierung. "
+            "Erneut versuchen; wenn es weiterhin fehlschlägt, das Kartenfenster "
+            "neu starten.",
+        "The capture timed out. Check your network or the API key, then try again.":
+            "Zeitüberschreitung bei der Aufnahme. Netzwerk oder API-Schlüssel "
+            "prüfen und erneut versuchen.",
+        "Unexpected error while capturing the map view.":
+            "Beim Aufnehmen der Kartenansicht ist ein unerwarteter Fehler "
+            "aufgetreten.",
+        # Google attribution stays English (legal/brand text, not translated).
+        "Map data ©{year} Google": "Map data ©{year} Google",
         # HTML-side picker UI (passed to JS via the bridge):
         "Search address...": "Adresse suchen...",
         "Draw rectangle": "Rechteck zeichnen",
@@ -961,6 +995,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Satellitenbild geladen ({cols}x{rows} Kacheln, Zoom {zoom})",
         "Loaded satellite background ({cols}x{rows} tiles, zoom {zoom}) — canvas resized to {w_m:.0f}m x {h_m:.0f}m":
             "Satellitenbild geladen ({cols}x{rows} Kacheln, Zoom {zoom}) — Leinwand auf {w_m:.0f}m x {h_m:.0f}m angepasst",
+        "Loaded satellite background (captured map view, zoom {zoom}) — canvas resized to {w_m:.0f}m x {h_m:.0f}m":
+            "Satellitenbild geladen (übernommene Kartenansicht, Zoom {zoom}) — Leinwand auf {w_m:.0f}m x {h_m:.0f}m angepasst",
         "&Language": "&Sprache",
         "Language Changed": "Sprache geändert",
         "Language has been set to {language}.\n\nPlease restart the application for the change to take effect.":
