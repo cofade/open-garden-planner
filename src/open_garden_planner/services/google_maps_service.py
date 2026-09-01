@@ -73,13 +73,22 @@ class BoundingBox:
 
 @dataclass(frozen=True)
 class FetchResult:
-    """Output of a successful satellite fetch."""
+    """Output of a successful satellite fetch.
+
+    ``source`` and ``attribution`` are additive provenance fields (issue
+    #346): ``source`` is ``google_static_maps`` (the default) or
+    ``google_js_view_capture``; ``attribution`` carries the Google
+    copyright line baked into JS-capture images and is written to the
+    item's ``geo_metadata`` when non-empty.
+    """
 
     image: Image.Image
     meters_per_pixel: float
     zoom: int
     bbox: BoundingBox
     tile_grid: tuple[int, int]  # (cols, rows) — (1,1) means single call
+    source: str = "google_static_maps"
+    attribution: str = ""
 
 
 def _normalise_api_key(api_key: str | None) -> str:
@@ -224,16 +233,20 @@ def _fetch_tile(
         ) from None
 
 
-def _crop_to_bbox(
+def crop_image_to_bbox(
     image: Image.Image, mpp: float, bbox: BoundingBox
 ) -> Image.Image:
-    """Crop the centred satellite image down to exactly the bbox area.
+    """Crop a centred image down to exactly the bbox area.
 
     Static Maps returns ``size × size`` pixels centred on ``(lat, lng)`` at a
     given zoom — there's no native bbox parameter. So the fetched image
     (single tile or stitched mosaic) covers more ground than the user's
     rectangle, with padding on all sides. Cropping to the bbox makes the
     canvas-placed image match the rectangle the user drew.
+
+    This is also the one shared crop seam for the JS-API view capture path
+    (issue #346): the captured view is centred on the bbox centre, so the
+    same centre crop applies.
 
     ``mpp`` is unchanged by cropping (pixels-per-metre is intrinsic to the
     zoom level + latitude, not the image size).
@@ -286,7 +299,7 @@ def fetch_bbox(
     if cols == 1 and rows == 1:
         raw = _fetch_tile(center_lat, center_lng, zoom, api_key, timeout=timeout)
         _raise_if_cancelled(cancel_check)
-        image = _crop_to_bbox(raw, output_mpp, bbox)
+        image = crop_image_to_bbox(raw, output_mpp, bbox)
         _raise_if_cancelled(cancel_check)
         return FetchResult(
             image=image,
@@ -318,7 +331,7 @@ def fetch_bbox(
                 (col * _TILE_EFFECTIVE_PX, row * _TILE_EFFECTIVE_PX),
             )
 
-    image = _crop_to_bbox(mosaic, output_mpp, bbox)
+    image = crop_image_to_bbox(mosaic, output_mpp, bbox)
     _raise_if_cancelled(cancel_check)
     return FetchResult(
         image=image,

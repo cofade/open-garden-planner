@@ -5812,6 +5812,8 @@ class GardenPlannerApp(QMainWindow):
             bbox_nw=(result.bbox.nw_lat, result.bbox.nw_lng),
             bbox_se=(result.bbox.se_lat, result.bbox.se_lng),
             zoom=result.zoom,
+            source=result.source,
+            attribution=result.attribution,
             fetched_at=datetime.now(UTC).isoformat(timespec="seconds"),
         )
         scene.addItem(image_item)
@@ -5839,18 +5841,30 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_view.fit_in_view()
 
         self._project_manager.mark_dirty()
-        self.statusBar().showMessage(
-            self.tr(
-                "Loaded satellite background ({cols}x{rows} tiles, zoom {zoom}) — "
-                "canvas resized to {w_m:.0f}m x {h_m:.0f}m"
-            ).format(
-                cols=result.tile_grid[0],
-                rows=result.tile_grid[1],
-                zoom=result.zoom,
-                w_m=canvas_w_cm / 100,
-                h_m=canvas_h_cm / 100,
+        if result.source == "google_js_view_capture":
+            self.statusBar().showMessage(
+                self.tr(
+                    "Loaded satellite background (captured map view, zoom {zoom}) — "
+                    "canvas resized to {w_m:.0f}m x {h_m:.0f}m"
+                ).format(
+                    zoom=result.zoom,
+                    w_m=canvas_w_cm / 100,
+                    h_m=canvas_h_cm / 100,
+                )
             )
-        )
+        else:
+            self.statusBar().showMessage(
+                self.tr(
+                    "Loaded satellite background ({cols}x{rows} tiles, zoom {zoom}) — "
+                    "canvas resized to {w_m:.0f}m x {h_m:.0f}m"
+                ).format(
+                    cols=result.tile_grid[0],
+                    rows=result.tile_grid[1],
+                    zoom=result.zoom,
+                    w_m=canvas_w_cm / 100,
+                    h_m=canvas_h_cm / 100,
+                )
+            )
 
     def _on_set_location(self) -> None:
         """Handle Set Garden Location action."""

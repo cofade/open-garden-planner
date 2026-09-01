@@ -2415,7 +2415,9 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 
 Shipped in v1.27.5 via [PR #344](https://github.com/cofade/open-garden-planner/pull/344): the satellite picker now accepts a Google Maps API key from Preferences, while retaining the environment/adjacent-`.env` fallback for source and packaged builds. Preferences values take precedence, blank values fall back, and credentials are excluded from project files and artifacts. Worker shutdown is asynchronous across picker rejection, window close, and application shutdown. See ADR-019, FR-IMG-08, and §8.15.
 
-The follow-up redesign around the Google Maps JavaScript API is tracked in [Issue #346](https://github.com/cofade/open-garden-planner/issues/346).
+## Satellite import redesign around the Maps JavaScript API (Issue #346)
+
+Shipped via this PR: for projects Google's EEA terms restrict (Static Maps API rejects `satellite`/`hybrid` with a canonical 403), the picker now offers — and always provides — a **JS-API view capture**: the live map is positioned over the drawn rectangle, the `QWebEngineView` is grabbed at the widget level (no DOM access, no tile harvesting; tile URLs embed the key and taint canvases — html2canvas is structurally dead), and the image is cropped and scaled with the same analytic math plus a baked attribution strip. `FetchResult` gains `source`/`attribution` provenance and `geo_metadata` persists the additive keys. See ADR-019 addendum, FR-IMG-08/FR-IMG-10, §6.3.1, §11.4, and the unit/integration suites in `test_google_maps_js_capture.py` / `test_map_picker_capture.py`. Pan-grid stitching for higher resolution is follow-up [Issue #347](https://github.com/cofade/open-garden-planner/issues/347).
 
 ---
 

@@ -241,6 +241,7 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         bbox_se: tuple[float, float],
         zoom: int,
         source: str = "google_static_maps",
+        attribution: str = "",
         fetched_at: str = "",
     ) -> "BackgroundImageItem":
         """Convenience factory for satellite imports.
@@ -248,6 +249,11 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         The caller (``application._on_load_satellite_background``) builds the
         PNG bytes from the PIL image and passes the geo data through; the
         item ends up with a correct real-world scale automatically.
+
+        ``source`` distinguishes the Static-API path from the JS-API view
+        capture (issue #346); a non-empty ``attribution`` line (the Google
+        copyright strip baked into captures) is persisted in
+        ``geo_metadata`` so the provenance survives save/load.
         """
         center_lat = (bbox_nw[0] + bbox_se[0]) / 2.0
         center_lng = (bbox_nw[1] + bbox_se[1]) / 2.0
@@ -260,6 +266,9 @@ class BackgroundImageItem(QGraphicsPixmapItem):
             "source": source,
             "fetched_at": fetched_at,
         }
+        if attribution:
+            # Additive key — older binaries ignore it, no FILE_VERSION bump.
+            geo_metadata["attribution"] = attribution
         return cls(image_path, _pixmap_data=png_bytes, geo_metadata=geo_metadata)
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:

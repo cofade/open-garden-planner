@@ -3599,6 +3599,10 @@ Details: {error}</translation>
             <source>Set a Google Maps API key in Preferences or OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading.</source>
             <translation>Einen Google-Maps-API-Schlüssel in den Einstellungen oder OGP_GOOGLE_MAPS_KEY in der .env-Datei setzen, um Satellitenbilder laden zu können.</translation>
         </message>
+        <message>
+            <source>Loaded satellite background (captured map view, zoom {zoom}) — canvas resized to {w_m:.0f}m x {h_m:.0f}m</source>
+            <translation>Satellitenbild geladen (übernommene Kartenansicht, Zoom {zoom}) — Leinwand auf {w_m:.0f}m x {h_m:.0f}m angepasst</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>
@@ -9781,6 +9785,58 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
         <message>
             <source>Unexpected error while fetching satellite image.</source>
             <translation>Beim Abrufen des Satellitenbilds ist ein unerwarteter Fehler aufgetreten.</translation>
+        </message>
+        <message>
+            <source>Capture view</source>
+            <translation>Ansicht übernehmen</translation>
+        </message>
+        <message>
+            <source>Positioning the map view...</source>
+            <translation>Kartenansicht wird positioniert...</translation>
+        </message>
+        <message>
+            <source>Capture cancelled.</source>
+            <translation>Aufnahme abgebrochen.</translation>
+        </message>
+        <message>
+            <source>Capture failed. Try again, or use 'Load image'.</source>
+            <translation>Aufnahme fehlgeschlagen. Erneut versuchen oder 'Bild laden' verwenden.</translation>
+        </message>
+        <message>
+            <source>Failed to capture view</source>
+            <translation>Aufnahme der Ansicht fehlgeschlagen</translation>
+        </message>
+        <message>
+            <source>Satellite image blocked</source>
+            <translation>Satellitenbild blockiert</translation>
+        </message>
+        <message>
+            <source>Google rejected the Static Maps request for your account and region: satellite and hybrid map types are not available through the Static Maps API (EEA restriction).
+
+You can capture the satellite view directly from the map below instead.</source>
+            <translation>Google hat die Static-Maps-Anfrage für Ihr Konto und Ihre Region abgelehnt: Satelliten- und Hybridkartentypen sind über die Static-Maps-API nicht verfügbar (EWR-Einschränkung).
+
+Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten Karte übernehmen.</translation>
+        </message>
+        <message>
+            <source>Retry Static Maps</source>
+            <translation>Statische Karten erneut versuchen</translation>
+        </message>
+        <message>
+            <source>The map view did not render. Try again after the map has finished loading.</source>
+            <translation>Die Kartenansicht wurde nicht gerendert. Erneut versuchen, nachdem die Karte vollständig geladen ist.</translation>
+        </message>
+        <message>
+            <source>The capture timed out. Check your network or the API key, then try again.</source>
+            <translation>Zeitüberschreitung bei der Aufnahme. Netzwerk oder API-Schlüssel prüfen und erneut versuchen.</translation>
+        </message>
+        <message>
+            <source>Unexpected error while capturing the map view.</source>
+            <translation>Beim Aufnehmen der Kartenansicht ist ein unerwarteter Fehler aufgetreten.</translation>
+        </message>
+        <message>
+            <source>Map data ©{year} Google</source>
+            <translation>Map data ©{year} Google</translation>
         </message>
     </context>
     <context>

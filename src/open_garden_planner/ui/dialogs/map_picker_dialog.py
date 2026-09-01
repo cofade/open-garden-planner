@@ -6,22 +6,40 @@ clicking two corners. On confirm the Static Maps API is called via
 ``google_maps_service.fetch_bbox`` to produce a single PNG image, which
 is then returned to the caller together with geo metadata so the canvas
 background can be created with an exact pixel→meter scale.
+
+For projects Google's EEA terms restrict (Static Maps rejects satellite /
+hybrid with HTTP 403 — issue #346), the dialog additionally offers a
+**JS-API view capture**: the page re-positions the already-rendered map
+over the drawn rectangle and the Python side grabs the ``QWebEngineView``
+widget's pixels (``QWidget.grab()`` — never DOM access, which would both
+taint and expose the API key embedded in tile URLs). The grab is cropped
+to the bounding box with the same analytic Web-Mercator math, an
+attribution strip is baked in, and the result flows through the exact
+same ``FetchResult`` path as the Static fetch.
 """
 
 from __future__ import annotations
 
+import io
 import logging
 import traceback
+from datetime import datetime
 from pathlib import Path
 
+from PIL import Image
 from PyQt6.QtCore import (
+    QBuffer,
+    QCoreApplication,
+    QIODevice,
     QLocale,
     QObject,
     QThread,
+    QTimer,
     QUrl,
     pyqtSignal,
     pyqtSlot,
 )
+from PyQt6.QtGui import QImage
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -31,10 +49,19 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMessageBox,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
+from open_garden_planner.services.google_maps_js_capture import (
+    EEA_SATELLITE_BLOCKED,
+    bake_attribution,
+    capture_mpp,
+    classify_static_failure,
+    is_blank_capture,
+    pick_capture_zoom,
+)
 from open_garden_planner.services.google_maps_service import (
     BoundingBox,
     FetchCancelled,
@@ -42,6 +69,7 @@ from open_garden_planner.services.google_maps_service import (
     GoogleMapsFetchError,
     GoogleMapsKeyMissingError,
     _scrub_key,
+    crop_image_to_bbox,
     fetch_bbox,
     get_api_key,
     has_api_key,
@@ -55,8 +83,32 @@ _KEY_MISSING_MESSAGE = (
     "background loading."
 )
 _UNEXPECTED_FETCH_MESSAGE = "Unexpected error while fetching satellite image."
+_CAPTURE_BLANK_MESSAGE = "The map view did not render. Try again after the map has finished loading."
+_CAPTURE_TIMEOUT_MESSAGE = "The capture timed out. Check your network or the API key, then try again."
+_CAPTURE_UNEXPECTED_MESSAGE = "Unexpected error while capturing the map view."
 
 logger = logging.getLogger(__name__)
+
+
+def _attribution_text() -> str:
+    """Google attribution line baked into captured images.
+
+    Deliberately not translated: Google attribution strings stay in
+    English (brand/legal text, same rule as the MCP API surface).
+    """
+    return QCoreApplication.translate(
+        "MapPickerDialog", "Map data ©{year} Google"
+    ).format(year=datetime.now().year)
+
+
+def _qimage_to_pil(image) -> Image:
+    """Convert a grabbed QImage to a PIL RGB image."""
+    buf = QBuffer()
+    buf.open(QIODevice.OpenModeFlag.WriteOnly)
+    image.save(buf, "PNG")
+    data = bytes(buf.data())
+    buf.close()
+    return Image.open(io.BytesIO(data)).convert("RGB")
 
 
 class _MapBridge(QObject):
@@ -66,6 +118,9 @@ class _MapBridge(QObject):
     - ``ready()`` — hand over the API key plus locale + translated strings
     - ``boundsChanged(nw_lat, nw_lng, se_lat, se_lng)`` — rectangle updated
     - ``boundsCleared()`` — rectangle removed
+    - ``captureReady(zoom, dpr, css_w, css_h)`` — the page has positioned
+      the map over the rectangle and is waiting for the widget grab
+    - ``captureError(msg)`` — JS-side capture failure (timeout etc.)
     - ``reportError(msg)`` — JS-level failure
 
     Python-side signals re-emit those events to the dialog with different
@@ -75,6 +130,8 @@ class _MapBridge(QObject):
     setupReady = pyqtSignal(str, str, "QVariantMap")  # api_key, locale, strings
     boundsUpdated = pyqtSignal(float, float, float, float)
     cleared = pyqtSignal()
+    captureViewReady = pyqtSignal(float, float, float, float)
+    captureViewFailed = pyqtSignal(str)
     errorReported = pyqtSignal(str)
 
     def __init__(
@@ -102,6 +159,18 @@ class _MapBridge(QObject):
     @pyqtSlot()
     def boundsCleared(self) -> None:
         self.cleared.emit()
+
+    @pyqtSlot(float, float, float, float)
+    def captureReady(
+        self, zoom: float, dpr: float, css_w: float, css_h: float
+    ) -> None:
+        # Metadata only — the pixels are taken by the Python side via
+        # QWebEngineView.grab(); image/tile data never crosses the bridge.
+        self.captureViewReady.emit(zoom, dpr, css_w, css_h)
+
+    @pyqtSlot(str)
+    def captureError(self, message: str) -> None:
+        self.captureViewFailed.emit(_scrub_key(message, self._api_key))
 
     @pyqtSlot(str)
     def reportError(self, message: str) -> None:
@@ -188,6 +257,10 @@ class MapPickerDialog(QDialog):
         self._fetch_cancel_requested = False
         self._close_after_fetch = False
         self._api_key = ""
+        self._capture_in_progress = False
+        self._capture_cancel_requested = False
+        self._capture_generation = 0
+        self._capture_watchdog: QTimer | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -226,6 +299,15 @@ class MapPickerDialog(QDialog):
         )
         self._ok_button.setText(self.tr("Load image"))
         self._ok_button.setEnabled(False)
+        # Secondary path (issue #346): capture the rendered JS-API map view
+        # when the Static Maps API is rejected (EEA restriction) — or at any
+        # time the user prefers it.
+        self._capture_button = QPushButton(self.tr("Capture view"), self)
+        self._capture_button.setEnabled(False)
+        self._capture_button.clicked.connect(self._on_capture_clicked)
+        self._buttons.addButton(
+            self._capture_button, QDialogButtonBox.ButtonRole.ActionRole
+        )
         self._buttons.accepted.connect(self._on_accept)
         # Cancel does two jobs: cancel an in-flight fetch (if any) and close
         # the dialog if nothing is running. ``_on_cancel`` handles both.
@@ -268,6 +350,8 @@ class MapPickerDialog(QDialog):
         self._bridge = _MapBridge(self._api_key, locale_payload, ui_strings, self)
         self._bridge.boundsUpdated.connect(self._on_bounds_updated)
         self._bridge.cleared.connect(self._on_bounds_cleared)
+        self._bridge.captureViewReady.connect(self._on_capture_ready)
+        self._bridge.captureViewFailed.connect(self._on_capture_error)
         self._bridge.errorReported.connect(self._on_bridge_error)
 
         channel = QWebChannel(self)
@@ -297,12 +381,14 @@ class MapPickerDialog(QDialog):
         self._bbox = BoundingBox(
             nw_lat=nw_lat, nw_lng=nw_lng, se_lat=se_lat, se_lng=se_lng
         )
-        self._ok_button.setEnabled(True)
+        self._ok_button.setEnabled(not self._capture_in_progress)
+        self._capture_button.setEnabled(not self._fetch_in_progress)
         self._status.setText(self.tr("Rectangle selected. Click 'Load image' to fetch."))
 
     def _on_bounds_cleared(self) -> None:
         self._bbox = None
         self._ok_button.setEnabled(False)
+        self._capture_button.setEnabled(False)
         self._status.setText(
             self.tr("Search for an address, then draw a rectangle on the map.")
         )
@@ -310,12 +396,188 @@ class MapPickerDialog(QDialog):
     def _on_bridge_error(self, message: str) -> None:
         QMessageBox.warning(self, self.tr("Map error"), message)
 
+    # ------------------------------------------------------------------
+    # JS-API view capture (issue #346)
+    # ------------------------------------------------------------------
+
+    def _start_capture(self) -> bool:
+        """Orient the map over the bbox and arm the widget grab. Returns
+        False when the capture cannot start (no bbox / busy / no page)."""
+        if self._bbox is None or self._fetch_in_progress or self._capture_in_progress:
+            return False
+        self._capture_in_progress = True
+        self._capture_cancel_requested = False
+        self._capture_generation += 1
+        generation = self._capture_generation
+        self._ok_button.setEnabled(False)
+        self._capture_button.setEnabled(False)
+        self._status.setText(self.tr("Positioning the map view..."))
+        dpr = max(self._view.devicePixelRatioF(), 1.0)
+        viewport_css = (self._view.width() / dpr, self._view.height() / dpr)
+        zoom = pick_capture_zoom(self._bbox, viewport_css)
+        center_lat, center_lng = self._bbox.center
+        js = f"window.beginCapture({center_lat!r}, {center_lng!r}, {int(zoom):d});"
+        self._view.page().runJavaScript(
+            js, lambda result, generation=generation: self._on_capture_js_result(
+                result, generation
+            )
+        )
+        # Safety net: the JS side has its own 15 s timeout, but a page that
+        # loses its bridge must not leave the dialog stuck forever.
+        self._capture_watchdog = QTimer(self)
+        self._capture_watchdog.setSingleShot(True)
+        self._capture_watchdog.timeout.connect(
+            lambda generation=generation: self._handle_capture_failure(
+                self.tr(_CAPTURE_TIMEOUT_MESSAGE), generation
+            )
+        )
+        self._capture_watchdog.start(20_000)
+        return True
+
+    def _on_capture_clicked(self) -> None:
+        self._start_capture()
+
+    def _on_capture_js_result(self, result: object, generation: int) -> None:
+        if generation != self._capture_generation or self._capture_finished():
+            return
+        if result not in ("ok", None):
+            message = (
+                _scrub_key(str(result), self._api_key)
+                if isinstance(result, str)
+                else ""
+            )
+            self._handle_capture_failure(
+                message or self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
+            )
+
+    def _on_capture_ready(
+        self, zoom: float, dpr: float, css_w: float, css_h: float
+    ) -> None:
+        generation = self._capture_generation
+        if self._capture_finished():
+            return
+        if self._capture_cancel_requested:
+            self._finish_capture()
+            self._cancel_button.setEnabled(True)
+            self._status.setText(self.tr("Capture cancelled."))
+            return
+        # Sanity-check the JS report before trusting it for scale math.
+        if css_w <= 0 or css_h <= 0:
+            self._handle_capture_failure(
+                self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
+            )
+            return
+        bbox = self._bbox
+        if bbox is None:
+            self._finish_capture()
+            self._cancel_button.setEnabled(True)
+            return
+        try:
+            grab = self._view.grab()
+            image = _qimage_to_pil(
+                grab.toImage().convertToFormat(QImage.Format.Format_RGB888)
+            )
+            if is_blank_capture(image):
+                self._handle_capture_failure(
+                    self.tr(_CAPTURE_BLANK_MESSAGE), generation
+                )
+                return
+            dpr_effective = float(dpr) if dpr and dpr > 0 else 1.0
+            mpp = capture_mpp(bbox.center[0], int(round(zoom)), dpr_effective)
+            cropped = crop_image_to_bbox(image, mpp, bbox)
+            attribution = _attribution_text()
+            cropped = bake_attribution(cropped, attribution)
+            result = FetchResult(
+                image=cropped,
+                meters_per_pixel=mpp,
+                zoom=int(round(zoom)),
+                bbox=bbox,
+                tile_grid=(1, 1),
+                source="google_js_view_capture",
+                attribution=attribution,
+            )
+        except Exception:
+            # The capture path must never crash the dialog on a rendering
+            # quirk; log scrubbed and surface the generic message.
+            logger.error(
+                "Unexpected view capture failure:\n%s",
+                _scrub_key(traceback.format_exc(), self._api_key),
+            )
+            self._handle_capture_failure(
+                self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
+            )
+            return
+        self._finish_capture()
+        self._fetch_result = result
+        self.accept()
+
+    def _on_capture_error(self, message: str) -> None:
+        if self._capture_finished():
+            return
+        if self._capture_cancel_requested:
+            self._finish_capture()
+            self._cancel_button.setEnabled(True)
+            self._status.setText(self.tr("Capture cancelled."))
+            return
+        self._handle_capture_failure(message, self._capture_generation)
+
+    def _capture_finished(self) -> bool:
+        return not self._capture_in_progress
+
+    def _finish_capture(self) -> None:
+        """Return the page + dialog to the normal state. Idempotent."""
+        watchdog = self._capture_watchdog
+        if watchdog is not None:
+            watchdog.stop()
+            self._capture_watchdog = None
+        if not self._capture_in_progress:
+            self._capture_cancel_requested = False
+            return
+        self._capture_in_progress = False
+        self._capture_cancel_requested = False
+        self._view.page().runJavaScript("window.restoreCaptureChrome();")
+        if self._bbox is not None and not self._fetch_in_progress:
+            self._ok_button.setEnabled(True)
+            self._capture_button.setEnabled(True)
+
+    def _handle_capture_failure(self, message: str, generation: int) -> None:
+        if generation != self._capture_generation or self._capture_finished():
+            return
+        self._finish_capture()
+        self._status.setText(
+            self.tr("Capture failed. Try again, or use 'Load image'.")
+        )
+        QMessageBox.critical(self, self.tr("Failed to capture view"), message)
+
+    def _ask_capture_fallback(self) -> bool:
+        """Offer the view-capture path when Static returns the EEA 403."""
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle(self.tr("Satellite image blocked"))
+        box.setText(
+            self.tr(
+                "Google rejected the Static Maps request for your account and "
+                "region: satellite and hybrid map types are not available "
+                "through the Static Maps API (EEA restriction).\n\n"
+                "You can capture the satellite view directly from the map "
+                "below instead."
+            )
+        )
+        capture_btn = box.addButton(
+            self.tr("Capture view"), QMessageBox.ButtonRole.AcceptRole
+        )
+        box.addButton(self.tr("Retry Static Maps"), QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(capture_btn)
+        box.exec()
+        return box.clickedButton() is capture_btn
+
     def _on_accept(self) -> None:
-        if self._bbox is None or self._fetch_in_progress:
+        if self._bbox is None or self._fetch_in_progress or self._capture_in_progress:
             return
         # Only the OK button gets disabled — Cancel must stay clickable
         # so the user can abort a long mosaic fetch.
         self._ok_button.setEnabled(False)
+        self._capture_button.setEnabled(False)
         self._status.setText(self.tr("Fetching satellite image..."))
         self._fetch_generation += 1
         generation = self._fetch_generation
@@ -386,6 +648,14 @@ class MapPickerDialog(QDialog):
 
     def _on_cancel(self) -> None:
         """Cancel a running fetch, or close the dialog if nothing is running."""
+        if self._capture_in_progress:
+            # The capture completes on the GUI thread only when the page
+            # reports readiness; mark it cancelled and let the ready/error
+            # handlers (or the watchdog) finish the state.
+            self._capture_cancel_requested = True
+            self._status.setText(self.tr("Cancelling..."))
+            self._cancel_button.setEnabled(False)
+            return
         if self._fetch_in_progress:
             self._fetch_cancel_requested = True
             self._status.setText(self.tr("Cancelling..."))
@@ -432,10 +702,25 @@ class MapPickerDialog(QDialog):
             return
         if message == _KEY_MISSING_FAILURE:
             message = self.tr(_KEY_MISSING_MESSAGE)
+            QMessageBox.critical(self, self.tr("Failed to fetch image"), message)
         elif message == _UNEXPECTED_FETCH_FAILURE:
-            message = self.tr(_UNEXPECTED_FETCH_MESSAGE)
-        QMessageBox.critical(self, self.tr("Failed to fetch image"), message)
-        self._ok_button.setEnabled(True)
+            QMessageBox.critical(
+                self,
+                self.tr("Failed to fetch image"),
+                self.tr(_UNEXPECTED_FETCH_MESSAGE),
+            )
+        elif classify_static_failure(None, message) == EEA_SATELLITE_BLOCKED:
+            # Google's own 403 body identified the EEA restriction. Offer the
+            # JS-API view capture path (issue #346) without re-diagnosing.
+            if self._ask_capture_fallback():
+                self._ok_button.setEnabled(True)
+                self._cancel_button.setEnabled(True)
+                self._start_capture()
+                return
+        else:
+            QMessageBox.critical(self, self.tr("Failed to fetch image"), message)
+        self._ok_button.setEnabled(self._bbox is not None)
+        self._capture_button.setEnabled(self._bbox is not None)
         self._cancel_button.setEnabled(True)
         self._status.setText(self.tr("Try again, or pick a smaller area."))
 
@@ -445,11 +730,15 @@ class MapPickerDialog(QDialog):
         self._fetch_in_progress = False
         self._fetch_cancel_requested = False
         self._ok_button.setEnabled(self._bbox is not None)
+        self._capture_button.setEnabled(self._bbox is not None)
         self._cancel_button.setEnabled(True)
         self._status.setText(self.tr("Fetch cancelled."))
 
     def reject(self) -> None:
         """Cancel an active fetch before allowing any dialog rejection path."""
+        if self._capture_in_progress:
+            self._capture_cancel_requested = True
+            return
         if (self._fetch_in_progress or self._worker is not None) and self._request_worker_shutdown():
             return
         self._close_after_fetch = False
@@ -460,7 +749,12 @@ class MapPickerDialog(QDialog):
         # — ``cancel_check`` is consulted between tiles and immediately after
         # each response, never during a single in-flight HTTP call. Keep the
         # dialog alive until the worker finishes instead of blocking the GUI
-        # thread while joining it.
+        # thread while joining it. The GUI-thread capture is cancelled the
+        # same way: mark it and wait for the page's ready/error report.
+        if self._capture_in_progress:
+            self._capture_cancel_requested = True
+            event.ignore()
+            return
         if (self._fetch_in_progress or self._worker is not None) and self._request_worker_shutdown():
             event.ignore()
             return
