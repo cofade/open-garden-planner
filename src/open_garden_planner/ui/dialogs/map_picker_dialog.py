@@ -86,6 +86,7 @@ _KEY_MISSING_MESSAGE = (
 )
 _UNEXPECTED_FETCH_MESSAGE = "Unexpected error while fetching satellite image."
 _CAPTURE_BLANK_MESSAGE = "The map view did not render. Try again after the map has finished loading."
+_CAPTURE_DPR_MESSAGE = "The capture dimensions are inconsistent with the display scaling. Please retry; if it keeps failing, restart the map window."
 _CAPTURE_TIMEOUT_MESSAGE = "The capture timed out. Check your network or the API key, then try again."
 _CAPTURE_UNEXPECTED_MESSAGE = "Unexpected error while capturing the map view."
 _CAPTURE_TOKEN_MESSAGES = {
@@ -543,8 +544,10 @@ class MapPickerDialog(QDialog):
             dpr_effective = effective_capture_dpr(grab.width(), css_w)
             reported_dpr = float(dpr) if dpr and dpr > 0 else None
             if not capture_dpr_is_sane(dpr_effective, reported_dpr):
+                # A deterministic refusal, not a transient "unexpected"
+                # failure — the message says so honestly.
                 self._handle_capture_failure(
-                    self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
+                    self.tr(_CAPTURE_DPR_MESSAGE), generation
                 )
                 return
             image = _qimage_to_pil(

@@ -189,6 +189,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "The map view did not render. Try again after the map has finished loading.":
             "Die Kartenansicht wurde nicht gerendert. Erneut versuchen, "
             "nachdem die Karte vollständig geladen ist.",
+        "The capture dimensions are inconsistent with the display scaling. Please retry; if it keeps failing, restart the map window.":
+            "Die Aufnahmeabmessungen passen nicht zur Anzeige-Skalierung. "
+            "Erneut versuchen; wenn es weiterhin fehlschlägt, das Kartenfenster "
+            "neu starten.",
         "The capture timed out. Check your network or the API key, then try again.":
             "Zeitüberschreitung bei der Aufnahme. Netzwerk oder API-Schlüssel "
             "prüfen und erneut versuchen.",

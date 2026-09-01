@@ -9838,6 +9838,10 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
             <source>Map data ©{year} Google</source>
             <translation>Map data ©{year} Google</translation>
         </message>
+        <message>
+            <source>The capture dimensions are inconsistent with the display scaling. Please retry; if it keeps failing, restart the map window.</source>
+            <translation>Die Aufnahmeabmessungen passen nicht zur Anzeige-Skalierung. Erneut versuchen; wenn es weiterhin fehlschlägt, das Kartenfenster neu starten.</translation>
+        </message>
     </context>
     <context>
         <name>CoordinateInputField</name>
