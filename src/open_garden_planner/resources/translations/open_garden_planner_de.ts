@@ -9842,6 +9842,22 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
             <source>The capture dimensions are inconsistent with the display scaling. Please retry; if it keeps failing, restart the map window.</source>
             <translation>Die Aufnahmeabmessungen passen nicht zur Anzeige-Skalierung. Erneut versuchen; wenn es weiterhin fehlschlägt, das Kartenfenster neu starten.</translation>
         </message>
+        <message>
+            <source>One or more map frames could not be captured. Try again, or use 'Load image'.</source>
+            <translation>Ein oder mehrere Kartenausschnitte konnten nicht erfasst werden. Erneut versuchen oder 'Bild laden' verwenden.</translation>
+        </message>
+        <message>
+            <source>The map view changed size during the capture. Please try again.</source>
+            <translation>Die Kartenansicht hat während der Aufnahme ihre Größe geändert. Bitte erneut versuchen.</translation>
+        </message>
+        <message>
+            <source>Capturing frame {current} of {total}...</source>
+            <translation>Kartenausschnitt {current} von {total} wird erfasst...</translation>
+        </message>
+        <message>
+            <source>A map frame did not render. Retrying...</source>
+            <translation>Ein Kartenausschnitt wurde nicht gerendert. Neuer Versuch...</translation>
+        </message>
     </context>
     <context>
         <name>CoordinateInputField</name>

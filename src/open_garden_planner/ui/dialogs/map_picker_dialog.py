@@ -12,15 +12,21 @@ hybrid with HTTP 403 — issue #346), the dialog additionally offers a
 **JS-API view capture**: the page re-positions the already-rendered map
 over the drawn rectangle and the Python side grabs the ``QWebEngineView``
 widget's pixels (``QWidget.grab()`` — never DOM access, which would both
-taint and expose the API key embedded in tile URLs). The grab is cropped
-to the bounding box with the same analytic Web-Mercator math, an
-attribution strip is baked in, and the result flows through the exact
-same ``FetchResult`` path as the Static fetch.
+taint and expose the API key embedded in tile URLs). Larger rectangles are
+covered by a **pan grid** (issue #347): a capture-profile phase pins the
+real viewport + dpr, the page pans the map across a ``cols × rows`` grid of
+viewport positions at one integer zoom, Python grabs every frame, stitches
+them seam-free at analytic whole-pixel offsets, and the mosaic is cropped
+to the bounding box with the same analytic Web-Mercator math, with exactly
+one attribution strip baked in. The result flows through the exact same
+``FetchResult`` path as the Static fetch (single-frame capture is the
+degenerate 1×1 grid — one engine, not two).
 """
 
 from __future__ import annotations
 
 import io
+import json
 import logging
 import traceback
 from datetime import datetime
@@ -56,13 +62,18 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.services.google_maps_js_capture import (
     EEA_SATELLITE_BLOCKED,
+    FRAME_RETRIES,
+    CaptureLayoutError,
+    FrameLayout,
     bake_attribution,
+    build_frame_layout,
     capture_dpr_is_sane,
-    capture_mpp,
     classify_static_failure,
     effective_capture_dpr,
+    frame_quality_ok,
     is_blank_capture,
-    pick_capture_zoom,
+    pick_capture_zoom_and_grid,
+    stitch_frames,
 )
 from open_garden_planner.services.google_maps_service import (
     BoundingBox,
@@ -75,6 +86,7 @@ from open_garden_planner.services.google_maps_service import (
     fetch_bbox,
     get_api_key,
     has_api_key,
+    meters_per_pixel,
 )
 
 _KEY_MISSING_FAILURE = "google_maps_key_missing"
@@ -85,10 +97,20 @@ _KEY_MISSING_MESSAGE = (
     "background loading."
 )
 _UNEXPECTED_FETCH_MESSAGE = "Unexpected error while fetching satellite image."
-_CAPTURE_BLANK_MESSAGE = "The map view did not render. Try again after the map has finished loading."
 _CAPTURE_DPR_MESSAGE = "The capture dimensions are inconsistent with the display scaling. Please retry; if it keeps failing, restart the map window."
 _CAPTURE_TIMEOUT_MESSAGE = "The capture timed out. Check your network or the API key, then try again."
 _CAPTURE_UNEXPECTED_MESSAGE = "Unexpected error while capturing the map view."
+_CAPTURE_RETRY_MESSAGE = "A map frame did not render. Retrying..."
+_CAPTURE_FRAME_FAILED_MESSAGE = (
+    "One or more map frames could not be captured. Try again, or use 'Load image'."
+)
+_CAPTURE_VIEW_CHANGED_MESSAGE = (
+    "The map view changed size during the capture. Please try again."
+)
+_CAPTURE_PROGRESS = "Capturing frame {current} of {total}..."
+# Initial value for the capture-choreography zoom in `_start_capture`
+# (overwritten before any JS is driven).
+_MAX_ZOOM_HINT = 20
 _CAPTURE_TOKEN_MESSAGES = {
     "capture-timeout": _CAPTURE_TIMEOUT_MESSAGE,
     "map-not-ready": _CAPTURE_UNEXPECTED_MESSAGE,
@@ -137,9 +159,11 @@ class _MapBridge(QObject):
     - ``ready()`` — hand over the API key plus locale + translated strings
     - ``boundsChanged(nw_lat, nw_lng, se_lat, se_lng)`` — rectangle updated
     - ``boundsCleared()`` — rectangle removed
-    - ``captureReady(token, zoom, dpr, css_w, css_h)`` — the page has
-      positioned the map over the rectangle and is waiting for the widget
-      grab; ``token`` echoes the capture generation
+    - ``captureReady(token, frameIndex, zoom, dpr, css_w, css_h)`` — the
+      page has positioned the map over one frame's centre and is waiting
+      for the widget grab; ``token`` echoes the capture generation,
+      ``frameIndex`` identifies the frame (−1 = capture profile report
+      carrying viewport size + dpr before the pan grid is derived)
     - ``captureError(token, reason)`` — JS-side capture failure (timeout,
       zoom mismatch, …); ``token`` echoes the capture generation
     - ``reportError(msg)`` — JS-level failure
@@ -151,7 +175,7 @@ class _MapBridge(QObject):
     setupReady = pyqtSignal(str, str, "QVariantMap")  # api_key, locale, strings
     boundsUpdated = pyqtSignal(float, float, float, float)
     cleared = pyqtSignal()
-    captureViewReady = pyqtSignal(str, float, float, float, float)  # token, zoom, dpr, css w/h
+    captureViewReady = pyqtSignal(str, int, float, float, float, float)  # token, frameIndex, zoom, dpr, css w/h
     captureViewFailed = pyqtSignal(str, str)  # token, raw js-failure token
     errorReported = pyqtSignal(str)
 
@@ -181,16 +205,22 @@ class _MapBridge(QObject):
     def boundsCleared(self) -> None:
         self.cleared.emit()
 
-    @pyqtSlot(str, float, float, float, float)
+    @pyqtSlot(str, int, float, float, float, float)
     def captureReady(
-        self, token: str, zoom: float, dpr: float, css_w: float, css_h: float
+        self,
+        token: str,
+        frame_index: int,
+        zoom: float,
+        dpr: float,
+        css_w: float,
+        css_h: float,
     ) -> None:
         # Metadata only — the pixels are taken by the Python side via
         # QWebEngineView.grab(); image/tile data never crosses the bridge.
         # The token echoes the capture generation so a stale readiness
         # report from a previous capture can never be mistaken for the new
-        # one's.
-        self.captureViewReady.emit(token, zoom, dpr, css_w, css_h)
+        # one's; frame_index −1 is the capture profile report.
+        self.captureViewReady.emit(token, frame_index, zoom, dpr, css_w, css_h)
 
     @pyqtSlot(str, str)
     def captureError(self, token: str, message: str) -> None:
@@ -290,6 +320,15 @@ class MapPickerDialog(QDialog):
         self._capture_watchdog: QTimer | None = None
         self._capture_bbox: BoundingBox | None = None
         self._close_after_capture = False
+        # Pan-grid capture state (issue #347): the profile report pins the
+        # layout (zoom + grid + centers derived after the viewport/dpr are
+        # known); frames are gathered one settle at a time, then stitched.
+        self._capture_zoom = _MAX_ZOOM_HINT
+        self._capture_grid = (1, 1)
+        self._capture_layout: FrameLayout | None = None
+        self._capture_frame_index = 0
+        self._capture_frames: list[Image.Image] = []
+        self._capture_retries_left = FRAME_RETRIES
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -426,12 +465,13 @@ class MapPickerDialog(QDialog):
         QMessageBox.warning(self, self.tr("Map error"), message)
 
     # ------------------------------------------------------------------
-    # JS-API view capture (issue #346)
+    # JS-API view capture (issues #346, #347)
     # ------------------------------------------------------------------
 
     def _start_capture(self) -> bool:
-        """Orient the map over the bbox and arm the widget grab. Returns
-        False when the capture cannot start (no bbox / busy / no page)."""
+        """Start a pan-grid capture: hide chrome, report the profile, then
+        drive one frame settle at a time. Returns False when the capture
+        cannot start (no bbox / busy / no page)."""
         bbox = self._bbox
         if bbox is None or self._fetch_in_progress or self._capture_in_progress:
             return False
@@ -444,35 +484,48 @@ class MapPickerDialog(QDialog):
         self._capture_generation += 1
         generation = self._capture_generation
         self._capture_bbox = bbox
+        # The zoom/grid choice mirrors the Static path's pick_zoom_and_grid:
+        # highest zoom whose pan grid fits the viewport, capped 3x3. The
+        # viewport estimate is EXACT — during capture the page hides its
+        # toolbar and the map div grows to the full view size — but the
+        # profile report still pins the real dims + dpr before the layout.
+        viewport_css = (float(self._view.width()), float(self._view.height()))
+        zoom, cols, rows = pick_capture_zoom_and_grid(bbox, viewport_css)
+        self._capture_zoom = zoom
+        self._capture_grid = (cols, rows)
+        self._capture_layout = None
+        self._capture_frame_index = 0
+        self._capture_frames = []
+        self._capture_retries_left = FRAME_RETRIES
         self._ok_button.setEnabled(False)
         self._capture_button.setEnabled(False)
         self._status.setText(self.tr("Positioning the map view..."))
-        # QWidget.width()/height() ARE css pixels (device-independent) —
-        # dividing by the dpr would understate the viewport at any scaling
-        # other than 100%.
-        viewport_css = (float(self._view.width()), float(self._view.height()))
-        zoom = pick_capture_zoom(bbox, viewport_css)
-        center_lat, center_lng = bbox.center
-        js = (
-            f"window.beginCapture({center_lat!r}, {center_lng!r}, "
-            f"{int(zoom):d}, {int(generation):d});"
-        )
+        js = f"window.beginCaptureChrome({int(generation):d});"
         self._view.page().runJavaScript(
             js, lambda result, generation=generation: self._on_capture_js_result(
                 result, generation
             )
         )
-        # Safety net: the JS side has its own 15 s timeout, but a page that
-        # loses its bridge must not leave the dialog stuck forever.
-        self._capture_watchdog = QTimer(self)
-        self._capture_watchdog.setSingleShot(True)
-        self._capture_watchdog.timeout.connect(
+        self._arm_capture_watchdog(generation)
+        return True
+
+    def _arm_capture_watchdog(self, generation: int) -> None:
+        """(Re)arm the Python-side safety net.
+
+        The JS side has its own 15 s per-frame timeout, but a page that
+        loses its bridge must not leave the dialog stuck forever. Restarted
+        at every choreography step so a slow multi-frame capture is never
+        killed while it makes progress.
+        """
+        watchdog = QTimer(self)
+        watchdog.setSingleShot(True)
+        watchdog.timeout.connect(
             lambda generation=generation: self._handle_capture_failure(
                 self.tr(_CAPTURE_TIMEOUT_MESSAGE), generation
             )
         )
-        self._capture_watchdog.start(20_000)
-        return True
+        self._capture_watchdog = watchdog
+        watchdog.start(20_000)
 
     def _on_capture_clicked(self) -> None:
         self._start_capture()
@@ -503,7 +556,13 @@ class MapPickerDialog(QDialog):
         )
 
     def _on_capture_ready(
-        self, token: str, zoom: float, dpr: float, css_w: float, css_h: float
+        self,
+        token: str,
+        frame_index: int,
+        _zoom: float,
+        dpr: float,
+        css_w: float,
+        css_h: float,
     ) -> None:
         generation = self._capture_generation
         if self._capture_finished():
@@ -536,40 +595,101 @@ class MapPickerDialog(QDialog):
                 self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
             )
             return
+        if frame_index == -1:
+            # Capture profile: the page reports the real viewport + dpr so
+            # the pan grid can be derived analytically (issue #347).
+            self._on_capture_profile(dpr, css_w, css_h, generation)
+            return
+        self._on_capture_frame(frame_index, dpr, css_w, css_h, generation)
+
+    def _on_capture_profile(
+        self,
+        dpr: float,
+        css_w: float,
+        css_h: float,
+        generation: int,
+    ) -> None:
+        """Build the pan-grid layout from the profile and start the frames."""
+        if self._capture_layout is not None:
+            # Duplicate/stale profile report — the capture already moved on.
+            return
         bbox = self._capture_bbox
+        if bbox is None:
+            self._handle_capture_failure(
+                self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
+            )
+            return
+        reported_dpr = float(dpr) if dpr and dpr > 0 else 1.0
+        try:
+            cols, rows = self._capture_grid
+            layout = build_frame_layout(
+                bbox, self._capture_zoom, cols, rows, (css_w, css_h), reported_dpr
+            )
+        except (ValueError, CaptureLayoutError):
+            logger.error(
+                "Capture layout derivation failed:\n%s",
+                _scrub_key(traceback.format_exc(), self._api_key),
+            )
+            self._handle_capture_failure(
+                self.tr(_CAPTURE_FRAME_FAILED_MESSAGE), generation
+            )
+            return
+        self._capture_layout = layout
+        self._capture_frame_index = 0
+        self._capture_retries_left = FRAME_RETRIES
+        centers_json = json.dumps([[lat, lng] for lat, lng in layout.centers])
+        js = (
+            f"window.beginCaptureFrames({centers_json}, {self._capture_zoom:d}, "
+            f"{int(generation):d});"
+        )
+        self._view.page().runJavaScript(
+            js, lambda result, generation=generation: self._on_capture_js_result(
+                result, generation
+            )
+        )
+        self._arm_capture_watchdog(generation)
+
+    def _on_capture_frame(
+        self,
+        frame_index: int,
+        dpr: float,
+        css_w: float,
+        css_h: float,
+        generation: int,
+    ) -> None:
+        """Grab one settled frame, gate its quality, and either advance,
+        retry, or stitch the finished sequence (issue #347)."""
+        layout = self._capture_layout
+        if layout is None or frame_index != self._capture_frame_index:
+            # A redundant or stale frame report — the page only ever reports
+            # the frame this dialog asked it to settle.
+            return
+        # A mid-capture window resize would silently mis-stitch the frames;
+        # refuse cleanly instead of shipping a wrong image.
+        if (
+            abs(css_w - layout.viewport_css_w) > 1.0
+            or abs(css_h - layout.viewport_css_h) > 1.0
+        ):
+            self._handle_capture_failure(
+                self.tr(_CAPTURE_VIEW_CHANGED_MESSAGE), generation
+            )
+            return
         try:
             grab = self._view.grab()
             # Derive the effective pixel density from the grab ITSELF —
             # measured ruler, not a report: physical px / css px.
             dpr_effective = effective_capture_dpr(grab.width(), css_w)
-            reported_dpr = float(dpr) if dpr and dpr > 0 else None
-            if not capture_dpr_is_sane(dpr_effective, reported_dpr):
-                # A deterministic refusal, not a transient "unexpected"
-                # failure — the message says so honestly.
-                self._handle_capture_failure(
-                    self.tr(_CAPTURE_DPR_MESSAGE), generation
-                )
-                return
+            if frame_index == 0:
+                reported_dpr = float(dpr) if dpr and dpr > 0 else None
+                if not capture_dpr_is_sane(dpr_effective, reported_dpr):
+                    # A deterministic refusal, not a transient "unexpected"
+                    # failure — the message says so honestly.
+                    self._handle_capture_failure(
+                        self.tr(_CAPTURE_DPR_MESSAGE), generation
+                    )
+                    return
             image = _qimage_to_pil(
                 grab.toImage().convertToFormat(QImage.Format.Format_RGB888)
-            )
-            if is_blank_capture(image):
-                self._handle_capture_failure(
-                    self.tr(_CAPTURE_BLANK_MESSAGE), generation
-                )
-                return
-            mpp = capture_mpp(bbox.center[0], int(round(zoom)), dpr_effective)
-            cropped = crop_image_to_bbox(image, mpp, bbox)
-            attribution = _attribution_text()
-            cropped = bake_attribution(cropped, attribution)
-            result = FetchResult(
-                image=cropped,
-                meters_per_pixel=mpp,
-                zoom=int(round(zoom)),
-                bbox=bbox,
-                tile_grid=(1, 1),
-                source="google_js_view_capture",
-                attribution=attribution,
             )
         except Exception:
             # The capture path must never crash the dialog on a rendering
@@ -582,6 +702,42 @@ class MapPickerDialog(QDialog):
                 self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
             )
             return
+        if not frame_quality_ok(image) or is_blank_capture(image):
+            # A blank/partly rendered frame must never land in the mosaic —
+            # retry it with a fresh settle, then fail cleanly.
+            if self._capture_retries_left > 0:
+                self._capture_retries_left -= 1
+                self._status.setText(self.tr(_CAPTURE_RETRY_MESSAGE))
+                self._arm_capture_watchdog(generation)
+                self._view.page().runJavaScript("window.retryCaptureFrame();")
+                return
+            self._handle_capture_failure(
+                self.tr(_CAPTURE_FRAME_FAILED_MESSAGE), generation
+            )
+            return
+        self._capture_frames.append(image)
+        if len(self._capture_frames) < layout.frame_count:
+            self._capture_retries_left = FRAME_RETRIES
+            self._status.setText(
+                self.tr(_CAPTURE_PROGRESS).format(
+                    current=len(self._capture_frames) + 1, total=layout.frame_count
+                )
+            )
+            self._capture_frame_index += 1
+            self._arm_capture_watchdog(generation)
+            self._view.page().runJavaScript("window.advanceCaptureFrame();")
+            return
+        try:
+            result = self._build_capture_result(layout)
+        except Exception:
+            logger.error(
+                "Unexpected view capture stitching failure:\n%s",
+                _scrub_key(traceback.format_exc(), self._api_key),
+            )
+            self._handle_capture_failure(
+                self.tr(_CAPTURE_FRAME_FAILED_MESSAGE), generation
+            )
+            return
         # Success is a terminal path too: finish stops the watchdog and
         # restores the page chrome. (Skipping it once re-armed a 20 s
         # watchdog that fired a phantom timeout box after a good import —
@@ -589,6 +745,32 @@ class MapPickerDialog(QDialog):
         self._finish_capture()
         self._fetch_result = result
         self.accept()
+
+    def _build_capture_result(self, layout: FrameLayout) -> FetchResult:
+        """Stitch the gathered frames and build the standard FetchResult.
+
+        Attribution is baked exactly once, on the cropped result — never
+        per frame (the pan grid would stamp N strips into the mosaic).
+        """
+        bbox = self._capture_bbox
+        if bbox is None:
+            raise RuntimeError("capture result requested without a bbox")
+        mosaic = stitch_frames(self._capture_frames, layout, bbox)
+        mpp = meters_per_pixel(bbox.center[0], layout.zoom) / layout.dpr
+        cropped = crop_image_to_bbox(mosaic, mpp, bbox)
+        if is_blank_capture(cropped):
+            raise RuntimeError("stitched capture is blank")
+        attribution = _attribution_text()
+        cropped = bake_attribution(cropped, attribution)
+        return FetchResult(
+            image=cropped,
+            meters_per_pixel=mpp,
+            zoom=layout.zoom,
+            bbox=bbox,
+            tile_grid=(layout.cols, layout.rows),
+            source="google_js_view_capture",
+            attribution=attribution,
+        )
 
     def _on_capture_error(self, token: str, message: str) -> None:
         if self._capture_finished():

@@ -222,22 +222,37 @@
       bridge.boundsChanged(ne.lat(), sw.lng(), sw.lat(), ne.lng());
     }
 
-    // ---- JS-API view capture (issue #346) -------------------------------
+    // ---- JS-API view capture (issues #346, #347) ----------------------
     // The Python side grabs the widget pixels; this side only positions the
-    // map so the drawn rectangle sits centred under the visible view, freezes
-    // map interaction, hides our own chrome (never Google's attribution
-    // overlay), and reports what ACTUALLY rendered (map.getZoom(), the
-    // page dpr, the map div size) once the render has settled. No image
-    // data crosses the bridge.
+    // map so each requested frame sits centred under the visible view, hides
+    // our own chrome AND Google's native attribution element for the
+    // duration of the capture (the Python side bakes the required
+    // "Map data ©{year} Google" strip onto the final image exactly once —
+    // issue #347; the interactive map outside capture keeps the native
+    // attribution), freezes map interaction, and reports what ACTUALLY
+    // rendered (map.getZoom(), the page dpr, the map div size) once the
+    // render has settled. No image data crosses the bridge.
+    //
+    // Choreography (#347): a capture is a sequence of frames. Python first
+    // asks for the capture profile (beginCaptureChrome → captureReady with
+    // frameIndex -1), derives the pan grid from the real viewport size and
+    // dpr, then drives one settle at a time: beginCaptureFrames (frame 0)
+    // → captureReady(frameIndex) → Python grabs → advanceCaptureFrame() →
+    // ... → retryCaptureFrame() re-settles the current frame after a
+    // Python-side quality refusal.
     let captureState = null;
+    let captureFrames = [];
+    let captureZoom = null;
+    let captureFrameIndex = 0;
 
-    function beginCapture(centerLat, centerLng, zoom, token) {
+    function beginCaptureChrome(token) {
       if (!map) return 'map-not-ready';
       if (captureState) return 'capture-in-progress';
       try {
         const toolbar = document.getElementById('toolbar');
         const hint = document.getElementById('hint');
         const mapDiv = document.getElementById('map');
+        const attrEl = document.querySelector('.gm-style-cc');
         captureState = {
           token: token,
           toolbarDisplay: toolbar.style.display,
@@ -246,65 +261,127 @@
           rectWasVisible: drawingRectangle ? drawingRectangle.getVisible() : false,
           wasDraggable: map.get('draggable'),
           wasGestureHandling: map.get('gestureHandling'),
+          attrDisplay: attrEl ? attrEl.style.display : undefined,
         };
         toolbar.style.display = 'none';
         hint.classList.add('hidden');
         mapDiv.style.top = '0';
         if (drawingRectangle) drawingRectangle.setVisible(false);
         // Freeze interaction: a pan during the settle would silently break
-        // the georeference (the Python crop assumes the map is centred on
-        // the bbox centre). Google attribution stays untouched (required by
-        // the ToS); only the interactive controls are removed.
+        // the georeference (the Python crop assumes the map pans exactly).
         map.setOptions({ disableDefaultUI: true, draggable: false, gestureHandling: 'none' });
-        map.setCenter({ lat: centerLat, lng: centerLng });
-        map.setZoom(zoom);
-        let idleFired = false;
-        let tilesFired = false;
-        let reported = false;
-        const reportReady = function() {
-          if (reported || !captureState) return;
-          if (!(idleFired && tilesFired)) return;
-          // Report what actually rendered, not what was requested — a clamp
-          // or a failed zoom would otherwise mis-scale the capture.
-          const actualZoom = map.getZoom();
-          if (actualZoom !== zoom) {
-            reported = true;
-            cleanupCaptureListeners();
-            bridge.captureError(String(token), 'zoom-mismatch');
-            return;
-          }
-          reported = true;
-          cleanupCaptureListeners();
+        // Hiding Google's attribution element is capture-only: the edited
+        // frame sequence is a transient composition step, and the finished
+        // artifact gets the required attribution baked in once by Python.
+        if (attrEl) attrEl.style.display = 'none';
+        setTimeout(function() {
+          if (!captureState || captureState.token !== String(token)) return;
           bridge.captureReady(
             String(token),
-            actualZoom,
+            -1,                             // -1 = capture profile report (no grab)
+            map.getZoom(),
             window.devicePixelRatio || 1,
             mapDiv.clientWidth,
             mapDiv.clientHeight
           );
-        };
-        const onIdle = function() { idleFired = true; reportReady(); };
-        const onTiles = function() { tilesFired = true; reportReady(); };
-        captureState.idleListener = map.addListener('idle', onIdle);
-        captureState.tilesListener = map.addListener('tilesloaded', onTiles);
-        captureState.timeout = setTimeout(function() {
-          if (reported || !captureState) return;
-          reported = true;
-          cleanupCaptureListeners();
-          bridge.captureError(String(token), 'capture-timeout');
-        }, 15000);
-        // In case tiles finishes before idle (or vice versa) rarely fires,
-        // poll positional readiness once shortly after the zoom settled.
-        captureState.settledCheck = setTimeout(function() {
-          if (reported || !captureState) return;
-          if (!idleFired) onIdle();
-          else if (!tilesFired) onTiles();
-        }, 3000);
+        }, 50);                             // one raf-frame for the new map div size
         return 'ok';
       } catch (e) {
         restoredChromeSafe();
         return 'error: ' + String(e && e.message ? e.message : e);
       }
+    }
+
+    function beginCaptureFrames(centers, zoom, token) {
+      if (!map) return 'map-not-ready';
+      if (!captureState || captureState.token !== String(token)) return 'capture-in-progress';
+      if (!Array.isArray(centers) || centers.length < 1) return 'error: no capture centers';
+      try {
+        captureFrames = centers;
+        captureZoom = zoom;
+        captureFrameIndex = 0;
+        map.setZoom(zoom);
+        settleFrame(false);
+        return 'ok';
+      } catch (e) {
+        restoredChromeSafe();
+        return 'error: ' + String(e && e.message ? e.message : e);
+      }
+    }
+
+    function advanceCaptureFrame() {
+      if (!captureState) return 'capture-in-progress';
+      captureFrameIndex += 1;
+      settleFrame(false);
+      return 'ok';
+    }
+
+    function retryCaptureFrame() {
+      if (!captureState) return 'capture-in-progress';
+      // The map is already positioned at the current frame's center; idle
+      // may never re-fire, so the settle uses a short grace instead.
+      settleFrame(true);
+      return 'ok';
+    }
+
+    // Settle the map on frame `captureFrameIndex` and report readiness once
+    // the render has finished. Never resolves itself: Python drives the
+    // sequence (its quality gate decides between grab→advance and retry).
+    function settleFrame(retryMode) {
+      // Drop listeners/timers from any previous settle (advance/retry).
+      cleanupCaptureListeners();
+      const frame = captureFrames[captureFrameIndex];
+      if (!frame) {
+        bridge.captureError(String(captureState.token), 'capture-timeout');
+        return;
+      }
+      map.setCenter({ lat: frame[0], lng: frame[1] });
+      let idleFired = false;
+      let tilesFired = false;
+      let reported = false;
+      const reportReady = function() {
+        if (reported || !captureState) return;
+        if (!(idleFired && tilesFired)) return;
+        // Report what actually rendered, not what was requested — a clamp
+        // or a failed zoom would otherwise mis-scale the capture.
+        if (map.getZoom() !== captureZoom) {
+          reported = true;
+          cleanupCaptureListeners();
+          bridge.captureError(String(captureState.token), 'zoom-mismatch');
+          return;
+        }
+        reported = true;
+        cleanupCaptureListeners();
+        const mapDiv = document.getElementById('map');
+        bridge.captureReady(
+          String(captureState.token),
+          captureFrameIndex,
+          map.getZoom(),
+          window.devicePixelRatio || 1,
+          mapDiv.clientWidth,
+          mapDiv.clientHeight
+        );
+      };
+      const onIdle = function() { idleFired = true; reportReady(); };
+      const onTiles = function() { tilesFired = true; reportReady(); };
+      captureState.idleListener = map.addListener('idle', onIdle);
+      captureState.tilesListener = map.addListener('tilesloaded', onTiles);
+      captureState.timeout = setTimeout(function() {
+        if (reported || !captureState) return;
+        reported = true;
+        cleanupCaptureListeners();
+        bridge.captureError(String(captureState.token), 'capture-timeout');
+      }, 15000);
+      // In case tiles finishes before idle (or vice versa) rarely fires —
+      // or a retry re-settles an already-centered map where neither event
+      // will fire — force the missing flags after a short grace. Retries
+      // use a much shorter grace: the map did not move, so "settled" is
+      // mostly a caching question.
+      captureState.settledCheck = setTimeout(function() {
+        if (reported || !captureState) return;
+        if (!idleFired) onIdle();
+        if (!tilesFired) onTiles();
+      }, retryMode ? 600 : 3000);
     }
 
     function cleanupCaptureListeners(state) {
@@ -354,6 +431,8 @@
       }
       if (mapDiv) mapDiv.style.top = state.mapTop || '56px';
       if (drawingRectangle && state.rectWasVisible) drawingRectangle.setVisible(true);
+      const attrEl = document.querySelector('.gm-style-cc');
+      if (attrEl) attrEl.style.display = state.attrDisplay || '';
       map.setOptions({
         disableDefaultUI: false,
         draggable: state.wasDraggable !== false,
