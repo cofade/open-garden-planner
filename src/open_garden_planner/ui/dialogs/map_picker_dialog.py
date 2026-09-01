@@ -86,8 +86,24 @@ _UNEXPECTED_FETCH_MESSAGE = "Unexpected error while fetching satellite image."
 _CAPTURE_BLANK_MESSAGE = "The map view did not render. Try again after the map has finished loading."
 _CAPTURE_TIMEOUT_MESSAGE = "The capture timed out. Check your network or the API key, then try again."
 _CAPTURE_UNEXPECTED_MESSAGE = "Unexpected error while capturing the map view."
+_CAPTURE_TOKEN_MESSAGES = {
+    "capture-timeout": _CAPTURE_TIMEOUT_MESSAGE,
+    "map-not-ready": _CAPTURE_UNEXPECTED_MESSAGE,
+    "capture-in-progress": _CAPTURE_UNEXPECTED_MESSAGE,
+    "zoom-mismatch": _CAPTURE_UNEXPECTED_MESSAGE,
+}
 
 logger = logging.getLogger(__name__)
+
+
+def _map_capture_token(token: str) -> str:
+    """Map a raw JS capture token to the message constant to translate.
+
+    Never surfaces a raw page string to the user: tokens are internal
+    contract values, and JS exception text (``error: ...``) is logged
+    scrubbed rather than displayed.
+    """
+    return _CAPTURE_TOKEN_MESSAGES.get(token, _CAPTURE_UNEXPECTED_MESSAGE)
 
 
 def _attribution_text() -> str:
@@ -130,7 +146,7 @@ class _MapBridge(QObject):
     setupReady = pyqtSignal(str, str, "QVariantMap")  # api_key, locale, strings
     boundsUpdated = pyqtSignal(float, float, float, float)
     cleared = pyqtSignal()
-    captureViewReady = pyqtSignal(float, float, float, float)
+    captureViewReady = pyqtSignal(str, float, float, float, float)  # token, zoom, dpr, css w/h
     captureViewFailed = pyqtSignal(str)
     errorReported = pyqtSignal(str)
 
@@ -160,13 +176,16 @@ class _MapBridge(QObject):
     def boundsCleared(self) -> None:
         self.cleared.emit()
 
-    @pyqtSlot(float, float, float, float)
+    @pyqtSlot(str, float, float, float, float)
     def captureReady(
-        self, zoom: float, dpr: float, css_w: float, css_h: float
+        self, token: str, zoom: float, dpr: float, css_w: float, css_h: float
     ) -> None:
         # Metadata only — the pixels are taken by the Python side via
         # QWebEngineView.grab(); image/tile data never crosses the bridge.
-        self.captureViewReady.emit(zoom, dpr, css_w, css_h)
+        # The token echoes the capture generation so a stale readiness
+        # report from a previous capture can never be mistaken for the new
+        # one's.
+        self.captureViewReady.emit(token, zoom, dpr, css_w, css_h)
 
     @pyqtSlot(str)
     def captureError(self, message: str) -> None:
@@ -261,6 +280,8 @@ class MapPickerDialog(QDialog):
         self._capture_cancel_requested = False
         self._capture_generation = 0
         self._capture_watchdog: QTimer | None = None
+        self._capture_bbox: BoundingBox | None = None
+        self._close_after_capture = False
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -403,20 +424,31 @@ class MapPickerDialog(QDialog):
     def _start_capture(self) -> bool:
         """Orient the map over the bbox and arm the widget grab. Returns
         False when the capture cannot start (no bbox / busy / no page)."""
-        if self._bbox is None or self._fetch_in_progress or self._capture_in_progress:
+        bbox = self._bbox
+        if bbox is None or self._fetch_in_progress or self._capture_in_progress:
             return False
+        # Snapshot the capture request: every later stage consumes THIS
+        # snapshot (never live dialog state) so a changed/finished dialog
+        # can't silently re-georeference a grab.
         self._capture_in_progress = True
         self._capture_cancel_requested = False
+        self._close_after_capture = False
         self._capture_generation += 1
         generation = self._capture_generation
+        self._capture_bbox = bbox
         self._ok_button.setEnabled(False)
         self._capture_button.setEnabled(False)
         self._status.setText(self.tr("Positioning the map view..."))
-        dpr = max(self._view.devicePixelRatioF(), 1.0)
-        viewport_css = (self._view.width() / dpr, self._view.height() / dpr)
-        zoom = pick_capture_zoom(self._bbox, viewport_css)
-        center_lat, center_lng = self._bbox.center
-        js = f"window.beginCapture({center_lat!r}, {center_lng!r}, {int(zoom):d});"
+        # QWidget.width()/height() ARE css pixels (device-independent) —
+        # dividing by the dpr would understate the viewport at any scaling
+        # other than 100%.
+        viewport_css = (float(self._view.width()), float(self._view.height()))
+        zoom = pick_capture_zoom(bbox, viewport_css)
+        center_lat, center_lng = bbox.center
+        js = (
+            f"window.beginCapture({center_lat!r}, {center_lng!r}, "
+            f"{int(zoom):d}, {int(generation):d});"
+        )
         self._view.page().runJavaScript(
             js, lambda result, generation=generation: self._on_capture_js_result(
                 result, generation
@@ -437,29 +469,55 @@ class MapPickerDialog(QDialog):
     def _on_capture_clicked(self) -> None:
         self._start_capture()
 
+    @staticmethod
+    def _normalise_js_token(token: object) -> str:
+        """Reduce any page-produced failure value to a plain token."""
+        text = str(token) if isinstance(token, str) else ""
+        if text.startswith("error:"):
+            return "error"
+        return text.strip() or "unknown"
+
     def _on_capture_js_result(self, result: object, generation: int) -> None:
         if generation != self._capture_generation or self._capture_finished():
             return
-        if result not in ("ok", None):
-            message = (
-                _scrub_key(str(result), self._api_key)
-                if isinstance(result, str)
-                else ""
+        if result in ("ok", None):
+            return
+        # Raw page strings never reach the user: tokens map to translated
+        # messages; an `error: …` detail is logged (scrubbed) for diagnosis.
+        token = self._normalise_js_token(result)
+        if token == "error" and isinstance(result, str):
+            logger.error(
+                "JS view-capture positioning failed: %s",
+                _scrub_key(str(result), self._api_key),
             )
-            self._handle_capture_failure(
-                message or self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
-            )
+        self._handle_capture_failure(
+            self.tr(_map_capture_token(token)), generation
+        )
 
     def _on_capture_ready(
-        self, zoom: float, dpr: float, css_w: float, css_h: float
+        self, token: str, zoom: float, dpr: float, css_w: float, css_h: float
     ) -> None:
         generation = self._capture_generation
         if self._capture_finished():
             return
-        if self._capture_cancel_requested:
+        if token != str(generation):
+            # A readiness report from a previous capture — never process it
+            # as the current one's.
+            return
+        # Snapshot the user intents BEFORE any terminal handler mutates the
+        # state — and only finish *after* the ready/failure decision is made
+        # (an early _finish_capture would make every later failure handler
+        # see "finished" and silently no-op).
+        cancelled = self._capture_cancel_requested
+        close_wanted = self._close_after_capture
+        if cancelled or close_wanted:
             self._finish_capture()
             self._cancel_button.setEnabled(True)
-            self._status.setText(self.tr("Capture cancelled."))
+            self._close_after_capture = False
+            if close_wanted and not self._fetch_in_progress and self._worker is None:
+                super().reject()
+            else:
+                self._status.setText(self.tr("Capture cancelled."))
             return
         # Sanity-check the JS report before trusting it for scale math.
         if css_w <= 0 or css_h <= 0:
@@ -467,13 +525,25 @@ class MapPickerDialog(QDialog):
                 self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
             )
             return
-        bbox = self._bbox
-        if bbox is None:
-            self._finish_capture()
-            self._cancel_button.setEnabled(True)
-            return
+        bbox = self._capture_bbox
         try:
             grab = self._view.grab()
+            # Derive the effective pixel density from the grab ITSELF —
+            # measured ruler, not a report: physical px / css px.
+            dpr_effective = grab.width() / float(css_w)
+            if not (0.5 <= dpr_effective <= 4.0):
+                self._handle_capture_failure(
+                    self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
+                )
+                return
+            if dpr and dpr > 0 and abs(dpr_effective - float(dpr)) > max(0.5, 0.3 * float(dpr)):
+                # The page's own density report disagrees wildly with the
+                # measured raster — something is wrong with the render and
+                # trusting either number would mis-scale the plano.
+                self._handle_capture_failure(
+                    self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
+                )
+                return
             image = _qimage_to_pil(
                 grab.toImage().convertToFormat(QImage.Format.Format_RGB888)
             )
@@ -482,7 +552,6 @@ class MapPickerDialog(QDialog):
                     self.tr(_CAPTURE_BLANK_MESSAGE), generation
                 )
                 return
-            dpr_effective = float(dpr) if dpr and dpr > 0 else 1.0
             mpp = capture_mpp(bbox.center[0], int(round(zoom)), dpr_effective)
             cropped = crop_image_to_bbox(image, mpp, bbox)
             attribution = _attribution_text()
@@ -507,19 +576,21 @@ class MapPickerDialog(QDialog):
                 self.tr(_CAPTURE_UNEXPECTED_MESSAGE), generation
             )
             return
-        self._finish_capture()
         self._fetch_result = result
         self.accept()
 
     def _on_capture_error(self, message: str) -> None:
         if self._capture_finished():
             return
-        if self._capture_cancel_requested:
-            self._finish_capture()
-            self._cancel_button.setEnabled(True)
-            self._status.setText(self.tr("Capture cancelled."))
-            return
-        self._handle_capture_failure(message, self._capture_generation)
+        token = self._normalise_js_token(message)
+        if token not in ("capture-timeout", "zoom-mismatch", "map-not-ready", "capture-in-progress"):
+            logger.error(
+                "JS view capture error token: %s",
+                _scrub_key(str(message), self._api_key),
+            )
+        self._handle_capture_failure(
+            self.tr(_map_capture_token(token)), self._capture_generation
+        )
 
     def _capture_finished(self) -> bool:
         return not self._capture_in_progress
@@ -543,7 +614,21 @@ class MapPickerDialog(QDialog):
     def _handle_capture_failure(self, message: str, generation: int) -> None:
         if generation != self._capture_generation or self._capture_finished():
             return
+        # Snapshot the user intents BEFORE _finish_capture wipes the flags.
+        cancelled = self._capture_cancel_requested
+        close_wanted = self._close_after_capture
         self._finish_capture()
+        self._cancel_button.setEnabled(True)
+        if close_wanted:
+            # A cancel/close already happened — the user doesn't want an
+            # error box, they want the dialog gone.
+            self._close_after_capture = False
+            if not self._fetch_in_progress and self._worker is None:
+                super().reject()
+            return
+        if cancelled:
+            self._status.setText(self.tr("Capture cancelled."))
+            return
         self._status.setText(
             self.tr("Capture failed. Try again, or use 'Load image'.")
         )
@@ -738,6 +823,10 @@ class MapPickerDialog(QDialog):
         """Cancel an active fetch before allowing any dialog rejection path."""
         if self._capture_in_progress:
             self._capture_cancel_requested = True
+            # Unlike a Cancel button click (which wants the dialog to stay
+            # open), reject()/close intent is honoured once the capture
+            # reaches a terminal handler.
+            self._close_after_capture = True
             return
         if (self._fetch_in_progress or self._worker is not None) and self._request_worker_shutdown():
             return
@@ -750,9 +839,10 @@ class MapPickerDialog(QDialog):
         # each response, never during a single in-flight HTTP call. Keep the
         # dialog alive until the worker finishes instead of blocking the GUI
         # thread while joining it. The GUI-thread capture is cancelled the
-        # same way: mark it and wait for the page's ready/error report.
+        # same way: mark it and let the terminal handler re-run the close.
         if self._capture_in_progress:
             self._capture_cancel_requested = True
+            self._close_after_capture = True
             event.ignore()
             return
         if (self._fetch_in_progress or self._worker is not None) and self._request_worker_shutdown():

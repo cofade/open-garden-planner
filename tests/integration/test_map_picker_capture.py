@@ -59,6 +59,7 @@ class _DummyWebView(QWidget):
         self._page = MagicMock()
         self._settings = MagicMock()
         self._grab_blank = False
+        self._grab_scale = 1.0
 
     def page(self):  # noqa: D401
         return self._page
@@ -70,7 +71,9 @@ class _DummyWebView(QWidget):
         pass
 
     def grab(self) -> QPixmap:
-        return _make_grab(blank=self._grab_blank)
+        w = max(1, round(1000 * self._grab_scale))
+        h = max(1, round(700 * self._grab_scale))
+        return _make_grab(blank=self._grab_blank, size=(w, h))
 
 
 @pytest.fixture()
@@ -157,20 +160,24 @@ class TestCaptureSuccess:
         import re
 
         match = re.fullmatch(
-            r"window\.beginCapture\(([0-9.eE+-]+), ([0-9.eE+-]+), (\d+)\);", js_call
+            r"window\.beginCapture\(([0-9.eE+-]+), ([0-9.eE+-]+), (\d+), (\d+)\);", js_call
         )
         assert match is not None, js_call
-        center_lat, center_lng, zoom = (
+        center_lat, center_lng, zoom, token = (
             float(match.group(1)),
             float(match.group(2)),
             int(match.group(3)),
+            int(match.group(4)),
         )
         assert center_lat == pytest.approx(_BBOX.center[0], rel=1e-9)
         assert center_lng == pytest.approx(_BBOX.center[1], rel=1e-9)
         # Zoom 17 fits the (1000, 700) stand-in viewport with the default
-        # margin for the Berlin bbox — pinned by the unit tests.
+        # margin for the Berlin bbox — pinned by the unit tests. The token
+        # is the capture generation, echoed back by the page's readiness
+        # report.
         assert zoom == 17
-        dialog._bridge.captureViewReady.emit(17, 1.0, 1000.0, 700.0)
+        assert token == 1
+        dialog._bridge.captureViewReady.emit("1", 17, 1.0, 1000.0, 700.0)
         assert dialog.result() == dialog.DialogCode.Accepted
         result = dialog.fetch_result
         assert result is not None
@@ -189,13 +196,34 @@ class TestCaptureSuccess:
         self, qtbot, mock_web_view, with_api_key
     ) -> None:
         dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
+        dialog._view._grab_scale = 2.0
         dialog._on_capture_clicked()
-        dialog._bridge.captureViewReady.emit(17, 2.0, 500.0, 350.0)
+        dialog._bridge.captureViewReady.emit("1", 17, 2.0, 1000.0, 700.0)
         assert dialog.result() == dialog.DialogCode.Accepted
         result = dialog.fetch_result
+        # The effective dpr is derived from the grab itself (physical px /
+        # css px) — a truthful report and the measured ruler agree.
         assert result.meters_per_pixel == pytest.approx(
             capture_mpp(_BBOX.center[0], 17, 2.0), rel=1e-9
         )
+
+    def test_wild_dpr_disagreement_refuses_instead_of_mis_scaling(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        """A page report that wildly disagrees with the measured raster is
+        refused: trusting either number could silently mis-scale the plan."""
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
+        dialog._view._grab_scale = 2.0
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            dialog._on_capture_clicked()
+            # Page claims dpr 1.0 but the grab measures 2.0 — 100% drift.
+            dialog._bridge.captureViewReady.emit("1", 17, 1.0, 1000.0, 700.0)
+        critical.assert_called_once()
+        assert dialog.result() != dialog.DialogCode.Accepted
+        assert dialog.fetch_result is None
+        assert dialog._capture_in_progress is False
 
     def test_blank_grab_is_refused_without_accepting(
         self, qtbot, mock_web_view, with_api_key
@@ -206,7 +234,7 @@ class TestCaptureSuccess:
             "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
         ) as critical:
             dialog._on_capture_clicked()
-            dialog._bridge.captureViewReady.emit(17, 1.0, 1000.0, 700.0)
+            dialog._bridge.captureViewReady.emit("1", 17, 1.0, 1000.0, 700.0)
         critical.assert_called_once()
         assert dialog.result() != dialog.DialogCode.Accepted
         assert dialog.fetch_result is None
@@ -230,7 +258,7 @@ class TestCaptureSuccess:
         dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
         dialog._on_capture_clicked()
         dialog._finish_capture()
-        dialog._bridge.captureViewReady.emit(17, 1.0, 1000.0, 700.0)
+        dialog._bridge.captureViewReady.emit("1", 17, 1.0, 1000.0, 700.0)
         assert dialog.fetch_result is None
         assert dialog.result() != dialog.DialogCode.Accepted
 
@@ -244,10 +272,25 @@ class TestCaptureCancel:
         dialog._on_cancel()
         assert dialog._capture_cancel_requested is True
         assert dialog.result() != dialog.DialogCode.Accepted
-        dialog._bridge.captureViewReady.emit(17, 1.0, 1000.0, 700.0)
+        dialog._bridge.captureViewReady.emit("1", 17, 1.0, 1000.0, 700.0)
         assert dialog._capture_in_progress is False
         assert dialog.fetch_result is None
         assert dialog._cancel_button.isEnabled() is True
+
+    def test_close_during_capture_completes_after_ready(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        """A window close during capture must not drop the intent — the
+        dialog rejects itself once the page's readiness report arrives."""
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
+        dialog.show()
+        dialog._on_capture_clicked()
+        dialog.close()
+        assert dialog.isVisible() is True
+        assert dialog._close_after_capture is True
+        dialog._bridge.captureViewReady.emit("1", 17, 1.0, 1000.0, 700.0)
+        assert dialog.result() == dialog.DialogCode.Rejected
+        assert dialog._capture_in_progress is False
 
     def test_watchdog_times_out_stuck_capture(
         self, qtbot, mock_web_view, with_api_key
@@ -255,12 +298,126 @@ class TestCaptureCancel:
         dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
         with patch(
             "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
-        ):
+        ) as critical:
             dialog._on_capture_clicked()
             dialog._capture_watchdog.setInterval(10)
             dialog._capture_watchdog.start(10)
             qtbot.waitUntil(lambda: dialog._capture_in_progress is False, timeout=2000)
         assert dialog.fetch_result is None
+        assert dialog._cancel_button.isEnabled() is True
+        critical.assert_called_once()
+
+    def test_watchdog_after_cancel_stays_silent(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        """Cancel then a dead page: the watchdog must neither pop an error
+        box nor leave the dialog stuck."""
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            dialog._on_capture_clicked()
+            dialog._on_cancel()
+            assert dialog._cancel_button.isEnabled() is False
+            dialog._capture_watchdog.setInterval(10)
+            dialog._capture_watchdog.start(10)
+            qtbot.waitUntil(lambda: dialog._capture_in_progress is False, timeout=2000)
+        critical.assert_not_called()
+        assert dialog._cancel_button.isEnabled() is True
+        assert dialog.fetch_result is None
+        assert dialog.result() != dialog.DialogCode.Accepted
+
+    def test_close_then_watchdog_rejects_without_error_box(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
+        dialog.show()
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            dialog._on_capture_clicked()
+            dialog.close()
+            dialog._capture_watchdog.setInterval(10)
+            dialog._capture_watchdog.start(10)
+            qtbot.waitUntil(lambda: dialog._capture_in_progress is False, timeout=2000)
+        critical.assert_not_called()
+        assert dialog.result() == dialog.DialogCode.Rejected
+
+
+class TestCaptureErrorMapping:
+    def test_timeout_token_shows_translated_message(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
+        dialog._on_capture_clicked()
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            dialog._bridge.captureViewFailed.emit("capture-timeout")
+        critical.assert_called_once()
+        args = critical.call_args.args
+        # args[2] is the message text — never the raw page token.
+        assert args[2] == dialog.tr(map_picker_dialog_mod._CAPTURE_TIMEOUT_MESSAGE)
+        assert dialog._capture_in_progress is False
+        assert dialog._cancel_button.isEnabled() is True
+
+    def test_zoom_mismatch_token_is_mapped(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
+        dialog._on_capture_clicked()
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            dialog._bridge.captureViewFailed.emit("zoom-mismatch")
+        critical.assert_called_once()
+        assert critical.call_args.args[2] == dialog.tr(
+            map_picker_dialog_mod._CAPTURE_UNEXPECTED_MESSAGE
+        )
+
+    def test_runjavascript_failure_path_maps_error_token(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
+        dialog._on_capture_clicked()
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            # Simulate the runJavaScript callback delivering the page's
+            # error return value (a JS exception message).
+            callback = dialog._view.page().runJavaScript.call_args_list[0].args[1]
+            callback("error: google.maps is not defined", 1)
+        critical.assert_called_once()
+        assert critical.call_args.args[2] == dialog.tr(
+            map_picker_dialog_mod._CAPTURE_UNEXPECTED_MESSAGE
+        )
+        assert "google.maps is not defined" not in critical.call_args.args[2]
+
+
+class TestBridgeContract:
+    def test_html_contract_names_match_python_bridge(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        """Drift guard: the JS-side surface names must match the bridge's
+        slots and the page-side window functions the dialog invokes."""
+        from pathlib import Path
+
+        from open_garden_planner.ui.dialogs.map_picker_dialog import (
+            MapPickerDialog,
+            _MapBridge,
+        )
+
+        html = Path(MapPickerDialog.HTML_FILE).read_text(encoding="utf-8")
+        for token in (
+            "bridge.captureReady(",  # page reports readiness
+            "bridge.captureError(",  # page reports failure
+            "function beginCapture(",  # invoked by the dialog via runJavaScript
+            "function restoreCaptureChrome(",  # invoked by _finish_capture
+            "bridge.ready()",  # existing handshake must not regress
+        ):
+            assert token in html, f"map_picker.html lost the contract token: {token}"
+        for slot in ("captureReady", "captureError", "ready", "boundsChanged"):
+            assert hasattr(_MapBridge, slot), f"_MapBridge lost slot: {slot}"
 
 
 class TestEeaFallbackOffer:
@@ -303,7 +460,7 @@ class TestAttributionMetadataRoundTrip:
     ) -> None:
         dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
         dialog._on_capture_clicked()
-        dialog._bridge.captureViewReady.emit(17, 1.0, 1000.0, 700.0)
+        dialog._bridge.captureViewReady.emit("1", 17, 1.0, 1000.0, 700.0)
         result = dialog.fetch_result
         assert result is not None
 
