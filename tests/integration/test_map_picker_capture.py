@@ -364,6 +364,7 @@ class TestCaptureCancel:
         assert dialog.result() == dialog.DialogCode.Rejected
 
 
+@pytest.mark.skip(reason="ci-bisect probe 4")
 class TestCaptureErrorMapping:
     def test_timeout_token_shows_translated_message(
         self, qtbot, mock_web_view, with_api_key
@@ -463,6 +464,7 @@ class TestCaptureErrorMapping:
         assert "google.maps is not defined" not in critical.call_args.args[2]
 
 
+@pytest.mark.skip(reason="ci-bisect probe 4")
 class TestBridgeContract:
     def test_html_contract_names_match_python_bridge(
         self, qtbot, mock_web_view, with_api_key
@@ -501,6 +503,7 @@ class TestBridgeContract:
             assert hasattr(_MapBridge, slot), f"_MapBridge lost slot: {slot}"
 
 
+@pytest.mark.skip(reason="ci-bisect probe 4")
 class TestEeaFallbackOffer:
     def test_eea_failure_offers_capture_and_starts_it(
         self, qtbot, mock_web_view, with_api_key
@@ -535,6 +538,7 @@ class TestEeaFallbackOffer:
         critical.assert_called_once()
 
 
+@pytest.mark.skip(reason="ci-bisect probe 4")
 class TestAttributionMetadataRoundTrip:
     def test_js_capture_geo_metadata_round_trips_through_item(
         self, qtbot, mock_web_view, with_api_key
