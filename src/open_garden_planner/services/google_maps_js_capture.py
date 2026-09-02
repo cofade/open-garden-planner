@@ -163,13 +163,16 @@ def capture_dpr_is_sane(effective: float, reported: float | None) -> bool:
 
 
 def capture_dpr_close_enough(effective: float, reported: float, tol: float = 0.005) -> bool:
-    """Whether the measured ruler agrees with the page's report tightly.
+    """Whether the measured ruler agrees tightly with the dpr a caller
+    built geometry from.
 
-    The pan grid's geometry (paste offsets, result mpp) is built from the
-    REPORTED dpr — the mosaic must be self-consistent — so the report must
-    match the measured ruler almost exactly or the capture is refused
-    rather than silently mis-georeferenced. Real OS scalings (1.25, 1.5,
-    2.0, …) measure exactly what they report. ``capture_dpr_is_sane``
+    The pan grid's paste offsets and result mpp are derived from one dpr
+    value the dialog owns (``layout.dpr``, set from the capture profile
+    report with a 1.0 fallback) — not from a per-frame report. The caller
+    passes that value here, and a ruler that disagrees with it by more
+    than the tolerance means the mosaic would be silently mis-
+    georeferenced, so the capture is refused. Real OS scalings (1.25,
+    1.5, 2.0, …) measure exactly what they report. ``capture_dpr_is_sane``
     remains the wild-disagreement gate; this is the precision gate.
     """
     if reported <= 0:
