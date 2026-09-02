@@ -185,21 +185,32 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Static-Maps-API nicht verfügbar (EWR-Einschränkung).\n\n"
             "Sie können die Satellitenansicht stattdessen direkt aus der "
             "unten angezeigten Karte übernehmen.",
-        "Retry Static Maps": "Statische Karten erneut versuchen",
-        "The map view did not render. Try again after the map has finished loading.":
-            "Die Kartenansicht wurde nicht gerendert. Erneut versuchen, "
-            "nachdem die Karte vollständig geladen ist.",
-        "The capture dimensions are inconsistent with the display scaling. Please retry; if it keeps failing, restart the map window.":
-            "Die Aufnahmeabmessungen passen nicht zur Anzeige-Skalierung. "
-            "Erneut versuchen; wenn es weiterhin fehlschlägt, das Kartenfenster "
-            "neu starten.",
-        "The capture timed out. Check your network or the API key, then try again.":
-            "Zeitüberschreitung bei der Aufnahme. Netzwerk oder API-Schlüssel "
-            "prüfen und erneut versuchen.",
-        "Unexpected error while capturing the map view.":
-            "Beim Aufnehmen der Kartenansicht ist ein unerwarteter Fehler "
-            "aufgetreten.",
-        # Google attribution stays English (legal/brand text, not translated).
+"Retry Static Maps": "Statische Karten erneut versuchen",
+          "The map view did not render. Try again after the map has finished loading.":
+              "Die Kartenansicht wurde nicht gerendert. Erneut versuchen, "
+              "nachdem die Karte vollständig geladen ist.",
+          "The capture dimensions are inconsistent with the display scaling. Please retry; if it keeps failing, restart the map window.":
+              "Die Aufnahmeabmessungen passen nicht zur Anzeige-Skalierung. "
+              "Erneut versuchen; wenn es weiterhin fehlschlägt, das Kartenfenster "
+              "neu starten.",
+          "The capture timed out. Check your network or the API key, then try again.":
+              "Zeitüberschreitung bei der Aufnahme. Netzwerk oder API-Schlüssel "
+              "prüfen und erneut versuchen.",
+          "Unexpected error while capturing the map view.":
+              "Beim Aufnehmen der Kartenansicht ist ein unerwarteter Fehler "
+              "aufgetreten.",
+          # Pan-grid capture (issue #347)
+          "One or more map frames could not be captured. Try again, or use 'Load image'.":
+              "Ein oder mehrere Kartenausschnitte konnten nicht erfasst werden. "
+              "Erneut versuchen oder 'Bild laden' verwenden.",
+          "The map view changed size during the capture. Please try again.":
+              "Die Kartenansicht hat während der Aufnahme ihre Größe geändert. "
+              "Bitte erneut versuchen.",
+          "Capturing frame {current} of {total}...":
+              "Kartenausschnitt {current} von {total} wird erfasst...",
+          "A map frame did not render. Retrying...":
+              "Ein Kartenausschnitt wurde nicht gerendert. Neuer Versuch...",
+          # Google attribution stays English (legal/brand text, not translated).
         "Map data ©{year} Google": "Map data ©{year} Google",
         # HTML-side picker UI (passed to JS via the bridge):
         "Search address...": "Adresse suchen...",
