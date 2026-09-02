@@ -316,6 +316,29 @@ class TestCaptureSuccess:
         assert dialog.fetch_result is None
         assert dialog._capture_in_progress is False
 
+    def test_near_miss_dpr_disagreement_refused(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        """The pan grid is built from the REPORTED dpr, so even a small
+        report/ruler disagreement (within the old wild-gate tolerance)
+        must refuse: the paste offsets and result mpp would be slightly
+        off. The ruler gate is the honest cross-check."""
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key, bbox=_TINY_BBOX)
+        dialog._view._grab_scale = 1.008  # measures 1.008, page claims 1.0
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            dialog._on_capture_clicked()
+            _profile(dialog, zoom=20, dpr=1.0)
+            _frame(dialog, 0, zoom=20, dpr=1.0)
+        critical.assert_called_once()
+        assert critical.call_args.args[2] == dialog.tr(
+            map_picker_dialog_mod._CAPTURE_DPR_MESSAGE
+        )
+        assert dialog.result() != dialog.DialogCode.Accepted
+        assert dialog.fetch_result is None
+        assert dialog._capture_in_progress is False
+
     def test_blank_grab_retries_then_succeeds(
         self, qtbot, mock_web_view, with_api_key
     ) -> None:
@@ -501,6 +524,61 @@ class TestPanGridCapture:
         assert result is not None
         assert result.tile_grid == (2, 2)
 
+    def test_mid_grid_retry_exhaustion_fails_cleanly(
+        self, qtbot, mock_web_view, with_api_key, monkeypatch
+    ) -> None:
+        """Only the degenerate 1x1 retry-exhaustion was covered; a mid-grid
+        failure must behave identically: retry in place, then fail the
+        whole capture with the frame-failed message — never accept a
+        partial mosaic with a blank region."""
+        monkeypatch.setattr(map_picker_dialog_mod, "FRAME_RETRIES", 1)
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key, bbox=_BIG_BBOX)
+        dialog._on_capture_clicked()
+        _profile(dialog, zoom=self.EXP_ZOOM)
+        _frame(dialog, 0, zoom=self.EXP_ZOOM)
+        _frame(dialog, 1, zoom=self.EXP_ZOOM)
+        dialog._view._grab_blank = True
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            _frame(dialog, 2, zoom=self.EXP_ZOOM)  # blank -> one retry
+            _frame(dialog, 2, zoom=self.EXP_ZOOM)  # blank again -> budget spent
+        critical.assert_called_once()
+        assert critical.call_args.args[2] == dialog.tr(
+            map_picker_dialog_mod._CAPTURE_FRAME_FAILED_MESSAGE
+        )
+        assert dialog.result() != dialog.DialogCode.Accepted
+        assert dialog.fetch_result is None
+        assert dialog._capture_in_progress is False
+
+    def test_stitch_failure_is_handled_cleanly(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        """The dialog must map a stitcher geometry failure (CaptureLayoutError)
+        to the frame-failed message — a clean error, never a crash or an
+        accepted result."""
+        from open_garden_planner.services.google_maps_js_capture import (
+            CaptureLayoutError,
+        )
+
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key, bbox=_TINY_BBOX)
+        dialog._on_capture_clicked()
+        _profile(dialog, zoom=20)
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.stitch_frames",
+            side_effect=CaptureLayoutError("cannot cover"),
+        ), patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            _frame(dialog, 0, zoom=20)
+        critical.assert_called_once()
+        assert critical.call_args.args[2] == dialog.tr(
+            map_picker_dialog_mod._CAPTURE_FRAME_FAILED_MESSAGE
+        )
+        assert dialog.result() != dialog.DialogCode.Accepted
+        assert dialog.fetch_result is None
+        assert dialog._capture_in_progress is False
+
 
 class TestCaptureCancel:
     def test_cancel_during_capture_aborts_on_ready(
@@ -589,6 +667,68 @@ class TestCaptureCancel:
             dialog._capture_watchdog.timeout.emit()
         critical.assert_not_called()
         assert dialog.result() == dialog.DialogCode.Rejected
+
+
+class TestCaptureWatchdogLifecycle:
+    @staticmethod
+    def _active_watchdogs(dialog):
+        """Live armed timers — the leak measure. A stopped timer whose
+        underlying Qt slot was recycled by the next arm can LOOK active
+        (isActive on a reused slot), so count objects, not slots."""
+        from PyQt6.QtCore import QTimer
+
+        return [t for t in dialog.findChildren(QTimer) if t.isActive()]
+
+    def test_rearm_stops_the_previous_timer(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        """Each choreography step arms a fresh watchdog AND stops the
+        previous one — an orphaned idle timer would otherwise fire mid-
+        capture and abort a progressing grid with a phantom timeout box
+        (the #346 phantom-watchdog lesson in a new shape). At any moment
+        exactly ONE watchdog may be armed; after finish, none."""
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key)
+        dialog._on_capture_clicked()
+        first = dialog._capture_watchdog
+        assert len(self._active_watchdogs(dialog)) == 1
+        # Berlin -> a 1x3 grid; each frame emission re-arms the watchdog.
+        # Assert DURING the capture (a full _drive_capture would finish it).
+        _profile(dialog, zoom=19)
+        second = dialog._capture_watchdog
+        assert second is not first
+        assert len(self._active_watchdogs(dialog)) == 1, (
+            "previous watchdog leaked and is still armed"
+        )
+        _frame(dialog, 0, zoom=19)
+        assert len(self._active_watchdogs(dialog)) == 1
+        _frame(dialog, 1, zoom=19)
+        assert len(self._active_watchdogs(dialog)) == 1
+        _frame(dialog, 2, zoom=19)
+        assert dialog.result() == dialog.DialogCode.Accepted
+        assert dialog._capture_in_progress is False
+        assert self._active_watchdogs(dialog) == []
+
+    def test_rearm_after_retry_stops_previous_timer(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        """Retry re-arms too (the watchdog restarts at every step); the
+        timer armed before the retry must be stopped — still exactly one
+        armed watchdog."""
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key, bbox=_TINY_BBOX)
+        dialog._on_capture_clicked()
+        _profile(dialog, zoom=20)
+        before_retry = dialog._capture_watchdog
+        dialog._view._grab_blank = True
+        _frame(dialog, 0, zoom=20)  # blank -> retry (re-arms the watchdog)
+        after_retry = dialog._capture_watchdog
+        assert after_retry is not before_retry
+        assert len(self._active_watchdogs(dialog)) == 1, (
+            "previous watchdog leaked and is still armed"
+        )
+        dialog._view._grab_blank = False
+        _frame(dialog, 0, zoom=20)
+        assert dialog.result() == dialog.DialogCode.Accepted
+        assert self._active_watchdogs(dialog) == []
 
 
 class TestCaptureErrorMapping:

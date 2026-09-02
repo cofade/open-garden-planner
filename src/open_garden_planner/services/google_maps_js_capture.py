@@ -162,6 +162,21 @@ def capture_dpr_is_sane(effective: float, reported: float | None) -> bool:
     return abs(effective - float(reported)) <= max(0.5, 0.3 * float(reported))
 
 
+def capture_dpr_close_enough(effective: float, reported: float, tol: float = 0.005) -> bool:
+    """Whether the measured ruler agrees with the page's report tightly.
+
+    The pan grid's geometry (paste offsets, result mpp) is built from the
+    REPORTED dpr — the mosaic must be self-consistent — so the report must
+    match the measured ruler almost exactly or the capture is refused
+    rather than silently mis-georeferenced. Real OS scalings (1.25, 1.5,
+    2.0, …) measure exactly what they report. ``capture_dpr_is_sane``
+    remains the wild-disagreement gate; this is the precision gate.
+    """
+    if reported <= 0:
+        return False
+    return abs(effective - float(reported)) / float(reported) <= tol
+
+
 def pick_capture_zoom_and_grid(
     bbox: BoundingBox,
     viewport_css_wh: tuple[float, float],
@@ -308,10 +323,13 @@ def _frame_step(
     raw_css = max(1, math.ceil((required_phys / dpr - viewport_css) / (count - 1)))
     step = _align_up(raw_css, q)
     # A step wider than the frame itself means the grid is over-sized;
-    # clamp just below the viewport (the final coverage check will still
-    # refuse a genuinely too-small mosaic).
-    max_step = _align_down(max(1, view_int - 1), q) or 1
-    return max(1, min(step, max_step))
+    # clamp just below the viewport — but only to a value that still keeps
+    # `step * dpr` integral (a viewport smaller than `q` css px is
+    # degenerate anyway; the stitch coverage check refuses it cleanly).
+    max_step = _align_down(max(1, view_int - 1), q)
+    if max_step >= q:
+        step = min(step, max_step)
+    return max(1, step)
 
 
 def build_frame_layout(
@@ -430,7 +448,9 @@ def frame_quality_ok(
     requiring every cell to show texture catches the strip. A few uniform
     cells (open sea, snowfield) are tolerated — a refusal is always safe
     (the user just retries), matching ``is_blank_capture``'s documented
-    trade-off.
+    trade-off. The allowance is ``total // 8`` (2 of 16 cells): smaller
+    than a tile strip (a 256-px-wide row of a 1000 px viewport is 4 cells),
+    larger than a single calm corner.
     """
     gray = image.convert("L")
     w, h = gray.size
@@ -448,9 +468,7 @@ def frame_quality_ok(
             stat = ImageStat.Stat(gray.crop(box))
             if not stat.stddev or fmean(stat.stddev) < min_cell_std:
                 uniform += 1
-    # A full blank strip of tiles is a whole row of cells (~25%); allow at
-    # most one untextured cell below that, but refuse any larger dead area.
-    return uniform <= max(1, total // 5)
+    return uniform <= max(1, total // 8)
 
 
 def bake_attribution(image: Image.Image, text: str) -> Image.Image:

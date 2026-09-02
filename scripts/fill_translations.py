@@ -210,7 +210,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
               "Kartenausschnitt {current} von {total} wird erfasst...",
           "A map frame did not render. Retrying...":
               "Ein Kartenausschnitt wurde nicht gerendert. Neuer Versuch...",
-        # Google attribution stays English (legal/brand text, not translated).
+          # Google attribution stays English (legal/brand text, not translated).
         "Map data ©{year} Google": "Map data ©{year} Google",
         # HTML-side picker UI (passed to JS via the bridge):
         "Search address...": "Adresse suchen...",

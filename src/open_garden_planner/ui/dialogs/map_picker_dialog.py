@@ -67,7 +67,9 @@ from open_garden_planner.services.google_maps_js_capture import (
     FrameLayout,
     bake_attribution,
     build_frame_layout,
+    capture_dpr_close_enough,
     capture_dpr_is_sane,
+    capture_mpp,
     classify_static_failure,
     effective_capture_dpr,
     frame_quality_ok,
@@ -86,7 +88,6 @@ from open_garden_planner.services.google_maps_service import (
     fetch_bbox,
     get_api_key,
     has_api_key,
-    meters_per_pixel,
 )
 
 _KEY_MISSING_FAILURE = "google_maps_key_missing"
@@ -108,8 +109,9 @@ _CAPTURE_VIEW_CHANGED_MESSAGE = (
     "The map view changed size during the capture. Please try again."
 )
 _CAPTURE_PROGRESS = "Capturing frame {current} of {total}..."
-# Initial value for the capture-choreography zoom in `_start_capture`
-# (overwritten before any JS is driven).
+# Initial value for the capture-choreography zoom; _start_capture always
+# overwrites it before any JS is driven (the profile's zoom report is
+# informational only — the dialog decides the zoom itself).
 _MAX_ZOOM_HINT = 20
 _CAPTURE_TOKEN_MESSAGES = {
     "capture-timeout": _CAPTURE_TIMEOUT_MESSAGE,
@@ -515,8 +517,15 @@ class MapPickerDialog(QDialog):
         The JS side has its own 15 s per-frame timeout, but a page that
         loses its bridge must not leave the dialog stuck forever. Restarted
         at every choreography step so a slow multi-frame capture is never
-        killed while it makes progress.
+        killed while it makes progress — and the previous timer is STOPPED
+        first: an orphaned, still-armed timer from an earlier step would
+        fire mid-capture and abort a perfectly healthy grid with a phantom
+        timeout box (the same class of bug #346's phantom watchdog, in a
+        new shape — §11.4).
         """
+        previous = self._capture_watchdog
+        if previous is not None:
+            previous.stop()
         watchdog = QTimer(self)
         watchdog.setSingleShot(True)
         watchdog.timeout.connect(
@@ -688,6 +697,17 @@ class MapPickerDialog(QDialog):
                         self.tr(_CAPTURE_DPR_MESSAGE), generation
                     )
                     return
+                # The pan grid's geometry is built from the REPORTED dpr
+                # (the mosaic must be self-consistent), so the ruler must
+                # agree with the report almost exactly — otherwise every
+                # paste offset and the result mpp would be slightly wrong.
+                if reported_dpr is not None and not capture_dpr_close_enough(
+                    dpr_effective, reported_dpr
+                ):
+                    self._handle_capture_failure(
+                        self.tr(_CAPTURE_DPR_MESSAGE), generation
+                    )
+                    return
             image = _qimage_to_pil(
                 grab.toImage().convertToFormat(QImage.Format.Format_RGB888)
             )
@@ -756,7 +776,7 @@ class MapPickerDialog(QDialog):
         if bbox is None:
             raise RuntimeError("capture result requested without a bbox")
         mosaic = stitch_frames(self._capture_frames, layout, bbox)
-        mpp = meters_per_pixel(bbox.center[0], layout.zoom) / layout.dpr
+        mpp = capture_mpp(bbox.center[0], layout.zoom, layout.dpr)
         cropped = crop_image_to_bbox(mosaic, mpp, bbox)
         if is_blank_capture(cropped):
             raise RuntimeError("stitched capture is blank")

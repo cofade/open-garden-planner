@@ -240,6 +240,9 @@
     // → captureReady(frameIndex) → Python grabs → advanceCaptureFrame() →
     // ... → retryCaptureFrame() re-settles the current frame after a
     // Python-side quality refusal.
+    // NOTE: this module-level mutable state is deliberately a singleton —
+    // Python drives every transition, so the page must never re-enter
+    // itself; keep it that way on both sides.
     let captureState = null;
     let captureFrames = [];
     let captureZoom = null;

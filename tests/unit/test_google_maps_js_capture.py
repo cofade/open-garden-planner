@@ -122,6 +122,28 @@ class TestCaptureDprSanity:
         assert cap.capture_dpr_is_sane(5.0, 5.0) is True
 
 
+class TestCaptureDprCloseEnough:
+    def test_exact_match(self) -> None:
+        assert cap.capture_dpr_close_enough(1.25, 1.25) is True
+        assert cap.capture_dpr_close_enough(2.0, 2.0) is True
+
+    def test_sub_tolerance_drift_accepted(self) -> None:
+        # Integer grab rounding at fractional OS scales: 1001 px over
+        # 1000 css = 0.1% — well inside the precision gate.
+        assert cap.capture_dpr_close_enough(1.001, 1.0) is True
+
+    def test_over_tolerance_drift_refused(self) -> None:
+        # The pan grid's geometry is built from the REPORTED dpr; a ruler
+        # that disagrees by more than the tolerance would smear pastes and
+        # mis-georeference — refuse rather than ship it.
+        assert cap.capture_dpr_close_enough(1.008, 1.0) is False
+        assert cap.capture_dpr_close_enough(2.06, 2.0) is False
+
+    def test_non_positive_reported_refused(self) -> None:
+        assert cap.capture_dpr_close_enough(2.0, 0.0) is False
+        assert cap.capture_dpr_close_enough(2.0, -1.0) is False
+
+
 class TestPickCaptureZoom:
     # Berlin-sized box: ~135 m EW × ~222 m NS at lat 52.52.
     BERLIN = gms.BoundingBox(52.521, 13.404, 52.519, 13.406)
@@ -397,6 +419,15 @@ class TestFrameLayout:
         with pytest.raises(ValueError):
             cap.build_frame_layout(bbox, 18, 1, 1, (1000.0, 700.0), 0.0)
 
+    def test_degenerate_viewport_keeps_step_dpr_invariant(self) -> None:
+        """A viewport smaller than the dpr fraction denominator is
+        degenerate — the step must still keep `step * dpr` integral (the
+        clamp must not violate the invariant only to fit the viewport)."""
+        bbox = gms.BoundingBox(52.52135, 13.40205, 52.51865, 13.40795)
+        layout = cap.build_frame_layout(bbox, 18, 2, 2, (3.0, 3.0), 1.25)
+        assert (layout.step_x_css * 1.25) % 1 < 1e-9
+        assert (layout.step_y_css * 1.25) % 1 < 1e-9
+
 
 class TestStitchFrames:
     def _make_world(self, size=600) -> Image.Image:
@@ -492,6 +523,30 @@ class TestFrameQuality:
                 else:
                     img.putpixel((x, y), ((x * 3 + y) % 256, (x + y * 5) % 256, x % 256))
         assert cap.frame_quality_ok(img) is True
+
+    def test_two_uniform_cells_at_boundary_are_tolerated(self) -> None:
+        """The allowance boundary: 2 of 16 uniform cells (total // 8) is
+        accepted — a single calm corner, not a tile strip."""
+        img = Image.new("RGB", (400, 300))
+        for y in range(300):
+            for x in range(400):
+                if x < 200 and y < 75:  # two adjacent corner cells
+                    img.putpixel((x, y), (10, 10, 10))
+                else:
+                    img.putpixel((x, y), ((x * 3 + y) % 256, (x + y * 5) % 256, x % 256))
+        assert cap.frame_quality_ok(img) is True
+
+    def test_three_uniform_cells_are_refused(self) -> None:
+        """One cell past the boundary is refused — a dead region larger
+        than a calm corner must never ship inside the mosaic."""
+        img = Image.new("RGB", (400, 300))
+        for y in range(300):
+            for x in range(400):
+                if x < 300 and y < 75:  # three adjacent corner cells
+                    img.putpixel((x, y), (10, 10, 10))
+                else:
+                    img.putpixel((x, y), ((x * 3 + y) % 256, (x + y * 5) % 256, x % 256))
+        assert cap.frame_quality_ok(img) is False
 
     def test_fully_blank_is_refused(self) -> None:
         img = Image.new("RGB", (400, 300), (232, 234, 237))
