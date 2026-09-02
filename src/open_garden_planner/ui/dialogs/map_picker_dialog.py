@@ -697,13 +697,15 @@ class MapPickerDialog(QDialog):
                         self.tr(_CAPTURE_DPR_MESSAGE), generation
                     )
                     return
-                # The pan grid's geometry is built from the REPORTED dpr
-                # (the mosaic must be self-consistent), so the ruler must
-                # agree with the report almost exactly — otherwise every
-                # paste offset and the result mpp would be slightly wrong.
-                if reported_dpr is not None and not capture_dpr_close_enough(
-                    dpr_effective, reported_dpr
-                ):
+                # The pan grid's geometry is built from the PROFILE's dpr
+                # (layout.dpr — the value the paste offsets and the result
+                # mpp are computed from), so the measured ruler must agree
+                # with LAYOUT.dpr almost exactly. Checking the per-frame
+                # report instead would let a falsy profile dpr (silent 1.0
+                # fallback) or a cross-monitor DPI change between the
+                # profile and frame 0 slip through every gate while the
+                # mosaic is built on a different scale.
+                if not capture_dpr_close_enough(dpr_effective, layout.dpr):
                     self._handle_capture_failure(
                         self.tr(_CAPTURE_DPR_MESSAGE), generation
                     )

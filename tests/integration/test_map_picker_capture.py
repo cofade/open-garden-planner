@@ -339,6 +339,51 @@ class TestCaptureSuccess:
         assert dialog.fetch_result is None
         assert dialog._capture_in_progress is False
 
+    def test_profile_frame_dpr_divergence_refused(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        """The mosaic is built from the PROFILE's dpr — so the frame-0
+        ruler must be checked against layout.dpr, not against the per-frame
+        report. A profile/frame divergence (monitor dragged to a different
+        DPI between the two, 1-3 s apart) would otherwise pass every gate
+        and silently mis-georeference the import."""
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key, bbox=_TINY_BBOX)
+        dialog._on_capture_clicked()
+        # Profile claims dpr 2.0 -> layout built at 2.0; frame 0 then
+        # reports (and measures, grab scale 1.0) dpr 1.0.
+        _profile(dialog, zoom=20, dpr=2.0)
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            _frame(dialog, 0, zoom=20, dpr=1.0)
+        critical.assert_called_once()
+        assert critical.call_args.args[2] == dialog.tr(
+            map_picker_dialog_mod._CAPTURE_DPR_MESSAGE
+        )
+        assert dialog.result() != dialog.DialogCode.Accepted
+        assert dialog.fetch_result is None
+
+    def test_falsy_profile_dpr_falls_back_and_is_refused_by_the_ruler(
+        self, qtbot, mock_web_view, with_api_key
+    ) -> None:
+        """A falsy profile dpr silently defaults to 1.0 — the layout is
+        built at 1.0, so a grab measured at real dpr 1.25 must be refused
+        (the frame-0 gate now checks the ruler against LAYOUT.dpr)."""
+        dialog = _make_dialog(qtbot, mock_web_view, with_api_key, bbox=_TINY_BBOX)
+        dialog._view._grab_scale = 1.25
+        dialog._on_capture_clicked()
+        _profile(dialog, zoom=20, dpr=0.0)  # falsy -> layout at dpr 1.0
+        with patch(
+            "open_garden_planner.ui.dialogs.map_picker_dialog.QMessageBox.critical"
+        ) as critical:
+            _frame(dialog, 0, zoom=20, dpr=0.0)
+        critical.assert_called_once()
+        assert critical.call_args.args[2] == dialog.tr(
+            map_picker_dialog_mod._CAPTURE_DPR_MESSAGE
+        )
+        assert dialog.result() != dialog.DialogCode.Accepted
+        assert dialog.fetch_result is None
+
     def test_blank_grab_retries_then_succeeds(
         self, qtbot, mock_web_view, with_api_key
     ) -> None:
