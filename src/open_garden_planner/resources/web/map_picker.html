@@ -257,7 +257,11 @@
         const mapDiv = document.getElementById('map');
         const attrEl = document.querySelector('.gm-style-cc');
         captureState = {
-          token: token,
+          // Stringified at STORAGE: the guards compare `captureState.token
+          // !== String(token)`, and a numeric token (Python passes
+          // beginCaptureChrome(1)) would never equal its string form — the
+          // guard would silently eat every report.
+          token: String(token),
           toolbarDisplay: toolbar.style.display,
           hintWasHidden: hint.classList.contains('hidden'),
           mapTop: mapDiv.style.top,

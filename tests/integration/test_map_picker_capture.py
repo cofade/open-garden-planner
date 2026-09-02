@@ -915,6 +915,15 @@ class TestBridgeContract:
         assert re.search(
             r"bridge\.captureReady\(\s*String\(\s*(?:token|captureState\.token)\s*\)\s*,\s*(-1)\s*,", html
         ), "captureReady frameIndex -1 (profile report) must be preserved"
+        # The generation token must be STRINGIFIED AT STORAGE — the page's
+        # guards compare `captureState.token !== String(token)`, and a
+        # numeric token (Python passes beginCaptureChrome(1)) never equals
+        # its string form: a bare `token: token` here silently eats every
+        # capture report and the Python watchdog times out. Live-found in
+        # #347; this drift guard pins the coercion contract.
+        assert re.search(r"token:\s*String\(\s*token\s*\)\s*,", html), (
+            "captureState.token must be stored stringified (token: String(token))"
+        )
         # Google's native attribution element is hidden for the capture only
         # and restored afterwards; the baked strip is the artifact's
         # attribution (ADR-019 addendum #347).
