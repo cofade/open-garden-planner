@@ -109,9 +109,11 @@ below cover the rest.
 trigger in the skill's `description`. If a row and a `description` disagree, the
 `description` wins — fix the row.
 
-References inside skill files are gated: `tests/unit/test_skill_citations.py` checks
-that every `§N.M`, `ADR-0NN`, `FR-*`, `file.py:line`, and `#NNN` citation still
-resolves — keep them resolvable (§8.10).
+References inside skill files are gated (§8.10) — keep them resolvable:
+
+```bash
+venv/Scripts/python.exe scripts/check_skill_citations.py
+```
 
 ### Claude/Codex context parity
 

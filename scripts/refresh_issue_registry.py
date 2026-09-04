@@ -15,6 +15,7 @@ Requires the ``gh`` CLI to be authenticated (``gh auth status``).
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -25,7 +26,8 @@ from check_skill_citations import (
     REPO_ROOT,
 )
 
-GH_EXE = r"C:\Program Files\GitHub CLI\gh.exe"
+# The Windows dev machine's gh isn't always on PATH; fall back to what is.
+GH_EXE = shutil.which("gh") or r"C:\Program Files\GitHub CLI\gh.exe"
 OWNER = "cofade"
 REPO = "open-garden-planner"
 
@@ -63,9 +65,19 @@ def _fetch(numbers: list[int]) -> dict[str, dict]:
             [GH_EXE, "api", "graphql", "-f", f"query={query}"],
             capture_output=True,
             text=True,
-            check=True,
+            check=False,
         )
-        payload = json.loads(result.stdout)
+        # gh exits 1 the moment ANY aliased field in the batch is a GraphQL
+        # error (e.g. one stale #NNN in a batch of 100) — but still prints
+        # the other 99 resolved aliases on stdout. Trust the JSON, not the
+        # exit code; only bail if there is no JSON to trust at all.
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            raise RuntimeError(
+                f"gh api graphql produced no JSON (exit {result.returncode}): "
+                f"{result.stderr.strip()}"
+            ) from None
         repo = payload["data"]["repository"]
         for n in chunk:
             entry = repo.get(f"n{n}")

@@ -2230,7 +2230,7 @@ Sets `_soil_mismatch_level: str` on each bed item → read in `paint()`.
 | `docs/08-crosscutting-concepts/` | New **§ 8.13 Soil Health Tracking**: data hierarchy, Rapitest scale, amendment formula, overlay rendering |
 | `docs/09-architecture-decisions/` | ADR: soil data embedded in .ogp (vs. sidecar) |
 | `docs/functional-requirements.md` | FR-SOIL-1…FR-SOIL-5 |
-| `docs/12-glossary.md` | NPK, Amendment, SoilTestRecord, SoilTestHistory, Rapitest scale |
+| `docs/12-glossary/` | NPK, Amendment, SoilTestRecord, SoilTestHistory, Rapitest scale |
 
 ---
 
@@ -2499,7 +2499,7 @@ Shipped via this PR: the JS-API view capture now raises its resolution ceiling t
 | `docs/08-crosscutting-concepts/` | new §8.19 — Agent API & thread marshaling; §8.11 security note (loopback, opt-in, deferred token) |
 | `docs/07-deployment-view/` | PyInstaller hidden-imports for `mcp`/`uvicorn`/`starlette` |
 | `docs/functional-requirements.md` | FR-26 (FR-AGENT-01…) |
-| `docs/12-glossary.md` | MCP, MCP tool/resource/prompt, Agent API, curated schema, marshaling boundary, loopback |
+| `docs/12-glossary/` | MCP, MCP tool/resource/prompt, Agent API, curated schema, marshaling boundary, loopback |
 
 ---
 

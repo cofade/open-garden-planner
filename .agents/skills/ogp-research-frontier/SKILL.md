@@ -239,10 +239,9 @@ evaluator — but zero ecosystem around it.
   `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI.
   Note: validation today is a **pytest test, not a formal JSON Schema** — the
   schema artifact is candidate work, not an existing asset.
-- The panel is hidden by one line:
-  `self._sidebar_controller.set_panel_visible("smart_symbols", False)` at
-  `src/open_garden_planner/app/application.py:2893` (kept current by the
-  `test_skill_citations` gate, #336). Persistence, properties editing, and DXF BLOCK/INSERT export all
+- The panel is hidden by one line: `application.py:2893`
+  `set_panel_visible("smart_symbols", False)` (the citation is kept current
+  by the `test_skill_citations` gate, #336). Persistence, properties editing, and DXF BLOCK/INSERT export all
   ship and are tested (AGENTS.md US-C4 entry) — unhiding is a UI decision,
   not an engineering lift.
 

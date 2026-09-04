@@ -10,6 +10,15 @@ something real. This module is that check (issue #336).
 Scope, deliberately: this gate resolves *identifiers*, not *claims*. It does
 not try to verify that a citation's surrounding prose is still an accurate
 description of the cited thing — only that the thing named still exists.
+
+It is also syntactic, not semantic: a ``file.py:line`` citation is only
+checked when it appears in the single backtick-quoted form ``path.py:N``
+(optionally followed by a backtick-quoted symbol/snippet), searched under
+``src/``, ``tests/``, ``scripts/``, and ``installer/``. A citation spelled
+out in prose ("application.py line ~2893") is invisible to it — normalize a
+citation into the gated form to bring it under the gate, the same way a
+string has to go through ``tr()`` to be seen by the i18n gate (§8.3's own
+"a plain string never reaches it" blind spot).
 """
 
 from __future__ import annotations
@@ -37,36 +46,42 @@ FR_INDEX_PATH = "docs/functional-requirements.md"
 ISSUE_REGISTRY_PATH = "tests/data/issue_registry.json"
 
 # (source file relative to repo root, exact raw citation text) -> reason.
-# Mirrors the exemption-list convention in tests/unit/test_icon_conformance.py
-# / check_icon_conformance.py's PROVENANCE guard: every entry states why it is
-# exempt rather than silently skipping it.
-KNOWN_EXCEPTIONS: frozenset[tuple[str, str]] = frozenset(
-    {
-        (
-            ".claude/skills/debug-verbose/SKILL.md",
-            "pytestqt/plugin.py:220",
-        ): "third-party library (pytest-qt runtime dependency), not part of this repo",
-        (
-            ".agents/skills/debug-verbose/SKILL.md",
-            "pytestqt/plugin.py:220",
-        ): "third-party library (pytest-qt runtime dependency), not part of this repo",
-    }
-)
+# Mirrors the exemption-list convention in tests/unit/test_settings_chokepoint.py
+# (STORE_CLASS_EXEMPT_TESTS + its test_no_exemption_is_dead): every entry
+# states why it is exempt, and test_skill_citations.py's own
+# test_no_exemption_is_dead fails if an entry stops being needed.
+KNOWN_EXCEPTIONS: dict[tuple[str, str], str] = {
+    (
+        ".claude/skills/debug-verbose/SKILL.md",
+        "pytestqt/plugin.py:220",
+    ): "third-party library (pytest-qt runtime dependency), not part of this repo",
+    (
+        ".agents/skills/debug-verbose/SKILL.md",
+        "pytestqt/plugin.py:220",
+    ): "third-party library (pytest-qt runtime dependency), not part of this repo",
+}
 
-_HEADING_RE = re.compile(r"^#{1,4}\s+(\d+(?:\.\d+){0,2})\b", re.MULTILINE)
+_HEADING_RE = re.compile(r"^#{1,6}\s+(\d+(?:\.\d+){0,2})\b", re.MULTILINE)
 _SECTION_REF_RE = re.compile(
     r"(?:§|[Ss]ection )(\d+(?:\.\d+){0,2}(?:/\d+(?:\.\d+){0,2})*)"
 )
-_ADR_REF_RE = re.compile(r"ADR-(\d{3})(?:/(\d{3}))*")
+_ADR_REF_RE = re.compile(r"ADR-(\d{3}(?:/\d{3})*)\b")
 _ADR_HEADING_RE = re.compile(r"^##\s+ADR-(\d{3})\b", re.MULTILINE)
 _FR_REF_RE = re.compile(r"\bFR-(?:([A-Z]+)-)?(\d+(?:/\d+)*)\b")
-_FR_HEADING_RE = re.compile(r"^#{2,3}\s+FR-([A-Z0-9-]+?)[:\s]", re.MULTILINE)
+_FR_HEADING_RE = re.compile(r"^#{2,6}\s+FR-([A-Z0-9-]+?)[:\s]", re.MULTILINE)
 _FR_BULLET_RE = re.compile(r"^-\s+\*\*FR-([A-Z0-9-]+?)\*\*", re.MULTILINE)
 _FILE_LINE_RE = re.compile(
     r"`((?:[\w.-]+/)*[\w.-]+\.py):(\d+(?:/\d+)*)`(?:\s*`([^`]+)`)?"
 )
+# A bare `#1234` needs no keyword; when one *is* present, it must agree with
+# the registry (a citation this narrow and literal is not "clever about
+# prose" — it never guesses at what a citation's surrounding claim means).
 _ISSUE_REF_RE = re.compile(r"(?:\b(PR|[Ii]ssue) )?#(\d{2,5})\b")
-_IDENTIFIER_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)")
+# The trailing identifier/call name in a cited snippet, e.g.
+# "self._x.set_panel_visible(...)" -> "set_panel_visible", not "self".
+_CALL_NAME_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(")
+_BARE_IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_STRING_LITERAL_RE = re.compile(r'"([^"]+)"|\'([^\']+)\'')
 
 # How far a cited line may have drifted from a still-correct symbol before the
 # citation counts as rot rather than ordinary refactor churn. Wide enough to
@@ -74,6 +89,13 @@ _IDENTIFIER_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)")
 # the #336 case (a citation off by ~1300 lines after unrelated features grew
 # the file).
 _SYMBOL_WINDOW_LINES = 300
+
+# A string literal named in the cited snippet only has to sit next to the
+# SAME occurrence of the symbol, not merely somewhere in the whole 300-line
+# window — otherwise a recurring generic call (e.g. one setter invoked once
+# per sidebar panel, each a few dozen lines apart) would "confirm" against
+# whichever sibling call happens to share the window, not the cited one.
+_LITERAL_PROXIMITY_LINES = 2
 
 
 @dataclass(frozen=True)
@@ -102,6 +124,40 @@ def _iter_matches(text: str, pattern: re.Pattern[str]):
 
 def _is_excepted(rel_file: str, raw: str) -> bool:
     return (rel_file, raw) in KNOWN_EXCEPTIONS
+
+
+def _extract_symbol(text: str) -> str | None:
+    """The identifier a cited snippet is actually about: the name of its
+    last call (``self._x.set_panel_visible(...)`` -> ``set_panel_visible``,
+    not ``self``), or its last bare identifier if it names no call at all
+    (a class name like ``ResizeItemCommand``).
+    """
+
+    calls = _CALL_NAME_RE.findall(text)
+    if calls:
+        return calls[-1]
+    names = _BARE_IDENTIFIER_RE.findall(text)
+    return names[-1] if names else None
+
+
+def _symbol_occurs(
+    lines: list[str], lo: int, hi: int, symbol: str, literals: list[str]
+) -> bool:
+    """Whether `symbol` occurs in lines[lo:hi] AND, at that same specific
+    occurrence, every literal from the cited snippet is nearby — not just
+    somewhere else in the (much larger) window.
+    """
+
+    pattern = re.compile(rf"\b{re.escape(symbol)}\b")
+    for i in range(lo, hi):
+        if not pattern.search(lines[i]):
+            continue
+        local_lo = max(lo, i - _LITERAL_PROXIMITY_LINES)
+        local_hi = min(hi, i + 1 + _LITERAL_PROXIMITY_LINES)
+        local_text = "\n".join(lines[local_lo:local_hi])
+        if all(lit in local_text for lit in literals):
+            return True
+    return False
 
 
 # --- §N.M / "section N.M" references ---------------------------------------
@@ -169,8 +225,7 @@ def check_adr_refs(
             raw = match.group(0)
             if _is_excepted(rel_file, raw):
                 continue
-            numbers = [match.group(1)] + [g for g in match.groups()[1:] if g]
-            for number in numbers:
+            for number in match.group(1).split("/"):
                 if number not in pool:
                     errors.append(
                         f"{rel_file}:{line}: '{raw}' cites ADR-{number}, "
@@ -213,8 +268,17 @@ def check_fr_refs(root: Path, corpus_files: list[Path], pool: set[str]) -> list[
 # --- file.py:line citations --------------------------------------------------
 
 
+# First-party Python lives under these; build/ and dist/ are gitignored
+# PyInstaller output and venv/ is the virtualenv — none are things a skill
+# file should be citing, and walking them would be slow and pointless.
+_PY_SEARCH_DIRS = ("src", "tests", "scripts", "installer")
+
+
 def _py_files(root: Path) -> list[Path]:
-    return sorted((root / "src").rglob("*.py"))
+    files: list[Path] = []
+    for d in _PY_SEARCH_DIRS:
+        files.extend((root / d).rglob("*.py"))
+    return sorted(files)
 
 
 def _resolve_path_citation(root: Path, cited_path: str, py_files: list[Path]) -> list[Path]:
@@ -241,14 +305,13 @@ def check_file_line_refs(root: Path, corpus_files: list[Path]) -> list[str]:
             if not candidates:
                 errors.append(
                     f"{rel_file}:{line}: '{raw}' cites '{cited_path}', which "
-                    "does not exist under src/"
+                    f"does not exist under {'/, '.join(_PY_SEARCH_DIRS)}/"
                 )
                 continue
 
-            symbol = None
-            if symbol_text:
-                sym_match = _IDENTIFIER_RE.match(symbol_text)
-                symbol = sym_match.group(1) if sym_match else None
+            symbol = _extract_symbol(symbol_text) if symbol_text else None
+            literals = _STRING_LITERAL_RE.findall(symbol_text) if symbol_text else []
+            literals = [a or b for a, b in literals]
 
             resolved = False
             reasons: list[str] = []
@@ -271,16 +334,16 @@ def check_file_line_refs(root: Path, corpus_files: list[Path]) -> list[str]:
                     for cited_line in cited_lines:
                         lo = max(0, cited_line - 1 - _SYMBOL_WINDOW_LINES)
                         hi = min(total_lines, cited_line + _SYMBOL_WINDOW_LINES)
-                        window = "\n".join(lines[lo:hi])
                         windows_ok.append(
-                            re.search(rf"\b{re.escape(symbol)}\b", window)
-                            is not None
+                            _symbol_occurs(lines, lo, hi, symbol, literals)
                         )
                     if not any(windows_ok):
                         reasons.append(
-                            f"symbol '{symbol}' not found within "
-                            f"{_SYMBOL_WINDOW_LINES} lines of the cited "
-                            f"line(s) in {candidate.relative_to(root).as_posix()}"
+                            f"symbol '{symbol}'"
+                            + (f" with literal(s) {literals}" if literals else "")
+                            + f" not found within {_SYMBOL_WINDOW_LINES} lines "
+                            f"of the cited line(s) in "
+                            f"{candidate.relative_to(root).as_posix()}"
                         )
                         continue
                 resolved = True
@@ -295,6 +358,11 @@ def check_file_line_refs(root: Path, corpus_files: list[Path]) -> list[str]:
 
 
 def load_issue_registry(root: Path) -> dict[str, dict]:
+    """Each entry also carries ``title``/``state`` for a human reading a
+    gate failure or the snapshot itself; only ``is_pr`` is read by the
+    checks below (a bare ``#NNN`` deliberately makes no claim about state —
+    most citations in this corpus are to long-closed historical bugs).
+    """
     return json.loads((root / ISSUE_REGISTRY_PATH).read_text(encoding="utf-8"))
 
 
