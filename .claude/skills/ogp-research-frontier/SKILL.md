@@ -240,15 +240,16 @@ evaluator — but zero ecosystem around it.
   Note: validation today is a **pytest test, not a formal JSON Schema** — the
   schema artifact is candidate work, not an existing asset.
 - The panel is hidden by one line: `application.py:2893`
-  `set_panel_visible("smart_symbols", False)` (the citation is kept current
-  by the `test_skill_citations` gate, #336). Persistence, properties editing, and DXF BLOCK/INSERT export all
+  `set_panel_visible("smart_symbols", False)` (`test_skill_citations`, #336,
+  checks this citation still exists — within its stated ±300-line drift
+  tolerance, not exactly). Persistence, properties editing, and DXF BLOCK/INSERT export all
   ship and are tested (CLAUDE.md US-C4 entry) — unhiding is a UI decision,
   not an engineering lift.
 
 ### (c) First three concrete steps in this repo
 
-1. **Unhide the panel** (delete/flip the `application.py:2893` line — check
-   `ogp-config-and-flags` for the hidden-feature-toggle conventions), then
+1. **Unhide the panel** (delete/flip that one line — see `ogp-config-and-flags`
+   for the hidden-feature-toggle conventions), then
    author ~5 more symbols exercising the DSL's edges (`choice` params, nested
    `repeat`, `circle` elements) to stress the format before third parties do.
 2. **Formal validation surface**: write an actual JSON Schema for the symbol

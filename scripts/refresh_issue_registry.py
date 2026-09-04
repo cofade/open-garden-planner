@@ -73,12 +73,16 @@ def _fetch(numbers: list[int]) -> dict[str, dict]:
         # exit code; only bail if there is no JSON to trust at all.
         try:
             payload = json.loads(result.stdout)
-        except json.JSONDecodeError:
+            repo = payload["data"]["repository"]
+        except (json.JSONDecodeError, KeyError, TypeError):
+            # No usable "data.repository" at all (auth failure, bad scope, a
+            # malformed query) — as opposed to the per-alias errors handled
+            # below, which still leave "data.repository" full of the other
+            # resolved aliases.
             raise RuntimeError(
-                f"gh api graphql produced no JSON (exit {result.returncode}): "
-                f"{result.stderr.strip()}"
+                f"gh api graphql returned nothing usable (exit "
+                f"{result.returncode}): {result.stderr.strip() or result.stdout.strip()}"
             ) from None
-        repo = payload["data"]["repository"]
         for n in chunk:
             entry = repo.get(f"n{n}")
             if entry is None:

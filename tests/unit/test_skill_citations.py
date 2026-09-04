@@ -200,6 +200,53 @@ def test_file_line_citation_with_generic_symbol_needs_matching_literal(
     assert any("smart_symbols" in e for e in errors)
 
 
+def test_file_line_citation_literal_must_be_NEAR_the_symbol_not_just_in_window(
+    tmp_path: Path,
+) -> None:
+    """Stronger regression than the above: the literal genuinely exists
+    somewhere in the 300-line window (so a naive "literal found anywhere in
+    the window" check would wrongly pass) but nowhere near any occurrence of
+    the symbol — only a call tied to a DIFFERENT literal is nearby. Proximity
+    to the specific call, not mere co-membership in the window, is what must
+    be required.
+    """
+    src = tmp_path / "src" / "pkg"
+    src.mkdir(parents=True)
+    lines = ["# padding\n"] * 400
+    lines[4] = 'set_panel_visible("plant_details", True)\n'
+    lines[199] = "# note: smart_symbols used to live here\n"
+    (src / "mod.py").write_text("".join(lines), encoding="utf-8")
+    _write_corpus_file(
+        tmp_path, 'See `pkg/mod.py:5` `set_panel_visible("smart_symbols", False)`.\n'
+    )
+
+    errors = check_file_line_refs(tmp_path, find_corpus_files(tmp_path))
+
+    assert any("smart_symbols" in e for e in errors)
+
+
+def test_file_line_citation_extracts_call_name_not_receiver(tmp_path: Path) -> None:
+    """Regression: symbol extraction used to take the leading identifier of
+    the cited snippet, so `self._x.set_panel_visible(...)` checked for
+    "self" — trivially present in every Python file — instead of the call
+    actually being cited. No string literal in the snippet here, so the
+    literal-proximity check (a separate safety net) can't mask the bug:
+    this fails or passes purely on which identifier got extracted.
+    """
+    src = tmp_path / "src" / "pkg"
+    src.mkdir(parents=True)
+    lines = ["    self.value = 1\n"] * 20  # "self" on every line; no such method
+    (src / "mod.py").write_text("".join(lines), encoding="utf-8")
+    _write_corpus_file(
+        tmp_path,
+        "See `pkg/mod.py:5` `self._sidebar_controller.set_panel_visible(mode)`.\n",
+    )
+
+    errors = check_file_line_refs(tmp_path, find_corpus_files(tmp_path))
+
+    assert any("set_panel_visible" in e for e in errors)
+
+
 def test_file_line_citation_with_drifted_line_but_surviving_symbol_passes(
     tmp_path: Path,
 ) -> None:

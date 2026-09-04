@@ -45,7 +45,9 @@ ADR_INDEX_PATH = "docs/09-architecture-decisions/README.md"
 FR_INDEX_PATH = "docs/functional-requirements.md"
 ISSUE_REGISTRY_PATH = "tests/data/issue_registry.json"
 
-# (source file relative to repo root, exact raw citation text) -> reason.
+# (source file relative to repo root, citation key) -> reason. The key is the
+# exact matched text (match.group(0)) for every check except file:line, which
+# keys on "path:line(s)" with no backticks/symbol (see check_file_line_refs).
 # Mirrors the exemption-list convention in tests/unit/test_settings_chokepoint.py
 # (STORE_CLASS_EXEMPT_TESTS + its test_no_exemption_is_dead): every entry
 # states why it is exempt, and test_skill_citations.py's own
@@ -382,8 +384,8 @@ def check_issue_refs(
             if entry is None:
                 errors.append(
                     f"{rel_file}:{line}: '{raw}' does not match any known "
-                    f"issue or PR (refresh {ISSUE_REGISTRY_PATH} if this is "
-                    "genuinely new)"
+                    f"issue or PR ({ISSUE_REGISTRY_PATH} is stale — run "
+                    "scripts/refresh_issue_registry.py if this is genuinely new)"
                 )
                 continue
             if keyword == "PR" and not entry["is_pr"]:
