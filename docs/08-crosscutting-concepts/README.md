@@ -503,6 +503,18 @@ second copy of a gate list is how a gate goes missing.
 Verify a guard of this kind by reintroducing the defect and watching it go red;
 a guard that has never been observed failing is an assertion, not a test.
 
+**Documentation identifiers are gated like code.** `tests/unit/test_skill_citations.py`
+(`scripts/check_skill_citations.py`, issue #336) resolves every `§N.M`/`section N.M`,
+`ADR-0NN`, `FR-*`, `file.py:line`, and `#NNN` citation in the `SKILL.md` files
+(both `.claude/skills/` and `.agents/skills/`) plus `CLAUDE.md`/`AGENTS.md` against
+the real headings, ADR index, FR index, source tree, and a committed GitHub
+snapshot (`tests/data/issue_registry.json`, refreshed via
+`scripts/refresh_issue_registry.py`). It resolves *identifiers*, not *claims* — a
+citation only has to point at something that still exists, tolerantly (a
+`file.py:line` citation passes if its named symbol is found within 300 lines of
+the cited line, so ordinary refactor churn doesn't cry wolf). §11.4 records the
+rot rate that motivated it.
+
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).

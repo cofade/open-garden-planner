@@ -54,7 +54,7 @@ single `README.md` — there are no per-ADR or per-chapter sub-files.
 | ADR register | `docs/09-architecture-decisions/README.md` | **All** ADRs (ADR-001…034) in this ONE file — append new ADRs here, never create a separate file |
 | Quality requirements | `docs/10-quality-requirements/README.md` | Quality scenarios |
 | Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register, **§11.4 Known Development Pitfalls** (the hard-won-lessons log) |
-| Glossary | `docs/12-glossary/README.md` | §12.1 terms, §12.2 keyboard shortcuts, §12.3 references. NOTE: AGENTS.md's table says `docs/12-glossary.md` — the real path is the directory form |
+| Glossary | `docs/12-glossary/README.md` | §12.1 terms, §12.2 keyboard shortcuts, §12.3 references |
 | Roadmap | `docs/roadmap.md` | User stories, acceptance criteria, per-US completion notes, "Docs updated on completion" tables |
 | FR register | `docs/functional-requirements.md` | Numbered FR-* requirements (~289 FR references), the specification of user-visible capability |
 | Translation guide | `docs/TRANSLATING.md` | How to add a new language (`.ts`/`.qm` pipeline) |

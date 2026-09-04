@@ -71,7 +71,7 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 | **Bed-only features (menu, badge, …) — READ FIRST before adding any bed feature** | `docs/08-crosscutting-concepts/` § 8.14 + ADR-017     |
 | Functional requirements (FR-*)       | `docs/functional-requirements.md`                     |
 | Architecture decisions (ADRs)        | `docs/09-architecture-decisions/`                     |
-| Glossary                             | `docs/12-glossary.md`                                 |
+| Glossary                             | `docs/12-glossary/README.md`                          |
 | GitHub wiki (sync with roadmap)      | `../open-garden-planner.wiki/Roadmap.md`              |
 
 ### Skill Library (`.claude/skills/` and `.agents/skills/`)
@@ -109,6 +109,10 @@ below cover the rest.
 trigger in the skill's `description`. If a row and a `description` disagree, the
 `description` wins — fix the row.
 
+References inside skill files are gated: `tests/unit/test_skill_citations.py` checks
+that every `§N.M`, `ADR-0NN`, `FR-*`, `file.py:line`, and `#NNN` citation still
+resolves — keep them resolvable (§8.10).
+
 ### Claude/Codex context parity
 
 `CLAUDE.md` and `AGENTS.md` are a synchronized pair. If either file changes, update
@@ -134,7 +138,7 @@ drift instead of overwriting either agent's native file format.
 | Changed runtime behavior | `docs/06-runtime-view/` — update sequence diagrams |
 | New user-facing capability | `docs/functional-requirements.md` — add FR-* entry |
 | Architecture decision | `docs/09-architecture-decisions/` — create ADR |
-| New domain term | `docs/12-glossary.md` — add definition |
+| New domain term | `docs/12-glossary/` — add definition |
 
 **After solving issues, all lessons learned MUST be documented:**
 | Issue Category | Document In | Capture |
