@@ -510,19 +510,24 @@ and `.agents/skills/`) plus `CLAUDE.md`/`AGENTS.md` against the real headings, A
 index, FR index, and a committed GitHub snapshot (`tests/data/issue_registry.json`,
 refreshed via `scripts/refresh_issue_registry.py`) — plus every `` `file.py:line` ``
 citation that is actually spelled in the gated form: `` `path.py:N` `` immediately
-followed on the same line by a backtick-quoted symbol, e.g. `` `core/commands.py:71`
-`execute` ``. **A `file.py:line` citation with no trailing symbol is rejected
+followed on the same line by a backtick-quoted symbol, e.g. `` `core/object_types.py:671`
+`is_bed_type` ``. **A `file.py:line` citation with no trailing symbol is rejected
 outright** — an earlier version of this gate made the symbol optional and fell back
-to a line-count-only check, which is how a real, wrong-by-76-lines citation
-(`core/object_types.py:595/608/622`) sat undetected even after the gate shipped (see
+to a line-count-only check, which is how that same citation, then wrong by 76 lines
+(`core/object_types.py:595/608/622`), sat undetected even after the gate shipped (see
 §11.4). A citation spelled out in prose, or as a markdown link (`` [text](path.py#L123) ``),
 is invisible to this gate entirely — the same blind spot the i18n gate has for a
 string that never reaches `tr()`; normalize a citation into the gated form to bring
 it under the gate. It resolves *identifiers*, not *claims* — a citation only has to
 point at something that still exists, tolerantly (a `file.py:line` citation passes
 if its named symbol, plus any string literal alongside it, is found within 20 lines
-of the cited line — small enough to catch real drift, generous enough that trivial
-churn doesn't cry wolf). §11.4 records the rot rate that motivated it.
+of the cited line — small enough to catch every drift incident measured so far,
+generous enough that trivial churn doesn't cry wolf). It is **not** a check on how
+*selective* the named symbol is: a citation naming a short, common identifier in a
+large file (e.g. `execute` in a 2800-line command module) still resolves against a
+large fraction of that file's possible line numbers — real but weak protection,
+tracked as a named residual rather than a false "resolved" claim (§11.4). §11.4 also
+records the rot rate that motivated the gate.
 
 ## 8.11 Security Scanning (SAST)
 

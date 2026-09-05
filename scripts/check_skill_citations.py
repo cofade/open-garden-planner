@@ -37,11 +37,24 @@ form to bring it under the gate, the same way a string has to go through
 reaches it" blind spot); the same is true of a markdown-link citation
 (``[text](path.py#L123)``) — a different unwatched syntax, not a different
 degree of protection.
+
+Named residual, not swept under the fix: the window controls for drift
+*distance*, not symbol *selectivity*. A citation naming a short, common
+identifier in a large file is real but weak protection — ``execute`` in
+``core/commands.py`` (2861 lines) occurs on 76 of them, so even the 20-line
+window lets a citation to it resolve against ~82% of that file's possible
+line numbers. Every citation in this corpus today sits at distance 0 from
+its symbol (verified), so this is not live rot — but it is a known limit of
+"symbol found nearby," not "symbol found precisely," and the honest fix is
+a selectivity rule (reject a match against more than a couple of candidate
+lines, or require a ``def``/``class`` form) that this issue does not
+implement (see §11.4).
 """
 
 from __future__ import annotations
 
 import json
+import keyword
 import re
 import sys
 from pathlib import Path
@@ -170,14 +183,17 @@ def _is_excepted(rel_file: str, raw: str) -> bool:
 def _extract_symbol(text: str) -> str | None:
     """The identifier a cited snippet is actually about: the name of its
     last call (``self._x.set_panel_visible(...)`` -> ``set_panel_visible``,
-    not ``self``), or its last bare identifier if it names no call at all
-    (a class name like ``ResizeItemCommand``).
+    not ``self``), or its last non-keyword bare identifier if it names no
+    call at all (a class name like ``ResizeItemCommand``). A bare Python
+    keyword (``return``, ``if``, ``class``, ...) is rejected as too generic
+    to check anything — ``return`` alone appears on ~5% of lines in a
+    typical module, which is not a citation, it's a coin flip.
     """
 
-    calls = _CALL_NAME_RE.findall(text)
+    calls = [c for c in _CALL_NAME_RE.findall(text) if not keyword.iskeyword(c)]
     if calls:
         return calls[-1]
-    names = _BARE_IDENTIFIER_RE.findall(text)
+    names = [n for n in _BARE_IDENTIFIER_RE.findall(text) if not keyword.iskeyword(n)]
     return names[-1] if names else None
 
 

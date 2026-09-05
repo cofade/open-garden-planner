@@ -424,3 +424,28 @@ def test_multiline_citation_requires_symbol_near_every_cited_line(
     errors = check_file_line_refs(tmp_path, find_corpus_files(tmp_path))
 
     assert any("shared_helper" in e for e in errors)
+
+
+def test_seventy_six_line_drift_with_correct_symbol_is_rejected(
+    tmp_path: Path,
+) -> None:
+    """Directly pins the window-size choice against the exact bug shape that
+    motivated it (#336 round 3/4): a citation carries the *right* symbol,
+    but the cited line has drifted 76 lines from where that symbol actually
+    lives. This must fail — a wider window (the first version of this gate
+    shipped with 300) would let it through, which is precisely how
+    core/object_types.py:595/608/622 sat wrong, undetected, even with a
+    symbol attached. Reject on purpose; a passing case here would mean the
+    window regressed back to "generous" instead of "small enough to catch
+    real drift" — see the §11.4 entry this fixture is modeled on.
+    """
+    src = tmp_path / "src" / "pkg"
+    src.mkdir(parents=True)
+    lines = ["# padding\n"] * 800
+    lines[670] = "def is_bed_type():\n"  # real line: 671
+    (src / "mod.py").write_text("".join(lines), encoding="utf-8")
+    _write_corpus_file(tmp_path, "See `pkg/mod.py:595` `is_bed_type`.\n")
+
+    errors = check_file_line_refs(tmp_path, find_corpus_files(tmp_path))
+
+    assert any("is_bed_type" in e for e in errors)

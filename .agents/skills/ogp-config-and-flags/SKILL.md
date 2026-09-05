@@ -188,7 +188,7 @@ Source: `src/open_garden_planner/core/project.py`.
 
 ### FILE_VERSION
 
-- Current: **`FILE_VERSION = "1.4"`** (line 34). 1.4 = Phase 13 Package B's
+- Current: **`FILE_VERSION = "1.4"`** (line 35). 1.4 = Phase 13 Package B's
   `bezier` and `arc` item types; v1.3 files load transparently.
 - **What bumps it:** only changes an older app could *misread* — new item
   types, changed geometry semantics. **What does NOT bump it:** additive

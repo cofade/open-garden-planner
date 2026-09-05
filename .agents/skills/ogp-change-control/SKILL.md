@@ -36,7 +36,7 @@ Facts date-stamped **as of 2026-09-05**: released version **v1.27.7** (matching
 | **senior-reviewer** | The repo's adversarial review agent (`.codex/agents/senior-reviewer.toml`, P0/P1/P2 severity discipline). A clean pass is a hard gate before any PR. |
 | **P0 / P1 / P2** | Review severities: P0 blocks merge (correctness, data loss, untranslated user-facing strings); P1 should be fixed before merge; P2 is a nit. |
 | **i18n gate** | `tests/unit/test_i18n.py::TestTranslationFiles::test_german_ts_has_no_unfinished` — fails if any registered UI string lacks a German translation. |
-| **FILE_VERSION** | The `.ogp` save-file format version (`"1.4"` as of 2026-07-03). Distinct from the app version. New `.ogp` keys are added *additively* without bumping it whenever old versions can safely ignore them. |
+| **FILE_VERSION** | The `.ogp` save-file format version (`"1.4"` as of 2026-09-05). Distinct from the app version. New `.ogp` keys are added *additively* without bumping it whenever old versions can safely ignore them. |
 | **Manual-test sovereignty** | The user's hands-on test of the built app is the final gate. It has overturned merged designs before (see below); automated green is necessary, never sufficient. |
 
 ## 1. Classifying a change

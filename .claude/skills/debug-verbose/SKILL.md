@@ -367,11 +367,11 @@ Three brand-new fields were declared on the dataclass (US-12.10d) but never adde
 - Pixmap rendering covering the border (no — pen has alpha 220).
 - Selection-handle code stealing focus (irrelevant to paint).
 
-**Key signal**: instrumenting paint() showed the border code at line 317 *never ran* for raised beds. That code is unconditional within `is_bed_type` — so something earlier was returning.
+**Key signal**: instrumenting paint() showed the `ui/canvas/items/rectangle_item.py:349` `_draw_soil_mismatch_border` call *never ran* for raised beds. That code is unconditional within `is_bed_type` — so something earlier was returning.
 
-**Root cause**: `ui/canvas/items/rectangle_item.py:321` `return` — RAISED_BED is rendered as a *furniture pixmap* (the wooden-frame look), and that branch had an early `return` at the end of the pixmap block. Every line below that — grid overlay, rotation indicator, *and the soil mismatch border* — was bypassed for raised beds. The original code reviewer of US-12.10d wired the border at line 317 thinking it was reachable for all bed types.
+**Root cause**: an early `return` at the end of the RAISED_BED furniture-pixmap block bypassed it — RAISED_BED is rendered as a *furniture pixmap* (the wooden-frame look), and that branch returned before reaching the border. Every line below that — grid overlay, rotation indicator, *and the soil mismatch border* — was bypassed for raised beds. The original code reviewer of US-12.10d wired the border thinking it was reachable for all bed types.
 
-**Fix**: Add a second `_draw_soil_mismatch_border` call *inside* the early-return branch, just before the `return`. Both the pixmap path and the standard path now paint the border.
+**Fix**: Add a second `_draw_soil_mismatch_border` call *inside* the early-return branch, just before the `return` — now `ui/canvas/items/rectangle_item.py:320` `_draw_soil_mismatch_border`. Both the pixmap path and the standard path now paint the border.
 
 **Lesson**: When wiring a new draw call into an existing `paint()` method, search the method for *every* `return` statement and confirm each control-flow path reaches your new code. Better: factor reusable post-paint hooks into a method called at every exit point. An early-return inside an `if` block is a classic stale-call site for new features added later.
 
@@ -409,7 +409,7 @@ Three brand-new fields were declared on the dataclass (US-12.10d) but never adde
 
 **Root cause**: `ui/canvas/canvas_scene.py:939` `_refresh_layer_z` set every item's z to `layer.z_order * 100` (since revised by #338/ADR-043 into a per-item ranked z within that band — §8.25). Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
 
-**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case at line 658) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
+**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case, now `ui/canvas/canvas_scene.py:899` `ROOF_RIDGE` inside `_stack_entries` since #338/ADR-043's rewrite — §8.25) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
 
 **Lesson**: Identical zValues are a footgun across save/load boundaries because `QGraphicsScene` tie-breaks by *insertion order*, which is **not stable** between live mutation order and JSON-load order. Whenever a parent-child draw relationship matters, encode it explicitly via `parent.zValue() + 1` — never rely on "I inserted them in the right order, it'll just work". Pattern: anywhere `_update_items_z_order` touches multiple item categories, add an explicit ordering pass per parent-child relationship.
 
