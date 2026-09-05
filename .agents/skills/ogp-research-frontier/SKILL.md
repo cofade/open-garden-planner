@@ -239,17 +239,15 @@ evaluator — but zero ecosystem around it.
   `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI.
   Note: validation today is a **pytest test, not a formal JSON Schema** — the
   schema artifact is candidate work, not an existing asset.
-- The panel is hidden by one line:
-  `self._sidebar_controller.set_panel_visible("smart_symbols", False)` at
-  `src/open_garden_planner/app/application.py:1574` (line number valid at
-  v1.23.0). Persistence, properties editing, and DXF BLOCK/INSERT export all
+- The panel is hidden by one line: `application.py:2893` `set_panel_visible("smart_symbols", False)`.
+  Persistence, properties editing, and DXF BLOCK/INSERT export all
   ship and are tested (AGENTS.md US-C4 entry) — unhiding is a UI decision,
   not an engineering lift.
 
 ### (c) First three concrete steps in this repo
 
-1. **Unhide the panel** (delete/flip the `application.py:1574` line — check
-   `ogp-config-and-flags` for the hidden-feature-toggle conventions), then
+1. **Unhide the panel** (delete/flip that one line — see `ogp-config-and-flags`
+   for the hidden-feature-toggle conventions), then
    author ~5 more symbols exercising the DSL's edges (`choice` params, nested
    `repeat`, `circle` elements) to stress the format before third parties do.
 2. **Formal validation surface**: write an actual JSON Schema for the symbol

@@ -20,9 +20,9 @@ templates to copy. This skill is about *where knowledge lives and how it is writ
 For *what evidence counts as validation* see `ogp-validation-and-qa`; for *process
 sequencing* (branch → review → draft PR → merge) see `ogp-change-control`.
 
-Facts date-stamped **as of 2026-07-04**: app version v1.23.0, arc42 chapters 01–12 each
-a single `README.md`, ADR register runs ADR-001 … ADR-034 (all in one file), FR register
-runs through FR-26 / FR-AGENT-09, §8 crosscutting sections run §8.1 … §8.19.
+Facts date-stamped **as of 2026-09-05**: app version v1.27.7, arc42 chapters 01–12 each
+a single `README.md`, ADR register runs ADR-001 … ADR-043 (all in one file), FR register
+runs through FR-31 / FR-AGENT-16, §8 crosscutting sections run §8.1 … §8.25.
 
 ## When NOT to use this skill
 
@@ -50,13 +50,13 @@ single `README.md` — there are no per-ADR or per-chapter sub-files.
 | Building block view | `docs/05-building-block-view/README.md` | Module structure, project tree, black-box descriptions of every component |
 | Runtime view | `docs/06-runtime-view/README.md` | Sequence diagrams, runtime behavior |
 | Deployment view | `docs/07-deployment-view/README.md` | CI/CD, installer, release process |
-| Crosscutting concepts | `docs/08-crosscutting-concepts/README.md` | §8.1–§8.19: coordinate system, commands, **i18n (§8.3)**, **QGraphicsView patterns (§8.9)**, **integration-test policy (§8.10)**, **SAST (§8.11)**, **bed-only features (§8.14)**, sidebar accordion (§8.17), smart symbols (§8.18), agent API (§8.19) |
-| ADR register | `docs/09-architecture-decisions/README.md` | **All** ADRs (ADR-001…034) in this ONE file — append new ADRs here, never create a separate file |
+| Crosscutting concepts | `docs/08-crosscutting-concepts/README.md` | §8.1–§8.25: coordinate system, commands, **i18n (§8.3)**, **QGraphicsView patterns (§8.9)**, **integration-test policy (§8.10)**, **SAST (§8.11)**, **bed-only features (§8.14)**, sidebar accordion (§8.17), smart symbols (§8.18), agent API (§8.19), icon/sprite/texture pipelines (§8.21–§8.24), stacking order (§8.25) |
+| ADR register | `docs/09-architecture-decisions/README.md` | **All** ADRs (ADR-001…043) in this ONE file — append new ADRs here, never create a separate file |
 | Quality requirements | `docs/10-quality-requirements/README.md` | Quality scenarios |
 | Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register, **§11.4 Known Development Pitfalls** (the hard-won-lessons log) |
-| Glossary | `docs/12-glossary/README.md` | §12.1 terms, §12.2 keyboard shortcuts, §12.3 references. NOTE: AGENTS.md's table says `docs/12-glossary.md` — the real path is the directory form |
+| Glossary | `docs/12-glossary/README.md` | §12.1 terms, §12.2 keyboard shortcuts, §12.3 references |
 | Roadmap | `docs/roadmap.md` | User stories, acceptance criteria, per-US completion notes, "Docs updated on completion" tables |
-| FR register | `docs/functional-requirements.md` | Numbered FR-* requirements (~289 FR references), the specification of user-visible capability |
+| FR register | `docs/functional-requirements.md` | Numbered FR-* requirements, the specification of user-visible capability |
 | Translation guide | `docs/TRANSLATING.md` | How to add a new language (`.ts`/`.qm` pipeline) |
 | AGENTS.md | `AGENTS.md` (repo root) | Quick reference commands, workflow, phase progress tables. **A maintained doc** — its own "Maintaining this file" note requires updating the progress table when US status changes and keeping commands current |
 | Debug case-study log | `.agents/skills/debug-verbose/SKILL.md` | Growing list of `## Case study:` entries — one per non-trivial bug fixed |

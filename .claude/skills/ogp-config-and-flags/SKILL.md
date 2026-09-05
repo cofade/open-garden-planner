@@ -188,7 +188,7 @@ Source: `src/open_garden_planner/core/project.py`.
 
 ### FILE_VERSION
 
-- Current: **`FILE_VERSION = "1.4"`** (line 34). 1.4 = Phase 13 Package B's
+- Current: **`FILE_VERSION = "1.4"`** (line 35). 1.4 = Phase 13 Package B's
   `bezier` and `arc` item types; v1.3 files load transparently.
 - **What bumps it:** only changes an older app could *misread* — new item
   types, changed geometry semantics. **What does NOT bump it:** additive
@@ -229,9 +229,9 @@ visibility calls.
 
 | Toggle | Where | Status |
 |---|---|---|
-| **Smart Symbols sidebar panel hidden** | `application.py` line ~1574: `self._sidebar_controller.set_panel_visible("smart_symbols", False)` | **experimental / deferred UI** (US-C4). Engine, persistence, DXF export, and properties editing all ship and are tested; symbols in existing `.ogp` files still regenerate. Re-enable by deleting that one line (the comment says exactly this). |
+| **Smart Symbols sidebar panel hidden** | `application.py:2893` `set_panel_visible("smart_symbols", False)` | **experimental / deferred UI** (US-C4). Engine, persistence, DXF export, and properties editing all ship and are tested; symbols in existing `.ogp` files still regenerate. Re-enable by deleting that one line (the comment says exactly this). |
 | Contextual panels hidden until relevant selection | `set_panel_visible(key, relevant)` for `plant_details` / `companion` / `crop_rotation` in the selection updaters (ADR-030) | production behavior — not a bug when they're absent with nothing selected |
-| Satellite menu action disabled | `application.py` ~line 5393 when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
+| Satellite menu action disabled | `application.py:5402` `_update_satellite_menu_state` when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
 | Nearest / perpendicular / tangent snap default-OFF | §1 snap table | production, opt-in |
 
 If "a feature seems disabled", check this table before debugging.
