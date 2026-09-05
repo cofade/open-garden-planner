@@ -26,9 +26,9 @@ if str(_SCRIPTS_DIR) not in sys.path:
 
 from check_skill_citations import (  # noqa: E402
     _ISSUE_REF_RE,
-    CORPUS_GLOBS,
     ISSUE_REGISTRY_PATH,
     REPO_ROOT,
+    find_corpus_files,
 )
 
 # The Windows dev machine's gh isn't always on PATH; fall back to what is.
@@ -38,11 +38,14 @@ REPO = "open-garden-planner"
 
 
 def _collect_referenced_numbers(root: Path) -> list[int]:
+    # find_corpus_files, not a private glob loop, so this always scans the
+    # exact same file set check_skill_citations.py itself checks (including
+    # its HOST_ONLY_SKILLS exclusion) — two definitions of "the corpus"
+    # drifting apart is the same bug class this whole gate exists to catch.
     numbers: set[int] = set()
-    for pattern in CORPUS_GLOBS:
-        for path in root.glob(pattern):
-            text = path.read_text(encoding="utf-8")
-            numbers |= {int(m.group(2)) for m in _ISSUE_REF_RE.finditer(text)}
+    for path in find_corpus_files(root):
+        text = path.read_text(encoding="utf-8")
+        numbers |= {int(m.group(2)) for m in _ISSUE_REF_RE.finditer(text)}
     return sorted(numbers)
 
 

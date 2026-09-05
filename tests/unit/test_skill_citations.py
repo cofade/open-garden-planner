@@ -271,12 +271,13 @@ def test_file_line_citation_with_drifted_line_but_surviving_symbol_passes(
 ) -> None:
     src = tmp_path / "src" / "pkg"
     src.mkdir(parents=True)
-    lines = ["# padding\n"] * 500
-    lines[299] = "def still_here():\n"
+    lines = ["# padding\n"] * 120
+    lines[109] = "def still_here():\n"
     (src / "mod.py").write_text("".join(lines), encoding="utf-8")
-    # Cited line (100) is 200 lines from the symbol's real line (300) — real
-    # drift (a function moved within its file), but within the tolerance
-    # window, unlike the #336 case this gate actually caught (~1300 lines).
+    # Cited line (100) is 10 lines from the symbol's real line (110) — real
+    # drift (e.g. a docstring added just above it), but inside the small
+    # tolerance window, unlike the #336 case this gate actually caught
+    # (76 and ~1300 lines — see the §11.4 entry on why the window is small).
     _write_corpus_file(tmp_path, "See `pkg/mod.py:100` `still_here()`.\n")
 
     errors = check_file_line_refs(tmp_path, find_corpus_files(tmp_path))
@@ -379,3 +380,47 @@ def test_bare_issue_reference_does_not_require_open_state(tmp_path: Path) -> Non
     )
 
     assert errors == []
+
+
+def test_symbol_span_must_stay_on_the_same_line_as_the_citation(
+    tmp_path: Path,
+) -> None:
+    """Regression: the optional-symbol connector used to be `\\s*`, which
+    crosses newlines — so a citation at the end of one line could bind an
+    unrelated code span starting the next line as its "symbol", and that
+    span would never be checked as its own citation. The connector must be
+    same-line only, so a wrapped citation is correctly seen as having no
+    symbol (and rejected) rather than silently borrowing one.
+    """
+    src = tmp_path / "src" / "pkg"
+    src.mkdir(parents=True)
+    (src / "mod.py").write_text("x = 1\n" * 20, encoding="utf-8")
+    _write_corpus_file(
+        tmp_path,
+        "See `pkg/mod.py:5`\n`some_other_function()` on the next line.\n",
+    )
+
+    errors = check_file_line_refs(tmp_path, find_corpus_files(tmp_path))
+
+    assert any("no trailing" in e and "symbol" in e for e in errors)
+
+
+def test_multiline_citation_requires_symbol_near_every_cited_line(
+    tmp_path: Path,
+) -> None:
+    """Regression: a multi-line citation (`foo.py:10/20`) names two separate
+    claims, not one claim with a spare — the symbol must resolve near BOTH
+    cited lines, or a rotted second line hides behind a sound first one.
+    """
+    src = tmp_path / "src" / "pkg"
+    src.mkdir(parents=True)
+    lines = ["# padding\n"] * 40
+    lines[4] = "def shared_helper():\n"  # line 5: real
+    # line 35 (cited as the second occurrence) is well outside line 5's
+    # window, and has no such symbol nearby either.
+    (src / "mod.py").write_text("".join(lines), encoding="utf-8")
+    _write_corpus_file(tmp_path, "See `pkg/mod.py:5/35` `shared_helper`.\n")
+
+    errors = check_file_line_refs(tmp_path, find_corpus_files(tmp_path))
+
+    assert any("shared_helper" in e for e in errors)
