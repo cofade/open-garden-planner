@@ -17,9 +17,14 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
-from check_skill_citations import (
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+from check_skill_citations import (  # noqa: E402
     _ISSUE_REF_RE,
     CORPUS_GLOBS,
     ISSUE_REGISTRY_PATH,
@@ -74,11 +79,13 @@ def _fetch(numbers: list[int]) -> dict[str, dict]:
         try:
             payload = json.loads(result.stdout)
             repo = payload["data"]["repository"]
-        except (json.JSONDecodeError, KeyError, TypeError):
-            # No usable "data.repository" at all (auth failure, bad scope, a
-            # malformed query) — as opposed to the per-alias errors handled
-            # below, which still leave "data.repository" full of the other
-            # resolved aliases.
+            if repo is None:
+                raise ValueError("data.repository is null")
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            # No usable "data.repository" at all (auth failure, bad owner/repo
+            # scope, a malformed query) — as opposed to the per-alias errors
+            # handled below, which still leave "data.repository" full of the
+            # other resolved aliases.
             raise RuntimeError(
                 f"gh api graphql returned nothing usable (exit "
                 f"{result.returncode}): {result.stderr.strip() or result.stdout.strip()}"

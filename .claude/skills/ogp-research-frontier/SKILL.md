@@ -239,10 +239,8 @@ evaluator — but zero ecosystem around it.
   `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI.
   Note: validation today is a **pytest test, not a formal JSON Schema** — the
   schema artifact is candidate work, not an existing asset.
-- The panel is hidden by one line: `application.py:2893`
-  `set_panel_visible("smart_symbols", False)` (`test_skill_citations`, #336,
-  checks this citation still exists — within its stated ±300-line drift
-  tolerance, not exactly). Persistence, properties editing, and DXF BLOCK/INSERT export all
+- The panel is hidden by one line: `application.py:2893` `set_panel_visible("smart_symbols", False)`.
+  Persistence, properties editing, and DXF BLOCK/INSERT export all
   ship and are tested (CLAUDE.md US-C4 entry) — unhiding is a UI decision,
   not an engineering lift.
 

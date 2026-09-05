@@ -163,6 +163,23 @@ def test_file_line_citation_to_deleted_file_fails(tmp_path: Path) -> None:
     assert any("does not exist under" in e for e in errors)
 
 
+def test_file_line_citation_without_a_symbol_span_is_rejected(tmp_path: Path) -> None:
+    """A bare `file.py:line` citation only proves "the file has N lines" —
+    worthless on a large file, and how core/object_types.py:595/608/622 sat
+    wrong by 76 lines undetected (#336 round-3 review). A symbol span is
+    mandatory now; this pins that the gate demands one rather than silently
+    downgrading to a line-count-only check.
+    """
+    src = tmp_path / "src" / "pkg"
+    src.mkdir(parents=True)
+    (src / "mod.py").write_text("x = 1\n" * 20, encoding="utf-8")
+    _write_corpus_file(tmp_path, "See `pkg/mod.py:5` for the fix.\n")
+
+    errors = check_file_line_refs(tmp_path, find_corpus_files(tmp_path))
+
+    assert any("no trailing" in e and "symbol" in e for e in errors)
+
+
 def test_file_line_citation_resolves_outside_src(tmp_path: Path) -> None:
     """Regression: the resolver used to search src/ only, so a citation to a
     real file under tests/ or scripts/ was reported as nonexistent.
@@ -170,7 +187,9 @@ def test_file_line_citation_resolves_outside_src(tmp_path: Path) -> None:
     tests_dir = tmp_path / "tests" / "unit"
     tests_dir.mkdir(parents=True)
     (tests_dir / "test_thing.py").write_text("def test_it():\n    pass\n" * 10, encoding="utf-8")
-    _write_corpus_file(tmp_path, "See `tests/unit/test_thing.py:1` for the fixture.\n")
+    _write_corpus_file(
+        tmp_path, "See `tests/unit/test_thing.py:1` `test_it` for the fixture.\n"
+    )
 
     errors = check_file_line_refs(tmp_path, find_corpus_files(tmp_path))
 
@@ -280,7 +299,7 @@ def test_file_line_citation_past_end_of_file_fails(tmp_path: Path) -> None:
     src = tmp_path / "src" / "pkg"
     src.mkdir(parents=True)
     (src / "mod.py").write_text("x = 1\n", encoding="utf-8")
-    _write_corpus_file(tmp_path, "See `pkg/mod.py:9999` for the fix.\n")
+    _write_corpus_file(tmp_path, "See `pkg/mod.py:9999` `x` for the fix.\n")
 
     errors = check_file_line_refs(tmp_path, find_corpus_files(tmp_path))
 

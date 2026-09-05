@@ -12,10 +12,16 @@ not try to verify that a citation's surrounding prose is still an accurate
 description of the cited thing — only that the thing named still exists.
 
 It is also syntactic, not semantic: a ``file.py:line`` citation is only
-checked when it appears in the single backtick-quoted form ``path.py:N``
-(optionally followed by a backtick-quoted symbol/snippet), searched under
-``src/``, ``tests/``, ``scripts/``, and ``installer/``. A citation spelled
-out in prose ("application.py line ~2893") is invisible to it — normalize a
+checked when it appears in the single backtick-quoted form ``path.py:N``,
+immediately followed on the same line by a backtick-quoted symbol/snippet
+(``path.py:N`` `` `symbol(...)` ``), searched under ``src/``, ``tests/``,
+``scripts/``, and ``installer/``. The symbol is what actually gets checked
+for drift (see ``_symbol_occurs``); a citation with no trailing symbol is
+rejected outright rather than silently downgraded to a worthless
+line-count-only check (a lesson learned the hard way — see the #336 §11.4
+entry: a bare ``core/object_types.py:595/608/622`` sat wrong by 76 lines,
+undetected, until this rule was added). A citation spelled out in prose
+("application.py line ~2893") is invisible to it entirely — normalize a
 citation into the gated form to bring it under the gate, the same way a
 string has to go through ``tr()`` to be seen by the i18n gate (§8.3's own
 "a plain string never reaches it" blind spot).
@@ -25,8 +31,17 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+import sys
 from pathlib import Path
+
+# Import the sibling module by bare name regardless of how this module itself
+# was loaded (as __main__, or as scripts.check_skill_citations by pytest) —
+# same reasoning as test_icon_conformance.py's _load_script sys.path insert.
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+from check_agent_context import HOST_ONLY_SKILLS  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -72,8 +87,12 @@ _ADR_HEADING_RE = re.compile(r"^##\s+ADR-(\d{3})\b", re.MULTILINE)
 _FR_REF_RE = re.compile(r"\bFR-(?:([A-Z]+)-)?(\d+(?:/\d+)*)\b")
 _FR_HEADING_RE = re.compile(r"^#{2,6}\s+FR-([A-Z0-9-]+?)[:\s]", re.MULTILINE)
 _FR_BULLET_RE = re.compile(r"^-\s+\*\*FR-([A-Z0-9-]+?)\*\*", re.MULTILINE)
+# The optional trailing symbol must stay on the same line (`[ \t]*`, not
+# `\s*`) — otherwise an unrelated code span starting the next line/paragraph
+# gets bound as this citation's "symbol", and never gets checked as its own
+# citation at all.
 _FILE_LINE_RE = re.compile(
-    r"`((?:[\w.-]+/)*[\w.-]+\.py):(\d+(?:/\d+)*)`(?:\s*`([^`]+)`)?"
+    r"`((?:[\w.-]+/)*[\w.-]+\.py):(\d+(?:/\d+)*)`(?:[ \t]*`([^`]+)`)?"
 )
 # A bare `#1234` needs no keyword; when one *is* present, it must agree with
 # the registry (a citation this narrow and literal is not "clever about
@@ -100,17 +119,17 @@ _SYMBOL_WINDOW_LINES = 300
 _LITERAL_PROXIMITY_LINES = 2
 
 
-@dataclass(frozen=True)
-class Citation:
-    file: str
-    line: int
-    raw: str
-
-
 def find_corpus_files(root: Path = REPO_ROOT) -> list[Path]:
     files: list[Path] = []
     for pattern in CORPUS_GLOBS:
-        files.extend(sorted(root.glob(pattern)))
+        for path in sorted(root.glob(pattern)):
+            # Skip skills the host provides (Claude Code / Codex ship their
+            # own content for these) — this repo can't fix what it doesn't
+            # author, the same carve-out check_agent_context.py's own
+            # parity gate makes.
+            if path.parent.name in HOST_ONLY_SKILLS:
+                continue
+            files.append(path)
     return files
 
 
@@ -311,9 +330,28 @@ def check_file_line_refs(root: Path, corpus_files: list[Path]) -> list[str]:
                 )
                 continue
 
-            symbol = _extract_symbol(symbol_text) if symbol_text else None
-            literals = _STRING_LITERAL_RE.findall(symbol_text) if symbol_text else []
-            literals = [a or b for a, b in literals]
+            # A symbol span is what actually gets drift-checked (see
+            # _symbol_occurs); without one, all this citation can prove is
+            # "the file has at least N lines" — worthless on a 6700-line
+            # file, and it's how core/object_types.py:595/608/622 sat wrong
+            # by 76 lines undetected. Require one; route the rare legitimate
+            # exception through KNOWN_EXCEPTIONS like everything else here.
+            if not symbol_text:
+                errors.append(
+                    f"{rel_file}:{line}: '{raw}' has no trailing "
+                    "`symbol` span, so it is checked for nothing beyond "
+                    "line-count — add one (see the module docstring)"
+                )
+                continue
+
+            symbol = _extract_symbol(symbol_text)
+            if not symbol:
+                errors.append(
+                    f"{rel_file}:{line}: '{raw}' — trailing span "
+                    f"{symbol_text!r} has no extractable identifier"
+                )
+                continue
+            literals = [a or b for a, b in _STRING_LITERAL_RE.findall(symbol_text)]
 
             resolved = False
             reasons: list[str] = []
@@ -331,23 +369,20 @@ def check_file_line_refs(root: Path, corpus_files: list[Path]) -> list[str]:
                         "out of range"
                     )
                     continue
-                if symbol:
-                    windows_ok = []
-                    for cited_line in cited_lines:
-                        lo = max(0, cited_line - 1 - _SYMBOL_WINDOW_LINES)
-                        hi = min(total_lines, cited_line + _SYMBOL_WINDOW_LINES)
-                        windows_ok.append(
-                            _symbol_occurs(lines, lo, hi, symbol, literals)
-                        )
-                    if not any(windows_ok):
-                        reasons.append(
-                            f"symbol '{symbol}'"
-                            + (f" with literal(s) {literals}" if literals else "")
-                            + f" not found within {_SYMBOL_WINDOW_LINES} lines "
-                            f"of the cited line(s) in "
-                            f"{candidate.relative_to(root).as_posix()}"
-                        )
-                        continue
+                windows_ok = []
+                for cited_line in cited_lines:
+                    lo = max(0, cited_line - 1 - _SYMBOL_WINDOW_LINES)
+                    hi = min(total_lines, cited_line + _SYMBOL_WINDOW_LINES)
+                    windows_ok.append(_symbol_occurs(lines, lo, hi, symbol, literals))
+                if not any(windows_ok):
+                    reasons.append(
+                        f"symbol '{symbol}'"
+                        + (f" with literal(s) {literals}" if literals else "")
+                        + f" not found within {_SYMBOL_WINDOW_LINES} lines "
+                        f"of the cited line(s) in "
+                        f"{candidate.relative_to(root).as_posix()}"
+                    )
+                    continue
                 resolved = True
                 break
 

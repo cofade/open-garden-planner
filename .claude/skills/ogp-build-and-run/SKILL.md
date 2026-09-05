@@ -258,7 +258,7 @@ uninstaller copies any top-level `$INSTDIR\*.ogp` to
 | Default save/open/export dir | `<Documents>/Open Garden Planner` — or the open project's folder. EVERY file dialog must route through `app/paths.py` (`default_dialog_dir()` / `default_save_path()`), the single chokepoint; it never returns the CWD/install dir | `src/open_garden_planner/app/paths.py` (issue #199) |
 | Autosave (saved project) | Same directory as the project: `~autosave_{name}.ogp` | `src/open_garden_planner/services/autosave_service.py` |
 | Autosave (untitled) | System temp dir: `~autosave_untitled.ogp` | same |
-| QSettings | `QSettings("cofade", "Open Garden Planner")` → Windows registry `HKCU\Software\cofade\Open Garden Planner`; Linux `~/.config/cofade/Open Garden Planner.conf` (tests redirect to org `cofade_test`) | `app/settings.py:112`, `tests/conftest.py` |
+| QSettings | `QSettings("cofade", "Open Garden Planner")` → Windows registry `HKCU\Software\cofade\Open Garden Planner`; Linux `~/.config/cofade/Open Garden Planner.conf` (tests redirect to org `cofade_test`) | `app/settings.py:26` `create_qsettings`, `tests/conftest.py` |
 | App-data dir | Windows `%APPDATA%\OpenGardenPlanner`; Linux `$XDG_DATA_HOME`-or-`~/.local/share` `/OpenGardenPlanner`; macOS `~/Library/Application Support/OpenGardenPlanner` | `services/plant_library.py::get_app_data_dir()` |
 | User smart symbols | `<app-data>/smart_symbols/*.json` (drop-a-file extensible; bundled ones in `resources/data/smart_symbols/`) | `services/smart_symbol_library.py` |
 | Translations | `src/open_garden_planner/resources/translations/*.ts|.qm` | dir listing |
