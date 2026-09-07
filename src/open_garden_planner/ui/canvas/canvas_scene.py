@@ -651,6 +651,22 @@ class CanvasScene(QGraphicsScene):
         self._layers.append(layer)
         self.layers_changed.emit()
 
+    def get_layer_replacement(self, layer_id: UUID) -> Layer | None:
+        """Return the sibling layer used when ``layer_id`` is removed.
+
+        The replacement rule is shared by the GUI primitive and the undoable
+        delete command: deleting a non-bottom layer uses the top layer;
+        deleting the top layer uses the next layer. ``None`` means that the
+        requested layer is absent or is the only remaining layer.
+        """
+        for index, layer in enumerate(self._layers):
+            if layer.id != layer_id:
+                continue
+            if len(self._layers) <= 1:
+                return None
+            return self._layers[0] if index > 0 else self._layers[1]
+        return None
+
     def remove_layer(self, layer_id: UUID) -> bool:
         """Remove a layer by ID.
 
@@ -665,8 +681,11 @@ class CanvasScene(QGraphicsScene):
                 # Don't allow removing the last layer
                 if len(self._layers) <= 1:
                     return False
-                # Move items from this layer to another layer
-                replacement_layer = self._layers[0] if i > 0 else self._layers[1]
+                # Move items from this layer to another layer. The replacement
+                # is protected by the same invariant as DeleteLayerCommand.
+                replacement_layer = self.get_layer_replacement(layer_id)
+                if replacement_layer is None or replacement_layer.locked:
+                    return False
                 self._move_items_to_layer(layer_id, replacement_layer.id)
                 # Remove the layer
                 del self._layers[i]

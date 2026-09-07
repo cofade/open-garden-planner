@@ -65,15 +65,20 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from mcp.server.fastmcp.utilities.types import Image
 
+from open_garden_planner.agent_api import creates as agent_creates
 from open_garden_planner.agent_api import prompts as agent_prompts
 from open_garden_planner.agent_api import queries
 from open_garden_planner.agent_api.diagnostics import diagnostics_from_records
-from open_garden_planner.agent_api.mapping import plan_summary_from_snapshot
+from open_garden_planner.agent_api.mapping import (
+    layers_from_snapshot,
+    plan_summary_from_snapshot,
+)
 from open_garden_planner.agent_api.providers import AgentProviders
 from open_garden_planner.agent_api.render import DEFAULT_IMAGE_PX
 from open_garden_planner.agent_api.schema import (
     Diagnostic,
     ExportResult,
+    Layer,
     Measurement,
     ObjectDetail,
     ObjectRef,
@@ -250,10 +255,15 @@ def build_server(
 
     Args:
         writes_enabled: When true AND ``write_token`` is set, the scene-mutating
-            write tools (``create_object``/``move_object``/``delete_object``/``resize_object``/``rotate_object``/``set_species``/``set_parent_bed``) are registered. When
-            either is missing the write tools are omitted entirely — they don't
-            appear in the agent's tool list. This gating (plus the per-call
-            token check) is the D2 write gate ADR-033 requires.
+            write tools (``create_object``/``move_object``/``delete_object``/
+            ``resize_object``/``rotate_object``/``set_species``/
+            ``set_parent_bed``/``arrange_object`` and the US-D2.4 layer tools
+            ``set_object_layer``/``create_layer``/``rename_layer``/
+            ``delete_layer``/``set_active_layer``/``set_layer_property``) are
+            registered. When either is missing the write tools are omitted
+            entirely — they don't appear in the agent's tool list. This gating
+            (plus the per-call token check) is the D2 write gate ADR-033
+            requires.
         write_token: The bearer token every write call must present (see
             ``_require_write_auth``). Read tools never require it.
     """
@@ -431,6 +441,34 @@ def build_server(
         records = await anyio.to_thread.run_sync(providers.diagnostics)
         return diagnostics_from_records(records, kind=kind)
 
+    @mcp.tool()
+    async def list_layers() -> list[Layer]:
+        """List the plan's layers, top of the stack first (US-D2.4).
+
+        Each layer carries its stable id (address layers by this — names are
+        not unique), visibility, lock state, opacity, z-order, whether it is
+        the ACTIVE layer new objects land on, and its top-level object count.
+        The same list is embedded in get_plan_summary's 'layers' field.
+
+        A locked layer is a user-owned protection: objects on it cannot be
+        edited, moved onto, or deleted through the write tools, and the lock
+        itself can only be changed by the user in the app.
+        """
+        snapshot = await anyio.to_thread.run_sync(providers.snapshot)
+        return layers_from_snapshot(snapshot)
+
+    @mcp.tool()
+    async def list_creatable_types() -> list[dict[str, Any]]:
+        """List every object type the create_object tool accepts or refuses.
+
+        Each entry gives the semantic type, its canonical geometry family,
+        required and optional parameters, and (for deliberately excluded
+        types) the reason. Use this discovery tool instead of parsing the
+        create_object docstring or guessing whether a type wants dimensions
+        or vertices.
+        """
+        return agent_creates.list_creatable_types()
+
     # structured_output=False: Image is not pydantic-representable, so the
     # default schema-generation path crashes build_server() at decoration time
     # (verified against mcp 1.28.1). This skips schema/model creation and lets
@@ -455,7 +493,9 @@ def build_server(
                 region extends north to y + height (the scene is Y-up).
             width: Region width in cm.
             height: Region height in cm.
-            layers: Optional layer-name allowlist; unknown names are ignored.
+            layers: Optional allowlist of layer NAMES or layer IDS — both are
+                accepted (the id, from list_layers, is the unambiguous address
+                since names need not be unique); unknown entries are ignored.
                 Omit to render the current live layer visibility as-is.
             image_width_px: Output width in pixels, clamped to [128, 2048];
                 default 1024. Output height is derived from the region's
@@ -560,25 +600,25 @@ def build_server(
         @mcp.tool()
         async def create_object(
             object_type: str,
-            x: float,
-            y: float,
+            x: float | None = None,
+            y: float | None = None,
             width: float | None = None,
             height: float | None = None,
             radius: float | None = None,
             name: str | None = None,
             species: str | None = None,
+            points: list[list[float]] | None = None,
+            text: str | None = None,
+            box_dx: float | None = None,
+            box_dy: float | None = None,
         ) -> WriteResult:
-            """Create one plant or soil container on the plan.
+            """Create one object on the plan.
 
-            Supported object_type values (the whole list -- anything else is
-            rejected):
-
-            * Plants (round): TREE, SHRUB, PERENNIAL. 'radius' is optional --
-              omit it for the app's own default footprint (radius 100/50/30 cm
-              respectively).
-            * Rectangular soil containers: GARDEN_BED, RAISED_BED, CONTAINER,
-              WALL_PLANTER. Both 'width' and 'height' are required.
-            * Round soil container: CONTAINER_ROUND. 'radius' is required.
+            Call list_creatable_types first for the complete machine-readable
+            roster. Circles use centre + radius (plants may omit radius),
+            rectangles and ellipses use centre + width/height, polygons use
+            points or a rectangular footprint, polylines use points, and
+            GENERIC_CALLOUT uses a leader target (x/y) plus text.
 
             Position is the object's CENTRE, in the same scene frame the read
             tools report -- so you can place an object relative to one you just
@@ -598,9 +638,10 @@ def build_server(
 
             Args:
                 object_type: One of the names listed above.
-                x: Centre X in scene cm (a larger x is further east).
-                y: Centre Y in scene cm. CAD Y-up, so a larger y is further
-                    NORTH -- the same frame the read tools report.
+                x: Centre/leader-target X in scene cm, where applicable.
+                    Omit it for point-built polygons/polylines.
+                y: Centre/leader-target Y in scene cm, where applicable.
+                    Omit it for point-built polygons/polylines.
                 width: Width in cm. Required for rectangular types, rejected
                     for round ones.
                 height: Height in cm. Same rule as width.
@@ -609,6 +650,12 @@ def build_server(
                 name: Optional display name for the object.
                 species: Optional species name for a plant, e.g. 'Tomato'. A
                     match in the bundled database populates the plant's data.
+                points: Polygon/polyline vertices as ``[[x, y], ...]`` in
+                    scene cm. Polygons need at least three; polylines at least
+                    two. Do not pass width/height with explicit points.
+                text: Required callout text for GENERIC_CALLOUT.
+                box_dx: Optional callout text-box X offset from the leader tip.
+                box_dy: Optional callout text-box Y offset from the leader tip.
             """
             _require_write_auth(write_token)
             # Called by keyword: the provider takes eight positional args of
@@ -625,6 +672,10 @@ def build_server(
                     radius=radius,
                     name=name,
                     species=species,
+                    points=points,
+                    text=text,
+                    box_dx=box_dx,
+                    box_dy=box_dy,
                 )
             )
             return WriteResult(**result)
@@ -910,6 +961,170 @@ def build_server(
             _require_write_auth(write_token)
             result = await anyio.to_thread.run_sync(
                 lambda: providers.arrange_object(item_id, action)
+            )
+            return WriteResult(**result)
+
+        # --- US-D2.4: layer tools -------------------------------------------
+        #
+        # Read side is list_layers (unauthenticated, registered with the other
+        # reads). Every tool here runs the SAME core/commands.py layer command
+        # the GUI's own surfaces run (invariant #5) — exactly one undo step per
+        # call, except set_active_layer, which is session state and says so.
+
+        @mcp.tool()
+        async def set_object_layer(item_id: str, layer_id: str) -> WriteResult:
+            """Move one object to a different layer (one undoable step).
+
+            Only the addressed object changes layer: a bed's contained plants
+            keep their own layer, exactly as when the user moves the bed alone
+            via the GUI's "Move to Layer" menu. Undo restores the object's
+            original layer AND its exact stacking position within it.
+
+            Layer ids come from list_layers (or any object's layer_id field).
+            Fails if the object is on a locked layer, if the TARGET layer is
+            locked, if the object is a journal pin or a group member, if
+            either id is unknown, or if the object is already on that layer.
+
+            Args:
+                item_id: The object's stable UUID (from list_objects/get_object).
+                layer_id: The target layer's stable UUID (from list_layers).
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.set_object_layer(item_id, layer_id)
+            )
+            return WriteResult(**result)
+
+        @mcp.tool()
+        async def create_layer(name: str) -> WriteResult:
+            """Create a new layer at the TOP of the stack and activate it.
+
+            Mirrors the Layers panel's add button: the new layer becomes the
+            active layer, so objects created afterwards (create_object) land
+            on it until the user or set_active_layer switches again. Undo
+            removes the layer and restores the previously active one. The new
+            layer's id comes back as layer_id.
+
+            Fails if the name is empty or whitespace-only. Duplicate names are
+            allowed (as in the app) — address layers by id, not name.
+
+            Args:
+                name: Display name for the new layer.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.create_layer(name)
+            )
+            return WriteResult(**result)
+
+        @mcp.tool()
+        async def rename_layer(layer_id: str, name: str) -> WriteResult:
+            """Rename a layer (one undoable step).
+
+            Works on a locked layer too — the lock protects the layer's
+            objects from editing, not the layer's own name.
+
+            Fails if the id is unknown, if the name is empty or
+            whitespace-only, or if the layer already has that name.
+
+            Args:
+                layer_id: The layer's stable UUID (from list_layers).
+                name: The new display name.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.rename_layer(layer_id, name)
+            )
+            return WriteResult(**result)
+
+        @mcp.tool()
+        async def delete_layer(layer_id: str) -> WriteResult:
+            """Delete a layer — its objects SURVIVE on a sibling layer.
+
+            Deleting a layer never deletes the objects on it: they are moved
+            to a replacement layer (the topmost remaining one), and the layer
+            removal plus every object reassignment is ONE undo step. The
+            result's objects_moved reports how many objects were reassigned.
+
+            Fails if the layer is locked (a locked layer is the user's "keep
+            out" signal — unlock it in the app first), if it is the plan's
+            only layer, or if the id is unknown.
+
+            Args:
+                layer_id: The layer's stable UUID (from list_layers).
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.delete_layer(layer_id)
+            )
+            return WriteResult(**result)
+
+        @mcp.tool()
+        async def set_active_layer(layer_id: str) -> WriteResult:
+            """Switch which layer new objects land on.
+
+            Session state, NOT a document change: there is no undo step (the
+            active layer is not saved with the plan), the plan is not marked
+            dirty, and no object moves. Undoable layer edits are the other
+            five layer tools. The Layers panel's selection follows the switch.
+
+            Fails if the id is unknown or the layer is already active.
+            Activating a locked layer is allowed, but creating onto it is not
+            (create_object refuses a locked active layer).
+
+            Args:
+                layer_id: The layer's stable UUID (from list_layers).
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.set_active_layer(layer_id)
+            )
+            return WriteResult(**result)
+
+        @mcp.tool()
+        async def set_layer_property(
+            layer_id: str,
+            visible: bool | None = None,
+            opacity: float | None = None,
+            locked: bool | None = None,
+        ) -> WriteResult:
+            """Show/hide a layer, or set its opacity (one undoable step).
+
+            Pass exactly ONE of 'visible'/'opacity' per call — each property
+            change is one undo step, and one call is one undo step; make two
+            calls to change both. Hiding a layer hides every object on it
+            (render_canvas_image without a layers argument reflects it); the
+            change is undoable like the Layers panel's eye toggle.
+
+            'locked' is REFUSED in both directions and always will be from
+            this API: locking a layer is the user's own "agent, keep out of
+            this" protection, so an agent that could unlock a layer and then
+            edit it would turn every locked-layer refusal into a speed bump.
+            Ask the user to unlock it in the app's Layers panel instead.
+
+            Fails if the id is unknown, if neither or both of
+            'visible'/'opacity' are given, if 'locked' is given at all, if
+            opacity is outside [0.0, 1.0], or if the layer already has the
+            requested value.
+
+            Args:
+                layer_id: The layer's stable UUID (from list_layers).
+                visible: True to show the layer, False to hide it.
+                opacity: Layer opacity, 0.0 (invisible) to 1.0 (opaque).
+                locked: Always refused — see above. Only accepted as a
+                    parameter so the refusal is explicit and self-explaining.
+            """
+            _require_write_auth(write_token)
+            # Called by keyword: visible/locked are both bool|None, so a
+            # transposition would be type-identical — and must not slip a
+            # 'locked' change past the policy refusal (SetLayerPropertyProvider).
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.set_layer_property(
+                    layer_id=layer_id,
+                    visible=visible,
+                    opacity=opacity,
+                    locked=locked,
+                )
             )
             return WriteResult(**result)
 

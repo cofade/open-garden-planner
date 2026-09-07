@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from open_garden_planner.agent_api.schema import PlanSummary
+from open_garden_planner.agent_api.schema import Layer, PlanSummary
 
 # Soil-bearing parents — mirrors ObjectType ``SOIL_CONTAINER_TYPES`` (ADR-031).
 # Inlined to keep this module Qt-free; a unit drift-guard asserts equality.
@@ -19,6 +19,48 @@ _BED_TYPE_NAMES = frozenset(
 )
 # Plant object types.
 _PLANT_TYPE_NAMES = frozenset({"TREE", "SHRUB", "PERENNIAL"})
+
+
+def layers_from_snapshot(snapshot: dict[str, Any]) -> list[Layer]:
+    """Build the curated :class:`Layer` list from a snapshot (US-D2.4).
+
+    The raw snapshot already carries the full layer records
+    (``models.layer.Layer.to_dict``: id/name/visible/locked/opacity/z_order);
+    this only adds what a snapshot cannot carry per-layer record: the active
+    layer (session state, surfaced via ``agent_meta.active_layer_id``) and the
+    per-layer TOP-LEVEL object count (same counting rule as the plan summary's
+    counts — objects nested in a group count once, at the group's layer).
+
+    Layer order is the snapshot's own (scene list order, index 0 = top of the
+    stack), so ``z_order`` is reported alongside rather than re-derived.
+    """
+    layers = snapshot.get("layers") or []
+    objects = snapshot.get("objects") or []
+    meta = snapshot.get("agent_meta") or {}
+    active_id = meta.get("active_layer_id")
+
+    counts: dict[str, int] = {}
+    for obj in objects:
+        lid = obj.get("layer_id")
+        if lid:
+            counts[str(lid)] = counts.get(str(lid), 0) + 1
+
+    out: list[Layer] = []
+    for layer in layers:
+        lid = str(layer.get("id", ""))
+        out.append(
+            Layer(
+                layer_id=lid,
+                name=str(layer.get("name", "")),
+                visible=bool(layer.get("visible", True)),
+                locked=bool(layer.get("locked", False)),
+                opacity=float(layer.get("opacity", 1.0)),
+                z_order=int(layer.get("z_order", 0)),
+                is_active=active_id is not None and lid == str(active_id),
+                object_count=counts.get(lid, 0),
+            )
+        )
+    return out
 
 
 def plan_summary_from_snapshot(snapshot: dict[str, Any]) -> PlanSummary:
@@ -58,4 +100,5 @@ def plan_summary_from_snapshot(snapshot: dict[str, Any]) -> PlanSummary:
         plant_count=plant_count,
         shape_count=shape_count,
         layer_names=[str(layer.get("name", "")) for layer in layers],
+        layers=layers_from_snapshot(snapshot),
     )

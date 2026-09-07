@@ -236,89 +236,27 @@ class PolygonTool(BaseTool):
 
         self._reset_state()
 
-    @staticmethod
-    def _intersect_line_polygon(
-        polygon: "QPolygonF", origin: QPointF, direction: QPointF
-    ) -> tuple[QPointF, QPointF] | None:
-        """Find the two points where an infinite line crosses the polygon boundary.
-
-        Args:
-            polygon: The polygon to intersect with
-            origin: A point on the line
-            direction: The line direction (need not be normalised)
-
-        Returns:
-            (p_min, p_max) along the direction, or None if < 2 intersections found.
-        """
-        dx, dy = direction.x(), direction.y()
-        ox, oy = origin.x(), origin.y()
-        n = polygon.count()
-        ts: list[float] = []
-
-        for i in range(n):
-            v1 = polygon.at(i)
-            v2 = polygon.at((i + 1) % n)
-            ex = v2.x() - v1.x()
-            ey = v2.y() - v1.y()
-            denom = dx * ey - dy * ex
-            if abs(denom) < 1e-10:
-                continue
-            rx = v1.x() - ox
-            ry = v1.y() - oy
-            t = (rx * ey - ry * ex) / denom
-            u = (rx * dy - ry * dx) / denom
-            if -1e-6 <= u <= 1.0 + 1e-6:
-                ts.append(t)
-
-        if len(ts) < 2:
-            return None
-
-        ts.sort()
-        t_min, t_max = ts[0], ts[-1]
-        return (
-            QPointF(ox + t_min * dx, oy + t_min * dy),
-            QPointF(ox + t_max * dx, oy + t_max * dy),
-        )
-
     def _create_roof_ridge(self, polygon_item: "PolygonItem", layer_id: object) -> None:
         """Auto-create a roof ridge polyline as a sibling of a HOUSE polygon.
 
-        The ridge is placed along the polygon's longest bounding-box axis,
-        clipped to the actual polygon boundary. Both items store cross-references
-        in their metadata so the polygon can mirror its tile texture.
+        The ridge geometry (longest bounding-box axis, clipped to the actual
+        polygon boundary) is computed by ``core.roof_ridge`` — the one canonical
+        path shared with the agent's ``create_object`` (US-D2.5), so an
+        agent-created house gets exactly the ridge an interactive draw produces.
+        Both items store cross-references in their metadata so the polygon can
+        mirror its tile texture.
 
         Args:
             polygon_item: The newly created HOUSE polygon item
             layer_id: Layer to place the ridge on
         """
         from open_garden_planner.core.object_types import ObjectType as OT
+        from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
         from open_garden_planner.ui.canvas.items import PolylineItem
 
-        polygon = polygon_item.polygon()
-        bbox = polygon.boundingRect()
-        pos = polygon_item.pos()
-
-        # Choose ridge direction from longest bbox axis
-        cx = bbox.center().x()
-        cy = bbox.center().y()
-        direction = QPointF(1.0, 0.0) if bbox.width() >= bbox.height() else QPointF(0.0, 1.0)
-
-        # Clip ridge line to actual polygon boundary (not just bbox)
-        pts = self._intersect_line_polygon(polygon, QPointF(cx, cy), direction)
-        if pts is not None:
-            # Convert from polygon-item-local coords to scene coords
-            p1 = QPointF(pos.x() + pts[0].x(), pos.y() + pts[0].y())
-            p2 = QPointF(pos.x() + pts[1].x(), pos.y() + pts[1].y())
-        else:
-            # Fallback to bbox edges
-            cx_s = pos.x() + cx
-            cy_s = pos.y() + cy
-            if bbox.width() >= bbox.height():
-                p1 = QPointF(pos.x() + bbox.left(), cy_s)
-                p2 = QPointF(pos.x() + bbox.right(), cy_s)
-            else:
-                p1 = QPointF(cx_s, pos.y() + bbox.top())
-                p2 = QPointF(cx_s, pos.y() + bbox.bottom())
+        p1, p2 = compute_roof_ridge_endpoints(
+            polygon_item.polygon(), polygon_item.pos()
+        )
 
         ridge = PolylineItem([p1, p2], object_type=OT.ROOF_RIDGE, layer_id=layer_id)
 

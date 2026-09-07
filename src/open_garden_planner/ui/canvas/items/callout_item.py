@@ -308,6 +308,7 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
     def to_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {
             "type": "callout",
+            "item_id": str(self.item_id),
             "target_x": self.pos().x(),
             "target_y": self.pos().y(),
             "box_dx": self._box_offset.x(),
@@ -339,6 +340,9 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
             layer_id=layer_id,
             metadata=d.get("metadata"),
         )
+        if "item_id" in d:
+            with contextlib.suppress(ValueError, TypeError, AttributeError):
+                item._item_id = uuid.UUID(d["item_id"])
         if "name" in d:
             item._name = d["name"]
         if "rotation_angle" in d:

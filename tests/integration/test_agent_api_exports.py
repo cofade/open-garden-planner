@@ -88,6 +88,12 @@ def _providers(
         set_species=lambda *_a: _unused("set_species"),
         set_parent_bed=lambda *_a: _unused("set_parent_bed"),
         arrange_object=lambda *_a: _unused("arrange_object"),
+        set_object_layer=lambda *_a: _unused("set_object_layer"),
+        create_layer=lambda *_a: _unused("create_layer"),
+        rename_layer=lambda *_a: _unused("rename_layer"),
+        delete_layer=lambda *_a: _unused("delete_layer"),
+        set_active_layer=lambda *_a: _unused("set_active_layer"),
+        set_layer_property=lambda **_kw: _unused("set_layer_property"),
     )
 
 

@@ -140,6 +140,12 @@ def _run_selftest() -> int:
                 set_species=_never,
                 set_parent_bed=_never,
                 arrange_object=_never,
+                set_object_layer=_never,
+                create_layer=_never,
+                rename_layer=_never,
+                delete_layer=_never,
+                set_active_layer=_never,
+                set_layer_property=_never,
             ),
             port=free_port,
         )

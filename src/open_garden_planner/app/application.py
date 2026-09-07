@@ -281,33 +281,52 @@ class GardenPlannerApp(QMainWindow):
     def _agent_create_object(
         self,
         object_type: str,
-        x: float,
-        y: float,
+        x: float | None,
+        y: float | None,
         width: float | None,
         height: float | None,
         radius: float | None,
         name: str | None,
         species: str | None,
+        points: list[list[float]] | None = None,
+        text: str | None = None,
+        box_dx: float | None = None,
+        box_dy: float | None = None,
     ) -> dict[str, Any]:
         """Create one object ON the Qt main thread (for the server)."""
         return self._agent_bridge.run_on_main(
             lambda: self._do_agent_create_object(
-                object_type, x, y, width, height, radius, name, species
+                object_type,
+                x,
+                y,
+                width,
+                height,
+                radius,
+                name,
+                species,
+                points,
+                text,
+                box_dx,
+                box_dy,
             )
         )
 
     def _do_agent_create_object(
         self,
         object_type: str,
-        x: float,
-        y: float,
+        x: float | None,
+        y: float | None,
         width: float | None,
         height: float | None,
         radius: float | None,
         name: str | None,
         species: str | None,
+        points: list[list[float]] | None = None,
+        text: str | None = None,
+        box_dx: float | None = None,
+        box_dy: float | None = None,
     ) -> dict[str, Any]:
-        """Create one plant or soil container — one undoable step (US-D2.1).
+        """Create one supported object — one undoable step (US-D2.1/D2.5).
 
         Mirrors the GUI's own creation orchestration, not merely
         ``CreateItemCommand``. The gallery-drop path in ``CanvasView`` does five
@@ -340,7 +359,7 @@ class GardenPlannerApp(QMainWindow):
         from datetime import date
 
         from open_garden_planner.agent_api import creates
-        from open_garden_planner.core.commands import CreateItemCommand
+        from open_garden_planner.core.commands import CreateItemCommand, CreateItemsCommand
         from open_garden_planner.core.growth_model import stamp_default_planting_date
 
         if species and not creates.is_plant_type_name(object_type):
@@ -362,6 +381,10 @@ class GardenPlannerApp(QMainWindow):
             height=height,
             radius=radius,
             name=name,
+            points=points,
+            text=text,
+            box_dx=box_dx,
+            box_dy=box_dy,
         )
 
         active_layer = self._agent_creation_target_layer()
@@ -383,7 +406,40 @@ class GardenPlannerApp(QMainWindow):
             # US-E8: every new plant is dated, species or not (see docstring).
             stamp_default_planting_date(item.metadata, date.today())
 
-        create_cmd = CreateItemCommand(self.canvas_scene, item)
+        linked_items: list[Any] = []
+        if object_type == "HOUSE":
+            from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
+
+            p1, p2 = compute_roof_ridge_endpoints(item.polygon(), item.pos())
+            # Keep the derived sibling on the loader path too.  The house and
+            # ridge are both created from the same serialized shape vocabulary
+            # that ProjectManager.load() consumes; CreateItemsCommand still
+            # makes their visible appearance one atomic undo step.
+            ridge_spec = {
+                "type": "polyline",
+                "object_type": "ROOF_RIDGE",
+                "points": [
+                    {"x": p1.x(), "y": p1.y()},
+                    {"x": p2.x(), "y": p2.y()},
+                ],
+                "layer_id": str(getattr(item, "layer_id", None))
+                if getattr(item, "layer_id", None) is not None
+                else None,
+            }
+            if ridge_spec["layer_id"] is None:
+                ridge_spec.pop("layer_id")
+            ridge = self._project_manager._deserialize_item_core(ridge_spec)
+            if ridge is None:
+                raise ValueError("Could not build the HOUSE roof ridge.")
+            ridge.set_metadata("owner_polygon_id", str(item.item_id))
+            item.set_metadata("ridge_item_id", str(ridge.item_id))
+            linked_items.append(ridge)
+
+        items = [item, *linked_items]
+        if linked_items:
+            create_cmd = CreateItemsCommand(self.canvas_scene, items, "objects")
+        else:
+            create_cmd = CreateItemCommand(self.canvas_scene, item)
         self.canvas_view.command_manager.execute(create_cmd)
 
         # Read back whatever _auto_parent_plant established inside the command.
@@ -402,6 +458,7 @@ class GardenPlannerApp(QMainWindow):
             # the one create step, not as a separate second one.
             "bed_membership_changed": False,
             "new_parent_bed_id": str(parent_bed_id) if parent_bed_id else None,
+            "linked_items_created": len(linked_items),
         }
 
     def _agent_creation_target_layer(self) -> Any:
@@ -1129,6 +1186,344 @@ class GardenPlannerApp(QMainWindow):
             "stack_index": stack_index,
         }
 
+    # --- US-D2.4: layer tools ------------------------------------------------
+    #
+    # The GUI's own layer surfaces (LayersPanel signal handlers below, the
+    # "Move to Layer" context submenu, the properties-panel layer combo) all
+    # build the SAME core/commands.py layer commands invariant #5 requires;
+    # these bodies are the agent-shaped variants: loud refusals instead of the
+    # panel handlers' silent no-op returns, one command per call, and the
+    # ADR-036 D2.4 lock policy (an agent may never change 'locked', and may
+    # never delete or move objects onto a locked layer).
+
+    def _agent_resolve_layer(self, layer_id: str) -> Any:
+        """Look up a scene layer by UUID string for a write tool, or raise.
+
+        The layer-side counterpart of ``_resolve_agent_item`` — one chokepoint
+        so every layer tool refuses a bad/unknown id with the same wording and
+        cannot drift on whether it checks at all.
+        """
+        from uuid import UUID
+
+        try:
+            uuid = UUID(layer_id)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"Not a valid layer id: {layer_id!r}") from exc
+        layer = self.canvas_scene.get_layer_by_id(uuid)
+        if layer is None:
+            raise ValueError(
+                f"No layer with id {layer_id}. Use list_layers to see the "
+                "plan's layer ids."
+            )
+        return layer
+
+    def _agent_set_object_layer(self, item_id: str, layer_id: str) -> dict[str, Any]:
+        """Move one object to another layer ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_set_object_layer(item_id, layer_id)
+        )
+
+    def _do_agent_set_object_layer(self, item_id: str, layer_id: str) -> dict[str, Any]:
+        """Main-thread body of ``set_object_layer`` — one ``MoveToLayerCommand``.
+
+        Mirrors the GUI's single-selection "Move to Layer" exactly: only the
+        addressed object changes layer — a bed's contained plants keep their
+        own layer, just as they would when the user moves the bed alone (the
+        GUI's layer move works off ``selectedItems()``; plants are not
+        auto-selected with their bed). ``MoveToLayerCommand`` snapshots the
+        item's original ``layer_id`` AND ``stack_order``, so undo restores the
+        object to its exact previous layer position (issue #338 semantics).
+
+        Refuses, via the shared chokepoints: a group member, a journal pin, or
+        an item on a locked layer (``_resolve_agent_item``); an unknown layer,
+        a LOCKED target layer (the creation-side lock policy — the GUI clears
+        interaction flags on locked layers, so nothing can be placed there),
+        or a no-op move onto the layer the object already occupies
+        (``set_parent_bed``'s loud-no-op precedent — a pushed no-op command
+        would pollute the undo stack with a step that changes nothing).
+        """
+        from open_garden_planner.core.commands import MoveToLayerCommand
+
+        item = self._resolve_agent_item(item_id)
+        layer = self._agent_resolve_layer(layer_id)
+        if layer.locked:
+            raise ValueError(
+                f"The target layer {layer.name!r} is locked; objects cannot be "
+                "moved onto a locked layer. Unlock it in the app first."
+            )
+        if getattr(item, "layer_id", None) == layer.id:
+            raise ValueError(
+                f"{item_id} is already on layer {layer.name!r}; nothing to do."
+            )
+        cmd = MoveToLayerCommand([item], layer.id, self.canvas_scene, layer.name)
+        self.canvas_view.command_manager.execute(cmd)
+        cx, cy = self._agent_item_center(item)
+        return {
+            "item_id": item_id,
+            "action": "set_object_layer",
+            "undo_description": cmd.description,
+            "x": cx,
+            "y": cy,
+            "layer_id": str(layer.id),
+        }
+
+    def _agent_create_layer(self, name: str) -> dict[str, Any]:
+        """Create a layer ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(lambda: self._do_agent_create_layer(name))
+
+    def _do_agent_create_layer(self, name: str) -> dict[str, Any]:
+        """Main-thread body of ``create_layer`` — one ``AddLayerCommand``.
+
+        Same command the Layers panel's add button runs: the new layer is
+        inserted at the TOP of the stack and becomes the ACTIVE layer, so a
+        subsequent ``create_object`` lands on it — asserted end to end in the
+        integration tests, since that interaction is the point of the tool.
+        """
+        from open_garden_planner.core.commands import AddLayerCommand
+        from open_garden_planner.models.layer import Layer
+
+        clean = self._agent_require_layer_name(name)
+        layer = Layer(name=clean)
+        cmd = AddLayerCommand(self.canvas_scene, layer)
+        self.canvas_view.command_manager.execute(cmd)
+        return {
+            "item_id": None,
+            "action": "create_layer",
+            "undo_description": cmd.description,
+            "layer_id": str(layer.id),
+        }
+
+    def _agent_rename_layer(self, layer_id: str, name: str) -> dict[str, Any]:
+        """Rename a layer ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_rename_layer(layer_id, name)
+        )
+
+    def _do_agent_rename_layer(self, layer_id: str, name: str) -> dict[str, Any]:
+        """Main-thread body of ``rename_layer`` — one ``RenameLayerCommand``.
+
+        Works on a locked layer too: the lock protects the layer's OBJECTS
+        from editing, not the layer's own name — the Layers panel renames a
+        locked layer exactly the same way.
+        """
+        from open_garden_planner.core.commands import RenameLayerCommand
+
+        layer = self._agent_resolve_layer(layer_id)
+        clean = self._agent_require_layer_name(name)
+        if layer.name == clean:
+            raise ValueError(
+                f"Layer {layer.name!r} already has that name; nothing to do."
+            )
+        cmd = RenameLayerCommand(self.canvas_scene, layer, clean)
+        self.canvas_view.command_manager.execute(cmd)
+        return {
+            "item_id": None,
+            "action": "rename_layer",
+            "undo_description": cmd.description,
+            "layer_id": str(layer.id),
+        }
+
+    def _agent_delete_layer(self, layer_id: str) -> dict[str, Any]:
+        """Delete a layer ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_delete_layer(layer_id)
+        )
+
+    def _do_agent_delete_layer(self, layer_id: str) -> dict[str, Any]:
+        """Main-thread body of ``delete_layer`` — one ``DeleteLayerCommand``.
+
+        Deleting a layer NEVER deletes its objects: ``DeleteLayerCommand``'s
+        existing policy (which this tool follows exactly, rather than inventing
+        a second one) moves them to a sibling replacement layer, and the whole
+        thing — layer removal plus every object reassignment — is ONE undo
+        step. ``objects_moved`` reports how many were reassigned.
+
+        Refuses a locked layer (ADR-036 D2.4: the lock is the user's "agent,
+        keep out" signal; deleting the layer out from under that protection
+        would defeat it — an agent-side hardening the ADR records) and refuses
+        to delete the plan's only layer (the command itself requires a
+        replacement to exist).
+        """
+        from open_garden_planner.core.commands import DeleteLayerCommand
+
+        layer = self._agent_resolve_layer(layer_id)
+        if layer.locked:
+            raise ValueError(
+                f"The layer {layer.name!r} is locked. Locking is a user-owned "
+                "protection — the agent API cannot delete a locked layer. "
+                "Unlock it in the app first."
+            )
+        if len(self.canvas_scene.layers) <= 1:
+            raise ValueError(
+                f"Cannot delete {layer.name!r}: it is the plan's only layer. "
+                "A plan always keeps at least one layer."
+            )
+        objects_moved = sum(
+            1
+            for item in self.canvas_scene.items()
+            if getattr(item, "layer_id", None) == layer.id
+        )
+        cmd = DeleteLayerCommand(self.canvas_scene, layer.id)
+        self.canvas_view.command_manager.execute(cmd)
+        return {
+            "item_id": None,
+            "action": "delete_layer",
+            "undo_description": cmd.description,
+            "layer_id": str(layer.id),
+            "objects_moved": objects_moved,
+        }
+
+    def _agent_set_active_layer(self, layer_id: str) -> dict[str, Any]:
+        """Switch the active layer ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_set_active_layer(layer_id)
+        )
+
+    def _do_agent_set_active_layer(self, layer_id: str) -> dict[str, Any]:
+        """Main-thread body of ``set_active_layer``.
+
+        Deliberately NOT a command: the active layer is session state — it is
+        never persisted to ``.ogp`` and never marks the document dirty, and
+        the GUI switches it the same way (the Layers panel's row click calls
+        ``CanvasScene.set_active_layer`` directly, application.py's
+        ``_on_active_layer_changed``). Wrapping it in a command would push an
+        undo step that changes no document state. The result says so plainly
+        instead of pretending there is something to Ctrl+Z.
+
+        Works on a locked layer: activating changes where NEW objects would
+        land, and creating onto a locked layer is refused separately
+        (``_agent_creation_target_layer``) — the lock stays load-bearing.
+        """
+        layer = self._agent_resolve_layer(layer_id)
+        active = self.canvas_scene.active_layer
+        if active is not None and active.id == layer.id:
+            raise ValueError(
+                f"Layer {layer.name!r} is already the active layer; nothing "
+                "to do."
+            )
+        self.canvas_scene.set_active_layer(layer)
+        return {
+            "item_id": None,
+            "action": "set_active_layer",
+            # Not a command description: there is no undo step for session
+            # state. Agent-facing text is an English API contract (no tr()).
+            "undo_description": (
+                f"Set active layer '{layer.name}' (session state — not an "
+                "undo step; the active layer is not part of the document)"
+            ),
+            "layer_id": str(layer.id),
+        }
+
+    def _agent_set_layer_property(
+        self,
+        layer_id: str,
+        visible: bool | None,
+        opacity: float | None,
+        locked: bool | None,
+    ) -> dict[str, Any]:
+        """Set a layer property ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_set_layer_property(
+                layer_id=layer_id, visible=visible, opacity=opacity, locked=locked
+            )
+        )
+
+    def _do_agent_set_layer_property(
+        self,
+        layer_id: str,
+        visible: bool | None = None,
+        opacity: float | None = None,
+        locked: bool | None = None,
+    ) -> dict[str, Any]:
+        """Main-thread body of ``set_layer_property`` — one command, one property.
+
+        ``locked`` is refused in BOTH directions (ADR-036 D2.4 addendum):
+        locking is the only mechanism a user has to tell the agent "keep out of
+        this layer", so an agent that could unlock-then-edit would reduce every
+        locked-layer refusal from a protection to a speed bump. The refusal is
+        checked before anything else so a call mixing ``locked`` with a legal
+        property cannot half-apply.
+
+        Exactly one of ``visible``/``opacity`` may be given per call: each maps
+        to one ``SetLayerPropertyCommand`` (the same command the Layers panel's
+        eye toggle and opacity slider run), and one agent call is one undo step
+        (invariants #4/#13) — two properties would be two steps, so the tool
+        refuses rather than silently over-stepping.
+
+        Changing visibility/opacity of a LOCKED layer is allowed: the lock
+        protects the layer's objects from editing, not the layer's own display
+        properties — same as the Layers panel, which keeps both controls live
+        on a locked layer.
+        """
+        from open_garden_planner.core.commands import SetLayerPropertyCommand
+
+        if locked is not None:
+            raise ValueError(
+                "Layer lock is a user-owned protection: the agent API cannot "
+                "change 'locked' in either direction. Locking or unlocking a "
+                "layer must be done by the user in the app's Layers panel. "
+                "('visible' and 'opacity' are changeable.)"
+            )
+        if visible is None and opacity is None:
+            raise ValueError(
+                "Pass 'visible' (bool) and/or 'opacity' (0.0-1.0) — there is "
+                "nothing to change otherwise."
+            )
+        if visible is not None and opacity is not None:
+            raise ValueError(
+                "Pass exactly ONE of 'visible'/'opacity' per call: each "
+                "property change is one undo step, and one call is one undo "
+                "step. Make two calls to change both."
+            )
+        layer = self._agent_resolve_layer(layer_id)
+        if visible is not None:
+            new_visible = bool(visible)
+            if layer.visible == new_visible:
+                raise ValueError(
+                    f"Layer {layer.name!r} is already "
+                    f"{'visible' if new_visible else 'hidden'}; nothing to do."
+                )
+            cmd = SetLayerPropertyCommand(
+                self.canvas_scene, layer, "visible", layer.visible, new_visible
+            )
+        else:
+            import math
+
+            new_opacity = float(opacity)  # type: ignore[arg-type]
+            if not math.isfinite(new_opacity) or not (0.0 <= new_opacity <= 1.0):
+                raise ValueError(
+                    f"opacity must be a number between 0.0 and 1.0, got "
+                    f"{opacity!r}"
+                )
+            if abs(layer.opacity - new_opacity) < 1e-9:
+                raise ValueError(
+                    f"Layer {layer.name!r} already has opacity "
+                    f"{new_opacity:g}; nothing to do."
+                )
+            cmd = SetLayerPropertyCommand(
+                self.canvas_scene, layer, "opacity", layer.opacity, new_opacity
+            )
+        self.canvas_view.command_manager.execute(cmd)
+        return {
+            "item_id": None,
+            "action": "set_layer_property",
+            "undo_description": cmd.description,
+            "layer_id": str(layer.id),
+        }
+
+    @staticmethod
+    def _agent_require_layer_name(name: str) -> str:
+        """Validate a layer name for create/rename: non-empty after stripping.
+
+        Duplicate names are NOT refused — the GUI's own rename path accepts
+        them (``_on_layer_renamed``), and ids are the canonical address; this
+        must not invent a stricter policy than the surface it mirrors.
+        """
+        clean = name.strip() if isinstance(name, str) else ""
+        if not clean:
+            raise ValueError("A layer name must contain at least one character.")
+        return clean
+
     def _agent_resolve_plant(self, item_id: str, tool_name: str) -> Any:
         """``_resolve_agent_item`` plus "and it must be a plant".
 
@@ -1241,7 +1636,6 @@ class GardenPlannerApp(QMainWindow):
         """Start the embedded MCP server, surfacing failures in the status bar."""
         from open_garden_planner.agent_api import (
             AgentApiServer,
-            AgentProviders,
             PortInUseError,
         )
         from open_garden_planner.app.settings import get_settings
@@ -1250,23 +1644,7 @@ class GardenPlannerApp(QMainWindow):
             return
         settings = get_settings()
         port = settings.agent_api_port
-        providers = AgentProviders(
-            snapshot=self._agent_snapshot,
-            diagnostics=self._agent_diagnostics,
-            render=self._agent_render,
-            save_plan=self._agent_save_plan,
-            export_pdf=self._agent_export_pdf,
-            export_dxf=self._agent_export_dxf,
-            export_csv=self._agent_export_csv,
-            create_object=self._agent_create_object,
-            move_object=self._agent_move_object,
-            delete_object=self._agent_delete_object,
-            resize_object=self._agent_resize_object,
-            rotate_object=self._agent_rotate_object,
-            set_species=self._agent_set_species,
-            set_parent_bed=self._agent_set_parent_bed,
-            arrange_object=self._agent_arrange_object,
-        )
+        providers = self._build_agent_providers()
         writes_enabled = settings.agent_api_writes_enabled
         # Only read (and thus auto-generate) the token when writes are on, so a
         # user who never enables editing never has a token sitting in settings.
@@ -1296,6 +1674,39 @@ class GardenPlannerApp(QMainWindow):
         self._agent_server = server
         self.statusBar().showMessage(
             self.tr("Agent API running at {url}").format(url=server.url), 5000
+        )
+
+    def _build_agent_providers(self) -> Any:
+        """Build the one production provider graph used by the embedded MCP server.
+
+        Keeping construction separate from server lifecycle gives integration
+        tests a way to drive the exact application wiring over MCP without
+        duplicating the write orchestration in a test-only provider bundle.
+        """
+        from open_garden_planner.agent_api import AgentProviders
+
+        return AgentProviders(
+            snapshot=self._agent_snapshot,
+            diagnostics=self._agent_diagnostics,
+            render=self._agent_render,
+            save_plan=self._agent_save_plan,
+            export_pdf=self._agent_export_pdf,
+            export_dxf=self._agent_export_dxf,
+            export_csv=self._agent_export_csv,
+            create_object=self._agent_create_object,
+            move_object=self._agent_move_object,
+            delete_object=self._agent_delete_object,
+            resize_object=self._agent_resize_object,
+            rotate_object=self._agent_rotate_object,
+            set_species=self._agent_set_species,
+            set_parent_bed=self._agent_set_parent_bed,
+            arrange_object=self._agent_arrange_object,
+            set_object_layer=self._agent_set_object_layer,
+            create_layer=self._agent_create_layer,
+            rename_layer=self._agent_rename_layer,
+            delete_layer=self._agent_delete_layer,
+            set_active_layer=self._agent_set_active_layer,
+            set_layer_property=self._agent_set_layer_property,
         )
 
     def _stop_agent_api(self) -> None:
@@ -5227,7 +5638,17 @@ class GardenPlannerApp(QMainWindow):
         try:
             if len(self.canvas_scene.layers) <= 1:
                 return  # Must keep at least one layer
-            if self.canvas_scene.get_layer_by_id(layer_id) is None:
+            layer = self.canvas_scene.get_layer_by_id(layer_id)
+            if layer is None:
+                return
+            replacement = self.canvas_scene.get_layer_replacement(layer_id)
+            if replacement is not None and replacement.locked:
+                self.statusBar().showMessage(
+                    self.tr(
+                        "Cannot delete the layer because its replacement layer is locked."
+                    ),
+                    5000,
+                )
                 return
             self.canvas_view.command_manager.execute(
                 DeleteLayerCommand(self.canvas_scene, layer_id)

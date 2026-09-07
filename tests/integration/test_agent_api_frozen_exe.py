@@ -64,6 +64,12 @@ def _providers() -> AgentProviders:
         set_species=_unused,
         set_parent_bed=_unused,
         arrange_object=_unused,
+        set_object_layer=_unused,
+        create_layer=_unused,
+        rename_layer=_unused,
+        delete_layer=_unused,
+        set_active_layer=_unused,
+        set_layer_property=_unused,
     )
 
 

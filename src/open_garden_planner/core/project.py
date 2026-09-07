@@ -882,9 +882,16 @@ class ProjectManager(QObject):
         key carries runtime info the on-disk format doesn't store.
         """
         out = self._build_project_data(scene, sync_journal=False).to_dict()
+        # The active layer is session state (never persisted to .ogp), but the
+        # agent's curated Layer model reports it (US-D2.4) — agent_meta is the
+        # designated home for runtime info the on-disk format doesn't store.
+        active_layer = getattr(scene, "active_layer", None)
         out["agent_meta"] = {
             "file_name": self._current_file.name if self._current_file else None,
             "is_dirty": self._dirty,
+            "active_layer_id": (
+                str(active_layer.id) if active_layer is not None else None
+            ),
         }
         return out
 

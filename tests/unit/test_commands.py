@@ -585,6 +585,27 @@ class TestDeleteLayerCommand:
         assert middle not in layer_scene.layers
         assert item.layer_id == top.id
 
+    def test_redo_refuses_newly_locked_replacement_and_preserves_redo(
+        self, layer_scene
+    ) -> None:
+        """A lock added after undo prevents mutation and keeps redo available."""
+        top, middle, bottom = layer_scene.layers
+        item = _rect_on_layer(layer_scene, middle)
+        manager = CommandManager()
+        command = DeleteLayerCommand(layer_scene, middle.id)
+
+        manager.execute(command)
+        manager.undo()
+        top.locked = True
+
+        with pytest.raises(ValueError, match="replacement layer.*locked"):
+            manager.redo()
+
+        assert layer_scene.layers == [top, middle, bottom]
+        assert item.layer_id == middle.id
+        assert not manager.can_undo
+        assert manager.can_redo
+
     def test_missing_layer_raises(self, layer_scene) -> None:
         """Constructing against an unknown layer id raises ValueError."""
         from uuid import uuid4

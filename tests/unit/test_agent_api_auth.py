@@ -46,6 +46,12 @@ def _stub_providers() -> AgentProviders:
         set_species=_boom,
         set_parent_bed=_boom,
         arrange_object=_boom,
+        set_object_layer=_boom,
+        create_layer=_boom,
+        rename_layer=_boom,
+        delete_layer=_boom,
+        set_active_layer=_boom,
+        set_layer_property=_boom,
     )
 
 
@@ -96,6 +102,13 @@ WRITE_TOOL_NAMES = frozenset(
         "set_species",
         "set_parent_bed",
         "arrange_object",
+        # US-D2.4: layer write tools.
+        "set_object_layer",
+        "create_layer",
+        "rename_layer",
+        "delete_layer",
+        "set_active_layer",
+        "set_layer_property",
     }
 )
 

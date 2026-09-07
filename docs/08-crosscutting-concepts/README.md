@@ -1392,6 +1392,41 @@ walks the live scene's badge state directly and was not changed by #338.
 needs `collect_submodules` + `copy_metadata` in `ogp.spec`, must NOT walk
 `mcp.cli`, and must NOT exclude `multiprocessing` (uvicorn imports it).
 
+**US-D2.4/D2.5 — layer addressing and shape/structure creation.** The curated
+schema exposes layers as UUID-addressed records (`layer_id`, name, visibility,
+lock, opacity, z-order, active flag, and top-level object count);
+`layer_names` remains for back-compat. `list_layers` is read-only and open
+like the other read tools, while the layer write tools remain behind the D2.0
+double gate: `set_object_layer`, `create_layer`, `rename_layer`,
+`delete_layer`, `set_active_layer`, and `set_layer_property`. They call
+the existing layer commands rather than mutating `scene.layers` directly.
+Visibility is undoable; the active layer is session state and therefore the
+one layer operation that does not add an undo step. A locked layer is the
+user's "agent, keep out" signal: agents may not unlock it, delete it, move
+objects onto it, or edit objects on it. Deleting another layer also refuses
+when its replacement would be locked; the command rechecks that precondition
+on redo. `set_layer_property` may still change
+visibility and opacity on a locked layer, because that does not alter its
+protected contents.
+
+`create_object` now covers the curated GUI roster by canonical geometry
+family: circles, rectangles, ellipses, polygons, polylines, and callouts. The
+input contract is explicit: centres and extents are centimetres in the native
+CAD Y-up scene frame; polygon/polyline vertices pass through unchanged;
+polygons also accept a centre plus width/height convenience form; and callouts
+retain their stable item id through save/load. The loader's
+`ProjectManager._deserialize_item_core` remains the sole construction path,
+so agent-created objects and loaded objects cannot acquire divergent defaults.
+`HOUSE` creation builds its linked `ROOF_RIDGE` with the shared
+`core.roof_ridge` geometry helper and groups both items into one undo command.
+`ROOF_RIDGE`, `GARDEN_JOURNAL_PIN`, `GENERIC_TEXT`, and legacy
+`HEDGE_SECTION` are deliberately refused with machine-readable reasons;
+`list_creatable_types` exposes both the supported roster and these
+exclusions. The union of those two sets is drift-guarded against
+`ObjectType`, so a new enum member cannot silently become an undocumented
+agent capability. No `FILE_VERSION` change is required: the schema additions
+are additive and the new item data uses existing serialisation shapes.
+
 ## 8.20 Solar Coordinate Discipline (Phase 14 sun/shade)
 
 The one rule: **do all solar/shadow math in scene centimeters, once, and

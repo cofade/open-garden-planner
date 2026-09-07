@@ -127,7 +127,13 @@ class CommandManager(QObject):
             return
 
         command = self._redo_stack.pop()
-        command.execute()
+        try:
+            command.execute()
+        except Exception:
+            # A command may discover that a mutable precondition changed after
+            # it was undone. Keep it redoable when execution is refused.
+            self._redo_stack.append(command)
+            raise
         self._undo_stack.append(command)
 
         self.can_undo_changed.emit(True)
@@ -1719,7 +1725,18 @@ class DeleteLayerCommand(Command):
         layers = scene.layers  # type: ignore[attr-defined]
         self._index: int = layers.index(layer)
         # Same replacement rule as CanvasScene.remove_layer.
-        self._replacement: Layer = layers[0] if self._index > 0 else layers[1]
+        replacement = scene.get_layer_replacement(layer_id)  # type: ignore[attr-defined]
+        if replacement is None:
+            raise ValueError(
+                f"Cannot delete layer {layer.name!r}: it is the plan's only layer."
+            )
+        self._replacement: Layer = replacement
+        if self._replacement.locked:
+            raise ValueError(
+                f"Cannot delete layer {layer.name!r}: its replacement layer "
+                f"{self._replacement.name!r} is locked. Unlock the replacement "
+                "layer first."
+            )
         self._prev_active: Layer | None = scene.active_layer  # type: ignore[attr-defined]
         self._moved_items: list[QGraphicsItem] = []
 
@@ -1731,6 +1748,14 @@ class DeleteLayerCommand(Command):
 
     def execute(self) -> None:
         """Move the layer's items to the replacement layer and remove it."""
+        # Revalidate on every execution, including redo. Layer locks can change
+        # while the command is sitting on the redo stack.
+        if self._replacement.locked:
+            raise ValueError(
+                f"Cannot delete layer {self._layer.name!r}: its replacement layer "
+                f"{self._replacement.name!r} is locked. Unlock the replacement "
+                "layer first."
+            )
         # Re-capture on every execute (incl. redo): the linear stack guarantees
         # the same items are back on this layer by the time a redo runs.
         self._moved_items = [
