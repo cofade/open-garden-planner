@@ -3603,6 +3603,10 @@ Details: {error}</translation>
             <source>Loaded satellite background (captured map view, zoom {zoom}) — canvas resized to {w_m:.0f}m x {h_m:.0f}m</source>
             <translation>Satellitenbild geladen (übernommene Kartenansicht, Zoom {zoom}) — Leinwand auf {w_m:.0f}m x {h_m:.0f}m angepasst</translation>
         </message>
+        <message>
+            <source>Cannot delete the layer because its replacement layer is locked.</source>
+            <translation>Die Ebene kann nicht gelöscht werden, weil die Ersetzungsebene gesperrt ist.</translation>
+        </message>
     </context>
     <context>
         <name>GridArrayDialog</name>

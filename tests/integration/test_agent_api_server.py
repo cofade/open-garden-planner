@@ -81,6 +81,12 @@ def _providers(scene: Any) -> AgentProviders:
         set_species=lambda *_a: _unused("set_species"),
         set_parent_bed=lambda *_a: _unused("set_parent_bed"),
         arrange_object=lambda *_a: _unused("arrange_object"),
+        set_object_layer=lambda *_a: _unused("set_object_layer"),
+        create_layer=lambda *_a: _unused("create_layer"),
+        rename_layer=lambda *_a: _unused("rename_layer"),
+        delete_layer=lambda *_a: _unused("delete_layer"),
+        set_active_layer=lambda *_a: _unused("set_active_layer"),
+        set_layer_property=lambda **_kw: _unused("set_layer_property"),
     )
 
 
@@ -153,6 +159,8 @@ def test_get_plan_summary_end_to_end(canvas: Any, qtbot: Any) -> None:
             "nearest_objects",
             "measure_distance",
             "get_diagnostics",
+            "list_layers",
+            "list_creatable_types",
             "render_canvas_image",
             "save_plan",
             "export_pdf",

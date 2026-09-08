@@ -351,20 +351,115 @@ def test_create_refuses_a_locked_active_layer(qtbot: Any, monkeypatch: Any) -> N
         win._stop_agent_api()
 
 
-def test_create_refuses_an_unsupported_type_without_touching_the_scene(
+def test_create_house_is_supported_and_creates_its_ridge_in_one_step(
     qtbot: Any, monkeypatch: Any
 ) -> None:
+    from uuid import UUID
+
     _discard_on_close(monkeypatch)
     win = GardenPlannerApp()
     qtbot.addWidget(win)
     try:
         before = len(win.canvas_scene.items())
-        with pytest.raises(ValueError, match="cannot create"):
-            win._do_agent_create_object(
-                "HOUSE", 10.0, 10.0, 50.0, 50.0, None, None, None
-            )
-        assert len(win.canvas_scene.items()) == before
+        result = win._do_agent_create_object(
+            "HOUSE", 100.0, 100.0, 50.0, 50.0, None, None, None, None, None, None, None
+        )
+        assert result["linked_items_created"] == 1
+        assert len(win.canvas_scene.items()) == before + 2
+        house = win.canvas_scene.find_item_by_id(UUID(result["item_id"]))
+        assert house is not None
+        ridge_id = UUID(house.metadata["ridge_item_id"])
+        ridge = win.canvas_scene.find_item_by_id(ridge_id)
+        assert ridge is not None
+
+        # The house and ridge are one agent operation, hence one Ctrl+Z.
+        win.canvas_view.command_manager.undo()
+        assert win.canvas_scene.find_item_by_id(UUID(result["item_id"])) is None
+        assert win.canvas_scene.find_item_by_id(ridge_id) is None
         assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_create_object_families_use_loader_geometry_and_trellis_parents_plants(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """US-D2.5: family parameters reach the live app and preserve the Y-up frame."""
+    from uuid import UUID
+
+    from open_garden_planner.agent_api import queries
+    from open_garden_planner.ui.canvas.items import CalloutItem, PolylineItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        polygon = win._do_agent_create_object(
+            "GENERIC_POLYGON",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            [[100.0, 100.0], [180.0, 100.0], [140.0, 160.0]],
+        )
+        polygon_item = win.canvas_scene.find_item_by_id(UUID(polygon["item_id"]))
+        assert polygon_item is not None
+        assert [
+            [point.x(), point.y()] for point in polygon_item.polygon()
+        ] == [[100.0, 100.0], [180.0, 100.0], [140.0, 160.0]]
+
+        fence = win._do_agent_create_object(
+            "FENCE",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            [[220.0, 100.0], [300.0, 140.0]],
+        )
+        fence_item = win.canvas_scene.find_item_by_id(UUID(fence["item_id"]))
+        assert isinstance(fence_item, PolylineItem)
+        assert [(point.x(), point.y()) for point in fence_item.points] == [
+            (220.0, 100.0),
+            (300.0, 140.0),
+        ]
+
+        callout = win._do_agent_create_object(
+            "GENERIC_CALLOUT",
+            350.0,
+            200.0,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            "Check this area",
+        )
+        callout_item = win.canvas_scene.find_item_by_id(UUID(callout["item_id"]))
+        assert isinstance(callout_item, CalloutItem)
+        assert callout_item.content == "Check this area"
+        assert callout_item.to_dict()["item_id"] == callout["item_id"]
+
+        trellis = win._do_agent_create_object(
+            "TRELLIS", 600.0, 600.0, 200.0, 100.0, None, None, None
+        )
+        plant = win._do_agent_create_object(
+            "PERENNIAL", 650.0, 650.0, None, None, 15.0, None, None
+        )
+        trellis_item = win.canvas_scene.find_item_by_id(UUID(trellis["item_id"]))
+        plant_item = win.canvas_scene.find_item_by_id(UUID(plant["item_id"]))
+        assert trellis_item is not None and plant_item is not None
+        assert plant_item.parent_bed_id == trellis_item.item_id
+
+        snapshot = win._project_manager.snapshot_dict(win.canvas_scene)
+        inside = queries.objects_in(snapshot, str(trellis_item.item_id))
+        assert any(obj.item_id == str(plant_item.item_id) for obj in inside)
     finally:
         win._stop_agent_api()
 
@@ -1876,5 +1971,491 @@ def test_arrange_object_stack_index_matches_read_side_with_arc_and_pin_present(
         assert by_id[str(pin.item_id)] is not None
 
         assert win.canvas_view.command_manager.can_undo is True
+    finally:
+        win._stop_agent_api()
+
+
+# ---------------------------------------------------------------------------
+# US-D2.4: layer tools — the app's own provider bodies, run directly on the
+# main thread (no server), mirroring the D2.0-D2.3 test style above. The
+# transport + auth contract for the same tools lives in
+# test_agent_api_writes.py; the curated Layer mapping in
+# tests/unit/test_agent_api_mapping.py.
+# ---------------------------------------------------------------------------
+
+
+def _add_named_layer(win: GardenPlannerApp, name: str, **kwargs: Any) -> Any:
+    """Add a layer straight to the scene (test SETUP, not an agent op).
+
+    Bypasses AddLayerCommand on purpose: these tests need pre-existing layer
+    states (locked, hidden, non-active) that the agent tools deliberately
+    cannot produce.
+    """
+    from open_garden_planner.models.layer import Layer
+
+    layer = Layer(name=name, **kwargs)
+    win.canvas_scene.add_layer(layer)
+    return layer
+
+
+def test_set_object_layer_moves_and_undo_restores_layer_and_rank(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Acceptance: Ctrl+Z after set_object_layer restores the object's ORIGINAL
+    layer — including when it started on a different layer from every other
+    item — and its exact stacking rank within it (issue #338 semantics:
+    MoveToLayerCommand snapshots (layer_id, stack_order) per item)."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        base = scene.layers[0]
+        other = _add_named_layer(win, "Other")
+
+        lonely = _add_tree(win)  # alone on 'Other'
+        lonely.layer_id = other.id
+        scene._update_items_z_order()
+        crowd = _add_tree(win)  # on the base layer
+        crowd.layer_id = base.id
+        original_rank = getattr(lonely, "stack_order", None)
+
+        result = win._do_agent_set_object_layer(str(lonely.item_id), str(base.id))
+        assert result["action"] == "set_object_layer"
+        assert result["item_id"] == str(lonely.item_id)
+        assert result["layer_id"] == str(base.id)
+        assert result["undo_description"]
+        assert lonely.layer_id == base.id
+
+        # Exactly ONE undo step restores layer AND rank.
+        assert win.canvas_view.command_manager.can_undo
+        win.canvas_view.command_manager.undo()
+        assert lonely.layer_id == other.id
+        assert getattr(lonely, "stack_order", None) == original_rank
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_object_layer_refusals_leave_scene_and_stack_untouched(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Every refusal path asserted: locked source (the D2.0 chokepoint),
+    locked TARGET, unknown/malformed layer id, and the loud no-op."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        base = scene.layers[0]
+        locked_target = _add_named_layer(win, "Locked target", locked=True)
+
+        item = _add_tree(win)
+        item.layer_id = base.id  # a bare test item has no layer of its own
+        item_id = str(item.item_id)
+        start_layer = item.layer_id
+
+        # Locked TARGET layer: nothing may be moved onto it.
+        with pytest.raises(ValueError, match="locked"):
+            win._do_agent_set_object_layer(item_id, str(locked_target.id))
+        # Unknown and malformed layer ids.
+        with pytest.raises(ValueError, match="No layer with id"):
+            win._do_agent_set_object_layer(
+                item_id, "bbbb0000-0000-0000-0000-000000000000"
+            )
+        with pytest.raises(ValueError, match="Not a valid layer id"):
+            win._do_agent_set_object_layer(item_id, "not-a-uuid")
+        # Loud no-op: already on that layer (set_parent_bed precedent — a
+        # pushed no-op command would pollute the undo stack).
+        with pytest.raises(ValueError, match="already on layer"):
+            win._do_agent_set_object_layer(item_id, str(item.layer_id))
+
+        # Locked SOURCE layer: the shared D2.0 chokepoint re-asserted here so
+        # this story cannot silently weaken it (issue #328 acceptance).
+        locked_source = _add_named_layer(win, "Locked source", locked=True)
+        protected = _add_tree(win)
+        protected.layer_id = locked_source.id
+        with pytest.raises(ValueError, match="locked layer"):
+            win._do_agent_set_object_layer(str(protected.item_id), str(base.id))
+        assert protected.layer_id == locked_source.id
+
+        assert item.layer_id == start_layer
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_create_layer_activates_and_create_object_lands_on_it(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Acceptance, end to end: create_layer adds at the TOP of the stack AND
+    activates it, so a subsequent create_object lands there — that interaction
+    is the whole point of the slice. Both steps are undoable, in order."""
+    from uuid import UUID
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        previous_active = scene.active_layer
+
+        result = win._do_agent_create_layer("Agent Layer")
+        assert result["action"] == "create_layer"
+        assert result["item_id"] is None
+        new_id = UUID(result["layer_id"])
+        assert scene.layers[0].id == new_id  # top of the stack
+        assert scene.active_layer.id == new_id  # and active
+
+        created = win._do_agent_create_object(
+            "TREE", 300.0, 400.0, None, None, None, None, None
+        )
+        item = scene.find_item_by_id(UUID(created["item_id"]))
+        assert item.layer_id == new_id  # landed on the agent's new layer
+
+        # Two undo steps in reverse order: the tree, then the layer (which
+        # also restores the PREVIOUSLY active layer — AddLayerCommand's own
+        # snapshot).
+        win.canvas_view.command_manager.undo()
+        assert scene.find_item_by_id(UUID(created["item_id"])) is None
+        win.canvas_view.command_manager.undo()
+        assert scene.get_layer_by_id(new_id) is None
+        assert scene.active_layer is previous_active
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_create_layer_refuses_an_empty_name(qtbot: Any, monkeypatch: Any) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        before = len(win.canvas_scene.layers)
+        for bad in ("", "   ", "\t\n"):
+            with pytest.raises(ValueError, match="at least one character"):
+                win._do_agent_create_layer(bad)
+        assert len(win.canvas_scene.layers) == before
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_rename_layer_round_trips_and_refuses_no_ops(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        layer = win.canvas_scene.layers[0]
+        old_name = layer.name
+
+        result = win._do_agent_rename_layer(str(layer.id), "  Vegetables  ")
+        assert result["action"] == "rename_layer"
+        assert layer.name == "Vegetables"  # stripped
+
+        with pytest.raises(ValueError, match="already has that name"):
+            win._do_agent_rename_layer(str(layer.id), "Vegetables")
+        with pytest.raises(ValueError, match="at least one character"):
+            win._do_agent_rename_layer(str(layer.id), "   ")
+
+        win.canvas_view.command_manager.undo()
+        assert layer.name == old_name
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_delete_layer_moves_objects_and_is_one_undo_step(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Follows DeleteLayerCommand's existing policy exactly: objects SURVIVE on
+    a replacement layer, and layer removal + every reassignment is ONE undo
+    step. objects_moved reports the reassignment count."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        doomed = _add_named_layer(win, "Doomed")
+        item = _add_tree(win)
+        item.layer_id = doomed.id
+        survivor = scene.layers[0]
+
+        result = win._do_agent_delete_layer(str(doomed.id))
+        assert result["action"] == "delete_layer"
+        assert result["item_id"] is None
+        assert result["layer_id"] == str(doomed.id)
+        assert result["objects_moved"] == 1
+        assert scene.get_layer_by_id(doomed.id) is None
+        assert item.layer_id == survivor.id  # moved, NOT deleted
+        assert scene.find_item_by_id(item.item_id) is not None
+
+        # ONE undo step brings back both the layer and the assignment.
+        win.canvas_view.command_manager.undo()
+        assert scene.get_layer_by_id(doomed.id) is not None
+        assert item.layer_id == doomed.id
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_delete_layer_refuses_locked_and_last_layer(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """ADR-036 D2.4: a locked layer is the user's 'agent, keep out' signal —
+    deleting it would defeat the protection every other refusal relies on.
+    And a plan always keeps at least one layer (DeleteLayerCommand needs a
+    replacement to exist)."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        locked = _add_named_layer(win, "Locked", locked=True)
+        with pytest.raises(ValueError, match="locked"):
+            win._do_agent_delete_layer(str(locked.id))
+        assert scene.get_layer_by_id(locked.id) is not None
+
+        # Deleting an unlocked layer must not move its objects onto a locked
+        # replacement.  The command-level guard protects every caller, not just
+        # this Agent API wrapper.
+        base = scene.layers[0]
+        protected_item = _add_tree(win)
+        protected_item.layer_id = base.id
+        with pytest.raises(ValueError, match="replacement.*locked"):
+            win._do_agent_delete_layer(str(base.id))
+        assert scene.get_layer_by_id(base.id) is base
+        assert protected_item.layer_id == base.id
+
+        # Remove the extra layer by hand so only one remains.
+        scene.remove_layer(locked.id)
+        assert len(scene.layers) == 1
+        with pytest.raises(ValueError, match="only layer"):
+            win._do_agent_delete_layer(str(scene.layers[0].id))
+        assert len(scene.layers) == 1
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_gui_delete_layer_refuses_locked_replacement(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The Layers panel path must surface the same protection as the agent."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        base = scene.layers[0]
+        locked = _add_named_layer(win, "Locked replacement", locked=True)
+        item = _add_tree(win)
+        item.layer_id = base.id
+
+        win._on_layer_deleted(base.id)
+
+        assert scene.layers == [base, locked]
+        assert item.layer_id == base.id
+        assert win.canvas_view.command_manager.can_undo is False
+        assert (
+            win.statusBar().currentMessage()
+            == "Cannot delete the layer because its replacement layer is locked."
+        )
+
+        # The low-level scene path has the same guard and reports no mutation.
+        assert scene.remove_layer(base.id) is False
+        assert scene.layers == [base, locked]
+        assert item.layer_id == base.id
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_active_layer_is_session_state_not_an_undo_step(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The active layer is never persisted and never dirties the document; the
+    GUI switches it with a bare CanvasScene.set_active_layer (the panel's row
+    click), so the agent does too — and the result says plainly there is
+    nothing to Ctrl+Z instead of pretending otherwise."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        other = _add_named_layer(win, "Other")
+
+        result = win._do_agent_set_active_layer(str(other.id))
+        assert result["action"] == "set_active_layer"
+        assert result["item_id"] is None
+        assert result["layer_id"] == str(other.id)
+        assert "not an undo step" in result["undo_description"]
+        assert scene.active_layer.id == other.id
+        assert win.canvas_view.command_manager.can_undo is False  # no command pushed
+
+        with pytest.raises(ValueError, match="already the active layer"):
+            win._do_agent_set_active_layer(str(other.id))
+        with pytest.raises(ValueError, match="No layer with id"):
+            win._do_agent_set_active_layer("bbbb0000-0000-0000-0000-000000000000")
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_layer_property_visible_hides_objects_and_is_undoable(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        layer = scene.layers[0]
+        item = _add_tree(win)
+        item.layer_id = layer.id  # a bare test item has no layer of its own
+        scene._update_items_visibility()
+        assert item.isVisible()
+
+        result = win._do_agent_set_layer_property(str(layer.id), visible=False)
+        assert result["action"] == "set_layer_property"
+        assert result["layer_id"] == str(layer.id)
+        assert layer.visible is False
+        assert item.isVisible() is False
+
+        with pytest.raises(ValueError, match="already hidden"):
+            win._do_agent_set_layer_property(str(layer.id), visible=False)
+
+        win.canvas_view.command_manager.undo()
+        assert layer.visible is True
+        assert item.isVisible() is True
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_layer_property_opacity_validates_and_round_trips(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        layer = win.canvas_scene.layers[0]
+
+        result = win._do_agent_set_layer_property(str(layer.id), opacity=0.25)
+        assert result["action"] == "set_layer_property"
+        assert layer.opacity == pytest.approx(0.25)
+
+        for bad in (1.5, -0.1, float("nan")):
+            with pytest.raises(ValueError, match="between 0.0 and 1.0"):
+                win._do_agent_set_layer_property(str(layer.id), opacity=bad)
+        with pytest.raises(ValueError, match="already has opacity"):
+            win._do_agent_set_layer_property(str(layer.id), opacity=0.25)
+
+        win.canvas_view.command_manager.undo()
+        assert layer.opacity == pytest.approx(1.0)
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_layer_property_refuses_locked_in_both_directions(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """THE decision issue #328 exists to make, pinned: an agent that could call
+    set_layer_property(locked=False) could unlock-then-edit, reducing every
+    locked-layer refusal from a protection to a speed bump. 'locked' is
+    read-only to the agent in BOTH directions — and the refusal fires before
+    anything else in the call can half-apply. Display properties of a locked
+    layer stay changeable (the lock protects its OBJECTS, as in the panel)."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        open_layer = scene.layers[0]
+        locked = _add_named_layer(win, "Locked", locked=True)
+
+        with pytest.raises(ValueError, match="user-owned protection"):
+            win._do_agent_set_layer_property(str(open_layer.id), locked=True)
+        with pytest.raises(ValueError, match="user-owned protection"):
+            win._do_agent_set_layer_property(str(locked.id), locked=False)
+        # A locked change mixed with a legal one refuses WITHOUT applying the
+        # legal one (checked before anything else — no half-apply).
+        with pytest.raises(ValueError, match="user-owned protection"):
+            win._do_agent_set_layer_property(
+                str(open_layer.id), visible=False, locked=False
+            )
+        assert open_layer.visible is True
+        assert locked.locked is True
+        assert open_layer.locked is False
+        assert win.canvas_view.command_manager.can_undo is False
+
+        # Display properties of a LOCKED layer are still changeable.
+        result = win._do_agent_set_layer_property(str(locked.id), visible=False)
+        assert result["action"] == "set_layer_property"
+        assert locked.visible is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_set_layer_property_requires_exactly_one_property(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """One call = one undo step (invariants #4/#13), and one
+    SetLayerPropertyCommand carries exactly one property — so two properties
+    in one call refuse rather than silently pushing two steps."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        layer_id = str(win.canvas_scene.layers[0].id)
+        with pytest.raises(ValueError, match="nothing to change"):
+            win._do_agent_set_layer_property(layer_id)
+        with pytest.raises(ValueError, match="exactly ONE"):
+            win._do_agent_set_layer_property(layer_id, visible=False, opacity=0.5)
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_layer_ids_round_trip_between_write_and_read_sides(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Acceptance: the ids round-trip — set_object_layer(obj, list_layers()[1].
+    layer_id) moves the object and get_object(obj).layer_id matches, through
+    the REAL snapshot -> curated-schema path the read tools use."""
+    from open_garden_planner.agent_api import queries
+    from open_garden_planner.agent_api.mapping import layers_from_snapshot
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        created = win._do_agent_create_layer("Read Side")
+        new_id = created["layer_id"]
+
+        snapshot = win._agent_snapshot()
+        layers = layers_from_snapshot(snapshot)
+        assert [lyr.layer_id for lyr in layers] == [
+            str(lyr.id) for lyr in scene.layers
+        ]
+        target = next(lyr for lyr in layers if lyr.layer_id == new_id)
+        assert target.is_active is True
+        assert target.name == "Read Side"
+
+        tree = _add_tree(win)
+        tree.layer_id = scene.layers[-1].id  # NOT the new layer
+        win._do_agent_set_object_layer(str(tree.item_id), target.layer_id)
+
+        snapshot = win._agent_snapshot()
+        detail = queries.get_object(snapshot, str(tree.item_id))
+        assert detail is not None
+        assert detail.layer_id == new_id
+        assert detail.layer_name == "Read Side"
+        refreshed = layers_from_snapshot(snapshot)
+        assert next(lyr for lyr in refreshed if lyr.layer_id == new_id).object_count == 1
     finally:
         win._stop_agent_api()

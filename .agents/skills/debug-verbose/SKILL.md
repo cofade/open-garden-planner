@@ -814,5 +814,33 @@ So the page accepted the call but its readiness report never crossed the bridge 
 
 **Lesson**: (a) Any page-side guard comparing a value echoed from Python must stringify BOTH operands (or store it stringified) — Python hand-builds JS literals, and `1 !== '1'` is a silent always-false guard. This is the second #346/#347 case where **only a live run exercises the page's JavaScript**; pytest-bridge tests and name-grep drift guards are necessary but not sufficient — keep a real-key live harness in the repo and run it before shipping any page choreography change. (b) When "silence" is the symptom (OK returned, nothing after), look for a guard between the OK and the report, and probe the page state directly (`typeof window.fn`, `typeof map`) instead of trusting the cached bundle.
 
+## Case study: frozen self-test kept the pre-layer provider contract (D2.4/D2.5, fixed 2026-09-06)
+
+**Symptom**: The full test suite had one failure in `test_main_hardening.py`: the Qt3D checks passed, but the embedded Agent API self-test returned 1 with `AgentProviders.__init__()` missing the six layer providers.
+
+**Wrong theories**: The failure initially looked like an Agent API server or PyInstaller regression because it occurred in the self-test that protects the frozen executable.
+
+**Key evidence**: The captured self-test output named the exact constructor error before the server could start; the application startup path already supplied all six new layer callables by keyword.
+
+**Root cause**: D2.4 added required layer providers to the shared `AgentProviders` dataclass, but the independent `_run_selftest()` probe in `main.py` still instantiated the old contract.
+
+**Fix**: Update the self-test probe with no-op callables for every provider, preserving its rule that no provider may be invoked. The existing self-test then covers constructor completeness and server startup together.
+
+**Lesson**: When extending an injected provider contract, search for every constructor—not only production wiring and tests. Keep the frozen self-test's no-op provider fixture aligned so it remains a whole-contract smoke test.
+
+## Case study: layer deletion redo bypassed a lock added after undo (D2.4, fixed 2026-09-07)
+
+**Symptom**: Senior review found that deleting a layer, undoing it, locking the replacement layer, and redoing could still delete the source layer and move its items onto the now-locked replacement.
+
+**Wrong theories**: The GUI preflight and `CanvasScene.remove_layer()` guard appeared to cover the transition, and the initial command constructor check made direct execution tests pass. The missed path was command-manager redo, which re-executes an already-constructed command.
+
+**Key evidence**: `CommandManager.redo()` popped the command before calling `execute()`, while `DeleteLayerCommand` checked `replacement.locked` only in `__init__`. The redo path therefore had neither a current precondition check nor a recoverable redo-stack entry.
+
+**Root cause**: A mutable layer lock was treated as a construction-time invariant instead of a mutation-time precondition; redo is a second mutation entry point.
+
+**Fix**: Revalidate the replacement lock at the start of `DeleteLayerCommand.execute()`, restore a command to the redo stack when redo execution raises, and add an undo → lock → redo regression test.
+
+**Lesson**: Every undoable command must enforce mutable preconditions immediately before mutation, including redo. Test the state-changing interleavings explicitly, not only initial command construction.
+
 ---
 

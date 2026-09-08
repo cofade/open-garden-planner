@@ -526,6 +526,40 @@ Because `is_bed_type` was *extended* (not renamed) to include containers, every 
 - **New Qt-free `agent_api/prompts.py`** holds the two prompts' text-composition logic (`render_audit_plan_prompt`, `render_describe_garden_prompt`) as pure functions over the existing `PlanSummary`/`Diagnostic`/`ObjectRef` schema types — unit-testable without mcp/Qt, mirroring `mapping.py`/`diagnostics.py`. `server.py`'s registrations stay thin: fetch via the existing providers/queries, hand off to `prompts.py`.
 - Four of the five resources are one-line reuses of existing D1.2–D1.4 functions (`mapping.plan_summary_from_snapshot`, a raw `snapshot` passthrough, `providers.render`, `diagnostics_from_records`); no dedicated `resources.py` module was added — it would have been pure ceremony over one-liners.
 
+**Addendum (US-D2.4 — layer tools, #328):** Layer identity is exposed
+additively as a curated `Layer` model. Agents address layers by UUID, never
+by name; `layer_names` stays in `PlanSummary` for existing clients, while
+`PlanSummary.layers`, `list_layers`, and `ObjectRef.layer_id` provide the
+addressable state needed by write tools. The mapping computes active state from
+the runtime-only `agent_meta.active_layer_id` and counts top-level objects per
+layer without changing the `.ogp` format. Existing
+`MoveToLayerCommand`, `AddLayerCommand`, `DeleteLayerCommand`,
+`RenameLayerCommand`, and `SetLayerPropertyCommand` are the single write
+paths. `set_active_layer` is a session-state switch and intentionally has no
+undo entry; all document changes use one existing command execution. The
+locked-layer decision is deliberately conservative: `locked` is read-only to
+agents, `delete_layer` refuses a locked layer, and visibility/opacity remain
+changeable because they do not release the user's protection. Layer deletion
+preserves its objects on the command's replacement layer and undo restores
+both the layer and object assignments. The command revalidates the replacement
+lock immediately before every execution, including redo, and a refused redo
+remains available on the redo stack.
+
+**Addendum (US-D2.5 — shape/structure creation, #329):** `create_object`
+continues to build through `ProjectManager._deserialize_item_core`, now with
+explicit circle, rectangle, ellipse, polygon, polyline, and callout families.
+Vertices use the native scene centimetre/Y-up frame with no conversion; the
+rectangular polygon convenience form expands to the same four loader points as
+an explicit request. `HOUSE` is a composite creation: the ridge endpoints
+are computed by the Qt geometry-only `core/roof_ridge.py` helper shared with the
+polygon tool, and `CreateItemsCommand` adds the house plus its linked ridge
+in one undo step. Callout `item_id` is persisted so UUID addressing survives
+a save/load round trip. A Qt-free discovery function and a full-roster drift
+guard make support decisions explicit. Direct `ROOF_RIDGE`,
+`GARDEN_JOURNAL_PIN`, `GENERIC_TEXT`, and legacy `HEDGE_SECTION` creation
+is refused with reasons; these are deliberate gaps, not accidental omissions.
+The extension is additive and does not bump `FILE_VERSION`.
+
 ## ADR-035: AI Client Onboarding — Safe Cross-App Config Registration (US-D1.6)
 
 **Status**: Accepted (Phase 13 — Package D, US-D1.6).

@@ -2466,6 +2466,8 @@ _HARVEST_TRANSLATIONS: dict[str, dict[str, str]] = {
             "Agent-API: Port {port} wird bereits verwendet",
         "Agent API failed to start (see log)":
             "Agent-API konnte nicht gestartet werden (siehe Protokoll)",
+        "Cannot delete the layer because its replacement layer is locked.":
+            "Die Ebene kann nicht gelöscht werden, weil die Ersetzungsebene gesperrt ist.",
     },
     "HarvestLogDialog": {
         "Edit Harvest Entry": "Ernte-Eintrag bearbeiten",

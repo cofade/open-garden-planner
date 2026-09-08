@@ -14,6 +14,49 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
+class Layer(BaseModel):
+    """One layer of the plan's layer stack (US-D2.4).
+
+    Layers organise objects: each object sits on exactly one layer, the layer's
+    visibility/lock/opacity apply to every object on it, and the layer stack
+    (``z_order``) decides which layer renders on top. The **active** layer is
+    where newly created objects land.
+    """
+
+    layer_id: str = Field(
+        description="Stable UUID — address layers by this id (names are not "
+        "unique and may be ambiguous)."
+    )
+    name: str = Field(description="Display name of the layer.")
+    visible: bool = Field(
+        description="False if the layer (and every object on it) is hidden."
+    )
+    locked: bool = Field(
+        description="True if the layer is locked. A locked layer is a "
+        "user-owned protection: the agent write tools refuse to edit any "
+        "object on it, refuse to move objects onto it, refuse to delete it, "
+        "and cannot change the lock itself in either direction — only the "
+        "user can, in the app's Layers panel."
+    )
+    opacity: float = Field(
+        description="Layer opacity, 0.0 (invisible) to 1.0 (fully opaque)."
+    )
+    z_order: int = Field(
+        description="Stacking order of the layer itself; a higher value "
+        "renders on top of a lower one."
+    )
+    is_active: bool = Field(
+        description="True if this is the active layer — the layer new objects "
+        "(create_object, create_layer aside) land on. Session state: not "
+        "persisted with the plan."
+    )
+    object_count: int = Field(
+        description="Number of TOP-LEVEL objects on this layer (objects inside "
+        "a group count once, at the group's layer — same counting rule as the "
+        "plan summary's object counts)."
+    )
+
+
 class PlanSummary(BaseModel):
     """A high-level overview of the garden plan currently open in the app."""
 
@@ -50,7 +93,13 @@ class PlanSummary(BaseModel):
     )
     layer_names: list[str] = Field(
         default_factory=list,
-        description="Names of the layers in the plan, in order.",
+        description="Names of the layers in the plan, in order. Kept for "
+        "back-compat; 'layers' carries the same information plus ids and state.",
+    )
+    layers: list[Layer] = Field(
+        default_factory=list,
+        description="The plan's layers, top of the stack first (US-D2.4). "
+        "Address a layer by its layer_id in the layer write tools.",
     )
 
 
@@ -78,6 +127,12 @@ class ObjectRef(BaseModel):
         "or null for a plain shape.",
     )
     name: str | None = Field(default=None, description="User-given label, if any.")
+    layer_id: str | None = Field(
+        default=None,
+        description="UUID of the layer the object is on, if assigned (US-D2.4). "
+        "This — not the name — is what set_object_layer and the other layer "
+        "tools address.",
+    )
     layer_name: str | None = Field(
         default=None, description="Name of the layer the object is on, if assigned."
     )
@@ -192,8 +247,8 @@ class RenderMeta(BaseModel):
     )
     layers_rendered: list[str] | None = Field(
         default=None,
-        description="Layer names included, or null if all currently-visible "
-        "layers were rendered.",
+        description="Layer names or ids included (echoes the request's "
+        "allowlist), or null if all currently-visible layers were rendered.",
     )
 
 
@@ -245,9 +300,13 @@ class WriteResult(BaseModel):
     their documented null/zero default.
     """
 
-    item_id: str = Field(
+    item_id: str | None = Field(
+        default=None,
         description="Stable UUID of the object that was modified — for 'create', "
-        "the newly assigned id of the object just created."
+        "the newly assigned id of the object just created. Null for the "
+        "layer-level actions (create_layer/rename_layer/delete_layer/"
+        "set_active_layer/set_layer_property), which address a layer, not an "
+        "object — see layer_id.",
     )
     action: Literal[
         "create",
@@ -258,11 +317,20 @@ class WriteResult(BaseModel):
         "set_species",
         "set_parent_bed",
         "arrange",
+        # US-D2.4: layer actions.
+        "set_object_layer",
+        "create_layer",
+        "rename_layer",
+        "delete_layer",
+        "set_active_layer",
+        "set_layer_property",
     ] = Field(description="The mutation performed.")
     undo_description: str = Field(
         description="Human-readable label of the primary undo step this created "
         "(the user can reverse it with Ctrl+Z; see bed_membership_changed for "
-        "whether a second step was also created)."
+        "whether a second step was also created). set_active_layer is the one "
+        "action with no undo step — the active layer is session state, not a "
+        "document change — and says so here."
     )
     x: float | None = Field(
         default=None,
@@ -357,4 +425,27 @@ class WriteResult(BaseModel):
         description="Resulting position after arrange (0-based, bottom→top, "
         "within the object's layer — same meaning as ObjectRef.stack_index); "
         "null for every other action.",
+    )
+    # --- US-D2.4: layers ------------------------------------------------------
+    layer_id: str | None = Field(
+        default=None,
+        description="The layer this action addressed or moved things to: for "
+        "set_object_layer, the object's new layer; for the layer-level actions "
+        "(create_layer/rename_layer/delete_layer/set_active_layer/"
+        "set_layer_property), the layer acted on (for create_layer, its newly "
+        "assigned id). Null for every other action.",
+    )
+    objects_moved: int = Field(
+        default=0,
+        description="Objects that were moved to the replacement layer because "
+        "their layer was deleted (delete_layer only, always 0 for every other "
+        "action). Deleting a layer never deletes its objects — they survive on "
+        "a sibling layer, inside the same single undo step.",
+    )
+    linked_items_created: int = Field(
+        default=0,
+        description="Extra items created alongside the requested object because "
+        "they are structurally linked to it — currently a HOUSE's auto-created "
+        "roof ridge (create only, always 0 for every other action). The whole "
+        "group is still exactly ONE undo step.",
     )

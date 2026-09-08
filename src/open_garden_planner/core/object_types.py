@@ -748,6 +748,7 @@ def get_valid_types_for_shape(
             ObjectType.GREENHOUSE,
             ObjectType.GARDEN_BED,
             ObjectType.LAWN,
+            ObjectType.HEDGE_POLYGON,
         ]
     if shape == "rectangle":
         return [

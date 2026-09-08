@@ -12,14 +12,20 @@ import math
 import pytest
 
 from open_garden_planner.agent_api.creates import (
+    _CALLOUT_TYPE_NAMES,
     _CIRCLE_TYPE_NAMES,
+    _ELLIPSE_TYPE_NAMES,
     _MAX_PLANT_DIAMETER_CM,
     _PLANT_TYPE_NAMES,
+    _POLYGON_TYPE_NAMES,
+    _POLYLINE_TYPE_NAMES,
     _RECT_TYPE_NAMES,
     _SOIL_CONTAINER_TYPE_NAMES,
     CREATABLE_TYPE_NAMES,
+    EXCLUDED_TYPE_REASONS,
     build_create_dict,
     is_plant_type_name,
+    list_creatable_types,
 )
 
 # A roomy default plan (1000 x 600 cm) for cases where bounds aren't the point.
@@ -50,18 +56,27 @@ class TestNameSetDriftGuard:
 
         assert {t.name for t in ObjectType if is_plant_type(t)} == _PLANT_TYPE_NAMES
 
-    def test_creatable_set_is_exactly_plants_plus_soil_containers(self) -> None:
-        """The agreed US-D2.1 scope. Widening it is a deliberate act, not a typo."""
-        assert CREATABLE_TYPE_NAMES == _PLANT_TYPE_NAMES | _SOIL_CONTAINER_TYPE_NAMES
+    def test_roster_is_partitioned_into_creatable_and_documented_exclusions(self) -> None:
+        """A new ObjectType must force an explicit agent-creation decision."""
+        from open_garden_planner.core.object_types import ObjectType
 
-    def test_shape_sets_are_disjoint(self) -> None:
-        """A type in BOTH shape sets would build ambiguously.
+        all_names = {item.name for item in ObjectType}
+        assert CREATABLE_TYPE_NAMES | set(EXCLUDED_TYPE_REASONS) == all_names
+        assert CREATABLE_TYPE_NAMES.isdisjoint(EXCLUDED_TYPE_REASONS)
+        assert len(list_creatable_types()) == len(ObjectType)
 
-        Note the union half of this property is not asserted: `CREATABLE_TYPE_NAMES`
-        is *defined* as the union at `creates.py`, so asserting it would be a
-        tautology that can never fail. Disjointness is the real content.
-        """
-        assert not (_CIRCLE_TYPE_NAMES & _RECT_TYPE_NAMES)
+    def test_each_family_is_disjoint(self) -> None:
+        families = (
+            _CIRCLE_TYPE_NAMES,
+            _RECT_TYPE_NAMES,
+            _ELLIPSE_TYPE_NAMES,
+            _POLYGON_TYPE_NAMES,
+            _POLYLINE_TYPE_NAMES,
+            _CALLOUT_TYPE_NAMES,
+        )
+        for index, family in enumerate(families):
+            for other in families[index + 1 :]:
+                assert family.isdisjoint(other)
 
     def test_every_creatable_type_actually_exists_as_an_object_type(self) -> None:
         """A typo'd name in either shape set must fail here, not at runtime.
@@ -77,6 +92,28 @@ class TestNameSetDriftGuard:
         # Positive control: feed the detector the exact drift it exists to catch.
         with pytest.raises(KeyError):
             ObjectType["GARDEN_BEDD"]
+
+    def test_shape_families_stay_inside_the_gui_shape_registry(self) -> None:
+        """The agent's Qt-free copies may narrow GUI choices, never invent them."""
+        from open_garden_planner.core.object_types import get_valid_types_for_shape
+
+        registries = {
+            "circle": _CIRCLE_TYPE_NAMES,
+            "rectangle": _RECT_TYPE_NAMES,
+            "ellipse": _ELLIPSE_TYPE_NAMES,
+            "polygon": _POLYGON_TYPE_NAMES,
+            "polyline": _POLYLINE_TYPE_NAMES,
+        }
+        for shape, names in registries.items():
+            gui_names = {item.name for item in get_valid_types_for_shape(shape)}
+            assert names <= gui_names
+
+    def test_plant_discovery_advertises_species(self) -> None:
+        entries = {
+            entry["object_type"]: entry for entry in list_creatable_types()
+        }
+        for name in _PLANT_TYPE_NAMES:
+            assert "species" in entries[name]["optional"]
 
 
 class TestPlantCircles:
@@ -123,6 +160,69 @@ class TestRoundContainer:
         assert spec["radius"] == 25.0
 
 
+class TestShapeFamilies:
+    def test_circle_ellipse_polygon_polyline_and_callout_dicts(self) -> None:
+        circle = _build(
+            object_type="GENERIC_CIRCLE", x=10.0, y=20.0, radius=12.0
+        )
+        assert circle["type"] == "circle"
+
+        ellipse = _build(
+            object_type="GENERIC_ELLIPSE",
+            x=30.0,
+            y=40.0,
+            width=80.0,
+            height=20.0,
+        )
+        assert ellipse["type"] == "ellipse"
+        assert ellipse["semi_x"] == 40.0
+        assert ellipse["semi_y"] == 10.0
+
+        points = [[100.0, 100.0], [140.0, 100.0], [120.0, 130.0]]
+        polygon = _build(object_type="GENERIC_POLYGON", points=points)
+        assert polygon["type"] == "polygon"
+        assert polygon["points"] == [{"x": x, "y": y} for x, y in points]
+
+        polyline = _build(object_type="FENCE", points=[[1.0, 2.0], [3.0, 4.0]])
+        assert polyline["type"] == "polyline"
+        assert polyline["points"] == [{"x": 1.0, "y": 2.0}, {"x": 3.0, "y": 4.0}]
+
+        callout = _build(
+            object_type="GENERIC_CALLOUT", x=50.0, y=60.0, text="Note"
+        )
+        assert callout["type"] == "callout"
+        assert callout["target_x"] == 50.0
+        assert callout["content"] == "Note"
+
+    def test_polygon_rectangular_convenience_matches_explicit_points(self) -> None:
+        explicit = _build(
+            object_type="HOUSE",
+            points=[[80.0, 70.0], [120.0, 70.0], [120.0, 130.0], [80.0, 130.0]],
+        )
+        convenient = _build(
+            object_type="HOUSE", x=100.0, y=100.0, width=40.0, height=60.0
+        )
+        assert convenient["points"] == explicit["points"]
+
+    def test_polylines_do_not_accept_a_fake_width_parameter(self) -> None:
+        with pytest.raises(ValueError, match="no width/height/radius"):
+            _build(object_type="FENCE", points=[[1.0, 1.0], [2.0, 2.0]], width=5.0)
+
+    @pytest.mark.parametrize(
+        ("object_type", "kwargs"),
+        [
+            ("GENERIC_ELLIPSE", {"x": 0.0, "y": 0.0, "radius": 10.0}),
+            ("GENERIC_POLYGON", {"points": [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]], "x": 1.0}),
+            ("GENERIC_CALLOUT", {"x": 0.0, "y": 0.0, "text": "x", "width": 4.0}),
+        ],
+    )
+    def test_wrong_family_parameters_are_refused(
+        self, object_type: str, kwargs: dict[str, object]
+    ) -> None:
+        with pytest.raises(ValueError):
+            _build(object_type=object_type, **kwargs)
+
+
 class TestRectangles:
     @pytest.mark.parametrize("object_type", sorted(_RECT_TYPE_NAMES))
     def test_centre_converts_to_the_serialised_top_left_anchor(
@@ -159,18 +259,23 @@ class TestRectangles:
 
 
 class TestRejections:
-    def test_unsupported_type_lists_what_is_supported(self) -> None:
+    def test_excluded_type_lists_why_it_is_not_supported(self) -> None:
         with pytest.raises(ValueError) as exc:
-            _build(object_type="HOUSE", x=0.0, y=0.0, width=1.0, height=1.0)
+            _build(object_type="ROOF_RIDGE", x=0.0, y=0.0)
         message = str(exc.value)
+        assert "ROOF_RIDGE" in message
         assert "HOUSE" in message
-        # The error must be actionable: it names every type that IS creatable.
-        for name in CREATABLE_TYPE_NAMES:
-            assert name in message
+        assert "auto-created" in message
 
-    def test_unknown_type_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="cannot create"):
+    def test_unknown_type_points_to_discovery_tool(self) -> None:
+        with pytest.raises(ValueError) as exc:
             _build(object_type="NOT_A_REAL_TYPE", x=0.0, y=0.0)
+        assert "list_creatable_types" in str(exc.value)
+
+    @pytest.mark.parametrize("object_type", sorted(EXCLUDED_TYPE_REASONS))
+    def test_every_excluded_type_is_refused(self, object_type: str) -> None:
+        with pytest.raises(ValueError, match="cannot create"):
+            _build(object_type=object_type, x=0.0, y=0.0)
 
     @pytest.mark.parametrize("bad", [0.0, -1.0, -0.001])
     def test_non_positive_extents_are_refused(self, bad: float) -> None:

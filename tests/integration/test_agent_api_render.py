@@ -91,6 +91,12 @@ def _providers(scene: Any) -> AgentProviders:
         set_species=lambda *_a: _unused("set_species"),
         set_parent_bed=lambda *_a: _unused("set_parent_bed"),
         arrange_object=lambda *_a: _unused("arrange_object"),
+        set_object_layer=lambda *_a: _unused("set_object_layer"),
+        create_layer=lambda *_a: _unused("create_layer"),
+        rename_layer=lambda *_a: _unused("rename_layer"),
+        delete_layer=lambda *_a: _unused("delete_layer"),
+        set_active_layer=lambda *_a: _unused("set_active_layer"),
+        set_layer_property=lambda **_kw: _unused("set_layer_property"),
     )
 
 
@@ -406,5 +412,56 @@ def test_render_canvas_image_preserves_selection(canvas: Any, qtbot: Any) -> Non
         assert result.get("error") is None, result.get("error")
         assert result["call"].isError is not True
         assert circle.isSelected()
+    finally:
+        server.stop()
+
+
+def test_render_canvas_image_layer_id_matches_layer_name(canvas: Any, qtbot: Any) -> None:
+    """US-D2.4 acceptance: ``layers=[<id>]`` renders the SAME image as
+    ``layers=[<name>]`` for the same layer — ids are accepted alongside names
+    (render.py matches either), pinned here byte-for-byte so a future refactor
+    of the allowlist matching cannot silently drop id support."""
+    scene = canvas.scene()
+    layer_a = Layer(name="Layer A")
+    layer_b = Layer(name="Layer B")
+    scene.set_layers([layer_a, layer_b])
+
+    red = CircleItem(1000, 1000, 80, object_type=ObjectType.GENERIC_CIRCLE, layer_id=layer_a.id)
+    red.setBrush(QColor(255, 0, 0))
+    blue = CircleItem(3000, 1000, 80, object_type=ObjectType.GENERIC_CIRCLE, layer_id=layer_b.id)
+    blue.setBrush(QColor(0, 0, 255))
+    scene.addItem(red)
+    scene.addItem(blue)
+
+    server = AgentApiServer(_providers(scene), port=_free_port())
+    server.start()
+
+    result: dict[str, Any] = {}
+
+    async def body(session: Any) -> None:
+        result["by_name"] = await session.call_tool(
+            "render_canvas_image", {"layers": ["Layer A"]}
+        )
+        result["by_id"] = await session.call_tool(
+            "render_canvas_image", {"layers": [str(layer_a.id)]}
+        )
+
+    threading.Thread(
+        target=_drive, args=(server, body, result), name="mcp-test-client"
+    ).start()
+    try:
+        qtbot.waitUntil(lambda: result.get("done", False), timeout=15000)
+        assert result.get("error") is None, result.get("error")
+
+        name_png = result["by_name"].content[0].data
+        id_png = result["by_id"].content[0].data
+        assert name_png == id_png
+
+        # And both really filtered: Layer B's circle is background in each.
+        meta = json.loads(result["by_id"].content[1].text)
+        img = _decode_png(result["by_id"].content[0])
+        background = img.pixelColor(0, 0)
+        assert img.pixelColor(*_cm_to_px(meta, 3000, 1000)) == background
+        assert img.pixelColor(*_cm_to_px(meta, 1000, 1000)) != background
     finally:
         server.stop()

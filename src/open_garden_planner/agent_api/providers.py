@@ -30,13 +30,17 @@ class CreateObjectProvider(Protocol):
     def __call__(
         self,
         object_type: str,
-        x: float,
-        y: float,
+        x: float | None,
+        y: float | None,
         width: float | None,
         height: float | None,
         radius: float | None,
         name: str | None,
         species: str | None,
+        points: list[list[float]] | None,
+        text: str | None,
+        box_dx: float | None,
+        box_dy: float | None,
     ) -> dict[str, Any]: ...
 
 
@@ -56,6 +60,25 @@ class ResizeObjectProvider(Protocol):
         width: float | None,
         height: float | None,
         radius: float | None,
+    ) -> dict[str, Any]: ...
+
+
+class SetLayerPropertyProvider(Protocol):
+    """The `set_layer_property` provider's call signature, named parameters included.
+
+    Same reasoning as :class:`CreateObjectProvider`: ``visible``/``locked`` are
+    both ``bool | None``, so a transposition would be type-identical and
+    silently toggle the wrong property (and toggling ``locked`` is refused by
+    policy — a transposed argument must not sneak past that refusal).
+    ``server.py`` calls it by keyword.
+    """
+
+    def __call__(
+        self,
+        layer_id: str,
+        visible: bool | None,
+        opacity: float | None,
+        locked: bool | None,
     ) -> dict[str, Any]: ...
 
 
@@ -89,13 +112,14 @@ class AgentProviders:
             totals. Takes the kind and an optional destination path; returns a
             plain dict, including a row count
             (``agent_api.exports.export_csv_file``).
-        create_object: **Write (D2).** Creates one plant or soil container.
-            Takes ``(object_type, x, y, width, height, radius, name, species)``
-            — centre coordinates in scene cm, with the dimension pair that fits
-            the type's shape; runs ONE undoable ``CreateItemCommand`` on the main
-            thread (which also links a plant to any bed it lands in, via
-            ``_auto_parent_plant``) and returns a plain ``WriteResult``-shaped
-            dict. Raises on an unsupported type or invalid dimensions
+        create_object: **Write (D2.1/D2.5).** Creates one object from the
+            supported shape families. Takes the centre/dimension parameters for
+            circles, rectangles and ellipses, ``points`` for polygons and
+            polylines (or a rectangular footprint for polygons), and ``text``
+            plus a leader target for callouts. Runs ONE undoable command on the
+            main thread (a HOUSE and its linked roof ridge are one composite
+            command) and returns a plain ``WriteResult``-shaped dict. Raises
+            on an unsupported/excluded type or invalid geometry
             (``agent_api.creates.build_create_dict``).
         move_object: **Write (D2).** Moves one object by a relative offset
             (dx, dy in scene cm; +x east, +y north — the canvas is Y-up, so a
@@ -135,6 +159,27 @@ class AgentProviders:
             reports the resulting position). Raises when there is nothing to
             change (already at the front/back, or no overlapping object to
             step past) — mirroring ``set_parent_bed``'s no-op precedent.
+        set_object_layer: **Write (D2.4).** Moves one object to another layer.
+            Takes ``(item_id, layer_id)``; runs one undoable
+            ``MoveToLayerCommand`` and returns a plain ``WriteResult``-shaped
+            dict.
+        create_layer: **Write (D2.4).** Creates a layer at the top of the
+            stack and activates it. Takes ``(name,)``; runs one undoable
+            ``AddLayerCommand``.
+        rename_layer: **Write (D2.4).** Takes ``(layer_id, name)``; runs one
+            undoable ``RenameLayerCommand``.
+        delete_layer: **Write (D2.4).** Takes ``(layer_id,)``; runs one
+            undoable ``DeleteLayerCommand`` — the layer's objects survive on a
+            replacement layer inside the same single undo step.
+        set_active_layer: **Write (D2.4).** Takes ``(layer_id,)``; switches the
+            session's active layer (``CanvasScene.set_active_layer``). NOT an
+            undo step: the active layer is session state, never persisted and
+            never dirtying the document — same as the layers panel's own
+            row-click activation.
+        set_layer_property: **Write (D2.4).** Takes ``(layer_id, visible,
+            opacity, locked)``; runs one undoable ``SetLayerPropertyCommand``
+            per call, so exactly one property may change per call. ``locked``
+            is refused by policy in both directions (ADR-036 D2.4 addendum).
     """
 
     snapshot: Callable[[], dict[str, Any]]
@@ -158,3 +203,9 @@ class AgentProviders:
     set_species: Callable[[str, str | None, bool], dict[str, Any]]
     set_parent_bed: Callable[[str, str | None], dict[str, Any]]
     arrange_object: Callable[[str, str], dict[str, Any]]
+    set_object_layer: Callable[[str, str], dict[str, Any]]
+    create_layer: Callable[[str], dict[str, Any]]
+    rename_layer: Callable[[str, str], dict[str, Any]]
+    delete_layer: Callable[[str], dict[str, Any]]
+    set_active_layer: Callable[[str], dict[str, Any]]
+    set_layer_property: SetLayerPropertyProvider

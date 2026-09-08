@@ -247,6 +247,7 @@ def _object_ref(
         type=str(obj.get("type", "")),
         object_type=obj.get("object_type"),
         name=obj.get("name"),
+        layer_id=lid or None,
         layer_name=layer_names.get(lid) if lid else None,
         center_x_cm=cx,
         center_y_cm=cy,

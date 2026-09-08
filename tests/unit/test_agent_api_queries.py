@@ -135,6 +135,13 @@ class TestListObjects:
         assert (bed.center_x_cm, bed.center_y_cm) == (100.0, 50.0)
         assert (bed.width_cm, bed.height_cm) == (200.0, 100.0)
         assert bed.layer_name == "Base"
+        # US-D2.4: the layer id is exposed alongside the (ambiguous) name.
+        assert bed.layer_id == "L1"
+
+    def test_object_ref_layer_id_is_none_without_a_layer(self) -> None:
+        path = next(o for o in queries.list_objects(_snapshot()) if o.item_id == "path1")
+        assert path.layer_id is None
+        assert path.layer_name is None
 
 
 class TestStackIndex:

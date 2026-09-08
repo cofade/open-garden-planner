@@ -17,22 +17,20 @@ import asyncio
 import socket
 import threading
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 import pytest
-from PyQt6.QtCore import QPointF
+from PyQt6.QtWidgets import QMessageBox
 
 from open_garden_planner.agent_api import (
     AgentApiServer,
     AgentProviders,
-    MainThreadBridge,
 )
-from open_garden_planner.core.commands import (
-    CreateItemCommand,
-    DeleteItemsCommand,
-    MoveItemsCommand,
-)
+from open_garden_planner.app.application import GardenPlannerApp
+from open_garden_planner.app.settings import get_settings
+from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
@@ -48,225 +46,36 @@ def _free_port() -> int:
     return port
 
 
-def _providers(view: CanvasView) -> AgentProviders:
-    """Providers whose write ops run REAL commands on the view's command manager."""
-    bridge = MainThreadBridge()
-    scene = view.scene()
+_APP_BY_VIEW: dict[int, GardenPlannerApp] = {}
 
-    def _resolve(item_id: str) -> Any:
-        item = scene.find_item_by_id(UUID(item_id))
-        if item is None:
-            raise ValueError(f"No object with id {item_id}")
-        return item
 
-    def _move(item_id: str, dx: float, dy: float) -> dict[str, Any]:
-        item = _resolve(item_id)
-        cmd = MoveItemsCommand([item], QPointF(dx, dy))
-        view.command_manager.execute(cmd)
-        c = item.sceneBoundingRect().center()
-        return {
-            "item_id": item_id,
-            "action": "move",
-            "undo_description": cmd.description,
-            "x": c.x(),
-            "y": c.y(),
-        }
-
-    def _delete(item_id: str) -> dict[str, Any]:
-        item = _resolve(item_id)
-        cmd = DeleteItemsCommand(scene, [item])
-        view.command_manager.execute(cmd)
-        return {"item_id": item_id, "action": "delete", "undo_description": cmd.description}
-
-    def _create(
-        object_type: str,
-        x: float,
-        y: float,
-        width: float | None,
-        height: float | None,
-        radius: float | None,
-        name: str | None,
-        species: str | None,
-    ) -> dict[str, Any]:
-        """Stand-in mirroring the real provider's shape (one CreateItemCommand).
-
-        Like _move/_delete above, this pins the TRANSPORT + auth contract, not
-        the GUI orchestration -- that lives in test_agent_api_default_on.py,
-        which drives the real GardenPlannerApp.
-        """
-        item = CircleItem(x, y, radius or 30.0, object_type=ObjectType[object_type])
-        cmd = CreateItemCommand(scene, item)
-        view.command_manager.execute(cmd)
-        return {
-            "item_id": str(item.item_id),
-            "action": "create",
-            "undo_description": cmd.description,
-            "x": x,
-            "y": y,
-        }
-
-    def _resize(
-        item_id: str,
-        width: float | None,
-        height: float | None,
-        radius: float | None,
-    ) -> dict[str, Any]:
-        """Stand-in mirroring the real provider's shape (one ResizeItemCommand).
-
-        Like _move/_delete, this pins the TRANSPORT + auth contract; the GUI
-        orchestration (centre preservation, the shared apply path, refusals)
-        lives in test_agent_api_default_on.py against the real app.
-        """
-        from open_garden_planner.core.commands import ResizeItemCommand
-        from open_garden_planner.ui.canvas.geometry_apply import (
-            apply_rect_like_geometry,
-            build_circle_resize,
-        )
-
-        item = _resolve(item_id)
-        diameter = 2 * (radius if radius is not None else 30.0)
-        old_geometry, new_geometry = build_circle_resize(
-            item, diameter, keep_center=True
-        )
-        cmd = ResizeItemCommand(
-            item, old_geometry, new_geometry, apply_rect_like_geometry
-        )
-        view.command_manager.execute(cmd)
-        return {
-            "item_id": item_id,
-            "action": "resize",
-            "undo_description": cmd.description,
-            "radius": diameter / 2.0,
-        }
-
-    def _rotate(item_id: str, angle: float, relative: bool) -> dict[str, Any]:
-        """Stand-in mirroring the real provider's shape (one RotateItemCommand)."""
-        from open_garden_planner.core.commands import RotateItemCommand
-        from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
-
-        item = _resolve(item_id)
-        current = float(item.rotation_angle)
-        new_angle = (angle + current if relative else angle) % 360.0
-        cmd = RotateItemCommand(item, current, new_angle, apply_rotation)
-        view.command_manager.execute(cmd)
-        return {
-            "item_id": item_id,
-            "action": "rotate",
-            "undo_description": cmd.description,
-            "rotation_deg": new_angle,
-        }
-
-    def _set_species(
-        item_id: str, species: str | None, apply_database_size: bool
-    ) -> dict[str, Any]:
-        """Stand-in mirroring the real provider (one ApplySpeciesCommand)."""
-        from open_garden_planner.services.bundled_species_db import (
-            lookup_species,
-            merge_calendar_data,
-        )
-        from open_garden_planner.ui.plant_species_assignment import (
-            apply_species_to_item,
-        )
-
-        item = _resolve(item_id)
-        record = lookup_species(species or "")
-        if record is None:
-            raise ValueError(f"No species named {species!r}")
-        species_dict = merge_calendar_data(dict(record))
-        apply_species_to_item(
-            item, species_dict, confirm=lambda: apply_database_size
-        )
-        return {
-            "item_id": item_id,
-            "action": "set_species",
-            "undo_description": "Apply species data",
-            "species_key": species_dict.get("scientific_name"),
-        }
-
-    def _set_parent_bed(item_id: str, bed_id: str | None) -> dict[str, Any]:
-        """Stand-in mirroring the real provider (one SetParentBedCommand)."""
-        from open_garden_planner.core.commands import SetParentBedCommand
-
-        plant = _resolve(item_id)
-        bed = _resolve(bed_id) if bed_id else None
-        new_parent = bed.item_id if bed is not None else None
-        link_is_geometric = (
-            bool(bed.contains(bed.mapFromScene(
-                plant.mapToScene(plant.boundingRect().center())
-            )))
-            if bed is not None
-            else None
-        )
-        cmd = SetParentBedCommand(scene, plant, plant.parent_bed_id, new_parent)
-        view.command_manager.execute(cmd)
-        return {
-            "item_id": item_id,
-            "action": "set_parent_bed",
-            "undo_description": cmd.description,
-            "bed_membership_changed": True,
-            "new_parent_bed_id": str(new_parent) if new_parent else None,
-            "link_is_geometric": link_is_geometric,
-        }
-
-    def _arrange(item_id: str, action: str) -> dict[str, Any]:
-        """Stand-in mirroring the real provider's shape (one ArrangeItemsCommand).
-
-        Unlike _move/_delete above (which build their own Command directly),
-        this runs the REAL ``build_arrange_command`` seam — the one apply path
-        issue #338 introduced for every arrange surface — so a regression in
-        the seam itself, not just the transport, would show up here too.
-        """
-        from open_garden_planner.core.stacking import ArrangeMode
-        from open_garden_planner.ui.canvas.arrange import build_arrange_command
-
-        item = _resolve(item_id)
-        mode = ArrangeMode(action)
-        cmd, outcome = build_arrange_command(scene, [item], mode)
-        if cmd is None:
-            raise ValueError(f"{item_id}: {outcome.value}; nothing to change.")
-        view.command_manager.execute(cmd)
-        stack_order = scene._normalized_layer_order(item.layer_id)
-        return {
-            "item_id": item_id,
-            "action": "arrange",
-            "undo_description": cmd.description,
-            "stack_index": stack_order.index(item),
-        }
-
-    def _boom(*_a: Any) -> dict[str, Any]:
-        raise AssertionError("read provider must not run in this test")
-
-    return AgentProviders(
-        snapshot=lambda: bridge.run_on_main(lambda: {}),
-        diagnostics=lambda: [],
-        render=lambda *_a: _boom(),
-        save_plan=lambda _p: _boom(),
-        export_pdf=lambda *_a: _boom(),
-        export_dxf=lambda _p: _boom(),
-        export_csv=lambda *_a: _boom(),
-        # Keyword-only, matching the CreateObjectProvider protocol: server.py
-        # calls this by keyword so a width/height transposition can't happen.
-        create_object=lambda **kw: bridge.run_on_main(lambda: _create(**kw)),
-        move_object=lambda item_id, dx, dy: bridge.run_on_main(
-            lambda: _move(item_id, dx, dy)
-        ),
-        delete_object=lambda item_id: bridge.run_on_main(lambda: _delete(item_id)),
-        # Keyword-only, matching the ResizeObjectProvider protocol, for the
-        # same reason create_object is: width/height/radius are all float|None.
-        resize_object=lambda **kw: bridge.run_on_main(lambda: _resize(**kw)),
-        rotate_object=lambda item_id, angle, relative: bridge.run_on_main(
-            lambda: _rotate(item_id, angle, relative)
-        ),
-        set_species=lambda item_id, species, apply_database_size: bridge.run_on_main(
-            lambda: _set_species(item_id, species, apply_database_size)
-        ),
-        set_parent_bed=lambda item_id, bed_id: bridge.run_on_main(
-            lambda: _set_parent_bed(item_id, bed_id)
-        ),
-        arrange_object=lambda item_id, action: bridge.run_on_main(
-            lambda: _arrange(item_id, action)
-        ),
+@pytest.fixture()
+def canvas(qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Use a real ``GardenPlannerApp`` so providers are production-wired."""
+    get_settings().show_welcome_on_startup = False
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        lambda *_args, **_kwargs: QMessageBox.StandardButton.Discard,
     )
+    app = GardenPlannerApp()
+    qtbot.addWidget(app)
+    view = app.canvas_view
+    view.set_snap_enabled(False)
+    _APP_BY_VIEW[id(view)] = app
+    try:
+        yield view
+    finally:
+        _APP_BY_VIEW.pop(id(view), None)
+        app._stop_agent_api()
+
+
+def _providers(view: CanvasView) -> AgentProviders:
+    """Return the exact provider graph the production app gives its server."""
+    app = _APP_BY_VIEW.get(id(view))
+    if app is None:
+        raise AssertionError("canvas fixture did not register its GardenPlannerApp")
+    return app._build_agent_providers()
 
 
 def _drive(server: AgentApiServer, body: Callable[[Any], Any], result: dict[str, Any]) -> None:
@@ -341,6 +150,139 @@ def test_create_object_end_to_end(canvas: Any, qtbot: Any) -> None:
     assert view.command_manager.can_undo
     view.command_manager.undo()
     assert scene.find_item_by_id(UUID(created["item_id"])) is None
+
+
+def test_create_object_shape_families_end_to_end(
+    canvas: Any, qtbot: Any, tmp_path: Path
+) -> None:
+    """US-D2.5: every discovered creatable type crosses the real MCP transport.
+
+    The provider uses the same loader factory as the application-side
+    orchestration; this test additionally proves the expanded parameter names
+    survive MCP schema generation, auth, marshaling and result decoding.  The
+    resulting plan is then saved and loaded again, so the discovery roster is
+    also a round-trip contract rather than merely a construction roster.
+    """
+    from open_garden_planner.agent_api.creates import (
+        _CIRCLE_TYPE_NAMES,
+        _ELLIPSE_TYPE_NAMES,
+        _POLYGON_TYPE_NAMES,
+        _POLYLINE_TYPE_NAMES,
+        _RECT_TYPE_NAMES,
+        CREATABLE_TYPE_NAMES,
+    )
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+
+    view = canvas
+    scene = view.scene()
+    before = len([item for item in scene.items() if item.parentItem() is None])
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    def request_for(object_type: str, index: int) -> dict[str, Any]:
+        """Build a small, in-bounds request for each discovered family member."""
+        x = 250.0 + (index % 10) * 450.0
+        y = 250.0 + (index // 10) * 550.0
+        if object_type in _CIRCLE_TYPE_NAMES:
+            return {"object_type": object_type, "x": x, "y": y, "radius": 30.0}
+        if object_type in _RECT_TYPE_NAMES:
+            return {
+                "object_type": object_type,
+                "x": x,
+                "y": y,
+                "width": 120.0,
+                "height": 80.0,
+            }
+        if object_type in _ELLIPSE_TYPE_NAMES:
+            return {
+                "object_type": object_type,
+                "x": x,
+                "y": y,
+                "width": 120.0,
+                "height": 80.0,
+            }
+        if object_type in _POLYGON_TYPE_NAMES:
+            return {
+                "object_type": object_type,
+                "points": [
+                    [x - 60.0, y - 40.0],
+                    [x + 60.0, y - 40.0],
+                    [x + 60.0, y + 40.0],
+                    [x - 60.0, y + 40.0],
+                ],
+            }
+        if object_type in _POLYLINE_TYPE_NAMES:
+            return {
+                "object_type": object_type,
+                "points": [[x - 60.0, y - 30.0], [x + 60.0, y + 30.0]],
+            }
+        return {"object_type": object_type, "x": x, "y": y, "text": "Inspect this area"}
+
+    requests = [
+        request_for(object_type, index)
+        for index, object_type in enumerate(sorted(CREATABLE_TYPE_NAMES))
+    ]
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            catalog = await session.call_tool("list_creatable_types", {})
+            body.results = [
+                (await session.call_tool("create_object", request)).structuredContent
+                for request in requests
+            ]  # type: ignore[attr-defined]
+            body.catalog = catalog.structuredContent["result"]  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    results = body.results  # type: ignore[attr-defined]
+    catalog = body.catalog  # type: ignore[attr-defined]
+    assert {entry["object_type"] for entry in catalog if entry["creatable"]} == {
+        request["object_type"] for request in requests
+    }
+    assert all(result["action"] == "create" for result in results)
+    house_result = next(
+        result
+        for request, result in zip(requests, results, strict=True)
+        if request["object_type"] == "HOUSE"
+    )
+    assert sum(result["linked_items_created"] for result in results) == 1
+    top_level = [item for item in scene.items() if item.parentItem() is None]
+    assert len(top_level) == before + len(requests) + 1  # HOUSE's ridge
+
+    manager = ProjectManager()
+    save_path = tmp_path / "agent-created-shapes.ogp"
+    manager.save(scene, save_path)
+    loaded = CanvasScene(width_cm=scene.width_cm, height_cm=scene.height_cm)
+    manager.load(loaded, save_path)
+    loaded_items = [
+        item
+        for item in loaded.items()
+        if item.parentItem() is None and getattr(item, "object_type", None) is not None
+    ]
+    loaded_types = {item.object_type.name for item in loaded_items}
+    assert {request["object_type"] for request in requests} <= loaded_types
+    loaded_ids = {str(item.item_id) for item in loaded_items}
+    assert {result["item_id"] for result in results} <= loaded_ids
+    house = loaded.find_item_by_id(UUID(house_result["item_id"]))
+    assert house is not None
+    assert house.metadata.get("ridge_item_id")
+
+    # Every create call produces one undo entry; the HOUSE entry removes
+    # both the house and its ridge, proving the composite remains one step.
+    for _ in requests:
+        view.command_manager.undo()
+    assert len([item for item in scene.items() if item.parentItem() is None]) == before
 
 
 def test_unauthenticated_create_is_rejected(canvas: Any, qtbot: Any) -> None:
@@ -939,4 +881,183 @@ def test_arrange_object_second_identical_call_refuses(canvas: Any, qtbot: Any) -
     # The first call pushed exactly one undo step; the refused second pushed none.
     assert view.command_manager.can_undo
     view.command_manager.undo()
+    assert view.command_manager.can_undo is False
+
+
+# --- US-D2.4: layer tools over the real transport ----------------------------
+#
+# Read -> write -> undo over a real MCP client, per the issue's acceptance
+# criteria: list_layers exposes ids, create_layer adds at the top AND activates
+# (so the ids round-trip into set_object_layer), and Ctrl+Z restores the
+# object's ORIGINAL layer. The fixture above supplies the production
+# GardenPlannerApp provider graph; test_agent_api_default_on.py additionally
+# pins refusal branches directly on the app for deterministic edge coverage.
+
+
+def test_layer_tools_read_write_undo_end_to_end(canvas: Any, qtbot: Any) -> None:
+    from uuid import UUID
+
+    view = canvas
+    scene = view.scene()
+    original_layer_id = scene.active_layer.id
+    rect = RectangleItem(
+        100, 100, 80, 40,
+        object_type=ObjectType.GENERIC_RECTANGLE,
+        layer_id=original_layer_id,
+    )
+    scene.addItem(rect)
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            before = await session.call_tool("list_layers", {})
+            created = await session.call_tool("create_layer", {"name": "Agent Layer"})
+            after = await session.call_tool("list_layers", {})
+            moved = await session.call_tool(
+                "set_object_layer",
+                {
+                    "item_id": str(rect.item_id),
+                    "layer_id": created.structuredContent["layer_id"],
+                },
+            )
+            renamed = await session.call_tool(
+                "rename_layer",
+                {
+                    "layer_id": created.structuredContent["layer_id"],
+                    "name": "Renamed Agent Layer",
+                },
+            )
+            property_changed = await session.call_tool(
+                "set_layer_property",
+                {
+                    "layer_id": created.structuredContent["layer_id"],
+                    "opacity": 0.5,
+                },
+            )
+            active = await session.call_tool(
+                "set_active_layer", {"layer_id": str(original_layer_id)}
+            )
+            deleted = await session.call_tool(
+                "delete_layer",
+                {"layer_id": created.structuredContent["layer_id"]},
+            )
+            summary = await session.call_tool("get_plan_summary", {})
+            body.before = before.structuredContent["result"]  # type: ignore[attr-defined]
+            body.created = created.structuredContent  # type: ignore[attr-defined]
+            body.after = after.structuredContent["result"]  # type: ignore[attr-defined]
+            body.moved = moved.structuredContent  # type: ignore[attr-defined]
+            body.moved_error = moved.isError  # type: ignore[attr-defined]
+            body.renamed = renamed.structuredContent  # type: ignore[attr-defined]
+            body.property_changed = property_changed.structuredContent  # type: ignore[attr-defined]
+            body.active = active.structuredContent  # type: ignore[attr-defined]
+            body.deleted = deleted.structuredContent  # type: ignore[attr-defined]
+            body.summary_layers = summary.structuredContent["layers"]  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+# list_layers before: the scene's one default layer, active, carrying the rect.
+    assert len(body.before) == 1  # type: ignore[attr-defined]
+    assert body.before[0]["layer_id"] == str(original_layer_id)  # type: ignore[attr-defined]
+    assert body.before[0]["is_active"] is True  # type: ignore[attr-defined]
+    assert body.before[0]["object_count"] == 1  # type: ignore[attr-defined]
+
+    # create_layer: new id, and the after-list shows it on TOP and ACTIVE.
+    new_layer_id = body.created["layer_id"]  # type: ignore[attr-defined]
+    assert body.created["action"] == "create_layer"  # type: ignore[attr-defined]
+    assert body.created["item_id"] is None  # type: ignore[attr-defined]
+    assert len(body.after) == 2  # type: ignore[attr-defined]
+    assert body.after[0]["layer_id"] == new_layer_id  # type: ignore[attr-defined]
+    assert body.after[0]["name"] == "Agent Layer"  # type: ignore[attr-defined]
+    assert body.after[0]["is_active"] is True  # type: ignore[attr-defined]
+    assert body.after[1]["is_active"] is False  # type: ignore[attr-defined]
+    assert body.after[0]["z_order"] > body.after[1]["z_order"]  # type: ignore[attr-defined]
+
+    # set_object_layer with the id that came back from create_layer: the object
+    # moved, and PlanSummary.layers agrees with list_layers.
+    assert body.moved_error is not True  # type: ignore[attr-defined]
+    assert body.moved["action"] == "set_object_layer"  # type: ignore[attr-defined]
+    assert body.moved["layer_id"] == new_layer_id  # type: ignore[attr-defined]
+    assert body.renamed["action"] == "rename_layer"  # type: ignore[attr-defined]
+    assert body.property_changed["action"] == "set_layer_property"  # type: ignore[attr-defined]
+    assert body.active["action"] == "set_active_layer"  # type: ignore[attr-defined]
+    assert body.deleted["action"] == "delete_layer"  # type: ignore[attr-defined]
+    assert scene.get_layer_by_id(UUID(new_layer_id)) is None
+    assert rect.layer_id == original_layer_id
+    assert scene.active_layer.id == original_layer_id
+    counts = {lyr["layer_id"]: lyr["object_count"] for lyr in body.summary_layers}  # type: ignore[attr-defined]
+    assert counts == {str(original_layer_id): 1}
+
+    # Five document writes (create, move, rename, property, delete) each add
+    # exactly one undo entry; set_active_layer deliberately adds none.
+    for _ in range(5):
+        view.command_manager.undo()
+    assert len(scene.layers) == 1
+    assert scene.layers[0].id == original_layer_id
+    assert rect.layer_id == original_layer_id
+    assert view.command_manager.can_undo is False
+
+
+def test_unauthenticated_layer_tools_are_rejected(canvas: Any, qtbot: Any) -> None:
+    """The ADR-036 gate covers every D2.4 layer write tool, and a rejected call
+    leaves the scene AND the undo stack untouched."""
+    view = canvas
+    scene = view.scene()
+    layer_id = str(scene.active_layer.id)
+    rect = RectangleItem(
+        100, 100, 80, 40,
+        object_type=ObjectType.GENERIC_RECTANGLE,
+        layer_id=scene.active_layer.id,
+    )
+    scene.addItem(rect)
+    layers_before = len(scene.layers)
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    calls = [
+        ("set_object_layer", {"item_id": str(rect.item_id), "layer_id": layer_id}),
+        ("create_layer", {"name": "Sneaky"}),
+        ("rename_layer", {"layer_id": layer_id, "name": "Sneaky"}),
+        ("delete_layer", {"layer_id": layer_id}),
+        ("set_active_layer", {"layer_id": layer_id}),
+        ("set_layer_property", {"layer_id": layer_id, "visible": False}),
+    ]
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        async with (
+            http_client(url) as (r, w, _),  # NO Authorization header
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            body.errors = [
+                (await session.call_tool(name, args)).isError
+                for name, args in calls
+            ]  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.errors == [True] * len(calls)  # type: ignore[attr-defined]
+    assert len(scene.layers) == layers_before
+    assert scene.layers[0].name != "Sneaky"
+    assert rect.layer_id == scene.active_layer.id
+    assert rect.isVisible()
     assert view.command_manager.can_undo is False
