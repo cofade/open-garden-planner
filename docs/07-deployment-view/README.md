@@ -122,6 +122,9 @@ Releases are fully automated via the `release.yml` GitHub Actions workflow:
    - Computes the next version from the latest git tag + PR label
    - Builds the Windows installer (PyInstaller + NSIS) on a Windows runner
    - Generates SHA256 checksums
+   - Attests build provenance for the installer (`actions/attest-build-provenance`,
+     Sigstore-backed; see §7.3 Verification and ADR-044) — proves the exe was
+     built by this public CI run from this public commit
    - Creates a GitHub Release with auto-generated notes
    - Uploads the installer `.exe` and `SHA256SUMS.txt` as release assets
    - Tags the release as `vX.Y.Z`
@@ -138,6 +141,11 @@ If CI/CD is unavailable, releases can be built locally:
    ```
 4. **Create GitHub Release**: Upload `OpenGardenPlanner-v1.0.0-Setup.exe` and `SHA256SUMS.txt` as release assets
 5. **Release notes**: Include changelog, system requirements, and verification instructions
+
+Note: build provenance attestation (§7.3 Verification) requires GitHub's OIDC
+token and can only be produced by an `actions/attest-build-provenance` step
+running inside GitHub Actions — a manually-built release has no attestation
+to verify, checksums only.
 
 ### Release Assets
 
@@ -157,6 +165,18 @@ Users verify download integrity by comparing checksums:
 (Get-FileHash .\OpenGardenPlanner-v1.0.0-Setup.exe -Algorithm SHA256).Hash
 # Compare with SHA256SUMS.txt from release page
 ```
+
+From v1.27.9 onward, users can additionally verify build provenance — a
+cryptographic proof, independent of the checksum, that the exact release
+artifact was produced by this repo's public `release.yml` run from a specific
+public commit (not built or modified anywhere else):
+
+```bash
+gh attestation verify OpenGardenPlanner-v1.0.0-Setup.exe -R cofade/open-garden-planner
+```
+
+This does not make the installer Authenticode-signed and does not by itself
+suppress SmartScreen/Defender warnings — see §11.1/§11.2 and ADR-044.
 
 ## 7.4 CI/CD Pipeline (GitHub Actions)
 
@@ -208,6 +228,7 @@ flowchart TD
         R6[Install NSIS via choco]
         R7["Build installer:<br/>python installer/build_installer.py --version X.Y.Z"]
         R8[Generate SHA256 checksum]
+        R8b["Attest build provenance<br/>actions/attest-build-provenance"]
         R9[Create GitHub Release<br/>auto-generated notes]
         R10a[Upload OpenGardenPlanner-vX.Y.Z-Setup.exe]
         R10b[Upload SHA256SUMS.txt]
@@ -215,7 +236,7 @@ flowchart TD
 
         R1 --> R2 --> R3
         R3 -->|yes| Skip
-        R3 -->|no| R4 --> R5 --> R6 --> R7 --> R8 --> R9
+        R3 -->|no| R4 --> R5 --> R6 --> R7 --> R8 --> R8b --> R9
         R9 --> R10a
         R9 --> R10b
     end

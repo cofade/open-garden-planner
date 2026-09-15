@@ -6,6 +6,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -125,6 +127,20 @@ jobs:
           cd dist
           sha256sum "OpenGardenPlanner-v${{ steps.version.outputs.version }}-Setup.exe" > SHA256SUMS.txt
           cat SHA256SUMS.txt
+
+      # Cryptographically binds the installer's digest to this exact commit
+      # SHA and public workflow run (Sigstore-backed, no paid cert needed) so
+      # anyone can verify the release was built by public CI from the public
+      # source, not just assume it (issue #356: Defender false-positive
+      # report). Verify with `gh attestation verify <file> -R
+      # cofade/open-garden-planner`. This proves build provenance; it does
+      # NOT make the installer Authenticode-signed, so SmartScreen/Defender
+      # warnings can still appear (§11.1/§11.2, ADR-044).
+      - name: Attest build provenance
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: "dist/OpenGardenPlanner-v${{ steps.version.outputs.version }}-Setup.exe"
 
       - name: Create GitHub Release
         if: steps.check_tag.outputs.exists == 'false'
