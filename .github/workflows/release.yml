@@ -130,24 +130,31 @@ jobs:
           sha256sum "OpenGardenPlanner-v${{ steps.version.outputs.version }}-Setup.exe" > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - name: Write verification footer
+      - name: Write release notes preamble
         if: steps.check_tag.outputs.exists == 'false'
         shell: bash
         run: |
-          cat > dist/RELEASE_NOTES.md <<'EOF'
+          cat > dist/RELEASE_NOTES.md <<EOF
           ### Verify this release
 
-          ```powershell
-          (Get-FileHash .\OpenGardenPlanner-<version>-Setup.exe -Algorithm SHA256).Hash
-          # compare with SHA256SUMS.txt above
-          ```
+          \`\`\`powershell
+          (Get-FileHash .\OpenGardenPlanner-v${{ steps.version.outputs.version }}-Setup.exe -Algorithm SHA256).Hash
+          # compare with SHA256SUMS.txt, attached to this release
+          \`\`\`
 
-          ```bash
-          gh attestation verify OpenGardenPlanner-<version>-Setup.exe -R cofade/open-garden-planner
-          ```
+          \`\`\`bash
+          gh attestation verify OpenGardenPlanner-v${{ steps.version.outputs.version }}-Setup.exe -R cofade/open-garden-planner --signer-workflow cofade/open-garden-planner/.github/workflows/release.yml
+          # or, for the installed app exe itself (the file Defender may flag):
+          gh attestation verify OpenGardenPlanner.exe -R cofade/open-garden-planner --signer-workflow cofade/open-garden-planner/.github/workflows/release.yml
+          \`\`\`
 
-          See README "Verify your download" for what each check proves and why
-          Windows SmartScreen/Defender may still warn on an unsigned installer.
+          If the attestation command above reports no attestations found, the
+          provenance step for this specific release may still be running or
+          may have failed independently of the release itself (it runs after
+          this release is published) — the SHA-256 checksum above still
+          verifies download integrity either way. See README "Verify your
+          download" for what each check proves and why Windows
+          SmartScreen/Defender may still warn on an unsigned installer.
           EOF
 
       - name: Create GitHub Release

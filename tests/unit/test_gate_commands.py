@@ -596,28 +596,70 @@ class TestTheGuardItself:
 #: guards against; the bar is "not v1", not "must equal today's latest".
 _MIN_ATTEST_ACTION_MAJOR = 2
 
+#: Matches either a tag pin (``@v4``) or a hardened SHA pin with the major
+#: recorded in a trailing comment (``@abc123...  # v4.2.2``) — the standard
+#: supply-chain-hardening spelling for an action whose entire purpose is
+#: supply-chain trust. A bare SHA pin with no version comment is rejected:
+#: the guard needs a major to check, not just "some commit or other".
+_ATTEST_USES_LINE = re.compile(
+    r"uses:\s*actions/attest-build-provenance@"
+    r"(?:v(?P<tag_major>\d+)|[0-9a-f]{40}\s*#\s*v(?P<sha_major>\d+))"
+)
+
 
 def test_the_release_workflow_still_attests_build_provenance() -> None:
     """Issue #356: prove releases are built by public CI from public source.
 
-    Pins three things that would each silently regress the guarantee: the
-    step existing at all, pinned to an action major new enough to survive the
-    node20 runtime removal, and covering the exact file Defender quarantined
-    in #356 (the raw app exe), not just the NSIS installer that wraps it.
+    Pins the four things a first-pass senior review actually caught
+    regressing (round 1 of this guard, hand-verified against the fixes, not
+    hypothetical — see ADR-044 "Rejected placement"): the step existing at
+    all; pinned to an action major new enough to survive the node20 runtime
+    removal; running *after* release creation, not before (a never-yet-
+    exercised step ahead of release creation can take every future release
+    down with it); the job actually granting the OIDC permissions the step
+    needs; and covering the exact file Defender quarantined in #356 (the raw
+    app exe), not just the NSIS installer that wraps it.
     """
     text = (_REPO_ROOT / _RELEASE_WORKFLOW).read_text(encoding="utf-8")
-    uses_match = re.search(
-        r"uses:\s*actions/attest-build-provenance@v(\d+)", text
-    )
+
+    uses_match = _ATTEST_USES_LINE.search(text)
     assert uses_match, "release.yml no longer attests build provenance at all"
-    major = int(uses_match.group(1))
+    major = int(uses_match.group("tag_major") or uses_match.group("sha_major"))
     assert major >= _MIN_ATTEST_ACTION_MAJOR, (
         f"actions/attest-build-provenance@v{major} predates the node20 "
         f"runtime removal fix — bump to v{_MIN_ATTEST_ACTION_MAJOR}+"
     )
 
-    step_start = text.index("Attest build provenance")
-    subject_path_block = text[step_start : step_start + 800]
+    create_release_pos = text.index("- name: Create GitHub Release")
+    attest_pos = text.index("- name: Attest build provenance")
+    assert attest_pos > create_release_pos, (
+        "'Attest build provenance' must run AFTER 'Create GitHub Release' — "
+        "attestation is keyed to the artifact digest, not the release, so "
+        "nothing requires it to run first, and a never-yet-exercised step "
+        "ahead of release creation can take every future release down with "
+        "it if Sigstore/the attestations API hiccups (ADR-044 'Rejected "
+        "placement')"
+    )
+
+    job_block = text[text.index("jobs:") : create_release_pos]
+    assert "id-token: write" in job_block and "attestations: write" in job_block, (
+        "the release job no longer grants id-token/attestations permissions "
+        "— actions/attest-build-provenance requires both to mint a Sigstore "
+        "attestation; without them the step fails every run"
+    )
+
+    # Bounded to the attest step's own block (up to the next top-level step
+    # or end of file), not an arbitrary character window — a step appended
+    # after it that happens to mention the exe path must not make this pass
+    # vacuously.
+    subject_path_start = text.index("subject-path:", attest_pos)
+    next_step_match = re.search(r"\n {6}- name:", text[subject_path_start:])
+    subject_path_end = (
+        subject_path_start + next_step_match.start()
+        if next_step_match
+        else len(text)
+    )
+    subject_path_block = text[subject_path_start:subject_path_end]
     assert "OpenGardenPlanner-v" in subject_path_block and "Setup.exe" in subject_path_block, (
         "the attest step no longer covers the installer"
     )

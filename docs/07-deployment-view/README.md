@@ -61,7 +61,7 @@ python installer/build_installer.py --skip-pyinstaller
 |---------|-------------|
 | **Welcome Page** | Branded welcome with app description |
 | **License Display** | GPLv3 license agreement |
-| **Install Path** | User-selectable (default: `C:\Program Files\Open Garden Planner`) |
+| **Install Path** | User-selectable (default: `C:\Program Files (x86)\Open Garden Planner` — NSIS `$PROGRAMFILES` on 64-bit Windows, see §11.4 issue #199) |
 | **Components** | Core (required), desktop shortcut (optional), file association (optional) |
 | **Start Menu** | Shortcut in Start Menu Programs folder + uninstaller shortcut |
 | **Desktop Shortcut** | Optional desktop shortcut (component checkbox) |
@@ -123,7 +123,7 @@ Releases are fully automated via the `release.yml` GitHub Actions workflow:
    - Builds the Windows installer (PyInstaller + NSIS) on a Windows runner
    - Generates SHA256 checksums
    - Creates a GitHub Release with auto-generated notes (a verification
-     footer with the checksum + attestation commands is prepended)
+     preamble with the checksum + attestation commands is prepended)
    - Uploads the installer `.exe` and `SHA256SUMS.txt` as release assets
    - Tags the release as `vX.Y.Z`
    - Attests build provenance (`actions/attest-build-provenance`,
@@ -238,7 +238,7 @@ flowchart TD
         R6[Install NSIS via choco]
         R7["Build installer:<br/>python installer/build_installer.py --version X.Y.Z"]
         R8[Generate SHA256 checksum]
-        R8b[Write verification footer<br/>for release notes]
+        R8b[Write release notes preamble<br/>checksum + attestation commands]
         R9[Create GitHub Release<br/>notes footer + auto-generated notes]
         R10a[Upload OpenGardenPlanner-vX.Y.Z-Setup.exe]
         R10b[Upload SHA256SUMS.txt]

@@ -43,7 +43,7 @@ Download the latest installer from the [Releases](https://github.com/cofade/open
 > **[Download Latest Installer](https://github.com/cofade/open-garden-planner/releases/latest)**
 
 Run the installer and follow the wizard. It will:
-- Install to `C:\Program Files\Open Garden Planner` (configurable)
+- Install to `C:\Program Files (x86)\Open Garden Planner` (configurable)
 - Create Start Menu and optional desktop shortcuts
 - Optionally associate `.ogp` files so you can double-click to open them
 - Register in Add/Remove Programs for clean uninstallation
@@ -72,7 +72,7 @@ tampered with or built anywhere else. Verify it with the
 gh attestation verify OpenGardenPlanner-<version>-Setup.exe -R cofade/open-garden-planner --signer-workflow cofade/open-garden-planner/.github/workflows/release.yml
 ```
 
-The same command works against the **installed app exe** too — `%ProgramFiles%\Open Garden Planner\OpenGardenPlanner.exe` — which is the exact file Windows Defender has been reported flagging (issue #356); it is attested separately from the installer, not just implied by it. `--signer-workflow` pins the check to *this repo's own* release workflow, not merely "any workflow in this repository" (the plain `-R` form is still valid, just slightly less specific).
+The same command works against the **installed app exe** too — `C:\Program Files (x86)\Open Garden Planner\OpenGardenPlanner.exe` — which is the exact file Windows Defender has been reported flagging (issue #356); it is attested separately from the installer, not just implied by it. `--signer-workflow` pins the check to *this repo's own* release workflow, not merely "any workflow in this repository" (the plain `-R` form is still valid, just slightly less specific).
 
 **Why Windows may warn anyway:** the installer is not Authenticode-signed
 (see `docs/11-risks-and-technical-debt` §11.1/§11.2) — that costs a paid
