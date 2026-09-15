@@ -588,13 +588,15 @@ class TestTheGuardItself:
         ), "a gate copy that appends the trio must NOT be exempt"
 
 
-#: `actions/attest-build-provenance@v1` pins `actions/attest@v1.4.1`, a node20
-#: action; GitHub is removing the node20 runtime from Actions runners (2026),
-#: at which point v1 hard-fails and, being wired ahead of release creation
+#: `actions/attest-build-provenance` v1 and v2 both pin a node20 `actions/attest`;
+#: GitHub is removing the node20 runtime from Actions runners (2026), at which
+#: point either hard-fails and, being wired ahead of release creation
 #: originally, would have taken every future release with it (senior review,
-#: issue #356). v4 moved to node24. Anything below v2 is the stale shape this
-#: guards against; the bar is "not v1", not "must equal today's latest".
-_MIN_ATTEST_ACTION_MAJOR = 2
+#: issue #356). node24 arrived in v3.0.0 (upstream release notes: "Bump to
+#: node24 runtime"), not v4 — a v2 pin looks close enough to "not v1" to read
+#: as safe and is exactly as broken. Anything below v3 is the stale shape this
+#: guards against; the bar is "not node20", not "must equal today's latest".
+_MIN_ATTEST_ACTION_MAJOR = 3
 
 #: Matches either a tag pin (``@v4``) or a hardened SHA pin with the major
 #: recorded in a trailing comment (``@abc123...  # v4.2.2``) — the standard
@@ -610,15 +612,18 @@ _ATTEST_USES_LINE = re.compile(
 def test_the_release_workflow_still_attests_build_provenance() -> None:
     """Issue #356: prove releases are built by public CI from public source.
 
-    Pins the four things a first-pass senior review actually caught
-    regressing (round 1 of this guard, hand-verified against the fixes, not
-    hypothetical — see ADR-044 "Rejected placement"): the step existing at
-    all; pinned to an action major new enough to survive the node20 runtime
-    removal; running *after* release creation, not before (a never-yet-
-    exercised step ahead of release creation can take every future release
-    down with it); the job actually granting the OIDC permissions the step
-    needs; and covering the exact file Defender quarantined in #356 (the raw
-    app exe), not just the NSIS installer that wraps it.
+    Pins the six things review rounds actually caught regressing
+    (hand-verified against the fixes, not hypothetical — see ADR-044
+    "Rejected placement"): the step existing at all; pinned to an action
+    major new enough to survive the node20 runtime removal; running *after*
+    release creation, not before (a never-yet-exercised step ahead of
+    release creation can take every future release down with it); the job
+    actually granting the OIDC permissions the step needs; covering the
+    exact file Defender quarantined in #356 (the raw app exe) and
+    `SHA256SUMS.txt`, not just the NSIS installer that wraps it; and the
+    release-notes preamble actually being wired into the release (a deleted
+    `--notes-file` flag would silently drop the trust signal from every
+    future release page with every other assertion here still green).
     """
     text = (_REPO_ROOT / _RELEASE_WORKFLOW).read_text(encoding="utf-8")
 
@@ -648,12 +653,21 @@ def test_the_release_workflow_still_attests_build_provenance() -> None:
         "attestation; without them the step fails every run"
     )
 
+    assert "--notes-file" in text, (
+        "release.yml no longer wires the verification preamble into "
+        "`gh release create` — a deleted --notes-file flag would silently "
+        "drop the trust signal from every future release page while every "
+        "other assertion in this test stays green"
+    )
+
     # Bounded to the attest step's own block (up to the next top-level step
     # or end of file), not an arbitrary character window — a step appended
     # after it that happens to mention the exe path must not make this pass
-    # vacuously.
+    # vacuously. A step can start with either `- name:` or `- uses:` (this
+    # workflow's own first step is `- uses: actions/checkout@v4`), so both
+    # spellings bound the window.
     subject_path_start = text.index("subject-path:", attest_pos)
-    next_step_match = re.search(r"\n {6}- name:", text[subject_path_start:])
+    next_step_match = re.search(r"\n {6}- (?:name|uses):", text[subject_path_start:])
     subject_path_end = (
         subject_path_start + next_step_match.start()
         if next_step_match
@@ -662,6 +676,9 @@ def test_the_release_workflow_still_attests_build_provenance() -> None:
     subject_path_block = text[subject_path_start:subject_path_end]
     assert "OpenGardenPlanner-v" in subject_path_block and "Setup.exe" in subject_path_block, (
         "the attest step no longer covers the installer"
+    )
+    assert "SHA256SUMS.txt" in subject_path_block, (
+        "the attest step no longer covers SHA256SUMS.txt"
     )
     assert "OpenGardenPlanner/OpenGardenPlanner.exe" in subject_path_block, (
         "the attest step no longer covers the raw app exe — this is the "

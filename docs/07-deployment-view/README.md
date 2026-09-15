@@ -239,7 +239,7 @@ flowchart TD
         R7["Build installer:<br/>python installer/build_installer.py --version X.Y.Z"]
         R8[Generate SHA256 checksum]
         R8b[Write release notes preamble<br/>checksum + attestation commands]
-        R9[Create GitHub Release<br/>notes footer + auto-generated notes]
+        R9[Create GitHub Release<br/>notes preamble + auto-generated notes]
         R10a[Upload OpenGardenPlanner-vX.Y.Z-Setup.exe]
         R10b[Upload SHA256SUMS.txt]
         R11["Attest build provenance<br/>actions/attest-build-provenance<br/>installer + checksum + raw app exe"]
