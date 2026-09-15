@@ -141,13 +141,17 @@ touch the README, but only with shipped, tested items.
   ```
 
   Compare against the hash in `SHA256SUMS.txt` from the release page.
-- **Build provenance attestation (ADR-044, from v1.27.9):** every release also carries a
-  GitHub Artifact Attestation (`actions/attest-build-provenance`, Sigstore-backed, no paid
-  cert) binding the installer's digest to the exact public commit + workflow run that built
-  it. README's verify command (copy verbatim, keep in README):
+- **Build provenance attestation (ADR-044, from the next release):** every release also
+  carries a GitHub Artifact Attestation (`actions/attest-build-provenance@v4` — not v1,
+  which pins a node20 action GitHub is retiring; see ADR-044's rejected-placement note —
+  Sigstore-backed, no paid cert) for the installer, `SHA256SUMS.txt`, **and** the raw app
+  exe the installer packages (`dist/OpenGardenPlanner/OpenGardenPlanner.exe` — the exact
+  file named in issue #356's Defender report; attesting only the installer would not let
+  that reporter verify the file they actually have). README's verify command (copy
+  verbatim, keep in README):
 
   ```bash
-  gh attestation verify OpenGardenPlanner-<version>-Setup.exe -R cofade/open-garden-planner
+  gh attestation verify OpenGardenPlanner-<version>-Setup.exe -R cofade/open-garden-planner --signer-workflow cofade/open-garden-planner/.github/workflows/release.yml
   ```
 
   This proves *source provenance* (built by public CI from public source) — it does **not**

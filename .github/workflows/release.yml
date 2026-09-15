@@ -6,13 +6,15 @@ on:
 
 permissions:
   contents: write
-  id-token: write
-  attestations: write
 
 jobs:
   release:
     name: Build & Release
     runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     # Skip chore/sync commits — they follow a real release and race-condition
     # the tag lookup, causing the workflow to compute a stale version number.
     # Matches both a bare `chore:` and a scoped `chore(...)` prefix (a scoped
@@ -128,19 +130,25 @@ jobs:
           sha256sum "OpenGardenPlanner-v${{ steps.version.outputs.version }}-Setup.exe" > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      # Cryptographically binds the installer's digest to this exact commit
-      # SHA and public workflow run (Sigstore-backed, no paid cert needed) so
-      # anyone can verify the release was built by public CI from the public
-      # source, not just assume it (issue #356: Defender false-positive
-      # report). Verify with `gh attestation verify <file> -R
-      # cofade/open-garden-planner`. This proves build provenance; it does
-      # NOT make the installer Authenticode-signed, so SmartScreen/Defender
-      # warnings can still appear (§11.1/§11.2, ADR-044).
-      - name: Attest build provenance
+      - name: Write verification footer
         if: steps.check_tag.outputs.exists == 'false'
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-path: "dist/OpenGardenPlanner-v${{ steps.version.outputs.version }}-Setup.exe"
+        shell: bash
+        run: |
+          cat > dist/RELEASE_NOTES.md <<'EOF'
+          ### Verify this release
+
+          ```powershell
+          (Get-FileHash .\OpenGardenPlanner-<version>-Setup.exe -Algorithm SHA256).Hash
+          # compare with SHA256SUMS.txt above
+          ```
+
+          ```bash
+          gh attestation verify OpenGardenPlanner-<version>-Setup.exe -R cofade/open-garden-planner
+          ```
+
+          See README "Verify your download" for what each check proves and why
+          Windows SmartScreen/Defender may still warn on an unsigned installer.
+          EOF
 
       - name: Create GitHub Release
         if: steps.check_tag.outputs.exists == 'false'
@@ -151,4 +159,27 @@ jobs:
           "dist/OpenGardenPlanner-v${{ steps.version.outputs.version }}-Setup.exe"
           "dist/SHA256SUMS.txt"
           --title "${{ steps.version.outputs.tag }}"
+          --notes-file "dist/RELEASE_NOTES.md"
           --generate-notes
+
+      # Cryptographically binds each artifact's digest to this exact commit
+      # SHA and public workflow run (Sigstore-backed, no paid cert needed) so
+      # anyone can verify a release was built by public CI from the public
+      # source, not just assume it (issue #356: Defender false-positive
+      # report). Covers the installer AND the raw app exe it packages —
+      # `dist/OpenGardenPlanner/OpenGardenPlanner.exe` is the exact file
+      # Defender quarantined in #356, so it needs its own attestation, not
+      # just the installer's. Verify with `gh attestation verify <file> -R
+      # cofade/open-garden-planner`. This proves build provenance; it does
+      # NOT make anything Authenticode-signed, so SmartScreen/Defender
+      # warnings can still appear (§11.1/§11.2, ADR-044). Runs after the
+      # release is already published so a Sigstore/attestations-API hiccup
+      # never costs a release — see docs/11-risks-and-technical-debt §11.2.
+      - name: Attest build provenance
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            dist/OpenGardenPlanner-v${{ steps.version.outputs.version }}-Setup.exe
+            dist/SHA256SUMS.txt
+            dist/OpenGardenPlanner/OpenGardenPlanner.exe

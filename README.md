@@ -61,15 +61,18 @@ Each release includes a `SHA256SUMS.txt` file. To verify the installer integrity
 
 Compare the output with the hash in `SHA256SUMS.txt` from the release page.
 
-From v1.27.9 onward, every release also carries a **build provenance
-attestation** — a cryptographic, GitHub-native proof (no paid certificate
-involved) that the installer was built by this project's public CI from a
-specific, inspectable commit of the public source, not tampered with or
-built anywhere else. Verify it with the [GitHub CLI](https://cli.github.com/):
+From the next release onward, every release also carries a **build
+provenance attestation** — a cryptographic, GitHub-native proof (no paid
+certificate involved) that a release artifact was built by this project's
+public CI from a specific, inspectable commit of the public source, not
+tampered with or built anywhere else. Verify it with the
+[GitHub CLI](https://cli.github.com/):
 
 ```bash
-gh attestation verify OpenGardenPlanner-<version>-Setup.exe -R cofade/open-garden-planner
+gh attestation verify OpenGardenPlanner-<version>-Setup.exe -R cofade/open-garden-planner --signer-workflow cofade/open-garden-planner/.github/workflows/release.yml
 ```
+
+The same command works against the **installed app exe** too — `%ProgramFiles%\Open Garden Planner\OpenGardenPlanner.exe` — which is the exact file Windows Defender has been reported flagging (issue #356); it is attested separately from the installer, not just implied by it. `--signer-workflow` pins the check to *this repo's own* release workflow, not merely "any workflow in this repository" (the plain `-R` form is still valid, just slightly less specific).
 
 **Why Windows may warn anyway:** the installer is not Authenticode-signed
 (see `docs/11-risks-and-technical-debt` §11.1/§11.2) — that costs a paid

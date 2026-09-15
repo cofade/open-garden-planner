@@ -9,16 +9,6 @@
     "state": "MERGED",
     "title": "refine(US-4): Improve Plant Details panel layout and date picker"
   },
-  "352": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat: add agent layers and shape creation tools"
-  },
-  "356": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Exe is a Trojan"
-  },
   "161": {
     "is_pr": false,
     "state": "CLOSED",
@@ -513,5 +503,15 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#347): pan-grid view capture â€” higher satellite import resolution"
+  },
+  "352": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat: add agent layers and shape creation tools"
+  },
+  "356": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Exe is a Trojan"
   }
 }

@@ -122,12 +122,14 @@ Releases are fully automated via the `release.yml` GitHub Actions workflow:
    - Computes the next version from the latest git tag + PR label
    - Builds the Windows installer (PyInstaller + NSIS) on a Windows runner
    - Generates SHA256 checksums
-   - Attests build provenance for the installer (`actions/attest-build-provenance`,
-     Sigstore-backed; see §7.3 Verification and ADR-044) — proves the exe was
-     built by this public CI run from this public commit
-   - Creates a GitHub Release with auto-generated notes
+   - Creates a GitHub Release with auto-generated notes (a verification
+     footer with the checksum + attestation commands is prepended)
    - Uploads the installer `.exe` and `SHA256SUMS.txt` as release assets
    - Tags the release as `vX.Y.Z`
+   - Attests build provenance (`actions/attest-build-provenance`,
+     Sigstore-backed; see §7.3 Verification and ADR-044) for the installer,
+     `SHA256SUMS.txt`, and the raw app exe it packages — run *after* the
+     release is published so a Sigstore hiccup never costs a release
 
 ### Creating a Release (Manual Fallback)
 
@@ -155,6 +157,7 @@ Each release should include:
 |-------|---------|
 | `OpenGardenPlanner-v{VERSION}-Setup.exe` | Windows installer |
 | `SHA256SUMS.txt` | SHA-256 checksum for download verification |
+| Build provenance attestation | Not an uploaded asset — stored by GitHub against the installer, `SHA256SUMS.txt`, and the raw app exe; verify with `gh attestation verify` (§7.3 Verification, ADR-044) |
 
 ### Verification
 
@@ -166,14 +169,21 @@ Users verify download integrity by comparing checksums:
 # Compare with SHA256SUMS.txt from release page
 ```
 
-From v1.27.9 onward, users can additionally verify build provenance — a
-cryptographic proof, independent of the checksum, that the exact release
-artifact was produced by this repo's public `release.yml` run from a specific
-public commit (not built or modified anywhere else):
+From the next release onward, users can additionally verify build
+provenance — a cryptographic proof, independent of the checksum, that a
+release artifact was produced by this repo's public `release.yml` run from a
+specific public commit (not built or modified anywhere else). This covers
+the installer, `SHA256SUMS.txt`, and the raw app exe the installer packages
+(`OpenGardenPlanner.exe`, the file named in issue #356's Defender report),
+each attested independently:
 
 ```bash
-gh attestation verify OpenGardenPlanner-v1.0.0-Setup.exe -R cofade/open-garden-planner
+gh attestation verify OpenGardenPlanner-v1.0.0-Setup.exe -R cofade/open-garden-planner --signer-workflow cofade/open-garden-planner/.github/workflows/release.yml
 ```
+
+`--signer-workflow` pins verification to this repo's own release workflow
+specifically, not merely "any workflow with `attestations: write` in this
+repository."
 
 This does not make the installer Authenticode-signed and does not by itself
 suppress SmartScreen/Defender warnings — see §11.1/§11.2 and ADR-044.
@@ -228,10 +238,11 @@ flowchart TD
         R6[Install NSIS via choco]
         R7["Build installer:<br/>python installer/build_installer.py --version X.Y.Z"]
         R8[Generate SHA256 checksum]
-        R8b["Attest build provenance<br/>actions/attest-build-provenance"]
-        R9[Create GitHub Release<br/>auto-generated notes]
+        R8b[Write verification footer<br/>for release notes]
+        R9[Create GitHub Release<br/>notes footer + auto-generated notes]
         R10a[Upload OpenGardenPlanner-vX.Y.Z-Setup.exe]
         R10b[Upload SHA256SUMS.txt]
+        R11["Attest build provenance<br/>actions/attest-build-provenance<br/>installer + checksum + raw app exe"]
         Skip([Skip<br/>idempotent])
 
         R1 --> R2 --> R3
@@ -239,6 +250,7 @@ flowchart TD
         R3 -->|no| R4 --> R5 --> R6 --> R7 --> R8 --> R8b --> R9
         R9 --> R10a
         R9 --> R10b
+        R9 --> R11
     end
 
     Trigger --> R1
