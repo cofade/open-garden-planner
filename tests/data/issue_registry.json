@@ -503,5 +503,15 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#347): pan-grid view capture â€” higher satellite import resolution"
+  },
+  "352": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat: add agent layers and shape creation tools"
+  },
+  "356": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Exe is a Trojan"
   }
 }

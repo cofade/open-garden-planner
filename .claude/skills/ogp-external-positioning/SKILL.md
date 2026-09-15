@@ -141,13 +141,31 @@ touch the README, but only with shipped, tested items.
   ```
 
   Compare against the hash in `SHA256SUMS.txt` from the release page.
+- **Build provenance attestation (ADR-044, from the next release):** every release also
+  carries a GitHub Artifact Attestation (`actions/attest-build-provenance@v4` — not v1,
+  which pins a node20 action GitHub is retiring; see ADR-044's rejected-placement note —
+  Sigstore-backed, no paid cert) for the installer, `SHA256SUMS.txt`, **and** the raw app
+  exe the installer packages (`dist/OpenGardenPlanner/OpenGardenPlanner.exe` — the exact
+  file named in issue #356's Defender report; attesting only the installer would not let
+  that reporter verify the file they actually have). README's verify command (copy
+  verbatim, keep in README):
+
+  ```bash
+  gh attestation verify OpenGardenPlanner-<version>-Setup.exe -R cofade/open-garden-planner --signer-workflow cofade/open-garden-planner/.github/workflows/release.yml
+  ```
+
+  This proves *source provenance* (built by public CI from public source) — it does **not**
+  make the installer Authenticode-signed and does not by itself suppress SmartScreen/Defender
+  warnings. Don't conflate the two in public text.
 - **The installer is UNSIGNED.** Documented as a known risk: §11.1 ("NSIS installer
   signing? … Unsigned initially, document for users; investigate free code signing
   options") and §11.2 ("Windows installer blocked by SmartScreen — Document workaround").
-  In any public text: state plainly that Windows SmartScreen may warn, that the workaround
-  is "More info → Run anyway" *after* verifying the SHA-256 checksum, and never phrase the
-  warning away as a false positive users should blindly click through — the checksum step
-  is the compensating control.
+  In any public text: state plainly that Windows SmartScreen or Defender may warn (a known
+  false-positive pattern for unsigned PyInstaller-built exes, e.g. `Wacatac.B/C!ml` — see
+  issue #356), that the workaround is "More info → Run anyway" *after* verifying the SHA-256
+  checksum and/or the build-provenance attestation above, and never phrase the warning away
+  as a false positive users should blindly click through — the checksum + attestation are
+  the compensating controls.
 - **CI owns releases.** Never publish a release, create a tag, or upload assets manually —
   `release.yml` auto-tags, generates checksums, and creates the GitHub Release on merge to
   master (docs/07 §7.3; CLAUDE.md: "Never create git tags manually"). The docs/07 "manual
@@ -211,6 +229,6 @@ Facts verified 2026-07-05 against v1.23.0. Re-verify volatile facts before publi
 - Plant API chain/terms: `sed -n '1,15p;140,150p' docs/03-context-and-scope/PLANT_API_SETUP.md`
 - Google Maps key rules: `grep -n -A5 '8.15' docs/08-crosscutting-concepts/README.md | head -30`
 - MCP shipped surface (claim ceiling): `grep -n 'D1\.\|D2' CLAUDE.md | head` and `ls src/open_garden_planner/agent_api/`
-- Unsigned/SmartScreen risk: `grep -rn -i 'smartscreen\|signing' docs/11-risks-and-technical-debt/README.md`
+- Unsigned/SmartScreen risk: `grep -rn -i 'smartscreen\|signing\|attestation' docs/11-risks-and-technical-debt/README.md`
 - Release/checksum ownership: `grep -n -i 'SHA256\|release' docs/07-deployment-view/README.md | head`
 - README drift check: `grep -n 'Phases\|Status' README.md` (fix staleness when touched)

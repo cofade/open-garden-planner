@@ -2423,6 +2423,10 @@ Shipped via this PR: for projects Google's EEA terms restrict (Static Maps API r
 
 Shipped via this PR: the JS-API view capture now raises its resolution ceiling to the Static mosaic's level. The capture is a **pan grid** — a capture-profile phase pins the real viewport + dpr, then the page pans the map across a `cols × rows` (≤ 3×3) grid of viewport positions at one integer zoom and Python grabs and stitches each frame. Seams are eliminated analytically: frame centres sit a whole number of world/css pixels apart (identical sub-pixel phase) and steps are dpr-aligned so `stitch_frames` pastes at integer grabbed-pixel offsets with no overlap. `pick_capture_zoom_and_grid` mirrors the Static `pick_zoom_and_grid` (single-frame capture is the degenerate 1×1 grid — one engine). Per-frame render failures retry twice, then fail cleanly; a mid-capture resize is refused; the stitched mosaic carries exactly one baked attribution strip. `FetchResult` and `geo_metadata` are unchanged. See ADR-019 addendum #347, FR-IMG-11, §6.3.1, §11.4, and the extended unit/integration suites (numerical stitch verification reconstructs a synthetic world image pixel-perfectly). The one real-key assumption (Google's rasterizer phase-determinism between whole-css-px pans) is on the manual-test checklist.
 
+## Build provenance attestation for release artifacts (Issue #356)
+
+Shipped via this PR: Windows Defender flagged the installer as `Trojan:Script/Wacatac.C!ml` — a known PyInstaller/Defender false-positive pattern, worsened by the installer being unsigned (issue #89, closed not_planned — no budget for a paid Authenticode cert). `release.yml` now attests build provenance (`actions/attest-build-provenance`, Sigstore-backed, no paid cert) for the installer, the raw app exe it packages, and `SHA256SUMS.txt`, so anyone can independently verify with `gh attestation verify` that a release artifact was built by this project's public CI from a specific public commit. This proves source provenance, not Authenticode signing — SmartScreen/Defender warnings can still appear. See ADR-044, §11.1, §11.2.
+
 ---
 
 ## Phase 13: Agent Integration — Package D (MCP Server) 📋 Planned

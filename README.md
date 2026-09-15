@@ -43,7 +43,7 @@ Download the latest installer from the [Releases](https://github.com/cofade/open
 > **[Download Latest Installer](https://github.com/cofade/open-garden-planner/releases/latest)**
 
 Run the installer and follow the wizard. It will:
-- Install to `C:\Program Files\Open Garden Planner` (configurable)
+- Install to `C:\Program Files (x86)\Open Garden Planner` (configurable)
 - Create Start Menu and optional desktop shortcuts
 - Optionally associate `.ogp` files so you can double-click to open them
 - Register in Add/Remove Programs for clean uninstallation
@@ -60,6 +60,33 @@ Each release includes a `SHA256SUMS.txt` file. To verify the installer integrity
 ```
 
 Compare the output with the hash in `SHA256SUMS.txt` from the release page.
+
+From the next release onward, every release also carries a **build
+provenance attestation** — a cryptographic, GitHub-native proof (no paid
+certificate involved) that a release artifact was built by this project's
+public CI from a specific, inspectable commit of the public source, not
+tampered with or built anywhere else. Verify it with the
+[GitHub CLI](https://cli.github.com/):
+
+```bash
+gh attestation verify OpenGardenPlanner-<version>-Setup.exe -R cofade/open-garden-planner --signer-workflow cofade/open-garden-planner/.github/workflows/release.yml
+```
+
+The same command works against the **installed app exe** too — `C:\Program Files (x86)\Open Garden Planner\OpenGardenPlanner.exe` — which is the exact file Windows Defender has been reported flagging (issue #356); it is attested separately from the installer, not just implied by it. `--signer-workflow` pins the check to *this repo's own* release workflow, not merely "any workflow in this repository" (the plain `-R` form is still valid, just slightly less specific).
+
+**Why Windows may warn anyway:** the installer is not Authenticode-signed
+(see `docs/11-risks-and-technical-debt` §11.1/§11.2) — that costs a paid
+certificate this free/open-source project doesn't currently budget for. An
+unsigned, low-download-volume executable is exactly the profile Windows
+SmartScreen and Defender's ML heuristics (e.g. `Wacatac.B/C!ml`) are prone to
+flag, which is a known false-positive pattern for PyInstaller-built apps in
+general, not something specific to this project. That's a real warning worth
+taking seriously, not something to click through blindly — verify the
+checksum and/or the attestation above first. If you've verified the file and
+still see a Defender/SmartScreen warning, please also report it as a false
+positive via [Microsoft's file submission](https://www.microsoft.com/en-us/wdsi/filesubmission)
+(or the [URL submission form](https://www.microsoft.com/en-us/wdsi/AppRepSubmission)
+for the release link) — every report helps the app build reputation faster.
 
 ### Install from source
 

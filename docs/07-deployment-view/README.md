@@ -61,7 +61,7 @@ python installer/build_installer.py --skip-pyinstaller
 |---------|-------------|
 | **Welcome Page** | Branded welcome with app description |
 | **License Display** | GPLv3 license agreement |
-| **Install Path** | User-selectable (default: `C:\Program Files\Open Garden Planner`) |
+| **Install Path** | User-selectable (default: `C:\Program Files (x86)\Open Garden Planner` — NSIS `$PROGRAMFILES` on 64-bit Windows, see §11.4 issue #199) |
 | **Components** | Core (required), desktop shortcut (optional), file association (optional) |
 | **Start Menu** | Shortcut in Start Menu Programs folder + uninstaller shortcut |
 | **Desktop Shortcut** | Optional desktop shortcut (component checkbox) |
@@ -122,9 +122,14 @@ Releases are fully automated via the `release.yml` GitHub Actions workflow:
    - Computes the next version from the latest git tag + PR label
    - Builds the Windows installer (PyInstaller + NSIS) on a Windows runner
    - Generates SHA256 checksums
-   - Creates a GitHub Release with auto-generated notes
+   - Creates a GitHub Release with auto-generated notes (a verification
+     preamble with the checksum + attestation commands is prepended)
    - Uploads the installer `.exe` and `SHA256SUMS.txt` as release assets
    - Tags the release as `vX.Y.Z`
+   - Attests build provenance (`actions/attest-build-provenance`,
+     Sigstore-backed; see §7.3 Verification and ADR-044) for the installer,
+     `SHA256SUMS.txt`, and the raw app exe it packages — run *after* the
+     release is published so a Sigstore hiccup never costs a release
 
 ### Creating a Release (Manual Fallback)
 
@@ -139,6 +144,11 @@ If CI/CD is unavailable, releases can be built locally:
 4. **Create GitHub Release**: Upload `OpenGardenPlanner-v1.0.0-Setup.exe` and `SHA256SUMS.txt` as release assets
 5. **Release notes**: Include changelog, system requirements, and verification instructions
 
+Note: build provenance attestation (§7.3 Verification) requires GitHub's OIDC
+token and can only be produced by an `actions/attest-build-provenance` step
+running inside GitHub Actions — a manually-built release has no attestation
+to verify, checksums only.
+
 ### Release Assets
 
 Each release should include:
@@ -147,6 +157,7 @@ Each release should include:
 |-------|---------|
 | `OpenGardenPlanner-v{VERSION}-Setup.exe` | Windows installer |
 | `SHA256SUMS.txt` | SHA-256 checksum for download verification |
+| Build provenance attestation | Not an uploaded asset — stored by GitHub against the installer, `SHA256SUMS.txt`, and the raw app exe; verify with `gh attestation verify` (§7.3 Verification, ADR-044) |
 
 ### Verification
 
@@ -157,6 +168,25 @@ Users verify download integrity by comparing checksums:
 (Get-FileHash .\OpenGardenPlanner-v1.0.0-Setup.exe -Algorithm SHA256).Hash
 # Compare with SHA256SUMS.txt from release page
 ```
+
+From the next release onward, users can additionally verify build
+provenance — a cryptographic proof, independent of the checksum, that a
+release artifact was produced by this repo's public `release.yml` run from a
+specific public commit (not built or modified anywhere else). This covers
+the installer, `SHA256SUMS.txt`, and the raw app exe the installer packages
+(`OpenGardenPlanner.exe`, the file named in issue #356's Defender report),
+each attested independently:
+
+```bash
+gh attestation verify OpenGardenPlanner-v1.0.0-Setup.exe -R cofade/open-garden-planner --signer-workflow cofade/open-garden-planner/.github/workflows/release.yml
+```
+
+`--signer-workflow` pins verification to this repo's own release workflow
+specifically, not merely "any workflow with `attestations: write` in this
+repository."
+
+This does not make the installer Authenticode-signed and does not by itself
+suppress SmartScreen/Defender warnings — see §11.1/§11.2 and ADR-044.
 
 ## 7.4 CI/CD Pipeline (GitHub Actions)
 
@@ -208,16 +238,19 @@ flowchart TD
         R6[Install NSIS via choco]
         R7["Build installer:<br/>python installer/build_installer.py --version X.Y.Z"]
         R8[Generate SHA256 checksum]
-        R9[Create GitHub Release<br/>auto-generated notes]
+        R8b[Write release notes preamble<br/>checksum + attestation commands]
+        R9[Create GitHub Release<br/>notes preamble + auto-generated notes]
         R10a[Upload OpenGardenPlanner-vX.Y.Z-Setup.exe]
         R10b[Upload SHA256SUMS.txt]
+        R11["Attest build provenance<br/>actions/attest-build-provenance<br/>installer + checksum + raw app exe"]
         Skip([Skip<br/>idempotent])
 
         R1 --> R2 --> R3
         R3 -->|yes| Skip
-        R3 -->|no| R4 --> R5 --> R6 --> R7 --> R8 --> R9
+        R3 -->|no| R4 --> R5 --> R6 --> R7 --> R8 --> R8b --> R9
         R9 --> R10a
         R9 --> R10b
+        R9 --> R11
     end
 
     Trigger --> R1

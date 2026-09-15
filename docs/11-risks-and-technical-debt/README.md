@@ -10,7 +10,7 @@
 | ~~Qt6 3D capabilities vs dedicated engine?~~ **RESOLVED (US-E5, ADR-038, 2026-07-20)**: PyQt6-3D chosen — version-matched 6.11.0 wheel, frozen-exe gate passed (+13 MB), built-in orbit + first-person cameras; PyVista rejected on size (+466 MB), pyqtgraph.opengl on feature fit. Pin `PyQt6-3D-Qt6` to `PyQt6-Qt6`'s micro or imports fail | 3D feature (Phase 14) | Done — see ADR-038 evidence log |
 | Bundled plant database source? | Offline functionality | Evaluate USDA Plants Database, consider one-time Trefle.io bulk export |
 | AI-generated SVG quality consistency? | Visual appeal | Test with multiple prompts, establish style guide, manual cleanup if needed |
-| NSIS installer signing? | Trust/distribution | Unsigned initially, document for users; investigate free code signing options |
+| NSIS installer signing? | Trust/distribution | Unsigned initially, document for users. **Partially addressed (ADR-044, 2026-09-15):** build provenance attestation (`gh attestation verify`) proves the binary traces back to a public CI run of the public source — free, no cert needed. Still open: a paid Authenticode cert, which is what actually removes the SmartScreen/Defender reputation warning itself, remains unfunded. |
 
 ## 11.2 Risks
 
@@ -23,7 +23,7 @@
 | Project not attracting contributors | Medium | High | Excellent documentation, clean code, contributor guide, CI/CD |
 | External API deprecation | Low | Medium | Fallback chain: Trefle -> Permapeople -> Bundled DB |
 | AI-generated SVGs inconsistent quality | Medium | Medium | Establish style reference set, manual review/cleanup |
-| Windows installer blocked by SmartScreen | Medium | Low | Document workaround, investigate signing options |
+| Windows installer blocked by SmartScreen | Medium | Low | Document workaround, investigate signing options. Build provenance attestation shipped (ADR-044) as a verifiable trust signal alongside the checksum; does not itself suppress SmartScreen/Defender (issue #356) — that needs paid signing, still unfunded. |
 | Large bundle size from PyInstaller | Medium | Low | Optimize includes, strip unused Qt modules |
 
 ## 11.3 Technical Debt
