@@ -449,11 +449,6 @@
     "state": "MERGED",
     "title": "feat(US-D2.2,US-D2.3): agent resize/rotate + species/reparent â€” and one geometry-apply path (3 latent rotation bugs fixed)"
   },
-  "336": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Gate the skill libraries' own references: a citation resolver test for SKILL.md / CLAUDE.md (sections, ADRs, FRs, file:line, issue numbers)"
-  },
   "337": {
     "is_pr": false,
     "state": "CLOSED",
@@ -499,11 +494,6 @@
     "state": "MERGED",
     "title": "feat(#346): JS-API view capture fallback for EEA-blocked satellite imports"
   },
-  "350": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#347): pan-grid view capture â€” higher satellite import resolution"
-  },
   "352": {
     "is_pr": true,
     "state": "MERGED",
@@ -513,5 +503,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Exe is a Trojan"
+  },
+  "357": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat: build provenance attestation for release artifacts (#356)"
   }
 }
