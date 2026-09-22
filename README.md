@@ -78,15 +78,18 @@ The same command works against the **installed app exe** too — `C:\Program Fil
 (see `docs/11-risks-and-technical-debt` §11.1/§11.2) — that costs a paid
 certificate this free/open-source project doesn't currently budget for. An
 unsigned, low-download-volume executable is exactly the profile Windows
-SmartScreen and Defender's ML heuristics (e.g. `Wacatac.B/C!ml`) are prone to
+SmartScreen, Defender's ML heuristics (e.g. `Wacatac.B/C!ml`), and Norton's
+file-reputation engine (e.g. `FileRepMalware[Misc]`, issue #358) are prone to
 flag, which is a known false-positive pattern for PyInstaller-built apps in
 general, not something specific to this project. That's a real warning worth
 taking seriously, not something to click through blindly — verify the
 checksum and/or the attestation above first. If you've verified the file and
-still see a Defender/SmartScreen warning, please also report it as a false
-positive via [Microsoft's file submission](https://www.microsoft.com/en-us/wdsi/filesubmission)
+still see a warning, please also report it as a false positive:
+[Microsoft's file submission](https://www.microsoft.com/en-us/wdsi/filesubmission)
 (or the [URL submission form](https://www.microsoft.com/en-us/wdsi/AppRepSubmission)
-for the release link) — every report helps the app build reputation faster.
+for the release link) for Defender/SmartScreen, or the
+[Norton false-positive portal](https://submissions.norton.com/reportfalsepositive)
+(File tab) for Norton — every report helps the app build reputation faster.
 
 ### Install from source
 

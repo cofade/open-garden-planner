@@ -186,7 +186,8 @@ specifically, not merely "any workflow with `attestations: write` in this
 repository."
 
 This does not make the installer Authenticode-signed and does not by itself
-suppress SmartScreen/Defender warnings — see §11.1/§11.2 and ADR-044.
+suppress SmartScreen/Defender (issue #356) or Norton FileRep (issue #358)
+warnings — see §11.1/§11.2 and ADR-044.
 
 ## 7.4 CI/CD Pipeline (GitHub Actions)
 
