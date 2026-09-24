@@ -1,8 +1,9 @@
 """Agent API: an opt-in, loopback-only MCP server embedded in the app.
 
-Lets AI agents (Claude, Cursor, any MCP client) read the garden plan currently
-open in Open Garden Planner. See Package D / epic #237. This spike (US-D1.1)
-exposes a single read tool over MCP streamable-HTTP.
+Lets AI agents (Claude, Cursor, any MCP client) read and, behind the explicit
+write gate, edit the garden plan currently open in Open Garden Planner. See
+Package D / epic #237. The package exposes the D1 read surface plus the D2
+command-backed write and global history providers.
 
 ``AgentApiServer``/``build_server`` are imported lazily so merely importing this
 package never pulls in ``mcp``/``uvicorn``.

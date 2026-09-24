@@ -201,6 +201,12 @@ _MAX_EXTENT_CANVAS_MULTIPLE = 2.0
 #    plant, so this only ever fires on nonsense input.
 _MAX_PLANT_DIAMETER_CM = 5000.0
 
+# Callout box offsets use the same generous canvas-relative scale as object
+# extents.  The GUI can place a callout outside the visible canvas, but an MCP
+# caller must not be able to turn a finite float into an effectively unbounded
+# QRectF before Qt receives it.  Negative values remain valid.
+_MAX_CALLOUT_OFFSET_CANVAS_MULTIPLE = _MAX_EXTENT_CANVAS_MULTIPLE
+
 # Vertex-count bound for polygon/polyline creation. The GUI builds these one
 # click at a time; an agent could submit an arbitrarily huge list that the
 # scene would then re-layout on every repaint. 1000 vertices is far beyond any
@@ -286,6 +292,33 @@ def require_sane_extent(
             f"A plant's {field} may not exceed {_MAX_PLANT_DIAMETER_CM:g} cm "
             f"(got {extent:g} cm). Sizes are in CENTIMETRES."
         )
+
+
+def require_bounded_signed_offset(
+    value: float,
+    field: str,
+    canvas_width_cm: float,
+    canvas_height_cm: float,
+) -> float:
+    """Validate a finite callout offset against the plan's canvas scale.
+
+    Callout offsets are signed because the GUI routinely places a label above,
+    below, left, or right of its leader target.  The bound is deliberately
+    canvas-relative: a plot-sized offset is valid on a large garden, while a
+    finite value such as ``1e308`` is not a reachable geometry contract.
+    """
+    number = require_finite(value, field)
+    canvas_w = require_positive(canvas_width_cm, "canvas_width_cm")
+    canvas_h = require_positive(canvas_height_cm, "canvas_height_cm")
+    limit = _MAX_CALLOUT_OFFSET_CANVAS_MULTIPLE * max(canvas_w, canvas_h)
+    if abs(number) > limit:
+        raise ValueError(
+            f"{field} {number:g} cm is implausibly large for this plan; "
+            f"callout offsets must be within +/-{limit:g} cm ("
+            f"{_MAX_CALLOUT_OFFSET_CANVAS_MULTIPLE:g}x the larger canvas "
+            f"dimension)."
+        )
+    return number
 
 
 def _require_centre(
@@ -440,7 +473,9 @@ def build_create_dict(
             width/height convenience, never both.
         text: Callout text — required for GENERIC_CALLOUT, refused elsewhere.
         box_dx: Callout text-box offset from the arrow tip, X (default 80 cm).
+            Signed; finite and bounded to +/- twice the larger canvas dimension.
         box_dy: Callout text-box offset from the arrow tip, Y (default -60 cm).
+            Signed; finite and bounded to +/- twice the larger canvas dimension.
         name: Optional display name.
 
     Returns:
@@ -449,8 +484,8 @@ def build_create_dict(
     Raises:
         ValueError: On an unsupported or excluded type, a missing required
             parameter, a parameter that doesn't belong to the type's shape, a
-            non-finite/non-positive extent, an implausibly large extent, a
-            degenerate vertex list, too many vertices, or a position
+            non-finite/non-positive extent, an implausibly large extent or
+            callout offset, a degenerate vertex list, too many vertices, or a position
             unreachably far outside the plan.
     """
     if object_type in EXCLUDED_TYPE_REASONS:
@@ -622,12 +657,12 @@ def build_create_dict(
             "has nothing to show."
         )
     resolved_dx = (
-        require_finite(box_dx, "box_dx")
+        require_bounded_signed_offset(box_dx, "box_dx", canvas_w, canvas_h)
         if box_dx is not None
         else _DEFAULT_CALLOUT_BOX_DX
     )
     resolved_dy = (
-        require_finite(box_dy, "box_dy")
+        require_bounded_signed_offset(box_dy, "box_dy", canvas_w, canvas_h)
         if box_dy is not None
         else _DEFAULT_CALLOUT_BOX_DY
     )
@@ -876,7 +911,9 @@ def list_creatable_types() -> list[dict[str, Any]]:
                 notes=(
                     "'x'/'y' is the arrow TIP (the leader-line target); the "
                     "text box sits at tip + (box_dx, box_dy), default "
-                    f"({_DEFAULT_CALLOUT_BOX_DX:g}, {_DEFAULT_CALLOUT_BOX_DY:g}) cm."
+                    f"({_DEFAULT_CALLOUT_BOX_DX:g}, {_DEFAULT_CALLOUT_BOX_DY:g}) cm. "
+                    "Offsets are signed and bounded to +/- twice the larger canvas "
+                    "dimension."
                 ),
             )
         )

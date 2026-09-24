@@ -146,6 +146,8 @@ def _run_selftest() -> int:
                 delete_layer=_never,
                 set_active_layer=_never,
                 set_layer_property=_never,
+                undo=_never,
+                redo=_never,
             ),
             port=free_port,
         )

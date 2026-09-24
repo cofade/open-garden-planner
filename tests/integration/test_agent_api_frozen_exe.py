@@ -70,6 +70,8 @@ def _providers() -> AgentProviders:
         delete_layer=_unused,
         set_active_layer=_unused,
         set_layer_property=_unused,
+        undo=_unused,
+        redo=_unused,
     )
 
 

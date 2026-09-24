@@ -449,3 +449,26 @@ class WriteResult(BaseModel):
         "roof ridge (create only, always 0 for every other action). The whole "
         "group is still exactly ONE undo step.",
     )
+
+
+class HistoryResult(BaseModel):
+    """Result of one global Agent API undo or redo operation.
+
+    History is the same LIFO stack used by the GUI. A single call reverses or
+    reapplies one command, so callers that need to reverse a multi-command
+    operation must issue one call per command.
+    """
+
+    action: Literal["undo", "redo"] = Field(
+        description="The history operation performed."
+    )
+    command_description: str = Field(
+        description="Human-readable description of the command reversed by undo "
+        "or reapplied by redo."
+    )
+    can_undo: bool = Field(
+        description="Whether another undo operation is available after this call."
+    )
+    can_redo: bool = Field(
+        description="Whether another redo operation is available after this call."
+    )

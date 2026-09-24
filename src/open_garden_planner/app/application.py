@@ -653,6 +653,7 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.core.commands import DeleteItemsCommand, RemoveConstraintCommand
 
         item = self._resolve_agent_item(item_id)
+        self._agent_require_unique_item(item)
 
         constraints = self._agent_item_constraints(item)
         for constraint in constraints:
@@ -663,12 +664,61 @@ class GardenPlannerApp(QMainWindow):
         linked_ridge = self._agent_linked_roof_ridge(item)
         cmd = DeleteItemsCommand(self.canvas_scene, [item, *linked_ridge])
         self.canvas_view.command_manager.execute(cmd)
+        # The response is a completion receipt, not merely a command queued on
+        # the main thread.  Do not report success if a custom command path or a
+        # malformed scene leaves any target attached to the scene.
+        still_attached = [
+            candidate
+            for candidate in [item, *linked_ridge]
+            if candidate.scene() is self.canvas_scene
+        ]
+        if still_attached:
+            raise RuntimeError(
+                "delete_object did not remove every target from the scene; "
+                "the operation was not reported as successful."
+            )
         return {
             "item_id": item_id,
             "action": "delete",
             "undo_description": cmd.description,
             "linked_items_deleted": len(linked_ridge),
             "constraints_removed": len(constraints),
+        }
+
+    def _agent_undo(self) -> dict[str, Any]:
+        """Undo one command on the GUI's global history stack."""
+        return self._agent_bridge.run_on_main(self._do_agent_undo)
+
+    def _do_agent_undo(self) -> dict[str, Any]:
+        """Main-thread body of the authenticated MCP ``undo`` tool."""
+        manager = self.canvas_view.command_manager
+        if not manager.can_undo:
+            raise ValueError("Nothing to undo.")
+        description = manager.undo_description or "Unknown command"
+        manager.undo()
+        return {
+            "action": "undo",
+            "command_description": description,
+            "can_undo": manager.can_undo,
+            "can_redo": manager.can_redo,
+        }
+
+    def _agent_redo(self) -> dict[str, Any]:
+        """Redo one command on the GUI's global history stack."""
+        return self._agent_bridge.run_on_main(self._do_agent_redo)
+
+    def _do_agent_redo(self) -> dict[str, Any]:
+        """Main-thread body of the authenticated MCP ``redo`` tool."""
+        manager = self.canvas_view.command_manager
+        if not manager.can_redo:
+            raise ValueError("Nothing to redo.")
+        description = manager.redo_description or "Unknown command"
+        manager.redo()
+        return {
+            "action": "redo",
+            "command_description": description,
+            "can_undo": manager.can_undo,
+            "can_redo": manager.can_redo,
         }
 
     def _agent_linked_roof_ridge(self, item: Any) -> list[Any]:
@@ -1625,6 +1675,30 @@ class GardenPlannerApp(QMainWindow):
         """Every constraint (distance/fixed/tangent/…) referencing ``item``."""
         return self.canvas_scene.constraint_graph.get_item_constraints(item.item_id)
 
+    def _agent_require_unique_item(self, item: Any) -> None:
+        """Refuse a delete target when the scene contains duplicate IDs.
+
+        A same-scene reload used to leave old callout/curve instances behind.
+        ``find_item_by_id`` then returned the first duplicate, so one successful
+        delete could leave another same-ID object alive.  The load lifecycle fix
+        removes that source; this guard makes the write path fail closed if a
+        malformed/legacy scene ever presents the same invariant violation again.
+        """
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        matches = [
+            candidate
+            for candidate in self.canvas_scene.items()
+            if isinstance(candidate, GardenItemMixin)
+            and candidate.item_id == item.item_id
+        ]
+        if len(matches) != 1:
+            raise ValueError(
+                f"Cannot delete {item.item_id}: the scene contains "
+                f"{len(matches)} live objects with that id. Reload the project "
+                "to repair the duplicate before editing it."
+            )
+
     def _maybe_start_agent_api(self) -> None:
         """Start the Agent API server iff it is enabled in settings."""
         from open_garden_planner.app.settings import get_settings
@@ -1707,6 +1781,8 @@ class GardenPlannerApp(QMainWindow):
             delete_layer=self._agent_delete_layer,
             set_active_layer=self._agent_set_active_layer,
             set_layer_property=self._agent_set_layer_property,
+            undo=self._agent_undo,
+            redo=self._agent_redo,
         )
 
     def _stop_agent_api(self) -> None:

@@ -1,16 +1,17 @@
-"""Embedded MCP server for the Agent API (US-D1.1/D1.2/D1.3/D1.4/D1.5).
+"""Embedded MCP server for the Agent API (US-D1.1–D1.6, US-D2.0–D2.5).
 
 Runs an MCP streamable-HTTP server inside the running GUI on a background daemon
 thread, bound to loopback only. Structural, spatial, diagnostics, and vision
 (render) query tools are read-only. US-D1.4 adds four file-producing tools
 (``save_plan``/``export_pdf``/``export_dxf``/``export_csv``) that write a file
 to disk via the same services the GUI's File > Export/Save menu already calls
-— they don't need the token auth D2's scene-mutating write tools will require
+— they don't need the token auth D2's scene-mutating write tools use
 (ADR-033): ``save_plan`` persists exactly what's already on screen (the same
 effect as Ctrl+S), and the export tools produce a new deliverable file without
-touching the live plan. Built write-ready — later phases reuse the same
-``MainThreadBridge`` boundary (via the injected ``AgentProviders`` callables)
-for scene edits. US-D1.5 adds 5 read-only resources (``garden://plan``,
+touching the live plan. The D2 write surface and its global ``undo``/``redo``
+providers reuse the same ``MainThreadBridge`` boundary (via the injected
+``AgentProviders`` callables) for every scene edit. US-D1.5 adds 5 read-only
+resources (``garden://plan``,
 ``garden://plan/raw``, ``garden://canvas.png``, ``garden://diagnostics``,
 ``garden://species``) and 2 read-analysis prompts (``audit-plan``,
 ``describe-garden``) — see the resource/prompt registrations at the bottom of
@@ -61,9 +62,10 @@ import socket
 import threading
 import time
 import urllib.parse
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from mcp.server.fastmcp.utilities.types import Image
+from pydantic import Field
 
 from open_garden_planner.agent_api import creates as agent_creates
 from open_garden_planner.agent_api import prompts as agent_prompts
@@ -78,6 +80,7 @@ from open_garden_planner.agent_api.render import DEFAULT_IMAGE_PX
 from open_garden_planner.agent_api.schema import (
     Diagnostic,
     ExportResult,
+    HistoryResult,
     Layer,
     Measurement,
     ObjectDetail,
@@ -110,6 +113,15 @@ logger = logging.getLogger(__name__)
 _presented_token: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "agent_api_presented_token", default=None
 )
+
+# ``float | None = None`` cannot distinguish an omitted optional argument from
+# an explicit JSON ``null``.  Some JSON stacks normalize non-finite numbers
+# (Infinity/NaN) to null before Pydantic sees them; treating that as “use the
+# default” would turn a hostile offset into a valid callout.  A private,
+# JSON-serializable sentinel preserves omission while allowing the create
+# handler to reject explicit null before it reaches the provider.  It is not a
+# valid float, so a client that copies the schema default is rejected too.
+_UNSET_OFFSET: Any = "__open_garden_planner_omitted_offset__"
 
 
 class WriteAuthError(Exception):
@@ -257,13 +269,13 @@ def build_server(
         writes_enabled: When true AND ``write_token`` is set, the scene-mutating
             write tools (``create_object``/``move_object``/``delete_object``/
             ``resize_object``/``rotate_object``/``set_species``/
-            ``set_parent_bed``/``arrange_object`` and the US-D2.4 layer tools
+            ``set_parent_bed``/``arrange_object``, the US-D2.4 layer tools
             ``set_object_layer``/``create_layer``/``rename_layer``/
-            ``delete_layer``/``set_active_layer``/``set_layer_property``) are
-            registered. When either is missing the write tools are omitted
-            entirely — they don't appear in the agent's tool list. This gating
-            (plus the per-call token check) is the D2 write gate ADR-033
-            requires.
+            ``delete_layer``/``set_active_layer``/``set_layer_property``, and
+            the global history tools ``undo``/``redo``) are registered. When
+            either is missing the write tools are omitted entirely — they don't
+            appear in the agent's tool list. This gating (plus the per-call
+            token check) is the D2 write gate ADR-033 requires.
         write_token: The bearer token every write call must present (see
             ``_require_write_auth``). Read tools never require it.
     """
@@ -272,8 +284,10 @@ def build_server(
 
     writes_active = bool(writes_enabled and write_token)
     write_note = (
-        " move_object/delete_object edit the live plan (undoable) and require "
-        "the write token, delivered in the server URL as '?token=<token>' "
+        " scene-mutating tools (including move_object/delete_object and "
+        "undo/redo) edit the live plan (the history is the same global LIFO "
+        "stack used by the GUI) and require the write token, delivered in the "
+        "server URL as '?token=<token>' "
         "(the 'Connect AI Assistant' dialog sets this up for a client)."
         if writes_active
         else ""
@@ -609,8 +623,12 @@ def build_server(
             species: str | None = None,
             points: list[list[float]] | None = None,
             text: str | None = None,
-            box_dx: float | None = None,
-            box_dy: float | None = None,
+            box_dx: Annotated[
+                float | None, Field(json_schema_extra={"default": None})
+            ] = _UNSET_OFFSET,
+            box_dy: Annotated[
+                float | None, Field(json_schema_extra={"default": None})
+            ] = _UNSET_OFFSET,
         ) -> WriteResult:
             """Create one object on the plan.
 
@@ -654,10 +672,20 @@ def build_server(
                     scene cm. Polygons need at least three; polylines at least
                     two. Do not pass width/height with explicit points.
                 text: Required callout text for GENERIC_CALLOUT.
-                box_dx: Optional callout text-box X offset from the leader tip.
-                box_dy: Optional callout text-box Y offset from the leader tip.
+                box_dx: Optional signed callout text-box X offset from the
+                    leader tip, bounded to +/- twice the larger canvas dimension.
+                box_dy: Optional signed callout text-box Y offset from the
+                    leader tip, bounded to +/- twice the larger canvas dimension.
             """
             _require_write_auth(write_token)
+            if box_dx is _UNSET_OFFSET:
+                box_dx = None
+            elif box_dx is None:
+                raise ValueError("box_dx must be a finite number, not null")
+            if box_dy is _UNSET_OFFSET:
+                box_dy = None
+            elif box_dy is None:
+                raise ValueError("box_dy must be a finite number, not null")
             # Called by keyword: the provider takes eight positional args of
             # which six are float|None / str|None, so a width/height (or
             # name/species) transposition anywhere along this chain would be
@@ -736,6 +764,35 @@ def build_server(
                 lambda: providers.delete_object(item_id)
             )
             return WriteResult(**result)
+
+        @mcp.tool()
+        async def undo() -> HistoryResult:
+            """Undo exactly one command on the global GUI-shared history stack.
+
+            This is a write tool and requires the Agent API token. The stack is
+            global: an undo call may reverse a human GUI edit or an earlier
+            agent edit, and one call reverses exactly one command. A move that
+            created two command entries therefore needs two undo calls. History
+            is not persisted in the project file. Calling undo when the stack is
+            empty is an explicit refusal, not a successful no-op.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(providers.undo)
+            return HistoryResult(**result)
+
+        @mcp.tool()
+        async def redo() -> HistoryResult:
+            """Redo exactly one command on the global GUI-shared history stack.
+
+            This is a write tool and requires the Agent API token. The stack is
+            global: a redo call may reapply a human GUI edit or an earlier
+            agent edit, and one call reapplies exactly one command. Calling
+            redo when the stack is empty is an explicit refusal, not a
+            successful no-op.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(providers.redo)
+            return HistoryResult(**result)
 
         # --- US-D2.2: resize / rotate --------------------------------------
 

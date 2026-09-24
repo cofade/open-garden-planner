@@ -1629,7 +1629,7 @@ class ProjectManager(QObject):
             if item.name:
                 group_data["name"] = item.name
             # US-C4: a smart symbol is a group + parametric metadata. Stored as
-            # type:"group" so an older app loads it as a plain group (the
+            # a group so an older app loads it as a plain group (the
             # serialized children are the cached geometry); a current app reads
             # the smart_symbol key and restores parametric behaviour.
             from open_garden_planner.ui.canvas.items.smart_symbol_item import (
@@ -1647,23 +1647,42 @@ class ProjectManager(QObject):
 
         return None
 
+    @staticmethod
+    def _is_project_document_item(item: QGraphicsItem) -> bool:
+        """Whether *item* belongs to the previous project's document scene.
+
+        Project loading must remove every document item that can be serialized,
+        including the non-``GardenItemMixin`` curve classes.  The old explicit
+        tuple omitted ``CalloutItem``, ``ArcItem`` and ``BezierItem``; loading
+        into the same scene therefore left stale live objects beside the newly
+        deserialized ones.  Runtime overlays are deliberately not included:
+        compare/dimension overlays have their own lifecycle owners.
+        """
+        from open_garden_planner.ui.canvas.items import (
+            ArcItem,
+            BackgroundImageItem,
+            BezierItem,
+            ConstructionCircleItem,
+            ConstructionLineItem,
+            GardenItemMixin,
+        )
+
+        return isinstance(
+            item,
+            (
+                GardenItemMixin,
+                ArcItem,
+                BezierItem,
+                BackgroundImageItem,
+                ConstructionLineItem,
+                ConstructionCircleItem,
+            ),
+        )
+
     def _deserialize_to_scene(
         self, scene: QGraphicsScene, data: ProjectData
     ) -> None:
         """Load objects from ProjectData into scene."""
-        # Import here to avoid circular dependency
-        from open_garden_planner.ui.canvas.items import (
-            BackgroundImageItem,
-            CircleItem,
-            ConstructionCircleItem,
-            ConstructionLineItem,
-            EllipseItem,
-            GroupItem,
-            PolygonItem,
-            PolylineItem,
-            RectangleItem,
-        )
-
         # Clear dimension lines before removing garden items so the manager can
         # cleanly remove its graphics items while C++ objects are still alive
         if hasattr(scene, "_dimension_line_manager"):
@@ -1671,29 +1690,19 @@ class ProjectManager(QObject):
 
         # Clear the previous plan's compare overlay (US-10.7) so its ghosted
         # plants cannot survive into the newly loaded plan (#337) — the
-        # selective isinstance-filtered removal below never touches overlay
+        # selective document-item removal below never touches overlay
         # items, so without this they would stay painted on the canvas.
         if hasattr(scene, "clear_compare_overlay"):
             scene.clear_compare_overlay()
 
-        # Clear existing items (including construction geometry)
-        from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
+        # Clear every previous document item, not just the original rectangle/
+        # circle/etc. tuple.  This is deliberately not CanvasScene.clear():
+        # runtime overlays are owned by their controllers and the load path
+        # clears only the compare/dimension state that belongs to the old file.
         for item in list(scene.items()):
-            if isinstance(
-                item,
-                (
-                    RectangleItem,
-                    CircleItem,
-                    EllipseItem,
-                    PolygonItem,
-                    PolylineItem,
-                    BackgroundImageItem,
-                    ConstructionLineItem,
-                    ConstructionCircleItem,
-                    JournalPinItem,
-                    GroupItem,
-                ),
-            ):
+            if item.scene() is not scene:
+                continue
+            if self._is_project_document_item(item):
                 scene.removeItem(item)
 
         # Resize canvas if needed

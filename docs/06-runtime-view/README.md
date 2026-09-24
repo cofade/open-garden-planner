@@ -132,7 +132,7 @@ While the Static Maps request is in flight, closing or rejecting the picker requ
 
 When the Static worker fails with a classifiable EEA 403 (issue #346), the dialog offers the **JS-API view capture** path; a “Capture view” button also makes it available at any time with a drawn rectangle. Capture is a GUI-thread choreography with no worker (issues #346/#347): Python picks the best integer zoom + pan grid (`pick_capture_zoom_and_grid`, 0.85 viewport margin, 3×3 cap) and drives a two-phase page choreography. Phase 1 (`window.beginCaptureChrome` → hides toolbar/hint, `disableDefaultUI`, hides Google's attribution element for the capture only) reports the **capture profile** through the bridge (`captureReady(token, −1, dpr, cssW, cssH)` — frame index −1), pinning the real viewport + dpr. Phase 2 (`window.beginCaptureFrames` with the derived frame centres) settles one frame at a time (`setCenter`+`setZoom`, wait for `idle` + `tilesloaded`, 15 s JS timeout); the page reports readiness per frame (`captureReady(token, i, z, dpr, cssW, cssH)`, token first — the echo of the capture generation) and Python grabs the `QWebEngineView` widget — metadata crosses the bridge, pixels never do. Each grab is blank-checked (per-cell luminance analysis — a partial tile strip counts as a failure) and retried up to `FRAME_RETRIES = 2` (`retryCaptureFrame`); a mid-capture window resize is refused; the frame-0 grab is additionally ruler-gated against the profile dpr (`layout.dpr`) — the value the mosaic geometry and result scale are actually built from — so a falsy profile report or a cross-monitor DPI change between profile and first frame is refused, never silently mis-scaled. After the last frame the grabs are stitched (`stitch_frames` — whole css-pixel steps, integer grabbed-pixel paste offsets, seam-free by construction), the mosaic is cropped to the bbox through the same `crop_image_to_bbox` seam the Static path uses, exactly one attribution strip is baked (`bake_attribution`), and the result flows to the application as a standard `FetchResult` with `tile_grid=(cols, rows)`, `source="google_js_view_capture"` and `attribution`; `BackgroundImageItem.from_fetch_result` persists both as additive `geo_metadata` keys. The single-frame flow is the same choreography with a 1×1 grid. A 20 s Python watchdog (re-armed at every choreography step) and the generation counter guard against a lost page/bridge.
 
-## 6.3.2 Agent API writes: layers and shape creation
+## 6.3.2 Agent API writes: layers, shapes, and global history
 
 ```mermaid
 sequenceDiagram
@@ -142,16 +142,16 @@ sequenceDiagram
     participant Q as Qt main thread
     participant U as Undo stack
 
-    A->>S: list_layers / create_object / layer write
+    A->>S: list_layers / create_object / layer write / undo or redo
     S->>S: authenticate write (when mutating)
     S->>B: run_on_main(provider)
     B->>Q: queued callable
     Q->>Q: map snapshot or validate + loader
-    Q->>U: execute one existing command
+    Q->>U: execute one existing command (or pop one for history)
     U-->>Q: result / undo metadata
     Q-->>B: curated result
     B-->>S: result or exception
-    S-->>A: Layer / WriteResult / tool error
+    S-->>A: Layer / WriteResult / HistoryResult / tool error
 ```
 
 Layer reads are unauthenticated and expose stable UUIDs. Layer mutations use
@@ -163,6 +163,12 @@ the shape family off the Qt thread, then invokes the loader's
 creation command used by the GUI. A `HOUSE` also receives its linked ridge in
 the same `CreateItemsCommand`; a following Ctrl+Z removes both. Plant
 parenting and active-layer assignment happen inside that same create operation.
+The authenticated `undo`/`redo` tools use the same `CommandManager` as the GUI:
+one call pops or reapplies exactly one command, returns the command description
+and post-call stack state, and refuses an empty stack explicitly. Project load
+uses a centralized serialized-document-item predicate, so a same-scene reload
+cannot retain a stale callout/curve while compare and dimension overlays keep
+their own cleanup owners.
 
 ## 6.4 Export Flow
 

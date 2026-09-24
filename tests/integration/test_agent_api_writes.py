@@ -6,9 +6,12 @@ GUI uses), then drives it with the real MCP streamable-HTTP client from a worker
 thread while the main thread pumps the Qt event loop. This pins the D2 contract:
 
   * an unauthenticated write call is rejected and the scene is unchanged;
-  * an authenticated ``move_object`` / ``delete_object`` mutates the plan;
-  * each mutation is exactly ONE undoable command (Ctrl+Z reverses it) and
-    marks the document dirty (invariants #3/#4/#13).
+  * authenticated create/move/delete, global ``undo``/``redo``, and callout
+    hardening mutate or refuse through the real transport;
+  * each document mutation follows the GUI command path (Ctrl+Z reverses it)
+    and marks the document dirty (invariants #3/#4/#13);
+  * same-scene load cleanup, concurrent deletes, and bounded callout offsets
+    leave the scene/history in a truthful state.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ from typing import Any
 from uuid import UUID
 
 import pytest
+from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QMessageBox
 
 from open_garden_planner.agent_api import (
@@ -31,9 +35,16 @@ from open_garden_planner.agent_api import (
 from open_garden_planner.app.application import GardenPlannerApp
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core import ProjectManager
+from open_garden_planner.core.commands import CreateItemCommand
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
-from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+from open_garden_planner.ui.canvas.items import (
+    ArcItem,
+    BezierItem,
+    CalloutItem,
+    CircleItem,
+    RectangleItem,
+)
 
 TOKEN = "test-write-token-12345"
 
@@ -285,6 +296,90 @@ def test_create_object_shape_families_end_to_end(
     assert len([item for item in scene.items() if item.parentItem() is None]) == before
 
 
+def test_reload_layer_counts_match_objects_after_document_round_trip(
+    canvas: Any, qtbot: Any, tmp_path: Path
+) -> None:
+    """#353: same-scene load must not leave duplicate serialized objects.
+
+    The old load cleanup tuple omitted callouts and the two non-GardenItemMixin
+    curve classes.  A second load therefore left one stale top-level object per
+    omitted class, which inflated ``list_layers.object_count`` while the
+    curated object list still exposed the new instances.  Exercise the real MCP
+    read tools after the second load, not only ``ProjectManager`` internals.
+    """
+    view = canvas
+    scene = view.scene()
+    app = _APP_BY_VIEW[id(view)]
+    manager = app._project_manager
+
+    layer_id = scene.active_layer.id
+    callout = CalloutItem(
+        QPointF(120.0, 140.0),
+        QPointF(80.0, -60.0),
+        "Inspect bed",
+        layer_id=layer_id,
+    )
+    arc = ArcItem(
+        QPointF(350.0, 180.0),
+        80.0,
+        20.0,
+        120.0,
+        name="Arc",
+        layer_id=layer_id,
+    )
+    bezier = BezierItem(
+        [QPointF(500.0, 120.0), QPointF(580.0, 220.0)],
+        [QPointF(480.0, 150.0), QPointF(550.0, 180.0)],
+        [QPointF(520.0, 90.0), QPointF(610.0, 250.0)],
+        name="Bezier",
+        layer_id=layer_id,
+    )
+    for item in (callout, arc, bezier):
+        scene.addItem(item)
+
+    save_path = tmp_path / "round-trip-counts.ogp"
+    manager.save(scene, save_path)
+    # Deliberately load into the *same* scene.  This is the lifecycle that
+    # exposed the duplicate-id and false-success findings in issue #353.
+    manager.load(scene, save_path)
+
+    assert len([item for item in scene.items() if isinstance(item, CalloutItem)]) == 1
+    assert len([item for item in scene.items() if isinstance(item, ArcItem)]) == 1
+    assert len([item for item in scene.items() if isinstance(item, BezierItem)]) == 1
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            layers = await session.call_tool("list_layers", {})
+            objects = await session.call_tool("list_objects", {})
+            body.layers = layers.structuredContent["result"]  # type: ignore[attr-defined]
+            body.objects = objects.structuredContent["result"]  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    objects_by_layer: dict[str, list[dict[str, Any]]] = {}
+    for obj in body.objects:  # type: ignore[attr-defined]
+        layer_id = obj.get("layer_id")
+        if layer_id:
+            objects_by_layer.setdefault(str(layer_id), []).append(obj)
+    for layer in body.layers:  # type: ignore[attr-defined]
+        layer_id = str(layer["layer_id"])
+        assert layer["object_count"] == len(objects_by_layer.get(layer_id, []))
+
+
 def test_unauthenticated_create_is_rejected(canvas: Any, qtbot: Any) -> None:
     """The write gate covers create_object too, not just move/delete."""
     view = canvas
@@ -437,6 +532,262 @@ def test_delete_object_end_to_end(canvas: Any, qtbot: Any) -> None:
     assert view.command_manager.can_undo
     view.command_manager.undo()
     assert scene.find_item_by_id(circle.item_id) is not None
+
+
+def test_delete_object_refuses_duplicate_id_without_false_success(
+    canvas: Any, qtbot: Any
+) -> None:
+    """#353: a stale same-id callout must never be reported as deleted."""
+    view = canvas
+    scene = view.scene()
+    first = CalloutItem(QPointF(100.0, 100.0), QPointF(20.0, 20.0), "first")
+    duplicate = CalloutItem(QPointF(200.0, 200.0), QPointF(20.0, 20.0), "duplicate")
+    duplicate._item_id = first.item_id
+    scene.addItem(first)
+    scene.addItem(duplicate)
+    item_id = str(first.item_id)
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool("delete_object", {"item_id": item_id})
+            body.is_error = call.isError  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.is_error is True  # type: ignore[attr-defined]
+    assert sum(
+        1
+        for item in scene.items()
+        if isinstance(item, CalloutItem) and item.item_id == first.item_id
+    ) == 2
+    assert view.command_manager.can_undo is False
+
+
+def test_concurrent_delete_calls_are_serialized_and_fail_closed(
+    canvas: Any, qtbot: Any
+) -> None:
+    """#353: concurrent MCP deletes have one success, never false successes."""
+    view = canvas
+    scene = view.scene()
+    callout = CalloutItem(QPointF(240.0, 240.0), QPointF(40.0, 40.0), "one delete")
+    scene.addItem(callout)
+    item_id = str(callout.item_id)
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            calls = await asyncio.gather(
+                *(
+                    session.call_tool("delete_object", {"item_id": item_id})
+                    for _ in range(17)
+                )
+            )
+            body.results = [(call.isError, call.structuredContent) for call in calls]  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    results = body.results  # type: ignore[attr-defined]
+    assert sum(not is_error for is_error, _ in results) == 1
+    assert sum(is_error for is_error, _ in results) == 16
+    assert scene.find_item_by_id(callout.item_id) is None
+    assert view.command_manager.can_undo is True
+    view.command_manager.undo()
+    assert scene.find_item_by_id(callout.item_id) is not None
+    assert view.command_manager.can_undo is False
+
+
+def test_mcp_undo_redo_share_the_gui_history_stack(
+    canvas: Any, qtbot: Any
+) -> None:
+    """#353: authenticated history tools reverse GUI commands one at a time."""
+    view = canvas
+    scene = view.scene()
+    item = RectangleItem(300.0, 300.0, 80.0, 40.0)
+    view.command_manager.execute(CreateItemCommand(scene, item, "rectangle"))
+    assert scene.find_item_by_id(item.item_id) is item
+    assert view.command_manager.can_undo is True
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            undo = await session.call_tool("undo", {})
+            empty_undo = await session.call_tool("undo", {})
+            redo = await session.call_tool("redo", {})
+            body.undo = undo.structuredContent  # type: ignore[attr-defined]
+            body.redo = redo.structuredContent  # type: ignore[attr-defined]
+            body.empty_undo_error = empty_undo.isError  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.undo["action"] == "undo"  # type: ignore[attr-defined]
+    assert body.undo["command_description"]  # type: ignore[attr-defined]
+    assert body.undo["can_undo"] is False  # type: ignore[attr-defined]
+    assert body.undo["can_redo"] is True  # type: ignore[attr-defined]
+    assert body.redo["action"] == "redo"  # type: ignore[attr-defined]
+    assert body.redo["can_undo"] is True  # type: ignore[attr-defined]
+    assert body.redo["can_redo"] is False  # type: ignore[attr-defined]
+    assert body.empty_undo_error is True  # type: ignore[attr-defined]
+    assert scene.find_item_by_id(item.item_id) is item
+    assert view.command_manager.can_redo is False
+    assert view.command_manager.can_undo is True
+
+
+def test_unauthenticated_history_is_rejected_without_mutating_the_stack(
+    canvas: Any, qtbot: Any
+) -> None:
+    """The new history tools obey the same ADR-036 gate as every write."""
+    view = canvas
+    scene = view.scene()
+    item = RectangleItem(320.0, 320.0, 70.0, 35.0)
+    view.command_manager.execute(CreateItemCommand(scene, item, "rectangle"))
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        async with (
+            http_client(url) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            undo = await session.call_tool("undo", {})
+            redo = await session.call_tool("redo", {})
+            body.undo_error = undo.isError  # type: ignore[attr-defined]
+            body.redo_error = redo.isError  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.undo_error is True  # type: ignore[attr-defined]
+    assert body.redo_error is True  # type: ignore[attr-defined]
+    assert scene.find_item_by_id(item.item_id) is item
+    assert view.command_manager.can_undo is True
+    assert view.command_manager.can_redo is False
+
+
+def test_mcp_callout_offsets_reject_hostile_geometry_without_side_effects(
+    canvas: Any, qtbot: Any, tmp_path: Path
+) -> None:
+    """#355: bound signed callout offsets before Qt geometry construction."""
+    view = canvas
+    scene = view.scene()
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    hostile_values = [1e308, -1e308, float("inf"), float("-inf"), float("nan")]
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            body.hostile = [
+                (
+                    await session.call_tool(
+                        "create_object",
+                        {
+                            "object_type": "GENERIC_CALLOUT",
+                            "x": 200.0,
+                            "y": 220.0,
+                            "text": "Hostile offset",
+                            "box_dx": value,
+                            "box_dy": value,
+                        },
+                    )
+                ).isError
+                for value in hostile_values
+            ]
+            valid = await session.call_tool(
+                "create_object",
+                {
+                    "object_type": "GENERIC_CALLOUT",
+                    "x": 200.0,
+                    "y": 220.0,
+                    "text": "Valid signed offset",
+                    "box_dx": -120.0,
+                    "box_dy": -80.0,
+                },
+            )
+            rendered = await session.call_tool("render_canvas_image", {})
+            body.valid = valid.structuredContent  # type: ignore[attr-defined]
+            body.valid_error = valid.isError  # type: ignore[attr-defined]
+            body.render_error = rendered.isError  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert all(body.hostile), body.hostile  # type: ignore[attr-defined]
+    assert body.valid_error is not True  # type: ignore[attr-defined]
+    assert body.render_error is not True  # type: ignore[attr-defined]
+    assert len([item for item in scene.items() if isinstance(item, CalloutItem)]) == 1
+    # Every refusal is before CreateItemCommand, so the undo stack has only the
+    # one successful valid-create command.
+    assert view.command_manager.can_undo is True
+    view.command_manager.undo()
+    assert view.command_manager.can_undo is False
+    assert not [item for item in scene.items() if isinstance(item, CalloutItem)]
+
+    # The normal path still survives a same-scene save/load round trip.
+    valid = CalloutItem(
+        QPointF(200.0, 220.0), QPointF(-120.0, -80.0), "Round trip"
+    )
+    scene.addItem(valid)
+    manager = _APP_BY_VIEW[id(view)]._project_manager
+    path = tmp_path / "valid-callout.ogp"
+    manager.save(scene, path)
+    manager.load(scene, path)
+    assert len([item for item in scene.items() if isinstance(item, CalloutItem)]) == 1
 
 
 def test_unauthenticated_move_is_rejected(canvas: Any, qtbot: Any) -> None:

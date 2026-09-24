@@ -52,6 +52,8 @@ def _stub_providers() -> AgentProviders:
         delete_layer=_boom,
         set_active_layer=_boom,
         set_layer_property=_boom,
+        undo=_boom,
+        redo=_boom,
     )
 
 
@@ -109,6 +111,8 @@ WRITE_TOOL_NAMES = frozenset(
         "delete_layer",
         "set_active_layer",
         "set_layer_property",
+        "undo",
+        "redo",
     }
 )
 
