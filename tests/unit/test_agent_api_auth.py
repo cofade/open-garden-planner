@@ -155,6 +155,20 @@ def test_write_tools_present_when_enabled_and_tokened() -> None:
     assert names >= WRITE_TOOL_NAMES
 
 
+def test_callout_offset_schema_matches_null_rejection_contract() -> None:
+    tools = asyncio.run(
+        build_server(
+            _stub_providers(), writes_enabled=True, write_token="tok"
+        ).list_tools()
+    )
+    create = next(tool for tool in tools if tool.name == "create_object")
+    properties = create.inputSchema["properties"]
+    for field in ("box_dx", "box_dy"):
+        assert properties[field]["type"] == "number"
+        assert "anyOf" not in properties[field]
+        assert "default" not in properties[field]
+
+
 def test_move_object_description_uses_y_up_compass_frame() -> None:
     """Regression (#267): the move_object description must tell the agent the
     canvas is Y-up (a positive dy moves NORTH, a negative dy SOUTH). It used to

@@ -254,6 +254,17 @@ class TestCalloutOffsets:
         assert spec["box_dx"] == limit
         assert spec["box_dy"] == -limit
 
+    def test_default_offsets_are_checked_against_small_canvas_bound(self) -> None:
+        with pytest.raises(ValueError, match="box_dx.*within"):
+            _build(
+                object_type="GENERIC_CALLOUT",
+                x=10.0,
+                y=10.0,
+                text="Small plan",
+                canvas_width_cm=20.0,
+                canvas_height_cm=20.0,
+            )
+
     @pytest.mark.parametrize("bad", [1e308, -1e308, 2001.0, -2001.0])
     def test_finite_but_oversized_offsets_are_refused(self, bad: float) -> None:
         with pytest.raises(ValueError, match="box_dx.*within"):

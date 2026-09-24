@@ -43,6 +43,8 @@ from open_garden_planner.ui.canvas.items import (
     BezierItem,
     CalloutItem,
     CircleItem,
+    PolygonItem,
+    PolylineItem,
     RectangleItem,
 )
 
@@ -577,6 +579,119 @@ def test_delete_object_refuses_duplicate_id_without_false_success(
     assert view.command_manager.can_undo is False
 
 
+def test_delete_object_refuses_cross_class_uuid_collision_before_constraints(
+    canvas: Any, qtbot: Any
+) -> None:
+    """#353: a cross-class duplicate must fail before any graph mutation."""
+    from uuid import uuid4
+
+    from open_garden_planner.core.constraints import AnchorRef
+    from open_garden_planner.core.measure_snapper import AnchorType
+
+    view = canvas
+    scene = view.scene()
+    callout = CalloutItem(QPointF(100.0, 100.0), QPointF(20.0, 20.0), "callout")
+    arc = ArcItem(QPointF(300.0, 300.0), 60.0, 0.0, 90.0, name="collision")
+    arc._item_id = callout.item_id
+    scene.addItem(callout)
+    scene.addItem(arc)
+    graph = scene.constraint_graph
+    graph.add_constraint(
+        AnchorRef(callout.item_id, AnchorType.CENTER),
+        AnchorRef(uuid4(), AnchorType.CENTER),
+        100.0,
+    )
+    constraints_before = graph.to_list()
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "delete_object", {"item_id": str(callout.item_id)}
+            )
+            body.is_error = call.isError  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.is_error is True  # type: ignore[attr-defined]
+    assert scene.find_item_by_id(callout.item_id) is callout
+    assert any(
+        isinstance(item, ArcItem) and item.item_id == callout.item_id
+        for item in scene.items()
+    )
+    assert graph.to_list() == constraints_before
+    assert view.command_manager.can_undo is False
+
+
+def test_delete_object_refuses_duplicate_linked_roof_ridge(
+    canvas: Any, qtbot: Any
+) -> None:
+    """#353: linked-ridge resolution is part of the same duplicate preflight."""
+    view = canvas
+    scene = view.scene()
+    house = PolygonItem(
+        [QPointF(0.0, 0.0), QPointF(200.0, 0.0), QPointF(200.0, 150.0), QPointF(0.0, 150.0)],
+        object_type=ObjectType.HOUSE,
+    )
+    ridge = PolylineItem(
+        [QPointF(100.0, 0.0), QPointF(100.0, 150.0)],
+        object_type=ObjectType.ROOF_RIDGE,
+    )
+    duplicate_ridge = PolylineItem(
+        [QPointF(110.0, 0.0), QPointF(110.0, 150.0)],
+        object_type=ObjectType.ROOF_RIDGE,
+    )
+    duplicate_ridge._item_id = ridge.item_id
+    house.set_metadata("ridge_item_id", str(ridge.item_id))
+    for item in (house, ridge, duplicate_ridge):
+        scene.addItem(item)
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            call = await session.call_tool(
+                "delete_object", {"item_id": str(house.item_id)}
+            )
+            body.is_error = call.isError  # type: ignore[attr-defined]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.is_error is True  # type: ignore[attr-defined]
+    assert scene.find_item_by_id(house.item_id) is house
+    assert sum(
+        1
+        for item in scene.items()
+        if isinstance(item, PolylineItem) and item.item_id == ridge.item_id
+    ) == 2
+    assert view.command_manager.can_undo is False
+
+
 def test_concurrent_delete_calls_are_serialized_and_fail_closed(
     canvas: Any, qtbot: Any
 ) -> None:
@@ -650,9 +765,11 @@ def test_mcp_undo_redo_share_the_gui_history_stack(
             undo = await session.call_tool("undo", {})
             empty_undo = await session.call_tool("undo", {})
             redo = await session.call_tool("redo", {})
+            empty_redo = await session.call_tool("redo", {})
             body.undo = undo.structuredContent  # type: ignore[attr-defined]
             body.redo = redo.structuredContent  # type: ignore[attr-defined]
             body.empty_undo_error = empty_undo.isError  # type: ignore[attr-defined]
+            body.empty_redo_error = empty_redo.isError  # type: ignore[attr-defined]
 
     try:
         _run(server, body, qtbot)
@@ -667,9 +784,11 @@ def test_mcp_undo_redo_share_the_gui_history_stack(
     assert body.redo["can_undo"] is True  # type: ignore[attr-defined]
     assert body.redo["can_redo"] is False  # type: ignore[attr-defined]
     assert body.empty_undo_error is True  # type: ignore[attr-defined]
+    assert body.empty_redo_error is True  # type: ignore[attr-defined]
     assert scene.find_item_by_id(item.item_id) is item
     assert view.command_manager.can_redo is False
     assert view.command_manager.can_undo is True
+    assert _APP_BY_VIEW[id(view)]._project_manager.is_dirty is True
 
 
 def test_unauthenticated_history_is_rejected_without_mutating_the_stack(
@@ -720,7 +839,14 @@ def test_mcp_callout_offsets_reject_hostile_geometry_without_side_effects(
     )
     server.start()
 
-    hostile_values = [1e308, -1e308, float("inf"), float("-inf"), float("nan")]
+    hostile_values = [
+        1e308,
+        -1e308,
+        float("inf"),
+        float("-inf"),
+        float("nan"),
+        None,
+    ]
 
     async def body(ctx: Any) -> None:
         http_client, ClientSession, url = ctx
@@ -746,6 +872,18 @@ def test_mcp_callout_offsets_reject_hostile_geometry_without_side_effects(
                 ).isError
                 for value in hostile_values
             ]
+            null_non_callout = await session.call_tool(
+                "create_object",
+                {
+                    "object_type": "TREE",
+                    "x": 220.0,
+                    "y": 220.0,
+                    "radius": 30.0,
+                    "box_dx": None,
+                    "box_dy": None,
+                },
+            )
+            body.null_non_callout_error = null_non_callout.isError  # type: ignore[attr-defined]
             valid = await session.call_tool(
                 "create_object",
                 {
@@ -768,6 +906,7 @@ def test_mcp_callout_offsets_reject_hostile_geometry_without_side_effects(
         server.stop()
 
     assert all(body.hostile), body.hostile  # type: ignore[attr-defined]
+    assert body.null_non_callout_error is True  # type: ignore[attr-defined]
     assert body.valid_error is not True  # type: ignore[attr-defined]
     assert body.render_error is not True  # type: ignore[attr-defined]
     assert len([item for item in scene.items() if isinstance(item, CalloutItem)]) == 1

@@ -1444,10 +1444,10 @@ requested target is detached before returning success.
 Callout input is validated in `agent_api/creates.py` before the loader receives
 it. `box_dx` and `box_dy` remain signed so the GUI's normal above/below/left/
 right placement works, but each is finite and bounded by
-`abs(offset) <= 2 * max(canvas_width_cm, canvas_height_cm)`. The MCP wrapper
-uses a private omission sentinel because some JSON stacks normalize
-Infinity/NaN to `null`; explicit null is rejected rather than silently becoming
-the default offset. Thus oversized, negative-oversized, and non-finite calls
+`abs(offset) <= 2 * max(canvas_width_cm, canvas_height_cm)`, including the
+resolved defaults. The MCP wrapper uses a private omission sentinel because
+some JSON stacks normalize Infinity/NaN to `null`; explicit null is rejected
+rather than silently becoming the default offset. Thus oversized, negative-oversized, and non-finite calls
 leave both the scene and undo stack untouched, while normal callouts still
 save/load, render, and delete through the existing paths. The benchmark
 hardening for #354 is documented in FR-SNAP-06 and ADR-020: one warm-up plus

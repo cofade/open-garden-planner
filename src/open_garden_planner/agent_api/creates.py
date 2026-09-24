@@ -656,15 +656,17 @@ def build_create_dict(
             f"{object_type} requires non-empty 'text' — a callout without text "
             "has nothing to show."
         )
-    resolved_dx = (
-        require_bounded_signed_offset(box_dx, "box_dx", canvas_w, canvas_h)
-        if box_dx is not None
-        else _DEFAULT_CALLOUT_BOX_DX
+    resolved_dx = require_bounded_signed_offset(
+        box_dx if box_dx is not None else _DEFAULT_CALLOUT_BOX_DX,
+        "box_dx",
+        canvas_w,
+        canvas_h,
     )
-    resolved_dy = (
-        require_bounded_signed_offset(box_dy, "box_dy", canvas_w, canvas_h)
-        if box_dy is not None
-        else _DEFAULT_CALLOUT_BOX_DY
+    resolved_dy = require_bounded_signed_offset(
+        box_dy if box_dy is not None else _DEFAULT_CALLOUT_BOX_DY,
+        "box_dy",
+        canvas_w,
+        canvas_h,
     )
     return {
         **common,

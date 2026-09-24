@@ -4,6 +4,7 @@ import contextlib
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
+from uuid import UUID
 
 from PyQt6.QtCore import QCoreApplication, QEvent, Qt, QTimer
 from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
@@ -653,7 +654,12 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.core.commands import DeleteItemsCommand, RemoveConstraintCommand
 
         item = self._resolve_agent_item(item_id)
-        self._agent_require_unique_item(item)
+        linked_ridge = self._agent_linked_roof_ridge(item)
+        targets = [item, *linked_ridge]
+        self._agent_require_unique_items(targets)
+        target_ids = {
+            self._agent_item_uuid(candidate) for candidate in targets
+        }
 
         constraints = self._agent_item_constraints(item)
         for constraint in constraints:
@@ -661,20 +667,20 @@ class GardenPlannerApp(QMainWindow):
                 RemoveConstraintCommand(self.canvas_scene.constraint_graph, constraint)
             )
 
-        linked_ridge = self._agent_linked_roof_ridge(item)
-        cmd = DeleteItemsCommand(self.canvas_scene, [item, *linked_ridge])
+        cmd = DeleteItemsCommand(self.canvas_scene, targets)
         self.canvas_view.command_manager.execute(cmd)
         # The response is a completion receipt, not merely a command queued on
-        # the main thread.  Do not report success if a custom command path or a
-        # malformed scene leaves any target attached to the scene.
-        still_attached = [
+        # the main thread.  Check every serialized UUID, not just the Python
+        # wrappers we passed to DeleteItemsCommand: a cross-class duplicate
+        # could otherwise survive and make a successful reply a lie.
+        remaining = [
             candidate
-            for candidate in [item, *linked_ridge]
-            if candidate.scene() is self.canvas_scene
+            for candidate in self._agent_document_items()
+            if self._agent_item_uuid(candidate) in target_ids
         ]
-        if still_attached:
+        if remaining:
             raise RuntimeError(
-                "delete_object did not remove every target from the scene; "
+                "delete_object left a live document object with a target UUID; "
                 "the operation was not reported as successful."
             )
         return {
@@ -1675,28 +1681,51 @@ class GardenPlannerApp(QMainWindow):
         """Every constraint (distance/fixed/tangent/…) referencing ``item``."""
         return self.canvas_scene.constraint_graph.get_item_constraints(item.item_id)
 
-    def _agent_require_unique_item(self, item: Any) -> None:
-        """Refuse a delete target when the scene contains duplicate IDs.
+    def _agent_document_items(self) -> list[Any]:
+        """Return every live serialized document item with a UUID.
 
-        A same-scene reload used to leave old callout/curve instances behind.
-        ``find_item_by_id`` then returned the first duplicate, so one successful
-        delete could leave another same-ID object alive.  The load lifecycle fix
-        removes that source; this guard makes the write path fail closed if a
-        malformed/legacy scene ever presents the same invariant violation again.
+        This deliberately uses the same predicate as project loading instead
+        of a second ``GardenItemMixin``-only census: Arc/Bezier and other
+        serialized classes can collide with a UUID too, and a delete receipt
+        must not ignore them.
         """
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
-        matches = [
-            candidate
-            for candidate in self.canvas_scene.items()
-            if isinstance(candidate, GardenItemMixin)
-            and candidate.item_id == item.item_id
+        return [
+            item
+            for item in self.canvas_scene.items()
+            if self._project_manager._is_project_document_item(item)
+            and self._agent_item_uuid(item) is not None
         ]
-        if len(matches) != 1:
+
+    @staticmethod
+    def _agent_item_uuid(item: Any) -> Any:
+        """Return a document item's UUID, or ``None`` for non-addressables."""
+        value = getattr(item, "item_id", None)
+        return value if isinstance(value, UUID) else None
+
+    def _agent_require_unique_items(self, items: list[Any]) -> None:
+        """Refuse deletion if any target UUID occurs more than once live."""
+        from collections import Counter
+
+        target_ids = {self._agent_item_uuid(item) for item in items}
+        if None in target_ids:
+            raise ValueError("delete_object requires every target to have a UUID.")
+
+        counts: Counter[Any] = Counter()
+        for candidate in self._agent_document_items():
+            candidate_id = self._agent_item_uuid(candidate)
+            if candidate_id in target_ids:
+                counts[candidate_id] += 1
+
+        duplicates = [
+            f"{candidate_id} ({count} live objects)"
+            for candidate_id, count in sorted(counts.items(), key=lambda pair: str(pair[0]))
+            if count > 1
+        ]
+        if duplicates:
             raise ValueError(
-                f"Cannot delete {item.item_id}: the scene contains "
-                f"{len(matches)} live objects with that id. Reload the project "
-                "to repair the duplicate before editing it."
+                "Cannot delete because the document contains duplicate live "
+                f"UUIDs: {', '.join(duplicates)}. Resolve the duplicate records "
+                "before editing; delete_object will not choose one arbitrarily."
             )
 
     def _maybe_start_agent_api(self) -> None:

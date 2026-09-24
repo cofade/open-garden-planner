@@ -119,9 +119,14 @@ _presented_token: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 # (Infinity/NaN) to null before Pydantic sees them; treating that as “use the
 # default” would turn a hostile offset into a valid callout.  A private,
 # JSON-serializable sentinel preserves omission while allowing the create
-# handler to reject explicit null before it reaches the provider.  It is not a
-# valid float, so a client that copies the schema default is rejected too.
+# handler to reject explicit null before it reaches the provider.  The public
+# schema therefore exposes a number (not null) and hides the internal default.
 _UNSET_OFFSET: Any = "__open_garden_planner_omitted_offset__"
+
+
+def _hide_schema_default(schema: dict[str, Any]) -> None:
+    """Keep an omission sentinel out of the published MCP input schema."""
+    schema.pop("default", None)
 
 
 class WriteAuthError(Exception):
@@ -624,10 +629,10 @@ def build_server(
             points: list[list[float]] | None = None,
             text: str | None = None,
             box_dx: Annotated[
-                float | None, Field(json_schema_extra={"default": None})
+                float, Field(json_schema_extra=_hide_schema_default)
             ] = _UNSET_OFFSET,
             box_dy: Annotated[
-                float | None, Field(json_schema_extra={"default": None})
+                float, Field(json_schema_extra=_hide_schema_default)
             ] = _UNSET_OFFSET,
         ) -> WriteResult:
             """Create one object on the plan.
@@ -674,8 +679,10 @@ def build_server(
                 text: Required callout text for GENERIC_CALLOUT.
                 box_dx: Optional signed callout text-box X offset from the
                     leader tip, bounded to +/- twice the larger canvas dimension.
+                    Omit for the default; null is not a valid offset.
                 box_dy: Optional signed callout text-box Y offset from the
                     leader tip, bounded to +/- twice the larger canvas dimension.
+                    Omit for the default; null is not a valid offset.
             """
             _require_write_auth(write_token)
             if box_dx is _UNSET_OFFSET:
