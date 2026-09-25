@@ -501,17 +501,17 @@
   },
   "353": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Follow-up: live MCP QA findings for reload counts and concurrent deletes"
   },
   "354": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Follow-up: CI performance threshold is flaky for snap spatial index"
   },
   "355": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Follow-up: bound MCP callout box offsets before Qt geometry"
   },
   "356": {
@@ -523,5 +523,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat: build provenance attestation for release artifacts (#356)"
+  },
+  "360": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(#353,#355): harden MCP history, deletion, and callout input"
   }
 }
