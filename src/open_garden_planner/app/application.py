@@ -244,6 +244,100 @@ class GardenPlannerApp(QMainWindow):
             )
         )
 
+    def _agent_new_plan(
+        self,
+        width_cm: float | None,
+        height_cm: float | None,
+        force: bool,
+    ) -> dict[str, Any]:
+        """Start a fresh, empty plan ON the Qt main thread (issue #365).
+
+        The unsaved-changes guard lives HERE rather than in the Qt-free
+        validation module, because only the main thread can read the live
+        ``is_dirty`` flag — and because the GUI's own equivalent is
+        ``_confirm_discard_changes``, which is likewise a main-thread
+        interaction. An agent cannot raise a modal prompt, so the choice is
+        binary: refuse, or proceed when the caller passes ``force=True``.
+        """
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_new_plan(width_cm, height_cm, force)
+        )
+
+    def _do_agent_new_plan(
+        self,
+        width_cm: float | None = None,
+        height_cm: float | None = None,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        """Main-thread body of ``new_plan``.
+
+        Reuses ``_new_project_document`` — the same method File > New runs
+        after its dialog, so there is exactly one new-document path.
+        """
+        from open_garden_planner.agent_api.exports import validate_new_plan
+
+        if self._project_manager.is_dirty and not force:
+            raise ValueError(
+                "The open plan has unsaved changes. Re-run with force=true to "
+                "discard them and start a new plan, or save it first with "
+                "save_plan. (The GUI asks the user at this point; an agent "
+                "cannot, so it must be told.)"
+            )
+
+        plan_width, plan_height = validate_new_plan(
+            width_cm, height_cm, self.canvas_scene.width_cm, self.canvas_scene.height_cm
+        )
+        self._new_project_document(width_cm=plan_width, height_cm=plan_height)
+        return {
+            "width_cm": plan_width,
+            "height_cm": plan_height,
+            "file_path": None,
+            "was_dirty": bool(self._project_manager.is_dirty),
+        }
+
+    def _agent_open_plan(self, file_path: str, force: bool) -> dict[str, Any]:
+        """Load a ``.ogp`` file ON the Qt main thread (issue #365).
+
+        Reuses ``_open_project_file`` — the same method File > Open and the
+        Recent-files menu run — so the agent and the GUI load a plan through
+        one path rather than two that can drift.
+        """
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_open_plan(file_path, force)
+        )
+
+    def _do_agent_open_plan(self, file_path: str, force: bool = False) -> dict[str, Any]:
+        """Main-thread body of ``open_plan``.
+
+        Path handling deliberately mirrors ``save_plan`` and NOT a sandbox:
+        this server is loopback-only (ADR-033), so a local MCP client already
+        has the same filesystem access as the OS user account. Inventing a
+        stricter rule here than the export tools enforce would be a policy the
+        rest of the surface does not hold. What IS enforced is the part that
+        prevents a silent surprise: the file must exist, and the extension
+        must be ``.ogp``.
+        """
+        from open_garden_planner.agent_api.exports import validate_open_plan
+
+        if self._project_manager.is_dirty and not force:
+            raise ValueError(
+                "The open plan has unsaved changes. Re-run with force=true to "
+                "discard them and open another plan, or save it first with "
+                "save_plan. (The GUI asks the user at this point; an agent "
+                "cannot, so it must be told.)"
+            )
+
+        resolved = validate_open_plan(file_path)
+        # _load_project_file RAISES on a parse failure, which is what an agent
+        # needs. The GUI's _open_project_file is the same call wrapped in a
+        # modal QMessageBox, which an agent must never raise on its behalf.
+        self._load_project_file(str(resolved))
+        return {
+            "file_path": str(resolved),
+            "width_cm": self.canvas_scene.width_cm,
+            "height_cm": self.canvas_scene.height_cm,
+        }
+
     def _agent_export_pdf(
         self,
         file_path: str | None,
@@ -1740,18 +1834,24 @@ class GardenPlannerApp(QMainWindow):
     ) -> dict[str, Any]:
         """Main-thread body of ``set_layer_property`` — one command, one property.
 
-        ``locked`` is refused in BOTH directions (ADR-036 D2.4 addendum):
-        locking is the only mechanism a user has to tell the agent "keep out of
-        this layer", so an agent that could unlock-then-edit would reduce every
-        locked-layer refusal from a protection to a speed bump. The refusal is
-        checked before anything else so a call mixing ``locked`` with a legal
-        property cannot half-apply.
+        ``locked`` IS changeable in both directions (issue #365, a deliberate
+        policy reversal of ADR-036's D2.4 addendum): the project owner decided
+        agents may lock and unlock layers. It goes through the SAME
+        ``SetLayerPropertyCommand`` the Layers panel's lock toggle runs, so it
+        is one undo step like every other property and there is no second
+        write path.
 
-        Exactly one of ``visible``/``opacity`` may be given per call: each maps
-        to one ``SetLayerPropertyCommand`` (the same command the Layers panel's
-        eye toggle and opacity slider run), and one agent call is one undo step
-        (invariants #4/#13) — two properties would be two steps, so the tool
-        refuses rather than silently over-stepping.
+        What did NOT change: a locked layer's OBJECTS are still protected. The
+        item-level guard in ``_resolve_agent_item`` tests the layer's *current*
+        lock state, so an agent that wants to edit a locked layer unlocks it
+        first and edits second — two calls, two undo steps, both visible to the
+        user. The other locked-layer refusals (create onto a locked layer,
+        deleting a locked layer) stay absolute for the same reason.
+
+        Exactly one of ``visible``/``opacity``/``locked`` may be given per call:
+        each maps to one ``SetLayerPropertyCommand``, and one agent call is one
+        undo step (invariants #4/#13) — two properties would be two steps, so
+        the tool refuses rather than silently over-stepping.
 
         Changing visibility/opacity of a LOCKED layer is allowed: the lock
         protects the layer's objects from editing, not the layer's own display
@@ -1760,23 +1860,25 @@ class GardenPlannerApp(QMainWindow):
         """
         from open_garden_planner.core.commands import SetLayerPropertyCommand
 
-        if locked is not None:
-            raise ValueError(
-                "Layer lock is a user-owned protection: the agent API cannot "
-                "change 'locked' in either direction. Locking or unlocking a "
-                "layer must be done by the user in the app's Layers panel. "
-                "('visible' and 'opacity' are changeable.)"
+        given = [
+            name
+            for name, value in (
+                ("visible", visible),
+                ("opacity", opacity),
+                ("locked", locked),
             )
-        if visible is None and opacity is None:
+            if value is not None
+        ]
+        if not given:
             raise ValueError(
-                "Pass 'visible' (bool) and/or 'opacity' (0.0-1.0) — there is "
-                "nothing to change otherwise."
+                "Pass 'visible' (bool), 'opacity' (0.0-1.0) and/or 'locked' "
+                "(bool) — there is nothing to change otherwise."
             )
-        if visible is not None and opacity is not None:
+        if len(given) > 1:
             raise ValueError(
-                "Pass exactly ONE of 'visible'/'opacity' per call: each "
-                "property change is one undo step, and one call is one undo "
-                "step. Make two calls to change both."
+                f"Pass exactly ONE of 'visible'/'opacity'/'locked' per call: "
+                f"each property change is one undo step, and one call is one "
+                f"undo step. Got {', '.join(given)} — make separate calls."
             )
         layer = self._agent_resolve_layer(layer_id)
         if visible is not None:
@@ -1788,6 +1890,16 @@ class GardenPlannerApp(QMainWindow):
                 )
             cmd = SetLayerPropertyCommand(
                 self.canvas_scene, layer, "visible", layer.visible, new_visible
+            )
+        elif locked is not None:
+            new_locked = bool(locked)
+            if layer.locked == new_locked:
+                raise ValueError(
+                    f"Layer {layer.name!r} is already "
+                    f"{'locked' if new_locked else 'unlocked'}; nothing to do."
+                )
+            cmd = SetLayerPropertyCommand(
+                self.canvas_scene, layer, "locked", layer.locked, new_locked
             )
         else:
             import math
@@ -2068,6 +2180,8 @@ class GardenPlannerApp(QMainWindow):
             diagnostics=self._agent_diagnostics,
             render=self._agent_render,
             save_plan=self._agent_save_plan,
+            new_plan=self._agent_new_plan,
+            open_plan=self._agent_open_plan,
             export_pdf=self._agent_export_pdf,
             export_dxf=self._agent_export_dxf,
             export_csv=self._agent_export_csv,
@@ -4045,60 +4159,87 @@ class GardenPlannerApp(QMainWindow):
 
         if dialog.exec():
             # User clicked OK - create new project with specified dimensions
-            width_cm = dialog.width_cm
-            height_cm = dialog.height_cm
+            self._new_project_document(
+                width_cm=dialog.width_cm,
+                height_cm=dialog.height_cm,
+                garden_year=dialog.garden_year,
+            )
 
-            # Reset constraints and dimension lines BEFORE scene.clear() to
-            # avoid RuntimeError from accessing deleted C++ graphics objects
-            self.canvas_scene.reset_constraints()
+    def _new_project_document(
+        self,
+        *,
+        width_cm: float,
+        height_cm: float,
+        garden_year: int | None = None,
+    ) -> None:
+        """Replace the open document with a fresh, empty plan.
 
-            # Clear existing objects from scene. CanvasScene.clear() also
-            # drops _compare_items so no dangling wrapper can outlive this
-            # call (#337).
-            self.canvas_scene.clear()
+        THE one new-document path (issue #365). ``_on_new_project`` and the
+        agent's ``new_plan`` tool both call this, so there is no second
+        implementation to drift — the same discipline
+        ``ui/canvas/geometry_apply.py`` applies to resize/rotate.
 
-            # Resize the canvas
-            self.canvas_scene.resize_canvas(width_cm, height_cm)
+        Extractable out of the menu slot because the slot's only extra job is
+        the modal dialog: asking the user for dimensions. An agent cannot
+        raise a modal, so it supplies the same three values directly and the
+        caller is responsible for the unsaved-changes guard (the GUI's
+        ``_confirm_discard_changes``, the agent's ``force`` flag).
 
-            # Reset layers to default
-            from open_garden_planner.models.layer import create_default_layers
-            self.canvas_scene.set_layers(create_default_layers())
-            self.layers_panel.set_layers(self.canvas_scene.layers)
+        Deliberately NOT an undo step: a new document resets the undo stack
+        (see ``CommandManager.clear``, which does not emit ``stack_changed`` so
+        the new plan starts clean and not dirty), exactly as the GUI path did.
+        """
+        # Reset constraints and dimension lines BEFORE scene.clear() to
+        # avoid RuntimeError from accessing deleted C++ graphics objects
+        self.canvas_scene.reset_constraints()
 
-            # Fit the new canvas in view
-            self.canvas_view.fit_in_view()
+        # Clear existing objects from scene. CanvasScene.clear() also
+        # drops _compare_items so no dangling wrapper can outlive this
+        # call (#337).
+        self.canvas_scene.clear()
 
-            # Clear undo history and reset project state
-            self.canvas_view.command_manager.clear()
-            self.constraints_panel.refresh()
-            self._project_manager.new_project()
+        # Resize the canvas
+        self.canvas_scene.resize_canvas(width_cm, height_cm)
 
-            # Apply optional garden year chosen in dialog
-            if dialog.garden_year is not None:
-                self._project_manager.set_season(dialog.garden_year)
+        # Reset layers to default
+        from open_garden_planner.models.layer import create_default_layers
+        self.canvas_scene.set_layers(create_default_layers())
+        self.layers_panel.set_layers(self.canvas_scene.layers)
 
-            # Clear any existing auto-save
-            self._autosave_manager.clear_autosave()
-            self._autosave_manager.set_project_path(None)
+        # Fit the new canvas in view
+        self.canvas_view.fit_in_view()
 
-            # Reset compare overlay UI state (US-10.7) — items already
-            # dropped by scene.clear() above.
-            self._compare_overlay_action.setEnabled(False)
-            self._compare_overlay_action.setChecked(False)
+        # Clear undo history and reset project state
+        self.canvas_view.command_manager.clear()
+        self.constraints_panel.refresh()
+        self._project_manager.new_project()
 
-            # A fresh project has no overdue tasks — clear any stale reminder.
-            self._task_reminder_bar.hide()
+        # Apply optional garden year chosen in dialog
+        if garden_year is not None:
+            self._project_manager.set_season(garden_year)
 
-            # Update status bar
-            width_m = width_cm / 100.0
-            height_m = height_cm / 100.0
-            status_bar = self.statusBar()
-            if status_bar:
-                status_bar.showMessage(
-                    self.tr("New project created: {width}m x {height}m").format(
-                        width=f"{width_m:.1f}", height=f"{height_m:.1f}"
-                    )
+        # Clear any existing auto-save
+        self._autosave_manager.clear_autosave()
+        self._autosave_manager.set_project_path(None)
+
+        # Reset compare overlay UI state (US-10.7) — items already
+        # dropped by scene.clear() above.
+        self._compare_overlay_action.setEnabled(False)
+        self._compare_overlay_action.setChecked(False)
+
+        # A fresh project has no overdue tasks — clear any stale reminder.
+        self._task_reminder_bar.hide()
+
+        # Update status bar
+        width_m = width_cm / 100.0
+        height_m = height_cm / 100.0
+        status_bar = self.statusBar()
+        if status_bar:
+            status_bar.showMessage(
+                self.tr("New project created: {width}m x {height}m").format(
+                    width=f"{width_m:.1f}", height=f"{height_m:.1f}"
                 )
+            )
 
     def _on_canvas_size(self) -> None:
         """Handle Canvas Size action — resize the current canvas."""
@@ -4155,28 +4296,19 @@ class GardenPlannerApp(QMainWindow):
             self._open_project_file(file_path)
 
     def _open_project_file(self, file_path: str) -> None:
-        """Open a project file.
+        """Open a project file, reporting any failure in a modal dialog.
+
+        The GUI's entry point (File > Open, the Recent-files menu, the Welcome
+        dialog). The actual work is in :meth:`_load_project_file`, which RAISES
+        — an agent caller must never have a modal ``QMessageBox`` appear on its
+        behalf, so the dialog belongs in this wrapper and not in the shared path
+        (issue #365).
 
         Args:
             file_path: Path to the project file to open
         """
         try:
-            # Clear any existing auto-save before loading new project
-            self._autosave_manager.clear_autosave()
-
-            self._project_manager.load(self.canvas_scene, Path(file_path))
-            self.canvas_view.command_manager.clear()
-            self.canvas_view.fit_in_view()
-            self.layers_panel.set_layers(self.canvas_scene.layers)
-            self.canvas_scene.update_dimension_lines()
-            self.constraints_panel.refresh()
-            self.statusBar().showMessage(self.tr("Opened: {path}").format(path=file_path))
-            # Load compare overlay if previous seasons are linked (US-10.7)
-            self._load_compare_overlay_from_previous_season()
-            self.tasks_view.refresh()
-            # Deferred: when opened from the modal Welcome dialog, a bar shown
-            # now would sit behind it. singleShot(0) runs after it closes.
-            QTimer.singleShot(0, self._check_overdue_tasks)
+            self._load_project_file(file_path)
         except Exception as e:
             # A load failure can leave the compare-overlay action state
             # stale relative to the scene (e.g. if it throws after
@@ -4187,6 +4319,31 @@ class GardenPlannerApp(QMainWindow):
             self._compare_overlay_action.setChecked(False)
             self.canvas_scene.clear_compare_overlay()
             QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=e))
+
+    def _load_project_file(self, file_path: str) -> None:
+        """THE one open-a-plan path: load and rewire the UI, or raise.
+
+        Shared by ``_open_project_file`` (the GUI, which catches and shows a
+        dialog) and the agent's ``open_plan`` (issue #365, which lets the
+        exception reach the tool's error path). One implementation, so the two
+        surfaces cannot drift.
+        """
+        # Clear any existing auto-save before loading new project
+        self._autosave_manager.clear_autosave()
+
+        self._project_manager.load(self.canvas_scene, Path(file_path))
+        self.canvas_view.command_manager.clear()
+        self.canvas_view.fit_in_view()
+        self.layers_panel.set_layers(self.canvas_scene.layers)
+        self.canvas_scene.update_dimension_lines()
+        self.constraints_panel.refresh()
+        self.statusBar().showMessage(self.tr("Opened: {path}").format(path=file_path))
+        # Load compare overlay if previous seasons are linked (US-10.7)
+        self._load_compare_overlay_from_previous_season()
+        self.tasks_view.refresh()
+        # Deferred: when opened from the modal Welcome dialog, a bar shown
+        # now would sit behind it. singleShot(0) runs after it closes.
+        QTimer.singleShot(0, self._check_overdue_tasks)
 
     def _populate_recent_menu(self) -> None:
         """Populate the Open Recent submenu with recent files."""

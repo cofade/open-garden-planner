@@ -500,9 +500,11 @@ def build_server(
         the ACTIVE layer new objects land on, and its top-level object count.
         The same list is embedded in get_plan_summary's 'layers' field.
 
-        A locked layer is a user-owned protection: objects on it cannot be
-        edited, moved onto, or deleted through the write tools, and the lock
-        itself can only be changed by the user in the app.
+        A locked layer protects its OBJECTS: while it is locked, the write
+        tools refuse to edit objects on it, move objects onto it, or delete
+        it. The lock itself IS agent-writable via set_layer_property
+        (issue #365), so an agent that needs to edit a locked layer unlocks it
+        first and edits second — two calls, two undo steps, both visible.
         """
         snapshot = await anyio.to_thread.run_sync(providers.snapshot)
         return layers_from_snapshot(snapshot)
@@ -1296,36 +1298,37 @@ def build_server(
             opacity: float | None = None,
             locked: bool | None = None,
         ) -> WriteResult:
-            """Show/hide a layer, or set its opacity (one undoable step).
+            """Show/hide a layer, set its opacity, or lock/unlock it (one undoable step).
 
-            Pass exactly ONE of 'visible'/'opacity' per call — each property
-            change is one undo step, and one call is one undo step; make two
-            calls to change both. Hiding a layer hides every object on it
-            (render_canvas_image without a layers argument reflects it); the
-            change is undoable like the Layers panel's eye toggle.
+            Pass exactly ONE of 'visible'/'opacity'/'locked' per call — each
+            property change is one undo step, and one call is one undo step;
+            make separate calls to change more than one. Hiding a layer hides
+            every object on it (render_canvas_image without a layers argument
+            reflects it); the change is undoable like the Layers panel's eye
+            toggle.
 
-            'locked' is REFUSED in both directions and always will be from
-            this API: locking a layer is the user's own "agent, keep out of
-            this" protection, so an agent that could unlock a layer and then
-            edit it would turn every locked-layer refusal into a speed bump.
-            Ask the user to unlock it in the app's Layers panel instead.
+            'locked' IS changeable, in both directions (issue #365 — a
+            deliberate policy reversal of the original D2.4 decision). While a
+            layer is locked, the write tools refuse to edit its objects, move
+            objects onto it, or delete it; to edit a locked layer, unlock it
+            first and edit second. Both calls are ordinary undo steps, so the
+            user sees and can reverse the whole sequence.
 
-            Fails if the id is unknown, if neither or both of
-            'visible'/'opacity' are given, if 'locked' is given at all, if
-            opacity is outside [0.0, 1.0], or if the layer already has the
-            requested value.
+            Fails if the id is unknown, if none or more than one of
+            'visible'/'opacity'/'locked' are given, if opacity is outside
+            [0.0, 1.0], or if the layer already has the requested value.
 
             Args:
                 layer_id: The layer's stable UUID (from list_layers).
                 visible: True to show the layer, False to hide it.
                 opacity: Layer opacity, 0.0 (invisible) to 1.0 (opaque).
-                locked: Always refused — see above. Only accepted as a
-                    parameter so the refusal is explicit and self-explaining.
+                locked: True to lock the layer, False to unlock it. While
+                    locked, the write tools refuse to edit its objects.
             """
             _require_write_auth(write_token)
             # Called by keyword: visible/locked are both bool|None, so a
-            # transposition would be type-identical — and must not slip a
-            # 'locked' change past the policy refusal (SetLayerPropertyProvider).
+            # transposition would be type-identical — which is exactly why the
+            # one-property-per-call rule is enforced in the provider, not here.
             result = await anyio.to_thread.run_sync(
                 lambda: providers.set_layer_property(
                     layer_id=layer_id,
@@ -1335,6 +1338,83 @@ def build_server(
                 )
             )
             return WriteResult(**result)
+
+        # --- issue #365: document lifecycle (token-gated) ---------------------
+        # Placed HERE, inside the writes-active block, rather than beside
+        # save_plan: save_plan only writes a new file, but new_plan and
+        # open_plan REPLACE the open document and can discard unsaved work —
+        # strictly more destructive than delete_object, so they take the same
+        # double gate (tool registered only when writes are on, plus a token
+        # on every call).
+
+        @mcp.tool()
+        async def new_plan(
+            width_cm: float | None = None,
+            height_cm: float | None = None,
+            force: bool = False,
+        ) -> ExportResult:
+            """Discard the open plan and start a fresh, empty one.
+
+            Without this an agent can only ever work on whatever plan the user
+            happens to have open, so every session either inherits the user's
+            document or is useless. The canvas keeps the current size unless
+            you give one.
+
+            This DISCARDS the open document, so it is refused when the plan
+            has unsaved changes unless force=true. The GUI asks the user at
+            that point; an agent cannot raise a prompt, so it must be told
+            explicitly. Save first with save_plan if the work matters.
+
+            Not an undo step: a new document resets the undo stack, so there is
+            nothing to Ctrl+Z back to. The new plan starts clean and is not
+            marked dirty until something is added to it.
+
+            Fails if a dimension is not finite or is outside 50-100000 cm, or
+            if the plan is dirty and force is not set.
+
+            Args:
+                width_cm: Canvas width in centimetres. Omit to keep the
+                    current width.
+                height_cm: Canvas height in centimetres. Omit to keep the
+                    current height.
+                force: Discard unsaved changes instead of refusing.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.new_plan(width_cm, height_cm, force)
+            )
+            return ExportResult(**result)
+
+        @mcp.tool()
+        async def open_plan(file_path: str, force: bool = False) -> ExportResult:
+            """Load an existing ``.ogp`` garden plan from disk.
+
+            Closes the round trip: with this, save_plan and new_plan, an agent
+            can open a file the user names, work on it, and verify its own
+            work without touching the GUI.
+
+            This REPLACES the open document, so it is refused when the plan
+            has unsaved changes unless force=true. The GUI asks the user at
+            that point; an agent cannot raise a prompt, so it must be told
+            explicitly.
+
+            Not an undo step: loading a document resets the undo stack, so
+            there is nothing to Ctrl+Z back to. Use force=false unless you are
+            certain the open plan is disposable.
+
+            Fails if the path is empty, is not a ``.ogp`` file, does not
+            exist, is not a file, or if the file cannot be parsed; and if the
+            plan is dirty and force is not set.
+
+            Args:
+                file_path: Path to the ``.ogp`` file to load.
+                force: Discard unsaved changes instead of refusing.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.open_plan(file_path, force)
+            )
+            return ExportResult(**result)
 
     # --- US-D1.5: resources + read-analysis prompts -------------------------
 

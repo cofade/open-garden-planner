@@ -538,5 +538,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Agent API gaps from the #361 manual pass: new_plan, open_plan, and agent-writable layer lock (policy reversal)"
+  },
+  "366": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Generalize AI-client onboarding: a target registry plus a vendor-agnostic fallback, instead of one branch per client"
   }
 }
