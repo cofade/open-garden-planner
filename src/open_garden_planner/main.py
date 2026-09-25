@@ -129,6 +129,8 @@ def _run_selftest() -> int:
                 diagnostics=lambda: [],
                 render=_never,
                 save_plan=_never,
+                new_plan=_never,
+                open_plan=_never,
                 export_pdf=_never,
                 export_dxf=_never,
                 export_csv=_never,
