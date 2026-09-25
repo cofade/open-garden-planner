@@ -550,7 +550,7 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 **Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
 
-**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0 through D2.5, including `undo`/`redo`) are token-gated**: the scene-mutating tools ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding. The #355 input boundary additionally rejects non-finite/null/oversized callout offsets before Qt construction, so an authenticated caller cannot turn a write token into unbounded scene geometry.
+**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0 through D2.6, including `undo`/`redo`) are token-gated**: the scene-mutating tools ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding. The #355 input boundary additionally rejects non-finite/null/oversized callout offsets before Qt construction, so an authenticated caller cannot turn a write token into unbounded scene geometry. D2.6 reuses the same finite/canvas-relative reachability check for absolute positions and vertices before constructing `QPointF` geometry.
 
 ## 8.12 Constraint Solver Architecture
 
@@ -1041,13 +1041,13 @@ next launch). See ADR-032 for the architecture.
 `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
 (loads, validates, every expression parses, generates ≥1 primitive).
 
-## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0–D2.5, ADR-033/034/035/036)
+## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0–D2.6, ADR-033/034/035/036)
 
 The app can host an **MCP server over streamable-HTTP** so AI agents read the
 plan currently open in the GUI and, behind the D2 write gate, edit it (epic
 #237). Package: `agent_api/`
 (`bridge.py`, `server.py`, `schema.py`, `mapping.py`, `queries.py`,
-`diagnostics.py`, `prompts.py`, `creates.py`, `render.py`, `exports.py`,
+`diagnostics.py`, `prompts.py`, `creates.py`, `edits.py`, `render.py`, `exports.py`,
 `providers.py`, `__init__.py`).
 
 **Lifecycle.** `AgentApiServer` builds a `FastMCP`, takes its
@@ -1427,6 +1427,52 @@ exclusions. The union of those two sets is drift-guarded against
 `ObjectType`, so a new enum member cannot silently become an undocumented
 agent capability. No `FILE_VERSION` change is required: the schema additions
 are additive and the new item data uses existing serialisation shapes.
+
+**Low-level geometry escape hatches (US-D2.6, issue #330).** The stable read is
+`get_geometry(item_id)`, not `get_object(raw=True)`: the latter intentionally
+exposes pre-transform serializer storage. `ui/canvas/geometry_inspect.py` runs on
+the Qt main thread and reports the same centre semantics as `get_object`, but maps
+current polygon/polyline vertices through `mapToScene()`, plus native extents or
+radius, rotation, curve/leader data, vertex capability/minimum count, and every
+referencing constraint in deterministic `(type, id)` order. The read is
+unauthenticated and never mutates or dirties the plan. Locked-layer and journal
+objects remain inspectable; group members remain non-addressable because the
+rest of the curated object surface addresses only top-level ids.
+
+Four writes share the ADR-036 gate. `set_object_position(item_id, x, y)`
+validates a finite, canvas-reachable absolute centre, converts it to a delta, and
+enters the same orchestration as `move_object`: logical bed children move with
+the parent, plant bed membership is reconciled, and the documented reparent case
+remains the only two-step move. `set_vertex`, `add_vertex`, and `delete_vertex`
+support only the polygon/polyline protocol. Qt-free `agent_api/edits.py` owns
+finite/reachable point validation, zero-based index semantics (an append uses
+`index == vertex_count`), and the 3/2 minimums. Every accepted topology write is
+one `AddVertexCommand`/`DeleteVertexCommand`; set is one `MoveVertexCommand`.
+Their callbacks are built only by `geometry_apply.py`, which the interactive
+vertex commit paths also call. A HOUSE topology change invokes the item's
+existing linked-ridge reprojection hook, keeping the ridge attached through
+execute/undo/redo without turning the agent operation into a second command.
+
+The coordinate-frame round trip has one precision rule: if a `set_vertex` target
+is within `1e-9 cm` of the current live vertex, `local_vertex_for_scene()` reuses
+the exact current local `QPointF`; otherwise it uses `mapFromScene`. This is
+required because a raw scene→local→scene inverse at 215° drifted by about
+`5.7e-14 cm`, enough to violate the byte-identical serialized-object round trip
+even though the movement was invisible. The epsilon suppresses numerical inverse
+noise; it is not a user snap mode.
+
+**Constrained geometry remains permanently refused.** `_agent_require_unconstrained`
+is the one perimeter for absolute positioning, move, resize, rotate, species
+assignment when it resizes, and all vertex writes. The error names the first
+constraint type/UUID; `get_geometry` exposes the complete blocking set so the
+agent can explain why. This is final, not “solver deferred”: silently skipping
+`CanvasView`'s live multi-item solver would violate user intent. Solver-backed
+agent writes require a separate proof/design. Arrays, booleans,
+trim/extend/fillet/chamfer, align, mirror, and group/ungroup remain a named
+follow-up backlog. `delete_object` is the one policy exception and removes
+referencing constraints as part of its existing GUI-equivalent delete contract.
+Every refusal occurs before command execution, leaving scene, constraints,
+undo/redo, and dirty state untouched. No `FILE_VERSION` change.
 
 **Follow-up hardening (issues #353 and #355).** The global GUI/agent history is
 one `CommandManager` stack, not a second MCP history. Authenticated `undo` and

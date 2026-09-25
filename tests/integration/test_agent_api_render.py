@@ -82,12 +82,17 @@ def _providers(scene: Any) -> AgentProviders:
         export_csv=lambda kind, file_path: bridge.run_on_main(
             lambda: export_csv_file(scene, project_manager, soil_service, kind, file_path)
         ),
-        # Write providers are unused by these read-only render tests.
+        # Scene providers are unused by these read-only render tests.
         create_object=lambda *_a: _unused("create_object"),
+        get_geometry=lambda *_a: _unused("get_geometry"),
         move_object=lambda *_a: _unused("move_object"),
+        set_object_position=lambda *_a: _unused("set_object_position"),
         delete_object=lambda *_a: _unused("delete_object"),
         resize_object=lambda **_kw: _unused("resize_object"),
         rotate_object=lambda *_a: _unused("rotate_object"),
+        set_vertex=lambda *_a: _unused("set_vertex"),
+        add_vertex=lambda *_a: _unused("add_vertex"),
+        delete_vertex=lambda *_a: _unused("delete_vertex"),
         set_species=lambda *_a: _unused("set_species"),
         set_parent_bed=lambda *_a: _unused("set_parent_bed"),
         arrange_object=lambda *_a: _unused("arrange_object"),

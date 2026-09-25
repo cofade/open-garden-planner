@@ -615,6 +615,10 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # Re-project ridge endpoints when the polygon shape changes
         self._update_ridge_on_boundary()
 
+    def _after_vertex_topology_change(self) -> None:
+        """Keep a HOUSE's linked roof ridge attached after add/delete/undo."""
+        self._update_ridge_on_boundary()
+
     def _apply_rotation(self, angle: float) -> None:
         """Apply rotation and keep the attached ridge on the boundary."""
         super()._apply_rotation(angle)

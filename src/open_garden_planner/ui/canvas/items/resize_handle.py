@@ -1957,6 +1957,9 @@ class VertexEditMixin:
         """Get the minimum number of vertices allowed (3 for polygons)."""
         return MINIMUM_VERTICES
 
+    def _after_vertex_topology_change(self) -> None:
+        """Hook for item-owned structures affected by add/delete topology."""
+
     def _move_vertex_to(self, index: int, pos: QPointF) -> None:
         """Move a vertex to a new position.
 
@@ -2004,6 +2007,7 @@ class VertexEditMixin:
 
         # Update polygon
         self.setPolygon(QPolygonF(vertices))  # type: ignore[attr-defined]
+        self._after_vertex_topology_change()
 
         # Shift any constraint anchor indices that now point past the insert.
         _shift_constraint_indices_after_insert(self, insert_index)
@@ -2048,6 +2052,7 @@ class VertexEditMixin:
 
         # Update polygon
         self.setPolygon(QPolygonF(vertices))  # type: ignore[attr-defined]
+        self._after_vertex_topology_change()
 
         # Recreate handles and annotations (indices changed)
         self._create_vertex_handles()
@@ -2093,19 +2098,15 @@ class VertexEditMixin:
             view._deferred_vertex_move = (self, vertex_index, old_pos, new_pos)
             return
 
-        from open_garden_planner.core.commands import MoveVertexCommand
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            build_move_vertex_command,
+        )
 
-        def apply_vertex_pos(item: QGraphicsItem, index: int, pos: QPointF) -> None:
-            """Apply vertex position to item."""
-            if hasattr(item, '_move_vertex_to'):
-                item._move_vertex_to(index, pos)
-
-        command = MoveVertexCommand(
+        command = build_move_vertex_command(
             self,  # type: ignore[arg-type]
             vertex_index,
             old_pos,
             new_pos,
-            apply_vertex_pos,
         )
 
         # Add to undo stack without executing (move already applied)
@@ -2126,30 +2127,20 @@ class VertexEditMixin:
         if command_manager is None:
             return
 
-        from open_garden_planner.core.commands import AddVertexCommand
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            build_add_vertex_command,
+        )
 
-        def apply_add_vertex(item: QGraphicsItem, index: int, position: QPointF) -> None:
-            """Add a vertex to the item."""
-            if hasattr(item, '_insert_vertex'):
-                item._insert_vertex(index, position)
-
-        def apply_remove_vertex(item: QGraphicsItem, index: int) -> None:
-            """Remove a vertex from the item."""
-            if hasattr(item, '_remove_vertex'):
-                item._remove_vertex(index)
-
-        command = AddVertexCommand(
+        command = build_add_vertex_command(
             self,  # type: ignore[arg-type]
             vertex_index,
             pos,
-            apply_add_vertex,
-            apply_remove_vertex,
         )
 
         # Add to undo stack without executing (add already applied)
         command_manager.register_applied(command)
 
-    def _on_vertex_delete(self, vertex_index: int, pos: QPointF) -> None:
+    def _on_vertex_delete(self, vertex_index: int, _pos: QPointF) -> None:
         """Called when a vertex is deleted. Registers undo command.
 
         Args:
@@ -2164,24 +2155,13 @@ class VertexEditMixin:
         if command_manager is None:
             return
 
-        from open_garden_planner.core.commands import DeleteVertexCommand
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            build_delete_vertex_command,
+        )
 
-        def apply_add_vertex(item: QGraphicsItem, index: int, position: QPointF) -> None:
-            """Add a vertex to the item."""
-            if hasattr(item, '_insert_vertex'):
-                item._insert_vertex(index, position)
-
-        def apply_remove_vertex(item: QGraphicsItem, index: int) -> None:
-            """Remove a vertex from the item."""
-            if hasattr(item, '_remove_vertex'):
-                item._remove_vertex(index)
-
-        command = DeleteVertexCommand(
+        command = build_delete_vertex_command(
             self,  # type: ignore[arg-type]
             vertex_index,
-            pos,
-            apply_add_vertex,
-            apply_remove_vertex,
         )
 
         # Add to undo stack without executing (delete already applied)
@@ -2203,6 +2183,7 @@ class VertexEditMixin:
         vertices = [polygon.at(i) for i in range(polygon.count())]
         vertices.insert(index, pos)
         self.setPolygon(QPolygonF(vertices))  # type: ignore[attr-defined]
+        self._after_vertex_topology_change()
 
         # Update handles and annotations if in edit mode
         if self._is_vertex_edit_mode:
@@ -2228,6 +2209,7 @@ class VertexEditMixin:
         polygon = self.polygon()  # type: ignore[attr-defined]
         vertices = [polygon.at(i) for i in range(polygon.count()) if i != index]
         self.setPolygon(QPolygonF(vertices))  # type: ignore[attr-defined]
+        self._after_vertex_topology_change()
 
         # Update handles and annotations if in edit mode
         if self._is_vertex_edit_mode:
@@ -2996,6 +2978,9 @@ class PolylineVertexEditMixin:
         """Get the minimum number of vertices allowed (2 for polylines)."""
         return MINIMUM_POLYLINE_VERTICES
 
+    def _after_vertex_topology_change(self) -> None:
+        """Hook for item-owned structures affected by add/delete topology."""
+
     def _move_vertex_to(self, index: int, pos: QPointF) -> None:
         """Move a vertex to a new position."""
         if not hasattr(self, '_points'):
@@ -3023,6 +3008,7 @@ class PolylineVertexEditMixin:
         _shift_constraint_indices_after_insert(self, insert_index)
 
         self._rebuild_path()
+        self._after_vertex_topology_change()
         self._create_vertex_handles()
         self._create_midpoint_handles()
         self._create_annotations()
@@ -3049,6 +3035,7 @@ class PolylineVertexEditMixin:
         del points[index]
 
         self._rebuild_path()
+        self._after_vertex_topology_change()
         self._create_vertex_handles()
         self._create_midpoint_handles()
         self._create_annotations()
@@ -3083,18 +3070,15 @@ class PolylineVertexEditMixin:
             view._deferred_vertex_move = (self, vertex_index, old_pos, new_pos)
             return
 
-        from open_garden_planner.core.commands import MoveVertexCommand
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            build_move_vertex_command,
+        )
 
-        def apply_vertex_pos(item: QGraphicsItem, index: int, pos: QPointF) -> None:
-            if hasattr(item, '_move_vertex_to'):
-                item._move_vertex_to(index, pos)
-
-        command = MoveVertexCommand(
+        command = build_move_vertex_command(
             self,  # type: ignore[arg-type]
             vertex_index,
             old_pos,
             new_pos,
-            apply_vertex_pos,
         )
 
         command_manager.register_applied(command)
@@ -3109,27 +3093,19 @@ class PolylineVertexEditMixin:
         if command_manager is None:
             return
 
-        from open_garden_planner.core.commands import AddVertexCommand
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            build_add_vertex_command,
+        )
 
-        def apply_add_vertex(item: QGraphicsItem, index: int, position: QPointF) -> None:
-            if hasattr(item, '_insert_vertex'):
-                item._insert_vertex(index, position)
-
-        def apply_remove_vertex(item: QGraphicsItem, index: int) -> None:
-            if hasattr(item, '_remove_vertex'):
-                item._remove_vertex(index)
-
-        command = AddVertexCommand(
+        command = build_add_vertex_command(
             self,  # type: ignore[arg-type]
             vertex_index,
             pos,
-            apply_add_vertex,
-            apply_remove_vertex,
         )
 
         command_manager.register_applied(command)
 
-    def _on_vertex_delete(self, vertex_index: int, pos: QPointF) -> None:
+    def _on_vertex_delete(self, vertex_index: int, _pos: QPointF) -> None:
         """Called when a vertex is deleted. Registers undo command."""
         scene = getattr(self, 'scene', lambda: None)()
         if scene is None or not hasattr(scene, 'get_command_manager'):
@@ -3139,22 +3115,13 @@ class PolylineVertexEditMixin:
         if command_manager is None:
             return
 
-        from open_garden_planner.core.commands import DeleteVertexCommand
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            build_delete_vertex_command,
+        )
 
-        def apply_add_vertex(item: QGraphicsItem, index: int, position: QPointF) -> None:
-            if hasattr(item, '_insert_vertex'):
-                item._insert_vertex(index, position)
-
-        def apply_remove_vertex(item: QGraphicsItem, index: int) -> None:
-            if hasattr(item, '_remove_vertex'):
-                item._remove_vertex(index)
-
-        command = DeleteVertexCommand(
+        command = build_delete_vertex_command(
             self,  # type: ignore[arg-type]
             vertex_index,
-            pos,
-            apply_add_vertex,
-            apply_remove_vertex,
         )
 
         command_manager.register_applied(command)
@@ -3167,6 +3134,7 @@ class PolylineVertexEditMixin:
         points = self._points  # type: ignore[attr-defined]
         points.insert(index, pos)
         self._rebuild_path()
+        self._after_vertex_topology_change()
 
         if self._is_vertex_edit_mode:
             self._create_vertex_handles()
@@ -3185,6 +3153,7 @@ class PolylineVertexEditMixin:
         if 0 <= index < len(points):
             del points[index]
         self._rebuild_path()
+        self._after_vertex_topology_change()
 
         if self._is_vertex_edit_mode:
             self._create_vertex_handles()

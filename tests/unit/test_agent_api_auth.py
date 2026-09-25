@@ -39,10 +39,15 @@ def _stub_providers() -> AgentProviders:
         export_dxf=lambda _p: {},
         export_csv=lambda *_a: {},
         create_object=_boom,
+        get_geometry=_boom,
         move_object=_boom,
+        set_object_position=_boom,
         delete_object=_boom,
         resize_object=_boom,
         rotate_object=_boom,
+        set_vertex=_boom,
+        add_vertex=_boom,
+        delete_vertex=_boom,
         set_species=_boom,
         set_parent_bed=_boom,
         arrange_object=_boom,
@@ -98,9 +103,13 @@ WRITE_TOOL_NAMES = frozenset(
     {
         "create_object",
         "move_object",
+        "set_object_position",
         "delete_object",
         "resize_object",
         "rotate_object",
+        "set_vertex",
+        "add_vertex",
+        "delete_vertex",
         "set_species",
         "set_parent_bed",
         "arrange_object",
@@ -133,8 +142,9 @@ def test_gate_covers_every_write_tool() -> None:
 def test_write_tools_absent_when_writes_disabled() -> None:
     names = set(_tool_names(build_server(_stub_providers(), writes_enabled=False)))
     assert not (names & WRITE_TOOL_NAMES)
-    # Read tools still present.
+    # Read tools still present, including the D2.6 low-level geometry read.
     assert "get_plan_summary" in names
+    assert "get_geometry" in names
 
 
 def test_write_tools_absent_when_token_missing() -> None:

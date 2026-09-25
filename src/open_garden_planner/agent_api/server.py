@@ -1,4 +1,4 @@
-"""Embedded MCP server for the Agent API (US-D1.1–D1.6, US-D2.0–D2.5).
+"""Embedded MCP server for the Agent API (US-D1.1–D1.6, US-D2.0–D2.6).
 
 Runs an MCP streamable-HTTP server inside the running GUI on a background daemon
 thread, bound to loopback only. Structural, spatial, diagnostics, and vision
@@ -80,6 +80,7 @@ from open_garden_planner.agent_api.render import DEFAULT_IMAGE_PX
 from open_garden_planner.agent_api.schema import (
     Diagnostic,
     ExportResult,
+    GeometryResult,
     HistoryResult,
     Layer,
     Measurement,
@@ -256,8 +257,8 @@ def build_server(
     """Create a configured ``FastMCP`` instance with the read/query tools registered.
 
     Decoupled from the GUI: the only dependency is ``providers``, a bundle of
-    callables returning read-only plain data about the live plan (in the app each
-    hops to the Qt main thread via ``MainThreadBridge``).
+    callables returning plain data or applying one command to the live plan (in
+    the app each hops to the Qt main thread via ``MainThreadBridge``).
 
     Every Qt-touching tool is ``async def`` and offloads its provider via
     ``anyio.to_thread.run_sync`` — see the :class:`MainThreadBridge` house rule:
@@ -272,9 +273,10 @@ def build_server(
 
     Args:
         writes_enabled: When true AND ``write_token`` is set, the scene-mutating
-            write tools (``create_object``/``move_object``/``delete_object``/
-            ``resize_object``/``rotate_object``/``set_species``/
-            ``set_parent_bed``/``arrange_object``, the US-D2.4 layer tools
+            write tools (``create_object``/``move_object``/
+            ``set_object_position``/``delete_object``/``resize_object``/
+            ``rotate_object``/``set_vertex``/``add_vertex``/``delete_vertex``/
+            ``set_species``/``set_parent_bed``/``arrange_object``, the US-D2.4 layer tools
             ``set_object_layer``/``create_layer``/``rename_layer``/
             ``delete_layer``/``set_active_layer``/``set_layer_property``, and
             the global history tools ``undo``/``redo``) are registered. When
@@ -303,7 +305,8 @@ def build_server(
             "Read and reason about the garden plan currently open in Open Garden "
             "Planner. Objects are addressed by a stable UUID (item_id) and "
             "located in centimetres on the canvas. Use list_objects/get_object to "
-            "inspect structure, the spatial tools to locate and measure, and "
+            "inspect structure, get_geometry for stable low-level vertices, curves, "
+            "extents and constraints, the spatial tools to locate and measure, and "
             "get_diagnostics for the plan's current warnings. save_plan/"
             "export_pdf/export_dxf/export_csv write a file to disk (the "
             "project's own .ogp, or a PDF/DXF/CSV deliverable) but do not "
@@ -366,6 +369,34 @@ def build_server(
         """
         snapshot = await anyio.to_thread.run_sync(providers.snapshot)
         return queries.get_object(snapshot, item_id, raw=raw)
+
+    @mcp.tool()
+    async def get_geometry(item_id: str) -> GeometryResult:
+        """Return live low-level geometry and constraints for one object.
+
+        This is the read side of the D2.6 escape hatches. Coordinates and
+        points use the same centimetre, CAD Y-up scene frame as every other
+        Agent API tool. Polygon/polyline vertices are the vertices' CURRENT
+        scene positions (after item rotation), not the pre-rotation points in
+        the raw ``.ogp`` serializer.
+
+        The result includes the object's centre, native dimensions/radius,
+        curve or leader data when applicable, vertex capabilities, and every
+        referencing constraint in deterministic order. If ``is_constrained`` is
+        true, geometry writes deliberately refuse rather than run the GUI's
+        multi-item live solver: inspect ``constraints`` and ask the user to
+        remove or edit them in the app.
+
+        Reads remain unauthenticated under the documented loopback model and
+        never mutate the plan.
+
+        Args:
+            item_id: Stable UUID of a top-level object.
+        """
+        result = await anyio.to_thread.run_sync(
+            lambda: providers.get_geometry(item_id=item_id)
+        )
+        return GeometryResult(**result)
 
     @mcp.tool()
     async def objects_in_region(
@@ -732,8 +763,10 @@ def build_server(
             children_moved/bed_membership_changed/new_parent_bed_id).
 
             Fails if the object (or a plant it contains) participates in a
-            geometric constraint, or if it's a journal pin — neither is
-            supported yet; use the app for those.
+            geometric constraint. This refusal is permanent for one-shot agent
+            moves: call get_geometry on the blocking object to inspect the
+            constraint, then remove/edit it in the app. Journal pins also remain
+            unsupported by scene writes.
 
             Args:
                 item_id: The object's stable UUID (from list_objects/get_object).
@@ -749,6 +782,37 @@ def build_server(
             _require_write_auth(write_token)
             result = await anyio.to_thread.run_sync(
                 lambda: providers.move_object(item_id, dx, dy)
+            )
+            return WriteResult(**result)
+
+        @mcp.tool()
+        async def set_object_position(
+            item_id: str, x: float, y: float
+        ) -> WriteResult:
+            """Set one object's absolute centre in scene centimetres.
+
+            This is the absolute counterpart to ``move_object``. The centre is
+            exactly the coordinate reported by ``get_object`` and the result's
+            x/y, in the native CAD Y-up frame. Moving a bed/container/trellis
+            carries its contained plants; moving a plant re-evaluates bed
+            membership, so those cases inherit ``move_object``'s one-or-two
+            undo-step contract.
+
+            Call ``get_geometry`` first for a constrained object. This tool
+            permanently refuses constrained geometry rather than silently
+            skipping the GUI's multi-item live solver. It also refuses group
+            members, journal pins, and objects on locked layers.
+
+            Args:
+                item_id: Stable UUID from list_objects/get_object.
+                x: Absolute centre X in scene cm.
+                y: Absolute centre Y in scene cm; larger is further north.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.set_object_position(
+                    item_id=item_id, x=x, y=y
+                )
             )
             return WriteResult(**result)
 
@@ -832,8 +896,9 @@ def build_server(
             set_parent_bed if you need to correct that.
 
             Fails if the object is drawn from vertices rather than a
-            width/height box (polygons, polylines, fences, paths -- not
-            supported yet), if the dimension doesn't fit the shape, if a value
+            width/height box (polygons, polylines, fences, paths — use
+            get_geometry with set_vertex/add_vertex/delete_vertex instead), if
+            the dimension doesn't fit the shape, if a value
             is zero/negative/not finite or implausibly large for the plan, if
             the object participates in a geometric constraint, if it's a
             journal pin or a group member, or if it's on a locked layer.
@@ -889,6 +954,82 @@ def build_server(
             _require_write_auth(write_token)
             result = await anyio.to_thread.run_sync(
                 lambda: providers.rotate_object(item_id, angle, relative)
+            )
+            return WriteResult(**result)
+
+        # --- US-D2.6: low-level vertex geometry ----------------------------
+
+        @mcp.tool()
+        async def set_vertex(
+            item_id: str, index: int, x: float, y: float
+        ) -> WriteResult:
+            """Move one polygon/polyline vertex to an absolute scene point.
+
+            Call ``get_geometry`` first. Vertex indices are zero-based and
+            x/y use the same centimetre, CAD Y-up frame as the returned vertex.
+            Exactly one undo step restores the original vertex list.
+
+            Constrained objects are refused permanently: the GUI's live solver
+            may move several connected items, which this one-shot tool does not
+            emulate. Rectangles are rect-backed and use ``resize_object`` instead.
+
+            Args:
+                item_id: Polygon or polyline UUID.
+                index: Existing vertex index.
+                x: Requested vertex X in scene cm.
+                y: Requested vertex Y in scene cm.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.set_vertex(
+                    item_id=item_id, index=index, x=x, y=y
+                )
+            )
+            return WriteResult(**result)
+
+        @mcp.tool()
+        async def add_vertex(
+            item_id: str, index: int, x: float, y: float
+        ) -> WriteResult:
+            """Insert one polygon/polyline vertex at a list index.
+
+            ``index`` is the FINAL index of the inserted point: zero inserts at
+            the start, ``vertex_count`` appends, and values in between insert in
+            the middle. Exactly one undo step removes it again.
+
+            Call ``get_geometry`` first and refuse if ``is_constrained`` is true.
+            Rectangles use ``resize_object``, not vertex insertion.
+
+            Args:
+                item_id: Polygon or polyline UUID.
+                index: Final insertion index from 0 through current vertex_count.
+                x: New vertex X in scene cm.
+                y: New vertex Y in scene cm.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.add_vertex(
+                    item_id=item_id, index=index, x=x, y=y
+                )
+            )
+            return WriteResult(**result)
+
+        @mcp.tool()
+        async def delete_vertex(item_id: str, index: int) -> WriteResult:
+            """Delete one polygon/polyline vertex (exactly one undo step).
+
+            A polygon must retain at least three vertices and a polyline at
+            least two; a deletion that would cross that minimum is refused with
+            no scene or history change. Call ``get_geometry`` first and refuse
+            constrained objects.
+
+            Args:
+                item_id: Polygon or polyline UUID.
+                index: Existing zero-based vertex index to remove.
+            """
+            _require_write_auth(write_token)
+            result = await anyio.to_thread.run_sync(
+                lambda: providers.delete_vertex(item_id=item_id, index=index)
             )
             return WriteResult(**result)
 

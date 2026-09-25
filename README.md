@@ -30,7 +30,7 @@ Open Garden Planner fills the gap: **engineering-grade precision meets gardener-
 - **Layers**: Organize objects into manageable layers with visibility/lock controls
 - **Standard Formats**: JSON project files (.ogp), PNG/SVG/PDF/DXF export, CSV plant lists
 - **Garden Smart Features**: Harvest tracking, task management & reminders, succession planting, soil health tracking
-- **AI Agent Integration**: Embedded MCP server exposes the live plan to AI assistants for reading, visualizing, and exporting
+- **AI Agent Integration**: Embedded MCP server exposes the live plan for reading, visualization, export, and optional token-gated editing (including stable low-level geometry)
 - **Modern UI**: Clean interface with light and dark modes, keyboard shortcuts
 - **Auto-Save**: Periodic auto-save with crash recovery
 
@@ -136,10 +136,11 @@ To enable online plant search, see the [Plant API Setup Guide](docs/03-context-a
 
 ## Status
 
-**Phases 1-12 shipped, Phase 13 landing incrementally** — CAD precision tooling and garden
-smart features are complete; an embedded AI agent integration (MCP server) is live and
-growing package by package. See the [Development Roadmap](docs/roadmap.md) for the
-authoritative, up-to-date phase/user-story table and current version.
+**Core 2D, 3D, and visual-refresh phases shipped** — CAD precision tooling and garden
+smart features are complete; the embedded AI Agent Integration's read/export and
+token-gated D1/D2 tool surfaces are live, with D3 domain intelligence next. See the
+[Development Roadmap](docs/roadmap.md) for the authoritative, up-to-date phase/user-story
+table and current version.
 
 ## Documentation
 

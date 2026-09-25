@@ -1,9 +1,10 @@
-"""Qt-free validation for the Agent API's edit tools (US-D2.2, US-D2.3).
+"""Qt-free validation for the Agent API's edit tools (US-D2.2/D2.3/D2.6).
 
 The counterpart to :mod:`~open_garden_planner.agent_api.creates`: that module
 validates and builds a *new* object, this one validates a change to an object
-that already exists — ``resize_object`` / ``rotate_object`` (US-D2.2) and
-``set_species`` / ``set_parent_bed`` (US-D2.3).
+that already exists — ``resize_object`` / ``rotate_object`` (US-D2.2),
+``set_species`` / ``set_parent_bed`` (US-D2.3), and the D2.6 scene-point and
+vertex-index validation used by the low-level geometry escape hatches.
 
 Kept import-light on the same terms as ``creates``: no PyQt6, so the object-type
 name sets are inlined rather than importing ``core.object_types`` (which pulls
@@ -25,6 +26,7 @@ import math
 from open_garden_planner.agent_api.creates import (
     require_finite,
     require_positive,
+    require_reachable_position,
     require_sane_extent,
 )
 
@@ -54,6 +56,77 @@ MIN_EXTENT_CM = 1.0
 #: normalised into [0, 360) anyway, so a legitimate caller never needs more —
 #: this bound exists to make the mistake loud instead of silently plausible.
 MAX_ABSOLUTE_ROTATION_DEG = 3600.0
+
+#: Minimum vertex counts for the two vertex-backed geometry families. These
+#: mirror the interactive mixins in ``resize_handle`` and are drift-guarded by
+#: ``tests/unit/test_agent_api_edits.py``.
+POLYGON_MIN_VERTICES = 3
+POLYLINE_MIN_VERTICES = 2
+
+
+def validate_scene_point(
+    x: float,
+    y: float,
+    *,
+    canvas_width_cm: float,
+    canvas_height_cm: float,
+) -> tuple[float, float]:
+    """Validate a scene-frame point using the D2.1 reachability contract.
+
+    One full canvas of staging slack is allowed on every side, matching
+    ``create_object``. This rejects NaN/Infinity and effectively unreachable
+    coordinates before they reach ``QPointF`` or ``QGraphicsItem.mapFromScene``.
+    """
+    resolved_x = require_finite(x, "x")
+    resolved_y = require_finite(y, "y")
+    resolved_canvas_width = require_positive(canvas_width_cm, "canvas_width_cm")
+    resolved_canvas_height = require_positive(canvas_height_cm, "canvas_height_cm")
+    require_reachable_position(
+        resolved_x,
+        resolved_y,
+        resolved_canvas_width,
+        resolved_canvas_height,
+    )
+    return resolved_x, resolved_y
+
+
+def validate_vertex_index(
+    index: int,
+    *,
+    vertex_count: int,
+    operation: str,
+    minimum_count: int | None = None,
+) -> int:
+    """Validate a polygon/polyline vertex index for ``set``/``add``/``delete``.
+
+    ``add`` uses list-insertion semantics and therefore accepts ``vertex_count``
+    as an append index. The other operations accept only existing vertices.
+    ``minimum_count`` applies to deletion and prevents the raw item method's
+    otherwise silent no-op from becoming a false-success tool response.
+    """
+    if isinstance(index, bool) or not isinstance(index, int):
+        raise ValueError(f"vertex index must be an integer, got {index!r}")
+    if vertex_count < 0:
+        raise ValueError(f"vertex_count cannot be negative, got {vertex_count}")
+    if operation == "add":
+        valid = 0 <= index <= vertex_count
+        upper = vertex_count
+    elif operation in {"set", "delete"}:
+        valid = 0 <= index < vertex_count
+        upper = vertex_count - 1
+    else:
+        raise ValueError(f"Unknown vertex operation {operation!r}")
+    if not valid:
+        raise ValueError(
+            f"{operation} vertex index {index} is outside the valid range "
+            f"0..{upper} for {vertex_count} vertices"
+        )
+    if operation == "delete" and minimum_count is not None and vertex_count <= minimum_count:
+        raise ValueError(
+            f"delete_vertex would leave {vertex_count - 1} vertices; this shape "
+            f"requires at least {minimum_count}"
+        )
+    return index
 
 
 def normalise_angle_deg(angle: float) -> float:

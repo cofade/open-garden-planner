@@ -764,8 +764,9 @@ def test_move_object_refuses_when_bed_child_has_constraint(
         plant.parent_bed_id = bed.item_id
         _add_distance_constraint(win, plant, uuid4())
 
-        with pytest.raises(ValueError, match="constraint"):
+        with pytest.raises(ValueError, match="constraint") as exc:
             win._do_agent_move_object(str(bed.item_id), 50.0, 30.0)
+        assert str(plant.item_id) in str(exc.value)
 
         assert win.canvas_view.command_manager.can_undo is False
     finally:
@@ -2457,5 +2458,252 @@ def test_layer_ids_round_trip_between_write_and_read_sides(
         assert detail.layer_name == "Read Side"
         refreshed = layers_from_snapshot(snapshot)
         assert next(lyr for lyr in refreshed if lyr.layer_id == new_id).object_count == 1
+    finally:
+        win._stop_agent_api()
+
+
+# --- US-D2.6: geometry escape-hatch orchestration --------------------------
+
+
+def test_set_object_position_shares_move_child_and_reparent_orchestration(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Absolute placement is a delta into the one complete move path."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        bed = RectangleItem(
+            500.0, 500.0, 400.0, 300.0, object_type=ObjectType.RAISED_BED
+        )
+        plant = CircleItem(
+            650.0, 650.0, 30.0, object_type=ObjectType.PERENNIAL
+        )
+        scene.addItem(bed)
+        scene.addItem(plant)
+        win._do_agent_set_parent_bed(str(plant.item_id), str(bed.item_id))
+        win.canvas_view.command_manager.clear()
+        plant_start = plant.scenePos()
+        plant_relative = plant.scenePos() - bed.scenePos()
+
+        moved = win._do_agent_set_object_position(str(bed.item_id), 800.0, 700.0)
+        assert moved["action"] == "set_position"
+        assert moved["children_moved"] == 1
+        assert plant.scenePos() - bed.scenePos() == plant_relative
+        assert len(win.canvas_view.command_manager._undo_stack) == 1
+        win.canvas_view.command_manager.undo()
+        assert plant.scenePos() == plant_start
+
+        outside = win._do_agent_set_object_position(
+            str(plant.item_id), 1800.0, 1800.0
+        )
+        assert outside["bed_membership_changed"] is True
+        assert outside["new_parent_bed_id"] is None
+        assert plant.parent_bed_id is None
+        assert len(win.canvas_view.command_manager._undo_stack) == 2
+        win.canvas_view.command_manager.undo()
+        win.canvas_view.command_manager.undo()
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.scenePos() == plant_start
+
+        current_x, current_y = win._agent_item_center(plant)
+        with pytest.raises(ValueError, match="already centred"):
+            win._do_agent_set_object_position(
+                str(plant.item_id), current_x, current_y
+            )
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_d26_group_journal_and_lock_protection_is_read_write_asymmetric(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Group members stay hidden; journal/locked objects stay inspectable."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.models.layer import Layer
+    from open_garden_planner.ui.canvas.items import (
+        GroupItem,
+        JournalPinItem,
+        PolygonItem,
+    )
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        member = PolygonItem(
+            [
+                QPointF(100.0, 100.0),
+                QPointF(200.0, 100.0),
+                QPointF(150.0, 200.0),
+            ]
+        )
+        group = GroupItem()
+        scene.addItem(member)
+        scene.addItem(group)
+        group.addToGroup(member)
+        with pytest.raises(ValueError, match="member of a group"):
+            win._do_agent_get_geometry(str(member.item_id))
+        with pytest.raises(ValueError, match="member of a group"):
+            win._do_agent_set_object_position(str(member.item_id), 400.0, 400.0)
+        with pytest.raises(ValueError, match="member of a group"):
+            win._do_agent_set_vertex(str(member.item_id), 0, 120.0, 120.0)
+
+        pin = JournalPinItem(300.0, 300.0, "note-1")
+        scene.addItem(pin)
+        assert win._do_agent_get_geometry(str(pin.item_id))["type"] == "journal_pin"
+        with pytest.raises(ValueError, match="journal pin"):
+            win._do_agent_set_object_position(str(pin.item_id), 400.0, 400.0)
+        with pytest.raises(ValueError, match="journal pin"):
+            win._do_agent_add_vertex(str(pin.item_id), 0, 400.0, 400.0)
+
+        locked_layer = Layer(name="Locked D2.6", locked=True)
+        scene.add_layer(locked_layer)
+        locked = PolygonItem(
+            [
+                QPointF(500.0, 500.0),
+                QPointF(650.0, 500.0),
+                QPointF(600.0, 650.0),
+            ],
+            object_type=ObjectType.GARDEN_BED,
+            layer_id=locked_layer.id,
+        )
+        scene.addItem(locked)
+        assert win._do_agent_get_geometry(str(locked.item_id))["item_id"] == str(
+            locked.item_id
+        )
+        refusals = (
+            lambda: win._do_agent_set_object_position(
+                str(locked.item_id), 800.0, 800.0
+            ),
+            lambda: win._do_agent_set_vertex(
+                str(locked.item_id), 0, 510.0, 510.0
+            ),
+            lambda: win._do_agent_add_vertex(
+                str(locked.item_id), 1, 700.0, 700.0
+            ),
+            lambda: win._do_agent_delete_vertex(str(locked.item_id), 0),
+        )
+        for refusal in refusals:
+            with pytest.raises(ValueError, match="locked layer"):
+                refusal()
+
+        triangle = PolygonItem(
+            [
+                QPointF(900.0, 500.0),
+                QPointF(1050.0, 500.0),
+                QPointF(980.0, 650.0),
+            ],
+            object_type=ObjectType.GARDEN_BED,
+        )
+        scene.addItem(triangle)
+        with pytest.raises(ValueError, match="at least 3"):
+            win._do_agent_delete_vertex(str(triangle.item_id), 0)
+        assert triangle._get_vertex_count() == 3
+        assert win.canvas_view.command_manager.can_undo is False
+        assert win._project_manager.is_dirty is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_house_vertex_topology_reprojects_linked_ridge_and_undoes_cleanly(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """US-D2.6 preserves the existing HOUSE/ridge invariant on add/delete."""
+    import copy
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
+    from open_garden_planner.ui.canvas.items.polygon_item import (
+        _project_to_polygon_boundary,
+    )
+
+    def ridge_is_attached() -> bool:
+        return all(
+            _project_to_polygon_boundary(
+                house.polygon(), house.mapFromScene(ridge.mapToScene(point))
+            )
+            == house.mapFromScene(ridge.mapToScene(point))
+            for point in ridge.points
+        )
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        house = PolygonItem(
+            [
+                QPointF(0.0, 0.0),
+                QPointF(200.0, 0.0),
+                QPointF(200.0, 150.0),
+                QPointF(0.0, 150.0),
+            ],
+            object_type=ObjectType.HOUSE,
+        )
+        ridge = PolylineItem(
+            [QPointF(100.0, 0.0), QPointF(100.0, 150.0)],
+            object_type=ObjectType.ROOF_RIDGE,
+        )
+        house.set_metadata("ridge_item_id", str(ridge.item_id))
+        scene.addItem(house)
+        scene.addItem(ridge)
+        house_baseline = copy.deepcopy(win._project_manager._serialize_item(house))
+        ridge_baseline = copy.deepcopy(win._project_manager._serialize_item(ridge))
+
+        added = win._do_agent_add_vertex(str(house.item_id), 3, 100.0, 220.0)
+        assert added["vertex_count"] == 5
+        ridge_top = ridge.mapToScene(ridge._points[-1])
+        # The old endpoint is now interior, so the existing nearest-boundary
+        # projection moves it onto the enlarged outline rather than merely
+        # stretching the ridge to an arbitrary new point.
+        assert ridge_top.y() > 150.0
+        assert win._project_manager._serialize_item(ridge) != ridge_baseline
+        assert ridge_is_attached()
+        assert len(win.canvas_view.command_manager._undo_stack) == 1
+        win.canvas_view.command_manager.undo()
+        assert win._project_manager._serialize_item(house) == house_baseline
+        assert ridge_is_attached()
+
+        deleted = win._do_agent_delete_vertex(str(house.item_id), 3)
+        assert deleted["vertex_count"] == 3
+        assert ridge_is_attached()
+        assert len(win.canvas_view.command_manager._undo_stack) == 1
+        win.canvas_view.command_manager.undo()
+        assert win._project_manager._serialize_item(house) == house_baseline
+        assert ridge_is_attached()
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_get_geometry_refuses_duplicate_live_ids_without_dirtying(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """A stable read must not choose an arbitrary live wrapper for a duplicate UUID."""
+    from open_garden_planner.ui.canvas.items import CalloutItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        first = CalloutItem(QPointF(100.0, 100.0), QPointF(30.0, 30.0), "first")
+        duplicate = CalloutItem(
+            QPointF(200.0, 200.0), QPointF(30.0, 30.0), "duplicate"
+        )
+        duplicate._item_id = first.item_id
+        win.canvas_scene.addItem(first)
+        win.canvas_scene.addItem(duplicate)
+
+        with pytest.raises(ValueError, match="duplicate live UUIDs"):
+            win._do_agent_get_geometry(str(first.item_id))
+        assert win.canvas_view.command_manager.can_undo is False
+        assert win._project_manager.is_dirty is False
     finally:
         win._stop_agent_api()

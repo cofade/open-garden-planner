@@ -2429,9 +2429,9 @@ Shipped via this PR: Windows Defender flagged the installer as `Trojan:Script/Wa
 
 ---
 
-## Phase 13: Agent Integration — Package D (MCP Server) ✅ D1/D2.0–D2.5 shipped; D2.6/D3 planned
+## Phase 13: Agent Integration — Package D (MCP Server) ✅ D1/D2.0–D2.6 shipped; D3 planned
 
-**Goal**: Expose the garden plan to AI agents (Claude, Cursor, any MCP client) so they can read, visualise, export, and — behind the explicit write gate — edit it. The running app embeds a **Model Context Protocol server over streamable-HTTP** on `127.0.0.1` (on by default for reads, loopback-only; toggle to disable). D1 shipped the read/visualise/export surface; D2.0–D2.5 shipped the token-gated creation, editing, layer, and global-history tools; D2.6 and D3 remain. See ADR-033/034/036, FR-26, §8.19, and GitHub epic #237.
+**Goal**: Expose the garden plan to AI agents (Claude, Cursor, any MCP client) so they can read, visualise, export, and — behind the explicit write gate — edit it. The running app embeds a **Model Context Protocol server over streamable-HTTP** on `127.0.0.1` (on by default for reads, loopback-only; toggle to disable). D1 shipped the read/visualise/export surface; D2.0–D2.6 shipped the token-gated creation, domain editing, layer, global-history, and low-level geometry tools; D3 remains. See ADR-033/034/036, FR-26, §8.19, and GitHub epic #237.
 
 ### Design decisions (from the planning session)
 | Axis | Decision |
@@ -2452,7 +2452,7 @@ Shipped via this PR: Windows Defender flagged the installer as `Trojan:Script/Wa
 | Phase | Scope |
 |-------|-------|
 | **D1 (v1, MVP)** | Write-ready core + read/query tools + render-image tool + export tools + resources + read-analysis prompts |
-| **D2** | Write/edit tools (create/move/resize/delete beds, containers, plants, shapes; assign species; layers; global undo/redo) — auto-apply, one-undo-per-op, free co-edit; low-level geometry escape hatches. **Prerequisite: token auth** (FR-AGENT-03 / §8.11) landed with D2.0. **D2.0 ✅ shipped** the token gate + first write slice (`move_object`/`delete_object`, ADR-036); **D2.1 ✅ shipped** `create_object` (plants + soil containers); **D2.2 ✅ shipped** `resize_object`/`rotate_object` plus the canonical `ui/canvas/geometry_apply` path; **D2.3 ✅ shipped** `set_species`/`set_parent_bed`; **D2.4 ✅ shipped** `list_layers` and layer writes; **D2.5 ✅ shipped** loader-backed shape/structure creation and discovery. The #353–#355 hardening package adds same-scene load cleanup, fail-closed delete, MCP history, bounded callout input, and a median performance guard; D2.6 low-level geometry escape hatches (#330) remain, all behind the same gate. |
+| **D2** | Write/edit tools (create/move/resize/delete beds, containers, plants, shapes; assign species; layers; global undo/redo) — auto-apply, one-undo-per-op, free co-edit; low-level geometry escape hatches. **Prerequisite: token auth** (FR-AGENT-03 / §8.11) landed with D2.0. **D2.0 ✅ shipped** the token gate + first write slice (`move_object`/`delete_object`, ADR-036); **D2.1 ✅ shipped** `create_object` (plants + soil containers); **D2.2 ✅ shipped** `resize_object`/`rotate_object` plus the canonical `ui/canvas/geometry_apply` path; **D2.3 ✅ shipped** `set_species`/`set_parent_bed`; **D2.4 ✅ shipped** `list_layers` and layer writes; **D2.5 ✅ shipped** loader-backed shape/structure creation and discovery; **D2.6 ✅ shipped** `get_geometry`, absolute positioning, and polygon/polyline vertex writes. The #353–#355 hardening package adds same-scene load cleanup, fail-closed delete, MCP history, bounded callout input, and a median performance guard. All scene writes remain behind the same ADR-036 double gate. |
 | **D3** | Domain-intelligence tools + guided write prompts (companion-aware placement, succession, calendar/tasks, soil amendment planning) |
 
 ### US table (D1 = MVP; D2 = write slices)
@@ -2477,18 +2477,20 @@ Shipped via this PR: Windows Defender flagged the installer as `Trojan:Script/Wa
 | ✅ | D2-H2 | **Bounded callout input** ([#355](https://github.com/cofade/open-garden-planner/issues/355)) — shipped in v1.27.10 via PR #360: signed offsets are finite and canvas-relative (`abs(offset) <= 2 * max(canvas_width, canvas_height)`) before Qt construction; explicit null/non-finite/oversized input leaves scene and history untouched. Covered through the real MCP transport. |
 | ✅ | D2-H3 | **CI performance calibration** ([#354](https://github.com/cofade/open-garden-planner/issues/354)) — shipped in v1.27.10 via PR #360: spatial-index test uses warm-up plus repeated median samples (200 ms build / 1 ms query) instead of one noisy wall-clock sample; no spatial-index implementation change. Isolated in its own test/CI commit. |
 
-| 📋 | D2.6 | **Low-level geometry escape hatches** ([#330](https://github.com/cofade/open-garden-planner/issues/330)) — `set_object_position`, `get_geometry`, vertex editing. Carries the open **constrained-object** decision every write tool currently defers. Depends on D2.2's canonical apply path. Possible follow-up: a multi-id `arrange_objects` batch tool (issue #338 shipped only the single-id `arrange_object`, mirroring `resize_object`/`rotate_object`'s single-id shape). |
+| ✅ | D2.6 | **Low-level geometry escape hatches** ([#330](https://github.com/cofade/open-garden-planner/issues/330)) — unauthenticated `get_geometry` reports the stable live scene-frame geometry and every referencing constraint; token-gated `set_object_position`, `set_vertex`, `add_vertex`, and `delete_vertex` provide absolute placement and polygon/polyline topology edits. Each actual vertex mutation is one canonical command/undo step; unchanged rotated vertices round-trip without inverse-transform drift; minimum 3/2-vertex shapes are enforced. The constraint decision is permanent refusal, made legible by `get_geometry` rather than silently skipping the live multi-item solver. No `FILE_VERSION` change. See ADR-036 D2.6 addendum, FR-AGENT-21, §8.19. |
 | 📋 | D3.1 | **Companion tools** ([#319](https://github.com/cofade/open-garden-planner/issues/319)) — `suggest_companions` / `find_compatible_set` / `check_placement` + Companion-panel action; prompt `plan-polyculture-bed`. |
 | 📋 | D3.2 | **Succession tools** ([#331](https://github.com/cofade/open-garden-planner/issues/331)) — read plan, find gaps, suggest fillers, write plans; prompt `plan-succession`. First agent write into `ProjectData` rather than the scene. |
 | 📋 | D3.3 | **Calendar & task tools** ([#332](https://github.com/cofade/open-garden-planner/issues/332)) — `get_tasks` / `get_task_calendar` + manual-task writes; prompt `plan-my-week`. Carries the D3 localisation decision (generated task titles are translated, but the MCP surface is an English API contract). |
 | 📋 | D3.4 | **Soil amendment tools** ([#333](https://github.com/cofade/open-garden-planner/issues/333)) — `get_soil_status` / `recommend_amendments` / `get_soil_mismatches` / `record_soil_test`; prompt `plan-soil-amendments`. Must match D3.3's localisation convention. |
 
-### Acceptance highlights (D2.0–D2.5)
+### Acceptance highlights (D2.0–D2.6)
 - The writes-enabled toggle and bearer token are independent gates: write tools disappear when either is absent, and every call rechecks the token before the Qt hop. Reads remain open.
 - Every agent document mutation uses the GUI's command path and remains undoable; `undo()`/`redo()` operate the same global LIFO stack one command at a time and refuse empty stacks.
 - `create_object` builds through the loader, preserves the native Y-up frame, and refuses hostile or implausible geometry before Qt sees it; refusals leave the scene and undo stack unchanged.
+- `get_geometry` is the stable low-level read: polygon/polyline points are mapped from the **live** Qt transform, curve/extent/radius data is curated rather than exposing serializer internals, and constraints are returned in deterministic order even though writes on those objects refuse.
+- `set_object_position` derives a delta and enters the same move orchestration as `move_object`, including logical bed children and plant reparenting. Vertex writes share the GUI's canonical command builders; set/add/delete each add exactly one undo entry and restore the prior list.
 - Same-scene save/load has one document-item cleanup predicate; `list_layers.object_count` agrees with the top-level `list_objects` roster, including callouts and Arc/Bezier items.
-- Real MCP integration tests cover authentication, concurrent delete behavior, global history, save/load, rendering, and adversarial callout offsets; the performance benchmark is reported as repeated medians rather than a single sample.
+- Real MCP integration tests cover authentication, geometry round trips, constrained refusals, concurrent delete behavior, global history, save/load, rendering, and adversarial callout offsets; the performance benchmark is reported as repeated medians rather than a single sample.
 
 ### Acceptance highlights (D1)
 - Server is **on by default (read-only)**, binds **loopback only**, and shows the connect URL (e.g. `http://127.0.0.1:8765/mcp`); a Preferences toggle disables it and stops it cleanly. Getting that URL into each user's AI client is the D1.6 onboarding dialog.
@@ -2508,13 +2510,13 @@ Shipped via this PR: Windows Defender flagged the installer as `Trojan:Script/Wa
 ### Docs to update on completion
 | Document | Section |
 |----------|---------|
-| `docs/09-architecture-decisions/` | ADR-033 Agent Integration Architecture, ADR-034 Curated Agent Schema, ADR-036 write gate, and the #353/#355 hardening addenda |
-| `docs/05-building-block-view/` | `agent_api/` server/provider/schema/creation blocks, load cleanup, and history wiring |
-| `docs/06-runtime-view/` | agent read/write/history sequence (asyncio thread → main-thread marshal → command/reply) |
-| `docs/08-crosscutting-concepts/` | §8.19 Agent API & thread marshaling, including global history, load cleanup, and bounded callout input |
+| `docs/09-architecture-decisions/` | ADR-033 Agent Integration Architecture, ADR-034 Curated Agent Schema, ADR-036 write gate, and the #353/#355/#330 addenda |
+| `docs/05-building-block-view/` | `agent_api/` server/provider/schema/edits blocks, live geometry inspector, canonical vertex builders, load cleanup, and history wiring |
+| `docs/06-runtime-view/` | agent read/write/geometry/history sequence (asyncio thread → main-thread marshal → command/reply) |
+| `docs/08-crosscutting-concepts/` | §8.19 Agent API & thread marshaling, including global history, load cleanup, bounded callout input, and D2.6 geometry |
 | `docs/07-deployment-view/` | PyInstaller hidden-imports for `mcp`/`uvicorn`/`starlette` |
-| `docs/functional-requirements.md` | FR-26 / FR-AGENT-19/20 and FR-SNAP-06 |
-| `docs/12-glossary/` | MCP, MCP tool/resource/prompt, Agent API, curated schema, marshaling boundary, loopback, Agent write tool |
+| `docs/functional-requirements.md` | FR-26 / FR-AGENT-19/20/21 and FR-SNAP-06 |
+| `docs/12-glossary/` | MCP, MCP tool/resource/prompt, Agent API, curated schema, marshaling boundary, loopback, Agent write tool, geometry escape hatch |
 
 ---
 
