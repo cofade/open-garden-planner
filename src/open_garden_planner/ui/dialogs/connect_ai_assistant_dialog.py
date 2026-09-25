@@ -283,9 +283,10 @@ class ConnectAiAssistantDialog(QDialog):
         intro.setWordWrap(True)
         v.addWidget(intro)
 
-        snippets = onboarding.generic_snippets(
-            url=self._server_url, token=self._token
-        )
+        # Read-only by construction: the service takes no token, so a live
+        # write credential cannot end up on text the user is invited to paste
+        # somewhere public.
+        snippets = onboarding.generic_snippets(url=self._server_url)
 
         json_note = QLabel(
             self.tr('Add this to your client\'s "mcpServers" config:')

@@ -1599,9 +1599,13 @@ class GardenPlannerApp(QMainWindow):
     # "Move to Layer" context submenu, the properties-panel layer combo) all
     # build the SAME core/commands.py layer commands invariant #5 requires;
     # these bodies are the agent-shaped variants: loud refusals instead of the
-    # panel handlers' silent no-op returns, one command per call, and the
-    # ADR-036 D2.4 lock policy (an agent may never change 'locked', and may
-    # never delete or move objects onto a locked layer).
+    # panel handlers' silent no-op returns, and one command per call.
+    #
+    # Lock policy as of issue #365: the agent MAY change 'locked' in both
+    # directions (that is the reversal of ADR-036's D2.4 addendum), but it may
+    # still never delete a locked layer or move objects onto one, nor edit its
+    # objects while it is locked. Those guards test the layer's CURRENT state,
+    # so "unlock, then edit" is a legitimate two-call sequence.
 
     def _agent_resolve_layer(self, layer_id: str) -> Any:
         """Look up a scene layer by UUID string for a write tool, or raise.
@@ -1656,7 +1660,8 @@ class GardenPlannerApp(QMainWindow):
         if layer.locked:
             raise ValueError(
                 f"The target layer {layer.name!r} is locked; objects cannot be "
-                "moved onto a locked layer. Unlock it in the app first."
+                "moved onto a locked layer. Unlock it first with "
+                "set_layer_property(layer_id, locked=False)."
             )
         if getattr(item, "layer_id", None) == layer.id:
             raise ValueError(
@@ -2058,8 +2063,9 @@ class GardenPlannerApp(QMainWindow):
             # The agent resolves by UUID, bypassing selection — so honour the
             # lock explicitly here, the one chokepoint every write tool shares.
             raise ValueError(
-                f"{item_id} is on a locked layer; unlock the layer in the app "
-                "before editing this object."
+                f"{item_id} is on a locked layer. Unlock it with "
+                "set_layer_property(layer_id, locked=False) and then retry — "
+                "each is one undo step."
             )
         return item
 

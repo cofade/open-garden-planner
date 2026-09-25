@@ -8,9 +8,12 @@ raised a pydantic ``ValidationError`` on **every successful call over the
 wire** — while all 22 body-level tests passed, because the body never builds
 the result model. Only the transport crosses that boundary.
 
-The lesson is general, and is why the check below is structural rather than
-per-tool: a tool's declared return model is a contract, and testing the
-provider is not the same as testing the tool.
+The lesson is general: a tool's declared return model is a contract, and
+testing the provider is not the same as testing the tool. These are per-tool
+tests, honestly described — they cover the two models #365 added, not every
+model in the server. (Enumerating every ``X(**result)`` site in ``server.py``
+against its model's required fields found no other live tool in violation, so
+the remaining models are covered by the existing transport suites.)
 """
 
 from __future__ import annotations

@@ -353,16 +353,18 @@ class TestRegistryDrivenRows:
             note = dialog._manual_note_for(client.client_id)
             assert note.strip(), f"{client.client_id} has no manual-setup note"
 
-    def test_add_to_opencode_without_the_cli_refuses_and_keeps_comments(
+    def test_opencode_without_the_cli_has_no_button_and_keeps_comments(
         self, qtbot, isolated_clients: Path
     ) -> None:
-        """The no-CLI path for a foreign JSONC file REFUSES rather than
-        re-serialising it.
+        """With no CLI, OpenCode's row offers NO Add button.
 
-        A merge would have to rewrite the whole document, discarding the user's
-        comments — the same harm the TOML path refuses by rewriting only one
-        table's span, and the same thing §11.4 forbids. The fixture stubs
-        `shutil.which` to None, so this is exactly that case, end to end."""
+        A button whose only possible outcome is a refusal is a dead end with a
+        polite message — the exact shape #366 was opened to close. So
+        `detect_clients` reports `manual` when the merge is unsupported and the
+        CLI is absent, and the dialog hides the button. The user's config is
+        never touched, and the manual snippet below carries the correct NESTED
+        container (`mcp.servers`).
+        """
         config = isolated_clients / ".config" / "opencode"
         config.mkdir(parents=True)
         original = '{\n  // my own note\n  "theme": "dark"\n}\n'
@@ -372,13 +374,20 @@ class TestRegistryDrivenRows:
         qtbot.addWidget(dialog)
 
         group = _group(dialog, "OpenCode")
-        btn = _add_button(group, "OpenCode")
-        assert btn.isEnabled()
-        qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
-
-        # Refused, honestly, and the file is byte-for-byte untouched.
-        assert "Could not add to OpenCode" in dialog._status_label.text()
+        assert not any(
+            b.text() == "Add to OpenCode" for b in group.findChildren(QPushButton)
+        )
+        # Byte-for-byte untouched: nothing in this flow writes the file.
         assert (config / "opencode.jsonc").read_text(encoding="utf-8") == original
+
+        # The manual snippet is offered, and it uses the OBSERVED container.
+        toggle = next(
+            b for b in group.findChildren(QPushButton) if b.text() == "Show manual snippet"
+        )
+        qtbot.mouseClick(toggle, Qt.MouseButton.LeftButton)
+        snippet = json.loads(group.findChild(QPlainTextEdit).toPlainText())
+        assert snippet["mcp"]["servers"]["open-garden-planner"]["url"] == _URL
+        assert "og" not in snippet["mcp"]
 
     def test_add_to_opencode_with_the_cli_uses_it(
         self, qtbot, isolated_clients: Path, monkeypatch: pytest.MonkeyPatch

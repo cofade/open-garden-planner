@@ -544,6 +544,19 @@ class _ConfigMergeError(Exception):
     it."""
 
 
+class _ConfigReadError(_ConfigMergeError):
+    """A config file could not be READ at all (as opposed to read-and-refused).
+
+    A module-owned type on purpose. ``_strip_jsonc`` raises this for a
+    malformed document, and the readers below catch it — so "a file we cannot
+    read is reported, never raised" is a property of the module rather than of
+    each ``except`` clause somebody remembered to widen. A bare ``ValueError``
+    here was a real crash: ``registered_url`` -> ``detect_clients`` -> the
+    dialog's ``__init__``, where PyQt6 turns an unhandled exception into
+    ``qFatal()``/``abort()``.
+    """
+
+
 def _strip_jsonc(text: str) -> str:
     """Remove ``//`` and ``/* */`` comments and trailing commas from a JSONC
     document so ``json.loads`` accepts it.
@@ -589,10 +602,10 @@ def _strip_jsonc(text: str) -> str:
             if not closed:
                 # An unterminated block comment means the rest of the file is
                 # comment. Swallowing it silently would let the tolerant reader
-                # "accept" a malformed document; raise so the caller's
-                # fail-closed path owns the decision (and so a BOM/comment bug
-                # here can never quietly eat a user's server entry).
-                raise ValueError("Unterminated /* comment in JSONC input")
+                # "accept" a malformed document, so raise a MODULE-OWNED error
+                # that both readers below catch — never a bare ValueError,
+                # which would escape into the Qt slot and abort the app.
+                raise _ConfigReadError("Unterminated /* comment in JSONC input")
             i += 2
             continue
         out.append(ch)
@@ -700,19 +713,37 @@ def _container_get(data: dict[str, object], container_key: str) -> object:
 
 
 def _container_set(data: dict[str, object], container_key: str, name: str, entry: dict) -> None:
-    """Create the container path if needed and set ``<path>.<name> = entry``."""
+    """Create the container path if needed and set ``<path>.<name> = entry``.
+
+    Refuses rather than overwrites when an INTERMEDIATE node exists but is not
+    an object. Silently replacing ``{"mcp": "a string"}`` with
+    ``{"mcp": {...}}`` turns a malformed foreign file into a plausible-looking
+    one, which is data loss with extra steps. ``_container_get`` is defensive
+    about the same shapes; the writer must be too.
+    """
     parts = container_key.split(".")
     node = data
     for part in parts[:-1]:
-        child = node.get(part)
-        if not isinstance(child, dict):
+        if part in node:
+            child = node[part]
+            if not isinstance(child, dict):
+                raise _ConfigReadError(
+                    f"Cannot write {container_key!r}: {part!r} already exists and "
+                    f"is not an object ({type(child).__name__}). Left untouched."
+                )
+        else:
             child = {}
             node[part] = child
         node = child
     leaf = parts[-1]
     servers = node.get(leaf)
-    if not isinstance(servers, dict):
+    if servers is None:
         servers = {}
+    elif not isinstance(servers, dict):
+        raise _ConfigReadError(
+            f"Cannot write {container_key!r}: it already exists and is not an "
+            f"object ({type(servers).__name__}). Left untouched."
+        )
     servers[name] = entry
     node[leaf] = servers
 
@@ -749,7 +780,12 @@ def _merge_json_like(
         try:
             text = path.read_text(encoding="utf-8-sig")
             loaded = json.loads(_strip_jsonc(text) if tolerant else text)
-        except (json.JSONDecodeError, OSError, UnicodeDecodeError) as exc:
+        except (
+            json.JSONDecodeError,
+            _ConfigReadError,
+            OSError,
+            UnicodeDecodeError,
+        ) as exc:
             if not replace_on_parse_error:
                 raise _ConfigMergeError(
                     f"Could not read existing {path} ({exc}); left untouched."
@@ -763,11 +799,16 @@ def _merge_json_like(
         else:
             logger.warning("%s does not contain a JSON object; replacing it", path)
 
-    servers = _container_get(data, container_key)
-    if not isinstance(servers, dict):
-        servers = {}
-    servers[name] = entry
-    _container_set(data, container_key, name, entry)
+    try:
+        _container_set(data, container_key, name, entry)
+    except _ConfigReadError:
+        if not replace_on_parse_error:
+            raise
+        logger.warning(
+            "Container %r in %s is not an object; replacing the file", container_key, path
+        )
+        data = {}
+        _container_set(data, container_key, name, entry)
 
     _atomic_write(path, json.dumps(data, indent=2) + "\n")
     return backup_path
@@ -892,7 +933,7 @@ def _merge_into_config(
     entry: dict[str, object],
     container_key: str = "mcpServers",
     syntax: Syntax = "json",
-    replace_on_parse_error: bool | None = None,
+    replace_on_parse_error: bool,
 ) -> Path | None:
     """Read-modify-write a client's config, routing on ``syntax``.
 
@@ -902,12 +943,13 @@ def _merge_into_config(
     second call overwrites ``.bak`` with the state from just before *that*
     call, not the original file from before OGP ever touched it.
 
-    ``replace_on_parse_error`` defaults from the target's ``ownership``, so the
-    fail-closed decision travels with the registry record rather than being
-    re-decided at each call site.
+    ``replace_on_parse_error`` is REQUIRED, with no default. It used to default
+    to ``True`` ("replace the file") while the docstring claimed it "defaults
+    from the target's ``ownership``" — so the one seam in this module whose
+    whole design is fail-closed defaulted the unsafe way, and the docstring
+    would have convinced the next caller that ownership drove it. Every call
+    site now states the policy explicitly.
     """
-    if replace_on_parse_error is None:
-        replace_on_parse_error = True
     if syntax == "toml":
         return _merge_toml(
             path,
@@ -979,7 +1021,17 @@ def registered_url(client_id: ClientId, name: str = SERVER_NAME) -> str | None:
             data: object = tomllib.loads(text)
         else:
             data = json.loads(_strip_jsonc(text) if target.syntax == "jsonc" else text)
-    except (json.JSONDecodeError, tomllib.TOMLDecodeError, OSError, UnicodeDecodeError):
+    except (
+        json.JSONDecodeError,
+        tomllib.TOMLDecodeError,
+        _ConfigReadError,
+        OSError,
+        UnicodeDecodeError,
+    ):
+        # Includes the module's own _ConfigReadError. This function is the only
+        # reader in the module and it runs from the dialog's __init__, so a
+        # malformed config must report "unregistered", never raise — PyQt6
+        # turns an unhandled exception in a slot into qFatal()/abort().
         return None
     if not isinstance(data, dict):
         return None
@@ -1064,9 +1116,14 @@ def detect_clients() -> list[ClientInfo]:
         detected = target.detect_installed()
         if target.cli_name and shutil.which(target.cli_name) is not None:
             install_method: InstallMethod = "cli"
-        elif target.supports_local_http:
+        elif target.supports_local_http and target.merge_supported:
             install_method = "merge"
         else:
+            # Either it cannot reach a local server at all (Claude Desktop), or
+            # its only route is a merge we refuse to perform (OpenCode without
+            # its CLI). Reporting "merge" here would hand the dialog an ENABLED
+            # button whose only possible outcome is a refusal — a dead end with
+            # a polite message, which is the shape #366 was opened to close.
             install_method = "manual"
         clients.append(
             ClientInfo(
@@ -1222,8 +1279,25 @@ def install_to_client(
                         f"{removed.stderr.strip()}"
                     )
             else:
-                # No documented remove subcommand (OpenCode): the merge
-                # replaces the entry wholesale, so it IS the update path.
+                # No documented remove subcommand (OpenCode). The merge would
+                # be the self-heal, BUT it re-serialises a file OGP does not own
+                # and would eat the user's comments — so honour
+                # `merge_supported` here too, not just on the no-CLI path.
+                # Reporting the CLI's own stderr is more useful than silently
+                # doing the destructive thing the flag forbids.
+                if not target.merge_supported:
+                    return InstallResult(
+                        client_id=client_id,
+                        success=False,
+                        detail=(
+                            f"{target.cli_name} reports the entry already exists "
+                            f"and offers no way to replace it, and OGP will not "
+                            f"rewrite {path} directly because that would discard "
+                            f"the comments in it. Remove the "
+                            f"{name!r} entry from {path} by hand and add it "
+                            f"again."
+                        ),
+                    )
                 return _merge()
     except (subprocess.SubprocessError, OSError) as exc:
         return InstallResult(client_id=client_id, success=False, detail=str(exc))
@@ -1247,22 +1321,31 @@ def snippet_for_client(
     target = get_target(client_id)
     if not target.supports_local_http:
         return url_with_token(url, token)
+    # Honour the target's route, so the manual snippet and the one-click install
+    # can never disagree about where the token lives.
+    use_header = target.token_route == "header"
     if target.syntax == "toml":
-        return _toml_render_table(target.container_key, name, target.entry(url, token, False))
+        return _toml_render_table(
+            target.container_key, name, target.entry(url, token, use_header)
+        )
     return json.dumps(
-        _nested_dict(target.container_key, name, target.entry(url, token, False)), indent=2
+        _nested_dict(target.container_key, name, target.entry(url, token, use_header)),
+        indent=2,
     )
 
 
-def generic_snippets(*, url: str, name: str = SERVER_NAME, token: str | None = None) -> dict[str, str]:
+def generic_snippets(*, url: str, name: str = SERVER_NAME) -> dict[str, str]:
     """Vendor-agnostic onboarding text for a client OGP has never heard of.
 
     Always available, detected client or not — this is what makes the registry
     an optimisation rather than a gate. It degrades gracefully rather than
     universally: the JSON block matches the ``mcpServers`` family, and a client
     using a different container key (Codex, OpenCode) needs a registry entry or
-    its own documented snippet. The default URLs are **read-only**; a
-    write-capable URL is only ever handed out on an explicit request.
+    its own documented snippet.
+
+    Every value here is **read-only**. A live write credential does not belong
+    on a dict whose whole purpose is to be pasted somewhere public, and the
+    dialog has a separate, explicitly-worded action for the write URL.
     """
     return {
         "json": json.dumps(
@@ -1270,5 +1353,4 @@ def generic_snippets(*, url: str, name: str = SERVER_NAME, token: str | None = N
         ),
         "cli": f"<client> mcp add --transport http {name} {read_only_url(url)}",
         "url": read_only_url(url),
-        "write_url": url_with_token(url, token),
     }

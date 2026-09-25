@@ -204,18 +204,83 @@ class TestJsoncReaderTolerance:
 
     def test_unterminated_block_comment_raises(self) -> None:
         """A malformed document must not be silently 'accepted' by the tolerant
-        reader — raising lets the caller's fail-closed path own the decision."""
-        with pytest.raises(ValueError, match="Unterminated"):
+        reader.
+
+        It raises a MODULE-OWNED `_ConfigReadError`, not a bare `ValueError`:
+        the first version of this fix raised `ValueError`, which escaped
+        `registered_url` -> `detect_clients` -> the dialog's `__init__`, where
+        PyQt6 turns an unhandled exception into `qFatal()`/`abort()` — i.e. a
+        user with a half-typed comment block could crash the app by opening the
+        Connect dialog. `test_malformed_config_never_raises_through_readers`
+        pins the containment.
+        """
+        with pytest.raises(onboarding._ConfigReadError, match="Unterminated"):
             onboarding._strip_jsonc('{"a": 1} /* never closed')
+
+    def test_malformed_config_never_raises_through_the_readers(
+        self, _isolated_home: Path
+    ) -> None:
+        """The P0 regression: every reader is best-effort and must REPORT a
+        malformed file, never raise. `detect_clients` runs inside the dialog's
+        `__init__`, so a raise here is an application abort."""
+        config = _isolated_home / ".config" / "opencode"
+        config.mkdir(parents=True)
+        (config / "opencode.jsonc").write_text(
+            '{\n  /* never closed\n  "mcp": {"servers": {}}\n}\n', encoding="utf-8"
+        )
+
+        assert onboarding.registered_url("opencode") is None
+        # Must not raise — this is the call the dialog makes.
+        clients = onboarding.detect_clients()
+        assert any(c.client_id == "opencode" for c in clients)
+
+    def test_malformed_config_fails_closed_on_the_write_path(
+        self, _isolated_home: Path
+    ) -> None:
+        """The write path contains it too: a `foreign` file we cannot read is
+        refused, not replaced."""
+        config = _isolated_home / ".config" / "opencode"
+        config.mkdir(parents=True)
+        path = config / "opencode.jsonc"
+        original = '{\n  /* never closed\n}\n'
+        path.write_text(original, encoding="utf-8")
+
+        with pytest.raises(onboarding._ConfigMergeError):
+            onboarding._merge_into_config(
+                path,
+                name="og",
+                entry={"url": _URL},
+                container_key="mcp.servers",
+                syntax="jsonc",
+                replace_on_parse_error=False,
+            )
+        assert path.read_text(encoding="utf-8") == original
 
     def test_bom_is_tolerated(self, tmp_path: Path) -> None:
         """VS Code and jsonc-parser both accept a BOM; plain utf-8 decoding
         would refuse it and reproduce the dead end §11.4 warns about."""
-        path = tmp_path / "opencode.jsonc"
+        path = tmp_path / "bom.jsonc"
         path.write_text('{"theme": "dark"}', encoding="utf-8-sig")
-        assert onboarding.registered_url("opencode") in (None, _URL) or True
-        # The real assertion: the read does not raise.
-        onboarding._strip_jsonc(path.read_text(encoding="utf-8-sig"))
+        # The real assertion: the read does not raise, and the content is
+        # readable. (The target's own path is elsewhere; this exercises the
+        # encoding choice, not target resolution.)
+        assert json.loads(onboarding._strip_jsonc(path.read_text(encoding="utf-8-sig"))) == {
+            "theme": "dark"
+        }
+
+    def test_replace_on_parse_error_is_required(self, tmp_path: Path) -> None:
+        """It used to default to True ("replace the file") while the docstring
+        claimed it defaulted from the target's ownership — i.e. the one seam in
+        a fail-closed module defaulted the UNSAFE way, and the docstring would
+        have convinced the next caller otherwise."""
+        with pytest.raises(TypeError, match="replace_on_parse_error"):
+            onboarding._merge_into_config(  # type: ignore[call-arg]
+                tmp_path / "mcp.json",
+                name="og",
+                entry={"url": _URL},
+                container_key="mcpServers",
+                syntax="json",
+            )
 
     def test_strict_json_reader_still_raises_on_comments(self, tmp_path: Path) -> None:
         """Negative guard. If the lenient reader leaked into the strict path, a
@@ -258,6 +323,8 @@ class TestSurgicalToml:
             entry={"url": _URL},
             container_key="mcp_servers",
             syntax="toml",
+    replace_on_parse_error=False,
+
         )
 
         text = path.read_text(encoding="utf-8")
@@ -287,6 +354,8 @@ class TestSurgicalToml:
             entry={"url": _URL},
             container_key="mcp_servers",
             syntax="toml",
+    replace_on_parse_error=False,
+
         )
 
         data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -305,6 +374,8 @@ class TestSurgicalToml:
                 entry={"url": url},
                 container_key="mcp_servers",
                 syntax="toml",
+    replace_on_parse_error=False,
+
             )
 
         data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -337,6 +408,8 @@ class TestSurgicalToml:
             entry=entry,
             container_key="mcp_servers",
             syntax="toml",
+    replace_on_parse_error=False,
+
         )
         data = tomllib.loads(path.read_text(encoding="utf-8"))
         assert data["mcp_servers"]["og"]["url"] == entry["url"]
@@ -349,6 +422,8 @@ class TestSurgicalToml:
             entry={"oauth": False, "enabled": True},
             container_key="mcp_servers",
             syntax="toml",
+    replace_on_parse_error=False,
+
         )
         data = tomllib.loads(path.read_text(encoding="utf-8"))
         assert data["mcp_servers"]["og"] == {"oauth": False, "enabled": True}
@@ -384,6 +459,8 @@ class TestSurgicalToml:
                 entry={"url": _URL},
                 container_key="mcp_servers",
                 syntax="toml",
+    replace_on_parse_error=False,
+
             )
 
         assert path.read_text(encoding="utf-8") == original
@@ -413,6 +490,8 @@ class TestSurgicalToml:
                 entry={"url": _URL},
                 container_key="mcp_servers",
                 syntax="toml",
+    replace_on_parse_error=False,
+
             )
 
         assert path.read_text(encoding="utf-8") == original
@@ -440,6 +519,8 @@ class TestSurgicalToml:
                     entry={"url": _URL},
                     container_key="mcp_servers",
                     syntax="toml",
+    replace_on_parse_error=False,
+
                 )
                 # Whatever happened, the file on disk must parse.
                 tomllib.loads(path.read_text(encoding="utf-8"))
@@ -490,14 +571,16 @@ class TestReadOnlySplit:
 
     def test_generic_snippets_default_to_read_only(self, _isolated_home: Path) -> None:
         """The vendor-agnostic path is the one a user is most likely to paste
-        somewhere public, so it must be the safe one by default."""
-        snippets = onboarding.generic_snippets(url=_URL, token=_TOKEN)
+        somewhere public, so it is the safe one — and it takes no token at all,
+        so there is no write credential on the dict to leak by accident."""
+        snippets = onboarding.generic_snippets(url=_URL)
 
         assert "token=" not in snippets["json"]
         assert "token=" not in snippets["cli"]
+        assert "token=" not in snippets["url"]
         assert snippets["url"] == _URL
-        # The write URL is still reachable, but only on an explicit key.
-        assert _TOKEN in snippets["write_url"]
+        # No key can carry the write credential: the signature has no token.
+        assert "write_url" not in snippets
 
     def test_generic_snippets_tolerate_a_query_string(self) -> None:
         snippets = onboarding.generic_snippets(url=f"{_URL}?foo=bar")
@@ -559,6 +642,8 @@ class TestDottedContainerPaths:
             entry={"type": "remote", "url": _URL},
             container_key="mcp.servers",
             syntax="jsonc",
+    replace_on_parse_error=False,
+
         )
 
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -584,11 +669,87 @@ class TestDottedContainerPaths:
         assert onboarding.registered_url("opencode") == _URL
         assert onboarding.is_stale("opencode", _URL) is False
 
+    def test_update_path_also_refuses_rather_than_re_serialising(
+        self, _isolated_home: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The P1 regression, and the reason the guard lives at the seam.
+
+        The FIRST version of `merge_supported` was checked on the no-CLI path
+        only. With the CLI present but reporting "already exists" — which is
+        exactly the path a user reaches after a port change or a token
+        rotation, the case this whole issue exists for — the self-heal fell
+        through to the merge, re-serialised the foreign JSONC, and reported
+        success while eating the user's comments.
+        """
+        import subprocess as _subprocess
+
+        config = _isolated_home / ".config" / "opencode"
+        config.mkdir(parents=True)
+        original = '{\n  // my own notes\n  /* block note */\n  "mcp": {"servers": {}}\n}\n'
+        (config / "opencode.jsonc").write_text(original, encoding="utf-8")
+
+        monkeypatch.setattr(
+            onboarding.shutil, "which", lambda cmd: "/usr/bin/opencode" if cmd == "opencode" else None
+        )
+
+        def fake_run(args, **_kwargs):  # noqa: ANN001, ANN003
+            return _subprocess.CompletedProcess(
+                args, 1, stdout="", stderr="Error: server already exists"
+            )
+
+        monkeypatch.setattr(onboarding.subprocess, "run", fake_run)
+
+        result = onboarding.install_to_client("opencode", url=_URL)
+
+        assert result.success is False
+        assert "already exists" in result.detail
+        assert (config / "opencode.jsonc").read_text(encoding="utf-8") == original
+
+    def test_no_target_with_a_refused_merge_reports_a_merge_method(
+        self, monkeypatch: pytest.MonkeyPatch, _isolated_home: Path
+    ) -> None:
+        """A button whose only possible outcome is a refusal is a dead end with
+        a polite message — the shape #366 was opened to close. `detect_clients`
+        must report `manual` for a target whose merge is unsupported and whose
+        CLI is absent, so the dialog hides the Add button."""
+        config = _isolated_home / ".config" / "opencode"
+        config.mkdir(parents=True)
+        (config / "opencode.jsonc").write_text("{}", encoding="utf-8")
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: None)
+
+        info = {c.client_id: c for c in onboarding.detect_clients()}["opencode"]
+        assert info.detected is True
+        assert info.install_method == "manual"
+
+    def test_a_non_object_container_is_refused_not_overwritten(
+        self, tmp_path: Path
+    ) -> None:
+        """Silently replacing ``{"mcp": "a string"}`` with an object turns a
+        malformed foreign file into a plausible-looking one — data loss with
+        extra steps. `_container_get` was already defensive; the writer must
+        be too."""
+        for bad in ('"a string"', '["a", "list"]', "3", "null"):
+            path = tmp_path / "opencode.jsonc"
+            path.write_text('{"mcp": %s}' % bad, encoding="utf-8")
+            original = path.read_text(encoding="utf-8")
+
+            with pytest.raises(onboarding._ConfigMergeError):
+                onboarding._merge_into_config(
+                    path,
+                    name="og",
+                    entry={"url": _URL},
+                    container_key="mcp.servers",
+                    syntax="jsonc",
+                    replace_on_parse_error=False,
+                )
+            assert path.read_text(encoding="utf-8") == original
+
     def test_flat_containers_still_work(self, tmp_path: Path) -> None:
         """The dotted support must not have broken the single-level family."""
         path = tmp_path / "mcp.json"
         onboarding._merge_into_config(
-            path, name="og", entry={"url": _URL}, container_key="mcpServers", syntax="json"
+            path, name="og", entry={"url": _URL}, container_key="mcpServers", syntax="json",
+    replace_on_parse_error=False,
         )
         assert json.loads(path.read_text(encoding="utf-8"))["mcpServers"]["og"] == {
             "url": _URL
@@ -716,6 +877,8 @@ class TestStaleRegistration:
             entry={"url": _URL},
             container_key="mcp_servers",
             syntax="toml",
+    replace_on_parse_error=False,
+
         )
 
         assert onboarding.registered_url("codex") == _URL
@@ -738,6 +901,8 @@ class TestStaleRegistration:
             entry=onboarding._opencode_entry(_URL, None),
             container_key="mcp.servers",
             syntax="jsonc",
+    replace_on_parse_error=False,
+
         )
         assert onboarding.registered_url("opencode") == _URL
 
