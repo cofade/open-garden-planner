@@ -10,6 +10,7 @@ the pure service unit tests.
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -352,17 +353,20 @@ class TestRegistryDrivenRows:
             note = dialog._manual_note_for(client.client_id)
             assert note.strip(), f"{client.client_id} has no manual-setup note"
 
-    def test_add_to_opencode_writes_a_jsonc_config(
+    def test_add_to_opencode_without_the_cli_refuses_and_keeps_comments(
         self, qtbot, isolated_clients: Path
     ) -> None:
-        """End-to-end through the dialog into a real file. The fixture stubs
-        `shutil.which` to None, so this exercises the no-CLI JSONC merge path —
-        the one that has to tolerate the user's comments."""
+        """The no-CLI path for a foreign JSONC file REFUSES rather than
+        re-serialising it.
+
+        A merge would have to rewrite the whole document, discarding the user's
+        comments — the same harm the TOML path refuses by rewriting only one
+        table's span, and the same thing §11.4 forbids. The fixture stubs
+        `shutil.which` to None, so this is exactly that case, end to end."""
         config = isolated_clients / ".config" / "opencode"
         config.mkdir(parents=True)
-        (config / "opencode.jsonc").write_text(
-            '{\n  // my own note\n  "theme": "dark"\n}\n', encoding="utf-8"
-        )
+        original = '{\n  // my own note\n  "theme": "dark"\n}\n'
+        (config / "opencode.jsonc").write_text(original, encoding="utf-8")
 
         dialog = ConnectAiAssistantDialog(_URL)
         qtbot.addWidget(dialog)
@@ -372,14 +376,39 @@ class TestRegistryDrivenRows:
         assert btn.isEnabled()
         qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
 
-        text = (config / "opencode.jsonc").read_text(encoding="utf-8")
-        data = json.loads(text)
-        assert data["theme"] == "dark"  # the user's own config survived
-        entry = data["mcp"]["open-garden-planner"]
-        assert entry["type"] == "remote"
-        assert entry["url"] == _URL
-        assert entry["oauth"] is False
-        assert "OpenCode" in dialog._status_label.text()
+        # Refused, honestly, and the file is byte-for-byte untouched.
+        assert "Could not add to OpenCode" in dialog._status_label.text()
+        assert (config / "opencode.jsonc").read_text(encoding="utf-8") == original
+
+    def test_add_to_opencode_with_the_cli_uses_it(
+        self, qtbot, isolated_clients: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """With `opencode` on PATH the CLI is the route, and `--global` is
+        load-bearing: without it the CLI writes the PROJECT config, silently
+        dropping an opencode.json into the user's working directory."""
+        calls: list[list[str]] = []
+
+        def fake_run(args, **_kwargs):  # noqa: ANN001, ANN003
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 0, stdout="added", stderr="")
+
+        monkeypatch.setattr(
+            "open_garden_planner.services.ai_client_onboarding.shutil.which",
+            lambda cmd: "/usr/bin/opencode" if cmd == "opencode" else None,
+        )
+        monkeypatch.setattr(
+            "open_garden_planner.services.ai_client_onboarding.subprocess.run", fake_run
+        )
+
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        group = _group(dialog, "OpenCode")
+        qtbot.mouseClick(_add_button(group, "OpenCode"), Qt.MouseButton.LeftButton)
+
+        assert calls, "the CLI should have been used"
+        assert "--global" in calls[0]
+        assert _URL in calls[0]
 
     def test_add_to_codex_writes_toml_and_keeps_user_comments(
         self, qtbot, isolated_clients: Path

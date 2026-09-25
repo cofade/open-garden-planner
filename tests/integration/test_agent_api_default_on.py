@@ -9,6 +9,7 @@ holds (they fail loudly if the autouse guard regresses).
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -2999,7 +3000,10 @@ def test_open_plan_refusals_leave_the_document_intact(
 
         corrupt = tmp_path / "corrupt.ogp"
         corrupt.write_text("{not json at all", encoding="utf-8")
-        with pytest.raises(Exception):
+        # Narrow, not `Exception`: a broad catch also passes on an unrelated
+        # AttributeError, which is how a "the refusal works" test can be green
+        # for the wrong reason.
+        with pytest.raises((json.JSONDecodeError, ValueError, KeyError, TypeError)):
             win._do_agent_open_plan(str(corrupt), True)
     finally:
         win._stop_agent_api()

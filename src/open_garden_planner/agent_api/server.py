@@ -86,6 +86,7 @@ from open_garden_planner.agent_api.schema import (
     Measurement,
     ObjectDetail,
     ObjectRef,
+    PlanLifecycleResult,
     PlanSummary,
     RenderMeta,
     WriteResult,
@@ -1352,7 +1353,7 @@ def build_server(
             width_cm: float | None = None,
             height_cm: float | None = None,
             force: bool = False,
-        ) -> ExportResult:
+        ) -> PlanLifecycleResult:
             """Discard the open plan and start a fresh, empty one.
 
             Without this an agent can only ever work on whatever plan the user
@@ -1383,10 +1384,10 @@ def build_server(
             result = await anyio.to_thread.run_sync(
                 lambda: providers.new_plan(width_cm, height_cm, force)
             )
-            return ExportResult(**result)
+            return PlanLifecycleResult(**result)
 
         @mcp.tool()
-        async def open_plan(file_path: str, force: bool = False) -> ExportResult:
+        async def open_plan(file_path: str, force: bool = False) -> PlanLifecycleResult:
             """Load an existing ``.ogp`` garden plan from disk.
 
             Closes the round trip: with this, save_plan and new_plan, an agent
@@ -1414,7 +1415,7 @@ def build_server(
             result = await anyio.to_thread.run_sync(
                 lambda: providers.open_plan(file_path, force)
             )
-            return ExportResult(**result)
+            return PlanLifecycleResult(**result)
 
     # --- US-D1.5: resources + read-analysis prompts -------------------------
 

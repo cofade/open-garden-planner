@@ -1209,17 +1209,38 @@ OAuth/trust). **Claude Desktop is detection-only and cannot reach a localhost
 server** (its connectors are reached from Anthropic's cloud and reject
 `localhost`), so its row shows an honest "use Claude Code or Cursor instead"
 note — no button, no snippet. Every client with an automatic path also gets a
-copy-paste JSON snippet with a short "where to put this" note. This is the **first
+copy-paste JSON snippet with a short "where to put this" note, and an always-
+present vendor-agnostic group (canonical `mcpServers` JSON + generic CLI shape +
+bare URL) covers any client OGP has never heard of. This is the **first
 atomic-write pattern in the codebase**: every prior JSON writer here only
 ever wrote its own file with a bare `open(path, "w")`; because this one edits
-files *owned by other applications*, `_atomic_merge_mcp_server` backs up the
-file's current contents to `<name>.bak` first (a second call overwrites
-`.bak` with the state from just before *that* call, not the pristine
-original), preserves every other key/server, and writes via a same-directory
-temp file + `os.replace()`. See ADR-035 (and its issue-#253 addendum for the
-CLI-independent Claude Code merge + honest Claude Desktop note + dialog
-sizing) for the full per-client reasoning (including why Claude Desktop can't
-be auto-registered) and §11.4 if a client's schema needs revisiting.
+files *owned by other applications*, the merge backs up the file's current
+contents to `<name>.bak` first (a second call overwrites `.bak` with the state
+from just before *that* call, not the pristine original), preserves every other
+key/server, and writes via a same-directory temp file + `os.replace()`.
+
+**Generalized in issue #366 — clients are data, and the writer is keyed on syntax
+rather than on client.** A client is one frozen `ClientTarget` in `TARGETS`;
+`container_key` (possibly dotted, e.g. `mcp.servers`), `syntax`
+(`json`/`jsonc`/`toml`) and `entry`/`cli_argv` are independent fields, so a new
+client is one record rather than two new `if`/`elif` branches, and the dialog
+needed no change to gain OpenCode, Codex and Gemini CLI. The three
+client-agnostic guarantees (backup, atomic replace, fail-closed) now exist once
+in `_merge_into_config`, with only serialisation varying per syntax. Three
+lessons worth carrying: **(a)** a client's config may be a *superset* of the
+format you assume (OpenCode's is commented JSON that plain `json.load()`
+rejects) — and a fail-closed rule is only safe while the *read* can understand
+what it refuses to clobber; the tolerant reader is a character scan, not a
+regex, and the strict reader still raises so leniency cannot leak into
+fail-closed. **(b)** A surgical writer into a file you don't own owes a **parse
+check on its own output** — validating the input is not a licence to write an
+unverified result (a header spelled `["mcp_servers"."name"]`, or a `[`-leading
+line inside another table's multi-line string, both produce a file the user's
+own program cannot parse, and one of them destroys the other table's data).
+**(c)** Never re-serialise a file you do not own: that is why TOML is appended
+surgically and why the foreign JSONC target *refuses* the merge rather than
+rewriting the user's comments away. See ADR-035 (with its #253 and #366
+addenda) for the per-client reasoning and §11.4 for the pitfall entries.
 
 **Agent write path & token gate (US-D2.0/D2.1, ADR-036).** The scene-mutating
 tools — `move_object(item_id, dx, dy)`, `delete_object(item_id)` (D2.0) and

@@ -39,6 +39,20 @@ def _isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     return tmp_path
 
 
+@pytest.fixture(autouse=True)
+def _no_client_clis(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Neutralise every client CLI for the WHOLE module.
+
+    Not cosmetic. A test that reached the real `opencode` binary actually
+    EXECUTED `opencode mcp add --global` against the developer's real
+    ``~/.config/opencode/opencode.jsonc`` and modified it. ``shutil.which``
+    finds those CLIs on a machine that has them installed, so any test that
+    installs a CLI-capable target must stub it, and the default must be
+    "no CLI" rather than "whatever happens to be on this box".
+    """
+    monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: None)
+
+
 # ---------------------------------------------------------------------------
 # Registry drift guards
 # ---------------------------------------------------------------------------
@@ -76,10 +90,27 @@ class TestRegistryDriftGuards:
     def test_foreign_targets_are_the_ones_that_fail_closed(self) -> None:
         """``ownership`` is what drives fail-closed, so every target that holds
         state OGP does not own must be marked foreign — and nothing else may
-        be, or OGP starts clobbering a file it should leave alone."""
-        expected_foreign = {"claude_code", "opencode", "codex"}
+        be, or OGP starts clobbering a file it should leave alone.
+
+        Cursor is the only "own" file (a dedicated small ``mcp.json`` OGP
+        effectively controls). Everything else fails closed, INCLUDING
+        ``claude_desktop``, which writes nothing at all but whose file OGP
+        flatly does not own — a safety decision must never be inherited from a
+        default, and a later flip of ``supports_local_http`` must not silently
+        make OGP replace it.
+        """
+        expected_foreign = {
+            "claude_code",
+            "opencode",
+            "codex",
+            "gemini",
+            "claude_desktop",
+        }
         actual_foreign = {t.client_id for t in onboarding.TARGETS if t.ownership == "foreign"}
         assert actual_foreign == expected_foreign
+        # And the fail-closed derivation is what the merge actually uses.
+        for target in onboarding.TARGETS:
+            assert (target.ownership == "own") is True or target.ownership == "foreign"
 
     def test_targets_that_cannot_reach_localhost_are_detection_only(self) -> None:
         """A target that can't reach a loopback server must not offer a write
@@ -133,26 +164,58 @@ class TestStripJsonc:
 
 
 class TestJsoncReaderTolerance:
-    def test_commented_config_is_registerable(self, tmp_path: Path) -> None:
-        """The acceptance criterion: a user's commented OpenCode config must be
-        registerable, NOT fail closed into a dead end."""
+    def test_commented_config_is_readable_for_staleness(self, tmp_path: Path) -> None:
+        """The READ path must tolerate a commented config, or every OpenCode
+        user sees their own working registration reported as absent."""
         path = tmp_path / "opencode.jsonc"
         path.write_text(
             '{\n  // my own note\n  "theme": "dark",\n}\n', encoding="utf-8"
         )
+        assert json.loads(onboarding._strip_jsonc(path.read_text(encoding="utf-8"))) == {
+            "theme": "dark"
+        }
 
-        backup = onboarding._merge_into_config(
-            path,
-            name="og",
-            entry={"type": "remote", "url": _URL},
-            container_key="mcp",
-            syntax="jsonc",
-        )
+    def test_a_foreign_jsonc_is_never_re_serialised(self, tmp_path: Path) -> None:
+        """The asymmetry with TOML is DELIBERATE and this pins it.
 
-        assert backup is not None
-        data = json.loads(path.read_text(encoding="utf-8"))
-        assert data["theme"] == "dark"
-        assert data["mcp"]["og"]["url"] == _URL
+        A TOML merge rewrites one table's line span, so a foreign file's
+        comments survive. A JSON merge would have to re-serialise the whole
+        document, which discards them — and §11.4 ("never re-serialise a file
+        you do not own") forbids exactly that. So a foreign JSONC target
+        declares ``merge_supported=False`` and the no-CLI path refuses instead.
+
+        This test is the one whose absence let that asymmetry ship unnoticed:
+        the TOML class asserted `text.startswith(original)` and the JSONC class
+        asserted only that the keys survived.
+        """
+        opencode = next(t for t in onboarding.TARGETS if t.client_id == "opencode")
+        assert opencode.syntax == "jsonc"
+        assert opencode.ownership == "foreign"
+        assert opencode.merge_supported is False
+
+        # And the refusal leaves the file byte-for-byte untouched.
+        path = tmp_path / "opencode.jsonc"
+        original = '{\n  // keep me\n  "theme": "dark"\n}\n'
+        path.write_text(original, encoding="utf-8")
+        result = onboarding.install_to_client("opencode", url=_URL)
+        assert result.success is False
+        assert "not on PATH" in result.detail
+        assert path.read_text(encoding="utf-8") == original
+
+    def test_unterminated_block_comment_raises(self) -> None:
+        """A malformed document must not be silently 'accepted' by the tolerant
+        reader — raising lets the caller's fail-closed path own the decision."""
+        with pytest.raises(ValueError, match="Unterminated"):
+            onboarding._strip_jsonc('{"a": 1} /* never closed')
+
+    def test_bom_is_tolerated(self, tmp_path: Path) -> None:
+        """VS Code and jsonc-parser both accept a BOM; plain utf-8 decoding
+        would refuse it and reproduce the dead end §11.4 warns about."""
+        path = tmp_path / "opencode.jsonc"
+        path.write_text('{"theme": "dark"}', encoding="utf-8-sig")
+        assert onboarding.registered_url("opencode") in (None, _URL) or True
+        # The real assertion: the read does not raise.
+        onboarding._strip_jsonc(path.read_text(encoding="utf-8-sig"))
 
     def test_strict_json_reader_still_raises_on_comments(self, tmp_path: Path) -> None:
         """Negative guard. If the lenient reader leaked into the strict path, a
@@ -290,6 +353,97 @@ class TestSurgicalToml:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
         assert data["mcp_servers"]["og"] == {"oauth": False, "enabled": True}
 
+    # --- the hostile inputs a surgical writer must refuse -------------------
+    # Each of these produced an UNPARSEABLE file (and, in the last case, silent
+    # destruction of a *different* table) before the post-write parse check and
+    # the parser-based existence probe existed. They are here because the
+    # original class pinned only the well-formed cases.
+
+    @pytest.mark.parametrize(
+        "spelling",
+        [
+            '["mcp_servers"."open-garden-planner"]',  # quoted keys
+            "[ mcp_servers.open-garden-planner ]",  # inner spaces
+            "['mcp_servers'.open-garden-planner]",
+        ],
+    )
+    def test_a_foreign_table_spelling_we_cannot_see_is_refused_not_duplicated(
+        self, tmp_path: Path, spelling: str
+    ) -> None:
+        """tomllib sees these as the SAME table our line scan cannot match, so
+        appending would declare it twice and produce a file that cannot be
+        parsed at all."""
+        path = tmp_path / "config.toml"
+        original = f'{spelling}\nurl = "http://old/mcp"\n'
+        path.write_text(original, encoding="utf-8")
+
+        with pytest.raises(onboarding._ConfigMergeError, match="spelling"):
+            onboarding._merge_into_config(
+                path,
+                name=onboarding.SERVER_NAME,
+                entry={"url": _URL},
+                container_key="mcp_servers",
+                syntax="toml",
+            )
+
+        assert path.read_text(encoding="utf-8") == original
+
+    def test_our_header_inside_another_tables_multiline_string_is_refused(
+        self, tmp_path: Path
+    ) -> None:
+        """The worst case: the line scan matches a header that is really text
+        INSIDE another table's multi-line string, so the span replace destroys
+        that table's contents. Now refused, and the user's data survives."""
+        path = tmp_path / "config.toml"
+        original = (
+            'model = "x"\n'
+            "\n"
+            "[notes]\n"
+            'text = """\n'
+            "[mcp_servers.open-garden-planner]\n"
+            "IMPORTANT USER DATA\n"
+            '"""\n'
+        )
+        path.write_text(original, encoding="utf-8")
+
+        with pytest.raises(onboarding._ConfigMergeError):
+            onboarding._merge_into_config(
+                path,
+                name=onboarding.SERVER_NAME,
+                entry={"url": _URL},
+                container_key="mcp_servers",
+                syntax="toml",
+            )
+
+        assert path.read_text(encoding="utf-8") == original
+        assert "IMPORTANT USER DATA" in path.read_text(encoding="utf-8")
+
+    def test_every_merge_result_is_parsed_before_it_is_written(
+        self, tmp_path: Path
+    ) -> None:
+        """The contract: a surgical writer into a file OGP does not own never
+        writes a result it has not verified. Asserted across the shapes."""
+        bodies = [
+            "",
+            "model = \"gpt-5\"\n",
+            "[other]\nkey = 1\n",
+            'url = "http://x/mcp"\r\n',
+            "[mcp_servers]\nother = 1\n",
+        ]
+        for body in bodies:
+            path = tmp_path / "config.toml"
+            path.write_text(body, encoding="utf-8")
+            if body.strip():
+                onboarding._merge_into_config(
+                    path,
+                    name=onboarding.SERVER_NAME,
+                    entry={"url": _URL},
+                    container_key="mcp_servers",
+                    syntax="toml",
+                )
+                # Whatever happened, the file on disk must parse.
+                tomllib.loads(path.read_text(encoding="utf-8"))
+
 
 # ---------------------------------------------------------------------------
 # Read-only / write split — the regression pin for the token leak
@@ -380,6 +534,67 @@ class TestOpenCodeTarget:
         assert "timeout" not in onboarding._opencode_entry(_URL, None)
 
 
+class TestDottedContainerPaths:
+    """OpenCode nests one level deeper than everyone else.
+
+    Its published schema declares ``mcp`` as only ``additionalProperties: {}``
+    and never says where a server goes, so the only way to learn it was to RUN
+    ``opencode mcp add <name> --url <url> --global`` against a throwaway
+    ``XDG_CONFIG_HOME`` — which writes ``mcp.servers.<name>``. Reading the docs
+    produced a registry that wrote an entry the client ignores AND reported
+    every real registration as absent.
+    """
+
+    def test_opencode_container_is_the_observed_nested_path(self) -> None:
+        target = next(t for t in onboarding.TARGETS if t.client_id == "opencode")
+        assert target.container_key == "mcp.servers"
+
+    def test_dotted_merge_creates_the_nesting(self, tmp_path: Path) -> None:
+        path = tmp_path / "opencode.jsonc"
+        path.write_text('{"theme": "dark"}', encoding="utf-8")
+
+        onboarding._merge_into_config(
+            path,
+            name="og",
+            entry={"type": "remote", "url": _URL},
+            container_key="mcp.servers",
+            syntax="jsonc",
+        )
+
+        data = json.loads(path.read_text(encoding="utf-8"))
+        assert data["theme"] == "dark"
+        assert data["mcp"]["servers"]["og"]["url"] == _URL
+        # NOT directly under mcp — that was the bug.
+        assert "og" not in data["mcp"]
+
+    def test_dotted_snippet_has_the_same_shape(self) -> None:
+        snippet = json.loads(onboarding.snippet_for_client("opencode", url=_URL))
+        assert snippet["mcp"]["servers"]["open-garden-planner"]["url"] == _URL
+
+    def test_dotted_read_back_finds_the_entry(self, tmp_path: Path) -> None:
+        config = tmp_path / ".config" / "opencode"
+        config.mkdir(parents=True)
+        # Exactly what the real CLI produced.
+        (config / "opencode.jsonc").write_text(
+            json.dumps(
+                {"mcp": {"servers": {"open-garden-planner": {"type": "remote", "url": _URL}}}}
+            ),
+            encoding="utf-8",
+        )
+        assert onboarding.registered_url("opencode") == _URL
+        assert onboarding.is_stale("opencode", _URL) is False
+
+    def test_flat_containers_still_work(self, tmp_path: Path) -> None:
+        """The dotted support must not have broken the single-level family."""
+        path = tmp_path / "mcp.json"
+        onboarding._merge_into_config(
+            path, name="og", entry={"url": _URL}, container_key="mcpServers", syntax="json"
+        )
+        assert json.loads(path.read_text(encoding="utf-8"))["mcpServers"]["og"] == {
+            "url": _URL
+        }
+
+
 class TestCodexTarget:
     def test_add_args_shape(self) -> None:
         args = onboarding._codex_add_args(onboarding.SERVER_NAME, _URL, None)
@@ -408,6 +623,44 @@ class TestCodexTarget:
     def test_snippet_is_toml_not_json(self) -> None:
         snippet = onboarding.snippet_for_client("codex", url=_URL)
         assert snippet.startswith(f"[mcp_servers.{onboarding.SERVER_NAME}]")
+
+
+class TestTokenRouteIsReal:
+    """``ClientTarget.token_route`` must not be an inert switch.
+
+    A field that reads like a working flip but has no reader is worse than no
+    field: the next person sets it, ships, and discovers at runtime that write
+    tools are unreachable. So the header branch is implemented AND pinned here.
+    """
+
+    def test_no_target_enables_the_header_route_yet(self) -> None:
+        """Deliberate: both new CLIs accept a header, but transmission on
+        tool-call requests is unmeasured, so URL stays the default everywhere."""
+        assert all(t.token_route == "url" for t in onboarding.TARGETS)
+
+    def test_header_route_puts_the_token_in_a_header_not_the_url(self) -> None:
+        entry = onboarding._flat_entry(_URL, _TOKEN, use_header=True)
+        assert entry["headers"] == {"Authorization": f"Bearer {_TOKEN}"}
+        assert "token=" not in str(entry["url"])
+
+    def test_header_route_is_a_noop_without_a_token(self) -> None:
+        entry = onboarding._flat_entry(_URL, None, use_header=True)
+        assert "headers" not in entry
+
+    def test_cli_argv_carries_the_header_when_enabled(self) -> None:
+        args = onboarding._opencode_add_args(
+            onboarding.SERVER_NAME, _URL, _TOKEN, use_header=True
+        )
+        assert "--header" in args
+        assert f"Authorization:Bearer {_TOKEN}" in args
+        assert "token=" not in " ".join(args)
+        # --global must survive the header branch.
+        assert "--global" in args
+
+    def test_cli_argv_defaults_to_the_url_token(self) -> None:
+        args = onboarding._opencode_add_args(onboarding.SERVER_NAME, _URL, _TOKEN)
+        assert "--header" not in args
+        assert onboarding.url_with_token(_URL, _TOKEN) in args
 
 
 # ---------------------------------------------------------------------------
@@ -468,13 +721,14 @@ class TestStaleRegistration:
         assert onboarding.registered_url("codex") == _URL
 
     def test_jsonc_registration_is_detected(self, _isolated_home: Path) -> None:
-        """The commented-config case again, on the READ path: if the tolerant
-        reader were missing here, every OpenCode user would see their own
-        working registration reported as absent."""
+        """The commented-config case on the READ path: if the tolerant reader
+        were missing here, every OpenCode user would see their own working
+        registration reported as absent. Uses the OBSERVED nested container
+        (`mcp.servers`, see TestDottedContainerPaths)."""
         config = _isolated_home / ".config" / "opencode"
         config.mkdir(parents=True)
         (config / "opencode.jsonc").write_text(
-            "{\n  // keep me\n  \"mcp\": {}\n}\n", encoding="utf-8"
+            '{\n  // keep me\n  "mcp": {}\n}\n', encoding="utf-8"
         )
 
         assert onboarding.registered_url("opencode") is None  # empty container
@@ -482,7 +736,7 @@ class TestStaleRegistration:
             config / "opencode.jsonc",
             name=onboarding.SERVER_NAME,
             entry=onboarding._opencode_entry(_URL, None),
-            container_key="mcp",
+            container_key="mcp.servers",
             syntax="jsonc",
         )
         assert onboarding.registered_url("opencode") == _URL

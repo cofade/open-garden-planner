@@ -167,7 +167,7 @@ class TestDetectClients:
         clients = {c.client_id: c for c in onboarding.detect_clients()}
 
         assert clients["cursor"].detected is True
-        assert clients["cursor"].install_method == "json_merge"
+        assert clients["cursor"].install_method == "merge"
         assert clients["cursor"].config_path == tmp_path / ".cursor" / "mcp.json"
 
     def test_cursor_not_detected_without_dir(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -198,7 +198,7 @@ class TestDetectClients:
         assert clients["claude_code"].detected is True
         # Without the CLI we register by a direct ~/.claude.json merge, so the
         # one-click path is still available (issue #253) — not "manual".
-        assert clients["claude_code"].install_method == "json_merge"
+        assert clients["claude_code"].install_method == "merge"
 
     def test_claude_code_not_detected_without_cli_or_config(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

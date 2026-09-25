@@ -92,7 +92,11 @@ logger = logging.getLogger(__name__)
 #: error and still raises (see :func:`install_to_client`).
 ClientId = str
 
-InstallMethod = Literal["json_merge", "cli", "manual"]
+#: How a client gets registered. "merge" is syntax-neutral on purpose — the
+#: name used to be "json_merge", which was already a lie for the TOML and JSONC
+#: targets and welded the syntax axis back onto a field whose whole point is
+#: that syntax is separate (issue #366).
+InstallMethod = Literal["merge", "cli", "manual"]
 Syntax = Literal["json", "jsonc", "toml"]
 Ownership = Literal["own", "foreign"]
 
@@ -101,17 +105,19 @@ Ownership = Literal["own", "foreign"]
 #: "tool/resource descriptions are English" precedent) — never translated.
 SERVER_NAME = "open-garden-planner"
 
-#: How a target carries the write token when it is configured. ``"url"`` puts
-#: it in a ``?token=`` query param; ``"header"`` sends it as an HTTP header.
+#: How a target carries the write token when it is configured.
 #:
 #: Default is ``"url"`` for every target, including the two whose CLIs accept
 #: ``--header``: a header is the better home for a secret, but *documented*
 #: support is not evidence that a client transmits it on streamable-HTTP
 #: **tool-call** requests — the exact failure Claude Code has open upstream
 #: (anthropics/claude-code#50464 / #28293). Shipping the header as the default
-#: before that is measured would make write tools silently unreachable. The
-#: header form is implemented and unit-tested; flipping a target's default is a
-#: one-field data change once the live dogfood run confirms transmission.
+#: before that is measured would make write tools silently unreachable.
+#:
+#: The header route is genuinely implemented (it puts the token in the entry's
+#: ``headers`` map, or in the CLI's ``--header`` argv) and unit-tested; what is
+#: deliberately NOT done is *enabling* it for any target. Flipping one is a
+#: single-field data change once the live dogfood run confirms transmission.
 TokenRoute = Literal["url", "header"]
 
 #: Header name used by the ``header`` token route.
@@ -202,22 +208,36 @@ class ClientTarget:
     container_key: str
     #: Serialisation strategy for the config file.
     syntax: Syntax
-    #: Builds the server entry. ``(url, token) -> dict``. ``token`` is ``None``
-    #: for a read-only registration.
-    entry: Callable[[str, str | None], dict[str, object]]
-    #: CLI executable name, when the client ships a documented ``mcp add``.
-    cli_name: str | None = None
-    #: Argv (after the executable) for an ``mcp add``. Omitted means the direct
-    #: merge is the only path.
-    cli_argv: Callable[[str, str | None], tuple[str, ...]] | None = None
-    #: Argv for a remove, used to self-heal an existing entry. Codex and
-    #: OpenCode have no ``mcp remove``, so they fall back to the merge.
-    cli_remove_argv: Callable[[str], tuple[str, ...]] | None = None
+    #: Builds the server entry. ``(url, token, use_header) -> dict``. ``token``
+    #: is ``None`` for a read-only registration.
+    entry: Callable[[str, str | None, bool], dict[str, object]]
     #: ``"own"`` = a file OGP effectively owns (a parse error may be recovered
     #: by replacing); ``"foreign"`` = a file holding state OGP does not own
     #: (OAuth / projects / trust / the user's own comments), which must be left
     #: untouched if it cannot be parsed.
-    ownership: Ownership = "own"
+    #:
+    #: REQUIRED, with no default: a safety decision must never be inherited
+    #: silently. The issue's own design sketch made it mandatory and it should
+    #: stay that way — defaulting it to ``"own"`` is how the Claude Desktop
+    #: record came to declare a file OGP flatly does not own as replaceable.
+    ownership: Ownership
+    #: CLI executable name, when the client ships a documented ``mcp add``.
+    cli_name: str | None = None
+    #: Argv (after the executable) for an ``mcp add``. Omitted means the direct
+    #: merge is the only path.
+    cli_argv: Callable[[str, str | None, bool], tuple[str, ...]] | None = None
+    #: Argv for a remove, used to self-heal an existing entry. A client with no
+    #: documented remove (OpenCode) falls back to the merge instead, which
+    #: replaces the entry wholesale and is therefore also an update.
+    cli_remove_argv: Callable[[str], tuple[str, ...]] | None = None
+    #: Whether a DIRECT MERGE can register this client without rewriting the
+    #: whole file. False for a ``jsonc`` foreign file: a merge would have to
+    #: re-serialise, and re-serialising a file you do not own discards the
+    #: user's own comments — which is exactly what the TOML path refuses to do
+    #: and what §11.4 forbids. Refusing is the honest answer for the no-CLI
+    #: case, and it has precedent in this very module: Claude Desktop is
+    #: detection-only because it genuinely cannot be registered.
+    merge_supported: bool = True
     #: ``False`` for a client that cannot reach a local HTTP server at all —
     #: detection only, never written (Claude Desktop, issue #253).
     supports_local_http: bool = True
@@ -231,21 +251,51 @@ class ClientTarget:
 # --- per-client entry builders ------------------------------------------------
 
 
-def _flat_entry(url: str, token: str | None) -> dict[str, object]:
+def _token_url(url: str, token: str | None, use_header: bool) -> str:
+    """The URL as it should be written for this token route.
+
+    The whole POINT of the header route is that the secret leaves the URL, so
+    this must return the READ-ONLY url when the token is riding a header —
+    otherwise the token is in BOTH places and the route buys nothing.
+    """
+    if use_header and token:
+        return read_only_url(url)
+    return url_with_token(url, token)
+
+
+def _flat_entry(url: str, token: str | None, use_header: bool = False) -> dict[str, object]:
     """The common ``{"url": ...}`` shape (Cursor, Gemini, Codex)."""
-    return {"url": url_with_token(url, token)}
+    entry: dict[str, object] = {"url": _token_url(url, token, use_header)}
+    if use_header and token:
+        entry["headers"] = {AUTH_HEADER: f"Bearer {token}"}
+    return entry
 
 
-def _claude_code_entry(url: str, token: str | None) -> dict[str, object]:
+def _claude_code_entry(
+    url: str, token: str | None, use_header: bool = False
+) -> dict[str, object]:
     """Claude Code / VS Code extension entry for ``~/.claude.json``.
     ``type: "http"`` is REQUIRED — without it the entry is not recognised as an
     HTTP server and is silently ignored (a ``url``-only entry doesn't match the
-    stdio-*command* shape either, so it simply never connects)."""
-    return {"type": "http", "url": url_with_token(url, token)}
+    stdio-*command* shape either, so it simply never connects).
+
+    ``use_header`` is never enabled for this target: Claude Code stores a
+    configured header but does not send it on tool-call requests, so the URL is
+    the only route that works. The parameter exists so the contract is uniform.
+    """
+    entry: dict[str, object] = {
+        "type": "http",
+        "url": _token_url(url, token, use_header),
+    }
+    if use_header and token:
+        entry["headers"] = {AUTH_HEADER: f"Bearer {token}"}
+    return entry
 
 
-def _opencode_entry(url: str, token: str | None) -> dict[str, object]:
-    """OpenCode's ``mcp.<name>`` entry.
+def _opencode_entry(
+    url: str, token: str | None, use_header: bool = False
+) -> dict[str, object]:
+    """OpenCode's ``mcp.servers.<name>`` entry.
 
     ``type: "remote"`` and ``url`` are both required by OpenCode's published
     schema. ``oauth: false`` disables its OAuth auto-detection, which is at
@@ -257,17 +307,21 @@ def _opencode_entry(url: str, token: str | None) -> dict[str, object]:
     """
     entry: dict[str, object] = {
         "type": "remote",
-        "url": url_with_token(url, token),
+        "url": _token_url(url, token, use_header),
         "oauth": False,
         "enabled": True,
     }
+    if use_header and token:
+        entry["headers"] = {AUTH_HEADER: f"Bearer {token}"}
     return entry
 
 
 # --- per-client CLI argv builders ---------------------------------------------
 
 
-def _claude_code_add_args(name: str, url: str, token: str | None) -> tuple[str, ...]:
+def _claude_code_add_args(
+    name: str, url: str, token: str | None, use_header: bool = False
+) -> tuple[str, ...]:
     """Args for ``claude mcp add``.
 
     Claude Code stores a configured ``--header`` but does not send it on
@@ -277,22 +331,25 @@ def _claude_code_add_args(name: str, url: str, token: str | None) -> tuple[str, 
     ``url_with_token`` — no ``--header``, which also removes the variadic-
     ordering footgun the old header form carried.
     """
-    return (
-        "add",
-        "--transport",
-        "http",
-        "--scope",
-        "user",
-        name,
-        url_with_token(url, token),
-    )
+    args = ["add", "--transport", "http", "--scope", "user", name]
+    args += _header_args(url, token, use_header)
+    return tuple(args)
+
+
+def _header_args(url: str, token: str | None, use_header: bool) -> list[str]:
+    """Either the token in the URL, or as a ``--header`` pair — never both."""
+    if use_header and token:
+        return [read_only_url(url), "--header", f"{AUTH_HEADER}:Bearer {token}"]
+    return [url_with_token(url, token)]
 
 
 def _claude_code_remove_args(name: str) -> tuple[str, ...]:
     return ("remove", name, "--scope", "user")
 
 
-def _opencode_add_args(name: str, url: str, token: str | None) -> tuple[str, ...]:
+def _opencode_add_args(
+    name: str, url: str, token: str | None, use_header: bool = False
+) -> tuple[str, ...]:
     """Args for ``opencode mcp add``.
 
     ``--global`` is LOAD-BEARING: without it the CLI writes the *project*
@@ -300,12 +357,19 @@ def _opencode_add_args(name: str, url: str, token: str | None) -> tuple[str, ...
     "Add to OpenCode" from a random working directory would silently get a
     config file dropped into their project.
     """
-    return ("mcp", "add", name, "--url", url_with_token(url, token), "--global")
+    args = ["mcp", "add", name, "--url"]
+    args += _header_args(url, token, use_header)
+    args.append("--global")
+    return tuple(args)
 
 
-def _codex_add_args(name: str, url: str, token: str | None) -> tuple[str, ...]:
+def _codex_add_args(
+    name: str, url: str, token: str | None, use_header: bool = False
+) -> tuple[str, ...]:
     """Args for ``codex mcp add`` (streamable HTTP)."""
-    return ("mcp", "add", name, "--url", url_with_token(url, token))
+    args = ["mcp", "add", name, "--url"]
+    args += _header_args(url, token, use_header)
+    return tuple(args)
 
 
 def _codex_remove_args(name: str) -> tuple[str, ...]:
@@ -336,7 +400,9 @@ TARGETS: tuple[ClientTarget, ...] = (
         syntax="json",
         entry=_claude_code_entry,
         cli_name="claude",
-        cli_argv=lambda name, url, token: ("mcp",) + _claude_code_add_args(name, url, token),
+        cli_argv=lambda name, url, token, use_header=False: (
+            "mcp",
+        ) + _claude_code_add_args(name, url, token, use_header),
         cli_remove_argv=_claude_code_remove_args,
         ownership="foreign",
         requires_restart=True,
@@ -344,17 +410,29 @@ TARGETS: tuple[ClientTarget, ...] = (
     ClientTarget(
         client_id="opencode",
         display_name="OpenCode",
-        # Detected by its own config file: the CLI is optional, and the
-        # no-CLI merge path is a real supported route.
+        # Detected by its own config file or its CLI on PATH.
         detect_installed=lambda: _opencode_config_path().exists()
         or shutil.which("opencode") is not None,
         config_path=_opencode_config_path,
-        container_key="mcp",
+        # NESTED, and known only by OBSERVATION: running
+        # `opencode mcp add <name> --url <url> --global` writes
+        # `mcp.servers.<name>`, not `mcp.<name>`. OpenCode's published schema
+        # does not say so — the `mcp` property is only
+        # `additionalProperties: {}` — so reading this from the docs would have
+        # produced a registry that writes an entry the client ignores and
+        # reports every real registration as absent. See the DottedContainer
+        # tests.
+        container_key="mcp.servers",
         syntax="jsonc",
         entry=_opencode_entry,
         cli_name="opencode",
         cli_argv=_opencode_add_args,
         ownership="foreign",
+        # A merge here would re-serialise a JSONC file, discarding the user's
+        # own comments. The CLI (`opencode mcp add --global`, verified by
+        # running it) is the supported route; without it, the manual snippet
+        # is offered rather than silently rewriting their config.
+        merge_supported=False,
         requires_restart=True,
     ),
     ClientTarget(
@@ -380,7 +458,11 @@ TARGETS: tuple[ClientTarget, ...] = (
         container_key="mcpServers",
         syntax="json",
         entry=_flat_entry,
-        ownership="own",
+        # NOT "own". A dedicated mcp_config.json is a small file, but it is
+        # still the user's configuration, and this shape was read off a local
+        # filesystem rather than verified against Gemini's current docs — so it
+        # fails closed, the safe default for anything unverified.
+        ownership="foreign",
     ),
     ClientTarget(
         client_id="claude_desktop",
@@ -392,6 +474,10 @@ TARGETS: tuple[ClientTarget, ...] = (
         syntax="json",
         entry=_flat_entry,
         # Cannot reach a local server at all — detection only, never written.
+        # `foreign` is stated even though nothing is ever written, so flipping
+        # `supports_local_http` can never silently make OGP replace a file it
+        # does not own.
+        ownership="foreign",
         supports_local_http=False,
     ),
 )
@@ -494,8 +580,19 @@ def _strip_jsonc(text: str) -> str:
             continue
         if ch == "/" and i + 1 < n and text[i + 1] == "*":
             i += 2
-            while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"):
+            closed = False
+            while i + 1 < n:
+                if text[i] == "*" and text[i + 1] == "/":
+                    closed = True
+                    break
                 i += 1
+            if not closed:
+                # An unterminated block comment means the rest of the file is
+                # comment. Swallowing it silently would let the tolerant reader
+                # "accept" a malformed document; raise so the caller's
+                # fail-closed path owns the decision (and so a BOM/comment bug
+                # here can never quietly eat a user's server entry).
+                raise ValueError("Unterminated /* comment in JSONC input")
             i += 2
             continue
         out.append(ch)
@@ -586,6 +683,47 @@ def _toml_table_span(lines: list[str], table_header: str) -> tuple[int, int] | N
     return (start, end)
 
 
+def _container_get(data: dict[str, object], container_key: str) -> object:
+    """Read a possibly-DOTTED container path, e.g. ``mcp.servers``.
+
+    OpenCode nests one level deeper than the rest: running
+    ``opencode mcp add --global`` writes ``mcp.servers.<name>``, and its
+    published schema does not say so (the ``mcp`` property is only
+    ``additionalProperties: {}``), so this shape is known by OBSERVATION.
+    """
+    node: object = data
+    for part in container_key.split("."):
+        if not isinstance(node, dict):
+            return None
+        node = node.get(part)
+    return node
+
+
+def _container_set(data: dict[str, object], container_key: str, name: str, entry: dict) -> None:
+    """Create the container path if needed and set ``<path>.<name> = entry``."""
+    parts = container_key.split(".")
+    node = data
+    for part in parts[:-1]:
+        child = node.get(part)
+        if not isinstance(child, dict):
+            child = {}
+            node[part] = child
+        node = child
+    leaf = parts[-1]
+    servers = node.get(leaf)
+    if not isinstance(servers, dict):
+        servers = {}
+    servers[name] = entry
+    node[leaf] = servers
+
+
+def _nested_dict(container_key: str, name: str, entry: dict) -> dict:
+    """Build ``{"mcp": {"servers": {name: entry}}}``-shaped data for a snippet."""
+    out: dict = {}
+    _container_set(out, container_key, name, entry)
+    return out
+
+
 def _merge_json_like(
     path: Path,
     *,
@@ -609,7 +747,7 @@ def _merge_json_like(
         backup_path = path.with_name(path.name + ".bak")
         shutil.copy2(path, backup_path)
         try:
-            text = path.read_text(encoding="utf-8")
+            text = path.read_text(encoding="utf-8-sig")
             loaded = json.loads(_strip_jsonc(text) if tolerant else text)
         except (json.JSONDecodeError, OSError, UnicodeDecodeError) as exc:
             if not replace_on_parse_error:
@@ -625,14 +763,29 @@ def _merge_json_like(
         else:
             logger.warning("%s does not contain a JSON object; replacing it", path)
 
-    servers = data.get(container_key)
+    servers = _container_get(data, container_key)
     if not isinstance(servers, dict):
         servers = {}
     servers[name] = entry
-    data[container_key] = servers
+    _container_set(data, container_key, name, entry)
 
     _atomic_write(path, json.dumps(data, indent=2) + "\n")
     return backup_path
+
+
+def _toml_has_table(text: str, container_key: str, name: str) -> bool:
+    """Whether ``text`` already defines ``[container_key.name]``, per the PARSER.
+
+    Used to catch a spelling the textual line scan cannot see (quoted keys,
+    inner spaces). Returns False on a parse error, because the caller has
+    already validated the document at that point.
+    """
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError:
+        return False
+    container = data.get(container_key)
+    return isinstance(container, dict) and name in container
 
 
 def _merge_toml(
@@ -659,7 +812,7 @@ def _merge_toml(
         backup_path = path.with_name(path.name + ".bak")
         shutil.copy2(path, backup_path)
         try:
-            original = path.read_text(encoding="utf-8")
+            original = path.read_text(encoding="utf-8-sig")
             tomllib.loads(original)
         except (tomllib.TOMLDecodeError, OSError, UnicodeDecodeError) as exc:
             if not replace_on_parse_error:
@@ -672,6 +825,19 @@ def _merge_toml(
     header = f"[{container_key}.{name}]"
     lines = original.splitlines(keepends=True)
     span = _toml_table_span(lines, header)
+
+    # The line scan is textual, TOML is not: `["mcp_servers"."name"]` and
+    # `[ mcp_servers.name ]` are the SAME table to tomllib but invisible to
+    # `line.strip() == header`. Apending in that case would declare the table
+    # twice and produce a file that cannot be parsed at all — so detect it via
+    # the parser and refuse, naming the spelling we actually found.
+    if span is None and _toml_has_table(original, container_key, name):
+        raise _ConfigMergeError(
+            f"{path} already has a [{container_key}.{name}] table written in a "
+            f"spelling this merge does not recognise; left untouched. Remove it "
+            f"by hand, or install this client with its own CLI."
+        )
+
     rendered = _toml_render_table(container_key, name, entry)
 
     if span is None:
@@ -686,6 +852,20 @@ def _merge_toml(
         head = "".join(lines[:start])
         tail = "".join(lines[end:])
         new_text = head + rendered + tail
+
+    # A surgical writer OWES a parse check. The span arithmetic can be wrong
+    # (a `[`-leading line inside a multi-line string truncates the span early,
+    # and a header textually present inside ANOTHER table's multi-line string
+    # makes the scan match the wrong span and destroy that table's contents).
+    # Both produce a file the user's other program cannot parse, and this is a
+    # file OGP does not own — so never write an unverified result. See §11.4.
+    try:
+        tomllib.loads(new_text)
+    except tomllib.TOMLDecodeError as exc:
+        raise _ConfigMergeError(
+            f"Merging into {path} would produce invalid TOML ({exc}); left "
+            f"untouched. Install this client with its own CLI instead."
+        ) from exc
 
     _atomic_write(path, new_text)
     return backup_path
@@ -753,10 +933,13 @@ def _atomic_merge_mcp_server(
     entry: dict[str, object],
     replace_on_parse_error: bool = True,
 ) -> Path | None:
-    """Backwards-compatible JSON-only wrapper (kept for existing callers/tests).
-
-    The real entry point is :func:`_merge_into_config`, which routes on the
-    target's ``syntax`` and derives fail-closed from its ``ownership``.
+    """LEGACY JSON-only shim, kept for the pre-#366 unit tests. No production
+    caller: ``install_to_client`` routes every target through
+    :func:`_merge_into_config`, which selects the serializer from the record's
+    ``syntax`` and derives fail-closed from its ``ownership``. It survives only
+    because ``tests/unit/test_ai_client_onboarding.py`` — the regression net
+    for the registry refactor, deliberately left unmodified so the refactor is
+    measured against its old contract — calls it directly. New code must not.
     """
     return _merge_into_config(
         path,
@@ -791,7 +974,7 @@ def registered_url(client_id: ClientId, name: str = SERVER_NAME) -> str | None:
     if path is None or not path.exists():
         return None
     try:
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
         if target.syntax == "toml":
             data: object = tomllib.loads(text)
         else:
@@ -800,7 +983,7 @@ def registered_url(client_id: ClientId, name: str = SERVER_NAME) -> str | None:
         return None
     if not isinstance(data, dict):
         return None
-    servers = data.get(target.container_key)
+    servers = _container_get(data, target.container_key)
     if not isinstance(servers, dict):
         return None
     entry = servers.get(name)
@@ -882,7 +1065,7 @@ def detect_clients() -> list[ClientInfo]:
         if target.cli_name and shutil.which(target.cli_name) is not None:
             install_method: InstallMethod = "cli"
         elif target.supports_local_http:
-            install_method = "json_merge"
+            install_method = "merge"
         else:
             install_method = "manual"
         clients.append(
@@ -955,14 +1138,34 @@ def install_to_client(
             detail=f"No config file location is known for {target.display_name}.",
         )
 
+    exe = shutil.which(target.cli_name) if target.cli_name else None
+    if exe is None and not target.merge_supported:
+        # No CLI and the only alternative would re-serialise a file we don't
+        # own (discarding the user's comments). Refuse honestly and let the
+        # dialog offer the manual snippet — the same shape as Claude Desktop.
+        return InstallResult(
+            client_id=client_id,
+            success=False,
+            detail=(
+                f"{target.display_name} can only be registered with its own CLI "
+                f"(`{target.cli_name}`), which is not on PATH. OGP will not "
+                f"rewrite {path} directly, because that would discard the "
+                f"comments in it. Use the manual snippet instead."
+            ),
+        )
+
     replace_on_parse_error = target.ownership == "own"
+    # The header token route is implemented and tested but enabled for NO
+    # target yet (see TokenRoute). Reading it here means flipping
+    # `token_route` on a record is a real behaviour change, not a dead field.
+    use_header = target.token_route == "header"
 
     def _merge() -> InstallResult:
         try:
             backup = _merge_into_config(
                 path,
                 name=name,
-                entry=target.entry(url, token),
+                entry=target.entry(url, token, use_header),
                 container_key=target.container_key,
                 syntax=target.syntax,
                 replace_on_parse_error=replace_on_parse_error,
@@ -976,14 +1179,14 @@ def install_to_client(
     if target.cli_name is None or target.cli_argv is None:
         return _merge()
 
-    exe = shutil.which(target.cli_name)
     if exe is None:
         # No CLI on PATH — the direct merge is what makes one-click work
         # without a terminal (issue #253). This is a supported route, not a
-        # degraded one.
+        # degraded one. (A target whose merge would rewrite a file we don't own
+        # was already refused above.)
         return _merge()
 
-    add_args = target.cli_argv(name, url, token)
+    add_args = target.cli_argv(name, url, token, use_header)
 
     # Every module docstring/ADR-035 promise is "a failed install never raises
     # into the UI" — the CLI can hang (first-run login prompt, network stall)
@@ -1045,9 +1248,9 @@ def snippet_for_client(
     if not target.supports_local_http:
         return url_with_token(url, token)
     if target.syntax == "toml":
-        return _toml_render_table(target.container_key, name, target.entry(url, token))
+        return _toml_render_table(target.container_key, name, target.entry(url, token, False))
     return json.dumps(
-        {target.container_key: {name: target.entry(url, token)}}, indent=2
+        _nested_dict(target.container_key, name, target.entry(url, token, False)), indent=2
     )
 
 

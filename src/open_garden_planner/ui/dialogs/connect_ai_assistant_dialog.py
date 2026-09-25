@@ -197,7 +197,11 @@ class ConnectAiAssistantDialog(QDialog):
         group = QGroupBox(client.display_name)
         v = QVBoxLayout(group)
 
-        v.addWidget(QLabel(self._state_text(client)))
+        # Kept, not discarded: the row's state must be able to change after an
+        # Add, or "registered" is only ever true for the first second the
+        # dialog is open.
+        state_label = QLabel(self._state_text(client))
+        v.addWidget(state_label)
 
         if not client.supports_local_http:
             # Detection-only AND unreachable: this client can't connect to a
@@ -214,7 +218,9 @@ class ConnectAiAssistantDialog(QDialog):
             add_btn = QPushButton(self.tr("Add to {client}").format(client=client.display_name))
             add_btn.setEnabled(client.detected)
             add_btn.clicked.connect(
-                lambda _checked=False, c=client, b=add_btn: self._on_add_clicked(c, b)
+                lambda _checked=False, c=client, b=add_btn, s=state_label: (
+                    self._on_add_clicked(c, b, s)
+                )
             )
             actions_row.addWidget(add_btn)
 
@@ -324,10 +330,28 @@ class ConnectAiAssistantDialog(QDialog):
         if client.registered_url is None:
             return self.tr("Detected — not registered yet")
         assert self._server_url is not None
-        expected = onboarding.url_with_token(self._server_url, self._token)
-        if client.registered_url == expected:
+        if self._registration_is_current(client.registered_url):
             return self.tr("Detected — registered and up to date")
-        return self.tr("Detected — registered with a different address; add again to update")
+        return self.tr(
+            "Detected — registered with a different address; add again to update"
+        )
+
+    def _registration_is_current(self, registered_url: str) -> bool:
+        """Whether a registration still matches the live server.
+
+        Compares the READ-ONLY form on both sides. Without that, a client the
+        user registered read-only (which is exactly what the generic fallback
+        hands out, and the safe default this whole change moved toward) would
+        be permanently reported as "different address", with the only offered
+        remedy silently inserting the write credential the user deliberately
+        avoided.
+        """
+        assert self._server_url is not None
+        expected = onboarding.url_with_token(self._server_url, self._token)
+        return registered_url in (
+            expected,
+            onboarding.read_only_url(expected),
+        )
 
     def _manual_note_for(self, client_id: str) -> str:
         """Where this client's config lives, in prose.
@@ -376,7 +400,12 @@ class ConnectAiAssistantDialog(QDialog):
             )
         )
 
-    def _on_add_clicked(self, client: onboarding.ClientInfo, button: QPushButton) -> None:
+    def _on_add_clicked(
+        self,
+        client: onboarding.ClientInfo,
+        button: QPushButton,
+        state_label: QLabel,
+    ) -> None:
         if self._server_url is None:
             return
         # Claude Code's install can shell out to the `claude` CLI (up to three
@@ -404,6 +433,17 @@ class ConnectAiAssistantDialog(QDialog):
             button.setEnabled(client.detected)
 
         if result.success:
+            # Re-read the row's state from disk, so a successful Add is
+            # reflected in the row itself and not only in the status line.
+            refreshed = next(
+                (
+                    c
+                    for c in onboarding.detect_clients()
+                    if c.client_id == client.client_id
+                ),
+                client,
+            )
+            state_label.setText(self._state_text(refreshed))
             if client.requires_restart:
                 # A user-scope MCP server is only read at session start, so
                 # tell the user to reconnect rather than leaving them to wonder

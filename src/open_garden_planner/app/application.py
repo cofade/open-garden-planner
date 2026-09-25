@@ -284,15 +284,20 @@ class GardenPlannerApp(QMainWindow):
                 "cannot, so it must be told.)"
             )
 
+        # Read BEFORE the mutation: after _new_project_document the plan is
+        # clean by construction, so reading it afterwards would always report
+        # False and the agent would never learn that it just discarded work.
+        was_dirty = bool(self._project_manager.is_dirty)
+
         plan_width, plan_height = validate_new_plan(
             width_cm, height_cm, self.canvas_scene.width_cm, self.canvas_scene.height_cm
         )
         self._new_project_document(width_cm=plan_width, height_cm=plan_height)
         return {
+            "file_path": None,
             "width_cm": plan_width,
             "height_cm": plan_height,
-            "file_path": None,
-            "was_dirty": bool(self._project_manager.is_dirty),
+            "was_dirty": was_dirty,
         }
 
     def _agent_open_plan(self, file_path: str, force: bool) -> dict[str, Any]:
@@ -328,6 +333,8 @@ class GardenPlannerApp(QMainWindow):
             )
 
         resolved = validate_open_plan(file_path)
+        # Read before the load, which resets the flag.
+        was_dirty = bool(self._project_manager.is_dirty)
         # _load_project_file RAISES on a parse failure, which is what an agent
         # needs. The GUI's _open_project_file is the same call wrapped in a
         # modal QMessageBox, which an agent must never raise on its behalf.
@@ -336,6 +343,9 @@ class GardenPlannerApp(QMainWindow):
             "file_path": str(resolved),
             "width_cm": self.canvas_scene.width_cm,
             "height_cm": self.canvas_scene.height_cm,
+            # A load resets the dirty flag, so read it BEFORE, for the same
+            # reason new_plan does.
+            "was_dirty": was_dirty,
         }
 
     def _agent_export_pdf(

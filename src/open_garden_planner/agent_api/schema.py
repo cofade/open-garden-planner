@@ -370,6 +370,32 @@ class ExportResult(BaseModel):
     )
 
 
+class PlanLifecycleResult(BaseModel):
+    """Result of ``new_plan`` / ``open_plan`` (issue #365).
+
+    Deliberately NOT ``ExportResult``. Those two tools change which document is
+    open; they do not WRITE a file, so there is no format to report — and
+    reusing ``ExportResult`` meant every successful call raised a pydantic
+    ``ValidationError`` (missing ``format``, and ``file_path: None`` against a
+    ``str`` field), i.e. both tools were non-functional over the wire while
+    every test that called the main-thread body directly stayed green.
+
+    ``was_dirty`` is the fact an agent most needs when it passed
+    ``force=true``: it says whether unsaved work was just discarded.
+    """
+
+    file_path: str | None = Field(
+        description="Path of the now-open plan file; null for a new plan, which "
+        "has never been saved."
+    )
+    width_cm: float = Field(description="Canvas width now in effect, in centimetres.")
+    height_cm: float = Field(description="Canvas height now in effect, in centimetres.")
+    was_dirty: bool = Field(
+        description="True if the previous plan had unsaved changes that this call "
+        "discarded. Always false when the call was refused."
+    )
+
+
 # --- US-D2.0–D2.6: scene-mutating write tools -------------------------------
 #
 # The Agent API tools that mutate the live plan. Each requires a bearer token
