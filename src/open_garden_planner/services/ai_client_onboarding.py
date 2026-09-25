@@ -557,6 +557,15 @@ class _ConfigReadError(_ConfigMergeError):
     """
 
 
+class _ConfigShapeError(_ConfigMergeError):
+    """A config file parsed fine, but the MCP container is the wrong type.
+
+    Deliberately distinct from a parse error: we UNDERSTOOD the document, so
+    replacing it would discard the user's other top-level keys for no reason.
+    Fails closed whatever the target's ``ownership`` says.
+    """
+
+
 def _strip_jsonc(text: str) -> str:
     """Remove ``//`` and ``/* */`` comments and trailing commas from a JSONC
     document so ``json.loads`` accepts it.
@@ -727,7 +736,7 @@ def _container_set(data: dict[str, object], container_key: str, name: str, entry
         if part in node:
             child = node[part]
             if not isinstance(child, dict):
-                raise _ConfigReadError(
+                raise _ConfigShapeError(
                     f"Cannot write {container_key!r}: {part!r} already exists and "
                     f"is not an object ({type(child).__name__}). Left untouched."
                 )
@@ -740,7 +749,7 @@ def _container_set(data: dict[str, object], container_key: str, name: str, entry
     if servers is None:
         servers = {}
     elif not isinstance(servers, dict):
-        raise _ConfigReadError(
+        raise _ConfigShapeError(
             f"Cannot write {container_key!r}: it already exists and is not an "
             f"object ({type(servers).__name__}). Left untouched."
         )
@@ -780,12 +789,11 @@ def _merge_json_like(
         try:
             text = path.read_text(encoding="utf-8-sig")
             loaded = json.loads(_strip_jsonc(text) if tolerant else text)
-        except (
-            json.JSONDecodeError,
-            _ConfigReadError,
-            OSError,
-            UnicodeDecodeError,
-        ) as exc:
+        except Exception as exc:  # noqa: BLE001 — TRUST BOUNDARY (invariant 14)
+            # Another program's file. See the note on `registered_url`: the
+            # family is deliberately not enumerated, because a deeply nested
+            # document alone makes `json.loads` raise `RecursionError`, and the
+            # list would have been wrong the moment that was discovered.
             if not replace_on_parse_error:
                 raise _ConfigMergeError(
                     f"Could not read existing {path} ({exc}); left untouched."
@@ -801,14 +809,12 @@ def _merge_json_like(
 
     try:
         _container_set(data, container_key, name, entry)
-    except _ConfigReadError:
-        if not replace_on_parse_error:
-            raise
-        logger.warning(
-            "Container %r in %s is not an object; replacing the file", container_key, path
-        )
-        data = {}
-        _container_set(data, container_key, name, entry)
+    except _ConfigShapeError as exc:
+        # A SHAPE complaint is not a PARSE error, and must not share its policy.
+        # We READ this document successfully — only the container key is the
+        # wrong type — so replacing the file would throw away the user's other
+        # top-level keys for no reason. Fail closed regardless of `ownership`.
+        raise _ConfigMergeError(f"{exc} in {path}") from exc
 
     _atomic_write(path, json.dumps(data, indent=2) + "\n")
     return backup_path
@@ -855,7 +861,11 @@ def _merge_toml(
         try:
             original = path.read_text(encoding="utf-8-sig")
             tomllib.loads(original)
-        except (tomllib.TOMLDecodeError, OSError, UnicodeDecodeError) as exc:
+        except Exception as exc:  # noqa: BLE001 — TRUST BOUNDARY (invariant 14)
+            # Another program's file; see the note on `registered_url` for why
+            # the family is not enumerated. `tomllib.loads` raises
+            # `RecursionError` on a deeply nested document, which is in no
+            # sensible tuple.
             if not replace_on_parse_error:
                 raise _ConfigMergeError(
                     f"Could not read existing {path} ({exc}); left untouched."
@@ -902,7 +912,10 @@ def _merge_toml(
     # file OGP does not own — so never write an unverified result. See §11.4.
     try:
         tomllib.loads(new_text)
-    except tomllib.TOMLDecodeError as exc:
+    except Exception as exc:  # noqa: BLE001 — untrusted/derived input, not ours
+        # Anything at all the parser objects to means we are about to write a
+        # file the user's own program cannot read, into a file OGP does not
+        # own. Never write an unverified result. See §11.4.
         raise _ConfigMergeError(
             f"Merging into {path} would produce invalid TOML ({exc}); left "
             f"untouched. Install this client with its own CLI instead."
@@ -1021,17 +1034,21 @@ def registered_url(client_id: ClientId, name: str = SERVER_NAME) -> str | None:
             data: object = tomllib.loads(text)
         else:
             data = json.loads(_strip_jsonc(text) if target.syntax == "jsonc" else text)
-    except (
-        json.JSONDecodeError,
-        tomllib.TOMLDecodeError,
-        _ConfigReadError,
-        OSError,
-        UnicodeDecodeError,
-    ):
-        # Includes the module's own _ConfigReadError. This function is the only
-        # reader in the module and it runs from the dialog's __init__, so a
-        # malformed config must report "unregistered", never raise — PyQt6
-        # turns an unhandled exception in a slot into qFatal()/abort().
+    except Exception as exc:  # noqa: BLE001 — TRUST BOUNDARY, see below
+        # This is the ONE reader in the module and it runs from the dialog's
+        # `__init__`, so a config file OGP cannot read must report
+        # "unregistered", never raise: PyQt6 turns an unhandled exception in a
+        # slot into `qFatal()`/`abort()`, i.e. the whole application dies.
+        #
+        # The tuple is deliberately NOT enumerated (invariant 14 — "never
+        # enumerate exception families at a trust boundary"). This file belongs
+        # to another program and is untrusted input. Enumerating cost two
+        # review rounds: a module-owned `_ConfigReadError` was added to the
+        # list, and the very next family found was `RecursionError`, which both
+        # `json.loads` and `tomllib.loads` raise on a deeply nested document.
+        # Every family added is a family still missing; the broad catch is the
+        # fix, not the concession.
+        logger.debug("Could not read %s: %s", path, exc)
         return None
     if not isinstance(data, dict):
         return None
@@ -1047,9 +1064,18 @@ def registered_url(client_id: ClientId, name: str = SERVER_NAME) -> str | None:
 
 def is_stale(client_id: ClientId, expected_url: str, name: str = SERVER_NAME) -> bool:
     """Whether this client has a registration that no longer matches the live
-    server URL (different port, or a token that has since been rotated)."""
+    server (different port, or a token that has since been rotated).
+
+    A READ-ONLY registration counts as current, not stale. The dialog moved
+    that rule into ``_registration_is_current`` because comparing the full
+    write-capable URL alone reported a deliberately read-only client as stale
+    forever, with the write credential as the only offered remedy — so the rule
+    lives here and the dialog delegates, rather than existing twice.
+    """
     current = registered_url(client_id, name)
-    return current is not None and current != expected_url
+    if current is None:
+        return False
+    return current not in (expected_url, read_only_url(expected_url))
 
 
 # ---------------------------------------------------------------------------
@@ -1196,10 +1222,11 @@ def install_to_client(
         )
 
     exe = shutil.which(target.cli_name) if target.cli_name else None
-    if exe is None and not target.merge_supported:
-        # No CLI and the only alternative would re-serialise a file we don't
-        # own (discarding the user's comments). Refuse honestly and let the
-        # dialog offer the manual snippet — the same shape as Claude Desktop.
+    if exe is None and not target.merge_supported and target.cli_name:
+        # Neither route available: no CLI on PATH, and the merge would
+        # re-serialise a file we do not own. Say which one is missing, and do
+        # not interpolate `cli_name` unguarded (a record without one would
+        # render the literal string "None" to the user).
         return InstallResult(
             client_id=client_id,
             success=False,
@@ -1218,6 +1245,22 @@ def install_to_client(
     use_header = target.token_route == "header"
 
     def _merge() -> InstallResult:
+        # THE seam. `merge_supported` is checked HERE, not at the call sites
+        # that happen to reach the merge: there were three of them, and a
+        # registry record with a `cli_name` on PATH but no `cli_argv` slipped
+        # past the earlier checks and re-serialised a foreign file. A guard
+        # checked on some paths is not a guard — the check belongs on the
+        # operation it protects, so a fourth path cannot bypass it either.
+        if not target.merge_supported:
+            return InstallResult(
+                client_id=client_id,
+                success=False,
+                detail=(
+                    f"OGP will not rewrite {path} directly, because that would "
+                    f"discard the comments in a file it does not own. Use the "
+                    f"manual snippet, or {target.display_name}'s own CLI."
+                ),
+            )
         try:
             backup = _merge_into_config(
                 path,
@@ -1227,7 +1270,11 @@ def install_to_client(
                 syntax=target.syntax,
                 replace_on_parse_error=replace_on_parse_error,
             )
-        except (OSError, _ConfigMergeError) as exc:
+        except Exception as exc:  # noqa: BLE001 — "never raises into the UI"
+            # TRUST BOUNDARY again: the file is another program's, and the
+            # parser family is deliberately not enumerated (a deeply nested
+            # document alone yields RecursionError). This function's contract
+            # is that a failed install comes back as an InstallResult.
             return InstallResult(client_id=client_id, success=False, detail=str(exc))
         return InstallResult(
             client_id=client_id, success=True, detail=str(path), backup_path=backup
@@ -1239,8 +1286,7 @@ def install_to_client(
     if exe is None:
         # No CLI on PATH — the direct merge is what makes one-click work
         # without a terminal (issue #253). This is a supported route, not a
-        # degraded one. (A target whose merge would rewrite a file we don't own
-        # was already refused above.)
+        # degraded one.
         return _merge()
 
     add_args = target.cli_argv(name, url, token, use_header)
@@ -1279,27 +1325,16 @@ def install_to_client(
                         f"{removed.stderr.strip()}"
                     )
             else:
-                # No documented remove subcommand (OpenCode). The merge would
-                # be the self-heal, BUT it re-serialises a file OGP does not own
-                # and would eat the user's comments — so honour
-                # `merge_supported` here too, not just on the no-CLI path.
-                # Reporting the CLI's own stderr is more useful than silently
-                # doing the destructive thing the flag forbids.
-                if not target.merge_supported:
-                    return InstallResult(
-                        client_id=client_id,
-                        success=False,
-                        detail=(
-                            f"{target.cli_name} reports the entry already exists "
-                            f"and offers no way to replace it, and OGP will not "
-                            f"rewrite {path} directly because that would discard "
-                            f"the comments in it. Remove the "
-                            f"{name!r} entry from {path} by hand and add it "
-                            f"again."
-                        ),
-                    )
+                # No documented remove subcommand (OpenCode). The merge would be
+                # the natural self-heal — but it re-serialises a file OGP does
+                # not own, so defer to `_merge()`, which owns that decision at
+                # the seam. If the merge is refused it returns the honest
+                # message, which beats silently doing the destructive thing.
                 return _merge()
-    except (subprocess.SubprocessError, OSError) as exc:
+    except Exception as exc:  # noqa: BLE001 — "never raises into the UI"
+        # The CLI can hang, vanish, or produce a family nobody enumerated;
+        # this function's contract is that a failed install comes back as an
+        # InstallResult rather than an exception.
         return InstallResult(client_id=client_id, success=False, detail=str(exc))
 
     return InstallResult(

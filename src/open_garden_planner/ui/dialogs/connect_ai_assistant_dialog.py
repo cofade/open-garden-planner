@@ -331,27 +331,16 @@ class ConnectAiAssistantDialog(QDialog):
         if client.registered_url is None:
             return self.tr("Detected — not registered yet")
         assert self._server_url is not None
-        if self._registration_is_current(client.registered_url):
+        # `is_stale` owns the rule, and it treats a READ-ONLY registration as
+        # current. Comparing the full write-capable URL alone would report a
+        # deliberately read-only client as stale forever, with the write
+        # credential as the only offered remedy — and a rule living in two
+        # places is a rule that will disagree with itself.
+        expected = onboarding.url_with_token(self._server_url, self._token)
+        if not onboarding.is_stale(client.client_id, expected):
             return self.tr("Detected — registered and up to date")
         return self.tr(
             "Detected — registered with a different address; add again to update"
-        )
-
-    def _registration_is_current(self, registered_url: str) -> bool:
-        """Whether a registration still matches the live server.
-
-        Compares the READ-ONLY form on both sides. Without that, a client the
-        user registered read-only (which is exactly what the generic fallback
-        hands out, and the safe default this whole change moved toward) would
-        be permanently reported as "different address", with the only offered
-        remedy silently inserting the write credential the user deliberately
-        avoided.
-        """
-        assert self._server_url is not None
-        expected = onboarding.url_with_token(self._server_url, self._token)
-        return registered_url in (
-            expected,
-            onboarding.read_only_url(expected),
         )
 
     def _manual_note_for(self, client_id: str) -> str:

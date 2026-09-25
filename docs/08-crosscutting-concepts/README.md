@@ -1423,13 +1423,43 @@ double gate: `set_object_layer`, `create_layer`, `rename_layer`,
 `delete_layer`, `set_active_layer`, and `set_layer_property`. They call
 the existing layer commands rather than mutating `scene.layers` directly.
 Visibility is undoable; the active layer is session state and therefore the
-one layer operation that does not add an undo step. A locked layer is the
-user's "agent, keep out" signal: agents may not unlock it, delete it, move
-objects onto it, or edit objects on it. Deleting another layer also refuses
-when its replacement would be locked; the command rechecks that precondition
-on redo. `set_layer_property` may still change
-visibility and opacity on a locked layer, because that does not alter its
-protected contents.
+one layer operation that does not add an undo step. **A locked layer protects
+its OBJECTS, and (since issue #365) the lock itself is agent-writable in both
+directions.** That is a deliberate reversal of the original D2.4 decision, so
+state it plainly: `set_layer_property(layer_id, locked=true|false)` locks and
+unlocks through the same `SetLayerPropertyCommand` the Layers panel's own
+toggle runs, as one undo step. What is unchanged is the object-level
+protection — while a layer is locked, agents may not delete it, move objects
+onto it, or edit objects on it — and every one of those guards tests the
+layer's **current** lock state rather than a permission bit. So "unlock, then
+edit" is simply two ordinary undoable calls the user can see and reverse; no
+guard had to become conditional, and the tests that pin them are unchanged.
+Every refusal now names `set_layer_property(layer_id, locked=False)` as the
+way out, because that is the tool the agent actually has. Deleting another
+layer also refuses when its replacement would be locked; the command rechecks
+that precondition on redo. `set_layer_property` may change visibility and
+opacity on a locked layer, because that does not alter its protected
+contents.
+
+**Document lifecycle (issue #365).** Two more token-gated tools,
+`new_plan(width_cm?, height_cm?, force?)` and `open_plan(file_path, force?)`.
+They are gated like `delete_object` — not merely because they mutate, but
+because they **replace the open document and can discard unsaved work**, which
+is strictly more destructive. Both reuse the GUI's own paths rather than
+reimplementing them: `_on_new_project` was extracted into
+`_new_project_document`, and `_open_project_file` was split into a raising
+`_load_project_file` plus its modal-reporting GUI wrapper, so an agent never has
+a `QMessageBox` appear on its behalf. Each **refuses on a dirty plan unless
+`force=true`**: the GUI asks the user at that point and an agent cannot, so the
+choice is binary. `new_plan` keeps the current canvas dimension for any
+argument omitted and **refuses** an out-of-range or non-finite one rather than
+clamping. `open_plan` requires an existing `.ogp` file and is deliberately
+**not** sandboxed (a loopback-only server grants no filesystem access a local
+MCP client does not already have — see `agent_api/exports.py`). Neither is an
+undo step: a new or loaded document resets the stack. Both declare
+`PlanLifecycleResult`, not `ExportResult` — neither writes a file, and reusing
+`ExportResult` made every successful call raise a `ValidationError` while
+body-level tests stayed green.
 
 `create_object` now covers the curated GUI roster by canonical geometry
 family: circles, rectangles, ellipses, polygons, polylines, and callouts. The

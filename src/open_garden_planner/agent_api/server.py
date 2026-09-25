@@ -1257,9 +1257,11 @@ def build_server(
             removal plus every object reassignment is ONE undo step. The
             result's objects_moved reports how many objects were reassigned.
 
-            Fails if the layer is locked (a locked layer is the user's "keep
-            out" signal — unlock it in the app first), if it is the plan's
-            only layer, or if the id is unknown.
+            Fails if the layer is locked (unlock it first with
+            set_layer_property(layer_id, locked=False) — a locked layer's
+            objects are protected, but the lock itself is agent-writable since
+            issue #365), if it is the plan's only layer, or if the id is
+            unknown.
 
             Args:
                 layer_id: The layer's stable UUID (from list_layers).

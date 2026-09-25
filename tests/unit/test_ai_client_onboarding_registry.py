@@ -5,8 +5,12 @@ the three syntax strategies (``json`` / ``jsonc`` / surgical ``toml``), the
 read-only/write URL split that closes the token-in-a-transcript leak, and
 stale-registration detection.
 
-The pre-existing suite in ``test_ai_client_onboarding.py`` is the regression
-net for the refactor itself — every one of its 49 tests still passes unchanged.
+The pre-existing suite in ``test_ai_client_onboarding.py`` is the regression net
+for the refactor itself: all 49 of its tests still pass, and they pin the
+pre-#366 contract. Two of its assertions changed, and honestly so — the
+``install_method`` value ``"json_merge"`` is now ``"merge"``, because the old
+name was already a lie for the TOML and JSONC targets and this change's whole
+thesis is that syntax is a separate axis.
 """
 
 from __future__ import annotations
@@ -233,6 +237,48 @@ class TestJsoncReaderTolerance:
         # Must not raise — this is the call the dialog makes.
         clients = onboarding.detect_clients()
         assert any(c.client_id == "opencode" for c in clients)
+
+    @pytest.mark.parametrize(
+        ("client_id", "relpath", "body"),
+        [
+            # Families deliberately NOT in any enumerated tuple. A deeply
+            # nested document makes both json.loads and tomllib.loads raise
+            # RecursionError, which is how round 3 found that the "best-effort,
+            # never raises" reader was still an enumerated except list — and
+            # how a malformed user config could abort the whole application
+            # from the dialog's __init__.
+            #
+            # `ids` is explicit because the default id embeds the whole body,
+            # and a 20000-character test id makes any failure output unreadable.
+            ("codex", ".codex/config.toml", "x = " + "[" * 5000 + "]" * 5000),
+            ("cursor", ".cursor/mcp.json", "[" * 20000 + "]" * 20000),
+            ("gemini", ".gemini/config/mcp_config.json", "[" * 20000 + "]" * 20000),
+        ],
+        ids=["codex-deep-toml", "cursor-deep-json", "gemini-deep-json"],
+    )
+    def test_hostile_nesting_never_raises_through_the_readers(
+        self, client_id: str, relpath: str, body: str, _isolated_home: Path
+    ) -> None:
+        """Invariant 14: never enumerate exception families at a trust boundary.
+        These files belong to other programs; the reader catches broadly."""
+        path = _isolated_home / relpath
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding="utf-8")
+        original = path.read_text(encoding="utf-8")
+
+        assert onboarding.registered_url(client_id) is None
+        assert any(c.client_id == client_id for c in onboarding.detect_clients())
+        # The write path must not RAISE either — `install_to_client`'s contract
+        # is that a failed install comes back as a result. Whether the file
+        # survives then depends on ownership: a `foreign` target fails closed,
+        # while an `own` target (Cursor's dedicated mcp.json) treats a parse
+        # error as replaceable, which is the pre-existing and intended policy.
+        result = onboarding.install_to_client(client_id, url=_URL)
+        if onboarding.get_target(client_id).ownership == "foreign":
+            assert result.success is False
+            assert path.read_text(encoding="utf-8") == original
+        else:
+            assert result.success is True  # replaced, by design for an `own` file
 
     def test_malformed_config_fails_closed_on_the_write_path(
         self, _isolated_home: Path
@@ -701,9 +747,14 @@ class TestDottedContainerPaths:
 
         result = onboarding.install_to_client("opencode", url=_URL)
 
+        # Refused, and — the point of the test — the file is untouched. The
+        # refusal now comes from the single seam guard, so it does not quote the
+        # CLI's stderr; what matters is that it does not merge.
         assert result.success is False
-        assert "already exists" in result.detail
+        assert "will not rewrite" in result.detail
         assert (config / "opencode.jsonc").read_text(encoding="utf-8") == original
+        # And no .bak either: nothing was written at all.
+        assert not (config / "opencode.jsonc.bak").exists()
 
     def test_no_target_with_a_refused_merge_reports_a_merge_method(
         self, monkeypatch: pytest.MonkeyPatch, _isolated_home: Path

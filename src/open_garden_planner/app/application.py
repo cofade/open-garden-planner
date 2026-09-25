@@ -590,8 +590,8 @@ class GardenPlannerApp(QMainWindow):
             # flags, so nothing can be drawn onto a locked layer there either.
             raise ValueError(
                 f"The active layer {active_layer.name!r} is locked; unlock it "
-                "in the app (or make another layer active) before creating "
-                "objects."
+                "with set_layer_property(layer_id, locked=False) (or make "
+                "another layer active) before creating objects."
             )
         return active_layer
 
@@ -1761,9 +1761,9 @@ class GardenPlannerApp(QMainWindow):
         layer = self._agent_resolve_layer(layer_id)
         if layer.locked:
             raise ValueError(
-                f"The layer {layer.name!r} is locked. Locking is a user-owned "
-                "protection — the agent API cannot delete a locked layer. "
-                "Unlock it in the app first."
+                f"The layer {layer.name!r} is locked, so it cannot be deleted. "
+                "Unlock it first with set_layer_property(layer_id, "
+                "locked=False) and then delete it."
             )
         if len(self.canvas_scene.layers) <= 1:
             raise ValueError(
@@ -4326,14 +4326,6 @@ class GardenPlannerApp(QMainWindow):
         try:
             self._load_project_file(file_path)
         except Exception as e:
-            # A load failure can leave the compare-overlay action state
-            # stale relative to the scene (e.g. if it throws after
-            # _deserialize_to_scene already cleared the overlay, or before
-            # _load_compare_overlay_from_previous_season ever ran) — reset
-            # it rather than risk it disagreeing with reality (#337).
-            self._compare_overlay_action.setEnabled(False)
-            self._compare_overlay_action.setChecked(False)
-            self.canvas_scene.clear_compare_overlay()
             QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=e))
 
     def _load_project_file(self, file_path: str) -> None:
@@ -4343,11 +4335,22 @@ class GardenPlannerApp(QMainWindow):
         dialog) and the agent's ``open_plan`` (issue #365, which lets the
         exception reach the tool's error path). One implementation, so the two
         surfaces cannot drift.
+
+        That is also why the #337 recovery lives HERE and not in the GUI
+        wrapper: a load failure can leave the compare-overlay action state stale
+        relative to the scene (``ProjectManager._deserialize_to_scene`` clears
+        the overlay *before* the calls that can throw), and the agent's caller
+        has no wrapper to do it. A recovery that only the GUI ran would have
+        been a #337-class bug waiting on the caller the extraction created.
         """
         # Clear any existing auto-save before loading new project
         self._autosave_manager.clear_autosave()
 
-        self._project_manager.load(self.canvas_scene, Path(file_path))
+        try:
+            self._project_manager.load(self.canvas_scene, Path(file_path))
+        except Exception:
+            self._reset_compare_overlay_after_failed_load()
+            raise
         self.canvas_view.command_manager.clear()
         self.canvas_view.fit_in_view()
         self.layers_panel.set_layers(self.canvas_scene.layers)
@@ -4360,6 +4363,16 @@ class GardenPlannerApp(QMainWindow):
         # Deferred: when opened from the modal Welcome dialog, a bar shown
         # now would sit behind it. singleShot(0) runs after it closes.
         QTimer.singleShot(0, self._check_overdue_tasks)
+
+    def _reset_compare_overlay_after_failed_load(self) -> None:
+        """#337: a failed load can leave the compare-overlay action state
+        disagreeing with the scene — the overlay is cleared early in
+        deserialization, so anything that throws after that point leaves the
+        action still enabled over an empty overlay. Reset rather than risk it.
+        Shared by both callers of the one open path."""
+        self._compare_overlay_action.setEnabled(False)
+        self._compare_overlay_action.setChecked(False)
+        self.canvas_scene.clear_compare_overlay()
 
     def _populate_recent_menu(self) -> None:
         """Populate the Open Recent submenu with recent files."""
