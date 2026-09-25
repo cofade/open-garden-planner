@@ -1048,9 +1048,9 @@ class GardenPlannerApp(QMainWindow):
         if not is_vertex_editable(item):
             raise ValueError(
                 f"{item_id} is a {self._agent_object_type_name(item)}, which is not "
-                "a polygon or polyline. set_vertex/add_vertex/delete_vertex only "
-                "edit vertex-backed shapes; use resize_object for rect-backed "
-                "shapes."
+                "a vertex-backed shape. set_vertex/add_vertex/delete_vertex only "
+                "edit polygon and polyline items; use resize_object for "
+                "rect-backed shapes."
             )
         return item
 

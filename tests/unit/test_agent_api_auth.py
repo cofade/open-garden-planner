@@ -27,7 +27,7 @@ from open_garden_planner.agent_api.server import (
 
 
 def _stub_providers() -> AgentProviders:
-    def _boom(*_a: Any) -> dict[str, Any]:
+    def _boom(*_a: Any, **_k: Any) -> dict[str, Any]:
         raise AssertionError("provider must not run in an auth-only test")
 
     return AgentProviders(
