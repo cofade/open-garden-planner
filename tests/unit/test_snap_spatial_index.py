@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import statistics
 import time
 
 import pytest
@@ -71,7 +72,14 @@ def test_no_duplicates_when_item_spans_children(scene: CanvasScene) -> None:
 
 
 def test_perf_thousand_items(scene: CanvasScene) -> None:
-    """1000 items must be inserted in < 250ms and queried in < 1ms."""
+    """1000 items build under a median 200ms and query under a median 1ms.
+
+    CI runners are shared and a single wall-clock sample previously produced a
+    false failure at 284ms.  The robust statistic absorbs an isolated scheduler
+    spike while still failing for a consistently slower quadtree build.  The
+    end-to-end snap budget of 16ms in ``test_point_snapper.py`` remains the
+    user-facing gate; this test protects the pre-filter rebuild itself.
+    """
     items: list[RectangleItem] = []
     for i in range(1000):
         x = (i % 50) * 30
@@ -80,16 +88,33 @@ def test_perf_thousand_items(scene: CanvasScene) -> None:
         scene.addItem(item)
         items.append(item)
 
-    t0 = time.perf_counter()
-    tree = build_from_items(items)
-    build_ms = (time.perf_counter() - t0) * 1000
-    # Generous ceiling to absorb CI variance (previously 200ms flaked at
-    # 211ms on a busy runner); the end-to-end snap budget of 16ms in
-    # test_point_snapper.py is the user-facing gate.
-    assert build_ms < 250, f"build took {build_ms:.1f}ms"
+    # Warm the code path once so import/allocation costs do not dominate the
+    # distribution.  The measured samples all use the same Qt item set.
+    build_from_items(items)
+    build_samples: list[float] = []
+    tree = None
+    for _ in range(5):
+        t0 = time.perf_counter()
+        tree = build_from_items(items)
+        build_samples.append((time.perf_counter() - t0) * 1000)
+    assert tree is not None
+    build_median_ms = statistics.median(build_samples)
+    assert build_median_ms < 200, (
+        "build samples (ms)="
+        f"{[round(sample, 3) for sample in build_samples]}, "
+        f"median={build_median_ms:.3f}ms"
+    )
 
-    t0 = time.perf_counter()
-    for _ in range(100):
-        tree.query(QRectF(150, 150, 30, 30))
-    query_ms = (time.perf_counter() - t0) * 1000 / 100
-    assert query_ms < 1.0, f"query took {query_ms:.3f}ms avg"
+    query_samples: list[float] = []
+    query_rect = QRectF(150, 150, 30, 30)
+    for _ in range(5):
+        t0 = time.perf_counter()
+        for _ in range(100):
+            tree.query(query_rect)
+        query_samples.append((time.perf_counter() - t0) * 1000 / 100)
+    query_median_ms = statistics.median(query_samples)
+    assert query_median_ms < 1.0, (
+        "query samples (ms/query)="
+        f"{[round(sample, 6) for sample in query_samples]}, "
+        f"median={query_median_ms:.6f}ms"
+    )

@@ -182,7 +182,63 @@ hold scene focus — put all focus logic in the child subclass.
 
 ---
 
-## After fixing: clean up
+## Case study: same-scene reload duplicates and false-success deletes (fixed 2026-09-24)
+
+**Symptom**: after a project was loaded into the same `CanvasScene`, `list_layers.object_count` exceeded the top-level `list_objects` roster; a call to `delete_object` could report success while a same-ID callout remained visible.
+
+**Theories entertained (wrong)**:
+- Concurrent MCP requests were bypassing the Qt main-thread queue and needed a second global lock.
+- `CommandManager.execute()` could acknowledge a command before `DeleteItemsCommand` removed the item.
+- The layer-count mapper was deliberately counting child/overlay items.
+
+**What instrumentation and probes revealed**: `MainThreadBridge` already serialized the provider bodies on the main thread. The decisive probe was a same-scene save/load followed by a type/UUID census: old `CalloutItem`, `ArcItem`, and `BezierItem` instances remained because `_deserialize_to_scene()` removed only an older explicit class tuple. `find_item_by_id()` then returned the first duplicate, so deleting it left the other alive.
+
+**Root cause**: the load cleanup roster had drifted from the serializer's actual document-item roster.
+
+**Fix**: centralize a serialized-document-item predicate in `ProjectManager`, preserve compare/dimension overlay owners, refuse duplicate live UUIDs before agent deletion, and verify all requested targets are detached before returning success. The real-MCP integration test now exercises the round trip and concurrent delete contract.
+
+**Lesson**: UUID identity is a scene invariant, not merely a lookup hint; a successful command receipt is not proof that the addressed object is gone.
+
+---
+
+## Case study: non-finite MCP numbers become valid callout defaults (fixed 2026-09-24)
+
+**Symptom**: `1e308` callout offsets were rejected, but `Infinity`/`NaN` sent through the real MCP client unexpectedly created ordinary callouts instead of failing.
+
+**Theories entertained (wrong)**:
+- `require_finite()` was not being called for callout offsets.
+- Qt accepted the values and the problem was only a rendering issue.
+- The client would preserve non-finite JSON values all the way to the Python provider.
+
+**What instrumentation revealed**: the hostile-call test showed the first two calls failed in `require_bounded_signed_offset`, while the Infinity/NaN calls returned ordinary create results. The transport had normalized those JSON values to `null`; `float | None = None` made the provider interpret them as omitted and apply default offsets.
+
+**Root cause**: validation happened after the transport had erased the distinction between an omitted optional argument and a hostile null/non-finite value.
+
+**Fix**: validate signed, canvas-relative offsets before the loader, use an omission sentinel in the MCP handler, and reject explicit null before dispatch. Refusals now occur before `_deserialize_item_core` and `CreateItemCommand`.
+
+**Lesson**: adversarial-input coverage must cross the real transport; a direct pure-function test cannot see JSON/Pydantic normalization.
+
+---
+
+## Case study: one noisy CI benchmark hides the real distribution (fixed 2026-09-24)
+
+**Symptom**: one Python 3.11/Linux run measured 284.1 ms for the 1000-item spatial-index rebuild against a 250 ms limit, while a parallel run and the full local suite passed; the implementation was unchanged by the branch.
+
+**Theories entertained (wrong)**:
+- The quadtree had a deterministic performance regression.
+- Raising the hard ceiling again would be a sufficient fix.
+- The fast local run represented the runner distribution.
+
+**What instrumentation revealed**: repeated local samples were tightly clustered around 15 ms, while the historical CI value was an isolated scheduler outlier. A single wall-clock sample had no way to express that distinction.
+
+**Root cause**: the gate encoded a noisy point measurement as a universal contract.
+
+**Fix**: warm the path, collect five rebuild and five query samples, report the samples on failure, and gate medians at 200 ms / 1 ms. This preserves a sustained-regression failure while tolerating one shared-runner spike.
+
+**Lesson**: performance gates should protect a distribution, not assume a noisy runner is quiet; record the platform and evidence alongside the threshold.
+
+---
+
 
 Remove all `print` instrumentation before committing. The fix lives in the production code; the diagnosis lives in this skill.
 

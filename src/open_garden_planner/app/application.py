@@ -4,6 +4,7 @@ import contextlib
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
+from uuid import UUID
 
 from PyQt6.QtCore import QCoreApplication, QEvent, Qt, QTimer
 from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
@@ -653,6 +654,12 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.core.commands import DeleteItemsCommand, RemoveConstraintCommand
 
         item = self._resolve_agent_item(item_id)
+        linked_ridge = self._agent_linked_roof_ridge(item)
+        targets = [item, *linked_ridge]
+        self._agent_require_unique_items(targets)
+        target_ids = {
+            self._agent_item_uuid(candidate) for candidate in targets
+        }
 
         constraints = self._agent_item_constraints(item)
         for constraint in constraints:
@@ -660,15 +667,64 @@ class GardenPlannerApp(QMainWindow):
                 RemoveConstraintCommand(self.canvas_scene.constraint_graph, constraint)
             )
 
-        linked_ridge = self._agent_linked_roof_ridge(item)
-        cmd = DeleteItemsCommand(self.canvas_scene, [item, *linked_ridge])
+        cmd = DeleteItemsCommand(self.canvas_scene, targets)
         self.canvas_view.command_manager.execute(cmd)
+        # The response is a completion receipt, not merely a command queued on
+        # the main thread.  Check every serialized UUID, not just the Python
+        # wrappers we passed to DeleteItemsCommand: a cross-class duplicate
+        # could otherwise survive and make a successful reply a lie.
+        remaining = [
+            candidate
+            for candidate in self._agent_document_items()
+            if self._agent_item_uuid(candidate) in target_ids
+        ]
+        if remaining:
+            raise RuntimeError(
+                "delete_object left a live document object with a target UUID; "
+                "the operation was not reported as successful."
+            )
         return {
             "item_id": item_id,
             "action": "delete",
             "undo_description": cmd.description,
             "linked_items_deleted": len(linked_ridge),
             "constraints_removed": len(constraints),
+        }
+
+    def _agent_undo(self) -> dict[str, Any]:
+        """Undo one command on the GUI's global history stack."""
+        return self._agent_bridge.run_on_main(self._do_agent_undo)
+
+    def _do_agent_undo(self) -> dict[str, Any]:
+        """Main-thread body of the authenticated MCP ``undo`` tool."""
+        manager = self.canvas_view.command_manager
+        if not manager.can_undo:
+            raise ValueError("Nothing to undo.")
+        description = manager.undo_description or "Unknown command"
+        manager.undo()
+        return {
+            "action": "undo",
+            "command_description": description,
+            "can_undo": manager.can_undo,
+            "can_redo": manager.can_redo,
+        }
+
+    def _agent_redo(self) -> dict[str, Any]:
+        """Redo one command on the GUI's global history stack."""
+        return self._agent_bridge.run_on_main(self._do_agent_redo)
+
+    def _do_agent_redo(self) -> dict[str, Any]:
+        """Main-thread body of the authenticated MCP ``redo`` tool."""
+        manager = self.canvas_view.command_manager
+        if not manager.can_redo:
+            raise ValueError("Nothing to redo.")
+        description = manager.redo_description or "Unknown command"
+        manager.redo()
+        return {
+            "action": "redo",
+            "command_description": description,
+            "can_undo": manager.can_undo,
+            "can_redo": manager.can_redo,
         }
 
     def _agent_linked_roof_ridge(self, item: Any) -> list[Any]:
@@ -1625,6 +1681,53 @@ class GardenPlannerApp(QMainWindow):
         """Every constraint (distance/fixed/tangent/…) referencing ``item``."""
         return self.canvas_scene.constraint_graph.get_item_constraints(item.item_id)
 
+    def _agent_document_items(self) -> list[Any]:
+        """Return every live serialized document item with a UUID.
+
+        This deliberately uses the same predicate as project loading instead
+        of a second ``GardenItemMixin``-only census: Arc/Bezier and other
+        serialized classes can collide with a UUID too, and a delete receipt
+        must not ignore them.
+        """
+        return [
+            item
+            for item in self.canvas_scene.items()
+            if self._project_manager._is_project_document_item(item)
+            and self._agent_item_uuid(item) is not None
+        ]
+
+    @staticmethod
+    def _agent_item_uuid(item: Any) -> Any:
+        """Return a document item's UUID, or ``None`` for non-addressables."""
+        value = getattr(item, "item_id", None)
+        return value if isinstance(value, UUID) else None
+
+    def _agent_require_unique_items(self, items: list[Any]) -> None:
+        """Refuse deletion if any target UUID occurs more than once live."""
+        from collections import Counter
+
+        target_ids = {self._agent_item_uuid(item) for item in items}
+        if None in target_ids:
+            raise ValueError("delete_object requires every target to have a UUID.")
+
+        counts: Counter[Any] = Counter()
+        for candidate in self._agent_document_items():
+            candidate_id = self._agent_item_uuid(candidate)
+            if candidate_id in target_ids:
+                counts[candidate_id] += 1
+
+        duplicates = [
+            f"{candidate_id} ({count} live objects)"
+            for candidate_id, count in sorted(counts.items(), key=lambda pair: str(pair[0]))
+            if count > 1
+        ]
+        if duplicates:
+            raise ValueError(
+                "Cannot delete because the document contains duplicate live "
+                f"UUIDs: {', '.join(duplicates)}. Resolve the duplicate records "
+                "before editing; delete_object will not choose one arbitrarily."
+            )
+
     def _maybe_start_agent_api(self) -> None:
         """Start the Agent API server iff it is enabled in settings."""
         from open_garden_planner.app.settings import get_settings
@@ -1707,6 +1810,8 @@ class GardenPlannerApp(QMainWindow):
             delete_layer=self._agent_delete_layer,
             set_active_layer=self._agent_set_active_layer,
             set_layer_property=self._agent_set_layer_property,
+            undo=self._agent_undo,
+            redo=self._agent_redo,
         )
 
     def _stop_agent_api(self) -> None:

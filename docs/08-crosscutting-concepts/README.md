@@ -550,7 +550,7 @@ result = subprocess.run(cmd)  # nosec B603 — cmd is constructed internally, ne
 
 **Scope:** `src/` only. Test files are excluded — `assert` statements and test helpers are intentional and not security-relevant.
 
-**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0 through D2.3) are token-gated**: the seven scene-mutating tools ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
+**Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0 through D2.5, including `undo`/`redo`) are token-gated**: the scene-mutating tools ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding. The #355 input boundary additionally rejects non-finite/null/oversized callout offsets before Qt construction, so an authenticated caller cannot turn a write token into unbounded scene geometry.
 
 ## 8.12 Constraint Solver Architecture
 
@@ -1041,10 +1041,11 @@ next launch). See ADR-032 for the architecture.
 `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
 (loads, validates, every expression parses, generates ≥1 primitive).
 
-## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0/D2.1/D2.2/D2.3, ADR-033/034/035/036)
+## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1/D1.2/D1.3/D1.4/D1.5/D1.6/D2.0–D2.5, ADR-033/034/035/036)
 
 The app can host an **MCP server over streamable-HTTP** so AI agents read the
-plan currently open in the GUI (epic #237). Package: `agent_api/`
+plan currently open in the GUI and, behind the D2 write gate, edit it (epic
+#237). Package: `agent_api/`
 (`bridge.py`, `server.py`, `schema.py`, `mapping.py`, `queries.py`,
 `diagnostics.py`, `prompts.py`, `creates.py`, `render.py`, `exports.py`,
 `providers.py`, `__init__.py`).
@@ -1426,6 +1427,31 @@ exclusions. The union of those two sets is drift-guarded against
 `ObjectType`, so a new enum member cannot silently become an undocumented
 agent capability. No `FILE_VERSION` change is required: the schema additions
 are additive and the new item data uses existing serialisation shapes.
+
+**Follow-up hardening (issues #353 and #355).** The global GUI/agent history is
+one `CommandManager` stack, not a second MCP history. Authenticated `undo` and
+`redo` preflight the relevant stack, reverse or reapply exactly one command on
+the Qt main thread, and return a `HistoryResult` containing the command
+description and the post-call `can_undo`/`can_redo` flags. An empty stack is a
+refusal; it is never a successful no-op. Project loading uses one centralized
+predicate for serialized document items, so same-scene loads remove old
+callouts and Arc/Bezier items as well as the original shape roster. Compare and
+dimension overlays keep their explicit controller cleanup, and a broad
+`CanvasScene.clear()` is not substituted for that ownership boundary. Agent
+`delete_object` additionally refuses duplicate live UUIDs and checks that every
+requested target is detached before returning success.
+
+Callout input is validated in `agent_api/creates.py` before the loader receives
+it. `box_dx` and `box_dy` remain signed so the GUI's normal above/below/left/
+right placement works, but each is finite and bounded by
+`abs(offset) <= 2 * max(canvas_width_cm, canvas_height_cm)`, including the
+resolved defaults. The MCP wrapper uses a private omission sentinel because
+some JSON stacks normalize Infinity/NaN to `null`; explicit null is rejected
+rather than silently becoming the default offset. Thus oversized, negative-oversized, and non-finite calls
+leave both the scene and undo stack untouched, while normal callouts still
+save/load, render, and delete through the existing paths. The benchmark
+hardening for #354 is documented in FR-SNAP-06 and ADR-020: one warm-up plus
+five samples, with median build/query limits calibrated for shared runners.
 
 ## 8.20 Solar Coordinate Discipline (Phase 14 sun/shade)
 

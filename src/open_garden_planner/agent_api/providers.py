@@ -6,7 +6,7 @@ of callables that each already hop to the Qt main thread (via
 data. Bundling them keeps :func:`~open_garden_planner.agent_api.server.build_server`
 stable as the surface grows: US-D1.2 needs ``snapshot`` + ``diagnostics``; US-D1.3
 adds ``render``; US-D1.4 adds ``save_plan``/``export_pdf``/``export_dxf``/
-``export_csv``; later stories add write ops (D2) as new fields.
+``export_csv``; D2 adds the command-backed write ops and global ``undo``/``redo``.
 """
 
 from __future__ import annotations
@@ -180,6 +180,10 @@ class AgentProviders:
             opacity, locked)``; runs one undoable ``SetLayerPropertyCommand``
             per call, so exactly one property may change per call. ``locked``
             is refused by policy in both directions (ADR-036 D2.4 addendum).
+        undo: **Write (MCP history).** Reverses exactly one command on the
+            global, GUI-shared LIFO history stack. Refuses an empty stack.
+        redo: **Write (MCP history).** Reapplies exactly one command on the
+            global, GUI-shared LIFO history stack. Refuses an empty stack.
     """
 
     snapshot: Callable[[], dict[str, Any]]
@@ -209,3 +213,5 @@ class AgentProviders:
     delete_layer: Callable[[str], dict[str, Any]]
     set_active_layer: Callable[[str], dict[str, Any]]
     set_layer_property: SetLayerPropertyProvider
+    undo: Callable[[], dict[str, Any]]
+    redo: Callable[[], dict[str, Any]]

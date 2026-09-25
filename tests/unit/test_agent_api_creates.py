@@ -15,6 +15,7 @@ from open_garden_planner.agent_api.creates import (
     _CALLOUT_TYPE_NAMES,
     _CIRCLE_TYPE_NAMES,
     _ELLIPSE_TYPE_NAMES,
+    _MAX_CALLOUT_OFFSET_CANVAS_MULTIPLE,
     _MAX_PLANT_DIAMETER_CM,
     _PLANT_TYPE_NAMES,
     _POLYGON_TYPE_NAMES,
@@ -221,6 +222,70 @@ class TestShapeFamilies:
     ) -> None:
         with pytest.raises(ValueError):
             _build(object_type=object_type, **kwargs)
+
+
+class TestCalloutOffsets:
+    def test_defaults_and_signed_offsets_remain_valid(self) -> None:
+        default = _build(object_type="GENERIC_CALLOUT", x=50.0, y=60.0, text="Note")
+        assert default["box_dx"] == 80.0
+        assert default["box_dy"] == -60.0
+
+        signed = _build(
+            object_type="GENERIC_CALLOUT",
+            x=50.0,
+            y=60.0,
+            text="Note",
+            box_dx=-125.0,
+            box_dy=-75.0,
+        )
+        assert signed["box_dx"] == -125.0
+        assert signed["box_dy"] == -75.0
+
+    def test_bound_is_canvas_relative_and_inclusive(self) -> None:
+        limit = _MAX_CALLOUT_OFFSET_CANVAS_MULTIPLE * max(_CANVAS.values())
+        spec = _build(
+            object_type="GENERIC_CALLOUT",
+            x=50.0,
+            y=60.0,
+            text="Boundary",
+            box_dx=limit,
+            box_dy=-limit,
+        )
+        assert spec["box_dx"] == limit
+        assert spec["box_dy"] == -limit
+
+    def test_default_offsets_are_checked_against_small_canvas_bound(self) -> None:
+        with pytest.raises(ValueError, match="box_dx.*within"):
+            _build(
+                object_type="GENERIC_CALLOUT",
+                x=10.0,
+                y=10.0,
+                text="Small plan",
+                canvas_width_cm=20.0,
+                canvas_height_cm=20.0,
+            )
+
+    @pytest.mark.parametrize("bad", [1e308, -1e308, 2001.0, -2001.0])
+    def test_finite_but_oversized_offsets_are_refused(self, bad: float) -> None:
+        with pytest.raises(ValueError, match="box_dx.*within"):
+            _build(
+                object_type="GENERIC_CALLOUT",
+                x=50.0,
+                y=60.0,
+                text="Too far",
+                box_dx=bad,
+            )
+
+    @pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf])
+    def test_non_finite_offsets_are_refused(self, bad: float) -> None:
+        with pytest.raises(ValueError, match="finite"):
+            _build(
+                object_type="GENERIC_CALLOUT",
+                x=50.0,
+                y=60.0,
+                text="Not finite",
+                box_dy=bad,
+            )
 
 
 class TestRectangles:

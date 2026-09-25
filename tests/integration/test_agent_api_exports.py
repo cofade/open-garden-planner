@@ -94,6 +94,8 @@ def _providers(
         delete_layer=lambda *_a: _unused("delete_layer"),
         set_active_layer=lambda *_a: _unused("set_active_layer"),
         set_layer_property=lambda **_kw: _unused("set_layer_property"),
+        undo=lambda: _unused("undo"),
+        redo=lambda: _unused("redo"),
     )
 
 
