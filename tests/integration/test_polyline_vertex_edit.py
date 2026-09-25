@@ -10,6 +10,7 @@ Regression coverage for:
 
 # ruff: noqa: ARG002
 
+import copy
 from unittest.mock import MagicMock
 
 from PyQt6.QtCore import QPointF, Qt
@@ -260,3 +261,24 @@ class TestVertexAddDeleteShiftsConstraintIndices:
         # Delete v3 → the v2-v3 constraint references it directly, must be dropped.
         polyline._delete_vertex(3)
         assert len(graph.constraints) == 0
+
+    def test_delete_last_vertex_undo_restores_its_exact_position(
+        self, canvas: CanvasView, qtbot: object,
+    ) -> None:
+        """The interactive command must carry the pre-deletion vertex position.
+
+        The deletion happens before `_on_vertex_delete` registers the command,
+        so a builder that re-reads the index would capture the wrong point (or
+        fall off the end for the last vertex) and undo would corrupt the path.
+        """
+        polyline = _draw_fence(canvas)
+        canvas.command_manager.clear()
+        before = copy.deepcopy(polyline.points)
+        assert len(before) == 5
+
+        polyline._delete_vertex(4)
+
+        assert len(polyline.points) == 4
+        assert len(canvas.command_manager._undo_stack) == 1
+        canvas.command_manager.undo()
+        assert polyline.points == before

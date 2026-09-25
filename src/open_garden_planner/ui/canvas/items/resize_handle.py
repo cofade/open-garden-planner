@@ -2140,12 +2140,12 @@ class VertexEditMixin:
         # Add to undo stack without executing (add already applied)
         command_manager.register_applied(command)
 
-    def _on_vertex_delete(self, vertex_index: int, _pos: QPointF) -> None:
+    def _on_vertex_delete(self, vertex_index: int, pos: QPointF) -> None:
         """Called when a vertex is deleted. Registers undo command.
 
         Args:
             vertex_index: Index of the deleted vertex
-            pos: Position of the deleted vertex
+            pos: Position of the deleted vertex (captured before removal)
         """
         scene = getattr(self, 'scene', lambda: None)()
         if scene is None or not hasattr(scene, 'get_command_manager'):
@@ -2162,6 +2162,7 @@ class VertexEditMixin:
         command = build_delete_vertex_command(
             self,  # type: ignore[arg-type]
             vertex_index,
+            pos,
         )
 
         # Add to undo stack without executing (delete already applied)
@@ -3105,7 +3106,7 @@ class PolylineVertexEditMixin:
 
         command_manager.register_applied(command)
 
-    def _on_vertex_delete(self, vertex_index: int, _pos: QPointF) -> None:
+    def _on_vertex_delete(self, vertex_index: int, pos: QPointF) -> None:
         """Called when a vertex is deleted. Registers undo command."""
         scene = getattr(self, 'scene', lambda: None)()
         if scene is None or not hasattr(scene, 'get_command_manager'):
@@ -3122,6 +3123,7 @@ class PolylineVertexEditMixin:
         command = build_delete_vertex_command(
             self,  # type: ignore[arg-type]
             vertex_index,
+            pos,
         )
 
         command_manager.register_applied(command)

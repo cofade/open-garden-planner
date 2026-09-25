@@ -366,18 +366,35 @@ def build_add_vertex_command(
     )
 
 
-def build_delete_vertex_command(item: QGraphicsItem, index: int) -> Any:
-    """Build the one ``DeleteVertexCommand`` used by GUI and Agent API callers."""
+def build_delete_vertex_command(
+    item: QGraphicsItem, index: int, pos: QPointF | None = None
+) -> Any:
+    """Build the one ``DeleteVertexCommand`` used by GUI and Agent API callers.
+
+    ``pos`` is the deleted vertex's local position. The interactive path has
+    already removed it and passes the captured position; the Agent API builds
+    this before executing and therefore omits ``pos``, which is read here while
+    the vertex still exists. Reading after an interactive deletion would record
+    whatever vertex shifted into that index (or fall off the end).
+    """
     from open_garden_planner.core.commands import DeleteVertexCommand
 
     _require_vertex_editable(item)
     count = int(item._get_vertex_count())  # type: ignore[attr-defined]
-    if not 0 <= index < count:
-        raise IndexError(f"vertex index {index} is outside 0..{count - 1}")
+    if pos is not None:
+        # Interactive path: the removal already happened, so `index` is the
+        # insertion point for undo and may equal the current count.
+        if not 0 <= index <= count:
+            raise IndexError(f"deleted index {index} is outside 0..{count}")
+        deleted_pos = QPointF(pos)
+    else:
+        if not 0 <= index < count:
+            raise IndexError(f"vertex index {index} is outside 0..{count - 1}")
+        deleted_pos = QPointF(item._get_vertex_position(index))  # type: ignore[attr-defined]
     return DeleteVertexCommand(
         item,
         index,
-        QPointF(item._get_vertex_position(index)),  # type: ignore[attr-defined]
+        deleted_pos,
         _apply_insert_vertex,
         _apply_remove_vertex,
     )
