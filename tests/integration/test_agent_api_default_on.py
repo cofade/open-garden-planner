@@ -2520,6 +2520,40 @@ def test_set_object_position_shares_move_child_and_reparent_orchestration(
         win._stop_agent_api()
 
 
+def test_set_object_position_reaches_read_center_for_rotated_polygon(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The agent's absolute frame must not depend on an object's rotation."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
+    from open_garden_planner.ui.canvas.items import PolygonItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        polygon = PolygonItem(
+            [
+                QPointF(100.0, 100.0),
+                QPointF(300.0, 120.0),
+                QPointF(250.0, 320.0),
+            ],
+            object_type=ObjectType.GARDEN_BED,
+        )
+        apply_rotation(polygon, 37.0)
+        win.canvas_scene.addItem(polygon)
+
+        result = win._do_agent_set_object_position(str(polygon.item_id), 750.0, 625.0)
+        read_x, read_y = win._agent_item_center(polygon)
+        assert result["x"] == read_x
+        assert result["y"] == read_y
+        assert read_x == pytest.approx(750.0, abs=1e-9)
+        assert read_y == pytest.approx(625.0, abs=1e-9)
+        assert len(win.canvas_view.command_manager._undo_stack) == 1
+    finally:
+        win._stop_agent_api()
+
+
 def test_d26_group_journal_and_lock_protection_is_read_write_asymmetric(
     qtbot: Any, monkeypatch: Any
 ) -> None:

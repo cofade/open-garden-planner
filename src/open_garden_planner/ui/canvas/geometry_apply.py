@@ -138,8 +138,9 @@ __all__ = [
 #: An unchanged scene-space vertex is snapped back to the item's exact local
 #: ``QPointF`` before the inverse transform. ``mapToScene`` followed by
 #: ``mapFromScene`` can otherwise perturb a rotated polyline by ~5.7e-14 cm —
-#: invisible, but enough to break a byte-identical get_geometry/set_vertex
-#: round trip. This is inverse-transform noise suppression, not user snapping.
+#: invisible, but enough to make a get_geometry vertex fed straight back into
+#: set_vertex look like a real mutation. This turns inverse-transform noise into
+#: exact no-op detection; it is not user snapping.
 GEOMETRY_ROUNDTRIP_EPS_CM = 1e-9
 
 

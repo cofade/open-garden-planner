@@ -967,7 +967,10 @@ def build_server(
 
             Call ``get_geometry`` first. Vertex indices are zero-based and
             x/y use the same centimetre, CAD Y-up frame as the returned vertex.
-            Exactly one undo step restores the original vertex list.
+            Exactly one undo step restores the original vertex list. Setting a
+            vertex to where it already is is refused as a no-op: feed a vertex
+            back only after changing its x/y, otherwise the call adds no command
+            and reports nothing to change.
 
             Constrained objects are refused permanently: the GUI's live solver
             may move several connected items, which this one-shot tool does not

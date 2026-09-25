@@ -1300,10 +1300,10 @@ def test_set_object_position_is_absolute_move_equivalent_end_to_end(
     assert positioned.scenePos() == moved.scenePos()
 
 
-def test_geometry_round_trip_and_vertex_commands_each_have_one_undo_step(
+def test_geometry_frames_and_vertex_commands_have_exact_undo_semantics(
     canvas: Any, qtbot: Any
 ) -> None:
-    """US-D2.6 read/write frame agreement and exact vertex undo semantics."""
+    """US-D2.6 frame agreement, no-op refusal, and one-step vertex undo."""
     import copy
 
     from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
@@ -1355,19 +1355,36 @@ def test_geometry_round_trip_and_vertex_commands_each_have_one_undo_step(
                 "delete_vertex",
                 {"item_id": str(triangle.item_id), "index": 0},
             )
-            writes = []
-            for index, point in enumerate(body.geometry["vertices"]):  # type: ignore[attr-defined]
-                writes.append(
-                    await session.call_tool(
-                        "set_vertex",
-                        {
-                            "item_id": str(polygon.item_id),
-                            "index": index,
-                            "x": point["x_cm"],
-                            "y": point["y_cm"],
-                        },
-                    )
-                )
+            first = body.geometry["vertices"][0]  # type: ignore[attr-defined]
+            unchanged = await session.call_tool(
+                "set_vertex",
+                {
+                    "item_id": str(polygon.item_id),
+                    "index": 0,
+                    "x": first["x_cm"],
+                    "y": first["y_cm"],
+                },
+            )
+            body.noop_stack = len(view.command_manager._undo_stack)  # type: ignore[attr-defined]
+            body.noop_dirty = manager.is_dirty  # type: ignore[attr-defined]
+            moved = await session.call_tool(
+                "set_vertex",
+                {
+                    "item_id": str(polygon.item_id),
+                    "index": 0,
+                    "x": first["x_cm"] + 25.0,
+                    "y": first["y_cm"] + 10.0,
+                },
+            )
+            restored = await session.call_tool(
+                "set_vertex",
+                {
+                    "item_id": str(polygon.item_id),
+                    "index": 0,
+                    "x": first["x_cm"],
+                    "y": first["y_cm"],
+                },
+            )
             added = await session.call_tool(
                 "add_vertex",
                 {
@@ -1382,10 +1399,16 @@ def test_geometry_round_trip_and_vertex_commands_each_have_one_undo_step(
                 {"item_id": str(polygon.item_id), "index": 1},
             )
             body.too_small_error = too_small.isError  # type: ignore[attr-defined]
-            body.set_results = [call.structuredContent for call in writes]  # type: ignore[attr-defined]
+            body.noop_error = unchanged.isError  # type: ignore[attr-defined]
+            body.set_results = [  # type: ignore[attr-defined]
+                moved.structuredContent,
+                restored.structuredContent,
+            ]
             body.added = added.structuredContent  # type: ignore[attr-defined]
             body.deleted = deleted.structuredContent  # type: ignore[attr-defined]
-            body.write_errors = [call.isError for call in writes] + [  # type: ignore[attr-defined]
+            body.write_errors = [  # type: ignore[attr-defined]
+                moved.isError,
+                restored.isError,
                 added.isError,
                 deleted.isError,
             ]
@@ -1397,14 +1420,15 @@ def test_geometry_round_trip_and_vertex_commands_each_have_one_undo_step(
 
     assert body.read_error is False  # type: ignore[attr-defined]
     assert body.too_small_error is True  # type: ignore[attr-defined]
-    assert body.write_errors == [False] * 6  # type: ignore[attr-defined]
+    assert body.noop_error is True  # type: ignore[attr-defined]
+    assert body.noop_stack == 0  # type: ignore[attr-defined]
+    assert body.noop_dirty is False  # type: ignore[attr-defined]
+    assert body.write_errors == [False] * 4  # type: ignore[attr-defined]
     assert body.geometry["vertex_count"] == 4  # type: ignore[attr-defined]
     assert body.geometry["vertex_editable"] is True  # type: ignore[attr-defined]
     assert manager._serialize_item(polygon) == baseline
-    assert len(view.command_manager._undo_stack) == 6
+    assert len(view.command_manager._undo_stack) == 4
     assert [type(command).__name__ for command in view.command_manager._undo_stack] == [
-        "MoveVertexCommand",
-        "MoveVertexCommand",
         "MoveVertexCommand",
         "MoveVertexCommand",
         "AddVertexCommand",
@@ -1414,15 +1438,15 @@ def test_geometry_round_trip_and_vertex_commands_each_have_one_undo_step(
     assert body.added["vertex_count"] == 5  # type: ignore[attr-defined]
     assert body.deleted["vertex_count"] == 4  # type: ignore[attr-defined]
 
-    for _ in range(6):
+    for _ in range(4):
         view.command_manager.undo()
     assert manager._serialize_item(polygon) == baseline
     assert view.command_manager.can_undo is False
-    assert len(view.command_manager._redo_stack) == 6
+    assert len(view.command_manager._redo_stack) == 4
 
-    # Redo in original chronology: the four unchanged-vertex moves first, then
-    # add restores the fifth point and delete returns to the four-point baseline.
-    for _ in range(4):
+    # Redo in original chronology: the two real moves first, then add restores
+    # the fifth point and delete returns to the four-point baseline.
+    for _ in range(2):
         view.command_manager.redo()
     assert all(
         type(command).__name__ == "MoveVertexCommand"
@@ -1438,7 +1462,7 @@ def test_geometry_round_trip_and_vertex_commands_each_have_one_undo_step(
     assert type(view.command_manager._undo_stack[-1]).__name__ == "DeleteVertexCommand"
     assert polygon._get_vertex_count() == 4
 
-    for _ in range(6):
+    for _ in range(4):
         view.command_manager.undo()
     assert manager._serialize_item(polygon) == baseline
     assert view.command_manager.can_undo is False

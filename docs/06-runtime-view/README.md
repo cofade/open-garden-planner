@@ -143,7 +143,7 @@ sequenceDiagram
     participant U as Undo stack
 
     A->>S: get_geometry / create_object / geometry write / history
-    S->>S: authenticate scene-mutating call
+    S->>S: authenticate write calls (get_geometry reads stay open)
     S->>B: run_on_main(provider)
     B->>Q: queued callable
     Q->>Q: inspect live Qt state or validate + load

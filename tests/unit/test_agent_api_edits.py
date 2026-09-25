@@ -22,8 +22,6 @@ from PyQt6.QtCore import QPointF
 from open_garden_planner.agent_api.edits import (
     MAX_ABSOLUTE_ROTATION_DEG,
     PLANT_PARENT_TYPE_NAMES,
-    POLYGON_MIN_VERTICES,
-    POLYLINE_MIN_VERTICES,
     is_plant_parent_type_name,
     normalise_angle_deg,
     require_plant_parent_type,
@@ -67,16 +65,6 @@ class TestTypeSetDriftGuards:
         )
 
         assert MIN_EXTENT_CM == MINIMUM_SIZE_CM
-
-    def test_vertex_minima_match_the_gui_floors(self) -> None:
-        """The D2.6 deletion floor must not become softer than vertex editing."""
-        from open_garden_planner.ui.canvas.items.resize_handle import (
-            MINIMUM_POLYLINE_VERTICES,
-            MINIMUM_VERTICES,
-        )
-
-        assert POLYGON_MIN_VERTICES == MINIMUM_VERTICES
-        assert POLYLINE_MIN_VERTICES == MINIMUM_POLYLINE_VERTICES
 
     def test_predicate_agrees_with_the_set(self) -> None:
         assert is_plant_parent_type_name("GARDEN_BED")

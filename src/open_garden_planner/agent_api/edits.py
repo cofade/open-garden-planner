@@ -9,8 +9,9 @@ vertex-index validation used by the low-level geometry escape hatches.
 Kept import-light on the same terms as ``creates``: no PyQt6, so the object-type
 name sets are inlined rather than importing ``core.object_types`` (which pulls
 in ``QColor`` and the rest of Qt). ``tests/unit/test_agent_api_edits.py`` guards
-every set below against drift from the real ``ObjectType`` definitions — the
-inlining is only safe because that guard exists.
+the inlined plant-parent set against drift from the real ``ObjectType``
+definitions — the inlining is only safe because that guard exists. Vertex minima
+are not inlined: the item's own protocol supplies them.
 
 Shape validation deliberately lives *outside* this module. Whether an object can
 be resized at all is a question about the Qt item backing it (rect-backed vs
@@ -56,13 +57,6 @@ MIN_EXTENT_CM = 1.0
 #: normalised into [0, 360) anyway, so a legitimate caller never needs more —
 #: this bound exists to make the mistake loud instead of silently plausible.
 MAX_ABSOLUTE_ROTATION_DEG = 3600.0
-
-#: Minimum vertex counts for the two vertex-backed geometry families. These
-#: mirror the interactive mixins in ``resize_handle`` and are drift-guarded by
-#: ``tests/unit/test_agent_api_edits.py``.
-POLYGON_MIN_VERTICES = 3
-POLYLINE_MIN_VERTICES = 2
-
 
 def validate_scene_point(
     x: float,

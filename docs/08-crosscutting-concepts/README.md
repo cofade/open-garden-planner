@@ -1446,20 +1446,22 @@ the parent, plant bed membership is reconciled, and the documented reparent case
 remains the only two-step move. `set_vertex`, `add_vertex`, and `delete_vertex`
 support only the polygon/polyline protocol. Qt-free `agent_api/edits.py` owns
 finite/reachable point validation, zero-based index semantics (an append uses
-`index == vertex_count`), and the 3/2 minimums. Every accepted topology write is
+`index == vertex_count`), and the deletion minimum supplied by the item's
+vertex-editing protocol (3 for a polygon, 2 for a polyline). Every accepted topology write is
 one `AddVertexCommand`/`DeleteVertexCommand`; set is one `MoveVertexCommand`.
 Their callbacks are built only by `geometry_apply.py`, which the interactive
 vertex commit paths also call. A HOUSE topology change invokes the item's
 existing linked-ridge reprojection hook, keeping the ridge attached through
 execute/undo/redo without turning the agent operation into a second command.
 
-The coordinate-frame round trip has one precision rule: if a `set_vertex` target
-is within `1e-9 cm` of the current live vertex, `local_vertex_for_scene()` reuses
-the exact current local `QPointF`; otherwise it uses `mapFromScene`. This is
-required because a raw scene→local→scene inverse at 215° drifted by about
-`5.7e-14 cm`, enough to violate the byte-identical serialized-object round trip
-even though the movement was invisible. The epsilon suppresses numerical inverse
-noise; it is not a user snap mode.
+The coordinate-frame rule has one precision guard: if a `set_vertex` target is
+within `1e-9 cm` of the current live vertex, `local_vertex_for_scene()` reuses
+the exact current local `QPointF`; otherwise it uses `mapFromScene`. A raw
+scene→local→scene inverse at 215° drifted by about `5.7e-14 cm`, so without the
+guard an unchanged request could look like a real mutation. The tool then refuses
+that unchanged request as a no-op with no command, history entry, or dirty state;
+the epsilon is noise detection, not a user snap mode. A moved-then-restored
+vertex leaves the serialized object byte-identical.
 
 **Constrained geometry remains permanently refused.** `_agent_require_unconstrained`
 is the one perimeter for absolute positioning, move, resize, rotate, species

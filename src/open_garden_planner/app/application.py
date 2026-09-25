@@ -618,7 +618,7 @@ class GardenPlannerApp(QMainWindow):
         if item_deltas is None:
             item_deltas = self._agent_move_item_deltas(item, delta)
             constraint_tool_name = (
-                "set_object_position" if action == "set_position" else action
+                "set_object_position" if action == "set_position" else "move_object"
             )
             self._agent_preflight_object_move(
                 item_deltas, item_id, constraint_tool_name
@@ -1039,13 +1039,13 @@ class GardenPlannerApp(QMainWindow):
     # --- US-D2.6: low-level geometry escape hatches --------------------------
 
     def _agent_resolve_vertex_item(self, item_id: str, tool_name: str) -> Any:
-        """Resolve a writable polygon/polyline and clear the D2 geometry gate."""
-        from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
+        """Resolve a writable vertex-backed item and clear the D2 geometry gate."""
+        from open_garden_planner.ui.canvas.geometry_apply import is_vertex_editable
 
         item = self._resolve_agent_item(item_id)
         self._agent_require_unique_items([item], action=tool_name)
         self._agent_require_unconstrained(item, item_id, tool_name)
-        if not isinstance(item, (PolygonItem, PolylineItem)):
+        if not is_vertex_editable(item):
             raise ValueError(
                 f"{item_id} is a {self._agent_object_type_name(item)}, which is not "
                 "a polygon or polyline. set_vertex/add_vertex/delete_vertex only "
@@ -1092,6 +1092,11 @@ class GardenPlannerApp(QMainWindow):
         target_x, target_y = self._agent_validate_vertex_point(x, y)
         old_local = QPointF(item._get_vertex_position(index))
         new_local = local_vertex_for_scene(item, index, target_x, target_y)
+        if new_local == old_local:
+            raise ValueError(
+                f"vertex {index} of {item_id} is already at "
+                f"({target_x:g}, {target_y:g}); nothing to change."
+            )
         command = build_move_vertex_command(item, index, old_local, new_local)
         self.canvas_view.command_manager.execute(command)
         actual = item.mapToScene(item._get_vertex_position(index))
@@ -1153,18 +1158,11 @@ class GardenPlannerApp(QMainWindow):
 
         item = self._agent_resolve_vertex_item(item_id, "delete_vertex")
         count = int(item._get_vertex_count())
-        from open_garden_planner.ui.canvas.items import PolygonItem
-
-        minimum_count = (
-            edits.POLYGON_MIN_VERTICES
-            if isinstance(item, PolygonItem)
-            else edits.POLYLINE_MIN_VERTICES
-        )
         edits.validate_vertex_index(
             index,
             vertex_count=count,
             operation="delete",
-            minimum_count=minimum_count,
+            minimum_count=int(item._get_minimum_vertex_count()),
         )
         deleted = item.mapToScene(item._get_vertex_position(index))
         command = build_delete_vertex_command(item, index)
