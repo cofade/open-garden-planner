@@ -121,11 +121,18 @@ class AgentProviders:
             command) and returns a plain ``WriteResult``-shaped dict. Raises
             on an unsupported/excluded type or invalid geometry
             (``agent_api.creates.build_create_dict``).
+        get_geometry: **Read (D2.6).** Returns curated live geometry for one
+            object in scene-centimetre Y-up coordinates, including vertex/curve
+            data and every constraint referencing it. Read-only; it never
+            mutates or dirties the plan.
         move_object: **Write (D2).** Moves one object by a relative offset
             (dx, dy in scene cm; +x east, +y north — the canvas is Y-up, so a
             negative dy moves south). Takes ``(item_id, dx, dy)``; runs one
             undoable move command on the main thread and returns a plain
             ``WriteResult``-shaped dict. Raises if the id is unknown.
+        set_object_position: **Write (D2.6).** Sets one object's absolute scene
+            centre. Uses the same move orchestration as ``move_object`` and
+            inherits its child propagation and reparenting semantics.
         delete_object: **Write (D2).** Deletes one object by id. Takes
             ``(item_id,)``; runs one undoable ``DeleteItemsCommand`` on the main
             thread and returns a plain ``WriteResult``-shaped dict. Raises if the
@@ -140,6 +147,12 @@ class AgentProviders:
             ``(item_id, angle, relative)`` in degrees, positive =
             counter-clockwise; runs one undoable ``RotateItemCommand`` and
             returns a plain ``WriteResult``-shaped dict.
+        set_vertex: **Write (D2.6).** Moves one polygon/polyline vertex to an
+            absolute scene-frame point; exactly one undoable command.
+        add_vertex: **Write (D2.6).** Inserts one polygon/polyline vertex at a
+            list index; exactly one undoable command.
+        delete_vertex: **Write (D2.6).** Removes one polygon/polyline vertex
+            while preserving the shape's minimum vertex count.
         set_species: **Write (D2.3).** Assigns (or clears) an existing plant's
             species. Takes ``(item_id, species, apply_database_size)``; runs one
             undoable ``ApplySpeciesCommand`` and returns a plain
@@ -200,10 +213,15 @@ class AgentProviders:
     export_dxf: Callable[[str | None], dict[str, Any]]
     export_csv: Callable[[Literal["shopping_list", "harvest"], str | None], dict[str, Any]]
     create_object: CreateObjectProvider
+    get_geometry: Callable[[str], dict[str, Any]]
     move_object: Callable[[str, float, float], dict[str, Any]]
+    set_object_position: Callable[[str, float, float], dict[str, Any]]
     delete_object: Callable[[str], dict[str, Any]]
     resize_object: ResizeObjectProvider
     rotate_object: Callable[[str, float, bool], dict[str, Any]]
+    set_vertex: Callable[[str, int, float, float], dict[str, Any]]
+    add_vertex: Callable[[str, int, float, float], dict[str, Any]]
+    delete_vertex: Callable[[str, int], dict[str, Any]]
     set_species: Callable[[str, str | None, bool], dict[str, Any]]
     set_parent_bed: Callable[[str, str | None], dict[str, Any]]
     arrange_object: Callable[[str, str], dict[str, Any]]

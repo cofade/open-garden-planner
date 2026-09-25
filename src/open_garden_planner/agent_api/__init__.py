@@ -18,8 +18,14 @@ from open_garden_planner.agent_api.diagnostics import diagnostics_from_records
 from open_garden_planner.agent_api.mapping import plan_summary_from_snapshot
 from open_garden_planner.agent_api.providers import AgentProviders
 from open_garden_planner.agent_api.schema import (
+    CurveGeometry,
     Diagnostic,
     ExportResult,
+    GeometryAnchor,
+    GeometryConstraint,
+    GeometryPoint,
+    GeometryResult,
+    LeaderGeometry,
     Measurement,
     ObjectDetail,
     ObjectRef,
@@ -37,8 +43,14 @@ if TYPE_CHECKING:
 __all__ = [
     "AgentApiServer",
     "AgentProviders",
+    "CurveGeometry",
     "Diagnostic",
     "ExportResult",
+    "GeometryAnchor",
+    "GeometryConstraint",
+    "GeometryPoint",
+    "GeometryResult",
+    "LeaderGeometry",
     "MainThreadBridge",
     "Measurement",
     "ObjectDetail",

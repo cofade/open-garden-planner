@@ -190,6 +190,95 @@ class ObjectDetail(ObjectRef):
     )
 
 
+class GeometryPoint(BaseModel):
+    """One point in the native scene frame: centimetres, CAD Y-up."""
+
+    x_cm: float
+    y_cm: float
+
+
+class GeometryAnchor(BaseModel):
+    """One constraint anchor, stable enough for an agent to reason about edits."""
+
+    item_id: str
+    anchor_type: str
+    anchor_index: int = 0
+
+
+class GeometryConstraint(BaseModel):
+    """A constraint referencing the inspected object.
+
+    ``target_distance`` is centimetres for distance-like constraints and degrees
+    for ``ANGLE``; other constraint types may leave it at zero. The machine key
+    is ``constraint_type``; the full anchor records are included so the agent
+    can see which object and vertex would be affected.
+    """
+
+    constraint_id: str
+    constraint_type: str
+    anchor_a: GeometryAnchor
+    anchor_b: GeometryAnchor
+    anchor_c: GeometryAnchor | None = None
+    target_distance: float
+    target_x: float | None = None
+    target_y: float | None = None
+    visible: bool = True
+
+
+class CurveGeometry(BaseModel):
+    """Type-specific live curve geometry for Arc and Bezier items."""
+
+    kind: Literal["arc", "bezier"]
+    center: GeometryPoint | None = None
+    radius_cm: float | None = None
+    start_deg: float | None = None
+    span_deg: float | None = None
+    through: GeometryPoint | None = None
+    anchors: list[GeometryPoint] = Field(default_factory=list)
+    handles_in: list[GeometryPoint] = Field(default_factory=list)
+    handles_out: list[GeometryPoint] = Field(default_factory=list)
+
+
+class LeaderGeometry(BaseModel):
+    """Callout leader geometry in the scene frame."""
+
+    tip: GeometryPoint
+    box_corner: GeometryPoint
+
+
+class GeometryResult(BaseModel):
+    """Curated, stable low-level geometry for one addressable object.
+
+    Polygon and polyline vertices are mapped through the live Qt transform and
+    therefore describe where the vertices are **now**, unlike the pre-rotation
+    points in the raw ``.ogp`` serializer. ``center_x_cm`` / ``center_y_cm``
+    retain exactly the same meaning as ``get_object`` so an agent can feed one
+    into ``set_object_position`` without conversion.
+    """
+
+    item_id: str
+    type: str
+    object_type: str | None = None
+    coordinate_frame: Literal["scene_cm_y_up"] = "scene_cm_y_up"
+    center_x_cm: float
+    center_y_cm: float
+    rotation_deg: float = 0.0
+    width_cm: float | None = None
+    height_cm: float | None = None
+    radius_cm: float | None = None
+    vertices: list[GeometryPoint] = Field(default_factory=list)
+    closed: bool | None = None
+    vertex_editable: bool = False
+    vertex_count: int | None = None
+    minimum_vertex_count: int | None = None
+    endpoints: list[GeometryPoint] = Field(default_factory=list)
+    curve: CurveGeometry | None = None
+    leader: LeaderGeometry | None = None
+    child_count: int | None = None
+    constraints: list[GeometryConstraint] = Field(default_factory=list)
+    is_constrained: bool = False
+
+
 class Diagnostic(BaseModel):
     """One already-computed plan warning, mirroring an on-canvas badge."""
 
@@ -281,16 +370,17 @@ class ExportResult(BaseModel):
     )
 
 
-# --- US-D2.0: scene-mutating write tools ------------------------------------
+# --- US-D2.0–D2.6: scene-mutating write tools -------------------------------
 #
-# The first Agent API tools that mutate the live plan (move_object/
-# delete_object). Each requires a bearer token (ADR-033/ADR-036) and runs on
-# the Qt main thread via the same commands the GUI itself uses. WriteResult is
+# The Agent API tools that mutate the live plan. Each requires a bearer token
+# (ADR-033/ADR-036) and runs on the Qt main thread via the same commands the GUI
+# itself uses. WriteResult is
 # the curated confirmation returned to the agent — decoupled from the .ogp
-# serializer. move_object is ONE undo step for a lone item, but — mirroring
-# CanvasView's own drag-release behaviour — TWO when the move also carries a
-# bed's contained plants along and/or crosses a bed boundary and reparents a
-# plant; children_moved/bed_membership_changed/new_parent_bed_id surface that.
+# serializer. move_object/set_object_position are ONE undo step for a lone item
+# and for a bed whose children travel in the same command, but — mirroring
+# CanvasView's own drag-release behaviour — TWO when placement also crosses a bed
+# boundary and reparents a plant; children_moved/bed_membership_changed/
+# new_parent_bed_id surface that.
 
 
 class WriteResult(BaseModel):
@@ -316,6 +406,10 @@ class WriteResult(BaseModel):
         "rotate",
         "set_species",
         "set_parent_bed",
+        "set_position",
+        "set_vertex",
+        "add_vertex",
+        "delete_vertex",
         "arrange",
         # US-D2.4: layer actions.
         "set_object_layer",
@@ -335,28 +429,32 @@ class WriteResult(BaseModel):
     x: float | None = Field(
         default=None,
         description="Resulting object centre X in scene cm. Reported by every "
-        "action that leaves the object in place (create, move, resize, rotate, "
-        "set_species, set_parent_bed); null for delete.",
+        "action that leaves the object in place (create, move, set_position, "
+        "resize, rotate, vertex writes, set_species, set_parent_bed); null for "
+        "delete and layer-level actions.",
     )
     y: float | None = Field(
         default=None,
         description="Resulting object centre Y in scene cm (Y-up: a larger y is "
-        "further north). Same actions as x; null for delete.",
+        "further north). Same actions as x; null for delete and layer-level "
+        "actions.",
     )
     children_moved: int = Field(
         default=0,
-        description="Contained plants moved along with this object, e.g. moving a "
-        "bed carries its plants. Move only — always 0 for every other action. "
-        "Note resize does NOT move a bed's plants: shrinking a bed leaves its "
-        "linked plants where they are, so a plant can end up linked to a bed it "
-        "no longer sits inside (the app's own resize behaves the same way).",
+        description="Contained plants moved along with this object, e.g. moving "
+        "or absolutely positioning a bed carries its plants. Move/set_position "
+        "only — always 0 for every other action. Note resize does NOT move a "
+        "bed's plants: shrinking a bed leaves its linked plants where they are, "
+        "so a plant can end up linked to a bed it no longer sits inside (the "
+        "app's own resize behaves the same way).",
     )
     bed_membership_changed: bool = Field(
         default=False,
         description="True if this call changed which bed the plant belongs to. "
-        "For move, that reparenting was a SECOND undo step. For set_parent_bed "
-        "it is always true and is the whole point of the call — still ONE undo "
-        "step, since changing the link is the operation rather than a side "
+        "For move/set_position, that reparenting was a SECOND undo step. For "
+        "set_parent_bed it is always true and is the whole point of the call — "
+        "still ONE undo step, since changing the link is the operation rather "
+        "than a side "
         "effect of it. Always false for create (a new plant's link is "
         "established inside the single create step — see new_parent_bed_id) and "
         "for resize/rotate/set_species, none of which reparent.",
@@ -364,22 +462,22 @@ class WriteResult(BaseModel):
     new_parent_bed_id: str | None = Field(
         default=None,
         description="The bed the plant now belongs to: for create, the bed it was "
-        "placed inside (null if it landed outside every bed); for move, its new "
-        "parent when bed_membership_changed is true; for set_parent_bed, the bed "
-        "just linked. Null if it left a bed (including a set_parent_bed detach), "
-        "is unchanged, or is not a plant.",
+        "placed inside (null if it landed outside every bed); for move/"
+        "set_position, its new parent when bed_membership_changed is true; for "
+        "set_parent_bed, the bed just linked. Null if it left a bed (including a "
+        "set_parent_bed detach), is unchanged, or is not a plant.",
     )
     linked_items_deleted: int = Field(
         default=0,
         description="Other items deleted alongside this one because they were "
         "structurally linked to it — currently a HOUSE's roof ridge (delete only, "
-        "always 0 for move).",
+        "always 0 for move/set_position).",
     )
     constraints_removed: int = Field(
         default=0,
         description="Geometric constraints removed because they referenced this "
-        "object (delete only, always 0 for move; move_object refuses outright on a "
-        "constrained object instead — see its own error).",
+        "object (delete only). Every geometry write except delete refuses a "
+        "constrained object instead; get_geometry exposes the blocking records.",
     )
     # --- US-D2.2: resize / rotate -----------------------------------------
     width: float | None = Field(
@@ -403,6 +501,27 @@ class WriteResult(BaseModel):
         "(rotate only; null for every other action). Positive angles turn the "
         "object COUNTER-CLOCKWISE on screen — e.g. an object pointing east "
         "points north after +90.",
+    )
+    # --- US-D2.6: low-level geometry escape hatches -----------------------
+    vertex_index: int | None = Field(
+        default=None,
+        description="Affected or inserted vertex index for set_vertex/add_vertex; "
+        "the removed index for delete_vertex. Null for every other action.",
+    )
+    vertex_x_cm: float | None = Field(
+        default=None,
+        description="Actual resulting scene-frame X coordinate of the affected "
+        "vertex. A ROOF_RIDGE request may be projected onto its owning HOUSE "
+        "boundary, so this is the applied result rather than the request echo.",
+    )
+    vertex_y_cm: float | None = Field(
+        default=None,
+        description="Actual resulting scene-frame Y coordinate of the affected vertex.",
+    )
+    vertex_count: int | None = Field(
+        default=None,
+        description="Vertex count after a polygon/polyline vertex write; null "
+        "for every other action.",
     )
     # --- US-D2.3: species / parent bed ------------------------------------
     species_key: str | None = Field(

@@ -491,6 +491,26 @@ class GardenPlannerApp(QMainWindow):
             )
         return active_layer
 
+    def _agent_get_geometry(self, item_id: str) -> dict[str, Any]:
+        """Read one object's live low-level geometry ON the Qt main thread."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_get_geometry(item_id)
+        )
+
+    def _do_agent_get_geometry(self, item_id: str) -> dict[str, Any]:
+        """Main-thread body of the unauthenticated ``get_geometry`` read."""
+        from open_garden_planner.ui.canvas.geometry_inspect import describe_geometry
+
+        item = self._resolve_agent_read_item(item_id)
+        self._agent_require_unique_items([item], action="get_geometry")
+        center = self._agent_item_center(item)
+        constraints = self._agent_item_constraints(item)
+        return describe_geometry(
+            item,
+            center=center,
+            constraints=constraints,
+        )
+
     def _agent_move_object(self, item_id: str, dx: float, dy: float) -> dict[str, Any]:
         """Move one object by (dx, dy) scene cm ON the Qt main thread (for the server)."""
         return self._agent_bridge.run_on_main(
@@ -500,51 +520,112 @@ class GardenPlannerApp(QMainWindow):
     def _do_agent_move_object(
         self, item_id: str, dx: float, dy: float
     ) -> dict[str, Any]:
-        """Main-thread body of ``move_object``.
-
-        Mirrors what a drag-release does in ``CanvasView`` (invariant #13 means
-        "behaves like the GUI's own move", not merely "calls a Command class"):
-        a bed/container/trellis carries its contained plants along
-        (``_propagate_bed_children_during_drag`` + the multi-item
-        ``AlignItemsCommand`` branch at drag-release), and a moved plant has its
-        bed membership re-evaluated afterward (``_update_plant_bed_relationships``).
-        Skipping either step — the first cut of this tool did — silently
-        abandons a bed's plants where they sit, or leaves stale
-        parent/child links that soil-mismatch diagnostics then act on.
-
-        Like the GUI, this can be ONE undo step (a lone item, no reparenting)
-        or TWO (the move, plus a separate ``SetParentBedCommand`` only when the
-        move actually crosses a bed boundary) — never more.
-
-        Refuses (raises) rather than silently violating a geometric
-        constraint: ``CanvasView`` runs an iterative solver
-        (``_propagate_constraints_during_drag``) to move every item linked to
-        the dragged one by a distance/fixed/tangent constraint, computing a
-        per-item delta that generally is NOT the dragged item's own delta.
-        Replicating that solver for a one-shot agent call is out of scope for
-        this tool — moving a constrained item without it would silently leave
-        the constraint violated, which is worse than refusing outright.
-        """
+        """Main-thread body of ``move_object`` (US-D2.0)."""
         from PyQt6.QtCore import QPointF
 
-        from open_garden_planner.core.commands import AlignItemsCommand, MoveItemsCommand
-
         item = self._resolve_agent_item(item_id)
-        delta = QPointF(float(dx), float(dy))
+        return self._agent_apply_object_move(
+            item,
+            item_id,
+            QPointF(float(dx), float(dy)),
+            action="move",
+        )
 
+    def _agent_set_object_position(
+        self, item_id: str, x: float, y: float
+    ) -> dict[str, Any]:
+        """Set one object's centre ON the Qt main thread (for the server)."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_set_object_position(item_id, x, y)
+        )
+
+    def _do_agent_set_object_position(
+        self, item_id: str, x: float, y: float
+    ) -> dict[str, Any]:
+        """Main-thread body of ``set_object_position`` (US-D2.6)."""
+        import math
+
+        from PyQt6.QtCore import QPointF
+
+        from open_garden_planner.agent_api import edits
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            GEOMETRY_ROUNDTRIP_EPS_CM,
+        )
+
+        canvas = self.canvas_scene.canvas_rect
+        target_x, target_y = edits.validate_scene_point(
+            x,
+            y,
+            canvas_width_cm=canvas.width(),
+            canvas_height_cm=canvas.height(),
+        )
+        item = self._resolve_agent_item(item_id)
+        self._agent_require_unique_items([item], action="set_object_position")
+        current_x, current_y = self._agent_item_center(item)
+        delta = QPointF(target_x - current_x, target_y - current_y)
         item_deltas = self._agent_move_item_deltas(item, delta)
+        self._agent_preflight_object_move(item_deltas, item_id, "set_object_position")
+        if math.hypot(target_x - current_x, target_y - current_y) <= (
+            GEOMETRY_ROUNDTRIP_EPS_CM
+        ):
+            raise ValueError(
+                f"{item_id} is already centred at ({current_x:g}, {current_y:g}); "
+                "nothing to change."
+            )
+        return self._agent_apply_object_move(
+            item,
+            item_id,
+            delta,
+            action="set_position",
+            item_deltas=item_deltas,
+        )
+
+    def _agent_preflight_object_move(
+        self,
+        item_deltas: list[tuple[Any, Any]],
+        item_id: str,
+        tool_name: str,
+    ) -> None:
+        """Refuse the complete move graph before any command can be executed."""
         for constrained_item, _ in item_deltas:
+            constrained_id = getattr(constrained_item, "item_id", None)
+            subject_id = str(constrained_id) if constrained_id is not None else item_id
             self._agent_require_unconstrained(
                 constrained_item,
-                item_id,
-                "move_object",
-                also_children=True,
+                subject_id,
+                tool_name,
+            )
+
+    def _agent_apply_object_move(
+        self,
+        item: Any,
+        item_id: str,
+        delta: Any,
+        *,
+        action: str,
+        item_deltas: list[tuple[Any, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Apply the complete GUI move orchestration for one resolved item.
+
+        ``move_object`` and ``set_object_position`` differ only in how they
+        derive ``delta``. Both therefore share child propagation, constraint
+        preflight, command selection, and bed-membership reconciliation. A plant
+        crossing a bed boundary inherits ``move_object``'s documented second
+        undo step; every other move is one step.
+        """
+        from open_garden_planner.core.commands import AlignItemsCommand, MoveItemsCommand
+
+        if item_deltas is None:
+            item_deltas = self._agent_move_item_deltas(item, delta)
+            constraint_tool_name = (
+                "set_object_position" if action == "set_position" else "move_object"
+            )
+            self._agent_preflight_object_move(
+                item_deltas, item_id, constraint_tool_name
             )
         if len(item_deltas) == 1:
             move_cmd = MoveItemsCommand([item], delta)
         else:
-            # Matches CanvasView's own wording: the description names the
-            # primary item being moved, not every propagated child.
             from PyQt6.QtCore import QCoreApplication
 
             move_cmd = AlignItemsCommand(
@@ -553,11 +634,10 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_view.command_manager.execute(move_cmd)
 
         reparented, new_parent_bed_id = self._agent_reconcile_bed_membership(item)
-
         cx, cy = self._agent_item_center(item)
         return {
             "item_id": item_id,
-            "action": "move",
+            "action": action,
             "undo_description": move_cmd.description,
             "x": cx,
             "y": cy,
@@ -754,32 +834,37 @@ class GardenPlannerApp(QMainWindow):
         item: Any,
         item_id: str,
         tool_name: str,
-        *,
-        also_children: bool = False,
     ) -> None:
-        """Refuse a geometry edit on a constrained object — the shared D2 rule.
+        """Refuse a geometry edit on a constrained object — the final D2.6 rule.
 
-        ``CanvasView`` runs an iterative solver
-        (``_propagate_constraints_during_drag``) that moves/resizes every item
-        linked to the edited one by a distance/fixed/tangent/equal constraint,
-        computing a per-item delta that generally is NOT the edited item's own.
-        Replicating that solver for a one-shot agent call is deferred to
-        US-D2.6 — editing a constrained item without it would silently leave
-        the constraint violated, which is worse than refusing outright.
+        ``CanvasView`` runs a live, iterative solver that may move several
+        connected items. US-D2.6 deliberately does not expose that multi-item
+        mutation to one-shot agent calls: silently skipping it would violate the
+        user's design intent. The agent can call ``get_geometry`` to see the
+        exact constraints, then ask the user to remove or edit them in the app.
 
-        Extracted in US-D2.2 so ``move_object``, ``resize_object`` and
-        ``rotate_object`` cannot drift on the wording or, worse, on whether
-        they check at all.
+        This one helper is the perimeter for every geometry-changing tool:
+        move/set-position, resize/rotate, species assignment when it resizes,
+        and vertex writes.
         """
-        if not self._agent_item_constraints(item):
-            return
-        subject = (
-            f"{item_id} (or a plant it contains)" if also_children else str(item_id)
+        constraints = sorted(
+            self._agent_item_constraints(item),
+            key=lambda constraint: (
+                constraint.constraint_type.name,
+                str(constraint.constraint_id),
+            ),
         )
+        if not constraints:
+            return
+        first = constraints[0]
+        extra = f" (+{len(constraints) - 1} more)" if len(constraints) > 1 else ""
+        subject = str(item_id)
         raise ValueError(
-            f"{subject} participates in a geometric constraint; {tool_name} "
-            "doesn't support constrained objects yet — remove the constraint "
-            "first, or edit it from the app."
+            f"{subject} participates in geometric constraint "
+            f"{first.constraint_type.name}/{first.constraint_id}{extra}; "
+            f"{tool_name} does not support constrained objects. Call get_geometry "
+            "to inspect the constraints, then remove them or edit the object in "
+            "the app."
         )
 
     def _agent_resize_object(
@@ -839,15 +924,14 @@ class GardenPlannerApp(QMainWindow):
         self._agent_require_unconstrained(item, item_id, "resize_object")
 
         if not is_resizable_rect_like(item):
-            # Don't assert WHY it has no width/height box — a polygon or
-            # polyline is vertex-backed, but a text label or a group is neither,
-            # and telling an agent to wait for vertex editing would send it
-            # after a tool that will never help it.
+            # A polygon/polyline has a different geometry model; a text label or
+            # group has no width/height box at all. Name the applicable path
+            # without implying a tool exists for every non-rect-backed item.
             raise ValueError(
                 f"{item_id} is a {type_name}, which has no width/height box, so "
                 "resize_object cannot resize it. Polygons and polylines are "
-                "vertex-backed (vertex editing is not available to agents yet); "
-                "a group is resized by addressing its members individually."
+                "vertex-backed — use get_geometry and set_vertex; a group is "
+                "resized by addressing its members individually."
             )
 
         # Same predicate the builders use internally — see is_round_like.
@@ -950,6 +1034,169 @@ class GardenPlannerApp(QMainWindow):
             "x": cx,
             "y": cy,
             "rotation_deg": new_angle,
+        }
+
+    # --- US-D2.6: low-level geometry escape hatches --------------------------
+
+    def _agent_resolve_vertex_item(self, item_id: str, tool_name: str) -> Any:
+        """Resolve a writable vertex-backed item and clear the D2 geometry gate."""
+        from open_garden_planner.ui.canvas.geometry_apply import is_vertex_editable
+
+        item = self._resolve_agent_item(item_id)
+        self._agent_require_unique_items([item], action=tool_name)
+        self._agent_require_unconstrained(item, item_id, tool_name)
+        if not is_vertex_editable(item):
+            raise ValueError(
+                f"{item_id} is a {self._agent_object_type_name(item)}, which is not "
+                "a vertex-backed shape. set_vertex/add_vertex/delete_vertex only "
+                "edit polygon and polyline items; use resize_object for "
+                "rect-backed shapes."
+            )
+        return item
+
+    def _agent_validate_vertex_point(
+        self, x: float, y: float
+    ) -> tuple[float, float]:
+        from open_garden_planner.agent_api import edits
+
+        canvas = self.canvas_scene.canvas_rect
+        return edits.validate_scene_point(
+            x,
+            y,
+            canvas_width_cm=canvas.width(),
+            canvas_height_cm=canvas.height(),
+        )
+
+    def _agent_set_vertex(
+        self, item_id: str, index: int, x: float, y: float
+    ) -> dict[str, Any]:
+        """Move one polygon/polyline vertex ON the Qt main thread."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_set_vertex(item_id, index, x, y)
+        )
+
+    def _do_agent_set_vertex(
+        self, item_id: str, index: int, x: float, y: float
+    ) -> dict[str, Any]:
+        from PyQt6.QtCore import QPointF
+
+        from open_garden_planner.agent_api import edits
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            build_move_vertex_command,
+            local_vertex_for_scene,
+        )
+
+        item = self._agent_resolve_vertex_item(item_id, "set_vertex")
+        count = int(item._get_vertex_count())
+        edits.validate_vertex_index(index, vertex_count=count, operation="set")
+        target_x, target_y = self._agent_validate_vertex_point(x, y)
+        old_local = QPointF(item._get_vertex_position(index))
+        new_local = local_vertex_for_scene(item, index, target_x, target_y)
+        if new_local == old_local:
+            raise ValueError(
+                f"vertex {index} of {item_id} is already at "
+                f"({target_x:g}, {target_y:g}); nothing to change."
+            )
+        command = build_move_vertex_command(item, index, old_local, new_local)
+        self.canvas_view.command_manager.execute(command)
+        actual = item.mapToScene(item._get_vertex_position(index))
+        return self._agent_vertex_result(
+            item,
+            item_id,
+            action="set_vertex",
+            command=command,
+            index=index,
+            actual=actual,
+        )
+
+    def _agent_add_vertex(
+        self, item_id: str, index: int, x: float, y: float
+    ) -> dict[str, Any]:
+        """Insert one polygon/polyline vertex ON the Qt main thread."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_add_vertex(item_id, index, x, y)
+        )
+
+    def _do_agent_add_vertex(
+        self, item_id: str, index: int, x: float, y: float
+    ) -> dict[str, Any]:
+        from PyQt6.QtCore import QPointF
+
+        from open_garden_planner.agent_api import edits
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            build_add_vertex_command,
+        )
+
+        item = self._agent_resolve_vertex_item(item_id, "add_vertex")
+        count = int(item._get_vertex_count())
+        edits.validate_vertex_index(index, vertex_count=count, operation="add")
+        target_x, target_y = self._agent_validate_vertex_point(x, y)
+        local = item.mapFromScene(QPointF(target_x, target_y))
+        command = build_add_vertex_command(item, index, local)
+        self.canvas_view.command_manager.execute(command)
+        actual = item.mapToScene(item._get_vertex_position(index))
+        return self._agent_vertex_result(
+            item,
+            item_id,
+            action="add_vertex",
+            command=command,
+            index=index,
+            actual=actual,
+        )
+
+    def _agent_delete_vertex(self, item_id: str, index: int) -> dict[str, Any]:
+        """Delete one polygon/polyline vertex ON the Qt main thread."""
+        return self._agent_bridge.run_on_main(
+            lambda: self._do_agent_delete_vertex(item_id, index)
+        )
+
+    def _do_agent_delete_vertex(self, item_id: str, index: int) -> dict[str, Any]:
+        from open_garden_planner.agent_api import edits
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            build_delete_vertex_command,
+        )
+
+        item = self._agent_resolve_vertex_item(item_id, "delete_vertex")
+        count = int(item._get_vertex_count())
+        edits.validate_vertex_index(
+            index,
+            vertex_count=count,
+            operation="delete",
+            minimum_count=int(item._get_minimum_vertex_count()),
+        )
+        deleted = item.mapToScene(item._get_vertex_position(index))
+        command = build_delete_vertex_command(item, index)
+        self.canvas_view.command_manager.execute(command)
+        return self._agent_vertex_result(
+            item,
+            item_id,
+            action="delete_vertex",
+            command=command,
+            index=index,
+            actual=deleted,
+        )
+
+    def _agent_vertex_result(
+        self,
+        item: Any,
+        item_id: str,
+        *,
+        action: str,
+        command: Any,
+        index: int,
+        actual: Any,
+    ) -> dict[str, Any]:
+        cx, cy = self._agent_item_center(item)
+        return {
+            "item_id": item_id,
+            "action": action,
+            "undo_description": command.description,
+            "x": cx,
+            "y": cy,
+            "vertex_index": index,
+            "vertex_x_cm": float(actual.x()),
+            "vertex_y_cm": float(actual.y()),
+            "vertex_count": int(item._get_vertex_count()),
         }
 
     # --- US-D2.3: species / parent bed --------------------------------------
@@ -1619,6 +1866,32 @@ class GardenPlannerApp(QMainWindow):
             if callable(refresh):
                 refresh()
 
+    def _resolve_agent_read_item(self, item_id: str) -> Any:
+        """Resolve a top-level live item for a read that needs Qt geometry.
+
+        Read visibility intentionally differs from write protection: a locked
+        layer or journal pin remains inspectable. Group members are still not
+        independently addressable because the curated read tools expose only
+        the group's top-level id.
+        """
+        from uuid import UUID
+
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+        try:
+            uuid = UUID(item_id)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"Not a valid object id: {item_id!r}") from exc
+        item = self.canvas_scene.find_item_by_id(uuid)
+        if item is None:
+            raise ValueError(f"No object with id {item_id}")
+        if isinstance(item.parentItem(), GroupItem):
+            raise ValueError(
+                f"{item_id} is a member of a group; address the group itself "
+                "rather than an individual member."
+            )
+        return item
+
     def _resolve_agent_item(self, item_id: str) -> Any:
         """Look up a scene item by UUID string for a write tool, or raise.
 
@@ -1702,13 +1975,15 @@ class GardenPlannerApp(QMainWindow):
         value = getattr(item, "item_id", None)
         return value if isinstance(value, UUID) else None
 
-    def _agent_require_unique_items(self, items: list[Any]) -> None:
-        """Refuse deletion if any target UUID occurs more than once live."""
+    def _agent_require_unique_items(
+        self, items: list[Any], *, action: str = "delete_object"
+    ) -> None:
+        """Refuse an operation if any target UUID occurs more than once live."""
         from collections import Counter
 
         target_ids = {self._agent_item_uuid(item) for item in items}
         if None in target_ids:
-            raise ValueError("delete_object requires every target to have a UUID.")
+            raise ValueError(f"{action} requires every target to have a UUID.")
 
         counts: Counter[Any] = Counter()
         for candidate in self._agent_document_items():
@@ -1723,9 +1998,9 @@ class GardenPlannerApp(QMainWindow):
         ]
         if duplicates:
             raise ValueError(
-                "Cannot delete because the document contains duplicate live "
+                f"Cannot {action} because the document contains duplicate live "
                 f"UUIDs: {', '.join(duplicates)}. Resolve the duplicate records "
-                "before editing; delete_object will not choose one arbitrarily."
+                f"before continuing; {action} will not choose one arbitrarily."
             )
 
     def _maybe_start_agent_api(self) -> None:
@@ -1797,10 +2072,15 @@ class GardenPlannerApp(QMainWindow):
             export_dxf=self._agent_export_dxf,
             export_csv=self._agent_export_csv,
             create_object=self._agent_create_object,
+            get_geometry=self._agent_get_geometry,
             move_object=self._agent_move_object,
+            set_object_position=self._agent_set_object_position,
             delete_object=self._agent_delete_object,
             resize_object=self._agent_resize_object,
             rotate_object=self._agent_rotate_object,
+            set_vertex=self._agent_set_vertex,
+            add_vertex=self._agent_add_vertex,
+            delete_vertex=self._agent_delete_vertex,
             set_species=self._agent_set_species,
             set_parent_bed=self._agent_set_parent_bed,
             arrange_object=self._agent_arrange_object,

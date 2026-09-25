@@ -242,7 +242,7 @@ def require_positive(value: float, field: str) -> float:
     return number
 
 
-def _require_within_canvas(
+def require_reachable_position(
     centre_x: float,
     centre_y: float,
     canvas_width_cm: float,
@@ -382,7 +382,7 @@ def _validate_points(
             )
         px = require_finite(point[0], f"points[{index}][0]")
         py = require_finite(point[1], f"points[{index}][1]")
-        _require_within_canvas(px, py, canvas_width_cm, canvas_height_cm)
+        require_reachable_position(px, py, canvas_width_cm, canvas_height_cm)
         validated.append((px, py))
 
     xs = [p[0] for p in validated]
@@ -542,7 +542,7 @@ def build_create_dict(
 
     if object_type in _RECT_TYPE_NAMES:
         centre_x, centre_y = _require_centre(x, y, object_type)
-        _require_within_canvas(centre_x, centre_y, canvas_w, canvas_h)
+        require_reachable_position(centre_x, centre_y, canvas_w, canvas_h)
         if radius is not None:
             raise ValueError(
                 f"{object_type} is rectangular — pass 'width'/'height', not "
@@ -568,7 +568,7 @@ def build_create_dict(
 
     if object_type in _ELLIPSE_TYPE_NAMES:
         centre_x, centre_y = _require_centre(x, y, object_type)
-        _require_within_canvas(centre_x, centre_y, canvas_w, canvas_h)
+        require_reachable_position(centre_x, centre_y, canvas_w, canvas_h)
         if radius is not None:
             raise ValueError(
                 f"{object_type} takes a bounding box — pass 'width'/'height' "
@@ -644,7 +644,7 @@ def build_create_dict(
 
     # _CALLOUT_TYPE_NAMES — the only remaining creatable family.
     tip_x, tip_y = _require_centre(x, y, object_type)
-    _require_within_canvas(tip_x, tip_y, canvas_w, canvas_h)
+    require_reachable_position(tip_x, tip_y, canvas_w, canvas_h)
     if width is not None or height is not None or radius is not None:
         raise ValueError(
             f"{object_type} has no width/height/radius — pass 'text' plus the "
@@ -695,7 +695,7 @@ def _build_circle_dict(
 ) -> dict[str, Any]:
     """The circle family: plants (default footprint), containers, furniture."""
     centre_x, centre_y = _require_centre(x, y, object_type)
-    _require_within_canvas(centre_x, centre_y, canvas_w, canvas_h)
+    require_reachable_position(centre_x, centre_y, canvas_w, canvas_h)
     if width is not None or height is not None:
         raise ValueError(
             f"{object_type} is round — pass 'radius', not 'width'/'height'."
@@ -759,7 +759,7 @@ def _build_polygon_dict(
         )
     elif footprint:
         centre_x, centre_y = _require_centre(x, y, object_type)
-        _require_within_canvas(centre_x, centre_y, canvas_w, canvas_h)
+        require_reachable_position(centre_x, centre_y, canvas_w, canvas_h)
         if width is None or height is None:
             raise ValueError(
                 f"{object_type}'s rectangular-footprint form requires BOTH "

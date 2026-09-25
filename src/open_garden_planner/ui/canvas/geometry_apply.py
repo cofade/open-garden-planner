@@ -1,19 +1,22 @@
-"""The canonical geometry-apply path for rect-backed canvas items (US-D2.2).
+"""The canonical geometry-apply path for canvas items (US-D2.2 / D2.6).
 
-Every resize in this app funnels through :func:`apply_rect_like_geometry` and
-the builders beside it. Before US-D2.2 each caller — the three numeric-entry
-branches in ``properties_panel`` and the drag-release handler on each item
-class — carried its own local ``apply_func`` closure for
-:class:`~open_garden_planner.core.commands.ResizeItemCommand`, and the copies
-had **drifted**: the drag-release closures re-pin ``transformOriginPoint`` onto
-the new rect centre (the #218 fix), while the properties-panel closures never
-did. A rotated circle resized from the panel therefore jumped — measurably
-73.2 cm for a 30 degrees rotation and a 50 to 100 cm radius change — and at 0
-degrees the drift is exactly zero, which is why it survived so long. See
-``docs/11-risks-and-technical-debt/`` section 11.4.
+Every rect-backed resize in this app funnels through
+:func:`apply_rect_like_geometry` and the builders beside it. Before US-D2.2 each
+caller — the three numeric-entry branches in ``properties_panel`` and the
+drag-release handler on each item class — carried its own local ``apply_func``
+closure for :class:`~open_garden_planner.core.commands.ResizeItemCommand`, and
+the copies had **drifted**: the drag-release closures re-pin
+``transformOriginPoint`` onto the new rect centre (the #218 fix), while the
+properties-panel closures never did. A rotated circle resized from the panel
+therefore jumped — measurably 73.2 cm for a 30 degree rotation and a 50 to
+100 cm radius change — and at 0 degrees the drift is exactly zero, which is why
+it survived so long. See ``docs/11-risks-and-technical-debt/`` section 11.4.
 
 Adding the Agent API's ``resize_object`` (US-D2.2) would have made that another
-copy, so the copies were collapsed instead.
+copy, so the copies were collapsed instead. US-D2.6 extends the same rule to
+vertex commands: interactive vertex commits and the Agent API's vertex escape
+hatches share the builders in this module rather than each constructing a
+private apply callback.
 
 .. _canonical-callers:
 
@@ -42,6 +45,15 @@ resize:
 
 :func:`apply_rotation` has **exactly one** definition in the codebase, used by
 every ``RotateItemCommand`` call site, for every item type. Drift-guarded.
+
+The vertex builders — :func:`build_move_vertex_command`,
+:func:`build_add_vertex_command`, and :func:`build_delete_vertex_command` —
+are the one construction path for `MoveVertexCommand`, `AddVertexCommand`, and
+`DeleteVertexCommand`. Their callers are the interactive vertex commit methods
+on ``VertexEditMixin`` / ``PolylineVertexEditMixin`` and the Agent API's
+``set_vertex`` / ``add_vertex`` / ``delete_vertex`` tools. The item-local
+``_move_vertex_to`` / ``_insert_vertex`` / ``_remove_vertex`` methods remain the
+one low-level mutation implementation for polygon and polyline vertices.
 
 Two deliberate exceptions, both verified rather than assumed:
 
@@ -97,6 +109,7 @@ from the other under rotation.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from PyQt6.QtCore import QPointF, QRectF
@@ -105,15 +118,30 @@ from PyQt6.QtWidgets import QGraphicsItem
 from open_garden_planner.ui.canvas.items.resize_handle import anchored_position
 
 __all__ = [
+    "GEOMETRY_ROUNDTRIP_EPS_CM",
     "apply_rect_like_geometry",
     "apply_rotation",
+    "build_add_vertex_command",
     "build_circle_resize",
+    "build_delete_vertex_command",
     "build_ellipse_resize",
+    "build_move_vertex_command",
     "build_rect_resize",
     "capture_rect_like_geometry",
     "is_resizable_rect_like",
     "is_round_like",
+    "is_vertex_editable",
+    "local_vertex_for_scene",
+    "scene_vertex_positions",
 ]
+
+#: An unchanged scene-space vertex is snapped back to the item's exact local
+#: ``QPointF`` before the inverse transform. ``mapToScene`` followed by
+#: ``mapFromScene`` can otherwise perturb a rotated polyline by ~5.7e-14 cm —
+#: invisible, but enough to make a get_geometry vertex fed straight back into
+#: set_vertex look like a real mutation. This turns inverse-transform noise into
+#: exact no-op detection; it is not user snapping.
+GEOMETRY_ROUNDTRIP_EPS_CM = 1e-9
 
 
 def is_resizable_rect_like(item: QGraphicsItem) -> bool:
@@ -227,6 +255,150 @@ def apply_rotation(item: QGraphicsItem, angle: float) -> None:
     function instead of a closure each.
     """
     item._apply_rotation(angle)  # type: ignore[attr-defined]
+
+
+def is_vertex_editable(item: QGraphicsItem) -> bool:
+    """Whether ``item`` exposes the shared polygon/polyline vertex protocol.
+
+    This is a capability check, not a class-name allowlist. A future vertex-backed
+    item with the same methods becomes supported without changing every caller.
+    Rectangle corner editing is deliberately excluded: it is a rect resize, not a
+    polygon/polyline vertex-list edit.
+    """
+    required = (
+        "_get_vertex_position",
+        "_get_vertex_count",
+        "_get_minimum_vertex_count",
+        "_move_vertex_to",
+        "_insert_vertex",
+        "_remove_vertex",
+    )
+    return all(callable(getattr(item, name, None)) for name in required)
+
+
+def _require_vertex_editable(item: QGraphicsItem) -> None:
+    if not is_vertex_editable(item):
+        raise TypeError(
+            f"{type(item).__name__} does not expose the polygon/polyline "
+            "vertex-editing protocol."
+        )
+
+
+def scene_vertex_positions(item: QGraphicsItem) -> list[QPointF]:
+    """Return every item-local vertex mapped into the scene's CAD Y-up frame."""
+    _require_vertex_editable(item)
+    count = int(item._get_vertex_count())  # type: ignore[attr-defined]
+    return [
+        item.mapToScene(item._get_vertex_position(index))  # type: ignore[attr-defined]
+        for index in range(count)
+    ]
+
+
+def local_vertex_for_scene(
+    item: QGraphicsItem, index: int, x: float, y: float
+) -> QPointF:
+    """Convert a scene-frame vertex request to the item's local coordinates.
+
+    An unchanged request reuses the exact current local point. A Qt transform
+    followed by its inverse is not bit-exact for every rotation, and #330 requires
+    a byte-identical geometry read/write round trip.
+    """
+    _require_vertex_editable(item)
+    count = int(item._get_vertex_count())  # type: ignore[attr-defined]
+    if not 0 <= index < count:
+        raise IndexError(f"vertex index {index} is outside 0..{count - 1}")
+    current_local = QPointF(item._get_vertex_position(index))  # type: ignore[attr-defined]
+    current_scene = item.mapToScene(current_local)
+    if (
+        math.hypot(x - current_scene.x(), y - current_scene.y())
+        <= GEOMETRY_ROUNDTRIP_EPS_CM
+    ):
+        return current_local
+    return item.mapFromScene(QPointF(x, y))
+
+
+def _apply_vertex_position(item: QGraphicsItem, index: int, pos: QPointF) -> None:
+    item._move_vertex_to(index, pos)  # type: ignore[attr-defined]
+
+
+def _apply_insert_vertex(item: QGraphicsItem, index: int, pos: QPointF) -> None:
+    item._insert_vertex(index, pos)  # type: ignore[attr-defined]
+
+
+def _apply_remove_vertex(item: QGraphicsItem, index: int) -> None:
+    item._remove_vertex(index)  # type: ignore[attr-defined]
+
+
+def build_move_vertex_command(
+    item: QGraphicsItem,
+    index: int,
+    old_pos: QPointF,
+    new_pos: QPointF,
+) -> Any:
+    """Build the one ``MoveVertexCommand`` used by GUI and Agent API callers."""
+    from open_garden_planner.core.commands import MoveVertexCommand
+
+    _require_vertex_editable(item)
+    return MoveVertexCommand(
+        item,
+        index,
+        QPointF(old_pos),
+        QPointF(new_pos),
+        _apply_vertex_position,
+    )
+
+
+def build_add_vertex_command(
+    item: QGraphicsItem, index: int, pos: QPointF
+) -> Any:
+    """Build the one ``AddVertexCommand`` used by GUI and Agent API callers."""
+    from open_garden_planner.core.commands import AddVertexCommand
+
+    _require_vertex_editable(item)
+    count = int(item._get_vertex_count())  # type: ignore[attr-defined]
+    if not 0 <= index <= count:
+        raise IndexError(f"insertion index {index} is outside 0..{count}")
+    return AddVertexCommand(
+        item,
+        index,
+        QPointF(pos),
+        _apply_insert_vertex,
+        _apply_remove_vertex,
+    )
+
+
+def build_delete_vertex_command(
+    item: QGraphicsItem, index: int, pos: QPointF | None = None
+) -> Any:
+    """Build the one ``DeleteVertexCommand`` used by GUI and Agent API callers.
+
+    ``pos`` is the deleted vertex's local position. The interactive path has
+    already removed it and passes the captured position; the Agent API builds
+    this before executing and therefore omits ``pos``, which is read here while
+    the vertex still exists. Reading after an interactive deletion would record
+    whatever vertex shifted into that index (or fall off the end).
+    """
+    from open_garden_planner.core.commands import DeleteVertexCommand
+
+    _require_vertex_editable(item)
+    count = int(item._get_vertex_count())  # type: ignore[attr-defined]
+    if pos is not None:
+        # Interactive path: the removal already happened, so `index` is the
+        # insertion point for undo and may equal the current count.
+        if not 0 <= index <= count:
+            raise IndexError(f"deleted index {index} is outside 0..{count}")
+        deleted_pos = QPointF(pos)
+    else:
+        if not 0 <= index < count:
+            raise IndexError(f"vertex index {index} is outside 0..{count - 1}")
+        deleted_pos = QPointF(item._get_vertex_position(index))  # type: ignore[attr-defined]
+    return DeleteVertexCommand(
+        item,
+        index,
+        deleted_pos,
+        _apply_insert_vertex,
+        _apply_remove_vertex,
+    )
 
 
 def _resize_geometry(

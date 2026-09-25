@@ -17,9 +17,10 @@ This skill governs everything the outside world sees. The internal rule is simpl
 **every public statement must be traceable to shipped, tested code or a checked-in
 document.** When in doubt, under-claim and link to the roadmap.
 
-Date-stamped facts below were verified against the repo on **2026-07-05** (app version
-1.23.0 per `pyproject.toml` and `src/open_garden_planner/__init__.py`). Re-verify with the
-commands in "Provenance and maintenance" before relying on any volatile fact.
+The original survey below was verified on **2026-07-05** (then app version 1.23.0);
+the Agent API write/geometry surface was re-verified on **2026-09-25 through D2.6**.
+Re-run the commands in "Provenance and maintenance" before relying on any other
+volatile fact.
 
 ## 1. Licensing obligations (GPLv3 — load-bearing, not decorative)
 
@@ -95,27 +96,29 @@ garden planner with…", never "the first" flat.
 
 | Claim | Evidence |
 |-------|----------|
-| Read-only MCP surface: `get_plan_summary`, `list_objects`, `get_object`, spatial tools, `get_diagnostics`, `render_canvas_image` | US-D1.1–D1.3 shipped (v1.21–1.23, PRs #239/#241/#242); integration tests incl. real MCP client end-to-end |
+| Read-only MCP surface: `get_plan_summary`, `list_objects`, `get_object`, `get_geometry`, spatial tools, `get_diagnostics`, `render_canvas_image` | US-D1.1–D1.3 and D2.6 geometry read shipped; integration tests incl. real MCP client end-to-end. `get_geometry` reports current live scene-frame vertices, not raw serializer points. |
+| Optional token-gated MCP editing: create/move/set-position/resize/rotate/delete, species/bed links, layers, stacking, polygon/polyline vertex edits, global undo/redo | US-D2.0–D2.6 (ADR-036, FR-AGENT-13–21); the tools appear only when editing is enabled and a token is configured, and every call rechecks the token. Constrained geometry remains permanently refused; do not imply solver-backed edits. |
 | Loopback-only, read-only, disable-able in Settings | ADR-033 (bound 127.0.0.1; Settings toggle) |
 | cm-precision canvas, snap engine, bezier/arc/fillet, DXF import/export, satellite calibration | Phases 1–13 Packages A/B per roadmap/CLAUDE.md, each with tests |
 
 **MUST NOT be claimed until shipped (do not let these leak into README/releases/replies):**
 
-| Forbidden claim | Reality (2026-07-31) |
+| Forbidden claim | Reality (re-verified 2026-09-25 through D2.6) |
 |-----------------|----------------------|
-| "Agents can edit/modify your garden plan" | **Partly shipped (D2.0, v1.24.3):** only `move_object` + `delete_object` exist, and only behind BOTH an off-by-default toggle and a bearer token. Create / resize / rotate / assign-species / reparent / layers are **unshipped** ([#237](https://github.com/cofade/open-garden-planner/issues/237), D2.1+). Claim "move and delete" — never a bare "edit". |
+| "Agents can edit every geometry, including constrained objects" | **False.** D2.0–D2.6 ship optional token-gated creation, domain edits, layers, history, absolute placement, and polygon/polyline vertex edits, but every geometry-changing tool permanently refuses constrained objects because the live multi-item solver is not exposed. `get_geometry` is the unauthenticated read that explains the blocking constraints. |
 | "3D visualization / sun & shade simulation" | **Shipped** (Phase 14, v1.24.5 – v1.24.12). Claimable — but only with the stated exclusions: **flat ground** (no terrain slopes), lighting-only 3D (**no engine shadow maps**), no walkthrough collision, geometric (unrefracted) sun elevation. Never imply terrain modelling. |
 | "Secure/authenticated agent API" | Token auth gates **writes only** (D2.0); reads stay open on loopback trust. The token travels in the connect **URL**, so it is visible in local request logs (accepted tradeoff, ADR-036). Say "loopback-only, token-gated writes" — never "secure" or "encrypted". |
 | Any "first ever" without qualifier | No prior-art survey exists. |
 
 ## 4. README claims audit discipline
 
-The README is a public promise. Drift is real and bidirectional — as of 2026-07-05 the
-README **understates** the project: its Status section says *"Phases 1-5 complete.
-Currently working on Phase 6"* while the app is at v1.23.0 with Phase 13 Packages A–C and
-D1.1–D1.3 shipped, and the Features list omits DXF, PDF export, the tasks/harvest/journal
-suite, and the MCP server entirely. Under-claiming is also a claims bug: fix it when you
-touch the README, but only with shipped, tested items.
+The README is a public promise. Drift is real and bidirectional — as of 2026-07-05 it
+**understated** the project badly (Status said *"Phases 1-5 complete"* at v1.23.0, and the
+Features list omitted DXF, PDF export, the tasks/harvest/journal suite, and the MCP server
+entirely). The D2.6 branch updated the Status section and added the token-gated AI Agent
+Integration bullet, so re-audit the current text before publishing rather than assuming
+either stale direction; under-claiming is also a claims bug. Fix it when you touch the
+README, but only with shipped, tested items.
 
 **Rules:**
 - When a feature **ships**, the same change (or its release PR) updates README features/

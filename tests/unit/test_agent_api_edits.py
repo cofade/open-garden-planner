@@ -27,6 +27,8 @@ from open_garden_planner.agent_api.edits import (
     require_plant_parent_type,
     validate_resize_request,
     validate_rotation,
+    validate_scene_point,
+    validate_vertex_index,
 )
 from open_garden_planner.core.object_types import ObjectType, is_plant_parent_type
 
@@ -242,6 +244,90 @@ class TestResizeValidation:
                 radius=(_MAX_PLANT_DIAMETER_CM / 2) + 1,
                 **big_canvas,
             )
+
+
+class TestScenePointValidation:
+    def test_finite_reachable_point_round_trips(self) -> None:
+        assert validate_scene_point(
+            -125.0,
+            275.5,
+            canvas_width_cm=2000.0,
+            canvas_height_cm=1500.0,
+        ) == (-125.0, 275.5)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_point_is_refused(self, bad: float) -> None:
+        with pytest.raises(ValueError, match="finite"):
+            validate_scene_point(
+                bad,
+                100.0,
+                canvas_width_cm=2000.0,
+                canvas_height_cm=1500.0,
+            )
+
+    def test_one_canvas_of_staging_slack_is_reachable(self) -> None:
+        assert validate_scene_point(
+            -2000.0,
+            3000.0,
+            canvas_width_cm=2000.0,
+            canvas_height_cm=1500.0,
+        ) == (-2000.0, 3000.0)
+
+    def test_far_outside_staging_reach_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="reachable"):
+            validate_scene_point(
+                -2000.01,
+                100.0,
+                canvas_width_cm=2000.0,
+                canvas_height_cm=1500.0,
+            )
+
+
+class TestVertexIndexValidation:
+    @pytest.mark.parametrize(
+        ("operation", "index"),
+        [("set", 0), ("set", 3), ("add", 0), ("add", 3), ("add", 4)],
+    )
+    def test_valid_operation_indices(self, operation: str, index: int) -> None:
+        assert (
+            validate_vertex_index(index, vertex_count=4, operation=operation) == index
+        )
+
+    @pytest.mark.parametrize(
+        ("operation", "index"),
+        [("set", -1), ("set", 4), ("add", -1), ("add", 5), ("delete", 4)],
+    )
+    def test_out_of_range_index_names_the_valid_range(
+        self, operation: str, index: int
+    ) -> None:
+        with pytest.raises(ValueError, match="valid range"):
+            validate_vertex_index(index, vertex_count=4, operation=operation)
+
+    @pytest.mark.parametrize("bad", [True, 1.0, "1", None])
+    def test_index_must_be_a_real_integer(self, bad: object) -> None:
+        with pytest.raises(ValueError, match="integer"):
+            validate_vertex_index(bad, vertex_count=4, operation="set")  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize(("count", "minimum"), [(3, 3), (2, 2)])
+    def test_delete_at_minimum_is_refused(self, count: int, minimum: int) -> None:
+        with pytest.raises(ValueError, match="at least"):
+            validate_vertex_index(
+                0,
+                vertex_count=count,
+                operation="delete",
+                minimum_count=minimum,
+            )
+
+    def test_delete_above_minimum_is_allowed(self) -> None:
+        assert (
+            validate_vertex_index(
+                1,
+                vertex_count=4,
+                operation="delete",
+                minimum_count=3,
+            )
+            == 1
+        )
 
 
 class TestRotationSignConvention:

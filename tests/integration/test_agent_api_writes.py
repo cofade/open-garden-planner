@@ -1,4 +1,4 @@
-"""End-to-end integration test for the Agent API write tools (US-D2.0).
+"""End-to-end integration tests for the Agent API write tools (US-D2.0–D2.6).
 
 Boots ``AgentApiServer`` in-process with writes enabled + a token, against a
 real ``CanvasView`` (so its ``command_manager`` and scene are the same ones the
@@ -6,8 +6,9 @@ GUI uses), then drives it with the real MCP streamable-HTTP client from a worker
 thread while the main thread pumps the Qt event loop. This pins the D2 contract:
 
   * an unauthenticated write call is rejected and the scene is unchanged;
-  * authenticated create/move/delete, global ``undo``/``redo``, and callout
-    hardening mutate or refuse through the real transport;
+  * authenticated create/move/delete, absolute positioning, live geometry reads,
+    vertex writes, global ``undo``/``redo``, and callout hardening mutate or
+    refuse through the real transport;
   * each document mutation follows the GUI command path (Ctrl+Z reverses it)
     and marks the document dirty (invariants #3/#4/#13);
   * same-scene load cleanup, concurrent deletes, and bounded callout offsets
@@ -1219,6 +1220,453 @@ def test_unauthenticated_species_and_parent_bed_are_rejected(
     assert plant.metadata.get("plant_species") is None
     assert plant.parent_bed_id is None
     assert view.command_manager.can_undo is False
+
+
+# --- US-D2.6: low-level geometry escape hatches ----------------------------
+
+
+def test_set_object_position_is_absolute_move_equivalent_end_to_end(
+    canvas: Any, qtbot: Any
+) -> None:
+    """Absolute placement lands exactly where the equivalent relative move does."""
+    view = canvas
+    scene = view.scene()
+    positioned = CircleItem(200.0, 200.0, 30.0, object_type=ObjectType.TREE)
+    moved = CircleItem(200.0, 200.0, 30.0, object_type=ObjectType.TREE)
+    scene.addItem(positioned)
+    scene.addItem(moved)
+    target_x, target_y = 700.0, 650.0
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            absolute = await session.call_tool(
+                "set_object_position",
+                {
+                    "item_id": str(positioned.item_id),
+                    "x": target_x,
+                    "y": target_y,
+                },
+            )
+            relative = await session.call_tool(
+                "move_object",
+                {
+                    "item_id": str(moved.item_id),
+                    "dx": target_x - 200.0,
+                    "dy": target_y - 200.0,
+                },
+            )
+            positioned_read = await session.call_tool(
+                "get_object", {"item_id": str(positioned.item_id)}
+            )
+            moved_read = await session.call_tool(
+                "get_object", {"item_id": str(moved.item_id)}
+            )
+            body.absolute = absolute.structuredContent  # type: ignore[attr-defined]
+            body.relative = relative.structuredContent  # type: ignore[attr-defined]
+            body.positioned_read = positioned_read.structuredContent["result"]  # type: ignore[attr-defined]
+            body.moved_read = moved_read.structuredContent["result"]  # type: ignore[attr-defined]
+            body.errors = [
+                absolute.isError,
+                relative.isError,
+                positioned_read.isError,
+                moved_read.isError,
+            ]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.errors == [False, False, False, False]  # type: ignore[attr-defined]
+    assert body.absolute["action"] == "set_position"  # type: ignore[attr-defined]
+    assert body.positioned_read["center_x_cm"] == target_x  # type: ignore[attr-defined]
+    assert body.positioned_read["center_y_cm"] == target_y  # type: ignore[attr-defined]
+    assert body.moved_read["center_x_cm"] == target_x  # type: ignore[attr-defined]
+    assert body.moved_read["center_y_cm"] == target_y  # type: ignore[attr-defined]
+    assert len(view.command_manager._undo_stack) == 2
+    view.command_manager.undo()
+    view.command_manager.undo()
+    assert positioned.scenePos() == moved.scenePos()
+
+
+def test_geometry_frames_and_vertex_commands_have_exact_undo_semantics(
+    canvas: Any, qtbot: Any
+) -> None:
+    """US-D2.6 frame agreement, no-op refusal, and one-step vertex undo."""
+    import copy
+
+    from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
+
+    view = canvas
+    scene = view.scene()
+    manager = _APP_BY_VIEW[id(view)]._project_manager
+    polygon = PolygonItem(
+        [
+            QPointF(0.0, 0.0),
+            QPointF(180.0, 0.0),
+            QPointF(140.0, 120.0),
+            QPointF(20.0, 90.0),
+        ],
+        object_type=ObjectType.GARDEN_BED,
+    )
+    apply_rotation(polygon, 215.0)
+    triangle = PolygonItem(
+        [QPointF(600.0, 100.0), QPointF(800.0, 100.0), QPointF(720.0, 260.0)],
+        object_type=ObjectType.GARDEN_BED,
+    )
+    scene.addItem(polygon)
+    scene.addItem(triangle)
+    baseline = copy.deepcopy(manager._serialize_item(polygon))
+    assert baseline is not None
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        async with http_client(url) as (r, w, _), ClientSession(r, w) as session:
+            await session.initialize()
+            read = await session.call_tool(
+                "get_geometry", {"item_id": str(polygon.item_id)}
+            )
+            body.geometry = read.structuredContent  # type: ignore[attr-defined]
+            body.read_error = read.isError  # type: ignore[attr-defined]
+
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            too_small = await session.call_tool(
+                "delete_vertex",
+                {"item_id": str(triangle.item_id), "index": 0},
+            )
+            first = body.geometry["vertices"][0]  # type: ignore[attr-defined]
+            unchanged = await session.call_tool(
+                "set_vertex",
+                {
+                    "item_id": str(polygon.item_id),
+                    "index": 0,
+                    "x": first["x_cm"],
+                    "y": first["y_cm"],
+                },
+            )
+            body.noop_stack = len(view.command_manager._undo_stack)  # type: ignore[attr-defined]
+            body.noop_dirty = manager.is_dirty  # type: ignore[attr-defined]
+            moved = await session.call_tool(
+                "set_vertex",
+                {
+                    "item_id": str(polygon.item_id),
+                    "index": 0,
+                    "x": first["x_cm"] + 25.0,
+                    "y": first["y_cm"] + 10.0,
+                },
+            )
+            restored = await session.call_tool(
+                "set_vertex",
+                {
+                    "item_id": str(polygon.item_id),
+                    "index": 0,
+                    "x": first["x_cm"],
+                    "y": first["y_cm"],
+                },
+            )
+            added = await session.call_tool(
+                "add_vertex",
+                {
+                    "item_id": str(polygon.item_id),
+                    "index": 1,
+                    "x": 500.0,
+                    "y": 500.0,
+                },
+            )
+            deleted = await session.call_tool(
+                "delete_vertex",
+                {"item_id": str(polygon.item_id), "index": 1},
+            )
+            body.too_small_error = too_small.isError  # type: ignore[attr-defined]
+            body.noop_error = unchanged.isError  # type: ignore[attr-defined]
+            body.set_results = [  # type: ignore[attr-defined]
+                moved.structuredContent,
+                restored.structuredContent,
+            ]
+            body.added = added.structuredContent  # type: ignore[attr-defined]
+            body.deleted = deleted.structuredContent  # type: ignore[attr-defined]
+            body.write_errors = [  # type: ignore[attr-defined]
+                moved.isError,
+                restored.isError,
+                added.isError,
+                deleted.isError,
+            ]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.read_error is False  # type: ignore[attr-defined]
+    assert body.too_small_error is True  # type: ignore[attr-defined]
+    assert body.noop_error is True  # type: ignore[attr-defined]
+    assert body.noop_stack == 0  # type: ignore[attr-defined]
+    assert body.noop_dirty is False  # type: ignore[attr-defined]
+    assert body.write_errors == [False] * 4  # type: ignore[attr-defined]
+    assert body.geometry["vertex_count"] == 4  # type: ignore[attr-defined]
+    assert body.geometry["vertex_editable"] is True  # type: ignore[attr-defined]
+    assert manager._serialize_item(polygon) == baseline
+    assert len(view.command_manager._undo_stack) == 4
+    assert [type(command).__name__ for command in view.command_manager._undo_stack] == [
+        "MoveVertexCommand",
+        "MoveVertexCommand",
+        "AddVertexCommand",
+        "DeleteVertexCommand",
+    ]
+    assert body.set_results[0]["vertex_index"] == 0  # type: ignore[attr-defined]
+    assert body.added["vertex_count"] == 5  # type: ignore[attr-defined]
+    assert body.deleted["vertex_count"] == 4  # type: ignore[attr-defined]
+
+    for _ in range(4):
+        view.command_manager.undo()
+    assert manager._serialize_item(polygon) == baseline
+    assert view.command_manager.can_undo is False
+    assert len(view.command_manager._redo_stack) == 4
+
+    # Redo in original chronology: the two real moves first, then add restores
+    # the fifth point and delete returns to the four-point baseline.
+    for _ in range(2):
+        view.command_manager.redo()
+    assert all(
+        type(command).__name__ == "MoveVertexCommand"
+        for command in view.command_manager._undo_stack
+    )
+    view.command_manager.redo()
+    assert type(view.command_manager._undo_stack[-1]).__name__ == "AddVertexCommand"
+    assert polygon._get_vertex_count() == 5
+    inserted = polygon.mapToScene(polygon._get_vertex_position(1))
+    assert inserted.x() == pytest.approx(500.0, abs=1e-9)
+    assert inserted.y() == pytest.approx(500.0, abs=1e-9)
+    view.command_manager.redo()
+    assert type(view.command_manager._undo_stack[-1]).__name__ == "DeleteVertexCommand"
+    assert polygon._get_vertex_count() == 4
+
+    for _ in range(4):
+        view.command_manager.undo()
+    assert manager._serialize_item(polygon) == baseline
+    assert view.command_manager.can_undo is False
+
+
+def test_constrained_geometry_read_succeeds_but_every_d26_write_refuses(
+    canvas: Any, qtbot: Any
+) -> None:
+    """US-D2.6 adopts permanent refusal with a legible constraint receipt."""
+    import copy
+
+    from open_garden_planner.core.constraints import AnchorRef
+    from open_garden_planner.core.measure_snapper import AnchorType
+
+    view = canvas
+    scene = view.scene()
+    manager = _APP_BY_VIEW[id(view)]._project_manager
+    polygon = PolygonItem(
+        [QPointF(100.0, 100.0), QPointF(300.0, 100.0), QPointF(220.0, 260.0)],
+        object_type=ObjectType.GARDEN_BED,
+    )
+    other = RectangleItem(700.0, 500.0, 100.0, 80.0)
+    scene.addItem(polygon)
+    scene.addItem(other)
+    constraint = scene.constraint_graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.CENTER),
+        AnchorRef(other.item_id, AnchorType.CENTER),
+        300.0,
+    )
+    baseline = copy.deepcopy(manager._serialize_item(polygon))
+    graph_before = copy.deepcopy(scene.constraint_graph.to_list())
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    requests = [
+        ("set_object_position", {"item_id": str(polygon.item_id), "x": 500.0, "y": 500.0}),
+        (
+            "set_vertex",
+            {"item_id": str(polygon.item_id), "index": 0, "x": 120.0, "y": 130.0},
+        ),
+        (
+            "add_vertex",
+            {"item_id": str(polygon.item_id), "index": 1, "x": 400.0, "y": 400.0},
+        ),
+        ("delete_vertex", {"item_id": str(polygon.item_id), "index": 0}),
+    ]
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        async with http_client(url) as (r, w, _), ClientSession(r, w) as session:
+            await session.initialize()
+            read = await session.call_tool(
+                "get_geometry", {"item_id": str(polygon.item_id)}
+            )
+            body.geometry = read.structuredContent  # type: ignore[attr-defined]
+            body.read_error = read.isError  # type: ignore[attr-defined]
+
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            calls = [await session.call_tool(name, args) for name, args in requests]
+            body.errors = [call.isError for call in calls]
+            body.text = [str(call.content) for call in calls]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.read_error is False  # type: ignore[attr-defined]
+    assert body.errors == [True, True, True, True]  # type: ignore[attr-defined]
+    assert all(str(constraint.constraint_id) in text for text in body.text)  # type: ignore[attr-defined]
+    assert all("DISTANCE" in text for text in body.text)  # type: ignore[attr-defined]
+    assert body.geometry["is_constrained"] is True  # type: ignore[attr-defined]
+    assert body.geometry["constraints"][0]["constraint_id"] == str(  # type: ignore[attr-defined]
+        constraint.constraint_id
+    )
+    assert manager._serialize_item(polygon) == baseline
+    assert scene.constraint_graph.to_list() == graph_before
+    assert view.command_manager.can_undo is False
+    assert manager.is_dirty is False
+
+
+def test_unauthenticated_d26_writes_are_rejected_without_side_effects(
+    canvas: Any, qtbot: Any
+) -> None:
+    """Every D2.6 mutation obeys the existing ADR-036 double gate."""
+    view = canvas
+    scene = view.scene()
+    polygon = PolygonItem(
+        [QPointF(100.0, 100.0), QPointF(300.0, 100.0), QPointF(220.0, 260.0)],
+        object_type=ObjectType.GARDEN_BED,
+    )
+    scene.addItem(polygon)
+    original = [QPointF(point) for point in polygon.polygon()]
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    requests = [
+        ("set_object_position", {"item_id": str(polygon.item_id), "x": 500.0, "y": 500.0}),
+        (
+            "set_vertex",
+            {"item_id": str(polygon.item_id), "index": 0, "x": 120.0, "y": 130.0},
+        ),
+        (
+            "add_vertex",
+            {"item_id": str(polygon.item_id), "index": 1, "x": 400.0, "y": 400.0},
+        ),
+        ("delete_vertex", {"item_id": str(polygon.item_id), "index": 0}),
+    ]
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        async with http_client(url) as (r, w, _), ClientSession(r, w) as session:
+            await session.initialize()
+            calls = [await session.call_tool(name, args) for name, args in requests]
+            body.errors = [call.isError for call in calls]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.errors == [True, True, True, True]  # type: ignore[attr-defined]
+    assert [QPointF(point) for point in polygon.polygon()] == original
+    assert view.command_manager.can_undo is False
+
+
+def test_d26_hostile_geometry_is_refused_over_real_transport(
+    canvas: Any, qtbot: Any
+) -> None:
+    """Finite/reachable validation must run before Pydantic/Qt can coerce input."""
+    view = canvas
+    scene = view.scene()
+    polygon = PolygonItem(
+        [QPointF(100.0, 100.0), QPointF(300.0, 100.0), QPointF(220.0, 260.0)],
+        object_type=ObjectType.GARDEN_BED,
+    )
+    scene.addItem(polygon)
+    original = [QPointF(point) for point in polygon.polygon()]
+
+    server = AgentApiServer(
+        _providers(view), port=_free_port(), write_token=TOKEN, writes_enabled=True
+    )
+    server.start()
+
+    requests = [
+        (
+            "set_object_position",
+            {
+                "item_id": str(polygon.item_id),
+                "x": float("inf"),
+                "y": 200.0,
+            },
+        ),
+        (
+            "set_vertex",
+            {
+                "item_id": str(polygon.item_id),
+                "index": 0,
+                "x": float("nan"),
+                "y": 120.0,
+            },
+        ),
+        (
+            "add_vertex",
+            {
+                "item_id": str(polygon.item_id),
+                "index": 1,
+                "x": float("-inf"),
+                "y": 300.0,
+            },
+        ),
+    ]
+
+    async def body(ctx: Any) -> None:
+        http_client, ClientSession, url = ctx
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        async with (
+            http_client(url, headers=headers) as (r, w, _),
+            ClientSession(r, w) as session,
+        ):
+            await session.initialize()
+            calls = [await session.call_tool(name, args) for name, args in requests]
+            body.errors = [call.isError for call in calls]
+
+    try:
+        _run(server, body, qtbot)
+    finally:
+        server.stop()
+
+    assert body.errors == [True, True, True]  # type: ignore[attr-defined]
+    assert [QPointF(point) for point in polygon.polygon()] == original
+    assert view.command_manager.can_undo is False
+    assert _APP_BY_VIEW[id(view)]._project_manager.is_dirty is False
 
 
 # --- issue #338: arrange_object over the real transport ---------------------
