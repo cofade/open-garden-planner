@@ -103,7 +103,7 @@ garden planner with…", never "the first" flat.
 
 **MUST NOT be claimed until shipped (do not let these leak into README/releases/replies):**
 
-| Forbidden claim | Reality (2026-07-31) |
+| Forbidden claim | Reality (re-verified 2026-09-25 through D2.6) |
 |-----------------|----------------------|
 | "Agents can edit every geometry, including constrained objects" | **False.** D2.0–D2.6 ship optional token-gated creation, domain edits, layers, history, absolute placement, and polygon/polyline vertex edits, but every geometry-changing tool permanently refuses constrained objects because the live multi-item solver is not exposed. `get_geometry` is the unauthenticated read that explains the blocking constraints. |
 | "3D visualization / sun & shade simulation" | **Shipped** (Phase 14, v1.24.5 – v1.24.12). Claimable — but only with the stated exclusions: **flat ground** (no terrain slopes), lighting-only 3D (**no engine shadow maps**), no walkthrough collision, geometric (unrefracted) sun elevation. Never imply terrain modelling. |
@@ -112,12 +112,13 @@ garden planner with…", never "the first" flat.
 
 ## 4. README claims audit discipline
 
-The README is a public promise. Drift is real and bidirectional — as of 2026-07-05 the
-README **understates** the project: its Status section says *"Phases 1-5 complete.
-Currently working on Phase 6"* while the app is at v1.23.0 with Phase 13 Packages A–C and
-D1.1–D1.3 shipped, and the Features list omits DXF, PDF export, the tasks/harvest/journal
-suite, and the MCP server entirely. Under-claiming is also a claims bug: fix it when you
-touch the README, but only with shipped, tested items.
+The README is a public promise. Drift is real and bidirectional — as of 2026-07-05 it
+**understated** the project badly (Status said *"Phases 1-5 complete"* at v1.23.0, and the
+Features list omitted DXF, PDF export, the tasks/harvest/journal suite, and the MCP server
+entirely). The D2.6 branch updated the Status section and added the token-gated AI Agent
+Integration bullet, so re-audit the current text before publishing rather than assuming
+either stale direction; under-claiming is also a claims bug. Fix it when you touch the
+README, but only with shipped, tested items.
 
 **Rules:**
 - When a feature **ships**, the same change (or its release PR) updates README features/

@@ -2646,6 +2646,36 @@ def test_d26_group_journal_and_lock_protection_is_read_write_asymmetric(
         win._stop_agent_api()
 
 
+def test_vertex_tools_refuse_rect_backed_items(qtbot: Any, monkeypatch: Any) -> None:
+    """The capability predicate and its error must agree for non-vertex shapes."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        rectangle = RectangleItem(
+            500.0, 500.0, 120.0, 80.0, object_type=ObjectType.GARDEN_BED
+        )
+        win.canvas_scene.addItem(rectangle)
+        geometry = win._do_agent_get_geometry(str(rectangle.item_id))
+        assert geometry["vertex_editable"] is False
+        assert geometry["width_cm"] == 120.0
+
+        for call in (
+            lambda: win._do_agent_set_vertex(str(rectangle.item_id), 0, 510.0, 510.0),
+            lambda: win._do_agent_add_vertex(str(rectangle.item_id), 0, 600.0, 600.0),
+            lambda: win._do_agent_delete_vertex(str(rectangle.item_id), 0),
+        ):
+            with pytest.raises(ValueError, match="not a vertex-backed shape"):
+                call()
+        assert win.canvas_view.command_manager.can_undo is False
+        assert win._project_manager.is_dirty is False
+    finally:
+        win._stop_agent_api()
+
+
 def test_house_vertex_topology_reprojects_linked_ridge_and_undoes_cleanly(
     qtbot: Any, monkeypatch: Any
 ) -> None:
