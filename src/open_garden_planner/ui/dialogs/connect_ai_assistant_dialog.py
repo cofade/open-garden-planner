@@ -1,18 +1,30 @@
-"""Connect-your-AI-assistant dialog (US-D1.6).
+"""Connect-your-AI-assistant dialog (US-D1.6, generalized by issue #366).
 
-Thin Qt shell over ``services/ai_client_onboarding.py`` — shows the Agent
-API's connect URL and, per detected client, a one-click "Add to …" button
-(Cursor, Claude Code) plus a guided copy-paste JSON snippet. Claude Desktop
-is the exception: it can't reach a localhost server at all, so its row shows
-an honest "use Claude Code or Cursor instead" note with no button and no
-snippet (issue #253). All prose here is UI copy and goes through
-``self.tr()``; the URL/server name/snippet payloads are agent data and are
-never translated (mirrors ADR-033's "MCP tool/resource descriptions are
-English" precedent).
+Thin Qt shell over ``services/ai_client_onboarding.py``. Every client row is
+built from the service's ``TARGETS`` registry, so a new client appears here
+with no change to this file — the dialog knows nothing about any specific
+vendor.
 
-Client rows sit inside a ``QScrollArea`` so revealing a manual snippet
-scrolls it into view instead of pushing the Close button off a fixed-size
-dialog.
+Three things this dialog owns (the service owns the mechanics):
+
+* **The read-only URL is the default hand-out.** The connect URL can carry the
+  Agent API's D2 write token, and pasting that into an assistant chat publishes
+  the credential to whatever stores the transcript. So "Copy read-only URL" is
+  the primary button, and the write URL sits behind a separate, explicitly
+  worded action that says the token is in it.
+* **A generic fallback that is always present**, even when nothing is
+  detected, so a client OGP has never heard of is still one paste away.
+* **Honest per-client state** — detected / registered / stale — instead of a
+  button that silently re-registers nothing.
+
+All prose here is UI copy and goes through ``self.tr()``; the URL, server
+name, and snippet payloads are agent data and are never translated (mirrors
+ADR-033's "MCP tool/resource descriptions are English" precedent — the same
+reason client ``display_name``s stay English).
+
+Client rows sit inside a ``QScrollArea`` so revealing a manual snippet scrolls
+it into view instead of pushing the Close button off a fixed-size dialog
+(issue #253) — and now also so the larger registry still fits.
 """
 
 from __future__ import annotations
@@ -55,14 +67,17 @@ class ConnectAiAssistantDialog(QDialog):
         # which is exactly what the old single message did — is a dead end.
         self._enabled_in_settings = enabled_in_settings
         # Present only when AI editing is enabled AND the server is live — the
-        # caller (application.agent_api_write_token) enforces both. When set, the
-        # client is registered to send it so the D2 write tools are reachable.
+        # caller (application.agent_api_write_token) enforces both. When set,
+        # the client is registered to send it so the D2 write tools are
+        # reachable. It is NEVER part of the default copy action (issue #366).
         self._token = token
         self._status_label = QLabel("")
         # Set in _setup_ui's enabled branch; the client rows scroll so a
         # revealed snippet can be scrolled into view (issue #253).
         self._clients_scroll: QScrollArea | None = None
         self._setup_ui()
+
+    # -- layout ------------------------------------------------------------
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -72,19 +87,65 @@ class ConnectAiAssistantDialog(QDialog):
             self._setup_disabled_ui(layout)
             return
 
-        url_group = QGroupBox(self.tr("Connect URL"))
-        url_layout = QHBoxLayout(url_group)
-        url_label = QLabel(self._connect_url())
-        url_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        url_layout.addWidget(url_label, 1)
-        copy_btn = QPushButton(self.tr("Copy URL"))
-        copy_btn.clicked.connect(self._on_copy_url)
-        url_layout.addWidget(copy_btn)
-        layout.addWidget(url_group)
-
+        layout.addWidget(self._build_url_group())
         layout.addWidget(QLabel(self.tr("Transport: Streamable HTTP")))
+        layout.addWidget(self._build_editing_note())
 
-        editing_note = QLabel(
+        self._status_label.setWordWrap(True)
+        layout.addWidget(self._status_label)
+
+        # Client rows live in a scroll area so revealing a manual snippet
+        # grows the scrollable region (and scrolls it into view) instead of
+        # pushing the Close button off the bottom of a fixed-size dialog.
+        clients_container = QWidget()
+        clients_layout = QVBoxLayout(clients_container)
+        clients_layout.setContentsMargins(0, 0, 0, 0)
+        for client in onboarding.detect_clients():
+            clients_layout.addWidget(self._build_client_row(client))
+        # The vendor-agnostic path is ALWAYS present — it is what makes the
+        # registry an optimisation rather than a gate, and it is the only
+        # route for a client added after this release.
+        clients_layout.addWidget(self._build_generic_group())
+        clients_layout.addStretch()
+
+        self._clients_scroll = QScrollArea()
+        self._clients_scroll.setWidgetResizable(True)
+        self._clients_scroll.setWidget(clients_container)
+        layout.addWidget(self._clients_scroll, 1)
+
+        layout.addLayout(self._build_close_row())
+
+    def _build_url_group(self) -> QGroupBox:
+        """The connect URL, with the READ-ONLY copy as the default action."""
+        assert self._server_url is not None
+        group = QGroupBox(self.tr("Connect URL"))
+        row = QHBoxLayout(group)
+
+        # Read-only by default: a token-bearing URL pasted into a chat leaks
+        # the write credential into the transcript (issue #366).
+        label = QLabel(onboarding.read_only_url(self._server_url))
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        row.addWidget(label, 1)
+
+        copy_read = QPushButton(self.tr("Copy read-only URL"))
+        copy_read.clicked.connect(self._on_copy_read_only_url)
+        row.addWidget(copy_read)
+
+        if self._token:
+            copy_write = QPushButton(self.tr("Copy URL with edit token"))
+            copy_write.setToolTip(
+                self.tr(
+                    "This URL contains the token that lets an AI assistant edit "
+                    "your plan. Do not paste it into a shared chat."
+                )
+            )
+            copy_write.clicked.connect(self._on_copy_write_url)
+            row.addWidget(copy_write)
+
+        return group
+
+    def _build_editing_note(self) -> QLabel:
+        note = QLabel(
             self.tr(
                 "AI editing is ON — clients added here can modify your plan. "
                 "Each edit is a single undo step. Turn it off in "
@@ -96,28 +157,8 @@ class ConnectAiAssistantDialog(QDialog):
                 "editing, enable it in Preferences → Agent API."
             )
         )
-        editing_note.setWordWrap(True)
-        layout.addWidget(editing_note)
-
-        self._status_label.setWordWrap(True)
-        layout.addWidget(self._status_label)
-
-        # Client rows live in a scroll area so revealing a manual snippet grows
-        # the scrollable region (and scrolls it into view) instead of pushing
-        # the Close button off the bottom of a fixed-size dialog (issue #253).
-        clients_container = QWidget()
-        clients_layout = QVBoxLayout(clients_container)
-        clients_layout.setContentsMargins(0, 0, 0, 0)
-        for client in onboarding.detect_clients():
-            clients_layout.addWidget(self._build_client_row(client))
-        clients_layout.addStretch()
-
-        self._clients_scroll = QScrollArea()
-        self._clients_scroll.setWidgetResizable(True)
-        self._clients_scroll.setWidget(clients_container)
-        layout.addWidget(self._clients_scroll, 1)
-
-        layout.addLayout(self._build_close_row())
+        note.setWordWrap(True)
+        return note
 
     def _setup_disabled_ui(self, layout: QVBoxLayout) -> None:
         if self._enabled_in_settings:
@@ -150,19 +191,19 @@ class ConnectAiAssistantDialog(QDialog):
         row.addWidget(close_btn)
         return row
 
+    # -- per-client rows ---------------------------------------------------
+
     def _build_client_row(self, client: onboarding.ClientInfo) -> QWidget:
         group = QGroupBox(client.display_name)
         v = QVBoxLayout(group)
 
-        status_text = self.tr("Detected") if client.detected else self.tr("Not detected")
-        v.addWidget(QLabel(status_text))
+        v.addWidget(QLabel(self._state_text(client)))
 
-        if client.client_id == "claude_desktop":
-            # Detection-only AND unreachable: Claude Desktop can't connect to a
-            # localhost server (its connectors are reached from Anthropic's
-            # cloud and reject localhost URLs). Show the honest redirect note
-            # only — no add button, and no snippet (there is no config the user
-            # could paste that would make it work). See issue #253 / ADR-035.
+        if not client.supports_local_http:
+            # Detection-only AND unreachable: this client can't connect to a
+            # localhost server at all. Show the honest redirect note only — no
+            # add button, and no snippet (there is no config the user could
+            # paste that would make it work). See issue #253 / ADR-035.
             note_label = QLabel(self._manual_note_for(client.client_id))
             note_label.setWordWrap(True)
             v.addWidget(note_label)
@@ -196,9 +237,9 @@ class ConnectAiAssistantDialog(QDialog):
                 client.client_id, url=self._server_url, token=self._token
             )
         )
-        # The JSON merge snippet needs several lines; a 90px cap clipped it
-        # behind the Close row (issue #253). Give it room and let the enclosing
-        # scroll area handle any overflow rather than the dialog itself.
+        # The snippet needs several lines; a 90px cap clipped it behind the
+        # Close row (issue #253). Give it room and let the enclosing scroll
+        # area handle any overflow rather than the dialog itself.
         snippet_text.setMinimumHeight(110)
         snippet_text.setMaximumHeight(240)
         snippet_text.setVisible(False)
@@ -216,10 +257,95 @@ class ConnectAiAssistantDialog(QDialog):
 
         return group
 
+    def _build_generic_group(self) -> QWidget:
+        """The vendor-agnostic route, always present (issue #366).
+
+        Without it, "OGP has never heard of your client" means "paste a token
+        into a chat and hope" — which is exactly the failure this work exists
+        to close.
+        """
+        assert self._server_url is not None
+        group = QGroupBox(self.tr("Other AI clients"))
+        v = QVBoxLayout(group)
+
+        intro = QLabel(
+            self.tr(
+                "No button for your client? Use these with any MCP client that "
+                "reads a JSON config."
+            )
+        )
+        intro.setWordWrap(True)
+        v.addWidget(intro)
+
+        snippets = onboarding.generic_snippets(
+            url=self._server_url, token=self._token
+        )
+
+        json_note = QLabel(
+            self.tr('Add this to your client\'s "mcpServers" config:')
+        )
+        json_note.setWordWrap(True)
+        v.addWidget(json_note)
+        v.addWidget(self._snippet_box(snippets["json"]))
+
+        cli_note = QLabel(self.tr("Or run this command:"))
+        cli_note.setWordWrap(True)
+        v.addWidget(cli_note)
+        v.addWidget(self._snippet_box(snippets["cli"]))
+
+        url_note = QLabel(
+            self.tr("Or paste this read-only URL into your client:")
+        )
+        url_note.setWordWrap(True)
+        v.addWidget(url_note)
+        v.addWidget(self._snippet_box(snippets["url"]))
+
+        return group
+
+    def _snippet_box(self, text: str) -> QPlainTextEdit:
+        box = QPlainTextEdit()
+        box.setReadOnly(True)
+        box.setPlainText(text)
+        box.setMinimumHeight(80)
+        box.setMaximumHeight(200)
+        return box
+
+    # -- state text -------------------------------------------------------
+
+    def _state_text(self, client: onboarding.ClientInfo) -> str:
+        """Detected / registered / stale, in plain language.
+
+        "Stale" is the case that motivated issue #366: a hand-pasted or
+        token-rotated entry looks perfectly fine in the config and silently
+        cannot connect, which is a miserable thing to debug.
+        """
+        if not client.detected:
+            return self.tr("Not detected")
+        if client.registered_url is None:
+            return self.tr("Detected — not registered yet")
+        assert self._server_url is not None
+        expected = onboarding.url_with_token(self._server_url, self._token)
+        if client.registered_url == expected:
+            return self.tr("Detected — registered and up to date")
+        return self.tr("Detected — registered with a different address; add again to update")
+
     def _manual_note_for(self, client_id: str) -> str:
+        """Where this client's config lives, in prose.
+
+        Keyed by id and completeness-tested, because a client added to the
+        registry without a note here would show an empty string — the failure
+        mode a dict lookup with a silent default invites.
+        """
         notes = {
             "cursor": self.tr("Add this to your global Cursor MCP config file:"),
             "claude_code": self.tr("Merge this into your ~/.claude.json file:"),
+            "opencode": self.tr(
+                "Merge this into your ~/.config/opencode/opencode.jsonc file:"
+            ),
+            "codex": self.tr("Append this to your ~/.codex/config.toml file:"),
+            "gemini": self.tr(
+                "Add this to your ~/.gemini/config/mcp_config.json file:"
+            ),
             "claude_desktop": self.tr(
                 "Claude Desktop can't connect to a local server like this one — "
                 "its connectors are reached from Anthropic's cloud and reject "
@@ -229,20 +355,26 @@ class ConnectAiAssistantDialog(QDialog):
         }
         return notes.get(client_id, "")
 
-    def _connect_url(self) -> str:
-        """The URL to display/copy: token-embedded when AI editing is on (so the
-        copied URL is write-capable), the bare read-only URL otherwise. The token
-        rides the URL because some clients don't transmit auth headers on tool
-        calls (see ``ai_client_onboarding.url_with_token``)."""
-        assert self._server_url is not None
-        return onboarding.url_with_token(self._server_url, self._token)
+    # -- actions ----------------------------------------------------------
 
-    def _on_copy_url(self) -> None:
+    def _on_copy_read_only_url(self) -> None:
         clipboard = QApplication.clipboard()
         if clipboard is None or self._server_url is None:
             return
-        clipboard.setText(self._connect_url())
-        self._status_label.setText(self.tr("URL copied to clipboard."))
+        clipboard.setText(onboarding.read_only_url(self._server_url))
+        self._status_label.setText(self.tr("Read-only URL copied to clipboard."))
+
+    def _on_copy_write_url(self) -> None:
+        clipboard = QApplication.clipboard()
+        if clipboard is None or self._server_url is None:
+            return
+        clipboard.setText(onboarding.url_with_token(self._server_url, self._token))
+        self._status_label.setText(
+            self.tr(
+                "URL with the edit token copied. Anyone holding it can change "
+                "your plan — do not share it in a chat or a public document."
+            )
+        )
 
     def _on_add_clicked(self, client: onboarding.ClientInfo, button: QPushButton) -> None:
         if self._server_url is None:
@@ -272,16 +404,15 @@ class ConnectAiAssistantDialog(QDialog):
             button.setEnabled(client.detected)
 
         if result.success:
-            if client.client_id == "claude_code":
-                # A user-scope MCP server (whether written by the CLI or merged
-                # directly into ~/.claude.json) is only read at session start,
-                # so tell the user to reconnect rather than leaving them to
-                # wonder why a running session doesn't see it (issue #253).
+            if client.requires_restart:
+                # A user-scope MCP server is only read at session start, so
+                # tell the user to reconnect rather than leaving them to wonder
+                # why a running session doesn't see it (issue #253).
                 self._status_label.setText(
                     self.tr(
-                        "Added to Claude Code. Start a new Claude Code session "
-                        "(or restart it) to pick up the change."
-                    )
+                        "Added to {client}. Start a new {client} session (or "
+                        "restart it) to pick up the change."
+                    ).format(client=client.display_name)
                 )
             else:
                 self._status_label.setText(

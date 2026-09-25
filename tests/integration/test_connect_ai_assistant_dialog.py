@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
     QScrollArea,
 )
 
+from open_garden_planner.services import ai_client_onboarding as onboarding
 from open_garden_planner.ui.dialogs.connect_ai_assistant_dialog import (
     ConnectAiAssistantDialog,
 )
@@ -223,16 +224,62 @@ class TestConnectAiAssistantDialogWithToken:
     """When AI editing is on, a token is passed and must ride the URL (the
     delivery route that works with clients that drop auth headers)."""
 
-    def test_copy_url_includes_token(self, qtbot, isolated_clients: Path) -> None:
+    def test_default_copy_is_read_only_and_carries_no_token(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        """Issue #366, inverted from the old behaviour.
+
+        The primary copy action used to copy the WRITE url, so the default
+        thing a user pasted into an assistant chat was a live credential that
+        could edit their plan. The default is now read-only; the write URL is
+        behind its own explicitly-worded button.
+        """
         dialog = ConnectAiAssistantDialog(_URL, token=_TOKEN)
         qtbot.addWidget(dialog)
 
-        copy_btn = _group(dialog, "Connect URL").findChild(QPushButton)
+        group = _group(dialog, "Connect URL")
+        copy_btn = next(
+            b for b in group.findChildren(QPushButton) if b.text() == "Copy read-only URL"
+        )
+        qtbot.mouseClick(copy_btn, Qt.MouseButton.LeftButton)
+
+        clipboard = QApplication.clipboard()
+        assert clipboard is not None
+        assert clipboard.text() == _URL
+        assert "token" not in clipboard.text()
+
+    def test_explicit_write_url_copy_includes_token(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        """The write URL is still one click away — it is just no longer the
+        default, and the status says the token is in it."""
+        dialog = ConnectAiAssistantDialog(_URL, token=_TOKEN)
+        qtbot.addWidget(dialog)
+
+        group = _group(dialog, "Connect URL")
+        copy_btn = next(
+            b for b in group.findChildren(QPushButton)
+            if b.text() == "Copy URL with edit token"
+        )
         qtbot.mouseClick(copy_btn, Qt.MouseButton.LeftButton)
 
         clipboard = QApplication.clipboard()
         assert clipboard is not None
         assert clipboard.text() == f"{_URL}?token={_TOKEN}"
+        assert "do not share" in dialog._status_label.text().lower()
+
+    def test_write_url_button_absent_when_editing_is_off(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        """With no token there is no write URL to hand out, so the button that
+        would leak one must not exist at all."""
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        group = _group(dialog, "Connect URL")
+        assert not any(
+            b.text() == "Copy URL with edit token" for b in group.findChildren(QPushButton)
+        )
 
     def test_add_to_cursor_embeds_token_in_url(self, qtbot, isolated_clients: Path) -> None:
         dialog = ConnectAiAssistantDialog(_URL, token=_TOKEN)
@@ -259,3 +306,188 @@ class TestConnectAiAssistantDialogDisabled:
         assert dialog.findChildren(QGroupBox) == []
         labels = " ".join(w.text() for w in dialog.findChildren(QLabel))
         assert "disabled" in labels.lower()
+
+
+# ---------------------------------------------------------------------------
+# Issue #366: the dialog renders from the service's TARGETS registry, so a new
+# client needs no change here. These tests prove that by exercising clients
+# this file has never heard of.
+# ---------------------------------------------------------------------------
+
+
+def _add_button(group: QGroupBox, client: str) -> QPushButton:
+    return next(
+        b for b in group.findChildren(QPushButton) if b.text() == f"Add to {client}"
+    )
+
+
+def _row_text(group: QGroupBox) -> str:
+    return " ".join(w.text() for w in group.findChildren(QLabel))
+
+
+class TestRegistryDrivenRows:
+    def test_every_registry_client_gets_a_row(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        """No UI change adds a client: the dialog builds a row per registry
+        record. This is the acceptance criterion in test form."""
+        from open_garden_planner.services import ai_client_onboarding as registry
+
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        for target in registry.TARGETS:
+            _group(dialog, target.display_name)
+
+    def test_every_reachable_client_has_a_manual_note(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        """A client in the registry with no note here would render an EMPTY
+        string — the failure a `dict.get(id, "")` lookup invites. A note that
+        is present but blank is the defect this pins."""
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        for client in onboarding.detect_clients():
+            note = dialog._manual_note_for(client.client_id)
+            assert note.strip(), f"{client.client_id} has no manual-setup note"
+
+    def test_add_to_opencode_writes_a_jsonc_config(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        """End-to-end through the dialog into a real file. The fixture stubs
+        `shutil.which` to None, so this exercises the no-CLI JSONC merge path —
+        the one that has to tolerate the user's comments."""
+        config = isolated_clients / ".config" / "opencode"
+        config.mkdir(parents=True)
+        (config / "opencode.jsonc").write_text(
+            '{\n  // my own note\n  "theme": "dark"\n}\n', encoding="utf-8"
+        )
+
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        group = _group(dialog, "OpenCode")
+        btn = _add_button(group, "OpenCode")
+        assert btn.isEnabled()
+        qtbot.mouseClick(btn, Qt.MouseButton.LeftButton)
+
+        text = (config / "opencode.jsonc").read_text(encoding="utf-8")
+        data = json.loads(text)
+        assert data["theme"] == "dark"  # the user's own config survived
+        entry = data["mcp"]["open-garden-planner"]
+        assert entry["type"] == "remote"
+        assert entry["url"] == _URL
+        assert entry["oauth"] is False
+        assert "OpenCode" in dialog._status_label.text()
+
+    def test_add_to_codex_writes_toml_and_keeps_user_comments(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        """The surgical-append guarantee, end to end: Codex's file is not
+        OGP's, so its comments must come through untouched."""
+        import tomllib
+
+        codex_dir = isolated_clients / ".codex"
+        codex_dir.mkdir()
+        (codex_dir / "config.toml").write_text(
+            '# my codex settings\nmodel = "gpt-5"\n', encoding="utf-8"
+        )
+
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        group = _group(dialog, "Codex")
+        qtbot.mouseClick(_add_button(group, "Codex"), Qt.MouseButton.LeftButton)
+
+        text = (codex_dir / "config.toml").read_text(encoding="utf-8")
+        assert text.startswith('# my codex settings\nmodel = "gpt-5"\n')
+        data = tomllib.loads(text)
+        assert data["model"] == "gpt-5"
+        assert data["mcp_servers"]["open-garden-planner"]["url"] == _URL
+
+    def test_codex_failure_on_corrupt_config_leaves_file_untouched(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        """Refusal path, end to end: a corrupt FOREIGN file must be reported,
+        not replaced."""
+        codex_dir = isolated_clients / ".codex"
+        codex_dir.mkdir()
+        corrupt = "this is = = not toml"
+        (codex_dir / "config.toml").write_text(corrupt, encoding="utf-8")
+
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        group = _group(dialog, "Codex")
+        qtbot.mouseClick(_add_button(group, "Codex"), Qt.MouseButton.LeftButton)
+
+        assert "Could not add to Codex" in dialog._status_label.text()
+        assert (codex_dir / "config.toml").read_text(encoding="utf-8") == corrupt
+
+
+class TestGenericFallbackAlwaysPresent:
+    def test_present_even_when_nothing_is_detected(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        """The vendor-agnostic route is what stops 'OGP has never heard of my
+        client' from degrading into 'paste your token into a chat'."""
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        group = _group(dialog, "Other AI clients")
+        boxes = group.findChildren(QPlainTextEdit)
+        assert len(boxes) == 3
+        joined = " ".join(b.toPlainText() for b in boxes)
+        assert "mcpServers" in joined
+        assert _URL in joined
+
+    def test_generic_snippets_never_carry_the_token(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        """Even with editing ON, the hand-out-for-pasting text stays
+        read-only. This is the leak, closed at the last mile."""
+        dialog = ConnectAiAssistantDialog(_URL, token=_TOKEN)
+        qtbot.addWidget(dialog)
+
+        group = _group(dialog, "Other AI clients")
+        joined = " ".join(b.toPlainText() for b in group.findChildren(QPlainTextEdit))
+        assert _TOKEN not in joined
+
+
+class TestRegistrationStateIsHonest:
+    def test_reports_not_registered_yet(self, qtbot, isolated_clients: Path) -> None:
+        # `isolated_clients` already seeds ~/.cursor, so Cursor is detected
+        # with no config file written yet.
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        assert "not registered yet" in _row_text(_group(dialog, "Cursor")).lower()
+
+    def test_reports_up_to_date_after_add(self, qtbot, isolated_clients: Path) -> None:
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        cursor_group = _group(dialog, "Cursor")
+        qtbot.mouseClick(_add_button(cursor_group, "Cursor"), Qt.MouseButton.LeftButton)
+
+        # Re-open: detection re-reads the file it just wrote.
+        reopened = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(reopened)
+        assert "up to date" in _row_text(_group(reopened, "Cursor")).lower()
+
+    def test_reports_a_stale_registration(self, qtbot, isolated_clients: Path) -> None:
+        """The failure that motivated the issue: a rotated token or a changed
+        port leaves an entry that looks fine and cannot connect."""
+        cursor_dir = isolated_clients / ".cursor"  # already created by the fixture
+        (cursor_dir / "mcp.json").write_text(
+            json.dumps(
+                {"mcpServers": {"open-garden-planner": {"url": "http://127.0.0.1:9999/mcp"}}}
+            ),
+            encoding="utf-8",
+        )
+
+        dialog = ConnectAiAssistantDialog(_URL, token=_TOKEN)
+        qtbot.addWidget(dialog)
+
+        assert "different address" in _row_text(_group(dialog, "Cursor")).lower()

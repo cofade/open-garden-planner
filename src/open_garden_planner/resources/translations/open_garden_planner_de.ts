@@ -10943,6 +10943,74 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
             <source>The Agent API is enabled, but its server is not running — it failed to start. The port may be in use by another program or a second copy of this app. Try a different port in Preferences → Agent API, then restart the application.</source>
             <translation>Die Agent-API ist aktiviert, aber ihr Server läuft nicht – er konnte nicht gestartet werden. Möglicherweise wird der Port von einem anderen Programm oder einer zweiten Kopie dieser App verwendet. Versuchen Sie einen anderen Port unter Einstellungen → Agent-API und starten Sie die Anwendung neu.</translation>
         </message>
+        <message>
+            <source>Copy read-only URL</source>
+            <translation>Lese-URL kopieren</translation>
+        </message>
+        <message>
+            <source>Copy URL with edit token</source>
+            <translation>URL mit Bearbeitungstoken kopieren</translation>
+        </message>
+        <message>
+            <source>Read-only URL copied to clipboard.</source>
+            <translation>Lese-URL in die Zwischenablage kopiert.</translation>
+        </message>
+        <message>
+            <source>This URL contains the token that lets an AI assistant edit your plan. Do not paste it into a shared chat.</source>
+            <translation>Diese URL enthält das Token, mit dem ein KI-Assistent Ihren Plan bearbeiten kann. Fügen Sie sie nicht in einen gemeinsamen Chat ein.</translation>
+        </message>
+        <message>
+            <source>URL with the edit token copied. Anyone holding it can change your plan — do not share it in a chat or a public document.</source>
+            <translation>URL mit dem Bearbeitungstoken kopiert. Wer sie besitzt, kann Ihren Plan ändern – teilen Sie sie nicht in einem Chat oder einem öffentlichen Dokument.</translation>
+        </message>
+        <message>
+            <source>Merge this into your ~/.config/opencode/opencode.jsonc file:</source>
+            <translation>Fügen Sie dies in Ihre Datei ~/.config/opencode/opencode.jsonc ein:</translation>
+        </message>
+        <message>
+            <source>Append this to your ~/.codex/config.toml file:</source>
+            <translation>Hängen Sie dies an Ihre Datei ~/.codex/config.toml an:</translation>
+        </message>
+        <message>
+            <source>Add this to your ~/.gemini/config/mcp_config.json file:</source>
+            <translation>Fügen Sie dies zu Ihrer Datei ~/.gemini/config/mcp_config.json hinzu:</translation>
+        </message>
+        <message>
+            <source>Detected — not registered yet</source>
+            <translation>Erkannt – noch nicht registriert</translation>
+        </message>
+        <message>
+            <source>Detected — registered and up to date</source>
+            <translation>Erkannt – registriert und aktuell</translation>
+        </message>
+        <message>
+            <source>Detected — registered with a different address; add again to update</source>
+            <translation>Erkannt – mit einer anderen Adresse registriert; erneut hinzufügen, um zu aktualisieren</translation>
+        </message>
+        <message>
+            <source>Added to {client}. Start a new {client} session (or restart it) to pick up the change.</source>
+            <translation>Zu {client} hinzugefügt. Starten Sie eine neue {client}-Sitzung (oder starten Sie sie neu), um die Änderung zu übernehmen.</translation>
+        </message>
+        <message>
+            <source>Other AI clients</source>
+            <translation>Andere KI-Clients</translation>
+        </message>
+        <message>
+            <source>No button for your client? Use these with any MCP client that reads a JSON config.</source>
+            <translation>Keine Schaltfläche für Ihren Client? Verwenden Sie diese Angaben mit jedem MCP-Client, der eine JSON-Konfiguration liest.</translation>
+        </message>
+        <message>
+            <source>Add this to your client's "mcpServers" config:</source>
+            <translation>Fügen Sie dies zur "mcpServers"-Konfiguration Ihres Clients hinzu:</translation>
+        </message>
+        <message>
+            <source>Or run this command:</source>
+            <translation>Oder führen Sie diesen Befehl aus:</translation>
+        </message>
+        <message>
+            <source>Or paste this read-only URL into your client:</source>
+            <translation>Oder fügen Sie diese Lese-URL in Ihren Client ein:</translation>
+        </message>
     </context>
     <context>
         <name>SunSimToolbar</name>

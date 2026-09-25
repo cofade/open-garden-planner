@@ -2919,6 +2919,67 @@ for _ctx, _strings in _ARRANGE_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── Issue #366: read-only URL by default, generic fallback, honest state ──
+_I366_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "ConnectAiAssistantDialog": {
+        # The security fix: the default copy hands out a READ-ONLY url, and
+        # the write url sits behind its own button that says the token is in
+        # it. Pasting a token-bearing url into a chat is how a live write
+        # credential ended up in a transcript in the first place.
+        "Copy read-only URL": "Lese-URL kopieren",
+        "Copy URL with edit token": "URL mit Bearbeitungstoken kopieren",
+        "Read-only URL copied to clipboard.":
+            "Lese-URL in die Zwischenablage kopiert.",
+        "This URL contains the token that lets an AI assistant edit "
+        "your plan. Do not paste it into a shared chat.":
+            "Diese URL enthält das Token, mit dem ein KI-Assistent Ihren Plan "
+            "bearbeiten kann. Fügen Sie sie nicht in einen gemeinsamen Chat ein.",
+        "URL with the edit token copied. Anyone holding it can change "
+        "your plan — do not share it in a chat or a public document.":
+            "URL mit dem Bearbeitungstoken kopiert. Wer sie besitzt, kann Ihren "
+            "Plan ändern – teilen Sie sie nicht in einem Chat oder einem "
+            "öffentlichen Dokument.",
+        # Per-client notes for the registry entries added in #366.
+        "Merge this into your ~/.config/opencode/opencode.jsonc file:":
+            "Fügen Sie dies in Ihre Datei "
+            "~/.config/opencode/opencode.jsonc ein:",
+        "Append this to your ~/.codex/config.toml file:":
+            "Hängen Sie dies an Ihre Datei ~/.codex/config.toml an:",
+        "Add this to your ~/.gemini/config/mcp_config.json file:":
+            "Fügen Sie dies zu Ihrer Datei "
+            "~/.gemini/config/mcp_config.json hinzu:",
+        # Honest registration state — a rotated token or a changed port
+        # otherwise leaves an entry that looks fine and cannot connect.
+        "Detected — not registered yet": "Erkannt – noch nicht registriert",
+        "Detected — registered and up to date":
+            "Erkannt – registriert und aktuell",
+        "Detected — registered with a different address; add again to update":
+            "Erkannt – mit einer anderen Adresse registriert; erneut hinzufügen, "
+            "um zu aktualisieren",
+        # One restart hint for every client that reads its config only at
+        # session start, instead of one hard-coded string per client.
+        "Added to {client}. Start a new {client} session (or "
+        "restart it) to pick up the change.":
+            "Zu {client} hinzugefügt. Starten Sie eine neue {client}-Sitzung "
+            "(oder starten Sie sie neu), um die Änderung zu übernehmen.",
+        # The vendor-agnostic route, always present.
+        "Other AI clients": "Andere KI-Clients",
+        "No button for your client? Use these with any MCP client that "
+        "reads a JSON config.":
+            "Keine Schaltfläche für Ihren Client? Verwenden Sie diese Angaben "
+            "mit jedem MCP-Client, der eine JSON-Konfiguration liest.",
+        'Add this to your client\'s "mcpServers" config:':
+            "Fügen Sie dies zur \"mcpServers\"-Konfiguration Ihres Clients hinzu:",
+        "Or run this command:": "Oder führen Sie diesen Befehl aus:",
+        "Or paste this read-only URL into your client:":
+            "Oder fügen Sie diese Lese-URL in Ihren Client ein:",
+    },
+}
+
+for _ctx, _strings in _I366_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)
