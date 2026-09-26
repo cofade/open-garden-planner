@@ -58,6 +58,7 @@ def isolated_clients(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     )
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    onboarding.reset_cli_probe_cache()
     (tmp_path / ".cursor").mkdir()
     return tmp_path
 
@@ -397,13 +398,24 @@ class TestRegistryDrivenRows:
     def test_add_to_opencode_with_the_cli_uses_it(
         self, qtbot, isolated_clients: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """With `opencode` on PATH the CLI is the route, and `--global` is
-        load-bearing: without it the CLI writes the PROJECT config, silently
-        dropping an opencode.json into the user's working directory."""
+        """With a CAPABLE `opencode` on PATH the CLI is the route, and
+        `--global` is load-bearing: without it the CLI writes the PROJECT
+        config, silently dropping an opencode.json into the user's working
+        directory.
+
+        The fake has to answer the capability probe as well as the add, and the
+        probe cache has to be reset — otherwise this test silently inherits
+        whichever verdict another test cached for the same fake path, and passes
+        for a reason nobody wrote.
+        """
         calls: list[list[str]] = []
 
         def fake_run(args, **_kwargs):  # noqa: ANN001, ANN003
-            calls.append(args)
+            calls.append(list(args))
+            if "--help" in args:
+                return subprocess.CompletedProcess(
+                    args, 0, stdout="      --global  Write to the global config\n", stderr=""
+                )
             return subprocess.CompletedProcess(args, 0, stdout="added", stderr="")
 
         monkeypatch.setattr(
@@ -413,6 +425,7 @@ class TestRegistryDrivenRows:
         monkeypatch.setattr(
             "open_garden_planner.services.ai_client_onboarding.subprocess.run", fake_run
         )
+        onboarding.reset_cli_probe_cache()
 
         dialog = ConnectAiAssistantDialog(_URL)
         qtbot.addWidget(dialog)
@@ -420,9 +433,12 @@ class TestRegistryDrivenRows:
         group = _group(dialog, "OpenCode")
         qtbot.mouseClick(_add_button(group, "OpenCode"), Qt.MouseButton.LeftButton)
 
-        assert calls, "the CLI should have been used"
-        assert "--global" in calls[0]
-        assert _URL in calls[0]
+        # The capability probe is `mcp add --help`, so it also contains the
+        # literal "add" — filter on the real command's own flag instead.
+        add_calls = [c for c in calls if "--help" not in c]
+        assert add_calls, f"the CLI should have been used; calls were {calls}"
+        assert "--global" in add_calls[0]
+        assert _URL in add_calls[0]
 
     def test_add_to_codex_writes_toml_and_keeps_user_comments(
         self, qtbot, isolated_clients: Path

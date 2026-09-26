@@ -7,16 +7,19 @@ stale-registration detection.
 
 The pre-existing suite in ``test_ai_client_onboarding.py`` is the regression net
 for the refactor itself: all 49 of its tests still pass, and they pin the
-pre-#366 contract. Two of its assertions changed, and honestly so — the
+pre-#366 contract. Three of its assertions changed, and honestly so — the
 ``install_method`` value ``"json_merge"`` is now ``"merge"``, because the old
 name was already a lie for the TOML and JSONC targets and this change's whole
-thesis is that syntax is a separate axis.
+thesis is that syntax is a separate axis; and a CLI failure now prefixes which
+command failed, because a client that rejects its arguments answers with its
+entire help text and the dialog renders this string in a one-line status label.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import json
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -718,6 +721,275 @@ class TestOpenCodeTarget:
         assert "timeout" not in onboarding._opencode_entry(_URL, None)
 
 
+# ---------------------------------------------------------------------------
+# CLI capability gate (owner's manual test, #366)
+# ---------------------------------------------------------------------------
+
+# Verbatim `opencode mcp add --help` from the two generations on the owner's
+# machine, with the ANSI colour codes and the padding collapsed to single spaces.
+# These are the real strings the parser has to cope with, which is why they are
+# fixtures and not invented ones.
+_HELP_1_18 = """\
+opencode mcp add [name]
+add an MCP server
+
+Positionals:
+  name  name of the MCP server                                                              [string]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+      --url         URL for a remote MCP server                                             [string]
+      --env         environment variable for a local MCP server (KEY=VALUE)                  [array]
+      --header      HTTP header for a remote MCP server (KEY=VALUE)                           [array]
+"""
+
+_HELP_2_0 = """\
+Add an MCP server to your configuration
+
+Usage:
+  opencode mcp add [flags] <name> [<command...>]
+
+Flags:
+  -h, --help          help for add
+      --url string    URL for a remote MCP server
+      --header key=value    HTTP header for a remote server, as name=value
+      --env key=value       Environment variable for a local server, as name=value
+      --global         Write to the global config instead of the project config
+"""
+
+
+class _FakeCli:
+    """A stand-in for a client binary that answers a help probe.
+
+    Records every argv so a test can assert the *real* command never ran — the
+    whole point of the gate is that it refuses BEFORE spawning anything.
+    """
+
+    def __init__(self, help_text: str, *, exit_code: int = 0) -> None:
+        self.help_text = help_text
+        self.exit_code = exit_code
+        self.calls: list[list[str]] = []
+
+    def __call__(self, argv: list[str], **_kw: object) -> object:
+        self.calls.append(list(argv))
+        if "--help" in argv:
+            return subprocess.CompletedProcess(argv, 0, self.help_text, "")
+        return subprocess.CompletedProcess(argv, self.exit_code, "", "boom")
+
+
+class TestCliCapabilityGate:
+    """A CLI on PATH is not the same as a USABLE CLI.
+
+    The owner's manual test: two OpenCode installs on one machine, `which`
+    resolving the older one, and the resulting "error" being the CLI's entire
+    help text dumped into a one-line status label.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clear_probe_cache(self) -> None:
+        # The probe is process-cached and keyed on (exe, probe), so two tests
+        # that both fake `/usr/bin/opencode` share one verdict. Without this,
+        # whichever runs second inherits the first one's answer.
+        onboarding.reset_cli_probe_cache()
+        yield
+        onboarding.reset_cli_probe_cache()
+
+    @pytest.mark.parametrize(
+        ("help_text", "expect_global"),
+        [(_HELP_1_18, False), (_HELP_2_0, True)],
+        ids=["opencode-1.18.32", "opencode-2.0.16"],
+    )
+    def test_flag_parsing_tells_the_generations_apart(
+        self, help_text: str, expect_global: bool, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake = _FakeCli(help_text)
+        monkeypatch.setattr(onboarding.subprocess, "run", fake)
+
+        flags = onboarding.cli_supported_flags("opencode", ("mcp", "add", "--help"))
+
+        assert ("global" in flags) is expect_global
+        # The flags both generations DO share, so the parser is not just
+        # returning everything or nothing.
+        assert {"url", "header", "env"} <= flags
+        assert fake.calls == [["opencode", "mcp", "add", "--help"]]
+
+    def test_a_flag_name_in_prose_is_not_a_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """`--global` in a DESCRIPTION must not satisfy the requirement.
+
+        The parser is anchored at the start of a line precisely so a sentence
+        mentioning a flag cannot be mistaken for the flag being offered.
+        """
+        fake = _FakeCli("Options:\n      --url  URL; combine with --global for user scope\n")
+        monkeypatch.setattr(onboarding.subprocess, "run", fake)
+
+        flags = onboarding.cli_supported_flags("opencode", ("mcp", "add", "--help"))
+
+        assert "global" not in flags
+        assert "url" in flags
+
+    def test_ansi_colour_is_stripped_before_parsing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The CLI colours its help when it thinks a terminal is attached, and
+        an escape sequence before the flag name would hide it from the parser."""
+        fake = _FakeCli("\x1b[32m      --global   Write to the global config\x1b[39m\n")
+        monkeypatch.setattr(onboarding.subprocess, "run", fake)
+
+        assert "global" in onboarding.cli_supported_flags("opencode", ("mcp", "add", "--help"))
+
+    def test_an_unprobeable_binary_is_treated_as_unusable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """If the probe itself fails, assume the CLI cannot take our argv.
+
+        The alternative is passing flags to a binary that has already shown it
+        cannot parse them — which is the bug.
+        """
+
+        def _explode(*_a: object, **_k: object) -> object:
+            raise OSError("exec format error")
+
+        monkeypatch.setattr(onboarding.subprocess, "run", _explode)
+
+        assert onboarding.cli_supported_flags("opencode", ("mcp", "add", "--help")) == frozenset()
+        target = onboarding.get_target("opencode")
+        assert onboarding.cli_missing_capability("opencode", target) is not None
+
+    def test_a_target_with_no_requirements_is_never_gated(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Not every target gets a requirement: only a MEASURED one. Codex has
+        no `cli_required_flags`, so no probe runs for it at all."""
+        monkeypatch.setattr(
+            onboarding.subprocess,
+            "run",
+            _FakeCli(""),  # would answer "no flags" if it were consulted
+        )
+        codex = onboarding.get_target("codex")
+        assert codex.cli_required_flags == ()
+        assert onboarding.cli_missing_capability("codex", codex) is None
+
+    def test_install_refuses_a_too_old_cli_without_running_it(
+        self, monkeypatch: pytest.MonkeyPatch, _isolated_home: Path
+    ) -> None:
+        """The refusal happens BEFORE any write attempt, and says what to do."""
+        fake = _FakeCli(_HELP_1_18)
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: r"C:\oc\opencode.exe")
+        monkeypatch.setattr(onboarding.subprocess, "run", fake)
+
+        result = onboarding.install_to_client("opencode", url=_URL)
+
+        assert result.success is False
+        assert "--global" in result.detail
+        assert "too old" in result.detail
+        assert "Update opencode" in result.detail
+        # The ONLY call made was the help probe. `mcp add` never ran, so
+        # nothing was written to anyone's config.
+        assert fake.calls == [[r"C:\oc\opencode.exe", "mcp", "add", "--help"]]
+        assert not (_isolated_home / ".config" / "opencode" / "opencode.jsonc.bak").exists()
+
+    def test_install_proceeds_against_a_capable_cli(
+        self, monkeypatch: pytest.MonkeyPatch, _isolated_home: Path
+    ) -> None:
+        """The gate must not block the supported generation."""
+        fake = _FakeCli(_HELP_2_0)
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: r"C:\oc\opencode.exe")
+        monkeypatch.setattr(onboarding.subprocess, "run", fake)
+
+        result = onboarding.install_to_client("opencode", url=_URL)
+
+        assert result.success is True, result.detail
+        # probe, then the real command — and the real command carries --global.
+        assert fake.calls[-1][-1] == "--global"
+        assert "mcp" in fake.calls[-1] and "add" in fake.calls[-1]
+
+    def test_detect_reports_manual_so_the_dialog_offers_no_dead_button(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A button whose only possible outcome is a refusal is a dead end with
+        a polite message — the shape #366 was opened to close. The too-old CLI
+        must land in the same `manual` bucket as the no-CLI case."""
+        monkeypatch.setattr(
+            onboarding.shutil, "which", lambda _cmd: r"C:\oc\opencode.exe"
+        )
+        monkeypatch.setattr(onboarding.subprocess, "run", _FakeCli(_HELP_1_18))
+
+        row = next(c for c in onboarding.detect_clients() if c.client_id == "opencode")
+
+        assert row.detected is True  # it IS installed...
+        assert row.install_method == "manual"  # ...but not registerable this way
+
+    def test_detect_reports_cli_for_a_capable_one(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            onboarding.shutil, "which", lambda _cmd: r"C:\oc\opencode.exe"
+        )
+        monkeypatch.setattr(onboarding.subprocess, "run", _FakeCli(_HELP_2_0))
+
+        row = next(c for c in onboarding.detect_clients() if c.client_id == "opencode")
+
+        assert row.install_method == "cli"
+
+
+class TestCliErrorIsReadable:
+    """A CLI that rejects its arguments answers with its whole help text.
+
+    The dialog renders `detail` in a ONE-LINE status label, so raw stderr there
+    is how a user gets told nothing at all — which is precisely what the owner's
+    manual test showed.
+    """
+
+    def test_a_help_dump_becomes_one_readable_line(self) -> None:
+        out = onboarding._condense_cli_error(_HELP_1_18)
+
+        assert "\n" not in out
+        # It says what happened rather than reciting the flag table.
+        assert "rejected the command" in out
+        assert "mcp add" in out
+        assert "Positionals:" not in out
+        assert len(out) < 300
+
+    def test_a_real_error_still_reaches_the_user(self) -> None:
+        out = onboarding._condense_cli_error("Error: config file is not writable\n")
+
+        assert "config file is not writable" in out
+
+    def test_a_long_single_line_error_is_truncated(self) -> None:
+        out = onboarding._condense_cli_error("x" * 5000)
+
+        assert out.endswith("…")
+        assert len(out) <= 260
+
+    def test_silence_is_still_reported(self) -> None:
+        assert onboarding._condense_cli_error("") == "the client CLI failed without saying why"
+        assert onboarding._condense_cli_error("   \n  \n") == (
+            "the client CLI failed without saying why"
+        )
+
+    def test_the_install_failure_path_uses_it(
+        self, monkeypatch: pytest.MonkeyPatch, _isolated_home: Path
+    ) -> None:
+        """End to end: a CLI that rejects the argv must not put 2 KB of help
+        into the status label."""
+
+        def _run(argv: list[str], **_kw: object) -> object:
+            if "--help" in argv:
+                return subprocess.CompletedProcess(argv, 0, _HELP_2_0, "")
+            return subprocess.CompletedProcess(argv, 1, "", _HELP_1_18)
+
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: r"C:\oc\opencode.exe")
+        monkeypatch.setattr(onboarding.subprocess, "run", _run)
+
+        result = onboarding.install_to_client("opencode", url=_URL)
+
+        assert result.success is False
+        assert "rejected the command" in result.detail
+        assert "Positionals:" not in result.detail
+
+
 class TestDottedContainerPaths:
     """OpenCode nests one level deeper than everyone else.
 
@@ -793,11 +1065,18 @@ class TestDottedContainerPaths:
         )
 
         def fake_run(args, **_kwargs):  # noqa: ANN001, ANN003
+            # Answer the capability probe with a CLI that DOES support --global,
+            # so this test still reaches the self-heal it is about. A bare
+            # "server already exists" for the probe would make the gate refuse
+            # first, and the self-heal would go untested.
+            if "--help" in args:
+                return _subprocess.CompletedProcess(args, 0, stdout=_HELP_2_0, stderr="")
             return _subprocess.CompletedProcess(
                 args, 1, stdout="", stderr="Error: server already exists"
             )
 
         monkeypatch.setattr(onboarding.subprocess, "run", fake_run)
+        onboarding.cli_supported_flags.cache_clear()
 
         result = onboarding.install_to_client("opencode", url=_URL)
 
@@ -1092,14 +1371,25 @@ class TestDetectClientsDerived:
         monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: None)
         assert all(c.detected is False for c in onboarding.detect_clients())
 
-    def test_cli_on_path_alone_is_enough_to_detect(
+    def test_a_capable_cli_with_no_config_file_yet_is_still_a_real_install(
         self, monkeypatch: pytest.MonkeyPatch, _isolated_home: Path
     ) -> None:
         """The converse: a CLI with no config file yet is still a real install
-        (and the CLI is what the one-click path will use)."""
+        (and the CLI is what the one-click path will use).
+
+        Renamed from `test_cli_on_path_alone_is_enough_to_detect`, which asserted
+        a premise this gate invalidated: being on PATH is no longer sufficient,
+        the CLI has to also support the flags OGP passes. The capability is
+        stubbed here so the test still isolates what it is about."""
         monkeypatch.setattr(
             onboarding.shutil, "which", lambda cmd: "/usr/bin/opencode" if cmd == "opencode" else None
         )
+        monkeypatch.setattr(
+            onboarding.subprocess,
+            "run",
+            lambda args, **_kw: subprocess.CompletedProcess(args, 0, stdout=_HELP_2_0, stderr=""),
+        )
+        onboarding.cli_supported_flags.cache_clear()
         info = {c.client_id: c for c in onboarding.detect_clients()}["opencode"]
         assert info.detected is True
         assert info.install_method == "cli"

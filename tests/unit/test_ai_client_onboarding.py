@@ -484,6 +484,14 @@ class TestInstallToClient:
         assert result.success is True
 
     def test_claude_code_failure_surfaces_stderr(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The CLI's own words must reach the user.
+
+        The detail is now prefixed with which command failed, and condensed if
+        the CLI answered with a help dump rather than a message (senior-review
+        round 6, from the owner's manual test). The assertion is therefore on
+        the stderr being PRESENT rather than on it being the whole string —
+        which is what the test always meant.
+        """
         monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: "/usr/local/bin/claude")
 
         def fake_run(args: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -494,7 +502,9 @@ class TestInstallToClient:
         result = onboarding.install_to_client("claude_code", url=_URL)
 
         assert result.success is False
-        assert result.detail == "boom"
+        assert "boom" in result.detail
+        # And a silent failure is still reported as a failure, not as success.
+        assert "claude" in result.detail
 
     def test_unknown_client_raises(self) -> None:
         with pytest.raises(ValueError):

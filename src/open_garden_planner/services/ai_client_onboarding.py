@@ -23,6 +23,12 @@ three branches:
 * ``syntax`` — ``json`` / ``jsonc`` / ``toml``, which selects a *serializer*
   strategy rather than a client branch.
 * ``entry`` / ``cli_argv`` — the per-client entry shape and CLI, when it has one.
+* ``cli_required_flags`` — whether the client **on this machine** is new enough
+  for that argv. Measured per machine by :func:`cli_missing_capability`, because
+  a machine can hold two generations of the same client and ``shutil.which``
+  silently picks whichever comes first on ``PATH``. This is not a fourth axis
+  of the client's *identity*; it is a fact about the binary that happens to be
+  installed, and the owner's manual test is what proved it has to be asked.
 
 The hard parts were never per-client: backup-before-write, atomic replace,
 fail-closed on a file OGP does not own, and preserving foreign keys. Those live
@@ -42,10 +48,14 @@ Per-client strategy, chosen from what each client's own docs support:
   the direct-merge fallback is what makes one-click work without a terminal.
   The merge fails CLOSED on an unreadable ``~/.claude.json`` (it also holds
   OAuth / projects / trust) rather than replacing it.
-* **OpenCode** — ``opencode mcp add <name> --url <url> --global`` when the CLI
-  is on PATH (entry ``{type: "remote", url, oauth: false}`` under
-  ``mcp.servers``). **Without the CLI there is no merge at all**, by decision:
-  its config is commented JSON that any merge would have to re-serialise whole,
+* **OpenCode** — ``opencode mcp add <name> --url <url> --global`` when a
+  **sufficiently new** CLI is on PATH (entry ``{type: "remote", url, oauth:
+  false}`` under ``mcp.servers``). 1.18.x has no ``--global`` at all and stores
+  servers FLAT as ``mcp.<name>``, so that generation is refused with an
+  explanation rather than handed a flag it will reject — see
+  :func:`cli_missing_capability`, and ADR-035 for why supporting both shapes was
+  declined. **Without a usable CLI there is no merge at all**, by decision: its
+  config is commented JSON that any merge would have to re-serialise whole,
   discarding the user's own comments, so the record sets
   ``merge_supported=False`` and registration refuses with an explanation plus
   the manual snippet. The config is a *commented* JSON variant that plain
@@ -79,6 +89,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -87,6 +98,7 @@ import tomllib
 import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from typing import Literal
 
@@ -236,6 +248,25 @@ class ClientTarget:
     #: documented remove (OpenCode) falls back to the merge instead, which
     #: replaces the entry wholesale and is therefore also an update.
     cli_remove_argv: Callable[[str], tuple[str, ...]] | None = None
+    #: Long-option flags (without the leading dashes) that the resolved CLI MUST
+    #: advertise for :func:`install_to_client` to use it at all. Empty for every
+    #: target whose argv has been verified against the version its own docs
+    #: describe.
+    #:
+    #: This field exists because a machine can hold SEVERAL installs of the same
+    #: client, and ``shutil.which`` picks whichever comes first on PATH. OpenCode
+    #: is the measured case: 1.18.x has no ``--global`` (and stores servers FLAT
+    #: as ``mcp.<name>``), 2.x has ``--global`` (without which it writes a
+    #: PROJECT config into the user's working directory) and stores them NESTED
+    #: as ``mcp.servers.<name>``. Passing 2.x argv to 1.18.x does not fail
+    #: cleanly — the CLI prints its entire help and exits non-zero. So OGP either
+    #: probes and refuses, or it hands the user an error they cannot act on. It
+    #: probes and refuses. Deliberately NOT a second container key threaded
+    #: through the read/snippet/merge paths for a version OGP has not verified.
+    cli_required_flags: tuple[str, ...] = ()
+    #: Argv used to ask the CLI what it supports. ``mcp add --help`` is the shape
+    #: every target here uses.
+    cli_probe_argv: tuple[str, ...] = ("mcp", "add", "--help")
     #: Whether a DIRECT MERGE can register this client without rewriting the
     #: whole file. False for a ``jsonc`` foreign file: a merge would have to
     #: re-serialise, and re-serialising a file you do not own discards the
@@ -433,6 +464,18 @@ TARGETS: tuple[ClientTarget, ...] = (
         entry=_opencode_entry,
         cli_name="opencode",
         cli_argv=_opencode_add_args,
+        # MEASURED, not assumed. Two OpenCode generations are in the wild and a
+        # machine can hold both: 1.18.x has no `--global` at all (and stores
+        # servers FLAT as `mcp.<name>`), 2.x has it (and stores them NESTED, the
+        # key above). `shutil.which` resolves whichever install is first on
+        # PATH, so passing 2.x argv to 1.18.x is a matter of whose PATH the GUI
+        # inherited — the owner's manual test hit exactly that, and the CLI's
+        # response was its entire help text. So OGP asks the binary what it
+        # supports and refuses with an explanation if the answer is no. OGP
+        # deliberately does NOT also support the 1.18.x flat layout: that would
+        # mean a second container key threaded through the reader, the snippet
+        # and the merge, none of it verified against a real 1.18.x round-trip.
+        cli_required_flags=("global",),
         ownership="foreign",
         # A merge here would re-serialise a JSONC file, discarding the user's
         # own comments. The CLI (`opencode mcp add --global`, verified by
@@ -1163,11 +1206,18 @@ def detect_clients() -> list[ClientInfo]:
     with no change to this function. ``detected`` is advisory: a client with an
     unusual install layout reads as "not detected" and falls through to the
     generic fallback, which is the correct degradation.
+
+    "Has a CLI on PATH" is deliberately NOT the same as "can be registered by
+    its CLI": a CLI too old for our argv is reported as ``"manual"`` so the
+    dialog offers the snippet rather than an Add button whose only outcome is
+    the refusal in :func:`cli_missing_capability`. That is the same dead end
+    the ``merge_supported`` case below exists to avoid.
     """
     clients: list[ClientInfo] = []
     for target in TARGETS:
         detected = target.detect_installed()
-        if target.cli_name and shutil.which(target.cli_name) is not None:
+        exe = shutil.which(target.cli_name) if target.cli_name else None
+        if exe is not None and cli_missing_capability(exe, target) is None:
             install_method: InstallMethod = "cli"
         elif target.supports_local_http and target.merge_supported:
             install_method = "merge"
@@ -1202,6 +1252,125 @@ def _run_client_cli(exe: str, args: tuple[str, ...]) -> subprocess.CompletedProc
         timeout=15,
         check=False,
     )
+
+
+#: One option per line, as every CLI here formats its help: ``-h, --help`` or
+#: ``    --url  URL for a remote MCP server``. Anchored at the start of a line so
+#: a flag NAME mentioned in prose is not mistaken for a flag.
+_FLAG_LINE = re.compile(r"^\s*(?:-\w+,\s*)?--([a-z][a-z0-9-]*)", re.MULTILINE)
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+@cache
+def cli_supported_flags(exe: str, probe: tuple[str, ...]) -> frozenset[str]:
+    """Long-option flag names the CLI at ``exe`` advertises, per its own help.
+
+    Probed, never assumed, and cached per ``(exe, probe)``: ``detect_clients()``
+    runs on every dialog refresh, and a subprocess per refresh would be a
+    visible stall for an answer that cannot change while the process lives. The
+    cache is process-local, so it cannot go stale against a binary the user
+    replaces mid-session — at worst the next launch re-probes.
+
+    Returns an empty set when the probe cannot be run at all (the binary is
+    missing, or hangs). Empty is treated as "cannot be used", because the
+    alternative is passing flags to a CLI that has already shown it cannot parse
+    them.
+    """
+    try:
+        completed = subprocess.run(
+            [exe, *probe],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+            # The help is parsed, and these CLIs colour and pad their output when
+            # they think a terminal is attached.
+            env={**os.environ, "NO_COLOR": "1", "TERM": "dumb"},
+        )
+    except (OSError, subprocess.SubprocessError):
+        logger.debug("Could not probe %s for supported flags", exe)
+        return frozenset()
+    return frozenset(_FLAG_LINE.findall(_ANSI.sub("", f"{completed.stdout}\n{completed.stderr}")))
+
+
+def reset_cli_probe_cache() -> None:
+    """Forget every cached capability answer.
+
+    Only tests need this, and they need it badly: the cache is keyed on
+    ``(exe, probe)`` and process-global, so two tests that both fake
+    ``/usr/bin/opencode`` share one answer. Without a reset, whichever runs
+    second silently inherits the first one's verdict — a test that passes for a
+    reason nobody wrote, and that fails when the file order changes. This is the
+    "passes alone, fails together" trap in its quietest form: it also passes
+    *together* for the wrong reason.
+    """
+    cli_supported_flags.cache_clear()
+
+
+def cli_missing_capability(exe: str, target: ClientTarget) -> str | None:
+    """Why this CLI cannot be used for ``target``, or ``None`` if it can.
+
+    The returned string is the whole user-facing explanation, so it names the
+    missing flag, says why OGP needs it, and says what to do instead.
+    """
+    if not target.cli_required_flags:
+        return None
+    supported = cli_supported_flags(exe, target.cli_probe_argv)
+    missing = [f"--{f}" for f in target.cli_required_flags if f not in supported]
+    if not missing:
+        return None
+    why = {
+        "global": (
+            "without it OpenCode writes a PROJECT config into your current "
+            "working directory instead of your user config"
+        ),
+    }
+    reason = why.get(missing[0].lstrip("-"), "this OpenCode build does not accept them")
+    return (
+        f"The {target.cli_name} on PATH ({exe}) is too old: it does not support "
+        f"{' or '.join(missing)}, because {reason}. Update {target.cli_name}, or "
+        f"add the server by hand with the snippet below."
+    )
+
+
+def _condense_cli_error(stderr: str, *, limit: int = 240) -> str:
+    """A CLI's stderr, made fit to read in a one-line status label.
+
+    A CLI that rejects its arguments answers with its ENTIRE help text — usage,
+    every flag, several hundred characters of padding. Rendering that into a
+    status label is how a user gets told nothing at all. So: recognise a help
+    dump and report the one line that identifies it, collapse the padding, and
+    keep the rest short.
+    """
+    text = _ANSI.sub("", stderr or "").replace("\r", "")
+    # Recognise a help dump by ANY of its section headers, not just USAGE: the
+    # 1.18.x output has no USAGE line at all — it opens with the command line
+    # itself and then goes straight into "Positionals:". Matching only "USAGE:"
+    # would have missed the very case this function exists for.
+    header = re.search(
+        r"^\s*(?:USAGE|Usage|POSITIONALS|Positionals|OPTIONS|Options|FLAGS|Flags|"
+        r"COMMANDS|Commands|SUBCOMMANDS|GLOBAL FLAGS):",
+        text,
+        re.MULTILINE,
+    )
+    if header:
+        # Only the FIRST non-empty line, which is the command line the CLI
+        # rejected. The rest of a help dump is a flag table the user cannot act
+        # on from a status label, and repeating it is the bug.
+        first = next((ln.strip() for ln in text.splitlines() if ln.strip()), "(no output)")
+        if len(first) > limit:
+            first = first[:limit].rstrip() + " …"
+        return (
+            f"{first} — that is the CLI's help, i.e. it rejected the command. "
+            f"Most often this means the installed client is too old for the "
+            f"options OGP uses."
+        )
+    collapsed = " ".join(text.split())
+    if not collapsed:
+        return "the client CLI failed without saying why"
+    if len(collapsed) > limit:
+        return collapsed[:limit].rstrip() + " …"
+    return collapsed
 
 
 def _report(path: Path, backup: Path | None) -> str:
@@ -1263,6 +1432,15 @@ def install_to_client(
         )
 
     exe = shutil.which(target.cli_name) if target.cli_name else None
+    if exe is not None:
+        # A CLI on PATH is not the same as a USABLE CLI. Several installs of one
+        # client can coexist and `which` picks the first, and a CLI too old for
+        # our argv does not fail cleanly — it prints its whole help and exits
+        # non-zero, which is what the owner's manual test caught. Refuse here,
+        # before the subprocess, with a message that can be acted on.
+        too_old = cli_missing_capability(exe, target)
+        if too_old is not None:
+            return InstallResult(client_id=client_id, success=False, detail=too_old)
     if exe is None and not target.merge_supported and target.cli_name:
         # Neither route available: no CLI on PATH, and the merge would
         # re-serialise a file we do not own. Say which one is missing, and do
@@ -1386,8 +1564,20 @@ def install_to_client(
         # doing the destructive thing.
         return _merge()
 
+    if not stderr:
+        return InstallResult(
+            client_id=client_id,
+            success=False,
+            detail=f"{target.cli_name} mcp add failed without saying why.",
+        )
+    # A CLI that rejects its arguments answers with its whole help text. The
+    # dialog renders `detail` in a one-line status label, so raw stderr there is
+    # how a user gets told nothing at all. This is the exact shape the owner's
+    # manual test produced.
     return InstallResult(
-        client_id=client_id, success=False, detail=stderr or f"{target.cli_name} mcp add failed."
+        client_id=client_id,
+        success=False,
+        detail=f"{target.cli_name} mcp add failed: {_condense_cli_error(stderr)}",
     )
 
 
