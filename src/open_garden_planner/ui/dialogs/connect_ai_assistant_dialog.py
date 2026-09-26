@@ -448,6 +448,22 @@ class ConnectAiAssistantDialog(QDialog):
                 self._status_label.setText(
                     self.tr("Added to {client}.").format(client=client.display_name)
                 )
+            # `result.detail` carries the path that was written and, for a merge,
+            # where the previous contents were backed up. The success branch
+            # above deliberately says nothing about paths — but the merge DOES
+            # make a `.bak` next to a config file in the user's home directory,
+            # and a backup that is made but never named is litter they cannot
+            # find. (Senior-review round 5: the field was populated and
+            # documented in three places while the dialog ignored it, so the
+            # user's experience was unchanged from before the fix.) A CLI route
+            # puts the command's own output here instead, which is also worth
+            # showing.
+            if result.detail:
+                self._status_label.setText(
+                    self.tr("{summary} {detail}").format(
+                        summary=self._status_label.text(), detail=result.detail
+                    )
+                )
         else:
             self._status_label.setText(
                 self.tr("Could not add to {client}: {detail}").format(

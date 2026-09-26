@@ -2607,6 +2607,10 @@ _D16_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Added to {client}.": "Zu {client} hinzugefügt.",
         "Could not add to {client}: {detail}":
             "Konnte nicht zu {client} hinzugefügt werden: {detail}",
+        # Appends the write path (and, for a merge, where the previous contents
+        # were backed up) to whatever the summary said. A backup that is made
+        # but never named is litter the user cannot find.
+        "{summary} {detail}": "{summary} {detail}",
     },
 }
 

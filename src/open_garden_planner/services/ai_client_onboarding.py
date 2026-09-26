@@ -589,9 +589,11 @@ def _scan_outside_strings(
 
     Both halves of :func:`_strip_jsonc` need exactly this walk, and they used to
     be two near-verbatim copies of the same state machine — which is the shape
-    in which a fix lands in one copy and not the other. "A ``//`` or ``#``
-    inside a string literal is data, and a regex cannot tell" is the property
-    that makes this parser correct at all, so it gets written once.
+    in which a fix lands in one copy and not the other. "A ``//`` inside a
+    string literal is data, and a regex cannot tell" is the property that makes
+    this parser correct at all, so it gets written once. (This scanner handles
+    ``//`` and ``/* */`` only — no ``#``, which is not a JSONC comment and would
+    break a URL fragment.)
     """
     out: list[str] = []
     i = 0
@@ -1206,9 +1208,10 @@ def _report(path: Path, backup: Path | None) -> str:
     """Human-readable success line, INCLUDING where the backup went.
 
     A ``.bak`` next to a config file in someone else's home directory is easy
-    to miss and impossible to guess, and this is the only place a user is told
-    it exists. A backup that is made but never reported is not a safety
-    feature, it is litter.
+    to miss and impossible to guess. A backup that is made but never *reported*
+    is not a safety feature, it is litter — so this string is not optional
+    decoration, it is the last step of the backup's contract. The dialog's
+    success branch renders it, and a test drives the whole path to prove it.
     """
     if backup is None:
         return str(path)

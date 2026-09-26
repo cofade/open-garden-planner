@@ -44,15 +44,20 @@ def isolated_clients(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Redirect client detection/install to tmp_path; only Cursor is detected by
     default (a test may seed ~/.claude.json to make Claude Code detected too).
 
-    Clearing ``CLAUDE_CONFIG_DIR`` is load-bearing: ``_claude_code_user_config
-    _path`` honours it, so leaving a real value set would make the Claude Code
-    direct-merge tests write to the developer's actual config location instead
-    of ``tmp_path``."""
+    Clearing both env vars is load-bearing, and the omission of the second one
+    made a test pass vacuously (senior-review round 5). ``CLAUDE_CONFIG_DIR`` is
+    honoured by ``_claude_code_user_config_path`` and ``XDG_CONFIG_HOME`` by
+    ``_xdg_config_home()`` — the OpenCode path. With ``XDG_CONFIG_HOME`` left
+    pointing at the real value, the service read the developer's own
+    ``opencode.jsonc`` and never the seeded one, so the assertion that the
+    comments survived compared a file the code could not reach. The unit-suite
+    sibling fixture gets this right; this one now matches it."""
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setattr(
         "open_garden_planner.services.ai_client_onboarding.shutil.which", lambda _cmd: None
     )
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     (tmp_path / ".cursor").mkdir()
     return tmp_path
 

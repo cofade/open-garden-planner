@@ -11011,6 +11011,10 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
             <source>Or paste this read-only URL into your client:</source>
             <translation>Oder fügen Sie diese Lese-URL in Ihren Client ein:</translation>
         </message>
+        <message>
+            <source>{summary} {detail}</source>
+            <translation>{summary} {detail}</translation>
+        </message>
     </context>
     <context>
         <name>SunSimToolbar</name>

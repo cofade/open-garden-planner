@@ -1214,10 +1214,15 @@ present vendor-agnostic group (canonical `mcpServers` JSON + generic CLI shape +
 bare URL) covers any client OGP has never heard of. This is the **first
 atomic-write pattern in the codebase**: every prior JSON writer here only
 ever wrote its own file with a bare `open(path, "w")`; because this one edits
-files *owned by other applications*, the merge backs up the file's current
-contents to `<name>.bak` first (a second call overwrites `.bak` with the state
-from just before *that* call, not the pristine original), preserves every other
-key/server, and writes via a same-directory temp file + `os.replace()`.
+files *owned by other applications*, the merge preserves every other
+key/server and writes via a same-directory temp file + `os.replace()`, copying
+the file's current contents to `<name>.bak` **immediately before** that write
+and naming the backup in its success message. Two consequences of the ordering:
+a **refused** merge leaves the directory byte- and file-for-file identical (a
+refusal is the common case for a `foreign` target, so taking the backup earlier
+meant the common case littered a second file beside a config OGP had just
+declined to touch), and a second call overwrites `.bak` with the state from just
+before *that* call, not the pristine original.
 
 **Generalized in issue #366 — clients are data, and the writer is keyed on syntax
 rather than on client.** A client is one frozen `ClientTarget` in `TARGETS`;

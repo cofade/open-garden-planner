@@ -455,24 +455,35 @@ class TestSurgicalToml:
         assert path.read_text(encoding="utf-8") == original
         assert [p.name for p in tmp_path.iterdir()] == ["config.toml"]
 
-    def test_a_successful_merge_does_report_its_backup(self, tmp_path: Path) -> None:
-        """And when a write DOES happen, the backup exists — and the caller is
-        told where it is, because a `.bak` in someone else's home directory is
-        otherwise impossible to find."""
-        path = tmp_path / "config.toml"
-        path.write_text('model = "gpt-5"\n', encoding="utf-8")
+    def test_a_successful_merge_reports_its_backup_in_the_detail(
+        self, _isolated_home: Path
+    ) -> None:
+        """When a write DOES happen, the backup exists AND the user is told.
 
-        backup = onboarding._merge_into_config(
-            path,
-            name="og",
-            entry={"url": _URL},
-            container_key="mcp_servers",
-            syntax="toml",
-            replace_on_parse_error=False,
-        )
+        Driven through ``install_to_client`` rather than ``_merge_into_config``,
+        because the claim under test is about what reaches the *user*, and the
+        lower-level call cannot see ``_report()``. The first version of this
+        test called the private merge directly, so it asserted "a backup file
+        exists" while its name and docstring promised "the caller is told where
+        it is" — a claim it was structurally unable to fail on. Senior-review
+        round 5.
+        """
+        config = _isolated_home / ".codex" / "config.toml"
+        config.parent.mkdir(parents=True, exist_ok=True)
+        config.write_text('model = "gpt-5"\n', encoding="utf-8")
 
-        assert backup is not None and backup.exists()
+        result = onboarding.install_to_client("codex", url=_URL)
+
+        assert result.success is True, result.detail
+        backup = config.with_name("config.toml.bak")
+        assert backup.exists()
         assert backup.read_text(encoding="utf-8") == 'model = "gpt-5"\n'
+        # The part that was previously only in the docs: the detail string the
+        # dialog puts on screen names BOTH paths.
+        assert str(config) in result.detail
+        assert str(backup) in result.detail
+        # And it must not smuggle the write credential into a status line.
+        assert "token=" not in result.detail
 
     def test_unparseable_foreign_toml_is_left_untouched(self, tmp_path: Path) -> None:
         path = tmp_path / "config.toml"
