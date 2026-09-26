@@ -8,6 +8,7 @@ menu action itself is wired in a safe order.
 
 # ruff: noqa: ARG005
 
+import pytest
 from PyQt6.QtWidgets import QMessageBox
 
 from open_garden_planner.app.application import GardenPlannerApp
@@ -73,3 +74,79 @@ class TestNewPlanClearsCompareOverlay:
         # also survive — round 1 of #337's fix left this one unguarded.
         win._on_toggle_compare_overlay(True)
         win._on_toggle_compare_overlay(False)
+
+
+class TestFailedLoadClearsCompareOverlay:
+    """#337, second half: the recovery for a FAILED open, on BOTH callers.
+
+    ``ProjectManager._deserialize_to_scene`` clears the overlay *before* the
+    calls that can throw, so a load that fails part-way leaves the menu action
+    still enabled over an empty overlay. That reset originally lived in the GUI
+    wrapper ``_open_project_file``; issue #365 extracted the real open path into
+    ``_load_project_file`` and added the agent's ``open_plan`` as a second
+    caller, so a reset only the GUI ran would have been a #337-class bug waiting
+    on the caller the extraction created. Hence: assert on the shared method
+    AND on both of its callers.
+    """
+
+    def test_shared_reset_clears_action_and_items(self, qtbot, monkeypatch) -> None:
+        win = _make_app(qtbot, monkeypatch)
+        win.canvas_scene.set_compare_overlay(PLANT_OBJECTS)
+        win._compare_overlay_action.setEnabled(True)
+        win._compare_overlay_action.setChecked(True)
+
+        win._reset_compare_overlay_after_failed_load()
+
+        assert win.canvas_scene._compare_items == []
+        assert not win._compare_overlay_action.isEnabled()
+        assert not win._compare_overlay_action.isChecked()
+
+    def test_the_raising_path_resets_before_it_raises(
+        self, qtbot, monkeypatch
+    ) -> None:
+        """`_load_project_file` is the raising half, so the reset must happen on
+        the way out — before the exception reaches the GUI's box or the agent's
+        tool error path."""
+        win = _make_app(qtbot, monkeypatch)
+        win.canvas_scene.set_compare_overlay(PLANT_OBJECTS)
+        win._compare_overlay_action.setEnabled(True)
+        win._compare_overlay_action.setChecked(True)
+
+        def _boom(*_a, **_k):
+            raise ValueError("corrupt plan file")
+
+        monkeypatch.setattr(win._project_manager, "load", _boom)
+
+        with pytest.raises(ValueError, match="corrupt plan file"):
+            win._load_project_file("does-not-matter.ogp")
+
+        # The overlay is gone even though the load failed.
+        assert win.canvas_scene._compare_items == []
+        assert not win._compare_overlay_action.isEnabled()
+        assert not win._compare_overlay_action.isChecked()
+
+    def test_the_gui_wrapper_shows_a_box_and_still_resets(
+        self, qtbot, monkeypatch
+    ) -> None:
+        """The GUI must not propagate the exception — it reports it — but it
+        must not be the thing that does the cleanup either."""
+        win = _make_app(qtbot, monkeypatch)
+        win.canvas_scene.set_compare_overlay(PLANT_OBJECTS)
+        win._compare_overlay_action.setEnabled(True)
+        win._compare_overlay_action.setChecked(True)
+
+        shown: list[str] = []
+        monkeypatch.setattr(
+            QMessageBox, "critical", lambda *a, **k: shown.append(str(a[-1]))
+        )
+        monkeypatch.setattr(
+            win._project_manager,
+            "load",
+            lambda *a, **k: (_ for _ in ()).throw(ValueError("corrupt plan file")),
+        )
+
+        win._open_project_file("does-not-matter.ogp")  # must not raise
+
+        assert shown, "the GUI wrapper should have reported the failure"
+        assert win.canvas_scene._compare_items == []
+        assert not win._compare_overlay_action.isEnabled()

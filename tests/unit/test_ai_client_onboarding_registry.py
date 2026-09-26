@@ -15,6 +15,7 @@ thesis is that syntax is a separate axis.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import tomllib
 from pathlib import Path
@@ -112,9 +113,15 @@ class TestRegistryDriftGuards:
         }
         actual_foreign = {t.client_id for t in onboarding.TARGETS if t.ownership == "foreign"}
         assert actual_foreign == expected_foreign
-        # And the fail-closed derivation is what the merge actually uses.
-        for target in onboarding.TARGETS:
-            assert (target.ownership == "own") is True or target.ownership == "foreign"
+        # And `ownership` must be declared, not defaulted: a required field is
+        # what stops a new record silently inheriting "replace whatever is
+        # there" because nobody filled it in. (The older assertion here compared
+        # `ownership` against its own Literal values, so it could never fail —
+        # round 4.)
+        fields = {f.name: f for f in dataclasses.fields(onboarding.ClientTarget)}
+        assert fields["ownership"].default is dataclasses.MISSING
+        assert fields["ownership"].default_factory is dataclasses.MISSING
+        assert {t.ownership for t in onboarding.TARGETS} == {"own", "foreign"}
 
     def test_targets_that_cannot_reach_localhost_are_detection_only(self) -> None:
         """A target that can't reach a loopback server must not offer a write
@@ -369,8 +376,7 @@ class TestSurgicalToml:
             entry={"url": _URL},
             container_key="mcp_servers",
             syntax="toml",
-    replace_on_parse_error=False,
-
+                replace_on_parse_error=False,
         )
 
         text = path.read_text(encoding="utf-8")
@@ -400,8 +406,7 @@ class TestSurgicalToml:
             entry={"url": _URL},
             container_key="mcp_servers",
             syntax="toml",
-    replace_on_parse_error=False,
-
+                replace_on_parse_error=False,
         )
 
         data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -420,12 +425,54 @@ class TestSurgicalToml:
                 entry={"url": url},
                 container_key="mcp_servers",
                 syntax="toml",
-    replace_on_parse_error=False,
-
+                    replace_on_parse_error=False,
             )
 
         data = tomllib.loads(path.read_text(encoding="utf-8"))
         assert data["mcp_servers"][onboarding.SERVER_NAME]["url"] == _URL
+
+    def test_a_refused_merge_leaves_no_backup_behind(self, tmp_path: Path) -> None:
+        """The backup exists to recover from a write that HAPPENED.
+
+        Taken before the write decision, a refusal littered a `.bak` next to
+        the user's config — and for a `foreign` target, refusing is the common
+        case, so the common case was the one that made a spurious second file.
+        """
+        path = tmp_path / "config.toml"
+        original = "this is = not [valid toml\n"
+        path.write_text(original, encoding="utf-8")
+
+        with pytest.raises(onboarding._ConfigMergeError):
+            onboarding._merge_into_config(
+                path,
+                name="og",
+                entry={"url": _URL},
+                container_key="mcp_servers",
+                syntax="toml",
+                replace_on_parse_error=False,
+            )
+
+        assert path.read_text(encoding="utf-8") == original
+        assert [p.name for p in tmp_path.iterdir()] == ["config.toml"]
+
+    def test_a_successful_merge_does_report_its_backup(self, tmp_path: Path) -> None:
+        """And when a write DOES happen, the backup exists — and the caller is
+        told where it is, because a `.bak` in someone else's home directory is
+        otherwise impossible to find."""
+        path = tmp_path / "config.toml"
+        path.write_text('model = "gpt-5"\n', encoding="utf-8")
+
+        backup = onboarding._merge_into_config(
+            path,
+            name="og",
+            entry={"url": _URL},
+            container_key="mcp_servers",
+            syntax="toml",
+            replace_on_parse_error=False,
+        )
+
+        assert backup is not None and backup.exists()
+        assert backup.read_text(encoding="utf-8") == 'model = "gpt-5"\n'
 
     def test_unparseable_foreign_toml_is_left_untouched(self, tmp_path: Path) -> None:
         path = tmp_path / "config.toml"
@@ -443,7 +490,9 @@ class TestSurgicalToml:
             )
 
         assert path.read_text(encoding="utf-8") == corrupt
-        assert (tmp_path / "config.toml.bak").read_text(encoding="utf-8") == corrupt
+        # No .bak either: the backup is taken immediately before a write, and a
+        # refused merge never reaches one.
+        assert [p.name for p in tmp_path.iterdir()] == ["config.toml"]
 
     def test_escapes_quotes_and_backslashes(self, tmp_path: Path) -> None:
         path = tmp_path / "config.toml"
@@ -454,8 +503,7 @@ class TestSurgicalToml:
             entry=entry,
             container_key="mcp_servers",
             syntax="toml",
-    replace_on_parse_error=False,
-
+                replace_on_parse_error=False,
         )
         data = tomllib.loads(path.read_text(encoding="utf-8"))
         assert data["mcp_servers"]["og"]["url"] == entry["url"]
@@ -468,8 +516,7 @@ class TestSurgicalToml:
             entry={"oauth": False, "enabled": True},
             container_key="mcp_servers",
             syntax="toml",
-    replace_on_parse_error=False,
-
+                replace_on_parse_error=False,
         )
         data = tomllib.loads(path.read_text(encoding="utf-8"))
         assert data["mcp_servers"]["og"] == {"oauth": False, "enabled": True}
@@ -505,8 +552,7 @@ class TestSurgicalToml:
                 entry={"url": _URL},
                 container_key="mcp_servers",
                 syntax="toml",
-    replace_on_parse_error=False,
-
+                    replace_on_parse_error=False,
             )
 
         assert path.read_text(encoding="utf-8") == original
@@ -536,8 +582,7 @@ class TestSurgicalToml:
                 entry={"url": _URL},
                 container_key="mcp_servers",
                 syntax="toml",
-    replace_on_parse_error=False,
-
+                    replace_on_parse_error=False,
             )
 
         assert path.read_text(encoding="utf-8") == original
@@ -565,8 +610,7 @@ class TestSurgicalToml:
                     entry={"url": _URL},
                     container_key="mcp_servers",
                     syntax="toml",
-    replace_on_parse_error=False,
-
+                        replace_on_parse_error=False,
                 )
                 # Whatever happened, the file on disk must parse.
                 tomllib.loads(path.read_text(encoding="utf-8"))
@@ -688,8 +732,7 @@ class TestDottedContainerPaths:
             entry={"type": "remote", "url": _URL},
             container_key="mcp.servers",
             syntax="jsonc",
-    replace_on_parse_error=False,
-
+                replace_on_parse_error=False,
         )
 
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -799,12 +842,75 @@ class TestDottedContainerPaths:
         """The dotted support must not have broken the single-level family."""
         path = tmp_path / "mcp.json"
         onboarding._merge_into_config(
-            path, name="og", entry={"url": _URL}, container_key="mcpServers", syntax="json",
-    replace_on_parse_error=False,
+            path,
+            name="og",
+            entry={"url": _URL},
+            container_key="mcpServers",
+            syntax="json",
+            replace_on_parse_error=False,
         )
         assert json.loads(path.read_text(encoding="utf-8"))["mcpServers"]["og"] == {
             "url": _URL
         }
+
+    @pytest.mark.parametrize(
+        ("client_id", "relpath"),
+        [
+            ("gemini", ".gemini/config/mcp_config.json"),  # `foreign`
+            ("cursor", ".cursor/mcp.json"),  # `own` — the narrowing matters here
+        ],
+    )
+    def test_a_wrong_typed_container_is_a_shape_error_and_never_replaced(
+        self, client_id: str, relpath: str, _isolated_home: Path
+    ) -> None:
+        """A document that PARSED but whose container is the wrong type.
+
+        The pre-refactor code did ``servers = data.get("mcpServers"); if not
+        isinstance(servers, dict): servers = {}`` — which silently overwrote a
+        wrong-typed container **even when ``replace_on_parse_error=False``**, in
+        a file it had just promised to leave alone. The distinction that fixes
+        it: a *parse* error means we understood nothing (replacing an `own`
+        file is defensible), a *shape* error means we read the document
+        perfectly well and only one key has the wrong type — so replacing throws
+        away the user's unrelated top-level keys for no reason.
+        """
+        path = _isolated_home / relpath
+        path.parent.mkdir(parents=True, exist_ok=True)
+        original = json.dumps(
+            {"theme": "dark", "unrelated": {"keep": [1, 2, 3]}, "mcpServers": "oops"},
+            indent=2,
+        )
+        path.write_text(original, encoding="utf-8")
+
+        result = onboarding.install_to_client(client_id, url=_URL)
+
+        assert result.success is False
+        assert "not an object" in result.detail or "wrong" in result.detail.lower() or (
+            "replace" in result.detail.lower()
+        ), result.detail
+        # Byte-for-byte, for the `own` target too: a shape error narrows the
+        # one target whose parse errors were allowed to replace.
+        assert path.read_text(encoding="utf-8") == original
+        # And nothing else was created. A refusal must leave the filesystem
+        # exactly as it found it — a `.bak` beside a file we declined to touch
+        # is litter, not a safety net.
+        assert sorted(p.name for p in path.parent.iterdir()) == [path.name]
+
+    def test_a_wrong_typed_nested_container_is_also_refused(self, tmp_path: Path) -> None:
+        """Same rule through the dotted path: `{"mcp": {"servers": 7}}`."""
+        path = tmp_path / "opencode.jsonc"
+        original = '{"mcp": {"servers": 7, "other": true}}'
+        path.write_text(original, encoding="utf-8")
+        with pytest.raises(onboarding._ConfigMergeError):
+            onboarding._merge_into_config(
+                path,
+                name="og",
+                entry={"url": _URL},
+                container_key="mcp.servers",
+                syntax="jsonc",
+                replace_on_parse_error=True,  # even an `own`-style policy
+            )
+        assert path.read_text(encoding="utf-8") == original
 
 
 class TestCodexTarget:
@@ -928,8 +1034,7 @@ class TestStaleRegistration:
             entry={"url": _URL},
             container_key="mcp_servers",
             syntax="toml",
-    replace_on_parse_error=False,
-
+                replace_on_parse_error=False,
         )
 
         assert onboarding.registered_url("codex") == _URL
@@ -952,8 +1057,7 @@ class TestStaleRegistration:
             entry=onboarding._opencode_entry(_URL, None),
             container_key="mcp.servers",
             syntax="jsonc",
-    replace_on_parse_error=False,
-
+                replace_on_parse_error=False,
         )
         assert onboarding.registered_url("opencode") == _URL
 

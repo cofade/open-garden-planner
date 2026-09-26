@@ -110,7 +110,8 @@ class TestAtomicMergeMcpServer:
     ) -> None:
         """Fail-closed mode (used for ~/.claude.json, which also holds OAuth /
         projects / trust): an unparseable file raises and is left byte-for-byte
-        untouched — never silently replaced — though a .bak is still taken."""
+        untouched — never silently replaced, and not even a .bak, because no
+        write is attempted (senior-review round 4)."""
         path = tmp_path / "config.json"
         path.write_text("not json {{{", encoding="utf-8")
 
@@ -120,7 +121,9 @@ class TestAtomicMergeMcpServer:
             )
 
         assert path.read_text(encoding="utf-8") == "not json {{{"
-        assert path.with_name("config.json.bak").read_text(encoding="utf-8") == "not json {{{"
+        # A refusal leaves the directory exactly as it found it. The backup is
+        # taken immediately before a write, not before the decision to write.
+        assert [p.name for p in tmp_path.iterdir()] == ["config.json"]
 
     def test_replace_on_parse_error_false_raises_on_non_object(self, tmp_path: Path) -> None:
         path = tmp_path / "config.json"
@@ -309,7 +312,7 @@ class TestInstallToClient:
     ) -> None:
         """A corrupt ~/.claude.json is left UNTOUCHED (it also holds OAuth /
         projects / trust) — the install reports failure instead of replacing it,
-        but a .bak snapshot is still taken before the aborted write."""
+        and takes no .bak, because no write is ever attempted."""
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
         monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: None)
         corrupt = '{"projects": broken not json'
@@ -320,7 +323,7 @@ class TestInstallToClient:
 
         assert result.success is False
         assert config.read_text(encoding="utf-8") == corrupt
-        assert (tmp_path / ".claude.json.bak").read_text(encoding="utf-8") == corrupt
+        assert [p.name for p in tmp_path.iterdir()] == [".claude.json"]
 
     def test_claude_code_direct_merge_drops_stale_headers(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

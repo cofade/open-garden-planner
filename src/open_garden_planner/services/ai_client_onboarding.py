@@ -17,7 +17,9 @@ actually differ between clients are three independent *fields* rather than
 three branches:
 
 * ``container_key`` — ``mcpServers`` (the JSON family) / ``mcp_servers`` (TOML)
-  / ``mcp`` (OpenCode). Three names for the same semantic model.
+  / ``mcp.servers`` (OpenCode, and NESTED). Three names for the same semantic
+  model; the OpenCode spelling is known only by running its CLI, and its
+  published schema does not say — see the ``opencode`` record below.
 * ``syntax`` — ``json`` / ``jsonc`` / ``toml``, which selects a *serializer*
   strategy rather than a client branch.
 * ``entry`` / ``cli_argv`` — the per-client entry shape and CLI, when it has one.
@@ -41,10 +43,14 @@ Per-client strategy, chosen from what each client's own docs support:
   The merge fails CLOSED on an unreadable ``~/.claude.json`` (it also holds
   OAuth / projects / trust) rather than replacing it.
 * **OpenCode** — ``opencode mcp add <name> --url <url> --global`` when the CLI
-  is on PATH; otherwise a **JSONC** merge into ``~/.config/opencode/opencode.jsonc``
-  (container ``mcp``, entry ``{type: "remote", url}``, ``oauth: false``). That
-  config is a *commented* JSON variant, which plain ``json.load()`` rejects — see
-  :func:`_strip_jsonc`.
+  is on PATH (entry ``{type: "remote", url, oauth: false}`` under
+  ``mcp.servers``). **Without the CLI there is no merge at all**, by decision:
+  its config is commented JSON that any merge would have to re-serialise whole,
+  discarding the user's own comments, so the record sets
+  ``merge_supported=False`` and registration refuses with an explanation plus
+  the manual snippet. The config is a *commented* JSON variant that plain
+  ``json.load()`` rejects, which is why the READER (:func:`_strip_jsonc`) is
+  tolerant and the writer is not.
 * **Codex** — ``codex mcp add <name> --url <url>`` when the CLI is on PATH;
   otherwise a **surgical TOML append** into ``~/.codex/config.toml``
   (container ``mcp_servers``). Surgical, not a re-serialise: ``tomllib`` reads
@@ -547,13 +553,12 @@ class _ConfigMergeError(Exception):
 class _ConfigReadError(_ConfigMergeError):
     """A config file could not be READ at all (as opposed to read-and-refused).
 
-    A module-owned type on purpose. ``_strip_jsonc`` raises this for a
-    malformed document, and the readers below catch it — so "a file we cannot
-    read is reported, never raised" is a property of the module rather than of
-    each ``except`` clause somebody remembered to widen. A bare ``ValueError``
-    here was a real crash: ``registered_url`` -> ``detect_clients`` -> the
-    dialog's ``__init__``, where PyQt6 turns an unhandled exception into
-    ``qFatal()``/``abort()``.
+    #: A marker type for "this file could not be READ at all", as distinct from
+    #: read-and-understood-but-refused. Nothing catches it by type — the readers
+    #: catch broadly on purpose (see ``registered_url``) — so it exists to name
+    #: the condition in one place, not to drive control flow. A bare
+    #: ``ValueError`` here was a real crash: it escaped the reader, reached the
+    #: dialog's ``__init__``, and PyQt6 turned it into ``qFatal()``/``abort()``.
     """
 
 
@@ -566,14 +571,27 @@ class _ConfigShapeError(_ConfigMergeError):
     """
 
 
-def _strip_jsonc(text: str) -> str:
-    """Remove ``//`` and ``/* */`` comments and trailing commas from a JSONC
-    document so ``json.loads`` accepts it.
+def _scan_outside_strings(
+    text: str, handle: Callable[[int, str, list[str]], int | None]
+) -> str:
+    """Walk ``text``, letting ``handle`` rewrite the parts NOT inside a string.
 
-    Comment-stripped by character scan, NOT by regex: a ``#`` or ``//`` inside
-    a string literal is data, and a regex cannot tell. Trailing commas are
-    removed in the same pass (a comma immediately before a closing ``}``/``]``
-    is legal in JSONC and illegal in JSON).
+    ``handle(i, ch, out)`` is called for every character outside a string
+    literal and returns how far to advance:
+
+    * ``None`` — keep ``ch`` and advance one.
+    * ``0`` — drop ``ch`` and advance one (the following character is then
+      processed normally, which is how a comma is dropped but its closer kept).
+    * ``k > 0`` — drop ``ch`` and the next ``k - 1`` characters, advancing ``k``.
+
+    It may raise, which is how an unterminated block comment becomes an error
+    instead of a silently truncated document.
+
+    Both halves of :func:`_strip_jsonc` need exactly this walk, and they used to
+    be two near-verbatim copies of the same state machine — which is the shape
+    in which a fix lands in one copy and not the other. "A ``//`` or ``#``
+    inside a string literal is data, and a regex cannot tell" is the property
+    that makes this parser correct at all, so it gets written once.
     """
     out: list[str] = []
     i = 0
@@ -596,65 +614,60 @@ def _strip_jsonc(text: str) -> str:
             out.append(ch)
             i += 1
             continue
-        if ch == "/" and i + 1 < n and text[i + 1] == "/":
-            while i < n and text[i] != "\n":
-                i += 1
-            continue
-        if ch == "/" and i + 1 < n and text[i + 1] == "*":
-            i += 2
-            closed = False
-            while i + 1 < n:
-                if text[i] == "*" and text[i + 1] == "/":
-                    closed = True
-                    break
-                i += 1
-            if not closed:
+        advance = handle(i, ch, out)
+        if advance is None:
+            out.append(ch)
+            i += 1
+        else:
+            i += max(advance, 1)
+    return "".join(out)
+
+
+def _strip_jsonc(text: str) -> str:
+    """Remove ``//`` and ``/* */`` comments and trailing commas from a JSONC
+    document so ``json.loads`` accepts it.
+
+    Comment-stripped by character scan, NOT by regex: a ``#`` or ``//`` inside
+    a string literal is data, and a regex cannot tell. Trailing commas are
+    removed in a second pass (a comma immediately before a closing ``}``/``]``
+    is legal in JSONC and illegal in JSON) over the comment-free text, so a
+    comma inside a string is never even a candidate.
+    """
+    n = len(text)
+
+    def _comment(i: int, _ch: str, _out: list[str]) -> int | None:
+        if text[i + 1 : i + 2] != "/":
+            close = text.find("*/", i + 2)
+            if close < 0:
                 # An unterminated block comment means the rest of the file is
                 # comment. Swallowing it silently would let the tolerant reader
                 # "accept" a malformed document, so raise a MODULE-OWNED error
-                # that both readers below catch — never a bare ValueError,
-                # which would escape into the Qt slot and abort the app.
+                # that every reader catches — never a bare ValueError, which
+                # would escape into the Qt slot and abort the app.
                 raise _ConfigReadError("Unterminated /* comment in JSONC input")
-            i += 2
-            continue
-        out.append(ch)
-        i += 1
+            return close + 2 - i
+        end = text.find("\n", i)  # the newline itself is kept
+        return (n if end < 0 else end) - i
 
-    stripped = "".join(out)
-    # Drop trailing commas: a "," whose next non-space character closes an
-    # object or array. Done on the comment-free text so a comma inside a
-    # string is never touched.
-    result: list[str] = []
-    j = 0
+    def _drop_comment(i: int, ch: str, out: list[str]) -> int | None:
+        if ch == "/" and i + 1 < n and text[i + 1] in "/*":
+            return _comment(i, ch, out)
+        return None
+
+    stripped = _scan_outside_strings(text, _drop_comment)
     m = len(stripped)
-    in_str = False
-    while j < m:
-        ch = stripped[j]
-        if in_str:
-            result.append(ch)
-            if ch == "\\" and j + 1 < m:
-                result.append(stripped[j + 1])
-                j += 2
-                continue
-            if ch == '"':
-                in_str = False
-            j += 1
-            continue
-        if ch == '"':
-            in_str = True
-            result.append(ch)
-            j += 1
-            continue
-        if ch == ",":
-            k = j + 1
-            while k < m and stripped[k] in " \t\r\n":
-                k += 1
-            if k < m and stripped[k] in "}]":
-                j += 1  # skip the comma, keep the closer
-                continue
-        result.append(ch)
-        j += 1
-    return "".join(result)
+
+    def _drop_trailing_comma(i: int, ch: str, _out: list[str]) -> int | None:
+        if ch != ",":
+            return None
+        k = i + 1
+        while k < m and stripped[k] in " \t\r\n":
+            k += 1
+        if k < m and stripped[k] in "}]":
+            return 0  # drop the comma, keep the closer
+        return None
+
+    return _scan_outside_strings(stripped, _drop_trailing_comma)
 
 
 def _toml_escape(value: str) -> str:
@@ -781,11 +794,8 @@ def _merge_json_like(
     """
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    backup_path: Path | None = None
     data: dict[str, object] = {}
     if path.exists():
-        backup_path = path.with_name(path.name + ".bak")
-        shutil.copy2(path, backup_path)
         try:
             text = path.read_text(encoding="utf-8-sig")
             loaded = json.loads(_strip_jsonc(text) if tolerant else text)
@@ -816,8 +826,25 @@ def _merge_json_like(
         # top-level keys for no reason. Fail closed regardless of `ownership`.
         raise _ConfigMergeError(f"{exc} in {path}") from exc
 
+    backup = _backup_existing(path)
     _atomic_write(path, json.dumps(data, indent=2) + "\n")
-    return backup_path
+    return backup
+
+
+def _backup_existing(path: Path) -> Path | None:
+    """Copy ``path`` aside, called IMMEDIATELY before a write that overwrites it.
+
+    Taken as late as possible on purpose. A backup is a recovery route for a
+    write that actually happened; making one before deciding to write leaves a
+    second file next to someone else's config every time a merge is merely
+    *refused* — and for a ``foreign`` target, refusing IS the common case. A
+    refusal must leave the filesystem exactly as it found it.
+    """
+    if not path.exists():
+        return None
+    backup = path.with_name(path.name + ".bak")
+    shutil.copy2(path, backup)
+    return backup
 
 
 def _toml_has_table(text: str, container_key: str, name: str) -> bool:
@@ -853,11 +880,8 @@ def _merge_toml(
     """
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    backup_path: Path | None = None
     original = ""
     if path.exists():
-        backup_path = path.with_name(path.name + ".bak")
-        shutil.copy2(path, backup_path)
         try:
             original = path.read_text(encoding="utf-8-sig")
             tomllib.loads(original)
@@ -921,8 +945,9 @@ def _merge_toml(
             f"untouched. Install this client with its own CLI instead."
         ) from exc
 
+    backup = _backup_existing(path)
     _atomic_write(path, new_text)
-    return backup_path
+    return backup
 
 
 def _atomic_write(path: Path, text: str) -> None:
@@ -1177,6 +1202,19 @@ def _run_client_cli(exe: str, args: tuple[str, ...]) -> subprocess.CompletedProc
     )
 
 
+def _report(path: Path, backup: Path | None) -> str:
+    """Human-readable success line, INCLUDING where the backup went.
+
+    A ``.bak`` next to a config file in someone else's home directory is easy
+    to miss and impossible to guess, and this is the only place a user is told
+    it exists. A backup that is made but never reported is not a safety
+    feature, it is litter.
+    """
+    if backup is None:
+        return str(path)
+    return f"{path} (previous contents backed up to {backup})"
+
+
 def install_to_client(
     client_id: ClientId,
     *,
@@ -1277,7 +1315,7 @@ def install_to_client(
             # is that a failed install comes back as an InstallResult.
             return InstallResult(client_id=client_id, success=False, detail=str(exc))
         return InstallResult(
-            client_id=client_id, success=True, detail=str(path), backup_path=backup
+            client_id=client_id, success=True, detail=_report(path, backup), backup_path=backup
         )
 
     if target.cli_name is None or target.cli_argv is None:
@@ -1295,6 +1333,11 @@ def install_to_client(
     # into the UI" — the CLI can hang (first-run login prompt, network stall)
     # or simply not exist despite shutil.which finding a stale PATH entry, so
     # every subprocess call here is inside this one try/except.
+    #
+    # The self-heal is deliberately OUTSIDE it: it calls `_merge()`, and a
+    # failure there is a merge failure. Running it inside this try would
+    # misreport a refused merge as a broken CLI.
+    self_heal = False
     try:
         result = _run_client_cli(exe, add_args)
         if result.returncode == 0:
@@ -1304,7 +1347,9 @@ def install_to_client(
 
         stderr = result.stderr.strip()
         if "already exists" in stderr.lower() or "already registered" in stderr.lower():
-            if target.cli_remove_argv is not None:
+            if target.cli_remove_argv is None:
+                self_heal = True
+            else:
                 # Re-registering under the same name is an update, not a
                 # clobber — remove-then-add so a changed port/token takes
                 # effect. Other servers in the file are untouched either way.
@@ -1324,18 +1369,19 @@ def install_to_client(
                         f"Could not remove the existing entry to update it: "
                         f"{removed.stderr.strip()}"
                     )
-            else:
-                # No documented remove subcommand (OpenCode). The merge would be
-                # the natural self-heal — but it re-serialises a file OGP does
-                # not own, so defer to `_merge()`, which owns that decision at
-                # the seam. If the merge is refused it returns the honest
-                # message, which beats silently doing the destructive thing.
-                return _merge()
     except Exception as exc:  # noqa: BLE001 — "never raises into the UI"
         # The CLI can hang, vanish, or produce a family nobody enumerated;
         # this function's contract is that a failed install comes back as an
         # InstallResult rather than an exception.
         return InstallResult(client_id=client_id, success=False, detail=str(exc))
+
+    if self_heal:
+        # No documented remove subcommand (OpenCode). The merge would be the
+        # natural self-heal — but it re-serialises a file OGP does not own, so
+        # defer to `_merge()`, which owns that decision at the seam. If the
+        # merge is refused it returns the honest message, which beats silently
+        # doing the destructive thing.
+        return _merge()
 
     return InstallResult(
         client_id=client_id, success=False, detail=stderr or f"{target.cli_name} mcp add failed."
