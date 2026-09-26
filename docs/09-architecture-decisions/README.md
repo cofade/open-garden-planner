@@ -547,6 +547,94 @@ both the layer and object assignments. The command revalidates the replacement
 lock immediately before every execution, including redo, and a refused redo
 remains available on the redo stack.
 
+**Addendum (issue #365 — the layer-lock policy is REVERSED):** the paragraph
+above states that `locked` is read-only to agents. **That is no longer true, and
+the reversal is a decision, not a bug fix.** The project owner decided agents
+SHOULD be able to both lock and unlock layers, so `set_layer_property(layer_id,
+locked=...)` now works in both directions, through the **same
+`SetLayerPropertyCommand`** the Layers panel's own lock toggle runs — one undo
+step, no second write path. The D2.4 reasoning ("an agent that could
+unlock-then-edit would reduce every locked-layer refusal from a protection to a
+speed bump") is recorded here as the *original* argument, not as a live
+constraint; what survives it is described next.
+
+**What deliberately did NOT change** is the important half, and the issue
+overstated the blast radius: the four **object-level** lock guards are untouched
+and remain absolute in the sense that matters — they test the layer's **current**
+lock state. `_resolve_agent_item` still refuses to edit, move, resize, rotate, or
+delete an object on a locked layer; `create_object` still refuses a locked
+active layer and refuses to place an object on a locked layer;
+`delete_layer` still refuses a locked layer. Because each guard reads live
+state rather than a permission bit, "unlock, then edit" already works as a
+**two-call sequence** with two ordinary undo steps the user can see and reverse.
+No guard had to become conditional, and the tests pinning them
+(`test_move_and_delete_refuse_locked_layer_item`,
+`test_resize_and_rotate_refuse_locked_layer_item`,
+`test_arrange_object_refuses_locked_layer_before_any_change`,
+`TestLockedLayerDropped`) all still pass unchanged. Only
+`test_set_layer_property_refuses_locked_in_both_directions` was **inverted**
+(deliberately, not deleted) into `test_set_layer_property_locks_and_unlocks`,
+joined by `test_unlock_then_edit_is_a_legitimate_two_call_sequence`.
+
+The one-property-per-call rule is unchanged and now spans three properties:
+passing `visible` and `locked` together still refuses *before* any command is
+built, so a mixed call can never half-apply. `FR-AGENT-17` is updated to match.
+
+**Addendum (issue #365 — document lifecycle: `new_plan` / `open_plan`):** the
+Agent API could save a plan but not create or open one, so an agent could only
+ever work on whatever document the user happened to have open. Both new tools
+**reuse the GUI's own paths** rather than reimplementing them — `_on_new_project`
+was extracted into `_new_project_document`, and `_open_project_file` was split
+into `_load_project_file` (raises) plus its GUI wrapper (catches and shows a
+modal). That split is load-bearing: an agent must never have a `QMessageBox`
+appear on its behalf, so the dialog belongs in the wrapper and the shared path
+must raise. This is the same one-seam discipline as
+`ui/canvas/geometry_apply.py` and `ui/canvas/arrange.py`.
+
+Three decisions, each of which the issue posed as an open question:
+
+- **These tools are TOKEN-GATED, not ungated beside `save_plan`.** `save_plan`
+  only writes a new file, but `new_plan`/`open_plan` **replace the open document
+  and can discard unsaved work** — strictly more destructive than
+  `delete_object`, so they take the same double gate. They live inside the
+  `writes_active` block and are listed in the `WRITE_TOOL_NAMES` drift guard, so
+  a future refactor that moves one out of the gate fails
+  `test_gate_covers_every_write_tool`.
+- **The unsaved-changes guard is `force`, not a prompt.** The GUI asks the user
+  (`_confirm_discard_changes`); an agent cannot raise a modal, so the choice is
+  binary — refuse, or proceed on an explicit `force=true`. The check lives in
+  the main-thread body, because only there can the live `is_dirty` flag be read.
+- **Paths are NOT sandboxed.** `agent_api/exports.py` already documents the
+  project's position: a loopback-only server grants no filesystem access that a
+  local MCP client does not already have as the OS user, so a sandbox would add
+  no real protection. What *is* enforced is what prevents a silent surprise — the
+  file must exist, be a file, and carry the `.ogp` suffix; and a relative path is
+  resolved to absolute, because an agent cannot know which directory the GUI was
+  launched in. `new_plan` **refuses** an out-of-range or non-finite canvas rather
+  than clamping it: a clamped canvas is a silently different plan than the one
+  asked for.
+
+Neither tool is an undo step — a new or loaded document resets the undo stack
+(`CommandManager.clear` emits no `stack_changed`, so the new plan starts clean
+and not dirty), so there is nothing to Ctrl+Z back to.
+
+**A tool's declared return model is part of its contract, and testing the
+provider is not the same as testing the tool.** `new_plan` and `open_plan`
+first shipped returning `ExportResult(**result)` while their providers returned
+a dict with no `format` key — and a `None` `file_path` against a `str` field.
+Both therefore raised a pydantic `ValidationError` on **every successful call
+over the wire**, *after* the document had already been replaced, while all 22
+body-level tests passed: the body builds a plain dict and never constructs the
+model, so the two lines between provider and tool were untested. The tools now
+declare `PlanLifecycleResult` (no `format`, because neither writes a file; and
+`was_dirty` read **before** the mutation, because a new or loaded document
+clears the flag and reading it afterwards is structurally always `False`).
+`tests/integration/test_agent_api_lifecycle.py` calls both through the **real
+MCP transport** against a real `GardenPlannerApp`. The general lesson: when a
+tool's result crosses a `BaseModel`, that model needs coverage at the same level
+as the handler, and the cheapest form is one transport test per new result type
+rather than per tool.
+
 **Addendum (US-D2.5 — shape/structure creation, #329):** `create_object`
 continues to build through `ProjectManager._deserialize_item_core`, now with
 explicit circle, rectangle, ellipse, polygon, polyline, and callout families.
@@ -587,6 +675,38 @@ The extension is additive and does not bump `FILE_VERSION`.
 - **Connect dialog sizing.** Client rows moved into a `QScrollArea` (`setWidgetResizable(True)`); the manual-snippet height cap grew from 90px to 110–240px, and revealing a snippet now `adjustSize()`s the dialog and `ensureWidgetVisible()`s the snippet — previously the snippet was clipped behind the Close row until the user dragged the window edge. A successful Claude Code install also shows a "start a new session to pick it up" note (a user-scope server is only read at session start).
 
 No `FILE_VERSION` change. Added tests: `tests/unit/test_ai_client_onboarding.py` (CLI-absent direct merge writes `{type:"http", url}` and preserves pre-existing top-level keys; fail-closed leaves a corrupt file untouched with `success=False`; stale `headers` dropped on re-install; `$CLAUDE_CONFIG_DIR` honoured; JSON snippet), `tests/integration/test_connect_ai_assistant_dialog.py` (Desktop row has no button/snippet + honest note; rows in a resizable scroll area; snippet visible after toggle).
+
+**Addendum (issue #366) — clients as data, three syntax strategies, and a read-only URL by default.** The manual pass that found this issue also exposed *why* onboarding leaked a credential: the dialog's single "Copy URL" button copied the **write-enabled** URL, and the only route for a client OGP did not know about was "paste that into a chat". Three structural changes, none of which adds a dependency:
+
+- **A client is a `ClientTarget` record, not a branch.** `ClientId = Literal[...]` plus an `if`/`elif` chain through `install_to_client` and `snippet_for_client` meant every new vendor was two new branches. Each client is now one frozen record in `TARGETS`, and the three things that genuinely differ between clients are three independent **fields**: `container_key` (`mcpServers` / `mcp_servers` / the NESTED `mcp.servers` — three names for one semantic model, and the OpenCode spelling is established below), `syntax` (`json` / `jsonc` / `toml`), and `entry`/`cli_argv`. The dialog renders from `detect_clients()` and therefore gained a row for a new client with **no vendor-specific code** beyond one per-client note in `_manual_note_for` — which a completeness test requires, precisely so a missing note cannot render as an empty string. Two corrections to the issue's own design sketch, found while building: `detect_installed` and `config_path` are separate callables because clients are detected by wildly different things (a *directory* for Cursor, a *CLI on `PATH`* for Claude Code, a *platform app-data dir* for Claude Desktop), and `install_method` is **derived at detect time** from `cli_name` via `shutil.which` rather than stored, because `claude_code` flips between `cli` and `json_merge` per machine.
+- **Serializers keyed on `syntax`, and the JSONC case is a genuine trap.** Backup-before-write, atomic replace, fail-closed, and foreign-key preservation were never per-client — they are the hard part, and they now exist **once** in `_merge_into_config` with only serialisation varying. OpenCode's `~/.config/opencode/opencode.jsonc` is a **commented** JSON variant that plain `json.load()` *rejects*; the JSONC reader strips comments and trailing commas by **character scan, not regex** (a `//` inside a string literal is data), and the strict `json` reader deliberately still raises so leniency cannot leak into the fail-closed path — pinned by a negative guard.
+- **A surgical writer OWES a parse check on its own output.** The TOML path rewrites one table's line span, but span arithmetic over a textual scan of a non-textual format fails in ways that are silent: a header written as `["mcp_servers"."name"]` or `[ mcp_servers.name ]` is the *same table* to `tomllib` and invisible to `line.strip() == header`, so appending declares it twice; and a `[`-leading line **inside another table's multi-line string** both truncates the span early and lets the scan match a header that is really text, destroying that table's contents. Every one of these produced a file the user's own Codex could not parse, with the install reporting `success=True`. Two rules follow, and both are now tested: **parse the result before writing it**, and **use the parser (not the line scan) to decide whether the table already exists**, refusing with a named spelling when the two disagree. The input being valid is not a licence to write an unverified output into a file you do not own.
+- **The "never re-serialise a file you do not own" rule applies to JSONC too — so the JSONC merge refuses instead.** The same PR argued, correctly, that a `tomli_w` rewrite of `~/.codex/config.toml` would destroy the user's comments, and then re-serialised the *other* foreign file (`opencode.jsonc`) with plain `json.dumps`, discarding its comments just as thoroughly. The defence "writing plain JSON is valid JSONC" is true about validity and blind to the harm: those comments are the user's own content, and they are the entire reason `_strip_jsonc` exists. A position argued for one syntax is a property of the *file*, not of the syntax, so it has to be carried to the other one. JSON has no line-delimited table structure to splice, so `ClientTarget.merge_supported=False` for OpenCode: with no CLI, registration **refuses honestly** and the dialog offers the manual snippet. That has direct precedent in this same module — Claude Desktop is detection-only because it genuinely cannot be registered — and the supported route (`opencode mcp add --global`, verified by running it) preserves the user's unrelated keys.
+- **TOML is appended surgically, and `tomli-w` was rejected.** `~/.codex/config.toml` is a `foreign` file. A `tomli_w`-style re-serialise would discard the user's own comments and formatting — silent data loss in someone else's file, for the sake of a dependency. Instead `tomllib` (stdlib, read-only) parses and validates, and only the one `[mcp_servers.<name>]` table's line span is rewritten; everything else stays byte-identical. **No new dependency, and no `ogp.spec` change.**
+- **Container keys may be NESTED, and one of them is — known only by running the CLI.** `container_key` accepts a dotted path. OpenCode's published schema declares `mcp` as nothing more than `additionalProperties: {}` and never says where a server belongs; running `opencode mcp add --global` against a throwaway `XDG_CONFIG_HOME` showed it writes **`mcp.servers.<name>`**, not `mcp.<name>`. Reading the docs would have produced a registry that writes an entry the client silently ignores *and* reports every real registration as absent, because the staleness read looked in the wrong place. The observed shape is pinned by `TestDottedContainerPaths` so it cannot drift back.
+- **The read-only URL is the default hand-out.** "Copy read-only URL" is now the primary button and carries no `?token=`; the write URL sits behind a separate action whose status line states that anyone holding it can change the plan. The always-present generic fallback (canonical `mcpServers` JSON + generic CLI shape + bare URL) is read-only for the same reason — it is the text most likely to be pasted somewhere public. Read-only *registration* needed no new capability: `url_with_token(url, None)` already returns the URL unchanged, so the dialog was simply never offering it (research item R6, answered from the code). A registration is compared against the **read-only** form as well as the write form, so a client the user deliberately registered read-only is not forever reported as "stale" with the write credential as the only offered remedy.
+- **Honest registration state.** Each client now reports detected / registered / **stale**, from a per-target `registered_url()` read, and the row is re-read from disk after a successful Add rather than only on open. The motivating failure was real: a hand-pasted entry in a real `~/.codex/config.toml` pointed at a dead port *and* a superseded token, and nothing surfaced it. `stale` is what turns "my client silently stopped working" into a visible "add again to update".
+- **A CLI wins over a direct merge when it exists, and the merge is a supported route rather than a degraded one.** This is #253's rule generalised. `opencode mcp add <name> --url <url> --global` was verified by running it; `codex mcp add <name> --url <url>` by its official reference. `--global` is load-bearing: without it OpenCode writes the **project** config, silently dropping an `opencode.json` into the user's working directory - pinned by a test. **Three consequences of `merge_supported=False` that are load-bearing, not incidental.** (1) The no-CLI path refuses and offers the manual snippet. (2) The flag is checked **at the merge seam itself**, not at the call sites that reach it: there were three of them, and a record with a `cli_name` on `PATH` but no `cli_argv` slipped past the earlier checks and re-serialised a foreign file. A guard checked on some paths is not a guard, so the check moved onto the operation it protects. (3) The self-heal is one of those three: when the CLI is present but reports "already exists" and the client has no `mcp remove` (OpenCode), the merge would have been the natural update path - and it is exactly the path a user reaches after a port change or a token rotation, so bypassing the guard there would have reintroduced the comment destruction on the most important route. Finally, because the dialog hides its Add button for `install_method == "manual"`, `detect_clients` reports `manual` for a target whose merge is unsupported and whose CLI is absent: **a button whose only possible outcome is a refusal is a dead end with a polite message**, which is the shape this issue was opened to close.
+- **Two things deliberately NOT changed, stated rather than assumed.** (1) **OpenCode's 5 000 ms default MCP timeout is left alone** — it is untested against `render_canvas_image` on a large plan, and hard-coding a value before measuring would be a guess dressed as a fix; the live dogfood run measures it. (2) **The write token still rides the URL for every target**, even though both new CLIs accept a header. A header is the better home for a secret, but *documented* support is not evidence that a client transmits it on streamable-HTTP **tool-call** requests — the exact failure Claude Code has open upstream (#50464 / #28293) — and shipping the header as the default before that is measured would make write tools silently unreachable. `ClientTarget.token_route` **implements** the branch (the token leaves the URL entirely and rides `headers` / `--header`) and is unit-tested, so enabling it later is a one-field data change rather than a dead switch; a switch that *looks* like a working flip but has no reader would be worse than no field at all.
+
+**Alternatives considered**: *`tomli-w` for TOML writing* — rejected (destroys a foreign file's comments; the surgical append needs only stdlib). *Detecting clients by globbing config filenames* — rejected; OpenCode's config is a `.jsonc`, not a `.json`, so a filename sniff misses every real install. *Sandboxing `open_plan` to the plans directory* — rejected; `agent_api/exports.py` already documents the project's position that a loopback-only server grants no filesystem access an MCP client does not already have, and inventing a stricter rule for one tool than the rest of the surface holds would be a policy nothing else enforces.
+
+- **A shape complaint is not a parse error, and must not share its policy.** `_ConfigShapeError` (a `_ConfigMergeError`) is raised when a config parsed cleanly but the MCP **container** is the wrong type — `{"mcpServers": "oops"}`. The pre-refactor code did `servers = data.get("mcpServers"); if not isinstance(servers, dict): servers = {}`, which **silently overwrote a wrong-typed container even when `replace_on_parse_error=False`** — i.e. it clobbered a file it had just promised to fail closed on. Because we *understood* the document, replacing it would discard the user's unrelated top-level keys for no reason, so this now fails closed **whatever `ownership` says**, which is a deliberate narrowing of the one `own` target's contract too: a parse error may still be replaced, a shape error never is. `_ConfigReadError` is a sibling marker for "could not be read at all", and `registered_url` reports that as simply "not registered" — invariant 14 makes it non-fatal, not silent, so the reason is logged at `debug` rather than swallowed.
+- **The trust boundary is one broad catch, not an enumerated list.** Every place this module reads a file that belongs to another program — `registered_url`, `_merge_json_like`, `_merge_toml`, and `install_to_client`'s two entry points — catches `Exception` and moves the `replace_on_parse_error` decision *inside* the handler so it still fails closed. Enumerating cost two review rounds: a module-owned type was added to the tuple, and the next family found was `RecursionError` (which both `json.loads` and `tomllib.loads` raise on a deeply nested document), which escaped `registered_url` → `detect_clients` → the dialog's `__init__` → `qFatal()`/`abort()`. The trigger file is contrived; the shape is not. Every family added is a family still missing, and the correct reading of invariant 14 is that the broad catch *is* the fix.
+- **A guard belongs on the operation it protects, not on the call sites that reach it.** `merge_supported` was checked at three places that could call the merge, and a record with a `cli_name` on `PATH` but no `cli_argv` slipped past the first and re-serialised a foreign file, reporting success. It now lives inside `_merge()`. Same lesson as the seam discipline in `geometry_apply.py` and `arrange.py`: a check with several call sites is several chances to miss one.
+- **A refusal leaves the filesystem exactly as it found it.** The `.bak` is taken by `_backup_existing()` *immediately before* `_atomic_write`, not before the decision to write. Taken earlier, every refusal — the common case for a `foreign` target — left a spurious second file beside a config OGP had just promised not to touch, which is a strange way to demonstrate a safety property. Two corollaries, both from senior-review round 4: a **successful** merge now reports the backup path in `InstallResult.detail`, because a backup made but never named is litter the user cannot find; and the tests that assert a refusal now assert the whole *directory* listing, because `path.read_text() == original` cannot see a file that was created next to it.
+- **One writer, one state machine.** `_strip_jsonc` was two near-verbatim copies of the same string-aware character scan — one to drop comments, one to drop trailing commas — and "a `//` or `#` inside a string literal is data, and a regex cannot tell" is the property that makes the parser correct at all. That is the shape in which a fix lands in one copy and not the other, so both now delegate to `_scan_outside_strings`, whose handler returns how far to advance (`None` keep, `0` drop, `k` drop k characters). Behaviour-identical, and the JSONC tests pin that.
+
+**Addendum (issue #366, the owner's manual test — "add to OpenCode" failed).** Every finding above came out of review. This one came out of the only gate that cannot be automated, and it is the reason that gate exists.
+
+- **A CLI on `PATH` is not a USABLE CLI, and a machine can hold two generations of the same client.** The owner's machine has OpenCode twice: `~/.opencode/bin/opencode.exe` (**2.0.16**, supports `--global`) and an npm `opencode-ai` (**1.18.32**, no `--global`). `shutil.which` picks the first on `PATH`, and which one that is depends on how the process was launched — the owner's shell got 2.0.16, the GUI got 1.18.32. So the same button works or fails depending on who started the app. The failure was not clean either: 1.18.32 rejects the unknown flag by printing **its entire help text** and exiting non-zero, and the dialog rendered that as the status line, so the user was shown a wall of flag descriptions and no explanation at all. Three consequences, all now in the code:
+  1. **`ClientTarget.cli_required_flags`** — a MEASURED requirement (`("global",)` for OpenCode, and only for OpenCode; inventing one for Codex would be a guess). `cli_missing_capability()` asks the binary what it advertises, by parsing its own `mcp add --help` for option lines, and refuses **before** spawning anything that would write. The result is cached per `(exe, probe)` because `detect_clients()` runs on every dialog refresh and a subprocess per refresh is a visible stall; the cache is process-local, so it cannot go stale against a binary replaced mid-session.
+  2. **A too-old CLI reports `install_method="manual"`**, not `"cli"` — the same bucket as "no CLI at all", so the dialog offers the snippet instead of an Add button whose only outcome is the refusal. That is the dead end this issue was opened to close, appearing again one level down.
+  3. **`_condense_cli_error`** recognises a help dump by any of its section headers and reports the one line that identifies it. Matching only `USAGE:` would have missed the real case: 1.18.x's help has no `USAGE:` line at all, which a test caught.
+- **Supporting 1.18.x properly was considered and declined**, by the owner's explicit decision. It would mean a second container key (`mcp.<name>`, flat) threaded through the reader, the snippet and the merge, none of it verified against a real 1.18.x round-trip — on top of the fact that 1.18.x stores servers *differently*, not merely with a different flag. **Known limitation, stated rather than hidden:** a user who upgrades 1.18.x → 2.x keeps a flat entry that OGP's reader will not see, so their row reads "not registered" and the one-click Add would add a second, nested entry. The old entry is inert, not harmful, and removing it is a one-line manual edit. A future issue should decide whether the reader accepts both shapes; this PR does not.
+- **The version-detection lesson is larger than OpenCode.** A CLI's *capability* is a property of the binary installed, not of the client as documented — and it is invisible to every test that stubs `shutil.which`, because a stub returns a path that does not exist, which this code correctly reads as "cannot probe, therefore cannot use". The rule: **when argv is verified against one version, either verify the version or require the flag.** `opencode --version` was measured too (1.18.32 vs v2.0.16) and deliberately *not* used — parsing a help for a flag is evidence the binary accepts it, whereas a version string is a convention that changes.
+
+**Consequences**: `services/ai_client_onboarding.py` rewritten around `TARGETS`; three new targets (**OpenCode, Codex, Gemini CLI**). `ClientId` widens from a `Literal` to `str` — the registry is now the authority, and an unknown id still raises `ValueError`. Added `tests/unit/test_ai_client_onboarding_registry.py` (registry drift guards, JSONC tolerance + the strict-reader negative guard, surgical-TOML round trips **and the hostile spellings**, read-only/write split, stale detection, dotted containers, the token-route branch) and extended `tests/integration/test_connect_ai_assistant_dialog.py` (a row per registry record, the OpenCode no-CLI and CLI routes, Codex end-to-end writes, generic fallback present with nothing detected). The 49 pre-existing onboarding unit tests in `test_ai_client_onboarding.py` were kept as the regression net for the refactor and **still pass**; two of their assertions changed, because `InstallMethod`'s `"json_merge"` value was renamed to the syntax-neutral `"merge"` (it was already a lie for the TOML and JSONC targets). No `FILE_VERSION` change, no new dependency, no `ogp.spec` change.
 
 ## ADR-036: Agent Write Path — Per-Tool Bearer-Token Gate + Writes-Enabled Toggle (US-D2.0)
 

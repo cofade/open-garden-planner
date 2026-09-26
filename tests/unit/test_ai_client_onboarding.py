@@ -110,7 +110,8 @@ class TestAtomicMergeMcpServer:
     ) -> None:
         """Fail-closed mode (used for ~/.claude.json, which also holds OAuth /
         projects / trust): an unparseable file raises and is left byte-for-byte
-        untouched — never silently replaced — though a .bak is still taken."""
+        untouched — never silently replaced, and not even a .bak, because no
+        write is attempted (senior-review round 4)."""
         path = tmp_path / "config.json"
         path.write_text("not json {{{", encoding="utf-8")
 
@@ -120,7 +121,9 @@ class TestAtomicMergeMcpServer:
             )
 
         assert path.read_text(encoding="utf-8") == "not json {{{"
-        assert path.with_name("config.json.bak").read_text(encoding="utf-8") == "not json {{{"
+        # A refusal leaves the directory exactly as it found it. The backup is
+        # taken immediately before a write, not before the decision to write.
+        assert [p.name for p in tmp_path.iterdir()] == ["config.json"]
 
     def test_replace_on_parse_error_false_raises_on_non_object(self, tmp_path: Path) -> None:
         path = tmp_path / "config.json"
@@ -167,7 +170,7 @@ class TestDetectClients:
         clients = {c.client_id: c for c in onboarding.detect_clients()}
 
         assert clients["cursor"].detected is True
-        assert clients["cursor"].install_method == "json_merge"
+        assert clients["cursor"].install_method == "merge"
         assert clients["cursor"].config_path == tmp_path / ".cursor" / "mcp.json"
 
     def test_cursor_not_detected_without_dir(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -198,7 +201,7 @@ class TestDetectClients:
         assert clients["claude_code"].detected is True
         # Without the CLI we register by a direct ~/.claude.json merge, so the
         # one-click path is still available (issue #253) — not "manual".
-        assert clients["claude_code"].install_method == "json_merge"
+        assert clients["claude_code"].install_method == "merge"
 
     def test_claude_code_not_detected_without_cli_or_config(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -309,7 +312,7 @@ class TestInstallToClient:
     ) -> None:
         """A corrupt ~/.claude.json is left UNTOUCHED (it also holds OAuth /
         projects / trust) — the install reports failure instead of replacing it,
-        but a .bak snapshot is still taken before the aborted write."""
+        and takes no .bak, because no write is ever attempted."""
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
         monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: None)
         corrupt = '{"projects": broken not json'
@@ -320,7 +323,7 @@ class TestInstallToClient:
 
         assert result.success is False
         assert config.read_text(encoding="utf-8") == corrupt
-        assert (tmp_path / ".claude.json.bak").read_text(encoding="utf-8") == corrupt
+        assert [p.name for p in tmp_path.iterdir()] == [".claude.json"]
 
     def test_claude_code_direct_merge_drops_stale_headers(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -481,6 +484,14 @@ class TestInstallToClient:
         assert result.success is True
 
     def test_claude_code_failure_surfaces_stderr(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The CLI's own words must reach the user.
+
+        The detail is now prefixed with which command failed, and condensed if
+        the CLI answered with a help dump rather than a message (senior-review
+        round 6, from the owner's manual test). The assertion is therefore on
+        the stderr being PRESENT rather than on it being the whole string —
+        which is what the test always meant.
+        """
         monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: "/usr/local/bin/claude")
 
         def fake_run(args: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -491,7 +502,9 @@ class TestInstallToClient:
         result = onboarding.install_to_client("claude_code", url=_URL)
 
         assert result.success is False
-        assert result.detail == "boom"
+        assert "boom" in result.detail
+        # And a silent failure is still reported as a failure, not as success.
+        assert "claude" in result.detail
 
     def test_unknown_client_raises(self) -> None:
         with pytest.raises(ValueError):

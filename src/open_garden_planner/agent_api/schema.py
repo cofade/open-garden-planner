@@ -32,11 +32,11 @@ class Layer(BaseModel):
         description="False if the layer (and every object on it) is hidden."
     )
     locked: bool = Field(
-        description="True if the layer is locked. A locked layer is a "
-        "user-owned protection: the agent write tools refuse to edit any "
-        "object on it, refuse to move objects onto it, refuse to delete it, "
-        "and cannot change the lock itself in either direction — only the "
-        "user can, in the app's Layers panel."
+        description="True if the layer is locked. While locked, the agent "
+        "write tools refuse to edit any object on it, refuse to move objects "
+        "onto it, and refuse to delete it. The lock itself can be changed by "
+        "the agent with set_layer_property(layer_id, locked=...) — unlock "
+        "first, then edit (issue #365)."
     )
     opacity: float = Field(
         description="Layer opacity, 0.0 (invisible) to 1.0 (fully opaque)."
@@ -367,6 +367,32 @@ class ExportResult(BaseModel):
         default=None,
         description="The project's prior current_file (save_plan only), if this call "
         "changed it — e.g. a save-as to a new path. Null if unchanged or not applicable.",
+    )
+
+
+class PlanLifecycleResult(BaseModel):
+    """Result of ``new_plan`` / ``open_plan`` (issue #365).
+
+    Deliberately NOT ``ExportResult``. Those two tools change which document is
+    open; they do not WRITE a file, so there is no format to report — and
+    reusing ``ExportResult`` meant every successful call raised a pydantic
+    ``ValidationError`` (missing ``format``, and ``file_path: None`` against a
+    ``str`` field), i.e. both tools were non-functional over the wire while
+    every test that called the main-thread body directly stayed green.
+
+    ``was_dirty`` is the fact an agent most needs when it passed
+    ``force=true``: it says whether unsaved work was just discarded.
+    """
+
+    file_path: str | None = Field(
+        description="Path of the now-open plan file; null for a new plan, which "
+        "has never been saved."
+    )
+    width_cm: float = Field(description="Canvas width now in effect, in centimetres.")
+    height_cm: float = Field(description="Canvas height now in effect, in centimetres.")
+    was_dirty: bool = Field(
+        description="True if the previous plan had unsaved changes that this call "
+        "discarded. Always false when the call was refused."
     )
 
 

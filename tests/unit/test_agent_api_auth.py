@@ -35,6 +35,8 @@ def _stub_providers() -> AgentProviders:
         diagnostics=lambda: [],
         render=lambda *_a: {},
         save_plan=lambda _p: {},
+        new_plan=_boom,
+        open_plan=_boom,
         export_pdf=lambda *_a: {},
         export_dxf=lambda _p: {},
         export_csv=lambda *_a: {},
@@ -120,6 +122,11 @@ WRITE_TOOL_NAMES = frozenset(
         "delete_layer",
         "set_active_layer",
         "set_layer_property",
+        # issue #365: document lifecycle. These REPLACE the open document and
+        # can discard unsaved work, so they are gated exactly like
+        # delete_object rather than sitting ungated beside save_plan.
+        "new_plan",
+        "open_plan",
         "undo",
         "redo",
     }

@@ -102,6 +102,14 @@ class AgentProviders:
         save_plan: Saves the live plan to its ``.ogp`` file (or a new path,
             i.e. Save As). Takes an optional destination path; returns a plain
             dict (``agent_api.exports.save_plan_file``).
+        new_plan: **Write (issue #365).** Discards the open document and starts
+            a fresh empty plan. Takes optional canvas width/height in cm and a
+            ``force`` flag standing in for the GUI's unsaved-changes prompt;
+            refuses on a dirty plan without it. Returns a plain dict. NOT an
+            undo step — a new document resets the undo stack.
+        open_plan: **Write (issue #365).** Loads an existing ``.ogp`` file,
+            replacing the open document, under the same ``force`` guard. Returns
+            a plain dict. NOT an undo step.
         export_pdf: Renders the full garden PDF report. Takes an optional
             destination path, paper size, and orientation; returns a plain
             dict (``agent_api.exports.export_pdf_file``).
@@ -206,6 +214,8 @@ class AgentProviders:
         dict[str, Any],
     ]
     save_plan: Callable[[str | None], dict[str, Any]]
+    new_plan: Callable[[float | None, float | None, bool], dict[str, Any]]
+    open_plan: Callable[[str, bool], dict[str, Any]]
     export_pdf: Callable[
         [str | None, Literal["A4", "A3", "Letter", "Legal"], Literal["landscape", "portrait"]],
         dict[str, Any],
