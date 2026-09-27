@@ -10,6 +10,7 @@ Coordinate note (see arc42 section 8.10):
   - Disable snapping to get predictable test results.
 """
 
+import contextlib
 import threading
 from unittest.mock import MagicMock
 
@@ -24,26 +25,32 @@ from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
 
 @pytest.fixture(autouse=True)
-def _no_leaked_agent_api_thread():
-    """Fail loudly if a test leaves a live Agent API server thread behind.
+def _no_leaked_agent_api_thread(qtbot: object):
+    """Stop any Agent API server a test's app auto-started, and say so if one survives.
 
     ``GardenPlannerApp.__init__`` schedules ``QTimer.singleShot(1500,
     _maybe_start_agent_api)``, so an app built by a test can start a REAL
     uvicorn server on its own — 1.5 s later, on whatever event loop happens to
-    run then, which is frequently a *later* test. Most tests that build the app
-    call ``_stop_agent_api()`` in teardown, and the ones that did not leaked a
-    live server thread into the rest of the session.
+    run then, which is frequently a *later* test.
 
-    That is not untidy, it is a crash: the leaked loop holds its sockets and its
-    ``MainThreadBridge``, and at interpreter teardown it took the process down
-    with SIGSEGV (exit 139) inside an unrelated Qt test. The crash stack named
-    ``server.py:_run`` while ``test_minimap_widget.py`` was running, which is
-    exactly this shape.
+    That server is not untidy, it is a **crash**. The CI stack for the exit-139
+    segfault names ``server.py:1624`` in ``_run`` — the crashing thread IS the
+    event loop — and the loop holds a ``MainThreadBridge`` plus provider
+    callables that close over the app. If the app is destroyed first, the loop
+    is left touching a dead QObject.
 
-    Scoped as a warning-with-teardown rather than a hard assert: a test that
-    *intentionally* exercises a running server owns stopping it, and this must
-    not turn that into a confusing second failure. The real invariant is pinned
-    deterministically in ``test_agent_api_lifecycle.py``.
+    **Requesting ``qtbot`` is load-bearing.** pytest finalises fixtures in
+    REVERSE setup order, so depending on ``qtbot`` guarantees it is set up first
+    and torn down LAST — which is what makes the code below run while the app
+    still exists. Without that, this fixture can run after ``qtbot`` has already
+    deleted the window, and stopping the server afterwards is stopping something
+    that can already crash. (The first version did not request it; the segfault
+    survived it, at 16% of the run instead of 68%.)
+
+    A warning rather than a hard assert: a test that deliberately exercises a
+    running server owns stopping it, and this must not become a confusing second
+    failure. The real invariant is pinned deterministically in
+    ``test_agent_api_lifecycle.py``.
     """
     yield
 
@@ -53,10 +60,9 @@ def _no_leaked_agent_api_thread():
     for widget in app.topLevelWidgets():
         stop = getattr(widget, "_stop_agent_api", None)
         if callable(stop):
-            try:
+            # Teardown must never mask the test that just failed.
+            with contextlib.suppress(Exception):
                 stop()
-            except Exception:  # noqa: BLE001 — teardown must not mask the test
-                pass
     leaked = [
         t
         for t in threading.enumerate()
