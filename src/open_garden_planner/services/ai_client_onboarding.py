@@ -1455,6 +1455,37 @@ def cli_missing_capability(exe: str, target: ClientTarget) -> str | None:
     )
 
 
+#: Full CSI escape sequence (colour, cursor moves), not just SGR. A CLI that
+#: thinks it is on a terminal — and one launched from a GUI often does, because
+#: it inherits an environment that claims otherwise — frames its success message
+#: in a box: ``│ ◆ MCP server "x" added to … │``. Rendered in a status label that
+#: arrives as literal ``[]90m`` fragments and mojibake, because the box-drawing
+#: characters are multi-byte and the label is not a terminal.
+_ANSI_CSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+#: Box-drawing, block and bullet glyphs: U+2500–U+257F, U+2580–U+259F,
+#: U+25A0–U+25FF, plus the middot/bullet/ellipsis a CLI frame may use.
+_CLI_DECORATION = re.compile(
+    r"[\u2500-\u257f\u2580-\u259f\u25a0-\u25ff\u00b7\u2022\u2023\u2026\u2713\u2714\u2717]"
+)
+
+
+def plain_cli_output(text: str, *, limit: int = 200) -> str:
+    """A client CLI's own output, reduced to one readable line.
+
+    Applied to SUCCESS output as well as failures, because the two have the same
+    problem: a CLI that draws a box around its confirmation produces a status
+    label full of escape sequences and glyphs, which is worse than no message at
+    all — the owner's manual test produced exactly that, and the fix for the
+    failure path (see :func:`_condense_cli_error`) did not cover it.
+    """
+    stripped = _ANSI_CSI.sub("", text or "").replace("\r", "")
+    stripped = _CLI_DECORATION.sub(" ", stripped)
+    collapsed = " ".join(stripped.split())
+    if len(collapsed) > limit:
+        return collapsed[:limit].rstrip() + " …"
+    return collapsed
+
+
 def _condense_cli_error(stderr: str, *, limit: int = 240) -> str:
     """A CLI's stderr, made fit to read in a one-line status label.
 
@@ -1464,7 +1495,7 @@ def _condense_cli_error(stderr: str, *, limit: int = 240) -> str:
     dump and report the one line that identifies it, collapse the padding, and
     keep the rest short.
     """
-    text = _ANSI.sub("", stderr or "").replace("\r", "")
+    text = _ANSI_CSI.sub("", stderr or "").replace("\r", "")
     # Recognise a help dump by ANY of its section headers, not just USAGE: the
     # 1.18.x output has no USAGE line at all — it opens with the command line
     # itself and then goes straight into "Positionals:". Matching only "USAGE:"
@@ -1658,7 +1689,7 @@ def install_to_client(
         result = _run_client_cli(exe, add_args)
         if result.returncode == 0:
             return InstallResult(
-                client_id=client_id, success=True, detail=result.stdout.strip()
+                client_id=client_id, success=True, detail=plain_cli_output(result.stdout)
             )
 
         stderr = result.stderr.strip()
@@ -1674,7 +1705,7 @@ def install_to_client(
                     retry = _run_client_cli(exe, add_args)
                     if retry.returncode == 0:
                         return InstallResult(
-                            client_id=client_id, success=True, detail=retry.stdout.strip()
+                            client_id=client_id, success=True, detail=plain_cli_output(retry.stdout)
                         )
                     stderr = (
                         f"Removed the existing entry but could not re-add it: "

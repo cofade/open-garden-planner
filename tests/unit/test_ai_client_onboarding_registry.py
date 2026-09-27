@@ -1174,6 +1174,61 @@ class TestCliErrorIsReadable:
             "the client CLI failed without saying why"
         )
 
+    def test_success_output_is_stripped_of_ansi_and_box_drawing(self) -> None:
+        """A CLI that frames its confirmation in a coloured box.
+
+        Verbatim stdout from the real `opencode mcp add --global` (owner's
+        machine, v2.0.16). Appended to the status label it rendered as literal
+        `[]90m` fragments and mojibake, because the box glyphs are multi-byte and
+        a QLabel is not a terminal. The failure path already had this treatment;
+        the SUCCESS path did not, which is why only the success line was broken.
+        """
+        raw = (
+            "\x1b[90m│\x1b[39m\n"
+            "\x1b[32m◆\x1b[39m  MCP server \"open-garden-planner\" added to "
+            "C:\\Users\\wienh\\.config\\opencode\\opencode.jsonc\n"
+            "\x1b[90m│\x1b[39m\n"
+        )
+
+        out = onboarding.plain_cli_output(raw)
+
+        assert "\x1b" not in out
+        assert "[" not in out
+        assert "│" not in out and "◆" not in out
+        assert "\n" not in out
+        assert out.startswith('MCP server "open-garden-planner" added to C:')
+        assert "opencode.jsonc" in out
+
+    def test_a_cursor_movement_escape_is_also_removed(self) -> None:
+        """Not just SGR: a CLI may move the cursor and erase a line, and an
+        `ESC [ 2K` left in place would still mangle the label. The visible text
+        either side of the escapes is preserved contiguously — the escapes were
+        never separators, so inventing a space there would be wrong."""
+        assert onboarding.plain_cli_output("ok\x1b[2K\x1b[1Adone") == "okdone"
+
+    def test_the_install_success_path_uses_it(
+        self, monkeypatch: pytest.MonkeyPatch, _isolated_home: Path
+    ) -> None:
+        """End to end, so the fix cannot be bypassed by a future call site."""
+
+        def _run(argv: list[str], **_kw: object) -> object:
+            if "--help" in argv:
+                return subprocess.CompletedProcess(argv, 0, _HELP_2_0, "")
+            return subprocess.CompletedProcess(
+                argv,
+                0,
+                '\x1b[90m│\x1b[39m\n\x1b[32m◆\x1b[39m  MCP server "og" added to x\n',
+                "",
+            )
+
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: r"C:\oc\opencode.exe")
+        monkeypatch.setattr(onboarding.subprocess, "run", _run)
+
+        result = onboarding.install_to_client("opencode", url=_URL)
+
+        assert result.success is True
+        assert result.detail == 'MCP server "og" added to x'
+
     def test_the_install_failure_path_uses_it(
         self, monkeypatch: pytest.MonkeyPatch, _isolated_home: Path
     ) -> None:
