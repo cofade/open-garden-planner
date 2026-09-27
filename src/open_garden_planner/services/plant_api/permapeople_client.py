@@ -157,6 +157,75 @@ class PermapeopleClient(PlantAPIClient):
         except requests.RequestException as e:
             raise PlantAPIError(f"{self.name} API request failed: {e}") from e
 
+    def get_companions(self, plant_id: str) -> list[dict[str, Any]]:
+        """Fetch companion/antagonist data for a plant from Permapeople.
+
+        Endpoint: GET /api/plants/{id}/companions (offset pagination).
+
+        Args:
+            plant_id: Permapeople plant ID
+
+        Returns:
+            List of companion relationship dicts with keys:
+            - plant_a: scientific name of the source plant
+            - plant_b: scientific name of the companion/antagonist
+            - type: "beneficial" or "antagonistic"
+            - reason: empty string (Permapeople gives no reason text)
+            - source: "permapeople"
+
+        Raises:
+            PlantAPIError: If the API request fails
+        """
+        if not self._key_id or not self._key_secret:
+            raise PlantAPIError(f"{self.name} API credentials not configured")
+
+        companions: list[dict[str, Any]] = []
+        offset = 0
+        limit = 100
+
+        try:
+            while True:
+                response = self._session.get(
+                    f"{self.BASE_URL}/plants/{plant_id}/companions",
+                    params={"offset": offset, "limit": limit},
+                    timeout=10,
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                items = data.get("companions") or data.get("data") or []
+                if not isinstance(items, list):
+                    break
+
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    # Permapeople distinguishes companions vs antagonists
+                    rel_type = item.get("type", "").lower()
+                    if "antagon" in rel_type or "bad" in rel_type:
+                        rel_type = "antagonistic"
+                    else:
+                        rel_type = "beneficial"
+
+                    companions.append({
+                        "plant_a": item.get("plant_a", ""),
+                        "plant_b": item.get("plant_b", ""),
+                        "type": rel_type,
+                        "reason": "",  # Permapeople gives no reason text
+                        "source": "permapeople",
+                    })
+
+                # Check for more pages
+                total = data.get("total", 0)
+                offset += limit
+                if offset >= total or not items:
+                    break
+
+            return companions
+
+        except requests.RequestException as e:
+            raise PlantAPIError(f"{self.name} API request failed: {e}") from e
+
     def is_available(self) -> bool:
         """Check if the Permapeople API is currently available.
 

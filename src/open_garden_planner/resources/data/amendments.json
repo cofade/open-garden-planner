@@ -7,6 +7,19 @@
     "v1.1 adds eight commercial mineral fertilizers (chemical-generic names) and four structural amendments (Kieselgur/perlite/vermiculite/sand). Mineral entries follow the corresponding organic ones so the organic-preferred tie-breaker keeps its bias unless the user explicitly disables organic preference.",
     "Label-derived entries verified by user: slow_release_lawn_fertilizer_ibdu (IBDU, Compo Floranid line), ammonium_sulfate_nitrate (13% S elemental — German label states 'S wasserlöslicher Schwefel'; EU labeling requires the SO3 qualifier when SO3 equivalents are meant), single_superphosphate (single SSP, 18% P2O5 + 11% S — confirmed by the 11% S figure)."
   ],
+  "license": {
+    "spdx": "CC-BY-SA-4.0",
+    "name": "Creative Commons Attribution-ShareAlike 4.0 International",
+    "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+  },
+  "attribution": {
+    "sources": [
+      "Rodale — soil amendment and fertiliser references",
+      "RHS — Royal Horticultural Society fact sheets",
+      "USDA Extension — soil management fact sheets"
+    ],
+    "note": "Curated from published horticultural references. Derived data, not verbatim copies."
+  },
   "substances": [
     {
       "id": "dolomite_lime",

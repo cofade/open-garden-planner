@@ -70,6 +70,36 @@ def plant_source_label(data_source: str | None) -> str:
     return data_source.title()
 
 
+def plant_source_license(data_source: str | None) -> str:
+    """Translated licence/attribution line for a plant record's data source.
+
+    Shown in the Plant Details panel under the source label so the user can
+    see the licence of the data they are viewing. Returns an empty string
+    for sources that do not require attribution (custom, bundled).
+
+    Args:
+        data_source: The raw ``PlantSpeciesData.data_source`` value.
+
+    Returns:
+        A translated licence line, or empty string if no attribution needed.
+    """
+    if not data_source or data_source in ("custom", "bundled"):
+        return ""
+    if data_source == "permapeople":
+        return _tr("Data: {source} · CC BY-SA 4.0").format(
+            source=data_source.title()
+        )
+    if data_source == "trefle":
+        return _tr("Data: {source} · attribution required").format(
+            source=data_source.title()
+        )
+    if data_source == "perenual":
+        return _tr("Data: {source} · free for personal/commercial use").format(
+            source=data_source.title()
+        )
+    return ""
+
+
 def confirm_apply_database_values(parent: QWidget | None) -> bool:
     """Prompt whether to overwrite a differing manual override with the DB value.
 

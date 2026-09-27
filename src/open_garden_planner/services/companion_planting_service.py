@@ -67,9 +67,12 @@ class CompanionPlantingService:
         # canonical_name -> list[CompanionRelationship] (this plant as plant_a)
         self._adjacency: dict[str, list[CompanionRelationship]] = {}
         self._custom_rules: list[CompanionRelationship] = []
+        # Provider-sourced rules (e.g., Permapeople companions)
+        self._provider_rules: list[CompanionRelationship] = []
 
         self._load_db()
         self._load_custom_rules()
+        self._load_provider_rules()
 
     # ------------------------------------------------------------------
     # Public query API
@@ -263,7 +266,7 @@ class CompanionPlantingService:
         ]
 
     def _rebuild_adjacency(self) -> None:
-        """Rebuild the adjacency index from the raw DB and current custom rules."""
+        """Rebuild the adjacency index from the raw DB, custom rules, and provider rules."""
         self._adjacency = {}
         for entry in self._db.get("relationships", []):
             rel = CompanionRelationship(
@@ -275,6 +278,8 @@ class CompanionPlantingService:
             )
             self._add_to_adjacency(rel)
         for rule in self._custom_rules:
+            self._add_to_adjacency(rule)
+        for rule in self._provider_rules:
             self._add_to_adjacency(rule)
 
     def _load_db(self) -> None:
@@ -331,6 +336,69 @@ class CompanionPlantingService:
                 self._add_to_adjacency(rule)
         except Exception:
             pass
+
+    def _load_provider_rules(self) -> None:
+        """Load provider-sourced companion rules from the local cache (US-G3)."""
+        from open_garden_planner.services.companion_cache import load_cache
+
+        cache = load_cache()
+        for _key, entry in cache.items():
+            companions = entry.get("companions", [])
+            for comp in companions:
+                plant_a = comp.get("plant_a", "").lower()
+                plant_b = comp.get("plant_b", "").lower()
+                rel_type = comp.get("type", "beneficial")
+                if not plant_a or not plant_b:
+                    continue
+                rule = CompanionRelationship(
+                    plant_a=plant_a,
+                    plant_b=plant_b,
+                    type=rel_type,
+                    reason=comp.get("reason", ""),
+                    reason_de="",
+                    is_custom=False,
+                )
+                # Mark as provider-sourced via a custom attribute
+                rule._source = comp.get("source", "provider")
+                self._provider_rules.append(rule)
+                self._add_to_adjacency(rule)
+
+    def add_provider_companions(
+        self, scientific_name: str, companions: list[dict[str, Any]]
+    ) -> None:
+        """Add companion relationships from a provider (e.g., Permapeople).
+
+        Args:
+            scientific_name: The plant's scientific name.
+            companions: List of companion dicts from the provider.
+        """
+        from open_garden_planner.services.companion_cache import set_cached_companions
+
+        # Cache the raw data
+        set_cached_companions(scientific_name, companions)
+
+        # Add to provider rules
+        for comp in companions:
+            plant_a = comp.get("plant_a", "").lower()
+            plant_b = comp.get("plant_b", "").lower()
+            rel_type = comp.get("type", "beneficial")
+            if not plant_a or not plant_b:
+                continue
+            rule = CompanionRelationship(
+                plant_a=plant_a,
+                plant_b=plant_b,
+                type=rel_type,
+                reason=comp.get("reason", ""),
+                reason_de="",
+                is_custom=False,
+            )
+            rule._source = comp.get("source", "provider")
+            self._provider_rules.append(rule)
+            self._add_to_adjacency(rule)
+
+    def get_provider_companions_count(self) -> int:
+        """Return the number of provider-sourced companion rules loaded."""
+        return len(self._provider_rules)
 
     def _save_custom_rules(self) -> None:
         """Persist custom rules to the app-data directory."""

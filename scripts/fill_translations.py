@@ -1190,6 +1190,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Unknown source": "Unbekannte Quelle",
         "Custom Plant": "Eigene Pflanze",
         "Bundled": "Mitgeliefert",
+        # Licence line shown in Plant Details via plant_source_license()
+        "Data: {source} · CC BY-SA 4.0": "Daten: {source} · CC BY-SA 4.0",
+        "Data: {source} · attribution required": "Daten: {source} · Namensnennung erforderlich",
+        "Data: {source} · free for personal/commercial use": "Daten: {source} · frei für private/kommerzielle Nutzung",
+        # About dialog — Data Sources & Licenses
+        "Data Sources && Licenses": "Datenquellen && Lizenzen",
+        "Data Sources & Licenses": "Datenquellen & Lizenzen",
         "Select a plant to view details": "Wählen Sie eine Pflanze, um Details anzuzeigen",
         "Enter common name...": "Allgemeinen Namen eingeben...",
         "Common Name:": "Allgemeiner Name:",
