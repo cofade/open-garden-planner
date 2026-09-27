@@ -238,6 +238,17 @@ _READY_TIMEOUT_S = 5.0
 # MainThreadBridge first (see app wiring) so an in-flight tool handler cannot
 # stall this join on a main-thread hop that will never be serviced during close.
 _STOP_TIMEOUT_S = 5.0
+# Grace period AFTER the main join expires. `should_exit` asks uvicorn to finish
+# gracefully; it then still has to unwind the ASGI stack and close its loop, and
+# on a loaded machine that can take longer than the join allows. Without this,
+# stop() returned with the thread STILL RUNNING and merely logged a warning —
+# and a uvicorn loop left running keeps its sockets and its Qt main-thread bridge
+# alive, which is how an unrelated Qt test segfaulted at interpreter teardown on
+# CI (the crash stack named this module's `_run`). Bounded, and only reached when
+# the first join already expired.
+_STOP_GRACE_S = 5.0
+# The thread name, so a leak is identifiable in a thread dump and assertable.
+SERVER_THREAD_NAME = "agent-api-mcp"
 
 
 class PortInUseError(RuntimeError):
@@ -1587,7 +1598,7 @@ class AgentApiServer:
         self._server = server
 
         thread = threading.Thread(target=self._run, args=(server,),
-                                  name="agent-api-mcp", daemon=True)
+                                  name=SERVER_THREAD_NAME, daemon=True)
         self._thread = thread
         thread.start()
 
@@ -1626,7 +1637,14 @@ class AgentApiServer:
             loop.close()
 
     def stop(self, timeout: float = _STOP_TIMEOUT_S) -> None:
-        """Stop the server (idempotent), joining the background thread."""
+        """Stop the server (idempotent), joining the background thread.
+
+        Leaving a uvicorn thread running is not a cosmetic problem: it keeps its
+        listening socket and its main-thread bridge alive, so the process can
+        crash later, somewhere unrelated, during Qt teardown. So a join that
+        expires gets a second bounded chance, and surviving THAT is an ERROR
+        rather than a warning — a leak nobody can see is a leak nobody fixes.
+        """
         with self._lock:
             server = self._server
             thread = self._thread
@@ -1636,8 +1654,19 @@ class AgentApiServer:
                 thread.join(timeout=timeout)
                 if thread.is_alive():
                     logger.warning(
-                        "Agent API server thread did not stop within %.1fs",
+                        "Agent API server thread did not stop within %.1fs; "
+                        "giving it a further %.1fs to unwind",
                         timeout,
+                        _STOP_GRACE_S,
+                    )
+                    thread.join(timeout=_STOP_GRACE_S)
+                if thread.is_alive():
+                    logger.error(
+                        "Agent API server thread %r is STILL RUNNING after "
+                        "%.1fs + %.1fs; the process may crash during teardown",
+                        SERVER_THREAD_NAME,
+                        timeout,
+                        _STOP_GRACE_S,
                     )
             self._thread = None
             self._server = None

@@ -26,11 +26,20 @@ from typing import Any
 
 import pytest
 
-from open_garden_planner.agent_api.server import AgentApiServer
+from open_garden_planner.agent_api import providers as _providers
+from open_garden_planner.agent_api.server import SERVER_THREAD_NAME, AgentApiServer
 from open_garden_planner.app.application import GardenPlannerApp
 from open_garden_planner.app.settings import get_settings
 
 _TOKEN = "lifecycle-transport-token-abcdef123456"
+
+
+def _stub_providers() -> _providers.AgentProviders:
+    """No-op providers: the teardown tests never make a call, they only need a
+    real server object whose thread has to go away."""
+    return _providers.AgentProviders(
+        **{n: None for n in _providers.AgentProviders.__dataclass_fields__}
+    )
 
 
 def _free_port() -> int:
@@ -207,3 +216,71 @@ def test_lifecycle_tools_refuse_a_dirty_plan_over_the_transport(
     assert "unsaved changes" in seen["text"]
     assert len(app.canvas_scene.items()) == before
     assert app._project_manager.is_dirty is True
+
+
+def _alive_server_threads() -> list[threading.Thread]:
+    return [t for t in threading.enumerate() if t.name == SERVER_THREAD_NAME and t.is_alive()]
+
+
+class TestServerTeardownLeavesNothingRunning:
+    """`stop()` must actually stop the thread.
+
+    This is not hygiene for its own sake. These three tests are the first in the
+    suite to run a REAL in-process uvicorn server, and CI segfaulted twice at
+    interpreter teardown with this module's `_run` — i.e. `loop.run_until_complete
+    (server.serve())` — on the stack, during an unrelated Qt test. A uvicorn loop
+    left running keeps its sockets and its main-thread bridge alive, which is a
+    crash waiting for a bystander to trigger it.
+
+    `stop()` used to join once, log a warning, and return with the thread still
+    alive. That is invisible by construction, so it is pinned here instead.
+
+    Each assertion is about the server THIS test started, never "no such thread
+    exists anywhere on the machine". A global check is not a stronger test, it is
+    an order-dependent one: it fails whenever any *other* suite leaks, which is
+    that suite's bug to own, and it fails this file for it. (The first draft of
+    this test did exactly that, and duly failed in the full run while passing
+    alone.)
+    """
+
+    def test_stop_leaves_no_server_thread_behind(self) -> None:
+        srv = AgentApiServer(
+            _stub_providers(), port=_free_port(), write_token=_TOKEN, writes_enabled=True
+        )
+        srv.start()
+        thread = srv._thread
+        assert thread is not None and thread.is_alive(), "should run while started"
+
+        srv.stop()
+
+        assert not thread.is_alive(), (
+            "stop() returned with the uvicorn thread still running; that is what "
+            "segfaulted unrelated Qt tests on CI"
+        )
+
+    def test_stop_is_idempotent(self) -> None:
+        """It is documented as idempotent and the app calls it from both the
+        quit path and the teardown fixtures, so a second call must be a no-op
+        rather than an error."""
+        srv = AgentApiServer(
+            _stub_providers(), port=_free_port(), write_token=_TOKEN, writes_enabled=True
+        )
+        srv.start()
+        thread = srv._thread
+        srv.stop()
+        srv.stop()  # must not raise
+        assert thread is not None and not thread.is_alive()
+
+    def test_repeated_start_stop_does_not_accumulate_threads(self) -> None:
+        """Run it several times: a teardown that leaks only under load is exactly
+        the kind that passes a single local run and fails on a busy CI box.
+
+        Counted before and after, so it measures what THIS loop leaked."""
+        before = len(_alive_server_threads())
+        for _ in range(3):
+            srv = AgentApiServer(
+                _stub_providers(), port=_free_port(), write_token=_TOKEN, writes_enabled=True
+            )
+            srv.start()
+            srv.stop()
+        assert len(_alive_server_threads()) == before
