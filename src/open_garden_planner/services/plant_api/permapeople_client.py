@@ -182,9 +182,10 @@ class PermapeopleClient(PlantAPIClient):
         companions: list[dict[str, Any]] = []
         offset = 0
         limit = 100
+        max_pages = 100  # Safety bound: 100 pages * 100 items = 10,000 max
 
         try:
-            while True:
+            for _page in range(max_pages):
                 response = self._session.get(
                     f"{self.BASE_URL}/plants/{plant_id}/companions",
                     params={"offset": offset, "limit": limit},

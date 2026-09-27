@@ -6667,43 +6667,60 @@ class GardenPlannerApp(QMainWindow):
 
     def _get_data_sources_html(self) -> str:
         """Build the HTML content for the data sources & licenses dialog."""
-        return self.tr(
-            "<h3>Data Sources & Licenses</h3>"
-            "<p>Open Garden Planner uses data from the following sources:</p>"
-            "<h4>Online plant databases</h4>"
-            "<ul>"
-            "<li><b>Permapeople</b> — "
-            "<a href='https://permapeople.org'>permapeople.org</a><br>"
-            "License: CC BY-SA 4.0 (Creative Commons Attribution-ShareAlike 4.0)<br>"
-            "Data is curated from public horticultural sources and available "
-            "under a share-alike license.</li>"
-            "<li><b>Trefle</b> — "
-            "<a href='https://trefle.io'>trefle.io</a><br>"
-            "Attribution required per their API terms of service.</li>"
-            "<li><b>Perenual</b> — "
-            "<a href='https://perenual.com'>perenual.com</a><br>"
-            "Free for personal and commercial use.</li>"
-            "</ul>"
-            "<h4>Bundled data</h4>"
-            "<ul>"
-            "<li><b>Species database</b> — RHS, Cornell University, "
-            "Royal Botanic Gardens Kew, USDA/GRIN-Global, "
-            "University of Minnesota, Oregon State University</li>"
-            "<li><b>Companion planting</b> — RHS Companion Planting guide, "
-            "Louise Riotte 'Carrots Love Tomatoes', "
-            "Rodale's 'Companion Planting for Vegetables'</li>"
-            "<li><b>Seed viability</b> — Oregon State University Extension, "
-            "Johnny's Selected Seeds, Mother Earth News, RHS</li>"
-            "<li><b>Soil amendments</b> — Rodale, RHS, USDA Extension</li>"
-            "</ul>"
-            "<h4>Icons</h4>"
-            "<ul>"
-            "<li><b>Tabler Icons</b> — MIT License</li>"
-            "<li><b>UI icons</b> — GPLv3 (original work)</li>"
-            "</ul>"
-            "<p>All bundled data files are licensed under CC BY-SA 4.0. "
-            "See <code>resources/data/PROVENANCE.md</code> for details.</p>"
-        )
+        parts = [
+            self.tr("<h3>Data Sources & Licenses</h3>"),
+            self.tr("<p>Open Garden Planner uses data from the following sources:</p>"),
+            self.tr("<h4>Online plant databases</h4>"),
+            "<ul>",
+            self.tr(
+                "<li><b>Permapeople</b> — "
+                "<a href='https://permapeople.org'>permapeople.org</a><br>"
+                "License: CC BY-SA 4.0 (Creative Commons Attribution-ShareAlike 4.0)<br>"
+                "Data is curated from public horticultural sources and available "
+                "under a share-alike license.</li>"
+            ),
+            self.tr(
+                "<li><b>Trefle</b> — "
+                "<a href='https://trefle.io'>trefle.io</a><br>"
+                "Attribution required per their API terms of service.</li>"
+            ),
+            self.tr(
+                "<li><b>Perenual</b> — "
+                "<a href='https://perenual.com'>perenual.com</a><br>"
+                "Free for personal and commercial use.</li>"
+            ),
+            "</ul>",
+            self.tr("<h4>Bundled data</h4>"),
+            "<ul>",
+            self.tr(
+                "<li><b>Species database</b> — RHS, Cornell University, "
+                "Royal Botanic Gardens Kew, USDA/GRIN-Global, "
+                "University of Minnesota, Oregon State University</li>"
+            ),
+            self.tr(
+                "<li><b>Companion planting</b> — RHS Companion Planting guide, "
+                "Louise Riotte 'Carrots Love Tomatoes', "
+                "Rodale's 'Companion Planting for Vegetables'</li>"
+            ),
+            self.tr(
+                "<li><b>Seed viability</b> — Oregon State University Extension, "
+                "Johnny's Selected Seeds, Mother Earth News, RHS</li>"
+            ),
+            self.tr(
+                "<li><b>Soil amendments</b> — Rodale, RHS, USDA Extension</li>"
+            ),
+            "</ul>",
+            self.tr("<h4>Icons</h4>"),
+            "<ul>",
+            self.tr("<li><b>Tabler Icons</b> — MIT License</li>"),
+            self.tr("<li><b>UI icons</b> — GPLv3 (original work)</li>"),
+            "</ul>",
+            self.tr(
+                "<p>All bundled data files are licensed under CC BY-SA 4.0. "
+                "See <code>resources/data/PROVENANCE.md</code> for details.</p>"
+            ),
+        ]
+        return "".join(parts)
 
     # Public methods for updating status bar
 

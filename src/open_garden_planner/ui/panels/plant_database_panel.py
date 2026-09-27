@@ -1542,25 +1542,27 @@ class PlantDatabasePanel(QWidget):
         links = []
         sci_name = plant_data.scientific_name
         if sci_name:
+            from urllib.parse import quote
+            encoded_name = quote(sci_name)
             # Wikipedia
             from open_garden_planner.app.settings import get_settings
             settings = get_settings()
             lang = settings.language if hasattr(settings, "language") else "en"
             if lang == "de":
                 links.append(
-                    f"<a href='https://de.wikipedia.org/wiki/{sci_name}'>Wikipedia</a>"
+                    f"<a href='https://de.wikipedia.org/wiki/{encoded_name}'>Wikipedia</a>"
                 )
             else:
                 links.append(
-                    f"<a href='https://en.wikipedia.org/wiki/{sci_name}'>Wikipedia</a>"
+                    f"<a href='https://en.wikipedia.org/wiki/{encoded_name}'>Wikipedia</a>"
                 )
             # PFAF
             links.append(
-                f"<a href='https://pfaf.org/user/Plant.aspx?LatinName={sci_name}'>PFAF</a>"
+                f"<a href='https://pfaf.org/user/Plant.aspx?LatinName={encoded_name}'>PFAF</a>"
             )
             # POWO
             links.append(
-                f"<a href='https://powo.science.kew.org/results?q={sci_name}'>POWO</a>"
+                f"<a href='https://powo.science.kew.org/results?q={encoded_name}'>POWO</a>"
             )
         # Provider's own page
         if plant_data.data_source == "permapeople" and plant_data.slug:

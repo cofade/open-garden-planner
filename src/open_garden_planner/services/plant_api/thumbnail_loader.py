@@ -80,6 +80,14 @@ def fetch_thumbnail(url: str) -> Path | None:
             logger.warning("Empty thumbnail response for %s", url)
             return None
 
+        # Validate Content-Type is an image
+        content_type = response.headers.get("Content-Type", "")
+        if not content_type.startswith("image/"):
+            logger.warning(
+                "Unexpected Content-Type '%s' for thumbnail %s", content_type, url
+            )
+            return None
+
         # Write to cache
         path = _cache_path(url)
         path.write_bytes(content)

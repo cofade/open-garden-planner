@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 
 _CACHE_DIR_NAME = "companion_cache"
 _CACHE_FILE_NAME = "permapeople.json"
+
+# In-memory cache to avoid re-reading the file on every access
+_memory_cache: dict[str, Any] | None = None
 
 
 def get_cache_dir() -> Path:
@@ -40,7 +43,7 @@ def get_cache_path() -> Path:
     return get_cache_dir() / _CACHE_FILE_NAME
 
 
-def load_cache() -> dict[str, Any]:
+def _load_cache_from_disk() -> dict[str, Any]:
     """Load the companion cache from disk.
 
     Returns:
@@ -59,12 +62,26 @@ def load_cache() -> dict[str, Any]:
     return {}
 
 
+def load_cache() -> dict[str, Any]:
+    """Get the companion cache, loading from disk on first access.
+
+    Returns:
+        Dict mapping scientific names (lower-cased) to their companion data.
+    """
+    global _memory_cache
+    if _memory_cache is None:
+        _memory_cache = _load_cache_from_disk()
+    return _memory_cache
+
+
 def save_cache(cache: dict[str, Any]) -> None:
-    """Save the companion cache to disk.
+    """Save the companion cache to disk and update the in-memory copy.
 
     Args:
         cache: Dict mapping scientific names to their companion data.
     """
+    global _memory_cache
+    _memory_cache = cache
     path = get_cache_path()
     try:
         path.write_text(json.dumps(cache, indent=2), encoding="utf-8")
@@ -101,20 +118,23 @@ def set_cached_companions(
     key = scientific_name.lower()
     cache[key] = {
         "companions": companions,
-        "retrieved_at": datetime.now().isoformat(),
+        "retrieved_at": datetime.now(UTC).isoformat(),
     }
     save_cache(cache)
 
 
 def clear_cache() -> int:
     """Clear the companion cache. Returns the number of entries removed."""
+    global _memory_cache
     path = get_cache_path()
-    if not path.exists():
+    if not path.exists() and _memory_cache is None:
         return 0
     try:
         cache = load_cache()
         count = len(cache)
-        path.unlink()
+        _memory_cache = {}
+        if path.exists():
+            path.unlink()
         return count
     except Exception as exc:
         logger.warning("Failed to clear companion cache: %s", exc)
