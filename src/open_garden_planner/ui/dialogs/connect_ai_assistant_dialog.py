@@ -101,6 +101,16 @@ class ConnectAiAssistantDialog(QDialog):
         clients_layout = QVBoxLayout(clients_container)
         clients_layout.setContentsMargins(0, 0, 0, 0)
         for client in onboarding.detect_clients():
+            # A client that CANNOT reach a loopback server gets no row at all
+            # (owner, manual test): the row's only possible content was "this
+            # won't work, use something else" — advice about a tool the user did
+            # not ask about, in a list whose whole job is "pick your client".
+            # The record stays in the registry (it is real, detected data, and
+            # `detect_clients` is not this dialog's opinion of it); only the
+            # rendering is skipped. The vendor-agnostic group below still
+            # covers such a user.
+            if not client.supports_local_http:
+                continue
             clients_layout.addWidget(self._build_client_row(client))
         # The vendor-agnostic path is ALWAYS present — it is what makes the
         # registry an optimisation rather than a gate, and it is the only

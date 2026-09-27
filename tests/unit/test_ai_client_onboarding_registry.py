@@ -873,24 +873,63 @@ class TestCliCapabilityGate:
         assert codex.cli_required_flags == ()
         assert onboarding.cli_missing_capability("codex", codex) is None
 
-    def test_install_refuses_a_too_old_cli_without_running_it(
+    def test_install_uses_the_legacy_argv_rather_than_refusing(
         self, monkeypatch: pytest.MonkeyPatch, _isolated_home: Path
     ) -> None:
-        """The refusal happens BEFORE any write attempt, and says what to do."""
+        """The Add button must keep working on 1.18.x.
+
+        This test used to assert a REFUSAL, and the fix was right in isolation —
+        then the owner's manual test showed the consequence: the refusal sets
+        ``install_method="manual"``, so the dialog stopped showing the Add
+        button at all. And refusing was unnecessary, because 1.18.x writes the
+        USER config when ``--global`` is absent (measured). So the record declares
+        a legacy argv and OGP uses it.
+        """
         fake = _FakeCli(_HELP_1_18)
         monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: r"C:\oc\opencode.exe")
         monkeypatch.setattr(onboarding.subprocess, "run", fake)
 
         result = onboarding.install_to_client("opencode", url=_URL)
 
+        assert result.success is True, result.detail
+        real_call = [c for c in fake.calls if "--help" not in c]
+        assert len(real_call) == 1
+        # The whole point: no unsupported flag was passed.
+        assert "--global" not in real_call[0]
+        assert "--url" in real_call[0]
+        assert _URL in real_call[0]
+
+    def test_a_target_with_no_legacy_argv_still_refuses(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The refusal is still there for a client with no measured alternative.
+
+        Built by replacing the record, because no production target is in that
+        state today and the path must not rot untested.
+        """
+        import dataclasses
+
+        opencode = onboarding.get_target("opencode")
+        strict = dataclasses.replace(
+            opencode,
+            client_id="gemini",  # borrow a real, writable target's plumbing
+            legacy_cli_argv=None,
+            legacy_container_key=None,
+        )
+        monkeypatch.setattr(
+            onboarding, "get_target", lambda cid: strict if cid == "gemini" else opencode
+        )
+        fake = _FakeCli(_HELP_1_18)
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: r"C:\gemini.exe")
+        monkeypatch.setattr(onboarding.subprocess, "run", fake)
+
+        result = onboarding.install_to_client("gemini", url=_URL)
+
         assert result.success is False
         assert "--global" in result.detail
         assert "too old" in result.detail
-        assert "Update opencode" in result.detail
-        # The ONLY call made was the help probe. `mcp add` never ran, so
-        # nothing was written to anyone's config.
-        assert fake.calls == [[r"C:\oc\opencode.exe", "mcp", "add", "--help"]]
-        assert not (_isolated_home / ".config" / "opencode" / "opencode.jsonc.bak").exists()
+        # The ONLY call made was the help probe — nothing was written.
+        assert fake.calls == [[r"C:\gemini.exe", "mcp", "add", "--help"]]
 
     def test_install_proceeds_against_a_capable_cli(
         self, monkeypatch: pytest.MonkeyPatch, _isolated_home: Path
@@ -907,12 +946,13 @@ class TestCliCapabilityGate:
         assert fake.calls[-1][-1] == "--global"
         assert "mcp" in fake.calls[-1] and "add" in fake.calls[-1]
 
-    def test_detect_reports_manual_so_the_dialog_offers_no_dead_button(
+    def test_detect_reports_cli_for_a_legacy_but_working_cli(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """A button whose only possible outcome is a refusal is a dead end with
-        a polite message — the shape #366 was opened to close. The too-old CLI
-        must land in the same `manual` bucket as the no-CLI case."""
+        """The button must be there. An earlier version of this change reported
+        "manual" for a 1.18.x CLI, which silently REMOVED the Add button from the
+        dialog — the owner hit exactly that and was right to call it a
+        regression."""
         monkeypatch.setattr(
             onboarding.shutil, "which", lambda _cmd: r"C:\oc\opencode.exe"
         )
@@ -920,8 +960,8 @@ class TestCliCapabilityGate:
 
         row = next(c for c in onboarding.detect_clients() if c.client_id == "opencode")
 
-        assert row.detected is True  # it IS installed...
-        assert row.install_method == "manual"  # ...but not registerable this way
+        assert row.detected is True
+        assert row.install_method == "cli"
 
     def test_detect_reports_cli_for_a_capable_one(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
@@ -932,6 +972,171 @@ class TestCliCapabilityGate:
         row = next(c for c in onboarding.detect_clients() if c.client_id == "opencode")
 
         assert row.install_method == "cli"
+
+
+class TestAnEmptyConfigIsNotACorruptOne:
+    """The owner's `~/.gemini/config/mcp_config.json` was 0 BYTES.
+
+    Fail-closed then refused one-click forever with `Expecting value: line 1
+    column 1 (char 0)` — which is just `json.loads("")`. The safety rule exists
+    to protect content from destruction, and a 0-byte file provably has none, so
+    treating it as corruption made the feature impossible for exactly the users
+    who had not used it yet.
+    """
+
+    @pytest.mark.parametrize("body", ["", "   ", "\n", "\r\n\t \n"])
+    def test_an_empty_json_config_is_initialised_not_refused(
+        self, body: str, tmp_path: Path
+    ) -> None:
+        path = tmp_path / "mcp_config.json"
+        path.write_text(body, encoding="utf-8")
+
+        onboarding._merge_into_config(
+            path,
+            name="og",
+            entry={"url": _URL},
+            container_key="mcpServers",
+            syntax="json",
+            replace_on_parse_error=False,  # the STRICT, fail-closed policy
+        )
+
+        assert json.loads(path.read_text(encoding="utf-8"))["mcpServers"]["og"] == {
+            "url": _URL
+        }
+
+    def test_an_empty_toml_config_is_initialised_not_refused(self, tmp_path: Path) -> None:
+        path = tmp_path / "config.toml"
+        path.write_text("", encoding="utf-8")
+
+        onboarding._merge_into_config(
+            path,
+            name="og",
+            entry={"url": _URL},
+            container_key="mcp_servers",
+            syntax="toml",
+            replace_on_parse_error=False,
+        )
+
+        assert tomllib.loads(path.read_text(encoding="utf-8"))["mcp_servers"]["og"] == {
+            "url": _URL
+        }
+
+    def test_it_still_refuses_a_genuinely_corrupt_file(self, tmp_path: Path) -> None:
+        """The distinction that matters: EMPTY vs CORRUPT. One byte of junk is
+        still somebody's content and still gets fail-closed."""
+        path = tmp_path / "mcp_config.json"
+        original = '{"mcpServers": {"mine": '
+        path.write_text(original, encoding="utf-8")
+
+        with pytest.raises(onboarding._ConfigMergeError):
+            onboarding._merge_into_config(
+                path,
+                name="og",
+                entry={"url": _URL},
+                container_key="mcpServers",
+                syntax="json",
+                replace_on_parse_error=False,
+            )
+
+        assert path.read_text(encoding="utf-8") == original
+
+    def test_the_read_path_reports_an_empty_file_as_unregistered(
+        self, _isolated_home: Path
+    ) -> None:
+        cfg = _isolated_home / ".gemini" / "config" / "mcp_config.json"
+        cfg.parent.mkdir(parents=True, exist_ok=True)
+        cfg.write_text("", encoding="utf-8")
+
+        assert onboarding.registered_url("gemini") is None
+        assert any(c.client_id == "gemini" for c in onboarding.detect_clients())
+
+    def test_a_whitespace_only_toml_file_is_not_corrupt_either(
+        self, tmp_path: Path
+    ) -> None:
+        path = tmp_path / "config.toml"
+        path.write_text("\n\n   \n", encoding="utf-8")
+
+        onboarding._merge_into_config(
+            path,
+            name="og",
+            entry={"url": _URL},
+            container_key="mcp_servers",
+            syntax="toml",
+            replace_on_parse_error=False,
+        )
+
+        assert "mcp_servers" in tomllib.loads(path.read_text(encoding="utf-8"))
+
+
+class TestLegacyCliGenerations:
+    """Both OpenCode generations must work, and be READ back correctly."""
+
+    def test_a_legacy_flat_registration_is_recognised(
+        self, _isolated_home: Path
+    ) -> None:
+        """1.18.x writes servers FLAT as `mcp.<name>`. If the reader only knew
+        the nested shape it would report a working registration as absent — the
+        exact "OGP says it isn't registered but it is" confusion this feature
+        exists to end."""
+        cfg = _isolated_home / ".config" / "opencode" / "opencode.jsonc"
+        cfg.parent.mkdir(parents=True, exist_ok=True)
+        cfg.write_text(
+            '{"mcp": {"open-garden-planner": {"type": "remote", "url": "'
+            + _URL
+            + '"}}}',
+            encoding="utf-8",
+        )
+
+        assert onboarding.registered_url("opencode") == _URL
+
+    def test_a_modern_nested_registration_is_still_recognised(
+        self, _isolated_home: Path
+    ) -> None:
+        cfg = _isolated_home / ".config" / "opencode" / "opencode.jsonc"
+        cfg.parent.mkdir(parents=True, exist_ok=True)
+        cfg.write_text(
+            '{"mcp": {"servers": {"open-garden-planner": {"type": "remote", "url": "'
+            + _URL
+            + '"}}}}',
+            encoding="utf-8",
+        )
+
+        assert onboarding.registered_url("opencode") == _URL
+
+    def test_the_manual_snippet_matches_the_installed_generation(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A snippet in the wrong shape is worse than none — pasted into a 1.18.x
+        config, the nested block is silently ignored."""
+        monkeypatch.setattr(
+            onboarding.shutil, "which", lambda _cmd: r"C:\oc\opencode.exe"
+        )
+        monkeypatch.setattr(onboarding.subprocess, "run", _FakeCli(_HELP_1_18))
+        onboarding.reset_cli_probe_cache()
+
+        snippet = onboarding.snippet_for_client("opencode", url=_URL)
+        payload = json.loads(snippet)
+
+        assert "open-garden-planner" in payload["mcp"]  # flat
+        assert "servers" not in payload
+
+    def test_and_the_modern_shape_when_the_cli_is_current(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            onboarding.shutil, "which", lambda _cmd: r"C:\oc\opencode.exe"
+        )
+        monkeypatch.setattr(onboarding.subprocess, "run", _FakeCli(_HELP_2_0))
+        onboarding.reset_cli_probe_cache()
+
+        payload = json.loads(onboarding.snippet_for_client("opencode", url=_URL))
+
+        assert "open-garden-planner" in payload["mcp"]["servers"]
+
+    def test_with_no_cli_at_all_the_documented_shape_is_shown(self) -> None:
+        payload = json.loads(onboarding.snippet_for_client("opencode", url=_URL))
+
+        assert "open-garden-planner" in payload["mcp"]["servers"]
 
 
 class TestCliErrorIsReadable:

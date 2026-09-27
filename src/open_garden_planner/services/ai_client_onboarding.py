@@ -48,17 +48,19 @@ Per-client strategy, chosen from what each client's own docs support:
   the direct-merge fallback is what makes one-click work without a terminal.
   The merge fails CLOSED on an unreadable ``~/.claude.json`` (it also holds
   OAuth / projects / trust) rather than replacing it.
-* **OpenCode** — ``opencode mcp add <name> --url <url> --global`` when a
-  **sufficiently new** CLI is on PATH (entry ``{type: "remote", url, oauth:
-  false}`` under ``mcp.servers``). 1.18.x has no ``--global`` at all and stores
-  servers FLAT as ``mcp.<name>``, so that generation is refused with an
-  explanation rather than handed a flag it will reject — see
-  :func:`cli_missing_capability`, and ADR-035 for why supporting both shapes was
-  declined. **Without a usable CLI there is no merge at all**, by decision: its
-  config is commented JSON that any merge would have to re-serialise whole,
-  discarding the user's own comments, so the record sets
-  ``merge_supported=False`` and registration refuses with an explanation plus
-  the manual snippet. The config is a *commented* JSON variant that plain
+* **OpenCode** — ``opencode mcp add <name> --url <url> --global`` when the
+  installed CLI supports ``--global`` (entry ``{type: "remote", url, oauth:
+  false}`` under ``mcp.servers``). **Two generations are supported**, because a
+  machine can hold both and ``shutil.which`` picks whichever is first on
+  ``PATH``: 1.18.x has no ``--global`` and stores servers FLAT as
+  ``mcp.<name>``, so it gets ``legacy_cli_argv`` (identical minus the flag —
+  which is safe *there*, because 1.18.x has no project config for ``mcp add`` at
+  all and writes the user config by default) and ``legacy_container_key``. See
+  :func:`cli_missing_capability` and ADR-035. **Without any usable CLI there is
+  no merge**, by decision: its config is commented JSON that any merge would
+  have to re-serialise whole, discarding the user's own comments, so the record
+  sets ``merge_supported=False`` and registration refuses with an explanation
+  plus the manual snippet. The config is a *commented* JSON variant that plain
   ``json.load()`` rejects, which is why the READER (:func:`_strip_jsonc`) is
   tolerant and the writer is not.
 * **Codex** — ``codex mcp add <name> --url <url>`` when the CLI is on PATH;
@@ -264,6 +266,21 @@ class ClientTarget:
     #: probes and refuses. Deliberately NOT a second container key threaded
     #: through the read/snippet/merge paths for a version OGP has not verified.
     cli_required_flags: tuple[str, ...] = ()
+    #: Argv for a CLI that does NOT support :attr:`cli_required_flags`.
+    #:
+    #: Set only where the older generation's own behaviour has been MEASURED to
+    #: be safe without the flag. OpenCode is the case: 1.18.x has no
+    #: ``--global`` and writes the USER config by default anyway, so dropping the
+    #: flag is not a downgrade — where 2.x without it writes a PROJECT config
+    #: into the user's working directory, 1.18.x cannot do that at all. ``None``
+    #: (every other target) means "no alternative; refuse honestly".
+    legacy_cli_argv: Callable[[str, str | None, bool], tuple[str, ...]] | None = None
+    #: Container key a legacy CLI writes. 1.18.x stores servers FLAT as
+    #: ``mcp.<name>`` where 2.x nests them under ``mcp.servers.<name>``. This is
+    #: what lets the reader recognise a registration the legacy CLI made, and
+    #: what the manual snippet must show for that generation — a snippet in the
+    #: wrong shape is worse than none.
+    legacy_container_key: str | None = None
     #: Argv used to ask the CLI what it supports. ``mcp add --help`` is the shape
     #: every target here uses.
     cli_probe_argv: tuple[str, ...] = ("mcp", "add", "--help")
@@ -400,6 +417,24 @@ def _opencode_add_args(
     return tuple(args)
 
 
+def _opencode_add_args_legacy(
+    name: str, url: str, token: str | None, use_header: bool = False
+) -> tuple[str, ...]:
+    """Args for an ``opencode`` too old to have ``--global`` (1.18.x).
+
+    Identical minus the flag, and that is safe *for that generation* rather than
+    merely tolerated: 1.18.x has no project config for ``mcp add`` at all, so
+    omitting ``--global`` writes the USER config — verified by running the 1.18.32
+    binary against a throwaway ``XDG_CONFIG_HOME``. The dangerous case is the
+    opposite one, 2.x without ``--global``, which drops an ``opencode.json`` into
+    the current directory; that is why the modern argv keeps the flag and this
+    one exists only for a CLI that rejects it.
+    """
+    args = ["mcp", "add", name, "--url"]
+    args += _header_args(url, token, use_header)
+    return tuple(args)
+
+
 def _codex_add_args(
     name: str, url: str, token: str | None, use_header: bool = False
 ) -> tuple[str, ...]:
@@ -470,12 +505,18 @@ TARGETS: tuple[ClientTarget, ...] = (
         # key above). `shutil.which` resolves whichever install is first on
         # PATH, so passing 2.x argv to 1.18.x is a matter of whose PATH the GUI
         # inherited — the owner's manual test hit exactly that, and the CLI's
-        # response was its entire help text. So OGP asks the binary what it
-        # supports and refuses with an explanation if the answer is no. OGP
-        # deliberately does NOT also support the 1.18.x flat layout: that would
-        # mean a second container key threaded through the reader, the snippet
-        # and the merge, none of it verified against a real 1.18.x round-trip.
+        # response was its entire help text.
+        #
+        # The first fix here REFUSED a too-old CLI, which removed the Add button
+        # — and the owner rightly objected: 1.18.x writes the USER config by
+        # default, so omitting `--global` there is not a downgrade but the
+        # documented behaviour of that generation. Refusing hid a button that
+        # works. So the legacy argv and container key are declared instead, and
+        # both generations are supported. (An earlier decision to refuse was
+        # reversed on exactly this evidence.)
         cli_required_flags=("global",),
+        legacy_cli_argv=_opencode_add_args_legacy,
+        legacy_container_key="mcp",
         ownership="foreign",
         # A merge here would re-serialise a JSONC file, discarding the user's
         # own comments. The CLI (`opencode mcp add --global`, verified by
@@ -843,7 +884,17 @@ def _merge_json_like(
     if path.exists():
         try:
             text = path.read_text(encoding="utf-8-sig")
-            loaded = json.loads(_strip_jsonc(text) if tolerant else text)
+            if _is_effectively_empty(text):
+                # An EMPTY file is not a corrupt one, and the fail-closed rule
+                # is about protecting content. A 0-byte `mcp_config.json` is
+                # what several clients ship before their first MCP server, and
+                # treating it as unparseable made one-click impossible for those
+                # users — the dead end §11.4 warns about, reached from the other
+                # direction. There is provably nothing here to lose.
+                logger.info("%s is empty; treating it as an empty config", path)
+                loaded = {}
+            else:
+                loaded = json.loads(_strip_jsonc(text) if tolerant else text)
         except Exception as exc:  # noqa: BLE001 — TRUST BOUNDARY (invariant 14)
             # Another program's file. See the note on `registered_url`: the
             # family is deliberately not enumerated, because a deeply nested
@@ -892,6 +943,23 @@ def _backup_existing(path: Path) -> Path | None:
     return backup
 
 
+def _is_effectively_empty(text: str) -> bool:
+    """Whether a config file holds no content at all.
+
+    An empty file is a normal state for a client that has never had an MCP
+    server: the owner's ``~/.gemini/config/mcp_config.json`` was 0 bytes, and
+    the fail-closed rule then refused one-click forever with
+    ``Expecting value: line 1 column 1 (char 0)``. Fail-closed exists to protect
+    content from destruction, and a 0-byte file provably has none — so it is
+    initialised like any new config rather than treated as corruption.
+
+    This is deliberately NOT applied to whitespace-only-but-otherwise-present
+    documents beyond the plain "nothing but whitespace" case, which is what
+    ``strip()`` already isolates.
+    """
+    return not text.strip()
+
+
 def _toml_has_table(text: str, container_key: str, name: str) -> bool:
     """Whether ``text`` already defines ``[container_key.name]``, per the PARSER.
 
@@ -929,7 +997,12 @@ def _merge_toml(
     if path.exists():
         try:
             original = path.read_text(encoding="utf-8-sig")
-            tomllib.loads(original)
+            if _is_effectively_empty(original):
+                # Empty is not corrupt — see the note in `_merge_json_like`.
+                logger.info("%s is empty; treating it as an empty config", path)
+                original = ""
+            else:
+                tomllib.loads(original)
         except Exception as exc:  # noqa: BLE001 — TRUST BOUNDARY (invariant 14)
             # Another program's file; see the note on `registered_url` for why
             # the family is not enumerated. `tomllib.loads` raises
@@ -1122,14 +1195,19 @@ def registered_url(client_id: ClientId, name: str = SERVER_NAME) -> str | None:
         return None
     if not isinstance(data, dict):
         return None
-    servers = _container_get(data, target.container_key)
-    if not isinstance(servers, dict):
-        return None
-    entry = servers.get(name)
-    if not isinstance(entry, dict):
-        return None
-    url = entry.get("url")
-    return url if isinstance(url, str) else None
+    # Both generations' shapes are accepted. A user who registered with one
+    # OpenCode version and is reading the dialog after another must not be told
+    # their working registration is absent — that is the "looks fine and cannot
+    # connect" confusion this function exists to end, and it is worse when OGP
+    # is the one claiming the entry is missing.
+    for container_key in _container_keys_to_read(target):
+        servers = _container_get(data, container_key)
+        if not isinstance(servers, dict):
+            continue
+        entry = servers.get(name)
+        if isinstance(entry, dict) and isinstance(entry.get("url"), str):
+            return str(entry["url"])
+    return None
 
 
 def is_stale(client_id: ClientId, expected_url: str, name: str = SERVER_NAME) -> bool:
@@ -1207,17 +1285,22 @@ def detect_clients() -> list[ClientInfo]:
     unusual install layout reads as "not detected" and falls through to the
     generic fallback, which is the correct degradation.
 
-    "Has a CLI on PATH" is deliberately NOT the same as "can be registered by
-    its CLI": a CLI too old for our argv is reported as ``"manual"`` so the
-    dialog offers the snippet rather than an Add button whose only outcome is
-    the refusal in :func:`cli_missing_capability`. That is the same dead end
-    the ``merge_supported`` case below exists to avoid.
+    "Has a CLI on PATH" is deliberately NOT the same as "the CLI can take our
+    argv". A CLI too old for it is only reported as ``"manual"`` when the record
+    offers NO alternative — otherwise the legacy argv is used and one-click still
+    works, because the older generation's own behaviour has been measured to be
+    safe without the flag (see :attr:`ClientTarget.legacy_cli_argv`). Reporting
+    ``"manual"`` there would have hidden a working Add button, which is the
+    opposite of the dead end this branch exists to close.
     """
     clients: list[ClientInfo] = []
     for target in TARGETS:
         detected = target.detect_installed()
         exe = shutil.which(target.cli_name) if target.cli_name else None
-        if exe is not None and cli_missing_capability(exe, target) is None:
+        usable_cli = exe is not None and (
+            _resolved_cli(exe, target) or target.legacy_cli_argv is not None
+        )
+        if usable_cli:
             install_method: InstallMethod = "cli"
         elif target.supports_local_http and target.merge_supported:
             install_method = "merge"
@@ -1307,6 +1390,40 @@ def reset_cli_probe_cache() -> None:
     cli_supported_flags.cache_clear()
 
 
+def _resolved_cli(exe: str, target: ClientTarget) -> bool:
+    """Whether this CLI is new enough for the target's modern argv."""
+    return cli_missing_capability(exe, target) is None
+
+
+def _container_key_for(exe: str | None, target: ClientTarget) -> str:
+    """The container key to WRITE, given the CLI that will do the writing.
+
+    When a CLI writes the file itself, it also decides the shape — so this is
+    only about which generation is installed. When there is no CLI (the manual
+    snippet, or a direct merge), the modern key is the documented one.
+    """
+    if (
+        exe is not None
+        and target.legacy_container_key is not None
+        and not _resolved_cli(exe, target)
+    ):
+        return target.legacy_container_key
+    return target.container_key
+
+
+def _container_keys_to_read(target: ClientTarget) -> tuple[str, ...]:
+    """Every container key a registration for this client may be under.
+
+    A user can have registered with one generation and be reading the dialog
+    after another, so the reader accepts both rather than reporting a
+    successful registration as absent. Ordered modern-first, because that is
+    the shape a current client writes.
+    """
+    if target.legacy_container_key and target.legacy_container_key != target.container_key:
+        return (target.container_key, target.legacy_container_key)
+    return (target.container_key,)
+
+
 def cli_missing_capability(exe: str, target: ClientTarget) -> str | None:
     """Why this CLI cannot be used for ``target``, or ``None`` if it can.
 
@@ -1326,10 +1443,15 @@ def cli_missing_capability(exe: str, target: ClientTarget) -> str | None:
         ),
     }
     reason = why.get(missing[0].lstrip("-"), "this OpenCode build does not accept them")
+    remedy = (
+        f"Update {target.cli_name}, or add the server by hand with the snippet "
+        f"below."
+        if target.legacy_cli_argv is None
+        else f"Update {target.cli_name} for the newer configuration format."
+    )
     return (
         f"The {target.cli_name} on PATH ({exe}) is too old: it does not support "
-        f"{' or '.join(missing)}, because {reason}. Update {target.cli_name}, or "
-        f"add the server by hand with the snippet below."
+        f"{' or '.join(missing)}, because {reason}. {remedy}"
     )
 
 
@@ -1436,10 +1558,12 @@ def install_to_client(
         # A CLI on PATH is not the same as a USABLE CLI. Several installs of one
         # client can coexist and `which` picks the first, and a CLI too old for
         # our argv does not fail cleanly — it prints its whole help and exits
-        # non-zero, which is what the owner's manual test caught. Refuse here,
-        # before the subprocess, with a message that can be acted on.
+        # non-zero, which is what the owner's manual test caught. Where the
+        # record carries a measured legacy argv, use it and keep one-click
+        # working; otherwise refuse here, before the subprocess, with a message
+        # that can be acted on.
         too_old = cli_missing_capability(exe, target)
-        if too_old is not None:
+        if too_old is not None and target.legacy_cli_argv is None:
             return InstallResult(client_id=client_id, success=False, detail=too_old)
     if exe is None and not target.merge_supported and target.cli_name:
         # Neither route available: no CLI on PATH, and the merge would
@@ -1508,7 +1632,18 @@ def install_to_client(
         # degraded one.
         return _merge()
 
-    add_args = target.cli_argv(name, url, token, use_header)
+    # The argv follows the INSTALLED CLI, not the documented one. A record with
+    # no legacy alternative was already refused above, so reaching here with a
+    # too-old CLI means `legacy_cli_argv` exists and its behaviour was measured.
+    argv_for = target.cli_argv
+    if not _resolved_cli(exe, target) and target.legacy_cli_argv is not None:
+        logger.info(
+            "%s lacks %s; using the legacy argv measured to be equivalent",
+            target.cli_name,
+            ", ".join(target.cli_required_flags),
+        )
+        argv_for = target.legacy_cli_argv
+    add_args = argv_for(name, url, token, use_header)
 
     # Every module docstring/ADR-035 promise is "a failed install never raises
     # into the UI" — the CLI can hang (first-run login prompt, network stall)
@@ -1598,12 +1733,18 @@ def snippet_for_client(
     # Honour the target's route, so the manual snippet and the one-click install
     # can never disagree about where the token lives.
     use_header = target.token_route == "header"
+    # And honour the INSTALLED CLI's container shape. A snippet in the wrong
+    # shape is worse than no snippet: pasted into a 1.18.x config, the nested
+    # `mcp.servers` block is silently ignored and the user concludes OGP is
+    # broken.
+    exe = shutil.which(target.cli_name) if target.cli_name else None
+    container_key = _container_key_for(exe, target)
     if target.syntax == "toml":
         return _toml_render_table(
-            target.container_key, name, target.entry(url, token, use_header)
+            container_key, name, target.entry(url, token, use_header)
         )
     return json.dumps(
-        _nested_dict(target.container_key, name, target.entry(url, token, use_header)),
+        _nested_dict(container_key, name, target.entry(url, token, use_header)),
         indent=2,
     )
 

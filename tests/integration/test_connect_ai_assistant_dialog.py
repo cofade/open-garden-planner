@@ -64,14 +64,34 @@ def isolated_clients(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
 
 
 class TestConnectAiAssistantDialogEnabled:
-    def test_shows_url_and_all_client_rows(self, qtbot, isolated_clients: Path) -> None:
+    def test_shows_url_and_a_row_for_every_registerable_client(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
         dialog = ConnectAiAssistantDialog(_URL)
         qtbot.addWidget(dialog)
 
         labels = [w.text() for w in dialog.findChildren(QLabel)]
         assert any(_URL in text for text in labels)
-        for title in ("Cursor", "Claude Code", "Claude Desktop"):
+        for title in ("Cursor", "Claude Code"):
             _group(dialog, title)  # raises if missing
+
+    def test_a_client_that_cannot_reach_a_local_server_has_no_row_at_all(
+        self, qtbot, isolated_clients: Path
+    ) -> None:
+        """Claude Desktop cannot reach a loopback server, so its row could only
+        ever say "this won't work, use something else" (owner's manual test).
+
+        A list whose job is "pick your client" should not carry advice about a
+        tool the user did not ask about. The record stays in the registry — it
+        is real detected data — only the rendering is skipped.
+        """
+        dialog = ConnectAiAssistantDialog(_URL)
+        qtbot.addWidget(dialog)
+
+        with pytest.raises(AssertionError):
+            _group(dialog, "Claude Desktop")
+        # It is still *detected*; the dialog just does not render it.
+        assert any(c.client_id == "claude_desktop" for c in onboarding.detect_clients())
 
     def test_copy_url_button_sets_clipboard(self, qtbot, isolated_clients: Path) -> None:
         dialog = ConnectAiAssistantDialog(_URL)
@@ -122,20 +142,24 @@ class TestConnectAiAssistantDialogEnabled:
         assert "Could not add to Cursor" in status
         assert config_path.is_dir()  # untouched — the failure didn't corrupt anything
 
-    def test_claude_desktop_has_no_add_button_and_no_snippet(
+    def test_claude_desktop_row_is_gone_entirely(
         self, qtbot, isolated_clients: Path
     ) -> None:
-        """Claude Desktop can't reach a localhost server, so its row is an honest
-        redirect note only — no add button and no (misleading) snippet to paste
-        (issue #253)."""
+        """Claude Desktop can't reach a localhost server (issue #253).
+
+        This used to render a row whose entire content was a redirect note — no
+        button, no snippet, just "use Claude Code or Cursor instead". The owner's
+        manual test asked for it to be left out of the list altogether, which is
+        the better shape: a picker should list things that can be picked.
+        """
         dialog = ConnectAiAssistantDialog(_URL)
         qtbot.addWidget(dialog)
 
-        desktop_group = _group(dialog, "Claude Desktop")
-        assert desktop_group.findChildren(QPushButton) == []
-        assert desktop_group.findChild(QPlainTextEdit) is None
-        note = " ".join(w.text() for w in desktop_group.findChildren(QLabel))
-        assert "claude code or cursor" in note.lower()
+        with pytest.raises(AssertionError):
+            _group(dialog, "Claude Desktop")
+        # Nothing in the dialog mentions it, so there is no dangling advice.
+        all_text = " ".join(w.text() for w in dialog.findChildren(QLabel)).lower()
+        assert "claude desktop" not in all_text
 
     def test_client_rows_are_in_a_resizable_scroll_area(
         self, qtbot, isolated_clients: Path
@@ -333,17 +357,21 @@ def _row_text(group: QGroupBox) -> str:
 
 
 class TestRegistryDrivenRows:
-    def test_every_registry_client_gets_a_row(
+    def test_every_registerable_registry_client_gets_a_row(
         self, qtbot, isolated_clients: Path
     ) -> None:
         """No UI change adds a client: the dialog builds a row per registry
-        record. This is the acceptance criterion in test form."""
+        record. This is the acceptance criterion in test form — with the one
+        deliberate exception of a client that cannot reach a local server, whose
+        row is now suppressed rather than rendered as advice."""
         from open_garden_planner.services import ai_client_onboarding as registry
 
         dialog = ConnectAiAssistantDialog(_URL)
         qtbot.addWidget(dialog)
 
         for target in registry.TARGETS:
+            if not target.supports_local_http:
+                continue
             _group(dialog, target.display_name)
 
     def test_every_reachable_client_has_a_manual_note(
