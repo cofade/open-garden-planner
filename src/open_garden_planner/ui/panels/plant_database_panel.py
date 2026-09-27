@@ -40,6 +40,7 @@ from open_garden_planner.ui.plant_species_assignment import (
     confirm_apply_database_values,
     plant_source_label,
 )
+from open_garden_planner.ui.theme import set_text_role, theme_color
 
 
 class ClickableDateEdit(QDateEdit):
@@ -233,7 +234,9 @@ class PlantDatabasePanel(QWidget):
         self._profile_thumbnail = QLabel()
         self._profile_thumbnail.setFixedSize(96, 96)
         self._profile_thumbnail.setStyleSheet(
-            "background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 4px;"
+            f"background-color: {theme_color('surface_alt')};"
+            f" border: 1px solid {theme_color('border')};"
+            " border-radius: 4px;"
         )
         self._profile_thumbnail.setAlignment(Qt.AlignmentFlag.AlignCenter)
         profile_layout.addWidget(self._profile_thumbnail)
@@ -249,23 +252,23 @@ class PlantDatabasePanel(QWidget):
 
         self._profile_scientific = QLabel()
         self._profile_scientific.setWordWrap(True)
-        self._profile_scientific.setStyleSheet("font-style: italic; color: #555;")
+        set_text_role(self._profile_scientific, "hint")
         profile_text.addWidget(self._profile_scientific)
 
         self._profile_description = QLabel()
         self._profile_description.setWordWrap(True)
-        self._profile_description.setStyleSheet("color: #333;")
+        set_text_role(self._profile_description, "secondary")
         profile_text.addWidget(self._profile_description)
 
         self._profile_source = QLabel()
         self._profile_source.setWordWrap(True)
-        self._profile_source.setStyleSheet("color: gray; font-size: 11px;")
+        set_text_role(self._profile_source, "hint")
         profile_text.addWidget(self._profile_source)
 
         # Links row
         self._profile_links = QLabel()
         self._profile_links.setWordWrap(True)
-        self._profile_links.setStyleSheet("font-size: 11px;")
+        set_text_role(self._profile_links, "hint")
         self._profile_links.setOpenExternalLinks(True)
         profile_text.addWidget(self._profile_links)
 
@@ -1487,7 +1490,7 @@ class PlantDatabasePanel(QWidget):
             if not hasattr(self, "_license_label"):
                 self._license_label = QLabel()
                 self._license_label.setWordWrap(True)
-                self._license_label.setStyleSheet("color: gray; font-size: 11px;")
+                set_text_role(self._license_label, "hint")
                 # Insert after the button row, before the scroll area
                 self.layout().insertWidget(2, self._license_label)
             self._license_label.setText(license_text)

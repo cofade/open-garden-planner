@@ -166,7 +166,7 @@ class CompanionPanel(QWidget):
         # === PROVIDER CREDIT LINE (US-G3, issue #318) ===
         self._provider_credit = QLabel()
         self._provider_credit.setWordWrap(True)
-        self._provider_credit.setStyleSheet("color: gray; font-size: 10px;")
+        set_text_role(self._provider_credit, "hint")
         self._provider_credit.setVisible(False)
         layout.addWidget(self._provider_credit)
 

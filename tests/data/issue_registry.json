@@ -536,12 +536,17 @@
   },
   "365": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Agent API gaps from the #361 manual pass: new_plan, open_plan, and agent-writable layer lock (policy reversal)"
   },
   "366": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Generalize AI-client onboarding: a target registry plus a vendor-agnostic fallback, instead of one branch per client"
+  },
+  "367": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#366,#365): registry-driven client onboarding + agent document lifecycle tools"
   }
 }
