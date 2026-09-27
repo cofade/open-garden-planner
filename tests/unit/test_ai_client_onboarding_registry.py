@@ -844,10 +844,10 @@ class TestCliCapabilityGate:
     def test_an_unprobeable_binary_is_treated_as_unusable(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """If the probe itself fails, assume the CLI cannot take our argv.
+        """If the probe itself fails, OGP cannot tell which argv to use.
 
-        The alternative is passing flags to a binary that has already shown it
-        cannot parse them — which is the bug.
+        The state is INDETERMINATE (`"unknown"`), not `"unsupported"` — see the
+        next test, which is where the difference turns out to matter.
         """
 
         def _explode(*_a: object, **_k: object) -> object:
@@ -855,9 +855,106 @@ class TestCliCapabilityGate:
 
         monkeypatch.setattr(onboarding.subprocess, "run", _explode)
 
-        assert onboarding.cli_supported_flags("opencode", ("mcp", "add", "--help")) == frozenset()
+        assert onboarding.cli_supported_flags("opencode", ("mcp", "add", "--help")) is None
         target = onboarding.get_target("opencode")
+        assert onboarding.cli_capability_state("opencode", target) == "unknown"
         assert onboarding.cli_missing_capability("opencode", target) is not None
+
+    def test_an_unknown_probe_MUST_NOT_select_the_legacy_argv(
+        self, monkeypatch: pytest.MonkeyPatch, _isolated_home: Path
+    ) -> None:
+        """THE P0. An indeterminate probe used to be read as "too old", which
+        selected `legacy_cli_argv` — and that argv on a MODERN CLI writes a
+        PROJECT config into the user's working directory and returns
+        `success=True`. Reproduced end to end by the final review: an
+        `opencode.json` appeared in the CWD, the user config was never
+        touched, and `registered_url()` then returned `None`, so the dialog row
+        contradicted the success message it had just shown.
+
+        The two argvs fail differently — the modern one is rejected loudly with
+        a help dump, the legacy one silently writes the wrong file — so an
+        unknown answer may never take the legacy path.
+        """
+
+        def _explode(argv: list[str], **_kw: object) -> object:
+            if "--help" in argv:
+                raise OSError("cannot read the binary's output")
+            # Anything that actually WRITES must never be reached.
+            raise AssertionError(
+                f"the install path ran {argv} after an indeterminate probe"
+            )
+
+        monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: r"C:\oc\opencode.exe")
+        monkeypatch.setattr(onboarding.subprocess, "run", _explode)
+
+        result = onboarding.install_to_client("opencode", url=_URL)
+
+        assert result.success is False
+        # And the message must not claim the user's client is out of date, when
+        # the truth is that OGP could not read it.
+        assert "could not read" in result.detail.lower()
+        assert "too old" not in result.detail.lower()
+
+    def test_an_unknown_probe_offers_no_add_button(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Same reason, seen from the dialog: an unusable-because-unknown CLI is
+        reported `manual`, so no button is offered whose only outcome is the
+        refusal."""
+        monkeypatch.setattr(
+            onboarding.shutil, "which", lambda _cmd: r"C:\oc\opencode.exe"
+        )
+        monkeypatch.setattr(
+            onboarding.subprocess,
+            "run",
+            lambda *_a, **_k: (_ for _ in ()).throw(OSError("unreadable")),
+        )
+
+        row = next(c for c in onboarding.detect_clients() if c.client_id == "opencode")
+
+        assert row.detected is True
+        assert row.install_method == "manual"
+
+    def test_the_snippet_does_not_go_legacy_on_an_unknown_probe(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The modern shape is the documented one; a legacy snippet is only
+        correct for a CLI known to need it."""
+        monkeypatch.setattr(
+            onboarding.shutil, "which", lambda _cmd: r"C:\oc\opencode.exe"
+        )
+        monkeypatch.setattr(
+            onboarding.subprocess,
+            "run",
+            lambda *_a, **_k: (_ for _ in ()).throw(OSError("unreadable")),
+        )
+
+        payload = json.loads(onboarding.snippet_for_client("opencode", url=_URL))
+
+        assert "open-garden-planner" in payload["mcp"]["servers"]
+
+    def test_a_probe_returning_undecodable_bytes_does_not_raise(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An external program's help is untrusted bytes.
+
+        On POSIX `subprocess` decodes in the CALLING thread, so a
+        UnicodeDecodeError from a single odd byte would escape
+        `cli_supported_flags` -> `detect_clients` -> the dialog's `__init__` ->
+        `qFatal()`/`abort()`. On Windows it instead kills the reader thread and
+        returns `''` — the silent path that became the P0 above. `errors=
+        "replace"` is what makes both platforms behave.
+        """
+        monkeypatch.setattr(
+            onboarding.subprocess,
+            "run",
+            lambda argv, **kw: subprocess.CompletedProcess(
+                argv, 0, b"  --global  \xff\xfe not utf-8".decode("utf-8", "replace"), ""
+            ),
+        )
+
+        target = onboarding.get_target("opencode")
+        assert onboarding.cli_capability_state("opencode", target) == "supported"
 
     def test_a_target_with_no_requirements_is_never_gated(
         self, monkeypatch: pytest.MonkeyPatch

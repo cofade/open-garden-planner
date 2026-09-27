@@ -953,9 +953,9 @@ def _is_effectively_empty(text: str) -> bool:
     content from destruction, and a 0-byte file provably has none — so it is
     initialised like any new config rather than treated as corruption.
 
-    This is deliberately NOT applied to whitespace-only-but-otherwise-present
-    documents beyond the plain "nothing but whitespace" case, which is what
-    ``strip()`` already isolates.
+    A document that is *only* whitespace is the same case; a document with any
+    content at all — however odd — goes down the parse path unchanged, so
+    corruption still fails closed.
     """
     return not text.strip()
 
@@ -1297,8 +1297,16 @@ def detect_clients() -> list[ClientInfo]:
     for target in TARGETS:
         detected = target.detect_installed()
         exe = shutil.which(target.cli_name) if target.cli_name else None
+        # A CLI is offered as a one-click route only when OGP can tell which argv
+        # it takes. `"unknown"` is deliberately NOT a yes: offering the button
+        # would risk the project-config write, and hiding it is a dead end the
+        # user can escape with the snippet.
         usable_cli = exe is not None and (
-            _resolved_cli(exe, target) or target.legacy_cli_argv is not None
+            _resolved_cli(exe, target)
+            or (
+                cli_capability_state(exe, target) == "unsupported"
+                and target.legacy_cli_argv is not None
+            )
         )
         if usable_cli:
             install_method: InstallMethod = "cli"
@@ -1354,25 +1362,44 @@ def cli_supported_flags(exe: str, probe: tuple[str, ...]) -> frozenset[str]:
     cache is process-local, so it cannot go stale against a binary the user
     replaces mid-session — at worst the next launch re-probes.
 
-    Returns an empty set when the probe cannot be run at all (the binary is
-    missing, or hangs). Empty is treated as "cannot be used", because the
-    alternative is passing flags to a CLI that has already shown it cannot parse
-    them.
+    Returns **``None`` when the answer is INDETERMINATE** (the binary is
+    missing, hangs, or its output could not be read) and a set of flag names
+    otherwise. The distinction is load-bearing and was a P0: an empty set here
+    used to mean "could not find out", and the caller read that as "too old",
+    which selected ``legacy_cli_argv`` — the argv whose own docstring names the
+    dangerous case, because a MODERN CLI without ``--global`` writes a PROJECT
+    config into the user's current directory. The reasoning had to be inverted:
+    **the modern argv fails loudly (a help dump); the legacy one fails silently
+    and wrongly.** So an unknown answer may never select the legacy path.
     """
     try:
         completed = subprocess.run(
             [exe, *probe],
             capture_output=True,
             text=True,
+            # `errors="replace"` rather than the default strict decode. An
+            # external program's help text is untrusted bytes; a single
+            # undecodable byte in it must not become an exception, and on POSIX
+            # `subprocess` decodes in the CALLING thread, so a
+            # UnicodeDecodeError would escape `cli_supported_flags` ->
+            # `detect_clients` -> the dialog's `__init__` -> `qFatal()`/`abort()`.
+            # On Windows it does the opposite, killing its reader thread and
+            # returning `''` — which is how this became a silent wrong-argv bug
+            # instead of a crash. Neither is acceptable; this is.
+            errors="replace",
             timeout=10,
             check=False,
             # The help is parsed, and these CLIs colour and pad their output when
             # they think a terminal is attached.
             env={**os.environ, "NO_COLOR": "1", "TERM": "dumb"},
         )
-    except (OSError, subprocess.SubprocessError):
-        logger.debug("Could not probe %s for supported flags", exe)
-        return frozenset()
+    except Exception:  # noqa: BLE001 — TRUST BOUNDARY (invariant 14)
+        # NOT an enumerated family: this is another program's stdout on a
+        # foreign platform, and the module's own `registered_url` note explains
+        # why enumerating loses here — every family added is a family still
+        # missing. INDETERMINATE, which is not the same as "supports nothing".
+        logger.debug("Could not probe %s for supported flags", exe, exc_info=True)
+        return None
     return frozenset(_FLAG_LINE.findall(_ANSI.sub("", f"{completed.stdout}\n{completed.stderr}")))
 
 
@@ -1392,7 +1419,27 @@ def reset_cli_probe_cache() -> None:
 
 def _resolved_cli(exe: str, target: ClientTarget) -> bool:
     """Whether this CLI is new enough for the target's modern argv."""
-    return cli_missing_capability(exe, target) is None
+    return cli_capability_state(exe, target) == "supported"
+
+
+def cli_capability_state(exe: str, target: ClientTarget) -> Literal["supported", "unsupported", "unknown"]:
+    """``"supported"`` / ``"unsupported"`` / ``"unknown"`` for this binary.
+
+    Tri-state on purpose. Only a DEFINITIVE absence of a required flag selects
+    ``legacy_cli_argv``; an unreadable or unprobeable binary is ``"unknown"`` and
+    must not. The two are not interchangeable, because the two argvs fail
+    differently: the modern one is rejected loudly (the CLI prints its help),
+    while the legacy one applied to a modern CLI writes a *project* config into
+    the user's working directory and reports success.
+    """
+    if not target.cli_required_flags:
+        return "supported"
+    supported = cli_supported_flags(exe, target.cli_probe_argv)
+    if supported is None:
+        return "unknown"
+    if all(f in supported for f in target.cli_required_flags):
+        return "supported"
+    return "unsupported"
 
 
 def _container_key_for(exe: str | None, target: ClientTarget) -> str:
@@ -1405,7 +1452,7 @@ def _container_key_for(exe: str | None, target: ClientTarget) -> str:
     if (
         exe is not None
         and target.legacy_container_key is not None
-        and not _resolved_cli(exe, target)
+        and cli_capability_state(exe, target) == "unsupported"
     ):
         return target.legacy_container_key
     return target.container_key
@@ -1429,13 +1476,26 @@ def cli_missing_capability(exe: str, target: ClientTarget) -> str | None:
 
     The returned string is the whole user-facing explanation, so it names the
     missing flag, says why OGP needs it, and says what to do instead.
+
+    An INDETERMINATE probe gets its own message, and must not be worded as
+    "too old": telling a user their OpenCode is out of date when the truth is
+    that OGP could not read its help sends them off to upgrade something that
+    was already current.
     """
     if not target.cli_required_flags:
         return None
-    supported = cli_supported_flags(exe, target.cli_probe_argv)
-    missing = [f"--{f}" for f in target.cli_required_flags if f not in supported]
-    if not missing:
+    state = cli_capability_state(exe, target)
+    if state == "supported":
         return None
+    if state == "unknown":
+        return (
+            f"OGP could not read the help of the {target.cli_name} on PATH "
+            f"({exe}), so it cannot tell which options it accepts — and it will "
+            f"not guess, because the wrong one writes to the wrong file. Use the "
+            f"manual snippet below, or update {target.cli_name}."
+        )
+    supported = cli_supported_flags(exe, target.cli_probe_argv) or frozenset()
+    missing = [f"--{f}" for f in target.cli_required_flags if f not in supported]
     why = {
         "global": (
             "without it OpenCode writes a PROJECT config into your current "
@@ -1590,12 +1650,19 @@ def install_to_client(
         # client can coexist and `which` picks the first, and a CLI too old for
         # our argv does not fail cleanly — it prints its whole help and exits
         # non-zero, which is what the owner's manual test caught. Where the
-        # record carries a measured legacy argv, use it and keep one-click
-        # working; otherwise refuse here, before the subprocess, with a message
-        # that can be acted on.
-        too_old = cli_missing_capability(exe, target)
-        if too_old is not None and target.legacy_cli_argv is None:
-            return InstallResult(client_id=client_id, success=False, detail=too_old)
+        # record carries a measured legacy argv AND the probe definitively says
+        # the flag is absent, use it and keep one-click working; otherwise refuse
+        # here, before the subprocess, with a message that can be acted on.
+        #
+        # Refusing on `"unknown"` too is the point: an unreadable probe must not
+        # fall through to the legacy argv, because on a modern CLI that writes a
+        # PROJECT config into the working directory and calls it success.
+        state = cli_capability_state(exe, target)
+        unusable = cli_missing_capability(exe, target)
+        if unusable is not None and not (
+            state == "unsupported" and target.legacy_cli_argv is not None
+        ):
+            return InstallResult(client_id=client_id, success=False, detail=unusable)
     if exe is None and not target.merge_supported and target.cli_name:
         # Neither route available: no CLI on PATH, and the merge would
         # re-serialise a file we do not own. Say which one is missing, and do
@@ -1663,11 +1730,16 @@ def install_to_client(
         # degraded one.
         return _merge()
 
-    # The argv follows the INSTALLED CLI, not the documented one. A record with
-    # no legacy alternative was already refused above, so reaching here with a
-    # too-old CLI means `legacy_cli_argv` exists and its behaviour was measured.
+    # The argv follows the INSTALLED CLI, not the documented one — but ONLY on a
+    # definitive answer. An indeterminate probe was already refused above, so
+    # reaching here means the CLI either supports the modern flags or genuinely
+    # lacks them and this record has a measured legacy argv. The modern argv's
+    # failure is a loud help dump; the legacy one applied to a modern CLI is a
+    # silent project-config write, so the dangerous direction must never be the
+    # default. (This was a P0: an unreadable probe used to land here.)
+    state = cli_capability_state(exe, target)
     argv_for = target.cli_argv
-    if not _resolved_cli(exe, target) and target.legacy_cli_argv is not None:
+    if state == "unsupported" and target.legacy_cli_argv is not None:
         logger.info(
             "%s lacks %s; using the legacy argv measured to be equivalent",
             target.cli_name,

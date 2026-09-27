@@ -106,9 +106,9 @@ class ConnectAiAssistantDialog(QDialog):
             # won't work, use something else" — advice about a tool the user did
             # not ask about, in a list whose whole job is "pick your client".
             # The record stays in the registry (it is real, detected data, and
-            # `detect_clients` is not this dialog's opinion of it); only the
-            # rendering is skipped. The vendor-agnostic group below still
-            # covers such a user.
+            # `detect_clients` is not this dialog's opinion of it); the whole
+            # row is skipped. The vendor-agnostic group below still covers such
+            # a user.
             if not client.supports_local_http:
                 continue
             clients_layout.addWidget(self._build_client_row(client))
@@ -214,10 +214,10 @@ class ConnectAiAssistantDialog(QDialog):
         v.addWidget(state_label)
 
         if not client.supports_local_http:
-            # Detection-only AND unreachable: this client can't connect to a
-            # localhost server at all. Show the honest redirect note only — no
-            # add button, and no snippet (there is no config the user could
-            # paste that would make it work). See issue #253 / ADR-035.
+            # Unreachable at the moment: `_setup_ui` skips these clients, so this
+            # is a guard for a row that is never built, not a rendered branch.
+            # Kept because `_build_client_row` is a public-ish seam and a client
+            # could be rendered directly; the note is the honest answer if so.
             note_label = QLabel(self._manual_note_for(client.client_id))
             note_label.setWordWrap(True)
             v.addWidget(note_label)
