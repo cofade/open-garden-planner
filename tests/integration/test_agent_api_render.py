@@ -71,6 +71,10 @@ def _providers(scene: Any) -> AgentProviders:
         save_plan=lambda file_path: bridge.run_on_main(
             lambda: save_plan_file(scene, project_manager, soil_service, file_path)
         ),
+        # issue #365: document lifecycle needs a full app window, which this
+        # scene-only harness has no seam for. Registered but never invoked.
+        new_plan=lambda *_a: {},
+        open_plan=lambda *_a: {},
         export_pdf=lambda file_path, paper_size, orientation: bridge.run_on_main(
             lambda: export_pdf_file(
                 scene, project_manager, file_path, paper_size, orientation

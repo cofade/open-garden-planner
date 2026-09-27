@@ -9,6 +9,8 @@ holds (they fail loudly if the autouse guard regresses).
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -2361,15 +2363,15 @@ def test_set_layer_property_opacity_validates_and_round_trips(
         win._stop_agent_api()
 
 
-def test_set_layer_property_refuses_locked_in_both_directions(
-    qtbot: Any, monkeypatch: Any
-) -> None:
-    """THE decision issue #328 exists to make, pinned: an agent that could call
-    set_layer_property(locked=False) could unlock-then-edit, reducing every
-    locked-layer refusal from a protection to a speed bump. 'locked' is
-    read-only to the agent in BOTH directions — and the refusal fires before
-    anything else in the call can half-apply. Display properties of a locked
-    layer stay changeable (the lock protects its OBJECTS, as in the panel)."""
+def test_set_layer_property_locks_and_unlocks(qtbot: Any, monkeypatch: Any) -> None:
+    """Issue #365 INVERTS the decision #328 made: 'locked' is now agent-writable
+    in BOTH directions. The project owner decided agents may lock and unlock
+    layers, so this test pins the NEW policy rather than deleting the old one.
+
+    What is deliberately NOT inverted: a locked layer's OBJECTS stay protected.
+    The point of this test is that the lock is one ordinary undoable property
+    change on the same command the Layers panel uses — not a new write path.
+    """
     _discard_on_close(monkeypatch)
     win = GardenPlannerApp()
     qtbot.addWidget(win)
@@ -2378,25 +2380,87 @@ def test_set_layer_property_refuses_locked_in_both_directions(
         open_layer = scene.layers[0]
         locked = _add_named_layer(win, "Locked", locked=True)
 
-        with pytest.raises(ValueError, match="user-owned protection"):
-            win._do_agent_set_layer_property(str(open_layer.id), locked=True)
-        with pytest.raises(ValueError, match="user-owned protection"):
-            win._do_agent_set_layer_property(str(locked.id), locked=False)
-        # A locked change mixed with a legal one refuses WITHOUT applying the
-        # legal one (checked before anything else — no half-apply).
-        with pytest.raises(ValueError, match="user-owned protection"):
-            win._do_agent_set_layer_property(
-                str(open_layer.id), visible=False, locked=False
-            )
-        assert open_layer.visible is True
-        assert locked.locked is True
+        # Lock an open layer: one call, one undo step.
+        result = win._do_agent_set_layer_property(str(open_layer.id), locked=True)
+        assert result["action"] == "set_layer_property"
+        assert open_layer.locked is True
+        cm = win.canvas_view.command_manager
+        assert cm.can_undo is True
+        cm.undo()
         assert open_layer.locked is False
+
+        # Unlock it again the same way.
+        win._do_agent_set_layer_property(str(open_layer.id), locked=True)
+        win._do_agent_set_layer_property(str(open_layer.id), locked=False)
+        assert open_layer.locked is False
+        # The lock is a real undo step in both directions, not a bare write.
+        assert cm.can_undo is True
+        cm.undo()
+        assert open_layer.locked is True
+
+        # Redundant requests are loud no-ops (one property == one command, and
+        # a no-op must not pollute the stack).
+        with pytest.raises(ValueError, match="already locked"):
+            win._do_agent_set_layer_property(str(open_layer.id), locked=True)
+        with pytest.raises(ValueError, match="already locked"):
+            win._do_agent_set_layer_property(str(locked.id), locked=True)
+        win._do_agent_set_layer_property(str(locked.id), locked=False)
+        with pytest.raises(ValueError, match="already unlocked"):
+            win._do_agent_set_layer_property(str(locked.id), locked=False)
+        # Re-lock it: the mixed-property refusal below needs a locked layer.
+        win._do_agent_set_layer_property(str(locked.id), locked=True)
+
+        # Two properties in one call refuse WITHOUT half-applying either —
+        # checked before any command is built.
+        with pytest.raises(ValueError, match="exactly ONE"):
+            win._do_agent_set_layer_property(
+                str(locked.id), visible=False, locked=False
+            )
+        assert locked.visible is True
+        assert locked.locked is True
+
+        # Display properties of a LOCKED layer stay changeable (the lock
+        # protects its objects, not its own display properties — as in the
+        # Layers panel, which keeps both controls live on a locked layer).
+        shown = win._do_agent_set_layer_property(str(locked.id), visible=False)
+        assert shown["action"] == "set_layer_property"
+        assert locked.visible is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_unlock_then_edit_is_a_legitimate_two_call_sequence(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The headline consequence of #365, and the reason the OBJECT-level
+    guards were left alone: they test the layer's *current* lock state, so
+    "locked" is a real obstacle while the layer is locked, and unlocking is
+    what removes it. Two calls, two undo steps, both visible to the user."""
+    from open_garden_planner.models.layer import Layer
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        scene = win.canvas_scene
+        locked = Layer(name="Locked", locked=True)
+        scene.add_layer(locked)
+        item = _add_tree(win)
+        item.layer_id = locked.id
+        item_id = str(item.item_id)
+        start = item.pos()
+
+        # Locked: the move is refused and nothing is undoable.
+        with pytest.raises(ValueError, match="locked layer"):
+            win._do_agent_move_object(item_id, 40.0, 10.0)
+        assert item.pos() == start
         assert win.canvas_view.command_manager.can_undo is False
 
-        # Display properties of a LOCKED layer are still changeable.
-        result = win._do_agent_set_layer_property(str(locked.id), visible=False)
-        assert result["action"] == "set_layer_property"
-        assert locked.visible is False
+        # Unlock through the agent, then the very same move succeeds.
+        win._do_agent_set_layer_property(str(locked.id), locked=False)
+        result = win._do_agent_move_object(item_id, 40.0, 10.0)
+        assert result["action"] == "move"
+        assert item.pos() == start + QPointF(40.0, 10.0)
     finally:
         win._stop_agent_api()
 
@@ -2416,6 +2480,8 @@ def test_set_layer_property_requires_exactly_one_property(
             win._do_agent_set_layer_property(layer_id)
         with pytest.raises(ValueError, match="exactly ONE"):
             win._do_agent_set_layer_property(layer_id, visible=False, opacity=0.5)
+        with pytest.raises(ValueError, match="exactly ONE"):
+            win._do_agent_set_layer_property(layer_id, visible=False, locked=False)
         assert win.canvas_view.command_manager.can_undo is False
     finally:
         win._stop_agent_api()
@@ -2769,5 +2835,175 @@ def test_get_geometry_refuses_duplicate_live_ids_without_dirtying(
             win._do_agent_get_geometry(str(first.item_id))
         assert win.canvas_view.command_manager.can_undo is False
         assert win._project_manager.is_dirty is False
+    finally:
+        win._stop_agent_api()
+
+
+# ---------------------------------------------------------------------------
+# Issue #365: document lifecycle - new_plan / open_plan
+#
+# Both REPLACE the open document, so both are token-gated (asserted by the
+# WRITE_TOOL_NAMES drift guard in tests/unit/test_agent_api_auth.py) and both
+# carry the unsaved-changes guard. Neither is an undo step: a new/loaded
+# document resets the stack, so there is nothing to Ctrl+Z back to.
+# ---------------------------------------------------------------------------
+
+
+def test_new_plan_refuses_a_dirty_plan_and_force_replaces_it(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The unsaved-changes guard. The GUI asks the user at this point; an
+    agent cannot raise a prompt, so the choice is binary -- refuse, or proceed
+    when the caller says force=true. Refusing must leave the plan untouched."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        # An agent write, not a raw scene add: only a command emits
+        # stack_changed -> mark_dirty, which is what is_dirty reflects.
+        win._do_agent_create_object("TREE", 10.0, 10.0, None, None, None, None, None)
+        assert win._project_manager.is_dirty is True
+        before = len(win.canvas_scene.items())
+
+        with pytest.raises(ValueError, match="unsaved changes"):
+            win._do_agent_new_plan(None, None, False)
+        # Refused means the document is still there, not half-cleared.
+        assert len(win.canvas_scene.items()) == before
+
+        result = win._do_agent_new_plan(None, None, True)
+        assert result["width_cm"] == pytest.approx(win.canvas_scene.width_cm)
+        assert len(win.canvas_scene.items()) == 0
+        # A fresh document is clean and has no undo history.
+        assert win._project_manager.is_dirty is False
+        assert win.canvas_view.command_manager.can_undo is False
+    finally:
+        win._stop_agent_api()
+
+
+def test_new_plan_uses_given_dimensions_and_defaults_to_current(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """Omitting a dimension keeps the current canvas, so a clean slate is the
+    size the user was already working at (the GUI dialog's pre-filled value)."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        win._do_agent_new_plan(1000.0, 700.0, True)
+        assert win.canvas_scene.width_cm == pytest.approx(1000.0)
+        assert win.canvas_scene.height_cm == pytest.approx(700.0)
+
+        # Omitting both now keeps 1000x700, NOT some other default.
+        win._do_agent_new_plan(None, None, True)
+        assert win.canvas_scene.width_cm == pytest.approx(1000.0)
+        assert win.canvas_scene.height_cm == pytest.approx(700.0)
+    finally:
+        win._stop_agent_api()
+
+
+def test_new_plan_refuses_an_absurd_canvas(qtbot: Any, monkeypatch: Any) -> None:
+    """Refused rather than clamped -- a clamped canvas is a silently
+    different plan than the agent asked for."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        before_w = win.canvas_scene.width_cm
+        before_h = win.canvas_scene.height_cm
+        with pytest.raises(ValueError, match="width_cm"):
+            win._do_agent_new_plan(1e9, None, True)
+        assert win.canvas_scene.width_cm == pytest.approx(before_w)
+        assert win.canvas_scene.height_cm == pytest.approx(before_h)
+    finally:
+        win._stop_agent_api()
+
+
+def test_open_plan_round_trips_through_save(
+    qtbot: Any, monkeypatch: Any, tmp_path: Path
+) -> None:
+    """The round trip #365 exists for: create -> save -> new_plan -> open_plan
+    restores the objects. Before this, the only way to verify an agent's own
+    work was to fall back on the GUI."""
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        win._do_agent_new_plan(900.0, 700.0, True)
+        _add_tree(win)
+        assert len(win.canvas_scene.items()) == 1
+
+        target = tmp_path / "round-trip.ogp"
+        from open_garden_planner.agent_api.exports import save_plan_file
+
+        save_plan_file(
+            win.canvas_scene, win._project_manager, win._soil_service, str(target)
+        )
+        assert target.exists()
+
+        # Wipe it, then load it back through the agent's own tool.
+        win._do_agent_new_plan(900.0, 700.0, True)
+        assert len(win.canvas_scene.items()) == 0
+
+        result = win._do_agent_open_plan(str(target), True)
+        assert result["file_path"] == str(target)
+        assert len(win.canvas_scene.items()) == 1
+        assert win.canvas_scene.width_cm == pytest.approx(900.0)
+    finally:
+        win._stop_agent_api()
+
+
+def test_open_plan_refuses_a_dirty_plan(
+    qtbot: Any, monkeypatch: Any, tmp_path: Path
+) -> None:
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        win._do_agent_new_plan(900.0, 700.0, True)
+        win._do_agent_create_object("TREE", 10.0, 10.0, None, None, None, None, None)
+        assert win._project_manager.is_dirty is True
+        before = len(win.canvas_scene.items())
+
+        with pytest.raises(ValueError, match="unsaved changes"):
+            win._do_agent_open_plan(str(tmp_path / "other.ogp"), False)
+        assert len(win.canvas_scene.items()) == before
+    finally:
+        win._stop_agent_api()
+
+
+def test_open_plan_refusals_leave_the_document_intact(
+    qtbot: Any, monkeypatch: Any, tmp_path: Path
+) -> None:
+    """Every refusal path: a missing file, a non-.ogp file, and a corrupt one.
+
+    The corrupt case is the interesting one: the GUI's own open path reports a
+    parse failure in a MODAL QMessageBox, which an agent must never raise on
+    its behalf -- so the agent's path must surface an exception instead.
+    """
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        win._do_agent_new_plan(900.0, 700.0, True)
+        _add_tree(win)
+        before = len(win.canvas_scene.items())
+
+        with pytest.raises(ValueError, match="No such plan file"):
+            win._do_agent_open_plan(str(tmp_path / "missing.ogp"), True)
+        assert len(win.canvas_scene.items()) == before
+
+        wrong_suffix = tmp_path / "plan.txt"
+        wrong_suffix.write_text("{}", encoding="utf-8")
+        with pytest.raises(ValueError, match=r"\.ogp"):
+            win._do_agent_open_plan(str(wrong_suffix), True)
+        assert len(win.canvas_scene.items()) == before
+
+        corrupt = tmp_path / "corrupt.ogp"
+        corrupt.write_text("{not json at all", encoding="utf-8")
+        # Narrow, not `Exception`: a broad catch also passes on an unrelated
+        # AttributeError, which is how a "the refusal works" test can be green
+        # for the wrong reason.
+        with pytest.raises((json.JSONDecodeError, ValueError, KeyError, TypeError)):
+            win._do_agent_open_plan(str(corrupt), True)
     finally:
         win._stop_agent_api()

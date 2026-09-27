@@ -10,14 +10,85 @@ Coordinate note (see arc42 section 8.10):
   - Disable snapping to get predictable test results.
 """
 
+import contextlib
+import threading
+import warnings
 from unittest.mock import MagicMock
 
 import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtWidgets import QApplication
 
+from open_garden_planner.agent_api.server import SERVER_THREAD_NAME
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
+
+
+@pytest.fixture(autouse=True)
+def _no_leaked_agent_api_thread(qtbot: object):
+    """Stop any Agent API server still attached to a live app, and SAY SO if one survives.
+
+    **A safety net, not a fix.** An unresolved CI segfault (exit 139) has a stack
+    naming ``agent_api/server.py`` ``_run`` — a live uvicorn event loop — so a
+    leaked server thread is the standing suspect. This fixture stops any server a
+    top-level app still owns and reports one that outlives the test.
+
+    Two corrections to an earlier version of this docstring, both found by the
+    final pre-merge review, and both the kind of thing that sends the next
+    person down a dead end:
+
+    * It claimed the ``QTimer.singleShot(1500, _maybe_start_agent_api)`` in
+      ``GardenPlannerApp.__init__`` lets an app auto-start a server during tests.
+      **It cannot.** ``tests/conftest.py``'s autouse
+      ``_disable_agent_api_server`` sets ``KEY_AGENT_API_ENABLED = False`` for
+      every test, so ``_maybe_start_agent_api`` returns immediately. That claim
+      was never verified and is falsified by the suite's own fixture.
+    * It reached the app via ``_stop_agent_api()``, which reaches only the app's
+      OWN server. The tests that construct ``AgentApiServer(...)`` directly
+      (``test_agent_api_exports.py``, ``test_agent_api_frozen_exe.py``) are
+      outside its reach — though all of those do call ``stop()`` themselves.
+
+    So this catches a leak through the *app*, and the true source of the
+    remaining crash is **not established**. It is kept because a leak warning
+    that survives to the pytest summary is worth having; it is not evidence that
+    the crash is understood.
+
+    **Requesting ``qtbot`` is load-bearing**: pytest finalises fixtures in
+    REVERSE setup order, so depending on ``qtbot`` makes this tear down LAST,
+    while the app still exists. Without it this could run after the window is
+    destroyed — stopping a server whose providers already point at a dead
+    QObject.
+    """
+    yield
+
+    app = QApplication.instance()
+    if app is None:
+        return
+    for widget in app.topLevelWidgets():
+        stop = getattr(widget, "_stop_agent_api", None)
+        if callable(stop):
+            # Teardown must never mask the test that just failed.
+            with contextlib.suppress(Exception):
+                stop()
+    leaked = [
+        t
+        for t in threading.enumerate()
+        if t.name == SERVER_THREAD_NAME and t.is_alive()
+    ]
+    if leaked:
+        # `warnings.warn`, not `print`: pytest captures stdout by default (the
+        # suite runs without `-s`), so a printed warning is discarded — and in a
+        # segfault the process is already dead. A warning reaches the summary.
+        warnings.warn(
+            f"{len(leaked)} live {SERVER_THREAD_NAME} thread(s) outlived a test. "
+            "A leaked uvicorn loop keeps its sockets and its MainThreadBridge "
+            "alive, which is the standing suspect for the unresolved exit-139 "
+            "segfault (see docs §11.4). Note that a test constructing "
+            "AgentApiServer(...) directly is NOT covered by this fixture.",
+            ResourceWarning,
+            stacklevel=1,
+        )
 
 
 @pytest.fixture()

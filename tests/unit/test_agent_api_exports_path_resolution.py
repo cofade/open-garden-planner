@@ -13,7 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from open_garden_planner.agent_api.exports import resolve_export_path
+from open_garden_planner.agent_api.exports import (
+    resolve_export_path,
+    validate_new_plan,
+    validate_open_plan,
+)
 from open_garden_planner.app import paths as paths_module
 from open_garden_planner.core.project import ProjectManager
 
@@ -150,6 +154,77 @@ class TestResolveExportPathExplicit:
     ) -> None:
         with pytest.raises(ValueError, match="default_filename is required"):
             resolve_export_path(None, suffix=".pdf", project_manager=project_manager)
+
+
+class TestValidateNewPlan:
+    """``new_plan``'s canvas resolution (issue #365). The new-document work
+    itself is the GUI's own path — only the argument checking is here."""
+
+    def test_omitting_both_keeps_the_current_canvas(self) -> None:
+        assert validate_new_plan(None, None, 800.0, 600.0) == (800.0, 600.0)
+
+    def test_omitting_one_keeps_that_dimension(self) -> None:
+        assert validate_new_plan(1200.0, None, 800.0, 600.0) == (1200.0, 600.0)
+        assert validate_new_plan(None, 900.0, 800.0, 600.0) == (800.0, 900.0)
+
+    def test_explicit_values_win(self) -> None:
+        assert validate_new_plan(1000.0, 500.0, 800.0, 600.0) == (1000.0, 500.0)
+
+    @pytest.mark.parametrize(
+        ("width", "height"),
+        [
+            (0.0, 500.0),
+            (-100.0, 500.0),
+            (49.0, 500.0),
+            (500.0, 0.0),
+            (500.0, 1e9),
+            (float("nan"), 500.0),
+            (500.0, float("inf")),
+        ],
+    )
+    def test_out_of_range_or_non_finite_refuses(self, width: float, height: float) -> None:
+        """Refused, never clamped: a clamped canvas is a silently different
+        plan than the agent asked for."""
+        with pytest.raises(ValueError):
+            validate_new_plan(width, height, 800.0, 600.0)
+
+    def test_the_error_names_the_offending_dimension(self) -> None:
+        with pytest.raises(ValueError, match="height_cm"):
+            validate_new_plan(800.0, 0.0, 800.0, 600.0)
+
+
+class TestValidateOpenPlan:
+    def test_accepts_an_existing_ogp(self, tmp_path: Path) -> None:
+        plan = tmp_path / "my-garden.ogp"
+        plan.write_text("{}", encoding="utf-8")
+        assert validate_open_plan(str(plan)) == plan
+
+    def test_relative_path_is_expanded(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        plan = tmp_path / "x.ogp"
+        plan.write_text("{}", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        assert validate_open_plan("x.ogp") == plan
+
+    def test_empty_path_refuses(self) -> None:
+        with pytest.raises(ValueError, match="required"):
+            validate_open_plan("   ")
+
+    def test_non_ogp_suffix_refuses(self, tmp_path: Path) -> None:
+        other = tmp_path / "plan.txt"
+        other.write_text("{}", encoding="utf-8")
+        with pytest.raises(ValueError, match=r"\.ogp"):
+            validate_open_plan(str(other))
+
+    def test_missing_file_refuses(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="No such plan file"):
+            validate_open_plan(str(tmp_path / "nope.ogp"))
+
+    def test_a_directory_refuses(self, tmp_path: Path) -> None:
+        # A directory named `x.ogp` passes exists() and is_file() is the
+        # only thing that catches it.
+        (tmp_path / "weird.ogp").mkdir()
+        with pytest.raises(ValueError, match="Not a file"):
+            validate_open_plan(str(tmp_path / "weird.ogp"))
 
 
 if __name__ == "__main__":

@@ -68,6 +68,13 @@ def _providers(
         save_plan=lambda file_path: bridge.run_on_main(
             lambda: save_plan_file(scene, project_manager, soil_service, file_path)
         ),
+        # issue #365: document lifecycle replaces the open document, which
+        # needs a full app window this scene-only harness has no seam for.
+        # These tests cover the export tools, so the providers are registered
+        # but never invoked; they get their own coverage in
+        # test_agent_api_default_on.py.
+        new_plan=lambda *_a: {},
+        open_plan=lambda *_a: {},
         export_pdf=lambda file_path, paper_size, orientation: bridge.run_on_main(
             lambda: export_pdf_file(
                 scene, project_manager, file_path, paper_size, orientation

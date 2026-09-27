@@ -21,6 +21,7 @@ a surprise directory tree.
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -70,6 +71,83 @@ def resolve_export_path(
     path = path.with_suffix(suffix)
     if not path.parent.is_dir():
         raise ValueError(f"Parent directory does not exist: {path.parent}")
+    return path
+
+
+# ---------------------------------------------------------------------------
+# Document lifecycle (issue #365): new_plan / open_plan
+#
+# Qt-free validation only. The actual new/open work is deliberately NOT here —
+# it reuses the GUI's own ``_new_project_document`` / ``_load_project_file``,
+# because a second implementation of "replace the open document" is exactly
+# the drift the codebase's one-seam discipline exists to prevent.
+# ---------------------------------------------------------------------------
+
+#: Canvas bounds accepted by ``new_plan``. A floor keeps a plan large enough
+#: to be usable; a ceiling keeps a typo'd 1e9 from asking the view to lay out
+#: an absurd scene. The GUI's New Project dialog is the reference for the
+#: ordinary range; this only has to stop the absurd.
+MIN_CANVAS_CM = 50.0
+MAX_CANVAS_CM = 100_000.0
+
+
+def validate_new_plan(
+    width_cm: float | None,
+    height_cm: float | None,
+    current_width_cm: float,
+    current_height_cm: float,
+) -> tuple[float, float]:
+    """Resolve and check ``new_plan``'s canvas size.
+
+    Omitting a dimension reuses the CURRENT canvas's, so ``new_plan()`` is a
+    clean slate at the size the user was already working at — the agent-
+    equivalent of accepting the GUI dialog's pre-filled values. Supplying only
+    one dimension is allowed and keeps the other.
+
+    Refuses non-finite and out-of-range values rather than clamping: a clamped
+    canvas is a silently different plan than the agent asked for.
+    """
+    resolved_width = current_width_cm if width_cm is None else float(width_cm)
+    resolved_height = current_height_cm if height_cm is None else float(height_cm)
+    for name, value in (
+        ("width_cm", resolved_width),
+        ("height_cm", resolved_height),
+    ):
+        if not math.isfinite(value):
+            raise ValueError(f"{name} must be a finite number, got {value!r}")
+        if not (MIN_CANVAS_CM <= value <= MAX_CANVAS_CM):
+            raise ValueError(
+                f"{name} must be between {MIN_CANVAS_CM:g} and {MAX_CANVAS_CM:g} cm, "
+                f"got {value:g}"
+            )
+    return resolved_width, resolved_height
+
+
+def validate_open_plan(file_path: str) -> Path:
+    """Resolve and check ``open_plan``'s target file.
+
+    Mirrors ``resolve_export_path``'s position rather than inventing a stricter
+    one: this server is loopback-only (ADR-033), so a local MCP client already
+    has the same filesystem access as the OS user account, and a sandbox would
+    add no real protection. What IS enforced is what prevents a silent
+    surprise — the file must exist, be a file, and carry the ``.ogp`` suffix.
+    """
+    raw = (file_path or "").strip()
+    if not raw:
+        raise ValueError("A plan file path is required.")
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        # Resolve against the process cwd so what we hand back — and what the
+        # status bar reports — is unambiguous. An agent has no way to know
+        # which directory the GUI happens to have been launched in, so
+        # returning a bare relative path would be a silent surprise.
+        path = path.resolve()
+    if path.suffix.lower() != ".ogp":
+        raise ValueError(f"A garden plan must be a .ogp file, got {path.name!r}.")
+    if not path.exists():
+        raise ValueError(f"No such plan file: {path}")
+    if not path.is_file():
+        raise ValueError(f"Not a file: {path}")
     return path
 
 

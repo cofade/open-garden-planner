@@ -73,6 +73,12 @@ def _fetch(numbers: list[int]) -> dict[str, dict]:
             [GH_EXE, "api", "graphql", "-f", f"query={query}"],
             capture_output=True,
             text=True,
+            # `gh` emits UTF-8; without this, Windows decodes with the console
+            # code page and every em-dash in an issue title becomes mojibake in
+            # the registry this writes. That is exactly the corruption a
+            # previous run left in tests/data/issue_registry.json.
+            encoding="utf-8",
+            errors="replace",
             check=False,
         )
         # gh exits 1 the moment ANY aliased field in the batch is a GraphQL

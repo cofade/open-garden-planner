@@ -13,6 +13,15 @@ thread while the main thread pumps the Qt event loop. This pins the D2 contract:
     and marks the document dirty (invariants #3/#4/#13);
   * same-scene load cleanup, concurrent deletes, and bounded callout offsets
     leave the scene/history in a truthful state.
+
+It also carries a TOOL-LEVEL contract test for issue #365's ``new_plan`` /
+``open_plan``, which exists because of a real bug: both returned
+``ExportResult(**result)`` while their providers returned a dict with no
+``format`` (and a ``None`` ``file_path`` against a ``str`` field), so BOTH
+raised a pydantic ``ValidationError`` on every *successful* call over the wire
+while every test that called the main-thread body directly stayed green. The
+gap was the two lines between the provider and the tool. A tool whose result
+crosses a BaseModel is a contract, and only the transport exercises it.
 """
 
 from __future__ import annotations

@@ -53,6 +53,8 @@ def _providers() -> AgentProviders:
         diagnostics=lambda: [],
         render=_unused,
         save_plan=_unused,
+        new_plan=_unused,
+        open_plan=_unused,
         export_pdf=_unused,
         export_dxf=_unused,
         export_csv=_unused,
